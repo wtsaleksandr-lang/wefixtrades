@@ -7,6 +7,9 @@ import { autoApproveDraft } from "../contentflow/approvalService";
 import { enqueueSocialSyncDraft } from "../contentflow/wordpressQueue";
 import { generateForDraft as generateImageForDraft } from "../contentflow/imageGenerationService";
 import type { SocialSyncProfile, SocialSyncTopic } from "@shared/schema";
+import { createLogger } from "../../lib/logger";
+
+const log = createLogger("SocialSyncOrch");
 
 /* ─── Frequency mapping ─── */
 
@@ -280,7 +283,7 @@ export async function generateWeekForClient(
       if (platformsWithImage.has(genResult.post.platform)) {
         const imageRes = await generateImageForDraft(draft.id);
         if (!imageRes.ok && imageRes.reason !== "skipped_already_has_image") {
-          console.warn(`[contentflow][image-gen] draft=${draft.id} platform=${genResult.post.platform} reason=${imageRes.reason} msg=${imageRes.message}`);
+          log.warn(`[contentflow][image-gen] draft=${draft.id} platform=${genResult.post.platform} reason=${imageRes.reason} msg=${imageRes.message}`);
         }
       }
 

@@ -26,6 +26,9 @@ import crypto from "crypto";
 import { storage } from "../../storage";
 import type { ContentDraft } from "@shared/schema";
 import { readBrandProfile } from "./brandProfile";
+import { createLogger } from "../../lib/logger";
+
+const logger = createLogger("ImageGen");
 
 /* ─── Config ───────────────────────────────────────────────────────── */
 
@@ -288,7 +291,7 @@ async function uploadToR2(args: { key: string; sourceUrl: string; contentType: s
  */
 export async function generateForDraft(draftId: number): Promise<GenerateForDraftResult> {
   const t0 = Date.now();
-  const log = (msg: string) => console.log(`[contentflow][image-gen] draft=${draftId} ${msg} duration_ms=${Date.now() - t0}`);
+  const log = (msg: string) => logger.info(`[contentflow][image-gen] draft=${draftId} ${msg} duration_ms=${Date.now() - t0}`);
 
   try {
     const draft = await storage.getContentDraftById(draftId);
@@ -353,7 +356,7 @@ export async function generateForDraft(draftId: number): Promise<GenerateForDraf
         finalUrl = upload.url;
         provider = "openai+r2";
       } else {
-        console.warn(`[contentflow][image-gen] draft=${draftId} R2 upload failed (${upload.error}) — falling back to provider URL`);
+        logger.warn(`[contentflow][image-gen] draft=${draftId} R2 upload failed (${upload.error}) — falling back to provider URL`);
       }
     }
 
@@ -376,7 +379,7 @@ export async function generateForDraft(draftId: number): Promise<GenerateForDraf
   } catch (err: any) {
     /* Defence-in-depth: NEVER let an unexpected throw bubble up to
      * the orchestrator. The publish pipeline must continue. */
-    console.error(`[contentflow][image-gen] draft=${draftId} unhandled:`, err?.message || err);
+    logger.error(`[contentflow][image-gen] draft=${draftId} unhandled:`, err?.message || err);
     return { ok: false, reason: "api_failed", message: err?.message || String(err) };
   }
 }

@@ -11,6 +11,9 @@
 
 import { runAllDetectors } from "../services/opsDetectors";
 import { generateDailyOpsSummary } from "../services/opsEngine";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("OpsJob");
 
 export interface OpsIntelligenceResult {
   signalCount: number;
@@ -19,17 +22,17 @@ export interface OpsIntelligenceResult {
 }
 
 export async function runDailyOpsIntelligence(): Promise<OpsIntelligenceResult> {
-  console.log("[opsJob] Starting daily ops intelligence run...");
+  log.info("[opsJob] Starting daily ops intelligence run...");
 
   // Step 1: Run all detectors — pure SQL, no AI
   const signals = await runAllDetectors();
-  console.log(`[opsJob] Detectors complete — ${signals.length} signals detected`);
+  log.info(`[opsJob] Detectors complete — ${signals.length} signals detected`);
 
   // Step 2: AI summarization — engine consumes signals only, no DB access
   const { snapshot, error } = await generateDailyOpsSummary(signals);
 
   if (error) {
-    console.warn(`[opsJob] AI summarization failed: ${error}`);
+    log.warn(`[opsJob] AI summarization failed: ${error}`);
   }
 
   const result: OpsIntelligenceResult = {
@@ -38,6 +41,6 @@ export async function runDailyOpsIntelligence(): Promise<OpsIntelligenceResult> 
     ...(error ? { aiError: error } : {}),
   };
 
-  console.log(`[opsJob] Daily ops run complete:`, result);
+  log.info(`[opsJob] Daily ops run complete:`, { detail: result });
   return result;
 }

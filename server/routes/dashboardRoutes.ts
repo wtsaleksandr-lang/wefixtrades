@@ -2,6 +2,9 @@ import type { Express } from "express";
 import { z } from "zod";
 import { storage } from "../storage";
 import { buildSubdomain, HOSTING_DOMAIN } from "@shared/slugUtils";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("Dashboard");
 
 async function requireCalcByToken(token: string) {
   const calculator = await storage.getCalculatorByToken(token);
@@ -64,7 +67,7 @@ export function registerDashboardRoutes(app: Express): void {
         },
       });
     } catch (error: any) {
-      console.error("Dashboard overview error:", error);
+      log.error("Dashboard overview error:", error);
       res.status(500).json({ error: "Failed to load overview" });
     }
   });
@@ -83,7 +86,7 @@ export function registerDashboardRoutes(app: Express): void {
 
       res.json({ leads: leadsList });
     } catch (error: any) {
-      console.error("Dashboard leads error:", error);
+      log.error("Dashboard leads error:", error);
       res.status(500).json({ error: "Failed to load leads" });
     }
   });
@@ -98,7 +101,7 @@ export function registerDashboardRoutes(app: Express): void {
       await storage.deleteLead(parseInt(req.params.id), calculator.id);
       res.json({ success: true });
     } catch (error: any) {
-      console.error("Delete lead error:", error);
+      log.error("Delete lead error:", error);
       res.status(500).json({ error: "Failed to delete lead" });
     }
   });
@@ -126,7 +129,7 @@ export function registerDashboardRoutes(app: Express): void {
       res.setHeader('Content-Disposition', `attachment; filename="leads-${calculator.slug}.csv"`);
       res.send(header + rows);
     } catch (error: any) {
-      console.error("Export leads error:", error);
+      log.error("Export leads error:", error);
       res.status(500).json({ error: "Failed to export leads" });
     }
   });
@@ -174,7 +177,7 @@ export function registerDashboardRoutes(app: Express): void {
         booking_to_payment_pct: bookingToPaymentPct,
       });
     } catch (error: any) {
-      console.error("Dashboard analytics error:", error);
+      log.error("Dashboard analytics error:", error);
       res.status(500).json({ error: "Failed to load analytics" });
     }
   });
@@ -235,7 +238,7 @@ export function registerDashboardRoutes(app: Express): void {
 
       res.json({ success: true });
     } catch (error: any) {
-      console.error("Update settings error:", error);
+      log.error("Update settings error:", error);
       res.status(500).json({ error: "Failed to update settings" });
     }
   });
@@ -271,7 +274,7 @@ export function registerDashboardRoutes(app: Express): void {
 
       res.json({ success: true });
     } catch (error: any) {
-      console.error("Republish error:", error);
+      log.error("Republish error:", error);
       res.status(500).json({ error: "Failed to republish" });
     }
   });
@@ -305,7 +308,7 @@ export function registerDashboardRoutes(app: Express): void {
 
       res.json({ success: true });
     } catch (error: any) {
-      console.error("Unpublish error:", error);
+      log.error("Unpublish error:", error);
       res.status(500).json({ error: "Failed to unpublish" });
     }
   });
@@ -339,7 +342,7 @@ export function registerDashboardRoutes(app: Express): void {
 
       res.json({ success: true, lead: updated });
     } catch (error: any) {
-      console.error("Update lead status error:", error);
+      log.error("Update lead status error:", error);
       res.status(500).json({ error: "Failed to update lead status" });
     }
   });
@@ -358,7 +361,7 @@ export function registerDashboardRoutes(app: Express): void {
 
       res.json({ followup });
     } catch (error: any) {
-      console.error("Get followup settings error:", error);
+      log.error("Get followup settings error:", error);
       res.status(500).json({ error: "Failed to load follow-up settings" });
     }
   });
@@ -384,7 +387,7 @@ export function registerDashboardRoutes(app: Express): void {
 
       res.json({ success: true });
     } catch (error: any) {
-      console.error("Update followup settings error:", error);
+      log.error("Update followup settings error:", error);
       res.status(500).json({ error: "Failed to update follow-up settings" });
     }
   });
@@ -455,7 +458,7 @@ export function registerDashboardRoutes(app: Express): void {
 
       res.json({ success: true, message: "Test email queued for delivery" });
     } catch (error: any) {
-      console.error("Test followup error:", error);
+      log.error("Test followup error:", error);
       res.status(500).json({ error: "Failed to send test" });
     }
   });
@@ -474,7 +477,7 @@ export function registerDashboardRoutes(app: Express): void {
 
       res.json({ notifications, followups });
     } catch (error: any) {
-      console.error("Get logs error:", error);
+      log.error("Get logs error:", error);
       res.status(500).json({ error: "Failed to load logs" });
     }
   });
@@ -489,7 +492,7 @@ export function registerDashboardRoutes(app: Express): void {
       await storage.deleteCalculator(calculator.id);
       res.json({ success: true });
     } catch (error: any) {
-      console.error("Delete calculator error:", error);
+      log.error("Delete calculator error:", error);
       res.status(500).json({ error: "Failed to delete calculator" });
     }
   });

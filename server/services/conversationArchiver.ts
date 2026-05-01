@@ -16,6 +16,9 @@ import { aiConversationArchive } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { chat, type ChatMessage } from "./aiService";
 import type { ChatSurface } from "./promptBuilder";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("ConversationArchiver");
 
 /* ─── Types ─── */
 export type SaveDecision = "high_value" | "support" | "sales_intent" | "report_followup" | "low_signal" | "discard_candidate";
@@ -109,7 +112,7 @@ export async function evaluateAndArchive(req: ArchiveRequest): Promise<void> {
       await db.insert(aiConversationArchive).values(archiveData);
     }
   } catch (err) {
-    console.error("[archiver] Failed to evaluate/archive conversation:", err);
+    log.error("[archiver] Failed to evaluate/archive conversation:", { error: String(err) });
   }
 }
 
@@ -161,7 +164,7 @@ Rules:
       saveDecision: validateSaveDecision(parsed.saveDecision),
     };
   } catch (err) {
-    console.error("[archiver] Classification failed:", err);
+    log.error("[archiver] Classification failed:", { error: String(err) });
     return null;
   }
 }

@@ -2,6 +2,9 @@ import { storage } from "../storage";
 import { checkKeywordRanks } from "../services/rankflow/rankTracker";
 import { checkIndexStatuses } from "../services/rankflow/indexChecker";
 import { WORKER_LIMITS, prioritizeProfiles } from "../services/rankflow/scalingConfig";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("TrackingWorker");
 
 /**
  * Weekly tracking job: check keyword rankings and page index status.
@@ -87,14 +90,14 @@ export async function processRankFlowTracking(): Promise<{
       // 3. Compute signal summary (always — cheap operation)
       await computeSignalSummary(profile.client_id);
 
-      console.log(`[tracking-worker] Client ${profile.client_id}: kw=${keywords_checked}, pages=${pages_checked}`);
+      log.info(`[tracking-worker] Client ${profile.client_id}: kw=${keywords_checked}, pages=${pages_checked}`);
     } catch (err: any) {
-      console.error(`[tracking-worker] Error for client ${profile.client_id}:`, err.message);
+      log.error(`[tracking-worker] Error for client ${profile.client_id}:`, err.message);
     }
   }
 
   if (allProfiles.length > batch.length) {
-    console.log(`[tracking-worker] Tracked ${batch.length}/${allProfiles.length} clients (capped at ${WORKER_LIMITS.tracking_max_clients})`);
+    log.info(`[tracking-worker] Tracked ${batch.length}/${allProfiles.length} clients (capped at ${WORKER_LIMITS.tracking_max_clients})`);
   }
 
   return { clients_processed: batch.length, keywords_checked, pages_checked };

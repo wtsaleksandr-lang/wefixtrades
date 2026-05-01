@@ -18,6 +18,9 @@ import {
   supportTickets,
 } from "@shared/schema";
 import type { PortalContext, PortalBehaviorMode } from "./promptBuilder";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("PortalAssistant");
 
 /* ─── Mode derivation ─── */
 function deriveMode(pageHint?: string): PortalBehaviorMode {
@@ -105,7 +108,7 @@ export async function assemblePortalContext(
         break;
     }
   } catch (err) {
-    console.error("[portalContext] Mode context error:", err);
+    log.error("[portalContext] Mode context error:", { error: String(err) });
   }
 
   return ctx;

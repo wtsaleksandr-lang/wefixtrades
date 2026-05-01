@@ -1,6 +1,9 @@
 import type { Express, Request } from "express";
 import { verifyUnsubscribeToken } from "../lib/unsubscribeToken";
 import { recordUnsubscribe } from "../lib/unsubscribeStorage";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("Unsubscribe");
 
 const PAGE_BG = "#0B0F14";
 const CARD_BG = "#151A21";
@@ -68,7 +71,7 @@ export function registerUnsubscribeRoutes(app: Express): void {
         userAgent: (req.headers["user-agent"] as string || "").slice(0, 500),
       });
     } catch (err: any) {
-      console.error("[unsubscribe] record failed:", err?.message);
+      log.error("[unsubscribe] record failed:", err?.message);
       return res.status(500).type("html").send(renderPage({
         title: "Something went wrong",
         heading: "We couldn't process the request",
@@ -111,7 +114,7 @@ export function registerUnsubscribeRoutes(app: Express): void {
       });
       return res.status(200).json({ unsubscribed: true });
     } catch (err: any) {
-      console.error("[unsubscribe] POST record failed:", err?.message);
+      log.error("[unsubscribe] POST record failed:", err?.message);
       return res.status(500).json({ error: "Internal error" });
     }
   });

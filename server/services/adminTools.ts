@@ -11,6 +11,9 @@
 import crypto from "crypto";
 import { storage } from "../storage";
 import type { PageContext } from "./promptBuilder";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("AdminTools");
 
 /* ─── Tool type ─── */
 export interface AdminTool {
@@ -159,7 +162,7 @@ async function executeUpdateTaskStatus(
       session_id: action.session_id,
       confirmed_by_user_id: confirmedByUserId,
     },
-  }).catch((err: Error) => console.error("[adminTools] logAdminActivity failed:", err.message));
+  }).catch((err: Error) => log.error("logAdminActivity failed", { error: err.message }));
 
   const narrative = `Task "${task.title}" updated to ${status.replace(/_/g, " ")}.${reason ? ` Reason: ${reason}` : ""}`;
   return { narrative };

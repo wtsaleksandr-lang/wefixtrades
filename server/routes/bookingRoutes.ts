@@ -3,6 +3,9 @@ import { z } from "zod";
 import Stripe from "stripe";
 import { storage } from "../storage";
 import { sendBookingConfirmationToCustomer, sendBookingNotificationToBusiness } from "../bookingEmails";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("Booking");
 
 function getStripeClient(): Stripe | null {
   const key = process.env.STRIPE_SECRET_KEY;
@@ -237,7 +240,7 @@ export function registerBookingRoutes(app: Express): void {
 
       res.json({ checkout_url: session.url });
     } catch (err: any) {
-      console.error("[Stripe Checkout]", err);
+      log.error("[Stripe Checkout]", err);
       res.status(500).json({ error: err.message });
     }
   });
@@ -302,7 +305,7 @@ export function registerBookingRoutes(app: Express): void {
       });
       res.redirect(`/calculator/${calc?.slug || ""}?${confirmParams.toString()}`);
     } catch (err: any) {
-      console.error("[Booking Confirm]", err);
+      log.error("[Booking Confirm]", err);
       res.status(500).send("Error confirming booking");
     }
   });
@@ -360,11 +363,11 @@ export function registerBookingRoutes(app: Express): void {
             if (result.created && result.reviewRequest) {
               await processReviewRequest(result.reviewRequest);
             } else {
-              console.log(`[ReviewRequest] Skipped for booking ${bookingId}: ${result.reason}`);
+              log.info(`[ReviewRequest] Skipped for booking ${bookingId}: ${result.reason}`);
             }
           })
           .catch((err) => {
-            console.error(`[ReviewRequest] Error for booking ${bookingId}:`, err.message);
+            log.error(`[ReviewRequest] Error for booking ${bookingId}:`, err.message);
           });
       }
 

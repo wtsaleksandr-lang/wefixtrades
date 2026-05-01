@@ -1,6 +1,9 @@
 import nodemailer from "nodemailer";
 import type { Transporter } from "nodemailer";
 import { generateEmailId, injectTracking } from "./emailTracking";
+import { createLogger } from "./logger";
+
+const log = createLogger("EmailTransport");
 
 let cached: Transporter | null = null;
 
@@ -93,11 +96,11 @@ export function getEmailTransporter(): Transporter | null {
         },
       };
 
-      console.log(`[email-tracking] sent email_id=${emailId} to=${mailOpts.to}`);
+      log.info(`[email-tracking] sent email_id=${emailId} to=${mailOpts.to}`);
       return await origSendMail(enrichedOpts);
     } catch (injectionErr: any) {
       // Tracking failure must never break sending. Fall back to original.
-      console.warn(`[email-tracking] injection failed, sending raw: ${injectionErr.message}`);
+      log.warn(`[email-tracking] injection failed, sending raw: ${injectionErr.message}`);
       return await origSendMail(mailOpts);
     }
   }) as typeof transporter.sendMail;

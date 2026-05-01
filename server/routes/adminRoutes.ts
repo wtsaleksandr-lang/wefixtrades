@@ -3,6 +3,9 @@ import { requireAdmin } from "../auth";
 import { db } from "../db";
 import { aiUsageLogs, aiConversationArchive, chatMemory } from "@shared/schema";
 import { desc, eq, sql, and, gte, lte, ilike, or } from "drizzle-orm";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("AdminRoutes");
 
 export function registerAdminRoutes(app: Express): void {
 
@@ -70,7 +73,7 @@ export function registerAdminRoutes(app: Express): void {
         activeMemorySessions: memoryStats?.active || 0,
       });
     } catch (err: any) {
-      console.error("[admin] Overview error:", err.message);
+      log.error("[admin] Overview error:", err.message);
       res.status(500).json({ error: "Failed to load overview" });
     }
   });
@@ -126,7 +129,7 @@ export function registerAdminRoutes(app: Express): void {
 
       res.json({ rows, total, page, limit });
     } catch (err: any) {
-      console.error("[admin] Conversations error:", err.message);
+      log.error("[admin] Conversations error:", err.message);
       res.status(500).json({ error: "Failed to load conversations" });
     }
   });

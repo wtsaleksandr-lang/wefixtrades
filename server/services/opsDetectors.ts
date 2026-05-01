@@ -22,6 +22,9 @@ import {
   clients,
 } from "@shared/schema";
 import { eq, and, or, lt, isNull, ne, inArray, sql } from "drizzle-orm";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("OpsDetectors");
 
 export const DETECTOR_VERSION = "detectors-v1";
 
@@ -129,7 +132,7 @@ export async function detectOnboardingStalls(): Promise<OpsSignal[]> {
     rawSignals.sort((a, b) => severityOrder[b.severity] - severityOrder[a.severity]);
     signals.push(...rawSignals.slice(0, MAX_SIGNALS_PER_DETECTOR));
   } catch (err) {
-    console.error("[opsDetectors] detectOnboardingStalls error:", err);
+    log.error("[opsDetectors] detectOnboardingStalls error:", { error: String(err) });
   }
 
   return signals;
@@ -236,7 +239,7 @@ export async function detectBlockedTasks(): Promise<OpsSignal[]> {
     rawSignals.sort((a, b) => severityOrder[b.severity] - severityOrder[a.severity]);
     signals.push(...rawSignals.slice(0, MAX_SIGNALS_PER_DETECTOR));
   } catch (err) {
-    console.error("[opsDetectors] detectBlockedTasks error:", err);
+    log.error("[opsDetectors] detectBlockedTasks error:", { error: String(err) });
   }
 
   return signals;
@@ -329,7 +332,7 @@ export async function detectOverduePayments(): Promise<OpsSignal[]> {
     rawSignals.sort((a, b) => severityOrder[b.severity] - severityOrder[a.severity]);
     signals.push(...rawSignals.slice(0, MAX_SIGNALS_PER_DETECTOR));
   } catch (err) {
-    console.error("[opsDetectors] detectOverduePayments error:", err);
+    log.error("[opsDetectors] detectOverduePayments error:", { error: String(err) });
   }
 
   return signals;
@@ -445,7 +448,7 @@ export async function detectUnansweredTickets(): Promise<OpsSignal[]> {
     rawSignals.sort((a, b) => severityOrder[b.severity] - severityOrder[a.severity]);
     signals.push(...rawSignals.slice(0, MAX_SIGNALS_PER_DETECTOR));
   } catch (err) {
-    console.error("[opsDetectors] detectUnansweredTickets error:", err);
+    log.error("[opsDetectors] detectUnansweredTickets error:", { error: String(err) });
   }
 
   return signals;

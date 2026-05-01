@@ -13,6 +13,9 @@ import { storage } from "../../storage";
 import { markAlerted } from "./cooldownManager";
 import { getEmailTransporter, getFromAddress } from "../../lib/emailTransport";
 import { buildAdminAlertEmail, buildAdminAlertPlainText, ADMIN_ALERT_FROM_NAME, type AlertTone } from "../../lib/adminAlertShell";
+import { createLogger } from "../../lib/logger";
+
+const log = createLogger("SocialSyncAlert");
 
 /* ─── Config ─── */
 
@@ -69,7 +72,7 @@ export async function sendAlert(alert: AlertPayload): Promise<{ sent: boolean; c
       });
       channels.push("email");
     } catch (err: any) {
-      console.error("[socialsync-alert] Email send failed:", err.message);
+      log.error("[socialsync-alert] Email send failed:", err.message);
     }
   }
 
@@ -85,7 +88,7 @@ export async function sendAlert(alert: AlertPayload): Promise<{ sent: boolean; c
       });
       channels.push("webhook");
     } catch (err: any) {
-      console.error("[socialsync-alert] Webhook send failed:", err.message);
+      log.error("[socialsync-alert] Webhook send failed:", err.message);
     }
   }
 

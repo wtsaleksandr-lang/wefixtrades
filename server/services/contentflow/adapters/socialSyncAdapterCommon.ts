@@ -30,6 +30,9 @@ import type {
   AdapterType,
 } from "./types";
 import type { ContentDraft, SocialSyncPost } from "@shared/schema";
+import { createLogger } from "../../../lib/logger";
+
+const log = createLogger("SocialSyncAdapter");
 
 export type SupportedSocialPlatform = "facebook" | "instagram" | "google_business";
 export type SocialAdapterType = "facebook" | "instagram" | "gbp_post";
@@ -115,7 +118,7 @@ async function persistDraftFailure(
       },
     } as any);
   } catch (err: any) {
-    console.error(`[contentflow][adapter][${metadataKey}] failed to persist failure for draft ${draftId}: ${err?.message || err}`);
+    log.error(`[contentflow][adapter][${metadataKey}] failed to persist failure for draft ${draftId}: ${err?.message || err}`);
   }
 }
 
@@ -137,7 +140,7 @@ async function persistOnSocialSyncPost(
       } as any);
     }
   } catch (err: any) {
-    console.error(`[contentflow][adapter] socialsync_posts ${postId} update failed: ${err?.message || err}`);
+    log.error(`[contentflow][adapter] socialsync_posts ${postId} update failed: ${err?.message || err}`);
   }
 }
 
@@ -173,8 +176,8 @@ export async function dispatchSocialPublish(input: DispatchInput): Promise<Publi
   const cooldown = await checkCooldown(draft.client_id, platform);
   if (cooldown.coolingDown) {
     const msg = `Client ${draft.client_id}/${platform} cooling down (${cooldown.minutesLeft}min left: ${cooldown.reason})`;
-    console.log(`${logPrefix} draft=${draft.id} cooling_down — ${cooldown.reason}, ${cooldown.minutesLeft}min`);
-    console.log(`[contentflow][metrics][adapter] type=${metadataKey} draft=${draft.id} outcome=cooling_down duration_ms=${Date.now() - t0}`);
+    log.info(`${logPrefix} draft=${draft.id} cooling_down — ${cooldown.reason}, ${cooldown.minutesLeft}min`);
+    log.info(`[contentflow][metrics][adapter] type=${metadataKey} draft=${draft.id} outcome=cooling_down duration_ms=${Date.now() - t0}`);
     return { ok: false, reason: "cooling_down", message: msg, retryable: true };
   }
 
@@ -191,8 +194,8 @@ export async function dispatchSocialPublish(input: DispatchInput): Promise<Publi
   } catch (err: any) {
     const msg = err?.message || String(err);
     await persistDraftFailure(draft.id, metadataKey, msg);
-    console.error(`${logPrefix} draft=${draft.id} threw:`, msg);
-    console.log(`[contentflow][metrics][adapter] type=${metadataKey} draft=${draft.id} outcome=throw duration_ms=${Date.now() - t0}`);
+    log.error(`${logPrefix} draft=${draft.id} threw:`, msg);
+    log.info(`[contentflow][metrics][adapter] type=${metadataKey} draft=${draft.id} outcome=throw duration_ms=${Date.now() - t0}`);
     return { ok: false, reason: "transient", message: msg, retryable: true };
   }
 
@@ -202,8 +205,8 @@ export async function dispatchSocialPublish(input: DispatchInput): Promise<Publi
     await persistDraftSuccess(draft.id, metadataKey, outcome);
     await persistOnSocialSyncPost(post.id, outcome);
     await recordSuccess(draft.client_id, platform).catch(() => {});
-    console.log(`${logPrefix} draft=${draft.id} client=${draft.client_id} posted ok remote=${outcome.remote_post_id} duration_ms=${durationMs}`);
-    console.log(`[contentflow][metrics][adapter] type=${metadataKey} draft=${draft.id} outcome=success duration_ms=${durationMs}`);
+    log.info(`${logPrefix} draft=${draft.id} client=${draft.client_id} posted ok remote=${outcome.remote_post_id} duration_ms=${durationMs}`);
+    log.info(`[contentflow][metrics][adapter] type=${metadataKey} draft=${draft.id} outcome=success duration_ms=${durationMs}`);
     return {
       ok: true,
       externalId: outcome.remote_post_id ?? undefined,
@@ -233,8 +236,8 @@ export async function dispatchSocialPublish(input: DispatchInput): Promise<Publi
   }
 
   const reason = normaliseReason(outcome);
-  console.error(`${logPrefix} draft=${draft.id} send_failed reason=${reason} code=${outcome.error_code ?? ""} msg=${errorMsg}`);
-  console.log(`[contentflow][metrics][adapter] type=${metadataKey} draft=${draft.id} outcome=failure reason=${reason} duration_ms=${durationMs}`);
+  log.error(`${logPrefix} draft=${draft.id} send_failed reason=${reason} code=${outcome.error_code ?? ""} msg=${errorMsg}`);
+  log.info(`[contentflow][metrics][adapter] type=${metadataKey} draft=${draft.id} outcome=failure reason=${reason} duration_ms=${durationMs}`);
 
   const retryable = !outcome.permanent_failure;
   return {

@@ -6,6 +6,9 @@ import { users, clients } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { sendTicketReplyEmail, sendTicketResolvedEmail } from "../lib/supportTicketEmails";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("AdminSupport");
 
 const VALID_STATUSES = ["open", "in_progress", "waiting_on_customer", "resolved", "closed"] as const;
 const VALID_PRIORITIES = ["low", "normal", "high", "urgent"] as const;
@@ -38,7 +41,7 @@ export function registerAdminSupportRoutes(app: Express): void {
 
       res.json({ tickets });
     } catch (err) {
-      console.error("[admin-support] List tickets error:", err);
+      log.error("[admin-support] List tickets error:", { error: String(err) });
       res.status(500).json({ error: "Failed to load tickets" });
     }
   });
@@ -52,7 +55,7 @@ export function registerAdminSupportRoutes(app: Express): void {
       const counts = await storage.getSupportTicketCounts();
       res.json(counts);
     } catch (err) {
-      console.error("[admin-support] Ticket counts error:", err);
+      log.error("[admin-support] Ticket counts error:", { error: String(err) });
       res.status(500).json({ error: "Failed to load ticket counts" });
     }
   });
@@ -75,7 +78,7 @@ export function registerAdminSupportRoutes(app: Express): void {
 
       res.json({ ticket, messages });
     } catch (err) {
-      console.error("[admin-support] Ticket detail error:", err);
+      log.error("[admin-support] Ticket detail error:", { error: String(err) });
       res.status(500).json({ error: "Failed to load ticket" });
     }
   });
@@ -140,11 +143,11 @@ export function registerAdminSupportRoutes(app: Express): void {
                 subject: ticket.subject,
                 portalUrl: `${baseUrl}/portal`,
               }).catch(err =>
-                console.warn(`[support-ticket-email] resolved email failed for ticket #${ticket.id}:`, err.message),
+                log.warn(`[support-ticket-email] resolved email failed for ticket #${ticket.id}:`, err.message),
               );
             }
           } catch (emailErr: any) {
-            console.warn(`[support-ticket-email] resolved lookup failed for ticket #${ticket.id}:`, emailErr.message);
+            log.warn(`[support-ticket-email] resolved lookup failed for ticket #${ticket.id}:`, emailErr.message);
           }
         }
       }
@@ -195,7 +198,7 @@ export function registerAdminSupportRoutes(app: Express): void {
       const updated = await storage.updateSupportTicket(ticketId, updates);
       res.json({ ticket: updated });
     } catch (err) {
-      console.error("[admin-support] Ticket update error:", err);
+      log.error("[admin-support] Ticket update error:", { error: String(err) });
       res.status(500).json({ error: "Failed to update ticket" });
     }
   });
@@ -261,17 +264,17 @@ export function registerAdminSupportRoutes(app: Express): void {
               replyPreview: message.trim(),
               portalUrl: `${baseUrl}/portal`,
             }).catch(err =>
-              console.warn(`[support-ticket-email] reply email failed for ticket #${ticket.id}:`, err.message),
+              log.warn(`[support-ticket-email] reply email failed for ticket #${ticket.id}:`, err.message),
             );
           }
         } catch (emailErr: any) {
-          console.warn(`[support-ticket-email] reply lookup failed for ticket #${ticket.id}:`, emailErr.message);
+          log.warn(`[support-ticket-email] reply lookup failed for ticket #${ticket.id}:`, emailErr.message);
         }
       }
 
       res.status(201).json({ message: msg });
     } catch (err) {
-      console.error("[admin-support] Add message error:", err);
+      log.error("[admin-support] Add message error:", { error: String(err) });
       res.status(500).json({ error: "Failed to add message" });
     }
   });
@@ -338,7 +341,7 @@ export function registerAdminSupportRoutes(app: Express): void {
 
       res.status(201).json({ ticket });
     } catch (err) {
-      console.error("[admin-support] Create ticket error:", err);
+      log.error("[admin-support] Create ticket error:", { error: String(err) });
       res.status(500).json({ error: "Failed to create ticket" });
     }
   });
@@ -355,7 +358,7 @@ export function registerAdminSupportRoutes(app: Express): void {
         .where(eq(users.role, "admin"));
       res.json(admins);
     } catch (err) {
-      console.error("[admin-support] Team list error:", err);
+      log.error("[admin-support] Team list error:", { error: String(err) });
       res.status(500).json({ error: "Failed to load team" });
     }
   });

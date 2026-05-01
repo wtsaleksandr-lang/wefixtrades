@@ -17,6 +17,9 @@
 
 import { google } from "googleapis";
 import { storage } from "../storage";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("GoogleBusiness");
 
 const SCOPES = [
   "https://www.googleapis.com/auth/business.manage",
@@ -82,7 +85,7 @@ export async function handleGoogleCallback(code: string, clientId: number): Prom
 
     return { ok: true };
   } catch (err: any) {
-    console.error("[GoogleBusiness] OAuth callback error:", err.message);
+    log.error("[GoogleBusiness] OAuth callback error:", err.message);
     return { ok: false, error: err.message };
   }
 }
@@ -119,7 +122,7 @@ async function getAuthenticatedClient(clientId: number): Promise<{
       const updated = { ...creds, ...tokens, refreshed_at: new Date().toISOString() };
       await storage.updateClient(clientId, { google_credentials: updated } as any);
     } catch (e: any) {
-      console.error("[GoogleBusiness] Token refresh save error:", e.message);
+      log.error("[GoogleBusiness] Token refresh save error:", e.message);
     }
   });
 
@@ -180,7 +183,7 @@ export async function postGoogleReviewReply(
       return { ok: false, error: "Review not found on Google. It may have been deleted." };
     }
 
-    console.error("[GoogleBusiness] Post reply error:", message);
+    log.error("[GoogleBusiness] Post reply error:", message);
     return { ok: false, error: message };
   }
 }

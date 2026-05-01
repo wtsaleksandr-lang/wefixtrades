@@ -23,6 +23,9 @@ import { eq } from "drizzle-orm";
 import { chat } from "./aiService";
 import { storage } from "../storage";
 import type { OnboardingSubmission, Client } from "@shared/schema";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("OnboardingAI");
 
 export interface ProcessResult {
   processed: boolean;
@@ -144,12 +147,12 @@ export async function processOnboardingSubmission(
     });
     extracted = tryParseJSON(response);
   } catch (err: any) {
-    console.warn(`[onboarding-ai] Claude call failed for submission #${submissionId}:`, err.message);
+    log.warn(`[onboarding-ai] Claude call failed for submission #${submissionId}:`, err.message);
     return { processed: false, reason: `ai_call_failed: ${err.message}` };
   }
 
   if (!extracted) {
-    console.warn(`[onboarding-ai] Failed to parse Claude output for submission #${submissionId}`);
+    log.warn(`[onboarding-ai] Failed to parse Claude output for submission #${submissionId}`);
     return { processed: false, reason: "invalid_ai_response" };
   }
 
@@ -225,10 +228,10 @@ export async function processOnboardingSubmission(
       },
     });
   } catch (err) {
-    console.warn("[onboarding-ai] Failed to log admin activity:", err);
+    log.warn("[onboarding-ai] Failed to log admin activity:", { error: String(err) });
   }
 
-  console.log(`[onboarding-ai] Processed submission #${submissionId} for ${serviceName} — ${fieldsUpdated.length} client fields, ${Object.keys(extracted.service_config).length} config keys`);
+  log.info(`[onboarding-ai] Processed submission #${submissionId} for ${serviceName} — ${fieldsUpdated.length} client fields, ${Object.keys(extracted.service_config).length} config keys`);
 
   return {
     processed: true,

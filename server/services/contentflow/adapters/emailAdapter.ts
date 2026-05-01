@@ -28,6 +28,9 @@ import type {
   PublishResult,
 } from "./types";
 import type { ContentDraft } from "@shared/schema";
+import { createLogger } from "../../../lib/logger";
+
+const log = createLogger("EmailAdapter");
 
 /* Sprint 13: in-process test-success stub (same pattern Sprint 7 uses
  * in contentReviewEmail). Production never sees this — gated on
@@ -133,7 +136,7 @@ export const emailAdapter: PublishAdapter = {
     }
     if (!recipient) {
       const msg = "no recipient available (metadata.email.recipient / clients.contact_email / ADMIN_EMAIL all empty)";
-      console.warn(`${logPrefix} draft=${draft.id} ${msg}`);
+      log.warn(`${logPrefix} draft=${draft.id} ${msg}`);
       return { ok: false, reason: "validation", message: msg, retryable: false };
     }
 
@@ -155,7 +158,7 @@ export const emailAdapter: PublishAdapter = {
       });
     } catch (err: any) {
       const errMsg = err?.message || String(err);
-      console.error(`${logPrefix} draft=${draft.id} send_failed: ${errMsg}`);
+      log.error(`${logPrefix} draft=${draft.id} send_failed: ${errMsg}`);
       return { ok: false, reason: "transient", message: errMsg, retryable: true };
     }
 
@@ -180,7 +183,7 @@ export const emailAdapter: PublishAdapter = {
       },
     } as any);
 
-    console.log(`${logPrefix} draft=${draft.id} client=${draft.client_id} sent_to=${recipient} message_id=${messageId}`);
+    log.info(`${logPrefix} draft=${draft.id} client=${draft.client_id} sent_to=${recipient} message_id=${messageId}`);
     return {
       ok: true,
       externalId: messageId,

@@ -373,9 +373,9 @@ export async function processQueue(): Promise<ProcessQueueSummary> {
   for (const [tag, fn] of recoveryFns) {
     try {
       const n = await fn();
-      if (n > 0) console.log(`[contentflow][publish-queue][${tag}] recovered ${n} stale claim(s)`);
+      if (n > 0) log.info(`Recovered stale claims`, { tag, count: n });
     } catch (err: any) {
-      console.error(`[contentflow][publish-queue][${tag}] stale-lock recovery failed:`, err?.message || err);
+      log.error(`Stale-lock recovery failed`, { tag, error: err?.message || String(err) });
     }
   }
 
@@ -846,7 +846,7 @@ export async function enqueueSocialSyncDraft(
     : draft.target_platform === "google_business" ? "gbp_post"
     : null;
   if (!platformKey) {
-    console.warn(`[contentflow][enqueue] draft=${draftId} target_platform='${draft.target_platform}' has no SocialSync adapter; skipping`);
+    log.warn(`No SocialSync adapter for platform`, { draftId, targetPlatform: draft.target_platform });
     return;
   }
 

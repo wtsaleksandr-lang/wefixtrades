@@ -16,6 +16,9 @@ import Stripe from "stripe";
 import { storage } from "../storage";
 import type { ServiceCatalogRow } from "@shared/schema";
 import { getTradeLineDefaultConfig } from "@shared/schema";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("PublicCheckout");
 
 function getStripe(): Stripe | null {
   const key = process.env.STRIPE_SECRET_KEY;
@@ -232,7 +235,7 @@ export function registerPublicCheckoutRoutes(app: Express): void {
       });
 
     } catch (err: any) {
-      console.error("[public-checkout] Error:", err.message);
+      log.error("[public-checkout] Error:", err.message);
       res.status(500).json({ error: "Something went wrong. Please try again or contact us." });
     }
   });

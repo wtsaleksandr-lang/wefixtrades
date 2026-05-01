@@ -16,6 +16,9 @@ import { clients, clientPayments } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
 import { getEmailTransporter, getFromAddress } from "./emailTransport";
 import { buildLegalFooter, buildEmailHeader, buildChatBubble } from "./emailFooter";
+import { createLogger } from "./logger";
+
+const log = createLogger("PaymentFailedEmail");
 
 interface SendParams {
   clientId: number;
@@ -85,13 +88,13 @@ function buildHtml(params: {
 export async function sendPaymentFailedEmail(params: SendParams): Promise<boolean> {
   const transporter = getEmailTransporter();
   if (!transporter) {
-    console.warn("[payment-failed] SMTP not configured — skipping");
+    log.warn("[payment-failed] SMTP not configured — skipping");
     return false;
   }
 
   const [client] = await db.select().from(clients).where(eq(clients.id, params.clientId)).limit(1);
   if (!client?.contact_email) {
-    console.warn(`[payment-failed] Client #${params.clientId} has no email — skipping`);
+    log.warn(`[payment-failed] Client #${params.clientId} has no email — skipping`);
     return false;
   }
 
@@ -107,7 +110,7 @@ export async function sendPaymentFailedEmail(params: SendParams): Promise<boolea
     return !!meta.failure_email_sent_at;
   });
   if (alreadySent) {
-    console.log(`[payment-failed] Already sent for invoice ${params.invoiceId}`);
+    log.info(`[payment-failed] Already sent for invoice ${params.invoiceId}`);
     return false;
   }
 
@@ -145,10 +148,10 @@ export async function sendPaymentFailedEmail(params: SendParams): Promise<boolea
         .where(eq(clientPayments.id, existing[0].id));
     }
 
-    console.log(`[payment-failed] Sent to ${client.contact_email} for invoice ${params.invoiceId}`);
+    log.info(`[payment-failed] Sent to ${client.contact_email} for invoice ${params.invoiceId}`);
     return true;
   } catch (err: any) {
-    console.error(`[payment-failed] Send failed:`, err.message);
+    log.error(`[payment-failed] Send failed:`, err.message);
     return false;
   }
 }

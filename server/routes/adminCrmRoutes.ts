@@ -6,6 +6,9 @@ import { dispatchTaskToSupplier } from "../services/supplierDispatch";
 import { sendWelcomePackage } from "../lib/welcomeEmail";
 // AdFlow dropped (Sprint 1) — compileAndSendAdFlowReport import removed
 import crypto from "crypto";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("AdminCRM");
 
 export function registerAdminCrmRoutes(app: Express): void {
 
@@ -18,7 +21,7 @@ export function registerAdminCrmRoutes(app: Express): void {
       const overview = await storage.getCrmOverview();
       res.json(overview);
     } catch (err: any) {
-      console.error("[admin-crm] Overview error:", err.message);
+      log.error("[admin-crm] Overview error:", err.message);
       res.status(500).json({ error: "Failed to load overview" });
     }
   });
@@ -50,7 +53,7 @@ export function registerAdminCrmRoutes(app: Express): void {
       const total = await storage.getClientCount(status);
       res.json({ data: rows, total });
     } catch (err: any) {
-      console.error("[admin-crm] List clients error:", err.message);
+      log.error("[admin-crm] List clients error:", err.message);
       res.status(500).json({ error: "Failed to list clients" });
     }
   });
@@ -69,7 +72,7 @@ export function registerAdminCrmRoutes(app: Express): void {
       });
       res.status(201).json(client);
     } catch (err: any) {
-      console.error("[admin-crm] Create client error:", err.message);
+      log.error("[admin-crm] Create client error:", err.message);
       res.status(500).json({ error: "Failed to create client" });
     }
   });
@@ -135,7 +138,7 @@ export function registerAdminCrmRoutes(app: Express): void {
       });
       res.status(201).json(svc);
     } catch (err: any) {
-      console.error("[admin-crm] Create client service error:", err.message);
+      log.error("[admin-crm] Create client service error:", err.message);
       res.status(500).json({ error: "Failed to create client service" });
     }
   });
@@ -246,7 +249,7 @@ export function registerAdminCrmRoutes(app: Express): void {
       });
       res.json({ ok: true, client_service: updated });
     } catch (err: any) {
-      console.error("[sitelaunch-template] Save failed:", err.message);
+      log.error("[sitelaunch-template] Save failed:", err.message);
       res.status(500).json({ error: "Failed to save SiteLaunch template config" });
     }
   });
@@ -295,7 +298,7 @@ export function registerAdminCrmRoutes(app: Express): void {
       });
       res.status(201).json(task);
     } catch (err: any) {
-      console.error("[admin-crm] Create fulfillment error:", err.message);
+      log.error("[admin-crm] Create fulfillment error:", err.message);
       res.status(500).json({ error: "Failed to create fulfillment task" });
     }
   });
@@ -329,7 +332,7 @@ export function registerAdminCrmRoutes(app: Express): void {
         // (non-blocking — idempotent on the service record)
         if (cascade?.serviceCompleted || cascade?.serviceActivated) {
           sendWelcomePackage(task.client_service_id).catch(err =>
-            console.warn(`[welcome-email] send failed for client_service #${task.client_service_id}:`, err.message),
+            log.warn(`[welcome-email] send failed for client_service #${task.client_service_id}:`, err.message),
           );
         }
 
@@ -649,7 +652,7 @@ export function registerAdminCrmRoutes(app: Express): void {
         tasksCreated: tasks.length,
       });
     } catch (err: any) {
-      console.error("[admin-crm] Provision error:", err.message);
+      log.error("[admin-crm] Provision error:", err.message);
       res.status(500).json({ error: "Failed to provision service" });
     }
   });
@@ -702,7 +705,7 @@ export function registerAdminCrmRoutes(app: Express): void {
 
       res.status(201).json({ tasksCreated: tasks.length, month: label });
     } catch (err: any) {
-      console.error("[admin-crm] Generate tasks error:", err.message);
+      log.error("[admin-crm] Generate tasks error:", err.message);
       res.status(500).json({ error: "Failed to generate tasks" });
     }
   });
@@ -787,7 +790,7 @@ export function registerAdminCrmRoutes(app: Express): void {
         temporary_password: tempPassword,
       });
     } catch (err: any) {
-      console.error("[admin-crm] Create account error:", err.message);
+      log.error("[admin-crm] Create account error:", err.message);
       res.status(500).json({ error: "Failed to create portal account" });
     }
   });
@@ -809,7 +812,7 @@ export function registerAdminCrmRoutes(app: Express): void {
       const allCalcs = await storage.getAllCalculatorsForAdmin();
       res.json({ calculators: allCalcs });
     } catch (err: any) {
-      console.error("[admin-crm] QuoteQuick overview error:", err.message);
+      log.error("[admin-crm] QuoteQuick overview error:", err.message);
       res.status(500).json({ error: "Failed to load QuoteQuick overview" });
     }
   });
@@ -878,7 +881,7 @@ export function registerAdminCrmRoutes(app: Express): void {
         },
       });
     } catch (err: any) {
-      console.error("[admin-crm] Client QuoteQuick error:", err.message);
+      log.error("[admin-crm] Client QuoteQuick error:", err.message);
       res.status(500).json({ error: "Failed to load client QuoteQuick data" });
     }
   });
@@ -923,7 +926,7 @@ export function registerAdminCrmRoutes(app: Express): void {
         assistantBuiltAt: config?.assistant?.lastBuiltAt || null,
       });
     } catch (err: any) {
-      console.error("[admin-crm] TradeLine GET error:", err.message);
+      log.error("[admin-crm] TradeLine GET error:", err.message);
       res.status(500).json({ error: "Failed to load TradeLine data" });
     }
   });
@@ -961,7 +964,7 @@ export function registerAdminCrmRoutes(app: Express): void {
 
       res.json({ config: updated });
     } catch (err: any) {
-      console.error("[admin-crm] TradeLine config update error:", err.message);
+      log.error("[admin-crm] TradeLine config update error:", err.message);
       res.status(500).json({ error: "Failed to update TradeLine config" });
     }
   });
@@ -1001,7 +1004,7 @@ export function registerAdminCrmRoutes(app: Express): void {
 
       res.json({ config, modeLog });
     } catch (err: any) {
-      console.error("[admin-crm] TradeLine mode change error:", err.message);
+      log.error("[admin-crm] TradeLine mode change error:", err.message);
       res.status(500).json({ error: "Failed to change mode" });
     }
   });
@@ -1028,7 +1031,7 @@ export function registerAdminCrmRoutes(app: Express): void {
         recentModeChanges: modeChanges,
       });
     } catch (err: any) {
-      console.error("[admin-crm] TradeLine usage error:", err.message);
+      log.error("[admin-crm] TradeLine usage error:", err.message);
       res.status(500).json({ error: "Failed to load TradeLine usage" });
     }
   });
@@ -1092,7 +1095,7 @@ export function registerAdminCrmRoutes(app: Express): void {
 
       res.json({ config });
     } catch (err: any) {
-      console.error("[admin-crm] TradeLine install-path error:", err.message);
+      log.error("[admin-crm] TradeLine install-path error:", err.message);
       res.status(500).json({ error: "Failed to set install path" });
     }
   });
@@ -1116,7 +1119,7 @@ export function registerAdminCrmRoutes(app: Express): void {
 
       res.json(getTradeLineReadiness(config));
     } catch (err: any) {
-      console.error("[admin-crm] TradeLine readiness error:", err.message);
+      log.error("[admin-crm] TradeLine readiness error:", err.message);
       res.status(500).json({ error: "Failed to check readiness" });
     }
   });
@@ -1163,7 +1166,7 @@ export function registerAdminCrmRoutes(app: Express): void {
 
       res.json({ config: updated });
     } catch (err: any) {
-      console.error("[admin-crm] TradeLine go-live error:", err.message);
+      log.error("[admin-crm] TradeLine go-live error:", err.message);
       res.status(500).json({ error: "Failed to go live" });
     }
   });
@@ -1201,7 +1204,7 @@ export function registerAdminCrmRoutes(app: Express): void {
         inputHash: result.definition?.inputHash,
       });
     } catch (err: any) {
-      console.error("[admin-crm] TradeLine build-assistant error:", err.message);
+      log.error("[admin-crm] TradeLine build-assistant error:", err.message);
       res.status(500).json({ error: err.message || "Failed to build assistant" });
     }
   });
@@ -1232,7 +1235,7 @@ export function registerAdminCrmRoutes(app: Express): void {
       ]);
       res.json({ data, total });
     } catch (err: any) {
-      console.error("[admin-crm] List review requests error:", err.message);
+      log.error("[admin-crm] List review requests error:", err.message);
       res.status(500).json({ error: "Failed to list review requests" });
     }
   });
@@ -1246,7 +1249,7 @@ export function registerAdminCrmRoutes(app: Express): void {
       const stats = await storage.getReviewRequestStats();
       res.json(stats);
     } catch (err: any) {
-      console.error("[admin-crm] Review request stats error:", err.message);
+      log.error("[admin-crm] Review request stats error:", err.message);
       res.status(500).json({ error: "Failed to get stats" });
     }
   });
@@ -1262,7 +1265,7 @@ export function registerAdminCrmRoutes(app: Express): void {
       if (!rr) return res.status(404).json({ error: "Review request not found" });
       res.json(rr);
     } catch (err: any) {
-      console.error("[admin-crm] Get review request error:", err.message);
+      log.error("[admin-crm] Get review request error:", err.message);
       res.status(500).json({ error: "Failed to get review request" });
     }
   });
@@ -1295,7 +1298,7 @@ export function registerAdminCrmRoutes(app: Express): void {
       // Send immediately
       if (result.reviewRequest) {
         processReviewRequest(result.reviewRequest).catch((err: any) => {
-          console.error("[admin-crm] Review request send error:", err.message);
+          log.error("[admin-crm] Review request send error:", err.message);
         });
       }
 
@@ -1311,7 +1314,7 @@ export function registerAdminCrmRoutes(app: Express): void {
 
       res.status(201).json({ created: true, id: result.reviewRequest?.id });
     } catch (err: any) {
-      console.error("[admin-crm] Create review request error:", err.message);
+      log.error("[admin-crm] Create review request error:", err.message);
       res.status(500).json({ error: "Failed to create review request" });
     }
   });
@@ -1349,7 +1352,7 @@ export function registerAdminCrmRoutes(app: Express): void {
 
       res.json(updated);
     } catch (err: any) {
-      console.error("[admin-crm] Stop review request error:", err.message);
+      log.error("[admin-crm] Stop review request error:", err.message);
       res.status(500).json({ error: "Failed to stop review request" });
     }
   });
@@ -1386,7 +1389,7 @@ export function registerAdminCrmRoutes(app: Express): void {
       if (refreshed) {
         const { processReviewRequest } = await import("../services/reviewRequestService");
         processReviewRequest(refreshed).catch((err: any) => {
-          console.error("[admin-crm] Review resend error:", err.message);
+          log.error("[admin-crm] Review resend error:", err.message);
         });
       }
 
@@ -1402,7 +1405,7 @@ export function registerAdminCrmRoutes(app: Express): void {
 
       res.json({ ok: true, id });
     } catch (err: any) {
-      console.error("[admin-crm] Resend review request error:", err.message);
+      log.error("[admin-crm] Resend review request error:", err.message);
       res.status(500).json({ error: "Failed to resend review request" });
     }
   });
@@ -1443,7 +1446,7 @@ export function registerAdminCrmRoutes(app: Express): void {
 
       res.json({ ok: true, id, nextStep: rr.sequence_step + 1 });
     } catch (err: any) {
-      console.error("[admin-crm] Nudge review request error:", err.message);
+      log.error("[admin-crm] Nudge review request error:", err.message);
       res.status(500).json({ error: "Failed to nudge review request" });
     }
   });
@@ -1489,7 +1492,7 @@ export function registerAdminCrmRoutes(app: Express): void {
 
       res.json(updated);
     } catch (err: any) {
-      console.error("[admin-crm] Update review request error:", err.message);
+      log.error("[admin-crm] Update review request error:", err.message);
       res.status(500).json({ error: "Failed to update review request" });
     }
   });
@@ -1531,7 +1534,7 @@ export function registerAdminCrmRoutes(app: Express): void {
 
       res.json({ data: enriched, total });
     } catch (err: any) {
-      console.error("[admin-crm] List monitored reviews error:", err.message);
+      log.error("[admin-crm] List monitored reviews error:", err.message);
       res.status(500).json({ error: "Failed to list monitored reviews" });
     }
   });
@@ -1546,7 +1549,7 @@ export function registerAdminCrmRoutes(app: Express): void {
       const stats = await storage.getMonitoredReviewStats(clientId);
       res.json(stats);
     } catch (err: any) {
-      console.error("[admin-crm] Monitored review stats error:", err.message);
+      log.error("[admin-crm] Monitored review stats error:", err.message);
       res.status(500).json({ error: "Failed to get stats" });
     }
   });
@@ -1564,7 +1567,7 @@ export function registerAdminCrmRoutes(app: Express): void {
       await storage.markMonitoredReviewsAcknowledged(ids);
       res.json({ ok: true, acknowledged: ids.length });
     } catch (err: any) {
-      console.error("[admin-crm] Acknowledge reviews error:", err.message);
+      log.error("[admin-crm] Acknowledge reviews error:", err.message);
       res.status(500).json({ error: "Failed to acknowledge reviews" });
     }
   });
@@ -1591,7 +1594,7 @@ export function registerAdminCrmRoutes(app: Express): void {
       await storage.updateClient(client_id, { last_review_sync_at: null as any });
 
       processReviewMonitoring().catch((err: any) => {
-        console.error("[admin-crm] Manual review sync error:", err.message);
+        log.error("[admin-crm] Manual review sync error:", err.message);
       });
 
       await storage.logAdminActivity({
@@ -1606,7 +1609,7 @@ export function registerAdminCrmRoutes(app: Express): void {
 
       res.json({ ok: true, message: "Sync triggered" });
     } catch (err: any) {
-      console.error("[admin-crm] Manual review sync error:", err.message);
+      log.error("[admin-crm] Manual review sync error:", err.message);
       res.status(500).json({ error: "Failed to trigger sync" });
     }
   });
@@ -1672,7 +1675,7 @@ export function registerAdminCrmRoutes(app: Express): void {
         error: result.error || null,
       });
     } catch (err: any) {
-      console.error("[admin-crm] Draft response error:", err.message);
+      log.error("[admin-crm] Draft response error:", err.message);
       res.status(500).json({ error: "Failed to generate draft response" });
     }
   });
@@ -1698,7 +1701,7 @@ export function registerAdminCrmRoutes(app: Express): void {
 
       res.json({ ok: true });
     } catch (err: any) {
-      console.error("[admin-crm] Save draft error:", err.message);
+      log.error("[admin-crm] Save draft error:", err.message);
       res.status(500).json({ error: "Failed to save draft" });
     }
   });
@@ -1736,7 +1739,7 @@ export function registerAdminCrmRoutes(app: Express): void {
         metadata: svc.metadata,
       });
     } catch (err: any) {
-      console.error("[admin-crm] Reputation config error:", err.message);
+      log.error("[admin-crm] Reputation config error:", err.message);
       res.status(500).json({ error: "Failed to load config" });
     }
   });
@@ -1774,7 +1777,7 @@ export function registerAdminCrmRoutes(app: Express): void {
 
       res.json({ ok: true, settings: updated });
     } catch (err: any) {
-      console.error("[admin-crm] Reputation config update error:", err.message);
+      log.error("[admin-crm] Reputation config update error:", err.message);
       res.status(500).json({ error: "Failed to update config" });
     }
   });
@@ -1801,7 +1804,7 @@ export function registerAdminCrmRoutes(app: Express): void {
       const authUrl = getGoogleAuthUrl(state);
       res.json({ authUrl });
     } catch (err: any) {
-      console.error("[admin-crm] Google connect error:", err.message);
+      log.error("[admin-crm] Google connect error:", err.message);
       res.status(500).json({ error: "Failed to initiate Google connection" });
     }
   });
@@ -1848,7 +1851,7 @@ export function registerAdminCrmRoutes(app: Express): void {
         }
       }
     } catch (err: any) {
-      console.error("[admin-crm] Google callback error:", err.message);
+      log.error("[admin-crm] Google callback error:", err.message);
       res.status(500).send("Google connection failed");
     }
   });
@@ -1902,7 +1905,7 @@ export function registerAdminCrmRoutes(app: Express): void {
 
       res.json({ ok: true });
     } catch (err: any) {
-      console.error("[admin-crm] Google disconnect error:", err.message);
+      log.error("[admin-crm] Google disconnect error:", err.message);
       res.status(500).json({ error: "Failed to disconnect" });
     }
   });
@@ -2018,7 +2021,7 @@ export function registerAdminCrmRoutes(app: Express): void {
 
       res.json({ ok: true, postedAt: new Date().toISOString() });
     } catch (err: any) {
-      console.error("[admin-crm] Post to Google error:", err.message);
+      log.error("[admin-crm] Post to Google error:", err.message);
       res.status(500).json({ error: "Failed to post response to Google" });
     }
   });
@@ -2098,7 +2101,7 @@ export function registerAdminCrmRoutes(app: Express): void {
         },
       });
     } catch (err: any) {
-      console.error("[admin-crm] reputation-ops error:", err.message);
+      log.error("[admin-crm] reputation-ops error:", err.message);
       res.status(500).json({ error: "Failed to load operational status" });
     }
   });
@@ -2168,7 +2171,7 @@ export function registerAdminCrmRoutes(app: Express): void {
 
       res.json(results);
     } catch (err: any) {
-      console.error("[admin-crm] Bulk draft error:", err.message);
+      log.error("[admin-crm] Bulk draft error:", err.message);
       res.status(500).json({ error: "Bulk draft failed" });
     }
   });
@@ -2245,7 +2248,7 @@ export function registerAdminCrmRoutes(app: Express): void {
 
       res.json(results);
     } catch (err: any) {
-      console.error("[admin-crm] Bulk post error:", err.message);
+      log.error("[admin-crm] Bulk post error:", err.message);
       res.status(500).json({ error: "Bulk post failed" });
     }
   });
@@ -2324,7 +2327,7 @@ export function registerAdminCrmRoutes(app: Express): void {
         currentCostCents: svc.cost_cents ?? 0,
       });
     } catch (err: any) {
-      console.error("[admin-crm] Cost suggestion error:", err.message);
+      log.error("[admin-crm] Cost suggestion error:", err.message);
       res.status(500).json({ error: "Failed to estimate costs" });
     }
   });

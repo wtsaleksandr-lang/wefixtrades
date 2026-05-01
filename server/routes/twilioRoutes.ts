@@ -12,6 +12,9 @@ import {
 } from "../twilioClient";
 import { buildSystemPrompt, runChatCompletion } from "../aiChatEngine";
 import { getOpenAI } from "../openaiClient";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("Twilio");
 
 export function registerTwilioRoutes(app: Express): void {
   app.post("/api/twilio/inbound", async (req, res) => {
@@ -64,7 +67,7 @@ export function registerTwilioRoutes(app: Express): void {
 
       const rateCheck = await checkRateLimit(lead.id, lead.calculator_id, channel);
       if (!rateCheck.allowed) {
-        console.warn(`[Twilio] Rate limit hit for lead ${lead.id}: ${rateCheck.reason}`);
+        log.warn(`[Twilio] Rate limit hit for lead ${lead.id}: ${rateCheck.reason}`);
         res.set("Content-Type", "text/xml");
         res.send("<Response></Response>");
         return;
@@ -119,7 +122,7 @@ export function registerTwilioRoutes(app: Express): void {
       res.set("Content-Type", "text/xml");
       res.send(`<Response><Message>${shortReply}</Message></Response>`);
     } catch (error: any) {
-      console.error("[Twilio] Inbound webhook error:", error);
+      log.error("[Twilio] Inbound webhook error:", error);
       twimlError("Thanks for reaching out! We'll get back to you soon.");
     }
   });
@@ -133,7 +136,7 @@ export function registerTwilioRoutes(app: Express): void {
       const threads = await storage.getSmsThreads(calculator.id);
       res.json({ threads });
     } catch (error: any) {
-      console.error("[Messages] Error:", error);
+      log.error("[Messages] Error:", error);
       res.status(500).json({ error: "Failed to fetch messages" });
     }
   });

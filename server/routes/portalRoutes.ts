@@ -58,6 +58,9 @@ import { compileMonthlyReport } from "../services/mapguardReports";
 import { getExecutionUsage } from "../services/mapguardTaskEngine";
 import { generateClientActivityFeed } from "../services/mapguardRetention";
 import { getClientPerformanceSummary } from "../services/mapguardMonitor";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("Portal");
 
 /* ─── Helpers ─── */
 
@@ -155,7 +158,7 @@ export function registerPortalRoutes(app: Express) {
         recent_activity: recentActivity,
       });
     } catch (err) {
-      console.error("Portal overview error:", err);
+      log.error("Portal overview error:", { error: String(err) });
       res.status(500).json({ error: "Failed to load overview" });
     }
   });
@@ -225,7 +228,7 @@ export function registerPortalRoutes(app: Express) {
 
       res.json({ services: enriched });
     } catch (err) {
-      console.error("Portal services error:", err);
+      log.error("Portal services error:", { error: String(err) });
       res.status(500).json({ error: "Failed to load services" });
     }
   });
@@ -321,7 +324,7 @@ export function registerPortalRoutes(app: Express) {
         payments,
       });
     } catch (err) {
-      console.error("Portal service detail error:", err);
+      log.error("Portal service detail error:", { error: String(err) });
       res.status(500).json({ error: "Failed to load service detail" });
     }
   });
@@ -386,7 +389,7 @@ export function registerPortalRoutes(app: Express) {
         },
       });
     } catch (err) {
-      console.error("Portal billing error:", err);
+      log.error("Portal billing error:", { error: String(err) });
       res.status(500).json({ error: "Failed to load billing" });
     }
   });
@@ -417,7 +420,7 @@ export function registerPortalRoutes(app: Express) {
         account_email: user?.email ?? null,
       });
     } catch (err) {
-      console.error("Portal settings error:", err);
+      log.error("Portal settings error:", { error: String(err) });
       res.status(500).json({ error: "Failed to load settings" });
     }
   });
@@ -458,7 +461,7 @@ export function registerPortalRoutes(app: Express) {
         trade_type: updated.trade_type,
       });
     } catch (err) {
-      console.error("Portal settings update error:", err);
+      log.error("Portal settings update error:", { error: String(err) });
       res.status(500).json({ error: "Failed to update settings" });
     }
   });
@@ -511,7 +514,7 @@ export function registerPortalRoutes(app: Express) {
 
       res.json({ ok: true });
     } catch (err) {
-      console.error("Portal password change error:", err);
+      log.error("Portal password change error:", { error: String(err) });
       res.status(500).json({ error: "Failed to change password" });
     }
   });
@@ -553,7 +556,7 @@ export function registerPortalRoutes(app: Express) {
 
       res.json({ submissions: rows });
     } catch (err) {
-      console.error("Portal pending-onboarding error:", err);
+      log.error("Portal pending-onboarding error:", { error: String(err) });
       res.status(500).json({ error: "Failed to load pending onboarding" });
     }
   });
@@ -614,7 +617,7 @@ export function registerPortalRoutes(app: Express) {
         approved_at: submission.approved_at,
       });
     } catch (err) {
-      console.error("Portal onboarding GET error:", err);
+      log.error("Portal onboarding GET error:", { error: String(err) });
       res.status(500).json({ error: "Failed to load onboarding form" });
     }
   });
@@ -690,19 +693,19 @@ export function registerPortalRoutes(app: Express) {
               // Trigger assistant build (non-blocking)
               import("../services/vapiService").then(({ provisionTradeLineAssistant }) => {
                 provisionTradeLineAssistant(cs.id).catch(err =>
-                  console.warn(`[tradeline] Auto-build assistant failed for service #${cs.id}:`, err.message),
+                  log.warn(`[tradeline] Auto-build assistant failed for service #${cs.id}:`, err.message),
                 );
               });
             }
           } catch (err) {
-            console.warn("Portal onboarding: failed to map TradeLine config:", err);
+            log.warn("Portal onboarding: failed to map TradeLine config:", { error: String(err) });
           }
         }
 
         res.json({ ok: true, status: "submitted", mode: "submit" });
       }
     } catch (err) {
-      console.error("Portal onboarding PUT error:", err);
+      log.error("Portal onboarding PUT error:", { error: String(err) });
       res.status(500).json({ error: "Failed to save onboarding" });
     }
   });
@@ -766,7 +769,7 @@ export function registerPortalRoutes(app: Express) {
         },
       });
     } catch (err) {
-      console.error("Portal QuoteQuick summary error:", err);
+      log.error("Portal QuoteQuick summary error:", { error: String(err) });
       res.status(500).json({ error: "Failed to load QuoteQuick summary" });
     }
   });
@@ -830,7 +833,7 @@ export function registerPortalRoutes(app: Express) {
 
       res.json({ tickets });
     } catch (err) {
-      console.error("Portal tickets list error:", err);
+      log.error("Portal tickets list error:", { error: String(err) });
       res.status(500).json({ error: "Failed to load tickets" });
     }
   });
@@ -882,7 +885,7 @@ export function registerPortalRoutes(app: Express) {
 
       res.json({ ticket, messages: safeMessages });
     } catch (err) {
-      console.error("Portal ticket detail error:", err);
+      log.error("Portal ticket detail error:", { error: String(err) });
       res.status(500).json({ error: "Failed to load ticket" });
     }
   });
@@ -969,11 +972,11 @@ export function registerPortalRoutes(app: Express) {
             subject: ticket.subject,
             portalUrl: `${baseUrl}/portal`,
           }).catch(err =>
-            console.warn(`[support-ticket-email] created email failed for ticket #${ticket.id}:`, err.message),
+            log.warn(`[support-ticket-email] created email failed for ticket #${ticket.id}:`, err.message),
           );
         }
       } catch (err: any) {
-        console.warn(`[support-ticket-email] lookup failed for ticket #${ticket.id}:`, err.message);
+        log.warn(`[support-ticket-email] lookup failed for ticket #${ticket.id}:`, err.message);
       }
 
       res.status(201).json({
@@ -984,7 +987,7 @@ export function registerPortalRoutes(app: Express) {
         created_at: ticket.created_at,
       });
     } catch (err) {
-      console.error("Portal ticket create error:", err);
+      log.error("Portal ticket create error:", { error: String(err) });
       res.status(500).json({ error: "Failed to create ticket" });
     }
   });
@@ -1078,7 +1081,7 @@ export function registerPortalRoutes(app: Express) {
 
       res.status(201).json({ ok: true });
     } catch (err) {
-      console.error("Portal ticket reply error:", err);
+      log.error("Portal ticket reply error:", { error: String(err) });
       res.status(500).json({ error: "Failed to add reply" });
     }
   });
@@ -1213,7 +1216,7 @@ Answer ONLY "YES" or "NO". Nothing else.`,
         });
         hasEscalationOffer = classification.trim().toUpperCase().startsWith("YES");
       } catch (err) {
-        console.error("[portal-ai] Escalation classification failed:", err);
+        log.error("[portal-ai] Escalation classification failed:", { error: String(err) });
         // On failure, don't block the reply — just skip escalation
       }
 
@@ -1256,13 +1259,13 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
           };
         }
       } catch (err) {
-        console.error("[portal-ai] Failed to generate escalation draft:", err);
+        log.error("[portal-ai] Failed to generate escalation draft:", { error: String(err) });
         // Don't fail the request — just return the reply without the draft
       }
 
       res.json({ reply, escalation_draft: escalationDraft });
     } catch (err) {
-      console.error("Portal AI chat error:", err);
+      log.error("Portal AI chat error:", { error: String(err) });
       res.json({ reply: "Sorry, the assistant is temporarily unavailable. You can still fill in the form manually." });
     }
   });
@@ -1294,7 +1297,7 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
         assistantStatus: config?.assistant?.status ?? "not_built",
       });
     } catch (err) {
-      console.error("Portal tradeline GET error:", err);
+      log.error("Portal tradeline GET error:", { error: String(err) });
       res.status(500).json({ error: "Failed to load TradeLine data" });
     }
   });
@@ -1322,7 +1325,7 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
 
       res.json({ config, modeLog });
     } catch (err) {
-      console.error("Portal tradeline mode error:", err);
+      log.error("Portal tradeline mode error:", { error: String(err) });
       res.status(500).json({ error: "Failed to update mode" });
     }
   });
@@ -1354,7 +1357,7 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
       const config = await storage.updateTradeLineConfig(csId, update);
       res.json({ config });
     } catch (err) {
-      console.error("Portal tradeline settings error:", err);
+      log.error("Portal tradeline settings error:", { error: String(err) });
       res.status(500).json({ error: "Failed to update settings" });
     }
   });
@@ -1376,7 +1379,7 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
 
       res.json({ calls });
     } catch (err) {
-      console.error("Portal tradeline calls error:", err);
+      log.error("Portal tradeline calls error:", { error: String(err) });
       res.status(500).json({ error: "Failed to load call log" });
     }
   });
@@ -1411,7 +1414,7 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
         mode: config.currentMode,
       });
     } catch (err) {
-      console.error("Portal tradeline widget-config error:", err);
+      log.error("Portal tradeline widget-config error:", { error: String(err) });
       res.status(500).json({ error: "Failed to load widget config" });
     }
   });
@@ -1435,7 +1438,7 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
       const messages = await loadThreadMessages(threadId);
       res.json({ threadId, messages, pageContext: pageCtx });
     } catch (err) {
-      console.error("Portal thread messages error:", err);
+      log.error("Portal thread messages error:", { error: String(err) });
       res.status(500).json({ error: "Failed to load conversation" });
     }
   });
@@ -1544,7 +1547,7 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
         recent_replies: recentReplies,
       });
     } catch (err: any) {
-      console.error("Portal reputation error:", err);
+      log.error("Portal reputation error:", err);
       res.status(500).json({ error: "Failed to load reputation report" });
     }
   });
@@ -1604,7 +1607,7 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
 
       res.status(201).json(profile);
     } catch (err: any) {
-      console.error("Portal SocialSync setup error:", err);
+      log.error("Portal SocialSync setup error:", err);
       res.status(500).json({ error: "Failed to save profile" });
     }
   });
@@ -1637,7 +1640,7 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
 
       res.json({ posts: rows });
     } catch (err) {
-      console.error("Portal socialsync pending error:", err);
+      log.error("Portal socialsync pending error:", { error: String(err) });
       res.status(500).json({ error: "Failed to load pending posts" });
     }
   });
@@ -1672,7 +1675,7 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
 
       res.json({ ok: true, post: updated });
     } catch (err) {
-      console.error("Portal socialsync approve error:", err);
+      log.error("Portal socialsync approve error:", { error: String(err) });
       res.status(500).json({ error: "Failed to approve post" });
     }
   });
@@ -1719,7 +1722,7 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
 
       res.json({ ok: true });
     } catch (err) {
-      console.error("Portal socialsync reject error:", err);
+      log.error("Portal socialsync reject error:", { error: String(err) });
       res.status(500).json({ error: "Failed to reject post" });
     }
   });
@@ -1766,7 +1769,7 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
 
       res.json({ ok: true, post: updated });
     } catch (err) {
-      console.error("Portal socialsync edit error:", err);
+      log.error("Portal socialsync edit error:", { error: String(err) });
       res.status(500).json({ error: "Failed to edit post" });
     }
   });
@@ -1892,7 +1895,7 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
         upcoming_posts: upcomingPosts,
       });
     } catch (err: any) {
-      console.error("Portal SocialSync report error:", err);
+      log.error("Portal SocialSync report error:", err);
       res.status(500).json({ error: "Failed to load SocialSync report" });
     }
   });
@@ -2057,7 +2060,7 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
         snapshots: clientSnapshots.reverse(), // chronological for charts
       });
     } catch (err: any) {
-      console.error("Portal MapGuard error:", err);
+      log.error("Portal MapGuard error:", err);
       res.status(500).json({ error: "Failed to load MapGuard data" });
     }
   });
@@ -2101,7 +2104,7 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
         movement: report.movement,
       });
     } catch (err: any) {
-      console.error("Portal MapGuard report error:", err);
+      log.error("Portal MapGuard report error:", err);
       res.status(500).json({ error: "Failed to load report" });
     }
   });
@@ -2170,7 +2173,7 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
         },
       });
     } catch (err: any) {
-      console.error("[portal] reputation overview error:", err.message);
+      log.error("[portal] reputation overview error:", err.message);
       res.status(500).json({ error: "Failed to load reputation data" });
     }
   });
@@ -2210,7 +2213,7 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
 
       res.json({ data: rows, total: countRow?.total ?? 0 });
     } catch (err: any) {
-      console.error("[portal] reputation reviews error:", err.message);
+      log.error("[portal] reputation reviews error:", err.message);
       res.status(500).json({ error: "Failed to load reviews" });
     }
   });
@@ -2242,7 +2245,7 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
 
       res.json({ data: rows });
     } catch (err: any) {
-      console.error("[portal] reputation feedback error:", err.message);
+      log.error("[portal] reputation feedback error:", err.message);
       res.status(500).json({ error: "Failed to load feedback" });
     }
   });
@@ -2287,7 +2290,7 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
         upgradeHints,
       });
     } catch (err: any) {
-      console.error("[portal] reputation config error:", err.message);
+      log.error("[portal] reputation config error:", err.message);
       res.status(500).json({ error: "Failed to load config" });
     }
   });
@@ -2317,7 +2320,7 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
 
       res.json({ ok: true, settings: updated });
     } catch (err: any) {
-      console.error("[portal] reputation settings error:", err.message);
+      log.error("[portal] reputation settings error:", err.message);
       res.status(500).json({ error: "Failed to update settings" });
     }
   });
@@ -2369,7 +2372,7 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
         },
       });
     } catch (err: any) {
-      console.error("[portal] widget info error:", err.message);
+      log.error("[portal] widget info error:", err.message);
       res.status(500).json({ error: "Failed to load widget info" });
     }
   });
@@ -2399,7 +2402,7 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
 
       res.json({ ok: true, settings: updatedWidget });
     } catch (err: any) {
-      console.error("[portal] widget settings error:", err.message);
+      log.error("[portal] widget settings error:", err.message);
       res.status(500).json({ error: "Failed to update widget settings" });
     }
   });
@@ -2466,13 +2469,13 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
       // Send immediately
       if (result.reviewRequest) {
         processReviewRequest(result.reviewRequest).catch((err: any) => {
-          console.error("[portal] Review request send error:", err.message);
+          log.error("[portal] Review request send error:", err.message);
         });
       }
 
       res.status(201).json({ ok: true, id: result.reviewRequest?.id });
     } catch (err: any) {
-      console.error("[portal] request-review error:", err.message);
+      log.error("[portal] request-review error:", err.message);
       res.status(500).json({ error: "Failed to send review request" });
     }
   });
@@ -2496,7 +2499,7 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
 
       res.json({ qrUrl, widgetToken });
     } catch (err: any) {
-      console.error("[portal] qr config error:", err.message);
+      log.error("[portal] qr config error:", err.message);
       res.status(500).json({ error: "Failed to load QR config" });
     }
   });
@@ -2521,7 +2524,7 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
 
       res.json(row || { total: 0, job_complete: 0, portal_manual: 0, admin_manual: 0, qr_scan: 0 });
     } catch (err: any) {
-      console.error("[portal] request-stats error:", err.message);
+      log.error("[portal] request-stats error:", err.message);
       res.status(500).json({ error: "Failed to load stats" });
     }
   });
@@ -2554,7 +2557,7 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
         needsReconnect: expired,
       });
     } catch (err: any) {
-      console.error("[portal] google-status error:", err.message);
+      log.error("[portal] google-status error:", err.message);
       res.status(500).json({ error: "Failed to check connection" });
     }
   });
@@ -2577,7 +2580,7 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
       const authUrl = getGoogleAuthUrl(state);
       res.json({ authUrl });
     } catch (err: any) {
-      console.error("[portal] google-connect error:", err.message);
+      log.error("[portal] google-connect error:", err.message);
       res.status(500).json({ error: "Failed to start connection" });
     }
   });
@@ -2606,7 +2609,7 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
 
       res.json({ ok: true });
     } catch (err: any) {
-      console.error("[portal] google-disconnect error:", err.message);
+      log.error("[portal] google-disconnect error:", err.message);
       res.status(500).json({ error: "Failed to disconnect" });
     }
   });
@@ -2747,7 +2750,7 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
         nextUp,
       });
     } catch (err: any) {
-      console.error("[portal-rankflow] error:", err.message);
+      log.error("[portal-rankflow] error:", err.message);
       res.status(500).json({ error: "Failed to load RankFlow dashboard" });
     }
   });
@@ -2811,10 +2814,10 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
             try {
               const draft = await createDraftFromRankflowTask({ task, profile });
               generateArticleBody(draft.id).catch((err) =>
-                console.error(`[contentflow] background article generation rejected for draft ${draft.id}:`, err),
+                log.error(`[contentflow] background article generation rejected for draft ${draft.id}:`, err),
               );
             } catch (hookErr: any) {
-              console.error(`[contentflow] article hook failed for task ${task.id}:`, hookErr.message);
+              log.error(`[contentflow] article hook failed for task ${task.id}:`, hookErr.message);
             }
           }
         }
@@ -2836,7 +2839,7 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
       }));
       await storage.createKeywords(kwToSave);
 
-      console.log(`[rankflow-onboard] Client ${clientId} onboarded — ${kwToSave.length} keywords saved, ${clusters.length} clusters, plan: ${planResult ? "created" : "already exists"}`);
+      log.info(`[rankflow-onboard] Client ${clientId} onboarded — ${kwToSave.length} keywords saved, ${clusters.length} clusters, plan: ${planResult ? "created" : "already exists"}`);
 
       res.status(201).json({
         profile,
@@ -2845,7 +2848,7 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
         clusters: clusters.length,
       });
     } catch (err: any) {
-      console.error("[rankflow-onboard] error:", err.message);
+      log.error("[rankflow-onboard] error:", err.message);
       res.status(500).json({ error: "Failed to complete onboarding" });
     }
   });
@@ -2943,7 +2946,7 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
 
       res.json({ articles: drafts.map(projectArticleForPortal), count: drafts.length });
     } catch (err: any) {
-      console.error("[portal/articles] list error:", err.message);
+      log.error("[portal/articles] list error:", err.message);
       res.status(500).json({ error: "Failed to load articles" });
     }
   });
@@ -2971,7 +2974,7 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
       }
       res.json({ article: projectArticleForPortal(draft) });
     } catch (err: any) {
-      console.error("[portal/articles] detail error:", err.message);
+      log.error("[portal/articles] detail error:", err.message);
       res.status(500).json({ error: "Failed to load article" });
     }
   });
@@ -2989,7 +2992,7 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
     if (code === "wrong_kind") {
       return res.status(409).json({ error: "Article does not support client review" });
     }
-    console.error(`[portal/articles] ${action} error:`, err?.message || err);
+    log.error(`[portal/articles] ${action} error:`, err?.message || err);
     return res.status(500).json({ error: "Action failed. Please try again." });
   }
 
@@ -3124,7 +3127,7 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
 
       res.json({ replies: drafts.map(projectReviewReplyForPortal), count: drafts.length });
     } catch (err: any) {
-      console.error("[portal/review-replies] list error:", err.message);
+      log.error("[portal/review-replies] list error:", err.message);
       res.status(500).json({ error: "Failed to load review replies" });
     }
   });
@@ -3145,7 +3148,7 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
       }
       res.json({ reply: projectReviewReplyForPortal(draft) });
     } catch (err: any) {
-      console.error("[portal/review-replies] detail error:", err.message);
+      log.error("[portal/review-replies] detail error:", err.message);
       res.status(500).json({ error: "Failed to load review reply" });
     }
   });
@@ -3211,7 +3214,7 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
       if (!client) return res.status(404).json({ error: "client not found" });
       res.json({ brand_profile: readBrandProfile(client) });
     } catch (err: any) {
-      console.error("[portal/brand-profile][get]", err?.message || err);
+      log.error("[portal/brand-profile][get]", err?.message || err);
       res.status(500).json({ error: err.message });
     }
   });
@@ -3231,7 +3234,7 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
       const updated = await mergeBrandProfile(clientId, patch);
       res.json({ ok: true, brand_profile: updated });
     } catch (err: any) {
-      console.error("[portal/brand-profile][patch]", err?.message || err);
+      log.error("[portal/brand-profile][patch]", err?.message || err);
       res.status(500).json({ error: err.message });
     }
   });

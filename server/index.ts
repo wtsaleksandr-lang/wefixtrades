@@ -9,6 +9,9 @@ import { createServer } from "http";
 import { initScheduler } from "./jobs/scheduler";
 import { pool } from "./db";
 import { setupPassport } from "./auth";
+import { createLogger } from "./lib/logger";
+
+const logger = createLogger("Server");
 
 /* ─── Startup Environment Validation ─── */
 function validateEnv(): void {
@@ -28,15 +31,15 @@ function validateEnv(): void {
   if (missing.length === 0) return;
 
   if (isProduction) {
-    console.error(
-      `[Startup] FATAL: Missing required environment variables in production:\n` +
-        missing.map((v) => `  - ${v}`).join("\n"),
+    logger.error(
+      "FATAL: Missing required environment variables in production: " +
+        missing.join(", "),
     );
     process.exit(1);
   } else {
-    console.warn(
-      `[Startup] Warning: Missing environment variables (non-fatal in development):\n` +
-        missing.map((v) => `  - ${v}`).join("\n"),
+    logger.warn(
+      "Missing environment variables (non-fatal in development): " +
+        missing.join(", "),
     );
   }
 }
@@ -69,11 +72,11 @@ const PgStore = connectPgSimple(session);
 // fall back to dev-only default otherwise with a warning.
 const sessionSecret = process.env.SESSION_SECRET;
 if (!sessionSecret && process.env.NODE_ENV === "production") {
-  console.error("[Startup] FATAL: SESSION_SECRET is not set. Refusing to start in production.");
+  logger.error("FATAL: SESSION_SECRET is not set. Refusing to start in production.");
   process.exit(1);
 }
 if (!sessionSecret) {
-  console.warn("[Startup] Warning: SESSION_SECRET not set — using insecure dev default. Do NOT run this in production.");
+  logger.warn("SESSION_SECRET not set — using insecure dev default. Do NOT run this in production.");
 }
 
 app.use(
@@ -102,7 +105,7 @@ export function log(message: string, source = "express") {
     hour12: true,
   });
 
-  console.log(`${formattedTime} [${source}] ${message}`);
+  logger.info(`${formattedTime} [${source}] ${message}`);
 }
 
 app.use((req, res, next) => {
@@ -151,7 +154,7 @@ app.use((req, res, next) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
-    console.error("Internal Server Error:", err);
+    logger.error("Internal Server Error", { error: String(err) });
 
     if (res.headersSent) {
       return next(err);

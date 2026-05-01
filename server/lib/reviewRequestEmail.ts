@@ -7,6 +7,9 @@ import { getEmailTransporter, getFromAddress } from "./emailTransport";
 import { buildLegalFooter } from "./emailFooter";
 import { isEmailUnsubscribed } from "./unsubscribeStorage";
 import type { ReviewRequest } from "@shared/schema";
+import { createLogger } from "./logger";
+
+const log = createLogger("ReviewRequestEmail");
 
 function escHtml(str: string): string {
   return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -144,7 +147,7 @@ export async function sendReviewRequestEmail(
   }
 
   if (await isEmailUnsubscribed(reviewRequest.customer_email)) {
-    console.log(`[review-request] Recipient ${reviewRequest.customer_email} is unsubscribed — skipping`);
+    log.info(`[review-request] Recipient ${reviewRequest.customer_email} is unsubscribed — skipping`);
     return { ok: false, error: "Recipient unsubscribed" };
   }
 

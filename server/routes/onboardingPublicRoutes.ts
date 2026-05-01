@@ -7,6 +7,9 @@ import type { Express, Request, Response } from "express";
 import { storage } from "../storage";
 import { mapOnboardingToTradeLineConfig, advanceSetupStage } from "@shared/schema";
 import { sendOnboardingConfirmationEmail } from "../lib/onboardingConfirmationEmail";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("OnboardingPublic");
 
 export function registerOnboardingPublicRoutes(app: Express): void {
 
@@ -40,7 +43,7 @@ export function registerOnboardingPublicRoutes(app: Express): void {
         submittedAt: submission.submitted_at,
       });
     } catch (err: any) {
-      console.error("[onboarding] GET error:", err.message);
+      log.error("[onboarding] GET error:", err.message);
       res.status(500).json({ error: "Failed to load onboarding form" });
     }
   });
@@ -90,11 +93,11 @@ export function registerOnboardingPublicRoutes(app: Express): void {
             serviceName: data.serviceName,
             portalUrl: `${baseUrl}/portal`,
           }).catch(err =>
-            console.warn(`[onboarding-confirmation] send failed for submission #${submission.id}:`, err.message),
+            log.warn(`[onboarding-confirmation] send failed for submission #${submission.id}:`, err.message),
           );
         }
       } catch (err: any) {
-        console.warn(`[onboarding-confirmation] lookup failed for client #${submission.client_id}:`, err.message);
+        log.warn(`[onboarding-confirmation] lookup failed for client #${submission.client_id}:`, err.message);
       }
 
       // Service-specific post-submit orchestration
@@ -117,7 +120,7 @@ export function registerOnboardingPublicRoutes(app: Express): void {
             // Trigger assistant build (non-blocking)
             import("../services/vapiService").then(({ provisionTradeLineAssistant }) => {
               provisionTradeLineAssistant(cs.id).catch(err =>
-                console.warn(`[tradeline] Auto-build assistant failed for service #${cs.id}:`, err.message),
+                log.warn(`[tradeline] Auto-build assistant failed for service #${cs.id}:`, err.message),
               );
             });
           } else if (cs) {
@@ -125,18 +128,18 @@ export function registerOnboardingPublicRoutes(app: Express): void {
             // Fills client fields + client_service.metadata.config from raw responses
             import("../services/onboardingAI").then(({ processOnboardingSubmission }) => {
               processOnboardingSubmission(submission.id).catch(err =>
-                console.warn(`[onboarding-ai] Processing failed for submission #${submission.id}:`, err.message),
+                log.warn(`[onboarding-ai] Processing failed for submission #${submission.id}:`, err.message),
               );
             });
           }
         } catch (err) {
-          console.warn("[onboarding] Post-submit orchestration error:", err);
+          log.warn("[onboarding] Post-submit orchestration error:", { error: String(err) });
         }
       }
 
       res.json({ ok: true, status: "submitted" });
     } catch (err: any) {
-      console.error("[onboarding] POST error:", err.message);
+      log.error("[onboarding] POST error:", err.message);
       res.status(500).json({ error: "Failed to submit onboarding form" });
     }
   });

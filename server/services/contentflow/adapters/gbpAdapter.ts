@@ -27,6 +27,9 @@ import type {
   AdapterFailureReason,
 } from "./types";
 import type { ContentDraft } from "@shared/schema";
+import { createLogger } from "../../../lib/logger";
+
+const log = createLogger("GBPAdapter");
 
 interface GbpDraftMeta {
   /** DB id of the linked reviews row. Required. */
@@ -70,7 +73,7 @@ async function persistFailure(draftId: number, errorMsg: string): Promise<void> 
       },
     } as any);
   } catch (err: any) {
-    console.error(`[contentflow][gbp] failed to persist failure for draft ${draftId}: ${err?.message || err}`);
+    log.error(`[contentflow][gbp] failed to persist failure for draft ${draftId}: ${err?.message || err}`);
   }
 }
 
@@ -112,7 +115,7 @@ async function persistOnReview(
     } as any);
   } catch (err: any) {
     /* Non-fatal — the GBP call already succeeded. Log only. */
-    console.error(`[contentflow][gbp] reviews row ${reviewId} update failed: ${err?.message || err}`);
+    log.error(`[contentflow][gbp] reviews row ${reviewId} update failed: ${err?.message || err}`);
   }
 }
 
@@ -168,7 +171,7 @@ export const gbpAdapter: PublishAdapter = {
 
     if (!result.success) {
       const errMsg = result.error || "unknown GBP error";
-      console.error(`${logPrefix} draft=${draft.id} send_failed: ${errMsg}`);
+      log.error(`${logPrefix} draft=${draft.id} send_failed: ${errMsg}`);
       await persistFailure(draft.id, errMsg);
       const upstreamStatus = (result.result as any)?.status ?? result.status;
       const retryable =
@@ -202,7 +205,7 @@ export const gbpAdapter: PublishAdapter = {
       await persistOnReview(meta.review_id, replyText, replyResult, reviewSource);
     }
 
-    console.log(`${logPrefix} draft=${draft.id} client=${draft.client_id} review=${meta.external_review_id} posted ok`);
+    log.info(`${logPrefix} draft=${draft.id} client=${draft.client_id} review=${meta.external_review_id} posted ok`);
     return {
       ok: true,
       externalId: meta.external_review_id,

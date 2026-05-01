@@ -21,6 +21,9 @@
 import type { Express, Request, Response } from "express";
 import Stripe from "stripe";
 import { verifyBillingPortalToken } from "../lib/billingPortalToken";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("BillingPortal");
 
 function getStripe(): Stripe | null {
   const key = process.env.STRIPE_SECRET_KEY;
@@ -35,13 +38,13 @@ export function registerBillingPortalRoute(app: Express): void {
 
     const verified = verifyBillingPortalToken(token);
     if (!verified) {
-      console.warn("[billing-portal] token verification failed");
+      log.warn("[billing-portal] token verification failed");
       return res.redirect(302, `${baseUrl}/billing/expired`);
     }
 
     const stripe = getStripe();
     if (!stripe) {
-      console.error("[billing-portal] STRIPE_SECRET_KEY not configured");
+      log.error("[billing-portal] STRIPE_SECRET_KEY not configured");
       return res.redirect(302, `${baseUrl}/billing/error`);
     }
 
@@ -52,7 +55,7 @@ export function registerBillingPortalRoute(app: Express): void {
       });
       return res.redirect(302, session.url);
     } catch (err: any) {
-      console.error("[billing-portal] Stripe session create failed:", err.message);
+      log.error("[billing-portal] Stripe session create failed:", err.message);
       return res.redirect(302, `${baseUrl}/billing/error`);
     }
   });

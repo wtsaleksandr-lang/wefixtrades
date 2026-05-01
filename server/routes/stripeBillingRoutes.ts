@@ -22,6 +22,9 @@ import {
   cancelPendingForSubscription,
 } from "../services/dunningService";
 import { getTradeLineDefaultConfig } from "@shared/schema";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("StripeBilling");
 
 function getStripe(): Stripe | null {
   const key = process.env.STRIPE_SECRET_KEY;
@@ -98,7 +101,7 @@ export function registerStripeBillingRoutes(app: Express): void {
         session_id: session.id,
       });
     } catch (err: any) {
-      console.error("[billing] Checkout error:", err.message);
+      log.error("[billing] Checkout error:", err.message);
       res.status(500).json({ error: "Failed to create checkout session" });
     }
   });
@@ -125,17 +128,17 @@ export function registerStripeBillingRoutes(app: Express): void {
           webhookSecret,
         );
       } catch (err: any) {
-        console.error("[billing-webhook] Signature verification failed:", err.message);
+        log.error("[billing-webhook] Signature verification failed:", err.message);
         return res.status(400).send("Invalid signature");
       }
     } else if (process.env.NODE_ENV === "production") {
       // In production, refuse to process unverified webhooks
-      console.error("[billing-webhook] STRIPE_BILLING_WEBHOOK_SECRET is not set — rejecting webhook in production");
+      log.error("[billing-webhook] STRIPE_BILLING_WEBHOOK_SECRET is not set — rejecting webhook in production");
       return res.status(500).send("Webhook secret not configured");
     } else {
       // Development only — accept event without verification
       event = req.body as Stripe.Event;
-      console.warn("[billing-webhook] No STRIPE_BILLING_WEBHOOK_SECRET — skipping signature verification (dev only)");
+      log.warn("[billing-webhook] No STRIPE_BILLING_WEBHOOK_SECRET — skipping signature verification (dev only)");
     }
 
     try {
@@ -185,7 +188,7 @@ export function registerStripeBillingRoutes(app: Express): void {
 
       res.json({ received: true });
     } catch (err: any) {
-      console.error(`[billing-webhook] Error handling ${event.type}:`, err.message);
+      log.error(`[billing-webhook] Error handling ${event.type}:`, err.message);
       res.status(500).json({ error: "Webhook handler failed" });
     }
   });
@@ -205,7 +208,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   const isPublicCheckout = session.metadata?.source === "public_checkout";
 
   if (!clientId || !serviceIdRaw) {
-    console.warn("[billing-webhook] checkout.session.completed missing metadata, skipping");
+    log.warn("[billing-webhook] checkout.session.completed missing metadata, skipping");
     return;
   }
 
@@ -220,7 +223,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   // Branded payment receipt — sent once per session, after all services provisioned.
   // Stripe sends its own receipt; this one is on-brand and links back to the portal.
   sendPaymentReceipt(session, clientId).catch(err =>
-    console.warn(`[payment-receipt] send failed for session ${session.id}:`, err.message),
+    log.warn(`[payment-receipt] send failed for session ${session.id}:`, err.message),
   );
 
   // Order confirmation email — reassurance about what they bought and what's next.
@@ -237,18 +240,18 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
         currency: session.currency || "usd",
         onboardingUrl: `${baseUrl}/portal`,
       }).catch(err =>
-        console.warn(`[order-confirmation] send failed for session ${session.id}:`, err.message),
+        log.warn(`[order-confirmation] send failed for session ${session.id}:`, err.message),
       );
     }
   } catch (err: any) {
-    console.warn(`[order-confirmation] lookup failed for client #${clientId}:`, err.message);
+    log.warn(`[order-confirmation] lookup failed for client #${clientId}:`, err.message);
   }
 
   // Ensure portal login exists after payment is confirmed
   try {
     const { user, created } = await storage.ensurePortalAccount(clientId);
     if (created) {
-      console.log(`[billing-webhook] Auto-created portal account for client #${clientId}`);
+      log.info(`[billing-webhook] Auto-created portal account for client #${clientId}`);
       await storage.logAdminActivity({
         actor_type: "system",
         actor_name: "Stripe Webhook",
@@ -263,12 +266,12 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
       const client = await storage.getClientById(clientId);
       if (client) {
         sendAccountWelcome({ user, client }).catch(err =>
-          console.warn(`[account-welcome] send failed for client #${clientId}:`, err.message),
+          log.warn(`[account-welcome] send failed for client #${clientId}:`, err.message),
         );
       }
     }
   } catch (err: any) {
-    console.warn(`[billing-webhook] Could not auto-create portal account for client #${clientId}: ${err.message}`);
+    log.warn(`[billing-webhook] Could not auto-create portal account for client #${clientId}: ${err.message}`);
   }
 }
 
@@ -282,7 +285,7 @@ async function provisionOrConfirmService(
   // Idempotency: check if already provisioned (public checkout pre-provisions; admin provision-first flow)
   const existing = await storage.findClientServiceByServiceId(clientId, serviceId);
   if (existing) {
-    console.log(`[billing-webhook] Service ${serviceId} already provisioned for client ${clientId} — updating payment only`);
+    log.info(`[billing-webhook] Service ${serviceId} already provisioned for client ${clientId} — updating payment only`);
 
     // Find the pending invoice created during provisioning and mark it paid
     const pendingInvoice = await storage.findPendingPaymentForClientService(existing.id);
@@ -292,7 +295,7 @@ async function provisionOrConfirmService(
         paid_at: new Date(),
         stripe_payment_intent_id: session.id,
       });
-      console.log(`[billing-webhook] Updated invoice #${pendingInvoice.id} → paid`);
+      log.info(`[billing-webhook] Updated invoice #${pendingInvoice.id} → paid`);
     } else {
       const alreadyRecorded = await storage.findPaymentByStripeSession(session.id);
       if (!alreadyRecorded) {
@@ -308,7 +311,7 @@ async function provisionOrConfirmService(
           stripe_payment_intent_id: session.id,
           actor_type: "system",
         });
-        console.log(`[billing-webhook] No pending invoice found — created paid payment record`);
+        log.info(`[billing-webhook] No pending invoice found — created paid payment record`);
       }
     }
 
@@ -320,7 +323,7 @@ async function provisionOrConfirmService(
   // Service not yet provisioned — provision it now (admin-initiated checkout without pre-provision)
   const service = await storage.getServiceById(serviceId);
   if (!service) {
-    console.error(`[billing-webhook] Service ${serviceId} not found`);
+    log.error(`[billing-webhook] Service ${serviceId} not found`);
     return;
   }
 
@@ -428,7 +431,7 @@ async function provisionOrConfirmService(
     metadata: { stripe_session_id: session.id, tasks_created: taskTemplates.length },
   });
 
-  console.log(`[billing-webhook] Provisioned ${serviceId} for client ${clientId} (${taskTemplates.length} tasks)`);
+  log.info(`[billing-webhook] Provisioned ${serviceId} for client ${clientId} (${taskTemplates.length} tasks)`);
 }
 
 /** Find and send onboarding emails for a client_service that was already provisioned */
@@ -461,7 +464,7 @@ async function sendOnboardingForClientService(
       status: "sent",
       sent_at: new Date(),
     });
-    console.log(`[billing-webhook] Onboarding email sent for ${service.name} → ${client.contact_email}`);
+    log.info(`[billing-webhook] Onboarding email sent for ${service.name} → ${client.contact_email}`);
   }
 }
 
@@ -475,7 +478,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
 
   const client = await storage.findClientByStripeCustomerId(customerId);
   if (!client) {
-    console.warn(`[billing-webhook] invoice.paid — no client found for customer ${customerId}`);
+    log.warn(`[billing-webhook] invoice.paid — no client found for customer ${customerId}`);
     return;
   }
 
@@ -491,7 +494,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
     actor_type: "system",
   });
 
-  console.log(`[billing-webhook] Recorded renewal payment for client ${client.id}: $${((invoice.amount_paid ?? 0) / 100).toFixed(2)}`);
+  log.info(`[billing-webhook] Recorded renewal payment for client ${client.id}: $${((invoice.amount_paid ?? 0) / 100).toFixed(2)}`);
 }
 
 async function handleInvoiceFailed(invoice: Stripe.Invoice, eventId: string) {
@@ -518,7 +521,7 @@ async function handleInvoiceFailed(invoice: Stripe.Invoice, eventId: string) {
     invoiceId: invoice.id || "",
     amountCents: invoice.amount_due ?? 0,
     nextAttemptAt: invoice.next_payment_attempt ? new Date(invoice.next_payment_attempt * 1000) : null,
-  }).catch(err => console.warn(`[payment-failed] email send failed:`, err.message));
+  }).catch(err => log.warn(`[payment-failed] email send failed:`, err.message));
 
   // Day 2 / Day 5 / Day 7 — schedule the dunning sequence. Idempotent on
   // (subscription, event_id, kind) so duplicate Stripe deliveries are
@@ -535,9 +538,9 @@ async function handleInvoiceFailed(invoice: Stripe.Invoice, eventId: string) {
     amountCents: invoice.amount_due ?? undefined,
     currency: invoice.currency ?? undefined,
     clientId: client.id,
-  }).catch(err => console.warn(`[dunning] schedule failed:`, err.message));
+  }).catch(err => log.warn(`[dunning] schedule failed:`, err.message));
 
-  console.log(`[billing-webhook] Payment failed for client ${client.id}, dunning sequence scheduled`);
+  log.info(`[billing-webhook] Payment failed for client ${client.id}, dunning sequence scheduled`);
 }
 
 async function handleInvoiceSucceeded(invoice: Stripe.Invoice) {
@@ -550,7 +553,7 @@ async function handleInvoiceSucceeded(invoice: Stripe.Invoice) {
   await cancelPendingForSubscription({
     stripeSubscriptionId: subscriptionId,
     reason: "payment_succeeded",
-  }).catch(err => console.warn(`[dunning] cancel-on-success failed:`, err.message));
+  }).catch(err => log.warn(`[dunning] cancel-on-success failed:`, err.message));
 }
 
 async function handleCardExpiring(source: Stripe.Card | Stripe.Source, eventId: string) {
@@ -574,9 +577,9 @@ async function handleCardExpiring(source: Stripe.Card | Stripe.Source, eventId: 
     cardBrand: brand,
     expMonth,
     expYear,
-  }).catch(err => console.warn(`[dunning] card-expiring schedule failed:`, err.message));
+  }).catch(err => log.warn(`[dunning] card-expiring schedule failed:`, err.message));
 
-  console.log(`[billing-webhook] Card expiring for customer ${customerId}, email queued`);
+  log.info(`[billing-webhook] Card expiring for customer ${customerId}, email queued`);
 }
 
 async function handleSubscriptionUpdated(
@@ -590,7 +593,7 @@ async function handleSubscriptionUpdated(
     await cancelPendingForSubscription({
       stripeSubscriptionId: subscription.id,
       reason: "payment_succeeded",
-    }).catch(err => console.warn(`[dunning] cancel-on-recovery failed:`, err.message));
+    }).catch(err => log.warn(`[dunning] cancel-on-recovery failed:`, err.message));
   }
 
   // Defensive: if we ever see active → canceled here (rare — usually
@@ -599,7 +602,7 @@ async function handleSubscriptionUpdated(
     await cancelPendingForSubscription({
       stripeSubscriptionId: subscription.id,
       reason: "subscription_canceled",
-    }).catch(err => console.warn(`[dunning] cancel-on-canceled-update failed:`, err.message));
+    }).catch(err => log.warn(`[dunning] cancel-on-canceled-update failed:`, err.message));
   }
 }
 
@@ -616,7 +619,7 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription, _eve
   cancelPendingForSubscription({
     stripeSubscriptionId: subscription.id,
     reason: "subscription_canceled",
-  }).catch(err => console.warn(`[dunning] cancel-pending-on-deleted failed:`, err.message));
+  }).catch(err => log.warn(`[dunning] cancel-pending-on-deleted failed:`, err.message));
 
   const client = await storage.findClientByStripeCustomerId(customerId);
   if (!client) return;
@@ -631,7 +634,7 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription, _eve
       sendCancellationEmail({
         clientServiceId: svc.id,
         cancellationContext: "stripe",
-      }).catch(err => console.warn(`[cancellation-email] send failed for service #${svc.id}:`, err.message));
+      }).catch(err => log.warn(`[cancellation-email] send failed for service #${svc.id}:`, err.message));
     }
   }
 
@@ -644,7 +647,7 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription, _eve
     summary: `Subscription cancelled for client "${client.business_name}"`,
   });
 
-  console.log(`[billing-webhook] Subscription cancelled for client ${client.id}`);
+  log.info(`[billing-webhook] Subscription cancelled for client ${client.id}`);
 }
 
 /* ─── QuoteQuick Direct Checkout Handler ─── */
@@ -654,13 +657,13 @@ async function handleQuoteQuickCheckout(session: Stripe.Checkout.Session) {
   const planTier = session.metadata?.plan_tier || "starter";
 
   if (!calculatorId) {
-    console.warn("[billing-webhook] QuoteQuick checkout missing calculator_id");
+    log.warn("[billing-webhook] QuoteQuick checkout missing calculator_id");
     return;
   }
 
   const calculator = await storage.getCalculatorById(calculatorId);
   if (!calculator) {
-    console.warn(`[billing-webhook] Calculator ${calculatorId} not found`);
+    log.warn(`[billing-webhook] Calculator ${calculatorId} not found`);
     return;
   }
 
@@ -699,6 +702,6 @@ async function handleQuoteQuickCheckout(session: Stripe.Checkout.Session) {
     });
   }
 
-  console.log(`[billing-webhook] QuoteQuick calculator ${calculatorId} upgraded to ${planTier}${wasPaused ? ' (reactivated)' : ''}`);
+  log.info(`[billing-webhook] QuoteQuick calculator ${calculatorId} upgraded to ${planTier}${wasPaused ? ' (reactivated)' : ''}`);
 }
 

@@ -24,6 +24,9 @@ import { db } from "../db";
 import { emailEvents } from "@shared/schema";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { requireAdmin } from "../auth";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("EmailTracking");
 
 // 1x1 transparent GIF — base64 decoded to a buffer once, served as a
 // pre-built Buffer for every pixel hit (no per-request decoding cost).
@@ -48,7 +51,7 @@ function logEvent(emailId: string, type: "open" | "click", metadata: Record<stri
       metadata: metadata ?? null,
     })
     .catch((err: any) => {
-      console.warn(`[email-tracking] failed to log ${type} for ${emailId}: ${err?.message}`);
+      log.warn(`[email-tracking] failed to log ${type} for ${emailId}: ${err?.message}`);
     });
 }
 
@@ -143,7 +146,7 @@ export function registerEmailTrackingRoutes(app: Express): void {
         })),
       });
     } catch (err: any) {
-      console.error("[email-events] query failed:", err?.message);
+      log.error("[email-events] query failed:", err?.message);
       res.status(500).json({ error: "Failed to load email events" });
     }
   });

@@ -8,6 +8,9 @@ import {
 } from "../lib/demoQuoteFollowup";
 import { getEmailTransporter, getFromAddress } from "../lib/emailTransport";
 import { ADMIN_ALERT_FROM_NAME } from "../lib/adminAlertShell";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("DemoLead");
 
 const rateMap = new Map<string, { count: number; resetAt: number }>();
 const RATE_WINDOW = 10 * 60 * 1000;
@@ -93,7 +96,7 @@ export function registerDemoLeadRoutes(app: Express): void {
             text,
           })
           .catch((err) => {
-            console.error("[demo-lead] Quote email error:", err?.message);
+            log.error("[demo-lead] Quote email error:", err?.message);
           });
       }
 
@@ -113,15 +116,15 @@ export function registerDemoLeadRoutes(app: Express): void {
               text,
             })
             .catch((err) => {
-              console.error(
+              log.error(
                 "[demo-lead] Internal notification error:",
                 err?.message
               );
             });
         } else {
-          console.log(
-            "[demo-lead] No INTERNAL_LEAD_EMAIL or SMTP_USER configured — internal notification skipped. Lead ID:",
-            lead.id
+          log.info(
+            "No INTERNAL_LEAD_EMAIL or SMTP_USER configured — internal notification skipped",
+            { leadId: lead.id }
           );
         }
       }
@@ -129,7 +132,7 @@ export function registerDemoLeadRoutes(app: Express): void {
       // 4. Enqueue follow-up sequence (non-blocking)
       if (trimmedEmail) {
         enqueueDemoQuoteFollowups(ctx).catch((err) => {
-          console.error(
+          log.error(
             "[demo-lead] Followup enqueue error:",
             err?.message
           );
@@ -147,16 +150,15 @@ export function registerDemoLeadRoutes(app: Express): void {
         context:       { ipAddress: req.ip, userAgent: req.headers['user-agent'] as string | undefined },
       }).catch(() => {});
 
-      console.log(
-        "[demo-lead] Saved lead",
-        lead.id,
-        trimmedEmail || trimmedPhone,
+      log.info("Saved lead", {
+        leadId: lead.id,
+        contact: trimmedEmail || trimmedPhone,
         trade,
-        quoteAmount
-      );
+        quoteAmount,
+      });
       return res.json({ ok: true, leadId: lead.id });
     } catch (err: any) {
-      console.error("[demo-lead] error:", err?.message);
+      log.error("[demo-lead] error:", err?.message);
       return res.status(500).json({ error: "Failed to save lead" });
     }
   });

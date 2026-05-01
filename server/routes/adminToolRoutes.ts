@@ -1,6 +1,9 @@
 import type { Express, Request, Response } from "express";
 import { requireAdmin } from "../auth";
 import { consumePendingAction, TOOL_EXECUTORS } from "../services/adminTools";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("AdminTool");
 
 export function registerAdminToolRoutes(app: Express): void {
   /**
@@ -57,7 +60,7 @@ export function registerAdminToolRoutes(app: Express): void {
 
       return res.json({ success: true, narrative: result.narrative });
     } catch (err: any) {
-      console.error("[tool-confirm] Execution error:", err.message);
+      log.error("[tool-confirm] Execution error:", err.message);
       return res.status(500).json({ error: err.message || "Tool execution failed" });
     }
   });

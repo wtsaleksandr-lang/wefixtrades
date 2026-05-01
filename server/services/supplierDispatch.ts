@@ -18,6 +18,9 @@ import { getEmailTransporter, getFromAddress } from "../lib/emailTransport";
 import { buildAdminAlertEmail, buildAdminAlertPlainText, ADMIN_ALERT_FROM_NAME, type AlertTone } from "../lib/adminAlertShell";
 import { storage } from "../storage";
 import type { FulfillmentTask, Supplier } from "@shared/schema";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("SupplierDispatch");
 
 export interface DispatchResult {
   dispatched: boolean;
@@ -153,13 +156,13 @@ export async function dispatchTaskToSupplier(taskId: number): Promise<DispatchRe
   const { supplier, clientName, serviceName } = await loadContext(task);
   if (!supplier) return { dispatched: false, reason: "supplier_not_found" };
   if (!supplier.contact_email) {
-    console.warn(`[supplier-dispatch] Supplier #${supplier.id} (${supplier.name}) has no contact_email — skipping`);
+    log.warn(`[supplier-dispatch] Supplier #${supplier.id} (${supplier.name}) has no contact_email — skipping`);
     return { dispatched: false, reason: "supplier_no_email", supplier_id: supplier.id };
   }
 
   const transporter = getEmailTransporter();
   if (!transporter) {
-    console.warn(`[supplier-dispatch] SMTP not configured — skipping dispatch for task #${task.id}`);
+    log.warn(`[supplier-dispatch] SMTP not configured — skipping dispatch for task #${task.id}`);
     return { dispatched: false, reason: "smtp_not_configured", supplier_id: supplier.id };
   }
 
@@ -202,10 +205,10 @@ export async function dispatchTaskToSupplier(taskId: number): Promise<DispatchRe
     };
     await storage.updateFulfillmentTask(task.id, { metadata: newMeta });
 
-    console.log(`[supplier-dispatch] Sent task #${task.id} "${task.title}" to ${supplier.contact_email}`);
+    log.info(`[supplier-dispatch] Sent task #${task.id} "${task.title}" to ${supplier.contact_email}`);
     return { dispatched: true, supplier_id: supplier.id, supplier_email: supplier.contact_email };
   } catch (err: any) {
-    console.error(`[supplier-dispatch] Failed to send task #${task.id}:`, err.message);
+    log.error(`[supplier-dispatch] Failed to send task #${task.id}:`, err.message);
     return { dispatched: false, reason: `send_failed: ${err.message}`, supplier_id: supplier.id };
   }
 }

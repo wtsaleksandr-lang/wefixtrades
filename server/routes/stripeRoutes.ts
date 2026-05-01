@@ -1,6 +1,9 @@
 import type { Express } from "express";
 import Stripe from "stripe";
 import { storage } from "../storage";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("StripeConnect");
 
 function getStripeClient(): Stripe | null {
   const key = process.env.STRIPE_SECRET_KEY;
@@ -37,7 +40,7 @@ export function registerStripeRoutes(app: Express): void {
 
       res.json({ url: accountLink.url, account_id: account.id });
     } catch (err: any) {
-      console.error("[Stripe Connect]", err);
+      log.error("[Stripe Connect]", err);
       res.status(500).json({ error: err.message });
     }
   });
@@ -59,7 +62,7 @@ export function registerStripeRoutes(app: Express): void {
 
       res.redirect(`/?stripe_connected=1`);
     } catch (err: any) {
-      console.error("[Stripe Callback]", err);
+      log.error("[Stripe Callback]", err);
       res.status(500).send("Error connecting Stripe");
     }
   });

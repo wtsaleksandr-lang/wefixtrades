@@ -11,6 +11,9 @@
 import { db } from "../db";
 import { emailUnsubscribes } from "@shared/schemas/emailUnsubscribes";
 import { sql, eq } from "drizzle-orm";
+import { createLogger } from "./logger";
+
+const log = createLogger("UnsubscribeStorage");
 
 let _tableEnsured = false;
 
@@ -36,7 +39,7 @@ async function ensureTable(): Promise<void> {
     `);
     _tableEnsured = true;
   } catch (err: any) {
-    console.warn("[unsubscribe-storage] ensureTable failed (will retry):", err?.message);
+    log.warn("[unsubscribe-storage] ensureTable failed (will retry):", err?.message);
   }
 }
 
@@ -58,7 +61,7 @@ export async function isEmailUnsubscribed(email: string): Promise<boolean> {
     // Fail open — if the unsubscribe table is broken, prefer over-sending
     // to under-sending. (Operationally easier to spot via complaints than
     // silent failure that nukes all marketing.)
-    console.warn("[unsubscribe-storage] isEmailUnsubscribed failed:", err?.message);
+    log.warn("[unsubscribe-storage] isEmailUnsubscribed failed:", err?.message);
     return false;
   }
 }
@@ -82,7 +85,7 @@ export async function recordUnsubscribe(params: {
       ON CONFLICT (email) DO NOTHING
     `);
   } catch (err: any) {
-    console.error("[unsubscribe-storage] recordUnsubscribe failed:", err?.message);
+    log.error("[unsubscribe-storage] recordUnsubscribe failed:", err?.message);
     throw err;
   }
 }

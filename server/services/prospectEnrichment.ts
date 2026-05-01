@@ -11,6 +11,9 @@
  */
 
 import Anthropic from "@anthropic-ai/sdk";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("ProspectEnrich");
 
 export interface EnrichmentInput {
   businessName: string;
@@ -100,7 +103,7 @@ export async function runAiEnrichment(
 ): Promise<AiResult | null> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
-    console.warn("[ProspectEnrichment] ANTHROPIC_API_KEY not set — skipping AI enrichment");
+    log.warn("[ProspectEnrichment] ANTHROPIC_API_KEY not set — skipping AI enrichment");
     return null;
   }
 
@@ -155,7 +158,7 @@ Return ONLY valid JSON. No markdown, no explanation, no code fences.`;
       ai_cta_variant:          parsed.ai_cta_variant || "",
     };
   } catch (err: any) {
-    console.error("[ProspectEnrichment] AI enrichment failed:", err.message);
+    log.error("[ProspectEnrichment] AI enrichment failed:", err.message);
     return null;
   }
 }

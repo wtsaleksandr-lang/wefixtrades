@@ -5,6 +5,9 @@
  * agencies handle paid ads instead. This worker is kept as a no-op
  * stub so existing scheduler imports don't break.
  */
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("AdflowReport");
 
 export async function processAdflowReports(): Promise<{
   sent: number;
@@ -15,7 +18,7 @@ export async function processAdflowReports(): Promise<{
   skipped_unsubscribed: number;
   skipped_other: number;
 }> {
-  console.log("[adflow-report] AdFlow retired — skipping report batch.");
+  log.info("[adflow-report] AdFlow retired — skipping report batch.");
   return {
     sent: 0,
     skipped: 0,

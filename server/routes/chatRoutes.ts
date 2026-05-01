@@ -9,6 +9,9 @@ import { db } from "../db";
 import { auditReports } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { shouldInjectTools, ADMIN_TOOLS, storePendingAction } from "../services/adminTools";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("Chat");
 
 /* ─── Validation ─── */
 const VALID_SURFACES: ChatSurface[] = ["website", "audit", "dashboard", "admin", "vapi", "portal"];
@@ -71,7 +74,7 @@ async function loadAuditContext(reportId: string): Promise<AuditContext | null> 
 
     return ctx;
   } catch (err) {
-    console.error("[chat] Failed to load audit context:", err);
+    log.error("[chat] Failed to load audit context:", { error: String(err) });
     return null;
   }
 }
@@ -132,7 +135,7 @@ async function parseAssistantRequest(req: Request): Promise<
       typeof onboardingId === "number" ? onboardingId : undefined,
       currentResponses ? { currentResponses } : undefined,
     ).catch((err) => {
-      console.error("[chat] Portal context assembly error:", err);
+      log.error("[chat] Portal context assembly error:", err);
       return undefined;
     });
   }
@@ -218,7 +221,7 @@ async function writeStream(res: Response, req: AssistantRequest): Promise<void> 
 
     onComplete(fullReply).catch(() => {});
   } catch (err: any) {
-    console.error("[chat] Stream error:", err?.message);
+    log.error("[chat] Stream error:", err?.message);
     if (headersSent) {
       res.write(`data: ${JSON.stringify({ error: "Something went wrong. Please try again." })}\n\n`);
       res.write("data: [DONE]\n\n");
@@ -270,7 +273,7 @@ export function registerChatRoutes(app: Express): void {
 
       await writeStream(res, parsed.assistantReq);
     } catch (err: any) {
-      console.error("[chat] Error:", err?.status || "", err?.message, err?.error?.message || "");
+      log.error("Error", { status: String(err?.status || ""), error: err?.message, detail: String(err?.error?.message || "") });
       if (!res.headersSent) {
         return res.status(500).json({ error: "Something went wrong. Please try again." });
       }
@@ -313,7 +316,7 @@ export function registerChatRoutes(app: Express): void {
       const result = await assistantSync(parsed.assistantReq);
       return res.json({ reply: result.reply });
     } catch (err: any) {
-      console.error("[chat/sync] Error:", err?.message);
+      log.error("[chat/sync] Error:", err?.message);
       return res.status(500).json({ error: "Something went wrong. Please try again." });
     }
   });

@@ -22,6 +22,9 @@ import { storage } from "../../storage";
 import { renderArticleHtml } from "./articleHtml";
 import { decryptToken, isEncryptionConfigured } from "../socialSync/tokenEncryption";
 import type { ContentDraft } from "@shared/schema";
+import { createLogger } from "../../lib/logger";
+
+const log = createLogger("WPPublisher");
 
 /* ─── Public types ──────────────────────────────────────────────────── */
 
@@ -209,7 +212,7 @@ export async function publishDraftToWordpress(
    * exemption gated on NODE_ENV !== "production"). */
   if (!isAllowedDestinationUrl(targetUrl)) {
     const msg = "Refusing to publish over insecure (non-https) URL";
-    console.error(`[contentflow] WP publish rejected for draft ${draftId}: ${msg} (cms_url=${trimTrailingSlash(creds.cms_url)})`);
+    log.error(`[contentflow] WP publish rejected for draft ${draftId}: ${msg} (cms_url=${trimTrailingSlash(creds.cms_url)})`);
     await persistFailure(draftId, msg);
     return { ok: false, reason: "insecure_destination", message: msg };
   }
@@ -233,7 +236,7 @@ export async function publishDraftToWordpress(
     });
   } catch (err: any) {
     const msg = redactSensitiveEchoes(err?.message || String(err));
-    console.error(`[contentflow] WP publish network error for draft ${draftId} → ${trimTrailingSlash(creds.cms_url)}: ${msg}`);
+    log.error(`[contentflow] WP publish network error for draft ${draftId} → ${trimTrailingSlash(creds.cms_url)}: ${msg}`);
     await persistFailure(draftId, msg);
     return { ok: false, reason: "network_error", message: msg };
   }
@@ -242,7 +245,7 @@ export async function publishDraftToWordpress(
     let bodyText = "";
     try { bodyText = await response.text(); } catch {/* ignore */}
     const summary = redactSensitiveEchoes(bodyText.slice(0, 500));
-    console.error(`[contentflow] WP publish HTTP ${response.status} for draft ${draftId}: ${summary}`);
+    log.error(`[contentflow] WP publish HTTP ${response.status} for draft ${draftId}: ${summary}`);
     await persistFailure(draftId, `HTTP ${response.status}: ${summary}`);
     return { ok: false, reason: "wp_error", message: `WordPress responded with ${response.status}: ${summary}`, http_status: response.status };
   }
@@ -252,7 +255,7 @@ export async function publishDraftToWordpress(
     parsed = await response.json();
   } catch (err: any) {
     const msg = `WordPress returned non-JSON response: ${err.message}`;
-    console.error(`[contentflow] ${msg} (draft ${draftId})`);
+    log.error(`[contentflow] ${msg} (draft ${draftId})`);
     await persistFailure(draftId, msg);
     return { ok: false, reason: "wp_error", message: msg, http_status: response.status };
   }
@@ -263,7 +266,7 @@ export async function publishDraftToWordpress(
 
   if (!Number.isFinite(postId) || !postUrl) {
     const msg = "WordPress response missing id or link field";
-    console.error(`[contentflow] ${msg} (draft ${draftId}). Body keys: ${Object.keys(parsed || {}).join(",")}`);
+    log.error(`[contentflow] ${msg} (draft ${draftId}). Body keys: ${Object.keys(parsed || {}).join(",")}`);
     await persistFailure(draftId, msg);
     return { ok: false, reason: "wp_error", message: msg, http_status: response.status };
   }
@@ -304,11 +307,11 @@ export async function publishDraftToWordpress(
       } as any);
     } catch (err: any) {
       // Non-fatal: the WP post is already created. Log + continue.
-      console.error(`[contentflow] WP publish: rankflow_pages upsert failed for draft ${draftId}: ${err.message}`);
+      log.error(`[contentflow] WP publish: rankflow_pages upsert failed for draft ${draftId}: ${err.message}`);
     }
   }
 
-  console.log(`[contentflow] WP publish ok: draft=${draftId} client=${draft.client_id} post_id=${postId} status=${respStatus}`);
+  log.info(`[contentflow] WP publish ok: draft=${draftId} client=${draft.client_id} post_id=${postId} status=${respStatus}`);
   return {
     ok: true,
     post_id: postId,
@@ -339,7 +342,7 @@ async function persistFailure(draftId: number, errorMsg: string): Promise<void> 
       },
     });
   } catch (err: any) {
-    console.error(`[contentflow] WP publish: failed to persist failure metadata for draft ${draftId}: ${err.message}`);
+    log.error(`[contentflow] WP publish: failed to persist failure metadata for draft ${draftId}: ${err.message}`);
   }
 }
 

@@ -5,6 +5,9 @@ import { getEmailTransporter, getFromAddress } from "./emailTransport";
 import { buildAuditReportEmail } from "./reportEmailTemplate";
 import { generateReportPdf } from "./pdfGenerator";
 import { isEmailUnsubscribed } from "./unsubscribeStorage";
+import { createLogger } from "./logger";
+
+const log = createLogger("AuditReport");
 
 const MAX_ATTACHMENT_SIZE = 5 * 1024 * 1024; // 5MB
 
@@ -19,7 +22,7 @@ export async function sendAuditReportEmail(opts: {
   }
 
   if (await isEmailUnsubscribed(opts.recipientEmail)) {
-    console.log(`[audit-email] Recipient ${opts.recipientEmail} is unsubscribed — skipping`);
+    log.info(`[audit-email] Recipient ${opts.recipientEmail} is unsubscribed — skipping`);
     return { ok: false, error: "Recipient unsubscribed" };
   }
 
@@ -55,12 +58,12 @@ export async function sendAuditReportEmail(opts: {
       }];
       hasPdf = true;
     } else if (pdfResult.ok) {
-      console.log(`[audit-email] PDF too large (${(pdfResult.buffer.length / 1024 / 1024).toFixed(1)}MB), sending link only`);
+      log.info(`[audit-email] PDF too large (${(pdfResult.buffer.length / 1024 / 1024).toFixed(1)}MB), sending link only`);
     } else {
-      console.log(`[audit-email] PDF generation failed: ${pdfResult.error}, sending link only`);
+      log.info(`[audit-email] PDF generation failed: ${pdfResult.error}, sending link only`);
     }
   } catch (err: any) {
-    console.log(`[audit-email] PDF generation error: ${err?.message}, sending link only`);
+    log.info(`[audit-email] PDF generation error: ${err?.message}, sending link only`);
   }
 
   // Build email HTML (template adapts based on whether PDF is attached)

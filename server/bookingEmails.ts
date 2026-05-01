@@ -2,6 +2,9 @@ import type { Booking, Calculator } from "@shared/schema";
 import { getEmailTransporter, getFromAddress } from "./lib/emailTransport";
 import { buildTransactionalEmail, buildPlainText } from "./lib/transactionalShell";
 import { buildAdminAlertEmail, buildAdminAlertPlainText, ADMIN_ALERT_FROM_NAME } from "./lib/adminAlertShell";
+import { createLogger } from "./lib/logger";
+
+const log = createLogger("BookingEmails");
 
 function formatDate(dateStr: string): string {
   const [y, m, d] = dateStr.split("-");
@@ -69,7 +72,7 @@ export async function sendBookingConfirmationToCustomer(booking: Booking, calcul
     });
     return true;
   } catch (err) {
-    console.error("[BookingEmail] Failed to send customer confirmation:", err);
+    log.error("[BookingEmail] Failed to send customer confirmation:", { error: String(err) });
     return false;
   }
 }
@@ -124,7 +127,7 @@ export async function sendBookingNotificationToBusiness(booking: Booking, calcul
     });
     return true;
   } catch (err) {
-    console.error("[BookingEmail] Failed to send business notification:", err);
+    log.error("[BookingEmail] Failed to send business notification:", { error: String(err) });
     return false;
   }
 }

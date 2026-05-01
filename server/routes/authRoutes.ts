@@ -9,6 +9,9 @@ import { getEmailTransporter, getFromAddress } from "../lib/emailTransport";
 import { authRateLimiter } from "../services/rateLimiter";
 import { getMemory, linkSessionToUser, extractMemorySignals } from "../services/chatMemory";
 import { storage } from "../storage";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("Auth");
 
 function getClientIp(req: Request): string {
   return (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || "unknown";
@@ -142,12 +145,12 @@ export function registerAuthRoutes(app: Express) {
           `,
         });
       } else {
-        console.warn("[auth] SMTP not configured — reset token:", token);
+        log.warn("[auth] SMTP not configured — reset token:", { detail: token });
       }
 
       res.json({ ok: true });
     } catch (err) {
-      console.error("[auth] Forgot password error:", err);
+      log.error("[auth] Forgot password error:", { error: String(err) });
       res.json({ ok: true }); // Don't leak errors
     }
   });
@@ -197,7 +200,7 @@ export function registerAuthRoutes(app: Express) {
 
       res.json({ ok: true });
     } catch (err) {
-      console.error("[auth] Reset password error:", err);
+      log.error("[auth] Reset password error:", { error: String(err) });
       res.status(500).json({ error: "Failed to reset password" });
     }
   });
@@ -265,7 +268,7 @@ export function registerAuthRoutes(app: Express) {
 
       res.json({ linked: true });
     } catch (err) {
-      console.error("[auth] Link chat session error:", err);
+      log.error("[auth] Link chat session error:", { error: String(err) });
       res.json({ linked: false });
     }
   });
@@ -302,12 +305,12 @@ export function registerAuthRoutes(app: Express) {
 
       // Refresh the session with new user data
       req.login({ id: updated.id, email: updated.email, role: updated.role, name: updated.name }, (err) => {
-        if (err) console.error("[auth] Session refresh error:", err);
+        if (err) log.error("[auth] Session refresh error:", err);
       });
 
       res.json({ user: { id: updated.id, email: updated.email, role: updated.role, name: updated.name } });
     } catch (err) {
-      console.error("[auth] Profile update error:", err);
+      log.error("[auth] Profile update error:", { error: String(err) });
       res.status(500).json({ error: "Failed to update profile" });
     }
   });
@@ -343,7 +346,7 @@ export function registerAuthRoutes(app: Express) {
 
       res.json({ ok: true });
     } catch (err) {
-      console.error("[auth] Change password error:", err);
+      log.error("[auth] Change password error:", { error: String(err) });
       res.status(500).json({ error: "Failed to change password" });
     }
   });
@@ -394,7 +397,7 @@ export function registerAuthRoutes(app: Express) {
     sess.userSettings = current;
     req.session.save((err: Error | null) => {
       if (err) {
-        console.error("[auth] Settings save error:", err);
+        log.error("[auth] Settings save error:", { error: String(err) });
         return res.status(500).json({ error: "Failed to save settings" });
       }
       res.json({ settings: current });

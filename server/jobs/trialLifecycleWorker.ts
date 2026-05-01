@@ -4,6 +4,9 @@ import { db } from "../db";
 import { calculators, deploymentStatus, leads, analyticsEvents } from "@shared/schema";
 import { eq, and, sql, gte, lte, isNotNull, desc } from "drizzle-orm";
 import { sendTrialExpiryEmail } from "../lib/trialExpiryEmail";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("TrialLifecycle");
 
 /**
  * Trial Lifecycle Worker
@@ -270,7 +273,7 @@ export async function processTrialLifecycle(): Promise<{ processed: number; emai
           daysRemaining,
           upgradeUrl: ctx.pricingUrl,
         }).catch(err =>
-          console.warn(`[trial-expiry-email] failed for calc ${calc.id}:`, err.message),
+          log.warn(`[trial-expiry-email] failed for calc ${calc.id}:`, err.message),
         );
       }
 

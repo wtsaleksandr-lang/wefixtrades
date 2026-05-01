@@ -11,6 +11,9 @@ import { mapguardSnapshots } from "@shared/schemas/mapguardMonitoring";
 import { clients, clientServices, serviceCatalog } from "@shared/schemas/adminCrm";
 import { eq, and, desc, sql, gte } from "drizzle-orm";
 import { getEmailTransporter, getFromAddress } from "../lib/emailTransport";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("MapguardRetention");
 
 /* ═══════════════════════════════════════════
    TASK TYPE → PAST TENSE CLIENT LANGUAGE
@@ -239,7 +242,7 @@ export async function sendWeeklyUpdate(clientId: number, email: string, business
     });
     return true;
   } catch (err: any) {
-    console.error(`[mapguard-retention] Weekly email failed for ${businessName}:`, err.message);
+    log.error(`[mapguard-retention] Weekly email failed for ${businessName}:`, err.message);
     return false;
   }
 }
@@ -275,6 +278,6 @@ export async function sendAllWeeklyUpdates(): Promise<{ sent: number; skipped: n
     else errors++;
   }
 
-  console.log(`[mapguard-retention] Weekly updates: ${sent} sent, ${skipped} skipped, ${errors} errors`);
+  log.info(`[mapguard-retention] Weekly updates: ${sent} sent, ${skipped} skipped, ${errors} errors`);
   return { sent, skipped, errors };
 }

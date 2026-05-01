@@ -18,6 +18,9 @@ import {
 } from "../../lib/contentReviewEmail";
 import { enqueueGbpReviewReplyDraft } from "./wordpressQueue";
 import { repurposeArticle } from "./repurposerService";
+import { createLogger } from "../../lib/logger";
+
+const log = createLogger("ApprovalService");
 
 export interface AutoApproveInput {
   draftId: number;
@@ -129,7 +132,7 @@ export async function adminApproveDraft(input: AdminApproveInput): Promise<Conte
    * isolated — never throws back to the API caller. */
   if (revisionToken) {
     sendClientRevisionReadyEmail(draftId, { revisionToken }).catch((err) => {
-      console.error(`[content-review-email][client-revision] draft=${draftId} unhandled:`, err?.message || err);
+      log.error(`[content-review-email][client-revision] draft=${draftId} unhandled:`, err?.message || err);
     });
   }
 
@@ -139,7 +142,7 @@ export async function adminApproveDraft(input: AdminApproveInput): Promise<Conte
    * for kind === 'review_reply'. */
   if (existing.kind === "review_reply") {
     enqueueGbpReviewReplyDraft(draftId).catch((err) => {
-      console.error(`[contentflow][gbp-enqueue] draft=${draftId} from admin approve failed:`, err?.message || err);
+      log.error(`[contentflow][gbp-enqueue] draft=${draftId} from admin approve failed:`, err?.message || err);
     });
   }
 
@@ -161,7 +164,7 @@ export async function adminApproveDraft(input: AdminApproveInput): Promise<Conte
     existing.surface === "rankflow"
   ) {
     repurposeArticle(draftId).catch((err) => {
-      console.error(`[contentflow][repurposer] draft=${draftId} from admin approve failed:`, err?.message || err);
+      log.error(`[contentflow][repurposer] draft=${draftId} from admin approve failed:`, err?.message || err);
     });
   }
 
@@ -323,14 +326,14 @@ export async function clientApproveDraft(input: ClientReviewInput): Promise<Cont
    * surface as an API error. Idempotency is enforced inside the email
    * function via metadata.client_review.admin_emailed_for. */
   sendAdminClientApproveEmail(input.draftId).catch((err) => {
-    console.error(`[content-review-email][admin-approved] draft=${input.draftId} unhandled:`, err?.message || err);
+    log.error(`[content-review-email][admin-approved] draft=${input.draftId} unhandled:`, err?.message || err);
   });
 
   /* Sprint 9: enqueue review_reply drafts for GBP publish on client
    * approval. enqueueGbpReviewReplyDraft is a no-op for any other kind. */
   if (existing.kind === "review_reply") {
     enqueueGbpReviewReplyDraft(input.draftId).catch((err) => {
-      console.error(`[contentflow][gbp-enqueue] draft=${input.draftId} from client approve failed:`, err?.message || err);
+      log.error(`[contentflow][gbp-enqueue] draft=${input.draftId} from client approve failed:`, err?.message || err);
     });
   }
 
@@ -364,7 +367,7 @@ export async function clientRequestChanges(input: ClientReviewInput): Promise<Co
 
   /* Sprint 7: notify admin (changes-requested includes the note). */
   sendAdminClientChangesEmail(input.draftId).catch((err) => {
-    console.error(`[content-review-email][admin-changes] draft=${input.draftId} unhandled:`, err?.message || err);
+    log.error(`[content-review-email][admin-changes] draft=${input.draftId} unhandled:`, err?.message || err);
   });
 
   return updated ?? existing;
@@ -401,7 +404,7 @@ export async function clientRejectDraft(input: ClientReviewInput): Promise<Conte
 
   /* Sprint 7: notify admin. */
   sendAdminClientRejectEmail(input.draftId).catch((err) => {
-    console.error(`[content-review-email][admin-rejected] draft=${input.draftId} unhandled:`, err?.message || err);
+    log.error(`[content-review-email][admin-rejected] draft=${input.draftId} unhandled:`, err?.message || err);
   });
 
   return updated ?? existing;
