@@ -3267,4 +3267,138 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
       res.status(500).json({ error: err.message });
     }
   });
+
+  /* ═══════════════════════════════════════════
+     Task Approval / Revision (client-facing)
+     ═══════════════════════════════════════════ */
+
+  /**
+   * POST /api/portal/tasks/:taskId/approve
+   * Client approves a task that is waiting on them (e.g. design approval).
+   * Sets status to "delivered" and clears waiting_on.
+   */
+  app.post("/api/portal/tasks/:taskId/approve", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const taskId = parseInt(req.params.taskId as string);
+      if (isNaN(taskId)) return res.status(400).json({ error: "Invalid task ID" });
+
+      // Fetch the task
+      const [task] = await db.select().from(fulfillmentTasks).where(eq(fulfillmentTasks.id, taskId)).limit(1);
+      if (!task) return res.status(404).json({ error: "Task not found" });
+
+      // Verify ownership
+      if (task.client_id !== clientId) {
+        return res.status(403).json({ error: "This task does not belong to your account" });
+      }
+
+      // Verify the task is waiting on the client
+      if (task.waiting_on !== "client") {
+        return res.status(400).json({ error: "This task is not waiting on client action" });
+      }
+
+      // Update: mark as delivered and clear waiting_on
+      const updated = await storage.updateFulfillmentTask(taskId, {
+        status: "delivered",
+        waiting_on: null,
+        last_action: "Client approved",
+        last_action_at: new Date(),
+        completed_at: new Date(),
+      });
+
+      // Resolve client name for the log
+      const client = await storage.getClientById(clientId);
+      const actorName = client?.contact_name || client?.business_name || "Client";
+
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: req.user!.id,
+        actor_name: actorName,
+        action: "task.approved",
+        entity_type: "fulfillment_task",
+        entity_id: taskId,
+        summary: `Client "${actorName}" approved task "${task.title}"`,
+      });
+
+      log.info(`[portal/task-approve] Task #${taskId} approved by client #${clientId}`);
+      res.json({ ok: true, task: updated });
+    } catch (err: any) {
+      log.error("[portal/task-approve] Error:", { error: err.message });
+      res.status(500).json({ error: "Failed to approve task" });
+    }
+  });
+
+  /**
+   * POST /api/portal/tasks/:taskId/request-revision
+   * Client requests a revision on a task that is waiting on them.
+   * Sets status to "in_progress", waiting_on to "internal", and stores revision notes.
+   */
+  app.post("/api/portal/tasks/:taskId/request-revision", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const taskId = parseInt(req.params.taskId as string);
+      if (isNaN(taskId)) return res.status(400).json({ error: "Invalid task ID" });
+
+      const { notes } = req.body || {};
+      if (!notes || typeof notes !== "string" || !notes.trim()) {
+        return res.status(400).json({ error: "Revision notes are required" });
+      }
+
+      // Fetch the task
+      const [task] = await db.select().from(fulfillmentTasks).where(eq(fulfillmentTasks.id, taskId)).limit(1);
+      if (!task) return res.status(404).json({ error: "Task not found" });
+
+      // Verify ownership
+      if (task.client_id !== clientId) {
+        return res.status(403).json({ error: "This task does not belong to your account" });
+      }
+
+      // Verify the task is waiting on the client
+      if (task.waiting_on !== "client") {
+        return res.status(400).json({ error: "This task is not waiting on client action" });
+      }
+
+      // Build metadata with revision history
+      const existingMeta = (task.metadata as Record<string, any>) || {};
+      const revisionHistory = existingMeta.revision_history || [];
+      revisionHistory.push({
+        notes: notes.trim(),
+        requested_at: new Date().toISOString(),
+        requested_by: clientId,
+      });
+
+      const updated = await storage.updateFulfillmentTask(taskId, {
+        status: "in_progress",
+        waiting_on: "internal",
+        last_action: `Client requested revision: ${notes.trim().slice(0, 100)}`,
+        last_action_at: new Date(),
+        metadata: { ...existingMeta, revision_history: revisionHistory, latest_revision_notes: notes.trim() },
+      } as any);
+
+      // Resolve client name for the log
+      const client = await storage.getClientById(clientId);
+      const actorName = client?.contact_name || client?.business_name || "Client";
+
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: req.user!.id,
+        actor_name: actorName,
+        action: "task.revision_requested",
+        entity_type: "fulfillment_task",
+        entity_id: taskId,
+        summary: `Client "${actorName}" requested revision on task "${task.title}": ${notes.trim().slice(0, 200)}`,
+        metadata: { revision_notes: notes.trim() },
+      });
+
+      log.info(`[portal/task-revision] Task #${taskId} revision requested by client #${clientId}`);
+      res.json({ ok: true, task: updated });
+    } catch (err: any) {
+      log.error("[portal/task-revision] Error:", { error: err.message });
+      res.status(500).json({ error: "Failed to request revision" });
+    }
+  });
 }

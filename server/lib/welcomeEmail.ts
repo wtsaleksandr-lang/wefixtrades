@@ -83,17 +83,17 @@ function getServiceCopy(serviceId: string): ServiceCopy {
   if (serviceId === "sitelaunch-template") return {
     hero: "Your new site is live",
     intro: "Built from a proven trade template, populated with your content, and published. Mobile-first, SEO-ready, lead-capture wired.",
-    firstAction: "Share the link with a customer and watch your first form submission land in your inbox.",
+    firstAction: "Your website is live. Log in to your portal to see your service status.",
   };
   if (serviceId.startsWith("sitelaunch")) return {
     hero: "Your custom website is live",
-    intro: "Design finalized, 5 pages built, on-page SEO set, and DNS cut over. You own everything — we're just the team that shipped it.",
-    firstAction: "Send the first link to a customer and keep an eye on your analytics — the first data should arrive within 24 hours.",
+    intro: "Design finalized, pages built, on-page SEO set, and DNS cut over. You own everything — we're just the team that shipped it.",
+    firstAction: "Your website is live. Log in to your portal to see your service status.",
   };
   if (serviceId === "webfix") return {
     hero: "All fixes deployed",
     intro: "Every issue from your brief has been addressed, tested, and pushed live. No action needed from your side.",
-    firstAction: "Review the before/after summary in your portal — keep it for your records or share with your team.",
+    firstAction: "Your fixes have been completed. Log in to your portal for details.",
   };
   // Fallback
   return {
@@ -133,7 +133,7 @@ function buildArtifacts(serviceId: string, _cs: ClientService, baseUrl: string):
     artifacts.push({ label: "Campaign dashboard", value: `${baseUrl}/portal/services`, kind: "link" });
   }
   if (serviceId.startsWith("sitelaunch") || serviceId === "webfix") {
-    artifacts.push({ label: "Site & handoff details", value: `${baseUrl}/portal/services`, kind: "link" });
+    artifacts.push({ label: "Service status", value: `${baseUrl}/portal/services`, kind: "link" });
   }
 
   return artifacts;
