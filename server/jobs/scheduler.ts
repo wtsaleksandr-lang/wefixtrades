@@ -40,6 +40,8 @@ import { processRecurringTasks } from "./recurringTaskWorker";
 import { processUpsellEmails } from "./upsellWorker";
 import { processWebcareMaintenance } from "./webcareMaintenanceWorker";
 import { processRetention } from "./retentionWorker";
+import { fireAlert } from "../services/alertService";
+import { processEmailQueue } from "../services/emailQueueService";
 
 const log = createLogger("Scheduler");
 
@@ -68,7 +70,7 @@ async function withRetry<T>(
   throw lastError;
 }
 
-async function runJob(jobName: string, fn: () => Promise<any>) {
+export async function runJob(jobName: string, fn: () => Promise<any>) {
   let logId: number | null = null;
 
   try {
@@ -103,6 +105,16 @@ async function runJob(jobName: string, fn: () => Promise<any>) {
       }).catch((e: any) => log.error("Failed to update job log", { error: e.message }));
     }
     log.error(`${jobName} FAILED after ${MAX_RETRIES} retries`, { error: err.message });
+
+    // Fire a system alert for any worker failure
+    fireAlert({
+      severity: "critical",
+      category: "worker_failed",
+      title: `Worker "${jobName}" failed after ${MAX_RETRIES} retries`,
+      details: err.message,
+      metadata: { job_name: jobName, job_log_id: logId },
+    }).catch(() => {});
+
     throw err;
   }
 }
@@ -128,27 +140,51 @@ export function initScheduler() {
     }
   }, { timezone: "UTC" });
 
+  let notificationWorkerRunning = false;
   cron.schedule("* * * * *", async () => {
+    if (notificationWorkerRunning) {
+      log.debug("notification_worker skipped — previous tick still running");
+      return;
+    }
+    notificationWorkerRunning = true;
     try {
       await processNotificationQueue();
     } catch (err: any) {
       log.error("notification_worker error", { error: err.message });
+    } finally {
+      notificationWorkerRunning = false;
     }
   });
 
+  let followupWorkerRunning = false;
   cron.schedule("* * * * *", async () => {
+    if (followupWorkerRunning) {
+      log.debug("followup_worker skipped — previous tick still running");
+      return;
+    }
+    followupWorkerRunning = true;
     try {
       await processFollowupJobs();
     } catch (err: any) {
       log.error("followup_worker error", { error: err.message });
+    } finally {
+      followupWorkerRunning = false;
     }
   });
 
+  let auditFollowupWorkerRunning = false;
   cron.schedule("* * * * *", async () => {
+    if (auditFollowupWorkerRunning) {
+      log.debug("audit_followup_worker skipped — previous tick still running");
+      return;
+    }
+    auditFollowupWorkerRunning = true;
     try {
       await processAuditFollowups();
     } catch (err: any) {
       log.error("audit_followup_worker error", { error: err.message });
+    } finally {
+      auditFollowupWorkerRunning = false;
     }
   });
 
@@ -162,11 +198,19 @@ export function initScheduler() {
     }
   }, { timezone: "UTC" });
 
+  let reviewFollowupWorkerRunning = false;
   cron.schedule("* * * * *", async () => {
+    if (reviewFollowupWorkerRunning) {
+      log.debug("review_followup_worker skipped — previous tick still running");
+      return;
+    }
+    reviewFollowupWorkerRunning = true;
     try {
       await processReviewFollowups();
     } catch (err: any) {
       log.error("review_followup_worker error", { error: err.message });
+    } finally {
+      reviewFollowupWorkerRunning = false;
     }
   });
 
@@ -544,4 +588,22 @@ export function initScheduler() {
       log.error("data_retention cron handler error", { error: err.message });
     }
   }, { timezone: "UTC" });
+
+  // Email queue worker — drains pending emails every minute.
+  // Overlap-guarded to prevent double-sends if a tick runs long.
+  let emailQueueRunning = false;
+  cron.schedule("* * * * *", async () => {
+    if (emailQueueRunning) {
+      log.debug("email_queue skipped — previous tick still running");
+      return;
+    }
+    emailQueueRunning = true;
+    try {
+      await processEmailQueue();
+    } catch (err: any) {
+      log.error("email_queue error", { error: err.message });
+    } finally {
+      emailQueueRunning = false;
+    }
+  });
 }

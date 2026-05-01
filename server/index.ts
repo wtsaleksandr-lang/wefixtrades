@@ -39,9 +39,9 @@ function validateEnv(): void {
 
   const missing = critical.filter((key) => !process.env[key]);
 
-  if (missing.length === 0) return;
-
-  if (isProduction) {
+  if (missing.length === 0) {
+    // No missing critical vars — continue to dev-tool guard below
+  } else if (isProduction) {
     logger.error(
       "FATAL: Missing required environment variables in production: " +
         missing.join(", "),
@@ -52,6 +52,15 @@ function validateEnv(): void {
       "Missing environment variables (non-fatal in development): " +
         missing.join(", "),
     );
+  }
+
+  /* ─── Dev-tool guard: these flags must NEVER be set in production ─── */
+  if (isProduction && process.env.DEV_TOOLS_ENABLED) {
+    logger.error(
+      "FATAL: DEV_TOOLS_ENABLED is set in production. " +
+        "This exposes internal dev/test endpoints. Remove it and restart.",
+    );
+    process.exit(1);
   }
 }
 
