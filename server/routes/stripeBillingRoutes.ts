@@ -27,6 +27,7 @@ import { getTradeLineDefaultConfig } from "@shared/schema";
 import { createLogger } from "../lib/logger";
 import { autoAssignSupplier } from "../services/supplierAssignment";
 import { runPreFixAudit } from "../services/webfixAuditService";
+import { buildLoginToken, storeCheckoutLoginToken } from "../lib/loginToken";
 
 const log = createLogger("StripeBilling");
 
@@ -274,6 +275,11 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
         );
       }
     }
+
+    // Generate a one-time login token so the checkout success page can auto-login
+    const loginToken = buildLoginToken(user.id);
+    storeCheckoutLoginToken(session.id, loginToken);
+    log.info(`[billing-webhook] Login token stored for session ${session.id}, user #${user.id}`);
   } catch (err: any) {
     log.warn(`[billing-webhook] Could not auto-create portal account for client #${clientId}: ${err.message}`);
   }

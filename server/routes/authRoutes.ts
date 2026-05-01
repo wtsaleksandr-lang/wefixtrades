@@ -11,6 +11,7 @@ import { getMemory, linkSessionToUser, extractMemorySignals } from "../services/
 import { storage } from "../storage";
 import { generateSecret, verifyCode as verifyTotpCode } from "../services/totpService";
 import { createLogger } from "../lib/logger";
+import { verifyLoginToken, getCheckoutLoginToken } from "../lib/loginToken";
 
 const log = createLogger("Auth");
 
@@ -80,6 +81,163 @@ export function registerAuthRoutes(app: Express) {
         });
       }
     )(req, res, next);
+  });
+
+  /* ─── Self-serve signup ─── */
+
+  /**
+   * POST /api/auth/signup
+   * Creates a free client account and auto-logs the user in.
+   */
+  app.post("/api/auth/signup", async (req, res, next) => {
+    try {
+      const ip = getClientIp(req);
+      if (!isTestRateLimitBypass(req) && !(await authRateLimiter.check(`signup:${ip}`))) {
+        return res.status(429).json({ error: "Too many signup attempts. Please wait 15 minutes." });
+      }
+
+      const { email, password, name, businessName, phone } = req.body;
+
+      // Validate required fields
+      if (!email || typeof email !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+        return res.status(400).json({ error: "A valid email address is required" });
+      }
+      if (!password || typeof password !== "string" || password.length < 8) {
+        return res.status(400).json({ error: "Password must be at least 8 characters" });
+      }
+      if (!name || typeof name !== "string" || !name.trim()) {
+        return res.status(400).json({ error: "Your name is required" });
+      }
+      if (!businessName || typeof businessName !== "string" || !businessName.trim()) {
+        return res.status(400).json({ error: "Business name is required" });
+      }
+
+      const normalised = email.toLowerCase().trim();
+
+      // Check email uniqueness
+      const existingUser = await storage.getUserByEmail(normalised);
+      if (existingUser) {
+        return res.status(409).json({ error: "An account with this email already exists. Please log in instead." });
+      }
+
+      // Create user
+      const passwordHash = hashPassword(password);
+      const user = await storage.createUser({
+        email: normalised,
+        password_hash: passwordHash,
+        name: name.trim(),
+        role: "client",
+      });
+
+      // Create linked client record
+      const client = await storage.createClient({
+        business_name: businessName.trim(),
+        contact_name: name.trim(),
+        contact_email: normalised,
+        contact_phone: phone?.trim() || null,
+        user_id: user.id,
+        status: "lead",
+        source: "website",
+      });
+
+      log.info("Self-serve signup completed", { userId: user.id, clientId: client.id });
+
+      await storage.logAdminActivity({
+        actor_type: "system",
+        actor_name: "Self-Serve Signup",
+        action: "client.signup",
+        entity_type: "client",
+        entity_id: client.id,
+        summary: `Free account created for "${businessName.trim()}" (${normalised})`,
+      });
+
+      // Auto-login
+      const sessionUser: Express.User = { id: user.id, email: user.email, role: user.role, name: user.name };
+      req.logIn(sessionUser, (loginErr) => {
+        if (loginErr) return next(loginErr);
+        return res.json({ user: { id: user.id, email: user.email, role: user.role, name: user.name } });
+      });
+    } catch (err) {
+      log.error("Signup error", { error: String(err) });
+      res.status(500).json({ error: "Failed to create account. Please try again." });
+    }
+  });
+
+  /* ─── Token-based login (post-checkout auto-login) ─── */
+
+  /**
+   * POST /api/auth/token-login
+   * Verifies a one-time HMAC-signed login token and logs the user in.
+   * Used after Stripe checkout to auto-login customers.
+   */
+  app.post("/api/auth/token-login", async (req, res, next) => {
+    try {
+      const { token } = req.body;
+      if (!token || typeof token !== "string") {
+        return res.status(400).json({ error: "Login token is required" });
+      }
+
+      const payload = verifyLoginToken(token);
+      if (!payload) {
+        return res.status(401).json({ error: "Invalid or expired login token" });
+      }
+
+      const user = await storage.getUserById(payload.userId);
+      if (!user) {
+        return res.status(401).json({ error: "User not found" });
+      }
+
+      const sessionUser: Express.User = { id: user.id, email: user.email, role: user.role, name: user.name };
+      req.logIn(sessionUser, (loginErr) => {
+        if (loginErr) return next(loginErr);
+        log.info("Token-based login completed", { userId: user.id });
+        return res.json({ user: { id: user.id, email: user.email, role: user.role, name: user.name } });
+      });
+    } catch (err) {
+      log.error("Token login error", { error: String(err) });
+      res.status(500).json({ error: "Login failed" });
+    }
+  });
+
+  /**
+   * POST /api/auth/checkout-login
+   * Exchanges a Stripe checkout session_id for an auto-login.
+   * The webhook stores a one-time token keyed by session ID after
+   * ensuring the portal account; this endpoint retrieves and verifies it.
+   */
+  app.post("/api/auth/checkout-login", async (req, res, next) => {
+    try {
+      const { sessionId } = req.body;
+      if (!sessionId || typeof sessionId !== "string") {
+        return res.status(400).json({ error: "Session ID is required" });
+      }
+
+      const token = getCheckoutLoginToken(sessionId);
+      if (!token) {
+        // Token not found — webhook may not have fired yet, or already consumed
+        return res.status(404).json({ error: "No login token found for this session. Please log in manually." });
+      }
+
+      const payload = verifyLoginToken(token);
+      if (!payload) {
+        return res.status(401).json({ error: "Login token expired" });
+      }
+
+      const user = await storage.getUserById(payload.userId);
+      if (!user) {
+        return res.status(401).json({ error: "User not found" });
+      }
+
+      const sessionUser: Express.User = { id: user.id, email: user.email, role: user.role, name: user.name };
+      req.logIn(sessionUser, (loginErr) => {
+        if (loginErr) return next(loginErr);
+        log.info("Checkout auto-login completed", { userId: user.id, sessionId });
+        return res.json({ user: { id: user.id, email: user.email, role: user.role, name: user.name } });
+      });
+    } catch (err) {
+      log.error("Checkout login error", { error: String(err) });
+      res.status(500).json({ error: "Auto-login failed" });
+    }
   });
 
   /** Verify TOTP code after initial login (2FA step 2) */

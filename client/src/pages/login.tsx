@@ -247,14 +247,24 @@ export default function LoginPage() {
                   Back to sign in
                 </button>
               ) : (
-                <a
-                  href="/reset-password"
-                  style={{ fontSize: 13, color: mkt.textMuted, textDecoration: "none" }}
-                  onMouseOver={(e) => (e.currentTarget.style.color = mkt.text)}
-                  onMouseOut={(e) => (e.currentTarget.style.color = mkt.textMuted)}
-                >
-                  Forgot your password?
-                </a>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "center" }}>
+                  <a
+                    href="/reset-password"
+                    style={{ fontSize: 13, color: mkt.textMuted, textDecoration: "none" }}
+                    onMouseOver={(e) => (e.currentTarget.style.color = mkt.text)}
+                    onMouseOut={(e) => (e.currentTarget.style.color = mkt.textMuted)}
+                  >
+                    Forgot your password?
+                  </a>
+                  <a
+                    href="/signup"
+                    style={{ fontSize: 13, color: mkt.textMuted, textDecoration: "none" }}
+                    onMouseOver={(e) => (e.currentTarget.style.color = mkt.text)}
+                    onMouseOut={(e) => (e.currentTarget.style.color = mkt.textMuted)}
+                  >
+                    Don't have an account? Sign up free
+                  </a>
+                </div>
               )}
             </div>
           </form>

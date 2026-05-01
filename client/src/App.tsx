@@ -107,6 +107,7 @@ import PortalSocialSync from "@/pages/portal/PortalSocialSync";
 import PortalRankFlow from "@/pages/portal/PortalRankFlow";
 import PortalArticles from "@/pages/portal/PortalArticles";
 import ResetPasswordPage from "@/pages/ResetPassword";
+import SignupPage from "@/pages/Signup";
 import ServicePricingPage from "@/pages/admin/ServicePricingPage";
 
 function Router() {
@@ -195,6 +196,7 @@ function Router() {
       <Route path="/checkout/success" component={CheckoutSuccess} />
       <Route path="/checkout/cancelled" component={CheckoutCancelled} />
       <Route path="/login" component={LoginPage} />
+      <Route path="/signup" component={SignupPage} />
       <Route path="/reset-password" component={ResetPasswordPage} />
       <Route path="/services" component={MarketingServices} />
       <Route path="/bundles">{() => <Redirect to="/pricing" />}</Route>
