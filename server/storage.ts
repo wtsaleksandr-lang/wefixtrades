@@ -207,6 +207,9 @@ export interface IStorage {
   // Service catalog
   listServiceCatalog(): Promise<ServiceCatalogRow[]>;
   upsertServiceCatalog(data: InsertServiceCatalog): Promise<ServiceCatalogRow>;
+  getServiceById(serviceId: string): Promise<ServiceCatalogRow | undefined>;
+  updateServiceCatalog(id: string, updates: Partial<InsertServiceCatalog>): Promise<ServiceCatalogRow | undefined>;
+  listServicesWithClientCounts(): Promise<(ServiceCatalogRow & { active_client_count: number })[]>;
 
   // Client services
   listClientServices(clientId: number): Promise<(ClientService & { service_name?: string })[]>;
@@ -221,6 +224,8 @@ export interface IStorage {
 
   // Suppliers
   listSuppliers(): Promise<Supplier[]>;
+  getSupplierById(id: number): Promise<Supplier | undefined>;
+  getSupplierTasks(supplierId: number): Promise<FulfillmentTask[]>;
   createSupplier(data: InsertSupplier): Promise<Supplier>;
   updateSupplier(id: number, updates: Partial<InsertSupplier>): Promise<Supplier | undefined>;
 
@@ -368,6 +373,30 @@ export interface IStorage {
   systemResolveRoutingEvent(entityType: string, entityId: number, queue: string): Promise<void>;
   adminAcknowledgeRoutingEvent(id: number, userId: number): Promise<RoutingEvent | undefined>;
   listQueueItems(queue: string, limit?: number): Promise<RoutingEvent[]>;
+
+  // ─── Profit Overview ───
+  getProfitOverview(): Promise<{
+    services: Array<{
+      service_id: string;
+      name: string;
+      billing_period: string;
+      sale_price: number;
+      cost_amount: number;
+      margin_cents: number;
+      margin_percent: number;
+      active_clients: number;
+      delivered_count: number;
+      monthly_revenue: number;
+      monthly_cost: number;
+      monthly_profit: number;
+    }>;
+    totals: {
+      monthly_revenue: number;
+      monthly_cost: number;
+      monthly_profit: number;
+      overall_margin_percent: number;
+    };
+  }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1238,6 +1267,42 @@ export class DatabaseStorage implements IStorage {
     return row;
   }
 
+  async updateServiceCatalog(id: string, updates: Partial<InsertServiceCatalog>): Promise<ServiceCatalogRow | undefined> {
+    const [row] = await db.update(serviceCatalog)
+      .set({ ...updates, updated_at: new Date() })
+      .where(eq(serviceCatalog.id, id))
+      .returning();
+    return row;
+  }
+
+  async listServicesWithClientCounts(): Promise<(ServiceCatalogRow & { active_client_count: number })[]> {
+    const rows = await db.select({
+      id: serviceCatalog.id,
+      name: serviceCatalog.name,
+      tagline: serviceCatalog.tagline,
+      description: serviceCatalog.description,
+      category: serviceCatalog.category,
+      default_price: serviceCatalog.default_price,
+      billing_period: serviceCatalog.billing_period,
+      delivery_pattern: serviceCatalog.delivery_pattern,
+      is_active: serviceCatalog.is_active,
+      stripe_product_id: serviceCatalog.stripe_product_id,
+      stripe_price_id: serviceCatalog.stripe_price_id,
+      stripe_yearly_price_id: serviceCatalog.stripe_yearly_price_id,
+      cost_amount: serviceCatalog.cost_amount,
+      cost_type: serviceCatalog.cost_type,
+      sort_order: serviceCatalog.sort_order,
+      created_at: serviceCatalog.created_at,
+      updated_at: serviceCatalog.updated_at,
+      active_client_count: sql<number>`count(case when ${clientServices.status} = 'active' then 1 end)::int`,
+    })
+    .from(serviceCatalog)
+    .leftJoin(clientServices, eq(serviceCatalog.id, clientServices.service_id))
+    .groupBy(serviceCatalog.id)
+    .orderBy(serviceCatalog.sort_order);
+    return rows as any;
+  }
+
   // ─── Client Services ───
   async listClientServices(clientId: number): Promise<(ClientService & { service_name?: string })[]> {
     const rows = await db.select({
@@ -1327,6 +1392,17 @@ export class DatabaseStorage implements IStorage {
   // ─── Suppliers ───
   async listSuppliers(): Promise<Supplier[]> {
     return db.select().from(suppliers).orderBy(suppliers.name);
+  }
+
+  async getSupplierById(id: number): Promise<Supplier | undefined> {
+    const [row] = await db.select().from(suppliers).where(eq(suppliers.id, id)).limit(1);
+    return row;
+  }
+
+  async getSupplierTasks(supplierId: number): Promise<FulfillmentTask[]> {
+    return db.select().from(fulfillmentTasks)
+      .where(eq(fulfillmentTasks.supplier_id, supplierId))
+      .orderBy(desc(fulfillmentTasks.created_at));
   }
 
   async createSupplier(data: InsertSupplier): Promise<Supplier> {
@@ -3508,6 +3584,81 @@ export class DatabaseStorage implements IStorage {
         routingEvents.created_at,
       )
       .limit(limit);
+  }
+
+  // ─── Profit Overview ───
+  async getProfitOverview() {
+    // 1. Get all active services from catalog
+    const catalog = await db.select().from(serviceCatalog).where(eq(serviceCatalog.is_active, true));
+
+    // 2. Get active client counts per service
+    const activeCounts = await db.select({
+      service_id: clientServices.service_id,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(clientServices)
+    .where(eq(clientServices.status, "active"))
+    .groupBy(clientServices.service_id);
+    const activeMap = new Map(activeCounts.map(r => [r.service_id, r.count]));
+
+    // 3. Get delivered (completed) counts for one-time services
+    const deliveredCounts = await db.select({
+      service_id: clientServices.service_id,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(clientServices)
+    .where(eq(clientServices.status, "completed"))
+    .groupBy(clientServices.service_id);
+    const deliveredMap = new Map(deliveredCounts.map(r => [r.service_id, r.count]));
+
+    const services = catalog.map(svc => {
+      const salePrice = svc.default_price || 0;
+      const costAmount = (svc as any).cost_amount || 0;
+      const isOneTime = svc.billing_period === "one-time";
+
+      const activeClients = activeMap.get(svc.id) || 0;
+      const deliveredCount = deliveredMap.get(svc.id) || 0;
+
+      // For subscription services: revenue = price * active_clients
+      // For one-time services: use total delivered count
+      const usageCount = isOneTime ? deliveredCount : activeClients;
+      const monthlyRevenue = isOneTime ? salePrice * deliveredCount : salePrice * activeClients;
+      const monthlyCost = isOneTime ? costAmount * deliveredCount : costAmount * activeClients;
+      const monthlyProfit = monthlyRevenue - monthlyCost;
+
+      const marginCents = salePrice - costAmount;
+      const marginPercent = salePrice > 0 ? Math.round((marginCents / salePrice) * 1000) / 10 : 0;
+
+      return {
+        service_id: svc.id,
+        name: svc.name,
+        billing_period: svc.billing_period,
+        sale_price: salePrice,
+        cost_amount: costAmount,
+        margin_cents: marginCents,
+        margin_percent: marginPercent,
+        active_clients: activeClients,
+        delivered_count: deliveredCount,
+        monthly_revenue: monthlyRevenue,
+        monthly_cost: monthlyCost,
+        monthly_profit: monthlyProfit,
+      };
+    });
+
+    const totalRevenue = services.reduce((s, r) => s + r.monthly_revenue, 0);
+    const totalCost = services.reduce((s, r) => s + r.monthly_cost, 0);
+    const totalProfit = totalRevenue - totalCost;
+    const overallMargin = totalRevenue > 0 ? Math.round((totalProfit / totalRevenue) * 1000) / 10 : 0;
+
+    return {
+      services,
+      totals: {
+        monthly_revenue: totalRevenue,
+        monthly_cost: totalCost,
+        monthly_profit: totalProfit,
+        overall_margin_percent: overallMargin,
+      },
+    };
   }
 }
 

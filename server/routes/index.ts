@@ -39,6 +39,9 @@ import { registerRankFlowRoutes } from "./rankflowRoutes";
 import { registerContentFlowRoutes } from "./contentflowRoutes";
 import { registerUnsubscribeRoutes } from "./unsubscribeRoutes";
 import { registerEmailChartsRoute } from "../services/emailCharts";
+import { registerAdminSupplierRoutes } from "./adminSupplierRoutes";
+import { registerSupplierWebhookRoutes } from "./supplierWebhookRoutes";
+import { registerAdminServiceRoutes } from "./adminServiceRoutes";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -83,6 +86,9 @@ export async function registerRoutes(
   registerRankFlowRoutes(app);
   registerContentFlowRoutes(app);
   registerEmailChartsRoute(app);
+  registerAdminSupplierRoutes(app);
+  registerSupplierWebhookRoutes(app);
+  registerAdminServiceRoutes(app);
 
   return httpServer;
 }

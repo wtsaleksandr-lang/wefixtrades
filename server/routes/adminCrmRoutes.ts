@@ -377,35 +377,9 @@ export function registerAdminCrmRoutes(app: Express): void {
   });
 
   /* ═══════════════════════════════════════════
-     Suppliers
+     Suppliers — moved to adminSupplierRoutes.ts
+     See /api/admin/suppliers/* endpoints
      ═══════════════════════════════════════════ */
-
-  app.get("/api/admin/crm/suppliers", requireAdmin, async (_req: Request, res: Response) => {
-    try {
-      const rows = await storage.listSuppliers();
-      res.json(rows);
-    } catch (err: any) {
-      res.status(500).json({ error: "Failed to list suppliers" });
-    }
-  });
-
-  app.post("/api/admin/crm/suppliers", requireAdmin, async (req: Request, res: Response) => {
-    try {
-      const supplier = await storage.createSupplier(req.body);
-      await storage.logAdminActivity({
-        actor_type: "human",
-        actor_id: (req.user as any)?.id,
-        actor_name: (req.user as any)?.name || (req.user as any)?.email,
-        action: "supplier.created",
-        entity_type: "supplier",
-        entity_id: supplier.id,
-        summary: `Created supplier "${supplier.name}" (${supplier.type})`,
-      });
-      res.status(201).json(supplier);
-    } catch (err: any) {
-      res.status(500).json({ error: "Failed to create supplier" });
-    }
-  });
 
   /* ═══════════════════════════════════════════
      Payments
@@ -2513,6 +2487,20 @@ export function registerAdminCrmRoutes(app: Express): void {
     } catch (err: any) {
       log.error("[admin-crm] QA queue error:", err.message);
       res.status(500).json({ error: "Failed to load QA queue" });
+    }
+  });
+
+  /* ═══════════════════════════════════════════
+     Profit Overview
+     ═══════════════════════════════════════════ */
+
+  app.get("/api/admin/profit-overview", requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      const overview = await storage.getProfitOverview();
+      res.json(overview);
+    } catch (err: any) {
+      log.error("[admin-crm] Profit overview error:", { error: err.message });
+      res.status(500).json({ error: "Failed to load profit overview" });
     }
   });
 }

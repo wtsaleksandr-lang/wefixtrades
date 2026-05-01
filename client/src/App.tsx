@@ -104,6 +104,7 @@ import PortalSocialSync from "@/pages/portal/PortalSocialSync";
 import PortalRankFlow from "@/pages/portal/PortalRankFlow";
 import PortalArticles from "@/pages/portal/PortalArticles";
 import ResetPasswordPage from "@/pages/ResetPassword";
+import ServicePricingPage from "@/pages/admin/ServicePricingPage";
 
 function Router() {
   return (
@@ -122,6 +123,7 @@ function Router() {
       <Route path="/admin/crm/rankflow">{() => <RequirePortal><RankFlowOpsPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/support/:id">{() => <RequirePortal><SupportTicketDetailPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/support">{() => <RequirePortal><SupportInboxPage /></RequirePortal>}</Route>
+      <Route path="/admin/services/pricing">{() => <RequirePortal><ServicePricingPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/services">{() => <RequirePortal><ServicesPage /></RequirePortal>}</Route>
       <Route path="/admin/service-ops">{() => <RequirePortal><ServiceOpsPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/mapguard">{() => <RequirePortal><MapguardDashboard /></RequirePortal>}</Route>

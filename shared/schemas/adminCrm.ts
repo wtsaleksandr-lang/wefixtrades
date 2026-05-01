@@ -18,6 +18,8 @@ export const serviceCatalog = pgTable("service_catalog", {
   stripe_product_id: text("stripe_product_id"),
   stripe_price_id: text("stripe_price_id"),              // monthly or one-time price
   stripe_yearly_price_id: text("stripe_yearly_price_id"), // yearly price (monthly services only)
+  cost_amount: integer("cost_amount"),                    // internal cost in cents
+  cost_type: text("cost_type"),                           // "per_delivery" | "monthly" | "one_time"
   sort_order: integer("sort_order").notNull().default(0),
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
@@ -124,12 +126,24 @@ export const suppliers = pgTable("suppliers", {
   name: text("name").notNull(),
   type: varchar("type", { length: 30 }).notNull(),
   // fiverr | freelancer | white_label | automation | internal
+  supplier_type: text("supplier_type").notNull().default("email"),
+  // "email" | "api" | "fiverr" | "manual"
   contact_name: text("contact_name"),
   contact_email: text("contact_email"),
+  contact_phone: text("contact_phone"),
   platform_url: text("platform_url"),
+  fiverr_profile_url: text("fiverr_profile_url"),
+  api_endpoint: text("api_endpoint"),
+  api_key: text("api_key"),
   supported_services: jsonb("supported_services"),         // string[] of service_ids
+  cost_rate: integer("cost_rate"),                          // cost in cents per task/order
+  cost_type: text("cost_type").default("per_task"),         // "per_task" | "monthly" | "hourly" | "per_project"
+  currency: text("currency").default("usd"),
   notes: text("notes"),
+  status: varchar("status", { length: 20 }).notNull().default("active"),
+  // active | inactive
   is_active: boolean("is_active").notNull().default(true),
+  metadata: jsonb("metadata"),
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
 });
