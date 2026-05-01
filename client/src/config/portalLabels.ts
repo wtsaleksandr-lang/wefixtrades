@@ -12,6 +12,8 @@ export const TASK_STATUS_LABELS: Record<string, string> = {
   in_progress: "In progress",
   waiting: "Waiting on you",
   blocked: "Needs attention",
+  qa_review: "Under QA Review",
+  revision_required: "Revision Required",
   delivered: "Complete",
   cancelled: "Cancelled",
 };
@@ -22,6 +24,8 @@ export const TASK_STATUS_STYLES: Record<string, string> = {
   in_progress: "bg-indigo-50 text-indigo-700",
   waiting: "bg-amber-50 text-amber-700",
   blocked: "bg-red-50 text-red-700",
+  qa_review: "bg-purple-50 text-purple-700",
+  revision_required: "bg-orange-50 text-orange-700",
   delivered: "bg-emerald-50 text-emerald-700",
   cancelled: "bg-gray-100 text-gray-500",
 };

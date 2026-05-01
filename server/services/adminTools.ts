@@ -44,7 +44,7 @@ export const UPDATE_TASK_STATUS_TOOL: AdminTool = {
       },
       status: {
         type: "string",
-        enum: ["not_started", "submitted", "in_progress", "waiting", "blocked", "delivered", "cancelled"],
+        enum: ["not_started", "submitted", "in_progress", "waiting", "blocked", "qa_review", "revision_required", "delivered", "cancelled"],
         description: "The new status value.",
       },
       reason: {
@@ -115,7 +115,8 @@ export interface ToolExecutionResult {
 /* ─── update_task_status executor ─── */
 const VALID_STATUSES = new Set([
   "not_started", "submitted", "in_progress",
-  "waiting", "blocked", "delivered", "cancelled",
+  "waiting", "blocked", "qa_review", "revision_required",
+  "delivered", "cancelled",
 ]);
 
 async function executeUpdateTaskStatus(
@@ -164,7 +165,28 @@ async function executeUpdateTaskStatus(
     },
   }).catch((err: Error) => log.error("logAdminActivity failed", { error: err.message }));
 
-  const narrative = `Task "${task.title}" updated to ${status.replace(/_/g, " ")}.${reason ? ` Reason: ${reason}` : ""}`;
+  // QA auto-transition: tasks with human_review_required auto-move to qa_review on submit
+  let finalStatus = status;
+  if (status === "submitted" && task.human_review_required) {
+    await storage.updateFulfillmentTask(task_id, {
+      status: "qa_review",
+      last_action: "Auto-transitioned to QA review (human_review_required)",
+      last_action_at: new Date(),
+    } as any);
+    finalStatus = "qa_review";
+    log.info("Task auto-transitioned to QA review", { taskId: task_id, title: task.title });
+    await storage.logAdminActivity({
+      actor_type: "system",
+      actor_id: null,
+      actor_name: "QA Workflow",
+      action: "fulfillment.qa_auto_transition",
+      entity_type: "fulfillment_task",
+      entity_id: task_id,
+      summary: `Task "${task.title}" auto-transitioned to QA review`,
+    }).catch((err: Error) => log.error("logAdminActivity failed", { error: err.message }));
+  }
+
+  const narrative = `Task "${task.title}" updated to ${finalStatus.replace(/_/g, " ")}.${reason ? ` Reason: ${reason}` : ""}`;
   return { narrative };
 }
 

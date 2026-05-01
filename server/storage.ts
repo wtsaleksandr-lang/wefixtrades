@@ -226,6 +226,7 @@ export interface IStorage {
 
   // Fulfillment
   listFulfillmentTasks(opts?: { clientId?: number; status?: string; limit?: number; offset?: number }): Promise<(FulfillmentTask & { client_name?: string; supplier_name?: string; service_name?: string })[]>;
+  listQaQueueTasks(): Promise<(FulfillmentTask & { client_name?: string; service_name?: string })[]>;
   createFulfillmentTask(data: InsertFulfillmentTask): Promise<FulfillmentTask>;
   updateFulfillmentTask(id: number, updates: Partial<InsertFulfillmentTask>): Promise<FulfillmentTask | undefined>;
   getOpenFulfillmentCount(): Promise<number>;
@@ -1383,6 +1384,45 @@ export class DatabaseStorage implements IStorage {
     .orderBy(fulfillmentTasks.sort_order, fulfillmentTasks.created_at)
     .limit(limit)
     .offset(offset);
+    return rows as any;
+  }
+
+  async listQaQueueTasks(): Promise<(FulfillmentTask & { client_name?: string; service_name?: string })[]> {
+    const rows = await db.select({
+      id: fulfillmentTasks.id,
+      client_service_id: fulfillmentTasks.client_service_id,
+      client_id: fulfillmentTasks.client_id,
+      supplier_id: fulfillmentTasks.supplier_id,
+      title: fulfillmentTasks.title,
+      description: fulfillmentTasks.description,
+      status: fulfillmentTasks.status,
+      priority: fulfillmentTasks.priority,
+      sort_order: fulfillmentTasks.sort_order,
+      waiting_on: fulfillmentTasks.waiting_on,
+      handled_by: fulfillmentTasks.handled_by,
+      automation_status: fulfillmentTasks.automation_status,
+      last_action: fulfillmentTasks.last_action,
+      next_action: fulfillmentTasks.next_action,
+      last_action_at: fulfillmentTasks.last_action_at,
+      cost_cents: fulfillmentTasks.cost_cents,
+      due_at: fulfillmentTasks.due_at,
+      completed_at: fulfillmentTasks.completed_at,
+      escalation_flag: fulfillmentTasks.escalation_flag,
+      human_review_required: fulfillmentTasks.human_review_required,
+      actor_type: fulfillmentTasks.actor_type,
+      deliverables: fulfillmentTasks.deliverables,
+      metadata: fulfillmentTasks.metadata,
+      created_at: fulfillmentTasks.created_at,
+      updated_at: fulfillmentTasks.updated_at,
+      client_name: clients.business_name,
+      service_name: serviceCatalog.name,
+    })
+    .from(fulfillmentTasks)
+    .leftJoin(clients, eq(fulfillmentTasks.client_id, clients.id))
+    .leftJoin(clientServices, eq(fulfillmentTasks.client_service_id, clientServices.id))
+    .leftJoin(serviceCatalog, eq(clientServices.service_id, serviceCatalog.id))
+    .where(eq(fulfillmentTasks.status, "qa_review"))
+    .orderBy(fulfillmentTasks.due_at, fulfillmentTasks.created_at);
     return rows as any;
   }
 

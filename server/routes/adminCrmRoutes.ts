@@ -325,6 +325,26 @@ export function registerAdminCrmRoutes(app: Express): void {
         metadata: { fields: Object.keys(req.body) },
       });
 
+      // QA auto-transition: tasks with human_review_required auto-move to qa_review on submit
+      if (task.status === "submitted" && task.human_review_required) {
+        await storage.updateFulfillmentTask(id, {
+          status: "qa_review",
+          last_action: "Auto-transitioned to QA review (human_review_required)",
+          last_action_at: new Date(),
+        } as any);
+        task.status = "qa_review";
+        log.info("Task auto-transitioned to QA review", { taskId: id, title: task.title });
+        await storage.logAdminActivity({
+          actor_type: "system",
+          actor_id: null,
+          actor_name: "QA Workflow",
+          action: "fulfillment.qa_auto_transition",
+          entity_type: "fulfillment_task",
+          entity_id: id,
+          summary: `Task "${task.title}" auto-transitioned to QA review`,
+        });
+      }
+
       // Completion cascade: if task delivered, check if all tasks for this service are done
       let cascade;
       if (task.status === "delivered" && task.client_service_id) {
@@ -2468,6 +2488,20 @@ export function registerAdminCrmRoutes(app: Express): void {
     } catch (err: any) {
       log.error("[admin-crm] Delete deliverable error:", err.message);
       res.status(500).json({ error: "Failed to delete deliverable" });
+    }
+  });
+
+  /* ═══════════════════════════════════════════
+     QA Queue
+     ═══════════════════════════════════════════ */
+
+  app.get("/api/admin/crm/qa-queue", requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      const tasks = await storage.listQaQueueTasks();
+      res.json(tasks);
+    } catch (err: any) {
+      log.error("[admin-crm] QA queue error:", err.message);
+      res.status(500).json({ error: "Failed to load QA queue" });
     }
   });
 }

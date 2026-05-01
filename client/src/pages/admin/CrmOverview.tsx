@@ -1,8 +1,11 @@
 import { usePageTitle } from "@/hooks/usePageTitle";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Users, Wrench, ClipboardList, Truck, CreditCard, TrendingUp, AlertTriangle, CheckCircle, RefreshCw } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
+import { Users, Wrench, ClipboardList, Truck, CreditCard, TrendingUp, AlertTriangle, CheckCircle, RefreshCw, ShieldCheck, RotateCcw, Clock } from "lucide-react";
 import { Link } from "wouter";
 import AdminLayout from "@/components/admin/AdminLayout";
 
@@ -253,6 +256,8 @@ const STATUS_COLORS: Record<string, string> = {
   in_progress: "bg-indigo-50 text-indigo-700",
   waiting: "bg-amber-50 text-amber-700",
   blocked: "bg-red-50 text-red-700",
+  qa_review: "bg-purple-50 text-purple-700",
+  revision_required: "bg-orange-50 text-orange-700",
 };
 
 function StatusBadge({ status }: { status: string }) {
@@ -291,6 +296,150 @@ function StatCard({
   );
   if (href) return <Link href={href} className="block">{inner}</Link>;
   return inner;
+}
+
+/* ─── QA Queue Widget ─── */
+interface QaTask {
+  id: number;
+  client_id: number;
+  client_service_id: number;
+  title: string;
+  status: string;
+  priority: string;
+  due_at: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+  client_name: string | null;
+  service_name: string | null;
+}
+
+function QaQueueWidget() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { data: tasks, isLoading } = useQuery<QaTask[]>({
+    queryKey: ["/api/admin/crm/qa-queue"],
+    staleTime: 30_000,
+  });
+
+  const updateTask = useMutation({
+    mutationFn: async ({ id, status }: { id: number; status: string }) => {
+      const res = await apiRequest("PATCH", `/api/admin/crm/fulfillment/${id}`, { status });
+      return res.json();
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/qa-queue"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/overview"] });
+      toast({
+        title: variables.status === "delivered" ? "Task approved" : "Revision requested",
+        description: variables.status === "delivered"
+          ? "Task marked as delivered."
+          : "Task sent back for revision.",
+      });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update task.", variant: "destructive" });
+    },
+  });
+
+  const count = tasks?.length ?? 0;
+
+  return (
+    <Card className="p-0 overflow-hidden">
+      <div className="flex items-center justify-between px-4 pt-4 pb-2 border-b border-gray-100">
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded-md bg-purple-600 flex items-center justify-center">
+            <ShieldCheck className="w-3.5 h-3.5 text-white" />
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900">
+              QA Queue
+              {count > 0 && (
+                <span className="ml-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-purple-100 text-purple-700 text-[10px] font-bold">
+                  {count}
+                </span>
+              )}
+            </h3>
+            <p className="text-[10px] text-gray-400">Tasks awaiting quality review before delivery</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="p-4">
+        {isLoading ? (
+          <div className="space-y-2">
+            {Array.from({ length: 2 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}
+          </div>
+        ) : count === 0 ? (
+          <div className="text-center py-6">
+            <ShieldCheck className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+            <p className="text-sm text-gray-500">No tasks awaiting QA review.</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {tasks!.map((t) => {
+              const dueDate = t.due_at ? new Date(t.due_at) : null;
+              const isOverdue = dueDate ? dueDate < new Date() : false;
+              const submittedDate = t.updated_at ? new Date(t.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : null;
+              const dueLabel = dueDate
+                ? dueDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                : null;
+
+              return (
+                <div key={t.id} className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <Link href={`/admin/crm/clients/${t.client_id}`}>
+                        <p className="text-sm font-medium text-gray-800 hover:text-[#2D6A4F] truncate cursor-pointer">{t.title}</p>
+                      </Link>
+                      <div className="flex items-center gap-2 mt-0.5 text-[11px] text-gray-500">
+                        <span>{t.client_name ?? "Unknown client"}</span>
+                        {t.service_name && (
+                          <>
+                            <span className="text-gray-300">|</span>
+                            <span>{t.service_name}</span>
+                          </>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3 mt-1 text-[10px] text-gray-400">
+                        {submittedDate && <span>Submitted {submittedDate}</span>}
+                        {dueLabel && (
+                          <span className={`flex items-center gap-0.5 ${isOverdue ? "text-red-500 font-medium" : ""}`}>
+                            <Clock className="w-2.5 h-2.5" />
+                            Due {dueLabel}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 px-2 text-[11px] text-orange-600 border-orange-200 hover:bg-orange-50"
+                        disabled={updateTask.isPending}
+                        onClick={() => updateTask.mutate({ id: t.id, status: "revision_required" })}
+                      >
+                        <RotateCcw className="w-3 h-3 mr-1" />
+                        Revise
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="h-7 px-2 text-[11px] bg-emerald-600 hover:bg-emerald-700 text-white"
+                        disabled={updateTask.isPending}
+                        onClick={() => updateTask.mutate({ id: t.id, status: "delivered" })}
+                      >
+                        <CheckCircle className="w-3 h-3 mr-1" />
+                        Approve
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </Card>
+  );
 }
 
 export default function CrmOverview() {
@@ -346,6 +495,9 @@ export default function CrmOverview() {
         <div className="grid grid-cols-1 gap-4">
           <OpsIntelligenceWidget />
         </div>
+
+        {/* QA Queue */}
+        <QaQueueWidget />
 
         {/* Bottom panels */}
         <div className="grid md:grid-cols-2 gap-4">

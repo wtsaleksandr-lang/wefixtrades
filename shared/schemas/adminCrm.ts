@@ -146,7 +146,7 @@ export const fulfillmentTasks = pgTable("fulfillment_tasks", {
   title: text("title").notNull(),
   description: text("description"),
   status: varchar("status", { length: 30 }).notNull().default("not_started"),
-  // not_started | submitted | in_progress | waiting | blocked | delivered | cancelled
+  // not_started | submitted | in_progress | waiting | blocked | qa_review | revision_required | delivered | cancelled
   priority: varchar("priority", { length: 20 }).notNull().default("normal"),
   // low | normal | high | urgent
   sort_order: integer("sort_order").notNull().default(0),
