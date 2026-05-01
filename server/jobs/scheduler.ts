@@ -35,6 +35,7 @@ import { checkConnectionExpiry } from "../services/socialSync/connectionLifecycl
 import { cleanupOldMedia } from "../services/socialSync/mediaService";
 import { processAllClientReviews } from "../services/reputation/reviewOrchestrator";
 import { processReviewRequests } from "../services/reputation/reviewRequestService";
+import { processAutoActivation } from "./autoActivationWorker";
 
 const log = createLogger("Scheduler");
 
@@ -389,6 +390,7 @@ export function initScheduler() {
       "SocialSync expiry check: 04:00 UTC every day",
       "SocialSync monthly reports: 12:00 UTC on the 2nd of each month",
       "WebCare health checks: every 15 minutes",
+      "Auto-activation worker: every 5 minutes",
     ],
   });
 
@@ -456,6 +458,26 @@ export function initScheduler() {
       log.error("webcare_health error", { error: err.message });
     } finally {
       webcareHealthRunning = false;
+    }
+  });
+
+  // Sprint 2: Auto-activation worker. Every 5 minutes, checks
+  // onboarding services whose readiness conditions are met and
+  // activates them without a human go-live gate. Overlap-guarded
+  // in case a tick runs longer than 5 minutes.
+  let autoActivationRunning = false;
+  cron.schedule("*/5 * * * *", async () => {
+    if (autoActivationRunning) {
+      log.debug("auto_activation skipped — previous tick still running");
+      return;
+    }
+    autoActivationRunning = true;
+    try {
+      await runJob("auto_activation", processAutoActivation);
+    } catch (err: any) {
+      log.error("auto_activation error", { error: err.message });
+    } finally {
+      autoActivationRunning = false;
     }
   });
 }
