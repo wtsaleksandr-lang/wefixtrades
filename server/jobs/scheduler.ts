@@ -68,7 +68,7 @@ async function withRetry<T>(
   throw lastError;
 }
 
-async function runJob(jobName: string, fn: () => Promise<any>) {
+export async function runJob(jobName: string, fn: () => Promise<any>) {
   let logId: number | null = null;
 
   try {

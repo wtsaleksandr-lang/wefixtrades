@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SERVICE_STATUS } from "@/config/adminLabels";
 
 interface ServiceCatalogItem {
   id: string;
@@ -122,7 +123,7 @@ export default function ServicesPage() {
                   </div>
                   <div className="shrink-0 flex flex-col items-end gap-1">
                     {svc.is_active ? (
-                      <span className="text-[10px] font-medium text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">Active</span>
+                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${SERVICE_STATUS.active.color}`}>Active</span>
                     ) : (
                       <span className="text-[10px] font-medium text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded">Inactive</span>
                     )}

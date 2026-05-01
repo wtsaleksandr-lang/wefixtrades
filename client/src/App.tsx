@@ -125,7 +125,8 @@ function Router() {
       <Route path="/admin/ai">{() => <RequirePortal><AiDashboard /></RequirePortal>}</Route>
       <Route path="/admin/crm/sales">{() => <RequirePortal><SalesPipelinePage /></RequirePortal>}</Route>
       <Route path="/admin/crm/socialsync">{() => <RequirePortal><SocialSyncOpsPage /></RequirePortal>}</Route>
-      <Route path="/admin/contentflow">{() => <RequirePortal><ContentFlowQueuePage /></RequirePortal>}</Route>
+      <Route path="/admin/crm/contentflow">{() => <RequirePortal><ContentFlowQueuePage /></RequirePortal>}</Route>
+      <Route path="/admin/contentflow">{() => <Redirect to="/admin/crm/contentflow" />}</Route>
       <Route path="/admin/crm/clients/:id">{() => <RequirePortal><ClientDetailPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/clients">{() => <RequirePortal><ClientsPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/inbox">{() => <RequirePortal><InboxPage /></RequirePortal>}</Route>

@@ -8,6 +8,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { Users, Wrench, ClipboardList, Truck, CreditCard, TrendingUp, AlertTriangle, CheckCircle, RefreshCw, ShieldCheck, RotateCcw, Clock } from "lucide-react";
 import { Link } from "wouter";
 import AdminLayout from "@/components/admin/AdminLayout";
+import { adminStatusColor, ALERT_SEVERITY } from "@/config/adminLabels";
 
 interface Overview {
   totalClients: number;
@@ -49,7 +50,7 @@ interface OpsSnapshotResponse {
 }
 
 const SEVERITY_STYLES: Record<string, { badge: string; dot: string }> = {
-  critical: { badge: "bg-red-50 text-red-700 border border-red-200", dot: "bg-red-500" },
+  critical: { badge: ALERT_SEVERITY.critical.color, dot: ALERT_SEVERITY.critical.bgColor },
   high:     { badge: "bg-orange-50 text-orange-700 border border-orange-200", dot: "bg-orange-500" },
   medium:   { badge: "bg-amber-50 text-amber-700 border border-amber-200", dot: "bg-amber-400" },
   low:      { badge: "bg-gray-50 text-gray-600 border border-gray-200", dot: "bg-gray-400" },
@@ -246,23 +247,9 @@ function TriggerOpsRunButton({ small }: { small?: boolean }) {
   );
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  lead: "bg-gray-100 text-gray-700",
-  onboarding: "bg-amber-50 text-amber-700",
-  active: "bg-emerald-50 text-emerald-700",
-  paused: "bg-blue-50 text-blue-700",
-  churned: "bg-red-50 text-red-700",
-  not_started: "bg-gray-100 text-gray-600",
-  in_progress: "bg-indigo-50 text-indigo-700",
-  waiting: "bg-amber-50 text-amber-700",
-  blocked: "bg-red-50 text-red-700",
-  qa_review: "bg-purple-50 text-purple-700",
-  revision_required: "bg-orange-50 text-orange-700",
-};
-
 function StatusBadge({ status }: { status: string }) {
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium capitalize ${STATUS_COLORS[status] || "bg-gray-100 text-gray-600"}`}>
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium capitalize ${adminStatusColor(status)}`}>
       {status.replace(/_/g, " ")}
     </span>
   );

@@ -148,4 +148,73 @@ export function registerAdminOpsRoutes(app: Express): void {
       res.status(500).json({ error: "Ops run failed", detail: err.message });
     }
   });
+
+  /* ─── Manual "Run Now" endpoint for all workers ─── */
+
+  /**
+   * Worker name → lazy-loaded function map.
+   * Uses dynamic imports so we don't pull every worker into the route bundle.
+   */
+  const WORKER_MAP: Record<string, () => Promise<() => Promise<any>>> = {
+    daily_aggregation:            () => import("../jobs/aggregation").then(m => m.runDailyAggregation),
+    weekly_email_report:          () => import("../jobs/weeklyReport").then(m => m.sendWeeklyReports),
+    ops_daily_intelligence:       () => import("../jobs/opsIntelligenceJob").then(m => m.runDailyOpsIntelligence),
+    review_monitoring:            () => import("../jobs/reviewMonitorWorker").then(m => m.processReviewMonitoring),
+    reputation_reports:           () => import("../jobs/reputationReportWorker").then(m => m.processReputationReports),
+    outbound_sync:                () => import("../jobs/outboundSyncWorker").then(m => m.processOutboundSync),
+    rankflow_plan_generation:     () => import("../jobs/rankflowWorker").then(m => m.processRankFlowPlans),
+    rankflow_tracking:            () => import("../jobs/trackingWorker").then(m => m.processRankFlowTracking),
+    rankflow_monthly_reports:     () => import("../jobs/rankflowReportWorker").then(m => m.processRankflowReports),
+    mapguard_weekly_scan:         () => import("../jobs/mapguardScanWorker").then(m => m.processMapguardScans),
+    mapguard_monthly_reports:     () => import("../jobs/mapguardReportWorker").then(m => m.processMapguardReports),
+    mapguard_weekly_update:       () => import("../jobs/mapguardWeeklyUpdateWorker").then(m => m.processMapguardWeeklyUpdates),
+    socialsync_weekly_generation: () => import("../services/socialSync/orchestrator").then(m => m.generateAllDue),
+    socialsync_monthly_reports:   () => import("../jobs/socialsyncReportWorker").then(m => m.processSocialsyncReports),
+    webcare_health:               () => import("../jobs/webcareHealthWorker").then(m => m.processWebcareHealthChecks),
+    webcare_monthly_maintenance:  () => import("../jobs/webcareMaintenanceWorker").then(m => m.processWebcareMaintenance),
+    auto_activation:              () => import("../jobs/autoActivationWorker").then(m => m.processAutoActivation),
+    recurring_tasks:              () => import("../jobs/recurringTaskWorker").then(m => m.processRecurringTasks),
+    upsell_emails:                () => import("../jobs/upsellWorker").then(m => m.processUpsellEmails),
+    dunning_queue:                () => import("../jobs/dunningWorker").then(m => m.processDunningQueue),
+    contentflow_image_retention:  () => import("../jobs/imageRetentionWorker").then(m => m.processImageRetention),
+    contentflow_performance:      () => import("../jobs/performanceWorker").then(m => m.processPerformanceQueue),
+    data_retention:               () => import("../jobs/retentionWorker").then(m => m.processRetention),
+  };
+
+  /**
+   * POST /api/admin/system/workers/:name/run
+   * Manually trigger a specific background worker.
+   * Wraps execution in runJob() so it appears in jobLogs.
+   */
+  app.post("/api/admin/system/workers/:name/run", requireAdmin, async (req: Request, res: Response) => {
+    const workerName = req.params.name;
+
+    const loader = WORKER_MAP[workerName];
+    if (!loader) {
+      return res.status(404).json({
+        success: false,
+        error: `Unknown worker "${workerName}"`,
+        available: Object.keys(WORKER_MAP),
+      });
+    }
+
+    try {
+      log.info(`Manual worker trigger: ${workerName}`, { triggeredBy: String((req as any).user?.id ?? "unknown") });
+      const fn = await loader();
+      const { runJob } = await import("../jobs/scheduler");
+      const result = await runJob(`manual_${workerName}`, fn);
+      res.json({ success: true, worker: workerName, result });
+    } catch (err: any) {
+      log.error(`Manual worker trigger failed: ${workerName}`, { error: err.message });
+      res.status(500).json({ success: false, worker: workerName, error: err.message });
+    }
+  });
+
+  /**
+   * GET /api/admin/system/workers
+   * Returns list of available workers that can be manually triggered.
+   */
+  app.get("/api/admin/system/workers", requireAdmin, async (_req: Request, res: Response) => {
+    res.json({ workers: Object.keys(WORKER_MAP) });
+  });
 }
