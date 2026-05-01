@@ -92,6 +92,9 @@ type User, type InsertUser,
   // Routing Events
   routingEvents,
   type RoutingEvent, type InsertRoutingEvent,
+  // Calendar Connections
+  calendarConnections,
+  type CalendarConnection, type InsertCalendarConnection,
 } from "@shared/schema";
 import { eq, desc, sql, and, gte, lte, ilike, or, isNotNull, count } from "drizzle-orm";
 import { createLogger } from "./lib/logger";
@@ -373,6 +376,13 @@ export interface IStorage {
   systemResolveRoutingEvent(entityType: string, entityId: number, queue: string): Promise<void>;
   adminAcknowledgeRoutingEvent(id: number, userId: number): Promise<RoutingEvent | undefined>;
   listQueueItems(queue: string, limit?: number): Promise<RoutingEvent[]>;
+
+  // ─── Calendar Connections (Booking Engine) ───
+  getCalendarConnection(clientId: number): Promise<CalendarConnection | undefined>;
+  listCalendarConnections(clientId?: number): Promise<CalendarConnection[]>;
+  createCalendarConnection(data: InsertCalendarConnection): Promise<CalendarConnection>;
+  updateCalendarConnection(id: number, updates: Partial<InsertCalendarConnection>): Promise<CalendarConnection | undefined>;
+  deleteCalendarConnection(id: number): Promise<CalendarConnection | undefined>;
 
   // ─── Profit Overview ───
   getProfitOverview(): Promise<{
@@ -3659,6 +3669,55 @@ export class DatabaseStorage implements IStorage {
         overall_margin_percent: overallMargin,
       },
     };
+  }
+
+  // ─── Calendar Connections (Booking Engine) ───
+
+  async getCalendarConnection(clientId: number): Promise<CalendarConnection | undefined> {
+    const [conn] = await db
+      .select()
+      .from(calendarConnections)
+      .where(and(eq(calendarConnections.client_id, clientId), eq(calendarConnections.is_active, true)))
+      .limit(1);
+    return conn;
+  }
+
+  async listCalendarConnections(clientId?: number): Promise<CalendarConnection[]> {
+    if (clientId) {
+      return db
+        .select()
+        .from(calendarConnections)
+        .where(eq(calendarConnections.client_id, clientId))
+        .orderBy(desc(calendarConnections.created_at));
+    }
+    return db
+      .select()
+      .from(calendarConnections)
+      .orderBy(desc(calendarConnections.created_at));
+  }
+
+  async createCalendarConnection(data: InsertCalendarConnection): Promise<CalendarConnection> {
+    const [conn] = await db.insert(calendarConnections).values(data).returning();
+    return conn;
+  }
+
+  async updateCalendarConnection(id: number, updates: Partial<InsertCalendarConnection>): Promise<CalendarConnection | undefined> {
+    const [conn] = await db
+      .update(calendarConnections)
+      .set({ ...updates, updated_at: new Date() })
+      .where(eq(calendarConnections.id, id))
+      .returning();
+    return conn;
+  }
+
+  async deleteCalendarConnection(id: number): Promise<CalendarConnection | undefined> {
+    // Soft delete — set is_active = false
+    const [conn] = await db
+      .update(calendarConnections)
+      .set({ is_active: false, updated_at: new Date() })
+      .where(eq(calendarConnections.id, id))
+      .returning();
+    return conn;
   }
 }
 

@@ -225,6 +225,32 @@ export const insertBookingSchema = createInsertSchema(bookings).omit({
   created_at: true,
 });
 
+/* ─── Calendar Connections ─── */
+export const calendarConnections = pgTable("calendar_connections", {
+  id: serial("id").primaryKey(),
+  client_id: integer("client_id").notNull(),
+  platform: text("platform").notNull(), // "google_calendar" | "cal_com" | "calendly" | "jobber" | "manual"
+  credentials: jsonb("credentials"), // encrypted OAuth tokens or API keys
+  calendar_id: text("calendar_id"), // specific calendar/event type ID
+  booking_url: text("booking_url"), // for manual/external platforms
+  slot_duration_minutes: integer("slot_duration_minutes").default(60),
+  buffer_minutes: integer("buffer_minutes").default(15),
+  working_hours: jsonb("working_hours"), // { monday: { start: "08:00", end: "17:00" }, ... }
+  timezone: text("timezone").default("America/New_York"),
+  is_active: boolean("is_active").default(true),
+  metadata: jsonb("metadata"),
+  created_at: timestamp("created_at").defaultNow(),
+  updated_at: timestamp("updated_at").defaultNow(),
+});
+
+export const insertCalendarConnectionSchema = createInsertSchema(calendarConnections).omit({
+  id: true,
+  created_at: true,
+  updated_at: true,
+});
+export type InsertCalendarConnection = z.infer<typeof insertCalendarConnectionSchema>;
+export type CalendarConnection = typeof calendarConnections.$inferSelect;
+
 export const aiConversations = pgTable("ai_conversations", {
   id: serial("id").primaryKey(),
   agent_type: varchar("agent_type", { length: 30 }).notNull(),

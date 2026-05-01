@@ -44,6 +44,7 @@ import { registerSupplierWebhookRoutes } from "./supplierWebhookRoutes";
 import { registerAdminServiceRoutes } from "./adminServiceRoutes";
 import { registerApprovalRoutes } from "./approvalRoutes";
 import { registerDemoRoutes } from "./demoRoutes";
+import { registerBookingApiRoutes } from "./bookingApiRoutes";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -93,6 +94,7 @@ export async function registerRoutes(
   registerAdminServiceRoutes(app);
   registerApprovalRoutes(app);
   registerDemoRoutes(app);
+  registerBookingApiRoutes(app);
 
   return httpServer;
 }
