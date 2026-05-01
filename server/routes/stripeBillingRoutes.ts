@@ -116,7 +116,7 @@ export function registerStripeBillingRoutes(app: Express): void {
     let event: Stripe.Event;
 
     if (webhookSecret && sig) {
-      // Verify signature in production
+      // Verify signature
       try {
         event = stripe.webhooks.constructEvent(
           (req as any).rawBody,
@@ -127,10 +127,14 @@ export function registerStripeBillingRoutes(app: Express): void {
         console.error("[billing-webhook] Signature verification failed:", err.message);
         return res.status(400).send("Invalid signature");
       }
+    } else if (process.env.NODE_ENV === "production") {
+      // In production, refuse to process unverified webhooks
+      console.error("[billing-webhook] STRIPE_BILLING_WEBHOOK_SECRET is not set — rejecting webhook in production");
+      return res.status(500).send("Webhook secret not configured");
     } else {
-      // No webhook secret configured — accept event without verification (dev mode)
+      // Development only — accept event without verification
       event = req.body as Stripe.Event;
-      console.warn("[billing-webhook] No STRIPE_BILLING_WEBHOOK_SECRET — skipping signature verification");
+      console.warn("[billing-webhook] No STRIPE_BILLING_WEBHOOK_SECRET — skipping signature verification (dev only)");
     }
 
     try {
