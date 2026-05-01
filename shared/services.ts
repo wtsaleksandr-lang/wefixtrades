@@ -207,6 +207,29 @@ export const SERVICES: Service[] = [
       ...SOCIALSYNC.tiers[1].features.filter(f => !SOCIALSYNC.tiers[0].features.includes(f)).map(f => `${f} (Growth)`),
     ],
   },
+  {
+    id: "bookflow",
+    name: "BookFlow",
+    tagline: "Simple online booking for trades businesses",
+    description:
+      "Simple online booking for your trades business. Customers book directly from your website, quote widget, or AI assistant.",
+    price: 589,
+    priceLabel: "$5.89/mo",
+    billingPeriod: "monthly",
+    category: "leads",
+    fixesIssues: [
+      "no-after-hours",
+      "low-demand-coverage",
+    ],
+    features: [
+      "Public booking page with your brand",
+      "Working hours and service configuration",
+      "Automatic confirmation emails",
+      "SMS notifications for new bookings",
+      "Integrates with QuoteQuick and TradeLine",
+      "Customer self-service cancellation",
+    ],
+  },
 ];
 
 export function getServicesForIssues(issues: string[]): Service[] {

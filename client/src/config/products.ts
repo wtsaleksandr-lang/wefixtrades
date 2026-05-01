@@ -524,6 +524,67 @@ export const PRODUCT_PAGES: ProductPage[] = [
     },
     related: ["socialsync", "rankflow", "mapguard"],
   },
+  {
+    slug: "bookflow",
+    name: "BookFlow",
+    shortTagline: "Simple Online Booking for Trades",
+    seoTitle: "BookFlow — Online Booking for Trades Businesses | WeFixTrades",
+    seoDescription: "Let customers book appointments directly from your website, quote widget, or AI assistant. Simple, mobile-first booking built for plumbers, electricians, and trades businesses. $5.89/mo.",
+    category: "core",
+    heroVisualType: "dashboard",
+    primaryCTA: { label: "Get Started", href: "/pricing" },
+    secondaryCTA: { label: "See How It Works", href: "#bookflow-how" },
+    highlights: [
+      "Customers book online 24/7 — no phone tag, no back-and-forth texts.",
+      "Mobile-first booking page — your customers book from their phone in 30 seconds.",
+      "Automatic confirmations — email and SMS confirmation sent instantly.",
+      "Works with TradeLine and QuoteQuick — your AI assistant can book directly.",
+      "Working hours and services — control when you're available and what you offer.",
+      "No external calendar needed — bookings stored right in your dashboard.",
+    ],
+    outcomes: [
+      { title: "Fewer missed leads", desc: "Customers book when they're ready — even at 10 PM on a Saturday." },
+      { title: "Less time scheduling", desc: "Stop texting back and forth to find a time. Let them pick from your availability." },
+      { title: "More organized days", desc: "See all your appointments in one place with buffer time built in." },
+    ],
+    howItWorks: [
+      { title: "Set your availability", desc: "Choose your working hours, services, and appointment duration. Takes 2 minutes." },
+      { title: "Share your booking link", desc: "Add it to your website, email signature, or social profiles. Or let TradeLine book for you." },
+      { title: "Get notified instantly", desc: "New bookings trigger email and SMS notifications. Customer gets a confirmation automatically." },
+    ],
+    bestFor: ["Plumbers", "Electricians", "HVAC Technicians", "Roofers", "Cleaners", "Landscapers", "Painters", "General Contractors"],
+    visuals: [
+      { title: "Booking Page", desc: "A clean, branded booking page your customers will actually use." },
+      { title: "Appointment Dashboard", desc: "See upcoming bookings, customer details, and appointment history." },
+      { title: "Instant Notifications", desc: "Email and SMS alerts the moment a new booking comes in." },
+    ],
+    faq: [
+      { q: "Do I need a calendar app?", a: "No. BookFlow stores everything in your WeFixTrades dashboard. No Google Calendar or Calendly needed." },
+      { q: "Can I control when customers can book?", a: "Yes. Set your working hours for each day of the week. Add buffer time between appointments." },
+      { q: "How does this work with TradeLine?", a: "If you have TradeLine, your AI assistant can check your BookFlow availability and book appointments during calls and chats." },
+      { q: "What if I need to cancel?", a: "You can cancel or reschedule from your dashboard. Customers can also cancel from their confirmation email." },
+      { q: "How much does it cost?", a: "$5.89/month. No setup fees. No contracts. Cancel anytime." },
+    ],
+    pricingSection: {
+      plans: [
+        {
+          name: "BookFlow",
+          price: "$5.89",
+          period: "/mo",
+          features: [
+            "Public booking page with your brand",
+            "Working hours and service configuration",
+            "Automatic email and SMS confirmations",
+            "Buffer time between appointments",
+            "Customer self-service cancellation",
+            "QuoteQuick and TradeLine integration",
+          ],
+        },
+      ],
+      note: "No setup fees. No contracts. Cancel anytime.",
+    },
+    related: ["tradeline", "quickquotepro"],
+  },
 ];
 
 export function getProductBySlug(slug: string): ProductPage | undefined {
