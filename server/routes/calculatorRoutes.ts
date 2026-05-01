@@ -239,8 +239,15 @@ export function registerCalculatorRoutes(app: Express): void {
             },
           });
         }
+
+        // Auto-renew: extend token expiry by 7 days from now on each valid access
+        const newExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+        storage.updateCalculator(calculator.id, { token_expires_at: newExpiry }).catch((err) => {
+          log.warn("Token auto-renewal failed", { calculatorId: calculator.id, error: err?.message });
+        });
+
         return res.json({
-          calculator: { ...calculator, is_token_expired: false, is_preview: false },
+          calculator: { ...calculator, is_token_expired: false, is_preview: false, token_expires_at: newExpiry },
         });
       }
 
@@ -286,7 +293,10 @@ export function registerCalculatorRoutes(app: Express): void {
       const isExpired = new Date() > new Date(calculator.token_expires_at);
       if (isExpired) return res.status(403).json({ error: "Edit access expired" });
 
-      const updates = { ...parsed.data.updates };
+      // Auto-renew: extend token expiry by 7 days on each valid edit
+      const renewedExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+      const updates: Record<string, any> = { ...parsed.data.updates, token_expires_at: renewedExpiry };
       const pricingChanged = !!updates.pricing_config;
       if (updates.pricing_config) {
         const pricingValidation = validatePricingConfig(updates.pricing_config);
