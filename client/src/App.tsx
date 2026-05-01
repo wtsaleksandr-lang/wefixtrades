@@ -111,6 +111,7 @@ import ResetPasswordPage from "@/pages/ResetPassword";
 import SignupPage from "@/pages/Signup";
 import ServicePricingPage from "@/pages/admin/ServicePricingPage";
 import BookingCalendarPage from "@/pages/admin/BookingCalendarPage";
+import BookingPage from "@/pages/public/BookingPage";
 
 function Router() {
   return (
@@ -243,6 +244,7 @@ function Router() {
       <Route path="/review/qr/:widgetToken" component={ReviewQrLanding} />
       <Route path="/review/:token" component={ReviewFunnel} />
       <Route path="/audit/report/:id" component={SharedAuditReport} />
+      <Route path="/book/:slug" component={BookingPage} />
       <Route path="/wizard" component={Wizard} />
       <Route path="/calculator" component={Calculator} />
       <Route path="/edit-calculator" component={EditCalculator} />

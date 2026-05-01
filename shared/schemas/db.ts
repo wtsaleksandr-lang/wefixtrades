@@ -703,3 +703,79 @@ export const processedStripeEvents = pgTable("processed_stripe_events", {
 export const insertProcessedStripeEventSchema = createInsertSchema(processedStripeEvents).omit({ id: true, processed_at: true });
 export type InsertProcessedStripeEvent = z.infer<typeof insertProcessedStripeEventSchema>;
 export type ProcessedStripeEvent = typeof processedStripeEvents.$inferSelect;
+
+/* ─── BookFlow Settings ──────────────────────────────────────────────
+ *
+ * Per-client configuration for the BookFlow native booking platform.
+ * Each client gets one row with their booking page config, working
+ * hours, services offered, and customization options.
+ *
+ * Public booking page URL: /book/{slug}
+ *
+ * ─────────────────────────────────────────────────────────────────── */
+export const bookflowSettings = pgTable("bookflow_settings", {
+  id: serial("id").primaryKey(),
+  client_id: integer("client_id").notNull().unique(),
+  is_active: boolean("is_active").default(true),
+  business_name: text("business_name"),
+  slug: text("slug").unique(),
+  timezone: text("timezone").default("America/New_York"),
+  slot_duration_minutes: integer("slot_duration_minutes").default(60),
+  buffer_minutes: integer("buffer_minutes").default(15),
+  working_hours: jsonb("working_hours"), // { monday: { enabled: true, start: "08:00", end: "17:00" }, ... }
+  services: jsonb("services"), // [{ id, name, duration_minutes, price_cents, description }]
+  confirmation_message: text("confirmation_message"),
+  auto_confirm: boolean("auto_confirm").default(true),
+  accent_color: text("accent_color").default("#3B82F6"),
+  metadata: jsonb("metadata"),
+  created_at: timestamp("created_at").defaultNow(),
+  updated_at: timestamp("updated_at").defaultNow(),
+});
+
+export const insertBookflowSettingsSchema = createInsertSchema(bookflowSettings).omit({
+  id: true, created_at: true, updated_at: true,
+});
+export type InsertBookflowSettings = z.infer<typeof insertBookflowSettingsSchema>;
+export type BookflowSettings = typeof bookflowSettings.$inferSelect;
+
+/* ─── BookFlow Appointments ──────────────────────────────────────────
+ *
+ * Individual bookings created through BookFlow. These are the "native"
+ * appointments stored directly in our DB — no external calendar dependency.
+ *
+ * source tracks where the booking originated:
+ *   direct       — public /book/:slug page
+ *   quotequick   — QuoteQuick widget booking flow
+ *   tradeline_chat — TradeLine chat assistant
+ *   tradeline_voice — TradeLine voice assistant
+ *   whatsapp     — WhatsApp channel
+ *   sms          — SMS channel
+ *
+ * ─────────────────────────────────────────────────────────────────── */
+export const bookflowAppointments = pgTable("bookflow_appointments", {
+  id: serial("id").primaryKey(),
+  client_id: integer("client_id").notNull(),
+  customer_name: text("customer_name").notNull(),
+  customer_email: text("customer_email"),
+  customer_phone: text("customer_phone"),
+  customer_address: text("customer_address"),
+  service_name: text("service_name"),
+  service_duration_minutes: integer("service_duration_minutes"),
+  start_time: timestamp("start_time").notNull(),
+  end_time: timestamp("end_time").notNull(),
+  status: text("status").notNull().default("confirmed"),
+  // "confirmed" | "pending" | "cancelled" | "completed" | "no_show"
+  notes: text("notes"),
+  source: text("source").default("direct"),
+  // "direct" | "quotequick" | "tradeline_chat" | "tradeline_voice" | "whatsapp" | "sms"
+  cancellation_reason: text("cancellation_reason"),
+  metadata: jsonb("metadata"),
+  created_at: timestamp("created_at").defaultNow(),
+  updated_at: timestamp("updated_at").defaultNow(),
+});
+
+export const insertBookflowAppointmentSchema = createInsertSchema(bookflowAppointments).omit({
+  id: true, created_at: true, updated_at: true,
+});
+export type InsertBookflowAppointment = z.infer<typeof insertBookflowAppointmentSchema>;
+export type BookflowAppointment = typeof bookflowAppointments.$inferSelect;
