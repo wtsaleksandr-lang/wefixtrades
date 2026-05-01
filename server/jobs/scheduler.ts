@@ -36,6 +36,7 @@ import { cleanupOldMedia } from "../services/socialSync/mediaService";
 import { processAllClientReviews } from "../services/reputation/reviewOrchestrator";
 import { processReviewRequests } from "../services/reputation/reviewRequestService";
 import { processAutoActivation } from "./autoActivationWorker";
+import { processRecurringTasks } from "./recurringTaskWorker";
 
 const log = createLogger("Scheduler");
 
@@ -390,6 +391,7 @@ export function initScheduler() {
       "SocialSync expiry check: 04:00 UTC every day",
       "SocialSync monthly reports: 12:00 UTC on the 2nd of each month",
       "WebCare health checks: every 15 minutes",
+      "Recurring task generation: 01:00 UTC every day",
       "Auto-activation worker: every 5 minutes",
     ],
   });
@@ -460,6 +462,19 @@ export function initScheduler() {
       webcareHealthRunning = false;
     }
   });
+
+  // Recurring task worker — generates monthly fulfillment tasks for
+  // recurring services (WebCare, SocialSync, etc.) from templates
+  // marked is_recurring = true. Runs daily at 01:00 UTC, idempotent
+  // per month via title-prefix dedup.
+  cron.schedule("0 1 * * *", async () => {
+    log.info("Running recurring task generation...");
+    try {
+      await runJob("recurring_task_generation", processRecurringTasks);
+    } catch (err: any) {
+      log.error("recurring_task_generation cron handler error", { error: err.message });
+    }
+  }, { timezone: "UTC" });
 
   // Sprint 2: Auto-activation worker. Every 5 minutes, checks
   // onboarding services whose readiness conditions are met and

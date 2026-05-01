@@ -339,6 +339,28 @@ async function main() {
       { title: "Launch & DNS cutover", sort_order: 9, default_handled_by: "internal", human_review_required: true, is_recurring: false },
       { title: "Post-launch QA & handoff", sort_order: 10, default_handled_by: "internal", human_review_required: true, is_recurring: false },
     ],
+    "webcare-basic": [
+      { title: "Verify website access credentials", sort_order: 1, default_handled_by: "internal", is_recurring: false },
+      { title: "Run initial website health audit", sort_order: 2, default_handled_by: "internal", is_recurring: false },
+      { title: "Configure uptime monitoring", sort_order: 3, default_handled_by: "internal", is_recurring: false },
+      { title: "Install security scanning", sort_order: 4, default_handled_by: "internal", is_recurring: false },
+      { title: "Apply pending software/plugin updates", sort_order: 5, default_handled_by: "internal", is_recurring: true },
+      { title: "Set up automated backup schedule", sort_order: 6, default_handled_by: "internal", is_recurring: false },
+      { title: "QA review & send delivery report", sort_order: 7, default_handled_by: "internal", human_review_required: true, is_recurring: false },
+      { title: "Go live & confirm monitoring active", sort_order: 8, default_handled_by: "internal", human_review_required: true, is_recurring: false },
+    ],
+    "webcare-pro": [
+      { title: "Verify website access credentials", sort_order: 1, default_handled_by: "internal", is_recurring: false },
+      { title: "Run initial website health audit", sort_order: 2, default_handled_by: "internal", is_recurring: false },
+      { title: "Configure uptime monitoring", sort_order: 3, default_handled_by: "internal", is_recurring: false },
+      { title: "Install security scanning", sort_order: 4, default_handled_by: "internal", is_recurring: false },
+      { title: "Apply pending software/plugin updates", sort_order: 5, default_handled_by: "internal", is_recurring: true },
+      { title: "Set up automated backup schedule", sort_order: 6, default_handled_by: "internal", is_recurring: false },
+      { title: "QA review & send delivery report", sort_order: 7, default_handled_by: "internal", human_review_required: true, is_recurring: false },
+      { title: "Go live & confirm monitoring active", sort_order: 8, default_handled_by: "internal", human_review_required: true, is_recurring: false },
+      { title: "Configure advanced performance monitoring", sort_order: 9, default_handled_by: "internal", is_recurring: false },
+      { title: "Set up monthly content change workflow", sort_order: 10, default_handled_by: "internal", is_recurring: true },
+    ],
   };
 
   for (const [serviceId, tasks] of Object.entries(TASK_TEMPLATES)) {
@@ -636,6 +658,32 @@ async function main() {
         { key: "photos", label: "Business / work photos available", type: "checkbox", required: false },
         { key: "domain_preference", label: "Do you have a domain, or want us to suggest one?", type: "select", required: true },
         { key: "extra_pages", label: "Extra pages needed beyond home/services/contact?", type: "text", required: false },
+      ],
+    },
+    "webcare-basic": {
+      name: "WebCare Basic Onboarding",
+      steps: [
+        { key: "website_url", label: "Website URL", type: "text", required: true },
+        { key: "cms_platform", label: "CMS platform", type: "select", required: true },
+        { key: "cms_admin_url", label: "CMS admin login URL", type: "text", required: false },
+        { key: "admin_username", label: "Admin username", type: "text", required: true },
+        { key: "admin_password", label: "Admin password", type: "text", required: true },
+        { key: "hosting_provider", label: "Hosting provider", type: "text", required: false },
+        { key: "known_issues", label: "Any known issues?", type: "textarea", required: false },
+        { key: "maintenance_window", label: "Preferred maintenance window", type: "select", required: false },
+      ],
+    },
+    "webcare-pro": {
+      name: "WebCare Pro Onboarding",
+      steps: [
+        { key: "website_url", label: "Website URL", type: "text", required: true },
+        { key: "cms_platform", label: "CMS platform", type: "select", required: true },
+        { key: "cms_admin_url", label: "CMS admin login URL", type: "text", required: false },
+        { key: "admin_username", label: "Admin username", type: "text", required: true },
+        { key: "admin_password", label: "Admin password", type: "text", required: true },
+        { key: "hosting_provider", label: "Hosting provider", type: "text", required: false },
+        { key: "known_issues", label: "Any known issues?", type: "textarea", required: false },
+        { key: "maintenance_window", label: "Preferred maintenance window", type: "select", required: false },
       ],
     },
   };
