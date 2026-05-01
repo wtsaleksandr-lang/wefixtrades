@@ -45,7 +45,7 @@ const COMPANY_LOCATION = "Toronto, Canada";
  */
 export function buildEmailHeader(opts: { tagline?: string; theme?: "dark" | "light" } = {}): string {
   const isLight = opts.theme === "light";
-  const wordmarkColor = isLight ? "#111827" : TEXT_BRIGHT;
+  const wordmarkColor = isLight ? "#0F172A" : TEXT_BRIGHT;
   const taglineColor = isLight ? "#6B7280" : TEXT_MUTED;
 
   const taglineRow = opts.tagline
@@ -58,7 +58,7 @@ export function buildEmailHeader(opts: { tagline?: string; theme?: "dark" | "lig
         <td style="vertical-align:middle;padding-right:12px;">
           <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="border-collapse:separate;">
             <tr>
-              <td align="center" valign="middle" width="42" height="42" style="width:42px;height:42px;background:#1a1f1e;border:1px solid rgba(255,255,255,0.18);border-radius:11px;color:${ACCENT};font-size:20px;font-weight:700;font-family:Arial,sans-serif;line-height:42px;text-align:center;">&#10003;</td>
+              <td align="center" valign="middle" width="42" height="42" style="width:42px;height:42px;background:#0F172A;border:1px solid ${isLight ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.18)'};border-radius:11px;color:${ACCENT};font-size:20px;font-weight:700;font-family:Arial,sans-serif;line-height:42px;text-align:center;">&#10003;</td>
             </tr>
           </table>
         </td>
@@ -132,14 +132,14 @@ export function buildLegalFooter(opts: FooterOpts | "dark" | "light" = {}): stri
   const year = new Date().getFullYear();
 
   const palette = isLight ? {
-    text: "#374151",
-    muted: "#6B7280",
-    faint: "#9CA3AF",
-    tiny: "#C7CCD2",
-    border: "#E5E7EB",
-    borderSoft: "#F3F4F6",
+    text: "#1F2937",
+    muted: "#374151",
+    faint: "#4B5563",
+    tiny: "#6B7280",
+    border: "#D1D5DB",
+    borderSoft: "#E5E7EB",
     accent: ACCENT,
-    bright: "#111827",
+    bright: "#0F172A",
   } : {
     text: "#CDD1D6",
     muted: TEXT_MUTED,
