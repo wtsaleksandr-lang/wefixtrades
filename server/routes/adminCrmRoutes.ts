@@ -3,6 +3,7 @@ import { requireAdmin, hashPassword } from "../auth";
 import { storage } from "../storage";
 import { advanceSetupStage, getTradeLineReadiness } from "@shared/schema";
 import { dispatchTaskToSupplier } from "../services/supplierDispatch";
+import { autoAssignSupplier } from "../services/supplierAssignment";
 import { sendWelcomePackage } from "../lib/welcomeEmail";
 // AdFlow dropped (Sprint 1) — compileAndSendAdFlowReport import removed
 import crypto from "crypto";
@@ -649,6 +650,11 @@ export function registerAdminCrmRoutes(app: Express): void {
           actor_type: "human",
         });
         tasks.push(task);
+
+        // Auto-assign supplier if template specifies handled_by = "supplier"
+        if (t.default_handled_by === "supplier") {
+          try { await autoAssignSupplier(task); } catch (_) { /* fail-safe */ }
+        }
       }
 
       // 5. Update client status if needed
@@ -714,6 +720,11 @@ export function registerAdminCrmRoutes(app: Express): void {
           actor_type: "human",
         });
         tasks.push(task);
+
+        // Auto-assign supplier if template specifies handled_by = "supplier"
+        if (t.default_handled_by === "supplier") {
+          try { await autoAssignSupplier(task); } catch (_) { /* fail-safe */ }
+        }
       }
 
       await storage.logAdminActivity({

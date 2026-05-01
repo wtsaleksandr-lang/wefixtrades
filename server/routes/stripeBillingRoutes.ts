@@ -25,6 +25,7 @@ import { sendPaymentSucceededEmail } from "../lib/paymentSucceededEmail";
 import { buildBillingPortalUrl } from "../lib/billingPortalToken";
 import { getTradeLineDefaultConfig } from "@shared/schema";
 import { createLogger } from "../lib/logger";
+import { autoAssignSupplier } from "../services/supplierAssignment";
 
 const log = createLogger("StripeBilling");
 
@@ -401,7 +402,7 @@ async function provisionOrConfirmService(
   // Create tasks from template
   const taskTemplates = await storage.getTaskTemplates(serviceId);
   for (const t of taskTemplates) {
-    await storage.createFulfillmentTask({
+    const task = await storage.createFulfillmentTask({
       client_service_id: clientService.id,
       client_id: clientId,
       title: t.title,
@@ -415,6 +416,11 @@ async function provisionOrConfirmService(
       status: "not_started",
       actor_type: "system",
     });
+
+    // Auto-assign supplier if template specifies handled_by = "supplier"
+    if (t.default_handled_by === "supplier") {
+      try { await autoAssignSupplier(task); } catch (_) { /* fail-safe */ }
+    }
   }
 
   // Update client status

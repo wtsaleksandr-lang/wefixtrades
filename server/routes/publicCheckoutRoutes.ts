@@ -17,6 +17,7 @@ import { storage } from "../storage";
 import type { ServiceCatalogRow } from "@shared/schema";
 import { getTradeLineDefaultConfig } from "@shared/schema";
 import { createLogger } from "../lib/logger";
+import { autoAssignSupplier } from "../services/supplierAssignment";
 
 const log = createLogger("PublicCheckout");
 
@@ -163,7 +164,7 @@ export function registerPublicCheckoutRoutes(app: Express): void {
         // Create fulfillment tasks
         const tasks = await storage.getTaskTemplates(svc.id);
         for (const t of tasks) {
-          await storage.createFulfillmentTask({
+          const task = await storage.createFulfillmentTask({
             client_service_id: cs.id,
             client_id: client.id,
             title: t.title,
@@ -177,6 +178,11 @@ export function registerPublicCheckoutRoutes(app: Express): void {
             status: "not_started",
             actor_type: "system",
           });
+
+          // Auto-assign supplier if template specifies handled_by = "supplier"
+          if (t.default_handled_by === "supplier") {
+            try { await autoAssignSupplier(task); } catch (_) { /* fail-safe */ }
+          }
         }
       }
 
