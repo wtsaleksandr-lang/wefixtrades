@@ -111,6 +111,8 @@ import ResetPasswordPage from "@/pages/ResetPassword";
 import SignupPage from "@/pages/Signup";
 import ServicePricingPage from "@/pages/admin/ServicePricingPage";
 import BookingCalendarPage from "@/pages/admin/BookingCalendarPage";
+import SystemJobsPage from "@/pages/admin/SystemJobsPage";
+import SystemWorkersPage from "@/pages/admin/SystemWorkersPage";
 import BookingPage from "@/pages/public/BookingPage";
 import PayInvoicePage from "@/pages/public/PayInvoicePage";
 import DispatchPage from "@/pages/portal/DispatchPage";
@@ -145,6 +147,10 @@ function Router() {
       <Route path="/admin/crm/settings">{() => <RequirePortal><SettingsPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/change-password">{() => <RequirePortal><ChangePasswordPage /></RequirePortal>}</Route>
       <Route path="/admin/crm">{() => <RequirePortal><CrmOverview /></RequirePortal>}</Route>
+
+      {/* System monitoring */}
+      <Route path="/admin/system/jobs">{() => <RequirePortal><SystemJobsPage /></RequirePortal>}</Route>
+      <Route path="/admin/system/workers">{() => <RequirePortal><SystemWorkersPage /></RequirePortal>}</Route>
 
       {/* Outbound lead management */}
       <Route path="/admin/outbound/prospects">{() => <RequirePortal><ProspectsPage /></RequirePortal>}</Route>

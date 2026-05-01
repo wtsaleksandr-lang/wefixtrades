@@ -29,6 +29,9 @@ import {
   ChevronDown,
   Layers,
   CalendarDays,
+  Server,
+  Activity,
+  AlertTriangle,
 } from "lucide-react";
 import AdminCopilot, { type AdminPageContext } from "./AdminCopilot";
 import { useAuth } from "@/hooks/useAuth";
@@ -59,6 +62,7 @@ const CORE_ITEMS = [
   { label: "Clients", href: "/admin/crm/clients", icon: Users },
   { label: "Inbox", href: "/admin/crm/inbox", icon: Inbox },
   { label: "Support", href: "/admin/crm/support", icon: LifeBuoy, countKey: "support" as const },
+  { label: "Alerts", href: "/admin/crm/alerts", icon: AlertTriangle, countKey: "alerts" as const },
 ];
 
 /* ─── Collapsible groups ─── */
@@ -84,13 +88,18 @@ const OUTBOUND_ITEMS = [
   { label: "Pipeline", href: "/admin/outbound/pipeline", icon: CreditCard },
 ];
 
+const SYSTEM_ITEMS = [
+  { label: "Job Logs", href: "/admin/system/jobs", icon: Activity },
+  { label: "Workers", href: "/admin/system/workers", icon: Server },
+];
+
 const SECONDARY_ITEMS = [
   { label: "AI Dashboard", href: "/admin/ai", icon: BrainCircuit },
   { label: "Client Portal", href: "/portal", icon: ExternalLink },
 ];
 
 /* Unified list for page title detection and other lookups */
-const NAV_ITEMS = [...CORE_ITEMS, ...PRODUCTS_ITEMS, ...FINANCE_ITEMS];
+const NAV_ITEMS = [...CORE_ITEMS, ...PRODUCTS_ITEMS, ...FINANCE_ITEMS, ...SYSTEM_ITEMS];
 
 function isActive(location: string, href: string): boolean {
   if (href === "/admin/crm") return location === "/admin/crm";
@@ -211,6 +220,7 @@ function SidebarNav({
       <NavGroup label="Products" items={PRODUCTS_ITEMS} location={location} onNavigate={onNavigate} defaultOpen={true} />
       <NavGroup label="Finance" items={FINANCE_ITEMS} location={location} onNavigate={onNavigate} defaultOpen={true} />
       <NavGroup label="Outbound" items={OUTBOUND_ITEMS} location={location} onNavigate={onNavigate} defaultOpen={false} />
+      <NavGroup label="System" items={SYSTEM_ITEMS} location={location} onNavigate={onNavigate} defaultOpen={false} />
 
       {/* Other */}
       <div className="mt-4 pt-2 border-t border-gray-100">
