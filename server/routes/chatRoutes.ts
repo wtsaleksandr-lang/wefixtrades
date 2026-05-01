@@ -243,7 +243,7 @@ export function registerChatRoutes(app: Express): void {
     try {
       const clientIp = getClientIp(req);
       if (!(await chatRateLimiter.check(clientIp))) {
-        return res.status(429).json({ error: "Too many requests. Please wait a moment." });
+        return res.status(429).json({ error: "Too many requests, please try again shortly" });
       }
 
       const readiness = isReady();
@@ -292,7 +292,7 @@ export function registerChatRoutes(app: Express): void {
     try {
       const clientIp = getClientIp(req);
       if (!(await chatRateLimiter.check(clientIp))) {
-        return res.status(429).json({ error: "Too many requests. Please wait a moment." });
+        return res.status(429).json({ error: "Too many requests, please try again shortly" });
       }
 
       const readiness = isReady();

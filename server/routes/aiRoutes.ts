@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, Request, Response } from "express";
 import { z } from "zod";
 import { randomBytes } from "crypto";
 import OpenAI from "openai";
@@ -8,8 +8,13 @@ import { pricingIntakeSchema, sampleQuoteSchema, type PricingDraftJob } from "@s
 import { generatePricingConfigDraft } from "../aiPricingAgent";
 import { buildSystemPrompt, runChatCompletion } from "../aiChatEngine";
 import { createLogger } from "../lib/logger";
+import { aiChatRateLimiter } from "../services/rateLimiter";
 
 const log = createLogger("AIRoutes");
+
+function getClientIp(req: Request): string {
+  return (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || "unknown";
+}
 
 let _openai: OpenAI | null = null;
 function getOpenAI(): OpenAI {
@@ -217,8 +222,13 @@ Return ONLY the JSON pricing config object.`;
     }
   });
 
-  app.post("/api/ai/demo-chat", async (req, res) => {
+  app.post("/api/ai/demo-chat", async (req: Request, res: Response) => {
     try {
+      const ip = getClientIp(req);
+      if (!(await aiChatRateLimiter.check(ip))) {
+        return res.status(429).json({ error: "Too many requests, please try again shortly" });
+      }
+
       const body = z.object({
         messages: z.array(chatMessageSchema).min(1).max(50),
         trade_category: z.string().optional(),
@@ -259,8 +269,13 @@ Return ONLY the JSON pricing config object.`;
     }
   });
 
-  app.post("/api/ai/support-chat", async (req, res) => {
+  app.post("/api/ai/support-chat", async (req: Request, res: Response) => {
     try {
+      const ip = getClientIp(req);
+      if (!(await aiChatRateLimiter.check(ip))) {
+        return res.status(429).json({ error: "Too many requests, please try again shortly" });
+      }
+
       const body = z.object({
         messages: z.array(chatMessageSchema).min(1).max(50),
         token: z.string().min(1),
@@ -329,8 +344,13 @@ Return ONLY the JSON pricing config object.`;
     }
   });
 
-  app.post("/api/ai/client-chat", async (req, res) => {
+  app.post("/api/ai/client-chat", async (req: Request, res: Response) => {
     try {
+      const ip = getClientIp(req);
+      if (!(await aiChatRateLimiter.check(ip))) {
+        return res.status(429).json({ error: "Too many requests, please try again shortly" });
+      }
+
       const body = z.object({
         messages: z.array(chatMessageSchema).min(1).max(50),
         calculator_id: z.number().int().positive(),

@@ -21,6 +21,8 @@ import {
   scheduleCardExpiringEmail,
   cancelPendingForSubscription,
 } from "../services/dunningService";
+import { sendPaymentSucceededEmail } from "../lib/paymentSucceededEmail";
+import { buildBillingPortalUrl } from "../lib/billingPortalToken";
 import { getTradeLineDefaultConfig } from "@shared/schema";
 import { createLogger } from "../lib/logger";
 
@@ -553,7 +555,58 @@ async function handleInvoiceSucceeded(invoice: Stripe.Invoice) {
   await cancelPendingForSubscription({
     stripeSubscriptionId: subscriptionId,
     reason: "payment_succeeded",
-  }).catch(err => log.warn(`[dunning] cancel-on-success failed:`, err.message));
+  }).catch(err => log.warn("dunning cancel-on-success failed", { error: err.message }));
+
+  // Send payment-succeeded confirmation email (fail-safe, non-blocking).
+  (async () => {
+    const customerId = typeof invoice.customer === "string" ? invoice.customer : invoice.customer?.id;
+    if (!customerId) return;
+    const periodKey = invoice.period_end ? String(invoice.period_end) : String(invoice.created);
+    const marker = (invoice.metadata as Record<string, string>)?.last_payment_success_email_period;
+    if (marker === periodKey) return;
+
+    const client = await storage.findClientByStripeCustomerId(customerId);
+    if (!client?.contact_email) return;
+
+    const stripe = getStripe();
+    let nextBillingDate = "See billing portal";
+    if (stripe && subscriptionId) {
+      try {
+        const sub = await stripe.subscriptions.retrieve(subscriptionId) as any;
+        if (sub.current_period_end) {
+          nextBillingDate = new Date(sub.current_period_end * 1000)
+            .toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+        }
+      } catch { /* best-effort */ }
+    }
+
+    const services = await storage.listClientServices(client.id);
+    const active = services.find(s => s.status === "active" && s.billing_period === "monthly");
+    let serviceName = "WeFixTrades subscription";
+    if (active) {
+      const svc = await storage.getServiceById(active.service_id);
+      if (svc) serviceName = svc.name;
+    }
+
+    const amountCents = invoice.amount_paid ?? invoice.amount_due ?? 0;
+    const amountStr = (amountCents / 100).toFixed(2);
+    const portalUrl = buildBillingPortalUrl({ stripeCustomerId: customerId });
+
+    await sendPaymentSucceededEmail(client.contact_email, {
+      businessName: client.business_name,
+      amount: amountStr,
+      currency: invoice.currency || "usd",
+      serviceName,
+      nextBillingDate,
+      billingPortalUrl: portalUrl,
+    });
+
+    if (stripe && invoice.id) {
+      await stripe.invoices.update(invoice.id, {
+        metadata: { last_payment_success_email_period: periodKey },
+      }).catch(() => {});
+    }
+  })().catch(err => log.warn("Payment succeeded email failed", { error: err.message }));
 }
 
 async function handleCardExpiring(source: Stripe.Card | Stripe.Source, eventId: string) {
