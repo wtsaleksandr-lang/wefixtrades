@@ -20,19 +20,20 @@
  */
 
 import { sendAllSocialsyncReports } from "../services/socialsyncReports";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("SocialsyncReport");
 
 export async function processSocialsyncReports(): Promise<{
   sent: number;
   skipped: number;
   errors: number;
 }> {
-  console.log("[socialsync-report] Starting monthly report batch...");
+  log.info("Starting monthly report batch");
 
   const result = await sendAllSocialsyncReports();
 
-  console.log(
-    `[socialsync-report] Complete: ${result.sent} sent, ${result.skipped} skipped, ${result.errors.length} errors`,
-  );
+  log.info("Monthly report batch complete", { sent: result.sent, skipped: result.skipped, errors: result.errors.length });
 
   return {
     sent: result.sent,

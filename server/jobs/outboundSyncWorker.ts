@@ -28,6 +28,9 @@ import {
 import { eq, and, sql, lt, isNull, or, gte } from "drizzle-orm";
 import { getOutreachAdapter } from "../services/outreachPlatform";
 import { checkBlacklist } from "../services/outboundSafety";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("OutboundSync");
 
 /* ─── Helpers ─── */
 
@@ -110,7 +113,7 @@ export async function processOutboundSync(): Promise<SyncResult> {
       adapter = getOutreachAdapter(platform);
     } catch (err: any) {
       // API key not configured — skip platform silently
-      console.warn(`[OutboundSync] Skipping campaign ${campaign.id} — ${err.message}`);
+      log.warn("Skipping campaign — adapter unavailable", { campaignId: campaign.id, error: err.message });
       continue;
     }
 
@@ -122,12 +125,12 @@ export async function processOutboundSync(): Promise<SyncResult> {
     const hourlyRemaining = (campaign.hourly_send_limit ?? 10) - hourlySent;
 
     if (dailyRemaining <= 0) {
-      console.info(`[OutboundSync] Campaign ${campaign.id} hit daily limit (${campaign.daily_send_limit})`);
+      log.info("Campaign hit daily limit", { campaignId: campaign.id, dailySendLimit: campaign.daily_send_limit });
       result.leads_skipped_rate_limit++;
       continue;
     }
     if (hourlyRemaining <= 0) {
-      console.info(`[OutboundSync] Campaign ${campaign.id} hit hourly limit (${campaign.hourly_send_limit})`);
+      log.info("Campaign hit hourly limit", { campaignId: campaign.id, hourlySendLimit: campaign.hourly_send_limit });
       result.leads_skipped_rate_limit++;
       continue;
     }
@@ -293,7 +296,7 @@ export async function processOutboundSync(): Promise<SyncResult> {
         await apiDelay();
 
       } catch (err: any) {
-        console.error(`[OutboundSync] Failed to sync lead ${cp.prospect_id}:`, err.message);
+        log.error("Failed to sync lead", { prospectId: cp.prospect_id, error: err.message });
         result.leads_failed++;
 
         const newRetryCount = (cp.retry_count ?? 0) + 1;

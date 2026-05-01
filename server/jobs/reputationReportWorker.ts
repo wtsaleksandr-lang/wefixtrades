@@ -13,6 +13,9 @@ import { clients, clientServices } from "@shared/schema";
 import { extractTier, mergeSettings, TIER_REPORT_FREQUENCY, type ReportFrequency } from "@shared/reputationConfig";
 import { aggregateReportData, sendReputationReport } from "../lib/reputationReport";
 import { storage } from "../storage";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("ReputationReport");
 
 /** Map frequency to minimum days between reports. */
 const FREQUENCY_DAYS: Record<ReportFrequency, number> = {
@@ -151,13 +154,13 @@ export async function processReputationReports(): Promise<{
         });
 
         sent++;
-        console.log(`[ReputationReport] Sent ${frequency} report to ${reportData.contactEmail} for ${reportData.businessName}`);
+        log.info("Sent report", { frequency, email: reportData.contactEmail, businessName: reportData.businessName });
       } else {
         errors.push(`Client ${candidate.clientId}: ${result.error}`);
       }
     } catch (err: any) {
       errors.push(`Client ${candidate.clientId}: ${err.message}`);
-      console.error(`[ReputationReport] Error for client ${candidate.clientId}:`, err.message);
+      log.error("Error processing client", { clientId: candidate.clientId, error: err.message });
     }
   }
 

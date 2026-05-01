@@ -1,5 +1,8 @@
 import nodemailer from "nodemailer";
 import { storage } from "../storage";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("WeeklyReport");
 
 function getTransporter() {
   const host = process.env.SMTP_HOST;
@@ -98,7 +101,7 @@ export async function sendWeeklyReports(): Promise<{ sent: number; skipped: numb
   let skipped = 0;
 
   if (!mail) {
-    console.log("[WeeklyReport] SMTP not configured, skipping email sends");
+    log.warn("SMTP not configured, skipping email sends");
     return { sent: 0, skipped: 0, errors: ["SMTP not configured"] };
   }
 

@@ -20,19 +20,20 @@
  */
 
 import { sendAllRankflowReports } from "../services/rankflowReports";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("RankflowReport");
 
 export async function processRankflowReports(): Promise<{
   sent: number;
   skipped: number;
   errors: number;
 }> {
-  console.log("[rankflow-report] Starting monthly report batch...");
+  log.info("Starting monthly report batch");
 
   const result = await sendAllRankflowReports();
 
-  console.log(
-    `[rankflow-report] Complete: ${result.sent} sent, ${result.skipped} skipped, ${result.errors.length} errors`,
-  );
+  log.info("Monthly report batch complete", { sent: result.sent, skipped: result.skipped, errors: result.errors.length });
 
   return {
     sent: result.sent,
