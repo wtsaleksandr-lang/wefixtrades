@@ -2540,9 +2540,11 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
       if (!clientId) return;
 
       const { isGoogleOAuthConfigured } = await import("../services/googleBusinessService");
+      const { decryptGoogleCredentials } = await import("../lib/tokenEncryption");
       const { storage } = await import("../storage");
       const client = await storage.getClientById(clientId);
-      const creds = client?.google_credentials as any;
+      const rawCreds = client?.google_credentials as Record<string, unknown> | null;
+      const creds = rawCreds ? decryptGoogleCredentials(rawCreds) as any : null;
 
       const connected = !!(creds?.refresh_token || creds?.access_token);
       const expired = connected && creds?.expiry_date && new Date(creds.expiry_date).getTime() < Date.now() && !creds?.refresh_token;

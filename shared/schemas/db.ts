@@ -23,6 +23,8 @@ export const users = pgTable("users", {
   password_hash: text("password_hash").notNull(),
   name: text("name"),
   role: text("role").notNull().default("client"),
+  totp_secret: text("totp_secret"),
+  totp_enabled: boolean("totp_enabled").default(false),
   created_at: timestamp("created_at").defaultNow(),
 });
 

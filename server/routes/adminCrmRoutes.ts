@@ -1865,8 +1865,10 @@ export function registerAdminCrmRoutes(app: Express): void {
     try {
       const clientId = parseInt(req.params.id as string);
       const { isGoogleOAuthConfigured } = await import("../services/googleBusinessService");
+      const { decryptGoogleCredentials } = await import("../lib/tokenEncryption");
       const client = await storage.getClientById(clientId);
-      const creds = client?.google_credentials as any;
+      const rawCreds = client?.google_credentials as Record<string, unknown> | null;
+      const creds = rawCreds ? decryptGoogleCredentials(rawCreds) as any : null;
       const connected = !!(creds?.refresh_token || creds?.access_token);
 
       res.json({
