@@ -125,6 +125,11 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/* ─── Prompt caching helper ─── */
+function buildCachedSystem(systemText: string): any {
+  return [{ type: "text", text: systemText, cache_control: { type: "ephemeral" } } as any];
+}
+
 /* ─── Streaming chat (returns Anthropic stream, caller handles events) ─── */
 export function streamChat(opts: ChatOptions) {
   assertCircuitAllowsRequest();
@@ -132,7 +137,7 @@ export function streamChat(opts: ChatOptions) {
   const params: Parameters<typeof client.messages.stream>[0] = {
     model: opts.modelOverride || getModel(),
     max_tokens: opts.maxTokens || DEFAULT_MAX_TOKENS,
-    system: opts.system,
+    system: opts.system ? buildCachedSystem(opts.system) : (undefined as any),
     messages: mapMessages(opts.messages),
   };
   if (opts.tools?.length) (params as any).tools = opts.tools;
@@ -150,17 +155,26 @@ export async function chat(opts: ChatOptions): Promise<string> {
       const params: Parameters<typeof client.messages.create>[0] = {
         model: opts.modelOverride || getModel(),
         max_tokens: opts.maxTokens || DEFAULT_MAX_TOKENS,
-        system: opts.system,
+        system: opts.system ? buildCachedSystem(opts.system) : (undefined as any),
         messages: mapMessages(opts.messages),
       };
       if (opts.tools?.length) (params as any).tools = opts.tools;
       const response = await client.messages.create(params) as Anthropic.Message;
+
+      const usage = response.usage as any;
+      if (usage?.cache_creation_input_tokens || usage?.cache_read_input_tokens) {
+        log.debug("Prompt cache stats", {
+          cache_creation_input_tokens: usage.cache_creation_input_tokens ?? 0,
+          cache_read_input_tokens: usage.cache_read_input_tokens ?? 0,
+          input_tokens: usage.input_tokens ?? 0,
+        });
+      }
+
       const block = response.content[0];
       recordSuccess();
       return block.type === "text" ? block.text : "";
     } catch (err: any) {
       lastError = err;
-      // Don't retry on auth errors or invalid requests
       if (err?.status === 401 || err?.status === 400) throw err;
       recordFailure();
       if (attempt < MAX_RETRIES) {

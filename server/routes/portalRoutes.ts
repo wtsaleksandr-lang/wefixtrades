@@ -21,6 +21,8 @@ import {
 import { getOrCreateThread, loadThreadMessages, derivePageContext } from "../services/threadService";
 import { authRateLimiter, portalReviewRateLimiter } from "../services/rateLimiter";
 import { sendTicketCreatedEmail } from "../lib/supportTicketEmails";
+import { sendBillingPortalLinkEmail } from "../lib/billingPortalEmail";
+import { buildBillingPortalUrl } from "../lib/billingPortalToken";
 
 import {
   clients,
@@ -388,6 +390,31 @@ export function registerPortalRoutes(app: Express) {
     } catch (err) {
       console.error("Portal billing error:", err);
       res.status(500).json({ error: "Failed to load billing" });
+    }
+  });
+
+  /**
+   * POST /api/portal/billing/send-link
+   * Generate a billing portal URL and email it to the authenticated client.
+   */
+  app.post("/api/portal/billing/send-link", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const [client] = await db.select().from(clients).where(eq(clients.id, clientId)).limit(1);
+      if (!client) return res.status(404).json({ error: "Client not found" });
+      if (!client.contact_email) return res.status(400).json({ error: "No email address on file" });
+      if (!client.stripe_customer_id) return res.status(400).json({ error: "No billing account linked" });
+
+      const portalUrl = buildBillingPortalUrl({ stripeCustomerId: client.stripe_customer_id });
+      const sent = await sendBillingPortalLinkEmail(client.contact_email, { businessName: client.business_name, portalUrl });
+
+      if (!sent) return res.status(500).json({ error: "Failed to send billing portal email" });
+      res.json({ success: true, message: "Billing portal link sent to your email" });
+    } catch (err) {
+      console.error("Portal billing send-link error:", err);
+      res.status(500).json({ error: "Failed to send billing link" });
     }
   });
 

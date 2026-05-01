@@ -73,7 +73,7 @@ const defaultStore = new MemoryRateLimitStore();
 
 export const chatRateLimiter = new RateLimiter(
   defaultStore,
-  30,       // max requests
+  20,       // max requests per minute per user/IP
   60_000,   // per 1-minute window
 );
 
@@ -93,4 +93,11 @@ export const portalReviewRateLimiter = new RateLimiter(
   defaultStore,
   30,       // max actions
   60_000,   // per 1-minute window
+);
+
+/** Rate limiter for AI chat endpoints (/api/ai/*). 20 req/min per IP. */
+export const aiChatRateLimiter = new RateLimiter(
+  defaultStore,
+  20,
+  60_000,
 );

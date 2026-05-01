@@ -23,6 +23,14 @@ import type { ChatMessage } from "./aiService";
 import { buildSystemPrompt, type TradeLineContext } from "./promptBuilder";
 import { storage } from "../storage";
 import type { TradelineConfig, ClientService, Client } from "@shared/schema";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("VapiService");
+
+/* ─── Startup readiness warning ─── */
+if (!process.env.VAPI_API_KEY) {
+  log.warn("VAPI_API_KEY is not set — voice features will return fallback responses");
+}
 
 /* ─── Vapi Config ─── */
 
@@ -35,10 +43,6 @@ export interface VapiConfig {
   serverUrl?: string;
 }
 
-/**
- * Reads Vapi configuration from environment variables.
- * Returns null values for unconfigured fields — never throws.
- */
 export function getVapiConfig(): Partial<VapiConfig> {
   return {
     apiKey: process.env.VAPI_API_KEY || undefined,
@@ -55,7 +59,6 @@ export function getVapiConfig(): Partial<VapiConfig> {
 export interface VapiReadiness {
   configured: boolean;
   assistantReady: boolean;
-  /** Whether the browser-based voice demo can run (public key + assistant ID) */
   webDemoReady: boolean;
   details: {
     hasApiKey: boolean;
@@ -71,14 +74,9 @@ export interface VapiReadiness {
   missing: string[];
 }
 
-/**
- * Check whether Vapi integration is ready to operate.
- * Returns a structured readiness report useful for admin dashboards.
- */
 export function checkVapiReadiness(): VapiReadiness {
   const config = getVapiConfig();
   const assistant = isReady();
-
   const details = {
     hasApiKey: !!config.apiKey,
     hasPublicKey: !!config.publicKey,
@@ -87,10 +85,9 @@ export function checkVapiReadiness(): VapiReadiness {
     hasWebhookSecret: !!config.webhookSecret,
     hasServerUrl: !!config.serverUrl,
     assistantCoreReady: assistant.ready,
-    syncEndpointAvailable: true,  // /api/chat/sync always exists
-    webhookEndpointAvailable: true,  // /api/vapi/webhook always exists
+    syncEndpointAvailable: true,
+    webhookEndpointAvailable: true,
   };
-
   const missing: string[] = [];
   if (!details.hasApiKey) missing.push("VAPI_API_KEY");
   if (!details.hasPublicKey) missing.push("VAPI_PUBLIC_KEY (required for web voice demo)");
@@ -98,14 +95,9 @@ export function checkVapiReadiness(): VapiReadiness {
   if (!details.hasWebhookSecret) missing.push("VAPI_WEBHOOK_SECRET");
   if (!details.hasPhoneNumberId) missing.push("VAPI_PHONE_NUMBER_ID (optional — needed for inbound calls)");
   if (!details.assistantCoreReady) missing.push("ANTHROPIC_API_KEY (shared assistant core)");
-
-  // Vapi is "configured" when at minimum the API key is present
   const configured = details.hasApiKey;
-  // Fully ready when assistant core + API key + webhook secret are all set
   const assistantReady = configured && details.assistantCoreReady && details.hasWebhookSecret;
-  // Web demo needs public key + assistant ID (no API key needed on client)
   const webDemoReady = details.hasPublicKey && details.hasAssistantId;
-
   return { configured, assistantReady, webDemoReady, details, missing };
 }
 
@@ -119,15 +111,10 @@ export interface VapiWebhookEvent {
     functionCall?: { name: string; parameters: Record<string, any> };
     status?: string;
     endedReason?: string;
-    /** End-of-call report fields */
     summary?: string;
     recordingUrl?: string;
     stereoRecordingUrl?: string;
-    artifact?: {
-      messages?: VapiTranscriptMessage[];
-      transcript?: string;
-    };
-    /** For conversation-update / assistant-request */
+    artifact?: { messages?: VapiTranscriptMessage[]; transcript?: string };
     messages?: VapiTranscriptMessage[];
   };
 }
@@ -141,10 +128,7 @@ export interface VapiCallObject {
   status?: string;
   startedAt?: string;
   endedAt?: string;
-  customer?: {
-    number?: string;
-    name?: string;
-  };
+  customer?: { number?: string; name?: string };
 }
 
 export interface VapiTranscriptMessage {
@@ -156,39 +140,18 @@ export interface VapiTranscriptMessage {
 
 /* ─── Webhook Signature Verification ─── */
 
-/**
- * Verify a Vapi webhook signature.
- * Vapi sends an x-vapi-signature header containing an HMAC-SHA256
- * of the raw body using the webhook secret.
- *
- * Returns true if valid or if verification is skipped (no secret configured).
- */
-export function verifyWebhookSignature(
-  rawBody: string | Buffer,
-  signature: string | undefined,
-): boolean {
+export function verifyWebhookSignature(rawBody: string | Buffer, signature: string | undefined): boolean {
   const config = getVapiConfig();
   if (!config.webhookSecret) {
-    // No secret configured — skip verification but log a warning
-    console.warn("[vapi] No VAPI_WEBHOOK_SECRET configured — skipping signature verification");
+    log.warn("No VAPI_WEBHOOK_SECRET configured — skipping signature verification");
     return true;
   }
-
-  if (!signature) {
-    return false;
-  }
-
+  if (!signature) return false;
   try {
     const crypto = require("crypto");
-    const expected = crypto
-      .createHmac("sha256", config.webhookSecret)
-      .update(typeof rawBody === "string" ? rawBody : rawBody.toString("utf-8"))
-      .digest("hex");
-
-    return crypto.timingSafeEqual(
-      Buffer.from(signature, "hex"),
-      Buffer.from(expected, "hex"),
-    );
+    const expected = crypto.createHmac("sha256", config.webhookSecret)
+      .update(typeof rawBody === "string" ? rawBody : rawBody.toString("utf-8")).digest("hex");
+    return crypto.timingSafeEqual(Buffer.from(signature, "hex"), Buffer.from(expected, "hex"));
   } catch {
     return false;
   }
@@ -196,46 +159,26 @@ export function verifyWebhookSignature(
 
 /* ─── Translate Vapi transcript into shared ChatMessage[] ─── */
 
-/**
- * Converts Vapi's transcript message format into the shared assistant
- * ChatMessage[] format used by the assistant core.
- */
 export function translateTranscript(vapiMessages: VapiTranscriptMessage[]): ChatMessage[] {
   return vapiMessages
     .filter((m) => m.role === "user" || m.role === "assistant" || m.role === "bot")
-    .map((m) => ({
-      role: m.role === "bot" ? "assistant" : m.role as "user" | "assistant",
-      content: m.message,
-    }));
+    .map((m) => ({ role: m.role === "bot" ? "assistant" : m.role as "user" | "assistant", content: m.message }));
 }
 
-/* ─── Handle Vapi conversation turn ─── */
+/* ─── Handle Vapi conversation turn (with fallback) ─── */
 
-/**
- * Process a Vapi conversation-update or assistant-request event
- * by routing through the shared assistant core.
- *
- * Returns the assistant's text reply for Vapi to speak via TTS.
- */
-export async function handleConversationTurn(
-  messages: VapiTranscriptMessage[],
-  callId: string,
-): Promise<string> {
+export async function handleConversationTurn(messages: VapiTranscriptMessage[], callId: string): Promise<string> {
   const chatMessages = translateTranscript(messages);
+  if (!chatMessages.length) return "Hi, thanks for calling WeFixTrades! How can I help you today?";
 
-  if (!chatMessages.length) {
-    return "Hi, thanks for calling WeFixTrades! How can I help you today?";
+  try {
+    const req: AssistantRequest = { surface: "vapi", messages: chatMessages, sessionId: `vapi-${callId}`, maxTokens: 150 };
+    const result = await assistantSync(req);
+    return result.reply;
+  } catch (err: any) {
+    log.error("Conversation turn failed, returning fallback", { callId, error: err.message });
+    return "I'm sorry, I'm having a little trouble right now. Could you please call back in a few minutes, or leave your name and number and we'll get back to you?";
   }
-
-  const req: AssistantRequest = {
-    surface: "vapi",
-    messages: chatMessages,
-    sessionId: `vapi-${callId}`,
-    maxTokens: 150,  // Keep voice responses short
-  };
-
-  const result = await assistantSync(req);
-  return result.reply;
 }
 
 /* ─── Handle end-of-call report ─── */
@@ -250,17 +193,11 @@ export interface VapiCallReport {
   customerNumber?: string;
 }
 
-/**
- * Extract a structured call report from Vapi's end-of-call-report event.
- * This data can be logged, archived, or forwarded to the admin dashboard.
- */
 export function extractCallReport(event: VapiWebhookEvent): VapiCallReport {
   const msg = event.message;
   const call = msg.call;
   const artifact = msg.artifact;
-
   const messages = artifact?.messages || msg.messages || [];
-
   return {
     callId: call?.id || "unknown",
     endedReason: msg.endedReason || msg.status,
@@ -269,55 +206,28 @@ export function extractCallReport(event: VapiWebhookEvent): VapiCallReport {
     messageCount: messages.length,
     customerNumber: call?.customer?.number,
     duration: call?.startedAt && call?.endedAt
-      ? Math.round((new Date(call.endedAt).getTime() - new Date(call.startedAt).getTime()) / 1000)
-      : undefined,
+      ? Math.round((new Date(call.endedAt).getTime() - new Date(call.startedAt).getTime()) / 1000) : undefined,
   };
 }
 
 /* ─── TradeLine Client Resolution ─── */
 
-/**
- * Resolved TradeLine context for a call — contains the client, service,
- * and TradeLine config needed for per-client prompting and logging.
- */
 export interface ResolvedTradeLineClient {
   clientService: ClientService;
   client: Client;
   config: TradelineConfig;
 }
 
-/**
- * Attempt to resolve a TradeLine client_service from call metadata.
- *
- * Resolution strategies (in priority order):
- * 1. Explicit client_service_id in Vapi call metadata (future: set via Vapi assistant metadata)
- * 2. Future: phone number lookup (requires per-client number table)
- *
- * Returns null if no TradeLine context can be resolved — the call
- * falls back to the default WeFixTrades assistant.
- */
-export async function resolveTradeLineClient(
-  callMetadata?: Record<string, any>,
-  customerNumber?: string,
-): Promise<ResolvedTradeLineClient | null> {
+export async function resolveTradeLineClient(callMetadata?: Record<string, any>, customerNumber?: string): Promise<ResolvedTradeLineClient | null> {
   try {
-    // Strategy 1: explicit client_service_id in metadata
     const csId = callMetadata?.clientServiceId ?? callMetadata?.client_service_id;
     if (csId) {
       const numId = typeof csId === "number" ? csId : parseInt(csId);
-      if (!isNaN(numId)) {
-        return resolveByClientServiceId(numId);
-      }
+      if (!isNaN(numId)) return resolveByClientServiceId(numId);
     }
-
-    // Strategy 2: phone number lookup (placeholder for future per-client routing)
-    // When per-client phone numbers are stored, look up clientService by
-    // tradelineConfig.phoneRouting.primaryBusinessNumber matching the Vapi phone number.
-    // For now, this is a no-op.
-
     return null;
   } catch (err) {
-    console.error("[vapi] TradeLine client resolution failed:", err);
+    log.error("TradeLine client resolution failed", { error: (err as Error).message });
     return null;
   }
 }
@@ -325,24 +235,18 @@ export async function resolveTradeLineClient(
 async function resolveByClientServiceId(csId: number): Promise<ResolvedTradeLineClient | null> {
   const cs = await storage.getClientServiceById(csId);
   if (!cs || !cs.service_id.startsWith("tradeline")) return null;
-
   const config = await storage.getTradeLineConfig(csId);
   if (!config) return null;
-
   const client = await storage.getClientById(cs.client_id);
   if (!client) return null;
-
   return { clientService: cs, client, config };
 }
 
-/**
- * Build a TradeLineContext for the prompt builder from resolved client data.
- */
 export function buildTradeLineContext(resolved: ResolvedTradeLineClient): TradeLineContext {
   return {
     businessName: resolved.client.business_name,
     tradeType: resolved.client.trade_type ?? undefined,
-    serviceArea: undefined, // could be enriched from onboarding data later
+    serviceArea: undefined,
     mode: resolved.config.currentMode,
     channels: resolved.config.channels,
     booking: resolved.config.booking,
@@ -350,378 +254,168 @@ export function buildTradeLineContext(resolved: ResolvedTradeLineClient): TradeL
   };
 }
 
-/* ─── TradeLine-aware conversation handler ─── */
+/* ─── TradeLine-aware conversation handler (with fallback) ─── */
 
-/**
- * Process a conversation turn with TradeLine context.
- * Uses the per-client mode-aware prompt instead of the generic WeFixTrades prompt.
- */
-export async function handleTradeLineConversationTurn(
-  messages: VapiTranscriptMessage[],
-  callId: string,
-  tradeLineCtx: TradeLineContext,
-): Promise<string> {
+export async function handleTradeLineConversationTurn(messages: VapiTranscriptMessage[], callId: string, tradeLineCtx: TradeLineContext): Promise<string> {
   const chatMessages = translateTranscript(messages);
-
   if (!chatMessages.length) {
-    const greeting = tradeLineCtx.mode === "after_hours"
+    return tradeLineCtx.mode === "after_hours"
       ? `Hi, thanks for calling ${tradeLineCtx.businessName}! We're closed for the day, but I can help make sure you're looked after.`
       : `Hi, thanks for calling ${tradeLineCtx.businessName}! How can I help you today?`;
-    return greeting;
   }
 
-  const systemPrompt = buildSystemPrompt("vapi", undefined, undefined, undefined, tradeLineCtx);
-
-  const req: AssistantRequest = {
-    surface: "vapi",
-    messages: chatMessages,
-    sessionId: `vapi-${callId}`,
-    maxTokens: 150,
-    systemOverride: systemPrompt,
-  };
-
-  const result = await assistantSync(req);
-  return result.reply;
+  try {
+    const systemPrompt = buildSystemPrompt("vapi", undefined, undefined, undefined, tradeLineCtx);
+    const req: AssistantRequest = { surface: "vapi", messages: chatMessages, sessionId: `vapi-${callId}`, maxTokens: 150, systemOverride: systemPrompt };
+    const result = await assistantSync(req);
+    return result.reply;
+  } catch (err: any) {
+    log.error("TradeLine conversation turn failed, returning fallback", { callId, error: err.message });
+    const name = tradeLineCtx.businessName || "us";
+    return `I apologize, I'm having a temporary issue. Please leave your name and number, or try calling ${name} back in a few minutes.`;
+  }
 }
 
 /* ─── TradeLine call logging ─── */
 
-/**
- * Log a completed Vapi call to the tradeline_call_log table
- * and increment usage counters for the billing period.
- */
-export async function logTradeLineCall(
-  clientServiceId: number,
-  report: VapiCallReport,
-  recordingUrl?: string,
-): Promise<void> {
+export async function logTradeLineCall(clientServiceId: number, report: VapiCallReport, recordingUrl?: string): Promise<void> {
   try {
     const vapiCallId = report.callId !== "unknown" ? report.callId : null;
+    if (!vapiCallId) { log.warn("Call has no vapi_call_id — cannot guarantee idempotency, skipping log"); return; }
 
-    if (!vapiCallId) {
-      console.warn("[vapi] Call has no vapi_call_id — cannot guarantee idempotency, skipping log");
-      return;
-    }
-
-    // Idempotent insert — returns null if this vapi_call_id was already logged
     const inserted = await storage.createTradeLineCallLog({
-      client_service_id: clientServiceId,
-      vapi_call_id: vapiCallId,
-      direction: "inbound",
-      caller_number: report.customerNumber ?? null,
-      duration_seconds: report.duration ?? 0,
+      client_service_id: clientServiceId, vapi_call_id: vapiCallId, direction: "inbound",
+      caller_number: report.customerNumber ?? null, duration_seconds: report.duration ?? 0,
       outcome: report.endedReason === "error" ? "failed" : "answered",
-      started_at: null, // Vapi doesn't always provide start time in report
-      ended_at: new Date(),
-      summary: report.summary ?? null,
-      transcript_json: report.transcript ? { text: report.transcript } : null,
-      recording_url: recordingUrl ?? null,
+      started_at: null, ended_at: new Date(), summary: report.summary ?? null,
+      transcript_json: report.transcript ? { text: report.transcript } : null, recording_url: recordingUrl ?? null,
     });
 
-    if (!inserted) {
-      console.log(`[vapi] Duplicate call log skipped for vapi_call_id=${report.callId}`);
-      return; // Do NOT increment usage for duplicate webhooks
-    }
+    if (!inserted) { log.debug("Duplicate call log skipped", { vapiCallId: report.callId }); return; }
 
-    // Update usage for current billing period — only on first insert
     const durationMinutes = report.duration ? Math.ceil(report.duration / 60) : 0;
     if (durationMinutes > 0) {
       const now = new Date();
       const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
       const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
-
-      await storage.incrementTradeLineUsage(clientServiceId, periodStart, periodEnd, {
-        voiceMinutes: durationMinutes,
-        calls: 1,
-      });
+      await storage.incrementTradeLineUsage(clientServiceId, periodStart, periodEnd, { voiceMinutes: durationMinutes, calls: 1 });
     }
   } catch (err) {
-    console.error("[vapi] Failed to log TradeLine call:", err);
+    log.error("Failed to log TradeLine call", { error: (err as Error).message });
   }
 }
 
 /* ─── Build Vapi assistant config response ─── */
 
-/**
- * When Vapi sends an "assistant-request" webhook, it expects a response
- * containing the assistant configuration. This builds that response
- * using our server URL as the conversation handler.
- */
 export function buildAssistantConfig(): Record<string, any> {
   const config = getVapiConfig();
-
   return {
     assistant: {
       name: "WeFixTrades Sales & Support",
-      model: {
-        provider: "custom-llm",
-        url: config.serverUrl
-          ? `${config.serverUrl}/api/vapi/conversation`
-          : "/api/vapi/conversation",
-      },
-      voice: {
-        provider: "11labs",
-        // Override in Vapi dashboard or via env to pick a branded voice.
-        voiceId: process.env.VAPI_WFT_VOICE_ID || "21m00Tcm4TlvDq8ikWAM",
-      },
-      firstMessage:
-        "WeFixTrades, this is Riley — how can I help?",
-      endCallMessage:
-        "Thanks for calling WeFixTrades. We'll follow up by email shortly — have a great rest of your day.",
-      maxDurationSeconds: 900, // 15 min hard cap
-      recordingEnabled: true,
-      transcriber: {
-        provider: "deepgram",
-        model: "nova-2",
-        language: "en",
-      },
+      model: { provider: "custom-llm", url: config.serverUrl ? `${config.serverUrl}/api/vapi/conversation` : "/api/vapi/conversation" },
+      voice: { provider: "11labs", voiceId: process.env.VAPI_WFT_VOICE_ID || "21m00Tcm4TlvDq8ikWAM" },
+      firstMessage: "WeFixTrades, this is Riley — how can I help?",
+      endCallMessage: "Thanks for calling WeFixTrades. We'll follow up by email shortly — have a great rest of your day.",
+      maxDurationSeconds: 900, recordingEnabled: true,
+      transcriber: { provider: "deepgram", model: "nova-2", language: "en" },
       endCallPhrases: ["goodbye", "bye", "thanks bye"],
     },
   };
 }
 
-/* ─── Per-Client Vapi Assistant CRUD ─── */
+/* ─── Per-Client Vapi Assistant CRUD (with graceful fallback) ─── */
 
 const VAPI_API_BASE = "https://api.vapi.ai";
 
-/**
- * Create or update a Vapi assistant for a specific TradeLine client service.
- *
- * If the client service already has a vapiAssistantId in metadata,
- * updates the existing assistant. Otherwise creates a new one.
- *
- * Returns the Vapi assistant ID.
- */
 export async function upsertVapiAssistant(
-  clientServiceId: number,
-  systemPrompt: string,
-  firstMessage: string,
-  assistantName: string,
-  voiceConfig?: { provider: string; voiceId: string },
-  transcriberLanguage?: string,
+  clientServiceId: number, systemPrompt: string, firstMessage: string, assistantName: string,
+  voiceConfig?: { provider: string; voiceId: string }, transcriberLanguage?: string,
 ): Promise<{ assistantId: string; created: boolean }> {
   const config = getVapiConfig();
   if (!config.apiKey) {
-    throw new Error("VAPI_API_KEY not configured — cannot manage assistants");
+    log.warn("VAPI_API_KEY not configured — cannot manage assistants");
+    throw new Error("Voice service is not configured. Set VAPI_API_KEY to enable assistant management.");
   }
 
-  // Check for existing assistant ID in metadata
   const cs = await storage.getClientServiceById(clientServiceId);
   const rawMeta = (cs?.metadata as Record<string, any>) ?? {};
   const existingId = rawMeta?.tradeline?.assistant?.vapiAssistantId;
 
-  const assistantPayload = {
+  const payload = {
     name: assistantName,
-    model: {
-      provider: "custom-llm" as const,
-      url: config.serverUrl
-        ? `${config.serverUrl}/api/vapi/conversation`
-        : "/api/vapi/conversation",
-      messages: [{ role: "system", content: systemPrompt }],
-    },
-    voice: {
-      provider: (voiceConfig?.provider || "11labs") as "11labs",
-      voiceId: voiceConfig?.voiceId || "21m00Tcm4TlvDq8ikWAM",
-    },
+    model: { provider: "custom-llm" as const, url: config.serverUrl ? `${config.serverUrl}/api/vapi/conversation` : "/api/vapi/conversation", messages: [{ role: "system", content: systemPrompt }] },
+    voice: { provider: (voiceConfig?.provider || "11labs") as "11labs", voiceId: voiceConfig?.voiceId || "21m00Tcm4TlvDq8ikWAM" },
     firstMessage,
-    transcriber: {
-      provider: "deepgram" as const,
-      model: "nova-2",
-      language: transcriberLanguage || "en",
-    },
-    serverUrl: config.serverUrl
-      ? `${config.serverUrl}/api/vapi/webhook`
-      : undefined,
-    metadata: {
-      client_service_id: String(clientServiceId),
-      source: "tradeline_template_engine",
-    },
+    transcriber: { provider: "deepgram" as const, model: "nova-2", language: transcriberLanguage || "en" },
+    serverUrl: config.serverUrl ? `${config.serverUrl}/api/vapi/webhook` : undefined,
+    metadata: { client_service_id: String(clientServiceId), source: "tradeline_template_engine" },
   };
 
   if (existingId) {
-    // Update existing assistant
-    const resp = await fetch(`${VAPI_API_BASE}/assistant/${existingId}`, {
-      method: "PATCH",
-      headers: {
-        "Authorization": `Bearer ${config.apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(assistantPayload),
-    });
-
-    if (!resp.ok) {
-      const body = await resp.text();
-      // If assistant was deleted externally, fall through to create
-      if (resp.status === 404) {
-        console.warn(`[vapi] Assistant ${existingId} not found — will create new`);
+    try {
+      const resp = await fetch(`${VAPI_API_BASE}/assistant/${existingId}`, { method: "PATCH", headers: { "Authorization": `Bearer ${config.apiKey}`, "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      if (!resp.ok) {
+        const body = await resp.text();
+        if (resp.status === 404) { log.warn("Assistant not found — will create new", { existingId }); }
+        else throw new Error(`Vapi assistant update failed (${resp.status}): ${body}`);
       } else {
-        throw new Error(`Vapi assistant update failed (${resp.status}): ${body}`);
+        log.info("Updated Vapi assistant", { assistantId: existingId, clientServiceId });
+        return { assistantId: existingId, created: false };
       }
-    } else {
-      console.log(`[vapi] Updated assistant ${existingId} for service #${clientServiceId}`);
-      return { assistantId: existingId, created: false };
+    } catch (err: any) {
+      if (err.message?.includes("Vapi assistant update failed")) throw err;
+      log.error("Vapi API unreachable during assistant update", { existingId, error: err.message });
+      throw new Error(`Voice service temporarily unavailable: ${err.message}`);
     }
   }
 
-  // Create new assistant
-  const resp = await fetch(`${VAPI_API_BASE}/assistant`, {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${config.apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(assistantPayload),
-  });
-
-  if (!resp.ok) {
-    const body = await resp.text();
-    throw new Error(`Vapi assistant creation failed (${resp.status}): ${body}`);
+  try {
+    const resp = await fetch(`${VAPI_API_BASE}/assistant`, { method: "POST", headers: { "Authorization": `Bearer ${config.apiKey}`, "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    if (!resp.ok) { const body = await resp.text(); throw new Error(`Vapi assistant creation failed (${resp.status}): ${body}`); }
+    const data = await resp.json();
+    const newId = data.id;
+    if (!newId) throw new Error("Vapi returned no assistant ID");
+    log.info("Created Vapi assistant", { assistantId: newId, clientServiceId });
+    return { assistantId: newId, created: true };
+  } catch (err: any) {
+    if (err.message?.includes("Vapi assistant creation failed") || err.message?.includes("Vapi returned no")) throw err;
+    log.error("Vapi API unreachable during assistant creation", { error: err.message });
+    throw new Error(`Voice service temporarily unavailable: ${err.message}`);
   }
-
-  const data = await resp.json();
-  const newId = data.id;
-  if (!newId) throw new Error("Vapi returned no assistant ID");
-
-  console.log(`[vapi] Created assistant ${newId} for service #${clientServiceId}`);
-  return { assistantId: newId, created: true };
 }
 
-/**
- * Full pipeline: build assistant definition → push to Vapi → store ID in metadata.
- *
- * This is the main entry point for automated assistant provisioning.
- */
-export async function provisionTradeLineAssistant(
-  clientServiceId: number,
-): Promise<{
-  assistantId: string | null;
-  skipped: boolean;
-  skipReason?: string;
-  definition?: import("./tradelineTemplates").AssistantDefinition;
-  error?: string;
-}> {
-  // Lazy import to avoid circular dependency
+export async function provisionTradeLineAssistant(clientServiceId: number): Promise<{ assistantId: string | null; skipped: boolean; skipReason?: string; definition?: import("./tradelineTemplates").AssistantDefinition; error?: string }> {
   const { buildTradeLineAssistant } = await import("./tradelineTemplates");
-
   let result;
-  try {
-    // 1. Build the assistant definition (handles status: building → built/failed)
-    result = await buildTradeLineAssistant(clientServiceId);
-  } catch (err: any) {
-    // Build failed — status already set to "failed" inside buildTradeLineAssistant
-    console.error(`[tradeline] Assistant build failed for service #${clientServiceId}:`, err.message);
-
-    await storage.logAdminActivity({
-      actor_type: "system",
-      actor_name: "TradeLine Template Engine",
-      action: "tradeline.assistant_build_failed",
-      entity_type: "client_service",
-      entity_id: clientServiceId,
-      summary: `Assistant build failed: ${err.message}`,
-    });
-
-    return {
-      assistantId: null,
-      skipped: false,
-      error: err.message,
-    };
+  try { result = await buildTradeLineAssistant(clientServiceId); } catch (err: any) {
+    log.error("Assistant build failed", { clientServiceId, error: err.message });
+    await storage.logAdminActivity({ actor_type: "system", actor_name: "TradeLine Template Engine", action: "tradeline.assistant_build_failed", entity_type: "client_service", entity_id: clientServiceId, summary: `Assistant build failed: ${err.message}` });
+    return { assistantId: null, skipped: false, error: err.message };
   }
+  if (result.skipped) return { assistantId: null, skipped: true, skipReason: result.skipReason, definition: result.definition };
 
-  if (result.skipped) {
-    return {
-      assistantId: null,
-      skipped: true,
-      skipReason: result.skipReason,
-      definition: result.definition,
-    };
-  }
-
-  // 2. Push to Vapi (if API key is configured)
   const vapiConfig = getVapiConfig();
   let assistantId: string | null = null;
-
   if (vapiConfig.apiKey) {
     try {
       const name = `TradeLine — ${result.input.businessName}`;
-      const upsertResult = await upsertVapiAssistant(
-        clientServiceId,
-        result.definition.systemPrompt,
-        result.definition.firstMessage,
-        name,
-        result.definition.voiceConfig,
-        result.definition.transcriberLanguage,
-      );
+      const upsertResult = await upsertVapiAssistant(clientServiceId, result.definition.systemPrompt, result.definition.firstMessage, name, result.definition.voiceConfig, result.definition.transcriberLanguage);
       assistantId = upsertResult.assistantId;
-
-      // Store the Vapi assistant ID in config
       const latestConfig = await storage.getTradeLineConfig(clientServiceId);
-      const currentAssistant = latestConfig?.assistant;
-      await storage.updateTradeLineConfig(clientServiceId, {
-        assistant: {
-          status: currentAssistant?.status ?? "not_built",
-          templateId: currentAssistant?.templateId ?? "",
-          inputHash: currentAssistant?.inputHash ?? "",
-          vapiAssistantId: assistantId,
-          lastBuiltAt: currentAssistant?.lastBuiltAt ?? "",
-          lastBuildError: currentAssistant?.lastBuildError ?? "",
-          manualOverride: currentAssistant?.manualOverride ?? false,
-        },
-      });
+      const ca = latestConfig?.assistant;
+      await storage.updateTradeLineConfig(clientServiceId, { assistant: { status: ca?.status ?? "not_built", templateId: ca?.templateId ?? "", inputHash: ca?.inputHash ?? "", vapiAssistantId: assistantId, lastBuiltAt: ca?.lastBuiltAt ?? "", lastBuildError: ca?.lastBuildError ?? "", manualOverride: ca?.manualOverride ?? false } });
     } catch (err: any) {
-      // Vapi push failed — mark assistant as failed
-      console.error(`[vapi] Push to Vapi failed for service #${clientServiceId}:`, err.message);
+      log.error("Push to Vapi failed", { clientServiceId, error: err.message });
       const latestConfig = await storage.getTradeLineConfig(clientServiceId);
-      const currentAssistant = latestConfig?.assistant;
-      await storage.updateTradeLineConfig(clientServiceId, {
-        assistant: {
-          status: "failed",
-          templateId: currentAssistant?.templateId ?? "",
-          inputHash: currentAssistant?.inputHash ?? "",
-          vapiAssistantId: currentAssistant?.vapiAssistantId ?? "",
-          lastBuiltAt: currentAssistant?.lastBuiltAt ?? "",
-          lastBuildError: `Vapi push failed: ${err.message}`,
-          manualOverride: currentAssistant?.manualOverride ?? false,
-        },
-      });
-
-      await storage.logAdminActivity({
-        actor_type: "system",
-        actor_name: "TradeLine Template Engine",
-        action: "tradeline.vapi_push_failed",
-        entity_type: "client_service",
-        entity_id: clientServiceId,
-        summary: `Vapi push failed: ${err.message}`,
-      });
-
-      return {
-        assistantId: null,
-        skipped: false,
-        error: `Vapi push failed: ${err.message}`,
-        definition: result.definition,
-      };
+      const ca = latestConfig?.assistant;
+      await storage.updateTradeLineConfig(clientServiceId, { assistant: { status: "failed", templateId: ca?.templateId ?? "", inputHash: ca?.inputHash ?? "", vapiAssistantId: ca?.vapiAssistantId ?? "", lastBuiltAt: ca?.lastBuiltAt ?? "", lastBuildError: `Vapi push failed: ${err.message}`, manualOverride: ca?.manualOverride ?? false } });
+      await storage.logAdminActivity({ actor_type: "system", actor_name: "TradeLine Template Engine", action: "tradeline.vapi_push_failed", entity_type: "client_service", entity_id: clientServiceId, summary: `Vapi push failed: ${err.message}` });
+      return { assistantId: null, skipped: false, error: `Vapi push failed: ${err.message}`, definition: result.definition };
     }
   } else {
-    console.warn("[vapi] VAPI_API_KEY not set — assistant built but not pushed to Vapi");
+    log.warn("VAPI_API_KEY not set — assistant built but not pushed to Vapi");
   }
 
-  // 3. Log success
-  await storage.logAdminActivity({
-    actor_type: "system",
-    actor_name: "TradeLine Template Engine",
-    action: "tradeline.assistant_built",
-    entity_type: "client_service",
-    entity_id: clientServiceId,
-    summary: `Built assistant (template: ${result.definition.templateId}, hash: ${result.definition.inputHash})${assistantId ? ` → Vapi ID: ${assistantId}` : " (Vapi not configured)"}`,
-    metadata: {
-      templateId: result.definition.templateId,
-      inputHash: result.definition.inputHash,
-      vapiAssistantId: assistantId,
-    },
-  });
-
-  return {
-    assistantId,
-    skipped: false,
-    definition: result.definition,
-  };
+  await storage.logAdminActivity({ actor_type: "system", actor_name: "TradeLine Template Engine", action: "tradeline.assistant_built", entity_type: "client_service", entity_id: clientServiceId, summary: `Built assistant (template: ${result.definition.templateId}, hash: ${result.definition.inputHash})${assistantId ? ` → Vapi ID: ${assistantId}` : " (Vapi not configured)"}`, metadata: { templateId: result.definition.templateId, inputHash: result.definition.inputHash, vapiAssistantId: assistantId } });
+  return { assistantId, skipped: false, definition: result.definition };
 }
