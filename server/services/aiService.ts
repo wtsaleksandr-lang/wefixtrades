@@ -82,7 +82,7 @@ export async function chat(opts: ChatOptions): Promise<string> {
         messages: mapMessages(opts.messages),
       };
       if (opts.tools?.length) (params as any).tools = opts.tools;
-      const response = await client.messages.create(params);
+      const response = await client.messages.create(params) as Anthropic.Message;
       const block = response.content[0];
       return block.type === "text" ? block.text : "";
     } catch (err: any) {

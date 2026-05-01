@@ -35,6 +35,8 @@ export interface FlowBuilderSettings {
   };
   /** Service type options for the service_type select question */
   serviceTypes?: Array<{ value: string; label: string }>;
+  /** Trade-specific input definitions */
+  tradeInputs?: Record<string, unknown>;
 }
 
 /* ─── Builder ─── */

@@ -226,10 +226,10 @@ export async function dispatchSocialPublish(input: DispatchInput): Promise<Publi
   } else if (outcome.permanent_failure) {
     await recordPermanentFailure(draft.client_id, platform, errorMsg).catch(() => {});
     if (isAlertingConfigured()) {
-      sendAlert(buildPublishFailuresAlert(draft.client_id, platform, [errorMsg])).catch(() => {});
+      sendAlert(buildPublishFailuresAlert(draft.client_id, null, platform, 1)).catch(() => {});
     }
   } else {
-    await recordFailure(draft.client_id, platform, errorMsg).catch(() => {});
+    await recordFailure(draft.client_id, platform).catch(() => {});
   }
 
   const reason = normaliseReason(outcome);

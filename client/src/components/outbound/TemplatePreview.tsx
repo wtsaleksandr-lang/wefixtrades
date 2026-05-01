@@ -199,7 +199,7 @@ export function TemplatePreview({ prospect, enrichment, open, onClose, senderNam
         offer: selectedOffer,
         angle: angle.id,
         message_type: selectedType,
-        prospect_id: prospect.id,
+        prospect_id: prospect?.id,
       });
     } catch {
       toast({ title: "Copy failed", description: "Please select the text manually", variant: "destructive" });

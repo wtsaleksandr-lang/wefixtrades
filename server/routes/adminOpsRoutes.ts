@@ -108,7 +108,7 @@ export function registerAdminOpsRoutes(app: Express): void {
    */
   app.get("/api/admin/ops/snapshots/:id", requireAdmin, async (req: Request, res: Response) => {
     try {
-      const id = parseInt(req.params.id);
+      const id = parseInt(String(req.params.id));
       if (!id || isNaN(id)) {
         return res.status(400).json({ error: "Invalid snapshot id" });
       }

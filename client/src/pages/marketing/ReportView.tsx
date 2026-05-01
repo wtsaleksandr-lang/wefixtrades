@@ -338,7 +338,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
   const recommendedServices: any[] = report?.recommendedServices || getServicesForIssues(detectedIssues);
 
   // RankFlow recommendation
-  const [rfRec, setRfRec] = useState<{ recommended_tier: string; reason: string; highlights: string[]; cta_text: string; prefill: any } | null>(null);
+  const [rfRec, setRfRec] = useState<{ recommended_tier: string; reason: string; highlights: string[]; cta_text: string; prefill: any; headline?: string; specific_findings?: string[]; urgency_text?: string } | null>(null);
   useEffect(() => {
     if (reportId) {
       fetch(`/api/audit/report/${reportId}/rankflow-recommendation`)
