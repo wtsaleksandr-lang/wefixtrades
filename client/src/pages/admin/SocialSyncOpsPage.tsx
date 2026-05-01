@@ -185,6 +185,9 @@ export default function SocialSyncOpsPage() {
           </div>
         </div>
 
+        {/* Expiring / Expired token banners */}
+        <ExpiringConnectionBanners clients={clients} />
+
         {/* Metrics Cards */}
         {metrics && (
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
@@ -378,5 +381,65 @@ function MetricCard({ label, value, color }: { label: string; value: number | st
       <p className={`text-xl font-bold ${textColor}`}>{value}</p>
       <p className="text-[10px] text-gray-500 mt-0.5">{label}</p>
     </Card>
+  );
+}
+
+/**
+ * Renders amber/red banners for any client whose Facebook or Instagram
+ * connection is "expiring_soon" or "expired". Each banner links to the
+ * client's SocialSync tab to start the re-auth OAuth flow.
+ */
+function ExpiringConnectionBanners({ clients }: { clients: ClientSummary[] }) {
+  const alerts: { clientId: number; businessName: string; platform: string; status: string }[] = [];
+
+  for (const c of clients) {
+    if (c.fb_status === "expired" || c.fb_status === "expiring_soon") {
+      alerts.push({ clientId: c.client_id, businessName: c.business_name || c.niche || `Client #${c.client_id}`, platform: "Facebook", status: c.fb_status });
+    }
+    if (c.ig_status === "expired" || c.ig_status === "expiring_soon") {
+      alerts.push({ clientId: c.client_id, businessName: c.business_name || c.niche || `Client #${c.client_id}`, platform: "Instagram", status: c.ig_status });
+    }
+  }
+
+  if (alerts.length === 0) return null;
+
+  return (
+    <div className="space-y-2">
+      {alerts.map((a) => {
+        const isExpired = a.status === "expired";
+        return (
+          <div
+            key={`${a.clientId}-${a.platform}`}
+            className={`flex items-center justify-between px-4 py-3 rounded-lg border ${
+              isExpired
+                ? "bg-red-50 border-red-200 text-red-800"
+                : "bg-amber-50 border-amber-200 text-amber-800"
+            }`}
+          >
+            <div className="flex items-center gap-2 text-sm">
+              <AlertTriangle className={`w-4 h-4 ${isExpired ? "text-red-500" : "text-amber-500"}`} />
+              <span>
+                <strong>{a.platform}</strong> connection for <strong>{a.businessName}</strong>{" "}
+                {isExpired ? "has expired." : "is expiring soon."}{" "}
+                Re-authorize to avoid publishing disruptions.
+              </span>
+            </div>
+            <Link href={`/admin/crm/clients/${a.clientId}?tab=socialsync`}>
+              <Button
+                size="sm"
+                variant="outline"
+                className={`text-xs h-7 ${
+                  isExpired
+                    ? "border-red-300 text-red-700 hover:bg-red-100"
+                    : "border-amber-300 text-amber-700 hover:bg-amber-100"
+                }`}
+              >
+                Re-authorize
+              </Button>
+            </Link>
+          </div>
+        );
+      })}
+    </div>
   );
 }
