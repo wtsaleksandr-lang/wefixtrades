@@ -268,7 +268,7 @@ export function registerPortalRoutes(app: Express) {
 
       if (!service) return res.status(404).json({ error: "Service not found" });
 
-      // Tasks — client-safe fields only
+      // Tasks — client-safe fields only (including deliverables)
       const tasks = await db
         .select({
           id: fulfillmentTasks.id,
@@ -278,6 +278,7 @@ export function registerPortalRoutes(app: Express) {
           due_at: fulfillmentTasks.due_at,
           completed_at: fulfillmentTasks.completed_at,
           sort_order: fulfillmentTasks.sort_order,
+          deliverables: fulfillmentTasks.deliverables,
         })
         .from(fulfillmentTasks)
         .where(eq(fulfillmentTasks.client_service_id, serviceId))
