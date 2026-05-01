@@ -173,7 +173,7 @@ async function main() {
       { title: "Audit current GBP profile", sort_order: 2, default_handled_by: "internal" },
       { title: "Rebuild GBP profile (description, categories, areas)", sort_order: 3, default_handled_by: "internal" },
       { title: "Upload photos & schedule initial posts", sort_order: 4, default_handled_by: "internal" },
-      { title: "QA review & send delivery report", sort_order: 5, default_priority: "high", default_handled_by: "internal", human_review_required: true },
+      { title: "QA review & send delivery report", description: "Final QA before activation. Auto-activation will handle this if all readiness checks pass (google_place_id set, non-review tasks done).", sort_order: 5, default_priority: "high", default_handled_by: "internal", human_review_required: true },
     ],
     "mapguard-ongoing": [
       { title: "Monthly GBP check (rankings, reviews, accuracy)", sort_order: 1, default_handled_by: "internal" },
@@ -187,7 +187,7 @@ async function main() {
       { title: "Configure monitoring alerts", sort_order: 3, default_handled_by: "internal" },
       { title: "Create response templates", sort_order: 4, default_handled_by: "internal" },
       { title: "Test review request flow", sort_order: 5, default_handled_by: "internal" },
-      { title: "Go live & send first review batch", sort_order: 6, default_handled_by: "internal", human_review_required: true },
+      { title: "Go live & send first review batch", description: "Final activation gate. Auto-activation will handle this if all readiness checks pass (google_place_id set, non-review tasks done).", sort_order: 6, default_handled_by: "internal", human_review_required: true },
     ],
     "webfix": [
       { title: "Collect access credentials & website URL", sort_order: 1, default_priority: "high", default_handled_by: "internal", default_waiting_on: "client" },
@@ -224,7 +224,7 @@ async function main() {
       { title: "Deploy chat widget on client website", sort_order: 4, default_handled_by: "internal", is_recurring: false },
       { title: "Connect Facebook/Instagram DMs", sort_order: 5, default_handled_by: "internal", is_recurring: false },
       { title: "Test all channels", sort_order: 6, default_handled_by: "internal", is_recurring: false },
-      { title: "Go live & client confirmation", sort_order: 7, default_handled_by: "internal", human_review_required: true, is_recurring: false },
+      { title: "Go live & client confirmation", description: "Final activation gate. Auto-activation will handle this if all TradeLine readiness checks pass (assistant built, phone/website configured, non-review tasks done).", sort_order: 7, default_handled_by: "internal", human_review_required: true, is_recurring: false },
     ],
     "tradeline-call-backup": [
       { title: "Collect onboarding details", description: "Wait for client to submit the onboarding form. Includes business name, phone number, forwarding preference, services offered, and tone. Done = form status is 'submitted'.", sort_order: 1, default_priority: "high", default_handled_by: "internal", default_waiting_on: "client", is_recurring: false },
@@ -232,7 +232,7 @@ async function main() {
       { title: "Configure phone routing / fallback settings", description: "Set primaryBusinessNumber, forwardingMode (no_answer/immediate/after_hours_only), and ringTimeoutSeconds in config. Verify with a test call if possible. Done = phoneRouting fields populated.", sort_order: 3, default_handled_by: "internal", is_recurring: false },
       { title: "Configure notifications", description: "Set notifications.sms and notifications.email arrays with recipient numbers/addresses. Verify at least one notification channel is configured. Done = notifications populated.", sort_order: 4, default_handled_by: "automation", is_recurring: false },
       { title: "Test missed-call handling", description: "Call the client's business number and let it ring past timeout. Verify AI answers, captures caller info, and sends notification. Done = test call logged in call history.", sort_order: 5, default_handled_by: "internal", is_recurring: false },
-      { title: "QA review + go live", description: "Run GET /readiness — all issues must be resolved. Mark setupStage as ready_for_testing, verify with client, then POST /go-live. Done = setupStage is 'live'.", sort_order: 6, default_handled_by: "internal", human_review_required: true, is_recurring: false },
+      { title: "QA review + go live", description: "Run GET /readiness — all issues must be resolved. Mark setupStage as ready_for_testing, verify with client, then POST /go-live. Done = setupStage is 'live'. Auto-activation will handle this if all readiness checks pass.", sort_order: 6, default_handled_by: "internal", human_review_required: true, is_recurring: false },
     ],
     "tradeline-chat": [
       { title: "Collect onboarding details", description: "Wait for client to submit the onboarding form. Includes business name, website URL, install preference, services, and tone. Done = form status is 'submitted'.", sort_order: 1, default_priority: "high", default_handled_by: "internal", default_waiting_on: "client", is_recurring: false },
@@ -240,7 +240,7 @@ async function main() {
       { title: "Prepare widget or hosted fallback", description: "Decide install path: if client has website access → direct_embed, otherwise → hosted_fallback. Call POST /install-path. If hosted, create the hosted page. Done = embedMode set.", sort_order: 3, default_handled_by: "internal", is_recurring: false },
       { title: "Install widget / provision hosted link", description: "For direct_embed: get CMS/hosting access, add widget script to site footer, verify it loads. For hosted_fallback: confirm hostedUrl is accessible and domainStatus is 'connected'. Done = widget visible or hosted page verified.", sort_order: 4, default_handled_by: "internal", is_recurring: false },
       { title: "Configure lead notifications", description: "Set notifications.sms and notifications.email arrays with recipient numbers/addresses. Done = notifications populated.", sort_order: 5, default_handled_by: "automation", is_recurring: false },
-      { title: "QA review + go live", description: "Run GET /readiness — all issues must be resolved. Mark setupStage as ready_for_testing, verify with client, then POST /go-live. Done = setupStage is 'live'.", sort_order: 6, default_handled_by: "internal", human_review_required: true, is_recurring: false },
+      { title: "QA review + go live", description: "Run GET /readiness — all issues must be resolved. Mark setupStage as ready_for_testing, verify with client, then POST /go-live. Done = setupStage is 'live'. Auto-activation will handle this if all readiness checks pass.", sort_order: 6, default_handled_by: "internal", human_review_required: true, is_recurring: false },
     ],
     "tradeline-complete": [
       { title: "Collect onboarding details", description: "Wait for client to submit the onboarding form. Includes business name, phone, website, install preference, services, and tone. Done = form status is 'submitted'.", sort_order: 1, default_priority: "high", default_handled_by: "internal", default_waiting_on: "client", is_recurring: false },
@@ -249,7 +249,7 @@ async function main() {
       { title: "Prepare website widget or hosted fallback", description: "Decide install path: if client has website access → direct_embed, otherwise → hosted_fallback. Call POST /install-path. Done = embedMode set, hosted page live if applicable.", sort_order: 4, default_handled_by: "internal", is_recurring: false },
       { title: "Configure notifications + callback flow", description: "Set notifications.sms and notifications.email. If escalation_number provided in onboarding, note it for future callback routing. Done = notifications populated.", sort_order: 5, default_handled_by: "automation", is_recurring: false },
       { title: "End-to-end testing", description: "Test the full flow: place a call → verify AI answers → verify notification sent. Send a chat message → verify response. Check that leads appear in dashboard. Done = all channels tested.", sort_order: 6, default_handled_by: "internal", is_recurring: false },
-      { title: "QA review + go live", description: "Run GET /readiness — all issues must be resolved. Mark setupStage as ready_for_testing, verify with client, then POST /go-live. Done = setupStage is 'live'.", sort_order: 7, default_handled_by: "internal", human_review_required: true, is_recurring: false },
+      { title: "QA review + go live", description: "Run GET /readiness — all issues must be resolved. Mark setupStage as ready_for_testing, verify with client, then POST /go-live. Done = setupStage is 'live'. Auto-activation will handle this if all readiness checks pass.", sort_order: 7, default_handled_by: "internal", human_review_required: true, is_recurring: false },
     ],
     "quotequick": [
       { title: "Collect onboarding info from client", sort_order: 1, default_priority: "high", default_handled_by: "internal", default_waiting_on: "client" },
@@ -258,7 +258,7 @@ async function main() {
       { title: "Configure lead form and follow-up settings", sort_order: 4, default_handled_by: "internal" },
       { title: "Embed widget on client website", sort_order: 5, default_handled_by: "internal", default_waiting_on: "client" },
       { title: "Test full flow: quote → lead → notification", sort_order: 6, default_handled_by: "internal" },
-      { title: "Go live & send confirmation to client", sort_order: 7, default_handled_by: "internal", human_review_required: true },
+      { title: "Go live & send confirmation to client", description: "Final activation gate. Auto-activation will handle this if all readiness checks pass (calculator configured with pricing, non-review tasks done).", sort_order: 7, default_handled_by: "internal", human_review_required: true },
     ],
     "rankflow-starter": [
       { title: "Collect onboarding info & site access", sort_order: 1, default_priority: "high", default_handled_by: "internal", default_waiting_on: "client", is_recurring: false },
