@@ -86,6 +86,8 @@ export interface TransactionalEmailParams {
   };
   /** Small text immediately under the CTA. HTML allowed. */
   ctaFinePrint?: string;
+  /** HTML injected immediately after the CTA + fine print. E.g. secondary links. */
+  afterCtaHtml?: string;
   /** "Button not working? Paste this link" fallback block. */
   pasteLinkFallback?: {
     label?: string;
@@ -129,6 +131,8 @@ export function buildTransactionalEmail(p: TransactionalEmailParams): string {
     ? `<p style="font-size:12px;color:${theme.textMuted};line-height:1.6;margin:12px 0 0;">${p.ctaFinePrint}</p>`
     : "";
 
+  const afterCtaHtml = p.afterCtaHtml ?? "";
+
   const pasteFallbackHtml = p.pasteLinkFallback
     ? `<p style="font-size:11px;color:${theme.textFaint};line-height:1.5;margin:14px 0 0;word-break:break-all;">
          ${p.pasteLinkFallback.label ?? "Button not working? Paste this link:"}<br/>
@@ -171,6 +175,7 @@ ${titleTag}
       ${bodyHtml}
       ${ctaHtml}
       ${ctaFinePrintHtml}
+      ${afterCtaHtml}
       ${pasteFallbackHtml}
       ${dividerHtml}
       ${supportNoteHtml}

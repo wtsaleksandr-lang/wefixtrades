@@ -85,10 +85,16 @@ export function registerStripeBillingRoutes(app: Express): void {
 
       const baseUrl = process.env.APP_URL || `${req.protocol}://${req.get("host")}`;
 
+      // Broad payment method types — Stripe auto-shows relevant options per locale
+      const paymentMethodTypes: Stripe.Checkout.SessionCreateParams.PaymentMethodType[] = [
+        "card", "us_bank_account", "cashapp", "afterpay_clearpay", "klarna", "acss_debit",
+      ];
+
       // Create Checkout Session
       const session = await stripe.checkout.sessions.create({
         customer: stripeCustomerId,
         mode,
+        payment_method_types: paymentMethodTypes,
         line_items: [{
           price: service.stripe_price_id,
           quantity: 1,

@@ -729,6 +729,8 @@ export const bookflowSettings = pgTable("bookflow_settings", {
   accent_color: text("accent_color").default("#3B82F6"),
   invoicing_enabled: boolean("invoicing_enabled").default(true),
   dispatch_enabled: boolean("dispatch_enabled").default(true),
+  payment_methods: jsonb("payment_methods"),
+  // { stripe: true, paypal_email?: string, bank_details?: string, etransfer_email?: string, venmo_handle?: string, zelle_info?: string, cash_accepted?: boolean }
   metadata: jsonb("metadata"),
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),

@@ -7,9 +7,10 @@
 
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Link } from "wouter";
 import {
   Plus, Send, Eye, DollarSign, FileText,
-  ChevronDown, X,
+  ChevronDown, X, Settings,
 } from "lucide-react";
 
 interface Invoice {
@@ -139,11 +140,30 @@ export default function InvoicesPage() {
         </button>
       </div>
 
-      {totalOutstanding > 0 && (
-        <p style={{ fontSize: 13, color: "#6b7280", margin: "0 0 16px" }}>
-          {formatCents(totalOutstanding)} outstanding
-        </p>
-      )}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: totalOutstanding > 0 ? 0 : 16 }}>
+        {totalOutstanding > 0 && (
+          <p style={{ fontSize: 13, color: "#6b7280", margin: "0 0 16px" }}>
+            {formatCents(totalOutstanding)} outstanding
+          </p>
+        )}
+        <Link
+          href="/portal/payment-methods"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 4,
+            fontSize: 12,
+            fontWeight: 500,
+            color: "#6b7280",
+            textDecoration: "none",
+            marginBottom: 16,
+            marginLeft: "auto",
+          }}
+        >
+          <Settings size={12} />
+          Payment Methods
+        </Link>
+      </div>
 
       {/* Status filter */}
       <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>

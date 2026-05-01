@@ -1,14 +1,27 @@
 /**
  * Public invoice payment page — /pay/:token
  *
- * Clean, mobile-first page showing invoice details and a "Pay" button.
- * Uses QuoteQuick design tokens for visual consistency.
+ * Clean, mobile-first page showing invoice details and ALL available
+ * payment methods. The primary Stripe option is prominent at top;
+ * alternative methods (PayPal, E-Transfer, bank, Venmo, Zelle, cash)
+ * appear in a "More ways to pay" section below.
+ *
  * No authentication required.
  */
 
 import { useState, useEffect } from "react";
 import { useParams } from "wouter";
 import { eff, primaryButtonStyle } from "@/components/quote-widget/designTokens";
+
+interface PaymentMethods {
+  stripe?: boolean;
+  paypal_email?: string;
+  bank_details?: string;
+  etransfer_email?: string;
+  venmo_handle?: string;
+  zelle_info?: string;
+  cash_accepted?: boolean;
+}
 
 interface InvoiceData {
   invoice_number: string;
@@ -23,6 +36,7 @@ interface InvoiceData {
   notes: string | null;
   business_name: string;
   stripe_enabled: boolean;
+  payment_methods: PaymentMethods;
 }
 
 function formatCents(cents: number): string {
@@ -37,6 +51,24 @@ function formatDate(d: string): string {
   });
 }
 
+/** Copy text to clipboard with visual feedback */
+function CopyButton({ text, label }: { text: string; label?: string }) {
+  const [copied, setCopied] = useState(false);
+
+  function handleCopy() {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
+  return (
+    <button onClick={handleCopy} style={copyBtnStyle}>
+      {copied ? "Copied!" : label || "Copy"}
+    </button>
+  );
+}
+
 export default function PayInvoicePage() {
   const params = useParams<{ token: string }>();
   const token = params.token;
@@ -46,6 +78,7 @@ export default function PayInvoicePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [paying, setPaying] = useState(false);
+  const [showMore, setShowMore] = useState(false);
 
   useEffect(() => {
     if (!token) return;
@@ -103,6 +136,15 @@ export default function PayInvoicePage() {
   }
 
   const showPaid = invoice.status === "paid" || isPaid;
+  const pm = invoice.payment_methods || {};
+  const hasAltMethods = !!(
+    pm.paypal_email ||
+    pm.etransfer_email ||
+    pm.bank_details ||
+    pm.venmo_handle ||
+    pm.zelle_info ||
+    pm.cash_accepted
+  );
 
   return (
     <div style={pageStyle}>
@@ -225,27 +267,228 @@ export default function PayInvoicePage() {
           </p>
         )}
 
-        {/* Pay button */}
-        {!showPaid && invoice.stripe_enabled && (
-          <button
-            onClick={handlePay}
-            disabled={paying}
-            style={{
-              ...primaryButtonStyle,
-              opacity: paying ? 0.6 : 1,
-              pointerEvents: paying ? "none" : "auto",
-            }}
-            onMouseOver={(e) => (e.currentTarget.style.background = eff.buttonBgHover)}
-            onMouseOut={(e) => (e.currentTarget.style.background = eff.buttonBg)}
-          >
-            {paying ? "Redirecting..." : `Pay ${formatCents(invoice.total_cents)}`}
-          </button>
-        )}
+        {/* ══════════ Payment Methods ══════════ */}
+        {!showPaid && (
+          <div>
+            {/* Primary: Stripe Pay Online */}
+            {invoice.stripe_enabled && (
+              <button
+                onClick={handlePay}
+                disabled={paying}
+                style={{
+                  ...primaryButtonStyle,
+                  opacity: paying ? 0.6 : 1,
+                  pointerEvents: paying ? "none" : "auto",
+                }}
+                onMouseOver={(e) => (e.currentTarget.style.background = eff.buttonBgHover)}
+                onMouseOut={(e) => (e.currentTarget.style.background = eff.buttonBg)}
+              >
+                {paying ? "Redirecting..." : `Pay Online ${formatCents(invoice.total_cents)}`}
+              </button>
+            )}
 
-        {!showPaid && !invoice.stripe_enabled && (
-          <p style={{ fontSize: 13, color: eff.textBody, textAlign: "center", margin: "8px 0 0" }}>
-            Contact {invoice.business_name} to arrange payment.
-          </p>
+            {invoice.stripe_enabled && (
+              <p style={{
+                fontSize: 11,
+                color: eff.textBody,
+                textAlign: "center",
+                margin: "8px 0 0",
+                opacity: 0.7,
+              }}>
+                Cards, Apple Pay, Google Pay, bank transfer, and more
+              </p>
+            )}
+
+            {!invoice.stripe_enabled && !hasAltMethods && (
+              <p style={{ fontSize: 13, color: eff.textBody, textAlign: "center", margin: "8px 0 0" }}>
+                Contact {invoice.business_name} to arrange payment.
+              </p>
+            )}
+
+            {/* More ways to pay */}
+            {hasAltMethods && (
+              <div style={{ marginTop: invoice.stripe_enabled ? 20 : 0 }}>
+                <button
+                  onClick={() => setShowMore(!showMore)}
+                  style={{
+                    width: "100%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 6,
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: eff.text,
+                    padding: "10px 0",
+                  }}
+                >
+                  <span>{showMore ? "Hide" : "More ways to pay"}</span>
+                  <span style={{
+                    display: "inline-block",
+                    transform: showMore ? "rotate(180deg)" : "rotate(0)",
+                    transition: "transform 0.2s ease",
+                    fontSize: 10,
+                  }}>
+                    &#9660;
+                  </span>
+                </button>
+
+                {showMore && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 4 }}>
+                    {/* PayPal */}
+                    {pm.paypal_email && (
+                      <div style={methodCardStyle}>
+                        <div style={methodHeaderStyle}>
+                          <span style={methodIconStyle}>P</span>
+                          <span style={methodTitleStyle}>PayPal</span>
+                        </div>
+                        <p style={methodBodyStyle}>
+                          Send {formatCents(invoice.total_cents)} to <strong>{pm.paypal_email}</strong>
+                        </p>
+                        <p style={{ fontSize: 11, color: eff.textBody, margin: "4px 0 0", opacity: 0.7 }}>
+                          Reference: {invoice.invoice_number}
+                        </p>
+                        <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+                          <a
+                            href={`https://paypal.me/${pm.paypal_email}/${(invoice.total_cents / 100).toFixed(2)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={altPayBtnStyle}
+                          >
+                            Pay with PayPal
+                          </a>
+                          <CopyButton text={pm.paypal_email} label="Copy email" />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* E-Transfer / Interac */}
+                    {pm.etransfer_email && (
+                      <div style={methodCardStyle}>
+                        <div style={methodHeaderStyle}>
+                          <span style={methodIconStyle}>E</span>
+                          <span style={methodTitleStyle}>E-Transfer / Interac</span>
+                        </div>
+                        <p style={methodBodyStyle}>
+                          Send {formatCents(invoice.total_cents)} via e-transfer to:
+                        </p>
+                        <p style={{
+                          fontSize: 15,
+                          fontWeight: 700,
+                          color: eff.text,
+                          margin: "6px 0",
+                          fontFamily: eff.fontMono,
+                        }}>
+                          {pm.etransfer_email}
+                        </p>
+                        <p style={{ fontSize: 11, color: eff.textBody, margin: "0 0 4px", opacity: 0.7 }}>
+                          Reference: {invoice.invoice_number}
+                        </p>
+                        <CopyButton text={pm.etransfer_email} label="Copy email" />
+                      </div>
+                    )}
+
+                    {/* Bank Transfer */}
+                    {pm.bank_details && (
+                      <div style={methodCardStyle}>
+                        <div style={methodHeaderStyle}>
+                          <span style={methodIconStyle}>B</span>
+                          <span style={methodTitleStyle}>Bank Transfer</span>
+                        </div>
+                        <p style={methodBodyStyle}>
+                          Send {formatCents(invoice.total_cents)} using these details:
+                        </p>
+                        <pre style={{
+                          fontSize: 12,
+                          color: eff.text,
+                          background: "#f0f2f4",
+                          padding: "10px 12px",
+                          borderRadius: 8,
+                          margin: "6px 0 4px",
+                          whiteSpace: "pre-wrap",
+                          fontFamily: eff.fontMono,
+                          lineHeight: 1.5,
+                          border: `1px solid ${eff.buttonBorder}`,
+                        }}>
+                          {pm.bank_details}
+                        </pre>
+                        <p style={{ fontSize: 11, color: eff.textBody, margin: "0 0 4px", opacity: 0.7 }}>
+                          Reference: {invoice.invoice_number}
+                        </p>
+                        <CopyButton text={pm.bank_details} label="Copy details" />
+                      </div>
+                    )}
+
+                    {/* Venmo */}
+                    {pm.venmo_handle && (
+                      <div style={methodCardStyle}>
+                        <div style={methodHeaderStyle}>
+                          <span style={methodIconStyle}>V</span>
+                          <span style={methodTitleStyle}>Venmo</span>
+                        </div>
+                        <p style={methodBodyStyle}>
+                          Send {formatCents(invoice.total_cents)} via Venmo to:
+                        </p>
+                        <p style={{
+                          fontSize: 15,
+                          fontWeight: 700,
+                          color: eff.text,
+                          margin: "6px 0",
+                        }}>
+                          @{pm.venmo_handle.replace(/^@/, "")}
+                        </p>
+                        <p style={{ fontSize: 11, color: eff.textBody, margin: "0 0 4px", opacity: 0.7 }}>
+                          Reference: {invoice.invoice_number}
+                        </p>
+                        <CopyButton text={`@${pm.venmo_handle.replace(/^@/, "")}`} label="Copy handle" />
+                      </div>
+                    )}
+
+                    {/* Zelle */}
+                    {pm.zelle_info && (
+                      <div style={methodCardStyle}>
+                        <div style={methodHeaderStyle}>
+                          <span style={methodIconStyle}>Z</span>
+                          <span style={methodTitleStyle}>Zelle</span>
+                        </div>
+                        <p style={methodBodyStyle}>
+                          Send {formatCents(invoice.total_cents)} via Zelle to:
+                        </p>
+                        <p style={{
+                          fontSize: 15,
+                          fontWeight: 700,
+                          color: eff.text,
+                          margin: "6px 0",
+                        }}>
+                          {pm.zelle_info}
+                        </p>
+                        <p style={{ fontSize: 11, color: eff.textBody, margin: "0 0 4px", opacity: 0.7 }}>
+                          Reference: {invoice.invoice_number}
+                        </p>
+                        <CopyButton text={pm.zelle_info} label="Copy info" />
+                      </div>
+                    )}
+
+                    {/* Cash / Check */}
+                    {pm.cash_accepted && (
+                      <div style={methodCardStyle}>
+                        <div style={methodHeaderStyle}>
+                          <span style={methodIconStyle}>$</span>
+                          <span style={methodTitleStyle}>Cash / Check</span>
+                        </div>
+                        <p style={methodBodyStyle}>
+                          Pay in person. Mention invoice <strong>#{invoice.invoice_number}</strong> and the amount of {formatCents(invoice.total_cents)}.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         )}
 
         {/* Paid confirmation */}
@@ -295,4 +538,73 @@ const cardStyle: React.CSSProperties = {
   padding: "28px 24px",
   maxWidth: 440,
   width: "100%",
+};
+
+const methodCardStyle: React.CSSProperties = {
+  background: "#f8fafb",
+  border: `1px solid ${eff.buttonBorder}`,
+  borderRadius: 10,
+  padding: "14px 16px",
+};
+
+const methodHeaderStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  marginBottom: 8,
+};
+
+const methodIconStyle: React.CSSProperties = {
+  width: 28,
+  height: 28,
+  borderRadius: 7,
+  background: eff.text,
+  color: "#fff",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  fontSize: 13,
+  fontWeight: 700,
+  flexShrink: 0,
+};
+
+const methodTitleStyle: React.CSSProperties = {
+  fontSize: 14,
+  fontWeight: 700,
+  color: eff.text,
+};
+
+const methodBodyStyle: React.CSSProperties = {
+  fontSize: 13,
+  color: eff.textBody,
+  margin: 0,
+  lineHeight: 1.5,
+};
+
+const altPayBtnStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 4,
+  fontSize: 12,
+  fontWeight: 600,
+  color: "#fff",
+  background: "#111",
+  border: "none",
+  borderRadius: 7,
+  padding: "7px 14px",
+  cursor: "pointer",
+  textDecoration: "none",
+};
+
+const copyBtnStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  fontSize: 11,
+  fontWeight: 600,
+  color: "#374151",
+  background: "#fff",
+  border: "1px solid #d1d5db",
+  borderRadius: 6,
+  padding: "5px 10px",
+  cursor: "pointer",
 };

@@ -340,6 +340,9 @@ export function registerBookflowRoutes(app: Express): void {
       const calcSettings = (calc?.calculator_settings as any) || {};
       const stripeAccountId = calcSettings?.booking_settings?.stripe_account_id;
 
+      // Payment methods configured by the tradesperson
+      const paymentMethods = (settings?.payment_methods as Record<string, unknown>) || {};
+
       res.json({
         invoice_number: invoice.invoice_number,
         customer_name: invoice.customer_name,
@@ -353,6 +356,7 @@ export function registerBookflowRoutes(app: Express): void {
         notes: invoice.notes,
         business_name: client?.business_name || "Service Provider",
         stripe_enabled: !!stripeAccountId,
+        payment_methods: paymentMethods,
       });
     } catch (err: any) {
       log.error("Failed to load invoice", { error: err.message });
@@ -403,8 +407,14 @@ export function registerBookflowRoutes(app: Express): void {
       const platformFeePercent = 2.9;
       const applicationFee = Math.round(invoice.total_cents * platformFeePercent / 100);
 
+      // Broad payment method types — Stripe auto-shows relevant options
+      const paymentMethodTypes: Stripe.Checkout.SessionCreateParams.PaymentMethodType[] = [
+        "card", "us_bank_account", "cashapp", "afterpay_clearpay", "klarna", "acss_debit",
+      ];
+
       const session = await stripe.checkout.sessions.create({
         mode: "payment",
+        payment_method_types: paymentMethodTypes,
         line_items: [{
           price_data: {
             currency: "usd",
@@ -667,6 +677,56 @@ export function registerBookflowRoutes(app: Express): void {
   /* ═══════════════════════════════════════════
      BookFlow settings — check feature toggles
      ═══════════════════════════════════════════ */
+
+  /** PATCH /api/portal/bookflow/payment-methods — update payment methods */
+  app.patch("/api/portal/bookflow/payment-methods", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const paymentMethodsSchema = z.object({
+        stripe: z.boolean().optional(),
+        paypal_email: z.string().optional(),
+        bank_details: z.string().optional(),
+        etransfer_email: z.string().optional(),
+        venmo_handle: z.string().optional(),
+        zelle_info: z.string().optional(),
+        cash_accepted: z.boolean().optional(),
+      });
+
+      const parsed = paymentMethodsSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid input", details: parsed.error.flatten() });
+      }
+
+      // Upsert bookflow settings with payment methods
+      const [existing] = await db
+        .select()
+        .from(bookflowSettings)
+        .where(eq(bookflowSettings.client_id, clientId))
+        .limit(1);
+
+      if (existing) {
+        const [updated] = await db
+          .update(bookflowSettings)
+          .set({ payment_methods: parsed.data, updated_at: new Date() })
+          .where(eq(bookflowSettings.client_id, clientId))
+          .returning();
+        res.json(updated);
+      } else {
+        const [created] = await db
+          .insert(bookflowSettings)
+          .values({ client_id: clientId, payment_methods: parsed.data })
+          .returning();
+        res.json(created);
+      }
+
+      log.info("Payment methods updated", { clientId: String(clientId) });
+    } catch (err: any) {
+      log.error("Failed to update payment methods", { error: err.message });
+      res.status(500).json({ error: "Failed to update payment methods" });
+    }
+  });
 
   /** GET /api/portal/bookflow/settings — get bookflow settings for current client */
   app.get("/api/portal/bookflow/settings", requireClient, async (req: Request, res: Response) => {

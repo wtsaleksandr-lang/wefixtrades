@@ -109,6 +109,12 @@ export async function sendInvoiceEmail(params: InvoiceEmailParams): Promise<void
     ${params.notes ? `<p style="font-size:13px;color:#8B919A;line-height:1.5;margin:0 0 8px;">${params.notes}</p>` : ""}
   `;
 
+  const morePayOptionsHtml = `
+    <p style="font-size:12px;color:#8B919A;text-align:center;margin:12px 0 0;">
+      <a href="${params.payUrl}" style="color:#6B8AFF;text-decoration:underline;">More payment options available</a> on the payment page
+    </p>
+  `;
+
   const html = buildTransactionalEmail({
     recipientEmail: params.recipientEmail,
     subjectForTitle: `Invoice ${params.invoiceNumber}`,
@@ -120,6 +126,7 @@ export async function sendInvoiceEmail(params: InvoiceEmailParams): Promise<void
       url: params.payUrl,
       style: "block",
     },
+    afterCtaHtml: morePayOptionsHtml,
     pasteLinkFallback: { url: params.payUrl },
     supportNote: `Questions about this invoice? Reply to this email or contact ${params.businessName} directly.`,
   });

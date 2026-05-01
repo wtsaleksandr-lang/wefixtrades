@@ -204,9 +204,15 @@ export function registerPublicCheckoutRoutes(app: Express): void {
 
       const baseUrl = process.env.APP_URL || `${req.protocol}://${req.get("host")}`;
 
+      // Broad payment method types — Stripe auto-shows relevant options per locale
+      const paymentMethodTypes: Stripe.Checkout.SessionCreateParams.PaymentMethodType[] = [
+        "card", "us_bank_account", "cashapp", "afterpay_clearpay", "klarna", "acss_debit",
+      ];
+
       const session = await stripe.checkout.sessions.create({
         customer: stripeCustomerId,
         mode: mode as Stripe.Checkout.SessionCreateParams.Mode,
+        payment_method_types: paymentMethodTypes,
         line_items: lineItems,
         metadata: {
           crm_client_id: String(client.id),
