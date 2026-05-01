@@ -28,6 +28,7 @@ import { clients, clientServices, serviceCatalog } from "@shared/schemas/adminCr
 import { getEmailTransporter, getFromAddress } from "../lib/emailTransport";
 import { isEmailUnsubscribed } from "../lib/unsubscribeStorage";
 import { generateLineChart } from "./emailCharts";
+import { createLogger } from "../lib/logger";
 import {
   REPORT_COLORS,
   buildReportShell,
@@ -44,6 +45,8 @@ import {
   type KpiTile,
   type HeaderBadge,
 } from "../lib/reportShell";
+
+const log = createLogger("SocialSyncReports");
 
 /* ─── Public types ─── */
 
@@ -721,10 +724,10 @@ export async function sendSocialsyncReport(
       } as any)
       .where(eq(clientServices.id, cs.id));
 
-    console.log(`[socialsync-report] Sent ${data.month_label} report for service #${cs.id} to ${client.contact_email}`);
+    log.info("Sent report", { period: data.month_label, serviceId: cs.id, email: client.contact_email });
     return { sent: true, period: data.month_label };
   } catch (err: any) {
-    console.error(`[socialsync-report] Send failed for service #${cs.id}:`, err.message);
+    log.error("Send failed", { serviceId: cs.id, error: err.message });
     return { sent: false, reason: `send_failed: ${err.message}` };
   }
 }
@@ -767,7 +770,7 @@ export async function sendAllSocialsyncReports(): Promise<{ sent: number; skippe
     }
   }
 
-  console.log(`[socialsync-report] Batch complete: ${sent} sent, ${skipped} skipped, ${errors.length} errors`);
+  log.info("Batch complete", { sent, skipped, errors: errors.length });
   return { sent, skipped, errors };
 }
 

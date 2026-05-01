@@ -14,6 +14,8 @@ import { eq, and, sql, desc, gte, lte } from "drizzle-orm";
 import { getEmailTransporter, getFromAddress } from "../lib/emailTransport";
 import { isEmailUnsubscribed } from "../lib/unsubscribeStorage";
 import { generateLineChart } from "./emailCharts";
+import { createLogger } from "../lib/logger";
+import { storage } from "../storage";
 import {
   REPORT_COLORS,
   buildReportShell,
@@ -30,6 +32,8 @@ import {
   type KpiTile,
   type HeaderBadge,
 } from "../lib/reportShell";
+
+const log = createLogger("MapGuardReports");
 
 /* ═══════════════════════════════════════════
    TASK TYPE → CLIENT LANGUAGE
@@ -470,23 +474,45 @@ export function buildMonthlyReportEmail(
 
 /**
  * Send a MapGuard monthly report for one client.
+ *
+ * When called from the batch sender, `clientServiceId` enables per-period
+ * dedup via `client_service.metadata.last_mapguard_report_period` and
+ * an opt-out check via `metadata.report_enabled`.
  */
 export async function sendMonthlyReportEmail(
   clientId: number,
   recipientEmail: string,
   year: number,
   month: number,
-): Promise<{ ok: boolean; error?: string }> {
+  clientServiceId?: number,
+): Promise<{ ok: boolean; error?: string; reason?: string }> {
   if (await isEmailUnsubscribed(recipientEmail)) {
-    console.log(`[mapguard-report] Recipient ${recipientEmail} is unsubscribed — skipping`);
-    return { ok: false, error: "Recipient unsubscribed" };
+    log.info("Recipient unsubscribed — skipping", { recipientEmail });
+    return { ok: false, error: "Recipient unsubscribed", reason: "recipient_unsubscribed" };
   }
 
   const data = await compileMonthlyReport(clientId, year, month);
-  if (!data) return { ok: false, error: "Could not compile report data" };
+  if (!data) return { ok: false, error: "Could not compile report data", reason: "could_not_compile" };
+
+  // Per-service dedup + opt-out when called from the batch sender
+  let csMeta: Record<string, any> = {};
+  if (clientServiceId) {
+    const [cs] = await db.select({ metadata: clientServices.metadata })
+      .from(clientServices).where(eq(clientServices.id, clientServiceId)).limit(1);
+    csMeta = (cs?.metadata as Record<string, any>) || {};
+
+    if (csMeta.report_enabled === false) {
+      log.debug("Reports disabled for this service — skipping", { clientId, clientServiceId });
+      return { ok: false, error: "Reports disabled", reason: "reports_disabled" };
+    }
+    if (csMeta.last_mapguard_report_period === data.month_label) {
+      log.debug("Already sent this period — skipping", { clientId, period: data.month_label });
+      return { ok: false, error: "Already sent this period", reason: "already_sent_this_period" };
+    }
+  }
 
   const transporter = getEmailTransporter();
-  if (!transporter) return { ok: false, error: "SMTP not configured" };
+  if (!transporter) return { ok: false, error: "SMTP not configured", reason: "smtp_not_configured" };
 
   const portalUrl = process.env.APP_URL
     || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://wefixtrades.com");
@@ -501,10 +527,41 @@ export async function sendMonthlyReportEmail(
       subject,
       html,
     });
+
+    // Stamp dedup marker so re-runs within the same month are safe
+    if (clientServiceId) {
+      await db.update(clientServices)
+        .set({
+          metadata: {
+            ...csMeta,
+            last_mapguard_report_period: data.month_label,
+            last_report_sent_at: new Date().toISOString(),
+          },
+          updated_at: new Date(),
+        } as any)
+        .where(eq(clientServices.id, clientServiceId));
+    }
+
+    // Audit trail
+    await storage.logAdminActivity({
+      actor_type: "system",
+      actor_id: null,
+      actor_name: "MapGuardReport",
+      action: "report.sent",
+      entity_type: "client",
+      entity_id: clientId,
+      summary: `Monthly MapGuard report sent to ${recipientEmail} (${data.month_label})`,
+      metadata: {
+        month_label: data.month_label,
+        score_end: data.score_end,
+        movement: data.movement,
+      },
+    });
+
     return { ok: true };
   } catch (err: any) {
-    console.error(`[mapguard-report] Email send failed for client ${clientId}:`, err.message);
-    return { ok: false, error: err.message };
+    log.error("Email send failed", { clientId, error: err.message });
+    return { ok: false, error: err.message, reason: "send_failed" };
   }
 }
 
@@ -521,10 +578,12 @@ export async function sendAllMonthlyReports(): Promise<{
   const year = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
   const month = now.getMonth() === 0 ? 12 : now.getMonth();
 
-  const activeClients = await db.select({
-    client_id: clients.id,
+  const activeServices = await db.select({
+    cs_id: clientServices.id,
+    client_id: clientServices.client_id,
     contact_email: clients.contact_email,
     business_name: clients.business_name,
+    client_status: clients.status,
   })
     .from(clientServices)
     .innerJoin(clients, eq(clientServices.client_id, clients.id))
@@ -533,6 +592,7 @@ export async function sendAllMonthlyReports(): Promise<{
       eq(clientServices.status, "active"),
       eq(clientServices.enabled, true),
       sql`${serviceCatalog.id} LIKE 'mapguard%'`,
+      sql`${clients.status} IN ('active')`,
       sql`${clients.contact_email} IS NOT NULL AND ${clients.contact_email} != ''`,
     ));
 
@@ -540,26 +600,30 @@ export async function sendAllMonthlyReports(): Promise<{
   let skipped = 0;
   const errors: string[] = [];
 
-  for (const client of activeClients) {
-    if (!client.contact_email) {
+  for (const svc of activeServices) {
+    if (!svc.contact_email) {
       skipped++;
       continue;
     }
     const result = await sendMonthlyReportEmail(
-      client.client_id,
-      client.contact_email,
+      svc.client_id,
+      svc.contact_email,
       year,
       month,
+      svc.cs_id,
     );
     if (result.ok) {
       sent++;
-      console.log(`[mapguard-report] Sent monthly report to ${client.business_name} (${client.contact_email})`);
+      log.info("Sent monthly report", { businessName: svc.business_name, email: svc.contact_email });
+    } else if (result.reason === "already_sent_this_period" || result.reason === "recipient_unsubscribed" || result.reason === "reports_disabled") {
+      skipped++;
+      log.debug("Skipped report", { businessName: svc.business_name, reason: result.reason });
     } else {
-      errors.push(`${client.business_name}: ${result.error}`);
+      errors.push(`${svc.business_name}: ${result.error}`);
     }
   }
 
-  console.log(`[mapguard-report] Batch complete: ${sent} sent, ${skipped} skipped, ${errors.length} errors`);
+  log.info("Batch complete", { sent, skipped, errors: errors.length });
   return { sent, skipped, errors };
 }
 
