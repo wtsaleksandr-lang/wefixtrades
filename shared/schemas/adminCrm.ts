@@ -186,6 +186,8 @@ export const serviceTaskTemplates = pgTable("service_task_templates", {
   human_review_required: boolean("human_review_required").notNull().default(false),
   is_recurring: boolean("is_recurring").notNull().default(true),
   // true = included in monthly generation; false = setup-only (first provision only)
+  sla_days: integer("sla_days"),
+  // number of days from task creation until due_at; null = no SLA
   created_at: timestamp("created_at").defaultNow(),
 });
 export const insertServiceTaskTemplateSchema = createInsertSchema(serviceTaskTemplates).omit({ id: true, created_at: true });

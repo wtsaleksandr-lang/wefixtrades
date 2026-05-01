@@ -622,6 +622,7 @@ export function registerAdminCrmRoutes(app: Express): void {
           handled_by: t.default_handled_by,
           waiting_on: t.default_waiting_on,
           human_review_required: t.human_review_required,
+          due_at: t.sla_days ? new Date(Date.now() + t.sla_days * 86400000) : null,
           status: "not_started",
           actor_type: "human",
         });
@@ -686,6 +687,7 @@ export function registerAdminCrmRoutes(app: Express): void {
           handled_by: t.default_handled_by,
           waiting_on: t.default_waiting_on,
           human_review_required: t.human_review_required,
+          due_at: t.sla_days ? new Date(Date.now() + t.sla_days * 86400000) : null,
           status: "not_started",
           actor_type: "human",
         });
