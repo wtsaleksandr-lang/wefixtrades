@@ -89,6 +89,9 @@ type User, type InsertUser,
   type ContentDraft, type InsertContentDraft,
   type ContentApproval, type InsertContentApproval,
   type ContentAsset, type InsertContentAsset,
+  // Routing Events
+  routingEvents,
+  type RoutingEvent, type InsertRoutingEvent,
 } from "@shared/schema";
 import { eq, desc, sql, and, gte, lte, ilike, or, isNotNull, count } from "drizzle-orm";
 
@@ -355,6 +358,12 @@ export interface IStorage {
   listSalesLeads(status?: string): Promise<SalesLead[]>;
   updateSalesLead(id: number, updates: Partial<InsertSalesLead>): Promise<SalesLead | undefined>;
   getSalesLeadById(id: number): Promise<SalesLead | undefined>;
+
+  // ─── Routing Events (Phase 1) ───
+  createRoutingEvent(data: InsertRoutingEvent): Promise<RoutingEvent>;
+  systemResolveRoutingEvent(entityType: string, entityId: number, queue: string): Promise<void>;
+  adminAcknowledgeRoutingEvent(id: number, userId: number): Promise<RoutingEvent | undefined>;
+  listQueueItems(queue: string, limit?: number): Promise<RoutingEvent[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -3328,6 +3337,134 @@ export class DatabaseStorage implements IStorage {
       deleted_approvals: approvalsBefore.length,
       deleted_post,
     };
+  }
+
+  // ─── Routing Events (Phase 1) ───
+
+  /**
+   * Idempotent insert: if an active or snoozed routing event already exists
+   * for the same (entity_type, entity_id, queue), update its updated_at
+   * timestamp instead of inserting a duplicate. Returns the existing or
+   * newly created event.
+   */
+  async createRoutingEvent(data: InsertRoutingEvent): Promise<RoutingEvent> {
+    // Check for existing active/snoozed event with same key
+    const [existing] = await db
+      .select()
+      .from(routingEvents)
+      .where(
+        and(
+          eq(routingEvents.entity_type, data.entity_type),
+          eq(routingEvents.entity_id, data.entity_id),
+          eq(routingEvents.queue, data.queue),
+          or(
+            eq(routingEvents.status, "active"),
+            eq(routingEvents.status, "snoozed"),
+          ),
+        ),
+      )
+      .limit(1);
+
+    if (existing) {
+      // Update evaluated timestamp only — do not create duplicate
+      const [updated] = await db
+        .update(routingEvents)
+        .set({ updated_at: new Date() })
+        .where(eq(routingEvents.id, existing.id))
+        .returning();
+      return updated;
+    }
+
+    const [event] = await db.insert(routingEvents).values(data).returning();
+    return event;
+  }
+
+  /**
+   * Mark all active routing events matching (entity_type, entity_id, queue)
+   * as system_resolved. Called when the engine re-evaluates and the
+   * triggering condition no longer holds.
+   */
+  async systemResolveRoutingEvent(
+    entityType: string,
+    entityId: number,
+    queue: string,
+  ): Promise<void> {
+    const now = new Date();
+    await db
+      .update(routingEvents)
+      .set({
+        status: "system_resolved",
+        resolved_at: now,
+        updated_at: now,
+      })
+      .where(
+        and(
+          eq(routingEvents.entity_type, entityType),
+          eq(routingEvents.entity_id, entityId),
+          eq(routingEvents.queue, queue),
+          or(
+            eq(routingEvents.status, "active"),
+            eq(routingEvents.status, "snoozed"),
+          ),
+        ),
+      );
+  }
+
+  /**
+   * Mark a specific routing event as admin_acknowledged.
+   * Sets acknowledged_by, acknowledged_at, and updated_at.
+   */
+  async adminAcknowledgeRoutingEvent(
+    id: number,
+    userId: number,
+  ): Promise<RoutingEvent | undefined> {
+    const now = new Date();
+    const [event] = await db
+      .update(routingEvents)
+      .set({
+        status: "admin_acknowledged",
+        acknowledged_by: userId,
+        acknowledged_at: now,
+        updated_at: now,
+      })
+      .where(
+        and(
+          eq(routingEvents.id, id),
+          eq(routingEvents.status, "active"),
+        ),
+      )
+      .returning();
+    return event;
+  }
+
+  /**
+   * Return active + snoozed routing events for a given queue,
+   * ordered by priority (urgent first) then created_at (oldest first).
+   */
+  async listQueueItems(queue: string, limit: number = 100): Promise<RoutingEvent[]> {
+    return db
+      .select()
+      .from(routingEvents)
+      .where(
+        and(
+          eq(routingEvents.queue, queue),
+          or(
+            eq(routingEvents.status, "active"),
+            eq(routingEvents.status, "snoozed"),
+          ),
+        ),
+      )
+      .orderBy(
+        sql`CASE ${routingEvents.priority}
+          WHEN 'urgent' THEN 0
+          WHEN 'high' THEN 1
+          WHEN 'normal' THEN 2
+          WHEN 'low' THEN 3
+          ELSE 4
+        END`,
+        routingEvents.created_at,
+      )
+      .limit(limit);
   }
 }
 

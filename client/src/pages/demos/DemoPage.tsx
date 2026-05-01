@@ -195,67 +195,83 @@ export default function DemoPage() {
               }}
             >
               <div
-                data-testid="demo-placeholder"
+                data-testid="demo-personalized-card"
                 style={{
-                  height: 400,
-                  background: `linear-gradient(135deg, ${mkt.surface} 0%, ${mkt.borderLight} 50%, ${mkt.surface} 100%)`,
+                  minHeight: 400,
+                  background: `linear-gradient(160deg, ${mkt.dark} 0%, #0F2744 60%, #1a3550 100%)`,
                   display: "flex",
                   flexDirection: "column",
                   alignItems: "center",
                   justifyContent: "center",
-                  gap: 16,
+                  gap: 20,
+                  padding: "48px 32px",
                 }}
               >
                 <div
                   style={{
-                    width: 64,
-                    height: 64,
-                    borderRadius: "50%",
-                    background: mkt.accentTint,
+                    width: 72,
+                    height: 72,
+                    borderRadius: 18,
+                    background: "rgba(102,232,250,0.12)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                   }}
                 >
-                  <Play size={28} color={mkt.accent} />
+                  <Play size={32} color={mkt.accent} />
                 </div>
-                <span
+                <h3
                   style={{
-                    fontSize: 16,
-                    fontWeight: 600,
-                    color: mkt.textMuted,
-                  }}
-                >
-                  See {demo.title} in action
-                </span>
-                <span
-                  style={{
-                    fontSize: 13,
-                    color: mkt.textMuted,
-                    maxWidth: 360,
-                    textAlign: "center",
-                    lineHeight: 1.5,
-                  }}
-                >
-                  Want to see how {demo.title} works for your business?
-                  Book a free walkthrough and we'll show you live.
-                </span>
-                <a
-                  href="/book"
-                  style={{
-                    marginTop: 8,
-                    display: "inline-block",
-                    padding: "10px 24px",
-                    borderRadius: 10,
-                    background: mkt.accent,
-                    color: mkt.dark,
-                    fontSize: 14,
+                    fontSize: 22,
                     fontWeight: 700,
-                    textDecoration: "none",
+                    color: mkt.onDark,
+                    margin: 0,
+                    textAlign: "center",
+                    letterSpacing: "-0.02em",
                   }}
                 >
-                  Book a Demo
-                </a>
+                  Schedule a Personalized Demo
+                </h3>
+                <p
+                  style={{
+                    fontSize: 15,
+                    color: mkt.onDarkFaint,
+                    maxWidth: 400,
+                    textAlign: "center",
+                    lineHeight: 1.6,
+                    margin: 0,
+                  }}
+                >
+                  See exactly how {demo.title} handles real conversations, captures leads,
+                  and fits into your daily workflow. Our team will walk you through
+                  a live demo tailored to your trade.
+                </p>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "center", width: "100%", maxWidth: 320, marginTop: 4 }}>
+                  <a
+                    href="/book"
+                    data-testid="button-demo-book-call"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 8,
+                      width: "100%",
+                      padding: "14px 28px",
+                      borderRadius: 12,
+                      background: mkt.accent,
+                      color: mkt.dark,
+                      fontSize: 15,
+                      fontWeight: 700,
+                      textDecoration: "none",
+                    }}
+                  >
+                    Book a Free Demo Call
+                    <ArrowRight size={15} />
+                  </a>
+                  <span style={{ fontSize: 12, color: mkt.onDarkFaint }}>
+                    No commitment. 15 minutes. See it live.
+                  </span>
+                </div>
               </div>
             </div>
           </div>

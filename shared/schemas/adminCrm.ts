@@ -766,3 +766,53 @@ export const insertBillingDunningEventSchema = createInsertSchema(billingDunning
 });
 export type InsertBillingDunningEvent = z.infer<typeof insertBillingDunningEventSchema>;
 export type BillingDunningEvent = typeof billingDunningEvents.$inferSelect;
+
+/* ─── Routing Events ─────────────────────────────────────────────────
+ *
+ * Phase 1 of the Rules & Routing Engine (see docs/rules-routing-engine-plan.md).
+ *
+ * Each row represents one routing decision: a specific entity was assigned
+ * to a named work queue by a specific rule. Events have a lifecycle:
+ *
+ *   active -> system_resolved  (engine re-evaluates, condition no longer holds)
+ *   active -> admin_acknowledged (admin marks event handled)
+ *   active -> snoozed (admin snoozes; engine re-activates after snoozed_until)
+ *   snoozed -> active (snooze expired + condition still holds)
+ *   snoozed -> system_resolved (condition resolved while snoozed)
+ *
+ * admin_acknowledged and system_resolved are terminal for that event INSTANCE.
+ * If the underlying condition persists past a per-queue requeue threshold,
+ * the engine creates a NEW event with a fresh created_at.
+ *
+ * ─────────────────────────────────────────────────────────────────── */
+export const routingEvents = pgTable("routing_events", {
+  id: serial("id").primaryKey(),
+  entity_type: text("entity_type").notNull(),
+  // "client" | "client_service" | "fulfillment_task" | "support_ticket"
+  // | "onboarding_submission" | "client_payment"
+  entity_id: integer("entity_id").notNull(),
+  queue: text("queue").notNull(),
+  // e.g. "onboarding_stalled", "payment_at_risk", "task_blocked", "urgent_support"
+  status: text("status").notNull().default("active"),
+  // "active" | "snoozed" | "system_resolved" | "admin_acknowledged"
+  rule_name: text("rule_name").notNull(),
+  // which rule fired, e.g. "onboarding_stale", "payment_failed"
+  priority: text("priority").notNull().default("normal"),
+  // "low" | "normal" | "high" | "urgent"
+  summary: text("summary").notNull(),
+  // human-readable description of why this event was created
+  metadata: jsonb("metadata"),
+  // extra context: blocked_reason, current_status, owner_type, etc.
+  snoozed_until: timestamp("snoozed_until"),
+  acknowledged_by: integer("acknowledged_by"),
+  // user ID of admin who acknowledged
+  acknowledged_at: timestamp("acknowledged_at"),
+  resolved_at: timestamp("resolved_at"),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  updated_at: timestamp("updated_at").defaultNow().notNull(),
+});
+export const insertRoutingEventSchema = createInsertSchema(routingEvents).omit({
+  id: true, created_at: true, updated_at: true,
+});
+export type InsertRoutingEvent = z.infer<typeof insertRoutingEventSchema>;
+export type RoutingEvent = typeof routingEvents.$inferSelect;
