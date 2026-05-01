@@ -253,13 +253,18 @@ export async function processOnboardingSubmission(
 /* ─── WebCare Credential Extraction ────────────────────────────────── */
 
 /**
- * Extract WordPress Application Password credentials from onboarding
- * form responses and store them encrypted in client_service.metadata.
+ * Extract CMS credentials from onboarding form responses and store them
+ * encrypted in client_service.metadata.
  *
- * Looks for CMS credentials in both:
- * 1. Raw form responses (keys like "cms_url", "admin_url", "wordpress_url",
- *    "cms_username", "wp_username", "cms_password", "wp_app_password")
- * 2. AI-extracted service_config (same key patterns)
+ * Supports multiple CMS platforms:
+ * - WordPress: cms_url, cms_username, cms_app_password
+ * - Wix: wix_api_key, wix_site_id
+ * - Shopify: shopify_store, shopify_access_token, shopify_blog_id
+ * - Squarespace: squarespace_api_key
+ *
+ * Looks for credentials in both:
+ * 1. Raw form responses
+ * 2. AI-extracted service_config
  *
  * NOTE: WordPress Application Passwords are different from regular login
  * passwords. The onboarding instructions should tell the client to generate
@@ -273,7 +278,7 @@ async function extractAndStoreWebcareCredentials(
   serviceConfig: Record<string, any>,
 ): Promise<void> {
   if (!isEncryptionConfigured()) {
-    log.warn("[onboarding-ai] TOKEN_ENCRYPTION_KEY not set — cannot encrypt WordPress credentials");
+    log.warn("[onboarding-ai] TOKEN_ENCRYPTION_KEY not set — cannot encrypt credentials");
     return;
   }
 
@@ -292,6 +297,46 @@ async function extractAndStoreWebcareCredentials(
     }
   }
 
+  // Detect CMS platform from form responses
+  const cmsPlatform = (
+    merged.cms_platform || merged.platform || ""
+  ).toLowerCase().trim();
+
+  const cs = await storage.getClientServiceById(clientServiceId);
+  if (!cs) return;
+  const csMeta = (cs.metadata as Record<string, any>) || {};
+
+  // Route to platform-specific credential extraction
+  if (cmsPlatform === "wix" || cmsPlatform === "wix.com") {
+    await extractWixCredentials(clientServiceId, clientId, merged, csMeta);
+  } else if (cmsPlatform === "shopify" || cmsPlatform === "shopify.com") {
+    await extractShopifyCredentials(clientServiceId, clientId, merged, csMeta);
+  } else if (cmsPlatform === "squarespace" || cmsPlatform === "squarespace.com") {
+    await extractSquarespaceCredentials(clientServiceId, clientId, merged, csMeta);
+  } else {
+    // Default to WordPress credential extraction (backwards compatible)
+    await extractWordpressCredentials(clientServiceId, clientId, merged, csMeta);
+  }
+
+  // Store CMS platform in metadata for platform detection
+  if (cmsPlatform) {
+    const freshCs = await storage.getClientServiceById(clientServiceId);
+    const freshMeta = (freshCs?.metadata as Record<string, any>) || {};
+    await db.update(clientServices)
+      .set({
+        metadata: { ...freshMeta, cms_platform: cmsPlatform },
+        updated_at: new Date(),
+      })
+      .where(eq(clientServices.id, clientServiceId));
+  }
+}
+
+async function extractWordpressCredentials(
+  clientServiceId: number,
+  clientId: number,
+  merged: Record<string, string>,
+  csMeta: Record<string, any>,
+): Promise<void> {
   // Attempt to find CMS URL
   const cmsUrl =
     merged.cms_url || merged.admin_url || merged.wordpress_url ||
@@ -333,11 +378,6 @@ async function extractAndStoreWebcareCredentials(
   // Encrypt the application password
   const encryptedPassword = encryptToken(appPassword);
 
-  // Store in client_service.metadata.wordpress_credentials
-  const cs = await storage.getClientServiceById(clientServiceId);
-  if (!cs) return;
-
-  const csMeta = (cs.metadata as Record<string, any>) || {};
   const updatedMeta = {
     ...csMeta,
     wordpress_credentials: {
@@ -354,4 +394,97 @@ async function extractAndStoreWebcareCredentials(
     .where(eq(clientServices.id, clientServiceId));
 
   log.info(`[onboarding-ai] Stored WordPress credentials for cs#${clientServiceId} (client#${clientId})`);
+}
+
+async function extractWixCredentials(
+  clientServiceId: number,
+  clientId: number,
+  merged: Record<string, string>,
+  csMeta: Record<string, any>,
+): Promise<void> {
+  const apiKey = merged.wix_api_key || merged.wix_key || merged.api_key || null;
+  const siteId = merged.wix_site_id || merged.site_id || null;
+
+  if (!apiKey) {
+    log.debug("[onboarding-ai] WebCare onboarding: missing Wix API key");
+    return;
+  }
+
+  const updatedMeta = {
+    ...csMeta,
+    wix_credentials: {
+      wix_api_key: encryptToken(apiKey),
+      wix_site_id: siteId || "",
+      configured_at: new Date().toISOString(),
+      source: "onboarding_form",
+    },
+  };
+
+  await db.update(clientServices)
+    .set({ metadata: updatedMeta, updated_at: new Date() })
+    .where(eq(clientServices.id, clientServiceId));
+
+  log.info(`[onboarding-ai] Stored Wix credentials for cs#${clientServiceId} (client#${clientId})`);
+}
+
+async function extractShopifyCredentials(
+  clientServiceId: number,
+  clientId: number,
+  merged: Record<string, string>,
+  csMeta: Record<string, any>,
+): Promise<void> {
+  const store = merged.shopify_store || merged.store_name || merged.shopify_store_name || null;
+  const accessToken = merged.shopify_access_token || merged.access_token || merged.shopify_token || null;
+  const blogId = merged.shopify_blog_id || merged.blog_id || null;
+
+  if (!store || !accessToken) {
+    log.debug("[onboarding-ai] WebCare onboarding: incomplete Shopify credentials", {
+      hasStore: !!store,
+      hasToken: !!accessToken,
+      hasBlogId: !!blogId,
+    });
+    return;
+  }
+
+  const updatedMeta = {
+    ...csMeta,
+    shopify_credentials: {
+      shopify_store: store,
+      shopify_access_token: encryptToken(accessToken),
+      shopify_blog_id: blogId || "",
+      configured_at: new Date().toISOString(),
+      source: "onboarding_form",
+    },
+  };
+
+  await db.update(clientServices)
+    .set({ metadata: updatedMeta, updated_at: new Date() })
+    .where(eq(clientServices.id, clientServiceId));
+
+  log.info(`[onboarding-ai] Stored Shopify credentials for cs#${clientServiceId} (client#${clientId})`);
+}
+
+async function extractSquarespaceCredentials(
+  clientServiceId: number,
+  clientId: number,
+  merged: Record<string, string>,
+  csMeta: Record<string, any>,
+): Promise<void> {
+  const apiKey = merged.squarespace_api_key || merged.squarespace_key || null;
+
+  // Squarespace uses email fallback, so API key is optional
+  const updatedMeta = {
+    ...csMeta,
+    squarespace_credentials: {
+      squarespace_api_key: apiKey ? encryptToken(apiKey) : null,
+      configured_at: new Date().toISOString(),
+      source: "onboarding_form",
+    },
+  };
+
+  await db.update(clientServices)
+    .set({ metadata: updatedMeta, updated_at: new Date() })
+    .where(eq(clientServices.id, clientServiceId));
+
+  log.info(`[onboarding-ai] Stored Squarespace credentials for cs#${clientServiceId} (client#${clientId})`);
 }

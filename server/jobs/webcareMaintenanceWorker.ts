@@ -34,6 +34,7 @@ import {
 import type { WpCredentials, PluginUpdateResult, HealthReport } from "../services/wordpressMaintenance";
 import { chat as aiChat } from "../services/aiService";
 import { generateAndPublishMonthlyContent } from "../services/webcareContentAutomation";
+import { detectClientPlatform } from "../services/contentflow/cmsRouter";
 import { fulfillmentTasks } from "@shared/schema";
 
 const log = createLogger("WebCareMaintenance");
@@ -222,97 +223,114 @@ export async function processWebcareMaintenance(): Promise<MaintenanceResult> {
         continue;
       }
 
-      // Step 1: Resolve WordPress credentials
-      const wpCreds = await resolveWpCredentials(row.cs_client_id, csMeta);
+      // Step 0: Detect CMS platform for this client
+      const clientPlatform = await detectClientPlatform(row.cs_client_id, row.cs_id) || "wordpress";
+      const isWordPress = clientPlatform === "wordpress";
 
-      if (!wpCreds) {
-        log.info(`No WordPress credentials for cs#${row.cs_id} — creating credential collection task`);
+      // Step 1: Resolve WordPress credentials (only needed for WP clients)
+      let wpCreds: WpCredentials | null = null;
+      if (isWordPress) {
+        wpCreds = await resolveWpCredentials(row.cs_client_id, csMeta);
 
-        // Check if we already have a pending credential task
-        const existingCredTasks = await db
-          .select({ id: sql<number>`id` })
-          .from(sql`fulfillment_tasks`)
-          .where(
-            and(
-              eq(sql`client_service_id`, row.cs_id),
-              sql`title LIKE '%Collect WordPress credentials%'`,
-              sql`status NOT IN ('delivered', 'cancelled')`,
-            ),
-          )
-          .limit(1);
+        if (!wpCreds) {
+          log.info(`No WordPress credentials for cs#${row.cs_id} — creating credential collection task`);
 
-        if (existingCredTasks.length === 0) {
-          await storage.createFulfillmentTask({
-            client_service_id: row.cs_id,
-            client_id: row.cs_client_id,
-            title: `${monthPrefix}: Collect WordPress credentials`,
-            description: `WordPress Application Password credentials are required for automated maintenance. ` +
-              `Contact the client and request they generate an Application Password from their WordPress admin ` +
-              `(Users → Profile → Application Passwords). Store the credentials via the onboarding form or admin panel.`,
-            status: "not_started",
-            priority: "high",
-            handled_by: "internal",
-            waiting_on: "client",
-            actor_type: "system",
-            metadata: {
-              type: "credential_collection",
-              source: "webcare_maintenance_worker",
-              period: monthPrefix,
-            },
-          });
-          result.credentialTasksCreated++;
+          // Check if we already have a pending credential task
+          const existingCredTasks = await db
+            .select({ id: sql<number>`id` })
+            .from(sql`fulfillment_tasks`)
+            .where(
+              and(
+                eq(sql`client_service_id`, row.cs_id),
+                sql`title LIKE '%Collect WordPress credentials%'`,
+                sql`status NOT IN ('delivered', 'cancelled')`,
+              ),
+            )
+            .limit(1);
+
+          if (existingCredTasks.length === 0) {
+            await storage.createFulfillmentTask({
+              client_service_id: row.cs_id,
+              client_id: row.cs_client_id,
+              title: `${monthPrefix}: Collect WordPress credentials`,
+              description: `WordPress Application Password credentials are required for automated maintenance. ` +
+                `Contact the client and request they generate an Application Password from their WordPress admin ` +
+                `(Users → Profile → Application Passwords). Store the credentials via the onboarding form or admin panel.`,
+              status: "not_started",
+              priority: "high",
+              handled_by: "internal",
+              waiting_on: "client",
+              actor_type: "system",
+              metadata: {
+                type: "credential_collection",
+                source: "webcare_maintenance_worker",
+                period: monthPrefix,
+              },
+            });
+            result.credentialTasksCreated++;
+          }
+
+          result.servicesSkipped++;
+          continue;
+        }
+      } else {
+        log.info(`Skipping plugin updates — client uses ${clientPlatform}, not WordPress`, {
+          csId: String(row.cs_id),
+          clientId: String(row.cs_client_id),
+          platform: clientPlatform,
+        });
+      }
+
+      // Step 2: Check plugin updates (WordPress only)
+      let pluginResult: PluginUpdateResult | null = null;
+      if (isWordPress && wpCreds) {
+        try {
+          pluginResult = await checkPluginUpdates(wpCreds);
+          log.info(`Plugin check for cs#${row.cs_id}: ${pluginResult.total_plugins} total, ${pluginResult.updates_available} updates`);
+        } catch (err: any) {
+          log.error(`Plugin check failed for cs#${row.cs_id}`, { error: err.message });
         }
 
-        result.servicesSkipped++;
-        continue;
-      }
+        // Step 3: Apply safe updates (minor/patch only)
+        if (pluginResult?.ok && pluginResult.updates_available > 0) {
+          const safeUpdates = pluginResult.plugins
+            .filter(p => p.update_available && !p.is_major_update)
+            .map(p => p.plugin);
 
-      // Step 2: Check plugin updates
-      let pluginResult: PluginUpdateResult | null = null;
-      try {
-        pluginResult = await checkPluginUpdates(wpCreds);
-        log.info(`Plugin check for cs#${row.cs_id}: ${pluginResult.total_plugins} total, ${pluginResult.updates_available} updates`);
-      } catch (err: any) {
-        log.error(`Plugin check failed for cs#${row.cs_id}`, { error: err.message });
-      }
+          if (safeUpdates.length > 0) {
+            try {
+              const applyResult = await applyPluginUpdates(wpCreds, safeUpdates);
+              result.pluginUpdatesApplied += applyResult.updates_applied;
+              log.info(`Applied ${applyResult.updates_applied}/${safeUpdates.length} plugin updates for cs#${row.cs_id}`);
 
-      // Step 3: Apply safe updates (minor/patch only)
-      if (pluginResult?.ok && pluginResult.updates_available > 0) {
-        const safeUpdates = pluginResult.plugins
-          .filter(p => p.update_available && !p.is_major_update)
-          .map(p => p.plugin);
-
-        if (safeUpdates.length > 0) {
-          try {
-            const applyResult = await applyPluginUpdates(wpCreds, safeUpdates);
-            result.pluginUpdatesApplied += applyResult.updates_applied;
-            log.info(`Applied ${applyResult.updates_applied}/${safeUpdates.length} plugin updates for cs#${row.cs_id}`);
-
-            if (applyResult.errors.length > 0) {
-              log.warn(`Plugin update errors for cs#${row.cs_id}`, {
-                errors: applyResult.errors.map(e => `${e.plugin}: ${e.error}`).join("; "),
-              });
+              if (applyResult.errors.length > 0) {
+                log.warn(`Plugin update errors for cs#${row.cs_id}`, {
+                  errors: applyResult.errors.map(e => `${e.plugin}: ${e.error}`).join("; "),
+                });
+              }
+            } catch (err: any) {
+              log.error(`Plugin update failed for cs#${row.cs_id}`, { error: err.message });
             }
-          } catch (err: any) {
-            log.error(`Plugin update failed for cs#${row.cs_id}`, { error: err.message });
+          }
+
+          // Log major updates that were skipped
+          const majorUpdates = pluginResult.plugins.filter(p => p.update_available && p.is_major_update);
+          if (majorUpdates.length > 0) {
+            log.info(`Skipped ${majorUpdates.length} major plugin updates for cs#${row.cs_id}: ${majorUpdates.map(p => `${p.name} ${p.version} → ${p.update_version}`).join(", ")}`);
           }
         }
-
-        // Log major updates that were skipped
-        const majorUpdates = pluginResult.plugins.filter(p => p.update_available && p.is_major_update);
-        if (majorUpdates.length > 0) {
-          log.info(`Skipped ${majorUpdates.length} major plugin updates for cs#${row.cs_id}: ${majorUpdates.map(p => `${p.name} ${p.version} → ${p.update_version}`).join(", ")}`);
-        }
       }
 
-      // Step 4: Run site health check
+      // Step 4: Run site health check (WordPress only)
       let healthReport: HealthReport | null = null;
-      try {
-        healthReport = await runSiteHealthCheck(wpCreds);
-        result.healthChecksRun++;
-        log.info(`Health check for cs#${row.cs_id}: reachable=${healthReport.site_reachable}, ssl=${healthReport.ssl_valid}, wp=${healthReport.wordpress_version}`);
-      } catch (err: any) {
-        log.error(`Health check failed for cs#${row.cs_id}`, { error: err.message });
+      if (isWordPress && wpCreds) {
+        try {
+          healthReport = await runSiteHealthCheck(wpCreds);
+          result.healthChecksRun++;
+          log.info(`Health check for cs#${row.cs_id}: reachable=${healthReport.site_reachable}, ssl=${healthReport.ssl_valid}, wp=${healthReport.wordpress_version}`);
+        } catch (err: any) {
+          log.error(`Health check failed for cs#${row.cs_id}`, { error: err.message });
+        }
       }
 
       // Step 5: Calculate uptime and generate report
