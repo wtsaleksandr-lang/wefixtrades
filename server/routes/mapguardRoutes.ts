@@ -46,6 +46,9 @@ import {
 import { getRecentAlerts, dismissAlert } from "../services/mapguardAlerts";
 import { compileMonthlyReport, sendMonthlyReportEmail, sendAllMonthlyReports } from "../services/mapguardReports";
 import { getLastClientActivityDate } from "../services/mapguardRetention";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("MapguardRoutes");
 
 export function registerMapguardRoutes(app: Express) {
 
@@ -66,7 +69,7 @@ export function registerMapguardRoutes(app: Express) {
 
       res.json(tasks);
     } catch (err: any) {
-      console.error("[mapguard] list tasks error:", err);
+      log.error("[mapguard] list tasks error:", err);
       res.status(500).json({ error: "Failed to list tasks" });
     }
   });
@@ -80,7 +83,7 @@ export function registerMapguardRoutes(app: Express) {
       const summary = await getMapguardTaskSummary(clientId);
       res.json(summary);
     } catch (err: any) {
-      console.error("[mapguard] task summary error:", err);
+      log.error("[mapguard] task summary error:", err);
       res.status(500).json({ error: "Failed to get task summary" });
     }
   });
@@ -130,7 +133,7 @@ export function registerMapguardRoutes(app: Express) {
 
       res.status(201).json(task);
     } catch (err: any) {
-      console.error("[mapguard] create task error:", err);
+      log.error("[mapguard] create task error:", err);
       res.status(500).json({ error: "Failed to create task" });
     }
   });
@@ -155,7 +158,7 @@ export function registerMapguardRoutes(app: Express) {
         tasks,
       });
     } catch (err: any) {
-      console.error("[mapguard] create from audit error:", err);
+      log.error("[mapguard] create from audit error:", err);
       if (err.message?.includes("not found")) {
         return res.status(404).json({ error: err.message });
       }
@@ -195,7 +198,7 @@ export function registerMapguardRoutes(app: Express) {
       if (err.message?.includes("Invalid status transition")) {
         return res.status(400).json({ error: err.message });
       }
-      console.error("[mapguard] update status error:", err);
+      log.error("[mapguard] update status error:", err);
       res.status(500).json({ error: "Failed to update task status" });
     }
   });
@@ -221,7 +224,7 @@ export function registerMapguardRoutes(app: Express) {
 
       res.json(task);
     } catch (err: any) {
-      console.error("[mapguard] update result error:", err);
+      log.error("[mapguard] update result error:", err);
       res.status(500).json({ error: "Failed to update task result" });
     }
   });
@@ -259,7 +262,7 @@ export function registerMapguardRoutes(app: Express) {
 
       res.json(task);
     } catch (err: any) {
-      console.error("[mapguard] update task error:", err);
+      log.error("[mapguard] update task error:", err);
       res.status(500).json({ error: "Failed to update task" });
     }
   });
@@ -277,7 +280,7 @@ export function registerMapguardRoutes(app: Express) {
 
       res.json({ task, activity });
     } catch (err: any) {
-      console.error("[mapguard] get task error:", err);
+      log.error("[mapguard] get task error:", err);
       res.status(500).json({ error: "Failed to get task" });
     }
   });
@@ -320,7 +323,7 @@ export function registerMapguardRoutes(app: Express) {
       if (err.message?.includes("Cannot assign")) {
         return res.status(400).json({ error: err.message });
       }
-      console.error("[mapguard] assign error:", err);
+      log.error("[mapguard] assign error:", err);
       res.status(500).json({ error: "Failed to assign task" });
     }
   });
@@ -354,7 +357,7 @@ export function registerMapguardRoutes(app: Express) {
 
       res.json(task);
     } catch (err: any) {
-      console.error("[mapguard] submit result error:", err);
+      log.error("[mapguard] submit result error:", err);
       res.status(500).json({ error: "Failed to submit result" });
     }
   });
@@ -388,7 +391,7 @@ export function registerMapguardRoutes(app: Express) {
       if (err.message?.includes("Can only reject")) {
         return res.status(400).json({ error: err.message });
       }
-      console.error("[mapguard] reject error:", err);
+      log.error("[mapguard] reject error:", err);
       res.status(500).json({ error: "Failed to reject result" });
     }
   });
@@ -401,7 +404,7 @@ export function registerMapguardRoutes(app: Express) {
       const dashboard = await getMapguardPortfolioDashboard();
       res.json(dashboard);
     } catch (err: any) {
-      console.error("[mapguard] dashboard error:", err);
+      log.error("[mapguard] dashboard error:", err);
       res.status(500).json({ error: "Failed to load dashboard" });
     }
   });
@@ -469,7 +472,7 @@ export function registerMapguardRoutes(app: Express) {
       const performance = await getSupplierPerformance();
       res.json(performance);
     } catch (err: any) {
-      console.error("[mapguard] supplier performance error:", err);
+      log.error("[mapguard] supplier performance error:", err);
       res.status(500).json({ error: "Failed to get supplier performance" });
     }
   });
@@ -482,7 +485,7 @@ export function registerMapguardRoutes(app: Express) {
       const summary = await getClientCostSummary(clientId);
       res.json(summary);
     } catch (err: any) {
-      console.error("[mapguard] cost summary error:", err);
+      log.error("[mapguard] cost summary error:", err);
       res.status(500).json({ error: "Failed to get cost summary" });
     }
   });
@@ -502,7 +505,7 @@ export function registerMapguardRoutes(app: Express) {
       if (!report) return res.status(404).json({ error: "No report data available" });
       res.json(report);
     } catch (err: any) {
-      console.error("[mapguard] report compile error:", err);
+      log.error("[mapguard] report compile error:", err);
       res.status(500).json({ error: "Failed to compile report" });
     }
   });
@@ -520,7 +523,7 @@ export function registerMapguardRoutes(app: Express) {
       const result = await sendMonthlyReportEmail(clientId, email, year, month);
       res.json(result);
     } catch (err: any) {
-      console.error("[mapguard] report send error:", err);
+      log.error("[mapguard] report send error:", err);
       res.status(500).json({ error: "Failed to send report" });
     }
   });
@@ -531,7 +534,7 @@ export function registerMapguardRoutes(app: Express) {
       const result = await sendAllMonthlyReports();
       res.json(result);
     } catch (err: any) {
-      console.error("[mapguard] batch report error:", err);
+      log.error("[mapguard] batch report error:", err);
       res.status(500).json({ error: "Failed to send reports" });
     }
   });
@@ -549,7 +552,7 @@ export function registerMapguardRoutes(app: Express) {
       });
       res.json(alerts);
     } catch (err: any) {
-      console.error("[mapguard] alerts error:", err);
+      log.error("[mapguard] alerts error:", err);
       res.status(500).json({ error: "Failed to load alerts" });
     }
   });
@@ -562,7 +565,7 @@ export function registerMapguardRoutes(app: Express) {
       await dismissAlert(alertId);
       res.json({ ok: true });
     } catch (err: any) {
-      console.error("[mapguard] dismiss alert error:", err);
+      log.error("[mapguard] dismiss alert error:", err);
       res.status(500).json({ error: "Failed to dismiss alert" });
     }
   });
@@ -578,7 +581,7 @@ export function registerMapguardRoutes(app: Express) {
       const summary = await getMonitoringSummary(clientId);
       res.json(summary);
     } catch (err: any) {
-      console.error("[mapguard] monitoring summary error:", err);
+      log.error("[mapguard] monitoring summary error:", err);
       res.status(500).json({ error: "Failed to get monitoring summary" });
     }
   });
@@ -593,7 +596,7 @@ export function registerMapguardRoutes(app: Express) {
       const snapshots = await getSnapshotHistory(clientId, limit);
       res.json(snapshots);
     } catch (err: any) {
-      console.error("[mapguard] snapshot history error:", err);
+      log.error("[mapguard] snapshot history error:", err);
       res.status(500).json({ error: "Failed to get snapshot history" });
     }
   });
@@ -621,7 +624,7 @@ export function registerMapguardRoutes(app: Express) {
         tasks_created: result.tasksCreated,
       });
     } catch (err: any) {
-      console.error("[mapguard] manual scan error:", err);
+      log.error("[mapguard] manual scan error:", err);
       res.status(500).json({ error: "Failed to run scan" });
     }
   });
@@ -632,7 +635,7 @@ export function registerMapguardRoutes(app: Express) {
       const result = await runMapguardBatchScan();
       res.json(result);
     } catch (err: any) {
-      console.error("[mapguard] batch scan error:", err);
+      log.error("[mapguard] batch scan error:", err);
       res.status(500).json({ error: "Failed to run batch scan" });
     }
   });

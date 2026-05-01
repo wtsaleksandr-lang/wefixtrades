@@ -12,6 +12,9 @@
 import { db } from "../db";
 import { aiUsageLogs } from "@shared/schema";
 import type { ChatSurface } from "./promptBuilder";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("UsageTracker");
 
 /* ─── Cost rates (micro-dollars per token, i.e. USD × 1,000,000) ─── */
 const COST_PER_INPUT_TOKEN = 0.25;   // $0.25 per 1M input tokens
@@ -67,6 +70,6 @@ export async function logUsage(params: UsageLogParams): Promise<void> {
     });
   } catch (err) {
     // Never let logging failures break the chat flow
-    console.error("[usage] Failed to log AI usage:", err);
+    log.error("[usage] Failed to log AI usage:", { error: String(err) });
   }
 }

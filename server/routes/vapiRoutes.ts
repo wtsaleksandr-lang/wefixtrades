@@ -32,6 +32,9 @@ import {
 import { logUsage } from "../services/usageTracker";
 import { getModel } from "../services/aiService";
 import { handleSalesCallEnded } from "../services/wftSalesLine";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("Vapi");
 
 /**
  * Per-call cache of resolved TradeLine client context.
@@ -55,7 +58,7 @@ export function registerVapiRoutes(app: Express): void {
       const rawBody = JSON.stringify(req.body);
 
       if (!verifyWebhookSignature(rawBody, signature)) {
-        console.warn("[vapi] Webhook signature verification failed");
+        log.warn("[vapi] Webhook signature verification failed");
         return res.status(401).json({ error: "Invalid signature" });
       }
 
@@ -66,7 +69,7 @@ export function registerVapiRoutes(app: Express): void {
         return res.status(400).json({ error: "Missing event type" });
       }
 
-      console.log(`[vapi] Received webhook event: ${eventType}`, {
+      log.info(`[vapi] Received webhook event: ${eventType}`, {
         callId: event.message.call?.id,
       });
 
@@ -80,7 +83,7 @@ export function registerVapiRoutes(app: Express): void {
         const resolved = await resolveTradeLineClient(callMetadata, customerNumber);
         if (resolved) {
           activeTradeLineCalls.set(callId, resolved);
-          console.log(`[vapi] Resolved TradeLine client: ${resolved.client.business_name} (service ${resolved.clientService.id}, mode: ${resolved.config.currentMode})`);
+          log.info(`[vapi] Resolved TradeLine client: ${resolved.client.business_name} (service ${resolved.clientService.id}, mode: ${resolved.config.currentMode})`);
         }
       }
 
@@ -112,7 +115,7 @@ export function registerVapiRoutes(app: Express): void {
         case "function-call": {
           // Future: handle server-side function calls from Vapi
           const fn = event.message.functionCall;
-          console.log("[vapi] Function call received:", fn?.name, fn?.parameters);
+          log.info("[vapi] Function call received:", { arg0: fn?.name, arg1: fn?.parameters });
           return res.json({ result: "Function not yet implemented" });
         }
 
@@ -120,7 +123,7 @@ export function registerVapiRoutes(app: Express): void {
           // Call status changed (ringing, in-progress, ended)
           const status = event.message.status;
           const callId = event.message.call?.id;
-          console.log(`[vapi] Call ${callId} status: ${status}`);
+          log.info(`[vapi] Call ${callId} status: ${status}`);
 
           // Log status transitions for monitoring
           if (status === "ended") {
@@ -144,7 +147,7 @@ export function registerVapiRoutes(app: Express): void {
         case "end-of-call-report": {
           // Full call summary — extract and log for admin visibility
           const report = extractCallReport(event);
-          console.log("[vapi] Call ended:", {
+          log.info("[vapi] Call ended:", {
             callId: report.callId,
             duration: report.duration,
             reason: report.endedReason,
@@ -181,7 +184,7 @@ export function registerVapiRoutes(app: Express): void {
             // company sales/support line. Extract caller info, log as sales
             // lead, and email the team. Non-blocking.
             handleSalesCallEnded(report).catch(err =>
-              console.warn(`[wft-sales-line] post-call handler failed for ${report.callId}:`, err.message),
+              log.warn(`[wft-sales-line] post-call handler failed for ${report.callId}:`, err.message),
             );
           }
 
@@ -207,12 +210,12 @@ export function registerVapiRoutes(app: Express): void {
         }
 
         default: {
-          console.log(`[vapi] Unhandled event type: ${eventType}`);
+          log.info(`[vapi] Unhandled event type: ${eventType}`);
           return res.json({ ok: true });
         }
       }
     } catch (err: any) {
-      console.error("[vapi] Webhook error:", err?.message);
+      log.error("[vapi] Webhook error:", err?.message);
       return res.status(500).json({ error: "Internal server error" });
     }
   });
@@ -248,7 +251,7 @@ export function registerVapiRoutes(app: Express): void {
         },
       });
     } catch (err: any) {
-      console.error("[vapi] Conversation error:", err?.message);
+      log.error("[vapi] Conversation error:", err?.message);
       return res.status(500).json({
         output: {
           content: "I'm sorry, I'm having trouble right now. Please try calling back in a moment, or visit wefixtrades.com for help.",

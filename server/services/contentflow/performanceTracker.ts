@@ -34,6 +34,9 @@ import { storage } from "../../storage";
 import { db } from "../../db";
 import { contentDrafts } from "@shared/schema";
 import type { ContentDraft } from "@shared/schema";
+import { createLogger } from "../../lib/logger";
+
+const log = createLogger("PerfTracker");
 
 export type PerformanceChannel =
   | "facebook"
@@ -290,7 +293,7 @@ export async function buildPerformanceFeedback(
     return extractPatterns(drafts);
   } catch (err: any) {
     /* Never block generation — feedback loop is best-effort. */
-    console.warn(`[contentflow][performance][feedback] client=${clientId} channel=${channel}: ${err?.message || err}`);
+    log.warn(`[contentflow][performance][feedback] client=${clientId} channel=${channel}: ${err?.message || err}`);
     return "";
   }
 }

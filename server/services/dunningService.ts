@@ -34,6 +34,9 @@ import {
 import { buildBillingPortalUrl } from "../lib/billingPortalToken";
 import { getEmailTransporter, getFromAddress } from "../lib/emailTransport";
 import { isEmailUnsubscribed } from "../lib/unsubscribeStorage";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("DunningService");
 
 const DUNNING_FROM_NAME = "WeFixTrades Billing";
 
@@ -125,7 +128,7 @@ export async function scheduleFailedPaymentSequence(params: ScheduleFailedPaymen
     }
   }
 
-  console.log(`[dunning] scheduled ${scheduled}/${kinds.length} for sub=${params.stripeSubscriptionId ?? "none"} event=${params.triggerEventId}`);
+  log.info(`[dunning] scheduled ${scheduled}/${kinds.length} for sub=${params.stripeSubscriptionId ?? "none"} event=${params.triggerEventId}`);
   return { scheduled, skipped, rows };
 }
 
@@ -244,7 +247,7 @@ export async function cancelPendingForSubscription(params: {
     .returning({ id: billingDunningEvents.id });
 
   if (result.length > 0) {
-    console.log(`[dunning] cancelled ${result.length} pending row(s) for sub=${params.stripeSubscriptionId} reason=${params.reason}`);
+    log.info(`[dunning] cancelled ${result.length} pending row(s) for sub=${params.stripeSubscriptionId} reason=${params.reason}`);
   }
   return result.length;
 }
@@ -424,7 +427,7 @@ export async function sendDunningRow(row: BillingDunningEvent): Promise<{
       })
       .where(eq(billingDunningEvents.id, row.id));
 
-    console.log(`[dunning] sent ${row.kind} to ${client.contact_email} (row #${row.id}, client #${clientId})`);
+    log.info(`[dunning] sent ${row.kind} to ${client.contact_email} (row #${row.id}, client #${clientId})`);
     return { outcome: "sent" };
   } catch (err: any) {
     await db.update(billingDunningEvents)
@@ -439,7 +442,7 @@ export async function sendDunningRow(row: BillingDunningEvent): Promise<{
       })
       .where(eq(billingDunningEvents.id, row.id));
 
-    console.error(`[dunning] sendMail failed for row #${row.id}:`, err.message);
+    log.error(`[dunning] sendMail failed for row #${row.id}:`, err.message);
     return { outcome: "failed", reason: `sendMail_error: ${err.message}` };
   }
 }

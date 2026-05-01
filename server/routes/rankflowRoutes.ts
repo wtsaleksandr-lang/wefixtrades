@@ -8,6 +8,9 @@ import { createVendorBatch, addTaskToBatch, buildDispatchPacket } from "../servi
 import { getTierConfig } from "../services/rankflow/marginGuardrails";
 import { createDraftFromRankflowTask, generateArticleBody } from "../services/contentflow/articleService";
 import { encryptToken, isEncryptionConfigured } from "../services/socialSync/tokenEncryption";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("RankflowRoutes");
 
 export function registerRankFlowRoutes(app: Express): void {
 
@@ -100,7 +103,7 @@ export function registerRankFlowRoutes(app: Express): void {
         } as any);
 
         // Log only non-sensitive fields. NEVER log the application password.
-        console.log(
+        log.info(
           `[rankflow] cms-config saved: client=${clientId} cms_url=${cmsUrl} cms_username=${cmsUsername} cms_default_status=${cmsDefaultStatus}`,
         );
 
@@ -115,7 +118,7 @@ export function registerRankFlowRoutes(app: Express): void {
         });
       } catch (err: any) {
         // Avoid surfacing sensitive details in error message.
-        console.error(`[rankflow] cms-config error: ${err.message}`);
+        log.error(`[rankflow] cms-config error: ${err.message}`);
         res.status(500).json({ error: "Failed to save CMS config" });
       }
     },
@@ -164,10 +167,10 @@ export function registerRankFlowRoutes(app: Express): void {
           try {
             const draft = await createDraftFromRankflowTask({ task, profile });
             generateArticleBody(draft.id).catch((err) =>
-              console.error(`[contentflow] background article generation rejected for draft ${draft.id}:`, err),
+              log.error(`[contentflow] background article generation rejected for draft ${draft.id}:`, err),
             );
           } catch (hookErr: any) {
-            console.error(`[contentflow] article hook failed for task ${task.id}:`, hookErr.message);
+            log.error(`[contentflow] article hook failed for task ${task.id}:`, hookErr.message);
           }
         }
       }
@@ -179,7 +182,7 @@ export function registerRankFlowRoutes(app: Express): void {
         tasksCreated: tasks.length,
       });
     } catch (err: any) {
-      console.error("[rankflow] generate-plan error:", err.message);
+      log.error("[rankflow] generate-plan error:", err.message);
       res.status(500).json({ error: err.message });
     }
   });
@@ -212,7 +215,7 @@ export function registerRankFlowRoutes(app: Express): void {
       const task = await storage.assignRankflowTask(taskId, assigned_to);
       if (!task) return res.status(404).json({ error: "Task not found" });
 
-      console.log(`[rankflow] Task ${taskId} assigned to ${assigned_to}`);
+      log.info(`[rankflow] Task ${taskId} assigned to ${assigned_to}`);
       res.json(task);
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -226,7 +229,7 @@ export function registerRankFlowRoutes(app: Express): void {
       const task = await storage.startRankflowTask(taskId);
       if (!task) return res.status(404).json({ error: "Task not found" });
 
-      console.log(`[rankflow] Task ${taskId} started`);
+      log.info(`[rankflow] Task ${taskId} started`);
       res.json(task);
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -243,7 +246,7 @@ export function registerRankFlowRoutes(app: Express): void {
       const task = await storage.submitRankflowTask(taskId, proof_data);
       if (!task) return res.status(404).json({ error: "Task not found" });
 
-      console.log(`[rankflow] Task ${taskId} submitted with proof`);
+      log.info(`[rankflow] Task ${taskId} submitted with proof`);
       res.json(task);
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -285,7 +288,7 @@ export function registerRankFlowRoutes(app: Express): void {
         qaNotes || null,
       );
 
-      console.log(`[rankflow] Task ${taskId} QA: ${qaResult.overall_passed ? "PASSED" : "FAILED"}`);
+      log.info(`[rankflow] Task ${taskId} QA: ${qaResult.overall_passed ? "PASSED" : "FAILED"}`);
       res.json({ task_id: taskId, ...qaResult });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -314,11 +317,11 @@ export function registerRankFlowRoutes(app: Express): void {
             created_by_task_id: task.id,
             indexed: false,
           });
-          console.log(`[rankflow] Auto-tracked page: ${pageUrl}`);
+          log.info(`[rankflow] Auto-tracked page: ${pageUrl}`);
         }
       }
 
-      console.log(`[rankflow] Task ${taskId} approved`);
+      log.info(`[rankflow] Task ${taskId} approved`);
       res.json(task);
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -335,7 +338,7 @@ export function registerRankFlowRoutes(app: Express): void {
       const task = await storage.rejectRankflowTask(taskId, rejection_reason);
       if (!task) return res.status(404).json({ error: "Task not found" });
 
-      console.log(`[rankflow] Task ${taskId} rejected: ${rejection_reason}`);
+      log.info(`[rankflow] Task ${taskId} rejected: ${rejection_reason}`);
       res.json(task);
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -414,7 +417,7 @@ export function registerRankFlowRoutes(app: Express): void {
         await storage.assignRankflowTask(taskId, assigned_to);
       }
 
-      console.log(`[rankflow] Batch ${batchId} assigned to ${assigned_to} — ${taskIds.length} tasks`);
+      log.info(`[rankflow] Batch ${batchId} assigned to ${assigned_to} — ${taskIds.length} tasks`);
       res.json({ ...batch, dispatch_packet: packet });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -453,7 +456,7 @@ export function registerRankFlowRoutes(app: Express): void {
         await storage.submitRankflowTask(taskId, proof_data);
       }
 
-      console.log(`[rankflow] Batch ${batchId} submitted with proof — ${taskIds.length} tasks`);
+      log.info(`[rankflow] Batch ${batchId} submitted with proof — ${taskIds.length} tasks`);
       res.json(batch);
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -514,7 +517,7 @@ export function registerRankFlowRoutes(app: Express): void {
         await storage.approveRankflowTask(taskId);
       }
 
-      console.log(`[rankflow] Batch ${batchId} completed — ${taskIds.length} tasks done`);
+      log.info(`[rankflow] Batch ${batchId} completed — ${taskIds.length} tasks done`);
       res.json(batch);
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -771,7 +774,7 @@ export function registerRankFlowRoutes(app: Express): void {
         clients,
       });
     } catch (err: any) {
-      console.error("[rankflow-ops] overview error:", err.message);
+      log.error("[rankflow-ops] overview error:", err.message);
       res.status(500).json({ error: err.message });
     }
   });

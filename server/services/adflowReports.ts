@@ -31,6 +31,9 @@ import {
   type KpiTile,
   type HeaderBadge,
 } from "../lib/reportShell";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("AdflowReports");
 
 /* ─── Public types ─── */
 
@@ -396,10 +399,10 @@ export async function compileAndSendAdFlowReport(
       } as any)
       .where(eq(clientServices.id, cs.id));
 
-    console.log(`[adflow-report] Sent ${period} report for service #${cs.id} to ${client.contact_email}`);
+    log.info(`[adflow-report] Sent ${period} report for service #${cs.id} to ${client.contact_email}`);
     return { sent: true, period };
   } catch (err: any) {
-    console.error(`[adflow-report] Failed to send for service #${cs.id}:`, err.message);
+    log.error(`[adflow-report] Failed to send for service #${cs.id}:`, err.message);
     return { sent: false, reason: `send_failed: ${err.message}` };
   }
 }
@@ -549,7 +552,7 @@ export async function sendAllAdflowReports(): Promise<{
     if (!isPeriodStartInPreviousMonth(now, periodStartRaw)) {
       skipped++;
       skipped_missing_current_report++;
-      console.log(`[adflow-report] Skipped #${svc.cs_id} (${svc.business_name}): missing or stale current-period metrics`);
+      log.info(`[adflow-report] Skipped #${svc.cs_id} (${svc.business_name}): missing or stale current-period metrics`);
       continue;
     }
 
@@ -570,7 +573,7 @@ export async function sendAllAdflowReports(): Promise<{
     }
   }
 
-  console.log(`[adflow-report] Batch complete: ${sent} sent, ${skipped} skipped (${skipped_missing_current_report} missing/stale, ${skipped_already_sent} already-sent, ${skipped_unsubscribed} unsubscribed, ${skipped_other} other), ${errors.length} errors`);
+  log.info(`[adflow-report] Batch complete: ${sent} sent, ${skipped} skipped (${skipped_missing_current_report} missing/stale, ${skipped_already_sent} already-sent, ${skipped_unsubscribed} unsubscribed, ${skipped_other} other), ${errors.length} errors`);
 
   return {
     sent,

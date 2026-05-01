@@ -6,6 +6,9 @@
 import { getEmailTransporter, getFromAddress } from "./emailTransport";
 import { buildTransactionalEmail, buildPlainText } from "./transactionalShell";
 import type { Client, OnboardingSubmission } from "@shared/schema";
+import { createLogger } from "./logger";
+
+const log = createLogger("OnboardingEmail");
 
 interface OnboardingEmailParams {
   client: Client;
@@ -26,12 +29,12 @@ function stepRow(n: number, text: string): string {
 export async function sendOnboardingEmail(params: OnboardingEmailParams): Promise<boolean> {
   const transporter = getEmailTransporter();
   if (!transporter) {
-    console.warn("[onboarding-email] SMTP not configured — skipping email");
+    log.warn("[onboarding-email] SMTP not configured — skipping email");
     return false;
   }
 
   if (!params.client.contact_email) {
-    console.warn(`[onboarding-email] Client #${params.client.id} has no email — skipping`);
+    log.warn(`[onboarding-email] Client #${params.client.id} has no email — skipping`);
     return false;
   }
 
@@ -73,10 +76,10 @@ export async function sendOnboardingEmail(params: OnboardingEmailParams): Promis
         supportNote: "No technical work required. Everything is handled for you.",
       }),
     });
-    console.log(`[onboarding-email] Sent onboarding email to ${params.client.contact_email} for ${params.serviceName}`);
+    log.info(`[onboarding-email] Sent onboarding email to ${params.client.contact_email} for ${params.serviceName}`);
     return true;
   } catch (err: any) {
-    console.error(`[onboarding-email] Failed to send:`, err.message);
+    log.error(`[onboarding-email] Failed to send:`, err.message);
     return false;
   }
 }

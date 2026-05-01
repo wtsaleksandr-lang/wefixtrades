@@ -6,6 +6,9 @@ import {
   validatePlanAgainstLimits,
   applySoftThrottle,
 } from "./marginGuardrails";
+import { createLogger } from "../../lib/logger";
+
+const log = createLogger("PlanGenerator");
 
 export interface PlanTask {
   type: string;
@@ -58,13 +61,13 @@ export function generateMonthlyPlan(profile: RankflowProfile, month?: string): M
   if (projectedCost > config.soft_cost_limit) {
     tasks = applySoftThrottle(tier, tasks, projectedCost);
     throttled = true;
-    console.log(`[planGenerator] Soft throttle applied for ${tier} — projected $${projectedCost} > soft limit $${config.soft_cost_limit}`);
+    log.info(`[planGenerator] Soft throttle applied for ${tier} — projected $${projectedCost} > soft limit $${config.soft_cost_limit}`);
   }
 
   // Validate (defensive)
   const violations = validatePlanAgainstLimits(tier, tasks);
   if (violations.length > 0) {
-    console.error(`[planGenerator] Violations for tier ${tier}:`, violations);
+    log.error(`[planGenerator] Violations for tier ${tier}:`, { detail: violations });
   }
 
   return { tier, month: currentMonth, rotation_phase: rotationPhase, tasks, throttled };

@@ -3,6 +3,9 @@ import { auditReports } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import type { PdfReportData } from "./pdfTemplate";
 import PDFDocument from "pdfkit";
+import { createLogger } from "./logger";
+
+const log = createLogger("PDFGenerator");
 
 /**
  * Generates a PDF buffer for an audit report using PDFKit.
@@ -69,7 +72,7 @@ export async function generateReportPdf(
     // Validate
     const sig = buf.slice(0, 5).toString("ascii");
     if (sig !== "%PDF-") {
-      console.error(`[pdf-generator] Invalid signature "${sig}"`);
+      log.error(`[pdf-generator] Invalid signature "${sig}"`);
       return { ok: false, error: "PDF generation produced invalid output" };
     }
 
@@ -78,10 +81,10 @@ export async function generateReportPdf(
       .replace(/\s+/g, "-")
       .slice(0, 60);
 
-    console.log(`[pdf-generator] OK: ${buf.length} bytes for "${row.business_name}"`);
+    log.info(`[pdf-generator] OK: ${buf.length} bytes for "${row.business_name}"`);
     return { ok: true, buffer: buf, filename: `WeFixTrades-Audit-${safeName}.pdf` };
   } catch (err: any) {
-    console.error(`[pdf-generator] Failed for ${reportId}: ${err?.message}`);
+    log.error(`[pdf-generator] Failed for ${reportId}: ${err?.message}`);
     return { ok: false, error: `PDF generation failed: ${err?.message}` };
   }
 }

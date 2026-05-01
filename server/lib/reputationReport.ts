@@ -28,6 +28,9 @@ import {
   type KpiTile,
   type HeaderBadge,
 } from "./reportShell";
+import { createLogger } from "./logger";
+
+const log = createLogger("ReputationReport");
 
 /* ─── Public types ─── */
 
@@ -481,7 +484,7 @@ export async function sendReputationReport(data: ReportData, portalUrl: string):
   if (!data.contactEmail) return { ok: false, error: "No contact email" };
 
   if (await isEmailUnsubscribed(data.contactEmail)) {
-    console.log(`[reputation-report] Recipient ${data.contactEmail} is unsubscribed — skipping`);
+    log.info(`[reputation-report] Recipient ${data.contactEmail} is unsubscribed — skipping`);
     return { ok: false, error: "Recipient unsubscribed" };
   }
 

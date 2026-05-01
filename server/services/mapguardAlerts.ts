@@ -14,6 +14,9 @@ import { getEmailTransporter, getFromAddress } from "../lib/emailTransport";
 import { buildAdminAlertEmail, buildAdminAlertPlainText, ADMIN_ALERT_FROM_NAME, type AlertTone } from "../lib/adminAlertShell";
 import type { SnapshotChanges } from "./mapguardMonitor";
 import type { InsertMapguardSnapshot } from "@shared/schemas/mapguardMonitoring";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("MapguardAlerts");
 
 /* ═══════════════════════════════════════════
    ALERT CONFIGURATION
@@ -211,13 +214,13 @@ function buildAlertEmail(alert: InsertMapguardAlert & { business_name: string },
 
 async function sendAlertEmail(subject: string, html: string, text: string): Promise<boolean> {
   if (!ALERT_RECIPIENT) {
-    console.log("[mapguard-alert] No ALERT_RECIPIENT configured, skipping email");
+    log.info("[mapguard-alert] No ALERT_RECIPIENT configured, skipping email");
     return false;
   }
 
   const transporter = getEmailTransporter();
   if (!transporter) {
-    console.log("[mapguard-alert] SMTP not configured, skipping email");
+    log.info("[mapguard-alert] SMTP not configured, skipping email");
     return false;
   }
 
@@ -231,7 +234,7 @@ async function sendAlertEmail(subject: string, html: string, text: string): Prom
     });
     return true;
   } catch (err: any) {
-    console.error("[mapguard-alert] Email send failed:", err.message);
+    log.error("[mapguard-alert] Email send failed:", err.message);
     return false;
   }
 }
@@ -294,7 +297,7 @@ export async function processMapguardAlerts(
   }
 
   if (sent > 0) {
-    console.log(`[mapguard-alert] ${businessName}: ${sent} alert(s) sent, ${deduplicated} deduplicated`);
+    log.info(`[mapguard-alert] ${businessName}: ${sent} alert(s) sent, ${deduplicated} deduplicated`);
   }
 
   return { sent, deduplicated };
@@ -343,7 +346,7 @@ export async function checkCostAlert(clientId: number, businessName: string): Pr
     await db.update(mapguardAlerts).set({ email_sent: true }).where(eq(mapguardAlerts.id, alert.id));
   }
 
-  console.log(`[mapguard-alert] Cost threshold alert for ${businessName}: $${(totalCost / 100).toFixed(2)}`);
+  log.info(`[mapguard-alert] Cost threshold alert for ${businessName}: $${(totalCost / 100).toFixed(2)}`);
 }
 
 /* ═══════════════════════════════════════════

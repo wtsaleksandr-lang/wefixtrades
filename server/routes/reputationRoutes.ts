@@ -14,6 +14,9 @@ import { getGoogleAccessToken } from "../services/socialSync/googleBusinessServi
 import { postGBPReply } from "../services/reputation/gbpReviewIngestion";
 import { enqueueFromBooking, processReviewRequests, getReviewLink, getReviewLinkConfig, updateReviewLinkConfig, validateReviewLink } from "../services/reputation/reviewRequestService";
 import { getAttributionInsights, runAttributionForClient } from "../services/reputation/reviewAttribution";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("ReputationRoutes");
 
 export function registerReputationRoutes(app: Express): void {
 
@@ -26,7 +29,7 @@ export function registerReputationRoutes(app: Express): void {
       const result = await syncClientReviews(clientId);
       res.json(result);
     } catch (err: any) {
-      console.error("[reputation] Review sync error:", err.message);
+      log.error("[reputation] Review sync error:", err.message);
       res.status(500).json({ error: "Failed to sync reviews" });
     }
   });
@@ -55,7 +58,7 @@ export function registerReputationRoutes(app: Express): void {
 
       res.json({ reviews, summary });
     } catch (err: any) {
-      console.error("[reputation] List reviews error:", err.message);
+      log.error("[reputation] List reviews error:", err.message);
       res.status(500).json({ error: "Failed to list reviews" });
     }
   });
@@ -97,7 +100,7 @@ export function registerReputationRoutes(app: Express): void {
 
       res.json({ ok: true });
     } catch (err: any) {
-      console.error("[reputation] Approve reply error:", err.message);
+      log.error("[reputation] Approve reply error:", err.message);
       res.status(500).json({ error: "Failed to post reply" });
     }
   });
@@ -108,7 +111,7 @@ export function registerReputationRoutes(app: Express): void {
       const result = await processAllClientReviews();
       res.json(result);
     } catch (err: any) {
-      console.error("[reputation] Batch review process error:", err.message);
+      log.error("[reputation] Batch review process error:", err.message);
       res.status(500).json({ error: "Failed to process reviews" });
     }
   });
@@ -136,7 +139,7 @@ export function registerReputationRoutes(app: Express): void {
       if (!result.enqueued) return res.status(400).json({ error: result.reason });
       res.status(201).json({ ok: true });
     } catch (err: any) {
-      console.error("[reputation] Enqueue review request error:", err.message);
+      log.error("[reputation] Enqueue review request error:", err.message);
       res.status(500).json({ error: "Failed to enqueue review request" });
     }
   });
@@ -158,7 +161,7 @@ export function registerReputationRoutes(app: Express): void {
 
       res.json({ requests, summary });
     } catch (err: any) {
-      console.error("[reputation] List review requests error:", err.message);
+      log.error("[reputation] List review requests error:", err.message);
       res.status(500).json({ error: "Failed to list review requests" });
     }
   });
@@ -172,7 +175,7 @@ export function registerReputationRoutes(app: Express): void {
       const link = await getReviewLink(clientId);
       res.json({ review_link: link, configured: !!link });
     } catch (err: any) {
-      console.error("[reputation] Review link error:", err.message);
+      log.error("[reputation] Review link error:", err.message);
       res.status(500).json({ error: "Failed to get review link" });
     }
   });
@@ -183,7 +186,7 @@ export function registerReputationRoutes(app: Express): void {
       const result = await processReviewRequests();
       res.json(result);
     } catch (err: any) {
-      console.error("[reputation] Process review requests error:", err.message);
+      log.error("[reputation] Process review requests error:", err.message);
       res.status(500).json({ error: "Failed to process review requests" });
     }
   });
@@ -234,7 +237,7 @@ export function registerReputationRoutes(app: Express): void {
         summary: { total, sent, pending, failed, skipped },
       });
     } catch (err: any) {
-      console.error("[reputation] Review request status error:", err.message);
+      log.error("[reputation] Review request status error:", err.message);
       res.status(500).json({ error: "Failed to load status" });
     }
   });
@@ -250,7 +253,7 @@ export function registerReputationRoutes(app: Express): void {
       const insights = await getAttributionInsights(clientId);
       res.json(insights);
     } catch (err: any) {
-      console.error("[reputation] Attribution insights error:", err.message);
+      log.error("[reputation] Attribution insights error:", err.message);
       res.status(500).json({ error: "Failed to load attribution insights" });
     }
   });
@@ -264,7 +267,7 @@ export function registerReputationRoutes(app: Express): void {
       const result = await runAttributionForClient(clientId);
       res.json(result);
     } catch (err: any) {
-      console.error("[reputation] Attribution backfill error:", err.message);
+      log.error("[reputation] Attribution backfill error:", err.message);
       res.status(500).json({ error: "Failed to run attribution" });
     }
   });
@@ -280,7 +283,7 @@ export function registerReputationRoutes(app: Express): void {
       const config = await getReviewLinkConfig(clientId);
       res.json(config);
     } catch (err: any) {
-      console.error("[reputation] Review link config error:", err.message);
+      log.error("[reputation] Review link config error:", err.message);
       res.status(500).json({ error: "Failed to load review link config" });
     }
   });
@@ -309,7 +312,7 @@ export function registerReputationRoutes(app: Express): void {
       const updated = await getReviewLinkConfig(clientId);
       res.json(updated);
     } catch (err: any) {
-      console.error("[reputation] Review link update error:", err.message);
+      log.error("[reputation] Review link update error:", err.message);
       res.status(500).json({ error: err.message || "Failed to update review link" });
     }
   });
@@ -432,7 +435,7 @@ export function registerReputationRoutes(app: Express): void {
         weekly_trend: weeklyTrend,
       });
     } catch (err: any) {
-      console.error("[reputation] Dashboard error:", err.message);
+      log.error("[reputation] Dashboard error:", err.message);
       res.status(500).json({ error: "Failed to load dashboard" });
     }
   });

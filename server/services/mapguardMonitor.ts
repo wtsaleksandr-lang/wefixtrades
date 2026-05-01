@@ -15,6 +15,9 @@ import { eq, and, desc, sql, asc } from "drizzle-orm";
 import { createMapguardTask, getExecutionUsage } from "./mapguardTaskEngine";
 import type { MapguardTask } from "@shared/schemas/mapguard";
 import { processMapguardAlerts, getAlertCountSince, checkCostAlert } from "./mapguardAlerts";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("MapguardMonitor");
 
 /* ═══════════════════════════════════════════
    V1 SCAN CONFIGURATION
@@ -106,7 +109,7 @@ async function fetchPlaceDetails(placeId: string): Promise<{
       businessName: data.displayName?.text || "",
     };
   } catch (err: any) {
-    console.error(`[mapguard-monitor] Places API error for ${placeId}:`, err.message);
+    log.error(`[mapguard-monitor] Places API error for ${placeId}:`, err.message);
     return null;
   }
 }
@@ -573,7 +576,7 @@ export async function runMapguardScan(client: MapguardClient): Promise<{
     );
     alertsSent = alertResult.sent;
   } catch (err: any) {
-    console.error(`[mapguard-monitor] Alert processing failed for ${client.business_name}:`, err.message);
+    log.error(`[mapguard-monitor] Alert processing failed for ${client.business_name}:`, err.message);
   }
 
   // Check cost threshold
@@ -612,7 +615,7 @@ export async function runMapguardBatchScan(): Promise<{
   results: Array<{ client_id: number; business_name: string; score: number | null; significant: boolean; error?: string }>;
 }> {
   const activeClients = await getActiveMapguardClients();
-  console.log(`[mapguard-monitor] Starting batch scan for ${activeClients.length} clients`);
+  log.info(`[mapguard-monitor] Starting batch scan for ${activeClients.length} clients`);
 
   let scanned = 0;
   let errorCount = 0;
@@ -633,7 +636,7 @@ export async function runMapguardBatchScan(): Promise<{
         score: snapshot.score_total,
         significant: changes.significant,
       });
-      console.log(`[mapguard-monitor] Scanned ${client.business_name}: score=${snapshot.score_total}, changes=${changes.significant ? "SIGNIFICANT" : "normal"}, tasks=${tasksCreated}`);
+      log.info(`[mapguard-monitor] Scanned ${client.business_name}: score=${snapshot.score_total}, changes=${changes.significant ? "SIGNIFICANT" : "normal"}, tasks=${tasksCreated}`);
     } catch (err: any) {
       errorCount++;
       results.push({
@@ -643,7 +646,7 @@ export async function runMapguardBatchScan(): Promise<{
         significant: false,
         error: err.message,
       });
-      console.error(`[mapguard-monitor] Scan failed for ${client.business_name}:`, err.message);
+      log.error(`[mapguard-monitor] Scan failed for ${client.business_name}:`, err.message);
     }
 
     // Brief pause between clients to be polite to APIs
@@ -652,7 +655,7 @@ export async function runMapguardBatchScan(): Promise<{
     }
   }
 
-  console.log(`[mapguard-monitor] Batch complete: ${scanned} scanned, ${errorCount} errors, ${totalTasks} tasks created, ${totalAlerts} alerts sent`);
+  log.info(`[mapguard-monitor] Batch complete: ${scanned} scanned, ${errorCount} errors, ${totalTasks} tasks created, ${totalAlerts} alerts sent`);
   return { scanned, errors: errorCount, tasksCreated: totalTasks, alertsSent: totalAlerts, results };
 }
 

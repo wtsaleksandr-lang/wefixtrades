@@ -3,6 +3,9 @@
  * Checks Google search results for a keyword and detects the client's domain position.
  * No paid APIs — uses direct search result parsing.
  */
+import { createLogger } from "../../lib/logger";
+
+const log = createLogger("RankTracker");
 
 const USER_AGENTS = [
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -53,7 +56,7 @@ export async function checkKeywordRank(
     });
 
     if (!resp.ok) {
-      console.log(`[rank-tracker] Google returned ${resp.status} for "${keyword}" — skipping`);
+      log.info(`[rank-tracker] Google returned ${resp.status} for "${keyword}" — skipping`);
       return { keyword, position: null, url_found: null, checked_at: checkedAt };
     }
 
@@ -78,7 +81,7 @@ export async function checkKeywordRank(
 
     return { keyword, position: null, url_found: null, checked_at: checkedAt };
   } catch (err: any) {
-    console.error(`[rank-tracker] Error checking "${keyword}":`, err.message);
+    log.error(`[rank-tracker] Error checking "${keyword}":`, err.message);
     return { keyword, position: null, url_found: null, checked_at: checkedAt };
   }
 }

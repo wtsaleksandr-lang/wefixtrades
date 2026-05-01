@@ -6,12 +6,15 @@
  */
 
 import { sendAllWeeklyUpdates } from "../services/mapguardRetention";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("MapguardRetention");
 
 export async function processMapguardWeeklyUpdates(): Promise<{
   sent: number;
   skipped: number;
   errors: number;
 }> {
-  console.log("[mapguard-retention] Starting weekly client updates...");
+  log.info("[mapguard-retention] Starting weekly client updates...");
   return sendAllWeeklyUpdates();
 }

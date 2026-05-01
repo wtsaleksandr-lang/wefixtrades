@@ -44,6 +44,9 @@ import { buildCalendarMetadata } from "./calendarMetadata";
 import { readBrandProfile, buildBrandLayerText } from "./brandProfile";
 import { buildPerformanceFeedback } from "./performanceTracker";
 import type { ContentDraft } from "@shared/schema";
+import { createLogger } from "../../lib/logger";
+
+const log = createLogger("Repurposer");
 
 /* ─── Public API ─────────────────────────────────────────────────────── */
 
@@ -199,12 +202,12 @@ async function aiDerivations(
       maxTokens: 2000,
     });
   } catch (err: any) {
-    console.error(`[contentflow][repurposer] AI call failed for parent=${article.id}: ${err?.message || err}`);
+    log.error(`[contentflow][repurposer] AI call failed for parent=${article.id}: ${err?.message || err}`);
     return null;
   }
   const parsed = tryParseDerivations(raw);
   if (!parsed) {
-    console.error(`[contentflow][repurposer] unparseable model output for parent=${article.id} (len=${raw.length})`);
+    log.error(`[contentflow][repurposer] unparseable model output for parent=${article.id} (len=${raw.length})`);
   }
   return parsed;
 }
@@ -444,16 +447,16 @@ export async function repurposeArticle(parentDraftId: number): Promise<Repurpose
           variantIndex: item.variantIndex,
         });
       } catch (err: any) {
-        console.error(`[contentflow][repurposer] child create failed (parent=${parentDraftId} platform=${item.target_platform} variant=${item.variantIndex}): ${err?.message || err}`);
+        log.error(`[contentflow][repurposer] child create failed (parent=${parentDraftId} platform=${item.target_platform} variant=${item.variantIndex}): ${err?.message || err}`);
         /* Continue — sibling failures must not abort. */
       }
     }
 
-    console.log(`[contentflow][repurposer] parent=${parentDraftId} created=${children.length} duration_ms=${Date.now() - t0}`);
+    log.info(`[contentflow][repurposer] parent=${parentDraftId} created=${children.length} duration_ms=${Date.now() - t0}`);
     return { ok: true, parentDraftId, children };
   } catch (err: any) {
     /* Outer guard — repurposeArticle must never throw. */
-    console.error(`[contentflow][repurposer] parent=${parentDraftId} unhandled:`, err?.message || err);
+    log.error(`[contentflow][repurposer] parent=${parentDraftId} unhandled:`, err?.message || err);
     return { ok: false, parentDraftId, children: [], reason: "ai_failed", message: err?.message || String(err) };
   }
 }

@@ -13,6 +13,9 @@ import { getMemory, getMemoryByUserId, saveMemory, extractMemorySignals } from "
 import { getOrCreateThread, loadThreadMessages, appendTurn, appendMessage, derivePageContext } from "./threadService";
 import { logUsage } from "./usageTracker";
 import { evaluateAndArchive } from "./conversationArchiver";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("Assistant");
 
 /* ─── Types ─── */
 export interface AssistantRequest {
@@ -114,7 +117,7 @@ async function buildContext(req: AssistantRequest): Promise<{
 
       return { systemPrompt, chatMessages: merged.slice(-20), memoryContext: stored?.memory };
     } catch (err) {
-      console.error("[assistant] Thread load failed, falling back to chatMemory:", err);
+      log.error("[assistant] Thread load failed, falling back to chatMemory:", { error: String(err) });
       // Fall through to chatMemory path below
     }
   }
@@ -153,12 +156,12 @@ function createOnComplete(req: AssistantRequest, chatMessages: ChatMessage[]) {
       if (req._isDuplicateTurn) {
         // User message already in thread (retry) — only append the assistant reply
         await appendMessage(req._threadId, "assistant", fullReply)
-          .catch((err) => console.error("[assistant] Thread append error:", err));
+          .catch((err) => log.error("[assistant] Thread append error:", err));
       } else {
         const lastUserMsg = chatMessages[chatMessages.length - 1];
         if (lastUserMsg?.role === "user") {
           await appendTurn(req._threadId, lastUserMsg.content, fullReply)
-            .catch((err) => console.error("[assistant] Thread append error:", err));
+            .catch((err) => log.error("[assistant] Thread append error:", err));
         }
       }
     }
@@ -170,7 +173,7 @@ function createOnComplete(req: AssistantRequest, chatMessages: ChatMessage[]) {
       userId: req.userId,
       surface: req.surface,
       ...signals,
-    }).catch((err) => console.error("[assistant] Memory save error:", err));
+    }).catch((err) => log.error("[assistant] Memory save error:", err));
 
     // Archive for admin visibility (async, non-blocking)
     evaluateAndArchive({

@@ -6,17 +6,20 @@
  */
 
 import { runMapguardBatchScan } from "../services/mapguardMonitor";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("MapguardScan");
 
 export async function processMapguardScans(): Promise<{
   scanned: number;
   errors: number;
   tasksCreated: number;
 }> {
-  console.log("[mapguard-scan] Starting weekly MapGuard monitoring scan...");
+  log.info("[mapguard-scan] Starting weekly MapGuard monitoring scan...");
 
   const result = await runMapguardBatchScan();
 
-  console.log(`[mapguard-scan] Complete: ${result.scanned} clients scanned, ${result.errors} errors, ${result.tasksCreated} tasks created`);
+  log.info(`[mapguard-scan] Complete: ${result.scanned} clients scanned, ${result.errors} errors, ${result.tasksCreated} tasks created`);
 
   return {
     scanned: result.scanned,

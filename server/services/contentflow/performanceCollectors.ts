@@ -23,6 +23,9 @@ import {
   type PerformanceChannel,
   type PerformanceData,
 } from "./performanceTracker";
+import { createLogger } from "../../lib/logger";
+
+const log = createLogger("PerfCollectors");
 
 /* Per-channel toggle. Default OFF — env var gates real API hits. The
  * worker will still update score=0 + fetched_at on every draft so the
@@ -59,7 +62,7 @@ export async function collectForDraft(
   } catch (err: any) {
     /* Defence-in-depth — collectors are wrapped per-channel too, this
      * is the last guard. */
-    console.warn(`[contentflow][performance][collector] channel=${channel} draft=${draft.id} threw: ${err?.message || err}`);
+    log.warn(`[contentflow][performance][collector] channel=${channel} draft=${draft.id} threw: ${err?.message || err}`);
     return { ok: false, reason: "fetch_failed" };
   }
 }

@@ -94,6 +94,9 @@ type User, type InsertUser,
   type RoutingEvent, type InsertRoutingEvent,
 } from "@shared/schema";
 import { eq, desc, sql, and, gte, lte, ilike, or, isNotNull, count } from "drizzle-orm";
+import { createLogger } from "./lib/logger";
+
+const log = createLogger("Storage");
 
 export interface IStorage {
   createCalculator(data: InsertCalculator): Promise<Calculator>;
@@ -754,7 +757,7 @@ export class DatabaseStorage implements IStorage {
     // Auto-trigger review request when booking is completed
     if (booking && status === "completed") {
       this.triggerReviewRequestForBooking(booking).catch((err) => {
-        console.error(`[storage] Review request trigger failed for booking ${id}:`, err.message);
+        log.error(`[storage] Review request trigger failed for booking ${id}:`, err.message);
       });
     }
 

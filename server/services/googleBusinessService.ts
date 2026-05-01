@@ -195,7 +195,7 @@ export async function postGoogleReviewReply(
       return { ok: false, error: "Review not found on Google. It may have been deleted." };
     }
 
-    console.error("[GoogleBusiness] Post reply error:", message);
+    log.error("[GoogleBusiness] Post reply error:", message);
     return { ok: false, error: message };
   }
 }

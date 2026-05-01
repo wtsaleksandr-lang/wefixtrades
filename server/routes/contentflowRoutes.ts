@@ -49,6 +49,9 @@ import {
   getChannelStatus,
   getClientHealth,
 } from "../services/contentflow/healthService";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("ContentflowRoutes");
 
 export function registerContentFlowRoutes(app: Express): void {
   /**
@@ -844,7 +847,7 @@ export function registerContentFlowRoutes(app: Express): void {
 
           res.json({ reviewId: review.id, draftId: draft.id, decision, policy });
         } catch (err: any) {
-          console.error("[sprint9-simulate-review] error:", err?.message || err);
+          log.error("[sprint9-simulate-review] error:", err?.message || err);
           res.status(500).json({ error: err?.message || "simulate failed" });
         }
       },
@@ -984,7 +987,7 @@ export function registerContentFlowRoutes(app: Express): void {
           const result = await repurposeArticle(articleDraftId);
           res.json(result);
         } catch (err: any) {
-          console.error("[repurpose-test] error:", err?.message || err);
+          log.error("[repurpose-test] error:", err?.message || err);
           res.status(500).json({ error: err?.message || "repurpose failed" });
         }
       },
@@ -1006,7 +1009,7 @@ export function registerContentFlowRoutes(app: Express): void {
           const summary = await processPerformanceQueue();
           res.json({ ok: true, ...summary });
         } catch (err: any) {
-          console.error("[performance-worker/run] error:", err?.message || err);
+          log.error("[performance-worker/run] error:", err?.message || err);
           res.status(500).json({ error: err?.message || "performance worker failed" });
         }
       },
@@ -1035,7 +1038,7 @@ export function registerContentFlowRoutes(app: Express): void {
           const feedback = await buildPerformanceFeedback(clientId, channel);
           res.json({ clientId, channel, feedback });
         } catch (err: any) {
-          console.error("[performance-feedback] error:", err?.message || err);
+          log.error("[performance-feedback] error:", err?.message || err);
           res.status(500).json({ error: err?.message || "performance feedback failed" });
         }
       },
@@ -1063,7 +1066,7 @@ export function registerContentFlowRoutes(app: Express): void {
           const result = await generateForDraft(draftId);
           res.json(result);
         } catch (err: any) {
-          console.error("[image-gen-test] error:", err?.message || err);
+          log.error("[image-gen-test] error:", err?.message || err);
           res.status(500).json({ error: err?.message || "image-gen failed" });
         }
       },
@@ -1214,7 +1217,7 @@ export function registerContentFlowRoutes(app: Express): void {
         const result = await getQueueMetrics(days);
         res.json(result);
       } catch (err: any) {
-        console.error("[contentflow/queue-metrics] error:", err?.message || err);
+        log.error("[contentflow/queue-metrics] error:", err?.message || err);
         res.status(500).json({ error: "Failed to compute metrics" });
       }
     },
@@ -1253,7 +1256,7 @@ export function registerContentFlowRoutes(app: Express): void {
         const result = await getReviewReplyMetrics(clientIdParam);
         res.json(result);
       } catch (err: any) {
-        console.error("[reputation/reply-metrics] error:", err?.message || err);
+        log.error("[reputation/reply-metrics] error:", err?.message || err);
         res.status(500).json({ error: "Failed to compute metrics" });
       }
     },
@@ -1301,7 +1304,7 @@ export function registerContentFlowRoutes(app: Express): void {
         filters: { channel: channelParam ?? null, status: statusParam ?? null, clientId: clientIdParam ?? null },
       });
     } catch (err: any) {
-      console.error("[contentflow/calendar] error:", err?.message || err);
+      log.error("[contentflow/calendar] error:", err?.message || err);
       res.status(500).json({ error: err.message });
     }
   });
@@ -1364,7 +1367,7 @@ export function registerContentFlowRoutes(app: Express): void {
         const updated = await storage.getContentDraftById(draftId);
         res.json({ ok: true, draft: updated ? projectDraftForCalendar(updated) : null });
       } catch (err: any) {
-        console.error("[contentflow/schedule] error:", err?.message || err);
+        log.error("[contentflow/schedule] error:", err?.message || err);
         res.status(500).json({ error: err.message });
       }
     },
@@ -1390,7 +1393,7 @@ export function registerContentFlowRoutes(app: Express): void {
         const updated = await storage.getContentDraftById(draftId);
         res.json({ ok: true, draft: updated ? projectDraftForCalendar(updated) : null });
       } catch (err: any) {
-        console.error("[contentflow/pause] error:", err?.message || err);
+        log.error("[contentflow/pause] error:", err?.message || err);
         res.status(500).json({ error: err.message });
       }
     },
@@ -1415,7 +1418,7 @@ export function registerContentFlowRoutes(app: Express): void {
         const updated = await storage.getContentDraftById(draftId);
         res.json({ ok: true, draft: updated ? projectDraftForCalendar(updated) : null });
       } catch (err: any) {
-        console.error("[contentflow/resume] error:", err?.message || err);
+        log.error("[contentflow/resume] error:", err?.message || err);
         res.status(500).json({ error: err.message });
       }
     },
@@ -1443,7 +1446,7 @@ export function registerContentFlowRoutes(app: Express): void {
         if (!client) return res.status(404).json({ error: "client not found" });
         res.json({ clientId, brand_profile: readBrandProfile(client) });
       } catch (err: any) {
-        console.error("[contentflow/brand-profile][admin][get]", err?.message || err);
+        log.error("[contentflow/brand-profile][admin][get]", err?.message || err);
         res.status(500).json({ error: err.message });
       }
     },
@@ -1471,7 +1474,7 @@ export function registerContentFlowRoutes(app: Express): void {
         const updated = await mergeBrandProfile(clientId, patch);
         res.json({ ok: true, clientId, brand_profile: updated });
       } catch (err: any) {
-        console.error("[contentflow/brand-profile][admin][patch]", err?.message || err);
+        log.error("[contentflow/brand-profile][admin][patch]", err?.message || err);
         res.status(500).json({ error: err.message });
       }
     },
@@ -1496,7 +1499,7 @@ export function registerContentFlowRoutes(app: Express): void {
       const data = await getSystemHealth({ windowHours });
       res.json(data);
     } catch (err: any) {
-      console.error("[contentflow/health]", err?.message || err);
+      log.error("[contentflow/health]", err?.message || err);
       res.status(500).json({ error: err.message });
     }
   });
@@ -1516,7 +1519,7 @@ export function registerContentFlowRoutes(app: Express): void {
       const data = await getChannelStatus({ windowHours });
       res.json(data);
     } catch (err: any) {
-      console.error("[contentflow/channel-status]", err?.message || err);
+      log.error("[contentflow/channel-status]", err?.message || err);
       res.status(500).json({ error: err.message });
     }
   });
@@ -1539,7 +1542,7 @@ export function registerContentFlowRoutes(app: Express): void {
       if (!data) return res.status(404).json({ error: "client not found" });
       res.json(data);
     } catch (err: any) {
-      console.error("[contentflow/client-health]", err?.message || err);
+      log.error("[contentflow/client-health]", err?.message || err);
       res.status(500).json({ error: err.message });
     }
   });

@@ -19,6 +19,9 @@ import { db } from "../db";
 import { opsSnapshots } from "@shared/schema";
 import { chat, getModel } from "./aiService";
 import { type OpsSignal } from "./opsDetectors";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("OpsEngine");
 
 export const PROMPT_VERSION = "ops-daily-v1";
 
@@ -207,13 +210,13 @@ Return a JSON object matching this exact schema:
       metadata: { latency_ms: latencyMs },
     }).returning();
 
-    console.log(
+    log.info(
       `[opsEngine] Daily summary generated — ${signals.length} signals, ${inputTokens}in/${outputTokens}out tokens, ${latencyMs}ms`
     );
 
     return { snapshot: inserted };
   } catch (err: any) {
-    console.error("[opsEngine] generateDailyOpsSummary failed:", err.message);
+    log.error("[opsEngine] generateDailyOpsSummary failed:", err.message);
 
     // Store a failed snapshot so the run is traceable even on AI error
     try {
@@ -234,7 +237,7 @@ Return a JSON object matching this exact schema:
       }).returning();
       return { snapshot: inserted, error: err.message };
     } catch (dbErr: any) {
-      console.error("[opsEngine] Failed to store error snapshot:", dbErr.message);
+      log.error("[opsEngine] Failed to store error snapshot:", dbErr.message);
     }
 
     return { snapshot: null, error: err.message };

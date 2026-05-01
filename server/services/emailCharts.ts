@@ -24,6 +24,9 @@ import fs from "node:fs";
 import path from "node:path";
 import express, { type Express } from "express";
 import { PNG } from "pngjs";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("EmailCharts");
 
 const DEFAULT_CHART_DIR = path.resolve(process.cwd(), "data", "email-charts");
 const URL_PREFIX = "/email-charts";
@@ -247,12 +250,12 @@ export async function generateLineChart(spec: LineChartSpec): Promise<GenerateCh
   try {
     const res = await fetch(upstreamUrl, { signal: AbortSignal.timeout(15_000) });
     if (!res.ok) {
-      console.warn(`[email-charts] QuickChart returned ${res.status} for ${spec.cacheKey}`);
+      log.warn(`[email-charts] QuickChart returned ${res.status} for ${spec.cacheKey}`);
       return null;
     }
     let buffer = Buffer.from(await res.arrayBuffer());
     if (buffer.length < 200) {
-      console.warn(`[email-charts] Suspiciously small response (${buffer.length} bytes) for ${spec.cacheKey}`);
+      log.warn(`[email-charts] Suspiciously small response (${buffer.length} bytes) for ${spec.cacheKey}`);
       return null;
     }
 
@@ -271,7 +274,7 @@ export async function generateLineChart(spec: LineChartSpec): Promise<GenerateCh
         buffer = applyHorizontalAlphaFade(buffer, { fadeFraction: 0.25 });
         alphaMasked = true;
       } catch (maskErr: any) {
-        console.warn(`[email-charts] alpha-fade post-processing failed for ${spec.cacheKey}:`, maskErr?.message || maskErr);
+        log.warn(`[email-charts] alpha-fade post-processing failed for ${spec.cacheKey}:`, maskErr?.message || maskErr);
         // Fall through with the unmasked buffer — better a hard-edged chart
         // than no chart at all
       }
@@ -280,7 +283,7 @@ export async function generateLineChart(spec: LineChartSpec): Promise<GenerateCh
     try {
       fs.writeFileSync(filepath, buffer);
     } catch (cacheErr: any) {
-      console.warn(`[email-charts] local cache write failed for ${spec.cacheKey}:`, cacheErr?.message || cacheErr);
+      log.warn(`[email-charts] local cache write failed for ${spec.cacheKey}:`, cacheErr?.message || cacheErr);
       // If we couldn't write to disk, the only working URL is the upstream
       return { url: upstreamUrl, cachedUrl: null, localPath: null, cached: false, alphaMasked: false };
     }
@@ -296,7 +299,7 @@ export async function generateLineChart(spec: LineChartSpec): Promise<GenerateCh
       alphaMasked,
     };
   } catch (err: any) {
-    console.warn(`[email-charts] generation failed for ${spec.cacheKey}:`, err?.message || err);
+    log.warn(`[email-charts] generation failed for ${spec.cacheKey}:`, err?.message || err);
     return null;
   }
 }
@@ -366,7 +369,7 @@ export function registerEmailChartsRoute(app: Express): void {
       fallthrough: false,
     }),
   );
-  console.log(`[email-charts] Static dir mounted at ${URL_PREFIX} (${dir})`);
+  log.info(`[email-charts] Static dir mounted at ${URL_PREFIX} (${dir})`);
 }
 
 /* ─── Cleanup helper (cron-callable) ─── */
@@ -392,10 +395,10 @@ export function cleanupOldCharts(): number {
       }
     }
   } catch (err: any) {
-    console.warn("[email-charts] cleanup failed:", err?.message || err);
+    log.warn("[email-charts] cleanup failed:", err?.message || err);
   }
 
-  if (removed > 0) console.log(`[email-charts] cleanup removed ${removed} old chart(s)`);
+  if (removed > 0) log.info(`[email-charts] cleanup removed ${removed} old chart(s)`);
   return removed;
 }
 

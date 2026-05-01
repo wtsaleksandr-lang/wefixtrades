@@ -10,6 +10,9 @@
 import type { Express, Request, Response } from "express";
 import { storage } from "../storage";
 import { mergeWidgetSettings } from "@shared/reputationConfig";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("Widget");
 
 /* ─── In-memory cache for widget data (5 minute TTL) ─── */
 const widgetCache = new Map<string, { data: any; expires: number }>();
@@ -104,7 +107,7 @@ export function registerWidgetRoutes(app: Express): void {
       setCachedData(token, data);
       res.json(data);
     } catch (err: any) {
-      console.error("[widget] data error:", err.message);
+      log.error("[widget] data error:", err.message);
       res.status(500).json({ error: "Failed to load widget data" });
     }
   });

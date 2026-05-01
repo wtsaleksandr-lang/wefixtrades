@@ -11,6 +11,9 @@
 import { getEmailTransporter, getFromAddress } from "./emailTransport";
 import { buildTransactionalEmail, buildPlainText } from "./transactionalShell";
 import { buildAdminAlertEmail, buildAdminAlertPlainText, ADMIN_ALERT_FROM_NAME } from "./adminAlertShell";
+import { createLogger } from "./logger";
+
+const log = createLogger("ContactEmails");
 
 interface ContactPayload {
   name: string;
@@ -84,7 +87,7 @@ function buildInternalPlainText(p: ContactPayload, id: number): string {
 export async function sendContactAck(p: ContactPayload): Promise<boolean> {
   const transporter = getEmailTransporter();
   if (!transporter) {
-    console.warn("[contact-ack] SMTP not configured — skipping customer ack");
+    log.warn("[contact-ack] SMTP not configured — skipping customer ack");
     return false;
   }
   try {
@@ -104,7 +107,7 @@ export async function sendContactAck(p: ContactPayload): Promise<boolean> {
     });
     return true;
   } catch (err: any) {
-    console.error("[contact-ack] send failed:", err.message);
+    log.error("[contact-ack] send failed:", err.message);
     return false;
   }
 }
@@ -112,7 +115,7 @@ export async function sendContactAck(p: ContactPayload): Promise<boolean> {
 export async function sendContactInternalNotification(p: ContactPayload, leadId: number): Promise<boolean> {
   const adminEmail = process.env.ADMIN_EMAIL || process.env.INTERNAL_LEAD_EMAIL;
   if (!adminEmail) {
-    console.warn("[contact-internal] ADMIN_EMAIL not set — skipping internal notification");
+    log.warn("[contact-internal] ADMIN_EMAIL not set — skipping internal notification");
     return false;
   }
   const transporter = getEmailTransporter();
@@ -128,7 +131,7 @@ export async function sendContactInternalNotification(p: ContactPayload, leadId:
     });
     return true;
   } catch (err: any) {
-    console.error("[contact-internal] send failed:", err.message);
+    log.error("[contact-internal] send failed:", err.message);
     return false;
   }
 }

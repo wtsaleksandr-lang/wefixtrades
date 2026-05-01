@@ -29,6 +29,9 @@ import { db } from "../db";
 import { clients } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import type { ContentDraft } from "@shared/schema";
+import { createLogger } from "./logger";
+
+const log = createLogger("ContentReviewEmail");
 
 /* ─── Sprint 8: NODE_ENV-gated test simulation stub ─────────────────────
  *
@@ -302,26 +305,26 @@ async function sendAdminEmail(
   try {
     const ctx = await loadDraftContext(draftId);
     if (!ctx) {
-      console.warn(`${logPrefix} draft=${draftId} not found`);
+      log.warn(`${logPrefix} draft=${draftId} not found`);
       return { ok: false, reason: "draft_not_found", message: `draft ${draftId} not found` };
     }
 
     /* Idempotency: skip if already emailed for this exact state. */
     const existing = (ctx.draft.metadata as any)?.client_review?.admin_emailed_for;
     if (existing === state) {
-      console.log(`${logPrefix} draft=${draftId} skipped (already emailed for state=${state})`);
+      log.info(`${logPrefix} draft=${draftId} skipped (already emailed for state=${state})`);
       return { ok: true, recipientCount: 0 };
     }
 
     const transporter = resolveTransporter(opts);
     if (!transporter) {
-      console.warn(`${logPrefix} draft=${draftId} skipped: SMTP not configured`);
+      log.warn(`${logPrefix} draft=${draftId} skipped: SMTP not configured`);
       return { ok: false, reason: "smtp_unavailable", message: "SMTP not configured" };
     }
 
     const recipients = resolveAdminRecipients();
     if (recipients.length === 0) {
-      console.warn(`${logPrefix} draft=${draftId} skipped: no admin recipient configured`);
+      log.warn(`${logPrefix} draft=${draftId} skipped: no admin recipient configured`);
       return { ok: false, reason: "no_recipient", message: "ADMIN_EMAIL/INTERNAL_LEAD_EMAIL not set" };
     }
 
@@ -350,10 +353,10 @@ async function sendAdminEmail(
       admin_emailed_recipient_count: recipients.length,
     });
 
-    console.log(`${logPrefix} draft=${draftId} sent to ${recipients.length} recipient(s)`);
+    log.info(`${logPrefix} draft=${draftId} sent to ${recipients.length} recipient(s)`);
     return { ok: true, recipientCount: recipients.length, messageId: (result as any)?.messageId };
   } catch (err: any) {
-    console.error(`${logPrefix} draft=${draftId} send_failed: ${err?.message || String(err)}`);
+    log.error(`${logPrefix} draft=${draftId} send_failed: ${err?.message || String(err)}`);
     return { ok: false, reason: "send_failed", message: err?.message || String(err) };
   }
 }
@@ -388,24 +391,24 @@ export async function sendClientRevisionReadyEmail(
   try {
     const ctx = await loadDraftContext(draftId);
     if (!ctx) {
-      console.warn(`${logPrefix} draft=${draftId} not found`);
+      log.warn(`${logPrefix} draft=${draftId} not found`);
       return { ok: false, reason: "draft_not_found", message: `draft ${draftId} not found` };
     }
     if (!ctx.contactEmail) {
-      console.warn(`${logPrefix} draft=${draftId} skipped: client has no contact_email`);
+      log.warn(`${logPrefix} draft=${draftId} skipped: client has no contact_email`);
       return { ok: false, reason: "no_recipient", message: "client has no contact_email" };
     }
 
     const token = opts.revisionToken || crypto.randomBytes(12).toString("hex");
     const existing = (ctx.draft.metadata as any)?.client_review?.client_revision_emailed_token;
     if (existing === token) {
-      console.log(`${logPrefix} draft=${draftId} skipped (already emailed for token=${token})`);
+      log.info(`${logPrefix} draft=${draftId} skipped (already emailed for token=${token})`);
       return { ok: true, recipientCount: 0 };
     }
 
     const transporter = resolveTransporter(opts);
     if (!transporter) {
-      console.warn(`${logPrefix} draft=${draftId} skipped: SMTP not configured`);
+      log.warn(`${logPrefix} draft=${draftId} skipped: SMTP not configured`);
       return { ok: false, reason: "smtp_unavailable", message: "SMTP not configured" };
     }
 
@@ -436,10 +439,10 @@ export async function sendClientRevisionReadyEmail(
       client_revision_emailed_at: new Date().toISOString(),
     });
 
-    console.log(`${logPrefix} draft=${draftId} sent to client`);
+    log.info(`${logPrefix} draft=${draftId} sent to client`);
     return { ok: true, recipientCount: 1, messageId: (result as any)?.messageId };
   } catch (err: any) {
-    console.error(`${logPrefix} draft=${draftId} send_failed: ${err?.message || String(err)}`);
+    log.error(`${logPrefix} draft=${draftId} send_failed: ${err?.message || String(err)}`);
     return { ok: false, reason: "send_failed", message: err?.message || String(err) };
   }
 }

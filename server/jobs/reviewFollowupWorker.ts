@@ -23,6 +23,9 @@ import {
 } from "../lib/reviewRequestEmail";
 import { isTwilioConfigured, sendSMS, storeSmsMessage } from "../twilioClient";
 import type { ReviewRequest } from "@shared/schema";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("ReviewFollowup");
 
 // Delays between steps (in milliseconds)
 const STEP_DELAYS_MS = {
@@ -198,12 +201,12 @@ export async function processReviewFollowups(): Promise<{ processed: number; ski
       } else {
         skipped++;
         if (result.error) {
-          console.log(`[ReviewFollowup] Skipped #${rr.id}: ${result.error}`);
+          log.info(`[ReviewFollowup] Skipped #${rr.id}: ${result.error}`);
         }
       }
     } catch (err: any) {
       errors.push(`ReviewFollowup #${rr.id}: ${err.message}`);
-      console.error(`[ReviewFollowup] Error #${rr.id}:`, err.message);
+      log.error(`[ReviewFollowup] Error #${rr.id}:`, err.message);
     }
   }
 

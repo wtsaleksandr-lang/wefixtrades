@@ -1,6 +1,9 @@
 import OpenAI from "openai";
 import { type PricingIntake, type SampleQuote, type AIDraftResponse, aiDraftResponseSchema, type PricingAuditLog } from "@shared/schema";
 import { PRICING_TYPES, type PricingType, type PricingConfigV1, validatePricingConfig, CALL_FOR_QUOTE_FALLBACK, FAMILY_LABELS, FAMILY_DESCRIPTIONS } from "@shared/pricingConfig";
+import { createLogger } from "./lib/logger";
+
+const log = createLogger("AIPricingAgent");
 
 const ALLOWED_PRICING_TYPES = [...PRICING_TYPES] as string[];
 
@@ -428,7 +431,7 @@ export async function generatePricingConfigDraft(
     audit.ai_validated_output = validated.config as Record<string, unknown>;
 
     if (!validated.valid) {
-      console.warn("AI response failed validation:", validated.errors);
+      log.warn("AI response failed validation:", { detail: validated.errors });
       const fallbackConfig = buildFallbackConfig(intake);
       audit.final_config = fallbackConfig as Record<string, unknown>;
       audit.source = "fallback";
@@ -451,7 +454,7 @@ export async function generatePricingConfigDraft(
       audit,
     };
   } catch (error: any) {
-    console.error("AI pricing generation error:", error?.message || error);
+    log.error("AI pricing generation error:", error?.message || error);
     const fallbackConfig = buildFallbackConfig(intake);
     audit.final_config = fallbackConfig as Record<string, unknown>;
     audit.source = "fallback";

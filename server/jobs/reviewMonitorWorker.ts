@@ -21,6 +21,9 @@ import {
   reviewDedupKey,
 } from "../lib/outscraper";
 import type { Client } from "@shared/schema";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("ReviewMonitor");
 
 /** Max clients to sync per run (rate-limit friendliness). */
 const CLIENTS_PER_RUN = 5;
@@ -105,7 +108,7 @@ async function processReviews(
               });
             }
           } catch (alertErr: any) {
-            console.error(`[ReviewMonitor] Alert email error for client ${client.id}:`, alertErr.message);
+            log.error(`[ReviewMonitor] Alert email error for client ${client.id}:`, alertErr.message);
           }
         }
       } else if (review.response_added) {
@@ -122,7 +125,7 @@ async function processReviews(
         });
       }
     } catch (err: any) {
-      console.error(`[ReviewMonitor] Error upserting ${platform} review for client ${client.id}:`, err.message);
+      log.error(`[ReviewMonitor] Error upserting ${platform} review for client ${client.id}:`, err.message);
     }
   }
 }
@@ -159,7 +162,7 @@ async function syncClientReviews(client: Client): Promise<SyncResult> {
         await processReviews(client, rawFb, "facebook", `fb:${client.facebook_page_url}`, result);
       }
     } catch (err: any) {
-      console.error(`[ReviewMonitor] Facebook fetch error for client ${client.id}:`, err.message);
+      log.error(`[ReviewMonitor] Facebook fetch error for client ${client.id}:`, err.message);
     }
   }
 
@@ -167,7 +170,7 @@ async function syncClientReviews(client: Client): Promise<SyncResult> {
   try {
     await storage.updateClient(client.id, { last_review_sync_at: new Date() });
   } catch (err: any) {
-    console.error(`[ReviewMonitor] Error updating sync timestamp for client ${client.id}:`, err.message);
+    log.error(`[ReviewMonitor] Error updating sync timestamp for client ${client.id}:`, err.message);
   }
 
   return result;
@@ -219,13 +222,13 @@ export async function processReviewMonitoring(): Promise<{
       }
 
       if (result.newReviews > 0 || result.updatedReviews > 0) {
-        console.log(
+        log.info(
           `[ReviewMonitor] ${client.business_name}: ${result.newReviews} new, ${result.updatedReviews} updated (${result.totalFetched} fetched)`,
         );
       }
     } catch (err: any) {
       errors.push(`Client ${client.id}: ${err.message}`);
-      console.error(`[ReviewMonitor] Error syncing client ${client.id}:`, err.message);
+      log.error(`[ReviewMonitor] Error syncing client ${client.id}:`, err.message);
     }
   }
 

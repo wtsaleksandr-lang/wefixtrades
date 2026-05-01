@@ -19,6 +19,9 @@ import { clients, clientServices, serviceCatalog } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { getEmailTransporter, getFromAddress } from "./emailTransport";
 import { buildLegalFooter, buildEmailHeader, buildChatBubble } from "./emailFooter";
+import { createLogger } from "./logger";
+
+const log = createLogger("CancellationEmail");
 
 interface SendParams {
   clientServiceId: number;
@@ -90,7 +93,7 @@ function buildHtml(params: {
 export async function sendCancellationEmail(params: SendParams): Promise<boolean> {
   const transporter = getEmailTransporter();
   if (!transporter) {
-    console.warn("[cancellation-email] SMTP not configured — skipping");
+    log.warn("[cancellation-email] SMTP not configured — skipping");
     return false;
   }
 
@@ -100,7 +103,7 @@ export async function sendCancellationEmail(params: SendParams): Promise<boolean
   // Idempotency
   const csMeta = (cs.metadata as any) || {};
   if (csMeta.cancellation_email_sent_at) {
-    console.log(`[cancellation-email] Already sent for client_service #${params.clientServiceId}`);
+    log.info(`[cancellation-email] Already sent for client_service #${params.clientServiceId}`);
     return false;
   }
 
@@ -152,10 +155,10 @@ export async function sendCancellationEmail(params: SendParams): Promise<boolean
       } as any)
       .where(eq(clientServices.id, cs.id));
 
-    console.log(`[cancellation-email] Sent to ${client.contact_email} for ${serviceName}`);
+    log.info(`[cancellation-email] Sent to ${client.contact_email} for ${serviceName}`);
     return true;
   } catch (err: any) {
-    console.error(`[cancellation-email] Send failed:`, err.message);
+    log.error(`[cancellation-email] Send failed:`, err.message);
     return false;
   }
 }

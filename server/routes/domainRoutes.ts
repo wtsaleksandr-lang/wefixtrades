@@ -2,6 +2,9 @@ import type { Express } from "express";
 import { z } from "zod";
 import { storage } from "../storage";
 import { buildSubdomain, HOSTING_DOMAIN } from "@shared/slugUtils";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("Domain");
 
 export function registerDomainRoutes(app: Express): void {
   app.post("/api/domains/check-dns", async (req, res) => {
@@ -56,7 +59,7 @@ export function registerDomainRoutes(app: Express): void {
         checked_at: Date.now(),
       });
     } catch (error: any) {
-      console.error("DNS check error:", error);
+      log.error("DNS check error:", error);
       res.status(500).json({ error: "DNS check failed" });
     }
   });
@@ -105,13 +108,13 @@ export function registerDomainRoutes(app: Express): void {
             });
           }
         } catch (err) {
-          console.error("SSL provision simulation error:", err);
+          log.error("SSL provision simulation error:", { error: String(err) });
         }
       }, 5000);
 
       res.json({ status: 'provisioning', message: 'SSL certificate is being provisioned' });
     } catch (error: any) {
-      console.error("SSL issue error:", error);
+      log.error("SSL issue error:", error);
       res.status(500).json({ error: "SSL provisioning failed" });
     }
   });
@@ -137,7 +140,7 @@ export function registerDomainRoutes(app: Express): void {
         last_dns_check: publish.last_dns_check || null,
       });
     } catch (error: any) {
-      console.error("Domain status error:", error);
+      log.error("Domain status error:", error);
       res.status(500).json({ error: "Failed to get domain status" });
     }
   });

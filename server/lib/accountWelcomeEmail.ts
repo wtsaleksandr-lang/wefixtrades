@@ -19,6 +19,9 @@ import { eq } from "drizzle-orm";
 import { getEmailTransporter, getFromAddress } from "./emailTransport";
 import { buildTransactionalEmail, buildPlainText } from "./transactionalShell";
 import type { User, Client } from "@shared/schema";
+import { createLogger } from "./logger";
+
+const log = createLogger("AccountWelcome");
 
 interface SendParams {
   user: User;
@@ -78,12 +81,12 @@ function stepRow(n: number, text: string): string {
 export async function sendAccountWelcome(params: SendParams): Promise<boolean> {
   const transporter = getEmailTransporter();
   if (!transporter) {
-    console.warn("[account-welcome] SMTP not configured — skipping");
+    log.warn("[account-welcome] SMTP not configured — skipping");
     return false;
   }
 
   if (!params.client.contact_email) {
-    console.warn(`[account-welcome] Client #${params.client.id} has no email — skipping`);
+    log.warn(`[account-welcome] Client #${params.client.id} has no email — skipping`);
     return false;
   }
 
@@ -125,10 +128,10 @@ export async function sendAccountWelcome(params: SendParams): Promise<boolean> {
         supportNote: `Need anything? Reach us at ${supportEmail}.`,
       }),
     });
-    console.log(`[account-welcome] Sent to ${params.client.contact_email} for user #${params.user.id}`);
+    log.info(`[account-welcome] Sent to ${params.client.contact_email} for user #${params.user.id}`);
     return true;
   } catch (err: any) {
-    console.error(`[account-welcome] Send failed for user #${params.user.id}:`, err.message);
+    log.error(`[account-welcome] Send failed for user #${params.user.id}:`, err.message);
     return false;
   }
 }

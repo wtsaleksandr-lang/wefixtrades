@@ -11,6 +11,9 @@ import { requireAdmin } from "../auth";
 import { db } from "../db";
 import { opsSnapshots } from "@shared/schema";
 import { desc, eq, and } from "drizzle-orm";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("AdminOps");
 
 export function registerAdminOpsRoutes(app: Express): void {
 
@@ -34,7 +37,7 @@ export function registerAdminOpsRoutes(app: Express): void {
 
       res.json({ snapshot: latest });
     } catch (err) {
-      console.error("[adminOps] GET /summary/daily error:", err);
+      log.error("[adminOps] GET /summary/daily error:", { error: String(err) });
       res.status(500).json({ error: "Failed to load daily ops summary" });
     }
   });
@@ -96,7 +99,7 @@ export function registerAdminOpsRoutes(app: Express): void {
 
       res.json({ snapshots, limit, offset });
     } catch (err) {
-      console.error("[adminOps] GET /snapshots error:", err);
+      log.error("[adminOps] GET /snapshots error:", { error: String(err) });
       res.status(500).json({ error: "Failed to load ops snapshots" });
     }
   });
@@ -125,7 +128,7 @@ export function registerAdminOpsRoutes(app: Express): void {
 
       res.json({ snapshot });
     } catch (err) {
-      console.error("[adminOps] GET /snapshots/:id error:", err);
+      log.error("[adminOps] GET /snapshots/:id error:", { error: String(err) });
       res.status(500).json({ error: "Failed to load snapshot" });
     }
   });
@@ -141,7 +144,7 @@ export function registerAdminOpsRoutes(app: Express): void {
       const result = await runDailyOpsIntelligence();
       res.json({ ok: true, result });
     } catch (err: any) {
-      console.error("[adminOps] POST /run error:", err);
+      log.error("[adminOps] POST /run error:", err);
       res.status(500).json({ error: "Ops run failed", detail: err.message });
     }
   });

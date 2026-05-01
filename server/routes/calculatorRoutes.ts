@@ -6,6 +6,9 @@ import { storage } from "../storage";
 import { validatePricingConfig } from "@shared/pricingConfig";
 import { calculatorSettingsSchema } from "@shared/schema";
 import { slugify, isValidSlug, buildSubdomain, HOSTING_DOMAIN } from "@shared/slugUtils";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("Calculator");
 
 function generateToken(): string {
   return randomBytes(24).toString("hex");
@@ -161,7 +164,7 @@ export function registerCalculatorRoutes(app: Express): void {
         dashboard_url: `/Dashboard?token=${calculator.edit_token}`,
       });
     } catch (error: any) {
-      console.error("Create calculator error:", error);
+      log.error("Create calculator error:", error);
       res.status(500).json({ error: "Failed to create calculator" });
     }
   });
@@ -180,7 +183,7 @@ export function registerCalculatorRoutes(app: Express): void {
       const subdomain = buildSubdomain(parsed.data.slug, HOSTING_DOMAIN);
       res.json({ available: !existing, slug: parsed.data.slug, subdomain });
     } catch (error: any) {
-      console.error("Check slug error:", error);
+      log.error("Check slug error:", error);
       res.status(500).json({ available: false, error: "Failed to check slug" });
     }
   });
@@ -265,7 +268,7 @@ export function registerCalculatorRoutes(app: Express): void {
         calculator: { ...calculator, is_token_expired: isExpired, is_preview: false },
       });
     } catch (error: any) {
-      console.error("Get calculator error:", error);
+      log.error("Get calculator error:", error);
       res.status(500).json({ error: "Failed to get calculator" });
     }
   });
@@ -337,7 +340,7 @@ export function registerCalculatorRoutes(app: Express): void {
 
       res.json({ success: true, calculator: updated, auto_republished: autoRepublished });
     } catch (error: any) {
-      console.error("Update calculator error:", error);
+      log.error("Update calculator error:", error);
       res.status(500).json({ error: "Failed to update calculator" });
     }
   });
@@ -380,7 +383,7 @@ export function registerCalculatorRoutes(app: Express): void {
         new_calculator_url: `/Calculator?slug=${newCalc.slug}`,
       });
     } catch (error: any) {
-      console.error("Duplicate calculator error:", error);
+      log.error("Duplicate calculator error:", error);
       res.status(500).json({ error: "Failed to duplicate calculator" });
     }
   });
@@ -487,7 +490,7 @@ export function registerCalculatorRoutes(app: Express): void {
 
       res.json({ checkout_url: session.url });
     } catch (err: any) {
-      console.error("[calculator-checkout] Error:", err.message);
+      log.error("[calculator-checkout] Error:", err.message);
       res.status(500).json({ error: "Failed to create checkout" });
     }
   });

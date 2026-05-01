@@ -7,6 +7,9 @@ import { PRICING_TYPES, validatePricingConfig, FAMILY_LABELS, FAMILY_DESCRIPTION
 import { pricingIntakeSchema, sampleQuoteSchema, type PricingDraftJob } from "@shared/schema";
 import { generatePricingConfigDraft } from "../aiPricingAgent";
 import { buildSystemPrompt, runChatCompletion } from "../aiChatEngine";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("AIRoutes");
 
 let _openai: OpenAI | null = null;
 function getOpenAI(): OpenAI {
@@ -94,12 +97,12 @@ Return ONLY the JSON pricing config object.`;
 
       const validation = validatePricingConfig(pricing);
       if (!validation.valid) {
-        console.warn("AI generated invalid pricing config, errors:", validation.errors);
+        log.warn("AI generated invalid pricing config, errors:", { detail: validation.errors });
       }
 
       res.json({ success: true, pricing_config: validation.config, validation_errors: validation.valid ? [] : validation.errors });
     } catch (error: any) {
-      console.error("AI pricing generation error:", error);
+      log.error("AI pricing generation error:", error);
       res.status(500).json({ error: "Failed to generate pricing configuration" });
     }
   });
@@ -149,7 +152,7 @@ Return ONLY the JSON pricing config object.`;
           }
         })
         .catch(err => {
-          console.error("Draft job failed:", err);
+          log.error("Draft job failed:", err);
           const existingJob = draftJobs.get(jobId);
           if (existingJob) {
             existingJob.status = "failed";
@@ -157,7 +160,7 @@ Return ONLY the JSON pricing config object.`;
           }
         });
     } catch (error: any) {
-      console.error("AI pricing draft creation error:", error);
+      log.error("AI pricing draft creation error:", error);
       res.status(500).json({ error: "Failed to create pricing draft job" });
     }
   });
@@ -209,7 +212,7 @@ Return ONLY the JSON pricing config object.`;
         },
       });
     } catch (error: any) {
-      console.error("AI pricing draft generation error:", error);
+      log.error("AI pricing draft generation error:", error);
       res.status(500).json({ error: "Failed to generate pricing draft" });
     }
   });
@@ -246,12 +249,12 @@ Return ONLY the JSON pricing config object.`;
           messages_json: [...messages, { role: "assistant", content: reply }] as any,
         });
       } catch (err) {
-        console.warn("Failed to store demo conversation:", err);
+        log.warn("Failed to store demo conversation:", { error: String(err) });
       }
 
       res.json({ reply, tool_results: toolResults });
     } catch (error: any) {
-      console.error("Demo chat error:", error);
+      log.error("Demo chat error:", error);
       res.status(500).json({ error: "Failed to process chat" });
     }
   });
@@ -316,12 +319,12 @@ Return ONLY the JSON pricing config object.`;
           });
         }
       } catch (err) {
-        console.warn("Failed to store support conversation:", err);
+        log.warn("Failed to store support conversation:", { error: String(err) });
       }
 
       res.json({ reply, ticket_created: !!ticketCreated, session_id: sessionIdFinal, tool_results: toolResults });
     } catch (error: any) {
-      console.error("Support chat error:", error);
+      log.error("Support chat error:", error);
       res.status(500).json({ error: "Failed to process chat" });
     }
   });
@@ -395,12 +398,12 @@ Return ONLY the JSON pricing config object.`;
           });
         }
       } catch (err) {
-        console.warn("Failed to store client conversation:", err);
+        log.warn("Failed to store client conversation:", { error: String(err) });
       }
 
       res.json({ reply, tool_results: toolResults, session_id });
     } catch (error: any) {
-      console.error("Client chat error:", error);
+      log.error("Client chat error:", error);
       res.status(500).json({ error: "Failed to process chat" });
     }
   });
@@ -456,13 +459,13 @@ Return ONLY the JSON pricing config object.`;
             await storage.updateSupportTicket(ticket.id, { admin_notified: true });
           }
         } catch (emailErr) {
-          console.warn("Failed to email admin:", emailErr);
+          log.warn("Failed to email admin:", { detail: emailErr });
         }
       }
 
       res.json({ ticket_id: ticket.id, success: true });
     } catch (error: any) {
-      console.error("Create ticket error:", error);
+      log.error("Create ticket error:", error);
       res.status(500).json({ error: "Failed to create support ticket" });
     }
   });

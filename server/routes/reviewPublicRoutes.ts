@@ -6,6 +6,9 @@
 
 import type { Express, Request, Response } from "express";
 import { storage } from "../storage";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("ReviewPublic");
 
 export function registerReviewPublicRoutes(app: Express): void {
 
@@ -42,7 +45,7 @@ export function registerReviewPublicRoutes(app: Express): void {
         hasFeedback: !!rr.internal_feedback,
       });
     } catch (err: any) {
-      console.error("[review-funnel] GET error:", err.message);
+      log.error("[review-funnel] GET error:", err.message);
       res.status(500).json({ error: "Failed to load review page" });
     }
   });
@@ -107,7 +110,7 @@ export function registerReviewPublicRoutes(app: Express): void {
         });
       }
     } catch (err: any) {
-      console.error("[review-funnel] respond error:", err.message);
+      log.error("[review-funnel] respond error:", err.message);
       res.status(500).json({ error: "Failed to process response" });
     }
   });
@@ -143,7 +146,7 @@ export function registerReviewPublicRoutes(app: Express): void {
 
       res.json({ ok: true });
     } catch (err: any) {
-      console.error("[review-funnel] feedback error:", err.message);
+      log.error("[review-funnel] feedback error:", err.message);
       res.status(500).json({ error: "Failed to submit feedback" });
     }
   });
@@ -193,7 +196,7 @@ export function registerReviewPublicRoutes(app: Express): void {
         businessName: client.business_name,
       });
     } catch (err: any) {
-      console.error("[review-funnel] QR landing error:", err.message);
+      log.error("[review-funnel] QR landing error:", err.message);
       res.status(500).json({ error: "Something went wrong. Please try again." });
     }
   });

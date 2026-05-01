@@ -2,6 +2,9 @@ import { db } from "../db";
 import { auditReports } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import type { Request, Response } from "express";
+import { createLogger } from "./logger";
+
+const log = createLogger("OGImage");
 
 /**
  * GET /api/audit/report/:id/og-image
@@ -46,7 +49,7 @@ export async function handleOgImage(req: Request, res: Response) {
       })
       .send(svg);
   } catch (err) {
-    console.error("[og-image] Error:", err);
+    log.error("[og-image] Error:", { error: String(err) });
     res.status(500).send("Failed to generate image");
   }
 }

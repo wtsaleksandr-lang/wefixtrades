@@ -39,6 +39,9 @@ import {
 } from "../services/outboundSafety";
 import { assignTargetOffer, computePriorityScore } from "../services/prospectTargeting";
 import { classifyReplyFull } from "../services/replyIntelligence";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("AdminOutbound");
 
 /* ─── helpers ─── */
 
@@ -173,7 +176,7 @@ export function registerAdminOutboundRoutes(app: Express): void {
         pipeline_opportunities: Number(pipelineRow[0]?.c ?? 0),
       });
     } catch (err: any) {
-      console.error("[outbound] overview error:", err.message);
+      log.error("[outbound] overview error:", err.message);
       res.status(500).json({ error: "Failed to load overview" });
     }
   });
@@ -338,7 +341,7 @@ export function registerAdminOutboundRoutes(app: Express): void {
 
         imported++;
       } catch (rowErr: any) {
-        console.error("[outbound/import] row failed:", rowErr.message);
+        log.error("[outbound/import] row failed:", rowErr.message);
         failed++;
       }
     }
@@ -423,7 +426,7 @@ export function registerAdminOutboundRoutes(app: Express): void {
 
       res.json({ data: filtered, total: Number(totalRows[0]?.c ?? 0) });
     } catch (err: any) {
-      console.error("[outbound] list prospects:", err.message);
+      log.error("[outbound] list prospects:", err.message);
       res.status(500).json({ error: "Failed to list prospects" });
     }
   });
@@ -499,7 +502,7 @@ export function registerAdminOutboundRoutes(app: Express): void {
       await logEvent(id, action, actor, `${action} by ${actor.actor_name}`, { notes });
       res.json(updated);
     } catch (err: any) {
-      console.error("[outbound] review error:", err.message);
+      log.error("[outbound] review error:", err.message);
       res.status(500).json({ error: "Review failed" });
     }
   });
@@ -574,7 +577,7 @@ export function registerAdminOutboundRoutes(app: Express): void {
 
       res.json({ enrichment, ai_ran: !!aiResult });
     } catch (err: any) {
-      console.error("[outbound] enrich error:", err.message);
+      log.error("[outbound] enrich error:", err.message);
       res.status(500).json({ error: "Enrichment failed" });
     }
   });
@@ -685,7 +688,7 @@ export function registerAdminOutboundRoutes(app: Express): void {
         .returning();
       res.status(201).json(campaign);
     } catch (err: any) {
-      console.error("[outbound] create campaign:", err.message);
+      log.error("[outbound] create campaign:", err.message);
       res.status(500).json({ error: "Failed to create campaign" });
     }
   });
@@ -831,7 +834,7 @@ export function registerAdminOutboundRoutes(app: Express): void {
 
       res.json({ assigned: assigned.length, skipped: skipped.length, blocked });
     } catch (err: any) {
-      console.error("[outbound] assign:", err.message);
+      log.error("[outbound] assign:", err.message);
       res.status(500).json({ error: "Assignment failed" });
     }
   });
@@ -907,7 +910,7 @@ export function registerAdminOutboundRoutes(app: Express): void {
 
           synced++;
         } catch (syncErr: any) {
-          console.error("[outbound/sync] lead failed:", syncErr.message);
+          log.error("[outbound/sync] lead failed:", syncErr.message);
           await db.update(campaignProspects)
             .set({ sync_status: "failed", updated_at: new Date() })
             .where(eq(campaignProspects.id, cp.id));
@@ -917,7 +920,7 @@ export function registerAdminOutboundRoutes(app: Express): void {
 
       res.json({ synced, failed, total: pending.length });
     } catch (err: any) {
-      console.error("[outbound] sync error:", err.message);
+      log.error("[outbound] sync error:", err.message);
       res.status(500).json({ error: "Sync failed" });
     }
   });
@@ -951,7 +954,7 @@ export function registerAdminOutboundRoutes(app: Express): void {
         .limit(1);
 
       if (!cp) {
-        console.warn(`[outbound/webhook] Unknown external_lead_id: ${event.externalLeadId}`);
+        log.warn(`[outbound/webhook] Unknown external_lead_id: ${event.externalLeadId}`);
         return res.status(200).json({ ignored: true });
       }
 
@@ -1104,7 +1107,7 @@ export function registerAdminOutboundRoutes(app: Express): void {
 
       res.status(200).json({ ok: true });
     } catch (err: any) {
-      console.error("[outbound/webhook] error:", err.message);
+      log.error("[outbound/webhook] error:", err.message);
       res.status(500).json({ error: "Webhook processing failed" });
     }
   });
@@ -1137,7 +1140,7 @@ export function registerAdminOutboundRoutes(app: Express): void {
 
       res.json({ stages: grouped, total: rows.length });
     } catch (err: any) {
-      console.error("[outbound] pipeline error:", err.message);
+      log.error("[outbound] pipeline error:", err.message);
       res.status(500).json({ error: "Failed to load pipeline" });
     }
   });
@@ -1248,7 +1251,7 @@ export function registerAdminOutboundRoutes(app: Express): void {
         bounce_rate:   sent > 0 ? Number(((bounced / sent) * 100).toFixed(1)) : 0,
       });
     } catch (err: any) {
-      console.error("[outbound] campaign stats:", err.message);
+      log.error("[outbound] campaign stats:", err.message);
       res.status(500).json({ error: "Failed to load campaign stats" });
     }
   });
@@ -1352,7 +1355,7 @@ export function registerAdminOutboundRoutes(app: Express): void {
 
       res.json(opp);
     } catch (err: any) {
-      console.error("[outbound] pipeline update:", err.message);
+      log.error("[outbound] pipeline update:", err.message);
       res.status(500).json({ error: "Failed to update pipeline stage" });
     }
   });

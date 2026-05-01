@@ -22,6 +22,9 @@ import { eq } from "drizzle-orm";
 import { storage } from "../../storage";
 import type { ContentDraft, RankflowTask, RankflowProfile } from "@shared/schema";
 import { chat as aiChat } from "../aiService";
+import { createLogger } from "../../lib/logger";
+
+const log = createLogger("ArticleService");
 
 /* ─── Draft creation ─────────────────────────────────────────────────── */
 
@@ -209,7 +212,7 @@ export async function generateArticleBody(draftId: number): Promise<GenerateArti
     });
   } catch (err: any) {
     const msg = err?.message || String(err);
-    console.error(`[contentflow] article generation AI call failed for draft ${draftId}: ${msg}`);
+    log.error(`[contentflow] article generation AI call failed for draft ${draftId}: ${msg}`);
     // Re-read the draft to merge with any concurrent metadata writes
     // (e.g. wordpress publish) that happened during the AI call.
     const fresh = await storage.getContentDraftById(draftId);
@@ -223,7 +226,7 @@ export async function generateArticleBody(draftId: number): Promise<GenerateArti
 
   const parsed = parseArticleJson(raw);
   if (!parsed) {
-    console.error(`[contentflow] article generation produced unparseable output for draft ${draftId}; raw len=${raw.length}`);
+    log.error(`[contentflow] article generation produced unparseable output for draft ${draftId}; raw len=${raw.length}`);
     const fresh = await storage.getContentDraftById(draftId);
     const freshMeta = (fresh?.metadata || meta) as Record<string, any>;
     await storage.updateContentDraft(draftId, {

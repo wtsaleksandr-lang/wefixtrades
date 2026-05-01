@@ -4,6 +4,9 @@ import { auditReports } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import fs from "fs";
 import path from "path";
+import { createLogger } from "./logger";
+
+const log = createLogger("OGMiddleware");
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ROUTE_RE = /^\/audit\/report\/([0-9a-f-]+)$/i;
@@ -95,7 +98,7 @@ export function ogTagMiddleware(getHtml: () => Promise<string>) {
 
       return res.status(200).set({ "Content-Type": "text/html" }).send(html);
     } catch (err) {
-      console.error("[og-middleware] Error:", err);
+      log.error("[og-middleware] Error:", { error: String(err) });
       return next(); // fall through to SPA on error
     }
   };

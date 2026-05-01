@@ -5,6 +5,9 @@
  * Uses Outscraper REST API directly (no SDK).
  * Handles async 202 polling.
  */
+import { createLogger } from "./logger";
+
+const log = createLogger("Outscraper");
 
 const API_BASE = "https://api.app.outscraper.com";
 
@@ -38,7 +41,7 @@ async function pollResults(
         return data.data;
       }
     } catch (e: any) {
-      console.error("[outscraper] poll error:", e.message);
+      log.error("[outscraper] poll error:", e.message);
     }
   }
   return [];
@@ -76,11 +79,11 @@ export async function fetchGoogleReviews(
 ): Promise<OutscraperReview[] | null> {
   const apiKey = getApiKey();
   if (!apiKey) {
-    console.warn("[outscraper] OUTSCRAPER_API_KEY not set");
+    log.warn("[outscraper] OUTSCRAPER_API_KEY not set");
     return null;
   }
   if (!placeId) {
-    console.warn("[outscraper] No placeId provided");
+    log.warn("[outscraper] No placeId provided");
     return null;
   }
 
@@ -103,14 +106,14 @@ export async function fetchGoogleReviews(
     });
     rawText = await r.text();
   } catch (err: any) {
-    console.error("[outscraper] fetchGoogleReviews error:", err.message);
+    log.error("[outscraper] fetchGoogleReviews error:", err.message);
     return null;
   } finally {
     clear();
   }
 
   if (!r.ok) {
-    console.error("[outscraper] Non-OK response:", r.status, rawText.slice(0, 500));
+    log.error("[outscraper] Non-OK response:", { arg0: r.status, arg1: rawText.slice(0, 500) });
     return null;
   }
 
@@ -118,7 +121,7 @@ export async function fetchGoogleReviews(
   try {
     data = JSON.parse(rawText);
   } catch {
-    console.error("[outscraper] Invalid JSON response");
+    log.error("[outscraper] Invalid JSON response");
     return null;
   }
 
@@ -150,11 +153,11 @@ export async function fetchFacebookReviews(
 ): Promise<OutscraperReview[] | null> {
   const apiKey = getApiKey();
   if (!apiKey) {
-    console.warn("[outscraper] OUTSCRAPER_API_KEY not set");
+    log.warn("[outscraper] OUTSCRAPER_API_KEY not set");
     return null;
   }
   if (!facebookPageUrl) {
-    console.warn("[outscraper] No facebookPageUrl provided");
+    log.warn("[outscraper] No facebookPageUrl provided");
     return null;
   }
 
@@ -177,14 +180,14 @@ export async function fetchFacebookReviews(
     });
     rawText = await r.text();
   } catch (err: any) {
-    console.error("[outscraper] fetchFacebookReviews error:", err.message);
+    log.error("[outscraper] fetchFacebookReviews error:", err.message);
     return null;
   } finally {
     clear();
   }
 
   if (!r.ok) {
-    console.error("[outscraper] Facebook reviews non-OK:", r.status, rawText.slice(0, 500));
+    log.error("[outscraper] Facebook reviews non-OK:", { arg0: r.status, arg1: rawText.slice(0, 500) });
     return null;
   }
 
@@ -192,7 +195,7 @@ export async function fetchFacebookReviews(
   try {
     data = JSON.parse(rawText);
   } catch {
-    console.error("[outscraper] Invalid JSON from Facebook reviews");
+    log.error("[outscraper] Invalid JSON from Facebook reviews");
     return null;
   }
 

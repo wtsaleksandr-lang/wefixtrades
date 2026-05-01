@@ -22,6 +22,9 @@ import { db } from "../db";
 import { clients, clientServices, serviceCatalog } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import type { Client, ClientService } from "@shared/schema";
+import { createLogger } from "./logger";
+
+const log = createLogger("WelcomeEmail");
 
 interface WelcomeArtifact {
   label: string;
@@ -190,26 +193,26 @@ function buildHtml(params: {
 export async function sendWelcomePackage(clientServiceId: number): Promise<boolean> {
   const transporter = getEmailTransporter();
   if (!transporter) {
-    console.warn("[welcome-email] SMTP not configured — skipping welcome email");
+    log.warn("[welcome-email] SMTP not configured — skipping welcome email");
     return false;
   }
 
   const [cs] = await db.select().from(clientServices).where(eq(clientServices.id, clientServiceId)).limit(1);
   if (!cs) {
-    console.warn(`[welcome-email] client_service #${clientServiceId} not found`);
+    log.warn(`[welcome-email] client_service #${clientServiceId} not found`);
     return false;
   }
 
   // Idempotency — skip if already sent
   const csMeta = (cs.metadata as any) || {};
   if (csMeta.welcome_sent_at) {
-    console.log(`[welcome-email] Already sent for client_service #${clientServiceId} at ${csMeta.welcome_sent_at}`);
+    log.info(`[welcome-email] Already sent for client_service #${clientServiceId} at ${csMeta.welcome_sent_at}`);
     return false;
   }
 
   const [client] = await db.select().from(clients).where(eq(clients.id, cs.client_id)).limit(1);
   if (!client || !client.contact_email) {
-    console.warn(`[welcome-email] Client #${cs.client_id} missing email — skipping`);
+    log.warn(`[welcome-email] Client #${cs.client_id} missing email — skipping`);
     return false;
   }
 
@@ -248,10 +251,10 @@ export async function sendWelcomePackage(clientServiceId: number): Promise<boole
       } as any)
       .where(eq(clientServices.id, cs.id));
 
-    console.log(`[welcome-email] Sent for ${serviceName} to ${client.contact_email}`);
+    log.info(`[welcome-email] Sent for ${serviceName} to ${client.contact_email}`);
     return true;
   } catch (err: any) {
-    console.error(`[welcome-email] Failed to send for client_service #${clientServiceId}:`, err.message);
+    log.error(`[welcome-email] Failed to send for client_service #${clientServiceId}:`, err.message);
     return false;
   }
 }

@@ -5,6 +5,9 @@ import { runQA } from "../services/rankflow/qaService";
 import { autoBatchUnbatchedTasks } from "../services/rankflow/batchService";
 import { WORKER_LIMITS, prioritizeProfiles } from "../services/rankflow/scalingConfig";
 import { createDraftFromRankflowTask, generateArticleBody } from "../services/contentflow/articleService";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("RankflowWorker");
 
 /**
  * Weekly job: generate plans and auto-process AI tasks.
@@ -49,10 +52,10 @@ export async function processRankFlowPlans(): Promise<{
             try {
               const draft = await createDraftFromRankflowTask({ task, profile });
               generateArticleBody(draft.id).catch((err) =>
-                console.error(`[contentflow] background article generation rejected for draft ${draft.id}:`, err),
+                log.error(`[contentflow] background article generation rejected for draft ${draft.id}:`, err),
               );
             } catch (hookErr: any) {
-              console.error(`[contentflow] article hook failed for task ${task.id}:`, hookErr.message);
+              log.error(`[contentflow] article hook failed for task ${task.id}:`, hookErr.message);
             }
           }
         }
@@ -60,9 +63,9 @@ export async function processRankFlowPlans(): Promise<{
         await storage.updateMonthlyPlanStatus(plan.id, "active");
         created++;
 
-        console.log(`[rankflow-worker] Created plan for client ${profile.client_id} — ${month} — ${taskDefs.length} tasks`);
+        log.info(`[rankflow-worker] Created plan for client ${profile.client_id} — ${month} — ${taskDefs.length} tasks`);
       } catch (err: any) {
-        console.error(`[rankflow-worker] Failed for client ${profile.client_id}:`, err.message);
+        log.error(`[rankflow-worker] Failed for client ${profile.client_id}:`, err.message);
         continue;
       }
     }
@@ -77,7 +80,7 @@ export async function processRankFlowPlans(): Promise<{
   }
 
   if (allProfiles.length > batch.length) {
-    console.log(`[rankflow-worker] Processed ${batch.length}/${allProfiles.length} clients (capped at ${WORKER_LIMITS.plan_generation_max_clients})`);
+    log.info(`[rankflow-worker] Processed ${batch.length}/${allProfiles.length} clients (capped at ${WORKER_LIMITS.plan_generation_max_clients})`);
   }
 
   // Auto-batch unbatched outsourced tasks
@@ -85,10 +88,10 @@ export async function processRankFlowPlans(): Promise<{
   try {
     batches_created = await autoBatchUnbatchedTasks();
     if (batches_created > 0) {
-      console.log(`[rankflow-worker] Auto-created ${batches_created} draft vendor batch(es)`);
+      log.info(`[rankflow-worker] Auto-created ${batches_created} draft vendor batch(es)`);
     }
   } catch (err: any) {
-    console.error("[rankflow-worker] Auto-batch error:", err.message);
+    log.error("[rankflow-worker] Auto-batch error:", err.message);
   }
 
   return { processed, skipped, created, ai_completed, batches_created };
@@ -146,7 +149,7 @@ async function autoProcessAITasks(planId: number, maxTasks: number): Promise<num
         completed++;
       }
     } catch (err: any) {
-      console.error(`[rankflow-worker] AI task ${task.id} error:`, err.message);
+      log.error(`[rankflow-worker] AI task ${task.id} error:`, err.message);
     }
   }
 

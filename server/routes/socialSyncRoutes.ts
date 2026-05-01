@@ -32,6 +32,9 @@ import { syncClientReviews, processAllClientReviews } from "../services/reputati
 import { resolveMediaForPost } from "../services/socialSync/mediaService";
 import { decryptToken } from "../services/socialSync/tokenEncryption";
 import type { SocialSyncProfile, InsertSocialSyncTopic } from "@shared/schema";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("SocialSync");
 
 /* ─── Seed Topic Templates ─── */
 
@@ -120,7 +123,7 @@ export function registerSocialSyncRoutes(app: Express): void {
       if (!profile) return res.json({ exists: false, client_id: clientId });
       res.json(profile);
     } catch (err: any) {
-      console.error("[socialsync] Profile get error:", err.message);
+      log.error("[socialsync] Profile get error:", err.message);
       res.status(500).json({ error: "Failed to load SocialSync profile" });
     }
   });
@@ -155,7 +158,7 @@ export function registerSocialSyncRoutes(app: Express): void {
 
       res.json(profile);
     } catch (err: any) {
-      console.error("[socialsync] Profile upsert error:", err.message);
+      log.error("[socialsync] Profile upsert error:", err.message);
       res.status(500).json({ error: "Failed to update SocialSync profile" });
     }
   });
@@ -185,7 +188,7 @@ export function registerSocialSyncRoutes(app: Express): void {
 
       res.status(201).json({ topics, count: topics.length });
     } catch (err: any) {
-      console.error("[socialsync] Seed topics error:", err.message);
+      log.error("[socialsync] Seed topics error:", err.message);
       res.status(500).json({ error: "Failed to generate seed topics" });
     }
   });
@@ -200,7 +203,7 @@ export function registerSocialSyncRoutes(app: Express): void {
       const topics = await storage.listSocialSyncTopics(clientId, status);
       res.json(topics);
     } catch (err: any) {
-      console.error("[socialsync] List topics error:", err.message);
+      log.error("[socialsync] List topics error:", err.message);
       res.status(500).json({ error: "Failed to list topics" });
     }
   });
@@ -258,7 +261,7 @@ export function registerSocialSyncRoutes(app: Express): void {
 
       res.status(201).json(post);
     } catch (err: any) {
-      console.error("[socialsync] Create post error:", err.message);
+      log.error("[socialsync] Create post error:", err.message);
       res.status(500).json({ error: "Failed to create post" });
     }
   });
@@ -277,7 +280,7 @@ export function registerSocialSyncRoutes(app: Express): void {
       const posts = await storage.listSocialSyncPosts(clientId, { status, platform, limit, offset });
       res.json(posts);
     } catch (err: any) {
-      console.error("[socialsync] List posts error:", err.message);
+      log.error("[socialsync] List posts error:", err.message);
       res.status(500).json({ error: "Failed to list posts" });
     }
   });
@@ -334,7 +337,7 @@ export function registerSocialSyncRoutes(app: Express): void {
         via: "contentflow_unified_queue",
       });
     } catch (err: any) {
-      console.error("[socialsync] Enqueue error:", err.message);
+      log.error("[socialsync] Enqueue error:", err.message);
       res.status(500).json({ error: "Failed to enqueue post" });
     }
   });
@@ -348,7 +351,7 @@ export function registerSocialSyncRoutes(app: Express): void {
       const queue = await storage.listSocialSyncQueue(clientId);
       res.json(queue);
     } catch (err: any) {
-      console.error("[socialsync] List queue error:", err.message);
+      log.error("[socialsync] List queue error:", err.message);
       res.status(500).json({ error: "Failed to list queue" });
     }
   });
@@ -377,7 +380,7 @@ export function registerSocialSyncRoutes(app: Express): void {
         full: summary,
       });
     } catch (err: any) {
-      console.error("[socialsync] Queue process error:", err.message);
+      log.error("[socialsync] Queue process error:", err.message);
       res.status(500).json({ error: "Failed to process queue" });
     }
   });
@@ -392,7 +395,7 @@ export function registerSocialSyncRoutes(app: Express): void {
       const logs = await storage.listSocialSyncLogs(clientId, limit);
       res.json(logs);
     } catch (err: any) {
-      console.error("[socialsync] List activity error:", err.message);
+      log.error("[socialsync] List activity error:", err.message);
       res.status(500).json({ error: "Failed to list activity logs" });
     }
   });
@@ -408,7 +411,7 @@ export function registerSocialSyncRoutes(app: Express): void {
       const result = await generateWeekForClient(clientId);
       res.json(result);
     } catch (err: any) {
-      console.error("[socialsync] Generate week error:", err.message);
+      log.error("[socialsync] Generate week error:", err.message);
       res.status(500).json({ error: "Failed to generate weekly content" });
     }
   });
@@ -419,7 +422,7 @@ export function registerSocialSyncRoutes(app: Express): void {
       const result = await generateAllDue();
       res.json(result);
     } catch (err: any) {
-      console.error("[socialsync] Generate all due error:", err.message);
+      log.error("[socialsync] Generate all due error:", err.message);
       res.status(500).json({ error: "Failed to generate batch content" });
     }
   });
@@ -436,7 +439,7 @@ export function registerSocialSyncRoutes(app: Express): void {
 
       res.status(201).json(result.post);
     } catch (err: any) {
-      console.error("[socialsync] Regenerate post error:", err.message);
+      log.error("[socialsync] Regenerate post error:", err.message);
       res.status(500).json({ error: "Failed to regenerate post" });
     }
   });
@@ -466,7 +469,7 @@ export function registerSocialSyncRoutes(app: Express): void {
 
       res.json(topic);
     } catch (err: any) {
-      console.error("[socialsync] Update topic status error:", err.message);
+      log.error("[socialsync] Update topic status error:", err.message);
       res.status(500).json({ error: "Failed to update topic status" });
     }
   });
@@ -496,7 +499,7 @@ export function registerSocialSyncRoutes(app: Express): void {
 
       res.json(post);
     } catch (err: any) {
-      console.error("[socialsync] Update post status error:", err.message);
+      log.error("[socialsync] Update post status error:", err.message);
       res.status(500).json({ error: "Failed to update post status" });
     }
   });
@@ -516,7 +519,7 @@ export function registerSocialSyncRoutes(app: Express): void {
 
       res.json({ ok: true });
     } catch (err: any) {
-      console.error("[socialsync] Retry queue item error:", err.message);
+      log.error("[socialsync] Retry queue item error:", err.message);
       res.status(500).json({ error: "Failed to retry queue item" });
     }
   });
@@ -578,7 +581,7 @@ export function registerSocialSyncRoutes(app: Express): void {
         } : null,
       });
     } catch (err: any) {
-      console.error("[socialsync] Summary error:", err.message);
+      log.error("[socialsync] Summary error:", err.message);
       res.status(500).json({ error: "Failed to load summary" });
     }
   });
@@ -612,7 +615,7 @@ export function registerSocialSyncRoutes(app: Express): void {
         items: calendarItems,
       });
     } catch (err: any) {
-      console.error("[socialsync] Calendar feed error:", err.message);
+      log.error("[socialsync] Calendar feed error:", err.message);
       res.status(500).json({ error: "Failed to load calendar feed" });
     }
   });
@@ -636,7 +639,7 @@ export function registerSocialSyncRoutes(app: Express): void {
       const url = buildFacebookOAuthUrl(clientId);
       res.json({ url });
     } catch (err: any) {
-      console.error("[socialsync] Facebook connect URL error:", err.message);
+      log.error("[socialsync] Facebook connect URL error:", err.message);
       res.status(500).json({ error: "Failed to generate Facebook connect URL" });
     }
   });
@@ -647,7 +650,7 @@ export function registerSocialSyncRoutes(app: Express): void {
       const { code, state, error: oauthError, error_description } = req.query;
 
       if (oauthError) {
-        console.error("[socialsync] Facebook OAuth denied:", oauthError, error_description);
+        log.error("[socialsync] Facebook OAuth denied:", { arg0: oauthError, error: String(error_description) });
         return res.redirect(`/admin/crm/clients?fb_error=${encodeURIComponent(String(error_description || oauthError))}`);
       }
 
@@ -670,7 +673,7 @@ export function registerSocialSyncRoutes(app: Express): void {
       // Redirect back to the client's SocialSync tab
       res.redirect(`/admin/crm/clients/${clientId}?tab=socialsync&fb_connected=1&pages=${result.pages.length}`);
     } catch (err: any) {
-      console.error("[socialsync] Facebook callback error:", err.message);
+      log.error("[socialsync] Facebook callback error:", err.message);
       res.redirect(`/admin/crm/clients?fb_error=${encodeURIComponent(err.message)}`);
     }
   });
@@ -705,7 +708,7 @@ export function registerSocialSyncRoutes(app: Express): void {
         external_page_id: fbConn.external_page_id,
       });
     } catch (err: any) {
-      console.error("[socialsync] Facebook pages error:", err.message);
+      log.error("[socialsync] Facebook pages error:", err.message);
       res.status(500).json({ error: "Failed to load Facebook pages" });
     }
   });
@@ -724,7 +727,7 @@ export function registerSocialSyncRoutes(app: Express): void {
       await selectFacebookPage(clientId, page_id);
       res.json({ ok: true, page_id });
     } catch (err: any) {
-      console.error("[socialsync] Facebook select page error:", err.message);
+      log.error("[socialsync] Facebook select page error:", err.message);
       res.status(500).json({ error: err.message || "Failed to select Facebook page" });
     }
   });
@@ -738,7 +741,7 @@ export function registerSocialSyncRoutes(app: Express): void {
       const result = await validateFacebookConnection(clientId);
       res.json(result);
     } catch (err: any) {
-      console.error("[socialsync] Facebook validate error:", err.message);
+      log.error("[socialsync] Facebook validate error:", err.message);
       res.status(500).json({ error: "Failed to validate Facebook connection" });
     }
   });
@@ -771,7 +774,7 @@ export function registerSocialSyncRoutes(app: Express): void {
         last_error: metadata.last_error || null,
       });
     } catch (err: any) {
-      console.error("[socialsync] Facebook status error:", err.message);
+      log.error("[socialsync] Facebook status error:", err.message);
       res.status(500).json({ error: "Failed to load Facebook status" });
     }
   });
@@ -807,7 +810,7 @@ export function registerSocialSyncRoutes(app: Express): void {
         connection_status: igConn?.connection_status || "not_connected",
       });
     } catch (err: any) {
-      console.error("[socialsync] Instagram accounts error:", err.message);
+      log.error("[socialsync] Instagram accounts error:", err.message);
       res.status(500).json({ error: "Failed to load Instagram accounts" });
     }
   });
@@ -826,7 +829,7 @@ export function registerSocialSyncRoutes(app: Express): void {
       await selectInstagramAccount(clientId, account_id);
       res.json({ ok: true, account_id });
     } catch (err: any) {
-      console.error("[socialsync] Instagram select account error:", err.message);
+      log.error("[socialsync] Instagram select account error:", err.message);
       res.status(500).json({ error: err.message || "Failed to select Instagram account" });
     }
   });
@@ -840,7 +843,7 @@ export function registerSocialSyncRoutes(app: Express): void {
       const result = await validateInstagramConnection(clientId);
       res.json(result);
     } catch (err: any) {
-      console.error("[socialsync] Instagram validate error:", err.message);
+      log.error("[socialsync] Instagram validate error:", err.message);
       res.status(500).json({ error: "Failed to validate Instagram connection" });
     }
   });
@@ -875,7 +878,7 @@ export function registerSocialSyncRoutes(app: Express): void {
         last_error: metadata.last_error || null,
       });
     } catch (err: any) {
-      console.error("[socialsync] Instagram status error:", err.message);
+      log.error("[socialsync] Instagram status error:", err.message);
       res.status(500).json({ error: "Failed to load Instagram status" });
     }
   });
@@ -892,7 +895,7 @@ export function registerSocialSyncRoutes(app: Express): void {
       if (!result.ok) return res.status(400).json({ error: result.error });
       res.json({ ok: true });
     } catch (err: any) {
-      console.error("[socialsync] Facebook disconnect error:", err.message);
+      log.error("[socialsync] Facebook disconnect error:", err.message);
       res.status(500).json({ error: "Failed to disconnect Facebook" });
     }
   });
@@ -907,7 +910,7 @@ export function registerSocialSyncRoutes(app: Express): void {
       if (!result.ok) return res.status(400).json({ error: result.error });
       res.json({ ok: true });
     } catch (err: any) {
-      console.error("[socialsync] Instagram disconnect error:", err.message);
+      log.error("[socialsync] Instagram disconnect error:", err.message);
       res.status(500).json({ error: "Failed to disconnect Instagram" });
     }
   });
@@ -918,7 +921,7 @@ export function registerSocialSyncRoutes(app: Express): void {
       const result = await checkConnectionExpiry();
       res.json(result);
     } catch (err: any) {
-      console.error("[socialsync] Expiry check error:", err.message);
+      log.error("[socialsync] Expiry check error:", err.message);
       res.status(500).json({ error: "Failed to check connection expiry" });
     }
   });
@@ -954,7 +957,7 @@ export function registerSocialSyncRoutes(app: Express): void {
         error: result.error || null,
       });
     } catch (err: any) {
-      console.error("[socialsync] Prepare media error:", err.message);
+      log.error("[socialsync] Prepare media error:", err.message);
       res.status(500).json({ error: "Failed to prepare media" });
     }
   });
@@ -1126,7 +1129,7 @@ export function registerSocialSyncRoutes(app: Express): void {
         }),
       });
     } catch (err: any) {
-      console.error("[socialsync] Ops overview error:", err.message);
+      log.error("[socialsync] Ops overview error:", err.message);
       res.status(500).json({ error: "Failed to load operations overview" });
     }
   });
@@ -1142,7 +1145,7 @@ export function registerSocialSyncRoutes(app: Express): void {
       const cooldowns = await getCooldownSummary(clientId);
       res.json({ client_id: clientId, platforms: cooldowns });
     } catch (err: any) {
-      console.error("[socialsync] Health check error:", err.message);
+      log.error("[socialsync] Health check error:", err.message);
       res.status(500).json({ error: "Failed to load health state" });
     }
   });
@@ -1161,7 +1164,7 @@ export function registerSocialSyncRoutes(app: Express): void {
       await clearCooldown(clientId, platform);
       res.json({ ok: true, client_id: clientId, platform });
     } catch (err: any) {
-      console.error("[socialsync] Clear cooldown error:", err.message);
+      log.error("[socialsync] Clear cooldown error:", err.message);
       res.status(500).json({ error: "Failed to clear cooldown" });
     }
   });
@@ -1180,7 +1183,7 @@ export function registerSocialSyncRoutes(app: Express): void {
       const url = buildGoogleOAuthUrl(clientId);
       res.json({ url });
     } catch (err: any) {
-      console.error("[socialsync] Google Business connect URL error:", err.message);
+      log.error("[socialsync] Google Business connect URL error:", err.message);
       res.status(500).json({ error: "Failed to generate connect URL" });
     }
   });
@@ -1208,7 +1211,7 @@ export function registerSocialSyncRoutes(app: Express): void {
       const result = await handleGoogleCallback(clientId, code);
       res.redirect(`/admin/crm/clients/${clientId}?tab=socialsync&gbp_connected=1&locations=${result.locations.length}`);
     } catch (err: any) {
-      console.error("[socialsync] Google Business callback error:", err.message);
+      log.error("[socialsync] Google Business callback error:", err.message);
       res.redirect(`/admin/crm/clients?gbp_error=${encodeURIComponent(err.message)}`);
     }
   });
@@ -1230,7 +1233,7 @@ export function registerSocialSyncRoutes(app: Express): void {
         external_page_id: conn.external_page_id,
       });
     } catch (err: any) {
-      console.error("[socialsync] Google Business locations error:", err.message);
+      log.error("[socialsync] Google Business locations error:", err.message);
       res.status(500).json({ error: "Failed to load locations" });
     }
   });
@@ -1247,7 +1250,7 @@ export function registerSocialSyncRoutes(app: Express): void {
       await selectGoogleLocation(clientId, location_name);
       res.json({ ok: true, location_name });
     } catch (err: any) {
-      console.error("[socialsync] Google Business select location error:", err.message);
+      log.error("[socialsync] Google Business select location error:", err.message);
       res.status(500).json({ error: err.message || "Failed to select location" });
     }
   });
@@ -1261,7 +1264,7 @@ export function registerSocialSyncRoutes(app: Express): void {
       const result = await validateGoogleConnection(clientId);
       res.json(result);
     } catch (err: any) {
-      console.error("[socialsync] Google Business validate error:", err.message);
+      log.error("[socialsync] Google Business validate error:", err.message);
       res.status(500).json({ error: "Failed to validate connection" });
     }
   });
@@ -1276,7 +1279,7 @@ export function registerSocialSyncRoutes(app: Express): void {
       if (!result.ok) return res.status(400).json({ error: result.error });
       res.json({ ok: true });
     } catch (err: any) {
-      console.error("[socialsync] Google Business disconnect error:", err.message);
+      log.error("[socialsync] Google Business disconnect error:", err.message);
       res.status(500).json({ error: "Failed to disconnect" });
     }
   });
@@ -1304,7 +1307,7 @@ export function registerSocialSyncRoutes(app: Express): void {
         last_error: metadata.last_error || null,
       });
     } catch (err: any) {
-      console.error("[socialsync] Google Business status error:", err.message);
+      log.error("[socialsync] Google Business status error:", err.message);
       res.status(500).json({ error: "Failed to load status" });
     }
   });
@@ -1320,7 +1323,7 @@ export function registerSocialSyncRoutes(app: Express): void {
       const result = await syncClientReviews(clientId);
       res.json(result);
     } catch (err: any) {
-      console.error("[socialsync] Review sync error:", err.message);
+      log.error("[socialsync] Review sync error:", err.message);
       res.status(500).json({ error: "Failed to sync reviews" });
     }
   });
@@ -1349,7 +1352,7 @@ export function registerSocialSyncRoutes(app: Express): void {
 
       res.json({ reviews, summary });
     } catch (err: any) {
-      console.error("[socialsync] List reviews error:", err.message);
+      log.error("[socialsync] List reviews error:", err.message);
       res.status(500).json({ error: "Failed to list reviews" });
     }
   });
@@ -1397,7 +1400,7 @@ export function registerSocialSyncRoutes(app: Express): void {
 
       res.json({ ok: true });
     } catch (err: any) {
-      console.error("[socialsync] Approve reply error:", err.message);
+      log.error("[socialsync] Approve reply error:", err.message);
       res.status(500).json({ error: "Failed to post reply" });
     }
   });
@@ -1408,7 +1411,7 @@ export function registerSocialSyncRoutes(app: Express): void {
       const result = await processAllClientReviews();
       res.json(result);
     } catch (err: any) {
-      console.error("[socialsync] Batch review process error:", err.message);
+      log.error("[socialsync] Batch review process error:", err.message);
       res.status(500).json({ error: "Failed to process reviews" });
     }
   });
@@ -1423,7 +1426,7 @@ export function registerSocialSyncRoutes(app: Express): void {
       const data = await getClientProfitability(clientId);
       res.json(data);
     } catch (err: any) {
-      console.error("[socialsync] Profitability error:", err.message);
+      log.error("[socialsync] Profitability error:", err.message);
       res.status(500).json({ error: "Failed to load profitability" });
     }
   });
@@ -1458,7 +1461,7 @@ export function registerSocialSyncRoutes(app: Express): void {
         clients: results.sort((a, b) => (b.margin_pct ?? 0) - (a.margin_pct ?? 0)),
       });
     } catch (err: any) {
-      console.error("[socialsync] Profitability overview error:", err.message);
+      log.error("[socialsync] Profitability overview error:", err.message);
       res.status(500).json({ error: "Failed to load profitability overview" });
     }
   });

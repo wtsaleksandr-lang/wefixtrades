@@ -2,6 +2,9 @@ import type { Express } from "express";
 import { z } from "zod";
 import { storage } from "../storage";
 import { captureIntakeEvent } from "../services/intakeService";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("Leads");
 
 const createLeadBody = z.object({
   calculator_id: z.number().int().positive(),
@@ -49,7 +52,7 @@ async function requireCalcByToken(token: string) {
 async function enqueueLeadNotificationsAndFollowups(lead: any, calculatorId: number) {
   const calc = await storage.getCalculatorById(calculatorId);
   if (!calc) {
-    console.warn(`[leads] Cannot enqueue notifications: calculator ${calculatorId} not found`);
+    log.warn(`[leads] Cannot enqueue notifications: calculator ${calculatorId} not found`);
     return;
   }
 
@@ -216,7 +219,7 @@ export function registerLeadRoutes(app: Express): void {
 
       // Validate quote_amount is a finite number if present
       if (quoteAmount != null && !Number.isFinite(quoteAmount)) {
-        console.warn(`[leads] Non-finite quote_amount=${quoteAmount} for calculator ${parsed.data.calculator_id}, setting to null`);
+        log.warn(`[leads] Non-finite quote_amount=${quoteAmount} for calculator ${parsed.data.calculator_id}, setting to null`);
       }
 
       const safeQuoteAmount = quoteAmount != null && Number.isFinite(quoteAmount) ? quoteAmount : null;
@@ -241,7 +244,7 @@ export function registerLeadRoutes(app: Express): void {
 
       if (parsed.data.coupon_code) {
         storage.incrementCouponUsage(parsed.data.calculator_id, parsed.data.coupon_code).catch(err => {
-          console.error("Failed to increment coupon usage:", err.message);
+          log.error("Failed to increment coupon usage:", err.message);
         });
       }
 
@@ -252,7 +255,7 @@ export function registerLeadRoutes(app: Express): void {
       }).catch(() => {});
 
       enqueueLeadNotificationsAndFollowups(lead, parsed.data.calculator_id).catch(err => {
-        console.error("Failed to enqueue lead notifications:", err.message);
+        log.error("Failed to enqueue lead notifications:", err.message);
       });
 
       captureIntakeEvent({
@@ -269,7 +272,7 @@ export function registerLeadRoutes(app: Express): void {
 
       res.json({ success: true, lead });
     } catch (error: any) {
-      console.error("Create lead error:", error);
+      log.error("Create lead error:", error);
       res.status(500).json({ error: "Failed to submit lead" });
     }
   });
@@ -298,7 +301,7 @@ export function registerLeadRoutes(app: Express): void {
         leads: leadsList,
       });
     } catch (error: any) {
-      console.error("Get leads error:", error);
+      log.error("Get leads error:", error);
       res.status(500).json({ error: "Failed to get leads" });
     }
   });
@@ -352,7 +355,7 @@ export function registerLeadRoutes(app: Express): void {
         },
       });
     } catch (error: any) {
-      console.error("Coupon validate error:", error);
+      log.error("Coupon validate error:", error);
       res.status(500).json({ valid: false, error: 'server_error' });
     }
   });

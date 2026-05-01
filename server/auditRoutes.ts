@@ -26,7 +26,7 @@ function loadCache(): Record<string, { data: any; timestamp: number }> {
       return JSON.parse(raw);
     }
   } catch {
-    console.log("[cache] failed to load, starting fresh");
+    log.info("[cache] failed to load, starting fresh");
   }
   return {};
 }
@@ -35,7 +35,7 @@ function saveCache(cache: Record<string, any>) {
   try {
     fs.writeFileSync(CACHE_FILE, JSON.stringify(cache, null, 2));
   } catch (err) {
-    console.error("[cache] failed to save:", err);
+    log.error("[cache] failed to save:", { error: String(err) });
   }
 }
 
@@ -55,7 +55,7 @@ function setCached(key: string, data: any) {
   const cache = loadCache();
   cache[key] = { data, timestamp: Date.now() };
   saveCache(cache);
-  console.log("[cache] saved:", key);
+  log.info("[cache] saved:", { detail: key });
 }
 
 function requireEnv(name: string): string {
@@ -126,7 +126,7 @@ async function fetchJson(url: string) {
   // Google APIs return HTTP 200 with error status in JSON body
   if (data?.status && data.status !== "OK" && data.status !== "ZERO_RESULTS") {
     const msg = data.error_message || `Google API error: ${data.status}`;
-    console.error("[fetchJson] API status:", data.status, "message:", data.error_message);
+    log.error("[fetchJson] API status:", { arg0: data.status, arg1: "message:", arg2: data.error_message });
     throw new Error(msg);
   }
   return data;
@@ -165,7 +165,7 @@ router.post("/search-places", async (req: Request, res: Response) => {
 
     return res.json({ ok: true, predictions: predictions.slice(0, 5), locationHint });
   } catch (e: any) {
-    console.error("[search-places] EXCEPTION:", e?.message || e);
+    log.error("[search-places] EXCEPTION:", e?.message || e);
     return safeJsonError(res, 500, e?.message || "search-places failed");
   }
 });
@@ -213,7 +213,7 @@ async function searchViaAutocomplete(
     });
 
     if (!r.ok) {
-      console.error("[search-places] Autocomplete HTTP", r.status);
+      log.error("[search-places] Autocomplete HTTP", { detail: r.status });
       return [];
     }
 
@@ -235,7 +235,7 @@ async function searchViaAutocomplete(
         };
       });
   } catch (err: any) {
-    console.error("[search-places] Autocomplete error:", err?.message);
+    log.error("[search-places] Autocomplete error:", err?.message);
     return [];
   }
 }
@@ -278,7 +278,7 @@ async function searchViaTextSearch(
       photoUrl: resolvePhotoUrl(r.photos?.[0]?.photo_reference, key, 400),
     }));
   } catch (err: any) {
-    console.error("[search-places] Text Search fallback error:", err?.message);
+    log.error("[search-places] Text Search fallback error:", err?.message);
     return [];
   }
 }
@@ -541,14 +541,14 @@ function filterToBusinesses(results: any[]): any[] {
 
 router.post("/place-details", async (req: Request, res: Response) => {
   try {
-    console.log("[place-details] Called with body keys:", Object.keys(req.body || {}));
+    log.info("[place-details] Called with body keys:", { detail: Object.keys(req.body || {}) });
     const key = requireEnv("GOOGLE_MAPS_API_KEY");
     let placeId = String(req.body?.placeId || "").trim();
     const queryFallback = String(req.body?.query || "").trim();
 
     // If no placeId provided, try Find Place to resolve it from a text query
     if (!placeId && queryFallback) {
-      console.log("[place-details] No placeId, resolving via Find Place:", queryFallback);
+      log.info("[place-details] No placeId, resolving via Find Place:", { detail: queryFallback });
       const fpParams = new URLSearchParams({
         input: queryFallback,
         inputtype: "textquery",
@@ -559,11 +559,11 @@ router.post("/place-details", async (req: Request, res: Response) => {
       const fpUrl = `https://maps.googleapis.com/maps/api/place/findplacefromtext/json?${fpParams}`;
       const fpData = await fetchJson(fpUrl);
       placeId = fpData?.candidates?.[0]?.place_id || "";
-      console.log("[place-details] Resolved placeId:", placeId);
+      log.info("[place-details] Resolved placeId:", { detail: placeId });
     }
 
     if (!placeId) {
-      console.error("[place-details] ERROR: placeId missing. Full body:", JSON.stringify(req.body));
+      log.error("[place-details] ERROR: placeId missing. Full body:", { detail: JSON.stringify(req.body) });
       return safeJsonError(res, 400, "placeId required");
     }
 
@@ -646,13 +646,13 @@ async function fetchPageSpeed(siteUrl: string, strategy?: "mobile" | "desktop"):
         const resp = await fetch(endpoint, { signal: controller.signal });
         clearTimeout(timeout);
         if (!resp.ok) {
-          console.log(`[pagespeed] ${s} HTTP ${resp.status}`);
+          log.info(`[pagespeed] ${s} HTTP ${resp.status}`);
           return null;
         }
         const data = await resp.json();
         const lhr = data?.lighthouseResult;
         const score01 = lhr?.categories?.performance?.score;
-        if (score01 == null) { console.log('[pagespeed] no performance data'); return null; }
+        if (score01 == null) { log.info('[pagespeed] no performance data'); return null; }
         const score = Math.round(score01 * 100);
         const audits = lhr?.audits || {};
         const numVal = (k: string) => { const v = audits[k]?.numericValue; return typeof v === "number" ? v : null; };
@@ -660,17 +660,17 @@ async function fetchPageSpeed(siteUrl: string, strategy?: "mobile" | "desktop"):
         let screenshotData: string | null = null;
         if (audits?.["full-page-screenshot"]?.details?.screenshot?.data) {
           screenshotData = audits["full-page-screenshot"].details.screenshot.data;
-          console.log('[pagespeed] screenshot: from full-page-screenshot, size:', Math.round(screenshotData!.length / 1024), 'KB');
+          log.info('[pagespeed] screenshot: from full-page-screenshot, size:', { arg0: Math.round(screenshotData!.length / 1024), arg1: 'KB' });
         } else if (audits?.["final-screenshot"]?.details?.data) {
           screenshotData = audits["final-screenshot"].details.data;
-          console.log('[pagespeed] screenshot: from final-screenshot, size:', Math.round(screenshotData!.length / 1024), 'KB');
+          log.info('[pagespeed] screenshot: from final-screenshot, size:', { arg0: Math.round(screenshotData!.length / 1024), arg1: 'KB' });
         } else if (audits?.["screenshot-thumbnails"]?.details?.items?.length) {
           const items = audits["screenshot-thumbnails"].details.items;
           screenshotData = items[items.length - 1]?.data || null;
-          if (screenshotData) console.log('[pagespeed] screenshot: from thumbnails, size:', Math.round(screenshotData.length / 1024), 'KB');
+          if (screenshotData) log.info('[pagespeed] screenshot: from thumbnails, size:', { arg0: Math.round(screenshotData.length / 1024), arg1: 'KB' });
         }
         if (!screenshotData) {
-          console.log('[pagespeed] screenshot: not found in audit keys:', Object.keys(audits).filter(k => k.includes('screenshot')));
+          log.info('[pagespeed] screenshot: not found in audit keys:', { detail: Object.keys(audits).filter(k => k.includes('screenshot')) });
         }
         return {
           score,
@@ -683,9 +683,9 @@ async function fetchPageSpeed(siteUrl: string, strategy?: "mobile" | "desktop"):
       } catch (err: any) {
         clearTimeout(timeout);
         if (err.name === "AbortError") {
-          console.log(`[pagespeed] ${s} timed out after 45s`);
+          log.info(`[pagespeed] ${s} timed out after 45s`);
         } else {
-          console.log(`[pagespeed] ${s} error:`, err.message);
+          log.info(`[pagespeed] ${s} error:`, err.message);
         }
         return null;
       }
@@ -693,7 +693,7 @@ async function fetchPageSpeed(siteUrl: string, strategy?: "mobile" | "desktop"):
 
     let result = await attempt();
     if (!result) {
-      console.log(`[pagespeed] ${s} retrying after 2s...`);
+      log.info(`[pagespeed] ${s} retrying after 2s...`);
       await new Promise(r => setTimeout(r, 2000));
       result = await attempt();
     }
@@ -705,8 +705,8 @@ async function fetchPageSpeed(siteUrl: string, strategy?: "mobile" | "desktop"):
   const [mobileResult, desktopResult] = await Promise.allSettled([run("mobile"), run("desktop")]);
   const mobile = mobileResult.status === 'fulfilled' ? mobileResult.value : null;
   const desktop = desktopResult.status === 'fulfilled' ? desktopResult.value : null;
-  console.log('[pagespeed] mobile score:', mobile?.score ?? 'null');
-  console.log('[pagespeed] desktop score:', desktop?.score ?? 'null');
+  log.info('[pagespeed] mobile score:', { detail: mobile?.score ?? 'null' });
+  log.info('[pagespeed] desktop score:', { detail: desktop?.score ?? 'null' });
   return { mobile, desktop };
 }
 
@@ -724,16 +724,16 @@ router.post("/pagespeed", async (req: Request, res: Response) => {
 /* ─── Background speed test endpoint (called after report is shown) ─── */
 router.get("/speed-test", async (req: Request, res: Response) => {
   res.setTimeout(120000);
-  console.log('[speed-test] starting...');
+  log.info('[speed-test] starting...');
   const start = Date.now();
   try {
     const result = await fetchPageSpeed('https://example.com', 'mobile');
     const elapsed = Date.now() - start;
-    console.log('[speed-test] done in', elapsed + 'ms:', result?.score ?? 'null');
+    log.info('[speed-test] done in', { arg0: elapsed + 'ms:', arg1: result?.score ?? 'null' });
     return res.json({ ok: true, elapsed, score: result?.score ?? null });
   } catch (err: any) {
     const elapsed = Date.now() - start;
-    console.log('[speed-test] error in', elapsed + 'ms:', err.message);
+    log.info('[speed-test] error in', { arg0: elapsed + 'ms:', error: err.message });
     return res.json({ ok: false, elapsed, error: err.message });
   }
 });
@@ -754,7 +754,7 @@ router.post("/speed", async (req: Request, res: Response) => {
         try { const u = new URL(url); return u.origin + u.pathname; } catch { return url; }
       };
       const pageSpeedUrl = cleanUrl(String(website));
-      console.log('[speed-bg] starting for:', pageSpeedUrl);
+      log.info('[speed-bg] starting for:', { detail: pageSpeedUrl });
 
       const [mob, desk] = await Promise.allSettled([
         fetchPageSpeed(pageSpeedUrl, 'mobile'),
@@ -765,19 +765,19 @@ router.post("/speed", async (req: Request, res: Response) => {
       const desktopScore = desk.status === 'fulfilled' ? desk.value : null;
 
       if (!mobileScore) {
-        console.log('[speed-bg] mobile null, retrying...');
+        log.info('[speed-bg] mobile null, retrying...');
         await new Promise(r => setTimeout(r, 3000));
         mobileScore = await fetchPageSpeed(pageSpeedUrl, 'mobile');
       }
 
       const speedData = { mobile: mobileScore, desktop: desktopScore };
-      console.log('[speed-bg] done — mobile:', mobileScore?.score ?? 'null', 'desktop:', desktopScore?.score ?? 'null');
+      log.info('[speed-bg] done — mobile:', { arg0: mobileScore?.score ?? 'null', arg1: 'desktop:', arg2: desktopScore?.score ?? 'null' });
 
       // Get best available screenshot — desktop full-page first, then from existing speed results
       let screenshotBase64: string | null = desktopScore?.screenshot || mobileScore?.screenshot || null;
       // Try a dedicated desktop screenshot fetch for higher resolution if we don't have full-page
       if (!screenshotBase64 || screenshotBase64.length < 50000) {
-        console.log('[speed-bg] attempting high-res screenshot capture...');
+        log.info('[speed-bg] attempting high-res screenshot capture...');
         const hqScreenshot = await captureWebsiteScreenshot(pageSpeedUrl);
         if (hqScreenshot && hqScreenshot.length > (screenshotBase64?.length || 0)) {
           screenshotBase64 = hqScreenshot;
@@ -794,7 +794,7 @@ router.post("/speed", async (req: Request, res: Response) => {
           const trade = reportData?.trade || "general";
           websiteAIAnalysis = await analyzeScreenshot(screenshotBase64, businessName, trade);
         } catch (e: any) {
-          console.error('[speed-bg] screenshot AI failed:', e.message);
+          log.error('[speed-bg] screenshot AI failed:', e.message);
         }
       }
 
@@ -850,15 +850,15 @@ router.post("/speed", async (req: Request, res: Response) => {
           breakdown: { speed: speedPts, htmlChecks: qaPointsCalc, aiVisual: aiVisualPts, mobile: mobileVal ?? null, desktop: desktopVal ?? null },
         },
       };
-      console.log('[speed-bg] recalculated websiteQuality:', newWebsiteScore, '(speed:', speedPts, 'qa:', qaPointsCalc, 'aiVisual:', aiVisualPts, ') total:', newTotal);
+      log.info('[speed-bg] recalculated websiteQuality:', { arg0: newWebsiteScore, arg1: '(speed:', arg2: speedPts, arg3: 'qa:', arg4: qaPointsCalc, arg5: 'aiVisual:', arg6: aiVisualPts, arg7: ') total:', arg8: newTotal });
 
       await db.update(auditReports)
         .set({ audit_data: sql`${auditReports.audit_data} || ${JSON.stringify(mergeData)}::jsonb` })
         .where(eq(auditReports.id, reportId));
 
-      console.log('[speed-bg] saved to DB:', reportId);
+      log.info('[speed-bg] saved to DB:', reportId);
     } catch (err) {
-      console.error('[speed-bg] error:', err);
+      log.error('[speed-bg] error:', { error: String(err) });
     }
   })();
 });
@@ -883,7 +883,7 @@ router.get("/speed/:reportId", async (req: Request, res: Response) => {
       websiteQualityCheckScore: auditData?.websiteQualityCheckScore ?? null,
     });
   } catch (err) {
-    console.error('[speed-poll] error:', err);
+    log.error('[speed-poll] error:', { error: String(err) });
     return safeJsonError(res, 500, "Failed to check speed");
   }
 });
@@ -1034,15 +1034,15 @@ async function pollOutscraper(
         headers: { 'X-API-KEY': process.env.OUTSCRAPER_API_KEY || '' }
       });
       const data = await res.json();
-      console.log('[outscraper] poll status:', data.status, 'results:', data.data?.length || 0);
+      log.info('[outscraper] poll status:', { arg0: data.status, arg1: 'results:', arg2: data.data?.length || 0 });
       if (data.status !== 'Pending' && data.data) {
         return data.data;
       }
     } catch (e) {
-      console.error('[outscraper] poll error:', e);
+      log.error('[outscraper] poll error:', { error: String(e) });
     }
   }
-  console.log('[outscraper] timed out');
+  log.info('[outscraper] timed out');
   return [];
 }
 
@@ -1050,12 +1050,12 @@ async function pollOutscraper(
 async function fetchOutscraperCompetitors(trade: string, city: string, businessName: string, stateCode?: string) {
   const apiKey = process.env.OUTSCRAPER_API_KEY;
   if (!apiKey) {
-    console.warn("[E1 Outscraper competitors] OUTSCRAPER_API_KEY not set, skipping");
+    log.warn("[E1 Outscraper competitors] OUTSCRAPER_API_KEY not set, skipping");
     return null;
   }
   const locationLabel = stateCode ? `${city}, ${stateCode}` : city;
   const competitorQuery = `${trade} near ${locationLabel}`;
-  console.log('[outscraper] query:', competitorQuery);
+  log.info('[outscraper] query:', { detail: competitorQuery });
   const params = new URLSearchParams({
     query: competitorQuery,
     limit: "8",
@@ -1063,7 +1063,7 @@ async function fetchOutscraperCompetitors(trade: string, city: string, businessN
     region: "CA",
   });
   const requestUrl = `https://api.app.outscraper.com/maps/search-v3?${params}`;
-  console.log("[E1 Outscraper competitors] Request URL:", requestUrl);
+  log.info("[E1 Outscraper competitors] Request URL:", { detail: requestUrl });
   let r: globalThis.Response;
   let rawText: string;
   const { signal: e1Signal, clear: e1Clear } = withSignal(20000);
@@ -1074,10 +1074,10 @@ async function fetchOutscraperCompetitors(trade: string, city: string, businessN
       signal: e1Signal,
     });
     rawText = await r.text();
-    console.log("[E1 Outscraper competitors] HTTP status:", r.status);
-    console.log("[E1 Outscraper competitors] Raw response:", rawText.slice(0, 2000));
+    log.info("[E1 Outscraper competitors] HTTP status:", { detail: r.status });
+    log.info("[E1 Outscraper competitors] Raw response:", { detail: rawText.slice(0, 2000) });
   } catch (fetchErr: any) {
-    console.error("[E1 Outscraper competitors] Fetch error:", fetchErr?.message);
+    log.error("[E1 Outscraper competitors] Fetch error:", fetchErr?.message);
     throw fetchErr;
   } finally {
     e1Clear();
@@ -1085,15 +1085,15 @@ async function fetchOutscraperCompetitors(trade: string, city: string, businessN
   let data: any;
   try { data = JSON.parse(rawText); } catch { data = null; }
   if (!r.ok) {
-    console.error("[E1 Outscraper competitors] Non-OK response:", r.status, rawText.slice(0, 500));
+    log.error("[E1 Outscraper competitors] Non-OK response:", { arg0: r.status, arg1: rawText.slice(0, 500) });
   }
   let rawResults = data?.data;
   if (data?.status === 'Pending' && data?.results_location) {
-    console.log('[E1 Outscraper competitors] Got 202 Pending, polling:', data.results_location);
+    log.info('[E1 Outscraper competitors] Got 202 Pending, polling:', data.results_location);
     rawResults = await pollOutscraper(data.results_location);
   }
   const results = Array.isArray(rawResults) ? rawResults.flat() : (Array.isArray(data) ? data.flat() : []);
-  console.log("[E1 Outscraper competitors] Parsed results count:", results.length);
+  log.info("[E1 Outscraper competitors] Parsed results count:", { detail: results.length });
   const competitors = results
     .filter((b: any) => {
       const n = (b.name || "").toLowerCase();
@@ -1133,7 +1133,7 @@ async function fetchOutscraperCompetitors(trade: string, city: string, businessN
 async function fetchOutscraperReviews(placeId: string) {
   const apiKey = process.env.OUTSCRAPER_API_KEY;
   if (!apiKey || !placeId) {
-    console.warn("[E2 Outscraper reviews] Missing apiKey or placeId, skipping");
+    log.warn("[E2 Outscraper reviews] Missing apiKey or placeId, skipping");
     return null;
   }
   const reviewParams = new URLSearchParams({
@@ -1142,7 +1142,7 @@ async function fetchOutscraperReviews(placeId: string) {
     sort: "newest",
   });
   const requestUrl = `https://api.app.outscraper.com/maps/reviews-v3?${reviewParams}`;
-  console.log("[E2 Outscraper reviews] Request URL:", requestUrl);
+  log.info("[E2 Outscraper reviews] Request URL:", { detail: requestUrl });
   let r: globalThis.Response;
   let rawText: string;
   const { signal: e2Signal, clear: e2Clear } = withSignal(20000);
@@ -1153,10 +1153,10 @@ async function fetchOutscraperReviews(placeId: string) {
       signal: e2Signal,
     });
     rawText = await r.text();
-    console.log("[E2 Outscraper reviews] HTTP status:", r.status);
-    console.log("[E2 Outscraper reviews] Raw response:", rawText.slice(0, 2000));
+    log.info("[E2 Outscraper reviews] HTTP status:", { detail: r.status });
+    log.info("[E2 Outscraper reviews] Raw response:", { detail: rawText.slice(0, 2000) });
   } catch (fetchErr: any) {
-    console.error("[E2 Outscraper reviews] Fetch error:", fetchErr?.message);
+    log.error("[E2 Outscraper reviews] Fetch error:", fetchErr?.message);
     throw fetchErr;
   } finally {
     e2Clear();
@@ -1164,15 +1164,15 @@ async function fetchOutscraperReviews(placeId: string) {
   let data: any;
   try { data = JSON.parse(rawText); } catch { data = null; }
   if (!r.ok) {
-    console.error("[E2 Outscraper reviews] Non-OK response:", r.status, rawText.slice(0, 500));
+    log.error("[E2 Outscraper reviews] Non-OK response:", { arg0: r.status, arg1: rawText.slice(0, 500) });
   }
   let rawReviews = data?.data;
   if (data?.status === 'Pending' && data?.results_location) {
-    console.log('[E2 Outscraper reviews] Got 202 Pending, polling:', data.results_location);
+    log.info('[E2 Outscraper reviews] Got 202 Pending, polling:', data.results_location);
     rawReviews = await pollOutscraper(data.results_location);
   }
   const reviews = Array.isArray(rawReviews) ? rawReviews.flat() : (Array.isArray(data) ? data.flat() : []);
-  console.log("[E2 Outscraper reviews] Parsed reviews count:", reviews.length);
+  log.info("[E2 Outscraper reviews] Parsed reviews count:", { detail: reviews.length });
   const reviewTexts: string[] = [];
   const dist: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
   let ownerReplies = 0;
@@ -1208,13 +1208,13 @@ async function fetchSerperRankings(
   const nameFirstWord = nameLC.split(' ')[0];
   const streetNum = (businessAddress || "").toLowerCase().split(',')[0].trim();
   const locationStr = stateCode ? `${city}, ${stateCode}, Canada` : `${city}, Canada`;
-  console.log('[serper] location:', locationStr);
+  log.info('[serper] location:', { detail: locationStr });
 
   const results = await Promise.allSettled(keywords.map(async (kw) => {
     const cacheKey = `serper:${kw.toLowerCase()}:${city.toLowerCase()}`;
     const cachedData = getCached(cacheKey);
     if (cachedData) {
-      console.log('[serper] cache hit:', kw);
+      log.info('[serper] cache hit:', { detail: kw });
       return { keyword: kw, data: cachedData };
     }
 
@@ -1243,13 +1243,13 @@ async function fetchSerperRankings(
         localResults: Array.isArray(mapsData?.places) ? mapsData.places : [],
       };
       setCached(cacheKey, data);
-      console.log('[serper] cached:', kw, '— organic:', (data.organic?.length || 0), 'local:', data.localResults.length);
+      log.info('[serper] cached:', { arg0: kw, arg1: '— organic:', arg2: (data.organic?.length || 0), arg3: 'local:', arg4: data.localResults.length });
       return { keyword: kw, data };
     } finally {
       sClear();
     }
   }));
-  console.log('[serper] cache stats:', Object.keys(loadCache()).length, 'entries cached');
+  log.info('[serper] cache stats:', { arg0: Object.keys(loadCache()).length, arg1: 'entries cached' });
 
   const keywordResults: any[] = [];
   const adCompetitors: any[] = [];
@@ -1281,7 +1281,7 @@ async function fetchSerperRankings(
     });
     const isInLocalPack = localPackIdx >= 0 && localPackIdx < 10;
     const localPackPosition: number | null = isInLocalPack ? localPackIdx + 1 : null;
-    console.log('[serper] local pack:', isInLocalPack, 'position:', localPackPosition, 'of', localResults.length, 'results');
+    log.info('[serper] local pack:', { arg0: isInLocalPack, arg1: 'position:', arg2: localPackPosition, arg3: 'of', arg4: localResults.length, arg5: 'results' });
 
     const status = isInLocalPack
       ? (localPackIdx === 0 ? "dominant" : "strong")
@@ -1311,23 +1311,23 @@ async function fetchDataForSEOVolumes(keywords: string[]) {
   const dfsKey = 'dfs:' + [...keywords].sort().join(',');
   const dfsCached = getCached(dfsKey);
   if (dfsCached) {
-    console.log('[dataforseo] cache hit');
+    log.info('[dataforseo] cache hit');
     return dfsCached;
   }
 
   const login = process.env.DATAFORSEO_LOGIN;
   const password = process.env.DATAFORSEO_PASSWORD;
-  console.log('[dataforseo] login:', login ? 'SET' : 'MISSING');
-  console.log('[dataforseo] password:', password ? 'SET' : 'MISSING');
+  log.info('[dataforseo] login:', { detail: login ? 'SET' : 'MISSING' });
+  log.info('[dataforseo] password:', { detail: password ? 'SET' : 'MISSING' });
   if (!login || !password) {
-    console.log('[dataforseo] SKIPPING — credentials not set');
+    log.info('[dataforseo] SKIPPING — credentials not set');
     return null;
   }
   const auth = Buffer.from(`${login}:${password}`).toString("base64");
   const { signal: e4Signal, clear: e4Clear } = withSignal(15000);
   let data: any;
   try {
-    console.log('[dataforseo] STARTING call with', keywords.length, 'keywords');
+    log.info('[dataforseo] STARTING call with', { arg0: keywords.length, arg1: 'keywords' });
     const r = await fetch("https://api.dataforseo.com/v3/keywords_data/google_ads/search_volume/live", {
       method: "POST",
       headers: { Authorization: `Basic ${auth}`, "Content-Type": "application/json" },
@@ -1335,17 +1335,17 @@ async function fetchDataForSEOVolumes(keywords: string[]) {
       signal: e4Signal,
     });
     const rawText = await r.text();
-    console.log('[dataforseo] raw response:', rawText.slice(0, 500));
+    log.info('[dataforseo] raw response:', { detail: rawText.slice(0, 500) });
     data = JSON.parse(rawText);
   } catch (e: any) {
-    console.error('[dataforseo] CAUGHT ERROR:', e?.message || e);
+    log.error('[dataforseo] CAUGHT ERROR:', e?.message || e);
     return null;
   } finally {
     e4Clear();
   }
-  console.log('[dataforseo] status:', data?.tasks?.[0]?.status_code);
+  log.info('[dataforseo] status:', data?.tasks?.[0]?.status_code);
   const results = data?.tasks?.[0]?.result || [];
-  console.log('[dataforseo] parsed results count:', results.length);
+  log.info('[dataforseo] parsed results count:', results.length);
   const volumeMap: Record<string, { searchVolume: number; cpc: number; competition: number }> = {};
   const normalizeKw = (s: string) => s.toLowerCase().trim().replace(/\s+/g, ' ');
   results.forEach((item: any) => {
@@ -1364,9 +1364,9 @@ async function fetchDataForSEOVolumes(keywords: string[]) {
     const firstWord = norm.split(' ')[0];
     if (firstWord) volumeMap[firstWord] = val;
   });
-  console.log('[dataforseo] volumeMap keys after build:', Object.keys(volumeMap));
+  log.info('[dataforseo] volumeMap keys after build:', { detail: Object.keys(volumeMap) });
   setCached(dfsKey, volumeMap);
-  console.log('[dataforseo] cached:', Object.keys(volumeMap).length, 'volume entries');
+  log.info('[dataforseo] cached:', { arg0: Object.keys(volumeMap).length, arg1: 'volume entries' });
   return volumeMap;
 }
 
@@ -1401,7 +1401,7 @@ async function calculateDemandGaps(
   topKeyword: string, businessHours: string[], trade: string, totalMonthlySearchVolume: number
 ) {
   const weekdayBusiness = 38, weekdayEvening = 31, weekends = 31;
-  console.log("[audit] Using hardcoded demand distribution");
+  log.info("[audit] Using hardcoded demand distribution");
 
   const hoursStr = (businessHours || []).join(" ").toLowerCase();
   const isOpenEvenings = isOpenInEvenings(businessHours || []);
@@ -1524,7 +1524,7 @@ function calculateScores(auditData: any) {
   const websiteScore: number | null = bd.website && !speedDataAvailable && qaScore === null
     ? null
     : Math.min(speedPts + qaPoints + aiVisualPts, 20);
-  console.log('[scoring] websiteQuality:', websiteScore ?? 'null - excluded', '(speed:', speedPts, 'qa:', qaPoints, 'aiVisual:', aiVisualPts, ')');
+  log.info('[scoring] websiteQuality:', { arg0: websiteScore ?? 'null - excluded', arg1: '(speed:', arg2: speedPts, arg3: 'qa:', arg4: qaPoints, arg5: 'aiVisual:', arg6: aiVisualPts, arg7: ')' });
 
   // Search Visibility — 20pts
   // Local pack position-based scoring (stronger differentiation by position):
@@ -1643,15 +1643,15 @@ function calculateScores(auditData: any) {
 
 /* ─── City Extraction ─── */
 function extractCity(business: any): string {
-  console.log("[extractCity] addressComponents:", JSON.stringify(business.addressComponents)?.slice(0, 500));
-  console.log("[extractCity] formattedAddress:", business.formattedAddress || business.address || "(empty)");
+  log.info("[extractCity] addressComponents:", { detail: JSON.stringify(business.addressComponents)?.slice(0, 500) });
+  log.info("[extractCity] formattedAddress:", business.formattedAddress || business.address || "(empty)");
 
   // Try address_components first (most reliable)
   const components = Array.isArray(business.addressComponents) ? business.addressComponents : [];
   for (const comp of components) {
     const types = Array.isArray(comp.types) ? comp.types : [];
     if (types.includes("locality")) {
-      console.log("[extractCity] Found locality from addressComponents:", comp.long_name);
+      log.info("[extractCity] Found locality from addressComponents:", comp.long_name);
       return comp.long_name || "";
     }
   }
@@ -1659,7 +1659,7 @@ function extractCity(business: any): string {
   for (const comp of components) {
     const types = Array.isArray(comp.types) ? comp.types : [];
     if (types.includes("sublocality") || types.includes("sublocality_level_1")) {
-      console.log("[extractCity] Found sublocality from addressComponents:", comp.long_name);
+      log.info("[extractCity] Found sublocality from addressComponents:", comp.long_name);
       return comp.long_name || "";
     }
   }
@@ -1667,7 +1667,7 @@ function extractCity(business: any): string {
   const addr = business.formattedAddress || business.address || "";
   // Pattern: "..., City, XX POSTAL, Country" or "..., City, Province, Country"
   const parts = addr.split(",").map((s: string) => s.trim());
-  console.log("[extractCity] Address parts:", JSON.stringify(parts));
+  log.info("[extractCity] Address parts:", { detail: JSON.stringify(parts) });
   if (parts.length >= 3) {
     for (let i = 1; i < parts.length - 1; i++) {
       const part = parts[i];
@@ -1675,7 +1675,7 @@ function extractCity(business: any): string {
       if (/^[A-Z]{2}\s/.test(part) || /^\d{5}/.test(part)) continue;
       // Skip country names
       if (/^(canada|united states|usa|us)$/i.test(part)) continue;
-      console.log("[extractCity] Extracted city from address string:", part);
+      log.info("[extractCity] Extracted city from address string:", part);
       return part;
     }
   }
@@ -1684,11 +1684,11 @@ function extractCity(business: any): string {
     const firstPart = parts[0];
     // If first part doesn't look like a street address (no numbers at start), use it as city
     if (firstPart && !/^\d/.test(firstPart)) {
-      console.log("[extractCity] Extracted city from 2-part address:", firstPart);
+      log.info("[extractCity] Extracted city from 2-part address:", firstPart);
       return firstPart;
     }
   }
-  console.log("[extractCity] Could not extract city");
+  log.info("[extractCity] Could not extract city");
   return "";
 }
 
@@ -1760,12 +1760,12 @@ const NAME_TRADE_MAP: Record<string, string> = {
 
 function detectTrade(businessName: string, types: string[]): string {
   const haystack = [businessName, ...types].join(" ");
-  console.log(`[detectTrade] businessName: ${businessName}, types: ${JSON.stringify(types)}, haystack: ${haystack}`);
+  log.info(`[detectTrade] businessName: ${businessName}, types: ${JSON.stringify(types)}, haystack: ${haystack}`);
 
   // Step 1: pattern match on combined haystack (name + types)
   for (const { pattern, trade } of TRADE_PATTERNS) {
     if (pattern.test(haystack)) {
-      console.log(`[audit] Detected trade: ${trade} from business name: ${businessName}`);
+      log.info(`[audit] Detected trade: ${trade} from business name: ${businessName}`);
       return trade;
     }
   }
@@ -1791,7 +1791,7 @@ function detectTrade(businessName: string, types: string[]): string {
     }
   }
 
-  console.log(`[trade] final: ${trade} for: ${businessName}`);
+  log.info(`[trade] final: ${trade} for: ${businessName}`);
   return trade;
 }
 
@@ -1800,7 +1800,7 @@ function withApiTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promis
   return Promise.race([
     promise,
     new Promise<T>((resolve) =>
-      setTimeout(() => { console.log(`[anthropic] timeout after ${ms}ms`); resolve(fallback); }, ms)
+      setTimeout(() => { log.info(`[anthropic] timeout after ${ms}ms`); resolve(fallback); }, ms)
     ),
   ]);
 }
@@ -1819,7 +1819,7 @@ async function captureWebsiteScreenshot(url: string): Promise<string | null> {
     const timeout = setTimeout(() => controller.abort(), 45000);
     const resp = await fetch(endpoint, { signal: controller.signal });
     clearTimeout(timeout);
-    if (!resp.ok) { console.log("[screenshot-hq] HTTP", resp.status); return null; }
+    if (!resp.ok) { log.info("[screenshot-hq] HTTP", { detail: resp.status }); return null; }
     const data = await resp.json();
     const lhr = data?.lighthouseResult;
     const audits = lhr?.audits || {};
@@ -1827,19 +1827,19 @@ async function captureWebsiteScreenshot(url: string): Promise<string | null> {
     // full-page-screenshot has much higher resolution than final-screenshot
     if (audits?.["full-page-screenshot"]?.details?.screenshot?.data) {
       const img = audits["full-page-screenshot"].details.screenshot.data as string;
-      console.log("[screenshot-hq] full-page-screenshot, size:", Math.round(img.length / 1024), "KB");
+      log.info("[screenshot-hq] full-page-screenshot, size:", { arg0: Math.round(img.length / 1024), arg1: "KB" });
       return img;
     }
     // final-screenshot is viewport-sized (better than thumbnails)
     if (audits?.["final-screenshot"]?.details?.data) {
       const img = audits["final-screenshot"].details.data as string;
-      console.log("[screenshot-hq] final-screenshot, size:", Math.round(img.length / 1024), "KB");
+      log.info("[screenshot-hq] final-screenshot, size:", { arg0: Math.round(img.length / 1024), arg1: "KB" });
       return img;
     }
-    console.log("[screenshot-hq] no screenshot in response");
+    log.info("[screenshot-hq] no screenshot in response");
     return null;
   } catch (err: any) {
-    console.error("[screenshot-hq] failed:", err.message);
+    log.error("[screenshot-hq] failed:", err.message);
     return null;
   }
 }
@@ -1884,7 +1884,7 @@ async function analyzeScreenshot(
     const clean = text.replace(/```json|```/g, "").trim();
     return JSON.parse(clean);
   } catch (err: any) {
-    console.error("[screenshot-ai] error:", err.message);
+    log.error("[screenshot-ai] error:", err.message);
     return null;
   }
 }
@@ -1917,7 +1917,7 @@ async function analyzeWebsiteQuality(url: string): Promise<{
       try { const p = new URL(u); return p.origin + p.pathname; } catch { return u; }
     };
     const fetchUrl = cleanUrl(url);
-    console.log("[website-qa] fetching:", fetchUrl);
+    log.info("[website-qa] fetching:", { detail: fetchUrl });
 
     const res = await fetch(fetchUrl, {
       signal: AbortSignal.timeout(15000),
@@ -1993,9 +1993,9 @@ async function analyzeWebsiteQuality(url: string): Promise<{
     ];
     checks.hasLiveChatWidget = chatWidgetIndicators.some(Boolean);
 
-    console.log("[website-qa] checks:", checks);
+    log.info("[website-qa] checks:", checks);
   } catch (err: any) {
-    console.error("[website-qa] error:", err.message);
+    log.error("[website-qa] error:", err.message);
   }
 
   const weights: Record<string, number> = {
@@ -2098,11 +2098,11 @@ router.post("/generate", async (req: Request, res: Response) => {
         if (existing.length > 0) {
           const cached = existing[0];
           const ageMin = Math.round((Date.now() - new Date(cached.created_at!).getTime()) / 60000);
-          console.log('[audit] returning cached report:', cached.id, 'age:', ageMin + 'min');
+          log.info('[audit] returning cached report:', { arg0: cached.id, arg1: 'age:', arg2: ageMin + 'min' });
           return res.json({ ok: true, report_json: cached.audit_data, reportId: cached.id, fromCache: true });
         }
       } catch (err) {
-        console.error('[audit] cache check failed:', err);
+        log.error('[audit] cache check failed:', { error: String(err) });
       }
     }
 
@@ -2135,17 +2135,17 @@ router.post("/generate", async (req: Request, res: Response) => {
             if (!business.description && result.editorial_summary?.text) {
               business.description = result.editorial_summary.text;
             }
-            console.log('[audit] enriched from Places API — hours:', business.hours?.length, 'types:', business.types?.length);
+            log.info('[audit] enriched from Places API — hours:', { arg0: business.hours?.length, arg1: 'types:', arg2: business.types?.length });
           }
         } catch (err: any) {
-          console.error('[audit] Places enrichment failed:', err?.message);
+          log.error('[audit] Places enrichment failed:', err?.message);
         }
       }
     }
 
     // Extract city from place details if not provided by client
     const city = String(req.body?.city || "").trim() || extractCity(business);
-    console.log("[audit] Resolved city:", JSON.stringify(city));
+    log.info("[audit] Resolved city:", { detail: JSON.stringify(city) });
     // Extract state/province short code for more precise geo queries (e.g. "ON", "CA", "TX")
     const stateCode = (() => {
       const comps = Array.isArray(business.addressComponents) ? business.addressComponents : [];
@@ -2162,9 +2162,9 @@ router.post("/generate", async (req: Request, res: Response) => {
     const tradeOverride = String(req.body?.tradeOverride || "").trim();
     if (tradeOverride && tradeOverride !== "general") {
       trade = tradeOverride;
-      console.log('[trade] using override:', trade);
+      log.info('[trade] using override:', { detail: trade });
     }
-    console.log("[trade] final:", trade, "for:", business.name);
+    log.info("[trade] final:", { arg0: trade, arg1: "for:", arg2: business.name });
 
     const rating = typeof business.rating === "number" ? business.rating : null;
     const reviewsCount = typeof business.reviewsCount === "number" ? business.reviewsCount : 0;
@@ -2178,30 +2178,30 @@ router.post("/generate", async (req: Request, res: Response) => {
       Array.isArray(business.types) ? business.types : [],
       business.description || null,
     );
-    console.log('[niche] inferred:', JSON.stringify(businessNiche));
+    log.info('[niche] inferred:', { detail: JSON.stringify(businessNiche) });
 
     // ─── Build seed keywords (niche-aware) ───
     const seedKeywords = buildNicheKeywords(trade, city, businessNiche, business.name || '');
-    console.log('[keywords] niche-aware seeds:', seedKeywords);
+    log.info('[keywords] niche-aware seeds:', { detail: seedKeywords });
 
     // ─── Run Serper first so we can use its returned keywords as DataForSEO seeds ───
     let serperData: any = null;
     try {
       serperData = await fetchSerperRankings(seedKeywords, website, business.name, city, stateCode || undefined, business.formattedAddress || business.address || undefined);
     } catch (e: any) {
-      console.error("E3 Serper rankings failed:", e?.message);
+      log.error("E3 Serper rankings failed:", e?.message);
     }
     const serperKeywords = (serperData?.keywords || []).map((k: any) => k.keyword).filter(Boolean);
     const dataForSEOSeeds = serperKeywords.length > 0 ? serperKeywords : seedKeywords;
-    console.log('[dataforseo] seeds from serper:', dataForSEOSeeds);
-    console.log('[dataforseo] PRE-CALL seeds:', dataForSEOSeeds?.length, dataForSEOSeeds?.[0]);
+    log.info('[dataforseo] seeds from serper:', dataForSEOSeeds);
+    log.info('[dataforseo] PRE-CALL seeds:', { arg0: dataForSEOSeeds?.length, arg1: dataForSEOSeeds?.[0] });
 
     // Strip query params from website URL before passing to PageSpeed
     const cleanUrl = (url: string) => {
       try { const u = new URL(url); return u.origin + u.pathname; } catch { return url; }
     };
     const pageSpeedUrl = website ? cleanUrl(website) : "";
-    if (pageSpeedUrl !== website) console.log('[pagespeed] cleaned URL:', pageSpeedUrl);
+    if (pageSpeedUrl !== website) log.info('[pagespeed] cleaned URL:', { detail: pageSpeedUrl });
 
     // ─── Run remaining external data fetches in parallel ───
     const [compResult, reviewResult, dataForSEOResult, websiteQaResult] = await Promise.allSettled([
@@ -2210,20 +2210,20 @@ router.post("/generate", async (req: Request, res: Response) => {
       fetchDataForSEOVolumes(dataForSEOSeeds),
       website ? analyzeWebsiteQuality(website) : Promise.resolve(null),
     ]);
-    console.log('[dataforseo] POST-ALLSETTLED status:', dataForSEOResult?.status, 'value type:', typeof (dataForSEOResult as any)?.value);
+    log.info('[dataforseo] POST-ALLSETTLED status:', { arg0: dataForSEOResult?.status, arg1: 'value type:', arg2: typeof (dataForSEOResult as any)?.value });
 
     // ─── Extract results (null on failure) ───
     const compData = compResult.status === "fulfilled" ? compResult.value : null;
-    if (compResult.status === "rejected") console.error("E1 Outscraper competitors failed:", (compResult as any).reason?.message);
+    if (compResult.status === "rejected") log.error("E1 Outscraper competitors failed:", (compResult as any).reason?.message);
 
     const reviewData = reviewResult.status === "fulfilled" ? reviewResult.value : null;
-    if (reviewResult.status === "rejected") console.error("E2 Outscraper reviews failed:", (reviewResult as any).reason?.message);
+    if (reviewResult.status === "rejected") log.error("E2 Outscraper reviews failed:", (reviewResult as any).reason?.message);
 
     const volumeMap = dataForSEOResult.status === "fulfilled" ? dataForSEOResult.value : null;
-    if (dataForSEOResult.status === "rejected") console.error("E4 DataForSEO volumes failed:", (dataForSEOResult as any).reason?.message);
+    if (dataForSEOResult.status === "rejected") log.error("E4 DataForSEO volumes failed:", (dataForSEOResult as any).reason?.message);
 
     const websiteQaData = websiteQaResult.status === "fulfilled" ? websiteQaResult.value : null;
-    if (websiteQaResult.status === "rejected") console.error("Website QA failed:", (websiteQaResult as any).reason?.message);
+    if (websiteQaResult.status === "rejected") log.error("Website QA failed:", (websiteQaResult as any).reason?.message);
 
     // PageSpeed runs separately in /api/audit/speed after report is returned to client
     const resolvedSpeedData: { mobile: any; desktop: any } = { mobile: null, desktop: null };
@@ -2273,10 +2273,9 @@ router.post("/generate", async (req: Request, res: Response) => {
     for (const kw of keywords) {
       kw.relevance = scoreKeywordRelevance(kw.keyword, trade, businessNiche);
     }
-    console.log('[keywords] after dedup + relevance:', keywords.map((k: any) => `${k.keyword} (${k.relevance})`));
+    log.info('[keywords] after dedup + relevance:', keywords.map((k: any) => `${k.keyword} (${k.relevance})`));
     if (keywords.length > 0 && volumeMap) {
-      console.log('[dataforseo] first keyword lookup attempt:', keywords[0]?.keyword,
-        '→', volumeMap[keywords[0]?.keyword?.toLowerCase()?.trim()]);
+      log.info('[dataforseo] first keyword lookup attempt', { keyword: keywords[0]?.keyword, volume: volumeMap[keywords[0]?.keyword?.toLowerCase()?.trim()] });
     }
     const averageCPC = keywords.length > 0 ? +(cpcSum / keywords.length).toFixed(2) : 0;
 
@@ -2303,7 +2302,7 @@ router.post("/generate", async (req: Request, res: Response) => {
         highestVolumeKeyword, business.hours || [], trade, totalMonthlySearchVolume
       );
     } catch (err: any) {
-      console.error("E5 Demand gap failed:", err?.message);
+      log.error("E5 Demand gap failed:", err?.message);
     }
 
     // ─── Build auditData for scoring + AI ───
@@ -2380,13 +2379,13 @@ router.post("/generate", async (req: Request, res: Response) => {
     auditData.keywordCoverage = scores.keywordCoverage;
 
     // ─── Issue detection → service recommendations ───
-    console.log('[audit] scores at detection:', JSON.stringify(scores, null, 2));
-    console.log('[audit] business at detection:', JSON.stringify({
+    log.info('[audit] scores at detection:', { detail: JSON.stringify(scores, null, 2) });
+    log.info('[audit] business at detection', {
       website: auditData.business?.website,
       reviewsCount: auditData.business?.reviewsCount,
       rating: auditData.business?.rating,
       description: auditData.business?.description
-    }));
+    });
     const detectedIssues: string[] = [];
     if (!auditData.business?.website) detectedIssues.push("no-website");
     if (!auditData.business?.description) detectedIssues.push("no-gbp-description");
@@ -2405,8 +2404,8 @@ router.post("/generate", async (req: Request, res: Response) => {
     const recommendedServices = getServicesForIssues(dedupedIssues);
     auditData.detectedIssues = dedupedIssues;
     auditData.recommendedServices = recommendedServices;
-    console.log('[audit] FINAL detectedIssues:', auditData.detectedIssues);
-    console.log('[audit] scores used:', JSON.stringify(auditData.scores));
+    log.info('[audit] FINAL detectedIssues:', auditData.detectedIssues);
+    log.info('[audit] scores used:', { detail: JSON.stringify(auditData.scores) });
 
     // ─── Legacy fields for backward compatibility ───
     const issues: Array<{ title: string; severity: "High" | "Medium"; impact: string; fix: string }> = [];
@@ -2418,8 +2417,8 @@ router.post("/generate", async (req: Request, res: Response) => {
     auditData.issues = issues;
 
     // Log full auditData for debugging
-    console.log("═══ AUDIT DATA (before AI) ═══");
-    console.log(JSON.stringify(auditData, null, 2));
+    log.info("═══ AUDIT DATA (before AI) ═══");
+    log.info(JSON.stringify(auditData, null, 2));
 
     // ─── AI Narrative (Anthropic Claude — Part F prompt) ───
     try {
@@ -2613,13 +2612,13 @@ ${JSON.stringify(auditData, null, 2)}`;
           null as any
         );
         if (!message) {
-          console.error("[audit] narrative generation timed out after 90s");
+          log.error("[audit] narrative generation timed out after 90s");
           auditData.narrative = { summary: "", analysis: "", recommendations: [], actionPlan: [], quickWin: null };
         } else {
 
         const raw = message.content?.[0]?.type === "text" ? message.content[0].text : "";
-        console.log("═══ CLAUDE RESPONSE ═══");
-        console.log(raw);
+        log.info("═══ CLAUDE RESPONSE ═══");
+        log.info(raw);
         try {
           // Strip markdown fences and any surrounding text, extract JSON object
           let cleaned = raw.replace(/^```json?\s*/i, "").replace(/```\s*$/, "").trim();
@@ -2633,9 +2632,9 @@ ${JSON.stringify(auditData, null, 2)}`;
           }
           const parsed = JSON.parse(cleaned);
           auditData.narrative = parsed;
-          console.log("[audit] narrative parsed OK, keys:", Object.keys(parsed));
+          log.info("[audit] narrative parsed OK, keys:", { detail: Object.keys(parsed) });
         } catch (parseErr: any) {
-          console.error("[audit] narrative JSON parse failed:", parseErr?.message);
+          log.error("[audit] narrative JSON parse failed:", parseErr?.message);
           // Try to salvage truncated JSON by closing open braces/brackets
           try {
             let salvaged = raw.replace(/^```json?\s*/i, "").replace(/```\s*$/, "").trim();
@@ -2660,7 +2659,7 @@ ${JSON.stringify(auditData, null, 2)}`;
             while (openBraces > 0) { salvaged += "}"; openBraces--; }
             const parsed2 = JSON.parse(salvaged);
             auditData.narrative = parsed2;
-            console.log("[audit] narrative salvaged OK, keys:", Object.keys(parsed2));
+            log.info("[audit] narrative salvaged OK, keys:", { detail: Object.keys(parsed2) });
           } catch {
             auditData.narrative = { summary: raw, analysis: "", recommendations: "" };
           }
@@ -2668,7 +2667,7 @@ ${JSON.stringify(auditData, null, 2)}`;
         } // close else (message exists)
       }
     } catch (aiErr: any) {
-      console.error("AI narrative generation failed:", aiErr?.message);
+      log.error("AI narrative generation failed:", aiErr?.message);
     }
 
     // ─── Inject DataForSEO volumes into contentGaps ───
@@ -2682,7 +2681,7 @@ ${JSON.stringify(auditData, null, 2)}`;
           cpc: gap.cpc || vol?.cpc || null,
         };
       });
-      console.log('[audit] contentGaps enriched with volume data');
+      log.info('[audit] contentGaps enriched with volume data');
     }
 
     // ─── Save report to database ───
@@ -2695,16 +2694,16 @@ ${JSON.stringify(auditData, null, 2)}`;
         ai_narrative: auditData.narrative || null,
       }).returning({ id: auditReports.id });
       reportId = saved.id;
-      console.log(`[audit] Report saved: ${reportId}`);
+      log.info(`[audit] Report saved: ${reportId}`);
     } catch (dbErr: any) {
-      console.error("[audit] Failed to save report:", dbErr?.message);
+      log.error("[audit] Failed to save report:", dbErr?.message);
     }
 
     const elapsed = Date.now() - startTime;
-    console.log(`═══ AUDIT COMPLETE in ${elapsed}ms ═══`);
+    log.info(`═══ AUDIT COMPLETE in ${elapsed}ms ═══`);
 
-    console.log('[audit] FINAL detectedIssues:', detectedIssues);
-    console.log('[audit] FINAL recommended:', recommendedServices?.length || 0);
+    log.info('[audit] FINAL detectedIssues:', { detail: detectedIssues });
+    log.info('[audit] FINAL recommended:', { detail: recommendedServices?.length || 0 });
     return res.json({ ok: true, report_json: auditData, reportId });
   } catch (e: any) {
     return safeJsonError(res, 500, e?.message || "generate failed");
@@ -2790,7 +2789,7 @@ router.post("/chat", async (req: Request, res: Response) => {
     res.end();
     onComplete(fullReply).catch(() => {});
   } catch (e: any) {
-    console.error("[audit/chat] Error:", e?.message);
+    log.error("[audit/chat] Error:", e?.message);
     if (!res.headersSent) {
       return safeJsonError(res, 500, e?.message || "Chat failed");
     }
@@ -2841,7 +2840,7 @@ router.post('/save-lead', async (req: Request, res: Response) => {
         import("./lib/sendAuditReport").then(({ sendAuditReportEmail }) => {
           const origin = process.env.APP_URL || `${req.protocol}://${req.get("host")}`;
           sendAuditReportEmail({ reportId, recipientEmail: email.trim(), origin }).catch((err) => {
-            console.error("[audit-lead] PDF email error:", err?.message);
+            log.error("[audit-lead] PDF email error:", err?.message);
           });
         });
       }
@@ -2858,13 +2857,13 @@ router.post('/save-lead', async (req: Request, res: Response) => {
       city: city || "your area",
       recommendedServices: recommendedServices || [],
     }).catch((err) => {
-      console.error("[audit-lead] Followup enqueue error:", err?.message);
+      log.error("[audit-lead] Followup enqueue error:", err?.message);
     });
 
-    console.log("[audit-lead] Saved submission", submission.id, email, businessName, score);
+    log.info("[audit-lead] Saved submission", { arg0: submission.id, arg1: email, arg2: businessName, arg3: score });
     return res.json({ ok: true, submissionId: submission.id });
   } catch (err: any) {
-    console.error("[audit-lead] error:", err?.message);
+    log.error("[audit-lead] error:", err?.message);
     return res.status(500).json({ error: "Failed to save lead" });
   }
 });
@@ -2920,10 +2919,10 @@ router.post("/report/:id/send-email", async (req: Request, res: Response) => {
       return safeJsonError(res, result.error === "Report not found" ? 404 : 500, result.error || "Failed to send");
     }
 
-    console.log(`[audit-email] Sent report ${id} to ${emailTrimmed}`);
+    log.info(`[audit-email] Sent report ${id} to ${emailTrimmed}`);
     return res.json({ ok: true });
   } catch (err: any) {
-    console.error("[audit-email] Error:", err?.message);
+    log.error("[audit-email] Error:", err?.message);
     return safeJsonError(res, 500, "Failed to send email");
   }
 });
@@ -2932,7 +2931,7 @@ router.post("/report/:id/send-email", async (req: Request, res: Response) => {
 import { generateReportPdf } from "./lib/pdfGenerator";
 
 router.get("/report/:id/pdf", async (req: Request, res: Response) => {
-  console.log(`[audit-pdf] Route matched: ${req.method} ${req.originalUrl}`);
+  log.info(`[audit-pdf] Route matched: ${req.method} ${req.originalUrl}`);
 
   try {
     const id = String(req.params.id || "").trim();
@@ -2940,12 +2939,12 @@ router.get("/report/:id/pdf", async (req: Request, res: Response) => {
       return res.status(400).json({ ok: false, error: "Report ID required" });
     }
 
-    console.log(`[audit-pdf] Generating PDF for report ${id}`);
+    log.info(`[audit-pdf] Generating PDF for report ${id}`);
     const origin = `${req.protocol}://${req.get("host")}`;
     const result = await generateReportPdf(id, origin);
 
     if (!result.ok) {
-      console.error(`[audit-pdf] Generation failed for ${id}: ${result.error}`);
+      log.error(`[audit-pdf] Generation failed for ${id}: ${result.error}`);
       const status = result.error === "Report not found" ? 404 : 500;
       return res.status(status).json({ ok: false, error: result.error });
     }
@@ -2953,11 +2952,11 @@ router.get("/report/:id/pdf", async (req: Request, res: Response) => {
     // Final safety: verify the buffer is actual PDF bytes
     const sig = result.buffer.slice(0, 5).toString("ascii");
     if (sig !== "%PDF-") {
-      console.error(`[audit-pdf] CRITICAL: buffer is not PDF! sig="${sig}", len=${result.buffer.length}`);
+      log.error(`[audit-pdf] CRITICAL: buffer is not PDF! sig="${sig}", len=${result.buffer.length}`);
       return res.status(500).json({ ok: false, error: "Generated content is not a valid PDF" });
     }
 
-    console.log(`[audit-pdf] Sending ${result.buffer.length} bytes, sig="${sig}", file="${result.filename}"`);
+    log.info(`[audit-pdf] Sending ${result.buffer.length} bytes, sig="${sig}", file="${result.filename}"`);
 
     const inline = req.query.inline === "true";
     const disposition = inline ? "inline" : "attachment";
@@ -2973,7 +2972,7 @@ router.get("/report/:id/pdf", async (req: Request, res: Response) => {
       })
       .end(result.buffer);
   } catch (err: any) {
-    console.error("[audit-pdf] Unhandled error:", err?.message, err?.stack?.slice(0, 300));
+    log.error("[audit-pdf] Unhandled error", { error: err?.message, stack: String(err?.stack?.slice(0, 300)) });
     if (!res.headersSent) {
       return res.status(500).json({ ok: false, error: "PDF generation failed" });
     }
@@ -2982,6 +2981,9 @@ router.get("/report/:id/pdf", async (req: Request, res: Response) => {
 
 /* ─── GET /report/:id/rankflow-recommendation ─── */
 import { recommendRankFlowTier } from "./services/rankflow/auditConversion";
+import { createLogger } from "./lib/logger";
+
+const log = createLogger("AuditRoutes");
 
 router.get("/report/:id/rankflow-recommendation", async (req: Request, res: Response) => {
   try {

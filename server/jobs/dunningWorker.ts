@@ -24,6 +24,9 @@
  */
 
 import { listDuePending, sendDunningRow } from "../services/dunningService";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("DunningWorker");
 
 interface DunningWorkerResult {
   processed: number;
@@ -56,7 +59,7 @@ export async function processDunningQueue(): Promise<DunningWorkerResult> {
 
   if (due.length === 0) return result;
 
-  console.log(`[dunning-worker] Draining ${due.length} due row(s)...`);
+  log.info(`[dunning-worker] Draining ${due.length} due row(s)...`);
 
   for (const row of due) {
     result.processed++;
@@ -80,7 +83,7 @@ export async function processDunningQueue(): Promise<DunningWorkerResult> {
     }
   }
 
-  console.log(
+  log.info(
     `[dunning-worker] Complete: ${result.sent} sent, ${result.skipped} skipped, ${result.failed} failed (${result.processed} total)`,
   );
 

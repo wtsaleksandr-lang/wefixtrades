@@ -6,6 +6,9 @@ import {
   buildImmediateResultsEmail,
 } from "../lib/missedCallFollowup";
 import { getEmailTransporter, getFromAddress } from "../lib/emailTransport";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("MissedCallLead");
 
 const rateMap = new Map<string, { count: number; resetAt: number }>();
 const RATE_WINDOW = 10 * 60 * 1000;
@@ -79,13 +82,13 @@ export function registerMissedCallLeadRoutes(app: Express): void {
           html,
           text,
         }).catch((err) => {
-          console.error("[missed-call-lead] Email send error:", err?.message);
+          log.error("[missed-call-lead] Email send error:", err?.message);
         });
       }
 
       // 3. Enqueue follow-up sequence (non-blocking)
       enqueueMissedCallFollowups(ctx).catch((err) => {
-        console.error("[missed-call-lead] Followup enqueue error:", err?.message);
+        log.error("[missed-call-lead] Followup enqueue error:", err?.message);
       });
 
       captureIntakeEvent({
@@ -99,10 +102,10 @@ export function registerMissedCallLeadRoutes(app: Express): void {
         context:       { ipAddress: req.ip, userAgent: req.headers['user-agent'] as string | undefined },
       }).catch(() => {});
 
-      console.log("[missed-call-lead] Saved lead", lead.id, email, trade, estimatedAnnualLoss);
+      log.info("[missed-call-lead] Saved lead", { arg0: lead.id, arg1: email, arg2: trade, arg3: estimatedAnnualLoss });
       return res.json({ ok: true, leadId: lead.id });
     } catch (err: any) {
-      console.error("[missed-call-lead] error:", err?.message);
+      log.error("[missed-call-lead] error:", err?.message);
       return res.status(500).json({ error: "Failed to save lead" });
     }
   });

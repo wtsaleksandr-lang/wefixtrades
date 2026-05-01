@@ -23,6 +23,9 @@ import type { ChatMessage } from "./aiService";
 import { buildSystemPrompt, type TradeLineContext } from "./promptBuilder";
 import { storage } from "../storage";
 import type { TradelineConfig, ClientService, Client } from "@shared/schema";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("VapiService");
 
 /* ─── Vapi Config ─── */
 
@@ -170,7 +173,7 @@ export function verifyWebhookSignature(
   const config = getVapiConfig();
   if (!config.webhookSecret) {
     // No secret configured — skip verification but log a warning
-    console.warn("[vapi] No VAPI_WEBHOOK_SECRET configured — skipping signature verification");
+    log.warn("[vapi] No VAPI_WEBHOOK_SECRET configured — skipping signature verification");
     return true;
   }
 
@@ -317,7 +320,7 @@ export async function resolveTradeLineClient(
 
     return null;
   } catch (err) {
-    console.error("[vapi] TradeLine client resolution failed:", err);
+    log.error("[vapi] TradeLine client resolution failed:", { error: String(err) });
     return null;
   }
 }
@@ -399,7 +402,7 @@ export async function logTradeLineCall(
     const vapiCallId = report.callId !== "unknown" ? report.callId : null;
 
     if (!vapiCallId) {
-      console.warn("[vapi] Call has no vapi_call_id — cannot guarantee idempotency, skipping log");
+      log.warn("[vapi] Call has no vapi_call_id — cannot guarantee idempotency, skipping log");
       return;
     }
 
@@ -419,7 +422,7 @@ export async function logTradeLineCall(
     });
 
     if (!inserted) {
-      console.log(`[vapi] Duplicate call log skipped for vapi_call_id=${report.callId}`);
+      log.info(`[vapi] Duplicate call log skipped for vapi_call_id=${report.callId}`);
       return; // Do NOT increment usage for duplicate webhooks
     }
 
@@ -436,7 +439,7 @@ export async function logTradeLineCall(
       });
     }
   } catch (err) {
-    console.error("[vapi] Failed to log TradeLine call:", err);
+    log.error("[vapi] Failed to log TradeLine call:", { error: String(err) });
   }
 }
 
@@ -553,12 +556,12 @@ export async function upsertVapiAssistant(
       const body = await resp.text();
       // If assistant was deleted externally, fall through to create
       if (resp.status === 404) {
-        console.warn(`[vapi] Assistant ${existingId} not found — will create new`);
+        log.warn(`[vapi] Assistant ${existingId} not found — will create new`);
       } else {
         throw new Error(`Vapi assistant update failed (${resp.status}): ${body}`);
       }
     } else {
-      console.log(`[vapi] Updated assistant ${existingId} for service #${clientServiceId}`);
+      log.info(`[vapi] Updated assistant ${existingId} for service #${clientServiceId}`);
       return { assistantId: existingId, created: false };
     }
   }
@@ -582,7 +585,7 @@ export async function upsertVapiAssistant(
   const newId = data.id;
   if (!newId) throw new Error("Vapi returned no assistant ID");
 
-  console.log(`[vapi] Created assistant ${newId} for service #${clientServiceId}`);
+  log.info(`[vapi] Created assistant ${newId} for service #${clientServiceId}`);
   return { assistantId: newId, created: true };
 }
 
@@ -609,7 +612,7 @@ export async function provisionTradeLineAssistant(
     result = await buildTradeLineAssistant(clientServiceId);
   } catch (err: any) {
     // Build failed — status already set to "failed" inside buildTradeLineAssistant
-    console.error(`[tradeline] Assistant build failed for service #${clientServiceId}:`, err.message);
+    log.error(`[tradeline] Assistant build failed for service #${clientServiceId}:`, err.message);
 
     await storage.logAdminActivity({
       actor_type: "system",
@@ -669,7 +672,7 @@ export async function provisionTradeLineAssistant(
       });
     } catch (err: any) {
       // Vapi push failed — mark assistant as failed
-      console.error(`[vapi] Push to Vapi failed for service #${clientServiceId}:`, err.message);
+      log.error(`[vapi] Push to Vapi failed for service #${clientServiceId}:`, err.message);
       const latestConfig = await storage.getTradeLineConfig(clientServiceId);
       const currentAssistant = latestConfig?.assistant;
       await storage.updateTradeLineConfig(clientServiceId, {
@@ -701,7 +704,7 @@ export async function provisionTradeLineAssistant(
       };
     }
   } else {
-    console.warn("[vapi] VAPI_API_KEY not set — assistant built but not pushed to Vapi");
+    log.warn("[vapi] VAPI_API_KEY not set — assistant built but not pushed to Vapi");
   }
 
   // 3. Log success

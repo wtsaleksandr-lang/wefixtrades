@@ -4,6 +4,9 @@ import { db } from "../db";
 import { salesLeads, clientServices, adminActivityLog } from "@shared/schema";
 import { eq, sql } from "drizzle-orm";
 import { sendContactAck, sendContactInternalNotification } from "../lib/contactEmails";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("Marketing");
 
 const BASE_URL = "https://wefixtrades.com";
 
@@ -91,7 +94,7 @@ export function registerMarketingRoutes(app: Express): void {
       }).returning({ id: salesLeads.id });
       leadId = row?.id ?? 0;
     } catch (err: any) {
-      console.error("[Contact] Failed to save lead:", err.message);
+      log.error("[Contact] Failed to save lead:", err.message);
       // Don't fail the request — still try to send notifications
     }
 
@@ -153,7 +156,7 @@ export function registerMarketingRoutes(app: Express): void {
         }
       }
     } catch (err: any) {
-      console.warn("[exit-survey] Failed to record reason:", err.message);
+      log.warn("[exit-survey] Failed to record reason:", err.message);
     }
 
     // Friendly thank-you page (no data exposure, no PII, no auth leak)

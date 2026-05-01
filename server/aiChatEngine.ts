@@ -2,6 +2,9 @@ import OpenAI from "openai";
 import { calculateEstimate, type EstimateInputs } from "@shared/calculateEstimate";
 import { storage } from "./storage";
 import type { Calculator } from "@shared/schema";
+import { createLogger } from "./lib/logger";
+
+const log = createLogger("AIChatEngine");
 
 const ALLOWED_TOOLS = {
   demo_ai_employee: ["demo_generate_estimate", "demo_show_slots"] as string[],
@@ -329,7 +332,7 @@ export async function executeTool(
           await storage.updateSupportTicket(ticket.id, { admin_notified: true });
         }
       } catch (err) {
-        console.error("Failed to send support ticket email:", err);
+        log.error("Failed to send support ticket email:", { error: String(err) });
       }
     }
 

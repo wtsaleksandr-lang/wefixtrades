@@ -22,6 +22,9 @@ import { chat } from "./aiService";
 import { getEmailTransporter, getFromAddress } from "../lib/emailTransport";
 import { buildAdminAlertEmail, buildAdminAlertPlainText, ADMIN_ALERT_FROM_NAME } from "../lib/adminAlertShell";
 import type { VapiCallReport } from "./vapiService";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("WFTSalesLine");
 
 interface ExtractedCaller {
   name?: string;
@@ -75,7 +78,7 @@ interface Output {
       is_real_lead: Boolean(parsed.is_real_lead),
     };
   } catch (err: any) {
-    console.warn("[wft-sales-line] Extraction failed:", err.message);
+    log.warn("[wft-sales-line] Extraction failed:", err.message);
     return {
       is_real_lead: false,
       summary: "Call completed but AI extraction failed — review transcript manually.",
@@ -206,7 +209,7 @@ export async function handleSalesCallEnded(report: VapiCallReport): Promise<void
           leadId = row?.id;
         }
       } catch (err: any) {
-        console.warn("[wft-sales-line] Failed to persist sales_lead:", err.message);
+        log.warn("[wft-sales-line] Failed to persist sales_lead:", err.message);
       }
     }
 
@@ -239,14 +242,14 @@ export async function handleSalesCallEnded(report: VapiCallReport): Promise<void
           }),
         });
       } catch (err: any) {
-        console.warn("[wft-sales-line] Email send failed:", err.message);
+        log.warn("[wft-sales-line] Email send failed:", err.message);
       }
     } else {
-      console.log("[wft-sales-line] ADMIN_EMAIL or SMTP not configured — skipping call summary email");
+      log.info("[wft-sales-line] ADMIN_EMAIL or SMTP not configured — skipping call summary email");
     }
 
-    console.log(`[wft-sales-line] Processed call ${report.callId}: lead=${extracted.is_real_lead} intent=${extracted.intent} sales_lead_id=${leadId || "none"}`);
+    log.info(`[wft-sales-line] Processed call ${report.callId}: lead=${extracted.is_real_lead} intent=${extracted.intent} sales_lead_id=${leadId || "none"}`);
   } catch (err: any) {
-    console.error(`[wft-sales-line] Unhandled error processing call ${report.callId}:`, err.message);
+    log.error(`[wft-sales-line] Unhandled error processing call ${report.callId}:`, err.message);
   }
 }

@@ -15,6 +15,9 @@ import { eq, and } from "drizzle-orm";
 import { getEmailTransporter, getFromAddress } from "./emailTransport";
 import { buildTransactionalEmail, buildPlainText } from "./transactionalShell";
 import type Stripe from "stripe";
+import { createLogger } from "./logger";
+
+const log = createLogger("PaymentReceiptEmail");
 
 interface LineItem {
   service_name: string;
@@ -93,13 +96,13 @@ export async function sendPaymentReceipt(
 ): Promise<boolean> {
   const transporter = getEmailTransporter();
   if (!transporter) {
-    console.warn("[payment-receipt] SMTP not configured — skipping receipt");
+    log.warn("[payment-receipt] SMTP not configured — skipping receipt");
     return false;
   }
 
   const [client] = await db.select().from(clients).where(eq(clients.id, clientId)).limit(1);
   if (!client?.contact_email) {
-    console.warn(`[payment-receipt] Client #${clientId} has no email — skipping`);
+    log.warn(`[payment-receipt] Client #${clientId} has no email — skipping`);
     return false;
   }
 
@@ -116,7 +119,7 @@ export async function sendPaymentReceipt(
     return !!meta.receipt_sent_at;
   });
   if (firstWithReceipt) {
-    console.log(`[payment-receipt] Already sent for session ${session.id}`);
+    log.info(`[payment-receipt] Already sent for session ${session.id}`);
     return false;
   }
 
@@ -190,10 +193,10 @@ export async function sendPaymentReceipt(
         .where(eq(clientPayments.id, existingPayments[0].id));
     }
 
-    console.log(`[payment-receipt] Sent to ${client.contact_email} for session ${session.id} (${formatUsd(totalCents)})`);
+    log.info(`[payment-receipt] Sent to ${client.contact_email} for session ${session.id} (${formatUsd(totalCents)})`);
     return true;
   } catch (err: any) {
-    console.error(`[payment-receipt] Send failed for session ${session.id}:`, err.message);
+    log.error(`[payment-receipt] Send failed for session ${session.id}:`, err.message);
     return false;
   }
 }
