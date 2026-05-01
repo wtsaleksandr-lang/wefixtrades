@@ -405,7 +405,7 @@ export async function generatePricingConfigDraft(
     const userMessage = `Structured pricing intake:\n${JSON.stringify(payload, null, 2)}`;
 
     const completion = await openaiClient.chat.completions.create({
-      model: "gpt-5-mini",
+      model: "gpt-4o-mini",
       messages: [
         { role: "system", content: buildSystemPrompt() },
         { role: "user", content: userMessage },

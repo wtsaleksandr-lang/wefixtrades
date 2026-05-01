@@ -79,7 +79,7 @@ Rules:
 Return ONLY the JSON pricing config object.`;
 
       const completion = await getOpenAI().chat.completions.create({
-        model: "gpt-5-mini",
+        model: "gpt-4o-mini",
         messages: [{ role: "user", content: prompt }],
         response_format: { type: "json_object" },
       });
