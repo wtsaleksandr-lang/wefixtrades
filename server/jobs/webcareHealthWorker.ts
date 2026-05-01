@@ -30,6 +30,48 @@ const REQUEST_TIMEOUT_MS = 15_000;
 /** Dedup cooldown — max 1 downtime alert email per site per 4 hours */
 const ALERT_COOLDOWN_MS = 4 * 60 * 60 * 1000;
 
+/** Max entries in uptime_history — one check per 15 min = ~96/day, keep 30 days */
+const MAX_UPTIME_HISTORY = 30 * 96;
+
+interface UptimeEntry {
+  ts: string;
+  status: "up" | "down";
+  http_status: number | null;
+}
+
+/**
+ * Record a health check result in the client_service metadata.
+ * Keeps the last 30 days of checks (trimmed by MAX_UPTIME_HISTORY).
+ */
+async function recordUptimeHistory(
+  csId: number,
+  csMeta: Record<string, any>,
+  checkStatus: "up" | "down",
+  httpStatus: number | null,
+): Promise<void> {
+  const history: UptimeEntry[] = Array.isArray(csMeta.uptime_history)
+    ? csMeta.uptime_history
+    : [];
+
+  history.push({
+    ts: new Date().toISOString(),
+    status: checkStatus,
+    http_status: httpStatus,
+  });
+
+  // Trim to last MAX_UPTIME_HISTORY entries
+  const trimmed = history.length > MAX_UPTIME_HISTORY
+    ? history.slice(history.length - MAX_UPTIME_HISTORY)
+    : history;
+
+  await db.update(clientServices)
+    .set({
+      metadata: { ...csMeta, uptime_history: trimmed },
+      updated_at: new Date(),
+    } as any)
+    .where(eq(clientServices.id, csId));
+}
+
 interface HealthCheckResult {
   checked: number;
   up: number;
@@ -121,6 +163,14 @@ export async function processWebcareHealthChecks(): Promise<HealthCheckResult> {
       result.checked++;
       const health = await checkSiteHealth(normalizedUrl);
 
+      // Record uptime history regardless of up/down
+      const csMeta = (row.cs_metadata as Record<string, any>) || {};
+      try {
+        await recordUptimeHistory(row.cs_id, csMeta, health.ok ? "up" : "down", health.status);
+      } catch (histErr: any) {
+        log.warn(`Failed to record uptime history for cs#${row.cs_id}`, { error: histErr.message });
+      }
+
       if (health.ok) {
         log.debug(`UP — cs#${row.cs_id} ${normalizedUrl} (${health.status})`);
         result.up++;
@@ -173,7 +223,6 @@ export async function processWebcareHealthChecks(): Promise<HealthCheckResult> {
 
         // Send downtime alert email — deduped via 4-hour cooldown
         if (row.client_contact_email) {
-          const csMeta = (row.cs_metadata as Record<string, any>) || {};
           const lastAlertAt = csMeta.last_downtime_alert_at
             ? new Date(csMeta.last_downtime_alert_at).getTime()
             : 0;

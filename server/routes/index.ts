@@ -42,6 +42,7 @@ import { registerEmailChartsRoute } from "../services/emailCharts";
 import { registerAdminSupplierRoutes } from "./adminSupplierRoutes";
 import { registerSupplierWebhookRoutes } from "./supplierWebhookRoutes";
 import { registerAdminServiceRoutes } from "./adminServiceRoutes";
+import { registerApprovalRoutes } from "./approvalRoutes";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -89,6 +90,7 @@ export async function registerRoutes(
   registerAdminSupplierRoutes(app);
   registerSupplierWebhookRoutes(app);
   registerAdminServiceRoutes(app);
+  registerApprovalRoutes(app);
 
   return httpServer;
 }

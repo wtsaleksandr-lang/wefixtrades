@@ -5,6 +5,7 @@ import { advanceSetupStage, getTradeLineReadiness } from "@shared/schema";
 import { dispatchTaskToSupplier } from "../services/supplierDispatch";
 import { autoAssignSupplier } from "../services/supplierAssignment";
 import { sendWelcomePackage } from "../lib/welcomeEmail";
+import { sendApprovalNotificationEmail } from "../lib/approvalNotificationEmail";
 // AdFlow dropped (Sprint 1) — compileAndSendAdFlowReport import removed
 import crypto from "crypto";
 import { createLogger } from "../lib/logger";
@@ -368,6 +369,31 @@ export function registerAdminCrmRoutes(app: Express): void {
       if (task.handled_by === "supplier" && task.supplier_id &&
           (task.status === "in_progress" || task.status === "submitted")) {
         supplier_dispatch = await dispatchTaskToSupplier(task.id);
+      }
+
+      // Send approval notification when task moves to waiting_on=client with deliverables
+      if (task.waiting_on === "client" && Array.isArray(task.deliverables) && (task.deliverables as Deliverable[]).length > 0) {
+        const taskMeta = (task.metadata as Record<string, any>) || {};
+        if (!taskMeta.approval_notification_sent) {
+          const client = await storage.getClientById(task.client_id);
+          if (client?.contact_email) {
+            sendApprovalNotificationEmail({
+              recipientEmail: client.contact_email,
+              businessName: client.business_name,
+              taskTitle: task.title,
+              taskId: task.id,
+              clientId: task.client_id,
+              clientServiceId: task.client_service_id,
+              deliverables: task.deliverables as Deliverable[],
+            }).then((sent) => {
+              if (sent) {
+                storage.updateFulfillmentTask(id, {
+                  metadata: { ...taskMeta, approval_notification_sent: true, approval_notification_sent_at: new Date().toISOString() },
+                } as any).catch((e: any) => log.warn("Failed to stamp approval_notification_sent", { error: e.message }));
+              }
+            }).catch((e: any) => log.warn("Approval notification error", { error: e.message }));
+          }
+        }
       }
 
       res.json({ ...task, cascade, supplier_dispatch });

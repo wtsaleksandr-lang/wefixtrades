@@ -422,6 +422,22 @@ export default function PortalServiceDetail() {
     enabled: !!serviceId && !!isTradeLine,
   });
 
+  const { data: uptimeData } = useQuery<{
+    uptime_percent: number;
+    total_checks: number;
+    up_checks: number;
+    down_checks: number;
+    history: Array<{ ts: string; status: "up" | "down"; http_status: number | null }>;
+  }>({
+    queryKey: ["/api/portal/services", serviceId, "uptime"],
+    queryFn: async () => {
+      const res = await fetch(`/api/portal/services/${serviceId}/uptime`, { credentials: "include" });
+      if (!res.ok) return { uptime_percent: 100, total_checks: 0, up_checks: 0, down_checks: 0, history: [] };
+      return res.json();
+    },
+    enabled: !!serviceId && !!isWebCare,
+  });
+
   return (
     <PortalLayout>
       <div className="max-w-4xl mx-auto space-y-6">
@@ -694,6 +710,39 @@ export default function PortalServiceDetail() {
                     Your website is being monitored for uptime, security, and performance.
                   </p>
                 </div>
+                {/* Uptime display */}
+                {uptimeData && uptimeData.total_checks > 0 && (
+                  <div className="px-5 py-4 border-b border-gray-100">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-xs font-medium text-gray-700">Uptime</p>
+                      <span className={`text-sm font-semibold ${
+                        uptimeData.uptime_percent >= 99.5 ? "text-emerald-600"
+                        : uptimeData.uptime_percent >= 95 ? "text-amber-600"
+                        : "text-red-600"
+                      }`}>
+                        {uptimeData.uptime_percent}%
+                      </span>
+                    </div>
+                    {/* Status dots — last 48 checks (12 hours at 15-min intervals) */}
+                    <div className="flex gap-[3px] flex-wrap">
+                      {uptimeData.history.slice(-48).map((entry, i) => (
+                        <div
+                          key={i}
+                          title={`${new Date(entry.ts).toLocaleString()} — ${entry.status === "up" ? "Up" : "Down"}${entry.http_status ? ` (${entry.http_status})` : ""}`}
+                          className={`w-2 h-2 rounded-full ${
+                            entry.status === "up" ? "bg-emerald-400" : "bg-red-400"
+                          }`}
+                        />
+                      ))}
+                    </div>
+                    <p className="text-[10px] text-gray-400 mt-1.5">
+                      {uptimeData.total_checks} checks recorded
+                      {uptimeData.down_checks > 0 && (
+                        <> &middot; <span className="text-red-500">{uptimeData.down_checks} downtime{uptimeData.down_checks === 1 ? "" : "s"} detected</span></>
+                      )}
+                    </p>
+                  </div>
+                )}
                 {/* Recent monthly tasks */}
                 {data.tasks.length > 0 && (
                   <div className="px-5 py-4">

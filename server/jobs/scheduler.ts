@@ -37,6 +37,7 @@ import { processAllClientReviews } from "../services/reputation/reviewOrchestrat
 import { processReviewRequests } from "../services/reputation/reviewRequestService";
 import { processAutoActivation } from "./autoActivationWorker";
 import { processRecurringTasks } from "./recurringTaskWorker";
+import { processUpsellEmails } from "./upsellWorker";
 
 const log = createLogger("Scheduler");
 
@@ -393,6 +394,7 @@ export function initScheduler() {
       "WebCare health checks: every 15 minutes",
       "Recurring task generation: 01:00 UTC every day",
       "Auto-activation worker: every 5 minutes",
+      "Upsell emails: 10:00 UTC daily",
     ],
   });
 
@@ -495,4 +497,16 @@ export function initScheduler() {
       autoActivationRunning = false;
     }
   });
+
+  // Upsell emails — daily at 10:00 UTC. Sends WebCare upsell
+  // 7 days after SiteLaunch or WebFix delivery completes.
+  // Idempotent via metadata.upsell_email_sent flag.
+  cron.schedule("0 10 * * *", async () => {
+    log.info("Running upsell email worker...");
+    try {
+      await runJob("upsell_emails", processUpsellEmails);
+    } catch (err: any) {
+      log.error("upsell_emails cron handler error", { error: err.message });
+    }
+  }, { timezone: "UTC" });
 }

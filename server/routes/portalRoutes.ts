@@ -3402,4 +3402,57 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
       res.status(500).json({ error: "Failed to request revision" });
     }
   });
+
+  /* ═══════════════════════════════════════════
+     WebCare Uptime History
+     ═══════════════════════════════════════════ */
+
+  /**
+   * GET /api/portal/services/:id/uptime
+   * Returns uptime history from the client_service metadata for WebCare services.
+   */
+  app.get("/api/portal/services/:id/uptime", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const serviceId = parseInt(req.params.id as string);
+      if (isNaN(serviceId)) return res.status(400).json({ error: "Invalid service id" });
+
+      // Verify service belongs to this client and is a WebCare service
+      const [svc] = await db
+        .select({
+          id: clientServices.id,
+          service_id: clientServices.service_id,
+          metadata: clientServices.metadata,
+        })
+        .from(clientServices)
+        .where(and(eq(clientServices.id, serviceId), eq(clientServices.client_id, clientId)))
+        .limit(1);
+
+      if (!svc) return res.status(404).json({ error: "Service not found" });
+      if (!svc.service_id.startsWith("webcare")) {
+        return res.status(400).json({ error: "Uptime history is only available for WebCare services" });
+      }
+
+      const meta = (svc.metadata as Record<string, any>) || {};
+      const history = Array.isArray(meta.uptime_history) ? meta.uptime_history : [];
+
+      // Calculate uptime percentage over the available history
+      const totalChecks = history.length;
+      const upChecks = history.filter((e: any) => e.status === "up").length;
+      const uptimePercent = totalChecks > 0 ? Math.round((upChecks / totalChecks) * 10000) / 100 : 100;
+
+      res.json({
+        uptime_percent: uptimePercent,
+        total_checks: totalChecks,
+        up_checks: upChecks,
+        down_checks: totalChecks - upChecks,
+        history,
+      });
+    } catch (err: any) {
+      log.error("[portal/uptime] Error:", { error: err.message });
+      res.status(500).json({ error: "Failed to load uptime history" });
+    }
+  });
 }
