@@ -17,6 +17,10 @@
 
 import { google } from "googleapis";
 import { storage } from "../storage";
+import { encryptGoogleCredentials, decryptGoogleCredentials } from "../lib/tokenEncryption";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("GoogleBusiness");
 
 const SCOPES = [
   "https://www.googleapis.com/auth/business.manage",
@@ -68,21 +72,27 @@ export async function handleGoogleCallback(code: string, clientId: number): Prom
       return { ok: false, error: "No tokens returned from Google" };
     }
 
-    // Store credentials on the client
+    // Encrypt tokens before storing
+    const plainCreds = {
+      access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token,
+      expiry_date: tokens.expiry_date,
+      token_type: tokens.token_type,
+      scope: tokens.scope,
+      connected_at: new Date().toISOString(),
+    };
+    const encryptedCreds = encryptGoogleCredentials(plainCreds as Record<string, unknown>);
+    if (encryptedCreds === null) {
+      return { ok: false, error: "Cannot store credentials — encryption key not configured" };
+    }
+
     await storage.updateClient(clientId, {
-      google_credentials: {
-        access_token: tokens.access_token,
-        refresh_token: tokens.refresh_token,
-        expiry_date: tokens.expiry_date,
-        token_type: tokens.token_type,
-        scope: tokens.scope,
-        connected_at: new Date().toISOString(),
-      },
+      google_credentials: encryptedCreds,
     } as any);
 
     return { ok: true };
   } catch (err: any) {
-    console.error("[GoogleBusiness] OAuth callback error:", err.message);
+    log.error("OAuth callback error", { error: err.message });
     return { ok: false, error: err.message };
   }
 }
@@ -100,7 +110,9 @@ async function getAuthenticatedClient(clientId: number): Promise<{
     return null;
   }
 
-  const creds = client.google_credentials as any;
+  // Decrypt tokens (handles both encrypted and legacy plaintext)
+  const rawCreds = client.google_credentials as Record<string, unknown>;
+  const creds = decryptGoogleCredentials(rawCreds) as any;
   if (!creds.refresh_token && !creds.access_token) {
     return null;
   }
@@ -113,13 +125,16 @@ async function getAuthenticatedClient(clientId: number): Promise<{
     token_type: creds.token_type,
   });
 
-  // Attach refresh handler to persist new tokens
+  // Attach refresh handler to persist new tokens (re-encrypt on save)
   oauth2Client.on("tokens", async (tokens) => {
     try {
-      const updated = { ...creds, ...tokens, refreshed_at: new Date().toISOString() };
-      await storage.updateClient(clientId, { google_credentials: updated } as any);
+      const updatedPlain = { ...creds, ...tokens, refreshed_at: new Date().toISOString() };
+      const encrypted = encryptGoogleCredentials(updatedPlain);
+      if (encrypted) {
+        await storage.updateClient(clientId, { google_credentials: encrypted } as any);
+      }
     } catch (e: any) {
-      console.error("[GoogleBusiness] Token refresh save error:", e.message);
+      log.error("Token refresh save error", { error: e.message });
     }
   });
 
@@ -190,6 +205,7 @@ export async function postGoogleReviewReply(
  */
 export async function hasGoogleConnection(clientId: number): Promise<boolean> {
   const client = await storage.getClientById(clientId);
-  const creds = client?.google_credentials as any;
+  if (!client?.google_credentials) return false;
+  const creds = decryptGoogleCredentials(client.google_credentials as Record<string, unknown>) as any;
   return !!(creds?.refresh_token || creds?.access_token);
 }

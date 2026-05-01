@@ -10,7 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Save } from "lucide-react";
+import { Loader2, Save, Shield, ShieldCheck, ShieldOff } from "lucide-react";
 
 interface UserSettings {
   businessName: string;
@@ -179,6 +179,9 @@ export default function SettingsPage() {
           </div>
         </Card>
 
+        {/* Two-Factor Authentication */}
+        <TwoFactorSection />
+
         {/* Save button */}
         <div className="flex justify-end">
           <Button onClick={handleSave} disabled={saveMutation.isPending || isLoading}>
@@ -197,5 +200,254 @@ export default function SettingsPage() {
         </div>
       </div>
     </AdminLayout>
+  );
+}
+
+/* ─── Two-Factor Authentication Section ─── */
+
+function TwoFactorSection() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [setupState, setSetupState] = useState<"idle" | "pending" | "verify">("idle");
+  const [otpauthUrl, setOtpauthUrl] = useState("");
+  const [secret, setSecret] = useState("");
+  const [verifyCode, setVerifyCode] = useState("");
+  const [disablePassword, setDisablePassword] = useState("");
+  const [disableCode, setDisableCode] = useState("");
+  const [showDisable, setShowDisable] = useState(false);
+
+  const { data: statusData, isLoading: statusLoading } = useQuery<{ enabled: boolean }>({
+    queryKey: ["/api/user/2fa/status"],
+  });
+
+  const is2faEnabled = statusData?.enabled ?? false;
+
+  const setupMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/user/2fa/setup", {});
+      return res.json();
+    },
+    onSuccess: (data: { otpauthUrl: string; secret: string }) => {
+      setOtpauthUrl(data.otpauthUrl);
+      setSecret(data.secret);
+      setSetupState("verify");
+    },
+    onError: (err: Error) => {
+      toast({ title: "Setup failed", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const verifySetupMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/user/2fa/verify-setup", { code: verifyCode });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/user/2fa/status"] });
+      setSetupState("idle");
+      setOtpauthUrl("");
+      setSecret("");
+      setVerifyCode("");
+      toast({ title: "2FA enabled", description: "Two-factor authentication is now active on your account." });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Verification failed", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const disableMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/user/2fa/disable", {
+        password: disablePassword,
+        code: disableCode,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/user/2fa/status"] });
+      setShowDisable(false);
+      setDisablePassword("");
+      setDisableCode("");
+      toast({ title: "2FA disabled", description: "Two-factor authentication has been removed." });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Failed to disable", description: err.message, variant: "destructive" });
+    },
+  });
+
+  if (statusLoading) {
+    return (
+      <Card className="p-5">
+        <div className="flex items-center gap-2 text-sm text-gray-400">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Loading security settings...
+        </div>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="p-5 space-y-4">
+      <div className="flex items-center gap-2">
+        <Shield className="h-4 w-4 text-gray-600" />
+        <h3 className="text-sm font-semibold text-gray-700">Two-Factor Authentication</h3>
+      </div>
+
+      {is2faEnabled && setupState === "idle" && !showDisable && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+            <ShieldCheck className="h-4 w-4" />
+            Two-factor authentication is enabled
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowDisable(true)}
+            className="text-red-600 border-red-200 hover:bg-red-50"
+          >
+            <ShieldOff className="mr-2 h-4 w-4" />
+            Disable 2FA
+          </Button>
+        </div>
+      )}
+
+      {is2faEnabled && showDisable && (
+        <div className="space-y-3 border border-red-200 rounded-lg p-4 bg-red-50/50">
+          <p className="text-sm text-gray-600">
+            To disable two-factor authentication, enter your current password and a verification code.
+          </p>
+          <div className="space-y-2">
+            <Label>Current Password</Label>
+            <Input
+              type="password"
+              value={disablePassword}
+              onChange={(e) => setDisablePassword(e.target.value)}
+              placeholder="Enter your password"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Verification Code</Label>
+            <Input
+              type="text"
+              inputMode="numeric"
+              maxLength={6}
+              value={disableCode}
+              onChange={(e) => setDisableCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              placeholder="000000"
+              className="font-mono tracking-widest"
+            />
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="destructive"
+              size="sm"
+              disabled={disableMutation.isPending || !disablePassword || disableCode.length !== 6}
+              onClick={() => disableMutation.mutate()}
+            >
+              {disableMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Confirm Disable
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setShowDisable(false);
+                setDisablePassword("");
+                setDisableCode("");
+              }}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {!is2faEnabled && setupState === "idle" && (
+        <div className="space-y-3">
+          <p className="text-sm text-gray-500">
+            Add an extra layer of security to your admin account with a time-based one-time password (TOTP).
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={setupMutation.isPending}
+            onClick={() => setupMutation.mutate()}
+          >
+            {setupMutation.isPending ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Shield className="mr-2 h-4 w-4" />
+            )}
+            Enable Two-Factor Authentication
+          </Button>
+        </div>
+      )}
+
+      {!is2faEnabled && setupState === "verify" && (
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            Scan the QR code below with your authenticator app (Google Authenticator, Authy, 1Password, etc.),
+            then enter the 6-digit code to confirm.
+          </p>
+
+          <div className="bg-white border rounded-lg p-4 space-y-3">
+            <div className="flex justify-center">
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(otpauthUrl)}`}
+                alt="TOTP QR Code"
+                className="rounded"
+                width={200}
+                height={200}
+              />
+            </div>
+            <details className="text-xs text-gray-400">
+              <summary className="cursor-pointer hover:text-gray-600">
+                Can't scan? Enter this key manually
+              </summary>
+              <code className="block mt-2 p-2 bg-gray-50 rounded text-xs font-mono break-all select-all">
+                {secret}
+              </code>
+            </details>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Verification Code</Label>
+            <Input
+              type="text"
+              inputMode="numeric"
+              maxLength={6}
+              value={verifyCode}
+              onChange={(e) => setVerifyCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              placeholder="000000"
+              className="font-mono tracking-widest max-w-[200px]"
+              autoFocus
+            />
+          </div>
+
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              disabled={verifySetupMutation.isPending || verifyCode.length !== 6}
+              onClick={() => verifySetupMutation.mutate()}
+            >
+              {verifySetupMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Verify and Enable
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setSetupState("idle");
+                setOtpauthUrl("");
+                setSecret("");
+                setVerifyCode("");
+              }}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
+    </Card>
   );
 }
