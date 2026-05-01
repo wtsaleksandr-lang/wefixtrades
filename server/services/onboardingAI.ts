@@ -24,6 +24,7 @@ import { chat } from "./aiService";
 import { storage } from "../storage";
 import type { OnboardingSubmission, Client } from "@shared/schema";
 import { createLogger } from "../lib/logger";
+import { encryptToken, isEncryptionConfigured } from "./socialSync/tokenEncryption";
 
 const log = createLogger("OnboardingAI");
 
@@ -231,6 +232,15 @@ export async function processOnboardingSubmission(
     log.warn("[onboarding-ai] Failed to log admin activity:", { error: String(err) });
   }
 
+  // WebCare-specific: extract and store WordPress credentials if present
+  if (cs.service_id.startsWith("webcare")) {
+    try {
+      await extractAndStoreWebcareCredentials(cs.id, submission.client_id!, responses as Record<string, any>, extracted.service_config);
+    } catch (err: any) {
+      log.warn(`[onboarding-ai] WebCare credential extraction failed for submission #${submissionId}:`, { error: err.message });
+    }
+  }
+
   log.info(`[onboarding-ai] Processed submission #${submissionId} for ${serviceName} — ${fieldsUpdated.length} client fields, ${Object.keys(extracted.service_config).length} config keys`);
 
   return {
@@ -238,4 +248,110 @@ export async function processOnboardingSubmission(
     clientFieldsUpdated: fieldsUpdated,
     serviceConfigKeys: Object.keys(extracted.service_config),
   };
+}
+
+/* ─── WebCare Credential Extraction ────────────────────────────────── */
+
+/**
+ * Extract WordPress Application Password credentials from onboarding
+ * form responses and store them encrypted in client_service.metadata.
+ *
+ * Looks for CMS credentials in both:
+ * 1. Raw form responses (keys like "cms_url", "admin_url", "wordpress_url",
+ *    "cms_username", "wp_username", "cms_password", "wp_app_password")
+ * 2. AI-extracted service_config (same key patterns)
+ *
+ * NOTE: WordPress Application Passwords are different from regular login
+ * passwords. The onboarding instructions should tell the client to generate
+ * an Application Password from: WordPress Admin → Users → Profile →
+ * Application Passwords.
+ */
+async function extractAndStoreWebcareCredentials(
+  clientServiceId: number,
+  clientId: number,
+  responses: Record<string, any>,
+  serviceConfig: Record<string, any>,
+): Promise<void> {
+  if (!isEncryptionConfigured()) {
+    log.warn("[onboarding-ai] TOKEN_ENCRYPTION_KEY not set — cannot encrypt WordPress credentials");
+    return;
+  }
+
+  // Merge raw responses and AI-extracted config — raw responses take priority
+  const merged: Record<string, string> = {};
+  const allSources = [serviceConfig, responses];
+  for (const source of allSources) {
+    if (!source || typeof source !== "object") continue;
+    for (const [key, val] of Object.entries(source)) {
+      if (typeof val === "string" && val.trim()) {
+        merged[key.toLowerCase().replace(/[^a-z0-9_]/g, "_")] = val.trim();
+      } else if (val && typeof val === "object" && "value" in val && typeof val.value === "string") {
+        // Handle { value: "...", completed_at: "..." } response format
+        merged[key.toLowerCase().replace(/[^a-z0-9_]/g, "_")] = val.value.trim();
+      }
+    }
+  }
+
+  // Attempt to find CMS URL
+  const cmsUrl =
+    merged.cms_url || merged.admin_url || merged.wordpress_url ||
+    merged.wp_url || merged.website_admin_url || merged.site_url ||
+    merged.cms_admin_url || null;
+
+  // Attempt to find username
+  const username =
+    merged.cms_username || merged.wp_username || merged.wordpress_username ||
+    merged.admin_username || merged.wp_user || null;
+
+  // Attempt to find application password
+  const appPassword =
+    merged.cms_password || merged.wp_app_password || merged.wordpress_password ||
+    merged.cms_app_password || merged.application_password ||
+    merged.wp_password || merged.admin_password || null;
+
+  // Need all three to store credentials
+  if (!cmsUrl || !username || !appPassword) {
+    log.debug("[onboarding-ai] WebCare onboarding: incomplete WordPress credentials", {
+      hasUrl: !!cmsUrl,
+      hasUsername: !!username,
+      hasPassword: !!appPassword,
+    });
+    return;
+  }
+
+  // Normalize the CMS URL — strip trailing slashes and /wp-admin paths
+  let normalizedUrl = cmsUrl
+    .replace(/\/wp-admin\/?$/, "")
+    .replace(/\/wp-login\.php\/?$/, "")
+    .replace(/\/+$/, "");
+
+  // Ensure https:// prefix
+  if (!normalizedUrl.startsWith("http")) {
+    normalizedUrl = `https://${normalizedUrl}`;
+  }
+
+  // Encrypt the application password
+  const encryptedPassword = encryptToken(appPassword);
+
+  // Store in client_service.metadata.wordpress_credentials
+  const cs = await storage.getClientServiceById(clientServiceId);
+  if (!cs) return;
+
+  const csMeta = (cs.metadata as Record<string, any>) || {};
+  const updatedMeta = {
+    ...csMeta,
+    wordpress_credentials: {
+      cms_url: normalizedUrl,
+      cms_username: username,
+      cms_app_password: encryptedPassword,
+      configured_at: new Date().toISOString(),
+      source: "onboarding_form",
+    },
+  };
+
+  await db.update(clientServices)
+    .set({ metadata: updatedMeta, updated_at: new Date() })
+    .where(eq(clientServices.id, clientServiceId));
+
+  log.info(`[onboarding-ai] Stored WordPress credentials for cs#${clientServiceId} (client#${clientId})`);
 }

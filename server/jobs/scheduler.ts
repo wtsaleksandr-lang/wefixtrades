@@ -38,6 +38,7 @@ import { processReviewRequests } from "../services/reputation/reviewRequestServi
 import { processAutoActivation } from "./autoActivationWorker";
 import { processRecurringTasks } from "./recurringTaskWorker";
 import { processUpsellEmails } from "./upsellWorker";
+import { processWebcareMaintenance } from "./webcareMaintenanceWorker";
 
 const log = createLogger("Scheduler");
 
@@ -395,6 +396,7 @@ export function initScheduler() {
       "Recurring task generation: 01:00 UTC every day",
       "Auto-activation worker: every 5 minutes",
       "Upsell emails: 10:00 UTC daily",
+      "WebCare monthly maintenance: 03:00 UTC on the 1st of each month",
     ],
   });
 
@@ -507,6 +509,27 @@ export function initScheduler() {
       await runJob("upsell_emails", processUpsellEmails);
     } catch (err: any) {
       log.error("upsell_emails cron handler error", { error: err.message });
+    }
+  }, { timezone: "UTC" });
+
+  // WebCare monthly maintenance — 03:00 UTC on the 1st of each month.
+  // Runs plugin updates, site health checks, generates monthly reports,
+  // and processes content changes for WebCare Pro clients.
+  // Idempotent per month via client_service.metadata.last_maintenance_period.
+  let webcareMaintenanceRunning = false;
+  cron.schedule("0 3 1 * *", async () => {
+    if (webcareMaintenanceRunning) {
+      log.debug("webcare_maintenance skipped — previous run still active");
+      return;
+    }
+    webcareMaintenanceRunning = true;
+    log.info("Running WebCare monthly maintenance...");
+    try {
+      await runJob("webcare_monthly_maintenance", processWebcareMaintenance);
+    } catch (err: any) {
+      log.error("webcare_monthly_maintenance cron handler error", { error: err.message });
+    } finally {
+      webcareMaintenanceRunning = false;
     }
   }, { timezone: "UTC" });
 }
