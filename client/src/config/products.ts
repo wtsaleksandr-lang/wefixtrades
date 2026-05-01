@@ -281,7 +281,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
     category: "growth",
     heroVisualType: "social",
     primaryCTA: { label: "Start SocialSync", href: "/Wizard" },
-    secondaryCTA: { label: "See Pricing", href: "/pricing" },
+    secondaryCTA: { label: "Try Free Demo", href: "/demos/socialsync" },
     highlights: [
       "Stay visible online without thinking about it",
       "Build trust before customers call you",
@@ -326,7 +326,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
     category: "reputation",
     heroVisualType: "reviews",
     primaryCTA: { label: "Start Getting Reviews \u2014 Free Trial", href: "/Wizard" },
-    secondaryCTA: { label: "Compare Plans", href: "#pricing" },
+    secondaryCTA: { label: "Try Free Demo", href: "/demos/reputationshield" },
     highlights: [
       "Customers get a friendly SMS or email after every job \u2014 automatically",
       "Unhappy customers tell you privately instead of posting a 1-star review",
@@ -373,7 +373,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
     category: "growth",
     heroVisualType: "dashboard",
     primaryCTA: { label: "Get Started", href: "/Wizard" },
-    secondaryCTA: { label: "See Pricing", href: "/pricing" },
+    secondaryCTA: { label: "Try Free SEO Check", href: "/demos/rankflow" },
     highlights: [
       "Keyword research targeting your services and service area",
       "On-page optimization \u2014 titles, descriptions, and page structure",

@@ -34,6 +34,30 @@ const DEMO_CARDS = [
     icon: "workflow",
     href: "/demos/tradeline-complete",
   },
+  {
+    slug: "socialsync",
+    title: "SocialSync Post Generator",
+    desc: "Enter your trade and location — AI instantly generates 5 ready-to-post social media posts for Facebook, Instagram, and Google Business.",
+    icon: "share",
+    href: "/demos/socialsync",
+    interactive: true,
+  },
+  {
+    slug: "rankflow",
+    title: "RankFlow SEO Health Check",
+    desc: "Enter your website URL and get an instant SEO score with speed metrics, issue detection, and actionable fix recommendations.",
+    icon: "rocket",
+    href: "/demos/rankflow",
+    interactive: true,
+  },
+  {
+    slug: "reputationshield",
+    title: "ReputationShield Preview",
+    desc: "See exactly how automated review requests work — from the SMS your customer receives to the review page and your analytics dashboard.",
+    icon: "shield",
+    href: "/demos/reputationshield",
+    interactive: true,
+  },
 ];
 
 export default function DemoCenter() {
@@ -155,8 +179,25 @@ export default function DemoCenter() {
                       (e.currentTarget as HTMLElement).style.boxShadow = "none";
                     }}
                   >
-                    <div style={{ marginBottom: 16 }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
                       <IconBadge name={demo.icon} size={22} />
+                      {(demo as any).interactive && (
+                        <span
+                          style={{
+                            fontSize: 10,
+                            fontWeight: 700,
+                            color: mkt.accent,
+                            background: "rgba(102,232,250,0.10)",
+                            border: `1px solid rgba(102,232,250,0.25)`,
+                            padding: "3px 8px",
+                            borderRadius: 6,
+                            letterSpacing: "0.05em",
+                            textTransform: "uppercase" as const,
+                          }}
+                        >
+                          Interactive
+                        </span>
+                      )}
                     </div>
                     <h3
                       data-testid={`text-demo-title-${demo.slug}`}

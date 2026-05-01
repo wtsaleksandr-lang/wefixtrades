@@ -48,6 +48,9 @@ import MapGuardPage from "@/pages/products/mapguard";
 import SolutionPage from "@/pages/solutions/SolutionPage";
 import DemoCenter from "@/pages/demos/DemoCenter";
 import DemoPage from "@/pages/demos/DemoPage";
+import SocialSyncDemo from "@/pages/demos/SocialSyncDemo";
+import RankFlowDemo from "@/pages/demos/RankFlowDemo";
+import ReputationShieldDemo from "@/pages/demos/ReputationShieldDemo";
 import PricingNew from "@/pages/PricingNew";
 import Plans from "@/pages/Plans";
 import PricingUnified from "@/pages/PricingUnified";
@@ -178,6 +181,9 @@ function Router() {
       <Route path="/solutions/:slug" component={SolutionPage} />
 
       <Route path="/demos" component={DemoCenter} />
+      <Route path="/demos/socialsync" component={SocialSyncDemo} />
+      <Route path="/demos/rankflow" component={RankFlowDemo} />
+      <Route path="/demos/reputationshield" component={ReputationShieldDemo} />
       <Route path="/demos/:slug" component={DemoPage} />
 
       <Route path="/product/:slug">{(params) => <Redirect to={`/products/${params.slug}`} />}</Route>
