@@ -112,6 +112,9 @@ import SignupPage from "@/pages/Signup";
 import ServicePricingPage from "@/pages/admin/ServicePricingPage";
 import BookingCalendarPage from "@/pages/admin/BookingCalendarPage";
 import BookingPage from "@/pages/public/BookingPage";
+import PayInvoicePage from "@/pages/public/PayInvoicePage";
+import DispatchPage from "@/pages/portal/DispatchPage";
+import InvoicesPage from "@/pages/portal/InvoicesPage";
 
 function Router() {
   return (
@@ -161,6 +164,8 @@ function Router() {
       <Route path="/portal/socialsync-setup">{() => <RequireClient><SocialSyncSetup /></RequireClient>}</Route>
       <Route path="/portal/socialsync">{() => <RequireClient><PortalSocialSync /></RequireClient>}</Route>
       <Route path="/portal/reputation">{() => <RequireClient><PortalReputation /></RequireClient>}</Route>
+      <Route path="/portal/dispatch">{() => <RequireClient><DispatchPage /></RequireClient>}</Route>
+      <Route path="/portal/invoices">{() => <RequireClient><InvoicesPage /></RequireClient>}</Route>
       <Route path="/portal/help">{() => <RequireClient><PortalHelp /></RequireClient>}</Route>
       <Route path="/portal/settings">{() => <RequireClient><PortalSettings /></RequireClient>}</Route>
       <Route path="/portal">{() => <RequireClient><PortalDashboard /></RequireClient>}</Route>
@@ -245,6 +250,7 @@ function Router() {
       <Route path="/review/:token" component={ReviewFunnel} />
       <Route path="/audit/report/:id" component={SharedAuditReport} />
       <Route path="/book/:slug" component={BookingPage} />
+      <Route path="/pay/:token" component={PayInvoicePage} />
       <Route path="/wizard" component={Wizard} />
       <Route path="/calculator" component={Calculator} />
       <Route path="/edit-calculator" component={EditCalculator} />

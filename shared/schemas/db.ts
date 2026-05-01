@@ -727,6 +727,8 @@ export const bookflowSettings = pgTable("bookflow_settings", {
   confirmation_message: text("confirmation_message"),
   auto_confirm: boolean("auto_confirm").default(true),
   accent_color: text("accent_color").default("#3B82F6"),
+  invoicing_enabled: boolean("invoicing_enabled").default(true),
+  dispatch_enabled: boolean("dispatch_enabled").default(true),
   metadata: jsonb("metadata"),
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
@@ -779,3 +781,44 @@ export const insertBookflowAppointmentSchema = createInsertSchema(bookflowAppoin
 });
 export type InsertBookflowAppointment = z.infer<typeof insertBookflowAppointmentSchema>;
 export type BookflowAppointment = typeof bookflowAppointments.$inferSelect;
+
+/* ─── BookFlow Invoices ──────────────────────────────────────────────
+ *
+ * Simple invoices that tradespeople send to their customers.
+ * Supports Stripe Checkout for online payment via pay links.
+ *
+ * invoice_number is auto-generated per client: INV-001, INV-002, etc.
+ * pay_link_token is a unique token for the public /pay/:token page.
+ *
+ * ─────────────────────────────────────────────────────────────────── */
+export const bookflowInvoices = pgTable("bookflow_invoices", {
+  id: serial("id").primaryKey(),
+  client_id: integer("client_id").notNull(),
+  appointment_id: integer("appointment_id"),
+  customer_name: text("customer_name").notNull(),
+  customer_email: text("customer_email"),
+  customer_phone: text("customer_phone"),
+  line_items: jsonb("line_items").notNull(), // [{ description, quantity, unit_price_cents }]
+  subtotal_cents: integer("subtotal_cents").notNull(),
+  tax_cents: integer("tax_cents").default(0),
+  total_cents: integer("total_cents").notNull(),
+  status: text("status").default("draft"),
+  // "draft" | "sent" | "viewed" | "paid" | "overdue" | "cancelled"
+  due_date: timestamp("due_date"),
+  paid_at: timestamp("paid_at"),
+  payment_method: text("payment_method"),
+  // "stripe" | "cash" | "check" | "other"
+  stripe_payment_intent_id: text("stripe_payment_intent_id"),
+  invoice_number: text("invoice_number"),
+  notes: text("notes"),
+  pay_link_token: text("pay_link_token").unique(),
+  metadata: jsonb("metadata"),
+  created_at: timestamp("created_at").defaultNow(),
+  updated_at: timestamp("updated_at").defaultNow(),
+});
+
+export const insertBookflowInvoiceSchema = createInsertSchema(bookflowInvoices).omit({
+  id: true, created_at: true, updated_at: true,
+});
+export type InsertBookflowInvoice = z.infer<typeof insertBookflowInvoiceSchema>;
+export type BookflowInvoice = typeof bookflowInvoices.$inferSelect;

@@ -1,10 +1,10 @@
-import { useMemo, useEffect, useRef } from 'react';
-import { Phone, Shield } from 'lucide-react';
+import { useMemo, useEffect, useRef, useState } from 'react';
+import { Phone, Shield, CreditCard } from 'lucide-react';
 import HelpTip from '../HelpTip';
 import { trackEvent } from '@/lib/trackEvent';
 import { useWidgetState } from '../useWidgetState';
 import { calculateEstimate } from '@shared/calculateEstimate';
-import { eff, stepTitleStyle } from '../designTokens';
+import { eff, stepTitleStyle, primaryButtonStyle } from '../designTokens';
 import type { StepDefinition } from '@shared/wizardSchema';
 import BookNowInlineWidget from './BookNowInlineWidget';
 
@@ -97,6 +97,15 @@ export default function PriceRevealStep({ step, accentColor }: PriceRevealStepPr
         <BookNowInlineWidget
           calculatorId={config.calculator.id}
           quoteAmount={estimate.total}
+        />
+      )}
+
+      {/* Pay Deposit / Pay Now — only when payments are enabled */}
+      {estimate && estimate.type !== 'call_for_quote' && (
+        <PayDepositButton
+          calculatorId={config.calculator.id}
+          calculatorSettings={config.calculator.calculator_settings}
+          totalDollars={estimate.total}
         />
       )}
     </div>
@@ -231,6 +240,73 @@ function RangeBlock({
         Contact us for an exact quote tailored to your needs.
       </p>
     </div>
+  );
+}
+
+/** Pay Deposit / Pay Now button — shown when calculator has accept_payments enabled */
+function PayDepositButton({
+  calculatorId,
+  calculatorSettings,
+  totalDollars,
+}: {
+  calculatorId: number;
+  calculatorSettings?: Record<string, unknown>;
+  totalDollars: number;
+}) {
+  const [paying, setPaying] = useState(false);
+
+  const bookingSettings = (calculatorSettings as any)?.booking_settings;
+  if (!bookingSettings?.accept_payments || !bookingSettings?.stripe_account_id) return null;
+  if (calculatorId === 0) return null; // demo mode
+
+  const depositPercent = bookingSettings.deposit_percent || 100;
+  const totalCents = Math.round(totalDollars * 100);
+  const depositCents = Math.round(totalCents * depositPercent / 100);
+  const depositDollars = (depositCents / 100).toFixed(2);
+
+  const label = depositPercent < 100
+    ? `Pay $${depositDollars} Deposit (${depositPercent}%)`
+    : `Pay $${depositDollars} Now`;
+
+  async function handlePay() {
+    setPaying(true);
+    try {
+      const res = await fetch(`/api/calculators/${calculatorId}/checkout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount_cents: totalCents,
+          customer_name: 'Customer',
+          quote_details: { total_dollars: totalDollars },
+        }),
+      });
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        setPaying(false);
+      }
+    } catch {
+      setPaying(false);
+    }
+  }
+
+  return (
+    <button
+      onClick={handlePay}
+      disabled={paying}
+      style={{
+        ...primaryButtonStyle,
+        opacity: paying ? 0.6 : 1,
+        pointerEvents: paying ? 'none' : 'auto',
+        gap: '8px',
+      }}
+      onMouseOver={(e) => (e.currentTarget.style.background = eff.buttonBgHover)}
+      onMouseOut={(e) => (e.currentTarget.style.background = eff.buttonBg)}
+    >
+      <CreditCard style={{ width: 16, height: 16 }} />
+      {paying ? 'Redirecting to payment...' : label}
+    </button>
   );
 }
 
