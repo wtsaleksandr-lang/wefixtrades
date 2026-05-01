@@ -19,6 +19,7 @@ import { processMapguardReports } from "./mapguardReportWorker";
 import { processRankflowReports } from "./rankflowReportWorker";
 import { processSocialsyncReports } from "./socialsyncReportWorker";
 import { processAdflowReports } from "./adflowReportWorker";
+import { processWebcareHealthChecks } from "./webcareHealthWorker";
 import { processDunningQueue } from "./dunningWorker";
 import { processMapguardWeeklyUpdates } from "./mapguardWeeklyUpdateWorker";
 import { processTrialLifecycle, pauseExpiredTrials } from "./trialLifecycleWorker";
@@ -276,28 +277,8 @@ export function initScheduler() {
     }
   }, { timezone: "UTC" });
 
-  // AdFlow monthly reports — 13:00 UTC on the 2nd of each month
-  // (one hour after SocialSync to spread the rollup-batch load).
-  //
-  // STRICT-GATED — unlike the other monthly reports, AdFlow metrics are
-  // admin-entered, not auto-collected. The batch sender only fires for
-  // services where metadata.latest_report.period_start falls within the
-  // previous calendar month. Clients with missing or stale metrics are
-  // bucketed under skipped_missing_current_report (visible in job_logs)
-  // so ops can see who still needs metrics entered.
-  //
-  // Idempotent per period via client_service.metadata.last_report_period,
-  // so safe even if the cron fires twice or the deploy restarts mid-run.
-  // Existing admin-trigger path (task.delivered → compileAndSendAdFlowReport)
-  // is unaffected — this cron is a parallel sweep, not a replacement.
-  cron.schedule("0 13 2 * *", async () => {
-    log.info("Running AdFlow monthly reports...");
-    try {
-      await runJob("adflow_monthly_reports", processAdflowReports);
-    } catch (err: any) {
-      log.error("adflow_monthly_reports cron handler error", { error: err.message });
-    }
-  }, { timezone: "UTC" });
+  /* AdFlow monthly reports — RETIRED (Sprint 1: AdFlow dropped).
+   * Worker stub still exists but is a no-op. Cron removed. */
 
   cron.schedule("0 9 * * *", async () => {
     log.info("Running trial lifecycle worker...");
@@ -407,7 +388,7 @@ export function initScheduler() {
       "SocialSync weekly generation: 06:00 UTC every Sunday",
       "SocialSync expiry check: 04:00 UTC every day",
       "SocialSync monthly reports: 12:00 UTC on the 2nd of each month",
-      "AdFlow monthly reports: 13:00 UTC on the 2nd of each month (strict-gated)",
+      "WebCare health checks: every 15 minutes",
     ],
   });
 
@@ -461,4 +442,20 @@ export function initScheduler() {
       log.error("contentflow_image_retention error", { error: err.message });
     }
   }, { timezone: "UTC" });
+
+  let webcareHealthRunning = false;
+  cron.schedule("*/15 * * * *", async () => {
+    if (webcareHealthRunning) {
+      log.debug("webcare_health skipped — previous tick still running");
+      return;
+    }
+    webcareHealthRunning = true;
+    try {
+      await runJob("webcare_health", processWebcareHealthChecks);
+    } catch (err: any) {
+      log.error("webcare_health error", { error: err.message });
+    } finally {
+      webcareHealthRunning = false;
+    }
+  });
 }

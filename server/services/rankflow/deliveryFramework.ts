@@ -350,7 +350,7 @@ export const SERVICE_BOUNDARIES = {
   excluded: [
     "Full website redesign or rebuild (use SiteLaunch)",
     "Website speed optimization or Core Web Vitals fixes (use WebFix/WebCare)",
-    "Google Ads or paid advertising (use AdFlow)",
+    "Google Ads or paid advertising (not offered in-house)",
     "Social media posting or management (use SocialSync)",
     "Review management or reputation monitoring (use ReputationShield)",
     "Google Business Profile management (use MapGuard)",

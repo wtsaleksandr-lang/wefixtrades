@@ -197,10 +197,6 @@ export const FAQS = [
     a: "Every paid recurring service (TradeLine, MapGuard, ReputationShield, SocialSync, RankFlow, WebCare) comes with a 30-day money-back guarantee. Email us within 30 days of your first charge and we refund that charge in full — no forms, no phone call required. After 30 days you can still cancel any time, but past charges stay billed. QuoteQuick Pro ships with a 14-day free trial instead of the guarantee.",
   },
   {
-    q: "Does AdFlow have a money-back guarantee?",
-    a: "The AdFlow management fee does. The ad spend itself (the money we deploy to Google or Meta on your behalf) never does — once the agency launches the campaign, that money is with the platform, not with us. This is clearly noted at checkout.",
-  },
-  {
     q: "Do SMS follow-ups require Twilio?",
     a: "Yes. SMS and WhatsApp messaging uses Twilio as the carrier. You'll need a free Twilio account and a registered Twilio phone number. We walk you through the setup in under 10 minutes — it's included in Pro onboarding.",
   },

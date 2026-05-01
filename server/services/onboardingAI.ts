@@ -75,7 +75,7 @@ Rules:
 - Only include client fields you can extract with HIGH confidence from the responses. If not present, omit the field entirely (don't guess).
 - Normalize phone numbers to E.164 when possible.
 - Add https:// prefix to website URLs if missing.
-- service_config should capture the service-specific working data the fulfillment team will need — e.g. for MapGuard: target keywords, service areas, competitors; for QuoteQuick: pricing model + base rates; for ReputationShield: review strategy + tone; for SocialSync: platforms + posting frequency; for AdFlow: budget + platforms + goals; for SiteLaunch: style + extras; for RankFlow: target keywords + CMS access; for WebFix: main issue + URL.
+- service_config should capture the service-specific working data the fulfillment team will need — e.g. for MapGuard: target keywords, service areas, competitors; for QuoteQuick: pricing model + base rates; for ReputationShield: review strategy + tone; for SocialSync: platforms + posting frequency; for SiteLaunch: style + extras; for RankFlow: target keywords + CMS access; for WebFix: main issue + URL.
 - summary is a single concise sentence (under 25 words) an admin can scan.
 - Return ONLY the JSON object. No prose, no markdown fences, no commentary.`;
 }

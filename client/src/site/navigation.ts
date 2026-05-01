@@ -61,7 +61,6 @@ export const NAV_LINKS: NavItem[] = [
       { label: "ReputationShield\u2122", href: "/products/reputationshield", description: "Reviews + reputation.", icon: "shieldCheck" },
       { label: "SocialSync\u2122", href: "/products/socialsync", description: "Social media automation.", icon: "share2" },
       { label: "RankFlow\u2122", href: "/products/rankflow", description: "Ongoing SEO for trades.", icon: "trendingUp" },
-      { label: "AdFlow\u2122", href: "/products/adflow", description: "Done-for-you ad campaigns.", icon: "target" },
       { label: "SiteLaunch\u2122", href: "/products/sitelaunch", description: "High-converting websites.", icon: "layout" },
     ],
   },

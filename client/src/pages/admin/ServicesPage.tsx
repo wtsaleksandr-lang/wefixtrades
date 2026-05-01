@@ -39,7 +39,7 @@ const CORE_SERVICES = [
   { id: "sitelaunch", name: "SiteLaunch™", category: "website", description: "High-converting website built for trades. Launched in 2 weeks." },
   { id: "webfix", name: "WebFix™", category: "website", description: "Website fixes, tweaks, and optimization." },
   { id: "rankflow", name: "RankFlow™", category: "visibility", description: "Ongoing SEO that brings consistent traffic and leads." },
-  { id: "adflow", name: "AdFlow™", category: "leads", description: "Done-for-you ads that bring leads fast." },
+  /* AdFlow removed — white-label agencies handle ads now */
 ];
 
 function fmt(cents: number | null) {

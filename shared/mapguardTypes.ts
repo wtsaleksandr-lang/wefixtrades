@@ -254,7 +254,7 @@ export const AUDIT_ISSUE_TO_TASK: Record<string, AuditTaskMapping> = {
     task_type: "competitor_reaction",
     title: "Evaluate ad opportunity vs. competitors",
     priority: "low",
-    next_step_hint: "Review competitor ad presence and CPC data. Calculate potential ROI. Recommend AdFlow if viable.",
+    next_step_hint: "Review competitor ad presence and CPC data. Calculate potential ROI. Note ads are handled by white-label agencies.",
     input_keys: ["keywords", "keywordSummary", "competitors"],
   },
   "low-search-ranking": {
