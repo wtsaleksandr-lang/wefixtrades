@@ -4,7 +4,7 @@
  */
 import {
   SITELAUNCH, TRADELINE, QUOTEQUICK, MAPGUARD,
-  REPUTATIONSHIELD, SOCIALSYNC, WEBFIX, RANKFLOW, ADFLOW,
+  REPUTATIONSHIELD, SOCIALSYNC, WEBFIX, RANKFLOW, WEBCARE,
   lowestMonthly, formatPrice,
   type ProductDef,
 } from "./pricing";
@@ -136,20 +136,20 @@ export const SERVICES: Service[] = [
     features: RANKFLOW.tiers[0].features,
   },
   {
-    id: "adflow",
-    name: ADFLOW.name,
-    tagline: ADFLOW.tagline,
+    id: "webcare",
+    name: WEBCARE.name,
+    tagline: WEBCARE.tagline,
     description:
-      "Done-for-you Google and Facebook ads that bring qualified leads fast.",
-    price: lowestMonthly(ADFLOW)!,
-    priceLabel: `From ${formatPrice(lowestMonthly(ADFLOW)!)}/mo`,
+      "Automated website health monitoring, uptime checks, security scanning, and CMS patch management.",
+    price: lowestMonthly(WEBCARE)!,
+    priceLabel: `From ${formatPrice(lowestMonthly(WEBCARE)!)}/mo`,
     billingPeriod: "monthly",
-    category: "leads",
+    category: "website",
     fixesIssues: [
+      "slow-website",
       "low-visibility",
-      "few-leads",
     ],
-    features: ADFLOW.tiers[0].features,
+    features: WEBCARE.tiers[0].features,
   },
   {
     id: "sitelaunch",

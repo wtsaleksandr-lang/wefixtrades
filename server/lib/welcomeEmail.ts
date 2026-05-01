@@ -66,6 +66,7 @@ function getServiceCopy(serviceId: string): ServiceCopy {
     intro: "We've generated a month of posts tailored to your trade. You'll approve each one before it goes live.",
     firstAction: "Check your approval queue — the first posts are waiting for your thumbs-up.",
   };
+  /* AdFlow dropped (Sprint 1) — kept for legacy client_services that may still exist */
   if (serviceId.startsWith("adflow")) return {
     hero: "Your ad campaigns are running",
     intro: "Tracking, creatives, and targeting are all live. The white-label team is monitoring daily for the first week to dial in performance.",

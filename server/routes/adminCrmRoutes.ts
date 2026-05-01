@@ -4,7 +4,7 @@ import { storage } from "../storage";
 import { advanceSetupStage, getTradeLineReadiness } from "@shared/schema";
 import { dispatchTaskToSupplier } from "../services/supplierDispatch";
 import { sendWelcomePackage } from "../lib/welcomeEmail";
-import { compileAndSendAdFlowReport } from "../services/adflowReports";
+// AdFlow dropped (Sprint 1) — compileAndSendAdFlowReport import removed
 import crypto from "crypto";
 
 export function registerAdminCrmRoutes(app: Express): void {
@@ -251,79 +251,9 @@ export function registerAdminCrmRoutes(app: Express): void {
     }
   });
 
-  /**
-   * POST /api/admin/crm/client-services/:id/adflow-metrics
-   *
-   * Admin form submit for AdFlow monthly metrics. Populates
-   * client_service.metadata.latest_report which the AdFlow report email
-   * uses when the monthly-report task is marked delivered.
-   *
-   * Body: {
-   *   impressions?: number,
-   *   clicks?: number,
-   *   conversions?: number,
-   *   cost_spent_cents?: number,
-   *   cpc_cents?: number,
-   *   ctr_pct?: number,
-   *   leads_generated?: number,
-   *   top_creative?: string,
-   *   notes?: string,
-   *   period_start?: string,   // ISO date
-   *   period_end?: string,     // ISO date
-   * }
-   */
-  app.post("/api/admin/crm/client-services/:id/adflow-metrics", requireAdmin, async (req: Request, res: Response) => {
-    try {
-      const id = parseInt(req.params.id as string);
-      const body = req.body || {};
-      const cs = await storage.getClientServiceById(id);
-      if (!cs) return res.status(404).json({ error: "Client service not found" });
-      if (!cs.service_id.startsWith("adflow")) {
-        return res.status(400).json({ error: `Endpoint only applies to AdFlow (got "${cs.service_id}")` });
-      }
-
-      // Whitelist the fields — don't let the admin dump arbitrary data into metadata
-      const numericField = (v: any): number | undefined => (v === null || v === undefined || v === "" ? undefined : Number(v));
-      const metrics = {
-        impressions: numericField(body.impressions),
-        clicks: numericField(body.clicks),
-        conversions: numericField(body.conversions),
-        cost_spent_cents: numericField(body.cost_spent_cents),
-        cpc_cents: numericField(body.cpc_cents),
-        ctr_pct: numericField(body.ctr_pct),
-        leads_generated: numericField(body.leads_generated),
-        top_creative: typeof body.top_creative === "string" ? body.top_creative.slice(0, 200) : undefined,
-        notes: typeof body.notes === "string" ? body.notes.slice(0, 1000) : undefined,
-        period_start: typeof body.period_start === "string" ? body.period_start : undefined,
-        period_end: typeof body.period_end === "string" ? body.period_end : undefined,
-      };
-
-      const existingMeta = (cs.metadata as any) || {};
-      const nextMeta = {
-        ...existingMeta,
-        latest_report: {
-          ...metrics,
-          updated_at: new Date().toISOString(),
-          updated_by: (req.user as any)?.email || (req.user as any)?.id,
-        },
-      };
-
-      const updated = await storage.updateClientService(id, { metadata: nextMeta });
-      await storage.logAdminActivity({
-        actor_type: "human",
-        actor_id: (req.user as any)?.id,
-        actor_name: (req.user as any)?.name || (req.user as any)?.email,
-        action: "adflow_metrics.updated",
-        entity_type: "client_service",
-        entity_id: id,
-        summary: `AdFlow metrics updated for service #${id}${metrics.leads_generated ? ` — ${metrics.leads_generated} leads` : ""}`,
-        metadata: { period_start: metrics.period_start, period_end: metrics.period_end },
-      });
-      res.json({ ok: true, client_service: updated });
-    } catch (err: any) {
-      console.error("[adflow-metrics] Save failed:", err.message);
-      res.status(500).json({ error: "Failed to save AdFlow metrics" });
-    }
+  /** AdFlow metrics endpoint — retired (Sprint 1: AdFlow dropped). Returns 410 Gone. */
+  app.post("/api/admin/crm/client-services/:id/adflow-metrics", requireAdmin, async (_req: Request, res: Response) => {
+    res.status(410).json({ error: "AdFlow has been removed from the product catalog." });
   });
 
   /* ═══════════════════════════════════════════
@@ -403,14 +333,7 @@ export function registerAdminCrmRoutes(app: Express): void {
           );
         }
 
-        // AdFlow monthly report: when a "Monthly performance report" task is
-        // delivered on an AdFlow service, compile and email the report.
-        // Idempotent per period on the client_service metadata.
-        if (task.title.toLowerCase().includes("monthly performance report")) {
-          compileAndSendAdFlowReport(task.client_service_id).catch(err =>
-            console.warn(`[adflow-report] compile failed for client_service #${task.client_service_id}:`, err.message),
-          );
-        }
+        // AdFlow report trigger removed — Sprint 1: AdFlow dropped.
       }
 
       // Auto-dispatch to supplier when a task moves into in_progress/submitted

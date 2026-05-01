@@ -104,7 +104,7 @@ export default function TermsPage() {
                   <li><strong>ReputationShield</strong> — review request and response automation</li>
                   <li><strong>RankFlow</strong> — ongoing local SEO work</li>
                   <li><strong>SocialSync</strong> — social media content generation and posting</li>
-                  <li><strong>AdFlow</strong> — white-label ad campaign management</li>
+                  <li><strong>WebCare</strong> — automated website health monitoring and maintenance</li>
                   <li><strong>SiteLaunch</strong> — website build (custom or template-based)</li>
                   <li><strong>WebFix</strong> — one-off website fixes</li>
                 </ul>
@@ -156,13 +156,6 @@ export default function TermsPage() {
                   working for you, email us within 30 days of your first charge and we'll
                   refund that charge in full. After 30 days, you can cancel any time,
                   but past charges are not refundable.
-                </p>
-                <p>
-                  <strong>AdFlow</strong>: the monthly management fee is covered by the
-                  30-day money-back guarantee. <strong>Ad spend itself is never
-                  refundable</strong> — once your campaigns are launched, those funds
-                  are with Google, Meta, or the applicable ad platform, not with us. This
-                  is clearly noted at checkout.
                 </p>
                 <p>
                   <strong>SiteLaunch (custom builds):</strong> refundable until we ship
@@ -278,7 +271,7 @@ export default function TermsPage() {
                 <p>
                   The Service, including all software, designs, trademarks, logos, and
                   product names (including "WeFixTrades", "QuoteQuick Pro", "TradeLine",
-                  "MapGuard", "ReputationShield", "RankFlow", "AdFlow", "SocialSync",
+                  "MapGuard", "ReputationShield", "RankFlow", "SocialSync",
                   "WebCare", "SiteLaunch", "WebFix"), is owned by WeFixTrades Inc. and
                   protected by applicable intellectual property laws. We grant you a
                   limited, non-transferable, revocable license to use the Service

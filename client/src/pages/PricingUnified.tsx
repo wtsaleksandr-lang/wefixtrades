@@ -116,14 +116,6 @@ const SERVICE_INFO: Record<string, ServiceInfo> = {
     trustLine: "Trades businesses improving local visibility month after month",
     bestFor: "ongoing local SEO",
   },
-  adflow: {
-    name: "AdFlow\u2122",
-    headline: "Ads that bring qualified leads to your phone",
-    bullets: ["Google and Facebook ads managed for you", "Targeting homeowners searching for your trade", "Budget optimized so every dollar counts", "Clear reporting on leads and cost"],
-    href: "/products/adflow",
-    trustLine: "Brings qualified leads fast through paid advertising",
-    bestFor: "fast leads through ads",
-  },
   webfix: {
     name: "WebFix\u2122",
     headline: "Fix what\u2019s broken on your website \u2014 one time, done",

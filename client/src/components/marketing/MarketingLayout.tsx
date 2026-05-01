@@ -91,7 +91,6 @@ function MarketingFooter({ isMobile }: { isMobile: boolean }) {
             <FtLink href="/products/reputationshield">ReputationShield™</FtLink>
             <FtLink href="/products/socialsync">SocialSync™</FtLink>
             <FtLink href="/products/rankflow">RankFlow™</FtLink>
-            <FtLink href="/products/adflow">AdFlow™</FtLink>
           </CollapsibleFooterSection>
 
           {/* Col 2 — Solutions */}

@@ -1,6 +1,6 @@
 import {
   TRADELINE, QUOTEQUICK, WEBCARE, MAPGUARD, SITELAUNCH,
-  REPUTATIONSHIELD, SOCIALSYNC, RANKFLOW, ADFLOW, WEBFIX,
+  REPUTATIONSHIELD, SOCIALSYNC, RANKFLOW, WEBFIX,
   formatPrice, type ProductDef, type Tier,
 } from "@shared/pricing";
 
@@ -183,7 +183,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
     name: "WebCare",
     shortTagline: "We handle your website. You handle your business.",
     seoTitle: "WebCare — Website Maintenance for Trades Businesses | WeFixTrades",
-    seoDescription: "We keep your website updated, secure, and working — so you never have to think about it. Built for trades businesses. No contracts.",
+    seoDescription: "Automated website health monitoring, uptime checks, security scanning, and CMS patch management. Built for trades businesses. No contracts.",
     category: "growth",
     heroVisualType: "dashboard",
     primaryCTA: { label: "Get Started", href: "/Wizard" },
@@ -409,49 +409,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
       { q: "Do you write the content?", a: "Yes. On Growth and Pro plans, we create SEO-optimized service and location pages targeting your services and area." },
     ],
     pricingSection: buildPricingSection(RANKFLOW),
-    related: ["mapguard", "adflow"],
-  },
-  {
-    slug: "adflow",
-    name: "AdFlow\u2122",
-    shortTagline: "Done-for-You Ads",
-    seoTitle: "AdFlow\u2122 — Ads That Bring Leads Fast | WeFixTrades",
-    seoDescription: "Done-for-you Google and Facebook ads built for trades businesses. We handle everything \u2014 setup, targeting, optimization, and reporting.",
-    category: "growth",
-    heroVisualType: "dashboard",
-    primaryCTA: { label: "Start Getting Leads", href: "/Wizard" },
-    secondaryCTA: { label: "See Pricing", href: "/pricing" },
-    highlights: [
-      "Google Ads campaigns targeting homeowners who need your services",
-      "Facebook & Instagram ads to reach local customers",
-      "Ad copy and creative designed for trades",
-      "Budget optimization so every dollar works harder",
-      "Clear reporting on leads, cost per lead, and ROI",
-    ],
-    outcomes: [
-      { title: "Leads fast", desc: "Start getting calls and form submissions within days, not months." },
-      { title: "Targeted reach", desc: "Your ads show to homeowners actively searching for your services." },
-      { title: "Clear ROI", desc: "Know exactly how much you\u2019re spending and what you\u2019re getting back." },
-    ],
-    howItWorks: [
-      { title: "We set up your campaigns", desc: "Research, targeting, ad copy, and landing page optimization \u2014 all handled." },
-      { title: "We optimize daily", desc: "We monitor and adjust bids, targeting, and creative to maximize leads." },
-      { title: "You get the leads", desc: "Calls, form submissions, and booking requests come directly to you." },
-    ],
-    bestFor: ["Plumbers", "HVAC", "Electricians", "Roofers", "Cleaners", "Landscapers", "Contractors"],
-    visuals: [
-      { title: "Campaign Dashboard", desc: "See your active campaigns, spend, and lead count at a glance." },
-      { title: "Lead Tracking", desc: "Every call and form submission tracked back to your ads." },
-      { title: "Performance Reports", desc: "Weekly and monthly reports showing ROI and optimization opportunities." },
-    ],
-    faq: [
-      { q: "Do I need to manage anything?", a: "No. We handle everything \u2014 setup, optimization, and reporting. You just answer the leads." },
-      { q: "How much should I budget for ads?", a: "We recommend starting with $500\u2013$1,500/month in ad spend (separate from management fee). We\u2019ll help you find the right budget." },
-      { q: "How fast will I see results?", a: "Most clients see leads within the first week. We optimize continuously to improve results." },
-      { q: "Which platforms do you use?", a: "Google Ads on all plans. Growth adds Facebook, and Pro adds Instagram and video ads." },
-    ],
-    pricingSection: buildPricingSection(ADFLOW),
-    related: ["rankflow", "tradeline", "quotequick"],
+    related: ["mapguard", "socialsync"],
   },
 ];
 
