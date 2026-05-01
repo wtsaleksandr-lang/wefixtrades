@@ -53,7 +53,7 @@ function actorMeta(req: Request) {
 async function logEvent(
   prospectId: number,
   eventType: string,
-  actor: ReturnType<typeof actorMeta>,
+  actor: { actor_type: string; actor_id: any; actor_name: string },
   summary: string,
   meta?: Record<string, unknown>,
   campaignProspectId?: number
@@ -431,7 +431,7 @@ export function registerAdminOutboundRoutes(app: Express): void {
   // GET /api/admin/outbound/prospects/:id
   app.get("/api/admin/outbound/prospects/:id", requireAdmin, async (req: Request, res: Response) => {
     try {
-      const id = parseInt(req.params.id);
+      const id = parseInt(String(req.params.id));
       const [row] = await db
         .select({ prospect: prospects, enrichment: prospectEnrichment })
         .from(prospects)
@@ -466,7 +466,7 @@ export function registerAdminOutboundRoutes(app: Express): void {
 
   app.post("/api/admin/outbound/prospects/:id/review", requireAdmin, async (req: Request, res: Response) => {
     const actor = actorMeta(req);
-    const id = parseInt(req.params.id);
+    const id = parseInt(String(req.params.id));
     const { action, notes } = req.body as { action: string; notes?: string };
 
     if (!["approve", "reject", "blacklist", "dnc"].includes(action)) {
@@ -510,7 +510,7 @@ export function registerAdminOutboundRoutes(app: Express): void {
 
   app.post("/api/admin/outbound/prospects/:id/enrich", requireAdmin, async (req: Request, res: Response) => {
     const actor = actorMeta(req);
-    const id = parseInt(req.params.id);
+    const id = parseInt(String(req.params.id));
 
     try {
       const [row] = await db.select().from(prospects).where(eq(prospects.id, id)).limit(1);
@@ -691,7 +691,7 @@ export function registerAdminOutboundRoutes(app: Express): void {
   });
 
   app.patch("/api/admin/outbound/campaigns/:id", requireAdmin, async (req: Request, res: Response) => {
-    const id = parseInt(req.params.id);
+    const id = parseInt(String(req.params.id));
     try {
       const [campaign] = await db.update(outboundCampaigns)
         .set({ ...req.body, updated_at: new Date() })
@@ -705,7 +705,7 @@ export function registerAdminOutboundRoutes(app: Express): void {
   });
 
   app.get("/api/admin/outbound/campaigns/:id", requireAdmin, async (req: Request, res: Response) => {
-    const id = parseInt(req.params.id);
+    const id = parseInt(String(req.params.id));
     try {
       const [campaign] = await db.select().from(outboundCampaigns).where(eq(outboundCampaigns.id, id)).limit(1);
       if (!campaign) return res.status(404).json({ error: "Not found" });
@@ -732,7 +732,7 @@ export function registerAdminOutboundRoutes(app: Express): void {
 
   app.post("/api/admin/outbound/campaigns/:id/assign", requireAdmin, async (req: Request, res: Response) => {
     const actor = actorMeta(req);
-    const campaignId = parseInt(req.params.id);
+    const campaignId = parseInt(String(req.params.id));
     const { prospect_ids } = req.body as { prospect_ids: number[] };
 
     if (!Array.isArray(prospect_ids) || prospect_ids.length === 0) {
@@ -842,7 +842,7 @@ export function registerAdminOutboundRoutes(app: Express): void {
      ═══════════════════════════════════════════ */
 
   app.post("/api/admin/outbound/campaigns/:id/sync", requireAdmin, async (req: Request, res: Response) => {
-    const campaignId = parseInt(req.params.id);
+    const campaignId = parseInt(String(req.params.id));
     const actor = actorMeta(req);
 
     try {
@@ -1148,7 +1148,7 @@ export function registerAdminOutboundRoutes(app: Express): void {
      ═══════════════════════════════════════════ */
 
   app.get("/api/admin/outbound/campaigns/:id/stats", requireAdmin, async (req: Request, res: Response) => {
-    const campaignId = parseInt(req.params.id);
+    const campaignId = parseInt(String(req.params.id));
     try {
       // All campaign_prospect rows for this campaign
       const [
@@ -1289,7 +1289,7 @@ export function registerAdminOutboundRoutes(app: Express): void {
   // DELETE /api/admin/outbound/blacklist/:type/:id
   app.delete("/api/admin/outbound/blacklist/:type/:id", requireAdmin, async (req: Request, res: Response) => {
     const { type, id } = req.params;
-    const rowId = parseInt(id);
+    const rowId = parseInt(String(id));
     try {
       if (type === "domain") {
         await db.delete(outboundBlockedDomains).where(eq(outboundBlockedDomains.id, rowId));
@@ -1310,7 +1310,7 @@ export function registerAdminOutboundRoutes(app: Express): void {
   // Body: { stage: string, notes?: string, lost_reason?: string }
   app.patch("/api/admin/outbound/pipeline/:id", requireAdmin, async (req: Request, res: Response) => {
     const actor = actorMeta(req);
-    const id = parseInt(req.params.id);
+    const id = parseInt(String(req.params.id));
     const { stage, notes, lost_reason } = req.body as {
       stage: string; notes?: string; lost_reason?: string;
     };

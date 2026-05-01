@@ -2985,7 +2985,7 @@ import { recommendRankFlowTier } from "./services/rankflow/auditConversion";
 
 router.get("/report/:id/rankflow-recommendation", async (req: Request, res: Response) => {
   try {
-    const reportId = req.params.id;
+    const reportId = String(req.params.id);
     const [report] = await db.select().from(auditReports).where(eq(auditReports.id, reportId)).limit(1);
     if (!report) return res.status(404).json({ error: "Report not found" });
 

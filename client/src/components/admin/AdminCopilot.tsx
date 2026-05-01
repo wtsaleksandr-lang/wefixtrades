@@ -56,6 +56,8 @@ export interface AdminPageContext {
   // Services enrichment
   serviceCatalogCount?: number;
   topServicesByClients?: Array<{ name: string; activeClients: number }>;
+  /** Admin section label (e.g. "Outbound") */
+  section?: string;
 }
 
 /* ─── Suggested prompts per page ─── */

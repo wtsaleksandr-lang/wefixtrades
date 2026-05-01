@@ -267,7 +267,7 @@ export async function mergeBrandProfile(
   /* Drop keys explicitly set to null/undefined in the patch. */
   for (const k of Object.keys(patch)) {
     const v = (patch as any)[k];
-    if (v === null || v === undefined) delete next[k];
+    if (v === null || v === undefined) delete (next as Record<string, unknown>)[k];
   }
   const updatedMeta = { ...meta, content_brand: next };
   await storage.updateClient(clientId, { metadata: updatedMeta } as any);

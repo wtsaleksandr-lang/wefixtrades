@@ -31,7 +31,7 @@ function getStripe(): Stripe | null {
 export function registerBillingPortalRoute(app: Express): void {
   app.get("/api/billing/portal/:token", async (req: Request, res: Response) => {
     const baseUrl = process.env.APP_URL || process.env.APP_PUBLIC_URL || "https://wefixtrades.com";
-    const token = req.params.token;
+    const token = String(req.params.token);
 
     const verified = verifyBillingPortalToken(token);
     if (!verified) {

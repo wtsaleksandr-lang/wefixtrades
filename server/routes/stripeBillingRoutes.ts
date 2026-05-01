@@ -501,9 +501,9 @@ async function handleInvoiceFailed(invoice: Stripe.Invoice, eventId: string) {
   // Day 2 / Day 5 / Day 7 — schedule the dunning sequence. Idempotent on
   // (subscription, event_id, kind) so duplicate Stripe deliveries are
   // safe. Day 0 is already covered by sendPaymentFailedEmail above.
-  const subscriptionId = typeof invoice.subscription === "string"
-    ? invoice.subscription
-    : invoice.subscription?.id ?? null;
+  const subscriptionId = typeof (invoice as any).subscription === "string"
+    ? (invoice as any).subscription
+    : (invoice as any).subscription?.id ?? null;
 
   scheduleFailedPaymentSequence({
     stripeCustomerId: customerId,
@@ -519,9 +519,9 @@ async function handleInvoiceFailed(invoice: Stripe.Invoice, eventId: string) {
 }
 
 async function handleInvoiceSucceeded(invoice: Stripe.Invoice) {
-  const subscriptionId = typeof invoice.subscription === "string"
-    ? invoice.subscription
-    : invoice.subscription?.id;
+  const subscriptionId = typeof (invoice as any).subscription === "string"
+    ? (invoice as any).subscription
+    : (invoice as any).subscription?.id;
   if (!subscriptionId) return;
 
   // Stop nagging — payment came through.

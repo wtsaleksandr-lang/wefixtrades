@@ -272,7 +272,7 @@ export default function PortalArticles() {
                       View live <ExternalLink className="h-3 w-3" />
                     </a>
                   )}
-                  <Button variant="link" size="sm" className="mt-2 px-0 h-auto" data-testid={`article-card-open-${a.id}`}>
+                  <Button variant="ghost" size="sm" className="mt-2 px-0 h-auto" data-testid={`article-card-open-${a.id}`}>
                     View Full Draft →
                   </Button>
                 </Card>
