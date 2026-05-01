@@ -1,13 +1,14 @@
 import type { Express, Request } from "express";
 import { randomBytes } from "crypto";
 import passport from "passport";
-import { requireAuth, hashPassword, verifyPassword } from "../auth";
+import { requireAuth, requireAdmin, hashPassword, verifyPassword } from "../auth";
 import { db } from "../db";
 import { eq, and, gt } from "drizzle-orm";
 import { users, passwordResetTokens, clients } from "@shared/schema";
 import { getEmailTransporter, getFromAddress } from "../lib/emailTransport";
 import { authRateLimiter } from "../services/rateLimiter";
 import { getMemory, linkSessionToUser, extractMemorySignals } from "../services/chatMemory";
+import { storage } from "../storage";
 
 function getClientIp(req: Request): string {
   return (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || "unknown";
@@ -267,5 +268,136 @@ export function registerAuthRoutes(app: Express) {
       console.error("[auth] Link chat session error:", err);
       res.json({ linked: false });
     }
+  });
+
+  /* ─── Profile update ─── */
+
+  /**
+   * PATCH /api/user/profile
+   * Updates the current user's name and/or email.
+   */
+  app.patch("/api/user/profile", requireAuth, async (req, res) => {
+    try {
+      const userId = req.user!.id;
+      const { name, email } = req.body;
+
+      const updates: Record<string, string> = {};
+      if (typeof name === "string" && name.trim()) updates.name = name.trim();
+      if (typeof email === "string" && email.trim()) {
+        const normalised = email.toLowerCase().trim();
+        // Check uniqueness
+        const existing = await storage.getUserByEmail(normalised);
+        if (existing && existing.id !== userId) {
+          return res.status(409).json({ error: "Email already in use by another account" });
+        }
+        updates.email = normalised;
+      }
+
+      if (Object.keys(updates).length === 0) {
+        return res.status(400).json({ error: "No valid fields to update" });
+      }
+
+      const updated = await storage.updateUser(userId, updates);
+      if (!updated) return res.status(404).json({ error: "User not found" });
+
+      // Refresh the session with new user data
+      req.login({ id: updated.id, email: updated.email, role: updated.role, name: updated.name }, (err) => {
+        if (err) console.error("[auth] Session refresh error:", err);
+      });
+
+      res.json({ user: { id: updated.id, email: updated.email, role: updated.role, name: updated.name } });
+    } catch (err) {
+      console.error("[auth] Profile update error:", err);
+      res.status(500).json({ error: "Failed to update profile" });
+    }
+  });
+
+  /* ─── Change password ─── */
+
+  /**
+   * POST /api/user/change-password
+   * Requires current password verification. Sets a new password.
+   */
+  app.post("/api/user/change-password", requireAuth, async (req, res) => {
+    try {
+      const userId = req.user!.id;
+      const { currentPassword, newPassword } = req.body;
+
+      if (!currentPassword || typeof currentPassword !== "string") {
+        return res.status(400).json({ error: "Current password is required" });
+      }
+      if (!newPassword || typeof newPassword !== "string" || newPassword.length < 8) {
+        return res.status(400).json({ error: "New password must be at least 8 characters" });
+      }
+
+      // Fetch full user record (need password_hash)
+      const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+      if (!user) return res.status(404).json({ error: "User not found" });
+
+      if (!verifyPassword(currentPassword, user.password_hash)) {
+        return res.status(401).json({ error: "Current password is incorrect" });
+      }
+
+      const newHash = hashPassword(newPassword);
+      await db.update(users).set({ password_hash: newHash }).where(eq(users.id, userId));
+
+      res.json({ ok: true });
+    } catch (err) {
+      console.error("[auth] Change password error:", err);
+      res.status(500).json({ error: "Failed to change password" });
+    }
+  });
+
+  /* ─── User settings / preferences ─── */
+
+  /**
+   * GET /api/user/settings
+   * Returns the current user's preferences stored in session.
+   */
+  app.get("/api/user/settings", requireAuth, (req, res) => {
+    const sess = req.session as any;
+    const settings = sess.userSettings || {
+      businessName: "",
+      contactEmail: req.user!.email,
+      timezone: "Europe/London",
+      emailNotifications: true,
+      weeklyReports: true,
+      aiAssistantEnabled: true,
+    };
+    res.json({ settings });
+  });
+
+  /**
+   * PATCH /api/user/settings
+   * Persists preferences in the session store (backed by connect-pg-simple).
+   */
+  app.patch("/api/user/settings", requireAuth, (req, res) => {
+    const sess = req.session as any;
+    const current = sess.userSettings || {
+      businessName: "",
+      contactEmail: req.user!.email,
+      timezone: "Europe/London",
+      emailNotifications: true,
+      weeklyReports: true,
+      aiAssistantEnabled: true,
+    };
+
+    const { businessName, contactEmail, timezone, emailNotifications, weeklyReports, aiAssistantEnabled } = req.body;
+
+    if (typeof businessName === "string") current.businessName = businessName.trim();
+    if (typeof contactEmail === "string") current.contactEmail = contactEmail.trim();
+    if (typeof timezone === "string") current.timezone = timezone.trim();
+    if (typeof emailNotifications === "boolean") current.emailNotifications = emailNotifications;
+    if (typeof weeklyReports === "boolean") current.weeklyReports = weeklyReports;
+    if (typeof aiAssistantEnabled === "boolean") current.aiAssistantEnabled = aiAssistantEnabled;
+
+    sess.userSettings = current;
+    req.session.save((err: Error | null) => {
+      if (err) {
+        console.error("[auth] Settings save error:", err);
+        return res.status(500).json({ error: "Failed to save settings" });
+      }
+      res.json({ settings: current });
+    });
   });
 }

@@ -226,7 +226,7 @@ export default function DemoPage() {
                     color: mkt.textMuted,
                   }}
                 >
-                  Interactive demo coming soon
+                  See {demo.title} in action
                 </span>
                 <span
                   style={{
@@ -237,9 +237,25 @@ export default function DemoPage() {
                     lineHeight: 1.5,
                   }}
                 >
-                  We're building an interactive experience for {demo.title}.
-                  Contact us for a personalized walkthrough.
+                  Want to see how {demo.title} works for your business?
+                  Book a free walkthrough and we'll show you live.
                 </span>
+                <a
+                  href="/book"
+                  style={{
+                    marginTop: 8,
+                    display: "inline-block",
+                    padding: "10px 24px",
+                    borderRadius: 10,
+                    background: mkt.accent,
+                    color: mkt.dark,
+                    fontSize: 14,
+                    fontWeight: 700,
+                    textDecoration: "none",
+                  }}
+                >
+                  Book a Demo
+                </a>
               </div>
             </div>
           </div>

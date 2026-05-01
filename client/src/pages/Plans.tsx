@@ -594,7 +594,7 @@ export default function Plans() {
 
         {activeTab === "addons" && <section id="addons" style={{ marginTop: 40 }}>
           <h2 style={{ fontSize: "clamp(22px, 4vw, 30px)", fontWeight: 800, color: "rgba(0,0,0,0.90)", margin: 0 }}>Add-ons</h2>
-          <p style={{ marginTop: 8, fontSize: 14, color: "rgba(0,0,0,0.50)" }}>Optional extras (pricing coming soon).</p>
+          <p style={{ marginTop: 8, fontSize: 14, color: "rgba(0,0,0,0.50)" }}>Optional extras to extend your plan. Contact us for pricing.</p>
 
           <div style={{ marginTop: 24, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16 }}>
             {["Extra SMS pack", "Extra call minutes", "Additional location", "Additional social platform", "Extra template pack"].map((t) => (
@@ -610,8 +610,9 @@ export default function Plans() {
                 }}
               >
                 <div style={{ fontSize: 18, fontWeight: 800, color: "rgba(0,0,0,0.90)" }}>{t}</div>
-                <div style={{ marginTop: 8, fontSize: 14, color: "rgba(0,0,0,0.50)" }}>TBD</div>
-                <div
+                <div style={{ marginTop: 8, fontSize: 14, color: "rgba(0,0,0,0.50)" }}>Custom pricing available</div>
+                <a
+                  href="/book"
                   style={{
                     marginTop: 16,
                     display: "inline-flex",
@@ -624,10 +625,11 @@ export default function Plans() {
                     fontSize: 12,
                     fontWeight: 700,
                     color: "rgba(0,0,0,0.55)",
+                    textDecoration: "none",
                   }}
                 >
-                  Coming soon
-                </div>
+                  Get a quote
+                </a>
               </div>
             ))}
           </div>
