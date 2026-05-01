@@ -7,6 +7,8 @@ import { sendWelcomePackage } from "../lib/welcomeEmail";
 // AdFlow dropped (Sprint 1) — compileAndSendAdFlowReport import removed
 import crypto from "crypto";
 import { createLogger } from "../lib/logger";
+import { saveFile, deleteFile } from "../services/fileStorage";
+import type { Deliverable } from "@shared/schema";
 
 const log = createLogger("AdminCRM");
 
@@ -2331,6 +2333,139 @@ export function registerAdminCrmRoutes(app: Express): void {
     } catch (err: any) {
       log.error("[admin-crm] Cost suggestion error:", err.message);
       res.status(500).json({ error: "Failed to estimate costs" });
+    }
+  });
+
+  // ═══════════════════════════════════════════════
+  // Fulfillment Task Deliverables
+  // ═══════════════════════════════════════════════
+
+  /**
+   * GET /api/admin/crm/fulfillment/:id/deliverables
+   * List deliverables attached to a fulfillment task.
+   */
+  app.get("/api/admin/crm/fulfillment/:id/deliverables", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id as string);
+      if (isNaN(id)) return res.status(400).json({ error: "Invalid task id" });
+
+      const task = await storage.updateFulfillmentTask(id, {});
+      if (!task) return res.status(404).json({ error: "Fulfillment task not found" });
+
+      const deliverables = (task.deliverables as Deliverable[] | null) ?? [];
+      res.json({ deliverables });
+    } catch (err: any) {
+      log.error("[admin-crm] List deliverables error:", err.message);
+      res.status(500).json({ error: "Failed to list deliverables" });
+    }
+  });
+
+  /**
+   * POST /api/admin/crm/fulfillment/:id/deliverables
+   * Upload a deliverable (base64 JSON body — no multer dependency).
+   * Body: { file: "base64data...", filename: "mockup.png", label: "Design mockup v1", kind: "mockup" }
+   */
+  app.post("/api/admin/crm/fulfillment/:id/deliverables", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id as string);
+      if (isNaN(id)) return res.status(400).json({ error: "Invalid task id" });
+
+      const { file, filename, label, kind } = req.body;
+      if (!file || typeof file !== "string") {
+        return res.status(400).json({ error: "file (base64 string) is required" });
+      }
+      if (!filename || typeof filename !== "string") {
+        return res.status(400).json({ error: "filename is required" });
+      }
+
+      const buffer = Buffer.from(file, "base64");
+      if (buffer.length === 0) {
+        return res.status(400).json({ error: "File is empty or invalid base64" });
+      }
+
+      // 10 MB limit
+      const MAX_SIZE = 10 * 1024 * 1024;
+      if (buffer.length > MAX_SIZE) {
+        return res.status(400).json({ error: "File exceeds 10 MB limit" });
+      }
+
+      const url = await saveFile(buffer, filename, "deliverables");
+
+      // Load current task
+      const task = await storage.updateFulfillmentTask(id, {});
+      if (!task) return res.status(404).json({ error: "Fulfillment task not found" });
+
+      const deliverables: Deliverable[] = (task.deliverables as Deliverable[] | null) ?? [];
+      const newDeliverable: Deliverable = {
+        kind: kind || "file",
+        url,
+        label: label || filename,
+        uploaded_by: (req.user as any)?.name || (req.user as any)?.email || "admin",
+        uploaded_at: new Date().toISOString(),
+      };
+      deliverables.push(newDeliverable);
+
+      const updated = await storage.updateFulfillmentTask(id, { deliverables } as any);
+
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: (req.user as any)?.id,
+        actor_name: (req.user as any)?.name || (req.user as any)?.email,
+        action: "fulfillment.deliverable_added",
+        entity_type: "fulfillment_task",
+        entity_id: id,
+        summary: `Added deliverable "${newDeliverable.label}" (${newDeliverable.kind}) to task #${id}`,
+        metadata: { url, kind: newDeliverable.kind, size: buffer.length },
+      });
+
+      res.status(201).json(updated);
+    } catch (err: any) {
+      log.error("[admin-crm] Upload deliverable error:", err.message);
+      res.status(500).json({ error: "Failed to upload deliverable" });
+    }
+  });
+
+  /**
+   * DELETE /api/admin/crm/fulfillment/:id/deliverables/:index
+   * Remove a specific deliverable by array index.
+   */
+  app.delete("/api/admin/crm/fulfillment/:id/deliverables/:index", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id as string);
+      const index = parseInt(req.params.index as string);
+      if (isNaN(id)) return res.status(400).json({ error: "Invalid task id" });
+      if (isNaN(index) || index < 0) return res.status(400).json({ error: "Invalid deliverable index" });
+
+      const task = await storage.updateFulfillmentTask(id, {});
+      if (!task) return res.status(404).json({ error: "Fulfillment task not found" });
+
+      const deliverables: Deliverable[] = (task.deliverables as Deliverable[] | null) ?? [];
+      if (index >= deliverables.length) {
+        return res.status(404).json({ error: `Deliverable index ${index} out of range (${deliverables.length} items)` });
+      }
+
+      const removed = deliverables.splice(index, 1)[0];
+
+      // Delete the file from disk
+      await deleteFile(removed.url);
+
+      const updated = await storage.updateFulfillmentTask(id, { deliverables } as any);
+
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: (req.user as any)?.id,
+        actor_name: (req.user as any)?.name || (req.user as any)?.email,
+        action: "fulfillment.deliverable_removed",
+        entity_type: "fulfillment_task",
+        entity_id: id,
+        summary: `Removed deliverable "${removed.label}" from task #${id}`,
+        metadata: { url: removed.url, kind: removed.kind },
+      });
+
+      res.json(updated);
+    } catch (err: any) {
+      log.error("[admin-crm] Delete deliverable error:", err.message);
+      res.status(500).json({ error: "Failed to delete deliverable" });
     }
   });
 }

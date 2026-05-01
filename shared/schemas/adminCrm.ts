@@ -165,6 +165,7 @@ export const fulfillmentTasks = pgTable("fulfillment_tasks", {
   escalation_flag: boolean("escalation_flag").notNull().default(false),
   human_review_required: boolean("human_review_required").notNull().default(false),
   actor_type: varchar("actor_type", { length: 20 }).notNull().default("human"),
+  deliverables: jsonb("deliverables").default([]),
   metadata: jsonb("metadata"),
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
@@ -172,6 +173,15 @@ export const fulfillmentTasks = pgTable("fulfillment_tasks", {
 export const insertFulfillmentTaskSchema = createInsertSchema(fulfillmentTasks).omit({ id: true, created_at: true, updated_at: true });
 export type InsertFulfillmentTask = z.infer<typeof insertFulfillmentTaskSchema>;
 export type FulfillmentTask = typeof fulfillmentTasks.$inferSelect;
+
+/** A single deliverable/asset attached to a fulfillment task. */
+export interface Deliverable {
+  kind: string;
+  url: string;
+  label: string;
+  uploaded_by: string;
+  uploaded_at: string;
+}
 
 /* ─── Service Task Templates ─── */
 export const serviceTaskTemplates = pgTable("service_task_templates", {

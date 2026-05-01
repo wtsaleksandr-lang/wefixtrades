@@ -3,6 +3,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import passport from "passport";
+import path from "path";
 import { registerRoutes } from "./routes/index";
 import { serveStatic } from "./static";
 import { createServer } from "http";
@@ -107,6 +108,9 @@ export function log(message: string, source = "express") {
 
   logger.info(`${formattedTime} [${source}] ${message}`);
 }
+
+/* ─── Serve uploaded deliverables ─── */
+app.use("/uploads", express.static(path.join(process.cwd(), "data", "uploads")));
 
 app.use((req, res, next) => {
   const start = Date.now();
