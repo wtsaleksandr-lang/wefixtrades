@@ -824,3 +824,39 @@ export const insertBookflowInvoiceSchema = createInsertSchema(bookflowInvoices).
 });
 export type InsertBookflowInvoice = z.infer<typeof insertBookflowInvoiceSchema>;
 export type BookflowInvoice = typeof bookflowInvoices.$inferSelect;
+
+/* ─── System Alerts ─── */
+export const systemAlerts = pgTable("system_alerts", {
+  id: serial("id").primaryKey(),
+  severity: text("severity").notNull(),
+  category: text("category").notNull(),
+  title: text("title").notNull(),
+  details: text("details"),
+  acknowledged: boolean("acknowledged").default(false),
+  acknowledged_by: integer("acknowledged_by"),
+  acknowledged_at: timestamp("acknowledged_at"),
+  metadata: jsonb("metadata"),
+  created_at: timestamp("created_at").defaultNow(),
+});
+export const insertSystemAlertSchema = createInsertSchema(systemAlerts).omit({ id: true, created_at: true });
+export type InsertSystemAlert = z.infer<typeof insertSystemAlertSchema>;
+export type SystemAlert = typeof systemAlerts.$inferSelect;
+
+/* ─── Email Queue ─── */
+export const emailQueue = pgTable("email_queue", {
+  id: serial("id").primaryKey(),
+  to_email: text("to_email").notNull(),
+  subject: text("subject").notNull(),
+  html: text("html").notNull(),
+  text_body: text("text_body"),
+  status: text("status").default("pending"),
+  attempts: integer("attempts").default(0),
+  max_attempts: integer("max_attempts").default(3),
+  last_error: text("last_error"),
+  sent_at: timestamp("sent_at"),
+  metadata: jsonb("metadata"),
+  created_at: timestamp("created_at").defaultNow(),
+});
+export const insertEmailQueueSchema = createInsertSchema(emailQueue).omit({ id: true, created_at: true });
+export type InsertEmailQueue = z.infer<typeof insertEmailQueueSchema>;
+export type EmailQueueItem = typeof emailQueue.$inferSelect;
