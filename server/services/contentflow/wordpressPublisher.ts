@@ -314,7 +314,7 @@ export async function publishDraftToWordpress(
       cms_username: creds.cms_username,
       appPassword,
     };
-    const mediaId = await uploadMediaToWordpress(wpCreds, mediaPlanImageUrl, draft.title || "article", fetchImpl);
+    const mediaId = await uploadMediaToWordpress(wpCreds, mediaPlanImageUrl, draft.title || "article", fetchImpl as any);
     if (mediaId) featuredMediaId = mediaId;
   }
 

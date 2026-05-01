@@ -248,6 +248,7 @@ export async function publishToCms(
     }
     case "squarespace": {
       const creds = resolveSquarespaceCredentials(sources, clientId);
+      if (!creds) return { success: false, error: "Squarespace credentials not found" };
       return squarespacePublisher.publishPost(creds, post);
     }
     case "custom": {
