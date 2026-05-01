@@ -17,6 +17,9 @@
  */
 import { storage } from "../../storage";
 import { encryptToken, decryptToken, isEncryptionConfigured } from "./tokenEncryption";
+import { createLogger } from "../../lib/logger";
+
+const log = createLogger("FacebookService");
 
 const GRAPH_API_BASE = "https://graph.facebook.com/v21.0";
 const OAUTH_BASE = "https://www.facebook.com/v21.0/dialog/oauth";
@@ -213,11 +216,18 @@ export async function handleFacebookCallback(
 
   // 2. Exchange for long-lived token (~60 days)
   let longToken: TokenResponse;
+  let tokenExchangeFailed = false;
+  let tokenExchangeError: string | null = null;
   try {
     longToken = await exchangeForLongLivedToken(shortToken.access_token);
-  } catch {
-    // If long-lived exchange fails, use short-lived (less ideal)
+  } catch (err: any) {
+    // Still use the short-lived token so the OAuth flow isn't broken,
+    // but log the failure and flag it in connection metadata so the
+    // system knows it's running on a 1-hour token.
+    log.error("Failed to exchange for long-lived token", { error: err.message, clientId: String(clientId) });
     longToken = shortToken;
+    tokenExchangeFailed = true;
+    tokenExchangeError = err.message || "Unknown error";
   }
 
   // 3. Fetch user info
@@ -233,6 +243,21 @@ export async function handleFacebookCallback(
     : new Date(Date.now() + 60 * 24 * 60 * 60 * 1000); // Default 60 days
 
   // 6. Upsert connection record
+  const tokenType = tokenExchangeFailed ? "short_lived" : (longToken.expires_in ? "long_lived" : "short_lived");
+  const metadata: Record<string, unknown> = {
+    user_name: user.name,
+    pages_discovered: pages.map(p => ({
+      id: p.id, name: p.name, category: p.category,
+      instagram_business_account: p.instagram_business_account,
+    })),
+    connected_at: new Date().toISOString(),
+    token_type: tokenType,
+  };
+  if (tokenExchangeFailed) {
+    metadata.token_exchange_failed = true;
+    metadata.token_exchange_error = tokenExchangeError;
+  }
+
   const connection = await storage.upsertSocialSyncConnection({
     client_id: clientId,
     platform: "facebook",
@@ -242,15 +267,7 @@ export async function handleFacebookCallback(
     token_ref: encryptedUserToken,
     token_expires_at: expiresAt,
     last_validated_at: new Date(),
-    metadata: {
-      user_name: user.name,
-      pages_discovered: pages.map(p => ({
-        id: p.id, name: p.name, category: p.category,
-        instagram_business_account: p.instagram_business_account,
-      })),
-      connected_at: new Date().toISOString(),
-      token_type: longToken.expires_in ? "long_lived" : "short_lived",
-    },
+    metadata,
   } as any);
 
   // 7. Log

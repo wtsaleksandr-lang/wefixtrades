@@ -17,6 +17,10 @@
  * token or a fresh OAuth flow. Reconnection is the supported path.
  */
 import { storage } from "../../storage";
+import { sendMetaReauthEmail } from "../../lib/metaReauthEmail";
+import { createLogger } from "../../lib/logger";
+
+const log = createLogger("ConnectionLifecycle");
 
 /** Tokens expiring within this window are flagged as "expiring_soon". */
 const EXPIRY_WARNING_DAYS = 7;
@@ -217,6 +221,9 @@ export async function checkConnectionExpiry(): Promise<ExpiryCheckResult> {
           details: { token_expires_at: conn.token_expires_at },
         });
 
+        // Send re-auth email to admin
+        await sendReauthEmailForConnection(conn, 0);
+
         result.expired++;
       } else if (health.status === "expiring_soon" && conn.connection_status === "connected") {
         await storage.upsertSocialSyncConnection({
@@ -238,6 +245,9 @@ export async function checkConnectionExpiry(): Promise<ExpiryCheckResult> {
           details: { days_remaining: health.days_until_expiry, token_expires_at: conn.token_expires_at },
         });
 
+        // Send re-auth email to admin
+        await sendReauthEmailForConnection(conn, health.days_until_expiry ?? 0);
+
         result.expiring_soon++;
       }
     } catch (err: any) {
@@ -246,4 +256,51 @@ export async function checkConnectionExpiry(): Promise<ExpiryCheckResult> {
   }
 
   return result;
+}
+
+/* ─── Re-auth Email Helper ─── */
+
+/**
+ * Look up the client's business name and send a re-auth reminder email
+ * to the configured admin/alert email. Fail-safe: errors are logged
+ * but never thrown so the expiry-check worker keeps running.
+ */
+async function sendReauthEmailForConnection(
+  conn: { client_id: number; platform: string; token_expires_at: Date | null },
+  daysUntilExpiry: number,
+): Promise<void> {
+  try {
+    const recipientEmail =
+      process.env.SOCIALSYNC_ALERT_EMAIL ||
+      process.env.ADMIN_EMAIL ||
+      null;
+
+    if (!recipientEmail) {
+      log.debug("No SOCIALSYNC_ALERT_EMAIL or ADMIN_EMAIL configured — skipping re-auth email");
+      return;
+    }
+
+    const client = await storage.getClientById(conn.client_id);
+    const businessName = client?.business_name || `Client #${conn.client_id}`;
+
+    const platformLabel =
+      conn.platform === "facebook" ? "Facebook"
+        : conn.platform === "instagram" ? "Instagram"
+          : conn.platform;
+
+    await sendMetaReauthEmail({
+      recipientEmail,
+      businessName,
+      platform: platformLabel,
+      daysUntilExpiry,
+      expiresAt: conn.token_expires_at?.toISOString() || new Date().toISOString(),
+      clientId: conn.client_id,
+    });
+  } catch (err: any) {
+    log.error("Failed to send re-auth email", {
+      clientId: String(conn.client_id),
+      platform: conn.platform,
+      error: err.message,
+    });
+  }
 }
