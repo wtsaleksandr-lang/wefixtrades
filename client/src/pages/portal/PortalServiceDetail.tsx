@@ -1,9 +1,13 @@
 import { useState } from "react";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { useRoute, Link } from "wouter";
-import { Loader2, ArrowLeft, Check, Clock, AlertCircle, Circle, RefreshCw, PhoneCall, PhoneIncoming, PhoneMissed, PhoneOff, Globe, Mic, ChevronDown, Save } from "lucide-react";
+import { Loader2, ArrowLeft, Check, Clock, AlertCircle, Circle, RefreshCw, PhoneCall, PhoneIncoming, PhoneMissed, PhoneOff, Globe, Mic, ChevronDown, Save, Shield, Wrench, Activity } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
 import ModeToggle from "@/components/portal/ModeToggle";
+import TaskTimeline from "@/components/portal/TaskTimeline";
+import ApprovalGate from "@/components/portal/ApprovalGate";
+import DeliverableViewer from "@/components/portal/DeliverableViewer";
+import type { Deliverable } from "@/components/portal/DeliverableViewer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -23,6 +27,7 @@ interface TaskRow {
   due_at: string | null;
   completed_at: string | null;
   sort_order: number;
+  deliverables?: Deliverable[];
 }
 
 interface PaymentRow {
@@ -388,6 +393,24 @@ export default function PortalServiceDetail() {
   });
 
   const isTradeLine = data?.service.service_id?.startsWith("tradeline");
+  const isSiteLaunch = data?.service.service_id?.startsWith("sitelaunch");
+  const isWebFix = data?.service.service_id?.startsWith("webfix");
+  const isWebCare = data?.service.service_id?.startsWith("webcare");
+
+  // Tasks waiting on client approval (for SiteLaunch design approval flow)
+  const approvalTasks = (data?.tasks || []).filter(
+    (t) => t.waiting_on === "client"
+  );
+
+  // Collect all deliverables across tasks
+  const allDeliverables: Deliverable[] = (data?.tasks || []).flatMap(
+    (t) => (Array.isArray(t.deliverables) ? t.deliverables : [])
+  );
+
+  // WebFix: deliverables from completed tasks
+  const webFixDeliverables: Deliverable[] = (data?.tasks || [])
+    .filter((t) => t.status === "delivered")
+    .flatMap((t) => (Array.isArray(t.deliverables) ? t.deliverables : []));
 
   const { data: tlData } = useQuery<TradeLineData>({
     queryKey: ["/api/portal/tradeline", serviceId],
@@ -607,54 +630,120 @@ export default function PortalServiceDetail() {
               </div>
             )}
 
-            {/* Task timeline */}
-            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-              <div className="px-5 py-4 border-b border-gray-100">
-                <h2 className="text-sm font-semibold text-gray-900">Progress</h2>
-                {data.tasks.length > 0 && (
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    {data.tasks.filter((t) => t.status === "delivered").length} of {data.tasks.length} steps complete
+            {/* Service-specific: SiteLaunch Design Approval */}
+            {isSiteLaunch && approvalTasks.length > 0 && (
+              <>
+                {approvalTasks.map((task) => (
+                  <ApprovalGate
+                    key={task.id}
+                    task={task}
+                    serviceQueryKey={["/api/portal/services", serviceId]}
+                  />
+                ))}
+              </>
+            )}
+
+            {/* Service-specific: WebFix progress */}
+            {isWebFix && data.tasks.length > 0 && (
+              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <div className="px-5 py-4 border-b border-gray-100">
+                  <div className="flex items-center gap-2">
+                    <Wrench className="w-4 h-4 text-teal-600" />
+                    <h2 className="text-sm font-semibold text-gray-900">Fixes Progress</h2>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {data.tasks.filter((t) => t.status === "delivered").length} of {data.tasks.length} fixes completed
                   </p>
+                  {/* Progress bar */}
+                  <div className="mt-2">
+                    <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-teal-500 rounded-full transition-all"
+                        style={{ width: `${data.tasks.length > 0 ? Math.round((data.tasks.filter(t => t.status === "delivered").length / data.tasks.length) * 100) : 0}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+                {/* Deliverables from completed tasks */}
+                {webFixDeliverables.length > 0 && (
+                  <div className="px-5 py-4">
+                    <p className="text-xs font-medium text-gray-700 mb-2">Reports & Deliverables</p>
+                    <DeliverableViewer deliverables={webFixDeliverables} showThumbnails={false} />
+                  </div>
                 )}
               </div>
-              {data.tasks.length === 0 ? (
-                <div className="px-5 py-6 text-center text-sm text-gray-400">
-                  We're setting things up. Your progress tracker will appear shortly.
+            )}
+
+            {/* Service-specific: WebCare monitoring */}
+            {isWebCare && (
+              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <div className="px-5 py-4 border-b border-gray-100">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Shield className="w-4 h-4 text-emerald-600" />
+                      <h2 className="text-sm font-semibold text-gray-900">Website Monitoring</h2>
+                    </div>
+                    {data.service.status === "active" && (
+                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-50 text-emerald-700">
+                        <Activity className="w-3 h-3" />
+                        Active
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Your website is being monitored for uptime, security, and performance.
+                  </p>
                 </div>
-              ) : (
-                <ul className="divide-y divide-gray-50">
-                  {data.tasks.map((task) => (
-                    <li key={task.id} className="px-5 py-3 flex items-start gap-3">
-                      <div className="mt-0.5 shrink-0">
-                        <TaskIcon status={task.status} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-sm ${task.status === "delivered" ? "text-gray-400 line-through" : "text-gray-700"}`}>
-                          {task.title}
-                        </p>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          {task.waiting_on === "client" && (
-                            <span className="text-[10px] font-medium bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded">
-                              Waiting on you
+                {/* Recent monthly tasks */}
+                {data.tasks.length > 0 && (
+                  <div className="px-5 py-4">
+                    <p className="text-xs font-medium text-gray-700 mb-2">Recent Maintenance</p>
+                    <ul className="space-y-2">
+                      {data.tasks.slice(0, 6).map((task) => (
+                        <li key={task.id} className="flex items-center justify-between text-sm">
+                          <div className="flex items-center gap-2">
+                            <TaskIcon status={task.status} />
+                            <span className={task.status === "delivered" ? "text-gray-400" : "text-gray-700"}>
+                              {task.title}
                             </span>
-                          )}
-                          {task.completed_at && (
-                            <span className="text-[10px] text-gray-400">
-                              Completed {formatDate(task.completed_at)}
-                            </span>
-                          )}
-                          {task.due_at && !task.completed_at && (
-                            <span className="text-[10px] text-gray-400">
-                              Due {formatDate(task.due_at)}
-                            </span>
-                          )}
+                          </div>
+                          <span className="text-[10px] text-gray-400">
+                            {task.completed_at ? formatDate(task.completed_at) : task.due_at ? `Due ${formatDate(task.due_at)}` : ""}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    {/* Content change quota for pro tier */}
+                    {data.service.service_id?.includes("pro") && (
+                      <div className="mt-3 pt-3 border-t border-gray-100">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-gray-500">Content changes this month</span>
+                          <span className="font-medium text-gray-700">
+                            {data.tasks.filter(t => t.title?.toLowerCase().includes("content") && t.status === "delivered").length} used
+                          </span>
                         </div>
                       </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Task timeline (all services) */}
+            <TaskTimeline tasks={data.tasks} />
+
+            {/* All deliverables across tasks */}
+            {allDeliverables.length > 0 && !isSiteLaunch && !isWebFix && (
+              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <div className="px-5 py-4 border-b border-gray-100">
+                  <h2 className="text-sm font-semibold text-gray-900">Deliverables</h2>
+                  <p className="text-xs text-gray-500 mt-0.5">{allDeliverables.length} {allDeliverables.length === 1 ? "file" : "files"} attached</p>
+                </div>
+                <div className="px-5 py-4">
+                  <DeliverableViewer deliverables={allDeliverables} />
+                </div>
+              </div>
+            )}
 
             {/* Payments */}
             {data.payments.length > 0 && (
