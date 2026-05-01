@@ -12,6 +12,7 @@ import CTASection from "@/components/marketing/CTASection";
 import { SurfaceSection } from "@/components/marketing/SurfaceSection";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
 import { getProductBySlug, PRODUCT_PAGES, CATEGORY_LABELS, type ProductPage as ProductConfig } from "@/config/products";
+import { getComparisonBySlug } from "@/config/comparisons";
 import NotFound from "@/pages/not-found";
 import { mkt, shadows, typography } from "@/theme/tokens";
 import QuoteWidget from "@/components/quote-widget/QuoteWidget";
@@ -3443,6 +3444,42 @@ export default function ProductPage() {
               </Link>
             )}
           </div>
+
+          {/* Comparison page link */}
+          {(() => {
+            const compareSlug = product.slug === "quickquotepro" ? "quotequick" : product.slug;
+            const hasComparison = !!getComparisonBySlug(compareSlug);
+            if (!hasComparison) return null;
+            return (
+              <div className="hero-enter" style={{ marginTop: 14, textAlign: "center" }}>
+                <Link
+                  href={`/compare/${compareSlug}`}
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: mkt.textMuted,
+                    textDecoration: "none",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    opacity: 0.85,
+                    transition: "opacity 0.2s ease, color 0.2s ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLElement).style.opacity = "1";
+                    (e.currentTarget as HTMLElement).style.color = mkt.accent;
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLElement).style.opacity = "0.85";
+                    (e.currentTarget as HTMLElement).style.color = mkt.textMuted;
+                  }}
+                >
+                  See how we compare
+                  <ArrowRight size={13} strokeWidth={2} />
+                </Link>
+              </div>
+            );
+          })()}
 
           {isQuoteQuick && (
             <p
