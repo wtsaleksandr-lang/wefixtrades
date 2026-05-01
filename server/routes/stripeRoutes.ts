@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, Request, Response } from "express";
 import Stripe from "stripe";
 import { storage } from "../storage";
 import { createLogger } from "../lib/logger";
@@ -109,4 +109,104 @@ export function registerStripeRoutes(app: Express): void {
       res.status(500).json({ error: err.message });
     }
   });
+
+  /* ═══════════════════════════════════════════
+     Stripe Connect Webhook — account.updated etc.
+     ═══════════════════════════════════════════ */
+
+  app.post("/api/stripe/connect/webhook", async (req: Request, res: Response) => {
+    const stripe = getStripeClient();
+    if (!stripe) return res.status(503).send("Stripe not configured");
+
+    const sig = req.headers["stripe-signature"];
+    const webhookSecret = process.env.STRIPE_CONNECT_WEBHOOK_SECRET;
+
+    let event: Stripe.Event;
+
+    if (webhookSecret && sig) {
+      try {
+        event = stripe.webhooks.constructEvent(
+          (req as any).rawBody,
+          sig as string,
+          webhookSecret,
+        );
+      } catch (err: any) {
+        log.error("Connect webhook signature verification failed", { error: err.message });
+        return res.status(400).send("Invalid signature");
+      }
+    } else if (process.env.NODE_ENV === "production") {
+      log.error("STRIPE_CONNECT_WEBHOOK_SECRET not set — rejecting in production");
+      return res.status(500).send("Webhook secret not configured");
+    } else {
+      event = req.body as Stripe.Event;
+      log.warn("No STRIPE_CONNECT_WEBHOOK_SECRET — skipping verification (dev only)");
+    }
+
+    try {
+      switch (event.type) {
+        case "account.updated":
+          await handleAccountUpdated(stripe, event.data.object as Stripe.Account, event.id);
+          break;
+        default:
+          break;
+      }
+      res.json({ received: true });
+    } catch (err: any) {
+      log.error(`Connect webhook error handling ${event.type}`, { error: err.message });
+      res.status(500).json({ error: "Webhook handler failed" });
+    }
+  });
+}
+
+/* ─── Connect Webhook Handlers ─── */
+
+async function handleAccountUpdated(
+  stripe: Stripe,
+  account: Stripe.Account,
+  eventId: string,
+): Promise<void> {
+  const accountId = account.id;
+  const chargesEnabled = account.charges_enabled ?? true;
+  const payoutsEnabled = account.payouts_enabled ?? true;
+
+  // Log every account.updated event to the activity log
+  await storage.logAdminActivity({
+    actor_type: "system",
+    actor_name: "Stripe Connect Webhook",
+    action: "stripe_connect.account_updated",
+    entity_type: "stripe_account",
+    entity_id: 0,
+    summary: `Stripe Connect account ${accountId} updated — charges_enabled=${chargesEnabled}, payouts_enabled=${payoutsEnabled}`,
+    metadata: {
+      stripe_account_id: accountId,
+      stripe_event_id: eventId,
+      charges_enabled: chargesEnabled,
+      payouts_enabled: payoutsEnabled,
+      capabilities: account.capabilities ?? {},
+    },
+  });
+
+  // If capabilities are disabled, find the calculator(s) using this Connect account
+  // and update their metadata to flag the issue
+  if (!chargesEnabled) {
+    log.warn("Connect account capabilities disabled", { accountId, chargesEnabled, payoutsEnabled });
+
+    // Find all calculators that reference this Stripe Connect account
+    const allCalculators = await storage.getAllCalculatorsForAdmin();
+    for (const calc of allCalculators) {
+      const settings = (calc.calculator_settings as any) || {};
+      const bookingSettings = settings.booking_settings || {};
+      if (bookingSettings.stripe_account_id === accountId) {
+        bookingSettings.stripe_charges_enabled = false;
+        bookingSettings.stripe_capabilities_disabled_at = new Date().toISOString();
+        settings.booking_settings = bookingSettings;
+        await storage.updateCalculator(calc.id, { calculator_settings: settings });
+
+        log.info("Flagged calculator with disabled Connect capabilities", {
+          calculatorId: String(calc.id),
+          accountId,
+        });
+      }
+    }
+  }
 }

@@ -11,6 +11,7 @@
  */
 
 import Anthropic from "@anthropic-ai/sdk";
+import { getModel } from "./aiService";
 import { createLogger } from "../lib/logger";
 
 const log = createLogger("ProspectEnrich");
@@ -108,7 +109,7 @@ export async function runAiEnrichment(
   }
 
   const client = new Anthropic({ apiKey });
-  const model = process.env.CLAUDE_MODEL || "claude-haiku-4-5-20251001";
+  const model = getModel();
 
   const prompt = `You are a B2B sales analyst for WeFixTrades, a SaaS platform that helps trade contractors (plumbers, electricians, HVAC, roofers, etc.) get more jobs online through instant quoting, reputation management, and AI communication tools.
 

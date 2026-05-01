@@ -18,6 +18,7 @@
  */
 
 import Anthropic from "@anthropic-ai/sdk";
+import { getModel } from "./aiService";
 
 /* ─── Types ─── */
 
@@ -164,7 +165,7 @@ ${replyText.slice(0, 800)}
 Write ONE specific, actionable sentence telling the sales rep exactly what to do next. Be direct and practical. No preamble.`;
 
   const msg = await client.messages.create({
-    model: "claude-haiku-4-5-20251001",
+    model: getModel(),
     max_tokens: 120,
     messages: [{ role: "user", content: prompt }],
   });

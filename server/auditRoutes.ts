@@ -7,6 +7,7 @@ import { getServicesForIssues } from "@shared/services";
 import { db } from "./db";
 import { auditReports } from "@shared/schema";
 import { eq, sql, and, gte, desc } from "drizzle-orm";
+import { getModel } from "./services/aiService";
 
 const router = express.Router();
 
@@ -1859,7 +1860,7 @@ async function analyzeScreenshot(
     const imageData = screenshotBase64.replace(/^data:image\/\w+;base64,/, "");
     const response = await withApiTimeout(
       client.messages.create({
-        model: "claude-haiku-4-5-20251001",
+        model: getModel(),
         max_tokens: 700,
         messages: [{
           role: "user",
@@ -2603,7 +2604,7 @@ ${JSON.stringify(auditData, null, 2)}`;
 
         const message = await withApiTimeout(
           anthropic.messages.create({
-            model: "claude-sonnet-4-5",
+            model: process.env.CLAUDE_NARRATIVE_MODEL || "claude-sonnet-4-5",
             max_tokens: 4096,
             system: systemPrompt,
             messages: [{ role: "user", content: userPrompt }],

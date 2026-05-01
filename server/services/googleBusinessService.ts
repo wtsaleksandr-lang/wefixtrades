@@ -27,9 +27,9 @@ const SCOPES = [
 ];
 
 function getClientConfig() {
-  const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
-  const redirectUri = process.env.GOOGLE_OAUTH_REDIRECT_URI;
+  const clientId = process.env.GOOGLE_BUSINESS_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_BUSINESS_CLIENT_SECRET;
+  const redirectUri = process.env.GOOGLE_BUSINESS_REDIRECT_URI;
   return { clientId, clientSecret, redirectUri };
 }
 
@@ -41,7 +41,7 @@ export function isGoogleOAuthConfigured(): boolean {
 function createOAuth2Client() {
   const { clientId, clientSecret, redirectUri } = getClientConfig();
   if (!clientId || !clientSecret || !redirectUri) {
-    throw new Error("Google OAuth not configured (GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET, GOOGLE_OAUTH_REDIRECT_URI)");
+    throw new Error("Google OAuth not configured (GOOGLE_BUSINESS_CLIENT_ID, GOOGLE_BUSINESS_CLIENT_SECRET, GOOGLE_BUSINESS_REDIRECT_URI)");
   }
   return new google.auth.OAuth2(clientId, clientSecret, redirectUri);
 }
