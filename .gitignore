@@ -8,6 +8,7 @@ vite.config.ts.*
 .env.local
 .keyword-cache.json
 tests/e2e/admin-crm/.auth/
+.claude/worktrees/
 playwright-report/
 test-results/
 
