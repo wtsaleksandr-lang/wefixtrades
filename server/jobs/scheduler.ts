@@ -39,6 +39,7 @@ import { processAutoActivation } from "./autoActivationWorker";
 import { processRecurringTasks } from "./recurringTaskWorker";
 import { processUpsellEmails } from "./upsellWorker";
 import { processWebcareMaintenance } from "./webcareMaintenanceWorker";
+import { processRetention } from "./retentionWorker";
 
 const log = createLogger("Scheduler");
 
@@ -530,6 +531,17 @@ export function initScheduler() {
       log.error("webcare_monthly_maintenance cron handler error", { error: err.message });
     } finally {
       webcareMaintenanceRunning = false;
+    }
+  }, { timezone: "UTC" });
+
+  // Data retention — weekly Sunday 02:30 UTC. Purges aged-out rows
+  // from integration_error_logs (30d) and processed_stripe_events (90d).
+  cron.schedule("30 2 * * 0", async () => {
+    log.info("Running data retention cleanup...");
+    try {
+      await runJob("data_retention", processRetention);
+    } catch (err: any) {
+      log.error("data_retention cron handler error", { error: err.message });
     }
   }, { timezone: "UTC" });
 }

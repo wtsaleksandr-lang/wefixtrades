@@ -20,6 +20,9 @@
 import { getInstagramPublishCredentials } from "./instagramService";
 import { ensureMediaReady } from "./mediaService";
 import type { SocialSyncPost } from "@shared/schema";
+import { createLogger } from "../../lib/logger";
+
+const log = createLogger("InstagramPublisher");
 
 /* Sprint 10: dev-test override (mirrors facebookPublisher pattern). */
 const GRAPH_API_BASE_DEFAULT = "https://graph.facebook.com/v21.0";
@@ -202,6 +205,7 @@ export async function publishToInstagram(
   clientId: number,
   post: SocialSyncPost,
 ): Promise<InstagramPublishResult> {
+  try {
   const emptyResult = (error: string, permanent: boolean): InstagramPublishResult => ({
     success: false,
     platform: "instagram",
@@ -332,6 +336,19 @@ export async function publishToInstagram(
       ig_account_id: igAccountId,
       published_at: null,
       error: `Network error: ${err.message}`,
+      permanent_failure: false,
+    };
+  }
+  } catch (err: any) {
+    log.error("Unhandled error in publishToInstagram", { error: err.message, clientId, postId: post.id });
+    return {
+      success: false,
+      platform: "instagram",
+      remote_post_id: null,
+      container_id: null,
+      ig_account_id: "",
+      published_at: null,
+      error: `Unexpected error: ${err.message}`,
       permanent_failure: false,
     };
   }

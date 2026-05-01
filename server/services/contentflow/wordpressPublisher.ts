@@ -23,6 +23,7 @@ import { renderArticleHtml } from "./articleHtml";
 import { decryptToken, isEncryptionConfigured } from "../socialSync/tokenEncryption";
 import type { ContentDraft } from "@shared/schema";
 import { createLogger } from "../../lib/logger";
+import { fetchWithRetry } from "../../lib/httpRetry";
 
 const log = createLogger("WPPublisher");
 
@@ -232,7 +233,7 @@ export async function publishDraftToWordpress(
   draftId: number,
   opts: PublishOptions = {},
 ): Promise<WordpressPublishResult> {
-  const fetchImpl = opts.fetchImpl ?? fetch;
+  const fetchImpl = opts.fetchImpl ?? fetchWithRetry;
 
   /* 1. Load the draft. */
   const draft = await storage.getContentDraftById(draftId);

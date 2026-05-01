@@ -640,3 +640,40 @@ export const insertEmailEventSchema = createInsertSchema(emailEvents).omit({
 });
 export type InsertEmailEvent = z.infer<typeof insertEmailEventSchema>;
 export type EmailEvent = typeof emailEvents.$inferSelect;
+
+/* ─── Integration Error Logs ──────────────────────────────────────
+ * Captures errors from outbound integrations (Stripe, Outscraper,
+ * social APIs, etc.) for debugging and monitoring. Retention: 30 days.
+ * ─────────────────────────────────────────────────────────────────── */
+export const integrationErrorLogs = pgTable("integration_error_logs", {
+  id: serial("id").primaryKey(),
+  integration: varchar("integration", { length: 50 }).notNull(),
+  // e.g. "stripe", "outscraper", "facebook", "google_business"
+  operation: varchar("operation", { length: 100 }),
+  error_message: text("error_message"),
+  error_code: varchar("error_code", { length: 50 }),
+  metadata: jsonb("metadata"),
+  created_at: timestamp("created_at").defaultNow(),
+}, (t) => ({
+  byCreatedAt: index("integration_error_logs_created_at_idx").on(t.created_at),
+}));
+export const insertIntegrationErrorLogSchema = createInsertSchema(integrationErrorLogs).omit({ id: true, created_at: true });
+export type InsertIntegrationErrorLog = z.infer<typeof insertIntegrationErrorLogSchema>;
+export type IntegrationErrorLog = typeof integrationErrorLogs.$inferSelect;
+
+/* ─── Processed Stripe Events ─────────────────────────────────────
+ * Idempotency guard: tracks Stripe webhook event IDs that have been
+ * processed to prevent double-handling. Retention: 90 days.
+ * ─────────────────────────────────────────────────────────────────── */
+export const processedStripeEvents = pgTable("processed_stripe_events", {
+  id: serial("id").primaryKey(),
+  stripe_event_id: varchar("stripe_event_id", { length: 100 }).notNull(),
+  event_type: varchar("event_type", { length: 100 }),
+  processed_at: timestamp("processed_at").defaultNow(),
+}, (t) => ({
+  byStripeEventId: index("processed_stripe_events_event_id_idx").on(t.stripe_event_id),
+  byProcessedAt: index("processed_stripe_events_processed_at_idx").on(t.processed_at),
+}));
+export const insertProcessedStripeEventSchema = createInsertSchema(processedStripeEvents).omit({ id: true, processed_at: true });
+export type InsertProcessedStripeEvent = z.infer<typeof insertProcessedStripeEventSchema>;
+export type ProcessedStripeEvent = typeof processedStripeEvents.$inferSelect;

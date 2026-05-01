@@ -1377,7 +1377,14 @@ export function registerSocialSyncRoutes(app: Express): void {
       const credentials = await getGoogleAccessToken(review.client_id);
       if (!credentials) return res.status(400).json({ error: "No Google Business connection" });
 
+      // TODO: Migrate to GBP v5 / Account Management API when Google publishes
+      // the review reply endpoint under mybusinessaccountmanagement.googleapis.com/v1.
+      // The v4 endpoint still works but is officially deprecated.
       const GBP_API_V4 = "https://mybusiness.googleapis.com/v4";
+      log.warn("Using deprecated GBP v4 endpoint for review reply", {
+        locationName: credentials.locationName,
+        reviewId: review.external_review_id,
+      });
       const url = `${GBP_API_V4}/${credentials.locationName}/reviews/${review.external_review_id}/reply`;
       const apiRes = await fetch(url, {
         method: "PUT",

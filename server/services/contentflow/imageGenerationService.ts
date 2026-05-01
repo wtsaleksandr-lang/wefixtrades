@@ -346,7 +346,10 @@ export async function generateForDraft(draftId: number): Promise<GenerateForDraf
       return { ok: false, reason: apiResult.reason, message: apiResult.message, prompt_used: finalPrompt };
     }
 
-    /* Best-effort R2 upload. Fall back to OpenAI URL. */
+    /* Best-effort R2 upload. Fall back to OpenAI URL.
+     * When R2 upload fails and we fall back to the ephemeral OpenAI URL
+     * (~1h TTL), schedule a background re-upload so the image persists
+     * beyond the publish window. */
     let finalUrl = apiResult.url;
     let provider: "openai" | "openai+r2" = "openai";
     if (isR2Configured()) {
@@ -357,6 +360,8 @@ export async function generateForDraft(draftId: number): Promise<GenerateForDraf
         provider = "openai+r2";
       } else {
         logger.warn(`[contentflow][image-gen] draft=${draftId} R2 upload failed (${upload.error}) — falling back to provider URL`);
+        // Fire-and-forget background re-upload while the ephemeral URL is still alive
+        scheduleR2Reupload(draftId, apiResult.url, key).catch(() => {});
       }
     }
 
@@ -382,6 +387,54 @@ export async function generateForDraft(draftId: number): Promise<GenerateForDraf
     logger.error(`[contentflow][image-gen] draft=${draftId} unhandled:`, err?.message || err);
     return { ok: false, reason: "api_failed", message: err?.message || String(err) };
   }
+}
+
+/* ─── Background R2 re-upload (ephemeral URL recovery) ─────────── */
+
+/**
+ * After a publish attempt succeeds with an ephemeral OpenAI URL, this
+ * function retries the R2 upload in the background. If it succeeds,
+ * the draft's image URL is updated to the permanent R2 URL.
+ *
+ * Retry schedule: 3 attempts with 10s, 30s, 60s delays.
+ * The ephemeral URL lives ~1h, so all 3 attempts fit comfortably.
+ */
+async function scheduleR2Reupload(draftId: number, ephemeralUrl: string, r2Key: string): Promise<void> {
+  const delays = [10_000, 30_000, 60_000];
+
+  for (let i = 0; i < delays.length; i++) {
+    await new Promise((resolve) => setTimeout(resolve, delays[i]));
+
+    try {
+      const upload = await uploadToR2({ key: r2Key, sourceUrl: ephemeralUrl, contentType: "image/png" });
+      if (upload.ok && upload.url) {
+        // Update the draft's image URL to the permanent R2 URL
+        const fresh = await storage.getContentDraftById(draftId);
+        if (fresh) {
+          const meta = (fresh.metadata || {}) as Record<string, any>;
+          const mediaPlan = (meta.media_plan || {}) as Record<string, any>;
+          await storage.updateContentDraft(draftId, {
+            metadata: {
+              ...meta,
+              media_plan: {
+                ...mediaPlan,
+                image_url: upload.url,
+                public_image_url: upload.url,
+                image_provider: "openai+r2",
+              },
+            },
+          } as any);
+        }
+        logger.info(`[contentflow][image-gen] draft=${draftId} R2 re-upload succeeded on attempt ${i + 1}`);
+        return;
+      }
+      logger.warn(`[contentflow][image-gen] draft=${draftId} R2 re-upload attempt ${i + 1} failed: ${upload.error}`);
+    } catch (err: any) {
+      logger.warn(`[contentflow][image-gen] draft=${draftId} R2 re-upload attempt ${i + 1} error: ${err.message}`);
+    }
+  }
+
+  logger.warn(`[contentflow][image-gen] draft=${draftId} R2 re-upload exhausted all attempts — image remains on ephemeral URL`);
 }
 
 /* ─── Persistence helpers (race-protected merge) ─────────────────── */

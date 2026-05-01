@@ -23,6 +23,7 @@
  */
 import { storage } from "../../storage";
 import { encryptToken, decryptToken } from "./tokenEncryption";
+import { fetchWithRetry } from "../../lib/httpRetry";
 
 const GOOGLE_OAUTH_BASE = "https://accounts.google.com/o/oauth2";
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
@@ -94,7 +95,7 @@ async function exchangeCodeForTokens(code: string): Promise<GoogleTokenResponse>
     throw new Error("Google Business OAuth not configured");
   }
 
-  const res = await fetch(GOOGLE_TOKEN_URL, {
+  const res = await fetchWithRetry(GOOGLE_TOKEN_URL, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
@@ -122,7 +123,7 @@ export async function refreshGoogleToken(refreshToken: string): Promise<{ access
   const config = getGoogleBusinessConfig();
   if (!config.clientId || !config.clientSecret) throw new Error("Google Business OAuth not configured");
 
-  const res = await fetch(GOOGLE_TOKEN_URL, {
+  const res = await fetchWithRetry(GOOGLE_TOKEN_URL, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
@@ -157,7 +158,7 @@ export interface GoogleBusinessLocation {
 }
 
 async function fetchWithAuth(url: string, token: string, method = "GET", body?: any): Promise<any> {
-  const res = await fetch(url, {
+  const res = await fetchWithRetry(url, {
     method,
     headers: {
       Authorization: `Bearer ${token}`,

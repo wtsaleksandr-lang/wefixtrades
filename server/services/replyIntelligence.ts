@@ -17,8 +17,7 @@
  *   unclear       — can't determine
  */
 
-import Anthropic from "@anthropic-ai/sdk";
-import { getModel } from "./aiService";
+import { chat } from "./aiService";
 
 /* ─── Types ─── */
 
@@ -147,10 +146,7 @@ async function aiNextAction(
   replyText: string,
   type: ReplyType,
   intent: ReplyIntent,
-  apiKey: string
 ): Promise<string> {
-  const client = new Anthropic({ apiKey });
-
   const prompt = `You are a sales coach for a SaaS company that sells website and AI tools to small tradespeople (plumbers, electricians, HVAC).
 
 A prospect replied to a cold outreach email. The reply has been classified as:
@@ -164,15 +160,14 @@ ${replyText.slice(0, 800)}
 
 Write ONE specific, actionable sentence telling the sales rep exactly what to do next. Be direct and practical. No preamble.`;
 
-  const msg = await client.messages.create({
-    model: getModel(),
-    max_tokens: 120,
+  const result = await chat({
+    system: "",
     messages: [{ role: "user", content: prompt }],
+    maxTokens: 120,
   });
 
-  const content = msg.content[0];
-  if (content.type === "text" && content.text.trim()) {
-    return content.text.trim();
+  if (result.trim()) {
+    return result.trim();
   }
   return staticNextAction(type, intent);
 }
@@ -204,7 +199,7 @@ export async function classifyReplyFull(
   let nextAction: string;
   if (apiKey) {
     try {
-      nextAction = await aiNextAction(replyText, type, intent, apiKey);
+      nextAction = await aiNextAction(replyText, type, intent);
     } catch {
       nextAction = staticNextAction(type, intent);
     }

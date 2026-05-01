@@ -92,6 +92,17 @@ function getClient(): Anthropic {
   return _client;
 }
 
+/**
+ * Get the shared Anthropic client instance for advanced use cases
+ * (e.g. vision/multimodal) that can't go through chat().
+ * Callers MUST call assertCircuitAllowsRequest() before and
+ * recordSuccess()/recordFailure() after.
+ */
+export { assertCircuitAllowsRequest, recordSuccess, recordFailure };
+export function getSharedClient(): Anthropic {
+  return getClient();
+}
+
 /** Check API key is present at startup/first use */
 export function validateConfig(): { valid: boolean; error?: string } {
   if (!process.env.ANTHROPIC_API_KEY) {

@@ -12,6 +12,9 @@
  */
 import { getGoogleAccessToken } from "./googleBusinessService";
 import type { SocialSyncPost } from "@shared/schema";
+import { createLogger } from "../../lib/logger";
+
+const log = createLogger("GBPPublisher");
 
 // v4 API for local posts (v1 Business Information API doesn't support posting)
 const GBP_POST_API_DEFAULT = "https://mybusiness.googleapis.com/v4";
@@ -54,6 +57,7 @@ export async function publishToGoogleBusiness(
   clientId: number,
   post: SocialSyncPost,
 ): Promise<GooglePublishResult> {
+  try {
   const emptyResult = (error: string, permanent: boolean): GooglePublishResult => ({
     success: false,
     platform: "google_business",
@@ -164,6 +168,18 @@ export async function publishToGoogleBusiness(
       location_name: locationName,
       published_at: null,
       error: `Network error: ${err.message}`,
+      permanent_failure: false,
+    };
+  }
+  } catch (err: any) {
+    log.error("Unhandled error in publishToGoogleBusiness", { error: err.message, clientId, postId: post.id });
+    return {
+      success: false,
+      platform: "google_business",
+      remote_post_id: null,
+      location_name: "",
+      published_at: null,
+      error: `Unexpected error: ${err.message}`,
       permanent_failure: false,
     };
   }

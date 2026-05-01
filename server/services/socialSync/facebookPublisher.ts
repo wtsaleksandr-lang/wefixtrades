@@ -12,6 +12,9 @@
  */
 import { getFacebookPageToken } from "./facebookService";
 import type { SocialSyncPost } from "@shared/schema";
+import { createLogger } from "../../lib/logger";
+
+const log = createLogger("FacebookPublisher");
 
 /* Sprint 10: dev-test override. When FB_GRAPH_API_BASE_OVERRIDE is set
  * (and NODE_ENV !== "production"), all requests route to that URL
@@ -113,6 +116,7 @@ export async function publishToFacebook(
   clientId: number,
   post: SocialSyncPost,
 ): Promise<PublishResult> {
+  try {
   // 1. Validate content
   const contentCheck = validatePostContent(post);
   if (!contentCheck.valid) {
@@ -206,6 +210,18 @@ export async function publishToFacebook(
       page_id: pageId,
       published_at: null,
       error: `Network error: ${err.message}`,
+      permanent_failure: false,
+    };
+  }
+  } catch (err: any) {
+    log.error("Unhandled error in publishToFacebook", { error: err.message, clientId, postId: post.id });
+    return {
+      success: false,
+      platform: "facebook",
+      remote_post_id: null,
+      page_id: "",
+      published_at: null,
+      error: `Unexpected error: ${err.message}`,
       permanent_failure: false,
     };
   }
