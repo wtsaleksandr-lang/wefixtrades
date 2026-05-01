@@ -66,10 +66,14 @@ export function buildDemoQuoteEmail(ctx: DemoQuoteFollowupContext): {
     headerTagline: `from ${ctx.demoBusinessName} (demo)`,
     eyebrow: `Your ${ctx.trade} quote`,
     headline: ctx.quoteAmount ? "Here's your estimate" : "Your quote request received",
-    intro: `This quote was generated using the QuoteQuick demo for ${ctx.trade} services. In a real scenario, a ${ctx.trade} business would receive your details and follow up directly.`,
+    intro: `Thanks for trying the QuoteQuick demo for ${ctx.trade} services. Here's a recap of what you saw — an instant estimate generated in seconds, no phone calls or back-and-forth needed.`,
     bodyHtml: `
       ${quoteCallout}
       <div style="border-top:1px solid rgba(255,255,255,0.06);padding-top:18px;margin-top:4px;">
+        <p style="font-size:14px;font-weight:700;color:#F0F0F0;margin:0 0 6px;">Here's what you experienced</p>
+        <p style="font-size:13px;color:#CDD1D6;line-height:1.6;margin:0 0 12px;">
+          Your customer answered a few quick questions and got an instant price — no waiting, no phone tag. That's the experience QuoteQuick gives every visitor to your website, 24/7.
+        </p>
         <p style="font-size:14px;font-weight:700;color:#F0F0F0;margin:0 0 6px;">Want this on YOUR website?</p>
         <p style="font-size:13px;color:#CDD1D6;line-height:1.6;margin:0;">
           QuoteQuick lets your customers get instant quotes 24/7 and sends every lead straight to you. No code needed — live in under 10 minutes.
@@ -138,70 +142,54 @@ const SEQUENCE: Array<{
   body: (ctx: DemoQuoteFollowupContext) => string;
 }> = [
   {
-    step: "demo_day1",
-    offsetDays: 1,
-    subject: (ctx) =>
-      `Your ${ctx.trade} quote + how to give YOUR customers this experience`,
-    body: (ctx) => {
-      const quoteDisplay = ctx.quoteAmount
-        ? formatDollars(ctx.quoteAmount)
-        : "your estimate";
-      return `Hi there,
-
-Yesterday you tried the QuoteQuick demo and got a ${ctx.trade} quote of ${quoteDisplay} from ${ctx.demoBusinessName}.
-
-Imagine your customers getting that same experience on YOUR website — instant pricing, no phone tag, no back-and-forth emails.
-
-That's exactly what QuoteQuick does:
-- Customers answer a few questions and see their price instantly
-- You get every lead with full contact details and quote amount
-- Works on any website — no coding required
-- Live in under 10 minutes
-
-Plans start at $49/mo.
-
-Get QuoteQuick: ${quotequickLink()}
-
-— The WeFixTrades Team`;
-    },
-  },
-  {
-    step: "demo_day2_cross_tool",
+    step: "demo_day2_value",
     offsetDays: 2,
-    subject: () => `Now get more traffic to your quotes`,
+    subject: (ctx) =>
+      `Here's what WeFixTrades could do for your ${ctx.trade} business`,
     body: (ctx) => {
       return `Hi there,
 
-You've seen how QuoteQuick works for ${ctx.trade} businesses. The next question is: are customers actually finding you online?
+A couple of days ago you tried our ${ctx.trade} demo${ctx.quoteAmount ? ` and got an estimate of ${formatDollars(ctx.quoteAmount)}` : ""} through ${ctx.demoBusinessName}.
 
-We have a free audit that checks your Google Maps profile, website speed, and how you compare to local competitors — in about 30 seconds:
+Here's what trades businesses using WeFixTrades are seeing:
 
-{{audit_link}}
+- 3x more leads from their website with instant quoting
+- 24/7 AI call answering so they never miss a job enquiry
+- Automatic review requests that build 5-star reputations
+- Local SEO that puts them at the top of Google Maps
 
-No signup needed. It shows you exactly where you're visible and where you're not.
+Every tool works together — more visibility, more enquiries, more booked jobs, with less admin.
+
+See how it could work for you: ${quotequickLink()}
+
+Or run a free audit on your current online presence: {{audit_link}}
 
 — The WeFixTrades Team`;
     },
   },
   {
-    step: "demo_day3",
-    offsetDays: 3,
+    step: "demo_day5_cta",
+    offsetDays: 5,
     subject: (ctx) =>
-      `${ctx.trade} businesses using QuoteQuick close more leads`,
+      `Ready to get started, ${ctx.trade === ctx.demoBusinessName ? ctx.trade : ctx.demoBusinessName}?`,
     body: (ctx) => {
       return `Hi there,
 
-Quick follow-up on the quote demo you tried.
+Quick follow-up on the demo you tried.
 
-Businesses using QuoteQuick see more leads because customers can get instant prices 24/7 — even when you're on a job, after hours, or on weekends.
+Trades businesses using our tools see more booked jobs because:
+- Customers can get instant prices 24/7 — even when you're on a job
+- Every missed call gets answered and captured automatically
+- Your Google Maps listing stays optimised and visible
+- 5-star reviews build up without you chasing anyone
 
-Every quote becomes a lead you can follow up on. No more "I'll call back" that never happens.
+Every quote becomes a lead. Every call gets answered. Every review gets requested. All on autopilot.
 
-Ready to try it?
+Ready to try it on your business?
 
-Get QuoteQuick — from $49/mo: ${quotequickLink()}
+Get started — plans from $49/mo: ${quotequickLink()}
 
-Or talk to our team: ${demoLink()}
+Or book a quick call with our team: ${demoLink()}
 
 — The WeFixTrades Team`;
     },

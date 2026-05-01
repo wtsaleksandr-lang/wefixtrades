@@ -625,6 +625,7 @@ function OneTimeCard({ product, onCheckout, onInfo, bestFor }: { product: Produc
   const tier = product.tiers[0];
   const [hover, setHover] = useState(false);
   const isHighlighted = product.id === "sitelaunch";
+  const isRecommended = bestFor === "Recommended for you";
 
   return (
     <div
@@ -633,7 +634,7 @@ function OneTimeCard({ product, onCheckout, onInfo, bestFor }: { product: Produc
       onMouseLeave={() => setHover(false)}
       style={{
         background: CARD_BG,
-        border: isHighlighted ? `1px solid rgba(102,232,250,0.15)` : CARD_BORDER,
+        border: isRecommended ? `1px solid rgba(102,232,250,0.25)` : isHighlighted ? `1px solid rgba(102,232,250,0.15)` : CARD_BORDER,
         borderRadius: CARD_RADIUS,
         padding: CARD_PAD,
         display: "flex",
@@ -641,18 +642,20 @@ function OneTimeCard({ product, onCheckout, onInfo, bestFor }: { product: Produc
         position: "relative",
         transition: "all 0.3s ease",
         transform: hover ? "translateY(-3px)" : "none",
-        boxShadow: hover ? shadows.lg : "none",
+        boxShadow: isRecommended ? GLOW : hover ? shadows.lg : "none",
       }}
     >
-      {/* Best for badge */}
+      {/* Best for / Recommended badge */}
       {bestFor && (
         <div style={{
           position: "absolute", top: 12, right: 12,
-          fontSize: 10, fontWeight: 600, color: mkt.textMuted,
-          background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)",
-          borderRadius: 999, padding: "3px 10px", opacity: 0.8,
+          fontSize: 10, fontWeight: isRecommended ? 700 : 600,
+          color: isRecommended ? mkt.accent : mkt.textMuted,
+          background: isRecommended ? "rgba(102,232,250,0.1)" : "rgba(255,255,255,0.06)",
+          border: isRecommended ? "1px solid rgba(102,232,250,0.25)" : "1px solid rgba(255,255,255,0.08)",
+          borderRadius: 999, padding: "3px 10px", opacity: isRecommended ? 1 : 0.8,
         }}>
-          Best for: {bestFor}
+          {isRecommended ? bestFor : `Best for: ${bestFor}`}
         </div>
       )}
 
@@ -694,6 +697,7 @@ function ServiceCard({ product, yearly, onCheckout, onInfo, bestFor }: { product
   const [activeTier, setActiveTier] = useState(0);
   const [hover, setHover] = useState(false);
   const isTradelineProduct = product.id === "tradeline";
+  const isRecommended = bestFor === "Recommended for you";
   const monthlyTiers = product.tiers.filter(t => t.billingPeriod === "monthly");
   const setupTier = product.tiers.find(t => t.billingPeriod === "one-time");
   const displayTiers = monthlyTiers.length > 0 ? monthlyTiers : product.tiers;
@@ -706,7 +710,7 @@ function ServiceCard({ product, yearly, onCheckout, onInfo, bestFor }: { product
       onMouseLeave={() => setHover(false)}
       style={{
         background: CARD_BG,
-        border: CARD_BORDER,
+        border: isRecommended ? `1px solid rgba(102,232,250,0.25)` : CARD_BORDER,
         borderRadius: CARD_RADIUS,
         padding: CARD_PAD,
         display: "flex",
@@ -714,18 +718,20 @@ function ServiceCard({ product, yearly, onCheckout, onInfo, bestFor }: { product
         position: "relative",
         transition: "all 0.3s ease",
         transform: hover ? "translateY(-3px)" : "none",
-        boxShadow: hover ? shadows.lg : "none",
+        boxShadow: isRecommended ? GLOW : hover ? shadows.lg : "none",
       }}
     >
-      {/* Best for badge */}
+      {/* Best for / Recommended badge */}
       {bestFor && (
         <div style={{
           position: "absolute", top: 12, right: 12,
-          fontSize: 10, fontWeight: 600, color: mkt.textMuted,
-          background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)",
-          borderRadius: 999, padding: "3px 10px", opacity: 0.8,
+          fontSize: 10, fontWeight: isRecommended ? 700 : 600,
+          color: isRecommended ? mkt.accent : mkt.textMuted,
+          background: isRecommended ? "rgba(102,232,250,0.1)" : "rgba(255,255,255,0.06)",
+          border: isRecommended ? "1px solid rgba(102,232,250,0.25)" : "1px solid rgba(255,255,255,0.08)",
+          borderRadius: 999, padding: "3px 10px", opacity: isRecommended ? 1 : 0.8,
         }}>
-          Best for: {bestFor}
+          {isRecommended ? bestFor : `Best for: ${bestFor}`}
         </div>
       )}
 
@@ -870,11 +876,253 @@ function ServiceCard({ product, yearly, onCheckout, onInfo, bestFor }: { product
    MAIN PAGE
    ═══════════════════════════════════════════ */
 
+/* ═══════════════════════════════════════════
+   PLAN RECOMMENDER QUIZ
+   ═══════════════════════════════════════════ */
+
+interface QuizAnswers {
+  challenge: string | null;
+  volume: string | null;
+  hasWebsite: string | null;
+}
+
+type RecommendedProduct = { id: string; reason: string };
+
+function getRecommendations(answers: QuizAnswers): RecommendedProduct[] {
+  const recs: RecommendedProduct[] = [];
+
+  if (answers.challenge === "leads" || answers.challenge === "all") {
+    recs.push({ id: "tradeline", reason: "Never miss a lead with 24/7 AI call answering" });
+    recs.push({ id: "quotequick", reason: "Let website visitors get instant quotes" });
+  }
+  if (answers.challenge === "reputation" || answers.challenge === "all") {
+    recs.push({ id: "reputationshield", reason: "Automate review collection after every job" });
+  }
+  if (answers.challenge === "website" || answers.challenge === "all") {
+    if (answers.hasWebsite === "no") {
+      recs.push({ id: "sitelaunch", reason: "Get a professional website built for your trade" });
+    } else {
+      recs.push({ id: "webfix", reason: "Fix speed, SEO, and mobile issues on your site" });
+      recs.push({ id: "webcare", reason: "Keep your website updated and running smoothly" });
+    }
+  }
+
+  if (answers.volume === "15+" && !recs.find(r => r.id === "tradeline")) {
+    recs.push({ id: "tradeline", reason: "Handle high call volume automatically" });
+  }
+  if ((answers.volume === "5-15" || answers.volume === "15+") && !recs.find(r => r.id === "mapguard")) {
+    recs.push({ id: "mapguard", reason: "Dominate local Google Maps results" });
+  }
+
+  if (answers.hasWebsite === "no" && !recs.find(r => r.id === "sitelaunch")) {
+    recs.push({ id: "sitelaunch", reason: "You need a website to capture leads online" });
+  }
+
+  const seen = new Set<string>();
+  return recs.filter(r => {
+    if (seen.has(r.id)) return false;
+    seen.add(r.id);
+    return true;
+  }).slice(0, 3);
+}
+
+function PlanRecommenderQuiz({ onRecommend }: { onRecommend: (productIds: string[]) => void }) {
+  const [step, setStep] = useState(0);
+  const [answers, setAnswers] = useState<QuizAnswers>({ challenge: null, volume: null, hasWebsite: null });
+  const [recommendations, setRecommendations] = useState<RecommendedProduct[]>([]);
+  const [isOpen, setIsOpen] = useState(false);
+
+  const questions = [
+    {
+      question: "What's your biggest challenge?",
+      key: "challenge" as const,
+      options: [
+        { value: "leads", label: "Getting more leads" },
+        { value: "reputation", label: "Managing my online reputation" },
+        { value: "website", label: "Keeping my website updated" },
+        { value: "all", label: "All of the above" },
+      ],
+    },
+    {
+      question: "How many jobs do you do per week?",
+      key: "volume" as const,
+      options: [
+        { value: "1-5", label: "1-5" },
+        { value: "5-15", label: "5-15" },
+        { value: "15+", label: "15+" },
+      ],
+    },
+    {
+      question: "Do you have a website?",
+      key: "hasWebsite" as const,
+      options: [
+        { value: "yes", label: "Yes" },
+        { value: "no", label: "No" },
+      ],
+    },
+  ];
+
+  const handleAnswer = (key: keyof QuizAnswers, value: string) => {
+    const newAnswers = { ...answers, [key]: value };
+    setAnswers(newAnswers);
+
+    if (step < questions.length - 1) {
+      setStep(step + 1);
+    } else {
+      const recs = getRecommendations(newAnswers);
+      setRecommendations(recs);
+      onRecommend(recs.map(r => r.id));
+    }
+  };
+
+  const reset = () => {
+    setStep(0);
+    setAnswers({ challenge: null, volume: null, hasWebsite: null });
+    setRecommendations([]);
+    onRecommend([]);
+  };
+
+  if (!isOpen) {
+    return (
+      <div style={{
+        background: "rgba(102,232,250,0.04)", border: "1px solid rgba(102,232,250,0.12)",
+        borderRadius: CARD_RADIUS, padding: "16px 20px",
+        display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
+        flexWrap: "wrap", cursor: "pointer",
+      }}
+        onClick={() => setIsOpen(true)}
+      >
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: mkt.onDark, fontFamily: FONT, marginBottom: 2 }}>
+            Not sure where to start?
+          </div>
+          <div style={{ fontSize: 12, color: WARM_GRAY, opacity: 0.85 }}>
+            Answer 3 quick questions and we'll recommend the right tools for your business.
+          </div>
+        </div>
+        <div style={{
+          display: "flex", alignItems: "center", gap: 6,
+          padding: "8px 18px", borderRadius: 10, background: mkt.accent,
+          color: mkt.dark, fontSize: 13, fontWeight: 700, fontFamily: FONT,
+          whiteSpace: "nowrap", flexShrink: 0,
+        }}>
+          <Target size={14} /> Take the quiz
+        </div>
+      </div>
+    );
+  }
+
+  if (recommendations.length > 0) {
+    return (
+      <div style={{
+        background: "rgba(102,232,250,0.04)", border: "1px solid rgba(102,232,250,0.12)",
+        borderRadius: CARD_RADIUS, padding: "20px 24px",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: mkt.onDark, fontFamily: FONT }}>
+            Recommended for you
+          </div>
+          <button onClick={reset} style={{
+            background: "none", border: "none", color: mkt.accent, fontSize: 12,
+            fontWeight: 600, cursor: "pointer", fontFamily: FONT, padding: "4px 8px",
+          }}>
+            Retake quiz
+          </button>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {recommendations.map((rec) => {
+            const info = SERVICE_INFO[rec.id];
+            if (!info) return null;
+            return (
+              <div key={rec.id} style={{
+                display: "flex", alignItems: "center", gap: 12,
+                padding: "12px 16px", borderRadius: 12,
+                background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)",
+              }}>
+                <div style={{
+                  width: 28, height: 28, borderRadius: 8, flexShrink: 0,
+                  background: "rgba(102,232,250,0.12)", display: "flex",
+                  alignItems: "center", justifyContent: "center",
+                }}>
+                  <Check size={14} color={mkt.accent} strokeWidth={2.5} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: mkt.onDark, fontFamily: FONT }}>{info.name}</div>
+                  <div style={{ fontSize: 12, color: WARM_GRAY, opacity: 0.85 }}>{rec.reason}</div>
+                </div>
+                <span style={{
+                  fontSize: 9, fontWeight: 700, color: mkt.accent,
+                  background: "rgba(102,232,250,0.1)", border: "1px solid rgba(102,232,250,0.2)",
+                  padding: "3px 8px", borderRadius: 999, whiteSpace: "nowrap", flexShrink: 0,
+                  textTransform: "uppercase" as const, letterSpacing: "0.04em",
+                }}>
+                  Recommended
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  const current = questions[step];
+  return (
+    <div style={{
+      background: "rgba(102,232,250,0.04)", border: "1px solid rgba(102,232,250,0.12)",
+      borderRadius: CARD_RADIUS, padding: "20px 24px",
+    }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+        <div style={{ fontSize: 11, fontWeight: 600, color: WARM_GRAY, opacity: 0.7, textTransform: "uppercase" as const, letterSpacing: "0.06em" }}>
+          Question {step + 1} of {questions.length}
+        </div>
+        <button onClick={() => { setIsOpen(false); reset(); }} style={{
+          background: "none", border: "none", color: mkt.textFaint, fontSize: 12,
+          cursor: "pointer", padding: "4px 8px",
+        }}>
+          Close
+        </button>
+      </div>
+      <div style={{ fontSize: 16, fontWeight: 700, color: mkt.onDark, fontFamily: FONT, marginBottom: 14 }}>
+        {current.question}
+      </div>
+      <div className="quiz-options-grid" style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8 }}>
+        {current.options.map((opt) => (
+          <button
+            key={opt.value}
+            onClick={() => handleAnswer(current.key, opt.value)}
+            style={{
+              padding: "12px 16px", borderRadius: 10, textAlign: "center",
+              border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.03)",
+              color: mkt.onDark, fontSize: 13, fontWeight: 600, fontFamily: FONT,
+              cursor: "pointer", transition: "all 0.15s ease",
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(102,232,250,0.3)"; e.currentTarget.style.background = "rgba(102,232,250,0.06)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)"; e.currentTarget.style.background = "rgba(255,255,255,0.03)"; }}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+      <div style={{ display: "flex", gap: 6, justifyContent: "center", marginTop: 14 }}>
+        {questions.map((_, i) => (
+          <div key={i} style={{
+            width: 8, height: 8, borderRadius: 999,
+            background: i <= step ? mkt.accent : "rgba(255,255,255,0.1)",
+            transition: "background 0.2s",
+          }} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function PricingUnified() {
   const [yearly, setYearly] = useState(false);
   const [activeCat, setActiveCat] = useState("leads");
   const [infoModal, setInfoModal] = useState<ServiceInfo | null>(null);
   const closeInfoModal = useCallback(() => setInfoModal(null), []);
+  const [recommendedProducts, setRecommendedProducts] = useState<string[]>([]);
 
   /* ─── Checkout modal state ─── */
   const [checkoutOpen, setCheckoutOpen] = useState(false);
@@ -1186,6 +1434,13 @@ function DecisionButton({ label, targetId }: { label: string; targetId: string }
           </div>
         </section>
 
+        {/* ═══ 1b. RECOMMENDER QUIZ ═══ */}
+        <section className="pricing-section" style={{ paddingTop: 16 }}>
+          <div className="pricing-max-w" style={MAX_W}>
+            <PlanRecommenderQuiz onRecommend={setRecommendedProducts} />
+          </div>
+        </section>
+
         {/* ═══ 2. DECISION FRAME ═══ */}
         <section className="pricing-section" style={{ paddingTop: 16 }}>
           <div className="pricing-max-w" style={MAX_W}>
@@ -1312,7 +1567,7 @@ function DecisionButton({ label, targetId }: { label: string; targetId: string }
                 {monthlyProducts.length > 0 && (
                 <div className="pricing-services-grid" style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 20, alignItems: "stretch" }}>
                   {monthlyProducts.map((product) => (
-                    <ServiceCard key={product.id} product={product} yearly={yearly} onCheckout={(tier) => openProductCheckout(product, tier)} onInfo={SERVICE_INFO[product.id] ? () => setInfoModal(SERVICE_INFO[product.id]) : undefined} bestFor={SERVICE_INFO[product.id]?.bestFor} />
+                    <ServiceCard key={product.id} product={product} yearly={yearly} onCheckout={(tier) => openProductCheckout(product, tier)} onInfo={SERVICE_INFO[product.id] ? () => setInfoModal(SERVICE_INFO[product.id]) : undefined} bestFor={recommendedProducts.includes(product.id) ? "Recommended for you" : SERVICE_INFO[product.id]?.bestFor} />
                   ))}
                 </div>
                 )}
@@ -1329,8 +1584,8 @@ function DecisionButton({ label, targetId }: { label: string; targetId: string }
                       </p>
                     </div>
                     <div className="pricing-services-grid" style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 20, alignItems: "stretch" }}>
-                      <OneTimeCard product={WEBFIX} yearly={yearly} onCheckout={openFixOptimizeCheckout} onInfo={() => setInfoModal(SERVICE_INFO["webfix"])} bestFor={SERVICE_INFO["webfix"]?.bestFor} />
-                      <OneTimeCard product={SITELAUNCH} yearly={yearly} onCheckout={openSiteLaunchCheckout} onInfo={() => setInfoModal(SERVICE_INFO["sitelaunch"])} bestFor={SERVICE_INFO["sitelaunch"]?.bestFor} />
+                      <OneTimeCard product={WEBFIX} yearly={yearly} onCheckout={openFixOptimizeCheckout} onInfo={() => setInfoModal(SERVICE_INFO["webfix"])} bestFor={recommendedProducts.includes("webfix") ? "Recommended for you" : SERVICE_INFO["webfix"]?.bestFor} />
+                      <OneTimeCard product={SITELAUNCH} yearly={yearly} onCheckout={openSiteLaunchCheckout} onInfo={() => setInfoModal(SERVICE_INFO["sitelaunch"])} bestFor={recommendedProducts.includes("sitelaunch") ? "Recommended for you" : SERVICE_INFO["sitelaunch"]?.bestFor} />
                     </div>
                   </>
                 )}
@@ -1422,6 +1677,9 @@ function DecisionButton({ label, targetId }: { label: string; targetId: string }
           .pricing-max-w { padding-left: 3px !important; padding-right: 3px !important; }
           .pricing-tab-icon { display: none !important; }
           .builder-grid {
+            grid-template-columns: 1fr !important;
+          }
+          .quiz-options-grid {
             grid-template-columns: 1fr !important;
           }
           .pricing-decision-grid {
