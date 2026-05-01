@@ -69,6 +69,11 @@ function getServiceCopy(serviceId: string): ServiceCopy {
     intro: "We've generated a month of posts tailored to your trade. You'll approve each one before it goes live.",
     firstAction: "Check your approval queue — the first posts are waiting for your thumbs-up.",
   };
+  if (serviceId.startsWith("webcare")) return {
+    hero: "Your Website Is Now Under Professional Care",
+    intro: "We've completed the initial setup — your site is now being monitored for uptime, security, and performance around the clock.",
+    firstAction: "Check your monitoring dashboard",
+  };
   /* AdFlow dropped (Sprint 1) — kept for legacy client_services that may still exist */
   if (serviceId.startsWith("adflow")) return {
     hero: "Your ad campaigns are running",
@@ -120,6 +125,9 @@ function buildArtifacts(serviceId: string, _cs: ClientService, baseUrl: string):
   }
   if (serviceId.startsWith("socialsync")) {
     artifacts.push({ label: "Content approval queue", value: `${baseUrl}/portal/socialsync`, kind: "link" });
+  }
+  if (serviceId.startsWith("webcare")) {
+    artifacts.push({ label: "Monitoring dashboard", value: `${baseUrl}/portal/services`, kind: "link" });
   }
   if (serviceId.startsWith("adflow")) {
     artifacts.push({ label: "Campaign dashboard", value: `${baseUrl}/portal/services`, kind: "link" });
