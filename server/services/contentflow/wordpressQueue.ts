@@ -43,7 +43,10 @@ import {
   countPublishedInLast24h,
   MAX_PER_CHANNEL_PER_DAY,
 } from "./calendarMetadata";
+import { createLogger } from "../../lib/logger";
 import type { ContentDraft } from "@shared/schema";
+
+const log = createLogger("ContentFlow:Queue");
 
 /* ─── Constants ─────────────────────────────────────────────────────── */
 
@@ -61,6 +64,31 @@ export type QueueStatus = "queued" | "publishing" | "published" | "failed";
 export type WpPostStatus = "draft" | "publish";
 
 const WORKER_ID = `${process.pid}-${crypto.randomBytes(4).toString("hex")}`;
+
+/* ─── Approval gate ────────────────────────────────────────────────── */
+
+/**
+ * Check whether a draft's associated client service has auto_publish
+ * disabled. When auto_publish is explicitly `false` in the client
+ * service metadata, the draft should be held for manual approval
+ * instead of being auto-published by the queue worker.
+ *
+ * Default behaviour: auto_publish is `true` — existing clients are
+ * not affected unless they explicitly opt out.
+ */
+async function shouldHoldForApproval(draft: ContentDraft): Promise<boolean> {
+  const csId = draft.client_service_id;
+  if (!csId) return false; // No linked service — default to auto-publish
+  try {
+    const cs = await storage.getClientServiceById(csId);
+    if (!cs) return false;
+    const meta = (cs.metadata || {}) as Record<string, any>;
+    return meta.auto_publish === false;
+  } catch {
+    // If lookup fails, don't block the publish pipeline
+    return false;
+  }
+}
 
 /* ─── Public types ──────────────────────────────────────────────────── */
 
@@ -391,6 +419,21 @@ async function drainWordpressQueue(summary: ProcessQueueSummary): Promise<void> 
       continue;
     }
 
+    /* Approval gate: if client service has auto_publish=false, hold the
+     * draft for manual approval instead of auto-publishing. */
+    if (await shouldHoldForApproval(claimed)) {
+      await mergeWpMetadata(claimed.id, {
+        queue_status: "queued",
+        locked_at: null,
+        locked_by: null,
+        last_error: "held for approval (auto_publish=false)",
+      });
+      await storage.updateContentDraft(claimed.id, { status: "pending_approval" } as any);
+      log.info("Draft held for approval", { draftId: claimed.id, clientId: claimed.client_id, channel: "wordpress" });
+      m.total_duration_ms += Date.now() - t0;
+      continue;
+    }
+
     /* Sprint 14: daily cap (wordpress channel). */
     {
       const cap = MAX_PER_CHANNEL_PER_DAY.wordpress;
@@ -589,6 +632,21 @@ async function drainSocialChannel(summary: ProcessQueueSummary, channel: SocialC
         locked_at: null,
         locked_by: null,
       });
+      continue;
+    }
+
+    /* Approval gate: if client service has auto_publish=false, hold the
+     * draft for manual approval instead of auto-publishing. */
+    if (await shouldHoldForApproval(claimed)) {
+      await mergeChannelMetadata(claimed.id, channel, {
+        queue_status: "queued",
+        locked_at: null,
+        locked_by: null,
+        last_error: "held for approval (auto_publish=false)",
+      });
+      await storage.updateContentDraft(claimed.id, { status: "pending_approval" } as any);
+      log.info("Draft held for approval", { draftId: claimed.id, clientId: claimed.client_id, channel });
+      m.total_duration_ms += Date.now() - t0;
       continue;
     }
 
