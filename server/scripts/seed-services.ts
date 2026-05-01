@@ -666,10 +666,21 @@ async function main() {
       name: "WebCare Basic Onboarding",
       steps: [
         { key: "website_url", label: "Website URL", type: "text", required: true },
-        { key: "cms_platform", label: "CMS platform", type: "select", required: true },
-        { key: "cms_admin_url", label: "CMS admin login URL", type: "text", required: false },
-        { key: "admin_username", label: "Admin username", type: "text", required: true },
-        { key: "admin_password", label: "Admin password", type: "text", required: true },
+        { key: "cms_platform", label: "CMS platform (WordPress, Wix, Shopify, Squarespace, Other)", type: "select", required: true },
+        // WordPress-specific fields
+        { key: "cms_admin_url", label: "WordPress admin URL", type: "text", required: false },
+        { key: "admin_username", label: "WordPress admin username", type: "text", required: false },
+        { key: "admin_password", label: "WordPress Application Password (generate from Users > Profile > Application Passwords)", type: "text", required: false },
+        // Wix-specific fields
+        { key: "wix_api_key", label: "Wix API Key (generate from Wix Dashboard > Settings > API Keys)", type: "text", required: false },
+        { key: "wix_site_id", label: "Wix Site ID", type: "text", required: false },
+        // Shopify-specific fields
+        { key: "shopify_store", label: "Shopify Store Name (e.g. my-shop)", type: "text", required: false },
+        { key: "shopify_access_token", label: "Shopify Access Token", type: "text", required: false },
+        { key: "shopify_blog_id", label: "Shopify Blog ID", type: "text", required: false },
+        // Squarespace-specific fields
+        { key: "squarespace_api_key", label: "Squarespace API Key (generate from Settings > Developer > API Keys)", type: "text", required: false },
+        // Common fields
         { key: "hosting_provider", label: "Hosting provider", type: "text", required: false },
         { key: "known_issues", label: "Any known issues?", type: "textarea", required: false },
         { key: "maintenance_window", label: "Preferred maintenance window", type: "select", required: false },
@@ -679,10 +690,21 @@ async function main() {
       name: "WebCare Pro Onboarding",
       steps: [
         { key: "website_url", label: "Website URL", type: "text", required: true },
-        { key: "cms_platform", label: "CMS platform", type: "select", required: true },
-        { key: "cms_admin_url", label: "CMS admin login URL", type: "text", required: false },
-        { key: "admin_username", label: "Admin username", type: "text", required: true },
-        { key: "admin_password", label: "Admin password", type: "text", required: true },
+        { key: "cms_platform", label: "CMS platform (WordPress, Wix, Shopify, Squarespace, Other)", type: "select", required: true },
+        // WordPress-specific fields
+        { key: "cms_admin_url", label: "WordPress admin URL", type: "text", required: false },
+        { key: "admin_username", label: "WordPress admin username", type: "text", required: false },
+        { key: "admin_password", label: "WordPress Application Password (generate from Users > Profile > Application Passwords)", type: "text", required: false },
+        // Wix-specific fields
+        { key: "wix_api_key", label: "Wix API Key (generate from Wix Dashboard > Settings > API Keys)", type: "text", required: false },
+        { key: "wix_site_id", label: "Wix Site ID", type: "text", required: false },
+        // Shopify-specific fields
+        { key: "shopify_store", label: "Shopify Store Name (e.g. my-shop)", type: "text", required: false },
+        { key: "shopify_access_token", label: "Shopify Access Token", type: "text", required: false },
+        { key: "shopify_blog_id", label: "Shopify Blog ID", type: "text", required: false },
+        // Squarespace-specific fields
+        { key: "squarespace_api_key", label: "Squarespace API Key (generate from Settings > Developer > API Keys)", type: "text", required: false },
+        // Common fields
         { key: "hosting_provider", label: "Hosting provider", type: "text", required: false },
         { key: "known_issues", label: "Any known issues?", type: "textarea", required: false },
         { key: "maintenance_window", label: "Preferred maintenance window", type: "select", required: false },

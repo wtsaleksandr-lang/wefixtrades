@@ -43,6 +43,8 @@ import {
   countPublishedInLast24h,
   MAX_PER_CHANNEL_PER_DAY,
 } from "./calendarMetadata";
+import { publishToCms } from "./cmsRouter";
+import { renderArticleHtml } from "./articleHtml";
 import { createLogger } from "../../lib/logger";
 import type { ContentDraft } from "@shared/schema";
 
@@ -460,6 +462,51 @@ async function drainWordpressQueue(summary: ProcessQueueSummary): Promise<void> 
       result = await adapter.publish(claimed, { status: desiredStatus });
     } catch (err: any) {
       result = { ok: false as const, reason: "network_error" as const, message: err?.message || String(err) };
+    }
+
+    /* Sprint 8 multi-CMS: if the WordPress adapter rejected because the
+     * client uses a different CMS, route through the CMS router instead.
+     * The router resolves the correct platform and credentials. */
+    if (!result.ok && result.reason === "wrong_cms_type") {
+      try {
+        const contentHtml = renderArticleHtml({
+          title: null,
+          excerpt: null,
+          bodyMd: claimed.body || "",
+        });
+        const cmsResult = await publishToCms(claimed.client_id, {
+          title: claimed.title || "Untitled",
+          content: contentHtml,
+          excerpt: claimed.excerpt || undefined,
+          status: desiredStatus,
+        }, { clientServiceId: claimed.client_service_id, draftId: claimed.id });
+
+        if (cmsResult.success) {
+          /* Persist CMS publish result on the draft metadata + transition to published. */
+          const freshDraft = await storage.getContentDraftById(claimed.id);
+          const existingMeta = ((freshDraft ?? claimed).metadata || {}) as Record<string, any>;
+          const existingWp = (existingMeta.wordpress || {}) as Record<string, any>;
+          await storage.updateContentDraft(claimed.id, {
+            status: "published",
+            target_url: cmsResult.postUrl || null,
+            metadata: {
+              ...existingMeta,
+              wordpress: {
+                ...existingWp,
+                post_id: cmsResult.postId ? Number(cmsResult.postId) || cmsResult.postId : null,
+                post_url: cmsResult.postUrl || null,
+                published_at: new Date().toISOString(),
+                error: null,
+              },
+            },
+          });
+          result = { ok: true as const, externalId: cmsResult.postId, externalUrl: cmsResult.postUrl };
+        } else {
+          result = { ok: false as const, reason: "upstream_error" as const, message: cmsResult.error || "CMS publish failed" };
+        }
+      } catch (err: any) {
+        result = { ok: false as const, reason: "network_error" as const, message: err?.message || String(err) };
+      }
     }
 
     if (result.ok) {
