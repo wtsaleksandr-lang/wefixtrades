@@ -17,11 +17,22 @@
  */
 
 import crypto from "crypto";
+import { createLogger } from "./logger";
+
+const log = createLogger("UnsubscribeToken");
 
 const DEV_FALLBACK = "wft-unsubscribe-default-key-change-me";
 
 function getSecret(): string {
-  return process.env.UNSUBSCRIBE_SECRET || process.env.SESSION_SECRET || DEV_FALLBACK;
+  const secret = process.env.UNSUBSCRIBE_SECRET || process.env.SESSION_SECRET;
+  if (secret) return secret;
+
+  if (process.env.NODE_ENV === "production") {
+    log.error("UNSUBSCRIBE_SECRET and SESSION_SECRET are both unset in production — HMAC tokens are insecure");
+    throw new Error("Cannot generate unsubscribe tokens: neither UNSUBSCRIBE_SECRET nor SESSION_SECRET is set. Set one before running in production.");
+  }
+
+  return DEV_FALLBACK;
 }
 
 function b64url(buf: Buffer | string): string {

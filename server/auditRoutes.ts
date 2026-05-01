@@ -1,12 +1,12 @@
 import type { Request, Response } from "express";
 import express from "express";
-import Anthropic from "@anthropic-ai/sdk";
 import fs from "fs";
 import path from "path";
 import { getServicesForIssues } from "@shared/services";
 import { db } from "./db";
 import { auditReports } from "@shared/schema";
 import { eq, sql, and, gte, desc } from "drizzle-orm";
+import { chat, getSharedClient, assertCircuitAllowsRequest, recordSuccess, recordFailure } from "./services/aiService";
 
 const router = express.Router();
 
@@ -1854,8 +1854,8 @@ async function analyzeScreenshot(
   summary: string;
 } | null> {
   try {
-    const AnthropicSdk = (await import("@anthropic-ai/sdk")).default;
-    const client = new AnthropicSdk();
+    assertCircuitAllowsRequest();
+    const client = getSharedClient();
     const imageData = screenshotBase64.replace(/^data:image\/\w+;base64,/, "");
     const response = await withApiTimeout(
       client.messages.create({
@@ -1878,12 +1878,14 @@ async function analyzeScreenshot(
       15000,
       null as any
     );
-    if (!response) return null;
+    if (!response) { recordFailure(); return null; }
+    recordSuccess();
     const textBlock = response.content.find((b: any) => b.type === "text");
     const text = textBlock && textBlock.type === "text" ? textBlock.text : "";
     const clean = text.replace(/```json|```/g, "").trim();
     return JSON.parse(clean);
   } catch (err: any) {
+    recordFailure();
     log.error("[screenshot-ai] error:", err.message);
     return null;
   }
@@ -2424,7 +2426,6 @@ router.post("/generate", async (req: Request, res: Response) => {
     try {
       const anthropicKey = process.env.ANTHROPIC_API_KEY;
       if (anthropicKey) {
-        const anthropic = new Anthropic({ apiKey: anthropicKey });
 
         const tradeCtx = getTradeContext(trade, city);
         const servicesList = recommendedServices?.map((s: any) => s.name || s.title || s).join(", ") || "";
@@ -2601,22 +2602,16 @@ ${keywords.map((k: any) => `${k.keyword}: rank ${k.organicRank || 'not ranking'}
 Business audit data:
 ${JSON.stringify(auditData, null, 2)}`;
 
-        const message = await withApiTimeout(
-          anthropic.messages.create({
-            model: "claude-sonnet-4-5",
-            max_tokens: 4096,
-            system: systemPrompt,
-            messages: [{ role: "user", content: userPrompt }],
-          }),
-          90000,
-          null as any
-        );
-        if (!message) {
-          log.error("[audit] narrative generation timed out after 90s");
+        const raw = await chat({
+          system: systemPrompt,
+          messages: [{ role: "user", content: userPrompt }],
+          maxTokens: 4096,
+          modelOverride: "claude-sonnet-4-5",
+        });
+        if (!raw) {
+          log.error("[audit] narrative generation returned empty");
           auditData.narrative = { summary: "", analysis: "", recommendations: [], actionPlan: [], quickWin: null };
         } else {
-
-        const raw = message.content?.[0]?.type === "text" ? message.content[0].text : "";
         log.info("═══ CLAUDE RESPONSE ═══");
         log.info(raw);
         try {

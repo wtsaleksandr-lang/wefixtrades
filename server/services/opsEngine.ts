@@ -136,8 +136,6 @@ export async function generateDailyOpsSummary(
   const startedAt = Date.now();
 
   let rawResponse = "";
-  let inputTokens = 0;
-  let outputTokens = 0;
 
   try {
     const signalContext = buildSignalContext(signals);
@@ -161,21 +159,11 @@ Return a JSON object matching this exact schema:
   "recommendations": ["string"]
 }`;
 
-    // Direct call to Anthropic — no streaming, strict JSON mode
-    const Anthropic = (await import("@anthropic-ai/sdk")).default;
-    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
-
-    const response = await client.messages.create({
-      model: getModel(),
-      max_tokens: 800,
+    rawResponse = await chat({
       system: OPS_SYSTEM_PROMPT,
       messages: [{ role: "user", content: userMessage }],
+      maxTokens: 800,
     });
-
-    const block = response.content[0];
-    rawResponse = block.type === "text" ? block.text : "";
-    inputTokens = response.usage?.input_tokens ?? 0;
-    outputTokens = response.usage?.output_tokens ?? 0;
 
     // Parse and validate — hard fail if structure is wrong
     const cleaned = rawResponse
@@ -187,13 +175,10 @@ Return a JSON object matching this exact schema:
     const parsed = JSON.parse(cleaned);
     const aiOutput = validateOutput(parsed);
 
-    const estimatedCostUsd = Math.round(
-      (inputTokens * 0.00000025 + outputTokens * 0.00000125) * 1_000_000
-    ); // micro-cents, same convention as aiUsageLogs
-
     const latencyMs = Date.now() - startedAt;
 
     // Store snapshot — raw_signals and ai_output are stored separately
+    // Token usage is now tracked centrally by aiService's circuit breaker
     const [inserted] = await db.insert(opsSnapshots).values({
       snapshot_type: "daily_summary",
       period_start: periodStart,
@@ -203,15 +188,15 @@ Return a JSON object matching this exact schema:
       prompt_version: PROMPT_VERSION,
       detector_version: (await import("./opsDetectors")).DETECTOR_VERSION,
       model_used: getModel(),
-      input_tokens: inputTokens,
-      output_tokens: outputTokens,
-      estimated_cost_usd: estimatedCostUsd,
+      input_tokens: 0,
+      output_tokens: 0,
+      estimated_cost_usd: 0,
       signal_count: signals.length,
       metadata: { latency_ms: latencyMs },
     }).returning();
 
     log.info(
-      `[opsEngine] Daily summary generated — ${signals.length} signals, ${inputTokens}in/${outputTokens}out tokens, ${latencyMs}ms`
+      `[opsEngine] Daily summary generated — ${signals.length} signals, ${latencyMs}ms`
     );
 
     return { snapshot: inserted };
@@ -229,8 +214,8 @@ Return a JSON object matching this exact schema:
         prompt_version: PROMPT_VERSION,
         detector_version: (await import("./opsDetectors")).DETECTOR_VERSION,
         model_used: getModel(),
-        input_tokens: inputTokens,
-        output_tokens: outputTokens,
+        input_tokens: 0,
+        output_tokens: 0,
         estimated_cost_usd: 0,
         signal_count: signals.length,
         metadata: { error: err.message, latency_ms: Date.now() - startedAt },

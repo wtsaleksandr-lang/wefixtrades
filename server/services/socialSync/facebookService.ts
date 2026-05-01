@@ -17,6 +17,7 @@
  */
 import { storage } from "../../storage";
 import { encryptToken, decryptToken, isEncryptionConfigured } from "./tokenEncryption";
+import { fetchWithRetry } from "../../lib/httpRetry";
 
 const GRAPH_API_BASE = "https://graph.facebook.com/v21.0";
 const OAUTH_BASE = "https://www.facebook.com/v21.0/dialog/oauth";
@@ -98,7 +99,7 @@ export async function exchangeCodeForToken(code: string): Promise<TokenResponse>
     code,
   });
 
-  const res = await fetch(`${GRAPH_API_BASE}/oauth/access_token?${params.toString()}`);
+  const res = await fetchWithRetry(`${GRAPH_API_BASE}/oauth/access_token?${params.toString()}`);
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(`Facebook token exchange failed: ${(err as any)?.error?.message || res.statusText}`);
@@ -120,7 +121,7 @@ export async function exchangeForLongLivedToken(shortLivedToken: string): Promis
     fb_exchange_token: shortLivedToken,
   });
 
-  const res = await fetch(`${GRAPH_API_BASE}/oauth/access_token?${params.toString()}`);
+  const res = await fetchWithRetry(`${GRAPH_API_BASE}/oauth/access_token?${params.toString()}`);
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(`Long-lived token exchange failed: ${(err as any)?.error?.message || res.statusText}`);
@@ -154,7 +155,7 @@ export interface FacebookPage {
 }
 
 export async function fetchFacebookUser(accessToken: string): Promise<FacebookUser> {
-  const res = await fetch(`${GRAPH_API_BASE}/me?fields=id,name&access_token=${accessToken}`);
+  const res = await fetchWithRetry(`${GRAPH_API_BASE}/me?fields=id,name&access_token=${accessToken}`);
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(`Failed to fetch Facebook user: ${(err as any)?.error?.message || res.statusText}`);
@@ -163,7 +164,7 @@ export async function fetchFacebookUser(accessToken: string): Promise<FacebookUs
 }
 
 export async function fetchFacebookPages(userAccessToken: string): Promise<FacebookPage[]> {
-  const res = await fetch(`${GRAPH_API_BASE}/me/accounts?fields=id,name,category,access_token,tasks,instagram_business_account{id,name,username,profile_picture_url,followers_count,ig_id}&limit=100&access_token=${userAccessToken}`);
+  const res = await fetchWithRetry(`${GRAPH_API_BASE}/me/accounts?fields=id,name,category,access_token,tasks,instagram_business_account{id,name,username,profile_picture_url,followers_count,ig_id}&limit=100&access_token=${userAccessToken}`);
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(`Failed to fetch Facebook pages: ${(err as any)?.error?.message || res.statusText}`);
@@ -360,10 +361,10 @@ export async function validateFacebookConnection(
 
     // Test the token with a lightweight API call
     if (fbConn.external_page_id) {
-      const res = await fetch(`${GRAPH_API_BASE}/${fbConn.external_page_id}?fields=id,name&access_token=${token}`);
+      const res = await fetchWithRetry(`${GRAPH_API_BASE}/${fbConn.external_page_id}?fields=id,name&access_token=${token}`);
       if (!res.ok) throw new Error(`Page validation failed: ${res.statusText}`);
     } else {
-      const res = await fetch(`${GRAPH_API_BASE}/me?fields=id&access_token=${token}`);
+      const res = await fetchWithRetry(`${GRAPH_API_BASE}/me?fields=id&access_token=${token}`);
       if (!res.ok) throw new Error(`User validation failed: ${res.statusText}`);
     }
 

@@ -10,7 +10,7 @@
  * ai_offer_angle, ai_cta_variant.  V1 fields are preserved for backwards compat.
  */
 
-import Anthropic from "@anthropic-ai/sdk";
+import { chat } from "./aiService";
 import { createLogger } from "../lib/logger";
 
 const log = createLogger("ProspectEnrich");
@@ -107,9 +107,6 @@ export async function runAiEnrichment(
     return null;
   }
 
-  const client = new Anthropic({ apiKey });
-  const model = process.env.CLAUDE_MODEL || "claude-haiku-4-5-20251001";
-
   const prompt = `You are a B2B sales analyst for WeFixTrades, a SaaS platform that helps trade contractors (plumbers, electricians, HVAC, roofers, etc.) get more jobs online through instant quoting, reputation management, and AI communication tools.
 
 Analyze this prospect and return a JSON object with EXACTLY these 7 fields:
@@ -133,16 +130,11 @@ Prospect data:
 Return ONLY valid JSON. No markdown, no explanation, no code fences.`;
 
   try {
-    const response = await client.messages.create({
-      model,
-      max_tokens: 700,
+    const text = await chat({
+      system: "",
       messages: [{ role: "user", content: prompt }],
+      maxTokens: 700,
     });
-
-    const text = response.content
-      .filter((b) => b.type === "text")
-      .map((b) => (b as { type: "text"; text: string }).text)
-      .join("");
 
     const parsed = JSON.parse(text) as Partial<AiResult>;
 

@@ -6,6 +6,7 @@
  * Handles async 202 polling.
  */
 import { createLogger } from "./logger";
+import { fetchWithRetry } from "./httpRetry";
 
 const log = createLogger("Outscraper");
 
@@ -44,6 +45,7 @@ async function pollResults(
       log.error("[outscraper] poll error:", e.message);
     }
   }
+  log.warn("Polling timed out waiting for Outscraper results", { resultsUrl, maxWaitMs });
   return [];
 }
 
@@ -94,22 +96,19 @@ export async function fetchGoogleReviews(
   });
   const url = `${API_BASE}/maps/reviews-v3?${params}`;
 
-  const { signal, clear } = withSignal(25000);
   let r: globalThis.Response;
   let rawText: string;
 
   try {
-    r = await fetch(url, {
+    r = await fetchWithRetry(url, {
       method: "GET",
       headers: { "X-API-KEY": apiKey },
-      signal,
+      timeoutMs: 25000,
     });
     rawText = await r.text();
   } catch (err: any) {
     log.error("[outscraper] fetchGoogleReviews error:", err.message);
     return null;
-  } finally {
-    clear();
   }
 
   if (!r.ok) {
@@ -168,22 +167,19 @@ export async function fetchFacebookReviews(
   });
   const url = `${API_BASE}/maps/reviews-v3?${params}`;
 
-  const { signal, clear } = withSignal(25000);
   let r: globalThis.Response;
   let rawText: string;
 
   try {
-    r = await fetch(url, {
+    r = await fetchWithRetry(url, {
       method: "GET",
       headers: { "X-API-KEY": apiKey },
-      signal,
+      timeoutMs: 25000,
     });
     rawText = await r.text();
   } catch (err: any) {
     log.error("[outscraper] fetchFacebookReviews error:", err.message);
     return null;
-  } finally {
-    clear();
   }
 
   if (!r.ok) {
