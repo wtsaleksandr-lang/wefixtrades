@@ -96,6 +96,87 @@ interface RankflowProfileWithCreds {
 /* ─── Publisher ─────────────────────────────────────────────────────── */
 
 const WP_POSTS_PATH = "/wp-json/wp/v2/posts";
+const WP_MEDIA_PATH = "/wp-json/wp/v2/media";
+
+/* ─── Featured image upload ────────────────────────────────────────── */
+
+interface WpMediaCredentials {
+  cms_url: string;
+  cms_username: string;
+  appPassword: string;  // already decrypted
+}
+
+/**
+ * Download an image from a URL and upload it to a WordPress site's
+ * media library. Returns the WP media ID on success, or null on any
+ * failure. Never throws -- callers should still publish the article
+ * without a featured image when this returns null.
+ */
+async function uploadMediaToWordpress(
+  credentials: WpMediaCredentials,
+  imageUrl: string,
+  title: string,
+  fetchImpl: typeof fetch = globalThis.fetch,
+): Promise<number | null> {
+  try {
+    /* 1. Download the source image. */
+    const imgRes = await fetchImpl(imageUrl);
+    if (!imgRes.ok) {
+      log.warn(`[contentflow] WP media: failed to download image (HTTP ${imgRes.status}): ${imageUrl}`);
+      return null;
+    }
+
+    const contentType = imgRes.headers.get("content-type") || "image/jpeg";
+    const imgBuffer = Buffer.from(await imgRes.arrayBuffer());
+
+    /* Derive a filename from the title (sanitised) + extension. */
+    const ext = contentType.includes("png") ? ".png"
+      : contentType.includes("webp") ? ".webp"
+      : contentType.includes("gif") ? ".gif"
+      : ".jpg";
+    const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60);
+    const filename = `${slug || "featured"}${ext}`;
+
+    /* 2. Upload to WordPress media library. */
+    const targetUrl = `${trimTrailingSlash(credentials.cms_url)}${WP_MEDIA_PATH}`;
+    if (!isAllowedDestinationUrl(targetUrl)) {
+      log.warn("[contentflow] WP media: refusing upload to insecure URL");
+      return null;
+    }
+
+    const authHeader = "Basic " + Buffer.from(`${credentials.cms_username}:${credentials.appPassword}`).toString("base64");
+
+    const uploadRes = await fetchImpl(targetUrl, {
+      method: "POST",
+      headers: {
+        "Authorization": authHeader,
+        "Content-Type": contentType,
+        "Content-Disposition": `attachment; filename="${filename}"`,
+      },
+      body: imgBuffer,
+    });
+
+    if (!uploadRes.ok) {
+      let errBody = "";
+      try { errBody = (await uploadRes.text()).slice(0, 300); } catch { /* ignore */ }
+      log.warn(`[contentflow] WP media upload HTTP ${uploadRes.status}: ${redactSensitiveEchoes(errBody)}`);
+      return null;
+    }
+
+    const parsed = await uploadRes.json() as any;
+    const mediaId = typeof parsed?.id === "number" ? parsed.id : Number(parsed?.id);
+    if (!Number.isFinite(mediaId)) {
+      log.warn("[contentflow] WP media upload: response missing id field");
+      return null;
+    }
+
+    log.info(`[contentflow] WP media uploaded: mediaId=${mediaId} filename=${filename}`);
+    return mediaId;
+  } catch (err: any) {
+    log.warn(`[contentflow] WP media upload error: ${err.message}`);
+    return null;
+  }
+}
 
 function loadCredsForClient(profile: RankflowProfileWithCreds): StoredWpCreds | null {
   const creds = (profile.credentials || {}) as { wordpress?: StoredWpCreds };
@@ -220,20 +301,41 @@ export async function publishDraftToWordpress(
 
   const authHeader = "Basic " + Buffer.from(`${creds.cms_username}:${appPassword}`).toString("base64");
 
+  /* 5b. Upload featured image if available (best-effort — article
+   *     publishes without image on any failure). The image URL lives
+   *     in draft.metadata.media_plan.image_url, populated by the
+   *     image generation pipeline. */
+  let featuredMediaId: number | undefined;
+  const draftMeta = (draft.metadata || {}) as Record<string, any>;
+  const mediaPlanImageUrl = (draftMeta.media_plan as Record<string, any> | undefined)?.image_url as string | undefined;
+  if (mediaPlanImageUrl) {
+    const wpCreds: WpMediaCredentials = {
+      cms_url: creds.cms_url,
+      cms_username: creds.cms_username,
+      appPassword,
+    };
+    const mediaId = await uploadMediaToWordpress(wpCreds, mediaPlanImageUrl, draft.title || "article", fetchImpl);
+    if (mediaId) featuredMediaId = mediaId;
+  }
+
   let response: Response;
   try {
+    const postPayload: Record<string, any> = {
+      title: draft.title || "Untitled article",
+      content: contentHtml,
+      excerpt: draft.excerpt || "",
+      status: wpStatus,
+    };
+    if (featuredMediaId) {
+      postPayload.featured_media = featuredMediaId;
+    }
     response = await fetchImpl(targetUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Authorization": authHeader,
       },
-      body: JSON.stringify({
-        title: draft.title || "Untitled article",
-        content: contentHtml,
-        excerpt: draft.excerpt || "",
-        status: wpStatus,
-      }),
+      body: JSON.stringify(postPayload),
     });
   } catch (err: any) {
     const msg = redactSensitiveEchoes(err?.message || String(err));

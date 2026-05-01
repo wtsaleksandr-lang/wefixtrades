@@ -16,6 +16,30 @@ import { createLogger } from "../lib/logger";
 
 const log = createLogger("Twilio");
 
+/* ─── MessageSid dedupe cache (TTL-based, max 1000 entries) ─── */
+const SEEN_SIDS = new Map<string, number>();
+const DEDUPE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const DEDUPE_MAX_SIZE = 1000;
+
+function isDuplicateMessage(sid: string): boolean {
+  if (!sid) return false;
+  const now = Date.now();
+
+  // Evict stale entries when approaching capacity
+  if (SEEN_SIDS.size >= DEDUPE_MAX_SIZE) {
+    for (const [key, ts] of SEEN_SIDS) {
+      if (now - ts > DEDUPE_TTL_MS) SEEN_SIDS.delete(key);
+    }
+  }
+
+  if (SEEN_SIDS.has(sid)) {
+    const ts = SEEN_SIDS.get(sid)!;
+    if (now - ts < DEDUPE_TTL_MS) return true;
+  }
+  SEEN_SIDS.set(sid, now);
+  return false;
+}
+
 export function registerTwilioRoutes(app: Express): void {
   app.post("/api/twilio/inbound", async (req, res) => {
     const twimlError = (msg: string) => {
@@ -33,6 +57,13 @@ export function registerTwilioRoutes(app: Express): void {
       const from: string = req.body?.From || "";
       const body: string = req.body?.Body || "";
       const messageSid: string = req.body?.MessageSid || "";
+
+      // Deduplicate: Twilio may deliver the same message more than once
+      if (messageSid && isDuplicateMessage(messageSid)) {
+        log.info("Duplicate MessageSid ignored", { messageSid });
+        res.set("Content-Type", "text/xml");
+        return res.status(200).send("<Response></Response>");
+      }
 
       if (!from || !body) {
         return twimlError("Invalid request.");
