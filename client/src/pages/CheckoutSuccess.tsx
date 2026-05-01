@@ -1,14 +1,75 @@
-import { useEffect } from "react";
-import { Check, Mail, ArrowRight } from "lucide-react";
+import { useEffect, useState, useRef } from "react";
+import { Check, Mail, ArrowRight, LogIn } from "lucide-react";
+import { useLocation } from "wouter";
+import { queryClient } from "@/lib/queryClient";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { mkt, typography } from "@/theme/tokens";
 
 const FONT = typography.fontFamily;
 
 export default function CheckoutSuccess() {
+  const [, navigate] = useLocation();
+  const [autoLoginState, setAutoLoginState] = useState<"idle" | "loading" | "success" | "failed">("idle");
+  const attemptedRef = useRef(false);
+
   useEffect(() => {
     document.title = "Payment Successful — WeFixTrades";
   }, []);
+
+  // Auto-login via checkout session
+  useEffect(() => {
+    if (attemptedRef.current) return;
+    attemptedRef.current = true;
+
+    const params = new URLSearchParams(window.location.search);
+    const sessionId = params.get("session_id");
+    if (!sessionId) return;
+
+    setAutoLoginState("loading");
+
+    // Retry up to 3 times with 2s delay (webhook may still be processing)
+    let attempts = 0;
+    const maxAttempts = 3;
+
+    const tryLogin = async () => {
+      try {
+        const res = await fetch("/api/auth/checkout-login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ sessionId }),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          queryClient.setQueryData(["auth", "me"], data.user);
+          queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
+          setAutoLoginState("success");
+          return;
+        }
+
+        // 404 = token not ready yet (webhook hasn't fired)
+        if (res.status === 404 && attempts < maxAttempts) {
+          attempts++;
+          setTimeout(tryLogin, 2000);
+          return;
+        }
+
+        setAutoLoginState("failed");
+      } catch {
+        if (attempts < maxAttempts) {
+          attempts++;
+          setTimeout(tryLogin, 2000);
+          return;
+        }
+        setAutoLoginState("failed");
+      }
+    };
+
+    tryLogin();
+  }, []);
+
+  const isLoggedIn = autoLoginState === "success";
 
   return (
     <MarketingLayout>
@@ -38,7 +99,7 @@ export default function CheckoutSuccess() {
               letterSpacing: "-0.02em",
               margin: "0 0 8px",
             }}>
-              Payment successful
+              {isLoggedIn ? "You're all set!" : "Payment successful"}
             </h1>
 
             <p style={{
@@ -47,24 +108,67 @@ export default function CheckoutSuccess() {
               lineHeight: 1.6,
               margin: "0 0 16px",
             }}>
-              Thank you — your services are being set up now.
+              {isLoggedIn
+                ? "Your account is ready and your services are being set up now."
+                : "Thank you — your services are being set up now."}
             </p>
 
-            <div style={{
-              background: "rgba(16,185,129,0.08)",
-              border: "1px solid rgba(16,185,129,0.2)",
-              borderRadius: 10,
-              padding: "12px 16px",
-              fontSize: 14,
-              fontWeight: 600,
-              color: "#10B981",
-              textAlign: "center",
-            }}>
-              Next step: check your email and complete setup
-              <div style={{ fontSize: 12, fontWeight: 400, color: mkt.text, marginTop: 4 }}>
-                Takes 2–3 minutes. We'll handle the rest.
+            {/* Auto-login status */}
+            {autoLoginState === "loading" && (
+              <div style={{
+                background: "rgba(102,232,250,0.08)",
+                border: "1px solid rgba(102,232,250,0.2)",
+                borderRadius: 10,
+                padding: "10px 16px",
+                fontSize: 13,
+                color: mkt.accent,
+                textAlign: "center",
+                marginBottom: 16,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+              }}>
+                <LogIn size={14} />
+                Setting up your account...
               </div>
-            </div>
+            )}
+
+            {isLoggedIn && (
+              <div style={{
+                background: "rgba(16,185,129,0.08)",
+                border: "1px solid rgba(16,185,129,0.2)",
+                borderRadius: 10,
+                padding: "12px 16px",
+                fontSize: 14,
+                fontWeight: 600,
+                color: "#10B981",
+                textAlign: "center",
+              }}>
+                Your dashboard is ready
+                <div style={{ fontSize: 12, fontWeight: 400, color: mkt.text, marginTop: 4 }}>
+                  You're logged in and can access your portal now.
+                </div>
+              </div>
+            )}
+
+            {!isLoggedIn && autoLoginState !== "loading" && (
+              <div style={{
+                background: "rgba(16,185,129,0.08)",
+                border: "1px solid rgba(16,185,129,0.2)",
+                borderRadius: 10,
+                padding: "12px 16px",
+                fontSize: 14,
+                fontWeight: 600,
+                color: "#10B981",
+                textAlign: "center",
+              }}>
+                Next step: check your email and complete setup
+                <div style={{ fontSize: 12, fontWeight: 400, color: mkt.text, marginTop: 4 }}>
+                  Takes 2-3 minutes. We'll handle the rest.
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Email notice */}
@@ -106,7 +210,7 @@ export default function CheckoutSuccess() {
               {[
                 { title: "Complete onboarding", desc: "Fill out the short form we emailed you (takes ~5 minutes). This gives our team the info they need to configure your services." },
                 { title: "We start setup", desc: "Our team begins working on your account within 24 hours. No action needed from you while we set things up." },
-                { title: "You'll hear from us", desc: "We'll send progress updates and let you know as each service goes live. Expect your first update within 1–2 business days." },
+                { title: "You'll hear from us", desc: "We'll send progress updates and let you know as each service goes live. Expect your first update within 1-2 business days." },
               ].map((step, i) => (
                 <li key={i} style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
                   <div style={{
@@ -136,25 +240,49 @@ export default function CheckoutSuccess() {
 
           {/* CTA */}
           <div style={{ textAlign: "center" }}>
-            <a
-              href="/"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 8,
-                padding: "14px 28px",
-                borderRadius: 12,
-                background: mkt.accent,
-                color: mkt.dark,
-                fontSize: 14,
-                fontWeight: 700,
-                fontFamily: FONT,
-                textDecoration: "none",
-              }}
-            >
-              Back to Home
-              <ArrowRight size={16} />
-            </a>
+            {isLoggedIn ? (
+              <button
+                onClick={() => navigate("/portal")}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "14px 28px",
+                  borderRadius: 12,
+                  background: mkt.accent,
+                  color: mkt.dark,
+                  fontSize: 14,
+                  fontWeight: 700,
+                  fontFamily: FONT,
+                  textDecoration: "none",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                Go to your dashboard
+                <ArrowRight size={16} />
+              </button>
+            ) : (
+              <a
+                href="/"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "14px 28px",
+                  borderRadius: 12,
+                  background: mkt.accent,
+                  color: mkt.dark,
+                  fontSize: 14,
+                  fontWeight: 700,
+                  fontFamily: FONT,
+                  textDecoration: "none",
+                }}
+              >
+                Back to Home
+                <ArrowRight size={16} />
+              </a>
+            )}
           </div>
         </div>
       </div>
