@@ -5,7 +5,7 @@
  * will both flow through. Sprint 1 only exercises the SocialSync path.
  */
 
-export type ContentDraftKind = "social_post" | "article" | "caption";
+export type ContentDraftKind = "social_post" | "article" | "caption" | "video_script";
 
 export type ContentDraftSurface = "socialsync" | "rankflow";
 

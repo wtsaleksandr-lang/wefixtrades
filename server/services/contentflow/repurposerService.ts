@@ -43,6 +43,8 @@ import { generateForDraft as generateImageForDraft } from "./imageGenerationServ
 import { buildCalendarMetadata } from "./calendarMetadata";
 import { readBrandProfile, buildBrandLayerText } from "./brandProfile";
 import { buildPerformanceFeedback } from "./performanceTracker";
+import { detectInfographicContent, generateInfographic } from "./infographicService";
+import { generateVideoContent, isVideoScriptsEnabled } from "./videoContentService";
 import type { ContentDraft } from "@shared/schema";
 import { createLogger } from "../../lib/logger";
 
@@ -518,6 +520,55 @@ export async function repurposeArticle(parentDraftId: number): Promise<Repurpose
         log.error(`[contentflow][repurposer] child create failed (parent=${parentDraftId} platform=${item.target_platform} variant=${item.variantIndex}): ${err?.message || err}`);
         /* Continue — sibling failures must not abort. */
       }
+    }
+
+    /* Sprint 17: auto-generate infographic when article contains
+     * statistics, numbered lists, or comparison data. Best-effort --
+     * failure does not affect the main repurpose result. */
+    if (detectInfographicContent(parent.body)) {
+      try {
+        const igResult = await generateInfographic(parentDraftId, "instagram");
+        if (igResult.ok && igResult.draftId) {
+          children.push({
+            draftId: igResult.draftId,
+            kind: "social_post",
+            target_platform: "instagram",
+            variantIndex: 0,
+          });
+        }
+        // Also generate a Pinterest infographic variant
+        const pinResult = await generateInfographic(parentDraftId, "pinterest");
+        if (pinResult.ok && pinResult.draftId) {
+          children.push({
+            draftId: pinResult.draftId,
+            kind: "social_post",
+            target_platform: "pinterest",
+            variantIndex: 0,
+          });
+        }
+      } catch (err: any) {
+        log.warn(`[contentflow][repurposer] infographic generation failed for parent=${parentDraftId}: ${err?.message || err}`);
+      }
+    }
+
+    /* Sprint 17: auto-generate video script + thumbnail when
+     * video_scripts_enabled is set on the client's service metadata.
+     * Best-effort -- failure does not affect the main repurpose result. */
+    try {
+      const videoEnabled = await isVideoScriptsEnabled(parent.client_id);
+      if (videoEnabled) {
+        const videoResult = await generateVideoContent(parentDraftId);
+        if (videoResult.ok && videoResult.scriptDraftId) {
+          children.push({
+            draftId: videoResult.scriptDraftId,
+            kind: "social_post" as any,
+            target_platform: "pinterest" as any, // closest to "youtube" in the type
+            variantIndex: 0,
+          });
+        }
+      }
+    } catch (err: any) {
+      log.warn(`[contentflow][repurposer] video content generation failed for parent=${parentDraftId}: ${err?.message || err}`);
     }
 
     log.info(`[contentflow][repurposer] parent=${parentDraftId} created=${children.length} duration_ms=${Date.now() - t0}`);

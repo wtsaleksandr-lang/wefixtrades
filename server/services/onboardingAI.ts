@@ -180,6 +180,22 @@ export async function processOnboardingSubmission(
       ai_onboarding_summary: extracted.summary,
       ai_onboarding_processed_at: new Date().toISOString(),
     };
+
+    // Sprint 17 ContentFlow: extract brand profile from content-specific
+    // onboarding answers and populate clients.metadata.content_brand.
+    // Only for services that use ContentFlow (socialsync, rankflow).
+    const isContentService = cs.service_id.startsWith("socialsync") ||
+                             cs.service_id.startsWith("rankflow");
+    if (isContentService) {
+      const brandProfile = extractContentBrandProfile(responses as Record<string, any>);
+      if (Object.keys(brandProfile).length > 0) {
+        const existingBrand = (newMeta.content_brand && typeof newMeta.content_brand === "object"
+          ? newMeta.content_brand : {}) as Record<string, any>;
+        newMeta.content_brand = { ...existingBrand, ...brandProfile };
+        fieldsUpdated.push("content_brand");
+      }
+    }
+
     (clientUpdates as any).metadata = newMeta;
     (clientUpdates as any).updated_at = new Date();
 
@@ -248,6 +264,104 @@ export async function processOnboardingSubmission(
     clientFieldsUpdated: fieldsUpdated,
     serviceConfigKeys: Object.keys(extracted.service_config),
   };
+}
+
+/* ─── Content Brand Profile Extraction (Sprint 17) ────────────────── */
+
+/**
+ * Map onboarding form tone answer to the BrandProfile tone enum.
+ * The onboarding select offers: Professional, Friendly & Approachable,
+ * Premium/Luxury, Down-to-Earth, Authoritative Expert. These map to
+ * the 4-value BrandProfile.tone enum.
+ */
+const TONE_MAP: Record<string, string> = {
+  "professional": "professional",
+  "friendly & approachable": "friendly",
+  "friendly": "friendly",
+  "approachable": "friendly",
+  "premium/luxury": "premium",
+  "premium": "premium",
+  "luxury": "premium",
+  "down-to-earth": "casual",
+  "casual": "casual",
+  "authoritative expert": "professional",
+  "authoritative": "professional",
+};
+
+/**
+ * Extract content/brand answers from raw onboarding form responses
+ * and return a partial brand profile suitable for merging into
+ * clients.metadata.content_brand.
+ */
+function extractContentBrandProfile(responses: Record<string, any>): Record<string, any> {
+  const brand: Record<string, any> = {};
+
+  // Helper to pull a string from responses (handles both raw strings
+  // and { value: "...", completed_at: "..." } response formats).
+  function pullString(key: string): string | null {
+    const val = responses[key];
+    if (typeof val === "string" && val.trim()) return val.trim();
+    if (val && typeof val === "object" && "value" in val && typeof val.value === "string" && val.value.trim()) {
+      return val.value.trim();
+    }
+    return null;
+  }
+
+  // Tone
+  const toneRaw = pullString("brand_tone");
+  if (toneRaw) {
+    const mapped = TONE_MAP[toneRaw.toLowerCase()];
+    if (mapped) brand.tone = mapped;
+  }
+
+  // Target audience (ideal customer)
+  const audience = pullString("ideal_customer");
+  if (audience) brand.target_audience = audience;
+
+  // Unique selling points
+  const usps = pullString("unique_selling_points");
+  if (usps) brand.unique_selling_points = usps;
+
+  // Preferred topics
+  const topics = pullString("preferred_topics");
+  if (topics) {
+    // Split comma/newline-separated topics into an array
+    brand.preferred_topics = topics
+      .split(/[,\n]+/)
+      .map((t: string) => t.trim())
+      .filter((t: string) => t.length > 0);
+  }
+
+  // Forbidden words -> maps to forbidden_claims in BrandProfile
+  const forbidden = pullString("forbidden_words");
+  if (forbidden) {
+    brand.forbidden_claims = forbidden
+      .split(/[,\n]+/)
+      .map((t: string) => t.trim())
+      .filter((t: string) => t.length > 0);
+  }
+
+  // Brand colors -> attempt to extract hex codes for primary/secondary
+  const colorsRaw = pullString("brand_colors");
+  if (colorsRaw) {
+    const hexMatches = colorsRaw.match(/#[0-9A-Fa-f]{3,8}/g);
+    if (hexMatches && hexMatches.length >= 1) {
+      brand.primary_color = hexMatches[0].toUpperCase();
+      if (hexMatches.length >= 2) {
+        brand.secondary_color = hexMatches[1].toUpperCase();
+      }
+    }
+    // Also store the raw text for reference
+    brand.brand_colors_raw = colorsRaw;
+  }
+
+  // Logo URL
+  const logoUrl = pullString("logo_url");
+  if (logoUrl && /^https?:\/\//i.test(logoUrl)) {
+    brand.logo_url = logoUrl;
+  }
+
+  return brand;
 }
 
 /* ─── WebCare Credential Extraction ────────────────────────────────── */

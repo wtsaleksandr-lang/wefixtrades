@@ -534,6 +534,14 @@ async function main() {
         { key: "seasonal_themes", label: "Seasonal campaigns or topics to emphasize", type: "text", required: false },
         { key: "photos", label: "Do you have work photos we can use?", type: "checkbox", required: false },
         { key: "branding_notes", label: "Brand voice notes / topics to avoid", type: "text", required: false },
+        // Content/brand questions (Sprint 17 ContentFlow)
+        { key: "brand_tone", label: "What tone best describes your brand?", type: "select", required: false },
+        { key: "ideal_customer", label: "Who is your ideal customer?", type: "textarea", required: false },
+        { key: "unique_selling_points", label: "What makes you different from competitors?", type: "textarea", required: false },
+        { key: "preferred_topics", label: "What topics should we create content about?", type: "textarea", required: false },
+        { key: "forbidden_words", label: "Any words or claims to NEVER use?", type: "textarea", required: false },
+        { key: "brand_colors", label: "Your brand colors", type: "text", required: false },
+        { key: "logo_url", label: "Upload your logo URL", type: "text", required: false },
       ],
     },
     "sitelaunch": {
@@ -562,6 +570,14 @@ async function main() {
         { key: "services", label: "Your main services", type: "text", required: true },
         { key: "target_keywords", label: "Keywords you want to rank for", type: "text", required: false },
         { key: "competitors", label: "Top 2-3 local competitors", type: "text", required: false },
+        // Content/brand questions (Sprint 17 ContentFlow)
+        { key: "brand_tone", label: "What tone best describes your brand?", type: "select", required: false },
+        { key: "ideal_customer", label: "Who is your ideal customer?", type: "textarea", required: false },
+        { key: "unique_selling_points", label: "What makes you different from competitors?", type: "textarea", required: false },
+        { key: "preferred_topics", label: "What topics should we create content about?", type: "textarea", required: false },
+        { key: "forbidden_words", label: "Any words or claims to NEVER use?", type: "textarea", required: false },
+        { key: "brand_colors", label: "Your brand colors", type: "text", required: false },
+        { key: "logo_url", label: "Upload your logo URL", type: "text", required: false },
       ],
     },
     "rankflow-growth": {
@@ -575,6 +591,14 @@ async function main() {
         { key: "competitors", label: "Top 2-3 local competitors", type: "text", required: true },
         { key: "content_preferences", label: "Content style or topics to focus on", type: "text", required: false },
         { key: "cms_access", label: "Can you provide CMS/hosting access?", type: "select", required: true },
+        // Content/brand questions (Sprint 17 ContentFlow)
+        { key: "brand_tone", label: "What tone best describes your brand?", type: "select", required: false },
+        { key: "ideal_customer", label: "Who is your ideal customer?", type: "textarea", required: false },
+        { key: "unique_selling_points", label: "What makes you different from competitors?", type: "textarea", required: false },
+        { key: "preferred_topics", label: "What topics should we create content about?", type: "textarea", required: false },
+        { key: "forbidden_words", label: "Any words or claims to NEVER use?", type: "textarea", required: false },
+        { key: "brand_colors", label: "Your brand colors", type: "text", required: false },
+        { key: "logo_url", label: "Upload your logo URL", type: "text", required: false },
       ],
     },
     "rankflow-pro": {
@@ -590,6 +614,14 @@ async function main() {
         { key: "cms_access", label: "Can you provide CMS/hosting access?", type: "select", required: true },
         { key: "analytics_access", label: "Google Analytics access available?", type: "checkbox", required: false },
         { key: "existing_seo", label: "Current SEO provider or past SEO work", type: "text", required: false },
+        // Content/brand questions (Sprint 17 ContentFlow)
+        { key: "brand_tone", label: "What tone best describes your brand?", type: "select", required: false },
+        { key: "ideal_customer", label: "Who is your ideal customer?", type: "textarea", required: false },
+        { key: "unique_selling_points", label: "What makes you different from competitors?", type: "textarea", required: false },
+        { key: "preferred_topics", label: "What topics should we create content about?", type: "textarea", required: false },
+        { key: "forbidden_words", label: "Any words or claims to NEVER use?", type: "textarea", required: false },
+        { key: "brand_colors", label: "Your brand colors", type: "text", required: false },
+        { key: "logo_url", label: "Upload your logo URL", type: "text", required: false },
       ],
     },
     "adflow-starter": {

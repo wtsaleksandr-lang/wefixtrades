@@ -22,6 +22,8 @@ import { eq } from "drizzle-orm";
 import { storage } from "../../storage";
 import type { ContentDraft, RankflowTask, RankflowProfile } from "@shared/schema";
 import { chat as aiChat } from "../aiService";
+import { readBrandProfile, buildBrandLayerText } from "./brandProfile";
+import { buildPerformanceFeedback } from "./performanceTracker";
 import { createLogger } from "../../lib/logger";
 
 const log = createLogger("ArticleService");
@@ -141,6 +143,8 @@ function buildUserPrompt(input: {
   pageType: string | null;
   niche: string | null;
   location: string | null;
+  brandLayer?: string;
+  performanceFeedback?: string;
 }): string {
   const lines: string[] = [];
   lines.push(`Business niche: ${input.niche || "local trade service"}`);
@@ -151,6 +155,14 @@ function buildUserPrompt(input: {
   }
   if (input.targetKeywords.length > 0) {
     lines.push(`Supporting keywords: ${input.targetKeywords.slice(0, 6).join(", ")}`);
+  }
+  if (input.brandLayer) {
+    lines.push("");
+    lines.push(`Brand profile (use to shape tone/style; do NOT invent claims not listed): ${input.brandLayer}`);
+  }
+  if (input.performanceFeedback) {
+    lines.push("");
+    lines.push(`Previous articles with similar topics performed well. Maintain this style: ${input.performanceFeedback}`);
   }
   lines.push("");
   lines.push("Write the article. Output JSON only.");
@@ -195,12 +207,22 @@ export async function generateArticleBody(draftId: number): Promise<GenerateArti
   }
 
   const meta = (draft.metadata || {}) as Record<string, any>;
+
+  // Sprint 17: inject brand profile + performance feedback into article generation
+  const client = await storage.getClientById(draft.client_id);
+  const tradeType = (client?.trade_type as string | null) ?? null;
+  const brand = readBrandProfile(client);
+  const brandLayer = buildBrandLayerText(brand, tradeType) || undefined;
+  const performanceFeedback = await buildPerformanceFeedback(draft.client_id, "wordpress") || undefined;
+
   const userPrompt = buildUserPrompt({
     primaryKeyword: meta.primary_keyword ?? null,
     targetKeywords: Array.isArray(meta.target_keywords) ? meta.target_keywords : [],
     pageType: meta.page_type ?? null,
     niche: meta.niche ?? null,
     location: meta.location ?? null,
+    brandLayer,
+    performanceFeedback,
   });
 
   let raw: string;
