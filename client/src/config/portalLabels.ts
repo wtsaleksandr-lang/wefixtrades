@@ -99,6 +99,76 @@ export const CONTENT_DRAFT_STATUS_STYLES: Record<string, string> = {
   failed: "bg-red-50 text-red-700",
 };
 
+/* ─── Support ticket statuses ─── */
+export const TICKET_STATUS_LABELS: Record<string, string> = {
+  open: "Open",
+  in_progress: "In Progress",
+  waiting_on_customer: "Waiting on You",
+  resolved: "Resolved",
+  closed: "Closed",
+};
+
+export const TICKET_STATUS_STYLES: Record<string, string> = {
+  open: "bg-blue-50 text-blue-700",
+  in_progress: "bg-indigo-50 text-indigo-700",
+  waiting_on_customer: "bg-amber-50 text-amber-700",
+  resolved: "bg-emerald-50 text-emerald-700",
+  closed: "bg-gray-100 text-gray-500",
+};
+
+/* ─── SocialSync post statuses ─── */
+export const SOCIALSYNC_POST_STATUS_LABELS: Record<string, string> = {
+  pending_approval: "Pending Approval",
+  queued: "Queued",
+  publishing: "Publishing",
+  published: "Published",
+  rejected: "Rejected",
+  failed: "Failed",
+};
+
+export const SOCIALSYNC_POST_STATUS_STYLES: Record<string, string> = {
+  pending_approval: "bg-amber-50 text-amber-700",
+  queued: "bg-blue-50 text-blue-700",
+  publishing: "bg-indigo-50 text-indigo-700",
+  published: "bg-emerald-50 text-emerald-700",
+  rejected: "bg-red-50 text-red-700",
+  failed: "bg-red-50 text-red-700",
+};
+
+/* ─── Review reply statuses ─── */
+export const REVIEW_REPLY_STATUS_LABELS: Record<string, string> = {
+  draft_ready: "Draft Ready",
+  pending_approval: "Pending Approval",
+  approved: "Approved",
+  auto_replied: "Auto Replied",
+  manually_replied: "Manually Replied",
+  skipped: "Skipped",
+  failed: "Failed",
+};
+
+export const REVIEW_REPLY_STATUS_STYLES: Record<string, string> = {
+  draft_ready: "bg-blue-50 text-blue-600",
+  pending_approval: "bg-amber-50 text-amber-700",
+  approved: "bg-emerald-50 text-emerald-700",
+  auto_replied: "bg-emerald-50 text-emerald-700",
+  manually_replied: "bg-emerald-50 text-emerald-700",
+  skipped: "bg-gray-100 text-gray-500",
+  failed: "bg-red-50 text-red-700",
+};
+
+/* ─── RankFlow task statuses ─── */
+export const RANKFLOW_TASK_STATUS_LABELS: Record<string, string> = {
+  qa_review: "Under QA Review",
+  approved: "Approved",
+  rejected: "Rejected",
+};
+
+export const RANKFLOW_TASK_STATUS_STYLES: Record<string, string> = {
+  qa_review: "bg-purple-50 text-purple-700",
+  approved: "bg-emerald-50 text-emerald-700",
+  rejected: "bg-red-50 text-red-700",
+};
+
 /* ─── Helper ─── */
 export function statusLabel(map: Record<string, string>, status: string): string {
   return map[status] || status.replace(/_/g, " ");

@@ -23,6 +23,7 @@ import { authRateLimiter, portalReviewRateLimiter } from "../services/rateLimite
 import { sendTicketCreatedEmail } from "../lib/supportTicketEmails";
 import { sendBillingPortalLinkEmail } from "../lib/billingPortalEmail";
 import { buildBillingPortalUrl } from "../lib/billingPortalToken";
+import Stripe from "stripe";
 
 import {
   clients,
@@ -419,6 +420,42 @@ export function registerPortalRoutes(app: Express) {
     } catch (err) {
       console.error("Portal billing send-link error:", err);
       res.status(500).json({ error: "Failed to send billing link" });
+    }
+  });
+
+  /**
+   * POST /api/portal/billing/portal-session
+   * Create a Stripe billing portal session and return the URL directly.
+   * Client opens this in a new tab to manage payment methods, invoices, cancel, etc.
+   */
+  app.post("/api/portal/billing/portal-session", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const [client] = await db.select().from(clients).where(eq(clients.id, clientId)).limit(1);
+      if (!client) return res.status(404).json({ error: "Client not found" });
+      if (!client.stripe_customer_id) {
+        return res.status(400).json({ error: "No billing account linked to your account" });
+      }
+
+      const stripeKey = process.env.STRIPE_SECRET_KEY;
+      if (!stripeKey) {
+        return res.status(503).json({ error: "Billing is not configured" });
+      }
+
+      const stripe = new Stripe(stripeKey, { apiVersion: "2025-01-27.acacia" as any });
+      const baseUrl = process.env.APP_URL || process.env.APP_PUBLIC_URL || "https://wefixtrades.com";
+
+      const session = await stripe.billingPortal.sessions.create({
+        customer: client.stripe_customer_id,
+        return_url: `${baseUrl}/portal/billing`,
+      });
+
+      res.json({ url: session.url });
+    } catch (err: any) {
+      log.error("Portal billing portal-session error:", { error: String(err) });
+      res.status(500).json({ error: "Failed to create billing portal session" });
     }
   });
 
