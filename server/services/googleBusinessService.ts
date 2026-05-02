@@ -24,6 +24,7 @@ const log = createLogger("GoogleBusiness");
 
 const SCOPES = [
   "https://www.googleapis.com/auth/business.manage",
+  "https://www.googleapis.com/auth/webmasters.readonly",
 ];
 
 function getClientConfig() {

@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Loader2, CheckCircle, Clock, ArrowRight, TrendingUp, FileText,
   MapPin, BarChart3, Sparkles, Globe, Search, ArrowUpRight, Minus,
-  PauseCircle, PlayCircle,
+  PauseCircle, PlayCircle, Link, ExternalLink, ShieldCheck,
 } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { Switch } from "@/components/ui/switch";
@@ -152,6 +152,9 @@ export default function PortalRankFlow() {
             </div>
           )}
         </div>
+
+        {/* ─── Google Search Console Connection ─── */}
+        <SearchConsoleCard />
 
         {/* ─── Monthly Narrative ─── */}
         {data.narrative && (
@@ -309,6 +312,115 @@ export default function PortalRankFlow() {
 }
 
 /* ─── Sub-Components ─── */
+
+/* ─── Search Console Connection Card ─── */
+
+interface SearchConsoleStatus {
+  enabled: boolean;
+  oauthConfigured?: boolean;
+  googleConnected: boolean;
+  searchConsoleConnected: boolean;
+}
+
+function SearchConsoleCard() {
+  const { toast } = useToast();
+
+  const { data: scStatus, isLoading } = useQuery<SearchConsoleStatus>({
+    queryKey: ["/api/portal/rankflow/search-console-status"],
+    queryFn: async () => {
+      const res = await fetch("/api/portal/rankflow/search-console-status", { credentials: "include" });
+      if (!res.ok) return { enabled: false, googleConnected: false, searchConsoleConnected: false };
+      return res.json();
+    },
+  });
+
+  const connectMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/portal/rankflow/google-connect", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to start Google connection");
+      const data = await res.json();
+      return data.authUrl;
+    },
+    onSuccess: (authUrl: string) => {
+      window.location.href = authUrl;
+    },
+    onError: () => {
+      toast({ title: "Failed to connect Google", variant: "destructive" });
+    },
+  });
+
+  // Don't render if feature is not enabled or still loading
+  if (isLoading || !scStatus?.enabled) return null;
+
+  // Already connected to Search Console
+  if (scStatus.searchConsoleConnected) {
+    return (
+      <div className="bg-white rounded-xl border border-gray-200 px-5 py-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <ShieldCheck className="w-5 h-5 text-emerald-500" />
+            <div>
+              <p className="text-sm font-medium text-gray-900">Google Search Console</p>
+              <p className="text-xs text-gray-500">Connected -- real ranking data is active</p>
+            </div>
+          </div>
+          <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-50 text-emerald-700">Active</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Google connected but Search Console not accessible (might need to verify site)
+  if (scStatus.googleConnected && !scStatus.searchConsoleConnected) {
+    return (
+      <div className="bg-white rounded-xl border border-gray-200 px-5 py-4">
+        <div className="flex items-center gap-3 mb-3">
+          <Link className="w-5 h-5 text-amber-500" />
+          <div>
+            <p className="text-sm font-medium text-gray-900">Google Search Console</p>
+            <p className="text-xs text-gray-500">Google connected, but Search Console access not detected</p>
+          </div>
+        </div>
+        <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          <p className="text-xs text-amber-700">
+            Make sure your website is verified in Google Search Console. You may need to{" "}
+            <a href="https://search.google.com/search-console" target="_blank" rel="noopener noreferrer" className="underline inline-flex items-center gap-0.5">
+              add and verify your site <ExternalLink className="w-3 h-3 inline" />
+            </a>
+            , then reconnect your Google account.
+          </p>
+        </div>
+        <button
+          className="mt-3 w-full py-2 rounded-lg text-sm font-medium text-white bg-[#2D6A4F] hover:bg-[#1B4332] disabled:opacity-50 transition-colors"
+          disabled={connectMutation.isPending}
+          onClick={() => connectMutation.mutate()}
+        >
+          {connectMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Reconnect Google"}
+        </button>
+      </div>
+    );
+  }
+
+  // Not connected at all
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 px-5 py-4">
+      <div className="flex items-center gap-3 mb-3">
+        <Globe className="w-5 h-5 text-gray-400" />
+        <div>
+          <p className="text-sm font-medium text-gray-900">Connect Google Search Console</p>
+          <p className="text-xs text-gray-500">Get real ranking data directly from Google for more accurate reports</p>
+        </div>
+      </div>
+      <button
+        className="w-full py-2.5 rounded-lg text-sm font-medium text-white bg-[#2D6A4F] hover:bg-[#1B4332] disabled:opacity-50 transition-colors"
+        disabled={connectMutation.isPending}
+        onClick={() => connectMutation.mutate()}
+      >
+        {connectMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Connect Google"}
+      </button>
+    </div>
+  );
+}
 
 function MetricCard({ icon: Icon, label, value, color }: { icon: any; label: string; value: string; color: string }) {
   const colors: Record<string, string> = {

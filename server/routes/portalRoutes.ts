@@ -2872,6 +2872,83 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
   });
 
   /* ═══════════════════════════════════════════
+     RankFlow Search Console Connection
+     ═══════════════════════════════════════════ */
+
+  /**
+   * GET /api/portal/rankflow/search-console-status
+   * Returns whether Google Search Console is connected and accessible for the client's site.
+   */
+  app.get("/api/portal/rankflow/search-console-status", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const featureEnabled = process.env.GOOGLE_SEARCH_CONSOLE_ENABLED === "true";
+      if (!featureEnabled) {
+        return res.json({ enabled: false, googleConnected: false, searchConsoleConnected: false });
+      }
+
+      const { isGoogleOAuthConfigured, hasGoogleConnection } = await import("../services/googleBusinessService");
+      const oauthConfigured = isGoogleOAuthConfigured();
+      const googleConnected = oauthConfigured ? await hasGoogleConnection(clientId) : false;
+
+      let searchConsoleConnected = false;
+      if (googleConnected) {
+        try {
+          const { getCredentialsForClient, hasSearchConsoleAccess } = await import("../services/rankflow/searchConsoleService");
+          const credentials = await getCredentialsForClient(clientId);
+          if (credentials) {
+            // Try to detect the site URL from the client's RankFlow profile
+            const profile = await storage.getRankFlowProfile(clientId);
+            const siteUrl = profile?.website_url;
+            if (siteUrl) {
+              const normalizedUrl = siteUrl.startsWith("http") ? siteUrl : `https://${siteUrl}`;
+              searchConsoleConnected = await hasSearchConsoleAccess(normalizedUrl, credentials);
+            }
+          }
+        } catch (err: any) {
+          log.debug("[portal-rankflow] Search Console access check failed", { error: err.message });
+        }
+      }
+
+      res.json({
+        enabled: true,
+        oauthConfigured,
+        googleConnected,
+        searchConsoleConnected,
+      });
+    } catch (err: any) {
+      log.error("[portal-rankflow] search-console-status error:", err.message);
+      res.status(500).json({ error: "Failed to check Search Console status" });
+    }
+  });
+
+  /**
+   * GET /api/portal/rankflow/google-connect
+   * Initiates Google OAuth flow for the authenticated client (for Search Console access).
+   * Reuses the same OAuth flow as Google Business Profile with the added webmasters.readonly scope.
+   */
+  app.get("/api/portal/rankflow/google-connect", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const { isGoogleOAuthConfigured, getGoogleAuthUrl } = await import("../services/googleBusinessService");
+      if (!isGoogleOAuthConfigured()) {
+        return res.status(503).json({ error: "Google connection is not available right now" });
+      }
+
+      const state = JSON.stringify({ clientId, source: "portal" });
+      const authUrl = getGoogleAuthUrl(state);
+      res.json({ authUrl });
+    } catch (err: any) {
+      log.error("[portal-rankflow] google-connect error:", err.message);
+      res.status(500).json({ error: "Failed to start connection" });
+    }
+  });
+
+  /* ═══════════════════════════════════════════
      RankFlow Onboarding
      ═══════════════════════════════════════════ */
 
