@@ -53,7 +53,7 @@ const log = createLogger("Repurposer");
 export interface RepurposeChild {
   draftId: number;
   kind: "social_post" | "google_post" | "email_post";
-  target_platform: "facebook" | "instagram" | "google_business" | "email";
+  target_platform: "facebook" | "instagram" | "google_business" | "email" | "linkedin" | "pinterest";
   variantIndex: number;
 }
 
@@ -73,10 +73,14 @@ interface Derivations {
   gbp_summary: string;     // 1
   email_subject: string;   // 1
   email_body: string;      // 1
+  linkedin_post: string;   // 1 (professional tone)
+  pinterest_title: string; // 1
+  pinterest_description: string; // 1 (visual description + SEO hashtags)
   /* Per-derivation image prompts; reused by Sprint 11/12 image-gen. */
   fb_image_prompts: string[];   // 3
   ig_image_prompts: string[];   // 3
   gbp_image_prompt: string;     // 1
+  pinterest_image_prompt: string; // 1
 }
 
 const SYSTEM_PROMPT = `You repurpose long-form trades-business articles into short, channel-appropriate posts for marketing automation. Output STRICT JSON ONLY — no markdown, no preamble, no trailing commentary. The schema is fixed; every field must be present.
@@ -88,6 +92,9 @@ Rules:
 - 1 GBP local-post summary: 80-200 characters, plain prose, no hashtags.
 - 1 Email subject line: under 70 characters, specific, not clickbait.
 - 1 Email body: 100-250 words, plain prose paragraphs separated by blank lines, no markdown.
+- 1 LinkedIn post: 2-4 sentences, professional tone suitable for B2B networking, mention expertise and value delivered. No hashtags.
+- 1 Pinterest title: under 60 characters, descriptive for search.
+- 1 Pinterest description: 1-3 sentences describing a visual scene relevant to the article, with 3-5 SEO hashtags.
 - Image prompts describe a clean, professional photo subject for that channel — single sentence each.
 - Never invent specific facts, prices, or guarantees not present in the source.
 - Never copy the source article verbatim.`;
@@ -118,9 +125,13 @@ Return JSON of shape:
   "gbp_summary": "...",
   "email_subject": "...",
   "email_body": "...",
+  "linkedin_post": "...",
+  "pinterest_title": "...",
+  "pinterest_description": "...",
   "fb_image_prompts": ["...","...","..."],
   "ig_image_prompts": ["...","...","..."],
-  "gbp_image_prompt": "..."
+  "gbp_image_prompt": "...",
+  "pinterest_image_prompt": "..."
 }`;
 }
 
@@ -140,11 +151,15 @@ function tryParseDerivations(raw: string): Derivations | null {
       gbp_summary: String(parsed.gbp_summary),
       email_subject: String(parsed.email_subject).slice(0, 200),
       email_body: String(parsed.email_body),
+      linkedin_post: typeof parsed.linkedin_post === "string" ? parsed.linkedin_post : "",
+      pinterest_title: typeof parsed.pinterest_title === "string" ? String(parsed.pinterest_title).slice(0, 100) : "",
+      pinterest_description: typeof parsed.pinterest_description === "string" ? parsed.pinterest_description : "",
       fb_image_prompts: (Array.isArray(parsed.fb_image_prompts) ? parsed.fb_image_prompts : [])
         .slice(0, 3).map(String).concat(["clean trade photo"]).slice(0, 3),
       ig_image_prompts: (Array.isArray(parsed.ig_image_prompts) ? parsed.ig_image_prompts : [])
         .slice(0, 3).map(String).concat(["clean trade photo"]).slice(0, 3),
       gbp_image_prompt: typeof parsed.gbp_image_prompt === "string" ? parsed.gbp_image_prompt : "clean trade photo",
+      pinterest_image_prompt: typeof parsed.pinterest_image_prompt === "string" ? parsed.pinterest_image_prompt : "clean before-and-after trade photo",
     };
   } catch {
     return null;
@@ -173,6 +188,9 @@ function stubDerivations(article: ContentDraft): Derivations {
     gbp_summary: `${tag} — read our latest write-up. Always happy to help locally.`,
     email_subject: `New from us: ${tag}`,
     email_body: `Hi there,\n\nWe just published a new piece on ${tag}. Inside: practical takeaways from our recent jobs and a quick note on what to watch for.\n\nIf any of this matches what you're dealing with, just reply or call — we'd be glad to help.\n\nThanks,\nThe team`,
+    linkedin_post: `Our team recently tackled a project involving ${tag}. The attention to detail and professional approach we bring to every job is what sets us apart. Read our latest insights on best practices and what to expect when working with experienced tradespeople.`,
+    pinterest_title: `${tag.slice(0, 50)} — Trade Tips`,
+    pinterest_description: `Before and after: professional ${tag} work showcasing quality craftsmanship. See how attention to detail makes the difference.\n#trades #homemaintenance #professional`,
     fb_image_prompts: [
       `A trades professional reviewing notes at a clean job site (${tag} context)`,
       `Over-the-shoulder view of a service truck dashboard (${tag} context)`,
@@ -184,6 +202,7 @@ function stubDerivations(article: ContentDraft): Derivations {
       `Subtle workspace detail showing care and craftsmanship (${tag})`,
     ],
     gbp_image_prompt: `Locally-recognizable trades scene supporting ${tag}`,
+    pinterest_image_prompt: `Before and after comparison of ${tag} work — clean, professional result`,
   };
 }
 
@@ -229,18 +248,18 @@ interface CreateChildInput {
   title: string | null;
   imagePrompt: string | null;
   kind: "social_post" | "google_post" | "email_post";
-  target_platform: "facebook" | "instagram" | "google_business" | "email";
+  target_platform: "facebook" | "instagram" | "google_business" | "email" | "linkedin" | "pinterest";
   /* Email-only — recipient override for the email adapter. */
   emailSubject?: string;
   emailRecipient?: string | null;
 }
 
 /* SocialSync adapters (Sprint 10/12) require draft.linked_social_post_id
- * to resolve the platform connection + media_plan. Email skips this —
- * email adapter reads metadata.email.* directly. */
+ * to resolve the platform connection + media_plan. Email/LinkedIn/Pinterest
+ * skip this — they read metadata directly. */
 async function createSocialSyncShell(
   clientId: number,
-  platform: "facebook" | "instagram" | "google_business",
+  platform: "facebook" | "instagram" | "google_business" | "linkedin" | "pinterest",
   postText: string,
   imagePrompt: string | null,
 ): Promise<number> {
@@ -289,10 +308,13 @@ async function createChildDraft(input: CreateChildInput): Promise<ContentDraft> 
     repurposed: true,
   });
 
-  /* For non-email children, provision a socialsync_posts shell so the
-   * Sprint 10/12 adapters can resolve the platform connection. */
+  /* For non-email, non-LinkedIn, non-Pinterest children, provision a
+   * socialsync_posts shell so the Sprint 10/12 adapters can resolve the
+   * platform connection. LinkedIn and Pinterest use their own direct
+   * publisher adapters and don't need a socialsync_posts row. */
+  const skipShellPlatforms = new Set(["email", "linkedin", "pinterest"]);
   let linkedSocialPostId: number | null = null;
-  if (input.kind !== "email_post") {
+  if (input.kind !== "email_post" && !skipShellPlatforms.has(input.target_platform)) {
     linkedSocialPostId = await createSocialSyncShell(
       input.clientId,
       input.target_platform as "facebook" | "instagram" | "google_business",
@@ -334,6 +356,39 @@ async function createChildDraft(input: CreateChildInput): Promise<ContentDraft> 
   }
 
   return draft;
+}
+
+/* ─── LinkedIn/Pinterest direct enqueue ──────────────────────────────── */
+
+/**
+ * Enqueue a LinkedIn or Pinterest draft by writing queue_status='queued'
+ * into metadata[platform]. These platforms don't go through the
+ * socialsync_posts flow — they use direct adapters that read metadata
+ * and call the platform API directly.
+ */
+async function enqueueDirectChannelDraft(
+  draftId: number,
+  platform: "linkedin" | "pinterest",
+): Promise<void> {
+  const draft = await storage.getContentDraftById(draftId);
+  if (!draft) return;
+  const meta = (draft.metadata || {}) as Record<string, any>;
+  const existing = (meta[platform] || {}) as Record<string, any>;
+  if (existing.posted_at || existing.queue_status === "published") return;
+  await storage.updateContentDraft(draftId, {
+    metadata: {
+      ...meta,
+      [platform]: {
+        ...existing,
+        queue_status: "queued",
+        scheduled_for: null,
+        attempts: 0,
+        last_error: null,
+        locked_at: null,
+        locked_by: null,
+      },
+    },
+  } as any);
 }
 
 /* ─── Public entry point ─────────────────────────────────────────────── */
@@ -414,8 +469,17 @@ export async function repurposeArticle(parentDraftId: number): Promise<Repurpose
       emailSubject: derivations.email_subject,
       emailRecipient: client?.contact_email ?? null,
     }];
+    const linkedinPlan = derivations.linkedin_post ? [{
+      kind: "social_post" as const, target_platform: "linkedin" as const,
+      body: derivations.linkedin_post, title: null, imagePrompt: null, variantIndex: 1,
+    }] : [];
+    const pinterestPlan = derivations.pinterest_title ? [{
+      kind: "social_post" as const, target_platform: "pinterest" as const,
+      body: derivations.pinterest_description, title: derivations.pinterest_title,
+      imagePrompt: derivations.pinterest_image_prompt, variantIndex: 1,
+    }] : [];
 
-    for (const item of [...fbPlan, ...igPlan, ...gbpPlan, ...emailPlan]) {
+    for (const item of [...fbPlan, ...igPlan, ...gbpPlan, ...emailPlan, ...linkedinPlan, ...pinterestPlan]) {
       try {
         const child = await createChildDraft({
           clientId: parent.client_id,
@@ -436,6 +500,10 @@ export async function repurposeArticle(parentDraftId: number): Promise<Repurpose
         });
         if (item.kind === "email_post") {
           await enqueueEmailDraft(child.id);
+        } else if (item.target_platform === "linkedin" || item.target_platform === "pinterest") {
+          /* LinkedIn and Pinterest use their own direct adapters —
+           * enqueue via metadata channel key matching the platform. */
+          await enqueueDirectChannelDraft(child.id, item.target_platform);
         } else {
           await enqueueSocialSyncDraft(child.id);
         }

@@ -1727,6 +1727,39 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
   });
 
   /**
+   * GET /api/portal/socialsync/posts
+   * List all social posts (pending + published) for the authenticated
+   * client, ordered by most recent first. Used by the portal Social Posts
+   * tab to show what's going out on their channels.
+   */
+  app.get("/api/portal/socialsync/posts", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const rows = await db.select({
+        id: socialsyncPosts.id,
+        platform: socialsyncPosts.platform,
+        post_text: socialsyncPosts.post_text,
+        status: socialsyncPosts.status,
+        media_plan: socialsyncPosts.media_plan,
+        scheduled_at: socialsyncPosts.scheduled_for,
+        published_at: socialsyncPosts.published_at,
+        created_at: socialsyncPosts.created_at,
+      })
+        .from(socialsyncPosts)
+        .where(eq(socialsyncPosts.client_id, clientId))
+        .orderBy(desc(socialsyncPosts.created_at))
+        .limit(50);
+
+      res.json({ posts: rows });
+    } catch (err) {
+      log.error("Portal socialsync posts error:", { error: String(err) });
+      res.status(500).json({ error: "Failed to load social posts" });
+    }
+  });
+
+  /**
    * GET /api/portal/socialsync/pending
    * List posts awaiting customer approval (status=pending_approval),
    * scoped to the authenticated client. Used by the portal approval queue UI.

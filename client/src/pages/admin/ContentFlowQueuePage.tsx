@@ -8,7 +8,7 @@
  *
  * Mobile: filters stack, table scrolls horizontally, drawer goes full-width.
  */
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -24,7 +24,7 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { RefreshCw, Filter as FilterIcon, Inbox, Loader2 } from "lucide-react";
+import { RefreshCw, Filter as FilterIcon, Inbox, Loader2, Calendar, ChevronLeft, ChevronRight, LayoutList, Facebook, Instagram, Globe, Mail } from "lucide-react";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import {
   CONTENT_DRAFT_STATUS_LABELS,
@@ -111,6 +111,8 @@ export default function ContentFlowQueuePage() {
   usePageTitle("ContentFlow Queue");
   const qc = useQueryClient();
   const { toast } = useToast();
+
+  const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
 
   const [clientFilter, setClientFilter] = useState<string>(ANY);
   const [statusFilter, setStatusFilter] = useState<string>(ANY);
@@ -224,19 +226,45 @@ export default function ContentFlowQueuePage() {
               Review and act on AI-generated drafts before they publish.
             </p>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              qc.invalidateQueries({ queryKey: ["/api/admin/contentflow/queue"] });
-              refetch();
-            }}
-            disabled={isFetching}
-            data-testid="contentflow-refresh"
-          >
-            <RefreshCw className={`h-4 w-4 mr-1 ${isFetching ? "animate-spin" : ""}`} />
-            Refresh
-          </Button>
+          <div className="flex items-center gap-2">
+            <div className="flex rounded-lg border overflow-hidden">
+              <button
+                onClick={() => setViewMode("list")}
+                className={`px-3 py-1.5 text-xs font-medium ${
+                  viewMode === "list"
+                    ? "bg-gray-900 text-white"
+                    : "bg-white text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                <LayoutList className="h-3.5 w-3.5 inline mr-1" />
+                List
+              </button>
+              <button
+                onClick={() => setViewMode("calendar")}
+                className={`px-3 py-1.5 text-xs font-medium ${
+                  viewMode === "calendar"
+                    ? "bg-gray-900 text-white"
+                    : "bg-white text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                <Calendar className="h-3.5 w-3.5 inline mr-1" />
+                Calendar
+              </button>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                qc.invalidateQueries({ queryKey: ["/api/admin/contentflow/queue"] });
+                refetch();
+              }}
+              disabled={isFetching}
+              data-testid="contentflow-refresh"
+            >
+              <RefreshCw className={`h-4 w-4 mr-1 ${isFetching ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+          </div>
           {selectedIds.size > 0 && (
             <Button
               size="sm"
@@ -304,8 +332,13 @@ export default function ContentFlowQueuePage() {
           </div>
         </Card>
 
+        {/* Calendar View */}
+        {viewMode === "calendar" && (
+          <ContentCalendarView drafts={drafts} isLoading={isLoading} onSelectDraft={openDrawer} />
+        )}
+
         {/* Table */}
-        <Card className="overflow-hidden">
+        {viewMode === "list" && <Card className="overflow-hidden">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
@@ -452,7 +485,7 @@ export default function ContentFlowQueuePage() {
               )}
             </div>
           )}
-        </Card>
+        </Card>}
       </div>
 
       <ContentFlowDraftDrawer
@@ -493,6 +526,297 @@ function FilterSelect({
           ))}
         </SelectContent>
       </Select>
+    </div>
+  );
+}
+
+/* ─── Content Calendar View ─── */
+
+const PLATFORM_CAL_ICONS: Record<string, React.ReactNode> = {
+  facebook: <Facebook className="h-3 w-3 text-blue-600" />,
+  instagram: <Instagram className="h-3 w-3 text-pink-600" />,
+  google_business: <Globe className="h-3 w-3 text-green-600" />,
+  email: <Mail className="h-3 w-3 text-gray-600" />,
+  wordpress: <Globe className="h-3 w-3 text-indigo-600" />,
+};
+
+const STATUS_DOT: Record<string, string> = {
+  published: "bg-emerald-500",
+  approved: "bg-blue-500",
+  failed: "bg-red-500",
+  draft: "bg-gray-400",
+  rejected: "bg-red-400",
+  queued: "bg-blue-400",
+};
+
+function getDaysInMonth(year: number, month: number): number {
+  return new Date(year, month + 1, 0).getDate();
+}
+
+function getFirstDayOfWeek(year: number, month: number): number {
+  return new Date(year, month, 1).getDay();
+}
+
+function dateKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function ContentCalendarView({
+  drafts,
+  isLoading,
+  onSelectDraft,
+}: {
+  drafts: ContentDraftRow[];
+  isLoading: boolean;
+  onSelectDraft: (id: number) => void;
+}) {
+  const today = new Date();
+  const [year, setYear] = useState(today.getFullYear());
+  const [month, setMonth] = useState(today.getMonth());
+  const [viewMode, setCalViewMode] = useState<"month" | "week">("month");
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
+
+  const prevMonth = () => {
+    if (month === 0) { setYear(year - 1); setMonth(11); }
+    else setMonth(month - 1);
+    setSelectedDay(null);
+  };
+  const nextMonth = () => {
+    if (month === 11) { setYear(year + 1); setMonth(0); }
+    else setMonth(month + 1);
+    setSelectedDay(null);
+  };
+
+  /** Group drafts by date (using scheduled_for from metadata, or created_at). */
+  const draftsByDate = useMemo(() => {
+    const map = new Map<string, ContentDraftRow[]>();
+    for (const d of drafts) {
+      const meta = d.metadata as any;
+      // Try multiple date sources
+      const dateStr =
+        meta?.wordpress?.scheduled_for ||
+        meta?.calendar?.scheduled_for ||
+        meta?.facebook?.scheduled_for ||
+        meta?.instagram?.scheduled_for ||
+        meta?.gbp_post?.scheduled_for ||
+        meta?.email?.scheduled_for ||
+        (d.status === "published" ? meta?.wordpress?.published_at : null) ||
+        d.created_at;
+      if (!dateStr) continue;
+      const dt = new Date(dateStr);
+      if (isNaN(dt.getTime())) continue;
+      const key = dateKey(dt);
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(d);
+    }
+    return map;
+  }, [drafts]);
+
+  const daysInMonth = getDaysInMonth(year, month);
+  const firstDay = getFirstDayOfWeek(year, month);
+  const monthName = new Date(year, month).toLocaleString("default", { month: "long" });
+  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+  /* Get current week boundaries for week view */
+  const todayKey = dateKey(today);
+
+  /* Build grid cells */
+  const cells: Array<{ date: Date; key: string; inMonth: boolean }> = [];
+  // Previous month padding
+  const prevMonthDays = getDaysInMonth(year, month === 0 ? 11 : month - 1);
+  for (let i = firstDay - 1; i >= 0; i--) {
+    const d = new Date(year, month - 1, prevMonthDays - i);
+    cells.push({ date: d, key: dateKey(d), inMonth: false });
+  }
+  // Current month days
+  for (let day = 1; day <= daysInMonth; day++) {
+    const d = new Date(year, month, day);
+    cells.push({ date: d, key: dateKey(d), inMonth: true });
+  }
+  // Next month padding to complete the grid
+  const remaining = 7 - (cells.length % 7);
+  if (remaining < 7) {
+    for (let i = 1; i <= remaining; i++) {
+      const d = new Date(year, month + 1, i);
+      cells.push({ date: d, key: dateKey(d), inMonth: false });
+    }
+  }
+
+  const selectedDrafts = selectedDay ? (draftsByDate.get(selectedDay) ?? []) : [];
+
+  if (isLoading) {
+    return (
+      <Card className="p-6">
+        <div className="flex items-center justify-center h-48">
+          <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+        </div>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <Card className="p-4">
+        {/* Calendar header */}
+        <div className="flex items-center justify-between mb-4">
+          <Button variant="ghost" size="sm" onClick={prevMonth}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <h3 className="text-sm font-semibold">
+            {monthName} {year}
+          </h3>
+          <Button variant="ghost" size="sm" onClick={nextMonth}>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+
+        {/* Day names */}
+        <div className="grid grid-cols-7 gap-px mb-1">
+          {dayNames.map((name) => (
+            <div key={name} className="text-center text-[10px] font-medium text-muted-foreground py-1">
+              {name}
+            </div>
+          ))}
+        </div>
+
+        {/* Calendar grid */}
+        <div className="grid grid-cols-7 gap-px bg-gray-100 rounded-lg overflow-hidden">
+          {cells.map((cell) => {
+            const dayDrafts = draftsByDate.get(cell.key) ?? [];
+            const isToday = cell.key === todayKey;
+            const isSelected = cell.key === selectedDay;
+            const publishedCount = dayDrafts.filter((d) => d.status === "published").length;
+            const queuedCount = dayDrafts.filter((d) => d.status === "approved" || d.metadata?.wordpress?.queue_status === "queued").length;
+            const failedCount = dayDrafts.filter((d) => d.status === "failed" || d.metadata?.wordpress?.queue_status === "failed").length;
+            const draftCount = dayDrafts.filter((d) => d.status === "draft").length;
+
+            // Collect unique platforms
+            const platforms = new Set<string>();
+            for (const d of dayDrafts) {
+              if (d.target_platform) platforms.add(d.target_platform);
+              else if (d.surface === "rankflow") platforms.add("wordpress");
+            }
+
+            return (
+              <button
+                key={cell.key}
+                onClick={() => setSelectedDay(isSelected ? null : cell.key)}
+                className={`min-h-[72px] p-1 text-left transition-colors ${
+                  cell.inMonth ? "bg-white" : "bg-gray-50"
+                } ${isSelected ? "ring-2 ring-inset ring-blue-500" : ""} ${
+                  dayDrafts.length > 0 ? "cursor-pointer hover:bg-blue-50" : ""
+                }`}
+              >
+                <div className={`text-xs mb-0.5 ${
+                  isToday
+                    ? "font-bold text-blue-600"
+                    : cell.inMonth
+                    ? "text-gray-700"
+                    : "text-gray-400"
+                }`}>
+                  {cell.date.getDate()}
+                </div>
+
+                {dayDrafts.length > 0 && (
+                  <div className="space-y-0.5">
+                    {/* Status dots */}
+                    <div className="flex gap-0.5 flex-wrap">
+                      {publishedCount > 0 && (
+                        <span className="inline-flex items-center gap-0.5 text-[9px] text-emerald-700">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                          {publishedCount}
+                        </span>
+                      )}
+                      {queuedCount > 0 && (
+                        <span className="inline-flex items-center gap-0.5 text-[9px] text-blue-700">
+                          <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                          {queuedCount}
+                        </span>
+                      )}
+                      {failedCount > 0 && (
+                        <span className="inline-flex items-center gap-0.5 text-[9px] text-red-700">
+                          <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                          {failedCount}
+                        </span>
+                      )}
+                      {draftCount > 0 && (
+                        <span className="inline-flex items-center gap-0.5 text-[9px] text-gray-500">
+                          <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />
+                          {draftCount}
+                        </span>
+                      )}
+                    </div>
+                    {/* Platform icons */}
+                    <div className="flex gap-0.5">
+                      {Array.from(platforms).slice(0, 4).map((p) => (
+                        <span key={p}>{PLATFORM_CAL_ICONS[p] || null}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Legend */}
+        <div className="flex gap-4 mt-3 text-[10px] text-muted-foreground">
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500" /> Published</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500" /> Queued</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500" /> Failed</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-gray-400" /> Draft</span>
+        </div>
+      </Card>
+
+      {/* Selected day details */}
+      {selectedDay && (
+        <Card className="p-4">
+          <h4 className="text-sm font-semibold mb-3">
+            {new Date(selectedDay + "T00:00:00").toLocaleDateString("default", {
+              weekday: "long",
+              month: "long",
+              day: "numeric",
+              year: "numeric",
+            })}
+            <Badge variant="outline" className="ml-2 text-[10px]">{selectedDrafts.length} {selectedDrafts.length === 1 ? "draft" : "drafts"}</Badge>
+          </h4>
+          {selectedDrafts.length === 0 && (
+            <p className="text-xs text-muted-foreground">No drafts scheduled for this day.</p>
+          )}
+          <div className="space-y-2">
+            {selectedDrafts.map((d) => {
+              const queueBadge = deriveQueueBadge(d);
+              return (
+                <div
+                  key={d.id}
+                  className="flex items-center gap-3 p-2 rounded-lg border hover:bg-muted/40 cursor-pointer transition-colors"
+                  onClick={() => onSelectDraft(d.id)}
+                >
+                  <span className={`w-2 h-2 rounded-full flex-shrink-0 ${STATUS_DOT[d.status] || "bg-gray-400"}`} />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-medium truncate">{d.title || `Draft #${d.id}`}</div>
+                    <div className="text-[10px] text-muted-foreground">
+                      {d.kind.replace(/_/g, " ")}
+                      {d.target_platform && <> / {d.target_platform}</>}
+                    </div>
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className={`text-[10px] flex-shrink-0 ${CONTENT_DRAFT_STATUS_STYLES[d.status] || "bg-gray-100"}`}
+                  >
+                    {statusLabel(CONTENT_DRAFT_STATUS_LABELS, d.status)}
+                  </Badge>
+                  {queueBadge && (
+                    <Badge variant="outline" className={`text-[10px] flex-shrink-0 ${queueBadge.className}`}>
+                      {queueBadge.label}
+                    </Badge>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
     </div>
   );
 }

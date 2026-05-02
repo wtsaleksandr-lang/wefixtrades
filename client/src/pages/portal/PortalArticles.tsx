@@ -20,7 +20,7 @@
  */
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, CheckCircle2, MessageSquareWarning, XCircle, FileText, ExternalLink, Clock } from "lucide-react";
+import { Loader2, CheckCircle2, MessageSquareWarning, XCircle, FileText, ExternalLink, Clock, Share2, Instagram, Facebook, Globe, Mail, Calendar } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -184,16 +184,47 @@ export default function PortalArticles() {
     return counts;
   }, [articles]);
 
+  const [activeTab, setActiveTab] = useState<"articles" | "social">("articles");
+
   return (
     <PortalLayout>
       <div className="space-y-6">
         <header className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight">Article Drafts</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Content</h1>
           <p className="text-sm text-muted-foreground">
-            Review the SEO articles your team has prepared. Approve to publish, request changes, or reject.
+            Review articles and see what social posts are going out on your channels.
           </p>
         </header>
 
+        {/* Tab bar */}
+        <div className="flex border-b">
+          <button
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === "articles"
+                ? "border-[#2D6A4F] text-[#2D6A4F]"
+                : "border-transparent text-muted-foreground hover:text-gray-700"
+            }`}
+            onClick={() => setActiveTab("articles")}
+          >
+            <FileText className="h-3.5 w-3.5 inline mr-1.5" />
+            Article Drafts
+          </button>
+          <button
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === "social"
+                ? "border-[#2D6A4F] text-[#2D6A4F]"
+                : "border-transparent text-muted-foreground hover:text-gray-700"
+            }`}
+            onClick={() => setActiveTab("social")}
+          >
+            <Share2 className="h-3.5 w-3.5 inline mr-1.5" />
+            Social Posts
+          </button>
+        </div>
+
+        {activeTab === "social" && <SocialPostsSection />}
+
+        {activeTab === "articles" && <>
         {/* Summary chips */}
         <div className="flex flex-wrap gap-2">
           <Badge variant="outline" className="gap-1">
@@ -280,6 +311,7 @@ export default function PortalArticles() {
             })}
           </div>
         )}
+        </>}
       </div>
 
       {/* Detail drawer */}
@@ -381,5 +413,126 @@ export default function PortalArticles() {
         </SheetContent>
       </Sheet>
     </PortalLayout>
+  );
+}
+
+/* ─── Social Posts Section ───────────────────────────────────────── */
+
+interface SocialPostItem {
+  id: number;
+  platform: string;
+  post_text: string | null;
+  status: string;
+  media_plan: any;
+  scheduled_at: string | null;
+  published_at: string | null;
+  created_at: string;
+}
+
+const PLATFORM_ICON: Record<string, React.ReactNode> = {
+  facebook: <Facebook className="h-4 w-4 text-blue-600" />,
+  instagram: <Instagram className="h-4 w-4 text-pink-600" />,
+  google_business: <Globe className="h-4 w-4 text-green-600" />,
+  email: <Mail className="h-4 w-4 text-gray-600" />,
+  linkedin: <Globe className="h-4 w-4 text-blue-700" />,
+  pinterest: <Globe className="h-4 w-4 text-red-600" />,
+};
+
+const STATUS_STYLE: Record<string, string> = {
+  published: "bg-emerald-100 text-emerald-800 border-emerald-200",
+  ready: "bg-blue-100 text-blue-800 border-blue-200",
+  pending: "bg-amber-100 text-amber-800 border-amber-200",
+  queued: "bg-blue-100 text-blue-800 border-blue-200",
+  failed: "bg-red-100 text-red-800 border-red-200",
+  draft: "bg-gray-100 text-gray-700 border-gray-200",
+};
+
+function SocialPostsSection() {
+  const { data, isLoading, isError } = useQuery<{ posts: SocialPostItem[] }>({
+    queryKey: ["/api/portal/socialsync/posts"],
+    queryFn: async () => {
+      const res = await fetch("/api/portal/socialsync/posts", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load social posts");
+      return res.json();
+    },
+  });
+
+  const posts = data?.posts ?? [];
+
+  if (isLoading) {
+    return (
+      <div className="grid gap-3 md:grid-cols-2">
+        {[0, 1, 2, 3].map((i) => (
+          <Card key={i} className="p-4 space-y-3">
+            <Skeleton className="h-5 w-1/2" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-3/4" />
+          </Card>
+        ))}
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <Card className="p-6 text-sm text-red-700">
+        Failed to load social posts. Please try again later.
+      </Card>
+    );
+  }
+
+  if (posts.length === 0) {
+    return (
+      <Card className="p-12 text-center text-sm text-muted-foreground">
+        <Share2 className="mx-auto h-8 w-8 opacity-50 mb-2" />
+        No social posts yet. When articles are repurposed for social channels, they will appear here.
+      </Card>
+    );
+  }
+
+  return (
+    <div className="grid gap-3 md:grid-cols-2">
+      {posts.map((post) => (
+        <Card key={post.id} className="p-4 space-y-2">
+          <div className="flex items-center gap-2">
+            {PLATFORM_ICON[post.platform] || <Globe className="h-4 w-4 text-gray-500" />}
+            <span className="text-xs font-medium capitalize">{post.platform.replace(/_/g, " ")}</span>
+            <Badge variant="outline" className={`ml-auto text-[10px] ${STATUS_STYLE[post.status] || STATUS_STYLE.draft}`}>
+              {post.status === "ready" ? "Pending" : post.status}
+            </Badge>
+          </div>
+
+          {post.post_text && (
+            <p className="text-sm text-gray-700 line-clamp-4 whitespace-pre-wrap">
+              {post.post_text}
+            </p>
+          )}
+
+          {post.media_plan?.prompt && (
+            <div className="text-[10px] text-gray-400 italic">
+              Image: {post.media_plan.prompt}
+            </div>
+          )}
+
+          <div className="flex items-center gap-3 text-[10px] text-muted-foreground pt-1">
+            {post.scheduled_at && (
+              <span className="flex items-center gap-0.5">
+                <Calendar className="h-3 w-3" />
+                Scheduled: {new Date(post.scheduled_at).toLocaleDateString()}
+              </span>
+            )}
+            {post.published_at && (
+              <span className="flex items-center gap-0.5">
+                <CheckCircle2 className="h-3 w-3 text-emerald-500" />
+                Published: {formatRelative(post.published_at)}
+              </span>
+            )}
+            {!post.scheduled_at && !post.published_at && (
+              <span>{formatRelative(post.created_at)}</span>
+            )}
+          </div>
+        </Card>
+      ))}
+    </div>
   );
 }

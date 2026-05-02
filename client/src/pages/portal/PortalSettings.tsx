@@ -1,7 +1,7 @@
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState, useEffect } from "react";
-import { Loader2, Check, RefreshCw, KeyRound, AlertTriangle } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { Loader2, Check, RefreshCw, KeyRound, AlertTriangle, Palette, X, Plus } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
@@ -233,12 +233,308 @@ export default function PortalSettings() {
               )}
             </div>
 
+            {/* Brand Voice */}
+            <BrandProfileSection inputClass={inputClass} labelClass={labelClass} />
+
             {/* Change Password */}
             <ChangePasswordSection inputClass={inputClass} labelClass={labelClass} />
           </>
         )}
       </div>
     </PortalLayout>
+  );
+}
+
+/* ─── Brand Profile Section ─── */
+
+interface BrandProfile {
+  tone?: string;
+  style_keywords?: string[];
+  avoid?: string[];
+  location_cue?: string;
+  service_focus?: string;
+  visual_style?: string;
+}
+
+const TONE_OPTIONS = [
+  { value: "professional", label: "Professional" },
+  { value: "friendly", label: "Friendly" },
+  { value: "casual", label: "Casual" },
+  { value: "premium", label: "Authoritative" },
+];
+
+function TagInput({
+  tags,
+  onAdd,
+  onRemove,
+  placeholder,
+  inputClass,
+}: {
+  tags: string[];
+  onAdd: (tag: string) => void;
+  onRemove: (index: number) => void;
+  placeholder: string;
+  inputClass: string;
+}) {
+  const [inputVal, setInputVal] = useState("");
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if ((e.key === "Enter" || e.key === ",") && inputVal.trim()) {
+      e.preventDefault();
+      const cleaned = inputVal.trim().replace(/,$/g, "");
+      if (cleaned && !tags.includes(cleaned)) {
+        onAdd(cleaned);
+      }
+      setInputVal("");
+    }
+    if (e.key === "Backspace" && !inputVal && tags.length > 0) {
+      onRemove(tags.length - 1);
+    }
+  }
+
+  return (
+    <div>
+      <div className="flex flex-wrap gap-1.5 mb-1.5">
+        {tags.map((tag, i) => (
+          <span
+            key={`${tag}-${i}`}
+            className="inline-flex items-center gap-0.5 px-2 py-0.5 text-xs bg-gray-100 text-gray-700 rounded-full border border-gray-200"
+          >
+            {tag}
+            <button type="button" onClick={() => onRemove(i)} className="hover:text-red-500 ml-0.5">
+              <X className="w-3 h-3" />
+            </button>
+          </span>
+        ))}
+      </div>
+      <input
+        className={inputClass}
+        placeholder={placeholder}
+        value={inputVal}
+        onChange={(e) => setInputVal(e.target.value)}
+        onKeyDown={handleKeyDown}
+      />
+    </div>
+  );
+}
+
+function BrandProfileSection({ inputClass, labelClass }: { inputClass: string; labelClass: string }) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [brandSaved, setBrandSaved] = useState(false);
+
+  const { data: brandData, isLoading: brandLoading } = useQuery<{ brand_profile: BrandProfile }>({
+    queryKey: ["/api/portal/contentflow/brand-profile"],
+    queryFn: async () => {
+      const res = await fetch("/api/portal/contentflow/brand-profile", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load brand profile");
+      return res.json();
+    },
+  });
+
+  const [brandForm, setBrandForm] = useState<{
+    tone: string;
+    style_keywords: string[];
+    avoid: string[];
+    service_focus: string;
+    location_cue: string;
+  }>({
+    tone: "professional",
+    style_keywords: [],
+    avoid: [],
+    service_focus: "",
+    location_cue: "",
+  });
+
+  useEffect(() => {
+    if (brandData?.brand_profile) {
+      const bp = brandData.brand_profile;
+      setBrandForm({
+        tone: bp.tone || "professional",
+        style_keywords: bp.style_keywords || [],
+        avoid: bp.avoid || [],
+        service_focus: Array.isArray(bp.service_focus)
+          ? (bp.service_focus as unknown as string[]).join(", ")
+          : bp.service_focus || "",
+        location_cue: bp.location_cue || "",
+      });
+    }
+  }, [brandData]);
+
+  const brandSaveMutation = useMutation({
+    mutationFn: async () => {
+      const payload: Record<string, any> = {
+        tone: brandForm.tone,
+        style_keywords: brandForm.style_keywords,
+        avoid: brandForm.avoid,
+        location_cue: brandForm.location_cue || undefined,
+      };
+      // Parse service_focus as a comma-separated list
+      if (brandForm.service_focus.trim()) {
+        payload.service_focus = brandForm.service_focus
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean);
+      } else {
+        payload.service_focus = [];
+      }
+      const res = await apiRequest("PATCH", "/api/portal/contentflow/brand-profile", payload);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/portal/contentflow/brand-profile"] });
+      setBrandSaved(true);
+      toast({ title: "Brand profile saved" });
+      setTimeout(() => setBrandSaved(false), 2000);
+    },
+    onError: () => {
+      toast({ title: "Failed to save brand profile", variant: "destructive" });
+    },
+  });
+
+  const addStyleKeyword = useCallback((tag: string) => {
+    setBrandForm((prev) => ({ ...prev, style_keywords: [...prev.style_keywords, tag] }));
+  }, []);
+
+  const removeStyleKeyword = useCallback((index: number) => {
+    setBrandForm((prev) => ({
+      ...prev,
+      style_keywords: prev.style_keywords.filter((_, i) => i !== index),
+    }));
+  }, []);
+
+  const addAvoidWord = useCallback((tag: string) => {
+    setBrandForm((prev) => ({ ...prev, avoid: [...prev.avoid, tag] }));
+  }, []);
+
+  const removeAvoidWord = useCallback((index: number) => {
+    setBrandForm((prev) => ({
+      ...prev,
+      avoid: prev.avoid.filter((_, i) => i !== index),
+    }));
+  }, []);
+
+  if (brandLoading) {
+    return (
+      <div className="bg-white rounded-xl border border-gray-200 p-5">
+        <div className="flex items-center gap-2 mb-3">
+          <Palette className="w-4 h-4 text-gray-400" />
+          <h2 className="text-sm font-semibold text-gray-900">Brand Voice</h2>
+        </div>
+        <div className="flex items-center justify-center h-24">
+          <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
+      <div className="flex items-center gap-2">
+        <Palette className="w-4 h-4 text-[#2D6A4F]" />
+        <h2 className="text-sm font-semibold text-gray-900">Brand Voice</h2>
+      </div>
+      <p className="text-xs text-gray-500">
+        Shape how AI generates content for your business. These preferences guide the tone, style, and focus of articles, social posts, and emails.
+      </p>
+
+      <div className="space-y-4">
+        {/* Tone selector */}
+        <div>
+          <label className={labelClass}>Tone</label>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {TONE_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setBrandForm({ ...brandForm, tone: opt.value })}
+                className={`px-3 py-2 text-xs font-medium rounded-lg border transition-colors ${
+                  brandForm.tone === opt.value
+                    ? "bg-[#2D6A4F] text-white border-[#2D6A4F]"
+                    : "bg-white text-gray-700 border-gray-200 hover:border-[#2D6A4F]/40"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Style keywords */}
+        <div>
+          <label className={labelClass}>Style Keywords</label>
+          <p className="text-[10px] text-gray-400 mb-1">
+            Words that describe your brand (e.g. "reliable", "family-owned", "modern"). Press Enter or comma to add.
+          </p>
+          <TagInput
+            tags={brandForm.style_keywords}
+            onAdd={addStyleKeyword}
+            onRemove={removeStyleKeyword}
+            placeholder="Add a keyword..."
+            inputClass={inputClass}
+          />
+        </div>
+
+        {/* Avoid list */}
+        <div>
+          <label className={labelClass}>Avoid List</label>
+          <p className="text-[10px] text-gray-400 mb-1">
+            Words or phrases AI should never use in your content.
+          </p>
+          <TagInput
+            tags={brandForm.avoid}
+            onAdd={addAvoidWord}
+            onRemove={removeAvoidWord}
+            placeholder="Add a word to avoid..."
+            inputClass={inputClass}
+          />
+        </div>
+
+        {/* Service focus */}
+        <div>
+          <label className={labelClass}>Service Focus</label>
+          <p className="text-[10px] text-gray-400 mb-1">
+            Comma-separated list of your primary services (e.g. "drain cleaning, water heater repair").
+          </p>
+          <input
+            className={inputClass}
+            value={brandForm.service_focus}
+            onChange={(e) => setBrandForm({ ...brandForm, service_focus: e.target.value })}
+            placeholder="drain cleaning, water heater repair, pipe relining"
+          />
+        </div>
+
+        {/* Location cue */}
+        <div>
+          <label className={labelClass}>Location Cue</label>
+          <p className="text-[10px] text-gray-400 mb-1">
+            Your service area for local SEO (e.g. "Hamilton, Ontario suburbs").
+          </p>
+          <input
+            className={inputClass}
+            value={brandForm.location_cue}
+            onChange={(e) => setBrandForm({ ...brandForm, location_cue: e.target.value })}
+            placeholder="e.g. Hamilton, Ontario suburbs"
+          />
+        </div>
+      </div>
+
+      <div className="flex items-center gap-3 pt-2">
+        <button
+          type="button"
+          onClick={() => brandSaveMutation.mutate()}
+          disabled={brandSaveMutation.isPending}
+          className="px-4 py-2 text-sm font-medium text-white bg-[#2D6A4F] rounded-lg hover:bg-[#1B4332] transition-colors disabled:opacity-60"
+        >
+          {brandSaveMutation.isPending ? "Saving..." : "Save Brand Profile"}
+        </button>
+        {brandSaved && (
+          <span className="flex items-center gap-1 text-xs text-emerald-600">
+            <Check className="w-3.5 h-3.5" /> Saved
+          </span>
+        )}
+      </div>
+    </div>
   );
 }
 

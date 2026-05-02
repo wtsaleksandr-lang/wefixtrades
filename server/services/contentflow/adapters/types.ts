@@ -21,6 +21,8 @@ export type AdapterType =
   | "gbp"           // GBP review-reply (Sprint 9)
   | "gbp_post"      // GBP standalone post (Sprint 10)
   | "email"         // Newsletter / repurposed-article email (Sprint 13)
+  | "linkedin"      // LinkedIn UGC posts (Sprint 18)
+  | "pinterest"     // Pinterest pins (Sprint 18)
   | "generic_export";
 
 export interface PublishAdapterOptions {

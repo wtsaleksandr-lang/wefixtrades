@@ -36,7 +36,10 @@
  */
 
 import crypto from "crypto";
+import { sql } from "drizzle-orm";
 import { storage } from "../../storage";
+import { db } from "../../db";
+import { contentDrafts } from "@shared/schema";
 import { getAdapter } from "./adapters/registry";
 import {
   channelForDraft,
@@ -45,6 +48,7 @@ import {
 } from "./calendarMetadata";
 import { publishToCms } from "./cmsRouter";
 import { renderArticleHtml } from "./articleHtml";
+import { sendAlert, isAlertingConfigured } from "../socialSync/alertService";
 import { createLogger } from "../../lib/logger";
 import type { ContentDraft } from "@shared/schema";
 
@@ -389,7 +393,99 @@ export async function processQueue(): Promise<ProcessQueueSummary> {
   await drainSocialChannel(summary, "gbp_post");
   await drainSocialChannel(summary, "email");
 
+  /* 8. Backpressure alerting — after each drain cycle. */
+  await checkBackpressure().catch((err: any) => {
+    log.warn(`Backpressure check failed: ${err?.message || err}`);
+  });
+
   return summary;
+}
+
+/* ─── Backpressure Alerting ────────────────────────────────────────── */
+
+const BACKPRESSURE_THRESHOLD = 100;
+const STALE_DRAFT_THRESHOLD_MS = 60 * 60_000; // 1 hour
+
+async function checkBackpressure(): Promise<void> {
+  if (!isAlertingConfigured()) return;
+
+  try {
+    /* Count all drafts currently in a queued state across all channels.
+     * We check metadata JSONB for each channel's queue_status='queued'. */
+    const queuedResult = await db.select({ count: sql<number>`count(*)::int` })
+      .from(contentDrafts)
+      .where(sql`
+        (${contentDrafts.status} = 'approved')
+        AND (
+          ${contentDrafts.metadata}->>'wordpress'  IS NOT NULL AND (${contentDrafts.metadata}->'wordpress'->>'queue_status') = 'queued'
+          OR (${contentDrafts.metadata}->'facebook'->>'queue_status') = 'queued'
+          OR (${contentDrafts.metadata}->'instagram'->>'queue_status') = 'queued'
+          OR (${contentDrafts.metadata}->'gbp_post'->>'queue_status') = 'queued'
+          OR (${contentDrafts.metadata}->'gbp'->>'queue_status') = 'queued'
+          OR (${contentDrafts.metadata}->'email'->>'queue_status') = 'queued'
+        )
+      `);
+
+    const totalQueued = queuedResult[0]?.count ?? 0;
+
+    if (totalQueued > BACKPRESSURE_THRESHOLD) {
+      log.warn(`Queue backpressure detected: ${totalQueued} drafts queued (threshold: ${BACKPRESSURE_THRESHOLD})`);
+      await sendAlert({
+        type: "publish_failures",
+        client_id: 0,
+        business_name: "System",
+        platform: "contentflow",
+        summary: `ContentFlow queue backpressure: ${totalQueued} drafts queued (threshold: ${BACKPRESSURE_THRESHOLD})`,
+        details: {
+          category: "contentflow_backpressure",
+          queued_count: totalQueued,
+          threshold: BACKPRESSURE_THRESHOLD,
+        },
+        admin_url: "/admin/contentflow",
+      }).catch(() => {});
+    }
+
+    /* Check for stale drafts: queued > 1 hour without publishing. */
+    const staleThreshold = new Date(Date.now() - STALE_DRAFT_THRESHOLD_MS).toISOString();
+    const staleResult = await db.select({
+      count: sql<number>`count(*)::int`,
+      oldest_id: sql<number>`min(${contentDrafts.id})`,
+    })
+      .from(contentDrafts)
+      .where(sql`
+        (${contentDrafts.status} = 'approved')
+        AND (${contentDrafts.updated_at} < ${staleThreshold})
+        AND (
+          (${contentDrafts.metadata}->'wordpress'->>'queue_status') = 'queued'
+          OR (${contentDrafts.metadata}->'facebook'->>'queue_status') = 'queued'
+          OR (${contentDrafts.metadata}->'instagram'->>'queue_status') = 'queued'
+          OR (${contentDrafts.metadata}->'gbp_post'->>'queue_status') = 'queued'
+          OR (${contentDrafts.metadata}->'gbp'->>'queue_status') = 'queued'
+          OR (${contentDrafts.metadata}->'email'->>'queue_status') = 'queued'
+        )
+      `);
+
+    const staleCount = staleResult[0]?.count ?? 0;
+    if (staleCount > 0) {
+      log.warn(`Stale drafts detected: ${staleCount} draft(s) queued > 1 hour`);
+      await sendAlert({
+        type: "publish_failures",
+        client_id: 0,
+        business_name: "System",
+        platform: "contentflow",
+        summary: `ContentFlow stale drafts: ${staleCount} draft(s) queued for over 1 hour without publishing`,
+        details: {
+          category: "contentflow_stale_draft",
+          stale_count: staleCount,
+          oldest_draft_id: staleResult[0]?.oldest_id,
+          threshold_minutes: STALE_DRAFT_THRESHOLD_MS / 60_000,
+        },
+        admin_url: "/admin/contentflow",
+      }).catch(() => {});
+    }
+  } catch (err: any) {
+    log.error(`Backpressure check query failed: ${err?.message || err}`);
+  }
 }
 
 async function drainWordpressQueue(summary: ProcessQueueSummary): Promise<void> {

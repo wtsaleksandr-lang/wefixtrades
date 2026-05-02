@@ -16,6 +16,8 @@ import { facebookAdapter } from "./facebookAdapter";
 import { instagramAdapter } from "./instagramAdapter";
 import { gbpPostAdapter } from "./gbpPostAdapter";
 import { emailAdapter } from "./emailAdapter";
+import { linkedinAdapter } from "./linkedinAdapter";
+import { pinterestAdapter } from "./pinterestAdapter";
 
 const REGISTRY: Partial<Record<AdapterType, PublishAdapter>> = {
   wordpress: wordpressAdapter,
@@ -24,6 +26,8 @@ const REGISTRY: Partial<Record<AdapterType, PublishAdapter>> = {
   instagram: instagramAdapter,
   gbp_post: gbpPostAdapter,
   email: emailAdapter,
+  linkedin: linkedinAdapter,
+  pinterest: pinterestAdapter,
 };
 
 export function getAdapter(type: AdapterType): PublishAdapter {
