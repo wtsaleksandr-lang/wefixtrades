@@ -1,6 +1,6 @@
 const STATS = [
   { value: "2,400+", label: "Active tradespeople" },
-  { value: "£18M+", label: "Jobs invoiced monthly" },
+  { value: "500+", label: "Leads generated monthly" },
   { value: "4.9★", label: "Average app rating" },
   { value: "94%", label: "Client retention rate" },
 ];

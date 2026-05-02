@@ -81,7 +81,7 @@ function MarketingFooter({ isMobile }: { isMobile: boolean }) {
       }}
     >
       {/* ── Main footer grid ───────────────────────────────────────── */}
-      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "160px 24px 0" }}>
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "60px 24px 0" }}>
         <div className="mkt-footer-grid">
           {/* Col 1 — Products */}
           <CollapsibleFooterSection title="Products" defaultOpen={!isMobile}>
@@ -91,6 +91,12 @@ function MarketingFooter({ isMobile }: { isMobile: boolean }) {
             <FtLink href="/products/reputationshield">ReputationShield™</FtLink>
             <FtLink href="/products/socialsync">SocialSync™</FtLink>
             <FtLink href="/products/rankflow">RankFlow™</FtLink>
+            <FtLink href="/products/sitelaunch">SiteLaunch™</FtLink>
+            <FtLink href="/products/webcare">WebCare™</FtLink>
+            <FtLink href="/products/webfix">WebFix™</FtLink>
+            <FtLink href="/products/contentflow">ContentFlow™</FtLink>
+            <FtLink href="/products/adflow">AdFlow™</FtLink>
+            <FtLink href="/products/bookflow">BookFlow™</FtLink>
           </CollapsibleFooterSection>
 
           {/* Col 2 — Solutions */}

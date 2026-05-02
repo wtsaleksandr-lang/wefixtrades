@@ -62,6 +62,11 @@ export const NAV_LINKS: NavItem[] = [
       { label: "SocialSync\u2122", href: "/products/socialsync", description: "Social media automation.", icon: "share2" },
       { label: "RankFlow\u2122", href: "/products/rankflow", description: "Ongoing SEO for trades.", icon: "trendingUp" },
       { label: "SiteLaunch\u2122", href: "/products/sitelaunch", description: "High-converting websites.", icon: "layout" },
+      { label: "WebCare\u2122", href: "/products/webcare", description: "Website maintenance & monitoring.", icon: "wrench" },
+      { label: "WebFix\u2122", href: "/products/webfix", description: "One-time website fixes.", icon: "hammer" },
+      { label: "ContentFlow\u2122", href: "/products/contentflow", description: "AI content creation engine.", icon: "sparkles" },
+      { label: "AdFlow\u2122", href: "/products/adflow", description: "Managed ad campaigns.", icon: "target" },
+      { label: "BookFlow\u2122", href: "/products/bookflow", description: "Simple online booking.", icon: "layers" },
     ],
   },
   {
