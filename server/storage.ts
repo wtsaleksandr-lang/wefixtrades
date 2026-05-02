@@ -95,6 +95,9 @@ type User, type InsertUser,
   // Routing Events
   routingEvents,
   type RoutingEvent, type InsertRoutingEvent,
+  // AdFlow Reports
+  adflowReports,
+  type AdflowReport, type InsertAdflowReport,
   // Calendar Connections
   calendarConnections,
   type CalendarConnection, type InsertCalendarConnection,
@@ -379,6 +382,11 @@ export interface IStorage {
   systemResolveRoutingEvent(entityType: string, entityId: number, queue: string): Promise<void>;
   adminAcknowledgeRoutingEvent(id: number, userId: number): Promise<RoutingEvent | undefined>;
   listQueueItems(queue: string, limit?: number): Promise<RoutingEvent[]>;
+
+  // ─── AdFlow Reports History ───
+  createAdflowReport(data: InsertAdflowReport): Promise<AdflowReport>;
+  listAdflowReports(clientServiceId: number, limit?: number): Promise<AdflowReport[]>;
+  getAdflowReport(id: number): Promise<AdflowReport | undefined>;
 
   // ─── Calendar Connections (Booking Engine) ───
   getCalendarConnection(clientId: number): Promise<CalendarConnection | undefined>;
@@ -3749,6 +3757,22 @@ export class DatabaseStorage implements IStorage {
     const cutoff = new Date(Date.now() - withinMs);
     const [alert] = await db.select().from(systemAlerts).where(and(eq(systemAlerts.category, category), eq(systemAlerts.title, title), gte(systemAlerts.created_at, cutoff))).orderBy(desc(systemAlerts.created_at)).limit(1);
     return alert;
+  }
+
+  // ─── AdFlow Reports History ───
+  async createAdflowReport(data: InsertAdflowReport): Promise<AdflowReport> {
+    const [report] = await db.insert(adflowReports).values(data).returning();
+    return report;
+  }
+  async listAdflowReports(clientServiceId: number, limit: number = 12): Promise<AdflowReport[]> {
+    return db.select().from(adflowReports)
+      .where(eq(adflowReports.client_service_id, clientServiceId))
+      .orderBy(desc(adflowReports.period_start))
+      .limit(limit);
+  }
+  async getAdflowReport(id: number): Promise<AdflowReport | undefined> {
+    const [report] = await db.select().from(adflowReports).where(eq(adflowReports.id, id)).limit(1);
+    return report;
   }
 
   // ─── Email Queue ───

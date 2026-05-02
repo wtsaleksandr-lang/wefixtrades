@@ -1,9 +1,12 @@
-import { useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { Card } from "@/components/ui/card";
-import { Loader2, AlertTriangle, CheckCircle2, ExternalLink, ChevronRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Loader2, AlertTriangle, CheckCircle2, ExternalLink, ChevronRight, Eye, RotateCcw, X } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 
 interface AdFlowServiceRow {
   id: number;
@@ -59,12 +62,47 @@ export default function AdFlowOpsPage() {
     document.title = "AdFlow Ops - WeFixTrades Admin";
   }, []);
 
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [previewHtml, setPreviewHtml] = useState<string | null>(null);
+
   const { data: services, isLoading } = useQuery<AdFlowServiceRow[]>({
     queryKey: ["/api/admin/crm/adflow/services"],
     queryFn: async () => {
       const res = await fetch("/api/admin/crm/adflow/services", { credentials: "include" });
       if (!res.ok) throw new Error("Failed to load");
       return res.json();
+    },
+  });
+
+  const previewMutation = useMutation({
+    mutationFn: async (csId: number) => {
+      const res = await apiRequest("GET", `/api/admin/crm/adflow/${csId}/preview-report`);
+      return res.json();
+    },
+    onSuccess: (data: { html: string; subject: string }) => {
+      setPreviewHtml(data.html);
+    },
+    onError: (err: any) => {
+      toast({ title: "Preview failed", description: err?.message || "Try again", variant: "destructive" });
+    },
+  });
+
+  const resendMutation = useMutation({
+    mutationFn: async (csId: number) => {
+      const res = await apiRequest("POST", `/api/admin/crm/adflow/${csId}/resend-report`, {});
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      if (data.sent) {
+        toast({ title: "Report re-sent", description: `${data.period} report re-sent to client.` });
+      } else {
+        toast({ title: "Not sent", description: data.reason || "Check metrics first.", variant: "destructive" });
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/adflow/services"] });
+    },
+    onError: (err: any) => {
+      toast({ title: "Re-send failed", description: err?.message || "Try again", variant: "destructive" });
     },
   });
 
@@ -134,6 +172,7 @@ export default function AdFlowOpsPage() {
                   <th className="px-4 py-3 font-medium">Tier</th>
                   <th className="px-4 py-3 font-medium">Current Metrics</th>
                   <th className="px-4 py-3 font-medium">Last Report</th>
+                  <th className="px-4 py-3 font-medium">Actions</th>
                   <th className="px-4 py-3 font-medium w-10"></th>
                 </tr>
               </thead>
@@ -161,6 +200,30 @@ export default function AdFlowOpsPage() {
                       )}
                     </td>
                     <td className="px-4 py-3">
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={() => previewMutation.mutate(svc.id)}
+                          disabled={previewMutation.isPending}
+                          title="Preview report"
+                        >
+                          <Eye className="w-3 h-3 mr-1" /> Preview
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={() => resendMutation.mutate(svc.id)}
+                          disabled={resendMutation.isPending || !svc.has_current_metrics}
+                          title="Re-send report"
+                        >
+                          <RotateCcw className="w-3 h-3 mr-1" /> Re-send
+                        </Button>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
                       <Link
                         href={`/admin/service-ops?csid=${svc.id}`}
                         className="text-gray-400 hover:text-[#2D6A4F] transition-colors"
@@ -174,6 +237,30 @@ export default function AdFlowOpsPage() {
               </tbody>
             </table>
           </Card>
+        )}
+        {/* Report preview modal */}
+        {previewHtml && (
+          <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+                <h3 className="text-sm font-semibold text-gray-900">Report Preview</h3>
+                <button
+                  onClick={() => setPreviewHtml(null)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="flex-1 overflow-auto">
+                <iframe
+                  srcDoc={previewHtml}
+                  className="w-full h-full min-h-[70vh] border-0"
+                  title="Report Preview"
+                  sandbox="allow-same-origin"
+                />
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </AdminLayout>

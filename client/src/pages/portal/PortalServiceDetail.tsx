@@ -449,6 +449,25 @@ export default function PortalServiceDetail() {
     enabled: !!serviceId && !!isWebCare,
   });
 
+  // AdFlow past reports
+  const { data: adflowReports } = useQuery<Array<{
+    id: number;
+    period_label: string;
+    period_start: string;
+    period_end: string;
+    metrics: any;
+    ai_summary: string | null;
+    sent_at: string | null;
+  }>>({
+    queryKey: ["/api/portal/adflow", serviceId, "reports"],
+    queryFn: async () => {
+      const res = await fetch(`/api/portal/adflow/${serviceId}/reports`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!serviceId && !!isAdFlow,
+  });
+
   return (
     <PortalLayout>
       <div className="max-w-4xl mx-auto space-y-6">
@@ -877,6 +896,49 @@ export default function PortalServiceDetail() {
                   <p className="text-xs text-gray-500">
                     Next report drops on the 2nd of every month. Ad spend is funded separately — you pay the ad platforms directly.
                   </p>
+                </div>
+              </div>
+            )}
+
+            {/* AdFlow Past Reports */}
+            {isAdFlow && adflowReports && adflowReports.length > 0 && (
+              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <div className="px-5 py-4 border-b border-gray-100">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-gray-500" />
+                    <h2 className="text-sm font-semibold text-gray-900">Past Reports</h2>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Your monthly performance report history.
+                  </p>
+                </div>
+                <div className="divide-y divide-gray-50">
+                  {adflowReports.map((rpt) => {
+                    const m = rpt.metrics || {};
+                    return (
+                      <div key={rpt.id} className="px-5 py-3 flex items-center justify-between hover:bg-gray-50/50 transition-colors">
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">{rpt.period_label}</p>
+                          {rpt.sent_at && (
+                            <p className="text-[10px] text-gray-400 mt-0.5">
+                              Sent {new Date(rpt.sent_at).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-4 text-xs text-gray-500">
+                          {m.leads_generated != null && (
+                            <span>{m.leads_generated} lead{m.leads_generated === 1 ? "" : "s"}</span>
+                          )}
+                          {m.cost_spent_cents != null && (
+                            <span>${(m.cost_spent_cents / 100).toFixed(0)} spend</span>
+                          )}
+                          {m.leads_generated != null && m.cost_spent_cents != null && m.leads_generated > 0 && (
+                            <span>${(m.cost_spent_cents / m.leads_generated / 100).toFixed(0)}/lead</span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}

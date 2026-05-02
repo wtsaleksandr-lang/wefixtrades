@@ -347,6 +347,42 @@ export function registerPortalRoutes(app: Express) {
   });
 
   /**
+   * GET /api/portal/adflow/:csId/reports
+   * List past AdFlow reports for a client service.
+   */
+  app.get("/api/portal/adflow/:csId/reports", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const csId = parseInt(req.params.csId as string);
+      if (isNaN(csId)) return res.status(400).json({ error: "Invalid service id" });
+
+      // Verify ownership
+      const [cs] = await db.select({ id: clientServices.id, client_id: clientServices.client_id })
+        .from(clientServices)
+        .where(and(eq(clientServices.id, csId), eq(clientServices.client_id, clientId)))
+        .limit(1);
+      if (!cs) return res.status(404).json({ error: "Service not found" });
+
+      const reports = await storage.listAdflowReports(csId, 12);
+      const safe = reports.map((r) => ({
+        id: r.id,
+        period_label: r.period_label,
+        period_start: r.period_start,
+        period_end: r.period_end,
+        metrics: r.metrics,
+        ai_summary: r.ai_summary,
+        sent_at: r.sent_at,
+      }));
+      res.json(safe);
+    } catch (err) {
+      log.error("Portal adflow reports error:", { error: String(err) });
+      res.status(500).json({ error: "Failed to load reports" });
+    }
+  });
+
+  /**
    * GET /api/portal/billing
    * All payments/invoices for the authenticated client.
    */

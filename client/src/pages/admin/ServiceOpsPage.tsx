@@ -312,6 +312,9 @@ function AdFlowMetricsForm({ cs }: { cs: ClientService }) {
   const [recommendations, setRecommendations] = useState(
     (existing.recommendations || []).join("\n")
   );
+  const [dailyBreakdownCsv, setDailyBreakdownCsv] = useState(
+    (existing.daily_breakdown || []).map((d: any) => `${d.date},${d.leads}`).join("\n")
+  );
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -331,6 +334,20 @@ function AdFlowMetricsForm({ cs }: { cs: ClientService }) {
       if (costSpentCents) body.cost_spent_cents = Math.round(parseFloat(costSpentCents) * 100);
       if (ctrPct) body.ctr_pct = parseFloat(ctrPct);
       if (cpcCents) body.cpc_cents = Math.round(parseFloat(cpcCents) * 100);
+
+      // Parse daily breakdown CSV (date,leads per line)
+      if (dailyBreakdownCsv.trim()) {
+        const parsed = dailyBreakdownCsv
+          .split("\n")
+          .map((line: string) => line.trim())
+          .filter(Boolean)
+          .map((line: string) => {
+            const [date, leadsStr] = line.split(",").map((s: string) => s.trim());
+            return { date, leads: parseInt(leadsStr) || 0 };
+          })
+          .filter((p: { date: string; leads: number }) => p.date);
+        if (parsed.length > 0) body.daily_breakdown = parsed;
+      }
 
       const res = await apiRequest("POST", `/api/admin/crm/client-services/${cs.id}/adflow-metrics`, body);
       return res.json();
@@ -406,6 +423,7 @@ function AdFlowMetricsForm({ cs }: { cs: ClientService }) {
         <div className="border-t border-gray-100 pt-5">
           <h3 className="text-sm font-semibold text-gray-900 mb-3">Additional Info</h3>
           <Field label="Top performing creative" value={topCreative} onChange={setTopCreative} placeholder="e.g. Emergency Plumber - Call Now" />
+          <FieldTextarea label="Daily breakdown (CSV: date,leads per line)" value={dailyBreakdownCsv} onChange={setDailyBreakdownCsv} rows={4} placeholder={"2026-04-01,3\n2026-04-02,5\n2026-04-03,2"} />
           <FieldTextarea label="Recommendations (one per line)" value={recommendations} onChange={setRecommendations} rows={3} placeholder={"Increase budget for Google Ads by 20%\nTest new landing page variant"} />
           <FieldTextarea label="Notes (internal or for report)" value={notes} onChange={setNotes} rows={3} />
         </div>

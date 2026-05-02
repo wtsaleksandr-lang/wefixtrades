@@ -28,6 +28,7 @@ import { createLogger } from "../lib/logger";
 import { fireAlert } from "../services/alertService";
 import { autoAssignSupplier } from "../services/supplierAssignment";
 import { runPreFixAudit } from "../services/webfixAuditService";
+import { sendAdflowOnboardingEmail } from "../lib/adflowOnboardingEmail";
 import { buildLoginToken, storeCheckoutLoginToken } from "../lib/loginToken";
 
 const log = createLogger("StripeBilling");
@@ -450,6 +451,21 @@ async function provisionOrConfirmService(
     runPreFixAudit(clientService.id).catch(err =>
       log.warn(`[webfix-pre-audit] failed for client_service #${clientService.id}: ${err.message}`),
     );
+  }
+
+  // AdFlow onboarding kickoff email: sends "what happens next" timeline
+  if (serviceId.startsWith("adflow")) {
+    const adflowClient = client || await storage.getClientById(clientId);
+    if (adflowClient?.contact_email) {
+      sendAdflowOnboardingEmail({
+        recipientEmail: adflowClient.contact_email,
+        businessName: adflowClient.business_name,
+        contactName: adflowClient.contact_name || adflowClient.business_name,
+        clientServiceId: clientService.id,
+      }).catch(err =>
+        log.warn(`[adflow-onboarding] send failed for client_service #${clientService.id}: ${err.message}`),
+      );
+    }
   }
 
   // Log activity

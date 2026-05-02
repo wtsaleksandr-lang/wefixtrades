@@ -8,7 +8,8 @@ import { sendWelcomePackage } from "../lib/welcomeEmail";
 import { sendApprovalNotificationEmail } from "../lib/approvalNotificationEmail";
 import { runSiteLaunchFinalization } from "../services/sitelaunchFinalization";
 import { runPreFixAudit, runPostFixAudit } from "../services/webfixAuditService";
-import { compileAndSendAdFlowReport } from "../services/adflowReports";
+import { compileAndSendAdFlowReport, previewAdFlowReportHtml } from "../services/adflowReports";
+import { sendAdflowCreativeApprovalEmail } from "../lib/adflowCreativeApprovalEmail";
 import crypto from "crypto";
 import { createLogger } from "../lib/logger";
 import { saveFile, deleteFile } from "../services/fileStorage";
@@ -276,10 +277,24 @@ export function registerAdminCrmRoutes(app: Express): void {
               top_creative, notes, period_start, period_end, daily_breakdown, creatives,
               recommendations } = req.body;
 
+      // Auto-carry prior period data from the previous saved report
+      let prior_period: Record<string, any> | undefined;
+      const previousReports = await storage.listAdflowReports(csId, 1);
+      if (previousReports.length > 0) {
+        const prevMetrics = previousReports[0].metrics as Record<string, any>;
+        prior_period = {
+          leads_generated: prevMetrics.leads_generated,
+          cost_spent_cents: prevMetrics.cost_spent_cents,
+          ctr_pct: prevMetrics.ctr_pct,
+          cpc_cents: prevMetrics.cpc_cents,
+        };
+      }
+
       const latestReport = {
         impressions, clicks, leads_generated, cost_spent_cents, ctr_pct, cpc_cents,
         top_creative, notes, period_start, period_end, daily_breakdown, creatives,
         recommendations,
+        ...(prior_period ? { prior_period } : {}),
       };
 
       const existingMeta = (cs.metadata as Record<string, any>) || {};
@@ -373,6 +388,93 @@ export function registerAdminCrmRoutes(app: Express): void {
     } catch (err: any) {
       log.error("[adflow-ops] Failed to list services:", err.message);
       res.status(500).json({ error: "Failed to list AdFlow services" });
+    }
+  });
+
+  /**
+   * GET /api/admin/crm/adflow/:csId/preview-report
+   * Returns the HTML that would be sent as the report email.
+   */
+  app.get("/api/admin/crm/adflow/:csId/preview-report", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const csId = parseInt(req.params.csId as string);
+      const cs = await storage.getClientServiceById(csId);
+      if (!cs) return res.status(404).json({ error: "Client service not found" });
+      if (!cs.service_id.startsWith("adflow")) return res.status(400).json({ error: "Not an AdFlow service" });
+
+      const client = await storage.getClientById(cs.client_id);
+      if (!client) return res.status(404).json({ error: "Client not found" });
+
+      const { db } = await import("../db");
+      const { serviceCatalog } = await import("@shared/schema");
+      const { eq } = await import("drizzle-orm");
+      const [svc] = await db.select().from(serviceCatalog).where(eq(serviceCatalog.id, cs.service_id)).limit(1);
+
+      const csMeta = (cs.metadata as any) || {};
+      const metrics = csMeta.latest_report || {};
+
+      const result = await previewAdFlowReportHtml({
+        contactName: client.contact_name || client.business_name || "there",
+        serviceName: svc?.name || "AdFlow",
+        metrics,
+        recipientEmail: client.contact_email || "",
+      });
+
+      res.json({ html: result.html, subject: result.subject });
+    } catch (err: any) {
+      log.error("[adflow-preview] Failed:", { error: err.message });
+      res.status(500).json({ error: "Failed to generate preview" });
+    }
+  });
+
+  /**
+   * POST /api/admin/crm/adflow/:csId/resend-report
+   * Re-sends the last report email for a single service.
+   */
+  app.post("/api/admin/crm/adflow/:csId/resend-report", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const csId = parseInt(req.params.csId as string);
+      const cs = await storage.getClientServiceById(csId);
+      if (!cs) return res.status(404).json({ error: "Client service not found" });
+      if (!cs.service_id.startsWith("adflow")) return res.status(400).json({ error: "Not an AdFlow service" });
+
+      // Clear the last_report_period to allow re-sending
+      const csMeta = (cs.metadata as Record<string, any>) || {};
+      await storage.updateClientService(csId, {
+        metadata: { ...csMeta, last_report_period: null },
+      });
+
+      const result = await compileAndSendAdFlowReport(csId);
+
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: (req.user as any)?.id,
+        actor_name: (req.user as any)?.name || (req.user as any)?.email,
+        action: "adflow.report_resent",
+        entity_type: "client_service",
+        entity_id: csId,
+        summary: `Re-sent AdFlow report for service #${csId}`,
+      });
+
+      res.json(result);
+    } catch (err: any) {
+      log.error("[adflow-resend] Failed:", { error: err.message });
+      res.status(500).json({ error: "Failed to re-send report" });
+    }
+  });
+
+  /**
+   * GET /api/admin/crm/adflow/:csId/reports
+   * List historical AdFlow reports for a service (admin view).
+   */
+  app.get("/api/admin/crm/adflow/:csId/reports", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const csId = parseInt(req.params.csId as string);
+      const reports = await storage.listAdflowReports(csId, 24);
+      res.json(reports);
+    } catch (err: any) {
+      log.error("[adflow-reports-history] Failed:", { error: err.message });
+      res.status(500).json({ error: "Failed to list reports" });
     }
   });
 
@@ -520,6 +622,28 @@ export function registerAdminCrmRoutes(app: Express): void {
                 } as any).catch((e: any) => log.warn("Failed to stamp approval_notification_sent", { error: e.message }));
               }
             }).catch((e: any) => log.warn("Approval notification error", { error: e.message }));
+          }
+        }
+      }
+
+      // AdFlow creative approval email: when a task with "approves creatives" in
+      // the title moves to waiting_on=client, send a dedicated creative review email.
+      if (task.waiting_on === "client" && task.title.toLowerCase().includes("approves creatives")) {
+        const taskMeta = (task.metadata as Record<string, any>) || {};
+        if (!taskMeta.creative_approval_email_sent) {
+          const client = await storage.getClientById(task.client_id);
+          if (client?.contact_email) {
+            sendAdflowCreativeApprovalEmail({
+              recipientEmail: client.contact_email,
+              businessName: client.business_name,
+              clientServiceId: task.client_service_id,
+            }).then((sent) => {
+              if (sent) {
+                storage.updateFulfillmentTask(id, {
+                  metadata: { ...taskMeta, creative_approval_email_sent: true, creative_approval_email_sent_at: new Date().toISOString() },
+                } as any).catch((e: any) => log.warn("Failed to stamp creative_approval_email_sent", { error: e.message }));
+              }
+            }).catch((e: any) => log.warn("Creative approval email error", { error: e.message }));
           }
         }
       }

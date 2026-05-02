@@ -10,10 +10,11 @@
  */
 
 import { db } from "../db";
-import { clients, clientServices, serviceCatalog } from "@shared/schema";
-import { eq, and, sql } from "drizzle-orm";
+import { clients, clientServices, serviceCatalog, adflowReports } from "@shared/schema";
+import { eq, and, sql, desc } from "drizzle-orm";
 import { getEmailTransporter, getFromAddress } from "../lib/emailTransport";
 import { isEmailUnsubscribed } from "../lib/unsubscribeStorage";
+import { storage } from "../storage";
 import { generateLineChart } from "./emailCharts";
 import { chat } from "./aiService";
 import {
@@ -301,6 +302,33 @@ function formatPeriod(start?: string, end?: string): string {
   return new Date(start).toLocaleDateString("en-US", { month: "long", year: "numeric" });
 }
 
+/* ─── Synthetic daily breakdown (when admin doesn't provide CSV) ─── */
+
+function generateSyntheticBreakdown(metrics: AdFlowReportMetrics): AdFlowDailyPoint[] {
+  const totalLeads = metrics.leads_generated ?? 0;
+  if (totalLeads <= 0) return [];
+
+  const start = metrics.period_start ? new Date(metrics.period_start) : new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1);
+  const end = metrics.period_end ? new Date(metrics.period_end) : new Date(new Date().getFullYear(), new Date().getMonth(), 0);
+
+  const days: string[] = [];
+  const cursor = new Date(start);
+  while (cursor <= end) {
+    days.push(cursor.toISOString().slice(0, 10));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  if (days.length === 0) return [];
+
+  const basePerDay = Math.floor(totalLeads / days.length);
+  let remainder = totalLeads - basePerDay * days.length;
+
+  return days.map((date) => {
+    const extra = remainder > 0 ? 1 : 0;
+    if (extra) remainder--;
+    return { date, leads: basePerDay + extra };
+  });
+}
+
 /* ─── Chart spec from daily_breakdown ─── */
 
 async function tryGenerateChart(
@@ -362,6 +390,12 @@ export async function compileAndSendAdFlowReport(
     return { sent: false, reason: "already_sent_this_period", period };
   }
 
+  // Synthesize daily breakdown if missing — distributes total_leads evenly across the month
+  if ((!metrics.daily_breakdown || metrics.daily_breakdown.length === 0) && metrics.leads_generated != null && metrics.leads_generated > 0) {
+    metrics.daily_breakdown = generateSyntheticBreakdown(metrics);
+    log.info(`[adflow-report] Generated synthetic daily breakdown for service #${cs.id}`);
+  }
+
   const periodKey = metrics.period_start
     ? new Date(metrics.period_start).toISOString().slice(0, 7)
     : new Date().toISOString().slice(0, 7);
@@ -398,6 +432,25 @@ export async function compileAndSendAdFlowReport(
         updated_at: new Date(),
       } as any)
       .where(eq(clientServices.id, cs.id));
+
+    // Persist report to adflow_reports history table
+    const periodStart = metrics.period_start ? new Date(metrics.period_start) : new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1);
+    const periodEnd = metrics.period_end ? new Date(metrics.period_end) : new Date(new Date().getFullYear(), new Date().getMonth(), 0);
+    try {
+      await storage.createAdflowReport({
+        client_service_id: cs.id,
+        client_id: cs.client_id,
+        period_label: period,
+        period_start: periodStart,
+        period_end: periodEnd,
+        metrics: metrics as any,
+        ai_summary: summary,
+        recommendations: (metrics.recommendations || []).join("\n"),
+        sent_at: new Date(),
+      });
+    } catch (histErr: any) {
+      log.warn(`[adflow-report] Failed to persist report history for service #${cs.id}: ${histErr.message}`);
+    }
 
     log.info(`[adflow-report] Sent ${period} report for service #${cs.id} to ${client.contact_email}`);
     return { sent: true, period };

@@ -842,3 +842,21 @@ export const insertRoutingEventSchema = createInsertSchema(routingEvents).omit({
 });
 export type InsertRoutingEvent = z.infer<typeof insertRoutingEventSchema>;
 export type RoutingEvent = typeof routingEvents.$inferSelect;
+
+/* ─── AdFlow Reports History ─── */
+export const adflowReports = pgTable("adflow_reports", {
+  id: serial("id").primaryKey(),
+  client_service_id: integer("client_service_id").notNull(),
+  client_id: integer("client_id").notNull(),
+  period_label: text("period_label").notNull(), // "April 2026"
+  period_start: timestamp("period_start").notNull(),
+  period_end: timestamp("period_end").notNull(),
+  metrics: jsonb("metrics").notNull(), // full AdFlowReportMetrics shape
+  ai_summary: text("ai_summary"),
+  recommendations: text("recommendations"),
+  sent_at: timestamp("sent_at"),
+  created_at: timestamp("created_at").defaultNow(),
+});
+export const insertAdflowReportSchema = createInsertSchema(adflowReports).omit({ id: true, created_at: true });
+export type InsertAdflowReport = z.infer<typeof insertAdflowReportSchema>;
+export type AdflowReport = typeof adflowReports.$inferSelect;
