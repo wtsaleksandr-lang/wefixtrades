@@ -114,6 +114,7 @@ function NavGroup({
   items,
   location,
   supportUnresolved,
+  alertCount,
   onNavigate,
   defaultOpen,
 }: {
@@ -121,6 +122,7 @@ function NavGroup({
   items: typeof CORE_ITEMS;
   location: string;
   supportUnresolved?: number;
+  alertCount?: number;
   onNavigate: () => void;
   defaultOpen: boolean;
 }) {
@@ -181,10 +183,12 @@ function NavGroup({
 function SidebarNav({
   location,
   supportUnresolved,
+  alertCount,
   onNavigate,
 }: {
   location: string;
   supportUnresolved: number;
+  alertCount: number;
   onNavigate: () => void;
 }) {
   return (
@@ -651,6 +655,7 @@ export default function AdminLayout({
         <SidebarNav
           location={location}
           supportUnresolved={supportUnresolved}
+          alertCount={alertCount}
           onNavigate={() => setMobileOpen(false)}
         />
 

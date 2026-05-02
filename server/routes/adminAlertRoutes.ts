@@ -32,7 +32,7 @@ export function registerAdminAlertRoutes(app: Express): void {
 
   app.post("/api/admin/alerts/:id/acknowledge", requireAdmin, async (req: Request, res: Response) => {
     try {
-      const id = parseInt(req.params.id);
+      const id = parseInt(String(req.params.id));
       const userId = (req.user as any)?.id;
       if (!userId) return res.status(401).json({ error: "Not authenticated" });
       const alert = await storage.acknowledgeSystemAlert(id, userId);
@@ -146,7 +146,7 @@ export function registerAdminAlertRoutes(app: Express): void {
 
   app.post("/api/admin/inbox/:itemId/handle", requireAdmin, async (req: Request, res: Response) => {
     try {
-      const itemId = req.params.itemId;
+      const itemId = String(req.params.itemId);
       const userId = (req.user as any)?.id;
       if (itemId.startsWith("alert-")) {
         const id = parseInt(itemId.replace("alert-", ""));

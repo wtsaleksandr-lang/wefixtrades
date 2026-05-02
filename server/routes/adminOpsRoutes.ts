@@ -398,7 +398,7 @@ export function registerAdminOpsRoutes(app: Express): void {
    */
   app.get("/api/admin/system/workers/:jobName/history", requireAdmin, async (req: Request, res: Response) => {
     try {
-      const jobName = req.params.jobName;
+      const jobName = String(req.params.jobName);
       const limit = Math.min(50, Math.max(1, parseInt(String(req.query.limit ?? "10"), 10) || 10));
 
       const rows = await db
@@ -450,7 +450,7 @@ export function registerAdminOpsRoutes(app: Express): void {
    * Wraps execution in runJob() so it appears in job_logs.
    */
   app.post("/api/admin/system/workers/:name/run", requireAdmin, async (req: Request, res: Response) => {
-    const workerName = req.params.name;
+    const workerName = String(req.params.name);
     const loader = WORKER_FN_MAP[workerName];
     if (!loader) {
       return res.status(404).json({

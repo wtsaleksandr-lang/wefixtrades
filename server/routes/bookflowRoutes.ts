@@ -198,7 +198,7 @@ export function registerBookflowRoutes(app: Express): void {
       const clientId = await withClientId(req, res);
       if (!clientId) return;
 
-      const invoiceId = parseInt(req.params.id);
+      const invoiceId = parseInt(String(req.params.id));
       if (isNaN(invoiceId)) return res.status(400).json({ error: "Invalid invoice ID" });
 
       const parsed = updateInvoiceBody.safeParse(req.body);
@@ -239,7 +239,7 @@ export function registerBookflowRoutes(app: Express): void {
       const clientId = await withClientId(req, res);
       if (!clientId) return;
 
-      const invoiceId = parseInt(req.params.id);
+      const invoiceId = parseInt(String(req.params.id));
       if (isNaN(invoiceId)) return res.status(400).json({ error: "Invalid invoice ID" });
 
       const [invoice] = await db
@@ -299,7 +299,7 @@ export function registerBookflowRoutes(app: Express): void {
   /** GET /api/pay/:token — view invoice (public, no auth) */
   app.get("/api/pay/:token", async (req: Request, res: Response) => {
     try {
-      const token = req.params.token;
+      const token = String(req.params.token);
       const [invoice] = await db
         .select()
         .from(bookflowInvoices)
@@ -367,7 +367,7 @@ export function registerBookflowRoutes(app: Express): void {
   /** POST /api/pay/:token/checkout — create Stripe Checkout session */
   app.post("/api/pay/:token/checkout", async (req: Request, res: Response) => {
     try {
-      const token = req.params.token;
+      const token = String(req.params.token);
       const [invoice] = await db
         .select()
         .from(bookflowInvoices)
@@ -487,7 +487,7 @@ export function registerBookflowRoutes(app: Express): void {
       const clientId = await withClientId(req, res);
       if (!clientId) return;
 
-      const appointmentId = parseInt(req.params.id);
+      const appointmentId = parseInt(String(req.params.id));
       if (isNaN(appointmentId)) return res.status(400).json({ error: "Invalid appointment ID" });
 
       const { status } = req.body;
@@ -522,7 +522,7 @@ export function registerBookflowRoutes(app: Express): void {
   /** POST /api/calculators/:id/checkout — QuoteQuick payment checkout */
   app.post("/api/calculators/:id/checkout", async (req: Request, res: Response) => {
     try {
-      const calcId = parseInt(req.params.id);
+      const calcId = parseInt(String(req.params.id));
       if (isNaN(calcId)) return res.status(400).json({ error: "Invalid calculator ID" });
 
       const parsed = checkoutBody.safeParse(req.body);

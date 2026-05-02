@@ -63,7 +63,7 @@ export function registerBookingApiRoutes(app: Express): void {
    */
   app.get("/api/booking/:clientId/slots", async (req: Request, res: Response) => {
     try {
-      const clientId = parseInt(req.params.clientId);
+      const clientId = parseInt(String(req.params.clientId));
       if (isNaN(clientId)) {
         return res.status(400).json({ error: "Invalid client ID" });
       }
@@ -111,7 +111,7 @@ export function registerBookingApiRoutes(app: Express): void {
    */
   app.post("/api/booking/:clientId/create", async (req: Request, res: Response) => {
     try {
-      const clientId = parseInt(req.params.clientId);
+      const clientId = parseInt(String(req.params.clientId));
       if (isNaN(clientId)) {
         return res.status(400).json({ error: "Invalid client ID" });
       }
@@ -149,7 +149,7 @@ export function registerBookingApiRoutes(app: Express): void {
    */
   app.get("/api/booking/:clientId/config", async (req: Request, res: Response) => {
     try {
-      const clientId = parseInt(req.params.clientId);
+      const clientId = parseInt(String(req.params.clientId));
       if (isNaN(clientId)) {
         return res.status(400).json({ error: "Invalid client ID" });
       }
@@ -243,7 +243,7 @@ export function registerBookingApiRoutes(app: Express): void {
    */
   app.patch("/api/admin/booking/connections/:id", requireAdmin, async (req: Request, res: Response) => {
     try {
-      const id = parseInt(req.params.id);
+      const id = parseInt(String(req.params.id));
       if (isNaN(id)) {
         return res.status(400).json({ error: "Invalid connection ID" });
       }
@@ -281,7 +281,7 @@ export function registerBookingApiRoutes(app: Express): void {
    */
   app.delete("/api/admin/booking/connections/:id", requireAdmin, async (req: Request, res: Response) => {
     try {
-      const id = parseInt(req.params.id);
+      const id = parseInt(String(req.params.id));
       if (isNaN(id)) {
         return res.status(400).json({ error: "Invalid connection ID" });
       }
@@ -314,7 +314,7 @@ export function registerBookingApiRoutes(app: Express): void {
    */
   app.post("/api/admin/booking/connections/:id/test", requireAdmin, async (req: Request, res: Response) => {
     try {
-      const id = parseInt(req.params.id);
+      const id = parseInt(String(req.params.id));
       if (isNaN(id)) {
         return res.status(400).json({ error: "Invalid connection ID" });
       }

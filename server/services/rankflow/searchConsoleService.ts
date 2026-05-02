@@ -156,12 +156,10 @@ export async function getSearchConsoleData(
       endDate: end,
       dimensions: ["query", "page", "date"],
       rowLimit: 5000,
-      // Only include web search (not image, video, news)
-      type: "web",
-    },
+    } as any,
   });
 
-  const apiRows = res.data.rows || [];
+  const apiRows = (res as any).data.rows || [];
 
   const rows: SearchConsoleQueryRow[] = apiRows.map((r: any) => ({
     query: r.keys[0],
