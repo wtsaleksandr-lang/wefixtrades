@@ -42,6 +42,10 @@ export interface BrandProfile {
   logo_url?: string;
   reference_image_urls?: string[];
   forbidden_claims?: string[];
+  /* Sprint 17: content-aware onboarding fields */
+  target_audience?: string;
+  unique_selling_points?: string;
+  preferred_topics?: string[];
 }
 
 /* Field allow-lists. Anything outside these sets is dropped at sanitize
@@ -59,6 +63,9 @@ const ADMIN_FIELDS: ReadonlyArray<keyof BrandProfile> = [
   "logo_url",
   "reference_image_urls",
   "forbidden_claims",
+  "target_audience",
+  "unique_selling_points",
+  "preferred_topics",
 ];
 const CLIENT_FIELDS: ReadonlyArray<keyof BrandProfile> = [
   "tone",
@@ -208,9 +215,16 @@ export function sanitizeBrandProfilePatch(
       case "style_keywords":
       case "avoid":
       case "service_focus":
-      case "forbidden_claims": {
+      case "forbidden_claims":
+      case "preferred_topics": {
         const list = sanitizeStringList(v);
         if (list !== null) (out as any)[key] = list;
+        break;
+      }
+      case "target_audience":
+      case "unique_selling_points": {
+        const s = sanitizeString(v, MAX_STRING_LEN);
+        if (s !== null) (out as any)[key] = s;
         break;
       }
       case "reference_image_urls": {
@@ -246,6 +260,9 @@ export function readBrandProfile(client: { metadata?: unknown } | null | undefin
     logo_url: cb.logo_url,
     reference_image_urls: cb.reference_image_urls,
     forbidden_claims: cb.forbidden_claims,
+    target_audience: cb.target_audience,
+    unique_selling_points: cb.unique_selling_points,
+    preferred_topics: cb.preferred_topics,
   };
   return sanitizeBrandProfilePatch(merged, "admin");
 }
@@ -286,6 +303,9 @@ export function buildBrandLayerText(brand: BrandProfile, tradeType?: string | nu
   if (brand.location_cue) parts.push(`Setting cue: ${brand.location_cue}.`);
   if (brand.service_focus?.length) parts.push(`Service focus: ${brand.service_focus.join(", ")}.`);
   if (brand.tone) parts.push(`Brand tone: ${brand.tone}.`);
+  if (brand.target_audience) parts.push(`Target audience: ${brand.target_audience}.`);
+  if (brand.unique_selling_points) parts.push(`USPs: ${brand.unique_selling_points}.`);
+  if (brand.preferred_topics?.length) parts.push(`Preferred topics: ${brand.preferred_topics.join(", ")}.`);
   if (brand.style_keywords?.length) parts.push(`Style: ${brand.style_keywords.join(", ")}.`);
   if (brand.visual_style) parts.push(`Visual style: ${brand.visual_style}.`);
   if (brand.primary_color) {
