@@ -24,6 +24,21 @@ export interface TradeLineNotificationParams {
   emailAddresses: string[];
   canSendSmsTo: (phone: string) => boolean;
   markSmsSent: (phone: string) => void;
+  currentMode?: string;
+  businessName?: string;
+  outboundSmsEnabled?: boolean;
+}
+
+/** Rate limiter for outbound caller SMS: 1 per phone per 24h. */
+const outboundCallerSmsMap = new Map<string, number>();
+const OUTBOUND_SMS_RATE_LIMIT_MS = 24 * 60 * 60 * 1000;
+function canSendOutboundToCallerPhone(phone: string): boolean {
+  const lastSent = outboundCallerSmsMap.get(phone);
+  if (!lastSent) return true;
+  return Date.now() - lastSent >= OUTBOUND_SMS_RATE_LIMIT_MS;
+}
+function markOutboundCallerSmsSent(phone: string): void {
+  outboundCallerSmsMap.set(phone, Date.now());
 }
 
 /**
@@ -34,6 +49,7 @@ export async function sendTradeLineCallNotifications(params: TradeLineNotificati
   const {
     clientServiceId, callLogId, leadData, recordingUrl, report,
     smsNumbers, emailAddresses, canSendSmsTo, markSmsSent,
+    currentMode, businessName, outboundSmsEnabled,
   } = params;
 
   // Build SMS message
@@ -86,6 +102,25 @@ export async function sendTradeLineCallNotifications(params: TradeLineNotificati
         log.info("TradeLine call email sent", { email, callLogId });
       } catch (err) {
         log.error("Failed to send TradeLine email", { email, callLogId, error: (err as Error).message });
+      }
+    }
+  }
+
+  // Outbound SMS to caller during after_hours mode
+  if (currentMode === "after_hours" && outboundSmsEnabled !== false && isTwilioConfigured()) {
+    const callerPhoneNumber = leadData.caller_phone || report.customerNumber;
+    if (callerPhoneNumber && canSendOutboundToCallerPhone(callerPhoneNumber)) {
+      const biz = businessName || "Our team";
+      const outboundMsg = truncateSms(
+        `Thanks for calling ${biz}! We received your message about ${leadData.job_type || "your inquiry"}. We'll get back to you during business hours. — ${biz}`,
+        160,
+      );
+      try {
+        await sendSMS(callerPhoneNumber, outboundMsg);
+        markOutboundCallerSmsSent(callerPhoneNumber);
+        log.info("Outbound after-hours SMS sent to caller", { callerPhoneNumber, callLogId });
+      } catch (err) {
+        log.error("Failed to send outbound SMS to caller", { callerPhoneNumber, callLogId, error: (err as Error).message });
       }
     }
   }

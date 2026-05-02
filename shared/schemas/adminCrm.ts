@@ -731,6 +731,7 @@ export const tradelineModeLog = pgTable("tradeline_mode_log", {
   // available | on_the_job | after_hours
   changed_by: varchar("changed_by", { length: 30 }).notNull().default("client"),
   // client | admin | schedule | system
+  reason: text("reason"),
   created_at: timestamp("created_at").defaultNow(),
 });
 export const insertTradelineModeLogSchema = createInsertSchema(tradelineModeLog).omit({ id: true, created_at: true });

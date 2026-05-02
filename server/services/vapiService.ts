@@ -512,6 +512,9 @@ export async function processTradeLineCallPostHook(
       return;
     }
 
+    const client = await storage.getClientById(clientId);
+    const businessName = client?.business_name || "Our team";
+
     const { sendTradeLineCallNotifications } = await import("./tradelineNotifications");
     await sendTradeLineCallNotifications({
       clientServiceId,
@@ -524,6 +527,9 @@ export async function processTradeLineCallPostHook(
       emailAddresses: notifications.email ?? [],
       canSendSmsTo,
       markSmsSent,
+      currentMode: config.currentMode,
+      businessName,
+      outboundSmsEnabled: (config as any).notifications?.outboundSmsEnabled !== false,
     });
   } catch (err) {
     log.error("TradeLine notification dispatch failed", { callLogId, error: (err as Error).message });
