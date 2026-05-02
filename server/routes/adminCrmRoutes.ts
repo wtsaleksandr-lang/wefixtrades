@@ -1520,7 +1520,8 @@ export function registerAdminCrmRoutes(app: Express): void {
 
   /**
    * POST /api/admin/crm/tradeline/:clientServiceId/disable
-   * Emergency kill switch — disables a TradeLine service.
+   * Emergency disable — immediately kills the assistant.
+   * Sets assistant.status = "disabled", mode = "after_hours", and deactivates via Vapi API.
    */
   app.post("/api/admin/crm/tradeline/:clientServiceId/disable", requireAdmin, async (req: Request, res: Response) => {
     try {
@@ -1532,21 +1533,113 @@ export function registerAdminCrmRoutes(app: Express): void {
         return res.status(404).json({ error: "TradeLine service not found" });
       }
 
-      await storage.updateClientService(csId, { enabled: false, status: "paused" });
+      const config = await storage.getTradeLineConfig(csId);
+      if (!config) {
+        return res.status(404).json({ error: "TradeLine config not found" });
+      }
+
+      // 1. Set assistant status to disabled and mode to after_hours (safest fallback)
+      await storage.updateTradeLineConfig(csId, {
+        assistant: { ...config.assistant, status: "disabled" as any },
+        currentMode: "after_hours",
+      });
+
+      // 2. Attempt to deactivate the Vapi assistant via API
+      let vapiResult: string = "no_vapi_id";
+      const vapiAssistantId = config.assistant?.vapiAssistantId;
+      if (vapiAssistantId) {
+        try {
+          const { getVapiConfig } = await import("../services/vapiService");
+          const vapiConfig = getVapiConfig();
+          if (vapiConfig.apiKey) {
+            const resp = await fetch(`https://api.vapi.ai/assistant/${vapiAssistantId}`, {
+              method: "PATCH",
+              headers: {
+                "Authorization": `Bearer ${vapiConfig.apiKey}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                firstMessage: "We're sorry, this service is temporarily unavailable. Please try again later or contact the business directly.",
+                model: { provider: "custom-llm", url: "_disabled_", messages: [{ role: "system", content: "This assistant has been disabled. Respond only with: This service is temporarily unavailable." }] },
+              }),
+            });
+            vapiResult = resp.ok ? "disabled_via_api" : `api_error_${resp.status}`;
+          }
+        } catch (err) {
+          vapiResult = `api_unreachable: ${(err as Error).message}`;
+          log.error("[admin-crm] Failed to disable assistant via Vapi API", { error: (err as Error).message });
+        }
+      }
+
+      // 3. Log activity
       await storage.logAdminActivity({
         actor_type: "human",
         actor_id: (req.user as any)?.id,
         actor_name: (req.user as any)?.name || (req.user as any)?.email,
-        action: "tradeline.disabled",
+        action: "tradeline.emergency_disabled",
         entity_type: "client_service",
         entity_id: csId,
-        summary: "TradeLine service disabled (emergency kill switch)",
+        summary: `Emergency disabled TradeLine assistant (Vapi: ${vapiResult})`,
       });
 
-      res.json({ ok: true });
+      const updatedConfig = await storage.getTradeLineConfig(csId);
+      res.json({ disabled: true, vapiResult, config: updatedConfig });
     } catch (err: any) {
       log.error("[admin-crm] TradeLine disable error:", { error: err.message });
-      res.status(500).json({ error: "Failed to disable TradeLine service" });
+      res.status(500).json({ error: "Failed to disable assistant" });
+    }
+  });
+
+  /**
+   * POST /api/admin/crm/tradeline/:clientServiceId/enable
+   * Re-enable a previously disabled assistant by triggering a full rebuild.
+   */
+  app.post("/api/admin/crm/tradeline/:clientServiceId/enable", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const csId = parseInt(req.params.clientServiceId as string);
+      if (isNaN(csId)) return res.status(400).json({ error: "Invalid service id" });
+
+      const cs = await storage.getClientServiceById(csId);
+      if (!cs || !cs.service_id.startsWith("tradeline")) {
+        return res.status(404).json({ error: "TradeLine service not found" });
+      }
+
+      const config = await storage.getTradeLineConfig(csId);
+      if (!config) {
+        return res.status(404).json({ error: "TradeLine config not found" });
+      }
+
+      // 1. Reset assistant status and mode
+      await storage.updateTradeLineConfig(csId, {
+        assistant: { ...config.assistant, status: "not_built" as any },
+        currentMode: "available",
+      });
+
+      // 2. Trigger full rebuild
+      const { provisionTradeLineAssistant } = await import("../services/vapiService");
+      const result = await provisionTradeLineAssistant(csId);
+
+      // 3. Log activity
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: (req.user as any)?.id,
+        actor_name: (req.user as any)?.name || (req.user as any)?.email,
+        action: "tradeline.re_enabled",
+        entity_type: "client_service",
+        entity_id: csId,
+        summary: `Re-enabled TradeLine assistant${result.assistantId ? ` (Vapi: ${result.assistantId})` : ""}`,
+      });
+
+      const updatedConfig = await storage.getTradeLineConfig(csId);
+      res.json({
+        enabled: true,
+        assistantId: result.assistantId,
+        error: result.error ?? null,
+        config: updatedConfig,
+      });
+    } catch (err: any) {
+      log.error("[admin-crm] TradeLine enable error:", { error: err.message });
+      res.status(500).json({ error: "Failed to re-enable assistant" });
     }
   });
 

@@ -1551,6 +1551,110 @@ function RebuildAssistantButton({ clientServiceId, queryKey }: { clientServiceId
   );
 }
 
+/* ─── Emergency Kill Switch ─── */
+function EmergencyKillSwitch({ clientServiceId, isDisabled, queryKey }: { clientServiceId: number; isDisabled: boolean; queryKey: string }) {
+  const [showConfirm, setShowConfirm] = useState(false);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const disableMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/admin/crm/tradeline/${clientServiceId}/disable`, {});
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Disable failed");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      setShowConfirm(false);
+      queryClient.invalidateQueries({ queryKey: [queryKey] });
+      toast({ title: "Assistant disabled", description: "TradeLine assistant has been emergency-disabled." });
+    },
+    onError: (err: any) => {
+      toast({ title: "Disable failed", description: err.message });
+    },
+  });
+
+  const enableMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/admin/crm/tradeline/${clientServiceId}/enable`, {});
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Enable failed");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [queryKey] });
+      toast({ title: "Assistant re-enabled", description: "TradeLine assistant has been rebuilt and re-enabled." });
+    },
+    onError: (err: any) => {
+      toast({ title: "Re-enable failed", description: err.message });
+    },
+  });
+
+  if (isDisabled) {
+    return (
+      <button
+        onClick={() => enableMutation.mutate()}
+        disabled={enableMutation.isPending}
+        className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium text-white bg-emerald-600 rounded-md hover:bg-emerald-700 disabled:opacity-60 transition-colors"
+      >
+        {enableMutation.isPending ? (
+          <><Loader2 className="w-3 h-3 animate-spin" /> Re-enabling...</>
+        ) : (
+          <><RefreshCw className="w-3 h-3" /> Re-enable Assistant</>
+        )}
+      </button>
+    );
+  }
+
+  return (
+    <>
+      <button
+        onClick={() => setShowConfirm(true)}
+        className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium text-white bg-red-600 rounded-md hover:bg-red-700 transition-colors"
+      >
+        <PhoneOff className="w-3 h-3" /> Emergency Disable
+      </button>
+
+      <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-red-700 flex items-center gap-2">
+              <AlertCircle className="w-5 h-5" /> Emergency Disable
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-gray-600">
+            This will immediately disable the TradeLine assistant. All incoming calls will receive a "service unavailable" message.
+          </p>
+          <p className="text-xs text-gray-500 mt-1">
+            You can re-enable it later which will trigger a full rebuild.
+          </p>
+          <DialogFooter className="gap-2 mt-4">
+            <Button variant="outline" size="sm" onClick={() => setShowConfirm(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => disableMutation.mutate()}
+              disabled={disableMutation.isPending}
+            >
+              {disableMutation.isPending ? (
+                <><Loader2 className="w-3 h-3 animate-spin mr-1" /> Disabling...</>
+              ) : (
+                "Confirm Disable"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
 function TradeLineAdminPanel({ clientServiceId, serviceName }: { clientServiceId: number; serviceName: string }) {
   const [open, setOpen] = useState(false);
   const queryClient = useQueryClient();
@@ -1708,7 +1812,14 @@ function TradeLineAdminPanel({ clientServiceId, serviceName }: { clientServiceId
                 </div>
                 <div>
                   <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-1">Assistant</p>
-                  {(data.assistantStatus || cfg.assistant?.status) === "built" ? (
+                  {(data.assistantStatus || cfg.assistant?.status) === "disabled" ? (
+                    <div>
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-red-100 text-red-800">
+                        <PhoneOff className="w-3 h-3" /> DISABLED
+                      </span>
+                      <p className="text-[10px] text-red-600 mt-0.5">Assistant has been emergency-disabled</p>
+                    </div>
+                  ) : (data.assistantStatus || cfg.assistant?.status) === "built" ? (
                     <div>
                       <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700">
                         <CheckCircle2 className="w-3 h-3" /> Built
@@ -1857,10 +1968,16 @@ function TradeLineAdminPanel({ clientServiceId, serviceName }: { clientServiceId
                 </div>
               )}
 
-              <div className="pt-2">
+              {/* Emergency Disable / Enable */}
+              <div className="pt-2 flex items-center gap-2 flex-wrap">
                 <Button variant="outline" size="sm" className="h-7 text-xs" onClick={startEditing}>
                   <Pencil className="w-3 h-3 mr-1" /> Edit Config
                 </Button>
+                <EmergencyKillSwitch
+                  clientServiceId={clientServiceId}
+                  isDisabled={(data.assistantStatus || cfg.assistant?.status) === "disabled"}
+                  queryKey={`/api/admin/crm/tradeline/${clientServiceId}`}
+                />
               </div>
             </>
           )}
