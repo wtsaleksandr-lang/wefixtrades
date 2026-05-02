@@ -1186,6 +1186,53 @@ export function registerAdminCrmRoutes(app: Express): void {
      ═══════════════════════════════════════════ */
 
   /**
+   * GET /api/admin/crm/tradeline/fleet
+   * Returns all TradeLine client_services with fleet-level data for ops dashboard.
+   *
+   * NOTE: Static-path routes (fleet, webhook-events, cost-reconciliation) MUST be
+   * registered before /:clientServiceId — otherwise Express matches the param route
+   * first and rejects the literal segment as an invalid integer id.
+   */
+  app.get("/api/admin/crm/tradeline/fleet", requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      const fleet = await storage.listTradeLineFleet();
+      res.json(fleet);
+    } catch (err: any) {
+      log.error("[admin-crm] TradeLine fleet error:", { error: err.message });
+      res.status(500).json({ error: "Failed to load TradeLine fleet data" });
+    }
+  });
+
+  app.get("/api/admin/crm/tradeline/webhook-events", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const limit = Math.min(200, Math.max(1, parseInt(req.query.limit as string) || 50));
+      const events = await storage.listVapiWebhookEvents(limit);
+      res.json(events);
+    } catch (err: any) {
+      log.error("[admin-crm] Webhook events error:", { error: err.message });
+      res.status(500).json({ error: "Failed to load webhook events" });
+    }
+  });
+
+  app.get("/api/admin/crm/tradeline/cost-reconciliation", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const { getVapiBillingUsage } = await import("../services/tradelineCostService");
+      const now = new Date();
+      const startDate = req.query.startDate
+        ? new Date(req.query.startDate as string)
+        : new Date(now.getFullYear(), now.getMonth(), 1);
+      const endDate = req.query.endDate
+        ? new Date(req.query.endDate as string)
+        : now;
+      const result = await getVapiBillingUsage(startDate, endDate);
+      res.json(result);
+    } catch (err: any) {
+      log.error("[admin-crm] Cost reconciliation error:", { error: err.message });
+      res.status(500).json({ error: "Failed to load cost reconciliation" });
+    }
+  });
+
+  /**
    * GET /api/admin/crm/tradeline/:clientServiceId
    * Returns TradeLine config, latest usage, and recent calls for admin.
    */
@@ -1501,20 +1548,6 @@ export function registerAdminCrmRoutes(app: Express): void {
     } catch (err: any) {
       log.error("[admin-crm] TradeLine build-assistant error:", err.message);
       res.status(500).json({ error: err.message || "Failed to build assistant" });
-    }
-  });
-
-  /**
-   * GET /api/admin/crm/tradeline/fleet
-   * Returns all TradeLine client_services with fleet-level data for ops dashboard.
-   */
-  app.get("/api/admin/crm/tradeline/fleet", requireAdmin, async (_req: Request, res: Response) => {
-    try {
-      const fleet = await storage.listTradeLineFleet();
-      res.json(fleet);
-    } catch (err: any) {
-      log.error("[admin-crm] TradeLine fleet error:", { error: err.message });
-      res.status(500).json({ error: "Failed to load TradeLine fleet data" });
     }
   });
 
@@ -2941,43 +2974,6 @@ export function registerAdminCrmRoutes(app: Express): void {
     } catch (err: any) {
       log.error("[admin-crm] Profit overview error:", { error: err.message });
       res.status(500).json({ error: "Failed to load profit overview" });
-    }
-  });
-
-  /* ═══════════════════════════════════════════
-     TradeLine — Webhook Events Log
-     ═══════════════════════════════════════════ */
-
-  app.get("/api/admin/crm/tradeline/webhook-events", requireAdmin, async (req: Request, res: Response) => {
-    try {
-      const limit = Math.min(200, Math.max(1, parseInt(req.query.limit as string) || 50));
-      const events = await storage.listVapiWebhookEvents(limit);
-      res.json(events);
-    } catch (err: any) {
-      log.error("[admin-crm] Webhook events error:", { error: err.message });
-      res.status(500).json({ error: "Failed to load webhook events" });
-    }
-  });
-
-  /* ═══════════════════════════════════════════
-     TradeLine — Cost Reconciliation
-     ═══════════════════════════════════════════ */
-
-  app.get("/api/admin/crm/tradeline/cost-reconciliation", requireAdmin, async (req: Request, res: Response) => {
-    try {
-      const { getVapiBillingUsage } = await import("../services/tradelineCostService");
-      const now = new Date();
-      const startDate = req.query.startDate
-        ? new Date(req.query.startDate as string)
-        : new Date(now.getFullYear(), now.getMonth(), 1);
-      const endDate = req.query.endDate
-        ? new Date(req.query.endDate as string)
-        : now;
-      const result = await getVapiBillingUsage(startDate, endDate);
-      res.json(result);
-    } catch (err: any) {
-      log.error("[admin-crm] Cost reconciliation error:", { error: err.message });
-      res.status(500).json({ error: "Failed to load cost reconciliation" });
     }
   });
 

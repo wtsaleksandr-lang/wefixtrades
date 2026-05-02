@@ -70,6 +70,18 @@ async function testAPI(url, name, opts = {}) {
       return false;
     }
 
+    // Strict status assertion — opts.expect=200 catches param-route shadowing
+    // bugs where a static endpoint silently returns 400 because a sibling
+    // parameterized route swallowed the request first.
+    if (opts.expect != null && res.status !== opts.expect) {
+      results.failed++;
+      let body = "";
+      try { body = (await res.text()).slice(0, 200); } catch {}
+      results.errors.push({ name, url, status: res.status, type: "unexpected_status", message: `expected ${opts.expect}, got ${res.status}: ${body}` });
+      console.log(`  ✗ API: ${name} (${url}) → ${res.status} (expected ${opts.expect})`);
+      return false;
+    }
+
     results.passed++;
     console.log(`  ✓ API: ${name} (${url}) → ${res.status}`);
     return true;
@@ -202,12 +214,14 @@ async function main() {
     for (const [url, name] of adminPages) await testPage(url, name, { cookie });
 
     console.log("\n── Admin APIs ──");
-    await testAPI("/api/admin/crm/clients", "List clients", { cookie });
-    await testAPI("/api/admin/crm/quotequick/overview", "QQ overview", { cookie });
-    await testAPI("/api/admin/crm/tradeline/fleet", "TradeLine fleet", { cookie });
-    await testAPI("/api/admin/system/jobs?limit=5", "Job logs", { cookie });
-    await testAPI("/api/admin/system/workers", "Workers status", { cookie });
-    await testAPI("/api/admin/profit-overview", "Profit overview", { cookie });
+    await testAPI("/api/admin/crm/clients", "List clients", { cookie, expect: 200 });
+    await testAPI("/api/admin/crm/quotequick/overview", "QQ overview", { cookie, expect: 200 });
+    await testAPI("/api/admin/crm/tradeline/fleet", "TradeLine fleet", { cookie, expect: 200 });
+    await testAPI("/api/admin/crm/tradeline/webhook-events", "TradeLine webhook events", { cookie, expect: 200 });
+    await testAPI("/api/admin/crm/tradeline/cost-reconciliation", "TradeLine cost reconciliation", { cookie, expect: 200 });
+    await testAPI("/api/admin/system/jobs?limit=5", "Job logs", { cookie, expect: 200 });
+    await testAPI("/api/admin/system/workers", "Workers status", { cookie, expect: 200 });
+    await testAPI("/api/admin/profit-overview", "Profit overview", { cookie, expect: 200 });
   }
 
   // ─── Group 4: Portal pages (will redirect to login if no client session) ───
