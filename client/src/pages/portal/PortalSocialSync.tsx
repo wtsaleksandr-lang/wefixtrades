@@ -7,6 +7,11 @@ import PortalLayout from "@/components/portal/PortalLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  SOCIALSYNC_POST_STATUS_LABELS,
+  SOCIALSYNC_POST_STATUS_STYLES,
+  statusLabel,
+} from "@/config/portalLabels";
 
 interface SocialSyncReport {
   status: "setup_in_progress" | "needs_connection" | "ready" | "active";

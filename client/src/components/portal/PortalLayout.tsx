@@ -3,21 +3,20 @@ import {
   LayoutDashboard,
   Wrench,
   CreditCard,
-  ShieldCheck,
   Share2,
   Settings,
   HelpCircle,
-  Shield,
   ChevronLeft,
   Menu,
   LogOut,
   TrendingUp,
   Star,
   FileText,
+  Code,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,18 +28,46 @@ import {
 import PortalChatWidget, { type PortalChatContext } from "./PortalChatWidget";
 import { OnboardingProvider } from "@/context/OnboardingContext";
 
-const NAV_ITEMS = [
-  { label: "Overview", href: "/portal", icon: LayoutDashboard },
-  { label: "Services", href: "/portal/services", icon: Wrench },
-  { label: "Reviews", href: "/portal/reviews", icon: Star },
-  { label: "Social Media", href: "/portal/socialsync", icon: Share2 },
-  { label: "Reputation", href: "/portal/reputation", icon: ShieldCheck },
-  { label: "SEO", href: "/portal/rankflow", icon: TrendingUp },
-  { label: "Articles", href: "/portal/articles", icon: FileText },
-  { label: "Billing", href: "/portal/billing", icon: CreditCard },
-  { label: "Help", href: "/portal/help", icon: HelpCircle },
-  { label: "Settings", href: "/portal/settings", icon: Settings },
-];
+interface NavItem {
+  label: string;
+  href: string;
+  icon: React.ElementType;
+  /** If set to false, this item is hidden from the sidebar */
+  visible?: boolean;
+  /** If true, renders indented as a sub-item */
+  indent?: boolean;
+}
+
+function useHasRankFlow(): boolean {
+  const { data } = useQuery<{ services: { service_id: string; status: string }[] }>({
+    queryKey: ["/api/portal/services"],
+    queryFn: async () => {
+      const res = await fetch("/api/portal/services", { credentials: "include" });
+      if (!res.ok) return { services: [] };
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+  const services = data?.services ?? [];
+  return services.some(
+    (s) => s.service_id?.startsWith("rankflow") && s.status !== "cancelled"
+  );
+}
+
+function buildNavItems(hasRankFlow: boolean): NavItem[] {
+  return [
+    { label: "Overview", href: "/portal", icon: LayoutDashboard },
+    { label: "Services", href: "/portal/services", icon: Wrench },
+    { label: "Reviews", href: "/portal/reviews", icon: Star },
+    { label: "Review Widget", href: "/portal/reviews/widget", icon: Code, indent: true },
+    { label: "Social Media", href: "/portal/socialsync", icon: Share2 },
+    { label: "SEO", href: "/portal/rankflow", icon: TrendingUp },
+    { label: "Articles", href: "/portal/articles", icon: FileText, visible: hasRankFlow },
+    { label: "Billing", href: "/portal/billing", icon: CreditCard },
+    { label: "Help", href: "/portal/help", icon: HelpCircle },
+    { label: "Settings", href: "/portal/settings", icon: Settings },
+  ];
+}
 
 function isActive(location: string, href: string): boolean {
   if (href === "/portal") return location === "/portal";
@@ -59,6 +86,8 @@ export default function PortalLayout({
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const hasRankFlow = useHasRankFlow();
+  const NAV_ITEMS = buildNavItems(hasRankFlow);
 
   const handleLogout = async () => {
     try {
@@ -121,7 +150,7 @@ export default function PortalLayout({
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto py-3 px-2">
           <div className="space-y-0.5">
-            {NAV_ITEMS.map((item) => {
+            {NAV_ITEMS.filter((item) => item.visible !== false).map((item) => {
               const active = isActive(location, item.href);
               return (
                 <Link
@@ -129,7 +158,8 @@ export default function PortalLayout({
                   href={item.href}
                   onClick={() => setMobileOpen(false)}
                   className={cn(
-                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors min-h-[44px]",
+                    "flex items-center gap-3 rounded-lg text-sm transition-colors min-h-[44px]",
+                    item.indent ? "pl-9 pr-3 py-2" : "px-3 py-2.5",
                     active
                       ? "bg-[#F0F7F4] text-[#2D6A4F] font-medium"
                       : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"

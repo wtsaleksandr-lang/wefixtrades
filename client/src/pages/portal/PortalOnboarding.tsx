@@ -154,7 +154,7 @@ export default function PortalOnboarding() {
     submitMutation.mutate(formatResponses());
   }
 
-  const isSubmitted = data?.status === "submitted" || data?.status === "approved" || submitMutation.isSuccess;
+  const isSubmitted = data?.status === "submitted" || data?.status === "approved" || data?.status === "needs_followup" || submitMutation.isSuccess;
   const isSaving = draftMutation.isPending || submitMutation.isPending;
 
   // Split steps into required and optional
@@ -198,6 +198,8 @@ export default function PortalOnboarding() {
           <PortalSetupProgress
             clientServiceId={data.client_service_id}
             approvedAt={data.approved_at}
+            onboardingStatus={data.status}
+            serviceId={data.service_id}
           />
         )}
 
@@ -308,18 +310,26 @@ export default function PortalOnboarding() {
   );
 }
 
-/* ─── Post-Submit Progress — polls real backend status ─── */
-function PortalSetupProgress({ clientServiceId, approvedAt }: { clientServiceId: number | null; approvedAt: string | null }) {
-  const [status, setStatus] = useState<{
+/* ─── Post-Submit Progress — generic 3-step flow with TradeLine polling ─── */
+function PortalSetupProgress({
+  clientServiceId,
+  approvedAt,
+  onboardingStatus,
+  serviceId,
+}: {
+  clientServiceId: number | null;
+  approvedAt: string | null;
+  onboardingStatus?: string;
+  serviceId?: string | null;
+}) {
+  const isTradeLine = !!serviceId && serviceId.startsWith("tradeline") && !!clientServiceId;
+
+  const [tradelineStatus, setTradelineStatus] = useState<{
     assistantStatus: string;
     setupStage: string;
   }>({ assistantStatus: "not_built", setupStage: "not_started" });
 
-  const isTradeLine = !!clientServiceId;
-  const isTerminal = status.setupStage === "ready_for_testing"
-    || status.setupStage === "live"
-    || status.assistantStatus === "failed";
-
+  // Only poll for TradeLine services
   useEffect(() => {
     if (!isTradeLine) return;
     let active = true;
@@ -328,7 +338,7 @@ function PortalSetupProgress({ clientServiceId, approvedAt }: { clientServiceId:
         const res = await fetch(`/api/portal/tradeline/${clientServiceId}`, { credentials: "include" });
         if (res.ok && active) {
           const data = await res.json();
-          setStatus({
+          setTradelineStatus({
             assistantStatus: data.assistantStatus ?? data.config?.assistant?.status ?? "not_built",
             setupStage: data.setupStage ?? data.config?.setupStage ?? "not_started",
           });
@@ -340,34 +350,59 @@ function PortalSetupProgress({ clientServiceId, approvedAt }: { clientServiceId:
     return () => { active = false; clearInterval(id); };
   }, [clientServiceId, isTradeLine]);
 
+  // Determine current state from onboarding status
+  const isApproved = onboardingStatus === "approved" || !!approvedAt;
+  const needsFollowup = onboardingStatus === "needs_followup";
+
+  // Build steps depending on whether this is TradeLine or a generic service
   const steps = isTradeLine ? [
     { label: "Configuration received", done: true },
-    { label: "System being built", done: status.assistantStatus === "building" || status.assistantStatus === "built" },
-    { label: "Connecting channels", done: status.assistantStatus === "built" },
-    { label: "Ready", done: status.setupStage === "ready_for_testing" || status.setupStage === "live" },
+    { label: "System being built", done: tradelineStatus.assistantStatus === "building" || tradelineStatus.assistantStatus === "built" },
+    { label: "Connecting channels", done: tradelineStatus.assistantStatus === "built" },
+    { label: "Ready", done: tradelineStatus.setupStage === "ready_for_testing" || tradelineStatus.setupStage === "live" },
   ] : [
-    { label: "Configuration received", done: true },
-    { label: "Team notified", done: true },
+    { label: "Submitted", done: true },
+    { label: "Under Review", done: isApproved || needsFollowup },
+    { label: "Active", done: isApproved },
   ];
 
   const allDone = steps.every(s => s.done);
-  const failed = status.assistantStatus === "failed";
+  const failed = isTradeLine && tradelineStatus.assistantStatus === "failed";
+
+  // Generic headline/message for non-TradeLine services
+  const headline = failed
+    ? "Something needs attention"
+    : allDone
+      ? "Your system is ready"
+      : needsFollowup
+        ? "We need a bit more info"
+        : isTradeLine
+          ? "Your system is being prepared"
+          : "Setup information received";
+
+  const subtitle = failed
+    ? "We hit a snag while setting things up."
+    : allDone
+      ? "Everything is configured."
+      : needsFollowup
+        ? "Our team has reviewed your submission and needs some additional details. Check your email or contact us via Help."
+        : isTradeLine
+          ? "This usually takes about a minute."
+          : "Our team typically reviews within 24 hours.";
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
       <div className="w-12 h-12 rounded-full bg-[#F0F7F4] flex items-center justify-center mx-auto mb-5">
         {failed ? (
           <AlertTriangle className="w-6 h-6 text-amber-500" />
+        ) : needsFollowup ? (
+          <AlertTriangle className="w-6 h-6 text-amber-500" />
         ) : (
-          <Settings2 className={`w-6 h-6 text-[#2D6A4F] ${!allDone ? "animate-spin" : ""}`} style={{ animationDuration: "3s" }} />
+          <Settings2 className={`w-6 h-6 text-[#2D6A4F] ${!allDone && isTradeLine ? "animate-spin" : ""}`} style={{ animationDuration: "3s" }} />
         )}
       </div>
-      <h1 className="text-lg font-semibold text-gray-900">
-        {failed ? "Something needs attention" : allDone ? "Your system is ready" : "Your system is being prepared"}
-      </h1>
-      <p className="text-sm text-gray-500 mt-1.5 mb-6">
-        {failed ? "We hit a snag while setting things up." : allDone ? "Everything is configured." : "This usually takes about a minute."}
-      </p>
+      <h1 className="text-lg font-semibold text-gray-900">{headline}</h1>
+      <p className="text-sm text-gray-500 mt-1.5 mb-6">{subtitle}</p>
 
       <div className="text-left space-y-3 max-w-xs mx-auto mb-6">
         {steps.map((s, i) => (
@@ -376,8 +411,10 @@ function PortalSetupProgress({ clientServiceId, approvedAt }: { clientServiceId:
               <CheckCircle2 className="w-4 h-4 text-[#2D6A4F] flex-shrink-0" />
             ) : failed ? (
               <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0" />
-            ) : (
+            ) : isTradeLine ? (
               <Loader2 className="w-4 h-4 text-gray-300 animate-spin flex-shrink-0" />
+            ) : (
+              <div className="w-4 h-4 rounded-full border-2 border-gray-200 flex-shrink-0" />
             )}
             <span className={`text-sm ${s.done ? "text-gray-700" : failed ? "text-amber-600" : "text-gray-400"}`}>
               {s.label}
@@ -400,7 +437,7 @@ function PortalSetupProgress({ clientServiceId, approvedAt }: { clientServiceId:
         </div>
       )}
 
-      {(allDone || failed) && (
+      {(allDone || failed || (!isTradeLine && !needsFollowup)) && (
         <Link href="/portal/services">
           <button className="px-4 py-2 text-sm font-medium text-[#2D6A4F] bg-[#F0F7F4] rounded-lg hover:bg-[#e0efe8] transition-colors">
             Back to Services

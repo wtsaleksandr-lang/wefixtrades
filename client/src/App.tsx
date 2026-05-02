@@ -103,7 +103,7 @@ import PortalTicketDetail from "@/pages/portal/PortalTicketDetail";
 import SupportInboxPage from "@/pages/admin/SupportInboxPage";
 import SupportTicketDetailPage from "@/pages/admin/SupportTicketDetailPage";
 import PortalMapguard from "@/pages/portal/PortalMapguard";
-import PortalReputation from "@/pages/portal/PortalReputation";
+// PortalReputation removed — redirects to /portal/reviews
 import SocialSyncSetup from "@/pages/portal/SocialSyncSetup";
 import PortalSocialSync from "@/pages/portal/PortalSocialSync";
 import PortalRankFlow from "@/pages/portal/PortalRankFlow";
@@ -173,7 +173,7 @@ function Router() {
       <Route path="/portal/help/tickets/:id">{() => <RequireClient><PortalTicketDetail /></RequireClient>}</Route>
       <Route path="/portal/socialsync-setup">{() => <RequireClient><SocialSyncSetup /></RequireClient>}</Route>
       <Route path="/portal/socialsync">{() => <RequireClient><PortalSocialSync /></RequireClient>}</Route>
-      <Route path="/portal/reputation">{() => <RequireClient><PortalReputation /></RequireClient>}</Route>
+      <Route path="/portal/reputation">{() => <Redirect to="/portal/reviews" />}</Route>
       <Route path="/portal/dispatch">{() => <RequireClient><DispatchPage /></RequireClient>}</Route>
       <Route path="/portal/invoices">{() => <RequireClient><InvoicesPage /></RequireClient>}</Route>
       <Route path="/portal/payment-methods">{() => <RequireClient><PaymentMethodsPage /></RequireClient>}</Route>

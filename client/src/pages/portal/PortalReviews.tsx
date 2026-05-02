@@ -17,6 +17,11 @@ import {
 import { Link } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import {
+  REVIEW_REPLY_STATUS_LABELS,
+  REVIEW_REPLY_STATUS_STYLES,
+  statusLabel,
+} from "@/config/portalLabels";
 
 interface ReviewItem {
   id: number;
@@ -194,6 +199,17 @@ export default function PortalReviews() {
     onError: (err: any) => {
       toast({ title: "Failed", description: err.message || "Could not send review request" });
     },
+  });
+
+  // Weekly trend data (merged from Reputation page)
+  const { data: reputationData } = useQuery<{ weekly_trend: { week: string; reviews: number }[] }>({
+    queryKey: ["/api/portal/reputation"],
+    queryFn: async () => {
+      const res = await fetch("/api/portal/reputation", { credentials: "include" });
+      if (!res.ok) return { weekly_trend: [] };
+      return res.json();
+    },
+    enabled: !!config?.active,
   });
 
   const { data: qrData } = useQuery<{ qrUrl: string; widgetToken: string }>({
@@ -523,6 +539,29 @@ export default function PortalReviews() {
           </>
         ) : null}
 
+        {/* Weekly Trend Chart (merged from Reputation page) */}
+        {reputationData?.weekly_trend && reputationData.weekly_trend.length > 0 && (
+          <Card className="p-5">
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">Reviews Per Week</h3>
+            <div className="flex items-end gap-1.5 h-16">
+              {reputationData.weekly_trend.map((w, i) => {
+                const max = Math.max(...reputationData.weekly_trend.map(t => t.reviews), 1);
+                const height = w.reviews > 0 ? Math.max(6, (w.reviews / max) * 64) : 3;
+                return (
+                  <div key={i} className="flex-1 flex flex-col items-center">
+                    <div className={`w-full rounded-t ${w.reviews > 0 ? "bg-[#2D6A4F]" : "bg-gray-200"}`} style={{ height: `${height}px` }} />
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex gap-1.5 mt-1">
+              {reputationData.weekly_trend.map((w, i) => (
+                <div key={i} className="flex-1 text-center text-[9px] text-gray-400">{w.week}</div>
+              ))}
+            </div>
+          </Card>
+        )}
+
         {/* Request a Review + QR Code */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Manual Request */}
@@ -703,9 +742,13 @@ export default function PortalReviews() {
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         {r.response_text ? (
-                          <Badge variant="secondary" className="text-[10px] bg-green-50 text-green-700">Replied</Badge>
+                          <Badge variant="secondary" className={`text-[10px] ${REVIEW_REPLY_STATUS_STYLES.manually_replied}`}>
+                            {statusLabel(REVIEW_REPLY_STATUS_LABELS, "manually_replied")}
+                          </Badge>
                         ) : r.draft_response && features.aiDrafts ? (
-                          <Badge variant="secondary" className="text-[10px] bg-blue-50 text-blue-600">Draft ready</Badge>
+                          <Badge variant="secondary" className={`text-[10px] ${REVIEW_REPLY_STATUS_STYLES.draft_ready}`}>
+                            {statusLabel(REVIEW_REPLY_STATUS_LABELS, "draft_ready")}
+                          </Badge>
                         ) : isLow ? (
                           <Badge variant="secondary" className="text-[10px] bg-red-50 text-red-600">Needs reply</Badge>
                         ) : null}

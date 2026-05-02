@@ -1,8 +1,10 @@
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, CreditCard, Clock, CheckCircle, RefreshCw } from "lucide-react";
+import { Loader2, CreditCard, Clock, CheckCircle, RefreshCw, ExternalLink } from "lucide-react";
 import { Link } from "wouter";
 import PortalLayout from "@/components/portal/PortalLayout";
+import { Button } from "@/components/ui/button";
 import { PAYMENT_STATUS_LABELS, PAYMENT_STATUS_STYLES, statusLabel } from "@/config/portalLabels";
 
 interface PaymentRow {
@@ -54,14 +56,57 @@ export default function PortalBilling() {
   });
 
   const hasPending = data && data.summary.total_pending_cents > 0;
+  const [portalLoading, setPortalLoading] = useState(false);
+  const [portalError, setPortalError] = useState<string | null>(null);
+
+  async function openBillingPortal() {
+    setPortalLoading(true);
+    setPortalError(null);
+    try {
+      const res = await fetch("/api/portal/billing/portal-session", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Failed to open billing portal");
+      }
+      const { url } = await res.json();
+      window.open(url, "_blank");
+    } catch (err: any) {
+      setPortalError(err.message || "Could not open billing portal");
+    } finally {
+      setPortalLoading(false);
+    }
+  }
 
   return (
     <PortalLayout>
       <div className="max-w-5xl mx-auto space-y-6">
-        <div>
-          <h1 className="text-xl font-semibold text-gray-900">Billing</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Your invoices and payment history.</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-semibold text-gray-900">Billing</h1>
+            <p className="text-sm text-gray-500 mt-0.5">Your invoices and payment history.</p>
+          </div>
+          <Button
+            onClick={openBillingPortal}
+            disabled={portalLoading}
+            className="bg-[#2D6A4F] hover:bg-[#1B4332]"
+          >
+            {portalLoading ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <ExternalLink className="w-4 h-4 mr-2" />
+            )}
+            Manage Billing
+          </Button>
         </div>
+        {portalError && (
+          <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 text-sm">
+            {portalError}
+          </div>
+        )}
 
         {isLoading && (
           <div className="flex items-center justify-center h-48">
