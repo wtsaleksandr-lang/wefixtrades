@@ -67,7 +67,8 @@ export async function postGBPReply(
   /* Sprint 9: optional apiBase override (or env var) lets the dev GBP
    * mock take the call without touching the real Google endpoint.
    * Defaults to the real My Business v4 base. */
-  const apiBase = opts.apiBase || process.env.GBP_API_BASE_OVERRIDE || GBP_API_V4;
+  const overrideAllowed = process.env.NODE_ENV !== "production" && process.env.GBP_API_BASE_OVERRIDE;
+  const apiBase = opts.apiBase || overrideAllowed || GBP_API_V4;
   const fetchImpl = opts.fetchImpl ?? fetch;
   try {
     const url = `${apiBase}/${locationName}/reviews/${reviewId}/reply`;

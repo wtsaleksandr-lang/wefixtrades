@@ -362,7 +362,7 @@ export function registerAuthRoutes(app: Express) {
           `,
         });
       } else {
-        log.warn("[auth] SMTP not configured — reset token:", { detail: token });
+        log.warn("SMTP not configured — password reset email NOT sent", { userId: user.id });
       }
 
       res.json({ ok: true });

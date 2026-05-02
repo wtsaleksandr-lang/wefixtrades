@@ -159,6 +159,7 @@ export async function publishToFacebook(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message }),
+      signal: AbortSignal.timeout(20_000),
     });
 
     const responseData = await publishRes.json() as any;

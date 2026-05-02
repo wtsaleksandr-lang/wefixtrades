@@ -157,6 +157,7 @@ async function createMediaContainer(
       image_url: imageUrl,
       caption,
     }),
+    signal: AbortSignal.timeout(20_000),
   });
 
   const data = await res.json() as any;
@@ -181,6 +182,7 @@ async function publishMediaContainer(
     body: JSON.stringify({
       creation_id: containerId,
     }),
+    signal: AbortSignal.timeout(20_000),
   });
 
   const data = await res.json() as any;

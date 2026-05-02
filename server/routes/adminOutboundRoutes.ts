@@ -935,11 +935,13 @@ export function registerAdminOutboundRoutes(app: Express): void {
 
     // Validate secret header (set OUTREACH_WEBHOOK_SECRET env var)
     const secret = process.env.OUTREACH_WEBHOOK_SECRET;
-    if (secret) {
-      const provided = req.headers["x-webhook-secret"] || req.headers["x-api-key"];
-      if (provided !== secret) {
-        return res.status(401).json({ error: "Unauthorized" });
-      }
+    if (!secret) {
+      log.error("OUTREACH_WEBHOOK_SECRET unset — rejecting webhook");
+      return res.status(503).json({ error: "Webhook not configured" });
+    }
+    const provided = req.headers["x-webhook-secret"] || req.headers["x-api-key"];
+    if (provided !== secret) {
+      return res.status(401).json({ error: "Unauthorized" });
     }
 
     const event = parseOutreachWebhook(platform, req.body as Record<string, unknown>);

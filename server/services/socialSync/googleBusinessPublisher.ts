@@ -117,6 +117,7 @@ export async function publishToGoogleBusiness(
         "Content-Type": "application/json",
       },
       body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(20_000),
     });
 
     const data = await res.json().catch(() => ({})) as any;

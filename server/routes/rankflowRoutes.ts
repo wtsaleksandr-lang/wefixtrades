@@ -23,7 +23,13 @@ export function registerRankFlowRoutes(app: Express): void {
       const clientId = parseInt(req.params.id as string);
       const profile = await storage.getRankFlowProfile(clientId);
       if (!profile) return res.status(404).json({ error: "RankFlow profile not found" });
-      res.json(profile);
+      const { credentials, ...safe } = profile as any;
+      res.json({
+        ...safe,
+        credentials: credentials?.wordpress ? {
+          wordpress: { cms_url: credentials.wordpress.cms_url, cms_username: credentials.wordpress.cms_username, cms_default_status: credentials.wordpress.cms_default_status, configured_at: credentials.wordpress.configured_at },
+        } : null,
+      });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
