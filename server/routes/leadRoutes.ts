@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { z } from "zod";
 import { storage } from "../storage";
 import { captureIntakeEvent } from "../services/intakeService";
+import { buildHostedUrl } from "@shared/slugUtils";
 import { createLogger } from "../lib/logger";
 
 const log = createLogger("Leads");
@@ -70,7 +71,7 @@ async function enqueueLeadNotificationsAndFollowups(lead: any, calculatorId: num
 
   const devDomain = process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : '';
   const dashboardUrl = `${devDomain}/Dashboard?token=${calc.edit_token}`;
-  const hostedUrl = calc.slug ? `https://${calc.slug}.estimate.ai` : '';
+  const hostedUrl = calc.slug ? buildHostedUrl(calc.slug) : '';
 
   if (notifications.email_enabled !== false && deliveryEmail) {
     await storage.enqueueNotification({

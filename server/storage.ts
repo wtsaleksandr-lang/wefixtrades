@@ -117,6 +117,7 @@ export interface IStorage {
   getCalculatorByToken(token: string): Promise<Calculator | undefined>;
   updateCalculator(id: number, updates: Partial<InsertCalculator>): Promise<Calculator | undefined>;
   duplicateCalculator(id: number, newSlug: string, newToken: string, newExpiry: Date): Promise<Calculator | undefined>;
+  getCalculatorByOldSlug(oldSlug: string): Promise<Calculator | undefined>;
   deleteCalculator(id: number): Promise<void>;
   incrementViews(id: number): Promise<void>;
 
@@ -487,6 +488,14 @@ export class DatabaseStorage implements IStorage {
       plan_tier: original.plan_tier,
     }).returning();
     return newCalc;
+  }
+
+  async getCalculatorByOldSlug(oldSlug: string): Promise<Calculator | undefined> {
+    // Search for a calculator that has this slug in its _slug_redirects metadata
+    const results = await db.select().from(calculators)
+      .where(sql`${calculators.calculator_settings}::jsonb -> '_slug_redirects' @> ${JSON.stringify([{ slug: oldSlug }])}::jsonb`)
+      .limit(1);
+    return results[0];
   }
 
   async deleteCalculator(id: number): Promise<void> {

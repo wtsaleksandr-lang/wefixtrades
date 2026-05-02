@@ -91,6 +91,11 @@ const checkSlugBody = z.object({
 
 const duplicateBody = z.object({ token: z.string().min(1, "Token required") });
 
+const changeSlugBody = z.object({
+  token: z.string().min(1, "Token required"),
+  new_slug: z.string().min(3).max(30).regex(/^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]{1,2}$/, 'Slug must be lowercase alphanumeric with hyphens'),
+});
+
 const trackViewBody = z.object({ calculator_id: z.number() });
 
 export function registerCalculatorRoutes(app: Express): void {
@@ -217,6 +222,18 @@ export function registerCalculatorRoutes(app: Express): void {
         isTokenAccess = true;
       } else if (slug) {
         calculator = await storage.getCalculatorBySlug(slug);
+      }
+
+      // If not found by slug, check old slug redirects
+      if (!calculator && slug) {
+        const redirected = await storage.getCalculatorByOldSlug(slug);
+        if (redirected) {
+          return res.json({
+            redirect: true,
+            new_slug: redirected.slug,
+            new_url: `/Calculator?slug=${redirected.slug}`,
+          });
+        }
       }
 
       if (!calculator) {
@@ -395,6 +412,87 @@ export function registerCalculatorRoutes(app: Express): void {
     } catch (error: any) {
       log.error("Duplicate calculator error:", error);
       res.status(500).json({ error: "Failed to duplicate calculator" });
+    }
+  });
+
+  // Change slug — validates availability, stores old slug for redirect
+  app.patch("/api/calculators/:id/slug", async (req, res) => {
+    try {
+      const calcId = parseInt(req.params.id, 10);
+      if (isNaN(calcId)) return res.status(400).json({ error: "Invalid calculator id" });
+
+      const parsed = changeSlugBody.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid request", details: parsed.error.flatten() });
+      }
+
+      const calculator = await storage.getCalculatorByToken(parsed.data.token);
+      if (!calculator || calculator.id !== calcId) {
+        return res.status(404).json({ error: "Calculator not found" });
+      }
+
+      const isExpired = new Date() > new Date(calculator.token_expires_at);
+      if (isExpired) return res.status(403).json({ error: "Edit access expired" });
+
+      const newSlug = parsed.data.new_slug;
+
+      // Validate slug format
+      const validation = isValidSlug(newSlug);
+      if (!validation.valid) {
+        return res.status(400).json({ error: validation.reason });
+      }
+
+      // Check if slug is same as current
+      if (newSlug === calculator.slug) {
+        return res.json({ success: true, slug: newSlug, message: "Slug unchanged" });
+      }
+
+      // Check availability
+      const existing = await storage.getCalculatorBySlug(newSlug);
+      if (existing) {
+        return res.status(409).json({ error: "This slug is already taken" });
+      }
+
+      // Store old slug in metadata for redirect (30-day window)
+      const settings = (calculator.calculator_settings as any) || {};
+      const oldSlugs: { slug: string; changed_at: number }[] = settings._slug_redirects || [];
+      // Add current slug to redirect list
+      oldSlugs.push({ slug: calculator.slug, changed_at: Date.now() });
+      // Keep only redirects from the last 30 days
+      const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+      const activeRedirects = oldSlugs.filter(r => r.changed_at > thirtyDaysAgo);
+
+      const updatedSettings = {
+        ...settings,
+        _slug_redirects: activeRedirects,
+      };
+      if (settings.publish) {
+        updatedSettings.publish = {
+          ...settings.publish,
+          slug: newSlug,
+          subdomain: buildSubdomain(newSlug, HOSTING_DOMAIN),
+        };
+      }
+
+      const updated = await storage.updateCalculator(calculator.id, {
+        slug: newSlug,
+        calculator_settings: updatedSettings,
+      });
+
+      const subdomain = buildSubdomain(newSlug, HOSTING_DOMAIN);
+      log.info(`[slug-change] Calculator ${calcId}: ${calculator.slug} -> ${newSlug}`);
+
+      res.json({
+        success: true,
+        slug: newSlug,
+        subdomain,
+        hosted_url: `https://${subdomain}`,
+        old_slug: calculator.slug,
+        calculator_url: `/Calculator?slug=${newSlug}`,
+      });
+    } catch (error: any) {
+      log.error("Change slug error:", error);
+      res.status(500).json({ error: "Failed to change slug" });
     }
   });
 

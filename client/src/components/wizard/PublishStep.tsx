@@ -9,7 +9,7 @@ import {
   X, Send, Phone, User as UserIcon, Mic, Star,
 } from 'lucide-react';
 
-import { slugify, buildSubdomain, HOSTING_DOMAIN } from '@shared/slugUtils';
+import { slugify, isValidSlug, buildSubdomain, HOSTING_DOMAIN } from '@shared/slugUtils';
 import type { CalculatorSettings } from '@shared/schema';
 
 const p = platformTheme;
@@ -79,6 +79,7 @@ export default function PublishStep({ result, publishData, testPassed, leadFormV
   const [showInstall, setShowInstall] = useState<string | null>(null);
   const [customDomain, setCustomDomain] = useState(publishData.custom_domain || '');
   const [dnsChecking, setDnsChecking] = useState(false);
+  const [editableSlug, setEditableSlug] = useState(slug);
 
   const canPublish = testPassed && leadFormValid && pricingExists;
   const isPublished = publishData.status === 'published';
@@ -267,17 +268,45 @@ export default function PublishStep({ result, publishData, testPassed, leadFormV
       )}
 
       {!isPublished && canPublish && (
-        <button data-testid="button-publish" onClick={handlePublish} style={{
-          width: '100%', padding: '14px', borderRadius: p.radius.md, border: 'none',
-          background: `linear-gradient(135deg, ${p.colors.accent} 0%, ${p.colors.accentLight} 100%)`,
-          color: 'white', fontSize: '15px', fontWeight: 600, cursor: 'pointer',
-          boxShadow: p.shadows.button, transition: p.transitions.normal,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-          marginBottom: '20px', WebkitTapHighlightColor: 'transparent',
-        }}>
-          <CheckCircle2 style={{ width: '18px', height: '18px' }} />
-          Publish Now
-        </button>
+        <div style={{ marginBottom: '20px' }}>
+          {/* Pre-publish slug editor */}
+          <div data-testid="pre-publish-slug-section" style={{
+            padding: '16px', borderRadius: p.radius.md,
+            border: `1px solid ${p.colors.border}`, background: 'white',
+            marginBottom: '14px',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+              <div style={{
+                width: '28px', height: '28px', borderRadius: '6px',
+                background: '#ECFDF5', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <Link2 style={{ width: '14px', height: '14px', color: '#059669' }} />
+              </div>
+              <div>
+                <p style={{ fontSize: '14px', fontWeight: 600, color: p.colors.heading, margin: 0 }}>Choose your URL</p>
+                <p style={{ fontSize: '11px', color: p.colors.muted, margin: 0 }}>Pick a slug for your quote page</p>
+              </div>
+            </div>
+
+            <SlugEditor
+              slug={editableSlug}
+              onChange={setEditableSlug}
+              businessName={businessName}
+            />
+          </div>
+
+          <button data-testid="button-publish" onClick={handlePublish} style={{
+            width: '100%', padding: '14px', borderRadius: p.radius.md, border: 'none',
+            background: `linear-gradient(135deg, ${p.colors.accent} 0%, ${p.colors.accentLight} 100%)`,
+            color: 'white', fontSize: '15px', fontWeight: 600, cursor: 'pointer',
+            boxShadow: p.shadows.button, transition: p.transitions.normal,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+            WebkitTapHighlightColor: 'transparent',
+          }}>
+            <CheckCircle2 style={{ width: '18px', height: '18px' }} />
+            Publish Now
+          </button>
+        </div>
       )}
 
       {isPublished && (
@@ -501,6 +530,185 @@ export default function PublishStep({ result, publishData, testPassed, leadFormV
         <RotateCcw style={{ width: '15px', height: '15px' }} />
         Create Another Calculator
       </button>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Slug Editor — editable slug with live availability check
+──────────────────────────────────────────────────────────── */
+
+function generateSlugSuggestions(businessName: string): string[] {
+  if (!businessName || businessName.trim().length < 2) return [];
+  const base = slugify(businessName);
+  const words = businessName.trim().toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(Boolean);
+  const suggestions = new Set<string>();
+  suggestions.add(base);
+  if (words.length >= 2) {
+    suggestions.add(slugify(`${words[0]}-${words[words.length - 1]}-quotes`));
+    suggestions.add(slugify(`${words[0]}-estimates`));
+  }
+  if (words.length === 1) {
+    suggestions.add(slugify(`${words[0]}-quotes`));
+    suggestions.add(slugify(`${words[0]}-pricing`));
+    suggestions.add(slugify(`${words[0]}-estimates`));
+  }
+  // Return up to 4 unique valid suggestions
+  return Array.from(suggestions).filter(s => {
+    const v = isValidSlug(s);
+    return v.valid && s.length >= 3 && s.length <= 30;
+  }).slice(0, 4);
+}
+
+function SlugEditor({ slug, onChange, businessName }: {
+  slug: string;
+  onChange: (slug: string) => void;
+  businessName: string;
+}) {
+  const [inputValue, setInputValue] = useState(slug);
+  const [availability, setAvailability] = useState<{ checking: boolean; available: boolean | null; error?: string }>({
+    checking: false, available: null,
+  });
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const suggestions = generateSlugSuggestions(businessName);
+
+  const checkAvailability = useCallback((s: string) => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    const validation = isValidSlug(s);
+    if (!validation.valid) {
+      setAvailability({ checking: false, available: false, error: validation.reason });
+      return;
+    }
+    if (s.length < 3 || s.length > 30) {
+      setAvailability({ checking: false, available: false, error: 'Slug must be 3-30 characters' });
+      return;
+    }
+    setAvailability({ checking: true, available: null });
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/calculators/check-slug?slug=${encodeURIComponent(s)}`);
+        const data = await res.json();
+        setAvailability({ checking: false, available: data.available, error: data.error });
+      } catch {
+        setAvailability({ checking: false, available: null, error: 'Could not check availability' });
+      }
+    }, 400);
+  }, []);
+
+  useEffect(() => {
+    if (inputValue && inputValue.length >= 3) {
+      checkAvailability(inputValue);
+    }
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [inputValue, checkAvailability]);
+
+  const handleInput = (raw: string) => {
+    // Enforce slug format as user types
+    const cleaned = raw.toLowerCase().replace(/[^a-z0-9-]/g, '').replace(/--+/g, '-').slice(0, 30);
+    setInputValue(cleaned);
+    onChange(cleaned);
+  };
+
+  const selectSuggestion = (s: string) => {
+    setInputValue(s);
+    onChange(s);
+  };
+
+  const av = availability;
+  const showStatus = inputValue.length >= 3;
+
+  return (
+    <div data-testid="slug-editor">
+      {/* Live URL Preview */}
+      <div style={{
+        padding: '12px 14px', borderRadius: p.radius.md, marginBottom: '10px',
+        background: '#F0FDF4', border: '1px solid #A7F3D030',
+      }}>
+        <p style={{ fontSize: '11px', fontWeight: 700, color: p.colors.muted, textTransform: 'uppercase', letterSpacing: '0.04em', margin: '0 0 4px' }}>
+          Your quote page will be at
+        </p>
+        <p data-testid="slug-preview-url" style={{
+          fontSize: '14px', fontWeight: 700, color: '#059669',
+          margin: 0, fontFamily: 'monospace', wordBreak: 'break-all',
+        }}>
+          https://<span style={{ background: '#D1FAE5', padding: '1px 2px', borderRadius: '3px' }}>{inputValue || '...'}</span>.{HOSTING_DOMAIN}
+        </p>
+      </div>
+
+      {/* Slug Input */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+        <div style={{ flex: 1, position: 'relative' }}>
+          <input
+            data-testid="input-slug"
+            type="text"
+            value={inputValue}
+            onChange={e => handleInput(e.target.value)}
+            placeholder="your-business-name"
+            maxLength={30}
+            style={{
+              width: '100%', padding: '10px 36px 10px 12px', borderRadius: '8px',
+              border: `1px solid ${showStatus && av.available === true ? '#059669' : showStatus && av.available === false ? '#EF4444' : p.colors.border}`,
+              fontSize: '14px', fontFamily: 'monospace', boxSizing: 'border-box',
+              outline: 'none', transition: 'border-color 0.2s',
+            }}
+          />
+          {showStatus && (
+            <div style={{
+              position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)',
+              display: 'flex', alignItems: 'center',
+            }}>
+              {av.checking && <Loader2 style={{ width: '16px', height: '16px', color: p.colors.muted, animation: 'spin 1s linear infinite' }} />}
+              {!av.checking && av.available === true && <CheckCircle2 style={{ width: '16px', height: '16px', color: '#059669' }} />}
+              {!av.checking && av.available === false && <XCircle style={{ width: '16px', height: '16px', color: '#EF4444' }} />}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Status message */}
+      {showStatus && !av.checking && (
+        <p style={{
+          fontSize: '11px', margin: '0 0 10px',
+          color: av.available ? '#059669' : '#EF4444',
+          fontWeight: 500,
+        }}>
+          {av.available ? 'This slug is available' : (av.error || 'This slug is taken')}
+        </p>
+      )}
+      {inputValue.length > 0 && inputValue.length < 3 && (
+        <p style={{ fontSize: '11px', margin: '0 0 10px', color: p.colors.muted }}>
+          Type at least 3 characters
+        </p>
+      )}
+
+      {/* Suggestions */}
+      {suggestions.length > 0 && (
+        <div style={{ marginBottom: '8px' }}>
+          <p style={{ fontSize: '11px', fontWeight: 600, color: p.colors.muted, margin: '0 0 6px' }}>
+            Suggestions
+          </p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+            {suggestions.map(s => (
+              <button
+                key={s}
+                data-testid={`slug-suggestion-${s}`}
+                onClick={() => selectSuggestion(s)}
+                style={{
+                  padding: '5px 10px', borderRadius: p.radius.pill,
+                  border: `1px solid ${s === inputValue ? p.colors.accent : p.colors.border}`,
+                  background: s === inputValue ? p.colors.accentLighter : 'white',
+                  color: s === inputValue ? p.colors.accent : p.colors.body,
+                  fontSize: '12px', fontWeight: 500, cursor: 'pointer',
+                  fontFamily: 'monospace',
+                  WebkitTapHighlightColor: 'transparent',
+                }}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -782,7 +990,7 @@ function CustomDomainTab({ customDomain, setCustomDomain, domainStatus, sslStatu
           }}>
             <p style={{ fontSize: '11px', fontWeight: 600, color: '#78350F', margin: '0 0 6px' }}>How it works:</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              {['Enter your domain', 'Add a CNAME record pointing to estimate.ai', 'We auto-detect DNS and provision SSL', 'Your custom domain goes live'].map((s, i) => (
+              {['Enter your domain', 'Add a CNAME record pointing to your hosting domain', 'We auto-detect DNS and provision SSL', 'Your custom domain goes live'].map((s, i) => (
                 <div key={i} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                   <span style={{
                     width: '18px', height: '18px', borderRadius: '50%', flexShrink: 0,
@@ -812,7 +1020,7 @@ function CustomDomainTab({ customDomain, setCustomDomain, domainStatus, sslStatu
             }}>
               <p style={{ margin: '0 0 2px', color: p.colors.muted, fontSize: '10px' }}>Add this CNAME record:</p>
               <p style={{ margin: 0, color: p.colors.heading }}>
-                {customDomain} → <strong>estimate.ai</strong>
+                {customDomain} → <strong>{HOSTING_DOMAIN}</strong>
               </p>
             </div>
             <p style={{ fontSize: '10px', color: p.colors.muted, margin: 0 }}>

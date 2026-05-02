@@ -4,10 +4,11 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, AlertTriangle, Check, Copy, ExternalLink, RefreshCw, Lock, Building2, Palette, MessageSquare, Save, Clock, DollarSign, ChevronDown, ChevronUp, Plus, Trash2, GripVertical, Calculator, Eye, Globe, Code2 } from 'lucide-react';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { Loader2, AlertTriangle, Check, Copy, ExternalLink, RefreshCw, Lock, Building2, Palette, MessageSquare, Save, Clock, DollarSign, ChevronDown, ChevronUp, Plus, Trash2, GripVertical, Calculator, Eye, Globe, Code2, Link2, CheckCircle2, XCircle } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { trackEvent } from '@/lib/trackEvent';
+import { isValidSlug, HOSTING_DOMAIN } from '@shared/slugUtils';
 
 interface QuestionOption {
   label: string;
@@ -230,10 +231,194 @@ function DeployCopyRow({ label, code, testId }: { label: string; code: string; t
   );
 }
 
+function ChangeUrlSection({ calculatorId, currentSlug, token, onSlugChanged }: {
+  calculatorId: number;
+  currentSlug: string;
+  token: string;
+  onSlugChanged: (newSlug: string) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const [newSlug, setNewSlug] = useState(currentSlug);
+  const [availability, setAvailability] = useState<{ checking: boolean; available: boolean | null; error?: string }>({
+    checking: false, available: null,
+  });
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [errorMessage, setErrorMessage] = useState('');
+
+  // Sync local slug state when currentSlug changes (after save)
+  useEffect(() => {
+    setNewSlug(currentSlug);
+  }, [currentSlug]);
+
+  const handleInput = (raw: string) => {
+    const cleaned = raw.toLowerCase().replace(/[^a-z0-9-]/g, '').replace(/--+/g, '-').slice(0, 30);
+    setNewSlug(cleaned);
+    setSaveStatus('idle');
+  };
+
+  // Debounced availability check
+  useEffect(() => {
+    if (newSlug === currentSlug || newSlug.length < 3) {
+      setAvailability({ checking: false, available: null });
+      return;
+    }
+
+    const validation = isValidSlug(newSlug);
+    if (!validation.valid) {
+      setAvailability({ checking: false, available: false, error: validation.reason });
+      return;
+    }
+
+    setAvailability({ checking: true, available: null });
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/calculators/check-slug?slug=${encodeURIComponent(newSlug)}`);
+        const data = await res.json();
+        setAvailability({ checking: false, available: data.available, error: data.error });
+      } catch {
+        setAvailability({ checking: false, available: null, error: 'Could not check availability' });
+      }
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [newSlug, currentSlug]);
+
+  const handleSave = async () => {
+    if (newSlug === currentSlug || !availability.available) return;
+    setSaveStatus('saving');
+    try {
+      const res = await apiRequest('PATCH', `/api/calculators/${calculatorId}/slug`, {
+        token,
+        new_slug: newSlug,
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSaveStatus('saved');
+        onSlugChanged(newSlug);
+        trackEvent('calculator_slug_changed', { old_slug: currentSlug, new_slug: newSlug });
+        setTimeout(() => setSaveStatus('idle'), 3000);
+      } else {
+        setSaveStatus('error');
+        setErrorMessage(data.error || 'Failed to change URL');
+      }
+    } catch (err: any) {
+      setSaveStatus('error');
+      setErrorMessage(err?.message || 'Failed to change URL');
+    }
+  };
+
+  const canSave = newSlug !== currentSlug && newSlug.length >= 3 && availability.available === true && saveStatus !== 'saving';
+
+  return (
+    <Card className="shadow-sm mb-5 animate-fade-in-up animation-delay-150" data-testid="change-url-section">
+      <CardContent className="p-6">
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="flex items-center justify-between w-full text-left"
+          data-testid="toggle-change-url"
+        >
+          <SectionHeader icon={Link2} title="Change URL" iconBg="bg-violet-50" iconColor="text-violet-700" />
+          <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+        </button>
+
+        {expanded && (
+          <div className="mt-3 animate-fade-in-up" data-testid="change-url-form">
+            <p className="text-xs text-slate-500 mb-3 leading-relaxed">
+              Change the URL slug for your calculator. Old URLs will redirect for 30 days.
+            </p>
+
+            {/* Current URL */}
+            <div className="mb-3">
+              <Label className="text-xs font-semibold text-slate-400 mb-1 block">Current URL</Label>
+              <div className="flex items-center gap-2 bg-slate-50 rounded-lg px-3 py-2 border border-slate-200">
+                <span className="text-xs text-slate-500 font-mono flex-1">{currentSlug}.{HOSTING_DOMAIN}</span>
+              </div>
+            </div>
+
+            {/* New slug input */}
+            <div className="mb-3">
+              <Label className="text-xs font-semibold text-slate-500 mb-1 block">New URL</Label>
+              <div className="relative">
+                <input
+                  data-testid="input-change-slug"
+                  type="text"
+                  value={newSlug}
+                  onChange={e => handleInput(e.target.value)}
+                  maxLength={30}
+                  className="w-full px-3 py-2.5 rounded-lg border text-sm font-mono pr-10"
+                  style={{
+                    borderColor: newSlug !== currentSlug && availability.available === true ? '#059669' :
+                      newSlug !== currentSlug && availability.available === false ? '#EF4444' : undefined,
+                  }}
+                />
+                {newSlug !== currentSlug && newSlug.length >= 3 && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    {availability.checking && <Loader2 className="w-4 h-4 text-slate-400 animate-spin" />}
+                    {!availability.checking && availability.available === true && <CheckCircle2 className="w-4 h-4 text-emerald-500" />}
+                    {!availability.checking && availability.available === false && <XCircle className="w-4 h-4 text-red-500" />}
+                  </div>
+                )}
+              </div>
+              {/* Preview */}
+              <p className="text-xs text-slate-400 mt-1 font-mono">
+                https://{newSlug || '...'}.{HOSTING_DOMAIN}
+              </p>
+              {/* Status */}
+              {newSlug !== currentSlug && newSlug.length >= 3 && !availability.checking && (
+                <p className={`text-xs mt-1 font-medium ${availability.available ? 'text-emerald-600' : 'text-red-500'}`}>
+                  {availability.available ? 'Available' : (availability.error || 'Already taken')}
+                </p>
+              )}
+            </div>
+
+            <div className="flex gap-2">
+              <Button
+                onClick={handleSave}
+                disabled={!canSave}
+                size="sm"
+                className={`${saveStatus === 'saved' ? 'bg-emerald-600' : 'bg-violet-600 hover:bg-violet-700'}`}
+                data-testid="button-save-slug"
+              >
+                {saveStatus === 'saving' ? (
+                  <><Loader2 className="mr-1.5 w-3.5 h-3.5 animate-spin" /> Changing...</>
+                ) : saveStatus === 'saved' ? (
+                  <><Check className="mr-1.5 w-3.5 h-3.5" /> Changed</>
+                ) : (
+                  'Update URL'
+                )}
+              </Button>
+              {newSlug !== currentSlug && (
+                <Button
+                  onClick={() => { setNewSlug(currentSlug); setSaveStatus('idle'); }}
+                  size="sm"
+                  variant="outline"
+                >
+                  Cancel
+                </Button>
+              )}
+            </div>
+
+            {saveStatus === 'error' && (
+              <div className="mt-2 p-2 rounded-lg bg-red-50 border border-red-200 flex items-center gap-2">
+                <AlertTriangle className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
+                <span className="text-xs text-red-600">{errorMessage}</span>
+              </div>
+            )}
+
+            <p className="text-xs text-slate-400 mt-3">
+              Old URLs automatically redirect to the new one for 30 days.
+            </p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function DeploySection({ slug, origin }: { slug: string; origin: string }) {
   const [showEmbed, setShowEmbed] = useState(false);
   const calcUrl = `${origin}/calculator?slug=${slug}`;
-  const hostedUrl = `${slug}.estimate.ai`;
+  const hostedUrl = `${slug}.${HOSTING_DOMAIN}`;
   const inlineEmbed = `<script src="${origin}/embed-widget.js"\n  data-calculator-slug="${slug}"\n  async>\n</script>\n<div id="quotequick-widget"></div>`;
   const popupEmbed = `<script src="${origin}/embed-widget.js"\n  data-calculator-slug="${slug}"\n  data-mode="popup"\n  data-button-label="Get a Free Quote"\n  async>\n</script>`;
 
@@ -296,11 +481,13 @@ function DeploySection({ slug, origin }: { slug: string; origin: string }) {
 export default function EditCalculator() {
   const params = new URLSearchParams(window.location.search);
   const token = params.get('token');
+  const qc = useQueryClient();
 
   const [editData, setEditData] = useState<any>({});
   const [pricingConfig, setPricingConfig] = useState<PricingConfig | null>(null);
   const [saved, setSaved] = useState(false);
   const [duplicateResult, setDuplicateResult] = useState<any>(null);
+  const [currentSlug, setCurrentSlug] = useState<string>('');
 
   const { data: calcData, isLoading, error: loadError } = useQuery<any>({
     queryKey: ['/api/calculators/lookup', { token }],
@@ -322,6 +509,9 @@ export default function EditCalculator() {
       if (calculator.pricing_config) {
         setPricingConfig(calculator.pricing_config as PricingConfig);
       }
+    }
+    if (calculator?.slug && !currentSlug) {
+      setCurrentSlug(calculator.slug);
     }
   }, [calculator]);
 
@@ -525,7 +715,17 @@ export default function EditCalculator() {
         </div>
 
         {/* ─── Deploy Section ─── */}
-        <DeploySection slug={calculator.slug} origin={origin} />
+        <DeploySection slug={currentSlug || calculator.slug} origin={origin} />
+
+        <ChangeUrlSection
+          calculatorId={calculator.id}
+          currentSlug={currentSlug || calculator.slug}
+          token={token!}
+          onSlugChanged={(newSlug) => {
+            setCurrentSlug(newSlug);
+            qc.invalidateQueries({ queryKey: ['/api/calculators/lookup', { token }] });
+          }}
+        />
 
         <div className="space-y-5 animate-fade-in-up animation-delay-200">
           <Card className="shadow-sm">

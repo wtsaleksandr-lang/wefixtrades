@@ -26,7 +26,7 @@ export default function DocsEmbed() {
       </Step>
 
       <InfoBox type="tip">
-        <strong>Fastest option:</strong> Skip embedding entirely. Share your free hosted link (e.g. <code>your-slug.estimate.ai</code>) via email, Instagram bio, or Google Business profile — no website needed.
+        <strong>Fastest option:</strong> Skip embedding entirely. Share your free hosted link (e.g. <code>your-slug.instant-quote.com</code>) via email, Instagram bio, or Google Business profile — no website needed.
       </InfoBox>
 
       <DocH2>Three Embed Options</DocH2>
@@ -35,7 +35,7 @@ export default function DocsEmbed() {
       <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.7, marginBottom: 12 }}>
         Every calculator gets a free public URL. No embedding required.
       </p>
-      <CodeBlock lang="text" code={`https://your-slug.estimate.ai`} />
+      <CodeBlock lang="text" code={`https://your-slug.instant-quote.com`} />
       <p style={{ fontSize: 14, color: mkt.textMuted, lineHeight: 1.6, marginBottom: 12 }}>
         Or use the direct link:
       </p>

@@ -26,6 +26,9 @@ export default defineConfig({
       "@assets": path.resolve(import.meta.dirname, "attached_assets"),
     },
   },
+  define: {
+    'process.env.QQ_HOSTING_DOMAIN': JSON.stringify(process.env.QQ_HOSTING_DOMAIN || ''),
+  },
   root: path.resolve(import.meta.dirname, "client"),
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),

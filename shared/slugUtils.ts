@@ -27,12 +27,22 @@ export function isValidSlug(slug: string): { valid: boolean; reason?: string } {
   return { valid: true };
 }
 
-export function buildSubdomain(slug: string, domain: string = 'estimate.ai'): string {
+// Resolve hosting domain from environment.
+// Server: process.env.QQ_HOSTING_DOMAIN
+// Client (Vite): VITE_QQ_HOSTING_DOMAIN is statically replaced at build time
+const resolveHostingDomain = (): string => {
+  if (typeof process !== 'undefined' && process.env?.QQ_HOSTING_DOMAIN) {
+    return process.env.QQ_HOSTING_DOMAIN;
+  }
+  return 'instant-quote.com';
+};
+
+export const HOSTING_DOMAIN = resolveHostingDomain();
+
+export function buildSubdomain(slug: string, domain: string = HOSTING_DOMAIN): string {
   return `${slug}.${domain}`;
 }
 
-export function buildHostedUrl(slug: string, domain: string = 'estimate.ai'): string {
+export function buildHostedUrl(slug: string, domain: string = HOSTING_DOMAIN): string {
   return `https://${slug}.${domain}`;
 }
-
-export const HOSTING_DOMAIN = 'estimate.ai';
