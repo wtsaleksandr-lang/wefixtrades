@@ -101,6 +101,9 @@ type User, type InsertUser,
   // Calendar Connections
   calendarConnections,
   type CalendarConnection, type InsertCalendarConnection,
+  // Vapi Webhook Events
+  vapiWebhookEvents,
+  type VapiWebhookEventRow, type InsertVapiWebhookEvent,
 } from "@shared/schema";
 import { eq, desc, sql, and, gte, lte, ilike, or, isNotNull, count } from "drizzle-orm";
 import { createLogger } from "./lib/logger";
@@ -321,9 +324,12 @@ export interface IStorage {
   // ─── TradeLine ───
   getTradeLineConfig(clientServiceId: number): Promise<TradelineConfig | undefined>;
   updateTradeLineConfig(clientServiceId: number, partialConfig: Partial<TradelineConfig>): Promise<TradelineConfig>;
-  setTradeLineMode(clientServiceId: number, newMode: string, changedBy: string): Promise<TradelineModeLog>;
+  setTradeLineMode(clientServiceId: number, newMode: string, changedBy: string, reason?: string): Promise<TradelineModeLog>;
   createTradeLineCallLog(data: InsertTradelineCallLog): Promise<TradelineCallLog | null>;
   listTradeLineCalls(clientServiceId: number, limit?: number): Promise<TradelineCallLog[]>;
+  getTradeLineCallById(callId: number): Promise<TradelineCallLog | undefined>;
+  listAllTradeLineCalls(filters: { clientId?: number; from?: Date; to?: Date; outcome?: string; limit?: number; offset?: number }): Promise<{ calls: (TradelineCallLog & { business_name: string; client_id: number })[]; total: number }>;
+  listTradeLineFleet(): Promise<Array<{ clientServiceId: number; clientId: number; businessName: string; serviceId: string; status: string; variant: string; mode: string; assistantStatus: string; lastCallAt: string | null; periodMinutes: number; failedCalls24h: number }>>;
   upsertTradeLineUsage(clientServiceId: number, periodStart: Date, periodEnd: Date): Promise<TradelineUsage>;
   getTradeLineUsage(clientServiceId: number, periodStart?: Date): Promise<TradelineUsage | undefined>;
   listTradeLineModeChanges(clientServiceId: number, limit?: number): Promise<TradelineModeLog[]>;
@@ -331,6 +337,10 @@ export interface IStorage {
   findClientServiceByVapiPhoneNumberId(vapiPhoneNumberId: string): Promise<number | null>;
   findClientServiceByPrimaryBusinessNumber(phoneNumber: string): Promise<number | null>;
   updateTradeLineCallLeadData(callLogId: number, leadData: Record<string, unknown>): Promise<void>;
+
+  // ─── Vapi Webhook Events ───
+  createVapiWebhookEvent(data: InsertVapiWebhookEvent): Promise<VapiWebhookEventRow>;
+  listVapiWebhookEvents(limit?: number): Promise<VapiWebhookEventRow[]>;
 
   // ─── SocialSync ───
   upsertSocialSyncProfile(data: InsertSocialSyncProfile): Promise<SocialSyncProfile>;
@@ -2074,7 +2084,7 @@ export class DatabaseStorage implements IStorage {
     return tradelineConfigSchema.parse(merged);
   }
 
-  async setTradeLineMode(clientServiceId: number, newMode: string, changedBy: string): Promise<TradelineModeLog> {
+  async setTradeLineMode(clientServiceId: number, newMode: string, changedBy: string, reason?: string): Promise<TradelineModeLog> {
     const config = await this.getTradeLineConfig(clientServiceId) ?? tradelineConfigSchema.parse({});
     const oldMode = config.currentMode;
 
@@ -2087,6 +2097,7 @@ export class DatabaseStorage implements IStorage {
       old_mode: oldMode,
       new_mode: newMode,
       changed_by: changedBy,
+      reason: reason ?? null,
     }).returning();
     return log;
   }
@@ -2105,6 +2116,64 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(tradelineCallLog.created_at))
       .limit(limit);
   }
+
+  async getTradeLineCallById(callId: number): Promise<TradelineCallLog | undefined> {
+    const [row] = await db.select().from(tradelineCallLog)
+      .where(eq(tradelineCallLog.id, callId))
+      .limit(1);
+    return row;
+  }
+
+  async listAllTradeLineCalls(filters: { clientId?: number; from?: Date; to?: Date; outcome?: string; limit?: number; offset?: number }): Promise<{ calls: (TradelineCallLog & { business_name: string; client_id: number })[]; total: number }> {
+    const conditions = [];
+    if (filters.clientId) {
+      conditions.push(sql`${tradelineCallLog.client_service_id} IN (SELECT id FROM client_services WHERE client_id = ${filters.clientId})`);
+    }
+    if (filters.from) {
+      conditions.push(gte(tradelineCallLog.created_at, filters.from));
+    }
+    if (filters.to) {
+      conditions.push(sql`${tradelineCallLog.created_at} <= ${filters.to}`);
+    }
+    if (filters.outcome) {
+      conditions.push(eq(tradelineCallLog.outcome, filters.outcome));
+    }
+    conditions.push(sql`${tradelineCallLog.client_service_id} IN (SELECT id FROM client_services WHERE service_id LIKE 'tradeline%')`);
+    const limit = filters.limit ?? 50;
+    const offset = filters.offset ?? 0;
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+    const [countResult] = await db.select({ total: sql<number>`count(*)::int` }).from(tradelineCallLog).where(whereClause);
+    const rows = await db.select({
+      id: tradelineCallLog.id, client_service_id: tradelineCallLog.client_service_id, vapi_call_id: tradelineCallLog.vapi_call_id,
+      direction: tradelineCallLog.direction, caller_number: tradelineCallLog.caller_number, duration_seconds: tradelineCallLog.duration_seconds,
+      outcome: tradelineCallLog.outcome, started_at: tradelineCallLog.started_at, ended_at: tradelineCallLog.ended_at,
+      summary: tradelineCallLog.summary, transcript_json: tradelineCallLog.transcript_json, recording_url: tradelineCallLog.recording_url,
+      created_at: tradelineCallLog.created_at, business_name: clients.business_name, client_id: clients.id,
+    }).from(tradelineCallLog)
+      .innerJoin(clientServices, eq(tradelineCallLog.client_service_id, clientServices.id))
+      .innerJoin(clients, eq(clientServices.client_id, clients.id))
+      .where(whereClause).orderBy(desc(tradelineCallLog.created_at)).limit(limit).offset(offset);
+    return { calls: rows as any, total: countResult?.total ?? 0 };
+  }
+
+  async listTradeLineFleet(): Promise<Array<{ clientServiceId: number; clientId: number; businessName: string; serviceId: string; status: string; variant: string; mode: string; assistantStatus: string; lastCallAt: string | null; periodMinutes: number; failedCalls24h: number }>> {
+    const services = await db.select({ id: clientServices.id, client_id: clientServices.client_id, service_id: clientServices.service_id, status: clientServices.status, metadata: clientServices.metadata, business_name: clients.business_name })
+      .from(clientServices).innerJoin(clients, eq(clientServices.client_id, clients.id)).where(sql`${clientServices.service_id} LIKE 'tradeline%'`).orderBy(clients.business_name);
+    const result = [];
+    for (const svc of services) {
+      const meta = (svc.metadata as Record<string, any>) ?? {};
+      const tradeline = meta?.tradeline ?? {};
+      const [lastCall] = await db.select({ created_at: tradelineCallLog.created_at }).from(tradelineCallLog).where(eq(tradelineCallLog.client_service_id, svc.id)).orderBy(desc(tradelineCallLog.created_at)).limit(1);
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const [failedCount] = await db.select({ count: sql<number>`count(*)::int` }).from(tradelineCallLog).where(and(eq(tradelineCallLog.client_service_id, svc.id), eq(tradelineCallLog.outcome, "failed"), gte(tradelineCallLog.created_at, twentyFourHoursAgo)));
+      const now = new Date();
+      const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const [usageRow] = await db.select({ voice_minutes_used: tradelineUsage.voice_minutes_used }).from(tradelineUsage).where(and(eq(tradelineUsage.client_service_id, svc.id), eq(tradelineUsage.period_start, periodStart))).limit(1);
+      result.push({ clientServiceId: svc.id, clientId: svc.client_id, businessName: svc.business_name, serviceId: svc.service_id, status: svc.status, variant: tradeline.variant || "complete", mode: tradeline.currentMode || "available", assistantStatus: tradeline.assistant?.status || "not_built", lastCallAt: lastCall?.created_at?.toISOString() ?? null, periodMinutes: usageRow?.voice_minutes_used ?? 0, failedCalls24h: failedCount?.count ?? 0 });
+    }
+    return result;
+  }
+
 
   async upsertTradeLineUsage(clientServiceId: number, periodStart: Date, periodEnd: Date): Promise<TradelineUsage> {
     // Try to find existing usage row for this period
@@ -3822,6 +3891,17 @@ export class DatabaseStorage implements IStorage {
   }
   async updateEmailQueueItem(id: number, updates: Partial<{ status: string; attempts: number; last_error: string | null; sent_at: Date | null }>): Promise<void> {
     await db.update(emailQueue).set(updates).where(eq(emailQueue.id, id));
+  }
+
+  // ─── Vapi Webhook Events ───
+  async createVapiWebhookEvent(data: InsertVapiWebhookEvent): Promise<VapiWebhookEventRow> {
+    const [row] = await db.insert(vapiWebhookEvents).values(data).returning();
+    return row;
+  }
+  async listVapiWebhookEvents(limit = 50): Promise<VapiWebhookEventRow[]> {
+    return db.select().from(vapiWebhookEvents)
+      .orderBy(desc(vapiWebhookEvents.created_at))
+      .limit(limit);
   }
 }
 

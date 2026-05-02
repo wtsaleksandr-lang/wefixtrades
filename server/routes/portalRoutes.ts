@@ -1434,7 +1434,7 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
         return res.status(400).json({ error: "newMode must be one of: available, on_the_job, after_hours" });
       }
 
-      const modeLog = await storage.setTradeLineMode(csId, newMode, "client");
+      const modeLog = await storage.setTradeLineMode(csId, newMode, "client", "Manual switch by client");
       const config = await storage.getTradeLineConfig(csId);
 
       res.json({ config, modeLog });

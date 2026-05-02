@@ -41,6 +41,8 @@ import { processRecurringTasks } from "./recurringTaskWorker";
 import { processUpsellEmails } from "./upsellWorker";
 import { processWebcareMaintenance } from "./webcareMaintenanceWorker";
 import { processRetention } from "./retentionWorker";
+import { processTradeLineModeSync } from "./tradelineModeWorker";
+import { processTradeLineRetries } from "./tradelineRetryWorker";
 import { fireAlert } from "../services/alertService";
 import { processEmailQueue } from "../services/emailQueueService";
 
@@ -628,6 +630,40 @@ export function initScheduler() {
       log.error("email_queue error", { error: err.message });
     } finally {
       emailQueueRunning = false;
+    }
+  });
+
+  // TradeLine mode worker — auto-switches mode based on business hours.
+  let tradelineModeRunning = false;
+  cron.schedule("*/5 * * * *", async () => {
+    if (tradelineModeRunning) {
+      log.debug("tradeline_mode_sync skipped — previous tick still running");
+      return;
+    }
+    tradelineModeRunning = true;
+    try {
+      await runJob("tradeline_mode_sync", processTradeLineModeSync);
+    } catch (err: any) {
+      log.error("tradeline_mode_sync error", { error: err.message });
+    } finally {
+      tradelineModeRunning = false;
+    }
+  });
+
+  // TradeLine retry worker — retries failed assistant builds every 15 min.
+  let tradelineRetryRunning = false;
+  cron.schedule("*/15 * * * *", async () => {
+    if (tradelineRetryRunning) {
+      log.debug("tradeline_retry skipped — previous tick still running");
+      return;
+    }
+    tradelineRetryRunning = true;
+    try {
+      await runJob("tradeline_retry", processTradeLineRetries);
+    } catch (err: any) {
+      log.error("tradeline_retry error", { error: err.message });
+    } finally {
+      tradelineRetryRunning = false;
     }
   });
 }

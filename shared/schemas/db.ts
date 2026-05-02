@@ -860,3 +860,18 @@ export const emailQueue = pgTable("email_queue", {
 export const insertEmailQueueSchema = createInsertSchema(emailQueue).omit({ id: true, created_at: true });
 export type InsertEmailQueue = z.infer<typeof insertEmailQueueSchema>;
 export type EmailQueueItem = typeof emailQueue.$inferSelect;
+
+/* ─── Vapi Webhook Events (diagnostic log) ─── */
+export const vapiWebhookEvents = pgTable("vapi_webhook_events", {
+  id: serial("id").primaryKey(),
+  event_type: text("event_type").notNull(),
+  call_id: text("call_id"),
+  client_service_id: integer("client_service_id"),
+  payload_summary: text("payload_summary"),
+  status: text("status").default("processed"),
+  error: text("error"),
+  created_at: timestamp("created_at").defaultNow(),
+});
+export const insertVapiWebhookEventSchema = createInsertSchema(vapiWebhookEvents).omit({ id: true, created_at: true });
+export type InsertVapiWebhookEvent = z.infer<typeof insertVapiWebhookEventSchema>;
+export type VapiWebhookEventRow = typeof vapiWebhookEvents.$inferSelect;

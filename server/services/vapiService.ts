@@ -672,5 +672,47 @@ export async function provisionTradeLineAssistant(clientServiceId: number): Prom
   }
 
   await storage.logAdminActivity({ actor_type: "system", actor_name: "TradeLine Template Engine", action: "tradeline.assistant_built", entity_type: "client_service", entity_id: clientServiceId, summary: `Built assistant (template: ${result.definition.templateId}, hash: ${result.definition.inputHash})${assistantId ? ` → Vapi ID: ${assistantId}` : " (Vapi not configured)"}`, metadata: { templateId: result.definition.templateId, inputHash: result.definition.inputHash, vapiAssistantId: assistantId } });
+
+  // Auto-provision a phone number after assistant is built (fail-safe)
+  if (assistantId && vapiConfig.apiKey) {
+    provisionVapiPhoneNumber(clientServiceId, assistantId).catch(err => {
+      log.warn("Phone number auto-provisioning failed (non-blocking)", { clientServiceId, error: (err as Error).message });
+    });
+  }
+
   return { assistantId, skipped: false, definition: result.definition };
+}
+
+/* ─── Per-Client Vapi Phone Number Provisioning ─── */
+
+export async function provisionVapiPhoneNumber(clientServiceId: number, assistantId?: string): Promise<{ phoneNumberId: string | null; number: string | null }> {
+  const config = getVapiConfig();
+  if (!config.apiKey) { log.warn("VAPI_API_KEY not configured — cannot provision phone number"); return { phoneNumberId: null, number: null }; }
+  if (!assistantId) {
+    const tlConfig = await storage.getTradeLineConfig(clientServiceId);
+    assistantId = tlConfig?.assistant?.vapiAssistantId;
+    if (!assistantId) { log.warn("No assistant ID for phone provisioning", { clientServiceId }); return { phoneNumberId: null, number: null }; }
+  }
+  const existingConfig = await storage.getTradeLineConfig(clientServiceId);
+  const existingPhoneId = (existingConfig?.assistant as Record<string, any>)?.vapiPhoneNumberId;
+  if (existingPhoneId) { return { phoneNumberId: existingPhoneId, number: null }; }
+  try {
+    const resp = await fetch(`${VAPI_API_BASE}/phone-number`, { method: "POST", headers: { "Authorization": `Bearer ${config.apiKey}`, "Content-Type": "application/json" }, body: JSON.stringify({ assistantId, provider: "twilio", name: `TradeLine #${clientServiceId}` }) });
+    if (!resp.ok) { const body = await resp.text(); throw new Error(`Vapi phone provisioning failed (${resp.status}): ${body}`); }
+    const data = await resp.json();
+    const phoneNumberId = data.id;
+    const number = data.number || data.phoneNumber || null;
+    if (phoneNumberId) {
+      const latestConfig = await storage.getTradeLineConfig(clientServiceId);
+      const ca = latestConfig?.assistant;
+      await storage.updateTradeLineConfig(clientServiceId, { assistant: { ...ca!, vapiPhoneNumberId: phoneNumberId } } as any);
+      await storage.logAdminActivity({ actor_type: "system", actor_name: "TradeLine Phone Provisioner", action: "tradeline.phone_provisioned", entity_type: "client_service", entity_id: clientServiceId, summary: `Provisioned Vapi phone number: ${number || phoneNumberId}`, metadata: { vapiPhoneNumberId: phoneNumberId, number } });
+      log.info("Provisioned Vapi phone number", { clientServiceId, phoneNumberId, number });
+    }
+    return { phoneNumberId: phoneNumberId || null, number };
+  } catch (err) {
+    log.error("Vapi phone number provisioning failed", { clientServiceId, error: (err as Error).message });
+    await storage.logAdminActivity({ actor_type: "system", actor_name: "TradeLine Phone Provisioner", action: "tradeline.phone_provision_failed", entity_type: "client_service", entity_id: clientServiceId, summary: `Phone provisioning failed: ${(err as Error).message}` });
+    return { phoneNumberId: null, number: null };
+  }
 }

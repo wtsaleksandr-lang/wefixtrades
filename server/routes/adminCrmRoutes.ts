@@ -1284,7 +1284,7 @@ export function registerAdminCrmRoutes(app: Express): void {
         return res.status(400).json({ error: "newMode must be one of: available, on_the_job, after_hours" });
       }
 
-      const modeLog = await storage.setTradeLineMode(csId, newMode, "admin");
+      const modeLog = await storage.setTradeLineMode(csId, newMode, "admin", "Admin override");
       const config = await storage.getTradeLineConfig(csId);
 
       await storage.logAdminActivity({
@@ -1543,6 +1543,8 @@ export function registerAdminCrmRoutes(app: Express): void {
         assistant: { ...config.assistant, status: "disabled" as any },
         currentMode: "after_hours",
       });
+      // Log mode change with kill switch reason
+      await storage.setTradeLineMode(csId, "after_hours", "system", "Emergency disable by admin");
 
       // 2. Attempt to deactivate the Vapi assistant via API
       let vapiResult: string = "no_vapi_id";
@@ -2939,6 +2941,66 @@ export function registerAdminCrmRoutes(app: Express): void {
     } catch (err: any) {
       log.error("[admin-crm] Profit overview error:", { error: err.message });
       res.status(500).json({ error: "Failed to load profit overview" });
+    }
+  });
+
+  /* ═══════════════════════════════════════════
+     TradeLine — Webhook Events Log
+     ═══════════════════════════════════════════ */
+
+  app.get("/api/admin/crm/tradeline/webhook-events", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const limit = Math.min(200, Math.max(1, parseInt(req.query.limit as string) || 50));
+      const events = await storage.listVapiWebhookEvents(limit);
+      res.json(events);
+    } catch (err: any) {
+      log.error("[admin-crm] Webhook events error:", { error: err.message });
+      res.status(500).json({ error: "Failed to load webhook events" });
+    }
+  });
+
+  /* ═══════════════════════════════════════════
+     TradeLine — Cost Reconciliation
+     ═══════════════════════════════════════════ */
+
+  app.get("/api/admin/crm/tradeline/cost-reconciliation", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const { getVapiBillingUsage } = await import("../services/tradelineCostService");
+      const now = new Date();
+      const startDate = req.query.startDate
+        ? new Date(req.query.startDate as string)
+        : new Date(now.getFullYear(), now.getMonth(), 1);
+      const endDate = req.query.endDate
+        ? new Date(req.query.endDate as string)
+        : now;
+      const result = await getVapiBillingUsage(startDate, endDate);
+      res.json(result);
+    } catch (err: any) {
+      log.error("[admin-crm] Cost reconciliation error:", { error: err.message });
+      res.status(500).json({ error: "Failed to load cost reconciliation" });
+    }
+  });
+
+  /* ═══════════════════════════════════════════
+     TradeLine — Test Call
+     ═══════════════════════════════════════════ */
+
+  app.post("/api/admin/crm/tradeline/:csId/test-call", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const csId = parseInt(req.params.csId as string);
+      if (isNaN(csId)) return res.status(400).json({ error: "Invalid service id" });
+
+      const cs = await storage.getClientServiceById(csId);
+      if (!cs || !cs.service_id.startsWith("tradeline")) {
+        return res.status(404).json({ error: "TradeLine service not found" });
+      }
+
+      const { runTestCall } = await import("../services/tradelineTestCall");
+      const result = await runTestCall(csId);
+      res.json(result);
+    } catch (err: any) {
+      log.error("[admin-crm] Test call error:", { error: err.message });
+      res.status(500).json({ error: "Failed to run test call" });
     }
   });
 }

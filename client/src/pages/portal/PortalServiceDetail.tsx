@@ -521,6 +521,9 @@ export default function PortalServiceDetail() {
             {/* TradeLine section */}
             {isTradeLine && tlData?.config && (
               <>
+                {/* Status Banner */}
+                <TradeLineStatusBanner mode={tlData.config.currentMode} assistantStatus={tlData.assistantStatus} />
+
                 {/* Mode control */}
                 <div className="bg-white rounded-xl border border-gray-200 p-5">
                   <h2 className="text-sm font-semibold text-gray-900 mb-3">Current Mode</h2>
@@ -544,6 +547,20 @@ export default function PortalServiceDetail() {
                 <VoiceAndStyleCard
                   clientServiceId={parseInt(serviceId!)}
                   config={tlData.config}
+                  onSaved={() => queryClient.invalidateQueries({ queryKey: ["/api/portal/tradeline", serviceId] })}
+                />
+
+                {/* Business Hours */}
+                <BusinessHoursCard
+                  clientServiceId={parseInt(serviceId!)}
+                  businessHours={tlData.config.businessHours}
+                  onSaved={() => queryClient.invalidateQueries({ queryKey: ["/api/portal/tradeline", serviceId] })}
+                />
+
+                {/* Notification Settings */}
+                <NotificationSettingsCard
+                  clientServiceId={parseInt(serviceId!)}
+                  notifications={tlData.config.notifications}
                   onSaved={() => queryClient.invalidateQueries({ queryKey: ["/api/portal/tradeline", serviceId] })}
                 />
 
@@ -576,52 +593,8 @@ export default function PortalServiceDetail() {
                   </div>
                 )}
 
-                {/* Recent calls */}
-                <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                  <div className="px-5 py-4 border-b border-gray-100">
-                    <h2 className="text-sm font-semibold text-gray-900">Recent Calls</h2>
-                  </div>
-                  {tlData.recentCalls.length === 0 ? (
-                    <div className="px-5 py-8 text-center text-sm text-gray-400">
-                      No calls yet. Activity will appear here once your system is live.
-                    </div>
-                  ) : (
-                    <ul className="divide-y divide-gray-50">
-                      {tlData.recentCalls.map((call) => (
-                        <li key={call.id} className="px-5 py-3 flex items-start gap-3">
-                          <div className="mt-0.5 shrink-0">
-                            <CallIcon outcome={call.outcome} />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm text-gray-700">
-                                {call.caller_number || "Unknown caller"}
-                              </span>
-                              <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded capitalize ${
-                                call.outcome === "answered" ? "bg-emerald-50 text-emerald-700"
-                                : call.outcome === "missed" ? "bg-red-50 text-red-700"
-                                : "bg-gray-100 text-gray-600"
-                              }`}>
-                                {call.outcome}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-3 mt-0.5 text-[10px] text-gray-400">
-                              {call.duration_seconds > 0 && (
-                                <span>{Math.floor(call.duration_seconds / 60)}:{String(call.duration_seconds % 60).padStart(2, "0")}</span>
-                              )}
-                              {call.ended_at && (
-                                <span>{formatDate(call.ended_at)}</span>
-                              )}
-                            </div>
-                            {call.summary && (
-                              <p className="text-xs text-gray-500 mt-1 line-clamp-2">{call.summary}</p>
-                            )}
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
+                {/* Recent calls with drill-down */}
+                <TradeLineCallList clientServiceId={parseInt(serviceId!)} calls={tlData.recentCalls} />
 
                 {/* Widget / hosted info */}
                 {(tlData.config.website.embedMode !== "none" || tlData.config.website.hostedUrl) && (
