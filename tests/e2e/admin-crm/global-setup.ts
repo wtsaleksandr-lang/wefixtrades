@@ -65,7 +65,10 @@ async function globalSetup(_config: FullConfig) {
   }
 
   /* ── 2. Login via browser and persist session ── */
-  const browser = await chromium.launch();
+  const { execSync } = await import("child_process");
+  let execPath: string | undefined;
+  try { execPath = execSync("which chromium 2>/dev/null || which chromium-browser 2>/dev/null", { encoding: "utf-8" }).trim(); } catch {}
+  const browser = await chromium.launch(execPath ? { executablePath: execPath } : {});
   const context = await browser.newContext({ baseURL: BASE_URL });
   const page = await context.newPage();
 

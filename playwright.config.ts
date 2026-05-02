@@ -1,4 +1,17 @@
 import { defineConfig, devices } from '@playwright/test';
+import { execSync } from 'child_process';
+
+// Auto-detect Nix-managed Chromium on Replit
+function findChromium(): string | undefined {
+  try {
+    const path = execSync('which chromium 2>/dev/null || which chromium-browser 2>/dev/null || which google-chrome 2>/dev/null', { encoding: 'utf-8' }).trim();
+    if (path) return path;
+  } catch {}
+  if (process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH) return process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
+  return undefined;
+}
+
+const chromiumPath = findChromium();
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -23,9 +36,7 @@ export default defineConfig({
     trace: 'on-first-retry',
 
     /* Replit: use nix-managed Chromium (system libs incompatible with PW bundled headless shell) */
-    ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
-      ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH }
-      : {}),
+    ...(chromiumPath ? { launchOptions: { executablePath: chromiumPath } } : {}),
   },
 
   /* Global setup for admin-crm: seeds admin user, services, and persists auth session */
