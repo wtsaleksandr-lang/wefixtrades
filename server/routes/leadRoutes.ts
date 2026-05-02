@@ -18,6 +18,12 @@ const createLeadBody = z.object({
   consent_timestamp: z.string().nullable().optional(),
   consent_text_version: z.string().max(50).nullable().optional(),
   coupon_code: z.string().nullable().optional(),
+  // UTM / source attribution
+  landing_page: z.string().nullable().optional(),
+  referrer: z.string().nullable().optional(),
+  utm_source: z.string().nullable().optional(),
+  utm_medium: z.string().nullable().optional(),
+  utm_campaign: z.string().nullable().optional(),
 });
 
 const leadsQuery = z.object({ token: z.string().min(1) });
@@ -77,6 +83,18 @@ async function enqueueLeadNotificationsAndFollowups(lead: any, calculatorId: num
         delivery_email: deliveryEmail,
         dashboard_url: dashboardUrl,
         hosted_url: hostedUrl,
+      },
+    });
+  }
+
+  if (notifications.sms_enabled && calc.owner_phone) {
+    await storage.enqueueNotification({
+      calculator_id: calculatorId,
+      lead_id: lead.id,
+      type: 'sms',
+      status: 'pending',
+      payload: {
+        owner_phone: calc.owner_phone,
       },
     });
   }
@@ -240,6 +258,12 @@ export function registerLeadRoutes(app: Express): void {
         consent_text_version: parsed.data.sms_consent && parsed.data.consent_text_version
           ? parsed.data.consent_text_version
           : null,
+        // UTM / source attribution
+        landing_page: parsed.data.landing_page?.trim() || null,
+        referrer: parsed.data.referrer?.trim() || null,
+        utm_source: parsed.data.utm_source?.trim() || null,
+        utm_medium: parsed.data.utm_medium?.trim() || null,
+        utm_campaign: parsed.data.utm_campaign?.trim() || null,
       });
 
       if (parsed.data.coupon_code) {

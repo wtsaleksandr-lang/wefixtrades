@@ -313,6 +313,54 @@ export function registerDashboardRoutes(app: Express): void {
     }
   });
 
+  // ============ LEAD UPDATE (status + won_value) ============
+
+  app.patch("/api/dashboard/leads/:id", async (req, res) => {
+    try {
+      const token = String(req.query.token || req.body.token || '');
+      if (!token) return res.status(400).json({ error: "token required" });
+      const calculator = await requireCalcByToken(token);
+      if (!calculator) return res.status(404).json({ error: "Calculator not found or expired" });
+
+      const leadId = parseInt(req.params.id);
+      const lead = await storage.getLeadById(leadId);
+      if (!lead || lead.calculator_id !== calculator.id) {
+        return res.status(404).json({ error: "Lead not found" });
+      }
+
+      const body = z.object({
+        status: z.enum(['new', 'contacted', 'won', 'lost']).optional(),
+        won_value: z.number().int().min(0).nullable().optional(),
+      }).safeParse(req.body);
+
+      if (!body.success) {
+        return res.status(400).json({ error: "Invalid request", details: body.error.flatten() });
+      }
+
+      const updates: Record<string, any> = {};
+      if (body.data.status !== undefined) {
+        updates.status = body.data.status;
+        if (body.data.status !== 'new') {
+          await storage.cancelFollowupsForLead(leadId);
+        }
+      }
+      if (body.data.won_value !== undefined) {
+        updates.won_value = body.data.won_value;
+        updates.won_at = body.data.won_value != null ? new Date() : null;
+      }
+
+      if (Object.keys(updates).length === 0) {
+        return res.json({ success: true, lead });
+      }
+
+      const updated = await storage.updateLead(leadId, updates);
+      res.json({ success: true, lead: updated });
+    } catch (error: any) {
+      log.error("Update lead error:", error);
+      res.status(500).json({ error: "Failed to update lead" });
+    }
+  });
+
   // ============ LEAD STATUS ============
 
   app.patch("/api/dashboard/leads/:id/status", async (req, res) => {

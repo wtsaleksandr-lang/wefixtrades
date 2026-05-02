@@ -2,6 +2,10 @@ import { storage } from "../storage";
 import type { NotificationQueue, Calculator, Lead } from "@shared/schema";
 import { getEmailTransporter, getFromAddress } from "../lib/emailTransport";
 import { buildTransactionalEmail, buildPlainText } from "../lib/transactionalShell";
+import { isTwilioConfigured, sendSMS, storeSmsMessage } from "../twilioClient";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("NotificationWorker");
 
 const RATE_LIMIT_PER_CALCULATOR = 30;
 const RATE_LIMIT_WINDOW_MINUTES = 60;
@@ -143,11 +147,80 @@ export async function processNotificationQueue(): Promise<{ processed: number; e
         });
         processed++;
       } else if (notif.type === 'sms') {
-        await storage.updateNotification(notif.id, {
-          status: 'skipped',
-          last_error: 'SMS is a Pro feature — not configured',
-          attempts: (notif.attempts || 0) + 1,
-        });
+        const payload = notif.payload as any;
+        const calc = await storage.getCalculatorById(notif.calculator_id);
+        const lead = await storage.getLeadById(notif.lead_id);
+
+        if (!calc || !lead) {
+          await storage.updateNotification(notif.id, { status: 'failed', last_error: 'Calculator or lead not found' });
+          continue;
+        }
+
+        // Check if SMS notifications are enabled for this calculator
+        const settings = (calc.calculator_settings as any) || {};
+        const notifications = settings.followup?.notifications || {};
+        if (!notifications.sms_enabled) {
+          await storage.updateNotification(notif.id, {
+            status: 'skipped',
+            last_error: 'SMS notifications not enabled for this calculator',
+            attempts: (notif.attempts || 0) + 1,
+          });
+          continue;
+        }
+
+        if (!isTwilioConfigured()) {
+          await storage.updateNotification(notif.id, {
+            status: 'failed',
+            last_error: 'Twilio not configured',
+            attempts: (notif.attempts || 0) + 1,
+          });
+          errors.push(`Notification ${notif.id}: Twilio not configured`);
+          continue;
+        }
+
+        const toPhone = calc.owner_phone;
+        if (!toPhone) {
+          await storage.updateNotification(notif.id, {
+            status: 'failed',
+            last_error: 'No business phone number configured',
+            attempts: (notif.attempts || 0) + 1,
+          });
+          continue;
+        }
+
+        try {
+          const quoteDisplay = lead.quote_amount ? `$${lead.quote_amount}` : 'Quote requested';
+          const smsBody = `New lead: ${lead.name || 'Unknown'} — ${quoteDisplay}. ${lead.phone || lead.email || ''}. Check your dashboard for details.`;
+
+          const twilioSid = await sendSMS(toPhone, smsBody, 'sms');
+
+          await storeSmsMessage({
+            lead_id: lead.id,
+            calculator_id: calc.id,
+            direction: 'outbound',
+            channel: 'sms',
+            body: smsBody,
+            to_number: toPhone,
+            twilio_sid: twilioSid,
+            is_ai: false,
+          });
+
+          await storage.updateNotification(notif.id, {
+            status: 'sent',
+            processed_at: new Date(),
+            attempts: (notif.attempts || 0) + 1,
+          });
+          processed++;
+        } catch (smsErr: any) {
+          const attempts = (notif.attempts || 0) + 1;
+          await storage.updateNotification(notif.id, {
+            status: attempts >= (notif.max_attempts || 3) ? 'failed' : 'pending',
+            last_error: smsErr.message,
+            attempts,
+          });
+          errors.push(`Notification ${notif.id}: SMS error: ${smsErr.message}`);
+          log.error("SMS notification send failed", { notifId: notif.id, error: smsErr.message });
+        }
       } else if (notif.type === 'webhook') {
         const payload = notif.payload as any;
         const webhookUrl = payload?.webhook_url;

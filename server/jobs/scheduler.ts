@@ -45,6 +45,7 @@ import { processTradeLineModeSync } from "./tradelineModeWorker";
 import { processTradeLineRetries } from "./tradelineRetryWorker";
 import { fireAlert } from "../services/alertService";
 import { processEmailQueue } from "../services/emailQueueService";
+import { processEmbedBrokenDetection } from "./embedBrokenDetector";
 
 const log = createLogger("Scheduler");
 
@@ -464,6 +465,7 @@ export function initScheduler() {
       "AdFlow monthly reports: 13:00 UTC on the 2nd of each month",
       "AdFlow metrics check: 08:00 UTC daily (active 28th-30th only)",
       "WebCare health checks: every 15 minutes",
+      "Embed broken detection: 06:00 UTC daily",
       "Recurring task generation: 01:00 UTC every day",
       "Auto-activation worker: every 5 minutes",
       "Upsell emails: 10:00 UTC daily",
@@ -632,6 +634,18 @@ export function initScheduler() {
       emailQueueRunning = false;
     }
   });
+
+  // Embed broken detector — daily at 06:00 UTC.
+  // Checks published calculators with 0 views in the last 14 days
+  // (created > 14 days ago) and fires system alerts.
+  cron.schedule("0 6 * * *", async () => {
+    log.info("Running embed broken detection...");
+    try {
+      await runJob("embed_broken_detection", processEmbedBrokenDetection);
+    } catch (err: any) {
+      log.error("embed_broken_detection cron handler error", { error: err.message });
+    }
+  }, { timezone: "UTC" });
 
   // TradeLine mode worker — auto-switches mode based on business hours.
   let tradelineModeRunning = false;
