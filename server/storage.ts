@@ -328,6 +328,9 @@ export interface IStorage {
   getTradeLineUsage(clientServiceId: number, periodStart?: Date): Promise<TradelineUsage | undefined>;
   listTradeLineModeChanges(clientServiceId: number, limit?: number): Promise<TradelineModeLog[]>;
   incrementTradeLineUsage(clientServiceId: number, periodStart: Date, periodEnd: Date, increments: { voiceMinutes?: number; calls?: number; sms?: number }): Promise<TradelineUsage>;
+  findClientServiceByVapiPhoneNumberId(vapiPhoneNumberId: string): Promise<number | null>;
+  findClientServiceByPrimaryBusinessNumber(phoneNumber: string): Promise<number | null>;
+  updateTradeLineCallLeadData(callLogId: number, leadData: Record<string, unknown>): Promise<void>;
 
   // ─── SocialSync ───
   upsertSocialSyncProfile(data: InsertSocialSyncProfile): Promise<SocialSyncProfile>;
@@ -2144,6 +2147,40 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(tradelineUsage.period_start))
       .limit(1);
     return row;
+  }
+
+  /* ─── TradeLine Phone-Number Lookups ─── */
+
+  async findClientServiceByVapiPhoneNumberId(vapiPhoneNumberId: string): Promise<number | null> {
+    const rows = await db.select({ id: clientServices.id })
+      .from(clientServices)
+      .where(
+        and(
+          sql`${clientServices.service_id} LIKE 'tradeline%'`,
+          sql`${clientServices.metadata}->'tradeline'->'assistant'->>'vapiPhoneNumberId' = ${vapiPhoneNumberId}`,
+        ),
+      )
+      .limit(1);
+    return rows[0]?.id ?? null;
+  }
+
+  async findClientServiceByPrimaryBusinessNumber(phoneNumber: string): Promise<number | null> {
+    const rows = await db.select({ id: clientServices.id })
+      .from(clientServices)
+      .where(
+        and(
+          sql`${clientServices.service_id} LIKE 'tradeline%'`,
+          sql`${clientServices.metadata}->'tradeline'->'phoneRouting'->>'primaryBusinessNumber' = ${phoneNumber}`,
+        ),
+      )
+      .limit(1);
+    return rows[0]?.id ?? null;
+  }
+
+  async updateTradeLineCallLeadData(callLogId: number, leadData: Record<string, unknown>): Promise<void> {
+    await db.update(tradelineCallLog)
+      .set({ transcript_json: sql`COALESCE(${tradelineCallLog.transcript_json}, '{}'::jsonb) || jsonb_build_object('lead_data', ${JSON.stringify(leadData)}::jsonb)` })
+      .where(eq(tradelineCallLog.id, callLogId));
   }
 
   /* ═══════════════════════════════════════════

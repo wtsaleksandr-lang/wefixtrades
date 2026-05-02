@@ -1504,6 +1504,52 @@ export function registerAdminCrmRoutes(app: Express): void {
     }
   });
 
+  /**
+   * GET /api/admin/crm/tradeline/fleet
+   * Returns all TradeLine client_services with fleet-level data for ops dashboard.
+   */
+  app.get("/api/admin/crm/tradeline/fleet", requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      const fleet = await storage.listTradeLineFleet();
+      res.json(fleet);
+    } catch (err: any) {
+      log.error("[admin-crm] TradeLine fleet error:", { error: err.message });
+      res.status(500).json({ error: "Failed to load TradeLine fleet data" });
+    }
+  });
+
+  /**
+   * POST /api/admin/crm/tradeline/:clientServiceId/disable
+   * Emergency kill switch — disables a TradeLine service.
+   */
+  app.post("/api/admin/crm/tradeline/:clientServiceId/disable", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const csId = parseInt(req.params.clientServiceId as string);
+      if (isNaN(csId)) return res.status(400).json({ error: "Invalid service id" });
+
+      const cs = await storage.getClientServiceById(csId);
+      if (!cs || !cs.service_id.startsWith("tradeline")) {
+        return res.status(404).json({ error: "TradeLine service not found" });
+      }
+
+      await storage.updateClientService(csId, { enabled: false, status: "paused" });
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: (req.user as any)?.id,
+        actor_name: (req.user as any)?.name || (req.user as any)?.email,
+        action: "tradeline.disabled",
+        entity_type: "client_service",
+        entity_id: csId,
+        summary: "TradeLine service disabled (emergency kill switch)",
+      });
+
+      res.json({ ok: true });
+    } catch (err: any) {
+      log.error("[admin-crm] TradeLine disable error:", { error: err.message });
+      res.status(500).json({ error: "Failed to disable TradeLine service" });
+    }
+  });
+
   const REVIEW_TERMINAL_STATUSES = [
     "completed", "stopped", "failed",
     "routed_positive", "routed_negative", "feedback_captured",

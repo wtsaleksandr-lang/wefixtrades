@@ -711,6 +711,17 @@ export const insertTradelineCallLogSchema = createInsertSchema(tradelineCallLog)
 export type InsertTradelineCallLog = z.infer<typeof insertTradelineCallLogSchema>;
 export type TradelineCallLog = typeof tradelineCallLog.$inferSelect;
 
+/* ─── TradeLine Lead Data (extracted from call transcripts) ─── */
+export interface TradelineLeadData {
+  caller_name?: string;
+  caller_phone?: string;
+  caller_address?: string;
+  job_type?: string;
+  urgency?: string;
+  job_description?: string;
+  preferred_date?: string;
+}
+
 /* ─── TradeLine Mode Log ─── */
 export const tradelineModeLog = pgTable("tradeline_mode_log", {
   id: serial("id").primaryKey(),

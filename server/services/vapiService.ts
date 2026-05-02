@@ -19,10 +19,10 @@
 
 import { assistantSync, isReady } from "./assistant";
 import type { AssistantRequest } from "./assistant";
-import type { ChatMessage } from "./aiService";
+import { chat, type ChatMessage } from "./aiService";
 import { buildSystemPrompt, type TradeLineContext } from "./promptBuilder";
 import { storage } from "../storage";
-import type { TradelineConfig, ClientService, Client } from "@shared/schema";
+import type { TradelineConfig, ClientService, Client, TradelineLeadData } from "@shared/schema";
 import { VAPI_BOOKING_FUNCTIONS } from "./bookingTools";
 import { createLogger } from "../lib/logger";
 
@@ -141,19 +141,42 @@ export interface VapiTranscriptMessage {
 
 /* ─── Webhook Signature Verification ─── */
 
-export function verifyWebhookSignature(rawBody: string | Buffer, signature: string | undefined): boolean {
+/**
+ * Verifies Vapi webhook signature using the raw request body buffer.
+ * In production: rejects if VAPI_WEBHOOK_SECRET is not set (500 at route level).
+ * In development: allows unverified webhooks with a warning.
+ */
+export function verifyWebhookSignature(rawBody: Buffer | undefined, signature: string | undefined): boolean {
   const config = getVapiConfig();
+  const isProd = process.env.NODE_ENV === "production";
+
   if (!config.webhookSecret) {
-    log.warn("No VAPI_WEBHOOK_SECRET configured — skipping signature verification");
+    if (isProd) {
+      log.error("VAPI_WEBHOOK_SECRET is not set in production — rejecting webhook");
+      return false;
+    }
+    log.warn("No VAPI_WEBHOOK_SECRET configured — allowing unverified webhook in development");
     return true;
   }
-  if (!signature) return false;
+
+  if (!rawBody) {
+    log.warn("No raw body available for signature verification");
+    return false;
+  }
+
+  if (!signature) {
+    log.warn("No x-vapi-signature header present");
+    return false;
+  }
+
   try {
     const crypto = require("crypto");
     const expected = crypto.createHmac("sha256", config.webhookSecret)
-      .update(typeof rawBody === "string" ? rawBody : rawBody.toString("utf-8")).digest("hex");
+      .update(rawBody)
+      .digest("hex");
     return crypto.timingSafeEqual(Buffer.from(signature, "hex"), Buffer.from(expected, "hex"));
-  } catch {
+  } catch (err) {
+    log.error("Webhook signature verification threw", { error: (err as Error).message });
     return false;
   }
 }
@@ -219,13 +242,87 @@ export interface ResolvedTradeLineClient {
   config: TradelineConfig;
 }
 
-export async function resolveTradeLineClient(callMetadata?: Record<string, any>, customerNumber?: string): Promise<ResolvedTradeLineClient | null> {
+/* ─── Phone-number -> clientServiceId lookup cache (5-min TTL) ─── */
+interface PhoneCacheEntry {
+  clientServiceId: number;
+  expiresAt: number;
+}
+const PHONE_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const phoneNumberCache = new Map<string, PhoneCacheEntry>();
+
+function getCachedClientServiceId(key: string): number | undefined {
+  const entry = phoneNumberCache.get(key);
+  if (!entry) return undefined;
+  if (Date.now() > entry.expiresAt) {
+    phoneNumberCache.delete(key);
+    return undefined;
+  }
+  return entry.clientServiceId;
+}
+
+function setCachedClientServiceId(key: string, csId: number): void {
+  phoneNumberCache.set(key, { clientServiceId: csId, expiresAt: Date.now() + PHONE_CACHE_TTL_MS });
+}
+
+/**
+ * Resolve which TradeLine client a Vapi call belongs to.
+ *
+ * Strategy 1: metadata.clientServiceId (explicit assignment from Vapi assistant config)
+ * Strategy 2: phoneNumberId lookup (Vapi phone number -> client_services metadata)
+ * Strategy 3: primaryBusinessNumber match (client's business number forwards to Vapi)
+ */
+export async function resolveTradeLineClient(
+  callMetadata?: Record<string, any>,
+  customerNumber?: string,
+  phoneNumberId?: string,
+): Promise<ResolvedTradeLineClient | null> {
   try {
+    // Strategy 1: explicit clientServiceId in call metadata
     const csId = callMetadata?.clientServiceId ?? callMetadata?.client_service_id;
     if (csId) {
       const numId = typeof csId === "number" ? csId : parseInt(csId);
-      if (!isNaN(numId)) return resolveByClientServiceId(numId);
+      if (!isNaN(numId)) {
+        const resolved = await resolveByClientServiceId(numId);
+        if (resolved) return resolved;
+      }
     }
+
+    // Strategy 2: lookup by Vapi phoneNumberId (the Vapi number that received the call)
+    if (phoneNumberId) {
+      const cacheKey = `vapi-phone:${phoneNumberId}`;
+      const cached = getCachedClientServiceId(cacheKey);
+      if (cached) {
+        const resolved = await resolveByClientServiceId(cached);
+        if (resolved) return resolved;
+      }
+
+      const csIdByPhone = await storage.findClientServiceByVapiPhoneNumberId(phoneNumberId);
+      if (csIdByPhone) {
+        setCachedClientServiceId(cacheKey, csIdByPhone);
+        const resolved = await resolveByClientServiceId(csIdByPhone);
+        if (resolved) return resolved;
+      }
+    }
+
+    // Strategy 3: lookup by the CALLED number matching a client's primaryBusinessNumber
+    // (handles the case where the client's business number forwards to Vapi)
+    if (callMetadata?.calledNumber) {
+      const calledNumber = callMetadata.calledNumber;
+      const cacheKey = `biz-phone:${calledNumber}`;
+      const cached = getCachedClientServiceId(cacheKey);
+      if (cached) {
+        const resolved = await resolveByClientServiceId(cached);
+        if (resolved) return resolved;
+      }
+
+      const csIdByBiz = await storage.findClientServiceByPrimaryBusinessNumber(calledNumber);
+      if (csIdByBiz) {
+        setCachedClientServiceId(cacheKey, csIdByBiz);
+        const resolved = await resolveByClientServiceId(csIdByBiz);
+        if (resolved) return resolved;
+      }
+    }
+
     return null;
   } catch (err) {
     log.error("TradeLine client resolution failed", { error: (err as Error).message });
@@ -238,6 +335,11 @@ async function resolveByClientServiceId(csId: number): Promise<ResolvedTradeLine
   if (!cs || !cs.service_id.startsWith("tradeline")) return null;
   const config = await storage.getTradeLineConfig(csId);
   if (!config) return null;
+  // Reject calls to disabled assistants
+  if (config.assistant?.status === "disabled") {
+    log.warn("Call routed to disabled TradeLine assistant — rejecting", { clientServiceId: csId });
+    return null;
+  }
   const client = await storage.getClientById(cs.client_id);
   if (!client) return null;
   return { clientService: cs, client, config };
@@ -279,20 +381,33 @@ export async function handleTradeLineConversationTurn(messages: VapiTranscriptMe
 
 /* ─── TradeLine call logging ─── */
 
-export async function logTradeLineCall(clientServiceId: number, report: VapiCallReport, recordingUrl?: string): Promise<void> {
+export interface TradeLineCallResult {
+  callLogId: number | null;
+  outcome: string;
+  transcript: string | null;
+}
+
+export async function logTradeLineCall(clientServiceId: number, report: VapiCallReport, recordingUrl?: string): Promise<TradeLineCallResult> {
+  const outcome = report.endedReason === "error" ? "failed" : "answered";
   try {
     const vapiCallId = report.callId !== "unknown" ? report.callId : null;
-    if (!vapiCallId) { log.warn("Call has no vapi_call_id — cannot guarantee idempotency, skipping log"); return; }
+    if (!vapiCallId) {
+      log.warn("Call has no vapi_call_id — cannot guarantee idempotency, skipping log");
+      return { callLogId: null, outcome, transcript: report.transcript ?? null };
+    }
 
     const inserted = await storage.createTradeLineCallLog({
       client_service_id: clientServiceId, vapi_call_id: vapiCallId, direction: "inbound",
       caller_number: report.customerNumber ?? null, duration_seconds: report.duration ?? 0,
-      outcome: report.endedReason === "error" ? "failed" : "answered",
+      outcome,
       started_at: null, ended_at: new Date(), summary: report.summary ?? null,
       transcript_json: report.transcript ? { text: report.transcript } : null, recording_url: recordingUrl ?? null,
     });
 
-    if (!inserted) { log.debug("Duplicate call log skipped", { vapiCallId: report.callId }); return; }
+    if (!inserted) {
+      log.debug("Duplicate call log skipped", { vapiCallId: report.callId });
+      return { callLogId: null, outcome, transcript: report.transcript ?? null };
+    }
 
     const durationMinutes = report.duration ? Math.ceil(report.duration / 60) : 0;
     if (durationMinutes > 0) {
@@ -301,8 +416,117 @@ export async function logTradeLineCall(clientServiceId: number, report: VapiCall
       const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
       await storage.incrementTradeLineUsage(clientServiceId, periodStart, periodEnd, { voiceMinutes: durationMinutes, calls: 1 });
     }
+
+    return { callLogId: inserted.id, outcome, transcript: report.transcript ?? null };
   } catch (err) {
     log.error("Failed to log TradeLine call", { error: (err as Error).message });
+    return { callLogId: null, outcome, transcript: report.transcript ?? null };
+  }
+}
+
+/* ─── TradeLine post-call: lead extraction + notifications ─── */
+
+const LEAD_EXTRACTION_SYSTEM_PROMPT = `Extract the following from this phone call transcript: caller_name, caller_phone, caller_address, job_type, urgency (low/medium/high/emergency), job_description, preferred_date. Return JSON only. If a field cannot be determined from the transcript, omit it. Do not include any markdown formatting or explanation.`;
+
+/**
+ * Extract structured lead data from a call transcript using Claude.
+ * Fail-safe: never throws, returns null on failure.
+ */
+export async function extractLeadFromTranscript(transcript: string): Promise<TradelineLeadData | null> {
+  try {
+    const response = await chat({
+      system: LEAD_EXTRACTION_SYSTEM_PROMPT,
+      messages: [{ role: "user", content: transcript }],
+      maxTokens: 400,
+    });
+
+    // Parse JSON from response — handle potential markdown wrapping
+    const jsonStr = response.replace(/```json?\s*/g, "").replace(/```\s*/g, "").trim();
+    const parsed = JSON.parse(jsonStr);
+    return parsed as TradelineLeadData;
+  } catch (err) {
+    log.error("Lead extraction from transcript failed", { error: (err as Error).message });
+    return null;
+  }
+}
+
+/**
+ * SMS rate limiter: tracks last notification time per phone number.
+ * Simple in-memory map, resets on restart (acceptable for 5-min threshold).
+ */
+const smsRateLimitMap = new Map<string, number>();
+const SMS_RATE_LIMIT_MS = 5 * 60 * 1000; // 5 minutes
+
+function canSendSmsTo(phone: string): boolean {
+  const lastSent = smsRateLimitMap.get(phone);
+  if (!lastSent) return true;
+  return Date.now() - lastSent >= SMS_RATE_LIMIT_MS;
+}
+
+function markSmsSent(phone: string): void {
+  smsRateLimitMap.set(phone, Date.now());
+}
+
+/**
+ * Post-call processing: extract lead + send notifications.
+ * Called asynchronously after logTradeLineCall — must not block the webhook response.
+ */
+export async function processTradeLineCallPostHook(
+  clientServiceId: number,
+  clientId: number,
+  callLogId: number,
+  outcome: string,
+  transcript: string | null,
+  recordingUrl: string | undefined,
+  report: VapiCallReport,
+): Promise<void> {
+  // Skip if call failed or was missed
+  if (outcome === "failed" || outcome === "missed") {
+    log.debug("Skipping post-call processing for failed/missed call", { callLogId, outcome });
+    return;
+  }
+
+  // Skip if transcript is too short or empty
+  if (!transcript || transcript.length <= 50) {
+    log.debug("Skipping lead extraction — transcript too short", { callLogId, len: transcript?.length ?? 0 });
+    return;
+  }
+
+  // 1. Extract lead data
+  const leadData = await extractLeadFromTranscript(transcript);
+  if (!leadData) {
+    log.debug("No lead data extracted from transcript", { callLogId });
+    return;
+  }
+
+  // 2. Store extracted lead on the call log
+  await storage.updateTradeLineCallLeadData(callLogId, leadData as Record<string, unknown>);
+  log.info("Lead extracted from TradeLine call", { callLogId, callerName: leadData.caller_name, jobType: leadData.job_type });
+
+  // 3. Send notifications to business owner
+  try {
+    const config = await storage.getTradeLineConfig(clientServiceId);
+    const notifications = config?.notifications;
+    if (!notifications) {
+      log.debug("No notification preferences configured", { clientServiceId });
+      return;
+    }
+
+    const { sendTradeLineCallNotifications } = await import("./tradelineNotifications");
+    await sendTradeLineCallNotifications({
+      clientServiceId,
+      clientId,
+      callLogId,
+      leadData,
+      recordingUrl,
+      report,
+      smsNumbers: notifications.sms ?? [],
+      emailAddresses: notifications.email ?? [],
+      canSendSmsTo,
+      markSmsSent,
+    });
+  } catch (err) {
+    log.error("TradeLine notification dispatch failed", { callLogId, error: (err as Error).message });
   }
 }
 

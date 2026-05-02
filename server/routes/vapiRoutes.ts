@@ -25,6 +25,7 @@ import {
   buildTradeLineContext,
   resolveTradeLineClient,
   logTradeLineCall,
+  processTradeLineCallPostHook,
   translateTranscript,
   type VapiWebhookEvent,
   type VapiTranscriptMessage,
@@ -59,9 +60,9 @@ export function registerVapiRoutes(app: Express): void {
    */
   app.post("/api/vapi/webhook", async (req: Request, res: Response) => {
     try {
-      // Verify webhook signature
+      // Verify webhook signature using the raw body buffer (captured by Express JSON middleware)
       const signature = req.headers["x-vapi-signature"] as string | undefined;
-      const rawBody = JSON.stringify(req.body);
+      const rawBody = (req as any).rawBody as Buffer | undefined;
 
       if (!verifyWebhookSignature(rawBody, signature)) {
         log.warn("[vapi] Webhook signature verification failed");
@@ -83,10 +84,11 @@ export function registerVapiRoutes(app: Express): void {
       const callId = event.message.call?.id || "unknown";
       const callMetadata = (event.message.call as any)?.metadata;
       const customerNumber = event.message.call?.customer?.number;
+      const phoneNumberId = event.message.call?.phoneNumberId;
 
       // Resolve and cache TradeLine context for this call
       if (callId !== "unknown" && !activeTradeLineCalls.has(callId)) {
-        const resolved = await resolveTradeLineClient(callMetadata, customerNumber);
+        const resolved = await resolveTradeLineClient(callMetadata, customerNumber, phoneNumberId);
         if (resolved) {
           activeTradeLineCalls.set(callId, resolved);
           log.info(`[vapi] Resolved TradeLine client: ${resolved.client.business_name} (service ${resolved.clientService.id}, mode: ${resolved.config.currentMode})`);
@@ -214,11 +216,26 @@ export function registerVapiRoutes(app: Express): void {
 
           // If this was a TradeLine call, log to tradeline_call_log + update usage
           if (tradeLineResolved) {
-            await logTradeLineCall(
+            const callResult = await logTradeLineCall(
               tradeLineResolved.clientService.id,
               report,
               event.message.recordingUrl ?? undefined,
             );
+
+            // Non-blocking: extract lead + send notifications
+            if (callResult.callLogId) {
+              processTradeLineCallPostHook(
+                tradeLineResolved.clientService.id,
+                tradeLineResolved.client.id,
+                callResult.callLogId,
+                callResult.outcome,
+                callResult.transcript,
+                event.message.recordingUrl ?? undefined,
+                report,
+              ).catch(err =>
+                log.warn(`[tradeline] post-call hook failed for call ${report.callId}: ${(err as Error).message}`),
+              );
+            }
           } else {
             // Not a TradeLine customer — this was a call to the WeFixTrades
             // company sales/support line. Extract caller info, log as sales

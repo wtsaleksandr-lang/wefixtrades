@@ -115,6 +115,7 @@ import ServicePricingPage from "@/pages/admin/ServicePricingPage";
 import BookingCalendarPage from "@/pages/admin/BookingCalendarPage";
 import SystemJobsPage from "@/pages/admin/SystemJobsPage";
 import SystemWorkersPage from "@/pages/admin/SystemWorkersPage";
+import TradeLineOpsPage from "@/pages/admin/TradeLineOpsPage";
 import BookingPage from "@/pages/public/BookingPage";
 import PayInvoicePage from "@/pages/public/PayInvoicePage";
 import DispatchPage from "@/pages/portal/DispatchPage";
@@ -139,6 +140,7 @@ function Router() {
       <Route path="/admin/crm/suppliers">{() => <RequirePortal><SuppliersPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/rankflow">{() => <RequirePortal><RankFlowOpsPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/adflow">{() => <RequirePortal><AdFlowOpsPage /></RequirePortal>}</Route>
+      <Route path="/admin/crm/tradeline-ops">{() => <RequirePortal><TradeLineOpsPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/support/:id">{() => <RequirePortal><SupportTicketDetailPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/support">{() => <RequirePortal><SupportInboxPage /></RequirePortal>}</Route>
       <Route path="/admin/booking">{() => <RequirePortal><BookingCalendarPage /></RequirePortal>}</Route>
