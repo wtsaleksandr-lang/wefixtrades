@@ -407,6 +407,7 @@ export default function PortalServiceDetail() {
   const isWebFix = data?.service.service_id?.startsWith("webfix");
   const isWebCare = data?.service.service_id?.startsWith("webcare");
   const isAdFlow = data?.service.service_id?.startsWith("adflow");
+  const isQuoteQuick = data?.service.service_id?.startsWith("quotequick");
 
   // Tasks waiting on client approval (for SiteLaunch design approval flow)
   const approvalTasks = (data?.tasks || []).filter(
@@ -447,6 +448,41 @@ export default function PortalServiceDetail() {
       return res.json();
     },
     enabled: !!serviceId && !!isWebCare,
+  });
+
+  // QuoteQuick summary (to get calculator ID)
+  const { data: qqSummary } = useQuery<{
+    calculator: { id: number; business_name: string; slug: string; total_views: number; total_leads: number; status: string } | null;
+  }>({
+    queryKey: ["/api/portal/quotequick/summary"],
+    queryFn: async () => {
+      const res = await fetch("/api/portal/quotequick/summary", { credentials: "include" });
+      if (!res.ok) return { calculator: null };
+      return res.json();
+    },
+    enabled: !!isQuoteQuick,
+  });
+
+  // QuoteQuick recent leads
+  const { data: qqLeads } = useQuery<{
+    leads: Array<{
+      id: number;
+      name: string | null;
+      email: string | null;
+      phone: string | null;
+      quote_amount: number | null;
+      status: string;
+      created_date: string | null;
+      utm_source: string | null;
+    }>;
+  }>({
+    queryKey: ["/api/portal/quotequick", qqSummary?.calculator?.id, "leads"],
+    queryFn: async () => {
+      const res = await fetch(`/api/portal/quotequick/${qqSummary!.calculator!.id}/leads`, { credentials: "include" });
+      if (!res.ok) return { leads: [] };
+      return res.json();
+    },
+    enabled: !!isQuoteQuick && !!qqSummary?.calculator?.id,
   });
 
   // AdFlow past reports
@@ -913,6 +949,73 @@ export default function PortalServiceDetail() {
                     );
                   })}
                 </div>
+              </div>
+            )}
+
+            {/* QuoteQuick: Recent Leads */}
+            {isQuoteQuick && qqLeads && qqLeads.leads.length > 0 && (
+              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <div className="px-5 py-4 border-b border-gray-100">
+                  <div className="flex items-center gap-2">
+                    <Users className="w-4 h-4 text-indigo-600" />
+                    <h2 className="text-sm font-semibold text-gray-900">Recent Leads</h2>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Last {qqLeads.leads.length} quote requests from your calculator.
+                  </p>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-left text-xs text-gray-500 border-b border-gray-100">
+                        <th className="px-5 py-2 font-medium">Name</th>
+                        <th className="px-5 py-2 font-medium">Contact</th>
+                        <th className="px-5 py-2 font-medium">Quote</th>
+                        <th className="px-5 py-2 font-medium">Status</th>
+                        <th className="px-5 py-2 font-medium">Date</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {qqLeads.leads.map((lead) => (
+                        <tr key={lead.id}>
+                          <td className="px-5 py-3 text-gray-700">{lead.name || "-"}</td>
+                          <td className="px-5 py-3 text-gray-600 text-xs">
+                            {lead.email && <div>{lead.email}</div>}
+                            {lead.phone && <div>{lead.phone}</div>}
+                          </td>
+                          <td className="px-5 py-3 text-gray-900 font-medium whitespace-nowrap">
+                            {lead.quote_amount != null ? `$${lead.quote_amount}` : "-"}
+                          </td>
+                          <td className="px-5 py-3">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                              lead.status === "won" ? "bg-emerald-50 text-emerald-700" :
+                              lead.status === "contacted" ? "bg-blue-50 text-blue-700" :
+                              lead.status === "lost" ? "bg-gray-100 text-gray-500" :
+                              "bg-indigo-50 text-indigo-700"
+                            }`}>
+                              {lead.status}
+                            </span>
+                          </td>
+                          <td className="px-5 py-3 text-gray-500 text-xs whitespace-nowrap">
+                            {formatDate(lead.created_date)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {qqSummary?.calculator && (
+                  <div className="px-5 py-3 border-t border-gray-100 bg-gray-50/50 text-xs text-gray-500">
+                    {qqSummary.calculator.total_leads} total leads &middot; {qqSummary.calculator.total_views} total views
+                  </div>
+                )}
+              </div>
+            )}
+
+            {isQuoteQuick && qqLeads && qqLeads.leads.length === 0 && (
+              <div className="bg-white rounded-xl border border-gray-200 p-5 text-center">
+                <Users className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                <p className="text-sm text-gray-500">No leads yet. Once your calculator starts receiving quote requests, they'll appear here.</p>
               </div>
             )}
 

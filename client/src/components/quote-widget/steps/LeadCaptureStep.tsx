@@ -116,17 +116,26 @@ export default function LeadCaptureStep({ step, accentColor }: LeadCaptureStepPr
             source_tool: "demo",
             source_page: typeof window !== "undefined" ? window.location.pathname : null,
           }
-        : {
-            calculator_id: config.calculator.id,
-            name: leadData.name.trim() || null,
-            email: leadData.email.trim() || null,
-            phone: leadData.phone.trim() || null,
-            company: leadData.company.trim() || null,
-            quote_amount: safeQuoteAmount,
-            answers: safeAnswers,
-            sms_consent: smsConsent,
-            consent_timestamp: smsConsent ? new Date().toISOString() : null,
-          };
+        : (() => {
+            // Capture UTM / source attribution from the current page
+            const params = new URLSearchParams(window.location.search);
+            return {
+              calculator_id: config.calculator.id,
+              name: leadData.name.trim() || null,
+              email: leadData.email.trim() || null,
+              phone: leadData.phone.trim() || null,
+              company: leadData.company.trim() || null,
+              quote_amount: safeQuoteAmount,
+              answers: safeAnswers,
+              sms_consent: smsConsent,
+              consent_timestamp: smsConsent ? new Date().toISOString() : null,
+              landing_page: window.location.href || null,
+              referrer: document.referrer || null,
+              utm_source: params.get('utm_source') || null,
+              utm_medium: params.get('utm_medium') || null,
+              utm_campaign: params.get('utm_campaign') || null,
+            };
+          })();
 
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 15000);

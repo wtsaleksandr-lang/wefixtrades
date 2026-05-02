@@ -888,6 +888,55 @@ export function registerPortalRoutes(app: Express) {
     }
   });
 
+  /**
+   * GET /api/portal/quotequick/:calcId/leads
+   * Returns the last 20 leads for a QuoteQuick calculator owned by the
+   * authenticated client. Validates that the calculator belongs to the client.
+   */
+  app.get("/api/portal/quotequick/:calcId/leads", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const calcId = parseInt(req.params.calcId);
+      if (!calcId || isNaN(calcId)) return res.status(400).json({ error: "Invalid calculator ID" });
+
+      // Verify the calculator belongs to this client
+      const [client] = await db.select({ user_id: clients.user_id }).from(clients).where(eq(clients.id, clientId)).limit(1);
+      if (!client?.user_id) return res.status(403).json({ error: "No user linked" });
+
+      const [calc] = await db
+        .select({ id: calculators.id, user_id: calculators.user_id })
+        .from(calculators)
+        .where(and(eq(calculators.id, calcId), eq(calculators.user_id, client.user_id)))
+        .limit(1);
+
+      if (!calc) return res.status(404).json({ error: "Calculator not found or not owned by you" });
+
+      // Fetch last 20 leads
+      const recentLeads = await db
+        .select({
+          id: leads.id,
+          name: leads.name,
+          email: leads.email,
+          phone: leads.phone,
+          quote_amount: leads.quote_amount,
+          status: leads.status,
+          created_date: leads.created_date,
+          utm_source: leads.utm_source,
+        })
+        .from(leads)
+        .where(eq(leads.calculator_id, calcId))
+        .orderBy(desc(leads.created_date))
+        .limit(20);
+
+      res.json({ leads: recentLeads });
+    } catch (err) {
+      log.error("Portal QuoteQuick leads error:", { error: String(err) });
+      res.status(500).json({ error: "Failed to load leads" });
+    }
+  });
+
   /* ═══════════════════════════════════════════
      Support Tickets (Portal / Customer)
      ═══════════════════════════════════════════ */

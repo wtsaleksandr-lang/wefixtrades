@@ -148,6 +148,7 @@ export interface IStorage {
 
   getLeadById(id: number): Promise<Lead | undefined>;
   updateLeadStatus(id: number, status: string): Promise<Lead | undefined>;
+  updateLead(id: number, updates: Record<string, any>): Promise<Lead | undefined>;
 
   enqueueNotification(data: InsertNotificationQueue): Promise<NotificationQueue>;
   fetchDueNotifications(limit?: number): Promise<NotificationQueue[]>;
@@ -737,6 +738,11 @@ export class DatabaseStorage implements IStorage {
 
   async updateLeadStatus(id: number, status: string): Promise<Lead | undefined> {
     const [lead] = await db.update(leads).set({ status }).where(eq(leads.id, id)).returning();
+    return lead;
+  }
+
+  async updateLead(id: number, updates: Record<string, any>): Promise<Lead | undefined> {
+    const [lead] = await db.update(leads).set(updates).where(eq(leads.id, id)).returning();
     return lead;
   }
 
