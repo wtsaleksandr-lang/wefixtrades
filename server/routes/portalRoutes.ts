@@ -2710,6 +2710,10 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
       const clientId = await withClientId(req, res);
       if (!clientId) return;
 
+      // Revoke token on Google's side before clearing credentials
+      const { revokeGoogleTokens } = await import("../services/googleBusinessService");
+      await revokeGoogleTokens(clientId);
+
       const { storage } = await import("../storage");
       await storage.updateClient(clientId, { google_credentials: null } as any);
 

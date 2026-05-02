@@ -16,11 +16,61 @@
  */
 
 import { google } from "googleapis";
+import crypto from "crypto";
 import { storage } from "../storage";
 import { encryptGoogleCredentials, decryptGoogleCredentials } from "../lib/tokenEncryption";
 import { createLogger } from "../lib/logger";
 
 const log = createLogger("GoogleBusiness");
+
+/* ─── HMAC-signed OAuth state ─── */
+
+const STATE_CONTEXT = "google_oauth_state";
+
+function getSessionSecret(): string {
+  return process.env.SESSION_SECRET || "wft-oauth-default-key-change-me";
+}
+
+function b64url(buf: Buffer | string): string {
+  const b = typeof buf === "string" ? Buffer.from(buf, "utf-8") : buf;
+  return b.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function b64urlDecode(s: string): Buffer {
+  const pad = s.length % 4 === 0 ? "" : "=".repeat(4 - (s.length % 4));
+  return Buffer.from(s.replace(/-/g, "+").replace(/_/g, "/") + pad, "base64");
+}
+
+function hmacState(payload: string): Buffer {
+  return crypto.createHmac("sha256", getSessionSecret()).update(`${payload}:${STATE_CONTEXT}`).digest();
+}
+
+/** Sign an OAuth state payload with HMAC-SHA256. Format: base64url(payload).base64url(hmac) */
+export function signOAuthState(payload: string): string {
+  return `${b64url(payload)}.${b64url(hmacState(payload))}`;
+}
+
+/** Verify an HMAC-signed OAuth state. Returns the raw payload string or null if invalid. */
+export function verifyOAuthState(signed: string): string | null {
+  if (!signed || typeof signed !== "string") return null;
+  const parts = signed.split(".");
+  if (parts.length !== 2) return null;
+
+  let payload: string;
+  let providedSig: Buffer;
+  try {
+    payload = b64urlDecode(parts[0]).toString("utf-8");
+    providedSig = b64urlDecode(parts[1]);
+  } catch {
+    return null;
+  }
+
+  const expectedSig = hmacState(payload);
+  if (providedSig.length !== expectedSig.length) return null;
+  if (!crypto.timingSafeEqual(providedSig, expectedSig)) return null;
+
+  return payload;
+}
 
 const SCOPES = [
   "https://www.googleapis.com/auth/business.manage",
@@ -48,15 +98,16 @@ function createOAuth2Client() {
 
 /**
  * Generate the Google OAuth consent URL.
- * @param state Opaque state string (JSON with clientId + returnUrl)
+ * @param state Opaque state string (JSON with clientId + returnUrl) — will be HMAC-signed
  */
 export function getGoogleAuthUrl(state: string): string {
   const client = createOAuth2Client();
+  const signedState = signOAuthState(state);
   return client.generateAuthUrl({
     access_type: "offline",
     prompt: "consent",
     scope: SCOPES,
-    state,
+    state: signedState,
   });
 }
 
@@ -208,4 +259,44 @@ export async function hasGoogleConnection(clientId: number): Promise<boolean> {
   if (!client?.google_credentials) return false;
   const creds = decryptGoogleCredentials(client.google_credentials as Record<string, unknown>) as any;
   return !!(creds?.refresh_token || creds?.access_token);
+}
+
+/**
+ * Revoke Google OAuth tokens for a client before disconnecting.
+ * Calls Google's revoke endpoint; fails safely (logs warning on error).
+ * Returns true if revocation succeeded, false otherwise.
+ */
+export async function revokeGoogleTokens(clientId: number): Promise<boolean> {
+  try {
+    const client = await storage.getClientById(clientId);
+    if (!client?.google_credentials) return false;
+
+    const creds = decryptGoogleCredentials(client.google_credentials as Record<string, unknown>) as any;
+    const token = creds?.access_token || creds?.refresh_token;
+    if (!token) return false;
+
+    const res = await fetch(
+      `https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(token)}`,
+      { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" } },
+    );
+
+    if (res.ok) {
+      log.info("Google token revoked successfully", { clientId: String(clientId) });
+      return true;
+    } else {
+      const body = await res.text().catch(() => "");
+      log.warn("Google token revocation returned non-OK status", {
+        clientId: String(clientId),
+        status: String(res.status),
+        body,
+      });
+      return false;
+    }
+  } catch (err: any) {
+    log.warn("Google token revocation failed (will still clear credentials)", {
+      clientId: String(clientId),
+      error: err.message,
+    });
+    return false;
+  }
 }

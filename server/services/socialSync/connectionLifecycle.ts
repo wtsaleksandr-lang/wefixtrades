@@ -47,6 +47,19 @@ export async function disconnectPlatform(
     return { ok: true }; // Already disconnected
   }
 
+  // Revoke Google tokens on Google's side before clearing locally
+  if (platform === "google_business") {
+    try {
+      const { revokeSocialSyncGoogleTokens } = await import("./googleBusinessService");
+      await revokeSocialSyncGoogleTokens(clientId);
+    } catch (err: any) {
+      log.warn("Google token revocation failed during disconnect (continuing)", {
+        clientId: String(clientId),
+        error: err.message,
+      });
+    }
+  }
+
   const previousMetadata = (conn.metadata as any) || {};
 
   await storage.upsertSocialSyncConnection({

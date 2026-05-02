@@ -2114,8 +2114,16 @@ export function registerAdminCrmRoutes(app: Express): void {
       const stateStr = req.query.state as string;
       if (!code || !stateStr) return res.status(400).send("Missing code or state");
 
+      // Verify HMAC-signed state
+      const { verifyOAuthState } = await import("../services/googleBusinessService");
+      const rawPayload = verifyOAuthState(stateStr);
+      if (!rawPayload) {
+        log.warn("Google callback: OAuth state HMAC verification failed");
+        return res.status(400).send("Invalid or tampered state parameter");
+      }
+
       let state: { clientId: number; adminId?: number; source?: string };
-      try { state = JSON.parse(stateStr); } catch { return res.status(400).send("Invalid state"); }
+      try { state = JSON.parse(rawPayload); } catch { return res.status(400).send("Invalid state"); }
 
       const { handleGoogleCallback } = await import("../services/googleBusinessService");
       const result = await handleGoogleCallback(code, state.clientId);
@@ -2188,6 +2196,11 @@ export function registerAdminCrmRoutes(app: Express): void {
   app.post("/api/admin/crm/clients/:id/google-disconnect", requireAdmin, async (req: Request, res: Response) => {
     try {
       const clientId = parseInt(req.params.id as string);
+
+      // Revoke token on Google's side before clearing credentials
+      const { revokeGoogleTokens } = await import("../services/googleBusinessService");
+      await revokeGoogleTokens(clientId);
+
       await storage.updateClient(clientId, { google_credentials: null } as any);
 
       await storage.logAdminActivity({

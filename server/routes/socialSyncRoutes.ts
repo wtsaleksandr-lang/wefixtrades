@@ -1199,9 +1199,17 @@ export function registerSocialSyncRoutes(app: Express): void {
         return res.redirect("/admin/crm/clients?gbp_error=missing_code");
       }
 
+      // Verify HMAC-signed state
+      const { verifySocialSyncOAuthState } = await import("../services/socialSync/googleBusinessService");
+      const rawPayload = verifySocialSyncOAuthState(String(state));
+      if (!rawPayload) {
+        log.warn("Google Business callback: OAuth state HMAC verification failed");
+        return res.redirect("/admin/crm/clients?gbp_error=invalid_state");
+      }
+
       let clientId: number;
       try {
-        const decoded = JSON.parse(Buffer.from(String(state), "base64url").toString());
+        const decoded = JSON.parse(rawPayload);
         clientId = decoded.clientId;
         if (!clientId) throw new Error("Missing clientId");
       } catch {

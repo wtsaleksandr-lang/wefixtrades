@@ -21,9 +21,13 @@
  *   - Create OAuth 2.0 Client ID (Web application)
  *   - Add redirect URI
  */
+import crypto from "crypto";
 import { storage } from "../../storage";
 import { encryptToken, decryptToken } from "./tokenEncryption";
 import { fetchWithRetry } from "../../lib/httpRetry";
+import { createLogger } from "../../lib/logger";
+
+const log = createLogger("SocialSyncGBP");
 
 const GOOGLE_OAUTH_BASE = "https://accounts.google.com/o/oauth2";
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
@@ -52,6 +56,55 @@ export function validateGoogleBusinessConfig(): { valid: boolean; missing: strin
   return { valid: missing.length === 0, missing };
 }
 
+/* ─── HMAC-signed OAuth state ─── */
+
+const SS_STATE_CONTEXT = "socialsync_google_oauth_state";
+
+function getSessionSecret(): string {
+  return process.env.SESSION_SECRET || "wft-oauth-default-key-change-me";
+}
+
+function b64url(buf: Buffer | string): string {
+  const b = typeof buf === "string" ? Buffer.from(buf, "utf-8") : buf;
+  return b.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function b64urlDecode(s: string): Buffer {
+  const pad = s.length % 4 === 0 ? "" : "=".repeat(4 - (s.length % 4));
+  return Buffer.from(s.replace(/-/g, "+").replace(/_/g, "/") + pad, "base64");
+}
+
+function hmacState(payload: string): Buffer {
+  return crypto.createHmac("sha256", getSessionSecret()).update(`${payload}:${SS_STATE_CONTEXT}`).digest();
+}
+
+/** Sign an OAuth state payload with HMAC-SHA256. Format: base64url(payload).base64url(hmac) */
+export function signSocialSyncOAuthState(payload: string): string {
+  return `${b64url(payload)}.${b64url(hmacState(payload))}`;
+}
+
+/** Verify an HMAC-signed OAuth state. Returns the raw payload string or null if invalid. */
+export function verifySocialSyncOAuthState(signed: string): string | null {
+  if (!signed || typeof signed !== "string") return null;
+  const parts = signed.split(".");
+  if (parts.length !== 2) return null;
+
+  let payload: string;
+  let providedSig: Buffer;
+  try {
+    payload = b64urlDecode(parts[0]).toString("utf-8");
+    providedSig = b64urlDecode(parts[1]);
+  } catch {
+    return null;
+  }
+
+  const expectedSig = hmacState(payload);
+  if (providedSig.length !== expectedSig.length) return null;
+  if (!crypto.timingSafeEqual(providedSig, expectedSig)) return null;
+
+  return payload;
+}
+
 /* ─── OAuth URL ─── */
 
 const SCOPES = [
@@ -64,7 +117,8 @@ export function buildGoogleOAuthUrl(clientId: number): string {
     throw new Error("Google Business OAuth not configured");
   }
 
-  const state = Buffer.from(JSON.stringify({ clientId, ts: Date.now() })).toString("base64url");
+  const payload = JSON.stringify({ clientId, ts: Date.now() });
+  const signedState = signSocialSyncOAuthState(payload);
 
   const params = new URLSearchParams({
     client_id: config.clientId,
@@ -73,7 +127,7 @@ export function buildGoogleOAuthUrl(clientId: number): string {
     scope: SCOPES,
     access_type: "offline",   // Request refresh token
     prompt: "consent",        // Force consent to ensure refresh token
-    state,
+    state: signedState,
   });
 
   return `${GOOGLE_OAUTH_BASE}/auth?${params.toString()}`;
@@ -336,6 +390,45 @@ export async function getGoogleAccessToken(clientId: number): Promise<{ token: s
   }
 
   return { token: accessToken, locationName: conn.external_page_id };
+}
+
+/**
+ * Revoke Google OAuth tokens for a SocialSync connection before disconnecting.
+ * Calls Google's revoke endpoint; fails safely (logs warning on error).
+ */
+export async function revokeSocialSyncGoogleTokens(clientId: number): Promise<boolean> {
+  try {
+    const connections = await storage.listSocialSyncConnections(clientId);
+    const conn = connections.find(c => c.platform === "google_business");
+    if (!conn?.token_ref) return false;
+
+    const accessToken = decryptToken(conn.token_ref);
+    if (!accessToken) return false;
+
+    const res = await fetchWithRetry(
+      `https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(accessToken)}`,
+      { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" } },
+    );
+
+    if (res.ok) {
+      log.info("SocialSync Google token revoked successfully", { clientId: String(clientId) });
+      return true;
+    } else {
+      const body = await res.text().catch(() => "");
+      log.warn("SocialSync Google token revocation returned non-OK", {
+        clientId: String(clientId),
+        status: String(res.status),
+        body,
+      });
+      return false;
+    }
+  } catch (err: any) {
+    log.warn("SocialSync Google token revocation failed (will still clear credentials)", {
+      clientId: String(clientId),
+      error: err.message,
+    });
+    return false;
+  }
 }
 
 /**

@@ -62,6 +62,26 @@ function validateEnv(): void {
     );
     process.exit(1);
   }
+
+  /* ─── API base override guard: prevent prod traffic hitting test stubs ─── */
+  if (isProduction) {
+    const overrideVars = [
+      "GBP_API_BASE_OVERRIDE",
+      "GBP_POST_API_BASE_OVERRIDE",
+      "FB_GRAPH_API_BASE_OVERRIDE",
+      "IG_GRAPH_API_BASE_OVERRIDE",
+      "IMAGE_API_BASE_OVERRIDE",
+    ];
+    const setOverrides = overrideVars.filter((key) => process.env[key]);
+    if (setOverrides.length > 0) {
+      logger.error(
+        "FATAL: API base override variables are set in production: " +
+          setOverrides.join(", ") +
+          ". These redirect live traffic to test endpoints. Remove them and restart.",
+      );
+      process.exit(1);
+    }
+  }
 }
 
 validateEnv();
