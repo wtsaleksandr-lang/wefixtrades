@@ -74,6 +74,7 @@ export function verifyOAuthState(signed: string): string | null {
 
 const SCOPES = [
   "https://www.googleapis.com/auth/business.manage",
+  "https://www.googleapis.com/auth/webmasters.readonly",
 ];
 
 function getClientConfig() {
