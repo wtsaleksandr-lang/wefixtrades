@@ -1038,3 +1038,35 @@ export async function enqueueEmailDraft(
     dead_letter_at: existing.queue_status === "failed" ? existing.dead_letter_at : null,
   });
 }
+
+/**
+ * Sprint 18: mark a kind='video' draft eligible for the YouTube
+ * publish queue. Mirrors enqueueEmailDraft but writes to
+ * metadata.youtube.* instead. YouTube uploads go through the
+ * existing adapter-based publish queue.
+ *
+ * Idempotent — re-call on a draft already queued, in-flight, or
+ * published is a no-op.
+ */
+export async function enqueueYouTubeDraft(
+  draftId: number,
+  opts: { scheduled_for?: string | null } = {},
+): Promise<void> {
+  const draft = await storage.getContentDraftById(draftId);
+  if (!draft) return;
+  if (draft.kind !== "video") return;
+
+  const meta = (draft.metadata || {}) as Record<string, any>;
+  const existing = (meta.youtube || {}) as Record<string, any>;
+  if (existing.posted_at || existing.youtube_url || existing.queue_status === "publishing" || existing.queue_status === "published") return;
+
+  await mergeChannelMetadata(draftId, "youtube", {
+    queue_status: "queued",
+    scheduled_for: opts.scheduled_for ?? null,
+    attempts: existing.queue_status === "failed" ? existing.attempts ?? 0 : 0,
+    last_error: null,
+    locked_at: null,
+    locked_by: null,
+    dead_letter_at: existing.queue_status === "failed" ? existing.dead_letter_at : null,
+  });
+}

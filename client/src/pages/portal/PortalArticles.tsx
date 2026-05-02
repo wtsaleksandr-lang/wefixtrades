@@ -20,7 +20,7 @@
  */
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, CheckCircle2, MessageSquareWarning, XCircle, FileText, ExternalLink, Clock, Share2, Instagram, Facebook, Globe, Mail, Calendar } from "lucide-react";
+import { Loader2, CheckCircle2, MessageSquareWarning, XCircle, FileText, ExternalLink, Clock, Share2, Instagram, Facebook, Globe, Mail, Calendar, Video } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -184,7 +184,7 @@ export default function PortalArticles() {
     return counts;
   }, [articles]);
 
-  const [activeTab, setActiveTab] = useState<"articles" | "social">("articles");
+  const [activeTab, setActiveTab] = useState<"articles" | "social" | "videos">("articles");
 
   return (
     <PortalLayout>
@@ -192,7 +192,7 @@ export default function PortalArticles() {
         <header className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">Content</h1>
           <p className="text-sm text-muted-foreground">
-            Review articles and see what social posts are going out on your channels.
+            Review articles and see what social posts and videos are going out on your channels.
           </p>
         </header>
 
@@ -220,9 +220,21 @@ export default function PortalArticles() {
             <Share2 className="h-3.5 w-3.5 inline mr-1.5" />
             Social Posts
           </button>
+          <button
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === "videos"
+                ? "border-[#2D6A4F] text-[#2D6A4F]"
+                : "border-transparent text-muted-foreground hover:text-gray-700"
+            }`}
+            onClick={() => setActiveTab("videos")}
+          >
+            <Video className="h-3.5 w-3.5 inline mr-1.5" />
+            Videos
+          </button>
         </div>
 
         {activeTab === "social" && <SocialPostsSection />}
+        {activeTab === "videos" && <VideoContentSection />}
 
         {activeTab === "articles" && <>
         {/* Summary chips */}
@@ -533,6 +545,222 @@ function SocialPostsSection() {
           </div>
         </Card>
       ))}
+    </div>
+  );
+}
+
+/* ─── Video Content Section ───────────────────────────────────────── */
+
+interface VideoItem {
+  id: number;
+  kind: string;
+  title: string | null;
+  status: string;
+  excerpt: string | null;
+  target_url: string | null;
+  video_url: string | null;
+  youtube_url: string | null;
+  thumbnail_url: string | null;
+  created_at: string;
+}
+
+interface VideoSettings {
+  video_generation_enabled: boolean;
+  video_scripts_enabled: boolean;
+}
+
+function VideoContentSection() {
+  const queryClient = useQueryClient();
+
+  const { data: videosData, isLoading: videosLoading, isError: videosError } = useQuery<{ videos: VideoItem[] }>({
+    queryKey: ["/api/portal/contentflow/videos"],
+    queryFn: async () => {
+      const res = await fetch("/api/portal/contentflow/videos", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load videos");
+      return res.json();
+    },
+  });
+
+  const { data: settings } = useQuery<VideoSettings>({
+    queryKey: ["/api/portal/contentflow/video-settings"],
+    queryFn: async () => {
+      const res = await fetch("/api/portal/contentflow/video-settings", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load video settings");
+      return res.json();
+    },
+  });
+
+  const toggleMutation = useMutation({
+    mutationFn: async (enabled: boolean) => {
+      const res = await fetch("/api/portal/contentflow/video-settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ video_generation_enabled: enabled }),
+      });
+      if (!res.ok) throw new Error("Failed to update");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/portal/contentflow/video-settings"] });
+    },
+  });
+
+  const videos = videosData?.videos ?? [];
+  const actualVideos = videos.filter((v) => v.kind === "video");
+  const scripts = videos.filter((v) => v.kind === "video_script");
+
+  return (
+    <div className="space-y-4">
+      {/* Info banner */}
+      <Card className="p-4 bg-blue-50 border-blue-200">
+        <div className="flex items-start gap-3">
+          <Video className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+          <div>
+            <p className="text-sm font-medium text-blue-900">Video Content</p>
+            <p className="text-xs text-blue-700 mt-1">
+              Videos use AI to create short clips from your articles. When enabled, we automatically generate
+              video scripts, create AI-generated video content, and can upload directly to your YouTube channel.
+            </p>
+          </div>
+        </div>
+      </Card>
+
+      {/* Toggle */}
+      {settings && (
+        <Card className="p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-900">AI Video Generation</p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                {settings.video_generation_enabled
+                  ? "AI videos are being created from your articles"
+                  : "Enable to start generating AI video content"}
+              </p>
+            </div>
+            <button
+              onClick={() => toggleMutation.mutate(!settings.video_generation_enabled)}
+              disabled={toggleMutation.isPending}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                settings.video_generation_enabled ? "bg-[#2D6A4F]" : "bg-gray-300"
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  settings.video_generation_enabled ? "translate-x-6" : "translate-x-1"
+                }`}
+              />
+            </button>
+          </div>
+        </Card>
+      )}
+
+      {/* Videos list */}
+      {videosLoading && (
+        <div className="grid gap-3 md:grid-cols-2">
+          {[0, 1].map((i) => (
+            <Card key={i} className="p-4 space-y-3">
+              <Skeleton className="h-5 w-1/2" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-3/4" />
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {videosError && (
+        <Card className="p-6 text-sm text-red-700">
+          Failed to load videos. Please try again later.
+        </Card>
+      )}
+
+      {!videosLoading && !videosError && videos.length === 0 && (
+        <Card className="p-12 text-center text-sm text-muted-foreground">
+          <Video className="mx-auto h-8 w-8 opacity-50 mb-2" />
+          No videos yet. When articles are repurposed with video generation enabled, they will appear here.
+        </Card>
+      )}
+
+      {!videosLoading && actualVideos.length > 0 && (
+        <>
+          <h3 className="text-sm font-medium text-gray-700">Generated Videos</h3>
+          <div className="grid gap-3 md:grid-cols-2">
+            {actualVideos.map((video) => (
+              <Card key={video.id} className="p-4 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Video className="h-4 w-4 text-red-600" />
+                  <span className="text-xs font-medium">Video</span>
+                  <Badge variant="outline" className={`ml-auto text-[10px] ${
+                    video.status === "published" ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+                    : video.status === "approved" ? "bg-blue-100 text-blue-800 border-blue-200"
+                    : "bg-gray-100 text-gray-700 border-gray-200"
+                  }`}>
+                    {video.status}
+                  </Badge>
+                </div>
+
+                <h4 className="text-sm font-medium text-gray-900 line-clamp-2">
+                  {video.title || `Video #${video.id}`}
+                </h4>
+
+                {video.excerpt && (
+                  <p className="text-xs text-gray-500 line-clamp-2">{video.excerpt}</p>
+                )}
+
+                <div className="flex items-center gap-3 text-[10px] text-muted-foreground pt-1">
+                  {video.youtube_url && (
+                    <a
+                      href={video.youtube_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-red-600 hover:underline flex items-center gap-0.5"
+                    >
+                      Watch on YouTube <ExternalLink className="h-3 w-3" />
+                    </a>
+                  )}
+                  {video.video_url && !video.youtube_url && (
+                    <a
+                      href={video.video_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-blue-600 hover:underline flex items-center gap-0.5"
+                    >
+                      View Video <ExternalLink className="h-3 w-3" />
+                    </a>
+                  )}
+                  <span>{formatRelative(video.created_at)}</span>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </>
+      )}
+
+      {!videosLoading && scripts.length > 0 && (
+        <>
+          <h3 className="text-sm font-medium text-gray-700 mt-4">Video Scripts</h3>
+          <div className="grid gap-3 md:grid-cols-2">
+            {scripts.map((script) => (
+              <Card key={script.id} className="p-4 space-y-2">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-gray-500" />
+                  <span className="text-xs font-medium">Script</span>
+                  <Badge variant="outline" className="ml-auto text-[10px] bg-gray-100 text-gray-700 border-gray-200">
+                    {script.status}
+                  </Badge>
+                </div>
+                <h4 className="text-sm font-medium text-gray-900 line-clamp-2">
+                  {script.title || `Script #${script.id}`}
+                </h4>
+                {script.excerpt && (
+                  <p className="text-xs text-gray-500 line-clamp-2">{script.excerpt}</p>
+                )}
+                <span className="text-[10px] text-muted-foreground">{formatRelative(script.created_at)}</span>
+              </Card>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }

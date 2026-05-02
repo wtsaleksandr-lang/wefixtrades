@@ -44,7 +44,7 @@ import { buildCalendarMetadata } from "./calendarMetadata";
 import { readBrandProfile, buildBrandLayerText } from "./brandProfile";
 import { buildPerformanceFeedback } from "./performanceTracker";
 import { detectInfographicContent, generateInfographic } from "./infographicService";
-import { generateVideoContent, isVideoScriptsEnabled } from "./videoContentService";
+import { generateVideoContent, isVideoScriptsEnabled, generateFullVideo, isVideoGenerationEnabledForClient } from "./videoContentService";
 import type { ContentDraft } from "@shared/schema";
 import { createLogger } from "../../lib/logger";
 
@@ -565,6 +565,30 @@ export async function repurposeArticle(parentDraftId: number): Promise<Repurpose
             target_platform: "pinterest" as any, // closest to "youtube" in the type
             variantIndex: 0,
           });
+
+          /* Sprint 18: after generating the video script, if AI video
+           * generation is enabled (globally + per-client), fire-and-forget
+           * full video generation. This is async/non-blocking because
+           * video generation takes minutes. The callback queues the
+           * YouTube upload when done. */
+          try {
+            const videoGenEnabled = await isVideoGenerationEnabledForClient(parent.client_id);
+            if (videoGenEnabled) {
+              generateFullVideo(parentDraftId)
+                .then((vr) => {
+                  if (vr.ok && vr.videoDraftId) {
+                    log.info(`[contentflow][repurposer] AI video created: draft=${vr.videoDraftId} parent=${parentDraftId}`);
+                  } else {
+                    log.debug(`[contentflow][repurposer] AI video skipped/failed for parent=${parentDraftId}: ${vr.reason}`);
+                  }
+                })
+                .catch((e: any) => {
+                  log.warn(`[contentflow][repurposer] AI video generation error for parent=${parentDraftId}: ${e?.message || e}`);
+                });
+            }
+          } catch (vgErr: any) {
+            log.warn(`[contentflow][repurposer] video generation check failed for parent=${parentDraftId}: ${vgErr?.message || vgErr}`);
+          }
         }
       }
     } catch (err: any) {

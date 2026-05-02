@@ -1546,4 +1546,103 @@ export function registerContentFlowRoutes(app: Express): void {
       res.status(500).json({ error: err.message });
     }
   });
+
+  /* ─── Sprint 18: Video Generation Admin Routes ─────────────────── */
+
+  /**
+   * GET /api/admin/contentflow/video/status?clientId=N
+   *
+   * Returns video generation status for a client:
+   *   - enabled: boolean (per-client toggle)
+   *   - global_enabled: boolean (env var gate)
+   *   - videos_this_month: number
+   *   - recent_videos: list of recent video drafts
+   */
+  app.get("/api/admin/contentflow/video/status", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(String(req.query.clientId), 10);
+      if (!Number.isFinite(clientId)) return res.status(400).json({ error: "clientId required" });
+
+      const { isVideoGenerationEnabledForClient } = await import("../services/contentflow/videoContentService");
+      const { isVideoGenerationEnabled } = await import("../services/contentflow/videoGenerationService");
+
+      const enabled = await isVideoGenerationEnabledForClient(clientId);
+      const globalEnabled = isVideoGenerationEnabled();
+
+      // Count videos this month
+      const { sql: sqlTag } = await import("drizzle-orm");
+      const { db } = await import("../db");
+      const { contentDrafts } = await import("@shared/schema");
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+      const videoDrafts = await db.select().from(contentDrafts)
+        .where(sqlTag`
+          ${contentDrafts.client_id} = ${clientId}
+          AND ${contentDrafts.kind} IN ('video', 'video_script')
+          AND ${contentDrafts.created_at} >= ${startOfMonth}
+        `)
+        .orderBy(sqlTag`${contentDrafts.created_at} DESC`)
+        .limit(20);
+
+      const videosThisMonth = videoDrafts.filter((d: any) => d.kind === "video").length;
+      const recentVideos = videoDrafts.map((d: any) => ({
+        id: d.id,
+        kind: d.kind,
+        title: d.title,
+        status: d.status,
+        target_url: d.target_url,
+        video_url: (d.metadata as any)?.media_plan?.video_url || null,
+        youtube_url: (d.metadata as any)?.youtube?.youtube_url || null,
+        created_at: d.created_at,
+      }));
+
+      res.json({
+        enabled,
+        global_enabled: globalEnabled,
+        videos_this_month: videosThisMonth,
+        recent_videos: recentVideos,
+      });
+    } catch (err: any) {
+      log.error("[contentflow/video/status]", err?.message || err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  /**
+   * PATCH /api/admin/contentflow/video/toggle
+   *
+   * Body: { clientId: number, enabled: boolean }
+   * Toggles video_generation_enabled on the client's active service metadata.
+   */
+  app.patch("/api/admin/contentflow/video/toggle", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const { clientId, enabled } = req.body;
+      if (!Number.isFinite(clientId)) return res.status(400).json({ error: "clientId required" });
+      if (typeof enabled !== "boolean") return res.status(400).json({ error: "enabled must be boolean" });
+
+      const { sql: sqlTag } = await import("drizzle-orm");
+      const { db } = await import("../db");
+      const { clientServices: csTable } = await import("@shared/schema");
+
+      // Update all non-cancelled services for this client
+      await db.execute(sqlTag`
+        UPDATE client_services
+        SET metadata = jsonb_set(
+          COALESCE(metadata, '{}'::jsonb),
+          '{video_generation_enabled}',
+          ${enabled ? sqlTag`'true'::jsonb` : sqlTag`'false'::jsonb`}
+        ),
+        updated_at = NOW()
+        WHERE client_id = ${clientId}
+          AND status NOT IN ('cancelled')
+      `);
+
+      log.info(`Video generation toggled: clientId=${clientId} enabled=${enabled}`);
+      res.json({ ok: true, clientId, enabled });
+    } catch (err: any) {
+      log.error("[contentflow/video/toggle]", err?.message || err);
+      res.status(500).json({ error: err.message });
+    }
+  });
 }

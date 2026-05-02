@@ -3554,6 +3554,110 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
     }
   });
 
+  /* ─── Sprint 18: Video Content (portal) ─────────────────────────── */
+
+  /**
+   * GET /api/portal/contentflow/videos
+   * Returns the calling client's video drafts (kind='video' or 'video_script').
+   */
+  app.get("/api/portal/contentflow/videos", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const { sql: sqlTag } = await import("drizzle-orm");
+      const { db: dbConn } = await import("../db");
+      const { contentDrafts } = await import("@shared/schema");
+
+      const videos = await dbConn.select().from(contentDrafts)
+        .where(sqlTag`
+          ${contentDrafts.client_id} = ${clientId}
+          AND ${contentDrafts.kind} IN ('video', 'video_script')
+        `)
+        .orderBy(sqlTag`${contentDrafts.created_at} DESC`)
+        .limit(50);
+
+      const formatted = videos.map((d: any) => ({
+        id: d.id,
+        kind: d.kind,
+        title: d.title,
+        status: d.status,
+        excerpt: d.excerpt,
+        target_url: d.target_url,
+        video_url: (d.metadata as any)?.media_plan?.video_url || null,
+        youtube_url: (d.metadata as any)?.youtube?.youtube_url || null,
+        thumbnail_url: (d.metadata as any)?.media_plan?.image_url || (d.metadata as any)?.media_plan?.thumbnail_url || null,
+        created_at: d.created_at,
+      }));
+
+      res.json({ videos: formatted });
+    } catch (err: any) {
+      log.error("[portal/videos] list error:", err?.message || err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  /**
+   * GET /api/portal/contentflow/video-settings
+   * Returns whether video generation is enabled for this client.
+   */
+  app.get("/api/portal/contentflow/video-settings", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const { isVideoGenerationEnabledForClient, isVideoScriptsEnabled } = await import("../services/contentflow/videoContentService");
+
+      const videoGenEnabled = await isVideoGenerationEnabledForClient(clientId);
+      const scriptsEnabled = await isVideoScriptsEnabled(clientId);
+
+      res.json({
+        video_generation_enabled: videoGenEnabled,
+        video_scripts_enabled: scriptsEnabled,
+      });
+    } catch (err: any) {
+      log.error("[portal/video-settings] error:", err?.message || err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  /**
+   * PATCH /api/portal/contentflow/video-settings
+   * Body: { video_generation_enabled: boolean }
+   * Client can toggle their own video generation on/off.
+   */
+  app.patch("/api/portal/contentflow/video-settings", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const { video_generation_enabled } = req.body;
+      if (typeof video_generation_enabled !== "boolean") {
+        return res.status(400).json({ error: "video_generation_enabled must be boolean" });
+      }
+
+      const { sql: sqlTag } = await import("drizzle-orm");
+      const { db: dbConn } = await import("../db");
+
+      await dbConn.execute(sqlTag`
+        UPDATE client_services
+        SET metadata = jsonb_set(
+          COALESCE(metadata, '{}'::jsonb),
+          '{video_generation_enabled}',
+          ${video_generation_enabled ? sqlTag`'true'::jsonb` : sqlTag`'false'::jsonb`}
+        ),
+        updated_at = NOW()
+        WHERE client_id = ${clientId}
+          AND status NOT IN ('cancelled')
+      `);
+
+      res.json({ ok: true, video_generation_enabled });
+    } catch (err: any) {
+      log.error("[portal/video-settings] patch error:", err?.message || err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   /* ═══════════════════════════════════════════
      Task Approval / Revision (client-facing)
      ═══════════════════════════════════════════ */

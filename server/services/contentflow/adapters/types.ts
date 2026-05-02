@@ -23,6 +23,7 @@ export type AdapterType =
   | "email"         // Newsletter / repurposed-article email (Sprint 13)
   | "linkedin"      // LinkedIn UGC posts (Sprint 18)
   | "pinterest"     // Pinterest pins (Sprint 18)
+  | "youtube"       // YouTube video uploads (Sprint 18)
   | "generic_export";
 
 export interface PublishAdapterOptions {

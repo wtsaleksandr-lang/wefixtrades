@@ -119,6 +119,139 @@ function fmtDate(d: string | null) {
 }
 
 /* ─── Activity Section (collapsed) ─── */
+/* ─── Sprint 18: Video Generation Section ─── */
+function VideoGenerationSection({ clientId }: { clientId: number }) {
+  const [open, setOpen] = useState(false);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const { data, isLoading } = useQuery<{
+    enabled: boolean;
+    global_enabled: boolean;
+    videos_this_month: number;
+    recent_videos: Array<{
+      id: number;
+      kind: string;
+      title: string | null;
+      status: string;
+      target_url: string | null;
+      video_url: string | null;
+      youtube_url: string | null;
+      created_at: string;
+    }>;
+  }>({
+    queryKey: ["/api/admin/contentflow/video/status", clientId],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/contentflow/video/status?clientId=${clientId}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load video status");
+      return res.json();
+    },
+    enabled: open,
+  });
+
+  const toggleMutation = useMutation({
+    mutationFn: async (enabled: boolean) => {
+      const res = await apiRequest("PATCH", "/api/admin/contentflow/video/toggle", { clientId, enabled });
+      return res.json();
+    },
+    onSuccess: (_data, enabled) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/contentflow/video/status", clientId] });
+      toast({ title: enabled ? "Video generation enabled" : "Video generation disabled" });
+    },
+    onError: () => {
+      toast({ title: "Failed to toggle video generation", variant: "destructive" });
+    },
+  });
+
+  return (
+    <Card>
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex items-center justify-between w-full p-4 text-left min-h-[44px]"
+      >
+        <span className="text-sm font-medium text-gray-500">Video Generation</span>
+        {open ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+      </button>
+      {open && (
+        <div className="px-4 pb-4 border-t border-gray-100 pt-3 space-y-4">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-4">
+              <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+            </div>
+          ) : data ? (
+            <>
+              {/* Global gate warning */}
+              {!data.global_enabled && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs text-amber-800">
+                  Video generation is globally disabled (VIDEO_GENERATION_ENABLED is not true).
+                  Per-client toggle has no effect until the global flag is enabled.
+                </div>
+              )}
+
+              {/* Toggle */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-700">AI Video Generation</p>
+                  <p className="text-xs text-gray-400">Generate AI videos from article scripts and upload to YouTube</p>
+                </div>
+                <Switch
+                  checked={data.enabled}
+                  onCheckedChange={(checked) => toggleMutation.mutate(checked)}
+                  disabled={toggleMutation.isPending}
+                />
+              </div>
+
+              {/* Stats */}
+              <div className="flex gap-4 text-xs">
+                <div>
+                  <span className="text-gray-400">Videos this month:</span>{" "}
+                  <span className="font-medium text-gray-700">{data.videos_this_month}</span>
+                </div>
+                <div>
+                  <span className="text-gray-400">Status:</span>{" "}
+                  <Badge variant="outline" className={data.enabled ? "bg-emerald-50 text-emerald-700" : "bg-gray-50 text-gray-500"}>
+                    {data.enabled ? "Enabled" : "Disabled"}
+                  </Badge>
+                </div>
+              </div>
+
+              {/* Recent videos */}
+              {data.recent_videos.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-gray-500 mb-2">Recent Videos</p>
+                  <div className="space-y-2">
+                    {data.recent_videos.map((v) => (
+                      <div key={v.id} className="flex items-center justify-between text-xs border rounded px-3 py-2">
+                        <div>
+                          <span className="font-medium text-gray-700">{v.title || `Draft #${v.id}`}</span>
+                          <Badge variant="outline" className="ml-2 text-[10px]">{v.kind}</Badge>
+                          <Badge variant="outline" className="ml-1 text-[10px]">{v.status}</Badge>
+                        </div>
+                        <div className="flex gap-2">
+                          {v.youtube_url && (
+                            <a href={v.youtube_url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline flex items-center gap-0.5">
+                              YouTube <ExternalLink className="w-3 h-3" />
+                            </a>
+                          )}
+                          <span className="text-gray-400">{v.created_at ? new Date(v.created_at).toLocaleDateString() : ""}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {data.recent_videos.length === 0 && data.enabled && (
+                <p className="text-xs text-gray-400 italic">No videos generated yet. Videos are created when articles are repurposed.</p>
+              )}
+            </>
+          ) : null}
+        </div>
+      )}
+    </Card>
+  );
+}
+
 function ActivitySection({ clientId }: { clientId: number }) {
   const [open, setOpen] = useState(false);
 
@@ -1048,6 +1181,9 @@ export default function ClientDetailPage() {
           </TabsContent>
 
         </Tabs>
+
+        {/* ─── Video Generation Section ─── */}
+        <VideoGenerationSection clientId={clientId} />
 
         {/* ─── Collapsed Activity Section ─── */}
         <ActivitySection clientId={clientId} />

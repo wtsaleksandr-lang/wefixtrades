@@ -17,7 +17,7 @@
 import { sql } from "drizzle-orm";
 import { storage } from "../../storage";
 import { db } from "../../db";
-import { clientServices } from "@shared/schema";
+import { clientServices, contentDrafts } from "@shared/schema";
 import { readBrandProfile, buildBrandLayerText } from "./brandProfile";
 import { chat as aiChat } from "../aiService";
 import { autoApproveDraft } from "./approvalService";
@@ -362,5 +362,189 @@ export async function isVideoScriptsEnabled(clientId: number): Promise<boolean> 
     return Array.isArray(rows) && rows.length > 0;
   } catch {
     return false;
+  }
+}
+
+/**
+ * Check whether AI video generation (not just scripts) is enabled for
+ * a given client. Reads client_service.metadata.video_generation_enabled
+ * across all of the client's active services.
+ */
+export async function isVideoGenerationEnabledForClient(clientId: number): Promise<boolean> {
+  try {
+    const result: any = await db.execute(sql`
+      SELECT id FROM client_services
+      WHERE client_id = ${clientId}
+        AND status NOT IN ('cancelled')
+        AND metadata->>'video_generation_enabled' = 'true'
+      LIMIT 1
+    `);
+    const rows = (result?.rows ?? result) as any[];
+    return Array.isArray(rows) && rows.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+/* ---- Full video generation (script → AI video → YouTube draft) --- */
+
+export interface FullVideoResult {
+  ok: boolean;
+  videoDraftId?: number;
+  reason?: string;
+  message?: string;
+}
+
+/**
+ * Generate a full AI video from an article draft's video script.
+ *
+ * Steps:
+ *   1. Read the existing video script draft (already generated)
+ *   2. Build a video generation prompt from the script
+ *   3. Call generateVideo() to create the AI video
+ *   4. Create a content_draft with kind="video", channel="youtube"
+ *   5. Store video URL in metadata.media_plan.video_url
+ *
+ * This is called by the repurposer when VIDEO_GENERATION_ENABLED=true
+ * and the client has video_generation_enabled on their service.
+ *
+ * NEVER throws. Returns { ok: false } on any failure.
+ */
+export async function generateFullVideo(
+  articleDraftId: number,
+): Promise<FullVideoResult> {
+  try {
+    // Lazy import to avoid circular deps
+    const { generateVideo, isVideoGenerationEnabled } = await import("./videoGenerationService");
+
+    if (!isVideoGenerationEnabled()) {
+      return { ok: false, reason: "disabled", message: "Video generation is disabled globally" };
+    }
+
+    const article = await storage.getContentDraftById(articleDraftId);
+    if (!article) {
+      return { ok: false, reason: "article_not_found" };
+    }
+
+    // Check per-client toggle
+    const clientEnabled = await isVideoGenerationEnabledForClient(article.client_id);
+    if (!clientEnabled) {
+      return { ok: false, reason: "client_disabled", message: "Video generation not enabled for this client" };
+    }
+
+    // Find the existing video script draft for this article
+    const scriptResults = await db.select().from(contentDrafts)
+      .where(sql`
+        ${contentDrafts.metadata}->>'parent_draft_id' = ${String(articleDraftId)}
+        AND ${contentDrafts.kind} = 'video_script'
+      `)
+      .limit(1);
+
+    const scriptDraft = scriptResults[0];
+    if (!scriptDraft) {
+      return { ok: false, reason: "no_script", message: "No video script found for this article" };
+    }
+
+    const scriptMeta = (scriptDraft.metadata || {}) as Record<string, any>;
+    const videoScript = scriptMeta.video_script || {};
+
+    // Build a video generation prompt from the script
+    const client = await storage.getClientById(article.client_id);
+    const tradeType = (client?.trade_type as string | null) ?? null;
+    const brand = readBrandProfile(client);
+
+    const promptParts: string[] = [
+      `Professional ${tradeType || "trades business"} video.`,
+      videoScript.title ? `Topic: ${videoScript.title}.` : "",
+      videoScript.intro ? `Opening scene: ${videoScript.intro.slice(0, 150)}.` : "",
+      brand.visual_style ? `Style: ${brand.visual_style}.` : "Style: clean, professional, modern.",
+      brand.primary_color ? `Brand color accent: ${brand.primary_color}.` : "",
+      "No text overlays. No faces. Professional lighting.",
+      "Clean, high-quality footage suitable for YouTube.",
+    ];
+    const prompt = promptParts.filter(Boolean).join(" ");
+
+    // Generate the video
+    log.info(`Generating AI video for article=${articleDraftId} script=${scriptDraft.id}`);
+    const videoResult = await generateVideo(
+      { prompt, aspectRatio: "16:9", duration: 5, brandProfile: brand },
+      article.client_id,
+    );
+
+    if (!videoResult) {
+      log.warn(`AI video generation returned null for article=${articleDraftId}`);
+      return { ok: false, reason: "generation_failed", message: "Video generation returned no result" };
+    }
+
+    // Get thumbnail URL from the script draft if available
+    const thumbnailUrl = scriptMeta.media_plan?.image_url || null;
+
+    // Create the video draft
+    const meta: Record<string, any> = {
+      parent_draft_id: articleDraftId,
+      parent_kind: "article",
+      parent_surface: "rankflow",
+      script_draft_id: scriptDraft.id,
+      repurposed_at: new Date().toISOString(),
+      video_script: videoScript,
+      media_plan: {
+        type: "video",
+        video_url: videoResult.videoUrl,
+        video_provider: videoResult.provider,
+        video_duration_seconds: videoResult.durationSeconds,
+        thumbnail_url: thumbnailUrl,
+        image_url: thumbnailUrl,
+      },
+      calendar: buildCalendarMetadata({
+        channel: "youtube" as any,
+        scheduled_for: null,
+        parent_draft_id: articleDraftId,
+        auto_generated: true,
+        repurposed: true,
+      }),
+      youtube: {
+        queue_status: "queued",
+        scheduled_for: null,
+        attempts: 0,
+        last_error: null,
+        locked_at: null,
+        locked_by: null,
+      },
+    };
+
+    const draft = await storage.createContentDraft({
+      client_id: article.client_id,
+      client_service_id: null,
+      kind: "video",
+      surface: "socialsync",
+      title: videoScript.title || scriptDraft.title || "Video",
+      body: scriptDraft.body || "",
+      excerpt: `AI video (${videoResult.durationSeconds}s) from: ${(article.title || "article").slice(0, 100)}`,
+      target_platform: "youtube",
+      target_url: null,
+      metadata: meta as any,
+      quality_score: null,
+      quality_notes: null,
+      status: "draft",
+      auto_approved: false,
+      requires_admin_review: true,
+      requires_client_review: false,
+      admin_approved_at: null,
+      admin_approved_by: null,
+      client_approved_at: null,
+      rejected_at: null,
+      rejection_reason: null,
+      linked_social_post_id: null,
+      linked_task_id: null,
+      generation_cost_micro_usd: null,
+      created_by: "system",
+    } as any);
+
+    log.info(`Video draft created: draft=${draft.id} parent=${articleDraftId} provider=${videoResult.provider}`);
+
+    return { ok: true, videoDraftId: draft.id };
+  } catch (err: any) {
+    log.error(`Full video generation failed for article=${articleDraftId}: ${err?.message || err}`);
+    return { ok: false, reason: "pipeline_failed", message: err?.message || String(err) };
   }
 }
