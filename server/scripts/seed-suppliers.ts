@@ -43,6 +43,12 @@ const SUPPLIER_SEEDS: SupplierSeed[] = [
     contact_email: "ads@example.com",
     supported_services: [],
   },
+  {
+    name: "Ad Campaign Agency",
+    type: "white_label",
+    contact_email: "adflow-agency@example.com",
+    supported_services: ["adflow-starter", "adflow-growth", "adflow-pro"],
+  },
 ];
 
 async function main() {

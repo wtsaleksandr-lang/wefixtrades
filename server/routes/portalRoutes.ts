@@ -269,6 +269,18 @@ export function registerPortalRoutes(app: Express) {
 
       if (!service) return res.status(404).json({ error: "Service not found" });
 
+      // For AdFlow services, attach latest_report from metadata
+      let adflowMetrics: Record<string, any> | null = null;
+      if (service.service_id.startsWith("adflow")) {
+        const [csRow] = await db
+          .select({ metadata: clientServices.metadata })
+          .from(clientServices)
+          .where(eq(clientServices.id, serviceId))
+          .limit(1);
+        const meta = (csRow?.metadata as Record<string, any>) || {};
+        adflowMetrics = meta.latest_report || null;
+      }
+
       // Tasks — client-safe fields only (including deliverables)
       const tasks = await db
         .select({
@@ -326,6 +338,7 @@ export function registerPortalRoutes(app: Express) {
         tasks: safeTasks,
         onboarding: onboarding ?? null,
         payments,
+        ...(adflowMetrics ? { adflow_metrics: adflowMetrics } : {}),
       });
     } catch (err) {
       log.error("Portal service detail error:", { error: String(err) });
@@ -1194,7 +1207,7 @@ export function registerPortalRoutes(app: Express) {
         // General help context — with natural escalation behavior
         systemPrompt = `You are a helpful support assistant for WeFixTrades, a company that provides digital marketing services for trade businesses (plumbers, electricians, builders, etc.).
 
-Services include: MapGuard (Google Business Profile), MapSetup (one-time GBP optimization), TradeLine (AI phone/chat), QuoteQuick (quote calculators), RankFlow (ongoing SEO), ReputationShield (review management), SocialSync (social media), SiteLaunch (website builds), WebCare (website maintenance), and WebFix (one-time website fixes).
+Services include: MapGuard (Google Business Profile), MapSetup (one-time GBP optimization), TradeLine (AI phone/chat), QuoteQuick (quote calculators), RankFlow (ongoing SEO), ReputationShield (review management), SocialSync (social media), SiteLaunch (website builds), WebCare (website maintenance), WebFix (one-time website fixes), and AdFlow (managed ad campaigns delivered by agency partners).
 
 Your job:
 - Answer questions about how services work

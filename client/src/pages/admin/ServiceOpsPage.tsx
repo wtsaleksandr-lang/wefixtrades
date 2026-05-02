@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { ArrowLeft, CheckCircle2, Loader2, Save, Layout } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Loader2, Save, Layout, BarChart3, Send } from "lucide-react";
 
 /**
  * Admin "Service Ops" page.
@@ -19,7 +19,7 @@ import { ArrowLeft, CheckCircle2, Loader2, Save, Layout } from "lucide-react";
  * captured outside the generic task flow:
  *
  *  1. `sitelaunch-template` — picked template, brand colors, content blocks
- * AdFlow ops form removed (Sprint 1: AdFlow dropped).
+ *  2. `adflow-*` — enter monthly campaign performance metrics
  *
  * This page surfaces the right form based on the client_service's service_id.
  *
@@ -103,11 +103,12 @@ function ServiceOpsInner({ csid }: { csid: number }) {
         </Card>
       )}
       {data && data.service_id === "sitelaunch-template" && <SiteLaunchTemplateForm cs={data} />}
-      {data && data.service_id !== "sitelaunch-template" && (
+      {data && data.service_id.startsWith("adflow") && <AdFlowMetricsForm cs={data} />}
+      {data && data.service_id !== "sitelaunch-template" && !data.service_id.startsWith("adflow") && (
         <Card className="p-6 max-w-xl">
           <p className="text-sm text-gray-700 font-medium mb-1">No ops form for this service type</p>
           <p className="text-xs text-gray-500">
-            Service Ops forms exist for <code>sitelaunch-template</code>. For anything else, use the general fulfillment task view on the client page.
+            Service Ops forms exist for <code>sitelaunch-template</code> and <code>adflow-*</code>. For anything else, use the general fulfillment task view on the client page.
           </p>
         </Card>
       )}
@@ -285,7 +286,153 @@ function SiteLaunchTemplateForm({ cs }: { cs: ClientService }) {
   );
 }
 
-/* AdFlow Metrics form — REMOVED (Sprint 1: AdFlow dropped) */
+/* ═══════════════════════════════════════════
+   AdFlow Metrics form
+   ═══════════════════════════════════════════ */
+
+function AdFlowMetricsForm({ cs }: { cs: ClientService }) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const existing = (cs.metadata as any)?.latest_report ?? {};
+
+  const [impressions, setImpressions] = useState(existing.impressions?.toString() || "");
+  const [clicks, setClicks] = useState(existing.clicks?.toString() || "");
+  const [leadsGenerated, setLeadsGenerated] = useState(existing.leads_generated?.toString() || "");
+  const [costSpentCents, setCostSpentCents] = useState(
+    existing.cost_spent_cents != null ? (existing.cost_spent_cents / 100).toFixed(2) : ""
+  );
+  const [ctrPct, setCtrPct] = useState(existing.ctr_pct?.toString() || "");
+  const [cpcCents, setCpcCents] = useState(
+    existing.cpc_cents != null ? (existing.cpc_cents / 100).toFixed(2) : ""
+  );
+  const [topCreative, setTopCreative] = useState(existing.top_creative || "");
+  const [notes, setNotes] = useState(existing.notes || "");
+  const [periodStart, setPeriodStart] = useState(existing.period_start || "");
+  const [periodEnd, setPeriodEnd] = useState(existing.period_end || "");
+  const [recommendations, setRecommendations] = useState(
+    (existing.recommendations || []).join("\n")
+  );
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const body: any = {
+        period_start: periodStart || undefined,
+        period_end: periodEnd || undefined,
+        notes: notes || undefined,
+        top_creative: topCreative || undefined,
+        recommendations: recommendations
+          .split("\n")
+          .map((r: string) => r.trim())
+          .filter(Boolean),
+      };
+      if (impressions) body.impressions = parseInt(impressions);
+      if (clicks) body.clicks = parseInt(clicks);
+      if (leadsGenerated) body.leads_generated = parseInt(leadsGenerated);
+      if (costSpentCents) body.cost_spent_cents = Math.round(parseFloat(costSpentCents) * 100);
+      if (ctrPct) body.ctr_pct = parseFloat(ctrPct);
+      if (cpcCents) body.cpc_cents = Math.round(parseFloat(cpcCents) * 100);
+
+      const res = await apiRequest("POST", `/api/admin/crm/client-services/${cs.id}/adflow-metrics`, body);
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Metrics saved", description: "AdFlow metrics entered for this period." });
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/crm/client-services/${cs.id}`] });
+    },
+    onError: (err: any) => {
+      toast({ title: "Save failed", description: err?.message || "Try again", variant: "destructive" });
+    },
+  });
+
+  const sendMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/admin/crm/client-services/${cs.id}/adflow-send-report`, {});
+      return res.json();
+    },
+    onSuccess: (result: any) => {
+      if (result.sent) {
+        toast({ title: "Report sent", description: `${result.period} report sent to client.` });
+      } else {
+        toast({ title: "Report not sent", description: result.reason || "Check metrics and try again.", variant: "destructive" });
+      }
+    },
+    onError: (err: any) => {
+      toast({ title: "Send failed", description: err?.message || "Try again", variant: "destructive" });
+    },
+  });
+
+  return (
+    <div className="max-w-3xl space-y-5">
+      <Card className="p-5 bg-blue-50 border-blue-200">
+        <div className="flex items-start gap-3">
+          <div className="w-9 h-9 rounded-lg bg-white border border-blue-200 flex items-center justify-center flex-shrink-0">
+            <BarChart3 className="w-4 h-4 text-blue-600" />
+          </div>
+          <div>
+            <h2 className="text-sm font-semibold text-gray-900 mb-1">AdFlow Metrics</h2>
+            <p className="text-xs text-gray-600 leading-relaxed">
+              Enter the campaign performance metrics for this period. These are sent to the client
+              in their monthly report on the 2nd. Save metrics first, then send the report manually or
+              let the cron pick it up.
+            </p>
+          </div>
+        </div>
+      </Card>
+
+      <Card className="p-6 space-y-5">
+        {/* Period */}
+        <div>
+          <h3 className="text-sm font-semibold text-gray-900 mb-3">Report Period</h3>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Period start (YYYY-MM-DD)" value={periodStart} onChange={setPeriodStart} placeholder="2026-04-01" />
+            <Field label="Period end (YYYY-MM-DD)" value={periodEnd} onChange={setPeriodEnd} placeholder="2026-04-30" />
+          </div>
+        </div>
+
+        {/* KPIs */}
+        <div className="border-t border-gray-100 pt-5">
+          <h3 className="text-sm font-semibold text-gray-900 mb-3">Campaign KPIs</h3>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <Field label="Impressions" value={impressions} onChange={setImpressions} numeric />
+            <Field label="Clicks" value={clicks} onChange={setClicks} numeric />
+            <Field label="Leads generated" value={leadsGenerated} onChange={setLeadsGenerated} numeric />
+            <Field label="Total spend ($)" value={costSpentCents} onChange={setCostSpentCents} placeholder="1500.00" />
+            <Field label="CTR (%)" value={ctrPct} onChange={setCtrPct} placeholder="2.5" />
+            <Field label="CPC ($)" value={cpcCents} onChange={setCpcCents} placeholder="3.50" />
+          </div>
+        </div>
+
+        {/* Additional */}
+        <div className="border-t border-gray-100 pt-5">
+          <h3 className="text-sm font-semibold text-gray-900 mb-3">Additional Info</h3>
+          <Field label="Top performing creative" value={topCreative} onChange={setTopCreative} placeholder="e.g. Emergency Plumber - Call Now" />
+          <FieldTextarea label="Recommendations (one per line)" value={recommendations} onChange={setRecommendations} rows={3} placeholder={"Increase budget for Google Ads by 20%\nTest new landing page variant"} />
+          <FieldTextarea label="Notes (internal or for report)" value={notes} onChange={setNotes} rows={3} />
+        </div>
+
+        {/* Actions */}
+        <div className="flex items-center justify-end gap-2 pt-2">
+          <Button
+            variant="outline"
+            onClick={() => sendMutation.mutate()}
+            disabled={sendMutation.isPending || !periodStart}
+          >
+            {sendMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
+            Send Report Now
+          </Button>
+          <Button
+            onClick={() => saveMutation.mutate()}
+            disabled={saveMutation.isPending}
+            className="bg-[#2D6A4F] hover:bg-[#1B4332] text-white"
+          >
+            {saveMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+            Save Metrics
+          </Button>
+        </div>
+      </Card>
+    </div>
+  );
+}
 
 /* ═══════════════════════════════════════════
    Small field helpers

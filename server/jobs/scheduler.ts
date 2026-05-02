@@ -19,6 +19,7 @@ import { processMapguardReports } from "./mapguardReportWorker";
 import { processRankflowReports } from "./rankflowReportWorker";
 import { processSocialsyncReports } from "./socialsyncReportWorker";
 import { processAdflowReports } from "./adflowReportWorker";
+import { checkAdflowMissingMetrics } from "./adflowMetricsCheckWorker";
 import { processWebcareHealthChecks } from "./webcareHealthWorker";
 import { processDunningQueue } from "./dunningWorker";
 import { processMapguardWeeklyUpdates } from "./mapguardWeeklyUpdateWorker";
@@ -326,8 +327,29 @@ export function initScheduler() {
     }
   }, { timezone: "UTC" });
 
-  /* AdFlow monthly reports — RETIRED (Sprint 1: AdFlow dropped).
-   * Worker stub still exists but is a no-op. Cron removed. */
+  // AdFlow monthly reports — 13:00 UTC on the 2nd of each month
+  // (one hour after SocialSync to spread the rollup-batch load).
+  // Metrics are manually entered via admin; worker skips clients
+  // without current-period data. Idempotent per period via
+  // client_service.metadata.last_report_period.
+  cron.schedule("0 13 2 * *", async () => {
+    log.info("Running AdFlow monthly reports...");
+    try {
+      await runJob("adflow_monthly_reports", processAdflowReports);
+    } catch (err: any) {
+      log.error("adflow_monthly_reports cron handler error", { error: err.message });
+    }
+  }, { timezone: "UTC" });
+
+  // AdFlow missing-metrics check — 08:00 UTC daily (runs logic only on 28th-30th)
+  // Fires a system alert listing clients without current-month metrics entered.
+  cron.schedule("0 8 * * *", async () => {
+    try {
+      await runJob("adflow_metrics_check", checkAdflowMissingMetrics);
+    } catch (err: any) {
+      log.error("adflow_metrics_check cron handler error", { error: err.message });
+    }
+  }, { timezone: "UTC" });
 
   cron.schedule("0 9 * * *", async () => {
     log.info("Running trial lifecycle worker...");
@@ -437,6 +459,8 @@ export function initScheduler() {
       "SocialSync weekly generation: 06:00 UTC every Sunday",
       "SocialSync expiry check: 04:00 UTC every day",
       "SocialSync monthly reports: 12:00 UTC on the 2nd of each month",
+      "AdFlow monthly reports: 13:00 UTC on the 2nd of each month",
+      "AdFlow metrics check: 08:00 UTC daily (active 28th-30th only)",
       "WebCare health checks: every 15 minutes",
       "Recurring task generation: 01:00 UTC every day",
       "Auto-activation worker: every 5 minutes",

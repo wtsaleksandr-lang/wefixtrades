@@ -23,6 +23,7 @@ import {
   LogOut,
   ExternalLink,
   Megaphone,
+  Zap,
   LifeBuoy,
   Star,
   Shield,
@@ -74,6 +75,7 @@ const PRODUCTS_ITEMS = [
   { label: "Reviews", href: "/admin/crm/reviews", icon: Star },
   { label: "SocialSync", href: "/admin/crm/socialsync", icon: Share2 },
   { label: "ContentFlow", href: "/admin/crm/contentflow", icon: Layers },
+  { label: "AdFlow", href: "/admin/crm/adflow", icon: Zap },
 ];
 
 const FINANCE_ITEMS = [

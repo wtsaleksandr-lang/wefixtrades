@@ -1,6 +1,6 @@
 import {
   TRADELINE, QUOTEQUICK, WEBCARE, MAPGUARD, SITELAUNCH,
-  REPUTATIONSHIELD, SOCIALSYNC, RANKFLOW, WEBFIX,
+  REPUTATIONSHIELD, SOCIALSYNC, RANKFLOW, WEBFIX, ADFLOW,
   formatPrice, type ProductDef, type Tier,
 } from "@shared/pricing";
 
@@ -523,6 +523,52 @@ export const PRODUCT_PAGES: ProductPage[] = [
       note: "ContentFlow is included with SocialSync and RankFlow plans. Contact us for standalone pricing.",
     },
     related: ["socialsync", "rankflow", "mapguard"],
+  },
+  {
+    slug: "adflow",
+    name: "AdFlow™",
+    shortTagline: "Done-for-you ad campaigns, managed by our agency partners",
+    seoTitle: "AdFlow™ — Managed Ad Campaigns for Trades | WeFixTrades",
+    seoDescription: "Done-for-you Google and Meta ad campaigns, managed by our agency partners. Monthly performance reports, transparent pricing, ad spend funded separately. From $399/mo.",
+    category: "growth",
+    heroVisualType: "dashboard",
+    primaryCTA: { label: "Get Started", href: "/Wizard" },
+    secondaryCTA: { label: "See Pricing", href: "/pricing" },
+    highlights: [
+      "Agency-managed campaigns — Our partner agency handles setup, targeting, creative, and ongoing optimization.",
+      "Monthly performance reports — Clear reports delivered to your inbox showing leads, spend, and cost per lead.",
+      "Ad spend funded separately — You pay the ad platforms directly. Our fee covers management only.",
+      "Multi-platform reach — Google Ads, Facebook, and Instagram campaigns depending on your plan.",
+      "No long-term contracts — Cancel anytime. Your ad accounts stay yours.",
+      "WeFixTrades manages the relationship — We coordinate with the agency so you don’t have to.",
+    ],
+    outcomes: [
+      { title: "More leads, faster", desc: "Paid ads deliver leads while SEO and organic strategies build over time." },
+      { title: "Transparent reporting", desc: "Monthly reports show exactly what was spent and what it generated." },
+      { title: "Professional campaign management", desc: "Experienced agency partners handle the complexity of ad platforms." },
+    ],
+    howItWorks: [
+      { title: "Tell us your goals", desc: "Share your services, service area, budget, and what you want to advertise. We brief the agency." },
+      { title: "Agency builds your campaigns", desc: "Our partner agency sets up your ad accounts, creates ads, and launches campaigns on your chosen platforms." },
+      { title: "Monthly reports delivered", desc: "Every month you receive a performance report showing impressions, clicks, leads, spend, and cost per lead." },
+    ],
+    bestFor: ["Plumbers", "Electricians", "HVAC Technicians", "Roofers", "Cleaners", "Landscapers", "Painters", "General Contractors"],
+    visuals: [
+      { title: "Performance Report", desc: "Monthly email report with KPIs: leads, spend, cost per lead, and click-through rate." },
+      { title: "Campaign Management", desc: "Agency handles targeting, creative, bid management, and optimization." },
+      { title: "Multi-Platform Reach", desc: "Google Ads, Facebook, and Instagram campaigns managed together." },
+    ],
+    faq: [
+      { q: "Who manages the ads?", a: "Our agency partner handles all campaign setup, optimization, and reporting. WeFixTrades manages the relationship and ensures quality." },
+      { q: "Do I pay for ad spend separately?", a: "Yes. Our monthly fee covers campaign management. Ad spend is paid directly to the ad platforms (Google, Meta) by you. This keeps costs transparent." },
+      { q: "How much should I budget for ad spend?", a: "Most trades businesses see results with $500–$2,000/month in ad spend. Your agency partner will recommend a budget based on your goals and area." },
+      { q: "What platforms do you advertise on?", a: "Starter: Google Ads. Growth: Google + Facebook. Pro: Google + Facebook + Instagram, plus video ads." },
+      { q: "How do I see my results?", a: "You receive a monthly performance report via email showing impressions, clicks, leads, total spend, and cost per lead." },
+      { q: "Can I cancel anytime?", a: "Yes. No long-term contracts. Your ad accounts and data stay yours if you cancel." },
+      { q: "How quickly will I see leads?", a: "Paid ads can generate leads within days of launch. Most clients see meaningful results within the first 2–4 weeks." },
+    ],
+    pricingSection: buildPricingSection(ADFLOW, "Ad spend is funded separately — you pay the ad platforms directly."),
+    related: ["tradeline", "rankflow", "mapguard"],
   },
   {
     slug: "bookflow",

@@ -77,6 +77,7 @@ import ServiceOpsPage from "@/pages/admin/ServiceOpsPage";
 import MapguardDashboard from "@/pages/admin/MapguardDashboard";
 import ReviewsPage from "@/pages/admin/ReviewsPage";
 import RankFlowOpsPage from "@/pages/admin/RankFlowOpsPage";
+import AdFlowOpsPage from "@/pages/admin/AdFlowOpsPage";
 import ProfilePage from "@/pages/admin/ProfilePage";
 import SettingsPage from "@/pages/admin/SettingsPage";
 import ChangePasswordPage from "@/pages/admin/ChangePasswordPage";
@@ -137,6 +138,7 @@ function Router() {
       <Route path="/admin/crm/billing">{() => <RequirePortal><BillingPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/suppliers">{() => <RequirePortal><SuppliersPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/rankflow">{() => <RequirePortal><RankFlowOpsPage /></RequirePortal>}</Route>
+      <Route path="/admin/crm/adflow">{() => <RequirePortal><AdFlowOpsPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/support/:id">{() => <RequirePortal><SupportTicketDetailPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/support">{() => <RequirePortal><SupportInboxPage /></RequirePortal>}</Route>
       <Route path="/admin/booking">{() => <RequirePortal><BookingCalendarPage /></RequirePortal>}</Route>
@@ -193,7 +195,6 @@ function Router() {
       <Route path="/products/quickquote">{() => <Redirect to="/products/quickquotepro" />}</Route>
       <Route path="/products/quotequick">{() => <Redirect to="/products/quickquotepro" />}</Route>
       {/* Removed products — redirect to closest active product */}
-      <Route path="/products/adflow">{() => <Redirect to="/pricing" />}</Route>
       <Route path="/products/booking-addon">{() => <Redirect to="/products/quickquotepro" />}</Route>
       <Route path="/products/fix-and-optimize">{() => <Redirect to="/pricing" />}</Route>
       <Route path="/products/:slug" component={NewProductPage} />

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { useRoute, Link } from "wouter";
-import { Loader2, ArrowLeft, Check, Clock, AlertCircle, Circle, RefreshCw, PhoneCall, PhoneIncoming, PhoneMissed, PhoneOff, Globe, Mic, ChevronDown, Save, Shield, Wrench, Activity } from "lucide-react";
+import { Loader2, ArrowLeft, Check, Clock, AlertCircle, Circle, RefreshCw, PhoneCall, PhoneIncoming, PhoneMissed, PhoneOff, Globe, Mic, ChevronDown, Save, Shield, Wrench, Activity, BarChart3, DollarSign, MousePointerClick, Eye, Users } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
 import ModeToggle from "@/components/portal/ModeToggle";
 import TaskTimeline from "@/components/portal/TaskTimeline";
@@ -64,6 +64,16 @@ interface ServiceDetail {
     approved_at: string | null;
   } | null;
   payments: PaymentRow[];
+  adflow_metrics?: {
+    impressions?: number;
+    clicks?: number;
+    leads_generated?: number;
+    cost_spent_cents?: number;
+    ctr_pct?: number;
+    cpc_cents?: number;
+    period_start?: string;
+    period_end?: string;
+  };
 }
 
 interface TradeLineCallRow {
@@ -396,6 +406,7 @@ export default function PortalServiceDetail() {
   const isSiteLaunch = data?.service.service_id?.startsWith("sitelaunch");
   const isWebFix = data?.service.service_id?.startsWith("webfix");
   const isWebCare = data?.service.service_id?.startsWith("webcare");
+  const isAdFlow = data?.service.service_id?.startsWith("adflow");
 
   // Tasks waiting on client approval (for SiteLaunch design approval flow)
   const approvalTasks = (data?.tasks || []).filter(
@@ -775,6 +786,98 @@ export default function PortalServiceDetail() {
                     )}
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Service-specific: AdFlow campaign metrics */}
+            {isAdFlow && (
+              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <div className="px-5 py-4 border-b border-gray-100">
+                  <div className="flex items-center gap-2">
+                    <BarChart3 className="w-4 h-4 text-blue-600" />
+                    <h2 className="text-sm font-semibold text-gray-900">Campaign Performance</h2>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Your campaigns are managed by our agency partner.
+                  </p>
+                </div>
+
+                {data.adflow_metrics && data.adflow_metrics.leads_generated != null ? (
+                  <>
+                    {/* KPI tiles */}
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-px bg-gray-100">
+                      <div className="bg-white p-4">
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <Eye className="w-3 h-3 text-gray-400" />
+                          <p className="text-[10px] text-gray-500">Impressions</p>
+                        </div>
+                        <p className="text-lg font-semibold text-gray-900">
+                          {data.adflow_metrics.impressions?.toLocaleString() ?? "-"}
+                        </p>
+                      </div>
+                      <div className="bg-white p-4">
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <MousePointerClick className="w-3 h-3 text-gray-400" />
+                          <p className="text-[10px] text-gray-500">Clicks</p>
+                        </div>
+                        <p className="text-lg font-semibold text-gray-900">
+                          {data.adflow_metrics.clicks?.toLocaleString() ?? "-"}
+                        </p>
+                      </div>
+                      <div className="bg-white p-4">
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <Users className="w-3 h-3 text-gray-400" />
+                          <p className="text-[10px] text-gray-500">Leads</p>
+                        </div>
+                        <p className="text-lg font-semibold text-emerald-600">
+                          {data.adflow_metrics.leads_generated?.toLocaleString() ?? "-"}
+                        </p>
+                      </div>
+                      <div className="bg-white p-4">
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <DollarSign className="w-3 h-3 text-gray-400" />
+                          <p className="text-[10px] text-gray-500">Spend</p>
+                        </div>
+                        <p className="text-lg font-semibold text-gray-900">
+                          {data.adflow_metrics.cost_spent_cents != null
+                            ? `$${(data.adflow_metrics.cost_spent_cents / 100).toFixed(2)}`
+                            : "-"}
+                        </p>
+                      </div>
+                      <div className="bg-white p-4">
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <DollarSign className="w-3 h-3 text-gray-400" />
+                          <p className="text-[10px] text-gray-500">Cost / Lead</p>
+                        </div>
+                        <p className="text-lg font-semibold text-gray-900">
+                          {data.adflow_metrics.leads_generated && data.adflow_metrics.cost_spent_cents
+                            ? `$${(data.adflow_metrics.cost_spent_cents / data.adflow_metrics.leads_generated / 100).toFixed(2)}`
+                            : "-"}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Period info */}
+                    {data.adflow_metrics.period_start && (
+                      <div className="px-5 py-3 border-t border-gray-100 text-xs text-gray-400">
+                        Report period: {new Date(data.adflow_metrics.period_start).toLocaleDateString("en-AU", { month: "long", year: "numeric" })}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="px-5 py-8 text-center">
+                    <p className="text-sm text-gray-500">
+                      Your first performance report will arrive after your campaigns have been running for a full month.
+                    </p>
+                  </div>
+                )}
+
+                {/* Next report note */}
+                <div className="px-5 py-3 border-t border-gray-100 bg-gray-50/50">
+                  <p className="text-xs text-gray-500">
+                    Next report drops on the 2nd of every month. Ad spend is funded separately — you pay the ad platforms directly.
+                  </p>
+                </div>
               </div>
             )}
 

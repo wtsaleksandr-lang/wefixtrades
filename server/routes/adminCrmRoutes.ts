@@ -8,7 +8,7 @@ import { sendWelcomePackage } from "../lib/welcomeEmail";
 import { sendApprovalNotificationEmail } from "../lib/approvalNotificationEmail";
 import { runSiteLaunchFinalization } from "../services/sitelaunchFinalization";
 import { runPreFixAudit, runPostFixAudit } from "../services/webfixAuditService";
-// AdFlow dropped (Sprint 1) — compileAndSendAdFlowReport import removed
+import { compileAndSendAdFlowReport } from "../services/adflowReports";
 import crypto from "crypto";
 import { createLogger } from "../lib/logger";
 import { saveFile, deleteFile } from "../services/fileStorage";
@@ -260,9 +260,120 @@ export function registerAdminCrmRoutes(app: Express): void {
     }
   });
 
-  /** AdFlow metrics endpoint — retired (Sprint 1: AdFlow dropped). Returns 410 Gone. */
-  app.post("/api/admin/crm/client-services/:id/adflow-metrics", requireAdmin, async (_req: Request, res: Response) => {
-    res.status(410).json({ error: "AdFlow has been removed from the product catalog." });
+  /**
+   * POST /api/admin/crm/client-services/:id/adflow-metrics
+   * Admin enters monthly ad campaign metrics for a client service.
+   * Saves to client_service.metadata.latest_report.
+   */
+  app.post("/api/admin/crm/client-services/:id/adflow-metrics", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const csId = parseInt(req.params.id as string);
+      const cs = await storage.getClientServiceById(csId);
+      if (!cs) return res.status(404).json({ error: "Client service not found" });
+      if (!cs.service_id.startsWith("adflow")) return res.status(400).json({ error: "Not an AdFlow service" });
+
+      const { impressions, clicks, leads_generated, cost_spent_cents, ctr_pct, cpc_cents,
+              top_creative, notes, period_start, period_end, daily_breakdown, creatives,
+              recommendations } = req.body;
+
+      const latestReport = {
+        impressions, clicks, leads_generated, cost_spent_cents, ctr_pct, cpc_cents,
+        top_creative, notes, period_start, period_end, daily_breakdown, creatives,
+        recommendations,
+      };
+
+      const existingMeta = (cs.metadata as Record<string, any>) || {};
+      const updated = await storage.updateClientService(csId, {
+        metadata: { ...existingMeta, latest_report: latestReport },
+      });
+
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: (req.user as any)?.id,
+        actor_name: (req.user as any)?.name || (req.user as any)?.email,
+        action: "adflow.metrics_entered",
+        entity_type: "client_service",
+        entity_id: csId,
+        summary: `Entered AdFlow metrics for period ${period_start || "unknown"}`,
+      });
+
+      res.json({ ok: true, client_service: updated });
+    } catch (err: any) {
+      log.error("[adflow-metrics] Save failed:", err.message);
+      res.status(500).json({ error: "Failed to save AdFlow metrics" });
+    }
+  });
+
+  /**
+   * POST /api/admin/crm/client-services/:id/adflow-send-report
+   * Manually trigger sending the AdFlow report for a single service.
+   */
+  app.post("/api/admin/crm/client-services/:id/adflow-send-report", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const csId = parseInt(req.params.id as string);
+      const result = await compileAndSendAdFlowReport(csId);
+      res.json(result);
+    } catch (err: any) {
+      log.error("[adflow-send-report] Failed:", err.message);
+      res.status(500).json({ error: "Failed to send AdFlow report" });
+    }
+  });
+
+  /**
+   * GET /api/admin/crm/adflow/services
+   * List all active AdFlow client services with metrics status for the ops page.
+   */
+  app.get("/api/admin/crm/adflow/services", requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      const { db } = await import("../db");
+      const { clientServices, clients: clientsTable, serviceCatalog } = await import("@shared/schema");
+      const { eq, and, sql } = await import("drizzle-orm");
+
+      const rows = await db.select({
+        id: clientServices.id,
+        client_id: clientServices.client_id,
+        service_id: clientServices.service_id,
+        status: clientServices.status,
+        metadata: clientServices.metadata,
+        business_name: clientsTable.business_name,
+        service_name: serviceCatalog.name,
+      })
+        .from(clientServices)
+        .innerJoin(clientsTable, eq(clientServices.client_id, clientsTable.id))
+        .leftJoin(serviceCatalog, eq(clientServices.service_id, serviceCatalog.id))
+        .where(and(
+          eq(clientServices.status, "active"),
+          sql`${clientServices.service_id} LIKE 'adflow%'`,
+        ));
+
+      const now = new Date();
+      const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
+      const enriched = rows.map((row: any) => {
+        const meta = (row.metadata as Record<string, any>) || {};
+        const latestReport = meta.latest_report;
+        const periodStart: string | undefined = latestReport?.period_start;
+        const hasCurrentMetrics = periodStart
+          ? periodStart.slice(0, 7) >= currentMonth
+          : false;
+        return {
+          id: row.id,
+          client_id: row.client_id,
+          service_id: row.service_id,
+          business_name: row.business_name || "Unknown",
+          tier: row.service_id.replace("adflow-", ""),
+          has_current_metrics: hasCurrentMetrics,
+          last_report_sent: meta.last_report_sent_at || null,
+          last_report_period: meta.last_report_period || null,
+          period_start: periodStart || null,
+        };
+      });
+
+      res.json(enriched);
+    } catch (err: any) {
+      log.error("[adflow-ops] Failed to list services:", err.message);
+      res.status(500).json({ error: "Failed to list AdFlow services" });
+    }
   });
 
   /* ═══════════════════════════════════════════

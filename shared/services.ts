@@ -4,7 +4,7 @@
  */
 import {
   SITELAUNCH, TRADELINE, QUOTEQUICK, MAPGUARD,
-  REPUTATIONSHIELD, SOCIALSYNC, WEBFIX, RANKFLOW, WEBCARE,
+  REPUTATIONSHIELD, SOCIALSYNC, WEBFIX, RANKFLOW, WEBCARE, ADFLOW,
   lowestMonthly, formatPrice,
   type ProductDef,
 } from "./pricing";
@@ -205,6 +205,25 @@ export const SERVICES: Service[] = [
     features: [
       ...SOCIALSYNC.tiers[0].features,
       ...SOCIALSYNC.tiers[1].features.filter(f => !SOCIALSYNC.tiers[0].features.includes(f)).map(f => `${f} (Growth)`),
+    ],
+  },
+  {
+    id: "adflow",
+    name: ADFLOW.name,
+    tagline: ADFLOW.tagline,
+    description:
+      "Managed ad campaigns, delivered by our agency partners. WeFixTrades manages the relationship — your agency handles campaign setup, optimization, and reporting. Monthly performance reports delivered to your inbox.",
+    price: lowestMonthly(ADFLOW)!,
+    priceLabel: `From ${formatPrice(lowestMonthly(ADFLOW)!)}/mo`,
+    billingPeriod: "monthly",
+    category: "leads",
+    fixesIssues: [
+      "low-visibility",
+      "low-demand-coverage",
+    ],
+    features: [
+      ...ADFLOW.tiers[0].features,
+      ...ADFLOW.tiers[1].features.filter(f => !ADFLOW.tiers[0].features.includes(f)).map(f => `${f} (Growth)`),
     ],
   },
   {
