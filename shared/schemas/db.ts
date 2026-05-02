@@ -66,6 +66,7 @@ export const calculators = pgTable("calculators", {
   total_views: integer("total_views").default(0),
   show_powered_by_badge: boolean("show_powered_by_badge").default(true),
   plan_tier: text("plan_tier").default("free"),
+  stripe_subscription_id: text("stripe_subscription_id"),
   created_at: timestamp("created_at").defaultNow(),
 });
 
@@ -83,6 +84,16 @@ export const leads = pgTable("leads", {
   consent_timestamp: timestamp("consent_timestamp"),
   consent_text_version: varchar("consent_text_version", { length: 50 }),
   ai_paused: boolean("ai_paused").default(false),
+  replied_at: timestamp("replied_at"),
+  // UTM / source attribution (P1-4)
+  landing_page: text("landing_page"),
+  referrer: text("referrer"),
+  utm_source: text("utm_source"),
+  utm_medium: text("utm_medium"),
+  utm_campaign: text("utm_campaign"),
+  // Won-value tracking (P1-3)
+  won_value: integer("won_value"),   // cents
+  won_at: timestamp("won_at"),
   created_date: timestamp("created_date").defaultNow(),
 });
 

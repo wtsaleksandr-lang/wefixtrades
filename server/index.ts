@@ -54,6 +54,23 @@ function validateEnv(): void {
     );
   }
 
+  /* ─── QuoteQuick Stripe price sanity check ─── */
+  if (process.env.STRIPE_SECRET_KEY) {
+    const qqPriceVars = [
+      "STRIPE_PRICE_QQ_SOLO_MONTHLY",
+      "STRIPE_PRICE_QQ_SOLO_ANNUAL",
+      "STRIPE_PRICE_QQ_BUSINESS_MONTHLY",
+      "STRIPE_PRICE_QQ_BUSINESS_ANNUAL",
+    ];
+    const missingQq = qqPriceVars.filter((key) => !process.env[key]);
+    if (missingQq.length > 0) {
+      logger.warn(
+        "QuoteQuick Stripe price IDs missing (QQ checkout will fail for those tiers): " +
+          missingQq.join(", "),
+      );
+    }
+  }
+
   /* ─── Dev-tool guard: these flags must NEVER be set in production ─── */
   if (isProduction && process.env.DEV_TOOLS_ENABLED) {
     logger.error(

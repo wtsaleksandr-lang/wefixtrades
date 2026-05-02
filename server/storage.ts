@@ -136,6 +136,8 @@ export interface IStorage {
 
   getAllCalculatorsWithEmail(): Promise<Calculator[]>;
   getAllCalculatorsForAdmin(): Promise<any[]>;
+  findCalculatorByStripeSubscriptionId(subscriptionId: string): Promise<Calculator | undefined>;
+  markLeadReplied(leadId: number): Promise<Lead | undefined>;
   upsertAnalyticsSummary(data: InsertAnalyticsSummary): Promise<AnalyticsSummary>;
   getAnalyticsSummary(calculatorId: number): Promise<AnalyticsSummary | undefined>;
   getDailyEventCounts(calculatorId: number, date: Date): Promise<{ views: number; leads: number; quotes: number }>;
@@ -636,6 +638,21 @@ export class DatabaseStorage implements IStorage {
       });
     }
     return results;
+  }
+
+  async findCalculatorByStripeSubscriptionId(subscriptionId: string): Promise<Calculator | undefined> {
+    const [calc] = await db.select().from(calculators)
+      .where(eq(calculators.stripe_subscription_id, subscriptionId))
+      .limit(1);
+    return calc;
+  }
+
+  async markLeadReplied(leadId: number): Promise<Lead | undefined> {
+    const [lead] = await db.update(leads)
+      .set({ replied_at: new Date() })
+      .where(eq(leads.id, leadId))
+      .returning();
+    return lead;
   }
 
   async upsertAnalyticsSummary(data: InsertAnalyticsSummary): Promise<AnalyticsSummary> {

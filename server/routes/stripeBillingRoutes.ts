@@ -720,6 +720,19 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription, _eve
     reason: "subscription_canceled",
   }).catch(err => log.warn(`[dunning] cancel-pending-on-deleted failed:`, err.message));
 
+  // ── QuoteQuick-direct subscription: revert calculator to free/draft ──
+  const qqCalculator = await storage.findCalculatorByStripeSubscriptionId(subscription.id);
+  if (qqCalculator) {
+    await storage.updateCalculator(qqCalculator.id, {
+      plan_tier: "free",
+    });
+    await storage.upsertDeploymentStatus({
+      calculator_id: qqCalculator.id,
+      status: "draft",
+    });
+    log.info(`[billing-webhook] QuoteQuick calculator ${qqCalculator.id} reverted to free/draft after subscription cancellation`);
+  }
+
   const client = await storage.findClientByStripeCustomerId(customerId);
   if (!client) return;
 
@@ -768,10 +781,17 @@ async function handleQuoteQuickCheckout(session: Stripe.Checkout.Session) {
 
   const wasPaused = calculator.plan_tier === 'free';
 
-  // Update plan_tier on the calculator
-  await storage.updateCalculator(calculatorId, {
-    plan_tier: planTier,
-  });
+  // Store stripe_subscription_id for cancellation handling
+  const subscriptionId = typeof session.subscription === "string"
+    ? session.subscription
+    : (session.subscription as any)?.id;
+
+  // Update plan_tier (and subscription ID) on the calculator
+  const updateData: Record<string, any> = { plan_tier: planTier };
+  if (subscriptionId) {
+    updateData.stripe_subscription_id = subscriptionId;
+  }
+  await storage.updateCalculator(calculatorId, updateData);
 
   // Restore deployment_status to live (reactivate if trial-paused)
   await storage.upsertDeploymentStatus({

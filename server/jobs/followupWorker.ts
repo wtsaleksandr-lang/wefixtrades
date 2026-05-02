@@ -1,15 +1,11 @@
-import nodemailer from "nodemailer";
 import { storage } from "../storage";
 import { isTwilioConfigured, checkRateLimit, sendSMS, storeSmsMessage } from "../twilioClient";
+import { isEmailUnsubscribed } from "../lib/unsubscribeStorage";
+import { buildUnsubscribeUrl } from "../lib/unsubscribeToken";
+import { getEmailTransporter, getFromAddress } from "../lib/emailTransport";
+import { createLogger } from "../lib/logger";
 
-function getTransporter() {
-  const host = process.env.SMTP_HOST;
-  const port = parseInt(process.env.SMTP_PORT || "587", 10);
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-  if (!host || !user || !pass) return null;
-  return nodemailer.createTransport({ host, port, secure: port === 465, auth: { user, pass } });
-}
+const log = createLogger("FollowupWorker");
 
 function replaceVariables(template: string, vars: Record<string, string>): string {
   let result = template;
@@ -19,7 +15,7 @@ function replaceVariables(template: string, vars: Record<string, string>): strin
   return result;
 }
 
-function buildFollowupHtml(body: string, businessName: string, discountCode?: string, discountValue?: string): string {
+function buildFollowupHtml(body: string, businessName: string, discountCode?: string, discountValue?: string, unsubscribeUrl?: string): string {
   const htmlBody = body.replace(/\n/g, '<br/>');
   const discountSection = discountCode && discountValue
     ? `<tr><td style="padding:16px 28px;">
@@ -41,6 +37,7 @@ function buildFollowupHtml(body: string, businessName: string, discountCode?: st
   ${discountSection}
   <tr><td style="padding:12px 28px;background:#f9fafb;text-align:center;">
     <p style="font-size:11px;color:#9ca3af;margin:0;">Sent on behalf of ${businessName}</p>
+    ${unsubscribeUrl ? `<p style="font-size:11px;color:#9ca3af;margin:6px 0 0;"><a href="${unsubscribeUrl}" style="color:#9ca3af;text-decoration:underline;">Unsubscribe</a></p>` : ''}
   </td></tr>
 </table>
 </body></html>`;
@@ -54,7 +51,7 @@ export async function processFollowupJobs(): Promise<{ processed: number; skippe
   const dueJobs = await storage.fetchDueFollowups(20);
   if (dueJobs.length === 0) return { processed: 0, skipped: 0, errors: [] };
 
-  const mail = getTransporter();
+  const mail = getEmailTransporter();
 
   for (const job of dueJobs) {
     try {
@@ -68,6 +65,17 @@ export async function processFollowupJobs(): Promise<{ processed: number; skippe
         await storage.updateFollowupJob(job.id, {
           status: 'cancelled',
           last_error: `Lead status is "${lead.status}" — sequence stopped`,
+          processed_at: new Date(),
+        });
+        skipped++;
+        continue;
+      }
+
+      // Skip remaining follow-ups if customer already replied
+      if ((lead as any).replied_at) {
+        await storage.updateFollowupJob(job.id, {
+          status: 'cancelled',
+          last_error: 'Lead already replied — sequence stopped',
           processed_at: new Date(),
         });
         skipped++;
@@ -135,13 +143,35 @@ export async function processFollowupJobs(): Promise<{ processed: number; skippe
           continue;
         }
 
+        // CAN-SPAM/CASL: skip if recipient has unsubscribed
+        if (await isEmailUnsubscribed(lead.email)) {
+          await storage.updateFollowupJob(job.id, {
+            status: 'cancelled',
+            last_error: 'Recipient unsubscribed',
+            processed_at: new Date(),
+          });
+          log.info(`Skipping followup ${job.id} — recipient unsubscribed: ${lead.email}`);
+          skipped++;
+          continue;
+        }
+
         const template = payload.template || {};
         const subject = replaceVariables(template.subject || '', templateVars);
         const body = replaceVariables(template.body || '', templateVars);
-        const html = buildFollowupHtml(body, templateVars.business_name, templateVars.discount_code || undefined, templateVars.discount_value || undefined);
-        const from = process.env.SMTP_FROM || process.env.SMTP_USER || 'noreply@quickquote.app';
+        const unsubscribeUrl = buildUnsubscribeUrl(lead.email);
+        const html = buildFollowupHtml(body, templateVars.business_name, templateVars.discount_code || undefined, templateVars.discount_value || undefined, unsubscribeUrl);
+        const from = getFromAddress();
 
-        await mail.sendMail({ from, to: lead.email, subject, html });
+        await mail.sendMail({
+          from,
+          to: lead.email,
+          subject,
+          html,
+          headers: {
+            'List-Unsubscribe': `<${unsubscribeUrl}>`,
+            'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+          },
+        });
 
         await storage.updateFollowupJob(job.id, {
           status: 'sent',

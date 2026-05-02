@@ -163,6 +163,23 @@ export function registerDashboardRoutes(app: Express): void {
       const estimateToBookingPct = totalLeads > 0 ? Math.round((bookings_total / totalLeads) * 100) : 0;
       const bookingToPaymentPct = bookings_total > 0 ? Math.round((payments_completed / bookings_total) * 100) : 0;
 
+      // Lead source breakdown for attribution widget
+      const sourceCounts: Record<string, number> = {};
+      for (const lead of allLeads) {
+        const src = (lead as any).utm_source || (lead as any).referrer || 'direct';
+        const label = (lead as any).utm_source || (src === 'direct' ? 'Direct' : new URL(src).hostname);
+        sourceCounts[label] = (sourceCounts[label] || 0) + 1;
+      }
+      const lead_sources = Object.entries(sourceCounts)
+        .map(([source, count]) => ({ source, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10);
+
+      // Won revenue totals
+      const wonLeads = allLeads.filter((l: any) => l.won_value != null && l.status === 'won');
+      const total_won_revenue = wonLeads.reduce((sum: number, l: any) => sum + (l.won_value || 0), 0);
+      const won_count = wonLeads.length;
+
       res.json({
         views: totalViews,
         leads: totalLeads,
@@ -175,6 +192,9 @@ export function registerDashboardRoutes(app: Express): void {
         coupon_uses: couponUses,
         estimate_to_booking_pct: estimateToBookingPct,
         booking_to_payment_pct: bookingToPaymentPct,
+        lead_sources,
+        total_won_revenue,
+        won_count,
       });
     } catch (error: any) {
       log.error("Dashboard analytics error:", error);
@@ -494,6 +514,33 @@ export function registerDashboardRoutes(app: Express): void {
     } catch (error: any) {
       log.error("Delete calculator error:", error);
       res.status(500).json({ error: "Failed to delete calculator" });
+    }
+  });
+
+  // ============ MARK LEAD AS REPLIED ============
+
+  app.post("/api/dashboard/leads/:id/mark-replied", async (req, res) => {
+    try {
+      const token = String(req.query.token || req.body.token || '');
+      if (!token) return res.status(400).json({ error: "token required" });
+      const calculator = await requireCalcByToken(token);
+      if (!calculator) return res.status(404).json({ error: "Calculator not found or expired" });
+
+      const leadId = parseInt(req.params.id);
+      const lead = await storage.getLeadById(leadId);
+      if (!lead || lead.calculator_id !== calculator.id) {
+        return res.status(404).json({ error: "Lead not found" });
+      }
+
+      const updated = await storage.markLeadReplied(leadId);
+
+      // Cancel pending follow-ups since the customer already replied
+      await storage.cancelFollowupsForLead(leadId);
+
+      res.json({ success: true, lead: updated });
+    } catch (error: any) {
+      log.error("Mark lead replied error:", error);
+      res.status(500).json({ error: "Failed to mark lead as replied" });
     }
   });
 
