@@ -3,8 +3,12 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Loader2, CheckCircle, Clock, ArrowRight, TrendingUp, FileText,
   MapPin, BarChart3, Sparkles, Globe, Search, ArrowUpRight, Minus,
+  PauseCircle, PlayCircle,
 } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
+import { Switch } from "@/components/ui/switch";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 
 /* ─── Types ─── */
 interface RankFlowData {
@@ -50,6 +54,7 @@ const TRADE_OPTIONS = [
 /* ─── Main Component ─── */
 export default function PortalRankFlow() {
   const qc = useQueryClient();
+  const { toast } = useToast();
   const { data, isLoading } = useQuery<RankFlowData>({
     queryKey: ["/api/portal/rankflow"],
     queryFn: async () => {
@@ -58,6 +63,26 @@ export default function PortalRankFlow() {
       return res.json();
     },
   });
+
+  const { data: automationStatus } = useQuery<{ all_automation_paused: boolean; rankflow_article_generation_paused: boolean }>({
+    queryKey: ["/api/portal/automation-status"],
+  });
+
+  const pauseMutation = useMutation({
+    mutationFn: async (paused: boolean) => {
+      const res = await apiRequest("PATCH", "/api/portal/rankflow/settings", { article_generation_paused: paused });
+      return res.json();
+    },
+    onSuccess: (_data, paused) => {
+      qc.invalidateQueries({ queryKey: ["/api/portal/automation-status"] });
+      toast({ title: paused ? "Article generation paused" : "Article generation resumed" });
+    },
+    onError: () => {
+      toast({ title: "Failed to update setting", variant: "destructive" });
+    },
+  });
+
+  const isArticleGenPaused = automationStatus?.rankflow_article_generation_paused || automationStatus?.all_automation_paused || false;
 
   if (isLoading) {
     return (
@@ -94,6 +119,38 @@ export default function PortalRankFlow() {
             <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-50 text-emerald-700 capitalize">{tier}</span>
           </div>
           <p className="text-sm text-gray-600">{data.statusLine}</p>
+        </div>
+
+        {/* ─── Pause Article Generation Toggle ─── */}
+        <div className="bg-white rounded-xl border border-gray-200 px-5 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              {isArticleGenPaused ? (
+                <PauseCircle className="w-5 h-5 text-amber-500" />
+              ) : (
+                <PlayCircle className="w-5 h-5 text-emerald-500" />
+              )}
+              <div>
+                <p className="text-sm font-medium text-gray-900">New Article Generation</p>
+                <p className="text-xs text-gray-500">{isArticleGenPaused ? "Paused" : "Active"}</p>
+              </div>
+            </div>
+            <Switch
+              checked={!isArticleGenPaused}
+              onCheckedChange={(checked) => pauseMutation.mutate(!checked)}
+              disabled={pauseMutation.isPending || automationStatus?.all_automation_paused}
+              className="data-[state=checked]:bg-[#2D6A4F]"
+            />
+          </div>
+          {isArticleGenPaused && (
+            <div className="mt-3 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              <p className="text-xs text-amber-700">
+                {automationStatus?.all_automation_paused
+                  ? "All automation is paused from your account settings. Resume from Settings to re-enable article generation."
+                  : "New article generation is paused. No new articles will be created until you resume."}
+              </p>
+            </div>
+          )}
         </div>
 
         {/* ─── Monthly Narrative ─── */}

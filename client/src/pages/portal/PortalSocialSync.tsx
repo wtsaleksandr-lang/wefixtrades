@@ -1,12 +1,15 @@
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Share2, CheckCircle, Clock, Calendar, ImageIcon, Settings, X, ThumbsUp, ThumbsDown, Edit3, Loader2 } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Share2, CheckCircle, Clock, Calendar, ImageIcon, Settings, X, ThumbsUp, ThumbsDown, Edit3, Loader2, PauseCircle, PlayCircle } from "lucide-react";
 import { Link } from "wouter";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 
 interface SocialSyncReport {
   status: "setup_in_progress" | "needs_connection" | "ready" | "active";
@@ -58,6 +61,7 @@ export default function PortalSocialSync() {
   const [editText, setEditText] = useState("");
   const [actionPostId, setActionPostId] = useState<number | null>(null);
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const { data, isLoading } = useQuery<SocialSyncReport>({
     queryKey: ["/api/portal/socialsync"],
@@ -68,6 +72,26 @@ export default function PortalSocialSync() {
     queryKey: ["/api/portal/socialsync/pending"],
     refetchInterval: 2 * 60 * 1000,
   });
+
+  const { data: automationStatus } = useQuery<{ all_automation_paused: boolean; socialsync_auto_post_paused: boolean }>({
+    queryKey: ["/api/portal/automation-status"],
+  });
+
+  const pauseMutation = useMutation({
+    mutationFn: async (paused: boolean) => {
+      const res = await apiRequest("PATCH", "/api/portal/socialsync/settings", { auto_post_paused: paused });
+      return res.json();
+    },
+    onSuccess: (_data, paused) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/portal/automation-status"] });
+      toast({ title: paused ? "Auto-posting paused" : "Auto-posting resumed" });
+    },
+    onError: () => {
+      toast({ title: "Failed to update setting", variant: "destructive" });
+    },
+  });
+
+  const isAutoPostPaused = automationStatus?.socialsync_auto_post_paused || automationStatus?.all_automation_paused || false;
 
   async function callAction(postId: number, path: "approve" | "reject", body?: any) {
     setActionPostId(postId);
@@ -154,6 +178,38 @@ export default function PortalSocialSync() {
             </Button>
           </Link>
         </div>
+
+        {/* Pause Auto-Posting Toggle */}
+        <Card className="p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              {isAutoPostPaused ? (
+                <PauseCircle className="w-5 h-5 text-amber-500" />
+              ) : (
+                <PlayCircle className="w-5 h-5 text-emerald-500" />
+              )}
+              <div>
+                <p className="text-sm font-medium text-gray-900">Auto-Posting</p>
+                <p className="text-xs text-gray-500">{isAutoPostPaused ? "Paused" : "Active"}</p>
+              </div>
+            </div>
+            <Switch
+              checked={!isAutoPostPaused}
+              onCheckedChange={(checked) => pauseMutation.mutate(!checked)}
+              disabled={pauseMutation.isPending || automationStatus?.all_automation_paused}
+              className="data-[state=checked]:bg-[#2D6A4F]"
+            />
+          </div>
+          {isAutoPostPaused && (
+            <div className="mt-3 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              <p className="text-xs text-amber-700">
+                {automationStatus?.all_automation_paused
+                  ? "All automation is paused from your account settings. Resume from Settings to re-enable auto-posting."
+                  : "Auto-posting is paused. Posts will not be published until you resume."}
+              </p>
+            </div>
+          )}
+        </Card>
 
         {/* Status banner */}
         <Card className={`p-5 ${data.status === "active" ? "bg-[#F0F7F4] border-[#2D6A4F]/10" : "bg-gray-50"}`}>

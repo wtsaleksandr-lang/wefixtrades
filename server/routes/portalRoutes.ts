@@ -1678,7 +1678,7 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
    * Customer explicitly approves a pending post — flips status to "queued"
    * so the worker will publish at scheduled_for.
    */
-  app.post("/api/portal/socialsync/posts/:id/approve", requireClient, async (req: Request, res: Response) => {
+  app.post("/api/portal/socialsync/posts/:id/approve", requireClientStrict, portalReviewLimit, async (req: Request, res: Response) => {
     try {
       const clientId = await withClientId(req, res);
       if (!clientId) return;
@@ -1712,7 +1712,7 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
    * POST /api/portal/socialsync/posts/:id/reject
    * Customer rejects a pending post — cancels the queue item and marks rejected.
    */
-  app.post("/api/portal/socialsync/posts/:id/reject", requireClient, async (req: Request, res: Response) => {
+  app.post("/api/portal/socialsync/posts/:id/reject", requireClientStrict, portalReviewLimit, async (req: Request, res: Response) => {
     try {
       const clientId = await withClientId(req, res);
       if (!clientId) return;
@@ -1761,7 +1761,7 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
    * considered approved and moves to "queued".
    * Body: { post_text?: string, hashtags?: string[] }
    */
-  app.patch("/api/portal/socialsync/posts/:id", requireClient, async (req: Request, res: Response) => {
+  app.patch("/api/portal/socialsync/posts/:id", requireClientStrict, portalReviewLimit, async (req: Request, res: Response) => {
     try {
       const clientId = await withClientId(req, res);
       if (!clientId) return;
@@ -3163,6 +3163,42 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
   });
 
   /**
+   * GET /api/portal/review-replies/pending
+   * Returns review replies awaiting client approval (status='draft').
+   * Must be registered before the /:id route to avoid param capture.
+   */
+  app.get("/api/portal/review-replies/pending", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const drafts = await db.select({
+        id: contentDrafts.id,
+        title: contentDrafts.title,
+        body: contentDrafts.body,
+        status: contentDrafts.status,
+        metadata: contentDrafts.metadata,
+        created_at: contentDrafts.created_at,
+        updated_at: contentDrafts.updated_at,
+      })
+        .from(contentDrafts)
+        .where(and(
+          eq(contentDrafts.client_id, clientId),
+          eq(contentDrafts.kind, "review_reply"),
+          eq(contentDrafts.surface, "reputationshield"),
+          eq(contentDrafts.status, "draft"),
+        ))
+        .orderBy(desc(contentDrafts.created_at))
+        .limit(50);
+
+      res.json({ replies: drafts.map(projectReviewReplyForPortal), count: drafts.length });
+    } catch (err: any) {
+      log.error("[portal/review-replies/pending] Error:", { error: err.message });
+      res.status(500).json({ error: "Failed to load pending review replies" });
+    }
+  });
+
+  /**
    * GET /api/portal/review-replies/:id
    * Detail for a single review reply. 404 if missing or cross-client.
    */
@@ -3453,6 +3489,231 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
     } catch (err: any) {
       log.error("[portal/uptime] Error:", { error: err.message });
       res.status(500).json({ error: "Failed to load uptime history" });
+    }
+  });
+
+  /* ═══════════════════════════════════════════════════════════════════
+     Sprint 12 — Automation pause toggles
+     Clients can pause individual service automation or all at once.
+     Flags are stored in client.metadata and client_service.metadata.
+     ═══════════════════════════════════════════════════════════════════ */
+
+  /**
+   * GET /api/portal/automation-status
+   * Returns the current automation pause state for the client and each
+   * applicable service.
+   */
+  app.get("/api/portal/automation-status", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const [client] = await db.select().from(clients).where(eq(clients.id, clientId)).limit(1);
+      if (!client) return res.status(404).json({ error: "Client not found" });
+
+      const meta = (client.metadata as Record<string, any>) ?? {};
+      const allPaused = meta.all_automation_paused === true;
+
+      // Get per-service pause flags
+      const services = await db.select({
+        id: clientServices.id,
+        service_id: clientServices.service_id,
+        metadata: clientServices.metadata,
+      })
+        .from(clientServices)
+        .where(and(
+          eq(clientServices.client_id, clientId),
+          eq(clientServices.status, "active"),
+        ));
+
+      const serviceFlags: Record<string, boolean> = {};
+      for (const svc of services) {
+        const svcMeta = (svc.metadata as Record<string, any>) ?? {};
+        if (svc.service_id.includes("socialsync")) {
+          serviceFlags.socialsync_auto_post_paused = svcMeta.auto_post_paused === true;
+        }
+        if (svc.service_id.includes("reputationshield")) {
+          serviceFlags.reputationshield_auto_reply_paused = svcMeta.auto_reply_paused === true;
+        }
+        if (svc.service_id.includes("rankflow")) {
+          serviceFlags.rankflow_article_generation_paused = svcMeta.article_generation_paused === true;
+        }
+      }
+
+      res.json({
+        all_automation_paused: allPaused,
+        ...serviceFlags,
+      });
+    } catch (err: any) {
+      log.error("[portal/automation-status] Error:", { error: err.message });
+      res.status(500).json({ error: "Failed to load automation status" });
+    }
+  });
+
+  /**
+   * PATCH /api/portal/socialsync/settings
+   * Body: { auto_post_paused: boolean }
+   * Stores in the socialsync client_service metadata.
+   */
+  app.patch("/api/portal/socialsync/settings", requireClientStrict, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const { auto_post_paused } = req.body;
+      if (typeof auto_post_paused !== "boolean") {
+        return res.status(400).json({ error: "auto_post_paused must be a boolean" });
+      }
+
+      const services = await db.select({
+        id: clientServices.id,
+        metadata: clientServices.metadata,
+      })
+        .from(clientServices)
+        .where(and(
+          eq(clientServices.client_id, clientId),
+          sql`${clientServices.service_id} LIKE '%socialsync%'`,
+          eq(clientServices.status, "active"),
+        ))
+        .limit(1);
+
+      if (services.length === 0) {
+        return res.status(404).json({ error: "No active SocialSync service found" });
+      }
+
+      const svc = services[0];
+      const existing = (svc.metadata as Record<string, any>) ?? {};
+      await db.update(clientServices)
+        .set({ metadata: { ...existing, auto_post_paused }, updated_at: new Date() })
+        .where(eq(clientServices.id, svc.id));
+
+      log.info("[portal/socialsync/settings] auto_post_paused toggled", { clientId, auto_post_paused });
+      res.json({ ok: true, auto_post_paused });
+    } catch (err: any) {
+      log.error("[portal/socialsync/settings] Error:", { error: err.message });
+      res.status(500).json({ error: "Failed to update SocialSync settings" });
+    }
+  });
+
+  /**
+   * PATCH /api/portal/reputation/auto-reply-settings
+   * Body: { auto_reply_paused: boolean }
+   * Stores in the reputationshield client_service metadata.
+   */
+  app.patch("/api/portal/reputation/auto-reply-settings", requireClientStrict, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const { auto_reply_paused } = req.body;
+      if (typeof auto_reply_paused !== "boolean") {
+        return res.status(400).json({ error: "auto_reply_paused must be a boolean" });
+      }
+
+      const services = await db.select({
+        id: clientServices.id,
+        metadata: clientServices.metadata,
+      })
+        .from(clientServices)
+        .where(and(
+          eq(clientServices.client_id, clientId),
+          sql`${clientServices.service_id} LIKE '%reputationshield%'`,
+          eq(clientServices.status, "active"),
+        ))
+        .limit(1);
+
+      if (services.length === 0) {
+        return res.status(404).json({ error: "No active ReputationShield service found" });
+      }
+
+      const svc = services[0];
+      const existing = (svc.metadata as Record<string, any>) ?? {};
+      await db.update(clientServices)
+        .set({ metadata: { ...existing, auto_reply_paused }, updated_at: new Date() })
+        .where(eq(clientServices.id, svc.id));
+
+      log.info("[portal/reputation/auto-reply-settings] auto_reply_paused toggled", { clientId, auto_reply_paused });
+      res.json({ ok: true, auto_reply_paused });
+    } catch (err: any) {
+      log.error("[portal/reputation/auto-reply-settings] Error:", { error: err.message });
+      res.status(500).json({ error: "Failed to update ReputationShield settings" });
+    }
+  });
+
+  /**
+   * PATCH /api/portal/rankflow/settings
+   * Body: { article_generation_paused: boolean }
+   * Stores in the rankflow client_service metadata.
+   */
+  app.patch("/api/portal/rankflow/settings", requireClientStrict, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const { article_generation_paused } = req.body;
+      if (typeof article_generation_paused !== "boolean") {
+        return res.status(400).json({ error: "article_generation_paused must be a boolean" });
+      }
+
+      const services = await db.select({
+        id: clientServices.id,
+        metadata: clientServices.metadata,
+      })
+        .from(clientServices)
+        .where(and(
+          eq(clientServices.client_id, clientId),
+          sql`${clientServices.service_id} LIKE '%rankflow%'`,
+          eq(clientServices.status, "active"),
+        ))
+        .limit(1);
+
+      if (services.length === 0) {
+        return res.status(404).json({ error: "No active RankFlow service found" });
+      }
+
+      const svc = services[0];
+      const existing = (svc.metadata as Record<string, any>) ?? {};
+      await db.update(clientServices)
+        .set({ metadata: { ...existing, article_generation_paused }, updated_at: new Date() })
+        .where(eq(clientServices.id, svc.id));
+
+      log.info("[portal/rankflow/settings] article_generation_paused toggled", { clientId, article_generation_paused });
+      res.json({ ok: true, article_generation_paused });
+    } catch (err: any) {
+      log.error("[portal/rankflow/settings] Error:", { error: err.message });
+      res.status(500).json({ error: "Failed to update RankFlow settings" });
+    }
+  });
+
+  /**
+   * PATCH /api/portal/settings/automation
+   * Master "Pause All Automation" toggle.
+   * Body: { all_automation_paused: boolean }
+   * Stores in client.metadata.
+   */
+  app.patch("/api/portal/settings/automation", requireClientStrict, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const { all_automation_paused } = req.body;
+      if (typeof all_automation_paused !== "boolean") {
+        return res.status(400).json({ error: "all_automation_paused must be a boolean" });
+      }
+
+      const [client] = await db.select().from(clients).where(eq(clients.id, clientId)).limit(1);
+      if (!client) return res.status(404).json({ error: "Client not found" });
+
+      const existing = (client.metadata as Record<string, any>) ?? {};
+      await db.update(clients)
+        .set({ metadata: { ...existing, all_automation_paused }, updated_at: new Date() })
+        .where(eq(clients.id, clientId));
+
+      log.info("[portal/settings/automation] all_automation_paused toggled", { clientId, all_automation_paused });
+      res.json({ ok: true, all_automation_paused });
+    } catch (err: any) {
+      log.error("[portal/settings/automation] Error:", { error: err.message });
+      res.status(500).json({ error: "Failed to update automation settings" });
     }
   });
 }

@@ -12,11 +12,14 @@ import {
 import {
   Star, TrendingUp, MessageSquare, Send, ShieldCheck, AlertTriangle,
   ChevronDown, ChevronUp, Loader2, RefreshCw, ThumbsDown, Settings, Lock, Code,
-  QrCode, UserPlus, CheckCircle2, Unplug, ExternalLink,
+  QrCode, UserPlus, CheckCircle2, Unplug, ExternalLink, PauseCircle, PlayCircle,
+  CheckCircle, XCircle, MessageSquareWarning,
 } from "lucide-react";
 import { Link } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 
 interface ReviewItem {
   id: number;
@@ -116,6 +119,28 @@ function UpgradeBanner({ feature, hint }: { feature: string; hint: string }) {
   );
 }
 
+interface PendingReplyItem {
+  id: number;
+  title: string | null;
+  body: string | null;
+  status: string;
+  metadata: {
+    gbp?: {
+      external_review_id?: string | null;
+      star_rating?: number | null;
+      posted_at?: string | null;
+      queue_status?: string | null;
+    };
+    client_review?: {
+      state?: string | null;
+      note?: string | null;
+      decided_at?: string | null;
+    };
+  };
+  created_at: string;
+  updated_at: string;
+}
+
 export default function PortalReviews() {
   usePageTitle("Reviews");
   const queryClient = useQueryClient();
@@ -126,6 +151,9 @@ export default function PortalReviews() {
   const [showRequestForm, setShowRequestForm] = useState(false);
   const [requestForm, setRequestForm] = useState({ customer_name: "", customer_email: "", customer_phone: "", job_label: "" });
   const [requestSent, setRequestSent] = useState(false);
+  const [changesNoteId, setChangesNoteId] = useState<number | null>(null);
+  const [changesNote, setChangesNote] = useState("");
+  const [showPendingReplies, setShowPendingReplies] = useState(true);
 
   // Config / tier
   const { data: config } = useQuery<ConfigData>({
@@ -136,6 +164,58 @@ export default function PortalReviews() {
       return res.json();
     },
   });
+
+  // Automation status (for pause toggle)
+  const { data: automationStatus } = useQuery<{ all_automation_paused: boolean; reputationshield_auto_reply_paused: boolean }>({
+    queryKey: ["/api/portal/automation-status"],
+  });
+
+  const autoReplyPauseMutation = useMutation({
+    mutationFn: async (paused: boolean) => {
+      const res = await apiRequest("PATCH", "/api/portal/reputation/auto-reply-settings", { auto_reply_paused: paused });
+      return res.json();
+    },
+    onSuccess: (_data, paused) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/portal/automation-status"] });
+      toast({ title: paused ? "Auto-replies paused" : "Auto-replies resumed" });
+    },
+    onError: () => {
+      toast({ title: "Failed to update setting", variant: "destructive" });
+    },
+  });
+
+  const isAutoReplyPaused = automationStatus?.reputationshield_auto_reply_paused || automationStatus?.all_automation_paused || false;
+
+  // Pending review replies
+  const { data: pendingRepliesData, isLoading: loadingPendingReplies } = useQuery<{ replies: PendingReplyItem[]; count: number }>({
+    queryKey: ["/api/portal/review-replies/pending"],
+    queryFn: async () => {
+      const res = await fetch("/api/portal/review-replies/pending", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: !!config?.active,
+  });
+
+  const replyActionMutation = useMutation({
+    mutationFn: async ({ id, action, note }: { id: number; action: "approve" | "reject" | "request-changes"; note?: string }) => {
+      const res = await apiRequest("POST", `/api/portal/review-replies/${id}/${action}`, note ? { note } : undefined);
+      return res.json();
+    },
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/portal/review-replies/pending"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/portal/review-replies"] });
+      const actionLabels: Record<string, string> = { approve: "Reply approved", reject: "Reply rejected", "request-changes": "Changes requested" };
+      toast({ title: actionLabels[vars.action] || "Action completed" });
+      setChangesNoteId(null);
+      setChangesNote("");
+    },
+    onError: () => {
+      toast({ title: "Action failed. Please try again.", variant: "destructive" });
+    },
+  });
+
+  const pendingReplies = pendingRepliesData?.replies ?? [];
 
   // Overview metrics
   const { data: overview, isLoading: loadingOverview, error: overviewError, refetch: refetchOverview } = useQuery<OverviewData>({
@@ -387,6 +467,153 @@ export default function PortalReviews() {
               </div>
             </div>
           </Card>
+        )}
+
+        {/* Pause Auto-Replies Toggle */}
+        <Card className="p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              {isAutoReplyPaused ? (
+                <PauseCircle className="w-5 h-5 text-amber-500" />
+              ) : (
+                <PlayCircle className="w-5 h-5 text-emerald-500" />
+              )}
+              <div>
+                <p className="text-sm font-medium text-gray-900">Auto-Replies</p>
+                <p className="text-xs text-gray-500">{isAutoReplyPaused ? "Paused" : "Active"}</p>
+              </div>
+            </div>
+            <Switch
+              checked={!isAutoReplyPaused}
+              onCheckedChange={(checked) => autoReplyPauseMutation.mutate(!checked)}
+              disabled={autoReplyPauseMutation.isPending || automationStatus?.all_automation_paused}
+              className="data-[state=checked]:bg-[#2D6A4F]"
+            />
+          </div>
+          {isAutoReplyPaused && (
+            <div className="mt-3 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              <p className="text-xs text-amber-700">
+                {automationStatus?.all_automation_paused
+                  ? "All automation is paused from your account settings. Resume from Settings to re-enable auto-replies."
+                  : "Auto-replies are paused. AI-drafted responses will not be posted until you resume."}
+              </p>
+            </div>
+          )}
+        </Card>
+
+        {/* Pending Review Replies */}
+        {pendingReplies.length > 0 && (
+          <div>
+            <button
+              className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-3 hover:text-gray-900"
+              onClick={() => setShowPendingReplies(!showPendingReplies)}
+            >
+              <MessageSquareWarning className="w-4 h-4 text-amber-500" />
+              Pending Reply Approvals
+              <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-700">
+                {pendingReplies.length}
+              </span>
+              {showPendingReplies ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+            </button>
+            {showPendingReplies && (
+              <div className="space-y-3">
+                {pendingReplies.map((reply) => {
+                  const gbp = reply.metadata?.gbp;
+                  const starRating = gbp?.star_rating ?? null;
+                  const isRequestingChanges = changesNoteId === reply.id;
+                  const isBusy = replyActionMutation.isPending;
+                  return (
+                    <Card key={reply.id} className="p-4 border-amber-100">
+                      {/* Original review info */}
+                      {starRating !== null && (
+                        <div className="flex items-center gap-2 mb-2">
+                          <RatingStars rating={starRating} />
+                          <span className="text-xs text-gray-500">
+                            {reply.title || "Customer Review"}
+                          </span>
+                        </div>
+                      )}
+                      {!starRating && reply.title && (
+                        <p className="text-xs font-medium text-gray-600 mb-2">{reply.title}</p>
+                      )}
+
+                      {/* AI-drafted reply */}
+                      <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 mb-3">
+                        <p className="text-[11px] text-blue-500 mb-1 font-medium">AI-Drafted Reply</p>
+                        <p className="text-sm text-blue-900 whitespace-pre-wrap">{reply.body}</p>
+                      </div>
+
+                      {/* Request Changes textarea */}
+                      {isRequestingChanges && (
+                        <div className="mb-3 space-y-2">
+                          <Textarea
+                            placeholder="Describe what you'd like changed..."
+                            value={changesNote}
+                            onChange={(e) => setChangesNote(e.target.value)}
+                            className="text-sm min-h-[80px]"
+                          />
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              className="bg-amber-500 hover:bg-amber-600 text-white text-xs"
+                              disabled={isBusy || !changesNote.trim()}
+                              onClick={() => replyActionMutation.mutate({ id: reply.id, action: "request-changes", note: changesNote.trim() })}
+                            >
+                              {isBusy ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+                              Submit Feedback
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-xs"
+                              onClick={() => { setChangesNoteId(null); setChangesNote(""); }}
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Action buttons */}
+                      {!isRequestingChanges && (
+                        <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
+                          <Button
+                            size="sm"
+                            className="bg-[#2D6A4F] hover:bg-[#1B4332] text-white text-xs"
+                            disabled={isBusy}
+                            onClick={() => replyActionMutation.mutate({ id: reply.id, action: "approve" })}
+                          >
+                            {isBusy ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <CheckCircle className="w-3 h-3 mr-1" />}
+                            Approve
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-xs"
+                            disabled={isBusy}
+                            onClick={() => { setChangesNoteId(reply.id); setChangesNote(""); }}
+                          >
+                            <MessageSquareWarning className="w-3 h-3 mr-1" />
+                            Request Changes
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50 ml-auto"
+                            disabled={isBusy}
+                            onClick={() => replyActionMutation.mutate({ id: reply.id, action: "reject" })}
+                          >
+                            <XCircle className="w-3 h-3 mr-1" />
+                            Reject
+                          </Button>
+                        </div>
+                      )}
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         )}
 
         {/* Google Connection */}

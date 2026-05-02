@@ -1,8 +1,11 @@
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
-import { Loader2, Check, RefreshCw, KeyRound } from "lucide-react";
+import { Loader2, Check, RefreshCw, KeyRound, AlertTriangle } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
+import { Switch } from "@/components/ui/switch";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 
 interface SettingsData {
   business_name: string;
@@ -18,6 +21,7 @@ export default function PortalSettings() {
   usePageTitle("Settings");
   const queryClient = useQueryClient();
   const [saved, setSaved] = useState(false);
+  const { toast } = useToast();
 
   const { data, isLoading, error, refetch } = useQuery<SettingsData>({
     queryKey: ["/api/portal/settings"],
@@ -27,6 +31,26 @@ export default function PortalSettings() {
       return res.json();
     },
   });
+
+  const { data: automationStatus } = useQuery<{ all_automation_paused: boolean }>({
+    queryKey: ["/api/portal/automation-status"],
+  });
+
+  const pauseAllMutation = useMutation({
+    mutationFn: async (paused: boolean) => {
+      const res = await apiRequest("PATCH", "/api/portal/settings/automation", { all_automation_paused: paused });
+      return res.json();
+    },
+    onSuccess: (_data, paused) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/portal/automation-status"] });
+      toast({ title: paused ? "All automation paused" : "All automation resumed" });
+    },
+    onError: () => {
+      toast({ title: "Failed to update automation setting", variant: "destructive" });
+    },
+  });
+
+  const allPaused = automationStatus?.all_automation_paused || false;
 
   const [form, setForm] = useState({
     contact_name: "",
@@ -179,6 +203,35 @@ export default function PortalSettings() {
                 </div>
               </div>
             </form>
+
+            {/* Pause All Automation */}
+            <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-500" />
+                <h2 className="text-sm font-semibold text-gray-900">Pause All Automation</h2>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex-1 pr-4">
+                  <p className="text-sm text-gray-700">Emergency stop for all automated services</p>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    Pauses SocialSync posting, ReputationShield auto-replies, and RankFlow article generation.
+                  </p>
+                </div>
+                <Switch
+                  checked={allPaused}
+                  onCheckedChange={(checked) => pauseAllMutation.mutate(checked)}
+                  disabled={pauseAllMutation.isPending}
+                  className="data-[state=checked]:bg-amber-500"
+                />
+              </div>
+              {allPaused && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
+                  <p className="text-sm text-amber-800">
+                    All automated content creation and posting is paused. Your existing services remain active but no new content will be generated or published.
+                  </p>
+                </div>
+              )}
+            </div>
 
             {/* Change Password */}
             <ChangePasswordSection inputClass={inputClass} labelClass={labelClass} />
