@@ -8,7 +8,7 @@
  */
 
 import { db } from "../db";
-import { suppliers } from "@shared/schema";
+import { suppliers } from "../../shared/schemas/adminCrm";
 import { eq } from "drizzle-orm";
 
 interface SupplierSeed {
