@@ -14,11 +14,22 @@ interface Variant {
   name: string;
   vibe: string;
   matchesHomepage: boolean;
+  recommended?: boolean;
   description: string;
   preview: { bg: string; accent: string; text: string; muted: string };
 }
 
 const VARIANTS: Variant[] = [
+  {
+    slug: "v6",
+    number: "06",
+    name: "Ultimate (V1 + V4 merged)",
+    vibe: "Dark hero + alternating light/dark sections",
+    matchesHomepage: true,
+    recommended: true,
+    description: "The merged master. V1's dark chat-mockup hero, V4's light dashboard mockup as the secondary showcase, and deliberately alternating dark/light sections for visual rhythm. This is the template that scales to all 12 products. Demo placeholders are marked for animation replacement (see docs/product-demo-simulations.md).",
+    preview: { bg: mkt.bg, accent: mkt.accent, text: mkt.onDark, muted: mkt.onDarkMuted },
+  },
   {
     slug: "v1",
     number: "01",
@@ -76,13 +87,16 @@ export default function CompareIndex() {
               Internal · Pick one
             </div>
             <h1 style={{ fontSize: "clamp(40px, 5vw, 64px)", fontWeight: 700, letterSpacing: "-0.04em", lineHeight: 1.05, marginBottom: 20 }}>
-              5 TradeLine variants.<br />Pick the one you want to scale.
+              TradeLine variants.<br />Pick the one you want to scale.
             </h1>
             <p style={{ fontSize: 17, color: mkt.onDarkMuted, lineHeight: 1.55, marginBottom: 16 }}>
-              Same content, 5 visual treatments. Click each to open in a new tab. The one you pick becomes the master template — we apply it across all 12 products with one bespoke killer visual each.
+              Same content, multiple visual treatments. The chosen one becomes the master template — we apply it across all 12 products with one bespoke animated demo per product.
             </p>
-            <p style={{ fontSize: 13, color: mkt.onDarkFaint }}>
-              <strong style={{ color: mkt.accent }}>3 of 5</strong> are aligned with your existing homepage aesthetic. <strong style={{ color: mkt.accent }}>2 of 5</strong> diverge intentionally so you have a real choice.
+            <p style={{ fontSize: 13, color: mkt.onDarkFaint, marginBottom: 8 }}>
+              <strong style={{ color: mkt.accent }}>★ V6 (Ultimate)</strong> is the merge of V1 + V4 with alternating dark/light sections. Open it first.
+            </p>
+            <p style={{ fontSize: 12, color: mkt.onDarkFaint }}>
+              The static demo mockups in V6 are placeholders. See <code style={{ background: "rgba(255,255,255,0.05)", padding: "2px 6px", borderRadius: 4, fontFamily: "monospace" }}>docs/product-demo-simulations.md</code> for the per-product animated demo spec.
             </p>
           </div>
         </section>
@@ -136,7 +150,9 @@ function VariantCard({ v }: { v: Variant }) {
             <span style={{ fontFamily: "monospace", fontSize: 12, color: mkt.onDarkFaint }}>{v.number}</span>
             <h2 style={{ fontSize: 20, fontWeight: 700, letterSpacing: "-0.02em" }}>{v.name}</h2>
           </div>
-          {v.matchesHomepage ? (
+          {v.recommended ? (
+            <span style={{ fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 6, background: mkt.accent, color: mkt.dark, letterSpacing: "0.04em", textTransform: "uppercase" }}>★ Master</span>
+          ) : v.matchesHomepage ? (
             <span style={{ fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 6, background: "rgba(102,232,250,0.10)", color: mkt.accent, letterSpacing: "0.04em", textTransform: "uppercase" }}>Match</span>
           ) : (
             <span style={{ fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 6, background: "rgba(247,180,48,0.10)", color: mkt.orange, letterSpacing: "0.04em", textTransform: "uppercase" }}>Diverge</span>
