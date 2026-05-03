@@ -217,6 +217,7 @@ async function main() {
     await testAPI("/api/admin/crm/clients", "List clients", { cookie, expect: 200 });
     await testAPI("/api/admin/crm/quotequick/overview", "QQ overview", { cookie, expect: 200 });
     await testAPI("/api/admin/crm/tradeline/fleet", "TradeLine fleet", { cookie, expect: 200 });
+    await testAPI("/api/admin/crm/tradeline/calls?limit=50", "TradeLine calls list", { cookie, expect: 200 });
     await testAPI("/api/admin/crm/tradeline/webhook-events", "TradeLine webhook events", { cookie, expect: 200 });
     await testAPI("/api/admin/crm/tradeline/cost-reconciliation", "TradeLine cost reconciliation", { cookie, expect: 200 });
     await testAPI("/api/admin/system/jobs?limit=5", "Job logs", { cookie, expect: 200 });

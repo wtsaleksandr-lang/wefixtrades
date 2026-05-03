@@ -1,5 +1,5 @@
 import { usePageTitle } from "@/hooks/usePageTitle";
-import { useState, useEffect, useCallback } from "react";
+import { Fragment, useState, useEffect, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import AdminLayout from "@/components/admin/AdminLayout";
 import {
@@ -348,9 +348,8 @@ export default function SystemJobsPage() {
                       const expanded = expandedId === log.id;
                       const Icon = STATUS_ICON[log.status] || Clock;
                       return (
-                        <>
+                        <Fragment key={log.id}>
                           <tr
-                            key={log.id}
                             className="hover:bg-gray-50 cursor-pointer"
                             onClick={() => setExpandedId(expanded ? null : log.id)}
                           >
@@ -383,8 +382,8 @@ export default function SystemJobsPage() {
                                   : <span className="text-gray-300">-</span>}
                             </td>
                           </tr>
-                          {expanded && <ExpandedRow key={`exp-${log.id}`} log={log} />}
-                        </>
+                          {expanded && <ExpandedRow log={log} />}
+                        </Fragment>
                       );
                     })}
                     {jobsData?.data.length === 0 && (

@@ -1189,7 +1189,7 @@ export function registerAdminCrmRoutes(app: Express): void {
    * GET /api/admin/crm/tradeline/fleet
    * Returns all TradeLine client_services with fleet-level data for ops dashboard.
    *
-   * NOTE: Static-path routes (fleet, webhook-events, cost-reconciliation) MUST be
+   * NOTE: Static-path routes (fleet, calls, webhook-events, cost-reconciliation) MUST be
    * registered before /:clientServiceId — otherwise Express matches the param route
    * first and rejects the literal segment as an invalid integer id.
    */
@@ -1200,6 +1200,43 @@ export function registerAdminCrmRoutes(app: Express): void {
     } catch (err: any) {
       log.error("[admin-crm] TradeLine fleet error:", { error: err.message });
       res.status(500).json({ error: "Failed to load TradeLine fleet data" });
+    }
+  });
+
+  /**
+   * GET /api/admin/crm/tradeline/calls
+   * Fleet-wide call list with optional filters. Used by the TradeLine Ops "Calls" tab.
+   */
+  app.get("/api/admin/crm/tradeline/calls", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const limit = Math.min(200, Math.max(1, parseInt(req.query.limit as string) || 50));
+      const offset = Math.max(0, parseInt(req.query.offset as string) || 0);
+      const clientId = req.query.clientId ? parseInt(req.query.clientId as string) : undefined;
+      const outcome = (req.query.outcome as string) || undefined;
+      const from = req.query.from ? new Date(req.query.from as string) : undefined;
+      const to = req.query.to ? new Date(req.query.to as string) : undefined;
+      const result = await storage.listAllTradeLineCalls({ clientId, outcome, from, to, limit, offset });
+      res.json(result);
+    } catch (err: any) {
+      log.error("[admin-crm] TradeLine calls list error:", { error: err.message });
+      res.status(500).json({ error: "Failed to load TradeLine calls" });
+    }
+  });
+
+  /**
+   * GET /api/admin/crm/tradeline/calls/:callId
+   * Single call detail (transcript + recording). Used for inline expansion on Ops page.
+   */
+  app.get("/api/admin/crm/tradeline/calls/:callId", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const callId = parseInt(req.params.callId as string);
+      if (isNaN(callId)) return res.status(400).json({ error: "Invalid call id" });
+      const call = await storage.getTradeLineCallById(callId);
+      if (!call) return res.status(404).json({ error: "Call not found" });
+      res.json({ call });
+    } catch (err: any) {
+      log.error("[admin-crm] TradeLine call detail error:", { error: err.message });
+      res.status(500).json({ error: "Failed to load call detail" });
     }
   });
 
