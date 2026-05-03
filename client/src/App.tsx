@@ -46,6 +46,12 @@ import CompareNiceJob from "@/pages/marketing/CompareNiceJob";
 import ComparisonPage from "@/pages/marketing/ComparisonPage";
 import NewProductPage from "@/pages/products/ProductPage";
 import MapGuardPage from "@/pages/products/mapguard";
+import TradeLineCompare from "@/pages/products/tradeline-variants/compare";
+import TradeLineV1 from "@/pages/products/tradeline-variants/v1-linear-dark";
+import TradeLineV2 from "@/pages/products/tradeline-variants/v2-vercel-geometric";
+import TradeLineV3 from "@/pages/products/tradeline-variants/v3-bento-dark";
+import TradeLineV4 from "@/pages/products/tradeline-variants/v4-stripe-light";
+import TradeLineV5 from "@/pages/products/tradeline-variants/v5-apple-monumental";
 import SolutionPage from "@/pages/solutions/SolutionPage";
 import DemoCenter from "@/pages/demos/DemoCenter";
 import DemoPage from "@/pages/demos/DemoPage";
@@ -190,6 +196,13 @@ function Router() {
       <Route path="/compare/reputationshield-vs-nicejob" component={CompareNiceJob} />
       <Route path="/compare/:slug" component={ComparisonPage} />
       <Route path="/products/mapguard" component={MapGuardPage} />
+      {/* TradeLine variant comparison — internal review pages, registered before /:slug */}
+      <Route path="/products/tradeline/compare" component={TradeLineCompare} />
+      <Route path="/products/tradeline/v1" component={TradeLineV1} />
+      <Route path="/products/tradeline/v2" component={TradeLineV2} />
+      <Route path="/products/tradeline/v3" component={TradeLineV3} />
+      <Route path="/products/tradeline/v4" component={TradeLineV4} />
+      <Route path="/products/tradeline/v5" component={TradeLineV5} />
       {/* TradeLine consolidation — old routes redirect to unified product */}
       <Route path="/products/assistants">{() => <Redirect to="/products/tradeline" />}</Route>
       <Route path="/products/ai-chat">{() => <Redirect to="/products/tradeline" />}</Route>
