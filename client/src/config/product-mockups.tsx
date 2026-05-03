@@ -15,6 +15,7 @@ import {
   TILE, MONO, SANS,
 } from "@/components/effortel-blocks";
 import MapMockup from "@/pages/products/mapguard/MapMockup";
+import TradeLineChatDemo from "@/components/product-demos/TradeLineChatDemo";
 
 export interface ProductMockupSection {
   number: string;
@@ -85,12 +86,13 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       description: "Picks up at 2 AM the same way it picks up at 2 PM. Real-time AI handles inbound calls and chats around the clock — no voicemail, no missed revenue.",
       cta: { label: "See It Live", href: "/demo" },
       mockup: (
-        <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 16, maxWidth: 720, width: "100%" }}>
-          <MiniChartTile value="100%" label="Calls answered" trend="24/7" color="cyanSoft" />
-          <div style={{ display: "grid", gridTemplateRows: "1fr 1fr", gap: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr", gap: 32, maxWidth: 880, width: "100%", alignItems: "center" }} className="effortel-grid-2">
+          <div style={{ display: "grid", gridTemplateRows: "1fr 1fr 1fr", gap: 12 }}>
+            <StatTile value="100%" label="Calls answered" color="cyanSoft" size="sm" />
             <StatTile value="< 30s" label="Avg pick-up" color="lavender" size="sm" />
             <StatTile value="240+" label="Trades businesses" color="mint" size="sm" />
           </div>
+          <TradeLineChatDemo />
         </div>
       ),
     },

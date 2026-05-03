@@ -73,7 +73,10 @@ function auditMockupsSource() {
       const cardNum = i + 1;
       const tiles = chunk.match(/<(StatTile|MiniChartTile|FlowCard|MapTile|RankTile|CalendarTile|GaugeTile|ReviewTile|OrbitingLogos)\b/g) || [];
       const trios = chunk.match(/<StatTrio\b/g) || [];
-      const richTiles = chunk.match(/<(MiniChartTile|FlowCard|MapTile|RankTile|CalendarTile|GaugeTile|ReviewTile|OrbitingLogos)\b/g) || [];
+      // "Rich" = anything that's more than a number-card. Includes the bespoke
+      // animated product demos (e.g. <TradeLineChatDemo>) that live in
+      // client/src/components/product-demos/.
+      const richTiles = chunk.match(/<(MiniChartTile|FlowCard|MapTile|RankTile|CalendarTile|GaugeTile|ReviewTile|OrbitingLogos|MapMockup|TradeLineChatDemo|[A-Z]\w+Demo)\b/g) || [];
       const total = tiles.length + trios.length * 3;
 
       if (total === 0) w(slug, `card ${cardNum}: mockup uses no recognized tile primitives`);
