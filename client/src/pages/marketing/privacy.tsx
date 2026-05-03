@@ -171,7 +171,7 @@ export default function PrivacyPage() {
                   <li>Opt out of the sale or sharing of personal information (we don't do either, but the right is here if required by law)</li>
                 </ul>
                 <p style={{ marginTop: 12 }}>
-                  To exercise any of these rights, email <a href="mailto:privacy@wefixtrades.com" style={{ color: mkt.accent }}>privacy@wefixtrades.com</a>. We'll verify your identity and respond within 30 days (sooner where required by law).
+                  To exercise any of these rights, email <a href="mailto:support@wefixtrades.com" style={{ color: mkt.accent }}>support@wefixtrades.com</a>. We'll verify your identity and respond within 30 days (sooner where required by law).
                 </p>
                 <p style={{ marginTop: 12 }}>
                   <strong>California residents:</strong> we comply with the CCPA/CPRA. In the past 12 months we have <em>not</em> sold or shared personal information for cross-context behavioral advertising.
@@ -204,7 +204,7 @@ export default function PrivacyPage() {
 
               <Section title="11. Children">
                 <p>
-                  The Service is not directed to children under 16. We don't knowingly collect information from children. If you believe we've inadvertently collected information from a child, email <a href="mailto:privacy@wefixtrades.com" style={{ color: mkt.accent }}>privacy@wefixtrades.com</a> and we'll delete it.
+                  The Service is not directed to children under 16. We don't knowingly collect information from children. If you believe we've inadvertently collected information from a child, email <a href="mailto:support@wefixtrades.com" style={{ color: mkt.accent }}>support@wefixtrades.com</a> and we'll delete it.
                 </p>
               </Section>
 
@@ -216,7 +216,7 @@ export default function PrivacyPage() {
 
               <Section title="13. Contact">
                 <p>
-                  Questions about this Privacy Policy or our data practices? Email <a href="mailto:privacy@wefixtrades.com" style={{ color: mkt.accent }}>privacy@wefixtrades.com</a>. Mailing address: WeFixTrades, Toronto, Ontario, Canada.
+                  Questions about this Privacy Policy or our data practices? Email <a href="mailto:support@wefixtrades.com" style={{ color: mkt.accent }}>support@wefixtrades.com</a>. Mailing address: WeFixTrades, Toronto, Ontario, Canada.
                 </p>
                 <p>
                   EU/UK customers: if you're not satisfied with our response, you have the right to complain to your local data protection authority.

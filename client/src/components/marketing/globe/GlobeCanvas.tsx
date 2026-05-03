@@ -148,15 +148,26 @@ export default function GlobeCanvas({
 
     globeRef.current = globe;
 
-    // Camera controls
+    // Camera controls — constrained to North America since that's where the
+    // service currently operates. Drag is enabled but limited to roughly
+    // ±60° azimuth around -95° longitude (so the user can pan East to the
+    // Atlantic and West to the Pacific but never sees the empty back of
+    // the globe). Vertical tilt is also clamped.
     const controls = globe.controls();
-    controls.autoRotate = true;
-    controls.autoRotateSpeed = 0.35;
+    controls.autoRotate = false;             // off — would carry past the clamp
     controls.enableZoom = false;
     controls.enablePan = false;
-    controls.rotateSpeed = 0.6;
+    controls.rotateSpeed = 0.5;
     controls.dampingFactor = 0.15;
     controls.enableDamping = true;
+    // Three.js OrbitControls — azimuth = horizontal rotation, polar = vertical
+    // The globe library composes the camera target so we constrain in radians.
+    // Center azimuth on roughly -95° lng → North America; allow ±60° drag.
+    const DEG = Math.PI / 180;
+    controls.minAzimuthAngle = -60 * DEG;
+    controls.maxAzimuthAngle = 60 * DEG;
+    controls.minPolarAngle = 50 * DEG;       // can't tilt above the equator
+    controls.maxPolarAngle = 110 * DEG;      // can't drop below the south pole
 
     // Initial view — centered on North America, zoomed out to show ~half globe
     globe.pointOfView({ lat: 32, lng: -95, altitude: 2.8 });

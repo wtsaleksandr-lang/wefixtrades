@@ -129,9 +129,17 @@ export default function ContactPage() {
                   </div>
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 600, color: mkt.textMuted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Email</div>
-                    <a href="mailto:contact@wefixtrades.com" style={{ fontSize: 15, color: mkt.accent, textDecoration: "none", fontWeight: 500 }}>
-                      contact@wefixtrades.com
-                    </a>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                      <a href="mailto:sales@wefixtrades.com" style={{ fontSize: 15, color: mkt.accent, textDecoration: "none", fontWeight: 500 }}>
+                        sales@wefixtrades.com
+                      </a>
+                      <a href="mailto:support@wefixtrades.com" style={{ fontSize: 15, color: mkt.accent, textDecoration: "none", fontWeight: 500 }}>
+                        support@wefixtrades.com
+                      </a>
+                    </div>
+                    <div style={{ fontSize: 12, color: mkt.textMuted, marginTop: 6, lineHeight: 1.5 }}>
+                      Sales for new business inquiries. Support for existing customers.
+                    </div>
                   </div>
                 </div>
 

@@ -212,10 +212,16 @@ function MarketingFooter({ isMobile }: { isMobile: boolean }) {
                 📞 +1 (555) 123-4567 · AI-answered 24/7
               </a>
               <a
-                href="mailto:contact@wefixtrades.com"
+                href="mailto:sales@wefixtrades.com"
                 style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", textDecoration: "none", fontWeight: 500 }}
               >
-                ✉️ contact@wefixtrades.com
+                ✉️ sales@wefixtrades.com
+              </a>
+              <a
+                href="mailto:support@wefixtrades.com"
+                style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", textDecoration: "none", fontWeight: 500 }}
+              >
+                ✉️ support@wefixtrades.com
               </a>
             </div>
             <p style={{ fontSize: 11, color: "rgba(255,255,255,0.22)", margin: "0 0 4px", lineHeight: 1.5 }}>

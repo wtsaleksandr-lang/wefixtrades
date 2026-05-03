@@ -342,7 +342,7 @@ export default function TermsPage() {
 
               <Section title="17. Contact">
                 <p>
-                  Questions about these Terms? Email us at <a href="mailto:legal@wefixtrades.com" style={{ color: mkt.accent }}>legal@wefixtrades.com</a> or reach us through the
+                  Questions about these Terms? Email us at <a href="mailto:support@wefixtrades.com" style={{ color: mkt.accent }}>support@wefixtrades.com</a> or reach us through the
                   contact form. Headquartered in Toronto, Ontario, Canada.
                 </p>
               </Section>
