@@ -53,6 +53,7 @@ import TradeLineV3 from "@/pages/products/tradeline-variants/v3-bento-dark";
 import TradeLineV4 from "@/pages/products/tradeline-variants/v4-stripe-light";
 import TradeLineV5 from "@/pages/products/tradeline-variants/v5-apple-monumental";
 import TradeLineV6 from "@/pages/products/tradeline-variants/v6-ultimate";
+import TradeLineV7 from "@/pages/products/tradeline-variants/v7-effortel";
 import SolutionPage from "@/pages/solutions/SolutionPage";
 import DemoCenter from "@/pages/demos/DemoCenter";
 import DemoPage from "@/pages/demos/DemoPage";
@@ -205,6 +206,7 @@ function Router() {
       <Route path="/products/tradeline/v4" component={TradeLineV4} />
       <Route path="/products/tradeline/v5" component={TradeLineV5} />
       <Route path="/products/tradeline/v6" component={TradeLineV6} />
+      <Route path="/products/tradeline/v7" component={TradeLineV7} />
       {/* TradeLine consolidation — old routes redirect to unified product */}
       <Route path="/products/assistants">{() => <Redirect to="/products/tradeline" />}</Route>
       <Route path="/products/ai-chat">{() => <Redirect to="/products/tradeline" />}</Route>

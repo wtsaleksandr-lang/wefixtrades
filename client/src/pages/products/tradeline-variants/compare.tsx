@@ -21,12 +21,21 @@ interface Variant {
 
 const VARIANTS: Variant[] = [
   {
+    slug: "v7",
+    number: "07",
+    name: "Effortel-style",
+    vibe: "Numbered cards, dotted bg, mockup-on-top",
+    matchesHomepage: true,
+    recommended: true,
+    description: "Modeled directly on effortel.com/products/ems. Each section is a numbered rounded card with a dotted background, an inner mockup of pastel-colored stat tiles on top, and the section title + description below. Uses Satoshi + Et Mono. Reusable inner-tile primitives live in components/effortel-blocks/.",
+    preview: { bg: mkt.bg, accent: mkt.accent, text: mkt.onDark, muted: mkt.onDarkMuted },
+  },
+  {
     slug: "v6",
     number: "06",
     name: "Ultimate (V1 + V4 merged)",
     vibe: "Dark hero + alternating light/dark sections",
     matchesHomepage: true,
-    recommended: true,
     description: "The merged master. V1's dark chat-mockup hero, V4's light dashboard mockup as the secondary showcase, and deliberately alternating dark/light sections for visual rhythm. This is the template that scales to all 12 products. Demo placeholders are marked for animation replacement (see docs/product-demo-simulations.md).",
     preview: { bg: mkt.bg, accent: mkt.accent, text: mkt.onDark, muted: mkt.onDarkMuted },
   },
@@ -93,7 +102,7 @@ export default function CompareIndex() {
               Same content, multiple visual treatments. The chosen one becomes the master template — we apply it across all 12 products with one bespoke animated demo per product.
             </p>
             <p style={{ fontSize: 13, color: mkt.onDarkFaint, marginBottom: 8 }}>
-              <strong style={{ color: mkt.accent }}>★ V6 (Ultimate)</strong> is the merge of V1 + V4 with alternating dark/light sections. Open it first.
+              <strong style={{ color: mkt.accent }}>★ V7 (Effortel-style)</strong> is the latest — modeled on effortel.com/products/ems. Numbered cards, dotted bg, pastel inner tiles. Open it first.
             </p>
             <p style={{ fontSize: 12, color: mkt.onDarkFaint }}>
               The static demo mockups in V6 are placeholders. See <code style={{ background: "rgba(255,255,255,0.05)", padding: "2px 6px", borderRadius: 4, fontFamily: "monospace" }}>docs/product-demo-simulations.md</code> for the per-product animated demo spec.
