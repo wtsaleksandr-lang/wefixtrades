@@ -13,10 +13,12 @@
  */
 
 import type { CSSProperties, ReactNode } from "react";
+import { motion, useInView, useReducedMotion } from "framer-motion";
+import { useRef } from "react";
 import { mkt } from "@/theme/tokens";
 
-const MONO = "'Et Mono', 'DM Mono', monospace";
-const SANS = "'Satoshi', Inter, system-ui, sans-serif";
+export const MONO = "'Et Mono', 'DM Mono', monospace";
+export const SANS = "'Satoshi', Inter, system-ui, sans-serif";
 
 /* ─── Pastel inner-tile palette (Effortel-style) ──────────────── */
 export const TILE = {
@@ -395,5 +397,285 @@ function Ring({ radius }: { radius: number }) {
       borderRadius: "50%",
       border: "1px solid rgba(255,255,255,0.06)",
     }} />
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════
+   Reveal — fade-up on scroll. prefers-reduced-motion safe.
+   ════════════════════════════════════════════════════════════════ */
+
+export function Reveal({
+  children, delay = 0, style,
+}: {
+  children: ReactNode;
+  delay?: number;
+  style?: CSSProperties;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const inView = useInView(ref, { once: true, margin: "-80px" });
+  const reduced = useReducedMotion();
+  if (reduced) return <div style={style}>{children}</div>;
+  return (
+    <motion.div
+      ref={ref}
+      style={style}
+      initial={{ opacity: 0, y: 18 }}
+      animate={inView ? { opacity: 1, y: 0 } : {}}
+      transition={{ duration: 0.55, delay, ease: [0.22, 1, 0.36, 1] }}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════
+   MapTile — small map illustration with status pins.
+   For MapGuard, BookFlow (dispatch), etc.
+   ════════════════════════════════════════════════════════════════ */
+
+export function MapTile({
+  pins,
+  label,
+  color = "cyanSoft",
+  style,
+}: {
+  pins: { x: number; y: number; status: "ok" | "warn" | "alert" }[];
+  label: string;
+  color?: TileColor;
+  style?: CSSProperties;
+}) {
+  const c = TILE[color];
+  const pinColor = (s: "ok" | "warn" | "alert") =>
+    s === "ok" ? "#10B981" : s === "warn" ? "#F59E0B" : "#EF4444";
+  return (
+    <div style={{
+      background: c.bg, color: c.ink, borderRadius: 18, padding: 0,
+      fontFamily: SANS, position: "relative", overflow: "hidden",
+      minHeight: 220, ...style,
+    }}>
+      {/* Stylized map */}
+      <svg viewBox="0 0 320 200" width="100%" height="100%" preserveAspectRatio="xMidYMid slice" style={{ position: "absolute", inset: 0 }}>
+        <defs>
+          <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+            <path d="M 20 0 L 0 0 0 20" fill="none" stroke={c.ink} strokeOpacity="0.08" strokeWidth="1" />
+          </pattern>
+        </defs>
+        <rect width="320" height="200" fill="url(#grid)" />
+        {/* roads */}
+        <path d="M0,80 Q80,70 160,90 T320,80" fill="none" stroke={c.ink} strokeOpacity="0.2" strokeWidth="2" />
+        <path d="M0,140 Q120,130 200,150 T320,135" fill="none" stroke={c.ink} strokeOpacity="0.2" strokeWidth="2" />
+        <path d="M120,0 Q130,80 110,200" fill="none" stroke={c.ink} strokeOpacity="0.2" strokeWidth="2" />
+      </svg>
+      {/* Pins */}
+      {pins.map((p, i) => (
+        <div key={i} style={{
+          position: "absolute", left: `${p.x}%`, top: `${p.y}%`,
+          width: 28, height: 28, borderRadius: "50%",
+          background: "#fff", display: "flex", alignItems: "center", justifyContent: "center",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.2)", transform: "translate(-50%, -50%)",
+        }}>
+          <div style={{ width: 10, height: 10, borderRadius: "50%", background: pinColor(p.status) }} />
+        </div>
+      ))}
+      {/* Label */}
+      <div style={{
+        position: "absolute", left: 16, bottom: 16,
+        padding: "6px 12px", borderRadius: 8,
+        background: "rgba(255,255,255,0.85)",
+        fontSize: 11, fontFamily: MONO, fontWeight: 500,
+        letterSpacing: "0.1em", textTransform: "uppercase", color: c.ink,
+      }}>
+        {label}
+      </div>
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════
+   RankTile — keyword search rank rows. For RankFlow.
+   ════════════════════════════════════════════════════════════════ */
+
+export function RankTile({
+  rows, color = "white", style,
+}: {
+  rows: { keyword: string; pos: number; delta: number }[];
+  color?: TileColor;
+  style?: CSSProperties;
+}) {
+  const c = TILE[color];
+  return (
+    <div style={{
+      background: c.bg, color: c.ink, borderRadius: 18, padding: 20,
+      fontFamily: SANS, ...style,
+    }}>
+      <div style={{
+        fontSize: 11, fontFamily: MONO, fontWeight: 500,
+        letterSpacing: "0.1em", textTransform: "uppercase", color: c.muted,
+        marginBottom: 14,
+      }}>Top Keywords</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {rows.map((r) => (
+          <div key={r.keyword} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+            <span style={{ fontSize: 13, color: c.ink, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {r.keyword}
+            </span>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 18, fontWeight: 700, color: c.ink, fontFamily: SANS, letterSpacing: "-0.01em" }}>#{r.pos}</span>
+              <span style={{
+                fontSize: 11, fontFamily: MONO, fontWeight: 500,
+                padding: "2px 8px", borderRadius: 999,
+                background: r.delta < 0 ? "#10B98122" : r.delta > 0 ? "#EF444422" : "rgba(0,0,0,0.05)",
+                color: r.delta < 0 ? "#059669" : r.delta > 0 ? "#DC2626" : c.muted,
+              }}>
+                {r.delta < 0 ? "↑" : r.delta > 0 ? "↓" : "—"} {Math.abs(r.delta) || "0"}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════
+   CalendarTile — 7-day grid with booked / available / blocked slots.
+   For BookFlow, ContentFlow, SocialSync.
+   ════════════════════════════════════════════════════════════════ */
+
+export function CalendarTile({
+  cells,
+  label,
+  color = "lavender",
+  style,
+}: {
+  cells: ("booked" | "free" | "blocked" | "today")[];
+  label: string;
+  color?: TileColor;
+  style?: CSSProperties;
+}) {
+  const c = TILE[color];
+  const fill = (state: typeof cells[number]) => {
+    if (state === "booked") return c.ink;
+    if (state === "today") return "#10B981";
+    if (state === "blocked") return c.muted;
+    return "rgba(255,255,255,0.55)";
+  };
+  return (
+    <div style={{
+      background: c.bg, color: c.ink, borderRadius: 18, padding: 20,
+      fontFamily: SANS, ...style,
+    }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+        <span style={{
+          fontSize: 11, fontFamily: MONO, fontWeight: 500,
+          letterSpacing: "0.1em", textTransform: "uppercase", color: c.muted,
+        }}>{label}</span>
+        <span style={{ fontSize: 11, fontFamily: MONO, color: c.muted }}>This week</span>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6 }}>
+        {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => (
+          <div key={i} style={{ textAlign: "center", fontSize: 10, fontFamily: MONO, color: c.muted, marginBottom: 4 }}>{d}</div>
+        ))}
+        {cells.map((state, i) => (
+          <div key={i} style={{
+            aspectRatio: "1",
+            borderRadius: 6, background: fill(state),
+            opacity: state === "free" ? 0.5 : 1,
+          }} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════
+   GaugeTile — score gauge 0-100. For WebFix, WebCare, AdFlow.
+   ════════════════════════════════════════════════════════════════ */
+
+export function GaugeTile({
+  value, label, color = "mint", suffix = "", style,
+}: {
+  value: number;        // 0-100
+  label: string;
+  color?: TileColor;
+  suffix?: string;
+  style?: CSSProperties;
+}) {
+  const c = TILE[color];
+  const dash = (value / 100) * 220;
+  return (
+    <div style={{
+      background: c.bg, color: c.ink, borderRadius: 18, padding: 20,
+      fontFamily: SANS, display: "flex", flexDirection: "column",
+      justifyContent: "space-between", minHeight: 168, ...style,
+    }}>
+      <div style={{ position: "relative", display: "flex", justifyContent: "center", marginBottom: 8 }}>
+        <svg width="120" height="80" viewBox="0 0 120 80">
+          <path d="M 10 70 A 50 50 0 0 1 110 70" fill="none" stroke={c.ink} strokeOpacity="0.15" strokeWidth="8" strokeLinecap="round" />
+          <path d="M 10 70 A 50 50 0 0 1 110 70" fill="none" stroke={c.ink} strokeWidth="8" strokeLinecap="round" strokeDasharray={`${dash} 220`} />
+        </svg>
+        <div style={{
+          position: "absolute", left: 0, right: 0, top: "50%", transform: "translateY(-30%)",
+          textAlign: "center",
+          fontSize: 32, fontWeight: 700, letterSpacing: "-0.02em", color: c.ink,
+        }}>
+          {value}{suffix}
+        </div>
+      </div>
+      <div style={{
+        fontSize: 11, fontFamily: MONO, fontWeight: 500,
+        letterSpacing: "0.1em", textTransform: "uppercase", color: c.muted,
+        textAlign: "center",
+      }}>
+        {label}
+      </div>
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════
+   ReviewTile — single star-rated review with author + status.
+   For ReputationShield.
+   ════════════════════════════════════════════════════════════════ */
+
+export function ReviewTile({
+  author, stars, text, status = "replied", color = "white", style,
+}: {
+  author: string;
+  stars: number;
+  text: string;
+  status?: "replied" | "new" | "flagged";
+  color?: TileColor;
+  style?: CSSProperties;
+}) {
+  const c = TILE[color];
+  const statusColor = status === "replied" ? "#10B981" : status === "flagged" ? "#EF4444" : "#F59E0B";
+  const statusLabel = status === "replied" ? "AI replied" : status === "flagged" ? "Flagged" : "New";
+  return (
+    <div style={{
+      background: c.bg, color: c.ink, borderRadius: 18, padding: 20,
+      fontFamily: SANS, ...style,
+    }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ width: 28, height: 28, borderRadius: "50%", background: c.muted, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700 }}>
+            {author.charAt(0)}
+          </div>
+          <span style={{ fontSize: 13, fontWeight: 600, color: c.ink }}>{author}</span>
+        </div>
+        <div style={{ display: "flex", gap: 1, color: "#F59E0B" }}>
+          {[1, 2, 3, 4, 5].map(s => <span key={s} style={{ fontSize: 12, opacity: s <= stars ? 1 : 0.3 }}>★</span>)}
+        </div>
+      </div>
+      <p style={{ fontSize: 12, lineHeight: 1.5, color: c.muted, marginBottom: 12 }}>"{text}"</p>
+      <div style={{
+        display: "inline-flex", alignItems: "center", gap: 6,
+        fontSize: 10, fontFamily: MONO, fontWeight: 500,
+        letterSpacing: "0.1em", textTransform: "uppercase", color: statusColor,
+      }}>
+        <span style={{ width: 6, height: 6, borderRadius: "50%", background: statusColor }} />
+        {statusLabel}
+      </div>
+    </div>
   );
 }

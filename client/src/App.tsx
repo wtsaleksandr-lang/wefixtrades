@@ -45,6 +45,7 @@ import SharedAuditReport from "@/pages/marketing/SharedAuditReport";
 import CompareNiceJob from "@/pages/marketing/CompareNiceJob";
 import ComparisonPage from "@/pages/marketing/ComparisonPage";
 import NewProductPage from "@/pages/products/ProductPage";
+import EffortelProductPage from "@/pages/products/EffortelProductPage";
 import MapGuardPage from "@/pages/products/mapguard";
 import TradeLineCompare from "@/pages/products/tradeline-variants/compare";
 import TradeLineV1 from "@/pages/products/tradeline-variants/v1-linear-dark";
@@ -218,7 +219,7 @@ function Router() {
       {/* Removed products — redirect to closest active product */}
       <Route path="/products/booking-addon">{() => <Redirect to="/products/quickquotepro" />}</Route>
       <Route path="/products/fix-and-optimize">{() => <Redirect to="/pricing" />}</Route>
-      <Route path="/products/:slug" component={NewProductPage} />
+      <Route path="/products/:slug">{(params) => <EffortelProductPage slug={params.slug} />}</Route>
       <Route path="/products" component={ProductIndex} />
 
       <Route path="/solutions/visibility" component={SolutionsVisibility} />
