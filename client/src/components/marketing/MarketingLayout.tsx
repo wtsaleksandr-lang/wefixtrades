@@ -13,6 +13,22 @@ const SiteChatWidget = lazy(() => import("@/components/SiteChatWidget"));
 
 /* ─── Footer ─── */
 
+const legalLinkStyle: CSSProperties = {
+  fontSize: 10,
+  color: "rgba(255,255,255,0.32)",
+  textDecoration: "none",
+  padding: "0 12px",
+  fontFamily: "'DM Mono', monospace",
+  letterSpacing: "0.06em",
+};
+
+const legalDividerStyle: CSSProperties = {
+  display: "inline-block",
+  width: 1,
+  height: 10,
+  background: "rgba(255,255,255,0.12)",
+};
+
 const ftLink: CSSProperties = {
   display: "block",
   fontSize: 12,
@@ -203,18 +219,20 @@ function MarketingFooter({ isMobile }: { isMobile: boolean }) {
               </a>
             </div>
             <p style={{ fontSize: 11, color: "rgba(255,255,255,0.22)", margin: "0 0 4px", lineHeight: 1.5 }}>
-              &copy; {new Date().getFullYear()} WeFixTrades Inc. All rights reserved.
+              &copy; {new Date().getFullYear()} WeFixTrades. All rights reserved.
             </p>
             <p style={{ fontSize: 10, color: "rgba(255,255,255,0.14)", margin: 0, lineHeight: 1.5, maxWidth: 480 }}>
-              WeFixTrades Inc. is a registered technology company. Business Registration No. 2024-WFT-0847.
-              Registered office: 1200 Market Street, Suite 400, Wilmington, DE 19801, United States.
+              WeFixTrades is headquartered in Toronto, Canada.
             </p>
           </div>
-          <div style={{ display: "flex", gap: 16, flexShrink: 0 }}>
-            <Link href="/privacy" style={{ fontSize: 10, color: "rgba(255,255,255,0.2)", textDecoration: "none" }}>Privacy</Link>
-            <Link href="/terms" style={{ fontSize: 10, color: "rgba(255,255,255,0.2)", textDecoration: "none" }}>Terms</Link>
-            <Link href="/terms" style={{ fontSize: 10, color: "rgba(255,255,255,0.2)", textDecoration: "none" }}>Cookies</Link>
-            <Link href="/admin/crm" style={{ fontSize: 10, color: "rgba(255,255,255,0.2)", textDecoration: "none" }}>Admin</Link>
+          <div className="mkt-footer-legal-links" style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
+            <Link href="/privacy" style={legalLinkStyle}>Privacy</Link>
+            <span style={legalDividerStyle} />
+            <Link href="/terms" style={legalLinkStyle}>Terms</Link>
+            <span style={legalDividerStyle} />
+            <Link href="/terms" style={legalLinkStyle}>Cookies</Link>
+            <span style={legalDividerStyle} />
+            <Link href="/admin/crm" style={legalLinkStyle}>Admin</Link>
           </div>
         </div>
       </div>

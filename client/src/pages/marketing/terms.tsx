@@ -60,8 +60,8 @@ export default function TermsPage() {
               <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.75, marginBottom: 32 }}>
                 These Terms of Service ("<strong>Terms</strong>") govern your access to and
                 use of the WeFixTrades platform, products, and services (together, the
-                "<strong>Service</strong>"), which are provided by WeFixTrades Inc., a
-                Delaware corporation ("<strong>WeFixTrades</strong>", "<strong>we</strong>", "<strong>us</strong>", or "<strong>our</strong>"). By
+                "<strong>Service</strong>"), which are provided by WeFixTrades, headquartered in
+                Toronto, Ontario, Canada ("<strong>WeFixTrades</strong>", "<strong>we</strong>", "<strong>us</strong>", or "<strong>our</strong>"). By
                 creating an account, signing up for any product, or otherwise using the
                 Service, you agree to be bound by these Terms. If you do not agree,
                 do not use the Service.
@@ -327,9 +327,9 @@ export default function TermsPage() {
 
               <Section title="16. Governing law and disputes">
                 <p>
-                  These Terms are governed by the laws of the State of Delaware, USA,
+                  These Terms are governed by the laws of the Province of Ontario, Canada,
                   without regard to conflict-of-laws rules. Any dispute will be resolved
-                  in the state or federal courts located in Delaware, except that either
+                  in the courts located in Toronto, Ontario, except that either
                   party may seek injunctive relief in any court of competent
                   jurisdiction.
                 </p>
@@ -343,8 +343,7 @@ export default function TermsPage() {
               <Section title="17. Contact">
                 <p>
                   Questions about these Terms? Email us at <a href="mailto:legal@wefixtrades.com" style={{ color: mkt.accent }}>legal@wefixtrades.com</a> or reach us through the
-                  contact form. Registered office: WeFixTrades Inc., 1200 Market Street,
-                  Suite 400, Wilmington, DE 19801, United States.
+                  contact form. Headquartered in Toronto, Ontario, Canada.
                 </p>
               </Section>
 

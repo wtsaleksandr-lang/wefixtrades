@@ -4,51 +4,51 @@ import { Receipt, Zap, Layers, Bell, PhoneCall } from "lucide-react";
 const TABS = [
   {
     key: "billing",
-    label: "Billing",
+    label: "QuoteQuick",
     icon: Receipt,
     accentColor: "#f87171",
     iconColor: "#f87171",
     badgeBg: "#fee0e0",
     sectorBg: "rgba(224, 92, 106, 0.30)",
     timelineBg: "rgba(224, 92, 106, 0.22)",
-    title: "Billing Management",
-    desc: "Streamline your invoicing and payment collection with automated billing workflows that reduce manual effort and improve cash flow.",
+    title: "QuoteQuick — Instant Quotes",
+    desc: "Customers get accurate prices on your website, 24/7. Every quote captures a lead with name, email, and phone. Live in 5 minutes — works alongside Jobber, Housecall Pro, or anything else.",
   },
   {
     key: "charging",
-    label: "Charging",
+    label: "TradeLine",
     icon: Zap,
     accentColor: "#f7b430",
     iconColor: "#f7b430",
     badgeBg: "#fee09f",
     sectorBg: "rgba(212, 160, 23, 0.32)",
     timelineBg: "rgba(212, 160, 23, 0.22)",
-    title: "Online Charging System",
-    desc: "AI-powered insights that predict customer needs and drive personalized experiences across every touchpoint.",
+    title: "TradeLine — 24/7 Receptionist",
+    desc: "AI answers every call and chat — even at 2 AM. Quotes the job, books the appointment, texts the caller back. Replaces a $240/month answering service for a fraction of the cost.",
   },
   {
     key: "catalog",
-    label: "Catalog",
+    label: "MapGuard",
     icon: Layers,
     accentColor: "#4ade80",
     iconColor: "#4ade80",
     badgeBg: "#d4f5d0",
     sectorBg: "rgba(45, 184, 124, 0.30)",
     timelineBg: "rgba(45, 184, 124, 0.22)",
-    title: "Product Catalog",
-    desc: "Manage your complete service and product catalog with dynamic pricing and real-time availability across all channels.",
+    title: "MapGuard — Google Maps Visibility",
+    desc: "We monitor your Google Business Profile every week and fix issues before customers see them. Wrong hours, broken images, suspensions — handled. You show up where customers are searching.",
   },
   {
     key: "events",
-    label: "Events",
+    label: "WebFix",
     icon: Bell,
     accentColor: "#66e8fa",
     iconColor: "#66e8fa",
     badgeBg: "#dcf7fd",
     sectorBg: "rgba(59, 181, 200, 0.30)",
     timelineBg: "rgba(59, 181, 200, 0.22)",
-    title: "Events & Notifications",
-    desc: "Real-time event processing and intelligent notification routing that keeps your teams informed and customers engaged.",
+    title: "WebFix — Site Speed & SEO",
+    desc: "We turn your site from slow and invisible to fast and ranked. Audit, fix, monitor. Lighthouse scores climb from 40s to 90s — and your Google rank follows.",
   },
 ] as const;
 
@@ -415,7 +415,7 @@ export default function CapabilitiesShowcase() {
               lineHeight: 1.05,
               color: "#394247",
             }}>
-              Unparalleled
+              The four tools
             </span>
             <span style={{
               display: "block",
@@ -424,7 +424,7 @@ export default function CapabilitiesShowcase() {
               lineHeight: 1.05,
               color: "#22282a",
             }}>
-              BSS/OSS Capabilities
+              that pay back fastest.
             </span>
           </h2>
         </div>

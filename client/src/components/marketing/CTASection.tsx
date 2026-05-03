@@ -14,6 +14,9 @@ export default function CTASection({ heading, subtext, ctaLabel, ctaHref }: CTAS
   return (
     <>
       <style>{`
+        @media (max-width: 768px) {
+          .cta-section-wrap { margin-bottom: 0 !important; }
+        }
         .cta-inner-wrap {
           background: ${ACCENT};
           border-radius: 20px;
@@ -54,12 +57,13 @@ export default function CTASection({ heading, subtext, ctaLabel, ctaHref }: CTAS
 
       <section
         data-testid="cta-section"
+        className="cta-section-wrap"
         style={{
           background: "transparent",
           position: "relative",
           zIndex: 20,
           padding: "clamp(48px, 8vw, 80px) clamp(16px, 5vw, 40px)",
-          marginBottom: -120,
+          marginBottom: -60,
         }}
       >
         <Link href={ctaHref ?? "/demo"} style={{ textDecoration: "none", display: "block" }}>

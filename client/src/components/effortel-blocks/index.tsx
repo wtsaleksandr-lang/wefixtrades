@@ -13,8 +13,8 @@
  */
 
 import type { CSSProperties, ReactNode } from "react";
-import { motion, useInView, useReducedMotion } from "framer-motion";
-import { useRef } from "react";
+import { motion, useInView, useReducedMotion, animate } from "framer-motion";
+import { useEffect, useRef, useState } from "react";
 import { mkt } from "@/theme/tokens";
 
 export const MONO = "'Et Mono', 'DM Mono', monospace";
@@ -122,7 +122,7 @@ function DottedBackground() {
    ════════════════════════════════════════════════════════════════ */
 
 export function StatTile({
-  value, label, color = "cyanSoft", icon, badge, size = "md", style,
+  value, label, color = "cyanSoft", icon, badge, size = "md", style, animate = true,
 }: {
   value: string;
   label: string;
@@ -131,6 +131,7 @@ export function StatTile({
   badge?: ReactNode;
   size?: "sm" | "md" | "lg";
   style?: CSSProperties;
+  animate?: boolean;
 }) {
   const c = TILE[color];
   const valueSize = size === "lg" ? 38 : size === "sm" ? 22 : 30;
@@ -152,7 +153,7 @@ export function StatTile({
           fontSize: valueSize, fontWeight: 700, lineHeight: 1, letterSpacing: "-0.02em",
           fontFamily: SANS, marginBottom: 8, color: c.ink,
         }}>
-          {value}
+          {animate ? <Ticker value={value} /> : value}
         </div>
         <div style={{
           fontSize: 11, fontFamily: MONO, fontWeight: 500,
@@ -200,13 +201,13 @@ export function MiniChartTile({
           </span>
         )}
       </div>
-      <Sparkline color={c.ink} />
+      <AnimatedSparkline color={c.ink} />
       <div>
         <div style={{
           fontSize: 30, fontWeight: 700, lineHeight: 1, letterSpacing: "-0.02em",
           color: c.ink, marginBottom: 6, fontFamily: SANS,
         }}>
-          {value}
+          <Ticker value={value} />
         </div>
         <div style={{
           fontSize: 11, fontFamily: MONO, fontWeight: 500,
@@ -216,17 +217,6 @@ export function MiniChartTile({
         </div>
       </div>
     </div>
-  );
-}
-
-function Sparkline({ color }: { color: string }) {
-  return (
-    <svg viewBox="0 0 120 36" width="100%" height="36" style={{ marginBottom: 8, opacity: 0.6 }}>
-      <polyline
-        fill="none" stroke={color} strokeWidth="1.5"
-        points="0,30 12,28 24,22 36,25 48,18 60,20 72,12 84,14 96,8 108,10 120,4"
-      />
-    </svg>
   );
 }
 
@@ -572,18 +562,40 @@ export function CalendarTile({
         }}>{label}</span>
         <span style={{ fontSize: 11, fontFamily: MONO, color: c.muted }}>This week</span>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6 }}>
-        {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => (
-          <div key={i} style={{ textAlign: "center", fontSize: 10, fontFamily: MONO, color: c.muted, marginBottom: 4 }}>{d}</div>
-        ))}
-        {cells.map((state, i) => (
-          <div key={i} style={{
+      <CalendarGrid cells={cells} fill={fill} />
+    </div>
+  );
+}
+
+function CalendarGrid({ cells, fill }: { cells: ("booked" | "free" | "blocked" | "today")[]; fill: (s: "booked" | "free" | "blocked" | "today") => string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const inView = useInView(ref, { once: true, margin: "-40px" });
+  const reduced = useReducedMotion();
+  return (
+    <div ref={ref} style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6 }}>
+      {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => (
+        <div key={i} style={{ textAlign: "center", fontSize: 10, fontFamily: MONO, color: "rgba(0,0,0,0.4)", marginBottom: 4 }}>{d}</div>
+      ))}
+      {cells.map((state, i) => (
+        <motion.div
+          key={i}
+          style={{
             aspectRatio: "1",
             borderRadius: 6, background: fill(state),
-            opacity: state === "free" ? 0.5 : 1,
-          }} />
-        ))}
-      </div>
+          }}
+          initial={{ opacity: 0, scale: 0.6 }}
+          animate={
+            (inView || reduced)
+              ? { opacity: state === "free" ? 0.4 : 1, scale: 1 }
+              : { opacity: 0, scale: 0.6 }
+          }
+          transition={{
+            duration: reduced ? 0 : 0.35,
+            delay: reduced ? 0 : 0.04 * i,
+            ease: [0.22, 1, 0.36, 1],
+          }}
+        />
+      ))}
     </div>
   );
 }
@@ -677,5 +689,82 @@ export function ReviewTile({
         {statusLabel}
       </div>
     </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════
+   Animated bits — number ticker, sparkline draw.
+   All respect prefers-reduced-motion.
+   ════════════════════════════════════════════════════════════════ */
+
+function parseValue(raw: string): { prefix: string; num: number; suffix: string; sep: string } {
+  const m = raw.match(/^(\D*)([\d,. ]+)(.*)$/);
+  if (!m) return { prefix: "", num: NaN, suffix: raw, sep: "" };
+  const [, prefix, numStr, suffix] = m;
+  const sep = numStr.includes(",") ? "," : numStr.includes(" ") ? " " : "";
+  const num = Number(numStr.replace(/[, ]/g, ""));
+  return { prefix, num, suffix, sep };
+}
+
+function formatNum(n: number, sep: string, hasDecimal: boolean): string {
+  if (hasDecimal) return n.toFixed(1);
+  const rounded = Math.round(n);
+  if (sep === ",") return rounded.toLocaleString("en-US");
+  if (sep === " ") return rounded.toLocaleString("fr-FR").replace(/ /g, " ");
+  return String(rounded);
+}
+
+/**
+ * Ticker — animates the numeric portion of `value` from 0 to target
+ * the first time it scrolls into view. Handles prefixes/suffixes like
+ * "$", "%", "★", "+", and thousands separators ("," or " ").
+ */
+export function Ticker({
+  value, duration = 1.6, delay = 0, style,
+}: { value: string; duration?: number; delay?: number; style?: CSSProperties }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const inView = useInView(ref, { once: true, margin: "-40px" });
+  const reduced = useReducedMotion();
+  const parsed = parseValue(value);
+  const hasDecimal = String(parsed.num).includes(".") || value.includes(".");
+  const [current, setCurrent] = useState(
+    reduced || isNaN(parsed.num) ? value : parsed.prefix + "0" + parsed.suffix
+  );
+
+  useEffect(() => {
+    if (!inView || reduced || isNaN(parsed.num)) return;
+    const controls = animate(0, parsed.num, {
+      duration, delay, ease: [0.22, 1, 0.36, 1],
+      onUpdate: (n) => setCurrent(parsed.prefix + formatNum(n, parsed.sep, hasDecimal) + parsed.suffix),
+    });
+    return () => controls.stop();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inView, value]);
+
+  return <span ref={ref} style={style}>{current}</span>;
+}
+
+/**
+ * AnimatedSparkline — draws the line left → right when in view.
+ */
+export function AnimatedSparkline({
+  points = "0,30 12,28 24,22 36,25 48,18 60,20 72,12 84,14 96,8 108,10 120,4",
+  color = "#000",
+  duration = 1.6,
+  delay = 0.1,
+}: { points?: string; color?: string; duration?: number; delay?: number }) {
+  const ref = useRef<SVGSVGElement>(null);
+  const inView = useInView(ref, { once: true, margin: "-40px" });
+  const reduced = useReducedMotion();
+  return (
+    <svg ref={ref} viewBox="0 0 120 36" width="100%" height="36" style={{ marginBottom: 8, opacity: 0.6 }}>
+      <motion.polyline
+        fill="none" stroke={color} strokeWidth="1.5"
+        points={points}
+        initial={{ pathLength: reduced ? 1 : 0 }}
+        animate={inView ? { pathLength: 1 } : { pathLength: reduced ? 1 : 0 }}
+        transition={{ duration, delay, ease: [0.22, 1, 0.36, 1] }}
+      />
+    </svg>
   );
 }

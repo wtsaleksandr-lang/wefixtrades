@@ -216,7 +216,7 @@ export default function PrivacyPage() {
 
               <Section title="13. Contact">
                 <p>
-                  Questions about this Privacy Policy or our data practices? Email <a href="mailto:privacy@wefixtrades.com" style={{ color: mkt.accent }}>privacy@wefixtrades.com</a>. Postal address: WeFixTrades Inc., 1200 Market Street, Suite 400, Wilmington, DE 19801, United States.
+                  Questions about this Privacy Policy or our data practices? Email <a href="mailto:privacy@wefixtrades.com" style={{ color: mkt.accent }}>privacy@wefixtrades.com</a>. Mailing address: WeFixTrades, Toronto, Ontario, Canada.
                 </p>
                 <p>
                   EU/UK customers: if you're not satisfied with our response, you have the right to complain to your local data protection authority.
