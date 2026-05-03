@@ -555,6 +555,33 @@ export function buildAssistantConfig(): Record<string, any> {
 }
 
 /**
+ * Async variant that reads the brand-availability singleton and rewrites the
+ * firstMessage when we're marked as unavailable. Use this from any place
+ * that's about to provision an inbound greeting.
+ *
+ * Falls back to the synchronous default if the DB read fails — never block a
+ * real call on a missing row.
+ */
+export async function buildAssistantConfigWithAvailability(): Promise<Record<string, any>> {
+  const base = buildAssistantConfig();
+  try {
+    const { storage } = await import("../storage");
+    const av = await storage.getBrandAvailability();
+    if (!av.is_available) {
+      base.assistant.firstMessage = av.away_message;
+      // Hard fallback: append a system-prompt addendum so the model sticks to
+      // ticket-creation only and doesn't try to live-resolve the request.
+      base.assistant.systemMessage = (base.assistant.systemMessage ?? "") +
+        "\n\n[AVAILABILITY OVERRIDE: human team unavailable. Take name + number + brief description, confirm a callback within 1 hour, and end the call. Do not attempt to fully resolve the request.]";
+    }
+    return base;
+  } catch (err) {
+    log.warn("[vapi] availability read failed; using default greeting", { error: (err as Error).message });
+    return base;
+  }
+}
+
+/**
  * Build Vapi assistant config for a TradeLine client, including booking
  * functions when booking is enabled in the client's config.
  */

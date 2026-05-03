@@ -11,6 +11,7 @@ import HeroTradeDivider from "@/components/marketing/HeroTradeDivider";
 import TrustMarquee from "@/components/marketing/TrustMarquee";
 import CapabilitiesShowcase from "@/components/marketing/CapabilitiesShowcase";
 import StickyStackCards from "@/components/marketing/StickyStackCards";
+import ServiceStackTimeline from "@/components/marketing/ServiceStackTimeline";
 import FeatureCards from "@/components/marketing/FeatureCards";
 import PillarAnimation from "@/components/sections/PillarAnimation";
 import CTASection from "@/components/marketing/CTASection";
@@ -836,6 +837,7 @@ export default function HomePage() {
       <HeroTradeDivider />
       <CapabilitiesShowcase />
       <StickyStackCards />
+      <ServiceStackTimeline />
       <PillarAnimation />
       <FeatureCards />
       {hasWebGL && <GlobeSection />}

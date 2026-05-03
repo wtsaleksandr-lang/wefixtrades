@@ -872,3 +872,25 @@ export const adflowReports = pgTable("adflow_reports", {
 export const insertAdflowReportSchema = createInsertSchema(adflowReports).omit({ id: true, created_at: true });
 export type InsertAdflowReport = z.infer<typeof insertAdflowReportSchema>;
 export type AdflowReport = typeof adflowReports.$inferSelect;
+
+
+/* ─── Brand-availability + escalation singleton ────────────────────
+   Single-row table holding the operating brand's "are we available"
+   state. When `is_available = false` the AI assistant uses
+   `away_message` instead of the standard greeting and creates a
+   support ticket for every inbound contact (call or text).
+   ─────────────────────────────────────────────────────────────── */
+
+export const brandAvailability = pgTable("brand_availability", {
+  id: serial("id").primaryKey(),
+  is_available: boolean("is_available").notNull().default(true),
+  away_message: text("away_message").notNull().default(
+    "All of our team members are tied up at the moment. Leave your name and number and we'll get back to you within an hour."
+  ),
+  set_by_user_id: integer("set_by_user_id").references(() => users.id),
+  set_at: timestamp("set_at").defaultNow(),
+});
+export const insertBrandAvailabilitySchema = createInsertSchema(brandAvailability).omit({ id: true, set_at: true });
+export type InsertBrandAvailability = z.infer<typeof insertBrandAvailabilitySchema>;
+export type BrandAvailability = typeof brandAvailability.$inferSelect;
+

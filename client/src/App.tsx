@@ -124,6 +124,7 @@ import ServicePricingPage from "@/pages/admin/ServicePricingPage";
 import BookingCalendarPage from "@/pages/admin/BookingCalendarPage";
 import SystemJobsPage from "@/pages/admin/SystemJobsPage";
 import SystemWorkersPage from "@/pages/admin/SystemWorkersPage";
+import SystemAvailabilityPage from "@/pages/admin/SystemAvailabilityPage";
 import TradeLineOpsPage from "@/pages/admin/TradeLineOpsPage";
 import QuoteQuickPage from "@/pages/admin/QuoteQuickPage";
 import BookingPage from "@/pages/public/BookingPage";
@@ -168,6 +169,7 @@ function Router() {
       {/* System monitoring */}
       <Route path="/admin/system/jobs">{() => <RequirePortal><SystemJobsPage /></RequirePortal>}</Route>
       <Route path="/admin/system/workers">{() => <RequirePortal><SystemWorkersPage /></RequirePortal>}</Route>
+      <Route path="/admin/system/availability">{() => <RequirePortal><SystemAvailabilityPage /></RequirePortal>}</Route>
 
       {/* Outbound lead management */}
       <Route path="/admin/outbound/prospects">{() => <RequirePortal><ProspectsPage /></RequirePortal>}</Route>
