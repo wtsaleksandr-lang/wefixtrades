@@ -102,11 +102,11 @@ export default function ContactPage() {
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 600, color: mkt.textMuted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>AI-answered line — 24/7</div>
                     <a
-                      href="tel:+15551234567"
+                      href="tel:+19156153280"
                       data-testid="contact-phone"
                       style={{ fontSize: 15, color: mkt.accent, textDecoration: "none", fontWeight: 500 }}
                     >
-                      +1 (555) 123-4567
+                      +1 (915) 615-3280
                     </a>
                     <div style={{ fontSize: 12, color: mkt.textMuted, marginTop: 4, lineHeight: 1.5 }}>
                       Our AI answers any question about pricing, services, or how we'd help your business. Escalates to a human for anything complex.

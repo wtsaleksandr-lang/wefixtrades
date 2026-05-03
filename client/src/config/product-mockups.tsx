@@ -8,7 +8,7 @@
  */
 
 import type { ReactNode } from "react";
-import { Mic, Phone, MessageSquare, Calendar, Star, Sparkles, Globe, Eye, ImageIcon, Send, ShieldCheck, PenTool, TrendingUp, Zap } from "lucide-react";
+import { Mic, Phone, MessageSquare, Calendar, Star, Sparkles, Globe, Eye, ImageIcon, Send, ShieldCheck, PenTool, TrendingUp, Zap, Calculator, Clock } from "lucide-react";
 import {
   StatTile, MiniChartTile, FlowCard, OrbitingLogos,
   MapTile, RankTile, CalendarTile, GaugeTile, ReviewTile,
@@ -25,7 +25,8 @@ export interface ProductMockupSection {
 
 /* ─── Reusable wee mockups ────────────────────────────────────── */
 
-function StatTrio({ a, b, c }: { a: { value: string; label: string; color?: any }; b: { value: string; label: string; color?: any }; c: { value: string; label: string; color?: any } }) {
+type StatProps = { value: string; label: string; color?: any; icon?: ReactNode };
+function StatTrio({ a, b, c }: { a: StatProps; b: StatProps; c: StatProps }) {
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, maxWidth: 720, width: "100%" }}>
       <StatTile size="lg" {...a} />
@@ -99,9 +100,9 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       cta: { label: "See Pricing", href: "/pricing" },
       mockup: <Wide>
         <StatTrio
-          a={{ value: "$185", label: "Drain unblock", color: "cyanSoft" }}
-          b={{ value: "$420", label: "HVAC tune-up", color: "lavender" }}
-          c={{ value: "$95", label: "Service call", color: "mint" }}
+          a={{ value: "$185", label: "Drain unblock", color: "cyanSoft", icon: <Mic size={16} /> }}
+          b={{ value: "$420", label: "HVAC tune-up", color: "lavender", icon: <Mic size={16} /> }}
+          c={{ value: "$95", label: "Service call", color: "mint", icon: <Mic size={16} /> }}
         />
       </Wide>,
     },
@@ -153,9 +154,9 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       description: "Customers get accurate prices on your website 24/7 — even when you're on a job site. Every quote becomes a captured lead.",
       cta: { label: "Try Demo", href: "/tools/quote-demo" },
       mockup: <Wide><StatTrio
-        a={{ value: "$2 480", label: "Bathroom remodel", color: "cyanSoft" }}
-        b={{ value: "$640", label: "Drain unblock", color: "lavender" }}
-        c={{ value: "$1 250", label: "Boiler install", color: "mint" }}
+        a={{ value: "$2 480", label: "Bathroom remodel", color: "cyanSoft", icon: <Calculator size={16} /> }}
+        b={{ value: "$640", label: "Drain unblock", color: "lavender", icon: <Calculator size={16} /> }}
+        c={{ value: "$1 250", label: "Boiler install", color: "mint", icon: <Calculator size={16} /> }}
       /></Wide>,
     },
     {
@@ -179,9 +180,9 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       description: "Customers can book a slot and pay a deposit right after their quote. Email + SMS reminders run automatically.",
       cta: { label: "Learn More", href: "/products/quickquotepro" },
       mockup: <Wide><StatTrio
-        a={{ value: "62%", label: "Quote-to-book", color: "lavender" }}
-        b={{ value: "—", label: "Manual touches", color: "mint" }}
-        c={{ value: "0", label: "Add-on fees", color: "cyanSoft" }}
+        a={{ value: "62%", label: "Quote-to-book", color: "lavender", icon: <TrendingUp size={16} /> }}
+        b={{ value: "—", label: "Manual touches", color: "mint", icon: <Sparkles size={16} /> }}
+        c={{ value: "0", label: "Add-on fees", color: "cyanSoft", icon: <ShieldCheck size={16} /> }}
       /></Wide>,
     },
     {
@@ -226,9 +227,9 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       description: "We catch profile suspensions, hour mismatches, missing photos, and category drift. Most issues are auto-fixed by us — no work for you.",
       cta: { label: "Learn More", href: "/products/mapguard" },
       mockup: <Wide><StatTrio
-        a={{ value: "47", label: "Issues found YTD", color: "cyanSoft" }}
-        b={{ value: "44", label: "Auto-fixed", color: "mint" }}
-        c={{ value: "3", label: "Escalated to you", color: "pink" }}
+        a={{ value: "47", label: "Issues found YTD", color: "cyanSoft", icon: <Eye size={16} /> }}
+        b={{ value: "44", label: "Auto-fixed", color: "mint", icon: <ShieldCheck size={16} /> }}
+        c={{ value: "3", label: "Escalated to you", color: "pink", icon: <Send size={16} /> }}
       /></Wide>,
     },
     {
@@ -280,9 +281,9 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       description: "1- and 2-star reviews are escalated to you immediately with a suggested response. Address concerns before they spread.",
       cta: { label: "Learn More", href: "/products/reputationshield" },
       mockup: <Wide><StatTrio
-        a={{ value: "< 30 min", label: "Reply time avg", color: "cyanSoft" }}
-        b={{ value: "4.9★", label: "Current avg", color: "mint" }}
-        c={{ value: "+1.2★", label: "30-day lift", color: "lavender" }}
+        a={{ value: "< 30 min", label: "Reply time avg", color: "cyanSoft", icon: <MessageSquare size={16} /> }}
+        b={{ value: "4.9★", label: "Current avg", color: "mint", icon: <Star size={16} /> }}
+        c={{ value: "+1.2★", label: "30-day lift", color: "lavender", icon: <TrendingUp size={16} /> }}
       /></Wide>,
     },
     {
@@ -340,9 +341,9 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       description: "One post → published to Facebook, Instagram, Google Business, and LinkedIn. Tracked, optimized, and analyzed in one place.",
       cta: { label: "Learn More", href: "/products/socialsync" },
       mockup: <Wide><StatTrio
-        a={{ value: "4 channels", label: "From 1 click", color: "cyanSoft" }}
-        b={{ value: "1 hr/wk", label: "Time spent", color: "lavender" }}
-        c={{ value: "240+", label: "Auto-posted/mo", color: "mint" }}
+        a={{ value: "4 channels", label: "From 1 click", color: "cyanSoft", icon: <Send size={16} /> }}
+        b={{ value: "1 hr/wk", label: "Time spent", color: "lavender", icon: <Clock size={16} /> }}
+        c={{ value: "240+", label: "Auto-posted/mo", color: "mint", icon: <Calendar size={16} /> }}
       /></Wide>,
     },
     {
@@ -415,9 +416,9 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       description: "Each report includes exactly which pages to update, which keywords to target, and which competitors to watch.",
       cta: { label: "See Sample Report", href: "/products/rankflow" },
       mockup: <Wide><StatTrio
-        a={{ value: "5", label: "Pages to update", color: "pink" }}
-        b={{ value: "12", label: "New keyword wins", color: "mint" }}
-        c={{ value: "3", label: "Competitor moves", color: "lavender" }}
+        a={{ value: "5", label: "Pages to update", color: "pink", icon: <PenTool size={16} /> }}
+        b={{ value: "12", label: "New keyword wins", color: "mint", icon: <TrendingUp size={16} /> }}
+        c={{ value: "3", label: "Competitor moves", color: "lavender", icon: <Eye size={16} /> }}
       /></Wide>,
     },
     {
@@ -448,9 +449,9 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       description: "Pick a template, drop in your services, and we ship a hosted site that's optimized for Google and converts trade visitors.",
       cta: { label: "See What's Included", href: "/products/sitelaunch" },
       mockup: <Wide><StatTrio
-        a={{ value: "5–7 days", label: "From kickoff to live", color: "cyanSoft" }}
-        b={{ value: "98", label: "Lighthouse score", color: "mint" }}
-        c={{ value: "$0", label: "Hosting fees", color: "lavender" }}
+        a={{ value: "5–7 days", label: "From kickoff to live", color: "cyanSoft", icon: <Clock size={16} /> }}
+        b={{ value: "98", label: "Lighthouse score", color: "mint", icon: <Zap size={16} /> }}
+        c={{ value: "$0", label: "Hosting fees", color: "lavender", icon: <ShieldCheck size={16} /> }}
       /></Wide>,
     },
     {
@@ -470,9 +471,9 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       description: "Once launched, AI tunes copy, image alt text, and meta tags every month based on what's actually working in search.",
       cta: { label: "See Process", href: "/products/sitelaunch" },
       mockup: <Wide><StatTrio
-        a={{ value: "Monthly", label: "AI tune-ups", color: "lavender" }}
-        b={{ value: "Free", label: "Updates included", color: "mint" }}
-        c={{ value: "→ pages", label: "Across the site", color: "cyanSoft" }}
+        a={{ value: "Monthly", label: "AI tune-ups", color: "lavender", icon: <Sparkles size={16} /> }}
+        b={{ value: "Free", label: "Updates included", color: "mint", icon: <ShieldCheck size={16} /> }}
+        c={{ value: "→ pages", label: "Across the site", color: "cyanSoft", icon: <Globe size={16} /> }}
       /></Wide>,
     },
     {
@@ -517,9 +518,9 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       description: "WordPress, plugins, and themes auto-updated and tested. We catch breaks before your customers do.",
       cta: { label: "Learn More", href: "/products/webcare" },
       mockup: <Wide><StatTrio
-        a={{ value: "47", label: "Updates this month", color: "cyanSoft" }}
-        b={{ value: "0", label: "Breaks reaching prod", color: "mint" }}
-        c={{ value: "Daily", label: "Backup snapshots", color: "lavender" }}
+        a={{ value: "47", label: "Updates this month", color: "cyanSoft", icon: <Zap size={16} /> }}
+        b={{ value: "0", label: "Breaks reaching prod", color: "mint", icon: <ShieldCheck size={16} /> }}
+        c={{ value: "Daily", label: "Backup snapshots", color: "lavender", icon: <Clock size={16} /> }}
       /></Wide>,
     },
     {
@@ -575,9 +576,9 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       description: "We turn audit findings into actual code changes. Image compression, lazy loading, broken links, SEO meta — all sorted.",
       cta: { label: "Learn More", href: "/products/webfix" },
       mockup: <Wide><StatTrio
-        a={{ value: "23 → 4", label: "Issues, before & after", color: "cyanSoft" }}
-        b={{ value: "+56pts", label: "Performance lift", color: "mint" }}
-        c={{ value: "5–7 days", label: "Turnaround", color: "lavender" }}
+        a={{ value: "23 → 4", label: "Issues, before & after", color: "cyanSoft", icon: <Eye size={16} /> }}
+        b={{ value: "+56pts", label: "Performance lift", color: "mint", icon: <Zap size={16} /> }}
+        c={{ value: "5–7 days", label: "Turnaround", color: "lavender", icon: <Clock size={16} /> }}
       /></Wide>,
     },
     {
@@ -622,9 +623,9 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       description: "Content tuned to your trade, your service area, and your voice. Drafted weekly, approved by you, published automatically.",
       cta: { label: "See Sample", href: "/products/contentflow" },
       mockup: <Wide><StatTrio
-        a={{ value: "4–8/mo", label: "Articles drafted", color: "cyanSoft" }}
-        b={{ value: "~ 1 hr", label: "Your time per month", color: "lavender" }}
-        c={{ value: "1 click", label: "To approve & publish", color: "mint" }}
+        a={{ value: "4–8/mo", label: "Articles drafted", color: "cyanSoft", icon: <PenTool size={16} /> }}
+        b={{ value: "~ 1 hr", label: "Your time per month", color: "lavender", icon: <Clock size={16} /> }}
+        c={{ value: "1 click", label: "To approve & publish", color: "mint", icon: <Send size={16} /> }}
       /></Wide>,
     },
     {
@@ -681,9 +682,9 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       description: "Real campaigns, managed by humans + AI. We tune bids, swap creative, and pause losers — every week.",
       cta: { label: "Learn More", href: "/products/adflow" },
       mockup: <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, maxWidth: 720, width: "100%" }}>
-        <StatTile value="$42" label="Cost-per-lead, before" color="pink" size="lg" />
-        <StatTile value="$28" label="Week 2" color="lavender" size="lg" />
-        <StatTile value="$19" label="Week 4" color="mint" size="lg" />
+        <StatTile value="$42" label="Cost-per-lead, before" color="pink" size="lg" icon={<TrendingUp size={16} />} />
+        <StatTile value="$28" label="Week 2" color="lavender" size="lg" icon={<Sparkles size={16} />} />
+        <StatTile value="$19" label="Week 4" color="mint" size="lg" icon={<Zap size={16} />} />
       </div>,
     },
     {
@@ -692,9 +693,9 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       description: "Headlines, images, and copy written for trade buyers — emergency calls, quote requests, service calls.",
       cta: { label: "See Examples", href: "/products/adflow" },
       mockup: <Wide><StatTrio
-        a={{ value: "12", label: "Active ads", color: "cyanSoft" }}
-        b={{ value: "8.4%", label: "CTR", color: "mint" }}
-        c={{ value: "+340%", label: "Vs DIY ads", color: "lavender" }}
+        a={{ value: "12", label: "Active ads", color: "cyanSoft", icon: <Sparkles size={16} /> }}
+        b={{ value: "8.4%", label: "CTR", color: "mint", icon: <TrendingUp size={16} /> }}
+        c={{ value: "+340%", label: "Vs DIY ads", color: "lavender", icon: <Zap size={16} /> }}
       /></Wide>,
     },
     {
@@ -751,9 +752,9 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       description: "A daily list optimized for the field. Driving directions, customer notes, and pay-on-completion built in.",
       cta: { label: "See Mobile View", href: "/portal/dispatch" },
       mockup: <Wide><StatTrio
-        a={{ value: "8", label: "Jobs today", color: "cyanSoft" }}
-        b={{ value: "$2 480", label: "Day's revenue", color: "mint" }}
-        c={{ value: "Auto-routed", label: "By proximity", color: "lavender" }}
+        a={{ value: "8", label: "Jobs today", color: "cyanSoft", icon: <Calendar size={16} /> }}
+        b={{ value: "$2 480", label: "Day's revenue", color: "mint", icon: <TrendingUp size={16} /> }}
+        c={{ value: "Auto-routed", label: "By proximity", color: "lavender", icon: <Globe size={16} /> }}
       /></Wide>,
     },
     {
@@ -762,9 +763,9 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       description: "Card, Apple Pay, bank, e-transfer. Customer pays the moment the job is done — funds in your account next day.",
       cta: { label: "Learn More", href: "/products/bookflow" },
       mockup: <Wide><StatTrio
-        a={{ value: "8 methods", label: "Payment options", color: "cyanSoft" }}
-        b={{ value: "Same day", label: "Funds available", color: "mint" }}
-        c={{ value: "0%", label: "Setup fees", color: "lavender" }}
+        a={{ value: "8 methods", label: "Payment options", color: "cyanSoft", icon: <Send size={16} /> }}
+        b={{ value: "Same day", label: "Funds available", color: "mint", icon: <Clock size={16} /> }}
+        c={{ value: "0%", label: "Setup fees", color: "lavender", icon: <ShieldCheck size={16} /> }}
       /></Wide>,
     },
     {

@@ -3,7 +3,7 @@ import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { mkt, shadows, radius } from "@/theme/tokens";
 
 /**
- * Privacy Policy — WeFixTrades Inc.
+ * Privacy Policy — MR Holdings &amp; Trade LLC (operating as "WeFixTrades")
  *
  * AI-drafted baseline covering the main US/Canada requirements plus a
  * reasonable GDPR posture for the EU traffic we may incidentally receive.
@@ -58,7 +58,7 @@ export default function PrivacyPage() {
               border: `1px solid ${mkt.border}`,
             }}>
               <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.75, marginBottom: 32 }}>
-                This Privacy Policy explains how WeFixTrades Inc. ("<strong>WeFixTrades</strong>", "<strong>we</strong>", "<strong>us</strong>", "<strong>our</strong>") collects, uses, shares, and protects information when you visit our website, use our Service, or communicate with us. If you don't agree with this policy, don't use the Service.
+                This Privacy Policy explains how MR Holdings &amp; Trade LLC (operating as "WeFixTrades") ("<strong>WeFixTrades</strong>", "<strong>we</strong>", "<strong>us</strong>", "<strong>our</strong>") collects, uses, shares, and protects information when you visit our website, use our Service, or communicate with us. If you don't agree with this policy, don't use the Service.
               </p>
 
               <Section title="1. Who this policy applies to">
@@ -216,7 +216,7 @@ export default function PrivacyPage() {
 
               <Section title="13. Contact">
                 <p>
-                  Questions about this Privacy Policy or our data practices? Email <a href="mailto:support@wefixtrades.com" style={{ color: mkt.accent }}>support@wefixtrades.com</a>. Mailing address: WeFixTrades, Toronto, Ontario, Canada.
+                  Questions about this Privacy Policy or our data practices? Email <a href="mailto:support@wefixtrades.com" style={{ color: mkt.accent }}>support@wefixtrades.com</a>. Mailing address: MR Holdings &amp; Trade LLC, 30 N Gould St, Ste R, Sheridan, WY 82801, United States.
                 </p>
                 <p>
                   EU/UK customers: if you're not satisfied with our response, you have the right to complain to your local data protection authority.

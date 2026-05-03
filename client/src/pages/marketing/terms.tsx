@@ -3,7 +3,7 @@ import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { mkt, shadows, radius } from "@/theme/tokens";
 
 /**
- * Terms of Service — WeFixTrades Inc.
+ * Terms of Service — MR Holdings &amp; Trade LLC
  *
  * AI-drafted baseline intended to be defensible for an early-stage SaaS.
  * Have an attorney review before Series A fundraising, enterprise contracts,
@@ -60,16 +60,18 @@ export default function TermsPage() {
               <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.75, marginBottom: 32 }}>
                 These Terms of Service ("<strong>Terms</strong>") govern your access to and
                 use of the WeFixTrades platform, products, and services (together, the
-                "<strong>Service</strong>"), which are provided by WeFixTrades, headquartered in
-                Toronto, Ontario, Canada ("<strong>WeFixTrades</strong>", "<strong>we</strong>", "<strong>us</strong>", or "<strong>our</strong>"). By
-                creating an account, signing up for any product, or otherwise using the
-                Service, you agree to be bound by these Terms. If you do not agree,
-                do not use the Service.
+                "<strong>Service</strong>"), operated under the brand name "WeFixTrades" by
+                <strong> MR Holdings &amp; Trade LLC</strong>, a Wyoming limited liability company with
+                registered office at 30 N Gould St, Ste R, Sheridan, WY 82801, United States
+                (EIN&nbsp;98-1915788) ("<strong>WeFixTrades</strong>", "<strong>we</strong>",
+                "<strong>us</strong>", or "<strong>our</strong>"). By creating an account, signing up
+                for any product, or otherwise using the Service, you agree to be bound by these
+                Terms. If you do not agree, do not use the Service.
               </p>
 
               <Section title="1. Who we are and who can use the Service">
                 <p>
-                  WeFixTrades Inc. operates software and done-for-you services marketed
+                  MR Holdings &amp; Trade LLC operates software and done-for-you services marketed
                   primarily to small and medium trades businesses (plumbers, electricians,
                   HVAC contractors, cleaners, roofers, landscapers, and similar
                   service providers). You must be at least 18 years old and authorized to
@@ -272,7 +274,7 @@ export default function TermsPage() {
                   The Service, including all software, designs, trademarks, logos, and
                   product names (including "WeFixTrades", "QuoteQuick Pro", "TradeLine",
                   "MapGuard", "ReputationShield", "RankFlow", "SocialSync",
-                  "WebCare", "SiteLaunch", "WebFix"), is owned by WeFixTrades Inc. and
+                  "WebCare", "SiteLaunch", "WebFix"), is owned by MR Holdings &amp; Trade LLC and
                   protected by applicable intellectual property laws. We grant you a
                   limited, non-transferable, revocable license to use the Service
                   during your paid subscription.
@@ -308,7 +310,7 @@ export default function TermsPage() {
 
               <Section title="14. Indemnification">
                 <p>
-                  You agree to defend and indemnify WeFixTrades Inc. against claims
+                  You agree to defend and indemnify MR Holdings &amp; Trade LLC against claims
                   arising from your use of the Service, your content, or your breach of
                   these Terms — except to the extent those claims result from our gross
                   negligence or willful misconduct.
@@ -327,11 +329,11 @@ export default function TermsPage() {
 
               <Section title="16. Governing law and disputes">
                 <p>
-                  These Terms are governed by the laws of the Province of Ontario, Canada,
-                  without regard to conflict-of-laws rules. Any dispute will be resolved
-                  in the courts located in Toronto, Ontario, except that either
-                  party may seek injunctive relief in any court of competent
-                  jurisdiction.
+                  These Terms are governed by the laws of the State of Wyoming, USA,
+                  without regard to conflict-of-laws rules. Any dispute will be
+                  resolved in the state or federal courts located in Wyoming, except
+                  that either party may seek injunctive relief in any court of
+                  competent jurisdiction.
                 </p>
                 <p>
                   If you're a consumer in a jurisdiction where mandatory local consumer
@@ -343,7 +345,8 @@ export default function TermsPage() {
               <Section title="17. Contact">
                 <p>
                   Questions about these Terms? Email us at <a href="mailto:support@wefixtrades.com" style={{ color: mkt.accent }}>support@wefixtrades.com</a> or reach us through the
-                  contact form. Headquartered in Toronto, Ontario, Canada.
+                  contact form. Registered office: MR Holdings &amp; Trade LLC,
+                  30 N Gould St, Ste R, Sheridan, WY 82801, United States.
                 </p>
               </Section>
 

@@ -205,11 +205,11 @@ function MarketingFooter({ isMobile }: { isMobile: boolean }) {
           <div>
             <div style={{ display: "flex", gap: 14, marginBottom: 8, flexWrap: "wrap" }}>
               <a
-                href="tel:+15551234567"
+                href="tel:+19156153280"
                 style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", textDecoration: "none", fontWeight: 500 }}
                 data-testid="footer-phone"
               >
-                📞 +1 (555) 123-4567 · AI-answered 24/7
+                📞 +1 (915) 615-3280 · AI-answered 24/7
               </a>
               <a
                 href="mailto:sales@wefixtrades.com"

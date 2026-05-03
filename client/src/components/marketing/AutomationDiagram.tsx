@@ -1,4 +1,5 @@
-import { useState, useCallback, useEffect, useRef, type ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from "react";
+import { motion, AnimatePresence, useInView, useReducedMotion } from "framer-motion";
 import {
   ReactFlow,
   Background,
@@ -13,9 +14,15 @@ import "@xyflow/react/dist/style.css";
 import { mkt } from "@/theme/tokens";
 import {
   PhoneCall,
+  PhoneOff,
+  PhoneIncoming,
   MessageSquare,
+  MessageCircle,
   UserCheck,
+  UserPlus,
   CalendarCheck,
+  CalendarClock,
+  BellRing,
   Wrench,
   ClipboardList,
   Calculator,
@@ -28,6 +35,11 @@ import {
   BarChart3,
   MapPin,
   Phone,
+  Search,
+  Sparkles,
+  ImageIcon,
+  Receipt,
+  CreditCard,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -57,46 +69,47 @@ const C = {
   accent: mkt.accent,
   accentGlow: mkt.accentGlow,
   handleSize: 6,
-  // Per-group accent palettes — muted, premium
+  // V7-aligned palette — cyan accent leads, plus 3 supporting colorways pulled
+  // from the effortel-blocks pastel palette but vibrant enough to read on dark.
   cyan: {
-    border: "#00D4C8",
-    borderMuted: "rgba(0,212,200,0.18)",
-    bg: "rgba(0,212,200,0.04)",
-    glow: "rgba(0,212,200,0.40)",
-    text: "#00D4C8",
-    edge: "rgba(0,212,200,0.35)",
-    inner: "rgba(0,212,200,0.08)",
-    innerBorder: "rgba(0,212,200,0.22)",
+    border: "#66E8FA",
+    borderMuted: "rgba(102,232,250,0.20)",
+    bg: "rgba(102,232,250,0.04)",
+    glow: "rgba(102,232,250,0.40)",
+    text: "#66E8FA",
+    edge: "rgba(102,232,250,0.35)",
+    inner: "rgba(102,232,250,0.08)",
+    innerBorder: "rgba(102,232,250,0.24)",
   },
   amber: {
-    border: "#F59E0B",
-    borderMuted: "rgba(245,158,11,0.18)",
-    bg: "rgba(245,158,11,0.04)",
-    glow: "rgba(245,158,11,0.40)",
-    text: "#F59E0B",
-    edge: "rgba(245,158,11,0.35)",
-    inner: "rgba(245,158,11,0.08)",
-    innerBorder: "rgba(245,158,11,0.22)",
+    border: "#F7B430",
+    borderMuted: "rgba(247,180,48,0.20)",
+    bg: "rgba(247,180,48,0.04)",
+    glow: "rgba(247,180,48,0.40)",
+    text: "#F7B430",
+    edge: "rgba(247,180,48,0.35)",
+    inner: "rgba(247,180,48,0.08)",
+    innerBorder: "rgba(247,180,48,0.24)",
   },
   green: {
-    border: "#22C55E",
-    borderMuted: "rgba(34,197,94,0.18)",
-    bg: "rgba(34,197,94,0.04)",
-    glow: "rgba(34,197,94,0.40)",
-    text: "#22C55E",
-    edge: "rgba(34,197,94,0.35)",
-    inner: "rgba(34,197,94,0.08)",
-    innerBorder: "rgba(34,197,94,0.22)",
+    border: "#10B981",
+    borderMuted: "rgba(16,185,129,0.20)",
+    bg: "rgba(16,185,129,0.04)",
+    glow: "rgba(16,185,129,0.40)",
+    text: "#10B981",
+    edge: "rgba(16,185,129,0.35)",
+    inner: "rgba(16,185,129,0.08)",
+    innerBorder: "rgba(16,185,129,0.24)",
   },
   magenta: {
-    border: "#A855F7",
-    borderMuted: "rgba(168,85,247,0.18)",
-    bg: "rgba(168,85,247,0.04)",
-    glow: "rgba(168,85,247,0.40)",
-    text: "#A855F7",
-    edge: "rgba(168,85,247,0.35)",
-    inner: "rgba(168,85,247,0.08)",
-    innerBorder: "rgba(168,85,247,0.22)",
+    border: "#9CF0FC",
+    borderMuted: "rgba(156,240,252,0.20)",
+    bg: "rgba(156,240,252,0.04)",
+    glow: "rgba(156,240,252,0.40)",
+    text: "#9CF0FC",
+    edge: "rgba(156,240,252,0.35)",
+    inner: "rgba(156,240,252,0.08)",
+    innerBorder: "rgba(156,240,252,0.24)",
   },
 };
 
@@ -171,7 +184,102 @@ const ICONS: Record<string, ReactNode> = {
   "reviews-grow":  <BarChart3 {...NI} />,
   "maps":          <MapPin {...NI} />,
   "more-calls":    <Phone {...NI} />,
+  // Extras for animation sequences (rendered when a node is active)
+  "phone-off":         <PhoneOff {...NI} />,
+  "phone-incoming":    <PhoneIncoming {...NI} />,
+  "message-typing":    <MessageCircle {...NI} />,
+  "message-sent":      <Send {...NI} />,
+  "user-plus":         <UserPlus {...NI} />,
+  "calendar-clock":    <CalendarClock {...NI} />,
+  "bell-ring":         <BellRing {...NI} />,
+  "search":            <Search {...NI} />,
+  "sparkles":          <Sparkles {...NI} />,
+  "image":             <ImageIcon {...NI} />,
+  "receipt":           <Receipt {...NI} />,
+  "credit-card":       <CreditCard {...NI} />,
 };
+
+/**
+ * ICON_SEQUENCES — when a node becomes active, its icon swaps through this
+ * list on a 1.2s loop. The first entry is always the resting icon.
+ *
+ * Each sequence tells the micro-story of that step. Keep sequences ≤ 3 icons
+ * so they read clearly.
+ */
+const ICON_SEQUENCES: Record<string, string[]> = {
+  // Calls flow
+  "missed-call":   ["missed-call", "phone-off", "phone-incoming"],
+  "instant-reply": ["instant-reply", "message-typing", "message-sent"],
+  "lead-captured": ["lead-captured", "user-plus", "five-star"],
+  "callback":      ["callback", "calendar-clock", "bell-ring"],
+  // Quotes flow
+  "service":       ["service", "search", "sparkles"],
+  "job-details":   ["job-details", "ranking-up"],
+  "price":         ["price", "receipt", "credit-card"],
+  "quote-sent":    ["quote-sent", "message-sent", "five-star"],
+  // Reviews flow
+  "job-complete":  ["job-complete", "sparkles"],
+  "request-sent":  ["request-sent", "message-sent", "bell-ring"],
+  "five-star":     ["five-star", "sparkles", "ranking-up"],
+  "ranking-up":    ["ranking-up", "five-star"],
+  // Visibility flow
+  "profile":       ["profile", "image", "sparkles"],
+  "reviews-grow":  ["reviews-grow", "five-star"],
+  "maps":          ["maps", "search", "sparkles"],
+  "more-calls":    ["more-calls", "phone-incoming", "lead-captured"],
+};
+
+/* ------------------------------------------------------------------ */
+/*  Active-node context                                                */
+/*  Tracks which node is "playing" + whether the section is in view.   */
+/* ------------------------------------------------------------------ */
+
+interface ActiveNodeCtx {
+  activeId: string | null;
+  setActiveId: (id: string | null) => void;
+  inView: boolean;
+}
+
+const ActiveNodeContext = createContext<ActiveNodeCtx>({
+  activeId: null,
+  setActiveId: () => {},
+  inView: false,
+});
+
+/**
+ * AnimatedIcon — when `active` is true AND the parent section is in view,
+ * cycles through `keys` on a 1.2s loop with a smooth crossfade.
+ * Otherwise renders the first icon, static.
+ */
+function AnimatedIcon({ keys, active, color }: { keys: string[]; active: boolean; color: string }) {
+  const [idx, setIdx] = useState(0);
+  const reduced = useReducedMotion();
+  useEffect(() => {
+    if (!active || reduced || keys.length <= 1) {
+      setIdx(0);
+      return;
+    }
+    const iv = setInterval(() => setIdx((i) => (i + 1) % keys.length), 1200);
+    return () => clearInterval(iv);
+  }, [active, reduced, keys.length]);
+
+  return (
+    <div style={{ width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", color }}>
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={idx}
+          initial={{ opacity: 0, scale: 0.7, rotate: -8 }}
+          animate={{ opacity: 1, scale: 1, rotate: 0 }}
+          exit={{ opacity: 0, scale: 0.7, rotate: 8 }}
+          transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+          style={{ display: "flex" }}
+        >
+          {ICONS[keys[idx]] ?? ICONS[keys[0]]}
+        </motion.div>
+      </AnimatePresence>
+    </div>
+  );
+}
 
 /* ------------------------------------------------------------------ */
 /*  Corner handle — small square like design-tool selection             */
@@ -199,6 +307,7 @@ function CornerHandle({ top, left, right, bottom, color }: { top?: boolean; left
 /*  Custom node — Cloudflare outer frame + inner icon card              */
 /* ------------------------------------------------------------------ */
 interface FlowNodeData {
+  id: string;
   label: string;
   iconKey: string;
   colorIdx: number;
@@ -208,10 +317,18 @@ interface FlowNodeData {
 
 function DiagramNode({ data }: { data: FlowNodeData }) {
   const p = PALETTE[data.colorIdx % PALETTE.length];
-  const icon = ICONS[data.iconKey];
+  const { activeId, setActiveId, inView } = useContext(ActiveNodeContext);
+  const isActive = activeId === data.id;
+  const sequence = ICON_SEQUENCES[data.iconKey] ?? [data.iconKey];
 
   return (
-    <div style={{ position: "relative" }}>
+    <div
+      style={{ position: "relative", cursor: "pointer" }}
+      onClick={(e) => {
+        e.stopPropagation();
+        setActiveId(isActive ? null : data.id);
+      }}
+    >
       {/* ── Group label above frame ── */}
       {data.groupLabel && (
         <div
@@ -241,10 +358,13 @@ function DiagramNode({ data }: { data: FlowNodeData }) {
           border: `1px solid ${p.border}`,
           borderRadius: 8,
           padding: 10,
-          background: "rgba(255,255,255,0.03)",
-          cursor: "default",
-          transition: "box-shadow 0.3s ease",
-          boxShadow: `0 0 12px ${p.glow}, inset 0 0 8px ${p.glow}`,
+          background: isActive ? `${p.inner}` : "rgba(255,255,255,0.03)",
+          cursor: "pointer",
+          transition: "box-shadow 0.35s ease, background 0.35s ease, opacity 0.35s ease",
+          boxShadow: isActive
+            ? `0 0 24px ${p.glow}, 0 0 48px ${p.glow}, inset 0 0 12px ${p.glow}`
+            : `0 0 12px ${p.glow}, inset 0 0 8px ${p.glow}`,
+          opacity: activeId && !isActive ? 0.45 : 1,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -278,7 +398,7 @@ function DiagramNode({ data }: { data: FlowNodeData }) {
             padding: 0,
           }}
         >
-          {icon}
+          <AnimatedIcon keys={sequence} active={isActive && inView} color={p.text} />
         </div>
       </div>
 
@@ -382,6 +502,7 @@ function buildTabData(
       type: "diagram",
       position: { x, y },
       data: {
+        id: item.id,
         label: item.label,
         iconKey: item.iconKey,
         colorIdx: item.colorIdx,
@@ -469,8 +590,20 @@ const DIAGRAM_CSS = `
 /* ------------------------------------------------------------------ */
 export default function AutomationDiagram() {
   const [activeTab, setActiveTab] = useState<TabKey>("calls");
+  const [activeNodeId, setActiveNodeId] = useState<string | null>(null);
   const { isMobile, isTablet } = useBreakpoint();
   const tabScrollRef = useRef<HTMLDivElement>(null);
+  const sectionRef = useRef<HTMLElement>(null);
+  const inView = useInView(sectionRef, { margin: "-10% 0px" });
+
+  // Reset the active node when the tab changes (don't carry over).
+  useEffect(() => {
+    setActiveNodeId(null);
+  }, [activeTab]);
+
+  // Auto-pause when the section scrolls out of view (per user request:
+  // "Icons stop moving when not in sight").
+  // No need to clear activeNodeId — AnimatedIcon already gates on `inView`.
 
   const layout = isMobile ? "mobile" : isTablet ? "tablet" : "desktop";
   const { nodes, edges } = buildTabData(TAB_NODES[activeTab], layout);
@@ -492,7 +625,9 @@ export default function AutomationDiagram() {
   const canvasHeight = isMobile ? 460 : isTablet ? 420 : 420;
 
   return (
+    <ActiveNodeContext.Provider value={{ activeId: activeNodeId, setActiveId: setActiveNodeId, inView }}>
     <section
+      ref={sectionRef}
       className="ad-diagram"
       style={{
         background: C.bg,
@@ -667,5 +802,6 @@ export default function AutomationDiagram() {
         </p>
       </div>
     </section>
+    </ActiveNodeContext.Provider>
   );
 }
