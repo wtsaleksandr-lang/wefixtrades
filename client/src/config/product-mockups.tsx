@@ -14,6 +14,7 @@ import {
   MapTile, RankTile, CalendarTile, GaugeTile, ReviewTile,
   TILE, MONO, SANS,
 } from "@/components/effortel-blocks";
+import MapMockup from "@/pages/products/mapguard/MapMockup";
 
 export interface ProductMockupSection {
   number: string;
@@ -213,13 +214,17 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       title: "Your Profile, Always Optimized",
       description: "We monitor your Google Business Profile every week and fix issues before customers see them — wrong hours, broken images, missing categories.",
       cta: { label: "See Sample Report", href: "/tools/free-audit" },
-      mockup: <Wide><div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 16 }}>
-        <MapTile pins={[{ x: 30, y: 40, status: "ok" }, { x: 60, y: 30, status: "warn" }, { x: 50, y: 65, status: "ok" }, { x: 75, y: 60, status: "alert" }]} label="Service area" color="cyanSoft" />
-        <div style={{ display: "grid", gridTemplateRows: "1fr 1fr", gap: 16 }}>
-          <StatTile value="89" label="Profile score" color="mint" size="sm" />
-          <StatTile value="12" label="Issues fixed" color="lavender" size="sm" />
+      // Uses the bespoke animated MapMockup (with pulsing pins + ranked numbers)
+      // that already existed on the old MapGuard page — keeps the "wow" visual,
+      // wraps it in V7 styling on the side stat tiles.
+      mockup: <div style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr", gap: 24, maxWidth: 880, width: "100%", alignItems: "center" }}>
+        <MapMockup />
+        <div style={{ display: "grid", gridTemplateRows: "1fr 1fr 1fr", gap: 14 }}>
+          <StatTile value="89" label="Profile score" color="mint" size="sm" icon={<Eye size={14} />} />
+          <StatTile value="12" label="Issues fixed" color="lavender" size="sm" icon={<ShieldCheck size={14} />} />
+          <StatTile value="#3" label="Map pack rank" color="cyanSoft" size="sm" icon={<TrendingUp size={14} />} />
         </div>
-      </div></Wide>,
+      </div>,
     },
     {
       number: "02",

@@ -198,7 +198,7 @@ function Router() {
 
       <Route path="/compare/reputationshield-vs-nicejob" component={CompareNiceJob} />
       <Route path="/compare/:slug" component={ComparisonPage} />
-      <Route path="/products/mapguard" component={MapGuardPage} />
+      <Route path="/products/mapguard">{() => <EffortelProductPage slug="mapguard" />}</Route>
       {/* TradeLine variant comparison — internal review pages, registered before /:slug */}
       <Route path="/products/tradeline/compare" component={TradeLineCompare} />
       <Route path="/products/tradeline/v1" component={TradeLineV1} />
