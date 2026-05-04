@@ -20,7 +20,7 @@ export default function NotFound() {
             style={{
               fontSize: 12,
               fontWeight: 600,
-              color: mkt.textFaint,
+              color: mkt.onDarkFaint,
               textTransform: "uppercase",
               letterSpacing: "0.1em",
               marginBottom: 12,
@@ -32,7 +32,7 @@ export default function NotFound() {
             style={{
               fontSize: 24,
               fontWeight: 600,
-              color: mkt.text,
+              color: mkt.onDark,
               marginBottom: 8,
               letterSpacing: "-0.02em",
             }}
@@ -42,7 +42,7 @@ export default function NotFound() {
           <p
             style={{
               fontSize: 14,
-              color: mkt.textMuted,
+              color: mkt.onDarkMuted,
               marginBottom: 28,
               lineHeight: 1.5,
             }}

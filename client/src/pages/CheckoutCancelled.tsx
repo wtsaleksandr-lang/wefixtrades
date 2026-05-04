@@ -27,7 +27,7 @@ export default function CheckoutCancelled() {
             justifyContent: "center",
             marginBottom: 20,
           }}>
-            <X size={28} color={mkt.textMuted} strokeWidth={2} />
+            <X size={28} color={mkt.onDarkMuted} strokeWidth={2} />
           </div>
 
           <h1 style={{
@@ -43,7 +43,7 @@ export default function CheckoutCancelled() {
 
           <p style={{
             fontSize: 15,
-            color: mkt.text,
+            color: mkt.onDark,
             lineHeight: 1.6,
             margin: "0 0 12px",
           }}>
@@ -53,7 +53,7 @@ export default function CheckoutCancelled() {
 
           <p style={{
             fontSize: 14,
-            color: mkt.textMuted,
+            color: mkt.onDarkMuted,
             lineHeight: 1.6,
             margin: "0 0 32px",
           }}>

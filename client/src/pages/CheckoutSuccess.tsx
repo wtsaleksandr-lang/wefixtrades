@@ -104,7 +104,7 @@ export default function CheckoutSuccess() {
 
             <p style={{
               fontSize: 16,
-              color: mkt.text,
+              color: mkt.onDark,
               lineHeight: 1.6,
               margin: "0 0 16px",
             }}>
@@ -146,7 +146,7 @@ export default function CheckoutSuccess() {
                 textAlign: "center",
               }}>
                 Your dashboard is ready
-                <div style={{ fontSize: 12, fontWeight: 400, color: mkt.text, marginTop: 4 }}>
+                <div style={{ fontSize: 12, fontWeight: 400, color: mkt.onDark, marginTop: 4 }}>
                   You're logged in and can access your portal now.
                 </div>
               </div>
@@ -164,7 +164,7 @@ export default function CheckoutSuccess() {
                 textAlign: "center",
               }}>
                 Next step: check your email and complete setup
-                <div style={{ fontSize: 12, fontWeight: 400, color: mkt.text, marginTop: 4 }}>
+                <div style={{ fontSize: 12, fontWeight: 400, color: mkt.onDark, marginTop: 4 }}>
                   Takes 2-3 minutes. We'll handle the rest.
                 </div>
               </div>
@@ -173,7 +173,7 @@ export default function CheckoutSuccess() {
 
           {/* Email notice */}
           <div style={{
-            background: mkt.accentTint,
+            background: "rgba(102,232,250,0.10)",
             border: "1px solid rgba(102,232,250,0.12)",
             borderRadius: 12,
             padding: "16px 20px",
@@ -187,7 +187,7 @@ export default function CheckoutSuccess() {
               <div style={{ fontSize: 14, fontWeight: 700, color: mkt.onDark, marginBottom: 4 }}>
                 Check your email
               </div>
-              <div style={{ fontSize: 13, color: mkt.text, lineHeight: 1.55 }}>
+              <div style={{ fontSize: 13, color: mkt.onDark, lineHeight: 1.55 }}>
                 If any of your services require onboarding information, we've sent a short
                 form to the email you provided. Please complete it so our team can get
                 started right away.
@@ -231,7 +231,7 @@ export default function CheckoutSuccess() {
                   </div>
                   <div>
                     <div style={{ fontSize: 14, fontWeight: 700, color: mkt.onDark, marginBottom: 2 }}>{step.title}</div>
-                    <div style={{ fontSize: 13, color: mkt.text, lineHeight: 1.55 }}>{step.desc}</div>
+                    <div style={{ fontSize: 13, color: mkt.onDark, lineHeight: 1.55 }}>{step.desc}</div>
                   </div>
                 </li>
               ))}
