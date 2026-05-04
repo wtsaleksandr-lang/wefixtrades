@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
 import { Link } from "wouter";
-import { ArrowRight, Play, Check, Calendar } from "lucide-react";
+import { Calendar, Check, Play, ArrowRight } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
 import { TEMPLATES, TAG_STYLES } from "@/config/templateConfig";
-import { mkt, colors, shadows } from "@/theme/tokens";
+import { mkt } from "@/theme/tokens";
+import { V7Hero, V7PageShell } from "@/components/marketing/v7";
+import { MONO } from "@/components/effortel-blocks";
 
 
 const ALL_TAGS = ["All", "Single Page", "Multi-Step", "Package Cards", "Estimate + Book"];
@@ -44,37 +46,22 @@ export default function TemplatesPage() {
 
   return (
     <MarketingLayout>
-      <div data-testid="templates-page" style={{ overflowX: "hidden" }}>
-
-        {/* Hero */}
-        <div style={{ background: `linear-gradient(160deg, ${mkt.dark} 0%, #0F2744 100%)`, padding: "80px 28px 72px", textAlign: "center" }}>
-          <div style={{ maxWidth: 720, margin: "0 auto" }}>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(47,107,255,0.20)", border: "1px solid rgba(47,107,255,0.35)", borderRadius: 20, padding: "5px 16px", marginBottom: 24 }}>
-              <span style={{ fontSize: 12, fontWeight: 700, color: "#6EE7B7", letterSpacing: "0.04em" }}>
-                {TEMPLATES.length} Templates Available
-              </span>
-            </div>
-            <h1 style={{ fontSize: "clamp(30px, 4vw, 50px)", fontWeight: 800, color: "#FFFFFF", margin: "0 0 16px", lineHeight: 1.1, letterSpacing: "-0.02em" }}>
-              {TEMPLATES.length} High-Converting Calculator Templates
-            </h1>
-            <p style={{ fontSize: 18, color: "rgba(255,255,255,0.65)", margin: "0 0 36px", lineHeight: 1.6, maxWidth: 540, marginLeft: "auto", marginRight: "auto" }}>
-              Pick a template, enter your pricing, and go live in minutes. Every template includes a live demo you can try right now.
-            </p>
-            <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-              <Link href="/Wizard" data-testid="templates-cta-build" style={{ display: "inline-block", padding: "12px 28px", borderRadius: 10, background: mkt.accent, color: "#FFFFFF", fontSize: 15, fontWeight: 700, textDecoration: "none" }}>
-                Build Yours Free
-              </Link>
-              <a href="#template-grid" style={{ display: "inline-block", padding: "12px 24px", borderRadius: 10, background: "transparent", color: "#FFFFFF", fontSize: 15, fontWeight: 600, textDecoration: "none", border: "1.5px solid rgba(255,255,255,0.28)" }}>
-                Browse Templates ↓
-              </a>
-            </div>
-          </div>
-        </div>
+      <V7PageShell>
+        <V7Hero
+          productName={`${TEMPLATES.length} Templates`}
+          eyebrow="Don't start from a blank page."
+          headline={<>{TEMPLATES.length} high-converting<br/><span style={{ color: mkt.accent }}>calculator templates.</span></>}
+          sub="Pick a template, enter your pricing, and go live in minutes. Every template includes a live demo you can try right now."
+          ctas={[
+            { label: "Build Yours Free", href: "/Wizard" },
+            { label: "Browse Templates ↓", href: "#template-grid" },
+          ]}
+        />
 
         {/* Filter pills */}
-        <div style={{ background: mkt.bg, borderBottom: `1px solid ${mkt.border}`, position: "sticky", top: 72, zIndex: 20 }}>
+        <div style={{ background: mkt.bg, borderBottom: `1px solid ${mkt.onDarkBorder}`, position: "sticky", top: 72, zIndex: 20 }}>
           <div style={{ maxWidth: 1160, margin: "0 auto", padding: "14px 28px", display: "flex", gap: 8, flexWrap: "wrap" as const, alignItems: "center" }}>
-            <span style={{ fontSize: 12, fontWeight: 700, color: mkt.textMuted, marginRight: 4, textTransform: "uppercase", letterSpacing: "0.06em" }}>Filter:</span>
+            <span style={{ fontSize: 12, fontWeight: 700, color: mkt.onDarkMuted, marginRight: 4, textTransform: "uppercase", letterSpacing: "0.06em" }}>Filter:</span>
             {ALL_TAGS.map((tag) => (
               <button
                 key={tag}
@@ -82,9 +69,9 @@ export default function TemplatesPage() {
                 data-testid={`filter-${tag.toLowerCase().replace(/\s+/g, "-")}`}
                 style={{
                   padding: "6px 16px", borderRadius: 20,
-                  border: `1.5px solid ${activeFilter === tag ? mkt.accent : mkt.border}`,
+                  border: `1.5px solid ${activeFilter === tag ? mkt.accent : mkt.onDarkBorder}`,
                   background: activeFilter === tag ? mkt.accent : "transparent",
-                  color: activeFilter === tag ? "#FFFFFF" : mkt.textMuted,
+                  color: activeFilter === tag ? mkt.dark : mkt.onDarkMuted,
                   fontSize: 13, fontWeight: 600, cursor: "pointer",
                   transition: "all 0.15s ease",
                 }}
@@ -96,9 +83,9 @@ export default function TemplatesPage() {
         </div>
 
         {/* Template grid */}
-        <div id="template-grid" style={{ background: mkt.surface, padding: "56px 28px 96px" }}>
+        <div id="template-grid" style={{ background: mkt.bg, padding: "56px 28px 96px" }}>
           <div style={{ maxWidth: 1160, margin: "0 auto" }}>
-            <p style={{ fontSize: 14, color: mkt.textMuted, marginBottom: 28 }}>
+            <p style={{ fontSize: 14, color: mkt.onDarkMuted, marginBottom: 28 }}>
               Showing <strong>{filtered.length}</strong> template{filtered.length !== 1 ? "s" : ""}
               {activeFilter !== "All" ? ` in "${activeFilter}"` : ""}
             </p>
@@ -113,7 +100,7 @@ export default function TemplatesPage() {
                     data-reveal="fade-up"
                     data-delay={String(((i % 3) + 1) * 100)}
                     className="mkt-feature-card"
-                    style={{ background: mkt.bg, borderRadius: 16, border: `1px solid ${mkt.border}`, overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.05)", display: "flex", flexDirection: "column" }}
+                    style={{ background: mkt.sectionLight, borderRadius: 18, border: `1px solid ${mkt.onDarkBorder}`, overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.05)", display: "flex", flexDirection: "column" }}
                   >
                     {/* Visual preview */}
                     <TemplatePreview gradient={template.previewGradient} emoji={template.emoji} name={template.name} tag={template.tag} />
@@ -122,7 +109,7 @@ export default function TemplatesPage() {
                     <div style={{ padding: "20px 22px 22px", flex: 1, display: "flex", flexDirection: "column" }}>
                       {/* Header row */}
                       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, marginBottom: 10 }}>
-                        <h3 style={{ fontSize: 16, fontWeight: 700, color: mkt.text, margin: 0, lineHeight: 1.3 }}>
+                        <h3 style={{ fontSize: 16, fontWeight: 700, color: mkt.onDark, margin: 0, lineHeight: 1.3 }}>
                           {template.emoji} {template.name}
                         </h3>
                         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
@@ -130,7 +117,7 @@ export default function TemplatesPage() {
                             {template.tag}
                           </span>
                           {template.hasBooking && (
-                            <span style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10, fontWeight: 700, color: mkt.accent, background: mkt.accentTint, padding: "2px 8px", borderRadius: 20 }}>
+                            <span style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10, fontWeight: 700, color: mkt.accent, background: "rgba(102,232,250,0.10)", padding: "2px 8px", borderRadius: 20 }}>
                               <Calendar size={9} /> Book
                             </span>
                           )}
@@ -138,16 +125,16 @@ export default function TemplatesPage() {
                       </div>
 
                       {/* Description */}
-                      <p style={{ fontSize: 13, color: mkt.textMuted, lineHeight: 1.6, margin: "0 0 14px" }}>
+                      <p style={{ fontSize: 13, color: mkt.onDarkMuted, lineHeight: 1.6, margin: "0 0 14px" }}>
                         {template.description}
                       </p>
 
                       {/* Best for */}
                       <div style={{ marginBottom: 12 }}>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: mkt.textMuted, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 6 }}>Best for</div>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: mkt.onDarkMuted, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 6 }}>Best for</div>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
                           {template.bestFor.map((b) => (
-                            <span key={b} style={{ fontSize: 11, fontWeight: 600, color: mkt.textMuted, background: mkt.surface, border: `1px solid ${mkt.border}`, padding: "2px 9px", borderRadius: 20 }}>
+                            <span key={b} style={{ fontSize: 11, fontWeight: 600, color: mkt.onDarkMuted, background: mkt.bg, border: `1px solid ${mkt.border}`, padding: "2px 9px", borderRadius: 20 }}>
                               {b}
                             </span>
                           ))}
@@ -156,10 +143,10 @@ export default function TemplatesPage() {
 
                       {/* Inputs used */}
                       <div style={{ marginBottom: 18 }}>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: mkt.textMuted, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 6 }}>Inputs used</div>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: mkt.onDarkMuted, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 6 }}>Inputs used</div>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
                           {template.inputsSummary.split(", ").map((inp) => (
-                            <span key={inp} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: mkt.textMuted, background: mkt.surface, border: `1px solid ${mkt.border}`, padding: "2px 9px", borderRadius: 20 }}>
+                            <span key={inp} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: mkt.onDarkMuted, background: mkt.bg, border: `1px solid ${mkt.border}`, padding: "2px 9px", borderRadius: 20 }}>
                               <Check size={9} color={mkt.accent} strokeWidth={2.5} /> {inp}
                             </span>
                           ))}
@@ -216,7 +203,7 @@ export default function TemplatesPage() {
           </div>
         </div>
 
-      </div>
+      </V7PageShell>
     </MarketingLayout>
   );
 }

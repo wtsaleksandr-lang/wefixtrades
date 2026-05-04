@@ -1,8 +1,9 @@
 import { useEffect } from "react";
 import { Link } from "wouter";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
-import { mkt, shadows } from "@/theme/tokens";
+import { mkt } from "@/theme/tokens";
 import { TrendingUp, ArrowRight, PhoneCall, Star, MapPin, Calendar } from "lucide-react";
+import { V7Hero, V7PageShell } from "@/components/marketing/v7";
 
 /**
  * NOTE ON CASE STUDIES (internal)
@@ -118,55 +119,18 @@ export default function CaseStudiesPage() {
 
   return (
     <MarketingLayout>
-      {/* ── Hero ──────────────────────────────── */}
-      <div
-        data-testid="section-case-studies-hero"
-        style={{
-          background: `linear-gradient(135deg, ${mkt.dark}, ${mkt.darkHover})`,
-          padding: "100px 24px 64px",
-        }}
-      >
-        <div style={{ maxWidth: 760, margin: "0 auto", textAlign: "center" }}>
-          <p
-            style={{
-              fontSize: 13,
-              fontWeight: 600,
-              color: mkt.accent,
-              textTransform: "uppercase",
-              letterSpacing: "0.1em",
-              margin: "0 0 16px",
-            }}
-          >
-            Pilot program · Early access
-          </p>
-          <h1
-            data-testid="text-case-studies-title"
-            style={{
-              fontSize: "clamp(32px, 5vw, 48px)",
-              fontWeight: 800,
-              color: mkt.onDark,
-              margin: "0 0 18px",
-              letterSpacing: "-0.025em",
-              lineHeight: 1.15,
-            }}
-          >
-            What the system does when it's running
-          </h1>
-          <p
-            data-testid="text-case-studies-subtitle"
-            style={{ fontSize: 17, color: mkt.onDarkMuted, margin: 0, lineHeight: 1.6 }}
-          >
-            These are scenarios from the early-access pilot program. Business names and specific
-            dollar figures are withheld per pilot agreement — we'll publish fully attributed studies
-            as customers sign public releases.
-          </p>
-        </div>
-      </div>
+      <V7PageShell>
+        <V7Hero
+          productName="Pilot program · Early access"
+          eyebrow="What the system does when it's running."
+          headline={<>Real numbers.<br/><span style={{ color: mkt.accent }}>Pilot scenarios.</span></>}
+          sub="Scenarios from the early-access pilot program. Business names and specific dollar figures are withheld per pilot agreement — we'll publish fully attributed studies as customers sign public releases."
+        />
 
       {/* ── Studies ───────────────────────────── */}
       <section
         data-testid="section-case-studies-grid"
-        style={{ background: mkt.surface, padding: "64px 24px" }}
+        style={{ background: mkt.bg, padding: "64px 24px" }}
       >
         <div
           style={{
@@ -184,8 +148,8 @@ export default function CaseStudiesPage() {
               style={{
                 background: mkt.bg,
                 borderRadius: 18,
-                border: `1px solid ${mkt.border}`,
-                boxShadow: shadows.card,
+                border: `1px solid ${mkt.onDarkBorder}`,
+                boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
                 overflow: "hidden",
                 display: "grid",
                 gridTemplateColumns: "minmax(0, 1fr)",
@@ -242,7 +206,7 @@ export default function CaseStudiesPage() {
                   style={{
                     fontSize: "clamp(20px, 2.4vw, 26px)",
                     fontWeight: 800,
-                    color: mkt.text,
+                    color: mkt.onDark,
                     margin: "0 0 8px",
                     letterSpacing: "-0.02em",
                     lineHeight: 1.25,
@@ -254,7 +218,7 @@ export default function CaseStudiesPage() {
                   {study.businessInitial}, {study.metro}
                 </p>
 
-                <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.65, margin: "0 0 22px" }}>
+                <p style={{ fontSize: 15, color: mkt.onDarkMuted, lineHeight: 1.65, margin: "0 0 22px" }}>
                   {study.situation}
                 </p>
 
@@ -283,8 +247,8 @@ export default function CaseStudiesPage() {
                           borderRadius: 6,
                           fontSize: 12,
                           fontWeight: 600,
-                          color: mkt.text,
-                          background: mkt.accentTint,
+                          color: mkt.onDark,
+                          background: "rgba(102,232,250,0.10)",
                           border: `1px solid ${mkt.accentGlow}`,
                         }}
                       >
@@ -307,8 +271,8 @@ export default function CaseStudiesPage() {
                     <div
                       key={o.label}
                       style={{
-                        background: mkt.surface,
-                        border: `1px solid ${mkt.border}`,
+                        background: mkt.bg,
+                        border: `1px solid ${mkt.onDarkBorder}`,
                         borderRadius: 10,
                         padding: "14px 16px",
                       }}
@@ -326,7 +290,7 @@ export default function CaseStudiesPage() {
                 {/* Quote */}
                 <div
                   style={{
-                    background: mkt.accentTint,
+                    background: "rgba(102,232,250,0.10)",
                     border: `1px solid ${mkt.accentGlow}`,
                     borderRadius: 10,
                     padding: "18px 20px",
@@ -336,14 +300,14 @@ export default function CaseStudiesPage() {
                     style={{
                       fontSize: 14,
                       fontStyle: "italic",
-                      color: mkt.text,
+                      color: mkt.onDark,
                       margin: "0 0 10px",
                       lineHeight: 1.6,
                     }}
                   >
                     "{study.quote}"
                   </p>
-                  <p style={{ fontSize: 12, fontWeight: 600, color: mkt.textMuted, margin: 0 }}>
+                  <p style={{ fontSize: 12, fontWeight: 600, color: mkt.onDarkMuted, margin: 0 }}>
                     — {study.quoteAttribution}
                   </p>
                 </div>
@@ -354,7 +318,7 @@ export default function CaseStudiesPage() {
       </section>
 
       {/* ── Disclosure ────────────────────────── */}
-      <section style={{ padding: "16px 24px 0", background: mkt.surface }}>
+      <section style={{ padding: "16px 24px 0", background: mkt.bg }}>
         <div style={{ maxWidth: 760, margin: "0 auto", textAlign: "center" }}>
           <p style={{ fontSize: 12, color: mkt.textFaint, lineHeight: 1.6, margin: 0 }}>
             Scenarios above describe pilot customer outcomes. Specific revenue, conversion, and volume
@@ -367,12 +331,12 @@ export default function CaseStudiesPage() {
       {/* ── CTA ───────────────────────────────── */}
       <section
         data-testid="section-case-studies-cta"
-        style={{ padding: "72px 24px 80px", background: mkt.surface, textAlign: "center" }}
+        style={{ padding: "72px 24px 80px", background: mkt.bg, textAlign: "center" }}
       >
-        <h2 style={{ fontSize: "clamp(24px, 4vw, 34px)", fontWeight: 700, color: mkt.text, margin: "0 0 14px", letterSpacing: "-0.02em" }}>
+        <h2 style={{ fontSize: "clamp(24px, 4vw, 34px)", fontWeight: 700, color: mkt.onDark, margin: "0 0 14px", letterSpacing: "-0.02em" }}>
           See what we'd do for your business.
         </h2>
-        <p style={{ fontSize: 16, color: mkt.textMuted, margin: "0 0 28px", maxWidth: 520, marginInline: "auto", lineHeight: 1.6 }}>
+        <p style={{ fontSize: 16, color: mkt.onDarkMuted, margin: "0 0 28px", maxWidth: 520, marginInline: "auto", lineHeight: 1.6 }}>
           Run our free audit and we'll show you the specific gaps we'd fix first.
         </p>
         <div style={{ display: "flex", justifyContent: "center", gap: 12, flexWrap: "wrap" }}>
@@ -400,17 +364,18 @@ export default function CaseStudiesPage() {
               padding: "13px 26px",
               borderRadius: 12,
               background: "transparent",
-              color: mkt.text,
+              color: mkt.onDark,
               fontSize: 15,
               fontWeight: 600,
               textDecoration: "none",
-              border: `1px solid ${mkt.border}`,
+              border: `1px solid ${mkt.onDarkBorder}`,
             }}
           >
             Talk to our team
           </Link>
         </div>
       </section>
+      </V7PageShell>
     </MarketingLayout>
   );
 }

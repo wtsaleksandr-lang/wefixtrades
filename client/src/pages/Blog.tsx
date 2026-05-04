@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
-import { mkt, shadows } from "@/theme/tokens";
+import { mkt } from "@/theme/tokens";
 import { ArrowRight, ArrowLeft } from "lucide-react";
+import { V7Hero, V7PageShell } from "@/components/marketing/v7";
 
 const BLOG_POSTS = [
   {
@@ -84,33 +85,13 @@ export default function BlogPage() {
 
   return (
     <MarketingLayout>
-      <div
-        data-testid="section-blog-hero"
-        style={{
-          background: `linear-gradient(135deg, ${mkt.dark}, ${mkt.darkHover})`,
-          padding: "100px 24px 60px",
-          textAlign: "center",
-        }}
-      >
-        <h1
-          data-testid="text-blog-title"
-          style={{
-            fontSize: "clamp(32px, 5vw, 48px)",
-            fontWeight: 700,
-            color: mkt.onDark,
-            margin: "0 0 16px",
-            letterSpacing: "-0.025em",
-          }}
-        >
-          Blog
-        </h1>
-        <p
-          data-testid="text-blog-subtitle"
-          style={{ fontSize: 18, color: mkt.onDarkMuted, margin: 0, maxWidth: 560, marginInline: "auto" }}
-        >
-          Tips, strategies, and product updates to help your trades business grow.
-        </p>
-      </div>
+      <V7PageShell>
+        <V7Hero
+          productName="Blog"
+          eyebrow="Insights, in plain English."
+          headline={<>Tips that move the needle.<br/><span style={{ color: mkt.accent }}>Not fluff.</span></>}
+          sub="Strategies, product updates, and field-tested patterns for trades businesses that want to grow without the agency markup."
+        />
 
       {/* Article detail view */}
       {activePost && (
@@ -142,7 +123,7 @@ export default function BlogPage() {
                 color: mkt.accent,
                 textTransform: "uppercase",
                 letterSpacing: "0.08em",
-                background: mkt.accentTint,
+                background: "rgba(102,232,250,0.10)",
                 padding: "4px 12px",
                 borderRadius: 20,
                 marginBottom: 16,
@@ -150,17 +131,17 @@ export default function BlogPage() {
             >
               {activePost.category}
             </span>
-            <h2 style={{ fontSize: "clamp(24px, 4vw, 36px)", fontWeight: 700, color: mkt.text, margin: "0 0 8px", lineHeight: 1.2, letterSpacing: "-0.02em" }}>
+            <h2 style={{ fontSize: "clamp(24px, 4vw, 36px)", fontWeight: 700, color: mkt.onDark, margin: "0 0 8px", lineHeight: 1.2, letterSpacing: "-0.02em" }}>
               {activePost.title}
             </h2>
-            <p style={{ fontSize: 14, color: mkt.textMuted, margin: "0 0 32px" }}>{activePost.date}</p>
-            <div style={{ fontSize: 16, color: mkt.text, lineHeight: 1.75 }}>
+            <p style={{ fontSize: 14, color: mkt.onDarkMuted, margin: "0 0 32px" }}>{activePost.date}</p>
+            <div style={{ fontSize: 16, color: mkt.onDark, lineHeight: 1.75 }}>
               {activePost.body.split("\n\n").map((para, i) => (
                 <p key={i} style={{ margin: "0 0 20px" }}>{para}</p>
               ))}
             </div>
-            <div style={{ borderTop: `1px solid ${mkt.border}`, paddingTop: 32, marginTop: 40, textAlign: "center" }}>
-              <p style={{ fontSize: 15, color: mkt.textMuted, marginBottom: 16 }}>
+            <div style={{ borderTop: `1px solid ${mkt.onDarkBorder}`, paddingTop: 32, marginTop: 40, textAlign: "center" }}>
+              <p style={{ fontSize: 15, color: mkt.onDarkMuted, marginBottom: 16 }}>
                 Want help implementing these strategies for your business?
               </p>
               <Link
@@ -189,7 +170,7 @@ export default function BlogPage() {
       {!activePost && (
         <section
           data-testid="section-blog-posts"
-          style={{ background: mkt.surface, padding: "60px 24px" }}
+          style={{ background: mkt.bg, padding: "60px 24px" }}
         >
           <div
             style={{
@@ -208,8 +189,8 @@ export default function BlogPage() {
                 style={{
                   background: mkt.bg,
                   borderRadius: 16,
-                  boxShadow: shadows.card,
-                  border: `1px solid ${mkt.border}`,
+                  boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
+                  border: `1px solid ${mkt.onDarkBorder}`,
                   display: "flex",
                   flexDirection: "column",
                   cursor: "pointer",
@@ -226,14 +207,14 @@ export default function BlogPage() {
                     justifyContent: "center",
                   }}
                 >
-                  <span style={{ fontSize: 12, fontWeight: 600, color: mkt.textMuted, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: mkt.onDarkMuted, textTransform: "uppercase", letterSpacing: "0.06em" }}>
                     {post.category}
                   </span>
                 </div>
                 <div style={{ padding: "20px 24px 24px", display: "flex", flexDirection: "column", gap: 10, flex: 1 }}>
-                  <span style={{ fontSize: 12, color: mkt.textMuted, fontWeight: 500 }}>{post.date}</span>
-                  <h3 style={{ fontSize: 17, fontWeight: 650, color: mkt.text, margin: 0, lineHeight: 1.3 }}>{post.title}</h3>
-                  <p style={{ fontSize: 13, color: mkt.textMuted, lineHeight: 1.5, margin: 0 }}>{post.summary}</p>
+                  <span style={{ fontSize: 12, color: mkt.onDarkMuted, fontWeight: 500 }}>{post.date}</span>
+                  <h3 style={{ fontSize: 17, fontWeight: 650, color: mkt.onDark, margin: 0, lineHeight: 1.3 }}>{post.title}</h3>
+                  <p style={{ fontSize: 13, color: mkt.onDarkMuted, lineHeight: 1.5, margin: 0 }}>{post.summary}</p>
                   <div style={{ flex: 1 }} />
                   <span
                     style={{
@@ -259,10 +240,10 @@ export default function BlogPage() {
           data-testid="section-blog-cta"
           style={{ padding: "60px 24px", textAlign: "center" }}
         >
-          <h2 style={{ fontSize: "clamp(24px, 4vw, 36px)", fontWeight: 700, color: mkt.text, margin: "0 0 12px", letterSpacing: "-0.02em" }}>
+          <h2 style={{ fontSize: "clamp(24px, 4vw, 36px)", fontWeight: 700, color: mkt.onDark, margin: "0 0 12px", letterSpacing: "-0.02em" }}>
             Stay in the loop
           </h2>
-          <p style={{ fontSize: 16, color: mkt.textMuted, margin: "0 0 28px", maxWidth: 480, marginInline: "auto" }}>
+          <p style={{ fontSize: 16, color: mkt.onDarkMuted, margin: "0 0 28px", maxWidth: 480, marginInline: "auto" }}>
             New articles and product updates published regularly. Bookmark this page or follow us on social media.
           </p>
           <Link
@@ -283,6 +264,7 @@ export default function BlogPage() {
           </Link>
         </section>
       )}
+      </V7PageShell>
     </MarketingLayout>
   );
 }

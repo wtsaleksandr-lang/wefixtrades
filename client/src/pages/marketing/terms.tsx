@@ -1,14 +1,14 @@
 import { useEffect } from "react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
-import { mkt, shadows, radius } from "@/theme/tokens";
+import { mkt } from "@/theme/tokens";
+import { V7Hero, V7Section, V7Container, V7PageShell } from "@/components/marketing/v7";
 
 /**
  * Terms of Service — MR Holdings &amp; Trade LLC
  *
  * AI-drafted baseline intended to be defensible for an early-stage SaaS.
  * Have an attorney review before Series A fundraising, enterprise contracts,
- * international expansion, or any litigation threat. This document is
- * written for the US market with general coverage for Canadian customers.
+ * international expansion, or any litigation threat.
  *
  * Last full review: 2026-04-23.
  */
@@ -16,10 +16,10 @@ import { mkt, shadows, radius } from "@/theme/tokens";
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section style={{ marginBottom: 36 }}>
-      <h2 style={{ fontSize: 20, fontWeight: 700, color: mkt.text, marginBottom: 14, paddingBottom: 8, borderBottom: `1px solid ${mkt.border}` }}>
+      <h2 style={{ fontSize: 22, fontWeight: 700, color: mkt.onDark, marginBottom: 14, paddingBottom: 10, borderBottom: `1px solid ${mkt.onDarkBorder}`, letterSpacing: "-0.01em" }}>
         {title}
       </h2>
-      <div style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.75 }}>
+      <div style={{ fontSize: 15, color: mkt.onDarkMuted, lineHeight: 1.75 }}>
         {children}
       </div>
     </section>
@@ -35,29 +35,21 @@ export default function TermsPage() {
 
   return (
     <MarketingLayout>
-      <div data-testid="terms-page" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
-        {/* ── Header ── */}
-        <section style={{ background: mkt.dark, padding: "72px 24px 56px" }}>
-          <div style={{ maxWidth: 720, margin: "0 auto", textAlign: "center" }}>
-            <h1 style={{ fontSize: 40, fontWeight: 800, color: "#FFFFFF", lineHeight: 1.2, margin: "0 0 14px" }}>
-              Terms of Service
-            </h1>
-            <p style={{ fontSize: 15, color: "rgba(255,255,255,0.6)", margin: 0 }}>
-              Effective {EFFECTIVE}
-            </p>
-          </div>
-        </section>
-
-        <section style={{ background: mkt.surface, padding: "56px 24px 80px" }}>
-          <div style={{ maxWidth: 760, margin: "0 auto" }}>
+      <V7PageShell>
+        <V7Hero
+          productName="Legal"
+          headline="Terms of Service"
+          sub={`Effective ${EFFECTIVE}`}
+        />
+        <V7Section padding="40px">
+          <V7Container maxWidth={760}>
             <div style={{
-              background: mkt.bg,
-              borderRadius: radius.md,
+              background: mkt.sectionLight,
+              borderRadius: 24,
               padding: "44px",
-              boxShadow: shadows.card,
-              border: `1px solid ${mkt.border}`,
+              border: `1px solid ${mkt.onDarkBorder}`,
             }}>
-              <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.75, marginBottom: 32 }}>
+              <p style={{ fontSize: 15, color: mkt.onDarkMuted, lineHeight: 1.75, marginBottom: 32 }}>
                 These Terms of Service ("<strong>Terms</strong>") govern your access to and
                 use of the WeFixTrades platform, products, and services (together, the
                 "<strong>Service</strong>"), operated under the brand name "WeFixTrades" by
@@ -350,14 +342,14 @@ export default function TermsPage() {
                 </p>
               </Section>
 
-              <p style={{ fontSize: 12, color: mkt.textFaint, marginTop: 40, paddingTop: 20, borderTop: `1px solid ${mkt.border}`, lineHeight: 1.6 }}>
+              <p style={{ fontSize: 12, color: mkt.onDarkFaint, marginTop: 40, paddingTop: 20, borderTop: `1px solid ${mkt.onDarkBorder}`, lineHeight: 1.6 }}>
                 These Terms were last updated on {EFFECTIVE}. A Data Processing
                 Addendum for GDPR-regulated customers is available on request.
               </p>
             </div>
-          </div>
-        </section>
-      </div>
+          </V7Container>
+        </V7Section>
+      </V7PageShell>
     </MarketingLayout>
   );
 }

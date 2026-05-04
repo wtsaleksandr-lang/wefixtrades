@@ -3,12 +3,11 @@ import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { Mail, Clock, LayoutDashboard, Phone } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { mkt, colors, shadows, radius } from "@/theme/tokens";
+import { mkt, radius } from "@/theme/tokens";
+import { V7Hero, V7Section, V7PageShell } from "@/components/marketing/v7";
 
 export default function ContactPage() {
-  useEffect(() => {
-    document.title = "Contact — WeFixTrades";
-  }, []);
+  useEffect(() => { document.title = "Contact — WeFixTrades"; }, []);
 
   const [form, setForm] = useState(() => {
     const params = new URLSearchParams(window.location.search);
@@ -38,10 +37,10 @@ export default function ContactPage() {
     width: "100%",
     padding: "10px 14px",
     borderRadius: radius.sm,
-    border: `1px solid ${mkt.border}`,
+    border: `1px solid ${mkt.onDarkBorder}`,
     fontSize: 15,
-    color: mkt.text,
-    background: mkt.bg,
+    color: mkt.onDark,
+    background: "rgba(255,255,255,0.04)",
     outline: "none",
     boxSizing: "border-box",
     fontFamily: "Inter, system-ui, sans-serif",
@@ -51,27 +50,19 @@ export default function ContactPage() {
     display: "block",
     fontSize: 13,
     fontWeight: 600,
-    color: mkt.textMuted,
+    color: mkt.onDarkMuted,
     marginBottom: 6,
   };
 
   return (
     <MarketingLayout>
-      <div data-testid="contact-page" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
-        {/* Page Header */}
-        <section style={{ background: mkt.dark, padding: "72px 24px 64px" }}>
-          <div style={{ maxWidth: 720, margin: "0 auto", textAlign: "center" }}>
-            <h1 style={{ fontWeight: 800, color: "#FFFFFF", lineHeight: 1.2, marginBottom: 16, margin: "0 0 16px" }} className="text-2xl sm:text-[40px]">
-              Talk to our team
-            </h1>
-            <p style={{ fontSize: 18, color: "rgba(255,255,255,0.7)", lineHeight: 1.6, margin: 0 }}>
-              Sales, support, partnerships, or a question before you sign up — we read every message and respond within one business day.
-            </p>
-          </div>
-        </section>
-
-        {/* Two-column layout */}
-        <section style={{ background: mkt.surface, padding: "64px 24px 80px" }}>
+      <V7PageShell>
+        <V7Hero
+          productName="Contact"
+          headline={<>Talk to our team.</>}
+          sub="Sales, support, partnerships, or a question before you sign up — we read every message and respond within one business day."
+        />
+        <V7Section padding="40px 24px 80px">
           <div style={{
             maxWidth: 1000,
             margin: "0 auto",
@@ -81,7 +72,7 @@ export default function ContactPage() {
           }} className="max-[640px]:!grid-cols-1">
             {/* Left: Contact Info */}
             <div>
-              <h2 style={{ fontSize: 22, fontWeight: 700, color: mkt.text, marginBottom: 32, margin: "0 0 32px" }}>
+              <h2 style={{ fontSize: 22, fontWeight: 700, color: mkt.onDark, marginBottom: 32, margin: "0 0 32px" }}>
                 Contact Information
               </h2>
 
@@ -91,7 +82,7 @@ export default function ContactPage() {
                     width: 40,
                     height: 40,
                     borderRadius: "50%",
-                    background: mkt.accentTint,
+                    background: "rgba(102,232,250,0.10)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -100,7 +91,7 @@ export default function ContactPage() {
                     <Phone size={18} color={mkt.accent} />
                   </div>
                   <div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: mkt.textMuted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>AI-answered line — 24/7</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: mkt.onDarkMuted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>AI-answered line — 24/7</div>
                     <a
                       href="tel:+19156153280"
                       data-testid="contact-phone"
@@ -108,7 +99,7 @@ export default function ContactPage() {
                     >
                       +1 (915) 615-3280
                     </a>
-                    <div style={{ fontSize: 12, color: mkt.textMuted, marginTop: 4, lineHeight: 1.5 }}>
+                    <div style={{ fontSize: 12, color: mkt.onDarkMuted, marginTop: 4, lineHeight: 1.5 }}>
                       Our AI answers any question about pricing, services, or how we'd help your business. Escalates to a human for anything complex.
                     </div>
                   </div>
@@ -119,7 +110,7 @@ export default function ContactPage() {
                     width: 40,
                     height: 40,
                     borderRadius: "50%",
-                    background: mkt.accentTint,
+                    background: "rgba(102,232,250,0.10)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -128,7 +119,7 @@ export default function ContactPage() {
                     <Mail size={18} color={mkt.accent} />
                   </div>
                   <div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: mkt.textMuted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Email</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: mkt.onDarkMuted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Email</div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                       <a href="mailto:sales@wefixtrades.com" style={{ fontSize: 15, color: mkt.accent, textDecoration: "none", fontWeight: 500 }}>
                         sales@wefixtrades.com
@@ -137,7 +128,7 @@ export default function ContactPage() {
                         support@wefixtrades.com
                       </a>
                     </div>
-                    <div style={{ fontSize: 12, color: mkt.textMuted, marginTop: 6, lineHeight: 1.5 }}>
+                    <div style={{ fontSize: 12, color: mkt.onDarkMuted, marginTop: 6, lineHeight: 1.5 }}>
                       Sales for new business inquiries. Support for existing customers.
                     </div>
                   </div>
@@ -148,7 +139,7 @@ export default function ContactPage() {
                     width: 40,
                     height: 40,
                     borderRadius: "50%",
-                    background: mkt.accentTint,
+                    background: "rgba(102,232,250,0.10)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -157,9 +148,9 @@ export default function ContactPage() {
                     <Clock size={18} color={mkt.accent} />
                   </div>
                   <div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: mkt.textMuted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Response Time</div>
-                    <div style={{ fontSize: 15, color: mkt.textMuted, fontWeight: 500 }}>Within one business day</div>
-                    <div style={{ fontSize: 14, color: mkt.textMuted, marginTop: 2 }}>Most replies land in a few hours</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: mkt.onDarkMuted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Response Time</div>
+                    <div style={{ fontSize: 15, color: mkt.onDarkMuted, fontWeight: 500 }}>Within one business day</div>
+                    <div style={{ fontSize: 14, color: mkt.onDarkMuted, marginTop: 2 }}>Most replies land in a few hours</div>
                   </div>
                 </div>
 
@@ -168,7 +159,7 @@ export default function ContactPage() {
                     width: 40,
                     height: 40,
                     borderRadius: "50%",
-                    background: mkt.accentTint,
+                    background: "rgba(102,232,250,0.10)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -177,8 +168,8 @@ export default function ContactPage() {
                     <LayoutDashboard size={18} color={mkt.accent} />
                   </div>
                   <div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: mkt.textMuted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Urgent Support</div>
-                    <div style={{ fontSize: 14, color: mkt.textMuted, lineHeight: 1.6 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: mkt.onDarkMuted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Urgent Support</div>
+                    <div style={{ fontSize: 14, color: mkt.onDarkMuted, lineHeight: 1.6 }}>
                       For urgent support, use the Help button inside your dashboard.
                     </div>
                   </div>
@@ -188,12 +179,12 @@ export default function ContactPage() {
               <div style={{
                 marginTop: 40,
                 padding: "20px 24px",
-                background: mkt.accentTint,
+                background: "rgba(102,232,250,0.10)",
                 borderRadius: radius.md,
                 border: `1px solid ${mkt.accentGlow}`,
               }}>
                 <div style={{ fontSize: 14, fontWeight: 600, color: mkt.accent, marginBottom: 6 }}>Already a customer?</div>
-                <div style={{ fontSize: 14, color: mkt.textMuted, lineHeight: 1.7 }}>
+                <div style={{ fontSize: 14, color: mkt.onDarkMuted, lineHeight: 1.7 }}>
                   Open a support ticket from your portal for the fastest route — your message lands directly in your account file.
                 </div>
               </div>
@@ -201,11 +192,10 @@ export default function ContactPage() {
 
             {/* Right: Form */}
             <div style={{
-              background: mkt.bg,
-              borderRadius: radius.md,
+              background: mkt.sectionLight,
+              borderRadius: 18,
               padding: "36px 32px",
-              boxShadow: shadows.card,
-              border: `1px solid ${mkt.borderLight}`,
+              border: `1px solid ${mkt.onDarkBorder}`,
             }}>
               {submitted ? (
                 <div data-testid="contact-success" style={{ textAlign: "center", padding: "40px 20px" }}>
@@ -213,7 +203,7 @@ export default function ContactPage() {
                     width: 56,
                     height: 56,
                     borderRadius: "50%",
-                    background: mkt.accentTint,
+                    background: "rgba(102,232,250,0.10)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -221,15 +211,15 @@ export default function ContactPage() {
                   }}>
                     <Mail size={24} color={mkt.accent} />
                   </div>
-                  <h3 style={{ fontSize: 20, fontWeight: 700, color: mkt.text, marginBottom: 12, margin: "0 0 12px" }}>Message received</h3>
-                  <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.6, margin: 0 }}>
+                  <h3 style={{ fontSize: 20, fontWeight: 700, color: mkt.onDark, marginBottom: 12, margin: "0 0 12px" }}>Message received</h3>
+                  <p style={{ fontSize: 15, color: mkt.onDarkMuted, lineHeight: 1.6, margin: 0 }}>
                     Thanks — we've logged your message and a confirmation is on its way to your inbox. We reply within one business day.
                   </p>
                 </div>
               ) : (
                 <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-                  <h2 style={{ fontSize: 20, fontWeight: 700, color: mkt.text, margin: "0 0 4px" }}>Send Us a Message</h2>
-                  <p style={{ fontSize: 14, color: mkt.textMuted, margin: 0 }}>Fill in the form and we'll be in touch shortly.</p>
+                  <h2 style={{ fontSize: 20, fontWeight: 700, color: mkt.onDark, margin: "0 0 4px" }}>Send Us a Message</h2>
+                  <p style={{ fontSize: 14, color: mkt.onDarkMuted, margin: 0 }}>Fill in the form and we'll be in touch shortly.</p>
 
                   <div>
                     <label style={labelStyle} htmlFor="contact-name">Full Name *</label>
@@ -319,8 +309,8 @@ export default function ContactPage() {
               )}
             </div>
           </div>
-        </section>
-      </div>
+        </V7Section>
+      </V7PageShell>
     </MarketingLayout>
   );
 }
