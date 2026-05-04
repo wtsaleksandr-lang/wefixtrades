@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import { Search, Zap, Globe, Calendar, Bot, Code, AlertCircle, Webhook, ArrowRight, BookOpen, MessageSquare } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
+import { V7Hero, V7PageShell } from "@/components/marketing/v7";
+import { TILE, MONO } from "@/components/effortel-blocks";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
 import { mkt, colors, shadows } from "@/theme/tokens";
 
@@ -86,25 +88,17 @@ export default function DocsPage() {
 
   return (
     <MarketingLayout>
+      <V7PageShell>
       <div data-testid="docs-hub" style={{ overflowX: "hidden" }}>
 
-        {/* Hero */}
-        <div style={{ background: `linear-gradient(160deg, ${mkt.dark} 0%, #0F2744 100%)`, padding: "72px 28px 64px" }}>
-          <div style={{ maxWidth: 780, margin: "0 auto", textAlign: "center" }}>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 7, background: "rgba(47,107,255,0.20)", border: "1px solid rgba(47,107,255,0.30)", borderRadius: 20, padding: "5px 16px", marginBottom: 24 }}>
-              <BookOpen size={13} color="#6EE7B7" />
-              <span style={{ fontSize: 12, fontWeight: 700, color: "#6EE7B7", letterSpacing: "0.05em" }}>Documentation</span>
-            </div>
-            <h1 style={{ fontSize: "clamp(30px, 4vw, 48px)", fontWeight: 800, color: "#FFFFFF", margin: "0 0 14px", letterSpacing: "-0.02em" }}>
-              How can we help?
-            </h1>
-            <p style={{ fontSize: 17, color: "rgba(255,255,255,0.6)", margin: "0 0 36px", lineHeight: 1.6 }}>
-              Guides, embed instructions, and troubleshooting — all written for non-technical trades people.
-            </p>
-
-            {/* Search */}
-            <div style={{ position: "relative" as const, maxWidth: 520, margin: "0 auto" }}>
-              <Search size={17} color="#94A3B8" style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
+        <V7Hero
+          productName="Documentation"
+          eyebrow="Stuck on something? You're not the first."
+          headline={<>How can<br/><span style={{ color: mkt.accent }}>we help?</span></>}
+          sub="Guides, embed instructions, and troubleshooting — all written for non-technical trades people."
+          visual={
+            <div style={{ position: "relative", maxWidth: 520, margin: "0 auto" }}>
+              <Search size={17} color="rgba(213,225,231,0.6)" style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", zIndex: 1 }} />
               <input
                 data-testid="docs-search"
                 type="text"
@@ -115,9 +109,9 @@ export default function DocsPage() {
                   width: "100%",
                   padding: "14px 16px 14px 48px",
                   borderRadius: 12,
-                  border: "1.5px solid rgba(255,255,255,0.15)",
-                  background: "rgba(255,255,255,0.09)",
-                  color: "#FFFFFF",
+                  border: `1.5px solid ${mkt.onDarkBorder}`,
+                  background: "rgba(255,255,255,0.04)",
+                  color: mkt.onDark,
                   fontSize: 15,
                   outline: "none",
                   boxSizing: "border-box" as const,
@@ -125,8 +119,8 @@ export default function DocsPage() {
                 }}
               />
             </div>
-          </div>
-        </div>
+          }
+        />
 
         {/* Quick start strip */}
         {search === "" && (
@@ -136,29 +130,34 @@ export default function DocsPage() {
                 Quickstart
               </div>
               <div className="qs-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
-                {QUICKSTARTS.map(({ icon: Icon, label, href, sub }) => (
+                {QUICKSTARTS.map(({ icon: Icon, label, href, sub }, i) => {
+                  // Rotate through V7 pastel TILE colours per quickstart
+                  const palette = ["cyanSoft", "lavender", "mint", "pink"] as const;
+                  const tile = TILE[palette[i % palette.length]];
+                  return (
                   <Link
                     key={label}
                     href={href}
                     data-testid={`quickstart-${label.toLowerCase().replace(/\s+/g, "-")}`}
                     style={{
                       display: "flex", gap: 12, padding: "14px 16px",
-                      background: mkt.bg, border: `1px solid ${mkt.onDarkBorder}`, borderRadius: 12,
+                      background: mkt.sectionLight, border: `1px solid ${mkt.onDarkBorder}`, borderRadius: 12,
                       textDecoration: "none", alignItems: "flex-start",
-                      boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
+                      boxShadow: "0 1px 4px rgba(0,0,0,0.18)",
                       transition: "box-shadow 0.18s ease, border-color 0.18s ease",
                     }}
                     className="mkt-feature-card"
                   >
-                    <div style={{ width: 34, height: 34, borderRadius: 8, background: "rgba(102,232,250,0.10)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                      <Icon size={16} color={mkt.accent} />
+                    <div style={{ width: 34, height: 34, borderRadius: 8, background: tile.bg, color: tile.ink, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      <Icon size={16} />
                     </div>
                     <div>
                       <div style={{ fontSize: 13, fontWeight: 700, color: mkt.onDark, marginBottom: 2 }}>{label}</div>
                       <div style={{ fontSize: 12, color: mkt.onDarkMuted, lineHeight: 1.45 }}>{sub}</div>
                     </div>
                   </Link>
-                ))}
+                  );
+                })}
               </div>
             </div>
             <style>{`@media(max-width:820px){.qs-grid{grid-template-columns:1fr 1fr!important;}} @media(max-width:480px){.qs-grid{grid-template-columns:1fr!important;}}`}</style>
@@ -192,7 +191,11 @@ export default function DocsPage() {
               </div>
             ) : (
               <div className="guides-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20 }}>
-                {filtered.map(({ slug, icon: Icon, title, description, badge, badgeColor, badgeBg, time }) => (
+                {filtered.map(({ slug, icon: Icon, title, description, badge, badgeColor, badgeBg, time }, i) => {
+                  // Each guide card gets its own pastel for the icon block.
+                  const palette = ["cyanSoft", "lavender", "mint", "pink", "cyan"] as const;
+                  const tile = TILE[palette[i % palette.length]];
+                  return (
                   <Link
                     key={slug}
                     href={`/docs/${slug}`}
@@ -201,14 +204,14 @@ export default function DocsPage() {
                     className="mkt-feature-card"
                     style={{
                       display: "flex", flexDirection: "column", gap: 0,
-                      background: mkt.bg, border: `1px solid ${mkt.onDarkBorder}`, borderRadius: 16,
+                      background: mkt.sectionLight, border: `1px solid ${mkt.onDarkBorder}`, borderRadius: 16,
                       padding: "28px 24px", textDecoration: "none",
-                      boxShadow: "0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.05)",
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.10), 0 4px 16px rgba(0,0,0,0.18)",
                     }}
                   >
                     <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 18 }}>
-                      <div style={{ width: 48, height: 48, borderRadius: 12, background: "rgba(102,232,250,0.10)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        <Icon size={22} color={mkt.accent} />
+                      <div style={{ width: 48, height: 48, borderRadius: 12, background: tile.bg, color: tile.ink, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <Icon size={22} />
                       </div>
                       {badge && (
                         <span style={{ fontSize: 10, fontWeight: 700, color: badgeColor, background: badgeBg, padding: "3px 10px", borderRadius: 20, letterSpacing: "0.05em" }}>
@@ -225,7 +228,8 @@ export default function DocsPage() {
                       </span>
                     </div>
                   </Link>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -252,6 +256,7 @@ export default function DocsPage() {
         </div>
 
       </div>
+      </V7PageShell>
     </MarketingLayout>
   );
 }

@@ -3,7 +3,7 @@ import { ArrowRight, MessageSquare, Phone, Calculator, Workflow, Share2, Rocket,
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { mkt } from "@/theme/tokens";
 import { V7Hero, V7Section, V7Container, V7PageShell, V7SectionHeading, V7FinalCta } from "@/components/marketing/v7";
-import { Reveal, MONO } from "@/components/effortel-blocks";
+import { Reveal, MONO, TILE } from "@/components/effortel-blocks";
 
 interface DemoCard {
   title: string;
@@ -84,45 +84,64 @@ export default function DemoCenter() {
             }}>
               {DEMOS.map((d, i) => {
                 const Icon = d.icon;
+                // Rotate through pastel TILE colours per demo card
+                const palette = ["cyanSoft", "lavender", "mint", "pink", "cyan", "white"] as const;
+                const tile = TILE[palette[i % palette.length]];
                 return (
                   <Reveal key={d.title} delay={i * 0.05}>
                     <Link href={d.href} style={{
                       display: "block", textDecoration: "none",
                       background: mkt.sectionLight,
                       border: `1px solid ${mkt.onDarkBorder}`,
-                      borderRadius: 18, padding: "24px 22px",
+                      borderRadius: 18, padding: 0,
                       height: "100%",
+                      overflow: "hidden",
                     }}>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+                      {/* Pastel header strip */}
+                      <div style={{
+                        background: tile.bg, color: tile.ink,
+                        padding: "18px 22px",
+                        display: "flex", alignItems: "center", justifyContent: "space-between",
+                        position: "relative",
+                      }}>
                         <div style={{
+                          position: "absolute", inset: 0,
+                          backgroundImage: `radial-gradient(circle, ${tile.ink}10 1px, transparent 1px)`,
+                          backgroundSize: "14px 14px", opacity: 0.5, pointerEvents: "none",
+                        }} />
+                        <div style={{
+                          position: "relative",
                           width: 44, height: 44, borderRadius: 12,
-                          background: "rgba(102,232,250,0.10)", color: mkt.accent,
+                          background: "rgba(255,255,255,0.5)", color: tile.ink,
                           display: "flex", alignItems: "center", justifyContent: "center",
                         }}>
                           <Icon size={20} strokeWidth={1.6} />
                         </div>
                         {d.interactive && (
                           <span style={{
+                            position: "relative",
                             fontSize: 9, fontWeight: 700, padding: "3px 8px", borderRadius: 999,
-                            background: "rgba(16,185,129,0.15)", color: "#10B981",
+                            background: "rgba(16,185,129,0.18)", color: "#059669",
                             letterSpacing: "0.06em", textTransform: "uppercase", fontFamily: MONO,
                           }}>● Live</span>
                         )}
                       </div>
-                      <h3 style={{ fontSize: 17, fontWeight: 700, color: mkt.onDark, margin: "0 0 8px", letterSpacing: "-0.01em" }}>
-                        {d.title}
-                      </h3>
-                      <p style={{ fontSize: 13, color: mkt.onDarkMuted, margin: "0 0 18px", lineHeight: 1.55 }}>
-                        {d.desc}
-                      </p>
-                      <span style={{
-                        display: "inline-flex", alignItems: "center", gap: 6,
-                        fontSize: 11, fontWeight: 600, color: mkt.accent,
-                        fontFamily: MONO, letterSpacing: "0.08em", textTransform: "uppercase",
-                        paddingBottom: 4, borderBottom: `1px solid ${mkt.accent}`,
-                      }}>
-                        Try it <ArrowRight size={12} />
-                      </span>
+                      <div style={{ padding: "20px 22px 22px" }}>
+                        <h3 style={{ fontSize: 17, fontWeight: 700, color: mkt.onDark, margin: "0 0 8px", letterSpacing: "-0.01em" }}>
+                          {d.title}
+                        </h3>
+                        <p style={{ fontSize: 13, color: mkt.onDarkMuted, margin: "0 0 18px", lineHeight: 1.55 }}>
+                          {d.desc}
+                        </p>
+                        <span style={{
+                          display: "inline-flex", alignItems: "center", gap: 6,
+                          fontSize: 11, fontWeight: 600, color: mkt.accent,
+                          fontFamily: MONO, letterSpacing: "0.08em", textTransform: "uppercase",
+                          paddingBottom: 4, borderBottom: `1px solid ${mkt.accent}`,
+                        }}>
+                          Try it <ArrowRight size={12} />
+                        </span>
+                      </div>
                     </Link>
                   </Reveal>
                 );

@@ -7,7 +7,7 @@ import {
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { mkt } from "@/theme/tokens";
 import { V7Hero, V7Section, V7Container, V7PageShell, V7SectionHeading, V7FinalCta } from "@/components/marketing/v7";
-import { Reveal, MONO } from "@/components/effortel-blocks";
+import { Reveal, MONO, TILE } from "@/components/effortel-blocks";
 
 /**
  * /products — the canonical product index. Shows ALL 12 products grouped
@@ -64,6 +64,10 @@ function ProductGroup({
         }}>
           {items.map((p, i) => {
             const Icon = p.icon;
+            // Rotate through pastel TILE colours per product so the grid
+            // looks like the V7 product mockups instead of 4 cyan icons in a row.
+            const palette = ["cyanSoft", "lavender", "mint", "pink"] as const;
+            const tile = TILE[palette[i % palette.length]];
             return (
               <Reveal key={p.slug} delay={i * 0.05}>
                 <Link href={`/products/${p.slug}`} style={{
@@ -75,7 +79,7 @@ function ProductGroup({
                 }}>
                   <div style={{
                     width: 44, height: 44, borderRadius: 12,
-                    background: "rgba(102,232,250,0.10)", color: mkt.accent,
+                    background: tile.bg, color: tile.ink,
                     display: "flex", alignItems: "center", justifyContent: "center",
                     marginBottom: 16,
                   }}>
