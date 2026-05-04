@@ -1543,3 +1543,67 @@ button[style*="background:"][style*="border-radius"]:not([style*="transparent"])
   margin: 0 auto;
   max-width: 720px;
 }
+
+/* ─── Nav + footer hover polish ─────────────────────────────────────── */
+
+/* Footer link hover — slight color shift only (already inline-styled, but
+   add a smooth transition fallback) */
+.mkt-layout footer a {
+  transition: color 0.18s ease, opacity 0.18s ease !important;
+}
+
+/* Pricing tier card hover lift (specifically targets the highlighted plan
+   so it lifts even more) */
+[style*="background: rgb(102, 232, 250)"][style*="border-radius"]:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 24px 60px rgba(102,232,250,0.28) !important;
+}
+
+/* Auth-page card hover (subtle — they're functional) */
+[style*="background: rgb(57, 66, 71)"][style*="border-radius: 24px"] {
+  transition: box-shadow 0.25s ease, border-color 0.25s ease !important;
+}
+[style*="background: rgb(57, 66, 71)"][style*="border-radius: 24px"]:hover {
+  border-color: rgba(102,232,250,0.20) !important;
+  box-shadow: 0 18px 40px rgba(0,0,0,0.32) !important;
+  /* No translateY on auth cards — would feel jittery while typing */
+  transform: none !important;
+}
+
+/* ─── Nav blur smoothness ───────────────────────────────────────────── */
+
+/* Prevent visual jank when the mobile menu opens — promote the overlay
+   to its own layer so the heavy backdrop-filter doesn't repaint the page */
+[data-testid="nav-mobile-overlay"] {
+  will-change: opacity, backdrop-filter;
+  transform: translateZ(0);
+}
+
+/* ─── V7 input field focus state ────────────────────────────────────── */
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none !important;
+  border-color: rgba(102, 232, 250, 0.45) !important;
+  box-shadow: 0 0 0 3px rgba(102, 232, 250, 0.12) !important;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease !important;
+}
+
+/* ─── Reduce excessive vertical gap between V7 sections on tablet ───── */
+
+@media (max-width: 900px) {
+  /* Tablet sweet spot: 56-72px between sections (down from 80-120) */
+  section[style*="padding: 80px 24px"],
+  section[style*="padding: 100px 24px"] {
+    padding-top: 64px !important;
+    padding-bottom: 64px !important;
+  }
+}
+
+/* ─── Global smooth scroll already set on lenis hook, but fall-back ─── */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
