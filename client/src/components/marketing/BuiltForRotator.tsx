@@ -74,7 +74,7 @@ export default function BuiltForRotator() {
 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-      <span style={{ ...FONT, color: mkt.textMuted, whiteSpace: "nowrap", flexShrink: 0 }}>
+      <span style={{ ...FONT, color: mkt.onDarkMuted, whiteSpace: "nowrap", flexShrink: 0 }}>
         Built for:
       </span>
       <span
