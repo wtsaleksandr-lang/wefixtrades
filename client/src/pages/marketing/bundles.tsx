@@ -33,7 +33,7 @@ export default function BundlesPage() {
       margin: 0,
     },
     bundlesSection: {
-      background: mkt.surface,
+      background: mkt.sectionLight,
       padding: "60px 24px",
     },
     bundlesGrid: {
@@ -49,7 +49,7 @@ export default function BundlesPage() {
       borderRadius: 16,
       padding: "36px 32px",
       boxShadow: shadows.card,
-      border: `1px solid ${mkt.border}`,
+      border: `1px solid ${mkt.onDarkBorder}`,
     },
     bundleCardHighlighted: {
       border: `2px solid ${mkt.accent}`,
@@ -68,21 +68,21 @@ export default function BundlesPage() {
     bundleName: {
       fontSize: 24,
       fontWeight: 700,
-      color: mkt.text,
+      color: mkt.onDark,
       margin: "0 0 4px",
       letterSpacing: "-0.01em",
     },
     bundlePrice: {
       fontSize: 36,
       fontWeight: 700,
-      color: mkt.text,
+      color: mkt.onDark,
       letterSpacing: "-0.02em",
       lineHeight: 1,
       margin: "8px 0 4px",
     },
     bundlePricePeriod: {
       fontSize: 14,
-      color: mkt.textMuted,
+      color: mkt.onDarkMuted,
       margin: "0 0 24px",
     },
     savingBadge: {
@@ -103,7 +103,7 @@ export default function BundlesPage() {
     includesLabel: {
       fontSize: 12,
       fontWeight: 700,
-      color: mkt.textMuted,
+      color: mkt.onDarkMuted,
       textTransform: "uppercase" as const,
       letterSpacing: "0.08em",
       marginBottom: 16,
@@ -118,7 +118,7 @@ export default function BundlesPage() {
       alignItems: "flex-start",
       gap: 10,
       fontSize: 14,
-      color: mkt.textMuted,
+      color: mkt.onDarkMuted,
       lineHeight: 1.5,
       marginBottom: 12,
     },
@@ -147,7 +147,7 @@ export default function BundlesPage() {
     faqTitle: {
       fontSize: 28,
       fontWeight: 700,
-      color: mkt.text,
+      color: mkt.onDark,
       margin: "0 0 32px",
       textAlign: "center" as const,
     },
@@ -169,12 +169,12 @@ export default function BundlesPage() {
     faqQuestionText: {
       fontSize: 16,
       fontWeight: 600,
-      color: mkt.text,
+      color: mkt.onDark,
       flex: 1,
     },
     faqAnswer: {
       fontSize: 14,
-      color: mkt.textMuted,
+      color: mkt.onDarkMuted,
       lineHeight: 1.7,
       paddingBottom: 20,
     },
