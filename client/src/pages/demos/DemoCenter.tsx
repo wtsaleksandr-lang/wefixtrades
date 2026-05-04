@@ -1,16 +1,24 @@
+import { useRef, useState } from "react";
 import { Link } from "wouter";
-import { ArrowRight, MessageSquare, Phone, Calculator, Workflow, Share2, Rocket, Shield } from "lucide-react";
+import {
+  ArrowUpRight, MessageSquare, Phone, Calculator, Workflow,
+  Share2, Rocket, Shield,
+} from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { mkt } from "@/theme/tokens";
-import { V7Hero, V7Section, V7Container, V7PageShell, V7SectionHeading, V7FinalCta } from "@/components/marketing/v7";
+import { V7Hero, V7Section, V7Container, V7PageShell, V7FinalCta } from "@/components/marketing/v7";
 import { Reveal, MONO, TILE } from "@/components/effortel-blocks";
 
-interface DemoCard {
+interface DemoCardData {
   title: string;
   desc: string;
   href: string;
   icon: typeof MessageSquare;
   interactive?: boolean;
+  /** Short stat shown bottom-left on hover (e.g. "62%   FEWER MISSED CALLS"). */
+  benefit: string;
+  /** Cursor-follow tag shown on hover. */
+  cursorTag: string;
 }
 
 /**
@@ -21,12 +29,14 @@ interface DemoCard {
  * relevant /products/<slug> page where the animated TradeLineChatDemo
  * (and friends) play in the hero.
  */
-const DEMOS: DemoCard[] = [
+const DEMOS: DemoCardData[] = [
   {
     title: "TradeLine — Chat & Voice",
     desc: "Watch the AI receptionist handle a 2 AM emergency call: pickup, quote, dispatch, confirm.",
     href: "/products/tradeline",
     icon: Phone,
+    benefit: "62% fewer missed calls",
+    cursorTag: "See Demo",
   },
   {
     title: "QuoteQuick Pro",
@@ -34,6 +44,8 @@ const DEMOS: DemoCard[] = [
     href: "/tools/quote-demo",
     icon: Calculator,
     interactive: true,
+    benefit: "3× more booked jobs",
+    cursorTag: "Try Live",
   },
   {
     title: "SocialSync — Post Generator",
@@ -41,6 +53,8 @@ const DEMOS: DemoCard[] = [
     href: "/demos/socialsync",
     icon: Share2,
     interactive: true,
+    benefit: "5 posts in 30 seconds",
+    cursorTag: "Try Live",
   },
   {
     title: "RankFlow — SEO Health Check",
@@ -48,6 +62,8 @@ const DEMOS: DemoCard[] = [
     href: "/demos/rankflow",
     icon: Rocket,
     interactive: true,
+    benefit: "Free site audit",
+    cursorTag: "Try Live",
   },
   {
     title: "ReputationShield Preview",
@@ -55,14 +71,168 @@ const DEMOS: DemoCard[] = [
     href: "/demos/reputationshield",
     icon: Shield,
     interactive: true,
+    benefit: "4.9★ avg rating",
+    cursorTag: "Try Live",
   },
   {
     title: "Inbox-everywhere",
     desc: "See how Phone + SMS + Web Chat + GBP messages all land in one inbox with AI triage.",
     href: "/products/tradeline",
     icon: Workflow,
+    benefit: "1 inbox · 4 channels",
+    cursorTag: "See Demo",
   },
 ];
+
+const PALETTE = ["cyanSoft", "lavender", "mint", "pink", "cyan", "white"] as const;
+
+function DemoCard({ d, i }: { d: DemoCardData; i: number }) {
+  const [hover, setHover] = useState(false);
+  const [pos, setPos] = useState({ x: 0, y: 0 });
+  const ref = useRef<HTMLAnchorElement>(null);
+  const tile = TILE[PALETTE[i % PALETTE.length]];
+  const Icon = d.icon;
+
+  const onMove = (e: React.MouseEvent) => {
+    const rect = ref.current?.getBoundingClientRect();
+    if (!rect) return;
+    setPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+  };
+
+  return (
+    <Reveal delay={i * 0.05}>
+      <Link
+        href={d.href}
+        ref={ref as any}
+        onMouseEnter={() => setHover(true)}
+        onMouseLeave={() => setHover(false)}
+        onMouseMove={onMove}
+        style={{
+          display: "block", textDecoration: "none",
+          background: mkt.sectionLight,
+          border: `1px solid ${hover ? "rgba(102,232,250,0.45)" : mkt.onDarkBorder}`,
+          borderRadius: 18, padding: 0,
+          height: "100%",
+          overflow: "hidden",
+          position: "relative",
+          transform: hover ? "translateY(-3px)" : "translateY(0)",
+          boxShadow: hover ? "0 18px 40px rgba(0,0,0,0.35)" : "0 0 0 rgba(0,0,0,0)",
+          transition: "transform 320ms cubic-bezier(0.22,1,0.36,1), box-shadow 320ms cubic-bezier(0.22,1,0.36,1), border-color 320ms ease",
+        }}
+      >
+        {/* Top-right corner arrow — fades in on hover */}
+        <div style={{
+          position: "absolute", top: 12, right: 12, zIndex: 3,
+          width: 30, height: 30, borderRadius: 9,
+          background: "rgba(255,255,255,0.12)",
+          color: mkt.onDark,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          opacity: hover ? 1 : 0,
+          transform: hover ? "translate(0,0)" : "translate(6px,-6px)",
+          transition: "opacity 280ms ease, transform 280ms cubic-bezier(0.22,1,0.36,1)",
+          pointerEvents: "none",
+          backdropFilter: "blur(6px)",
+        }}>
+          <ArrowUpRight size={16} strokeWidth={2.2} />
+        </div>
+
+        {/* Pastel header strip — icon + title + (live badge) */}
+        <div style={{
+          background: tile.bg, color: tile.ink,
+          padding: "16px 18px",
+          display: "flex", alignItems: "center", gap: 12,
+          position: "relative",
+        }}>
+          <div style={{
+            position: "absolute", inset: 0,
+            backgroundImage: `radial-gradient(circle, ${tile.ink}10 1px, transparent 1px)`,
+            backgroundSize: "14px 14px", opacity: 0.5, pointerEvents: "none",
+          }} />
+          {/* Square icon block — scales up + dims slightly on hover */}
+          <div style={{
+            position: "relative", flexShrink: 0,
+            width: 40, height: 40, borderRadius: 10,
+            background: "rgba(255,255,255,0.55)", color: tile.ink,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            transform: hover ? "scale(1.08)" : "scale(1)",
+            opacity: hover ? 0.78 : 1,
+            transition: "transform 320ms cubic-bezier(0.22,1,0.36,1), opacity 240ms ease",
+          }}>
+            <Icon size={18} strokeWidth={1.7} />
+          </div>
+          {/* Title — sharpens on hover */}
+          <h3 style={{
+            position: "relative", flex: 1, minWidth: 0,
+            fontSize: 13, fontWeight: 700,
+            color: hover ? "#0a1628" : tile.ink,
+            letterSpacing: "0.04em", textTransform: "uppercase",
+            fontFamily: MONO, lineHeight: 1.25,
+            margin: 0, overflow: "hidden", textOverflow: "ellipsis",
+            transition: "color 240ms ease",
+            textShadow: hover ? `0 0 0.5px ${tile.ink}` : "none",
+          }}>
+            {d.title}
+          </h3>
+          {d.interactive && (
+            <span style={{
+              position: "relative", flexShrink: 0,
+              fontSize: 9, fontWeight: 700, padding: "3px 8px", borderRadius: 999,
+              background: "rgba(16,185,129,0.20)", color: "#059669",
+              letterSpacing: "0.06em", textTransform: "uppercase", fontFamily: MONO,
+            }}>● Live</span>
+          )}
+        </div>
+
+        {/* Body */}
+        <div style={{ padding: "18px 22px 56px", position: "relative" }}>
+          <p style={{ fontSize: 13, color: mkt.onDarkMuted, margin: 0, lineHeight: 1.55 }}>
+            {d.desc}
+          </p>
+
+          {/* Benefit badge — bottom-left, fades in on hover */}
+          <div style={{
+            position: "absolute", left: 22, bottom: 18,
+            fontSize: 11, fontWeight: 700,
+            color: mkt.accent,
+            fontFamily: MONO, letterSpacing: "0.08em", textTransform: "uppercase",
+            display: "flex", alignItems: "baseline", gap: 8,
+            opacity: hover ? 1 : 0,
+            transform: hover ? "translateX(0)" : "translateX(-6px)",
+            transition: "opacity 280ms ease 60ms, transform 280ms cubic-bezier(0.22,1,0.36,1) 60ms",
+            pointerEvents: "none",
+          }}>
+            <span style={{ color: mkt.accent }}>{d.benefit.split(" ")[0]}</span>
+            <span style={{ color: mkt.onDarkMuted, fontSize: 10 }}>
+              [{d.benefit.split(" ").slice(1).join(" ").toUpperCase()}]
+            </span>
+          </div>
+        </div>
+
+        {/* Cursor-follow tag */}
+        <div style={{
+          position: "absolute",
+          left: pos.x + 18,
+          top: pos.y + 14,
+          background: mkt.onDark,
+          color: mkt.bg,
+          fontSize: 10, fontWeight: 700,
+          padding: "5px 10px", borderRadius: 6,
+          fontFamily: MONO, letterSpacing: "0.08em", textTransform: "uppercase",
+          pointerEvents: "none",
+          whiteSpace: "nowrap",
+          zIndex: 10,
+          opacity: hover ? 1 : 0,
+          transform: hover ? "scale(1)" : "scale(0.85)",
+          transformOrigin: "left top",
+          transition: "opacity 160ms ease, transform 160ms ease",
+          boxShadow: "0 6px 20px rgba(0,0,0,0.35)",
+        }}>
+          {d.cursorTag}
+        </div>
+      </Link>
+    </Reveal>
+  );
+}
 
 export default function DemoCenter() {
   return (
@@ -75,86 +245,16 @@ export default function DemoCenter() {
           sub="Interactive demos for every WeFixTrades tool — no email, no signup, just play."
         />
 
-        <V7Section padding="60px">
+        <V7Section padding={60} style={{ paddingBottom: 24 }}>
           <V7Container>
             <div style={{
               display: "grid",
               gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
               gap: 16,
             }}>
-              {DEMOS.map((d, i) => {
-                const Icon = d.icon;
-                // Rotate through pastel TILE colours per demo card
-                const palette = ["cyanSoft", "lavender", "mint", "pink", "cyan", "white"] as const;
-                const tile = TILE[palette[i % palette.length]];
-                return (
-                  <Reveal key={d.title} delay={i * 0.05}>
-                    <Link href={d.href} style={{
-                      display: "block", textDecoration: "none",
-                      background: mkt.sectionLight,
-                      border: `1px solid ${mkt.onDarkBorder}`,
-                      borderRadius: 18, padding: 0,
-                      height: "100%",
-                      overflow: "hidden",
-                    }}>
-                      {/* Pastel header strip — icon + title + live badge inline */}
-                      <div style={{
-                        background: tile.bg, color: tile.ink,
-                        padding: "16px 18px",
-                        display: "flex", alignItems: "center", gap: 12,
-                        position: "relative",
-                      }}>
-                        <div style={{
-                          position: "absolute", inset: 0,
-                          backgroundImage: `radial-gradient(circle, ${tile.ink}10 1px, transparent 1px)`,
-                          backgroundSize: "14px 14px", opacity: 0.5, pointerEvents: "none",
-                        }} />
-                        {/* Icon block */}
-                        <div style={{
-                          position: "relative", flexShrink: 0,
-                          width: 40, height: 40, borderRadius: 10,
-                          background: "rgba(255,255,255,0.55)", color: tile.ink,
-                          display: "flex", alignItems: "center", justifyContent: "center",
-                        }}>
-                          <Icon size={18} strokeWidth={1.7} />
-                        </div>
-                        {/* Title in mono caps — sits inline with the icon */}
-                        <h3 style={{
-                          position: "relative", flex: 1, minWidth: 0,
-                          fontSize: 13, fontWeight: 700, color: tile.ink,
-                          letterSpacing: "0.04em", textTransform: "uppercase",
-                          fontFamily: MONO, lineHeight: 1.25,
-                          margin: 0, overflow: "hidden", textOverflow: "ellipsis",
-                        }}>
-                          {d.title}
-                        </h3>
-                        {d.interactive && (
-                          <span style={{
-                            position: "relative", flexShrink: 0,
-                            fontSize: 9, fontWeight: 700, padding: "3px 8px", borderRadius: 999,
-                            background: "rgba(16,185,129,0.20)", color: "#059669",
-                            letterSpacing: "0.06em", textTransform: "uppercase", fontFamily: MONO,
-                          }}>● Live</span>
-                        )}
-                      </div>
-                      {/* Body — description + CTA only */}
-                      <div style={{ padding: "18px 22px 22px" }}>
-                        <p style={{ fontSize: 13, color: mkt.onDarkMuted, margin: "0 0 16px", lineHeight: 1.55 }}>
-                          {d.desc}
-                        </p>
-                        <span style={{
-                          display: "inline-flex", alignItems: "center", gap: 6,
-                          fontSize: 11, fontWeight: 600, color: mkt.accent,
-                          fontFamily: MONO, letterSpacing: "0.08em", textTransform: "uppercase",
-                          paddingBottom: 4, borderBottom: `1px solid ${mkt.accent}`,
-                        }}>
-                          Try it <ArrowRight size={12} />
-                        </span>
-                      </div>
-                    </Link>
-                  </Reveal>
-                );
-              })}
+              {DEMOS.map((d, i) => (
+                <DemoCard key={d.title} d={d} i={i} />
+              ))}
             </div>
           </V7Container>
         </V7Section>
