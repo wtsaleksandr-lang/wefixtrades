@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Check, ChevronDown, ArrowRight, Zap, Clock, Users, Shield, MessageSquare, X } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
+import { V7Hero, V7PageShell } from "@/components/marketing/v7";
 import { mkt, colors } from "@/theme/tokens";
 import { trackEvent } from "@/lib/trackEvent";
 
@@ -17,7 +18,7 @@ const FAQS = [
 function FAQItem({ q, a }: { q: string; a: string }) {
   const [open, setOpen] = useState(false);
   return (
-    <div style={{ borderBottom: `1px solid ${mkt.border}` }}>
+    <div style={{ borderBottom: `1px solid ${mkt.onDarkBorder}` }}>
       <button
         onClick={() => setOpen(o => !o)}
         style={{
@@ -26,11 +27,11 @@ function FAQItem({ q, a }: { q: string; a: string }) {
           textAlign: "left" as const, gap: 16,
         }}
       >
-        <span style={{ fontSize: 15, fontWeight: 600, color: mkt.text, lineHeight: 1.4 }}>{q}</span>
-        <ChevronDown size={16} color={mkt.textMuted} style={{ flexShrink: 0, transform: open ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
+        <span style={{ fontSize: 15, fontWeight: 600, color: mkt.onDark, lineHeight: 1.4 }}>{q}</span>
+        <ChevronDown size={16} color={mkt.onDarkMuted} style={{ flexShrink: 0, transform: open ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
       </button>
       {open && (
-        <p style={{ fontSize: 14, color: mkt.textMuted, lineHeight: 1.7, margin: "0 0 18px", paddingRight: 32 }}>{a}</p>
+        <p style={{ fontSize: 14, color: mkt.onDarkMuted, lineHeight: 1.7, margin: "0 0 18px", paddingRight: 32 }}>{a}</p>
       )}
     </div>
   );
@@ -42,7 +43,7 @@ function Feature({ text, highlight }: { text: string; highlight?: boolean }) {
   return (
     <div style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "6px 0" }}>
       <Check size={16} style={{ flexShrink: 0, marginTop: 2, color: highlight ? mkt.accent : "#4ade80" }} />
-      <span style={{ fontSize: 14, color: highlight ? mkt.text : mkt.textMuted, fontWeight: highlight ? 600 : 400, lineHeight: 1.5 }}>{text}</span>
+      <span style={{ fontSize: 14, color: highlight ? mkt.text : mkt.onDarkMuted, fontWeight: highlight ? 600 : 400, lineHeight: 1.5 }}>{text}</span>
     </div>
   );
 }
@@ -56,8 +57,8 @@ function ReplaceItem({ icon: Icon, before, after }: { icon: any; before: string;
         <Icon size={16} color={mkt.accent} />
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{ fontSize: 13, color: mkt.textMuted, margin: 0, textDecoration: "line-through", opacity: 0.6 }}>{before}</p>
-        <p style={{ fontSize: 14, color: mkt.text, margin: "2px 0 0", fontWeight: 500 }}>{after}</p>
+        <p style={{ fontSize: 13, color: mkt.onDarkMuted, margin: 0, textDecoration: "line-through", opacity: 0.6 }}>{before}</p>
+        <p style={{ fontSize: 14, color: mkt.onDark, margin: "2px 0 0", fontWeight: 500 }}>{after}</p>
       </div>
     </div>
   );
@@ -110,30 +111,21 @@ export default function QuoteQuickPricing() {
 
   return (
     <MarketingLayout>
-      <div style={{ maxWidth: 960, margin: "0 auto", padding: "clamp(48px, 8vw, 80px) 20px 64px" }}>
-
-        {/* ─── HERO ─── */}
-        <div style={{ textAlign: "center", marginBottom: "clamp(40px, 6vw, 64px)" }}>
-          <h1 style={{
-            fontSize: "clamp(28px, 5vw, 42px)", fontWeight: 700, color: mkt.text,
-            lineHeight: 1.15, letterSpacing: "-0.025em", margin: "0 0 14px",
-          }}>
-            One job pays for your entire month.
-          </h1>
-          <p style={{ fontSize: "clamp(15px, 2vw, 18px)", color: mkt.textMuted, lineHeight: 1.6, margin: "0 0 20px", maxWidth: 520, marginLeft: "auto", marginRight: "auto" }}>
-            Instant quotes on your website. Leads captured. Jobs booked.
-          </p>
-          <p style={{ fontSize: 13, color: mkt.textMuted, opacity: 0.7 }}>
-            14-day free trial &middot; No credit card &middot; Works with Jobber, Housecall Pro, or whatever you use
-          </p>
-        </div>
+      <V7PageShell>
+        <V7Hero
+          productName="QuoteQuick Pricing"
+          eyebrow="One booked job pays for your entire month."
+          headline={<>Instant quotes on your website.<br/><span style={{ color: mkt.accent }}>Leads captured. Jobs booked.</span></>}
+          sub="14-day free trial · No credit card · Works with Jobber, Housecall Pro, or whatever you use."
+        />
+      <div style={{ maxWidth: 960, margin: "0 auto", padding: "20px 20px 64px" }}>
 
         {/* ─── BILLING TOGGLE ─── */}
         <div style={{ display: "flex", justifyContent: "center", marginBottom: 32 }}>
           <div style={{
             display: "inline-flex", alignItems: "center", gap: 12,
-            padding: "6px 8px", borderRadius: 999, background: mkt.surface,
-            border: `1px solid ${mkt.border}`,
+            padding: "6px 8px", borderRadius: 999, background: mkt.sectionLight,
+            border: `1px solid ${mkt.onDarkBorder}`,
           }}>
             <button
               onClick={() => setAnnual(false)}
@@ -141,7 +133,7 @@ export default function QuoteQuickPricing() {
                 padding: "8px 18px", borderRadius: 999, border: "none", cursor: "pointer",
                 fontSize: 13, fontWeight: 600,
                 background: !annual ? mkt.accent : "transparent",
-                color: !annual ? mkt.dark : mkt.textMuted,
+                color: !annual ? mkt.dark : mkt.onDarkMuted,
                 transition: "all 0.2s",
               }}
             >Monthly</button>
@@ -151,7 +143,7 @@ export default function QuoteQuickPricing() {
                 padding: "8px 18px", borderRadius: 999, border: "none", cursor: "pointer",
                 fontSize: 13, fontWeight: 600,
                 background: annual ? mkt.accent : "transparent",
-                color: annual ? mkt.dark : mkt.textMuted,
+                color: annual ? mkt.dark : mkt.onDarkMuted,
                 transition: "all 0.2s",
               }}
             >
@@ -170,23 +162,23 @@ export default function QuoteQuickPricing() {
           {/* SOLO */}
           <div style={{
             borderRadius: 16, padding: "32px 28px",
-            background: mkt.surface, border: `1px solid ${mkt.border}`,
+            background: mkt.sectionLight, border: `1px solid ${mkt.onDarkBorder}`,
           }}>
-            <p style={{ fontSize: 13, fontWeight: 700, color: mkt.textMuted, textTransform: "uppercase", letterSpacing: "0.05em", margin: "0 0 4px" }}>Solo</p>
-            <p style={{ fontSize: 13, color: mkt.textMuted, margin: "0 0 20px" }}>For one-person trades</p>
+            <p style={{ fontSize: 13, fontWeight: 700, color: mkt.onDarkMuted, textTransform: "uppercase", letterSpacing: "0.05em", margin: "0 0 4px" }}>Solo</p>
+            <p style={{ fontSize: 13, color: mkt.onDarkMuted, margin: "0 0 20px" }}>For one-person trades</p>
             <div style={{ display: "flex", alignItems: "flex-end", gap: 4, marginBottom: 4 }}>
-              <span style={{ fontSize: 40, fontWeight: 700, color: mkt.text, letterSpacing: "-0.02em", lineHeight: 1 }}>${soloPrice}</span>
-              <span style={{ fontSize: 14, color: mkt.textMuted, marginBottom: 6 }}>/mo</span>
+              <span style={{ fontSize: 40, fontWeight: 700, color: mkt.onDark, letterSpacing: "-0.02em", lineHeight: 1 }}>${soloPrice}</span>
+              <span style={{ fontSize: 14, color: mkt.onDarkMuted, marginBottom: 6 }}>/mo</span>
             </div>
             {annual && <p style={{ fontSize: 12, color: mkt.accent, margin: "0 0 20px" }}>Billed yearly (${soloPrice * 12}/yr)</p>}
-            {!annual && <p style={{ fontSize: 12, color: mkt.textMuted, margin: "0 0 20px" }}>${39}/mo billed annually</p>}
+            {!annual && <p style={{ fontSize: 12, color: mkt.onDarkMuted, margin: "0 0 20px" }}>${39}/mo billed annually</p>}
 
             <button
               onClick={() => startCheckout('solo')}
               disabled={!!checkoutLoading}
               style={{
-                width: "100%", padding: "14px", borderRadius: 10, border: `1px solid ${mkt.border}`,
-                background: "transparent", color: mkt.text, cursor: "pointer",
+                width: "100%", padding: "14px", borderRadius: 10, border: `1px solid ${mkt.onDarkBorder}`,
+                background: "transparent", color: mkt.onDark, cursor: "pointer",
                 fontSize: 14, fontWeight: 700, marginBottom: 6, transition: "all 0.15s",
                 opacity: checkoutLoading ? 0.6 : 1,
               }}
@@ -195,9 +187,9 @@ export default function QuoteQuickPricing() {
             >
               {checkoutLoading === 'solo' ? 'Redirecting...' : hasCalc ? 'Choose Solo' : 'Start Free Trial'}
             </button>
-            <p style={{ fontSize: 11, color: mkt.textMuted, textAlign: "center", margin: "0 0 20px" }}>{hasCalc ? 'Instant activation' : 'No credit card required'}</p>
+            <p style={{ fontSize: 11, color: mkt.onDarkMuted, textAlign: "center", margin: "0 0 20px" }}>{hasCalc ? 'Instant activation' : 'No credit card required'}</p>
 
-            <div style={{ borderTop: `1px solid ${mkt.border}`, paddingTop: 16 }}>
+            <div style={{ borderTop: `1px solid ${mkt.onDarkBorder}`, paddingTop: 16 }}>
               <Feature text="1 instant quote calculator" />
               <Feature text="Embed on any website" />
               <Feature text="Hosted quote page (no website needed)" />
@@ -212,7 +204,7 @@ export default function QuoteQuickPricing() {
           {/* BUSINESS */}
           <div style={{
             borderRadius: 16, padding: "32px 28px",
-            background: mkt.surface,
+            background: mkt.sectionLight,
             border: `2px solid ${mkt.accent}`,
             position: "relative",
           }}>
@@ -226,13 +218,13 @@ export default function QuoteQuickPricing() {
             </div>
 
             <p style={{ fontSize: 13, fontWeight: 700, color: mkt.accent, textTransform: "uppercase", letterSpacing: "0.05em", margin: "0 0 4px" }}>Business</p>
-            <p style={{ fontSize: 13, color: mkt.textMuted, margin: "0 0 20px" }}>For teams &amp; multi-service</p>
+            <p style={{ fontSize: 13, color: mkt.onDarkMuted, margin: "0 0 20px" }}>For teams &amp; multi-service</p>
             <div style={{ display: "flex", alignItems: "flex-end", gap: 4, marginBottom: 4 }}>
-              <span style={{ fontSize: 40, fontWeight: 700, color: mkt.text, letterSpacing: "-0.02em", lineHeight: 1 }}>${bizPrice}</span>
-              <span style={{ fontSize: 14, color: mkt.textMuted, marginBottom: 6 }}>/mo</span>
+              <span style={{ fontSize: 40, fontWeight: 700, color: mkt.onDark, letterSpacing: "-0.02em", lineHeight: 1 }}>${bizPrice}</span>
+              <span style={{ fontSize: 14, color: mkt.onDarkMuted, marginBottom: 6 }}>/mo</span>
             </div>
             {annual && <p style={{ fontSize: 12, color: mkt.accent, margin: "0 0 20px" }}>Billed yearly (${bizPrice * 12}/yr)</p>}
-            {!annual && <p style={{ fontSize: 12, color: mkt.textMuted, margin: "0 0 20px" }}>${79}/mo billed annually</p>}
+            {!annual && <p style={{ fontSize: 12, color: mkt.onDarkMuted, margin: "0 0 20px" }}>${79}/mo billed annually</p>}
 
             <button
               onClick={() => startCheckout('business')}
@@ -248,9 +240,9 @@ export default function QuoteQuickPricing() {
             >
               {checkoutLoading === 'business' ? 'Redirecting...' : hasCalc ? 'Choose Business' : 'Start Free Trial'}
             </button>
-            <p style={{ fontSize: 11, color: mkt.textMuted, textAlign: "center", margin: "0 0 20px" }}>{hasCalc ? 'Instant activation' : 'No credit card required'}</p>
+            <p style={{ fontSize: 11, color: mkt.onDarkMuted, textAlign: "center", margin: "0 0 20px" }}>{hasCalc ? 'Instant activation' : 'No credit card required'}</p>
 
-            <div style={{ borderTop: `1px solid ${mkt.border}`, paddingTop: 16 }}>
+            <div style={{ borderTop: `1px solid ${mkt.onDarkBorder}`, paddingTop: 16 }}>
               <Feature text="Everything in Solo, plus:" />
               <Feature text="Up to 5 calculators" highlight />
               <Feature text="SMS + WhatsApp follow-ups" highlight />
@@ -270,10 +262,10 @@ export default function QuoteQuickPricing() {
           background: mkt.accentTint, border: `1px solid rgba(102,232,250,0.15)`,
           textAlign: "center",
         }}>
-          <p style={{ fontSize: "clamp(16px, 2.5vw, 20px)", fontWeight: 700, color: mkt.text, margin: "0 0 6px" }}>
+          <p style={{ fontSize: "clamp(16px, 2.5vw, 20px)", fontWeight: 700, color: mkt.onDark, margin: "0 0 6px" }}>
             Most users recover the cost with their first lead.
           </p>
-          <p style={{ fontSize: 14, color: mkt.textMuted, margin: "0 0 20px", lineHeight: 1.6 }}>
+          <p style={{ fontSize: 14, color: mkt.onDarkMuted, margin: "0 0 20px", lineHeight: 1.6 }}>
             The average plumbing job is $200+. The average cleaning booking is $150+. One lead pays for itself.
           </p>
           <div style={{
@@ -287,8 +279,8 @@ export default function QuoteQuickPricing() {
             ].map(v => (
               <div key={v.label} style={{ padding: "12px 8px" }}>
                 <v.icon size={20} color={mkt.accent} style={{ margin: "0 auto 8px", display: "block" }} />
-                <p style={{ fontSize: 14, fontWeight: 600, color: mkt.text, margin: "0 0 2px" }}>{v.label}</p>
-                <p style={{ fontSize: 12, color: mkt.textMuted, margin: 0 }}>{v.sub}</p>
+                <p style={{ fontSize: 14, fontWeight: 600, color: mkt.onDark, margin: "0 0 2px" }}>{v.label}</p>
+                <p style={{ fontSize: 12, color: mkt.onDarkMuted, margin: 0 }}>{v.sub}</p>
               </div>
             ))}
           </div>
@@ -296,7 +288,7 @@ export default function QuoteQuickPricing() {
 
         {/* ─── WHAT THIS REPLACES ─── */}
         <div style={{ maxWidth: 560, margin: "0 auto clamp(48px, 6vw, 72px)" }}>
-          <h2 style={{ fontSize: "clamp(20px, 3vw, 26px)", fontWeight: 700, color: mkt.text, textAlign: "center", margin: "0 0 24px", letterSpacing: "-0.01em" }}>
+          <h2 style={{ fontSize: "clamp(20px, 3vw, 26px)", fontWeight: 700, color: mkt.onDark, textAlign: "center", margin: "0 0 24px", letterSpacing: "-0.01em" }}>
             What this replaces
           </h2>
           <div style={{ display: "flex", flexDirection: "column" }}>
@@ -312,7 +304,7 @@ export default function QuoteQuickPricing() {
 
         {/* ─── FAQ ─── */}
         <div style={{ maxWidth: 600, margin: "0 auto" }}>
-          <h2 style={{ fontSize: "clamp(20px, 3vw, 26px)", fontWeight: 700, color: mkt.text, textAlign: "center", margin: "0 0 24px", letterSpacing: "-0.01em" }}>
+          <h2 style={{ fontSize: "clamp(20px, 3vw, 26px)", fontWeight: 700, color: mkt.onDark, textAlign: "center", margin: "0 0 24px", letterSpacing: "-0.01em" }}>
             Common questions
           </h2>
           {FAQS.map(f => <FAQItem key={f.q} q={f.q} a={f.a} />)}
@@ -320,10 +312,10 @@ export default function QuoteQuickPricing() {
 
         {/* ─── BOTTOM CTA ─── */}
         <div style={{ textAlign: "center", marginTop: "clamp(48px, 6vw, 72px)" }}>
-          <p style={{ fontSize: "clamp(18px, 3vw, 24px)", fontWeight: 700, color: mkt.text, margin: "0 0 8px" }}>
+          <p style={{ fontSize: "clamp(18px, 3vw, 24px)", fontWeight: 700, color: mkt.onDark, margin: "0 0 8px" }}>
             Ready to start getting leads?
           </p>
-          <p style={{ fontSize: 14, color: mkt.textMuted, margin: "0 0 20px" }}>
+          <p style={{ fontSize: 14, color: mkt.onDarkMuted, margin: "0 0 20px" }}>
             14 days free. No credit card. Live in 5 minutes.
           </p>
           <button
@@ -341,6 +333,7 @@ export default function QuoteQuickPricing() {
           </button>
         </div>
       </div>
+      </V7PageShell>
     </MarketingLayout>
   );
 }

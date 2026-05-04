@@ -130,9 +130,9 @@ export default function DocsPage() {
 
         {/* Quick start strip */}
         {search === "" && (
-          <div style={{ background: mkt.surface, borderBottom: `1px solid ${mkt.border}`, padding: "28px 28px" }}>
+          <div style={{ background: mkt.sectionLight, borderBottom: `1px solid ${mkt.onDarkBorder}`, padding: "28px 28px" }}>
             <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: mkt.textMuted, letterSpacing: "0.1em", textTransform: "uppercase" as const, marginBottom: 16 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: mkt.onDarkMuted, letterSpacing: "0.1em", textTransform: "uppercase" as const, marginBottom: 16 }}>
                 Quickstart
               </div>
               <div className="qs-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
@@ -143,19 +143,19 @@ export default function DocsPage() {
                     data-testid={`quickstart-${label.toLowerCase().replace(/\s+/g, "-")}`}
                     style={{
                       display: "flex", gap: 12, padding: "14px 16px",
-                      background: mkt.bg, border: `1px solid ${mkt.border}`, borderRadius: 12,
+                      background: mkt.bg, border: `1px solid ${mkt.onDarkBorder}`, borderRadius: 12,
                       textDecoration: "none", alignItems: "flex-start",
                       boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
                       transition: "box-shadow 0.18s ease, border-color 0.18s ease",
                     }}
                     className="mkt-feature-card"
                   >
-                    <div style={{ width: 34, height: 34, borderRadius: 8, background: mkt.accentTint, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <div style={{ width: 34, height: 34, borderRadius: 8, background: "rgba(102,232,250,0.10)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                       <Icon size={16} color={mkt.accent} />
                     </div>
                     <div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: mkt.text, marginBottom: 2 }}>{label}</div>
-                      <div style={{ fontSize: 12, color: mkt.textMuted, lineHeight: 1.45 }}>{sub}</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: mkt.onDark, marginBottom: 2 }}>{label}</div>
+                      <div style={{ fontSize: 12, color: mkt.onDarkMuted, lineHeight: 1.45 }}>{sub}</div>
                     </div>
                   </Link>
                 ))}
@@ -169,7 +169,7 @@ export default function DocsPage() {
         <div style={{ background: mkt.bg, padding: "64px 28px 96px" }}>
           <div style={{ maxWidth: 1100, margin: "0 auto" }}>
             {search !== "" && (
-              <p style={{ fontSize: 14, color: mkt.textMuted, marginBottom: 24 }}>
+              <p style={{ fontSize: 14, color: mkt.onDarkMuted, marginBottom: 24 }}>
                 {filtered.length} result{filtered.length !== 1 ? "s" : ""} for "<strong>{search}</strong>"
               </p>
             )}
@@ -178,14 +178,14 @@ export default function DocsPage() {
                 <div style={{ fontSize: 11, fontWeight: 700, color: mkt.accent, letterSpacing: "0.12em", textTransform: "uppercase" as const, marginBottom: 12 }}>
                   All Guides
                 </div>
-                <h2 style={{ fontSize: "clamp(22px, 2.5vw, 32px)", fontWeight: 800, color: mkt.text, margin: 0, letterSpacing: "-0.02em" }}>
+                <h2 style={{ fontSize: "clamp(22px, 2.5vw, 32px)", fontWeight: 800, color: mkt.onDark, margin: 0, letterSpacing: "-0.02em" }}>
                   Everything you need to get results
                 </h2>
               </div>
             )}
 
             {filtered.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "60px 0", color: mkt.textMuted }}>
+              <div style={{ textAlign: "center", padding: "60px 0", color: mkt.onDarkMuted }}>
                 <MessageSquare size={32} color={mkt.border} style={{ marginBottom: 12 }} />
                 <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>No guides match "{search}"</div>
                 <div style={{ fontSize: 14 }}>Try a different keyword or <Link href="/contact" style={{ color: mkt.accent, fontWeight: 600, textDecoration: "none" }}>contact support</Link>.</div>
@@ -201,13 +201,13 @@ export default function DocsPage() {
                     className="mkt-feature-card"
                     style={{
                       display: "flex", flexDirection: "column", gap: 0,
-                      background: mkt.bg, border: `1px solid ${mkt.border}`, borderRadius: 16,
+                      background: mkt.bg, border: `1px solid ${mkt.onDarkBorder}`, borderRadius: 16,
                       padding: "28px 24px", textDecoration: "none",
                       boxShadow: "0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.05)",
                     }}
                   >
                     <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 18 }}>
-                      <div style={{ width: 48, height: 48, borderRadius: 12, background: mkt.accentTint, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <div style={{ width: 48, height: 48, borderRadius: 12, background: "rgba(102,232,250,0.10)", display: "flex", alignItems: "center", justifyContent: "center" }}>
                         <Icon size={22} color={mkt.accent} />
                       </div>
                       {badge && (
@@ -216,10 +216,10 @@ export default function DocsPage() {
                         </span>
                       )}
                     </div>
-                    <div style={{ fontSize: 17, fontWeight: 700, color: mkt.text, marginBottom: 8 }}>{title}</div>
-                    <div style={{ fontSize: 14, color: mkt.textMuted, lineHeight: 1.65, flex: 1, marginBottom: 20 }}>{description}</div>
+                    <div style={{ fontSize: 17, fontWeight: 700, color: mkt.onDark, marginBottom: 8 }}>{title}</div>
+                    <div style={{ fontSize: 14, color: mkt.onDarkMuted, lineHeight: 1.65, flex: 1, marginBottom: 20 }}>{description}</div>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                      <span style={{ fontSize: 12, color: mkt.textMuted }}>{time}</span>
+                      <span style={{ fontSize: 12, color: mkt.onDarkMuted }}>{time}</span>
                       <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13, fontWeight: 700, color: mkt.accent }}>
                         Read guide <ArrowRight size={13} />
                       </span>
@@ -233,12 +233,12 @@ export default function DocsPage() {
         </div>
 
         {/* Footer help band */}
-        <div style={{ background: mkt.surface, borderTop: `1px solid ${mkt.border}`, padding: "56px 28px", textAlign: "center" }}>
+        <div style={{ background: mkt.sectionLight, borderTop: `1px solid ${mkt.onDarkBorder}`, padding: "56px 28px", textAlign: "center" }}>
           <div style={{ maxWidth: 520, margin: "0 auto" }}>
-            <h3 style={{ fontSize: 22, fontWeight: 800, color: mkt.text, margin: "0 0 10px" }}>
+            <h3 style={{ fontSize: 22, fontWeight: 800, color: mkt.onDark, margin: "0 0 10px" }}>
               Can't find what you're looking for?
             </h3>
-            <p style={{ fontSize: 15, color: mkt.textMuted, margin: "0 0 24px", lineHeight: 1.65 }}>
+            <p style={{ fontSize: 15, color: mkt.onDarkMuted, margin: "0 0 24px", lineHeight: 1.65 }}>
               Our support team usually responds within 2 hours. We're real people — not a bot.
             </p>
             <Link

@@ -8,7 +8,7 @@ function QuoteMockup() {
     <div
       style={{
         background: mkt.bg,
-        border: `1px solid ${mkt.border}`,
+        border: `1px solid ${mkt.onDarkBorder}`,
         borderRadius: 20,
         padding: 28,
         width: "100%",
@@ -18,12 +18,12 @@ function QuoteMockup() {
     >
       {/* Form header */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 22, paddingBottom: 16, borderBottom: `1px solid ${mkt.borderLight}` }}>
-        <div style={{ width: 36, height: 36, borderRadius: 10, background: mkt.accentTint, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(102,232,250,0.10)", display: "flex", alignItems: "center", justifyContent: "center" }}>
           <Zap size={18} color={mkt.accent} />
         </div>
         <div>
           <div style={{ fontSize: 13, fontWeight: 700, color: mkt.text }}>Get an Instant Quote</div>
-          <div style={{ fontSize: 11, color: mkt.textMuted }}>Bathroom Renovation Calculator</div>
+          <div style={{ fontSize: 11, color: mkt.onDarkMuted }}>Bathroom Renovation Calculator</div>
         </div>
       </div>
 
@@ -34,42 +34,42 @@ function QuoteMockup() {
         { label: "Tiles Supplied", value: "By contractor", type: "select" },
       ].map(({ label, value, type, pct }) => (
         <div key={label} style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: mkt.textMuted, marginBottom: 6 }}>{label}</div>
+          <div style={{ fontSize: 12, fontWeight: 600, color: mkt.onDarkMuted, marginBottom: 6 }}>{label}</div>
           {type === "range" ? (
             <div>
-              <div style={{ height: 6, background: mkt.surface, borderRadius: 3, marginBottom: 6, overflow: "hidden" }}>
+              <div style={{ height: 6, background: mkt.sectionLight, borderRadius: 3, marginBottom: 6, overflow: "hidden" }}>
                 <div style={{ width: `${pct}%`, height: "100%", background: `linear-gradient(90deg, ${mkt.accent}, ${mkt.accent})`, borderRadius: 3 }} />
               </div>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ fontSize: 11, color: mkt.textMuted }}>5 m²</span>
+                <span style={{ fontSize: 11, color: mkt.onDarkMuted }}>5 m²</span>
                 <span style={{ fontSize: 12, fontWeight: 700, color: mkt.accent }}>{value}</span>
-                <span style={{ fontSize: 11, color: mkt.textMuted }}>50 m²</span>
+                <span style={{ fontSize: 11, color: mkt.onDarkMuted }}>50 m²</span>
               </div>
             </div>
           ) : (
-            <div style={{ background: mkt.surface, border: `1px solid ${mkt.border}`, borderRadius: 9, padding: "9px 14px", fontSize: 13, fontWeight: 500, color: mkt.text, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ background: mkt.sectionLight, border: `1px solid ${mkt.onDarkBorder}`, borderRadius: 9, padding: "9px 14px", fontSize: 13, fontWeight: 500, color: mkt.onDark, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span>{value}</span>
-              <span style={{ color: mkt.textMuted, fontSize: 10 }}>▾</span>
+              <span style={{ color: mkt.onDarkMuted, fontSize: 10 }}>▾</span>
             </div>
           )}
         </div>
       ))}
 
       {/* Result */}
-      <div style={{ background: mkt.accentTint, borderRadius: 14, padding: "20px 22px", marginTop: 8 }}>
+      <div style={{ background: "rgba(102,232,250,0.10)", borderRadius: 14, padding: "20px 22px", marginTop: 8 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
-          <span style={{ background: mkt.accentTint, borderRadius: 20, fontSize: 11, fontWeight: 700, color: mkt.accent, padding: "2px 10px" }}>
+          <span style={{ background: "rgba(102,232,250,0.10)", borderRadius: 20, fontSize: 11, fontWeight: 700, color: mkt.accent, padding: "2px 10px" }}>
             ✓ Estimate Ready
           </span>
-          <span style={{ fontSize: 11, color: mkt.textMuted, marginLeft: "auto" }}>Calculated in 0.2s</span>
+          <span style={{ fontSize: 11, color: mkt.onDarkMuted, marginLeft: "auto" }}>Calculated in 0.2s</span>
         </div>
         <div style={{ fontSize: 34, fontWeight: 800, color: mkt.accent, letterSpacing: "-0.02em" }}>$1,240 – $1,680</div>
-        <div style={{ fontSize: 12, color: mkt.textMuted, marginTop: 4 }}>Valid for 7 days · Includes GST</div>
+        <div style={{ fontSize: 12, color: mkt.onDarkMuted, marginTop: 4 }}>Valid for 7 days · Includes GST</div>
         <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
           <div style={{ flex: 1, background: mkt.accent, borderRadius: 9, padding: "10px", textAlign: "center", fontSize: 13, fontWeight: 700, color: "#FFFFFF" }}>
             Book Now
           </div>
-          <div style={{ flex: 1, background: mkt.accentTint, border: `1px solid ${mkt.accent}30`, borderRadius: 9, padding: "10px", textAlign: "center", fontSize: 12, fontWeight: 600, color: mkt.accent }}>
+          <div style={{ flex: 1, background: "rgba(102,232,250,0.10)", border: `1px solid ${mkt.accent}30`, borderRadius: 9, padding: "10px", textAlign: "center", fontSize: 12, fontWeight: 600, color: mkt.accent }}>
             Get Quote PDF
           </div>
         </div>

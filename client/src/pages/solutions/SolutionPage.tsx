@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useParams, Link } from "wouter";
 import { Check, ArrowRight, Phone, Wrench, Zap, Home, Sparkles, Fan } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
+import { V7Hero, V7PageShell } from "@/components/marketing/v7";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
 import { IconBadge } from "@/components/IconBadge";
 import NotFound from "@/pages/not-found";
@@ -195,69 +196,17 @@ export default function SolutionPage() {
 
   return (
     <MarketingLayout>
+      <V7PageShell>
       <div data-testid={`solution-page-${solution.slug}`}>
-
-        <section
-          style={{
-            background: `linear-gradient(160deg, ${mkt.dark} 0%, #0F2744 55%, #1a3550 100%)`,
-            padding: "90px 28px 80px",
-            textAlign: "center",
-            position: "relative",
-            overflow: "hidden",
-          }}
-          data-testid="solution-hero"
-        >
-          <div style={{ position: "absolute", top: -80, right: -80, width: 420, height: 420, borderRadius: "50%", background: mkt.accentGlow, pointerEvents: "none" }} />
-          <div style={{ position: "absolute", bottom: -60, left: -60, width: 300, height: 300, borderRadius: "50%", background: "rgba(47,107,255,0.08)", pointerEvents: "none" }} />
-
-          <div style={{ maxWidth: 720, margin: "0 auto", position: "relative" }}>
-            <div style={{
-              display: "inline-flex", alignItems: "center", gap: 8,
-              background: mkt.accentGlow, border: `1px solid ${mkt.accent}`,
-              borderRadius: 20, padding: "6px 18px", marginBottom: 28,
-            }}>
-              <HeroIcon size={16} color={mkt.onDark} strokeWidth={2} />
-              <span style={{ fontSize: 12, fontWeight: 700, color: mkt.onDark, letterSpacing: "0.04em" }}>
-                FOR {solution.trade.toUpperCase()}
-              </span>
-            </div>
-
-            <h1
-              data-testid="solution-headline"
-              style={{
-                fontSize: "clamp(32px, 4.5vw, 54px)",
-                fontWeight: 700, color: mkt.onDark,
-                lineHeight: 1.08, letterSpacing: "-0.035em",
-                marginBottom: 20,
-              }}
-            >
-              {solution.headline}
-            </h1>
-
-            <p style={{ fontSize: "clamp(16px, 1.8vw, 19px)", color: mkt.onDarkFaint, lineHeight: 1.65, maxWidth: 560, margin: "0 auto 40px" }}>
-              {solution.subheadline}
-            </p>
-
-            <div style={{ display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap" }}>
-              <Link
-                href="/pricing"
-                data-testid="solution-cta-pricing"
-                className="mkt-btn-primary"
-                style={{ padding: "14px 32px", borderRadius: 9999, background: mkt.accent, color: mkt.onDark, fontSize: 15, fontWeight: 700, textDecoration: "none", display: "inline-block" }}
-              >
-                See Pricing
-              </Link>
-              <Link
-                href="/demos"
-                data-testid="solution-cta-demos"
-                className="mkt-btn-ghost"
-                style={{ padding: "14px 26px", borderRadius: 9999, background: "transparent", color: mkt.onDark, fontSize: 15, fontWeight: 600, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 8, border: `1.5px solid ${mkt.onDarkBorder}` }}
-              >
-                Watch Demos
-              </Link>
-            </div>
-          </div>
-        </section>
+        <V7Hero
+          productName={`For ${solution.trade}`}
+          headline={solution.headline}
+          sub={solution.subheadline}
+          ctas={[
+            { label: "See Pricing", href: "/pricing" },
+            { label: "Watch Demos", href: "/demos" },
+          ]}
+        />
 
         <section style={{ background: mkt.bg, padding: "72px 28px" }} data-testid="solution-pain-points">
           <div style={{ maxWidth: 800, margin: "0 auto" }} data-reveal="fade-up">
@@ -265,7 +214,7 @@ export default function SolutionPage() {
               <div style={{ fontSize: 11, fontWeight: 700, color: mkt.accent, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>
                 Sound Familiar?
               </div>
-              <h2 style={{ fontSize: "clamp(24px, 3vw, 36px)", fontWeight: 700, color: mkt.text, letterSpacing: "-0.025em" }}>
+              <h2 style={{ fontSize: "clamp(24px, 3vw, 36px)", fontWeight: 700, color: mkt.onDark, letterSpacing: "-0.025em" }}>
                 Common challenges for {solution.trade.toLowerCase()}
               </h2>
             </div>
@@ -275,9 +224,9 @@ export default function SolutionPage() {
                   key={p}
                   style={{
                     display: "flex", alignItems: "flex-start", gap: 12,
-                    fontSize: 15, color: mkt.textMuted, lineHeight: 1.5,
-                    padding: "14px 18px", background: mkt.surface,
-                    borderRadius: 12, border: `1px solid ${mkt.border}`,
+                    fontSize: 15, color: mkt.onDarkMuted, lineHeight: 1.5,
+                    padding: "14px 18px", background: mkt.sectionLight,
+                    borderRadius: 12, border: `1px solid ${mkt.onDarkBorder}`,
                   }}
                 >
                   <span style={{ color: mkt.orange, fontSize: 18, lineHeight: 1, flexShrink: 0 }}>&bull;</span>
@@ -288,10 +237,10 @@ export default function SolutionPage() {
           </div>
         </section>
 
-        <section style={{ background: mkt.surface, padding: "72px 28px" }} data-testid="solution-outcomes">
+        <section style={{ background: mkt.sectionLight, padding: "72px 28px" }} data-testid="solution-outcomes">
           <div style={{ maxWidth: 900, margin: "0 auto" }}>
             <div style={{ textAlign: "center", marginBottom: 48 }} data-reveal="fade-up">
-              <h2 style={{ fontSize: "clamp(24px, 3vw, 36px)", fontWeight: 700, color: mkt.text, letterSpacing: "-0.025em" }}>
+              <h2 style={{ fontSize: "clamp(24px, 3vw, 36px)", fontWeight: 700, color: mkt.onDark, letterSpacing: "-0.025em" }}>
                 Results you can expect
               </h2>
             </div>
@@ -306,7 +255,7 @@ export default function SolutionPage() {
                   style={{
                     textAlign: "center",
                     background: mkt.bg,
-                    border: `1px solid ${mkt.border}`,
+                    border: `1px solid ${mkt.onDarkBorder}`,
                     borderRadius: 16,
                     padding: "28px 16px",
                     boxShadow: shadows.card,
@@ -315,7 +264,7 @@ export default function SolutionPage() {
                   <div style={{ fontSize: "clamp(28px, 3vw, 40px)", fontWeight: 700, color: mkt.accent, marginBottom: 8 }}>
                     {o.stat}
                   </div>
-                  <div style={{ fontSize: 14, fontWeight: 500, color: mkt.textMuted, lineHeight: 1.4 }}>
+                  <div style={{ fontSize: 14, fontWeight: 500, color: mkt.onDarkMuted, lineHeight: 1.4 }}>
                     {o.label}
                   </div>
                 </div>
@@ -331,7 +280,7 @@ export default function SolutionPage() {
               <div style={{ fontSize: 11, fontWeight: 700, color: mkt.accent, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>
                 Recommended Stack
               </div>
-              <h2 style={{ fontSize: "clamp(24px, 3vw, 36px)", fontWeight: 700, color: mkt.text, letterSpacing: "-0.025em" }}>
+              <h2 style={{ fontSize: "clamp(24px, 3vw, 36px)", fontWeight: 700, color: mkt.onDark, letterSpacing: "-0.025em" }}>
                 The perfect toolkit for {solution.trade.toLowerCase()}
               </h2>
             </div>
@@ -352,7 +301,7 @@ export default function SolutionPage() {
                     className="mkt-feature-card"
                     style={{
                       background: mkt.bg,
-                      border: `1px solid ${mkt.border}`,
+                      border: `1px solid ${mkt.onDarkBorder}`,
                       borderRadius: 18,
                       padding: "28px 24px",
                       cursor: "pointer",
@@ -366,10 +315,10 @@ export default function SolutionPage() {
                     <div style={{ marginBottom: 16 }}>
                       <IconBadge name={product.icon} size={22} />
                     </div>
-                    <h3 style={{ fontSize: 17, fontWeight: 700, color: mkt.text, marginBottom: 10, lineHeight: 1.3 }}>
+                    <h3 style={{ fontSize: 17, fontWeight: 700, color: mkt.onDark, marginBottom: 10, lineHeight: 1.3 }}>
                       {product.name}
                     </h3>
-                    <p style={{ fontSize: 14, color: mkt.textMuted, lineHeight: 1.6, margin: 0, flex: 1 }}>
+                    <p style={{ fontSize: 14, color: mkt.onDarkMuted, lineHeight: 1.6, margin: 0, flex: 1 }}>
                       {product.desc}
                     </p>
                     <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 13, fontWeight: 700, color: mkt.accent, marginTop: 16 }}>
@@ -449,6 +398,7 @@ export default function SolutionPage() {
         </section>
 
       </div>
+      </V7PageShell>
     </MarketingLayout>
   );
 }

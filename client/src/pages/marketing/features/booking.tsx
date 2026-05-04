@@ -12,7 +12,7 @@ function BookingMockup() {
     <div
       style={{
         background: mkt.bg,
-        border: `1px solid ${mkt.border}`,
+        border: `1px solid ${mkt.onDarkBorder}`,
         borderRadius: 20,
         padding: 28,
         width: "100%",
@@ -23,10 +23,10 @@ function BookingMockup() {
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
         <div>
-          <div style={{ fontSize: 12, color: mkt.textMuted, marginBottom: 2 }}>Available slots</div>
+          <div style={{ fontSize: 12, color: mkt.onDarkMuted, marginBottom: 2 }}>Available slots</div>
           <div style={{ fontSize: 18, fontWeight: 700, color: mkt.text }}>March 2026</div>
         </div>
-        <div style={{ fontSize: 11, fontWeight: 700, background: mkt.accentTint, color: mkt.accent, padding: "4px 12px", borderRadius: 20 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, background: "rgba(102,232,250,0.10)", color: mkt.accent, padding: "4px 12px", borderRadius: 20 }}>
           Deposits via Stripe ✓
         </div>
       </div>
@@ -34,7 +34,7 @@ function BookingMockup() {
       {/* Day labels */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, marginBottom: 6 }}>
         {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => (
-          <div key={i} style={{ textAlign: "center", fontSize: 11, fontWeight: 600, color: mkt.textMuted, padding: "4px 0" }}>{d}</div>
+          <div key={i} style={{ textAlign: "center", fontSize: 11, fontWeight: 600, color: mkt.onDarkMuted, padding: "4px 0" }}>{d}</div>
         ))}
       </div>
 
@@ -49,7 +49,7 @@ function BookingMockup() {
               fontSize: 13, fontWeight: isSel ? 700 : 500,
               background: isSel ? mkt.accent : isNA ? "transparent" : mkt.surface,
               color: isSel ? "#FFFFFF" : isNA ? mkt.border : mkt.text,
-              border: isSel ? "none" : isNA ? "none" : `1px solid ${mkt.border}`,
+              border: isSel ? "none" : isNA ? "none" : `1px solid ${mkt.onDarkBorder}`,
             }}>
               {isNA ? <span style={{ textDecoration: "line-through" }}>{d}</span> : d}
             </div>
@@ -68,7 +68,7 @@ function BookingMockup() {
             display: "flex", justifyContent: "space-between", alignItems: "center",
             padding: "11px 14px", borderRadius: 10,
             background: sel ? mkt.accent : mkt.surface,
-            border: sel ? "none" : `1px solid ${mkt.border}`,
+            border: sel ? "none" : `1px solid ${mkt.onDarkBorder}`,
           }}>
             <span style={{ fontSize: 13, fontWeight: 600, color: sel ? "#FFFFFF" : mkt.text }}>{time}</span>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>

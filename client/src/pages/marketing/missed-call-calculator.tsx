@@ -34,7 +34,7 @@ function CalcSeoTabs() {
   return (
     <div style={{
       marginTop: 'clamp(48px, 8vw, 80px)',
-      borderTop: `1px solid ${mkt.border}`,
+      borderTop: `1px solid ${mkt.onDarkBorder}`,
       paddingTop: 'clamp(32px, 6vw, 56px)',
       maxWidth: 640,
       marginLeft: 'auto',
@@ -58,7 +58,7 @@ function CalcSeoTabs() {
                 borderRadius: 9999,
                 border: `1px solid ${isActive ? 'rgba(102,232,250,0.3)' : mkt.border}`,
                 background: isActive ? 'rgba(102,232,250,0.08)' : 'transparent',
-                color: isActive ? mkt.accent : mkt.textMuted,
+                color: isActive ? mkt.accent : mkt.onDarkMuted,
                 fontSize: 13,
                 fontWeight: 600,
                 cursor: 'pointer',
@@ -87,7 +87,7 @@ function CalcSeoTabs() {
         </h2>
         <p style={{
           fontSize: 14,
-          color: mkt.textMuted,
+          color: mkt.onDarkMuted,
           lineHeight: 1.7,
           margin: 0,
         }}>
@@ -180,10 +180,10 @@ export default function MissedCallCalculator() {
         padding: 'clamp(100px, 12vw, 140px) clamp(16px, 5vw, 40px) clamp(48px, 8vw, 80px)',
       }}>
         {/* Breadcrumb */}
-        <nav aria-label="breadcrumb" style={{ maxWidth: 640, margin: '0 auto 16px', fontSize: 13, color: mkt.textMuted }}>
-          <Link href="/" style={{ color: mkt.textMuted, textDecoration: 'none' }}>Home</Link>
+        <nav aria-label="breadcrumb" style={{ maxWidth: 640, margin: '0 auto 16px', fontSize: 13, color: mkt.onDarkMuted }}>
+          <Link href="/" style={{ color: mkt.onDarkMuted, textDecoration: 'none' }}>Home</Link>
           <span style={{ margin: '0 6px' }}>/</span>
-          <Link href="/tools" style={{ color: mkt.textMuted, textDecoration: 'none' }}>Free Tools</Link>
+          <Link href="/tools" style={{ color: mkt.onDarkMuted, textDecoration: 'none' }}>Free Tools</Link>
           <span style={{ margin: '0 6px' }}>/</span>
           <span style={{ color: mkt.text }}>Missed Call Calculator</span>
         </nav>
@@ -200,7 +200,7 @@ export default function MissedCallCalculator() {
 
         <div style={{
           marginTop: 'clamp(24px, 4vw, 40px)',
-          borderTop: `1px solid ${mkt.border}`,
+          borderTop: `1px solid ${mkt.onDarkBorder}`,
           paddingTop: 'clamp(32px, 6vw, 56px)',
         }}>
           <FAQSection />

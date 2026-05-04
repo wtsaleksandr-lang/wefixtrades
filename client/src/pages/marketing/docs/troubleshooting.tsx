@@ -141,7 +141,7 @@ export default function DocsTroubleshooting() {
       </Accordion>
 
       <Accordion title="I want to cancel or change my plan" icon="💼">
-        <p style={{ fontSize: 14, color: mkt.textMuted, lineHeight: 1.7, margin: 0 }}>
+        <p style={{ fontSize: 14, color: mkt.onDarkMuted, lineHeight: 1.7, margin: 0 }}>
           Go to Dashboard → Settings → Plan → Manage Subscription. You can downgrade, upgrade, or cancel at any time. Cancellations take effect at the end of the current billing period. Your data is retained for 90 days after cancellation in case you return.
         </p>
       </Accordion>
