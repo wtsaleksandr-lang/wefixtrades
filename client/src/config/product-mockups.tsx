@@ -16,6 +16,17 @@ import {
 } from "@/components/effortel-blocks";
 import MapMockup from "@/pages/products/mapguard/MapMockup";
 import TradeLineChatDemo from "@/components/product-demos/TradeLineChatDemo";
+import QuoteQuickDemo from "@/components/product-demos/QuoteQuickDemo";
+import MapGuardDemo from "@/components/product-demos/MapGuardDemo";
+import ReputationShieldDemo from "@/components/product-demos/ReputationShieldDemo";
+import SocialSyncDemo from "@/components/product-demos/SocialSyncDemo";
+import RankFlowDemo from "@/components/product-demos/RankFlowDemo";
+import ContentFlowDemo from "@/components/product-demos/ContentFlowDemo";
+import AdFlowDemo from "@/components/product-demos/AdFlowDemo";
+import BookFlowDemo from "@/components/product-demos/BookFlowDemo";
+import WebCareDemo from "@/components/product-demos/WebCareDemo";
+import WebFixDemo from "@/components/product-demos/WebFixDemo";
+import SiteLaunchDemo from "@/components/product-demos/SiteLaunchDemo";
 
 export interface ProductMockupSection {
   number: string;
@@ -156,11 +167,16 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       title: "Instant On-Site Quotes",
       description: "Customers get accurate prices on your website 24/7 — even when you're on a job site. Every quote becomes a captured lead.",
       cta: { label: "Try Demo", href: "/tools/quote-demo" },
-      mockup: <Wide><StatTrio
-        a={{ value: "$2 480", label: "Bathroom remodel", color: "cyanSoft", icon: <Calculator size={16} /> }}
-        b={{ value: "$640", label: "Drain unblock", color: "lavender", icon: <Calculator size={16} /> }}
-        c={{ value: "$1 250", label: "Boiler install", color: "mint", icon: <Calculator size={16} /> }}
-      /></Wide>,
+      mockup: (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr", gap: 32, maxWidth: 880, width: "100%", alignItems: "center" }} className="effortel-grid-2">
+          <div style={{ display: "grid", gridTemplateRows: "1fr 1fr 1fr", gap: 12 }}>
+            <StatTile value="$2 480" label="Bathroom remodel" color="cyanSoft" size="sm" icon={<Calculator size={14} />} />
+            <StatTile value="$640" label="Drain unblock" color="lavender" size="sm" icon={<Calculator size={14} />} />
+            <StatTile value="$1 250" label="Boiler install" color="mint" size="sm" icon={<Calculator size={14} />} />
+          </div>
+          <QuoteQuickDemo />
+        </div>
+      ),
     },
     {
       number: "02",
@@ -216,16 +232,15 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       title: "Your Profile, Always Optimized",
       description: "We monitor your Google Business Profile every week and fix issues before customers see them — wrong hours, broken images, missing categories.",
       cta: { label: "See Sample Report", href: "/tools/free-audit" },
-      // Uses the bespoke animated MapMockup (with pulsing pins + ranked numbers)
-      // that already existed on the old MapGuard page — keeps the "wow" visual,
-      // wraps it in V7 styling on the side stat tiles.
-      mockup: <div style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr", gap: 24, maxWidth: 880, width: "100%", alignItems: "center" }}>
-        <MapMockup />
-        <div style={{ display: "grid", gridTemplateRows: "1fr 1fr 1fr", gap: 14 }}>
+      // Uses the new animated MapGuardDemo (live-fixing pins + score ticker)
+      // alongside V7 stat tiles for context.
+      mockup: <div style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr", gap: 32, maxWidth: 880, width: "100%", alignItems: "center" }} className="effortel-grid-2">
+        <div style={{ display: "grid", gridTemplateRows: "1fr 1fr 1fr", gap: 12 }}>
           <StatTile value="89" label="Profile score" color="mint" size="sm" icon={<Eye size={14} />} />
           <StatTile value="12" label="Issues fixed" color="lavender" size="sm" icon={<ShieldCheck size={14} />} />
           <StatTile value="#3" label="Map pack rank" color="cyanSoft" size="sm" icon={<TrendingUp size={14} />} />
         </div>
+        <MapGuardDemo />
       </div>,
     },
     {
@@ -277,10 +292,16 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       title: "Every Review Gets a Reply",
       description: "AI drafts a personalized reply to every review within minutes. You approve or it auto-sends after your set timeout.",
       cta: { label: "See Sample", href: "/demos/reputationshield" },
-      mockup: <Wide><div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-        <ReviewTile author="Sarah K." stars={5} text="They came out same-day for our burst pipe. Saved us thousands." status="replied" color="cyanSoft" />
-        <ReviewTile author="Mike R." stars={2} text="Took longer than expected and the price went up mid-job." status="flagged" color="pink" />
-      </div></Wide>,
+      mockup: (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr", gap: 32, maxWidth: 880, width: "100%", alignItems: "center" }} className="effortel-grid-2">
+          <div style={{ display: "grid", gridTemplateRows: "1fr 1fr 1fr", gap: 12 }}>
+            <StatTile value="247" label="Reviews this year" color="cyanSoft" size="sm" icon={<Star size={14} />} />
+            <StatTile value="< 30m" label="Avg reply time" color="lavender" size="sm" icon={<MessageSquare size={14} />} />
+            <StatTile value="+1.2★" label="30-day lift" color="mint" size="sm" icon={<TrendingUp size={14} />} />
+          </div>
+          <ReputationShieldDemo />
+        </div>
+      ),
     },
     {
       number: "02",
@@ -334,13 +355,16 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       title: "AI-Drafted Posts, Your Voice",
       description: "Branded social posts written for your audience. Approved by you, scheduled by us. Never run out of content.",
       cta: { label: "Try Demo", href: "/demos/socialsync" },
-      mockup: <Wide><div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 16 }}>
-        <CalendarTile cells={["booked", "booked", "today", "free", "booked", "booked", "free", "booked", "booked", "booked", "free", "booked", "booked", "free"]} label="Content calendar" color="lavender" />
-        <div style={{ display: "grid", gridTemplateRows: "1fr 1fr", gap: 16 }}>
-          <StatTile value="12/wk" label="Posts created" color="cyanSoft" size="sm" />
-          <StatTile value="+340%" label="Engagement" color="mint" size="sm" />
+      mockup: (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr", gap: 32, maxWidth: 880, width: "100%", alignItems: "center" }} className="effortel-grid-2">
+          <div style={{ display: "grid", gridTemplateRows: "1fr 1fr 1fr", gap: 12 }}>
+            <StatTile value="12/wk" label="Posts auto-drafted" color="cyanSoft" size="sm" icon={<PenTool size={14} />} />
+            <StatTile value="4" label="Channels per click" color="lavender" size="sm" icon={<Send size={14} />} />
+            <StatTile value="+340%" label="Engagement lift" color="mint" size="sm" icon={<TrendingUp size={14} />} />
+          </div>
+          <SocialSyncDemo />
         </div>
-      </div></Wide>,
+      ),
     },
     {
       number: "02",
@@ -393,18 +417,16 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       title: "Track Every Keyword That Matters",
       description: "Monitor your rank for the searches that drive trades work in your area. Daily checks, weekly reports, monthly trend lines.",
       cta: { label: "Try Free SEO Check", href: "/demos/rankflow" },
-      mockup: <Wide><div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 16 }}>
-        <RankTile color="cyanSoft" rows={[
-          { keyword: "emergency plumber austin", pos: 3, delta: -2 },
-          { keyword: "drain cleaning 78704", pos: 1, delta: -4 },
-          { keyword: "water heater repair", pos: 7, delta: -1 },
-          { keyword: "burst pipe weekend", pos: 12, delta: 0 },
-        ]} />
-        <div style={{ display: "grid", gridTemplateRows: "1fr 1fr", gap: 16 }}>
-          <StatTile value="47" label="Keywords tracked" color="mint" size="sm" />
-          <StatTile value="+18" label="Page-1 wins" color="lavender" size="sm" />
+      mockup: (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr", gap: 32, maxWidth: 880, width: "100%", alignItems: "center" }} className="effortel-grid-2">
+          <div style={{ display: "grid", gridTemplateRows: "1fr 1fr 1fr", gap: 12 }}>
+            <StatTile value="47" label="Keywords tracked" color="mint" size="sm" icon={<Eye size={14} />} />
+            <StatTile value="+18" label="Page-1 wins, 90d" color="lavender" size="sm" icon={<TrendingUp size={14} />} />
+            <StatTile value="+38%" label="Organic clicks" color="cyanSoft" size="sm" icon={<TrendingUp size={14} />} />
+          </div>
+          <RankFlowDemo />
         </div>
-      </div></Wide>,
+      ),
     },
     {
       number: "02",
@@ -455,11 +477,16 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       title: "A Trade-Ready Site, Done For You",
       description: "Pick a template, drop in your services, and we ship a hosted site that's optimized for Google and converts trade visitors.",
       cta: { label: "See What's Included", href: "/products/sitelaunch" },
-      mockup: <Wide><StatTrio
-        a={{ value: "5–7 days", label: "From kickoff to live", color: "cyanSoft", icon: <Clock size={16} /> }}
-        b={{ value: "98", label: "Lighthouse score", color: "mint", icon: <Zap size={16} /> }}
-        c={{ value: "$0", label: "Hosting fees", color: "lavender", icon: <ShieldCheck size={16} /> }}
-      /></Wide>,
+      mockup: (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr", gap: 32, maxWidth: 880, width: "100%", alignItems: "center" }} className="effortel-grid-2">
+          <div style={{ display: "grid", gridTemplateRows: "1fr 1fr 1fr", gap: 12 }}>
+            <StatTile value="5–7 days" label="Kickoff to live" color="cyanSoft" size="sm" icon={<Clock size={14} />} />
+            <StatTile value="98" label="Lighthouse mobile" color="mint" size="sm" icon={<Zap size={14} />} />
+            <StatTile value="$0" label="Hosting fees" color="lavender" size="sm" icon={<ShieldCheck size={14} />} />
+          </div>
+          <SiteLaunchDemo />
+        </div>
+      ),
     },
     {
       number: "02",
@@ -511,13 +538,16 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       title: "Your Site, Watched 24/7",
       description: "Uptime checks every 15 minutes. The moment your site goes down, we know — and so does our on-call team.",
       cta: { label: "Learn More", href: "/products/webcare" },
-      mockup: <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 16, maxWidth: 720, width: "100%" }}>
-        <GaugeTile value={99} suffix=".99%" label="30-day uptime" color="cyanSoft" />
-        <div style={{ display: "grid", gridTemplateRows: "1fr 1fr", gap: 16 }}>
-          <StatTile value="2,880" label="Checks/mo" color="mint" size="sm" />
-          <StatTile value="< 30s" label="Alert latency" color="lavender" size="sm" />
+      mockup: (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr", gap: 32, maxWidth: 880, width: "100%", alignItems: "center" }} className="effortel-grid-2">
+          <div style={{ display: "grid", gridTemplateRows: "1fr 1fr 1fr", gap: 12 }}>
+            <StatTile value="99.99%" label="30-day uptime" color="mint" size="sm" icon={<ShieldCheck size={14} />} />
+            <StatTile value="2,880" label="Checks / month" color="cyanSoft" size="sm" icon={<Clock size={14} />} />
+            <StatTile value="< 30s" label="Alert latency" color="lavender" size="sm" icon={<Zap size={14} />} />
+          </div>
+          <WebCareDemo />
         </div>
-      </div>,
+      ),
     },
     {
       number: "02",
@@ -570,12 +600,16 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       title: "Audit, In Minutes",
       description: "Drop your URL — we score performance, SEO, accessibility, and best practices with explained issues you can act on.",
       cta: { label: "Try Free Audit", href: "/tools/free-audit" },
-      mockup: <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, maxWidth: 720, width: "100%" }}>
-        <GaugeTile value={42} label="Before" color="pink" />
-        <GaugeTile value={71} label="Week 1" color="lavender" />
-        <GaugeTile value={89} label="Week 2" color="cyanSoft" />
-        <GaugeTile value={98} label="Week 4" color="mint" />
-      </div>,
+      mockup: (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr", gap: 32, maxWidth: 880, width: "100%", alignItems: "center" }} className="effortel-grid-2">
+          <div style={{ display: "grid", gridTemplateRows: "1fr 1fr 1fr", gap: 12 }}>
+            <StatTile value="42 → 98" label="Lighthouse climb" color="mint" size="sm" icon={<Zap size={14} />} />
+            <StatTile value="23 → 1" label="Issues fixed" color="cyanSoft" size="sm" icon={<ShieldCheck size={14} />} />
+            <StatTile value="+184%" label="Organic traffic" color="lavender" size="sm" icon={<TrendingUp size={14} />} />
+          </div>
+          <WebFixDemo />
+        </div>
+      ),
     },
     {
       number: "02",
@@ -629,11 +663,16 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       title: "AI-Drafted Articles, Trade-Specific",
       description: "Content tuned to your trade, your service area, and your voice. Drafted weekly, approved by you, published automatically.",
       cta: { label: "See Sample", href: "/products/contentflow" },
-      mockup: <Wide><StatTrio
-        a={{ value: "4–8/mo", label: "Articles drafted", color: "cyanSoft", icon: <PenTool size={16} /> }}
-        b={{ value: "~ 1 hr", label: "Your time per month", color: "lavender", icon: <Clock size={16} /> }}
-        c={{ value: "1 click", label: "To approve & publish", color: "mint", icon: <Send size={16} /> }}
-      /></Wide>,
+      mockup: (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr", gap: 32, maxWidth: 880, width: "100%", alignItems: "center" }} className="effortel-grid-2">
+          <div style={{ display: "grid", gridTemplateRows: "1fr 1fr 1fr", gap: 12 }}>
+            <StatTile value="4–8/mo" label="Articles drafted" color="cyanSoft" size="sm" icon={<PenTool size={14} />} />
+            <StatTile value="~1 hr" label="Your time / month" color="lavender" size="sm" icon={<Clock size={14} />} />
+            <StatTile value="+184%" label="Organic traffic" color="mint" size="sm" icon={<TrendingUp size={14} />} />
+          </div>
+          <ContentFlowDemo />
+        </div>
+      ),
     },
     {
       number: "02",
@@ -688,11 +727,16 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       title: "Google Ads, Run For You",
       description: "Real campaigns, managed by humans + AI. We tune bids, swap creative, and pause losers — every week.",
       cta: { label: "Learn More", href: "/products/adflow" },
-      mockup: <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, maxWidth: 720, width: "100%" }}>
-        <StatTile value="$42" label="Cost-per-lead, before" color="pink" size="lg" icon={<TrendingUp size={16} />} />
-        <StatTile value="$28" label="Week 2" color="lavender" size="lg" icon={<Sparkles size={16} />} />
-        <StatTile value="$19" label="Week 4" color="mint" size="lg" icon={<Zap size={16} />} />
-      </div>,
+      mockup: (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr", gap: 32, maxWidth: 880, width: "100%", alignItems: "center" }} className="effortel-grid-2">
+          <div style={{ display: "grid", gridTemplateRows: "1fr 1fr 1fr", gap: 12 }}>
+            <StatTile value="$42→$19" label="Cost per lead, 4 wks" color="cyanSoft" size="sm" icon={<TrendingUp size={14} />} />
+            <StatTile value="3.2×" label="ROAS" color="mint" size="sm" icon={<Zap size={14} />} />
+            <StatTile value="+340%" label="vs DIY ads" color="lavender" size="sm" icon={<Sparkles size={14} />} />
+          </div>
+          <AdFlowDemo />
+        </div>
+      ),
     },
     {
       number: "02",
@@ -745,13 +789,16 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       title: "Customer-Side Booking",
       description: "Customers pick a time slot from your real availability — no email back-and-forth, no missed appointments.",
       cta: { label: "Try Demo", href: "/demo" },
-      mockup: <Wide><div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 16 }}>
-        <CalendarTile cells={["booked", "booked", "free", "today", "free", "booked", "free", "booked", "free", "free", "booked", "booked", "free", "blocked"]} label="This week" color="lavender" />
-        <div style={{ display: "grid", gridTemplateRows: "1fr 1fr", gap: 16 }}>
-          <StatTile value="62%" label="Self-booked" color="cyanSoft" size="sm" />
-          <StatTile value="0" label="Phone tag rounds" color="mint" size="sm" />
+      mockup: (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr", gap: 32, maxWidth: 880, width: "100%", alignItems: "center" }} className="effortel-grid-2">
+          <div style={{ display: "grid", gridTemplateRows: "1fr 1fr 1fr", gap: 12 }}>
+            <StatTile value="62%" label="Self-booked" color="cyanSoft" size="sm" icon={<Calendar size={14} />} />
+            <StatTile value="0" label="Phone-tag rounds" color="mint" size="sm" icon={<ShieldCheck size={14} />} />
+            <StatTile value="Same day" label="Funds available" color="lavender" size="sm" icon={<Clock size={14} />} />
+          </div>
+          <BookFlowDemo />
         </div>
-      </div></Wide>,
+      ),
     },
     {
       number: "02",

@@ -21,6 +21,7 @@ import {
   handleTradeLineConversationTurn,
   extractCallReport,
   buildAssistantConfig,
+  buildAssistantConfigWithAvailability,
   buildTradeLineAssistantConfig,
   buildTradeLineContext,
   resolveTradeLineClient,
@@ -103,7 +104,9 @@ export function registerVapiRoutes(app: Express): void {
             const tlConfig = buildTradeLineAssistantConfig(tradeLineResolved);
             return res.json(tlConfig);
           }
-          const config = buildAssistantConfig();
+          // Read brand-availability state and override greeting/system prompt
+          // when the operator has flipped the toggle off.
+          const config = await buildAssistantConfigWithAvailability();
           return res.json(config);
         }
 
