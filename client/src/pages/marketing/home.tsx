@@ -3,7 +3,7 @@ import { Link } from "wouter";
 import gsap from "gsap";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
-import WorkflowDemo from "@/components/marketing/WorkflowDemo";
+// WorkflowDemo removed in round 8 — covered by AutomationDiagram.
 import { mkt, colors, shadows, typography } from "@/theme/tokens";
 import HeroGridGlow from "@/components/marketing/HeroGridGlow";
 import ReviewsSection from "@/components/home/ReviewsSection";
@@ -12,12 +12,12 @@ import TrustMarquee from "@/components/marketing/TrustMarquee";
 import CapabilitiesShowcase from "@/components/marketing/CapabilitiesShowcase";
 import StickyStackCards from "@/components/marketing/StickyStackCards";
 import ServiceStackTimeline from "@/components/marketing/ServiceStackTimeline";
-import FeatureCards from "@/components/marketing/FeatureCards";
-import PillarAnimation from "@/components/sections/PillarAnimation";
+// FeatureCards + PillarAnimation removed in round 8 — covered by the
+// 3-type sections (CapabilitiesShowcase + StickyStackCards + ServiceStackTimeline).
 import CTASection from "@/components/marketing/CTASection";
 import TrustSection from "@/components/marketing/TrustSection";
 import GlobeSection from "@/components/marketing/globe/GlobeSection";
-import ServiceCards from "@/components/marketing/ServiceCards";
+// ServiceCards removed in round 8 — covered by ServiceStackTimeline.
 import { SurfaceSection } from "@/components/marketing/SurfaceSection";
 import BuiltForRotator from "@/components/marketing/BuiltForRotator";
 import AutomationDiagram from "@/components/marketing/AutomationDiagram";
