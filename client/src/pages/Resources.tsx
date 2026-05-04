@@ -73,11 +73,12 @@ export default function ResourcesPage() {
                       height: "100%",
                       overflow: "hidden",
                     }}>
-                      {/* Pastel banner with category icon */}
+                      {/* Pastel header — icon + title + counter inline */}
                       <div style={{
                         background: tile.bg,
                         color: tile.ink,
-                        padding: "20px 24px",
+                        padding: "16px 18px",
+                        display: "flex", alignItems: "center", gap: 12,
                         position: "relative",
                       }}>
                         <div style={{
@@ -85,24 +86,32 @@ export default function ResourcesPage() {
                           backgroundImage: `radial-gradient(circle, ${tile.ink}10 1px, transparent 1px)`,
                           backgroundSize: "14px 14px", opacity: 0.5, pointerEvents: "none",
                         }} />
-                        <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                          <div style={{
-                            width: 44, height: 44, borderRadius: 12,
-                            background: "rgba(255,255,255,0.5)", color: tile.ink,
-                            display: "flex", alignItems: "center", justifyContent: "center",
-                          }}>
-                            <Icon size={22} strokeWidth={1.6} />
-                          </div>
-                          <span style={{
-                            fontSize: 10, fontWeight: 600, color: tile.muted,
-                            fontFamily: MONO, letterSpacing: "0.1em", textTransform: "uppercase",
-                          }}>
-                            0{i + 1}
-                          </span>
+                        <div style={{
+                          position: "relative", flexShrink: 0,
+                          width: 40, height: 40, borderRadius: 10,
+                          background: "rgba(255,255,255,0.55)", color: tile.ink,
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                        }}>
+                          <Icon size={18} strokeWidth={1.7} />
                         </div>
+                        <h3 style={{
+                          position: "relative", flex: 1, minWidth: 0,
+                          fontSize: 13, fontWeight: 700, color: tile.ink,
+                          letterSpacing: "0.04em", textTransform: "uppercase",
+                          fontFamily: MONO, lineHeight: 1.25,
+                          margin: 0, overflow: "hidden", textOverflow: "ellipsis",
+                        }}>
+                          {cat.title}
+                        </h3>
+                        <span style={{
+                          position: "relative", flexShrink: 0,
+                          fontSize: 10, fontWeight: 600, color: tile.muted,
+                          fontFamily: MONO, letterSpacing: "0.1em",
+                        }}>
+                          0{i + 1}
+                        </span>
                       </div>
                       <div style={{ padding: "20px 24px 24px", display: "flex", flexDirection: "column", gap: 12, flex: 1 }}>
-                      <h3 style={{ fontSize: 17, fontWeight: 600, color: mkt.onDark, margin: 0, letterSpacing: "-0.01em" }}>{cat.title}</h3>
                       <p style={{ fontSize: 13, color: mkt.onDarkMuted, margin: 0, lineHeight: 1.55, flex: 1 }}>
                         {cat.description}
                       </p>

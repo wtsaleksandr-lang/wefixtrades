@@ -97,11 +97,11 @@ export default function DemoCenter() {
                       height: "100%",
                       overflow: "hidden",
                     }}>
-                      {/* Pastel header strip */}
+                      {/* Pastel header strip — icon + title + live badge inline */}
                       <div style={{
                         background: tile.bg, color: tile.ink,
-                        padding: "18px 22px",
-                        display: "flex", alignItems: "center", justifyContent: "space-between",
+                        padding: "16px 18px",
+                        display: "flex", alignItems: "center", gap: 12,
                         position: "relative",
                       }}>
                         <div style={{
@@ -109,28 +109,37 @@ export default function DemoCenter() {
                           backgroundImage: `radial-gradient(circle, ${tile.ink}10 1px, transparent 1px)`,
                           backgroundSize: "14px 14px", opacity: 0.5, pointerEvents: "none",
                         }} />
+                        {/* Icon block */}
                         <div style={{
-                          position: "relative",
-                          width: 44, height: 44, borderRadius: 12,
-                          background: "rgba(255,255,255,0.5)", color: tile.ink,
+                          position: "relative", flexShrink: 0,
+                          width: 40, height: 40, borderRadius: 10,
+                          background: "rgba(255,255,255,0.55)", color: tile.ink,
                           display: "flex", alignItems: "center", justifyContent: "center",
                         }}>
-                          <Icon size={20} strokeWidth={1.6} />
+                          <Icon size={18} strokeWidth={1.7} />
                         </div>
+                        {/* Title in mono caps — sits inline with the icon */}
+                        <h3 style={{
+                          position: "relative", flex: 1, minWidth: 0,
+                          fontSize: 13, fontWeight: 700, color: tile.ink,
+                          letterSpacing: "0.04em", textTransform: "uppercase",
+                          fontFamily: MONO, lineHeight: 1.25,
+                          margin: 0, overflow: "hidden", textOverflow: "ellipsis",
+                        }}>
+                          {d.title}
+                        </h3>
                         {d.interactive && (
                           <span style={{
-                            position: "relative",
+                            position: "relative", flexShrink: 0,
                             fontSize: 9, fontWeight: 700, padding: "3px 8px", borderRadius: 999,
-                            background: "rgba(16,185,129,0.18)", color: "#059669",
+                            background: "rgba(16,185,129,0.20)", color: "#059669",
                             letterSpacing: "0.06em", textTransform: "uppercase", fontFamily: MONO,
                           }}>● Live</span>
                         )}
                       </div>
-                      <div style={{ padding: "20px 22px 22px" }}>
-                        <h3 style={{ fontSize: 17, fontWeight: 700, color: mkt.onDark, margin: "0 0 8px", letterSpacing: "-0.01em" }}>
-                          {d.title}
-                        </h3>
-                        <p style={{ fontSize: 13, color: mkt.onDarkMuted, margin: "0 0 18px", lineHeight: 1.55 }}>
+                      {/* Body — description + CTA only */}
+                      <div style={{ padding: "18px 22px 22px" }}>
+                        <p style={{ fontSize: 13, color: mkt.onDarkMuted, margin: "0 0 16px", lineHeight: 1.55 }}>
                           {d.desc}
                         </p>
                         <span style={{
