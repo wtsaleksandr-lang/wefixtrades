@@ -1,72 +1,139 @@
 /**
  * TradeLineHeroPhone — premium animated phone mockup for /products/tradeline.
  *
- * Ported from the IntellCluster `_hero_bento.html` phone (the .ph-* layer) and
- * adapted to a TradeLine messaging simulation. Cycles through three trades
- * scenarios: emergency plumber, weekend HVAC, electrical panel quote.
+ * Cycles through 4 trades scenarios in two modes:
+ *   1. CHAT  · Plumbing   — emergency dispatch + booking
+ *   2. VOICE · HVAC       — quote, scheduling, multi-Q&A
+ *   3. CHAT  · Roofing    — storm-damage estimate
+ *   4. VOICE · Electrical — panel-upgrade quote + booking
  *
- *   1. Placeholder text types in the input ("burst pipe under sink…")
- *   2. Send button activates → user bubble appears
- *   3. AI typing dots → AI response card with quote + booking confirmation
- *   4. Brief hold → next scenario
+ * Chat mode: types into input → user bubble → AI typing → AI card with
+ * pricing → green BOOKED receipt chip.
+ * Voice mode: incoming-call shell with caller avatar + live timer +
+ * animated waveform on the active speaker. Turns alternate caller (mic
+ * icon, right) and AI (speaker icon, left, cyan accent). Ends with a
+ * red call-end pulse + receipt chip.
  *
- * Tap to pause / resume. Pauses while off-screen (IntersectionObserver).
+ * Tap to pause / resume. IntersectionObserver auto-pauses off-screen.
  *
- * Self-contained: all styles scoped under `.tlhp-*` classnames.
+ * All styles scoped under `.tlhp-*`.
  */
 
 import { useEffect, useRef, useState } from "react";
 import { mkt } from "@/theme/tokens";
 
-interface Scenario {
-  user: string;
-  ai: string;            // HTML, supports <strong>
-  funcText: string;      // Active-function panel text (visible in caption strip below phone)
-  receipt: string;       // Final confirmation chip after AI card
+interface BaseScenario {
+  funcText: string;
+  receipt: string;
   ctx: { name: string; zip: string; trade: string; window: string };
 }
 
+interface ChatScenario extends BaseScenario {
+  mode: "chat";
+  user: string;
+  ai: string; // HTML, supports <strong>
+}
+
+interface VoiceScenario extends BaseScenario {
+  mode: "voice";
+  callerName: string;
+  callerInitial: string;
+  business: string; // e.g. "ColdSnap HVAC"
+  turns: Array<{ who: "caller" | "ai"; text: string; ms: number }>;
+}
+
+type Scenario = ChatScenario | VoiceScenario;
+
 const SCENARIOS: Scenario[] = [
+  // 1 — CHAT — Plumbing
   {
-    user: "Hi! Looking for an emergency plumber. Burst pipe under the kitchen sink — water everywhere.",
+    mode: "chat",
+    user: "Burst pipe under the kitchen sink. Water everywhere — please help.",
     ai:
-      "<strong>Got it — sending help.</strong><br/><br/>" +
-      "I can dispatch a licensed plumber within <strong>60 min</strong>. Emergency call-out + diagnostic runs <strong>$185–$240</strong>, parts billed at cost.<br/><br/>" +
-      "Tap to confirm and I'll text the tech's ETA + name.",
+      "<strong>Sending a plumber now.</strong><br/><br/>" +
+      "Tech ETA <strong>38 min</strong>. Emergency call-out + diagnostic <strong>$185–$240</strong>, parts at cost.<br/><br/>" +
+      "Tap to confirm — I'll text the tech's name + live ETA.",
     funcText: "EMERGENCY · PLUMBING · 24/7",
-    receipt: "✓ BOOKED · Tech ETA 41 min",
+    receipt: "✓ BOOKED · Tech ETA 38 min",
     ctx: { name: "Sarah K.", zip: "78704", trade: "Plumbing", window: "Now" },
   },
+
+  // 2 — VOICE — HVAC
   {
-    user: "AC stopped cooling overnight. Need a quote for tune-up + refrigerant recharge — Saturday if possible?",
-    ai:
-      "<strong>Heat-wave week — I've got Saturday open.</strong><br/><br/>" +
-      "Tune-up + recharge runs <strong>$320–$420</strong> depending on refrigerant level. Tech can be at your place between <strong>8–10 AM</strong>.<br/><br/>" +
-      "Want me to lock the slot?",
+    mode: "voice",
+    callerName: "Morgan T.",
+    callerInitial: "M",
+    business: "ColdSnap HVAC",
+    turns: [
+      { who: "ai",     text: "TradeLine for ColdSnap HVAC — what can I help with tonight?", ms: 3400 },
+      { who: "caller", text: "AC died this morning. Can you get someone here Saturday?",     ms: 3200 },
+      { who: "ai",     text: "Saturday 8 to 10 AM is open. Tune-up plus recharge runs $320 to $420.", ms: 4200 },
+      { who: "caller", text: "Lock it in.",                                                   ms: 1500 },
+      { who: "ai",     text: "Booked. Confirmation text incoming now.",                       ms: 2400 },
+    ],
     funcText: "QUOTE · HVAC · WEEKEND",
     receipt: "✓ SCHEDULED · Sat 8–10 AM",
     ctx: { name: "Morgan T.", zip: "30327", trade: "HVAC", window: "Sat AM" },
   },
+
+  // 3 — CHAT — Roofing
   {
-    user: "Need a quote for a 200A panel upgrade. Old fuse box, two-story house, room for a generator inlet later.",
+    mode: "chat",
+    user: "Storm last night took 3 shingles off. Need a quote for repair + full roof inspection.",
     ai:
-      "<strong>Standard 200A swap with permit + inspection.</strong><br/><br/>" +
-      "Range is <strong>$2,400–$3,200</strong>. With a generator-ready slot pre-wired, add <strong>$280</strong>. A master electrician can do the free assessment Wed or Thu.<br/><br/>" +
-      "Pick a slot?",
+      "<strong>Inspection is free this week.</strong><br/><br/>" +
+      "Missed-shingle repair averages <strong>$420–$680</strong> depending on layer count. A few photos over text speeds the estimate.<br/><br/>" +
+      "Inspector is open <strong>Thu 9 AM</strong>. Want the slot?",
+    funcText: "ESTIMATE · ROOFING · FREE INSPECT",
+    receipt: "✓ INSPECTOR · Thu 9 AM hold",
+    ctx: { name: "Jay P.", zip: "33186", trade: "Roofing", window: "Thu AM" },
+  },
+
+  // 4 — VOICE — Electrical
+  {
+    mode: "voice",
+    callerName: "Sam R.",
+    callerInitial: "S",
+    business: "SparkRight Electric",
+    turns: [
+      { who: "ai",     text: "TradeLine for SparkRight Electric — what's the job?",          ms: 3000 },
+      { who: "caller", text: "200 amp panel upgrade. Two-story, 1962 build, old fuse box.",  ms: 3800 },
+      { who: "ai",     text: "Permit plus swap is $2,400 to $3,200. Generator-ready inlet adds $280.", ms: 4500 },
+      { who: "caller", text: "Schedule the free assessment.",                                 ms: 2200 },
+      { who: "ai",     text: "Wednesday 2 PM. Master electrician confirmed.",                 ms: 2800 },
+    ],
     funcText: "ESTIMATE · ELECTRICAL · PERMIT",
     receipt: "✓ ASSESSMENT · Wed 2 PM",
     ctx: { name: "Sam R.", zip: "11215", trade: "Electrical", window: "Wed PM" },
   },
 ];
 
-const T = { typeStart: 600, typeDuration: 2000, sendDelay: 280, aiTypingHold: 1900, holdAfter: 2200 };
+const T = {
+  chatTypeStart: 600,
+  chatTypeDuration: 1900,
+  chatSendDelay: 260,
+  chatAiTyping: 1700,
+  chatHold: 2200,
+  voiceConnect: 900,
+  voiceTurnGap: 350,
+  voiceHold: 2200,
+  receiptHold: 1700,
+};
 
 export default function TradeLineHeroPhone() {
   const phoneRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
+  // Chat
   const inputRef = useRef<HTMLDivElement>(null);
   const placeholderRef = useRef<HTMLDivElement>(null);
   const sendBtnRef = useRef<HTMLDivElement>(null);
+  // Voice
+  const voiceAvatarRef = useRef<HTMLDivElement>(null);
+  const voiceNameRef = useRef<HTMLDivElement>(null);
+  const voiceTimerRef = useRef<HTMLSpanElement>(null);
+  const voiceBusinessRef = useRef<HTMLDivElement>(null);
+  const endBtnRef = useRef<HTMLDivElement>(null);
+  // Shared
   const dotsRef = useRef<HTMLDivElement>(null);
   const funcTextRef = useRef<HTMLSpanElement>(null);
   const ctxNameRef = useRef<HTMLSpanElement>(null);
@@ -80,7 +147,7 @@ export default function TradeLineHeroPhone() {
   const inViewRef = useRef(true);
   const resumeRef = useRef<(() => void) | null>(null);
 
-  // Pause when off-screen (saves CPU and respects user attention)
+  // Pause when off-screen
   useEffect(() => {
     if (!phoneRef.current) return;
     const obs = new IntersectionObserver(
@@ -91,7 +158,6 @@ export default function TradeLineHeroPhone() {
     return () => obs.disconnect();
   }, []);
 
-  // Animation loop
   useEffect(() => {
     let cancelled = false;
 
@@ -101,8 +167,7 @@ export default function TradeLineHeroPhone() {
           while (!cancelled && (pausedRef.current || !inViewRef.current)) {
             await new Promise<void>((r) => { resumeRef.current = r; });
           }
-          if (!cancelled) resolve();
-          else resolve();
+          resolve();
         }, ms);
       });
 
@@ -116,6 +181,18 @@ export default function TradeLineHeroPhone() {
     const scrollDown = () => {
       bodyRef.current?.scrollTo({ top: bodyRef.current.scrollHeight, behavior: "smooth" });
     };
+
+    const setMode = (mode: "chat" | "voice") => {
+      if (phoneRef.current) phoneRef.current.dataset.mode = mode;
+    };
+
+    function applyContext(s: Scenario) {
+      if (funcTextRef.current) funcTextRef.current.textContent = s.funcText;
+      if (ctxNameRef.current) ctxNameRef.current.textContent = s.ctx.name;
+      if (ctxZipRef.current) ctxZipRef.current.textContent = s.ctx.zip;
+      if (ctxTradeRef.current) ctxTradeRef.current.textContent = s.ctx.trade;
+      if (ctxWindowRef.current) ctxWindowRef.current.textContent = s.ctx.window;
+    }
 
     async function typeInto(target: HTMLElement, text: string, dur: number) {
       const step = Math.max(16, dur / text.length);
@@ -133,7 +210,7 @@ export default function TradeLineHeroPhone() {
     function aiCardHTML(body: string) {
       return `
         <div class="tlhp-card-head">
-          <span class="tlhp-logo">
+          <span class="tlhp-card-logo">
             <svg viewBox="0 0 32 32" fill="currentColor">
               <path d="M16 2 L18 12 L28 10 L20 16 L28 22 L18 20 L16 30 L14 20 L4 22 L12 16 L4 10 L14 12 Z"/>
             </svg>
@@ -144,23 +221,9 @@ export default function TradeLineHeroPhone() {
       `;
     }
 
-    function applyContext(s: Scenario) {
-      if (funcTextRef.current) funcTextRef.current.textContent = s.funcText;
-      if (ctxNameRef.current) ctxNameRef.current.textContent = s.ctx.name;
-      if (ctxZipRef.current) ctxZipRef.current.textContent = s.ctx.zip;
-      if (ctxTradeRef.current) ctxTradeRef.current.textContent = s.ctx.trade;
-      if (ctxWindowRef.current) ctxWindowRef.current.textContent = s.ctx.window;
-    }
-
-    async function runScenario(idx: number) {
-      const s = SCENARIOS[idx];
-      const dotEls = dotsRef.current?.querySelectorAll(".tlhp-dot") ?? [];
-      dotEls.forEach((d, i) => {
-        if (i === idx) d.classList.add("active");
-        else d.classList.remove("active");
-      });
-      applyContext(s);
-
+    /* ─── CHAT ─────────────────────────────────────── */
+    async function runChat(s: ChatScenario) {
+      setMode("chat");
       if (!inputRef.current || !sendBtnRef.current || !placeholderRef.current || !bodyRef.current) return;
 
       inputRef.current.classList.remove("active");
@@ -168,12 +231,12 @@ export default function TradeLineHeroPhone() {
       placeholderRef.current.classList.remove("filled");
       placeholderRef.current.textContent = "How can TradeLine help your customers tonight?";
 
-      await wait(T.typeStart);
+      await wait(T.chatTypeStart);
       if (cancelled) return;
 
       inputRef.current.classList.add("active");
-      await typeInto(placeholderRef.current, s.user, T.typeDuration);
-      await wait(T.sendDelay);
+      await typeInto(placeholderRef.current, s.user, T.chatTypeDuration);
+      await wait(T.chatSendDelay);
       if (cancelled) return;
       sendBtnRef.current.classList.add("active");
       await wait(180);
@@ -182,7 +245,6 @@ export default function TradeLineHeroPhone() {
       placeholderRef.current.classList.remove("filled");
       placeholderRef.current.textContent = "How can TradeLine help your customers tonight?";
 
-      // User bubble
       const ub = el("div", "tlhp-bubble-user");
       ub.textContent = s.user;
       bodyRef.current.appendChild(ub);
@@ -190,18 +252,16 @@ export default function TradeLineHeroPhone() {
       await wait(700);
       if (cancelled) return;
 
-      // AI typing dots
       const td = el("div", "tlhp-typing");
       td.appendChild(el("span"));
       td.appendChild(el("span"));
       td.appendChild(el("span"));
       bodyRef.current.appendChild(td);
       scrollDown();
-      await wait(T.aiTypingHold);
+      await wait(T.chatAiTyping);
       if (cancelled) return;
       td.remove();
 
-      // AI card response
       const card = el("div", "tlhp-card-ai");
       card.innerHTML = aiCardHTML(s.ai);
       bodyRef.current.appendChild(card);
@@ -209,18 +269,107 @@ export default function TradeLineHeroPhone() {
       await wait(900);
       if (cancelled) return;
 
-      // Booking receipt chip
       const receipt = el("div", "tlhp-receipt");
       receipt.textContent = s.receipt;
       bodyRef.current.appendChild(receipt);
       scrollDown();
-      await wait(T.holdAfter);
+      await wait(T.chatHold);
     }
 
-    async function resetChat() {
+    /* ─── VOICE ────────────────────────────────────── */
+    function voiceTurnHTML(who: "caller" | "ai", text: string, isLive: boolean) {
+      const iconSvg = who === "caller"
+        ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>`
+        : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>`;
+      const wf = isLive
+        ? `<span class="tlhp-wave"><span></span><span></span><span></span><span></span></span>`
+        : "";
+      return `<span class="tlhp-vt-icon">${iconSvg}</span><span class="tlhp-vt-text">${text}</span>${wf}`;
+    }
+
+    function makeVoiceTurn(who: "caller" | "ai", text: string) {
+      const div = el("div", `tlhp-vt ${who}`);
+      div.innerHTML = voiceTurnHTML(who, text, true);
+      return div;
+    }
+
+    function freezeWaveform(div: HTMLElement) {
+      // Remove the .tlhp-wave element so previous turns stop animating
+      const wave = div.querySelector(".tlhp-wave");
+      if (wave) wave.remove();
+    }
+
+    async function runVoice(s: VoiceScenario) {
+      setMode("voice");
+      if (!bodyRef.current || !voiceAvatarRef.current || !voiceNameRef.current ||
+          !voiceTimerRef.current || !voiceBusinessRef.current) return;
+
+      voiceAvatarRef.current.textContent = s.callerInitial;
+      voiceNameRef.current.textContent = s.callerName;
+      voiceBusinessRef.current.textContent = s.business;
+      voiceTimerRef.current.textContent = "Connecting…";
+
+      // Brief connecting state
+      phoneRef.current?.classList.add("connecting");
+      await wait(T.voiceConnect);
+      if (cancelled) return;
+      phoneRef.current?.classList.remove("connecting");
+
+      // Live timer (counts up while voice is running)
+      let seconds = 0;
+      const fmt = () => `On call · ${Math.floor(seconds / 60)}:${(seconds % 60).toString().padStart(2, "0")}`;
+      voiceTimerRef.current.textContent = fmt();
+      const timerId = window.setInterval(() => {
+        seconds++;
+        if (voiceTimerRef.current) voiceTimerRef.current.textContent = fmt();
+      }, 1000);
+
+      try {
+        let prevTurn: HTMLElement | null = null;
+        for (const turn of s.turns) {
+          if (cancelled) break;
+          if (prevTurn) freezeWaveform(prevTurn);
+          const node = makeVoiceTurn(turn.who, turn.text);
+          bodyRef.current.appendChild(node);
+          scrollDown();
+          prevTurn = node;
+          await wait(turn.ms);
+          await wait(T.voiceTurnGap);
+        }
+        if (prevTurn) freezeWaveform(prevTurn);
+      } finally {
+        window.clearInterval(timerId);
+      }
+
+      // Pulse the end-call button briefly
+      endBtnRef.current?.classList.add("hangup");
+      await wait(500);
+      endBtnRef.current?.classList.remove("hangup");
+
+      const receipt = el("div", "tlhp-receipt");
+      receipt.textContent = s.receipt;
+      bodyRef.current.appendChild(receipt);
+      scrollDown();
+      await wait(T.voiceHold);
+    }
+
+    /* ─── LOOP ─────────────────────────────────────── */
+    async function runScenario(idx: number) {
+      const s = SCENARIOS[idx];
+      const dotEls = dotsRef.current?.querySelectorAll(".tlhp-dot") ?? [];
+      dotEls.forEach((d, i) => {
+        if (i === idx) d.classList.add("active");
+        else d.classList.remove("active");
+      });
+      applyContext(s);
+      if (s.mode === "chat") await runChat(s);
+      else await runVoice(s);
+    }
+
+    async function resetBody() {
       if (!bodyRef.current) return;
       bodyRef.current.classList.add("reset");
-      await wait(600);
+      await wait(550);
       if (cancelled) return;
       bodyRef.current.innerHTML = "";
       bodyRef.current.classList.remove("reset");
@@ -233,7 +382,7 @@ export default function TradeLineHeroPhone() {
           if (cancelled) return;
           await runScenario(i);
           if (cancelled) return;
-          await resetChat();
+          await resetBody();
         }
       }
     })();
@@ -248,7 +397,7 @@ export default function TradeLineHeroPhone() {
     };
   }, []);
 
-  // When un-pausing, fire the awaiting wait()
+  // Resume any awaiter when un-paused
   useEffect(() => {
     if (!paused && resumeRef.current) {
       const r = resumeRef.current;
@@ -266,12 +415,14 @@ export default function TradeLineHeroPhone() {
       <div
         ref={phoneRef}
         className={`tlhp-phone${paused ? " paused" : ""}`}
+        data-mode="chat"
         onClick={togglePause}
         role="button"
         tabIndex={0}
         aria-label="TradeLine animated demo. Tap to pause."
       >
-        <div className="tlhp-header">
+        {/* CHAT HEADER */}
+        <div className="tlhp-header tlhp-chat-header">
           <div className="tlhp-header-left">
             <div className="tlhp-iconbtn" aria-hidden>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
@@ -296,8 +447,25 @@ export default function TradeLineHeroPhone() {
           </div>
         </div>
 
+        {/* VOICE HEADER */}
+        <div className="tlhp-header tlhp-voice-header">
+          <div ref={voiceAvatarRef} className="tlhp-voice-avatar">M</div>
+          <div className="tlhp-voice-meta">
+            <div ref={voiceNameRef} className="tlhp-voice-name">Morgan T.</div>
+            <div className="tlhp-voice-status">
+              <span className="tlhp-voice-pulse" />
+              <span ref={voiceTimerRef}>Connecting…</span>
+            </div>
+          </div>
+          <div className="tlhp-voice-business-wrap">
+            <span className="tlhp-voice-business-label">Calling</span>
+            <span ref={voiceBusinessRef} className="tlhp-voice-business">ColdSnap HVAC</span>
+          </div>
+        </div>
+
         <div ref={bodyRef} className="tlhp-body" />
 
+        {/* CHAT INPUT */}
         <div ref={inputRef} className="tlhp-input">
           <div ref={placeholderRef} className="tlhp-placeholder">
             How can TradeLine help your customers tonight?
@@ -309,9 +477,33 @@ export default function TradeLineHeroPhone() {
             </svg>
           </div>
         </div>
+
+        {/* VOICE CONTROLS */}
+        <div className="tlhp-voice-controls">
+          <div className="tlhp-vc-btn" aria-hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="1" y1="1" x2="23" y2="23"/>
+              <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/>
+              <path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/>
+              <line x1="12" y1="19" x2="12" y2="23"/>
+            </svg>
+          </div>
+          <div ref={endBtnRef} className="tlhp-vc-btn end" aria-hidden>
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.37 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.33 1.85.57 2.81.7A2 2 0 0 1 22 16.92z" transform="rotate(135 12 12)"/>
+            </svg>
+          </div>
+          <div className="tlhp-vc-btn" aria-hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+              <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+              <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+            </svg>
+          </div>
+        </div>
       </div>
 
-      {/* Caption strip below phone — context flips per scenario */}
+      {/* Caption strip — context flips per scenario */}
       <div className="tlhp-caption">
         <div className="tlhp-caption-row">
           <span className="tlhp-caption-key">Caller</span>
@@ -340,15 +532,12 @@ export default function TradeLineHeroPhone() {
         <span className="tlhp-dot active" />
         <span className="tlhp-dot" />
         <span className="tlhp-dot" />
+        <span className="tlhp-dot" />
       </div>
     </div>
   );
 }
 
-/* ────────────────────────────────────────────────────────────────
-   Scoped CSS — copied from IntellCluster phone (.ph-*) and adapted
-   to .tlhp-* + WeFixTrades cyan accent.
-   ──────────────────────────────────────────────────────────────── */
 const ACCENT = mkt.accent;
 const ACCENT_GLOW = "rgba(102,232,250,0.45)";
 
@@ -387,7 +576,16 @@ const TLHP_CSS = `
 }
 @keyframes tlhpPausedFade { to { opacity: 1; } }
 
-.tlhp-header {
+/* ─── Mode-gated visibility ─── */
+.tlhp-phone[data-mode="voice"] .tlhp-chat-header,
+.tlhp-phone[data-mode="voice"] .tlhp-input,
+.tlhp-phone[data-mode="chat"]  .tlhp-voice-header,
+.tlhp-phone[data-mode="chat"]  .tlhp-voice-controls {
+  display: none;
+}
+
+/* ═══ CHAT HEADER ═══ */
+.tlhp-chat-header {
   display: flex; align-items: center; justify-content: space-between;
   padding: 18px 18px 14px; flex-shrink: 0;
   border-bottom: 1px solid rgba(255,255,255,0.08);
@@ -398,17 +596,69 @@ const TLHP_CSS = `
 .tlhp-iconbtn svg { width: 18px; height: 18px; }
 .tlhp-logo { width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; color: var(--tlhp-accent); flex-shrink: 0; filter: drop-shadow(0 0 6px var(--tlhp-accent-glow)); }
 .tlhp-logo svg { width: 100%; height: 100%; }
-.tlhp-brand { font-family: 'DM Sans', sans-serif; font-weight: 700; font-size: 16px; letter-spacing: -0.3px; color: #fff; }
+.tlhp-brand { font-weight: 700; font-size: 16px; letter-spacing: -0.3px; color: #fff; }
 
+/* ═══ VOICE HEADER ═══ */
+.tlhp-voice-header {
+  display: flex; align-items: center; gap: 12px;
+  padding: 16px 16px 14px; flex-shrink: 0;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  background: linear-gradient(180deg, rgba(102,232,250,0.06) 0%, transparent 100%);
+}
+.tlhp-voice-avatar {
+  width: 38px; height: 38px; border-radius: 50%;
+  background: var(--tlhp-accent); color: #00131a;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 15px; flex-shrink: 0;
+  box-shadow: 0 0 0 3px rgba(102,232,250,0.18);
+}
+.tlhp-voice-meta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.tlhp-voice-name { font-weight: 600; color: #fff; font-size: 14.5px; letter-spacing: -0.1px; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tlhp-voice-status {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: 'DM Mono', monospace;
+  font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: rgba(255,255,255,0.62);
+  white-space: nowrap;
+}
+.tlhp-voice-pulse {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: #4ade80;
+  box-shadow: 0 0 8px rgba(74,222,128,0.55);
+  animation: tlhpPulseGreen 1.5s ease-in-out infinite;
+}
+.tlhp-phone.connecting .tlhp-voice-pulse {
+  background: #facc15; box-shadow: 0 0 8px rgba(250,204,21,0.55);
+  animation-duration: 0.7s;
+}
+@keyframes tlhpPulseGreen {
+  0%,100% { opacity: 1; transform: scale(1); }
+  50%     { opacity: 0.45; transform: scale(0.82); }
+}
+.tlhp-voice-business-wrap {
+  display: flex; flex-direction: column; align-items: flex-end; gap: 2px;
+  font-family: 'DM Mono', monospace;
+}
+.tlhp-voice-business-label {
+  font-size: 8.5px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: rgba(255,255,255,0.42);
+}
+.tlhp-voice-business {
+  font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.85);
+  letter-spacing: 0.04em;
+}
+
+/* ═══ BODY ═══ */
 .tlhp-body {
   flex: 1; overflow-y: auto;
   padding: 14px 18px 16px;
-  display: flex; flex-direction: column; gap: 14px;
+  display: flex; flex-direction: column; gap: 12px;
   scroll-behavior: smooth; justify-content: flex-end;
 }
 .tlhp-body::-webkit-scrollbar { width: 0; }
-.tlhp-body.reset { opacity: 0; transition: opacity 0.6s ease; }
+.tlhp-body.reset { opacity: 0; transition: opacity 0.55s ease; }
 
+/* ═══ CHAT BUBBLES ═══ */
 .tlhp-bubble-user {
   align-self: flex-end; max-width: 84%;
   padding: 11px 14px;
@@ -432,7 +682,8 @@ const TLHP_CSS = `
   display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
   font-size: 12.5px; font-weight: 600; color: #fff;
 }
-.tlhp-card-head .tlhp-logo { width: 14px; height: 14px; filter: none; }
+.tlhp-card-logo { width: 14px; height: 14px; display: flex; color: var(--tlhp-accent); }
+.tlhp-card-logo svg { width: 100%; height: 100%; }
 .tlhp-card-head .sub { font-weight: 400; color: rgba(255,255,255,0.72); }
 .tlhp-card-head .sep { color: rgba(255,255,255,0.40); }
 .tlhp-card-body { font-size: 13px; line-height: 1.5; letter-spacing: -0.05px; }
@@ -454,6 +705,63 @@ const TLHP_CSS = `
   30%           { opacity: 1;   transform: translateY(-3px); }
 }
 
+/* ═══ VOICE TRANSCRIPT BUBBLES ═══ */
+.tlhp-vt {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 9px 12px; max-width: 90%;
+  font-size: 12.5px; line-height: 1.4; border-radius: 14px;
+  opacity: 0; transform: translateY(8px);
+  animation: tlhpBubbleIn 0.35s cubic-bezier(0.22,1,0.36,1) forwards;
+}
+.tlhp-vt.caller {
+  align-self: flex-end; flex-direction: row-reverse;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.14);
+  color: #fff;
+}
+.tlhp-vt.ai {
+  align-self: flex-start;
+  background: rgba(102,232,250,0.07);
+  border: 1px solid rgba(102,232,250,0.32);
+  color: #fff;
+}
+.tlhp-vt-icon {
+  flex-shrink: 0;
+  width: 24px; height: 24px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.tlhp-vt.caller .tlhp-vt-icon {
+  background: rgba(255,255,255,0.10);
+  border: 1px solid rgba(255,255,255,0.20);
+  color: rgba(255,255,255,0.92);
+}
+.tlhp-vt.ai .tlhp-vt-icon {
+  background: rgba(102,232,250,0.18);
+  border: 1px solid rgba(102,232,250,0.45);
+  color: var(--tlhp-accent);
+}
+.tlhp-vt-icon svg { width: 12px; height: 12px; }
+.tlhp-vt-text { letter-spacing: -0.05px; }
+
+/* Animated waveform shown next to active speaker */
+.tlhp-wave { display: inline-flex; align-items: center; gap: 2px; height: 14px; flex-shrink: 0; }
+.tlhp-wave span {
+  width: 2px; border-radius: 1px;
+  background: currentColor;
+  animation: tlhpWave 0.9s ease-in-out infinite;
+}
+.tlhp-vt.caller .tlhp-wave span { background: rgba(255,255,255,0.85); }
+.tlhp-vt.ai     .tlhp-wave span { background: var(--tlhp-accent); }
+.tlhp-wave span:nth-child(1) { height: 40%; animation-delay: 0s; }
+.tlhp-wave span:nth-child(2) { height: 80%; animation-delay: 0.12s; }
+.tlhp-wave span:nth-child(3) { height: 100%; animation-delay: 0.24s; }
+.tlhp-wave span:nth-child(4) { height: 60%; animation-delay: 0.36s; }
+@keyframes tlhpWave {
+  0%, 100% { transform: scaleY(0.45); }
+  50%      { transform: scaleY(1); }
+}
+
+/* ═══ RECEIPT CHIP ═══ */
 .tlhp-receipt {
   align-self: flex-start;
   font-family: 'DM Mono', monospace;
@@ -465,6 +773,7 @@ const TLHP_CSS = `
   opacity: 0; animation: tlhpBubbleIn 0.4s ease forwards;
 }
 
+/* ═══ CHAT INPUT ═══ */
 .tlhp-input {
   display: flex; align-items: center; gap: 10px;
   margin: 0 14px 14px;
@@ -497,7 +806,37 @@ const TLHP_CSS = `
 }
 .tlhp-sendbtn svg { width: 13px; height: 13px; }
 
-/* Caption strip below phone — context flips per scenario */
+/* ═══ VOICE CONTROLS (footer) ═══ */
+.tlhp-voice-controls {
+  display: flex; gap: 18px; justify-content: center;
+  padding: 12px 14px 18px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+.tlhp-vc-btn {
+  width: 46px; height: 46px; border-radius: 50%;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.16);
+  display: flex; align-items: center; justify-content: center;
+  color: rgba(255,255,255,0.85);
+  transition: transform 0.18s ease, background 0.18s ease;
+}
+.tlhp-vc-btn svg { width: 18px; height: 18px; }
+.tlhp-vc-btn.end {
+  background: #ef4444;
+  border-color: rgba(239,68,68,0.55);
+  color: #fff;
+  box-shadow: 0 8px 22px rgba(239,68,68,0.35);
+}
+.tlhp-vc-btn.end.hangup {
+  animation: tlhpHangup 0.5s ease;
+}
+@keyframes tlhpHangup {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.18); box-shadow: 0 0 0 14px rgba(239,68,68,0.0); }
+  100% { transform: scale(1); }
+}
+
+/* ═══ CAPTION + FUNC + DOTS (below phone) ═══ */
 .tlhp-caption {
   display: grid; grid-template-columns: repeat(4, auto);
   gap: 18px;
@@ -535,22 +874,25 @@ const TLHP_CSS = `
 
 .tlhp-dots { display: flex; gap: 8px; }
 .tlhp-dot {
-  width: 24px; height: 3px;
+  width: 22px; height: 3px;
   background: rgba(255,255,255,0.18);
   border-radius: 2px;
   transition: background 0.4s ease;
 }
 .tlhp-dot.active { background: var(--tlhp-accent); }
 
-/* Mobile: shrink phone proportionally so it always fits with page padding */
+/* ═══ Responsive ═══ */
 @media (max-width: 420px) {
-  .tlhp-phone { width: 300px; height: 570px; border-radius: 26px; }
-  .tlhp-header { padding: 14px 14px 12px; }
-  .tlhp-body { padding: 12px 14px 14px; gap: 12px; }
+  .tlhp-phone { width: 300px; height: 580px; border-radius: 26px; }
+  .tlhp-chat-header { padding: 14px 14px 12px; }
+  .tlhp-voice-header { padding: 14px 14px 12px; }
+  .tlhp-body { padding: 12px 14px 14px; gap: 11px; }
   .tlhp-input { margin: 0 12px 12px; padding: 8px 4px 8px 14px; }
+  .tlhp-voice-controls { padding: 10px 12px 14px; gap: 14px; }
+  .tlhp-vc-btn { width: 42px; height: 42px; }
   .tlhp-caption { grid-template-columns: repeat(2, auto); gap: 14px 24px; }
 }
 @media (max-width: 340px) {
-  .tlhp-phone { width: 280px; height: 540px; }
+  .tlhp-phone { width: 280px; height: 545px; }
 }
 `;
