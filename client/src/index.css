@@ -1430,3 +1430,116 @@
     padding-right: 20px !important;
   }
 }
+
+/* ─── V7 page polish — global rules ─────────────────────────────────── */
+
+/* CTA buttons → hover lift + shadow */
+[href][style*="rgba(102,232,250"],
+[href][style*="background: rgba(102,232,250"],
+.v7-cta-primary,
+.v7-cta-ghost {
+  transition: transform 0.18s ease, box-shadow 0.18s ease,
+              background 0.18s ease, border-color 0.18s ease,
+              color 0.18s ease !important;
+}
+
+/* Generic anchor hover (subtle) — limited to V7 surfaces by being scoped */
+[data-component="numbered-card"] a:hover,
+[data-component="effortel-card"] a:hover {
+  text-decoration: none;
+}
+
+/* Lift effect on cards inside numbered cards on hover */
+[data-component="numbered-card"]:hover {
+  transform: translateY(-2px);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+/* ─── V7 content container collapses on mobile ─────────────────────── */
+
+/* Reduce hero vertical padding on mobile so above-the-fold doesn't over-pad */
+@media (max-width: 640px) {
+  /* All V7Hero sections — reduce top padding from 120px → 80px on phones */
+  section[style*="padding: 120px 24px 60px"],
+  section[style*="padding: 120px 24px 80px"],
+  section[style*="padding: 120px 24px 100px"] {
+    padding-top: 72px !important;
+    padding-bottom: 48px !important;
+  }
+
+  /* Reduce stacked V7Section vertical padding from 80–120 → 56 on phones */
+  section[style*="padding: 80px 24px"],
+  section[style*="padding: 100px 24px"],
+  section[style*="padding: 120px 24px"] {
+    padding-top: 56px !important;
+    padding-bottom: 56px !important;
+  }
+
+  /* NumberedCard inner padding tightens on phone */
+  [data-component="numbered-card"] {
+    padding-top: 36px !important;
+    padding-bottom: 44px !important;
+  }
+}
+
+/* ─── Hover effects on interactive cards ────────────────────────────── */
+
+/* Generic hover lift on V7 cards.
+   Triggers on any element that has the section-light bg + border-radius,
+   so we don't have to mark every card individually. */
+[style*="background: rgb(57, 66, 71)"][style*="border-radius"],
+[style*="background: #394247"][style*="border-radius"] {
+  transition: transform 0.22s ease, border-color 0.22s ease,
+              background 0.22s ease, box-shadow 0.22s ease !important;
+}
+[style*="background: rgb(57, 66, 71)"][style*="border-radius"]:hover,
+[style*="background: #394247"][style*="border-radius"]:hover {
+  transform: translateY(-2px);
+  border-color: rgba(102,232,250,0.28) !important;
+  box-shadow: 0 14px 32px rgba(0,0,0,0.28) !important;
+}
+
+/* Opt-in attribute version */
+[data-v7-card] {
+  transition: transform 0.22s ease, border-color 0.22s ease,
+              background 0.22s ease, box-shadow 0.22s ease !important;
+}
+[data-v7-card]:hover {
+  transform: translateY(-2px);
+  border-color: rgba(102,232,250,0.28) !important;
+  box-shadow: 0 14px 32px rgba(0,0,0,0.28) !important;
+}
+
+/* Underline links on hover within content sections */
+section a[href]:not([class]):hover {
+  opacity: 0.85;
+}
+
+/* Buttons that look like buttons (have background colour) — lift on hover */
+a[href][style*="background:"][style*="border-radius"]:not([style*="transparent"]):hover,
+button[style*="background:"][style*="border-radius"]:not([style*="transparent"]):hover {
+  transform: translateY(-1px);
+  filter: brightness(1.05);
+}
+
+/* ─── Mobile-specific: better touch targets ─────────────────────────── */
+
+@media (max-width: 640px) {
+  /* Make sure all CTA buttons are at least 44px tall (Apple HIG min) */
+  a[href][style*="padding"][style*="border-radius"] {
+    min-height: 44px;
+  }
+}
+
+/* ─── Large gaps between sections feel cleaner with a subtle divider ── */
+
+[data-v7-section-divider] {
+  background-image: linear-gradient(90deg,
+    transparent,
+    rgba(255,255,255,0.06) 50%,
+    transparent
+  );
+  height: 1px;
+  margin: 0 auto;
+  max-width: 720px;
+}

@@ -401,9 +401,13 @@ export function MarketingNav() {
             position: "fixed",
             inset: 0,
             zIndex: 290,
-            background: "rgba(0,0,0,0.45)",
-            backdropFilter: "blur(10px)",
-            WebkitBackdropFilter: "blur(10px)",
+            // Heavier darkening so the dimming effect is visible even on flat
+            // dark V7 pages where there's no colourful content for the blur
+            // to soften — without this the menu appears to float over an
+            // unchanged page on /products, /pricing, /about, etc.
+            background: "rgba(0,0,0,0.65)",
+            backdropFilter: "blur(16px) saturate(1.2)",
+            WebkitBackdropFilter: "blur(16px) saturate(1.2)",
             opacity: menuOpen ? 1 : 0,
             pointerEvents: menuOpen ? "auto" : "none",
             transition: "opacity 0.25s ease",
