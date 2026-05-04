@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
+import { V7Hero, V7PageShell } from "@/components/marketing/v7";
 import { mkt, colors, shadows } from "@/theme/tokens";
 import voiceAssistantIcon from "@assets/voice-assistant-icon_1772080241394.webp";
 import chatAssistantIcon from "@assets/chat-assistant-icon_1772080241379.webp";
@@ -317,11 +318,14 @@ export default function ServicesPage() {
 
   return (
     <MarketingLayout>
+      <V7PageShell>
       <div data-testid="services-page">
-        <div style={s.pageHeader}>
-          <h1 style={s.pageHeaderH1}>Done-For-You Growth Services</h1>
-          <p style={s.pageHeaderSub}>We handle the marketing. You handle the jobs.</p>
-        </div>
+        <V7Hero
+          productName="Done-For-You Services"
+          eyebrow="You handle the trade. We handle the rest."
+          headline={<>Growth services<br/><span style={{ color: mkt.accent }}>delivered, not DIY.</span></>}
+          sub="We install, configure, and operate every tool for you. Real humans you can reach, fixed monthly fees."
+        />
 
         <div style={s.servicesSection}>
           <div style={s.servicesGrid}>
@@ -422,6 +426,7 @@ export default function ServicesPage() {
           </div>
         </div>
       </div>
+      </V7PageShell>
     </MarketingLayout>
   );
 }

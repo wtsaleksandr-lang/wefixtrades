@@ -235,7 +235,7 @@ function Router() {
 
       <Route path="/product/:slug">{(params) => <Redirect to={`/products/${params.slug}`} />}</Route>
       <Route path="/product">{() => <Redirect to="/products" />}</Route>
-      <Route path="/platform" component={MarketingProduct} />
+      <Route path="/platform">{() => <Redirect to="/products/quickquotepro" />}</Route>
       <Route path="/pricing" component={PricingUnified} />
       <Route path="/pricing/quotequick" component={QuoteQuickPricing} />
       <Route path="/plans">{() => <Redirect to="/pricing" />}</Route>

@@ -1,245 +1,155 @@
 import { useEffect } from "react";
 import { Link } from "wouter";
-import { ArrowRight, Check, Phone, MessageSquare, Clock, Star, Globe, Shield, Share2 } from "lucide-react";
+import {
+  ArrowRight, Phone, Calculator, MapPin, Star, Share2, TrendingUp,
+  Globe, Shield, Megaphone, Calendar, PenTool,
+} from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
-import { useScrollReveal } from "@/hooks/useScrollReveal";
-import { mkt, colors, shadows } from "@/theme/tokens";
+import { mkt } from "@/theme/tokens";
+import { V7Hero, V7Section, V7Container, V7PageShell, V7SectionHeading, V7FinalCta } from "@/components/marketing/v7";
+import { Reveal, MONO } from "@/components/effortel-blocks";
 
-const PRIMARY_PRODUCTS = [
-  {
-    slug: "quickquote",
-    name: "QuoteQuick Pro",
-    tagline: "Instant quotes + booking on your website",
-    outcomes: [
-      "Visitors get real estimates in seconds — no phone tag",
-      "Built-in booking & deposits turn quotes into jobs",
-      "Lead capture runs 24/7 on autopilot",
-    ],
-    cta: "See details & pricing",
-    href: "/products/quickquote",
-    icon: Clock,
-  },
-  {
-    slug: "assistants",
-    name: "24/7 Assistants",
-    tagline: "Call + chat answering, follow-ups & review requests",
-    outcomes: [
-      "Every call and chat answered — even at 2 AM",
-      "Automatic follow-ups keep leads warm",
-      "Review requests sent after every completed job",
-    ],
-    cta: "See details & pricing",
-    href: "/products/assistants",
-    icon: Phone,
-  },
+/**
+ * /products — the canonical product index. Shows ALL 12 products grouped
+ * by the same 3-type pattern used on the homepage:
+ *
+ *   Money-makers   — TradeLine, QuoteQuick, MapGuard, WebFix
+ *   Growth tools   — SocialSync, ReputationShield, RankFlow, ContentFlow
+ *   Done-for-you   — SiteLaunch, WebCare, AdFlow, BookFlow
+ *
+ * Each entry links to its EffortelProductPage.
+ */
+
+interface ProductItem {
+  slug: string;
+  name: string;
+  tagline: string;
+  icon: typeof Phone;
+}
+
+const MONEY_MAKERS: ProductItem[] = [
+  { slug: "tradeline",       name: "24/7 TradeLine™",   tagline: "Never miss a lead — even at 2 AM.",        icon: Phone },
+  { slug: "quickquotepro",   name: "QuoteQuick Pro™",   tagline: "Instant quotes on your website.",          icon: Calculator },
+  { slug: "mapguard",        name: "MapGuard™",         tagline: "Show up first on Google Maps.",            icon: MapPin },
+  { slug: "webfix",          name: "WebFix™",           tagline: "Lighthouse 42 → 98 in a week.",            icon: TrendingUp },
 ];
 
-const ADDONS = [
-  {
-    slug: "visibility",
-    name: "Visibility Bundle",
-    desc: "Maps, website SEO, and local ranking — handled for you.",
-    href: "/solutions/visibility",
-    icon: Globe,
-  },
-  {
-    slug: "reputationshield",
-    name: "ReputationShield",
-    desc: "Automated review requests, monitoring, and alerts.",
-    href: "/products/reputationshield",
-    icon: Shield,
-  },
-  {
-    slug: "socialsync",
-    name: "SocialSync",
-    desc: "Consistent posting and lead-gen on Facebook & Instagram.",
-    href: "/products/socialsync",
-    icon: Share2,
-  },
+const GROWTH_TOOLS: ProductItem[] = [
+  { slug: "socialsync",      name: "SocialSync™",       tagline: "Stay visible without hiring a marketer.",   icon: Share2 },
+  { slug: "reputationshield",name: "ReputationShield™", tagline: "Every review answered within minutes.",     icon: Star },
+  { slug: "rankflow",        name: "RankFlow™",         tagline: "Outrank competitors without an agency.",    icon: TrendingUp },
+  { slug: "contentflow",     name: "ContentFlow™",      tagline: "Build authority — without writing a word.", icon: PenTool },
 ];
+
+const DONE_FOR_YOU: ProductItem[] = [
+  { slug: "sitelaunch",      name: "SiteLaunch™",       tagline: "A site that converts. Done in a week.",     icon: Globe },
+  { slug: "webcare",         name: "WebCare™",          tagline: "We watch your site so you don't have to.",  icon: Shield },
+  { slug: "adflow",          name: "AdFlow™",           tagline: "Real ads. Real ROI in your inbox.",         icon: Megaphone },
+  { slug: "bookflow",        name: "BookFlow™",         tagline: "Customers book themselves. You show up.",   icon: Calendar },
+];
+
+function ProductGroup({
+  eyebrow, title, items,
+}: {
+  eyebrow: string; title: string; items: ProductItem[];
+}) {
+  return (
+    <V7Section padding="80px">
+      <V7Container>
+        <V7SectionHeading eyebrow={eyebrow} title={title} />
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+          gap: 16,
+        }}>
+          {items.map((p, i) => {
+            const Icon = p.icon;
+            return (
+              <Reveal key={p.slug} delay={i * 0.05}>
+                <Link href={`/products/${p.slug}`} style={{
+                  display: "block", textDecoration: "none",
+                  background: mkt.sectionLight,
+                  border: `1px solid ${mkt.onDarkBorder}`,
+                  borderRadius: 18, padding: "24px 22px",
+                  height: "100%",
+                }}>
+                  <div style={{
+                    width: 44, height: 44, borderRadius: 12,
+                    background: "rgba(102,232,250,0.10)", color: mkt.accent,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    marginBottom: 16,
+                  }}>
+                    <Icon size={20} strokeWidth={1.6} />
+                  </div>
+                  <h3 style={{ fontSize: 17, fontWeight: 700, color: mkt.onDark, margin: "0 0 6px", letterSpacing: "-0.01em" }}>
+                    {p.name}
+                  </h3>
+                  <p style={{ fontSize: 14, color: mkt.onDarkMuted, margin: "0 0 18px", lineHeight: 1.55 }}>
+                    {p.tagline}
+                  </p>
+                  <span style={{
+                    display: "inline-flex", alignItems: "center", gap: 6,
+                    fontSize: 11, fontWeight: 600, color: mkt.accent,
+                    fontFamily: MONO, letterSpacing: "0.08em", textTransform: "uppercase",
+                    paddingBottom: 4, borderBottom: `1px solid ${mkt.accent}`,
+                  }}>
+                    See details <ArrowRight size={12} />
+                  </span>
+                </Link>
+              </Reveal>
+            );
+          })}
+        </div>
+      </V7Container>
+    </V7Section>
+  );
+}
 
 export default function ProductIndex() {
-  useScrollReveal();
-
   useEffect(() => {
-    document.title = "Products & Services — WeFixTrades | Tools for Trades Businesses";
+    document.title = "Products — WeFixTrades | 12 Tools for Trades Businesses";
     const metaDesc = document.querySelector('meta[name="description"]');
     if (metaDesc) {
-      metaDesc.setAttribute("content", "Explore WeFixTrades products: instant quote calculators, 24/7 answering assistants, booking, follow-ups, visibility, and reputation management.");
+      metaDesc.setAttribute("content", "All 12 WeFixTrades products: instant quotes, 24/7 answering, Google Maps optimization, websites, ads, booking, reviews, and more.");
     }
   }, []);
 
   return (
     <MarketingLayout>
-      <div data-testid="product-index-page">
+      <V7PageShell>
+        <V7Hero
+          productName="All Products"
+          eyebrow="Twelve tools. One operating system for your trades business."
+          headline={<>Pick the ones you need.<br/><span style={{ color: mkt.accent }}>Skip the rest.</span></>}
+          sub="Everything we make is built for trades buyers — plumbers, electricians, roofers, HVAC techs. No generic SaaS retrofits."
+          ctas={[
+            { label: "See Pricing", href: "/pricing" },
+            { label: "Talk to Sales", href: "/contact" },
+          ]}
+        />
 
-        <section
-          style={{
-            background: `linear-gradient(160deg, ${mkt.dark} 0%, #0F2744 55%, #1a3550 100%)`,
-            padding: "80px 28px 72px",
-            textAlign: "center",
-            position: "relative",
-            overflow: "hidden",
-          }}
-        >
-          <div style={{ position: "absolute", top: -80, right: -80, width: 420, height: 420, borderRadius: "50%", background: mkt.accentGlow, pointerEvents: "none" }} />
+        <ProductGroup
+          eyebrow="Money-makers · most-loved"
+          title="The four tools that pay back fastest."
+          items={MONEY_MAKERS}
+        />
+        <ProductGroup
+          eyebrow="Growth tools"
+          title="After they find you, keep them coming back."
+          items={GROWTH_TOOLS}
+        />
+        <ProductGroup
+          eyebrow="Done for you"
+          title="You don't need a team. You have one."
+          items={DONE_FOR_YOU}
+        />
 
-          <div style={{ maxWidth: 720, margin: "0 auto", position: "relative" }}>
-            <h1
-              data-testid="product-index-headline"
-              style={{
-                fontSize: "clamp(32px, 4vw, 52px)",
-                fontWeight: 700, color: mkt.onDark,
-                lineHeight: 1.1, letterSpacing: "-0.035em",
-                marginBottom: 20,
-              }}
-            >
-              Pick what you need
-            </h1>
-            <p style={{ fontSize: "clamp(16px, 1.8vw, 19px)", color: mkt.onDarkFaint, lineHeight: 1.65, maxWidth: 540, margin: "0 auto" }}>
-              Two core products. Optional add-ons. No contracts.
-            </p>
-          </div>
-        </section>
-
-        <section style={{ background: mkt.bg, padding: "48px 28px 72px" }}>
-          <div style={{ maxWidth: 900, margin: "0 auto" }}>
-
-            <div
-              className="primary-products-grid"
-              style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: 24, marginBottom: 56 }}
-            >
-              {PRIMARY_PRODUCTS.map((product, idx) => {
-                const Icon = product.icon;
-                return (
-                  <Link
-                    key={product.slug}
-                    href={product.href}
-                    style={{ textDecoration: "none", color: "inherit" }}
-                  >
-                    <div
-                      data-testid={`product-primary-card-${product.slug}`}
-                      data-reveal="fade-up"
-                      data-delay={String((idx + 1) * 100)}
-                      className="mkt-feature-card"
-                      style={{
-                        background: mkt.bg,
-                        border: `1.5px solid ${mkt.border}`,
-                        borderRadius: 18,
-                        padding: "32px 28px",
-                        cursor: "pointer",
-                        height: "100%",
-                        display: "flex",
-                        flexDirection: "column",
-                        transition: "border-color 0.3s ease, box-shadow 0.3s ease",
-                      }}
-                    >
-                      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
-                        <div style={{ width: 44, height: 44, borderRadius: 12, background: mkt.accentTint, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                          <Icon size={22} color={mkt.accent} strokeWidth={2} />
-                        </div>
-                        <div>
-                          <h2 style={{ fontSize: 22, fontWeight: 700, color: mkt.text, letterSpacing: "-0.01em", margin: 0 }}>
-                            {product.name}
-                          </h2>
-                        </div>
-                      </div>
-
-                      <p style={{ fontSize: 15, color: mkt.textMuted, marginBottom: 20, lineHeight: 1.5 }}>
-                        {product.tagline}
-                      </p>
-
-                      <ul style={{ listStyle: "none", padding: 0, margin: "0 0 24px", display: "flex", flexDirection: "column", gap: 10, flex: 1 }}>
-                        {product.outcomes.map((outcome) => (
-                          <li key={outcome} style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: 14, color: mkt.textMuted, lineHeight: 1.45 }}>
-                            <Check size={15} color={mkt.accent} strokeWidth={2.5} style={{ flexShrink: 0, marginTop: 2 }} />
-                            <span>{outcome}</span>
-                          </li>
-                        ))}
-                      </ul>
-
-                      <div style={{ borderTop: `1px solid ${mkt.border}`, paddingTop: 18, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                        <span data-testid={`link-product-${product.slug}`} style={{ fontSize: 15, fontWeight: 700, color: mkt.accent, display: "inline-flex", alignItems: "center", gap: 6 }}>
-                          {product.cta} <ArrowRight size={15} />
-                        </span>
-                      </div>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-
-            <div style={{ marginBottom: 28 }}>
-              <h3
-                data-testid="addons-heading"
-                style={{ fontSize: 18, fontWeight: 700, color: mkt.text, letterSpacing: "-0.01em", marginBottom: 4 }}
-              >
-                Optional add-ons
-              </h3>
-              <p style={{ fontSize: 14, color: mkt.textMuted, margin: 0 }}>
-                Layer on visibility and reputation services when you're ready.
-              </p>
-            </div>
-
-            <div
-              className="addons-grid"
-              style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 16 }}
-            >
-              {ADDONS.map((addon, idx) => {
-                const Icon = addon.icon;
-                return (
-                  <Link
-                    key={addon.slug}
-                    href={addon.href}
-                    style={{ textDecoration: "none", color: "inherit" }}
-                  >
-                    <div
-                      data-testid={`product-addon-card-${addon.slug}`}
-                      data-reveal="fade-up"
-                      data-delay={String(Math.min((idx + 1) * 80, 300))}
-                      className="mkt-feature-card"
-                      style={{
-                        background: mkt.surface,
-                        border: `1px solid ${mkt.border}`,
-                        borderRadius: 14,
-                        padding: "22px 20px",
-                        cursor: "pointer",
-                        height: "100%",
-                        display: "flex",
-                        flexDirection: "column",
-                        transition: "border-color 0.3s ease, box-shadow 0.3s ease",
-                      }}
-                    >
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-                        <Icon size={18} color={mkt.accent} strokeWidth={2} />
-                        <h4 style={{ fontSize: 16, fontWeight: 700, color: mkt.text, margin: 0 }}>
-                          {addon.name}
-                        </h4>
-                      </div>
-
-                      <p style={{ fontSize: 13, color: mkt.textMuted, lineHeight: 1.5, marginBottom: 14, flex: 1 }}>
-                        {addon.desc}
-                      </p>
-
-                      <span data-testid={`link-addon-${addon.slug}`} style={{ fontSize: 13, fontWeight: 700, color: mkt.accent, display: "inline-flex", alignItems: "center", gap: 4 }}>
-                        Learn more <ArrowRight size={13} />
-                      </span>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-
-            <style>{`
-              @media (max-width: 700px) {
-                .primary-products-grid { grid-template-columns: 1fr !important; }
-                .addons-grid { grid-template-columns: 1fr !important; }
-              }
-            `}</style>
-          </div>
-        </section>
-
-      </div>
+        <V7FinalCta
+          title={<>One operating system.<br/><span style={{ color: mkt.accent }}>Twelve outcomes.</span></>}
+          sub="Pick a tier. Cancel any month. We do the work — you stay in the field."
+          primaryCta={{ label: "See Pricing", href: "/pricing" }}
+        />
+      </V7PageShell>
     </MarketingLayout>
   );
 }
