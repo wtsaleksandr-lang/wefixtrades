@@ -4,6 +4,29 @@ import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { mkt } from "@/theme/tokens";
 import { TrendingUp, ArrowRight, PhoneCall, Star, MapPin, Calendar } from "lucide-react";
 import { V7Hero, V7PageShell } from "@/components/marketing/v7";
+import { TILE, MONO } from "@/components/effortel-blocks";
+
+/** Map trade name → pastel TILE colour for the case-study top strip. */
+const TRADE_TILE: Record<string, keyof typeof TILE> = {
+  Plumber: "cyanSoft",
+  Plumbing: "cyanSoft",
+  HVAC: "lavender",
+  "HVAC Tech": "lavender",
+  Electrician: "mint",
+  Roofer: "pink",
+  Cleaner: "white",
+  Cleaning: "white",
+  Landscaper: "mint",
+};
+
+function tradeTile(trade: string): keyof typeof TILE {
+  // Pick by exact match, then partial match (e.g. "MT Plumbing" → cyanSoft)
+  if (TRADE_TILE[trade]) return TRADE_TILE[trade];
+  for (const [k, v] of Object.entries(TRADE_TILE)) {
+    if (trade.toLowerCase().includes(k.toLowerCase())) return v;
+  }
+  return "cyanSoft";
+}
 
 /**
  * NOTE ON CASE STUDIES (internal)
@@ -141,12 +164,14 @@ export default function CaseStudiesPage() {
             gap: 28,
           }}
         >
-          {STUDIES.map((study) => (
+          {STUDIES.map((study) => {
+            const tile = TILE[tradeTile(study.trade)];
+            return (
             <article
               key={study.slug}
               data-testid={`card-case-study-${study.slug}`}
               style={{
-                background: mkt.bg,
+                background: mkt.sectionLight,
                 borderRadius: 18,
                 border: `1px solid ${mkt.onDarkBorder}`,
                 boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
@@ -155,19 +180,28 @@ export default function CaseStudiesPage() {
                 gridTemplateColumns: "minmax(0, 1fr)",
               }}
             >
-              {/* Top strip */}
+              {/* Pastel top strip — TILE-coloured per trade */}
               <div
                 style={{
-                  background: `linear-gradient(135deg, ${mkt.dark}, ${mkt.darkHover})`,
+                  background: tile.bg,
+                  color: tile.ink,
                   padding: "20px 28px",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
                   gap: 16,
                   flexWrap: "wrap",
+                  position: "relative",
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                {/* Subtle dot pattern */}
+                <div style={{
+                  position: "absolute", inset: 0,
+                  backgroundImage: `radial-gradient(circle, ${tile.ink}10 1px, transparent 1px)`,
+                  backgroundSize: "16px 16px",
+                  opacity: 0.5, pointerEvents: "none",
+                }} />
+                <div style={{ position: "relative", display: "flex", alignItems: "center", gap: 10 }}>
                   <span
                     style={{
                       display: "inline-flex",
@@ -175,25 +209,28 @@ export default function CaseStudiesPage() {
                       gap: 6,
                       fontSize: 11,
                       fontWeight: 700,
-                      color: mkt.accent,
+                      color: tile.ink,
                       textTransform: "uppercase",
-                      letterSpacing: "0.08em",
+                      letterSpacing: "0.1em",
+                      fontFamily: MONO,
                     }}
                   >
                     <TrendingUp size={13} /> {study.trade}
                   </span>
-                  <span style={{ color: "rgba(255,255,255,0.25)" }}>·</span>
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: mkt.onDarkMuted }}>
+                  <span style={{ color: tile.muted }}>·</span>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: tile.muted, fontFamily: MONO }}>
                     <MapPin size={12} /> {study.metro}
                   </span>
                 </div>
                 <span
                   style={{
+                    position: "relative",
                     display: "inline-flex",
                     alignItems: "center",
                     gap: 6,
                     fontSize: 11,
-                    color: mkt.onDarkFaint,
+                    color: tile.muted,
+                    fontFamily: MONO,
                   }}
                 >
                   <Calendar size={12} /> {study.timeline}
@@ -313,7 +350,8 @@ export default function CaseStudiesPage() {
                 </div>
               </div>
             </article>
-          ))}
+            );
+          })}
         </div>
       </section>
 

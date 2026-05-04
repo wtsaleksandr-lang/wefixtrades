@@ -4,6 +4,20 @@ import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { mkt } from "@/theme/tokens";
 import { ArrowRight, ArrowLeft } from "lucide-react";
 import { V7Hero, V7PageShell } from "@/components/marketing/v7";
+import { TILE, MONO } from "@/components/effortel-blocks";
+
+/** Map blog category → pastel TILE colour for the card header strip. */
+const CATEGORY_TILE: Record<string, keyof typeof TILE> = {
+  Growth: "mint",
+  SEO: "cyanSoft",
+  Marketing: "pink",
+  Automation: "lavender",
+  Strategy: "cyan",
+};
+
+function categoryColor(cat: string): keyof typeof TILE {
+  return CATEGORY_TILE[cat] ?? "cyanSoft";
+}
 
 const BLOG_POSTS = [
   {
@@ -115,22 +129,28 @@ export default function BlogPage() {
             >
               <ArrowLeft size={14} /> Back to all articles
             </button>
-            <span
-              style={{
-                display: "inline-block",
-                fontSize: 11,
-                fontWeight: 700,
-                color: mkt.accent,
-                textTransform: "uppercase",
-                letterSpacing: "0.08em",
-                background: "rgba(102,232,250,0.10)",
-                padding: "4px 12px",
-                borderRadius: 20,
-                marginBottom: 16,
-              }}
-            >
-              {activePost.category}
-            </span>
+            {(() => {
+              const tile = TILE[categoryColor(activePost.category)];
+              return (
+                <span
+                  style={{
+                    display: "inline-block",
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: tile.ink,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.08em",
+                    background: tile.bg,
+                    padding: "5px 14px",
+                    borderRadius: 999,
+                    marginBottom: 16,
+                    fontFamily: MONO,
+                  }}
+                >
+                  {activePost.category}
+                </span>
+              );
+            })()}
             <h2 style={{ fontSize: "clamp(24px, 4vw, 36px)", fontWeight: 700, color: mkt.onDark, margin: "0 0 8px", lineHeight: 1.2, letterSpacing: "-0.02em" }}>
               {activePost.title}
             </h2>
@@ -181,39 +201,60 @@ export default function BlogPage() {
               gap: 24,
             }}
           >
-            {BLOG_POSTS.map((post, i) => (
+            {BLOG_POSTS.map((post, i) => {
+              const tile = TILE[categoryColor(post.category)];
+              return (
               <div
                 key={i}
                 data-testid={`card-blog-post-${i}`}
                 onClick={() => setOpenArticle(i)}
                 style={{
-                  background: mkt.bg,
-                  borderRadius: 16,
+                  background: mkt.sectionLight, borderRadius:  16,
                   boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
                   border: `1px solid ${mkt.onDarkBorder}`,
                   display: "flex",
                   flexDirection: "column",
                   cursor: "pointer",
                   transition: "box-shadow 0.2s ease, transform 0.2s ease",
+                  overflow: "hidden",
                 }}
               >
                 <div
                   style={{
-                    height: 160,
-                    borderRadius: "16px 16px 0 0",
-                    background: `linear-gradient(135deg, ${mkt.accentTint}, ${mkt.surface})`,
+                    height: 100,
+                    background: tile.bg,
+                    color: tile.ink,
                     display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
+                    alignItems: "flex-end",
+                    justifyContent: "space-between",
+                    padding: "16px 20px",
+                    position: "relative",
                   }}
                 >
-                  <span style={{ fontSize: 12, fontWeight: 600, color: mkt.onDarkMuted, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                  {/* Subtle dot pattern overlay so the pastel block doesn't feel flat */}
+                  <div style={{
+                    position: "absolute", inset: 0,
+                    backgroundImage: `radial-gradient(circle, ${tile.ink}10 1px, transparent 1px)`,
+                    backgroundSize: "14px 14px",
+                    opacity: 0.6, pointerEvents: "none",
+                  }} />
+                  <span style={{
+                    position: "relative",
+                    fontSize: 11, fontWeight: 600, color: tile.ink,
+                    textTransform: "uppercase", letterSpacing: "0.1em",
+                    fontFamily: MONO,
+                  }}>
                     {post.category}
+                  </span>
+                  <span style={{
+                    position: "relative",
+                    fontSize: 10, color: tile.muted, fontFamily: MONO,
+                  }}>
+                    {post.date}
                   </span>
                 </div>
                 <div style={{ padding: "20px 24px 24px", display: "flex", flexDirection: "column", gap: 10, flex: 1 }}>
-                  <span style={{ fontSize: 12, color: mkt.onDarkMuted, fontWeight: 500 }}>{post.date}</span>
-                  <h3 style={{ fontSize: 17, fontWeight: 650, color: mkt.onDark, margin: 0, lineHeight: 1.3 }}>{post.title}</h3>
+                  <h3 style={{ fontSize: 17, fontWeight: 650, color: mkt.onDark, margin: 0, lineHeight: 1.3, letterSpacing: "-0.01em" }}>{post.title}</h3>
                   <p style={{ fontSize: 13, color: mkt.onDarkMuted, lineHeight: 1.5, margin: 0 }}>{post.summary}</p>
                   <div style={{ flex: 1 }} />
                   <span
@@ -221,16 +262,20 @@ export default function BlogPage() {
                       display: "inline-flex",
                       alignItems: "center",
                       gap: 4,
-                      fontSize: 13,
+                      fontSize: 11,
                       fontWeight: 600,
                       color: mkt.accent,
+                      fontFamily: MONO,
+                      letterSpacing: "0.08em",
+                      textTransform: "uppercase",
                     }}
                   >
-                    Read More <ArrowRight size={13} />
+                    Read More <ArrowRight size={12} />
                   </span>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </section>
       )}
