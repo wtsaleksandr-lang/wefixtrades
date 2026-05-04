@@ -148,29 +148,39 @@ export default function GlobeCanvas({
 
     globeRef.current = globe;
 
-    // Camera controls — constrained to North America since that's where the
-    // service currently operates. Drag is enabled but limited to roughly
-    // ±60° azimuth around -95° longitude (so the user can pan East to the
-    // Atlantic and West to the Pacific but never sees the empty back of
-    // the globe). Vertical tilt is also clamped.
+    // Camera controls — constrained to ~150° drag range around North America.
+    //
+    // Order matters here:
+    //   1. Set the camera position FIRST via pointOfView (this rotates the
+    //      globe so lat/lng faces the viewer).
+    //   2. Then capture the resulting azimuth and clamp drag relative to it.
+    //      Doing it in the other order pins the camera to azimuth=0 (which
+    //      is roughly the prime meridian / Africa) before pointOfView gets
+    //      a chance to apply.
     const controls = globe.controls();
-    controls.autoRotate = false;             // off — would carry past the clamp
+    controls.autoRotate = false;
     controls.enableZoom = false;
     controls.enablePan = false;
     controls.rotateSpeed = 0.5;
     controls.dampingFactor = 0.15;
     controls.enableDamping = true;
-    // Three.js OrbitControls — azimuth = horizontal rotation, polar = vertical
-    // The globe library composes the camera target so we constrain in radians.
-    // Center azimuth on roughly -95° lng → North America; allow ±60° drag.
-    const DEG = Math.PI / 180;
-    controls.minAzimuthAngle = -60 * DEG;
-    controls.maxAzimuthAngle = 60 * DEG;
-    controls.minPolarAngle = 50 * DEG;       // can't tilt above the equator
-    controls.maxPolarAngle = 110 * DEG;      // can't drop below the south pole
 
-    // Initial view — centered on North America, zoomed out to show ~half globe
-    globe.pointOfView({ lat: 32, lng: -95, altitude: 2.8 });
+    const DEG = Math.PI / 180;
+
+    // 1. Initial view — centered on North America (lat 38, lng -98 = roughly
+    //    the geographic centre of CONUS). altitude 2.6 so NA fills the frame.
+    globe.pointOfView({ lat: 38, lng: -98, altitude: 2.6 });
+
+    // 2. Capture the camera's azimuth on the next animation frame (pointOfView
+    //    needs a tick to settle), then clamp ±75° around it.
+    requestAnimationFrame(() => {
+      const center = controls.getAzimuthalAngle();
+      controls.minAzimuthAngle = center - 75 * DEG;
+      controls.maxAzimuthAngle = center + 75 * DEG;
+      controls.minPolarAngle = 45 * DEG;
+      controls.maxPolarAngle = 115 * DEG;
+      controls.update();
+    });
 
     // ── Load land data → dotted texture ─────────────────────────────
     fetch(LAND_DATA_URL)

@@ -835,35 +835,18 @@ export default function HomePage() {
       </div>{/* end shared grid zone */}
       </div>{/* end hero shell backdrop */}
       <HeroTradeDivider />
-      <CapabilitiesShowcase />
-      <StickyStackCards />
-      <ServiceStackTimeline />
-      <PillarAnimation />
-      <FeatureCards />
+      {/* Three product showcase types covering all 12 products: */}
+      <CapabilitiesShowcase />        {/* 4 money-makers */}
+      <StickyStackCards />            {/* 4 growth tools */}
+      <ServiceStackTimeline />        {/* 4 done-for-you */}
+      {/* Removed legacy sections (PillarAnimation, FeatureCards, ServiceCards,
+          WorkflowDemo) — they duplicated the 3-type story above and broke the
+          V7 visual cohesion as the user scrolled. AutomationDiagram remains as
+          the interactive "How it works" deep-dive. */}
       {hasWebGL && <GlobeSection />}
-      <ServiceCards />
       <SurfaceSection overlap className="py-4">
         <ReviewsSection />
       </SurfaceSection>
-
-      <section data-testid="workflow-section" style={{ background: mkt.darkBg, padding: "96px 28px", borderRadius: "28px 28px 0 0", marginTop: -28, position: "relative", zIndex: 7 }}>
-        <div style={{ maxWidth: 900, margin: "0 auto" }}>
-          <div data-reveal="fade-up" style={{ marginBottom: 48 }}>
-            <h2 style={{ fontSize: "clamp(28px, 3.5vw, 42px)", fontWeight: 700, color: mkt.text, letterSpacing: "-0.03em", lineHeight: 1.1, marginBottom: 16 }}>
-              From lead → quote → booking → review <span style={{ color: mkt.accent }}>(automatic)</span>
-            </h2>
-            <p style={{ fontSize: 17, color: mkt.textMuted, lineHeight: 1.65, maxWidth: 600 }}>
-              Four steps that run on autopilot. Click each to see how it works.
-            </p>
-          </div>
-          <div data-reveal="fade-up">
-            <WorkflowDemo />
-          </div>
-        </div>
-      </section>
-
-
-
       <AutomationDiagram />
       <TrustSection />
       <CTASection />

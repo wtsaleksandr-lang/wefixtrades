@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from "react";
 import { motion, AnimatePresence, useInView, useReducedMotion } from "framer-motion";
+import { ICON_ANIMATIONS } from "./AutomationDiagramIcons";
 import {
   ReactFlow,
   Background,
@@ -319,15 +320,20 @@ function DiagramNode({ data }: { data: FlowNodeData }) {
   const p = PALETTE[data.colorIdx % PALETTE.length];
   const { activeId, setActiveId, inView } = useContext(ActiveNodeContext);
   const isActive = activeId === data.id;
-  const sequence = ICON_SEQUENCES[data.iconKey] ?? [data.iconKey];
+  const [hovering, setHovering] = useState(false);
+  // V7 styling: subtle border, soft tint, no neon glow.
+  // Custom per-icon animation (see AutomationDiagramIcons.tsx) replaces icon-swap.
+  const AnimComp = ICON_ANIMATIONS[data.iconKey];
 
   return (
     <div
-      style={{ position: "relative", cursor: "pointer" }}
+      style={{ position: "relative", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center" }}
       onClick={(e) => {
         e.stopPropagation();
         setActiveId(isActive ? null : data.id);
       }}
+      onMouseEnter={() => setHovering(true)}
+      onMouseLeave={() => setHovering(false)}
     >
       {/* ── Group label above frame ── */}
       {data.groupLabel && (
@@ -344,6 +350,7 @@ function DiagramNode({ data }: { data: FlowNodeData }) {
             letterSpacing: "0.12em",
             textTransform: "uppercase",
             color: p.text,
+            opacity: 0.85,
             pointerEvents: "none",
           }}
         >
@@ -351,54 +358,43 @@ function DiagramNode({ data }: { data: FlowNodeData }) {
         </div>
       )}
 
-      {/* ── Outer selection frame ── */}
+      {/* ── Square card — V7 vibe: subtle border, soft tint, no neon glow ── */}
       <div
         style={{
           position: "relative",
-          border: `1px solid ${p.border}`,
-          borderRadius: 8,
-          padding: 10,
-          background: isActive ? `${p.inner}` : "rgba(255,255,255,0.03)",
-          cursor: "pointer",
-          transition: "box-shadow 0.35s ease, background 0.35s ease, opacity 0.35s ease",
+          width: 90, height: 90,                       // ~10% smaller than before (was 92 effective)
+          borderRadius: 14,
+          padding: 0,
+          background: isActive ? p.inner : (hovering ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.025)"),
+          border: `1px solid ${isActive ? p.border : (hovering ? p.borderMuted : "rgba(255,255,255,0.08)")}`,
+          transition: "background 0.25s ease, border-color 0.25s ease, transform 0.2s ease, box-shadow 0.25s ease",
+          // Subtle elevated shadow on hover/active — no neon glow
           boxShadow: isActive
-            ? `0 0 24px ${p.glow}, 0 0 48px ${p.glow}, inset 0 0 12px ${p.glow}`
-            : `0 0 12px ${p.glow}, inset 0 0 8px ${p.glow}`,
-          opacity: activeId && !isActive ? 0.45 : 1,
+            ? `0 8px 24px rgba(0,0,0,0.25), 0 0 0 1px ${p.borderMuted} inset`
+            : hovering
+              ? "0 6px 18px rgba(0,0,0,0.20)"
+              : "0 2px 8px rgba(0,0,0,0.10)",
+          transform: hovering && !isActive ? "translateY(-2px)" : "translateY(0)",
+          opacity: activeId && !isActive ? 0.5 : 1,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.boxShadow = `0 0 24px ${p.glow}, 0 0 48px ${p.glow}, inset 0 0 12px ${p.glow}`;
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.boxShadow = `0 0 12px ${p.glow}, inset 0 0 8px ${p.glow}`;
+          color: p.text,
+          margin: "0 auto",
         }}
       >
-        {/* Corner handles */}
-        <CornerHandle top left color={p.border} />
-        <CornerHandle top right color={p.border} />
-        <CornerHandle bottom left color={p.border} />
-        <CornerHandle bottom right color={p.border} />
-
-        {/* ── Inner dashed card with icon ── */}
+        {/* Inner soft tinted square holding the animated icon */}
         <div
           style={{
-            width: 70,
-            height: 70,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            border: `1.5px dashed ${p.innerBorder}`,
-            borderRadius: 8,
-            background: p.inner,
-            color: p.text,
-            margin: 0,
-            padding: 0,
+            width: 56, height: 56,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            borderRadius: 10,
+            background: isActive ? p.inner : "transparent",
+            border: `1px solid ${isActive ? p.borderMuted : "rgba(255,255,255,0.05)"}`,
+            transition: "background 0.25s ease, border-color 0.25s ease",
           }}
         >
-          <AnimatedIcon keys={sequence} active={isActive && inView} color={p.text} />
+          {AnimComp ? <AnimComp color={p.text} active={isActive && inView} /> : null}
         </div>
       </div>
 
@@ -472,7 +468,8 @@ function buildTabData(
   items: NodeDef[],
   layout: "mobile" | "tablet" | "desktop",
 ): { nodes: Node[]; edges: Edge[] } {
-  const nodeWidth = 110; // 10% larger
+  // Match the actual rendered square size (90px) so centering math stays honest.
+  const nodeWidth = 100;
 
   const nodes: Node[] = items.map((item, i) => {
     let x: number, y: number;

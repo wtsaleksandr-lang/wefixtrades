@@ -24,7 +24,6 @@ import {
   NumberedCard,
   BadgePill,
   Reveal,
-  Ticker,
   MONO, SANS,
 } from "@/components/effortel-blocks";
 import { PRODUCT_MOCKUPS, type ProductMockupSection } from "@/config/product-mockups";
@@ -389,7 +388,7 @@ function Pricing({ pricing, primaryCta }: { pricing?: { plans: any[]; note?: str
                 <h3 style={{ fontSize: 18, fontWeight: 700, letterSpacing: "-0.01em", marginBottom: 8 }}>{p.name}</h3>
                 <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 6 }}>
                   <span style={{ fontSize: 36, fontWeight: 700, letterSpacing: "-0.03em", lineHeight: 1 }}>
-                    {/^[\$\d]/.test(p.price) ? <Ticker value={p.price} /> : p.price}
+                    {p.price}
                   </span>
                   <span style={{ fontSize: 13, opacity: 0.7 }}>{p.period}</span>
                 </div>
@@ -403,12 +402,15 @@ function Pricing({ pricing, primaryCta }: { pricing?: { plans: any[]; note?: str
                 </ul>
                 <Link href={primaryCta.href} style={{
                   display: "block", textAlign: "center",
-                  padding: "12px 16px", borderRadius: 10,
+                  padding: "12px 14px", borderRadius: 10,
                   background: p.highlighted ? mkt.dark : mkt.accent,
                   color: p.highlighted ? mkt.accent : mkt.dark,
-                  fontFamily: MONO, fontSize: 12, fontWeight: 600,
-                  letterSpacing: "0.1em", textTransform: "uppercase",
+                  fontFamily: MONO, fontSize: 11, fontWeight: 700,
+                  letterSpacing: "0.06em", textTransform: "uppercase",
                   textDecoration: "none",
+                  lineHeight: 1.25,
+                  whiteSpace: "normal",
+                  overflowWrap: "break-word",
                 }}>
                   {primaryCta.label}
                 </Link>
@@ -587,21 +589,34 @@ function FinalCta({ cfg }: { cfg: ReturnType<typeof getProductBySlug> & {} }) {
 }
 
 /* ─── shared cta styles ─── */
+/* Use className "wft-cta-primary" / "wft-cta-ghost" so CSS can responsively
+   tighten padding + allow text wrap on small screens. The inline style is
+   the desktop baseline. */
 const ctaPrimary: React.CSSProperties = {
-  display: "inline-flex", alignItems: "center", gap: 12,
-  padding: "16px 28px", borderRadius: 10,
+  display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 10,
+  padding: "14px 22px", borderRadius: 10,
   background: mkt.accent, color: mkt.dark,
-  fontFamily: MONO, fontSize: 14, fontWeight: 500,
-  letterSpacing: "0.12em", textTransform: "uppercase",
+  fontFamily: MONO, fontSize: 13, fontWeight: 600,
+  letterSpacing: "0.08em", textTransform: "uppercase",
   textDecoration: "none",
+  textAlign: "center",
+  lineHeight: 1.2,
+  maxWidth: "100%",
+  whiteSpace: "normal",
+  overflowWrap: "break-word",
 };
 
 const ctaGhost: React.CSSProperties = {
-  display: "inline-flex", alignItems: "center", gap: 12,
-  padding: "16px 28px", borderRadius: 10,
+  display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 10,
+  padding: "14px 22px", borderRadius: 10,
   background: "transparent", color: mkt.onDark,
-  fontFamily: MONO, fontSize: 14, fontWeight: 500,
-  letterSpacing: "0.12em", textTransform: "uppercase",
+  fontFamily: MONO, fontSize: 13, fontWeight: 600,
+  letterSpacing: "0.08em", textTransform: "uppercase",
   textDecoration: "none",
   border: `1px solid ${mkt.onDarkBorder}`,
+  textAlign: "center",
+  lineHeight: 1.2,
+  maxWidth: "100%",
+  whiteSpace: "normal",
+  overflowWrap: "break-word",
 };
