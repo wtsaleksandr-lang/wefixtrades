@@ -4,6 +4,7 @@ import { useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { getSessionId } from "@/lib/chatHelpers";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
+import { V7PageShell } from "@/components/marketing/v7";
 import { mkt } from "@/theme/tokens";
 import { usePageTitle } from "@/hooks/usePageTitle";
 
@@ -69,9 +70,9 @@ export default function SignupPage() {
     width: "100%",
     padding: "12px 14px",
     fontSize: 14,
-    color: mkt.text,
-    background: mkt.surface,
-    border: `1px solid ${mkt.border}`,
+    color: mkt.onDark,
+    background: "rgba(255,255,255,0.04)",
+    border: `1px solid ${mkt.onDarkBorder}`,
     borderRadius: 8,
     outline: "none",
     boxSizing: "border-box" as const,
@@ -79,21 +80,22 @@ export default function SignupPage() {
 
   return (
     <MarketingLayout>
+      <V7PageShell>
       <div
         style={{
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          minHeight: "60vh",
-          padding: "80px 24px 40px",
+          minHeight: "75vh",
+          padding: "100px 24px 60px",
         }}
       >
-        <div style={{ width: "100%", maxWidth: 380 }}>
+        <div style={{ width: "100%", maxWidth: 420, background: mkt.sectionLight, borderRadius: 24, padding: "40px 32px", border: `1px solid ${mkt.onDarkBorder}` }}>
           <h1
             style={{
-              fontSize: 24,
-              fontWeight: 600,
-              color: mkt.text,
+              fontSize: 28,
+              fontWeight: 700,
+              color: mkt.onDark,
               marginBottom: 8,
               letterSpacing: "-0.02em",
             }}
@@ -103,7 +105,7 @@ export default function SignupPage() {
           <p
             style={{
               fontSize: 14,
-              color: mkt.textMuted,
+              color: mkt.onDarkMuted,
               marginBottom: 32,
               lineHeight: 1.5,
             }}
@@ -193,9 +195,9 @@ export default function SignupPage() {
             <div style={{ textAlign: "center", marginTop: 16 }}>
               <a
                 href="/login"
-                style={{ fontSize: 13, color: mkt.textMuted, textDecoration: "none" }}
+                style={{ fontSize: 13, color: mkt.onDarkMuted, textDecoration: "none" }}
                 onMouseOver={(e) => (e.currentTarget.style.color = mkt.text)}
-                onMouseOut={(e) => (e.currentTarget.style.color = mkt.textMuted)}
+                onMouseOut={(e) => (e.currentTarget.style.color = mkt.onDarkMuted)}
               >
                 Already have an account? Log in
               </a>
@@ -203,6 +205,7 @@ export default function SignupPage() {
           </form>
         </div>
       </div>
+      </V7PageShell>
     </MarketingLayout>
   );
 }

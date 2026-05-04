@@ -19,12 +19,12 @@ function CellValue({ value }: { value: boolean | string }) {
   if (value === false) {
     return (
       <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
-        <XIcon size={16} color={mkt.textFaint} strokeWidth={2} />
+        <XIcon size={16} color={mkt.onDarkFaint} strokeWidth={2} />
       </span>
     );
   }
   return (
-    <span style={{ fontSize: 13, color: mkt.textMuted, fontWeight: 500 }}>
+    <span style={{ fontSize: 13, color: mkt.onDarkMuted, fontWeight: 500 }}>
       {value}
     </span>
   );
@@ -36,8 +36,8 @@ function ComparisonTable({ data }: { data: ComparisonData }) {
   return (
     <div
       style={{
-        background: mkt.surface,
-        border: `1px solid ${mkt.border}`,
+        background: mkt.sectionLight,
+        border: `1px solid ${mkt.onDarkBorder}`,
         borderRadius: 16,
         overflow: "hidden",
         boxShadow: shadows.card,
@@ -47,7 +47,7 @@ function ComparisonTable({ data }: { data: ComparisonData }) {
       <p
         style={{
           fontSize: 11,
-          color: mkt.textFaint,
+          color: mkt.onDarkFaint,
           padding: "8px 16px 0",
           margin: 0,
           display: "none",
@@ -66,12 +66,12 @@ function ComparisonTable({ data }: { data: ComparisonData }) {
           }}
         >
           <thead>
-            <tr style={{ borderBottom: `2px solid ${mkt.border}` }}>
+            <tr style={{ borderBottom: `2px solid ${mkt.onDarkBorder}` }}>
               <th
                 style={{
                   textAlign: "left",
                   padding: "16px 20px",
-                  color: mkt.textMuted,
+                  color: mkt.onDarkMuted,
                   fontWeight: 500,
                   fontSize: 13,
                   whiteSpace: "nowrap",
@@ -104,7 +104,7 @@ function ComparisonTable({ data }: { data: ComparisonData }) {
                   style={{
                     textAlign: "center",
                     padding: "16px 20px",
-                    color: mkt.textMuted,
+                    color: mkt.onDarkMuted,
                     fontWeight: 600,
                     fontSize: 13,
                     minWidth: 140,
@@ -112,7 +112,7 @@ function ComparisonTable({ data }: { data: ComparisonData }) {
                   }}
                 >
                   <div style={{ marginBottom: 4 }}>{c.name}</div>
-                  <div style={{ fontSize: 11, fontWeight: 500, color: mkt.textFaint }}>
+                  <div style={{ fontSize: 11, fontWeight: 500, color: mkt.onDarkFaint }}>
                     {c.price}
                   </div>
                 </th>
@@ -124,7 +124,7 @@ function ComparisonTable({ data }: { data: ComparisonData }) {
               <tr
                 key={i}
                 style={{
-                  borderBottom: `1px solid ${mkt.border}`,
+                  borderBottom: `1px solid ${mkt.onDarkBorder}`,
                   transition: "background 0.15s ease",
                 }}
                 onMouseEnter={(e) => {
@@ -137,7 +137,7 @@ function ComparisonTable({ data }: { data: ComparisonData }) {
                 <td
                   style={{
                     padding: "14px 20px",
-                    color: mkt.text,
+                    color: mkt.onDark,
                     fontSize: 14,
                     fontWeight: 500,
                   }}
@@ -345,7 +345,7 @@ export default function ComparisonPage() {
                 style={{
                   fontSize: "clamp(24px, 3vw, 36px)",
                   fontWeight: 600,
-                  color: mkt.text,
+                  color: mkt.onDark,
                   letterSpacing: "-0.025em",
                   marginBottom: 14,
                   lineHeight: 1.15,
@@ -368,8 +368,8 @@ export default function ComparisonPage() {
                   data-reveal="fade-up"
                   data-delay={String(i * 100)}
                   style={{
-                    background: mkt.surface,
-                    border: `1px solid ${mkt.border}`,
+                    background: mkt.sectionLight,
+                    border: `1px solid ${mkt.onDarkBorder}`,
                     borderRadius: 16,
                     padding: "28px 24px",
                     boxShadow: shadows.card,
@@ -380,7 +380,7 @@ export default function ComparisonPage() {
                       width: 36,
                       height: 36,
                       borderRadius: 10,
-                      background: mkt.accentTint,
+                      background: "rgba(102,232,250,0.10)",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
@@ -396,7 +396,7 @@ export default function ComparisonPage() {
                     style={{
                       fontSize: 17,
                       fontWeight: 700,
-                      color: mkt.text,
+                      color: mkt.onDark,
                       marginBottom: 8,
                       letterSpacing: "-0.01em",
                     }}
@@ -406,7 +406,7 @@ export default function ComparisonPage() {
                   <p
                     style={{
                       fontSize: 14.5,
-                      color: mkt.textMuted,
+                      color: mkt.onDarkMuted,
                       lineHeight: 1.65,
                       margin: 0,
                     }}

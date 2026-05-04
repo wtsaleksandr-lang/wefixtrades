@@ -4,6 +4,7 @@ import { useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { getSessionId } from "@/lib/chatHelpers";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
+import { V7PageShell } from "@/components/marketing/v7";
 import { mkt } from "@/theme/tokens";
 import { usePageTitle } from "@/hooks/usePageTitle";
 
@@ -108,9 +109,9 @@ export default function LoginPage() {
     width: "100%",
     padding: "12px 14px",
     fontSize: 14,
-    color: mkt.text,
-    background: mkt.surface,
-    border: `1px solid ${mkt.border}`,
+    color: mkt.onDark,
+    background: "rgba(255,255,255,0.04)",
+    border: `1px solid ${mkt.onDarkBorder}`,
     borderRadius: 8,
     outline: "none",
     boxSizing: "border-box" as const,
@@ -121,21 +122,22 @@ export default function LoginPage() {
 
   return (
     <MarketingLayout>
+      <V7PageShell>
       <div
         style={{
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          minHeight: "60vh",
-          padding: "80px 24px 40px",
+          minHeight: "75vh",
+          padding: "100px 24px 60px",
         }}
       >
-        <div style={{ width: "100%", maxWidth: 380 }}>
+        <div style={{ width: "100%", maxWidth: 420, background: mkt.sectionLight, borderRadius: 24, padding: "40px 32px", border: `1px solid ${mkt.onDarkBorder}` }}>
           <h1
             style={{
-              fontSize: 24,
-              fontWeight: 600,
-              color: mkt.text,
+              fontSize: 28,
+              fontWeight: 700,
+              color: mkt.onDark,
               marginBottom: 8,
               letterSpacing: "-0.02em",
             }}
@@ -145,7 +147,7 @@ export default function LoginPage() {
           <p
             style={{
               fontSize: 14,
-              color: mkt.textMuted,
+              color: mkt.onDarkMuted,
               marginBottom: 32,
               lineHeight: 1.5,
             }}
@@ -238,7 +240,7 @@ export default function LoginPage() {
                   onClick={() => { setRequires2fa(false); setTotpCode(""); }}
                   style={{
                     fontSize: 13,
-                    color: mkt.textMuted,
+                    color: mkt.onDarkMuted,
                     background: "none",
                     border: "none",
                     cursor: "pointer",
@@ -250,17 +252,17 @@ export default function LoginPage() {
                 <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "center" }}>
                   <a
                     href="/reset-password"
-                    style={{ fontSize: 13, color: mkt.textMuted, textDecoration: "none" }}
+                    style={{ fontSize: 13, color: mkt.onDarkMuted, textDecoration: "none" }}
                     onMouseOver={(e) => (e.currentTarget.style.color = mkt.text)}
-                    onMouseOut={(e) => (e.currentTarget.style.color = mkt.textMuted)}
+                    onMouseOut={(e) => (e.currentTarget.style.color = mkt.onDarkMuted)}
                   >
                     Forgot your password?
                   </a>
                   <a
                     href="/signup"
-                    style={{ fontSize: 13, color: mkt.textMuted, textDecoration: "none" }}
+                    style={{ fontSize: 13, color: mkt.onDarkMuted, textDecoration: "none" }}
                     onMouseOver={(e) => (e.currentTarget.style.color = mkt.text)}
-                    onMouseOut={(e) => (e.currentTarget.style.color = mkt.textMuted)}
+                    onMouseOut={(e) => (e.currentTarget.style.color = mkt.onDarkMuted)}
                   >
                     Don't have an account? Sign up free
                   </a>
@@ -270,6 +272,7 @@ export default function LoginPage() {
           </form>
         </div>
       </div>
+      </V7PageShell>
     </MarketingLayout>
   );
 }

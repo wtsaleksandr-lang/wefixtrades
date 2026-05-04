@@ -15,8 +15,8 @@ function SliderInput({ input, value, onChange }: { input: TemplateConfig["inputs
   return (
     <div style={{ marginBottom: 20 }}>
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-        <label style={{ fontSize: 13, fontWeight: 600, color: mkt.textMuted }}>{input.label}</label>
-        <span style={{ fontSize: 14, fontWeight: 800, color: mkt.accent }}>{value} <span style={{ fontSize: 12, fontWeight: 400, color: mkt.textMuted }}>{input.unit}</span></span>
+        <label style={{ fontSize: 13, fontWeight: 600, color: mkt.onDarkMuted }}>{input.label}</label>
+        <span style={{ fontSize: 14, fontWeight: 800, color: mkt.accent }}>{value} <span style={{ fontSize: 12, fontWeight: 400, color: mkt.onDarkMuted }}>{input.unit}</span></span>
       </div>
       <input
         type="range"
@@ -25,7 +25,7 @@ function SliderInput({ input, value, onChange }: { input: TemplateConfig["inputs
         onChange={(e) => onChange(Number(e.target.value))}
         style={{ width: "100%", accentColor: mkt.accent, cursor: "pointer" }}
       />
-      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: mkt.textMuted, marginTop: 3 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: mkt.onDarkMuted, marginTop: 3 }}>
         <span>{input.min} {input.unit}</span>
         <span>{input.max} {input.unit}</span>
       </div>
@@ -47,13 +47,13 @@ function BookingPanel({ onClose }: { onClose: () => void }) {
   const monthName = today.toLocaleString("default", { month: "long" });
 
   return (
-    <div style={{ background: mkt.bg, border: `1px solid ${mkt.border}`, borderRadius: 16, padding: 24, boxShadow: "0 4px 24px rgba(0,0,0,0.08)" }}>
+    <div style={{ background: mkt.bg, border: `1px solid ${mkt.onDarkBorder}`, borderRadius: 16, padding: 24, boxShadow: "0 4px 24px rgba(0,0,0,0.08)" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
         <div>
           <div style={{ fontSize: 11, fontWeight: 700, color: mkt.accent, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 2 }}>Book a Time</div>
           <div style={{ fontSize: 16, fontWeight: 700, color: mkt.text }}>{monthName} {today.getFullYear()}</div>
         </div>
-        <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: mkt.textMuted, padding: 4 }}>
+        <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: mkt.onDarkMuted, padding: 4 }}>
           <X size={16} />
         </button>
       </div>
@@ -61,7 +61,7 @@ function BookingPanel({ onClose }: { onClose: () => void }) {
       {/* Calendar grid */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, marginBottom: 20 }}>
         {["S","M","T","W","T","F","S"].map((d, i) => (
-          <div key={i} style={{ textAlign: "center", fontSize: 11, fontWeight: 700, color: mkt.textMuted, paddingBottom: 6 }}>{d}</div>
+          <div key={i} style={{ textAlign: "center", fontSize: 11, fontWeight: 700, color: mkt.onDarkMuted, paddingBottom: 6 }}>{d}</div>
         ))}
         {Array(firstDay).fill(null).map((_, i) => <div key={`empty-${i}`} />)}
         {days.map((day) => {
@@ -76,7 +76,7 @@ function BookingPanel({ onClose }: { onClose: () => void }) {
                 padding: "6px 0", borderRadius: 8,
                 border: "none", cursor: avail ? "pointer" : "default",
                 background: selected ? mkt.accent : avail ? mkt.accentTint : "transparent",
-                color: selected ? "#FFFFFF" : avail ? mkt.accent : mkt.textMuted,
+                color: selected ? "#FFFFFF" : avail ? mkt.accent : mkt.onDarkMuted,
                 opacity: avail ? 1 : 0.35,
               }}
             >
@@ -89,7 +89,7 @@ function BookingPanel({ onClose }: { onClose: () => void }) {
       {/* Time slots */}
       {selectedDay && (
         <>
-          <div style={{ fontSize: 12, fontWeight: 700, color: mkt.textMuted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Available times</div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: mkt.onDarkMuted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Available times</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 18 }}>
             {slots.map((slot) => (
               <button
@@ -98,7 +98,7 @@ function BookingPanel({ onClose }: { onClose: () => void }) {
                 style={{
                   padding: "9px 0", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer",
                   background: selectedSlot === slot ? mkt.accent : mkt.surface,
-                  color: selectedSlot === slot ? "#FFFFFF" : mkt.textMuted,
+                  color: selectedSlot === slot ? "#FFFFFF" : mkt.onDarkMuted,
                   border: `1.5px solid ${selectedSlot === slot ? mkt.accent : mkt.border}`,
                   transition: "all 0.15s ease",
                 }}
@@ -112,7 +112,7 @@ function BookingPanel({ onClose }: { onClose: () => void }) {
 
       {selectedDay && selectedSlot ? (
         <div>
-          <div style={{ background: mkt.accentTint, border: `1px solid #A7F3D0`, borderRadius: 10, padding: "12px 16px", marginBottom: 14, fontSize: 13, color: mkt.accent, fontWeight: 600 }}>
+          <div style={{ background: "rgba(102,232,250,0.10)", border: `1px solid #A7F3D0`, borderRadius: 10, padding: "12px 16px", marginBottom: 14, fontSize: 13, color: mkt.accent, fontWeight: 600 }}>
             <Check size={14} style={{ marginRight: 6, display: "inline" }} />
             {monthName} {selectedDay} at {selectedSlot} — Deposit: $200
           </div>
@@ -124,7 +124,7 @@ function BookingPanel({ onClose }: { onClose: () => void }) {
           </button>
         </div>
       ) : (
-        <p style={{ fontSize: 12, color: mkt.textMuted, textAlign: "center" }}>
+        <p style={{ fontSize: 12, color: mkt.onDarkMuted, textAlign: "center" }}>
           {selectedDay ? "Select a time above" : "Select an available date"}
         </p>
       )}
@@ -176,7 +176,7 @@ function AiPanel({ trade, onClose }: { trade: string; onClose: () => void }) {
   };
 
   return (
-    <div style={{ background: mkt.bg, border: `1px solid ${mkt.border}`, borderRadius: 16, overflow: "hidden", boxShadow: "0 4px 24px rgba(0,0,0,0.08)", display: "flex", flexDirection: "column", height: 380 }}>
+    <div style={{ background: mkt.bg, border: `1px solid ${mkt.onDarkBorder}`, borderRadius: 16, overflow: "hidden", boxShadow: "0 4px 24px rgba(0,0,0,0.08)", display: "flex", flexDirection: "column", height: 380 }}>
       {/* Header */}
       <div style={{ background: mkt.dark, padding: "12px 16px", display: "flex", alignItems: "center", gap: 10 }}>
         <div style={{ width: 32, height: 32, borderRadius: "50%", background: mkt.accent, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -203,7 +203,7 @@ function AiPanel({ trade, onClose }: { trade: string; onClose: () => void }) {
                 <Bot size={12} color="#FFFFFF" />
               </div>
             )}
-            <div style={{ maxWidth: "78%", padding: "9px 12px", borderRadius: msg.role === "user" ? "14px 14px 4px 14px" : "14px 14px 14px 4px", background: msg.role === "user" ? mkt.accent : "#FFFFFF", color: msg.role === "user" ? "#FFFFFF" : mkt.textMuted, fontSize: 13, lineHeight: 1.55, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+            <div style={{ maxWidth: "78%", padding: "9px 12px", borderRadius: msg.role === "user" ? "14px 14px 4px 14px" : "14px 14px 14px 4px", background: msg.role === "user" ? mkt.accent : "#FFFFFF", color: msg.role === "user" ? "#FFFFFF" : mkt.onDarkMuted, fontSize: 13, lineHeight: 1.55, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
               {msg.content}
             </div>
             {msg.role === "user" && (
@@ -229,7 +229,7 @@ function AiPanel({ trade, onClose }: { trade: string; onClose: () => void }) {
       </div>
 
       {/* Input */}
-      <div style={{ borderTop: `1px solid ${mkt.border}`, padding: "10px 12px", background: mkt.bg, display: "flex", gap: 8 }}>
+      <div style={{ borderTop: `1px solid ${mkt.onDarkBorder}`, padding: "10px 12px", background: mkt.bg, display: "flex", gap: 8 }}>
         <input
           data-testid="demo-template-chat-input"
           type="text"
@@ -237,7 +237,7 @@ function AiPanel({ trade, onClose }: { trade: string; onClose: () => void }) {
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") send(); }}
           placeholder="Ask about this service..."
-          style={{ flex: 1, border: `1.5px solid ${mkt.border}`, borderRadius: 8, padding: "7px 11px", fontSize: 13, color: mkt.textMuted, outline: "none", fontFamily: "inherit" }}
+          style={{ flex: 1, border: `1.5px solid ${mkt.onDarkBorder}`, borderRadius: 8, padding: "7px 11px", fontSize: 13, color: mkt.onDarkMuted, outline: "none", fontFamily: "inherit" }}
         />
         <button
           data-testid="demo-template-chat-send"
@@ -311,7 +311,7 @@ export default function DemoTemplatePage() {
         </div>
 
         {/* Template switcher strip */}
-        <div style={{ background: mkt.surface, borderBottom: `1px solid ${mkt.border}`, padding: "10px 28px", overflowX: "auto" }}>
+        <div style={{ background: mkt.sectionLight, borderBottom: `1px solid ${mkt.onDarkBorder}`, padding: "10px 28px", overflowX: "auto" }}>
           <div style={{ display: "flex", gap: 8, width: "max-content" }}>
             {TEMPLATES.map((t) => (
               <Link
@@ -322,7 +322,7 @@ export default function DemoTemplatePage() {
                   display: "flex", alignItems: "center", gap: 6,
                   padding: "5px 14px", borderRadius: 20, textDecoration: "none", fontSize: 12, fontWeight: 600,
                   background: t.id === effectiveTemplate.id ? mkt.accent : "transparent",
-                  color: t.id === effectiveTemplate.id ? "#FFFFFF" : mkt.textMuted,
+                  color: t.id === effectiveTemplate.id ? "#FFFFFF" : mkt.onDarkMuted,
                   border: `1.5px solid ${t.id === effectiveTemplate.id ? mkt.accent : mkt.border}`,
                   whiteSpace: "nowrap" as const,
                 }}
@@ -339,16 +339,16 @@ export default function DemoTemplatePage() {
 
             {/* LEFT: Calculator form */}
             <div>
-              <div style={{ background: mkt.bg, border: `1px solid ${mkt.border}`, borderRadius: 20, overflow: "hidden", boxShadow: "0 2px 12px rgba(0,0,0,0.07)" }}>
+              <div style={{ background: mkt.bg, border: `1px solid ${mkt.onDarkBorder}`, borderRadius: 20, overflow: "hidden", boxShadow: "0 2px 12px rgba(0,0,0,0.07)" }}>
                 {/* Calculator header */}
                 <div style={{ background: effectiveTemplate.previewGradient, padding: "24px 28px" }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: mkt.textMuted, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: mkt.onDarkMuted, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
                     Get an Instant Estimate
                   </div>
-                  <h2 style={{ fontSize: 22, fontWeight: 800, color: mkt.text, margin: 0 }}>
+                  <h2 style={{ fontSize: 22, fontWeight: 800, color: mkt.onDark, margin: 0 }}>
                     {effectiveTemplate.emoji} {effectiveTemplate.name}
                   </h2>
-                  <p style={{ fontSize: 13, color: mkt.textMuted, margin: "6px 0 0", lineHeight: 1.55 }}>
+                  <p style={{ fontSize: 13, color: mkt.onDarkMuted, margin: "6px 0 0", lineHeight: 1.55 }}>
                     Adjust the inputs below to get your personalised estimate instantly.
                   </p>
                 </div>
@@ -369,11 +369,11 @@ export default function DemoTemplatePage() {
                     if (input.type === "select") {
                       return (
                         <div key={input.id} style={{ marginBottom: 20 }}>
-                          <label style={{ fontSize: 13, fontWeight: 600, color: mkt.textMuted, display: "block", marginBottom: 8 }}>{input.label}</label>
+                          <label style={{ fontSize: 13, fontWeight: 600, color: mkt.onDarkMuted, display: "block", marginBottom: 8 }}>{input.label}</label>
                           <select
                             value={String(values[input.id])}
                             onChange={(e) => setValues((prev) => ({ ...prev, [input.id]: e.target.value }))}
-                            style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: `1.5px solid ${mkt.border}`, fontSize: 14, color: mkt.textMuted, background: mkt.bg, outline: "none", fontFamily: "inherit", cursor: "pointer" }}
+                            style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: `1.5px solid ${mkt.onDarkBorder}`, fontSize: 14, color: mkt.onDarkMuted, background: mkt.bg, outline: "none", fontFamily: "inherit", cursor: "pointer" }}
                           >
                             {input.options?.map((opt) => (
                               <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -386,15 +386,15 @@ export default function DemoTemplatePage() {
                   })}
 
                   {/* Live estimate result */}
-                  <div style={{ background: mkt.accentTint, border: `1px solid #A7F3D0`, borderRadius: 14, padding: "20px 24px", marginTop: 8 }}>
+                  <div style={{ background: "rgba(102,232,250,0.10)", border: `1px solid #A7F3D0`, borderRadius: 14, padding: "20px 24px", marginTop: 8 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                       <Zap size={15} color={mkt.accent} />
                       <span style={{ fontSize: 11, fontWeight: 700, color: mkt.accent, textTransform: "uppercase", letterSpacing: "0.08em" }}>Your Estimate</span>
                     </div>
-                    <div style={{ fontSize: "clamp(28px, 4vw, 40px)", fontWeight: 800, color: mkt.text, lineHeight: 1, marginBottom: 4 }}>
+                    <div style={{ fontSize: "clamp(28px, 4vw, 40px)", fontWeight: 800, color: mkt.onDark, lineHeight: 1, marginBottom: 4 }}>
                       {effectiveTemplate.currency}{min.toLocaleString()} – {effectiveTemplate.currency}{max.toLocaleString()}
                     </div>
-                    <div style={{ fontSize: 13, color: mkt.textMuted }}>{effectiveTemplate.resultUnit} · estimate updates live</div>
+                    <div style={{ fontSize: 13, color: mkt.onDarkMuted }}>{effectiveTemplate.resultUnit} · estimate updates live</div>
                   </div>
 
                   {/* Lead capture or confirmation */}
@@ -408,7 +408,7 @@ export default function DemoTemplatePage() {
                           value={leadEmail}
                           onChange={(e) => setLeadEmail(e.target.value)}
                           data-testid="demo-lead-email"
-                          style={{ flex: 1, padding: "11px 14px", borderRadius: 8, border: `1.5px solid ${mkt.border}`, fontSize: 14, color: mkt.textMuted, outline: "none", fontFamily: "inherit" }}
+                          style={{ flex: 1, padding: "11px 14px", borderRadius: 8, border: `1.5px solid ${mkt.onDarkBorder}`, fontSize: 14, color: mkt.onDarkMuted, outline: "none", fontFamily: "inherit" }}
                         />
                         <button
                           type="submit"
@@ -418,7 +418,7 @@ export default function DemoTemplatePage() {
                           Get Quote
                         </button>
                       </div>
-                      <p style={{ fontSize: 11, color: mkt.textMuted, marginTop: 8 }}>Demo only — no real email sent. Free to try.</p>
+                      <p style={{ fontSize: 11, color: mkt.onDarkMuted, marginTop: 8 }}>Demo only — no real email sent. Free to try.</p>
                     </form>
                   ) : (
                     <div style={{ marginTop: 18, background: "#DCFCE7", border: "1px solid #86EFAC", borderRadius: 10, padding: "14px 18px", fontSize: 14, color: "#166534", fontWeight: 600 }}>
@@ -450,8 +450,8 @@ export default function DemoTemplatePage() {
                       style={{
                         flex: 1, padding: "10px 0", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: "pointer",
                         background: showAi ? mkt.dark : "transparent",
-                        color: showAi ? "#FFFFFF" : mkt.textMuted,
-                        border: `1.5px solid ${mkt.border}`,
+                        color: showAi ? "#FFFFFF" : mkt.onDarkMuted,
+                        border: `1.5px solid ${mkt.onDarkBorder}`,
                         display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
                       }}
                     >
@@ -482,13 +482,13 @@ export default function DemoTemplatePage() {
               {showAi ? (
                 <AiPanel trade={effectiveTemplate.bestFor[0].split(" ")[0]} onClose={() => setShowAi(false)} />
               ) : (
-                <div style={{ background: mkt.surface, border: `1px solid ${mkt.border}`, borderRadius: 16, padding: "24px", marginBottom: 20 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: mkt.textMuted, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12 }}>
+                <div style={{ background: mkt.sectionLight, border: `1px solid ${mkt.onDarkBorder}`, borderRadius: 16, padding: "24px", marginBottom: 20 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: mkt.onDarkMuted, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12 }}>
                     About this template
                   </div>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
                     {effectiveTemplate.bestFor.map((b) => (
-                      <span key={b} style={{ fontSize: 12, fontWeight: 600, color: mkt.textMuted, background: mkt.bg, border: `1px solid ${mkt.border}`, padding: "3px 10px", borderRadius: 20 }}>{b}</span>
+                      <span key={b} style={{ fontSize: 12, fontWeight: 600, color: mkt.onDarkMuted, background: mkt.bg, border: `1px solid ${mkt.onDarkBorder}`, padding: "3px 10px", borderRadius: 20 }}>{b}</span>
                     ))}
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -499,8 +499,8 @@ export default function DemoTemplatePage() {
                       { icon: "🤖", label: "AI Employee", val: "14-day trial included" },
                     ].map(({ icon, label, val }) => (
                       <div key={label} style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
-                        <span style={{ color: mkt.textMuted }}>{icon} {label}</span>
-                        <span style={{ fontWeight: 600, color: mkt.textMuted }}>{val}</span>
+                        <span style={{ color: mkt.onDarkMuted }}>{icon} {label}</span>
+                        <span style={{ fontWeight: 600, color: mkt.onDarkMuted }}>{val}</span>
                       </div>
                     ))}
                   </div>
