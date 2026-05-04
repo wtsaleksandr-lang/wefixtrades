@@ -28,6 +28,7 @@ import {
 } from "@/components/effortel-blocks";
 import { PRODUCT_MOCKUPS, type ProductMockupSection } from "@/config/product-mockups";
 import { PRODUCT_TESTIMONIALS } from "@/config/product-testimonials";
+import TradeLineHeroPhone from "@/components/marketing/TradeLineHeroPhone";
 import NotFound from "@/pages/not-found";
 
 /* ─── Per-product hero hooks ───────────────────────────────────
@@ -107,7 +108,7 @@ export default function EffortelProductPage({ slug }: { slug: string }) {
     <MarketingLayout>
       <div style={{ background: mkt.bg, color: mkt.onDark, fontFamily: SANS }}>
 
-        <Hero cfg={cfg} hook={hook} />
+        <Hero cfg={cfg} hook={hook} slug={slug} />
         <TrustStrip cfg={cfg} />
 
         {/* NUMBERED CARDS */}
@@ -220,7 +221,95 @@ function StickyMobileCta({ primaryCta, productName }: { primaryCta: { label: str
 /* ════════════════════════════════════════════════════════════════
    SECTION: HERO
    ════════════════════════════════════════════════════════════════ */
-function Hero({ cfg, hook }: { cfg: ReturnType<typeof getProductBySlug> & {}; hook?: typeof HERO_HOOKS[string] }) {
+function Hero({ cfg, hook, slug }: { cfg: ReturnType<typeof getProductBySlug> & {}; hook?: typeof HERO_HOOKS[string]; slug: string }) {
+  // TradeLine gets a premium split layout with the live phone demo.
+  // Other products keep the centered text-only hero (their visuals live in
+  // the numbered cards below).
+  if (slug === "tradeline") {
+    return (
+      <section style={{ padding: "100px 24px 60px", position: "relative", overflow: "hidden" }}>
+        <div style={{
+          position: "absolute", inset: 0, pointerEvents: "none",
+          background: "radial-gradient(ellipse 60% 50% at 50% 0%, rgba(102,232,250,0.10) 0%, transparent 60%)",
+        }} />
+        <div className="tlhp-split" style={{
+          maxWidth: 1240, margin: "0 auto", position: "relative",
+          display: "grid",
+          gridTemplateColumns: "minmax(0, 1.05fr) minmax(0, 1fr)",
+          gap: 56, alignItems: "center",
+        }}>
+          {/* LEFT — copy + CTAs */}
+          <div className="tlhp-split-text" style={{ minWidth: 0 }}>
+            <Reveal>
+              <span style={{ display: "inline-block", fontFamily: MONO, fontSize: 12, letterSpacing: "0.16em", textTransform: "uppercase", color: mkt.accent, marginBottom: 16 }}>
+                {cfg.name}
+              </span>
+            </Reveal>
+            {hook?.eyebrow && (
+              <Reveal delay={0.04}>
+                <p style={{ fontSize: 14, color: mkt.onDarkFaint, fontStyle: "italic", marginBottom: 18, maxWidth: 520 }}>
+                  {hook.eyebrow}
+                </p>
+              </Reveal>
+            )}
+            <Reveal delay={0.08}>
+              <h1 style={{
+                fontSize: "clamp(40px, 5.4vw, 68px)", fontWeight: 700,
+                lineHeight: 0.98, letterSpacing: "-0.03em",
+                color: mkt.onDark, marginBottom: 22, maxWidth: 560,
+              }}>
+                {hook?.headline ?? cfg.shortTagline}
+              </h1>
+            </Reveal>
+            <Reveal delay={0.12}>
+              <p style={{ fontSize: 17, lineHeight: 1.55, color: mkt.onDarkMuted, maxWidth: 520, marginBottom: 32 }}>
+                {hook?.sub ?? cfg.seoDescription}
+              </p>
+            </Reveal>
+            <Reveal delay={0.16}>
+              <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                <Link href={cfg.primaryCTA.href} style={ctaPrimary}>
+                  {cfg.primaryCTA.label} <ArrowRight size={16} />
+                </Link>
+                {cfg.secondaryCTA && (
+                  <Link href={cfg.secondaryCTA.href} style={ctaGhost}>
+                    {cfg.secondaryCTA.label}
+                  </Link>
+                )}
+              </div>
+            </Reveal>
+            <Reveal delay={0.20}>
+              <p style={{ marginTop: 20, fontSize: 12, fontFamily: MONO, color: mkt.onDarkFaint, letterSpacing: "0.06em" }}>
+                Tap the phone to pause the demo · resumes when you're ready
+              </p>
+            </Reveal>
+          </div>
+
+          {/* RIGHT — premium animated phone */}
+          <div className="tlhp-split-phone" style={{ display: "flex", justifyContent: "center", minWidth: 0 }}>
+            <TradeLineHeroPhone />
+          </div>
+        </div>
+
+        <style>{`
+          @media (max-width: 960px) {
+            .tlhp-split {
+              grid-template-columns: 1fr !important;
+              gap: 40px !important;
+              text-align: center;
+            }
+            .tlhp-split-text { order: 2; }
+            .tlhp-split-phone { order: 1; }
+            .tlhp-split-text h1,
+            .tlhp-split-text p { margin-left: auto !important; margin-right: auto !important; }
+            .tlhp-split-text > div { justify-content: center; }
+          }
+        `}</style>
+      </section>
+    );
+  }
+
+  // Default centered hero for all other products
   return (
     <section style={{ padding: "120px 24px 80px", position: "relative", overflow: "hidden" }}>
       <div style={{
