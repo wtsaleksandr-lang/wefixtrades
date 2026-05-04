@@ -74,31 +74,53 @@ function ProductGroup({
                   display: "block", textDecoration: "none",
                   background: mkt.sectionLight,
                   border: `1px solid ${mkt.onDarkBorder}`,
-                  borderRadius: 18, padding: "24px 22px",
+                  borderRadius: 18, padding: 0,
                   height: "100%",
+                  overflow: "hidden",
                 }}>
+                  {/* Pastel header — icon + product name inline */}
                   <div style={{
-                    width: 44, height: 44, borderRadius: 12,
                     background: tile.bg, color: tile.ink,
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    marginBottom: 16,
+                    padding: "16px 18px",
+                    display: "flex", alignItems: "center", gap: 12,
+                    position: "relative",
                   }}>
-                    <Icon size={20} strokeWidth={1.6} />
+                    <div style={{
+                      position: "absolute", inset: 0,
+                      backgroundImage: `radial-gradient(circle, ${tile.ink}10 1px, transparent 1px)`,
+                      backgroundSize: "14px 14px", opacity: 0.5, pointerEvents: "none",
+                    }} />
+                    <div style={{
+                      position: "relative", flexShrink: 0,
+                      width: 40, height: 40, borderRadius: 10,
+                      background: "rgba(255,255,255,0.55)", color: tile.ink,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                    }}>
+                      <Icon size={18} strokeWidth={1.7} />
+                    </div>
+                    <h3 style={{
+                      position: "relative", flex: 1, minWidth: 0,
+                      fontSize: 13, fontWeight: 700, color: tile.ink,
+                      letterSpacing: "0.04em", textTransform: "uppercase",
+                      fontFamily: MONO, lineHeight: 1.25,
+                      margin: 0, overflow: "hidden", textOverflow: "ellipsis",
+                    }}>
+                      {p.name.replace(/™/g, "")}
+                    </h3>
                   </div>
-                  <h3 style={{ fontSize: 17, fontWeight: 700, color: mkt.onDark, margin: "0 0 6px", letterSpacing: "-0.01em" }}>
-                    {p.name}
-                  </h3>
-                  <p style={{ fontSize: 14, color: mkt.onDarkMuted, margin: "0 0 18px", lineHeight: 1.55 }}>
-                    {p.tagline}
-                  </p>
-                  <span style={{
-                    display: "inline-flex", alignItems: "center", gap: 6,
-                    fontSize: 11, fontWeight: 600, color: mkt.accent,
-                    fontFamily: MONO, letterSpacing: "0.08em", textTransform: "uppercase",
-                    paddingBottom: 4, borderBottom: `1px solid ${mkt.accent}`,
-                  }}>
-                    See details <ArrowRight size={12} />
-                  </span>
+                  <div style={{ padding: "18px 22px 22px" }}>
+                    <p style={{ fontSize: 14, color: mkt.onDarkMuted, margin: "0 0 18px", lineHeight: 1.55 }}>
+                      {p.tagline}
+                    </p>
+                    <span style={{
+                      display: "inline-flex", alignItems: "center", gap: 6,
+                      fontSize: 11, fontWeight: 600, color: mkt.accent,
+                      fontFamily: MONO, letterSpacing: "0.08em", textTransform: "uppercase",
+                      paddingBottom: 4, borderBottom: `1px solid ${mkt.accent}`,
+                    }}>
+                      See details <ArrowRight size={12} />
+                    </span>
+                  </div>
                 </Link>
               </Reveal>
             );

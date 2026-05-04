@@ -205,27 +205,65 @@ export default function DocsPage() {
                     style={{
                       display: "flex", flexDirection: "column", gap: 0,
                       background: mkt.sectionLight, border: `1px solid ${mkt.onDarkBorder}`, borderRadius: 16,
-                      padding: "28px 24px", textDecoration: "none",
+                      padding: 0, textDecoration: "none",
                       boxShadow: "0 1px 3px rgba(0,0,0,0.10), 0 4px 16px rgba(0,0,0,0.18)",
+                      overflow: "hidden",
                     }}
                   >
-                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 18 }}>
-                      <div style={{ width: 48, height: 48, borderRadius: 12, background: tile.bg, color: tile.ink, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        <Icon size={22} />
+                    {/* Pastel header — icon + title + badge inline */}
+                    <div style={{
+                      background: tile.bg, color: tile.ink,
+                      padding: "16px 18px",
+                      display: "flex", alignItems: "center", gap: 12,
+                      position: "relative",
+                    }}>
+                      <div style={{
+                        position: "absolute", inset: 0,
+                        backgroundImage: `radial-gradient(circle, ${tile.ink}10 1px, transparent 1px)`,
+                        backgroundSize: "14px 14px", opacity: 0.5, pointerEvents: "none",
+                      }} />
+                      <div style={{
+                        position: "relative", flexShrink: 0,
+                        width: 40, height: 40, borderRadius: 10,
+                        background: "rgba(255,255,255,0.55)", color: tile.ink,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                      }}>
+                        <Icon size={18} strokeWidth={1.7} />
                       </div>
+                      <h3 style={{
+                        position: "relative", flex: 1, minWidth: 0,
+                        fontSize: 13, fontWeight: 700, color: tile.ink,
+                        letterSpacing: "0.04em", textTransform: "uppercase",
+                        fontFamily: MONO, lineHeight: 1.25,
+                        margin: 0, overflow: "hidden", textOverflow: "ellipsis",
+                      }}>
+                        {title}
+                      </h3>
                       {badge && (
-                        <span style={{ fontSize: 10, fontWeight: 700, color: badgeColor, background: badgeBg, padding: "3px 10px", borderRadius: 20, letterSpacing: "0.05em" }}>
+                        <span style={{
+                          position: "relative", flexShrink: 0,
+                          fontSize: 9, fontWeight: 700, color: badgeColor, background: badgeBg,
+                          padding: "3px 8px", borderRadius: 999, letterSpacing: "0.06em",
+                          fontFamily: MONO, textTransform: "uppercase",
+                        }}>
                           {badge}
                         </span>
                       )}
                     </div>
-                    <div style={{ fontSize: 17, fontWeight: 700, color: mkt.onDark, marginBottom: 8 }}>{title}</div>
-                    <div style={{ fontSize: 14, color: mkt.onDarkMuted, lineHeight: 1.65, flex: 1, marginBottom: 20 }}>{description}</div>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                      <span style={{ fontSize: 12, color: mkt.onDarkMuted }}>{time}</span>
-                      <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13, fontWeight: 700, color: mkt.accent }}>
-                        Read guide <ArrowRight size={13} />
-                      </span>
+                    {/* Body */}
+                    <div style={{ padding: "18px 22px 20px", display: "flex", flexDirection: "column", flex: 1 }}>
+                      <p style={{ fontSize: 14, color: mkt.onDarkMuted, lineHeight: 1.6, flex: 1, margin: "0 0 16px" }}>{description}</p>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                        <span style={{ fontSize: 11, color: mkt.onDarkFaint, fontFamily: MONO, letterSpacing: "0.06em" }}>{time}</span>
+                        <span style={{
+                          display: "inline-flex", alignItems: "center", gap: 6,
+                          fontSize: 11, fontWeight: 600, color: mkt.accent,
+                          fontFamily: MONO, letterSpacing: "0.08em", textTransform: "uppercase",
+                          paddingBottom: 4, borderBottom: `1px solid ${mkt.accent}`,
+                        }}>
+                          Read guide <ArrowRight size={12} />
+                        </span>
+                      </div>
                     </div>
                   </Link>
                   );
