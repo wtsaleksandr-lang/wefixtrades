@@ -79,7 +79,7 @@ function CollapsibleFooterSection({ title, children, defaultOpen = true }: { tit
         <span>{title}</span>
         <ChevronDown size={12} className="mkt-ft-chevron" style={{ transition: "transform 0.2s", transform: open ? "rotate(180deg)" : "rotate(0)", opacity: 0.4 }} />
       </button>
-      {open && children}
+      {open && <div className="mkt-ft-list">{children}</div>}
     </div>
   );
 }
@@ -249,6 +249,15 @@ function MarketingFooter({ isMobile }: { isMobile: boolean }) {
           display: grid;
           grid-template-columns: repeat(4, 1fr);
           gap: 32px;
+        }
+        /* Subtle dashed divider between menu buttons in each footer column */
+        .mkt-ft-list > a,
+        .mkt-ft-list > button {
+          border-bottom: 1px dashed rgba(255,255,255,0.07);
+        }
+        .mkt-ft-list > a:last-child,
+        .mkt-ft-list > button:last-child {
+          border-bottom: none;
         }
         /* Desktop: hide chevrons, always show content */
         .mkt-ft-chevron { display: none; }
