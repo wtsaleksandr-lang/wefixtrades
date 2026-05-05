@@ -110,10 +110,14 @@ const T = {
   chatTypeDuration: 1900,
   chatSendDelay: 260,
   chatAiTyping: 1700,
-  chatHold: 2200,
+  // +1s on chat reading time for the AI card before the receipt drops
+  // and +1s after the receipt — total +2s per chat scenario
+  chatReadHold: 1900,
+  chatHold: 3200,
   voiceConnect: 900,
-  voiceTurnGap: 350,
-  voiceHold: 2200,
+  // +400ms between turns × 5 turns ≈ +2s per voice scenario
+  voiceTurnGap: 750,
+  voiceHold: 3200,
   receiptHold: 1700,
 };
 
@@ -260,7 +264,7 @@ export default function TradeLineHeroPhone() {
       card.innerHTML = aiCardHTML(s.ai);
       bodyRef.current.appendChild(card);
       scrollDown();
-      await wait(900);
+      await wait(T.chatReadHold);
       if (cancelled) return;
 
       const receipt = el("div", "tlhp-receipt");

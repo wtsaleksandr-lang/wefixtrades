@@ -64,49 +64,52 @@ export default function TradeLineDemoLauncher() {
     <div className={`tldl ${open ? "tldl-open" : ""}`} role="region" aria-label="Try the TradeLine demo">
       <style>{LAUNCHER_CSS}</style>
 
-      {/* Header (visible when open) */}
-      <div className="tldl-header" aria-hidden={!open}>
-        <div className="tldl-tabs">
+      {/* Collapsible panel — header + body. Bar lives outside this so it
+          stays visible at its natural height even when collapsed. */}
+      <div className="tldl-panel" aria-hidden={!open}>
+        <div className="tldl-header">
+          <div className="tldl-tabs">
+            <button
+              type="button"
+              className={`tldl-tab ${tab === "chat" ? "active" : ""}`}
+              onClick={() => setTab("chat")}
+              data-testid="tldl-tab-chat"
+            >
+              <MessageSquare size={13} /> Chat
+            </button>
+            <button
+              type="button"
+              className={`tldl-tab ${tab === "voice" ? "active" : ""}`}
+              onClick={() => setTab("voice")}
+              data-testid="tldl-tab-voice"
+            >
+              <Phone size={13} /> Voice
+            </button>
+          </div>
           <button
             type="button"
-            className={`tldl-tab ${tab === "chat" ? "active" : ""}`}
-            onClick={() => setTab("chat")}
-            data-testid="tldl-tab-chat"
+            className="tldl-close"
+            onClick={() => setOpen(false)}
+            aria-label="Close demo"
+            data-testid="tldl-close"
           >
-            <MessageSquare size={13} /> Chat
-          </button>
-          <button
-            type="button"
-            className={`tldl-tab ${tab === "voice" ? "active" : ""}`}
-            onClick={() => setTab("voice")}
-            data-testid="tldl-tab-voice"
-          >
-            <Phone size={13} /> Voice
+            <X size={16} />
           </button>
         </div>
-        <button
-          type="button"
-          className="tldl-close"
-          onClick={() => setOpen(false)}
-          aria-label="Close demo"
-          data-testid="tldl-close"
-        >
-          <X size={16} />
-        </button>
+
+        <div className="tldl-body">
+          {tab === "chat" ? <ChatBody open={open} /> : <VoiceBody />}
+        </div>
       </div>
 
-      {/* Body — chat or voice based on tab. Hidden visually when closed. */}
-      <div className="tldl-body" aria-hidden={!open}>
-        {tab === "chat" ? <ChatBody open={open} /> : <VoiceBody />}
-      </div>
-
-      {/* Footer — the always-visible input bar. Click anywhere when closed
-          to expand into the open panel. */}
-      <button
-        type="button"
+      {/* Sticky bar — always visible. Click anywhere to expand. */}
+      <div
         className="tldl-bar"
+        role="button"
+        tabIndex={0}
         onClick={() => { if (!open) setOpen(true); }}
-        aria-label={open ? "Close demo bar" : "Open the TradeLine demo"}
+        onKeyDown={(e) => { if ((e.key === "Enter" || e.key === " ") && !open) { e.preventDefault(); setOpen(true); } }}
+        aria-label={open ? "Demo bar — currently open" : "Open the TradeLine demo"}
         data-testid="tldl-bar"
       >
         <span className="tldl-bar-bot" aria-hidden>
@@ -121,27 +124,43 @@ export default function TradeLineDemoLauncher() {
         </span>
         <span
           className="tldl-bar-icon"
-          aria-hidden
+          role="button"
+          tabIndex={0}
+          aria-label="Open voice demo"
           onClick={(e) => {
             e.stopPropagation();
             setOpen(true);
             setTab("voice");
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault(); e.stopPropagation();
+              setOpen(true); setTab("voice");
+            }
           }}
         >
           <Mic size={15} />
         </span>
         <span
           className="tldl-bar-icon tldl-bar-icon-send"
-          aria-hidden
+          role="button"
+          tabIndex={0}
+          aria-label="Open chat demo"
           onClick={(e) => {
             e.stopPropagation();
             setOpen(true);
             setTab("chat");
           }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault(); e.stopPropagation();
+              setOpen(true); setTab("chat");
+            }
+          }}
         >
           <Send size={15} />
         </span>
-      </button>
+      </div>
     </div>
   );
 }
@@ -338,16 +357,24 @@ const LAUNCHER_CSS = `
   -webkit-backdrop-filter: blur(14px);
   box-shadow: 0 20px 60px rgba(0,0,0,0.55);
   overflow: hidden;
-  transition: max-height 360ms cubic-bezier(0.22,1,0.36,1),
-              border-color 260ms ease,
-              box-shadow 260ms ease;
-  max-height: 64px;
+  transition: border-color 260ms ease, box-shadow 260ms ease;
   font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
 }
 .tldl-open {
-  max-height: 640px;
   border-color: rgba(102,232,250,0.32);
   box-shadow: 0 30px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(102,232,250,0.10);
+}
+
+/* Collapsible panel (header + body) — bar stays outside this */
+.tldl-panel {
+  display: flex; flex-direction: column; min-height: 0;
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 380ms cubic-bezier(0.22,1,0.36,1);
+}
+.tldl-open .tldl-panel {
+  max-height: 580px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
 }
 
 /* Header */
@@ -358,6 +385,7 @@ const LAUNCHER_CSS = `
   opacity: 0;
   pointer-events: none;
   transition: opacity 220ms ease 80ms;
+  flex-shrink: 0;
 }
 .tldl-open .tldl-header { opacity: 1; pointer-events: auto; }
 .tldl-tabs { display: inline-flex; gap: 4px; padding: 3px; border-radius: 12px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); }
@@ -389,18 +417,20 @@ const LAUNCHER_CSS = `
 }
 .tldl-open .tldl-body { opacity: 1; pointer-events: auto; }
 
-/* Sticky bar — always visible */
+/* Sticky bar — always visible. Sits below .tldl-panel in DOM, so it
+   never gets clipped when the panel collapses to height 0. */
 .tldl-bar {
   display: flex; align-items: center; gap: 10px;
   padding: 11px 12px 11px 14px;
   background: transparent;
-  border: 0; border-top: 1px solid rgba(255,255,255,0.06);
-  width: 100%; cursor: pointer;
-  font-family: 'DM Sans', system-ui, sans-serif;
-  text-align: left;
+  width: 100%;
+  cursor: pointer;
+  color: rgba(255,255,255,0.92);
   flex-shrink: 0;
+  outline: none;
+  user-select: none;
 }
-.tldl:not(.tldl-open) .tldl-bar { border-top: 0; }
+.tldl-bar:focus-visible { box-shadow: inset 0 0 0 2px rgba(102,232,250,0.45); }
 .tldl-bar-bot {
   width: 32px; height: 32px; border-radius: 9px;
   display: inline-flex; align-items: center; justify-content: center;
