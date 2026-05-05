@@ -3,8 +3,8 @@ import { Link } from "wouter";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { mkt } from "@/theme/tokens";
 import { TrendingUp, ArrowRight, PhoneCall, Star, MapPin, Calendar } from "lucide-react";
-import { V7Hero, V7PageShell } from "@/components/marketing/v7";
-import { TILE, MONO } from "@/components/effortel-blocks";
+import { V7PageShell } from "@/components/marketing/v7";
+import { TILE, MONO, Reveal } from "@/components/effortel-blocks";
 
 /** Map trade name → pastel TILE colour for the case-study top strip. */
 const TRADE_TILE: Record<string, keyof typeof TILE> = {
@@ -143,25 +143,46 @@ export default function CaseStudiesPage() {
   return (
     <MarketingLayout>
       <V7PageShell>
-        <V7Hero
-          productName="Pilot program · Early access"
-          eyebrow="What the system does when it's running."
-          headline={<>Real numbers.<br/><span style={{ color: mkt.accent }}>Pilot scenarios.</span></>}
-          sub="Scenarios from the early-access pilot program. Business names and specific dollar figures are withheld per pilot agreement — we'll publish fully attributed studies as customers sign public releases."
-        />
+        {/* Compact hero — no eyebrow, no sub, tight padding */}
+        <section style={{ padding: "84px 24px 24px", position: "relative", overflow: "hidden", background: mkt.bg }}>
+          <div style={{
+            position: "absolute", inset: 0, pointerEvents: "none",
+            background: "radial-gradient(ellipse 60% 50% at 50% 0%, rgba(102,232,250,0.08) 0%, transparent 60%)",
+          }} />
+          <div style={{ maxWidth: 1080, margin: "0 auto", position: "relative", textAlign: "center" }}>
+            <Reveal>
+              <span style={{
+                display: "inline-block", fontFamily: MONO, fontSize: 12,
+                letterSpacing: "0.16em", textTransform: "uppercase",
+                color: mkt.accent, marginBottom: 16,
+              }}>
+                Pilot program · Early access
+              </span>
+            </Reveal>
+            <Reveal delay={0.06}>
+              <h1 style={{
+                fontSize: "clamp(36px, 5.5vw, 64px)", fontWeight: 700, lineHeight: 1.05,
+                letterSpacing: "-0.025em", color: mkt.onDark, margin: 0,
+              }}>
+                Real numbers.<br/>
+                <span style={{ color: mkt.accent }}>Pilot scenarios.</span>
+              </h1>
+            </Reveal>
+          </div>
+        </section>
 
       {/* ── Studies ───────────────────────────── */}
       <section
         data-testid="section-case-studies-grid"
-        style={{ background: mkt.bg, padding: "64px 24px" }}
+        style={{ background: mkt.bg, padding: "20px 16px 64px" }}
       >
         <div
           style={{
-            maxWidth: 1080,
+            maxWidth: 1180,
             margin: "0 auto",
             display: "grid",
             gridTemplateColumns: "1fr",
-            gap: 28,
+            gap: 18,
           }}
         >
           {STUDIES.map((study) => {
@@ -180,18 +201,21 @@ export default function CaseStudiesPage() {
                 gridTemplateColumns: "minmax(0, 1fr)",
               }}
             >
-              {/* Pastel top strip — TILE-coloured per trade */}
+              {/* Pastel top strip — fully rounded card-within-card */}
               <div
                 style={{
+                  margin: "10px 10px 0",
                   background: tile.bg,
                   color: tile.ink,
-                  padding: "20px 28px",
+                  padding: "16px 22px",
+                  borderRadius: 14,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
                   gap: 16,
                   flexWrap: "wrap",
                   position: "relative",
+                  overflow: "hidden",
                 }}
               >
                 {/* Subtle dot pattern */}
@@ -238,22 +262,19 @@ export default function CaseStudiesPage() {
               </div>
 
               {/* Body */}
-              <div style={{ padding: "28px 28px 24px" }}>
+              <div style={{ padding: "20px 28px 24px" }}>
                 <h3
                   style={{
                     fontSize: "clamp(20px, 2.4vw, 26px)",
                     fontWeight: 800,
                     color: mkt.onDark,
-                    margin: "0 0 8px",
+                    margin: "0 0 14px",
                     letterSpacing: "-0.02em",
                     lineHeight: 1.25,
                   }}
                 >
                   {study.headline}
                 </h3>
-                <p style={{ fontSize: 13, color: mkt.textFaint, margin: "0 0 20px" }}>
-                  {study.businessInitial}, {study.metro}
-                </p>
 
                 <p style={{ fontSize: 15, color: mkt.onDarkMuted, lineHeight: 1.65, margin: "0 0 22px" }}>
                   {study.situation}
