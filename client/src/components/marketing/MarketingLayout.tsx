@@ -250,14 +250,11 @@ function MarketingFooter({ isMobile }: { isMobile: boolean }) {
           grid-template-columns: repeat(4, 1fr);
           gap: 32px;
         }
-        /* Subtle dashed divider between menu buttons in each footer column */
-        .mkt-ft-list > a,
-        .mkt-ft-list > button {
-          border-bottom: 1px dashed rgba(255,255,255,0.07);
-        }
-        .mkt-ft-list > a:last-child,
-        .mkt-ft-list > button:last-child {
-          border-bottom: none;
+        /* Subtle dashed vertical divider between footer columns */
+        .mkt-footer-grid > * + * {
+          border-left: 1px dashed rgba(255,255,255,0.10);
+          padding-left: 32px;
+          margin-left: -16px;
         }
         /* Desktop: hide chevrons, always show content */
         .mkt-ft-chevron { display: none; }
@@ -267,6 +264,12 @@ function MarketingFooter({ isMobile }: { isMobile: boolean }) {
           .mkt-footer-grid {
             grid-template-columns: 1fr 1fr;
             gap: 24px 20px;
+          }
+          /* Drop the column divider when items wrap onto multiple rows */
+          .mkt-footer-grid > * + * {
+            border-left: none;
+            padding-left: 0;
+            margin-left: 0;
           }
         }
         @media (max-width: 480px) {
