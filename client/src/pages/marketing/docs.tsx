@@ -238,12 +238,15 @@ export default function DocsPage() {
                       overflow: "hidden",
                     }}
                   >
-                    {/* Pastel header — icon + title + badge inline */}
+                    {/* Pastel header — icon + title + badge inline (fully rounded card-within-card) */}
                     <div style={{
+                      margin: "10px 10px 0",
                       background: tile.bg, color: tile.ink,
-                      padding: "14px 16px",
+                      padding: "12px 14px",
+                      borderRadius: 14,
                       display: "flex", alignItems: "center", gap: 12,
                       position: "relative",
+                      overflow: "hidden",
                     }}>
                       <div style={{
                         position: "absolute", inset: 0,
