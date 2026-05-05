@@ -2,7 +2,8 @@ import { useEffect } from "react";
 import { Link } from "wouter";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { mkt } from "@/theme/tokens";
-import { TrendingUp, ArrowRight, PhoneCall, Star, MapPin, Calendar } from "lucide-react";
+import { TrendingUp, ArrowRight, PhoneCall, Star, MapPin, Calendar, PhoneOff, MoonStar, Zap, HandCoins } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { V7PageShell } from "@/components/marketing/v7";
 import { TILE, MONO, Reveal } from "@/components/effortel-blocks";
 
@@ -54,6 +55,8 @@ interface Study {
   quote: string;
   quoteAttribution: string;     // Trade + metro, no last names
   timeline: string;
+  /** Header-strip icon — picked to reflect the study's outcome/theme. */
+  icon: LucideIcon;
 }
 
 const STUDIES: Study[] = [
@@ -75,6 +78,7 @@ const STUDIES: Study[] = [
       "We were missing calls constantly. Now every call gets answered and we get a text summary. Honestly feels like having a receptionist that never sleeps.",
     quoteAttribution: "Owner, plumbing co. · Dallas–Fort Worth",
     timeline: "Full go-live on day 4 after signup",
+    icon: PhoneOff,
   },
   {
     slug: "hvac-after-hours",
@@ -94,6 +98,7 @@ const STUDIES: Study[] = [
       "The chat on the website surprised me. Customers actually use it and we started getting quote requests late at night — ones we would have lost before.",
     quoteAttribution: "Owner, HVAC co. · Calgary metro",
     timeline: "Live within 48 hours",
+    icon: MoonStar,
   },
   {
     slug: "roofing-storm-season",
@@ -113,6 +118,7 @@ const STUDIES: Study[] = [
       "Customers stopped saying 'no one answered the phone.' The system handles it automatically and sends us the details. Storm season we doubled our booked quotes.",
     quoteAttribution: "Owner, roofing co. · Denver metro",
     timeline: "Pre-storm-season setup took a week",
+    icon: Zap,
   },
   {
     slug: "cleaning-instant-quotes",
@@ -132,6 +138,7 @@ const STUDIES: Study[] = [
       "Not something we thought we needed, but it actually helped us respond faster to new inquiries. The quote widget alone caught a few big contracts.",
     quoteAttribution: "Owner, cleaning co. · Tampa Bay",
     timeline: "Widget live in under 30 minutes",
+    icon: HandCoins,
   },
 ];
 
@@ -187,6 +194,7 @@ export default function CaseStudiesPage() {
         >
           {STUDIES.map((study) => {
             const tile = TILE[tradeTile(study.trade)];
+            const StudyIcon = study.icon;
             return (
             <article
               key={study.slug}
@@ -225,7 +233,23 @@ export default function CaseStudiesPage() {
                   backgroundSize: "16px 16px",
                   opacity: 0.5, pointerEvents: "none",
                 }} />
-                <div style={{ position: "relative", display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ position: "relative", display: "flex", alignItems: "center", gap: 12 }}>
+                  {/* Dark icon tile — relevant to this study's outcome */}
+                  <span
+                    aria-hidden
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: 36, height: 36, borderRadius: 10,
+                      background: "rgba(20,24,27,0.85)",
+                      border: "1px solid rgba(255,255,255,0.10)",
+                      color: mkt.accent,
+                      flexShrink: 0,
+                    }}
+                  >
+                    <StudyIcon size={18} strokeWidth={1.7} />
+                  </span>
                   <span
                     style={{
                       display: "inline-flex",
@@ -239,7 +263,7 @@ export default function CaseStudiesPage() {
                       fontFamily: MONO,
                     }}
                   >
-                    <TrendingUp size={13} /> {study.trade}
+                    {study.trade}
                   </span>
                   <span style={{ color: tile.muted }}>·</span>
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: tile.muted, fontFamily: MONO }}>
