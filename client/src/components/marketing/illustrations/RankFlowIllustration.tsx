@@ -1,8 +1,18 @@
 /**
- * RankFlowIllustration — original SVG editorial illustration. Lavender
- * background, comet trails on diagonals heading toward a dark anchor
- * tile in the upper-right (with an upward-bars/podium glyph). Trail
- * heads carry small rank-badge tiles climbing #3 → #2 → #1.
+ * RankFlowIllustration — Effortel-style "comet trail" composition
+ * adapted for RankFlow.
+ *
+ * - Lavender card background with subtle background curve sweeps for
+ *   atmosphere.
+ * - Two parallel diagonal comet trails sweep from the upper-right
+ *   corner down to the lower-left, each tapering from a thin tail
+ *   (transparent) into a wide rounded white "head".
+ * - A dashed center-line runs along each trail to suggest motion.
+ * - Inside each white head sits a small TrendingUp glyph — the
+ *   ranking-rising metaphor that replaces Effortel's satellite icon.
+ * - A dark rounded anchor tile in the upper-right holds the RankFlow
+ *   product glyph (3 ascending bars + an up-arrow accent), playing
+ *   the same role as Effortel's brand-mark tile.
  */
 
 interface Props { size?: number; }
@@ -10,68 +20,101 @@ interface Props { size?: number; }
 export default function RankFlowIllustration({ size = 480 }: Props) {
   return (
     <svg viewBox="0 0 480 360" width={size} height={(size * 360) / 480} role="img" aria-label="RankFlow">
+      <defs>
+        {/* White-to-transparent gradient for the comet trails */}
+        <linearGradient id="rf-trail" x1="1" y1="0" x2="0" y2="1">
+          <stop offset="0%"  stopColor="rgba(255,255,255,0)"   />
+          <stop offset="55%" stopColor="rgba(255,255,255,0.55)" />
+          <stop offset="92%" stopColor="rgba(255,255,255,0.95)" />
+          <stop offset="100%" stopColor="#ffffff" />
+        </linearGradient>
+        {/* Soft drop-shadow under the dark anchor tile */}
+        <filter id="rf-anchor-shadow" x="-20%" y="-10%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="6" />
+        </filter>
+      </defs>
+
       {/* Pale baseplate */}
       <rect x="0" y="0" width="480" height="360" fill="#E0EDED" rx="14" />
 
       {/* Lavender card */}
       <rect x="14" y="0" width="452" height="320" fill="#B7A6F7" rx="12" />
 
-      {/* Soft arc highlights bottom-right */}
-      <path d="M 380 320 Q 466 260 466 160" stroke="rgba(255,255,255,0.25)" strokeWidth="20" fill="none" strokeLinecap="round" />
-      <path d="M 360 320 Q 446 260 446 180" stroke="rgba(255,255,255,0.18)" strokeWidth="14" fill="none" strokeLinecap="round" />
-
-      {/* Three diagonal comet trails */}
-      <defs>
-        <linearGradient id="rf-trail-1" x1="0" y1="1" x2="1" y2="0">
-          <stop offset="0%" stopColor="rgba(255,255,255,0)" />
-          <stop offset="60%" stopColor="rgba(255,255,255,0.45)" />
-          <stop offset="100%" stopColor="rgba(255,255,255,0.85)" />
-        </linearGradient>
-        <linearGradient id="rf-trail-2" x1="0" y1="1" x2="1" y2="0">
-          <stop offset="0%" stopColor="rgba(255,255,255,0)" />
-          <stop offset="60%" stopColor="rgba(255,255,255,0.50)" />
-          <stop offset="100%" stopColor="rgba(255,255,255,0.95)" />
-        </linearGradient>
-      </defs>
-
-      {/* Trail 1 — left, slowest */}
-      <path d="M 30 320 L 200 130 L 250 90 L 270 80 Q 250 100 220 120 L 60 300 Z"
-            fill="url(#rf-trail-1)" />
-      {/* Trail 2 — middle */}
-      <path d="M 130 320 L 300 130 L 360 90 L 380 80 Q 360 100 330 120 L 160 300 Z"
-            fill="url(#rf-trail-2)" />
-
-      {/* Dashed center-lines along trails */}
-      <line x1="60" y1="300" x2="260" y2="80" stroke="#5b4d8a" strokeWidth="1" strokeDasharray="4 4" opacity="0.35" />
-      <line x1="160" y1="300" x2="370" y2="80" stroke="#5b4d8a" strokeWidth="1" strokeDasharray="4 4" opacity="0.35" />
-
-      {/* Trail head 1 — rank #3 chip */}
-      <g transform="translate(40,260)">
-        <rect x="0" y="0" width="56" height="40" rx="20" fill="#fff" stroke="#1a1a1a" strokeWidth="1.4" />
-        <text x="28" y="26" textAnchor="middle" fontFamily="'DM Mono', monospace" fontSize="14" fontWeight="800" fill="#1a1a1a">#3</text>
+      {/* Subtle background curve sweeps — lighter purple atmosphere */}
+      <g opacity="0.55">
+        <path d="M 14 240 Q 240 70 466 130" stroke="rgba(255,255,255,0.18)" strokeWidth="42" fill="none" strokeLinecap="round" />
+        <path d="M 14 280 Q 240 130 466 200" stroke="rgba(255,255,255,0.10)" strokeWidth="32" fill="none" strokeLinecap="round" />
       </g>
 
-      {/* Trail head 2 — rank #2 chip */}
-      <g transform="translate(140,210)">
-        <rect x="0" y="0" width="56" height="40" rx="20" fill="#fff" stroke="#1a1a1a" strokeWidth="1.4" />
-        <text x="28" y="26" textAnchor="middle" fontFamily="'DM Mono', monospace" fontSize="14" fontWeight="800" fill="#1a1a1a">#2</text>
-      </g>
+      {/* ─── TWO COMET TRAILS ─────────────────────────────────
+          Each trail is a tapered band (transparent → white) plus a
+          rounded white "head" circle. The band ends are tucked under
+          the head circle so the seam is hidden. */}
 
-      {/* Anchor tile upper-right with #1 badge underneath */}
+      {/* Trail 1 — upper, head at (170, 222) */}
+      <path
+        d="M 462 22
+           L 472 32
+           L 184 234
+           L 158 218
+           Z"
+        fill="url(#rf-trail)"
+      />
+      <line x1="170" y1="222" x2="466" y2="28" stroke="#5b4d8a" strokeWidth="1" strokeDasharray="5 5" opacity="0.45" />
+
+      {/* Trail 2 — lower, head at (256, 282) */}
+      <path
+        d="M 472 80
+           L 482 92
+           L 270 296
+           L 244 280
+           Z"
+        fill="url(#rf-trail)"
+      />
+      <line x1="256" y1="282" x2="478" y2="86" stroke="#5b4d8a" strokeWidth="1" strokeDasharray="5 5" opacity="0.45" />
+
+      {/* Comet heads — rounded white circles with TrendingUp glyph */}
+      <CometHead cx={170} cy={222} />
+      <CometHead cx={256} cy={282} />
+
+      {/* ─── ANCHOR TILE (upper-right) ───────────────────────
+          Dark rounded square holding the RankFlow product glyph:
+          3 ascending lavender bars + an up-arrow accent. */}
+      <ellipse cx="380" cy="160" rx="58" ry="10" fill="rgba(20,20,40,0.18)" filter="url(#rf-anchor-shadow)" />
       <g transform="translate(338,68)">
         <rect x="0" y="0" width="84" height="84" rx="18" fill="#0E1116" stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
-        {/* Ascending bars glyph (podium) */}
-        <rect x="20" y="46" width="12" height="22" rx="2" fill="#B7A6F7" />
-        <rect x="36" y="34" width="12" height="34" rx="2" fill="#B7A6F7" />
-        <rect x="52" y="22" width="12" height="46" rx="2" fill="#B7A6F7" />
-        {/* Up-arrow accent */}
-        <path d="M 16 18 L 22 12 L 28 18" stroke="#B7A6F7" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-        <line x1="22" y1="12" x2="22" y2="20" stroke="#B7A6F7" strokeWidth="2" strokeLinecap="round" />
-      </g>
-      <g transform="translate(354,156)">
-        <rect x="0" y="0" width="52" height="32" rx="16" fill="#fff" stroke="#1a1a1a" strokeWidth="1.4" />
-        <text x="26" y="22" textAnchor="middle" fontFamily="'DM Mono', monospace" fontSize="13" fontWeight="800" fill="#1a1a1a">#1</text>
+        {/* Three ascending bars */}
+        <rect x="20" y="50" width="12" height="20" rx="3" fill="#B7A6F7" />
+        <rect x="36" y="40" width="12" height="30" rx="3" fill="#B7A6F7" />
+        <rect x="52" y="28" width="12" height="42" rx="3" fill="#B7A6F7" />
+        {/* Up-arrow accent on top-right of the chart */}
+        <path
+          d="M 60 22 L 66 16 L 72 22 M 66 16 L 66 26"
+          stroke="#B7A6F7" strokeWidth="2.4" fill="none"
+          strokeLinecap="round" strokeLinejoin="round"
+        />
       </g>
     </svg>
+  );
+}
+
+/* ─── Comet head — rounded white pill with TrendingUp icon ─── */
+function CometHead({ cx, cy }: { cx: number; cy: number }) {
+  return (
+    <g transform={`translate(${cx},${cy})`}>
+      {/* Soft drop-shadow */}
+      <ellipse cx="0" cy="2" rx="36" ry="34" fill="rgba(20,20,40,0.18)" />
+      {/* White pill */}
+      <circle cx="0" cy="0" r="34" fill="#fff" />
+      {/* TrendingUp glyph (line up-right with arrowhead) */}
+      <g
+        stroke="#0E1116" strokeWidth="2.2" fill="none"
+        strokeLinecap="round" strokeLinejoin="round"
+      >
+        <path d="M -14 8 L -4 -2 L 4 4 L 16 -10" />
+        {/* Arrowhead at the tip */}
+        <path d="M 8 -10 L 16 -10 L 16 -2" />
+      </g>
+    </g>
   );
 }
