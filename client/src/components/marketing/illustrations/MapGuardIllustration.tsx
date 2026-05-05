@@ -1,90 +1,107 @@
 /**
- * MapGuardIllustration — original SVG editorial illustration. Cyan
- * background tile, dark stylized North-America silhouette (Canada
- * through Central America, Florida hook + Baja peninsula), dashed
- * concentric coverage rings, and floating white pill chips labeling
- * five WeFixTrades market cities.
+ * MapGuardIllustration — full-bleed cyan tile with a hand-traced
+ * North-America silhouette in dark with cyan offset shadow, dashed
+ * concentric coverage rings, and five compact pinned-city pill chips.
  *
- * The continent shape is a hand-traced low-poly path (~50 anchors)
- * drawn in the SVG viewBox; it isn't reproducing any specific
- * copyrighted map artwork, just enough recognisable landmarks
- * (Alaska, Hudson Bay notch, Florida, Yucatán, Central America taper,
- * Baja peninsula) to read instantly as North America.
+ * The continent path uses ~70 anchor points so the recognisable
+ * features read at a glance: Alaska + Aleutians, the Hudson Bay
+ * notch, Newfoundland, the Florida hook, Yucatán, Central America
+ * taper, and the Baja peninsula.
+ *
+ * SVG fills its container width so it scales correctly on mobile.
  */
 
 interface Props { size?: number; }
 
-// One outline string reused for the dark fill + cyan offset shadow,
-// so any future edit to the silhouette only changes one place.
+// Detailed North-America outline. Counter-clockwise from Alaska SW.
 const NORTH_AMERICA_PATH = `
-  M 95 92
-  L 78 100 L 70 115 L 86 122 L 108 115 L 128 116
-  L 132 95 L 115 78 L 140 60 L 175 48 L 215 44 L 250 46
-  L 282 58 L 298 78
-  L 285 92 L 264 108 L 252 96 L 240 110 L 250 130 L 270 124
-  L 296 116 L 318 102 L 340 116
-  L 346 145 L 350 178 L 358 208 L 362 238 L 366 262
-  L 360 280 L 350 295 L 342 282 L 334 268
-  L 322 260 L 308 264 L 292 272 L 278 284
-  L 282 296 L 296 302 L 280 314 L 264 320
-  L 248 322 L 232 314 L 224 300
-  L 220 286 L 210 274 L 202 264
-  L 196 276 L 184 290 L 175 276 L 178 258
-  L 164 240 L 150 222 L 138 198 L 128 174 L 118 148 L 108 122 L 102 110
+  M 78 100
+  L 60 105 L 50 113 L 65 122 L 85 128 L 102 130 L 118 134 L 132 136
+  L 142 130 L 140 120 L 130 110 L 120 100 L 112 90 L 108 78
+  L 122 68 L 145 58 L 175 52 L 210 48 L 245 50 L 275 56
+  L 296 66 L 312 80
+  L 308 96 L 294 102 L 278 100 L 264 92 L 254 102
+  L 248 116 L 236 108 L 222 102 L 215 114
+  L 224 132 L 240 142 L 262 145
+  L 286 144 L 308 138 L 328 130 L 348 132
+  L 358 146 L 354 158 L 342 162
+  L 350 172 L 346 184 L 336 188
+  L 334 200 L 348 218 L 358 238 L 364 260 L 368 280
+  L 365 298 L 358 314 L 348 326 L 340 318 L 334 304
+  L 326 288 L 318 280 L 304 276 L 290 280 L 276 286 L 264 294
+  L 270 308 L 286 318 L 300 318
+  L 308 326 L 296 332 L 282 334
+  L 270 340 L 258 348 L 246 344 L 238 330
+  L 228 314 L 218 300 L 210 288 L 202 276
+  L 196 286 L 184 298 L 172 290 L 174 274
+  L 168 258 L 162 244 L 152 226 L 144 208
+  L 134 190 L 122 170 L 112 148 L 100 128 L 90 112
   Z
 `;
 
+interface Pin { x: number; y: number; label: string; }
+
+const PINS: Pin[] = [
+  { x:  10, y:  30, label: "VANCOUVER" },
+  { x: 350, y:  56, label: "TORONTO"   },
+  { x: 360, y: 168, label: "CHICAGO"   },
+  { x: 308, y: 296, label: "HOUSTON"   },
+  { x:  10, y: 296, label: "SAN DIEGO" },
+];
+
 export default function MapGuardIllustration({ size = 480 }: Props) {
   return (
-    <svg viewBox="0 0 480 360" width={size} height={(size * 360) / 480} role="img" aria-label="MapGuard">
-      {/* Pale baseplate */}
-      <rect x="0" y="0" width="480" height="360" fill="#E0EDED" rx="14" />
+    <svg
+      viewBox="0 0 480 360"
+      width="100%"
+      height="auto"
+      style={{ display: "block", maxWidth: size }}
+      role="img"
+      aria-label="MapGuard"
+    >
+      {/* Full-bleed cyan card */}
+      <rect x="0" y="0" width="480" height="360" fill="#7FE7E1" rx="16" />
 
-      {/* Cyan card */}
-      <rect x="14" y="0" width="452" height="320" fill="#7FE7E1" rx="12" />
+      {/* Cyan offset shadow under continent silhouette */}
+      <path d={NORTH_AMERICA_PATH} transform="translate(7,7)" fill="rgba(102,232,250,0.55)" />
 
-      {/* Cyan offset shadow under silhouette */}
-      <path d={NORTH_AMERICA_PATH} transform="translate(8,8)" fill="rgba(102,232,250,0.55)" />
-
-      {/* Dark continent silhouette — North America */}
+      {/* Dark continent silhouette */}
       <path d={NORTH_AMERICA_PATH} fill="#0E1116" />
 
-      {/* Dashed concentric coverage rings centered roughly on the
-          mid-continent (Kansas-ish) so they radiate over the silhouette. */}
-      <g transform="translate(220,180)" opacity="0.55">
-        <circle cx="0" cy="0" r="22" fill="none" stroke="#7FE7E1" strokeWidth="0.8" strokeDasharray="2 3" />
-        <circle cx="0" cy="0" r="42" fill="none" stroke="#7FE7E1" strokeWidth="0.8" strokeDasharray="2 3" />
-        <circle cx="0" cy="0" r="64" fill="none" stroke="#7FE7E1" strokeWidth="0.8" strokeDasharray="2 3" />
-        <circle cx="0" cy="0" r="88" fill="none" stroke="#7FE7E1" strokeWidth="0.8" strokeDasharray="2 3" />
-        <circle cx="0" cy="0" r="116" fill="none" stroke="#7FE7E1" strokeWidth="0.8" strokeDasharray="2 3" />
+      {/* Dashed concentric coverage rings centered on the continent */}
+      <g transform="translate(220,200)" opacity="0.55">
+        {[24, 46, 70, 96, 124].map((r) => (
+          <circle key={r} cx="0" cy="0" r={r} fill="none" stroke="#7FE7E1" strokeWidth="0.8" strokeDasharray="2 3" />
+        ))}
       </g>
 
-      {/* Pill chips — WeFixTrades coverage cities */}
-      <PillChip x={20}  y={86}  label="VANCOUVER" />
-      <PillChip x={300} y={108} label="TORONTO"   />
-      <PillChip x={320} y={170} label="CHICAGO"   />
-      <PillChip x={272} y={236} label="HOUSTON"   />
-      <PillChip x={20}  y={216} label="SAN DIEGO" />
+      {/* Pinned city pills — placed at the canvas edges so the
+          continent silhouette stays readable behind them */}
+      {PINS.map((p) => (
+        <PillChip key={p.label} x={p.x} y={p.y} label={p.label} />
+      ))}
     </svg>
   );
 }
 
 function PillChip({ x, y, label }: { x: number; y: number; label: string }) {
-  const w = label.length * 9 + 56;
+  // Compact pill: smaller pin, smaller font, tighter padding.
+  const w = label.length * 7 + 36;
   return (
     <g transform={`translate(${x},${y})`}>
       {/* Soft drop-shadow */}
-      <rect x="2" y="3" width={w} height="36" rx="18" fill="rgba(20,40,60,0.18)" />
+      <rect x="2" y="3" width={w} height="26" rx="13" fill="rgba(20,40,60,0.20)" />
       {/* Pill body */}
-      <rect x="0" y="0" width={w} height="36" rx="18" fill="#fff" />
+      <rect x="0" y="0" width={w} height="26" rx="13" fill="#fff" />
       {/* Cyan circular pin with checkmark */}
-      <circle cx="18" cy="18" r="14" fill="#7FE7E1" />
-      <path d="M 12 18 L 16 22 L 24 14" fill="none" stroke="#0E1116" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="13" cy="13" r="10" fill="#7FE7E1" />
+      <path d="M 9 13 L 12 16 L 18 10" fill="none" stroke="#0E1116" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
       {/* Label */}
       <text
-        x="40" y="23"
-        fontFamily="'DM Mono', monospace" fontSize="13" fontWeight="700"
-        fill="#1a1a1a" letterSpacing="1.2"
+        x="28" y="17"
+        fontFamily="'DM Mono', monospace"
+        fontSize="10" fontWeight="700"
+        fill="#1a1a1a" letterSpacing="0.8"
       >
         {label}
       </text>

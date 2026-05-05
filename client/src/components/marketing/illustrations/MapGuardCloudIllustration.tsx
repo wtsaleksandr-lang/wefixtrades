@@ -111,8 +111,9 @@ export default function MapGuardCloudIllustration({ size = 720 }: Props) {
   return (
     <svg
       viewBox="0 0 480 320"
-      width={size}
-      height={(size * 320) / 480}
+      width="100%"
+      height="auto"
+      style={{ display: "block", maxWidth: size }}
       role="img"
       aria-label="MapGuard — North-America cloud coverage"
     >

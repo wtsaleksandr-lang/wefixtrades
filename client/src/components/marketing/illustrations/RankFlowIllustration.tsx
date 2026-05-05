@@ -19,7 +19,14 @@ interface Props { size?: number; }
 
 export default function RankFlowIllustration({ size = 480 }: Props) {
   return (
-    <svg viewBox="0 0 480 360" width={size} height={(size * 360) / 480} role="img" aria-label="RankFlow">
+    <svg
+      viewBox="0 0 480 360"
+      width="100%"
+      height="auto"
+      style={{ display: "block", maxWidth: size }}
+      role="img"
+      aria-label="RankFlow"
+    >
       <defs>
         {/* White-to-transparent gradient for the comet trails */}
         <linearGradient id="rf-trail" x1="1" y1="0" x2="0" y2="1">
@@ -34,11 +41,8 @@ export default function RankFlowIllustration({ size = 480 }: Props) {
         </filter>
       </defs>
 
-      {/* Pale baseplate */}
-      <rect x="0" y="0" width="480" height="360" fill="#E0EDED" rx="14" />
-
-      {/* Lavender card */}
-      <rect x="14" y="0" width="452" height="320" fill="#B7A6F7" rx="12" />
+      {/* Full-bleed lavender card */}
+      <rect x="0" y="0" width="480" height="360" fill="#B7A6F7" rx="16" />
 
       {/* Subtle background curve sweeps — lighter purple atmosphere */}
       <g opacity="0.55">
