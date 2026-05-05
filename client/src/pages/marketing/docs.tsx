@@ -2,8 +2,8 @@ import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import { Search, Zap, Globe, Calendar, Bot, Code, AlertCircle, Webhook, ArrowRight, BookOpen, MessageSquare } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
-import { V7Hero, V7PageShell } from "@/components/marketing/v7";
-import { TILE, MONO } from "@/components/effortel-blocks";
+import { V7PageShell } from "@/components/marketing/v7";
+import { Reveal, TILE, MONO } from "@/components/effortel-blocks";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
 import { mkt, colors, shadows } from "@/theme/tokens";
 
@@ -91,45 +91,73 @@ export default function DocsPage() {
       <V7PageShell>
       <div data-testid="docs-hub" style={{ overflowX: "hidden" }}>
 
-        <V7Hero
-          productName="Documentation"
-          eyebrow="Stuck on something? You're not the first."
-          headline={<>How can<br/><span style={{ color: mkt.accent }}>we help?</span></>}
-          sub="Guides, embed instructions, and troubleshooting — all written for non-technical trades people."
-          visual={
-            <div style={{ position: "relative", maxWidth: 520, margin: "0 auto" }}>
-              <Search size={17} color="rgba(213,225,231,0.6)" style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", zIndex: 1 }} />
-              <input
-                data-testid="docs-search"
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search guides... (e.g. embed, domain, booking)"
-                style={{
-                  width: "100%",
-                  padding: "14px 16px 14px 48px",
-                  borderRadius: 12,
-                  border: `1.5px solid ${mkt.onDarkBorder}`,
-                  background: "rgba(255,255,255,0.04)",
+        {/* Compact hero: left-aligned product tag, tight headline directly above search */}
+        <section style={{ padding: "96px 24px 28px", position: "relative", overflow: "hidden", background: mkt.bg }}>
+          <div style={{
+            position: "absolute", inset: 0, pointerEvents: "none",
+            background: "radial-gradient(ellipse 60% 50% at 50% 0%, rgba(102,232,250,0.08) 0%, transparent 60%)",
+          }} />
+          <div style={{ maxWidth: 1100, margin: "0 auto", position: "relative" }}>
+            <Reveal>
+              <span style={{
+                display: "inline-block", fontFamily: MONO, fontSize: 12,
+                letterSpacing: "0.16em", textTransform: "uppercase",
+                color: mkt.accent,
+              }}>
+                Documentation
+              </span>
+            </Reveal>
+
+            <div style={{ maxWidth: 520, margin: "28px auto 0", textAlign: "center" }}>
+              <Reveal delay={0.06}>
+                <h1 style={{
+                  fontSize: "clamp(18px, 2.2vw, 24px)",
+                  fontWeight: 700,
+                  lineHeight: 1.15,
+                  letterSpacing: "-0.01em",
                   color: mkt.onDark,
-                  fontSize: 15,
-                  outline: "none",
-                  boxSizing: "border-box" as const,
+                  margin: "0 0 12px",
                   fontFamily: "inherit",
-                }}
-              />
+                }}>
+                  How can <span style={{ color: mkt.accent }}>we help?</span>
+                </h1>
+              </Reveal>
+              <Reveal delay={0.10}>
+                <div style={{ position: "relative" }}>
+                  <Search size={17} color="rgba(213,225,231,0.6)" style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", zIndex: 1 }} />
+                  <input
+                    data-testid="docs-search"
+                    type="text"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search guides... (e.g. embed, domain, booking)"
+                    style={{
+                      width: "100%",
+                      padding: "14px 16px 14px 48px",
+                      borderRadius: 12,
+                      border: `1.5px solid ${mkt.onDarkBorder}`,
+                      background: "rgba(255,255,255,0.04)",
+                      color: mkt.onDark,
+                      fontSize: 15,
+                      outline: "none",
+                      boxSizing: "border-box" as const,
+                      fontFamily: "inherit",
+                    }}
+                  />
+                </div>
+              </Reveal>
             </div>
-          }
-        />
+          </div>
+        </section>
 
         {/* Quick start strip */}
         {search === "" && (
-          <div style={{ background: mkt.sectionLight, borderBottom: `1px solid ${mkt.onDarkBorder}`, padding: "28px 28px" }}>
+          <div style={{ background: mkt.sectionLight, borderBottom: `1px solid ${mkt.onDarkBorder}`, padding: "20px 28px 28px" }}>
             <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: mkt.onDarkMuted, letterSpacing: "0.1em", textTransform: "uppercase" as const, marginBottom: 16 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: mkt.onDarkMuted, letterSpacing: "0.1em", textTransform: "uppercase" as const, marginBottom: 14 }}>
                 Quickstart
               </div>
-              <div className="qs-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+              <div className="qs-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 13 }}>
                 {QUICKSTARTS.map(({ icon: Icon, label, href, sub }, i) => {
                   // Rotate through V7 pastel TILE colours per quickstart
                   const palette = ["cyanSoft", "lavender", "mint", "pink"] as const;
@@ -140,20 +168,20 @@ export default function DocsPage() {
                     href={href}
                     data-testid={`quickstart-${label.toLowerCase().replace(/\s+/g, "-")}`}
                     style={{
-                      display: "flex", gap: 12, padding: "14px 16px",
-                      background: mkt.sectionLight, border: `1px solid ${mkt.onDarkBorder}`, borderRadius: 12,
+                      display: "flex", gap: 13, padding: "16px 18px",
+                      background: mkt.sectionLight, border: `1px solid ${mkt.onDarkBorder}`, borderRadius: 13,
                       textDecoration: "none", alignItems: "flex-start",
                       boxShadow: "0 1px 4px rgba(0,0,0,0.18)",
                       transition: "box-shadow 0.18s ease, border-color 0.18s ease",
                     }}
                     className="mkt-feature-card"
                   >
-                    <div style={{ width: 34, height: 34, borderRadius: 8, background: tile.bg, color: tile.ink, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                      <Icon size={16} />
+                    <div style={{ width: 44, height: 44, borderRadius: 10, background: tile.bg, color: tile.ink, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      <Icon size={21} />
                     </div>
                     <div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: mkt.onDark, marginBottom: 2 }}>{label}</div>
-                      <div style={{ fontSize: 12, color: mkt.onDarkMuted, lineHeight: 1.45 }}>{sub}</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: mkt.onDark, marginBottom: 2 }}>{label}</div>
+                      <div style={{ fontSize: 13, color: mkt.onDarkMuted, lineHeight: 1.45 }}>{sub}</div>
                     </div>
                   </Link>
                   );
