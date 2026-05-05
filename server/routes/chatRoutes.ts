@@ -2,6 +2,7 @@ import type { Express, Request, Response } from "express";
 import crypto from "crypto";
 import { assistantStream, assistantSync, isReady, type AssistantRequest } from "../services/assistant";
 import type { ChatSurface, AuditContext, PortalContext } from "../services/promptBuilder";
+import { TRADELINE_DEMO_PROMPT } from "@shared/prompts/tradelineDemoPrompt";
 import { assemblePortalContext } from "../services/portalAssistantContext";
 import type { ChatMessage } from "../services/aiService";
 import { chatRateLimiter } from "../services/rateLimiter";
@@ -319,5 +320,19 @@ export function registerChatRoutes(app: Express): void {
       log.error("[chat/sync] Error:", err?.message);
       return res.status(500).json({ error: "Something went wrong. Please try again." });
     }
+  });
+
+  /**
+   * GET /api/tradeline-demo/prompt
+   *
+   * Returns the TradeLine demo system prompt as plain text. The
+   * /products/tradeline launcher fetches this once and pushes it into
+   * Vapi at voice-call start via assistantOverrides.model.messages, so
+   * voice and chat surfaces stay in lockstep with one source of truth.
+   * Cached aggressively because the prompt is a constant.
+   */
+  app.get("/api/tradeline-demo/prompt", (_req: Request, res: Response) => {
+    res.set("Cache-Control", "public, max-age=300");
+    res.type("text/plain").send(TRADELINE_DEMO_PROMPT);
   });
 }
