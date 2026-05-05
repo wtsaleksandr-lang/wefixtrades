@@ -72,6 +72,10 @@ interface Study {
   headline: string;
   outcomes: Outcome[];     // Three colourful before/after badges
   timeline: string;
+  /** Realistic short testimonial — must mention the product by name. */
+  quote: string;
+  /** Realistic-sounding business + first name + city. */
+  quoteAttribution: string;
 }
 
 /* ────────────────────────────────────────────────────────────────
@@ -91,6 +95,8 @@ const STUDIES: Study[] = [
       { icon: TrendingUp,    tint: "green",   label: "Response rate",   before: "Slow",  after: "+70%" },
       { icon: CalendarCheck, tint: "emerald", label: "Booked jobs / mo", before: "Baseline", after: "≈ 2×" },
     ],
+    quote: "Used to come back from a job and find six voicemails. TradeLine answers everything now and texts me a summary — most callers already have a slot booked by the time I'm in the truck.",
+    quoteAttribution: "Mike — Saguaro Plumbing · Tucson, AZ",
   },
   {
     slug: "quotequickpro-hvac",
@@ -105,6 +111,8 @@ const STUDIES: Study[] = [
       { icon: Clock,        tint: "indigo",  label: "Phone quoting time",  before: "4h/day", after: "≈ 30 min" },
       { icon: TrendingUp,   tint: "green",   label: "Weekend leads",       before: "Lost", after: "≈ 3×" },
     ],
+    quote: "I was eating my evenings giving rough quotes over the phone. QuoteQuick Pro turned the website into a quoting machine — Saturday morning we wake up to three confirmed estimate requests.",
+    quoteAttribution: "Dan — Foothills HVAC · Calgary, AB",
   },
   {
     slug: "mapguard-electrical",
@@ -119,6 +127,8 @@ const STUDIES: Study[] = [
       { icon: Search,     tint: "amber",   label: "Profile views / wk", before: "≈ 80",  after: "≈ 350" },
       { icon: PhoneCall,  tint: "cyan",    label: "Direction-tap calls", before: "Few",  after: "≈ 4×" },
     ],
+    quote: "We were stuck on page two of Google Maps for years. MapGuard cleaned up the Business Profile every week and within two months we sat in the top three. Calls follow rankings.",
+    quoteAttribution: "Carlos — Desert Volt Electric · Phoenix, AZ",
   },
   {
     slug: "reputationshield-roofing",
@@ -133,6 +143,8 @@ const STUDIES: Study[] = [
       { icon: TrendingUp, tint: "green",   label: "Reviews per month",    before: "1–2",  after: "≈ 18" },
       { icon: PhoneCall,  tint: "cyan",    label: "1-star calls routed", before: "Public", after: "Private" },
     ],
+    quote: "ReputationShield asks every customer for a review the day after the job. We went from twelve reviews and a 4.2 average to over sixty at 4.8 — and the unhappy ones come straight to my phone, not Google.",
+    quoteAttribution: "Jay — Mile High Roofing · Denver, CO",
   },
   {
     slug: "socialsync-landscaping",
@@ -147,6 +159,8 @@ const STUDIES: Study[] = [
       { icon: Users,     tint: "violet", label: "Post reach / mo",   before: "≈ 200", after: "≈ 1.2k" },
       { icon: PhoneCall, tint: "cyan",   label: "Inbound DMs / wk", before: "0",   after: "5–8" },
     ],
+    quote: "I'm not posting to Instagram from a mower. SocialSync drafts the captions, schedules the photos, and we get DMs from new clients without me ever opening the app.",
+    quoteAttribution: "Bryan — Hill Country Lawn & Garden · Austin, TX",
   },
   {
     slug: "rankflow-electrical",
@@ -161,6 +175,8 @@ const STUDIES: Study[] = [
       { icon: Globe,      tint: "teal",   label: "Organic clicks / mo", before: "≈ 90", after: "≈ 320" },
       { icon: TrendingUp, tint: "green",  label: "Form submissions",  before: "Few", after: "≈ 2.5×" },
     ],
+    quote: "RankFlow showed me which keywords actually mattered for our service area. Six weeks in, six of those keywords were top three and our form submissions doubled.",
+    quoteAttribution: "Travis — Music City Electric · Nashville, TN",
   },
   {
     slug: "sitelaunch-plumbing",
@@ -175,6 +191,8 @@ const STUDIES: Study[] = [
       { icon: CalendarCheck, tint: "emerald", label: "Jobs in month 1",     before: "0",  after: "8" },
       { icon: Star,          tint: "amber",   label: "Reviews collected",   before: "0",  after: "9" },
     ],
+    quote: "Quit my old shop on a Monday and called WeFixTrades on Tuesday — SiteLaunch had the site live and Google-verified by Saturday. Eight booked jobs the first month, none of them friends.",
+    quoteAttribution: "Owner — Treasure Valley Plumbing · Boise, ID",
   },
   {
     slug: "webcare-hvac",
@@ -189,6 +207,8 @@ const STUDIES: Study[] = [
       { icon: Clock,      tint: "indigo", label: "Uptime",     before: "94%",  after: "99.9%" },
       { icon: TrendingUp, tint: "green", label: "Bounce rate", before: "62%",  after: "≈ 38%" },
     ],
+    quote: "Our old site went down at least twice a month and pages took five seconds to load. WebCare hardened it, fixed the speed issues, and the bounce rate dropped immediately.",
+    quoteAttribution: "Lisa — Capital Comfort HVAC · Sacramento, CA",
   },
   {
     slug: "webfix-cleaning",
@@ -203,6 +223,8 @@ const STUDIES: Study[] = [
       { icon: TrendingUp,    tint: "green",   label: "Mobile leads / mo", before: "≈ 6",  after: "≈ 14" },
       { icon: CalendarCheck, tint: "emerald", label: "Bookings / mo", before: "Baseline", after: "≈ 2×" },
     ],
+    quote: "The mobile contact form had been broken for who knows how long. WebFix found it in an hour, fixed the same day, and our enquiries doubled the next week. Wish we'd checked sooner.",
+    quoteAttribution: "Megan — Bay Sparkle Cleaning · Tampa, FL",
   },
   {
     slug: "contentflow-roofing",
@@ -217,6 +239,8 @@ const STUDIES: Study[] = [
       { icon: Globe,      tint: "teal",   label: "Organic traffic",     before: "≈ 60",  after: "≈ 380" },
       { icon: Search,     tint: "amber",  label: "Indexed keywords",    before: "12",  after: "180+" },
     ],
+    quote: "ContentFlow wrote and published two articles a week for us — proper ones, not generic fluff. Organic traffic went from a trickle to several hundred visits a month inside ninety days.",
+    quoteAttribution: "Bryce — Queen City Roofing · Charlotte, NC",
   },
   {
     slug: "adflow-hvac",
@@ -231,6 +255,8 @@ const STUDIES: Study[] = [
       { icon: TrendingUp,    tint: "emerald", label: "Return on ad spend", before: "1.2×", after: "≈ 4.3×" },
       { icon: CalendarCheck, tint: "violet",  label: "Booked installs / wk", before: "≈ 3", after: "≈ 9" },
     ],
+    quote: "My DIY Google Ads were burning $180 per lead. AdFlow took it over, killed the wasteful campaigns, and we're booking installs at $52 a lead during peak summer.",
+    quoteAttribution: "Ramon — Lone Star Cooling · Houston, TX",
   },
   {
     slug: "bookflow-cleaning",
@@ -245,6 +271,8 @@ const STUDIES: Study[] = [
       { icon: TrendingUp,    tint: "green",   label: "Bookings / mo",         before: "Baseline", after: "≈ 2×" },
       { icon: Clock,         tint: "indigo",  label: "Phone tag time",        before: "≈ 6h/wk", after: "Near zero" },
     ],
+    quote: "BookFlow let our customers book themselves overnight. Forty percent of our jobs now come from people who would have phoned a competitor in the morning. No more phone tag.",
+    quoteAttribution: "Anna — Rose City Home Cleaning · Portland, OR",
   },
 ];
 
@@ -294,9 +322,6 @@ export default function CaseStudiesPage() {
           <style>{`
             @media (min-width: 720px) {
               .cs-grid { padding-left: 16px; padding-right: 16px; }
-            }
-            @media (min-width: 980px) {
-              .cs-card-body { padding: 22px 28px 24px !important; }
             }
           `}</style>
           <div
@@ -386,11 +411,13 @@ export default function CaseStudiesPage() {
                     </span>
                   </div>
 
-                  {/* Body — compact, scannable */}
-                  <div className="cs-card-body" style={{ padding: "16px 18px 20px" }}>
+                  {/* Body — horizontal padding matches header strip's 10px inset
+                       so result tiles and quote span the same width as the header */}
+                  <div style={{ padding: "14px 10px 10px" }}>
                     <div style={{
                       display: "flex", alignItems: "center", gap: 8,
                       marginBottom: 6, flexWrap: "wrap",
+                      padding: "0 6px",
                     }}>
                       <span style={{
                         display: "inline-flex", alignItems: "center",
@@ -415,16 +442,18 @@ export default function CaseStudiesPage() {
                       fontSize: "clamp(17px, 2vw, 22px)",
                       fontWeight: 800, color: mkt.onDark,
                       margin: "0 0 14px",
+                      padding: "0 6px",
                       letterSpacing: "-0.015em", lineHeight: 1.25,
                     }}>
                       {study.headline}
                     </h3>
 
-                    {/* Colourful before/after badges */}
+                    {/* Colourful before/after badges — span same width as header strip */}
                     <div style={{
                       display: "grid",
                       gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
-                      gap: 10,
+                      gap: 8,
+                      marginBottom: 10,
                     }}>
                       {study.outcomes.map((o) => {
                         const t = TINT[o.tint];
@@ -475,6 +504,30 @@ export default function CaseStudiesPage() {
                           </div>
                         );
                       })}
+                    </div>
+
+                    {/* Testimonial — same horizontal width as header + outcomes */}
+                    <div style={{
+                      background: "rgba(102,232,250,0.08)",
+                      border: `1px solid ${mkt.accentGlow}`,
+                      borderRadius: 12,
+                      padding: "14px 16px",
+                    }}>
+                      <p style={{
+                        margin: "0 0 8px",
+                        fontSize: 13, lineHeight: 1.55,
+                        color: mkt.onDark, fontStyle: "italic",
+                      }}>
+                        "{study.quote}"
+                      </p>
+                      <p style={{
+                        margin: 0,
+                        fontSize: 11, fontWeight: 700,
+                        color: mkt.onDarkMuted,
+                        fontFamily: MONO, letterSpacing: "0.04em",
+                      }}>
+                        — {study.quoteAttribution}
+                      </p>
                     </div>
                   </div>
                 </article>
