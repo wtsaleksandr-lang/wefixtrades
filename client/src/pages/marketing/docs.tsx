@@ -193,19 +193,19 @@ export default function DocsPage() {
         )}
 
         {/* Guide cards grid */}
-        <div style={{ background: mkt.bg, padding: "64px 28px 96px" }}>
-          <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+        <div style={{ background: mkt.bg, padding: "32px 16px 64px" }}>
+          <div style={{ maxWidth: 1320, margin: "0 auto" }}>
             {search !== "" && (
-              <p style={{ fontSize: 14, color: mkt.onDarkMuted, marginBottom: 24 }}>
+              <p style={{ fontSize: 14, color: mkt.onDarkMuted, marginBottom: 16 }}>
                 {filtered.length} result{filtered.length !== 1 ? "s" : ""} for "<strong>{search}</strong>"
               </p>
             )}
             {search === "" && (
-              <div style={{ marginBottom: 36 }} data-reveal="fade-up">
-                <div style={{ fontSize: 11, fontWeight: 700, color: mkt.accent, letterSpacing: "0.12em", textTransform: "uppercase" as const, marginBottom: 12 }}>
+              <div style={{ marginBottom: 20 }} data-reveal="fade-up">
+                <div style={{ fontSize: 11, fontWeight: 700, color: mkt.accent, letterSpacing: "0.12em", textTransform: "uppercase" as const, marginBottom: 8 }}>
                   All Guides
                 </div>
-                <h2 style={{ fontSize: "clamp(22px, 2.5vw, 32px)", fontWeight: 800, color: mkt.onDark, margin: 0, letterSpacing: "-0.02em" }}>
+                <h2 style={{ fontSize: "clamp(20px, 2.2vw, 28px)", fontWeight: 800, color: mkt.onDark, margin: 0, letterSpacing: "-0.02em" }}>
                   Everything you need to get results
                 </h2>
               </div>
@@ -218,7 +218,7 @@ export default function DocsPage() {
                 <div style={{ fontSize: 14 }}>Try a different keyword or <Link href="/contact" style={{ color: mkt.accent, fontWeight: 600, textDecoration: "none" }}>contact support</Link>.</div>
               </div>
             ) : (
-              <div className="guides-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20 }}>
+              <div className="guides-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
                 {filtered.map(({ slug, icon: Icon, title, description, badge, badgeColor, badgeBg, time }, i) => {
                   // Each guide card gets its own pastel for the icon block.
                   const palette = ["cyanSoft", "lavender", "mint", "pink", "cyan"] as const;
@@ -241,7 +241,7 @@ export default function DocsPage() {
                     {/* Pastel header — icon + title + badge inline */}
                     <div style={{
                       background: tile.bg, color: tile.ink,
-                      padding: "16px 18px",
+                      padding: "14px 16px",
                       display: "flex", alignItems: "center", gap: 12,
                       position: "relative",
                     }}>
@@ -252,11 +252,13 @@ export default function DocsPage() {
                       }} />
                       <div style={{
                         position: "relative", flexShrink: 0,
-                        width: 40, height: 40, borderRadius: 10,
-                        background: "rgba(255,255,255,0.55)", color: tile.ink,
+                        width: 52, height: 52, borderRadius: 13,
+                        background: "rgba(255,255,255,0.55)",
+                        border: `1px solid ${tile.ink}1f`,
+                        color: tile.ink,
                         display: "flex", alignItems: "center", justifyContent: "center",
                       }}>
-                        <Icon size={18} strokeWidth={1.7} />
+                        <Icon size={23} strokeWidth={1.7} />
                       </div>
                       <h3 style={{
                         position: "relative", flex: 1, minWidth: 0,
@@ -279,8 +281,8 @@ export default function DocsPage() {
                       )}
                     </div>
                     {/* Body */}
-                    <div style={{ padding: "18px 22px 20px", display: "flex", flexDirection: "column", flex: 1 }}>
-                      <p style={{ fontSize: 14, color: mkt.onDarkMuted, lineHeight: 1.6, flex: 1, margin: "0 0 16px" }}>{description}</p>
+                    <div style={{ padding: "14px 18px 16px", display: "flex", flexDirection: "column", flex: 1 }}>
+                      <p style={{ fontSize: 14, color: mkt.onDarkMuted, lineHeight: 1.55, flex: 1, margin: "0 0 12px" }}>{description}</p>
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                         <span style={{ fontSize: 11, color: mkt.onDarkFaint, fontFamily: MONO, letterSpacing: "0.06em" }}>{time}</span>
                         <span style={{
