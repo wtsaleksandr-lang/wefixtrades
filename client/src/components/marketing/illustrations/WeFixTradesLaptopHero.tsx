@@ -1,8 +1,15 @@
 /**
- * WeFixTradesLaptopHero — original SVG hero illustration. Tilted laptop
- * mockup floating on a dark rocky pedestal, set against an atmospheric
- * gradient backdrop with a soft cyan-to-pink glow. Laptop screen shows
- * the WeFixTrades dashboard mock with our own headline and CTAs.
+ * WeFixTradesLaptopHero — Effortel-style hero illustration: a tilted
+ * laptop mockup partially merged into a jagged rocky outcropping,
+ * sitting against a dramatic atmospheric gradient (cyan + pink + warm
+ * sunset tones).
+ *
+ * The rock is built from three layered SVG paths (silhouette, mid-tone
+ * face, highlight strokes) plus several crack lines so it reads as a
+ * believable stone formation rather than a flat blob, even though it's
+ * pure SVG. The laptop's lower body is partially overlapped by the
+ * rock's peak so the two visually fuse instead of the laptop floating
+ * above a tiny mound.
  */
 
 interface Props { size?: number; }
@@ -17,19 +24,28 @@ export default function WeFixTradesLaptopHero({ size = 720 }: Props) {
       aria-label="WeFixTrades hero"
     >
       <defs>
+        {/* Atmospheric gradients — cyan upper-right, warm/pink lower-left */}
         <linearGradient id="wt-bg" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0%"   stopColor="#0a0e14" />
           <stop offset="50%"  stopColor="#1a1f28" />
           <stop offset="100%" stopColor="#0a0e14" />
         </linearGradient>
-        <radialGradient id="wt-glow-cyan" cx="0.7" cy="0.4" r="0.45">
-          <stop offset="0%"   stopColor="rgba(102,232,250,0.40)" />
+        <radialGradient id="wt-glow-cyan" cx="0.78" cy="0.32" r="0.55">
+          <stop offset="0%"   stopColor="rgba(102,232,250,0.48)" />
+          <stop offset="60%"  stopColor="rgba(102,232,250,0.10)" />
           <stop offset="100%" stopColor="rgba(102,232,250,0)" />
         </radialGradient>
-        <radialGradient id="wt-glow-pink" cx="0.2" cy="0.7" r="0.40">
-          <stop offset="0%"   stopColor="rgba(244,114,182,0.30)" />
+        <radialGradient id="wt-glow-pink" cx="0.18" cy="0.72" r="0.50">
+          <stop offset="0%"   stopColor="rgba(244,114,182,0.34)" />
+          <stop offset="60%"  stopColor="rgba(244,114,182,0.08)" />
           <stop offset="100%" stopColor="rgba(244,114,182,0)" />
         </radialGradient>
+        <radialGradient id="wt-glow-warm" cx="0.30" cy="0.45" r="0.40">
+          <stop offset="0%"   stopColor="rgba(214,168,138,0.20)" />
+          <stop offset="100%" stopColor="rgba(214,168,138,0)" />
+        </radialGradient>
+
+        {/* Screen + laptop chassis */}
         <linearGradient id="wt-screen" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%"   stopColor="#0f1418" />
           <stop offset="100%" stopColor="#0a0e12" />
@@ -38,33 +54,101 @@ export default function WeFixTradesLaptopHero({ size = 720 }: Props) {
           <stop offset="0%"   stopColor="#3a4047" />
           <stop offset="100%" stopColor="#1a1e22" />
         </linearGradient>
-        <linearGradient id="wt-rock" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%"   stopColor="#2a2e34" />
-          <stop offset="100%" stopColor="#0a0d12" />
+
+        {/* Rock — three tonal gradients for depth */}
+        <linearGradient id="wt-rock-back" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"   stopColor="#1d2127" />
+          <stop offset="100%" stopColor="#070a0e" />
+        </linearGradient>
+        <linearGradient id="wt-rock-mid" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"   stopColor="#363a40" />
+          <stop offset="100%" stopColor="#101319" />
+        </linearGradient>
+        <linearGradient id="wt-rock-front" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"   stopColor="#4a4f55" />
+          <stop offset="100%" stopColor="#1c2026" />
         </linearGradient>
       </defs>
 
-      {/* Atmospheric backdrop */}
+      {/* Backdrop layers */}
       <rect x="0" y="0" width="720" height="480" fill="url(#wt-bg)" rx="14" />
-      <rect x="0" y="0" width="720" height="480" fill="url(#wt-glow-cyan)" rx="14" />
+      <rect x="0" y="0" width="720" height="480" fill="url(#wt-glow-warm)" rx="14" />
       <rect x="0" y="0" width="720" height="480" fill="url(#wt-glow-pink)" rx="14" />
+      <rect x="0" y="0" width="720" height="480" fill="url(#wt-glow-cyan)" rx="14" />
 
-      {/* Pale baseplate strip at bottom */}
-      <rect x="0" y="436" width="720" height="44" fill="rgba(220,228,232,0.06)" rx="14" />
+      {/* ─── ROCK FORMATION ───────────────────────────────────────
+          Three layered jagged silhouettes (back / mid / front) + crack
+          striations + highlight catches. Spans the full bottom of the
+          canvas with a peak around x=360 where the laptop merges in. */}
 
-      {/* Rock pedestal — jagged silhouette */}
+      {/* Back ridge — full-width, deepest tone, lowest profile */}
       <path
-        d="M 280 440
-           L 290 410 L 305 396 L 325 388 L 350 380 L 380 384 L 410 392
-           L 432 408 L 446 426 L 458 440 Z"
-        fill="url(#wt-rock)"
+        d="M 0 480
+           L 0 432 L 26 425 L 58 418 L 88 422 L 115 412 L 142 408 L 168 398
+           L 198 388 L 228 376 L 258 366 L 290 358 L 322 348 L 358 342
+           L 392 346 L 425 352 L 458 360 L 488 366 L 518 374 L 548 380
+           L 580 386 L 612 392 L 642 400 L 670 408 L 698 416 L 720 422
+           L 720 480 Z"
+        fill="url(#wt-rock-back)"
       />
-      {/* Rock cracks */}
-      <path d="M 320 414 L 340 432" stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
-      <path d="M 372 396 L 400 420" stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
 
-      {/* Laptop — tilted/floating */}
-      <g transform="translate(360,240) rotate(-8) translate(-180,-110)">
+      {/* Mid ridge — pulled forward + up, brighter mid-tone */}
+      <path
+        d="M 0 480
+           L 0 458 L 38 452 L 72 446 L 105 442 L 138 438 L 172 432
+           L 208 424 L 244 414 L 282 402 L 320 390 L 358 384
+           L 396 388 L 432 396 L 468 405 L 502 412 L 536 418 L 568 426
+           L 598 432 L 628 438 L 658 444 L 688 450 L 720 456
+           L 720 480 Z"
+        fill="url(#wt-rock-mid)"
+        opacity="0.95"
+      />
+
+      {/* Front rim — main face under the laptop, brightest layer.
+          Includes the central peak that overlaps the laptop base. */}
+      <path
+        d="M 60 480
+           L 60 470 L 92 465 L 128 461 L 165 458 L 200 454 L 235 448
+           L 270 440 L 304 432 L 338 422
+           L 360 412 L 382 422
+           L 414 432 L 448 440 L 480 446 L 512 452 L 544 458 L 576 462
+           L 608 466 L 640 470 L 670 474
+           L 670 480 Z"
+        fill="url(#wt-rock-front)"
+      />
+
+      {/* Rock cracks + striations — thin, varied, low-opacity strokes */}
+      <g stroke="rgba(255,255,255,0.06)" strokeWidth="1" fill="none" strokeLinecap="round">
+        <path d="M 130 470 L 152 446" />
+        <path d="M 218 458 L 244 432" />
+        <path d="M 290 444 L 318 416" />
+        <path d="M 386 440 L 412 470" />
+        <path d="M 470 444 L 498 472" />
+        <path d="M 552 446 L 580 472" />
+      </g>
+      {/* Catch highlights along the brightest rock edges */}
+      <g stroke="rgba(186,196,206,0.18)" strokeWidth="1.4" fill="none" strokeLinecap="round">
+        <path d="M 168 460 L 218 448" />
+        <path d="M 304 432 L 340 420" />
+        <path d="M 392 422 L 442 432" />
+        <path d="M 512 452 L 558 460" />
+      </g>
+
+      {/* Soft dust/particle specks on the rock face */}
+      <g fill="rgba(214,220,228,0.18)">
+        <circle cx="142" cy="450" r="1" />
+        <circle cx="248" cy="432" r="0.9" />
+        <circle cx="332" cy="418" r="1.1" />
+        <circle cx="420" cy="436" r="0.9" />
+        <circle cx="538" cy="452" r="1" />
+        <circle cx="612" cy="466" r="0.9" />
+      </g>
+
+      {/* ─── LAPTOP ─────────────────────────────────────────────── */}
+      {/* Drop shadow on the rock UNDER the laptop — soft elliptical glow */}
+      <ellipse cx="360" cy="420" rx="180" ry="14" fill="rgba(0,0,0,0.55)" opacity="0.65" />
+
+      <g transform="translate(360,224) rotate(-8) translate(-180,-110)">
         {/* Laptop base/keyboard deck */}
         <path
           d="M 24 200 L 0 220 L 360 220 L 336 200 Z"
@@ -77,7 +161,6 @@ export default function WeFixTradesLaptopHero({ size = 720 }: Props) {
         <rect x="32" y="8" width="296" height="184" rx="4" fill="url(#wt-screen)" />
 
         {/* SCREEN CONTENT — WeFixTrades site mock */}
-        {/* top bar */}
         <g transform="translate(32,8)">
           {/* logo + brand */}
           <rect x="14" y="10" width="14" height="14" rx="3" fill="#66E8FA" />
@@ -132,8 +215,23 @@ export default function WeFixTradesLaptopHero({ size = 720 }: Props) {
         <path d="M 32 8 L 328 8 L 232 192 L 32 192 Z" fill="url(#wt-glow-cyan)" opacity="0.06" />
       </g>
 
-      {/* Floating shadow under laptop */}
-      <ellipse cx="360" cy="445" rx="160" ry="10" fill="rgba(0,0,0,0.55)" opacity="0.7" />
+      {/* ─── ROCK PEAK OVERLAY ────────────────────────────────────
+          A small foreground rock chip that sits in front of the laptop's
+          lower-left bezel so the chassis visually merges into the rock
+          rather than hovering above it. */}
+      <path
+        d="M 246 408
+           L 270 396 L 290 388 L 312 386 L 330 392 L 340 402
+           L 332 414 L 314 422 L 290 426 L 268 422 Z"
+        fill="url(#wt-rock-front)"
+      />
+      <path
+        d="M 414 410
+           L 432 402 L 454 398 L 478 402 L 492 410
+           L 480 422 L 460 428 L 436 426 L 418 420 Z"
+        fill="url(#wt-rock-front)"
+        opacity="0.92"
+      />
     </svg>
   );
 }
