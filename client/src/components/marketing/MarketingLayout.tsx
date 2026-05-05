@@ -285,7 +285,7 @@ function MarketingFooter({ isMobile }: { isMobile: boolean }) {
   );
 }
 
-export default function MarketingLayout({ children }: { children: ReactNode }) {
+export default function MarketingLayout({ children, hideSiteChat = false }: { children: ReactNode; hideSiteChat?: boolean }) {
   useLenis();
   const [location] = useLocation();
   const isMobile = useNavIsMobile();
@@ -315,9 +315,11 @@ export default function MarketingLayout({ children }: { children: ReactNode }) {
       <div style={{ height: 24, flexShrink: 0 }} />
       <main style={{ flex: 1 }}>{children}</main>
       <MarketingFooter isMobile={isMobile} />
-      <Suspense fallback={null}>
-        <SiteChatWidget />
-      </Suspense>
+      {!hideSiteChat && (
+        <Suspense fallback={null}>
+          <SiteChatWidget />
+        </Suspense>
+      )}
     </div>
   );
 }

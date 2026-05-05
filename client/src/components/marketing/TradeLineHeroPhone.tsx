@@ -25,7 +25,7 @@ import { mkt } from "@/theme/tokens";
 interface BaseScenario {
   funcText: string;
   receipt: string;
-  ctx: { name: string; zip: string; trade: string; window: string };
+  ctx: { name: string; trade: string; window: string };
 }
 
 interface ChatScenario extends BaseScenario {
@@ -38,7 +38,6 @@ interface VoiceScenario extends BaseScenario {
   mode: "voice";
   callerName: string;
   callerInitial: string;
-  business: string; // e.g. "ColdSnap HVAC"
   turns: Array<{ who: "caller" | "ai"; text: string; ms: number }>;
 }
 
@@ -55,7 +54,7 @@ const SCENARIOS: Scenario[] = [
       "Tap to confirm — I'll text the tech's name + live ETA.",
     funcText: "EMERGENCY · PLUMBING · 24/7",
     receipt: "✓ BOOKED · Tech ETA 38 min",
-    ctx: { name: "Sarah K.", zip: "78704", trade: "Plumbing", window: "Now" },
+    ctx: { name: "Sarah K.", trade: "Plumbing", window: "Now" },
   },
 
   // 2 — VOICE — HVAC
@@ -63,9 +62,8 @@ const SCENARIOS: Scenario[] = [
     mode: "voice",
     callerName: "Morgan T.",
     callerInitial: "M",
-    business: "ColdSnap HVAC",
     turns: [
-      { who: "ai",     text: "TradeLine for ColdSnap HVAC — what can I help with tonight?", ms: 3400 },
+      { who: "ai",     text: "Hi, you've reached TradeLine. What can I help with tonight?", ms: 3400 },
       { who: "caller", text: "AC died this morning. Can you get someone here Saturday?",     ms: 3200 },
       { who: "ai",     text: "Saturday 8 to 10 AM is open. Tune-up plus recharge runs $320 to $420.", ms: 4200 },
       { who: "caller", text: "Lock it in.",                                                   ms: 1500 },
@@ -73,7 +71,7 @@ const SCENARIOS: Scenario[] = [
     ],
     funcText: "QUOTE · HVAC · WEEKEND",
     receipt: "✓ SCHEDULED · Sat 8–10 AM",
-    ctx: { name: "Morgan T.", zip: "30327", trade: "HVAC", window: "Sat AM" },
+    ctx: { name: "Morgan T.", trade: "HVAC", window: "Sat AM" },
   },
 
   // 3 — CHAT — Roofing
@@ -86,7 +84,7 @@ const SCENARIOS: Scenario[] = [
       "Inspector is open <strong>Thu 9 AM</strong>. Want the slot?",
     funcText: "ESTIMATE · ROOFING · FREE INSPECT",
     receipt: "✓ INSPECTOR · Thu 9 AM hold",
-    ctx: { name: "Jay P.", zip: "33186", trade: "Roofing", window: "Thu AM" },
+    ctx: { name: "Jay P.", trade: "Roofing", window: "Thu AM" },
   },
 
   // 4 — VOICE — Electrical
@@ -94,9 +92,8 @@ const SCENARIOS: Scenario[] = [
     mode: "voice",
     callerName: "Sam R.",
     callerInitial: "S",
-    business: "SparkRight Electric",
     turns: [
-      { who: "ai",     text: "TradeLine for SparkRight Electric — what's the job?",          ms: 3000 },
+      { who: "ai",     text: "TradeLine here — what's the job?",                              ms: 2400 },
       { who: "caller", text: "200 amp panel upgrade. Two-story, 1962 build, old fuse box.",  ms: 3800 },
       { who: "ai",     text: "Permit plus swap is $2,400 to $3,200. Generator-ready inlet adds $280.", ms: 4500 },
       { who: "caller", text: "Schedule the free assessment.",                                 ms: 2200 },
@@ -104,7 +101,7 @@ const SCENARIOS: Scenario[] = [
     ],
     funcText: "ESTIMATE · ELECTRICAL · PERMIT",
     receipt: "✓ ASSESSMENT · Wed 2 PM",
-    ctx: { name: "Sam R.", zip: "11215", trade: "Electrical", window: "Wed PM" },
+    ctx: { name: "Sam R.", trade: "Electrical", window: "Wed PM" },
   },
 ];
 
@@ -131,13 +128,11 @@ export default function TradeLineHeroPhone() {
   const voiceAvatarRef = useRef<HTMLDivElement>(null);
   const voiceNameRef = useRef<HTMLDivElement>(null);
   const voiceTimerRef = useRef<HTMLSpanElement>(null);
-  const voiceBusinessRef = useRef<HTMLDivElement>(null);
   const endBtnRef = useRef<HTMLDivElement>(null);
   // Shared
   const dotsRef = useRef<HTMLDivElement>(null);
   const funcTextRef = useRef<HTMLSpanElement>(null);
   const ctxNameRef = useRef<HTMLSpanElement>(null);
-  const ctxZipRef = useRef<HTMLSpanElement>(null);
   const ctxTradeRef = useRef<HTMLSpanElement>(null);
   const ctxWindowRef = useRef<HTMLSpanElement>(null);
 
@@ -189,7 +184,6 @@ export default function TradeLineHeroPhone() {
     function applyContext(s: Scenario) {
       if (funcTextRef.current) funcTextRef.current.textContent = s.funcText;
       if (ctxNameRef.current) ctxNameRef.current.textContent = s.ctx.name;
-      if (ctxZipRef.current) ctxZipRef.current.textContent = s.ctx.zip;
       if (ctxTradeRef.current) ctxTradeRef.current.textContent = s.ctx.trade;
       if (ctxWindowRef.current) ctxWindowRef.current.textContent = s.ctx.window;
     }
@@ -301,12 +295,10 @@ export default function TradeLineHeroPhone() {
 
     async function runVoice(s: VoiceScenario) {
       setMode("voice");
-      if (!bodyRef.current || !voiceAvatarRef.current || !voiceNameRef.current ||
-          !voiceTimerRef.current || !voiceBusinessRef.current) return;
+      if (!bodyRef.current || !voiceAvatarRef.current || !voiceNameRef.current || !voiceTimerRef.current) return;
 
       voiceAvatarRef.current.textContent = s.callerInitial;
       voiceNameRef.current.textContent = s.callerName;
-      voiceBusinessRef.current.textContent = s.business;
       voiceTimerRef.current.textContent = "Connecting…";
 
       // Brief connecting state
@@ -457,9 +449,10 @@ export default function TradeLineHeroPhone() {
               <span ref={voiceTimerRef}>Connecting…</span>
             </div>
           </div>
-          <div className="tlhp-voice-business-wrap">
-            <span className="tlhp-voice-business-label">Calling</span>
-            <span ref={voiceBusinessRef} className="tlhp-voice-business">ColdSnap HVAC</span>
+          <div className="tlhp-voice-incoming" aria-hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.37 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.33 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/>
+            </svg>
           </div>
         </div>
 
@@ -508,10 +501,6 @@ export default function TradeLineHeroPhone() {
         <div className="tlhp-caption-row">
           <span className="tlhp-caption-key">Caller</span>
           <span className="tlhp-caption-val" ref={ctxNameRef}>—</span>
-        </div>
-        <div className="tlhp-caption-row">
-          <span className="tlhp-caption-key">ZIP</span>
-          <span className="tlhp-caption-val" ref={ctxZipRef}>—</span>
         </div>
         <div className="tlhp-caption-row">
           <span className="tlhp-caption-key">Trade</span>
@@ -635,17 +624,21 @@ const TLHP_CSS = `
   0%,100% { opacity: 1; transform: scale(1); }
   50%     { opacity: 0.45; transform: scale(0.82); }
 }
-.tlhp-voice-business-wrap {
-  display: flex; flex-direction: column; align-items: flex-end; gap: 2px;
-  font-family: 'DM Mono', monospace;
+.tlhp-voice-incoming {
+  width: 30px; height: 30px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  background: rgba(74,222,128,0.14);
+  border: 1px solid rgba(74,222,128,0.40);
+  color: #4ade80;
+  animation: tlhpRing 1.2s ease-in-out infinite;
 }
-.tlhp-voice-business-label {
-  font-size: 8.5px; letter-spacing: 0.1em; text-transform: uppercase;
-  color: rgba(255,255,255,0.42);
-}
-.tlhp-voice-business {
-  font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.85);
-  letter-spacing: 0.04em;
+.tlhp-voice-incoming svg { width: 14px; height: 14px; }
+@keyframes tlhpRing {
+  0%, 100% { transform: rotate(0deg); }
+  10%, 30%, 50% { transform: rotate(-12deg); }
+  20%, 40% { transform: rotate(12deg); }
+  60% { transform: rotate(0deg); }
 }
 
 /* ═══ BODY ═══ */
@@ -838,8 +831,8 @@ const TLHP_CSS = `
 
 /* ═══ CAPTION + FUNC + DOTS (below phone) ═══ */
 .tlhp-caption {
-  display: grid; grid-template-columns: repeat(4, auto);
-  gap: 18px;
+  display: grid; grid-template-columns: repeat(3, auto);
+  gap: 22px;
   padding: 12px 18px; border-radius: 12px;
   border: 1px solid rgba(255,255,255,0.08);
   background: rgba(255,255,255,0.02);
@@ -852,7 +845,7 @@ const TLHP_CSS = `
 }
 .tlhp-caption-val {
   font-size: 12px; font-weight: 600; color: #fff;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 110px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 130px;
 }
 
 .tlhp-funcrow {
@@ -890,7 +883,8 @@ const TLHP_CSS = `
   .tlhp-input { margin: 0 12px 12px; padding: 8px 4px 8px 14px; }
   .tlhp-voice-controls { padding: 10px 12px 14px; gap: 14px; }
   .tlhp-vc-btn { width: 42px; height: 42px; }
-  .tlhp-caption { grid-template-columns: repeat(2, auto); gap: 14px 24px; }
+  .tlhp-caption { grid-template-columns: repeat(3, auto); gap: 14px; padding: 10px 14px; }
+  .tlhp-caption-val { max-width: 90px; font-size: 11px; }
 }
 @media (max-width: 340px) {
   .tlhp-phone { width: 280px; height: 545px; }

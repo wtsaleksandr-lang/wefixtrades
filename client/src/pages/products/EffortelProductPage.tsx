@@ -29,6 +29,7 @@ import {
 import { PRODUCT_MOCKUPS, type ProductMockupSection } from "@/config/product-mockups";
 import { PRODUCT_TESTIMONIALS } from "@/config/product-testimonials";
 import TradeLineHeroPhone from "@/components/marketing/TradeLineHeroPhone";
+import TradeLineDemoLauncher from "@/components/marketing/TradeLineDemoLauncher";
 import NotFound from "@/pages/not-found";
 
 /* ─── Per-product hero hooks ───────────────────────────────────
@@ -104,8 +105,10 @@ export default function EffortelProductPage({ slug }: { slug: string }) {
   const sections: ProductMockupSection[] = PRODUCT_MOCKUPS[slug] ?? PRODUCT_MOCKUPS.__default;
   const hook = HERO_HOOKS[slug];
 
+  const isTradeLine = slug === "tradeline";
+
   return (
-    <MarketingLayout>
+    <MarketingLayout hideSiteChat={isTradeLine}>
       <div style={{ background: mkt.bg, color: mkt.onDark, fontFamily: SANS }}>
 
         <Hero cfg={cfg} hook={hook} slug={slug} />
@@ -142,7 +145,11 @@ export default function EffortelProductPage({ slug }: { slug: string }) {
         <Pricing pricing={cfg.pricingSection} primaryCta={cfg.primaryCTA} />
         <Faq items={cfg.faq ?? []} />
         <FinalCta cfg={cfg} />
-        <StickyMobileCta primaryCta={cfg.primaryCTA} productName={cfg.name} />
+        {/* TradeLine: sticky chat-input launcher replaces the standard
+            sticky-mobile CTA + global SiteChatWidget. */}
+        {isTradeLine
+          ? <TradeLineDemoLauncher />
+          : <StickyMobileCta primaryCta={cfg.primaryCTA} productName={cfg.name} />}
       </div>
     </MarketingLayout>
   );
@@ -233,10 +240,10 @@ function Hero({ cfg, hook, slug }: { cfg: ReturnType<typeof getProductBySlug> & 
           background: "radial-gradient(ellipse 60% 50% at 50% 0%, rgba(102,232,250,0.10) 0%, transparent 60%)",
         }} />
         <div className="tlhp-split" style={{
-          maxWidth: 1240, margin: "0 auto", position: "relative",
+          maxWidth: 1100, margin: "0 auto", position: "relative",
           display: "grid",
-          gridTemplateColumns: "minmax(0, 1.05fr) minmax(0, 1fr)",
-          gap: 56, alignItems: "center",
+          gridTemplateColumns: "minmax(0, 1fr) 380px",
+          gap: 32, alignItems: "center",
         }}>
           {/* LEFT — copy + CTAs */}
           <div className="tlhp-split-text" style={{ minWidth: 0 }}>
