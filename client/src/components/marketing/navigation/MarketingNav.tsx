@@ -7,6 +7,7 @@ import { NAV_LINKS, NAV_MOBILE_BREAKPOINT } from "@/site/navigation";
 import { Menu, MenuItem } from "@/components/ui/navbar-menu";
 import { MobileNavItem } from "./MobileNavItem";
 import { mkt } from "@/theme/tokens";
+import { useStickyBarVisible } from "@/hooks/useStickyBarVisible";
 
 const DESKTOP_NAV_HEIGHT = 68;
 const DESKTOP_CARD_HEIGHT = 50;
@@ -52,6 +53,10 @@ export function MarketingNav() {
   const isMobile = useNavIsMobile();
   const scrolled = useScrolled();
   const { isAuthenticated } = useAuth();
+  const stickyBarVisible = useStickyBarVisible();
+  // Hide whenever the bottom sticky bar takes over so the two are never
+  // shown at the same time.
+  const navHidden = stickyBarVisible;
 
   const isActive = (href: string) => location === href;
 
@@ -184,6 +189,10 @@ export function MarketingNav() {
           WebkitBackdropFilter: "none",
           borderBottom: "none",
           boxShadow: "none",
+          opacity: navHidden ? 0 : 1,
+          pointerEvents: navHidden ? "none" : "auto",
+          transform: navHidden ? "translateY(-12px)" : "translateY(0)",
+          transition: "opacity 240ms ease, transform 240ms cubic-bezier(0.22,1,0.36,1)",
         }}
       >
         <div
@@ -224,7 +233,7 @@ export function MarketingNav() {
             <Logo />
 
             {!isMobile && (
-              <Menu setActive={setActive} containerRef={innerRef}>
+              <Menu active={active} setActive={setActive} containerRef={innerRef}>
                 {NAV_LINKS.map(({ label, href, children: navChildren }) => (
                   <MenuItem
                     key={href}

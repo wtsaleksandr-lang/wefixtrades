@@ -70,25 +70,33 @@ export const MenuItem = ({
   item,
   href,
   children,
+  placement = "below",
 }: {
   setActive: (item: string | null) => void;
   active: string | null;
   item: string;
   href?: string;
   children?: NavItemChild[];
+  /** Where the dropdown panel renders relative to the trigger row.
+   *  "below" (default) is used by the top nav; "above" is used by the
+   *  bottom sticky toolbar so the panel rises from the bar instead. */
+  placement?: "below" | "above";
 }) => {
   const hasChildren = !!(children && children.length > 0);
   const isOpen = active === item;
   const ctx = useContext(MenuContext);
   const [rect, setRect] = useState<DOMRect | null>(null);
+  const [vh, setVh] = useState<number>(typeof window !== "undefined" ? window.innerHeight : 0);
 
   useEffect(() => {
     if (!isOpen || !ctx?.containerRef.current) {
       setRect(null);
       return;
     }
-    const measure = () =>
+    const measure = () => {
       setRect(ctx.containerRef.current!.getBoundingClientRect());
+      setVh(window.innerHeight);
+    };
     measure();
     window.addEventListener("resize", measure);
     return () => window.removeEventListener("resize", measure);
@@ -136,7 +144,7 @@ export const MenuItem = ({
         ctx &&
         createPortal(
           <motion.div
-            initial={{ opacity: 0, y: 10 }}
+            initial={{ opacity: 0, y: placement === "above" ? -10 : 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={transition}
             onMouseEnter={ctx.cancelClose}
@@ -144,7 +152,9 @@ export const MenuItem = ({
             style={{
               position: "fixed",
               left: rect.left + rect.width / 2,
-              top: rect.bottom + 6,
+              ...(placement === "above"
+                ? { bottom: Math.max(0, vh - rect.top + 6) }
+                : { top: rect.bottom + 6 }),
               transform: "translateX(-50%)",
               width: Math.min(1080, rect.width),
               maxWidth: "calc(100vw - 24px)",
@@ -218,10 +228,15 @@ export const MenuItem = ({
 
 // ── Menu container ───────────────────────────────────────────────────────────
 export const Menu = ({
+  active,
   setActive,
   containerRef,
   children,
 }: {
+  /** Currently open menu key, or null when closed. Optional — when
+   *  provided, Menu renders a page-blur backdrop while a dropdown is
+   *  open so the rest of the site dims behind the panel. */
+  active?: string | null;
   setActive: (item: string | null) => void;
   containerRef: React.RefObject<HTMLDivElement>;
   children: React.ReactNode;
@@ -247,8 +262,33 @@ export const Menu = ({
     [],
   );
 
+  const backdropOpen = !!active;
+
   return (
     <MenuContext.Provider value={{ containerRef, scheduleClose, cancelClose }}>
+      {/* Page-blur backdrop — visible only while a dropdown is open.
+          Sits below the dropdown (zIndex 9990 < dropdown 9999) and above
+          the rest of the page. Click to close. */}
+      {typeof document !== "undefined" &&
+        createPortal(
+          <div
+            aria-hidden="true"
+            onMouseEnter={() => setActive(null)}
+            onClick={() => setActive(null)}
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 9990,
+              background: "rgba(0,0,0,0.35)",
+              backdropFilter: "blur(8px) saturate(1.1)",
+              WebkitBackdropFilter: "blur(8px) saturate(1.1)",
+              opacity: backdropOpen ? 1 : 0,
+              pointerEvents: backdropOpen ? "auto" : "none",
+              transition: "opacity 220ms ease",
+            }}
+          />,
+          document.body,
+        )}
       <nav
         aria-label="Main navigation"
         onMouseLeave={scheduleClose}
