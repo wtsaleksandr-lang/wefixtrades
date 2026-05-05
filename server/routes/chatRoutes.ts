@@ -14,7 +14,7 @@ import { createLogger } from "../lib/logger";
 const log = createLogger("Chat");
 
 /* ─── Validation ─── */
-const VALID_SURFACES: ChatSurface[] = ["website", "audit", "dashboard", "admin", "vapi", "portal"];
+const VALID_SURFACES: ChatSurface[] = ["website", "audit", "dashboard", "admin", "vapi", "portal", "tradeline_demo"];
 
 function validateMessages(messages: any): messages is ChatMessage[] {
   return (

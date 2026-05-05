@@ -30,7 +30,7 @@ const STORAGE_KEY = "wft_tradeline_demo_open";
 const GREETING: Msg = {
   role: "assistant",
   content:
-    "Hi — I'm the TradeLine assistant. Ask about pricing, request a quote, or describe a job and I'll show you what I can do.",
+    "Hi! Thanks for reaching out — I'm here to help. What's going on, or what do you need a hand with?",
 };
 
 export default function TradeLineDemoLauncher() {
@@ -195,7 +195,10 @@ function ChatBody({ open }: { open: boolean }) {
       const res = await fetch("/api/chat/sync", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ surface: "website", messages: next }),
+        // surface: "tradeline_demo" routes to a server-side roleplay
+        // prompt where the AI plays the customer's TradeLine dispatcher
+        // and gives realistic quotes — NOT the WeFixTrades sales bot.
+        body: JSON.stringify({ surface: "tradeline_demo", messages: next }),
       });
       const data = await res.json().catch(() => ({}));
       const reply: string = data?.reply || "Thanks — I'll get back to you with details on that shortly.";
