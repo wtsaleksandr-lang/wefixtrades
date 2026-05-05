@@ -136,11 +136,10 @@ function DemoCard({ d, i }: { d: DemoCardData; i: number }) {
           <ArrowUpRight size={16} strokeWidth={2.2} />
         </div>
 
-        {/* Pastel header strip — icon + title + (live badge) */}
+        {/* Outer pastel header zone — wraps the floating pill-shaped nav bar */}
         <div style={{
-          background: tile.bg, color: tile.ink,
-          padding: "16px 18px",
-          display: "flex", alignItems: "center", gap: 12,
+          background: tile.bg,
+          padding: "14px 14px 16px",
           position: "relative",
         }}>
           <div style={{
@@ -148,39 +147,76 @@ function DemoCard({ d, i }: { d: DemoCardData; i: number }) {
             backgroundImage: `radial-gradient(circle, ${tile.ink}10 1px, transparent 1px)`,
             backgroundSize: "14px 14px", opacity: 0.5, pointerEvents: "none",
           }} />
-          {/* Square icon block — scales up + dims slightly on hover */}
+
+          {/* Tiny top header bar — three traffic-light dots + product slug pill */}
           <div style={{
-            position: "relative", flexShrink: 0,
-            width: 40, height: 40, borderRadius: 10,
-            background: "rgba(255,255,255,0.55)", color: tile.ink,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            transform: hover ? "scale(1.08)" : "scale(1)",
-            opacity: hover ? 0.78 : 1,
-            transition: "transform 320ms cubic-bezier(0.22,1,0.36,1), opacity 240ms ease",
+            position: "relative",
+            display: "flex", alignItems: "center", gap: 8,
+            marginBottom: 12,
+            padding: "0 4px",
           }}>
-            <Icon size={18} strokeWidth={1.7} />
-          </div>
-          {/* Title — sharpens on hover */}
-          <h3 style={{
-            position: "relative", flex: 1, minWidth: 0,
-            fontSize: 13, fontWeight: 700,
-            color: hover ? "#0a1628" : tile.ink,
-            letterSpacing: "0.04em", textTransform: "uppercase",
-            fontFamily: MONO, lineHeight: 1.25,
-            margin: 0, overflow: "hidden", textOverflow: "ellipsis",
-            transition: "color 240ms ease",
-            textShadow: hover ? `0 0 0.5px ${tile.ink}` : "none",
-          }}>
-            {d.title}
-          </h3>
-          {d.interactive && (
+            <span style={{ width: 7, height: 7, borderRadius: 999, background: `${tile.ink}30` }} />
+            <span style={{ width: 7, height: 7, borderRadius: 999, background: `${tile.ink}22` }} />
+            <span style={{ width: 7, height: 7, borderRadius: 999, background: `${tile.ink}18` }} />
+            <span style={{ flex: 1 }} />
             <span style={{
-              position: "relative", flexShrink: 0,
-              fontSize: 9, fontWeight: 700, padding: "3px 8px", borderRadius: 999,
-              background: "rgba(16,185,129,0.20)", color: "#059669",
-              letterSpacing: "0.06em", textTransform: "uppercase", fontFamily: MONO,
-            }}>● Live</span>
-          )}
+              fontFamily: MONO, fontSize: 9, fontWeight: 700,
+              letterSpacing: "0.14em", textTransform: "uppercase",
+              color: `${tile.ink}88`,
+            }}>
+              {String(i + 1).padStart(2, "0")} · DEMO
+            </span>
+          </div>
+
+          {/* Floating pill nav bar — icon + title + (live) */}
+          <div style={{
+            position: "relative",
+            background: "rgba(255,255,255,0.45)",
+            border: `1px solid ${tile.ink}14`,
+            borderRadius: 999,
+            padding: "8px 14px 8px 8px",
+            display: "flex", alignItems: "center", gap: 12,
+            backdropFilter: "blur(6px)",
+            WebkitBackdropFilter: "blur(6px)",
+          }}>
+            {/* Square icon block — bigger + subtle border */}
+            <div style={{
+              flexShrink: 0,
+              width: 52, height: 52, borderRadius: 14,
+              background: "rgba(255,255,255,0.78)",
+              border: `1px solid ${tile.ink}1f`,
+              color: tile.ink,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              transform: hover ? "scale(1.06)" : "scale(1)",
+              opacity: hover ? 0.85 : 1,
+              transition: "transform 320ms cubic-bezier(0.22,1,0.36,1), opacity 240ms ease",
+              boxShadow: `inset 0 0 0 1px rgba(255,255,255,0.6)`,
+            }}>
+              <Icon size={22} strokeWidth={1.7} />
+            </div>
+            {/* Title — sharpens on hover */}
+            <h3 style={{
+              flex: 1, minWidth: 0,
+              fontSize: 13, fontWeight: 700,
+              color: hover ? "#0a1628" : tile.ink,
+              letterSpacing: "0.04em", textTransform: "uppercase",
+              fontFamily: MONO, lineHeight: 1.25,
+              margin: 0, overflow: "hidden", textOverflow: "ellipsis",
+              transition: "color 240ms ease",
+              textShadow: hover ? `0 0 0.5px ${tile.ink}` : "none",
+            }}>
+              {d.title}
+            </h3>
+            {d.interactive && (
+              <span style={{
+                flexShrink: 0,
+                fontSize: 9, fontWeight: 700, padding: "4px 10px", borderRadius: 999,
+                background: "rgba(16,185,129,0.20)", color: "#059669",
+                letterSpacing: "0.06em", textTransform: "uppercase", fontFamily: MONO,
+                border: "1px solid rgba(16,185,129,0.30)",
+              }}>● Live</span>
+            )}
+          </div>
         </div>
 
         {/* Body */}
