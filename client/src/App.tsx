@@ -67,6 +67,7 @@ import PricingUnified from "@/pages/PricingUnified";
 import CheckoutSuccess from "@/pages/CheckoutSuccess";
 import CheckoutCancelled from "@/pages/CheckoutCancelled";
 import Resources from "@/pages/Resources";
+import DesignShowcase from "@/pages/marketing/DesignShowcase";
 import About from "@/pages/About";
 import Blog from "@/pages/Blog";
 import CaseStudies from "@/pages/CaseStudies";
@@ -248,6 +249,7 @@ function Router() {
       <Route path="/bundles">{() => <Redirect to="/pricing" />}</Route>
       <Route path="/templates" component={MarketingTemplates} />
       <Route path="/resources" component={Resources} />
+      <Route path="/design-showcase" component={DesignShowcase} />
       <Route path="/about" component={About} />
       <Route path="/blog" component={Blog} />
       <Route path="/case-studies" component={CaseStudies} />
