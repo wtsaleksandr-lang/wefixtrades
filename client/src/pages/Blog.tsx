@@ -522,9 +522,6 @@ function GridCard({ post, i, onOpen }: { post: Post; i: number; onOpen: (i: numb
           fontSize: 17, fontWeight: 700, color: mkt.onDark, margin: 0,
           lineHeight: 1.25, letterSpacing: "-0.01em",
         }}>{post.title}</h3>
-        <p style={{ fontSize: 12, color: mkt.onDarkMuted, margin: 0, lineHeight: 1.5 }}>
-          {post.summary}
-        </p>
         <div style={{
           fontFamily: MONO, fontSize: 11, color: mkt.onDarkMuted,
           letterSpacing: "0.04em",

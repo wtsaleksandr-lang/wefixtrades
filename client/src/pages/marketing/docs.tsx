@@ -219,7 +219,7 @@ export default function DocsPage() {
               </div>
             ) : (
               <div className="guides-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
-                {filtered.map(({ slug, icon: Icon, title, description, badge, badgeColor, badgeBg, time }, i) => {
+                {filtered.map(({ slug, icon: Icon, title, badge, badgeColor, badgeBg, time }, i) => {
                   // Each guide card gets its own pastel for the icon block.
                   const palette = ["cyanSoft", "lavender", "mint", "pink", "cyan"] as const;
                   const tile = TILE[palette[i % palette.length]];
@@ -283,9 +283,8 @@ export default function DocsPage() {
                         </span>
                       )}
                     </div>
-                    {/* Body */}
-                    <div style={{ padding: "14px 18px 16px", display: "flex", flexDirection: "column", flex: 1 }}>
-                      <p style={{ fontSize: 14, color: mkt.onDarkMuted, lineHeight: 1.55, flex: 1, margin: "0 0 12px" }}>{description}</p>
+                    {/* Body — meta row only (description removed) */}
+                    <div style={{ padding: "12px 18px 14px", display: "flex", flexDirection: "column", flex: 1 }}>
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                         <span style={{ fontSize: 11, color: mkt.onDarkFaint, fontFamily: MONO, letterSpacing: "0.06em" }}>{time}</span>
                         <span style={{

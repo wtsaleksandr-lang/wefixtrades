@@ -146,15 +146,11 @@ function ResourceCard({ cat, i }: { cat: ResourceCategory; i: number }) {
           </span>
         </div>
 
-        {/* Body */}
-        <div style={{ padding: "20px 24px 60px", position: "relative" }}>
-          <p style={{ fontSize: 13, color: mkt.onDarkMuted, margin: 0, lineHeight: 1.55 }}>
-            {cat.description}
-          </p>
-
+        {/* Body — stat only (description removed) */}
+        <div style={{ padding: "14px 24px 48px", position: "relative", minHeight: 36 }}>
           {/* Stat — bottom-left, fades in on hover */}
           <div style={{
-            position: "absolute", left: 24, bottom: 20,
+            position: "absolute", left: 24, bottom: 16,
             fontSize: 11, fontWeight: 700,
             fontFamily: MONO, letterSpacing: "0.08em", textTransform: "uppercase",
             display: "flex", alignItems: "baseline", gap: 8,

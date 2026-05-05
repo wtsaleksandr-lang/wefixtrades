@@ -168,12 +168,12 @@ function DemoCard({ d, i }: { d: DemoCardData; i: number }) {
             </span>
           </div>
 
-          {/* Floating pill nav bar — icon + title + (live) */}
+          {/* Floating nav bar — rounded-rect (matches the inner icon's rounding) */}
           <div style={{
             position: "relative",
             background: "rgba(255,255,255,0.45)",
             border: `1px solid ${tile.ink}14`,
-            borderRadius: 999,
+            borderRadius: 18,
             padding: "8px 14px 8px 8px",
             display: "flex", alignItems: "center", gap: 12,
             backdropFilter: "blur(6px)",
@@ -219,15 +219,11 @@ function DemoCard({ d, i }: { d: DemoCardData; i: number }) {
           </div>
         </div>
 
-        {/* Body */}
-        <div style={{ padding: "18px 22px 56px", position: "relative" }}>
-          <p style={{ fontSize: 13, color: mkt.onDarkMuted, margin: 0, lineHeight: 1.55 }}>
-            {d.desc}
-          </p>
-
+        {/* Body — benefit badge only (description removed) */}
+        <div style={{ padding: "14px 22px 44px", position: "relative", minHeight: 36 }}>
           {/* Benefit badge — bottom-left, fades in on hover */}
           <div style={{
-            position: "absolute", left: 22, bottom: 18,
+            position: "absolute", left: 22, bottom: 14,
             fontSize: 11, fontWeight: 700,
             color: mkt.accent,
             fontFamily: MONO, letterSpacing: "0.08em", textTransform: "uppercase",
