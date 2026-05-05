@@ -250,11 +250,21 @@ function MarketingFooter({ isMobile }: { isMobile: boolean }) {
           grid-template-columns: repeat(4, 1fr);
           gap: 32px;
         }
-        /* Subtle dashed vertical divider between footer columns */
+        /* Subtle dashed vertical divider between footer columns.
+           Drawn with a vertical repeating linear-gradient so the dash
+           cadence is consistent regardless of column height. */
         .mkt-footer-grid > * + * {
-          border-left: 1px dashed rgba(255,255,255,0.10);
-          padding-left: 32px;
-          margin-left: -16px;
+          background-image: linear-gradient(
+            to bottom,
+            rgba(255,255,255,0.22) 0,
+            rgba(255,255,255,0.22) 6px,
+            transparent 6px,
+            transparent 12px
+          );
+          background-repeat: repeat-y;
+          background-size: 1px 12px;
+          background-position: -16px top;
+          padding-left: 0;
         }
         /* Desktop: hide chevrons, always show content */
         .mkt-ft-chevron { display: none; }
@@ -267,9 +277,7 @@ function MarketingFooter({ isMobile }: { isMobile: boolean }) {
           }
           /* Drop the column divider when items wrap onto multiple rows */
           .mkt-footer-grid > * + * {
-            border-left: none;
-            padding-left: 0;
-            margin-left: 0;
+            background-image: none;
           }
         }
         @media (max-width: 480px) {
