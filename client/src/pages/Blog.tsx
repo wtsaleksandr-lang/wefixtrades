@@ -138,20 +138,22 @@ function ResourceTabStrip({ active }: { active: string }) {
     <div style={{
       display: "inline-flex",
       gap: 4,
-      padding: 6,
+      padding: 4,
       background: "rgba(255,255,255,0.03)",
       border: `1px solid ${mkt.onDarkBorder}`,
-      borderRadius: 14,
+      borderRadius: 12,
     }}>
       {RESOURCE_TABS.map((t) => {
         const isActive = t.href === active;
         return (
           <Link key={t.href} href={t.href} style={{
             display: "inline-flex", alignItems: "center",
-            padding: "10px 18px",
-            borderRadius: 10,
-            fontSize: 12, fontWeight: 700,
-            fontFamily: MONO, letterSpacing: "0.08em",
+            padding: "7px 12px",
+            borderRadius: 9,
+            fontSize: 10.5, fontWeight: 700,
+            fontFamily: MONO, letterSpacing: "0.06em",
+            whiteSpace: "nowrap",
+            lineHeight: 1,
             textDecoration: "none",
             background: isActive ? "rgba(255,255,255,0.08)" : "transparent",
             color: isActive ? mkt.onDark : mkt.onDarkMuted,
@@ -317,7 +319,7 @@ function FeaturedCarousel({ posts, onOpen }: {
   };
 
   return (
-    <section style={{ background: mkt.bg, padding: isMobile ? "32px 16px 24px" : "48px 24px 24px" }}>
+    <section style={{ background: mkt.bg, padding: isMobile ? "32px 8px 24px" : "48px 12px 24px" }}>
       <div
         ref={ref}
         onPointerMove={onMove}
@@ -329,7 +331,7 @@ function FeaturedCarousel({ posts, onOpen }: {
         style={{
           position: "relative",
           height: cardH + 60,
-          maxWidth: 1280,
+          maxWidth: 1400,
           margin: "0 auto",
           cursor: isMobile ? "grab" : "none",
           touchAction: "pan-y",
@@ -548,6 +550,11 @@ export default function BlogPage() {
     document.title = "Blog — WeFixTrades";
   }, []);
 
+  // Jump to the top of the page whenever the user opens a post or returns to the index
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "auto" });
+  }, [openArticle]);
+
   const activePost = openArticle !== null ? BLOG_POSTS[openArticle] : null;
 
   return (
@@ -555,8 +562,8 @@ export default function BlogPage() {
       <V7PageShell>
         {activePost ? (
           /* Article detail view */
-          <section style={{ background: mkt.bg, padding: "60px 24px" }}>
-            <div style={{ maxWidth: 720, margin: "0 auto" }}>
+          <section style={{ background: mkt.bg, padding: "44px 16px 60px" }}>
+            <div style={{ maxWidth: 760, margin: "0 auto" }}>
               <button
                 onClick={() => setOpenArticle(null)}
                 style={{
@@ -615,10 +622,10 @@ export default function BlogPage() {
             {/* Hero — tabs first, then headline (Effortel order) */}
             <section style={{
               background: mkt.bg,
-              padding: "60px 24px 16px",
+              padding: "48px 12px 12px",
               textAlign: "center",
             }}>
-              <div style={{ marginBottom: 28 }}>
+              <div style={{ marginBottom: 22 }}>
                 <ResourceTabStrip active="/blog" />
               </div>
               <h1 style={{
@@ -636,12 +643,12 @@ export default function BlogPage() {
             <FeaturedCarousel posts={BLOG_POSTS} onOpen={setOpenArticle} />
 
             {/* Archive grid */}
-            <section style={{ background: mkt.bg, padding: "40px 24px 80px" }}>
+            <section style={{ background: mkt.bg, padding: "28px 12px 64px" }}>
               <div style={{
-                maxWidth: 1280, margin: "0 auto",
+                maxWidth: 1400, margin: "0 auto",
                 display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
-                gap: 20,
+                gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+                gap: 14,
               }}>
                 {BLOG_POSTS.map((post, i) => (
                   <GridCard key={i} post={post} i={i} onOpen={setOpenArticle} />
@@ -650,7 +657,7 @@ export default function BlogPage() {
             </section>
 
             {/* Closing CTA */}
-            <section style={{ padding: "40px 24px 100px", textAlign: "center", background: mkt.bg }}>
+            <section style={{ padding: "32px 16px 80px", textAlign: "center", background: mkt.bg }}>
               <h2 style={{
                 fontSize: "clamp(24px, 4vw, 36px)", fontWeight: 700,
                 color: mkt.onDark, margin: "0 0 12px", letterSpacing: "-0.02em",
