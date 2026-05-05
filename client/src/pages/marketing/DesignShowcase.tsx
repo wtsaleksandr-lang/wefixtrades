@@ -24,6 +24,7 @@ import BenefitsGrid from "@/components/marketing/showcase/BenefitsGrid";
 import AdFlowIllustration from "@/components/marketing/illustrations/AdFlowIllustration";
 import RankFlowIllustration from "@/components/marketing/illustrations/RankFlowIllustration";
 import MapGuardIllustration from "@/components/marketing/illustrations/MapGuardIllustration";
+import MapGuardCloudIllustration from "@/components/marketing/illustrations/MapGuardCloudIllustration";
 import WeFixTradesLaptopHero from "@/components/marketing/illustrations/WeFixTradesLaptopHero";
 
 function Section({ label, children }: { label: string; children: React.ReactNode }) {
@@ -130,6 +131,10 @@ export default function DesignShowcase() {
 
         <Section label="11 · MapGuard Illustration">
           <IllustrationFrame><MapGuardIllustration size={720} /></IllustrationFrame>
+        </Section>
+
+        <Section label="11b · MapGuard Cloud (dotted-map style)">
+          <IllustrationFrame><MapGuardCloudIllustration size={720} /></IllustrationFrame>
         </Section>
 
         <Section label="12 · WeFixTrades Laptop Hero">
