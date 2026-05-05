@@ -106,7 +106,6 @@ export const NAV_LINKS: NavItem[] = [
       { label: "Docs", href: "/docs", description: "Guides & references.", icon: "fileText" },
       { label: "Blog", href: "/blog", description: "Tips & updates.", icon: "fileText" },
       { label: "Case Studies", href: "/case-studies", description: "Customer success stories.", icon: "shieldCheck" },
-      { label: "Design Preview", href: "/design-showcase", description: "Internal: new marketing modules.", icon: "sparkles" },
     ],
   },
 ];
