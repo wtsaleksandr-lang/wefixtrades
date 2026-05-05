@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { Link } from "wouter";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { mkt } from "@/theme/tokens";
-import { TrendingUp, ArrowRight, PhoneCall, Star, MapPin, Calendar, PhoneOff, MoonStar, Zap, HandCoins } from "lucide-react";
+import { ArrowRight, PhoneCall, Star, MapPin, Calendar, Wrench, Thermometer, Hammer, SprayCan } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { V7PageShell } from "@/components/marketing/v7";
 import { TILE, MONO, Reveal } from "@/components/effortel-blocks";
@@ -78,7 +78,7 @@ const STUDIES: Study[] = [
       "We were missing calls constantly. Now every call gets answered and we get a text summary. Honestly feels like having a receptionist that never sleeps.",
     quoteAttribution: "Owner, plumbing co. · Dallas–Fort Worth",
     timeline: "Full go-live on day 4 after signup",
-    icon: PhoneOff,
+    icon: Wrench,
   },
   {
     slug: "hvac-after-hours",
@@ -98,7 +98,7 @@ const STUDIES: Study[] = [
       "The chat on the website surprised me. Customers actually use it and we started getting quote requests late at night — ones we would have lost before.",
     quoteAttribution: "Owner, HVAC co. · Calgary metro",
     timeline: "Live within 48 hours",
-    icon: MoonStar,
+    icon: Thermometer,
   },
   {
     slug: "roofing-storm-season",
@@ -118,7 +118,7 @@ const STUDIES: Study[] = [
       "Customers stopped saying 'no one answered the phone.' The system handles it automatically and sends us the details. Storm season we doubled our booked quotes.",
     quoteAttribution: "Owner, roofing co. · Denver metro",
     timeline: "Pre-storm-season setup took a week",
-    icon: Zap,
+    icon: Hammer,
   },
   {
     slug: "cleaning-instant-quotes",
@@ -138,7 +138,7 @@ const STUDIES: Study[] = [
       "Not something we thought we needed, but it actually helped us respond faster to new inquiries. The quote widget alone caught a few big contracts.",
     quoteAttribution: "Owner, cleaning co. · Tampa Bay",
     timeline: "Widget live in under 30 minutes",
-    icon: HandCoins,
+    icon: SprayCan,
   },
 ];
 
