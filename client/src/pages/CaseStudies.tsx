@@ -328,8 +328,17 @@ function TestimonialSwiper({ studies }: { studies: Study[] }) {
 
   return (
     <section style={{ background: mkt.bg, padding: "0 0 32px" }}>
+      {/* Outer wrapper holds the page max-width so the arrow row below
+          can left-align to the same gutter as the hero. The Swiper
+          itself sits in a narrower 808px-class container so each slide
+          renders at the exact Effortel size; overflow:visible on the
+          .swiper lets the tilted prev/next slides bleed outward into
+          the gutter on either side. */}
       <div style={{ maxWidth: 1400, margin: "0 auto", padding: "0 24px" }}>
-        <div className="cs-simple-slider">
+        <div className="cs-simple-slider" style={{
+          maxWidth: 808,
+          marginLeft: 0,                  // left-align under the headline
+        }}>
           <Swiper
             modules={[Keyboard, Navigation]}
             slidesPerView={1}
@@ -476,7 +485,7 @@ function TestimonialCard({ study }: { study: Study }) {
         gridTemplateColumns: "62% 38%",
         gap: 4,
         width: "100%",
-        minHeight: 360,
+        minHeight: 420,                              // matches Effortel ~26em at 1.14vw body font
       }}
     >
       {/* LEFT (62%) — quote panel */}

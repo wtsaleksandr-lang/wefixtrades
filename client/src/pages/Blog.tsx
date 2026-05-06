@@ -205,7 +205,7 @@ function BlogCard({ post, onOpen, size = "grid" }: {
           gap: 4,                            // tiny gap so both halves
                                               // visually separate while
                                               // sitting in one wrapper
-          height: "clamp(300px, 34vw, 400px)",
+          height: "clamp(340px, 32vw, 420px)",     // matches Effortel ~26em at 1.14vw body font
           cursor: "pointer",
           transition: "border-color 220ms ease, transform 320ms cubic-bezier(0.22,1,0.36,1)",
           transform: hover ? "translateY(-3px)" : "translateY(0)",
@@ -451,7 +451,7 @@ function FeaturedSwiper({ posts, onOpen }: {
               data-card
               style={{
                 flex: "0 0 auto",
-                width: "min(840px, 88vw)",
+                width: "min(808px, 88vw)",        // matches Effortel slide width
                 scrollSnapAlign: "start",
               }}
             >
