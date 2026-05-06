@@ -394,86 +394,9 @@ function TestimonialSwiper({ studies }: { studies: Study[] }) {
         </div>
       </div>
 
-      <style>{`
-        /* Swiper container — 3D context for the tilted side cards */
-        .cs-simple-slider { perspective: 1000px; }
-        .cs-simple-slider .swiper { overflow: visible; }
-
-        /* Slide width locked to Effortel's exact size; Swiper centers
-           it via centeredSlides:true so the active card sits in the
-           middle of the page and the prev/next slides peek
-           symmetrically. */
-        .cs-simple-slider .swiper-slide {
-          width: 808px;
-          max-width: 88vw;
-        }
-
-        /* Per-slide easing: same cubic-bezier as Effortel's reference */
-        .cs-simple-slider .swiper-wrapper {
-          transition-timing-function: cubic-bezier(.38, .007, 0, 1.007);
-        }
-        .cs-simple-slider .swiper-slide {
-          transition:
-            transform 0.85s cubic-bezier(.38, .007, 0, 1.007),
-            opacity 0.8s ease;
-          transform-origin: 50% 50%;
-          opacity: 1;
-        }
-
-        /* Side slides — 3D-tilted 9° on Y axis, scaled UP 1.12 (with
-           the perspective they recede behind the active slide), faded
-           to 0.15. */
-        .cs-simple-slider .swiper-slide.swiper-slide-prev {
-          transform: perspective(1000px) rotateY(9deg)  scale(1.12) !important;
-          opacity: 0.15 !important;
-        }
-        .cs-simple-slider .swiper-slide.swiper-slide-next {
-          transform: perspective(1000px) rotateY(-9deg) scale(1.12) !important;
-          opacity: 0.15 !important;
-        }
-
-        /* Active slide — flat, fully bright, in front */
-        .cs-simple-slider .swiper-slide.swiper-slide-active {
-          transform: rotate(0deg) scale(1) !important;
-          opacity: 1 !important;
-          z-index: 2;
-        }
-
-        /* Arrow capsule — single dark glassy strip with a hairline
-           divider. Disabled side = washed-out lighter grey, enabled
-           side = darker solid fill (more "clickable"). When both are
-           reachable mid-list both fill in the same way. Matches the
-           Effortel reference. */
-        .cs-arrow-group {
-          display: inline-flex; align-items: center;
-          padding: 4px;
-          gap: 2px;
-          background: rgba(34, 40, 42, 0.55);
-          border: 1px solid rgba(255, 255, 255, 0.06);
-          border-radius: 14px;
-          backdrop-filter: blur(8px);
-          -webkit-backdrop-filter: blur(8px);
-        }
-        .cs-arrow {
-          width: 38px; height: 32px; border-radius: 10px;
-          border: none;
-          background: rgba(8, 10, 12, 0.55);
-          color: ${mkt.onDark};
-          display: flex; align-items: center; justify-content: center;
-          cursor: pointer;
-          transition: background 200ms ease, color 200ms ease, opacity 200ms ease;
-        }
-        .cs-arrow:hover { background: rgba(8, 10, 12, 0.75); }
-        .cs-arrow.cs-arrow--disabled {
-          background: rgba(255, 255, 255, 0.04);
-          cursor: default;
-          color: rgba(255, 255, 255, 0.40);
-        }
-        .cs-arrow-divider {
-          width: 1px; align-self: stretch; margin: 4px 0;
-          background: rgba(255, 255, 255, 0.08);
-        }
-      `}</style>
+      {/* The accordion .cs-simple-slider rules + .cs-arrow capsule
+          styles live in client/src/index.css so the same look and
+          interaction apply on the Blog featured carousel too. */}
     </section>
   );
 }
