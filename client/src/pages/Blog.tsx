@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { mkt } from "@/theme/tokens";
@@ -8,6 +8,11 @@ import {
 } from "lucide-react";
 import { V7PageShell } from "@/components/marketing/v7";
 import { MONO, SANS } from "@/components/effortel-blocks";
+import { Swiper, SwiperSlide } from "swiper/react";
+import { Keyboard, Navigation } from "swiper/modules";
+import type { Swiper as SwiperClass } from "swiper";
+import "swiper/css";
+import "swiper/css/navigation";
 
 /* ════════════════════════════════════════════════════════════════
    Effortel-style blog page:
@@ -323,6 +328,9 @@ function BlogCard({ post, onOpen, size = "grid" }: {
         transition: "background-color 240ms ease, border-color 240ms ease, transform 320ms cubic-bezier(0.22,1,0.36,1)",
       }}
     >
+      {/* Thumbnail — Effortel hover style: image SHRINKS slightly and
+          DIMS instead of growing, so the card itself reads as the
+          interactive element rather than a hover-zoom photo. */}
       <div style={{
         position: "relative",
         width: "100%",
@@ -332,14 +340,15 @@ function BlogCard({ post, onOpen, size = "grid" }: {
         background: post.vivid.bg,
         display: "flex", alignItems: "center", justifyContent: "center",
         flexShrink: 0,
+        transform: hover ? "scale(0.97)" : "scale(1)",
+        opacity: hover ? 0.82 : 1,
+        transition: "transform 480ms cubic-bezier(0.22,1,0.36,1), opacity 320ms ease",
       }}>
         <ConcentricRings ink={post.vivid.ink} />
         <div style={{
           position: "relative",
           color: post.vivid.ink,
           opacity: 0.85,
-          transform: hover ? "scale(1.06)" : "scale(1)",
-          transition: "transform 380ms cubic-bezier(0.22,1,0.36,1)",
         }}>
           <Icon size={84} strokeWidth={1.6} />
         </div>
@@ -396,143 +405,83 @@ function BlogCard({ post, onOpen, size = "grid" }: {
   );
 }
 
-/* ─── FeaturedSwiper — horizontal scroll-snap with prev/next arrows ─── */
+/* ─── FeaturedSwiper — Swiper.js 3D accordion gallery, identical to
+   the one on Case Studies. Active card centers on the page, prev/next
+   slides recede 9° on the Y axis at 0.15 opacity. Arrows live below
+   and are aligned to the left edge of the active centered card. */
 
 function FeaturedSwiper({ posts, onOpen }: {
   posts: Post[];
   onOpen: (i: number) => void;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
+  const [swiperInst, setSwiperInst] = useState<SwiperClass | null>(null);
   const [canPrev, setCanPrev] = useState(false);
   const [canNext, setCanNext] = useState(true);
 
-  const updateButtons = () => {
-    const el = ref.current;
-    if (!el) return;
-    setCanPrev(el.scrollLeft > 8);
-    setCanNext(el.scrollLeft < el.scrollWidth - el.clientWidth - 8);
-  };
-
-  useEffect(() => {
-    updateButtons();
-    const el = ref.current;
-    if (!el) return;
-    el.addEventListener("scroll", updateButtons, { passive: true });
-    window.addEventListener("resize", updateButtons);
-    return () => {
-      el.removeEventListener("scroll", updateButtons);
-      window.removeEventListener("resize", updateButtons);
-    };
-  }, []);
-
-  const scrollByCard = (dir: 1 | -1) => {
-    const el = ref.current;
-    if (!el) return;
-    const card = el.querySelector<HTMLElement>("[data-card]");
-    const step = (card?.offsetWidth ?? 720) + 16;
-    el.scrollBy({ left: step * dir, behavior: "smooth" });
-  };
-
   return (
     <section style={{ background: mkt.bg, padding: "8px 0 32px" }}>
-      <div style={{ maxWidth: 1400, margin: "0 auto" }}>
-        <div
-          ref={ref}
-          style={{
-            display: "flex", gap: 16,
-            overflowX: "auto", overflowY: "hidden",
-            scrollSnapType: "x mandatory",
-            // Center each snapped slide on the viewport so the active
-            // card sits in the middle of the page and the prev/next
-            // cards peek symmetrically on either side, exactly like
-            // Effortel's swiper.
-            scrollPaddingInline: "calc(50% - 404px)",
-            padding: "8px 0",
-            scrollbarWidth: "none",
-            WebkitOverflowScrolling: "touch",
-          }}
-          className="hide-scrollbar"
-        >
-          {posts.map((post, i) => (
-            <div
-              key={i}
-              data-card
-              style={{
-                flex: "0 0 auto",
-                width: "min(808px, 88vw)",        // matches Effortel slide width
-                scrollSnapAlign: "center",
-              }}
-            >
-              <BlogCard post={post} onOpen={() => onOpen(i)} size="featured" />
-            </div>
-          ))}
+      <div style={{ maxWidth: 1400, margin: "0 auto", padding: "0 24px" }}>
+        <div className="cs-simple-slider">
+          <Swiper
+            modules={[Keyboard, Navigation]}
+            slidesPerView="auto"
+            centeredSlides
+            spaceBetween={16}
+            speed={1000}
+            keyboard={{ enabled: true }}
+            grabCursor
+            slideToClickedSlide={false}
+            onSwiper={(s) => {
+              setSwiperInst(s);
+              setCanPrev(!s.isBeginning);
+              setCanNext(!s.isEnd);
+            }}
+            onSlideChange={(s) => {
+              setCanPrev(!s.isBeginning);
+              setCanNext(!s.isEnd);
+            }}
+          >
+            {posts.map((post, i) => (
+              <SwiperSlide key={i}>
+                <BlogCard post={post} onOpen={() => onOpen(i)} size="featured" />
+              </SwiperSlide>
+            ))}
+          </Swiper>
         </div>
 
-        {/* Arrow nav — left-aligned, matching Effortel */}
+        {/* Arrow nav — aligned to the left edge of the centered active
+            card. With centeredSlides + 808px slide width, the active
+            card's left edge sits at calc(50% - 404px) from the swiper
+            container's left; we mirror that with paddingLeft. */}
         <div style={{
-          display: "flex", justifyContent: "flex-start",
-          marginTop: 18,
-          paddingLeft: 24,
+          display: "flex", justifyContent: "flex-start", marginTop: 18,
+          paddingLeft: "max(0px, calc(50% - 404px))",
         }}>
-          <div className="blog-arrow-group">
+          <div className="cs-arrow-group">
             <button
-              onClick={() => scrollByCard(-1)}
+              onClick={() => swiperInst?.slidePrev()}
               disabled={!canPrev}
               aria-label="Previous post"
-              className={`blog-arrow${!canPrev ? " blog-arrow--disabled" : ""}`}
+              className={`cs-arrow${!canPrev ? " cs-arrow--disabled" : ""}`}
             >
               <ArrowLeft size={16} strokeWidth={2} />
             </button>
-            <span className="blog-arrow-divider" aria-hidden />
+            <span className="cs-arrow-divider" aria-hidden />
             <button
-              onClick={() => scrollByCard(1)}
+              onClick={() => swiperInst?.slideNext()}
               disabled={!canNext}
               aria-label="Next post"
-              className={`blog-arrow${!canNext ? " blog-arrow--disabled" : ""}`}
+              className={`cs-arrow${!canNext ? " cs-arrow--disabled" : ""}`}
             >
               <ArrowRight size={16} strokeWidth={2} />
             </button>
           </div>
         </div>
       </div>
-      <style>{`
-        .hide-scrollbar::-webkit-scrollbar { display: none; }
 
-        /* Effortel-style arrow capsule — single dark glassy strip with
-           a hairline divider. The disabled side is washed out (lighter,
-           almost transparent grey); the enabled side has a darker, more
-           solid fill so it visibly invites a click. When both sides are
-           reachable mid-list, both fill in the same way. */
-        .blog-arrow-group {
-          display: inline-flex; align-items: center;
-          padding: 4px;
-          gap: 2px;
-          background: rgba(34, 40, 42, 0.55);
-          border: 1px solid rgba(255, 255, 255, 0.06);
-          border-radius: 14px;
-          backdrop-filter: blur(8px);
-          -webkit-backdrop-filter: blur(8px);
-        }
-        .blog-arrow {
-          width: 38px; height: 32px; border-radius: 10px;
-          border: none;
-          background: rgba(8, 10, 12, 0.55);
-          color: ${mkt.onDark};
-          display: flex; align-items: center; justify-content: center;
-          cursor: pointer;
-          transition: background 200ms ease, color 200ms ease, opacity 200ms ease;
-        }
-        .blog-arrow:hover { background: rgba(8, 10, 12, 0.75); }
-        .blog-arrow.blog-arrow--disabled {
-          background: rgba(255, 255, 255, 0.04);
-          opacity: 1; cursor: default;
-          color: rgba(255, 255, 255, 0.40);
-        }
-        .blog-arrow-divider {
-          width: 1px; align-self: stretch; margin: 4px 0;
-          background: rgba(255, 255, 255, 0.08);
-        }
-      `}</style>
+      {/* Reuse the same 3D accordion + arrow capsule styles defined in
+          CaseStudies — these are global classes (.cs-simple-slider /
+          .cs-arrow-group) so the two pages share one component family. */}
     </section>
   );
 }

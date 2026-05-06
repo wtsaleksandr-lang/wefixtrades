@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { mkt } from "@/theme/tokens";
@@ -13,6 +13,7 @@ import { V7PageShell } from "@/components/marketing/v7";
 import { MONO, SANS } from "@/components/effortel-blocks";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Keyboard, Navigation } from "swiper/modules";
+import type { Swiper as SwiperClass } from "swiper";
 import "swiper/css";
 import "swiper/css/navigation";
 
@@ -323,8 +324,9 @@ function QuoteGlyph({ color }: { color: string }) {
    reference. */
 
 function TestimonialSwiper({ studies }: { studies: Study[] }) {
-  const prevRef = useRef<HTMLButtonElement>(null);
-  const nextRef = useRef<HTMLButtonElement>(null);
+  const [swiperInst, setSwiperInst] = useState<SwiperClass | null>(null);
+  const [canPrev, setCanPrev] = useState(false);
+  const [canNext, setCanNext] = useState(true);
 
   return (
     <section style={{ background: mkt.bg, padding: "0 0 32px" }}>
@@ -344,19 +346,14 @@ function TestimonialSwiper({ studies }: { studies: Study[] }) {
             keyboard={{ enabled: true }}
             grabCursor
             slideToClickedSlide={false}
-            navigation={{
-              prevEl: prevRef.current,
-              nextEl: nextRef.current,
-              disabledClass: "cs-arrow--disabled",
+            onSwiper={(s) => {
+              setSwiperInst(s);
+              setCanPrev(!s.isBeginning);
+              setCanNext(!s.isEnd);
             }}
-            onBeforeInit={(swiper) => {
-              // Swiper needs the refs at init time; React refs aren't
-              // populated yet on first render, so we wire them here.
-              const nav = swiper.params.navigation;
-              if (nav && typeof nav !== "boolean") {
-                nav.prevEl = prevRef.current;
-                nav.nextEl = nextRef.current;
-              }
+            onSlideChange={(s) => {
+              setCanPrev(!s.isBeginning);
+              setCanNext(!s.isEnd);
             }}
           >
             {studies.map((s) => (
@@ -367,15 +364,30 @@ function TestimonialSwiper({ studies }: { studies: Study[] }) {
           </Swiper>
         </div>
 
+        {/* Arrows aligned to the left edge of the centered active card.
+            With centeredSlides + 808px slide width, the active card's
+            left edge sits at calc(50% - 404px) from the swiper
+            container's left; we mirror that with paddingLeft. */}
         <div style={{
           display: "flex", justifyContent: "flex-start", marginTop: 18,
+          paddingLeft: "max(0px, calc(50% - 404px))",
         }}>
           <div className="cs-arrow-group">
-            <button ref={prevRef} className="cs-arrow" aria-label="Previous testimonial">
+            <button
+              onClick={() => swiperInst?.slidePrev()}
+              disabled={!canPrev}
+              aria-label="Previous testimonial"
+              className={`cs-arrow${!canPrev ? " cs-arrow--disabled" : ""}`}
+            >
               <ArrowLeft size={16} strokeWidth={2} />
             </button>
             <span className="cs-arrow-divider" aria-hidden />
-            <button ref={nextRef} className="cs-arrow" aria-label="Next testimonial">
+            <button
+              onClick={() => swiperInst?.slideNext()}
+              disabled={!canNext}
+              aria-label="Next testimonial"
+              className={`cs-arrow${!canNext ? " cs-arrow--disabled" : ""}`}
+            >
               <ArrowRight size={16} strokeWidth={2} />
             </button>
           </div>
@@ -679,6 +691,8 @@ function StudyCard({ study }: { study: Study }) {
       {/* Thumbnail — 3:2 aspect-ratio coloured panel that nests inside
           the frame with a slightly smaller radius so the parent's
           padding reads as a deliberate frame. */}
+      {/* Thumbnail — Effortel hover style: image SHRINKS slightly and
+          DIMS instead of growing on hover. */}
       <div style={{
         position: "relative",
         width: "100%",
@@ -688,11 +702,12 @@ function StudyCard({ study }: { study: Study }) {
         background: tradeColor,
         display: "flex", alignItems: "center", justifyContent: "center",
         flexShrink: 0,
+        transform: hover ? "scale(0.97)" : "scale(1)",
+        opacity: hover ? 0.82 : 1,
+        transition: "transform 480ms cubic-bezier(0.22,1,0.36,1), opacity 320ms ease",
       }}>
         <div style={{
           color: "#0E1116", opacity: 0.85,
-          transform: hover ? "scale(1.06)" : "scale(1)",
-          transition: "transform 380ms cubic-bezier(0.22,1,0.36,1)",
         }}>
           <TradeIcon size={80} strokeWidth={1.5} />
         </div>
