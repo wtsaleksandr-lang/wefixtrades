@@ -178,7 +178,10 @@ export function MarketingNav() {
           top: 0,
           left: 0,
           right: 0,
-          zIndex: 300,
+          // Sit above the dropdown backdrop (zIndex 9990 in navbar-menu)
+          // so the nav bar stays sharp while the rest of the page blurs.
+          // The dropdown panel itself is at 9999, still above the nav.
+          zIndex: 9991,
           height: isMobile ? "auto" : DESKTOP_NAV_HEIGHT,
           display: "flex",
           alignItems: "flex-start",

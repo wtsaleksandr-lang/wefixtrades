@@ -50,7 +50,10 @@ export default function MarketingStickyBar() {
         transition: visible
           ? "transform 480ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 240ms ease"
           : "transform 320ms cubic-bezier(0.4, 0, 0.6, 1), opacity 220ms ease",
-        zIndex: 280,
+        // Sit above the dropdown backdrop (zIndex 9990 in navbar-menu)
+        // so the bar stays sharp while the rest of the page blurs.
+        // The dropdown panel itself is at 9999, still above this bar.
+        zIndex: 9991,
         pointerEvents: visible ? "auto" : "none",
       }}
     >
