@@ -453,36 +453,49 @@ function TestimonialSwiper({ studies }: { studies: Study[] }) {
 
 /* ─── Testimonial card — 2 cols (quote / person) ─── */
 
+/* TestimonialCard — Effortel .blog__wrapper with the v-088f83df
+   horizontal variant: ONE bordered wrapper card with a 4px (.19em)
+   frame padding, containing two halves side-by-side:
+     LEFT  (62%) — quote panel (.blog__thumb / col-50 is-study)
+     RIGHT (38%) — person/business panel (.col-50 is-testimonial)
+   Both halves nest inside the wrapper's frame with their own
+   border-radius. Single card, NOT two cards with a gap. */
 function TestimonialCard({ study }: { study: Study }) {
   const TradeIcon = TRADE_ICON[study.trade] ?? Wrench;
   const tradeColor = TRADE_COLOR[study.trade];
 
   return (
-    <div style={{
-      display: "grid",
-      gridTemplateColumns: "minmax(0, 1.55fr) minmax(0, 1fr)",
-      gap: 14,
-      width: "100%",
-      minHeight: 340,
-    }} className="cs-testim">
-      {/* Left col — quote card with dotted-bg */}
-      <div style={{
-        position: "relative",
+    <div
+      className="cs-testim"
+      style={{
         background: mkt.sectionLight,
         border: `1px solid ${mkt.onDarkBorder}`,
+        borderRadius: 22,
+        padding: 4,                        // .19em wrapper frame
+        display: "grid",
+        gridTemplateColumns: "62% 38%",
+        gap: 4,
+        width: "100%",
+        minHeight: 360,
+      }}
+    >
+      {/* LEFT (62%) — quote panel */}
+      <div style={{
+        position: "relative",
+        background: "rgba(8,10,12,0.55)",
         borderRadius: 18,
-        padding: "26px 30px",
+        padding: "30px 32px",
         display: "flex", flexDirection: "column",
         overflow: "hidden",
       }}>
         <p style={{
           position: "relative",
-          fontSize: "clamp(15px, 1.6vw, 19px)",
+          fontSize: "clamp(15px, 1.4vw, 19px)",
           lineHeight: 1.55,
           color: mkt.onDark,
           margin: 0,
           fontFamily: SANS,
-          maxWidth: "min(100%, 56ch)",
+          maxWidth: "min(100%, 60ch)",
         }}>
           "{study.quote}"
         </p>
@@ -507,15 +520,14 @@ function TestimonialCard({ study }: { study: Study }) {
         <QuoteGlyph color={tradeColor} />
       </div>
 
-      {/* Right col — person/company card */}
+      {/* RIGHT (38%) — person/company panel */}
       <div style={{
-        background: mkt.sectionLight,
-        border: `1px solid ${mkt.onDarkBorder}`,
+        background: "rgba(8,10,12,0.55)",
         borderRadius: 18,
-        padding: 14,
-        display: "flex", flexDirection: "column", gap: 14,
+        padding: "20px 22px 22px",
+        display: "flex", flexDirection: "column",
       }}>
-        {/* Two stacked logo squares: trade icon + person initial */}
+        {/* Two stacked logo squares: trade icon + person silhouette */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
           <div style={{
             background: tradeColor,
@@ -537,8 +549,8 @@ function TestimonialCard({ study }: { study: Study }) {
             <User size={56} strokeWidth={1.4} />
           </div>
         </div>
-        {/* Name + role / business */}
-        <div>
+        {/* Name + role / business — pushed to bottom */}
+        <div style={{ marginTop: "auto", paddingTop: 18 }}>
           <h3 style={{
             margin: 0, fontSize: 22, fontWeight: 700,
             color: mkt.onDark, letterSpacing: "-0.01em",
@@ -571,7 +583,10 @@ function TestimonialCard({ study }: { study: Study }) {
 
       <style>{`
         @media (max-width: 760px) {
-          .cs-testim { grid-template-columns: 1fr !important; }
+          .cs-testim {
+            grid-template-columns: 1fr !important;
+            min-height: auto !important;
+          }
         }
       `}</style>
     </div>

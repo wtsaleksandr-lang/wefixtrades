@@ -180,36 +180,44 @@ function BlogCard({ post, onOpen, size = "grid" }: {
   const Icon = post.icon;
   const isFeatured = size === "featured";
 
-  /* Featured = Effortel-style split: a large image card on the left
-     and a smaller text card on the right, both rounded with a gap
-     between them. */
+  /* Featured = Effortel .blog__wrapper with the v-088f83df HORIZONTAL
+     variant: ONE bordered wrapper card with a 4px (.19em) frame
+     padding, containing two halves side-by-side:
+       .blog__thumb  → 62% width, the vivid illustration panel
+       .blog-content → 38% width, the text panel (tag + heading + meta)
+     Both halves nest inside the wrapper's frame with their own
+     border-radius. The whole thing is one card — NOT two cards with
+     a gap between them. */
   if (isFeatured) {
-    const thumbHeight = "clamp(280px, 32vw, 380px)";
-    const iconSize = 110;
     return (
       <div
         onClick={onOpen}
         onMouseEnter={() => setHover(true)}
         onMouseLeave={() => setHover(false)}
-        style={{
-          display: "grid",
-          gridTemplateColumns: "minmax(0, 1.8fr) minmax(0, 1fr)",
-          gap: 14,
-          cursor: "pointer",
-          height: "100%",
-        }}
         className="blog-feat"
+        style={{
+          background: mkt.sectionLight,
+          border: `1px solid ${hover ? "rgba(102,232,250,0.45)" : mkt.onDarkBorder}`,
+          borderRadius: 22,
+          padding: 4,                        // .19em wrapper frame
+          display: "grid",
+          gridTemplateColumns: "62% 38%",
+          gap: 4,                            // tiny gap so both halves
+                                              // visually separate while
+                                              // sitting in one wrapper
+          height: "clamp(300px, 34vw, 400px)",
+          cursor: "pointer",
+          transition: "border-color 220ms ease, transform 320ms cubic-bezier(0.22,1,0.36,1)",
+          transform: hover ? "translateY(-3px)" : "translateY(0)",
+        }}
       >
-        {/* LEFT — large image card */}
+        {/* LEFT — .blog__thumb (62%) */}
         <div style={{
           position: "relative",
           background: post.vivid.bg,
-          borderRadius: 22,
+          borderRadius: 18,
           overflow: "hidden",
-          height: thumbHeight,
           display: "flex", alignItems: "center", justifyContent: "center",
-          transition: "transform 360ms cubic-bezier(0.22,1,0.36,1)",
-          transform: hover ? "translateY(-3px)" : "translateY(0)",
         }}>
           <ConcentricRings ink={post.vivid.ink} />
           <div style={{
@@ -219,44 +227,43 @@ function BlogCard({ post, onOpen, size = "grid" }: {
             transform: hover ? "scale(1.06)" : "scale(1)",
             transition: "transform 360ms cubic-bezier(0.22,1,0.36,1)",
           }}>
-            <Icon size={iconSize} strokeWidth={1.6} />
+            <Icon size={120} strokeWidth={1.6} />
           </div>
         </div>
 
-        {/* RIGHT — smaller text card */}
+        {/* RIGHT — .blog-content (38%) */}
         <div style={{
           position: "relative",
           background: mkt.sectionLight,
-          border: `1px solid ${hover ? "rgba(102,232,250,0.30)" : mkt.onDarkBorder}`,
-          borderRadius: 22,
-          padding: "22px 22px 22px",
+          borderRadius: 18,
+          padding: "26px 26px",
           display: "flex", flexDirection: "column",
-          height: thumbHeight,
-          transition: "transform 360ms cubic-bezier(0.22,1,0.36,1), border-color 360ms ease",
-          transform: hover ? "translateY(-3px)" : "translateY(0)",
         }}>
           {/* Tag row */}
-          <div style={{ display: "inline-flex", gap: 6, marginBottom: 14 }}>
+          <div style={{ display: "inline-flex", gap: 6, marginBottom: 16 }}>
             <span style={{
-              fontSize: 10, fontWeight: 700,
-              padding: "5px 10px", borderRadius: 999,
-              background: "rgba(255,255,255,0.06)", color: mkt.onDark,
-              fontFamily: MONO, letterSpacing: "0.08em", textTransform: "uppercase",
+              display: "inline-flex", alignItems: "center",
+              fontFamily: MONO, fontSize: 10, fontWeight: 600,
+              letterSpacing: "-0.02em", textTransform: "uppercase",
+              color: mkt.onDark,
+              background: "rgba(255,255,255,0.06)",
               border: `1px solid ${mkt.onDarkBorder}`,
+              padding: "4px 8px", borderRadius: 6,
             }}>{post.category}</span>
             <span style={{
-              fontSize: 10, fontWeight: 700,
-              padding: "5px 8px", borderRadius: 999,
-              background: "rgba(255,255,255,0.04)", color: mkt.onDarkMuted,
-              fontFamily: MONO,
+              display: "inline-flex", alignItems: "center",
+              fontFamily: MONO, fontSize: 10, fontWeight: 600,
+              letterSpacing: "-0.02em",
+              color: mkt.onDarkMuted,
               border: `1px solid ${mkt.onDarkBorder}`,
+              padding: "4px 6px", borderRadius: 6,
             }}>+2</span>
           </div>
 
           <h3 style={{
-            fontSize: "clamp(18px, 1.7vw, 22px)",
+            fontSize: "clamp(20px, 2.0vw, 28px)",
             fontWeight: 700, color: mkt.onDark, margin: 0,
-            lineHeight: 1.25, letterSpacing: "-0.01em",
+            lineHeight: 1.15, letterSpacing: "-0.02em",
             fontFamily: SANS,
             display: "-webkit-box",
             WebkitLineClamp: 4,
@@ -265,7 +272,7 @@ function BlogCard({ post, onOpen, size = "grid" }: {
           }}>{post.title}</h3>
 
           <div style={{
-            marginTop: "auto", paddingTop: 12,
+            marginTop: "auto",
             fontFamily: MONO, fontSize: 11, color: mkt.onDarkMuted,
             letterSpacing: "0.04em",
             display: "flex", flexDirection: "column", gap: 2,
@@ -277,7 +284,13 @@ function BlogCard({ post, onOpen, size = "grid" }: {
 
         <style>{`
           @media (max-width: 760px) {
-            .blog-feat { grid-template-columns: 1fr !important; }
+            .blog-feat {
+              grid-template-columns: 1fr !important;
+              height: auto !important;
+            }
+            .blog-feat > div:first-child {
+              aspect-ratio: 3 / 2;
+            }
           }
         `}</style>
       </div>
