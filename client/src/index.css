@@ -1097,17 +1097,41 @@
   background: #181d1c;
   border: 1px solid rgba(255, 255, 255, 0.07);
   border-radius: 16px;
-  padding: 14px 14px;
+  padding: 16px 16px;
   cursor: pointer;
   text-decoration: none;
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   position: relative;
   overflow: hidden;
-  min-height: 76px;
-  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+  min-height: 88px;
+  transition:
+    background 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 380ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 360ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Subtle accent sheen that reveals on hover — a soft cyan glow
+   spreads from the icon outward to give the card a premium lift. */
+.mkt-menu-card::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: radial-gradient(
+    circle at 18% 50%,
+    rgba(102, 232, 250, 0.10),
+    transparent 55%
+  );
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 320ms ease;
+}
+.mkt-menu-card:hover::after {
+  opacity: 1;
 }
 
 /* All card content above dot layer */
@@ -1139,31 +1163,34 @@
 /* Card hover */
 .mkt-menu-card:hover {
   background: #1c2221;
-  border-color: rgba(255, 255, 255, 0.14);
-  transform: translateY(-1px);
+  border-color: rgba(102, 232, 250, 0.20);
+  transform: translateY(-2px);
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.35);
 }
 
 /* Icon badge inside card — Effortel-style "image tile" that desaturates
    at rest and pops to full color on hover. */
 .mkt-menu-card-icon {
-  width: 52px;
-  height: 52px;
+  width: 60px;
+  height: 60px;
   border-radius: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  background: rgba(255, 255, 255, 0.04);
+  background:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02)),
+    rgba(20, 24, 23, 0.6);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  filter: grayscale(0.8) brightness(0.9);
+  filter: grayscale(0.7) brightness(0.92);
   position: relative;
   overflow: hidden;
   transition:
-    background-color 260ms ease,
-    border-color 260ms ease,
-    transform 260ms ease,
-    filter 260ms ease,
-    box-shadow 260ms ease;
+    background-color 300ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 300ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 380ms cubic-bezier(0.22, 1, 0.36, 1),
+    filter 320ms ease,
+    box-shadow 320ms ease;
 }
 
 /* Subtle dot texture inside the icon tile so the "tile" reads as a small
@@ -1179,6 +1206,25 @@
   opacity: 0.7;
 }
 
+/* Soft cyan glow ring that breathes in on hover (premium lift). */
+.mkt-menu-card-icon::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: radial-gradient(
+    circle at 50% 50%,
+    rgba(102, 232, 250, 0.28),
+    transparent 70%
+  );
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 320ms ease;
+}
+.mkt-menu-card:hover .mkt-menu-card-icon::after {
+  opacity: 1;
+}
+
 /* Lucide SVG sits above the dot texture */
 .mkt-menu-card-icon > svg {
   position: relative;
@@ -1190,11 +1236,13 @@
 .mkt-menu-card:hover .mkt-menu-card-icon,
 .mkt-menu-card:active .mkt-menu-card-icon,
 .mkt-menu-card:focus-visible .mkt-menu-card-icon {
-  background: rgba(102, 232, 250, 0.18);
-  border-color: rgba(102, 232, 250, 0.50);
+  background:
+    linear-gradient(160deg, rgba(102, 232, 250, 0.22), rgba(102, 232, 250, 0.08)),
+    rgba(102, 232, 250, 0.12);
+  border-color: rgba(102, 232, 250, 0.55);
   filter: grayscale(0) brightness(1);
-  transform: translateY(-1px);
-  box-shadow: 0 8px 20px rgba(102, 232, 250, 0.18);
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 10px 26px rgba(102, 232, 250, 0.22);
 }
 
 

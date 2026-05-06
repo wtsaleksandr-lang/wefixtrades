@@ -3,7 +3,7 @@ import { Link } from "wouter";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { mkt } from "@/theme/tokens";
 import {
-  ArrowRight, ArrowLeft, ArrowUpRight, MapPin,
+  ArrowRight, ArrowLeft, MapPin,
   Wrench, Thermometer, Hammer, SprayCan, Zap, Sprout, User,
   PhoneCall, CalendarCheck, Star, TrendingUp, DollarSign, Clock,
   BarChart3, Gauge, Search, Users, Megaphone, Globe, FileText,
@@ -531,14 +531,16 @@ function TestimonialCard({ study }: { study: Study }) {
   );
 }
 
-/* ─── Compact metric card for the "great company" grid ─── */
+/* ─── Quiet card for the "great company" grid ───
+   Effortel-clean: muted business name top-left, big centered
+   trade-icon "logo" tile dominates the card, one subtle outcome
+   line at the bottom. Premium feel, no visual clutter. */
 
 function StudyCard({ study }: { study: Study }) {
   const [hover, setHover] = useState(false);
   const TradeIcon = TRADE_ICON[study.trade] ?? Wrench;
   const tradeColor = TRADE_COLOR[study.trade];
   const headlineOutcome = study.outcomes[0];
-  const t = TINT[headlineOutcome.tint];
 
   return (
     <article
@@ -547,108 +549,82 @@ function StudyCard({ study }: { study: Study }) {
       style={{
         position: "relative",
         background: mkt.sectionLight,
-        border: `1px solid ${hover ? "rgba(102,232,250,0.45)" : mkt.onDarkBorder}`,
-        borderRadius: 18,
-        padding: "22px 22px 24px",
+        border: `1px solid ${hover ? "rgba(102,232,250,0.30)" : mkt.onDarkBorder}`,
+        borderRadius: 22,
+        padding: "20px 22px",
         display: "flex", flexDirection: "column",
-        gap: 18,
-        minHeight: 260,
-        transition: "transform 320ms cubic-bezier(0.22,1,0.36,1), border-color 320ms ease, box-shadow 320ms ease",
-        transform: hover ? "translateY(-3px)" : "translateY(0)",
-        boxShadow: hover ? "0 18px 40px rgba(0,0,0,0.32)" : "0 0 0 rgba(0,0,0,0)",
+        gap: 14,
+        minHeight: 280,
+        aspectRatio: "1 / 1.05",
+        transition: "transform 360ms cubic-bezier(0.22,1,0.36,1), border-color 360ms ease, box-shadow 360ms ease",
+        transform: hover ? "translateY(-4px)" : "translateY(0)",
+        boxShadow: hover ? "0 22px 44px rgba(0,0,0,0.28)" : "0 0 0 rgba(0,0,0,0)",
         overflow: "hidden",
       }}
     >
       <DottedBg />
 
-      {/* Header row: trade name + arrow */}
-      <header style={{
-        position: "relative",
-        display: "flex", justifyContent: "space-between", alignItems: "center",
-      }}>
-        <h3 style={{
-          margin: 0, fontSize: 22, fontWeight: 700,
-          color: mkt.onDark, letterSpacing: "-0.01em",
-          fontFamily: SANS,
+      {/* Top-left: muted business name (matches Effortel's quiet label) */}
+      <header style={{ position: "relative", flexShrink: 0 }}>
+        <span style={{
+          fontSize: 13, fontWeight: 500,
+          color: hover ? mkt.onDarkMuted : mkt.textFaint,
+          fontFamily: SANS, letterSpacing: "-0.005em",
+          transition: "color 360ms ease",
         }}>
           {study.business}
-        </h3>
-        <span style={{
-          width: 30, height: 30, borderRadius: 8,
-          background: hover ? mkt.accent : "rgba(255,255,255,0.06)",
-          color: hover ? mkt.dark : mkt.onDarkMuted,
-          display: "inline-flex", alignItems: "center", justifyContent: "center",
-          transition: "background 220ms ease, color 220ms ease",
-        }}>
-          <ArrowUpRight size={16} strokeWidth={2.2} />
         </span>
       </header>
 
-      {/* Headline metric — before → after */}
-      <div style={{ position: "relative", flex: 1 }}>
-        <p style={{
-          margin: 0,
-          fontFamily: MONO, fontSize: 10, fontWeight: 700,
-          color: t.ink, textTransform: "uppercase", letterSpacing: "0.08em",
-        }}>
-          {headlineOutcome.label}
-        </p>
-        <p style={{
-          margin: "8px 0 0",
-          fontSize: "clamp(22px, 2.6vw, 28px)",
-          fontWeight: 800, color: mkt.onDark, lineHeight: 1.1,
-          letterSpacing: "-0.02em",
-        }}>
-          <span style={{ color: mkt.textFaint, fontWeight: 500 }}>{headlineOutcome.before}</span>
-          <span style={{ color: mkt.textFaint, margin: "0 10px" }}>→</span>
-          <span style={{ color: t.ink }}>{headlineOutcome.after}</span>
-        </p>
-        <p style={{
-          margin: "10px 0 0",
-          fontSize: 13, color: mkt.onDarkMuted, lineHeight: 1.5,
-          fontFamily: SANS, maxWidth: "32ch",
-        }}>
-          {study.headline}
-        </p>
+      {/* Big centered "logo" tile — the visual focal point */}
+      <div style={{
+        position: "relative",
+        flex: 1,
+        display: "flex", alignItems: "center", justifyContent: "center",
+      }}>
+        <div
+          style={{
+            width: "clamp(96px, 38%, 136px)",
+            aspectRatio: "1",
+            borderRadius: 22,
+            background: tradeColor,
+            color: "#0E1116",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            boxShadow: hover
+              ? `0 18px 40px ${tradeColor}55, 0 0 0 1px rgba(255,255,255,0.04) inset`
+              : `0 8px 24px ${tradeColor}30, 0 0 0 1px rgba(255,255,255,0.04) inset`,
+            transform: hover ? "translateY(-2px) scale(1.04)" : "translateY(0) scale(1)",
+            transition: "transform 420ms cubic-bezier(0.22,1,0.36,1), box-shadow 420ms ease",
+          }}
+        >
+          <TradeIcon size={48} strokeWidth={1.5} />
+        </div>
       </div>
 
-      {/* Footer row: trade icon "logo" + product pill + city */}
+      {/* Bottom: one subtle outcome line — keeps before→after copy without
+          shouting. Mono uppercase label, then the metric in muted text. */}
       <footer style={{
         position: "relative",
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-        gap: 12, paddingTop: 14,
-        borderTop: `1px solid ${mkt.onDarkBorder}`,
+        display: "flex", alignItems: "baseline", justifyContent: "space-between",
+        gap: 10, flexShrink: 0,
       }}>
         <span style={{
-          width: 42, height: 42, borderRadius: 10,
-          background: tradeColor, color: "#0E1116",
-          display: "inline-flex", alignItems: "center", justifyContent: "center",
-          flexShrink: 0,
+          fontFamily: MONO, fontSize: 10, fontWeight: 600,
+          color: mkt.textFaint, letterSpacing: "0.08em", textTransform: "uppercase",
+          whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+          maxWidth: "55%",
         }}>
-          <TradeIcon size={22} strokeWidth={1.7} />
+          {headlineOutcome.label}
         </span>
-        <div style={{ minWidth: 0, flex: 1, display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-end" }}>
-          <span style={{
-            fontFamily: MONO, fontSize: 10, fontWeight: 700,
-            letterSpacing: "0.06em", textTransform: "uppercase",
-            color: mkt.accent,
-            padding: "4px 10px", borderRadius: 999,
-            border: `1px solid ${mkt.accentGlow}`,
-            background: "rgba(102,232,250,0.08)",
-            whiteSpace: "nowrap",
-            overflow: "hidden", textOverflow: "ellipsis",
-            maxWidth: "100%",
-          }}>
-            {study.product}
-          </span>
-          <span style={{
-            fontFamily: MONO, fontSize: 10,
-            color: mkt.textFaint, letterSpacing: "0.06em",
-            display: "inline-flex", alignItems: "center", gap: 4,
-          }}>
-            <MapPin size={10} /> {study.city}
-          </span>
-        </div>
+        <span style={{
+          fontFamily: MONO, fontSize: 12, fontWeight: 700,
+          color: mkt.onDark, letterSpacing: "-0.005em",
+          whiteSpace: "nowrap",
+        }}>
+          {headlineOutcome.before}
+          <span style={{ color: mkt.textFaint, margin: "0 6px" }}>→</span>
+          <span style={{ color: tradeColor }}>{headlineOutcome.after}</span>
+        </span>
       </footer>
     </article>
   );
