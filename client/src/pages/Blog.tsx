@@ -309,14 +309,17 @@ function BlogCard({ post, onOpen, size = "grid" }: {
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       style={{
-        background: LIGHT.cardBg,
-        border: `1px solid ${hover ? LIGHT.ink : LIGHT.cardBg}`,
+        // Card matches section bg at rest (so only the vivid thumbnail
+        // and text are visible against the cool-grey panel) and
+        // lightens slightly on hover, exactly like Effortel.
+        background: hover ? LIGHT.cardHover : "transparent",
+        border: "1px solid transparent",
         borderRadius: 18, overflow: "hidden",
         padding: 4,
         cursor: "pointer", position: "relative",
         display: "flex", flexDirection: "column",
         transform: hover ? "translateY(-3px)" : "translateY(0)",
-        transition: "border-color 220ms ease, transform 320ms cubic-bezier(0.22,1,0.36,1)",
+        transition: "background-color 240ms ease, transform 320ms cubic-bezier(0.22,1,0.36,1)",
       }}
     >
       <div style={{
@@ -534,7 +537,8 @@ function FeaturedSwiper({ posts, onOpen }: {
 /* ─── Bright light-grey theme used by the "Stay Ahead" section ─── */
 const LIGHT = {
   bg:        "#C2D0D6",        // Effortel reference's bright cool grey
-  cardBg:    "#FFFFFF",
+  cardBg:    "transparent",    // cards inherit page bg at rest
+  cardHover: "#D6DFE3",        // slightly lighter on hover (lifts off page)
   ink:       "#0F1418",        // near-black for headings
   inkMuted:  "rgba(15,20,24,0.62)",
   inkFaint:  "rgba(15,20,24,0.42)",

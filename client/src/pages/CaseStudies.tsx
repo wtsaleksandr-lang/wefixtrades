@@ -611,7 +611,8 @@ function TestimonialCard({ study }: { study: Study }) {
    tonal range as Effortel's reference. */
 const CS_LIGHT = {
   bg:        "#C2D0D6",
-  cardBg:    "#FFFFFF",
+  cardBg:    "transparent",          // cards inherit page bg at rest
+  cardHover: "#D6DFE3",              // lighten on hover, lifts off page
   cardBorder:"rgba(15,20,24,0.08)",
   ink:       "#0F1418",
   inkMuted:  "rgba(15,20,24,0.62)",
@@ -655,15 +656,16 @@ function StudyCard({ study }: { study: Study }) {
       onMouseLeave={() => setHover(false)}
       style={{
         position: "relative",
-        background: CS_LIGHT.cardBg,
-        // Invisible-at-rest border that pops to accent on hover
-        // (effortel pattern: border matches bg until interaction).
-        border: `1px solid ${hover ? CS_LIGHT.ink : CS_LIGHT.cardBg}`,
+        // Card matches section bg at rest (only the vivid thumbnail
+        // is visible against the cool-grey panel) and lightens
+        // slightly on hover, exactly like Effortel.
+        background: hover ? CS_LIGHT.cardHover : "transparent",
+        border: "1px solid transparent",
         borderRadius: 18,
         padding: 4,                          // ← .19em frame
         display: "flex", flexDirection: "column",
         cursor: "pointer",
-        transition: "border-color 220ms ease, transform 320ms cubic-bezier(0.22,1,0.36,1)",
+        transition: "background-color 240ms ease, transform 320ms cubic-bezier(0.22,1,0.36,1)",
         transform: hover ? "translateY(-3px)" : "translateY(0)",
       }}
     >
