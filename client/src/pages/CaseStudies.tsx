@@ -11,6 +11,10 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { V7PageShell } from "@/components/marketing/v7";
 import { MONO, SANS } from "@/components/effortel-blocks";
+import { Swiper, SwiperSlide } from "swiper/react";
+import { Keyboard, Navigation } from "swiper/modules";
+import "swiper/css";
+import "swiper/css/navigation";
 
 /* ════════════════════════════════════════════════════════════════
    Effortel-style Case Studies:
@@ -301,107 +305,122 @@ function QuoteGlyph({ color }: { color: string }) {
   );
 }
 
-/* ─── Featured testimonial swiper ─── */
+/* ─── Featured testimonial swiper — Effortel-style 3D accordion ───
+   Replicates the exact Swiper.js setup from effortel.com:
+     - slidesPerView: 1, spaceBetween: 16, speed: 1000
+     - keyboard + navigation modules
+     - grabCursor on
+   The accordion 3D effect (prev/next slides tilted, scaled and faded
+   while the active slide is flat + fully bright) is driven by CSS
+   targeting Swiper's swiper-slide-prev / -active / -next classes,
+   using the exact transform + opacity + cubic-bezier values from the
+   reference. */
 
 function TestimonialSwiper({ studies }: { studies: Study[] }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [canPrev, setCanPrev] = useState(false);
-  const [canNext, setCanNext] = useState(true);
-
-  const updateButtons = () => {
-    const el = ref.current;
-    if (!el) return;
-    setCanPrev(el.scrollLeft > 8);
-    setCanNext(el.scrollLeft < el.scrollWidth - el.clientWidth - 8);
-  };
-
-  useEffect(() => {
-    updateButtons();
-    const el = ref.current;
-    if (!el) return;
-    el.addEventListener("scroll", updateButtons, { passive: true });
-    window.addEventListener("resize", updateButtons);
-    return () => {
-      el.removeEventListener("scroll", updateButtons);
-      window.removeEventListener("resize", updateButtons);
-    };
-  }, []);
-
-  const scrollByCard = (dir: 1 | -1) => {
-    const el = ref.current;
-    if (!el) return;
-    const card = el.querySelector<HTMLElement>("[data-card]");
-    const step = (card?.offsetWidth ?? 1000) + 16;
-    el.scrollBy({ left: step * dir, behavior: "smooth" });
-  };
+  const prevRef = useRef<HTMLButtonElement>(null);
+  const nextRef = useRef<HTMLButtonElement>(null);
 
   return (
     <section style={{ background: mkt.bg, padding: "0 0 32px" }}>
-      <div style={{ maxWidth: 1400, margin: "0 auto" }}>
-        <div
-          ref={ref}
-          className="cs-hide-scrollbar"
-          style={{
-            display: "flex", gap: 16,
-            overflowX: "auto", overflowY: "hidden",
-            scrollSnapType: "x mandatory",
-            scrollPadding: "0 24px",
-            padding: "8px 24px",
-            scrollbarWidth: "none",
-            WebkitOverflowScrolling: "touch",
-          }}
-        >
-          {studies.map((s) => (
-            <div
-              key={s.slug}
-              data-card
-              style={{
-                flex: "0 0 auto",
-                width: "min(1040px, 92vw)",
-                scrollSnapAlign: "start",
-              }}
-            >
-              <TestimonialCard study={s} />
-            </div>
-          ))}
+      <div style={{ maxWidth: 1400, margin: "0 auto", padding: "0 24px" }}>
+        <div className="cs-simple-slider">
+          <Swiper
+            modules={[Keyboard, Navigation]}
+            slidesPerView={1}
+            spaceBetween={16}
+            speed={1000}
+            keyboard={{ enabled: true }}
+            grabCursor
+            slideToClickedSlide={false}
+            navigation={{
+              prevEl: prevRef.current,
+              nextEl: nextRef.current,
+              disabledClass: "cs-arrow--disabled",
+            }}
+            onBeforeInit={(swiper) => {
+              // Swiper needs the refs at init time; React refs aren't
+              // populated yet on first render, so we wire them here.
+              const nav = swiper.params.navigation;
+              if (nav && typeof nav !== "boolean") {
+                nav.prevEl = prevRef.current;
+                nav.nextEl = nextRef.current;
+              }
+            }}
+          >
+            {studies.map((s) => (
+              <SwiperSlide key={s.slug} className="cs-slide">
+                <TestimonialCard study={s} />
+              </SwiperSlide>
+            ))}
+          </Swiper>
         </div>
 
         <div style={{
-          display: "flex", justifyContent: "center", gap: 12, marginTop: 16,
+          display: "flex", justifyContent: "center", gap: 12, marginTop: 18,
         }}>
-          <button
-            onClick={() => scrollByCard(-1)}
-            disabled={!canPrev}
-            aria-label="Previous testimonial"
-            style={arrowButton(canPrev)}
-          >
+          <button ref={prevRef} className="cs-arrow" aria-label="Previous testimonial">
             <ArrowLeft size={18} />
           </button>
-          <button
-            onClick={() => scrollByCard(1)}
-            disabled={!canNext}
-            aria-label="Next testimonial"
-            style={arrowButton(canNext)}
-          >
+          <button ref={nextRef} className="cs-arrow" aria-label="Next testimonial">
             <ArrowRight size={18} />
           </button>
         </div>
       </div>
-      <style>{`.cs-hide-scrollbar::-webkit-scrollbar { display: none; }`}</style>
+
+      <style>{`
+        /* Swiper container — 3D context for the tilted side cards */
+        .cs-simple-slider { perspective: 1000px; }
+        .cs-simple-slider .swiper { overflow: visible; }
+
+        /* Per-slide easing: same cubic-bezier as Effortel's reference */
+        .cs-simple-slider .swiper-wrapper {
+          transition-timing-function: cubic-bezier(.38, .007, 0, 1.007);
+        }
+        .cs-simple-slider .swiper-slide {
+          transition:
+            transform 0.85s cubic-bezier(.38, .007, 0, 1.007),
+            opacity 0.8s ease;
+          transform-origin: 50% 50%;
+          opacity: 1;
+        }
+
+        /* Side slides — 3D-tilted 9° on Y axis, scaled UP 1.12 (with
+           the perspective they recede behind the active slide), faded
+           to 0.15. */
+        .cs-simple-slider .swiper-slide.swiper-slide-prev {
+          transform: perspective(1000px) rotateY(9deg)  scale(1.12) !important;
+          opacity: 0.15 !important;
+        }
+        .cs-simple-slider .swiper-slide.swiper-slide-next {
+          transform: perspective(1000px) rotateY(-9deg) scale(1.12) !important;
+          opacity: 0.15 !important;
+        }
+
+        /* Active slide — flat, fully bright, in front */
+        .cs-simple-slider .swiper-slide.swiper-slide-active {
+          transform: rotate(0deg) scale(1) !important;
+          opacity: 1 !important;
+          z-index: 2;
+        }
+
+        /* Prev/next arrows under the slider */
+        .cs-arrow {
+          width: 44px; height: 44px; border-radius: 50%;
+          border: 1px solid ${mkt.onDarkBorder};
+          background: rgba(255, 255, 255, 0.04);
+          color: ${mkt.onDark};
+          display: flex; align-items: center; justify-content: center;
+          cursor: pointer; opacity: 1;
+          transition: background 200ms ease, opacity 200ms ease, color 200ms ease;
+        }
+        .cs-arrow:hover { background: rgba(255, 255, 255, 0.08); }
+        .cs-arrow.cs-arrow--disabled {
+          opacity: 0.4; cursor: default; color: ${mkt.onDarkMuted};
+        }
+      `}</style>
     </section>
   );
 }
-
-const arrowButton = (enabled: boolean): React.CSSProperties => ({
-  width: 44, height: 44, borderRadius: "50%",
-  border: `1px solid ${mkt.onDarkBorder}`,
-  background: "rgba(255,255,255,0.04)",
-  color: enabled ? mkt.onDark : mkt.onDarkMuted,
-  display: "flex", alignItems: "center", justifyContent: "center",
-  cursor: enabled ? "pointer" : "default",
-  opacity: enabled ? 1 : 0.4,
-  transition: "background 200ms ease, opacity 200ms ease",
-});
 
 /* ─── Testimonial card — 2 cols (quote / person) ─── */
 
