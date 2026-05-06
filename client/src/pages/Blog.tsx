@@ -123,22 +123,28 @@ const RESOURCE_TABS = [
 function ResourceTabStrip({ active }: { active: string }) {
   return (
     <div style={{
-      display: "inline-flex", gap: 4, padding: 4,
-      background: "rgba(255,255,255,0.03)",
-      border: `1px solid ${mkt.onDarkBorder}`,
-      borderRadius: 999,
+      display: "inline-flex", gap: 2, padding: 4,
+      background: "rgba(20,24,27,0.55)",
+      border: "1px solid rgba(255,255,255,0.06)",
+      borderRadius: 14,
+      backdropFilter: "blur(8px)",
+      WebkitBackdropFilter: "blur(8px)",
     }}>
       {RESOURCE_TABS.map((t) => {
         const isActive = t.href === active;
         return (
           <Link key={t.href} href={t.href} style={{
             display: "inline-flex", alignItems: "center",
-            padding: "8px 18px", borderRadius: 999,
-            fontSize: 13, fontWeight: 600,
-            fontFamily: SANS, lineHeight: 1,
+            padding: "8px 14px", borderRadius: 10,
+            fontSize: 10.5, fontWeight: 600,
+            fontFamily: MONO, lineHeight: 1,
+            letterSpacing: "0.10em", textTransform: "uppercase",
             whiteSpace: "nowrap", textDecoration: "none",
-            background: isActive ? mkt.onDark : "transparent",
-            color: isActive ? mkt.dark : mkt.onDarkMuted,
+            background: isActive ? "rgba(255,255,255,0.06)" : "transparent",
+            color: isActive ? mkt.onDark : "rgba(255,255,255,0.50)",
+            boxShadow: isActive
+              ? "inset 0 1px 0 rgba(255,255,255,0.06), 0 1px 2px rgba(0,0,0,0.25)"
+              : "none",
             transition: "background 200ms ease, color 200ms ease",
           }}>
             {t.label}
@@ -340,46 +346,66 @@ function FeaturedSwiper({ posts, onOpen }: {
 
         {/* Arrow nav */}
         <div style={{
-          display: "flex", justifyContent: "center", gap: 12,
+          display: "flex", justifyContent: "center",
           marginTop: 18,
         }}>
-          <button
-            onClick={() => scrollByCard(-1)}
-            disabled={!canPrev}
-            aria-label="Previous post"
-            style={{
-              width: 48, height: 48, borderRadius: "50%",
-              border: `1px solid ${mkt.onDarkBorder}`,
-              background: "rgba(255,255,255,0.04)",
-              color: canPrev ? mkt.onDark : mkt.onDarkMuted,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              cursor: canPrev ? "pointer" : "default",
-              opacity: canPrev ? 1 : 0.4,
-              transition: "background 200ms ease, opacity 200ms ease",
-            }}
-          >
-            <ArrowLeft size={18} />
-          </button>
-          <button
-            onClick={() => scrollByCard(1)}
-            disabled={!canNext}
-            aria-label="Next post"
-            style={{
-              width: 48, height: 48, borderRadius: "50%",
-              border: `1px solid ${mkt.onDarkBorder}`,
-              background: "rgba(255,255,255,0.04)",
-              color: canNext ? mkt.onDark : mkt.onDarkMuted,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              cursor: canNext ? "pointer" : "default",
-              opacity: canNext ? 1 : 0.4,
-              transition: "background 200ms ease, opacity 200ms ease",
-            }}
-          >
-            <ArrowRight size={18} />
-          </button>
+          <div className="blog-arrow-group">
+            <button
+              onClick={() => scrollByCard(-1)}
+              disabled={!canPrev}
+              aria-label="Previous post"
+              className={`blog-arrow${!canPrev ? " blog-arrow--disabled" : ""}`}
+            >
+              <ArrowLeft size={16} strokeWidth={2} />
+            </button>
+            <span className="blog-arrow-divider" aria-hidden />
+            <button
+              onClick={() => scrollByCard(1)}
+              disabled={!canNext}
+              aria-label="Next post"
+              className={`blog-arrow${!canNext ? " blog-arrow--disabled" : ""}`}
+            >
+              <ArrowRight size={16} strokeWidth={2} />
+            </button>
+          </div>
         </div>
       </div>
-      <style>{`.hide-scrollbar::-webkit-scrollbar { display: none; }`}</style>
+      <style>{`
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+
+        /* Effortel-style arrow capsule — single dark glassy strip with
+           a hairline divider between the two buttons. */
+        .blog-arrow-group {
+          display: inline-flex; align-items: center;
+          padding: 4px;
+          gap: 2px;
+          background: rgba(20, 24, 27, 0.55);
+          border: 1px solid rgba(255, 255, 255, 0.06);
+          border-radius: 14px;
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
+        }
+        .blog-arrow {
+          width: 36px; height: 30px; border-radius: 10px;
+          border: none;
+          background: rgba(255, 255, 255, 0.06);
+          color: ${mkt.onDark};
+          display: flex; align-items: center; justify-content: center;
+          cursor: pointer;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 1px 2px rgba(0,0,0,0.25);
+          transition: background 200ms ease, color 200ms ease, opacity 200ms ease;
+        }
+        .blog-arrow:hover { background: rgba(255, 255, 255, 0.10); }
+        .blog-arrow.blog-arrow--disabled {
+          background: transparent;
+          box-shadow: none;
+          opacity: 0.35; cursor: default; color: ${mkt.onDarkMuted};
+        }
+        .blog-arrow-divider {
+          width: 1px; align-self: stretch; margin: 4px 0;
+          background: rgba(255, 255, 255, 0.08);
+        }
+      `}</style>
     </section>
   );
 }
