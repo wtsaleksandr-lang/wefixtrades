@@ -266,15 +266,19 @@ export const Menu = ({
 
   return (
     <MenuContext.Provider value={{ containerRef, scheduleClose, cancelClose }}>
-      {/* Page-blur backdrop — visible only while a dropdown is open.
-          Sits below the dropdown (zIndex 9990 < dropdown 9999) and above
-          the rest of the page. Click to close. */}
+      {/* Page-blur backdrop — purely visual dimming behind the open
+          dropdown. Sits below the dropdown (9990 < 9999) and above the
+          rest of the page. pointerEvents stays "none" so it never
+          intercepts hover/click events on the nav bar underneath; if it
+          did, hit-testing would close the menu the instant it opened
+          (the cursor would be considered "over the backdrop" rather
+          than the trigger), causing a flicker loop. The menu closes
+          via onMouseLeave on the <nav> trigger row and on the dropdown
+          panel itself. */}
       {typeof document !== "undefined" &&
         createPortal(
           <div
             aria-hidden="true"
-            onMouseEnter={() => setActive(null)}
-            onClick={() => setActive(null)}
             style={{
               position: "fixed",
               inset: 0,
@@ -283,7 +287,7 @@ export const Menu = ({
               backdropFilter: "blur(8px) saturate(1.1)",
               WebkitBackdropFilter: "blur(8px) saturate(1.1)",
               opacity: backdropOpen ? 1 : 0,
-              pointerEvents: backdropOpen ? "auto" : "none",
+              pointerEvents: "none",
               transition: "opacity 220ms ease",
             }}
           />,
