@@ -12,6 +12,7 @@ import { Link } from "wouter";
 import { Plus } from "lucide-react";
 import type { NavItemChild } from "@/site/navigation";
 import { NavIcon } from "@/components/marketing/navigation/NavIcon";
+import { ToolsRichCards } from "@/components/marketing/navigation/ToolsRichCards";
 import { mkt } from "@/theme/tokens";
 import type { CSSProperties } from "react";
 
@@ -166,58 +167,65 @@ export const MenuItem = ({
               layoutId="active"
               className="mkt-dropdown-tray"
               style={{
-                padding: 10,
-                display: "grid",
-                gridTemplateColumns: "repeat(3, 1fr)",
-                gridAutoFlow: "row",
-                gap: 8,
+                padding: item === "Tools" ? 12 : 10,
+                display: item === "Tools" ? "block" : "grid",
+                ...(item === "Tools"
+                  ? {}
+                  : { gridTemplateColumns: "repeat(3, 1fr)", gridAutoFlow: "row", gap: 8 }),
                 boxShadow: "0 16px 40px rgba(0,0,0,0.45)",
               }}
             >
-              <motion.div layout style={{ display: "contents" }}>
-                {children!.map(
-                  ({ label, href: childHref, description, icon }) => (
-                    <Link
-                      key={childHref + label}
-                      href={childHref}
-                      className="mkt-menu-card"
-                    >
-                      <div
-                        className="mkt-menu-card-icon"
-                        style={{ color: mkt.accent }}
-                        aria-hidden
+              {item === "Tools" ? (
+                /* Effortel-style rich layout — only used for Tools (3
+                   items, so each card has full real estate for a
+                   heading + subtitle + an inline product preview SVG). */
+                <ToolsRichCards items={children!} />
+              ) : (
+                <motion.div layout style={{ display: "contents" }}>
+                  {children!.map(
+                    ({ label, href: childHref, description, icon }) => (
+                      <Link
+                        key={childHref + label}
+                        href={childHref}
+                        className="mkt-menu-card"
                       >
-                        <NavIcon icon={icon} />
-                      </div>
-                      <div style={{ minWidth: 0 }}>
                         <div
-                          style={{
-                            fontSize: 13,
-                            fontWeight: 650,
-                            color: mkt.text,
-                            lineHeight: 1.2,
-                            marginBottom: 3,
-                          }}
+                          className="mkt-menu-card-icon"
+                          style={{ color: mkt.accent }}
+                          aria-hidden
                         >
-                          {label}
+                          <NavIcon icon={icon} />
                         </div>
-                        {description && (
+                        <div style={{ minWidth: 0 }}>
                           <div
                             style={{
-                              fontSize: 12,
-                              fontWeight: 450,
-                              color: mkt.textMuted,
-                              lineHeight: 1.35,
+                              fontSize: 13,
+                              fontWeight: 650,
+                              color: mkt.text,
+                              lineHeight: 1.2,
+                              marginBottom: 3,
                             }}
                           >
-                            {description}
+                            {label}
                           </div>
-                        )}
-                      </div>
-                    </Link>
-                  ),
-                )}
-              </motion.div>
+                          {description && (
+                            <div
+                              style={{
+                                fontSize: 12,
+                                fontWeight: 450,
+                                color: mkt.textMuted,
+                                lineHeight: 1.35,
+                              }}
+                            >
+                              {description}
+                            </div>
+                          )}
+                        </div>
+                      </Link>
+                    ),
+                  )}
+                </motion.div>
+              )}
             </motion.div>
           </motion.div>,
           document.body,
