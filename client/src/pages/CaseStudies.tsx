@@ -328,20 +328,17 @@ function TestimonialSwiper({ studies }: { studies: Study[] }) {
 
   return (
     <section style={{ background: mkt.bg, padding: "0 0 32px" }}>
-      {/* Outer wrapper holds the page max-width so the arrow row below
-          can left-align to the same gutter as the hero. The Swiper
-          itself sits in a narrower 808px-class container so each slide
-          renders at the exact Effortel size; overflow:visible on the
-          .swiper lets the tilted prev/next slides bleed outward into
-          the gutter on either side. */}
+      {/* Outer wrapper holds the page max-width. The Swiper itself
+          spans the full inner width and uses centeredSlides so the
+          active card sits in the middle of the page with the prev/next
+          slides peeking symmetrically on either side, exactly like
+          Effortel. Each slide is locked to 808px wide via CSS. */}
       <div style={{ maxWidth: 1400, margin: "0 auto", padding: "0 24px" }}>
-        <div className="cs-simple-slider" style={{
-          maxWidth: 808,
-          marginLeft: 0,                  // left-align under the headline
-        }}>
+        <div className="cs-simple-slider">
           <Swiper
             modules={[Keyboard, Navigation]}
-            slidesPerView={1}
+            slidesPerView="auto"
+            centeredSlides
             spaceBetween={16}
             speed={1000}
             keyboard={{ enabled: true }}
@@ -389,6 +386,15 @@ function TestimonialSwiper({ studies }: { studies: Study[] }) {
         /* Swiper container — 3D context for the tilted side cards */
         .cs-simple-slider { perspective: 1000px; }
         .cs-simple-slider .swiper { overflow: visible; }
+
+        /* Slide width locked to Effortel's exact size; Swiper centers
+           it via centeredSlides:true so the active card sits in the
+           middle of the page and the prev/next slides peek
+           symmetrically. */
+        .cs-simple-slider .swiper-slide {
+          width: 808px;
+          max-width: 88vw;
+        }
 
         /* Per-slide easing: same cubic-bezier as Effortel's reference */
         .cs-simple-slider .swiper-wrapper {
@@ -656,16 +662,17 @@ function StudyCard({ study }: { study: Study }) {
       onMouseLeave={() => setHover(false)}
       style={{
         position: "relative",
-        // Card matches section bg at rest (only the vivid thumbnail
-        // is visible against the cool-grey panel) and lightens
-        // slightly on hover, exactly like Effortel.
+        // Subtle hairline border at rest, card bg matches section bg
+        // so only the thumbnail and text show against the cool-grey
+        // panel; lightens slightly on hover.
         background: hover ? CS_LIGHT.cardHover : "transparent",
-        border: "1px solid transparent",
+        border: `1px solid ${hover ? "rgba(15,20,24,0.18)" : "rgba(15,20,24,0.10)"}`,
         borderRadius: 18,
         padding: 4,                          // ← .19em frame
         display: "flex", flexDirection: "column",
         cursor: "pointer",
-        transition: "background-color 240ms ease, transform 320ms cubic-bezier(0.22,1,0.36,1)",
+        minHeight: 440,                      // ~20% taller
+        transition: "background-color 240ms ease, border-color 240ms ease, transform 320ms cubic-bezier(0.22,1,0.36,1)",
         transform: hover ? "translateY(-3px)" : "translateY(0)",
       }}
     >
@@ -675,7 +682,7 @@ function StudyCard({ study }: { study: Study }) {
       <div style={{
         position: "relative",
         width: "100%",
-        aspectRatio: "3 / 2",
+        aspectRatio: "5 / 4",                // taller thumbnail (was 3:2)
         borderRadius: 14,
         overflow: "hidden",
         background: tradeColor,
@@ -687,13 +694,13 @@ function StudyCard({ study }: { study: Study }) {
           transform: hover ? "scale(1.06)" : "scale(1)",
           transition: "transform 380ms cubic-bezier(0.22,1,0.36,1)",
         }}>
-          <TradeIcon size={64} strokeWidth={1.5} />
+          <TradeIcon size={80} strokeWidth={1.5} />
         </div>
       </div>
 
       {/* Content — padded 24, large gap so heading and meta breathe */}
       <div style={{
-        padding: "20px 18px 16px",
+        padding: "22px 18px 18px",
         display: "flex", flexDirection: "column",
         gap: 14, flex: 1,
       }}>

@@ -309,23 +309,24 @@ function BlogCard({ post, onOpen, size = "grid" }: {
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       style={{
-        // Card matches section bg at rest (so only the vivid thumbnail
-        // and text are visible against the cool-grey panel) and
-        // lightens slightly on hover, exactly like Effortel.
+        // Subtle 1px border at rest (matches Effortel's hairline), card
+        // bg matches section bg so only the vivid thumbnail + text show
+        // against the cool-grey panel; lightens slightly on hover.
         background: hover ? LIGHT.cardHover : "transparent",
-        border: "1px solid transparent",
+        border: `1px solid ${hover ? "rgba(15,20,24,0.18)" : "rgba(15,20,24,0.10)"}`,
         borderRadius: 18, overflow: "hidden",
         padding: 4,
         cursor: "pointer", position: "relative",
         display: "flex", flexDirection: "column",
+        minHeight: 440,                    // ~20% taller — fits taller thumbnail
         transform: hover ? "translateY(-3px)" : "translateY(0)",
-        transition: "background-color 240ms ease, transform 320ms cubic-bezier(0.22,1,0.36,1)",
+        transition: "background-color 240ms ease, border-color 240ms ease, transform 320ms cubic-bezier(0.22,1,0.36,1)",
       }}
     >
       <div style={{
         position: "relative",
         width: "100%",
-        aspectRatio: "3 / 2",
+        aspectRatio: "5 / 4",                // taller thumbnail (was 3:2)
         borderRadius: 14,
         overflow: "hidden",
         background: post.vivid.bg,
@@ -340,12 +341,12 @@ function BlogCard({ post, onOpen, size = "grid" }: {
           transform: hover ? "scale(1.06)" : "scale(1)",
           transition: "transform 380ms cubic-bezier(0.22,1,0.36,1)",
         }}>
-          <Icon size={70} strokeWidth={1.6} />
+          <Icon size={84} strokeWidth={1.6} />
         </div>
       </div>
 
       <div style={{
-        padding: "20px 18px 16px",
+        padding: "22px 18px 18px",
         display: "flex", flexDirection: "column",
         gap: 14, flex: 1,
       }}>
@@ -441,8 +442,12 @@ function FeaturedSwiper({ posts, onOpen }: {
             display: "flex", gap: 16,
             overflowX: "auto", overflowY: "hidden",
             scrollSnapType: "x mandatory",
-            scrollPadding: "0 24px",
-            padding: "8px 24px 8px",
+            // Center each snapped slide on the viewport so the active
+            // card sits in the middle of the page and the prev/next
+            // cards peek symmetrically on either side, exactly like
+            // Effortel's swiper.
+            scrollPaddingInline: "calc(50% - 404px)",
+            padding: "8px 0",
             scrollbarWidth: "none",
             WebkitOverflowScrolling: "touch",
           }}
@@ -455,7 +460,7 @@ function FeaturedSwiper({ posts, onOpen }: {
               style={{
                 flex: "0 0 auto",
                 width: "min(808px, 88vw)",        // matches Effortel slide width
-                scrollSnapAlign: "start",
+                scrollSnapAlign: "center",
               }}
             >
               <BlogCard post={post} onOpen={() => onOpen(i)} size="featured" />
