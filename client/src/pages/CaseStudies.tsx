@@ -362,7 +362,7 @@ function TestimonialSwiper({ studies }: { studies: Study[] }) {
         </div>
 
         <div style={{
-          display: "flex", justifyContent: "center", marginTop: 18,
+          display: "flex", justifyContent: "flex-start", marginTop: 18,
         }}>
           <div className="cs-arrow-group">
             <button ref={prevRef} className="cs-arrow" aria-label="Previous testimonial">
@@ -412,38 +412,35 @@ function TestimonialSwiper({ studies }: { studies: Study[] }) {
           z-index: 2;
         }
 
-        /* Arrow group — single dark glassy capsule containing both
-           buttons side-by-side with a hairline divider, matching the
+        /* Arrow capsule — single dark glassy strip with a hairline
+           divider. Disabled side = washed-out lighter grey, enabled
+           side = darker solid fill (more "clickable"). When both are
+           reachable mid-list both fill in the same way. Matches the
            Effortel reference. */
         .cs-arrow-group {
           display: inline-flex; align-items: center;
           padding: 4px;
           gap: 2px;
-          background: rgba(20, 24, 27, 0.55);
+          background: rgba(34, 40, 42, 0.55);
           border: 1px solid rgba(255, 255, 255, 0.06);
           border-radius: 14px;
           backdrop-filter: blur(8px);
           -webkit-backdrop-filter: blur(8px);
         }
         .cs-arrow {
-          width: 36px; height: 30px; border-radius: 10px;
+          width: 38px; height: 32px; border-radius: 10px;
           border: none;
-          background: transparent;
+          background: rgba(8, 10, 12, 0.55);
           color: ${mkt.onDark};
           display: flex; align-items: center; justify-content: center;
           cursor: pointer;
           transition: background 200ms ease, color 200ms ease, opacity 200ms ease;
         }
-        .cs-arrow:hover { background: rgba(255, 255, 255, 0.05); }
-        /* Active (clickable) arrow has a subtle inset highlight, matching
-           Effortel's "raised" feel within the capsule. Swiper toggles
-           cs-arrow--disabled on the unreachable side. */
-        .cs-arrow:not(.cs-arrow--disabled) {
-          background: rgba(255, 255, 255, 0.06);
-          box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 1px 2px rgba(0,0,0,0.25);
-        }
+        .cs-arrow:hover { background: rgba(8, 10, 12, 0.75); }
         .cs-arrow.cs-arrow--disabled {
-          opacity: 0.35; cursor: default; color: ${mkt.onDarkMuted};
+          background: rgba(255, 255, 255, 0.04);
+          cursor: default;
+          color: rgba(255, 255, 255, 0.40);
         }
         .cs-arrow-divider {
           width: 1px; align-self: stretch; margin: 4px 0;
@@ -478,7 +475,6 @@ function TestimonialCard({ study }: { study: Study }) {
         display: "flex", flexDirection: "column",
         overflow: "hidden",
       }}>
-        <DottedBg />
         <p style={{
           position: "relative",
           fontSize: "clamp(15px, 1.6vw, 19px)",
@@ -587,6 +583,22 @@ function TestimonialCard({ study }: { study: Study }) {
    trade-icon "logo" tile dominates the card, one subtle outcome
    line at the bottom. Premium feel, no visual clutter. */
 
+/* Bright cool-grey palette for the "great company" panel — same
+   tonal range as Effortel's reference. */
+const CS_LIGHT = {
+  bg:        "#C2D0D6",
+  cardBg:    "#FFFFFF",
+  cardBorder:"rgba(15,20,24,0.08)",
+  ink:       "#0F1418",
+  inkMuted:  "rgba(15,20,24,0.62)",
+  inkFaint:  "rgba(15,20,24,0.42)",
+};
+
+/* Premium two-panel study card on the bright grey:
+     - Top:  vivid colour panel with the trade illustration
+     - Body: white card with business name + city + person + trade
+     - Foot: subtle before→after metric line
+   No dotted-grid background, rounded corners on every part. */
 function StudyCard({ study }: { study: Study }) {
   const [hover, setHover] = useState(false);
   const TradeIcon = TRADE_ICON[study.trade] ?? Wrench;
@@ -599,84 +611,96 @@ function StudyCard({ study }: { study: Study }) {
       onMouseLeave={() => setHover(false)}
       style={{
         position: "relative",
-        background: mkt.sectionLight,
-        border: `1px solid ${hover ? "rgba(102,232,250,0.30)" : mkt.onDarkBorder}`,
-        borderRadius: 22,
-        padding: "20px 22px",
-        display: "flex", flexDirection: "column",
-        gap: 14,
-        minHeight: 280,
-        aspectRatio: "1 / 1.05",
-        transition: "transform 360ms cubic-bezier(0.22,1,0.36,1), border-color 360ms ease, box-shadow 360ms ease",
-        transform: hover ? "translateY(-4px)" : "translateY(0)",
-        boxShadow: hover ? "0 22px 44px rgba(0,0,0,0.28)" : "0 0 0 rgba(0,0,0,0)",
+        background: CS_LIGHT.cardBg,
+        border: `1px solid ${CS_LIGHT.cardBorder}`,
+        borderRadius: 20,
         overflow: "hidden",
+        display: "flex", flexDirection: "column",
+        cursor: "pointer",
+        transition: "transform 360ms cubic-bezier(0.22,1,0.36,1), box-shadow 360ms ease",
+        transform: hover ? "translateY(-4px)" : "translateY(0)",
+        boxShadow: hover
+          ? "0 22px 44px rgba(15,20,24,0.18)"
+          : "0 2px 6px rgba(15,20,24,0.04)",
       }}
     >
-      <DottedBg />
-
-      {/* Top-left: muted business name (matches Effortel's quiet label) */}
-      <header style={{ position: "relative", flexShrink: 0 }}>
-        <span style={{
-          fontSize: 13, fontWeight: 500,
-          color: hover ? mkt.onDarkMuted : mkt.textFaint,
-          fontFamily: SANS, letterSpacing: "-0.005em",
-          transition: "color 360ms ease",
-        }}>
-          {study.business}
-        </span>
-      </header>
-
-      {/* Big centered "logo" tile — the visual focal point */}
+      {/* Top — vivid illustration panel */}
       <div style={{
         position: "relative",
-        flex: 1,
+        background: tradeColor,
+        height: 200,
         display: "flex", alignItems: "center", justifyContent: "center",
+        overflow: "hidden",
       }}>
-        <div
-          style={{
-            width: "clamp(96px, 38%, 136px)",
-            aspectRatio: "1",
-            borderRadius: 22,
-            background: tradeColor,
-            color: "#0E1116",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            boxShadow: hover
-              ? `0 18px 40px ${tradeColor}55, 0 0 0 1px rgba(255,255,255,0.04) inset`
-              : `0 8px 24px ${tradeColor}30, 0 0 0 1px rgba(255,255,255,0.04) inset`,
-            transform: hover ? "translateY(-2px) scale(1.04)" : "translateY(0) scale(1)",
-            transition: "transform 420ms cubic-bezier(0.22,1,0.36,1), box-shadow 420ms ease",
-          }}
-        >
-          <TradeIcon size={48} strokeWidth={1.5} />
+        <div style={{
+          color: "#0E1116", opacity: 0.85,
+          transform: hover ? "scale(1.06)" : "scale(1)",
+          transition: "transform 360ms cubic-bezier(0.22,1,0.36,1)",
+        }}>
+          <TradeIcon size={64} strokeWidth={1.5} />
         </div>
       </div>
 
-      {/* Bottom: one subtle outcome line — keeps before→after copy without
-          shouting. Mono uppercase label, then the metric in muted text. */}
-      <footer style={{
-        position: "relative",
-        display: "flex", alignItems: "baseline", justifyContent: "space-between",
-        gap: 10, flexShrink: 0,
+      {/* Body — clean white text panel */}
+      <div style={{
+        padding: "18px 20px 16px",
+        display: "flex", flexDirection: "column", gap: 8,
+        flex: 1,
       }}>
-        <span style={{
+        <h3 style={{
+          margin: 0,
+          fontSize: 17, fontWeight: 700,
+          color: CS_LIGHT.ink, letterSpacing: "-0.01em",
+          fontFamily: SANS, lineHeight: 1.25,
+        }}>
+          {study.business}
+        </h3>
+        <div style={{
+          fontFamily: MONO, fontSize: 10.5, fontWeight: 600,
+          color: CS_LIGHT.inkMuted, letterSpacing: "0.08em",
+          textTransform: "uppercase",
+          display: "flex", flexWrap: "wrap", gap: 6,
+        }}>
+          <span>{study.person}</span>
+          <span style={{ opacity: 0.4 }}>·</span>
+          <span>{study.city}</span>
+        </div>
+        <div style={{
           fontFamily: MONO, fontSize: 10, fontWeight: 600,
-          color: mkt.textFaint, letterSpacing: "0.08em", textTransform: "uppercase",
-          whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-          maxWidth: "55%",
+          color: CS_LIGHT.inkFaint, letterSpacing: "0.08em",
+          textTransform: "uppercase",
         }}>
-          {headlineOutcome.label}
-        </span>
-        <span style={{
-          fontFamily: MONO, fontSize: 12, fontWeight: 700,
-          color: mkt.onDark, letterSpacing: "-0.005em",
-          whiteSpace: "nowrap",
+          {study.trade} · {study.product}
+        </div>
+
+        {/* Footer — single before→after line */}
+        <div style={{
+          marginTop: "auto", paddingTop: 12,
+          borderTop: `1px solid ${CS_LIGHT.cardBorder}`,
+          display: "flex", alignItems: "baseline", justifyContent: "space-between",
+          gap: 10,
         }}>
-          {headlineOutcome.before}
-          <span style={{ color: mkt.textFaint, margin: "0 6px" }}>→</span>
-          <span style={{ color: tradeColor }}>{headlineOutcome.after}</span>
-        </span>
-      </footer>
+          <span style={{
+            fontFamily: MONO, fontSize: 10, fontWeight: 600,
+            color: CS_LIGHT.inkFaint, letterSpacing: "0.08em",
+            textTransform: "uppercase",
+            whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+            maxWidth: "55%",
+          }}>
+            {headlineOutcome.label}
+          </span>
+          <span style={{
+            fontFamily: MONO, fontSize: 12, fontWeight: 700,
+            color: CS_LIGHT.ink, whiteSpace: "nowrap",
+          }}>
+            {headlineOutcome.before}
+            <span style={{ color: CS_LIGHT.inkFaint, margin: "0 6px" }}>→</span>
+            <span style={{ color: tradeColor, filter: "saturate(1.1) brightness(0.85)" }}>
+              {headlineOutcome.after}
+            </span>
+          </span>
+        </div>
+      </div>
     </article>
   );
 }
@@ -691,45 +715,51 @@ export default function CaseStudiesPage() {
   return (
     <MarketingLayout>
       <V7PageShell>
-        {/* ── Compact hero: tabs + headline ─────────────── */}
+        {/* ── Compact hero: left-aligned tabs + headline ─── */}
         <section style={{
           background: mkt.bg,
-          padding: "44px 24px 18px",
-          textAlign: "center",
+          padding: "44px 24px 24px",
         }}>
-          <div style={{ marginBottom: 18 }}>
-            <ResourceTabStrip active="/case-studies" />
+          <div style={{ maxWidth: 1400, margin: "0 auto" }}>
+            <div style={{ marginBottom: 22 }}>
+              <ResourceTabStrip active="/case-studies" />
+            </div>
+            <h1 style={{
+              fontSize: "clamp(30px, 4.6vw, 52px)", fontWeight: 700,
+              color: mkt.onDark, margin: 0, maxWidth: 920,
+              lineHeight: 1.08, letterSpacing: "-0.025em",
+              fontFamily: SANS,
+            }}>
+              Success Stories — How <span style={{ color: mkt.accent }}>WeFixTrades</span> Transforms Trades Businesses
+            </h1>
           </div>
-          <h1 style={{
-            fontSize: "clamp(30px, 4.6vw, 52px)", fontWeight: 700,
-            color: mkt.onDark, margin: "0 auto", maxWidth: 920,
-            lineHeight: 1.08, letterSpacing: "-0.025em",
-            fontFamily: SANS,
-          }}>
-            Success Stories — How <span style={{ color: mkt.accent }}>WeFixTrades</span> Transforms Trades Businesses
-          </h1>
         </section>
 
         {/* ── Featured testimonial swiper ───────────────── */}
         <TestimonialSwiper studies={FEATURED_STUDIES} />
 
-        {/* ── "You are in great company" grid ───────────── */}
-        <section style={{ background: mkt.bg, padding: "32px 24px 56px" }}>
+        {/* ── "You are in great company" — bright grey panel ─ */}
+        <section style={{
+          background: CS_LIGHT.bg,
+          padding: "72px 24px 80px",
+          borderRadius: "32px 32px 0 0",
+          marginTop: 32,
+        }}>
           <div style={{ maxWidth: 1400, margin: "0 auto" }}>
             <div style={{
               display: "inline-flex", gap: 6, alignItems: "baseline",
               fontFamily: MONO, fontSize: 11, fontWeight: 600,
-              letterSpacing: "0.08em", textTransform: "uppercase",
-              marginBottom: 12,
+              letterSpacing: "0.10em", textTransform: "uppercase",
+              marginBottom: 16, color: CS_LIGHT.inkMuted,
             }}>
-              <span style={{ opacity: 0.3, color: mkt.onDarkMuted }}>(</span>
-              <span style={{ color: mkt.onDarkMuted }}>Case studies</span>
-              <span style={{ opacity: 0.3, color: mkt.onDarkMuted }}>)</span>
+              <span style={{ opacity: 0.4 }}>(</span>
+              <span>Case studies</span>
+              <span style={{ opacity: 0.4 }}>)</span>
             </div>
             <h2 style={{
-              fontSize: "clamp(28px, 4.2vw, 48px)", fontWeight: 700,
-              color: mkt.onDark, margin: "0 0 28px",
-              lineHeight: 1.1, letterSpacing: "-0.02em",
+              fontSize: "clamp(32px, 4.6vw, 56px)", fontWeight: 700,
+              color: CS_LIGHT.ink, margin: "0 0 40px",
+              lineHeight: 1.05, letterSpacing: "-0.025em",
               fontFamily: SANS,
             }}>
               You are in great company
@@ -748,7 +778,7 @@ export default function CaseStudiesPage() {
         </section>
 
         {/* ── Disclosure ─────────────────────────────────── */}
-        <section style={{ padding: "8px 16px 0", background: mkt.bg }}>
+        <section style={{ padding: "16px 16px 0", background: mkt.bg }}>
           <div style={{ maxWidth: 760, margin: "0 auto", textAlign: "center" }}>
             <p style={{ fontSize: 12, color: mkt.textFaint, lineHeight: 1.6, margin: 0 }}>
               Scenarios above describe pilot customer outcomes. Specific revenue, conversion, and volume

@@ -179,9 +179,114 @@ function BlogCard({ post, onOpen, size = "grid" }: {
   const [hover, setHover] = useState(false);
   const Icon = post.icon;
   const isFeatured = size === "featured";
-  const thumbHeight = isFeatured ? 280 : 190;
-  const iconSize = isFeatured ? 96 : 70;
 
+  /* Featured = Effortel-style split: a large image card on the left
+     and a smaller text card on the right, both rounded with a gap
+     between them. */
+  if (isFeatured) {
+    const thumbHeight = "clamp(280px, 32vw, 380px)";
+    const iconSize = 110;
+    return (
+      <div
+        onClick={onOpen}
+        onMouseEnter={() => setHover(true)}
+        onMouseLeave={() => setHover(false)}
+        style={{
+          display: "grid",
+          gridTemplateColumns: "minmax(0, 1.8fr) minmax(0, 1fr)",
+          gap: 14,
+          cursor: "pointer",
+          height: "100%",
+        }}
+        className="blog-feat"
+      >
+        {/* LEFT — large image card */}
+        <div style={{
+          position: "relative",
+          background: post.vivid.bg,
+          borderRadius: 22,
+          overflow: "hidden",
+          height: thumbHeight,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          transition: "transform 360ms cubic-bezier(0.22,1,0.36,1)",
+          transform: hover ? "translateY(-3px)" : "translateY(0)",
+        }}>
+          <ConcentricRings ink={post.vivid.ink} />
+          <div style={{
+            position: "relative",
+            color: post.vivid.ink,
+            opacity: 0.85,
+            transform: hover ? "scale(1.06)" : "scale(1)",
+            transition: "transform 360ms cubic-bezier(0.22,1,0.36,1)",
+          }}>
+            <Icon size={iconSize} strokeWidth={1.6} />
+          </div>
+        </div>
+
+        {/* RIGHT — smaller text card */}
+        <div style={{
+          position: "relative",
+          background: mkt.sectionLight,
+          border: `1px solid ${hover ? "rgba(102,232,250,0.30)" : mkt.onDarkBorder}`,
+          borderRadius: 22,
+          padding: "22px 22px 22px",
+          display: "flex", flexDirection: "column",
+          height: thumbHeight,
+          transition: "transform 360ms cubic-bezier(0.22,1,0.36,1), border-color 360ms ease",
+          transform: hover ? "translateY(-3px)" : "translateY(0)",
+        }}>
+          {/* Tag row */}
+          <div style={{ display: "inline-flex", gap: 6, marginBottom: 14 }}>
+            <span style={{
+              fontSize: 10, fontWeight: 700,
+              padding: "5px 10px", borderRadius: 999,
+              background: "rgba(255,255,255,0.06)", color: mkt.onDark,
+              fontFamily: MONO, letterSpacing: "0.08em", textTransform: "uppercase",
+              border: `1px solid ${mkt.onDarkBorder}`,
+            }}>{post.category}</span>
+            <span style={{
+              fontSize: 10, fontWeight: 700,
+              padding: "5px 8px", borderRadius: 999,
+              background: "rgba(255,255,255,0.04)", color: mkt.onDarkMuted,
+              fontFamily: MONO,
+              border: `1px solid ${mkt.onDarkBorder}`,
+            }}>+2</span>
+          </div>
+
+          <h3 style={{
+            fontSize: "clamp(18px, 1.7vw, 22px)",
+            fontWeight: 700, color: mkt.onDark, margin: 0,
+            lineHeight: 1.25, letterSpacing: "-0.01em",
+            fontFamily: SANS,
+            display: "-webkit-box",
+            WebkitLineClamp: 4,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
+          }}>{post.title}</h3>
+
+          <div style={{
+            marginTop: "auto", paddingTop: 12,
+            fontFamily: MONO, fontSize: 11, color: mkt.onDarkMuted,
+            letterSpacing: "0.04em",
+            display: "flex", flexDirection: "column", gap: 2,
+          }}>
+            <span style={{ opacity: 0.6 }}>{post.readMin} min</span>
+            <span>{post.date}</span>
+          </div>
+        </div>
+
+        <style>{`
+          @media (max-width: 760px) {
+            .blog-feat { grid-template-columns: 1fr !important; }
+          }
+        `}</style>
+      </div>
+    );
+  }
+
+  /* Grid (default) — single stacked card with thumbnail on top */
+  const thumbHeight = 190;
+  const iconSize = 70;
   return (
     <article
       onClick={onOpen}
@@ -199,7 +304,6 @@ function BlogCard({ post, onOpen, size = "grid" }: {
         transition: "transform 320ms cubic-bezier(0.22,1,0.36,1), box-shadow 320ms cubic-bezier(0.22,1,0.36,1), border-color 320ms ease",
       }}
     >
-      {/* Thumbnail — full width, illustration centered */}
       <div style={{
         background: post.vivid.bg, height: thumbHeight,
         position: "relative",
@@ -216,7 +320,6 @@ function BlogCard({ post, onOpen, size = "grid" }: {
         }}>
           <Icon size={iconSize} strokeWidth={1.6} />
         </div>
-        {/* subtle dark overlay on hover */}
         <div style={{
           position: "absolute", inset: 0,
           background: "rgba(0,0,0,0.18)",
@@ -225,13 +328,11 @@ function BlogCard({ post, onOpen, size = "grid" }: {
         }} />
       </div>
 
-      {/* Content */}
       <div style={{
-        padding: isFeatured ? "22px 26px 26px" : "18px 20px 22px",
+        padding: "18px 20px 22px",
         display: "flex", flexDirection: "column",
         gap: 14, flex: 1,
       }}>
-        {/* Tag row: primary tag + counter chip */}
         <div style={{ display: "inline-flex", gap: 6 }}>
           <span style={{
             fontSize: 10, fontWeight: 700,
@@ -249,9 +350,8 @@ function BlogCard({ post, onOpen, size = "grid" }: {
           }}>+2</span>
         </div>
 
-        {/* Heading — clamped 4 lines */}
         <h3 style={{
-          fontSize: isFeatured ? "clamp(20px, 2.2vw, 26px)" : 16,
+          fontSize: 16,
           fontWeight: 700, color: mkt.onDark, margin: 0,
           lineHeight: 1.25, letterSpacing: "-0.01em",
           fontFamily: SANS,
@@ -261,7 +361,6 @@ function BlogCard({ post, onOpen, size = "grid" }: {
           overflow: "hidden",
         }}>{post.title}</h3>
 
-        {/* Meta — read time (small, muted) + date */}
         <div style={{
           marginTop: "auto", paddingTop: 10,
           fontFamily: MONO, fontSize: 11, color: mkt.onDarkMuted,
@@ -344,10 +443,11 @@ function FeaturedSwiper({ posts, onOpen }: {
           ))}
         </div>
 
-        {/* Arrow nav */}
+        {/* Arrow nav — left-aligned, matching Effortel */}
         <div style={{
-          display: "flex", justifyContent: "center",
+          display: "flex", justifyContent: "flex-start",
           marginTop: 18,
+          paddingLeft: 24,
         }}>
           <div className="blog-arrow-group">
             <button
@@ -374,32 +474,34 @@ function FeaturedSwiper({ posts, onOpen }: {
         .hide-scrollbar::-webkit-scrollbar { display: none; }
 
         /* Effortel-style arrow capsule — single dark glassy strip with
-           a hairline divider between the two buttons. */
+           a hairline divider. The disabled side is washed out (lighter,
+           almost transparent grey); the enabled side has a darker, more
+           solid fill so it visibly invites a click. When both sides are
+           reachable mid-list, both fill in the same way. */
         .blog-arrow-group {
           display: inline-flex; align-items: center;
           padding: 4px;
           gap: 2px;
-          background: rgba(20, 24, 27, 0.55);
+          background: rgba(34, 40, 42, 0.55);
           border: 1px solid rgba(255, 255, 255, 0.06);
           border-radius: 14px;
           backdrop-filter: blur(8px);
           -webkit-backdrop-filter: blur(8px);
         }
         .blog-arrow {
-          width: 36px; height: 30px; border-radius: 10px;
+          width: 38px; height: 32px; border-radius: 10px;
           border: none;
-          background: rgba(255, 255, 255, 0.06);
+          background: rgba(8, 10, 12, 0.55);
           color: ${mkt.onDark};
           display: flex; align-items: center; justify-content: center;
           cursor: pointer;
-          box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 1px 2px rgba(0,0,0,0.25);
           transition: background 200ms ease, color 200ms ease, opacity 200ms ease;
         }
-        .blog-arrow:hover { background: rgba(255, 255, 255, 0.10); }
+        .blog-arrow:hover { background: rgba(8, 10, 12, 0.75); }
         .blog-arrow.blog-arrow--disabled {
-          background: transparent;
-          box-shadow: none;
-          opacity: 0.35; cursor: default; color: ${mkt.onDarkMuted};
+          background: rgba(255, 255, 255, 0.04);
+          opacity: 1; cursor: default;
+          color: rgba(255, 255, 255, 0.40);
         }
         .blog-arrow-divider {
           width: 1px; align-self: stretch; margin: 4px 0;
@@ -412,6 +514,18 @@ function FeaturedSwiper({ posts, onOpen }: {
 
 /* ─── FilterBar — clickable category pills + (clear) ─── */
 
+/* ─── Bright light-grey theme used by the "Stay Ahead" section ─── */
+const LIGHT = {
+  bg:        "#C2D0D6",        // Effortel reference's bright cool grey
+  ink:       "#0F1418",        // near-black for headings
+  inkMuted:  "rgba(15,20,24,0.62)",
+  inkFaint:  "rgba(15,20,24,0.42)",
+  pillBorder:"rgba(15,20,24,0.22)",
+  pillBg:    "rgba(15,20,24,0.04)",
+  pillHover: "rgba(15,20,24,0.08)",
+  searchBg:  "rgba(15,20,24,0.08)",
+};
+
 function FilterBar({ categories, active, onToggle, onClear }: {
   categories: string[];
   active: Set<string>;
@@ -422,25 +536,30 @@ function FilterBar({ categories, active, onToggle, onClear }: {
     <div style={{
       display: "flex", flexWrap: "wrap",
       alignItems: "center", gap: 10,
-      marginBottom: 24,
+      marginBottom: 32,
     }}>
       <span style={{
         fontSize: 11, fontWeight: 700, fontFamily: MONO,
-        color: mkt.onDarkMuted, textTransform: "uppercase",
-        letterSpacing: "0.08em", marginRight: 4,
-      }}>Filter</span>
-      <button
-        onClick={onClear}
-        disabled={active.size === 0}
-        style={{
-          fontSize: 11, fontFamily: MONO,
-          color: active.size === 0 ? "rgba(255,255,255,0.25)" : mkt.accent,
-          background: "transparent", border: "none",
-          cursor: active.size === 0 ? "default" : "pointer",
-          padding: 0, marginRight: 8,
-          textTransform: "lowercase",
-        }}
-      >(clear)</button>
+        color: LIGHT.inkMuted, textTransform: "uppercase",
+        letterSpacing: "0.10em", marginRight: 8,
+        width: "100%",
+      }}>
+        Filter
+        <button
+          onClick={onClear}
+          disabled={active.size === 0}
+          style={{
+            marginLeft: 8,
+            fontSize: 11, fontFamily: MONO, fontWeight: 500,
+            color: active.size === 0 ? LIGHT.inkFaint : LIGHT.ink,
+            background: "transparent", border: "none",
+            cursor: active.size === 0 ? "default" : "pointer",
+            padding: 0,
+            textTransform: "lowercase",
+            letterSpacing: "0.04em",
+          }}
+        >(clear)</button>
+      </span>
 
       {categories.map((cat) => {
         const isActive = active.has(cat);
@@ -449,14 +568,21 @@ function FilterBar({ categories, active, onToggle, onClear }: {
             key={cat}
             onClick={() => onToggle(cat)}
             style={{
-              fontSize: 12, fontWeight: 600,
-              fontFamily: SANS, lineHeight: 1,
-              padding: "8px 14px", borderRadius: 999,
-              border: `1px solid ${isActive ? mkt.onDark : mkt.onDarkBorder}`,
-              background: isActive ? mkt.onDark : "transparent",
-              color: isActive ? mkt.dark : mkt.onDarkMuted,
+              fontSize: 10.5, fontWeight: 600,
+              fontFamily: MONO, lineHeight: 1,
+              letterSpacing: "0.10em", textTransform: "uppercase",
+              padding: "9px 14px", borderRadius: 999,
+              border: `1px solid ${LIGHT.pillBorder}`,
+              background: isActive ? LIGHT.ink : LIGHT.pillBg,
+              color: isActive ? "#fff" : LIGHT.ink,
               cursor: "pointer",
               transition: "background 180ms ease, color 180ms ease, border-color 180ms ease",
+            }}
+            onMouseEnter={(e) => {
+              if (!isActive) (e.currentTarget as HTMLElement).style.background = LIGHT.pillHover;
+            }}
+            onMouseLeave={(e) => {
+              if (!isActive) (e.currentTarget as HTMLElement).style.background = LIGHT.pillBg;
             }}
           >
             {cat}
@@ -469,9 +595,9 @@ function FilterBar({ categories, active, onToggle, onClear }: {
         style={{
           marginLeft: "auto",
           width: 36, height: 36, borderRadius: 999,
-          border: `1px solid ${mkt.onDarkBorder}`,
-          background: "rgba(255,255,255,0.04)",
-          color: mkt.onDarkMuted,
+          border: `1px solid ${LIGHT.pillBorder}`,
+          background: LIGHT.searchBg,
+          color: LIGHT.ink,
           display: "inline-flex", alignItems: "center", justifyContent: "center",
           cursor: "pointer",
         }}
@@ -570,32 +696,39 @@ export default function BlogPage() {
             {/* ─ Hero: tabs + headline ─ */}
             <section style={{
               background: mkt.bg,
-              padding: "56px 24px 16px",
-              textAlign: "center",
+              padding: "56px 24px 24px",
             }}>
-              <div style={{ marginBottom: 28 }}>
-                <ResourceTabStrip active="/blog" />
+              <div style={{ maxWidth: 1400, margin: "0 auto" }}>
+                <div style={{ marginBottom: 28 }}>
+                  <ResourceTabStrip active="/blog" />
+                </div>
+                <h1 style={{
+                  fontSize: "clamp(34px, 5.4vw, 64px)", fontWeight: 700,
+                  color: mkt.onDark, margin: 0, maxWidth: 900,
+                  lineHeight: 1.05, letterSpacing: "-0.025em",
+                  fontFamily: SANS,
+                }}>
+                  Insights &amp; Trends — The Future of Trades
+                </h1>
               </div>
-              <h1 style={{
-                fontSize: "clamp(34px, 5.4vw, 64px)", fontWeight: 700,
-                color: mkt.onDark, margin: "0 auto", maxWidth: 900,
-                lineHeight: 1.05, letterSpacing: "-0.025em",
-                fontFamily: SANS,
-              }}>
-                Insights &amp; Trends — The Future of Trades
-              </h1>
             </section>
 
             {/* ─ Featured swiper ─ */}
             <FeaturedSwiper posts={BLOG_POSTS} onOpen={setOpenArticle} />
 
-            {/* ─ Stay-Ahead section: filter bar + archive grid ─ */}
-            <section style={{ background: mkt.bg, padding: "56px 24px 80px" }}>
+            {/* ─ Stay-Ahead section — Effortel-style bright grey panel
+                  with rounded top corners, filter bar + archive grid ─ */}
+            <section style={{
+              background: LIGHT.bg,
+              padding: "72px 24px 80px",
+              borderRadius: "32px 32px 0 0",
+              marginTop: 24,
+            }}>
               <div style={{ maxWidth: 1400, margin: "0 auto" }}>
                 <h2 style={{
-                  fontSize: "clamp(28px, 4.2vw, 48px)", fontWeight: 700,
-                  color: mkt.onDark, margin: "0 0 32px",
-                  lineHeight: 1.1, letterSpacing: "-0.02em",
+                  fontSize: "clamp(32px, 4.6vw, 56px)", fontWeight: 700,
+                  color: LIGHT.ink, margin: "0 0 40px",
+                  lineHeight: 1.05, letterSpacing: "-0.025em",
                   fontFamily: SANS,
                 }}>
                   Stay Ahead of the Competition with WeFixTrades
@@ -609,7 +742,7 @@ export default function BlogPage() {
                 />
 
                 {filtered.length === 0 ? (
-                  <p style={{ color: mkt.onDarkMuted, fontSize: 14, padding: "40px 0" }}>
+                  <p style={{ color: LIGHT.inkMuted, fontSize: 14, padding: "40px 0" }}>
                     No posts match the selected filters.
                   </p>
                 ) : (
