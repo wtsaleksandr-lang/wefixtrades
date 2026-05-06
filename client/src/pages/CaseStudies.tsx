@@ -592,13 +592,33 @@ const CS_LIGHT = {
   ink:       "#0F1418",
   inkMuted:  "rgba(15,20,24,0.62)",
   inkFaint:  "rgba(15,20,24,0.42)",
+  pillBg:    "rgba(15,20,24,0.04)",
+  pillBorder:"rgba(15,20,24,0.18)",
 };
 
-/* Premium two-panel study card on the bright grey:
-     - Top:  vivid colour panel with the trade illustration
-     - Body: white card with business name + city + person + trade
-     - Foot: subtle before→after metric line
-   No dotted-grid background, rounded corners on every part. */
+/* Effortel-shaped case-study card.
+
+   Mirrors the exact .blog__wrapper / .blog__thumb / .blog-content
+   structure from effortel.com (extracted from their saved CSS):
+
+     .blog__wrapper {
+       border: 1px solid var(--color--background);   ← invisible at rest
+       border-radius: 1em;
+       padding: 0.19em;                              ← thin frame around thumb
+       transition: border .2s;
+       flex-flow: column; display: flex; position: relative;
+     }
+     .blog__wrapper:hover { border-color: var(--color--index); } // accent
+     .blog__thumb.is-event {
+       border-radius: 0.75em;
+       width: 100%; padding-top: 66%;                ← 3:2 aspect ratio
+     }
+     .blog-content { padding: 24px; gap: 1.5em; flex-flow: column; }
+     .blog__heading { font-size: h4 (~24-28); font-weight: 700;
+                      color: var(--color--text); letter-spacing: tight; }
+     .tag { border: 1px solid var(--color--background-secondary);
+            border-radius: ~5px; background: secondary; padding: .25em .35em; }
+     .subtitle.is-tag { font-family: monospaced; letter-spacing: -.04em; } */
 function StudyCard({ study }: { study: Study }) {
   const [hover, setHover] = useState(false);
   const TradeIcon = TRADE_ICON[study.trade] ?? Wrench;
@@ -612,93 +632,104 @@ function StudyCard({ study }: { study: Study }) {
       style={{
         position: "relative",
         background: CS_LIGHT.cardBg,
-        border: `1px solid ${CS_LIGHT.cardBorder}`,
-        borderRadius: 20,
-        overflow: "hidden",
+        // Invisible-at-rest border that pops to accent on hover
+        // (effortel pattern: border matches bg until interaction).
+        border: `1px solid ${hover ? CS_LIGHT.ink : CS_LIGHT.cardBg}`,
+        borderRadius: 18,
+        padding: 4,                          // ← .19em frame
         display: "flex", flexDirection: "column",
         cursor: "pointer",
-        transition: "transform 360ms cubic-bezier(0.22,1,0.36,1), box-shadow 360ms ease",
-        transform: hover ? "translateY(-4px)" : "translateY(0)",
-        boxShadow: hover
-          ? "0 22px 44px rgba(15,20,24,0.18)"
-          : "0 2px 6px rgba(15,20,24,0.04)",
+        transition: "border-color 220ms ease, transform 320ms cubic-bezier(0.22,1,0.36,1)",
+        transform: hover ? "translateY(-3px)" : "translateY(0)",
       }}
     >
-      {/* Top — vivid illustration panel */}
+      {/* Thumbnail — 3:2 aspect-ratio coloured panel that nests inside
+          the frame with a slightly smaller radius so the parent's
+          padding reads as a deliberate frame. */}
       <div style={{
         position: "relative",
-        background: tradeColor,
-        height: 200,
-        display: "flex", alignItems: "center", justifyContent: "center",
+        width: "100%",
+        aspectRatio: "3 / 2",
+        borderRadius: 14,
         overflow: "hidden",
+        background: tradeColor,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        flexShrink: 0,
       }}>
         <div style={{
           color: "#0E1116", opacity: 0.85,
           transform: hover ? "scale(1.06)" : "scale(1)",
-          transition: "transform 360ms cubic-bezier(0.22,1,0.36,1)",
+          transition: "transform 380ms cubic-bezier(0.22,1,0.36,1)",
         }}>
           <TradeIcon size={64} strokeWidth={1.5} />
         </div>
       </div>
 
-      {/* Body — clean white text panel */}
+      {/* Content — padded 24, large gap so heading and meta breathe */}
       <div style={{
-        padding: "18px 20px 16px",
-        display: "flex", flexDirection: "column", gap: 8,
-        flex: 1,
+        padding: "20px 18px 16px",
+        display: "flex", flexDirection: "column",
+        gap: 14, flex: 1,
       }}>
+        {/* Tag row — primary trade tag + secondary counter */}
+        <div style={{ display: "inline-flex", gap: 6 }}>
+          <span style={{
+            display: "inline-flex", alignItems: "center",
+            fontFamily: MONO, fontSize: 10, fontWeight: 600,
+            letterSpacing: "-0.02em", textTransform: "uppercase",
+            color: CS_LIGHT.ink,
+            background: CS_LIGHT.pillBg,
+            border: `1px solid ${CS_LIGHT.pillBorder}`,
+            padding: "4px 8px", borderRadius: 6,
+          }}>{study.trade}</span>
+          <span style={{
+            display: "inline-flex", alignItems: "center", gap: 1,
+            fontFamily: MONO, fontSize: 10, fontWeight: 600,
+            letterSpacing: "-0.02em",
+            color: CS_LIGHT.inkMuted,
+            background: "transparent",
+            border: `1px solid ${CS_LIGHT.pillBorder}`,
+            padding: "4px 6px", borderRadius: 6,
+          }}>+1</span>
+        </div>
+
+        {/* Heading — h4 style, bold, dark, 4-line clamp */}
         <h3 style={{
           margin: 0,
-          fontSize: 17, fontWeight: 700,
-          color: CS_LIGHT.ink, letterSpacing: "-0.01em",
-          fontFamily: SANS, lineHeight: 1.25,
+          fontSize: "clamp(18px, 1.6vw, 22px)",
+          fontWeight: 700, color: CS_LIGHT.ink,
+          fontFamily: SANS, lineHeight: 1.15,
+          letterSpacing: "-0.02em",
+          display: "-webkit-box",
+          WebkitLineClamp: 3,
+          WebkitBoxOrient: "vertical",
+          overflow: "hidden",
         }}>
           {study.business}
         </h3>
-        <div style={{
-          fontFamily: MONO, fontSize: 10.5, fontWeight: 600,
-          color: CS_LIGHT.inkMuted, letterSpacing: "0.08em",
-          textTransform: "uppercase",
-          display: "flex", flexWrap: "wrap", gap: 6,
-        }}>
-          <span>{study.person}</span>
-          <span style={{ opacity: 0.4 }}>·</span>
-          <span>{study.city}</span>
-        </div>
-        <div style={{
-          fontFamily: MONO, fontSize: 10, fontWeight: 600,
-          color: CS_LIGHT.inkFaint, letterSpacing: "0.08em",
-          textTransform: "uppercase",
-        }}>
-          {study.trade} · {study.product}
-        </div>
 
-        {/* Footer — single before→after line */}
+        {/* Meta — pushed to the bottom (margin-top:auto = .margin__top-auto) */}
         <div style={{
-          marginTop: "auto", paddingTop: 12,
-          borderTop: `1px solid ${CS_LIGHT.cardBorder}`,
-          display: "flex", alignItems: "baseline", justifyContent: "space-between",
-          gap: 10,
+          marginTop: "auto",
+          display: "flex", flexDirection: "column", gap: 4,
         }}>
-          <span style={{
+          <div style={{
+            fontFamily: MONO, fontSize: 10.5, fontWeight: 600,
+            color: CS_LIGHT.inkMuted,
+            letterSpacing: "0.08em", textTransform: "uppercase",
+            display: "flex", flexWrap: "wrap", gap: 6,
+          }}>
+            <span>{study.person}</span>
+            <span style={{ opacity: 0.4 }}>·</span>
+            <span>{study.city}</span>
+          </div>
+          <div style={{
             fontFamily: MONO, fontSize: 10, fontWeight: 600,
-            color: CS_LIGHT.inkFaint, letterSpacing: "0.08em",
-            textTransform: "uppercase",
-            whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-            maxWidth: "55%",
+            color: CS_LIGHT.inkFaint,
+            letterSpacing: "0.08em", textTransform: "uppercase",
           }}>
-            {headlineOutcome.label}
-          </span>
-          <span style={{
-            fontFamily: MONO, fontSize: 12, fontWeight: 700,
-            color: CS_LIGHT.ink, whiteSpace: "nowrap",
-          }}>
-            {headlineOutcome.before}
-            <span style={{ color: CS_LIGHT.inkFaint, margin: "0 6px" }}>→</span>
-            <span style={{ color: tradeColor, filter: "saturate(1.1) brightness(0.85)" }}>
-              {headlineOutcome.after}
-            </span>
-          </span>
+            {study.product} · {headlineOutcome.before} → <span style={{ color: CS_LIGHT.ink, fontWeight: 700 }}>{headlineOutcome.after}</span>
+          </div>
         </div>
       </div>
     </article>

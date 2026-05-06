@@ -284,31 +284,37 @@ function BlogCard({ post, onOpen, size = "grid" }: {
     );
   }
 
-  /* Grid (default) — single stacked card with thumbnail on top */
-  const thumbHeight = 190;
-  const iconSize = 70;
+  /* Grid card — Effortel .blog__wrapper pattern: invisible-at-rest
+     border that pops to dark on hover, 4px frame around the
+     thumbnail (3:2 aspect-ratio coloured panel with the illustration),
+     content below with mono tag chips + bold dark heading + meta
+     pinned to bottom. Same shape as StudyCard so the two pages share
+     a card family. */
   return (
     <article
       onClick={onOpen}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       style={{
-        background: mkt.sectionLight,
-        border: `1px solid ${hover ? "rgba(102,232,250,0.45)" : mkt.onDarkBorder}`,
+        background: LIGHT.cardBg,
+        border: `1px solid ${hover ? LIGHT.ink : LIGHT.cardBg}`,
         borderRadius: 18, overflow: "hidden",
+        padding: 4,
         cursor: "pointer", position: "relative",
         display: "flex", flexDirection: "column",
-        height: "100%",
         transform: hover ? "translateY(-3px)" : "translateY(0)",
-        boxShadow: hover ? "0 18px 40px rgba(0,0,0,0.35)" : "0 0 0 rgba(0,0,0,0)",
-        transition: "transform 320ms cubic-bezier(0.22,1,0.36,1), box-shadow 320ms cubic-bezier(0.22,1,0.36,1), border-color 320ms ease",
+        transition: "border-color 220ms ease, transform 320ms cubic-bezier(0.22,1,0.36,1)",
       }}
     >
       <div style={{
-        background: post.vivid.bg, height: thumbHeight,
         position: "relative",
+        width: "100%",
+        aspectRatio: "3 / 2",
+        borderRadius: 14,
+        overflow: "hidden",
+        background: post.vivid.bg,
         display: "flex", alignItems: "center", justifyContent: "center",
-        overflow: "hidden", flexShrink: 0,
+        flexShrink: 0,
       }}>
         <ConcentricRings ink={post.vivid.ink} />
         <div style={{
@@ -316,44 +322,42 @@ function BlogCard({ post, onOpen, size = "grid" }: {
           color: post.vivid.ink,
           opacity: 0.85,
           transform: hover ? "scale(1.06)" : "scale(1)",
-          transition: "transform 360ms cubic-bezier(0.22,1,0.36,1)",
+          transition: "transform 380ms cubic-bezier(0.22,1,0.36,1)",
         }}>
-          <Icon size={iconSize} strokeWidth={1.6} />
+          <Icon size={70} strokeWidth={1.6} />
         </div>
-        <div style={{
-          position: "absolute", inset: 0,
-          background: "rgba(0,0,0,0.18)",
-          opacity: hover ? 1 : 0,
-          transition: "opacity 280ms ease",
-        }} />
       </div>
 
       <div style={{
-        padding: "18px 20px 22px",
+        padding: "20px 18px 16px",
         display: "flex", flexDirection: "column",
         gap: 14, flex: 1,
       }}>
         <div style={{ display: "inline-flex", gap: 6 }}>
           <span style={{
-            fontSize: 10, fontWeight: 700,
-            padding: "5px 10px", borderRadius: 999,
-            background: "rgba(255,255,255,0.06)", color: mkt.onDark,
-            fontFamily: MONO, letterSpacing: "0.08em", textTransform: "uppercase",
-            border: `1px solid ${mkt.onDarkBorder}`,
+            display: "inline-flex", alignItems: "center",
+            fontFamily: MONO, fontSize: 10, fontWeight: 600,
+            letterSpacing: "-0.02em", textTransform: "uppercase",
+            color: LIGHT.ink,
+            background: LIGHT.pillBg,
+            border: `1px solid ${LIGHT.pillBorder}`,
+            padding: "4px 8px", borderRadius: 6,
           }}>{post.category}</span>
           <span style={{
-            fontSize: 10, fontWeight: 700,
-            padding: "5px 8px", borderRadius: 999,
-            background: "rgba(255,255,255,0.04)", color: mkt.onDarkMuted,
-            fontFamily: MONO,
-            border: `1px solid ${mkt.onDarkBorder}`,
+            display: "inline-flex", alignItems: "center",
+            fontFamily: MONO, fontSize: 10, fontWeight: 600,
+            letterSpacing: "-0.02em",
+            color: LIGHT.inkMuted,
+            background: "transparent",
+            border: `1px solid ${LIGHT.pillBorder}`,
+            padding: "4px 6px", borderRadius: 6,
           }}>+2</span>
         </div>
 
         <h3 style={{
-          fontSize: 16,
-          fontWeight: 700, color: mkt.onDark, margin: 0,
-          lineHeight: 1.25, letterSpacing: "-0.01em",
+          fontSize: "clamp(18px, 1.6vw, 22px)",
+          fontWeight: 700, color: LIGHT.ink, margin: 0,
+          lineHeight: 1.15, letterSpacing: "-0.02em",
           fontFamily: SANS,
           display: "-webkit-box",
           WebkitLineClamp: 4,
@@ -362,8 +366,8 @@ function BlogCard({ post, onOpen, size = "grid" }: {
         }}>{post.title}</h3>
 
         <div style={{
-          marginTop: "auto", paddingTop: 10,
-          fontFamily: MONO, fontSize: 11, color: mkt.onDarkMuted,
+          marginTop: "auto",
+          fontFamily: MONO, fontSize: 11, color: LIGHT.inkMuted,
           letterSpacing: "0.04em",
           display: "flex", flexDirection: "column", gap: 2,
         }}>
@@ -517,10 +521,11 @@ function FeaturedSwiper({ posts, onOpen }: {
 /* ─── Bright light-grey theme used by the "Stay Ahead" section ─── */
 const LIGHT = {
   bg:        "#C2D0D6",        // Effortel reference's bright cool grey
+  cardBg:    "#FFFFFF",
   ink:       "#0F1418",        // near-black for headings
   inkMuted:  "rgba(15,20,24,0.62)",
   inkFaint:  "rgba(15,20,24,0.42)",
-  pillBorder:"rgba(15,20,24,0.22)",
+  pillBorder:"rgba(15,20,24,0.18)",
   pillBg:    "rgba(15,20,24,0.04)",
   pillHover: "rgba(15,20,24,0.08)",
   searchBg:  "rgba(15,20,24,0.08)",
