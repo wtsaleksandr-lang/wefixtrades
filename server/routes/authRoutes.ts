@@ -11,7 +11,8 @@ import { getMemory, linkSessionToUser, extractMemorySignals } from "../services/
 import { storage } from "../storage";
 import { generateSecret, verifyCode as verifyTotpCode } from "../services/totpService";
 import { createLogger } from "../lib/logger";
-import { verifyLoginToken, getCheckoutLoginToken } from "../lib/loginToken";
+import { verifyLoginToken, getCheckoutLoginToken, buildLoginToken, MAGIC_LINK_TTL } from "../lib/loginToken";
+import { sendLoginLinkEmail } from "../lib/loginLinkEmail";
 
 const log = createLogger("Auth");
 
@@ -287,6 +288,64 @@ export function registerAuthRoutes(app: Express) {
       if (err) return next(err);
       res.json({ ok: true });
     });
+  });
+
+  /**
+   * POST /api/auth/request-link
+   * Magic-link sign-in. Generates a 15-minute HMAC-signed login
+   * token, emails it, and always returns 200 — never reveals
+   * whether the email exists (prevents enumeration). The recipient
+   * clicks the link, the front-end posts the token to
+   * /api/auth/token-login, and Passport logs them in.
+   *
+   * Rate-limited the same way as /api/auth/forgot-password to
+   * prevent abuse / inbox spam.
+   */
+  app.post("/api/auth/request-link", async (req, res) => {
+    try {
+      const ip = getClientIp(req);
+      if (!(await authRateLimiter.check(`magic:${ip}`))) {
+        return res.status(429).json({ error: "Too many sign-in attempts. Please wait 15 minutes." });
+      }
+
+      const { email } = req.body;
+      if (!email || typeof email !== "string") {
+        return res.status(400).json({ error: "Email is required" });
+      }
+      const normalised = email.trim().toLowerCase();
+
+      const [user] = await db.select().from(users).where(eq(users.email, normalised)).limit(1);
+
+      /* User exists → mint a token + send. User does NOT exist →
+       * still return 200, never indicate whether the address is on
+       * file. We log the miss so ops can spot abuse patterns. */
+      if (user) {
+        const token = buildLoginToken(user.id, MAGIC_LINK_TTL);
+        const baseUrl = process.env.APP_URL || `${req.protocol}://${req.get("host")}`;
+        const signInUrl = `${baseUrl}/login?token=${encodeURIComponent(token)}`;
+
+        const sent = await sendLoginLinkEmail({
+          to: normalised,
+          signInUrl,
+          recipientName: user.name ?? null,
+        });
+        if (!sent) {
+          /* Email delivery failed for a real user — surface in logs
+           * so you can chase deliverability without leaking to the
+           * caller. */
+          log.warn("magic link generated but email send failed", { userId: user.id });
+        }
+      } else {
+        log.info("magic link requested for unknown email", { email: normalised });
+      }
+
+      res.json({ ok: true });
+    } catch (err) {
+      log.error("Request-link error", { error: String(err) });
+      /* Even on internal errors we 200 to preserve the no-
+       * enumeration property — error is logged for ops. */
+      res.json({ ok: true });
+    }
   });
 
   /**

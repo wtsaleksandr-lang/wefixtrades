@@ -30,13 +30,23 @@ function hmac(payload: string): Buffer {
   return createHmac("sha256", getSecret()).update(`${payload}:login_token`).digest();
 }
 
-/** Build a one-time login token for a user. */
-export function buildLoginToken(userId: number): string {
-  const expiresAt = Math.floor(Date.now() / 1000) + LOGIN_TOKEN_TTL;
+/**
+ * Build a one-time login token for a user.
+ *
+ * @param userId  User to log in.
+ * @param ttlSeconds  Lifetime of the token in seconds. Defaults to
+ *                    LOGIN_TOKEN_TTL (24h). Magic-link sign-in flows
+ *                    use a much shorter window (15min).
+ */
+export function buildLoginToken(userId: number, ttlSeconds: number = LOGIN_TOKEN_TTL): string {
+  const expiresAt = Math.floor(Date.now() / 1000) + ttlSeconds;
   const nonce = randomBytes(8).toString("hex");
   const payload = `${userId}:${expiresAt}:${nonce}`;
   return `${b64url(payload)}.${b64url(hmac(payload))}`;
 }
+
+/** TTL for magic-link sign-in emails — kept short by design. */
+export const MAGIC_LINK_TTL = 15 * 60; // 15 minutes
 
 /** Verify a login token. Returns the user ID or null. */
 export function verifyLoginToken(token: string): { userId: number; expiresAt: number } | null {
