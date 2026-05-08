@@ -18,3 +18,5 @@ export * from "./salesLeads";
 export * from "./rankflow";
 export * from "./contentflow";
 export * from "./emailUnsubscribes";
+export * from "./notificationPreferences";
+export * from "./mapguardConfig";

@@ -1,6 +1,6 @@
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, ArrowRight, Calculator, Eye, Users, ExternalLink, RefreshCw } from "lucide-react";
+import { Loader2, ArrowRight, Calculator, Eye, Users, ExternalLink, RefreshCw, Plus, MessageCircle } from "lucide-react";
 import { Link } from "wouter";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { SERVICE_STATUS_LABELS, SERVICE_STATUS_STYLES, ONBOARDING_STATUS_LABELS, statusLabel } from "@/config/portalLabels";
@@ -66,9 +66,30 @@ export default function PortalServices() {
   return (
     <PortalLayout>
       <div className="max-w-5xl mx-auto space-y-6">
-        <div>
-          <h1 className="text-xl font-semibold text-gray-900">Your Services</h1>
-          <p className="text-sm text-gray-500 mt-0.5">All active and past services for your account.</p>
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div className="min-w-0">
+            <h1 className="text-xl font-semibold text-gray-900">Your Services</h1>
+            <p className="text-sm text-gray-500 mt-0.5">All active and past services for your account.</p>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {/* Direct line to support — replaces the dead-end of staring
+                at a read-only list with no obvious next step. */}
+            <Link href="/portal/help">
+              <button className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors min-h-[36px]">
+                <MessageCircle className="w-3.5 h-3.5" />
+                Contact your team
+              </button>
+            </Link>
+            {/* External CTA to /plans — same intake modal we wired in
+                wave 1, so existing customers can self-serve adding a
+                bundle without an admin in the loop. */}
+            <a href="/plans" target="_blank" rel="noreferrer">
+              <button className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-white bg-[#2D6A4F] rounded-lg hover:bg-[#1B4332] transition-colors min-h-[36px]">
+                <Plus className="w-3.5 h-3.5" />
+                Add a service
+              </button>
+            </a>
+          </div>
         </div>
 
         {isLoading && (

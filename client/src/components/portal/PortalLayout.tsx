@@ -13,6 +13,8 @@ import {
   Star,
   FileText,
   Code,
+  Calendar,
+  Receipt,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useState } from "react";
@@ -62,7 +64,15 @@ function buildNavItems(hasRankFlow: boolean): NavItem[] {
     { label: "Review Widget", href: "/portal/reviews/widget", icon: Code, indent: true },
     { label: "Social Media", href: "/portal/socialsync", icon: Share2 },
     { label: "SEO", href: "/portal/rankflow", icon: TrendingUp },
+    /* Articles tab covers both RankFlow articles and any ContentFlow
+       drafts — gated on RankFlow today since ContentFlow isn't yet a
+       sellable service. Update the gate when it ships. */
     { label: "Articles", href: "/portal/articles", icon: FileText, visible: hasRankFlow },
+    /* BookFlow tabs are always visible — every customer has a job
+       calendar and an invoice ledger, even if they're empty. The
+       child pages render their own empty states. */
+    { label: "Today's jobs", href: "/portal/dispatch", icon: Calendar },
+    { label: "Invoices", href: "/portal/invoices", icon: Receipt },
     { label: "Billing", href: "/portal/billing", icon: CreditCard },
     { label: "Help", href: "/portal/help", icon: HelpCircle },
     { label: "Settings", href: "/portal/settings", icon: Settings },
