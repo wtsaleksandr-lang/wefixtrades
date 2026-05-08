@@ -1,325 +1,302 @@
+import { useRef, useState } from "react";
 import { Link } from "wouter";
-import { ArrowRight, Play } from "lucide-react";
+import {
+  ArrowUpRight, MessageSquare, Phone, Calculator, Workflow,
+  Share2, Rocket, Shield,
+} from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
-import { IconBadge } from "@/components/IconBadge";
-import { DEMOS } from "@/site/siteMap";
-import { mkt, shadows } from "@/theme/tokens";
+import { mkt } from "@/theme/tokens";
+import { V7Hero, V7Section, V7Container, V7PageShell, V7FinalCta } from "@/components/marketing/v7";
+import { Reveal, MONO, TILE } from "@/components/effortel-blocks";
 
-const DEMO_CARDS = [
+interface DemoCardData {
+  title: string;
+  desc: string;
+  href: string;
+  icon: typeof MessageSquare;
+  interactive?: boolean;
+  /** Short stat shown bottom-left on hover (e.g. "62%   FEWER MISSED CALLS"). */
+  benefit: string;
+  /** Cursor-follow tag shown on hover. */
+  cursorTag: string;
+}
+
+/**
+ * /demos — demo center, V7-styled.
+ *
+ * Cards point at real working routes only. Three are fully interactive
+ * (/demos/socialsync, rankflow, reputationshield); the rest link to the
+ * relevant /products/<slug> page where the animated TradeLineChatDemo
+ * (and friends) play in the hero.
+ */
+const DEMOS: DemoCardData[] = [
   {
-    slug: "ai-chatline",
-    title: "AI ChatLine",
-    desc: "See how AI ChatLine handles website visitors and SMS leads 24/7 — qualifying, capturing, and notifying in real time.",
-    icon: "message",
-    href: "/demos/ai-chatline",
+    title: "TradeLine — Chat & Voice",
+    desc: "Watch the AI receptionist handle a 2 AM emergency call: pickup, quote, dispatch, confirm.",
+    href: "/products/tradeline",
+    icon: Phone,
+    benefit: "62% fewer missed calls",
+    cursorTag: "See Demo",
   },
   {
-    slug: "ai-callline",
-    title: "AI CallLine",
-    desc: "Experience the AI voice agent answering calls, capturing caller details, and sending you instant summaries.",
-    icon: "phone",
-    href: "/demos/ai-callline",
-  },
-  {
-    slug: "quotequick",
     title: "QuoteQuick Pro",
-    desc: "Try an interactive quote calculator that lets homeowners get instant estimates right on your website.",
-    icon: "calculator",
-    href: "/demos/quotequick",
+    desc: "An interactive calculator that lets homeowners price their job in seconds — right on your site.",
+    href: "/tools/quote-demo",
+    icon: Calculator,
+    interactive: true,
+    benefit: "3× more booked jobs",
+    cursorTag: "Try Live",
   },
   {
-    slug: "tradeline-complete",
-    title: "TradeLine Complete",
-    desc: "See Chat + Voice + DMs working together as a unified lead capture system built for busy trades.",
-    icon: "workflow",
-    href: "/demos/tradeline-complete",
-  },
-  {
-    slug: "socialsync",
-    title: "SocialSync Post Generator",
-    desc: "Enter your trade and location — AI instantly generates 5 ready-to-post social media posts for Facebook, Instagram, and Google Business.",
-    icon: "share",
+    title: "SocialSync — Post Generator",
+    desc: "Enter your trade and city — AI generates 5 ready-to-post social-media posts you can publish today.",
     href: "/demos/socialsync",
+    icon: Share2,
     interactive: true,
+    benefit: "5 posts in 30 seconds",
+    cursorTag: "Try Live",
   },
   {
-    slug: "rankflow",
-    title: "RankFlow SEO Health Check",
-    desc: "Enter your website URL and get an instant SEO score with speed metrics, issue detection, and actionable fix recommendations.",
-    icon: "rocket",
+    title: "RankFlow — SEO Health Check",
+    desc: "Drop your URL, get a Lighthouse-style SEO score with speed metrics + actionable fixes.",
     href: "/demos/rankflow",
+    icon: Rocket,
     interactive: true,
+    benefit: "Free site audit",
+    cursorTag: "Try Live",
   },
   {
-    slug: "reputationshield",
     title: "ReputationShield Preview",
-    desc: "See exactly how automated review requests work — from the SMS your customer receives to the review page and your analytics dashboard.",
-    icon: "shield",
+    desc: "Walk through an automated review request — from the SMS the customer sees to your dashboard.",
     href: "/demos/reputationshield",
+    icon: Shield,
     interactive: true,
+    benefit: "4.9★ avg rating",
+    cursorTag: "Try Live",
+  },
+  {
+    title: "Inbox-everywhere",
+    desc: "See how Phone + SMS + Web Chat + GBP messages all land in one inbox with AI triage.",
+    href: "/products/tradeline",
+    icon: Workflow,
+    benefit: "1 inbox · 4 channels",
+    cursorTag: "See Demo",
   },
 ];
+
+const PALETTE = ["cyanSoft", "lavender", "mint", "pink", "cyan", "white"] as const;
+
+function DemoCard({ d, i }: { d: DemoCardData; i: number }) {
+  const [hover, setHover] = useState(false);
+  const [pos, setPos] = useState({ x: 0, y: 0 });
+  const ref = useRef<HTMLAnchorElement>(null);
+  const tile = TILE[PALETTE[i % PALETTE.length]];
+  const Icon = d.icon;
+
+  const onMove = (e: React.MouseEvent) => {
+    const rect = ref.current?.getBoundingClientRect();
+    if (!rect) return;
+    setPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+  };
+
+  return (
+    <Reveal delay={i * 0.05}>
+      <Link
+        href={d.href}
+        ref={ref as any}
+        onMouseEnter={() => setHover(true)}
+        onMouseLeave={() => setHover(false)}
+        onMouseMove={onMove}
+        style={{
+          display: "block", textDecoration: "none",
+          background: mkt.sectionLight,
+          border: `1px solid ${hover ? "rgba(102,232,250,0.45)" : mkt.onDarkBorder}`,
+          borderRadius: 18, padding: 0,
+          height: "100%",
+          overflow: "hidden",
+          position: "relative",
+          transform: hover ? "translateY(-3px)" : "translateY(0)",
+          boxShadow: hover ? "0 18px 40px rgba(0,0,0,0.35)" : "0 0 0 rgba(0,0,0,0)",
+          transition: "transform 320ms cubic-bezier(0.22,1,0.36,1), box-shadow 320ms cubic-bezier(0.22,1,0.36,1), border-color 320ms ease",
+        }}
+      >
+        {/* Top-right corner arrow — fades in on hover */}
+        <div style={{
+          position: "absolute", top: 12, right: 12, zIndex: 3,
+          width: 30, height: 30, borderRadius: 9,
+          background: "rgba(255,255,255,0.12)",
+          color: mkt.onDark,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          opacity: hover ? 1 : 0,
+          transform: hover ? "translate(0,0)" : "translate(6px,-6px)",
+          transition: "opacity 280ms ease, transform 280ms cubic-bezier(0.22,1,0.36,1)",
+          pointerEvents: "none",
+          backdropFilter: "blur(6px)",
+        }}>
+          <ArrowUpRight size={16} strokeWidth={2.2} />
+        </div>
+
+        {/* Outer pastel header zone — wraps the floating pill-shaped nav bar */}
+        <div style={{
+          background: tile.bg,
+          padding: "14px 14px 16px",
+          position: "relative",
+        }}>
+          <div style={{
+            position: "absolute", inset: 0,
+            backgroundImage: `radial-gradient(circle, ${tile.ink}10 1px, transparent 1px)`,
+            backgroundSize: "14px 14px", opacity: 0.5, pointerEvents: "none",
+          }} />
+
+          {/* Tiny top header bar — three traffic-light dots + product slug pill */}
+          <div style={{
+            position: "relative",
+            display: "flex", alignItems: "center", gap: 8,
+            marginBottom: 12,
+            padding: "0 4px",
+          }}>
+            <span style={{ width: 7, height: 7, borderRadius: 999, background: `${tile.ink}30` }} />
+            <span style={{ width: 7, height: 7, borderRadius: 999, background: `${tile.ink}22` }} />
+            <span style={{ width: 7, height: 7, borderRadius: 999, background: `${tile.ink}18` }} />
+            <span style={{ flex: 1 }} />
+            <span style={{
+              fontFamily: MONO, fontSize: 9, fontWeight: 700,
+              letterSpacing: "0.14em", textTransform: "uppercase",
+              color: `${tile.ink}88`,
+            }}>
+              {String(i + 1).padStart(2, "0")} · DEMO
+            </span>
+          </div>
+
+          {/* Floating nav bar — rounded-rect (matches the inner icon's rounding) */}
+          <div style={{
+            position: "relative",
+            background: "rgba(255,255,255,0.45)",
+            border: `1px solid ${tile.ink}14`,
+            borderRadius: 18,
+            padding: "8px 14px 8px 8px",
+            display: "flex", alignItems: "center", gap: 12,
+            backdropFilter: "blur(6px)",
+            WebkitBackdropFilter: "blur(6px)",
+          }}>
+            {/* Square icon block — bigger + subtle border */}
+            <div style={{
+              flexShrink: 0,
+              width: 52, height: 52, borderRadius: 14,
+              background: "rgba(255,255,255,0.78)",
+              border: `1px solid ${tile.ink}1f`,
+              color: tile.ink,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              transform: hover ? "scale(1.06)" : "scale(1)",
+              opacity: hover ? 0.85 : 1,
+              transition: "transform 320ms cubic-bezier(0.22,1,0.36,1), opacity 240ms ease",
+              boxShadow: `inset 0 0 0 1px rgba(255,255,255,0.6)`,
+            }}>
+              <Icon size={22} strokeWidth={1.7} />
+            </div>
+            {/* Title — sharpens on hover */}
+            <h3 style={{
+              flex: 1, minWidth: 0,
+              fontSize: 13, fontWeight: 700,
+              color: hover ? "#0a1628" : tile.ink,
+              letterSpacing: "0.04em", textTransform: "uppercase",
+              fontFamily: MONO, lineHeight: 1.25,
+              margin: 0, overflow: "hidden", textOverflow: "ellipsis",
+              transition: "color 240ms ease",
+              textShadow: hover ? `0 0 0.5px ${tile.ink}` : "none",
+            }}>
+              {d.title}
+            </h3>
+            {d.interactive && (
+              <span style={{
+                flexShrink: 0,
+                fontSize: 9, fontWeight: 700, padding: "4px 10px", borderRadius: 999,
+                background: "rgba(16,185,129,0.20)", color: "#059669",
+                letterSpacing: "0.06em", textTransform: "uppercase", fontFamily: MONO,
+                border: "1px solid rgba(16,185,129,0.30)",
+              }}>● Live</span>
+            )}
+          </div>
+        </div>
+
+        {/* Body — benefit badge only (description removed) */}
+        <div style={{ padding: "14px 22px 44px", position: "relative", minHeight: 36 }}>
+          {/* Benefit badge — bottom-left, fades in on hover */}
+          <div style={{
+            position: "absolute", left: 22, bottom: 14,
+            fontSize: 11, fontWeight: 700,
+            color: mkt.accent,
+            fontFamily: MONO, letterSpacing: "0.08em", textTransform: "uppercase",
+            display: "flex", alignItems: "baseline", gap: 8,
+            opacity: hover ? 1 : 0,
+            transform: hover ? "translateX(0)" : "translateX(-6px)",
+            transition: "opacity 280ms ease 60ms, transform 280ms cubic-bezier(0.22,1,0.36,1) 60ms",
+            pointerEvents: "none",
+          }}>
+            <span style={{ color: mkt.accent }}>{d.benefit.split(" ")[0]}</span>
+            <span style={{ color: mkt.onDarkMuted, fontSize: 10 }}>
+              [{d.benefit.split(" ").slice(1).join(" ").toUpperCase()}]
+            </span>
+          </div>
+        </div>
+
+        {/* Cursor-follow tag */}
+        <div style={{
+          position: "absolute",
+          left: pos.x + 18,
+          top: pos.y + 14,
+          background: mkt.onDark,
+          color: mkt.bg,
+          fontSize: 10, fontWeight: 700,
+          padding: "5px 10px", borderRadius: 6,
+          fontFamily: MONO, letterSpacing: "0.08em", textTransform: "uppercase",
+          pointerEvents: "none",
+          whiteSpace: "nowrap",
+          zIndex: 10,
+          opacity: hover ? 1 : 0,
+          transform: hover ? "scale(1)" : "scale(0.85)",
+          transformOrigin: "left top",
+          transition: "opacity 160ms ease, transform 160ms ease",
+          boxShadow: "0 6px 20px rgba(0,0,0,0.35)",
+        }}>
+          {d.cursorTag}
+        </div>
+      </Link>
+    </Reveal>
+  );
+}
 
 export default function DemoCenter() {
   return (
     <MarketingLayout>
-      <div data-testid="demo-center-page">
-        <section
-          style={{
-            background: `linear-gradient(160deg, ${mkt.dark} 0%, #0F2744 55%, #1a3550 100%)`,
-            padding: "100px 28px 80px",
-            textAlign: "center",
-            position: "relative",
-            overflow: "hidden",
-          }}
-        >
-          <div
-            style={{
-              position: "absolute",
-              top: -80,
-              right: -80,
-              width: 420,
-              height: 420,
-              borderRadius: "50%",
-              background: mkt.accentGlow,
-              pointerEvents: "none",
-            }}
-          />
+      <V7PageShell>
+        <V7Hero
+          productName="Demo Center · No signup required"
+          eyebrow="See it before you buy it."
+          headline={<>Try every product live.<br/><span style={{ color: mkt.accent }}>Right now.</span></>}
+          sub="Interactive demos for every WeFixTrades tool — no email, no signup, just play."
+        />
 
-          <div style={{ maxWidth: 680, margin: "0 auto", position: "relative" }}>
-            <div
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-                background: mkt.accentGlow,
-                border: `1px solid ${mkt.accent}`,
-                borderRadius: 20,
-                padding: "5px 16px",
-                marginBottom: 24,
-              }}
-            >
-              <Play size={12} color={mkt.onDark} />
-              <span
-                style={{
-                  fontSize: 12,
-                  fontWeight: 700,
-                  color: mkt.onDark,
-                  letterSpacing: "0.04em",
-                }}
-              >
-                INTERACTIVE DEMOS
-              </span>
-            </div>
-
-            <h1
-              data-testid="text-demo-center-title"
-              style={{
-                fontSize: "clamp(34px, 4.5vw, 56px)",
-                fontWeight: 700,
-                color: mkt.onDark,
-                lineHeight: 1.08,
-                letterSpacing: "-0.035em",
-                marginBottom: 20,
-              }}
-            >
-              Demo Center
-            </h1>
-
-            <p
-              style={{
-                fontSize: "clamp(16px, 1.8vw, 19px)",
-                color: mkt.onDarkFaint,
-                lineHeight: 1.65,
-                maxWidth: 520,
-                margin: "0 auto",
-              }}
-            >
-              See our products in action. Try interactive demos and discover how
-              WeFixTrades tools help you capture more leads and grow your business.
-            </p>
-          </div>
-        </section>
-
-        <section style={{ background: mkt.bg, padding: "72px 28px" }}>
-          <div style={{ maxWidth: 1080, margin: "0 auto" }}>
-            <div
-              className="demo-cards-grid"
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(2, 1fr)",
-                gap: 20,
-              }}
-            >
-              {DEMO_CARDS.map((demo) => (
-                <Link
-                  key={demo.slug}
-                  href={demo.href}
-                  style={{ textDecoration: "none", color: "inherit" }}
-                  data-testid={`link-demo-card-${demo.slug}`}
-                >
-                  <div
-                    style={{
-                      background: mkt.bg,
-                      border: `1px solid ${mkt.border}`,
-                      borderRadius: 16,
-                      padding: "28px 24px",
-                      cursor: "pointer",
-                      transition: "border-color 0.2s ease, box-shadow 0.2s ease",
-                      height: "100%",
-                      display: "flex",
-                      flexDirection: "column",
-                    }}
-                    onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLElement).style.borderColor = mkt.accent;
-                      (e.currentTarget as HTMLElement).style.boxShadow = shadows.cardHover;
-                    }}
-                    onMouseLeave={(e) => {
-                      (e.currentTarget as HTMLElement).style.borderColor = mkt.border;
-                      (e.currentTarget as HTMLElement).style.boxShadow = "none";
-                    }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-                      <IconBadge name={demo.icon} size={22} />
-                      {(demo as any).interactive && (
-                        <span
-                          style={{
-                            fontSize: 10,
-                            fontWeight: 700,
-                            color: mkt.accent,
-                            background: "rgba(102,232,250,0.10)",
-                            border: `1px solid rgba(102,232,250,0.25)`,
-                            padding: "3px 8px",
-                            borderRadius: 6,
-                            letterSpacing: "0.05em",
-                            textTransform: "uppercase" as const,
-                          }}
-                        >
-                          Interactive
-                        </span>
-                      )}
-                    </div>
-                    <h3
-                      data-testid={`text-demo-title-${demo.slug}`}
-                      style={{
-                        fontSize: 20,
-                        fontWeight: 700,
-                        color: mkt.text,
-                        marginBottom: 10,
-                        lineHeight: 1.3,
-                      }}
-                    >
-                      {demo.title}
-                    </h3>
-                    <p
-                      style={{
-                        fontSize: 15,
-                        color: mkt.textMuted,
-                        lineHeight: 1.65,
-                        margin: 0,
-                        flex: 1,
-                      }}
-                    >
-                      {demo.desc}
-                    </p>
-                    <div
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 6,
-                        fontSize: 14,
-                        fontWeight: 700,
-                        color: mkt.accent,
-                        marginTop: 20,
-                      }}
-                    >
-                      Try Demo <ArrowRight size={14} />
-                    </div>
-                  </div>
-                </Link>
+        <V7Section padding={60} style={{ paddingBottom: 24 }}>
+          <V7Container>
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+              gap: 16,
+            }}>
+              {DEMOS.map((d, i) => (
+                <DemoCard key={d.title} d={d} i={i} />
               ))}
             </div>
-            <style>{`@media (max-width: 700px) { .demo-cards-grid { grid-template-columns: 1fr !important; } }`}</style>
-          </div>
-        </section>
+          </V7Container>
+        </V7Section>
 
-        <section
-          style={{
-            background: `linear-gradient(135deg, ${mkt.accent} 0%, ${mkt.accentHover} 100%)`,
-            padding: "72px 28px",
-            textAlign: "center",
-          }}
-        >
-          <div style={{ maxWidth: 560, margin: "0 auto" }}>
-            <h2
-              style={{
-                fontSize: "clamp(24px, 3vw, 36px)",
-                fontWeight: 700,
-                color: mkt.onDark,
-                letterSpacing: "-0.025em",
-                marginBottom: 16,
-                lineHeight: 1.12,
-              }}
-            >
-              Ready to see results?
-            </h2>
-            <p
-              style={{
-                fontSize: 16,
-                color: mkt.onDarkMuted,
-                lineHeight: 1.65,
-                marginBottom: 32,
-              }}
-            >
-              Start your free trial today. No credit card required.
-            </p>
-            <div
-              style={{
-                display: "flex",
-                gap: 14,
-                justifyContent: "center",
-                flexWrap: "wrap",
-              }}
-            >
-              <Link
-                href="/Wizard"
-                data-testid="button-demo-center-cta"
-                style={{
-                  display: "inline-block",
-                  padding: "14px 32px",
-                  borderRadius: 9999,
-                  background: mkt.onDark,
-                  color: mkt.accent,
-                  fontSize: 15,
-                  fontWeight: 700,
-                  textDecoration: "none",
-                }}
-              >
-                Start Free Trial
-              </Link>
-              <Link
-                href="/pricing"
-                data-testid="link-demo-center-pricing"
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 8,
-                  padding: "14px 24px",
-                  borderRadius: 9999,
-                  background: "transparent",
-                  color: mkt.onDark,
-                  fontSize: 15,
-                  fontWeight: 600,
-                  textDecoration: "none",
-                  border: `1.5px solid ${mkt.onDarkBorder}`,
-                }}
-              >
-                View Pricing
-              </Link>
-            </div>
-          </div>
-        </section>
-      </div>
+        <V7FinalCta
+          title={<>Liked what you saw?<br/><span style={{ color: mkt.accent }}>Pick a tier.</span></>}
+          sub="14-day free trial. No credit card required. Cancel anytime."
+          primaryCta={{ label: "See Pricing", href: "/pricing" }}
+        />
+      </V7PageShell>
     </MarketingLayout>
   );
 }

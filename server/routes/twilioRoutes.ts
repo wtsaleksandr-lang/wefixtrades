@@ -76,7 +76,50 @@ export function registerTwilioRoutes(app: Express): void {
 
       const lead = await matchLeadByPhone(cleanFrom);
       if (!lead) {
-        return twimlError("We couldn't find your record. Please contact us directly.");
+        // No per-customer lead matched. This is almost certainly a message
+        // sent to the operating brand's own line (e.g. +1 915 615 3280)
+        // rather than to a TradeLine customer's number.
+        //
+        // Run it through the inbound classifier so spam is silently dropped,
+        // out-of-scope messages get a polite decline, legitimate inquiries
+        // get a confirm-receipt reply, and complex/availability-off cases
+        // create a support ticket.
+        const { decideInboundAction } = await import("../services/inboundClassifier");
+        const decision = await decideInboundAction({
+          channel: "sms",
+          fromIdentity: cleanFrom,
+          message: body,
+        });
+        log.info("[Twilio] brand-line classification", {
+          from: cleanFrom, action: decision.action, category: decision.category, confidence: decision.confidence,
+        });
+
+        res.set("Content-Type", "text/xml");
+        switch (decision.action) {
+          case "drop":
+            // Silent — no response sent (Twilio still acks at HTTP 200)
+            return res.send("<Response></Response>");
+          case "polite_decline":
+            return res.send(
+              `<Response><Message>Thanks for reaching out — WeFixTrades sells digital tools to trades businesses (plumbers, HVAC, roofers, etc.). We don't perform the trade work itself. Best of luck!</Message></Response>`
+            );
+          case "ticket": {
+            const awayPart = decision.awayMessage
+              ? `${decision.awayMessage} `
+              : "Thanks for reaching out — our team will get back to you within 1 hour. ";
+            const ref = decision.ticketId ? `Reference: T-${decision.ticketId}` : "";
+            return res.send(
+              `<Response><Message>${awayPart}${ref}</Message></Response>`
+            );
+          }
+          case "reply":
+          default:
+            // Legitimate sales inquiry — confirm receipt and route to sales.
+            // Detailed AI conversation can be added later.
+            return res.send(
+              `<Response><Message>Thanks for messaging WeFixTrades! A member of our sales team will reply within the hour. For urgent help, email sales@wefixtrades.com.</Message></Response>`
+            );
+        }
       }
 
       await storeSmsMessage({

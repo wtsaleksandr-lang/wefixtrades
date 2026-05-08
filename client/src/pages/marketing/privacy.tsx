@@ -1,9 +1,10 @@
 import { useEffect } from "react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
-import { mkt, shadows, radius } from "@/theme/tokens";
+import { mkt } from "@/theme/tokens";
+import { V7Hero, V7Section, V7Container, V7PageShell } from "@/components/marketing/v7";
 
 /**
- * Privacy Policy — WeFixTrades Inc.
+ * Privacy Policy — MR Holdings &amp; Trade LLC (operating as "WeFixTrades")
  *
  * AI-drafted baseline covering the main US/Canada requirements plus a
  * reasonable GDPR posture for the EU traffic we may incidentally receive.
@@ -16,10 +17,10 @@ import { mkt, shadows, radius } from "@/theme/tokens";
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section style={{ marginBottom: 36 }}>
-      <h2 style={{ fontSize: 20, fontWeight: 700, color: mkt.text, marginBottom: 14, paddingBottom: 8, borderBottom: `1px solid ${mkt.border}` }}>
+      <h2 style={{ fontSize: 22, fontWeight: 700, color: mkt.onDark, marginBottom: 14, paddingBottom: 10, borderBottom: `1px solid ${mkt.onDarkBorder}`, letterSpacing: "-0.01em" }}>
         {title}
       </h2>
-      <div style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.75 }}>
+      <div style={{ fontSize: 15, color: mkt.onDarkMuted, lineHeight: 1.75 }}>
         {children}
       </div>
     </section>
@@ -35,30 +36,22 @@ export default function PrivacyPage() {
 
   return (
     <MarketingLayout>
-      <div data-testid="privacy-page" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
-        {/* ── Header ── */}
-        <section style={{ background: mkt.dark, padding: "72px 24px 56px" }}>
-          <div style={{ maxWidth: 720, margin: "0 auto", textAlign: "center" }}>
-            <h1 style={{ fontSize: 40, fontWeight: 800, color: "#FFFFFF", lineHeight: 1.2, margin: "0 0 14px" }}>
-              Privacy Policy
-            </h1>
-            <p style={{ fontSize: 15, color: "rgba(255,255,255,0.6)", margin: 0 }}>
-              Effective {EFFECTIVE}
-            </p>
-          </div>
-        </section>
-
-        <section style={{ background: mkt.surface, padding: "56px 24px 80px" }}>
-          <div style={{ maxWidth: 760, margin: "0 auto" }}>
+      <V7PageShell>
+        <V7Hero
+          productName="Legal"
+          headline="Privacy Policy"
+          sub={`Effective ${EFFECTIVE}`}
+        />
+        <V7Section padding="40px">
+          <V7Container maxWidth={760}>
             <div style={{
-              background: mkt.bg,
-              borderRadius: radius.md,
+              background: mkt.sectionLight,
+              borderRadius: 24,
               padding: "44px",
-              boxShadow: shadows.card,
-              border: `1px solid ${mkt.border}`,
+              border: `1px solid ${mkt.onDarkBorder}`,
             }}>
-              <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.75, marginBottom: 32 }}>
-                This Privacy Policy explains how WeFixTrades Inc. ("<strong>WeFixTrades</strong>", "<strong>we</strong>", "<strong>us</strong>", "<strong>our</strong>") collects, uses, shares, and protects information when you visit our website, use our Service, or communicate with us. If you don't agree with this policy, don't use the Service.
+              <p style={{ fontSize: 15, color: mkt.onDarkMuted, lineHeight: 1.75, marginBottom: 32 }}>
+                This Privacy Policy explains how MR Holdings &amp; Trade LLC (operating as "WeFixTrades") ("<strong>WeFixTrades</strong>", "<strong>we</strong>", "<strong>us</strong>", "<strong>our</strong>") collects, uses, shares, and protects information when you visit our website, use our Service, or communicate with us. If you don't agree with this policy, don't use the Service.
               </p>
 
               <Section title="1. Who this policy applies to">
@@ -171,7 +164,7 @@ export default function PrivacyPage() {
                   <li>Opt out of the sale or sharing of personal information (we don't do either, but the right is here if required by law)</li>
                 </ul>
                 <p style={{ marginTop: 12 }}>
-                  To exercise any of these rights, email <a href="mailto:privacy@wefixtrades.com" style={{ color: mkt.accent }}>privacy@wefixtrades.com</a>. We'll verify your identity and respond within 30 days (sooner where required by law).
+                  To exercise any of these rights, email <a href="mailto:support@wefixtrades.com" style={{ color: mkt.accent }}>support@wefixtrades.com</a>. We'll verify your identity and respond within 30 days (sooner where required by law).
                 </p>
                 <p style={{ marginTop: 12 }}>
                   <strong>California residents:</strong> we comply with the CCPA/CPRA. In the past 12 months we have <em>not</em> sold or shared personal information for cross-context behavioral advertising.
@@ -204,7 +197,7 @@ export default function PrivacyPage() {
 
               <Section title="11. Children">
                 <p>
-                  The Service is not directed to children under 16. We don't knowingly collect information from children. If you believe we've inadvertently collected information from a child, email <a href="mailto:privacy@wefixtrades.com" style={{ color: mkt.accent }}>privacy@wefixtrades.com</a> and we'll delete it.
+                  The Service is not directed to children under 16. We don't knowingly collect information from children. If you believe we've inadvertently collected information from a child, email <a href="mailto:support@wefixtrades.com" style={{ color: mkt.accent }}>support@wefixtrades.com</a> and we'll delete it.
                 </p>
               </Section>
 
@@ -216,20 +209,20 @@ export default function PrivacyPage() {
 
               <Section title="13. Contact">
                 <p>
-                  Questions about this Privacy Policy or our data practices? Email <a href="mailto:privacy@wefixtrades.com" style={{ color: mkt.accent }}>privacy@wefixtrades.com</a>. Postal address: WeFixTrades Inc., 1200 Market Street, Suite 400, Wilmington, DE 19801, United States.
+                  Questions about this Privacy Policy or our data practices? Email <a href="mailto:support@wefixtrades.com" style={{ color: mkt.accent }}>support@wefixtrades.com</a>. Mailing address: MR Holdings &amp; Trade LLC, 30 N Gould St, Ste R, Sheridan, WY 82801, United States.
                 </p>
                 <p>
                   EU/UK customers: if you're not satisfied with our response, you have the right to complain to your local data protection authority.
                 </p>
               </Section>
 
-              <p style={{ fontSize: 12, color: mkt.textFaint, marginTop: 40, paddingTop: 20, borderTop: `1px solid ${mkt.border}`, lineHeight: 1.6 }}>
+              <p style={{ fontSize: 12, color: mkt.onDarkFaint, marginTop: 40, paddingTop: 20, borderTop: `1px solid ${mkt.onDarkBorder}`, lineHeight: 1.6 }}>
                 Last updated {EFFECTIVE}. A Data Processing Addendum for GDPR-regulated customers is available on request.
               </p>
             </div>
-          </div>
-        </section>
-      </div>
+          </V7Container>
+        </V7Section>
+      </V7PageShell>
     </MarketingLayout>
   );
 }

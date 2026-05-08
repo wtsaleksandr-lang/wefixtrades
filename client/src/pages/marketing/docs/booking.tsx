@@ -13,7 +13,7 @@ export default function DocsBooking() {
     >
 
       <DocH2>What Booking Does</DocH2>
-      <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.7, marginBottom: 16 }}>
+      <p style={{ fontSize: 15, color: mkt.onDarkMuted, lineHeight: 1.7, marginBottom: 16 }}>
         After a customer sees their estimate, they can:
       </p>
       <Checklist items={[
@@ -69,7 +69,7 @@ export default function DocsBooking() {
       ]} />
 
       <DocH2>Cancellation + Reschedule Rules</DocH2>
-      <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.7, marginBottom: 12 }}>
+      <p style={{ fontSize: 15, color: mkt.onDarkMuted, lineHeight: 1.7, marginBottom: 12 }}>
         Configure these in Dashboard → your calculator → Booking Settings → Cancellation Policy:
       </p>
       <Checklist items={[
@@ -85,25 +85,25 @@ export default function DocsBooking() {
       <DocH2>Common Questions</DocH2>
 
       <Accordion title="Can I prevent double-booking?" icon="🚫">
-        <p style={{ fontSize: 14, color: mkt.textMuted, lineHeight: 1.7, margin: 0 }}>
+        <p style={{ fontSize: 14, color: mkt.onDarkMuted, lineHeight: 1.7, margin: 0 }}>
           Yes. Once a slot is booked, it's automatically removed from the available times. If two customers are on the booking page simultaneously, only the first to confirm gets the slot — the second sees an "unavailable" message and is shown the next available slot.
         </p>
       </Accordion>
 
       <Accordion title="Can I manually block time off?" icon="📅">
-        <p style={{ fontSize: 14, color: mkt.textMuted, lineHeight: 1.7, margin: 0 }}>
+        <p style={{ fontSize: 14, color: mkt.onDarkMuted, lineHeight: 1.7, margin: 0 }}>
           Yes. In Dashboard → Bookings, use the <strong>Block Time</strong> button to mark any date or time range as unavailable (e.g. holidays, other jobs not in the system).
         </p>
       </Accordion>
 
       <Accordion title="Does it connect to Google Calendar or Outlook?" icon="📆">
-        <p style={{ fontSize: 14, color: mkt.textMuted, lineHeight: 1.7, margin: 0 }}>
+        <p style={{ fontSize: 14, color: mkt.onDarkMuted, lineHeight: 1.7, margin: 0 }}>
           Google Calendar and Outlook sync are on our roadmap. Currently, bookings appear in your QuoteQuick Pro Dashboard only. You can export bookings as CSV from the Bookings tab.
         </p>
       </Accordion>
 
       <Accordion title="What if Stripe isn't set up — can I still use booking?" icon="💳">
-        <p style={{ fontSize: 14, color: mkt.textMuted, lineHeight: 1.7, margin: 0 }}>
+        <p style={{ fontSize: 14, color: mkt.onDarkMuted, lineHeight: 1.7, margin: 0 }}>
           Yes. Set the deposit amount to $0 or "No deposit required". Customers can still book a time without paying — you just won't collect a deposit upfront.
         </p>
       </Accordion>

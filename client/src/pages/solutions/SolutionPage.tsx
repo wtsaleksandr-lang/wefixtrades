@@ -1,7 +1,8 @@
 import { useEffect } from "react";
 import { useParams, Link } from "wouter";
-import { Check, ArrowRight, Phone, Wrench, Zap, Home, Sparkles, Fan } from "lucide-react";
+import { Check, ArrowRight, Phone, Wrench, Zap, Home, Sparkles, Fan, Trees, Bug, Warehouse, KeyRound, PaintBucket, Hammer, Building2 } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
+import { V7Hero, V7PageShell } from "@/components/marketing/v7";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
 import { IconBadge } from "@/components/IconBadge";
 import NotFound from "@/pages/not-found";
@@ -161,10 +162,206 @@ const SOLUTIONS: SolutionConfig[] = [
     ],
     testimonialPlaceholder: "QuoteQuick lets customers price their own deep clean in seconds. Our booking rate doubled overnight.",
   },
+  {
+    slug: "for-landscapers",
+    trade: "Landscapers",
+    headline: "Capture more local landscaping jobs",
+    subheadline: "Instant lawn-care + maintenance quotes, automated scheduling, and Google rankings that pull in seasonal work all year.",
+    heroIcon: Trees,
+    painPoints: [
+      "Seasonal demand spikes overwhelm the office",
+      "Quoting square-footage jobs by hand wastes time",
+      "Customers go with whoever quotes first",
+      "Reviews trickle in instead of pouring in",
+      "Hard to stay top-of-mind off-season",
+    ],
+    recommendedStack: [
+      { name: "QuoteQuick Pro™", icon: "calculator", desc: "Instant lawn-care + landscaping estimates by sq ft.", href: "/products/quickquotepro" },
+      { name: "TradeLine™", icon: "phone", desc: "AI answers seasonal call surges 24/7.", href: "/products/tradeline" },
+      { name: "SocialSync™", icon: "share", desc: "Before/after photos posted weekly on autopilot.", href: "/products/socialsync" },
+      { name: "ReputationShield™", icon: "shield", desc: "Auto-request reviews after every cut.", href: "/products/reputationshield" },
+    ],
+    outcomes: [
+      { stat: "2.5x", label: "Quote-to-book rate" },
+      { stat: "< 1 min", label: "Average quote turnaround" },
+      { stat: "+62%", label: "Repeat seasonal bookings" },
+      { stat: "4.8", label: "Average review rating" },
+    ],
+    testimonialPlaceholder: "We doubled our spring sign-ups without hiring an extra office person. The AI handles every weekend call.",
+  },
+  {
+    slug: "for-pest-control",
+    trade: "Pest Control",
+    headline: "Respond faster to new pest-control leads",
+    subheadline: "Customers want it gone TODAY. AI answers, quotes, and books — even when your techs are knee-deep in a callout.",
+    heroIcon: Bug,
+    painPoints: [
+      "Emergency callouts go to voicemail",
+      "Quoting per-room infestations slows everything",
+      "Customer gives up if you don't reply within 10 min",
+      "Recurring contract reminders fall through cracks",
+      "Hard to prove visible results",
+    ],
+    recommendedStack: [
+      { name: "TradeLine™", icon: "phone", desc: "Instant pickup for emergency pest calls 24/7.", href: "/products/tradeline" },
+      { name: "QuoteQuick Pro™", icon: "calculator", desc: "Per-room pricing + recurring service tiers.", href: "/products/quickquotepro" },
+      { name: "BookFlow™", icon: "layers", desc: "Recurring contract reminders, automated.", href: "/products/bookflow" },
+      { name: "ReputationShield™", icon: "shield", desc: "Before/after-treatment review requests.", href: "/products/reputationshield" },
+    ],
+    outcomes: [
+      { stat: "0", label: "Missed emergency calls" },
+      { stat: "< 5 min", label: "Speed-to-lead" },
+      { stat: "92%", label: "Recurring contract retention" },
+      { stat: "+3x", label: "Online review velocity" },
+    ],
+    testimonialPlaceholder: "Last week TradeLine booked a same-day cockroach job at 11 PM. We'd have lost it to voicemail every other year.",
+  },
+  {
+    slug: "for-garage-door",
+    trade: "Garage Door",
+    headline: "Turn urgent garage-door calls into bookings",
+    subheadline: "When their door is stuck open at midnight, the first responder wins. AI picks up, quotes, dispatches.",
+    heroIcon: Warehouse,
+    painPoints: [
+      "After-hours emergencies are pure profit — but you sleep",
+      "Hard to quote spring vs opener vs panel without seeing it",
+      "Customers shop 3-4 companies before booking",
+      "No way to fill mid-day cancellations fast",
+      "Local SEO is dominated by the franchises",
+    ],
+    recommendedStack: [
+      { name: "TradeLine™", icon: "phone", desc: "AI answers + dispatches emergencies 24/7.", href: "/products/tradeline" },
+      { name: "QuoteQuick Pro™", icon: "calculator", desc: "Tiered pricing for spring / opener / panel jobs.", href: "/products/quickquotepro" },
+      { name: "MapGuard™", icon: "map", desc: "Outrank franchise garage-door brands locally.", href: "/products/mapguard" },
+      { name: "RankFlow™", icon: "rocket", desc: "Climb 'garage door near me' rankings.", href: "/products/rankflow" },
+    ],
+    outcomes: [
+      { stat: "3x", label: "Captured after-hours leads" },
+      { stat: "< 2 min", label: "Quote turnaround" },
+      { stat: "Top 3", label: "Local Maps rank" },
+      { stat: "+48%", label: "Same-day bookings" },
+    ],
+    testimonialPlaceholder: "TradeLine booked a $1,400 broken-spring job at 2 AM Sunday. Three weekends a month covers our entire stack.",
+  },
+  {
+    slug: "for-locksmiths",
+    trade: "Locksmiths",
+    headline: "Convert high-intent locksmith searches",
+    subheadline: "Locked out, lost keys, broken deadbolt — they search, click the first listing, and call. Be the first listing AND the call gets answered.",
+    heroIcon: KeyRound,
+    painPoints: [
+      "100% of locksmith searches are emergencies",
+      "Voicemail = the customer calls the next listing",
+      "Pricing varies wildly by job — no time to consult a sheet",
+      "Trust signals matter: scammer brands have hurt the industry",
+      "Hard to dominate Google Maps in a saturated category",
+    ],
+    recommendedStack: [
+      { name: "TradeLine™", icon: "phone", desc: "Sub-30s pickup on every emergency call.", href: "/products/tradeline" },
+      { name: "MapGuard™", icon: "map", desc: "Stay top-3 in Google Maps locksmith search.", href: "/products/mapguard" },
+      { name: "QuoteQuick Pro™", icon: "calculator", desc: "Quick estimates for lockout / rekey / install.", href: "/products/quickquotepro" },
+      { name: "ReputationShield™", icon: "shield", desc: "Stack 5-star reviews to outshine scammer brands.", href: "/products/reputationshield" },
+    ],
+    outcomes: [
+      { stat: "< 30s", label: "Avg pick-up time" },
+      { stat: "Top 3", label: "Local Maps rank" },
+      { stat: "4.9★", label: "Avg review rating" },
+      { stat: "+85%", label: "Captured emergency calls" },
+    ],
+    testimonialPlaceholder: "Voicemail is the death of a locksmith business. TradeLine literally doubled our after-hours revenue.",
+  },
+  {
+    slug: "for-painters",
+    trade: "Painters",
+    headline: "Generate more painting estimate requests",
+    subheadline: "Drive more interior + exterior estimate requests, qualify them automatically, and stack 5-star portfolio reviews.",
+    heroIcon: PaintBucket,
+    painPoints: [
+      "Estimate requests pile up faster than you can visit",
+      "Tire-kickers waste your time vs serious buyers",
+      "Hard to show before/after photos without a real website",
+      "Review requests get forgotten after the project ends",
+      "Slow follow-up = lost to the next painter",
+    ],
+    recommendedStack: [
+      { name: "QuoteQuick Pro™", icon: "calculator", desc: "Instant ballpark estimates by room / sq ft.", href: "/products/quickquotepro" },
+      { name: "SiteLaunch™", icon: "layout", desc: "Portfolio-first website that converts.", href: "/products/sitelaunch" },
+      { name: "SocialSync™", icon: "share", desc: "Before/after photos auto-posted weekly.", href: "/products/socialsync" },
+      { name: "ReputationShield™", icon: "shield", desc: "Auto-request reviews the day after final coat.", href: "/products/reputationshield" },
+    ],
+    outcomes: [
+      { stat: "3x", label: "Qualified estimate requests" },
+      { stat: "< 1 min", label: "Quote turnaround" },
+      { stat: "+72%", label: "Review request conversion" },
+      { stat: "4.9★", label: "Avg review rating" },
+    ],
+    testimonialPlaceholder: "Our website went from a vanity URL to a lead machine. QuoteQuick filters tire-kickers so we only visit serious buyers.",
+  },
+  {
+    slug: "for-remodelers",
+    trade: "Remodelers",
+    headline: "Turn remodel inquiries into booked projects",
+    subheadline: "Big-ticket projects need polish: a beautiful site, fast quoting, and authority content that signals trust before the consult.",
+    heroIcon: Hammer,
+    painPoints: [
+      "$50K+ projects need authority — agency website helps but costs $20K",
+      "Customers compare 3-5 contractors over weeks",
+      "Manual quoting big bathroom/kitchen remodels takes days",
+      "Without ongoing content, you don't build long-term trust",
+      "Reviews are critical at this price point",
+    ],
+    recommendedStack: [
+      { name: "SiteLaunch™", icon: "layout", desc: "Premium portfolio site live in 5–7 days.", href: "/products/sitelaunch" },
+      { name: "QuoteQuick Pro™", icon: "calculator", desc: "Tiered quoting for kitchens, baths, additions.", href: "/products/quickquotepro" },
+      { name: "ContentFlow™", icon: "sparkles", desc: "Authority articles drafted monthly.", href: "/products/contentflow" },
+      { name: "ReputationShield™", icon: "shield", desc: "Stack reviews that justify the price tag.", href: "/products/reputationshield" },
+    ],
+    outcomes: [
+      { stat: "+45%", label: "Consult-booking rate" },
+      { stat: "5–7 days", label: "Site to live" },
+      { stat: "$28K", label: "Avg project value won" },
+      { stat: "4.9★", label: "Avg review rating" },
+    ],
+    testimonialPlaceholder: "Our site looks like a $50K agency build. We've closed $180K of remodels in our first month live.",
+  },
+  {
+    slug: "for-general-contractors",
+    trade: "General Contractors",
+    headline: "Organize leads & follow-ups for GC work",
+    subheadline: "Multi-trade, multi-stage projects — managed in one inbox. AI qualifies leads, books consults, and never lets a follow-up slip.",
+    heroIcon: Building2,
+    painPoints: [
+      "Leads come from too many channels (calls, forms, referrals, DMs)",
+      "Follow-ups slip through the cracks during busy weeks",
+      "No single source of truth for active opportunities",
+      "Quoting custom-build jobs is a 2-day exercise",
+      "Hard to maintain SEO authority vs single-trade specialists",
+    ],
+    recommendedStack: [
+      { name: "TradeLine™", icon: "phone", desc: "All inbound channels in one inbox + AI triage.", href: "/products/tradeline" },
+      { name: "BookFlow™", icon: "layers", desc: "Schedule consults + recurring project check-ins.", href: "/products/bookflow" },
+      { name: "QuoteQuick Pro™", icon: "calculator", desc: "Tiered ballpark quoting for custom jobs.", href: "/products/quickquotepro" },
+      { name: "RankFlow™", icon: "rocket", desc: "Stay visible against single-trade competitors.", href: "/products/rankflow" },
+    ],
+    outcomes: [
+      { stat: "0", label: "Leads dropped during busy weeks" },
+      { stat: "+58%", label: "Consult-booking rate" },
+      { stat: "5×", label: "More qualified leads" },
+      { stat: "Top 3", label: "Local Maps rank" },
+    ],
+    testimonialPlaceholder: "We were losing 2-3 leads a week to slow follow-up. Now AI catches every one and books the consult before I'm back in the truck.",
+  },
 ];
 
 function getSolutionBySlug(slug: string): SolutionConfig | undefined {
-  return SOLUTIONS.find((s) => s.slug === slug);
+  // Try direct match first ("for-plumbers"), then with the "for-" prefix
+  // ("plumbers" → "for-plumbers") so legacy / shorter URLs still resolve.
+  const direct = SOLUTIONS.find((s) => s.slug === slug);
+  if (direct) return direct;
+  if (!slug.startsWith("for-")) {
+    return SOLUTIONS.find((s) => s.slug === `for-${slug}`);
+  }
+  return undefined;
 }
 
 export default function SolutionPage() {
@@ -195,69 +392,17 @@ export default function SolutionPage() {
 
   return (
     <MarketingLayout>
+      <V7PageShell>
       <div data-testid={`solution-page-${solution.slug}`}>
-
-        <section
-          style={{
-            background: `linear-gradient(160deg, ${mkt.dark} 0%, #0F2744 55%, #1a3550 100%)`,
-            padding: "90px 28px 80px",
-            textAlign: "center",
-            position: "relative",
-            overflow: "hidden",
-          }}
-          data-testid="solution-hero"
-        >
-          <div style={{ position: "absolute", top: -80, right: -80, width: 420, height: 420, borderRadius: "50%", background: mkt.accentGlow, pointerEvents: "none" }} />
-          <div style={{ position: "absolute", bottom: -60, left: -60, width: 300, height: 300, borderRadius: "50%", background: "rgba(47,107,255,0.08)", pointerEvents: "none" }} />
-
-          <div style={{ maxWidth: 720, margin: "0 auto", position: "relative" }}>
-            <div style={{
-              display: "inline-flex", alignItems: "center", gap: 8,
-              background: mkt.accentGlow, border: `1px solid ${mkt.accent}`,
-              borderRadius: 20, padding: "6px 18px", marginBottom: 28,
-            }}>
-              <HeroIcon size={16} color={mkt.onDark} strokeWidth={2} />
-              <span style={{ fontSize: 12, fontWeight: 700, color: mkt.onDark, letterSpacing: "0.04em" }}>
-                FOR {solution.trade.toUpperCase()}
-              </span>
-            </div>
-
-            <h1
-              data-testid="solution-headline"
-              style={{
-                fontSize: "clamp(32px, 4.5vw, 54px)",
-                fontWeight: 700, color: mkt.onDark,
-                lineHeight: 1.08, letterSpacing: "-0.035em",
-                marginBottom: 20,
-              }}
-            >
-              {solution.headline}
-            </h1>
-
-            <p style={{ fontSize: "clamp(16px, 1.8vw, 19px)", color: mkt.onDarkFaint, lineHeight: 1.65, maxWidth: 560, margin: "0 auto 40px" }}>
-              {solution.subheadline}
-            </p>
-
-            <div style={{ display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap" }}>
-              <Link
-                href="/pricing"
-                data-testid="solution-cta-pricing"
-                className="mkt-btn-primary"
-                style={{ padding: "14px 32px", borderRadius: 9999, background: mkt.accent, color: mkt.onDark, fontSize: 15, fontWeight: 700, textDecoration: "none", display: "inline-block" }}
-              >
-                See Pricing
-              </Link>
-              <Link
-                href="/demos"
-                data-testid="solution-cta-demos"
-                className="mkt-btn-ghost"
-                style={{ padding: "14px 26px", borderRadius: 9999, background: "transparent", color: mkt.onDark, fontSize: 15, fontWeight: 600, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 8, border: `1.5px solid ${mkt.onDarkBorder}` }}
-              >
-                Watch Demos
-              </Link>
-            </div>
-          </div>
-        </section>
+        <V7Hero
+          productName={`For ${solution.trade}`}
+          headline={solution.headline}
+          sub={solution.subheadline}
+          ctas={[
+            { label: "See Pricing", href: "/pricing" },
+            { label: "Watch Demos", href: "/demos" },
+          ]}
+        />
 
         <section style={{ background: mkt.bg, padding: "72px 28px" }} data-testid="solution-pain-points">
           <div style={{ maxWidth: 800, margin: "0 auto" }} data-reveal="fade-up">
@@ -265,7 +410,7 @@ export default function SolutionPage() {
               <div style={{ fontSize: 11, fontWeight: 700, color: mkt.accent, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>
                 Sound Familiar?
               </div>
-              <h2 style={{ fontSize: "clamp(24px, 3vw, 36px)", fontWeight: 700, color: mkt.text, letterSpacing: "-0.025em" }}>
+              <h2 style={{ fontSize: "clamp(24px, 3vw, 36px)", fontWeight: 700, color: mkt.onDark, letterSpacing: "-0.025em" }}>
                 Common challenges for {solution.trade.toLowerCase()}
               </h2>
             </div>
@@ -275,9 +420,9 @@ export default function SolutionPage() {
                   key={p}
                   style={{
                     display: "flex", alignItems: "flex-start", gap: 12,
-                    fontSize: 15, color: mkt.textMuted, lineHeight: 1.5,
-                    padding: "14px 18px", background: mkt.surface,
-                    borderRadius: 12, border: `1px solid ${mkt.border}`,
+                    fontSize: 15, color: mkt.onDarkMuted, lineHeight: 1.5,
+                    padding: "14px 18px", background: mkt.sectionLight,
+                    borderRadius: 12, border: `1px solid ${mkt.onDarkBorder}`,
                   }}
                 >
                   <span style={{ color: mkt.orange, fontSize: 18, lineHeight: 1, flexShrink: 0 }}>&bull;</span>
@@ -288,10 +433,10 @@ export default function SolutionPage() {
           </div>
         </section>
 
-        <section style={{ background: mkt.surface, padding: "72px 28px" }} data-testid="solution-outcomes">
+        <section style={{ background: mkt.sectionLight, padding: "72px 28px" }} data-testid="solution-outcomes">
           <div style={{ maxWidth: 900, margin: "0 auto" }}>
             <div style={{ textAlign: "center", marginBottom: 48 }} data-reveal="fade-up">
-              <h2 style={{ fontSize: "clamp(24px, 3vw, 36px)", fontWeight: 700, color: mkt.text, letterSpacing: "-0.025em" }}>
+              <h2 style={{ fontSize: "clamp(24px, 3vw, 36px)", fontWeight: 700, color: mkt.onDark, letterSpacing: "-0.025em" }}>
                 Results you can expect
               </h2>
             </div>
@@ -306,7 +451,7 @@ export default function SolutionPage() {
                   style={{
                     textAlign: "center",
                     background: mkt.bg,
-                    border: `1px solid ${mkt.border}`,
+                    border: `1px solid ${mkt.onDarkBorder}`,
                     borderRadius: 16,
                     padding: "28px 16px",
                     boxShadow: shadows.card,
@@ -315,7 +460,7 @@ export default function SolutionPage() {
                   <div style={{ fontSize: "clamp(28px, 3vw, 40px)", fontWeight: 700, color: mkt.accent, marginBottom: 8 }}>
                     {o.stat}
                   </div>
-                  <div style={{ fontSize: 14, fontWeight: 500, color: mkt.textMuted, lineHeight: 1.4 }}>
+                  <div style={{ fontSize: 14, fontWeight: 500, color: mkt.onDarkMuted, lineHeight: 1.4 }}>
                     {o.label}
                   </div>
                 </div>
@@ -331,7 +476,7 @@ export default function SolutionPage() {
               <div style={{ fontSize: 11, fontWeight: 700, color: mkt.accent, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>
                 Recommended Stack
               </div>
-              <h2 style={{ fontSize: "clamp(24px, 3vw, 36px)", fontWeight: 700, color: mkt.text, letterSpacing: "-0.025em" }}>
+              <h2 style={{ fontSize: "clamp(24px, 3vw, 36px)", fontWeight: 700, color: mkt.onDark, letterSpacing: "-0.025em" }}>
                 The perfect toolkit for {solution.trade.toLowerCase()}
               </h2>
             </div>
@@ -352,7 +497,7 @@ export default function SolutionPage() {
                     className="mkt-feature-card"
                     style={{
                       background: mkt.bg,
-                      border: `1px solid ${mkt.border}`,
+                      border: `1px solid ${mkt.onDarkBorder}`,
                       borderRadius: 18,
                       padding: "28px 24px",
                       cursor: "pointer",
@@ -366,10 +511,10 @@ export default function SolutionPage() {
                     <div style={{ marginBottom: 16 }}>
                       <IconBadge name={product.icon} size={22} />
                     </div>
-                    <h3 style={{ fontSize: 17, fontWeight: 700, color: mkt.text, marginBottom: 10, lineHeight: 1.3 }}>
+                    <h3 style={{ fontSize: 17, fontWeight: 700, color: mkt.onDark, marginBottom: 10, lineHeight: 1.3 }}>
                       {product.name}
                     </h3>
-                    <p style={{ fontSize: 14, color: mkt.textMuted, lineHeight: 1.6, margin: 0, flex: 1 }}>
+                    <p style={{ fontSize: 14, color: mkt.onDarkMuted, lineHeight: 1.6, margin: 0, flex: 1 }}>
                       {product.desc}
                     </p>
                     <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 13, fontWeight: 700, color: mkt.accent, marginTop: 16 }}>
@@ -449,6 +594,7 @@ export default function SolutionPage() {
         </section>
 
       </div>
+      </V7PageShell>
     </MarketingLayout>
   );
 }

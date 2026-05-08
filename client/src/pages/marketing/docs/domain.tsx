@@ -17,7 +17,7 @@ export default function DocsDomain() {
       </InfoBox>
 
       <DocH2>Your Default Hosted Link</DocH2>
-      <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.7, marginBottom: 12 }}>
+      <p style={{ fontSize: 15, color: mkt.onDarkMuted, lineHeight: 1.7, marginBottom: 12 }}>
         Every account gets a free hosted URL the moment you publish your calculator:
       </p>
       <CodeBlock lang="text" code={`https://quickquotepro.com/your-business-name`} />
@@ -28,7 +28,7 @@ export default function DocsDomain() {
       ]} />
 
       <DocH2>Custom Subdomain (Recommended)</DocH2>
-      <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.7, marginBottom: 12 }}>
+      <p style={{ fontSize: 15, color: mkt.onDarkMuted, lineHeight: 1.7, marginBottom: 12 }}>
         With a Pro or Elite plan, you can serve your calculator under your own subdomain:
       </p>
       <CodeBlock lang="text" code={`https://quotes.yourbusiness.com`} />
@@ -58,7 +58,7 @@ TTL:   3600 (or "Auto")`} />
       </Step>
 
       <DocH2>What We Need (Done-For-You Service)</DocH2>
-      <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.7, marginBottom: 12 }}>
+      <p style={{ fontSize: 15, color: mkt.onDarkMuted, lineHeight: 1.7, marginBottom: 12 }}>
         If you'd prefer we handle the setup, our Done-For-You service includes domain configuration. We'll need:
       </p>
       <Checklist items={[
@@ -70,7 +70,7 @@ TTL:   3600 (or "Auto")`} />
       <DocH2>Troubleshooting DNS</DocH2>
 
       <Accordion title="How long does DNS propagation take?" icon="⏱️">
-        <p style={{ fontSize: 14, color: mkt.textMuted, lineHeight: 1.7, margin: 0 }}>
+        <p style={{ fontSize: 14, color: mkt.onDarkMuted, lineHeight: 1.7, margin: 0 }}>
           Usually 5–30 minutes, but can take up to 48 hours in rare cases depending on your DNS provider and TTL settings. While waiting, you can still use your free hosted link.
         </p>
       </Accordion>
@@ -86,13 +86,13 @@ TTL:   3600 (or "Auto")`} />
       </Accordion>
 
       <Accordion title="Can I use a root domain (e.g. yourbusiness.com without a subdomain)?" icon="🌐">
-        <p style={{ fontSize: 14, color: mkt.textMuted, lineHeight: 1.7, margin: 0 }}>
+        <p style={{ fontSize: 14, color: mkt.onDarkMuted, lineHeight: 1.7, margin: 0 }}>
           Root domains (APEX domains) require an A record pointing to an IP, which we don't currently support directly. We recommend using a subdomain like <code>quotes.yourbusiness.com</code> — it's more professional anyway and takes seconds to set up.
         </p>
       </Accordion>
 
       <Accordion title="My SSL certificate shows as invalid" icon="🔒">
-        <p style={{ fontSize: 14, color: mkt.textMuted, lineHeight: 1.7, margin: 0 }}>
+        <p style={{ fontSize: 14, color: mkt.onDarkMuted, lineHeight: 1.7, margin: 0 }}>
           SSL certificates are issued after DNS verification succeeds. If the certificate shows as invalid, DNS may not have fully propagated yet. Wait 10 minutes and try again. If it persists after 1 hour, contact support.
         </p>
       </Accordion>

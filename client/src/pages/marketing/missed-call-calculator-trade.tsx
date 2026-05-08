@@ -115,12 +115,12 @@ export default function MissedCallCalculatorTrade() {
       }}>
         <div style={{ maxWidth: 640, margin: '0 auto' }}>
           {/* Breadcrumb */}
-          <nav aria-label="breadcrumb" style={{ fontSize: 13, color: mkt.textMuted, marginBottom: 16 }}>
-            <Link href="/" style={{ color: mkt.textMuted, textDecoration: 'none' }}>Home</Link>
+          <nav aria-label="breadcrumb" style={{ fontSize: 13, color: mkt.onDarkMuted, marginBottom: 16 }}>
+            <Link href="/" style={{ color: mkt.onDarkMuted, textDecoration: 'none' }}>Home</Link>
             <span style={{ margin: '0 6px' }}>/</span>
-            <Link href="/tools" style={{ color: mkt.textMuted, textDecoration: 'none' }}>Free Tools</Link>
+            <Link href="/tools" style={{ color: mkt.onDarkMuted, textDecoration: 'none' }}>Free Tools</Link>
             <span style={{ margin: '0 6px' }}>/</span>
-            <Link href="/tools/missed-call-calculator" style={{ color: mkt.textMuted, textDecoration: 'none' }}>Missed Call Calculator</Link>
+            <Link href="/tools/missed-call-calculator" style={{ color: mkt.onDarkMuted, textDecoration: 'none' }}>Missed Call Calculator</Link>
             <span style={{ margin: '0 6px' }}>/</span>
             <span style={{ color: mkt.text }}>{label}</span>
           </nav>
@@ -144,7 +144,7 @@ export default function MissedCallCalculatorTrade() {
               {content.intro.map((para, i) => (
                 <p key={i} style={{
                   fontSize: 15,
-                  color: mkt.textMuted,
+                  color: mkt.onDarkMuted,
                   lineHeight: 1.7,
                   margin: i === 0 ? '0 0 14px' : '0 0 14px',
                   textAlign: 'center',
@@ -165,12 +165,12 @@ export default function MissedCallCalculatorTrade() {
           <div style={{
             marginTop: 'clamp(32px, 6vw, 48px)',
             paddingTop: 24,
-            borderTop: `1px solid ${mkt.border}`,
+            borderTop: `1px solid ${mkt.onDarkBorder}`,
             display: 'flex',
             flexDirection: 'column',
             gap: 10,
           }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: mkt.textMuted, marginBottom: 4 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: mkt.onDarkMuted, marginBottom: 4 }}>
               More free tools
             </div>
             {[
@@ -193,7 +193,7 @@ export default function MissedCallCalculatorTrade() {
                   <div style={{
                     display: 'flex', alignItems: 'center', gap: 12,
                     padding: '12px 14px', borderRadius: 12,
-                    border: `1px solid ${mkt.border}`, background: mkt.bg,
+                    border: `1px solid ${mkt.onDarkBorder}`, background: mkt.bg,
                     cursor: 'pointer', transition: 'border-color 0.15s, background 0.15s',
                   }}
                     onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)'; e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; }}
@@ -201,16 +201,16 @@ export default function MissedCallCalculatorTrade() {
                   >
                     <div style={{
                       width: 36, height: 36, borderRadius: 10,
-                      background: mkt.accentTint,
+                      background: "rgba(102,232,250,0.10)",
                       display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                     }}>
                       <Icon size={16} color={mkt.accent} strokeWidth={1.8} />
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 13, fontWeight: 650, color: mkt.text }}>{item.title}</div>
-                      <div style={{ fontSize: 12, color: mkt.textFaint }}>{item.desc}</div>
+                      <div style={{ fontSize: 12, color: mkt.onDarkFaint }}>{item.desc}</div>
                     </div>
-                    <ArrowRight size={14} color={mkt.textFaint} style={{ flexShrink: 0 }} />
+                    <ArrowRight size={14} color={mkt.onDarkFaint} style={{ flexShrink: 0 }} />
                   </div>
                 </Link>
               );
@@ -222,7 +222,7 @@ export default function MissedCallCalculatorTrade() {
           {/* FAQ */}
           <div style={{
             marginTop: 'clamp(16px, 3vw, 24px)',
-            borderTop: `1px solid ${mkt.border}`,
+            borderTop: `1px solid ${mkt.onDarkBorder}`,
             paddingTop: 'clamp(24px, 4vw, 40px)',
           }}>
             <FAQSection />

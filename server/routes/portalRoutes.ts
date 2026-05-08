@@ -898,7 +898,7 @@ export function registerPortalRoutes(app: Express) {
       const clientId = await withClientId(req, res);
       if (!clientId) return;
 
-      const calcId = parseInt(req.params.calcId);
+      const calcId = parseInt(String(req.params.calcId));
       if (!calcId || isNaN(calcId)) return res.status(400).json({ error: "Invalid calculator ID" });
 
       // Verify the calculator belongs to this client

@@ -32,7 +32,6 @@ function validateEnv(): void {
     "DATABASE_URL",
     "SESSION_SECRET",
     "STRIPE_SECRET_KEY",
-    "STRIPE_WEBHOOK_SECRET",
     "STRIPE_BILLING_WEBHOOK_SECRET",
     "ANTHROPIC_API_KEY",
   ];
@@ -252,4 +251,12 @@ app.use((req, res, next) => {
       initScheduler();
     },
   );
+
+  // Exec server: dev-only remote shell tool (port 5001).
+  // Gated on NODE_ENV so esbuild dead-code-eliminates it from dist/index.cjs.
+  if (process.env.NODE_ENV !== "production") {
+    import("./exec-server").catch((e) =>
+      console.error("[exec-server] Failed to start:", e)
+    );
+  }
 })();

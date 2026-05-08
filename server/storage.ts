@@ -104,6 +104,9 @@ type User, type InsertUser,
   // Vapi Webhook Events
   vapiWebhookEvents,
   type VapiWebhookEventRow, type InsertVapiWebhookEvent,
+  // Brand-availability singleton (operating-brand "are we available" toggle)
+  brandAvailability,
+  type BrandAvailability,
 } from "@shared/schema";
 import { eq, desc, sql, and, gte, lte, ilike, or, isNotNull, count } from "drizzle-orm";
 import { createLogger } from "./lib/logger";
@@ -345,6 +348,10 @@ export interface IStorage {
   // ─── Vapi Webhook Events ───
   createVapiWebhookEvent(data: InsertVapiWebhookEvent): Promise<VapiWebhookEventRow>;
   listVapiWebhookEvents(limit?: number): Promise<VapiWebhookEventRow[]>;
+
+  // Brand-availability singleton
+  getBrandAvailability(): Promise<BrandAvailability>;
+  setBrandAvailability(input: { is_available: boolean; away_message?: string; set_by_user_id?: number | null }): Promise<BrandAvailability>;
 
   // ─── SocialSync ───
   upsertSocialSyncProfile(data: InsertSocialSyncProfile): Promise<SocialSyncProfile>;
@@ -3934,6 +3941,28 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(vapiWebhookEvents)
       .orderBy(desc(vapiWebhookEvents.created_at))
       .limit(limit);
+  }
+
+  // ─── Brand-availability singleton ───
+  // Single-row table (id = 1). Reads return the row, with a sane default if it
+  // somehow isn't seeded yet.
+  async getBrandAvailability(): Promise<BrandAvailability> {
+    const [row] = await db.select().from(brandAvailability).where(eq(brandAvailability.id, 1)).limit(1);
+    if (row) return row;
+    // Defensive: re-seed if the row was wiped
+    const [seeded] = await db.insert(brandAvailability).values({ id: 1, is_available: true } as any).returning();
+    return seeded;
+  }
+
+  async setBrandAvailability(input: { is_available: boolean; away_message?: string; set_by_user_id?: number | null }): Promise<BrandAvailability> {
+    const updates: any = {
+      is_available: input.is_available,
+      set_by_user_id: input.set_by_user_id ?? null,
+      set_at: new Date(),
+    };
+    if (input.away_message !== undefined) updates.away_message = input.away_message;
+    const [row] = await db.update(brandAvailability).set(updates).where(eq(brandAvailability.id, 1)).returning();
+    return row;
   }
 }
 

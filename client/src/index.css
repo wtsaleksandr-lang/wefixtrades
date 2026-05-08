@@ -1032,13 +1032,20 @@
 
 /* ========== NAV DROPDOWN MENU CARDS ========== */
 
-/* Outer dropdown tray — faint gray, "cards on a tray" */
+/* Outer dropdown tray — dotted-grid surface, "cards floating on a grid"
+   Effortel-style: dots are the dominant texture, visible in the gaps
+   between cards. Cards themselves are opaque so the dots only show through
+   the gutters. */
 .mkt-dropdown-tray {
-  background: rgba(180, 185, 183, 0.12);
+  background:
+    radial-gradient(circle, rgba(255,255,255,0.10) 1px, transparent 1px),
+    rgba(24, 28, 27, 0.78);
+  background-size: 16px 16px, auto;
+  background-position: 0 0, 0 0;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 20px;
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   animation: mktDropdownIn 0.28s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
@@ -1084,43 +1091,46 @@
   pointer-events: none;
 }
 
-/* Individual dark card */
+/* Individual dark card — solid surface so the tray dot pattern shows
+   through only in the inter-card gutters (the Effortel "tile" look). */
 .mkt-menu-card {
   background: #181d1c;
   border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 14px;
-  padding: 12px 14px;
+  border-radius: 16px;
+  padding: 16px 16px;
   cursor: pointer;
   text-decoration: none;
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   position: relative;
   overflow: hidden;
-  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+  min-height: 88px;
+  transition:
+    background 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 380ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 360ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* Dot pattern as ::before */
-.mkt-menu-card::before {
-  content: '';
+/* Subtle accent sheen that reveals on hover — a soft cyan glow
+   spreads from the icon outward to give the card a premium lift. */
+.mkt-menu-card::after {
+  content: "";
   position: absolute;
-  inset: 0;
-  background-image: radial-gradient(circle, rgba(255,255,255,0.065) 1px, transparent 1px);
-  background-size: 18px 18px;
+  inset: -1px;
   border-radius: inherit;
-  z-index: 0;
+  background: radial-gradient(
+    circle at 18% 50%,
+    rgba(102, 232, 250, 0.10),
+    transparent 55%
+  );
+  opacity: 0;
   pointer-events: none;
-  /* Slightly below full opacity at rest — imperceptible at this dot density.
-     Hover/active brings it to 1.0, adding ~8% more visible contrast. */
-  opacity: 0.92;
-  transition: opacity 200ms ease;
+  transition: opacity 320ms ease;
 }
-
-/* Dot grid brightens on interaction — desktop hover + mobile tap */
-.mkt-menu-card:hover::before,
-.mkt-menu-card:active::before,
-.mkt-menu-card:focus-visible::before {
+.mkt-menu-card:hover::after {
   opacity: 1;
 }
 
@@ -1142,50 +1152,97 @@
   transform: translateY(-1px);
   border-color: rgba(255, 255, 255, 0.14) !important;
 }
-.mkt-menu-card--pressed::before {
-  opacity: 1;
-}
 .mkt-menu-card--pressed .mkt-menu-card-icon {
-  background: #E4EDF1;
-  border-color: rgba(228, 237, 241, 0.45);
+  background: rgba(102, 232, 250, 0.18);
+  border-color: rgba(102, 232, 250, 0.50);
+  filter: grayscale(0) brightness(1);
   transform: translateY(-1px);
-  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 8px 20px rgba(102, 232, 250, 0.18);
 }
 
 /* Card hover */
 .mkt-menu-card:hover {
-  background: #111615;
-  border-color: rgba(255, 255, 255, 0.14);
-  transform: translateY(-1px);
+  background: #1c2221;
+  border-color: rgba(102, 232, 250, 0.20);
+  transform: translateY(-2px);
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.35);
 }
 
-/* Icon badge inside card */
+/* Icon badge inside card — Effortel-style "image tile" that desaturates
+   at rest and pops to full color on hover. */
 .mkt-menu-card-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
+  width: 60px;
+  height: 60px;
+  border-radius: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  /* Default state — moved from inline style so hover can override */
-  background: rgba(102, 232, 250, 0.10);
-  border: 1px solid rgba(102, 232, 250, 0.18);
+  background:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02)),
+    rgba(20, 24, 23, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  filter: grayscale(0.7) brightness(0.92);
+  position: relative;
+  overflow: hidden;
   transition:
-    background-color 220ms ease,
-    border-color 220ms ease,
-    transform 220ms ease,
-    box-shadow 220ms ease;
+    background-color 300ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 300ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 380ms cubic-bezier(0.22, 1, 0.36, 1),
+    filter 320ms ease,
+    box-shadow 320ms ease;
 }
 
-/* Desktop hover + mobile tap/active/focus — badge shifts to site light grey */
+/* Subtle dot texture inside the icon tile so the "tile" reads as a small
+   image surface rather than a flat chip. */
+.mkt-menu-card-icon::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, rgba(255,255,255,0.10) 1px, transparent 1px);
+  background-size: 8px 8px;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+/* Soft cyan glow ring that breathes in on hover (premium lift). */
+.mkt-menu-card-icon::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: radial-gradient(
+    circle at 50% 50%,
+    rgba(102, 232, 250, 0.28),
+    transparent 70%
+  );
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 320ms ease;
+}
+.mkt-menu-card:hover .mkt-menu-card-icon::after {
+  opacity: 1;
+}
+
+/* Lucide SVG sits above the dot texture */
+.mkt-menu-card-icon > svg {
+  position: relative;
+  z-index: 1;
+}
+
+/* Desktop hover + mobile tap/active/focus — tile pops to full color
+   (grayscale removed, accent fill, slight lift). */
 .mkt-menu-card:hover .mkt-menu-card-icon,
 .mkt-menu-card:active .mkt-menu-card-icon,
 .mkt-menu-card:focus-visible .mkt-menu-card-icon {
-  background: #E4EDF1;          /* effortel.n200 — site light grey */
-  border-color: rgba(228, 237, 241, 0.45);
-  transform: translateY(-1px);
-  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.08);
+  background:
+    linear-gradient(160deg, rgba(102, 232, 250, 0.22), rgba(102, 232, 250, 0.08)),
+    rgba(102, 232, 250, 0.12);
+  border-color: rgba(102, 232, 250, 0.55);
+  filter: grayscale(0) brightness(1);
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 10px 26px rgba(102, 232, 250, 0.22);
 }
 
 
@@ -1395,4 +1452,296 @@
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
+}
+
+/* ─── EffortelProductPage mockup grids — responsive collapse ─── */
+.effortel-grid-2 {
+  /* Desktop: side-by-side baseline already set inline. Tablet still side-by-side. */
+}
+@media (max-width: 768px) {
+  .effortel-grid-2 {
+    grid-template-columns: 1fr !important;
+    gap: 24px !important;
+  }
+  .effortel-grid-3 {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+}
+
+/* ─── EffortelProductPage CTAs — responsive padding ─── */
+@media (max-width: 480px) {
+  /* Tighten button padding on small phones so long labels don't overflow */
+  .effortel-grid-2 a[href],
+  .effortel-grid-3 a[href] {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+}
+
+/* ─── NumberedCard mobile padding — keep cards from feeling squeezed ─── */
+@media (max-width: 640px) {
+  /* Reduce NumberedCard horizontal padding so inner mockups have room */
+  [data-component="numbered-card"] {
+    padding-left: 20px !important;
+    padding-right: 20px !important;
+  }
+}
+
+/* ─── V7 page polish — global rules ─────────────────────────────────── */
+
+/* CTA buttons → hover lift + shadow */
+[href][style*="rgba(102,232,250"],
+[href][style*="background: rgba(102,232,250"],
+.v7-cta-primary,
+.v7-cta-ghost {
+  transition: transform 0.18s ease, box-shadow 0.18s ease,
+              background 0.18s ease, border-color 0.18s ease,
+              color 0.18s ease !important;
+}
+
+/* Generic anchor hover (subtle) — limited to V7 surfaces by being scoped */
+[data-component="numbered-card"] a:hover,
+[data-component="effortel-card"] a:hover {
+  text-decoration: none;
+}
+
+/* Lift effect on cards inside numbered cards on hover */
+[data-component="numbered-card"]:hover {
+  transform: translateY(-2px);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+/* ─── V7 content container collapses on mobile ─────────────────────── */
+
+/* Reduce hero vertical padding on mobile so above-the-fold doesn't over-pad */
+@media (max-width: 640px) {
+  /* All V7Hero sections — reduce top padding from 120px → 80px on phones */
+  section[style*="padding: 120px 24px 60px"],
+  section[style*="padding: 120px 24px 80px"],
+  section[style*="padding: 120px 24px 100px"] {
+    padding-top: 72px !important;
+    padding-bottom: 48px !important;
+  }
+
+  /* Reduce stacked V7Section vertical padding from 80–120 → 56 on phones */
+  section[style*="padding: 80px 24px"],
+  section[style*="padding: 100px 24px"],
+  section[style*="padding: 120px 24px"] {
+    padding-top: 56px !important;
+    padding-bottom: 56px !important;
+  }
+
+  /* NumberedCard inner padding tightens on phone */
+  [data-component="numbered-card"] {
+    padding-top: 36px !important;
+    padding-bottom: 44px !important;
+  }
+}
+
+/* ─── Hover effects on interactive cards ────────────────────────────── */
+
+/* Generic hover lift on V7 cards.
+   Triggers on any element that has the section-light bg + border-radius,
+   so we don't have to mark every card individually. */
+[style*="background: rgb(57, 66, 71)"][style*="border-radius"],
+[style*="background: #394247"][style*="border-radius"] {
+  transition: transform 0.22s ease, border-color 0.22s ease,
+              background 0.22s ease, box-shadow 0.22s ease !important;
+}
+[style*="background: rgb(57, 66, 71)"][style*="border-radius"]:hover,
+[style*="background: #394247"][style*="border-radius"]:hover {
+  transform: translateY(-2px);
+  border-color: rgba(102,232,250,0.28) !important;
+  box-shadow: 0 14px 32px rgba(0,0,0,0.28) !important;
+}
+
+/* Opt-in attribute version */
+[data-v7-card] {
+  transition: transform 0.22s ease, border-color 0.22s ease,
+              background 0.22s ease, box-shadow 0.22s ease !important;
+}
+[data-v7-card]:hover {
+  transform: translateY(-2px);
+  border-color: rgba(102,232,250,0.28) !important;
+  box-shadow: 0 14px 32px rgba(0,0,0,0.28) !important;
+}
+
+/* Underline links on hover within content sections */
+section a[href]:not([class]):hover {
+  opacity: 0.85;
+}
+
+/* Buttons that look like buttons (have background colour) — lift on hover */
+a[href][style*="background:"][style*="border-radius"]:not([style*="transparent"]):hover,
+button[style*="background:"][style*="border-radius"]:not([style*="transparent"]):hover {
+  transform: translateY(-1px);
+  filter: brightness(1.05);
+}
+
+/* ─── Mobile-specific: better touch targets ─────────────────────────── */
+
+@media (max-width: 640px) {
+  /* Make sure all CTA buttons are at least 44px tall (Apple HIG min) */
+  a[href][style*="padding"][style*="border-radius"] {
+    min-height: 44px;
+  }
+}
+
+/* ─── Large gaps between sections feel cleaner with a subtle divider ── */
+
+[data-v7-section-divider] {
+  background-image: linear-gradient(90deg,
+    transparent,
+    rgba(255,255,255,0.06) 50%,
+    transparent
+  );
+  height: 1px;
+  margin: 0 auto;
+  max-width: 720px;
+}
+
+/* ─── Nav + footer hover polish ─────────────────────────────────────── */
+
+/* Footer link hover — slight color shift only (already inline-styled, but
+   add a smooth transition fallback) */
+.mkt-layout footer a {
+  transition: color 0.18s ease, opacity 0.18s ease !important;
+}
+
+/* Pricing tier card hover lift (specifically targets the highlighted plan
+   so it lifts even more) */
+[style*="background: rgb(102, 232, 250)"][style*="border-radius"]:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 24px 60px rgba(102,232,250,0.28) !important;
+}
+
+/* Auth-page card hover (subtle — they're functional) */
+[style*="background: rgb(57, 66, 71)"][style*="border-radius: 24px"] {
+  transition: box-shadow 0.25s ease, border-color 0.25s ease !important;
+}
+[style*="background: rgb(57, 66, 71)"][style*="border-radius: 24px"]:hover {
+  border-color: rgba(102,232,250,0.20) !important;
+  box-shadow: 0 18px 40px rgba(0,0,0,0.32) !important;
+  /* No translateY on auth cards — would feel jittery while typing */
+  transform: none !important;
+}
+
+/* ─── Nav blur smoothness ───────────────────────────────────────────── */
+
+/* Prevent visual jank when the mobile menu opens — promote the overlay
+   to its own layer so the heavy backdrop-filter doesn't repaint the page */
+[data-testid="nav-mobile-overlay"] {
+  will-change: opacity, backdrop-filter;
+  transform: translateZ(0);
+}
+
+/* ─── V7 input field focus state ────────────────────────────────────── */
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none !important;
+  border-color: rgba(102, 232, 250, 0.45) !important;
+  box-shadow: 0 0 0 3px rgba(102, 232, 250, 0.12) !important;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease !important;
+}
+
+/* ─── Reduce excessive vertical gap between V7 sections on tablet ───── */
+
+@media (max-width: 900px) {
+  /* Tablet sweet spot: 56-72px between sections (down from 80-120) */
+  section[style*="padding: 80px 24px"],
+  section[style*="padding: 100px 24px"] {
+    padding-top: 64px !important;
+    padding-bottom: 64px !important;
+  }
+}
+
+/* ─── Global smooth scroll already set on lenis hook, but fall-back ─── */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Effortel-style accordion swiper + arrow capsule
+
+   Used by both the Blog featured carousel and the Case Studies
+   testimonial swiper. Lives in global CSS (rather than per-page
+   <style> tags) so the same look + interaction applies regardless of
+   which page is mounted.
+
+   Active card centers on the page; prev/next slides recede 9° on the
+   Y axis at 0.15 opacity. Slide width is locked to Effortel's exact
+   808px (capped to 88vw on small viewports).
+   ═══════════════════════════════════════════════════════════════════ */
+
+.cs-simple-slider { perspective: 1000px; }
+.cs-simple-slider .swiper { overflow: visible; }
+
+.cs-simple-slider .swiper-slide {
+  width: 808px;
+  max-width: 88vw;
+  transition:
+    transform 0.85s cubic-bezier(.38, .007, 0, 1.007),
+    opacity 0.8s ease;
+  transform-origin: 50% 50%;
+  opacity: 1;
+}
+
+.cs-simple-slider .swiper-wrapper {
+  transition-timing-function: cubic-bezier(.38, .007, 0, 1.007);
+}
+
+.cs-simple-slider .swiper-slide.swiper-slide-prev {
+  transform: perspective(1000px) rotateY(9deg)  scale(1.12) !important;
+  opacity: 0.15 !important;
+}
+.cs-simple-slider .swiper-slide.swiper-slide-next {
+  transform: perspective(1000px) rotateY(-9deg) scale(1.12) !important;
+  opacity: 0.15 !important;
+}
+.cs-simple-slider .swiper-slide.swiper-slide-active {
+  transform: rotate(0deg) scale(1) !important;
+  opacity: 1 !important;
+  z-index: 2;
+}
+
+/* ─── Arrow capsule under the swiper ─── */
+.cs-arrow-group {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px;
+  gap: 2px;
+  background: rgba(34, 40, 42, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 14px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.cs-arrow {
+  width: 38px; height: 32px;
+  border-radius: 10px;
+  border: none;
+  background: rgba(8, 10, 12, 0.55);
+  color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 200ms ease, color 200ms ease, opacity 200ms ease;
+}
+.cs-arrow:hover { background: rgba(8, 10, 12, 0.75); }
+.cs-arrow.cs-arrow--disabled {
+  background: rgba(255, 255, 255, 0.04);
+  cursor: default;
+  color: rgba(255, 255, 255, 0.40);
+}
+.cs-arrow-divider {
+  width: 1px;
+  align-self: stretch;
+  margin: 4px 0;
+  background: rgba(255, 255, 255, 0.08);
 }

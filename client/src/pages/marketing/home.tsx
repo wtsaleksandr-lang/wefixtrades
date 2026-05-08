@@ -3,7 +3,7 @@ import { Link } from "wouter";
 import gsap from "gsap";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
-import WorkflowDemo from "@/components/marketing/WorkflowDemo";
+// WorkflowDemo removed in round 8 — covered by AutomationDiagram.
 import { mkt, colors, shadows, typography } from "@/theme/tokens";
 import HeroGridGlow from "@/components/marketing/HeroGridGlow";
 import ReviewsSection from "@/components/home/ReviewsSection";
@@ -11,12 +11,13 @@ import HeroTradeDivider from "@/components/marketing/HeroTradeDivider";
 import TrustMarquee from "@/components/marketing/TrustMarquee";
 import CapabilitiesShowcase from "@/components/marketing/CapabilitiesShowcase";
 import StickyStackCards from "@/components/marketing/StickyStackCards";
-import FeatureCards from "@/components/marketing/FeatureCards";
-import PillarAnimation from "@/components/sections/PillarAnimation";
+import ServiceStackTimeline from "@/components/marketing/ServiceStackTimeline";
+// FeatureCards + PillarAnimation removed in round 8 — covered by the
+// 3-type sections (CapabilitiesShowcase + StickyStackCards + ServiceStackTimeline).
 import CTASection from "@/components/marketing/CTASection";
 import TrustSection from "@/components/marketing/TrustSection";
 import GlobeSection from "@/components/marketing/globe/GlobeSection";
-import ServiceCards from "@/components/marketing/ServiceCards";
+// ServiceCards removed in round 8 — covered by ServiceStackTimeline.
 import { SurfaceSection } from "@/components/marketing/SurfaceSection";
 import BuiltForRotator from "@/components/marketing/BuiltForRotator";
 import AutomationDiagram from "@/components/marketing/AutomationDiagram";
@@ -265,177 +266,14 @@ function HeroEmailCapture() {
   );
 }
 
-/* ── Exit-intent popup ── */
+/* ── Exit-intent popup ──
+   DISABLED — too aggressive. Was firing at 30s on mobile and on any
+   upward mouse motion on desktop. Owner found it annoying. To re-enable
+   later, remove the early-return below. */
 function ExitIntentPopup() {
-  const [show, setShow] = useState(false);
-  const [email, setEmail] = useState("");
-  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
-  const [errorMsg, setErrorMsg] = useState("");
-  const shownRef = useRef(false);
-
-  useEffect(() => {
-    // Check if already shown this session
-    if (typeof window === "undefined") return;
-    if (sessionStorage.getItem("wft_exit_shown") === "1") return;
-
-    let mobileTimer: ReturnType<typeof setTimeout> | null = null;
-    const isMobile = /Mobile|Android|iPhone/i.test(navigator.userAgent);
-
-    if (isMobile) {
-      // Mobile: show after 30 seconds on page
-      mobileTimer = setTimeout(() => {
-        if (!shownRef.current) {
-          shownRef.current = true;
-          sessionStorage.setItem("wft_exit_shown", "1");
-          setShow(true);
-        }
-      }, 30000);
-    } else {
-      // Desktop: show when mouse moves toward top of page (exit intent)
-      const handleMouseLeave = (e: MouseEvent) => {
-        if (e.clientY <= 5 && !shownRef.current) {
-          shownRef.current = true;
-          sessionStorage.setItem("wft_exit_shown", "1");
-          setShow(true);
-        }
-      };
-      document.addEventListener("mouseout", handleMouseLeave);
-      return () => {
-        document.removeEventListener("mouseout", handleMouseLeave);
-        if (mobileTimer) clearTimeout(mobileTimer);
-      };
-    }
-
-    return () => {
-      if (mobileTimer) clearTimeout(mobileTimer);
-    };
-  }, []);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const trimmed = email.trim();
-    if (!trimmed || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
-      setErrorMsg("Please enter a valid email address");
-      setStatus("error");
-      return;
-    }
-    setStatus("loading");
-    try {
-      const res = await fetch("/api/demo-leads", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: trimmed,
-          trade: "general",
-          source_tool: "exit_intent",
-          source_page: "homepage",
-        }),
-      });
-      if (!res.ok) throw new Error("Failed");
-      setStatus("success");
-      setTimeout(() => setShow(false), 2500);
-    } catch {
-      setErrorMsg("Something went wrong. Please try again.");
-      setStatus("error");
-    }
-  };
-
-  if (!show) return null;
-
-  return (
-    <div
-      onClick={() => setShow(false)}
-      style={{
-        position: "fixed", inset: 0, zIndex: 10001,
-        display: "flex", alignItems: "center", justifyContent: "center",
-        padding: 20, background: "rgba(0,0,0,0.6)",
-        backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)",
-        animation: "exitOverlayIn 0.25s ease forwards",
-      }}
-    >
-      <style>{`
-        @keyframes exitOverlayIn { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes exitModalIn { from { opacity: 0; transform: scale(0.92) translateY(20px); } to { opacity: 1; transform: scale(1) translateY(0); } }
-      `}</style>
-      <div
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Free website audit"
-        style={{
-          background: "rgba(22,28,30,0.95)", backdropFilter: "blur(20px)",
-          WebkitBackdropFilter: "blur(20px)",
-          border: "1px solid rgba(255,255,255,0.1)", borderRadius: 20,
-          boxShadow: "0 24px 64px rgba(0,0,0,0.5), 0 0 1px rgba(255,255,255,0.1)",
-          width: "100%", maxWidth: 440, padding: "36px 32px 32px",
-          position: "relative", animation: "exitModalIn 0.3s cubic-bezier(0.22,1,0.36,1) forwards",
-        }}
-      >
-        {/* Close button */}
-        <button
-          onClick={() => setShow(false)}
-          aria-label="Close"
-          style={{
-            position: "absolute", top: 14, right: 14, width: 32, height: 32,
-            borderRadius: 8, border: "none", background: "rgba(255,255,255,0.06)",
-            color: mkt.textFaint, cursor: "pointer", display: "flex",
-            alignItems: "center", justifyContent: "center", fontSize: 18,
-          }}
-        >
-          x
-        </button>
-
-        <div style={{ textAlign: "center", marginBottom: 24 }}>
-          <div style={{ fontSize: 22, fontWeight: 800, color: mkt.onDark, fontFamily: typography.fontFamily, lineHeight: 1.2, marginBottom: 8 }}>
-            Wait! Get a free website audit before you go
-          </div>
-          <div style={{ fontSize: 14, color: mkt.textMuted, lineHeight: 1.5 }}>
-            See exactly how your trades business appears online and where you're losing customers.
-          </div>
-        </div>
-
-        {status === "success" ? (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "14px 24px", borderRadius: 14, background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.25)" }}>
-            <Check size={16} color="#10B981" strokeWidth={2.5} />
-            <span style={{ fontSize: 14, fontWeight: 600, color: "#10B981" }}>
-              We'll send your free audit shortly.
-            </span>
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <input
-              type="email"
-              placeholder="your@email.com"
-              value={email}
-              onChange={(e) => { setEmail(e.target.value); if (status === "error") setStatus("idle"); }}
-              style={{
-                width: "100%", padding: "14px 16px", borderRadius: 12,
-                border: status === "error" ? "1px solid rgba(239,68,68,0.5)" : "1px solid rgba(255,255,255,0.12)",
-                background: "rgba(255,255,255,0.06)", color: mkt.text, fontSize: 15,
-                fontFamily: typography.fontFamily, outline: "none", boxSizing: "border-box",
-              }}
-              autoFocus
-            />
-            <button
-              type="submit"
-              disabled={status === "loading"}
-              style={{
-                width: "100%", padding: "14px 24px", borderRadius: 12, border: "none",
-                background: mkt.accent, color: mkt.dark, fontSize: 15, fontWeight: 700,
-                fontFamily: typography.fontFamily, cursor: status === "loading" ? "wait" : "pointer",
-                opacity: status === "loading" ? 0.7 : 1, transition: "opacity 0.2s",
-              }}
-            >
-              {status === "loading" ? "Sending..." : "Get My Free Audit"}
-            </button>
-            {status === "error" && (
-              <div style={{ fontSize: 12, color: "#EF4444", textAlign: "center" }}>{errorMsg}</div>
-            )}
-          </form>
-        )}
-      </div>
-    </div>
-  );
+  // Disabled — was firing aggressively (30s on mobile, any upward mouse
+  // motion on desktop). To restore, pull from git history.
+  return null;
 }
 
 const RESPONSIVE_CSS = `
@@ -834,34 +672,18 @@ export default function HomePage() {
       </div>{/* end shared grid zone */}
       </div>{/* end hero shell backdrop */}
       <HeroTradeDivider />
-      <CapabilitiesShowcase />
-      <StickyStackCards />
-      <PillarAnimation />
-      <FeatureCards />
+      {/* Three product showcase types covering all 12 products: */}
+      <CapabilitiesShowcase />        {/* 4 money-makers */}
+      <StickyStackCards />            {/* 4 growth tools */}
+      <ServiceStackTimeline />        {/* 4 done-for-you */}
+      {/* Removed legacy sections (PillarAnimation, FeatureCards, ServiceCards,
+          WorkflowDemo) — they duplicated the 3-type story above and broke the
+          V7 visual cohesion as the user scrolled. AutomationDiagram remains as
+          the interactive "How it works" deep-dive. */}
       {hasWebGL && <GlobeSection />}
-      <ServiceCards />
       <SurfaceSection overlap className="py-4">
         <ReviewsSection />
       </SurfaceSection>
-
-      <section data-testid="workflow-section" style={{ background: mkt.darkBg, padding: "96px 28px", borderRadius: "28px 28px 0 0", marginTop: -28, position: "relative", zIndex: 7 }}>
-        <div style={{ maxWidth: 900, margin: "0 auto" }}>
-          <div data-reveal="fade-up" style={{ marginBottom: 48 }}>
-            <h2 style={{ fontSize: "clamp(28px, 3.5vw, 42px)", fontWeight: 700, color: mkt.text, letterSpacing: "-0.03em", lineHeight: 1.1, marginBottom: 16 }}>
-              From lead → quote → booking → review <span style={{ color: mkt.accent }}>(automatic)</span>
-            </h2>
-            <p style={{ fontSize: 17, color: mkt.textMuted, lineHeight: 1.65, maxWidth: 600 }}>
-              Four steps that run on autopilot. Click each to see how it works.
-            </p>
-          </div>
-          <div data-reveal="fade-up">
-            <WorkflowDemo />
-          </div>
-        </div>
-      </section>
-
-
-
       <AutomationDiagram />
       <TrustSection />
       <CTASection />

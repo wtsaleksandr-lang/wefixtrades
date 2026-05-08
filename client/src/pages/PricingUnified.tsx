@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, type CSSProperties } from "react";
 import { Check, ChevronDown, Zap, Shield, Eye, Globe, Wrench, ArrowRight, Info, X, TrendingUp, Target } from "lucide-react";
 import { Link } from "wouter";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
+import { V7Hero, V7PageShell } from "@/components/marketing/v7";
 import { mkt, shadows, typography } from "@/theme/tokens";
 import {
   ALL_PRODUCTS, YEARLY_DISCOUNT_PCT,
@@ -1420,19 +1421,14 @@ function DecisionButton({ label, targetId }: { label: string; targetId: string }
 
   return (
     <MarketingLayout>
+      <V7PageShell>
+        <V7Hero
+          productName="Pricing"
+          eyebrow="Pick what you need. Cancel any month."
+          headline={<>Simple, transparent pricing.<br/><span style={{ color: mkt.accent }}>Built for trades.</span></>}
+          sub="No contracts. No setup gotchas. You own everything you build with us."
+        />
       <div style={{ paddingBottom: 80 }}>
-
-        {/* ═══ 1. HERO (compact) ═══ */}
-        <section className="pricing-section" style={{ paddingTop: 56 }}>
-          <div className="pricing-max-w" style={MAX_W}>
-            <h1 style={{ fontSize: "clamp(24px, 5vw, 40px)", fontWeight: 800, color: mkt.onDark, fontFamily: FONT, letterSpacing: "-0.03em", lineHeight: 1.1, margin: "0 0 4px" }}>
-              Simple, transparent pricing
-            </h1>
-            <p style={{ fontSize: 14, color: WARM_GRAY, lineHeight: 1.4, margin: 0, opacity: 0.85 }}>
-              Built for trades businesses. No contracts. You own everything.
-            </p>
-          </div>
-        </section>
 
         {/* ═══ 1b. RECOMMENDER QUIZ ═══ */}
         <section className="pricing-section" style={{ paddingTop: 16 }}>
@@ -1716,6 +1712,7 @@ function DecisionButton({ label, targetId }: { label: string; targetId: string }
           }
         }
       `}</style>
+      </V7PageShell>
     </MarketingLayout>
   );
 }

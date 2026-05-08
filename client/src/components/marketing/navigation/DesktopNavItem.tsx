@@ -170,12 +170,12 @@ export function DesktopNavItem({
                 width: Math.min(1080, rect.width),
                 maxWidth: "calc(100vw - 24px)",
                 transform: "translateX(-50%)",
-                padding: 10,
+                padding: 6,
                 zIndex: 9999,
                 display: "grid",
                 gridTemplateColumns: "repeat(3, 1fr)",
                 gridAutoFlow: "row",
-                gap: 8,
+                gap: 5,
                 boxShadow: "0 16px 40px rgba(0,0,0,0.45)",
                 ...(exiting && {
                   animation: `mktDropdownOut ${EXIT_ANIM}ms cubic-bezier(0.22,1,0.36,1) forwards`,
@@ -194,7 +194,7 @@ export function DesktopNavItem({
                     style={{ color: mkt.accent }}
                     aria-hidden
                   >
-                    <NavIcon icon={icon} />
+                    <NavIcon icon={icon} size={26} strokeWidth={1.7} />
                   </div>
                   <div style={{ minWidth: 0 }}>
                     <div

@@ -162,15 +162,15 @@ export default function ReviewsSection() {
       <div style={{ maxWidth: 1100, margin: "0 auto" }}>
         <div className="text-center mb-3 sm:mb-5">
           <div className="flex justify-center mb-2">
-            <span className="inline-flex items-center gap-2 text-xs font-semibold" style={{ color: mkt.textMuted }}>
+            <span className="inline-flex items-center gap-2 text-xs font-semibold" style={{ color: mkt.onDarkMuted }}>
               <span className="w-2 h-2 rounded-full" style={{ background: mkt.accent }} />
               What early customers are telling us
             </span>
           </div>
-          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight leading-tight" style={{ color: mkt.text }}>
+          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight leading-tight" style={{ color: mkt.onDark }}>
             Feedback from the pilot program
           </h2>
-          <p className="mt-3 text-sm sm:text-base" style={{ color: mkt.textMuted, maxWidth: 640, margin: "12px auto 0" }}>
+          <p className="mt-3 text-sm sm:text-base" style={{ color: mkt.onDarkMuted, maxWidth: 640, margin: "12px auto 0" }}>
             WeFixTrades is in early access. These are quotes from pilot customers across trades in North America. Names are first-initial only per pilot NDA — we'll publish full case studies as customers opt in.
           </p>
         </div>
@@ -191,7 +191,7 @@ export default function ReviewsSection() {
               style={{
                 borderRadius: "clamp(14px, 2vw, 20px)",
                 border: `1px solid ${mkt.cardBorder}`,
-                background: mkt.surface,
+                background: mkt.sectionLight,
                 boxShadow: "0 10px 20px #33314833",
                 padding: "clamp(14px, 2.5vw, 20px)",
                 display: "flex",
@@ -204,7 +204,7 @@ export default function ReviewsSection() {
                   <div style={{ fontSize: 14, fontWeight: 650, color: mkt.onDark, lineHeight: 1.2 }}>
                     {r.name}
                   </div>
-                  <div style={{ fontSize: 12, color: mkt.textMuted, lineHeight: 1.3, marginTop: 2 }}>
+                  <div style={{ fontSize: 12, color: mkt.onDarkMuted, lineHeight: 1.3, marginTop: 2 }}>
                     {r.role} · {r.city}
                   </div>
                 </div>
@@ -221,7 +221,7 @@ export default function ReviewsSection() {
               <p
                 style={{
                   fontSize: 14,
-                  color: mkt.textMuted,
+                  color: mkt.onDarkMuted,
                   lineHeight: 1.65,
                   margin: 0,
                   flex: 1,

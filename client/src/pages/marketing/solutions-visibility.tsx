@@ -1,7 +1,8 @@
 import { useEffect } from "react";
 import { Link } from "wouter";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
-import { mkt, colors, shadows } from "@/theme/tokens";
+import { V7Hero, V7PageShell } from "@/components/marketing/v7";
+import { mkt } from "@/theme/tokens";
 import mapguardIcon from "@assets/mapguard-icon_1772080241423.webp";
 import reputationshieldIcon from "@assets/reputationshield-icon_1772080241309.webp";
 import socialsyncIcon from "@assets/socialsync-icon_1772080241338.webp";
@@ -107,7 +108,7 @@ const S = {
     background: mkt.bg,
     borderRadius: 16,
     padding: "36px 32px",
-    boxShadow: shadows.card,
+    boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
     border: `1px solid ${mkt.border}`,
     marginBottom: 32,
   },
@@ -225,15 +226,14 @@ export default function SolutionsVisibility() {
 
   return (
     <MarketingLayout>
+      <V7PageShell>
       <div data-testid="solutions-visibility-page">
-        <div style={S.hero}>
-          <h1 style={S.heroH1} data-testid="text-solutions-title">
-            Get found. Get trusted. Get booked.
-          </h1>
-          <p style={S.heroSub} data-testid="text-solutions-subtitle">
-            Visibility add-ons that put your business in front of local customers — on Google, social media, and across the web.
-          </p>
-        </div>
+        <V7Hero
+          productName="Visibility Solutions"
+          eyebrow="Customers can't book you if they can't find you."
+          headline={<>Get found.<br/>Get trusted.<br/><span style={{ color: mkt.accent }}>Get booked.</span></>}
+          sub="Visibility add-ons that put your business in front of local customers — on Google, social media, and across the web."
+        />
 
         <div style={{ ...S.section, background: "#F7F8FA" }}>
           <div style={S.inner}>
@@ -278,6 +278,7 @@ export default function SolutionsVisibility() {
           </Link>
         </div>
       </div>
+      </V7PageShell>
     </MarketingLayout>
   );
 }

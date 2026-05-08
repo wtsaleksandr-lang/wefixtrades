@@ -7,6 +7,7 @@ import { NAV_LINKS, NAV_MOBILE_BREAKPOINT } from "@/site/navigation";
 import { Menu, MenuItem } from "@/components/ui/navbar-menu";
 import { MobileNavItem } from "./MobileNavItem";
 import { mkt } from "@/theme/tokens";
+import { useStickyBarVisible } from "@/hooks/useStickyBarVisible";
 
 const DESKTOP_NAV_HEIGHT = 68;
 const DESKTOP_CARD_HEIGHT = 50;
@@ -52,6 +53,10 @@ export function MarketingNav() {
   const isMobile = useNavIsMobile();
   const scrolled = useScrolled();
   const { isAuthenticated } = useAuth();
+  const stickyBarVisible = useStickyBarVisible();
+  // Hide whenever the bottom sticky bar takes over so the two are never
+  // shown at the same time.
+  const navHidden = stickyBarVisible;
 
   const isActive = (href: string) => location === href;
 
@@ -173,7 +178,10 @@ export function MarketingNav() {
           top: 0,
           left: 0,
           right: 0,
-          zIndex: 300,
+          // Sit above the dropdown backdrop (zIndex 9990 in navbar-menu)
+          // so the nav bar stays sharp while the rest of the page blurs.
+          // The dropdown panel itself is at 9999, still above the nav.
+          zIndex: 9991,
           height: isMobile ? "auto" : DESKTOP_NAV_HEIGHT,
           display: "flex",
           alignItems: "flex-start",
@@ -184,6 +192,10 @@ export function MarketingNav() {
           WebkitBackdropFilter: "none",
           borderBottom: "none",
           boxShadow: "none",
+          opacity: navHidden ? 0 : 1,
+          pointerEvents: navHidden ? "none" : "auto",
+          transform: navHidden ? "translateY(-12px)" : "translateY(0)",
+          transition: "opacity 240ms ease, transform 240ms cubic-bezier(0.22,1,0.36,1)",
         }}
       >
         <div
@@ -224,7 +236,7 @@ export function MarketingNav() {
             <Logo />
 
             {!isMobile && (
-              <Menu setActive={setActive} containerRef={innerRef}>
+              <Menu active={active} setActive={setActive} containerRef={innerRef}>
                 {NAV_LINKS.map(({ label, href, children: navChildren }) => (
                   <MenuItem
                     key={href}
@@ -401,9 +413,13 @@ export function MarketingNav() {
             position: "fixed",
             inset: 0,
             zIndex: 290,
-            background: "rgba(0,0,0,0.45)",
-            backdropFilter: "blur(10px)",
-            WebkitBackdropFilter: "blur(10px)",
+            // Heavier darkening so the dimming effect is visible even on flat
+            // dark V7 pages where there's no colourful content for the blur
+            // to soften — without this the menu appears to float over an
+            // unchanged page on /products, /pricing, /about, etc.
+            background: "rgba(0,0,0,0.65)",
+            backdropFilter: "blur(16px) saturate(1.2)",
+            WebkitBackdropFilter: "blur(16px) saturate(1.2)",
             opacity: menuOpen ? 1 : 0,
             pointerEvents: menuOpen ? "auto" : "none",
             transition: "opacity 0.25s ease",

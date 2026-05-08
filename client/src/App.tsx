@@ -45,7 +45,16 @@ import SharedAuditReport from "@/pages/marketing/SharedAuditReport";
 import CompareNiceJob from "@/pages/marketing/CompareNiceJob";
 import ComparisonPage from "@/pages/marketing/ComparisonPage";
 import NewProductPage from "@/pages/products/ProductPage";
+import EffortelProductPage from "@/pages/products/EffortelProductPage";
 import MapGuardPage from "@/pages/products/mapguard";
+import TradeLineCompare from "@/pages/products/tradeline-variants/compare";
+import TradeLineV1 from "@/pages/products/tradeline-variants/v1-linear-dark";
+import TradeLineV2 from "@/pages/products/tradeline-variants/v2-vercel-geometric";
+import TradeLineV3 from "@/pages/products/tradeline-variants/v3-bento-dark";
+import TradeLineV4 from "@/pages/products/tradeline-variants/v4-stripe-light";
+import TradeLineV5 from "@/pages/products/tradeline-variants/v5-apple-monumental";
+import TradeLineV6 from "@/pages/products/tradeline-variants/v6-ultimate";
+import TradeLineV7 from "@/pages/products/tradeline-variants/v7-effortel";
 import SolutionPage from "@/pages/solutions/SolutionPage";
 import DemoCenter from "@/pages/demos/DemoCenter";
 import DemoPage from "@/pages/demos/DemoPage";
@@ -58,6 +67,7 @@ import PricingUnified from "@/pages/PricingUnified";
 import CheckoutSuccess from "@/pages/CheckoutSuccess";
 import CheckoutCancelled from "@/pages/CheckoutCancelled";
 import Resources from "@/pages/Resources";
+import DesignShowcase from "@/pages/marketing/DesignShowcase";
 import About from "@/pages/About";
 import Blog from "@/pages/Blog";
 import CaseStudies from "@/pages/CaseStudies";
@@ -115,6 +125,7 @@ import ServicePricingPage from "@/pages/admin/ServicePricingPage";
 import BookingCalendarPage from "@/pages/admin/BookingCalendarPage";
 import SystemJobsPage from "@/pages/admin/SystemJobsPage";
 import SystemWorkersPage from "@/pages/admin/SystemWorkersPage";
+import SystemAvailabilityPage from "@/pages/admin/SystemAvailabilityPage";
 import TradeLineOpsPage from "@/pages/admin/TradeLineOpsPage";
 import QuoteQuickPage from "@/pages/admin/QuoteQuickPage";
 import BookingPage from "@/pages/public/BookingPage";
@@ -159,6 +170,7 @@ function Router() {
       {/* System monitoring */}
       <Route path="/admin/system/jobs">{() => <RequirePortal><SystemJobsPage /></RequirePortal>}</Route>
       <Route path="/admin/system/workers">{() => <RequirePortal><SystemWorkersPage /></RequirePortal>}</Route>
+      <Route path="/admin/system/availability">{() => <RequirePortal><SystemAvailabilityPage /></RequirePortal>}</Route>
 
       {/* Outbound lead management */}
       <Route path="/admin/outbound/prospects">{() => <RequirePortal><ProspectsPage /></RequirePortal>}</Route>
@@ -189,7 +201,16 @@ function Router() {
 
       <Route path="/compare/reputationshield-vs-nicejob" component={CompareNiceJob} />
       <Route path="/compare/:slug" component={ComparisonPage} />
-      <Route path="/products/mapguard" component={MapGuardPage} />
+      <Route path="/products/mapguard">{() => <EffortelProductPage slug="mapguard" />}</Route>
+      {/* TradeLine variant comparison — internal review pages, registered before /:slug */}
+      <Route path="/products/tradeline/compare" component={TradeLineCompare} />
+      <Route path="/products/tradeline/v1" component={TradeLineV1} />
+      <Route path="/products/tradeline/v2" component={TradeLineV2} />
+      <Route path="/products/tradeline/v3" component={TradeLineV3} />
+      <Route path="/products/tradeline/v4" component={TradeLineV4} />
+      <Route path="/products/tradeline/v5" component={TradeLineV5} />
+      <Route path="/products/tradeline/v6" component={TradeLineV6} />
+      <Route path="/products/tradeline/v7" component={TradeLineV7} />
       {/* TradeLine consolidation — old routes redirect to unified product */}
       <Route path="/products/assistants">{() => <Redirect to="/products/tradeline" />}</Route>
       <Route path="/products/ai-chat">{() => <Redirect to="/products/tradeline" />}</Route>
@@ -201,7 +222,7 @@ function Router() {
       {/* Removed products — redirect to closest active product */}
       <Route path="/products/booking-addon">{() => <Redirect to="/products/quickquotepro" />}</Route>
       <Route path="/products/fix-and-optimize">{() => <Redirect to="/pricing" />}</Route>
-      <Route path="/products/:slug" component={NewProductPage} />
+      <Route path="/products/:slug">{(params) => <EffortelProductPage slug={params.slug} />}</Route>
       <Route path="/products" component={ProductIndex} />
 
       <Route path="/solutions/visibility" component={SolutionsVisibility} />
@@ -215,7 +236,7 @@ function Router() {
 
       <Route path="/product/:slug">{(params) => <Redirect to={`/products/${params.slug}`} />}</Route>
       <Route path="/product">{() => <Redirect to="/products" />}</Route>
-      <Route path="/platform" component={MarketingProduct} />
+      <Route path="/platform">{() => <Redirect to="/products/quickquotepro" />}</Route>
       <Route path="/pricing" component={PricingUnified} />
       <Route path="/pricing/quotequick" component={QuoteQuickPricing} />
       <Route path="/plans">{() => <Redirect to="/pricing" />}</Route>
@@ -228,6 +249,7 @@ function Router() {
       <Route path="/bundles">{() => <Redirect to="/pricing" />}</Route>
       <Route path="/templates" component={MarketingTemplates} />
       <Route path="/resources" component={Resources} />
+      <Route path="/design-showcase" component={DesignShowcase} />
       <Route path="/about" component={About} />
       <Route path="/blog" component={Blog} />
       <Route path="/case-studies" component={CaseStudies} />

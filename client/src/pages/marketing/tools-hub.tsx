@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link } from "wouter";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
+import { V7Hero, V7PageShell } from "@/components/marketing/v7";
 import { usePageMeta } from "@/lib/usePageMeta";
 import { useBreadcrumbSchema } from "@/lib/useBreadcrumbSchema";
 import { useFaqSchema } from "@/lib/useFaqSchema";
@@ -87,57 +88,20 @@ export default function ToolsHub() {
 
   return (
     <MarketingLayout>
+      <V7PageShell>
+        <V7Hero
+          productName="Free Tools · No signup required"
+          eyebrow="Try before you buy. No email walls."
+          headline={<>Free tools for<br/><span style={{ color: mkt.accent }}>trade businesses.</span></>}
+          sub="Understand your online performance, calculate lost revenue, and see what instant quoting looks like — all free, no signup."
+        />
       <div
         style={{
           maxWidth: 960,
           margin: "0 auto",
-          padding: "clamp(24px, 5vw, 48px) clamp(16px, 4vw, 24px) clamp(48px, 8vw, 96px)",
+          padding: "20px clamp(16px, 4vw, 24px) clamp(48px, 8vw, 96px)",
         }}
       >
-        {/* Breadcrumb */}
-        <nav
-          aria-label="breadcrumb"
-          style={{ fontSize: 13, color: mkt.textFaint, marginBottom: "clamp(20px, 3vw, 32px)" }}
-        >
-          <Link href="/" style={{ color: mkt.textMuted, textDecoration: "none" }}>
-            Home
-          </Link>
-          <span style={{ margin: "0 8px", opacity: 0.4 }}>/</span>
-          <span style={{ color: mkt.text }}>Free Tools</span>
-        </nav>
-
-        {/* Hero */}
-        <div style={{ marginBottom: "clamp(36px, 6vw, 56px)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-            <Sparkles size={16} color={mkt.accent} />
-            <span style={{ fontSize: 13, fontWeight: 600, color: mkt.accent, letterSpacing: "0.04em", textTransform: "uppercase" }}>
-              No signup required
-            </span>
-          </div>
-          <h1
-            style={{
-              fontSize: "clamp(30px, 5vw, 48px)",
-              fontWeight: 900,
-              letterSpacing: "-0.025em",
-              color: mkt.onDark,
-              marginBottom: 14,
-              lineHeight: 1.08,
-            }}
-          >
-            Free Tools for Trade Businesses
-          </h1>
-          <p
-            style={{
-              fontSize: "clamp(15px, 2.5vw, 18px)",
-              color: mkt.textMuted,
-              maxWidth: 560,
-              lineHeight: 1.65,
-            }}
-          >
-            Understand your online performance, calculate lost revenue, and see
-            what instant quoting looks like — all free.
-          </p>
-        </div>
 
         {/* Tool Cards */}
         <div
@@ -214,7 +178,7 @@ export default function ToolsHub() {
                     {tool.title}
                   </h2>
 
-                  <p style={{ fontSize: 14, color: mkt.textMuted, lineHeight: 1.6, margin: 0, flex: 1 }}>
+                  <p style={{ fontSize: 14, color: mkt.onDarkMuted, lineHeight: 1.6, margin: 0, flex: 1 }}>
                     {tool.description}
                   </p>
 
@@ -259,10 +223,10 @@ export default function ToolsHub() {
                 <div
                   key={i}
                   style={{
-                    border: `1px solid ${mkt.border}`,
+                    border: `1px solid ${mkt.onDarkBorder}`,
                     borderRadius: 12,
                     overflow: "hidden",
-                    background: mkt.surface,
+                    background: mkt.sectionLight,
                     transition: "border-color 0.2s",
                   }}
                 >
@@ -290,7 +254,7 @@ export default function ToolsHub() {
                     {item.question}
                     <ChevronDown
                       size={16}
-                      color={mkt.textFaint}
+                      color={mkt.onDarkFaint}
                       style={{
                         flexShrink: 0,
                         transition: "transform 0.2s",
@@ -303,7 +267,7 @@ export default function ToolsHub() {
                       style={{
                         padding: "0 16px 14px",
                         fontSize: 14,
-                        color: mkt.textMuted,
+                        color: mkt.onDarkMuted,
                         lineHeight: 1.65,
                       }}
                     >
@@ -316,6 +280,7 @@ export default function ToolsHub() {
           </div>
         </div>
       </div>
+      </V7PageShell>
     </MarketingLayout>
   );
 }

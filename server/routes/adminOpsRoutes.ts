@@ -7,6 +7,7 @@
 
 import type { Express, Request, Response } from "express";
 import { requireAdmin } from "../auth";
+import { storage } from "../storage";
 import { db } from "../db";
 import { opsSnapshots, jobLogs } from "@shared/schema";
 import { desc, eq, and, gte, lte, sql, count } from "drizzle-orm";
@@ -471,6 +472,42 @@ export function registerAdminOpsRoutes(app: Express): void {
     } catch (err: any) {
       log.error(`Manual worker trigger failed: ${workerName}`, { error: err.message });
       res.status(500).json({ success: false, worker: workerName, error: err.message });
+    }
+  });
+}
+
+/* ─── Brand availability — manual on/off toggle ────────────────────
+   Used by /admin/system/availability admin page and consumed by
+   server/services/vapiService.ts when assembling the operating-brand
+   assistant's first-message + system prompt.
+   ────────────────────────────────────────────────────────────── */
+
+export function registerBrandAvailabilityRoutes(app: import("express").Express) {
+  app.get("/api/admin/system/availability", requireAdmin, async (_req, res) => {
+    try {
+      const row = await storage.getBrandAvailability();
+      res.json(row);
+    } catch (err: any) {
+      log.error("[availability] read failed", { error: err.message });
+      res.status(500).json({ error: "Failed to read availability" });
+    }
+  });
+
+  app.post("/api/admin/system/availability", requireAdmin, async (req, res) => {
+    try {
+      const { is_available, away_message } = req.body ?? {};
+      if (typeof is_available !== "boolean") {
+        return res.status(400).json({ error: "is_available (boolean) is required" });
+      }
+      const row = await storage.setBrandAvailability({
+        is_available,
+        away_message: typeof away_message === "string" && away_message.trim() ? away_message.trim() : undefined,
+        set_by_user_id: (req.user as any)?.id ?? null,
+      });
+      res.json(row);
+    } catch (err: any) {
+      log.error("[availability] write failed", { error: err.message });
+      res.status(500).json({ error: "Failed to update availability" });
     }
   });
 }

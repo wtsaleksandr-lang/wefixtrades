@@ -148,18 +148,39 @@ export default function GlobeCanvas({
 
     globeRef.current = globe;
 
-    // Camera controls
+    // Camera controls — constrained to ~150° drag range around North America.
+    //
+    // Order matters here:
+    //   1. Set the camera position FIRST via pointOfView (this rotates the
+    //      globe so lat/lng faces the viewer).
+    //   2. Then capture the resulting azimuth and clamp drag relative to it.
+    //      Doing it in the other order pins the camera to azimuth=0 (which
+    //      is roughly the prime meridian / Africa) before pointOfView gets
+    //      a chance to apply.
     const controls = globe.controls();
-    controls.autoRotate = true;
-    controls.autoRotateSpeed = 0.35;
+    controls.autoRotate = false;
     controls.enableZoom = false;
     controls.enablePan = false;
-    controls.rotateSpeed = 0.6;
+    controls.rotateSpeed = 0.5;
     controls.dampingFactor = 0.15;
     controls.enableDamping = true;
 
-    // Initial view — centered on North America, zoomed out to show ~half globe
-    globe.pointOfView({ lat: 32, lng: -95, altitude: 2.8 });
+    const DEG = Math.PI / 180;
+
+    // 1. Initial view — centered on North America (lat 38, lng -98 = roughly
+    //    the geographic centre of CONUS). altitude 2.6 so NA fills the frame.
+    globe.pointOfView({ lat: 38, lng: -98, altitude: 2.6 });
+
+    // 2. Capture the camera's azimuth on the next animation frame (pointOfView
+    //    needs a tick to settle), then clamp ±75° around it.
+    requestAnimationFrame(() => {
+      const center = controls.getAzimuthalAngle();
+      controls.minAzimuthAngle = center - 75 * DEG;
+      controls.maxAzimuthAngle = center + 75 * DEG;
+      controls.minPolarAngle = 45 * DEG;
+      controls.maxPolarAngle = 115 * DEG;
+      controls.update();
+    });
 
     // ── Load land data → dotted texture ─────────────────────────────
     fetch(LAND_DATA_URL)

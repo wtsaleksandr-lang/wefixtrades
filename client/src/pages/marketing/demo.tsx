@@ -87,11 +87,11 @@ function ChatPanel() {
               background: msg.role === "user" ? mkt.accent : mkt.surface,
               color: msg.role === "user" ? mkt.buttonText : mkt.text,
               fontSize: 14, lineHeight: 1.55,
-              border: msg.role === "assistant" ? `1px solid ${mkt.border}` : "none",
+              border: msg.role === "assistant" ? `1px solid ${mkt.onDarkBorder}` : "none",
             }}>{msg.content}</div>
             {msg.role === "user" && (
-              <div style={{ width: 28, height: 28, borderRadius: "50%", background: mkt.surfaceAlt, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                <User size={13} color={mkt.textMuted} />
+              <div style={{ width: 28, height: 28, borderRadius: "50%", background: mkt.sectionLighter, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <User size={13} color={mkt.onDarkMuted} />
               </div>
             )}
           </div>
@@ -101,9 +101,9 @@ function ChatPanel() {
             <div style={{ width: 28, height: 28, borderRadius: "50%", background: mkt.accent, display: "flex", alignItems: "center", justifyContent: "center" }}>
               <Bot size={13} color={mkt.buttonText} />
             </div>
-            <div style={{ padding: "12px 18px", borderRadius: "16px 16px 16px 4px", background: mkt.surface, border: `1px solid ${mkt.border}`, display: "flex", gap: 5, alignItems: "center" }}>
+            <div style={{ padding: "12px 18px", borderRadius: "16px 16px 16px 4px", background: mkt.sectionLight, border: `1px solid ${mkt.onDarkBorder}`, display: "flex", gap: 5, alignItems: "center" }}>
               {[0, 1, 2].map(i => (
-                <div key={i} style={{ width: 6, height: 6, borderRadius: "50%", background: mkt.textFaint, animation: "pulse 1.2s ease-in-out infinite", animationDelay: `${i * 0.2}s` }} />
+                <div key={i} style={{ width: 6, height: 6, borderRadius: "50%", background: mkt.onDarkFaint, animation: "pulse 1.2s ease-in-out infinite", animationDelay: `${i * 0.2}s` }} />
               ))}
             </div>
           </div>
@@ -111,7 +111,7 @@ function ChatPanel() {
         <div ref={messagesEndRef} />
       </div>
       {/* Input bar */}
-      <div style={{ borderTop: `1px solid ${mkt.border}`, padding: "12px 16px", display: "flex", gap: 8 }}>
+      <div style={{ borderTop: `1px solid ${mkt.onDarkBorder}`, padding: "12px 16px", display: "flex", gap: 8 }}>
         <input
           data-testid="demo-chat-input"
           type="text" value={inputValue}
@@ -119,8 +119,8 @@ function ChatPanel() {
           onKeyDown={handleKeyDown}
           placeholder="Ask anything — services, pricing, estimates..."
           style={{
-            flex: 1, border: `1px solid ${mkt.border}`, borderRadius: 10, padding: "10px 14px",
-            fontSize: 14, color: mkt.text, background: mkt.bg, outline: "none", fontFamily: "inherit",
+            flex: 1, border: `1px solid ${mkt.onDarkBorder}`, borderRadius: 10, padding: "10px 14px",
+            fontSize: 14, color: mkt.onDark, background: mkt.bg, outline: "none", fontFamily: "inherit",
           }}
         />
         <button
@@ -130,7 +130,7 @@ function ChatPanel() {
           style={{
             padding: "10px 16px", borderRadius: 10,
             background: inputValue.trim() ? mkt.accent : mkt.surfaceAlt,
-            color: inputValue.trim() ? mkt.buttonText : mkt.textFaint,
+            color: inputValue.trim() ? mkt.buttonText : mkt.onDarkFaint,
             border: "none", cursor: inputValue.trim() ? "pointer" : "not-allowed",
             display: "flex", alignItems: "center", gap: 6, fontSize: 14, fontWeight: 600,
           }}
@@ -158,15 +158,15 @@ function VoicePanel() {
   const glowIntensity = isInCall ? 0.15 + vapi.volumeLevel * 0.45 : 0;
 
   let statusLabel: string = "";
-  let statusColor: string = mkt.textMuted;
+  let statusColor: string = mkt.onDarkMuted;
   if (isConnecting) { statusLabel = "Connecting..."; statusColor = mkt.orange; }
   else if (isInCall && vapi.isSpeaking) { statusLabel = "Listening..."; statusColor = "#34D399"; }
   else if (isInCall && vapi.isAssistantSpeaking) { statusLabel = "Speaking"; statusColor = mkt.accent; }
   else if (isInCall) { statusLabel = "Call active"; statusColor = "#34D399"; }
-  else if (isEnded) { statusLabel = "Call ended"; statusColor = mkt.textMuted; }
+  else if (isEnded) { statusLabel = "Call ended"; statusColor = mkt.onDarkMuted; }
   else if (isError) { statusLabel = "Connection issue"; statusColor = "#EF4444"; }
   else if (vapi.isAvailable) { statusLabel = "Ready"; statusColor = "#34D399"; }
-  else { statusLabel = "Coming soon"; statusColor = mkt.textMuted; }
+  else { statusLabel = "Coming soon"; statusColor = mkt.onDarkMuted; }
 
   const handleClick = () => {
     if (isInCall || isConnecting) vapi.stop();
@@ -211,7 +211,7 @@ function VoicePanel() {
         ) : isInCall ? (
           <PhoneOff size={28} color="#FFFFFF" strokeWidth={1.5} />
         ) : (
-          <Mic size={28} color={micHover && canStart ? mkt.accent : canStart ? mkt.buttonText : mkt.textMuted} strokeWidth={1.5} style={{ transition: "color 0.2s ease" }} />
+          <Mic size={28} color={micHover && canStart ? mkt.accent : canStart ? mkt.buttonText : mkt.onDarkMuted} strokeWidth={1.5} style={{ transition: "color 0.2s ease" }} />
         )}
       </button>
       <style>{`
@@ -233,7 +233,7 @@ function VoicePanel() {
       </div>
 
       {/* Context text */}
-      <p style={{ fontSize: 14, color: mkt.textMuted, lineHeight: 1.55, maxWidth: 340, margin: 0 }}>
+      <p style={{ fontSize: 14, color: mkt.onDarkMuted, lineHeight: 1.55, maxWidth: 340, margin: 0 }}>
         {isInCall
           ? "Speak naturally — ask about services or request an estimate."
           : isError
@@ -279,7 +279,7 @@ const DEMO_FAQ = [
 function FAQItem({ q, a }: { q: string; a: string }) {
   const [open, setOpen] = useState(false);
   return (
-    <div style={{ border: `1px solid ${mkt.border}`, borderRadius: 14, overflow: "hidden" }}>
+    <div style={{ border: `1px solid ${mkt.onDarkBorder}`, borderRadius: 14, overflow: "hidden" }}>
       <button
         onClick={() => setOpen((o) => !o)}
         style={{
@@ -288,11 +288,11 @@ function FAQItem({ q, a }: { q: string; a: string }) {
           cursor: "pointer", gap: 16, textAlign: "left", transition: "background 0.2s ease",
         }}
       >
-        <span style={{ fontSize: 15, fontWeight: 600, color: mkt.text, lineHeight: 1.4 }}>{q}</span>
-        <ChevronDown size={18} color={mkt.textMuted} style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform 0.2s ease", flexShrink: 0 }} />
+        <span style={{ fontSize: 15, fontWeight: 600, color: mkt.onDark, lineHeight: 1.4 }}>{q}</span>
+        <ChevronDown size={18} color={mkt.onDarkMuted} style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform 0.2s ease", flexShrink: 0 }} />
       </button>
       <div style={{ maxHeight: open ? 300 : 0, overflow: "hidden", transition: "max-height 0.25s ease" }}>
-        <div style={{ padding: "0 22px 18px", fontSize: 14, color: mkt.textMuted, lineHeight: 1.6 }}>{a}</div>
+        <div style={{ padding: "0 22px 18px", fontSize: 14, color: mkt.onDarkMuted, lineHeight: 1.6 }}>{a}</div>
       </div>
     </div>
   );
@@ -319,7 +319,7 @@ function PricingCards() {
         <div
           key={plan.name}
           style={{
-            background: mkt.surface, borderRadius: 20, padding: "32px 28px",
+            background: mkt.sectionLight, borderRadius: 20, padding: "32px 28px",
             border: `1px solid ${plan.highlighted ? mkt.accent : mkt.border}`,
             boxShadow: plan.highlighted ? `0 0 40px rgba(102,232,250,0.1)` : "none",
             position: "relative",
@@ -332,12 +332,12 @@ function PricingCards() {
               borderRadius: 20, fontSize: 11, fontWeight: 700, letterSpacing: "0.04em",
             }}>{plan.badge}</div>
           )}
-          <div style={{ fontSize: 18, fontWeight: 700, color: mkt.text, marginBottom: 4 }}>{plan.name}</div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: mkt.onDark, marginBottom: 4 }}>{plan.name}</div>
           <div style={{ marginBottom: 12 }}>
-            <span style={{ fontSize: 36, fontWeight: 800, color: mkt.text, letterSpacing: "-0.03em" }}>{plan.price}</span>
-            <span style={{ fontSize: 14, color: mkt.textMuted }}>{plan.period}</span>
+            <span style={{ fontSize: 36, fontWeight: 800, color: mkt.onDark, letterSpacing: "-0.03em" }}>{plan.price}</span>
+            <span style={{ fontSize: 14, color: mkt.onDarkMuted }}>{plan.period}</span>
           </div>
-          <p style={{ fontSize: 13, color: mkt.textMuted, lineHeight: 1.5, marginBottom: 20 }}>{plan.desc}</p>
+          <p style={{ fontSize: 13, color: mkt.onDarkMuted, lineHeight: 1.5, marginBottom: 20 }}>{plan.desc}</p>
           <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 24 }}>
             {plan.features.map((f) => (
               <div key={f} style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -386,12 +386,12 @@ export default function DemoPage() {
         }}>
           <div style={{ maxWidth: 600, margin: "0 auto", position: "relative", zIndex: 1 }}>
             <h1 data-testid="demo-headline" style={{
-              fontSize: "clamp(30px, 4.5vw, 48px)", fontWeight: 700, color: mkt.text,
+              fontSize: "clamp(30px, 4.5vw, 48px)", fontWeight: 700, color: mkt.onDark,
               letterSpacing: "-0.03em", marginBottom: 12, lineHeight: 1.1,
             }}>
               Try it yourself
             </h1>
-            <p style={{ fontSize: 16, color: mkt.textMuted, lineHeight: 1.6, maxWidth: 460, margin: "0 auto 32px" }}>
+            <p style={{ fontSize: 16, color: mkt.onDarkMuted, lineHeight: 1.6, maxWidth: 460, margin: "0 auto 32px" }}>
               Chat or call the 24/7 TradeLine assistant. Ask about services, get an estimate, or see how it handles a real conversation.
             </p>
           </div>
@@ -404,7 +404,7 @@ export default function DemoPage() {
           <div style={{
             maxWidth: 820, margin: "0 auto",
             background: mkt.bg,
-            border: `1px solid ${mkt.border}`,
+            border: `1px solid ${mkt.onDarkBorder}`,
             borderRadius: 24,
             overflow: "hidden",
             boxShadow: `0 0 60px rgba(102,232,250,0.06), 0 2px 20px rgba(0,0,0,0.3)`,
@@ -413,8 +413,8 @@ export default function DemoPage() {
             <div style={{
               display: "flex", alignItems: "center", justifyContent: "space-between",
               padding: "14px 20px",
-              borderBottom: `1px solid ${mkt.border}`,
-              background: mkt.surface,
+              borderBottom: `1px solid ${mkt.onDarkBorder}`,
+              background: mkt.sectionLight,
             }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#22C55E" }} />
@@ -422,7 +422,7 @@ export default function DemoPage() {
               </div>
               <div style={{
                 display: "flex", gap: 2, padding: 3,
-                background: mkt.bg, borderRadius: 10, border: `1px solid ${mkt.border}`,
+                background: mkt.bg, borderRadius: 10, border: `1px solid ${mkt.onDarkBorder}`,
               }}>
                 <button
                   onClick={() => setMode("chat")}
@@ -431,7 +431,7 @@ export default function DemoPage() {
                     padding: "6px 14px", borderRadius: 8, border: "none", cursor: "pointer",
                     fontSize: 12, fontWeight: 600,
                     background: mode === "chat" ? mkt.accentTint : "transparent",
-                    color: mode === "chat" ? mkt.accent : mkt.textFaint,
+                    color: mode === "chat" ? mkt.accent : mkt.onDarkFaint,
                     transition: "all 0.15s ease",
                   }}
                 >
@@ -444,7 +444,7 @@ export default function DemoPage() {
                     padding: "6px 14px", borderRadius: 8, border: "none", cursor: "pointer",
                     fontSize: 12, fontWeight: 600,
                     background: mode === "voice" ? mkt.accentTint : "transparent",
-                    color: mode === "voice" ? mkt.accent : mkt.textFaint,
+                    color: mode === "voice" ? mkt.accent : mkt.onDarkFaint,
                     transition: "all 0.15s ease",
                   }}
                 >
@@ -460,29 +460,29 @@ export default function DemoPage() {
           </div>
 
           {/* Subtle helper text */}
-          <p style={{ textAlign: "center", fontSize: 12, color: mkt.textFaint, marginTop: 16 }}>
+          <p style={{ textAlign: "center", fontSize: 12, color: mkt.onDarkFaint, marginTop: 16 }}>
             This is a live demo connected to the real assistant. No account needed.
           </p>
         </section>
 
         {/* ═══ REVIEWS ═══ */}
-        <section style={{ background: mkt.surface, padding: "80px 28px", borderTop: `1px solid ${mkt.border}` }}>
+        <section style={{ background: mkt.sectionLight, padding: "80px 28px", borderTop: `1px solid ${mkt.onDarkBorder}` }}>
           <div style={{ maxWidth: 900, margin: "0 auto" }}>
             <ReviewsSection />
           </div>
         </section>
 
         {/* ═══ PRICING ═══ */}
-        <section style={{ background: mkt.bg, padding: "80px 28px", borderTop: `1px solid ${mkt.border}` }}>
+        <section style={{ background: mkt.bg, padding: "80px 28px", borderTop: `1px solid ${mkt.onDarkBorder}` }}>
           <div style={{ maxWidth: 900, margin: "0 auto" }}>
             <div style={{ textAlign: "center", marginBottom: 40 }}>
               <span style={{ fontSize: 11, fontWeight: 700, color: mkt.accent, letterSpacing: "0.1em", textTransform: "uppercase", display: "block", marginBottom: 12 }}>
                 Pricing
               </span>
-              <h2 style={{ fontSize: "clamp(24px, 3vw, 36px)", fontWeight: 700, color: mkt.text, letterSpacing: "-0.025em", marginBottom: 10 }}>
+              <h2 style={{ fontSize: "clamp(24px, 3vw, 36px)", fontWeight: 700, color: mkt.onDark, letterSpacing: "-0.025em", marginBottom: 10 }}>
                 Simple, transparent plans
               </h2>
-              <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.6 }}>
+              <p style={{ fontSize: 15, color: mkt.onDarkMuted, lineHeight: 1.6 }}>
                 Start with chat. Add voice when you're ready. No contracts.
               </p>
             </div>
@@ -491,13 +491,13 @@ export default function DemoPage() {
         </section>
 
         {/* ═══ FAQ ═══ */}
-        <section style={{ background: mkt.surface, padding: "80px 28px", borderTop: `1px solid ${mkt.border}` }}>
+        <section style={{ background: mkt.sectionLight, padding: "80px 28px", borderTop: `1px solid ${mkt.onDarkBorder}` }}>
           <div style={{ maxWidth: 680, margin: "0 auto" }}>
             <div style={{ textAlign: "center", marginBottom: 40 }}>
               <span style={{ fontSize: 11, fontWeight: 700, color: mkt.accent, letterSpacing: "0.1em", textTransform: "uppercase", display: "block", marginBottom: 12 }}>
                 FAQ
               </span>
-              <h2 style={{ fontSize: "clamp(24px, 3vw, 36px)", fontWeight: 700, color: mkt.text, letterSpacing: "-0.025em" }}>
+              <h2 style={{ fontSize: "clamp(24px, 3vw, 36px)", fontWeight: 700, color: mkt.onDark, letterSpacing: "-0.025em" }}>
                 Common questions
               </h2>
             </div>
@@ -508,12 +508,12 @@ export default function DemoPage() {
         </section>
 
         {/* ═══ MINIMAL BOTTOM CTA ═══ */}
-        <section style={{ background: mkt.bg, padding: "64px 28px", textAlign: "center", borderTop: `1px solid ${mkt.border}` }}>
+        <section style={{ background: mkt.bg, padding: "64px 28px", textAlign: "center", borderTop: `1px solid ${mkt.onDarkBorder}` }}>
           <div style={{ maxWidth: 480, margin: "0 auto" }}>
-            <h2 style={{ fontSize: "clamp(22px, 3vw, 32px)", fontWeight: 700, color: mkt.text, letterSpacing: "-0.02em", marginBottom: 12 }}>
+            <h2 style={{ fontSize: "clamp(22px, 3vw, 32px)", fontWeight: 700, color: mkt.onDark, letterSpacing: "-0.02em", marginBottom: 12 }}>
               Ready to set up yours?
             </h2>
-            <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.6, marginBottom: 28 }}>
+            <p style={{ fontSize: 15, color: mkt.onDarkMuted, lineHeight: 1.6, marginBottom: 28 }}>
               Get your 24/7 assistant running in under 15 minutes.
             </p>
             <Link

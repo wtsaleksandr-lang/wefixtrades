@@ -167,6 +167,7 @@ export interface ProcessQueueSummary {
     instagram: ChannelMetrics;
     gbp_post: ChannelMetrics;
     email: ChannelMetrics;
+    youtube: ChannelMetrics;
   };
 }
 
@@ -362,6 +363,7 @@ export async function processQueue(): Promise<ProcessQueueSummary> {
       instagram: emptyChannelMetrics(),
       gbp_post: emptyChannelMetrics(),
       email: emptyChannelMetrics(),
+      youtube: emptyChannelMetrics(),
     },
   };
 
@@ -743,7 +745,7 @@ async function drainGbpQueue(summary: ProcessQueueSummary): Promise<void> {
  * adapter dispatch, cooling_down handling, and retry/dead-letter
  * logic — only the channel name varies.
  */
-type SocialChannel = "facebook" | "instagram" | "gbp_post" | "email";
+type SocialChannel = "facebook" | "instagram" | "gbp_post" | "email" | "youtube";
 
 async function drainSocialChannel(summary: ProcessQueueSummary, channel: SocialChannel): Promise<void> {
   const m = summary.channels?.[channel] ?? emptyChannelMetrics();

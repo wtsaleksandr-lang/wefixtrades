@@ -393,7 +393,7 @@ export default function PortalMapguard() {
                       <p className="text-xs text-gray-500 mt-0.5">Upgrade your plan to allow us to fix more issues each month and improve your ranking faster.</p>
                       <button
                         className="mt-2 inline-flex items-center px-4 py-2 rounded-lg text-xs font-semibold text-white bg-[#2D6A4F] hover:bg-[#1B4332] transition-colors"
-                        onClick={() => window.open("mailto:hello@wefixtrades.co.uk?subject=MapGuard%20Upgrade", "_blank")}
+                        onClick={() => window.open("mailto:support@wefixtrades.com?subject=MapGuard%20Upgrade", "_blank")}
                       >
                         Upgrade Plan
                       </button>

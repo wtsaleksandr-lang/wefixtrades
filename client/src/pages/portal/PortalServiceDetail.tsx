@@ -557,9 +557,6 @@ export default function PortalServiceDetail() {
             {/* TradeLine section */}
             {isTradeLine && tlData?.config && (
               <>
-                {/* Status Banner */}
-                <TradeLineStatusBanner mode={tlData.config.currentMode} assistantStatus={tlData.assistantStatus} />
-
                 {/* Mode control */}
                 <div className="bg-white rounded-xl border border-gray-200 p-5">
                   <h2 className="text-sm font-semibold text-gray-900 mb-3">Current Mode</h2>
@@ -583,20 +580,6 @@ export default function PortalServiceDetail() {
                 <VoiceAndStyleCard
                   clientServiceId={parseInt(serviceId!)}
                   config={tlData.config}
-                  onSaved={() => queryClient.invalidateQueries({ queryKey: ["/api/portal/tradeline", serviceId] })}
-                />
-
-                {/* Business Hours */}
-                <BusinessHoursCard
-                  clientServiceId={parseInt(serviceId!)}
-                  businessHours={tlData.config.businessHours}
-                  onSaved={() => queryClient.invalidateQueries({ queryKey: ["/api/portal/tradeline", serviceId] })}
-                />
-
-                {/* Notification Settings */}
-                <NotificationSettingsCard
-                  clientServiceId={parseInt(serviceId!)}
-                  notifications={tlData.config.notifications}
                   onSaved={() => queryClient.invalidateQueries({ queryKey: ["/api/portal/tradeline", serviceId] })}
                 />
 
@@ -628,9 +611,6 @@ export default function PortalServiceDetail() {
                     )}
                   </div>
                 )}
-
-                {/* Recent calls with drill-down */}
-                <TradeLineCallList clientServiceId={parseInt(serviceId!)} calls={tlData.recentCalls} />
 
                 {/* Widget / hosted info */}
                 {(tlData.config.website.embedMode !== "none" || tlData.config.website.hostedUrl) && (

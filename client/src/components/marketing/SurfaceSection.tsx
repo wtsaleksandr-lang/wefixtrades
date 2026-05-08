@@ -36,7 +36,7 @@ export function SurfaceSection({
             position: "relative",
             borderRadius: 20,
             overflow: "hidden",
-            background: mkt.surface,
+            background: mkt.sectionLight,
             border: `1px solid ${mkt.cardBorder}`,
             boxShadow: "0 10px 20px #33314833",
           }}

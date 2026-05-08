@@ -8,10 +8,27 @@ import { useAuth } from "@/hooks/useAuth";
 import { queryClient } from "@/lib/queryClient";
 import { mkt } from "@/theme/tokens";
 import { MarketingNav, useNavIsMobile } from "./navigation/MarketingNav";
+import MarketingStickyBar from "./MarketingStickyBar";
 
 const SiteChatWidget = lazy(() => import("@/components/SiteChatWidget"));
 
 /* ─── Footer ─── */
+
+const legalLinkStyle: CSSProperties = {
+  fontSize: 10,
+  color: "rgba(255,255,255,0.32)",
+  textDecoration: "none",
+  padding: "0 12px",
+  fontFamily: "'DM Mono', monospace",
+  letterSpacing: "0.06em",
+};
+
+const legalDividerStyle: CSSProperties = {
+  display: "inline-block",
+  width: 1,
+  height: 10,
+  background: "rgba(255,255,255,0.12)",
+};
 
 const ftLink: CSSProperties = {
   display: "block",
@@ -63,7 +80,7 @@ function CollapsibleFooterSection({ title, children, defaultOpen = true }: { tit
         <span>{title}</span>
         <ChevronDown size={12} className="mkt-ft-chevron" style={{ transition: "transform 0.2s", transform: open ? "rotate(180deg)" : "rotate(0)", opacity: 0.4 }} />
       </button>
-      {open && children}
+      {open && <div className="mkt-ft-list">{children}</div>}
     </div>
   );
 }
@@ -189,32 +206,40 @@ function MarketingFooter({ isMobile }: { isMobile: boolean }) {
           <div>
             <div style={{ display: "flex", gap: 14, marginBottom: 8, flexWrap: "wrap" }}>
               <a
-                href="tel:+15551234567"
+                href="tel:+19156153280"
                 style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", textDecoration: "none", fontWeight: 500 }}
                 data-testid="footer-phone"
               >
-                📞 +1 (555) 123-4567 · AI-answered 24/7
+                📞 +1 (915) 615-3280 · AI-answered 24/7
               </a>
               <a
-                href="mailto:contact@wefixtrades.com"
+                href="mailto:sales@wefixtrades.com"
                 style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", textDecoration: "none", fontWeight: 500 }}
               >
-                ✉️ contact@wefixtrades.com
+                ✉️ sales@wefixtrades.com
+              </a>
+              <a
+                href="mailto:support@wefixtrades.com"
+                style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", textDecoration: "none", fontWeight: 500 }}
+              >
+                ✉️ support@wefixtrades.com
               </a>
             </div>
             <p style={{ fontSize: 11, color: "rgba(255,255,255,0.22)", margin: "0 0 4px", lineHeight: 1.5 }}>
-              &copy; {new Date().getFullYear()} WeFixTrades Inc. All rights reserved.
+              &copy; {new Date().getFullYear()} WeFixTrades. All rights reserved.
             </p>
             <p style={{ fontSize: 10, color: "rgba(255,255,255,0.14)", margin: 0, lineHeight: 1.5, maxWidth: 480 }}>
-              WeFixTrades Inc. is a registered technology company. Business Registration No. 2024-WFT-0847.
-              Registered office: 1200 Market Street, Suite 400, Wilmington, DE 19801, United States.
+              WeFixTrades is headquartered in Toronto, Canada.
             </p>
           </div>
-          <div style={{ display: "flex", gap: 16, flexShrink: 0 }}>
-            <Link href="/privacy" style={{ fontSize: 10, color: "rgba(255,255,255,0.2)", textDecoration: "none" }}>Privacy</Link>
-            <Link href="/terms" style={{ fontSize: 10, color: "rgba(255,255,255,0.2)", textDecoration: "none" }}>Terms</Link>
-            <Link href="/terms" style={{ fontSize: 10, color: "rgba(255,255,255,0.2)", textDecoration: "none" }}>Cookies</Link>
-            <Link href="/admin/crm" style={{ fontSize: 10, color: "rgba(255,255,255,0.2)", textDecoration: "none" }}>Admin</Link>
+          <div className="mkt-footer-legal-links" style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
+            <Link href="/privacy" style={legalLinkStyle}>Privacy</Link>
+            <span style={legalDividerStyle} />
+            <Link href="/terms" style={legalLinkStyle}>Terms</Link>
+            <span style={legalDividerStyle} />
+            <Link href="/terms" style={legalLinkStyle}>Cookies</Link>
+            <span style={legalDividerStyle} />
+            <Link href="/admin/crm" style={legalLinkStyle}>Admin</Link>
           </div>
         </div>
       </div>
@@ -226,6 +251,22 @@ function MarketingFooter({ isMobile }: { isMobile: boolean }) {
           grid-template-columns: repeat(4, 1fr);
           gap: 32px;
         }
+        /* Subtle dashed vertical divider between footer columns.
+           Drawn with a vertical repeating linear-gradient so the dash
+           cadence is consistent regardless of column height. */
+        .mkt-footer-grid > * + * {
+          background-image: linear-gradient(
+            to bottom,
+            rgba(255,255,255,0.22) 0,
+            rgba(255,255,255,0.22) 6px,
+            transparent 6px,
+            transparent 12px
+          );
+          background-repeat: repeat-y;
+          background-size: 1px 12px;
+          background-position: -16px top;
+          padding-left: 0;
+        }
         /* Desktop: hide chevrons, always show content */
         .mkt-ft-chevron { display: none; }
         .mkt-ft-toggle { cursor: default !important; }
@@ -234,6 +275,10 @@ function MarketingFooter({ isMobile }: { isMobile: boolean }) {
           .mkt-footer-grid {
             grid-template-columns: 1fr 1fr;
             gap: 24px 20px;
+          }
+          /* Drop the column divider when items wrap onto multiple rows */
+          .mkt-footer-grid > * + * {
+            background-image: none;
           }
         }
         @media (max-width: 480px) {
@@ -261,7 +306,7 @@ function MarketingFooter({ isMobile }: { isMobile: boolean }) {
   );
 }
 
-export default function MarketingLayout({ children }: { children: ReactNode }) {
+export default function MarketingLayout({ children, hideSiteChat = false }: { children: ReactNode; hideSiteChat?: boolean }) {
   useLenis();
   const [location] = useLocation();
   const isMobile = useNavIsMobile();
@@ -291,9 +336,12 @@ export default function MarketingLayout({ children }: { children: ReactNode }) {
       <div style={{ height: 24, flexShrink: 0 }} />
       <main style={{ flex: 1 }}>{children}</main>
       <MarketingFooter isMobile={isMobile} />
-      <Suspense fallback={null}>
-        <SiteChatWidget />
-      </Suspense>
+      <MarketingStickyBar />
+      {!hideSiteChat && (
+        <Suspense fallback={null}>
+          <SiteChatWidget />
+        </Suspense>
+      )}
     </div>
   );
 }

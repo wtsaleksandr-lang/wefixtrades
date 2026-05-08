@@ -12,6 +12,7 @@ import { Link } from "wouter";
 import { Plus } from "lucide-react";
 import type { NavItemChild } from "@/site/navigation";
 import { NavIcon } from "@/components/marketing/navigation/NavIcon";
+import { ToolsRichCards } from "@/components/marketing/navigation/ToolsRichCards";
 import { mkt } from "@/theme/tokens";
 import type { CSSProperties } from "react";
 
@@ -70,25 +71,33 @@ export const MenuItem = ({
   item,
   href,
   children,
+  placement = "below",
 }: {
   setActive: (item: string | null) => void;
   active: string | null;
   item: string;
   href?: string;
   children?: NavItemChild[];
+  /** Where the dropdown panel renders relative to the trigger row.
+   *  "below" (default) is used by the top nav; "above" is used by the
+   *  bottom sticky toolbar so the panel rises from the bar instead. */
+  placement?: "below" | "above";
 }) => {
   const hasChildren = !!(children && children.length > 0);
   const isOpen = active === item;
   const ctx = useContext(MenuContext);
   const [rect, setRect] = useState<DOMRect | null>(null);
+  const [vh, setVh] = useState<number>(typeof window !== "undefined" ? window.innerHeight : 0);
 
   useEffect(() => {
     if (!isOpen || !ctx?.containerRef.current) {
       setRect(null);
       return;
     }
-    const measure = () =>
+    const measure = () => {
       setRect(ctx.containerRef.current!.getBoundingClientRect());
+      setVh(window.innerHeight);
+    };
     measure();
     window.addEventListener("resize", measure);
     return () => window.removeEventListener("resize", measure);
@@ -136,7 +145,7 @@ export const MenuItem = ({
         ctx &&
         createPortal(
           <motion.div
-            initial={{ opacity: 0, y: 10 }}
+            initial={{ opacity: 0, y: placement === "above" ? -10 : 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={transition}
             onMouseEnter={ctx.cancelClose}
@@ -144,7 +153,9 @@ export const MenuItem = ({
             style={{
               position: "fixed",
               left: rect.left + rect.width / 2,
-              top: rect.bottom + 6,
+              ...(placement === "above"
+                ? { bottom: Math.max(0, vh - rect.top + 6) }
+                : { top: rect.bottom + 6 }),
               transform: "translateX(-50%)",
               width: Math.min(1080, rect.width),
               maxWidth: "calc(100vw - 24px)",
@@ -156,58 +167,65 @@ export const MenuItem = ({
               layoutId="active"
               className="mkt-dropdown-tray"
               style={{
-                padding: 10,
-                display: "grid",
-                gridTemplateColumns: "repeat(3, 1fr)",
-                gridAutoFlow: "row",
-                gap: 8,
+                padding: item === "Tools" ? 12 : 10,
+                display: item === "Tools" ? "block" : "grid",
+                ...(item === "Tools"
+                  ? {}
+                  : { gridTemplateColumns: "repeat(3, 1fr)", gridAutoFlow: "row", gap: 8 }),
                 boxShadow: "0 16px 40px rgba(0,0,0,0.45)",
               }}
             >
-              <motion.div layout style={{ display: "contents" }}>
-                {children!.map(
-                  ({ label, href: childHref, description, icon }) => (
-                    <Link
-                      key={childHref + label}
-                      href={childHref}
-                      className="mkt-menu-card"
-                    >
-                      <div
-                        className="mkt-menu-card-icon"
-                        style={{ color: mkt.accent }}
-                        aria-hidden
+              {item === "Tools" ? (
+                /* Effortel-style rich layout — only used for Tools (3
+                   items, so each card has full real estate for a
+                   heading + subtitle + an inline product preview SVG). */
+                <ToolsRichCards items={children!} />
+              ) : (
+                <motion.div layout style={{ display: "contents" }}>
+                  {children!.map(
+                    ({ label, href: childHref, description, icon }) => (
+                      <Link
+                        key={childHref + label}
+                        href={childHref}
+                        className="mkt-menu-card"
                       >
-                        <NavIcon icon={icon} />
-                      </div>
-                      <div style={{ minWidth: 0 }}>
                         <div
-                          style={{
-                            fontSize: 13,
-                            fontWeight: 650,
-                            color: mkt.text,
-                            lineHeight: 1.2,
-                            marginBottom: 3,
-                          }}
+                          className="mkt-menu-card-icon"
+                          style={{ color: mkt.accent }}
+                          aria-hidden
                         >
-                          {label}
+                          <NavIcon icon={icon} />
                         </div>
-                        {description && (
+                        <div style={{ minWidth: 0 }}>
                           <div
                             style={{
-                              fontSize: 12,
-                              fontWeight: 450,
-                              color: mkt.textMuted,
-                              lineHeight: 1.35,
+                              fontSize: 13,
+                              fontWeight: 650,
+                              color: mkt.text,
+                              lineHeight: 1.2,
+                              marginBottom: 3,
                             }}
                           >
-                            {description}
+                            {label}
                           </div>
-                        )}
-                      </div>
-                    </Link>
-                  ),
-                )}
-              </motion.div>
+                          {description && (
+                            <div
+                              style={{
+                                fontSize: 12,
+                                fontWeight: 450,
+                                color: mkt.textMuted,
+                                lineHeight: 1.35,
+                              }}
+                            >
+                              {description}
+                            </div>
+                          )}
+                        </div>
+                      </Link>
+                    ),
+                  )}
+                </motion.div>
+              )}
             </motion.div>
           </motion.div>,
           document.body,
@@ -218,10 +236,15 @@ export const MenuItem = ({
 
 // ── Menu container ───────────────────────────────────────────────────────────
 export const Menu = ({
+  active,
   setActive,
   containerRef,
   children,
 }: {
+  /** Currently open menu key, or null when closed. Optional — when
+   *  provided, Menu renders a page-blur backdrop while a dropdown is
+   *  open so the rest of the site dims behind the panel. */
+  active?: string | null;
   setActive: (item: string | null) => void;
   containerRef: React.RefObject<HTMLDivElement>;
   children: React.ReactNode;
@@ -247,8 +270,37 @@ export const Menu = ({
     [],
   );
 
+  const backdropOpen = !!active;
+
   return (
     <MenuContext.Provider value={{ containerRef, scheduleClose, cancelClose }}>
+      {/* Page-blur backdrop — purely visual dimming behind the open
+          dropdown. Sits below the dropdown (9990 < 9999) and above the
+          rest of the page. pointerEvents stays "none" so it never
+          intercepts hover/click events on the nav bar underneath; if it
+          did, hit-testing would close the menu the instant it opened
+          (the cursor would be considered "over the backdrop" rather
+          than the trigger), causing a flicker loop. The menu closes
+          via onMouseLeave on the <nav> trigger row and on the dropdown
+          panel itself. */}
+      {typeof document !== "undefined" &&
+        createPortal(
+          <div
+            aria-hidden="true"
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 9990,
+              background: "rgba(0,0,0,0.35)",
+              backdropFilter: "blur(8px) saturate(1.1)",
+              WebkitBackdropFilter: "blur(8px) saturate(1.1)",
+              opacity: backdropOpen ? 1 : 0,
+              pointerEvents: "none",
+              transition: "opacity 220ms ease",
+            }}
+          />,
+          document.body,
+        )}
       <nav
         aria-label="Main navigation"
         onMouseLeave={scheduleClose}

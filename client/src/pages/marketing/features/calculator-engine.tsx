@@ -15,7 +15,7 @@ function EngineMockup() {
     <div
       style={{
         background: mkt.bg,
-        border: `1px solid ${mkt.border}`,
+        border: `1px solid ${mkt.onDarkBorder}`,
         borderRadius: 20,
         padding: 26,
         width: "100%",
@@ -30,13 +30,13 @@ function EngineMockup() {
         </div>
         <div>
           <div style={{ fontSize: 13, fontWeight: 700, color: mkt.text }}>Pricing Formula Builder</div>
-          <div style={{ fontSize: 11, color: mkt.textMuted }}>10 formula types available</div>
+          <div style={{ fontSize: 11, color: mkt.onDarkMuted }}>10 formula types available</div>
         </div>
-        <div style={{ marginLeft: "auto", fontSize: 11, fontWeight: 700, background: mkt.accentTint, color: mkt.accent, padding: "3px 10px", borderRadius: 20 }}>AI Validated ✓</div>
+        <div style={{ marginLeft: "auto", fontSize: 11, fontWeight: 700, background: "rgba(102,232,250,0.10)", color: mkt.accent, padding: "3px 10px", borderRadius: 20 }}>AI Validated ✓</div>
       </div>
 
       {/* Formula type selector */}
-      <div style={{ fontSize: 11, fontWeight: 700, color: mkt.textMuted, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Pricing Model</div>
+      <div style={{ fontSize: 11, fontWeight: 700, color: mkt.onDarkMuted, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Pricing Model</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
         {formulaTypes.map(({ name, active, example }) => (
           <div key={name} style={{
@@ -52,13 +52,13 @@ function EngineMockup() {
               </div>
               <span style={{ fontSize: 13, fontWeight: active ? 700 : 500, color: active ? "#7C3AED" : mkt.text }}>{name}</span>
             </div>
-            <span style={{ fontSize: 11, color: mkt.textMuted }}>{example}</span>
+            <span style={{ fontSize: 11, color: mkt.onDarkMuted }}>{example}</span>
           </div>
         ))}
       </div>
 
       {/* Formula parameters */}
-      <div style={{ fontSize: 11, fontWeight: 700, color: mkt.textMuted, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Parameters</div>
+      <div style={{ fontSize: 11, fontWeight: 700, color: mkt.onDarkMuted, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Parameters</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 18 }}>
         {[
           { label: "Base Rate", val: "$200.00" },
@@ -66,19 +66,19 @@ function EngineMockup() {
           { label: "Minimum charge", val: "$350.00" },
         ].map(({ label, val }) => (
           <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontSize: 13, color: mkt.textMuted }}>{label}</span>
-            <div style={{ background: mkt.surface, border: `1px solid ${mkt.border}`, borderRadius: 8, padding: "6px 12px", fontSize: 13, fontWeight: 700, color: mkt.text }}>{val}</div>
+            <span style={{ fontSize: 13, color: mkt.onDarkMuted }}>{label}</span>
+            <div style={{ background: mkt.sectionLight, border: `1px solid ${mkt.onDarkBorder}`, borderRadius: 8, padding: "6px 12px", fontSize: 13, fontWeight: 700, color: mkt.text }}>{val}</div>
           </div>
         ))}
       </div>
 
       {/* Preview */}
       <div style={{ background: "#F5F3FF", borderRadius: 12, padding: "14px 18px" }}>
-        <div style={{ fontSize: 11, fontWeight: 600, color: mkt.textMuted, marginBottom: 6 }}>Formula Preview — 12m²</div>
+        <div style={{ fontSize: 11, fontWeight: 600, color: mkt.onDarkMuted, marginBottom: 6 }}>Formula Preview — 12m²</div>
         <div style={{ fontSize: 14, fontWeight: 700, color: "#7C3AED", fontFamily: "monospace" }}>
           $200 + (12 × $45) = <span style={{ color: "#6D28D9" }}>$740</span>
         </div>
-        <div style={{ fontSize: 11, color: mkt.textMuted, marginTop: 4 }}>Output range: $666 – $814 (±10%)</div>
+        <div style={{ fontSize: 11, color: mkt.onDarkMuted, marginTop: 4 }}>Output range: $666 – $814 (±10%)</div>
       </div>
     </div>
   );

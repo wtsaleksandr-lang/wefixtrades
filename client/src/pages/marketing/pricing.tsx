@@ -30,7 +30,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 function FAQItem({ q, a }: { q: string; a: string }) {
   const [open, setOpen] = useState(false);
   return (
-    <div style={{ border: `1px solid ${mkt.border}`, borderRadius: 12, overflow: "hidden" }}>
+    <div style={{ border: `1px solid ${mkt.onDarkBorder}`, borderRadius: 12, overflow: "hidden" }}>
       <button
         onClick={() => setOpen((o) => !o)}
         style={{
@@ -39,19 +39,19 @@ function FAQItem({ q, a }: { q: string; a: string }) {
           justifyContent: "space-between",
           alignItems: "center",
           padding: "18px 22px",
-          background: open ? mkt.surface : mkt.bg,
+          background: open ? mkt.sectionLight : mkt.bg,
           border: "none",
           cursor: "pointer",
           gap: 16,
           textAlign: "left" as const,
         }}
       >
-        <span style={{ fontSize: 15, fontWeight: 600, color: mkt.text, lineHeight: 1.4 }}>{q}</span>
-        <ChevronDown size={17} color={mkt.textMuted} style={{ flexShrink: 0, transform: open ? "rotate(180deg)" : "none", transition: "transform 0.22s ease" }} />
+        <span style={{ fontSize: 15, fontWeight: 600, color: mkt.onDark, lineHeight: 1.4 }}>{q}</span>
+        <ChevronDown size={17} color={mkt.onDarkMuted} style={{ flexShrink: 0, transform: open ? "rotate(180deg)" : "none", transition: "transform 0.22s ease" }} />
       </button>
       {open && (
-        <div style={{ padding: "0 22px 18px", background: mkt.surface }}>
-          <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.7, margin: 0 }}>{a}</p>
+        <div style={{ padding: "0 22px 18px", background: mkt.sectionLight }}>
+          <p style={{ fontSize: 15, color: mkt.onDarkMuted, lineHeight: 1.7, margin: 0 }}>{a}</p>
         </div>
       )}
     </div>
@@ -74,11 +74,11 @@ function PriceDisplay({
     return (
       <div>
         <div style={{ display: "flex", alignItems: "flex-end", gap: 4, marginBottom: 6 }}>
-          <span data-testid={`price-${product.id}`} style={{ fontSize: 38, fontWeight: 700, color: mkt.text, letterSpacing: "-0.02em", lineHeight: 1 }}>
+          <span data-testid={`price-${product.id}`} style={{ fontSize: 38, fontWeight: 700, color: mkt.onDark, letterSpacing: "-0.02em", lineHeight: 1 }}>
             {formatMoney(amount, currency)}
           </span>
         </div>
-        <div style={{ fontSize: 13, color: mkt.textMuted, fontWeight: 500 }}>one-time</div>
+        <div style={{ fontSize: 13, color: mkt.onDarkMuted, fontWeight: 500 }}>one-time</div>
       </div>
     );
   }
@@ -95,10 +95,10 @@ function PriceDisplay({
     return (
       <div>
         <div style={{ display: "flex", alignItems: "flex-end", gap: 4, marginBottom: 4 }}>
-          <span data-testid={`price-${product.id}`} style={{ fontSize: 38, fontWeight: 700, color: mkt.text, letterSpacing: "-0.02em", lineHeight: 1 }}>
+          <span data-testid={`price-${product.id}`} style={{ fontSize: 38, fontWeight: 700, color: mkt.onDark, letterSpacing: "-0.02em", lineHeight: 1 }}>
             {formatMoney(yearlyDisplay, currency)}
           </span>
-          <span style={{ fontSize: 14, color: mkt.textMuted, marginBottom: 4 }}>/yr</span>
+          <span style={{ fontSize: 14, color: mkt.onDarkMuted, marginBottom: 4 }}>/yr</span>
         </div>
         <div style={{ fontSize: 13, color: mkt.accent, fontWeight: 600 }}>
           {formatMoney(monthlyEquivDisplay, currency)}/mo — Save {Math.round(YEARLY_DISCOUNT_PCT * 100)}%
@@ -111,10 +111,10 @@ function PriceDisplay({
   return (
     <div>
       <div style={{ display: "flex", alignItems: "flex-end", gap: 4, marginBottom: 6 }}>
-        <span data-testid={`price-${product.id}`} style={{ fontSize: 38, fontWeight: 700, color: mkt.text, letterSpacing: "-0.02em", lineHeight: 1 }}>
+        <span data-testid={`price-${product.id}`} style={{ fontSize: 38, fontWeight: 700, color: mkt.onDark, letterSpacing: "-0.02em", lineHeight: 1 }}>
           {formatMoney(monthlyDisplay, currency)}
         </span>
-        <span style={{ fontSize: 14, color: mkt.textMuted, marginBottom: 4 }}>/mo</span>
+        <span style={{ fontSize: 14, color: mkt.onDarkMuted, marginBottom: 4 }}>/mo</span>
       </div>
     </div>
   );
@@ -301,14 +301,14 @@ export default function PricingPage() {
             <section
               key={cat}
               data-testid={`pricing-category-${cat}`}
-              style={{ background: cat === "ai" ? mkt.surface : mkt.bg, padding: "72px 28px 80px" }}
+              style={{ background: cat === "ai" ? mkt.sectionLight : mkt.bg, padding: "72px 28px 80px" }}
             >
               <div style={{ maxWidth: 1180, margin: "0 auto" }}>
                 <div style={{ textAlign: "center", marginBottom: 48 }} data-reveal="fade-up">
                   <div style={{ fontSize: 11, fontWeight: 700, color: mkt.accent, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>
                     {CATEGORY_LABELS[cat]}
                   </div>
-                  <h2 style={{ fontSize: "clamp(24px, 3vw, 36px)", fontWeight: 700, color: mkt.text, letterSpacing: "-0.025em" }}>
+                  <h2 style={{ fontSize: "clamp(24px, 3vw, 36px)", fontWeight: 700, color: mkt.onDark, letterSpacing: "-0.025em" }}>
                     {cat === "core" && "Essential Tools"}
                     {cat === "ai" && "AI-Powered Employees"}
                     {cat === "growth" && "Growth & Marketing Services"}
@@ -336,7 +336,7 @@ export default function PricingPage() {
                         className="mkt-feature-card"
                         style={{
                           background: mkt.bg,
-                          border: `${isHighlighted ? 2 : 1}px solid ${isHighlighted ? mkt.accent : mkt.border}`,
+                          border: `${isHighlighted ? 2 : 1}px solid ${isHighlighted ? mkt.accent : mkt.onDarkBorder}`,
                           borderRadius: 20,
                           padding: "28px 24px",
                           position: "relative",
@@ -347,8 +347,8 @@ export default function PricingPage() {
                         {product.badge && (
                           <div style={{
                             position: "absolute", top: -13, left: "50%", transform: "translateX(-50%)",
-                            background: product.id === "quickquotepro" ? mkt.accent : product.id === "ai-voice" ? mkt.warning : mkt.surface,
-                            color: product.id === "quickquotepro" || product.id === "ai-voice" ? "#FFFFFF" : mkt.textMuted,
+                            background: product.id === "quickquotepro" ? mkt.accent : product.id === "ai-voice" ? mkt.warning : mkt.sectionLight,
+                            color: product.id === "quickquotepro" || product.id === "ai-voice" ? "#FFFFFF" : mkt.onDarkMuted,
                             fontSize: 11, fontWeight: 700, padding: "4px 14px",
                             borderRadius: 20, whiteSpace: "nowrap" as const, letterSpacing: "0.04em",
                           }}>
@@ -356,7 +356,7 @@ export default function PricingPage() {
                           </div>
                         )}
 
-                        <div style={{ fontSize: 11, fontWeight: 700, color: mkt.textMuted, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 10 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: mkt.onDarkMuted, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 10 }}>
                           {product.name}
                         </div>
 
@@ -364,7 +364,7 @@ export default function PricingPage() {
 
                         <SetupFee product={product} currency={currency} fxRate={fxRate} />
 
-                        <div style={{ fontSize: 13, color: mkt.textMuted, lineHeight: 1.5, marginBottom: 22, marginTop: 8 }}>
+                        <div style={{ fontSize: 13, color: mkt.onDarkMuted, lineHeight: 1.5, marginBottom: 22, marginTop: 8 }}>
                           {product.tagline}
                         </div>
 
@@ -383,8 +383,8 @@ export default function PricingPage() {
                             textDecoration: "none",
                             marginBottom: 22,
                             background: isHighlighted ? mkt.accent : "transparent",
-                            color: isHighlighted ? "#FFFFFF" : mkt.textMuted,
-                            border: isHighlighted ? "none" : `1.5px solid ${mkt.border}`,
+                            color: isHighlighted ? "#FFFFFF" : mkt.onDarkMuted,
+                            border: isHighlighted ? "none" : `1.5px solid ${mkt.onDarkBorder}`,
                           }}
                         >
                           {product.billingType === "one_time" ? "Get Started" : "Start Free"}
@@ -394,7 +394,7 @@ export default function PricingPage() {
 
                         <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 10 }}>
                           {product.features.map((feat) => (
-                            <li key={feat} style={{ display: "flex", alignItems: "flex-start", gap: 9, fontSize: 13, color: mkt.textMuted, lineHeight: 1.4 }}>
+                            <li key={feat} style={{ display: "flex", alignItems: "flex-start", gap: 9, fontSize: 13, color: mkt.onDarkMuted, lineHeight: 1.4 }}>
                               <Check size={14} color={mkt.accent} strokeWidth={2.5} style={{ flexShrink: 0, marginTop: 1 }} />
                               <span>{feat}</span>
                             </li>
@@ -417,16 +417,16 @@ export default function PricingPage() {
           );
         })}
 
-        <section style={{ background: mkt.surface, padding: "96px 28px" }} data-testid="pricing-faq">
+        <section style={{ background: mkt.sectionLight, padding: "96px 28px" }} data-testid="pricing-faq">
           <div style={{ maxWidth: 780, margin: "0 auto" }}>
             <div style={{ textAlign: "center", marginBottom: 52 }} data-reveal="fade-up">
               <div style={{ fontSize: 11, fontWeight: 700, color: mkt.accent, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>
                 FAQ
               </div>
-              <h2 style={{ fontSize: "clamp(24px, 3vw, 36px)", fontWeight: 700, color: mkt.text, letterSpacing: "-0.025em", marginBottom: 12 }}>
+              <h2 style={{ fontSize: "clamp(24px, 3vw, 36px)", fontWeight: 700, color: mkt.onDark, letterSpacing: "-0.025em", marginBottom: 12 }}>
                 Everything you need to know
               </h2>
-              <p style={{ fontSize: 16, color: mkt.textMuted }}>
+              <p style={{ fontSize: 16, color: mkt.onDarkMuted }}>
                 Still have questions? <Link href="/contact" style={{ color: mkt.accent, fontWeight: 600, textDecoration: "none" }}>Chat with us</Link>
               </p>
             </div>

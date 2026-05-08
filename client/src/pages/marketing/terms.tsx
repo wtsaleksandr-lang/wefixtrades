@@ -1,14 +1,14 @@
 import { useEffect } from "react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
-import { mkt, shadows, radius } from "@/theme/tokens";
+import { mkt } from "@/theme/tokens";
+import { V7Hero, V7Section, V7Container, V7PageShell } from "@/components/marketing/v7";
 
 /**
- * Terms of Service — WeFixTrades Inc.
+ * Terms of Service — MR Holdings &amp; Trade LLC
  *
  * AI-drafted baseline intended to be defensible for an early-stage SaaS.
  * Have an attorney review before Series A fundraising, enterprise contracts,
- * international expansion, or any litigation threat. This document is
- * written for the US market with general coverage for Canadian customers.
+ * international expansion, or any litigation threat.
  *
  * Last full review: 2026-04-23.
  */
@@ -16,10 +16,10 @@ import { mkt, shadows, radius } from "@/theme/tokens";
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section style={{ marginBottom: 36 }}>
-      <h2 style={{ fontSize: 20, fontWeight: 700, color: mkt.text, marginBottom: 14, paddingBottom: 8, borderBottom: `1px solid ${mkt.border}` }}>
+      <h2 style={{ fontSize: 22, fontWeight: 700, color: mkt.onDark, marginBottom: 14, paddingBottom: 10, borderBottom: `1px solid ${mkt.onDarkBorder}`, letterSpacing: "-0.01em" }}>
         {title}
       </h2>
-      <div style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.75 }}>
+      <div style={{ fontSize: 15, color: mkt.onDarkMuted, lineHeight: 1.75 }}>
         {children}
       </div>
     </section>
@@ -35,41 +35,35 @@ export default function TermsPage() {
 
   return (
     <MarketingLayout>
-      <div data-testid="terms-page" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
-        {/* ── Header ── */}
-        <section style={{ background: mkt.dark, padding: "72px 24px 56px" }}>
-          <div style={{ maxWidth: 720, margin: "0 auto", textAlign: "center" }}>
-            <h1 style={{ fontSize: 40, fontWeight: 800, color: "#FFFFFF", lineHeight: 1.2, margin: "0 0 14px" }}>
-              Terms of Service
-            </h1>
-            <p style={{ fontSize: 15, color: "rgba(255,255,255,0.6)", margin: 0 }}>
-              Effective {EFFECTIVE}
-            </p>
-          </div>
-        </section>
-
-        <section style={{ background: mkt.surface, padding: "56px 24px 80px" }}>
-          <div style={{ maxWidth: 760, margin: "0 auto" }}>
+      <V7PageShell>
+        <V7Hero
+          productName="Legal"
+          headline="Terms of Service"
+          sub={`Effective ${EFFECTIVE}`}
+        />
+        <V7Section padding="40px">
+          <V7Container maxWidth={760}>
             <div style={{
-              background: mkt.bg,
-              borderRadius: radius.md,
+              background: mkt.sectionLight,
+              borderRadius: 24,
               padding: "44px",
-              boxShadow: shadows.card,
-              border: `1px solid ${mkt.border}`,
+              border: `1px solid ${mkt.onDarkBorder}`,
             }}>
-              <p style={{ fontSize: 15, color: mkt.textMuted, lineHeight: 1.75, marginBottom: 32 }}>
+              <p style={{ fontSize: 15, color: mkt.onDarkMuted, lineHeight: 1.75, marginBottom: 32 }}>
                 These Terms of Service ("<strong>Terms</strong>") govern your access to and
                 use of the WeFixTrades platform, products, and services (together, the
-                "<strong>Service</strong>"), which are provided by WeFixTrades Inc., a
-                Delaware corporation ("<strong>WeFixTrades</strong>", "<strong>we</strong>", "<strong>us</strong>", or "<strong>our</strong>"). By
-                creating an account, signing up for any product, or otherwise using the
-                Service, you agree to be bound by these Terms. If you do not agree,
-                do not use the Service.
+                "<strong>Service</strong>"), operated under the brand name "WeFixTrades" by
+                <strong> MR Holdings &amp; Trade LLC</strong>, a Wyoming limited liability company with
+                registered office at 30 N Gould St, Ste R, Sheridan, WY 82801, United States
+                (EIN&nbsp;98-1915788) ("<strong>WeFixTrades</strong>", "<strong>we</strong>",
+                "<strong>us</strong>", or "<strong>our</strong>"). By creating an account, signing up
+                for any product, or otherwise using the Service, you agree to be bound by these
+                Terms. If you do not agree, do not use the Service.
               </p>
 
               <Section title="1. Who we are and who can use the Service">
                 <p>
-                  WeFixTrades Inc. operates software and done-for-you services marketed
+                  MR Holdings &amp; Trade LLC operates software and done-for-you services marketed
                   primarily to small and medium trades businesses (plumbers, electricians,
                   HVAC contractors, cleaners, roofers, landscapers, and similar
                   service providers). You must be at least 18 years old and authorized to
@@ -272,7 +266,7 @@ export default function TermsPage() {
                   The Service, including all software, designs, trademarks, logos, and
                   product names (including "WeFixTrades", "QuoteQuick Pro", "TradeLine",
                   "MapGuard", "ReputationShield", "RankFlow", "SocialSync",
-                  "WebCare", "SiteLaunch", "WebFix"), is owned by WeFixTrades Inc. and
+                  "WebCare", "SiteLaunch", "WebFix"), is owned by MR Holdings &amp; Trade LLC and
                   protected by applicable intellectual property laws. We grant you a
                   limited, non-transferable, revocable license to use the Service
                   during your paid subscription.
@@ -308,7 +302,7 @@ export default function TermsPage() {
 
               <Section title="14. Indemnification">
                 <p>
-                  You agree to defend and indemnify WeFixTrades Inc. against claims
+                  You agree to defend and indemnify MR Holdings &amp; Trade LLC against claims
                   arising from your use of the Service, your content, or your breach of
                   these Terms — except to the extent those claims result from our gross
                   negligence or willful misconduct.
@@ -327,11 +321,11 @@ export default function TermsPage() {
 
               <Section title="16. Governing law and disputes">
                 <p>
-                  These Terms are governed by the laws of the State of Delaware, USA,
-                  without regard to conflict-of-laws rules. Any dispute will be resolved
-                  in the state or federal courts located in Delaware, except that either
-                  party may seek injunctive relief in any court of competent
-                  jurisdiction.
+                  These Terms are governed by the laws of the State of Wyoming, USA,
+                  without regard to conflict-of-laws rules. Any dispute will be
+                  resolved in the state or federal courts located in Wyoming, except
+                  that either party may seek injunctive relief in any court of
+                  competent jurisdiction.
                 </p>
                 <p>
                   If you're a consumer in a jurisdiction where mandatory local consumer
@@ -342,20 +336,20 @@ export default function TermsPage() {
 
               <Section title="17. Contact">
                 <p>
-                  Questions about these Terms? Email us at <a href="mailto:legal@wefixtrades.com" style={{ color: mkt.accent }}>legal@wefixtrades.com</a> or reach us through the
-                  contact form. Registered office: WeFixTrades Inc., 1200 Market Street,
-                  Suite 400, Wilmington, DE 19801, United States.
+                  Questions about these Terms? Email us at <a href="mailto:support@wefixtrades.com" style={{ color: mkt.accent }}>support@wefixtrades.com</a> or reach us through the
+                  contact form. Registered office: MR Holdings &amp; Trade LLC,
+                  30 N Gould St, Ste R, Sheridan, WY 82801, United States.
                 </p>
               </Section>
 
-              <p style={{ fontSize: 12, color: mkt.textFaint, marginTop: 40, paddingTop: 20, borderTop: `1px solid ${mkt.border}`, lineHeight: 1.6 }}>
+              <p style={{ fontSize: 12, color: mkt.onDarkFaint, marginTop: 40, paddingTop: 20, borderTop: `1px solid ${mkt.onDarkBorder}`, lineHeight: 1.6 }}>
                 These Terms were last updated on {EFFECTIVE}. A Data Processing
                 Addendum for GDPR-regulated customers is available on request.
               </p>
             </div>
-          </div>
-        </section>
-      </div>
+          </V7Container>
+        </V7Section>
+      </V7PageShell>
     </MarketingLayout>
   );
 }

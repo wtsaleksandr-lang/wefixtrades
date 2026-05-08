@@ -50,7 +50,7 @@ function RequestReset() {
     display: "block" as const,
     fontSize: 12,
     fontWeight: 600,
-    color: mkt.textFaint,
+    color: mkt.onDarkFaint,
     textTransform: "uppercase" as const,
     letterSpacing: "0.06em",
     marginBottom: 6,
@@ -60,9 +60,9 @@ function RequestReset() {
     width: "100%",
     padding: "12px 14px",
     fontSize: 14,
-    color: mkt.text,
-    background: mkt.surface,
-    border: `1px solid ${mkt.border}`,
+    color: mkt.onDark,
+    background: mkt.sectionLight,
+    border: `1px solid ${mkt.onDarkBorder}`,
     borderRadius: 8,
     outline: "none",
     boxSizing: "border-box" as const,
@@ -72,10 +72,10 @@ function RequestReset() {
     <MarketingLayout>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "60vh", padding: "80px 24px 40px" }}>
         <div style={{ width: "100%", maxWidth: 380 }}>
-          <h1 style={{ fontSize: 24, fontWeight: 600, color: mkt.text, marginBottom: 8, letterSpacing: "-0.02em" }}>
+          <h1 style={{ fontSize: 24, fontWeight: 600, color: mkt.onDark, marginBottom: 8, letterSpacing: "-0.02em" }}>
             Reset password
           </h1>
-          <p style={{ fontSize: 14, color: mkt.textMuted, marginBottom: 32, lineHeight: 1.5 }}>
+          <p style={{ fontSize: 14, color: mkt.onDarkMuted, marginBottom: 32, lineHeight: 1.5 }}>
             Enter your email and we'll send you a link to reset your password.
           </p>
 
@@ -84,7 +84,7 @@ function RequestReset() {
               <p style={{ fontSize: 14, color: "#2D6A4F", fontWeight: 500, marginBottom: 4 }}>
                 Check your email
               </p>
-              <p style={{ fontSize: 13, color: mkt.textMuted, lineHeight: 1.5 }}>
+              <p style={{ fontSize: 13, color: mkt.onDarkMuted, lineHeight: 1.5 }}>
                 If an account exists for <strong>{email}</strong>, we've sent a password reset link.
                 It expires in 1 hour.
               </p>
@@ -132,7 +132,7 @@ function RequestReset() {
               </button>
 
               <div style={{ textAlign: "center", marginTop: 16 }}>
-                <a href="/login" style={{ fontSize: 13, color: mkt.textMuted, textDecoration: "none" }}>
+                <a href="/login" style={{ fontSize: 13, color: mkt.onDarkMuted, textDecoration: "none" }}>
                   Back to sign in
                 </a>
               </div>
@@ -185,7 +185,7 @@ function SetNewPassword({ token, navigate }: { token: string; navigate: (path: s
     display: "block" as const,
     fontSize: 12,
     fontWeight: 600,
-    color: mkt.textFaint,
+    color: mkt.onDarkFaint,
     textTransform: "uppercase" as const,
     letterSpacing: "0.06em",
     marginBottom: 6,
@@ -195,9 +195,9 @@ function SetNewPassword({ token, navigate }: { token: string; navigate: (path: s
     width: "100%",
     padding: "12px 14px",
     fontSize: 14,
-    color: mkt.text,
-    background: mkt.surface,
-    border: `1px solid ${mkt.border}`,
+    color: mkt.onDark,
+    background: mkt.sectionLight,
+    border: `1px solid ${mkt.onDarkBorder}`,
     borderRadius: 8,
     outline: "none",
     boxSizing: "border-box" as const,
@@ -207,7 +207,7 @@ function SetNewPassword({ token, navigate }: { token: string; navigate: (path: s
     <MarketingLayout>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "60vh", padding: "80px 24px 40px" }}>
         <div style={{ width: "100%", maxWidth: 380 }}>
-          <h1 style={{ fontSize: 24, fontWeight: 600, color: mkt.text, marginBottom: 8, letterSpacing: "-0.02em" }}>
+          <h1 style={{ fontSize: 24, fontWeight: 600, color: mkt.onDark, marginBottom: 8, letterSpacing: "-0.02em" }}>
             Set new password
           </h1>
 
@@ -216,7 +216,7 @@ function SetNewPassword({ token, navigate }: { token: string; navigate: (path: s
               <p style={{ fontSize: 14, color: "#2D6A4F", fontWeight: 500, marginBottom: 4 }}>
                 Password updated
               </p>
-              <p style={{ fontSize: 13, color: mkt.textMuted, lineHeight: 1.5 }}>
+              <p style={{ fontSize: 13, color: mkt.onDarkMuted, lineHeight: 1.5 }}>
                 Your password has been reset. You can now sign in with your new password.
               </p>
               <button
@@ -238,7 +238,7 @@ function SetNewPassword({ token, navigate }: { token: string; navigate: (path: s
             </div>
           ) : (
             <>
-              <p style={{ fontSize: 14, color: mkt.textMuted, marginBottom: 32, lineHeight: 1.5 }}>
+              <p style={{ fontSize: 14, color: mkt.onDarkMuted, marginBottom: 32, lineHeight: 1.5 }}>
                 Enter your new password below.
               </p>
               <form onSubmit={handleSubmit}>

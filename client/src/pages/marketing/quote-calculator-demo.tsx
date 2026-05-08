@@ -256,9 +256,9 @@ export default function QuoteCalculatorDemo() {
           gap: 8px;
           padding: 10px 18px;
           border-radius: 12px;
-          border: 1.5px solid ${mkt.border};
+          border: 1.5px solid ${mkt.onDarkBorder};
           background: transparent;
-          color: ${mkt.textMuted};
+          color: ${mkt.onDarkMuted};
           font-size: 14px;
           font-weight: 600;
           cursor: pointer;
@@ -321,10 +321,10 @@ export default function QuoteCalculatorDemo() {
         <div style={{ maxWidth: 900, margin: "0 auto" }}>
 
           {/* Breadcrumb */}
-          <nav aria-label="breadcrumb" style={{ fontSize: 13, color: mkt.textMuted, marginBottom: 16 }}>
-            <Link href="/" style={{ color: mkt.textMuted, textDecoration: "none" }}>Home</Link>
+          <nav aria-label="breadcrumb" style={{ fontSize: 13, color: mkt.onDarkMuted, marginBottom: 16 }}>
+            <Link href="/" style={{ color: mkt.onDarkMuted, textDecoration: "none" }}>Home</Link>
             <span style={{ margin: "0 6px" }}>/</span>
-            <Link href="/tools" style={{ color: mkt.textMuted, textDecoration: "none" }}>Free Tools</Link>
+            <Link href="/tools" style={{ color: mkt.onDarkMuted, textDecoration: "none" }}>Free Tools</Link>
             <span style={{ margin: "0 6px" }}>/</span>
             <span style={{ color: mkt.text }}>Instant Quote Demo</span>
           </nav>
@@ -344,7 +344,7 @@ export default function QuoteCalculatorDemo() {
             </h1>
             <p style={{
               fontSize: "clamp(15px, 2vw, 17px)",
-              color: mkt.textMuted,
+              color: mkt.onDarkMuted,
               lineHeight: 1.55,
               margin: 0,
               maxWidth: 480,
@@ -357,7 +357,7 @@ export default function QuoteCalculatorDemo() {
 
           {/* ─── Trade Selector ─── */}
           <div style={{ textAlign: "center", marginBottom: 12 }}>
-            <span style={{ fontSize: 13, fontWeight: 600, color: mkt.textMuted, display: "inline-flex", alignItems: "center" }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: mkt.onDarkMuted, display: "inline-flex", alignItems: "center" }}>
               Select a trade to preview
               <InfoTooltip text="Each trade shows a realistic quote calculator configured with typical pricing for that service type. Try switching between trades to see how the widget adapts." />
             </span>
@@ -420,7 +420,7 @@ export default function QuoteCalculatorDemo() {
                     width: 28,
                     height: 28,
                     borderRadius: 8,
-                    background: mkt.accentTint,
+                    background: "rgba(102,232,250,0.10)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -431,7 +431,7 @@ export default function QuoteCalculatorDemo() {
                   <span style={{
                     fontSize: 14,
                     fontWeight: 600,
-                    color: mkt.text,
+                    color: mkt.onDark,
                   }}>
                     {b.text}
                   </span>
@@ -501,9 +501,9 @@ export default function QuoteCalculatorDemo() {
               <div style={{
                 display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
                 padding: "12px 20px", borderRadius: 14,
-                border: `1px solid ${mkt.border}`, background: "transparent",
+                border: `1px solid ${mkt.onDarkBorder}`, background: "transparent",
                 cursor: "pointer", transition: "border-color 0.2s, background 0.2s",
-                fontSize: 14, fontWeight: 600, color: mkt.textMuted,
+                fontSize: 14, fontWeight: 600, color: mkt.onDarkMuted,
               }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.borderColor = "rgba(255,255,255,0.15)";
@@ -573,7 +573,7 @@ function TradeDescriptions() {
       maxWidth: 640,
       margin: "0 auto",
       paddingTop: "clamp(40px, 6vw, 64px)",
-      borderTop: `1px solid ${mkt.border}`,
+      borderTop: `1px solid ${mkt.onDarkBorder}`,
       marginTop: "clamp(40px, 6vw, 64px)",
     }}>
       <h2 style={{
@@ -608,7 +608,7 @@ function TradeDescriptions() {
                 borderRadius: 9999,
                 border: `1px solid ${isActive ? "rgba(102,232,250,0.3)" : mkt.border}`,
                 background: isActive ? "rgba(102,232,250,0.08)" : "transparent",
-                color: isActive ? mkt.accent : mkt.textMuted,
+                color: isActive ? mkt.accent : mkt.onDarkMuted,
                 fontSize: 13,
                 fontWeight: 600,
                 cursor: "pointer",
@@ -639,7 +639,7 @@ function TradeDescriptions() {
         </h3>
         <p style={{
           fontSize: 14,
-          color: mkt.textMuted,
+          color: mkt.onDarkMuted,
           lineHeight: 1.7,
           margin: 0,
         }}>
@@ -700,7 +700,7 @@ function DemoFaqSection() {
       maxWidth: 640,
       margin: "0 auto",
       paddingTop: "clamp(32px, 5vw, 48px)",
-      borderTop: `1px solid ${mkt.border}`,
+      borderTop: `1px solid ${mkt.onDarkBorder}`,
       marginTop: "clamp(32px, 5vw, 48px)",
     }}>
       <div style={{
@@ -731,7 +731,7 @@ function DemoFaqSection() {
           const isOpen = openIdx === i;
           return (
             <div key={i} style={{
-              border: `1px solid ${mkt.border}`,
+              border: `1px solid ${mkt.onDarkBorder}`,
               borderRadius: 14,
               overflow: "hidden",
               transition: "border-color 0.2s ease",
@@ -749,7 +749,7 @@ function DemoFaqSection() {
                   background: isOpen ? mkt.surface : "transparent",
                   border: "none",
                   cursor: "pointer",
-                  color: mkt.text,
+                  color: mkt.onDark,
                   fontSize: 15,
                   fontWeight: 600,
                   textAlign: "left",
@@ -760,7 +760,7 @@ function DemoFaqSection() {
                 <span>{item.question}</span>
                 <ChevronDown
                   size={17}
-                  color={mkt.textFaint}
+                  color={mkt.onDarkFaint}
                   style={{
                     flexShrink: 0,
                     transform: isOpen ? "rotate(180deg)" : "rotate(0deg)",
@@ -773,7 +773,7 @@ function DemoFaqSection() {
                 <div style={{
                   padding: "0 22px 18px",
                   fontSize: 14,
-                  color: mkt.textMuted,
+                  color: mkt.onDarkMuted,
                   lineHeight: 1.7,
                 }}>
                   {item.answer}
@@ -796,7 +796,7 @@ function AuditCallout() {
       margin: "0 auto",
       marginTop: "clamp(32px, 5vw, 48px)",
       paddingTop: "clamp(24px, 4vw, 36px)",
-      borderTop: `1px solid ${mkt.border}`,
+      borderTop: `1px solid ${mkt.onDarkBorder}`,
     }}>
       <div style={{
         fontSize: "clamp(16px, 2.2vw, 18px)",
@@ -808,7 +808,7 @@ function AuditCallout() {
       </div>
       <p style={{
         fontSize: 14,
-        color: mkt.textMuted,
+        color: mkt.onDarkMuted,
         lineHeight: 1.7,
         margin: "0 0 14px",
       }}>
@@ -820,16 +820,16 @@ function AuditCallout() {
         <div style={{
           display: "flex", alignItems: "center", gap: 10,
           padding: "10px 16px", borderRadius: 12,
-          border: `1px solid ${mkt.border}`, background: mkt.cardBg,
+          border: `1px solid ${mkt.onDarkBorder}`, background: mkt.cardBg,
           cursor: "pointer", transition: "border-color 0.15s, background 0.15s",
-          fontSize: 13, fontWeight: 650, color: mkt.text,
+          fontSize: 13, fontWeight: 650, color: mkt.onDark,
         }}
           onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)"; e.currentTarget.style.background = "rgba(255,255,255,0.04)"; }}
           onMouseLeave={(e) => { e.currentTarget.style.borderColor = mkt.border; e.currentTarget.style.background = mkt.cardBg; }}
         >
           <Search size={14} color={mkt.accent} strokeWidth={1.8} />
           Run Free Audit
-          <ArrowRight size={13} color={mkt.textFaint} />
+          <ArrowRight size={13} color={mkt.onDarkFaint} />
         </div>
       </Link>
     </div>

@@ -4,50 +4,54 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 
 /* ── edit content here ───────────────────────────────────────────────── */
 
-const SECTION_HEADING = "Exceptional Customer Experience";
-const SECTION_SUBTITLE = "Built-in tools that delight customers and free your team.";
+const SECTION_HEADING = "After they find you, keep them coming back.";
+const SECTION_SUBTITLE = "Four growth tools that quietly run in the background — bringing reviews, rankings, and reach without adding to your day.";
 
 const CARDS_DATA = [
   {
     number: "01",
+    // SocialSync — social-content automation
     accentColor: "#2563eb",
     accentBg: "#dbeafe",
-    title: "Powerful Self-Service Tools",
+    title: "Stay visible without hiring a marketer.",
     description:
-      "Customer self-management for reduced support costs and increased satisfaction. Empower subscribers to handle account changes, billing queries, and service requests independently.",
+      "SocialSync drafts your weekly posts in your voice — Facebook, Instagram, LinkedIn, Google Business. You approve in one tap. We handle the calendar, the captions, and the analytics.",
     riveUrl:
       "https://cdn.prod.website-files.com/66e53bf67b6fc1646ce0777e/67ed2478edc45f9d6824a0f1_home___stack___customers.riv",
     reversed: false,
   },
   {
     number: "02",
+    // ReputationShield — review handling
     accentColor: "#0891b2",
     accentBg: "#cffafe",
-    title: "Customizable Dashboards",
+    title: "Every review answered. Even at 11 PM.",
     description:
-      "Tailored information access for optimal efficiency. Give every team the exact data views they need — operations, finance, and support all working from one unified platform.",
+      "ReputationShield drafts a personal reply to every Google, Yelp, and Facebook review within minutes. 5-stars get amplified. 1-stars get flagged to your phone before they spread.",
     riveUrl:
       "https://cdn.prod.website-files.com/66e53bf67b6fc1646ce0777e/67eabdfb3bb7821ba4c09216_home___stack___dashboards_final.riv",
     reversed: true,
   },
   {
     number: "03",
+    // RankFlow — SEO tracking
     accentColor: "#059669",
     accentBg: "#d1fae5",
-    title: "Intuitive User Interface",
+    title: "Show up where customers are searching.",
     description:
-      "Easy navigation and user-friendly workflows for faster business growth. Reduce training time and human error with a clean, purpose-built interface your team will actually enjoy using.",
+      "RankFlow tracks every keyword that drives trades work in your service area — daily. The monthly report tells you exactly which pages to update and which competitors are gaining ground.",
     riveUrl:
       "https://cdn.prod.website-files.com/66e53bf67b6fc1646ce0777e/67eabdfc4740322102620c37_home___stack___userinterface.riv",
     reversed: false,
   },
   {
     number: "04",
+    // ContentFlow — long-form content
     accentColor: "#7c3aed",
     accentBg: "#ede9fe",
-    title: "Automated Workflows",
+    title: "Build authority. Without writing a word.",
     description:
-      "Streamlined processes and elimination of manual tasks for strategic focus. From dunning management to service activation, automation handles the repetitive work so your team doesn't have to.",
+      "ContentFlow drafts trade-specific articles every month — tuned to your service area, your voice, and what's actually ranking. One tap publishes to your site and auto-distributes to your channels.",
     riveUrl:
       "https://cdn.prod.website-files.com/66e53bf67b6fc1646ce0777e/67eabdfb5cec85cbd9a56fd5_home___stack___dunning%20(1).riv",
     reversed: true,
@@ -63,55 +67,65 @@ const TEXT_MUTED = "#5f6f77"; // --swatch--n-600
 /* ── mockup sub-components (replace with Rive when ready) ────────────── */
 
 function CustomerPortalMockup() {
+  // SocialSync — content calendar with multi-channel posts queued/published
+  const POSTS = [
+    { day: "Mon", time: "9:00", channels: ["F", "I"], status: "posted", title: "Drain unblock 101 — what to try first" },
+    { day: "Wed", time: "12:00", channels: ["F", "I", "L"], status: "posted", title: "Why your hot water keeps running cold" },
+    { day: "Fri", time: "15:00", channels: ["F", "I", "G"], status: "scheduled", title: "Burst pipe? Here's the 60-second fix" },
+    { day: "Sun", time: "10:00", channels: ["L"], status: "draft", title: "Behind the scenes: a 5-star plumber's day" },
+  ];
+  const channelColor = (c: string) => c === "F" ? "#1877F2" : c === "I" ? "#E4405F" : c === "L" ? "#0A66C2" : "#EA4335";
+  const statusBadge = (s: string) =>
+    s === "posted" ? { label: "Posted", bg: "#d1fae5", color: "#059669" }
+    : s === "scheduled" ? { label: "Scheduled", bg: "#dbeafe", color: "#2563eb" }
+    : { label: "Drafting", bg: "#fef3c7", color: "#d97706" };
   return (
     <div style={{ padding: 28, height: "100%", display: "flex", flexDirection: "column", gap: 12 }}>
-      {/* header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: TEXT }}>My Account</div>
-        <div style={{ fontSize: 11, background: "#dbeafe", color: "#2563eb", borderRadius: 6, padding: "3px 10px", fontWeight: 600 }}>Active</div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: TEXT }}>SocialSync · This Week</div>
+        <div style={{ fontSize: 11, background: "#dbeafe", color: "#2563eb", borderRadius: 6, padding: "3px 10px", fontWeight: 600 }}>4 / wk</div>
       </div>
-      {/* account card */}
-      <div style={{ background: "#fff", borderRadius: 14, padding: "16px 18px", boxShadow: "0 2px 12px rgba(0,0,0,0.06)", flex: 1 }}>
-        <div style={{ fontSize: 11, color: TEXT_MUTED, marginBottom: 6, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>Current Plan</div>
-        <div style={{ fontSize: 20, fontWeight: 700, color: TEXT, marginBottom: 2 }}>Business Pro</div>
-        <div style={{ fontSize: 12, color: TEXT_MUTED, marginBottom: 14 }}>Renews 15 Apr 2026 · £480/mo</div>
-        {[
-          { label: "Voice lines", val: "12 / 20", pct: 60 },
-          { label: "Data usage", val: "840 GB / 1 TB", pct: 84 },
-          { label: "SMS credits", val: "4,200 / 5,000", pct: 84 },
-        ].map(row => (
-          <div key={row.label} style={{ marginBottom: 10 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4, fontSize: 12, color: TEXT_MUTED }}>
-              <span>{row.label}</span><span style={{ fontWeight: 600, color: TEXT }}>{row.val}</span>
+      <div style={{ background: "#fff", borderRadius: 14, padding: "12px 14px", flex: 1, boxShadow: "0 2px 12px rgba(0,0,0,0.06)" }}>
+        {POSTS.map((p) => {
+          const b = statusBadge(p.status);
+          return (
+            <div key={p.day} style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 0", borderBottom: "1px solid #f0f4f6" }}>
+              <div style={{ width: 36, fontSize: 10, fontWeight: 700, color: TEXT_MUTED, fontFamily: "monospace" }}>{p.day}<br />{p.time}</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: TEXT, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.title}</div>
+                <div style={{ display: "flex", gap: 4, marginTop: 4 }}>
+                  {p.channels.map((c) => (
+                    <span key={c} style={{ width: 16, height: 16, borderRadius: 4, background: channelColor(c), color: "#fff", fontSize: 9, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>{c}</span>
+                  ))}
+                </div>
+              </div>
+              <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 999, background: b.bg, color: b.color }}>{b.label}</span>
             </div>
-            <div style={{ height: 4, borderRadius: 4, background: "#e4edf1" }}>
-              <div style={{ height: 4, borderRadius: 4, width: `${row.pct}%`, background: row.pct > 80 ? "#ef4444" : "#2563eb" }} />
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
-      {/* actions */}
-      <div style={{ display: "flex", gap: 8 }}>
-        {["Upgrade plan", "Manage services", "Support"].map((lbl, i) => (
-          <div key={lbl} style={{ flex: 1, textAlign: "center", borderRadius: 10, padding: "8px 4px", fontSize: 11, fontWeight: 600, background: i === 0 ? "#2563eb" : "#fff", color: i === 0 ? "#fff" : TEXT, border: i === 0 ? "none" : "1px solid #d5e1e7", cursor: "pointer" }}>
-            {lbl}
-          </div>
-        ))}
+      <div style={{ background: "#fff", borderRadius: 12, padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", boxShadow: "0 2px 8px rgba(0,0,0,0.05)" }}>
+        <div style={{ fontSize: 12, color: TEXT_MUTED }}>Engagement vs last month</div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "#059669" }}>+340%</div>
       </div>
     </div>
   );
 }
 
 function DashboardMockup() {
-  const bars = [38, 55, 44, 72, 68, 83, 90, 78, 95, 88, 92, 100];
+  // ReputationShield — review feed with AI-drafted replies
+  const REVIEWS = [
+    { name: "Sarah K.", stars: 5, text: "Same-day fix on a burst pipe. Saved us thousands.", status: "replied", color: "#059669" },
+    { name: "Mike R.", stars: 2, text: "Took longer than expected and the price went up mid-job.", status: "flagged", color: "#dc2626" },
+    { name: "Diana L.", stars: 5, text: "Polite, fast, and explained everything. Will recommend!", status: "replied", color: "#059669" },
+  ];
   return (
     <div style={{ padding: 28, height: "100%", display: "flex", flexDirection: "column", gap: 14 }}>
-      {/* KPI row */}
       <div style={{ display: "flex", gap: 10 }}>
         {[
-          { label: "ARR", val: "£2.4M", delta: "+18%", color: "#059669" },
-          { label: "MRR", val: "£198K", delta: "+12%", color: "#059669" },
-          { label: "Churn", val: "1.8%", delta: "-0.3%", color: "#059669" },
+          { label: "Avg rating", val: "4.9★", delta: "+1.2★ 30d", color: "#059669" },
+          { label: "Reply time", val: "< 30m", delta: "AI-drafted", color: "#0891b2" },
+          { label: "1-star caught", val: "100%", delta: "Flagged", color: "#dc2626" },
         ].map(kpi => (
           <div key={kpi.label} style={{ flex: 1, background: "#fff", borderRadius: 12, padding: "12px 14px", boxShadow: "0 2px 8px rgba(0,0,0,0.05)" }}>
             <div style={{ fontSize: 10, color: TEXT_MUTED, fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: 4 }}>{kpi.label}</div>
@@ -120,76 +134,96 @@ function DashboardMockup() {
           </div>
         ))}
       </div>
-      {/* bar chart */}
-      <div style={{ flex: 1, background: "#fff", borderRadius: 14, padding: "16px 18px", boxShadow: "0 2px 8px rgba(0,0,0,0.05)" }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: TEXT, marginBottom: 14 }}>Monthly Revenue</div>
-        <div style={{ display: "flex", alignItems: "flex-end", gap: 5, height: 80 }}>
-          {bars.map((h, i) => (
-            <div key={i} style={{ flex: 1, height: `${h}%`, borderRadius: "3px 3px 0 0", background: i === bars.length - 1 ? "#0891b2" : "#cffafe", transition: "height 0.3s" }} />
-          ))}
-        </div>
-        <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6 }}>
-          {["Jan", "Mar", "May", "Jul", "Sep", "Nov"].map(m => (
-            <div key={m} style={{ fontSize: 10, color: TEXT_MUTED }}>{m}</div>
-          ))}
-        </div>
+      <div style={{ flex: 1, background: "#fff", borderRadius: 14, padding: "14px 16px", boxShadow: "0 2px 8px rgba(0,0,0,0.05)", display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: TEXT, marginBottom: 4 }}>Latest reviews</div>
+        {REVIEWS.map((r) => (
+          <div key={r.name} style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "8px 0", borderBottom: "1px solid #f0f4f6" }}>
+            <div style={{ width: 26, height: 26, borderRadius: "50%", background: "#e4edf1", color: TEXT, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, flexShrink: 0 }}>
+              {r.name.charAt(0)}
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: TEXT }}>{r.name}</span>
+                <span style={{ fontSize: 10, color: "#f59e0b" }}>{"★".repeat(r.stars)}{"☆".repeat(5 - r.stars)}</span>
+              </div>
+              <div style={{ fontSize: 11, color: TEXT_MUTED, lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 1, WebkitBoxOrient: "vertical" }}>
+                "{r.text}"
+              </div>
+              <div style={{ fontSize: 9, color: r.color, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", marginTop: 3 }}>
+                {r.status === "replied" ? "● AI replied" : "● Flagged for you"}
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
 }
 
 function CatalogMockup() {
-  const plans = [
-    { name: "Starter", price: "£29", features: ["5 users", "100 GB", "Email support"], color: "#e4edf1", active: false },
-    { name: "Business", price: "£79", features: ["25 users", "1 TB", "Priority support"], color: "#cffafe", active: true },
-    { name: "Enterprise", price: "Custom", features: ["Unlimited", "10 TB", "Dedicated CSM"], color: "#e4edf1", active: false },
+  // RankFlow — keyword search rank list with deltas
+  const KEYWORDS = [
+    { q: "emergency plumber austin", pos: 3, delta: -2 },
+    { q: "drain cleaning 78704", pos: 1, delta: -4 },
+    { q: "water heater repair", pos: 7, delta: -1 },
+    { q: "burst pipe weekend", pos: 12, delta: 0 },
   ];
   return (
-    <div style={{ padding: 28, height: "100%", display: "flex", flexDirection: "column", gap: 10 }}>
-      <div style={{ fontSize: 13, fontWeight: 700, color: TEXT, marginBottom: 6 }}>Service Catalog</div>
-      {plans.map(plan => (
-        <div key={plan.name} style={{ background: "#fff", border: plan.active ? "1.5px solid #0891b2" : "1px solid #d5e1e7", borderRadius: 14, padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flex: 1 }}>
-          <div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: TEXT }}>{plan.name}</div>
-              {plan.active && <div style={{ fontSize: 10, background: "#cffafe", color: "#0891b2", borderRadius: 5, padding: "2px 7px", fontWeight: 700 }}>Popular</div>}
-            </div>
-            <div style={{ display: "flex", gap: 10 }}>
-              {plan.features.map(f => (
-                <div key={f} style={{ fontSize: 10, color: TEXT_MUTED }}>{f}</div>
-              ))}
+    <div style={{ padding: 28, height: "100%", display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: TEXT }}>RankFlow · Top keywords</div>
+        <div style={{ fontSize: 11, background: "#d1fae5", color: "#059669", borderRadius: 6, padding: "3px 10px", fontWeight: 700 }}>+18 page-1</div>
+      </div>
+      <div style={{ flex: 1, background: "#fff", borderRadius: 14, padding: "14px 16px", boxShadow: "0 2px 8px rgba(0,0,0,0.05)", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+        {KEYWORDS.map((k) => (
+          <div key={k.q} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "8px 0", borderBottom: "1px solid #f0f4f6" }}>
+            <span style={{ fontSize: 12, color: TEXT, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
+              {k.q}
+            </span>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 16, fontWeight: 700, color: TEXT, fontFamily: "Inter", letterSpacing: "-0.01em" }}>#{k.pos}</span>
+              <span style={{
+                fontSize: 10, fontFamily: "monospace", fontWeight: 600,
+                padding: "2px 7px", borderRadius: 999,
+                background: k.delta < 0 ? "#d1fae5" : k.delta > 0 ? "#fee2e2" : "#f3f4f6",
+                color: k.delta < 0 ? "#059669" : k.delta > 0 ? "#dc2626" : TEXT_MUTED,
+              }}>
+                {k.delta < 0 ? "↑" : k.delta > 0 ? "↓" : "—"} {Math.abs(k.delta) || "0"}
+              </span>
             </div>
           </div>
-          <div style={{ textAlign: "right" }}>
-            <div style={{ fontSize: 16, fontWeight: 700, color: TEXT }}>{plan.price}</div>
-            <div style={{ fontSize: 10, color: TEXT_MUTED }}>/mo</div>
-          </div>
-        </div>
-      ))}
+        ))}
+      </div>
+      <div style={{ background: "#fff", borderRadius: 12, padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", boxShadow: "0 2px 8px rgba(0,0,0,0.05)" }}>
+        <div style={{ fontSize: 12, color: TEXT_MUTED }}>Organic clicks · 30 days</div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "#059669" }}>+38%</div>
+      </div>
     </div>
   );
 }
 
 function WorkflowMockup() {
+  // ContentFlow — article draft + auto-distribution pipeline
   const steps = [
-    { icon: "📧", label: "Invoice sent", status: "done", color: "#059669" },
-    { icon: "⏰", label: "Payment overdue +3d", status: "done", color: "#059669" },
-    { icon: "🔔", label: "Reminder email", status: "done", color: "#059669" },
-    { icon: "⏸", label: "Service suspended +7d", status: "active", color: "#f59e0b" },
-    { icon: "🚫", label: "Account termination +14d", status: "pending", color: "#d1d5db" },
+    { icon: "📝", label: "Article drafted by AI", status: "done", color: "#059669", meta: "1,240 words · trade-tuned" },
+    { icon: "✅", label: "Reviewed & approved", status: "done", color: "#059669", meta: "1 click" },
+    { icon: "🌐", label: "Published to your site", status: "done", color: "#059669", meta: "your-trade.com/blog" },
+    { icon: "📣", label: "Auto-distributed to 4 channels", status: "active", color: "#7c3aed", meta: "FB · IG · LinkedIn · GBP" },
+    { icon: "📈", label: "Tracking traffic + leads", status: "pending", color: "#d1d5db", meta: "data lands tomorrow" },
   ];
   return (
     <div style={{ padding: 28, height: "100%", display: "flex", flexDirection: "column", gap: 12 }}>
-      <div style={{ fontSize: 13, fontWeight: 700, color: TEXT, marginBottom: 6 }}>Dunning Automation</div>
+      <div style={{ fontSize: 13, fontWeight: 700, color: TEXT, marginBottom: 6 }}>ContentFlow · This week's article</div>
       <div style={{ background: "#fff", borderRadius: 14, padding: "16px 18px", flex: 1, boxShadow: "0 2px 8px rgba(0,0,0,0.05)" }}>
         {steps.map((step, i) => (
           <div key={step.label}>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <div style={{ width: 32, height: 32, borderRadius: "50%", background: step.status === "done" ? "#d1fae5" : step.status === "active" ? "#fef3c7" : "#f3f4f6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0 }}>
+              <div style={{ width: 32, height: 32, borderRadius: "50%", background: step.status === "done" ? "#d1fae5" : step.status === "active" ? "#ede9fe" : "#f3f4f6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0 }}>
                 {step.icon}
               </div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 12, fontWeight: 600, color: step.status === "pending" ? "#9ca3af" : TEXT }}>{step.label}</div>
+                <div style={{ fontSize: 10, color: TEXT_MUTED, marginTop: 1 }}>{step.meta}</div>
               </div>
               <div style={{ width: 8, height: 8, borderRadius: "50%", background: step.color }} />
             </div>
@@ -200,8 +234,8 @@ function WorkflowMockup() {
         ))}
       </div>
       <div style={{ background: "#fff", borderRadius: 12, padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", boxShadow: "0 2px 8px rgba(0,0,0,0.05)" }}>
-        <div style={{ fontSize: 12, color: TEXT_MUTED }}>Recovery rate this month</div>
-        <div style={{ fontSize: 15, fontWeight: 700, color: "#059669" }}>94.2%</div>
+        <div style={{ fontSize: 12, color: TEXT_MUTED }}>Organic traffic vs prior 90 days</div>
+        <div style={{ fontSize: 15, fontWeight: 700, color: "#059669" }}>+184%</div>
       </div>
     </div>
   );

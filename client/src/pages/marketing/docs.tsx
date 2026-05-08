@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import { Search, Zap, Globe, Calendar, Bot, Code, AlertCircle, Webhook, ArrowRight, BookOpen, MessageSquare } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
+import { V7PageShell } from "@/components/marketing/v7";
+import { Reveal, TILE, MONO } from "@/components/effortel-blocks";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
 import { mkt, colors, shadows } from "@/theme/tokens";
 
@@ -86,79 +88,104 @@ export default function DocsPage() {
 
   return (
     <MarketingLayout>
+      <V7PageShell>
       <div data-testid="docs-hub" style={{ overflowX: "hidden" }}>
 
-        {/* Hero */}
-        <div style={{ background: `linear-gradient(160deg, ${mkt.dark} 0%, #0F2744 100%)`, padding: "72px 28px 64px" }}>
-          <div style={{ maxWidth: 780, margin: "0 auto", textAlign: "center" }}>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 7, background: "rgba(47,107,255,0.20)", border: "1px solid rgba(47,107,255,0.30)", borderRadius: 20, padding: "5px 16px", marginBottom: 24 }}>
-              <BookOpen size={13} color="#6EE7B7" />
-              <span style={{ fontSize: 12, fontWeight: 700, color: "#6EE7B7", letterSpacing: "0.05em" }}>Documentation</span>
-            </div>
-            <h1 style={{ fontSize: "clamp(30px, 4vw, 48px)", fontWeight: 800, color: "#FFFFFF", margin: "0 0 14px", letterSpacing: "-0.02em" }}>
-              How can we help?
-            </h1>
-            <p style={{ fontSize: 17, color: "rgba(255,255,255,0.6)", margin: "0 0 36px", lineHeight: 1.6 }}>
-              Guides, embed instructions, and troubleshooting — all written for non-technical trades people.
-            </p>
+        {/* Compact hero: left-aligned product tag, tight headline directly above search */}
+        <section style={{ padding: "96px 24px 28px", position: "relative", overflow: "hidden", background: mkt.bg }}>
+          <div style={{
+            position: "absolute", inset: 0, pointerEvents: "none",
+            background: "radial-gradient(ellipse 60% 50% at 50% 0%, rgba(102,232,250,0.08) 0%, transparent 60%)",
+          }} />
+          <div style={{ maxWidth: 1100, margin: "0 auto", position: "relative" }}>
+            <Reveal>
+              <span style={{
+                display: "inline-block", fontFamily: MONO, fontSize: 12,
+                letterSpacing: "0.16em", textTransform: "uppercase",
+                color: mkt.accent,
+              }}>
+                Documentation
+              </span>
+            </Reveal>
 
-            {/* Search */}
-            <div style={{ position: "relative" as const, maxWidth: 520, margin: "0 auto" }}>
-              <Search size={17} color="#94A3B8" style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
-              <input
-                data-testid="docs-search"
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search guides... (e.g. embed, domain, booking)"
-                style={{
-                  width: "100%",
-                  padding: "14px 16px 14px 48px",
-                  borderRadius: 12,
-                  border: "1.5px solid rgba(255,255,255,0.15)",
-                  background: "rgba(255,255,255,0.09)",
-                  color: "#FFFFFF",
-                  fontSize: 15,
-                  outline: "none",
-                  boxSizing: "border-box" as const,
+            <div style={{ maxWidth: 520, margin: "28px auto 0", textAlign: "center" }}>
+              <Reveal delay={0.06}>
+                <h1 style={{
+                  fontSize: "clamp(18px, 2.2vw, 24px)",
+                  fontWeight: 700,
+                  lineHeight: 1.15,
+                  letterSpacing: "-0.01em",
+                  color: mkt.onDark,
+                  margin: "0 0 12px",
                   fontFamily: "inherit",
-                }}
-              />
+                }}>
+                  How can <span style={{ color: mkt.accent }}>we help?</span>
+                </h1>
+              </Reveal>
+              <Reveal delay={0.10}>
+                <div style={{ position: "relative" }}>
+                  <Search size={17} color="rgba(213,225,231,0.6)" style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", zIndex: 1 }} />
+                  <input
+                    data-testid="docs-search"
+                    type="text"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search guides... (e.g. embed, domain, booking)"
+                    style={{
+                      width: "100%",
+                      padding: "14px 16px 14px 48px",
+                      borderRadius: 12,
+                      border: `1.5px solid ${mkt.onDarkBorder}`,
+                      background: "rgba(255,255,255,0.04)",
+                      color: mkt.onDark,
+                      fontSize: 15,
+                      outline: "none",
+                      boxSizing: "border-box" as const,
+                      fontFamily: "inherit",
+                    }}
+                  />
+                </div>
+              </Reveal>
             </div>
           </div>
-        </div>
+        </section>
 
         {/* Quick start strip */}
         {search === "" && (
-          <div style={{ background: mkt.surface, borderBottom: `1px solid ${mkt.border}`, padding: "28px 28px" }}>
+          <div style={{ background: mkt.sectionLight, borderBottom: `1px solid ${mkt.onDarkBorder}`, padding: "20px 28px 28px" }}>
             <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: mkt.textMuted, letterSpacing: "0.1em", textTransform: "uppercase" as const, marginBottom: 16 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: mkt.onDarkMuted, letterSpacing: "0.1em", textTransform: "uppercase" as const, marginBottom: 14 }}>
                 Quickstart
               </div>
-              <div className="qs-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
-                {QUICKSTARTS.map(({ icon: Icon, label, href, sub }) => (
+              <div className="qs-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 13 }}>
+                {QUICKSTARTS.map(({ icon: Icon, label, href, sub }, i) => {
+                  // Rotate through V7 pastel TILE colours per quickstart
+                  const palette = ["cyanSoft", "lavender", "mint", "pink"] as const;
+                  const tile = TILE[palette[i % palette.length]];
+                  return (
                   <Link
                     key={label}
                     href={href}
                     data-testid={`quickstart-${label.toLowerCase().replace(/\s+/g, "-")}`}
                     style={{
-                      display: "flex", gap: 12, padding: "14px 16px",
-                      background: mkt.bg, border: `1px solid ${mkt.border}`, borderRadius: 12,
+                      display: "flex", gap: 13, padding: "16px 18px",
+                      background: mkt.sectionLight, border: `1px solid ${mkt.onDarkBorder}`, borderRadius: 13,
                       textDecoration: "none", alignItems: "flex-start",
-                      boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
+                      boxShadow: "0 1px 4px rgba(0,0,0,0.18)",
                       transition: "box-shadow 0.18s ease, border-color 0.18s ease",
                     }}
                     className="mkt-feature-card"
                   >
-                    <div style={{ width: 34, height: 34, borderRadius: 8, background: mkt.accentTint, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                      <Icon size={16} color={mkt.accent} />
+                    <div style={{ width: 44, height: 44, borderRadius: 10, background: tile.bg, color: tile.ink, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      <Icon size={21} />
                     </div>
                     <div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: mkt.text, marginBottom: 2 }}>{label}</div>
-                      <div style={{ fontSize: 12, color: mkt.textMuted, lineHeight: 1.45 }}>{sub}</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: mkt.onDark, marginBottom: 2 }}>{label}</div>
+                      <div style={{ fontSize: 13, color: mkt.onDarkMuted, lineHeight: 1.45 }}>{sub}</div>
                     </div>
                   </Link>
-                ))}
+                  );
+                })}
               </div>
             </div>
             <style>{`@media(max-width:820px){.qs-grid{grid-template-columns:1fr 1fr!important;}} @media(max-width:480px){.qs-grid{grid-template-columns:1fr!important;}}`}</style>
@@ -166,33 +193,37 @@ export default function DocsPage() {
         )}
 
         {/* Guide cards grid */}
-        <div style={{ background: mkt.bg, padding: "64px 28px 96px" }}>
-          <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+        <div style={{ background: mkt.bg, padding: "32px 16px 64px" }}>
+          <div style={{ maxWidth: 1320, margin: "0 auto" }}>
             {search !== "" && (
-              <p style={{ fontSize: 14, color: mkt.textMuted, marginBottom: 24 }}>
+              <p style={{ fontSize: 14, color: mkt.onDarkMuted, marginBottom: 16 }}>
                 {filtered.length} result{filtered.length !== 1 ? "s" : ""} for "<strong>{search}</strong>"
               </p>
             )}
             {search === "" && (
-              <div style={{ marginBottom: 36 }} data-reveal="fade-up">
-                <div style={{ fontSize: 11, fontWeight: 700, color: mkt.accent, letterSpacing: "0.12em", textTransform: "uppercase" as const, marginBottom: 12 }}>
+              <div style={{ marginBottom: 20 }} data-reveal="fade-up">
+                <div style={{ fontSize: 11, fontWeight: 700, color: mkt.accent, letterSpacing: "0.12em", textTransform: "uppercase" as const, marginBottom: 8 }}>
                   All Guides
                 </div>
-                <h2 style={{ fontSize: "clamp(22px, 2.5vw, 32px)", fontWeight: 800, color: mkt.text, margin: 0, letterSpacing: "-0.02em" }}>
+                <h2 style={{ fontSize: "clamp(20px, 2.2vw, 28px)", fontWeight: 800, color: mkt.onDark, margin: 0, letterSpacing: "-0.02em" }}>
                   Everything you need to get results
                 </h2>
               </div>
             )}
 
             {filtered.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "60px 0", color: mkt.textMuted }}>
+              <div style={{ textAlign: "center", padding: "60px 0", color: mkt.onDarkMuted }}>
                 <MessageSquare size={32} color={mkt.border} style={{ marginBottom: 12 }} />
                 <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>No guides match "{search}"</div>
                 <div style={{ fontSize: 14 }}>Try a different keyword or <Link href="/contact" style={{ color: mkt.accent, fontWeight: 600, textDecoration: "none" }}>contact support</Link>.</div>
               </div>
             ) : (
-              <div className="guides-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20 }}>
-                {filtered.map(({ slug, icon: Icon, title, description, badge, badgeColor, badgeBg, time }) => (
+              <div className="guides-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
+                {filtered.map(({ slug, icon: Icon, title, badge, badgeColor, badgeBg, time }, i) => {
+                  // Each guide card gets its own pastel for the icon block.
+                  const palette = ["cyanSoft", "lavender", "mint", "pink", "cyan"] as const;
+                  const tile = TILE[palette[i % palette.length]];
+                  return (
                   <Link
                     key={slug}
                     href={`/docs/${slug}`}
@@ -201,31 +232,74 @@ export default function DocsPage() {
                     className="mkt-feature-card"
                     style={{
                       display: "flex", flexDirection: "column", gap: 0,
-                      background: mkt.bg, border: `1px solid ${mkt.border}`, borderRadius: 16,
-                      padding: "28px 24px", textDecoration: "none",
-                      boxShadow: "0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.05)",
+                      background: mkt.sectionLight, border: `1px solid ${mkt.onDarkBorder}`, borderRadius: 16,
+                      padding: 0, textDecoration: "none",
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.10), 0 4px 16px rgba(0,0,0,0.18)",
+                      overflow: "hidden",
                     }}
                   >
-                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 18 }}>
-                      <div style={{ width: 48, height: 48, borderRadius: 12, background: mkt.accentTint, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        <Icon size={22} color={mkt.accent} />
+                    {/* Pastel header — icon + title + badge inline (fully rounded card-within-card) */}
+                    <div style={{
+                      margin: "10px 10px 0",
+                      background: tile.bg, color: tile.ink,
+                      padding: "12px 14px",
+                      borderRadius: 14,
+                      display: "flex", alignItems: "center", gap: 12,
+                      position: "relative",
+                      overflow: "hidden",
+                    }}>
+                      <div style={{
+                        position: "absolute", inset: 0,
+                        backgroundImage: `radial-gradient(circle, ${tile.ink}10 1px, transparent 1px)`,
+                        backgroundSize: "14px 14px", opacity: 0.5, pointerEvents: "none",
+                      }} />
+                      <div style={{
+                        position: "relative", flexShrink: 0,
+                        width: 52, height: 52, borderRadius: 13,
+                        background: "rgba(255,255,255,0.55)",
+                        border: `1px solid ${tile.ink}1f`,
+                        color: tile.ink,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                      }}>
+                        <Icon size={23} strokeWidth={1.7} />
                       </div>
+                      <h3 style={{
+                        position: "relative", flex: 1, minWidth: 0,
+                        fontSize: 13, fontWeight: 700, color: tile.ink,
+                        letterSpacing: "0.04em", textTransform: "uppercase",
+                        fontFamily: MONO, lineHeight: 1.25,
+                        margin: 0, overflow: "hidden", textOverflow: "ellipsis",
+                      }}>
+                        {title}
+                      </h3>
                       {badge && (
-                        <span style={{ fontSize: 10, fontWeight: 700, color: badgeColor, background: badgeBg, padding: "3px 10px", borderRadius: 20, letterSpacing: "0.05em" }}>
+                        <span style={{
+                          position: "relative", flexShrink: 0,
+                          fontSize: 9, fontWeight: 700, color: badgeColor, background: badgeBg,
+                          padding: "3px 8px", borderRadius: 999, letterSpacing: "0.06em",
+                          fontFamily: MONO, textTransform: "uppercase",
+                        }}>
                           {badge}
                         </span>
                       )}
                     </div>
-                    <div style={{ fontSize: 17, fontWeight: 700, color: mkt.text, marginBottom: 8 }}>{title}</div>
-                    <div style={{ fontSize: 14, color: mkt.textMuted, lineHeight: 1.65, flex: 1, marginBottom: 20 }}>{description}</div>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                      <span style={{ fontSize: 12, color: mkt.textMuted }}>{time}</span>
-                      <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13, fontWeight: 700, color: mkt.accent }}>
-                        Read guide <ArrowRight size={13} />
-                      </span>
+                    {/* Body — meta row only (description removed) */}
+                    <div style={{ padding: "12px 18px 14px", display: "flex", flexDirection: "column", flex: 1 }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                        <span style={{ fontSize: 11, color: mkt.onDarkFaint, fontFamily: MONO, letterSpacing: "0.06em" }}>{time}</span>
+                        <span style={{
+                          display: "inline-flex", alignItems: "center", gap: 6,
+                          fontSize: 11, fontWeight: 600, color: mkt.accent,
+                          fontFamily: MONO, letterSpacing: "0.08em", textTransform: "uppercase",
+                          paddingBottom: 4, borderBottom: `1px solid ${mkt.accent}`,
+                        }}>
+                          Read guide <ArrowRight size={12} />
+                        </span>
+                      </div>
                     </div>
                   </Link>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -233,12 +307,12 @@ export default function DocsPage() {
         </div>
 
         {/* Footer help band */}
-        <div style={{ background: mkt.surface, borderTop: `1px solid ${mkt.border}`, padding: "56px 28px", textAlign: "center" }}>
+        <div style={{ background: mkt.sectionLight, borderTop: `1px solid ${mkt.onDarkBorder}`, padding: "56px 28px", textAlign: "center" }}>
           <div style={{ maxWidth: 520, margin: "0 auto" }}>
-            <h3 style={{ fontSize: 22, fontWeight: 800, color: mkt.text, margin: "0 0 10px" }}>
+            <h3 style={{ fontSize: 22, fontWeight: 800, color: mkt.onDark, margin: "0 0 10px" }}>
               Can't find what you're looking for?
             </h3>
-            <p style={{ fontSize: 15, color: mkt.textMuted, margin: "0 0 24px", lineHeight: 1.65 }}>
+            <p style={{ fontSize: 15, color: mkt.onDarkMuted, margin: "0 0 24px", lineHeight: 1.65 }}>
               Our support team usually responds within 2 hours. We're real people — not a bot.
             </p>
             <Link
@@ -252,6 +326,7 @@ export default function DocsPage() {
         </div>
 
       </div>
+      </V7PageShell>
     </MarketingLayout>
   );
 }

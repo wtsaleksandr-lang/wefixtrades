@@ -21,6 +21,7 @@ import {
   handleTradeLineConversationTurn,
   extractCallReport,
   buildAssistantConfig,
+  buildAssistantConfigWithAvailability,
   buildTradeLineAssistantConfig,
   buildTradeLineContext,
   resolveTradeLineClient,
@@ -103,7 +104,9 @@ export function registerVapiRoutes(app: Express): void {
             const tlConfig = buildTradeLineAssistantConfig(tradeLineResolved);
             return res.json(tlConfig);
           }
-          const config = buildAssistantConfig();
+          // Read brand-availability state and override greeting/system prompt
+          // when the operator has flipped the toggle off.
+          const config = await buildAssistantConfigWithAvailability();
           return res.json(config);
         }
 
@@ -295,6 +298,45 @@ export function registerVapiRoutes(app: Express): void {
 
       // Check for cached TradeLine context from webhook resolution
       const tradeLineCtx = activeTradeLineCalls.get(convCallId);
+
+      // Brand sales-line calls (no TradeLine context): run the inbound
+      // classifier on the first user message. Short-circuits spam, polite-
+      // declines out-of-scope, escalates needs_human / availability_off into
+      // a support ticket, and otherwise proceeds with normal handling.
+      if (!tradeLineCtx && vapiMessages.length <= 2) {
+        const firstUserMsg = vapiMessages.find((m) => m.role === "user")?.message?.trim();
+        if (firstUserMsg && firstUserMsg.length > 4) {
+          try {
+            const { decideInboundAction } = await import("../services/inboundClassifier");
+            const decision = await decideInboundAction({
+              channel: "voice",
+              fromIdentity: call?.customer?.number || "unknown",
+              message: firstUserMsg,
+            });
+            log.info("[vapi] brand-call classification", {
+              callId: convCallId,
+              action: decision.action,
+              category: decision.category,
+              confidence: decision.confidence,
+            });
+
+            if (decision.action === "drop") {
+              return res.json({ output: { content: "Sorry, this doesn't sound like the right number for that. Goodbye.", model: "classifier" } });
+            }
+            if (decision.action === "polite_decline") {
+              return res.json({ output: { content: "Thanks for calling — WeFixTrades sells digital tools to trades businesses, we don't perform the trade work itself. Best of luck finding the right person!", model: "classifier" } });
+            }
+            if (decision.action === "ticket") {
+              const ref = decision.ticketId ? ` Reference T-${decision.ticketId}.` : "";
+              const intro = decision.awayMessage ?? "Thanks for calling — our team is briefly tied up. ";
+              return res.json({ output: { content: `${intro}I've logged your request and someone will call you back within the hour.${ref} Have a great day!`, model: "classifier" } });
+            }
+            // action === "reply" → fall through to normal conversation handling
+          } catch (err) {
+            log.warn("[vapi] classifier failed, proceeding with normal handler", { error: (err as Error).message });
+          }
+        }
+      }
 
       const reply = tradeLineCtx
         ? await handleTradeLineConversationTurn(vapiMessages, convCallId, buildTradeLineContext(tradeLineCtx))

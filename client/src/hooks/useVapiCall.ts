@@ -41,7 +41,22 @@ export interface UseVapiCallReturn extends VapiCallState {
   isAvailable: boolean;
 }
 
-export function useVapiCall(): UseVapiCallReturn {
+export interface UseVapiCallOptions {
+  /**
+   * Optional assistantOverrides passed to vapi.start(). Useful for pushing
+   * a per-page system prompt (e.g. the TradeLine demo persona) without
+   * editing the assistant in the Vapi dashboard. Can be a value or a
+   * thunk — the thunk is awaited at call-start time so prompts can be
+   * fetched lazily.
+   *
+   * Vapi shape: { model: { messages: [{ role: "system", content: "..." }] } }
+   * Other model fields (provider, model name, temperature, etc.) inherit
+   * from the dashboard assistant config.
+   */
+  assistantOverrides?: unknown | (() => Promise<unknown> | unknown);
+}
+
+export function useVapiCall(options?: UseVapiCallOptions): UseVapiCallReturn {
   const [state, setState] = useState<VapiCallState>({
     status: "idle",
     isSpeaking: false,
@@ -54,6 +69,9 @@ export function useVapiCall(): UseVapiCallReturn {
   const vapiRef = useRef<any>(null);
   const [isAvailable, setIsAvailable] = useState(false);
   const configRef = useRef<{ publicKey: string; assistantId: string } | null>(null);
+  // Keep the latest assistantOverrides without invalidating the start callback
+  const overridesRef = useRef(options?.assistantOverrides);
+  overridesRef.current = options?.assistantOverrides;
 
   // Fetch config once on mount to check availability
   useEffect(() => {
@@ -188,7 +206,19 @@ export function useVapiCall(): UseVapiCallReturn {
       });
 
       // ─── Start the call ───
-      const call = await vapi.start(configRef.current.assistantId);
+      // Resolve assistantOverrides if provided. Thunk form is awaited so
+      // callers can fetch a prompt over the network at call-start time.
+      let resolvedOverrides: unknown | undefined;
+      try {
+        const raw = overridesRef.current;
+        resolvedOverrides = typeof raw === "function" ? await (raw as () => Promise<unknown>)() : raw;
+      } catch (err) {
+        console.warn("[vapi] assistantOverrides resolver failed; falling back to dashboard config", err);
+        resolvedOverrides = undefined;
+      }
+      const call = resolvedOverrides
+        ? await vapi.start(configRef.current.assistantId, resolvedOverrides)
+        : await vapi.start(configRef.current.assistantId);
       if (call?.id) {
         setState((s) => ({ ...s, callId: call.id }));
       }

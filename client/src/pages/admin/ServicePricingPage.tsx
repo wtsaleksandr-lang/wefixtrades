@@ -382,9 +382,9 @@ export default function ServicePricingPage() {
               </div>
               <div>
                 <p className="text-xs text-gray-500">Monthly Recurring Revenue</p>
-                <p className="text-lg font-semibold text-gray-900">
+                <div className="text-lg font-semibold text-gray-900">
                   {isLoading ? <Skeleton className="h-6 w-20 inline-block" /> : fmtDollars(monthlyRecurring)}
-                </p>
+                </div>
               </div>
             </div>
           </Card>
@@ -396,9 +396,9 @@ export default function ServicePricingPage() {
               </div>
               <div>
                 <p className="text-xs text-gray-500">Active Services</p>
-                <p className="text-lg font-semibold text-gray-900">
+                <div className="text-lg font-semibold text-gray-900">
                   {isLoading ? <Skeleton className="h-6 w-12 inline-block" /> : activeServices.length}
-                </p>
+                </div>
               </div>
             </div>
           </Card>
@@ -410,11 +410,11 @@ export default function ServicePricingPage() {
               </div>
               <div>
                 <p className="text-xs text-gray-500">Average Margin</p>
-                <p className="text-lg font-semibold text-gray-900">
+                <div className="text-lg font-semibold text-gray-900">
                   {isLoading ? <Skeleton className="h-6 w-16 inline-block" /> : (
                     servicesWithMargin.length > 0 ? `${avgMargin.toFixed(1)}%` : "--"
                   )}
-                </p>
+                </div>
               </div>
             </div>
           </Card>

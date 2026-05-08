@@ -43,14 +43,14 @@ function SmsMockup() {
                 padding: "9px 12px",
                 borderRadius: m.from === "customer" ? "14px 14px 4px 14px" : "14px 14px 14px 4px",
                 background: m.from === "customer" ? "#DCF8C6" : mkt.bg,
-                border: m.from !== "customer" ? `1px solid ${mkt.border}` : "none",
+                border: m.from !== "customer" ? `1px solid ${mkt.onDarkBorder}` : "none",
                 fontSize: 12.5,
-                color: mkt.text,
+                color: mkt.onDark,
                 lineHeight: 1.5,
               }}>
                 {m.text}
               </div>
-              <span style={{ fontSize: 10, color: mkt.textMuted, marginTop: 3 }}>{m.time}</span>
+              <span style={{ fontSize: 10, color: mkt.onDarkMuted, marginTop: 3 }}>{m.time}</span>
             </div>
           ))}
         </div>

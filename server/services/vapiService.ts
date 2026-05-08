@@ -335,11 +335,6 @@ async function resolveByClientServiceId(csId: number): Promise<ResolvedTradeLine
   if (!cs || !cs.service_id.startsWith("tradeline")) return null;
   const config = await storage.getTradeLineConfig(csId);
   if (!config) return null;
-  // Reject calls to disabled assistants
-  if (config.assistant?.status === "disabled") {
-    log.warn("Call routed to disabled TradeLine assistant — rejecting", { clientServiceId: csId });
-    return null;
-  }
   const client = await storage.getClientById(cs.client_id);
   if (!client) return null;
   return { clientService: cs, client, config };
@@ -552,6 +547,33 @@ export function buildAssistantConfig(): Record<string, any> {
       endCallPhrases: ["goodbye", "bye", "thanks bye"],
     },
   };
+}
+
+/**
+ * Async variant that reads the brand-availability singleton and rewrites the
+ * firstMessage when we're marked as unavailable. Use this from any place
+ * that's about to provision an inbound greeting.
+ *
+ * Falls back to the synchronous default if the DB read fails — never block a
+ * real call on a missing row.
+ */
+export async function buildAssistantConfigWithAvailability(): Promise<Record<string, any>> {
+  const base = buildAssistantConfig();
+  try {
+    const { storage } = await import("../storage");
+    const av = await storage.getBrandAvailability();
+    if (!av.is_available) {
+      base.assistant.firstMessage = av.away_message;
+      // Hard fallback: append a system-prompt addendum so the model sticks to
+      // ticket-creation only and doesn't try to live-resolve the request.
+      base.assistant.systemMessage = (base.assistant.systemMessage ?? "") +
+        "\n\n[AVAILABILITY OVERRIDE: human team unavailable. Take name + number + brief description, confirm a callback within 1 hour, and end the call. Do not attempt to fully resolve the request.]";
+    }
+    return base;
+  } catch (err) {
+    log.warn("[vapi] availability read failed; using default greeting", { error: (err as Error).message });
+    return base;
+  }
 }
 
 /**

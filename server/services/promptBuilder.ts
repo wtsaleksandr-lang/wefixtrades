@@ -1,5 +1,6 @@
 import { compileKnowledge, formatRecommendedServices, getRecommendedServices } from "./knowledgeBase";
 import type { TradelineConfig } from "@shared/schema";
+import { TRADELINE_DEMO_PROMPT } from "@shared/prompts/tradelineDemoPrompt";
 
 /* ─── Types ─── */
 
@@ -14,7 +15,9 @@ export type ChatSurface =
   | "dashboard"    // Client dashboard assistant (future)
   | "admin"        // Admin/internal operations copilot
   | "vapi"         // Voice assistant via Vapi (future)
-  | "portal";      // Authenticated client portal assistant
+  | "portal"       // Authenticated client portal assistant
+  | "tradeline_demo"; // Public demo on /products/tradeline — roleplay as the
+                      // customer's TradeLine dispatcher, no per-client config
 
 export interface AuditContext {
   businessName?: string;
@@ -183,6 +186,12 @@ export function buildSystemPrompt(
   // TradeLine per-client voice/chat gets a focused prompt
   if (surface === "vapi" && tradeLineContext) {
     return buildTradeLinePrompt(tradeLineContext);
+  }
+
+  // TradeLine PUBLIC DEMO on /products/tradeline — no per-client config,
+  // server-side roleplay so visitors hear what their customers will hear.
+  if (surface === "tradeline_demo") {
+    return buildTradeLineDemoPrompt();
   }
 
   // Portal surface gets a focused prompt with client data
@@ -614,6 +623,23 @@ IMPORTANT:
 - Always end by confirming next steps so the caller knows what to expect`);
 /* ─── Portal surface builder ─── */
   return parts.join("\n");
+}
+
+/* ─── TradeLine PUBLIC DEMO prompt ─────────────────────────────────────
+   Used on /products/tradeline. The visitor is a trades-business owner
+   roleplaying as their own customer — they want to hear what TradeLine
+   will sound like when it answers their callers. The model must never
+   refuse to give a quote: this is a sales demo, not a real dispatch.
+
+   Built to handle 20 distinct visitor-question categories without
+   breaking character: greetings, service requests, emergencies, pricing
+   pushback, multi-trade, sub-services, scheduling, info exchange,
+   out-of-scope, insurance, off-topic, identity probes, adversarial /
+   prompt injection, reschedules, skeptical probes, meta questions,
+   multilingual, sign-offs, returning customers, wrong industries.
+   ──────────────────────────────────────────────────────────────────── */
+function buildTradeLineDemoPrompt(): string {
+  return TRADELINE_DEMO_PROMPT;
 }
 
 function buildPortalPrompt(ctx?: PortalContext, memory?: MemoryContext): string {
