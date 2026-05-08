@@ -104,10 +104,23 @@ export default function PortalLayout({
 
   return (
     <OnboardingProvider>
+    {/* Skip-to-content — visible only when keyboard-focused. Lets
+        screen-reader / keyboard users bypass the sidebar nav and jump
+        straight to the page body. */}
+    <a
+      href="#main-content"
+      className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:px-3 focus:py-1.5 focus:rounded-md focus:bg-[#2D6A4F] focus:text-white focus:text-sm focus:font-medium focus:shadow-lg"
+    >
+      Skip to main content
+    </a>
     <div className="flex h-screen bg-[#F6F7F9] overflow-hidden">
-      {/* Mobile overlay */}
+      {/* Mobile overlay — semantically a button (it's clickable to
+          dismiss). Keyboard users get the same dismissal via the
+          ChevronLeft button inside the sidebar. */}
       {mobileOpen && (
-        <div
+        <button
+          type="button"
+          aria-label="Close navigation menu"
           className="fixed inset-0 z-30 bg-black/30 lg:hidden"
           onClick={() => setMobileOpen(false)}
         />
@@ -142,8 +155,9 @@ export default function PortalLayout({
           <button
             onClick={() => setMobileOpen(false)}
             className="lg:hidden p-1 rounded hover:bg-gray-100 min-h-[44px] min-w-[44px] flex items-center justify-center"
+            aria-label="Close navigation menu"
           >
-            <ChevronLeft className="w-4 h-4" />
+            <ChevronLeft className="w-4 h-4" aria-hidden="true" />
           </button>
         </div>
 
@@ -189,8 +203,9 @@ export default function PortalLayout({
               size="icon"
               className="lg:hidden mr-2 min-h-[44px] min-w-[44px]"
               onClick={() => setMobileOpen(true)}
+              aria-label="Open navigation menu"
             >
-              <Menu className="w-5 h-5" />
+              <Menu className="w-5 h-5" aria-hidden="true" />
             </Button>
             <h1 className="text-sm font-medium text-gray-700">
               {NAV_ITEMS.find((item) => isActive(location, item.href))?.label ?? "Portal"}
@@ -220,7 +235,7 @@ export default function PortalLayout({
         </header>
 
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-6">
+        <main id="main-content" className="flex-1 overflow-y-auto p-4 md:p-6" tabIndex={-1}>
           {children}
         </main>
       </div>
