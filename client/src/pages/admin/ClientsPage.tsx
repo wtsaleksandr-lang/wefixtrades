@@ -23,7 +23,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, Download } from "lucide-react";
+import { csvDownload, todayIso } from "@/lib/csvDownload";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -112,14 +113,42 @@ export default function ClientsPage() {
     }}>
       <div className="max-w-6xl mx-auto space-y-4">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="min-w-0">
             <h2 className="text-lg font-semibold text-gray-900">Clients</h2>
             <p className="text-sm text-gray-500">{data?.total ?? 0} total</p>
           </div>
-          <Button size="sm" onClick={() => setShowAdd(true)} className="bg-[#2D6A4F] hover:bg-[#1B4332] min-h-[36px]">
-            <Plus className="w-4 h-4 mr-1" /> Add Client
-          </Button>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                if (!data?.data?.length) return;
+                csvDownload<Client>({
+                  filename: `clients-${todayIso()}.csv`,
+                  columns: [
+                    { header: "id", value: (c) => c.id },
+                    { header: "business_name", value: (c) => c.business_name },
+                    { header: "contact_name", value: (c) => c.contact_name },
+                    { header: "contact_email", value: (c) => c.contact_email },
+                    { header: "contact_phone", value: (c) => c.contact_phone },
+                    { header: "trade_type", value: (c) => c.trade_type },
+                    { header: "status", value: (c) => c.status },
+                    { header: "source", value: (c) => c.source },
+                    { header: "created_at", value: (c) => c.created_at },
+                  ],
+                  rows: data.data,
+                });
+              }}
+              disabled={!data?.data?.length}
+              className="min-h-[36px]"
+            >
+              <Download className="w-4 h-4 mr-1" /> Export CSV
+            </Button>
+            <Button size="sm" onClick={() => setShowAdd(true)} className="bg-[#2D6A4F] hover:bg-[#1B4332] min-h-[36px]">
+              <Plus className="w-4 h-4 mr-1" /> Add Client
+            </Button>
+          </div>
         </div>
 
         {/* Filters */}

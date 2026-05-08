@@ -34,6 +34,8 @@ import {
   Activity,
   AlertTriangle,
   Phone,
+  FileText,
+  ServerCog,
 } from "lucide-react";
 import AdminCopilot, { type AdminPageContext } from "./AdminCopilot";
 import { useAuth } from "@/hooks/useAuth";
@@ -96,6 +98,8 @@ const OUTBOUND_ITEMS = [
 const SYSTEM_ITEMS = [
   { label: "Job Logs", href: "/admin/system/jobs", icon: Activity },
   { label: "Workers", href: "/admin/system/workers", icon: Server },
+  { label: "Integrations", href: "/admin/system/integrations", icon: ServerCog },
+  { label: "Audit Log", href: "/admin/crm/audit-log", icon: FileText },
 ];
 
 const SECONDARY_ITEMS = [
