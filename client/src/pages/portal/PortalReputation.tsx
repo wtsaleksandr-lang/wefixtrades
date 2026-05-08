@@ -1,7 +1,8 @@
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Star, TrendingUp, MessageSquare, Send, CheckCircle, HelpCircle } from "lucide-react";
+import { Star, TrendingUp, MessageSquare, Send, CheckCircle, HelpCircle, ArrowRight } from "lucide-react";
+import { Link } from "wouter";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -188,8 +189,24 @@ export default function PortalReputation() {
         )}
 
         {data.latest_reviews.length === 0 && data.recent_replies.length === 0 && (
-          <Card className="p-5 text-center">
-            <p className="text-sm text-gray-500">No reviews yet. Once your automation is live, reviews and responses will appear here.</p>
+          <Card className="p-8 text-center">
+            <Star className="w-10 h-10 text-gray-200 mx-auto mb-3" />
+            <p className="text-sm font-medium text-gray-700 mb-1">No reviews yet</p>
+            <p className="text-xs text-gray-500 max-w-sm mx-auto mb-4">
+              Once Reputation Shield is set up and reviews start coming in, they'll appear here with AI-suggested responses.
+            </p>
+            <div className="flex items-center justify-center gap-2 flex-wrap">
+              <Link href="/portal/services">
+                <button className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium bg-[#2D6A4F] text-white rounded-lg hover:bg-[#1B4332] transition-colors">
+                  Set up Reputation Shield <ArrowRight className="w-3 h-3" />
+                </button>
+              </Link>
+              <Link href="/portal/help">
+                <button className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                  Talk to your team
+                </button>
+              </Link>
+            </div>
           </Card>
         )}
 

@@ -168,8 +168,12 @@ export default function BillingPage() {
                   ))
                 ) : payments.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-gray-500 text-sm">
-                      No payment records yet.
+                    <TableCell colSpan={6} className="text-center py-10 text-gray-500 text-sm">
+                      <p className="text-gray-700 font-medium mb-1">No payment records yet.</p>
+                      <p className="text-xs text-gray-500">
+                        Payments appear here as soon as a client checks out via Stripe or you log a manual payment from
+                        {" "}<Link href="/admin/crm/clients" className="text-[#2D6A4F] hover:underline font-medium">a client's page</Link>.
+                      </p>
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -213,7 +217,13 @@ export default function BillingPage() {
                 {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
               </div>
             ) : payments.length === 0 ? (
-              <p className="text-center py-8 text-gray-500 text-sm">No payment records yet.</p>
+              <div className="text-center py-10 px-6">
+                <p className="text-gray-700 font-medium mb-1 text-sm">No payment records yet.</p>
+                <p className="text-xs text-gray-500">
+                  Payments appear here as soon as a client checks out, or you log a manual one on
+                  {" "}<Link href="/admin/crm/clients" className="text-[#2D6A4F] hover:underline font-medium">a client's page</Link>.
+                </p>
+              </div>
             ) : (
               payments.map((p) => (
                 <div key={p.id} className="p-4">

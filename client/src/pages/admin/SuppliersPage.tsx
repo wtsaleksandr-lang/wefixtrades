@@ -422,7 +422,14 @@ export default function SuppliersPage() {
                 </CardHeader>
                 <CardContent>
                   {supplierDetail.tasks.length === 0 ? (
-                    <div className="text-center py-8 text-gray-400">No tasks assigned to this supplier yet.</div>
+                    <div className="text-center py-8 px-4">
+                      <p className="text-sm text-gray-500 mb-1">No tasks assigned to this supplier yet.</p>
+                      <p className="text-xs text-gray-400">
+                        Tasks appear here as soon as a client orders a service this supplier covers,
+                        or after you manually assign one from a
+                        {" "}<a href="/admin/crm/clients" className="text-[#2D6A4F] hover:underline font-medium">client's fulfillment tab</a>.
+                      </p>
+                    </div>
                   ) : (
                     <Table>
                       <TableHeader>
