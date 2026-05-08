@@ -1506,12 +1506,14 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
       const ownership = await verifyTradeLineOwnership(req, res, csId);
       if (!ownership) return;
 
-      const { voice, personality, widgetStyle } = req.body;
+      const { voice, personality, widgetStyle, businessHours, notifications } = req.body;
       const update: Record<string, any> = {};
 
       if (voice && typeof voice === "object") update.voice = voice;
       if (personality && typeof personality === "object") update.personality = personality;
       if (widgetStyle && typeof widgetStyle === "object") update.widgetStyle = widgetStyle;
+      if (businessHours && typeof businessHours === "object") update.businessHours = businessHours;
+      if (notifications && typeof notifications === "object") update.notifications = notifications;
 
       if (Object.keys(update).length === 0) {
         return res.status(400).json({ error: "No valid settings provided" });

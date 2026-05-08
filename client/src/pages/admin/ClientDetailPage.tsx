@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRoute, Link, useLocation, useSearch } from "wouter";
 import AdminLayout from "@/components/admin/AdminLayout";
+import { SectionErrorRetry } from "@/components/shared/SectionErrorRetry";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -307,17 +308,17 @@ export default function ClientDetailPage() {
     enabled: !!clientId,
   });
 
-  const { data: services } = useQuery<ClientServiceRow[]>({
+  const { data: services, isError: servicesError, refetch: refetchServices } = useQuery<ClientServiceRow[]>({
     queryKey: [`/api/admin/crm/clients/${clientId}/services`],
     enabled: !!clientId,
   });
 
-  const { data: fulfillment } = useQuery<TaskItem[]>({
+  const { data: fulfillment, isError: fulfillmentError, refetch: refetchFulfillment } = useQuery<TaskItem[]>({
     queryKey: [`/api/admin/crm/clients/${clientId}/fulfillment`],
     enabled: !!clientId,
   });
 
-  const { data: payments } = useQuery<PaymentRow[]>({
+  const { data: payments, isError: paymentsError, refetch: refetchPayments } = useQuery<PaymentRow[]>({
     queryKey: [`/api/admin/crm/clients/${clientId}/payments`],
     enabled: !!clientId,
   });
@@ -608,6 +609,26 @@ export default function ClientDetailPage() {
             <ArrowLeft className="w-4 h-4" /> All Clients
           </span>
         </Link>
+
+        {/* Sub-query failure banner — surfaces silently-broken tabs so
+            the operator knows what data to mistrust. Each retry calls
+            only the failed query so the page doesn't reload. */}
+        {(servicesError || fulfillmentError || paymentsError) && (
+          <SectionErrorRetry
+            variant="admin"
+            title={[
+              servicesError ? "services" : null,
+              fulfillmentError ? "fulfillment tasks" : null,
+              paymentsError ? "payments" : null,
+            ].filter(Boolean).join(" / ")}
+            message="One or more data sections on this client failed to load. Other tabs are still safe to use."
+            onRetry={() => {
+              if (servicesError) refetchServices();
+              if (fulfillmentError) refetchFulfillment();
+              if (paymentsError) refetchPayments();
+            }}
+          />
+        )}
 
         {/* Client header */}
         <Card className="p-5">
