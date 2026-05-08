@@ -47,6 +47,7 @@ import { registerDemoRoutes } from "./demoRoutes";
 import { registerBookingApiRoutes } from "./bookingApiRoutes";
 import { registerBookflowRoutes } from "./bookflowRoutes";
 import { registerAdminAlertRoutes } from "./adminAlertRoutes";
+import { registerChatAttachmentRoutes } from "./chatAttachmentRoutes";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -100,6 +101,7 @@ export async function registerRoutes(
   registerBookingApiRoutes(app);
   registerBookflowRoutes(app);
   registerAdminAlertRoutes(app);
+  registerChatAttachmentRoutes(app);
 
   return httpServer;
 }
