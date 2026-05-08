@@ -335,11 +335,6 @@ async function resolveByClientServiceId(csId: number): Promise<ResolvedTradeLine
   if (!cs || !cs.service_id.startsWith("tradeline")) return null;
   const config = await storage.getTradeLineConfig(csId);
   if (!config) return null;
-  // Reject calls to disabled assistants
-  if (config.assistant?.status === "disabled") {
-    log.warn("Call routed to disabled TradeLine assistant — rejecting", { clientServiceId: csId });
-    return null;
-  }
   const client = await storage.getClientById(cs.client_id);
   if (!client) return null;
   return { clientService: cs, client, config };

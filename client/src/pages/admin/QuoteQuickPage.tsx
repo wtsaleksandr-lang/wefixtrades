@@ -123,7 +123,7 @@ export default function QuoteQuickPage() {
   }
 
   return (
-    <AdminLayout pageContext={{ pageName: "QuoteQuick", entityType: "calculator" }}>
+    <AdminLayout pageContext={{ page: "QuoteQuick" }}>
       <div className="space-y-6">
         {/* Header */}
         <div>

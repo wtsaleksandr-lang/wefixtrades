@@ -57,7 +57,7 @@ export async function processTradeLineRetries(): Promise<{ attempted: number; su
         if (!retryInfo?.alertFired) {
           exhausted++;
           await fireAlert({
-            severity: "high",
+            severity: "critical",
             category: "tradeline_assistant_failed",
             title: `TradeLine assistant for service #${svc.id} failed after ${MAX_RETRIES_PER_DAY} retries`,
             details: `Last error: ${meta?.tradeline?.assistant?.lastBuildError || "unknown"}`,
