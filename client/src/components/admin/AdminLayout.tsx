@@ -34,6 +34,8 @@ import {
   Activity,
   AlertTriangle,
   Phone,
+  FileText,
+  ServerCog,
 } from "lucide-react";
 import AdminCopilot, { type AdminPageContext } from "./AdminCopilot";
 import { useAuth } from "@/hooks/useAuth";
@@ -56,6 +58,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { apiRequest } from "@/lib/queryClient";
+import { useRealtime } from "@/lib/realtime";
 import { useToast } from "@/hooks/use-toast";
 
 /* ─── Core nav — always visible ─── */
@@ -96,6 +99,8 @@ const OUTBOUND_ITEMS = [
 const SYSTEM_ITEMS = [
   { label: "Job Logs", href: "/admin/system/jobs", icon: Activity },
   { label: "Workers", href: "/admin/system/workers", icon: Server },
+  { label: "Integrations", href: "/admin/system/integrations", icon: ServerCog },
+  { label: "Audit Log", href: "/admin/crm/audit-log", icon: FileText },
 ];
 
 const SECONDARY_ITEMS = [
@@ -572,9 +577,20 @@ export default function AdminLayout({
 }) {
   const [location, navigate] = useLocation();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [quickAdd, setQuickAdd] = useState<string | null>(null);
   const [copilotOpen, setCopilotOpen] = useState(false);
+
+  /* Real-time push: when any admin or AI agent writes to the audit
+   * log, the server emits 'admin.activity.new'. We invalidate every
+   * query that reads from the activity log so dashboards / the audit
+   * page update without a refetch interval. Mounted at the layout
+   * level so the subscription is active across every admin page. */
+  useRealtime("admin.activity.new", () => {
+    queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/activity"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/overview"] });
+  });
 
   // Support ticket unresolved count for nav badge
   const { data: supportCounts } = useQuery<{ open: number; in_progress: number; waiting_on_customer: number }>({

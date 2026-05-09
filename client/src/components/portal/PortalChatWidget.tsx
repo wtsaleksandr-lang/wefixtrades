@@ -4,6 +4,11 @@ import { Link } from "wouter";
 import {
   MessageCircle, X, Send, Loader2, ClipboardList, CheckCircle2,
 } from "lucide-react";
+import ChatAttachmentInput, {
+  ChatAttachmentChips,
+  type ChatAttachment,
+  type ChatAttachmentInputHandle,
+} from "@/components/shared/ChatAttachmentInput";
 
 /* ─── Types ─── */
 export interface PortalChatContext {
@@ -58,6 +63,8 @@ export default function PortalChatWidget({
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
   const [input, setInput] = useState("");
+  const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
+  const attachmentInputRef = useRef<ChatAttachmentInputHandle | null>(null);
   const [loading, setLoading] = useState(false);
 
   // Escalation state
@@ -97,10 +104,31 @@ export default function PortalChatWidget({
 
   async function send(text?: string) {
     const msg = (text || input).trim();
-    if (!msg || loading) return;
-    const updated = [...messages, { role: "user" as const, content: msg }];
+    /* Allow sending an attachment-only message (msg may be empty if
+     * the user just pasted a screenshot and hit send without typing).
+     * Block while a previous send is still in flight, or while any
+     * attachment is still uploading. */
+    const hasUploadedAttachments = attachments.some((a) => a.status === "uploaded");
+    if ((!msg && !hasUploadedAttachments) || loading) return;
+    if (attachments.some((a) => a.status === "pending")) return;
+
+    /* Compose the user-visible message. If the user attached files
+     * we append a short "[+1 attachment]" suffix so the conversation
+     * preserves the fact that something was sent. */
+    const attachmentSuffix = hasUploadedAttachments
+      ? ` [${attachments.filter((a) => a.status === "uploaded").length} attachment${
+          attachments.filter((a) => a.status === "uploaded").length === 1 ? "" : "s"
+        }]`
+      : "";
+    const renderedContent = msg + attachmentSuffix;
+
+    const updated = [...messages, { role: "user" as const, content: renderedContent }];
     setMessages(updated);
     setInput("");
+    /* Capture the attachment list now and clear the chip strip so the
+     * next message starts fresh. */
+    const sentAttachments = attachments.filter((a) => a.status === "uploaded");
+    setAttachments([]);
     setLoading(true);
     setEscalationDraft(null);
     setTicketCreated(null);
@@ -116,6 +144,12 @@ export default function PortalChatWidget({
         body: JSON.stringify({
           messages: updated.map((m) => ({ role: m.role, content: m.content })),
           context: buildContext(),
+          attachments: sentAttachments.map((a) => ({
+            url: a.url,
+            filename: a.filename,
+            mime: a.mime,
+            size: a.size,
+          })),
         }),
       });
       const data = await res.json();
@@ -347,22 +381,45 @@ export default function PortalChatWidget({
           </div>
 
           {/* Input */}
-          <div className="border-t border-gray-100 p-2 flex gap-2 shrink-0">
-            <input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && send()}
-              placeholder={isOnboarding ? "Ask about any field..." : "Type your question..."}
-              className="flex-1 text-sm px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/20 focus:border-[#2D6A4F]"
+          <div className="border-t border-gray-100 shrink-0">
+            <ChatAttachmentChips
+              value={attachments}
+              onRemove={(id) => setAttachments(attachments.filter((a) => a.id !== id))}
             />
-            <button
-              onClick={() => send()}
-              disabled={loading || !input.trim()}
-              className="p-2 rounded-lg bg-[#2D6A4F] text-white hover:bg-[#1B4332] disabled:opacity-40 transition-colors"
-              aria-label="Send message"
-            >
-              <Send className="w-4 h-4" aria-hidden="true" />
-            </button>
+            <div className="p-2 flex gap-1 items-center">
+              <ChatAttachmentInput
+                ref={attachmentInputRef}
+                value={attachments}
+                onChange={setAttachments}
+                variant="portal"
+                disabled={loading}
+              />
+              <input
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && send()}
+                /* Ctrl+V on the text input: ChatAttachmentInput's
+                   handlePaste reads any files on the clipboard and
+                   uploads them; plain-text pastes still flow into the
+                   input as normal because handlePaste only calls
+                   preventDefault when it found files. */
+                onPaste={(e) => attachmentInputRef.current?.handlePaste(e)}
+                placeholder={isOnboarding ? "Ask about any field..." : "Type or paste a screenshot..."}
+                className="flex-1 text-sm px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/20 focus:border-[#2D6A4F]"
+              />
+              <button
+                onClick={() => send()}
+                disabled={
+                  loading ||
+                  attachments.some((a) => a.status === "pending") ||
+                  (!input.trim() && !attachments.some((a) => a.status === "uploaded"))
+                }
+                className="p-2 rounded-lg bg-[#2D6A4F] text-white hover:bg-[#1B4332] disabled:opacity-40 transition-colors"
+                aria-label="Send message"
+              >
+                <Send className="w-4 h-4" aria-hidden="true" />
+              </button>
+            </div>
           </div>
         </div>
       )}

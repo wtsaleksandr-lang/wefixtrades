@@ -8,7 +8,8 @@
 
 import { useState, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Phone, MapPin, CheckCircle, ChevronLeft, ChevronRight, Calendar } from "lucide-react";
+import { Link } from "wouter";
+import { Phone, MapPin, CheckCircle, ChevronLeft, ChevronRight, Calendar, ArrowLeft } from "lucide-react";
 
 interface Appointment {
   id: number;
@@ -96,6 +97,19 @@ export default function DispatchPage() {
 
   return (
     <div style={{ maxWidth: 600, margin: "0 auto", padding: "16px" }}>
+      {/* Back to portal — DispatchPage is intentionally outside the
+          PortalLayout (mobile-first for tradespeople in the field),
+          so we provide a single inline link rather than the full
+          sidebar nav. */}
+      <Link href="/portal">
+        <a style={{
+          display: "inline-flex", alignItems: "center", gap: 4,
+          fontSize: 12, color: "#6b7280", textDecoration: "none", marginBottom: 12,
+        }}>
+          <ArrowLeft size={12} /> Back to portal
+        </a>
+      </Link>
+
       {/* Header */}
       <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px", color: "#111" }}>
         Dispatch

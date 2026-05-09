@@ -81,6 +81,8 @@ import ClientDetailPage from "@/pages/admin/ClientDetailPage";
 import SuppliersPage from "@/pages/admin/SuppliersPage";
 import InboxPage from "@/pages/admin/InboxPage";
 import SystemAlertsPage from "@/pages/admin/SystemAlertsPage";
+import AdminAuditLogPage from "@/pages/admin/AdminAuditLogPage";
+import IntegrationHealthPage from "@/pages/admin/IntegrationHealthPage";
 import BillingPage from "@/pages/admin/BillingPage";
 import ServicesPage from "@/pages/admin/ServicesPage";
 import ServiceOpsPage from "@/pages/admin/ServiceOpsPage";
@@ -148,6 +150,8 @@ function Router() {
       <Route path="/admin/crm/clients">{() => <RequirePortal><ClientsPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/inbox">{() => <RequirePortal><InboxPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/alerts">{() => <RequirePortal><SystemAlertsPage /></RequirePortal>}</Route>
+      <Route path="/admin/crm/audit-log">{() => <RequirePortal><AdminAuditLogPage /></RequirePortal>}</Route>
+      <Route path="/admin/system/integrations">{() => <RequirePortal><IntegrationHealthPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/billing">{() => <RequirePortal><BillingPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/suppliers">{() => <RequirePortal><SuppliersPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/rankflow">{() => <RequirePortal><RankFlowOpsPage /></RequirePortal>}</Route>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
+import CheckoutIntakeModal from "@/components/marketing/CheckoutIntakeModal";
 import { Check, ChevronDown, ChevronUp } from "lucide-react";
 import { mkt, colors, shadows } from "@/theme/tokens";
 import {
@@ -7,12 +8,30 @@ import {
   formatPrice, bundleSavings, type BundleDef,
 } from "@/config/pricing";
 
+/** Bundle currently being checked out (modal target), or null when modal is closed. */
+type ActiveBundle = {
+  id: string;
+  name: string;
+  priceLabel: string;
+  items: string[];
+} | null;
+
 export default function BundlesPage() {
   useEffect(() => {
     document.title = "Bundles — QuoteQuick Pro + WeFixTrades";
   }, []);
 
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [activeBundle, setActiveBundle] = useState<ActiveBundle>(null);
+
+  const openCheckout = (bundle: BundleDef) => {
+    setActiveBundle({
+      id: bundle.id,
+      name: bundle.name,
+      priceLabel: `${formatPrice(bundle.price)}/mo`,
+      items: bundle.includes.map((i) => i.tierId),
+    });
+  };
 
   const s = {
     pageHeader: {
@@ -237,7 +256,11 @@ export default function BundlesPage() {
                   </li>
                 ))}
               </ul>
-              <button style={s.ctaBtn} data-testid="button-get-started-starter">
+              <button
+                style={s.ctaBtn}
+                data-testid="button-get-started-starter"
+                onClick={() => openCheckout(BUNDLE_STARTER)}
+              >
                 Get Started
               </button>
             </div>
@@ -263,7 +286,11 @@ export default function BundlesPage() {
                   </li>
                 ))}
               </ul>
-              <button style={s.ctaBtn} data-testid="button-get-started-growth">
+              <button
+                style={s.ctaBtn}
+                data-testid="button-get-started-growth"
+                onClick={() => openCheckout(BUNDLE_GROWTH)}
+              >
                 Get Started
               </button>
             </div>
@@ -289,7 +316,11 @@ export default function BundlesPage() {
                   </li>
                 ))}
               </ul>
-              <button style={s.ctaBtn} data-testid="button-get-started-pro">
+              <button
+                style={s.ctaBtn}
+                data-testid="button-get-started-pro"
+                onClick={() => openCheckout(BUNDLE_PRO)}
+              >
                 Get Started
               </button>
             </div>
@@ -321,6 +352,15 @@ export default function BundlesPage() {
           </div>
         </div>
       </div>
+
+      <CheckoutIntakeModal
+        open={!!activeBundle}
+        onClose={() => setActiveBundle(null)}
+        items={activeBundle?.items ?? []}
+        bundleId={activeBundle?.id}
+        bundleName={activeBundle?.name}
+        priceLabel={activeBundle?.priceLabel}
+      />
     </MarketingLayout>
   );
 }

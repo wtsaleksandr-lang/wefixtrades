@@ -17,10 +17,11 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Plus, ArrowLeft, Mail, Globe, ShoppingBag, Hand,
-  Clock, CheckCircle2, ListTodo, Pencil, Trash2,
+  Clock, CheckCircle2, ListTodo, Pencil, Trash2, Download,
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { csvDownload, todayIso } from "@/lib/csvDownload";
 
 /* ─── Types ─── */
 
@@ -422,7 +423,14 @@ export default function SuppliersPage() {
                 </CardHeader>
                 <CardContent>
                   {supplierDetail.tasks.length === 0 ? (
-                    <div className="text-center py-8 text-gray-400">No tasks assigned to this supplier yet.</div>
+                    <div className="text-center py-8 px-4">
+                      <p className="text-sm text-gray-500 mb-1">No tasks assigned to this supplier yet.</p>
+                      <p className="text-xs text-gray-400">
+                        Tasks appear here as soon as a client orders a service this supplier covers,
+                        or after you manually assign one from a
+                        {" "}<a href="/admin/crm/clients" className="text-[#2D6A4F] hover:underline font-medium">client's fulfillment tab</a>.
+                      </p>
+                    </div>
                   ) : (
                     <Table>
                       <TableHeader>
@@ -492,27 +500,59 @@ export default function SuppliersPage() {
     }}>
       <div className="max-w-6xl mx-auto space-y-4">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="min-w-0">
             <h2 className="text-lg font-semibold text-gray-900">Supplier Management</h2>
             <p className="text-sm text-gray-500">
               {activeSuppliers.length} active of {suppliers.length} total suppliers
             </p>
           </div>
-          <Button size="sm" onClick={openAddForm} className="bg-[#2D6A4F] hover:bg-[#1B4332] min-h-[36px]">
-            <Plus className="w-4 h-4 mr-1" /> Add Supplier
-          </Button>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                if (!suppliers.length) return;
+                csvDownload<Supplier>({
+                  filename: `suppliers-${todayIso()}.csv`,
+                  columns: [
+                    { header: "id", value: (s) => s.id },
+                    { header: "name", value: (s) => s.name },
+                    { header: "type", value: (s) => s.type },
+                    { header: "supplier_type", value: (s) => s.supplier_type },
+                    { header: "contact_name", value: (s) => s.contact_name },
+                    { header: "contact_email", value: (s) => s.contact_email },
+                    { header: "contact_phone", value: (s) => s.contact_phone },
+                    { header: "supported_services", value: (s) => ((s.supported_services as string[]) || []).join("; ") },
+                    { header: "cost_rate", value: (s) => s.cost_rate },
+                    { header: "cost_type", value: (s) => s.cost_type },
+                    { header: "is_active", value: (s) => s.is_active },
+                  ],
+                  rows: suppliers,
+                });
+              }}
+              disabled={!suppliers.length}
+              className="min-h-[36px]"
+            >
+              <Download className="w-4 h-4 mr-1" /> Export CSV
+            </Button>
+            <Button size="sm" onClick={openAddForm} className="bg-[#2D6A4F] hover:bg-[#1B4332] min-h-[36px]">
+              <Plus className="w-4 h-4 mr-1" /> Add Supplier
+            </Button>
+          </div>
         </div>
 
-        {/* Table */}
-        <Card>
+        {/* Table — hides Type and Cost columns under md so the layout
+            stays readable on phones. Wrapped in overflow-x-auto as
+            a safety net in case content still overflows. */}
+        <Card className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Services</TableHead>
-                <TableHead>Cost</TableHead>
+                <TableHead className="hidden md:table-cell">Type</TableHead>
+                <TableHead className="hidden lg:table-cell">Services</TableHead>
+                <TableHead className="hidden md:table-cell">Cost</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="w-[100px]">Actions</TableHead>
               </TableRow>
@@ -532,8 +572,12 @@ export default function SuppliersPage() {
                     <TableCell>
                       <div className="font-medium text-sm text-gray-900">{s.name}</div>
                       <div className="text-xs text-gray-500">{s.contact_email || ""}</div>
+                      {/* Mobile: surface type inline below name since we hid the column */}
+                      <div className="md:hidden mt-1 text-[11px] text-gray-500 capitalize">
+                        {s.type.replace(/_/g, " ")} · {formatCost(s.cost_rate, s.cost_type)}
+                      </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden md:table-cell">
                       <div className="flex items-center gap-1.5">
                         <SupplierTypeBadge type={s.supplier_type} />
                         <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium capitalize ${TYPE_COLORS[s.type] || "bg-gray-100 text-gray-600"}`}>
@@ -541,7 +585,7 @@ export default function SuppliersPage() {
                         </span>
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden lg:table-cell">
                       <div className="flex flex-wrap gap-1 max-w-[200px]">
                         {((s.supported_services as string[]) || []).slice(0, 3).map((svc) => (
                           <Badge key={svc} variant="secondary" className="text-xs">{svc}</Badge>
@@ -554,7 +598,7 @@ export default function SuppliersPage() {
                         )}
                       </div>
                     </TableCell>
-                    <TableCell className="text-sm text-gray-700">
+                    <TableCell className="hidden md:table-cell text-sm text-gray-700">
                       {formatCost(s.cost_rate, s.cost_type)}
                     </TableCell>
                     <TableCell>

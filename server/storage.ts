@@ -274,7 +274,17 @@ export interface IStorage {
 
   // Activity log
   logAdminActivity(data: InsertAdminActivityLog): Promise<AdminActivityLog>;
-  listAdminActivity(opts?: { entityType?: string; entityId?: number; limit?: number }): Promise<AdminActivityLog[]>;
+  listAdminActivity(opts?: {
+    entityType?: string;
+    entityId?: number;
+    actorType?: string;
+    actionLike?: string;
+    q?: string;
+    since?: Date;
+    until?: Date;
+    cursor?: number;
+    limit?: number;
+  }): Promise<AdminActivityLog[]>;
 
   // ─── Review Requests ───
   createReviewRequest(data: InsertReviewRequest): Promise<ReviewRequest>;
@@ -1696,14 +1706,50 @@ export class DatabaseStorage implements IStorage {
   // ─── Activity Log ───
   async logAdminActivity(data: InsertAdminActivityLog): Promise<AdminActivityLog> {
     const [row] = await db.insert(adminActivityLog).values(data).returning();
+    /* Push to any connected admin sockets so audit-log views and
+     * dashboards update without a full refetch. Real-time pushes
+     * are advisory — the page should still load fine via REST if
+     * Socket.IO is down. The dynamic import avoids a hard cycle
+     * between storage and the realtime module. */
+    try {
+      const { broadcastToAdmins } = await import("./realtime");
+      broadcastToAdmins("admin.activity.new", { activity: row });
+    } catch {
+      /* swallow — realtime is best-effort */
+    }
     return row;
   }
 
-  async listAdminActivity(opts: { entityType?: string; entityId?: number; limit?: number } = {}): Promise<AdminActivityLog[]> {
-    const { entityType, entityId, limit = 50 } = opts;
+  async listAdminActivity(opts: {
+    entityType?: string;
+    entityId?: number;
+    /** Filter to a single actor kind: human | ai_agent | system. */
+    actorType?: string;
+    /** Substring match against the action column (e.g. "fulfillment" matches "fulfillment.assigned"). */
+    actionLike?: string;
+    /** Free-text search applied to summary + actor_name. */
+    q?: string;
+    /** Inclusive lower bound on created_at. */
+    since?: Date;
+    /** Inclusive upper bound on created_at. */
+    until?: Date;
+    /** Keyset cursor — return rows with id < cursor. */
+    cursor?: number;
+    limit?: number;
+  } = {}): Promise<AdminActivityLog[]> {
+    const { entityType, entityId, actorType, actionLike, q, since, until, cursor, limit = 50 } = opts;
     const conditions = [];
     if (entityType) conditions.push(eq(adminActivityLog.entity_type, entityType));
     if (entityId) conditions.push(eq(adminActivityLog.entity_id, entityId));
+    if (actorType) conditions.push(eq(adminActivityLog.actor_type, actorType));
+    if (actionLike) conditions.push(ilike(adminActivityLog.action, `%${actionLike}%`));
+    if (q) {
+      const pat = `%${q}%`;
+      conditions.push(or(ilike(adminActivityLog.summary, pat), ilike(adminActivityLog.actor_name, pat))!);
+    }
+    if (since) conditions.push(gte(adminActivityLog.created_at, since));
+    if (until) conditions.push(lte(adminActivityLog.created_at, until));
+    if (cursor) conditions.push(sql`${adminActivityLog.id} < ${cursor}`);
     const where = conditions.length ? and(...conditions) : undefined;
     return db.select().from(adminActivityLog).where(where).orderBy(desc(adminActivityLog.created_at)).limit(limit);
   }

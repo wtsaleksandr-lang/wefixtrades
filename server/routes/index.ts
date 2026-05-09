@@ -22,6 +22,7 @@ import { registerEmailTrackingRoutes } from "./emailTrackingRoutes";
 import { registerOnboardingPublicRoutes } from "./onboardingPublicRoutes";
 import { registerVapiRoutes } from "./vapiRoutes";
 import { registerPublicCheckoutRoutes } from "./publicCheckoutRoutes";
+import { registerIntegrationHealthRoutes } from "./integrationHealthRoutes";
 import { registerPortalRoutes } from "./portalRoutes";
 import { registerAdminSupportRoutes } from "./adminSupportRoutes";
 import { registerMissedCallLeadRoutes } from "./missedCallLeadRoutes";
@@ -47,6 +48,7 @@ import { registerDemoRoutes } from "./demoRoutes";
 import { registerBookingApiRoutes } from "./bookingApiRoutes";
 import { registerBookflowRoutes } from "./bookflowRoutes";
 import { registerAdminAlertRoutes } from "./adminAlertRoutes";
+import { registerChatAttachmentRoutes } from "./chatAttachmentRoutes";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -75,6 +77,7 @@ export async function registerRoutes(
   registerOnboardingPublicRoutes(app);
   registerVapiRoutes(app);
   registerPublicCheckoutRoutes(app);
+  registerIntegrationHealthRoutes(app);
   registerPortalRoutes(app);
   registerAdminSupportRoutes(app);
   registerMissedCallLeadRoutes(app);
@@ -100,6 +103,7 @@ export async function registerRoutes(
   registerBookingApiRoutes(app);
   registerBookflowRoutes(app);
   registerAdminAlertRoutes(app);
+  registerChatAttachmentRoutes(app);
 
   return httpServer;
 }

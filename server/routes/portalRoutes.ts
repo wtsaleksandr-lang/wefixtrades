@@ -55,6 +55,12 @@ import {
   getTradeLineReadiness,
   mapOnboardingToTradeLineConfig,
   advanceSetupStage,
+  parseNotificationPreferences,
+  notificationPreferencesSchema,
+  DEFAULT_NOTIFICATION_PREFERENCES,
+  parseMapguardConfig,
+  mapguardConfigSchema,
+  DEFAULT_MAPGUARD_CONFIG,
 } from "@shared/schema";
 
 import { compileMonthlyReport } from "../services/mapguardReports";
@@ -577,6 +583,59 @@ export function registerPortalRoutes(app: Express) {
     } catch (err) {
       log.error("Portal settings update error:", { error: String(err) });
       res.status(500).json({ error: "Failed to update settings" });
+    }
+  });
+
+  /**
+   * GET /api/portal/notification-preferences
+   * Returns the client's notification preferences, falling back to
+   * sensible defaults if none have been saved yet.
+   */
+  app.get("/api/portal/notification-preferences", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const [client] = await db.select({ metadata: clients.metadata }).from(clients).where(eq(clients.id, clientId)).limit(1);
+      const prefs = parseNotificationPreferences(client?.metadata);
+      res.json({ preferences: prefs, defaults: DEFAULT_NOTIFICATION_PREFERENCES });
+    } catch (err) {
+      log.error("Portal notification prefs GET error:", { error: String(err) });
+      res.status(500).json({ error: "Failed to load preferences" });
+    }
+  });
+
+  /**
+   * PUT /api/portal/notification-preferences
+   * Replace the full preferences blob. Body must match the
+   * notificationPreferencesSchema; partial updates are not supported
+   * because the categories list is short enough that a full PUT is
+   * always cheaper than reasoning about merges.
+   */
+  app.put("/api/portal/notification-preferences", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const parsed = notificationPreferencesSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid preferences payload", details: parsed.error.flatten() });
+      }
+
+      const [existing] = await db.select({ metadata: clients.metadata }).from(clients).where(eq(clients.id, clientId)).limit(1);
+      const prevMetadata = (existing?.metadata ?? {}) as Record<string, unknown>;
+      const newMetadata = { ...prevMetadata, notification_preferences: parsed.data };
+
+      const [updated] = await db
+        .update(clients)
+        .set({ metadata: newMetadata, updated_at: new Date() })
+        .where(eq(clients.id, clientId))
+        .returning({ metadata: clients.metadata });
+
+      res.json({ preferences: parseNotificationPreferences(updated.metadata) });
+    } catch (err) {
+      log.error("Portal notification prefs PUT error:", { error: String(err) });
+      res.status(500).json({ error: "Failed to update preferences" });
     }
   });
 
@@ -1506,12 +1565,14 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
       const ownership = await verifyTradeLineOwnership(req, res, csId);
       if (!ownership) return;
 
-      const { voice, personality, widgetStyle } = req.body;
+      const { voice, personality, widgetStyle, businessHours, notifications } = req.body;
       const update: Record<string, any> = {};
 
       if (voice && typeof voice === "object") update.voice = voice;
       if (personality && typeof personality === "object") update.personality = personality;
       if (widgetStyle && typeof widgetStyle === "object") update.widgetStyle = widgetStyle;
+      if (businessHours && typeof businessHours === "object") update.businessHours = businessHours;
+      if (notifications && typeof notifications === "object") update.notifications = notifications;
 
       if (Object.keys(update).length === 0) {
         return res.status(400).json({ error: "No valid settings provided" });
@@ -2093,6 +2154,69 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
     } catch (err: any) {
       log.error("Portal SocialSync report error:", err);
       res.status(500).json({ error: "Failed to load SocialSync report" });
+    }
+  });
+
+  /**
+   * GET /api/portal/mapguard/config
+   * Customer-overridable MapGuard config (city / keywords / alerts).
+   */
+  app.get("/api/portal/mapguard/config", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const [client] = await db
+        .select({ metadata: clients.metadata, trade_type: clients.trade_type })
+        .from(clients)
+        .where(eq(clients.id, clientId))
+        .limit(1);
+
+      const config = parseMapguardConfig(client?.metadata);
+      // Surface the resolved city even when the customer hasn't
+      // overridden it, so the editor can show what we're using.
+      const resolved_city = config.city ?? ((client?.metadata as any)?.city ?? null);
+
+      res.json({
+        config,
+        defaults: DEFAULT_MAPGUARD_CONFIG,
+        resolved_city,
+        trade_type: client?.trade_type ?? null,
+      });
+    } catch (err) {
+      log.error("Portal mapguard config GET error:", { error: String(err) });
+      res.status(500).json({ error: "Failed to load MapGuard config" });
+    }
+  });
+
+  /**
+   * PUT /api/portal/mapguard/config
+   * Replace the full MapGuard config blob.
+   */
+  app.put("/api/portal/mapguard/config", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const parsed = mapguardConfigSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid MapGuard config", details: parsed.error.flatten() });
+      }
+
+      const [existing] = await db.select({ metadata: clients.metadata }).from(clients).where(eq(clients.id, clientId)).limit(1);
+      const prev = (existing?.metadata ?? {}) as Record<string, unknown>;
+      const next = { ...prev, mapguard_config: parsed.data };
+
+      const [updated] = await db
+        .update(clients)
+        .set({ metadata: next, updated_at: new Date() })
+        .where(eq(clients.id, clientId))
+        .returning({ metadata: clients.metadata });
+
+      res.json({ config: parseMapguardConfig(updated.metadata) });
+    } catch (err) {
+      log.error("Portal mapguard config PUT error:", { error: String(err) });
+      res.status(500).json({ error: "Failed to update MapGuard config" });
     }
   });
 
