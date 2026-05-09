@@ -135,20 +135,21 @@ if (!sessionSecret) {
   logger.warn("SESSION_SECRET not set — using insecure dev default. Do NOT run this in production.");
 }
 
-app.use(
-  session({
-    store: new PgStore({ pool, createTableIfMissing: true }),
-    secret: sessionSecret || "wft-dev-secret-change-in-prod",
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-    },
-  })
-);
+/* Session middleware is shared with Socket.IO via initRealtime so
+ * WebSocket connections see the same session cookie as HTTP. */
+export const sessionMiddleware = session({
+  store: new PgStore({ pool, createTableIfMissing: true }),
+  secret: sessionSecret || "wft-dev-secret-change-in-prod",
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+  },
+});
+app.use(sessionMiddleware);
 setupPassport();
 app.use(passport.initialize());
 app.use(passport.session());
@@ -208,6 +209,13 @@ app.use((req, res, next) => {
 
 (async () => {
   await registerRoutes(httpServer, app);
+
+  /* Real-time push. Attached to the same HTTP server so Socket.IO
+   * shares Express's port and session cookie. Must run after
+   * registerRoutes so any boot-time logAdminActivity calls have
+   * a chance to find the io instance via getRealtime(). */
+  const { initRealtime } = await import("./realtime");
+  initRealtime(httpServer, sessionMiddleware);
 
   if (process.env.SENTRY_DSN) {
     Sentry.setupExpressErrorHandler(app);

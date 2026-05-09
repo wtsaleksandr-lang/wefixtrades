@@ -1706,6 +1706,17 @@ export class DatabaseStorage implements IStorage {
   // ─── Activity Log ───
   async logAdminActivity(data: InsertAdminActivityLog): Promise<AdminActivityLog> {
     const [row] = await db.insert(adminActivityLog).values(data).returning();
+    /* Push to any connected admin sockets so audit-log views and
+     * dashboards update without a full refetch. Real-time pushes
+     * are advisory — the page should still load fine via REST if
+     * Socket.IO is down. The dynamic import avoids a hard cycle
+     * between storage and the realtime module. */
+    try {
+      const { broadcastToAdmins } = await import("./realtime");
+      broadcastToAdmins("admin.activity.new", { activity: row });
+    } catch {
+      /* swallow — realtime is best-effort */
+    }
     return row;
   }
 
