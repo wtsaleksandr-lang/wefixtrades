@@ -6,6 +6,7 @@ import { db } from "../db";
 import { eq, and, gt } from "drizzle-orm";
 import { users, passwordResetTokens, clients } from "@shared/schema";
 import { getEmailTransporter, getFromAddress } from "../lib/emailTransport";
+import { sendPasswordResetEmail } from "../lib/passwordResetEmail";
 import { authRateLimiter } from "../services/rateLimiter";
 import { getMemory, linkSessionToUser, extractMemorySignals } from "../services/chatMemory";
 import { storage } from "../storage";
@@ -323,45 +324,14 @@ export function registerAuthRoutes(app: Express) {
       });
 
       // Send email
-      const transporter = getEmailTransporter();
-      if (transporter) {
-        const baseUrl = process.env.APP_URL || `${req.protocol}://${req.get("host")}`;
-        const resetUrl = `${baseUrl}/reset-password?token=${token}`;
-
-        await transporter.sendMail({
-          from: `WeFixTrades <${getFromAddress()}>`,
-          to: normalised,
-          subject: "Reset your WeFixTrades password",
-          html: `
-            <div style="font-family:'Inter',system-ui,-apple-system,sans-serif;background:#0B0F14;padding:40px 16px;">
-              <div style="max-width:480px;margin:0 auto;">
-                <div style="text-align:center;margin-bottom:32px;">
-                  <span style="display:inline-block;background:rgba(102,232,250,0.12);color:#66E8FA;font-size:12px;font-weight:800;padding:5px 16px;border-radius:999px;letter-spacing:0.06em;">WeFixTrades</span>
-                </div>
-                <div style="background:#151A21;border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:36px 28px;">
-                  <h1 style="font-size:22px;font-weight:700;color:#F0F0F0;margin:0 0 8px;line-height:1.3;">
-                    Reset your password
-                  </h1>
-                  <p style="font-size:14px;color:#CDD1D6;line-height:1.6;margin:0 0 24px;">
-                    Use the button below to set a new password. The link works for one hour, then expires.
-                  </p>
-                  <a href="${resetUrl}" style="display:inline-block;background:#66E8FA;color:#0B0F14;font-size:14px;font-weight:700;padding:13px 24px;border-radius:10px;text-decoration:none;">
-                    Set a new password
-                  </a>
-                  <div style="border-top:1px solid rgba(255,255,255,0.06);margin:28px 0 16px;"></div>
-                  <p style="font-size:12px;color:#8B919A;line-height:1.5;margin:0 0 8px;">
-                    Didn't request this? You can safely ignore this email — your password stays the same.
-                  </p>
-                  <p style="font-size:11px;color:#555B63;line-height:1.5;margin:12px 0 0;word-break:break-all;">
-                    Trouble with the button? Paste this link into your browser:<br/>
-                    <a href="${resetUrl}" style="color:#66E8FA;">${resetUrl}</a>
-                  </p>
-                </div>
-              </div>
-            </div>
-          `,
-        });
-      } else {
+      const baseUrl = process.env.APP_URL || `${req.protocol}://${req.get("host")}`;
+      const resetUrl = `${baseUrl}/reset-password?token=${token}`;
+      const sent = await sendPasswordResetEmail({
+        to: normalised,
+        resetUrl,
+        recipientName: user.name ?? null,
+      });
+      if (!sent) {
         log.warn("SMTP not configured — password reset email NOT sent", { userId: user.id });
       }
 

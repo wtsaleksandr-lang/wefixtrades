@@ -1,5 +1,5 @@
 import { usePageTitle } from "@/hooks/usePageTitle";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import AdminLayout from "@/components/admin/AdminLayout";
@@ -64,6 +64,11 @@ export default function ClientsPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [showAdd, setShowAdd] = useState(false);
+  /** Set of selected client ids — drives the bulk-action toolbar.
+   *  Cleared whenever the underlying list refetches (filters change /
+   *  bulk action completes) so we never act on stale selections. */
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkRunning, setBulkRunning] = useState(false);
   const [form, setForm] = useState({
     business_name: "",
     contact_name: "",
@@ -104,6 +109,53 @@ export default function ClientsPage() {
       toast({ title: "Failed to create client", description: err.message, variant: "destructive" });
     },
   });
+
+  /* ─── Bulk action — fires N parallel PATCHes against the existing
+   *   /api/admin/crm/clients/:id endpoint so we don't need a new bulk
+   *   route. The result toast shows partial success: "12 updated, 1
+   *   failed" rather than aborting on the first failure. */
+  const runBulkUpdate = async (label: string, updates: Record<string, string>) => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0 || bulkRunning) return;
+    setBulkRunning(true);
+    const results = await Promise.allSettled(
+      ids.map((id) => apiRequest("PATCH", `/api/admin/crm/clients/${id}`, updates)),
+    );
+    const ok = results.filter((r) => r.status === "fulfilled").length;
+    const failed = results.length - ok;
+    if (failed === 0) {
+      toast({ title: `${ok} client${ok === 1 ? "" : "s"} ${label}` });
+    } else {
+      toast({
+        title: `${ok} updated, ${failed} failed`,
+        description: "Refresh and retry the failed rows individually.",
+        variant: failed > ok ? "destructive" : undefined,
+      });
+    }
+    setBulkRunning(false);
+    setSelectedIds(new Set());
+    queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/clients"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/overview"] });
+  };
+
+  /* Reset the selection whenever filters change so the toolbar's
+   * count never reflects rows that aren't visible. */
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [search, statusFilter]);
+
+  const allVisibleIds = (data?.data ?? []).map((c) => c.id);
+  const allSelected = allVisibleIds.length > 0 && allVisibleIds.every((id) => selectedIds.has(id));
+  const toggleAll = () => {
+    if (allSelected) setSelectedIds(new Set());
+    else setSelectedIds(new Set(allVisibleIds));
+  };
+  const toggleOne = (id: number) => {
+    const next = new Set(selectedIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setSelectedIds(next);
+  };
 
   return (
     <AdminLayout pageContext={{
@@ -177,11 +229,61 @@ export default function ClientsPage() {
           </Select>
         </div>
 
+        {/* Bulk-action toolbar — only renders when at least one row
+            is selected. Shadows when the user scrolls so it stays
+            visually anchored to the table header. */}
+        {selectedIds.size > 0 && (
+          <div className="bg-[#0F1F12] text-white rounded-xl px-4 py-2.5 flex items-center justify-between gap-3 flex-wrap">
+            <span className="text-sm font-medium">
+              {selectedIds.size} selected
+            </span>
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={() => runBulkUpdate("activated", { status: "active" })}
+                disabled={bulkRunning}
+                className="px-3 py-1.5 text-xs font-medium bg-emerald-500 text-white rounded-md hover:bg-emerald-600 disabled:opacity-50 transition-colors"
+              >
+                Activate
+              </button>
+              <button
+                onClick={() => runBulkUpdate("paused", { status: "paused" })}
+                disabled={bulkRunning}
+                className="px-3 py-1.5 text-xs font-medium bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50 transition-colors"
+              >
+                Pause
+              </button>
+              <button
+                onClick={() => runBulkUpdate("marked as churned", { status: "churned" })}
+                disabled={bulkRunning}
+                className="px-3 py-1.5 text-xs font-medium bg-red-500 text-white rounded-md hover:bg-red-600 disabled:opacity-50 transition-colors"
+              >
+                Mark churned
+              </button>
+              <button
+                onClick={() => setSelectedIds(new Set())}
+                disabled={bulkRunning}
+                className="px-3 py-1.5 text-xs font-medium bg-white/10 text-white rounded-md hover:bg-white/15 disabled:opacity-50 transition-colors"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Table */}
         <Card>
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={toggleAll}
+                    aria-label="Select all visible"
+                    className="cursor-pointer"
+                  />
+                </TableHead>
                 <TableHead>Business</TableHead>
                 <TableHead className="hidden md:table-cell">Contact</TableHead>
                 <TableHead className="hidden lg:table-cell">Trade</TableHead>
@@ -193,6 +295,7 @@ export default function ClientsPage() {
               {isLoading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <TableRow key={i}>
+                    <TableCell><Skeleton className="h-4 w-4" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                     <TableCell className="hidden md:table-cell"><Skeleton className="h-4 w-24" /></TableCell>
                     <TableCell className="hidden lg:table-cell"><Skeleton className="h-4 w-20" /></TableCell>
@@ -202,13 +305,22 @@ export default function ClientsPage() {
                 ))
               ) : data?.data.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-gray-500">
+                  <TableCell colSpan={6} className="text-center py-8 text-gray-500">
                     {search ? "No clients match your search." : "No clients yet. Click \"Add Client\" to create your first one."}
                   </TableCell>
                 </TableRow>
               ) : (
                 data?.data.map((client) => (
                   <TableRow key={client.id} className="cursor-pointer hover:bg-gray-50">
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(client.id)}
+                        onChange={() => toggleOne(client.id)}
+                        aria-label={`Select ${client.business_name}`}
+                        className="cursor-pointer"
+                      />
+                    </TableCell>
                     <TableCell>
                       <Link href={`/admin/crm/clients/${client.id}`}>
                         <span className="font-medium text-gray-900 hover:text-[#2D6A4F]">
