@@ -19,7 +19,7 @@
     "test:crm:regression": "npx playwright test tests/e2e/admin-crm/admin-crm.regression.spec.ts"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.88.0",
+    "@anthropic-ai/sdk": "^0.95.1",
     "@hookform/resolvers": "^3.10.0",
     "@jridgewell/trace-mapping": "^0.3.25",
     "@radix-ui/react-accordion": "^1.2.4",
