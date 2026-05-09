@@ -17,3 +17,11 @@ data/email-charts/*
 
 # preview-transactional-emails.ts output (regenerable via npx tsx)
 data/email-previews/
+
+# Local scratchpad + dev artifacts (not for the repo)
+.scratch/
+.tmp/
+dev-server.log
+
+# Claude Code runtime state
+.claude/scheduled_tasks.lock
