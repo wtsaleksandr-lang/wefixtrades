@@ -7,8 +7,8 @@
 
 import { db } from "../db";
 import { mapguardTasks, mapguardTaskActivity } from "@shared/schemas/mapguard";
-import { clients } from "@shared/schemas/adminCrm";
-import { auditReports } from "@shared/schemas/db";
+import { clients, fulfillmentTasks } from "@shared/schemas/adminCrm";
+import { auditReports, jobLogs } from "@shared/schemas/db";
 import { eq, and, sql, desc, asc, isNull } from "drizzle-orm";
 import {
   AUDIT_ISSUE_TO_TASK,
@@ -328,6 +328,16 @@ export async function updateMapguardTaskStatus(
     to_status: newStatus,
     summary: opts?.summary || `Status changed: ${currentStatus} → ${newStatus}`,
   });
+
+  // Phase-2.1: when a kickoff task completes, advance the tracking
+  // fulfillment_task once all kickoff tasks for the service are done.
+  if (newStatus === "completed" && current.client_service_id) {
+    try {
+      await maybeMarkKickoffDelivered(current.client_service_id);
+    } catch (err: any) {
+      console.warn(`[mapguard-kickoff] tracker advance failed for cs ${current.client_service_id}: ${err.message}`);
+    }
+  }
 
   return updated;
 }
@@ -875,4 +885,302 @@ export async function createTasksFromAudit(
   }
 
   return createdTasks;
+}
+
+/* ═══════════════════════════════════════════
+   ACTIVATION KICKOFF (Phase-2 + Phase-2.1)
+   ═══════════════════════════════════════════
+   Called when a MapGuard service is paid/activated.
+
+   - Idempotent via client_service.metadata.mapguard_kickoff_at
+   - Backfills clients.metadata.place_id from clients.google_place_id
+     (the monitor reads from metadata; onboarding writes the column)
+   - mapguard-setup → 6 fixed kickoff tasks
+   - mapguard-basic / mapguard-pro → 1 baseline_audit_review task
+   - Creates ONE fulfillment_task tracker so the existing
+     checkAndCompleteService() cascade can advance the service to
+     "active"/"completed" once all kickoff mapguard_tasks are done
+   - Triggers a first scan, wrapped in a job_logs row so we can see
+     success/failure in the existing ops dashboard
+   ═══════════════════════════════════════════ */
+
+const KICKOFF_TRACKER_FLAG = "mapguard_kickoff_tracker";
+
+const SETUP_KICKOFF_TASKS: Array<{
+  task_type: MapguardTaskType;
+  title: string;
+  next_step_hint: string;
+}> = [
+  {
+    task_type: "baseline_audit_review",
+    title: "Review baseline visibility data",
+    next_step_hint: "Run an audit (or import an existing one) and confirm the issues to address in this MapSetup sprint.",
+  },
+  {
+    task_type: "gbp_optimization",
+    title: "Optimize Google Business Profile",
+    next_step_hint: "Categories, services, areas, business description (≤750 chars), keyword tuning.",
+  },
+  {
+    task_type: "photo_upload",
+    title: "Upload business photos",
+    next_step_hint: "Storefront, team, and recent work photos. Optimize file names and tags.",
+  },
+  {
+    task_type: "post_scheduling",
+    title: "Publish initial GBP posts",
+    next_step_hint: "Create and schedule 3–4 launch posts covering services + a CTA.",
+  },
+  {
+    task_type: "citation_cleanup",
+    title: "Audit and fix business citations",
+    next_step_hint: "Check NAP consistency across major directories and submit corrections.",
+  },
+  {
+    task_type: "manual_followup",
+    title: "Send before/after visibility report",
+    next_step_hint: "After the sprint, generate a before/after summary from snapshots and email the client.",
+  },
+];
+
+/**
+ * Phase-2.1: Run a logged first scan as a fire-and-forget job.
+ * Writes start/finish rows to job_logs so success/failure is visible in
+ * the same ops surface that the weekly cron uses. Never throws.
+ */
+async function runFirstScanWithLogging(clientId: number, clientServiceId: number): Promise<void> {
+  let logId: number | null = null;
+  try {
+    const [log] = await db.insert(jobLogs).values({
+      job_name: "mapguard_first_scan",
+      status: "running",
+      started_at: new Date(),
+      metadata: { client_id: clientId, client_service_id: clientServiceId } as any,
+    }).returning({ id: jobLogs.id });
+    logId = log?.id ?? null;
+  } catch (err: any) {
+    console.warn(`[mapguard-kickoff] could not create job_log for first scan: ${err.message}`);
+  }
+
+  try {
+    const { getActiveMapguardClients, runMapguardScan } = await import("./mapguardMonitor");
+    const active = await getActiveMapguardClients();
+    const target = active.find(c => c.client_id === clientId && c.client_service_id === clientServiceId);
+
+    if (!target) {
+      const reason = "service_not_active_or_no_place_id";
+      console.log(`[mapguard-kickoff] first scan skipped (${reason}) for client ${clientId}`);
+      if (logId != null) {
+        await db.update(jobLogs).set({
+          status: "completed",
+          finished_at: new Date(),
+          metadata: { client_id: clientId, client_service_id: clientServiceId, skipped: reason } as any,
+        }).where(eq(jobLogs.id, logId));
+      }
+      return;
+    }
+
+    const result = await runMapguardScan(target);
+    console.log(`[mapguard-kickoff] first scan completed for client ${clientId}: score=${result.snapshot.score_total}, tasks=${result.tasksCreated}`);
+    if (logId != null) {
+      await db.update(jobLogs).set({
+        status: "completed",
+        finished_at: new Date(),
+        metadata: {
+          client_id: clientId,
+          client_service_id: clientServiceId,
+          score: result.snapshot.score_total,
+          tasks_created: result.tasksCreated,
+          alerts_sent: result.alertsSent,
+        } as any,
+      }).where(eq(jobLogs.id, logId));
+    }
+  } catch (err: any) {
+    console.error(`[mapguard-kickoff] first scan failed for client ${clientId}: ${err.message}`);
+    if (logId != null) {
+      try {
+        await db.update(jobLogs).set({
+          status: "failed",
+          finished_at: new Date(),
+          error_message: err.message,
+        }).where(eq(jobLogs.id, logId));
+      } catch { /* best effort */ }
+    }
+  }
+}
+
+/**
+ * Phase-2.1: When a kickoff mapguard_task moves to "completed", check whether
+ * all kickoff tasks for the same client_service are complete. If so, mark the
+ * tracker fulfillment_task as "delivered" so the existing
+ * checkAndCompleteService() cascade can flip the service status.
+ */
+async function maybeMarkKickoffDelivered(clientServiceId: number): Promise<void> {
+  // Find the tracker row.
+  const trackers = await db.select()
+    .from(fulfillmentTasks)
+    .where(eq(fulfillmentTasks.client_service_id, clientServiceId));
+
+  const tracker = trackers.find(t => {
+    const meta = (t.metadata as Record<string, any>) || {};
+    return meta[KICKOFF_TRACKER_FLAG] === true;
+  });
+  if (!tracker || tracker.status === "delivered" || tracker.status === "cancelled") return;
+
+  // Are there still uncompleted kickoff mapguard_tasks for this service?
+  const [pending] = await db.select({ total: sql<number>`count(*)::int` })
+    .from(mapguardTasks)
+    .where(and(
+      eq(mapguardTasks.client_service_id, clientServiceId),
+      eq(mapguardTasks.created_by_system, true),
+      sql`${mapguardTasks.status} NOT IN ('completed', 'cancelled')`,
+    ));
+  if ((pending?.total ?? 1) > 0) return;
+
+  // All done — mark tracker delivered and let the existing cascade fire.
+  await db.update(fulfillmentTasks)
+    .set({
+      status: "delivered",
+      completed_at: new Date(),
+      updated_at: new Date(),
+    })
+    .where(eq(fulfillmentTasks.id, tracker.id));
+
+  // Drive the existing service-completion cascade. Imported lazily to avoid
+  // a circular dep (storage imports kickoffMapguardService for the activation hook).
+  try {
+    const { storage } = await import("../storage");
+    await storage.checkAndCompleteService(clientServiceId);
+  } catch (err: any) {
+    console.warn(`[mapguard-kickoff] checkAndCompleteService failed for cs ${clientServiceId}: ${err.message}`);
+  }
+}
+
+export async function kickoffMapguardService(
+  clientId: number,
+  clientServiceId: number,
+  serviceId: string,
+): Promise<{ kickedOff: boolean; reason?: string; tasksCreated: number }> {
+  if (!serviceId.startsWith("mapguard")) {
+    return { kickedOff: false, reason: "not_mapguard", tasksCreated: 0 };
+  }
+
+  const [cs] = await db.select().from(clientServices)
+    .where(eq(clientServices.id, clientServiceId))
+    .limit(1);
+  if (!cs) return { kickedOff: false, reason: "service_not_found", tasksCreated: 0 };
+
+  const csMeta = (cs.metadata as Record<string, any>) || {};
+  if (csMeta.mapguard_kickoff_at) {
+    return { kickedOff: false, reason: "already_kicked_off", tasksCreated: 0 };
+  }
+
+  // Backfill place_id into clients.metadata if missing (monitor reads from there).
+  try {
+    const [client] = await db.select({
+      google_place_id: clients.google_place_id,
+      metadata: clients.metadata,
+    }).from(clients).where(eq(clients.id, clientId)).limit(1);
+
+    if (client) {
+      const existingMeta = (client.metadata as Record<string, any>) || {};
+      if (!existingMeta.place_id && client.google_place_id) {
+        await db.update(clients)
+          .set({
+            metadata: { ...existingMeta, place_id: client.google_place_id },
+            updated_at: new Date(),
+          })
+          .where(eq(clients.id, clientId));
+      }
+    }
+  } catch (err: any) {
+    console.warn(`[mapguard-kickoff] place_id backfill failed for client ${clientId}: ${err.message}`);
+  }
+
+  const created: MapguardTask[] = [];
+
+  if (serviceId === "mapguard-setup") {
+    let order = 1;
+    for (const t of SETUP_KICKOFF_TASKS) {
+      try {
+        const task = await createMapguardTask({
+          client_id: clientId,
+          client_service_id: clientServiceId,
+          task_type: t.task_type,
+          title: t.title,
+          description: MAPGUARD_TASK_TYPES[t.task_type].description,
+          source_type: "system",
+          created_by_system: true,
+          status: "pending",
+          priority: MAPGUARD_TASK_TYPES[t.task_type].default_priority,
+          sort_order: order++,
+          waiting_on: "internal",
+          next_step_hint: t.next_step_hint,
+        }, { type: "system", name: "mapguard-kickoff" });
+        created.push(task);
+      } catch (err: any) {
+        console.warn(`[mapguard-kickoff] Failed to create ${t.task_type} for service ${clientServiceId}: ${err.message}`);
+      }
+    }
+  } else {
+    // Ongoing tier (basic / pro): just seed a baseline_audit_review task.
+    try {
+      const task = await createMapguardTask({
+        client_id: clientId,
+        client_service_id: clientServiceId,
+        task_type: "baseline_audit_review",
+        title: "Review baseline visibility and prioritize first month's work",
+        description: MAPGUARD_TASK_TYPES.baseline_audit_review.description,
+        source_type: "system",
+        created_by_system: true,
+        status: "pending",
+        priority: "high",
+        sort_order: 0,
+        waiting_on: "internal",
+        next_step_hint: "Run a fresh audit (admin → From Audit) or wait for the next weekly scan to seed monitoring.",
+      }, { type: "system", name: "mapguard-kickoff" });
+      created.push(task);
+    } catch (err: any) {
+      console.warn(`[mapguard-kickoff] Failed to create baseline task for service ${clientServiceId}: ${err.message}`);
+    }
+  }
+
+  // Phase-2.1: tracker fulfillment_task so service completion can cascade
+  // through the existing checkAndCompleteService() pipeline once all
+  // kickoff mapguard_tasks reach "completed".
+  try {
+    await db.insert(fulfillmentTasks).values({
+      client_service_id: clientServiceId,
+      client_id: clientId,
+      title: "MapGuard delivery (auto-tracked)",
+      description: "Tracker row. Auto-marked delivered when all initial MapGuard kickoff tasks are completed.",
+      status: "not_started",
+      priority: "normal",
+      sort_order: 999,
+      handled_by: "internal",
+      waiting_on: "internal",
+      actor_type: "system",
+      metadata: { [KICKOFF_TRACKER_FLAG]: true, kickoff_task_count: created.length } as any,
+    });
+  } catch (err: any) {
+    console.warn(`[mapguard-kickoff] tracker fulfillment_task insert failed for cs ${clientServiceId}: ${err.message}`);
+  }
+
+  // Mark kickoff done so we don't double-fire on webhook replay.
+  await db.update(clientServices)
+    .set({
+      metadata: {
+        ...csMeta,
+        mapguard_kickoff_at: new Date().toISOString(),
+        mapguard_kickoff_tasks: created.length,
+      } as any,
+      updated_at: new Date(),
+    } as any)
+    .where(eq(clientServices.id, clientServiceId));
+
+  // Phase-2.1: logged, non-blocking first scan. Failure is captured in
+  // job_logs and never crashes the activation path.
+  void runFirstScanWithLogging(clientId, clientServiceId);
+
+  return { kickedOff: true, tasksCreated: created.length };
 }

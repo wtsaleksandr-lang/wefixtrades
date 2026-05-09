@@ -26,9 +26,12 @@ const COST_ALERT_THRESHOLD_CENTS = 10000; // $100/month — alert if supplier co
 
 const ALERT_RECIPIENT = process.env.MAPGUARD_ALERT_EMAIL || process.env.SMTP_USER || "";
 const DEDUP_WINDOW_DAYS = 6; // Don't re-alert same type for same client within this window
-const APP_URL = process.env.VAPI_SERVER_URL || process.env.REPLIT_DEV_DOMAIN
-  ? `https://${process.env.REPLIT_DEV_DOMAIN}`
-  : "https://wefixtrades.co.uk";
+// Phase-2: previous ternary had operator-precedence bug
+// (`A || B ? \`https://${B}\` : ...`) — if A was set but B unset, it
+// produced "https://undefined". Use the same fallback chain reports use.
+const APP_URL = process.env.APP_URL
+  || process.env.APP_PUBLIC_URL
+  || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://wefixtrades.com");
 
 /* ═══════════════════════════════════════════
    ALERT TRIGGER EVALUATION

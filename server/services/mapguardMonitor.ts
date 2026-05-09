@@ -50,7 +50,9 @@ export async function getActiveMapguardClients(): Promise<MapguardClient[]> {
     client_id: clients.id,
     client_service_id: clientServices.id,
     business_name: clients.business_name,
-    place_id: sql<string | null>`(${clients.metadata}->>'place_id')::text`,
+    // Phase-2: read metadata.place_id, fall back to clients.google_place_id.
+    // Onboarding writes the column; reputation flows write the metadata key.
+    place_id: sql<string | null>`COALESCE((${clients.metadata}->>'place_id')::text, ${clients.google_place_id})`,
     trade_type: clients.trade_type,
     website_url: clients.website_url,
     metadata: clients.metadata,
@@ -72,12 +74,6 @@ export async function getActiveMapguardClients(): Promise<MapguardClient[]> {
    DATA FETCHING (lightweight recurring scan)
    ═══════════════════════════════════════════ */
 
-function requireEnv(name: string): string {
-  const v = process.env[name];
-  if (!v) throw new Error(`Missing env var: ${name}`);
-  return v;
-}
-
 function withSignal(ms: number): { signal: AbortSignal } {
   return { signal: AbortSignal.timeout(ms) };
 }
@@ -93,7 +89,13 @@ async function fetchPlaceDetails(placeId: string): Promise<{
   businessName: string;
 } | null> {
   try {
-    const key = requireEnv("GOOGLE_MAPS_API_KEY");
+    // Phase-2: degrade gracefully when key missing instead of throwing,
+    // so a single misconfigured env doesn't crash the whole batch scan.
+    const key = process.env.GOOGLE_MAPS_API_KEY;
+    if (!key) {
+      console.warn(`[mapguard-monitor] GOOGLE_MAPS_API_KEY missing — skipping Places fetch for ${placeId}`);
+      return null;
+    }
     const fields = "displayName,rating,userRatingCount,photos,websiteUri,regularOpeningHours,editorialSummary";
     const url = `https://places.googleapis.com/v1/places/${placeId}?fields=${fields}&key=${key}`;
     const res = await fetch(url, { ...withSignal(PLACES_TIMEOUT) });
@@ -267,14 +269,19 @@ function detectMonitoringIssues(profile: NonNullable<Awaited<ReturnType<typeof f
   if (profile.reviewCount < 100) issues.push("low-reviews");
   if ((profile.rating ?? 5) < 4.2) issues.push("bad-rating");
 
-  const anyLocalPack = keywords.some(k => k.isInLocalPack);
-  const majorityNotVisible = keywords.length === 0 ||
-    keywords.filter(k => !k.organicRank || k.organicRank > 10).length > keywords.length / 2;
-  if (!anyLocalPack && majorityNotVisible) issues.push("low-visibility");
+  // Phase-2: only emit ranking-derived issues when Serper actually ran.
+  // Without SERPER_API_KEY, fetchKeywordRankings returns [] and we'd
+  // falsely flag every client as low-visibility / low-search-ranking.
+  if (process.env.SERPER_API_KEY) {
+    const anyLocalPack = keywords.some(k => k.isInLocalPack);
+    const majorityNotVisible = keywords.length === 0 ||
+      keywords.filter(k => !k.organicRank || k.organicRank > 10).length > keywords.length / 2;
+    if (!anyLocalPack && majorityNotVisible) issues.push("low-visibility");
 
-  const hasLowRanking = keywords.length > 0 &&
-    keywords.filter(k => !k.organicRank || k.organicRank > 10).length > keywords.length * 0.6;
-  if (hasLowRanking) issues.push("low-search-ranking");
+    const hasLowRanking = keywords.length > 0 &&
+      keywords.filter(k => !k.organicRank || k.organicRank > 10).length > keywords.length * 0.6;
+    if (hasLowRanking) issues.push("low-search-ranking");
+  }
 
   return [...new Set(issues)];
 }

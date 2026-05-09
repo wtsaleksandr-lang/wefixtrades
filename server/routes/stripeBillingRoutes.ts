@@ -30,6 +30,7 @@ import { autoAssignSupplier } from "../services/supplierAssignment";
 import { runPreFixAudit } from "../services/webfixAuditService";
 import { sendAdflowOnboardingEmail } from "../lib/adflowOnboardingEmail";
 import { buildLoginToken, storeCheckoutLoginToken } from "../lib/loginToken";
+import { kickoffMapguardService } from "../services/mapguardTaskEngine";
 
 const log = createLogger("StripeBilling");
 
@@ -336,6 +337,19 @@ async function provisionOrConfirmService(
 
     // Send onboarding email now that payment is confirmed
     await sendOnboardingForClientService(clientId, existing.id, serviceId, baseUrl);
+
+    // Phase-2: trigger MapGuard kickoff (idempotent) so paying customers
+    // get tasks + a first scan immediately instead of waiting for the weekly cron.
+    if (serviceId.startsWith("mapguard")) {
+      try {
+        const result = await kickoffMapguardService(clientId, existing.id, serviceId);
+        if (result.kickedOff) {
+          log.info(`[billing-webhook] MapGuard kickoff: ${result.tasksCreated} tasks for client ${clientId} (${serviceId})`);
+        }
+      } catch (err: any) {
+        log.warn(`[billing-webhook] MapGuard kickoff failed for client ${clientId}: ${err.message}`);
+      }
+    }
     return;
   }
 
@@ -480,6 +494,23 @@ async function provisionOrConfirmService(
   });
 
   log.info(`[billing-webhook] Provisioned ${serviceId} for client ${clientId} (${taskTemplates.length} tasks)`);
+
+  // Phase-2: trigger MapGuard kickoff for admin-initiated checkouts that
+  // provision the service inside the webhook (no pre-provision step).
+  // Note: storage.createClientService already fires the activation hook when
+  // status="active" is set on insert, but Stripe-provisioned rows often start
+  // in pending/onboarding so we keep this explicit call as a belt-and-braces
+  // safety net. kickoffMapguardService is idempotent.
+  if (serviceId.startsWith("mapguard")) {
+    try {
+      const result = await kickoffMapguardService(clientId, clientService.id, serviceId);
+      if (result.kickedOff) {
+        log.info(`[billing-webhook] MapGuard kickoff: ${result.tasksCreated} tasks for client ${clientId} (${serviceId})`);
+      }
+    } catch (err: any) {
+      log.warn(`[billing-webhook] MapGuard kickoff failed for client ${clientId}: ${err.message}`);
+    }
+  }
 }
 
 /** Find and send onboarding emails for a client_service that was already provisioned */

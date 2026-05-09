@@ -515,6 +515,7 @@ export async function sendMonthlyReportEmail(
   if (!transporter) return { ok: false, error: "SMTP not configured", reason: "smtp_not_configured" };
 
   const portalUrl = process.env.APP_URL
+    || process.env.APP_PUBLIC_URL
     || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://wefixtrades.com");
 
   const chartUrl = await tryGenerateScoreChart(clientId, data);
