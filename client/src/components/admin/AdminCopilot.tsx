@@ -5,6 +5,11 @@ import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { X, Send, BrainCircuit, Loader2, ChevronDown, ChevronUp, Code2, HelpCircle } from "lucide-react";
 import { readSSEStream, type ChatMessage, type ToolCallEvent } from "@/lib/chatHelpers";
+import ChatAttachmentInput, {
+  ChatAttachmentChips,
+  type ChatAttachment,
+  type ChatAttachmentInputHandle,
+} from "@/components/shared/ChatAttachmentInput";
 
 /* ─── Types ─── */
 export interface AdminPageContext {
@@ -416,6 +421,8 @@ export default function AdminCopilot({
   const queryClient = useQueryClient();
   const [messages, setMessages] = useState<CopilotMessage[]>(() => loadCopilotMessages());
   const [input, setInput] = useState("");
+  const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
+  const attachmentInputRef = useRef<ChatAttachmentInputHandle | null>(null);
   const [streaming, setStreaming] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -519,13 +526,27 @@ export default function AdminCopilot({
   }, [open]);
 
   async function sendMessage(text: string) {
-    if (!text.trim() || streaming || hasPendingToolCall) return;
+    /* Allow attachment-only sends — text may be empty if the operator
+     * just pasted a screenshot. Block while a previous send streams,
+     * a tool-call confirmation is pending, or any attachment is still
+     * uploading. */
+    const hasUploadedAttachments = attachments.some((a) => a.status === "uploaded");
+    if ((!text.trim() && !hasUploadedAttachments) || streaming || hasPendingToolCall) return;
+    if (attachments.some((a) => a.status === "pending")) return;
 
-    const userMsg: ChatMessage = { role: "user", content: text.trim() };
+    const attachmentSuffix = hasUploadedAttachments
+      ? ` [${attachments.filter((a) => a.status === "uploaded").length} attachment${
+          attachments.filter((a) => a.status === "uploaded").length === 1 ? "" : "s"
+        }]`
+      : "";
+
+    const userMsg: ChatMessage = { role: "user", content: text.trim() + attachmentSuffix };
     const updated: CopilotMessage[] = [...messages, userMsg];
     setMessages(updated);
     saveCopilotMessages(updated);
     setInput("");
+    const sentAttachments = attachments.filter((a) => a.status === "uploaded");
+    setAttachments([]);
     setStreaming(true);
 
     // Only send user/assistant messages to the API
@@ -543,6 +564,12 @@ export default function AdminCopilot({
           messages: apiMessages.slice(-20),
           sessionId: getCopilotSessionId(),
           pageContext,
+          attachments: sentAttachments.map((a) => ({
+            url: a.url,
+            filename: a.filename,
+            mime: a.mime,
+            size: a.size,
+          })),
         }),
       });
 
@@ -710,23 +737,40 @@ export default function AdminCopilot({
       </div>
 
       {/* Input */}
-      <div className="border-t border-gray-100 p-3 shrink-0">
+      <div className="border-t border-gray-100 shrink-0">
+        <ChatAttachmentChips
+          value={attachments}
+          onRemove={(id) => setAttachments(attachments.filter((a) => a.id !== id))}
+        />
         <form
           onSubmit={(e) => { e.preventDefault(); sendMessage(input); }}
-          className="flex gap-2"
+          className="flex gap-1 items-center p-3"
         >
+          <ChatAttachmentInput
+            ref={attachmentInputRef}
+            value={attachments}
+            onChange={setAttachments}
+            variant="admin"
+            disabled={streaming || hasPendingToolCall}
+          />
           <Input
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={hasPendingToolCall ? "Confirm or cancel the action above…" : "Ask about this page..."}
+            onPaste={(e) => attachmentInputRef.current?.handlePaste(e)}
+            placeholder={hasPendingToolCall ? "Confirm or cancel the action above…" : "Ask, or paste a screenshot..."}
             disabled={streaming || hasPendingToolCall}
             className="flex-1"
           />
           <Button
             type="submit"
             size="icon"
-            disabled={!input.trim() || streaming || hasPendingToolCall}
+            disabled={
+              streaming ||
+              hasPendingToolCall ||
+              attachments.some((a) => a.status === "pending") ||
+              (!input.trim() && !attachments.some((a) => a.status === "uploaded"))
+            }
             className="bg-[#2D6A4F] hover:bg-[#1B4332] h-9 w-9 shrink-0"
           >
             <Send className="w-3.5 h-3.5" />
