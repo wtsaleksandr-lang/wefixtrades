@@ -23,11 +23,13 @@ import {
   prospects, prospectEnrichment, outboundCampaigns, campaignProspects,
   prospectEvents, salesOpportunities, importBatches,
   outboundBlockedDomains, outboundBlockedEmails, outboundBlockedPhones,
+  outboundSequenceTemplates, outboundSequenceSteps,
   type InsertProspect, type InsertProspectEnrichment,
   type InsertOutboundCampaign, type InsertCampaignProspect,
   type InsertProspectEvent, type InsertSalesOpportunity,
   type InsertImportBatch,
 } from "@shared/schema";
+import { generateSequence, persistSequence } from "../services/copyEngine";
 import { eq, desc, ilike, and, or, inArray, sql, isNull, ne, gte, lt } from "drizzle-orm";
 import { runHeuristics, runAiEnrichment, computeBaseScore } from "../services/prospectEnrichment";
 import { getOutreachAdapter, parseOutreachWebhook } from "../services/outreachPlatform";
@@ -1361,4 +1363,177 @@ export function registerAdminOutboundRoutes(app: Express): void {
       res.status(500).json({ error: "Failed to update pipeline stage" });
     }
   });
+
+  /* ═══════════════════════════════════════════
+     Sequence Templates (AI copy engine)
+
+       POST /api/admin/outbound/sequences/generate
+         Run the multi-agent pipeline (research → drafter → editor → QA)
+         and persist the resulting template + N step rows. Returns the
+         template id, step ids, and the QA report so the operator can
+         see warnings before activating.
+
+       GET  /api/admin/outbound/sequences
+         List sequence templates (most recent first).
+
+       GET  /api/admin/outbound/sequences/:id
+         Get one template + its steps.
+
+       PATCH /api/admin/outbound/sequences/:id
+         Toggle status (draft → active → archived).
+     ═══════════════════════════════════════════ */
+
+  app.post(
+    "/api/admin/outbound/sequences/generate",
+    requireAdmin,
+    async (req: Request, res: Response) => {
+      try {
+        const {
+          name,
+          icp,
+          painPoint,
+          offer,
+          senderPersona,
+          tone = "direct",
+          stepCount = 4,
+          campaignId,
+          activate = false,
+        } = req.body ?? {};
+
+        // Minimal validation — the agents will refuse on truly bad input,
+        // but catch obvious "you forgot the ICP" errors here.
+        if (typeof name !== "string" || name.trim().length < 3) {
+          return res.status(400).json({ error: "name is required" });
+        }
+        for (const [k, v] of [
+          ["icp", icp],
+          ["painPoint", painPoint],
+          ["offer", offer],
+          ["senderPersona", senderPersona],
+        ] as const) {
+          if (typeof v !== "string" || v.trim().length < 8) {
+            return res.status(400).json({
+              error: `${k} is required and must be a meaningful sentence`,
+            });
+          }
+        }
+        if (!["direct", "warm", "playful", "technical"].includes(tone)) {
+          return res.status(400).json({ error: "tone must be one of: direct, warm, playful, technical" });
+        }
+        const stepCountNum = Number(stepCount);
+        if (!Number.isInteger(stepCountNum) || stepCountNum < 2 || stepCountNum > 7) {
+          return res.status(400).json({ error: "stepCount must be an integer between 2 and 7" });
+        }
+
+        const userId = (req as any).user?.id ?? null;
+
+        log.info("[sequences] generate start", { name, tone, stepCount: stepCountNum });
+
+        const generated = await generateSequence({
+          icp: icp.trim(),
+          painPoint: painPoint.trim(),
+          offer: offer.trim(),
+          senderPersona: senderPersona.trim(),
+          tone,
+          stepCount: stepCountNum,
+        });
+
+        const persisted = await persistSequence(generated, {
+          campaignId: campaignId ? Number(campaignId) : undefined,
+          name: name.trim(),
+          createdBy: userId,
+          activate: !!activate,
+        });
+
+        res.json({
+          template_id: persisted.templateId,
+          step_ids: persisted.stepIds,
+          qa: generated.qaReport,
+          run_id: generated.runId,
+          status: activate ? "active" : "draft",
+          spam_risk_score: generated.qaReport.spamRiskScore,
+          warnings_count: generated.qaReport.warnings.length,
+          passes_compliance: generated.qaReport.passesCompliance,
+        });
+      } catch (err: any) {
+        log.error("[sequences] generate failed:", err.message);
+        res.status(500).json({ error: "Sequence generation failed", detail: err.message });
+      }
+    }
+  );
+
+  app.get(
+    "/api/admin/outbound/sequences",
+    requireAdmin,
+    async (_req: Request, res: Response) => {
+      try {
+        const rows = await db
+          .select()
+          .from(outboundSequenceTemplates)
+          .orderBy(desc(outboundSequenceTemplates.created_at))
+          .limit(200);
+        res.json(rows);
+      } catch (err: any) {
+        log.error("[sequences] list:", err.message);
+        res.status(500).json({ error: "Failed to list sequences" });
+      }
+    }
+  );
+
+  app.get(
+    "/api/admin/outbound/sequences/:id",
+    requireAdmin,
+    async (req: Request, res: Response) => {
+      try {
+        const id = Number(req.params.id);
+        if (!Number.isInteger(id)) return res.status(400).json({ error: "Invalid id" });
+
+        const [tpl] = await db
+          .select()
+          .from(outboundSequenceTemplates)
+          .where(eq(outboundSequenceTemplates.id, id))
+          .limit(1);
+        if (!tpl) return res.status(404).json({ error: "Not found" });
+
+        const steps = await db
+          .select()
+          .from(outboundSequenceSteps)
+          .where(eq(outboundSequenceSteps.template_id, id))
+          .orderBy(outboundSequenceSteps.step_number);
+
+        res.json({ template: tpl, steps });
+      } catch (err: any) {
+        log.error("[sequences] get:", err.message);
+        res.status(500).json({ error: "Failed to get sequence" });
+      }
+    }
+  );
+
+  app.patch(
+    "/api/admin/outbound/sequences/:id",
+    requireAdmin,
+    async (req: Request, res: Response) => {
+      try {
+        const id = Number(req.params.id);
+        if (!Number.isInteger(id)) return res.status(400).json({ error: "Invalid id" });
+
+        const { status } = req.body ?? {};
+        if (!["draft", "active", "archived"].includes(status)) {
+          return res.status(400).json({ error: "status must be draft | active | archived" });
+        }
+
+        const [tpl] = await db
+          .update(outboundSequenceTemplates)
+          .set({ status, updated_at: new Date() })
+          .where(eq(outboundSequenceTemplates.id, id))
+          .returning();
+
+        if (!tpl) return res.status(404).json({ error: "Not found" });
+        res.json(tpl);
+      } catch (err: any) {
+        log.error("[sequences] patch:", err.message);
+        res.status(500).json({ error: "Failed to update sequence" });
+      }
+    }
+  );
 }
