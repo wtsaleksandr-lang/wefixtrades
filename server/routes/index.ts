@@ -22,6 +22,7 @@ import { registerEmailTrackingRoutes } from "./emailTrackingRoutes";
 import { registerOnboardingPublicRoutes } from "./onboardingPublicRoutes";
 import { registerVapiRoutes } from "./vapiRoutes";
 import { registerPublicCheckoutRoutes } from "./publicCheckoutRoutes";
+import { registerIntegrationHealthRoutes } from "./integrationHealthRoutes";
 import { registerPortalRoutes } from "./portalRoutes";
 import { registerAdminSupportRoutes } from "./adminSupportRoutes";
 import { registerMissedCallLeadRoutes } from "./missedCallLeadRoutes";
@@ -75,6 +76,7 @@ export async function registerRoutes(
   registerOnboardingPublicRoutes(app);
   registerVapiRoutes(app);
   registerPublicCheckoutRoutes(app);
+  registerIntegrationHealthRoutes(app);
   registerPortalRoutes(app);
   registerAdminSupportRoutes(app);
   registerMissedCallLeadRoutes(app);

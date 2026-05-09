@@ -792,11 +792,30 @@ export function registerAdminCrmRoutes(app: Express): void {
 
   app.get("/api/admin/crm/activity", requireAdmin, async (req: Request, res: Response) => {
     try {
-      const entityType = req.query.entity_type as string | undefined;
+      const entityType = (req.query.entity_type as string | undefined) || undefined;
       const entityId = req.query.entity_id ? parseInt(req.query.entity_id as string) : undefined;
-      const limit = Math.min(100, parseInt(req.query.limit as string) || 50);
-      const rows = await storage.listAdminActivity({ entityType, entityId, limit });
-      res.json(rows);
+      const actorType = (req.query.actor_type as string | undefined) || undefined;
+      const actionLike = (req.query.action as string | undefined) || undefined;
+      const q = (req.query.q as string | undefined) || undefined;
+      const cursor = req.query.cursor ? parseInt(req.query.cursor as string) : undefined;
+      const limit = Math.min(200, parseInt(req.query.limit as string) || 50);
+
+      const since = req.query.since ? new Date(req.query.since as string) : undefined;
+      const until = req.query.until ? new Date(req.query.until as string) : undefined;
+      // Reject malformed dates rather than silently treating them as
+      // "no filter" — that would surprise an operator filtering for
+      // a specific window.
+      if (since && isNaN(since.getTime())) return res.status(400).json({ error: "since must be ISO-8601" });
+      if (until && isNaN(until.getTime())) return res.status(400).json({ error: "until must be ISO-8601" });
+
+      const rows = await storage.listAdminActivity({
+        entityType, entityId, actorType, actionLike, q, since, until, cursor, limit,
+      });
+      // The next cursor is the smallest id we returned. Front-end can
+      // pass it back as ?cursor= to fetch the next page. If we got
+      // fewer rows than the limit there are no more pages.
+      const nextCursor = rows.length === limit ? rows[rows.length - 1].id : null;
+      res.json({ rows, nextCursor });
     } catch (err: any) {
       res.status(500).json({ error: "Failed to list activity" });
     }

@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -11,7 +12,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { DollarSign, AlertCircle } from "lucide-react";
+import { DollarSign, AlertCircle, Download } from "lucide-react";
+import { csvDownload, todayIso } from "@/lib/csvDownload";
 
 interface PaymentRow {
   id: number;
@@ -114,18 +116,47 @@ export default function BillingPage() {
             <h2 className="text-lg font-semibold text-gray-900">Billing</h2>
             <p className="text-sm text-gray-500">All payments across clients</p>
           </div>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full sm:w-[130px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="paid">Paid</SelectItem>
-              <SelectItem value="failed">Failed</SelectItem>
-              <SelectItem value="refunded">Refunded</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                if (!payments.length) return;
+                csvDownload<PaymentRow>({
+                  filename: `payments-${todayIso()}.csv`,
+                  columns: [
+                    { header: "id", value: (p) => p.id },
+                    { header: "client_id", value: (p) => p.client_id },
+                    { header: "client_name", value: (p) => p.client_name },
+                    { header: "type", value: (p) => p.type },
+                    { header: "amount_cents", value: (p) => p.amount_cents },
+                    { header: "status", value: (p) => p.status },
+                    { header: "description", value: (p) => p.description },
+                    { header: "due_at", value: (p) => p.due_at },
+                    { header: "paid_at", value: (p) => p.paid_at },
+                    { header: "created_at", value: (p) => p.created_at },
+                  ],
+                  rows: payments,
+                });
+              }}
+              disabled={!payments.length}
+              className="min-h-[36px]"
+            >
+              <Download className="w-4 h-4 mr-1" /> Export CSV
+            </Button>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-full sm:w-[130px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="paid">Paid</SelectItem>
+                <SelectItem value="failed">Failed</SelectItem>
+                <SelectItem value="refunded">Refunded</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         {/* Unpaid summary */}
