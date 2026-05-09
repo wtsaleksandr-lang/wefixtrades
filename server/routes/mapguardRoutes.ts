@@ -635,6 +635,9 @@ export function registerMapguardRoutes(app: Express) {
       const result = await runMapguardBatchScan();
       res.json(result);
     } catch (err: any) {
+      if (err?.name === "MapguardBatchAlreadyRunningError") {
+        return res.status(409).json({ error: "Batch scan already in progress", retry_after_seconds: 60 });
+      }
       log.error("[mapguard] batch scan error:", err);
       res.status(500).json({ error: "Failed to run batch scan" });
     }

@@ -118,48 +118,59 @@ async function fetchPlaceDetails(placeId: string): Promise<{
 }
 
 /** Fetch keyword rankings via Serper */
+type KeywordResult = {
+  keyword: string;
+  organicRank: number | null;
+  localPackPosition: number | null;
+  isInLocalPack: boolean;
+  /**
+   * True iff one or both Serper requests for this keyword failed (HTTP
+   * non-2xx, network error, or thrown exception). Used by
+   * detectMonitoringIssues to suppress ranking-derived issues during
+   * Serper outages — without this the entire customer base would be
+   * spuriously flagged with low-visibility / low-search-ranking on any
+   * 429/5xx, generating a flood of bogus competitor_reaction tasks.
+   */
+  error?: boolean;
+};
+
 async function fetchKeywordRankings(keywords: string[], businessName: string, city: string): Promise<{
-  results: Array<{
-    keyword: string;
-    organicRank: number | null;
-    localPackPosition: number | null;
-    isInLocalPack: boolean;
-  }>;
+  results: KeywordResult[];
+  apiCalled: boolean;
 }> {
-  const results: Array<{
-    keyword: string;
-    organicRank: number | null;
-    localPackPosition: number | null;
-    isInLocalPack: boolean;
-  }> = [];
+  const results: KeywordResult[] = [];
 
   const apiKey = process.env.SERPER_API_KEY;
-  if (!apiKey) return { results };
+  if (!apiKey) return { results, apiCalled: false };
 
   const nameLower = businessName.toLowerCase();
 
-  // Run all keyword checks in parallel
-  const promises = keywords.map(async (keyword) => {
+  const promises = keywords.map(async (keyword): Promise<KeywordResult> => {
     try {
-      // Organic search
       const searchRes = await fetch("https://google.serper.dev/search", {
         method: "POST",
         headers: { "X-API-KEY": apiKey, "Content-Type": "application/json" },
         body: JSON.stringify({ q: `${keyword} ${city}`, num: 20, gl: "au" }),
         ...withSignal(SERPER_TIMEOUT),
       });
-      const searchData = searchRes.ok ? await searchRes.json() : null;
+      if (!searchRes.ok) {
+        console.warn(`[mapguard-monitor] serper search ${searchRes.status} for "${keyword}"`);
+        return { keyword, organicRank: null, localPackPosition: null, isInLocalPack: false, error: true };
+      }
+      const searchData = await searchRes.json();
 
-      // Local pack
       const mapsRes = await fetch("https://google.serper.dev/maps", {
         method: "POST",
         headers: { "X-API-KEY": apiKey, "Content-Type": "application/json" },
         body: JSON.stringify({ q: `${keyword} ${city}`, gl: "au" }),
         ...withSignal(SERPER_TIMEOUT),
       });
-      const mapsData = mapsRes.ok ? await mapsRes.json() : null;
+      if (!mapsRes.ok) {
+        console.warn(`[mapguard-monitor] serper maps ${mapsRes.status} for "${keyword}"`);
+        return { keyword, organicRank: null, localPackPosition: null, isInLocalPack: false, error: true };
+      }
+      const mapsData = await mapsRes.json();
 
-      // Extract organic rank
       let organicRank: number | null = null;
       const organic = searchData?.organic || [];
       for (let i = 0; i < organic.length; i++) {
@@ -171,7 +182,6 @@ async function fetchKeywordRankings(keywords: string[], businessName: string, ci
         }
       }
 
-      // Extract local pack position
       let localPackPosition: number | null = null;
       let isInLocalPack = false;
       const places = mapsData?.places || [];
@@ -185,8 +195,9 @@ async function fetchKeywordRankings(keywords: string[], businessName: string, ci
       }
 
       return { keyword, organicRank, localPackPosition, isInLocalPack };
-    } catch {
-      return { keyword, organicRank: null, localPackPosition: null, isInLocalPack: false };
+    } catch (err: any) {
+      console.warn(`[mapguard-monitor] serper exception for "${keyword}": ${err?.message || err}`);
+      return { keyword, organicRank: null, localPackPosition: null, isInLocalPack: false, error: true };
     }
   });
 
@@ -197,7 +208,7 @@ async function fetchKeywordRankings(keywords: string[], businessName: string, ci
     }
   }
 
-  return { results };
+  return { results, apiCalled: true };
 }
 
 /* ═══════════════════════════════════════════
@@ -269,18 +280,27 @@ function detectMonitoringIssues(profile: NonNullable<Awaited<ReturnType<typeof f
   if (profile.reviewCount < 100) issues.push("low-reviews");
   if ((profile.rating ?? 5) < 4.2) issues.push("bad-rating");
 
-  // Phase-2: only emit ranking-derived issues when Serper actually ran.
-  // Without SERPER_API_KEY, fetchKeywordRankings returns [] and we'd
-  // falsely flag every client as low-visibility / low-search-ranking.
-  if (process.env.SERPER_API_KEY) {
-    const anyLocalPack = keywords.some(k => k.isInLocalPack);
-    const majorityNotVisible = keywords.length === 0 ||
-      keywords.filter(k => !k.organicRank || k.organicRank > 10).length > keywords.length / 2;
-    if (!anyLocalPack && majorityNotVisible) issues.push("low-visibility");
+  // Only emit ranking-derived issues when Serper actually ran AND the
+  // error rate is acceptable. Without SERPER_API_KEY, fetchKeywordRankings
+  // returns [] (caller already drops to apiCalled=false). When Serper IS
+  // configured but >25% of keywords errored (e.g. 429/5xx outage), we
+  // can't trust the visibility signal — the absence of a result for an
+  // errored keyword is indistinguishable from a genuine "not ranked".
+  // Suppressing in that case prevents the bogus-task flood that would
+  // otherwise fire for every active client during a Serper incident.
+  if (process.env.SERPER_API_KEY && keywords.length > 0) {
+    const erroredCount = keywords.filter(k => k.error === true).length;
+    const errorRate = erroredCount / keywords.length;
+    if (errorRate <= 0.25) {
+      const reliable = keywords.filter(k => k.error !== true);
+      const anyLocalPack = reliable.some(k => k.isInLocalPack);
+      const notVisibleCount = reliable.filter(k => !k.organicRank || k.organicRank > 10).length;
+      const majorityNotVisible = reliable.length === 0 || notVisibleCount > reliable.length / 2;
+      if (!anyLocalPack && majorityNotVisible) issues.push("low-visibility");
 
-    const hasLowRanking = keywords.length > 0 &&
-      keywords.filter(k => !k.organicRank || k.organicRank > 10).length > keywords.length * 0.6;
-    if (hasLowRanking) issues.push("low-search-ranking");
+      const hasLowRanking = reliable.length > 0 && notVisibleCount > reliable.length * 0.6;
+      if (hasLowRanking) issues.push("low-search-ranking");
+    }
   }
 
   return [...new Set(issues)];
@@ -483,9 +503,18 @@ export async function runMapguardScan(client: MapguardClient): Promise<{
   const cfg = parseMapguardConfig(client.metadata);
   const trade = client.trade_type || "trades";
   const city = cfg.city || (client.metadata as any)?.city || "local area";
-  const keywords = cfg.custom_keywords && cfg.custom_keywords.length > 0
+  const allKeywords = cfg.custom_keywords && cfg.custom_keywords.length > 0
     ? cfg.custom_keywords
     : buildMonitorKeywords(trade, city);
+
+  // Per-scan Serper-call cap. Each keyword issues 2 Serper requests
+  // (organic + maps), so 50-keyword configs can produce 100 calls per
+  // client per scan; 100 active clients on the weekly cron = 10k calls
+  // in one batch. Cap at MAPGUARD_KEYWORDS_PER_SCAN_MAX (default 12) to
+  // keep cost predictable. The schema still allows more in custom_keywords
+  // so admins can rotate which subset is monitored over time.
+  const KEYWORD_LIMIT = Number.parseInt(process.env.MAPGUARD_KEYWORDS_PER_SCAN_MAX || "12", 10) || 12;
+  const keywords = allKeywords.slice(0, KEYWORD_LIMIT);
 
   // Fetch data in parallel
   const [profileData, rankingData] = await Promise.all([
@@ -494,6 +523,12 @@ export async function runMapguardScan(client: MapguardClient): Promise<{
   ]);
 
   if (!profileData) errors.push("places_api_failed");
+  if (!rankingData.apiCalled) {
+    errors.push("serper_skipped_no_key");
+  } else {
+    const erroredCount = rankingData.results.filter(k => k.error === true).length;
+    if (erroredCount > 0) errors.push(`serper_keyword_errors:${erroredCount}/${rankingData.results.length}`);
+  }
 
   // Compute scores and issues
   const profile = profileData || {
@@ -550,7 +585,10 @@ export async function runMapguardScan(client: MapguardClient): Promise<{
     detected_issues: issues,
     scan_metadata: {
       duration_ms: Date.now() - startTime,
-      apis_called: ["places", "serper"].filter(Boolean),
+      apis_called: [
+        process.env.GOOGLE_MAPS_API_KEY ? "places" : null,
+        rankingData.apiCalled ? "serper" : null,
+      ].filter(Boolean) as string[],
       errors,
       keywords_count: keywords.length,
     },
@@ -619,7 +657,40 @@ function buildMonitorKeywords(trade: string, city: string): string[] {
    BATCH SCAN (all active clients)
    ═══════════════════════════════════════════ */
 
+// Process-level mutex shared by the weekly cron and the admin
+// `/api/mapguard/scan/batch` endpoint. Without this, an admin clicking
+// "Run batch" during the Tuesday 04:00 UTC cron — or two admins clicking
+// simultaneously — would double every Places + Serper call for every
+// client and could exhaust the daily API quota in one window.
+let batchScanRunning = false;
+
+export class MapguardBatchAlreadyRunningError extends Error {
+  constructor() { super("Batch MapGuard scan is already in progress"); this.name = "MapguardBatchAlreadyRunningError"; }
+}
+
+export function isMapguardBatchScanRunning(): boolean {
+  return batchScanRunning;
+}
+
 export async function runMapguardBatchScan(): Promise<{
+  scanned: number;
+  errors: number;
+  tasksCreated: number;
+  alertsSent: number;
+  results: Array<{ client_id: number; business_name: string; score: number | null; significant: boolean; error?: string }>;
+}> {
+  if (batchScanRunning) {
+    throw new MapguardBatchAlreadyRunningError();
+  }
+  batchScanRunning = true;
+  try {
+    return await runMapguardBatchScanInner();
+  } finally {
+    batchScanRunning = false;
+  }
+}
+
+async function runMapguardBatchScanInner(): Promise<{
   scanned: number;
   errors: number;
   tasksCreated: number;

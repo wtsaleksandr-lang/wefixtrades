@@ -1065,15 +1065,34 @@ export async function kickoffMapguardService(
     return { kickedOff: false, reason: "not_mapguard", tasksCreated: 0 };
   }
 
-  const [cs] = await db.select().from(clientServices)
-    .where(eq(clientServices.id, clientServiceId))
-    .limit(1);
-  if (!cs) return { kickedOff: false, reason: "service_not_found", tasksCreated: 0 };
+  // Atomic claim: stamp `mapguard_kickoff_at` iff still null. Concurrent
+  // callers (Stripe webhook retry, simultaneous activation hooks) lose
+  // the WHERE check and produce zero returned rows, bailing as already
+  // kicked off. Replaces the previous read-then-write pattern that had a
+  // race window during which duplicate kickoff tasks could be created.
+  const claimedAt = new Date().toISOString();
+  const claimed = await db.update(clientServices)
+    .set({
+      metadata: sql`COALESCE(${clientServices.metadata}, '{}'::jsonb) || ${JSON.stringify({ mapguard_kickoff_at: claimedAt })}::jsonb`,
+      updated_at: new Date(),
+    })
+    .where(and(
+      eq(clientServices.id, clientServiceId),
+      sql`(${clientServices.metadata}->>'mapguard_kickoff_at') IS NULL`,
+    ))
+    .returning({ id: clientServices.id, status: clientServices.status });
 
-  const csMeta = (cs.metadata as Record<string, any>) || {};
-  if (csMeta.mapguard_kickoff_at) {
-    return { kickedOff: false, reason: "already_kicked_off", tasksCreated: 0 };
+  if (claimed.length === 0) {
+    // Distinguish "row missing" from "already claimed" for clearer logs/tests.
+    const [exists] = await db.select({ id: clientServices.id })
+      .from(clientServices).where(eq(clientServices.id, clientServiceId)).limit(1);
+    return {
+      kickedOff: false,
+      reason: exists ? "already_kicked_off" : "service_not_found",
+      tasksCreated: 0,
+    };
   }
+  const claimedStatus = claimed[0].status;
 
   // Backfill place_id into clients.metadata if missing (monitor reads from there).
   try {
@@ -1166,20 +1185,31 @@ export async function kickoffMapguardService(
     console.warn(`[mapguard-kickoff] tracker fulfillment_task insert failed for cs ${clientServiceId}: ${err.message}`);
   }
 
-  // Mark kickoff done so we don't double-fire on webhook replay.
+  // Stamp final task count. kickoff_at was already set by the atomic
+  // claim above; this is a non-atomic best-effort merge.
   await db.update(clientServices)
     .set({
-      metadata: {
-        ...csMeta,
-        mapguard_kickoff_at: new Date().toISOString(),
-        mapguard_kickoff_tasks: created.length,
-      } as any,
+      metadata: sql`COALESCE(${clientServices.metadata}, '{}'::jsonb) || ${JSON.stringify({ mapguard_kickoff_tasks: created.length })}::jsonb`,
       updated_at: new Date(),
-    } as any)
+    })
     .where(eq(clientServices.id, clientServiceId));
 
+  // Pre-launch fix: ongoing-tier services (basic/pro) auto-promote
+  // pending → active so the recurring scan + first scan (both filter
+  // on status='active') pick them up. Without this, Stripe-paid
+  // basic/pro customers stayed in 'pending' forever and were invisible
+  // to monitoring. mapguard-setup is a one-time service and keeps its
+  // existing pending → completed lifecycle via the tracker cascade.
+  if ((serviceId === "mapguard-basic" || serviceId === "mapguard-pro")
+    && (claimedStatus === "pending" || claimedStatus === "onboarding")) {
+    await db.update(clientServices)
+      .set({ status: "active", updated_at: new Date() })
+      .where(eq(clientServices.id, clientServiceId));
+  }
+
   // Phase-2.1: logged, non-blocking first scan. Failure is captured in
-  // job_logs and never crashes the activation path.
+  // job_logs and never crashes the activation path. The status flip
+  // above happens before this so getActiveMapguardClients sees the row.
   void runFirstScanWithLogging(clientId, clientServiceId);
 
   return { kickedOff: true, tasksCreated: created.length };

@@ -11,6 +11,7 @@ import { mapguardSnapshots } from "@shared/schemas/mapguardMonitoring";
 import { clients, clientServices, serviceCatalog } from "@shared/schemas/adminCrm";
 import { eq, and, desc, sql, gte } from "drizzle-orm";
 import { getEmailTransporter, getFromAddress } from "../lib/emailTransport";
+import { isEmailUnsubscribed } from "../lib/unsubscribeStorage";
 import { createLogger } from "../lib/logger";
 
 const log = createLogger("MapguardRetention");
@@ -259,6 +260,7 @@ export async function sendAllWeeklyUpdates(): Promise<{ sent: number; skipped: n
     client_id: clients.id,
     contact_email: clients.contact_email,
     business_name: clients.business_name,
+    cs_metadata: clientServices.metadata,
   })
   .from(clientServices)
   .innerJoin(clients, eq(clientServices.client_id, clients.id))
@@ -276,6 +278,24 @@ export async function sendAllWeeklyUpdates(): Promise<{ sent: number; skipped: n
 
   for (const client of activeClients) {
     if (!client.contact_email) { skipped++; continue; }
+
+    // Per-service opt-out: customer disabled weekly updates for this
+    // service via metadata.weekly_update_enabled = false. Mirrors the
+    // monthly-report report_enabled gate.
+    const csMeta = (client.cs_metadata as Record<string, any>) || {};
+    if (csMeta.weekly_update_enabled === false) {
+      skipped++;
+      continue;
+    }
+
+    // Global unsubscribe check (CAN-SPAM / GDPR). Without this, customers
+    // who clicked unsubscribe in any previous email would still keep
+    // receiving weekly retention nags.
+    if (await isEmailUnsubscribed(client.contact_email)) {
+      skipped++;
+      continue;
+    }
+
     const ok = await sendWeeklyUpdate(client.client_id, client.contact_email, client.business_name);
     if (ok) sent++;
     else errors++;
