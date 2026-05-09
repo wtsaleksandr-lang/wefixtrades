@@ -139,7 +139,13 @@ interface OpenAiImageResponse {
 }
 
 async function callImageApi(prompt: string): Promise<{ ok: true; url: string; revised_prompt?: string } | { ok: false; reason: GenerateForDraftResult["reason"]; message: string }> {
-  const apiKey = process.env.OPENAI_API_KEY;
+  /* Accept either env-var name. `AI_INTEGRATIONS_OPENAI_API_KEY` is
+   * what the rest of this codebase already reads (Replit's default
+   * naming for the integration). `OPENAI_API_KEY` is the canonical
+   * name third-party docs reference. Falling back means operators
+   * don't have to duplicate the same secret under two names just
+   * to make ContentFlow image generation work. */
+  const apiKey = process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
   /* No early short-circuit on missing apiKey — the dev mock accepts
    * any auth, and a missing key in production is correctly surfaced
    * as api_failed by the fetch (401). The orchestrator tolerates
