@@ -7,7 +7,7 @@
 
 import { db } from "../db";
 import { mapguardTasks, mapguardTaskActivity } from "@shared/schemas/mapguard";
-import { clients, fulfillmentTasks } from "@shared/schemas/adminCrm";
+import { clients, clientServices, fulfillmentTasks, serviceCatalog } from "@shared/schemas/adminCrm";
 import { auditReports, jobLogs } from "@shared/schemas/db";
 import { eq, and, sql, desc, asc, isNull } from "drizzle-orm";
 import {
@@ -23,7 +23,6 @@ import {
   type MapguardSourceType,
 } from "@shared/mapguardTypes";
 import type { InsertMapguardTask, MapguardTask } from "@shared/schemas/mapguard";
-import { clientServices, serviceCatalog } from "@shared/schemas/adminCrm";
 import { getRecommendedSupplier, MAPGUARD_SUPPLIERS, ASSIGNMENT_TEMPLATES, type SupplierRecommendation } from "@shared/mapguardSuppliers";
 import { getLastClientActivityDate } from "./mapguardRetention";
 
