@@ -473,7 +473,7 @@ export function registerPortalRoutes(app: Express) {
       if (!sent) return res.status(500).json({ error: "Failed to send billing portal email" });
       res.json({ success: true, message: "Billing portal link sent to your email" });
     } catch (err) {
-      console.error("Portal billing send-link error:", err);
+      log.error("Portal billing send-link error:", { error: String(err) });
       res.status(500).json({ error: "Failed to send billing link" });
     }
   });
