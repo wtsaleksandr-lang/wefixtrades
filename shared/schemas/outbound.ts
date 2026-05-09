@@ -290,6 +290,72 @@ export type InsertSalesOpportunity = z.infer<typeof insertSalesOpportunitySchema
 export type SalesOpportunity = typeof salesOpportunities.$inferSelect;
 
 /* ═══════════════════════════════════════════════════
+   SEQUENCE TEMPLATES — AI-drafted multi-step copy
+
+   One template per campaign. The template defines the per-step
+   subject + body content with `{{token}}` placeholders that
+   Smartlead substitutes per recipient. Per-prospect personalization
+   tokens (ai_first_line, ai_offer_angle, etc.) live on
+   prospect_enrichment and are pushed to Smartlead as custom fields.
+   ═══════════════════════════════════════════════════ */
+
+export const outboundSequenceTemplates = pgTable("outbound_sequence_templates", {
+  id: serial("id").primaryKey(),
+  campaign_id: integer("campaign_id").references(() => outboundCampaigns.id),
+
+  // Inputs that drove generation — kept for audit + regeneration
+  name: text("name").notNull(),
+  icp: text("icp"),                                        // free-text ideal customer profile
+  pain_point: text("pain_point"),                          // primary pain we solve
+  offer: text("offer"),                                    // what we're selling
+  sender_persona: text("sender_persona"),                  // "Aleksandr from WeFixTrades"
+  tone: varchar("tone", { length: 30 }).default("direct"), // direct | warm | playful | technical
+
+  // Generation metadata
+  generation_model: varchar("generation_model", { length: 60 }),
+  generation_run_id: text("generation_run_id"),            // unique trace id for the multi-agent run
+  agent_brief: jsonb("agent_brief"),                       // structured output from research agent
+  qa_report: jsonb("qa_report"),                           // QA agent findings (warnings, etc.)
+
+  status: varchar("status", { length: 20 }).notNull().default("draft"),
+  // draft | active | archived
+
+  created_by: integer("created_by"),
+  created_at: timestamp("created_at").defaultNow(),
+  updated_at: timestamp("updated_at").defaultNow(),
+}, (t) => ({
+  campaignIdx: index("outbound_sequence_templates_campaign_idx").on(t.campaign_id),
+}));
+export const insertOutboundSequenceTemplateSchema = createInsertSchema(outboundSequenceTemplates).omit({ id: true, created_at: true, updated_at: true });
+export type InsertOutboundSequenceTemplate = z.infer<typeof insertOutboundSequenceTemplateSchema>;
+export type OutboundSequenceTemplate = typeof outboundSequenceTemplates.$inferSelect;
+
+export const outboundSequenceSteps = pgTable("outbound_sequence_steps", {
+  id: serial("id").primaryKey(),
+  template_id: integer("template_id").notNull().references(() => outboundSequenceTemplates.id, { onDelete: "cascade" }),
+
+  step_number: integer("step_number").notNull(),           // 1 = intro, 2-N = followups
+  delay_days: integer("delay_days").notNull().default(0),  // days after the previous step
+
+  // Multiple subject variants for A/B at send time. Smartlead picks one
+  // per recipient. Stored as JSON array of strings.
+  subject_variants: jsonb("subject_variants").notNull(),   // ["Subject A", "Subject B", ...]
+  body: text("body").notNull(),                            // plain-text body with {{token}}s
+
+  // Editor / QA outputs preserved for audit + iteration
+  editor_notes: text("editor_notes"),
+  qa_warnings: jsonb("qa_warnings"),                       // ["uses 'delve'", ...]
+
+  created_at: timestamp("created_at").defaultNow(),
+  updated_at: timestamp("updated_at").defaultNow(),
+}, (t) => ({
+  templateStepIdx: uniqueIndex("outbound_sequence_steps_template_step_idx").on(t.template_id, t.step_number),
+}));
+export const insertOutboundSequenceStepSchema = createInsertSchema(outboundSequenceSteps).omit({ id: true, created_at: true, updated_at: true });
+export type InsertOutboundSequenceStep = z.infer<typeof insertOutboundSequenceStepSchema>;
+export type OutboundSequenceStep = typeof outboundSequenceSteps.$inferSelect;
+
+/* ═══════════════════════════════════════════════════
    TASK 7 — Global Blacklist Tables
    Three separate tables for O(1) lookup by type.
    onConflictDoNothing used on insert to make upserts safe.
