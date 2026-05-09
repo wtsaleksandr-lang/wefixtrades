@@ -8,6 +8,13 @@ import TaskTimeline from "@/components/portal/TaskTimeline";
 import ApprovalGate from "@/components/portal/ApprovalGate";
 import DeliverableViewer from "@/components/portal/DeliverableViewer";
 import type { Deliverable } from "@/components/portal/DeliverableViewer";
+import { SectionErrorRetry } from "@/components/shared/SectionErrorRetry";
+import {
+  TradeLineStatusBanner,
+  BusinessHoursCard,
+  NotificationSettingsCard,
+  TradeLineCallList,
+} from "@/components/portal/TradeLinePortalSections";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -87,6 +94,20 @@ interface TradeLineCallRow {
   created_at: string | null;
 }
 
+/** Per-day open/close window. Both fields are HH:MM strings; closed-day
+ *  rows are represented by `closed: true` (the schedule object can also
+ *  omit the day entirely, treated as closed). */
+export interface DaySchedule {
+  open: string;     // "09:00"
+  close: string;    // "17:00"
+  closed?: boolean;
+}
+
+export interface BusinessHours {
+  timezone: string;
+  schedule: Partial<Record<"mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun", DaySchedule>>;
+}
+
 interface TradeLineData {
   config: {
     currentMode: string;
@@ -97,6 +118,8 @@ interface TradeLineData {
     voice?: { presetId: string; label: string; provider: string; voiceId: string; language: string };
     personality?: { tone: string; humor: string; profanity: boolean; language: string };
     widgetStyle?: { preset: string; bubbleLabel: string; accentMode: string };
+    businessHours?: BusinessHours;
+    notifications?: { sms: string[]; email: string[] };
   } | null;
   usage: {
     voice_minutes_used: number;
@@ -106,6 +129,10 @@ interface TradeLineData {
     overage_minutes: number;
   } | null;
   recentCalls: TradeLineCallRow[];
+  /** Assistant build status surfaced separately by the API (see
+   *  /api/portal/tradeline/:csId GET handler). One of:
+   *  not_built | building | built | failed */
+  assistantStatus?: "not_built" | "building" | "built" | "failed";
 }
 
 function CallIcon({ outcome }: { outcome: string }) {
@@ -424,17 +451,25 @@ export default function PortalServiceDetail() {
     .filter((t) => t.status === "delivered")
     .flatMap((t) => (Array.isArray(t.deliverables) ? t.deliverables : []));
 
-  const { data: tlData } = useQuery<TradeLineData>({
+  const {
+    data: tlData,
+    isError: tlError,
+    refetch: refetchTl,
+  } = useQuery<TradeLineData>({
     queryKey: ["/api/portal/tradeline", serviceId],
     queryFn: async () => {
       const res = await fetch(`/api/portal/tradeline/${serviceId}`, { credentials: "include" });
-      if (!res.ok) return { config: null, usage: null, recentCalls: [] };
+      if (!res.ok) throw new Error(`tradeline ${res.status}`);
       return res.json();
     },
     enabled: !!serviceId && !!isTradeLine,
   });
 
-  const { data: uptimeData } = useQuery<{
+  const {
+    data: uptimeData,
+    isError: uptimeError,
+    refetch: refetchUptime,
+  } = useQuery<{
     uptime_percent: number;
     total_checks: number;
     up_checks: number;
@@ -444,27 +479,35 @@ export default function PortalServiceDetail() {
     queryKey: ["/api/portal/services", serviceId, "uptime"],
     queryFn: async () => {
       const res = await fetch(`/api/portal/services/${serviceId}/uptime`, { credentials: "include" });
-      if (!res.ok) return { uptime_percent: 100, total_checks: 0, up_checks: 0, down_checks: 0, history: [] };
+      if (!res.ok) throw new Error(`uptime ${res.status}`);
       return res.json();
     },
     enabled: !!serviceId && !!isWebCare,
   });
 
   // QuoteQuick summary (to get calculator ID)
-  const { data: qqSummary } = useQuery<{
+  const {
+    data: qqSummary,
+    isError: qqSummaryError,
+    refetch: refetchQqSummary,
+  } = useQuery<{
     calculator: { id: number; business_name: string; slug: string; total_views: number; total_leads: number; status: string } | null;
   }>({
     queryKey: ["/api/portal/quotequick/summary"],
     queryFn: async () => {
       const res = await fetch("/api/portal/quotequick/summary", { credentials: "include" });
-      if (!res.ok) return { calculator: null };
+      if (!res.ok) throw new Error(`qq-summary ${res.status}`);
       return res.json();
     },
     enabled: !!isQuoteQuick,
   });
 
   // QuoteQuick recent leads
-  const { data: qqLeads } = useQuery<{
+  const {
+    data: qqLeads,
+    isError: qqLeadsError,
+    refetch: refetchQqLeads,
+  } = useQuery<{
     leads: Array<{
       id: number;
       name: string | null;
@@ -479,14 +522,18 @@ export default function PortalServiceDetail() {
     queryKey: ["/api/portal/quotequick", qqSummary?.calculator?.id, "leads"],
     queryFn: async () => {
       const res = await fetch(`/api/portal/quotequick/${qqSummary!.calculator!.id}/leads`, { credentials: "include" });
-      if (!res.ok) return { leads: [] };
+      if (!res.ok) throw new Error(`qq-leads ${res.status}`);
       return res.json();
     },
     enabled: !!isQuoteQuick && !!qqSummary?.calculator?.id,
   });
 
   // AdFlow past reports
-  const { data: adflowReports } = useQuery<Array<{
+  const {
+    data: adflowReports,
+    isError: adflowError,
+    refetch: refetchAdflow,
+  } = useQuery<Array<{
     id: number;
     period_label: string;
     period_start: string;
@@ -498,7 +545,7 @@ export default function PortalServiceDetail() {
     queryKey: ["/api/portal/adflow", serviceId, "reports"],
     queryFn: async () => {
       const res = await fetch(`/api/portal/adflow/${serviceId}/reports`, { credentials: "include" });
-      if (!res.ok) return [];
+      if (!res.ok) throw new Error(`adflow-reports ${res.status}`);
       return res.json();
     },
     enabled: !!serviceId && !!isAdFlow,
@@ -555,8 +602,17 @@ export default function PortalServiceDetail() {
             </div>
 
             {/* TradeLine section */}
-            {isTradeLine && tlData?.config && (
+            {isTradeLine && tlError && (
+              <SectionErrorRetry title="TradeLine status" onRetry={() => refetchTl()} />
+            )}
+            {isTradeLine && !tlError && tlData?.config && (
               <>
+                {/* Status banner */}
+                <TradeLineStatusBanner
+                  mode={tlData.config.currentMode}
+                  assistantStatus={tlData.assistantStatus}
+                />
+
                 {/* Mode control */}
                 <div className="bg-white rounded-xl border border-gray-200 p-5">
                   <h2 className="text-sm font-semibold text-gray-900 mb-3">Current Mode</h2>
@@ -580,6 +636,20 @@ export default function PortalServiceDetail() {
                 <VoiceAndStyleCard
                   clientServiceId={parseInt(serviceId!)}
                   config={tlData.config}
+                  onSaved={() => queryClient.invalidateQueries({ queryKey: ["/api/portal/tradeline", serviceId] })}
+                />
+
+                {/* Business Hours */}
+                <BusinessHoursCard
+                  clientServiceId={parseInt(serviceId!)}
+                  businessHours={tlData.config.businessHours}
+                  onSaved={() => queryClient.invalidateQueries({ queryKey: ["/api/portal/tradeline", serviceId] })}
+                />
+
+                {/* Notification Settings */}
+                <NotificationSettingsCard
+                  clientServiceId={parseInt(serviceId!)}
+                  notifications={tlData.config.notifications}
                   onSaved={() => queryClient.invalidateQueries({ queryKey: ["/api/portal/tradeline", serviceId] })}
                 />
 
@@ -611,6 +681,12 @@ export default function PortalServiceDetail() {
                     )}
                   </div>
                 )}
+
+                {/* Recent calls */}
+                <TradeLineCallList
+                  clientServiceId={parseInt(serviceId!)}
+                  calls={tlData.recentCalls}
+                />
 
                 {/* Widget / hosted info */}
                 {(tlData.config.website.embedMode !== "none" || tlData.config.website.hostedUrl) && (
@@ -710,7 +786,10 @@ export default function PortalServiceDetail() {
             )}
 
             {/* Service-specific: WebCare monitoring */}
-            {isWebCare && (
+            {isWebCare && uptimeError && (
+              <SectionErrorRetry title="uptime monitoring" onRetry={() => refetchUptime()} />
+            )}
+            {isWebCare && !uptimeError && (
               <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                 <div className="px-5 py-4 border-b border-gray-100">
                   <div className="flex items-center justify-between">
@@ -890,7 +969,10 @@ export default function PortalServiceDetail() {
             )}
 
             {/* AdFlow Past Reports */}
-            {isAdFlow && adflowReports && adflowReports.length > 0 && (
+            {isAdFlow && adflowError && (
+              <SectionErrorRetry title="AdFlow reports" onRetry={() => refetchAdflow()} />
+            )}
+            {isAdFlow && !adflowError && adflowReports && adflowReports.length > 0 && (
               <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                 <div className="px-5 py-4 border-b border-gray-100">
                   <div className="flex items-center gap-2">
@@ -933,7 +1015,16 @@ export default function PortalServiceDetail() {
             )}
 
             {/* QuoteQuick: Recent Leads */}
-            {isQuoteQuick && qqLeads && qqLeads.leads.length > 0 && (
+            {isQuoteQuick && (qqSummaryError || qqLeadsError) && (
+              <SectionErrorRetry
+                title="QuoteQuick leads"
+                onRetry={() => {
+                  if (qqSummaryError) refetchQqSummary();
+                  if (qqLeadsError) refetchQqLeads();
+                }}
+              />
+            )}
+            {isQuoteQuick && !qqSummaryError && !qqLeadsError && qqLeads && qqLeads.leads.length > 0 && (
               <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                 <div className="px-5 py-4 border-b border-gray-100">
                   <div className="flex items-center gap-2">
@@ -992,7 +1083,7 @@ export default function PortalServiceDetail() {
               </div>
             )}
 
-            {isQuoteQuick && qqLeads && qqLeads.leads.length === 0 && (
+            {isQuoteQuick && !qqSummaryError && !qqLeadsError && qqLeads && qqLeads.leads.length === 0 && (
               <div className="bg-white rounded-xl border border-gray-200 p-5 text-center">
                 <Users className="w-8 h-8 text-gray-300 mx-auto mb-2" />
                 <p className="text-sm text-gray-500">No leads yet. Once your calculator starts receiving quote requests, they'll appear here.</p>
