@@ -1,11 +1,17 @@
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect, useCallback } from "react";
-import { Loader2, Check, RefreshCw, KeyRound, AlertTriangle, Palette, X, Plus } from "lucide-react";
+import { Loader2, Check, RefreshCw, KeyRound, AlertTriangle, Palette, X, Plus, Bell, Mail, MessageSquare } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import {
+  NOTIFICATION_CATEGORY_KEYS,
+  NOTIFICATION_CATEGORY_LABELS,
+  type NotificationPreferences,
+  type NotificationCategoryKey,
+} from "@shared/schema";
 
 interface SettingsData {
   business_name: string;
@@ -232,6 +238,9 @@ export default function PortalSettings() {
                 </div>
               )}
             </div>
+
+            {/* Notification Preferences */}
+            <NotificationPreferencesSection />
 
             {/* Brand Voice */}
             <BrandProfileSection inputClass={inputClass} labelClass={labelClass} />
@@ -649,5 +658,175 @@ function ChangePasswordSection({ inputClass, labelClass }: { inputClass: string;
         </div>
       </div>
     </form>
+  );
+}
+
+/* ─── Notification Preferences ──────────────────────────────────────
+   Two-section card: top half is channel toggles (email + SMS), bottom
+   half is per-category toggles. Saving sends the full preferences
+   blob to /api/portal/notification-preferences. The backend always
+   accepts the full shape so we don't have to reason about partial
+   updates client-side. */
+
+interface PrefsResponse {
+  preferences: NotificationPreferences;
+  defaults: NotificationPreferences;
+}
+
+function NotificationPreferencesSection() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const { data, isLoading } = useQuery<PrefsResponse>({
+    queryKey: ["/api/portal/notification-preferences"],
+  });
+
+  /* Local draft state — only synced to the server when the user clicks
+   * Save, so toggling without saving is reversible by reloading. */
+  const [draft, setDraft] = useState<NotificationPreferences | null>(null);
+
+  useEffect(() => {
+    if (data?.preferences && !draft) setDraft(data.preferences);
+  }, [data, draft]);
+
+  const dirty = !!draft && !!data && JSON.stringify(draft) !== JSON.stringify(data.preferences);
+
+  const saveMutation = useMutation({
+    mutationFn: async (next: NotificationPreferences) => {
+      const res = await apiRequest("PUT", "/api/portal/notification-preferences", next);
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Notification preferences saved" });
+      queryClient.invalidateQueries({ queryKey: ["/api/portal/notification-preferences"] });
+    },
+    onError: () => {
+      toast({ title: "Couldn't save preferences", description: "Try again in a moment.", variant: "destructive" });
+    },
+  });
+
+  if (isLoading || !draft) {
+    return (
+      <div className="bg-white rounded-xl border border-gray-200 p-5 animate-pulse">
+        <div className="h-4 w-32 bg-gray-200 rounded mb-3" />
+        <div className="h-3 w-3/4 bg-gray-100 rounded" />
+      </div>
+    );
+  }
+
+  const setChannel = (channel: "email" | "sms", value: boolean) =>
+    setDraft((d) => (d ? { ...d, channels: { ...d.channels, [channel]: value } } : d));
+
+  const setCategory = (key: NotificationCategoryKey, value: boolean) =>
+    setDraft((d) => (d ? { ...d, categories: { ...d.categories, [key]: value } } : d));
+
+  const noChannelOn = !draft.channels.email && !draft.channels.sms;
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-5">
+      <div className="flex items-center gap-2">
+        <Bell className="w-4 h-4 text-gray-700" />
+        <h2 className="text-sm font-semibold text-gray-900">Notifications</h2>
+      </div>
+
+      {/* Channels */}
+      <div>
+        <p className="text-xs text-gray-500 mb-3">
+          How should we reach you? Turning a channel off mutes every notification on that channel.
+        </p>
+        <div className="space-y-2">
+          <ChannelRow
+            icon={<Mail className="w-3.5 h-3.5 text-gray-500" />}
+            label="Email"
+            description="Sent to your account email."
+            checked={draft.channels.email}
+            onChange={(v) => setChannel("email", v)}
+          />
+          <ChannelRow
+            icon={<MessageSquare className="w-3.5 h-3.5 text-gray-500" />}
+            label="SMS"
+            description="Sent to your account phone."
+            checked={draft.channels.sms}
+            onChange={(v) => setChannel("sms", v)}
+          />
+        </div>
+        {noChannelOn && (
+          <p className="mt-3 px-3 py-2 bg-amber-50 border border-amber-200 rounded-md text-xs text-amber-800">
+            Both channels are off — you won't receive any notifications. Critical billing alerts will still be sent regardless.
+          </p>
+        )}
+      </div>
+
+      {/* Categories */}
+      <div className="border-t border-gray-100 pt-4">
+        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">Categories</p>
+        <div className="space-y-2">
+          {NOTIFICATION_CATEGORY_KEYS.map((key) => {
+            const meta = NOTIFICATION_CATEGORY_LABELS[key];
+            return (
+              <div
+                key={key}
+                className="flex items-start justify-between gap-3 py-1.5"
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-800">{meta.label}</p>
+                  <p className="text-xs text-gray-500">{meta.description}</p>
+                </div>
+                <Switch
+                  checked={draft.categories[key]}
+                  onCheckedChange={(v) => setCategory(key, v)}
+                  aria-label={`${meta.label} notifications`}
+                />
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Save */}
+      {dirty && (
+        <div className="flex items-center gap-3 pt-1 border-t border-gray-100">
+          <button
+            type="button"
+            onClick={() => saveMutation.mutate(draft)}
+            disabled={saveMutation.isPending}
+            className="px-4 py-2 text-sm font-medium text-white bg-[#2D6A4F] rounded-lg hover:bg-[#1B4332] transition-colors disabled:opacity-60"
+          >
+            {saveMutation.isPending ? "Saving…" : "Save preferences"}
+          </button>
+          <button
+            type="button"
+            onClick={() => data && setDraft(data.preferences)}
+            disabled={saveMutation.isPending}
+            className="text-xs text-gray-500 hover:text-gray-700"
+          >
+            Discard changes
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ChannelRow({
+  icon, label, description, checked, onChange,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  description: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 py-1">
+      <div className="flex items-start gap-2 min-w-0">
+        <span className="mt-0.5 flex-shrink-0">{icon}</span>
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-gray-800">{label}</p>
+          <p className="text-xs text-gray-500">{description}</p>
+        </div>
+      </div>
+      <Switch checked={checked} onCheckedChange={onChange} aria-label={`${label} channel`} />
+    </div>
   );
 }

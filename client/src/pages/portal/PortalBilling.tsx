@@ -203,22 +203,44 @@ export default function PortalBilling() {
                         <th className="px-5 py-2 font-medium">Description</th>
                         <th className="px-5 py-2 font-medium text-right">Amount</th>
                         <th className="px-5 py-2 font-medium">Status</th>
+                        <th className="px-5 py-2 font-medium text-right" />
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
-                      {data.payments.map((p) => (
-                        <tr key={p.id} className="hover:bg-gray-50/50">
-                          <td className="px-5 py-3 text-gray-600 whitespace-nowrap">{formatDate(p.created_at)}</td>
-                          <td className="px-5 py-3 text-gray-700">{p.service_name || "-"}</td>
-                          <td className="px-5 py-3 text-gray-500">{p.description || "Invoice"}</td>
-                          <td className="px-5 py-3 text-gray-900 font-medium text-right whitespace-nowrap">{formatCents(p.amount_cents)}</td>
-                          <td className="px-5 py-3">
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${PAYMENT_STATUS_STYLES[p.status] || "bg-gray-100 text-gray-600"}`}>
-                              {statusLabel(PAYMENT_STATUS_LABELS, p.status)}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
+                      {data.payments.map((p) => {
+                        const isUnpaid = p.status === "pending" || p.status === "failed";
+                        return (
+                          <tr key={p.id} className="hover:bg-gray-50/50">
+                            <td className="px-5 py-3 text-gray-600 whitespace-nowrap">{formatDate(p.created_at)}</td>
+                            <td className="px-5 py-3 text-gray-700">{p.service_name || "-"}</td>
+                            <td className="px-5 py-3 text-gray-500">{p.description || "Invoice"}</td>
+                            <td className="px-5 py-3 text-gray-900 font-medium text-right whitespace-nowrap">{formatCents(p.amount_cents)}</td>
+                            <td className="px-5 py-3">
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${PAYMENT_STATUS_STYLES[p.status] || "bg-gray-100 text-gray-600"}`}>
+                                {statusLabel(PAYMENT_STATUS_LABELS, p.status)}
+                              </span>
+                            </td>
+                            <td className="px-5 py-3 text-right whitespace-nowrap">
+                              {isUnpaid && (
+                                /* Per-row "Pay now" sends the customer
+                                   to the Stripe billing portal where
+                                   their open invoices are listed. We
+                                   reuse the same portal-session endpoint
+                                   the header CTA uses — Stripe handles
+                                   payment method, amount, and receipt. */
+                                <button
+                                  type="button"
+                                  onClick={openBillingPortal}
+                                  disabled={portalLoading}
+                                  className="inline-flex items-center gap-1 text-xs font-medium text-[#2D6A4F] hover:text-[#1B4332] disabled:opacity-50"
+                                >
+                                  Pay now <ExternalLink className="w-3 h-3" />
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

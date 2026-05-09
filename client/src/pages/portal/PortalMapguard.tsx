@@ -7,13 +7,23 @@ import { usePageTitle } from "@/hooks/usePageTitle";
  * no tasks, alerts, suppliers, or internal ops data.
  */
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
+import {
+  type MapguardConfig,
+  DEFAULT_MAPGUARD_CONFIG,
+} from "@shared/schema";
 import {
   Shield, Star, MessageSquare, MapPin, TrendingUp, TrendingDown,
-  Minus, Eye, CheckCircle, Activity, Clock,
+  Minus, Eye, CheckCircle, Activity, Clock, Plus, X, Save, Loader2, Settings,
 } from "lucide-react";
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
@@ -442,6 +452,9 @@ export default function PortalMapguard() {
                 </div>
               </Card>
             )}
+
+            {/* Customer-editable monitoring config */}
+            <MapguardConfigCard />
           </>
         )}
       </div>
@@ -505,5 +518,235 @@ function ProfileCheck({ label, ok, detail }: { label: string; ok: boolean; detai
         {detail && <span className="text-[11px] text-gray-400 ml-1">({detail})</span>}
       </div>
     </div>
+  );
+}
+
+/* ─── MapGuard config editor ─────────────────────────────────────
+   Lets the customer override the auto-generated keyword list, set
+   a city for ranking searches, tune the rank-drop alert threshold,
+   and toggle the weekly summary email. The card is dirty-tracked so
+   the Save button only appears when something has changed. */
+
+interface MapguardConfigResponse {
+  config: MapguardConfig;
+  defaults: MapguardConfig;
+  resolved_city: string | null;
+  trade_type: string | null;
+}
+
+function MapguardConfigCard() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const { data, isLoading } = useQuery<MapguardConfigResponse>({
+    queryKey: ["/api/portal/mapguard/config"],
+  });
+
+  const [draft, setDraft] = useState<MapguardConfig | null>(null);
+  const [keywordInput, setKeywordInput] = useState("");
+
+  useEffect(() => {
+    if (data?.config && !draft) setDraft(data.config);
+  }, [data, draft]);
+
+  const saveMutation = useMutation({
+    mutationFn: async (next: MapguardConfig) => {
+      const res = await apiRequest("PUT", "/api/portal/mapguard/config", next);
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "MapGuard settings saved" });
+      queryClient.invalidateQueries({ queryKey: ["/api/portal/mapguard/config"] });
+    },
+    onError: () => {
+      toast({ title: "Couldn't save", description: "Try again in a moment.", variant: "destructive" });
+    },
+  });
+
+  if (isLoading || !draft || !data) {
+    return (
+      <Card className="p-5">
+        <Skeleton className="h-4 w-32 mb-3" />
+        <Skeleton className="h-3 w-full mb-2" />
+        <Skeleton className="h-8 w-full" />
+      </Card>
+    );
+  }
+
+  const dirty = JSON.stringify(draft) !== JSON.stringify(data.config);
+  const usingCustomKeywords = !!draft.custom_keywords && draft.custom_keywords.length > 0;
+
+  const addKeyword = () => {
+    const v = keywordInput.trim();
+    if (!v) return;
+    const list = draft.custom_keywords ?? [];
+    if (list.includes(v) || list.length >= 50) return;
+    setDraft({ ...draft, custom_keywords: [...list, v] });
+    setKeywordInput("");
+  };
+  const removeKeyword = (kw: string) => {
+    const list = (draft.custom_keywords ?? []).filter((k) => k !== kw);
+    setDraft({ ...draft, custom_keywords: list.length === 0 ? null : list });
+  };
+
+  return (
+    <Card className="p-5 space-y-5">
+      <div className="flex items-center gap-2">
+        <Settings className="w-4 h-4 text-gray-700" />
+        <div>
+          <h2 className="text-sm font-semibold text-gray-900">Monitoring settings</h2>
+          <p className="text-xs text-gray-500">Customize what we monitor and how we alert you.</p>
+        </div>
+      </div>
+
+      {/* City override */}
+      <div className="space-y-1.5">
+        <label className="text-xs font-medium text-gray-700">City / region</label>
+        <Input
+          type="text"
+          value={draft.city ?? ""}
+          onChange={(e) => setDraft({ ...draft, city: e.target.value || null })}
+          placeholder={data.resolved_city ?? "auto-detected from your business profile"}
+          className="h-9 text-sm"
+        />
+        <p className="text-[11px] text-gray-400">
+          Used when searching for keyword rankings. Leave blank to let MapGuard auto-detect.
+        </p>
+      </div>
+
+      {/* Keywords */}
+      <div className="space-y-2">
+        <div className="flex items-baseline justify-between gap-2">
+          <label className="text-xs font-medium text-gray-700">Tracked keywords</label>
+          {!usingCustomKeywords && (
+            <span className="text-[11px] text-gray-400">
+              Auto-generated from {data.trade_type ?? "your trade"}
+            </span>
+          )}
+        </div>
+        {usingCustomKeywords && (
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            {(draft.custom_keywords ?? []).map((kw) => (
+              <span
+                key={kw}
+                className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 rounded-md text-xs font-medium text-gray-700"
+              >
+                {kw}
+                <button
+                  type="button"
+                  onClick={() => removeKeyword(kw)}
+                  aria-label={`Remove ${kw}`}
+                  className="text-gray-400 hover:text-gray-700"
+                >
+                  <X size={12} />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+        <div className="flex gap-2">
+          <Input
+            type="text"
+            value={keywordInput}
+            onChange={(e) => setKeywordInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                addKeyword();
+              }
+            }}
+            placeholder={`e.g. emergency ${data.trade_type ?? "plumber"} ${data.resolved_city ?? "near me"}`}
+            className="h-9 text-sm flex-1"
+          />
+          <Button type="button" size="sm" variant="outline" onClick={addKeyword} className="h-9 px-3">
+            <Plus size={14} className="mr-1" /> Add
+          </Button>
+        </div>
+        <p className="text-[11px] text-gray-400">
+          Up to 50 keywords. Adding even one switches off the auto-generated list.
+        </p>
+      </div>
+
+      {/* Alerts */}
+      <div className="border-t border-gray-100 pt-4 space-y-3">
+        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Alerts</p>
+
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium text-gray-700">
+            Alert when ranking drops by at least
+            <span className="ml-2 font-semibold text-gray-900">
+              {draft.alerts.rank_drop_threshold === 0
+                ? "disabled"
+                : `${draft.alerts.rank_drop_threshold} position${draft.alerts.rank_drop_threshold === 1 ? "" : "s"}`}
+            </span>
+          </label>
+          <input
+            type="range"
+            min={0}
+            max={10}
+            value={draft.alerts.rank_drop_threshold}
+            onChange={(e) =>
+              setDraft({
+                ...draft,
+                alerts: { ...draft.alerts, rank_drop_threshold: parseInt(e.target.value) },
+              })
+            }
+            className="w-full"
+          />
+          <div className="flex justify-between text-[10px] text-gray-400">
+            <span>Off</span>
+            <span>Sensitive</span>
+            <span>10+ positions</span>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between gap-3 pt-1">
+          <div>
+            <p className="text-sm font-medium text-gray-800">Weekly summary email</p>
+            <p className="text-[11px] text-gray-400">Friday recap of last week's rankings, reviews, and snapshot changes.</p>
+          </div>
+          <Switch
+            checked={draft.alerts.weekly_summary}
+            onCheckedChange={(v) =>
+              setDraft({ ...draft, alerts: { ...draft.alerts, weekly_summary: v } })
+            }
+          />
+        </div>
+      </div>
+
+      {/* Save bar */}
+      {dirty && (
+        <div className="flex items-center gap-3 pt-1 border-t border-gray-100">
+          <Button
+            onClick={() => saveMutation.mutate(draft)}
+            disabled={saveMutation.isPending}
+            size="sm"
+          >
+            {saveMutation.isPending ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> Saving…
+              </>
+            ) : (
+              <>
+                <Save className="w-3.5 h-3.5 mr-1.5" /> Save settings
+              </>
+            )}
+          </Button>
+          <button
+            type="button"
+            onClick={() => setDraft(data.config)}
+            disabled={saveMutation.isPending}
+            className="text-xs text-gray-500 hover:text-gray-700"
+          >
+            Discard changes
+          </button>
+        </div>
+      )}
+      {!dirty && draft.custom_keywords === null && draft.alerts.rank_drop_threshold === DEFAULT_MAPGUARD_CONFIG.alerts.rank_drop_threshold && (
+        <p className="text-[11px] text-gray-400 pt-1 border-t border-gray-100">
+          You're using the default MapGuard configuration.
+        </p>
+      )}
+    </Card>
   );
 }

@@ -15,6 +15,7 @@ import { eq, and, desc, sql, asc } from "drizzle-orm";
 import { createMapguardTask, getExecutionUsage } from "./mapguardTaskEngine";
 import type { MapguardTask } from "@shared/schemas/mapguard";
 import { processMapguardAlerts, getAlertCountSince, checkCostAlert } from "./mapguardAlerts";
+import { parseMapguardConfig } from "@shared/schemas/mapguardConfig";
 import { createLogger } from "../lib/logger";
 
 const log = createLogger("MapguardMonitor");
@@ -470,10 +471,14 @@ export async function runMapguardScan(client: MapguardClient): Promise<{
   const startTime = Date.now();
   const errors: string[] = [];
 
-  // Build keywords from trade + city (simplified version)
+  // Resolve config from metadata: customer-supplied city/keywords win,
+  // otherwise fall back to the auto-built defaults (trade + city).
+  const cfg = parseMapguardConfig(client.metadata);
   const trade = client.trade_type || "trades";
-  const city = (client.metadata as any)?.city || "local area";
-  const keywords = buildMonitorKeywords(trade, city);
+  const city = cfg.city || (client.metadata as any)?.city || "local area";
+  const keywords = cfg.custom_keywords && cfg.custom_keywords.length > 0
+    ? cfg.custom_keywords
+    : buildMonitorKeywords(trade, city);
 
   // Fetch data in parallel
   const [profileData, rankingData] = await Promise.all([
