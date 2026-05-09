@@ -147,6 +147,44 @@
   body {
     @apply font-sans antialiased bg-background text-foreground;
   }
+
+  /* ─── Accessibility: keyboard-focus visibility ────────────────────
+     Ensure every interactive element shows a visible focus ring when
+     navigated by keyboard, while still hiding the ring on mouse/touch.
+     Uses :focus-visible so the ring only appears for keyboard users.
+
+     Selector deliberately broad — applies to the bare elements rather
+     than to specific component classes so newly-added markup picks
+     up the ring automatically. Component-level overrides (e.g. the
+     `mkt-btn-*` classes in this file, or shadcn primitives) win
+     because they target a more specific selector. */
+  button:focus-visible,
+  [role="button"]:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible,
+  summary:focus-visible,
+  [tabindex]:not([tabindex="-1"]):focus-visible {
+    outline: 2px solid #2D6A4F;
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* Screen-reader-only utility for skip links + visually-hidden
+     labels. Tailwind ships `sr-only` already; this is the matching
+     `not-sr-only` reveal that the focus-only skip link uses. */
+  .sr-only:focus.not-sr-only,
+  .sr-only:focus-within.not-sr-only {
+    position: static;
+    width: auto;
+    height: auto;
+    padding: 0;
+    margin: 0;
+    overflow: visible;
+    clip: auto;
+    white-space: normal;
+  }
 }
 
 @keyframes spin {

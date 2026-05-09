@@ -236,8 +236,9 @@ export default function PortalChatWidget({
           onClick={() => setOpen(true)}
           className="fixed bottom-4 right-4 z-40 w-12 h-12 rounded-full bg-[#2D6A4F] text-white shadow-lg hover:bg-[#1B4332] flex items-center justify-center transition-colors"
           title="Need help? Chat with our assistant"
+          aria-label="Open support chat"
         >
-          <MessageCircle className="w-5 h-5" />
+          <MessageCircle className="w-5 h-5" aria-hidden="true" />
         </button>
       )}
 
@@ -253,8 +254,9 @@ export default function PortalChatWidget({
             <button
               onClick={() => setOpen(false)}
               className="p-1 rounded hover:bg-white/20 text-white"
+              aria-label="Close support chat"
             >
-              <X className="w-4 h-4" />
+              <X className="w-4 h-4" aria-hidden="true" />
             </button>
           </div>
 
@@ -413,8 +415,9 @@ export default function PortalChatWidget({
                   (!input.trim() && !attachments.some((a) => a.status === "uploaded"))
                 }
                 className="p-2 rounded-lg bg-[#2D6A4F] text-white hover:bg-[#1B4332] disabled:opacity-40 transition-colors"
+                aria-label="Send message"
               >
-                <Send className="w-4 h-4" />
+                <Send className="w-4 h-4" aria-hidden="true" />
               </button>
             </div>
           </div>
