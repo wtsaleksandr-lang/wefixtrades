@@ -520,9 +520,31 @@ export interface IStorage {
 
   // ─── Routing Events (Phase 1) ───
   createRoutingEvent(data: InsertRoutingEvent): Promise<RoutingEvent>;
-  systemResolveRoutingEvent(entityType: string, entityId: number, queue: string): Promise<void>;
+  /**
+   * System-resolve active/snoozed events for an (entity, queue) key.
+   * `ruleName` is optional — when set, only events created by that
+   * rule are resolved. Necessary when multiple rules can write to the
+   * same queue (e.g. mapguard_scan_failed and mapguard_serper_outage
+   * both write to ops_attention) and we don't want one rule's
+   * resolution to clear the other rule's still-valid event.
+   */
+  systemResolveRoutingEvent(entityType: string, entityId: number, queue: string, ruleName?: string): Promise<void>;
   adminAcknowledgeRoutingEvent(id: number, userId: number): Promise<RoutingEvent | undefined>;
   listQueueItems(queue: string, limit?: number): Promise<RoutingEvent[]>;
+  /**
+   * Most-recent admin_acknowledged event for an (entity, queue) key.
+   * The routing worker uses this to apply the per-queue requeue policy:
+   * an acknowledged event is terminal for its instance, but if the
+   * underlying condition still holds past the queue's threshold a
+   * fresh active event must fire. Returns undefined when no
+   * acknowledged event has ever existed for that key.
+   */
+  getLastAcknowledgedRoutingEvent(
+    entityType: string,
+    entityId: number,
+    queue: string,
+    ruleName?: string,
+  ): Promise<RoutingEvent | undefined>;
 
   // ─── AdFlow Reports History ───
   createAdflowReport(data: InsertAdflowReport): Promise<AdflowReport>;
@@ -4579,8 +4601,19 @@ export class DatabaseStorage implements IStorage {
     entityType: string,
     entityId: number,
     queue: string,
+    ruleName?: string,
   ): Promise<void> {
     const now = new Date();
+    const conds = [
+      eq(routingEvents.entity_type, entityType),
+      eq(routingEvents.entity_id, entityId),
+      eq(routingEvents.queue, queue),
+      or(
+        eq(routingEvents.status, "active"),
+        eq(routingEvents.status, "snoozed"),
+      ),
+    ];
+    if (ruleName) conds.push(eq(routingEvents.rule_name, ruleName));
     await db
       .update(routingEvents)
       .set({
@@ -4588,17 +4621,7 @@ export class DatabaseStorage implements IStorage {
         resolved_at: now,
         updated_at: now,
       })
-      .where(
-        and(
-          eq(routingEvents.entity_type, entityType),
-          eq(routingEvents.entity_id, entityId),
-          eq(routingEvents.queue, queue),
-          or(
-            eq(routingEvents.status, "active"),
-            eq(routingEvents.status, "snoozed"),
-          ),
-        ),
-      );
+      .where(and(...conds));
   }
 
   /**
@@ -4626,6 +4649,28 @@ export class DatabaseStorage implements IStorage {
       )
       .returning();
     return event;
+  }
+
+  async getLastAcknowledgedRoutingEvent(
+    entityType: string,
+    entityId: number,
+    queue: string,
+    ruleName?: string,
+  ): Promise<RoutingEvent | undefined> {
+    const conds = [
+      eq(routingEvents.entity_type, entityType),
+      eq(routingEvents.entity_id, entityId),
+      eq(routingEvents.queue, queue),
+      eq(routingEvents.status, "admin_acknowledged"),
+    ];
+    if (ruleName) conds.push(eq(routingEvents.rule_name, ruleName));
+    const [row] = await db
+      .select()
+      .from(routingEvents)
+      .where(and(...conds))
+      .orderBy(desc(routingEvents.acknowledged_at))
+      .limit(1);
+    return row;
   }
 
   /**

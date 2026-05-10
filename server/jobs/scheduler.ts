@@ -53,6 +53,7 @@ import { processEmbedBrokenDetection } from "./embedBrokenDetector";
 import { processBillRetention } from "./tradelineBillRetentionWorker";
 import { processProTrialExpiry } from "./trialProExpiryWorker";
 import { processTradelineProvisionRetry } from "./tradelineProvisionRetryWorker";
+import { processRoutingEngine } from "../engine/routingWorker";
 
 const log = createLogger("Scheduler");
 
@@ -576,6 +577,7 @@ export function initScheduler() {
       "Auto-activation worker: every 5 minutes",
       "Upsell emails: 10:00 UTC daily",
       "WebCare monthly maintenance: 03:00 UTC on the 1st of each month",
+      "Routing engine: every 5 minutes",
     ],
   });
 
@@ -818,6 +820,27 @@ export function initScheduler() {
       log.error("tradeline_mode_sync error", { error: err.message });
     } finally {
       tradelineModeRunning = false;
+    }
+  });
+
+  // Rules & Routing Engine — every 5 minutes. Reads existing entity
+  // state, applies typed rule functions per domain, and writes
+  // routing_events. Overlap-guarded both in-process (the flag below)
+  // and via jobLogs (see server/engine/routingWorker.ts) so a slow
+  // cycle on a busy DB cannot double-fire.
+  let routingEngineRunning = false;
+  cron.schedule("*/5 * * * *", async () => {
+    if (routingEngineRunning) {
+      log.debug("routing_engine skipped — previous tick still running");
+      return;
+    }
+    routingEngineRunning = true;
+    try {
+      await processRoutingEngine();
+    } catch (err: any) {
+      log.error("routing_engine error", { error: err.message });
+    } finally {
+      routingEngineRunning = false;
     }
   });
 
