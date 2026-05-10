@@ -85,6 +85,7 @@ import { compileMonthlyReport } from "../services/mapguardReports";
 import { getExecutionUsage } from "../services/mapguardTaskEngine";
 import { generateClientActivityFeed } from "../services/mapguardRetention";
 import { getClientPerformanceSummary } from "../services/mapguardMonitor";
+import { getUpsellStatus, dismissUpsell } from "../services/mapguardUpsell";
 import { createLogger } from "../lib/logger";
 import { saveFile, deleteFile } from "../services/fileStorage";
 
@@ -2862,7 +2863,13 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
         .limit(1);
 
       if (!mgService) {
-        return res.json({ active: false, snapshots: [], health: null });
+        // No active monthly plan — surface the setup-completion upsell
+        // banner if the customer has a completed mapguard-setup. This
+        // replaces the bland "MapGuard is not active" empty state for
+        // customers who finished the setup project but haven't yet
+        // chosen a Basic/Pro tier.
+        const upsell = await getUpsellStatus(clientId);
+        return res.json({ active: false, snapshots: [], health: null, setup_completed_upsell: upsell });
       }
 
       // Get last 12 snapshots (newest first)
@@ -3002,6 +3009,24 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
     } catch (err: any) {
       log.error("Portal MapGuard error:", err);
       res.status(500).json({ error: "Failed to load MapGuard data" });
+    }
+  });
+
+  /**
+   * POST /api/portal/mapguard/upsell/dismiss
+   * Customer dismissed the "your setup is complete, continue with Basic/Pro"
+   * banner. Sets metadata.upsell_dismissed=true on the most recent completed
+   * mapguard-setup so the banner won't render again. Idempotent.
+   */
+  app.post("/api/portal/mapguard/upsell/dismiss", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+      const result = await dismissUpsell(clientId);
+      res.json(result);
+    } catch (err: any) {
+      log.error("Portal MapGuard upsell dismiss error:", err);
+      res.status(500).json({ error: "Failed to dismiss upsell" });
     }
   });
 

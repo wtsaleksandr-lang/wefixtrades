@@ -121,6 +121,7 @@ import { QUOTEQUICK_PLAN_REVENUE_CENTS } from "@shared/pricing";
 import { createLogger } from "./lib/logger";
 import { kickoffMapguardService } from "./services/mapguardTaskEngine";
 import { extractPlaceId } from "@shared/utils/googlePlaceId";
+import { fireSetupCompletionUpsell } from "./services/mapguardUpsell";
 
 /**
  * Normalise a client write that may set google_place_id from a pasted
@@ -2486,6 +2487,16 @@ export class DatabaseStorage implements IStorage {
     // Idempotent guard inside kickoffMapguardService prevents double-fire.
     if (serviceActivated) {
       await fireMapguardKickoffIfActive(clientServiceId);
+    }
+
+    // mapguard-setup completion upsell: when a one_time setup finishes,
+    // nudge the customer toward Basic/Pro monthly. Idempotent inside
+    // fireSetupCompletionUpsell (metadata.upsell_email_sent flag), so a
+    // cascade re-fire or manual replay won't double-send. Fire-and-forget
+    // — the email is non-essential to the completion flow.
+    if (serviceCompleted && cs.service_id === "mapguard-setup") {
+      void fireSetupCompletionUpsell(cs.client_id, clientServiceId)
+        .catch(err => log.error(`[storage] setup-completion upsell failed for cs=${clientServiceId}: ${err.message}`));
     }
 
     // Check if client should be moved to "active"
