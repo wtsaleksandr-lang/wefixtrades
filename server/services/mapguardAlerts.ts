@@ -25,7 +25,28 @@ const log = createLogger("MapguardAlerts");
 const COST_ALERT_THRESHOLD_CENTS = 10000; // $100/month — alert if supplier costs exceed this
 
 const ALERT_RECIPIENT = process.env.MAPGUARD_ALERT_EMAIL || process.env.SMTP_USER || "";
-const DEDUP_WINDOW_DAYS = 6; // Don't re-alert same type for same client within this window
+
+/**
+ * Per-alert-type dedup windows. The previous flat 6-day window had two
+ * problems: (1) transient metric alerts (score/rating drops that recover
+ * and re-occur within a week) were silently swallowed, and (2) a failed
+ * email send still inserted a row, locking out retry for 6 days. We now:
+ *   - tighten transient metric alerts to 2 days (recover-and-redrop is a
+ *     legitimate re-alert),
+ *   - keep state-based alerts on the longer window,
+ *   - widen cost_threshold to 30 days since it's a monthly metric,
+ *   - and only count alerts that actually delivered (`email_sent=true`)
+ *     so failed sends naturally retry on the next scan.
+ */
+const DEDUP_WINDOW_DAYS_BY_TYPE: Record<string, number> = {
+  score_drop: 2,
+  rating_drop: 2,
+  rank_drops: 2,
+  local_pack_lost: 2,
+  new_critical_issue: 7,
+  cost_threshold: 30,
+};
+const DEFAULT_DEDUP_WINDOW_DAYS = 6;
 // Phase-2: previous ternary had operator-precedence bug
 // (`A || B ? \`https://${B}\` : ...`) — if A was set but B unset, it
 // produced "https://undefined". Use the same fallback chain reports use.
@@ -138,14 +159,16 @@ export function evaluateAlertTriggers(
    ═══════════════════════════════════════════ */
 
 async function isDuplicate(clientId: number, alertType: string): Promise<boolean> {
+  const days = DEDUP_WINDOW_DAYS_BY_TYPE[alertType] ?? DEFAULT_DEDUP_WINDOW_DAYS;
   const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - DEDUP_WINDOW_DAYS);
+  cutoff.setDate(cutoff.getDate() - days);
 
   const [existing] = await db.select({ id: mapguardAlerts.id })
     .from(mapguardAlerts)
     .where(and(
       eq(mapguardAlerts.client_id, clientId),
       eq(mapguardAlerts.alert_type, alertType),
+      eq(mapguardAlerts.email_sent, true),
       gte(mapguardAlerts.created_at, cutoff),
     ))
     .limit(1);

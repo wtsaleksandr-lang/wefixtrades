@@ -12,7 +12,7 @@ import { db } from "../db";
 import { mapguardSnapshots, type InsertMapguardSnapshot, type MapguardSnapshot } from "@shared/schemas/mapguardMonitoring";
 import { clients, clientServices, serviceCatalog } from "@shared/schemas/adminCrm";
 import { eq, and, desc, sql, asc } from "drizzle-orm";
-import { createMapguardTask, getExecutionUsage } from "./mapguardTaskEngine";
+import { createMapguardTask, getExecutionUsageForMany } from "./mapguardTaskEngine";
 import type { MapguardTask } from "@shared/schemas/mapguard";
 import { processMapguardAlerts, getAlertCountSince, checkCostAlert } from "./mapguardAlerts";
 import { parseMapguardConfig } from "@shared/schemas/mapguardConfig";
@@ -99,7 +99,15 @@ async function fetchPlaceDetails(placeId: string): Promise<{
     const fields = "displayName,rating,userRatingCount,photos,websiteUri,regularOpeningHours,editorialSummary";
     const url = `https://places.googleapis.com/v1/places/${placeId}?fields=${fields}&key=${key}`;
     const res = await fetch(url, { ...withSignal(PLACES_TIMEOUT) });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      // Surface non-2xx status so ops can distinguish a missing/invalid
+      // placeId (404), a quota issue (403), and an upstream incident (5xx).
+      // The previous silent `return null` looked identical to "client has
+      // no place_id" in scan_metadata.errors.
+      const bodySnippet = await res.text().then(t => t.slice(0, 200)).catch(() => "");
+      console.warn(`[mapguard-monitor] places API ${res.status} for placeId=${placeId}${bodySnippet ? ` body="${bodySnippet}"` : ""}`);
+      return null;
+    }
     const data = await res.json();
 
     return {
@@ -1009,13 +1017,11 @@ export async function getMapguardPortfolioDashboard(): Promise<PortfolioDashboar
   let scoreCount = 0;
   let upgradeOpportunities = 0;
 
-  // 5. Get execution usage per client (batch-friendly: one call per client)
-  const usageMap = new Map<number, Awaited<ReturnType<typeof getExecutionUsage>>>();
-  for (const client of activeClients) {
-    try {
-      usageMap.set(client.client_id, await getExecutionUsage(client.client_id));
-    } catch { /* skip on error */ }
-  }
+  // 5. Execution usage for every client in one batch (3 grouped queries
+  // instead of 3×N serial round-trips). Critical for the admin portfolio
+  // dashboard: at 100 active clients the previous loop was ~300 sequential
+  // queries on the request path.
+  const usageMap = await getExecutionUsageForMany(activeClients.map(c => c.client_id));
 
   for (const client of activeClients) {
     const snap = snapshotMap.get(client.client_id);

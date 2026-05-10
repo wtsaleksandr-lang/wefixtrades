@@ -9,7 +9,7 @@ import { db } from "../db";
 import { mapguardTasks, mapguardTaskActivity } from "@shared/schemas/mapguard";
 import { clients, fulfillmentTasks } from "@shared/schemas/adminCrm";
 import { auditReports, jobLogs } from "@shared/schemas/db";
-import { eq, and, sql, desc, asc, isNull } from "drizzle-orm";
+import { eq, and, sql, desc, asc, isNull, inArray } from "drizzle-orm";
 import {
   AUDIT_ISSUE_TO_TASK,
   MAPGUARD_TASK_TYPES,
@@ -109,6 +109,105 @@ export async function getExecutionUsage(clientId: number): Promise<ExecutionUsag
     backlog_count: backlogCount,
     upgrade_recommended: atLimit && backlogCount >= 1,
   };
+}
+
+/**
+ * Batched version of getExecutionUsage for dashboard rollups. Replaces the
+ * per-client N+1 pattern (3 queries × N clients in a serial loop) used in
+ * the admin portfolio dashboard. Now: 3 grouped queries total, regardless
+ * of N. For 100 active clients this drops ~300 round-trips to 3.
+ */
+export async function getExecutionUsageForMany(clientIds: number[]): Promise<Map<number, ExecutionUsage>> {
+  const result = new Map<number, ExecutionUsage>();
+  if (clientIds.length === 0) return result;
+
+  const monthStart = new Date();
+  monthStart.setDate(1);
+  monthStart.setHours(0, 0, 0, 0);
+
+  const EXEC_TYPES_SQL = sql`(${mapguardTasks.task_type} IN ('gbp_optimization','citation_cleanup','review_issue_response','competitor_reaction','profile_content_update','photo_upload','post_scheduling','suspension_support'))`;
+
+  const [planRows, usedRows, backlogRows] = await Promise.all([
+    // Plan rows: most recent active basic/pro service per client.
+    db.select({
+      client_id: clientServices.client_id,
+      service_id: clientServices.service_id,
+      created_at: clientServices.created_at,
+    })
+      .from(clientServices)
+      .where(and(
+        inArray(clientServices.client_id, clientIds),
+        eq(clientServices.status, "active"),
+        eq(clientServices.enabled, true),
+        sql`${clientServices.service_id} IN ('mapguard-basic', 'mapguard-pro')`,
+      ))
+      .orderBy(desc(clientServices.created_at)),
+    // Used: completed-or-in-flight execution tasks this month, grouped.
+    db.select({
+      client_id: mapguardTasks.client_id,
+      count: sql<number>`count(*)::int`,
+    })
+      .from(mapguardTasks)
+      .where(and(
+        inArray(mapguardTasks.client_id, clientIds),
+        EXEC_TYPES_SQL,
+        sql`${mapguardTasks.status} IN ('in_progress', 'waiting_supplier', 'needs_review', 'completed')`,
+        sql`(${mapguardTasks.updated_at} >= ${monthStart} OR ${mapguardTasks.completed_at} >= ${monthStart})`,
+      ))
+      .groupBy(mapguardTasks.client_id),
+    // Backlog: pending/ready execution tasks, grouped.
+    db.select({
+      client_id: mapguardTasks.client_id,
+      count: sql<number>`count(*)::int`,
+    })
+      .from(mapguardTasks)
+      .where(and(
+        inArray(mapguardTasks.client_id, clientIds),
+        EXEC_TYPES_SQL,
+        sql`${mapguardTasks.status} IN ('pending', 'ready')`,
+      ))
+      .groupBy(mapguardTasks.client_id),
+  ]);
+
+  // Reduce plan rows to one (most recent) per client.
+  const planByClient = new Map<number, { serviceId: string; limit: number; label: string }>();
+  for (const row of planRows) {
+    if (!planByClient.has(row.client_id)) {
+      planByClient.set(row.client_id, {
+        serviceId: row.service_id,
+        limit: getPlanLimit(row.service_id),
+        label: getPlanLabel(row.service_id),
+      });
+    }
+  }
+
+  const usedByClient = new Map(usedRows.map(r => [r.client_id, r.count]));
+  const backlogByClient = new Map(backlogRows.map(r => [r.client_id, r.count]));
+
+  // Default plan for clients with no active basic/pro service.
+  const defaultPlan = {
+    serviceId: "mapguard-basic",
+    limit: getPlanLimit("mapguard-basic"),
+    label: getPlanLabel("mapguard-basic"),
+  };
+
+  for (const id of clientIds) {
+    const plan = planByClient.get(id) ?? defaultPlan;
+    const used = usedByClient.get(id) ?? 0;
+    const backlog = backlogByClient.get(id) ?? 0;
+    const atLimit = used >= plan.limit;
+    result.set(id, {
+      used,
+      limit: plan.limit,
+      remaining: Math.max(0, plan.limit - used),
+      plan_label: plan.label,
+      at_limit: atLimit,
+      backlog_count: backlog,
+      upgrade_recommended: atLimit && backlog >= 1,
+    });
+  }
+
+  return result;
 }
 
 /** Check if a task can proceed to execution. Returns null if OK, or a reason string if blocked. */
