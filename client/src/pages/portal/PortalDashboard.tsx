@@ -291,11 +291,11 @@ export default function PortalDashboard() {
               <div className="grid grid-cols-2 gap-4 mt-4 pt-3 border-t border-gray-100">
                 <div className="flex items-center gap-2">
                   <Eye className="w-3.5 h-3.5 text-gray-400" />
-                  <span className="text-sm text-gray-600">{qqData.calculator.total_views.toLocaleString()} views</span>
+                  <span className="text-sm text-gray-600">{(qqData.calculator.total_views ?? 0).toLocaleString()} views</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Users className="w-3.5 h-3.5 text-gray-400" />
-                  <span className="text-sm text-gray-600">{qqData.calculator.total_leads.toLocaleString()} leads</span>
+                  <span className="text-sm text-gray-600">{(qqData.calculator.total_leads ?? 0).toLocaleString()} leads</span>
                 </div>
               </div>
             </div>
@@ -342,7 +342,7 @@ export default function PortalDashboard() {
                       <h3 className="text-sm font-semibold text-gray-900">TradeLine</h3>
                       <div className="flex items-center gap-1.5 mt-0.5">
                         <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium capitalize bg-teal-50 text-teal-700">
-                          {tlData.config.variant.replace(/_/g, " ")}
+                          {(tlData.config.variant ?? "").replace(/_/g, " ")}
                         </span>
                         <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${statusBadge.cls}`}>
                           {statusBadge.label}
@@ -411,7 +411,7 @@ export default function PortalDashboard() {
             <div className="px-5 py-4 border-b border-gray-100">
               <h2 className="text-sm font-semibold text-gray-900">Recent Activity</h2>
             </div>
-            {data.recent_activity.length === 0 ? (
+            {!data.recent_activity || data.recent_activity.length === 0 ? (
               <div className="px-5 py-8 text-center">
                 <p className="text-sm font-medium text-gray-700 mb-1">Nothing happening yet</p>
                 <p className="text-xs text-gray-500 max-w-sm mx-auto">Once your services go live, task updates, call logs, and new leads will land here in real time.</p>
