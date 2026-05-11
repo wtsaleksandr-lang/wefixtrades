@@ -167,7 +167,13 @@ function PortalDashboardInner() {
     },
   });
 
-  const tradeLineService = (portalServices ?? []).find(
+  // Defensive at the consumer too: PortalLayout shares this query key but its
+  // queryFn returns the raw response (which may be {services: [...]} or another
+  // object), and TanStack's first-registered queryFn wins. So coerce here.
+  const servicesArr: TradeLineService[] = Array.isArray(portalServices)
+    ? portalServices
+    : ((portalServices as { services?: TradeLineService[] } | null | undefined)?.services ?? []);
+  const tradeLineService = servicesArr.find(
     (s) => s.service_id?.startsWith("tradeline") && s.status !== "cancelled"
   );
 

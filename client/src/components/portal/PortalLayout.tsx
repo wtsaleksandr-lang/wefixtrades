@@ -50,7 +50,10 @@ function useHasRankFlow(): boolean {
     },
     staleTime: 5 * 60 * 1000,
   });
-  const services = data?.services ?? [];
+  // Defensive: this query key is shared with PortalDashboard, whose queryFn
+  // may have stored the raw array in cache. Handle both shapes.
+  const raw: unknown = Array.isArray(data) ? data : (data as { services?: unknown })?.services;
+  const services: { service_id: string; status: string }[] = Array.isArray(raw) ? raw : [];
   return services.some(
     (s) => s.service_id?.startsWith("rankflow") && s.status !== "cancelled"
   );
