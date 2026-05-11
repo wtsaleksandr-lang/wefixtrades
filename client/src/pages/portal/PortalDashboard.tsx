@@ -1,3 +1,4 @@
+import { Component, type ErrorInfo, type ReactNode } from "react";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useQuery } from "@tanstack/react-query";
 import { Wrench, ClipboardList, AlertCircle, CreditCard, Loader2, Calculator, Eye, Users, ExternalLink, RefreshCw, PhoneCall, Clock, ChevronRight } from "lucide-react";
@@ -5,6 +6,27 @@ import { Link } from "wouter";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { TASK_STATUS_STYLES, TASK_STATUS_LABELS, statusLabel } from "@/config/portalLabels";
 import ModeToggle from "@/components/portal/ModeToggle";
+
+/* Temporary in-page error surface so a render exception shows on the page
+ * instead of blanking the React tree. Replace with the app's global error
+ * boundary once the underlying bug is fixed. */
+class PortalErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  state: { error: Error | null } = { error: null };
+  static getDerivedStateFromError(error: Error) { return { error }; }
+  componentDidCatch(error: Error, info: ErrorInfo) { console.error("[PortalErrorBoundary]", error, info); }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{ padding: 20, fontFamily: "ui-monospace, monospace", fontSize: 12, color: "#7f1d1d", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, margin: 20, whiteSpace: "pre-wrap", overflow: "auto" }}>
+          <strong>Portal render error</strong>{"\n\n"}
+          {this.state.error.message}{"\n\n"}
+          {this.state.error.stack}
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 interface PendingOnboardingRow {
   id: number;
@@ -148,6 +170,7 @@ export default function PortalDashboard() {
   });
 
   return (
+    <PortalErrorBoundary>
     <PortalLayout>
       {isLoading && (
         <div className="flex items-center justify-center h-64">
@@ -439,6 +462,7 @@ export default function PortalDashboard() {
         </div>
       )}
     </PortalLayout>
+    </PortalErrorBoundary>
   );
 }
 
