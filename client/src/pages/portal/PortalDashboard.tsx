@@ -159,7 +159,11 @@ function PortalDashboardInner() {
       const res = await fetch("/api/portal/services", { credentials: "include" });
       if (!res.ok) return [];
       const data = await res.json();
-      return data?.services ?? data ?? [];
+      // Defensive: server may return [], {services: []}, or some other shape.
+      // The `?? []` fallback in the consumer doesn't help if data is a non-array
+      // object, so we force an array here.
+      const raw = data?.services ?? data;
+      return Array.isArray(raw) ? raw : [];
     },
   });
 
