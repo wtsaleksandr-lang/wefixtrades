@@ -107,6 +107,14 @@ function timeAgo(dateStr: string): string {
 }
 
 export default function PortalDashboard() {
+  return (
+    <PortalErrorBoundary>
+      <PortalDashboardInner />
+    </PortalErrorBoundary>
+  );
+}
+
+function PortalDashboardInner() {
   usePageTitle("Dashboard");
   const { data, isLoading, error, refetch } = useQuery<OverviewData>({
     queryKey: ["/api/portal/overview"],
@@ -170,7 +178,6 @@ export default function PortalDashboard() {
   });
 
   return (
-    <PortalErrorBoundary>
     <PortalLayout>
       {isLoading && (
         <div className="flex items-center justify-center h-64">
@@ -462,7 +469,6 @@ export default function PortalDashboard() {
         </div>
       )}
     </PortalLayout>
-    </PortalErrorBoundary>
   );
 }
 
