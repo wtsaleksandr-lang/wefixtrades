@@ -149,6 +149,12 @@ export const sessionMiddleware = session({
     secure: process.env.NODE_ENV === "production",
   },
 });
+
+// Trust Replit's HTTPS-terminating load balancer so req.secure reflects the original
+// https:// scheme. Without this, express-session sees an HTTP connection behind the
+// proxy and silently drops the secure-flag cookie — breaking every login flow.
+app.set("trust proxy", 1);
+
 app.use(sessionMiddleware);
 setupPassport();
 app.use(passport.initialize());
