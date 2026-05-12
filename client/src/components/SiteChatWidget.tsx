@@ -128,23 +128,21 @@ export default function SiteChatWidget() {
             zIndex: 9998,
             width: 56,
             height: 56,
-            borderRadius: "50%",
+            borderRadius: 14,
             background: "linear-gradient(135deg, #00D4C8 0%, #00B4AA 100%)",
             border: "none",
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            boxShadow: "0 4px 20px rgba(0, 212, 200, 0.35)",
-            transition: "transform 0.2s ease, box-shadow 0.2s ease",
+            boxShadow: "0 1px 3px rgba(0, 0, 0, 0.12)",
+            transition: "transform 0.2s ease",
           }}
           onMouseEnter={e => {
-            (e.currentTarget as HTMLElement).style.transform = "scale(1.08)";
-            (e.currentTarget as HTMLElement).style.boxShadow = "0 6px 28px rgba(0, 212, 200, 0.45)";
+            (e.currentTarget as HTMLElement).style.transform = "scale(1.06)";
           }}
           onMouseLeave={e => {
             (e.currentTarget as HTMLElement).style.transform = "scale(1)";
-            (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 20px rgba(0, 212, 200, 0.35)";
           }}
         >
           <MessageCircle size={24} color="#fff" />
