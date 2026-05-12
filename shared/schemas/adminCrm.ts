@@ -28,6 +28,36 @@ export const insertServiceCatalogSchema = createInsertSchema(serviceCatalog).omi
 export type InsertServiceCatalog = z.infer<typeof insertServiceCatalogSchema>;
 export type ServiceCatalogRow = typeof serviceCatalog.$inferSelect;
 
+/* ─── Product Drafts (Q28) ─── */
+/* Admin-authored pending edits to serviceCatalog rows. The customer-facing
+   surfaces (website, /portal/catalog, /pricing, etc.) continue reading from
+   serviceCatalog directly — drafts only become customer-visible after an
+   admin explicitly clicks "Approve & Publish" which copies draft_data into
+   the matching serviceCatalog row and stamps published_at. Audit log entry
+   is written on save + publish + reject. */
+export const productDrafts = pgTable("product_drafts", {
+  id: serial("id").primaryKey(),
+  service_id: varchar("service_id", { length: 100 }).notNull().references(() => serviceCatalog.id),
+  status: varchar("status", { length: 20 }).notNull().default("draft"),
+  // draft | published | rejected
+  draft_data: jsonb("draft_data").notNull(),
+  // { name?, tagline?, description?, default_price?, billing_period?, category? }
+  // Only fields the admin actually changed. Unchanged keys are omitted.
+  notes: text("notes"),
+  created_by: integer("created_by").references(() => users.id),
+  created_by_email: text("created_by_email"),
+  published_by: integer("published_by").references(() => users.id),
+  published_at: timestamp("published_at"),
+  rejected_by: integer("rejected_by").references(() => users.id),
+  rejected_at: timestamp("rejected_at"),
+  rejection_reason: text("rejection_reason"),
+  created_at: timestamp("created_at").defaultNow(),
+  updated_at: timestamp("updated_at").defaultNow(),
+});
+export type ProductDraft = typeof productDrafts.$inferSelect;
+export const insertProductDraftSchema = createInsertSchema(productDrafts).omit({ id: true, created_at: true, updated_at: true });
+export type InsertProductDraft = z.infer<typeof insertProductDraftSchema>;
+
 /* ─── Clients ─── */
 export const clients = pgTable("clients", {
   id: serial("id").primaryKey(),

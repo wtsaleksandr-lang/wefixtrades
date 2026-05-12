@@ -85,6 +85,7 @@ import AdminAuditLogPage from "@/pages/admin/AdminAuditLogPage";
 import IntegrationHealthPage from "@/pages/admin/IntegrationHealthPage";
 import BillingPage from "@/pages/admin/BillingPage";
 import ServicesPage from "@/pages/admin/ServicesPage";
+import ProductDetailPage from "@/pages/admin/ProductDetailPage";
 import ServiceOpsPage from "@/pages/admin/ServiceOpsPage";
 import MapguardDashboard from "@/pages/admin/MapguardDashboard";
 import ReviewsPage from "@/pages/admin/ReviewsPage";
@@ -164,6 +165,7 @@ function Router() {
       <Route path="/admin/booking">{() => <RequirePortal><BookingCalendarPage /></RequirePortal>}</Route>
       <Route path="/admin/services/pricing">{() => <RequirePortal><ServicePricingPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/services">{() => <RequirePortal><ServicesPage /></RequirePortal>}</Route>
+      <Route path="/admin/products/:id">{() => <RequirePortal><ProductDetailPage /></RequirePortal>}</Route>
       <Route path="/admin/service-ops">{() => <RequirePortal><ServiceOpsPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/mapguard">{() => <RequirePortal><MapguardDashboard /></RequirePortal>}</Route>
       <Route path="/admin/crm/reviews">{() => <RequirePortal><ReviewsPage /></RequirePortal>}</Route>

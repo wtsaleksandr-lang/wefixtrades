@@ -1,5 +1,6 @@
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "wouter";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -106,7 +107,13 @@ export default function ServicesPage() {
         ) : (
           <div className="grid md:grid-cols-2 gap-3">
             {merged.map((svc) => (
-              <Card key={svc.id} className="p-4">
+              <Link
+                key={svc.id}
+                href={`/admin/products/${svc.id}`}
+                className="block focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/30 rounded-xl"
+                data-testid={`product-card-${svc.id}`}
+              >
+              <Card className="p-4 hover:border-[#2D6A4F]/40 hover:shadow-sm transition-all cursor-pointer">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
@@ -135,6 +142,7 @@ export default function ServicesPage() {
                   </div>
                 </div>
               </Card>
+              </Link>
             ))}
           </div>
         )}
