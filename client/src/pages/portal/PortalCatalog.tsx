@@ -2,11 +2,15 @@
  * Portal service catalog — /portal/catalog
  *
  * Q16: shows services the customer is NOT yet subscribed to, with two CTAs
- * per card: "Add to subscription" (triggers checkout — TBD cycle) and
+ * per card: "Add to subscription" (triggers Stripe Checkout) and
  * "Read more" (links to public product page on marketing site).
  *
- * Cycle 8 status: backend wired, UI skeleton renders cards, "Add" CTA
- * is a no-op placeholder until the Stripe-checkout integration lands.
+ * Q28g2 (cycle 19): when serviceCatalog.tiers is populated, the card
+ * renders a radio-list tier picker; the chosen tier_id is passed to the
+ * subscribe endpoint so checkout uses the matching Stripe price.
+ *
+ * Q28g (cycle 18): server merges admin-edited name/tagline/description/
+ * features overrides into the hardcoded SERVICES list.
  */
 
 import { useState } from "react";
