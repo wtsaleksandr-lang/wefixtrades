@@ -1337,6 +1337,14 @@ export function registerPortalRoutes(app: Express) {
       // Client can signal "don't offer escalation" (e.g. after dismissing a draft)
       const skipEscalation = context?.skip_escalation === true;
 
+      // Q22: client passes the current page so the assistant can give page-aware help
+      // instead of generic answers. Truncate to avoid prompt-injection vectors.
+      const pagePath = typeof context?.page_path === "string" ? context.page_path.slice(0, 200) : null;
+      const pageTitle = typeof context?.page_title === "string" ? context.page_title.slice(0, 200) : null;
+      const pageContextBlock = pagePath || pageTitle
+        ? `\n\nThe customer is currently viewing this page in their portal:\n- Path: ${pagePath ?? "(unknown)"}\n- Title: ${pageTitle ?? "(unknown)"}\n\nUse this to give page-specific guidance when relevant. If they ask "what should I do here?" or "how does this work?", answer about THIS page, not the portal in general.`
+        : "";
+
       // Validate and sanitize message roles — only allow user/assistant
       const allowedRoles = new Set(["user", "assistant"]);
       const sanitizedMessages = messages
@@ -1371,7 +1379,7 @@ Do NOT:
 - Make up account-specific details (balances, dates, statuses)
 - Provide legal or financial advice
 - Discuss internal pricing or margins
-- Create tickets automatically — always offer first and let the user decide`;
+- Create tickets automatically — always offer first and let the user decide${pageContextBlock}`;
       } else {
         // Onboarding context — no escalation
         const fieldList = (context?.fields ?? [])
@@ -1408,7 +1416,7 @@ Your job:
 Do NOT:
 - Make up specific business details
 - Provide legal or financial advice
-- Discuss pricing of WeFixTrades services`;
+- Discuss pricing of WeFixTrades services${pageContextBlock}`;
       }
 
       const reply = await aiChat({

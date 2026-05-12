@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import {
   MessageCircle, X, Send, Loader2, ClipboardList, CheckCircle2,
 } from "lucide-react";
@@ -9,6 +9,7 @@ import ChatAttachmentInput, {
   type ChatAttachment,
   type ChatAttachmentInputHandle,
 } from "@/components/shared/ChatAttachmentInput";
+import { loadPortalMessages, savePortalMessages } from "@/lib/chatHelpers";
 
 /* ─── Types ─── */
 export interface PortalChatContext {
@@ -60,8 +61,19 @@ export default function PortalChatWidget({
   chatContext?: PortalChatContext;
 }) {
   const queryClient = useQueryClient();
+  const [location] = useLocation();
   const [open, setOpen] = useState(false);
-  const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
+  // Q24: persist messages across page navigations + page reloads via localStorage.
+  // Backend chat_memory table is also linked via session id once the user logs in.
+  const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string }[]>(
+    () => {
+      const saved = loadPortalMessages();
+      return saved.length > 0 ? saved.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })) : [];
+    },
+  );
+  useEffect(() => {
+    savePortalMessages(messages);
+  }, [messages]);
   const [input, setInput] = useState("");
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
   const attachmentInputRef = useRef<ChatAttachmentInputHandle | null>(null);
@@ -88,17 +100,27 @@ export default function PortalChatWidget({
 
   // Build the context payload for the API
   function buildContext() {
+    // Q22: every chat send now carries the user's current page so the assistant
+    // can give page-aware guidance instead of saying "I can't see your screen".
+    // Also captures the document title (the active page heading) for human-
+    // readable context that's friendlier than a route string alone.
+    const page_path = typeof window !== "undefined" ? location : undefined;
+    const page_title = typeof document !== "undefined" ? document.title : undefined;
     if (isOnboarding) {
       return {
         service_name: chatContext!.service_name,
         service_id: chatContext!.service_id,
         fields: chatContext!.fields,
         current_responses: chatContext!.current_responses,
+        page_path,
+        page_title,
       };
     }
     return {
       surface: "help",
       skip_escalation: escalationCooldown > 0,
+      page_path,
+      page_title,
     };
   }
 
