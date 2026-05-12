@@ -40,7 +40,9 @@ const CORE_SERVICES = [
   { id: "sitelaunch", name: "SiteLaunch™", category: "website", description: "High-converting website built for trades. Launched in 2 weeks." },
   { id: "webfix", name: "WebFix™", category: "website", description: "Website fixes, tweaks, and optimization." },
   { id: "rankflow", name: "RankFlow™", category: "visibility", description: "Ongoing SEO that brings consistent traffic and leads." },
-  /* AdFlow removed — white-label agencies handle ads now */
+  { id: "webcare", name: "WebCare™", category: "website", description: "Monthly website maintenance, uptime monitoring, and backups." },
+  { id: "adflow", name: "AdFlow™", category: "leads", description: "Managed Google + Facebook ads. White-label PPC agencies handle fulfillment." },
+  { id: "bookflow", name: "BookFlow", category: "automation", description: "Simple online booking system. Standalone product or bundled with QuoteQuick." },
 ];
 
 function fmt(cents: number | null) {

@@ -1,6 +1,7 @@
 import { useState, useEffect, type FormEvent } from "react";
 import { useLocation } from "wouter";
 import { useMutation } from "@tanstack/react-query";
+import { Eye, EyeOff } from "lucide-react";
 import { queryClient } from "@/lib/queryClient";
 import { getSessionId } from "@/lib/chatHelpers";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
@@ -32,6 +33,7 @@ export default function LoginPage() {
   const [mode, setMode] = useState<Mode>("email-link");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [totpCode, setTotpCode] = useState("");
   const [requires2fa, setRequires2fa] = useState(false);
   const [linkSent, setLinkSent] = useState(false);
@@ -409,15 +411,35 @@ export default function LoginPage() {
                     />
 
                     <label style={labelStyle}>Password</label>
-                    <input
-                      type="password"
-                      required
-                      autoComplete="current-password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      style={inputStyle}
-                      data-testid="input-password"
-                    />
+                    <div style={{ position: "relative" }}>
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        required
+                        autoComplete="current-password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        style={{ ...inputStyle, paddingRight: 40 }}
+                        data-testid="input-password"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword((v) => !v)}
+                        aria-label={showPassword ? "Hide password" : "Show password"}
+                        style={{
+                          position: "absolute",
+                          top: 0, right: 0, height: "100%",
+                          width: 40,
+                          background: "transparent",
+                          border: "none",
+                          cursor: "pointer",
+                          color: mkt.onDarkMuted,
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                        }}
+                        data-testid="toggle-password-visibility"
+                      >
+                        {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
                   </>
                 ) : (
                   <>
