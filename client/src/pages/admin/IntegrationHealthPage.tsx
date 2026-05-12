@@ -113,14 +113,14 @@ export default function IntegrationHealthPage() {
 
         {/* Summary strip */}
         {!isLoading && !isError && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid auto-rows-fr grid-cols-2 sm:grid-cols-4 gap-3">
             {(["ok", "degraded", "down", "not_configured"] as const).map((s) => {
               const meta = STATUS_META[s];
               const Icon = meta.Icon;
               return (
                 <div
                   key={s}
-                  className={`rounded-xl border border-gray-200 p-4 ${meta.bg}`}
+                  className={`h-full rounded-xl border border-gray-200 p-4 ${meta.bg}`}
                 >
                   <div className={`flex items-center gap-2 ${meta.ink}`}>
                     <Icon className="w-4 h-4" />

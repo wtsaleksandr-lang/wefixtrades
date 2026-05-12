@@ -213,7 +213,7 @@ function PortalDashboardInner() {
           </div>
 
           {/* Stat cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid auto-rows-fr grid-cols-2 lg:grid-cols-4 gap-4">
             <StatCard
               label="Active Services"
               value={data.active_services}
@@ -500,7 +500,7 @@ function StatCard({
   href?: string;
 }) {
   const card = (
-    <div className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-sm transition-shadow cursor-pointer">
+    <div className="h-full bg-white rounded-xl border border-gray-200 p-4 hover:shadow-sm transition-shadow cursor-pointer">
       <div className="flex items-center gap-3">
         <div className={`w-9 h-9 rounded-lg ${bgColor} flex items-center justify-center`}>
           <Icon className={`w-4 h-4 ${color}`} />

@@ -190,7 +190,7 @@ export default function SocialSyncOpsPage() {
 
         {/* Metrics Cards */}
         {metrics && (
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+          <div className="grid auto-rows-fr grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
             <MetricCard label="Enabled" value={metrics.total_enabled} />
             <MetricCard label="Autopilot" value={metrics.total_autopilot} />
             <MetricCard label="FB Connected" value={metrics.fb_connected} color="emerald" />
@@ -377,7 +377,7 @@ export default function SocialSyncOpsPage() {
 function MetricCard({ label, value, color }: { label: string; value: number | string; color?: string }) {
   const textColor = color === "emerald" ? "text-emerald-700" : color === "red" ? "text-red-600" : color === "amber" ? "text-amber-700" : color === "blue" ? "text-blue-700" : "text-gray-900";
   return (
-    <Card className="p-3 text-center">
+    <Card className="h-full p-3 text-center">
       <p className={`text-xl font-bold ${textColor}`}>{value}</p>
       <p className="text-[10px] text-gray-500 mt-0.5">{label}</p>
     </Card>

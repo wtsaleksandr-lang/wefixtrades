@@ -112,7 +112,7 @@ function StatCard({ label, value, icon: Icon, color }: {
   color: string;
 }) {
   return (
-    <Card className="p-4 hover:shadow-sm transition-shadow cursor-default">
+    <Card className="h-full p-4 hover:shadow-sm transition-shadow cursor-default">
       <div className="flex items-start justify-between">
         <div>
           <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{label}</p>
@@ -182,13 +182,13 @@ export default function MapguardDashboard() {
 
         {/* Stat Cards */}
         {isLoading ? (
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <div className="grid auto-rows-fr grid-cols-2 md:grid-cols-5 gap-3">
             {[1, 2, 3, 4, 5].map((i) => (
-              <Card key={i} className="p-4"><Skeleton className="h-14 w-full" /></Card>
+              <Card key={i} className="h-full p-4"><Skeleton className="h-14 w-full" /></Card>
             ))}
           </div>
         ) : metrics && (
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <div className="grid auto-rows-fr grid-cols-2 md:grid-cols-5 gap-3">
             <StatCard label="Active Clients" value={metrics.total_clients} icon={Users} color="bg-[#2D6A4F]" />
             <StatCard label="At Risk" value={metrics.at_risk + metrics.significant_drops} icon={AlertTriangle} color={metrics.at_risk > 0 ? "bg-red-500" : "bg-gray-400"} />
             <StatCard label="Improved" value={metrics.improved} icon={TrendingUp} color={metrics.improved > 0 ? "bg-emerald-500" : "bg-gray-400"} />

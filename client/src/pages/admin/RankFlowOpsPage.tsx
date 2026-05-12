@@ -97,7 +97,7 @@ export default function RankFlowOpsPage() {
 
         {/* ─── Summary Metrics ─── */}
         {s && (
-          <div className="grid grid-cols-3 sm:grid-cols-7 gap-2">
+          <div className="grid auto-rows-fr grid-cols-3 sm:grid-cols-7 gap-2">
             <StatCard icon={Users} label="Active" value={s.active_clients} />
             <StatCard icon={AlertTriangle} label="Blocked" value={s.blocked} warn={s.blocked > 0} hint="Clients missing website or profile info — cannot start work" />
             <StatCard icon={DollarSign} label="Over Budget" value={s.over_budget} warn={s.over_budget > 0} hint="Delivery cost exceeds 35% of plan price" />
@@ -214,7 +214,7 @@ function ClientCard({ client: c }: { client: ClientRow }) {
 /* ─── Stat Card ─── */
 function StatCard({ icon: Icon, label, value, warn, hint }: { icon: any; label: string; value: number; warn?: boolean; hint?: string }) {
   return (
-    <Card className={`p-2.5 text-center ${warn ? "ring-1 ring-amber-200 bg-amber-50/30" : ""}`} title={hint}>
+    <Card className={`h-full p-2.5 text-center ${warn ? "ring-1 ring-amber-200 bg-amber-50/30" : ""}`} title={hint}>
       <Icon className={`w-3.5 h-3.5 mx-auto mb-1 ${warn ? "text-amber-500" : "text-gray-400"}`} />
       <p className={`text-lg font-semibold ${warn ? "text-amber-700" : "text-gray-900"}`}>{value}</p>
       <p className="text-[10px] text-gray-500">{label}</p>

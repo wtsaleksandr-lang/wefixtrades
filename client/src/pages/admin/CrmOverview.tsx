@@ -269,7 +269,7 @@ function StatCard({
   color: string;
 }) {
   const inner = (
-    <Card className={`p-4 transition-all duration-150 ${href ? "cursor-pointer hover:border-gray-300 hover:shadow-md active:scale-[0.98]" : "cursor-default"}`}>
+    <Card className={`h-full p-4 transition-all duration-150 ${href ? "cursor-pointer hover:border-gray-300 hover:shadow-md active:scale-[0.98]" : "cursor-default"}`}>
       <div className="flex items-start justify-between">
         <div>
           <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{label}</p>
@@ -331,7 +331,7 @@ function QaQueueWidget() {
   const count = tasks?.length ?? 0;
 
   return (
-    <Card className="p-0 overflow-hidden">
+    <Card className="h-full p-0 overflow-hidden">
       <div className="flex items-center justify-between px-4 pt-4 pb-2 border-b border-gray-100">
         <div className="flex items-center gap-2">
           <div className="w-6 h-6 rounded-md bg-purple-600 flex items-center justify-center">
@@ -458,10 +458,10 @@ export default function CrmOverview() {
         </div>
 
         {/* Stat cards */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="grid auto-rows-fr grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
           {isLoading ? (
             Array.from({ length: 6 }).map((_, i) => (
-              <Card key={i} className="p-4">
+              <Card key={i} className="h-full p-4">
                 <Skeleton className="h-3 w-20 mb-2" />
                 <Skeleton className="h-7 w-12" />
               </Card>
@@ -487,9 +487,9 @@ export default function CrmOverview() {
         <QaQueueWidget />
 
         {/* Bottom panels */}
-        <div className="grid md:grid-cols-2 gap-4">
+        <div className="grid auto-rows-fr md:grid-cols-2 gap-4">
           {/* Recent Clients */}
-          <Card className="p-0 overflow-hidden">
+          <Card className="h-full p-0 overflow-hidden">
             <div className="flex items-center justify-between px-4 pt-4 pb-2">
               <h3 className="text-sm font-semibold text-gray-900">Recent Clients</h3>
               <Link href="/admin/crm/clients">
@@ -519,7 +519,7 @@ export default function CrmOverview() {
           </Card>
 
           {/* Recent Tasks */}
-          <Card className="p-0 overflow-hidden">
+          <Card className="h-full p-0 overflow-hidden">
             <div className="flex items-center justify-between px-4 pt-4 pb-2">
               <h3 className="text-sm font-semibold text-gray-900">Open Tasks</h3>
               <Link href="/admin/crm/inbox">
