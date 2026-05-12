@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import {
-  MessageCircle, X, Send, Loader2, ClipboardList, CheckCircle2,
+  MessageCircle, X, Send, Loader2, ClipboardList, CheckCircle2, Settings as SettingsIcon, History,
 } from "lucide-react";
 import ChatAttachmentInput, {
   ChatAttachmentChips,
@@ -10,6 +10,22 @@ import ChatAttachmentInput, {
   type ChatAttachmentInputHandle,
 } from "@/components/shared/ChatAttachmentInput";
 import { loadPortalMessages, savePortalMessages } from "@/lib/chatHelpers";
+
+const LAST_OPEN_KEY = "wft_portal_chat_last_open";
+const OPACITY_KEY = "wft_portal_chat_opacity";
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Grab a short, useful snapshot of what's visible to the user on the current page.
+ *  Used by the chat assistant so it can answer page-aware questions like
+ *  "what should I fill in here?" or "what does this status mean?" */
+function readPageContentSnapshot(): string | undefined {
+  if (typeof document === "undefined") return undefined;
+  const main = document.querySelector("main") ?? document.querySelector("[data-portal-main]") ?? document.body;
+  const text = (main as HTMLElement | null)?.innerText ?? "";
+  // Collapse whitespace + cap at ~1.5k chars to keep token cost sane.
+  const collapsed = text.replace(/\s+/g, " ").trim().slice(0, 1500);
+  return collapsed || undefined;
+}
 
 /* ─── Types ─── */
 export interface PortalChatContext {
@@ -63,6 +79,20 @@ export default function PortalChatWidget({
   const queryClient = useQueryClient();
   const [location] = useLocation();
   const [open, setOpen] = useState(false);
+  // Q25: transparency slider — persists across mounts. 0.7 floor so messages remain readable.
+  const [panelOpacity, setPanelOpacity] = useState<number>(() => {
+    try {
+      const v = parseFloat(localStorage.getItem(OPACITY_KEY) ?? "");
+      if (!isNaN(v) && v >= 0.7 && v <= 1) return v;
+    } catch { /* noop */ }
+    return 1;
+  });
+  useEffect(() => {
+    try { localStorage.setItem(OPACITY_KEY, String(panelOpacity)); } catch { /* noop */ }
+  }, [panelOpacity]);
+  const [showSettings, setShowSettings] = useState(false);
+  // Q25: "Previous conversation" banner shown ONCE per re-open when last open was > 24h ago.
+  const [showHistoryBanner, setShowHistoryBanner] = useState(false);
   // Q24: persist messages across page navigations + page reloads via localStorage.
   // Backend chat_memory table is also linked via session id once the user logs in.
   const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string }[]>(
@@ -100,12 +130,12 @@ export default function PortalChatWidget({
 
   // Build the context payload for the API
   function buildContext() {
-    // Q22: every chat send now carries the user's current page so the assistant
-    // can give page-aware guidance instead of saying "I can't see your screen".
-    // Also captures the document title (the active page heading) for human-
-    // readable context that's friendlier than a route string alone.
+    // Q22: every chat send now carries the user's current page + a snapshot of
+    // what's visible on it (truncated innerText of <main>) so the assistant can
+    // answer page-aware questions instead of saying "I can't see your screen".
     const page_path = typeof window !== "undefined" ? location : undefined;
     const page_title = typeof document !== "undefined" ? document.title : undefined;
+    const page_content = readPageContentSnapshot();
     if (isOnboarding) {
       return {
         service_name: chatContext!.service_name,
@@ -114,6 +144,7 @@ export default function PortalChatWidget({
         current_responses: chatContext!.current_responses,
         page_path,
         page_title,
+        page_content,
       };
     }
     return {
@@ -121,8 +152,26 @@ export default function PortalChatWidget({
       skip_escalation: escalationCooldown > 0,
       page_path,
       page_title,
+      page_content,
     };
   }
+
+  // Q25: detect cross-day reopens — show "Previous conversation" banner the
+  // first time the widget is opened after >24h of inactivity, provided some
+  // history exists.
+  useEffect(() => {
+    if (!open) return;
+    try {
+      const last = parseInt(localStorage.getItem(LAST_OPEN_KEY) ?? "0", 10);
+      const now = Date.now();
+      if (last > 0 && now - last > DAY_MS && messages.length > 0) {
+        setShowHistoryBanner(true);
+      }
+      localStorage.setItem(LAST_OPEN_KEY, String(now));
+    } catch { /* noop */ }
+    // intentionally only run on transition to open=true
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   async function send(text?: string) {
     const msg = (text || input).trim();
@@ -266,24 +315,75 @@ export default function PortalChatWidget({
 
       {/* Chat panel */}
       {open && (
-        <div className="fixed bottom-4 right-4 z-50 w-80 sm:w-96 max-h-[520px] flex flex-col bg-white rounded-xl border border-gray-200 shadow-xl overflow-hidden">
+        <div
+          className="fixed bottom-4 right-4 z-50 w-80 sm:w-96 max-h-[520px] flex flex-col rounded-xl border border-gray-200 shadow-xl overflow-hidden"
+          style={{ backgroundColor: `rgba(255, 255, 255, ${panelOpacity})` }}
+          data-testid="portal-chat-panel"
+        >
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-[#2D6A4F] shrink-0">
             <div className="flex items-center gap-2">
               <MessageCircle className="w-4 h-4 text-white" />
               <span className="text-sm font-medium text-white">{title}</span>
             </div>
-            <button
-              onClick={() => setOpen(false)}
-              className="p-1 rounded hover:bg-white/20 text-white"
-              aria-label="Close support chat"
-            >
-              <X className="w-4 h-4" aria-hidden="true" />
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setShowSettings((v) => !v)}
+                className={`p-1 rounded text-white ${showSettings ? "bg-white/30" : "hover:bg-white/20"}`}
+                aria-label="Chat settings"
+                aria-pressed={showSettings}
+                data-testid="button-chat-settings"
+              >
+                <SettingsIcon className="w-4 h-4" aria-hidden="true" />
+              </button>
+              <button
+                onClick={() => setOpen(false)}
+                className="p-1 rounded hover:bg-white/20 text-white"
+                aria-label="Close support chat"
+              >
+                <X className="w-4 h-4" aria-hidden="true" />
+              </button>
+            </div>
           </div>
+
+          {/* Q25: settings drawer — transparency slider */}
+          {showSettings && (
+            <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/80 space-y-2" data-testid="chat-settings-drawer">
+              <div className="flex items-center justify-between">
+                <label className="text-[11px] font-medium text-gray-600 uppercase tracking-wide">Window transparency</label>
+                <span className="text-[10px] text-gray-500">{Math.round(panelOpacity * 100)}%</span>
+              </div>
+              <input
+                type="range"
+                min="0.7"
+                max="1"
+                step="0.05"
+                value={panelOpacity}
+                onChange={(e) => setPanelOpacity(parseFloat(e.target.value))}
+                className="w-full"
+                aria-label="Window transparency"
+                data-testid="slider-chat-opacity"
+              />
+              <p className="text-[10px] text-gray-500">Affects the window only — message bubbles stay readable.</p>
+            </div>
+          )}
 
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-3 space-y-3 min-h-[180px] max-h-[340px]">
+            {/* Q25: history banner on next-day reopen with prior messages */}
+            {showHistoryBanner && messages.length > 0 && (
+              <div className="flex items-center gap-2 -mt-1 mb-1 px-2.5 py-1.5 bg-gray-50 border border-gray-100 rounded text-[11px] text-gray-500" data-testid="banner-prior-conversation">
+                <History className="w-3 h-3 shrink-0 text-gray-400" />
+                <span className="flex-1">Previous conversation — picking up where you left off.</span>
+                <button
+                  onClick={() => setShowHistoryBanner(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                  aria-label="Dismiss"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            )}
             {messages.length === 0 && !isOnboarding && (
               <div className="text-center py-3">
                 <p className="text-xs text-gray-400 mb-2">Ask anything about your services, billing, or account.</p>
@@ -442,6 +542,10 @@ export default function PortalChatWidget({
                 <Send className="w-4 h-4" aria-hidden="true" />
               </button>
             </div>
+            {/* Q25: subtle "safe to close" reassurance */}
+            <p className="px-3 pb-2 text-[10px] text-gray-400 leading-snug">
+              You can close this — your conversation stays saved.
+            </p>
           </div>
         </div>
       )}
