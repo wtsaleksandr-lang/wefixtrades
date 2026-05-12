@@ -164,7 +164,7 @@ export default function PortalRankFlow() {
         )}
 
         {/* ─── Metrics Row ─── */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid auto-rows-fr grid-cols-2 sm:grid-cols-4 gap-3">
           <MetricCard icon={CheckCircle} label="Work Done" value={`${m.tasksCompleted}/${m.totalTasks}`} color="emerald" />
           <MetricCard icon={FileText} label="Pages Created" value={String(m.pagesCreated)} color="blue" />
           <MetricCard icon={MapPin} label="Directory Listings" value={String(m.citationsBuilt)} color="amber" />
@@ -430,7 +430,7 @@ function MetricCard({ icon: Icon, label, value, color }: { icon: any; label: str
     indigo: "text-indigo-500",
   };
   return (
-    <div className="bg-white rounded-xl border border-gray-200 px-4 py-3 text-center">
+    <div className="h-full bg-white rounded-xl border border-gray-200 px-4 py-3 text-center">
       <Icon className={`w-4 h-4 mx-auto mb-1.5 ${colors[color] || "text-gray-400"}`} />
       <p className="text-xl font-semibold text-gray-900">{value}</p>
       <p className="text-[10px] text-gray-500 mt-0.5">{label}</p>

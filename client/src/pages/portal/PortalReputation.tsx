@@ -91,7 +91,7 @@ export default function PortalReputation() {
         </div>
 
         {/* Key Metrics */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid auto-rows-fr grid-cols-2 md:grid-cols-4 gap-3">
           <MetricCard icon={<Star className="w-4 h-4 text-amber-500" />} label="Average Rating" value={s.average_rating != null ? `${s.average_rating}` : "—"} sub={s.average_rating_this_month != null ? `${s.average_rating_this_month} this month` : undefined} change={s.average_rating_this_month != null && s.average_rating_last_month != null ? Math.round((s.average_rating_this_month - s.average_rating_last_month) * 10) / 10 : undefined} />
           <MetricCard icon={<TrendingUp className="w-4 h-4 text-emerald-500" />} label="Reviews This Month" value={`${s.reviews_this_month}`} sub={`${s.total_reviews} total`} change={s.reviews_change !== 0 ? s.reviews_change : undefined} />
           <MetricCard icon={<MessageSquare className="w-4 h-4 text-blue-500" />} label="Reviews Responded To" value={s.reply_rate != null ? `${s.reply_rate}%` : "—"} sub={`${a.reviews_responded_to} of ${s.total_reviews}`} tooltip="The percentage of your Google reviews that have a professional response posted." />
@@ -221,7 +221,7 @@ export default function PortalReputation() {
 function MetricCard({ icon, label, value, sub, change, tooltip }: { icon: React.ReactNode; label: string; value: string; sub?: string; change?: number; tooltip?: string }) {
   const [showTip, setShowTip] = useState(false);
   return (
-    <Card className="p-4 text-center relative">
+    <Card className="h-full p-4 text-center relative">
       <div className="flex items-center justify-center mb-1">{icon}</div>
       <p className="text-2xl font-bold text-gray-900">{value}</p>
       <p className="text-xs text-gray-500 inline-flex items-center gap-1 justify-center">

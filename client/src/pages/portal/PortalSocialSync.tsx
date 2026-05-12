@@ -227,7 +227,7 @@ export default function PortalSocialSync() {
         </Card>
 
         {/* Key Metrics */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid auto-rows-fr grid-cols-2 md:grid-cols-4 gap-3">
           <MetricCard label="Posts This Month" value={`${s.posts_this_month}`} />
           <MetricCard label="Total Published" value={`${s.total_published}`} />
           <MetricCard label="Active Platforms" value={`${s.active_platforms}`} />
@@ -491,7 +491,7 @@ export default function PortalSocialSync() {
 
 function MetricCard({ label, value }: { label: string; value: string }) {
   return (
-    <Card className="p-4 text-center">
+    <Card className="h-full p-4 text-center">
       <p className="text-2xl font-bold text-gray-900">{value}</p>
       <p className="text-xs text-gray-500">{label}</p>
     </Card>
