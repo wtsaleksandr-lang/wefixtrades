@@ -15,6 +15,8 @@ import {
   Code,
   Calendar,
   Receipt,
+  MapPin,
+  Plus,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useState } from "react";
@@ -38,9 +40,11 @@ interface NavItem {
   visible?: boolean;
   /** If true, renders indented as a sub-item */
   indent?: boolean;
+  /** Q17: only show this item if the client is subscribed to a service whose id starts with this prefix */
+  requires?: string;
 }
 
-function useHasRankFlow(): boolean {
+function useActiveServicePrefixes(): Set<string> {
   const { data } = useQuery<{ services: { service_id: string; status: string }[] }>({
     queryKey: ["/api/portal/services"],
     queryFn: async () => {
@@ -54,32 +58,61 @@ function useHasRankFlow(): boolean {
   // may have stored the raw array in cache. Handle both shapes.
   const raw: unknown = Array.isArray(data) ? data : (data as { services?: unknown })?.services;
   const services: { service_id: string; status: string }[] = Array.isArray(raw) ? raw : [];
+  const prefixes = new Set<string>();
+  for (const s of services) {
+    if (!s.service_id || s.status === "cancelled" || s.status === "completed") continue;
+    // service_id like "mapguard-setup" / "mapguard-ongoing" / "rankflow" — take first dash-separated segment
+    const prefix = s.service_id.split("-")[0];
+    if (prefix) prefixes.add(prefix);
+  }
+  return prefixes;
+}
+
+function useHasRankFlow(): boolean {
+  // Kept for any callers outside this file; thin wrapper over useActiveServicePrefixes.
+  const { data } = useQuery<{ services: { service_id: string; status: string }[] }>({
+    queryKey: ["/api/portal/services"],
+    queryFn: async () => {
+      const res = await fetch("/api/portal/services", { credentials: "include" });
+      if (!res.ok) return { services: [] };
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+  const raw: unknown = Array.isArray(data) ? data : (data as { services?: unknown })?.services;
+  const services: { service_id: string; status: string }[] = Array.isArray(raw) ? raw : [];
   return services.some(
     (s) => s.service_id?.startsWith("rankflow") && s.status !== "cancelled"
   );
 }
 
-function buildNavItems(hasRankFlow: boolean): NavItem[] {
-  return [
+function buildNavItems(active: Set<string>): NavItem[] {
+  const items: NavItem[] = [
     { label: "Overview", href: "/portal", icon: LayoutDashboard },
     { label: "Services", href: "/portal/services", icon: Wrench },
-    { label: "Reviews", href: "/portal/reviews", icon: Star },
-    { label: "Review Widget", href: "/portal/reviews/widget", icon: Code, indent: true },
-    { label: "Social Media", href: "/portal/socialsync", icon: Share2 },
-    { label: "SEO", href: "/portal/rankflow", icon: TrendingUp },
-    /* Articles tab covers both RankFlow articles and any ContentFlow
-       drafts — gated on RankFlow today since ContentFlow isn't yet a
-       sellable service. Update the gate when it ships. */
-    { label: "Articles", href: "/portal/articles", icon: FileText, visible: hasRankFlow },
+    /* Service-gated tabs — only shown when the client has the matching subscription (Q17) */
+    { label: "Reviews", href: "/portal/reviews", icon: Star, requires: "reputationshield" },
+    { label: "Review Widget", href: "/portal/reviews/widget", icon: Code, indent: true, requires: "reputationshield" },
+    { label: "Social Media", href: "/portal/socialsync", icon: Share2, requires: "socialsync" },
+    { label: "SEO", href: "/portal/rankflow", icon: TrendingUp, requires: "rankflow" },
+    { label: "Articles", href: "/portal/articles", icon: FileText, requires: "rankflow" },
+    { label: "MapGuard", href: "/portal/mapguard", icon: MapPin, requires: "mapguard" },
     /* BookFlow tabs are always visible — every customer has a job
        calendar and an invoice ledger, even if they're empty. The
        child pages render their own empty states. */
     { label: "Today's jobs", href: "/portal/dispatch", icon: Calendar },
     { label: "Invoices", href: "/portal/invoices", icon: Receipt },
     { label: "Billing", href: "/portal/billing", icon: CreditCard },
+    /* Q16: dedicated entry-point to the in-portal service catalog */
+    { label: "Add Services", href: "/portal/catalog", icon: Plus },
     { label: "Help", href: "/portal/help", icon: HelpCircle },
     { label: "Settings", href: "/portal/settings", icon: Settings },
   ];
+  return items.filter((item) => {
+    if (item.visible === false) return false;
+    if (item.requires && !active.has(item.requires)) return false;
+    return true;
+  });
 }
 
 function isActive(location: string, href: string): boolean {
@@ -99,8 +132,8 @@ export default function PortalLayout({
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const hasRankFlow = useHasRankFlow();
-  const NAV_ITEMS = buildNavItems(hasRankFlow);
+  const activePrefixes = useActiveServicePrefixes();
+  const NAV_ITEMS = buildNavItems(activePrefixes);
 
   const handleLogout = async () => {
     try {

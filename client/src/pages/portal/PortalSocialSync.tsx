@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Share2, CheckCircle, Clock, Calendar, ImageIcon, Settings, X, ThumbsUp, ThumbsDown, Edit3, Loader2, PauseCircle, PlayCircle } from "lucide-react";
 import { Link } from "wouter";
 import PortalLayout from "@/components/portal/PortalLayout";
+import UpsellCard from "@/components/portal/UpsellCard";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -233,6 +234,12 @@ export default function PortalSocialSync() {
           <MetricCard label="Active Platforms" value={`${s.active_platforms}`} />
           <MetricCard label="Frequency" value={s.posting_frequency} />
         </div>
+
+        {/* Q16 upsell — pair SocialSync with ReputationShield (more social activity → more reviews to manage) */}
+        <UpsellCard
+          recommendPrefix="reputationshield"
+          pitch="Add ReputationShield to capture and respond to reviews from customers SocialSync brings in."
+        />
 
         {/* Next Scheduled */}
         {data.next_scheduled && (

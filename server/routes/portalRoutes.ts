@@ -62,6 +62,7 @@ import {
   mapguardConfigSchema,
   DEFAULT_MAPGUARD_CONFIG,
 } from "@shared/schema";
+import { SERVICES } from "@shared/services";
 
 import { compileMonthlyReport } from "../services/mapguardReports";
 import { getExecutionUsage } from "../services/mapguardTaskEngine";
@@ -536,6 +537,7 @@ export function registerPortalRoutes(app: Express) {
         contact_email: client.contact_email,
         contact_phone: client.contact_phone,
         website_url: client.website_url,
+        logo_url: client.logo_url ?? null,
         trade_type: client.trade_type,
         account_email: user?.email ?? null,
       });
@@ -4201,6 +4203,201 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
     } catch (err: any) {
       log.error("[portal/settings/automation] Error:", { error: err.message });
       res.status(500).json({ error: "Failed to update automation settings" });
+    }
+  });
+
+  /**
+   * POST /api/portal/catalog/subscribe
+   * Q16: add a service to an authenticated client's subscription via Stripe Checkout.
+   * Pre-creates the clientService + onboarding + tasks in 'pending' state, then
+   * returns a checkout_url. Webhook (stripeBillingRoutes) flips status to active
+   * on payment success — same flow as /api/public/checkout.
+   * Body: { service_id: string, billing_period?: "monthly" | "yearly" }
+   */
+  app.post("/api/portal/catalog/subscribe", requireClientStrict, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const stripeKey = process.env.STRIPE_SECRET_KEY;
+      if (!stripeKey) return res.status(503).json({ error: "Payments are not configured yet. Please contact us." });
+      const stripe = new Stripe(stripeKey, { apiVersion: "2025-01-27.acacia" as any });
+
+      const { service_id, billing_period } = req.body ?? {};
+      if (!service_id || typeof service_id !== "string") {
+        return res.status(400).json({ error: "service_id is required" });
+      }
+      const wantsYearly = billing_period === "yearly";
+
+      const svc = await storage.getServiceById(service_id);
+      if (!svc || !svc.is_active) return res.status(400).json({ error: "Service not available" });
+
+      const existing = await storage.findClientServiceByServiceId(clientId, svc.id);
+      if (existing && existing.status !== "cancelled" && existing.status !== "completed") {
+        return res.status(409).json({ error: "You're already subscribed to this service." });
+      }
+
+      const resolvedPriceId = wantsYearly && svc.billing_period === "monthly"
+        ? svc.stripe_yearly_price_id
+        : svc.stripe_price_id;
+      if (!resolvedPriceId) {
+        return res.status(400).json({ error: `${svc.name} pricing isn't configured yet. Please contact us.` });
+      }
+
+      const [client] = await db.select().from(clients).where(eq(clients.id, clientId)).limit(1);
+      if (!client) return res.status(404).json({ error: "Client not found" });
+
+      let stripeCustomerId = client.stripe_customer_id;
+      if (!stripeCustomerId) {
+        const customer = await stripe.customers.create({
+          name: client.business_name,
+          email: client.contact_email || undefined,
+          phone: client.contact_phone || undefined,
+          metadata: { crm_client_id: String(client.id) },
+        });
+        stripeCustomerId = customer.id;
+        await storage.updateClient(client.id, { stripe_customer_id: stripeCustomerId });
+      }
+
+      // Pre-create pending clientService + payment + onboarding + tasks (same shape as public flow)
+      const cs = await storage.createClientService({
+        client_id: client.id,
+        service_id: svc.id,
+        status: "pending",
+        enabled: true,
+        fulfillment_mode: "internal",
+        price_cents: svc.default_price,
+        billing_period: svc.billing_period,
+      });
+      await storage.createClientPayment({
+        client_id: client.id,
+        client_service_id: cs.id,
+        type: svc.billing_period === "monthly" ? "invoice" : "payment",
+        amount_cents: svc.default_price ?? 0,
+        status: "pending",
+        description: `${svc.name} — ${svc.billing_period === "monthly" ? "monthly" : "one-time"}`,
+        actor_type: "system",
+      });
+      const tmpl = await storage.getOnboardingTemplate(svc.id);
+      if (tmpl) {
+        await storage.createOnboardingSubmission({
+          client_service_id: cs.id,
+          client_id: client.id,
+          template_id: tmpl.id,
+          status: "not_sent",
+          actor_type: "system",
+        });
+      }
+      const tasks = await storage.getTaskTemplates(svc.id);
+      for (const t of tasks) {
+        await storage.createFulfillmentTask({
+          client_service_id: cs.id,
+          client_id: client.id,
+          title: t.title,
+          description: t.description,
+          sort_order: t.sort_order,
+          priority: t.default_priority,
+          handled_by: t.default_handled_by,
+          waiting_on: t.default_waiting_on,
+          human_review_required: t.human_review_required,
+          due_at: t.sla_days ? new Date(Date.now() + t.sla_days * 86400000) : null,
+          status: "not_started",
+          actor_type: "system",
+        });
+      }
+
+      const mode = svc.billing_period === "monthly" ? "subscription" : "payment";
+      const baseUrl = process.env.APP_URL || `${req.protocol}://${req.get("host")}`;
+      const session = await stripe.checkout.sessions.create({
+        customer: stripeCustomerId,
+        mode: mode as Stripe.Checkout.SessionCreateParams.Mode,
+        payment_method_types: ["card", "us_bank_account", "cashapp", "afterpay_clearpay", "klarna", "acss_debit"],
+        line_items: [{ price: resolvedPriceId, quantity: 1 }],
+        metadata: {
+          crm_client_id: String(client.id),
+          service_catalog_id: svc.id,
+          client_service_id: String(cs.id),
+          billing_period: wantsYearly ? "yearly" : "monthly",
+          source: "portal_catalog",
+        },
+        success_url: `${baseUrl}/portal/services?checkout=success&service=${encodeURIComponent(svc.id)}`,
+        cancel_url: `${baseUrl}/portal/catalog?checkout=cancelled`,
+        allow_promotion_codes: true,
+        billing_address_collection: "auto",
+      });
+
+      log.info("[portal/catalog/subscribe] session created", {
+        clientId,
+        service_id: svc.id,
+        client_service_id: cs.id,
+        session_id: session.id,
+      });
+
+      res.json({ checkout_url: session.url, session_id: session.id });
+    } catch (err: any) {
+      log.error("[portal/catalog/subscribe] Error:", { error: err.message });
+      res.status(500).json({ error: "Failed to start checkout. Please try again." });
+    }
+  });
+
+  /**
+   * GET /api/portal/catalog
+   * Q16: in-portal service catalog — services the client is NOT yet subscribed to.
+   * Returns full SERVICES rows minus any IDs the client already has active/pending/onboarding.
+   */
+  app.get("/api/portal/catalog", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const active = await db
+        .select({ service_id: clientServices.service_id })
+        .from(clientServices)
+        .where(and(
+          eq(clientServices.client_id, clientId),
+          sql`${clientServices.status} in ('pending','onboarding','active','paused')`,
+        ));
+
+      const activeIds = new Set(active.map((r) => r.service_id));
+      const available = SERVICES.filter((svc) => !activeIds.has(svc.id));
+
+      res.json({ services: available });
+    } catch (err: any) {
+      log.error("[portal/catalog] Error:", { error: err.message });
+      res.status(500).json({ error: "Failed to load catalog" });
+    }
+  });
+
+  /**
+   * POST /api/portal/logo
+   * Q15: save customer logo URL (paste-link v1; file-upload later).
+   * Body: { logo_url: string | null }
+   */
+  app.post("/api/portal/logo", requireClientStrict, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const { logo_url } = req.body ?? {};
+      if (logo_url !== null && typeof logo_url !== "string") {
+        return res.status(400).json({ error: "logo_url must be a string or null" });
+      }
+      if (typeof logo_url === "string" && logo_url.length > 2048) {
+        return res.status(400).json({ error: "logo_url exceeds 2048 chars" });
+      }
+      if (typeof logo_url === "string" && logo_url.length > 0 && !/^https?:\/\//i.test(logo_url)) {
+        return res.status(400).json({ error: "logo_url must start with http:// or https://" });
+      }
+
+      await db.update(clients)
+        .set({ logo_url: logo_url ?? null, updated_at: new Date() })
+        .where(eq(clients.id, clientId));
+
+      log.info("[portal/logo] updated", { clientId, has_logo: !!logo_url });
+      res.json({ ok: true, logo_url: logo_url ?? null });
+    } catch (err: any) {
+      log.error("[portal/logo] Error:", { error: err.message });
+      res.status(500).json({ error: "Failed to update logo" });
     }
   });
 }

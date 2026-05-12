@@ -10,6 +10,7 @@ import { usePageTitle } from "@/hooks/usePageTitle";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import PortalLayout from "@/components/portal/PortalLayout";
+import UpsellCard from "@/components/portal/UpsellCard";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
@@ -252,6 +253,12 @@ export default function PortalMapguard() {
                 />
               </div>
             )}
+
+            {/* Q16 upsell — pair MapGuard with RankFlow for compound visibility */}
+            <UpsellCard
+              recommendPrefix="rankflow"
+              pitch="Pair MapGuard with RankFlow local SEO to rank for the keywords driving Map Pack appearances."
+            />
 
             {/* Since You Started */}
             {data.since_start && data.since_start.score_change > 0 && (
