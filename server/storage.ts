@@ -286,6 +286,7 @@ export interface IStorage {
   updateSupplier(id: number, updates: Partial<InsertSupplier>): Promise<Supplier | undefined>;
   listSuppliersForService(serviceId: string): Promise<Supplier[]>;
   setSupplierServiceAssignment(supplierId: number, serviceId: string, assigned: boolean): Promise<Supplier | undefined>;
+  setSupplierServiceCost(supplierId: number, serviceId: string, cost: { cost_cents: number; cost_type?: string } | null): Promise<Supplier | undefined>;
 
   // Fulfillment
   listFulfillmentTasks(opts?: { clientId?: number; status?: string; limit?: number; offset?: number }): Promise<(FulfillmentTask & { client_name?: string; supplier_name?: string; service_name?: string })[]>;
@@ -1646,6 +1647,29 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(suppliers)
       .where(sql`${suppliers.supported_services} @> ${JSON.stringify([serviceId])}::jsonb`)
       .orderBy(suppliers.name);
+  }
+
+  /** Q28h: set or clear a per-service cost override on a supplier. Pass null cost_cents to clear. */
+  async setSupplierServiceCost(
+    supplierId: number,
+    serviceId: string,
+    cost: { cost_cents: number; cost_type?: string } | null,
+  ): Promise<Supplier | undefined> {
+    const existing = await this.getSupplierById(supplierId);
+    if (!existing) return undefined;
+    const current = (existing.service_cost_overrides as Record<string, any> | null) ?? {};
+    const next = { ...current };
+    if (cost === null) {
+      if (!(serviceId in next)) return existing; // no-op
+      delete next[serviceId];
+    } else {
+      next[serviceId] = { cost_cents: cost.cost_cents, ...(cost.cost_type ? { cost_type: cost.cost_type } : {}) };
+    }
+    const [row] = await db.update(suppliers)
+      .set({ service_cost_overrides: Object.keys(next).length === 0 ? null : next, updated_at: new Date() })
+      .where(eq(suppliers.id, supplierId))
+      .returning();
+    return row;
   }
 
   /** Q28d: add or remove a service id from a supplier's supported_services array. */
