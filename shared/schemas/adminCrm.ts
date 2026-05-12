@@ -21,6 +21,10 @@ export const serviceCatalog = pgTable("service_catalog", {
   cost_amount: integer("cost_amount"),                    // internal cost in cents
   cost_type: text("cost_type"),                           // "per_delivery" | "monthly" | "one_time"
   sort_order: integer("sort_order").notNull().default(0),
+  /* Q28a: per-product pricing tiers (Starter/Growth/Pro etc). Optional —
+     products with a single price use default_price + billing_period and leave
+     this null. Shape validated by tiersSchema in shared/tiers.ts. */
+  tiers: jsonb("tiers"),
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
 });
