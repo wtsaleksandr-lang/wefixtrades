@@ -95,7 +95,7 @@ function MetricCard({ label, value, sub, icon: Icon, color }: {
   label: string; value: string | number; sub?: string; icon: React.ElementType; color: string;
 }) {
   return (
-    <Card className="p-4">
+    <Card className="h-full p-4">
       <div className="flex items-start gap-3">
         <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${color}`}>
           <Icon className="w-4 h-4 text-white" />
@@ -683,7 +683,7 @@ export default function PortalReviews() {
           </div>
         ) : rv && rq ? (
           <>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="grid auto-rows-fr grid-cols-2 lg:grid-cols-4 gap-3">
               <MetricCard label="Average Rating" value={`${rv.averageRating}★`} icon={Star} color="bg-amber-500" />
               <MetricCard
                 label="Total Reviews"
