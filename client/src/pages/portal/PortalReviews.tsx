@@ -2,6 +2,7 @@ import { usePageTitle } from "@/hooks/usePageTitle";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import PortalLayout from "@/components/portal/PortalLayout";
+import UpsellCard from "@/components/portal/UpsellCard";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -707,6 +708,12 @@ export default function PortalReviews() {
                 color="bg-violet-500"
               />
             </div>
+
+            {/* Q16 upsell — pair ReputationShield with RankFlow (reviews ↔ local rankings) */}
+            <UpsellCard
+              recommendPrefix="rankflow"
+              pitch="Pair your reviews with RankFlow local SEO — high review counts are a top ranking signal for the Map Pack."
+            />
 
             {/* Value signals */}
             <Card className="p-4 space-y-2">
