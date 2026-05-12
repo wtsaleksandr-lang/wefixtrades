@@ -4450,9 +4450,39 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
           eq(clientServices.client_id, clientId),
           sql`${clientServices.status} in ('pending','onboarding','active','paused')`,
         ));
-
       const activeIds = new Set(active.map((r) => r.service_id));
-      const available = SERVICES.filter((svc) => !activeIds.has(svc.id));
+
+      /* Q28g: read-path flip for admin-edited copy. When serviceCatalog has
+         non-null overrides (name / tagline / description / features) we use
+         them; otherwise fall back to the hardcoded SERVICES list. Tiers exist
+         in DB too (Q28a) but the portal-catalog UI doesn't render multi-tier
+         cards yet — punted to a follow-up. */
+      const dbRows = await db
+        .select({
+          id: serviceCatalog.id,
+          name: serviceCatalog.name,
+          tagline: serviceCatalog.tagline,
+          description: serviceCatalog.description,
+          features: serviceCatalog.features,
+        })
+        .from(serviceCatalog);
+      const dbById = new Map(dbRows.map((r) => [r.id, r]));
+
+      const available = SERVICES
+        .filter((svc) => !activeIds.has(svc.id))
+        .map((svc) => {
+          const override = dbById.get(svc.id);
+          if (!override) return svc;
+          return {
+            ...svc,
+            name: override.name ?? svc.name,
+            tagline: override.tagline ?? svc.tagline,
+            description: override.description ?? svc.description,
+            features: Array.isArray(override.features) && override.features.length > 0
+              ? (override.features as string[])
+              : svc.features,
+          };
+        });
 
       res.json({ services: available });
     } catch (err: any) {

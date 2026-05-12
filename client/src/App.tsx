@@ -117,7 +117,6 @@ import PortalTicketDetail from "@/pages/portal/PortalTicketDetail";
 import SupportInboxPage from "@/pages/admin/SupportInboxPage";
 import SupportTicketDetailPage from "@/pages/admin/SupportTicketDetailPage";
 import PortalMapguard from "@/pages/portal/PortalMapguard";
-// PortalReputation removed — redirects to /portal/reviews
 import SocialSyncSetup from "@/pages/portal/SocialSyncSetup";
 import PortalSocialSync from "@/pages/portal/PortalSocialSync";
 import PortalRankFlow from "@/pages/portal/PortalRankFlow";
