@@ -1,7 +1,7 @@
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect, useCallback } from "react";
-import { Loader2, Check, RefreshCw, KeyRound, AlertTriangle, Palette, X, Plus, Bell, Mail, MessageSquare } from "lucide-react";
+import { Loader2, Check, RefreshCw, KeyRound, AlertTriangle, Palette, X, Plus, Bell, Mail, MessageSquare, Image as ImageIcon } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
@@ -19,6 +19,7 @@ interface SettingsData {
   contact_email: string | null;
   contact_phone: string | null;
   website_url: string | null;
+  logo_url: string | null;
   trade_type: string | null;
   account_email: string | null;
 }
@@ -209,6 +210,9 @@ export default function PortalSettings() {
                 </div>
               </div>
             </form>
+
+            {/* Business Logo (Q15) */}
+            <LogoSection initialLogoUrl={data.logo_url} labelClass={labelClass} inputClass={inputClass} />
 
             {/* Pause All Automation */}
             <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
@@ -828,5 +832,116 @@ function ChannelRow({
       </div>
       <Switch checked={checked} onCheckedChange={onChange} aria-label={`${label} channel`} />
     </div>
+  );
+}
+
+/* ─── Logo Section (Q15) ─── */
+function LogoSection({
+  initialLogoUrl,
+  labelClass,
+  inputClass,
+}: {
+  initialLogoUrl: string | null;
+  labelClass: string;
+  inputClass: string;
+}) {
+  const queryClient = useQueryClient();
+  const [logoUrl, setLogoUrl] = useState(initialLogoUrl ?? "");
+  const [logoSaved, setLogoSaved] = useState(false);
+  const [logoError, setLogoError] = useState("");
+
+  useEffect(() => {
+    setLogoUrl(initialLogoUrl ?? "");
+  }, [initialLogoUrl]);
+
+  const saveLogo = useMutation({
+    mutationFn: async () => {
+      const trimmed = logoUrl.trim();
+      const payload = { logo_url: trimmed.length > 0 ? trimmed : null };
+      const res = await fetch("/api/portal/logo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to save logo");
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/portal/settings"] });
+      setLogoError("");
+      setLogoSaved(true);
+      setTimeout(() => setLogoSaved(false), 2500);
+    },
+    onError: (err: Error) => setLogoError(err.message),
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setLogoError("");
+    const trimmed = logoUrl.trim();
+    if (trimmed.length > 0 && !/^https?:\/\//i.test(trimmed)) {
+      setLogoError("Logo URL must start with http:// or https://");
+      return;
+    }
+    saveLogo.mutate();
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
+        <div className="flex items-center gap-2">
+          <ImageIcon className="w-4 h-4 text-gray-400" />
+          <h2 className="text-sm font-semibold text-gray-900">Business Logo</h2>
+        </div>
+        <p className="text-xs text-gray-500 -mt-2">
+          Paste a public URL to your logo. Used on your portal sidebar and on invoices.
+          File upload coming soon — for now host on Imgur, Cloudinary, your own site, etc.
+        </p>
+        <div className="flex items-start gap-4">
+          {logoUrl ? (
+            <img
+              src={logoUrl}
+              alt="Logo preview"
+              className="w-16 h-16 rounded-lg border border-gray-200 object-contain bg-gray-50 shrink-0"
+              onError={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = "0.3"; }}
+              data-testid="logo-preview"
+            />
+          ) : (
+            <div className="w-16 h-16 rounded-lg border border-dashed border-gray-300 bg-gray-50 flex items-center justify-center shrink-0">
+              <ImageIcon className="w-5 h-5 text-gray-300" />
+            </div>
+          )}
+          <div className="flex-1 min-w-0">
+            <label className={labelClass}>Logo URL</label>
+            <input
+              type="url"
+              placeholder="https://example.com/logo.png"
+              className={inputClass}
+              value={logoUrl}
+              onChange={(e) => setLogoUrl(e.target.value)}
+              data-testid="input-logo-url"
+            />
+          </div>
+        </div>
+        {logoError && <p className="text-xs text-red-600">{logoError}</p>}
+        <div className="flex items-center gap-3 pt-1">
+          <button
+            type="submit"
+            disabled={saveLogo.isPending}
+            className="px-4 py-2 text-sm font-medium text-white bg-[#2D6A4F] rounded-lg hover:bg-[#1B4332] transition-colors disabled:opacity-60"
+            data-testid="button-save-logo"
+          >
+            {saveLogo.isPending ? "Saving..." : "Save Logo"}
+          </button>
+          {logoSaved && (
+            <span className="flex items-center gap-1 text-xs text-emerald-600">
+              <Check className="w-3.5 h-3.5" /> Saved
+            </span>
+          )}
+        </div>
+      </div>
+    </form>
   );
 }

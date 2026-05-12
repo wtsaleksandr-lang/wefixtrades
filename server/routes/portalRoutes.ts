@@ -537,6 +537,7 @@ export function registerPortalRoutes(app: Express) {
         contact_email: client.contact_email,
         contact_phone: client.contact_phone,
         website_url: client.website_url,
+        logo_url: client.logo_url ?? null,
         trade_type: client.trade_type,
         account_email: user?.email ?? null,
       });

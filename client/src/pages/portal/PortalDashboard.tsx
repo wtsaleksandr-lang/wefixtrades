@@ -1,7 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useQuery } from "@tanstack/react-query";
-import { Wrench, ClipboardList, AlertCircle, CreditCard, Loader2, Calculator, Eye, Users, ExternalLink, RefreshCw, PhoneCall, Clock, ChevronRight } from "lucide-react";
+import { Wrench, ClipboardList, AlertCircle, CreditCard, Loader2, Calculator, Eye, Users, ExternalLink, RefreshCw, PhoneCall, Clock, ChevronRight, Plus } from "lucide-react";
 import { Link } from "wouter";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { TASK_STATUS_STYLES, TASK_STATUS_LABELS, statusLabel } from "@/config/portalLabels";
@@ -249,6 +249,24 @@ function PortalDashboardInner() {
               href="/portal/billing"
             />
           </div>
+
+          {/* Q16: Add Services CTA — single entry-point to the in-portal service catalog */}
+          <Link
+            href="/portal/catalog"
+            className="flex items-center justify-between bg-white rounded-xl border border-gray-200 hover:border-[#2D6A4F]/40 hover:shadow-sm p-5 transition-all group"
+            data-testid="link-add-services"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-[#F0F7F4] flex items-center justify-center">
+                <Plus className="w-5 h-5 text-[#2D6A4F]" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900">Add Services</h3>
+                <p className="text-xs text-gray-500 mt-0.5">Browse available services and add them to your subscription.</p>
+              </div>
+            </div>
+            <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-[#2D6A4F] transition-colors" />
+          </Link>
 
           {/* Pending onboarding card — only shows if there are any forms to complete */}
           {pendingOnboarding?.submissions && pendingOnboarding.submissions.length > 0 && (
