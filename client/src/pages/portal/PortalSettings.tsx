@@ -86,14 +86,24 @@ export default function PortalSettings() {
         credentials: "include",
         body: JSON.stringify(updates),
       });
-      if (!res.ok) throw new Error("Failed to save");
-      return res.json();
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || "Failed to save");
+      return body;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/portal/settings"] });
       queryClient.invalidateQueries({ queryKey: ["/api/portal/overview"] });
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
+    },
+    onError: (err: Error) => {
+      // Q4: previously a failed PATCH gave the user no feedback. Surface
+      // the server error (or a generic fallback) via the toast system.
+      toast({
+        title: "Couldn't save contact info",
+        description: err.message,
+        variant: "destructive",
+      });
     },
   });
 
