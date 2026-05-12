@@ -42,6 +42,7 @@ interface ServiceCatalogRow {
   billing_period: string;
   is_active: boolean;
   tiers: Tier[] | null;
+  features: string[] | null;
 }
 
 interface ProductDraft {
@@ -63,6 +64,7 @@ type EditableForm = {
   billing_period: string;
   category: string;
   tiers: Tier[];
+  features: string[];
 };
 
 const CATEGORIES = ["visibility", "leads", "reputation", "automation", "website"];
@@ -111,7 +113,7 @@ export default function ProductDetailPage() {
 
   // Pre-populate the form from draft if pending, otherwise from live values
   const initial = useMemo<EditableForm>(() => {
-    if (!live) return { name: "", tagline: "", description: "", default_price_cents: "", billing_period: "monthly", category: "visibility", tiers: [] };
+    if (!live) return { name: "", tagline: "", description: "", default_price_cents: "", billing_period: "monthly", category: "visibility", tiers: [], features: [] };
     const d = hasPendingDraft ? draft!.draft_data : {};
     return {
       name: (d.name ?? live.name) ?? "",
@@ -121,6 +123,7 @@ export default function ProductDetailPage() {
       billing_period: (d.billing_period ?? live.billing_period) ?? "monthly",
       category: (d.category ?? live.category) ?? "visibility",
       tiers: (d.tiers ?? live.tiers ?? []) as Tier[],
+      features: (d.features ?? live.features ?? []) as string[],
     };
   }, [live, draft, hasPendingDraft]);
 
@@ -140,6 +143,8 @@ export default function ProductDetailPage() {
     if (form.category !== live.category) out.category = form.category;
     const liveTiers = (live.tiers ?? []) as Tier[];
     if (!tiersEqual(form.tiers, liveTiers)) out.tiers = form.tiers;
+    const liveFeatures = (live.features ?? []) as string[];
+    if (JSON.stringify(form.features) !== JSON.stringify(liveFeatures)) out.features = form.features;
     return out;
   }, [form, live]);
   const hasChanges = Object.keys(dirty).length > 0;
@@ -350,6 +355,30 @@ export default function ProductDetailPage() {
 
             </Card>
 
+            {/* Q28b — Product-level features ("what's included" bullets) */}
+            <Card className="p-5 space-y-3">
+              <div>
+                <h2 className="text-sm font-semibold text-gray-900">What's included</h2>
+                <p className="text-[11px] text-gray-500 mt-0.5">
+                  Product-level bullets shown on marketing/portal cards and audit recommendations.
+                  One bullet per line. Leave empty to fall back to the hardcoded list.
+                </p>
+              </div>
+              <Textarea
+                rows={6}
+                value={form.features.join("\n")}
+                onChange={(e) => setForm({
+                  ...form,
+                  features: e.target.value.split("\n").map((s) => s.trim()).filter(Boolean),
+                })}
+                placeholder={"Mobile-optimised website\nContact form + QuoteQuick embed\nBasic SEO setup\n14-day TradeLine trial"}
+                data-testid="input-features"
+              />
+              <p className="text-[10px] text-gray-400">
+                {form.features.length} bullet{form.features.length === 1 ? "" : "s"} · max 40 lines, 400 chars each
+              </p>
+            </Card>
+
             {/* Q28a — Pricing tiers editor */}
             <Card className="p-5 space-y-4">
               <div className="flex items-start justify-between gap-3">
@@ -545,7 +574,6 @@ export default function ProductDetailPage() {
                 <p className="text-xs font-medium text-gray-700">Not in this editor yet</p>
               </div>
               <ul className="text-[11px] text-gray-500 list-disc pl-5 space-y-0.5">
-                <li>Feature list / "what's included" bullets at product level (tier-level features ✓ supported above)</li>
                 <li>Stripe product ID (tier-level Stripe price IDs ✓ supported above)</li>
                 <li>Suppliers / costs / fulfillment workflow</li>
                 <li>Subscriber roster + cancel toggle</li>
