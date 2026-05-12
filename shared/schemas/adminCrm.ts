@@ -183,6 +183,11 @@ export const suppliers = pgTable("suppliers", {
   cost_rate: integer("cost_rate"),                          // cost in cents per task/order
   cost_type: text("cost_type").default("per_task"),         // "per_task" | "monthly" | "hourly" | "per_project"
   currency: text("currency").default("usd"),
+  /* Q28h: per-service cost overrides. When a supplier supports multiple
+     products with different per-unit costs, this map overrides cost_rate
+     for the matching service id. Shape: { [service_id]: { cost_cents:
+     number, cost_type?: string } }. Null/missing key = use cost_rate. */
+  service_cost_overrides: jsonb("service_cost_overrides"),
   notes: text("notes"),
   status: varchar("status", { length: 20 }).notNull().default("active"),
   // active | inactive

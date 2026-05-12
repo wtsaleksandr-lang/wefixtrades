@@ -343,6 +343,52 @@ export function registerAdminCrmRoutes(app: Express): void {
     }
   });
 
+  // POST /api/admin/products/:id/suppliers/:supplierId/cost — Q28h
+  // body: { cost_cents: number | null, cost_type?: string }
+  // null cost_cents clears the override (falls back to supplier.cost_rate).
+  app.post("/api/admin/products/:id/suppliers/:supplierId/cost", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const svcId = req.params.id;
+      const supplierId = parseInt(req.params.supplierId, 10);
+      if (!Number.isFinite(supplierId)) return res.status(400).json({ error: "Invalid supplier id" });
+      const live = await storage.getServiceById(svcId);
+      if (!live) return res.status(404).json({ error: "Product not found" });
+
+      const { cost_cents, cost_type } = req.body ?? {};
+      let payload: { cost_cents: number; cost_type?: string } | null;
+      if (cost_cents === null || cost_cents === undefined) {
+        payload = null;
+      } else if (typeof cost_cents !== "number" || !Number.isFinite(cost_cents) || cost_cents < 0 || cost_cents > 10_000_000) {
+        return res.status(400).json({ error: "cost_cents must be a non-negative number ≤ 10,000,000 cents" });
+      } else {
+        payload = { cost_cents: Math.round(cost_cents) };
+        if (typeof cost_type === "string" && /^(per_task|monthly|hourly|per_project)$/.test(cost_type)) {
+          payload.cost_type = cost_type;
+        }
+      }
+
+      const updated = await storage.setSupplierServiceCost(supplierId, svcId, payload);
+      if (!updated) return res.status(404).json({ error: "Supplier not found" });
+      const u = req.user as any;
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: u?.id,
+        actor_name: u?.name || u?.email,
+        action: payload === null ? "product.supplier_cost_cleared" : "product.supplier_cost_set",
+        entity_type: "supplier",
+        entity_id: supplierId,
+        summary: payload === null
+          ? `Cleared per-service cost override for "${updated.name}" on "${live.name}"`
+          : `Set per-service cost override for "${updated.name}" on "${live.name}": ${(payload.cost_cents / 100).toFixed(2)} ${(updated.currency || "usd").toUpperCase()}${payload.cost_type ? ` (${payload.cost_type})` : ""}`,
+        metadata: { service_id: svcId, supplier_id: supplierId, cost_cents: payload?.cost_cents ?? null, cost_type: payload?.cost_type ?? null },
+      });
+      res.json({ supplier: updated });
+    } catch (err: any) {
+      log.error("[products supplier cost POST] Error:", err.message);
+      res.status(500).json({ error: "Failed to update supplier cost" });
+    }
+  });
+
   // POST /api/admin/products/:id/reject — reject the latest draft
   app.post("/api/admin/products/:id/reject", requireAdmin, async (req: Request, res: Response) => {
     try {

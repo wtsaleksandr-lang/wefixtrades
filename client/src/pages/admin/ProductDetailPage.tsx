@@ -22,7 +22,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRoute, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, ChevronLeft, Check, AlertTriangle, FileEdit, History, Plus, Trash2, ArrowUp, ArrowDown, Star, Factory, X, Users, Ban } from "lucide-react";
+import { Loader2, ChevronLeft, Check, AlertTriangle, FileEdit, History, Plus, Trash2, ArrowUp, ArrowDown, Star, Factory, X, Users, Ban, DollarSign } from "lucide-react";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -803,6 +803,9 @@ interface SupplierRow {
   currency: string | null;
   status: string;
   is_active: boolean;
+  /* Q28h: per-service cost overrides. Server returns the full map; UI uses the
+     entry keyed by the current serviceId to compute effective cost. */
+  service_cost_overrides: Record<string, { cost_cents: number; cost_type?: string }> | null;
 }
 
 function SuppliersPanel({ serviceId, serviceName }: { serviceId: string; serviceName: string }) {
@@ -836,7 +839,29 @@ function SuppliersPanel({ serviceId, serviceName }: { serviceId: string; service
     onError: (err: Error) => toast({ title: "Couldn't update supplier", description: err.message, variant: "destructive" }),
   });
 
+  // Q28h: per-service cost override mutation
+  const setCost = useMutation({
+    mutationFn: async ({ supplierId, costCents }: { supplierId: number; costCents: number | null }) => {
+      const res = await fetch(`/api/admin/products/${serviceId}/suppliers/${supplierId}/cost`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ cost_cents: costCents }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Failed to update cost");
+      return json;
+    },
+    onSuccess: (_, vars) => {
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/products/${serviceId}/suppliers`] });
+      toast({ title: vars.costCents === null ? "Override cleared" : "Cost override saved" });
+    },
+    onError: (err: Error) => toast({ title: "Couldn't update cost", description: err.message, variant: "destructive" }),
+  });
+
   const [selectedSupplier, setSelectedSupplier] = useState("");
+  const [editingCost, setEditingCost] = useState<number | null>(null);
+  const [costInput, setCostInput] = useState("");
 
   return (
     <Card className="p-5 space-y-3" data-testid="suppliers-panel">
@@ -865,36 +890,117 @@ function SuppliersPanel({ serviceId, serviceName }: { serviceId: string; service
 
       {data && data.assigned.length > 0 && (
         <ul className="space-y-1.5">
-          {data.assigned.map((s) => (
+          {data.assigned.map((s) => {
+            const overrideEntry = s.service_cost_overrides?.[serviceId];
+            const effectiveCostCents = overrideEntry?.cost_cents ?? s.cost_rate;
+            const currency = (s.currency || "usd").toUpperCase();
+            return (
             <li
               key={s.id}
-              className="flex items-center justify-between gap-2 px-3 py-2 rounded-md border border-gray-200 bg-white"
+              className="px-3 py-2 rounded-md border border-gray-200 bg-white"
               data-testid={`supplier-row-${s.id}`}
             >
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-gray-900 truncate">{s.name}</p>
-                <p className="text-[11px] text-gray-500">
-                  {s.type}
-                  {s.cost_rate ? ` · ${(s.cost_rate / 100).toFixed(2)} ${(s.currency || "usd").toUpperCase()}` : ""}
-                  {!s.is_active && " · inactive"}
-                </p>
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-gray-900 truncate">{s.name}</p>
+                  <p className="text-[11px] text-gray-500">
+                    {s.type}
+                    {effectiveCostCents != null && (
+                      <> · {(effectiveCostCents / 100).toFixed(2)} {currency}
+                        {overrideEntry ? <span className="ml-1 text-amber-600">(override)</span> : null}
+                      </>
+                    )}
+                    {!s.is_active && " · inactive"}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingCost(editingCost === s.id ? null : s.id);
+                      setCostInput(overrideEntry ? String(overrideEntry.cost_cents) : "");
+                    }}
+                    className="p-1.5 rounded hover:bg-gray-100 text-gray-500"
+                    aria-label="Edit per-service cost"
+                    title="Edit per-service cost"
+                    data-testid={`supplier-edit-cost-${s.id}`}
+                  >
+                    <DollarSign className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (window.confirm(`Remove "${s.name}" from ${serviceName}?`)) {
+                        toggle.mutate({ supplierId: s.id, assigned: false });
+                      }
+                    }}
+                    disabled={toggle.isPending}
+                    className="p-1.5 rounded hover:bg-red-50 text-red-500 disabled:opacity-40"
+                    aria-label="Remove supplier"
+                    data-testid={`supplier-remove-${s.id}`}
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  if (window.confirm(`Remove "${s.name}" from ${serviceName}?`)) {
-                    toggle.mutate({ supplierId: s.id, assigned: false });
-                  }
-                }}
-                disabled={toggle.isPending}
-                className="p-1.5 rounded hover:bg-red-50 text-red-500 disabled:opacity-40"
-                aria-label="Remove supplier"
-                data-testid={`supplier-remove-${s.id}`}
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
+
+              {/* Q28h: inline cost override editor */}
+              {editingCost === s.id && (
+                <div className="mt-2 pt-2 border-t border-gray-100 flex items-center gap-2" data-testid={`supplier-cost-editor-${s.id}`}>
+                  <span className="text-[11px] text-gray-500 shrink-0">Cost ({currency}, cents):</span>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={costInput}
+                    onChange={(e) => setCostInput(e.target.value)}
+                    placeholder={s.cost_rate != null ? String(s.cost_rate) : "0"}
+                    className="h-7 text-xs flex-1"
+                    data-testid={`supplier-cost-input-${s.id}`}
+                  />
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      const v = costInput.trim();
+                      if (v === "") return;
+                      const n = Number(v);
+                      if (!Number.isFinite(n) || n < 0) return;
+                      setCost.mutate({ supplierId: s.id, costCents: Math.round(n) });
+                      setEditingCost(null);
+                    }}
+                    disabled={setCost.isPending || costInput.trim() === ""}
+                    className="h-7 text-[11px] bg-[#2D6A4F] hover:bg-[#1B4332]"
+                    data-testid={`supplier-cost-save-${s.id}`}
+                  >
+                    Save
+                  </Button>
+                  {overrideEntry && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setCost.mutate({ supplierId: s.id, costCents: null });
+                        setEditingCost(null);
+                      }}
+                      disabled={setCost.isPending}
+                      className="h-7 text-[11px]"
+                      data-testid={`supplier-cost-clear-${s.id}`}
+                    >
+                      Clear
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setEditingCost(null)}
+                    className="h-7 text-[11px]"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              )}
             </li>
-          ))}
+            );
+          })}
         </ul>
       )}
 
