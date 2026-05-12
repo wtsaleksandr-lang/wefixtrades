@@ -13,7 +13,9 @@ import { loadPortalMessages, savePortalMessages } from "@/lib/chatHelpers";
 
 const LAST_OPEN_KEY = "wft_portal_chat_last_open";
 const OPACITY_KEY = "wft_portal_chat_opacity";
+const SIZE_KEY = "wft_portal_chat_size";
 const DAY_MS = 24 * 60 * 60 * 1000;
+const MIN_W = 320, MIN_H = 400, DEFAULT_W = 384, DEFAULT_H = 520;
 
 /** Grab a short, useful snapshot of what's visible to the user on the current page.
  *  Used by the chat assistant so it can answer page-aware questions like
@@ -93,6 +95,40 @@ export default function PortalChatWidget({
   const [showSettings, setShowSettings] = useState(false);
   // Q25: "Previous conversation" banner shown ONCE per re-open when last open was > 24h ago.
   const [showHistoryBanner, setShowHistoryBanner] = useState(false);
+  // Q25a: drag-to-resize from top-left corner (panel is anchored bottom-right).
+  // Persist user's preferred size so it survives navigations + reloads.
+  const [size, setSize] = useState<{ w: number; h: number }>(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(SIZE_KEY) ?? "");
+      if (saved && typeof saved.w === "number" && typeof saved.h === "number") {
+        return { w: Math.max(MIN_W, saved.w), h: Math.max(MIN_H, saved.h) };
+      }
+    } catch { /* noop */ }
+    return { w: DEFAULT_W, h: DEFAULT_H };
+  });
+  const resizeRef = useRef<{ startX: number; startY: number; startW: number; startH: number } | null>(null);
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    resizeRef.current = { startX: e.clientX, startY: e.clientY, startW: size.w, startH: size.h };
+  };
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!resizeRef.current) return;
+    const { startX, startY, startW, startH } = resizeRef.current;
+    // Panel anchored bottom-right: dragging top-left corner UP-LEFT grows the panel.
+    const dx = startX - e.clientX;
+    const dy = startY - e.clientY;
+    const maxW = Math.min(window.innerWidth * 0.85, 800);
+    const maxH = Math.min(window.innerHeight * 0.85, 900);
+    setSize({
+      w: Math.max(MIN_W, Math.min(maxW, startW + dx)),
+      h: Math.max(MIN_H, Math.min(maxH, startH + dy)),
+    });
+  };
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+    resizeRef.current = null;
+    try { localStorage.setItem(SIZE_KEY, JSON.stringify(size)); } catch { /* noop */ }
+  };
   // Q24: persist messages across page navigations + page reloads via localStorage.
   // Backend chat_memory table is also linked via session id once the user logs in.
   const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string }[]>(
@@ -316,10 +352,30 @@ export default function PortalChatWidget({
       {/* Chat panel */}
       {open && (
         <div
-          className="fixed bottom-4 right-4 z-50 w-80 sm:w-96 max-h-[520px] flex flex-col rounded-xl border border-gray-200 shadow-xl overflow-hidden"
-          style={{ backgroundColor: `rgba(255, 255, 255, ${panelOpacity})` }}
+          className="fixed bottom-4 right-4 z-50 flex flex-col rounded-xl border border-gray-200 shadow-xl overflow-hidden"
+          style={{
+            backgroundColor: `rgba(255, 255, 255, ${panelOpacity})`,
+            width: size.w,
+            height: size.h,
+          }}
           data-testid="portal-chat-panel"
         >
+          {/* Q25a: resize handle at top-left (panel grows up+left from bottom-right anchor) */}
+          <div
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            className="absolute top-0 left-0 w-4 h-4 cursor-nwse-resize z-10"
+            style={{ touchAction: "none" }}
+            title="Drag to resize"
+            data-testid="chat-resize-handle"
+            aria-label="Resize chat window"
+          >
+            {/* tiny visual cue: two diagonal lines in the corner */}
+            <svg width="14" height="14" viewBox="0 0 14 14" className="absolute top-0.5 left-0.5 text-white/60 pointer-events-none" aria-hidden="true">
+              <path d="M3 11 L11 3 M6 11 L11 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" fill="none" />
+            </svg>
+          </div>
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-[#2D6A4F] shrink-0">
             <div className="flex items-center gap-2">
@@ -369,7 +425,7 @@ export default function PortalChatWidget({
           )}
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-3 space-y-3 min-h-[180px] max-h-[340px]">
+          <div className="flex-1 overflow-y-auto p-3 space-y-3">
             {/* Q25: history banner on next-day reopen with prior messages */}
             {showHistoryBanner && messages.length > 0 && (
               <div className="flex items-center gap-2 -mt-1 mb-1 px-2.5 py-1.5 bg-gray-50 border border-gray-100 rounded text-[11px] text-gray-500" data-testid="banner-prior-conversation">
