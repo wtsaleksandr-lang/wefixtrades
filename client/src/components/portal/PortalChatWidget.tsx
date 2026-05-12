@@ -109,6 +109,29 @@ export default function PortalChatWidget({
   // Q23: form-fill proposal card (rendered inline after the assistant reply that proposed it).
   const [pendingProposal, setPendingProposal] = useState<FormFillProposal[] | null>(null);
   const [applyingProposal, setApplyingProposal] = useState(false);
+  // Q24: cross-session / cross-device hydration — on first mount, fetch the
+  // server-side thread for this user and merge if richer than localStorage.
+  // Survives logout/login + different browsers/devices.
+  const hydratedRef = useRef(false);
+  useEffect(() => {
+    if (hydratedRef.current) return;
+    hydratedRef.current = true;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/portal/ai-chat/history", { credentials: "include" });
+        if (!res.ok) return;
+        const data = await res.json();
+        const serverMessages: { role: "user" | "assistant"; content: string }[] = Array.isArray(data.messages) ? data.messages : [];
+        if (cancelled || serverMessages.length === 0) return;
+        // Server is canonical when it has MORE messages than current state
+        // (which came from localStorage). Skip otherwise to avoid clobbering
+        // local edits the server hasn't seen yet.
+        setMessages((prev) => (serverMessages.length > prev.length ? serverMessages : prev));
+      } catch { /* network errors are fine — falls back to localStorage */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
   // Q25a: drag-to-resize from top-left corner (panel is anchored bottom-right).
   // Persist user's preferred size so it survives navigations + reloads.
   const [size, setSize] = useState<{ w: number; h: number }>(() => {

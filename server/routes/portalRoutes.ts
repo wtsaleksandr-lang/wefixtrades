@@ -63,6 +63,7 @@ import {
   DEFAULT_MAPGUARD_CONFIG,
 } from "@shared/schema";
 import { SERVICES } from "@shared/services";
+import { getMemory, saveMemory } from "../services/chatMemory";
 
 import { compileMonthlyReport } from "../services/mapguardReports";
 import { getExecutionUsage } from "../services/mapguardTaskEngine";
@@ -1448,6 +1449,24 @@ Rules for proposing fills:
         maxTokens: 500,
       });
 
+      // Q24: persist the full conversation server-side so it survives logout +
+      // device switch (localStorage on the client is browser-local only).
+      // Keyed by user id; 7-day rolling window per the chat_memory helper.
+      const portalUserId = (req as any).user?.id as number | undefined;
+      if (portalUserId) {
+        const portalSessionId = `portal_${portalUserId}`;
+        const persisted = [
+          ...sanitizedMessages.map((m: { role: string; content: string }) => ({
+            role: m.role as "user" | "assistant",
+            content: m.content,
+          })),
+          { role: "assistant" as const, content: rawReply },
+        ];
+        // Fire-and-forget — never block the chat response on persistence.
+        saveMemory(portalSessionId, persisted, { userId: portalUserId, surface: "portal" })
+          .catch((err) => log.warn("[portal-ai] saveMemory failed:", { error: String(err) }));
+      }
+
       // Q23: extract a FORM_FILL proposal (if any) and strip it from the
       // user-visible reply. The fenced block is invisible to the customer;
       // the client renders an Apply/Skip card from the parsed JSON.
@@ -1548,6 +1567,30 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
     } catch (err) {
       log.error("Portal AI chat error:", { error: String(err) });
       res.json({ reply: "Sorry, the assistant is temporarily unavailable. You can still fill in the form manually." });
+    }
+  });
+
+  /**
+   * GET /api/portal/ai-chat/history
+   * Q24: cross-session / cross-device chat persistence. Returns the most
+   * recent saved thread for the authenticated user from chat_memory.
+   * Client hydrates on PortalChatWidget mount so the conversation survives
+   * logout + login on a different device.
+   */
+  app.get("/api/portal/ai-chat/history", requireClient, async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user?.id as number | undefined;
+      if (!userId) return res.json({ messages: [] });
+      const sessionId = `portal_${userId}`;
+      const entry = await getMemory(sessionId);
+      const messages = (entry?.messages ?? [])
+        .filter((m) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
+        .slice(-40)
+        .map((m) => ({ role: m.role, content: m.content }));
+      res.json({ messages });
+    } catch (err: any) {
+      log.error("[portal-ai/history] Error:", { error: err.message });
+      res.status(500).json({ error: "Failed to load chat history" });
     }
   });
 
