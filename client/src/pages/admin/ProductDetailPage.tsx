@@ -1,29 +1,28 @@
 /**
- * Admin product editor — /admin/products/:id (Q28 v1)
+ * Admin product editor — /admin/products/:id (Q28 v1 + Q28a tiers)
  *
  * Lets admin edit a product's customer-visible copy (name, tagline,
- * description, price, billing period, category) through a draft →
- * approve & publish flow.
+ * description, price, billing period, category, pricing tiers) through
+ * a draft → approve & publish flow.
  *
  * Customer-facing surfaces (website, /portal/catalog, /pricing,
  * etc.) read serviceCatalog directly — drafts are admin-only until
  * published. "Publish" copies draft_data into the matching
  * serviceCatalog row so changes go live everywhere at once.
  *
- * Out of scope for v1 (Q28 follow-ups in CARRYOVER):
- * - Pricing TIERS editor (currently only default_price)
- * - Features array editor
- * - Stripe price-ID linkage editor
- * - Supplier panel
- * - Subscriber roster
- * - AI workflow config
+ * Out of scope (Q28 follow-ups in CARRYOVER):
+ * - Features array editor (Q28b)
+ * - Stripe price-ID linkage editor (Q28c)
+ * - Supplier panel (Q28d)
+ * - Subscriber roster (Q28e)
+ * - AI workflow config (Q28f)
  * - Multi-approver workflow (any admin can publish their own draft today)
  */
 
 import { useEffect, useMemo, useState } from "react";
 import { useRoute, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, ChevronLeft, Check, AlertTriangle, FileEdit, History } from "lucide-react";
+import { Loader2, ChevronLeft, Check, AlertTriangle, FileEdit, History, Plus, Trash2, ArrowUp, ArrowDown, Star } from "lucide-react";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -31,6 +30,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import type { Tier } from "@shared/tiers";
 
 interface ServiceCatalogRow {
   id: string;
@@ -41,6 +41,7 @@ interface ServiceCatalogRow {
   default_price: number | null;
   billing_period: string;
   is_active: boolean;
+  tiers: Tier[] | null;
 }
 
 interface ProductDraft {
@@ -61,9 +62,30 @@ type EditableForm = {
   default_price_cents: string; // store as string so empty input doesn't NaN
   billing_period: string;
   category: string;
+  tiers: Tier[];
 };
 
 const CATEGORIES = ["visibility", "leads", "reputation", "automation", "website"];
+
+function emptyTier(): Tier {
+  return {
+    id: "",
+    name: "",
+    price_cents: 0,
+    billing_period: "monthly",
+    features: [],
+    badge: null,
+    highlighted: false,
+    included_mins: null,
+    stripe_price_id: null,
+  };
+}
+
+function tiersEqual(a: Tier[], b: Tier[]): boolean {
+  if (a.length !== b.length) return false;
+  // Stable JSON comparison — fine for editor-level dirty tracking
+  return JSON.stringify(a) === JSON.stringify(b);
+}
 
 export default function ProductDetailPage() {
   const [, params] = useRoute("/admin/products/:id");
@@ -89,7 +111,7 @@ export default function ProductDetailPage() {
 
   // Pre-populate the form from draft if pending, otherwise from live values
   const initial = useMemo<EditableForm>(() => {
-    if (!live) return { name: "", tagline: "", description: "", default_price_cents: "", billing_period: "monthly", category: "visibility" };
+    if (!live) return { name: "", tagline: "", description: "", default_price_cents: "", billing_period: "monthly", category: "visibility", tiers: [] };
     const d = hasPendingDraft ? draft!.draft_data : {};
     return {
       name: (d.name ?? live.name) ?? "",
@@ -98,6 +120,7 @@ export default function ProductDetailPage() {
       default_price_cents: String(d.default_price ?? live.default_price ?? ""),
       billing_period: (d.billing_period ?? live.billing_period) ?? "monthly",
       category: (d.category ?? live.category) ?? "visibility",
+      tiers: (d.tiers ?? live.tiers ?? []) as Tier[],
     };
   }, [live, draft, hasPendingDraft]);
 
@@ -115,9 +138,31 @@ export default function ProductDetailPage() {
     if (formPrice !== live.default_price) out.default_price = formPrice;
     if (form.billing_period !== live.billing_period) out.billing_period = form.billing_period;
     if (form.category !== live.category) out.category = form.category;
+    const liveTiers = (live.tiers ?? []) as Tier[];
+    if (!tiersEqual(form.tiers, liveTiers)) out.tiers = form.tiers;
     return out;
   }, [form, live]);
   const hasChanges = Object.keys(dirty).length > 0;
+
+  // Tier editor handlers
+  const updateTier = (idx: number, patch: Partial<Tier>) => {
+    setForm((f) => ({ ...f, tiers: f.tiers.map((t, i) => i === idx ? { ...t, ...patch } : t) }));
+  };
+  const addTier = () => {
+    setForm((f) => ({ ...f, tiers: [...f.tiers, emptyTier()] }));
+  };
+  const removeTier = (idx: number) => {
+    setForm((f) => ({ ...f, tiers: f.tiers.filter((_, i) => i !== idx) }));
+  };
+  const moveTier = (idx: number, direction: -1 | 1) => {
+    setForm((f) => {
+      const next = [...f.tiers];
+      const target = idx + direction;
+      if (target < 0 || target >= next.length) return f;
+      [next[idx], next[target]] = [next[target], next[idx]];
+      return { ...f, tiers: next };
+    });
+  };
 
   const saveDraft = useMutation({
     mutationFn: async () => {
@@ -303,6 +348,183 @@ export default function ProductDetailPage() {
                 </Field>
               </div>
 
+            </Card>
+
+            {/* Q28a — Pricing tiers editor */}
+            <Card className="p-5 space-y-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-sm font-semibold text-gray-900">Pricing tiers</h2>
+                  <p className="text-[11px] text-gray-500 mt-0.5">
+                    Optional. Use tiers for products with Starter/Growth/Pro packaging. Single-price
+                    products can leave this empty and rely on the price above.
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={addTier}
+                  className="shrink-0"
+                  data-testid="button-add-tier"
+                >
+                  <Plus className="w-3.5 h-3.5 mr-1" /> Add tier
+                </Button>
+              </div>
+
+              {form.tiers.length === 0 && (
+                <p className="text-xs text-gray-400 italic">No tiers configured.</p>
+              )}
+
+              {form.tiers.map((tier, idx) => (
+                <div
+                  key={idx}
+                  className="border border-gray-200 rounded-lg p-3 space-y-3 bg-gray-50"
+                  data-testid={`tier-card-${idx}`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] font-medium uppercase tracking-wider text-gray-500">
+                        Tier #{idx + 1}
+                      </span>
+                      {tier.highlighted && (
+                        <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">
+                          <Star className="w-2.5 h-2.5" /> Featured
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => moveTier(idx, -1)}
+                        disabled={idx === 0}
+                        className="p-1 rounded hover:bg-white disabled:opacity-30"
+                        aria-label="Move up"
+                        data-testid={`tier-up-${idx}`}
+                      >
+                        <ArrowUp className="w-3.5 h-3.5 text-gray-500" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => moveTier(idx, 1)}
+                        disabled={idx === form.tiers.length - 1}
+                        className="p-1 rounded hover:bg-white disabled:opacity-30"
+                        aria-label="Move down"
+                        data-testid={`tier-down-${idx}`}
+                      >
+                        <ArrowDown className="w-3.5 h-3.5 text-gray-500" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (window.confirm(`Remove tier "${tier.name || `#${idx + 1}`}"?`)) removeTier(idx);
+                        }}
+                        className="p-1 rounded hover:bg-red-50"
+                        aria-label="Remove tier"
+                        data-testid={`tier-remove-${idx}`}
+                      >
+                        <Trash2 className="w-3.5 h-3.5 text-red-500" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <Field label="Name (e.g. Starter)">
+                      <Input
+                        value={tier.name}
+                        onChange={(e) => updateTier(idx, { name: e.target.value })}
+                        data-testid={`tier-name-${idx}`}
+                      />
+                    </Field>
+                    <Field label="ID slug (e.g. tradeline-starter)">
+                      <Input
+                        value={tier.id}
+                        onChange={(e) => updateTier(idx, { id: e.target.value })}
+                        placeholder={`${live.id}-${tier.name.toLowerCase() || "tier"}`}
+                        data-testid={`tier-id-${idx}`}
+                      />
+                    </Field>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    <Field label="Price (cents)">
+                      <Input
+                        type="number"
+                        min={0}
+                        value={tier.price_cents}
+                        onChange={(e) => updateTier(idx, { price_cents: Number(e.target.value) || 0 })}
+                        data-testid={`tier-price-${idx}`}
+                      />
+                    </Field>
+                    <Field label="Billing">
+                      <select
+                        className="h-9 w-full px-2 text-sm border border-gray-200 rounded-md bg-white"
+                        value={tier.billing_period}
+                        onChange={(e) => updateTier(idx, { billing_period: e.target.value as "monthly" | "one-time" })}
+                        data-testid={`tier-billing-${idx}`}
+                      >
+                        <option value="monthly">Monthly</option>
+                        <option value="one-time">One-time</option>
+                      </select>
+                    </Field>
+                    <Field label="Included mins (TradeLine)">
+                      <Input
+                        type="number"
+                        min={0}
+                        value={tier.included_mins ?? ""}
+                        onChange={(e) => updateTier(idx, { included_mins: e.target.value === "" ? null : Number(e.target.value) })}
+                        placeholder="—"
+                        data-testid={`tier-mins-${idx}`}
+                      />
+                    </Field>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <Field label="Badge (optional)">
+                      <Input
+                        value={tier.badge ?? ""}
+                        onChange={(e) => updateTier(idx, { badge: e.target.value || null })}
+                        placeholder="e.g. Most Popular"
+                        data-testid={`tier-badge-${idx}`}
+                      />
+                    </Field>
+                    <Field label="Featured">
+                      <label className="inline-flex items-center gap-2 h-9 text-xs text-gray-700">
+                        <input
+                          type="checkbox"
+                          checked={!!tier.highlighted}
+                          onChange={(e) => updateTier(idx, { highlighted: e.target.checked })}
+                          className="h-4 w-4"
+                          data-testid={`tier-highlighted-${idx}`}
+                        />
+                        Highlight this tier on the pricing page
+                      </label>
+                    </Field>
+                  </div>
+
+                  <Field label="Features (one per line)">
+                    <Textarea
+                      rows={4}
+                      value={tier.features.join("\n")}
+                      onChange={(e) => updateTier(idx, { features: e.target.value.split("\n").map((s) => s.trim()).filter(Boolean) })}
+                      placeholder={"200 minutes included\nSMS auto-reply\nMissed-call recovery"}
+                      data-testid={`tier-features-${idx}`}
+                    />
+                  </Field>
+
+                  <Field label="Stripe price ID (optional)">
+                    <Input
+                      value={tier.stripe_price_id ?? ""}
+                      onChange={(e) => updateTier(idx, { stripe_price_id: e.target.value || null })}
+                      placeholder="price_..."
+                      className="font-mono text-xs"
+                      data-testid={`tier-stripe-${idx}`}
+                    />
+                  </Field>
+                </div>
+              ))}
+            </Card>
+
+            <Card className="p-5">
               <div className="flex items-center gap-2 pt-1">
                 <Button
                   onClick={() => saveDraft.mutate()}
@@ -323,9 +545,8 @@ export default function ProductDetailPage() {
                 <p className="text-xs font-medium text-gray-700">Not in this editor yet</p>
               </div>
               <ul className="text-[11px] text-gray-500 list-disc pl-5 space-y-0.5">
-                <li>Pricing tiers (currently only one default price)</li>
-                <li>Feature list / "what's included" bullets</li>
-                <li>Stripe price IDs (use direct DB edit for now)</li>
+                <li>Feature list / "what's included" bullets at product level (tier-level features ✓ supported above)</li>
+                <li>Stripe product ID (tier-level Stripe price IDs ✓ supported above)</li>
                 <li>Suppliers / costs / fulfillment workflow</li>
                 <li>Subscriber roster + cancel toggle</li>
                 <li>AI agent / cron job config</li>
