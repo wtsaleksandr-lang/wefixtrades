@@ -210,6 +210,56 @@ export function registerAdminCrmRoutes(app: Express): void {
     }
   });
 
+  /* ─── Q28d: Suppliers per product ─── */
+
+  // GET /api/admin/products/:id/suppliers — assigned + available suppliers
+  app.get("/api/admin/products/:id/suppliers", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const svcId = req.params.id;
+      const live = await storage.getServiceById(svcId);
+      if (!live) return res.status(404).json({ error: "Product not found" });
+      const [assigned, all] = await Promise.all([
+        storage.listSuppliersForService(svcId),
+        storage.listSuppliers(),
+      ]);
+      const assignedIds = new Set(assigned.map((s) => s.id));
+      const available = all.filter((s) => !assignedIds.has(s.id) && s.is_active);
+      res.json({ assigned, available });
+    } catch (err: any) {
+      log.error("[products suppliers GET] Error:", err.message);
+      res.status(500).json({ error: "Failed to load suppliers" });
+    }
+  });
+
+  // POST /api/admin/products/:id/suppliers/:supplierId — body { assigned: boolean }
+  app.post("/api/admin/products/:id/suppliers/:supplierId", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const svcId = req.params.id;
+      const supplierId = parseInt(req.params.supplierId, 10);
+      if (!Number.isFinite(supplierId)) return res.status(400).json({ error: "Invalid supplier id" });
+      const live = await storage.getServiceById(svcId);
+      if (!live) return res.status(404).json({ error: "Product not found" });
+      const assigned = req.body?.assigned === true;
+      const updated = await storage.setSupplierServiceAssignment(supplierId, svcId, assigned);
+      if (!updated) return res.status(404).json({ error: "Supplier not found" });
+      const u = req.user as any;
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: u?.id,
+        actor_name: u?.name || u?.email,
+        action: assigned ? "product.supplier_assigned" : "product.supplier_unassigned",
+        entity_type: "supplier",
+        entity_id: supplierId,
+        summary: `${assigned ? "Assigned" : "Unassigned"} supplier "${updated.name}" ${assigned ? "to" : "from"} product "${live.name}"`,
+        metadata: { service_id: svcId, supplier_id: supplierId },
+      });
+      res.json({ supplier: updated });
+    } catch (err: any) {
+      log.error("[products supplier toggle POST] Error:", err.message);
+      res.status(500).json({ error: "Failed to update supplier assignment" });
+    }
+  });
+
   // POST /api/admin/products/:id/reject — reject the latest draft
   app.post("/api/admin/products/:id/reject", requireAdmin, async (req: Request, res: Response) => {
     try {
