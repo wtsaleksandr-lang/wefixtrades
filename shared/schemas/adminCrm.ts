@@ -29,6 +29,11 @@ export const serviceCatalog = pgTable("service_catalog", {
      recommendations, marketing pages, and portal product cards. Null falls
      back to the hardcoded SERVICES array in shared/services.ts. */
   features: jsonb("features"),
+  /* Q28f: AI workflow / cron config shared across this product's per-product
+     config tables (mapguardConfig, tradelineConfig, etc). Shape validated
+     by automationConfigSchema in shared/automationConfig.ts. Free-form jsonb
+     so new keys can be added without migration. */
+  automation_config: jsonb("automation_config"),
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
 });
