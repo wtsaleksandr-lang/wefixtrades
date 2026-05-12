@@ -1,11 +1,12 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useQuery } from "@tanstack/react-query";
-import { Wrench, ClipboardList, AlertCircle, CreditCard, Loader2, Calculator, Eye, Users, ExternalLink, RefreshCw, PhoneCall, Clock, ChevronRight, Plus } from "lucide-react";
+import { Wrench, ClipboardList, AlertCircle, CreditCard, Loader2, Calculator, Eye, Users, ExternalLink, RefreshCw, PhoneCall, Clock, ChevronRight, Plus, UserPlus } from "lucide-react";
 import { Link } from "wouter";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { TASK_STATUS_STYLES, TASK_STATUS_LABELS, statusLabel } from "@/config/portalLabels";
 import ModeToggle from "@/components/portal/ModeToggle";
+import { useAuth } from "@/hooks/useAuth";
 
 /* Temporary in-page error surface so a render exception shows on the page
  * instead of blanking the React tree. Replace with the app's global error
@@ -116,14 +117,28 @@ export default function PortalDashboard() {
 
 function PortalDashboardInner() {
   usePageTitle("Dashboard");
-  const { data, isLoading, error, refetch } = useQuery<OverviewData>({
+  const { user } = useAuth();
+  // Q20a: capture the API error code so admin-without-client gets a friendly
+  // empty state instead of the generic red error box.
+  const { data, isLoading, error, refetch } = useQuery<OverviewData, Error & { code?: string }>({
     queryKey: ["/api/portal/overview"],
     queryFn: async () => {
       const res = await fetch("/api/portal/overview", { credentials: "include" });
-      if (!res.ok) throw new Error("Failed to load overview");
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        const err = new Error(body.error || "Failed to load overview") as Error & { code?: string };
+        if (body.code) err.code = body.code;
+        throw err;
+      }
       return res.json();
     },
+    retry: (failureCount, err) => {
+      // Don't retry on no_client_linked — it's stable until admin creates a client.
+      if ((err as Error & { code?: string })?.code === "no_client_linked") return false;
+      return failureCount < 2;
+    },
   });
+  const isAdminWithoutClient = (error as Error & { code?: string })?.code === "no_client_linked";
 
   const { data: ssProfile } = useQuery<any>({
     queryKey: ["/api/portal/socialsync-profile"],
@@ -194,7 +209,61 @@ function PortalDashboardInner() {
           <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
         </div>
       )}
-      {error && (
+      {error && isAdminWithoutClient && (
+        /* Q20a: admin previewing the portal with no client record linked
+           to their user account. Show what the customer view looks like
+           but empty + give them next-step links. */
+        <div className="max-w-2xl mx-auto mt-8" data-testid="admin-no-client-empty">
+          <div className="bg-white border border-amber-200 rounded-xl p-6 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center shrink-0">
+                <UserPlus className="w-5 h-5 text-amber-700" />
+              </div>
+              <div>
+                <h2 className="text-base font-semibold text-gray-900">No client account linked to your admin user</h2>
+                <p className="text-sm text-gray-600 mt-1">
+                  You're seeing the customer portal as <strong>{user?.email}</strong>, but there's no client record
+                  linked to this admin user. The portal would normally show that client's dashboard, services,
+                  payments, and onboarding tasks.
+                </p>
+              </div>
+            </div>
+
+            <div className="border-t border-gray-100 pt-4 space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">What you can do</p>
+              <div className="space-y-2">
+                <Link
+                  href="/admin/crm/clients"
+                  className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg border border-gray-200 hover:border-[#2D6A4F]/40 hover:bg-[#F0F7F4]/50 transition-colors group"
+                  data-testid="empty-state-clients-link"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-gray-900">Open the clients list</p>
+                    <p className="text-xs text-gray-500">Pick a real client → their portal will populate with their data</p>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-[#2D6A4F] shrink-0" />
+                </Link>
+                <Link
+                  href="/admin/crm"
+                  className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg border border-gray-200 hover:border-[#2D6A4F]/40 hover:bg-[#F0F7F4]/50 transition-colors group"
+                  data-testid="empty-state-admin-link"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-gray-900">Return to the admin dashboard</p>
+                    <p className="text-xs text-gray-500">Exit preview mode and go back to /admin/crm</p>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-[#2D6A4F] shrink-0" />
+                </Link>
+              </div>
+            </div>
+
+            <p className="text-[11px] text-gray-400 border-t border-gray-100 pt-3">
+              To preview a specific client's portal you'd need a client record whose <code className="px-1 py-0.5 rounded bg-gray-100 font-mono text-[10px]">user_id</code> column matches your admin user id.
+            </p>
+          </div>
+        </div>
+      )}
+      {error && !isAdminWithoutClient && (
         <div className="bg-red-50 text-red-700 rounded-lg p-4 text-sm flex items-center justify-between">
           <span>We hit a snag loading your dashboard. A refresh usually fixes it.</span>
           <button onClick={() => refetch()} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-white border border-red-200 rounded-lg hover:bg-red-50 transition-colors">

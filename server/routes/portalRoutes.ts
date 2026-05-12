@@ -93,7 +93,9 @@ async function resolveClientId(userId: number): Promise<number | null> {
 async function withClientId(req: Request, res: Response): Promise<number | null> {
   const clientId = await resolveClientId(req.user!.id);
   if (!clientId) {
-    res.status(403).json({ error: "No client record linked to this account" });
+    // Q20a: stable error code so the portal UI can show an admin-friendly
+    // empty state instead of a generic "Failed to load" red box.
+    res.status(403).json({ error: "No client record linked to this account", code: "no_client_linked" });
     return null;
   }
   return clientId;
