@@ -8,8 +8,9 @@
  */
 
 import { useState, useEffect } from "react";
+import { Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Check, Loader2 } from "lucide-react";
+import { Check, ChevronLeft, Loader2 } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { usePageTitle } from "@/hooks/usePageTitle";
 
@@ -110,6 +111,12 @@ export default function PaymentMethodsPage() {
     <PortalLayout>
       <div className="max-w-2xl mx-auto space-y-6">
         <div>
+          <Link href="/portal/billing">
+            <a className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-[#2D6A4F] transition-colors mb-2" data-testid="link-back-to-billing">
+              <ChevronLeft className="w-3.5 h-3.5" />
+              Back to Billing
+            </a>
+          </Link>
           <h1 className="text-xl font-semibold text-gray-900">Payment Methods</h1>
           <p className="text-sm text-gray-500 mt-0.5">
             Configure which payment options your customers see on invoice pages.

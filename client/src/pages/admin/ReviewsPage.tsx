@@ -94,7 +94,7 @@ function StatCard({ label, value, icon: Icon, color }: {
   color: string;
 }) {
   return (
-    <Card className="p-4">
+    <Card className="h-full p-4">
       <div className="flex items-start justify-between">
         <div>
           <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{label}</p>
@@ -339,7 +339,7 @@ export default function ReviewsPage() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div className="grid auto-rows-fr grid-cols-2 md:grid-cols-5 gap-3">
           <StatCard label="Total Reviews" value={stats?.total ?? "—"} icon={Star} color="bg-blue-500" />
           <StatCard label="Avg Rating" value={stats ? `${stats.averageRating}★` : "—"} icon={TrendingUp} color="bg-emerald-500" />
           <HelpCue text="Reviews detected by monitoring that haven't been acknowledged by admin yet.">
