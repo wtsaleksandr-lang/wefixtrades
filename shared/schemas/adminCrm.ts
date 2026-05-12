@@ -25,6 +25,10 @@ export const serviceCatalog = pgTable("service_catalog", {
      products with a single price use default_price + billing_period and leave
      this null. Shape validated by tiersSchema in shared/tiers.ts. */
   tiers: jsonb("tiers"),
+  /* Q28b: product-level "what's included" bullets — string[]. Used by audit
+     recommendations, marketing pages, and portal product cards. Null falls
+     back to the hardcoded SERVICES array in shared/services.ts. */
+  features: jsonb("features"),
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
 });

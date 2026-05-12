@@ -3,6 +3,9 @@ import { requireAdmin, hashPassword } from "../auth";
 import { storage } from "../storage";
 import { advanceSetupStage, getTradeLineReadiness } from "@shared/schema";
 import { tiersSchema } from "@shared/tiers";
+import { z } from "zod";
+
+const featuresSchema = z.array(z.string().min(1).max(400)).max(40);
 import { dispatchTaskToSupplier } from "../services/supplierDispatch";
 import { autoAssignSupplier } from "../services/supplierAssignment";
 import { sendWelcomePackage } from "../lib/welcomeEmail";
@@ -105,7 +108,7 @@ export function registerAdminCrmRoutes(app: Express): void {
       // Whitelist: only these fields can be edited via draft. Internal-only
       // fields (stripe IDs, cost_amount, sort_order) require direct admin
       // access for now and bypass the draft flow.
-      const EDITABLE = ["name", "tagline", "description", "default_price", "billing_period", "category", "tiers"] as const;
+      const EDITABLE = ["name", "tagline", "description", "default_price", "billing_period", "category", "tiers", "features"] as const;
       const draftData: Record<string, any> = {};
       for (const key of EDITABLE) {
         if (key in req.body) draftData[key] = req.body[key];
@@ -120,6 +123,14 @@ export function registerAdminCrmRoutes(app: Express): void {
           return res.status(400).json({ error: "Invalid tiers payload", details: parsed.error.flatten() });
         }
         draftData.tiers = parsed.data;
+      }
+      // Q28b: validate features shape if present (allow null to clear).
+      if ("features" in draftData && draftData.features !== null) {
+        const parsed = featuresSchema.safeParse(draftData.features);
+        if (!parsed.success) {
+          return res.status(400).json({ error: "Invalid features payload", details: parsed.error.flatten() });
+        }
+        draftData.features = parsed.data;
       }
 
       const u = req.user as any;
