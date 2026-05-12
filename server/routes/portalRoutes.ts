@@ -4316,7 +4316,7 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
       if (!stripeKey) return res.status(503).json({ error: "Payments are not configured yet. Please contact us." });
       const stripe = new Stripe(stripeKey, { apiVersion: "2025-01-27.acacia" as any });
 
-      const { service_id, billing_period } = req.body ?? {};
+      const { service_id, billing_period, tier_id } = req.body ?? {};
       if (!service_id || typeof service_id !== "string") {
         return res.status(400).json({ error: "service_id is required" });
       }
@@ -4330,12 +4330,43 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
         return res.status(409).json({ error: "You're already subscribed to this service." });
       }
 
-      const resolvedPriceId = wantsYearly && svc.billing_period === "monthly"
+      /* Q28g2: if the product has tiers AND the request specifies a tier_id,
+         use that tier's stripe_price_id + price_cents. Otherwise fall back to
+         the product-level stripe_price_id (single-price products) or the
+         first/highlighted tier when tiers exist but no tier_id was picked. */
+      const productTiers = Array.isArray(svc.tiers) ? (svc.tiers as Array<{
+        id: string;
+        name: string;
+        price_cents: number;
+        billing_period: "monthly" | "one-time";
+        stripe_price_id?: string | null;
+        highlighted?: boolean;
+      }>) : null;
+
+      let pickedTier: typeof productTiers extends Array<infer T> ? T : null = null as any;
+      if (productTiers && productTiers.length > 0) {
+        if (tier_id) {
+          pickedTier = productTiers.find((t) => t.id === tier_id) ?? null;
+          if (!pickedTier) {
+            return res.status(400).json({ error: "Selected tier not found for this product." });
+          }
+        } else {
+          // Default: highlighted tier if any, else first
+          pickedTier = productTiers.find((t) => t.highlighted) ?? productTiers[0];
+        }
+      }
+
+      const tierStripeId = pickedTier?.stripe_price_id || null;
+      const productLevelPriceId = wantsYearly && svc.billing_period === "monthly"
         ? svc.stripe_yearly_price_id
         : svc.stripe_price_id;
+      const resolvedPriceId = tierStripeId ?? productLevelPriceId;
       if (!resolvedPriceId) {
         return res.status(400).json({ error: `${svc.name} pricing isn't configured yet. Please contact us.` });
       }
+
+      const tierPriceCents = pickedTier?.price_cents ?? null;
+      const tierBillingPeriod = pickedTier?.billing_period ?? null;
 
       const [client] = await db.select().from(clients).where(eq(clients.id, clientId)).limit(1);
       if (!client) return res.status(404).json({ error: "Client not found" });
@@ -4353,22 +4384,26 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
       }
 
       // Pre-create pending clientService + payment + onboarding + tasks (same shape as public flow)
+      const effectivePriceCents = tierPriceCents ?? svc.default_price;
+      const effectiveBillingPeriod = tierBillingPeriod ?? svc.billing_period;
+      const tierLabel = pickedTier ? ` (${pickedTier.name})` : "";
       const cs = await storage.createClientService({
         client_id: client.id,
         service_id: svc.id,
         status: "pending",
         enabled: true,
         fulfillment_mode: "internal",
-        price_cents: svc.default_price,
-        billing_period: svc.billing_period,
+        price_cents: effectivePriceCents,
+        billing_period: effectiveBillingPeriod,
+        metadata: pickedTier ? { tier_id: pickedTier.id, tier_name: pickedTier.name } : null,
       });
       await storage.createClientPayment({
         client_id: client.id,
         client_service_id: cs.id,
-        type: svc.billing_period === "monthly" ? "invoice" : "payment",
-        amount_cents: svc.default_price ?? 0,
+        type: effectiveBillingPeriod === "monthly" ? "invoice" : "payment",
+        amount_cents: effectivePriceCents ?? 0,
         status: "pending",
-        description: `${svc.name} — ${svc.billing_period === "monthly" ? "monthly" : "one-time"}`,
+        description: `${svc.name}${tierLabel} — ${effectiveBillingPeriod === "monthly" ? "monthly" : "one-time"}`,
         actor_type: "system",
       });
       const tmpl = await storage.getOnboardingTemplate(svc.id);
@@ -4399,7 +4434,7 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
         });
       }
 
-      const mode = svc.billing_period === "monthly" ? "subscription" : "payment";
+      const mode = effectiveBillingPeriod === "monthly" ? "subscription" : "payment";
       const baseUrl = process.env.APP_URL || `${req.protocol}://${req.get("host")}`;
       const session = await stripe.checkout.sessions.create({
         customer: stripeCustomerId,
@@ -4412,6 +4447,7 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
           client_service_id: String(cs.id),
           billing_period: wantsYearly ? "yearly" : "monthly",
           source: "portal_catalog",
+          ...(pickedTier ? { tier_id: pickedTier.id, tier_name: pickedTier.name } : {}),
         },
         success_url: `${baseUrl}/portal/services?checkout=success&service=${encodeURIComponent(svc.id)}`,
         cancel_url: `${baseUrl}/portal/catalog?checkout=cancelled`,
@@ -4452,11 +4488,10 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
         ));
       const activeIds = new Set(active.map((r) => r.service_id));
 
-      /* Q28g: read-path flip for admin-edited copy. When serviceCatalog has
-         non-null overrides (name / tagline / description / features) we use
-         them; otherwise fall back to the hardcoded SERVICES list. Tiers exist
-         in DB too (Q28a) but the portal-catalog UI doesn't render multi-tier
-         cards yet — punted to a follow-up. */
+      /* Q28g + Q28g2: read-path flip for admin-edited copy. DB overrides for
+         name / tagline / description / features when non-null; otherwise fall
+         back to the hardcoded SERVICES list. Tiers (Q28a) are passed through
+         so the client can render a tier picker when present. */
       const dbRows = await db
         .select({
           id: serviceCatalog.id,
@@ -4464,6 +4499,7 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
           tagline: serviceCatalog.tagline,
           description: serviceCatalog.description,
           features: serviceCatalog.features,
+          tiers: serviceCatalog.tiers,
         })
         .from(serviceCatalog);
       const dbById = new Map(dbRows.map((r) => [r.id, r]));
@@ -4472,7 +4508,7 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
         .filter((svc) => !activeIds.has(svc.id))
         .map((svc) => {
           const override = dbById.get(svc.id);
-          if (!override) return svc;
+          if (!override) return { ...svc, tiers: null };
           return {
             ...svc,
             name: override.name ?? svc.name,
@@ -4481,6 +4517,9 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
             features: Array.isArray(override.features) && override.features.length > 0
               ? (override.features as string[])
               : svc.features,
+            tiers: Array.isArray(override.tiers) && override.tiers.length > 0
+              ? override.tiers
+              : null,
           };
         });
 
