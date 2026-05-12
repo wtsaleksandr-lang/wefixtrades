@@ -6,6 +6,7 @@ import {
   PauseCircle, PlayCircle, Link, ExternalLink, ShieldCheck,
 } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
+import UpsellCard from "@/components/portal/UpsellCard";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -170,6 +171,12 @@ export default function PortalRankFlow() {
           <MetricCard icon={MapPin} label="Directory Listings" value={String(m.citationsBuilt)} color="amber" />
           <MetricCard icon={BarChart3} label="Progress" value={`${m.progressPct}%`} color="indigo" />
         </div>
+
+        {/* Q16 upsell — pair RankFlow with SocialSync for content amplification */}
+        <UpsellCard
+          recommendPrefix="socialsync"
+          pitch="Add SocialSync so RankFlow content gets republished to your social channels — same content, multiple distribution points."
+        />
 
         {/* ─── Progress Bar ─── */}
         <div className="bg-white rounded-xl border border-gray-200 px-5 py-4">

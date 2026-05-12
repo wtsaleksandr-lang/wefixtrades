@@ -9,10 +9,12 @@
  * is a no-op placeholder until the Stripe-checkout integration lands.
  */
 
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Loader2, ArrowRight, ExternalLink } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { useToast } from "@/hooks/use-toast";
 
 interface CatalogService {
   id: string;
@@ -43,6 +45,12 @@ function productPageUrl(serviceId: string): string {
 
 export default function PortalCatalog() {
   usePageTitle("Add Services");
+  const { toast } = useToast();
+  const [pendingId, setPendingId] = useState<string | null>(null);
+
+  // Show banner on return from Stripe (success or cancelled)
+  const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+  const checkoutResult = params?.get("checkout");
 
   const { data, isLoading, error } = useQuery<{ services: CatalogService[] }>({
     queryKey: ["/api/portal/catalog"],
@@ -52,6 +60,32 @@ export default function PortalCatalog() {
       return res.json();
     },
   });
+
+  const subscribe = useMutation({
+    mutationFn: async (serviceId: string) => {
+      const res = await fetch("/api/portal/catalog/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ service_id: serviceId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Couldn't start checkout");
+      return data as { checkout_url: string; session_id: string };
+    },
+    onSuccess: ({ checkout_url }) => {
+      if (checkout_url) window.location.href = checkout_url;
+    },
+    onError: (err: Error) => {
+      setPendingId(null);
+      toast({ title: "Checkout failed", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const handleAdd = (svcId: string) => {
+    setPendingId(svcId);
+    subscribe.mutate(svcId);
+  };
 
   const services = data?.services ?? [];
 
@@ -64,6 +98,12 @@ export default function PortalCatalog() {
             Expand your subscription. Click any service to add it to your account or learn more.
           </p>
         </div>
+
+        {checkoutResult === "cancelled" && (
+          <div className="bg-amber-50 text-amber-800 border border-amber-200 rounded-xl p-4 text-sm" data-testid="banner-checkout-cancelled">
+            Checkout was cancelled. Pick a service below to try again.
+          </div>
+        )}
 
         {isLoading && (
           <div className="flex justify-center py-12">
@@ -110,12 +150,16 @@ export default function PortalCatalog() {
                 <div className="flex items-center gap-2 pt-1">
                   <button
                     type="button"
-                    disabled
-                    title="Checkout integration coming next cycle"
+                    onClick={() => handleAdd(svc.id)}
+                    disabled={pendingId !== null}
                     className="flex-1 px-3 py-2 text-xs font-medium text-white bg-[#2D6A4F] rounded-lg hover:bg-[#1B4332] transition-colors disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center gap-1"
                     data-testid={`catalog-add-${svc.id}`}
                   >
-                    Add to subscription <ArrowRight className="w-3 h-3" />
+                    {pendingId === svc.id ? (
+                      <><Loader2 className="w-3 h-3 animate-spin" /> Redirecting…</>
+                    ) : (
+                      <>Add to subscription <ArrowRight className="w-3 h-3" /></>
+                    )}
                   </button>
                   <a
                     href={productPageUrl(svc.id)}
