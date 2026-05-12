@@ -92,6 +92,15 @@ export function registerAdminCrmRoutes(app: Express): void {
      only as a pending-change layer for admin review.
   */
 
+  /** Multi-approver workflow threshold. Default 1 (pre-launch parity:
+   *  any single admin can publish their own draft). Set PUBLISH_APPROVAL_COUNT
+   *  env to a higher integer post-launch to require N distinct admins. */
+  const publishApprovalThreshold = (() => {
+    const raw = process.env.PUBLISH_APPROVAL_COUNT;
+    const n = raw ? parseInt(raw, 10) : 1;
+    return Number.isFinite(n) && n >= 1 ? n : 1;
+  })();
+
   // GET /api/admin/products/:id — current published row + latest pending draft (if any)
   app.get("/api/admin/products/:id", requireAdmin, async (req: Request, res: Response) => {
     try {
@@ -99,7 +108,7 @@ export function registerAdminCrmRoutes(app: Express): void {
       const live = await storage.getServiceById(svcId);
       if (!live) return res.status(404).json({ error: "Product not found" });
       const draft = await storage.getLatestProductDraft(svcId);
-      res.json({ live, draft });
+      res.json({ live, draft, publish_approval_threshold: publishApprovalThreshold });
     } catch (err: any) {
       log.error("[products GET] Error:", err.message);
       res.status(500).json({ error: "Failed to load product" });
@@ -186,30 +195,91 @@ export function registerAdminCrmRoutes(app: Express): void {
     }
   });
 
+  // POST /api/admin/products/:id/approve — record an approval without publishing
+  // Multi-approver workflow: idempotently adds the current admin to the
+  // draft's approvers list. Used when PUBLISH_APPROVAL_COUNT > 1.
+  app.post("/api/admin/products/:id/approve", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const svcId = req.params.id;
+      const live = await storage.getServiceById(svcId);
+      if (!live) return res.status(404).json({ error: "Product not found" });
+      const draft = await storage.getLatestProductDraft(svcId);
+      if (!draft || draft.status !== "draft") {
+        return res.status(400).json({ error: "No pending draft to approve" });
+      }
+      const u = req.user as any;
+      if (!u?.id) return res.status(401).json({ error: "Missing user id" });
+      const updated = await storage.addProductDraftApprover(draft.id, u.id, u.email ?? null);
+      if (!updated) return res.status(404).json({ error: "Draft not found" });
+      const approvers = (updated.approvers as Array<{ user_id: number }>) ?? [];
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: u.id,
+        actor_name: u.name || u.email,
+        action: "product.draft_approved",
+        entity_type: "service_catalog",
+        entity_id: null,
+        summary: `Approved draft for "${live.name}" (${approvers.length}/${publishApprovalThreshold} approvals)`,
+        metadata: { service_id: svcId, draft_id: draft.id, approvals: approvers.length, threshold: publishApprovalThreshold },
+      });
+      res.json({ draft: updated, publish_approval_threshold: publishApprovalThreshold });
+    } catch (err: any) {
+      log.error("[products approve POST] Error:", err.message);
+      res.status(500).json({ error: "Failed to record approval" });
+    }
+  });
+
   // POST /api/admin/products/:id/publish — promote latest draft to serviceCatalog
+  // Enforces PUBLISH_APPROVAL_COUNT (default 1). The publisher is auto-added
+  // to approvers if not already there, so a solo admin with threshold=1
+  // can still one-click publish exactly as before.
   app.post("/api/admin/products/:id/publish", requireAdmin, async (req: Request, res: Response) => {
     try {
       const svcId = req.params.id;
       const live = await storage.getServiceById(svcId);
       if (!live) return res.status(404).json({ error: "Product not found" });
 
-      const draft = await storage.getLatestProductDraft(svcId);
+      let draft = await storage.getLatestProductDraft(svcId);
       if (!draft || draft.status !== "draft") {
         return res.status(400).json({ error: "No pending draft to publish" });
       }
 
       const u = req.user as any;
-      const updated = await storage.publishProductDraft(draft.id, svcId, draft.draft_data as Record<string, any>, u?.id ?? null);
+      if (!u?.id) return res.status(401).json({ error: "Missing user id" });
+
+      // Auto-add publisher as approver (idempotent). This preserves single-admin
+      // one-click publish behavior when threshold=1.
+      const withApprover = await storage.addProductDraftApprover(draft.id, u.id, u.email ?? null);
+      if (withApprover) draft = withApprover;
+      const approvers = (draft.approvers as Array<{ user_id: number; email: string | null; approved_at: string }>) ?? [];
+
+      if (approvers.length < publishApprovalThreshold) {
+        return res.status(409).json({
+          error: `This draft needs ${publishApprovalThreshold - approvers.length} more approval(s) before publish.`,
+          code: "approvals_pending",
+          approvals: approvers.length,
+          threshold: publishApprovalThreshold,
+          draft,
+        });
+      }
+
+      const updated = await storage.publishProductDraft(draft.id, svcId, draft.draft_data as Record<string, any>, u.id);
 
       await storage.logAdminActivity({
         actor_type: "human",
-        actor_id: u?.id,
-        actor_name: u?.name || u?.email,
+        actor_id: u.id,
+        actor_name: u.name || u.email,
         action: "product.draft_published",
         entity_type: "service_catalog",
         entity_id: null,
-        summary: `Published draft for "${updated.name}" — changes are now live`,
-        metadata: { service_id: svcId, draft_id: draft.id, fields: Object.keys(draft.draft_data as Record<string, any>) },
+        summary: `Published draft for "${updated.name}" — changes are now live (${approvers.length}/${publishApprovalThreshold} approvals)`,
+        metadata: {
+          service_id: svcId,
+          draft_id: draft.id,
+          fields: Object.keys(draft.draft_data as Record<string, any>),
+          approvals: approvers.length,
+          threshold: publishApprovalThreshold,
+        },
       });
 
       res.json({ live: updated });
