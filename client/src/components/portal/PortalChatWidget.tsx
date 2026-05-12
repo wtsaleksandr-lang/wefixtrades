@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import {
-  MessageCircle, X, Send, Loader2, ClipboardList, CheckCircle2, Settings as SettingsIcon, History,
+  MessageCircle, X, Send, Loader2, ClipboardList, CheckCircle2, Settings as SettingsIcon, History, Wand2,
 } from "lucide-react";
 import ChatAttachmentInput, {
   ChatAttachmentChips,
@@ -30,6 +30,12 @@ function readPageContentSnapshot(): string | undefined {
 }
 
 /* ─── Types ─── */
+export interface FormFillProposal {
+  field_key: string;
+  value: string;
+  reason?: string;
+}
+
 export interface PortalChatContext {
   /** "help" for general support (escalation enabled), or omit for onboarding */
   surface?: "help";
@@ -38,6 +44,11 @@ export interface PortalChatContext {
   service_id?: string;
   fields?: { key: string; label: string; required: boolean }[];
   current_responses?: Record<string, any>;
+  /** Q23: optional handler the host page provides — the chat widget calls
+   *  this with the proposed fills when the user clicks "Apply" on an AI
+   *  proposal card. The host page (e.g. PortalOnboarding) updates its form
+   *  state from these values. If not provided, the Apply button is hidden. */
+  onApplyFill?: (fills: FormFillProposal[]) => void | Promise<void>;
 }
 
 interface EscalationDraft {
@@ -95,6 +106,9 @@ export default function PortalChatWidget({
   const [showSettings, setShowSettings] = useState(false);
   // Q25: "Previous conversation" banner shown ONCE per re-open when last open was > 24h ago.
   const [showHistoryBanner, setShowHistoryBanner] = useState(false);
+  // Q23: form-fill proposal card (rendered inline after the assistant reply that proposed it).
+  const [pendingProposal, setPendingProposal] = useState<FormFillProposal[] | null>(null);
+  const [applyingProposal, setApplyingProposal] = useState(false);
   // Q25a: drag-to-resize from top-left corner (panel is anchored bottom-right).
   // Persist user's preferred size so it survives navigations + reloads.
   const [size, setSize] = useState<{ w: number; h: number }>(() => {
@@ -273,6 +287,11 @@ export default function PortalChatWidget({
         setDraftCategory(draft.category);
         setDraftDescription(draft.description);
       }
+
+      // Q23: form-fill proposal — render an inline card with Apply/Skip
+      if (data.proposal && Array.isArray(data.proposal.fills) && data.proposal.fills.length > 0) {
+        setPendingProposal(data.proposal.fills as FormFillProposal[]);
+      }
     } catch {
       setMessages((prev) => [...prev, {
         role: "assistant",
@@ -322,6 +341,45 @@ export default function PortalChatWidget({
     } finally {
       setSubmittingTicket(false);
     }
+  }
+
+  // Q23: form-fill proposal handlers — Apply calls onApplyFill from the host
+  // (e.g. PortalOnboarding) which is responsible for updating the form state.
+  // Skip just clears the proposal. Both add an assistant-tone follow-up
+  // message to the chat so the customer sees what happened.
+  async function applyProposal() {
+    if (!pendingProposal || applyingProposal) return;
+    setApplyingProposal(true);
+    try {
+      if (chatContext?.onApplyFill) {
+        await chatContext.onApplyFill(pendingProposal);
+        setMessages((prev) => [...prev, {
+          role: "assistant" as const,
+          content: `Done — filled ${pendingProposal.length === 1 ? "1 field" : `${pendingProposal.length} fields`} for you. Please review before saving.`,
+        }]);
+      } else {
+        // No host integration yet — still acknowledge so the user sees feedback
+        setMessages((prev) => [...prev, {
+          role: "assistant" as const,
+          content: "I'd fill the fields for you, but this page hasn't wired up form-fill yet. Capturing your confirmation only.",
+        }]);
+      }
+      setPendingProposal(null);
+    } catch (err) {
+      setMessages((prev) => [...prev, {
+        role: "assistant" as const,
+        content: `Couldn't apply the fill: ${(err as Error).message}. You can fill the fields manually.`,
+      }]);
+    } finally {
+      setApplyingProposal(false);
+    }
+  }
+  function skipProposal() {
+    setPendingProposal(null);
+    setMessages((prev) => [...prev, {
+      role: "assistant" as const,
+      content: "Okay — leaving those fields as they are. Tell me if you want me to suggest different values.",
+    }]);
   }
 
   function dismissDraft() {
@@ -555,6 +613,49 @@ export default function PortalChatWidget({
                 </div>
               </div>
             )}
+
+            {/* Q23: form-fill proposal card */}
+            {pendingProposal && pendingProposal.length > 0 && (
+              <div className="border border-[#2D6A4F]/30 bg-[#F0F7F4] rounded-lg p-3 space-y-2" data-testid="form-fill-proposal">
+                <div className="flex items-center gap-1.5">
+                  <Wand2 className="w-3.5 h-3.5 text-[#2D6A4F]" />
+                  <p className="text-xs font-medium text-gray-900">
+                    Suggested fill ({pendingProposal.length} field{pendingProposal.length === 1 ? "" : "s"})
+                  </p>
+                </div>
+                <div className="space-y-1.5">
+                  {pendingProposal.map((fill, i) => {
+                    const label = chatContext?.fields?.find((f) => f.key === fill.field_key)?.label ?? fill.field_key;
+                    return (
+                      <div key={i} className="text-[11px] bg-white rounded border border-gray-100 px-2 py-1.5">
+                        <p className="font-medium text-gray-700">{label}</p>
+                        <p className="text-gray-900 break-words">{fill.value}</p>
+                        {fill.reason && <p className="text-[10px] text-gray-500 mt-0.5">{fill.reason}</p>}
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={applyProposal}
+                    disabled={applyingProposal}
+                    className="px-3 py-1 text-xs font-medium text-white bg-[#2D6A4F] rounded hover:bg-[#1B4332] disabled:opacity-60 transition-colors"
+                    data-testid="button-apply-fill"
+                  >
+                    {applyingProposal ? "Applying..." : "Apply"}
+                  </button>
+                  <button
+                    onClick={skipProposal}
+                    disabled={applyingProposal}
+                    className="px-3 py-1 text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded hover:bg-gray-50 transition-colors"
+                    data-testid="button-skip-fill"
+                  >
+                    Skip
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div ref={endRef} />
           </div>
 
