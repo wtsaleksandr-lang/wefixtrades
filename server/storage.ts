@@ -264,6 +264,7 @@ export interface IStorage {
   getLatestProductDraft(serviceId: string): Promise<ProductDraft | undefined>;
   upsertProductDraft(data: Omit<InsertProductDraft, "status">): Promise<ProductDraft>;
   publishProductDraft(draftId: number, serviceId: string, draftData: Record<string, any>, publishedBy: number | null): Promise<ServiceCatalogRow>;
+  addProductDraftApprover(draftId: number, userId: number, email: string | null): Promise<ProductDraft | undefined>;
   rejectProductDraft(draftId: number, rejectedBy: number | null, reason: string | null): Promise<ProductDraft>;
 
   // Client services
@@ -1457,6 +1458,22 @@ export class DatabaseStorage implements IStorage {
       ...data,
       status: "draft",
     }).returning();
+    return row;
+  }
+
+  /** Multi-approver workflow: idempotent add of an approver to a draft.
+   *  Returns the updated draft. If the user is already in the approvers
+   *  list, the existing entry is preserved (no duplicate). */
+  async addProductDraftApprover(draftId: number, userId: number, email: string | null): Promise<ProductDraft | undefined> {
+    const [existing] = await db.select().from(productDrafts).where(eq(productDrafts.id, draftId)).limit(1);
+    if (!existing) return undefined;
+    const current = (existing.approvers as Array<{ user_id: number; email: string | null; approved_at: string }> | null) ?? [];
+    if (current.some((a) => a.user_id === userId)) return existing;
+    const next = [...current, { user_id: userId, email, approved_at: new Date().toISOString() }];
+    const [row] = await db.update(productDrafts)
+      .set({ approvers: next, updated_at: new Date() })
+      .where(eq(productDrafts.id, draftId))
+      .returning();
     return row;
   }
 

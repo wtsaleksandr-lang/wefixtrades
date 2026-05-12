@@ -30,6 +30,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { useAuth } from "@/hooks/useAuth";
 import type { Tier } from "@shared/tiers";
 import type { AutomationConfig } from "@shared/automationConfig";
 import { emptyAutomationConfig } from "@shared/automationConfig";
@@ -51,13 +52,21 @@ interface ServiceCatalogRow {
   automation_config: AutomationConfig | null;
 }
 
+interface DraftApprover {
+  user_id: number;
+  email: string | null;
+  approved_at: string;
+}
+
 interface ProductDraft {
   id: number;
   service_id: string;
   status: "draft" | "published" | "rejected";
   draft_data: Record<string, any>;
   notes: string | null;
+  created_by: number | null;
   created_by_email: string | null;
+  approvers: DraftApprover[] | null;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -106,8 +115,9 @@ export default function ProductDetailPage() {
   const { toast } = useToast();
   const svcId = params?.id ?? "";
   usePageTitle(`Edit Product · ${svcId}`);
+  const { user } = useAuth();
 
-  const { data, isLoading, error } = useQuery<{ live: ServiceCatalogRow; draft: ProductDraft | null }>({
+  const { data, isLoading, error } = useQuery<{ live: ServiceCatalogRow; draft: ProductDraft | null; publish_approval_threshold: number }>({
     queryKey: [`/api/admin/products/${svcId}`],
     queryFn: async () => {
       const res = await fetch(`/api/admin/products/${svcId}`, { credentials: "include" });
@@ -222,7 +232,11 @@ export default function ProductDetailPage() {
         credentials: "include",
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Failed to publish");
+      if (!res.ok) {
+        const err = new Error(json.error || "Failed to publish") as Error & { code?: string };
+        if (json.code) err.code = json.code;
+        throw err;
+      }
       return json;
     },
     onSuccess: () => {
@@ -230,7 +244,34 @@ export default function ProductDetailPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/services"] });
       toast({ title: "Published", description: "Live everywhere — website, pricing page, customer portal." });
     },
-    onError: (err: Error) => toast({ title: "Publish failed", description: err.message, variant: "destructive" }),
+    onError: (err: Error & { code?: string }) => {
+      // Approvals-pending 409 returns with a clearer hint via the message,
+      // but also refresh the draft so the UI shows the new approver count.
+      if (err.code === "approvals_pending") {
+        queryClient.invalidateQueries({ queryKey: [`/api/admin/products/${svcId}`] });
+        toast({ title: "More approvals needed", description: err.message });
+      } else {
+        toast({ title: "Publish failed", description: err.message, variant: "destructive" });
+      }
+    },
+  });
+
+  const approve = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/admin/products/${svcId}/approve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Failed to approve");
+      return json;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/products/${svcId}`] });
+      toast({ title: "Approval recorded" });
+    },
+    onError: (err: Error) => toast({ title: "Approve failed", description: err.message, variant: "destructive" }),
   });
 
   const reject = useMutation({
@@ -287,27 +328,80 @@ export default function ProductDetailPage() {
               </span>
             </div>
 
-            {hasPendingDraft && (
+            {hasPendingDraft && (() => {
+              const threshold = data?.publish_approval_threshold ?? 1;
+              const approvers = (draft?.approvers ?? []) as DraftApprover[];
+              const approvalsCount = approvers.length;
+              const remaining = Math.max(0, threshold - approvalsCount);
+              const userId = (user as any)?.id ?? null;
+              const currentUserApproved = userId != null && approvers.some((a) => a.user_id === userId);
+              const requiresMultiApprove = threshold > 1;
+              return (
               <Card className="p-4 border-amber-200 bg-amber-50 space-y-2">
                 <div className="flex items-center gap-2">
                   <FileEdit className="w-4 h-4 text-amber-600" />
                   <p className="text-sm font-medium text-amber-900">Pending draft</p>
+                  {requiresMultiApprove && (
+                    <span
+                      className="ml-auto text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 uppercase tracking-wide"
+                      data-testid="approval-count"
+                    >
+                      {approvalsCount}/{threshold} approvals
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs text-amber-800">
-                  This product has unpublished changes. Review the form below and click <strong>Approve & Publish</strong> to push live, or <strong>Reject</strong> to discard.
+                  {requiresMultiApprove ? (
+                    remaining > 0 ? (
+                      <>This draft needs <strong>{remaining}</strong> more approval(s) before it can publish. Distinct admins must each click <strong>Approve</strong>.</>
+                    ) : (
+                      <>All {threshold} required approvals collected. Any admin can now click <strong>Publish</strong>.</>
+                    )
+                  ) : (
+                    <>This product has unpublished changes. Review the form below and click <strong>Approve & Publish</strong> to push live, or <strong>Reject</strong> to discard.</>
+                  )}
                 </p>
                 <p className="text-[10px] text-amber-700">
                   Last edited by {draft?.created_by_email ?? "unknown"} · {draft?.updated_at ? new Date(draft.updated_at).toLocaleString() : "—"}
                 </p>
+                {approvers.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1.5" data-testid="approver-chips">
+                    {approvers.map((a) => (
+                      <span
+                        key={a.user_id}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px]"
+                        title={`Approved ${new Date(a.approved_at).toLocaleString()}`}
+                      >
+                        <Check className="w-3 h-3" />
+                        {a.email ?? `user#${a.user_id}`}
+                      </span>
+                    ))}
+                  </div>
+                )}
                 <div className="flex items-center gap-2 pt-1">
+                  {requiresMultiApprove && !currentUserApproved && (
+                    <Button
+                      size="sm"
+                      onClick={() => approve.mutate()}
+                      disabled={approve.isPending}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                      data-testid="button-approve"
+                    >
+                      {approve.isPending ? "Approving..." : "Approve"}
+                    </Button>
+                  )}
                   <Button
                     size="sm"
                     onClick={() => publish.mutate()}
-                    disabled={publish.isPending}
+                    disabled={publish.isPending || (requiresMultiApprove && remaining > 0 && !currentUserApproved)}
                     className="bg-[#2D6A4F] hover:bg-[#1B4332]"
                     data-testid="button-publish"
                   >
-                    {publish.isPending ? "Publishing..." : "Approve & Publish"}
+                    {publish.isPending
+                      ? "Publishing..."
+                      : requiresMultiApprove
+                        ? (remaining > 0 ? `Approve & try to Publish (still ${remaining} more needed)` : "Publish")
+                        : "Approve & Publish"}
                   </Button>
                   <Button
                     size="sm"
@@ -323,6 +417,8 @@ export default function ProductDetailPage() {
                   </Button>
                 </div>
               </Card>
+              );
+            })()
             )}
 
             <Card className="p-5 space-y-4">

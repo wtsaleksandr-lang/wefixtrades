@@ -1,4 +1,5 @@
 import { pgTable, text, varchar, serial, integer, timestamp, jsonb, boolean, uuid } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { users } from "./db";
@@ -59,6 +60,12 @@ export const productDrafts = pgTable("product_drafts", {
   notes: text("notes"),
   created_by: integer("created_by").references(() => users.id),
   created_by_email: text("created_by_email"),
+  /* Multi-approver workflow (cycle 22). Array of approval entries:
+     [{ user_id: number, email: string, approved_at: ISOString }]
+     Required threshold is PUBLISH_APPROVAL_COUNT env (default 1).
+     Empty / null behaves the same as pre-launch where the first publish
+     click succeeds. */
+  approvers: jsonb("approvers").default(sql`'[]'::jsonb`),
   published_by: integer("published_by").references(() => users.id),
   published_at: timestamp("published_at"),
   rejected_by: integer("rejected_by").references(() => users.id),
