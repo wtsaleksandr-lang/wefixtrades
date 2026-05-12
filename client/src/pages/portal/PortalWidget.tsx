@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { Card } from "@/components/ui/card";
@@ -7,9 +8,23 @@ import { Badge } from "@/components/ui/badge";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Code, Copy, CheckCircle2, Lock, Loader2, Star, ExternalLink } from "lucide-react";
+import { Code, Copy, CheckCircle2, Lock, Loader2, Star, ExternalLink, ChevronLeft } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+
+/* Q3: small reusable back-to-parent link. Mirrors the pattern used by
+   PortalServiceDetail / PortalTicketDetail / PaymentMethodsPage. */
+function BackToReviews() {
+  return (
+    <Link
+      href="/portal/reviews"
+      className="inline-flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700"
+      data-testid="back-to-reviews"
+    >
+      <ChevronLeft className="w-3.5 h-3.5" /> Back to Reviews
+    </Link>
+  );
+}
 
 interface WidgetData {
   active: boolean;
@@ -76,6 +91,9 @@ export default function PortalWidget() {
   if (!data?.active) {
     return (
       <PortalLayout>
+        <div className="max-w-5xl mx-auto space-y-4">
+          <BackToReviews />
+        </div>
         <div className="max-w-5xl mx-auto py-12 text-center space-y-4">
           <Code className="w-12 h-12 text-gray-300 mx-auto" />
           <h2 className="text-lg font-semibold text-gray-900">Review Widget</h2>
@@ -91,6 +109,7 @@ export default function PortalWidget() {
   return (
     <PortalLayout>
       <div className="max-w-5xl mx-auto space-y-6">
+        <BackToReviews />
         {/* Header */}
         <div>
           <h2 className="text-lg font-semibold text-gray-900">Review Widget</h2>
