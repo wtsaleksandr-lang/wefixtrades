@@ -285,11 +285,17 @@ const ADMIN_PAGES: PageDef[] = [
   { url: "/admin/outbound/prospects", name: "Outbound Prospects" },
   { url: "/admin/outbound/campaigns", name: "Outbound Campaigns" },
   { url: "/admin/outbound/pipeline", name: "Outbound Pipeline" },
+  /* Cycles 16–21 admin additions */
+  { url: "/admin/products/mapguard-setup", name: "Admin Product Editor (Q28)" },
+  { url: "/admin/system/integrations", name: "Integration Health (Q29)" },
+  { url: "/admin/crm/alerts", name: "System Alerts" },
+  { url: "/admin/crm/audit-log", name: "Audit Log" },
 ];
 
 const PORTAL_PAGES: PageDef[] = [
   { url: "/portal", name: "Portal Dashboard" },
   { url: "/portal/services", name: "Portal Services" },
+  { url: "/portal/catalog", name: "Portal Catalog (Q16/Q28g2)" },
   { url: "/portal/billing", name: "Portal Billing" },
   { url: "/portal/settings", name: "Portal Settings" },
   { url: "/portal/help", name: "Portal Help" },
