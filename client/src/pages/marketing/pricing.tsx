@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
 import { Check, Minus, ChevronDown, ArrowRight, Play } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
-import { PRODUCTS, YEARLY_DISCOUNT_PCT, getYearlyPrice, getYearlyMonthlyEquivalent, type Product } from "@/config/pricing";
+import { PRODUCTS, YEARLY_DISCOUNT_PCT, getYearlyPrice, getYearlyMonthlyEquivalent, mergeProductsWithDb, type Product, type DbProductOverride } from "@/config/pricing";
 import { fetchFxRate, getFallbackRate, convert, formatMoney } from "@/lib/fx";
 import { FAQS } from "@/config/pricingPlans";
 import { mkt, colors, shadows } from "@/theme/tokens";
@@ -136,6 +136,22 @@ export default function PricingPage() {
   const [currency, setCurrency] = useState<"CAD" | "USD">("CAD");
   const [fxRate, setFxRate] = useState(getFallbackRate());
   const [fxLoaded, setFxLoaded] = useState(false);
+
+  // Q28g3: fetch DB overrides for admin-edited copy/tiers/features.
+  // Render the hardcoded PRODUCTS immediately; swap in merged data when the
+  // fetch resolves. If the endpoint is unreachable, the page silently keeps
+  // the hardcoded list — pricing never breaks on a backend hiccup.
+  const [dbOverrides, setDbOverrides] = useState<DbProductOverride[] | null>(null);
+  useEffect(() => {
+    fetch("/api/public/pricing", { credentials: "omit" })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`${r.status}`))))
+      .then((d) => setDbOverrides(d.products ?? []))
+      .catch(() => { /* fall back silently to hardcoded PRODUCTS */ });
+  }, []);
+  const products = useMemo(
+    () => (dbOverrides ? mergeProductsWithDb(PRODUCTS, dbOverrides) : PRODUCTS),
+    [dbOverrides],
+  );
 
   useEffect(() => {
     document.title = "Pricing — WeFixTrades | Services & Tools For Every Trades Business";
@@ -294,7 +310,7 @@ export default function PricingPage() {
         </section>
 
         {categories.map((cat) => {
-          const catProducts = PRODUCTS.filter((p) => p.category === cat);
+          const catProducts = products.filter((p) => p.category === cat);
           if (catProducts.length === 0) return null;
 
           return (

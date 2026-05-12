@@ -13,9 +13,10 @@
 
 import type { Express, Request, Response } from "express";
 import Stripe from "stripe";
+import { db } from "../db";
 import { storage } from "../storage";
 import type { ServiceCatalogRow } from "@shared/schema";
-import { getTradeLineDefaultConfig } from "@shared/schema";
+import { getTradeLineDefaultConfig, serviceCatalog } from "@shared/schema";
 import { createLogger } from "../lib/logger";
 import { autoAssignSupplier } from "../services/supplierAssignment";
 
@@ -38,6 +39,53 @@ interface CheckoutRequestBody {
 }
 
 export function registerPublicCheckoutRoutes(app: Express): void {
+
+  /**
+   * GET /api/public/pricing — Q28g3
+   * Public read of serviceCatalog overrides for the marketing /pricing page.
+   * Returns ONLY customer-visible fields (no Stripe IDs, no internal costs).
+   * Marketing pricing.tsx fetches this and merges over the hardcoded
+   * shared/pricing.ts data so admin-edited copy + tiers go live without a
+   * deploy.
+   */
+  app.get("/api/public/pricing", async (_req: Request, res: Response) => {
+    try {
+      const rows = await db
+        .select({
+          id: serviceCatalog.id,
+          name: serviceCatalog.name,
+          tagline: serviceCatalog.tagline,
+          description: serviceCatalog.description,
+          category: serviceCatalog.category,
+          default_price: serviceCatalog.default_price,
+          billing_period: serviceCatalog.billing_period,
+          is_active: serviceCatalog.is_active,
+          tiers: serviceCatalog.tiers,
+          features: serviceCatalog.features,
+        })
+        .from(serviceCatalog);
+
+      // Strip per-tier stripe_price_id before exposing publicly.
+      const sanitized = rows
+        .filter((r) => r.is_active)
+        .map((r) => ({
+          ...r,
+          tiers: Array.isArray(r.tiers)
+            ? (r.tiers as any[]).map((t) => {
+                const { stripe_price_id: _omit, ...rest } = t ?? {};
+                return rest;
+              })
+            : null,
+        }));
+
+      // 5-minute cache hint — pricing rarely changes; reduces marketing-page load.
+      res.set("Cache-Control", "public, max-age=300");
+      res.json({ products: sanitized });
+    } catch (err: any) {
+      log.error("[public-pricing] Error:", err.message);
+      res.status(500).json({ error: "Failed to load pricing" });
+    }
+  });
 
   app.post("/api/public/checkout", async (req: Request, res: Response) => {
     try {
