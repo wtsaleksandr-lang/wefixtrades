@@ -135,6 +135,7 @@ import PayInvoicePage from "@/pages/public/PayInvoicePage";
 import DispatchPage from "@/pages/portal/DispatchPage";
 import InvoicesPage from "@/pages/portal/InvoicesPage";
 import PaymentMethodsPage from "@/pages/portal/PaymentMethodsPage";
+import PortalCatalog from "@/pages/portal/PortalCatalog";
 
 function Router() {
   return (
@@ -187,6 +188,7 @@ function Router() {
       <Route path="/portal/services/:id">{() => <RequireClient><PortalServiceDetail /></RequireClient>}</Route>
       <Route path="/portal/mapguard">{() => <RequireClient><PortalMapguard /></RequireClient>}</Route>
       <Route path="/portal/services">{() => <RequireClient><PortalServices /></RequireClient>}</Route>
+      <Route path="/portal/catalog">{() => <RequireClient><PortalCatalog /></RequireClient>}</Route>
       <Route path="/portal/reviews/widget">{() => <RequireClient><PortalWidget /></RequireClient>}</Route>
       <Route path="/portal/reviews">{() => <RequireClient><PortalReviews /></RequireClient>}</Route>
       <Route path="/portal/rankflow">{() => <RequireClient><PortalRankFlow /></RequireClient>}</Route>

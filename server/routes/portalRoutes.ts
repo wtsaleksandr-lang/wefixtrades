@@ -62,6 +62,7 @@ import {
   mapguardConfigSchema,
   DEFAULT_MAPGUARD_CONFIG,
 } from "@shared/schema";
+import { SERVICES } from "@shared/services";
 
 import { compileMonthlyReport } from "../services/mapguardReports";
 import { getExecutionUsage } from "../services/mapguardTaskEngine";
@@ -4191,6 +4192,67 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
     } catch (err: any) {
       log.error("[portal/settings/automation] Error:", { error: err.message });
       res.status(500).json({ error: "Failed to update automation settings" });
+    }
+  });
+
+  /**
+   * GET /api/portal/catalog
+   * Q16: in-portal service catalog — services the client is NOT yet subscribed to.
+   * Returns full SERVICES rows minus any IDs the client already has active/pending/onboarding.
+   */
+  app.get("/api/portal/catalog", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const active = await db
+        .select({ service_id: clientServices.service_id })
+        .from(clientServices)
+        .where(and(
+          eq(clientServices.client_id, clientId),
+          sql`${clientServices.status} in ('pending','onboarding','active','paused')`,
+        ));
+
+      const activeIds = new Set(active.map((r) => r.service_id));
+      const available = SERVICES.filter((svc) => !activeIds.has(svc.id));
+
+      res.json({ services: available });
+    } catch (err: any) {
+      log.error("[portal/catalog] Error:", { error: err.message });
+      res.status(500).json({ error: "Failed to load catalog" });
+    }
+  });
+
+  /**
+   * POST /api/portal/logo
+   * Q15: save customer logo URL (paste-link v1; file-upload later).
+   * Body: { logo_url: string | null }
+   */
+  app.post("/api/portal/logo", requireClientStrict, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const { logo_url } = req.body ?? {};
+      if (logo_url !== null && typeof logo_url !== "string") {
+        return res.status(400).json({ error: "logo_url must be a string or null" });
+      }
+      if (typeof logo_url === "string" && logo_url.length > 2048) {
+        return res.status(400).json({ error: "logo_url exceeds 2048 chars" });
+      }
+      if (typeof logo_url === "string" && logo_url.length > 0 && !/^https?:\/\//i.test(logo_url)) {
+        return res.status(400).json({ error: "logo_url must start with http:// or https://" });
+      }
+
+      await db.update(clients)
+        .set({ logo_url: logo_url ?? null, updated_at: new Date() })
+        .where(eq(clients.id, clientId));
+
+      log.info("[portal/logo] updated", { clientId, has_logo: !!logo_url });
+      res.json({ ok: true, logo_url: logo_url ?? null });
+    } catch (err: any) {
+      log.error("[portal/logo] Error:", { error: err.message });
+      res.status(500).json({ error: "Failed to update logo" });
     }
   });
 }
