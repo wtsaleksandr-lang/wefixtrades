@@ -6,6 +6,13 @@ import { tiersSchema } from "@shared/tiers";
 import { z } from "zod";
 
 const featuresSchema = z.array(z.string().min(1).max(400)).max(40);
+
+// Q28c: Stripe ID format check. Empty string OR null means "clear".
+const stripeIdSchema = z.union([
+  z.literal(""),
+  z.null(),
+  z.string().regex(/^(prod_|price_)[A-Za-z0-9]+$/, "Must look like prod_… or price_…").max(120),
+]);
 import { dispatchTaskToSupplier } from "../services/supplierDispatch";
 import { autoAssignSupplier } from "../services/supplierAssignment";
 import { sendWelcomePackage } from "../lib/welcomeEmail";
@@ -108,7 +115,7 @@ export function registerAdminCrmRoutes(app: Express): void {
       // Whitelist: only these fields can be edited via draft. Internal-only
       // fields (stripe IDs, cost_amount, sort_order) require direct admin
       // access for now and bypass the draft flow.
-      const EDITABLE = ["name", "tagline", "description", "default_price", "billing_period", "category", "tiers", "features"] as const;
+      const EDITABLE = ["name", "tagline", "description", "default_price", "billing_period", "category", "tiers", "features", "stripe_product_id", "stripe_price_id", "stripe_yearly_price_id"] as const;
       const draftData: Record<string, any> = {};
       for (const key of EDITABLE) {
         if (key in req.body) draftData[key] = req.body[key];
@@ -131,6 +138,16 @@ export function registerAdminCrmRoutes(app: Express): void {
           return res.status(400).json({ error: "Invalid features payload", details: parsed.error.flatten() });
         }
         draftData.features = parsed.data;
+      }
+      // Q28c: validate Stripe ID formats. Treat empty string as null.
+      for (const key of ["stripe_product_id", "stripe_price_id", "stripe_yearly_price_id"] as const) {
+        if (key in draftData) {
+          const parsed = stripeIdSchema.safeParse(draftData[key]);
+          if (!parsed.success) {
+            return res.status(400).json({ error: `Invalid ${key}`, details: parsed.error.flatten() });
+          }
+          draftData[key] = parsed.data === "" ? null : parsed.data;
+        }
       }
 
       const u = req.user as any;
