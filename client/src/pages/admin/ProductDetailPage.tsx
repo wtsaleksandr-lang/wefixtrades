@@ -31,6 +31,8 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import type { Tier } from "@shared/tiers";
+import type { AutomationConfig } from "@shared/automationConfig";
+import { emptyAutomationConfig } from "@shared/automationConfig";
 
 interface ServiceCatalogRow {
   id: string;
@@ -46,6 +48,7 @@ interface ServiceCatalogRow {
   stripe_product_id: string | null;
   stripe_price_id: string | null;
   stripe_yearly_price_id: string | null;
+  automation_config: AutomationConfig | null;
 }
 
 interface ProductDraft {
@@ -71,6 +74,7 @@ type EditableForm = {
   stripe_product_id: string;
   stripe_price_id: string;
   stripe_yearly_price_id: string;
+  automation_config: AutomationConfig;
 };
 
 const CATEGORIES = ["visibility", "leads", "reputation", "automation", "website"];
@@ -119,7 +123,7 @@ export default function ProductDetailPage() {
 
   // Pre-populate the form from draft if pending, otherwise from live values
   const initial = useMemo<EditableForm>(() => {
-    if (!live) return { name: "", tagline: "", description: "", default_price_cents: "", billing_period: "monthly", category: "visibility", tiers: [], features: [], stripe_product_id: "", stripe_price_id: "", stripe_yearly_price_id: "" };
+    if (!live) return { name: "", tagline: "", description: "", default_price_cents: "", billing_period: "monthly", category: "visibility", tiers: [], features: [], stripe_product_id: "", stripe_price_id: "", stripe_yearly_price_id: "", automation_config: emptyAutomationConfig() };
     const d = hasPendingDraft ? draft!.draft_data : {};
     return {
       name: (d.name ?? live.name) ?? "",
@@ -133,6 +137,7 @@ export default function ProductDetailPage() {
       stripe_product_id: (d.stripe_product_id ?? live.stripe_product_id) ?? "",
       stripe_price_id: (d.stripe_price_id ?? live.stripe_price_id) ?? "",
       stripe_yearly_price_id: (d.stripe_yearly_price_id ?? live.stripe_yearly_price_id) ?? "",
+      automation_config: { ...emptyAutomationConfig(), ...(live.automation_config ?? {}), ...(d.automation_config ?? {}) },
     };
   }, [live, draft, hasPendingDraft]);
 
@@ -160,6 +165,11 @@ export default function ProductDetailPage() {
       const formVal = (form[k] ?? "").trim();
       const liveVal = live[k] ?? "";
       if (formVal !== liveVal) out[k] = formVal === "" ? null : formVal;
+    }
+    // Q28f: automation_config — JSON-equal compare. Send the whole object on change.
+    const baselineConfig = { ...emptyAutomationConfig(), ...(live.automation_config ?? {}) };
+    if (JSON.stringify(form.automation_config) !== JSON.stringify(baselineConfig)) {
+      out.automation_config = form.automation_config;
     }
     return out;
   }, [form, live]);
@@ -616,6 +626,119 @@ export default function ProductDetailPage() {
               </div>
             </Card>
 
+            {/* Q28f — AI workflow / cron config */}
+            <Card className="p-5 space-y-3">
+              <div>
+                <h2 className="text-sm font-semibold text-gray-900">AI workflow & cron</h2>
+                <p className="text-[11px] text-gray-500 mt-0.5">
+                  Defaults applied when a client first subscribes. The product's own scheduled
+                  job reads cron_schedule + ai_agent_system_prompt at boot.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Automation enabled by default">
+                  <label className="inline-flex items-center gap-2 h-9 text-xs text-gray-700">
+                    <input
+                      type="checkbox"
+                      checked={form.automation_config.automation_enabled_default ?? true}
+                      onChange={(e) => setForm({
+                        ...form,
+                        automation_config: { ...form.automation_config, automation_enabled_default: e.target.checked },
+                      })}
+                      className="h-4 w-4"
+                      data-testid="auto-enabled"
+                    />
+                    On for new subscribers
+                  </label>
+                </Field>
+                <Field label="Human review required by default">
+                  <label className="inline-flex items-center gap-2 h-9 text-xs text-gray-700">
+                    <input
+                      type="checkbox"
+                      checked={form.automation_config.human_review_required_default ?? false}
+                      onChange={(e) => setForm({
+                        ...form,
+                        automation_config: { ...form.automation_config, human_review_required_default: e.target.checked },
+                      })}
+                      className="h-4 w-4"
+                      data-testid="auto-review"
+                    />
+                    Pause for review before outputs go live
+                  </label>
+                </Field>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Cron schedule (UTC, 5-field)">
+                  <Input
+                    value={form.automation_config.cron_schedule ?? ""}
+                    onChange={(e) => setForm({
+                      ...form,
+                      automation_config: { ...form.automation_config, cron_schedule: e.target.value || null },
+                    })}
+                    placeholder="0 9 * * *"
+                    className="font-mono text-xs"
+                    data-testid="auto-cron"
+                  />
+                </Field>
+                <Field label="Max retries on failure">
+                  <Input
+                    type="number"
+                    min={0}
+                    max={10}
+                    value={form.automation_config.max_retries ?? 3}
+                    onChange={(e) => setForm({
+                      ...form,
+                      automation_config: { ...form.automation_config, max_retries: Number(e.target.value) || 0 },
+                    })}
+                    data-testid="auto-retries"
+                  />
+                </Field>
+              </div>
+
+              <Field label="AI agent role (short label)">
+                <Input
+                  value={form.automation_config.ai_agent_role ?? ""}
+                  onChange={(e) => setForm({
+                    ...form,
+                    automation_config: { ...form.automation_config, ai_agent_role: e.target.value || null },
+                  })}
+                  placeholder="e.g. Local SEO auditor"
+                  data-testid="auto-role"
+                />
+              </Field>
+
+              <Field label="AI agent system prompt">
+                <Textarea
+                  rows={5}
+                  value={form.automation_config.ai_agent_system_prompt ?? ""}
+                  onChange={(e) => setForm({
+                    ...form,
+                    automation_config: { ...form.automation_config, ai_agent_system_prompt: e.target.value || null },
+                  })}
+                  placeholder={"You are an expert at… Your job is to…"}
+                  data-testid="auto-prompt"
+                />
+              </Field>
+
+              <Field label="Alert admins on automation failure">
+                <label className="inline-flex items-center gap-2 h-9 text-xs text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={form.automation_config.alert_on_failure ?? true}
+                    onChange={(e) => setForm({
+                      ...form,
+                      automation_config: { ...form.automation_config, alert_on_failure: e.target.checked },
+                    })}
+                    className="h-4 w-4"
+                    data-testid="auto-alert"
+                  />
+                  Send an alert when an automation run errors out
+                </label>
+              </Field>
+            </Card>
+
             <Card className="p-5">
               <div className="flex items-center gap-2 pt-1">
                 <Button
@@ -643,13 +766,14 @@ export default function ProductDetailPage() {
 
             <Card className="p-4 border-gray-200 bg-gray-50">
               <div className="flex items-center gap-2 mb-1">
-                <AlertTriangle className="w-3.5 h-3.5 text-gray-400" />
-                <p className="text-xs font-medium text-gray-700">Not in this editor yet</p>
+                <Check className="w-3.5 h-3.5 text-emerald-600" />
+                <p className="text-xs font-medium text-gray-700">Q28 product editor — full scope shipped</p>
               </div>
-              <ul className="text-[11px] text-gray-500 list-disc pl-5 space-y-0.5">
-                <li>Per-supplier cost overrides for this product (today: supplier-level cost_rate only)</li>
-                <li>AI agent / cron job config</li>
-              </ul>
+              <p className="text-[11px] text-gray-500">
+                Pricing tiers, features, Stripe IDs, suppliers, subscribers, and AI workflow are all
+                editable above. Remaining nice-to-haves: per-supplier cost overrides for this product,
+                and a multi-approver workflow (today any admin can publish their own draft).
+              </p>
             </Card>
           </>
         )}

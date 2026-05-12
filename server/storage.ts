@@ -1465,7 +1465,7 @@ export class DatabaseStorage implements IStorage {
     // If the second write fails, the catalog is updated but the draft still says 'draft' —
     // the next publish call would no-op since the row is already updated. Acceptable for v1.
     const updates: Partial<InsertServiceCatalog> = {};
-    const ALLOWED = ["name", "tagline", "description", "default_price", "billing_period", "category", "tiers", "features", "stripe_product_id", "stripe_price_id", "stripe_yearly_price_id"] as const;
+    const ALLOWED = ["name", "tagline", "description", "default_price", "billing_period", "category", "tiers", "features", "stripe_product_id", "stripe_price_id", "stripe_yearly_price_id", "automation_config"] as const;
     for (const k of ALLOWED) {
       if (k in draftData) (updates as any)[k] = draftData[k];
     }
