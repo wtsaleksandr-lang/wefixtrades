@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Lock, AlertCircle } from "lucide-react";
+import { Loader2, Lock, AlertCircle, ChevronLeft } from "lucide-react";
+import { Link } from "wouter";
 
 export default function ChangePasswordPage() {
   usePageTitle("Change Password");
@@ -66,6 +67,13 @@ export default function ChangePasswordPage() {
   return (
     <AdminLayout pageContext={{ page: "change_password" }}>
       <div className="max-w-2xl mx-auto space-y-4">
+        <Link
+          href="/admin/crm/profile"
+          className="inline-flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700"
+          data-testid="back-to-profile"
+        >
+          <ChevronLeft className="w-3.5 h-3.5" /> Back to profile
+        </Link>
         <h2 className="text-lg font-semibold text-gray-900">Change Password</h2>
 
         <Card className="p-5">

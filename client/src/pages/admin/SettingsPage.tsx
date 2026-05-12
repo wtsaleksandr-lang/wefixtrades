@@ -10,7 +10,8 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Save, Shield, ShieldCheck, ShieldOff } from "lucide-react";
+import { Loader2, Save, Shield, ShieldCheck, ShieldOff, ChevronLeft } from "lucide-react";
+import { Link } from "wouter";
 
 interface UserSettings {
   businessName: string;
@@ -90,6 +91,13 @@ export default function SettingsPage() {
   return (
     <AdminLayout pageContext={{ page: "settings" }}>
       <div className="max-w-2xl mx-auto space-y-4">
+        <Link
+          href="/admin/crm"
+          className="inline-flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700"
+          data-testid="back-to-admin"
+        >
+          <ChevronLeft className="w-3.5 h-3.5" /> Back to admin
+        </Link>
         <h2 className="text-lg font-semibold text-gray-900">Account Settings</h2>
 
         {/* Business Info */}

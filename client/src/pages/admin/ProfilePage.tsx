@@ -9,7 +9,8 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Save, AlertCircle } from "lucide-react";
+import { Loader2, Save, AlertCircle, ChevronLeft } from "lucide-react";
+import { Link } from "wouter";
 
 export default function ProfilePage() {
   usePageTitle("Profile");
@@ -67,6 +68,13 @@ export default function ProfilePage() {
   return (
     <AdminLayout pageContext={{ page: "profile" }}>
       <div className="max-w-2xl mx-auto space-y-4">
+        <Link
+          href="/admin/crm"
+          className="inline-flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700"
+          data-testid="back-to-admin"
+        >
+          <ChevronLeft className="w-3.5 h-3.5" /> Back to admin
+        </Link>
         <h2 className="text-lg font-semibold text-gray-900">Profile</h2>
 
         {/* Avatar + display info */}
