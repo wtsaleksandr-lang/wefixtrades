@@ -72,6 +72,136 @@ export function registerAdminCrmRoutes(app: Express): void {
   });
 
   /* ═══════════════════════════════════════════
+     Product Editor (Q28)
+     ═══════════════════════════════════════════
+     Endpoints for admin to edit serviceCatalog entries through a
+     draft → publish flow. The customer-facing surfaces never read
+     drafts — they always read serviceCatalog directly. Drafts exist
+     only as a pending-change layer for admin review.
+  */
+
+  // GET /api/admin/products/:id — current published row + latest pending draft (if any)
+  app.get("/api/admin/products/:id", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const svcId = req.params.id;
+      const live = await storage.getServiceById(svcId);
+      if (!live) return res.status(404).json({ error: "Product not found" });
+      const draft = await storage.getLatestProductDraft(svcId);
+      res.json({ live, draft });
+    } catch (err: any) {
+      log.error("[products GET] Error:", err.message);
+      res.status(500).json({ error: "Failed to load product" });
+    }
+  });
+
+  // POST /api/admin/products/:id/draft — create or update a draft for this product
+  app.post("/api/admin/products/:id/draft", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const svcId = req.params.id;
+      const live = await storage.getServiceById(svcId);
+      if (!live) return res.status(404).json({ error: "Product not found" });
+
+      // Whitelist: only these fields can be edited via draft. Internal-only
+      // fields (stripe IDs, cost_amount, sort_order) require direct admin
+      // access for now and bypass the draft flow.
+      const EDITABLE = ["name", "tagline", "description", "default_price", "billing_period", "category"] as const;
+      const draftData: Record<string, any> = {};
+      for (const key of EDITABLE) {
+        if (key in req.body) draftData[key] = req.body[key];
+      }
+      if (Object.keys(draftData).length === 0) {
+        return res.status(400).json({ error: "No editable fields in request body" });
+      }
+
+      const u = req.user as any;
+      const draft = await storage.upsertProductDraft({
+        service_id: svcId,
+        draft_data: draftData,
+        notes: typeof req.body.notes === "string" ? req.body.notes.slice(0, 500) : null,
+        created_by: u?.id ?? null,
+        created_by_email: u?.email ?? null,
+      });
+
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: u?.id,
+        actor_name: u?.name || u?.email,
+        action: "product.draft_saved",
+        entity_type: "service_catalog",
+        entity_id: null,
+        summary: `Saved draft for "${live.name}" (${Object.keys(draftData).join(", ")})`,
+        metadata: { service_id: svcId, draft_id: draft.id, fields: Object.keys(draftData) },
+      });
+
+      res.json({ draft });
+    } catch (err: any) {
+      log.error("[products draft POST] Error:", err.message);
+      res.status(500).json({ error: "Failed to save draft" });
+    }
+  });
+
+  // POST /api/admin/products/:id/publish — promote latest draft to serviceCatalog
+  app.post("/api/admin/products/:id/publish", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const svcId = req.params.id;
+      const live = await storage.getServiceById(svcId);
+      if (!live) return res.status(404).json({ error: "Product not found" });
+
+      const draft = await storage.getLatestProductDraft(svcId);
+      if (!draft || draft.status !== "draft") {
+        return res.status(400).json({ error: "No pending draft to publish" });
+      }
+
+      const u = req.user as any;
+      const updated = await storage.publishProductDraft(draft.id, svcId, draft.draft_data as Record<string, any>, u?.id ?? null);
+
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: u?.id,
+        actor_name: u?.name || u?.email,
+        action: "product.draft_published",
+        entity_type: "service_catalog",
+        entity_id: null,
+        summary: `Published draft for "${updated.name}" — changes are now live`,
+        metadata: { service_id: svcId, draft_id: draft.id, fields: Object.keys(draft.draft_data as Record<string, any>) },
+      });
+
+      res.json({ live: updated });
+    } catch (err: any) {
+      log.error("[products publish POST] Error:", err.message);
+      res.status(500).json({ error: "Failed to publish draft" });
+    }
+  });
+
+  // POST /api/admin/products/:id/reject — reject the latest draft
+  app.post("/api/admin/products/:id/reject", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const svcId = req.params.id;
+      const draft = await storage.getLatestProductDraft(svcId);
+      if (!draft || draft.status !== "draft") {
+        return res.status(400).json({ error: "No pending draft to reject" });
+      }
+      const u = req.user as any;
+      const reason = typeof req.body.reason === "string" ? req.body.reason.slice(0, 500) : null;
+      const updated = await storage.rejectProductDraft(draft.id, u?.id ?? null, reason);
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: u?.id,
+        actor_name: u?.name || u?.email,
+        action: "product.draft_rejected",
+        entity_type: "service_catalog",
+        entity_id: null,
+        summary: `Rejected draft for "${svcId}"`,
+        metadata: { service_id: svcId, draft_id: draft.id, reason },
+      });
+      res.json({ draft: updated });
+    } catch (err: any) {
+      log.error("[products reject POST] Error:", err.message);
+      res.status(500).json({ error: "Failed to reject draft" });
+    }
+  });
+
+  /* ═══════════════════════════════════════════
      Clients
      ═══════════════════════════════════════════ */
 

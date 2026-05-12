@@ -107,6 +107,9 @@ type User, type InsertUser,
   // Brand-availability singleton (operating-brand "are we available" toggle)
   brandAvailability,
   type BrandAvailability,
+  // Product drafts (Q28)
+  productDrafts,
+  type ProductDraft, type InsertProductDraft,
 } from "@shared/schema";
 import { eq, desc, sql, and, gte, lte, ilike, or, isNotNull, count } from "drizzle-orm";
 import { createLogger } from "./lib/logger";
@@ -256,6 +259,12 @@ export interface IStorage {
   getServiceById(serviceId: string): Promise<ServiceCatalogRow | undefined>;
   updateServiceCatalog(id: string, updates: Partial<InsertServiceCatalog>): Promise<ServiceCatalogRow | undefined>;
   listServicesWithClientCounts(): Promise<(ServiceCatalogRow & { active_client_count: number })[]>;
+
+  // Product drafts (Q28)
+  getLatestProductDraft(serviceId: string): Promise<ProductDraft | undefined>;
+  upsertProductDraft(data: Omit<InsertProductDraft, "status">): Promise<ProductDraft>;
+  publishProductDraft(draftId: number, serviceId: string, draftData: Record<string, any>, publishedBy: number | null): Promise<ServiceCatalogRow>;
+  rejectProductDraft(draftId: number, rejectedBy: number | null, reason: string | null): Promise<ProductDraft>;
 
   // Client services
   listClientServices(clientId: number): Promise<(ClientService & { service_name?: string })[]>;
@@ -1411,6 +1420,71 @@ export class DatabaseStorage implements IStorage {
     .groupBy(serviceCatalog.id)
     .orderBy(serviceCatalog.sort_order);
     return rows as any;
+  }
+
+  // ─── Product Drafts (Q28) ───
+
+  async getLatestProductDraft(serviceId: string): Promise<ProductDraft | undefined> {
+    const [row] = await db.select().from(productDrafts)
+      .where(eq(productDrafts.service_id, serviceId))
+      .orderBy(desc(productDrafts.created_at))
+      .limit(1);
+    return row;
+  }
+
+  async upsertProductDraft(data: Omit<InsertProductDraft, "status">): Promise<ProductDraft> {
+    // If there's an existing draft (status='draft'), update it. Otherwise insert new.
+    // Published or rejected drafts are immutable history — a new draft creates a new row.
+    const existing = await this.getLatestProductDraft(data.service_id);
+    if (existing && existing.status === "draft") {
+      const [row] = await db.update(productDrafts)
+        .set({
+          draft_data: data.draft_data,
+          notes: data.notes ?? null,
+          created_by: data.created_by ?? null,
+          created_by_email: data.created_by_email ?? null,
+          updated_at: new Date(),
+        })
+        .where(eq(productDrafts.id, existing.id))
+        .returning();
+      return row;
+    }
+    const [row] = await db.insert(productDrafts).values({
+      ...data,
+      status: "draft",
+    }).returning();
+    return row;
+  }
+
+  async publishProductDraft(draftId: number, serviceId: string, draftData: Record<string, any>, publishedBy: number | null): Promise<ServiceCatalogRow> {
+    // Atomic-ish: update serviceCatalog with draft values, then mark draft as published.
+    // Drizzle doesn't expose a clean txn helper here in this codebase, so we run sequentially.
+    // If the second write fails, the catalog is updated but the draft still says 'draft' —
+    // the next publish call would no-op since the row is already updated. Acceptable for v1.
+    const updates: Partial<InsertServiceCatalog> = {};
+    const ALLOWED = ["name", "tagline", "description", "default_price", "billing_period", "category"] as const;
+    for (const k of ALLOWED) {
+      if (k in draftData) (updates as any)[k] = draftData[k];
+    }
+    if (Object.keys(updates).length === 0) {
+      throw new Error("No publishable fields in draft");
+    }
+    const [updatedRow] = await db.update(serviceCatalog)
+      .set({ ...updates, updated_at: new Date() })
+      .where(eq(serviceCatalog.id, serviceId))
+      .returning();
+    await db.update(productDrafts)
+      .set({ status: "published", published_at: new Date(), published_by: publishedBy, updated_at: new Date() })
+      .where(eq(productDrafts.id, draftId));
+    return updatedRow;
+  }
+
+  async rejectProductDraft(draftId: number, rejectedBy: number | null, reason: string | null): Promise<ProductDraft> {
+    const [row] = await db.update(productDrafts)
+      .set({ status: "rejected", rejected_by: rejectedBy, rejected_at: new Date(), rejection_reason: reason, updated_at: new Date() })
+      .where(eq(productDrafts.id, draftId))
+      .returning();
+    return row;
   }
 
   // ─── Client Services ───
