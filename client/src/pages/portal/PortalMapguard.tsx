@@ -123,7 +123,7 @@ function MetricCard({ icon: Icon, label, value, delta, deltaSuffix, deltaInvert,
   accent: string;
 }) {
   return (
-    <Card className="p-4">
+    <Card className="h-full p-4">
       <div className="flex items-start justify-between">
         <div>
           <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{label}</p>
@@ -181,8 +181,8 @@ export default function PortalMapguard() {
 
         {isLoading && (
           <div className="space-y-4">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {[1, 2, 3, 4].map(i => <Card key={i} className="p-4"><Skeleton className="h-14 w-full" /></Card>)}
+            <div className="grid auto-rows-fr grid-cols-2 sm:grid-cols-4 gap-3">
+              {[1, 2, 3, 4].map(i => <Card key={i} className="h-full p-4"><Skeleton className="h-14 w-full" /></Card>)}
             </div>
             <Card className="p-4"><Skeleton className="h-48 w-full" /></Card>
           </div>
@@ -211,7 +211,7 @@ export default function PortalMapguard() {
 
             {/* Metric Cards */}
             {data.current && (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="grid auto-rows-fr grid-cols-2 sm:grid-cols-4 gap-3">
                 <MetricCard
                   icon={Shield}
                   label="Visibility Score"
