@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, type CSSProperties } from "react";
+import { useState, useEffect, useCallback, useMemo, type CSSProperties } from "react";
 import { Check, ChevronDown, Zap, Shield, Eye, Globe, Wrench, ArrowRight, Info, X, TrendingUp, Target } from "lucide-react";
 import { Link } from "wouter";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
@@ -9,6 +9,7 @@ import {
   SITELAUNCH, TRADELINE, WEBFIX,
   BUNDLE_STARTER, BUNDLE_GROWTH, BUNDLE_PRO,
   yearlyMonthlyEquiv, formatPrice, bundleSavings, lowestMonthly,
+  mergeAllProductsWithDb, type DbProductOverride,
   type ProductDef, type BundleDef, type Tier,
 } from "@/config/pricing";
 import CheckoutModal, { type CheckoutItem } from "@/components/CheckoutModal";
@@ -1410,11 +1411,33 @@ function DecisionButton({ label, targetId }: { label: string; targetId: string }
   const bundlesDesktop = [BUNDLE_STARTER, BUNDLE_GROWTH, BUNDLE_PRO];
   const bundlesMobile = [BUNDLE_GROWTH, BUNDLE_STARTER, BUNDLE_PRO];
 
+  /* Q5b: fetch admin-edited overrides from serviceCatalog. The merge
+   * helper applies name/tagline at parent and per-tier price/features/
+   * badge/highlighted swaps wherever the DB has a matching tier id.
+   * Silent fallback to hardcoded ALL_PRODUCTS when the endpoint is
+   * unreachable — /pricing never breaks on a backend hiccup.
+   *
+   * Note: only the section grid below uses the merged array. Hero-card
+   * named imports (SITELAUNCH / TRADELINE / WEBFIX) stay hardcoded for
+   * now — those flow through openSiteLaunchCheckout / openFixOptimizeCheckout
+   * which still need direct refs. Re-keying those is a separate ticket. */
+  const [dbOverrides, setDbOverrides] = useState<DbProductOverride[] | null>(null);
+  useEffect(() => {
+    fetch("/api/public/pricing", { credentials: "omit" })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`${r.status}`))))
+      .then((d) => setDbOverrides(d.products ?? []))
+      .catch(() => { /* fall back silently to hardcoded ALL_PRODUCTS */ });
+  }, []);
+  const mergedProducts = useMemo(
+    () => (dbOverrides ? mergeAllProductsWithDb(ALL_PRODUCTS, dbOverrides) : ALL_PRODUCTS),
+    [dbOverrides],
+  );
+
   /* Group products by category for individual services section */
   const productsByCategory = CATEGORY_ORDER.map(cat => ({
     cat,
     ...CATEGORY_MAP[cat],
-    products: ALL_PRODUCTS.filter(p => p.category === cat),
+    products: mergedProducts.filter(p => p.category === cat),
   })).filter(g => g.products.length > 0);
 
   useEffect(() => { document.title = "Pricing — WeFixTrades"; }, []);
