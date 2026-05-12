@@ -12,6 +12,7 @@ import { Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Check, ChevronLeft, Loader2 } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
+import type { PortalChatContext } from "@/components/portal/PortalChatWidget";
 import { usePageTitle } from "@/hooks/usePageTitle";
 
 interface PaymentMethodsData {
@@ -96,6 +97,37 @@ export default function PaymentMethodsPage() {
     },
   });
 
+  // Q23c: chat→form pre-fill for payment-method fields. AI proposes; user confirms; we patch.
+  // Booleans accept "true"/"false" strings since FORM_FILL values are always strings.
+  const chatContext: PortalChatContext = {
+    fields: [
+      { key: "stripe", label: "Stripe Connect enabled", required: false },
+      { key: "paypal_email", label: "PayPal Email", required: false },
+      { key: "bank_details", label: "Bank Details (description)", required: false },
+      { key: "etransfer_email", label: "E-Transfer Email", required: false },
+      { key: "venmo_handle", label: "Venmo Handle", required: false },
+      { key: "zelle_info", label: "Zelle Info (phone/email)", required: false },
+      { key: "cash_accepted", label: "Accept Cash", required: false },
+    ],
+    current_responses: form as unknown as Record<string, any>,
+    onApplyFill: (fills) => {
+      const boolKeys = new Set(["stripe", "cash_accepted"]);
+      const allowed = new Set(["stripe", "paypal_email", "bank_details", "etransfer_email", "venmo_handle", "zelle_info", "cash_accepted"]);
+      const patch: Partial<PaymentMethodsData> = {};
+      for (const f of fills) {
+        if (!allowed.has(f.field_key)) continue;
+        if (boolKeys.has(f.field_key)) {
+          (patch as any)[f.field_key] = /^(true|yes|y|1|on)$/i.test(f.value.trim());
+        } else {
+          (patch as any)[f.field_key] = f.value;
+        }
+      }
+      if (Object.keys(patch).length > 0) {
+        setForm((prev) => ({ ...prev, ...patch }));
+      }
+    },
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     saveMutation.mutate(form);
@@ -108,7 +140,7 @@ export default function PaymentMethodsPage() {
     "w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/20 focus:border-[#2D6A4F] transition-colors resize-vertical";
 
   return (
-    <PortalLayout>
+    <PortalLayout chatContext={chatContext}>
       <div className="max-w-2xl mx-auto space-y-6">
         <div>
           <Link href="/portal/billing">
