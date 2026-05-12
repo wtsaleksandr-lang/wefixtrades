@@ -283,6 +283,8 @@ export interface IStorage {
   getSupplierTasks(supplierId: number): Promise<FulfillmentTask[]>;
   createSupplier(data: InsertSupplier): Promise<Supplier>;
   updateSupplier(id: number, updates: Partial<InsertSupplier>): Promise<Supplier | undefined>;
+  listSuppliersForService(serviceId: string): Promise<Supplier[]>;
+  setSupplierServiceAssignment(supplierId: number, serviceId: string, assigned: boolean): Promise<Supplier | undefined>;
 
   // Fulfillment
   listFulfillmentTasks(opts?: { clientId?: number; status?: string; limit?: number; offset?: number }): Promise<(FulfillmentTask & { client_name?: string; supplier_name?: string; service_name?: string })[]>;
@@ -1604,6 +1606,34 @@ export class DatabaseStorage implements IStorage {
 
   async updateSupplier(id: number, updates: Partial<InsertSupplier>): Promise<Supplier | undefined> {
     const [row] = await db.update(suppliers).set({ ...updates, updated_at: new Date() }).where(eq(suppliers.id, id)).returning();
+    return row;
+  }
+
+  /** Q28d: suppliers whose supported_services jsonb array contains the given service id. */
+  async listSuppliersForService(serviceId: string): Promise<Supplier[]> {
+    // jsonb @> '["service_id"]' returns true when the array contains the value.
+    return db.select().from(suppliers)
+      .where(sql`${suppliers.supported_services} @> ${JSON.stringify([serviceId])}::jsonb`)
+      .orderBy(suppliers.name);
+  }
+
+  /** Q28d: add or remove a service id from a supplier's supported_services array. */
+  async setSupplierServiceAssignment(supplierId: number, serviceId: string, assigned: boolean): Promise<Supplier | undefined> {
+    const existing = await this.getSupplierById(supplierId);
+    if (!existing) return undefined;
+    const current = (existing.supported_services as string[] | null) ?? [];
+    let next: string[];
+    if (assigned) {
+      if (current.includes(serviceId)) return existing; // no-op
+      next = [...current, serviceId];
+    } else {
+      if (!current.includes(serviceId)) return existing; // no-op
+      next = current.filter((id) => id !== serviceId);
+    }
+    const [row] = await db.update(suppliers)
+      .set({ supported_services: next, updated_at: new Date() })
+      .where(eq(suppliers.id, supplierId))
+      .returning();
     return row;
   }
 

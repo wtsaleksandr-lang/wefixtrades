@@ -22,7 +22,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRoute, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, ChevronLeft, Check, AlertTriangle, FileEdit, History, Plus, Trash2, ArrowUp, ArrowDown, Star } from "lucide-react";
+import { Loader2, ChevronLeft, Check, AlertTriangle, FileEdit, History, Plus, Trash2, ArrowUp, ArrowDown, Star, Factory, X } from "lucide-react";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -569,6 +569,9 @@ export default function ProductDetailPage() {
               ))}
             </Card>
 
+            {/* Q28d — Suppliers panel */}
+            <SuppliersPanel serviceId={live.id} serviceName={live.name} />
+
             {/* Q28c — Stripe linkage */}
             <Card className="p-5 space-y-3 border-amber-200/60">
               <div>
@@ -641,7 +644,7 @@ export default function ProductDetailPage() {
                 <p className="text-xs font-medium text-gray-700">Not in this editor yet</p>
               </div>
               <ul className="text-[11px] text-gray-500 list-disc pl-5 space-y-0.5">
-                <li>Suppliers / costs / fulfillment workflow</li>
+                <li>Per-supplier cost overrides for this product (today: supplier-level cost_rate only)</li>
                 <li>Subscriber roster + cancel toggle</li>
                 <li>AI agent / cron job config</li>
               </ul>
@@ -659,5 +662,144 @@ function Field({ label, children, testid }: { label: string; children: React.Rea
       <span className="block text-[11px] font-medium text-gray-600 mb-1">{label}</span>
       {children}
     </label>
+  );
+}
+
+/* Q28d — Suppliers panel sub-component. Lists suppliers fulfilling this
+   product plus a dropdown to assign any active supplier. Removal is
+   one-click (no draft flow — supplier assignment is operational, not
+   customer-visible). */
+interface SupplierRow {
+  id: number;
+  name: string;
+  type: string;
+  cost_rate: number | null;
+  currency: string | null;
+  status: string;
+  is_active: boolean;
+}
+
+function SuppliersPanel({ serviceId, serviceName }: { serviceId: string; serviceName: string }) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { data, isLoading } = useQuery<{ assigned: SupplierRow[]; available: SupplierRow[] }>({
+    queryKey: [`/api/admin/products/${serviceId}/suppliers`],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/products/${serviceId}/suppliers`, { credentials: "include" });
+      if (!res.ok) throw new Error(`Failed to load suppliers (${res.status})`);
+      return res.json();
+    },
+  });
+
+  const toggle = useMutation({
+    mutationFn: async ({ supplierId, assigned }: { supplierId: number; assigned: boolean }) => {
+      const res = await fetch(`/api/admin/products/${serviceId}/suppliers/${supplierId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ assigned }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Failed to update supplier");
+      return json;
+    },
+    onSuccess: (_, vars) => {
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/products/${serviceId}/suppliers`] });
+      toast({ title: vars.assigned ? "Supplier assigned" : "Supplier unassigned" });
+    },
+    onError: (err: Error) => toast({ title: "Couldn't update supplier", description: err.message, variant: "destructive" }),
+  });
+
+  const [selectedSupplier, setSelectedSupplier] = useState("");
+
+  return (
+    <Card className="p-5 space-y-3" data-testid="suppliers-panel">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Factory className="w-4 h-4 text-gray-500" />
+          <div>
+            <h2 className="text-sm font-semibold text-gray-900">Suppliers</h2>
+            <p className="text-[11px] text-gray-500 mt-0.5">
+              Who fulfills this product. Changes take effect immediately.
+              Manage supplier records on <a href="/admin/crm/suppliers" className="text-[#2D6A4F] underline">Suppliers</a>.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {isLoading && (
+        <div className="flex items-center gap-2 text-xs text-gray-400">
+          <Loader2 className="w-3 h-3 animate-spin" /> Loading suppliers...
+        </div>
+      )}
+
+      {data && data.assigned.length === 0 && (
+        <p className="text-xs text-gray-400 italic">No suppliers assigned to {serviceName} yet.</p>
+      )}
+
+      {data && data.assigned.length > 0 && (
+        <ul className="space-y-1.5">
+          {data.assigned.map((s) => (
+            <li
+              key={s.id}
+              className="flex items-center justify-between gap-2 px-3 py-2 rounded-md border border-gray-200 bg-white"
+              data-testid={`supplier-row-${s.id}`}
+            >
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-gray-900 truncate">{s.name}</p>
+                <p className="text-[11px] text-gray-500">
+                  {s.type}
+                  {s.cost_rate ? ` · ${(s.cost_rate / 100).toFixed(2)} ${(s.currency || "usd").toUpperCase()}` : ""}
+                  {!s.is_active && " · inactive"}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.confirm(`Remove "${s.name}" from ${serviceName}?`)) {
+                    toggle.mutate({ supplierId: s.id, assigned: false });
+                  }
+                }}
+                disabled={toggle.isPending}
+                className="p-1.5 rounded hover:bg-red-50 text-red-500 disabled:opacity-40"
+                aria-label="Remove supplier"
+                data-testid={`supplier-remove-${s.id}`}
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {data && data.available.length > 0 && (
+        <div className="flex items-center gap-2 pt-1">
+          <select
+            value={selectedSupplier}
+            onChange={(e) => setSelectedSupplier(e.target.value)}
+            className="h-9 flex-1 px-2 text-sm border border-gray-200 rounded-md bg-white"
+            data-testid="supplier-select"
+          >
+            <option value="">Assign existing supplier…</option>
+            {data.available.map((s) => (
+              <option key={s.id} value={s.id}>{s.name} ({s.type})</option>
+            ))}
+          </select>
+          <Button
+            size="sm"
+            onClick={() => {
+              if (!selectedSupplier) return;
+              toggle.mutate({ supplierId: parseInt(selectedSupplier, 10), assigned: true });
+              setSelectedSupplier("");
+            }}
+            disabled={!selectedSupplier || toggle.isPending}
+            className="bg-[#2D6A4F] hover:bg-[#1B4332]"
+            data-testid="supplier-assign-btn"
+          >
+            <Plus className="w-3.5 h-3.5 mr-1" /> Assign
+          </Button>
+        </div>
+      )}
+    </Card>
   );
 }
