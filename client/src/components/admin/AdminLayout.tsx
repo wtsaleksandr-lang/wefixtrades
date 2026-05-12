@@ -71,8 +71,10 @@ const CORE_ITEMS = [
 ];
 
 /* ─── Collapsible groups ─── */
+/* Q27: dropped the standalone "Services" child — the group HEADER now
+   clicks through to /admin/crm/services (the catalog) and the chevron
+   expands the per-product list. */
 const PRODUCTS_ITEMS = [
-  { label: "Services", href: "/admin/crm/services", icon: Wrench },
   { label: "QuoteQuick", href: "/admin/crm/quotequick", icon: Sparkles },
   { label: "TradeLine", href: "/admin/crm/tradeline-ops", icon: Phone },
   { label: "Booking", href: "/admin/booking", icon: CalendarDays },
@@ -125,6 +127,7 @@ function NavGroup({
   alertCount,
   onNavigate,
   defaultOpen,
+  headerHref,
 }: {
   label: string;
   items: typeof CORE_ITEMS;
@@ -133,26 +136,51 @@ function NavGroup({
   alertCount?: number;
   onNavigate: () => void;
   defaultOpen: boolean;
+  /** Q27: when set, clicking the label NAVIGATES to this href (e.g. a catalog page).
+   *  The chevron still expands/collapses children. When unset, clicking anywhere on
+   *  the header just toggles expansion (legacy behavior). */
+  headerHref?: string;
 }) {
+  const headerActive = headerHref ? isActive(location, headerHref) : false;
   const hasActiveChild = items.some((item) => isActive(location, item.href));
-  const [open, setOpen] = useState(defaultOpen || hasActiveChild);
+  const [open, setOpen] = useState(defaultOpen || hasActiveChild || headerActive);
 
   // Auto-open when navigating into the group
   useEffect(() => {
-    if (hasActiveChild && !open) setOpen(true);
-  }, [hasActiveChild]);
+    if ((hasActiveChild || headerActive) && !open) setOpen(true);
+  }, [hasActiveChild, headerActive]);
 
   return (
     <div className="mt-3">
-      <button
-        onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between px-3 py-1.5 mb-0.5 group"
-      >
-        <span className="text-[10px] font-medium uppercase tracking-wider text-gray-400 group-hover:text-gray-500 transition-colors">
-          {label}
-        </span>
-        <ChevronDown className={cn("w-3 h-3 text-gray-300 transition-transform", open && "rotate-180")} />
-      </button>
+      <div className="w-full flex items-center px-3 py-1.5 mb-0.5 group">
+        {headerHref ? (
+          <Link
+            href={headerHref}
+            onClick={onNavigate}
+            className={cn(
+              "flex-1 text-[10px] font-medium uppercase tracking-wider transition-colors text-left",
+              headerActive ? "text-[#2D6A4F]" : "text-gray-400 group-hover:text-gray-500"
+            )}
+          >
+            {label}
+          </Link>
+        ) : (
+          <button
+            onClick={() => setOpen(!open)}
+            className="flex-1 text-[10px] font-medium uppercase tracking-wider text-gray-400 group-hover:text-gray-500 transition-colors text-left"
+          >
+            {label}
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => setOpen(!open)}
+          aria-label={open ? `Collapse ${label}` : `Expand ${label}`}
+          className="p-0.5 rounded hover:bg-gray-100"
+        >
+          <ChevronDown className={cn("w-3 h-3 text-gray-300 transition-transform", open && "rotate-180")} />
+        </button>
+      </div>
       {open && (
         <div className="space-y-0.5">
           {items.map((item) => {
@@ -231,7 +259,7 @@ function SidebarNav({
         })}
       </div>
 
-      <NavGroup label="Products" items={PRODUCTS_ITEMS} location={location} onNavigate={onNavigate} defaultOpen={true} />
+      <NavGroup label="Products" items={PRODUCTS_ITEMS} location={location} onNavigate={onNavigate} defaultOpen={true} headerHref="/admin/crm/services" />
       <NavGroup label="Finance" items={FINANCE_ITEMS} location={location} onNavigate={onNavigate} defaultOpen={true} />
       <NavGroup label="Outbound" items={OUTBOUND_ITEMS} location={location} onNavigate={onNavigate} defaultOpen={false} />
       <NavGroup label="System" items={SYSTEM_ITEMS} location={location} onNavigate={onNavigate} defaultOpen={false} />
