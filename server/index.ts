@@ -1,5 +1,6 @@
 import "dotenv/config";
 import * as Sentry from "@sentry/node";
+import { initAnalytics, shutdownAnalytics } from "./lib/analytics";
 
 if (process.env.SENTRY_DSN) {
   Sentry.init({
@@ -8,6 +9,10 @@ if (process.env.SENTRY_DSN) {
     tracesSampleRate: 0.1,
   });
 }
+
+initAnalytics();
+process.on("SIGTERM", () => { void shutdownAnalytics(); });
+process.on("SIGINT", () => { void shutdownAnalytics(); });
 
 import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
