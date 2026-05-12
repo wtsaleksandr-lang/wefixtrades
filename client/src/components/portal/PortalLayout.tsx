@@ -280,6 +280,29 @@ export default function PortalLayout({
           </div>
         </header>
 
+        {/* Q20: admin-preview banner — only shown when an admin user is
+            viewing the customer portal. Lets them exit cleanly back to
+            /admin/crm so they don't accidentally stay in customer view. */}
+        {user?.role === "admin" && (
+          <div className="bg-amber-100 border-b border-amber-300 px-4 py-2 flex items-center justify-between gap-3" data-testid="admin-preview-banner">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-amber-600 text-white shrink-0">
+                Admin Preview
+              </span>
+              <span className="text-xs text-amber-900 truncate">
+                You're viewing the customer portal. Test as a regular user — your admin session is untouched.
+              </span>
+            </div>
+            <a
+              href="/admin/crm"
+              className="text-xs font-medium text-amber-900 hover:text-amber-950 underline whitespace-nowrap shrink-0"
+              data-testid="exit-admin-preview"
+            >
+              Exit to Admin →
+            </a>
+          </div>
+        )}
+
         {/* Page content */}
         <main id="main-content" className="flex-1 overflow-y-auto p-4 md:p-6" tabIndex={-1}>
           {children}
