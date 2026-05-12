@@ -555,6 +555,18 @@ export default function AdminCopilot({
     );
 
     try {
+      // Q26: snapshot what's visible on the page so the copilot can answer
+      // about content the structured pageContext doesn't include (statuses,
+      // table cells, dropdown labels, etc.). Cap at 2k to keep token cost sane;
+      // admin gets a bit more headroom than portal because it sees richer pages.
+      const pageContentSnapshot = (() => {
+        if (typeof document === "undefined") return undefined;
+        const main = document.querySelector("main") ?? document.querySelector("[data-admin-main]") ?? document.body;
+        const text = (main as HTMLElement | null)?.innerText ?? "";
+        const collapsed = text.replace(/\s+/g, " ").trim().slice(0, 2000);
+        return collapsed || undefined;
+      })();
+
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -564,6 +576,7 @@ export default function AdminCopilot({
           messages: apiMessages.slice(-20),
           sessionId: getCopilotSessionId(),
           pageContext,
+          pageContentSnapshot,
           attachments: sentAttachments.map((a) => ({
             url: a.url,
             filename: a.filename,

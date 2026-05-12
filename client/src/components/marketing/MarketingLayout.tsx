@@ -238,8 +238,6 @@ function MarketingFooter({ isMobile }: { isMobile: boolean }) {
             <Link href="/terms" style={legalLinkStyle}>Terms</Link>
             <span style={legalDividerStyle} />
             <Link href="/terms" style={legalLinkStyle}>Cookies</Link>
-            <span style={legalDividerStyle} />
-            <Link href="/admin/crm" style={legalLinkStyle}>Admin</Link>
           </div>
         </div>
       </div>

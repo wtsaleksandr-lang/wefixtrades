@@ -85,7 +85,7 @@ async function parseAssistantRequest(req: Request): Promise<
   { ok: true; assistantReq: AssistantRequest } |
   { ok: false; status: number; error: string }
 > {
-  const { surface: rawSurface, mode, messages, sessionId, reportId, auditContext: clientAuditCtx, pageContext: clientPageCtx, userId } = req.body || {};
+  const { surface: rawSurface, mode, messages, sessionId, reportId, auditContext: clientAuditCtx, pageContext: clientPageCtx, pageContentSnapshot: clientPageSnap, userId } = req.body || {};
 
   const surfaceStr = rawSurface || mode || "website";
   const surface: ChatSurface = VALID_SURFACES.includes(surfaceStr) ? surfaceStr : "website";
@@ -149,7 +149,14 @@ async function parseAssistantRequest(req: Request): Promise<
       sessionId: surface === "portal" ? `portal_${resolvedUserId}` : sid,
       userId: resolvedUserId,
       auditContext: auditCtx,
-      pageContext: surface === "admin" && clientPageCtx ? clientPageCtx : undefined,
+      pageContext: surface === "admin" && clientPageCtx
+        ? {
+            ...clientPageCtx,
+            // Q26: untyped DOM snapshot — supplements the structured context for pages
+            // that don't expose all data through the typed pageContext.
+            pageContentSnapshot: typeof clientPageSnap === "string" ? clientPageSnap.slice(0, 2000) : undefined,
+          }
+        : undefined,
       portalContext: portalCtx,
       reportId: typeof reportId === "string" ? reportId : undefined,
       // Admin surface needs more tokens for task summaries and operational detail

@@ -96,7 +96,7 @@ export default function Dashboard() {
         <div style={{ padding: '12px 20px', borderTop: `1px solid ${p.colors.borderLight}` }}>
           <button
             data-testid="nav-back-wizard"
-            onClick={() => setLocation('/')}
+            onClick={() => setLocation('/wizard')}
             style={{
               display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: p.colors.muted,
               background: 'none', border: 'none', cursor: 'pointer', padding: 0,

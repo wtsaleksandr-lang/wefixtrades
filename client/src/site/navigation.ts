@@ -47,8 +47,12 @@ export type NavItem = {
  * Breakpoint (px) at which navigation switches between desktop and mobile.
  * This is intentionally higher than the global 768 breakpoint in use-mobile.tsx
  * because the nav's horizontal items need more room.
+ *
+ * At 900, items crop on intermediate widths (~900–1024) before the hamburger
+ * kicks in. Lifted to 1024 so the desktop nav always has room for: logo + 6
+ * top-level menus + auth CTA. Below 1024 we go straight to hamburger.
  */
-export const NAV_MOBILE_BREAKPOINT = 900;
+export const NAV_MOBILE_BREAKPOINT = 1024;
 
 export const NAV_LINKS: NavItem[] = [
   {
