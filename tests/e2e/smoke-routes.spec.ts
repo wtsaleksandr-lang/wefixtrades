@@ -211,6 +211,10 @@ test.describe("Admin Pages (unauthenticated → redirect to /login)", () => {
     "/admin/crm/support",
     "/admin/crm/reviews",
     "/admin/ai",
+    /* Cycles 16–21: ensure new admin routes are also gated behind login */
+    "/admin/products/mapguard-setup",
+    "/admin/system/integrations",
+    "/admin/crm/audit-log",
   ];
 
   for (const path of adminPages) {
