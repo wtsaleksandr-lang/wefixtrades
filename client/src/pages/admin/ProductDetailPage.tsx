@@ -418,8 +418,7 @@ export default function ProductDetailPage() {
                 </div>
               </Card>
               );
-            })()
-            )}
+            })()}
 
             <Card className="p-5 space-y-4">
               <h2 className="text-sm font-semibold text-gray-900">Customer-visible content</h2>
