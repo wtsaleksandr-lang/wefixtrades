@@ -43,6 +43,9 @@ interface ServiceCatalogRow {
   is_active: boolean;
   tiers: Tier[] | null;
   features: string[] | null;
+  stripe_product_id: string | null;
+  stripe_price_id: string | null;
+  stripe_yearly_price_id: string | null;
 }
 
 interface ProductDraft {
@@ -65,6 +68,9 @@ type EditableForm = {
   category: string;
   tiers: Tier[];
   features: string[];
+  stripe_product_id: string;
+  stripe_price_id: string;
+  stripe_yearly_price_id: string;
 };
 
 const CATEGORIES = ["visibility", "leads", "reputation", "automation", "website"];
@@ -113,7 +119,7 @@ export default function ProductDetailPage() {
 
   // Pre-populate the form from draft if pending, otherwise from live values
   const initial = useMemo<EditableForm>(() => {
-    if (!live) return { name: "", tagline: "", description: "", default_price_cents: "", billing_period: "monthly", category: "visibility", tiers: [], features: [] };
+    if (!live) return { name: "", tagline: "", description: "", default_price_cents: "", billing_period: "monthly", category: "visibility", tiers: [], features: [], stripe_product_id: "", stripe_price_id: "", stripe_yearly_price_id: "" };
     const d = hasPendingDraft ? draft!.draft_data : {};
     return {
       name: (d.name ?? live.name) ?? "",
@@ -124,6 +130,9 @@ export default function ProductDetailPage() {
       category: (d.category ?? live.category) ?? "visibility",
       tiers: (d.tiers ?? live.tiers ?? []) as Tier[],
       features: (d.features ?? live.features ?? []) as string[],
+      stripe_product_id: (d.stripe_product_id ?? live.stripe_product_id) ?? "",
+      stripe_price_id: (d.stripe_price_id ?? live.stripe_price_id) ?? "",
+      stripe_yearly_price_id: (d.stripe_yearly_price_id ?? live.stripe_yearly_price_id) ?? "",
     };
   }, [live, draft, hasPendingDraft]);
 
@@ -145,6 +154,13 @@ export default function ProductDetailPage() {
     if (!tiersEqual(form.tiers, liveTiers)) out.tiers = form.tiers;
     const liveFeatures = (live.features ?? []) as string[];
     if (JSON.stringify(form.features) !== JSON.stringify(liveFeatures)) out.features = form.features;
+    // Q28c: Stripe IDs. Empty input maps to null on the wire.
+    const stripeFields = ["stripe_product_id", "stripe_price_id", "stripe_yearly_price_id"] as const;
+    for (const k of stripeFields) {
+      const formVal = (form[k] ?? "").trim();
+      const liveVal = live[k] ?? "";
+      if (formVal !== liveVal) out[k] = formVal === "" ? null : formVal;
+    }
     return out;
   }, [form, live]);
   const hasChanges = Object.keys(dirty).length > 0;
@@ -553,10 +569,61 @@ export default function ProductDetailPage() {
               ))}
             </Card>
 
+            {/* Q28c — Stripe linkage */}
+            <Card className="p-5 space-y-3 border-amber-200/60">
+              <div>
+                <h2 className="text-sm font-semibold text-gray-900">Stripe linkage</h2>
+                <p className="text-[11px] text-amber-700 mt-0.5">
+                  ⚠ Changing these IDs affects billing. Tier-level Stripe price IDs above take
+                  precedence for tier purchases — these product-level IDs are used for
+                  single-price products and yearly upgrades. Leave empty to clear.
+                </p>
+              </div>
+              <Field label="stripe_product_id">
+                <Input
+                  value={form.stripe_product_id}
+                  onChange={(e) => setForm({ ...form, stripe_product_id: e.target.value })}
+                  placeholder="prod_..."
+                  className="font-mono text-xs"
+                  data-testid="input-stripe-product"
+                />
+              </Field>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="stripe_price_id (default / monthly)">
+                  <Input
+                    value={form.stripe_price_id}
+                    onChange={(e) => setForm({ ...form, stripe_price_id: e.target.value })}
+                    placeholder="price_..."
+                    className="font-mono text-xs"
+                    data-testid="input-stripe-price"
+                  />
+                </Field>
+                <Field label="stripe_yearly_price_id">
+                  <Input
+                    value={form.stripe_yearly_price_id}
+                    onChange={(e) => setForm({ ...form, stripe_yearly_price_id: e.target.value })}
+                    placeholder="price_..."
+                    className="font-mono text-xs"
+                    data-testid="input-stripe-yearly"
+                  />
+                </Field>
+              </div>
+            </Card>
+
             <Card className="p-5">
               <div className="flex items-center gap-2 pt-1">
                 <Button
-                  onClick={() => saveDraft.mutate()}
+                  onClick={() => {
+                    // Q28c: confirm before saving Stripe ID changes — these affect billing.
+                    const stripeChanged =
+                      "stripe_product_id" in dirty ||
+                      "stripe_price_id" in dirty ||
+                      "stripe_yearly_price_id" in dirty;
+                    if (stripeChanged && !window.confirm("You're changing Stripe IDs. New customer charges will use these IDs. Continue?")) {
+                      return;
+                    }
+                    saveDraft.mutate();
+                  }}
                   disabled={!hasChanges || saveDraft.isPending}
                   className="bg-[#2D6A4F] hover:bg-[#1B4332]"
                   data-testid="button-save-draft"
@@ -574,7 +641,6 @@ export default function ProductDetailPage() {
                 <p className="text-xs font-medium text-gray-700">Not in this editor yet</p>
               </div>
               <ul className="text-[11px] text-gray-500 list-disc pl-5 space-y-0.5">
-                <li>Stripe product ID (tier-level Stripe price IDs ✓ supported above)</li>
                 <li>Suppliers / costs / fulfillment workflow</li>
                 <li>Subscriber roster + cancel toggle</li>
                 <li>AI agent / cron job config</li>
