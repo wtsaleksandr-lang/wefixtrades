@@ -120,7 +120,7 @@ export default function AdFlowOpsPage() {
         </div>
 
         {/* Summary cards */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-3 gap-4 auto-rows-fr">
           <Card className="p-4">
             <p className="text-xs text-gray-500">Active Services</p>
             <p className="text-2xl font-bold text-gray-900">{services?.length ?? 0}</p>

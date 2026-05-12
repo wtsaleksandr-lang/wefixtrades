@@ -376,7 +376,7 @@ export default function SuppliersPage() {
               </Card>
 
               {/* Stats */}
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-3 gap-4 auto-rows-fr">
                 <Card>
                   <CardContent className="py-4 flex items-center gap-3">
                     <div className="p-2 rounded-lg bg-blue-50">
