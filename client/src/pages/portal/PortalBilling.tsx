@@ -126,7 +126,7 @@ export default function PortalBilling() {
         {data && (
           <>
             {/* Summary cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 auto-rows-fr">
               <div className="bg-white rounded-xl border border-gray-200 p-4">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center">

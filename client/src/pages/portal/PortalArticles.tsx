@@ -259,7 +259,7 @@ export default function PortalArticles() {
 
         {/* Article cards */}
         {isLoading && (
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className="grid gap-3 md:grid-cols-2 auto-rows-fr">
             {[0, 1, 2, 3].map((i) => (
               <Card key={i} className="p-4 space-y-3">
                 <Skeleton className="h-5 w-3/4" />
@@ -284,7 +284,7 @@ export default function PortalArticles() {
         )}
 
         {!isLoading && articles.length > 0 && (
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className="grid gap-3 md:grid-cols-2 auto-rows-fr">
             {articles.map((a) => {
               const badge = badgeForArticle(a);
               return (
@@ -479,7 +479,7 @@ function SocialPostsSection() {
 
   if (isLoading) {
     return (
-      <div className="grid gap-3 md:grid-cols-2">
+      <div className="grid gap-3 md:grid-cols-2 auto-rows-fr">
         {[0, 1, 2, 3].map((i) => (
           <Card key={i} className="p-4 space-y-3">
             <Skeleton className="h-5 w-1/2" />
@@ -509,7 +509,7 @@ function SocialPostsSection() {
   }
 
   return (
-    <div className="grid gap-3 md:grid-cols-2">
+    <div className="grid gap-3 md:grid-cols-2 auto-rows-fr">
       {posts.map((post) => (
         <Card key={post.id} className="p-4 space-y-2">
           <div className="flex items-center gap-2">
@@ -663,7 +663,7 @@ function VideoContentSection() {
 
       {/* Videos list */}
       {videosLoading && (
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="grid gap-3 md:grid-cols-2 auto-rows-fr">
           {[0, 1].map((i) => (
             <Card key={i} className="p-4 space-y-3">
               <Skeleton className="h-5 w-1/2" />
@@ -690,7 +690,7 @@ function VideoContentSection() {
       {!videosLoading && actualVideos.length > 0 && (
         <>
           <h3 className="text-sm font-medium text-gray-700">Generated Videos</h3>
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className="grid gap-3 md:grid-cols-2 auto-rows-fr">
             {actualVideos.map((video) => (
               <Card key={video.id} className="p-4 space-y-2">
                 <div className="flex items-center gap-2">
@@ -745,7 +745,7 @@ function VideoContentSection() {
       {!videosLoading && scripts.length > 0 && (
         <>
           <h3 className="text-sm font-medium text-gray-700 mt-4">Video Scripts</h3>
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className="grid gap-3 md:grid-cols-2 auto-rows-fr">
             {scripts.map((script) => (
               <Card key={script.id} className="p-4 space-y-2">
                 <div className="flex items-center gap-2">

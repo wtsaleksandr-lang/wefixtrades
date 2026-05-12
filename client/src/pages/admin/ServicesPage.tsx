@@ -99,21 +99,21 @@ export default function ServicesPage() {
         </div>
 
         {isLoading ? (
-          <div className="grid md:grid-cols-2 gap-3">
+          <div className="grid md:grid-cols-2 gap-3 auto-rows-fr">
             {Array.from({ length: 6 }).map((_, i) => (
               <Card key={i} className="p-4"><Skeleton className="h-16 w-full" /></Card>
             ))}
           </div>
         ) : (
-          <div className="grid md:grid-cols-2 gap-3">
+          <div className="grid md:grid-cols-2 gap-3 auto-rows-fr">
             {merged.map((svc) => (
               <Link
                 key={svc.id}
                 href={`/admin/products/${svc.id}`}
-                className="block focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/30 rounded-xl"
+                className="block focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/30 rounded-xl h-full"
                 data-testid={`product-card-${svc.id}`}
               >
-              <Card className="p-4 hover:border-[#2D6A4F]/40 hover:shadow-sm transition-all cursor-pointer">
+              <Card className="h-full p-4 hover:border-[#2D6A4F]/40 hover:shadow-sm transition-all cursor-pointer">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
