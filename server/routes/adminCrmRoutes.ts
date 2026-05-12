@@ -210,6 +210,80 @@ export function registerAdminCrmRoutes(app: Express): void {
     }
   });
 
+  /* ─── Q28e: Subscriber roster per product ─── */
+
+  // GET /api/admin/products/:id/subscribers — every client_service row + client info
+  app.get("/api/admin/products/:id/subscribers", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const svcId = req.params.id;
+      const live = await storage.getServiceById(svcId);
+      if (!live) return res.status(404).json({ error: "Product not found" });
+      const rows = await storage.listSubscribersForService(svcId);
+      res.json({ subscribers: rows });
+    } catch (err: any) {
+      log.error("[products subscribers GET] Error:", err.message);
+      res.status(500).json({ error: "Failed to load subscribers" });
+    }
+  });
+
+  // POST /api/admin/products/:id/subscribers/:clientServiceId/toggle
+  // body { enabled: boolean }  — flip enabled on a client_service row
+  app.post("/api/admin/products/:id/subscribers/:clientServiceId/toggle", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const csId = parseInt(req.params.clientServiceId, 10);
+      if (!Number.isFinite(csId)) return res.status(400).json({ error: "Invalid client_service id" });
+      const enabled = req.body?.enabled === true;
+      const updated = await storage.updateClientService(csId, { enabled });
+      if (!updated) return res.status(404).json({ error: "Subscription not found" });
+      const u = req.user as any;
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: u?.id,
+        actor_name: u?.name || u?.email,
+        action: enabled ? "product.subscription_enabled" : "product.subscription_disabled",
+        entity_type: "client_service",
+        entity_id: csId,
+        summary: `${enabled ? "Enabled" : "Disabled"} client_service #${csId} on product "${req.params.id}"`,
+        metadata: { service_id: req.params.id, client_service_id: csId, client_id: updated.client_id },
+      });
+      res.json({ subscription: updated });
+    } catch (err: any) {
+      log.error("[products subscriber toggle POST] Error:", err.message);
+      res.status(500).json({ error: "Failed to toggle subscription" });
+    }
+  });
+
+  // POST /api/admin/products/:id/subscribers/:clientServiceId/cancel
+  // body { reason?: string } — cancel the subscription with a reason (audit-logged)
+  app.post("/api/admin/products/:id/subscribers/:clientServiceId/cancel", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const csId = parseInt(req.params.clientServiceId, 10);
+      if (!Number.isFinite(csId)) return res.status(400).json({ error: "Invalid client_service id" });
+      const reason = typeof req.body?.reason === "string" ? req.body.reason.slice(0, 500) : null;
+      const updated = await storage.updateClientService(csId, {
+        status: "cancelled",
+        enabled: false,
+        cancelled_at: new Date(),
+      });
+      if (!updated) return res.status(404).json({ error: "Subscription not found" });
+      const u = req.user as any;
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: u?.id,
+        actor_name: u?.name || u?.email,
+        action: "product.subscription_cancelled",
+        entity_type: "client_service",
+        entity_id: csId,
+        summary: `Cancelled client_service #${csId} on product "${req.params.id}"${reason ? ` — ${reason}` : ""}`,
+        metadata: { service_id: req.params.id, client_service_id: csId, client_id: updated.client_id, reason },
+      });
+      res.json({ subscription: updated });
+    } catch (err: any) {
+      log.error("[products subscriber cancel POST] Error:", err.message);
+      res.status(500).json({ error: "Failed to cancel subscription" });
+    }
+  });
+
   /* ─── Q28d: Suppliers per product ─── */
 
   // GET /api/admin/products/:id/suppliers — assigned + available suppliers

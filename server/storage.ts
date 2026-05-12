@@ -268,6 +268,7 @@ export interface IStorage {
 
   // Client services
   listClientServices(clientId: number): Promise<(ClientService & { service_name?: string })[]>;
+  listSubscribersForService(serviceId: string): Promise<Array<ClientService & { client_name: string; contact_email: string | null }>>;
   createClientService(data: InsertClientService): Promise<ClientService>;
   updateClientService(id: number, updates: Partial<InsertClientService>): Promise<ClientService | undefined>;
   getActiveServiceCount(): Promise<number>;
@@ -1533,6 +1534,36 @@ export class DatabaseStorage implements IStorage {
       await fireMapguardKickoffIfActive(row.id);
     }
     return row;
+  }
+
+  /** Q28e: subscriber roster — every client_service row for a given service id. */
+  async listSubscribersForService(serviceId: string): Promise<Array<ClientService & { client_name: string; contact_email: string | null }>> {
+    const rows = await db.select({
+      id: clientServices.id,
+      client_id: clientServices.client_id,
+      service_id: clientServices.service_id,
+      status: clientServices.status,
+      enabled: clientServices.enabled,
+      fulfillment_mode: clientServices.fulfillment_mode,
+      price_cents: clientServices.price_cents,
+      cost_cents: clientServices.cost_cents,
+      billing_period: clientServices.billing_period,
+      started_at: clientServices.started_at,
+      completed_at: clientServices.completed_at,
+      cancelled_at: clientServices.cancelled_at,
+      automation_enabled: clientServices.automation_enabled,
+      human_review_required: clientServices.human_review_required,
+      metadata: clientServices.metadata,
+      created_at: clientServices.created_at,
+      updated_at: clientServices.updated_at,
+      client_name: clients.business_name,
+      contact_email: clients.contact_email,
+    })
+      .from(clientServices)
+      .innerJoin(clients, eq(clientServices.client_id, clients.id))
+      .where(eq(clientServices.service_id, serviceId))
+      .orderBy(desc(clientServices.created_at));
+    return rows;
   }
 
   /**

@@ -22,7 +22,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRoute, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, ChevronLeft, Check, AlertTriangle, FileEdit, History, Plus, Trash2, ArrowUp, ArrowDown, Star, Factory, X } from "lucide-react";
+import { Loader2, ChevronLeft, Check, AlertTriangle, FileEdit, History, Plus, Trash2, ArrowUp, ArrowDown, Star, Factory, X, Users, Ban } from "lucide-react";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -572,6 +572,9 @@ export default function ProductDetailPage() {
             {/* Q28d — Suppliers panel */}
             <SuppliersPanel serviceId={live.id} serviceName={live.name} />
 
+            {/* Q28e — Subscribers roster */}
+            <SubscribersPanel serviceId={live.id} serviceName={live.name} />
+
             {/* Q28c — Stripe linkage */}
             <Card className="p-5 space-y-3 border-amber-200/60">
               <div>
@@ -645,7 +648,6 @@ export default function ProductDetailPage() {
               </div>
               <ul className="text-[11px] text-gray-500 list-disc pl-5 space-y-0.5">
                 <li>Per-supplier cost overrides for this product (today: supplier-level cost_rate only)</li>
-                <li>Subscriber roster + cancel toggle</li>
                 <li>AI agent / cron job config</li>
               </ul>
             </Card>
@@ -799,6 +801,176 @@ function SuppliersPanel({ serviceId, serviceName }: { serviceId: string; service
             <Plus className="w-3.5 h-3.5 mr-1" /> Assign
           </Button>
         </div>
+      )}
+    </Card>
+  );
+}
+
+/* Q28e — Subscriber roster. Lists every client_service row for this
+   product with status, enabled toggle, and cancel-with-reason button.
+   Operational — no draft flow (customer billing state is live data). */
+interface SubscriberRow {
+  id: number;
+  client_id: number;
+  client_name: string;
+  contact_email: string | null;
+  status: string;
+  enabled: boolean;
+  price_cents: number | null;
+  billing_period: string | null;
+  started_at: string | null;
+  cancelled_at: string | null;
+  created_at: string | null;
+}
+
+function SubscribersPanel({ serviceId, serviceName }: { serviceId: string; serviceName: string }) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { data, isLoading } = useQuery<{ subscribers: SubscriberRow[] }>({
+    queryKey: [`/api/admin/products/${serviceId}/subscribers`],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/products/${serviceId}/subscribers`, { credentials: "include" });
+      if (!res.ok) throw new Error(`Failed to load subscribers (${res.status})`);
+      return res.json();
+    },
+  });
+
+  const toggle = useMutation({
+    mutationFn: async ({ clientServiceId, enabled }: { clientServiceId: number; enabled: boolean }) => {
+      const res = await fetch(`/api/admin/products/${serviceId}/subscribers/${clientServiceId}/toggle`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ enabled }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Failed to toggle");
+      return json;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/products/${serviceId}/subscribers`] });
+      toast({ title: "Subscription updated" });
+    },
+    onError: (err: Error) => toast({ title: "Update failed", description: err.message, variant: "destructive" }),
+  });
+
+  const cancel = useMutation({
+    mutationFn: async ({ clientServiceId, reason }: { clientServiceId: number; reason: string }) => {
+      const res = await fetch(`/api/admin/products/${serviceId}/subscribers/${clientServiceId}/cancel`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ reason }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Failed to cancel");
+      return json;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/products/${serviceId}/subscribers`] });
+      toast({ title: "Subscription cancelled" });
+    },
+    onError: (err: Error) => toast({ title: "Cancel failed", description: err.message, variant: "destructive" }),
+  });
+
+  const subs = data?.subscribers ?? [];
+  const active = subs.filter((s) => s.status !== "cancelled");
+  const cancelled = subs.filter((s) => s.status === "cancelled");
+
+  return (
+    <Card className="p-5 space-y-3" data-testid="subscribers-panel">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Users className="w-4 h-4 text-gray-500" />
+          <div>
+            <h2 className="text-sm font-semibold text-gray-900">
+              Subscribers <span className="text-gray-400 font-normal">({active.length} active{cancelled.length ? ` · ${cancelled.length} cancelled` : ""})</span>
+            </h2>
+            <p className="text-[11px] text-gray-500 mt-0.5">
+              Clients with this product. Toggle enabled to pause without cancelling.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {isLoading && (
+        <div className="flex items-center gap-2 text-xs text-gray-400">
+          <Loader2 className="w-3 h-3 animate-spin" /> Loading subscribers...
+        </div>
+      )}
+
+      {!isLoading && subs.length === 0 && (
+        <p className="text-xs text-gray-400 italic">No subscribers yet for {serviceName}.</p>
+      )}
+
+      {active.length > 0 && (
+        <ul className="space-y-1.5">
+          {active.map((s) => (
+            <li
+              key={s.id}
+              className="flex items-center justify-between gap-2 px-3 py-2 rounded-md border border-gray-200 bg-white"
+              data-testid={`subscriber-row-${s.id}`}
+            >
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-gray-900 truncate">
+                  <a href={`/admin/crm/clients/${s.client_id}`} className="hover:text-[#2D6A4F] hover:underline">
+                    {s.client_name}
+                  </a>
+                </p>
+                <p className="text-[11px] text-gray-500">
+                  {s.status}
+                  {!s.enabled && " · paused"}
+                  {s.price_cents != null && ` · $${(s.price_cents / 100).toFixed(2)}${s.billing_period === "monthly" ? "/mo" : ""}`}
+                  {s.started_at && ` · since ${new Date(s.started_at).toLocaleDateString()}`}
+                </p>
+              </div>
+              <div className="flex items-center gap-1">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => toggle.mutate({ clientServiceId: s.id, enabled: !s.enabled })}
+                  disabled={toggle.isPending}
+                  className="h-7 text-[11px]"
+                  data-testid={`subscriber-toggle-${s.id}`}
+                >
+                  {s.enabled ? "Pause" : "Resume"}
+                </Button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const reason = window.prompt(`Cancel ${s.client_name}'s ${serviceName}? Optional reason:`) ?? null;
+                    if (reason === null) return;
+                    cancel.mutate({ clientServiceId: s.id, reason });
+                  }}
+                  disabled={cancel.isPending}
+                  className="p-1.5 rounded hover:bg-red-50 text-red-500 disabled:opacity-40"
+                  aria-label="Cancel subscription"
+                  data-testid={`subscriber-cancel-${s.id}`}
+                >
+                  <Ban className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {cancelled.length > 0 && (
+        <details className="text-xs">
+          <summary className="cursor-pointer text-gray-500 hover:text-gray-700">
+            {cancelled.length} cancelled subscription{cancelled.length === 1 ? "" : "s"}
+          </summary>
+          <ul className="mt-2 space-y-1">
+            {cancelled.map((s) => (
+              <li key={s.id} className="px-3 py-1.5 text-[11px] text-gray-500 bg-gray-50 rounded">
+                <a href={`/admin/crm/clients/${s.client_id}`} className="hover:text-[#2D6A4F] hover:underline">
+                  {s.client_name}
+                </a>
+                {s.cancelled_at && ` · cancelled ${new Date(s.cancelled_at).toLocaleDateString()}`}
+              </li>
+            ))}
+          </ul>
+        </details>
       )}
     </Card>
   );
