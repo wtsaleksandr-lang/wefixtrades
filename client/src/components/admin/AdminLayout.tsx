@@ -143,6 +143,7 @@ function NavGroup({
    *  the header just toggles expansion (legacy behavior). */
   headerHref?: string;
 }) {
+  const [, navigate] = useLocation();
   const headerActive = headerHref ? isActive(location, headerHref) : false;
   const hasActiveChild = items.some((item) => isActive(location, item.href));
   const [open, setOpen] = useState(defaultOpen || hasActiveChild || headerActive);
@@ -154,33 +155,52 @@ function NavGroup({
 
   return (
     <div className="mt-3">
-      <div className="w-full flex items-center px-3 py-1.5 mb-0.5 group">
+      <div className="w-full flex items-center mb-0.5 group">
         {headerHref ? (
-          <Link
-            href={headerHref}
-            onClick={onNavigate}
+          /* Q27 (final): title is a real button that programmatically
+             navigates to the catalog. Uses useLocation rather than wouter's
+             Link to guarantee the click handler fires before any sibling
+             toggle could intercept. Separate chevron button on the right
+             handles expand/collapse. */
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onNavigate();
+              navigate(headerHref);
+            }}
             className={cn(
-              "flex-1 text-[10px] font-medium uppercase tracking-wider transition-colors text-left",
-              headerActive ? "text-[#2D6A4F]" : "text-gray-400 group-hover:text-gray-500"
+              "flex-1 flex items-center justify-between gap-1.5 px-3 py-2 text-xs font-semibold uppercase tracking-wide rounded-lg cursor-pointer transition-colors text-left",
+              headerActive
+                ? "bg-[#F0F7F4] text-[#2D6A4F]"
+                : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
             )}
+            title={`Open ${label} catalogue`}
+            data-testid={`navgroup-header-${label.toLowerCase()}`}
           >
-            {label}
-          </Link>
+            <span>{label}</span>
+            <ExternalLink className={cn("w-3 h-3 opacity-0 group-hover:opacity-60 transition-opacity shrink-0", headerActive && "opacity-60")} />
+          </button>
         ) : (
           <button
             onClick={() => setOpen(!open)}
-            className="flex-1 text-[10px] font-medium uppercase tracking-wider text-gray-400 group-hover:text-gray-500 transition-colors text-left"
+            className="flex-1 px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider text-gray-400 group-hover:text-gray-500 transition-colors text-left"
           >
             {label}
           </button>
         )}
         <button
           type="button"
-          onClick={() => setOpen(!open)}
+          onClick={(e) => {
+            e.stopPropagation();
+            setOpen(!open);
+          }}
           aria-label={open ? `Collapse ${label}` : `Expand ${label}`}
-          className="p-0.5 rounded hover:bg-gray-100"
+          className="p-1.5 mx-1 rounded hover:bg-gray-100 shrink-0"
+          data-testid={`navgroup-toggle-${label.toLowerCase()}`}
         >
-          <ChevronDown className={cn("w-3 h-3 text-gray-300 transition-transform", open && "rotate-180")} />
+          <ChevronDown className={cn("w-3.5 h-3.5 text-gray-500 transition-transform", open && "rotate-180")} />
         </button>
       </div>
       {open && (
