@@ -33,6 +33,31 @@ export function registerAdminCrmRoutes(app: Express): void {
     }
   });
 
+  /**
+   * POST /api/admin/audit/preview-portal-entry
+   * Q20: log when an admin clicks "View as Customer" so we have a record
+   * of every preview session entered. Fire-and-forget from the client.
+   */
+  app.post("/api/admin/audit/preview-portal-entry", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const u = req.user as any;
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: u?.id,
+        actor_name: u?.name || u?.email,
+        action: "admin.preview_portal_entry",
+        entity_type: "user",
+        entity_id: u?.id ?? null,
+        summary: `${u?.name || u?.email || "Admin"} opened the customer portal in preview mode`,
+      });
+      res.json({ ok: true });
+    } catch (err: any) {
+      log.error("[admin-audit/preview-portal] Error:", err.message);
+      // Don't block the preview because of audit failure
+      res.json({ ok: false });
+    }
+  });
+
   /* ═══════════════════════════════════════════
      Service Catalog
      ═══════════════════════════════════════════ */

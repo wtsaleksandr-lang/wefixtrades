@@ -107,7 +107,9 @@ const SYSTEM_ITEMS = [
 
 const SECONDARY_ITEMS = [
   { label: "AI Dashboard", href: "/admin/ai", icon: BrainCircuit },
-  { label: "Client Portal", href: "/portal", icon: ExternalLink },
+  /* Q20: relabelled from "Client Portal" + handled below as a special
+     view-as-customer link (audits the entry, opens in new tab). */
+  { label: "View as Customer", href: "/portal", icon: ExternalLink, isViewAsCustomer: true as const },
 ];
 
 /* Unified list for page title detection and other lookups */
@@ -269,17 +271,44 @@ function SidebarNav({
         <div className="space-y-0.5">
           {SECONDARY_ITEMS.map((item) => {
             const active = isActive(location, item.href);
+            const isPreview = (item as any).isViewAsCustomer;
+            const className = cn(
+              "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors min-h-[40px]",
+              active
+                ? "bg-[#F0F7F4] text-[#2D6A4F] font-medium"
+                : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
+            );
+            // Q20: View-as-customer opens portal in NEW TAB so the admin's
+            // primary admin session keeps working in the original window.
+            // Audit-log the entry so we have a record of every preview.
+            if (isPreview) {
+              return (
+                <a
+                  key={item.href}
+                  href={item.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => {
+                    fetch("/api/admin/audit/preview-portal-entry", {
+                      method: "POST",
+                      credentials: "include",
+                    }).catch(() => { /* fire-and-forget */ });
+                    onNavigate();
+                  }}
+                  className={className}
+                  data-testid="view-as-customer"
+                >
+                  <item.icon className={cn("w-4 h-4 shrink-0", active ? "text-[#2D6A4F]" : "text-gray-400")} />
+                  {item.label}
+                </a>
+              );
+            }
             return (
               <Link
                 key={item.href}
                 href={item.href}
                 onClick={onNavigate}
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors min-h-[40px]",
-                  active
-                    ? "bg-[#F0F7F4] text-[#2D6A4F] font-medium"
-                    : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
-                )}
+                className={className}
               >
                 <item.icon className={cn("w-4 h-4 shrink-0", active ? "text-[#2D6A4F]" : "text-gray-400")} />
                 {item.label}
