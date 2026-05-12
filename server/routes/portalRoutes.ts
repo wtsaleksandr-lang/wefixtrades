@@ -1420,23 +1420,70 @@ Your job:
 Do NOT:
 - Make up specific business details
 - Provide legal or financial advice
-- Discuss pricing of WeFixTrades services${pageContextBlock}`;
+- Discuss pricing of WeFixTrades services
+
+== FORM-FILL PROPOSALS (Q23) ==
+When you and the customer have agreed on values for one or more form fields, propose them by appending a single fenced block AT THE END of your reply, on its own line(s):
+
+<<<FORM_FILL>>>
+{"fills":[{"field_key":"<key-from-form-fields-above>","value":"<the value to set>","reason":"<one short sentence why>"}]}
+<<<END_FORM_FILL>>>
+
+Rules for proposing fills:
+- Only propose when the customer has affirmed the values in the conversation (e.g. you asked "should I set business name to Acme Plumbing?" and they said yes).
+- Never propose a value the customer hasn't agreed to.
+- field_key MUST be one of the keys in the form-fields list above. Spelling and case matter.
+- value must be a string. For booleans use "true" / "false". For multi-select, comma-separated.
+- One proposal block per reply, max 3 fills inside.
+- Include a human-readable sentence in your reply BEFORE the FORM_FILL block — e.g. "Here's what I'll fill in — review and confirm below." The block itself is invisible to the customer; they see Apply/Skip buttons rendered from it.
+- If you're not ready to propose, just keep chatting — no FORM_FILL block.${pageContextBlock}`;
       }
 
-      const reply = await aiChat({
+      const rawReply = await aiChat({
         system: systemPrompt,
         messages: sanitizedMessages.map((m: { role: string; content: string }) => ({
           role: m.role as "user" | "assistant",
           content: m.content,
         })),
-        maxTokens: 400,
+        maxTokens: 500,
       });
+
+      // Q23: extract a FORM_FILL proposal (if any) and strip it from the
+      // user-visible reply. The fenced block is invisible to the customer;
+      // the client renders an Apply/Skip card from the parsed JSON.
+      let reply = rawReply;
+      let proposal: { fills: Array<{ field_key: string; value: string; reason?: string }> } | undefined;
+      const formFillMatch = rawReply.match(/<<<FORM_FILL>>>([\s\S]*?)<<<END_FORM_FILL>>>/);
+      if (formFillMatch) {
+        try {
+          const parsed = JSON.parse(formFillMatch[1].trim());
+          if (parsed && Array.isArray(parsed.fills)) {
+            const allowedKeys = new Set((context?.fields ?? []).map((f: { key: string }) => f.key));
+            const validFills = parsed.fills
+              .filter((f: any) => f && typeof f.field_key === "string" && typeof f.value === "string")
+              .slice(0, 3)
+              .map((f: any) => ({
+                field_key: f.field_key.slice(0, 100),
+                value: String(f.value).slice(0, 2000),
+                reason: typeof f.reason === "string" ? f.reason.slice(0, 300) : undefined,
+              }))
+              .filter((f: { field_key: string }) => allowedKeys.size === 0 || allowedKeys.has(f.field_key));
+            if (validFills.length > 0) {
+              proposal = { fills: validFills };
+            }
+          }
+        } catch (err) {
+          log.warn("[portal-ai] FORM_FILL parse failed:", { error: String(err) });
+        }
+        // Always strip the fenced block from the visible reply, even if parsing failed
+        reply = rawReply.replace(/<<<FORM_FILL>>>[\s\S]*?<<<END_FORM_FILL>>>/, "").trim();
+      }
 
       // ─── Structured escalation detection (classification step) ───
       // Instead of fragile string matching, use a lightweight AI classification
       // to determine whether the reply offers/suggests escalation to human support.
       if (!escalationEnabled) {
-        return res.json({ reply });
+        return res.json({ reply, proposal });
       }
 
       let hasEscalationOffer = false;
@@ -1455,7 +1502,7 @@ Answer ONLY "YES" or "NO". Nothing else.`,
       }
 
       if (!hasEscalationOffer) {
-        return res.json({ reply });
+        return res.json({ reply, proposal });
       }
 
       // ─── Draft extraction (only runs when escalation detected) ───
@@ -1497,7 +1544,7 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
         // Don't fail the request — just return the reply without the draft
       }
 
-      res.json({ reply, escalation_draft: escalationDraft });
+      res.json({ reply, escalation_draft: escalationDraft, proposal });
     } catch (err) {
       log.error("Portal AI chat error:", { error: String(err) });
       res.json({ reply: "Sorry, the assistant is temporarily unavailable. You can still fill in the form manually." });
