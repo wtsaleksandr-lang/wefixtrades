@@ -37,6 +37,7 @@ export const clients = pgTable("clients", {
   contact_email: text("contact_email"),
   contact_phone: text("contact_phone"),
   website_url: text("website_url"),
+  logo_url: text("logo_url"),
   google_place_id: text("google_place_id"),
   facebook_page_url: text("facebook_page_url"),
   google_credentials: jsonb("google_credentials"), // OAuth tokens for Google Business API
