@@ -11,6 +11,7 @@
  * not_configured=slate.
  */
 
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { usePageTitle } from "@/hooks/usePageTitle";
@@ -18,7 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   CheckCircle2, AlertTriangle, XCircle, MinusCircle,
-  RefreshCw, ServerCog, CreditCard, MessageSquare, Brain, Database,
+  RefreshCw, ServerCog, CreditCard, MessageSquare, Brain, Database, X,
 } from "lucide-react";
 
 type ProbeStatus = "ok" | "degraded" | "down" | "not_configured";
@@ -58,6 +59,9 @@ const STATUS_META: Record<ProbeStatus, {
 
 export default function IntegrationHealthPage() {
   usePageTitle("Integration Health");
+  /* Q29: clicking a status card toggles a filter on the list below.
+     Click the active card again (or the explicit Clear) to remove. */
+  const [statusFilter, setStatusFilter] = useState<ProbeStatus | null>(null);
 
   const { data, isLoading, isError, refetch, isFetching } = useQuery<HealthResponse>({
     queryKey: ["/api/admin/integration-health"],
@@ -72,9 +76,10 @@ export default function IntegrationHealthPage() {
   });
 
   const items = data?.items ?? [];
+  const filteredItems = statusFilter ? items.filter((item) => item.status === statusFilter) : items;
 
   /* Group by category for the rendered sections. */
-  const grouped = items.reduce<Record<string, ProbeResult[]>>((acc, item) => {
+  const grouped = filteredItems.reduce<Record<string, ProbeResult[]>>((acc, item) => {
     (acc[item.category] ||= []).push(item);
     return acc;
   }, {});
@@ -111,25 +116,57 @@ export default function IntegrationHealthPage() {
           </Button>
         </div>
 
-        {/* Summary strip */}
+        {/* Summary strip — Q29: cards are clickable filters */}
         {!isLoading && !isError && (
           <div className="grid auto-rows-fr grid-cols-2 sm:grid-cols-4 gap-3">
             {(["ok", "degraded", "down", "not_configured"] as const).map((s) => {
               const meta = STATUS_META[s];
               const Icon = meta.Icon;
+              const isActive = statusFilter === s;
+              const isDisabled = counts[s] === 0;
               return (
-                <div
+                <button
                   key={s}
-                  className={`h-full rounded-xl border border-gray-200 p-4 ${meta.bg}`}
+                  type="button"
+                  onClick={() => !isDisabled && setStatusFilter(isActive ? null : s)}
+                  disabled={isDisabled}
+                  aria-pressed={isActive}
+                  className={`h-full text-left rounded-xl border p-4 transition-all ${meta.bg} ${
+                    isActive
+                      ? "border-gray-400 ring-2 ring-offset-1 ring-gray-400 shadow-sm"
+                      : "border-gray-200"
+                  } ${isDisabled ? "opacity-50 cursor-not-allowed" : "hover:border-gray-300 hover:shadow-sm cursor-pointer"}`}
+                  data-testid={`health-filter-${s}`}
                 >
                   <div className={`flex items-center gap-2 ${meta.ink}`}>
                     <Icon className="w-4 h-4" />
                     <span className="text-xs font-semibold uppercase tracking-wide">{meta.label}</span>
                   </div>
                   <p className={`text-2xl font-bold mt-1 ${meta.ink}`}>{counts[s]}</p>
-                </div>
+                </button>
               );
             })}
+          </div>
+        )}
+
+        {/* Q29: active filter banner with clear button */}
+        {statusFilter && !isLoading && !isError && (
+          <div
+            className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-xs text-gray-600"
+            data-testid="health-filter-banner"
+          >
+            <span>
+              Showing <strong className="text-gray-900">{filteredItems.length}</strong> integration
+              {filteredItems.length === 1 ? "" : "s"} with status <strong className="text-gray-900">{STATUS_META[statusFilter].label.toLowerCase()}</strong>
+            </span>
+            <button
+              type="button"
+              onClick={() => setStatusFilter(null)}
+              className="inline-flex items-center gap-1 px-2 py-1 rounded text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+              data-testid="health-filter-clear"
+            >
+              <X className="w-3 h-3" /> Clear filter
+            </button>
           </div>
         )}
 
@@ -145,6 +182,12 @@ export default function IntegrationHealthPage() {
             {Array.from({ length: 3 }).map((_, i) => (
               <Skeleton key={i} className="h-24 w-full" />
             ))}
+          </div>
+        )}
+
+        {!isLoading && !isError && filteredItems.length === 0 && statusFilter && (
+          <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-sm text-gray-500" data-testid="health-empty-filtered">
+            No integrations currently have status <strong>{STATUS_META[statusFilter].label.toLowerCase()}</strong>.
           </div>
         )}
 
