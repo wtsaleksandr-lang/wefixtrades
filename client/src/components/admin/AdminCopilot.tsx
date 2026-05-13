@@ -794,6 +794,18 @@ export default function AdminCopilot({
               Clear
             </button>
           )}
+          <button
+            type="button"
+            onClick={() => {
+              setLocation("/admin/chat-history");
+              onClose();
+            }}
+            title="View 7-day Copilot history"
+            className="text-[11px] text-gray-400 hover:text-gray-600 px-2 py-1"
+            data-testid="copilot-history-link"
+          >
+            History
+          </button>
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}>
             <X className="w-4 h-4" />
           </Button>

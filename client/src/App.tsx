@@ -82,6 +82,8 @@ import SuppliersPage from "@/pages/admin/SuppliersPage";
 import InboxPage from "@/pages/admin/InboxPage";
 import SystemAlertsPage from "@/pages/admin/SystemAlertsPage";
 import AdminAuditLogPage from "@/pages/admin/AdminAuditLogPage";
+import AdminChatHistoryPage from "@/pages/admin/AdminChatHistoryPage";
+import PortalChatHistoryPage from "@/pages/portal/PortalChatHistoryPage";
 import IntegrationHealthPage from "@/pages/admin/IntegrationHealthPage";
 import BillingPage from "@/pages/admin/BillingPage";
 import ServicesPage from "@/pages/admin/ServicesPage";
@@ -151,6 +153,7 @@ function Router() {
       <Route path="/admin/crm/inbox">{() => <RequirePortal><InboxPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/alerts">{() => <RequirePortal><SystemAlertsPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/audit-log">{() => <RequirePortal><AdminAuditLogPage /></RequirePortal>}</Route>
+      <Route path="/admin/chat-history">{() => <RequirePortal><AdminChatHistoryPage /></RequirePortal>}</Route>
       <Route path="/admin/system/integrations">{() => <RequirePortal><IntegrationHealthPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/billing">{() => <RequirePortal><BillingPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/suppliers">{() => <RequirePortal><SuppliersPage /></RequirePortal>}</Route>
@@ -201,6 +204,7 @@ function Router() {
       <Route path="/portal/invoices">{() => <RequireClient><InvoicesPage /></RequireClient>}</Route>
       <Route path="/portal/payment-methods">{() => <RequireClient><PaymentMethodsPage /></RequireClient>}</Route>
       <Route path="/portal/help">{() => <RequireClient><PortalHelp /></RequireClient>}</Route>
+      <Route path="/portal/chat-history">{() => <RequireClient><PortalChatHistoryPage /></RequireClient>}</Route>
       <Route path="/portal/settings">{() => <RequireClient><PortalSettings /></RequireClient>}</Route>
       <Route path="/portal">{() => <RequireClient><PortalDashboard /></RequireClient>}</Route>
 
