@@ -43,9 +43,13 @@ export function registerMobileAuthRoutes(app: Express) {
 
   app.post(
     "/api/auth/mobile/token",
-    authRateLimiter,
     async (req: Request, res: Response) => {
       try {
+        const ip = getIp(req) ?? "unknown";
+        if (!(await authRateLimiter.check(`mobile-token:${ip}`))) {
+          return res.status(429).json({ error: "Too many requests — try again later" });
+        }
+
         const parsed = tokenBody.safeParse(req.body);
         if (!parsed.success) return res.status(400).json({ error: "Invalid request" });
 
@@ -85,9 +89,13 @@ export function registerMobileAuthRoutes(app: Express) {
 
   app.post(
     "/api/auth/mobile/refresh",
-    authRateLimiter,
     async (req: Request, res: Response) => {
       try {
+        const ip = getIp(req) ?? "unknown";
+        if (!(await authRateLimiter.check(`mobile-refresh:${ip}`))) {
+          return res.status(429).json({ error: "Too many requests — try again later" });
+        }
+
         const parsed = refreshBody.safeParse(req.body);
         if (!parsed.success) return res.status(400).json({ error: "Invalid request" });
 
