@@ -1,3 +1,7 @@
+// Doppler bootstrap — MUST be the first import. Fills process.env from the
+// Doppler vault before any other module reads env-vars at import time
+// (server/db.ts throws on missing DATABASE_URL, etc.). Side-effect only.
+import "./bootstrapDoppler";
 import "dotenv/config";
 import * as Sentry from "@sentry/node";
 import { initAnalytics, shutdownAnalytics } from "./lib/analytics";
