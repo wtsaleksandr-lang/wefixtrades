@@ -2,8 +2,10 @@
  * Portal service catalog — /portal/catalog
  *
  * Q16: shows services the customer is NOT yet subscribed to, with two CTAs
- * per card: "Add to subscription" (triggers Stripe Checkout) and
- * "Read more" (links to public product page on marketing site).
+ * per card serving two intents:
+ *   - "Continue to checkout" (primary) — ready-to-buy path → Stripe Checkout
+ *   - "Learn more" (secondary) — needs-to-be-sold path → public product page
+ *     (full marketing funnel: features, demos, comparisons, testimonials).
  *
  * Q28g2 (cycle 19): when serviceCatalog.tiers is populated, the card
  * renders a radio-list tier picker; the chosen tier_id is passed to the
@@ -215,9 +217,9 @@ export default function PortalCatalog() {
                     data-testid={`catalog-add-${svc.id}`}
                   >
                     {pendingId === svc.id ? (
-                      <><Loader2 className="w-3 h-3 animate-spin" /> Redirecting…</>
+                      <><Loader2 className="w-3 h-3 animate-spin" /> Opening checkout…</>
                     ) : (
-                      <>Add to subscription <ArrowRight className="w-3 h-3" /></>
+                      <>Continue to checkout <ArrowRight className="w-3 h-3" /></>
                     )}
                   </button>
                   <a
@@ -227,7 +229,7 @@ export default function PortalCatalog() {
                     className="px-3 py-2 text-xs font-medium text-[#2D6A4F] border border-[#2D6A4F]/30 rounded-lg hover:bg-[#F0F7F4] transition-colors inline-flex items-center justify-center gap-1"
                     data-testid={`catalog-readmore-${svc.id}`}
                   >
-                    Read more <ExternalLink className="w-3 h-3" />
+                    Learn more <ExternalLink className="w-3 h-3" />
                   </a>
                 </div>
               </div>
