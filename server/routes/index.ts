@@ -50,6 +50,7 @@ import { registerBookflowRoutes } from "./bookflowRoutes";
 import { registerAdminAlertRoutes } from "./adminAlertRoutes";
 import { registerChatAttachmentRoutes } from "./chatAttachmentRoutes";
 import { registerTradelineSetupRoutes } from "./tradelineSetupRoutes";
+import { registerAdminTradelineSetupsRoutes } from "./adminTradelineSetupsRoutes";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -106,6 +107,7 @@ export async function registerRoutes(
   registerAdminAlertRoutes(app);
   registerChatAttachmentRoutes(app);
   registerTradelineSetupRoutes(app);
+  registerAdminTradelineSetupsRoutes(app);
 
   return httpServer;
 }

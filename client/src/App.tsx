@@ -130,6 +130,7 @@ import SystemJobsPage from "@/pages/admin/SystemJobsPage";
 import SystemWorkersPage from "@/pages/admin/SystemWorkersPage";
 import SystemAvailabilityPage from "@/pages/admin/SystemAvailabilityPage";
 import TradeLineOpsPage from "@/pages/admin/TradeLineOpsPage";
+import TradelineSetupsPage from "@/pages/admin/TradelineSetupsPage";
 import QuoteQuickPage from "@/pages/admin/QuoteQuickPage";
 import BookingPage from "@/pages/public/BookingPage";
 import PayInvoicePage from "@/pages/public/PayInvoicePage";
@@ -159,6 +160,7 @@ function Router() {
       <Route path="/admin/crm/rankflow">{() => <RequirePortal><RankFlowOpsPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/adflow">{() => <RequirePortal><AdFlowOpsPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/tradeline-ops">{() => <RequirePortal><TradeLineOpsPage /></RequirePortal>}</Route>
+      <Route path="/admin/crm/tradeline-setups">{() => <RequirePortal><TradelineSetupsPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/quotequick">{() => <RequirePortal><QuoteQuickPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/support/:id">{() => <RequirePortal><SupportTicketDetailPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/support">{() => <RequirePortal><SupportInboxPage /></RequirePortal>}</Route>
