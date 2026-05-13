@@ -6,7 +6,7 @@ import { V7Hero, V7PageShell } from "@/components/marketing/v7";
 import { mkt, shadows, typography } from "@/theme/tokens";
 import {
   ALL_PRODUCTS, YEARLY_DISCOUNT_PCT,
-  SITELAUNCH, TRADELINE, WEBFIX,
+  SITELAUNCH, WEBFIX,
   BUNDLE_STARTER, BUNDLE_GROWTH, BUNDLE_PRO,
   yearlyMonthlyEquiv, formatPrice, bundleSavings, lowestMonthly,
   mergeAllProductsWithDb, type DbProductOverride,
@@ -1172,12 +1172,17 @@ export default function PricingUnified() {
     setCheckoutOpen(true);
   }
 
-  function openSiteLaunchCheckout() {
-    const tier = SITELAUNCH.tiers[0];
-    setCheckoutTitle(SITELAUNCH.name);
+  /* Q5c: hero-card checkout now resolves the live product from merged
+   * data at click time. If DB overrides exist, the customer pays the
+   * admin-published price; otherwise we fall through to the hardcoded
+   * constant. Same pattern for both one-time hero products. */
+  function openOneTimeCheckout(productId: string, fallback: ProductDef) {
+    const product = mergedProducts.find((p) => p.id === productId) ?? fallback;
+    const tier = product.tiers[0];
+    setCheckoutTitle(product.name);
     setCheckoutItems([{
       serviceId: tier.id,
-      label: SITELAUNCH.name,
+      label: product.name,
       price: tier.price,
       billingPeriod: "one-time",
     }]);
@@ -1186,19 +1191,8 @@ export default function PricingUnified() {
     setCheckoutOpen(true);
   }
 
-  function openFixOptimizeCheckout() {
-    const tier = WEBFIX.tiers[0];
-    setCheckoutTitle(WEBFIX.name);
-    setCheckoutItems([{
-      serviceId: tier.id,
-      label: WEBFIX.name,
-      price: tier.price,
-      billingPeriod: "one-time",
-    }]);
-    setCheckoutBundleId(undefined);
-    setCheckoutBundlePrice(undefined);
-    setCheckoutOpen(true);
-  }
+  const openSiteLaunchCheckout = () => openOneTimeCheckout("sitelaunch", SITELAUNCH);
+  const openFixOptimizeCheckout = () => openOneTimeCheckout("webfix", WEBFIX);
 
 /* ── ROI anchor component ── */
 function RoiAnchor({ text }: { text: string }) {
@@ -1417,10 +1411,9 @@ function DecisionButton({ label, targetId }: { label: string; targetId: string }
    * Silent fallback to hardcoded ALL_PRODUCTS when the endpoint is
    * unreachable — /pricing never breaks on a backend hiccup.
    *
-   * Note: only the section grid below uses the merged array. Hero-card
-   * named imports (SITELAUNCH / TRADELINE / WEBFIX) stay hardcoded for
-   * now — those flow through openSiteLaunchCheckout / openFixOptimizeCheckout
-   * which still need direct refs. Re-keying those is a separate ticket. */
+   * Q5c (cycle 25): hero cards now also resolve from mergedProducts at
+   * render + click time, with the hardcoded SITELAUNCH / WEBFIX
+   * constants as fallback if the product isn't in the merged array. */
   const [dbOverrides, setDbOverrides] = useState<DbProductOverride[] | null>(null);
   useEffect(() => {
     fetch("/api/public/pricing", { credentials: "omit" })
@@ -1603,8 +1596,9 @@ function DecisionButton({ label, targetId }: { label: string; targetId: string }
                       </p>
                     </div>
                     <div className="pricing-services-grid" style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 20, alignItems: "stretch" }}>
-                      <OneTimeCard product={WEBFIX} yearly={yearly} onCheckout={openFixOptimizeCheckout} onInfo={() => setInfoModal(SERVICE_INFO["webfix"])} bestFor={recommendedProducts.includes("webfix") ? "Recommended for you" : SERVICE_INFO["webfix"]?.bestFor} />
-                      <OneTimeCard product={SITELAUNCH} yearly={yearly} onCheckout={openSiteLaunchCheckout} onInfo={() => setInfoModal(SERVICE_INFO["sitelaunch"])} bestFor={recommendedProducts.includes("sitelaunch") ? "Recommended for you" : SERVICE_INFO["sitelaunch"]?.bestFor} />
+                      {/* Q5c: hero cards render from merged data so admin-edited name/tagline/tier-price flows through. */}
+                      <OneTimeCard product={mergedProducts.find(p => p.id === "webfix") ?? WEBFIX} yearly={yearly} onCheckout={openFixOptimizeCheckout} onInfo={() => setInfoModal(SERVICE_INFO["webfix"])} bestFor={recommendedProducts.includes("webfix") ? "Recommended for you" : SERVICE_INFO["webfix"]?.bestFor} />
+                      <OneTimeCard product={mergedProducts.find(p => p.id === "sitelaunch") ?? SITELAUNCH} yearly={yearly} onCheckout={openSiteLaunchCheckout} onInfo={() => setInfoModal(SERVICE_INFO["sitelaunch"])} bestFor={recommendedProducts.includes("sitelaunch") ? "Recommended for you" : SERVICE_INFO["sitelaunch"]?.bestFor} />
                     </div>
                   </>
                 )}
