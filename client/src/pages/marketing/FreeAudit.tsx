@@ -6,6 +6,7 @@ import { useFaqSchema } from "@/lib/useFaqSchema";
 import { usePageMeta } from "@/lib/usePageMeta";
 import { useBreadcrumbSchema } from "@/lib/useBreadcrumbSchema";
 import TrustStrip from "@/components/marketing/TrustStrip";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { colors } from "@/theme/tokens";
 import { Search, CheckCircle2, PhoneOff, Calculator, ArrowRight, ChevronDown } from "lucide-react";
 import ReportView from "./ReportView";
@@ -33,7 +34,6 @@ type Business = {
   photos: string[];
 };
 async function postJSON<T>(url: string, body: any, timeoutMs = 30000): Promise<T> {
-  console.log(`[Audit] POST ${url}`, body);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -264,6 +264,7 @@ export default function FreeAudit() {
     { name: "Google Business Audit", url: `${AUDIT_BASE}/tools/free-audit` },
   ], []);
   useBreadcrumbSchema(auditBreadcrumbs);
+  const isMobile = useIsMobile();
   const [query, setQuery] = useState("");
   const debounced = useDebouncedValue(query, 400);
 
@@ -370,7 +371,6 @@ export default function FreeAudit() {
     lastPredRef.current = pred;
     if (tradeOverride) lastTradeRef.current = tradeOverride;
     trackEvent("audit_prediction_selected", { businessName: pred.name });
-    console.log("[Audit] runAudit called:", JSON.stringify({ name: pred.name, place_id: pred.place_id, tradeOverride }));
     const placeId = (pred.place_id || "").trim();
     try {
       setError(null);
@@ -384,7 +384,6 @@ export default function FreeAudit() {
       const body: any = placeId
         ? { placeId }
         : { query: `${pred.name} ${pred.formatted_address}`.trim() };
-      console.log("[Audit] Fetching details with:", body);
       details = await postJSON<{ ok: true; business: Business }>(
         "/api/audit/place-details",
         body
@@ -441,7 +440,6 @@ export default function FreeAudit() {
             const maxAttempts = 18;
             const poll = async () => {
               if (attempts >= maxAttempts) {
-                console.log('[speed] polling timed out');
                 setSpeedLoading(false);
                 return;
               }
@@ -450,9 +448,6 @@ export default function FreeAudit() {
                 const r = await fetch(`/api/audit/speed/${reportId}`);
                 const data = await r.json();
                 if (data.ready && data.speedData) {
-                  console.log('[speed] data ready:', data.speedData);
-                  console.log('[speed] screenshot:', data.websiteScreenshot ? `${Math.round(data.websiteScreenshot.length / 1024)}KB` : 'null');
-                  console.log('[speed] aiAnalysis findings:', data.websiteAIAnalysis?.findings?.length ?? 0);
                   setSpeedData(data.speedData);
                   if (data.websiteAIAnalysis) setWebsiteAIAnalysis(data.websiteAIAnalysis);
                   if (data.websiteScreenshot) setWebsiteScreenshot(data.websiteScreenshot);
@@ -881,7 +876,6 @@ export default function FreeAudit() {
           )}
 
           {reportReady && report && (() => {
-            const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
             return (
               <div ref={reportRef} style={{
                 minHeight: '100vh',

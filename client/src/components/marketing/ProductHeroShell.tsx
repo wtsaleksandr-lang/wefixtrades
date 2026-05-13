@@ -1,7 +1,7 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import gsap from "gsap";
 import HeroGridGlow from "./HeroGridGlow";
-import TrustMarquee from "./TrustMarquee";
+import IntegrationsTrustStrip from "./IntegrationsTrustStrip";
 import { mkt } from "@/theme/tokens";
 
 interface ProductHeroShellProps {
@@ -174,10 +174,10 @@ export default function ProductHeroShell({
             </div>
           )}
 
-          {/* Trust marquee at bottom of shell */}
+          {/* Trust strip at bottom of shell (real integrations, no fake customer logos) */}
           {showTrustMarquee && (
             <div style={{ marginTop: "auto", paddingTop: 20 }}>
-              <TrustMarquee />
+              <IntegrationsTrustStrip />
             </div>
           )}
         </div>

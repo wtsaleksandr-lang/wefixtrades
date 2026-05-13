@@ -277,7 +277,6 @@ const ADMIN_PAGES: PageDef[] = [
   { url: "/admin/crm/settings", name: "Admin Settings" },
   { url: "/admin/crm/change-password", name: "Change Password" },
   { url: "/admin/ai", name: "AI Dashboard" },
-  { url: "/admin/services/pricing", name: "Service Pricing" },
   { url: "/admin/booking", name: "Booking Calendar" },
   { url: "/admin/system/jobs", name: "System Jobs" },
   { url: "/admin/system/workers", name: "System Workers" },

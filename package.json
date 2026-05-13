@@ -16,7 +16,8 @@
     "test:crm": "npx playwright test tests/e2e/admin-crm/",
     "test:crm:smoke": "npx playwright test tests/e2e/admin-crm/admin-crm.smoke.spec.ts",
     "test:crm:e2e": "npx playwright test tests/e2e/admin-crm/admin-crm.e2e.spec.ts",
-    "test:crm:regression": "npx playwright test tests/e2e/admin-crm/admin-crm.regression.spec.ts"
+    "test:crm:regression": "npx playwright test tests/e2e/admin-crm/admin-crm.regression.spec.ts",
+    "seed:test-portal-client": "tsx scripts/seed-test-portal-client.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.95.1",

@@ -1494,6 +1494,47 @@ export class DatabaseStorage implements IStorage {
       .set({ ...updates, updated_at: new Date() })
       .where(eq(serviceCatalog.id, serviceId))
       .returning();
+
+    /* Q5f: mirror parent.tiers entries to the matching per-tier
+     * serviceCatalog sibling rows. The public-checkout + portal-subscribe
+     * paths read per-tier rows directly (mapguard-basic, tradeline-starter
+     * etc) — without this mirror, admin edits to the parent's tiers jsonb
+     * never reach the prices customers actually pay. Match by tier id; if
+     * a tier id in the jsonb doesn't have a matching sibling row, log and
+     * skip (admin needs to insert the row out-of-band first). */
+    if (Array.isArray(updates.tiers)) {
+      for (const t of updates.tiers as Array<{
+        id: string;
+        name?: string;
+        price_cents?: number;
+        billing_period?: "monthly" | "one-time";
+        stripe_price_id?: string | null;
+      }>) {
+        if (!t?.id) continue;
+        const [sibling] = await db.select({ id: serviceCatalog.id })
+          .from(serviceCatalog).where(eq(serviceCatalog.id, t.id)).limit(1);
+        if (!sibling) {
+          log.warn("[publishProductDraft] tier id has no sibling row — skipped", { parent: serviceId, tier_id: t.id });
+          continue;
+        }
+        const siblingUpdate: Partial<InsertServiceCatalog> = { updated_at: new Date() };
+        if (typeof t.name === "string") siblingUpdate.name = t.name;
+        if (typeof t.price_cents === "number") siblingUpdate.default_price = t.price_cents;
+        if (t.billing_period === "monthly" || t.billing_period === "one-time") {
+          siblingUpdate.billing_period = t.billing_period;
+        }
+        if (t.stripe_price_id === null || typeof t.stripe_price_id === "string") {
+          siblingUpdate.stripe_price_id = t.stripe_price_id;
+        }
+        // Only write if there's at least one field beyond updated_at.
+        if (Object.keys(siblingUpdate).length > 1) {
+          await db.update(serviceCatalog)
+            .set(siblingUpdate)
+            .where(eq(serviceCatalog.id, t.id));
+        }
+      }
+    }
+
     await db.update(productDrafts)
       .set({ status: "published", published_at: new Date(), published_by: publishedBy, updated_at: new Date() })
       .where(eq(productDrafts.id, draftId));

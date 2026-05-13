@@ -7,13 +7,14 @@ import { eq, and, gt } from "drizzle-orm";
 import { users, passwordResetTokens, clients } from "@shared/schema";
 import { getEmailTransporter, getFromAddress } from "../lib/emailTransport";
 import { sendPasswordResetEmail } from "../lib/passwordResetEmail";
-import { authRateLimiter } from "../services/rateLimiter";
+import { authRateLimiter, passwordResetDedupeLimiter, magicLinkDedupeLimiter } from "../services/rateLimiter";
 import { getMemory, linkSessionToUser, extractMemorySignals } from "../services/chatMemory";
 import { storage } from "../storage";
 import { generateSecret, verifyCode as verifyTotpCode } from "../services/totpService";
 import { createLogger } from "../lib/logger";
 import { verifyLoginToken, getCheckoutLoginToken, buildLoginToken, MAGIC_LINK_TTL } from "../lib/loginToken";
 import { sendLoginLinkEmail } from "../lib/loginLinkEmail";
+import { sendSelfServeWelcome } from "../lib/selfServeWelcomeEmail";
 
 const log = createLogger("Auth");
 
@@ -152,6 +153,11 @@ export function registerAuthRoutes(app: Express) {
         entity_id: client.id,
         summary: `Free account created for "${businessName.trim()}" (${normalised})`,
       });
+
+      // Fire welcome email (non-blocking; signup must succeed even if SMTP down)
+      sendSelfServeWelcome({ user, client }).catch((err) =>
+        log.warn("[signup] self-serve welcome email failed", { userId: user.id, error: err?.message }),
+      );
 
       // Auto-login
       const sessionUser: Express.User = { id: user.id, email: user.email, role: user.role, name: user.name };
@@ -321,20 +327,26 @@ export function registerAuthRoutes(app: Express) {
        * still return 200, never indicate whether the address is on
        * file. We log the miss so ops can spot abuse patterns. */
       if (user) {
-        const token = buildLoginToken(user.id, MAGIC_LINK_TTL);
-        const baseUrl = process.env.APP_URL || `${req.protocol}://${req.get("host")}`;
-        const signInUrl = `${baseUrl}/login?token=${encodeURIComponent(token)}`;
+        // Per-user dedupe: silently suppress duplicate sends within 60s so
+        // double-clicks don't land two valid tokens in the inbox.
+        if (!(await magicLinkDedupeLimiter.check(`magic-dedupe:${user.id}`))) {
+          log.info("magic link send deduped (recent token still valid)", { userId: user.id });
+        } else {
+          const token = buildLoginToken(user.id, MAGIC_LINK_TTL);
+          const baseUrl = process.env.APP_URL || `${req.protocol}://${req.get("host")}`;
+          const signInUrl = `${baseUrl}/login?token=${encodeURIComponent(token)}`;
 
-        const sent = await sendLoginLinkEmail({
-          to: normalised,
-          signInUrl,
-          recipientName: user.name ?? null,
-        });
-        if (!sent) {
-          /* Email delivery failed for a real user — surface in logs
-           * so you can chase deliverability without leaking to the
-           * caller. */
-          log.warn("magic link generated but email send failed", { userId: user.id });
+          const sent = await sendLoginLinkEmail({
+            to: normalised,
+            signInUrl,
+            recipientName: user.name ?? null,
+          });
+          if (!sent) {
+            /* Email delivery failed for a real user — surface in logs
+             * so you can chase deliverability without leaking to the
+             * caller. */
+            log.warn("magic link generated but email send failed", { userId: user.id });
+          }
         }
       } else {
         log.info("magic link requested for unknown email", { email: normalised });
@@ -371,6 +383,14 @@ export function registerAuthRoutes(app: Express) {
       // Always return success to prevent email enumeration
       const [user] = await db.select().from(users).where(eq(users.email, normalised)).limit(1);
       if (!user) return res.json({ ok: true });
+
+      // Per-user dedupe: silently suppress duplicate sends within 60s so
+      // double-clicks don't issue two valid reset tokens (existing token
+      // is still valid for the rest of its 1h TTL).
+      if (!(await passwordResetDedupeLimiter.check(`pwreset-dedupe:${user.id}`))) {
+        log.info("password reset send deduped (recent token still valid)", { userId: user.id });
+        return res.json({ ok: true });
+      }
 
       // Generate token (32 bytes = 64 hex chars)
       const token = randomBytes(32).toString("hex");

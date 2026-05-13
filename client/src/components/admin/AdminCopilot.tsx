@@ -1,10 +1,41 @@
 import { useState, useRef, useEffect } from "react";
+import { useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { X, Send, BrainCircuit, Loader2, ChevronDown, ChevronUp, Code2, HelpCircle } from "lucide-react";
+import { X, Send, BrainCircuit, Loader2, ChevronDown, ChevronUp, Code2, HelpCircle, Wand2, Settings as SettingsIcon } from "lucide-react";
 import { readSSEStream, type ChatMessage, type ToolCallEvent } from "@/lib/chatHelpers";
+import { useToast } from "@/hooks/use-toast";
+
+/* Q30b admin: lightweight action-button protocol shared shape (mirrors
+ * the portal-side type but targets /admin/* paths). */
+export interface ActionProposal {
+  label: string;
+  intent: "navigate" | "click";
+  /* For navigate: path that must start with /admin/.
+   * For click: data-testid value matching ^[a-z0-9_-]+$. The widget calls
+   * .click() on document.querySelector(`[data-testid="${target}"]`). */
+  target: string;
+  hint?: string;
+}
+
+/* Q30c: per-field schema a page declares when it wants the AI to be able
+ * to propose prefills. The widget renders an Apply/Skip card when the AI
+ * returns valid fills; clicking Apply calls _onApplyFormFill with the
+ * proposed values. The page's setState updates from there. */
+export interface FormFillField {
+  key: string;
+  label: string;
+  required?: boolean;
+  /** Current value displayed as context to the AI (helps "what's filled" awareness). */
+  currentValue?: string | number | boolean | null;
+}
+export interface FormFillProposal {
+  field_key: string;
+  value: string;
+  reason?: string;
+}
 import ChatAttachmentInput, {
   ChatAttachmentChips,
   type ChatAttachment,
@@ -63,9 +94,18 @@ export interface AdminPageContext {
   topServicesByClients?: Array<{ name: string; activeClients: number }>;
   /** Admin section label (e.g. "Outbound") */
   section?: string;
+  /* Q30c: a page opts into AI form-fill by declaring its editable fields
+   * + an apply handler. The fields[] is sent to the server (so the AI
+   * knows what's editable). _onApplyFormFill stays client-only — JSON
+   * stringify drops it on the wire automatically. */
+  formFillFields?: FormFillField[];
+  _onApplyFormFill?: (fills: FormFillProposal[]) => void;
 }
 
 /* ─── Suggested prompts per page ─── */
+/* Per-page suggestion prompts. Each entry has 3-5 prompts the Copilot
+ * surfaces as quick-start chips when the admin lands on the page. Pages
+ * not listed fall back to `overview`. */
 const PROMPT_CHIPS: Record<string, string[]> = {
   overview: [
     "What should I focus on first?",
@@ -98,18 +138,157 @@ const PROMPT_CHIPS: Record<string, string[]> = {
     "Draft a payment follow-up",
   ],
   suppliers: [
-    "Summarize this page",
-    "What should I know?",
+    "Which supplier handles the most tasks?",
+    "Any inactive suppliers we should drop?",
+    "Cost rate outliers?",
+    "Summarize supplier health",
   ],
   services: [
     "Summarize the service catalog",
     "What services are most used?",
+    "Any products without Stripe IDs?",
+  ],
+  product_detail: [
+    "Summarize this product",
+    "What's editable here?",
+    "Any tier without a Stripe price ID?",
+    "Draft a tagline for this product",
+  ],
+  support: [
+    "What tickets are oldest?",
+    "What's waiting on me?",
+    "Summarize support load",
+    "Any high-priority tickets?",
+  ],
+  support_ticket_detail: [
+    "Summarize this ticket",
+    "Draft a reply",
+    "What should happen next?",
+    "Is this resolvable now?",
+  ],
+  alerts: [
+    "Which alerts are critical?",
+    "What's been unacknowledged longest?",
+    "Summarize alert health",
+  ],
+  audit_log: [
+    "What changed in the last 24h?",
+    "Any suspicious activity?",
+    "Summarize recent edits",
+  ],
+  reviews: [
+    "Any negative reviews to respond to?",
+    "Draft a thank-you reply",
+    "Review trend this week?",
+  ],
+  mapguard: [
+    "Which clients need attention?",
+    "Ranking change this week?",
+    "Summarize MapGuard ops",
+  ],
+  rankflow: [
+    "What content is overdue?",
+    "Summarize this week's plan",
+    "Any client falling behind?",
+  ],
+  contentflow: [
+    "What's in QA queue?",
+    "Summarize the article queue",
+    "Which articles need approval?",
+  ],
+  socialsync: [
+    "Summarize the social calendar",
+    "Any client without posts scheduled?",
+    "Draft a caption",
+  ],
+  tradeline_ops: [
+    "Which lines are degraded?",
+    "Any auto-response failures?",
+    "Summarize TradeLine health",
+  ],
+  adflow: [
+    "Any campaigns missing metrics?",
+    "Top ROAS this week?",
+    "What needs the most attention?",
+  ],
+  quotequick: [
+    "Most active calculators?",
+    "Summarize quote-conversion this week",
+  ],
+  booking: [
+    "Today's upcoming bookings",
+    "Any unconfirmed bookings?",
+    "Summarize this week",
+  ],
+  sales: [
+    "Top of the pipeline?",
+    "Any deals stuck?",
+    "Summarize this week's progress",
+  ],
+  ai_dashboard: [
+    "Summarize AI usage this week",
+    "Which conversations need review?",
+    "Cost trend?",
+  ],
+  integration_health: [
+    "Anything broken right now?",
+    "Summarize integration state",
+    "Recent downtime?",
+  ],
+  system_jobs: [
+    "Any failed jobs?",
+    "Summarize cron health",
+    "What's running right now?",
+  ],
+  system_workers: [
+    "Any workers offline?",
+    "Summarize worker health",
+  ],
+  system_availability: [
+    "Summarize uptime this week",
+    "Any recent incidents?",
+  ],
+  outbound_prospects: [
+    "Who should I contact first?",
+    "Any prospects gone cold?",
+    "Summarize the queue",
+  ],
+  outbound_campaigns: [
+    "Top-performing campaign?",
+    "Any campaign needing approval?",
+    "Summarize campaign health",
+  ],
+  outbound_pipeline: [
+    "Top deals in flight",
+    "Any deal stuck >30 days?",
+    "Summarize pipeline",
+  ],
+  profile: [
+    "What can I change here?",
+  ],
+  settings: [
+    "What can I configure?",
+  ],
+  change_password: [
+    "What are the password rules?",
+  ],
+  chat_history: [
+    "What did we discuss this week?",
   ],
 };
 
 /* ─── Storage ─── */
 const COPILOT_MESSAGES_KEY = "wft_copilot_messages";
 const COPILOT_SESSION_KEY = "wft_copilot_session";
+/* Copilot panel size + transparency persisted across mounts. Mirrors the
+ * portal widget pattern (Q25/Q25a). Width is for the desktop layout — on
+ * mobile the panel uses full viewport width regardless. */
+const COPILOT_WIDTH_KEY = "wft_copilot_width";
+const COPILOT_OPACITY_KEY = "wft_copilot_opacity";
+const MIN_W = 320;
+const DEFAULT_W = 380;
+const MAX_W_VW_PCT = 0.85;     // hard cap at 85% viewport width
+const MIN_OPACITY = 0.7;       // floor so message text remains readable
 
 function getCopilotSessionId(): string {
   let id: string | null = null;
@@ -121,7 +300,7 @@ function getCopilotSessionId(): string {
   return id;
 }
 
-function loadCopilotMessages(): ChatMessage[] {
+function loadCopilotMessages(): (ChatMessage & { actions?: ActionProposal[] })[] {
   try {
     const raw = localStorage.getItem(COPILOT_MESSAGES_KEY);
     if (raw) {
@@ -134,6 +313,8 @@ function loadCopilotMessages(): ChatMessage[] {
 
 function saveCopilotMessages(messages: CopilotMessage[]): void {
   try {
+    // Q30b admin: preserve `actions` on persisted assistant messages so they
+    // survive reload. localStorage is JSON, the field round-trips naturally.
     const persistable = messages.filter(
       (m): m is ChatMessage => m.role === "user" || m.role === "assistant"
     );
@@ -292,7 +473,78 @@ type ToolCallMessage = {
   error?: string;
 };
 
-type CopilotMessage = ChatMessage | ToolCallMessage;
+/* Q30b admin: assistant messages can carry parsed ACTION_PROPOSAL buttons.
+ * Extends ChatMessage locally so the shared lib type stays minimal. */
+type AssistantMessageWithActions = ChatMessage & { actions?: ActionProposal[] };
+type CopilotMessage = AssistantMessageWithActions | ToolCallMessage;
+
+/* Q30b admin: parse + sanitize ACTION_PROPOSAL block out of the assembled
+ * stream text. Returns the cleaned visible reply + the validated actions.
+ * Whitelist: target must start with /admin/, no ".." traversal, no schemes. */
+const ACTION_BLOCK_RE = /<<<ACTION_PROPOSAL>>>([\s\S]*?)<<<END_ACTION_PROPOSAL>>>/;
+const FORM_FILL_BLOCK_RE = /<<<FORM_FILL>>>([\s\S]*?)<<<END_FORM_FILL>>>/;
+const TEST_ID_RE = /^[a-z0-9_-]+$/i;
+
+/* Q30c: parse FORM_FILL block out of the assembled stream + validate
+ * against the field list the page declared. Returns sanitized fills. */
+function extractFormFill(fullText: string, allowedKeys: Set<string>): { cleanedText: string; fills?: FormFillProposal[] } {
+  const match = fullText.match(FORM_FILL_BLOCK_RE);
+  if (!match) return { cleanedText: fullText };
+  let fills: FormFillProposal[] | undefined;
+  try {
+    const parsed = JSON.parse(match[1].trim());
+    if (parsed && Array.isArray(parsed.fills)) {
+      const valid = parsed.fills
+        .filter((f: any) => f
+          && typeof f.field_key === "string"
+          && typeof f.value === "string"
+          && (allowedKeys.size === 0 || allowedKeys.has(f.field_key)))
+        .slice(0, 5)
+        .map((f: any) => ({
+          field_key: f.field_key.slice(0, 100),
+          value: String(f.value).slice(0, 2000),
+          reason: typeof f.reason === "string" ? f.reason.slice(0, 300) : undefined,
+        }));
+      if (valid.length > 0) fills = valid;
+    }
+  } catch { /* malformed JSON — strip block but emit no fills */ }
+  const cleanedText = fullText.replace(FORM_FILL_BLOCK_RE, "").trim();
+  return { cleanedText, fills };
+}
+
+function extractActionProposals(fullText: string): { cleanedText: string; actions?: ActionProposal[] } {
+  const match = fullText.match(ACTION_BLOCK_RE);
+  if (!match) return { cleanedText: fullText };
+  let actions: ActionProposal[] | undefined;
+  try {
+    const parsed = JSON.parse(match[1].trim());
+    if (parsed && Array.isArray(parsed.actions)) {
+      const valid = parsed.actions
+        .filter((a: any) => {
+          if (!a || typeof a.label !== "string" || typeof a.target !== "string") return false;
+          if (a.intent === "navigate") {
+            return a.target.startsWith("/admin/")
+              && !a.target.includes("..")
+              && !a.target.includes(":");
+          }
+          if (a.intent === "click") {
+            return TEST_ID_RE.test(a.target) && a.target.length <= 80;
+          }
+          return false;
+        })
+        .slice(0, 3)
+        .map((a: any) => ({
+          label: a.label.slice(0, 40),
+          intent: a.intent as "navigate" | "click",
+          target: a.target.slice(0, 200),
+          hint: typeof a.hint === "string" ? a.hint.slice(0, 200) : undefined,
+        }));
+      if (valid.length > 0) actions = valid;
+    }
+  } catch { /* malformed JSON — strip block but emit no actions */ }
+  const cleanedText = fullText.replace(ACTION_BLOCK_RE, "").trim();
+  return { cleanedText, actions };
+}
 
 /* ─── Confirmation card ─── */
 function ConfirmationCard({
@@ -419,7 +671,58 @@ export default function AdminCopilot({
   pageContext: AdminPageContext;
 }) {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [messages, setMessages] = useState<CopilotMessage[]>(() => loadCopilotMessages());
+  /* Q30c: pending form-fill proposal — rendered as an Apply/Skip card under
+   * the chat transcript. Cleared on Apply, Skip, or new user turn. */
+  const [pendingFormFill, setPendingFormFill] = useState<FormFillProposal[] | null>(null);
+  const [applyingFormFill, setApplyingFormFill] = useState(false);
+
+  /* Resize + transparency (mirrors portal Q25/Q25a). Width is for desktop
+   * only; mobile always full-width. Opacity floor 0.7 keeps text readable. */
+  const [panelWidth, setPanelWidth] = useState<number>(() => {
+    try {
+      const v = parseInt(localStorage.getItem(COPILOT_WIDTH_KEY) ?? "", 10);
+      if (Number.isFinite(v) && v >= MIN_W) return v;
+    } catch { /* noop */ }
+    return DEFAULT_W;
+  });
+  const [panelOpacity, setPanelOpacity] = useState<number>(() => {
+    try {
+      const v = parseFloat(localStorage.getItem(COPILOT_OPACITY_KEY) ?? "");
+      if (!isNaN(v) && v >= MIN_OPACITY && v <= 1) return v;
+    } catch { /* noop */ }
+    return 1;
+  });
+  useEffect(() => {
+    try { localStorage.setItem(COPILOT_WIDTH_KEY, String(panelWidth)); } catch { /* noop */ }
+  }, [panelWidth]);
+  useEffect(() => {
+    try { localStorage.setItem(COPILOT_OPACITY_KEY, String(panelOpacity)); } catch { /* noop */ }
+  }, [panelOpacity]);
+
+  const [showSettings, setShowSettings] = useState(false);
+
+  // Drag-to-resize from the LEFT edge (panel anchored right). Dragging
+  // left grows the panel; right shrinks. Clamped MIN_W ≤ w ≤ 85vw.
+  const resizeRef = useRef<{ startX: number; startW: number } | null>(null);
+  const handleResizeDown = (e: React.PointerEvent) => {
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    resizeRef.current = { startX: e.clientX, startW: panelWidth };
+  };
+  const handleResizeMove = (e: React.PointerEvent) => {
+    if (!resizeRef.current) return;
+    const { startX, startW } = resizeRef.current;
+    const maxW = Math.floor(window.innerWidth * MAX_W_VW_PCT);
+    // Dragging LEFT (clientX decreases) increases width.
+    const newW = Math.max(MIN_W, Math.min(maxW, startW + (startX - e.clientX)));
+    setPanelWidth(newW);
+  };
+  const handleResizeUp = (e: React.PointerEvent) => {
+    (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+    resizeRef.current = null;
+  };
   const [input, setInput] = useState("");
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
   const attachmentInputRef = useRef<ChatAttachmentInputHandle | null>(null);
@@ -548,6 +851,8 @@ export default function AdminCopilot({
     const sentAttachments = attachments.filter((a) => a.status === "uploaded");
     setAttachments([]);
     setStreaming(true);
+    // Q30c: a new turn supersedes any unanswered fill proposal.
+    setPendingFormFill(null);
 
     // Only send user/assistant messages to the API
     const apiMessages = updated.filter(
@@ -613,13 +918,26 @@ export default function AdminCopilot({
         },
       );
 
+      // Q30b admin + Q30c: extract ACTION_PROPOSAL first, then FORM_FILL from
+      // the already-cleaned text. Both blocks land at the end of the reply per
+      // the system prompt, so the user briefly sees the raw fenced text mid-
+      // stream; the snap to cleaned happens here once the stream finishes.
+      const allowedKeys = new Set((pageContext.formFillFields ?? []).map((f) => f.key));
+      const afterActions = extractActionProposals(assistantText);
+      const afterFills = extractFormFill(afterActions.cleanedText, allowedKeys);
+      const cleanedText = afterFills.cleanedText;
+      const actions = afterActions.actions;
+      if (afterFills.fills && afterFills.fills.length > 0) {
+        setPendingFormFill(afterFills.fills);
+      }
+
       if (toolCallReceived) {
         // Save only the text portion; tool_call cards are transient
         const persistable: CopilotMessage[] = [...updated];
-        if (assistantText) persistable.push({ role: "assistant" as const, content: assistantText });
+        if (cleanedText) persistable.push({ role: "assistant" as const, content: cleanedText, actions });
         saveCopilotMessages(persistable);
       } else {
-        const final: CopilotMessage[] = [...updated, { role: "assistant" as const, content: assistantText }];
+        const final: CopilotMessage[] = [...updated, { role: "assistant" as const, content: cleanedText, actions }];
         setMessages(final);
         saveCopilotMessages(final);
       }
@@ -643,7 +961,26 @@ export default function AdminCopilot({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-y-0 right-0 z-50 w-full sm:w-[380px] flex flex-col bg-white border-l border-gray-200 shadow-xl">
+    <div
+      className="fixed inset-y-0 right-0 z-50 w-full sm:w-auto flex flex-col border-l border-gray-200 shadow-xl"
+      style={{
+        // Mobile: ignore inline width (Tailwind w-full wins). Desktop: use saved panelWidth.
+        width: typeof window !== "undefined" && window.innerWidth >= 640 ? panelWidth : undefined,
+        backgroundColor: `rgba(255, 255, 255, ${panelOpacity})`,
+      }}
+      data-testid="copilot-panel"
+    >
+      {/* Resize handle on the LEFT edge — drag left to grow, right to shrink. */}
+      <div
+        onPointerDown={handleResizeDown}
+        onPointerMove={handleResizeMove}
+        onPointerUp={handleResizeUp}
+        className="absolute inset-y-0 left-0 w-1.5 cursor-ew-resize z-10 hover:bg-[#2D6A4F]/20 transition-colors hidden sm:block"
+        style={{ touchAction: "none" }}
+        title="Drag to resize"
+        data-testid="copilot-resize-handle"
+        aria-label="Resize Copilot panel"
+      />
       {/* Header */}
       <div className="flex items-center justify-between h-14 px-4 border-b border-gray-100 shrink-0">
         <div className="flex items-center gap-2">
@@ -663,11 +1000,60 @@ export default function AdminCopilot({
               Clear
             </button>
           )}
+          <button
+            type="button"
+            onClick={() => setShowSettings((v) => !v)}
+            aria-label="Copilot settings"
+            aria-pressed={showSettings}
+            title="Panel transparency + size"
+            className={`p-1.5 rounded ${showSettings ? "bg-gray-100 text-gray-700" : "text-gray-400 hover:bg-gray-50 hover:text-gray-600"}`}
+            data-testid="button-copilot-settings"
+          >
+            <SettingsIcon className="w-3.5 h-3.5" aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setLocation("/admin/chat-history");
+              onClose();
+            }}
+            title="View 7-day Copilot history"
+            className="text-[11px] text-gray-400 hover:text-gray-600 px-2 py-1"
+            data-testid="copilot-history-link"
+          >
+            History
+          </button>
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}>
             <X className="w-4 h-4" />
           </Button>
         </div>
       </div>
+
+      {/* Settings drawer — transparency slider. Width is set via the left-edge
+          handle so no slider for that. Bubbles stay opaque regardless. */}
+      {showSettings && (
+        <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/80 space-y-2 shrink-0" data-testid="copilot-settings-drawer">
+          <div className="flex items-center justify-between">
+            <label className="text-[11px] font-medium text-gray-600 uppercase tracking-wide">Panel transparency</label>
+            <span className="text-[10px] text-gray-500">{Math.round(panelOpacity * 100)}%</span>
+          </div>
+          <input
+            type="range"
+            min="0.7"
+            max="1"
+            step="0.05"
+            value={panelOpacity}
+            onChange={(e) => setPanelOpacity(parseFloat(e.target.value))}
+            className="w-full accent-[#2D6A4F]"
+            data-testid="copilot-opacity-slider"
+            aria-label="Panel transparency"
+          />
+          <p className="text-[10px] text-gray-400">
+            Affects the panel background only — chat bubbles stay solid so text remains readable.
+            Drag the left edge to resize the panel width.
+          </p>
+        </div>
+      )}
 
       {/* Messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
@@ -707,10 +1093,12 @@ export default function AdminCopilot({
               </div>
             );
           }
+          const assistantMsg = msg as AssistantMessageWithActions;
+          const actions = msg.role === "assistant" ? assistantMsg.actions : undefined;
           return (
             <div
               key={i}
-              className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+              className={`flex flex-col ${msg.role === "user" ? "items-end" : "items-start"}`}
             >
               <div
                 className={`rounded-lg px-3 py-2 text-sm leading-relaxed ${
@@ -729,9 +1117,94 @@ export default function AdminCopilot({
                   </span>
                 )}
               </div>
+              {actions && actions.length > 0 && (
+                <div className="mt-1.5 flex flex-wrap gap-1.5 max-w-[92%]" data-testid={`copilot-actions-${i}`}>
+                  {actions.map((a, j) => (
+                    <button
+                      key={j}
+                      type="button"
+                      onClick={() => {
+                        if (a.intent === "navigate") {
+                          if (!a.target.startsWith("/admin/") || a.target.includes("..") || a.target.includes(":")) return;
+                          setLocation(a.target);
+                          onClose();
+                          return;
+                        }
+                        if (a.intent === "click") {
+                          if (!/^[a-z0-9_-]+$/i.test(a.target)) return;
+                          const el = document.querySelector(`[data-testid="${a.target}"]`) as HTMLElement | null;
+                          if (!el) {
+                            toast({ title: "Couldn't find that button on this page", description: "It may have moved or already been used.", variant: "destructive" });
+                            return;
+                          }
+                          el.click();
+                          onClose();
+                        }
+                      }}
+                      title={a.hint}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-[#2D6A4F] bg-white border border-[#2D6A4F]/30 rounded-full hover:bg-[#F0F7F4] hover:border-[#2D6A4F]/60 transition-colors"
+                      data-testid={`copilot-action-${i}-${j}`}
+                    >
+                      {a.label}
+                      <span aria-hidden="true">{a.intent === "navigate" ? "→" : "✓"}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           );
         })}
+
+        {/* Q30c: FORM_FILL Apply/Skip card — only when the page declared
+            fields AND the AI returned a valid proposal. */}
+        {pendingFormFill && pendingFormFill.length > 0 && pageContext.formFillFields && pageContext.formFillFields.length > 0 && (
+          <div className="border border-[#2D6A4F]/30 bg-[#F0F7F4] rounded-lg p-3 space-y-2" data-testid="copilot-form-fill-card">
+            <div className="flex items-center gap-1.5">
+              <Wand2 className="w-3.5 h-3.5 text-[#2D6A4F]" />
+              <p className="text-xs font-medium text-gray-900">Apply these to the form?</p>
+            </div>
+            <ul className="space-y-1.5">
+              {pendingFormFill.map((f, idx) => {
+                const fieldDef = pageContext.formFillFields?.find((x) => x.key === f.field_key);
+                return (
+                  <li key={idx} className="text-xs bg-white rounded px-2 py-1.5 border border-gray-200">
+                    <div className="font-medium text-gray-800">{fieldDef?.label ?? f.field_key}</div>
+                    <div className="text-gray-600 break-all">→ {f.value}</div>
+                    {f.reason && <div className="text-[10px] text-gray-400 mt-0.5">{f.reason}</div>}
+                  </li>
+                );
+              })}
+            </ul>
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                type="button"
+                disabled={applyingFormFill}
+                onClick={async () => {
+                  setApplyingFormFill(true);
+                  try {
+                    pageContext._onApplyFormFill?.(pendingFormFill);
+                    toast({ title: "Applied to the form", description: `${pendingFormFill.length} field(s) updated. Review + save when ready.` });
+                    setPendingFormFill(null);
+                  } finally {
+                    setApplyingFormFill(false);
+                  }
+                }}
+                className="px-3 py-1 text-xs font-medium text-white bg-[#2D6A4F] rounded hover:bg-[#1B4332] disabled:opacity-60"
+                data-testid="copilot-form-fill-apply"
+              >
+                {applyingFormFill ? "Applying…" : "Apply"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setPendingFormFill(null)}
+                className="px-3 py-1 text-xs text-gray-600 hover:text-gray-900"
+                data-testid="copilot-form-fill-skip"
+              >
+                Skip
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Show chips after conversation too, for follow-up */}
         {messages.length > 0 && !streaming && !hasPendingToolCall && (

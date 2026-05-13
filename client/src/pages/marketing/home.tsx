@@ -7,8 +7,12 @@ import { useScrollReveal } from "@/hooks/useScrollReveal";
 import { mkt, colors, shadows, typography } from "@/theme/tokens";
 import HeroGridGlow from "@/components/marketing/HeroGridGlow";
 import ReviewsSection from "@/components/home/ReviewsSection";
-import HeroTradeDivider from "@/components/marketing/HeroTradeDivider";
-import TrustMarquee from "@/components/marketing/TrustMarquee";
+import IntegrationsTrustStrip from "@/components/marketing/IntegrationsTrustStrip";
+import HeroProductPreview from "@/components/marketing/HeroProductPreview";
+/* Removed: TrustMarquee (used fabricated customer logos — dishonest trust
+ * signal that would fail any "google these companies" sniff test) and the
+ * triple-row animated HeroTradeDivider (visual noise; the "Built for"
+ * cycling badge already names the trade). */
 import CapabilitiesShowcase from "@/components/marketing/CapabilitiesShowcase";
 import StickyStackCards from "@/components/marketing/StickyStackCards";
 import ServiceStackTimeline from "@/components/marketing/ServiceStackTimeline";
@@ -293,6 +297,46 @@ const RESPONSIVE_CSS = `
   .hero-pill:nth-child(2) { animation-delay: 0.3s; }
   .hero-pill:nth-child(3) { animation-delay: 0.45s; }
   .hero-pill:nth-child(4) { animation-delay: 0.6s; }
+  /* Direction C: 2-column hero — copy left, animated product preview right.
+   * Collapses to single centered column below 960px so the preview stacks
+   * underneath the copy on tablets and phones. */
+  .hero-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 48px;
+    align-items: center;
+    text-align: left;
+  }
+  .hero-copy-col { text-align: left; }
+  .hero-preview-col { display: flex; justify-content: flex-end; }
+  @media (max-width: 960px) {
+    .hero-grid { grid-template-columns: 1fr; gap: 36px; text-align: center; }
+    .hero-copy-col { text-align: center; }
+    .hero-preview-col { justify-content: center; }
+    .hero-cta-row { justify-content: center; }
+  }
+  .hero-cta-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .hero-cta-primary {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 14px 22px; border-radius: 12px;
+    background: ${mkt.accent}; color: ${mkt.dark};
+    font-size: 14px; font-weight: 700; letter-spacing: 0.01em;
+    text-decoration: none; border: none; cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.2s ease;
+    box-shadow: 0 8px 24px rgba(102,232,250,0.18);
+  }
+  .hero-cta-primary:hover { transform: translateY(-1px); box-shadow: 0 12px 32px rgba(102,232,250,0.28); }
+  .hero-cta-secondary {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 14px 22px; border-radius: 12px;
+    background: rgba(255,255,255,0.06);
+    color: ${mkt.text}; border: 1px solid rgba(255,255,255,0.12);
+    font-size: 14px; font-weight: 600;
+    text-decoration: none; cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease;
+  }
+  .hero-cta-secondary:hover { background: rgba(255,255,255,0.10); border-color: rgba(255,255,255,0.22); }
+  .hero-cta-note { font-size: 12px; color: ${mkt.textMuted}; }
   @media (max-width: 820px) {
     .flow-map-desktop { display: none !important; } /* already hidden inline */
     .flow-map-mobile { display: none !important; }
@@ -558,120 +602,174 @@ export default function HomePage() {
           }
         `}</style>
 
-        <div ref={heroRef} style={{ maxWidth: 900, margin: "0 auto", textAlign: "center", position: "relative", zIndex: 2 }}>
-          <div
-            data-testid="hero-headline"
-            className="hero-enter"
-            style={{
-              textAlign: "center",
-              marginBottom: 36,
-            }}
-          >
-            <h1
-              style={{
-                fontSize: "clamp(28px, 4.5vw, 44px)",
-                fontWeight: 700,
-                lineHeight: 1.1,
-                letterSpacing: "-0.02em",
-                margin: 0,
-                color: mkt.text,
-                fontFamily: typography.fontFamily,
-              }}
-            >
-              Trades businesses using WeFixTrades
-            </h1>
+        <div ref={heroRef} style={{ maxWidth: 1200, margin: "0 auto", position: "relative", zIndex: 2 }}>
+          <div className="hero-grid">
+            {/* Left column — copy + CTAs */}
+            <div className="hero-copy-col">
+              <div
+                data-testid="hero-headline"
+                className="hero-enter"
+                style={{ marginBottom: 24 }}
+              >
+                <h1
+                  style={{
+                    fontSize: "clamp(28px, 4.5vw, 44px)",
+                    fontWeight: 700,
+                    lineHeight: 1.1,
+                    letterSpacing: "-0.02em",
+                    margin: 0,
+                    color: mkt.text,
+                    fontFamily: typography.fontFamily,
+                  }}
+                >
+                  You're on the job.
+                </h1>
 
-            <h1
-              style={{
-                position: "relative",
-                fontSize: "clamp(32px, 5.6vw, 56px)",
-                fontWeight: 800,
-                lineHeight: 1.02,
-                letterSpacing: "-0.02em",
-                margin: 0,
-                marginTop: 6,
-                fontFamily: typography.fontFamily,
-                color: mkt.accent,
-              }}
-            >
-              <span
-                className="wf-underline mkt-gradient-text"
+                <h1
+                  style={{
+                    position: "relative",
+                    fontSize: "clamp(32px, 5.6vw, 56px)",
+                    fontWeight: 800,
+                    lineHeight: 1.02,
+                    letterSpacing: "-0.02em",
+                    margin: 0,
+                    marginTop: 6,
+                    fontFamily: typography.fontFamily,
+                    color: mkt.accent,
+                  }}
+                >
+                  <span
+                    className="wf-underline mkt-gradient-text"
+                    style={{ position: "relative", zIndex: 2 }}
+                  >
+                    WeFixTrades runs your office.
+                  </span>
+
+                  <span
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      zIndex: 1,
+                      background:
+                        "radial-gradient(closest-side, rgba(102,232,250,0.15), rgba(102,232,250,0.06) 42%, transparent 78%)",
+                      filter: "blur(30px)",
+                      opacity: 0.65,
+                      pointerEvents: "none",
+                    }}
+                  />
+                </h1>
+              </div>
+
+              <p
+                data-testid="hero-subtext"
+                className="hero-subtext hero-enter"
                 style={{
-                  position: "relative",
-                  zIndex: 2,
+                  maxWidth: 520,
+                  marginTop: 18,
+                  marginBottom: 28,
+                  fontSize: 16,
+                  lineHeight: 1.6,
+                  fontWeight: 450,
+                  color: mkt.textMuted,
+                  fontFamily: typography.fontFamily,
                 }}
               >
-                get 3x more leads
-              </span>
+                AI answers calls 24/7, sends quotes in seconds, requests reviews, and fixes your Google ranking. Built for trades. Working while you work.
+              </p>
 
-              <span
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  zIndex: 1,
-                  background:
-                    "radial-gradient(closest-side, rgba(102,232,250,0.15), rgba(102,232,250,0.06) 42%, transparent 78%)",
-                  filter: "blur(30px)",
-                  opacity: 0.65,
-                  pointerEvents: "none",
-                }}
-              />
-            </h1>
-          </div>
-
-          <p
-            data-testid="hero-subtext"
-            className="hero-subtext hero-enter"
-            style={{
-              maxWidth: 640,
-              margin: "0 auto",
-              marginTop: 26,
-              marginBottom: 32,
-              fontSize: 16,
-              lineHeight: 1.6,
-              fontWeight: 450,
-              color: mkt.textMuted,
-              textAlign: "center",
-              fontFamily: typography.fontFamily,
-            }}
-          >
-            AI-powered tools that answer calls, collect reviews, post on social media, and fix your SEO — so you can focus on the job.
-          </p>
-
-          {/* Email capture form */}
-          <HeroEmailCapture />
-
-          {/* Stats strip */}
-          <div className="hero-enter hero-stats-strip" style={{
-            display: "flex", justifyContent: "center", gap: 32, flexWrap: "wrap",
-            marginTop: 28, marginBottom: 64,
-          }}>
-            {[
-              { value: "500+", label: "leads generated" },
-              { value: "4.8★", label: "average review score" },
-              { value: "24/7", label: "AI phone answering" },
-            ].map((stat) => (
-              <div key={stat.label} style={{ textAlign: "center", minWidth: 120 }}>
-                <div style={{ fontSize: 22, fontWeight: 800, color: mkt.accent, fontFamily: typography.fontFamily, letterSpacing: "-0.02em" }}>
-                  {stat.value}
-                </div>
-                <div style={{ fontSize: 12, fontWeight: 500, color: mkt.textMuted, marginTop: 2 }}>
-                  {stat.label}
-                </div>
+              <div className="hero-enter hero-cta-row">
+                <Link href="/Wizard" className="hero-cta-primary wf-cta-shimmer" data-testid="hero-cta-primary">
+                  <span>Start free — no card</span>
+                  <ArrowRight size={16} strokeWidth={2.5} />
+                </Link>
+                <Link href="/demo" className="hero-cta-secondary" data-testid="hero-cta-secondary">
+                  <span>See 2-min demo</span>
+                </Link>
               </div>
-            ))}
-          </div>
+              <div className="hero-enter" style={{ marginTop: 12 }}>
+                <span className="hero-cta-note">
+                  Free 14-day trial · Cancel anytime · Setup in under 10 minutes
+                </span>
+              </div>
+            </div>
 
+            {/* Right column — animated product preview */}
+            <div className="hero-preview-col hero-enter">
+              <HeroProductPreview />
+            </div>
+          </div>
         </div>
 
       </section>
 
       <div style={{ marginTop: "auto", paddingTop: 34 }}>
-        <TrustMarquee />
+        <IntegrationsTrustStrip />
       </div>
       </div>{/* end shared grid zone */}
       </div>{/* end hero shell backdrop */}
-      <HeroTradeDivider />
+      {/* HeroTradeDivider removed in the C-direction premium rewrite —
+       * the cycling "Built for: <trade>" badge above the headline already
+       * names the trade. */}
+
+      {/* Free-audit lead magnet — demoted out of the hero so the primary
+       * CTAs (Start free / See demo) own the first fold. Kept as a quiet
+       * secondary capture for visitors who aren't ready to sign up but
+       * will trade an email for a Google audit. */}
+      <section
+        data-testid="hero-audit-section"
+        style={{
+          background: mkt.darkBg,
+          padding: "56px 24px",
+          borderTop: "1px solid rgba(255,255,255,0.06)",
+          position: "relative",
+          zIndex: 1,
+        }}
+      >
+        <div style={{ maxWidth: 720, margin: "0 auto", textAlign: "center" }}>
+          <div
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              padding: "6px 12px", borderRadius: 999,
+              background: "rgba(102,232,250,0.08)",
+              border: "1px solid rgba(102,232,250,0.18)",
+              fontSize: 11, fontWeight: 700, letterSpacing: "0.08em",
+              textTransform: "uppercase", color: mkt.accent,
+              fontFamily: "'DM Mono', monospace",
+              marginBottom: 16,
+            }}
+          >
+            <Star size={11} strokeWidth={2.5} /> Free for trade businesses
+          </div>
+          <h2
+            style={{
+              fontSize: "clamp(22px, 3vw, 30px)",
+              fontWeight: 700,
+              lineHeight: 1.15,
+              letterSpacing: "-0.015em",
+              margin: 0,
+              marginBottom: 10,
+              color: mkt.text,
+              fontFamily: typography.fontFamily,
+            }}
+          >
+            Not ready to sign up? Get a free website &amp; Google audit instead.
+          </h2>
+          <p
+            style={{
+              fontSize: 15,
+              lineHeight: 1.5,
+              color: mkt.textMuted,
+              maxWidth: 560,
+              margin: "0 auto 22px",
+              fontFamily: typography.fontFamily,
+            }}
+          >
+            We'll send a one-page report: what's costing you leads, where your Google ranking is leaking, and the 3 fastest fixes. No call required.
+          </p>
+          <HeroEmailCapture />
+        </div>
+      </section>
+
       {/* Three product showcase types covering all 12 products: */}
       <CapabilitiesShowcase />        {/* 4 money-makers */}
       <StickyStackCards />            {/* 4 growth tools */}

@@ -293,8 +293,46 @@ export default function ProductDetailPage() {
     onError: (err: Error) => toast({ title: "Reject failed", description: err.message, variant: "destructive" }),
   });
 
+  /* Q30c: opt this page into AI form-fill. Fields mirror the EditableForm
+   * shape so the AI can propose values for name / tagline / description /
+   * price / billing / category. _onApplyFormFill coerces value strings back
+   * into typed form state. */
+  const onApplyAiFormFill = (fills: { field_key: string; value: string }[]) => {
+    setForm((f) => {
+      const next = { ...f };
+      for (const fill of fills) {
+        switch (fill.field_key) {
+          case "name": next.name = fill.value; break;
+          case "tagline": next.tagline = fill.value; break;
+          case "description": next.description = fill.value; break;
+          case "default_price_cents": next.default_price_cents = fill.value; break;
+          case "billing_period":
+            if (fill.value === "monthly" || fill.value === "one-time") next.billing_period = fill.value;
+            break;
+          case "category":
+            if (CATEGORIES.includes(fill.value)) next.category = fill.value;
+            break;
+        }
+      }
+      return next;
+    });
+  };
+
   return (
-    <AdminLayout>
+    <AdminLayout
+      pageContext={{
+        page: "product_detail",
+        formFillFields: live ? [
+          { key: "name", label: "Product name", required: true, currentValue: form.name },
+          { key: "tagline", label: "Tagline", currentValue: form.tagline },
+          { key: "description", label: "Description", currentValue: form.description },
+          { key: "default_price_cents", label: "Default price (cents)", currentValue: form.default_price_cents },
+          { key: "billing_period", label: "Billing period (monthly | one-time)", currentValue: form.billing_period },
+          { key: "category", label: `Category (one of: ${CATEGORIES.join(", ")})`, currentValue: form.category },
+        ] : undefined,
+        _onApplyFormFill: onApplyAiFormFill,
+      }}
+    >
       <div className="max-w-2xl mx-auto space-y-5">
         <button
           onClick={() => navigate("/admin/crm/services")}
@@ -418,8 +456,7 @@ export default function ProductDetailPage() {
                 </div>
               </Card>
               );
-            })()
-            )}
+            })()}
 
             <Card className="p-5 space-y-4">
               <h2 className="text-sm font-semibold text-gray-900">Customer-visible content</h2>

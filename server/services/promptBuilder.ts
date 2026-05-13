@@ -82,6 +82,16 @@ export interface PageContext {
   // Services enrichment
   serviceCatalogCount?: number;
   topServicesByClients?: Array<{ name: string; activeClients: number }>;
+  /* Q30c: when the current admin page is form-shaped, it ships its
+   * editable field list so the AI can propose prefills via a FORM_FILL
+   * block (mirrors the portal pattern). The client extracts the block
+   * out of the stream, shows an Apply/Skip card. */
+  formFillFields?: Array<{
+    key: string;
+    label: string;
+    required?: boolean;
+    currentValue?: string | number | boolean | null;
+  }>;
 }
 
 export interface MemoryContext {
@@ -412,6 +422,62 @@ ${buildDraftingSection(ctx)}`);
     const memBlock = buildMemoryBlock(memory);
     if (memBlock) parts.push(memBlock);
   }
+
+  // Q30b admin: action-button protocol. Mirrors the portal pattern but
+  // whitelists admin-only paths. Targets must start with /admin/ so the
+  // AI can't propose taking the operator to a customer portal page or an
+  // external URL.
+  // Q30c: FORM_FILL block — admin form-aware prefills. Only emitted when
+  // the page has declared editable fields via formFillFields.
+  if (ctx.formFillFields && ctx.formFillFields.length > 0) {
+    const fieldLines = ctx.formFillFields
+      .map((f) => {
+        const cv = f.currentValue;
+        const cvStr = cv === undefined || cv === null || cv === ""
+          ? "(empty)"
+          : typeof cv === "string"
+            ? `"${cv.length > 80 ? cv.slice(0, 80) + "…" : cv}"`
+            : String(cv);
+        return `- ${f.key}${f.required ? " (required)" : " (optional)"} — ${f.label} — current: ${cvStr}`;
+      })
+      .join("\n");
+    parts.push(`
+=== FORM-FILL PROPOSALS (Q30c) ===
+This admin page is form-shaped. Editable fields:
+${fieldLines}
+
+When the operator agrees with you on values for one or more of those fields, propose them by appending a single fenced block AT THE END of your reply (separate from any ACTION_PROPOSAL block):
+
+<<<FORM_FILL>>>
+{"fills":[{"field_key":"<key-from-the-list-above>","value":"<string value>","reason":"<one short sentence why>"}]}
+<<<END_FORM_FILL>>>
+
+Rules:
+- Only propose when the operator has affirmed the values in the conversation. Never auto-fill without an explicit yes.
+- field_key MUST be one of the keys in the list above. Spelling + case matter.
+- value MUST be a string. Numeric fields get a numeric string (e.g. "9700" for price_cents). Booleans get "true" / "false".
+- Max 5 fills per block.
+- Include a human-readable sentence in your reply BEFORE the block — e.g. "Here's what I'll fill in — review and confirm below."
+- The block is invisible to the operator; they see Apply/Skip buttons rendered from it.
+- If you're not ready to propose, just keep chatting — no FORM_FILL block.`);
+  }
+
+  parts.push(`
+=== ACTION PROPOSALS (Q30b) ===
+When the operator could move forward by clicking ONE specific destination, propose it by appending a single fenced block AT THE END of your reply:
+
+<<<ACTION_PROPOSAL>>>
+{"actions":[{"label":"<short button label, max 40 chars>","intent":"navigate|click","target":"<see-below>","hint":"<one-line why, optional>"}]}
+<<<END_ACTION_PROPOSAL>>>
+
+Intents:
+- "navigate" → target MUST be a path starting with "/admin/". No full URLs, no /portal/ paths, no schemes. Use for "where do I…" / "show me…" requests.
+- "click" → target MUST be a data-testid value matching ^[a-z0-9_-]+$. The client will click [data-testid="<target>"]. Only propose for buttons CONFIRMED to exist (e.g. "button-save-draft" visible in the page snapshot). NEVER invent test-ids.
+
+Rules:
+- Max 3 actions per block, label ≤ 40 chars.
+- Skip the block when answering questions the operator can resolve on the CURRENT page (counts, statuses, definitions).
+- The block is invisible to the operator; they see clickable buttons rendered from it.`);
 
   return parts.join("\n");
 }

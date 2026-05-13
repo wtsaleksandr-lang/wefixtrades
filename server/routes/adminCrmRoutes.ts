@@ -35,6 +35,27 @@ export function registerAdminCrmRoutes(app: Express): void {
      Overview
      ═══════════════════════════════════════════ */
 
+  // Q30 chat history: return the admin's rolling Copilot thread + last-
+  // updated timestamp. 7-day server-side memory (per chat_memory). The
+  // /admin/chat-history page reads from this.
+  app.get("/api/admin/copilot/history", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const u = req.user as any;
+      if (!u?.id) return res.status(401).json({ error: "Not authenticated" });
+      const { getMemoryByUserId } = await import("../services/chatMemory");
+      const mem = await getMemoryByUserId(u.id);
+      if (!mem) return res.json({ messages: [], memory: null, updated_at: null });
+      res.json({
+        messages: mem.messages ?? [],
+        memory: mem.memory ?? null,
+        updated_at: new Date().toISOString(),
+      });
+    } catch (err: any) {
+      log.error("[admin/copilot/history] Error:", err.message);
+      res.status(500).json({ error: "Failed to load Copilot history" });
+    }
+  });
+
   app.get("/api/admin/crm/overview", requireAdmin, async (_req: Request, res: Response) => {
     try {
       const overview = await storage.getCrmOverview();
@@ -265,6 +286,15 @@ export function registerAdminCrmRoutes(app: Express): void {
 
       const updated = await storage.publishProductDraft(draft.id, svcId, draft.draft_data as Record<string, any>, u.id);
 
+      // Q5f: surface tier-mirror summary so audit log readers can see which
+      // sibling rows got updated by this publish. publishProductDraft handles
+      // the mirror itself; this just records what was published for review.
+      const publishedTiers = Array.isArray((draft.draft_data as any)?.tiers)
+        ? ((draft.draft_data as any).tiers as Array<{ id?: string }>)
+            .map((t) => t?.id)
+            .filter((id): id is string => typeof id === "string")
+        : [];
+
       await storage.logAdminActivity({
         actor_type: "human",
         actor_id: u.id,
@@ -272,11 +302,12 @@ export function registerAdminCrmRoutes(app: Express): void {
         action: "product.draft_published",
         entity_type: "service_catalog",
         entity_id: null,
-        summary: `Published draft for "${updated.name}" — changes are now live (${approvers.length}/${publishApprovalThreshold} approvals)`,
+        summary: `Published draft for "${updated.name}" — changes are now live (${approvers.length}/${publishApprovalThreshold} approvals)${publishedTiers.length ? ` · mirrored ${publishedTiers.length} tier row(s)` : ""}`,
         metadata: {
           service_id: svcId,
           draft_id: draft.id,
           fields: Object.keys(draft.draft_data as Record<string, any>),
+          mirrored_tier_ids: publishedTiers,
           approvals: approvers.length,
           threshold: publishApprovalThreshold,
         },

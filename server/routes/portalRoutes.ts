@@ -63,6 +63,8 @@ import {
   DEFAULT_MAPGUARD_CONFIG,
 } from "@shared/schema";
 import { SERVICES } from "@shared/services";
+import { ALL_BUNDLES, bundleSavings } from "@shared/pricing";
+import type { ServiceCatalogRow } from "@shared/schema";
 import { getMemory, saveMemory } from "../services/chatMemory";
 
 import { compileMonthlyReport } from "../services/mapguardReports";
@@ -1358,6 +1360,28 @@ export function registerPortalRoutes(app: Express) {
         .filter((m: any) => m && typeof m.content === "string" && allowedRoles.has(m.role))
         .slice(-10);
 
+      /* Q30b: shared block injected into both help-mode and onboarding-mode
+       * system prompts. Tells the AI how to propose clickable navigation
+       * buttons. Targets are whitelisted to /portal/* on both server and
+       * client to prevent the AI from emitting external/admin URLs. */
+      const actionProposalBlock = `
+
+== ACTION PROPOSALS (Q30b) ==
+When the user could move forward by clicking ONE specific destination, propose it by appending a single fenced block AT THE END of your reply:
+
+<<<ACTION_PROPOSAL>>>
+{"actions":[{"label":"<short button label, max 40 chars>","intent":"navigate|click","target":"<see-below>","hint":"<one-line why, optional>"}]}
+<<<END_ACTION_PROPOSAL>>>
+
+Intents:
+- "navigate" → target MUST be a path starting with "/portal/". No full URLs, no /admin/ paths, no schemes. Use for "where do I…" / "take me to…" requests.
+- "click" → target MUST be a data-testid value matching ^[a-z0-9_-]+$. The client will click the element matching [data-testid="<target>"]. Use for "save it for me" / "apply this" / "submit the form" when the action is right there on the current page. Only propose click for buttons you have CONFIRMED exist (e.g. "button-save-draft" visible in the page snapshot). NEVER invent test-ids.
+
+Rules:
+- Max 3 actions per block, label ≤ 40 chars.
+- Skip the block when answering questions the user can resolve themselves (status checks, definitions, explanations).
+- The block is invisible to the customer; they see clickable buttons rendered from it.`;
+
       let systemPrompt: string;
       let escalationEnabled = false;
 
@@ -1386,7 +1410,7 @@ Do NOT:
 - Make up account-specific details (balances, dates, statuses)
 - Provide legal or financial advice
 - Discuss internal pricing or margins
-- Create tickets automatically — always offer first and let the user decide${pageContextBlock}`;
+- Create tickets automatically — always offer first and let the user decide${actionProposalBlock}${pageContextBlock}`;
       } else {
         // Onboarding context — no escalation
         const fieldList = (context?.fields ?? [])
@@ -1442,7 +1466,7 @@ Rules for proposing fills:
 - value must be a string. For booleans use "true" / "false". For multi-select, comma-separated.
 - One proposal block per reply, max 3 fills inside.
 - Include a human-readable sentence in your reply BEFORE the FORM_FILL block — e.g. "Here's what I'll fill in — review and confirm below." The block itself is invisible to the customer; they see Apply/Skip buttons rendered from it.
-- If you're not ready to propose, just keep chatting — no FORM_FILL block.${pageContextBlock}`;
+- If you're not ready to propose, just keep chatting — no FORM_FILL block.${actionProposalBlock}${pageContextBlock}`;
       }
 
       const rawReply = await aiChat({
@@ -1472,10 +1496,50 @@ Rules for proposing fills:
           .catch((err) => log.warn("[portal-ai] saveMemory failed:", { error: String(err) }));
       }
 
+      // Q30b: extract ACTION_PROPOSAL block first so its content doesn't
+      // leak into the FORM_FILL parse + visible-reply strip. Targets are
+      // whitelisted to /portal/* paths only; anything else is dropped
+      // server-side (defence in depth — the client also re-validates).
+      let actions: Array<{ label: string; intent: "navigate" | "click"; target: string; hint?: string }> | undefined;
+      const actionMatch = rawReply.match(/<<<ACTION_PROPOSAL>>>([\s\S]*?)<<<END_ACTION_PROPOSAL>>>/);
+      if (actionMatch) {
+        try {
+          const parsed = JSON.parse(actionMatch[1].trim());
+          if (parsed && Array.isArray(parsed.actions)) {
+            const TEST_ID_RE = /^[a-z0-9_-]+$/i;
+            const validActions = parsed.actions
+              .filter((a: any) => {
+                if (!a || typeof a.label !== "string" || typeof a.target !== "string") return false;
+                if (a.intent === "navigate") {
+                  return a.target.startsWith("/portal/")
+                    && !a.target.includes("..")
+                    && !a.target.includes("://");
+                }
+                if (a.intent === "click") {
+                  // Q30b v2: target is a data-testid value. Strict alphanumeric/
+                  // underscore/hyphen prevents selector injection.
+                  return TEST_ID_RE.test(a.target) && a.target.length <= 80;
+                }
+                return false;
+              })
+              .slice(0, 3)
+              .map((a: any) => ({
+                label: a.label.slice(0, 40),
+                intent: a.intent as "navigate" | "click",
+                target: a.target.slice(0, 200),
+                hint: typeof a.hint === "string" ? a.hint.slice(0, 200) : undefined,
+              }));
+            if (validActions.length > 0) actions = validActions;
+          }
+        } catch (err) {
+          log.warn("[portal-ai] ACTION_PROPOSAL parse failed:", { error: String(err) });
+        }
+      }
+
       // Q23: extract a FORM_FILL proposal (if any) and strip it from the
       // user-visible reply. The fenced block is invisible to the customer;
       // the client renders an Apply/Skip card from the parsed JSON.
-      let reply = rawReply;
+      let reply = rawReply.replace(/<<<ACTION_PROPOSAL>>>[\s\S]*?<<<END_ACTION_PROPOSAL>>>/, "").trim();
       let proposal: { fills: Array<{ field_key: string; value: string; reason?: string }> } | undefined;
       const formFillMatch = rawReply.match(/<<<FORM_FILL>>>([\s\S]*?)<<<END_FORM_FILL>>>/);
       if (formFillMatch) {
@@ -1499,15 +1563,17 @@ Rules for proposing fills:
         } catch (err) {
           log.warn("[portal-ai] FORM_FILL parse failed:", { error: String(err) });
         }
-        // Always strip the fenced block from the visible reply, even if parsing failed
-        reply = rawReply.replace(/<<<FORM_FILL>>>[\s\S]*?<<<END_FORM_FILL>>>/, "").trim();
+        // Always strip the fenced block from the visible reply, even if parsing failed.
+        // Strip from the already-cleaned `reply` (which already had ACTION_PROPOSAL removed)
+        // so we don't lose that earlier cleanup.
+        reply = reply.replace(/<<<FORM_FILL>>>[\s\S]*?<<<END_FORM_FILL>>>/, "").trim();
       }
 
       // ─── Structured escalation detection (classification step) ───
       // Instead of fragile string matching, use a lightweight AI classification
       // to determine whether the reply offers/suggests escalation to human support.
       if (!escalationEnabled) {
-        return res.json({ reply, proposal });
+        return res.json({ reply, proposal, actions });
       }
 
       let hasEscalationOffer = false;
@@ -1526,7 +1592,7 @@ Answer ONLY "YES" or "NO". Nothing else.`,
       }
 
       if (!hasEscalationOffer) {
-        return res.json({ reply, proposal });
+        return res.json({ reply, proposal, actions });
       }
 
       // ─── Draft extraction (only runs when escalation detected) ───
@@ -1568,7 +1634,7 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
         // Don't fail the request — just return the reply without the draft
       }
 
-      res.json({ reply, escalation_draft: escalationDraft, proposal });
+      res.json({ reply, escalation_draft: escalationDraft, proposal, actions });
     } catch (err) {
       log.error("Portal AI chat error:", { error: String(err) });
       res.json({ reply: "Sorry, the assistant is temporarily unavailable. You can still fill in the form manually." });
@@ -4318,9 +4384,105 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
       if (!stripeKey) return res.status(503).json({ error: "Payments are not configured yet. Please contact us." });
       const stripe = new Stripe(stripeKey, { apiVersion: "2025-01-27.acacia" as any });
 
-      const { service_id, billing_period, tier_id } = req.body ?? {};
+      const { service_id, billing_period, tier_id, bundle_id } = req.body ?? {};
+
+      /* Q5e: bundle path. When bundle_id is set, resolve the bundle from
+         shared/pricing.ts ALL_BUNDLES and create a pending client_service
+         per included tier, then a SINGLE Stripe Checkout Session with one
+         line_item per included tier (Stripe subscription mode supports
+         mixed subscription + one-time line items). */
+      if (bundle_id) {
+        if (typeof bundle_id !== "string") {
+          return res.status(400).json({ error: "bundle_id must be a string" });
+        }
+        const bundle = ALL_BUNDLES.find((b) => b.id === bundle_id);
+        if (!bundle) return res.status(400).json({ error: "Unknown bundle" });
+
+        // Pre-flight: every included tier must exist + be active + the client
+        // must not already have any of them.
+        const includedSvcs: Array<ServiceCatalogRow & { _priceId: string }> = [];
+        for (const inc of bundle.includes) {
+          const s = await storage.getServiceById(inc.tierId);
+          if (!s || !s.is_active) return res.status(400).json({ error: `${inc.label} is not available` });
+          const dup = await storage.findClientServiceByServiceId(clientId, s.id);
+          if (dup && dup.status !== "cancelled" && dup.status !== "completed") {
+            return res.status(409).json({ error: `You're already subscribed to ${s.name}.` });
+          }
+          const priceId = s.stripe_price_id;
+          if (!priceId) {
+            return res.status(400).json({ error: `${s.name} pricing isn't configured yet. Please contact us.` });
+          }
+          includedSvcs.push({ ...s, _priceId: priceId });
+        }
+
+        const [client] = await db.select().from(clients).where(eq(clients.id, clientId)).limit(1);
+        if (!client) return res.status(404).json({ error: "Client not found" });
+        let stripeCustomerId = client.stripe_customer_id;
+        if (!stripeCustomerId) {
+          const customer = await stripe.customers.create({
+            name: client.business_name,
+            email: client.contact_email || undefined,
+            phone: client.contact_phone || undefined,
+            metadata: { crm_client_id: String(client.id) },
+          });
+          stripeCustomerId = customer.id;
+          await storage.updateClient(client.id, { stripe_customer_id: stripeCustomerId });
+        }
+
+        // Pre-create each included service in pending state.
+        const createdIds: number[] = [];
+        for (const s of includedSvcs) {
+          const cs = await storage.createClientService({
+            client_id: client.id,
+            service_id: s.id,
+            status: "pending",
+            enabled: true,
+            fulfillment_mode: "internal",
+            price_cents: s.default_price,
+            billing_period: s.billing_period,
+            metadata: { bundle_id: bundle.id, bundle_name: bundle.name },
+          });
+          createdIds.push(cs.id);
+          await storage.createClientPayment({
+            client_id: client.id,
+            client_service_id: cs.id,
+            type: s.billing_period === "monthly" ? "invoice" : "payment",
+            amount_cents: s.default_price ?? 0,
+            status: "pending",
+            description: `${s.name} (bundle: ${bundle.name})`,
+            actor_type: "system",
+          });
+        }
+
+        const hasMonthly = includedSvcs.some((s) => s.billing_period === "monthly");
+        const mode = hasMonthly ? "subscription" : "payment";
+        const baseUrl = process.env.APP_URL || `${req.protocol}://${req.get("host")}`;
+        const session = await stripe.checkout.sessions.create({
+          customer: stripeCustomerId,
+          mode: mode as Stripe.Checkout.SessionCreateParams.Mode,
+          payment_method_types: ["card", "us_bank_account", "cashapp", "afterpay_clearpay", "klarna", "acss_debit"],
+          line_items: includedSvcs.map((s) => ({ price: s._priceId, quantity: 1 })),
+          metadata: {
+            crm_client_id: String(client.id),
+            bundle_id: bundle.id,
+            service_catalog_id: includedSvcs.map((s) => s.id).join(","),
+            client_service_ids: createdIds.join(","),
+            source: "portal_catalog_bundle",
+          },
+          success_url: `${baseUrl}/portal/services?checkout=success&bundle=${encodeURIComponent(bundle.id)}`,
+          cancel_url: `${baseUrl}/portal/catalog?checkout=cancelled`,
+          allow_promotion_codes: true,
+          billing_address_collection: "auto",
+        });
+
+        log.info("[portal/catalog/subscribe] bundle session created", {
+          clientId, bundle_id: bundle.id, items: includedSvcs.length, session_id: session.id,
+        });
+        return res.json({ checkout_url: session.url, session_id: session.id });
+      }
+
       if (!service_id || typeof service_id !== "string") {
-        return res.status(400).json({ error: "service_id is required" });
+        return res.status(400).json({ error: "service_id or bundle_id is required" });
       }
       const wantsYearly = billing_period === "yearly";
 
@@ -4525,7 +4687,29 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
           };
         });
 
-      res.json({ services: available });
+      /* Q5e: bundles available to subscribe to. A bundle is "available"
+         if NONE of its included tier IDs are already on the client's
+         active subscription list — otherwise checking out the bundle
+         would create a duplicate subscription. */
+      const availableBundles = ALL_BUNDLES
+        .filter((b) => b.includes.every((inc) => !activeIds.has(inc.tierId)))
+        .map((b) => ({
+          id: b.id,
+          name: b.name,
+          tagline: b.tagline,
+          price: b.price,
+          billingPeriod: b.billingPeriod,
+          badge: b.badge ?? null,
+          highlighted: !!b.highlighted,
+          savings: bundleSavings(b),
+          includes: b.includes.map((inc) => ({
+            tier_id: inc.tierId,
+            label: inc.label,
+            value: inc.value,
+          })),
+        }));
+
+      res.json({ services: available, bundles: availableBundles });
     } catch (err: any) {
       log.error("[portal/catalog] Error:", { error: err.message });
       res.status(500).json({ error: "Failed to load catalog" });

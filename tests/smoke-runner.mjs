@@ -202,7 +202,6 @@ async function main() {
       ["/admin/crm/settings", "Settings"],
       ["/admin/crm/change-password", "Change Password"],
       ["/admin/ai", "AI Dashboard"],
-      ["/admin/services/pricing", "Service Pricing"],
       ["/admin/booking", "Booking Calendar"],
       ["/admin/system/jobs", "System Jobs"],
       ["/admin/system/workers", "System Workers"],

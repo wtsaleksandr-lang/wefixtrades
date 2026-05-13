@@ -10,6 +10,7 @@ import ChatAttachmentInput, {
   type ChatAttachmentInputHandle,
 } from "@/components/shared/ChatAttachmentInput";
 import { loadPortalMessages, savePortalMessages } from "@/lib/chatHelpers";
+import { useToast } from "@/hooks/use-toast";
 
 const LAST_OPEN_KEY = "wft_portal_chat_last_open";
 const OPACITY_KEY = "wft_portal_chat_opacity";
@@ -30,6 +31,24 @@ function readPageContentSnapshot(): string | undefined {
 }
 
 /* ─── Types ─── */
+
+/* Q30b: lightweight action-button protocol. AI emits these inside a
+ * <<<ACTION_PROPOSAL>>>{...}<<<END_ACTION_PROPOSAL>>> block; server parses
+ * + sanitizes + returns under `actions` on the response. Client renders
+ * each as a clickable button under the assistant message that proposed
+ * them. Only `navigate` intent is shipped in v1 — `click` and `fill`
+ * follow once we have a use case. Target is whitelisted to /portal/*
+ * on both server and client (defence in depth). */
+export interface ActionProposal {
+  label: string;
+  intent: "navigate" | "click";
+  /* For navigate: path that must start with /portal/.
+   * For click: data-testid value matching ^[a-z0-9_-]+$. The widget calls
+   * .click() on document.querySelector(`[data-testid="${target}"]`). */
+  target: string;
+  hint?: string;
+}
+
 export interface FormFillProposal {
   field_key: string;
   value: string;
@@ -67,12 +86,95 @@ const CATEGORIES = [
   { value: "other", label: "Other" },
 ];
 
-const SUGGESTIONS = [
-  "How do I complete my setup form?",
-  "When will my service go live?",
-  "How do I check my billing status?",
-  "What does my service include?",
+/* Per-page quick-start prompts. Matches against the current location
+ * path; longest-prefix wins. Pages not listed fall back to the generic
+ * "default" list. Each entry has 3-4 prompts. */
+const SUGGESTIONS_BY_PATH: Array<{ prefix: string; prompts: string[] }> = [
+  { prefix: "/portal/onboarding", prompts: [
+    "What does this question mean?",
+    "Help me fill in my business info",
+    "How long does setup take?",
+  ]},
+  { prefix: "/portal/billing", prompts: [
+    "What's my current balance?",
+    "When's my next invoice?",
+    "How do I update my payment method?",
+    "Why was I charged this amount?",
+  ]},
+  { prefix: "/portal/invoices", prompts: [
+    "What invoices are outstanding?",
+    "How do I download a receipt?",
+    "Can I dispute a charge?",
+  ]},
+  { prefix: "/portal/payment-methods", prompts: [
+    "How do I add a new card?",
+    "How do I change my default payment method?",
+    "Are bank transfers supported?",
+  ]},
+  { prefix: "/portal/services", prompts: [
+    "What's the status of my services?",
+    "When will my service go live?",
+    "Any blockers I should know about?",
+  ]},
+  { prefix: "/portal/catalog", prompts: [
+    "Which tier should I pick for my business?",
+    "What's the difference between Starter and Pro?",
+    "Recommend a bundle for me",
+    "What's in this bundle?",
+  ]},
+  { prefix: "/portal/reviews", prompts: [
+    "How does the review widget work?",
+    "How do I respond to a negative review?",
+    "What's my average rating this month?",
+  ]},
+  { prefix: "/portal/mapguard", prompts: [
+    "What does my MapGuard score mean?",
+    "How do I improve my ranking?",
+    "What's blocking my listing?",
+  ]},
+  { prefix: "/portal/socialsync", prompts: [
+    "Help me write a post",
+    "What should I post about this week?",
+    "When are my posts scheduled?",
+  ]},
+  { prefix: "/portal/rankflow", prompts: [
+    "What content is planned for this month?",
+    "How do I review an article?",
+    "What's my SEO progress?",
+  ]},
+  { prefix: "/portal/articles", prompts: [
+    "Walk me through approving an article",
+    "What's pending my review?",
+  ]},
+  { prefix: "/portal/dispatch", prompts: [
+    "What jobs are happening today?",
+    "How do I confirm a booking?",
+  ]},
+  { prefix: "/portal/help", prompts: [
+    "How do I contact support?",
+    "What's the typical response time?",
+    "How do I escalate an issue?",
+  ]},
+  { prefix: "/portal/settings", prompts: [
+    "How do I change my password?",
+    "How do I upload my logo?",
+    "How do I pause AI automation?",
+  ]},
+  { prefix: "/portal", prompts: [
+    "What needs my attention?",
+    "When is my next service activation?",
+    "Summarize my dashboard",
+  ]},
 ];
+
+function suggestionsForPath(path: string): string[] {
+  const match = SUGGESTIONS_BY_PATH.find((s) => path.startsWith(s.prefix));
+  return match?.prompts ?? [
+    "What can you help me with?",
+    "How do I get started?",
+    "Where do I check my billing?",
+  ];
+}
 
 /**
  * PortalChatWidget — single global portal assistant.
@@ -90,7 +192,8 @@ export default function PortalChatWidget({
   chatContext?: PortalChatContext;
 }) {
   const queryClient = useQueryClient();
-  const [location] = useLocation();
+  const { toast } = useToast();
+  const [location, setLocation] = useLocation();
   const [open, setOpen] = useState(false);
   // Q25: transparency slider — persists across mounts. 0.7 floor so messages remain readable.
   const [panelOpacity, setPanelOpacity] = useState<number>(() => {
@@ -168,7 +271,7 @@ export default function PortalChatWidget({
   };
   // Q24: persist messages across page navigations + page reloads via localStorage.
   // Backend chat_memory table is also linked via session id once the user logs in.
-  const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string }[]>(
+  const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string; actions?: ActionProposal[] }[]>(
     () => {
       const saved = loadPortalMessages();
       return saved.length > 0 ? saved.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })) : [];
@@ -297,9 +400,35 @@ export default function PortalChatWidget({
         }),
       });
       const data = await res.json();
+
+      // Q30b: parse + sanitize ACTION_PROPOSAL from server response. The
+      // server already whitelisted to /portal/* paths; we re-validate here
+      // as defence in depth and to drop any malformed entries before render.
+      const safeActions: ActionProposal[] | undefined = Array.isArray(data.actions)
+        ? data.actions
+            .filter((a: any) => {
+              if (!a || typeof a.label !== "string" || typeof a.target !== "string") return false;
+              if (a.intent === "navigate") {
+                return a.target.startsWith("/portal/") && !a.target.includes(":") && !a.target.includes("..");
+              }
+              if (a.intent === "click") {
+                return /^[a-z0-9_-]+$/i.test(a.target) && a.target.length <= 80;
+              }
+              return false;
+            })
+            .slice(0, 3)
+            .map((a: any) => ({
+              label: a.label.slice(0, 40),
+              intent: a.intent as "navigate" | "click",
+              target: a.target,
+              hint: typeof a.hint === "string" ? a.hint.slice(0, 200) : undefined,
+            }))
+        : undefined;
+
       setMessages((prev) => [...prev, {
         role: "assistant",
         content: data.reply || "Sorry, something went wrong.",
+        actions: safeActions && safeActions.length > 0 ? safeActions : undefined,
       }]);
 
       // Handle escalation draft (only for help surface)
@@ -465,6 +594,18 @@ export default function PortalChatWidget({
             </div>
             <div className="flex items-center gap-1">
               <button
+                onClick={() => {
+                  setLocation("/portal/chat-history");
+                  setOpen(false);
+                }}
+                className="p-1 rounded hover:bg-white/20 text-white"
+                aria-label="View chat history"
+                title="View 7-day chat history"
+                data-testid="button-chat-history"
+              >
+                <History className="w-4 h-4" aria-hidden="true" />
+              </button>
+              <button
                 onClick={() => setShowSettings((v) => !v)}
                 className={`p-1 rounded text-white ${showSettings ? "bg-white/30" : "hover:bg-white/20"}`}
                 aria-label="Chat settings"
@@ -525,7 +666,7 @@ export default function PortalChatWidget({
               <div className="text-center py-3">
                 <p className="text-xs text-gray-400 mb-2">Ask anything about your services, billing, or account.</p>
                 <div className="flex flex-wrap gap-1.5 justify-center">
-                  {SUGGESTIONS.map((s, i) => (
+                  {suggestionsForPath(location).map((s, i) => (
                     <button
                       key={i}
                       onClick={() => send(s)}
@@ -545,12 +686,51 @@ export default function PortalChatWidget({
               </div>
             )}
             {messages.map((m, i) => (
-              <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+              <div key={i} className={`flex flex-col ${m.role === "user" ? "items-end" : "items-start"}`}>
                 <div className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
                   m.role === "user" ? "bg-[#2D6A4F] text-white" : "bg-gray-100 text-gray-700"
                 }`}>
                   {m.content}
                 </div>
+                {m.role === "assistant" && m.actions && m.actions.length > 0 && (
+                  <div className="mt-1.5 flex flex-wrap gap-1.5 max-w-[85%]" data-testid={`chat-actions-${i}`}>
+                    {m.actions.map((a, j) => (
+                      <button
+                        key={j}
+                        type="button"
+                        onClick={() => {
+                          if (a.intent === "navigate") {
+                            // Re-validate target once more before navigating.
+                            if (!a.target.startsWith("/portal/") || a.target.includes("..") || a.target.includes(":")) return;
+                            setLocation(a.target);
+                            setOpen(false);
+                            return;
+                          }
+                          if (a.intent === "click") {
+                            // Q30b v2: dispatch click on the element matching the
+                            // proposed data-testid. Re-validate target shape, then
+                            // close the chat panel so the operator sees the
+                            // resulting state change (e.g. a confirm toast).
+                            if (!/^[a-z0-9_-]+$/i.test(a.target)) return;
+                            const el = document.querySelector(`[data-testid="${a.target}"]`) as HTMLElement | null;
+                            if (!el) {
+                              toast({ title: "Couldn't find that button on this page", description: "It may have moved or already been used.", variant: "destructive" });
+                              return;
+                            }
+                            el.click();
+                            setOpen(false);
+                          }
+                        }}
+                        title={a.hint}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-[#2D6A4F] bg-white border border-[#2D6A4F]/30 rounded-full hover:bg-[#F0F7F4] hover:border-[#2D6A4F]/60 transition-colors"
+                        data-testid={`chat-action-${i}-${j}`}
+                      >
+                        {a.label}
+                        <span aria-hidden="true">{a.intent === "navigate" ? "→" : "✓"}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
 

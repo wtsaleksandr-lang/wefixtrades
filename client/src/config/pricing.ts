@@ -164,3 +164,49 @@ export function mergeProductsWithDb(base: Product[], overrides: DbProductOverrid
     };
   });
 }
+
+/* Q5b: sister helper that operates on the canonical ProductDef[] shape
+ * used by PricingUnified (the *real* /pricing route). When DB overrides
+ * exist, name/tagline are swapped at parent level, and tiers are deep-
+ * merged so per-tier price / features / badge / highlighted reflect
+ * what admin published. Falls back to hardcoded ALL_PRODUCTS for any
+ * product the DB doesn't yet have a row for. */
+import type { Tier as TierDef } from "@shared/pricing";
+
+function mergeTiers(base: TierDef[], dbTiers: NonNullable<DbProductOverride["tiers"]>): TierDef[] {
+  const dbById = new Map(dbTiers.map((t) => [t.id, t]));
+  return base.map((bt) => {
+    const dt = dbById.get(bt.id);
+    if (!dt) return bt;
+    return {
+      ...bt,
+      name: dt.name ?? bt.name,
+      price: dt.price_cents / 100,
+      billingPeriod: dt.billing_period,
+      badge: dt.badge ?? bt.badge,
+      highlighted: dt.highlighted ?? bt.highlighted,
+      features: dt.features?.length ? dt.features : bt.features,
+      includedMins: dt.included_mins ?? bt.includedMins,
+    };
+  });
+}
+
+export function mergeAllProductsWithDb(
+  base: ProductDef[],
+  overrides: DbProductOverride[],
+): ProductDef[] {
+  if (!overrides || overrides.length === 0) return base;
+  const byId = new Map(overrides.map((o) => [o.id, o]));
+  return base.map((p) => {
+    const ov = byId.get(p.id);
+    if (!ov) return p;
+    return {
+      ...p,
+      name: ov.name ?? p.name,
+      tagline: ov.tagline ?? p.tagline,
+      tiers: Array.isArray(ov.tiers) && ov.tiers.length > 0
+        ? mergeTiers(p.tiers, ov.tiers)
+        : p.tiers,
+    };
+  });
+}

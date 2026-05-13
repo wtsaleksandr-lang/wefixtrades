@@ -401,6 +401,14 @@ export function MarketingNav() {
         @media (max-width: 430px) {
           .mkt-nav-bar { border-radius: 18px !important; }
         }
+        /* Responsive: between 1024px (mobile breakpoint) and 1280px there's
+         * not enough room for 6 menu items + Login + START FREE + the
+         * TRADELINE 24/7 DEMO CTA, so the demo button (lowest-priority of
+         * the three CTAs) hides until the viewport can fit everything
+         * comfortably. Login + START FREE always stay visible. */
+        @media (max-width: 1279px) {
+          .mkt-btn-demo { display: none !important; }
+        }
       `}</style>
 
       {/* Mobile overlay */}

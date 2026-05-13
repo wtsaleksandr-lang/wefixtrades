@@ -101,3 +101,33 @@ export const aiChatRateLimiter = new RateLimiter(
   20,
   60_000,
 );
+
+/**
+ * Per-user-id dedupe for password-reset emails.
+ *
+ * Two clicks of "forgot password" within 60s should not mint two valid
+ * tokens — that confuses customers ("which link do I use?") and burns
+ * inbox real estate. With max=1 per 60s the second call silently
+ * succeeds without re-sending; the existing reset email + token is
+ * still valid (1h TTL) so the customer can use it.
+ *
+ * Separate from authRateLimiter (which is IP-keyed, 10/15min). Both
+ * apply: IP-keyed protects against scrapers, user-keyed dedupes
+ * legitimate double-clicks.
+ */
+export const passwordResetDedupeLimiter = new RateLimiter(
+  defaultStore,
+  1,
+  60_000,
+);
+
+/**
+ * Per-user-id dedupe for magic-link sign-in emails. Same rationale as
+ * passwordResetDedupeLimiter — prevent two valid magic-link tokens
+ * landing in the inbox from one double-click.
+ */
+export const magicLinkDedupeLimiter = new RateLimiter(
+  defaultStore,
+  1,
+  60_000,
+);
