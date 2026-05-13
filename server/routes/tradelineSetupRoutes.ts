@@ -106,10 +106,10 @@ export function registerTradelineSetupRoutes(app: Express) {
           trackEvent(distinctId(req.user!.id), "tradeline_setup_started", {
             client_id: clientId,
           });
-          return res.json({ setup: row, optionCEligible: tierEligible });
+          return res.json({ setup: row, optionCEligible: tierEligible, testMode: process.env.TRADELINE_SETUP_TEST_MODE === "true" });
         }
 
-        return res.json({ setup: existing, optionCEligible: tierEligible });
+        return res.json({ setup: existing, optionCEligible: tierEligible, testMode: process.env.TRADELINE_SETUP_TEST_MODE === "true" });
       } catch (err) {
         log.error("GET setup failed", { err: (err as Error).message });
         return res.status(500).json({ error: "Failed to load setup state" });

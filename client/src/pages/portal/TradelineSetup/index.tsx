@@ -31,6 +31,7 @@ import { apiFetch } from "./apiClient";
 interface SetupStateResponse {
   setup: TradelinePhoneSetup;
   optionCEligible: boolean;
+  testMode?: boolean;
 }
 
 export default function TradelineSetupPage() {
@@ -62,6 +63,13 @@ export default function TradelineSetupPage() {
   return (
     <PortalLayout>
       <div className="max-w-3xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+        {/* Test mode banner — server tells us if TRADELINE_SETUP_TEST_MODE=true */}
+        {data?.testMode && (
+          <div className="rounded-lg border border-fuchsia-300 bg-fuchsia-50 px-4 py-2 text-xs text-fuchsia-900">
+            <span className="font-semibold uppercase tracking-wide">Test mode</span> · Twilio calls are mocked. Provisioning returns +15005550006; carriers map by last digit: 1→Verizon, 2→Rogers, 3→Bell, else→T-Mobile.
+          </div>
+        )}
+
         {/* Heading */}
         <div className="text-center space-y-2">
           <div className="inline-flex items-center justify-center w-12 h-12 bg-indigo-100 rounded-full mb-1">
