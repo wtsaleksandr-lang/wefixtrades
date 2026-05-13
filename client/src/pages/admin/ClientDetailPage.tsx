@@ -601,6 +601,35 @@ export default function ClientDetailPage() {
       supplierNames: Array.from(new Set(
         (fulfillment ?? []).map(t => t.supplier_name).filter((n): n is string => !!n)
       )),
+      /* Q30c expansion: opt this page into AI form-fill. Fields cover the
+       * client-info edit form so the AI can propose values when the admin
+       * opens the Edit dialog after a chat. Apply handler writes into
+       * editForm; admin reviews + clicks Save in the dialog to persist. */
+      formFillFields: [
+        { key: "business_name", label: "Business name", required: true, currentValue: client.business_name },
+        { key: "contact_name", label: "Contact name", currentValue: client.contact_name },
+        { key: "contact_email", label: "Contact email", currentValue: client.contact_email },
+        { key: "contact_phone", label: "Contact phone", currentValue: client.contact_phone },
+        { key: "website_url", label: "Website URL", currentValue: client.website_url },
+        { key: "trade_type", label: "Trade type (e.g. plumber, electrician)", currentValue: client.trade_type },
+        { key: "source", label: "Lead source (audit | referral | inbound | manual | website)", currentValue: client.source },
+      ],
+      _onApplyFormFill: (fills) => {
+        // Open the edit dialog so admin can see + confirm before save.
+        openEdit();
+        // Wait for the dialog to mount then write the fills.
+        setTimeout(() => {
+          setEditForm((f) => {
+            const next = { ...f };
+            for (const fill of fills) {
+              if (fill.field_key in next) {
+                (next as any)[fill.field_key] = fill.value;
+              }
+            }
+            return next;
+          });
+        }, 50);
+      },
     }}>
       <div className="max-w-5xl mx-auto space-y-5">
         {/* Back link */}
