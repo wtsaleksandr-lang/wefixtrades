@@ -261,6 +261,21 @@ function ActivateForwarding({
 }) {
   // Bell / Virgin → device-settings fallback (no MMI code available)
   if (carrierEntry?.style === "device_settings_only") {
+    const wftNum = setup.assigned_number;
+    if (!wftNum && setup.provisioning_status === "queued") {
+      return (
+        <div className="space-y-4">
+          <BackLink onBack={onBack} />
+          <div className="rounded-xl border border-blue-200 bg-blue-50 p-6 text-center space-y-2">
+            <Loader2 className="w-6 h-6 text-blue-600 mx-auto animate-spin" />
+            <p className="text-sm font-semibold text-blue-900">Finalising your number…</p>
+            <p className="text-xs text-blue-700 max-w-sm mx-auto">
+              We're allocating a hidden WeFixTrades number to use as the forwarding destination. Try refreshing in a minute.
+            </p>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="space-y-4">
         <BackLink onBack={onBack} />
@@ -270,7 +285,7 @@ function ActivateForwarding({
           </h2>
         </div>
         <BellDeviceSettings
-          weFixTradesNumber="(your WeFixTrades number)"
+          weFixTradesNumber={wftNum ?? "(your number — refresh in a minute)"}
           onContinueToVerify={onContinueToVerify}
           onUseUnconditional={onContinueToVerify}
         />
@@ -278,12 +293,45 @@ function ActivateForwarding({
     );
   }
 
-  // Regular GSM/CDMA — show the code + tap-to-activate
-  // The WeFixTrades number isn't assigned yet for Option B (it's a hidden number,
-  // provisioned at submit-time). For the wizard preview, we use a placeholder.
-  const placeholderNumber = "(your WeFixTrades number)";
-  const telUri = carrierEntry ? buildActivationTelUri(carrierEntry, "5555555555") : null;
-  const codePreview = carrierEntry?.codes.activateAll?.replace("{num}", placeholderNumber);
+  // Real WeFixTrades number provisioned during lookup-carrier — use it in
+  // the tel: URI so the code actually forwards to a working endpoint.
+  // If provisioning is queued/failed, surface that instead of letting the
+  // user tap a code that goes nowhere.
+  const wftNumber = setup.assigned_number;
+  const provisionStatus = setup.provisioning_status;
+
+  if (!wftNumber && provisionStatus === "queued") {
+    return (
+      <div className="space-y-4">
+        <BackLink onBack={onBack} />
+        <div className="rounded-xl border border-blue-200 bg-blue-50 p-6 text-center space-y-2">
+          <Loader2 className="w-6 h-6 text-blue-600 mx-auto animate-spin" />
+          <p className="text-sm font-semibold text-blue-900">Finalising your number…</p>
+          <p className="text-xs text-blue-700 max-w-sm mx-auto">
+            We're allocating a hidden WeFixTrades number for your customers' calls to land on. This usually takes a minute. Try refreshing if it's been longer.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!wftNumber) {
+    return (
+      <div className="space-y-4">
+        <BackLink onBack={onBack} />
+        <div className="rounded-xl border border-rose-200 bg-rose-50 p-5 space-y-2">
+          <AlertTriangle className="w-6 h-6 text-rose-600" />
+          <p className="text-sm font-semibold text-rose-900">Couldn't reserve a forwarding number</p>
+          <p className="text-xs text-rose-700">
+            {setup.provisioning_failed_reason || "Contact support or try the wizard again."}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const telUri = carrierEntry ? buildActivationTelUri(carrierEntry, wftNumber) : null;
+  const codePreview = carrierEntry?.codes.activateAll?.replace("{num}", wftNumber);
 
   return (
     <div className="space-y-4">
@@ -308,13 +356,13 @@ function ActivateForwarding({
         <p className="text-[10px] uppercase tracking-wide text-gray-500 font-semibold">
           The code we'll dial
         </p>
-        <p className="text-lg font-mono text-gray-900">{codePreview}</p>
+        <p className="text-lg font-mono text-gray-900 break-all">{codePreview}</p>
         <p className="text-[10px] text-gray-500">
           Tap the button below to dial. Your phone will ask you to confirm — tap Call.
         </p>
       </div>
 
-      {telUri ? (
+      {telUri && (
         <a
           href={telUri}
           className="block w-full rounded-lg bg-indigo-600 px-4 py-3 text-center text-sm font-semibold text-white hover:bg-indigo-700"
@@ -322,7 +370,7 @@ function ActivateForwarding({
           <PhoneCall className="w-4 h-4 inline-block mr-2" />
           Call now to activate forwarding
         </a>
-      ) : null}
+      )}
 
       <div className="border-t border-gray-100 pt-3">
         <p className="text-xs text-gray-600 mb-2">

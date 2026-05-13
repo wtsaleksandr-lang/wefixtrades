@@ -16,7 +16,7 @@
  *   - tradeline_setup_completed { mode, time_elapsed_seconds } (terminal state per option)
  */
 
-import type { Express, Request, Response } from "express";
+import express, { type Express, type Request, type Response } from "express";
 import { z } from "zod";
 import { requireClient } from "../auth";
 import { db } from "../db";
@@ -29,6 +29,7 @@ import { eq } from "drizzle-orm";
 import { dualWriteSetup, getSetupRow } from "../services/tradelineSetup/dualWrite";
 import { provisionNumber } from "../services/tradelineSetup/provisionNumber";
 import { lookupCarrier } from "../services/tradelineSetup/carrierLookup";
+import { provisionNumber } from "../services/tradelineSetup/provisionNumber";
 import { placeTestCall, checkTestCallStatus } from "../services/tradelineSetup/forwardingVerifier";
 import { submitPort } from "../services/tradelineSetup/portRequest";
 import { hasTradelineProOrHigher } from "../lib/tradelineTierGate";
@@ -71,6 +72,14 @@ function distinctId(userId: number): string {
 }
 
 /* ─── Routes ─── */
+
+/**
+ * Larger JSON body parser for the bill + LOA upload routes. Global
+ * express.json() defaults to 100KB; phone-bill PDFs base64-encoded run
+ * up to ~7 MB. Applied per-route so other endpoints keep the tighter
+ * default.
+ */
+const LARGE_JSON = express.json({ limit: "10mb" });
 
 export function registerTradelineSetupRoutes(app: Express) {
   /* ─── GET state (and fire _started on first visit) ─── */
@@ -239,7 +248,46 @@ export function registerTradelineSetupRoutes(app: Express) {
         const result = await lookupCarrier(parsed.data.phoneNumber);
         if (!result.ok) return res.status(502).json({ error: result.error });
 
-        await dualWriteSetup({
+        // Option B needs a hidden WeFixTrades number for the customer's carrier
+        // code to forward TO. Provision now so the tel: URI on the next screen
+        // is real. Queued state is acceptable — UI surfaces a waiting message.
+        const existing = await getSetupRow(clientId);
+        let provisionStatus: "queued" | "provisioned" | "failed" | null = (existing?.provisioning_status as any) ?? null;
+        let provisionPatch: Partial<{
+          assigned_number: string;
+          assigned_number_sid: string;
+          provisioning_status: "queued" | "provisioned" | "failed";
+          provisioning_failed_reason: string | null;
+          provisioned_at: Date | null;
+        }> = {};
+
+        if (!existing?.assigned_number) {
+          const provision = await provisionNumber(result.market === "CA" ? "CA" : "US", "local");
+          if (provision.ok && !provision.queued) {
+            provisionStatus = "provisioned";
+            provisionPatch = {
+              assigned_number: provision.number,
+              assigned_number_sid: provision.sid,
+              provisioning_status: "provisioned",
+              provisioning_failed_reason: null,
+              provisioned_at: new Date(),
+            };
+          } else if (provision.ok && provision.queued) {
+            provisionStatus = "queued";
+            provisionPatch = {
+              provisioning_status: "queued",
+              provisioning_failed_reason: provision.reason,
+            };
+          } else {
+            provisionStatus = "failed";
+            provisionPatch = {
+              provisioning_status: "failed",
+              provisioning_failed_reason: provision.error,
+            };
+          }
+        }
+
+        const updated = await dualWriteSetup({
           clientId,
           setupPatch: {
             mode: "forward",
@@ -247,6 +295,7 @@ export function registerTradelineSetupRoutes(app: Express) {
             carrier: result.carrierKey,
             carrier_country: result.market,
             last_step: "forward_carrier_identified",
+            ...provisionPatch,
           },
         });
 
@@ -255,6 +304,8 @@ export function registerTradelineSetupRoutes(app: Express) {
           carrierEntry: result.carrierEntry,
           market: result.market,
           carrierName: result.carrierName,
+          assignedNumber: updated.assigned_number,
+          provisioningStatus: provisionStatus,
         });
       } catch (err) {
         log.error("lookup-carrier failed", { err: (err as Error).message });
@@ -410,6 +461,7 @@ export function registerTradelineSetupRoutes(app: Express) {
   });
   app.post(
     "/api/portal/tradeline/setup/port/upload-bill",
+    LARGE_JSON,
     requireClient,
     async (req: Request, res: Response) => {
       try {
@@ -453,6 +505,7 @@ export function registerTradelineSetupRoutes(app: Express) {
   });
   app.post(
     "/api/portal/tradeline/setup/port/sign-loa",
+    LARGE_JSON,
     requireClient,
     async (req: Request, res: Response) => {
       try {
