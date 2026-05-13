@@ -11,6 +11,12 @@
  * GCM IVs MUST NEVER repeat for the same key. We use crypto.randomBytes(12)
  * per call — the birthday bound for 96-bit IVs is ~2^48 messages, well
  * above any realistic phone-bill volume.
+ *
+ * initObjectStorage() is called from server/index.ts at boot. It validates
+ * BILL_ENCRYPTION_KEY at deploy time so a misconfigured environment fails
+ * fast instead of at first-upload time. Asymmetric with initAnalytics():
+ * analytics being unavailable is acceptable degradation, but encryption
+ * being unavailable breaks a user-facing feature, so we crash loudly.
  */
 
 import { Client, type RequestError } from "@replit/object-storage";
@@ -24,7 +30,47 @@ const IV_LENGTH = 12;
 const AUTH_TAG_LENGTH = 16;
 const KEY_LENGTH = 32;
 
+/**
+ * Standard (not URL-safe) base64: A-Z, a-z, 0-9, +, /, with 0-2 trailing `=`.
+ * Total length must be a multiple of 4. crypto.randomBytes(32).toString('base64')
+ * produces a 44-char string (43 chars + 1 `=`).
+ */
+const BASE64_RE = /^[A-Za-z0-9+/]+={0,2}$/;
+
 let cachedClient: Client | null = null;
+let cachedKey: Buffer | null = null;
+let initialised = false;
+
+/**
+ * Validate BILL_ENCRYPTION_KEY at boot. Three distinct failure modes, each
+ * with its own clear error message, so deploy logs immediately show which
+ * misconfiguration to fix:
+ *
+ *   1. env var missing  →  "BILL_ENCRYPTION_KEY not set in environment"
+ *   2. invalid base64   →  "BILL_ENCRYPTION_KEY is not valid base64"
+ *   3. wrong length     →  "BILL_ENCRYPTION_KEY must decode to 32 bytes, got N bytes"
+ */
+export function initObjectStorage(): void {
+  if (initialised) return;
+
+  const b64 = process.env.BILL_ENCRYPTION_KEY;
+  if (b64 === undefined || b64 === "") {
+    throw new Error("BILL_ENCRYPTION_KEY not set in environment");
+  }
+  if (b64.length % 4 !== 0 || !BASE64_RE.test(b64)) {
+    throw new Error("BILL_ENCRYPTION_KEY is not valid base64");
+  }
+  const key = Buffer.from(b64, "base64");
+  if (key.length !== KEY_LENGTH) {
+    throw new Error(
+      `BILL_ENCRYPTION_KEY must decode to ${KEY_LENGTH} bytes, got ${key.length} bytes`,
+    );
+  }
+
+  cachedKey = key;
+  initialised = true;
+  log.info("Object storage initialised", { keyBytes: key.length });
+}
 
 function getClient(): Client {
   if (!cachedClient) {
@@ -37,18 +83,15 @@ function getClient(): Client {
   return cachedClient;
 }
 
+/**
+ * Defence in depth: if init was somehow skipped (test harness etc.), the
+ * first encryption call still validates the key via the same code path.
+ */
 function getEncryptionKey(): Buffer {
-  const b64 = process.env.BILL_ENCRYPTION_KEY;
-  if (!b64) {
-    throw new Error("BILL_ENCRYPTION_KEY is not set");
+  if (!cachedKey) {
+    initObjectStorage();
   }
-  const key = Buffer.from(b64, "base64");
-  if (key.length !== KEY_LENGTH) {
-    throw new Error(
-      `BILL_ENCRYPTION_KEY must decode to ${KEY_LENGTH} bytes (got ${key.length})`,
-    );
-  }
-  return key;
+  return cachedKey!;
 }
 
 export interface UploadResult {

@@ -1,6 +1,7 @@
 import "dotenv/config";
 import * as Sentry from "@sentry/node";
 import { initAnalytics, shutdownAnalytics } from "./lib/analytics";
+import { initObjectStorage } from "./lib/objectStorage";
 
 if (process.env.SENTRY_DSN) {
   Sentry.init({
@@ -11,6 +12,10 @@ if (process.env.SENTRY_DSN) {
 }
 
 initAnalytics();
+// Fail-fast on bill-encryption key misconfiguration. Asymmetric with
+// initAnalytics() — analytics absence is acceptable degradation,
+// bill encryption absence breaks a user-facing feature.
+initObjectStorage();
 process.on("SIGTERM", () => { void shutdownAnalytics(); });
 process.on("SIGINT", () => { void shutdownAnalytics(); });
 
