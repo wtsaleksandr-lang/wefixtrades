@@ -4,7 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { X, Send, BrainCircuit, Loader2, ChevronDown, ChevronUp, Code2, HelpCircle, Wand2 } from "lucide-react";
+import { X, Send, BrainCircuit, Loader2, ChevronDown, ChevronUp, Code2, HelpCircle, Wand2, Settings as SettingsIcon } from "lucide-react";
 import { readSSEStream, type ChatMessage, type ToolCallEvent } from "@/lib/chatHelpers";
 import { useToast } from "@/hooks/use-toast";
 
@@ -280,6 +280,15 @@ const PROMPT_CHIPS: Record<string, string[]> = {
 /* ─── Storage ─── */
 const COPILOT_MESSAGES_KEY = "wft_copilot_messages";
 const COPILOT_SESSION_KEY = "wft_copilot_session";
+/* Copilot panel size + transparency persisted across mounts. Mirrors the
+ * portal widget pattern (Q25/Q25a). Width is for the desktop layout — on
+ * mobile the panel uses full viewport width regardless. */
+const COPILOT_WIDTH_KEY = "wft_copilot_width";
+const COPILOT_OPACITY_KEY = "wft_copilot_opacity";
+const MIN_W = 320;
+const DEFAULT_W = 380;
+const MAX_W_VW_PCT = 0.85;     // hard cap at 85% viewport width
+const MIN_OPACITY = 0.7;       // floor so message text remains readable
 
 function getCopilotSessionId(): string {
   let id: string | null = null;
@@ -669,6 +678,51 @@ export default function AdminCopilot({
    * the chat transcript. Cleared on Apply, Skip, or new user turn. */
   const [pendingFormFill, setPendingFormFill] = useState<FormFillProposal[] | null>(null);
   const [applyingFormFill, setApplyingFormFill] = useState(false);
+
+  /* Resize + transparency (mirrors portal Q25/Q25a). Width is for desktop
+   * only; mobile always full-width. Opacity floor 0.7 keeps text readable. */
+  const [panelWidth, setPanelWidth] = useState<number>(() => {
+    try {
+      const v = parseInt(localStorage.getItem(COPILOT_WIDTH_KEY) ?? "", 10);
+      if (Number.isFinite(v) && v >= MIN_W) return v;
+    } catch { /* noop */ }
+    return DEFAULT_W;
+  });
+  const [panelOpacity, setPanelOpacity] = useState<number>(() => {
+    try {
+      const v = parseFloat(localStorage.getItem(COPILOT_OPACITY_KEY) ?? "");
+      if (!isNaN(v) && v >= MIN_OPACITY && v <= 1) return v;
+    } catch { /* noop */ }
+    return 1;
+  });
+  useEffect(() => {
+    try { localStorage.setItem(COPILOT_WIDTH_KEY, String(panelWidth)); } catch { /* noop */ }
+  }, [panelWidth]);
+  useEffect(() => {
+    try { localStorage.setItem(COPILOT_OPACITY_KEY, String(panelOpacity)); } catch { /* noop */ }
+  }, [panelOpacity]);
+
+  const [showSettings, setShowSettings] = useState(false);
+
+  // Drag-to-resize from the LEFT edge (panel anchored right). Dragging
+  // left grows the panel; right shrinks. Clamped MIN_W ≤ w ≤ 85vw.
+  const resizeRef = useRef<{ startX: number; startW: number } | null>(null);
+  const handleResizeDown = (e: React.PointerEvent) => {
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    resizeRef.current = { startX: e.clientX, startW: panelWidth };
+  };
+  const handleResizeMove = (e: React.PointerEvent) => {
+    if (!resizeRef.current) return;
+    const { startX, startW } = resizeRef.current;
+    const maxW = Math.floor(window.innerWidth * MAX_W_VW_PCT);
+    // Dragging LEFT (clientX decreases) increases width.
+    const newW = Math.max(MIN_W, Math.min(maxW, startW + (startX - e.clientX)));
+    setPanelWidth(newW);
+  };
+  const handleResizeUp = (e: React.PointerEvent) => {
+    (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+    resizeRef.current = null;
+  };
   const [input, setInput] = useState("");
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
   const attachmentInputRef = useRef<ChatAttachmentInputHandle | null>(null);
@@ -907,7 +961,26 @@ export default function AdminCopilot({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-y-0 right-0 z-50 w-full sm:w-[380px] flex flex-col bg-white border-l border-gray-200 shadow-xl">
+    <div
+      className="fixed inset-y-0 right-0 z-50 w-full sm:w-auto flex flex-col border-l border-gray-200 shadow-xl"
+      style={{
+        // Mobile: ignore inline width (Tailwind w-full wins). Desktop: use saved panelWidth.
+        width: typeof window !== "undefined" && window.innerWidth >= 640 ? panelWidth : undefined,
+        backgroundColor: `rgba(255, 255, 255, ${panelOpacity})`,
+      }}
+      data-testid="copilot-panel"
+    >
+      {/* Resize handle on the LEFT edge — drag left to grow, right to shrink. */}
+      <div
+        onPointerDown={handleResizeDown}
+        onPointerMove={handleResizeMove}
+        onPointerUp={handleResizeUp}
+        className="absolute inset-y-0 left-0 w-1.5 cursor-ew-resize z-10 hover:bg-[#2D6A4F]/20 transition-colors hidden sm:block"
+        style={{ touchAction: "none" }}
+        title="Drag to resize"
+        data-testid="copilot-resize-handle"
+        aria-label="Resize Copilot panel"
+      />
       {/* Header */}
       <div className="flex items-center justify-between h-14 px-4 border-b border-gray-100 shrink-0">
         <div className="flex items-center gap-2">
@@ -929,6 +1002,17 @@ export default function AdminCopilot({
           )}
           <button
             type="button"
+            onClick={() => setShowSettings((v) => !v)}
+            aria-label="Copilot settings"
+            aria-pressed={showSettings}
+            title="Panel transparency + size"
+            className={`p-1.5 rounded ${showSettings ? "bg-gray-100 text-gray-700" : "text-gray-400 hover:bg-gray-50 hover:text-gray-600"}`}
+            data-testid="button-copilot-settings"
+          >
+            <SettingsIcon className="w-3.5 h-3.5" aria-hidden="true" />
+          </button>
+          <button
+            type="button"
             onClick={() => {
               setLocation("/admin/chat-history");
               onClose();
@@ -944,6 +1028,32 @@ export default function AdminCopilot({
           </Button>
         </div>
       </div>
+
+      {/* Settings drawer — transparency slider. Width is set via the left-edge
+          handle so no slider for that. Bubbles stay opaque regardless. */}
+      {showSettings && (
+        <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/80 space-y-2 shrink-0" data-testid="copilot-settings-drawer">
+          <div className="flex items-center justify-between">
+            <label className="text-[11px] font-medium text-gray-600 uppercase tracking-wide">Panel transparency</label>
+            <span className="text-[10px] text-gray-500">{Math.round(panelOpacity * 100)}%</span>
+          </div>
+          <input
+            type="range"
+            min="0.7"
+            max="1"
+            step="0.05"
+            value={panelOpacity}
+            onChange={(e) => setPanelOpacity(parseFloat(e.target.value))}
+            className="w-full accent-[#2D6A4F]"
+            data-testid="copilot-opacity-slider"
+            aria-label="Panel transparency"
+          />
+          <p className="text-[10px] text-gray-400">
+            Affects the panel background only — chat bubbles stay solid so text remains readable.
+            Drag the left edge to resize the panel width.
+          </p>
+        </div>
+      )}
 
       {/* Messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
