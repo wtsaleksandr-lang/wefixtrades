@@ -1,10 +1,20 @@
 import { useState, useRef, useEffect } from "react";
+import { useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { X, Send, BrainCircuit, Loader2, ChevronDown, ChevronUp, Code2, HelpCircle } from "lucide-react";
 import { readSSEStream, type ChatMessage, type ToolCallEvent } from "@/lib/chatHelpers";
+
+/* Q30b admin: lightweight action-button protocol shared shape (mirrors
+ * the portal-side type but targets /admin/* paths). */
+export interface ActionProposal {
+  label: string;
+  intent: "navigate";
+  target: string;
+  hint?: string;
+}
 import ChatAttachmentInput, {
   ChatAttachmentChips,
   type ChatAttachment,
@@ -121,7 +131,7 @@ function getCopilotSessionId(): string {
   return id;
 }
 
-function loadCopilotMessages(): ChatMessage[] {
+function loadCopilotMessages(): (ChatMessage & { actions?: ActionProposal[] })[] {
   try {
     const raw = localStorage.getItem(COPILOT_MESSAGES_KEY);
     if (raw) {
@@ -134,6 +144,8 @@ function loadCopilotMessages(): ChatMessage[] {
 
 function saveCopilotMessages(messages: CopilotMessage[]): void {
   try {
+    // Q30b admin: preserve `actions` on persisted assistant messages so they
+    // survive reload. localStorage is JSON, the field round-trips naturally.
     const persistable = messages.filter(
       (m): m is ChatMessage => m.role === "user" || m.role === "assistant"
     );
@@ -292,7 +304,43 @@ type ToolCallMessage = {
   error?: string;
 };
 
-type CopilotMessage = ChatMessage | ToolCallMessage;
+/* Q30b admin: assistant messages can carry parsed ACTION_PROPOSAL buttons.
+ * Extends ChatMessage locally so the shared lib type stays minimal. */
+type AssistantMessageWithActions = ChatMessage & { actions?: ActionProposal[] };
+type CopilotMessage = AssistantMessageWithActions | ToolCallMessage;
+
+/* Q30b admin: parse + sanitize ACTION_PROPOSAL block out of the assembled
+ * stream text. Returns the cleaned visible reply + the validated actions.
+ * Whitelist: target must start with /admin/, no ".." traversal, no schemes. */
+const ACTION_BLOCK_RE = /<<<ACTION_PROPOSAL>>>([\s\S]*?)<<<END_ACTION_PROPOSAL>>>/;
+function extractActionProposals(fullText: string): { cleanedText: string; actions?: ActionProposal[] } {
+  const match = fullText.match(ACTION_BLOCK_RE);
+  if (!match) return { cleanedText: fullText };
+  let actions: ActionProposal[] | undefined;
+  try {
+    const parsed = JSON.parse(match[1].trim());
+    if (parsed && Array.isArray(parsed.actions)) {
+      const valid = parsed.actions
+        .filter((a: any) => a
+          && typeof a.label === "string"
+          && a.intent === "navigate"
+          && typeof a.target === "string"
+          && a.target.startsWith("/admin/")
+          && !a.target.includes("..")
+          && !a.target.includes(":"))
+        .slice(0, 3)
+        .map((a: any) => ({
+          label: a.label.slice(0, 40),
+          intent: "navigate" as const,
+          target: a.target.slice(0, 200),
+          hint: typeof a.hint === "string" ? a.hint.slice(0, 200) : undefined,
+        }));
+      if (valid.length > 0) actions = valid;
+    }
+  } catch { /* malformed JSON — strip block but emit no actions */ }
+  const cleanedText = fullText.replace(ACTION_BLOCK_RE, "").trim();
+  return { cleanedText, actions };
+}
 
 /* ─── Confirmation card ─── */
 function ConfirmationCard({
@@ -419,6 +467,7 @@ export default function AdminCopilot({
   pageContext: AdminPageContext;
 }) {
   const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
   const [messages, setMessages] = useState<CopilotMessage[]>(() => loadCopilotMessages());
   const [input, setInput] = useState("");
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
@@ -613,13 +662,20 @@ export default function AdminCopilot({
         },
       );
 
+      // Q30b admin: parse ACTION_PROPOSAL block out of the assembled stream
+      // text, strip it from the visible reply, and attach validated actions
+      // to the assistant message. The block lands at the end of the reply per
+      // the system prompt, so the user briefly sees the raw fenced text mid-
+      // stream; the snap to cleaned happens here once the stream finishes.
+      const { cleanedText, actions } = extractActionProposals(assistantText);
+
       if (toolCallReceived) {
         // Save only the text portion; tool_call cards are transient
         const persistable: CopilotMessage[] = [...updated];
-        if (assistantText) persistable.push({ role: "assistant" as const, content: assistantText });
+        if (cleanedText) persistable.push({ role: "assistant" as const, content: cleanedText, actions });
         saveCopilotMessages(persistable);
       } else {
-        const final: CopilotMessage[] = [...updated, { role: "assistant" as const, content: assistantText }];
+        const final: CopilotMessage[] = [...updated, { role: "assistant" as const, content: cleanedText, actions }];
         setMessages(final);
         saveCopilotMessages(final);
       }
@@ -707,10 +763,12 @@ export default function AdminCopilot({
               </div>
             );
           }
+          const assistantMsg = msg as AssistantMessageWithActions;
+          const actions = msg.role === "assistant" ? assistantMsg.actions : undefined;
           return (
             <div
               key={i}
-              className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+              className={`flex flex-col ${msg.role === "user" ? "items-end" : "items-start"}`}
             >
               <div
                 className={`rounded-lg px-3 py-2 text-sm leading-relaxed ${
@@ -729,6 +787,28 @@ export default function AdminCopilot({
                   </span>
                 )}
               </div>
+              {actions && actions.length > 0 && (
+                <div className="mt-1.5 flex flex-wrap gap-1.5 max-w-[92%]" data-testid={`copilot-actions-${i}`}>
+                  {actions.map((a, j) => (
+                    <button
+                      key={j}
+                      type="button"
+                      onClick={() => {
+                        // Re-validate once more before navigating (defence in depth).
+                        if (!a.target.startsWith("/admin/") || a.target.includes("..") || a.target.includes(":")) return;
+                        setLocation(a.target);
+                        onClose();
+                      }}
+                      title={a.hint}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-[#2D6A4F] bg-white border border-[#2D6A4F]/30 rounded-full hover:bg-[#F0F7F4] hover:border-[#2D6A4F]/60 transition-colors"
+                      data-testid={`copilot-action-${i}-${j}`}
+                    >
+                      {a.label}
+                      <span aria-hidden="true">→</span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           );
         })}

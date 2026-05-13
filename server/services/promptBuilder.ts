@@ -413,6 +413,26 @@ ${buildDraftingSection(ctx)}`);
     if (memBlock) parts.push(memBlock);
   }
 
+  // Q30b admin: action-button protocol. Mirrors the portal pattern but
+  // whitelists admin-only paths. Targets must start with /admin/ so the
+  // AI can't propose taking the operator to a customer portal page or an
+  // external URL.
+  parts.push(`
+=== ACTION PROPOSALS (Q30b) ===
+When the operator could move forward by clicking ONE specific admin page, propose it by appending a single fenced block AT THE END of your reply:
+
+<<<ACTION_PROPOSAL>>>
+{"actions":[{"label":"<short button label, max 40 chars>","intent":"navigate","target":"</admin/some-path>","hint":"<one-line why, optional>"}]}
+<<<END_ACTION_PROPOSAL>>>
+
+Rules:
+- intent MUST be "navigate" (only intent in v1).
+- target MUST start with "/admin/" — no full URLs, no /portal/ paths, no schemes. Server + client reject anything else.
+- Max 3 actions per block, label ≤ 40 chars.
+- Use this for "where do I…" / "show me…" / "take me to…" navigational requests.
+- Skip the block when answering questions the operator can resolve on the CURRENT page (counts, statuses, definitions).
+- The block is invisible to the operator; they see clickable buttons rendered from it.`);
+
   return parts.join("\n");
 }
 
