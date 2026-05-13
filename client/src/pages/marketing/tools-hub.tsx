@@ -5,7 +5,7 @@ import { V7Hero, V7PageShell } from "@/components/marketing/v7";
 import { usePageMeta } from "@/lib/usePageMeta";
 import { useBreadcrumbSchema } from "@/lib/useBreadcrumbSchema";
 import { useFaqSchema } from "@/lib/useFaqSchema";
-import { Search, PhoneMissed, Calculator, ChevronRight, ChevronDown, Sparkles } from "lucide-react";
+import { Search, PhoneMissed, Calculator, ChevronRight, ChevronDown } from "lucide-react";
 import { mkt } from "@/theme/tokens";
 
 const TOOLS = [
