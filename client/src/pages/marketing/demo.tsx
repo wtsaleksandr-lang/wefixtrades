@@ -7,7 +7,7 @@ import MarketingLayout from "@/components/marketing/MarketingLayout";
 import ReviewsSection from "@/components/home/ReviewsSection";
 import VoiceVisualizer, { HeroSoundBars } from "@/components/marketing/VoiceVisualizer";
 import { Send, Bot, User, Mic, PhoneOff, Phone, MessageSquare, ArrowRight, Loader2, ChevronDown, Check } from "lucide-react";
-import { mkt, shadows } from "@/theme/tokens";
+import { mkt } from "@/theme/tokens";
 import { TRADELINE, formatPrice } from "@/config/pricing";
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -347,7 +347,7 @@ function PricingCards() {
             ))}
           </div>
           <Link
-            href="/Wizard"
+            href="/wizard"
             style={{
               display: "block", textAlign: "center", padding: "12px 0", borderRadius: 12,
               background: plan.highlighted ? mkt.accent : "transparent",
@@ -517,7 +517,7 @@ export default function DemoPage() {
               Get your 24/7 assistant running in under 15 minutes.
             </p>
             <Link
-              href="/Wizard"
+              href="/wizard"
               data-testid="button-build-yours"
               style={{
                 display: "inline-flex", alignItems: "center", gap: 8,

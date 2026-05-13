@@ -2,7 +2,7 @@ import { useState, useCallback, useMemo } from "react";
 import { Link } from "wouter";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import QuoteWidget from "@/components/quote-widget/QuoteWidget";
-import { mkt, colors, shadows } from "@/theme/tokens";
+import { mkt, colors } from "@/theme/tokens";
 import { useFaqSchema } from "@/lib/useFaqSchema";
 import { usePageMeta } from "@/lib/usePageMeta";
 import { useBreadcrumbSchema } from "@/lib/useBreadcrumbSchema";
@@ -11,7 +11,7 @@ import NextStepSuggestions from "@/components/marketing/NextStepSuggestions";
 import TrustStrip from "@/components/marketing/TrustStrip";
 import type { CalculatorData } from "@/components/quote-widget/types";
 import {
-  Wrench, SprayCan, Paintbrush, Zap, Home, Search,
+  Wrench, SprayCan, Paintbrush, Zap, Home,
   ArrowRight, Clock, DollarSign, Smartphone, ChevronDown,
 } from "lucide-react";
 
@@ -787,51 +787,3 @@ function DemoFaqSection() {
   );
 }
 
-/* ═══ Audit Callout ═══ */
-
-function AuditCallout() {
-  return (
-    <div style={{
-      maxWidth: 640,
-      margin: "0 auto",
-      marginTop: "clamp(32px, 5vw, 48px)",
-      paddingTop: "clamp(24px, 4vw, 36px)",
-      borderTop: `1px solid ${mkt.onDarkBorder}`,
-    }}>
-      <div style={{
-        fontSize: "clamp(16px, 2.2vw, 18px)",
-        fontWeight: 700,
-        color: colors.effortel.n300,
-        marginBottom: 8,
-      }}>
-        Before you install a quote tool, check this
-      </div>
-      <p style={{
-        fontSize: 14,
-        color: mkt.onDarkMuted,
-        lineHeight: 1.7,
-        margin: "0 0 14px",
-      }}>
-        A quote calculator only works if customers can find your website. Run a
-        free audit to check your Google Business Profile and website health first —
-        then add QuoteQuick to convert the traffic you're already getting.
-      </p>
-      <Link href="/tools/free-audit" style={{ textDecoration: "none", display: "inline-block" }}>
-        <div style={{
-          display: "flex", alignItems: "center", gap: 10,
-          padding: "10px 16px", borderRadius: 12,
-          border: `1px solid ${mkt.onDarkBorder}`, background: mkt.cardBg,
-          cursor: "pointer", transition: "border-color 0.15s, background 0.15s",
-          fontSize: 13, fontWeight: 650, color: mkt.onDark,
-        }}
-          onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)"; e.currentTarget.style.background = "rgba(255,255,255,0.04)"; }}
-          onMouseLeave={(e) => { e.currentTarget.style.borderColor = mkt.border; e.currentTarget.style.background = mkt.cardBg; }}
-        >
-          <Search size={14} color={mkt.accent} strokeWidth={1.8} />
-          Run Free Audit
-          <ArrowRight size={13} color={mkt.onDarkFaint} />
-        </div>
-      </Link>
-    </div>
-  );
-}
