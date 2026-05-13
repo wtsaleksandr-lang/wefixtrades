@@ -50,6 +50,8 @@ import { registerBookingApiRoutes } from "./bookingApiRoutes";
 import { registerBookflowRoutes } from "./bookflowRoutes";
 import { registerAdminAlertRoutes } from "./adminAlertRoutes";
 import { registerChatAttachmentRoutes } from "./chatAttachmentRoutes";
+import { registerTradelineSetupRoutes } from "./tradelineSetupRoutes";
+import { registerAdminTradelineSetupsRoutes } from "./adminTradelineSetupsRoutes";
 import { registerMobileAuthRoutes } from "./mobileAuthRoutes";
 import { registerMobileApiRoutes } from "./mobileApiRoutes";
 
@@ -108,6 +110,8 @@ export async function registerRoutes(
   registerBookflowRoutes(app);
   registerAdminAlertRoutes(app);
   registerChatAttachmentRoutes(app);
+  registerTradelineSetupRoutes(app);
+  registerAdminTradelineSetupsRoutes(app);
   registerMobileAuthRoutes(app);
   registerMobileApiRoutes(app);
 

@@ -77,6 +77,7 @@ const CORE_ITEMS = [
 const PRODUCTS_ITEMS = [
   { label: "QuoteQuick", href: "/admin/crm/quotequick", icon: Sparkles },
   { label: "TradeLine", href: "/admin/crm/tradeline-ops", icon: Phone },
+  { label: "TradeLine Setups", href: "/admin/crm/tradeline-setups", icon: Phone },
   { label: "Booking", href: "/admin/booking", icon: CalendarDays },
   { label: "MapGuard", href: "/admin/crm/mapguard", icon: Shield },
   { label: "RankFlow", href: "/admin/crm/rankflow", icon: TrendingUp },

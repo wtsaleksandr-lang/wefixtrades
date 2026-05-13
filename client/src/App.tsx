@@ -114,6 +114,7 @@ import PortalServiceDetail from "@/pages/portal/PortalServiceDetail";
 import PortalBilling from "@/pages/portal/PortalBilling";
 import PortalSettings from "@/pages/portal/PortalSettings";
 import PortalOnboarding from "@/pages/portal/PortalOnboarding";
+import TradelineSetupPage from "@/pages/portal/TradelineSetup";
 import PortalHelp from "@/pages/portal/PortalHelp";
 import PortalTicketDetail from "@/pages/portal/PortalTicketDetail";
 import SupportInboxPage from "@/pages/admin/SupportInboxPage";
@@ -130,6 +131,7 @@ import SystemJobsPage from "@/pages/admin/SystemJobsPage";
 import SystemWorkersPage from "@/pages/admin/SystemWorkersPage";
 import SystemAvailabilityPage from "@/pages/admin/SystemAvailabilityPage";
 import TradeLineOpsPage from "@/pages/admin/TradeLineOpsPage";
+import TradelineSetupsPage from "@/pages/admin/TradelineSetupsPage";
 import QuoteQuickPage from "@/pages/admin/QuoteQuickPage";
 import BookingPage from "@/pages/public/BookingPage";
 import PayInvoicePage from "@/pages/public/PayInvoicePage";
@@ -160,6 +162,7 @@ function Router() {
       <Route path="/admin/crm/rankflow">{() => <RequirePortal><RankFlowOpsPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/adflow">{() => <RequirePortal><AdFlowOpsPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/tradeline-ops">{() => <RequirePortal><TradeLineOpsPage /></RequirePortal>}</Route>
+      <Route path="/admin/crm/tradeline-setups">{() => <RequirePortal><TradelineSetupsPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/quotequick">{() => <RequirePortal><QuoteQuickPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/support/:id">{() => <RequirePortal><SupportTicketDetailPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/support">{() => <RequirePortal><SupportInboxPage /></RequirePortal>}</Route>
@@ -186,6 +189,7 @@ function Router() {
       <Route path="/admin/outbound">{() => <Redirect to="/admin/outbound/prospects" />}</Route>
 
       {/* Client portal */}
+      <Route path="/portal/tradeline/setup">{() => <RequireClient><TradelineSetupPage /></RequireClient>}</Route>
       <Route path="/portal/onboarding/:id">{() => <RequireClient><PortalOnboarding /></RequireClient>}</Route>
       <Route path="/portal/services/:id">{() => <RequireClient><PortalServiceDetail /></RequireClient>}</Route>
       <Route path="/portal/mapguard">{() => <RequireClient><PortalMapguard /></RequireClient>}</Route>
