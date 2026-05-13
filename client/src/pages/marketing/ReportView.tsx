@@ -5,6 +5,7 @@ import AuditGate from "@/components/marketing/AuditGate";
 import InfoTooltip from "@/components/marketing/InfoTooltip";
 import NextStepSuggestions from "@/components/marketing/NextStepSuggestions";
 import { trackEvent } from "@/lib/trackEvent";
+import { useToast } from "@/hooks/use-toast";
 
 // ─── Design tokens ───────────────────
 const DARK = '#0d1514';
@@ -521,6 +522,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
 
   const [emailError, setEmailError] = useState('');
   const [pdfDownloading, setPdfDownloading] = useState(false);
+  const { toast } = useToast();
 
   const handlePdfDownload = async () => {
     if (!reportId || pdfDownloading) return;
@@ -529,17 +531,21 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
       const resp = await fetch(`/api/audit/report/${reportId}/pdf`);
       if (!resp.ok) {
         const ct = resp.headers.get('content-type') || '';
+        let description = 'Please try again.';
         if (ct.includes('json')) {
           const data = await resp.json();
-          alert(data?.error || 'Failed to generate PDF. Please try again.');
-        } else {
-          alert('Failed to generate PDF. Please try again.');
+          if (data?.error) description = data.error;
         }
+        toast({ title: 'PDF download failed', description, variant: 'destructive' });
         return;
       }
       const ct = resp.headers.get('content-type') || '';
       if (!ct.includes('application/pdf')) {
-        alert('Server returned an unexpected response. Please try again.');
+        toast({
+          title: 'PDF download failed',
+          description: 'Server returned an unexpected response. Please try again.',
+          variant: 'destructive',
+        });
         return;
       }
       const blob = await resp.blob();
@@ -553,7 +559,11 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch {
-      alert('Something went wrong generating the PDF. Please try again.');
+      toast({
+        title: 'PDF download failed',
+        description: 'Something went wrong. Please try again.',
+        variant: 'destructive',
+      });
     } finally {
       setPdfDownloading(false);
     }

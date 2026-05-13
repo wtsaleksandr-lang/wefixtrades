@@ -613,8 +613,8 @@ export default function AutomationDiagram() {
     el?.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
   }, [activeTab]);
 
-  const onNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
-    console.log("Node clicked:", node.id, node.data);
+  const onNodeClick = useCallback((_: React.MouseEvent, _node: Node) => {
+    // No-op: registered so React Flow keeps nodes interactive; click telemetry not wired yet.
   }, []);
 
   const defaultViewport = { x: 0, y: 0, zoom: 1.1 };
