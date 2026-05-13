@@ -86,12 +86,95 @@ const CATEGORIES = [
   { value: "other", label: "Other" },
 ];
 
-const SUGGESTIONS = [
-  "How do I complete my setup form?",
-  "When will my service go live?",
-  "How do I check my billing status?",
-  "What does my service include?",
+/* Per-page quick-start prompts. Matches against the current location
+ * path; longest-prefix wins. Pages not listed fall back to the generic
+ * "default" list. Each entry has 3-4 prompts. */
+const SUGGESTIONS_BY_PATH: Array<{ prefix: string; prompts: string[] }> = [
+  { prefix: "/portal/onboarding", prompts: [
+    "What does this question mean?",
+    "Help me fill in my business info",
+    "How long does setup take?",
+  ]},
+  { prefix: "/portal/billing", prompts: [
+    "What's my current balance?",
+    "When's my next invoice?",
+    "How do I update my payment method?",
+    "Why was I charged this amount?",
+  ]},
+  { prefix: "/portal/invoices", prompts: [
+    "What invoices are outstanding?",
+    "How do I download a receipt?",
+    "Can I dispute a charge?",
+  ]},
+  { prefix: "/portal/payment-methods", prompts: [
+    "How do I add a new card?",
+    "How do I change my default payment method?",
+    "Are bank transfers supported?",
+  ]},
+  { prefix: "/portal/services", prompts: [
+    "What's the status of my services?",
+    "When will my service go live?",
+    "Any blockers I should know about?",
+  ]},
+  { prefix: "/portal/catalog", prompts: [
+    "Which tier should I pick for my business?",
+    "What's the difference between Starter and Pro?",
+    "Recommend a bundle for me",
+    "What's in this bundle?",
+  ]},
+  { prefix: "/portal/reviews", prompts: [
+    "How does the review widget work?",
+    "How do I respond to a negative review?",
+    "What's my average rating this month?",
+  ]},
+  { prefix: "/portal/mapguard", prompts: [
+    "What does my MapGuard score mean?",
+    "How do I improve my ranking?",
+    "What's blocking my listing?",
+  ]},
+  { prefix: "/portal/socialsync", prompts: [
+    "Help me write a post",
+    "What should I post about this week?",
+    "When are my posts scheduled?",
+  ]},
+  { prefix: "/portal/rankflow", prompts: [
+    "What content is planned for this month?",
+    "How do I review an article?",
+    "What's my SEO progress?",
+  ]},
+  { prefix: "/portal/articles", prompts: [
+    "Walk me through approving an article",
+    "What's pending my review?",
+  ]},
+  { prefix: "/portal/dispatch", prompts: [
+    "What jobs are happening today?",
+    "How do I confirm a booking?",
+  ]},
+  { prefix: "/portal/help", prompts: [
+    "How do I contact support?",
+    "What's the typical response time?",
+    "How do I escalate an issue?",
+  ]},
+  { prefix: "/portal/settings", prompts: [
+    "How do I change my password?",
+    "How do I upload my logo?",
+    "How do I pause AI automation?",
+  ]},
+  { prefix: "/portal", prompts: [
+    "What needs my attention?",
+    "When is my next service activation?",
+    "Summarize my dashboard",
+  ]},
 ];
+
+function suggestionsForPath(path: string): string[] {
+  const match = SUGGESTIONS_BY_PATH.find((s) => path.startsWith(s.prefix));
+  return match?.prompts ?? [
+    "What can you help me with?",
+    "How do I get started?",
+    "Where do I check my billing?",
+  ];
+}
 
 /**
  * PortalChatWidget — single global portal assistant.
@@ -583,7 +666,7 @@ export default function PortalChatWidget({
               <div className="text-center py-3">
                 <p className="text-xs text-gray-400 mb-2">Ask anything about your services, billing, or account.</p>
                 <div className="flex flex-wrap gap-1.5 justify-center">
-                  {SUGGESTIONS.map((s, i) => (
+                  {suggestionsForPath(location).map((s, i) => (
                     <button
                       key={i}
                       onClick={() => send(s)}

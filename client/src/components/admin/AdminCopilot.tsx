@@ -103,6 +103,9 @@ export interface AdminPageContext {
 }
 
 /* ─── Suggested prompts per page ─── */
+/* Per-page suggestion prompts. Each entry has 3-5 prompts the Copilot
+ * surfaces as quick-start chips when the admin lands on the page. Pages
+ * not listed fall back to `overview`. */
 const PROMPT_CHIPS: Record<string, string[]> = {
   overview: [
     "What should I focus on first?",
@@ -135,12 +138,142 @@ const PROMPT_CHIPS: Record<string, string[]> = {
     "Draft a payment follow-up",
   ],
   suppliers: [
-    "Summarize this page",
-    "What should I know?",
+    "Which supplier handles the most tasks?",
+    "Any inactive suppliers we should drop?",
+    "Cost rate outliers?",
+    "Summarize supplier health",
   ],
   services: [
     "Summarize the service catalog",
     "What services are most used?",
+    "Any products without Stripe IDs?",
+  ],
+  product_detail: [
+    "Summarize this product",
+    "What's editable here?",
+    "Any tier without a Stripe price ID?",
+    "Draft a tagline for this product",
+  ],
+  support: [
+    "What tickets are oldest?",
+    "What's waiting on me?",
+    "Summarize support load",
+    "Any high-priority tickets?",
+  ],
+  support_ticket_detail: [
+    "Summarize this ticket",
+    "Draft a reply",
+    "What should happen next?",
+    "Is this resolvable now?",
+  ],
+  alerts: [
+    "Which alerts are critical?",
+    "What's been unacknowledged longest?",
+    "Summarize alert health",
+  ],
+  audit_log: [
+    "What changed in the last 24h?",
+    "Any suspicious activity?",
+    "Summarize recent edits",
+  ],
+  reviews: [
+    "Any negative reviews to respond to?",
+    "Draft a thank-you reply",
+    "Review trend this week?",
+  ],
+  mapguard: [
+    "Which clients need attention?",
+    "Ranking change this week?",
+    "Summarize MapGuard ops",
+  ],
+  rankflow: [
+    "What content is overdue?",
+    "Summarize this week's plan",
+    "Any client falling behind?",
+  ],
+  contentflow: [
+    "What's in QA queue?",
+    "Summarize the article queue",
+    "Which articles need approval?",
+  ],
+  socialsync: [
+    "Summarize the social calendar",
+    "Any client without posts scheduled?",
+    "Draft a caption",
+  ],
+  tradeline_ops: [
+    "Which lines are degraded?",
+    "Any auto-response failures?",
+    "Summarize TradeLine health",
+  ],
+  adflow: [
+    "Any campaigns missing metrics?",
+    "Top ROAS this week?",
+    "What needs the most attention?",
+  ],
+  quotequick: [
+    "Most active calculators?",
+    "Summarize quote-conversion this week",
+  ],
+  booking: [
+    "Today's upcoming bookings",
+    "Any unconfirmed bookings?",
+    "Summarize this week",
+  ],
+  sales: [
+    "Top of the pipeline?",
+    "Any deals stuck?",
+    "Summarize this week's progress",
+  ],
+  ai_dashboard: [
+    "Summarize AI usage this week",
+    "Which conversations need review?",
+    "Cost trend?",
+  ],
+  integration_health: [
+    "Anything broken right now?",
+    "Summarize integration state",
+    "Recent downtime?",
+  ],
+  system_jobs: [
+    "Any failed jobs?",
+    "Summarize cron health",
+    "What's running right now?",
+  ],
+  system_workers: [
+    "Any workers offline?",
+    "Summarize worker health",
+  ],
+  system_availability: [
+    "Summarize uptime this week",
+    "Any recent incidents?",
+  ],
+  outbound_prospects: [
+    "Who should I contact first?",
+    "Any prospects gone cold?",
+    "Summarize the queue",
+  ],
+  outbound_campaigns: [
+    "Top-performing campaign?",
+    "Any campaign needing approval?",
+    "Summarize campaign health",
+  ],
+  outbound_pipeline: [
+    "Top deals in flight",
+    "Any deal stuck >30 days?",
+    "Summarize pipeline",
+  ],
+  profile: [
+    "What can I change here?",
+  ],
+  settings: [
+    "What can I configure?",
+  ],
+  change_password: [
+    "What are the password rules?",
+  ],
+  chat_history: [
+    "What did we discuss this week?",
   ],
 };
 
