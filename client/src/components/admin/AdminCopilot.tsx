@@ -6,12 +6,16 @@ import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { X, Send, BrainCircuit, Loader2, ChevronDown, ChevronUp, Code2, HelpCircle } from "lucide-react";
 import { readSSEStream, type ChatMessage, type ToolCallEvent } from "@/lib/chatHelpers";
+import { useToast } from "@/hooks/use-toast";
 
 /* Q30b admin: lightweight action-button protocol shared shape (mirrors
  * the portal-side type but targets /admin/* paths). */
 export interface ActionProposal {
   label: string;
-  intent: "navigate";
+  intent: "navigate" | "click";
+  /* For navigate: path that must start with /admin/.
+   * For click: data-testid value matching ^[a-z0-9_-]+$. The widget calls
+   * .click() on document.querySelector(`[data-testid="${target}"]`). */
   target: string;
   hint?: string;
 }
@@ -313,6 +317,7 @@ type CopilotMessage = AssistantMessageWithActions | ToolCallMessage;
  * stream text. Returns the cleaned visible reply + the validated actions.
  * Whitelist: target must start with /admin/, no ".." traversal, no schemes. */
 const ACTION_BLOCK_RE = /<<<ACTION_PROPOSAL>>>([\s\S]*?)<<<END_ACTION_PROPOSAL>>>/;
+const TEST_ID_RE = /^[a-z0-9_-]+$/i;
 function extractActionProposals(fullText: string): { cleanedText: string; actions?: ActionProposal[] } {
   const match = fullText.match(ACTION_BLOCK_RE);
   if (!match) return { cleanedText: fullText };
@@ -321,17 +326,22 @@ function extractActionProposals(fullText: string): { cleanedText: string; action
     const parsed = JSON.parse(match[1].trim());
     if (parsed && Array.isArray(parsed.actions)) {
       const valid = parsed.actions
-        .filter((a: any) => a
-          && typeof a.label === "string"
-          && a.intent === "navigate"
-          && typeof a.target === "string"
-          && a.target.startsWith("/admin/")
-          && !a.target.includes("..")
-          && !a.target.includes(":"))
+        .filter((a: any) => {
+          if (!a || typeof a.label !== "string" || typeof a.target !== "string") return false;
+          if (a.intent === "navigate") {
+            return a.target.startsWith("/admin/")
+              && !a.target.includes("..")
+              && !a.target.includes(":");
+          }
+          if (a.intent === "click") {
+            return TEST_ID_RE.test(a.target) && a.target.length <= 80;
+          }
+          return false;
+        })
         .slice(0, 3)
         .map((a: any) => ({
           label: a.label.slice(0, 40),
-          intent: "navigate" as const,
+          intent: a.intent as "navigate" | "click",
           target: a.target.slice(0, 200),
           hint: typeof a.hint === "string" ? a.hint.slice(0, 200) : undefined,
         }));
@@ -467,6 +477,7 @@ export default function AdminCopilot({
   pageContext: AdminPageContext;
 }) {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [messages, setMessages] = useState<CopilotMessage[]>(() => loadCopilotMessages());
   const [input, setInput] = useState("");
@@ -794,17 +805,29 @@ export default function AdminCopilot({
                       key={j}
                       type="button"
                       onClick={() => {
-                        // Re-validate once more before navigating (defence in depth).
-                        if (!a.target.startsWith("/admin/") || a.target.includes("..") || a.target.includes(":")) return;
-                        setLocation(a.target);
-                        onClose();
+                        if (a.intent === "navigate") {
+                          if (!a.target.startsWith("/admin/") || a.target.includes("..") || a.target.includes(":")) return;
+                          setLocation(a.target);
+                          onClose();
+                          return;
+                        }
+                        if (a.intent === "click") {
+                          if (!/^[a-z0-9_-]+$/i.test(a.target)) return;
+                          const el = document.querySelector(`[data-testid="${a.target}"]`) as HTMLElement | null;
+                          if (!el) {
+                            toast({ title: "Couldn't find that button on this page", description: "It may have moved or already been used.", variant: "destructive" });
+                            return;
+                          }
+                          el.click();
+                          onClose();
+                        }
                       }}
                       title={a.hint}
                       className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-[#2D6A4F] bg-white border border-[#2D6A4F]/30 rounded-full hover:bg-[#F0F7F4] hover:border-[#2D6A4F]/60 transition-colors"
                       data-testid={`copilot-action-${i}-${j}`}
                     >
                       {a.label}
-                      <span aria-hidden="true">→</span>
+                      <span aria-hidden="true">{a.intent === "navigate" ? "→" : "✓"}</span>
                     </button>
                   ))}
                 </div>

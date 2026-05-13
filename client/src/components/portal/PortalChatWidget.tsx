@@ -10,6 +10,7 @@ import ChatAttachmentInput, {
   type ChatAttachmentInputHandle,
 } from "@/components/shared/ChatAttachmentInput";
 import { loadPortalMessages, savePortalMessages } from "@/lib/chatHelpers";
+import { useToast } from "@/hooks/use-toast";
 
 const LAST_OPEN_KEY = "wft_portal_chat_last_open";
 const OPACITY_KEY = "wft_portal_chat_opacity";
@@ -40,8 +41,11 @@ function readPageContentSnapshot(): string | undefined {
  * on both server and client (defence in depth). */
 export interface ActionProposal {
   label: string;
-  intent: "navigate";
-  target: string;   // path; server validates it starts with /portal/
+  intent: "navigate" | "click";
+  /* For navigate: path that must start with /portal/.
+   * For click: data-testid value matching ^[a-z0-9_-]+$. The widget calls
+   * .click() on document.querySelector(`[data-testid="${target}"]`). */
+  target: string;
   hint?: string;
 }
 
@@ -105,6 +109,7 @@ export default function PortalChatWidget({
   chatContext?: PortalChatContext;
 }) {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [location, setLocation] = useLocation();
   const [open, setOpen] = useState(false);
   // Q25: transparency slider — persists across mounts. 0.7 floor so messages remain readable.
@@ -318,17 +323,20 @@ export default function PortalChatWidget({
       // as defence in depth and to drop any malformed entries before render.
       const safeActions: ActionProposal[] | undefined = Array.isArray(data.actions)
         ? data.actions
-            .filter((a: any) => a
-              && typeof a.label === "string"
-              && a.intent === "navigate"
-              && typeof a.target === "string"
-              && a.target.startsWith("/portal/")
-              && !a.target.includes(":")
-              && !a.target.includes(".."))
+            .filter((a: any) => {
+              if (!a || typeof a.label !== "string" || typeof a.target !== "string") return false;
+              if (a.intent === "navigate") {
+                return a.target.startsWith("/portal/") && !a.target.includes(":") && !a.target.includes("..");
+              }
+              if (a.intent === "click") {
+                return /^[a-z0-9_-]+$/i.test(a.target) && a.target.length <= 80;
+              }
+              return false;
+            })
             .slice(0, 3)
             .map((a: any) => ({
               label: a.label.slice(0, 40),
-              intent: "navigate" as const,
+              intent: a.intent as "navigate" | "click",
               target: a.target,
               hint: typeof a.hint === "string" ? a.hint.slice(0, 200) : undefined,
             }))
@@ -596,17 +604,34 @@ export default function PortalChatWidget({
                         key={j}
                         type="button"
                         onClick={() => {
-                          // Re-validate one more time before navigating.
-                          if (!a.target.startsWith("/portal/") || a.target.includes("..") || a.target.includes(":")) return;
-                          setLocation(a.target);
-                          setOpen(false);
+                          if (a.intent === "navigate") {
+                            // Re-validate target once more before navigating.
+                            if (!a.target.startsWith("/portal/") || a.target.includes("..") || a.target.includes(":")) return;
+                            setLocation(a.target);
+                            setOpen(false);
+                            return;
+                          }
+                          if (a.intent === "click") {
+                            // Q30b v2: dispatch click on the element matching the
+                            // proposed data-testid. Re-validate target shape, then
+                            // close the chat panel so the operator sees the
+                            // resulting state change (e.g. a confirm toast).
+                            if (!/^[a-z0-9_-]+$/i.test(a.target)) return;
+                            const el = document.querySelector(`[data-testid="${a.target}"]`) as HTMLElement | null;
+                            if (!el) {
+                              toast({ title: "Couldn't find that button on this page", description: "It may have moved or already been used.", variant: "destructive" });
+                              return;
+                            }
+                            el.click();
+                            setOpen(false);
+                          }
                         }}
                         title={a.hint}
                         className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-[#2D6A4F] bg-white border border-[#2D6A4F]/30 rounded-full hover:bg-[#F0F7F4] hover:border-[#2D6A4F]/60 transition-colors"
                         data-testid={`chat-action-${i}-${j}`}
                       >
                         {a.label}
-                        <span aria-hidden="true">→</span>
+                        <span aria-hidden="true">{a.intent === "navigate" ? "→" : "✓"}</span>
                       </button>
                     ))}
                   </div>
