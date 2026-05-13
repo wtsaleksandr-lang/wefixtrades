@@ -46,6 +46,7 @@ import { processTradeLineRetries } from "./tradelineRetryWorker";
 import { fireAlert } from "../services/alertService";
 import { processEmailQueue } from "../services/emailQueueService";
 import { processEmbedBrokenDetection } from "./embedBrokenDetector";
+import { processBillRetention } from "./tradelineBillRetentionWorker";
 
 const log = createLogger("Scheduler");
 
@@ -246,6 +247,15 @@ export function initScheduler() {
       });
     } catch (err: any) {
       log.error("chat_memory_cleanup cron handler error", { error: err.message });
+    }
+  }, { timezone: "UTC" });
+
+  // Tradeline bill retention — daily at 03:30 UTC, 90-day cleanup
+  cron.schedule("30 3 * * *", async () => {
+    try {
+      await runJob("tradeline_bill_retention", processBillRetention);
+    } catch (err: any) {
+      log.error("tradeline_bill_retention cron handler error", { error: err.message });
     }
   }, { timezone: "UTC" });
 
