@@ -143,8 +143,50 @@ export default function PortalCatalog() {
   const services = data?.services ?? [];
   const bundles = data?.bundles ?? [];
 
+  /* Q30c: opt the catalog into AI form-fill for tier selection. For each
+   * service with tiers we expose a synthetic field `tier:<service_id>`.
+   * The AI can propose "set tier:tradeline to growth" — Apply writes
+   * selectedTier state, the user reviews + clicks Continue to checkout. */
+  const tierServices = services.filter((s) => s.tiers && s.tiers.length > 0);
+  const chatFields = tierServices.length > 0
+    ? tierServices.map((s) => {
+        const tierIds = (s.tiers ?? []).map((t) => t.id).join(" | ");
+        const current = selectedTier[s.id] ?? defaultTierId(s.tiers);
+        return {
+          key: `tier:${s.id}`,
+          label: `${s.name} tier (one of: ${tierIds})`,
+          required: false,
+          // PortalChatContext.current_responses takes the values map; we'll
+          // synthesize it below alongside fields.
+          _current: current ?? "(default)",
+        };
+      })
+    : [];
+
+  const chatContext = chatFields.length > 0
+    ? {
+        fields: chatFields.map(({ key, label, required }) => ({ key, label, required })),
+        current_responses: Object.fromEntries(chatFields.map((f) => [f.key, f._current])),
+        onApplyFill: (fills: { field_key: string; value: string }[]) => {
+          const updates: Record<string, string> = {};
+          for (const fill of fills) {
+            if (!fill.field_key.startsWith("tier:")) continue;
+            const serviceId = fill.field_key.slice("tier:".length);
+            const svc = tierServices.find((s) => s.id === serviceId);
+            if (!svc) continue;
+            const validTier = (svc.tiers ?? []).find((t) => t.id === fill.value);
+            if (!validTier) continue;
+            updates[serviceId] = validTier.id;
+          }
+          if (Object.keys(updates).length > 0) {
+            setSelectedTier((prev) => ({ ...prev, ...updates }));
+          }
+        },
+      }
+    : undefined;
+
   return (
-    <PortalLayout>
+    <PortalLayout chatContext={chatContext}>
       <div className="max-w-5xl mx-auto space-y-6">
         <div>
           <h1 className="text-xl font-semibold text-gray-900">Add Services</h1>
