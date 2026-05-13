@@ -13,6 +13,11 @@
  *
  * Q28g (cycle 18): server merges admin-edited name/tagline/description/
  * features overrides into the hardcoded SERVICES list.
+ *
+ * Q5e (cycle 25): bundles section above individual services. Each bundle
+ * card maps to a single Stripe Checkout Session with one line_item per
+ * included tier — same shape the marketing site has supported since launch,
+ * now available to authenticated customers too.
  */
 
 import { useState } from "react";
@@ -38,6 +43,18 @@ interface CatalogService {
   /* Q28g2: admin-edited tiers from serviceCatalog.tiers. When non-null, the
      portal renders a tier picker; the chosen tier_id is passed to subscribe. */
   tiers: Tier[] | null;
+}
+
+interface CatalogBundle {
+  id: string;
+  name: string;
+  tagline: string;
+  price: number;             // dollars (whole units), monthly when billingPeriod=monthly
+  billingPeriod: "monthly" | "one-time";
+  badge: string | null;
+  highlighted: boolean;
+  savings: number;           // dollars saved per period vs sum of included items
+  includes: Array<{ tier_id: string; label: string; value: number }>;
 }
 
 function formatCents(cents: number): string {
@@ -77,7 +94,7 @@ export default function PortalCatalog() {
   const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
   const checkoutResult = params?.get("checkout");
 
-  const { data, isLoading, error } = useQuery<{ services: CatalogService[] }>({
+  const { data, isLoading, error } = useQuery<{ services: CatalogService[]; bundles: CatalogBundle[] }>({
     queryKey: ["/api/portal/catalog"],
     queryFn: async () => {
       const res = await fetch("/api/portal/catalog", { credentials: "include" });
@@ -90,12 +107,15 @@ export default function PortalCatalog() {
   const [selectedTier, setSelectedTier] = useState<Record<string, string>>({});
 
   const subscribe = useMutation({
-    mutationFn: async ({ serviceId, tierId }: { serviceId: string; tierId?: string }) => {
+    mutationFn: async (req: { serviceId: string; tierId?: string } | { bundleId: string }) => {
+      const body = "bundleId" in req
+        ? { bundle_id: req.bundleId }
+        : { service_id: req.serviceId, ...(req.tierId ? { tier_id: req.tierId } : {}) };
       const res = await fetch("/api/portal/catalog/subscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ service_id: serviceId, ...(tierId ? { tier_id: tierId } : {}) }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Couldn't start checkout");
@@ -115,8 +135,13 @@ export default function PortalCatalog() {
     const tierId = selectedTier[svc.id] ?? defaultTierId(svc.tiers);
     subscribe.mutate({ serviceId: svc.id, tierId });
   };
+  const handleAddBundle = (bundle: CatalogBundle) => {
+    setPendingId(`bundle:${bundle.id}`);
+    subscribe.mutate({ bundleId: bundle.id });
+  };
 
   const services = data?.services ?? [];
+  const bundles = data?.bundles ?? [];
 
   return (
     <PortalLayout>
@@ -146,11 +171,89 @@ export default function PortalCatalog() {
           </div>
         )}
 
-        {!isLoading && !error && services.length === 0 && (
+        {!isLoading && !error && services.length === 0 && bundles.length === 0 && (
           <div className="bg-white rounded-xl border border-gray-200 p-6 text-center">
             <p className="text-sm text-gray-600">
               You're subscribed to every available service. Nothing to add right now.
             </p>
+          </div>
+        )}
+
+        {/* Q5e: bundles section — surfaces above individual services when available.
+            Each bundle creates one Stripe Checkout Session covering all its included
+            tiers in a single transaction. */}
+        {bundles.length > 0 && (
+          <section className="space-y-3">
+            <div className="flex items-end justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-semibold text-gray-900">Bundles</h2>
+                <p className="text-xs text-gray-500">Save by combining services into one subscription.</p>
+              </div>
+            </div>
+            <div className="grid auto-rows-fr grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" data-testid="bundles-grid">
+              {bundles.map((b) => (
+                <div
+                  key={b.id}
+                  className={`h-full bg-white rounded-xl border p-5 flex flex-col gap-3 hover:shadow-sm transition-shadow ${
+                    b.highlighted
+                      ? "border-[#2D6A4F]/40 ring-1 ring-[#2D6A4F]/20"
+                      : "border-gray-200"
+                  }`}
+                  data-testid={`bundle-card-${b.id}`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-900">{b.name}</h3>
+                      <p className="text-xs text-gray-500 mt-0.5">{b.tagline}</p>
+                    </div>
+                    {b.badge && (
+                      <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[#F0F7F4] text-[#2D6A4F]">
+                        {b.badge}
+                      </span>
+                    )}
+                  </div>
+
+                  <ul className="space-y-1.5 flex-1">
+                    {b.includes.map((inc) => (
+                      <li key={inc.tier_id} className="text-xs text-gray-600 flex items-start gap-1.5">
+                        <Star className="w-3 h-3 text-amber-500 fill-amber-500 shrink-0 mt-0.5" />
+                        <span>{inc.label}</span>
+                      </li>
+                    ))}
+                  </ul>
+
+                  <div className="text-sm font-semibold text-[#2D6A4F]">
+                    ${b.price}{b.billingPeriod === "monthly" ? "/mo" : " one-time"}
+                    {b.savings > 0 && (
+                      <span className="ml-2 text-[11px] font-normal text-emerald-600">
+                        Save ${b.savings}{b.billingPeriod === "monthly" ? "/mo" : ""}
+                      </span>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleAddBundle(b)}
+                    disabled={pendingId !== null}
+                    className="w-full px-3 py-2 text-xs font-medium text-white bg-[#2D6A4F] rounded-lg hover:bg-[#1B4332] transition-colors disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center gap-1"
+                    data-testid={`bundle-add-${b.id}`}
+                  >
+                    {pendingId === `bundle:${b.id}` ? (
+                      <><Loader2 className="w-3 h-3 animate-spin" /> Opening checkout…</>
+                    ) : (
+                      <>Continue to checkout <ArrowRight className="w-3 h-3" /></>
+                    )}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {services.length > 0 && bundles.length > 0 && (
+          <div className="pt-2">
+            <h2 className="text-sm font-semibold text-gray-900">Individual services</h2>
+            <p className="text-xs text-gray-500">Or pick one at a time.</p>
           </div>
         )}
 
