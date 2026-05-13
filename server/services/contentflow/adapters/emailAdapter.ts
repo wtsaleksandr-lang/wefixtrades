@@ -8,9 +8,12 @@
  * creates the child).
  *
  * Test mode: NODE_ENV !== "production" AND
- *   EMAIL_TEST_SIMULATE_SUCCESS === "1" → uses a synthetic-success
- *   stub transporter (mirrors Sprint 7's pattern). Production
- *   behaviour is unchanged when env vars are unset.
+ *   EMAIL_TEST_SIMULATE_SUCCESS === "1" AND
+ *   APP_URL does NOT point at a production domain → uses a synthetic-
+ *   success stub transporter (mirrors Sprint 7's pattern). Production
+ *   behaviour is unchanged when env vars are unset; the APP_URL check
+ *   is a belt-and-suspenders safety net for the case where NODE_ENV is
+ *   misconfigured in a real environment.
  *
  * Hard requirement (matches Sprint 11/12): email send failure does
  * NOT block other drafts. Retry honours MAX_ATTEMPTS via the queue
@@ -51,11 +54,37 @@ const TEST_STUB_TRANSPORTER: Transporter = {
   },
 } as unknown as Transporter;
 
+/* Production-domain hints — if APP_URL points at any of these, the stub
+ * refuses to engage even when the test flag is on. Belt-and-suspenders
+ * for the case where NODE_ENV gets misconfigured in a real environment
+ * (e.g. NODE_ENV=development sticky in a preview/staging that points at
+ * a real customer-facing URL). */
+const PRODUCTION_DOMAIN_HINTS = ["wefixtrades.com", "wefixtrades.co.uk"];
+
+function appUrlLooksProductionLike(): boolean {
+  const appUrl = (process.env.APP_URL || "").toLowerCase();
+  return PRODUCTION_DOMAIN_HINTS.some((d) => appUrl.includes(d));
+}
+
 function shouldUseTestStub(): boolean {
-  return (
-    process.env.NODE_ENV !== "production" &&
-    process.env.EMAIL_TEST_SIMULATE_SUCCESS === "1"
-  );
+  if (process.env.EMAIL_TEST_SIMULATE_SUCCESS !== "1") return false;
+  if (process.env.NODE_ENV === "production") return false;
+
+  // If NODE_ENV is something other than "production" but APP_URL points
+  // at a real customer-facing domain, something is misconfigured.
+  // Refuse to silently fake sends — log loudly and fall through to the
+  // real transporter so the misconfig becomes visible (deliverability
+  // logs, bounce reports, etc.) rather than silently dropping mail.
+  if (appUrlLooksProductionLike()) {
+    log.error(
+      "[email-stub] EMAIL_TEST_SIMULATE_SUCCESS=1 with production-looking APP_URL — refusing to stub. Fix NODE_ENV or unset the simulate flag.",
+      { node_env: process.env.NODE_ENV, app_url: process.env.APP_URL },
+    );
+    return false;
+  }
+
+  log.info("[email-stub] ContentFlow email adapter using simulated-success stub (no real sends)");
+  return true;
 }
 
 function resolveTransporter(): Transporter | null {
