@@ -465,6 +465,7 @@ export const tradelineConfigSchema = z.object({
     "configuring",
     "awaiting_website_access",
     "awaiting_client_action",
+    "port_in_progress",
     "ready_for_testing",
     "live",
   ]).default("not_started"),
