@@ -1360,6 +1360,27 @@ export function registerPortalRoutes(app: Express) {
         .filter((m: any) => m && typeof m.content === "string" && allowedRoles.has(m.role))
         .slice(-10);
 
+      /* Q30b: shared block injected into both help-mode and onboarding-mode
+       * system prompts. Tells the AI how to propose clickable navigation
+       * buttons. Targets are whitelisted to /portal/* on both server and
+       * client to prevent the AI from emitting external/admin URLs. */
+      const actionProposalBlock = `
+
+== ACTION PROPOSALS (Q30b) ==
+When the user could move forward by clicking ONE specific page in the portal, propose it by appending a single fenced block AT THE END of your reply:
+
+<<<ACTION_PROPOSAL>>>
+{"actions":[{"label":"<short button label, max 40 chars>","intent":"navigate","target":"</portal/some-path>","hint":"<one-line why, optional>"}]}
+<<<END_ACTION_PROPOSAL>>>
+
+Rules:
+- intent MUST be "navigate" (only intent in v1).
+- target MUST start with "/portal/" — no full URLs, no /admin/ paths, no schemes. Server + client reject anything else.
+- Max 3 actions per block, label ≤ 40 chars.
+- Use this for "where do I…" / "how do I…" / "take me to…" questions.
+- Skip the block when answering questions the user can resolve on the CURRENT page (status checks, definitions, explanations).
+- The block is invisible to the customer; they see clickable buttons rendered from it.`;
+
       let systemPrompt: string;
       let escalationEnabled = false;
 
@@ -1388,7 +1409,7 @@ Do NOT:
 - Make up account-specific details (balances, dates, statuses)
 - Provide legal or financial advice
 - Discuss internal pricing or margins
-- Create tickets automatically — always offer first and let the user decide${pageContextBlock}`;
+- Create tickets automatically — always offer first and let the user decide${actionProposalBlock}${pageContextBlock}`;
       } else {
         // Onboarding context — no escalation
         const fieldList = (context?.fields ?? [])
@@ -1444,7 +1465,7 @@ Rules for proposing fills:
 - value must be a string. For booleans use "true" / "false". For multi-select, comma-separated.
 - One proposal block per reply, max 3 fills inside.
 - Include a human-readable sentence in your reply BEFORE the FORM_FILL block — e.g. "Here's what I'll fill in — review and confirm below." The block itself is invisible to the customer; they see Apply/Skip buttons rendered from it.
-- If you're not ready to propose, just keep chatting — no FORM_FILL block.${pageContextBlock}`;
+- If you're not ready to propose, just keep chatting — no FORM_FILL block.${actionProposalBlock}${pageContextBlock}`;
       }
 
       const rawReply = await aiChat({
@@ -1474,10 +1495,42 @@ Rules for proposing fills:
           .catch((err) => log.warn("[portal-ai] saveMemory failed:", { error: String(err) }));
       }
 
+      // Q30b: extract ACTION_PROPOSAL block first so its content doesn't
+      // leak into the FORM_FILL parse + visible-reply strip. Targets are
+      // whitelisted to /portal/* paths only; anything else is dropped
+      // server-side (defence in depth — the client also re-validates).
+      let actions: Array<{ label: string; intent: "navigate"; target: string; hint?: string }> | undefined;
+      const actionMatch = rawReply.match(/<<<ACTION_PROPOSAL>>>([\s\S]*?)<<<END_ACTION_PROPOSAL>>>/);
+      if (actionMatch) {
+        try {
+          const parsed = JSON.parse(actionMatch[1].trim());
+          if (parsed && Array.isArray(parsed.actions)) {
+            const validActions = parsed.actions
+              .filter((a: any) => a
+                && typeof a.label === "string"
+                && a.intent === "navigate"
+                && typeof a.target === "string"
+                && a.target.startsWith("/portal/")
+                && !a.target.includes("..")
+                && !a.target.includes("://"))
+              .slice(0, 3)
+              .map((a: any) => ({
+                label: a.label.slice(0, 40),
+                intent: "navigate" as const,
+                target: a.target.slice(0, 200),
+                hint: typeof a.hint === "string" ? a.hint.slice(0, 200) : undefined,
+              }));
+            if (validActions.length > 0) actions = validActions;
+          }
+        } catch (err) {
+          log.warn("[portal-ai] ACTION_PROPOSAL parse failed:", { error: String(err) });
+        }
+      }
+
       // Q23: extract a FORM_FILL proposal (if any) and strip it from the
       // user-visible reply. The fenced block is invisible to the customer;
       // the client renders an Apply/Skip card from the parsed JSON.
-      let reply = rawReply;
+      let reply = rawReply.replace(/<<<ACTION_PROPOSAL>>>[\s\S]*?<<<END_ACTION_PROPOSAL>>>/, "").trim();
       let proposal: { fills: Array<{ field_key: string; value: string; reason?: string }> } | undefined;
       const formFillMatch = rawReply.match(/<<<FORM_FILL>>>([\s\S]*?)<<<END_FORM_FILL>>>/);
       if (formFillMatch) {
@@ -1501,15 +1554,17 @@ Rules for proposing fills:
         } catch (err) {
           log.warn("[portal-ai] FORM_FILL parse failed:", { error: String(err) });
         }
-        // Always strip the fenced block from the visible reply, even if parsing failed
-        reply = rawReply.replace(/<<<FORM_FILL>>>[\s\S]*?<<<END_FORM_FILL>>>/, "").trim();
+        // Always strip the fenced block from the visible reply, even if parsing failed.
+        // Strip from the already-cleaned `reply` (which already had ACTION_PROPOSAL removed)
+        // so we don't lose that earlier cleanup.
+        reply = reply.replace(/<<<FORM_FILL>>>[\s\S]*?<<<END_FORM_FILL>>>/, "").trim();
       }
 
       // ─── Structured escalation detection (classification step) ───
       // Instead of fragile string matching, use a lightweight AI classification
       // to determine whether the reply offers/suggests escalation to human support.
       if (!escalationEnabled) {
-        return res.json({ reply, proposal });
+        return res.json({ reply, proposal, actions });
       }
 
       let hasEscalationOffer = false;
@@ -1528,7 +1583,7 @@ Answer ONLY "YES" or "NO". Nothing else.`,
       }
 
       if (!hasEscalationOffer) {
-        return res.json({ reply, proposal });
+        return res.json({ reply, proposal, actions });
       }
 
       // ─── Draft extraction (only runs when escalation detected) ───
@@ -1570,7 +1625,7 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
         // Don't fail the request — just return the reply without the draft
       }
 
-      res.json({ reply, escalation_draft: escalationDraft, proposal });
+      res.json({ reply, escalation_draft: escalationDraft, proposal, actions });
     } catch (err) {
       log.error("Portal AI chat error:", { error: String(err) });
       res.json({ reply: "Sorry, the assistant is temporarily unavailable. You can still fill in the form manually." });

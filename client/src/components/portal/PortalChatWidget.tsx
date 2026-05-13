@@ -30,6 +30,21 @@ function readPageContentSnapshot(): string | undefined {
 }
 
 /* ─── Types ─── */
+
+/* Q30b: lightweight action-button protocol. AI emits these inside a
+ * <<<ACTION_PROPOSAL>>>{...}<<<END_ACTION_PROPOSAL>>> block; server parses
+ * + sanitizes + returns under `actions` on the response. Client renders
+ * each as a clickable button under the assistant message that proposed
+ * them. Only `navigate` intent is shipped in v1 — `click` and `fill`
+ * follow once we have a use case. Target is whitelisted to /portal/*
+ * on both server and client (defence in depth). */
+export interface ActionProposal {
+  label: string;
+  intent: "navigate";
+  target: string;   // path; server validates it starts with /portal/
+  hint?: string;
+}
+
 export interface FormFillProposal {
   field_key: string;
   value: string;
@@ -90,7 +105,7 @@ export default function PortalChatWidget({
   chatContext?: PortalChatContext;
 }) {
   const queryClient = useQueryClient();
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
   const [open, setOpen] = useState(false);
   // Q25: transparency slider — persists across mounts. 0.7 floor so messages remain readable.
   const [panelOpacity, setPanelOpacity] = useState<number>(() => {
@@ -168,7 +183,7 @@ export default function PortalChatWidget({
   };
   // Q24: persist messages across page navigations + page reloads via localStorage.
   // Backend chat_memory table is also linked via session id once the user logs in.
-  const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string }[]>(
+  const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string; actions?: ActionProposal[] }[]>(
     () => {
       const saved = loadPortalMessages();
       return saved.length > 0 ? saved.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })) : [];
@@ -297,9 +312,32 @@ export default function PortalChatWidget({
         }),
       });
       const data = await res.json();
+
+      // Q30b: parse + sanitize ACTION_PROPOSAL from server response. The
+      // server already whitelisted to /portal/* paths; we re-validate here
+      // as defence in depth and to drop any malformed entries before render.
+      const safeActions: ActionProposal[] | undefined = Array.isArray(data.actions)
+        ? data.actions
+            .filter((a: any) => a
+              && typeof a.label === "string"
+              && a.intent === "navigate"
+              && typeof a.target === "string"
+              && a.target.startsWith("/portal/")
+              && !a.target.includes(":")
+              && !a.target.includes(".."))
+            .slice(0, 3)
+            .map((a: any) => ({
+              label: a.label.slice(0, 40),
+              intent: "navigate" as const,
+              target: a.target,
+              hint: typeof a.hint === "string" ? a.hint.slice(0, 200) : undefined,
+            }))
+        : undefined;
+
       setMessages((prev) => [...prev, {
         role: "assistant",
         content: data.reply || "Sorry, something went wrong.",
+        actions: safeActions && safeActions.length > 0 ? safeActions : undefined,
       }]);
 
       // Handle escalation draft (only for help surface)
@@ -545,12 +583,34 @@ export default function PortalChatWidget({
               </div>
             )}
             {messages.map((m, i) => (
-              <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+              <div key={i} className={`flex flex-col ${m.role === "user" ? "items-end" : "items-start"}`}>
                 <div className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
                   m.role === "user" ? "bg-[#2D6A4F] text-white" : "bg-gray-100 text-gray-700"
                 }`}>
                   {m.content}
                 </div>
+                {m.role === "assistant" && m.actions && m.actions.length > 0 && (
+                  <div className="mt-1.5 flex flex-wrap gap-1.5 max-w-[85%]" data-testid={`chat-actions-${i}`}>
+                    {m.actions.map((a, j) => (
+                      <button
+                        key={j}
+                        type="button"
+                        onClick={() => {
+                          // Re-validate one more time before navigating.
+                          if (!a.target.startsWith("/portal/") || a.target.includes("..") || a.target.includes(":")) return;
+                          setLocation(a.target);
+                          setOpen(false);
+                        }}
+                        title={a.hint}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-[#2D6A4F] bg-white border border-[#2D6A4F]/30 rounded-full hover:bg-[#F0F7F4] hover:border-[#2D6A4F]/60 transition-colors"
+                        data-testid={`chat-action-${i}-${j}`}
+                      >
+                        {a.label}
+                        <span aria-hidden="true">→</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
 
