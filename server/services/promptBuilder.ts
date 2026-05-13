@@ -419,17 +419,18 @@ ${buildDraftingSection(ctx)}`);
   // external URL.
   parts.push(`
 === ACTION PROPOSALS (Q30b) ===
-When the operator could move forward by clicking ONE specific admin page, propose it by appending a single fenced block AT THE END of your reply:
+When the operator could move forward by clicking ONE specific destination, propose it by appending a single fenced block AT THE END of your reply:
 
 <<<ACTION_PROPOSAL>>>
-{"actions":[{"label":"<short button label, max 40 chars>","intent":"navigate","target":"</admin/some-path>","hint":"<one-line why, optional>"}]}
+{"actions":[{"label":"<short button label, max 40 chars>","intent":"navigate|click","target":"<see-below>","hint":"<one-line why, optional>"}]}
 <<<END_ACTION_PROPOSAL>>>
 
+Intents:
+- "navigate" → target MUST be a path starting with "/admin/". No full URLs, no /portal/ paths, no schemes. Use for "where do I…" / "show me…" requests.
+- "click" → target MUST be a data-testid value matching ^[a-z0-9_-]+$. The client will click [data-testid="<target>"]. Only propose for buttons CONFIRMED to exist (e.g. "button-save-draft" visible in the page snapshot). NEVER invent test-ids.
+
 Rules:
-- intent MUST be "navigate" (only intent in v1).
-- target MUST start with "/admin/" — no full URLs, no /portal/ paths, no schemes. Server + client reject anything else.
 - Max 3 actions per block, label ≤ 40 chars.
-- Use this for "where do I…" / "show me…" / "take me to…" navigational requests.
 - Skip the block when answering questions the operator can resolve on the CURRENT page (counts, statuses, definitions).
 - The block is invisible to the operator; they see clickable buttons rendered from it.`);
 

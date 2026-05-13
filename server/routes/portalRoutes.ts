@@ -1367,18 +1367,19 @@ export function registerPortalRoutes(app: Express) {
       const actionProposalBlock = `
 
 == ACTION PROPOSALS (Q30b) ==
-When the user could move forward by clicking ONE specific page in the portal, propose it by appending a single fenced block AT THE END of your reply:
+When the user could move forward by clicking ONE specific destination, propose it by appending a single fenced block AT THE END of your reply:
 
 <<<ACTION_PROPOSAL>>>
-{"actions":[{"label":"<short button label, max 40 chars>","intent":"navigate","target":"</portal/some-path>","hint":"<one-line why, optional>"}]}
+{"actions":[{"label":"<short button label, max 40 chars>","intent":"navigate|click","target":"<see-below>","hint":"<one-line why, optional>"}]}
 <<<END_ACTION_PROPOSAL>>>
 
+Intents:
+- "navigate" → target MUST be a path starting with "/portal/". No full URLs, no /admin/ paths, no schemes. Use for "where do I…" / "take me to…" requests.
+- "click" → target MUST be a data-testid value matching ^[a-z0-9_-]+$. The client will click the element matching [data-testid="<target>"]. Use for "save it for me" / "apply this" / "submit the form" when the action is right there on the current page. Only propose click for buttons you have CONFIRMED exist (e.g. "button-save-draft" visible in the page snapshot). NEVER invent test-ids.
+
 Rules:
-- intent MUST be "navigate" (only intent in v1).
-- target MUST start with "/portal/" — no full URLs, no /admin/ paths, no schemes. Server + client reject anything else.
 - Max 3 actions per block, label ≤ 40 chars.
-- Use this for "where do I…" / "how do I…" / "take me to…" questions.
-- Skip the block when answering questions the user can resolve on the CURRENT page (status checks, definitions, explanations).
+- Skip the block when answering questions the user can resolve themselves (status checks, definitions, explanations).
 - The block is invisible to the customer; they see clickable buttons rendered from it.`;
 
       let systemPrompt: string;
@@ -1499,24 +1500,32 @@ Rules for proposing fills:
       // leak into the FORM_FILL parse + visible-reply strip. Targets are
       // whitelisted to /portal/* paths only; anything else is dropped
       // server-side (defence in depth — the client also re-validates).
-      let actions: Array<{ label: string; intent: "navigate"; target: string; hint?: string }> | undefined;
+      let actions: Array<{ label: string; intent: "navigate" | "click"; target: string; hint?: string }> | undefined;
       const actionMatch = rawReply.match(/<<<ACTION_PROPOSAL>>>([\s\S]*?)<<<END_ACTION_PROPOSAL>>>/);
       if (actionMatch) {
         try {
           const parsed = JSON.parse(actionMatch[1].trim());
           if (parsed && Array.isArray(parsed.actions)) {
+            const TEST_ID_RE = /^[a-z0-9_-]+$/i;
             const validActions = parsed.actions
-              .filter((a: any) => a
-                && typeof a.label === "string"
-                && a.intent === "navigate"
-                && typeof a.target === "string"
-                && a.target.startsWith("/portal/")
-                && !a.target.includes("..")
-                && !a.target.includes("://"))
+              .filter((a: any) => {
+                if (!a || typeof a.label !== "string" || typeof a.target !== "string") return false;
+                if (a.intent === "navigate") {
+                  return a.target.startsWith("/portal/")
+                    && !a.target.includes("..")
+                    && !a.target.includes("://");
+                }
+                if (a.intent === "click") {
+                  // Q30b v2: target is a data-testid value. Strict alphanumeric/
+                  // underscore/hyphen prevents selector injection.
+                  return TEST_ID_RE.test(a.target) && a.target.length <= 80;
+                }
+                return false;
+              })
               .slice(0, 3)
               .map((a: any) => ({
                 label: a.label.slice(0, 40),
-                intent: "navigate" as const,
+                intent: a.intent as "navigate" | "click",
                 target: a.target.slice(0, 200),
                 hint: typeof a.hint === "string" ? a.hint.slice(0, 200) : undefined,
               }));
