@@ -1,49 +1,42 @@
 /**
  * Tradeline phone-number setup wizard — top-level page.
  *
- * Mounted at /portal/tradeline/setup. Fetches the wizard journey state,
- * renders ChoiceCard if no mode has been picked yet, otherwise shows a
- * "mode chosen — next step coming" placeholder until Option subscreens
- * land in the next batch.
+ * Mounted at /portal/tradeline/setup. Fetches wizard journey state, then:
+ *   - No mode picked            → ChoiceCard
+ *   - mode='new'                → OptionANewNumber
+ *   - mode='forward'            → OptionBForward
+ *   - mode='port'               → OptionCPort
  *
- * "Skip for now" links to /portal. A persistent dashboard banner
- * pointing back here is a follow-up edit on PortalDashboard.
+ * "Back to options" inside any subscreen flips a local force-show flag so
+ * the user can re-pick without losing partial server-side progress.
+ * Picking a different mode on the second pass overwrites the prior mode
+ * via POST /choose-mode.
+ *
+ * "Skip for now" → /portal. A persistent dashboard banner pointing back
+ * here lives in PortalDashboard.
  */
 
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { ChoiceCard } from "./ChoiceCard";
+import { OptionANewNumber } from "./OptionANewNumber";
+import { OptionBForward } from "./OptionBForward";
+import { OptionCPort } from "./OptionCPort";
 import { PhoneCall, Loader2 } from "lucide-react";
 import type { TradelinePhoneSetup, TradelineSetupMode } from "@shared/schema";
+import { apiFetch } from "./apiClient";
 
 interface SetupStateResponse {
   setup: TradelinePhoneSetup;
   optionCEligible: boolean;
 }
 
-async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const res = await fetch(path, {
-    credentials: "include",
-    headers: { "Content-Type": "application/json", ...(init.headers || {}) },
-    ...init,
-  });
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(text || `${res.status} ${res.statusText}`);
-  }
-  return res.json();
-}
-
-function modeLabel(mode: TradelineSetupMode): string {
-  if (mode === "new") return "Get a new WeFixTrades number";
-  if (mode === "forward") return "Keep your existing number";
-  return "Port your existing number";
-}
-
 export default function TradelineSetupPage() {
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
+  const [forceShowChoice, setForceShowChoice] = useState(false);
 
   const { data, isLoading, error } = useQuery<SetupStateResponse>({
     queryKey: ["/api/portal/tradeline/setup"],
@@ -54,15 +47,17 @@ export default function TradelineSetupPage() {
     mutationFn: (mode: TradelineSetupMode) =>
       apiFetch<{ setup: TradelinePhoneSetup }>(
         "/api/portal/tradeline/setup/choose-mode",
-        {
-          method: "POST",
-          body: JSON.stringify({ mode }),
-        },
+        { method: "POST", body: JSON.stringify({ mode }) },
       ),
     onSuccess: () => {
+      setForceShowChoice(false);
       queryClient.invalidateQueries({ queryKey: ["/api/portal/tradeline/setup"] });
     },
   });
+
+  const showChoice = !data?.setup.mode || forceShowChoice;
+  const goToDashboard = () => setLocation("/portal");
+  const backToOptions = () => setForceShowChoice(true);
 
   return (
     <PortalLayout>
@@ -76,11 +71,10 @@ export default function TradelineSetupPage() {
             Set up your AI tradeline
           </h1>
           <p className="text-sm sm:text-base text-gray-600 max-w-md mx-auto">
-            Pick how customers will reach you. You can change this later.
+            Choose how customers reach your business. You can change this anytime.
           </p>
         </div>
 
-        {/* Loading / error */}
         {isLoading && (
           <div className="flex items-center justify-center py-12 text-gray-500">
             <Loader2 className="w-5 h-5 animate-spin mr-2" />
@@ -93,42 +87,37 @@ export default function TradelineSetupPage() {
           </div>
         )}
 
-        {/* Choice card OR mode-already-chosen placeholder */}
         {!isLoading && data && (
           <>
-            {data.setup.mode ? (
-              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-6 text-center space-y-1.5">
-                <p className="text-xs uppercase tracking-wide text-emerald-700 font-semibold">
-                  Mode selected
-                </p>
-                <p className="text-base font-semibold text-emerald-900">
-                  {modeLabel(data.setup.mode)}
-                </p>
-                <p className="text-xs text-emerald-700">
-                  The next step is being built — check back shortly.
-                </p>
-              </div>
-            ) : (
+            {showChoice && (
               <ChoiceCard
                 optionCEligible={data.optionCEligible}
                 onContinue={(mode) => chooseMutation.mutate(mode)}
                 isContinuing={chooseMutation.isPending}
               />
             )}
+            {!showChoice && data.setup.mode === "new" && (
+              <OptionANewNumber setup={data.setup} onBack={backToOptions} onDone={goToDashboard} />
+            )}
+            {!showChoice && data.setup.mode === "forward" && (
+              <OptionBForward setup={data.setup} onBack={backToOptions} onDone={goToDashboard} />
+            )}
+            {!showChoice && data.setup.mode === "port" && (
+              <OptionCPort setup={data.setup} onBack={backToOptions} onDone={goToDashboard} />
+            )}
 
             {chooseMutation.isError && (
               <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-900">
-                Couldn't save your choice — try again.
+                {(chooseMutation.error as Error).message}
               </div>
             )}
           </>
         )}
 
-        {/* Skip */}
         <div className="pt-2 text-center">
           <button
             type="button"
-            onClick={() => setLocation("/portal")}
+            onClick={goToDashboard}
             className="text-sm text-gray-500 hover:text-gray-700 underline-offset-2 hover:underline"
           >
             Skip for now — finish setup later

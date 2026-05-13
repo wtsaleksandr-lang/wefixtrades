@@ -7,6 +7,7 @@ import PortalLayout from "@/components/portal/PortalLayout";
 import { TASK_STATUS_STYLES, TASK_STATUS_LABELS, statusLabel } from "@/config/portalLabels";
 import ModeToggle from "@/components/portal/ModeToggle";
 import { useAuth } from "@/hooks/useAuth";
+import { TradelineSetupBanner } from "./TradelineSetup/DashboardBanner";
 
 /* Temporary in-page error surface so a render exception shows on the page
  * instead of blanking the React tree. Replace with the app's global error
@@ -280,6 +281,9 @@ function PortalDashboardInner() {
             </h1>
             <p className="text-sm text-gray-500 mt-0.5">{data.business_name}</p>
           </div>
+
+          {/* Tradeline setup banner — hidden once setup is complete */}
+          <TradelineSetupBanner />
 
           {/* Stat cards */}
           <div className="grid auto-rows-fr grid-cols-2 lg:grid-cols-4 gap-4">
