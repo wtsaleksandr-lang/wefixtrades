@@ -14,6 +14,7 @@ import { generateSecret, verifyCode as verifyTotpCode } from "../services/totpSe
 import { createLogger } from "../lib/logger";
 import { verifyLoginToken, getCheckoutLoginToken, buildLoginToken, MAGIC_LINK_TTL } from "../lib/loginToken";
 import { sendLoginLinkEmail } from "../lib/loginLinkEmail";
+import { sendSelfServeWelcome } from "../lib/selfServeWelcomeEmail";
 
 const log = createLogger("Auth");
 
@@ -152,6 +153,11 @@ export function registerAuthRoutes(app: Express) {
         entity_id: client.id,
         summary: `Free account created for "${businessName.trim()}" (${normalised})`,
       });
+
+      // Fire welcome email (non-blocking; signup must succeed even if SMTP down)
+      sendSelfServeWelcome({ user, client }).catch((err) =>
+        log.warn("[signup] self-serve welcome email failed", { userId: user.id, error: err?.message }),
+      );
 
       // Auto-login
       const sessionUser: Express.User = { id: user.id, email: user.email, role: user.role, name: user.name };
