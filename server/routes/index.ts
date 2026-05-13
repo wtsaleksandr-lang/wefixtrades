@@ -52,6 +52,8 @@ import { registerAdminAlertRoutes } from "./adminAlertRoutes";
 import { registerChatAttachmentRoutes } from "./chatAttachmentRoutes";
 import { registerTradelineSetupRoutes } from "./tradelineSetupRoutes";
 import { registerAdminTradelineSetupsRoutes } from "./adminTradelineSetupsRoutes";
+import { registerMobileAuthRoutes } from "./mobileAuthRoutes";
+import { registerMobileApiRoutes } from "./mobileApiRoutes";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -110,6 +112,8 @@ export async function registerRoutes(
   registerChatAttachmentRoutes(app);
   registerTradelineSetupRoutes(app);
   registerAdminTradelineSetupsRoutes(app);
+  registerMobileAuthRoutes(app);
+  registerMobileApiRoutes(app);
 
   return httpServer;
 }
