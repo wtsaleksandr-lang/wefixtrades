@@ -7,8 +7,11 @@ import { useScrollReveal } from "@/hooks/useScrollReveal";
 import { mkt, colors, shadows, typography } from "@/theme/tokens";
 import HeroGridGlow from "@/components/marketing/HeroGridGlow";
 import ReviewsSection from "@/components/home/ReviewsSection";
-import HeroTradeDivider from "@/components/marketing/HeroTradeDivider";
-import TrustMarquee from "@/components/marketing/TrustMarquee";
+import IntegrationsTrustStrip from "@/components/marketing/IntegrationsTrustStrip";
+/* Removed: TrustMarquee (used fabricated customer logos — dishonest trust
+ * signal that would fail any "google these companies" sniff test) and the
+ * triple-row animated HeroTradeDivider (visual noise; the "Built for"
+ * cycling badge already names the trade). */
 import CapabilitiesShowcase from "@/components/marketing/CapabilitiesShowcase";
 import StickyStackCards from "@/components/marketing/StickyStackCards";
 import ServiceStackTimeline from "@/components/marketing/ServiceStackTimeline";
@@ -667,11 +670,13 @@ export default function HomePage() {
       </section>
 
       <div style={{ marginTop: "auto", paddingTop: 34 }}>
-        <TrustMarquee />
+        <IntegrationsTrustStrip />
       </div>
       </div>{/* end shared grid zone */}
       </div>{/* end hero shell backdrop */}
-      <HeroTradeDivider />
+      {/* HeroTradeDivider removed in the C-direction premium rewrite —
+       * the cycling "Built for: <trade>" badge above the headline already
+       * names the trade. */}
       {/* Three product showcase types covering all 12 products: */}
       <CapabilitiesShowcase />        {/* 4 money-makers */}
       <StickyStackCards />            {/* 4 growth tools */}
