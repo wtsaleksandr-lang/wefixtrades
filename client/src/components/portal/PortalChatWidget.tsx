@@ -511,6 +511,18 @@ export default function PortalChatWidget({
             </div>
             <div className="flex items-center gap-1">
               <button
+                onClick={() => {
+                  setLocation("/portal/chat-history");
+                  setOpen(false);
+                }}
+                className="p-1 rounded hover:bg-white/20 text-white"
+                aria-label="View chat history"
+                title="View 7-day chat history"
+                data-testid="button-chat-history"
+              >
+                <History className="w-4 h-4" aria-hidden="true" />
+              </button>
+              <button
                 onClick={() => setShowSettings((v) => !v)}
                 className={`p-1 rounded text-white ${showSettings ? "bg-white/30" : "hover:bg-white/20"}`}
                 aria-label="Chat settings"

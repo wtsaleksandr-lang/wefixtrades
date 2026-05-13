@@ -35,6 +35,27 @@ export function registerAdminCrmRoutes(app: Express): void {
      Overview
      ═══════════════════════════════════════════ */
 
+  // Q30 chat history: return the admin's rolling Copilot thread + last-
+  // updated timestamp. 7-day server-side memory (per chat_memory). The
+  // /admin/chat-history page reads from this.
+  app.get("/api/admin/copilot/history", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const u = req.user as any;
+      if (!u?.id) return res.status(401).json({ error: "Not authenticated" });
+      const { getMemoryByUserId } = await import("../services/chatMemory");
+      const mem = await getMemoryByUserId(u.id);
+      if (!mem) return res.json({ messages: [], memory: null, updated_at: null });
+      res.json({
+        messages: mem.messages ?? [],
+        memory: mem.memory ?? null,
+        updated_at: new Date().toISOString(),
+      });
+    } catch (err: any) {
+      log.error("[admin/copilot/history] Error:", err.message);
+      res.status(500).json({ error: "Failed to load Copilot history" });
+    }
+  });
+
   app.get("/api/admin/crm/overview", requireAdmin, async (_req: Request, res: Response) => {
     try {
       const overview = await storage.getCrmOverview();
