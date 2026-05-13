@@ -112,6 +112,7 @@ import PortalServiceDetail from "@/pages/portal/PortalServiceDetail";
 import PortalBilling from "@/pages/portal/PortalBilling";
 import PortalSettings from "@/pages/portal/PortalSettings";
 import PortalOnboarding from "@/pages/portal/PortalOnboarding";
+import TradelineSetupPage from "@/pages/portal/TradelineSetup";
 import PortalHelp from "@/pages/portal/PortalHelp";
 import PortalTicketDetail from "@/pages/portal/PortalTicketDetail";
 import SupportInboxPage from "@/pages/admin/SupportInboxPage";
@@ -185,6 +186,7 @@ function Router() {
       <Route path="/admin/outbound">{() => <Redirect to="/admin/outbound/prospects" />}</Route>
 
       {/* Client portal */}
+      <Route path="/portal/tradeline/setup">{() => <RequireClient><TradelineSetupPage /></RequireClient>}</Route>
       <Route path="/portal/onboarding/:id">{() => <RequireClient><PortalOnboarding /></RequireClient>}</Route>
       <Route path="/portal/services/:id">{() => <RequireClient><PortalServiceDetail /></RequireClient>}</Route>
       <Route path="/portal/mapguard">{() => <RequireClient><PortalMapguard /></RequireClient>}</Route>
