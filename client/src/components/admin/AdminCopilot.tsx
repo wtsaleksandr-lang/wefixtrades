@@ -4,7 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { X, Send, BrainCircuit, Loader2, ChevronDown, ChevronUp, Code2, HelpCircle } from "lucide-react";
+import { X, Send, BrainCircuit, Loader2, ChevronDown, ChevronUp, Code2, HelpCircle, Wand2 } from "lucide-react";
 import { readSSEStream, type ChatMessage, type ToolCallEvent } from "@/lib/chatHelpers";
 import { useToast } from "@/hooks/use-toast";
 
@@ -18,6 +18,23 @@ export interface ActionProposal {
    * .click() on document.querySelector(`[data-testid="${target}"]`). */
   target: string;
   hint?: string;
+}
+
+/* Q30c: per-field schema a page declares when it wants the AI to be able
+ * to propose prefills. The widget renders an Apply/Skip card when the AI
+ * returns valid fills; clicking Apply calls _onApplyFormFill with the
+ * proposed values. The page's setState updates from there. */
+export interface FormFillField {
+  key: string;
+  label: string;
+  required?: boolean;
+  /** Current value displayed as context to the AI (helps "what's filled" awareness). */
+  currentValue?: string | number | boolean | null;
+}
+export interface FormFillProposal {
+  field_key: string;
+  value: string;
+  reason?: string;
 }
 import ChatAttachmentInput, {
   ChatAttachmentChips,
@@ -77,6 +94,12 @@ export interface AdminPageContext {
   topServicesByClients?: Array<{ name: string; activeClients: number }>;
   /** Admin section label (e.g. "Outbound") */
   section?: string;
+  /* Q30c: a page opts into AI form-fill by declaring its editable fields
+   * + an apply handler. The fields[] is sent to the server (so the AI
+   * knows what's editable). _onApplyFormFill stays client-only — JSON
+   * stringify drops it on the wire automatically. */
+  formFillFields?: FormFillField[];
+  _onApplyFormFill?: (fills: FormFillProposal[]) => void;
 }
 
 /* ─── Suggested prompts per page ─── */
@@ -317,7 +340,36 @@ type CopilotMessage = AssistantMessageWithActions | ToolCallMessage;
  * stream text. Returns the cleaned visible reply + the validated actions.
  * Whitelist: target must start with /admin/, no ".." traversal, no schemes. */
 const ACTION_BLOCK_RE = /<<<ACTION_PROPOSAL>>>([\s\S]*?)<<<END_ACTION_PROPOSAL>>>/;
+const FORM_FILL_BLOCK_RE = /<<<FORM_FILL>>>([\s\S]*?)<<<END_FORM_FILL>>>/;
 const TEST_ID_RE = /^[a-z0-9_-]+$/i;
+
+/* Q30c: parse FORM_FILL block out of the assembled stream + validate
+ * against the field list the page declared. Returns sanitized fills. */
+function extractFormFill(fullText: string, allowedKeys: Set<string>): { cleanedText: string; fills?: FormFillProposal[] } {
+  const match = fullText.match(FORM_FILL_BLOCK_RE);
+  if (!match) return { cleanedText: fullText };
+  let fills: FormFillProposal[] | undefined;
+  try {
+    const parsed = JSON.parse(match[1].trim());
+    if (parsed && Array.isArray(parsed.fills)) {
+      const valid = parsed.fills
+        .filter((f: any) => f
+          && typeof f.field_key === "string"
+          && typeof f.value === "string"
+          && (allowedKeys.size === 0 || allowedKeys.has(f.field_key)))
+        .slice(0, 5)
+        .map((f: any) => ({
+          field_key: f.field_key.slice(0, 100),
+          value: String(f.value).slice(0, 2000),
+          reason: typeof f.reason === "string" ? f.reason.slice(0, 300) : undefined,
+        }));
+      if (valid.length > 0) fills = valid;
+    }
+  } catch { /* malformed JSON — strip block but emit no fills */ }
+  const cleanedText = fullText.replace(FORM_FILL_BLOCK_RE, "").trim();
+  return { cleanedText, fills };
+}
+
 function extractActionProposals(fullText: string): { cleanedText: string; actions?: ActionProposal[] } {
   const match = fullText.match(ACTION_BLOCK_RE);
   if (!match) return { cleanedText: fullText };
@@ -480,6 +532,10 @@ export default function AdminCopilot({
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [messages, setMessages] = useState<CopilotMessage[]>(() => loadCopilotMessages());
+  /* Q30c: pending form-fill proposal — rendered as an Apply/Skip card under
+   * the chat transcript. Cleared on Apply, Skip, or new user turn. */
+  const [pendingFormFill, setPendingFormFill] = useState<FormFillProposal[] | null>(null);
+  const [applyingFormFill, setApplyingFormFill] = useState(false);
   const [input, setInput] = useState("");
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
   const attachmentInputRef = useRef<ChatAttachmentInputHandle | null>(null);
@@ -608,6 +664,8 @@ export default function AdminCopilot({
     const sentAttachments = attachments.filter((a) => a.status === "uploaded");
     setAttachments([]);
     setStreaming(true);
+    // Q30c: a new turn supersedes any unanswered fill proposal.
+    setPendingFormFill(null);
 
     // Only send user/assistant messages to the API
     const apiMessages = updated.filter(
@@ -673,12 +731,18 @@ export default function AdminCopilot({
         },
       );
 
-      // Q30b admin: parse ACTION_PROPOSAL block out of the assembled stream
-      // text, strip it from the visible reply, and attach validated actions
-      // to the assistant message. The block lands at the end of the reply per
+      // Q30b admin + Q30c: extract ACTION_PROPOSAL first, then FORM_FILL from
+      // the already-cleaned text. Both blocks land at the end of the reply per
       // the system prompt, so the user briefly sees the raw fenced text mid-
       // stream; the snap to cleaned happens here once the stream finishes.
-      const { cleanedText, actions } = extractActionProposals(assistantText);
+      const allowedKeys = new Set((pageContext.formFillFields ?? []).map((f) => f.key));
+      const afterActions = extractActionProposals(assistantText);
+      const afterFills = extractFormFill(afterActions.cleanedText, allowedKeys);
+      const cleanedText = afterFills.cleanedText;
+      const actions = afterActions.actions;
+      if (afterFills.fills && afterFills.fills.length > 0) {
+        setPendingFormFill(afterFills.fills);
+      }
 
       if (toolCallReceived) {
         // Save only the text portion; tool_call cards are transient
@@ -835,6 +899,57 @@ export default function AdminCopilot({
             </div>
           );
         })}
+
+        {/* Q30c: FORM_FILL Apply/Skip card — only when the page declared
+            fields AND the AI returned a valid proposal. */}
+        {pendingFormFill && pendingFormFill.length > 0 && pageContext.formFillFields && pageContext.formFillFields.length > 0 && (
+          <div className="border border-[#2D6A4F]/30 bg-[#F0F7F4] rounded-lg p-3 space-y-2" data-testid="copilot-form-fill-card">
+            <div className="flex items-center gap-1.5">
+              <Wand2 className="w-3.5 h-3.5 text-[#2D6A4F]" />
+              <p className="text-xs font-medium text-gray-900">Apply these to the form?</p>
+            </div>
+            <ul className="space-y-1.5">
+              {pendingFormFill.map((f, idx) => {
+                const fieldDef = pageContext.formFillFields?.find((x) => x.key === f.field_key);
+                return (
+                  <li key={idx} className="text-xs bg-white rounded px-2 py-1.5 border border-gray-200">
+                    <div className="font-medium text-gray-800">{fieldDef?.label ?? f.field_key}</div>
+                    <div className="text-gray-600 break-all">→ {f.value}</div>
+                    {f.reason && <div className="text-[10px] text-gray-400 mt-0.5">{f.reason}</div>}
+                  </li>
+                );
+              })}
+            </ul>
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                type="button"
+                disabled={applyingFormFill}
+                onClick={async () => {
+                  setApplyingFormFill(true);
+                  try {
+                    pageContext._onApplyFormFill?.(pendingFormFill);
+                    toast({ title: "Applied to the form", description: `${pendingFormFill.length} field(s) updated. Review + save when ready.` });
+                    setPendingFormFill(null);
+                  } finally {
+                    setApplyingFormFill(false);
+                  }
+                }}
+                className="px-3 py-1 text-xs font-medium text-white bg-[#2D6A4F] rounded hover:bg-[#1B4332] disabled:opacity-60"
+                data-testid="copilot-form-fill-apply"
+              >
+                {applyingFormFill ? "Applying…" : "Apply"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setPendingFormFill(null)}
+                className="px-3 py-1 text-xs text-gray-600 hover:text-gray-900"
+                data-testid="copilot-form-fill-skip"
+              >
+                Skip
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Show chips after conversation too, for follow-up */}
         {messages.length > 0 && !streaming && !hasPendingToolCall && (
