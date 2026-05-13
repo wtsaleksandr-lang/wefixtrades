@@ -265,6 +265,15 @@ export function registerAdminCrmRoutes(app: Express): void {
 
       const updated = await storage.publishProductDraft(draft.id, svcId, draft.draft_data as Record<string, any>, u.id);
 
+      // Q5f: surface tier-mirror summary so audit log readers can see which
+      // sibling rows got updated by this publish. publishProductDraft handles
+      // the mirror itself; this just records what was published for review.
+      const publishedTiers = Array.isArray((draft.draft_data as any)?.tiers)
+        ? ((draft.draft_data as any).tiers as Array<{ id?: string }>)
+            .map((t) => t?.id)
+            .filter((id): id is string => typeof id === "string")
+        : [];
+
       await storage.logAdminActivity({
         actor_type: "human",
         actor_id: u.id,
@@ -272,11 +281,12 @@ export function registerAdminCrmRoutes(app: Express): void {
         action: "product.draft_published",
         entity_type: "service_catalog",
         entity_id: null,
-        summary: `Published draft for "${updated.name}" — changes are now live (${approvers.length}/${publishApprovalThreshold} approvals)`,
+        summary: `Published draft for "${updated.name}" — changes are now live (${approvers.length}/${publishApprovalThreshold} approvals)${publishedTiers.length ? ` · mirrored ${publishedTiers.length} tier row(s)` : ""}`,
         metadata: {
           service_id: svcId,
           draft_id: draft.id,
           fields: Object.keys(draft.draft_data as Record<string, any>),
+          mirrored_tier_ids: publishedTiers,
           approvals: approvers.length,
           threshold: publishApprovalThreshold,
         },
