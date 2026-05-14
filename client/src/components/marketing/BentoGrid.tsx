@@ -193,7 +193,7 @@ function SmallCell({ cell, mobile }: { cell: Extract<BentoCell, { type: "icon" }
       <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", gap: 12 }}>
         <IconBox>{cell.icon}</IconBox>
         <h3 style={{ fontSize: 15, fontWeight: 600, color: "#fff", margin: 0, lineHeight: 1.3 }}>{cell.title}</h3>
-        <p style={{ fontSize: 12.5, color: "rgba(255,255,255,0.42)", lineHeight: 1.6, margin: 0 }}>{cell.body}</p>
+        <p style={{ fontSize: 12.5, color: "rgba(255,255,255,0.65)", lineHeight: 1.6, margin: 0 }}>{cell.body}</p>
       </div>
     </div>
   );
@@ -217,7 +217,7 @@ function LargeCell({ cell, mobile }: { cell: Extract<BentoCell, { type: "feature
       <div style={dotGrid} />
       <div style={{ position: "relative", zIndex: 1, flex: "0 0 auto", maxWidth: mobile ? "100%" : 220 }}>
         <h3 style={{ fontSize: 15, fontWeight: 600, color: "#fff", margin: "0 0 10px", lineHeight: 1.3 }}>{cell.title}</h3>
-        <p style={{ fontSize: 12.5, color: "rgba(255,255,255,0.42)", lineHeight: 1.6, margin: 0 }}>{cell.body}</p>
+        <p style={{ fontSize: 12.5, color: "rgba(255,255,255,0.65)", lineHeight: 1.6, margin: 0 }}>{cell.body}</p>
       </div>
       <div style={{ position: "relative", zIndex: 1, flex: 1, display: "flex", alignItems: "center", justifyContent: "center", width: mobile ? "100%" : undefined }}>
         {cell.visual}

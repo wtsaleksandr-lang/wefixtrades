@@ -108,7 +108,7 @@ function ScoreCircle({ score, grade, onClick, displayScore, pulsing }: { score: 
       </div>
       {/* Hidden test anchor for score extraction */}
       <span data-testid="score-value" data-score={shown} data-grade={grade} style={{ display: 'none' }} />
-      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 4 }}>
+      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.65)', marginTop: 4 }}>
         {isRefining ? 'Progressing' : 'Tap for more'}
       </div>
     </div>
@@ -269,7 +269,7 @@ function ScreenshotLightbox({ src, alt, onClose }: { src: string; alt: string; o
         />
       </div>
       {/* Hint */}
-      <div style={{ textAlign: 'center', padding: '8px 16px 14px', fontSize: 11, color: 'rgba(255,255,255,0.35)', flexShrink: 0 }}>
+      <div style={{ textAlign: 'center', padding: '8px 16px 14px', fontSize: 11, color: 'rgba(255,255,255,0.60)', flexShrink: 0 }}>
         Pinch or scroll to zoom · Drag to pan · Double-tap to toggle · Press 0 to reset
       </div>
     </div>
@@ -2063,7 +2063,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                     <span style={{ padding: '4px 10px', borderRadius: 8, fontSize: 10, fontWeight: 600, background: i === 0 ? CYAN : 'rgba(255,255,255,0.1)', color: i === 0 ? DARK : 'rgba(255,255,255,0.6)' }}>
                       {step}
                     </span>
-                    {i < 3 && <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: 11 }}>→</span>}
+                    {i < 3 && <span style={{ color: 'rgba(255,255,255,0.50)', fontSize: 11 }}>→</span>}
                   </div>
                 ))}
               </div>

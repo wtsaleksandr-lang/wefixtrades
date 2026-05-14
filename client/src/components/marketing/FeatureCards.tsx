@@ -198,7 +198,7 @@ function CardPair({ card, index }: { card: typeof CARDS[0]; index: number }) {
         <h3 style={{ fontSize: 15, fontWeight: 600, color: "#fff", lineHeight: 1.3, letterSpacing: "-0.01em", margin: 0 }}>
           {card.title}
         </h3>
-        <p style={{ fontSize: 12.5, fontWeight: 400, color: "rgba(255,255,255,0.42)", lineHeight: 1.65, margin: 0 }}>
+        <p style={{ fontSize: 12.5, fontWeight: 400, color: "rgba(255,255,255,0.65)", lineHeight: 1.65, margin: 0 }}>
           {card.description}
         </p>
       </div>
