@@ -55,6 +55,7 @@ import { registerAdminTradelineSetupsRoutes } from "./adminTradelineSetupsRoutes
 import { registerMobileAuthRoutes } from "./mobileAuthRoutes";
 import { registerMobileApiRoutes } from "./mobileApiRoutes";
 import { registerMobileVoiceRoutes } from "./mobileVoiceRoutes";
+import { registerMobileAiRoutes } from "./mobileAiRoutes";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -116,6 +117,7 @@ export async function registerRoutes(
   registerMobileAuthRoutes(app);
   registerMobileApiRoutes(app);
   registerMobileVoiceRoutes(app);
+  registerMobileAiRoutes(app);
 
   return httpServer;
 }
