@@ -16,7 +16,9 @@ const SiteChatWidget = lazy(() => import("@/components/SiteChatWidget"));
 
 const legalLinkStyle: CSSProperties = {
   fontSize: 10,
-  color: "rgba(255,255,255,0.32)",
+  // a11y: 0.55 alpha on dark bg (#22282a) gives ~5.5:1 contrast, passes WCAG AA
+  // for normal text. Previously 0.32 (~2.5:1 — failed).
+  color: "rgba(255,255,255,0.55)",
   textDecoration: "none",
   padding: "0 12px",
   fontFamily: "'DM Mono', monospace",
@@ -37,7 +39,8 @@ const ftLink: CSSProperties = {
   fontFamily: "'DM Mono', monospace",
   textTransform: "uppercase",
   letterSpacing: "0.04em",
-  color: "rgba(255,255,255,0.35)",
+  // a11y: bumped from 0.35 (~2.7:1) to 0.6 (~6:1) to clear WCAG AA for normal text.
+  color: "rgba(255,255,255,0.6)",
   textDecoration: "none",
   lineHeight: 1.3,
   padding: "5px 0",
@@ -160,7 +163,8 @@ function MarketingFooter({ isMobile }: { isMobile: boolean }) {
                 style={{
                   ...ftLink,
                   fontSize: 12,
-                  color: "rgba(255,255,255,0.28)",
+                  // a11y: bumped from 0.28 to 0.6 to clear WCAG AA.
+                  color: "rgba(255,255,255,0.6)",
                   background: "none",
                   border: "none",
                   cursor: "pointer",
@@ -168,8 +172,8 @@ function MarketingFooter({ isMobile }: { isMobile: boolean }) {
                   fontFamily: "inherit",
                   textAlign: "left",
                 }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.6)"; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.28)"; }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.85)"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.6)"; }}
               >
                 Sign out
               </button>
@@ -187,15 +191,15 @@ function MarketingFooter({ isMobile }: { isMobile: boolean }) {
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "20px 24px 16px" }}>
         {/* Trust badges */}
         <div className="mkt-footer-trust" style={{ display: "flex", alignItems: "center", gap: 20, marginBottom: 16, flexWrap: "wrap" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, color: "rgba(255,255,255,0.25)", fontSize: 11, fontWeight: 500 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, color: "rgba(255,255,255,0.55)", fontSize: 11, fontWeight: 500 }}>
             <ShieldCheck size={14} strokeWidth={1.5} />
             <span>SOC 2 Compliant</span>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, color: "rgba(255,255,255,0.25)", fontSize: 11, fontWeight: 500 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, color: "rgba(255,255,255,0.55)", fontSize: 11, fontWeight: 500 }}>
             <Lock size={14} strokeWidth={1.5} />
             <span>256-bit SSL Encrypted</span>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, color: "rgba(255,255,255,0.25)", fontSize: 11, fontWeight: 500 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, color: "rgba(255,255,255,0.55)", fontSize: 11, fontWeight: 500 }}>
             <Award size={14} strokeWidth={1.5} />
             <span>GDPR Ready</span>
           </div>
@@ -225,10 +229,10 @@ function MarketingFooter({ isMobile }: { isMobile: boolean }) {
                 ✉️ support@wefixtrades.com
               </a>
             </div>
-            <p style={{ fontSize: 11, color: "rgba(255,255,255,0.22)", margin: "0 0 4px", lineHeight: 1.5 }}>
+            <p style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", margin: "0 0 4px", lineHeight: 1.5 }}>
               &copy; {new Date().getFullYear()} WeFixTrades. All rights reserved.
             </p>
-            <p style={{ fontSize: 10, color: "rgba(255,255,255,0.14)", margin: 0, lineHeight: 1.5, maxWidth: 480 }}>
+            <p style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", margin: 0, lineHeight: 1.5, maxWidth: 480 }}>
               WeFixTrades is headquartered in Toronto, Canada.
             </p>
           </div>
