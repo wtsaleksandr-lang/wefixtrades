@@ -24,6 +24,7 @@ process.on("SIGTERM", () => { void shutdownAnalytics(); });
 process.on("SIGINT", () => { void shutdownAnalytics(); });
 
 import express, { type Request, Response, NextFunction } from "express";
+import helmet from "helmet";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import passport from "passport";
@@ -124,6 +125,43 @@ declare module "http" {
     rawBody: unknown;
   }
 }
+
+/* ─── Security headers (helmet) ───
+ *
+ * Defense-in-depth HTTP headers. Adds HSTS, X-Content-Type-Options,
+ * Referrer-Policy, X-DNS-Prefetch-Control, Cross-Origin-Opener-Policy,
+ * and friends. Three opt-outs explained below.
+ *
+ *   1. contentSecurityPolicy: false
+ *      The marketing site uses inline styles + loads third-party scripts
+ *      (Stripe.js, Vapi widgets, Sentry browser SDK, PostHog). Enabling
+ *      CSP without an explicit allowlist would break those. Tightening
+ *      CSP is a follow-up — see WORKSTREAMS/general-audit.md.
+ *
+ *   2. crossOriginEmbedderPolicy: false
+ *      Same reason as above — would block legitimate cross-origin
+ *      iframes/scripts.
+ *
+ *   3. frameguard: false  (X-Frame-Options NOT set globally)
+ *      The QuoteQuick widget at /Calculator?...&embed=true is designed
+ *      to be iframed on customer websites. Setting X-Frame-Options:
+ *      SAMEORIGIN globally would break that core feature. Clickjacking
+ *      protection on /admin and /portal should be added via per-route
+ *      middleware in a follow-up PR.
+ *
+ * crossOriginResourcePolicy left at default ("same-origin") — covers
+ * API responses; third-party sites should not be fetching our endpoints
+ * directly.
+ * strictTransportSecurity (HSTS) at default: 180 days. Safe — the app
+ * is exclusively HTTPS in production behind Replit's TLS-terminating LB.
+ */
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
+    frameguard: false,
+  }),
+);
 
 app.use(
   express.json({
