@@ -95,7 +95,7 @@ export default function DocsPage() {
         <section style={{ padding: "96px 24px 28px", position: "relative", overflow: "hidden", background: mkt.bg }}>
           <div style={{
             position: "absolute", inset: 0, pointerEvents: "none",
-            background: "radial-gradient(ellipse 60% 50% at 50% 0%, rgba(102,232,250,0.08) 0%, transparent 60%)",
+            background: "radial-gradient(ellipse 60% 50% at 50% 0%, rgba(13,60,252,0.08) 0%, transparent 60%)",
           }} />
           <div style={{ maxWidth: 1100, margin: "0 auto", position: "relative" }}>
             <Reveal>

@@ -87,7 +87,7 @@ function JobsDashboardMockup() {
 function DashboardWidgetsMockup() {
   const r = 22, circ = 2 * Math.PI * r;
   const charts = [
-    { label: "Completion Rate", pct: 78, color: "#66E8FA" },
+    { label: "Completion Rate", pct: 78, color: "#0d3cfc" },
     { label: "On-time Rate",    pct: 92, color: "#00D4A8" },
   ];
 
@@ -146,9 +146,9 @@ function QuoteBuilderMockup() {
           <span style={{ fontSize: 12, color: "rgba(255,255,255,0.65)", textAlign: "right" }}>{item.amount}</span>
         </div>
       ))}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", background: "rgba(102,232,250,0.06)", borderTop: "1px solid rgba(102,232,250,0.13)" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", background: "rgba(13,60,252,0.06)", borderTop: "1px solid rgba(13,60,252,0.13)" }}>
         <span style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.45)", textTransform: "uppercase", letterSpacing: "0.07em" }}>Total</span>
-        <span style={{ fontSize: 17, fontWeight: 700, color: "#66E8FA" }}>£253.50</span>
+        <span style={{ fontSize: 17, fontWeight: 700, color: "#0d3cfc" }}>£253.50</span>
       </div>
     </div>
   );

@@ -21,7 +21,7 @@ export default function MapMockup() {
           width: "120%",
           height: "120%",
           background:
-            "radial-gradient(ellipse at center, rgba(102,232,250,0.08) 0%, transparent 70%)",
+            "radial-gradient(ellipse at center, rgba(13,60,252,0.08) 0%, transparent 70%)",
           pointerEvents: "none",
         }}
       />

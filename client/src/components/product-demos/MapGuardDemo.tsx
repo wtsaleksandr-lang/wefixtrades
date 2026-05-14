@@ -40,16 +40,16 @@ export default function MapGuardDemo() {
         <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0.18 }}>
           <defs>
             <pattern id="mg-grid" width="10" height="10" patternUnits="userSpaceOnUse">
-              <path d="M 10 0 L 0 0 0 10" fill="none" stroke="#66E8FA" strokeWidth="0.2" />
+              <path d="M 10 0 L 0 0 0 10" fill="none" stroke="#0d3cfc" strokeWidth="0.2" />
             </pattern>
           </defs>
           <rect width="100" height="100" fill="url(#mg-grid)" />
         </svg>
         {/* Roads */}
         <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}>
-          <path d="M0,40 Q30,38 60,45 T100,42" fill="none" stroke="rgba(102,232,250,0.18)" strokeWidth="0.6" />
-          <path d="M0,70 Q40,66 70,72 T100,68" fill="none" stroke="rgba(102,232,250,0.18)" strokeWidth="0.6" />
-          <path d="M50,0 Q52,40 48,100" fill="none" stroke="rgba(102,232,250,0.18)" strokeWidth="0.6" />
+          <path d="M0,40 Q30,38 60,45 T100,42" fill="none" stroke="rgba(13,60,252,0.18)" strokeWidth="0.6" />
+          <path d="M0,70 Q40,66 70,72 T100,68" fill="none" stroke="rgba(13,60,252,0.18)" strokeWidth="0.6" />
+          <path d="M50,0 Q52,40 48,100" fill="none" stroke="rgba(13,60,252,0.18)" strokeWidth="0.6" />
         </svg>
         {/* Pins */}
         {PINS.map((p, i) => {

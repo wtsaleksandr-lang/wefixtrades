@@ -24,7 +24,7 @@ function AiMockup() {
     >
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18, paddingBottom: 16, borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-        <div style={{ width: 38, height: 38, borderRadius: 10, background: "rgba(102,232,250,0.10)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ width: 38, height: 38, borderRadius: 10, background: "rgba(13,60,252,0.10)", display: "flex", alignItems: "center", justifyContent: "center" }}>
           <Bot size={18} color={mkt.accent} strokeWidth={1.5} />
         </div>
         <div style={{ flex: 1 }}>
@@ -45,7 +45,7 @@ function AiMockup() {
       {messages.map((m, i) => (
         <div key={i} style={{ display: "flex", justifyContent: m.user ? "flex-end" : "flex-start", marginBottom: 10 }}>
           {!m.user && (
-            <div style={{ width: 22, height: 22, borderRadius: 6, background: "rgba(102,232,250,0.10)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginRight: 6, marginTop: 2 }}>
+            <div style={{ width: 22, height: 22, borderRadius: 6, background: "rgba(13,60,252,0.10)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginRight: 6, marginTop: 2 }}>
               <Bot size={11} color={mkt.accent} strokeWidth={1.5} />
             </div>
           )}

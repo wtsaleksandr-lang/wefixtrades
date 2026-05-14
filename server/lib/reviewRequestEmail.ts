@@ -29,7 +29,7 @@ export function buildReviewRequestEmailHtml(opts: {
 <html><body style="font-family:'Inter',Arial,sans-serif;margin:0;padding:0;background:#f5f5f5;">
 <table cellpadding="0" cellspacing="0" width="100%" style="max-width:520px;margin:24px auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
   <tr><td style="padding:28px 28px 0;text-align:center;">
-    <div style="display:inline-block;background:#66E8FA;color:#181D1F;font-size:12px;font-weight:800;padding:4px 14px;border-radius:999px;letter-spacing:0.04em;">WeFixTrades</div>
+    <div style="display:inline-block;background:#0d3cfc;color:#181D1F;font-size:12px;font-weight:800;padding:4px 14px;border-radius:999px;letter-spacing:0.04em;">WeFixTrades</div>
   </td></tr>
   <tr><td style="padding:24px 28px;">
     <h1 style="font-size:20px;font-weight:700;color:#1a1a2e;margin:0 0 8px;">Hi ${safeName},</h1>
@@ -84,7 +84,7 @@ export function buildReminderEmailHtml(opts: {
 <html><body style="font-family:'Inter',Arial,sans-serif;margin:0;padding:0;background:#f5f5f5;">
 <table cellpadding="0" cellspacing="0" width="100%" style="max-width:520px;margin:24px auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
   <tr><td style="padding:28px 28px 0;text-align:center;">
-    <div style="display:inline-block;background:#66E8FA;color:#181D1F;font-size:12px;font-weight:800;padding:4px 14px;border-radius:999px;letter-spacing:0.04em;">WeFixTrades</div>
+    <div style="display:inline-block;background:#0d3cfc;color:#181D1F;font-size:12px;font-weight:800;padding:4px 14px;border-radius:999px;letter-spacing:0.04em;">WeFixTrades</div>
   </td></tr>
   <tr><td style="padding:24px 28px;">
     <h1 style="font-size:20px;font-weight:700;color:#1a1a2e;margin:0 0 12px;">${heading}</h1>

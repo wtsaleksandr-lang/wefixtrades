@@ -1,7 +1,7 @@
 import { Link } from "wouter";
 
 const DARK = "#22282a";
-const ACCENT = "#66E8FA";
+const ACCENT = "#0d3cfc";
 
 interface CTASectionProps {
   heading?: string;
@@ -20,7 +20,7 @@ export default function CTASection({ heading, subtext, ctaLabel, ctaHref }: CTAS
         .cta-inner-wrap {
           background: ${ACCENT};
           border-radius: 20px;
-          border: 1px solid rgba(102,232,250,0.4);
+          border: 1px solid rgba(13,60,252,0.4);
           padding: 48px 40px 0 40px;
           max-width: 900px;
           margin: 0 auto;
@@ -30,7 +30,7 @@ export default function CTASection({ heading, subtext, ctaLabel, ctaHref }: CTAS
           transition: border-color 0.3s ease, box-shadow 0.3s ease;
         }
         .cta-inner-wrap:hover {
-          border-color: rgba(102,232,250,0.7);
+          border-color: rgba(13,60,252,0.7);
           box-shadow: 0 20px 60px rgba(0,0,0,0.25);
         }
         .cta-btn-text {
@@ -131,7 +131,7 @@ export default function CTASection({ heading, subtext, ctaLabel, ctaHref }: CTAS
                       alignItems: "center",
                       justifyContent: "center",
                     }}>
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#66E8FA" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0d3cfc" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M5 12h14M12 5l7 7-7 7" />
                       </svg>
                     </div>

@@ -29,7 +29,7 @@ export default function TradeLineV3() {
         {/* OPENING HEADER */}
         <section style={{ padding: "100px 24px 0" }}>
           <div style={{ maxWidth: 1280, margin: "0 auto", textAlign: "center" }}>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 14px", borderRadius: 999, background: "rgba(102,232,250,0.10)", border: `1px solid rgba(102,232,250,0.24)`, fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: mkt.accent, marginBottom: 28 }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 14px", borderRadius: 999, background: "rgba(13,60,252,0.10)", border: `1px solid rgba(13,60,252,0.24)`, fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: mkt.accent, marginBottom: 28 }}>
               <Phone size={12} /> 24/7 Lead Handling
             </div>
             <h1 style={{ fontSize: "clamp(48px, 7vw, 88px)", fontWeight: 700, lineHeight: 1.0, letterSpacing: "-0.04em", maxWidth: 980, margin: "0 auto 24px" }}>
@@ -58,7 +58,7 @@ export default function TradeLineV3() {
               {/* Wide hero cell — 24/7 */}
               <div style={{ ...CARD, gridColumn: "span 4", gridRow: "span 2", display: "flex", flexDirection: "column", justifyContent: "space-between", padding: 36 }}>
                 <div>
-                  <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "4px 10px", borderRadius: 999, background: "rgba(102,232,250,0.12)", color: mkt.accent, fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 20 }}>
+                  <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "4px 10px", borderRadius: 999, background: "rgba(13,60,252,0.12)", color: mkt.accent, fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 20 }}>
                     Always on
                   </div>
                   <h3 style={{ fontSize: 36, fontWeight: 700, letterSpacing: "-0.03em", lineHeight: 1.05, marginBottom: 14 }}>
@@ -95,7 +95,7 @@ export default function TradeLineV3() {
 
               {/* Wide row — review requests */}
               <div style={{ ...CARD, gridColumn: "span 3", gridRow: "span 1", display: "flex", alignItems: "center", gap: 20 }}>
-                <div style={{ width: 56, height: 56, borderRadius: 14, background: "rgba(102,232,250,0.1)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <div style={{ width: 56, height: 56, borderRadius: 14, background: "rgba(13,60,252,0.1)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                   <Star size={24} color={mkt.accent} fill={mkt.accent} />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -106,7 +106,7 @@ export default function TradeLineV3() {
 
               {/* Square cell — missed-call text-back */}
               <div style={{ ...CARD, gridColumn: "span 3", gridRow: "span 1", display: "flex", alignItems: "center", gap: 20 }}>
-                <div style={{ width: 56, height: 56, borderRadius: 14, background: "rgba(102,232,250,0.1)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <div style={{ width: 56, height: 56, borderRadius: 14, background: "rgba(13,60,252,0.1)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                   <BellRing size={24} color={mkt.accent} />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -184,7 +184,7 @@ export default function TradeLineV3() {
 
         {/* CTA */}
         <section style={{ padding: "60px 24px 120px" }}>
-          <div style={{ ...CARD, maxWidth: 1180, margin: "0 auto", padding: "80px 40px", textAlign: "center", background: `linear-gradient(135deg, rgba(102,232,250,0.08), rgba(102,232,250,0.02))` }}>
+          <div style={{ ...CARD, maxWidth: 1180, margin: "0 auto", padding: "80px 40px", textAlign: "center", background: `linear-gradient(135deg, rgba(13,60,252,0.08), rgba(13,60,252,0.02))` }}>
             <h2 style={{ fontSize: "clamp(36px, 5vw, 56px)", fontWeight: 700, lineHeight: 1.05, letterSpacing: "-0.03em", marginBottom: 20 }}>
               Tonight, every call gets answered.
             </h2>

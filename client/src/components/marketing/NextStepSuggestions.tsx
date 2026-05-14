@@ -115,8 +115,8 @@ const THEMES = {
     cardBg: "rgba(255,255,255,0.03)",
     cardBorder: "rgba(255,255,255,0.06)",
     cardHover: "rgba(255,255,255,0.06)",
-    iconBg: "rgba(102,232,250,0.10)",
-    iconColor: "#66E8FA",
+    iconBg: "rgba(13,60,252,0.10)",
+    iconColor: "#0d3cfc",
     arrow: "rgba(255,255,255,0.3)",
   },
   widget: {

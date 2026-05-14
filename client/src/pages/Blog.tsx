@@ -202,7 +202,7 @@ function BlogCard({ post, onOpen, size = "grid" }: {
         className="blog-feat"
         style={{
           background: mkt.sectionLight,
-          border: `1px solid ${hover ? "rgba(102,232,250,0.45)" : mkt.onDarkBorder}`,
+          border: `1px solid ${hover ? "rgba(13,60,252,0.45)" : mkt.onDarkBorder}`,
           borderRadius: 22,
           padding: 4,                        // .19em wrapper frame
           display: "grid",

@@ -13,7 +13,7 @@ import { MONO } from "@/components/effortel-blocks";
 import { Search, Smile, Paperclip, Send, MoreVertical } from "lucide-react";
 
 const AVATARS = [
-  { initials: "TR", name: "Theo Renshaw",   bg: "#66E8FA", role: "Senior Trades Specialist", online: true  },
+  { initials: "TR", name: "Theo Renshaw",   bg: "#0d3cfc", role: "Senior Trades Specialist", online: true  },
   { initials: "JV", name: "Jaxon Voss",     bg: "#C5B4FF", role: "On-call Engineer",          online: true  },
   { initials: "RM", name: "Rowan Mercer",   bg: "#F472B6", role: "TradeLine Ops",             online: false, preview: "Hey, can I tweak my after-hours…" },
   { initials: "SV", name: "Sienna Vail",    bg: "#86EFAC", role: "Onboarding",                online: false, preview: "Service area updated, ready to…" },
@@ -213,7 +213,7 @@ const CSS = `
   padding: 7px 8px; border-radius: 8px;
   cursor: pointer;
 }
-.mts-list-row.active { background: rgba(102,232,250,0.08); border: 1px solid rgba(102,232,250,0.18); }
+.mts-list-row.active { background: rgba(13,60,252,0.08); border: 1px solid rgba(13,60,252,0.18); }
 .mts-list-meta { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
 .mts-list-name { font-size: 11px; font-weight: 700; color: #fff; }
 .mts-list-prev { font-size: 10px; color: rgba(255,255,255,0.45); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

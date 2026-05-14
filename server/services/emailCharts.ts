@@ -142,8 +142,8 @@ export async function generateLineChart(spec: LineChartSpec): Promise<GenerateCh
           datasets: [
             {
               data: spec.values,
-              borderColor: spec.lineColor || "#66E8FA",
-              backgroundColor: spec.fillColor || "rgba(102,232,250,0.18)",
+              borderColor: spec.lineColor || "#0d3cfc",
+              backgroundColor: spec.fillColor || "rgba(13,60,252,0.18)",
               fill: true,
               tension: 0.42,
               pointRadius: 0,
@@ -174,8 +174,8 @@ export async function generateLineChart(spec: LineChartSpec): Promise<GenerateCh
           datasets: [
             {
               data: spec.values,
-              borderColor: spec.lineColor || "#66E8FA",
-              backgroundColor: spec.fillColor || "rgba(102,232,250,0.18)",
+              borderColor: spec.lineColor || "#0d3cfc",
+              backgroundColor: spec.fillColor || "rgba(13,60,252,0.18)",
               fill: true,
               tension: 0.4,
               pointRadius: 0,

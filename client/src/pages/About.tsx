@@ -69,7 +69,7 @@ export default function AboutPage() {
                 return (
                   <Reveal key={v.title} delay={i * 0.05}>
                     <div style={{ background: mkt.sectionLight, borderRadius: 18, padding: "26px 24px", border: `1px solid ${mkt.onDarkBorder}`, display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
-                      <div style={{ width: 44, height: 44, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(102,232,250,0.10)", color: mkt.accent }}>
+                      <div style={{ width: 44, height: 44, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(13,60,252,0.10)", color: mkt.accent }}>
                         <Icon size={22} strokeWidth={1.6} />
                       </div>
                       <h3 style={{ fontSize: 16, fontWeight: 600, color: mkt.onDark, margin: 0, lineHeight: 1.3, letterSpacing: "-0.01em" }}>{v.title}</h3>

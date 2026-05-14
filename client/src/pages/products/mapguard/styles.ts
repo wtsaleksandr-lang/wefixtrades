@@ -12,14 +12,18 @@ export const GLASS: CSSProperties = {
   borderRadius: 20,
 };
 
+/* Hover affordance: flat white border, no glow halo (brand direction). */
 export const GLASS_HOVER: CSSProperties = {
-  borderColor: "rgba(102,232,250,0.2)",
-  boxShadow: "0 0 40px rgba(102,232,250,0.12)",
+  borderColor: "#FFFFFF",
+  boxShadow: "none",
   transform: "translateY(-4px)",
 };
 
-export const GLOW_CYAN = "0 0 40px rgba(102,232,250,0.15)";
-export const GLOW_CYAN_STRONG = "0 0 30px rgba(102,232,250,0.25), 0 0 60px rgba(102,232,250,0.1)";
+/* Kept as named exports for compatibility with existing imports.
+ * Both now resolve to no glow (the consumer should fall back to the
+ * `GLASS_HOVER` border treatment). Empty string keeps `box-shadow: ` valid. */
+export const GLOW_CYAN = "none";
+export const GLOW_CYAN_STRONG = "none";
 
 export const GRID_BG: CSSProperties = {
   backgroundImage: `

@@ -156,7 +156,7 @@ function buildHtml(params: {
               <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
                 <tr>
                   <td style="font-size:14px;font-weight:600;color:#F0F0F0;">${a.label}</td>
-                  <td align="right" style="font-size:14px;font-weight:700;color:#66E8FA;white-space:nowrap;">→</td>
+                  <td align="right" style="font-size:14px;font-weight:700;color:#0d3cfc;white-space:nowrap;">→</td>
                 </tr>
               </table>
             </a>
@@ -175,9 +175,9 @@ function buildHtml(params: {
     .join("");
 
   const firstActionBlock = params.copy.firstAction
-    ? `<div style="background:rgba(102,232,250,0.06);border-left:2px solid #66E8FA;border-radius:4px;padding:12px 14px;margin:0 0 22px;">
+    ? `<div style="background:rgba(13,60,252,0.06);border-left:2px solid #0d3cfc;border-radius:4px;padding:12px 14px;margin:0 0 22px;">
         <p style="font-size:13px;color:#CDD1D6;line-height:1.55;margin:0;">
-          <strong style="color:#66E8FA;font-weight:600;">Next:</strong> ${params.copy.firstAction}
+          <strong style="color:#0d3cfc;font-weight:600;">Next:</strong> ${params.copy.firstAction}
         </p>
       </div>`
     : "";
@@ -194,7 +194,7 @@ function buildHtml(params: {
         ${artifactRows}
       </table>`,
     showDividerBeforeSupport: true,
-    supportNote: `<strong style="color:#CDD1D6;font-weight:600;">Need anything?</strong> Reply to this email or reach us at <a href="mailto:${params.supportEmail}" style="color:#66E8FA;text-decoration:none;">${params.supportEmail}</a>. We monitor every inbox and reply fast.`,
+    supportNote: `<strong style="color:#CDD1D6;font-weight:600;">Need anything?</strong> Reply to this email or reach us at <a href="mailto:${params.supportEmail}" style="color:#0d3cfc;text-decoration:none;">${params.supportEmail}</a>. We monitor every inbox and reply fast.`,
   });
 }
 

@@ -34,25 +34,25 @@ export async function sendAdflowOnboardingEmail(data: AdflowOnboardingData): Pro
     <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px;">
       <tr>
         <td style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
-          <div style="font-size:11px;font-weight:700;color:#66E8FA;text-transform:uppercase;letter-spacing:0.05em;margin:0 0 4px;">Day 1-2</div>
+          <div style="font-size:11px;font-weight:700;color:#0d3cfc;text-transform:uppercase;letter-spacing:0.05em;margin:0 0 4px;">Day 1-2</div>
           <div style="font-size:14px;color:#CDD1D6;line-height:1.5;">Agency partner briefed on your business and campaign goals.</div>
         </td>
       </tr>
       <tr>
         <td style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
-          <div style="font-size:11px;font-weight:700;color:#66E8FA;text-transform:uppercase;letter-spacing:0.05em;margin:0 0 4px;">Day 3-5</div>
+          <div style="font-size:11px;font-weight:700;color:#0d3cfc;text-transform:uppercase;letter-spacing:0.05em;margin:0 0 4px;">Day 3-5</div>
           <div style="font-size:14px;color:#CDD1D6;line-height:1.5;">Ad account setup and campaign structure created. You may be asked to approve creatives.</div>
         </td>
       </tr>
       <tr>
         <td style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
-          <div style="font-size:11px;font-weight:700;color:#66E8FA;text-transform:uppercase;letter-spacing:0.05em;margin:0 0 4px;">Day 7-10</div>
+          <div style="font-size:11px;font-weight:700;color:#0d3cfc;text-transform:uppercase;letter-spacing:0.05em;margin:0 0 4px;">Day 7-10</div>
           <div style="font-size:14px;color:#CDD1D6;line-height:1.5;">Campaigns go live. Initial performance data starts flowing in.</div>
         </td>
       </tr>
       <tr>
         <td style="padding:10px 0;">
-          <div style="font-size:11px;font-weight:700;color:#66E8FA;text-transform:uppercase;letter-spacing:0.05em;margin:0 0 4px;">Day 30</div>
+          <div style="font-size:11px;font-weight:700;color:#0d3cfc;text-transform:uppercase;letter-spacing:0.05em;margin:0 0 4px;">Day 30</div>
           <div style="font-size:14px;color:#CDD1D6;line-height:1.5;">Your first monthly performance report arrives with leads, spend, and optimization recommendations.</div>
         </td>
       </tr>
@@ -81,7 +81,7 @@ export async function sendAdflowOnboardingEmail(data: AdflowOnboardingData): Pro
       url: portalUrl,
       style: "primary",
     },
-    supportNote: `Questions? Reply to this email or visit your <a href="${portalUrl}" style="color:#66E8FA;text-decoration:none;">portal</a>.`,
+    supportNote: `Questions? Reply to this email or visit your <a href="${portalUrl}" style="color:#0d3cfc;text-decoration:none;">portal</a>.`,
   });
 
   const text = buildPlainText({

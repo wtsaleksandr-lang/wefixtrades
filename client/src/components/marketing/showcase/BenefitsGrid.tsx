@@ -93,15 +93,15 @@ const CSS = `
 }
 .bg-card:hover {
   transform: translateY(-2px);
-  border-color: rgba(102,232,250,0.18);
+  border-color: rgba(13,60,252,0.18);
   background: rgba(20,24,27,0.7);
 }
 .bg-icon {
   width: 40px; height: 40px;
   border-radius: 10px;
-  background: rgba(102,232,250,0.10);
-  border: 1px solid rgba(102,232,250,0.18);
-  color: #66E8FA;
+  background: rgba(13,60,252,0.10);
+  border: 1px solid rgba(13,60,252,0.18);
+  color: #0d3cfc;
   display: inline-flex; align-items: center; justify-content: center;
   margin-bottom: 60px;
   flex-shrink: 0;

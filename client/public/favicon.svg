@@ -1,14 +1,14 @@
 <svg width="32" height="32" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
   <!-- Dark rounded box background -->
-  <rect x="0.5" y="0.5" width="21" height="21" rx="5" fill="#1a1f1e" stroke="#66E8FA" stroke-opacity="0.25" stroke-width="0.75"/>
+  <rect x="0.5" y="0.5" width="21" height="21" rx="5" fill="#1a1f1e" stroke="#0d3cfc" stroke-opacity="0.25" stroke-width="0.75"/>
   <!-- Top-left bracket -->
-  <path d="M8 3H4C3.4 3 3 3.4 3 4V8" stroke="#66E8FA" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M8 3H4C3.4 3 3 3.4 3 4V8" stroke="#0d3cfc" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>
   <!-- Top-right bracket -->
-  <path d="M14 3H18C18.6 3 19 3.4 19 4V8" stroke="#66E8FA" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M14 3H18C18.6 3 19 3.4 19 4V8" stroke="#0d3cfc" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>
   <!-- Bottom-left bracket -->
-  <path d="M8 19H4C3.4 19 3 18.6 3 18V14" stroke="#66E8FA" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M8 19H4C3.4 19 3 18.6 3 18V14" stroke="#0d3cfc" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>
   <!-- Bottom-right bracket -->
-  <path d="M14 19H18C18.6 19 19 18.6 19 18V14" stroke="#66E8FA" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M14 19H18C18.6 19 19 18.6 19 18V14" stroke="#0d3cfc" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>
   <!-- Checkmark -->
-  <path d="M7.5 11.5L10 14L14.5 9" stroke="#66E8FA" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M7.5 11.5L10 14L14.5 9" stroke="#0d3cfc" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

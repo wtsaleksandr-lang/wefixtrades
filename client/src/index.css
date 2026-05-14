@@ -68,8 +68,11 @@
   --shadow-card: 0 10px 20px #33314833;
   --shadow-hover: 0 20px 36px #3331484d;
 
-  --ring-primary: 0 0 0 3px rgba(102,232,250,0.25);
-  --glow-primary: 0 0 0 1px rgba(102,232,250,0.30), 0 12px 32px rgba(102,232,250,0.20);
+  --ring-primary: 0 0 0 3px rgba(13,60,252,0.25);
+  /* --glow-primary was a colored glow halo; brand direction now favors
+   * a flat white border on hover instead. Implemented via inset box-shadow
+   * to avoid any layout shift on hover. */
+  --glow-primary: inset 0 0 0 2px #FFFFFF;
 
   --sidebar-primary-border: hsl(var(--sidebar-primary));
   --sidebar-primary-border: hsl(from hsl(var(--sidebar-primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
@@ -461,16 +464,18 @@
   transition: color var(--dur) var(--ease-out), background var(--dur) var(--ease-out), opacity var(--dur) var(--ease-out), transform var(--dur) var(--ease-out);
 }
 
-/* CTA button hover lift — Effortel dark theme */
+/* CTA button — dark theme.
+ * Base state is flat (no colored glow, no halo). Hover affords a white
+ * inset border (see --glow-primary). Background darkens on hover. */
 .mkt-btn-primary {
   border-radius: 10px !important;
   cursor: pointer;
-  background: #66E8FA;
-  color: #22282A;
+  background: #0d3cfc;
+  color: #FFFFFF;
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  box-shadow: 0 4px 14px rgba(102,232,250,0.18), 0 1px 3px rgba(0,0,0,0.12);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.12);
   transition:
     transform var(--dur) var(--ease-out),
     box-shadow var(--dur) var(--ease-out),
@@ -480,7 +485,7 @@
 }
 .mkt-btn-primary:hover {
   transform: translateY(-2px);
-  background: #9CF0FC;
+  background: #0b34d6;
   box-shadow: var(--glow-primary);
   will-change: transform, box-shadow;
 }
@@ -566,7 +571,7 @@
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: radial-gradient(circle at 50% 0%, var(--card-glow, rgba(102,232,250,0.08)), transparent 70%);
+  background: radial-gradient(circle at 50% 0%, var(--card-glow, rgba(13,60,252,0.08)), transparent 70%);
   opacity: 0;
   transition: opacity var(--dur) var(--ease-out);
   pointer-events: none;
@@ -575,7 +580,7 @@
 .mkt-feature-card:hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow-hover);
-  border-color: rgba(102,232,250,0.15) !important;
+  border-color: #FFFFFF !important;
   will-change: transform, box-shadow;
 }
 .mkt-feature-card:hover::before { opacity: 1; }
@@ -593,7 +598,7 @@
     border-color var(--dur) var(--ease-out);
 }
 .mkt-tile:hover {
-  border-color: rgba(102,232,250,0.18);
+  border-color: #FFFFFF;
   box-shadow: var(--shadow-hover);
   transform: translateY(-2px);
   will-change: transform, box-shadow;
@@ -636,7 +641,7 @@
 
 /* Subtle gradient text */
 .mkt-gradient-text {
-  background: linear-gradient(135deg, #66E8FA 0%, #9CF0FC 100%);
+  background: linear-gradient(135deg, #0d3cfc 0%, #0b34d6 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -667,11 +672,11 @@
 
 /* PRODUCT variant */
 .cta-arrow-btn--primary {
-  background: #66E8FA;
+  background: #0d3cfc;
   height: calc(2.9em - 1px);
 }
 .cta-arrow-btn--primary:hover {
-  background: #9CF0FC;
+  background: #0b34d6;
 }
 
 /* Label — absolute, fills the non-square region at rest, fills square region on hover.
@@ -743,7 +748,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #66E8FA;
+  color: #0d3cfc;
   pointer-events: none;
   z-index: 2;
   transition: right 0.38s cubic-bezier(.579, .001, 0, 1.007);
@@ -769,7 +774,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #66E8FA;
+  color: #0d3cfc;
   pointer-events: none;
   z-index: 2;
   transition: left 0.38s cubic-bezier(.579, .001, 0, 1.007);
@@ -984,7 +989,7 @@
   bottom: -3px;
   height: 2px;
   width: 100%;
-  background: linear-gradient(90deg, rgba(102,232,250,0), rgba(102,232,250,0.9), rgba(102,232,250,0));
+  background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,0.9), rgba(255,255,255,0));
   transform: scaleX(0);
   transform-origin: center;
   transition: transform var(--dur) var(--ease-out);
@@ -1161,7 +1166,7 @@
   border-radius: inherit;
   background: radial-gradient(
     circle at 18% 50%,
-    rgba(102, 232, 250, 0.10),
+    rgba(13, 60, 252, 0.10),
     transparent 55%
   );
   opacity: 0;
@@ -1191,17 +1196,17 @@
   border-color: rgba(255, 255, 255, 0.14) !important;
 }
 .mkt-menu-card--pressed .mkt-menu-card-icon {
-  background: rgba(102, 232, 250, 0.18);
-  border-color: rgba(102, 232, 250, 0.50);
+  background: rgba(13, 60, 252, 0.18);
+  border-color: rgba(13, 60, 252, 0.50);
   filter: grayscale(0) brightness(1);
   transform: translateY(-1px);
-  box-shadow: 0 8px 20px rgba(102, 232, 250, 0.18);
+  box-shadow: 0 8px 20px rgba(13, 60, 252, 0.18);
 }
 
 /* Card hover */
 .mkt-menu-card:hover {
   background: #1c2221;
-  border-color: rgba(102, 232, 250, 0.20);
+  border-color: #FFFFFF;
   transform: translateY(-2px);
   box-shadow: 0 14px 32px rgba(0, 0, 0, 0.35);
 }
@@ -1244,7 +1249,8 @@
   opacity: 0.7;
 }
 
-/* Soft cyan glow ring that breathes in on hover (premium lift). */
+/* Hover ring — soft white halo that breathes in on hover (replaces the
+ * old cyan glow per brand direction "no glow on buttons / hover = white"). */
 .mkt-menu-card-icon::after {
   content: '';
   position: absolute;
@@ -1252,7 +1258,7 @@
   border-radius: inherit;
   background: radial-gradient(
     circle at 50% 50%,
-    rgba(102, 232, 250, 0.28),
+    rgba(255, 255, 255, 0.18),
     transparent 70%
   );
   opacity: 0;
@@ -1270,17 +1276,18 @@
 }
 
 /* Desktop hover + mobile tap/active/focus — tile pops to full color
-   (grayscale removed, accent fill, slight lift). */
+   (grayscale removed, accent fill, slight lift). Border + shadow flip
+   to white per brand direction "hover = white border, no colored glow". */
 .mkt-menu-card:hover .mkt-menu-card-icon,
 .mkt-menu-card:active .mkt-menu-card-icon,
 .mkt-menu-card:focus-visible .mkt-menu-card-icon {
   background:
-    linear-gradient(160deg, rgba(102, 232, 250, 0.22), rgba(102, 232, 250, 0.08)),
-    rgba(102, 232, 250, 0.12);
-  border-color: rgba(102, 232, 250, 0.55);
+    linear-gradient(160deg, rgba(13, 60, 252, 0.22), rgba(13, 60, 252, 0.08)),
+    rgba(13, 60, 252, 0.12);
+  border-color: #FFFFFF;
   filter: grayscale(0) brightness(1);
   transform: translateY(-2px) scale(1.02);
-  box-shadow: 0 10px 26px rgba(102, 232, 250, 0.22);
+  box-shadow: none;
 }
 
 
@@ -1417,7 +1424,7 @@
   flex-shrink: 0;
   width: 50%;
   height: 100%;
-  color: #9cf0fc;
+  color: #0b34d6;
 }
 
 /* ═══════════════════════════════════════════════════ */
@@ -1529,8 +1536,8 @@
 /* ─── V7 page polish — global rules ─────────────────────────────────── */
 
 /* CTA buttons → hover lift + shadow */
-[href][style*="rgba(102,232,250"],
-[href][style*="background: rgba(102,232,250"],
+[href][style*="rgba(13,60,252"],
+[href][style*="background: rgba(13,60,252"],
 .v7-cta-primary,
 .v7-cta-ghost {
   transition: transform 0.18s ease, box-shadow 0.18s ease,
@@ -1590,7 +1597,7 @@
 [style*="background: rgb(57, 66, 71)"][style*="border-radius"]:hover,
 [style*="background: #394247"][style*="border-radius"]:hover {
   transform: translateY(-2px);
-  border-color: rgba(102,232,250,0.28) !important;
+  border-color: #FFFFFF !important;
   box-shadow: 0 14px 32px rgba(0,0,0,0.28) !important;
 }
 
@@ -1601,7 +1608,7 @@
 }
 [data-v7-card]:hover {
   transform: translateY(-2px);
-  border-color: rgba(102,232,250,0.28) !important;
+  border-color: #FFFFFF !important;
   box-shadow: 0 14px 32px rgba(0,0,0,0.28) !important;
 }
 
@@ -1649,9 +1656,16 @@ button[style*="background:"][style*="border-radius"]:not([style*="transparent"])
 
 /* Pricing tier card hover lift (specifically targets the highlighted plan
    so it lifts even more) */
-[style*="background: rgb(102, 232, 250)"][style*="border-radius"]:hover {
+/* NOTE: the rgb(102,232,250) selector below targets legacy inline-styled
+ * cards that still emit the old cyan background. Most have been swapped to
+ * blue (rgb(13,60,252)); the dual selectors cover both for the rollout
+ * window. Hover affordance is a white outline (no layout shift). */
+[style*="background: rgb(102, 232, 250)"][style*="border-radius"]:hover,
+[style*="background: rgb(13, 60, 252)"][style*="border-radius"]:hover {
   transform: translateY(-3px);
-  box-shadow: 0 24px 60px rgba(102,232,250,0.28) !important;
+  outline: 2px solid #FFFFFF;
+  outline-offset: -2px;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.32) !important;
 }
 
 /* Auth-page card hover (subtle — they're functional) */
@@ -1659,7 +1673,7 @@ button[style*="background:"][style*="border-radius"]:not([style*="transparent"])
   transition: box-shadow 0.25s ease, border-color 0.25s ease !important;
 }
 [style*="background: rgb(57, 66, 71)"][style*="border-radius: 24px"]:hover {
-  border-color: rgba(102,232,250,0.20) !important;
+  border-color: #FFFFFF !important;
   box-shadow: 0 18px 40px rgba(0,0,0,0.32) !important;
   /* No translateY on auth cards — would feel jittery while typing */
   transform: none !important;
@@ -1680,8 +1694,8 @@ input:focus,
 textarea:focus,
 select:focus {
   outline: none !important;
-  border-color: rgba(102, 232, 250, 0.45) !important;
-  box-shadow: 0 0 0 3px rgba(102, 232, 250, 0.12) !important;
+  border-color: rgba(13, 60, 252, 0.45) !important;
+  box-shadow: 0 0 0 3px rgba(13, 60, 252, 0.12) !important;
   transition: border-color 0.18s ease, box-shadow 0.18s ease !important;
 }
 

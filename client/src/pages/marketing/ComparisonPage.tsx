@@ -86,7 +86,7 @@ function ComparisonTable({ data }: { data: ComparisonData }) {
                   color: "#FFFFFF",
                   fontWeight: 700,
                   fontSize: 14,
-                  background: "rgba(102,232,250,0.10)",
+                  background: "rgba(13,60,252,0.10)",
                   borderLeft: `2px solid ${mkt.accent}`,
                   borderRight: `2px solid ${mkt.accent}`,
                   minWidth: 160,
@@ -148,9 +148,9 @@ function ComparisonTable({ data }: { data: ComparisonData }) {
                   style={{
                     padding: "14px 20px",
                     textAlign: "center",
-                    background: "rgba(102,232,250,0.04)",
-                    borderLeft: "2px solid rgba(102,232,250,0.15)",
-                    borderRight: "2px solid rgba(102,232,250,0.15)",
+                    background: "rgba(13,60,252,0.04)",
+                    borderLeft: "2px solid rgba(13,60,252,0.15)",
+                    borderRight: "2px solid rgba(13,60,252,0.15)",
                   }}
                 >
                   <CellValue value={row.values[0]} />
@@ -220,7 +220,7 @@ export default function ComparisonPage() {
               width: 500,
               height: 500,
               borderRadius: "50%",
-              background: "rgba(102,232,250,0.06)",
+              background: "rgba(13,60,252,0.06)",
               pointerEvents: "none",
             }}
           />
@@ -232,7 +232,7 @@ export default function ComparisonPage() {
               width: 400,
               height: 400,
               borderRadius: "50%",
-              background: "rgba(102,232,250,0.05)",
+              background: "rgba(13,60,252,0.05)",
               pointerEvents: "none",
             }}
           />
@@ -243,8 +243,8 @@ export default function ComparisonPage() {
                 display: "inline-flex",
                 alignItems: "center",
                 gap: 6,
-                background: "rgba(102,232,250,0.12)",
-                border: "1px solid rgba(102,232,250,0.25)",
+                background: "rgba(13,60,252,0.12)",
+                border: "1px solid rgba(13,60,252,0.25)",
                 borderRadius: 20,
                 padding: "5px 14px",
                 marginBottom: 28,
@@ -380,7 +380,7 @@ export default function ComparisonPage() {
                       width: 36,
                       height: 36,
                       borderRadius: 10,
-                      background: "rgba(102,232,250,0.10)",
+                      background: "rgba(13,60,252,0.10)",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",

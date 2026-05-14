@@ -126,7 +126,7 @@ function QuoteVisual() {
       <text x="14" y="22" fontFamily="'DM Mono', monospace" fontSize="9"
             fill="rgba(255,255,255,0.45)" letterSpacing="1.5">QUOTEQUICK PRO</text>
       <text x="306" y="22" textAnchor="end" fontFamily="'DM Mono', monospace" fontSize="9"
-            fill="#66E8FA" letterSpacing="1">2.3s</text>
+            fill="#0d3cfc" letterSpacing="1">2.3s</text>
 
       {/* Service row */}
       <text x="14" y="44" fontFamily="'DM Mono', monospace" fontSize="8"
@@ -144,20 +144,20 @@ function QuoteVisual() {
 
       {/* Accent total band */}
       <rect x="14" y="84" width="292" height="32" rx="8"
-            fill="rgba(102,232,250,0.12)" stroke="rgba(102,232,250,0.40)" />
+            fill="rgba(13,60,252,0.12)" stroke="rgba(13,60,252,0.40)" />
       <text x="24" y="105" fontFamily="'DM Mono', monospace" fontSize="9"
-            fontWeight="700" fill="rgba(102,232,250,0.75)" letterSpacing="1.5">
+            fontWeight="700" fill="rgba(13,60,252,0.75)" letterSpacing="1.5">
         YOUR QUOTE
       </text>
       <text x="296" y="106" textAnchor="end" fontFamily="'DM Sans', sans-serif"
-            fontSize="20" fontWeight="800" fill="#66E8FA" letterSpacing="-0.02em">
+            fontSize="20" fontWeight="800" fill="#0d3cfc" letterSpacing="-0.02em">
         $1,247
       </text>
 
       <defs>
         <linearGradient id="q-grad" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="rgba(102,232,250,0.12)" />
-          <stop offset="100%" stopColor="rgba(102,232,250,0)" />
+          <stop offset="0%" stopColor="rgba(13,60,252,0.12)" />
+          <stop offset="100%" stopColor="rgba(13,60,252,0)" />
         </linearGradient>
       </defs>
     </svg>
@@ -242,7 +242,7 @@ function GenericVisual() {
     <svg viewBox="0 0 320 130" width="100%" height="100%" aria-hidden>
       <rect x="0" y="0" width="320" height="130" rx="12" fill="rgba(20,24,23,0.6)" />
       <rect x="40" y="40" width="240" height="50" rx="10"
-            fill="rgba(102,232,250,0.10)" stroke="rgba(102,232,250,0.30)" />
+            fill="rgba(13,60,252,0.10)" stroke="rgba(13,60,252,0.30)" />
     </svg>
   );
 }
@@ -284,7 +284,7 @@ const CSS = `
   border-radius: inherit;
   background: radial-gradient(
     circle at 50% 100%,
-    rgba(102, 232, 250, 0.12),
+    rgba(13, 60, 252, 0.12),
     transparent 60%
   );
   opacity: 0;
@@ -293,7 +293,7 @@ const CSS = `
 }
 .mkt-tools-card:hover {
   background: #1c2221;
-  border-color: rgba(102, 232, 250, 0.28);
+  border-color: rgba(13, 60, 252, 0.28);
   transform: translateY(-3px);
   box-shadow: 0 16px 36px rgba(0, 0, 0, 0.38);
 }

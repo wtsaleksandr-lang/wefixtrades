@@ -237,7 +237,7 @@ function Hero({ cfg, hook, slug }: { cfg: ReturnType<typeof getProductBySlug> & 
       <section style={{ padding: "100px 24px 60px", position: "relative", overflow: "hidden" }}>
         <div style={{
           position: "absolute", inset: 0, pointerEvents: "none",
-          background: "radial-gradient(ellipse 60% 50% at 50% 0%, rgba(102,232,250,0.10) 0%, transparent 60%)",
+          background: "radial-gradient(ellipse 60% 50% at 50% 0%, rgba(13,60,252,0.10) 0%, transparent 60%)",
         }} />
         <div className="tlhp-split" style={{
           maxWidth: 1100, margin: "0 auto", position: "relative",
@@ -321,7 +321,7 @@ function Hero({ cfg, hook, slug }: { cfg: ReturnType<typeof getProductBySlug> & 
     <section style={{ padding: "120px 24px 80px", position: "relative", overflow: "hidden" }}>
       <div style={{
         position: "absolute", inset: 0, pointerEvents: "none",
-        background: "radial-gradient(ellipse 60% 50% at 50% 0%, rgba(102,232,250,0.08) 0%, transparent 60%)",
+        background: "radial-gradient(ellipse 60% 50% at 50% 0%, rgba(13,60,252,0.08) 0%, transparent 60%)",
       }} />
       <div style={{ maxWidth: 1180, margin: "0 auto", position: "relative", textAlign: "center" }}>
         <Reveal>
@@ -471,7 +471,7 @@ function Pricing({ pricing, primaryCta }: { pricing?: { plans: any[]; note?: str
                 borderRadius: 20, padding: "32px 24px",
                 border: `1px solid ${p.highlighted ? mkt.accent : mkt.onDarkBorder}`,
                 position: "relative",
-                boxShadow: p.highlighted ? "0 24px 60px rgba(102,232,250,0.18)" : undefined,
+                boxShadow: p.highlighted ? "0 24px 60px rgba(13,60,252,0.18)" : undefined,
               }}>
                 {p.badge && (
                   <span style={{
@@ -667,7 +667,7 @@ function FinalCta({ cfg }: { cfg: ReturnType<typeof getProductBySlug> & {} }) {
       }}>
         <div style={{
           position: "absolute", inset: 0, pointerEvents: "none",
-          background: "radial-gradient(ellipse 50% 80% at 50% 50%, rgba(102,232,250,0.10) 0%, transparent 60%)",
+          background: "radial-gradient(ellipse 50% 80% at 50% 50%, rgba(13,60,252,0.10) 0%, transparent 60%)",
         }} />
         <h2 style={{ position: "relative", fontSize: "clamp(32px, 4.5vw, 52px)", fontWeight: 700, lineHeight: 1.05, letterSpacing: "-0.025em", color: mkt.onDark, marginBottom: 18 }}>
           Ready to start with<br />

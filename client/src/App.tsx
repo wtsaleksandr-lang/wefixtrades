@@ -11,7 +11,6 @@ import LeadsPage from "@/pages/leads";
 import Dashboard from "@/pages/dashboard";
 import LoginPage from "@/pages/login";
 import MarketingHome from "@/pages/marketing/home";
-import MarketingHomeDarker from "@/pages/marketing/home-darker";
 import MarketingProduct from "@/pages/marketing/product";
 import MarketingPricing from "@/pages/marketing/pricing";
 import QuoteQuickPricing from "@/pages/marketing/quotequick-pricing";
@@ -146,7 +145,6 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={MarketingHome} />
-      <Route path="/home-darker" component={MarketingHomeDarker} />
 
       <Route path="/admin/ai">{() => <RequirePortal><AiDashboard /></RequirePortal>}</Route>
       <Route path="/admin/crm/sales">{() => <RequirePortal><SalesPipelinePage /></RequirePortal>}</Route>

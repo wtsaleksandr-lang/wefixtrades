@@ -26,7 +26,7 @@ export interface OnboardingConfirmationData {
 function stepRow(n: number, text: string): string {
   return `<tr>
     <td style="padding:6px 12px 6px 0;vertical-align:top;width:22px;">
-      <span style="display:inline-block;width:20px;height:20px;background:rgba(102,232,250,0.12);color:#66E8FA;font-size:11px;font-weight:700;border-radius:5px;text-align:center;line-height:20px;">${n}</span>
+      <span style="display:inline-block;width:20px;height:20px;background:rgba(13,60,252,0.12);color:#0d3cfc;font-size:11px;font-weight:700;border-radius:5px;text-align:center;line-height:20px;">${n}</span>
     </td>
     <td style="padding:6px 0;font-size:13px;color:#CDD1D6;line-height:1.5;">${text}</td>
   </tr>`;
@@ -55,7 +55,7 @@ function buildHtml(recipientEmail: string, data: OnboardingConfirmationData): st
       </p>`,
     cta: { label: "Go to Dashboard", url: data.portalUrl },
     pasteLinkFallback: { url: data.portalUrl },
-    supportNote: `Questions? Reply to this email or reach us at <a href="mailto:support@wefixtrades.com" style="color:#66E8FA;text-decoration:none;">support@wefixtrades.com</a>.`,
+    supportNote: `Questions? Reply to this email or reach us at <a href="mailto:support@wefixtrades.com" style="color:#0d3cfc;text-decoration:none;">support@wefixtrades.com</a>.`,
   });
 }
 

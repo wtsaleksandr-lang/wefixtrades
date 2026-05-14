@@ -139,7 +139,7 @@ export default function ProductHeroShell({
                 width: 800,
                 height: 500,
                 background:
-                  "radial-gradient(ellipse at center, rgba(102,232,250,0.08) 0%, rgba(102,232,250,0.03) 40%, transparent 70%)",
+                  "radial-gradient(ellipse at center, rgba(13,60,252,0.08) 0%, rgba(13,60,252,0.03) 40%, transparent 70%)",
                 pointerEvents: "none",
                 zIndex: 1,
               }}

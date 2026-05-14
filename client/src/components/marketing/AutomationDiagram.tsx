@@ -73,14 +73,14 @@ const C = {
   // V7-aligned palette — cyan accent leads, plus 3 supporting colorways pulled
   // from the effortel-blocks pastel palette but vibrant enough to read on dark.
   cyan: {
-    border: "#66E8FA",
-    borderMuted: "rgba(102,232,250,0.20)",
-    bg: "rgba(102,232,250,0.04)",
-    glow: "rgba(102,232,250,0.40)",
-    text: "#66E8FA",
-    edge: "rgba(102,232,250,0.35)",
-    inner: "rgba(102,232,250,0.08)",
-    innerBorder: "rgba(102,232,250,0.24)",
+    border: "#0d3cfc",
+    borderMuted: "rgba(13,60,252,0.20)",
+    bg: "rgba(13,60,252,0.04)",
+    glow: "rgba(13,60,252,0.40)",
+    text: "#0d3cfc",
+    edge: "rgba(13,60,252,0.35)",
+    inner: "rgba(13,60,252,0.08)",
+    innerBorder: "rgba(13,60,252,0.24)",
   },
   amber: {
     border: "#F7B430",
@@ -103,14 +103,14 @@ const C = {
     innerBorder: "rgba(16,185,129,0.24)",
   },
   magenta: {
-    border: "#9CF0FC",
-    borderMuted: "rgba(156,240,252,0.20)",
-    bg: "rgba(156,240,252,0.04)",
-    glow: "rgba(156,240,252,0.40)",
-    text: "#9CF0FC",
-    edge: "rgba(156,240,252,0.35)",
-    inner: "rgba(156,240,252,0.08)",
-    innerBorder: "rgba(156,240,252,0.24)",
+    border: "#0b34d6",
+    borderMuted: "rgba(13,60,252,0.20)",
+    bg: "rgba(13,60,252,0.04)",
+    glow: "rgba(13,60,252,0.40)",
+    text: "#0b34d6",
+    edge: "rgba(13,60,252,0.35)",
+    inner: "rgba(13,60,252,0.08)",
+    innerBorder: "rgba(13,60,252,0.24)",
   },
 };
 

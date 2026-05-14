@@ -93,7 +93,7 @@ function StepNav({ current, total, onSelect }: { current: number; total: number;
             padding: "8px 16px",
             borderRadius: 10,
             border: `1px solid ${i === current ? mkt.accent : mkt.border}`,
-            background: i === current ? "rgba(102,232,250,0.10)" : "transparent",
+            background: i === current ? "rgba(13,60,252,0.10)" : "transparent",
             color: i === current ? mkt.accent : mkt.textMuted,
             fontSize: 13,
             fontWeight: 600,
@@ -185,7 +185,7 @@ function EmailGate({ businessName, onSubmit }: { businessName: string; onSubmit:
   return (
     <div
       style={{
-        background: `linear-gradient(135deg, rgba(102,232,250,0.06) 0%, rgba(102,232,250,0.02) 100%)`,
+        background: `linear-gradient(135deg, rgba(13,60,252,0.06) 0%, rgba(13,60,252,0.02) 100%)`,
         border: `1px solid ${mkt.accent}`,
         borderRadius: 20,
         padding: "36px 28px",
@@ -199,7 +199,7 @@ function EmailGate({ businessName, onSubmit }: { businessName: string; onSubmit:
           width: 48,
           height: 48,
           borderRadius: 14,
-          background: "rgba(102,232,250,0.12)",
+          background: "rgba(13,60,252,0.12)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -308,16 +308,16 @@ export default function ReputationShieldDemo() {
           30% { opacity: 1; }
         }
         @keyframes pulseGlow {
-          0%, 100% { box-shadow: 0 0 0 0 rgba(102,232,250,0.3); }
-          50% { box-shadow: 0 0 0 8px rgba(102,232,250,0); }
+          0%, 100% { box-shadow: 0 0 0 0 rgba(13,60,252,0.3); }
+          50% { box-shadow: 0 0 0 8px rgba(13,60,252,0); }
         }
         .repshield-input:focus {
           border-color: ${mkt.accent} !important;
-          box-shadow: 0 0 0 3px rgba(102,232,250,0.15) !important;
+          box-shadow: 0 0 0 3px rgba(13,60,252,0.15) !important;
         }
         .start-btn:hover:not(:disabled) {
           transform: translateY(-1px);
-          box-shadow: 0 8px 24px rgba(102,232,250,0.25);
+          box-shadow: 0 8px 24px rgba(13,60,252,0.25);
         }
         @media (max-width: 600px) {
           .step-label { display: none; }
@@ -926,7 +926,7 @@ export default function ReputationShieldDemo() {
                         style={{
                           marginTop: 32,
                           padding: "28px 24px",
-                          background: `linear-gradient(135deg, rgba(16,185,129,0.06) 0%, rgba(102,232,250,0.04) 100%)`,
+                          background: `linear-gradient(135deg, rgba(16,185,129,0.06) 0%, rgba(13,60,252,0.04) 100%)`,
                           border: `1px solid ${mkt.border}`,
                           borderRadius: 16,
                           textAlign: "center",
