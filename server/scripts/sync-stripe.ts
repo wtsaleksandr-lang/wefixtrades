@@ -89,11 +89,16 @@ async function main() {
     }
 
     // ─── Create monthly/one-time Price if missing ───
+    // lookup_key format: `${service_catalog_id}_${period}` — stable across
+    // recreations so code/DB references survive a Stripe environment reset.
     if (!priceId) {
+      const periodKey = isRecurring ? "monthly" : "one_time";
       const priceParams: Stripe.PriceCreateParams = {
         product: productId,
         currency: "usd",
         unit_amount: svc.default_price,
+        lookup_key: `${svc.id}_${periodKey}`,
+        transfer_lookup_key: true,
         metadata: { service_catalog_id: svc.id, period: isRecurring ? "monthly" : "one-time" },
       };
 
@@ -117,6 +122,8 @@ async function main() {
         currency: "usd",
         unit_amount: yearlyAmountCents,
         recurring: { interval: "year" },
+        lookup_key: `${svc.id}_yearly`,
+        transfer_lookup_key: true,
         metadata: { service_catalog_id: svc.id, period: "yearly" },
       });
       yearlyPriceId = yearlyPrice.id;
