@@ -97,6 +97,7 @@ export async function appendMessage(
   role: "user" | "assistant",
   content: string,
   tokenCount?: number,
+  attachments?: unknown,
 ): Promise<number> {
   const now = new Date();
 
@@ -107,6 +108,7 @@ export async function appendMessage(
       role,
       content,
       token_count: tokenCount ?? null,
+      attachments: (attachments ?? null) as any,
     })
     .returning({ id: assistantMessages.id });
 
@@ -128,11 +130,17 @@ export async function appendTurn(
   threadId: number,
   userContent: string,
   assistantContent: string,
+  userAttachments?: unknown,
 ): Promise<void> {
   const now = new Date();
 
   await db.insert(assistantMessages).values([
-    { thread_id: threadId, role: "user", content: userContent },
+    {
+      thread_id: threadId,
+      role: "user",
+      content: userContent,
+      attachments: (userAttachments ?? null) as any,
+    },
     { thread_id: threadId, role: "assistant", content: assistantContent },
   ]);
 

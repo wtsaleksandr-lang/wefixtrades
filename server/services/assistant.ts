@@ -47,6 +47,20 @@ export interface AssistantRequest {
   _threadId?: number;
   /** True when buildContext detected the user message is already in the thread */
   _isDuplicateTurn?: boolean;
+  /**
+   * Optional image attachments for the LAST user message (multimodal).
+   * Used by the mobile Ask tab. Each item must have the raw image bytes
+   * (read from object storage by the caller) plus its mediaType. The
+   * `assetId`/`mimeType`/`sizeBytes` triple is persisted as JSON on the
+   * user `assistant_messages` row so the thread can be re-rendered with
+   * thumbnails later.
+   */
+  userAttachments?: Array<{
+    assetId: string;
+    mimeType: "image/jpeg" | "image/png" | "image/gif" | "image/webp";
+    sizeBytes: number;
+    data: Buffer;
+  }>;
 }
 
 export interface AssistantStreamResult {
@@ -151,8 +165,19 @@ function createOnComplete(req: AssistantRequest, chatMessages: ChatMessage[]) {
       { role: "assistant" as const, content: fullReply },
     ];
 
-    // Thread persistence (portal): save user message + assistant reply
+    // Thread persistence (portal): save user message + assistant reply.
+    // Multimodal: if the user turn carried image attachments, strip the
+    // raw bytes and persist only the {assetId, mimeType, sizeBytes}
+    // references on the user row.
     if (req._threadId) {
+      const attachmentRefs = req.userAttachments?.length
+        ? req.userAttachments.map((a) => ({
+            assetId: a.assetId,
+            mimeType: a.mimeType,
+            sizeBytes: a.sizeBytes,
+          }))
+        : undefined;
+
       if (req._isDuplicateTurn) {
         // User message already in thread (retry) — only append the assistant reply
         await appendMessage(req._threadId, "assistant", fullReply)
@@ -160,7 +185,7 @@ function createOnComplete(req: AssistantRequest, chatMessages: ChatMessage[]) {
       } else {
         const lastUserMsg = chatMessages[chatMessages.length - 1];
         if (lastUserMsg?.role === "user") {
-          await appendTurn(req._threadId, lastUserMsg.content, fullReply)
+          await appendTurn(req._threadId, lastUserMsg.content, fullReply, attachmentRefs)
             .catch((err) => log.error("[assistant] Thread append error:", err));
         }
       }
@@ -247,6 +272,9 @@ export async function assistantSync(req: AssistantRequest): Promise<AssistantSyn
       system: systemPrompt,
       messages: chatMessages,
       maxTokens: req.maxTokens,
+      userImageBlocks: req.userAttachments?.length
+        ? req.userAttachments.map((a) => ({ mediaType: a.mimeType, data: a.data }))
+        : undefined,
     });
     const latencyMs = Date.now() - startMs;
 

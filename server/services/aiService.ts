@@ -125,11 +125,47 @@ export interface ChatOptions {
   tools?: any[];
   /** Override the default model for this request */
   modelOverride?: string;
+  /**
+   * Optional image blocks to append to the LAST user message (multimodal).
+   * Used by the mobile Ask tab to attach photos to a question. The text
+   * content stays as-is; we wrap it into a content-array of
+   *   [{ type: "text", text }, ...image blocks]
+   * matching Anthropic's Messages API multimodal schema.
+   */
+  userImageBlocks?: Array<{
+    mediaType: "image/jpeg" | "image/png" | "image/gif" | "image/webp";
+    /** Raw bytes; will be base64-encoded into a source.data field. */
+    data: Buffer;
+  }>;
 }
 
 /* ─── Helpers ─── */
-function mapMessages(messages: ChatMessage[]) {
-  return messages.map((m) => ({ role: m.role, content: m.content }));
+function mapMessages(messages: ChatMessage[], userImageBlocks?: ChatOptions["userImageBlocks"]) {
+  if (!userImageBlocks?.length) {
+    return messages.map((m) => ({ role: m.role, content: m.content }));
+  }
+  // Find the LAST user message and wrap it into a multimodal content array.
+  let lastUserIdx = -1;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].role === "user") { lastUserIdx = i; break; }
+  }
+  return messages.map((m, idx) => {
+    if (idx === lastUserIdx) {
+      const blocks: any[] = [{ type: "text", text: m.content }];
+      for (const img of userImageBlocks) {
+        blocks.push({
+          type: "image",
+          source: {
+            type: "base64",
+            media_type: img.mediaType,
+            data: img.data.toString("base64"),
+          },
+        });
+      }
+      return { role: m.role, content: blocks };
+    }
+    return { role: m.role, content: m.content };
+  });
 }
 
 function sleep(ms: number): Promise<void> {
@@ -167,7 +203,7 @@ export async function chat(opts: ChatOptions): Promise<string> {
         model: opts.modelOverride || getModel(),
         max_tokens: opts.maxTokens || DEFAULT_MAX_TOKENS,
         system: opts.system ? buildCachedSystem(opts.system) : (undefined as any),
-        messages: mapMessages(opts.messages),
+        messages: mapMessages(opts.messages, opts.userImageBlocks) as any,
       };
       if (opts.tools?.length) (params as any).tools = opts.tools;
       const response = await client.messages.create(params) as Anthropic.Message;

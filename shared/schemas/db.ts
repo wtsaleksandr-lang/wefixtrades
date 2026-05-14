@@ -632,6 +632,10 @@ export const assistantMessages = pgTable("assistant_messages", {
   role: varchar("role", { length: 20 }).notNull(),
   content: text("content").notNull(),
   token_count: integer("token_count"),
+  // Image references for multimodal user turns from the mobile Ask tab.
+  // Shape: Array<{ assetId, mimeType, sizeBytes }>. Null when no images.
+  // See migration 0005_assistant_message_attachments.sql.
+  attachments: jsonb("attachments"),
   created_at: timestamp("created_at").defaultNow(),
 }, (table) => [
   index("idx_assistant_messages_thread_created").on(table.thread_id, table.created_at),
