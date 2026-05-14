@@ -119,7 +119,9 @@ export default function MarketingStickyBar() {
           ))}
         </Menu>
 
-        {/* Cyan CTA — Start Free */}
+        {/* Primary CTA — cream/off-white per DOSS pattern. Color comes
+         * from mkt.buttonBg/Text which were re-aliased to the cream
+         * tokens in tokens.ts; this component's structure is unchanged. */}
         <Link
           href="/Wizard"
           style={{

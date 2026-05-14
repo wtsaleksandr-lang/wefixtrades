@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { queryClient } from "@/lib/queryClient";
 import { mkt } from "@/theme/tokens";
 import { MarketingNav, useNavIsMobile } from "./navigation/MarketingNav";
+import AnnouncementBanner from "./AnnouncementBanner";
 import MarketingStickyBar from "./MarketingStickyBar";
 
 const SiteChatWidget = lazy(() => import("@/components/SiteChatWidget"));
@@ -334,6 +335,7 @@ export default function MarketingLayout({ children, hideSiteChat = false }: { ch
         background: mkt.bg,
       }}
     >
+      <AnnouncementBanner />
       <MarketingNav />
       <div style={{ height: 24, flexShrink: 0 }} />
       <main style={{ flex: 1 }}>{children}</main>

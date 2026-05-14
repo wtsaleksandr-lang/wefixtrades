@@ -217,7 +217,7 @@ export default function PricingPage() {
                 href="/Wizard"
                 data-testid="pricing-cta-start"
                 className="mkt-btn-primary"
-                style={{ padding: "13px 30px", borderRadius: 14, background: mkt.accent, color: "#FFFFFF", fontSize: 15, fontWeight: 700, textDecoration: "none", display: "inline-block" }}
+                style={{ padding: "13px 30px", fontSize: 15, textDecoration: "none", display: "inline-block" }}
               >
                 Start Free
               </Link>
@@ -392,14 +392,12 @@ export default function PricingPage() {
                             display: "block",
                             width: "100%",
                             padding: "11px 0",
-                            borderRadius: 14,
                             fontSize: 14,
-                            fontWeight: 700,
                             textAlign: "center" as const,
                             textDecoration: "none",
                             marginBottom: 22,
-                            background: isHighlighted ? mkt.accent : "transparent",
-                            color: isHighlighted ? "#FFFFFF" : mkt.onDarkMuted,
+                            background: isHighlighted ? mkt.ctaBg : "transparent",
+                            color: isHighlighted ? mkt.ctaText : mkt.onDarkMuted,
                             border: isHighlighted ? "none" : `1.5px solid ${mkt.onDarkBorder}`,
                           }}
                         >

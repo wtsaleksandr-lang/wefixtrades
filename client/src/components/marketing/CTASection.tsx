@@ -1,7 +1,12 @@
 import { Link } from "wouter";
 
 const DARK = "#22282a";
-const ACCENT = "#0d3cfc";
+/* DOSS pattern (marketing-polish): outer CTA card flipped from
+ * saturated blue to warm cream so this card matches the new primary-
+ * CTA system. Blue stays inside the dark button-row as the small
+ * decorative arrow accent — that's the one place blue belongs. */
+const ACCENT = "#E6E3E0";
+const ACCENT_HOVER = "#D4CFC9";
 
 interface CTASectionProps {
   heading?: string;
@@ -20,18 +25,19 @@ export default function CTASection({ heading, subtext, ctaLabel, ctaHref }: CTAS
         .cta-inner-wrap {
           background: ${ACCENT};
           border-radius: 20px;
-          border: 1px solid rgba(13,60,252,0.4);
+          border: 1px solid rgba(133,128,123,0.18);
           padding: 48px 40px 0 40px;
           max-width: 900px;
           margin: 0 auto;
           cursor: pointer;
           position: relative;
           overflow: hidden;
-          transition: border-color 0.3s ease, box-shadow 0.3s ease;
+          transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
         }
         .cta-inner-wrap:hover {
-          border-color: rgba(13,60,252,0.7);
-          box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+          background: ${ACCENT_HOVER};
+          border-color: rgba(133,128,123,0.32);
+          box-shadow: 0 20px 60px rgba(0,0,0,0.15);
         }
         .cta-btn-text {
           transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -72,7 +78,7 @@ export default function CTASection({ heading, subtext, ctaLabel, ctaHref }: CTAS
             <div style={{ marginBottom: 40 }}>
               <h2 style={{
                 fontSize: "clamp(28px, 3.5vw, 36px)",
-                fontWeight: 800,
+                fontWeight: 500,
                 color: DARK,
                 lineHeight: 1.15,
                 letterSpacing: "-0.025em",

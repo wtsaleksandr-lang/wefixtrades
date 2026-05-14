@@ -523,9 +523,9 @@ export default function DemoPage() {
               data-testid="button-build-yours"
               style={{
                 display: "inline-flex", alignItems: "center", gap: 8,
-                padding: "14px 32px", borderRadius: 14,
-                background: mkt.accent, color: mkt.buttonText,
-                fontSize: 15, fontWeight: 700, textDecoration: "none",
+                padding: "14px 32px", borderRadius: 10,
+                background: mkt.ctaBg, color: mkt.ctaText,
+                fontSize: 15, fontWeight: 500, textDecoration: "none",
               }}
             >
               Start Free <ArrowRight size={16} />

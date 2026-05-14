@@ -265,8 +265,8 @@ function HeroEmailCapture() {
         type="submit"
         disabled={status === "loading"}
         style={{
-          padding: "12px 24px", borderRadius: 12, border: "none",
-          background: mkt.accent, color: mkt.dark, fontSize: 14, fontWeight: 700,
+          padding: "12px 24px", borderRadius: 10, border: "none",
+          background: mkt.ctaBg, color: mkt.ctaText, fontSize: 14, fontWeight: 500,
           fontFamily: typography.fontFamily, cursor: status === "loading" ? "wait" : "pointer",
           transition: "background 0.2s", whiteSpace: "nowrap",
           opacity: status === "loading" ? 0.7 : 1,
@@ -329,26 +329,31 @@ const RESPONSIVE_CSS = `
     .hero-cta-row { justify-content: center; }
   }
   .hero-cta-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  /* DOSS pattern: cream off-white primary CTA, no blue glow.
+   * Hover is a subtle color deepening (no halo, no transform stack).
+   * font-weight 500 matches DOSS's "confident not shouty" tone. */
   .hero-cta-primary {
     display: inline-flex; align-items: center; gap: 8px;
-    padding: 14px 22px; border-radius: 12px;
-    background: ${mkt.accent}; color: ${mkt.dark};
-    font-size: 14px; font-weight: 700; letter-spacing: 0.01em;
+    padding: 14px 22px; border-radius: 10px;
+    background: ${mkt.ctaBg}; color: ${mkt.ctaText};
+    font-size: 14px; font-weight: 500; letter-spacing: 0.01em;
     text-decoration: none; border: none; cursor: pointer;
-    transition: transform 0.15s ease, box-shadow 0.2s ease;
-    box-shadow: 0 8px 24px rgba(13,60,252,0.18);
+    transition: background 0.2s ease, transform 0.15s ease;
   }
-  .hero-cta-primary:hover { transform: translateY(-1px); box-shadow: 0 12px 32px rgba(13,60,252,0.28); }
+  .hero-cta-primary:hover { background: ${mkt.ctaBgHover}; transform: translateY(-1px); }
+  .hero-cta-primary:active { transform: translateY(1px); }
+  .hero-cta-primary:focus-visible { outline: 2px solid ${mkt.focusRing}; outline-offset: 2px; }
   .hero-cta-secondary {
     display: inline-flex; align-items: center; gap: 8px;
-    padding: 14px 22px; border-radius: 12px;
-    background: rgba(255,255,255,0.06);
-    color: ${mkt.text}; border: 1px solid rgba(255,255,255,0.12);
-    font-size: 14px; font-weight: 600;
+    padding: 14px 22px; border-radius: 10px;
+    background: transparent;
+    color: ${mkt.ctaSecondaryText}; border: 1px solid ${mkt.ctaSecondaryBorder};
+    font-size: 14px; font-weight: 500;
     text-decoration: none; cursor: pointer;
     transition: background 0.2s ease, border-color 0.2s ease;
   }
-  .hero-cta-secondary:hover { background: rgba(255,255,255,0.10); border-color: rgba(255,255,255,0.22); }
+  .hero-cta-secondary:hover { background: ${mkt.ctaSecondaryBgHover}; border-color: ${mkt.ctaSecondaryBorderHover}; }
+  .hero-cta-secondary:focus-visible { outline: 2px solid ${mkt.focusRing}; outline-offset: 2px; }
   .hero-cta-note { font-size: 12px; color: ${mkt.textMuted}; }
   @media (max-width: 820px) {
     .flow-map-desktop { display: none !important; } /* already hidden inline */

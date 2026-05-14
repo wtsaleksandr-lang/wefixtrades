@@ -158,14 +158,14 @@ export default function TemplatesPage() {
                         <Link
                           href={`/demo/${template.id}`}
                           data-testid={`demo-cta-${template.id}`}
-                          style={{ display: "inline-flex", alignItems: "center", gap: 6, flex: 1, justifyContent: "center", padding: "9px 0", borderRadius: 8, background: mkt.accent, color: "#FFFFFF", fontSize: 13, fontWeight: 700, textDecoration: "none" }}
+                          style={{ display: "inline-flex", alignItems: "center", gap: 6, flex: 1, justifyContent: "center", padding: "9px 0", borderRadius: 10, background: mkt.ctaBg, color: mkt.ctaText, fontSize: 13, fontWeight: 500, textDecoration: "none" }}
                         >
                           <Play size={11} fill="currentColor" /> Try live demo
                         </Link>
                         <Link
                           href="/Wizard"
                           data-testid={`use-cta-${template.id}`}
-                          style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "9px 14px", borderRadius: 8, background: "transparent", color: mkt.accent, fontSize: 13, fontWeight: 700, textDecoration: "none", border: `1.5px solid ${mkt.accent}` }}
+                          style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "9px 14px", borderRadius: 10, background: "transparent", color: mkt.ctaSecondaryText, fontSize: 13, fontWeight: 500, textDecoration: "none", border: `1px solid ${mkt.ctaSecondaryBorder}` }}
                         >
                           Use <ArrowRight size={11} />
                         </Link>

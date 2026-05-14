@@ -112,14 +112,14 @@ function InlineCTA() {
     }}>
       <Link href="/products/tradeline" style={{ textDecoration: 'none', display: 'block' }}>
         <div style={{
-          background: mkt.accent,
-          borderRadius: 14,
+          background: mkt.ctaBg,
+          borderRadius: 10,
           padding: '18px 24px',
           display: 'flex',
           alignItems: 'center',
           cursor: 'pointer',
           border: '2px solid transparent',
-          transition: 'border-color 0.25s, box-shadow 0.25s',
+          transition: 'border-color 0.25s, box-shadow 0.25s, background 0.2s',
         }}
           onMouseEnter={e => {
             e.currentTarget.style.borderColor = 'rgba(0,0,0,0.3)';

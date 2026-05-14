@@ -318,7 +318,7 @@ export default function DocsPage() {
             <Link
               href="/contact"
               data-testid="docs-contact-cta"
-              style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "12px 28px", borderRadius: 10, background: mkt.accent, color: "#FFFFFF", fontSize: 15, fontWeight: 700, textDecoration: "none" }}
+              style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "12px 28px", borderRadius: 10, background: mkt.ctaBg, color: mkt.ctaText, fontSize: 15, fontWeight: 500, textDecoration: "none" }}
             >
               Contact Support <ArrowRight size={14} />
             </Link>

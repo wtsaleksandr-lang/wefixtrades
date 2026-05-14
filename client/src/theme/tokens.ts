@@ -186,9 +186,54 @@ export const mkt = {
   cyanTint: 'rgba(13,60,252,0.10)',
   cardBg: 'rgba(255,255,255,0.04)',
   cardBorder: 'rgba(255,255,255,0.08)',
-  buttonBg: colors.effortel.a400,
-  buttonText: colors.effortel.n800,
-  buttonHoverBg: colors.effortel.a200,
+  /* PRIMARY BUTTON — DOSS pattern (Sprint: marketing-polish).
+   * Warm off-white cream button. Replaces the previous blue primary CTA.
+   * The old buttonBg/Text/HoverBg fields below are deprecated and kept as
+   * aliases of the cream tokens for backwards-compat during migration —
+   * existing callers see the new cream button automatically; new code
+   * should reference ctaBg / ctaText / ctaBgHover directly. */
+  ctaBg: '#E6E3E0',
+  ctaBgHover: '#D4CFC9',
+  ctaText: '#1E1E1E',
+  /* Secondary (ghost/outline) — used for "See demo" / "Learn more" buttons */
+  ctaSecondaryBgHover: 'rgba(230,227,224,0.06)',
+  ctaSecondaryBorder: 'rgba(224,220,216,0.5)',
+  ctaSecondaryBorderHover: 'rgba(224,220,216,0.9)',
+  ctaSecondaryText: '#F9F9F9',
+
+  /* Deprecated — old blue button tokens. Now alias to the cream button
+   * so anywhere that still reads buttonBg/Text/HoverBg picks up the new
+   * design without a code change. Will be removed once all callers are
+   * migrated to ctaBg/Text/Hover. Blue is still available via
+   * mkt.accent / mkt.accentHover for decorative use. */
+  buttonBg: '#E6E3E0',
+  buttonText: '#1E1E1E',
+  buttonHoverBg: '#D4CFC9',
+
+  /* Dark canvas elevation layers (DOSS pattern).
+   * Maintained alongside legacy bg/surface/sectionLight/sectionLighter for
+   * gradual migration. New code should prefer these. */
+  bgBase: '#161616',        // page bg — true near-black, not warmed gray
+  bgDeeper: '#111111',      // deepest sections, hero backgrounds
+  bgElevated: '#1C1C1C',    // cards, dashboard tiles
+  bgHigher: '#242424',      // hover states, dropdowns, modal surfaces
+  bgOverlay: 'rgba(22,22,22,0.92)',
+
+  /* Hairline border scale. Was previously ad-hoc rgba(*,*,*,0.04…0.12).
+   * These three values cover every existing case + the DOSS pattern. */
+  hairline: 'rgba(133,128,123,0.18)',
+  hairlineStrong: 'rgba(133,128,123,0.32)',
+  hairlineDashed: 'rgba(133,128,123,0.08)',
+  focusRing: 'rgba(13,60,252,0.5)',
+
+  /* Text hierarchy aligned to DOSS — warm grays, never pure white/black.
+   * Existing onDark/onDarkMuted/onDarkFaint kept for compat; these are
+   * the canonical names going forward. */
+  fg: '#F9F9F9',
+  fgSecondary: '#A39E99',
+  fgTertiary: '#78736E',
+  fgDisabled: '#6B6662',
+
   darkBg: '#0d1514',
   lightBg: '#dfe8e6',
   /** Lighter section background — visible contrast against mkt.bg */
