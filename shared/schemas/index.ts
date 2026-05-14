@@ -22,6 +22,7 @@ export * from "./notificationPreferences";
 export * from "./mapguardConfig";
 export * from "./tradelinePhoneSetups";
 export * from "./tradelineTemplateOverrides";
+export * from "./clientEmailIdentities";
 export * from "./mobileRefreshTokens";
 export * from "./mobileDevices";
 export * from "./mobileCallRecords";
