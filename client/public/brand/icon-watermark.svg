@@ -1,9 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" fill="none">
-  <!-- Mirrors client/public/brand/icon-badged.svg.
-       Kept inline at /favicon.svg so browsers find it at the conventional path
-       without needing a redirect or a <link rel="icon" /> override. -->
-  <rect x="0.5" y="0.5" width="31" height="31" rx="7" fill="#E5E7EB" stroke="rgba(13,60,252,0.18)" stroke-width="1" />
-  <g transform="translate(4 4)">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" role="img" aria-label="WeFixTrades watermark">
+  <title>WeFixTrades watermark</title>
+  <!-- Same icon geometry as icon.svg, ~4% opacity for subtle background watermark use.
+       Apply over light surfaces; for dark surfaces flip stroke to a near-white color
+       at the consumer site via filter or CSS mask. -->
+  <g opacity="0.06">
     <path d="M9 3H6a3 3 0 0 0-3 3v3" stroke="#0d3cfc" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
     <path d="M15 3h3a3 3 0 0 1 3 3v3" stroke="#0d3cfc" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
     <path d="M3 15v3a3 3 0 0 0 3 3h3" stroke="#0d3cfc" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />

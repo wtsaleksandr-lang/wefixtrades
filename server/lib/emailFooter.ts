@@ -58,7 +58,19 @@ export function buildEmailHeader(opts: { tagline?: string; theme?: "dark" | "lig
         <td style="vertical-align:middle;padding-right:12px;">
           <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="border-collapse:separate;">
             <tr>
-              <td align="center" valign="middle" width="42" height="42" style="width:42px;height:42px;background:#E5E7EB;border:1px solid rgba(13,60,252,0.18);border-radius:11px;color:${ACCENT};font-size:20px;font-weight:700;font-family:Arial,sans-serif;line-height:42px;text-align:center;">&#10003;</td>
+              <td align="center" valign="middle" width="42" height="42" style="width:42px;height:42px;background:#E5E7EB;border:1px solid rgba(13,60,252,0.18);border-radius:11px;line-height:0;text-align:center;mso-line-height-rule:exactly;">
+                <!-- Brand icon — modern clients (Gmail/Apple Mail/Outlook.com/mobile) render the SVG;
+                     Outlook desktop falls back to the alt text. Both cases are acceptable. -->
+                <img src="data:image/svg+xml;utf8,${encodeURIComponent(
+                  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none">' +
+                  '<path d="M9 3H6a3 3 0 0 0-3 3v3" stroke="#0d3cfc" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>' +
+                  '<path d="M15 3h3a3 3 0 0 1 3 3v3" stroke="#0d3cfc" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>' +
+                  '<path d="M3 15v3a3 3 0 0 0 3 3h3" stroke="#0d3cfc" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>' +
+                  '<path d="M21 15v3a3 3 0 0 1-3 3h-3" stroke="#0d3cfc" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>' +
+                  '<path d="m8 12.5 3 3 5-6" stroke="#0d3cfc" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>' +
+                  '</svg>'
+                )}" width="24" height="24" alt="WeFixTrades" style="display:inline-block;vertical-align:middle;border:0;outline:none;text-decoration:none;" />
+              </td>
             </tr>
           </table>
         </td>
