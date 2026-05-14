@@ -29,7 +29,6 @@ import { eq } from "drizzle-orm";
 import { dualWriteSetup, getSetupRow } from "../services/tradelineSetup/dualWrite";
 import { provisionNumber } from "../services/tradelineSetup/provisionNumber";
 import { lookupCarrier } from "../services/tradelineSetup/carrierLookup";
-import { provisionNumber } from "../services/tradelineSetup/provisionNumber";
 import { placeTestCall, checkTestCallStatus } from "../services/tradelineSetup/forwardingVerifier";
 import { submitPort } from "../services/tradelineSetup/portRequest";
 import { uploadEncryptedBuffer, downloadDecrypted } from "../lib/objectStorage";
