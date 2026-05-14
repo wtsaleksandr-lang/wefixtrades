@@ -386,6 +386,11 @@ export default function PortalReviews() {
             <p className="text-sm text-gray-500">How customers see your business online</p>
           </div>
           <div className="flex gap-2">
+            <Link href="/portal/reviews/competitors">
+              <Button variant="outline" size="sm" className="h-8">
+                <TrendingUp className="w-3.5 h-3.5 mr-1" /> Competitors
+              </Button>
+            </Link>
             <Link href="/portal/reviews/widget">
               <Button variant="outline" size="sm" className="h-8">
                 <Code className="w-3.5 h-3.5 mr-1" /> Widget

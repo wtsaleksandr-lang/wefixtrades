@@ -3114,6 +3114,201 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
   });
 
   /* ═══════════════════════════════════════════
+     Competitor tracking — Premium tier
+     ═══════════════════════════════════════════ */
+
+  /**
+   * GET /api/portal/reputation/competitors
+   * Returns the customer's tracked competitors + each one's most-recent
+   * snapshot. Tier-gated: Basic/Pro see an empty list + upgrade hint;
+   * Premium sees real data.
+   */
+  app.get("/api/portal/reputation/competitors", requireClient, async (req, res) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const { reputationCompetitors, reputationCompetitorSnapshots, monitoredReviews } = await import("@shared/schema");
+      const { extractTier, canAccessFeature } = await import("@shared/reputationConfig");
+      const { db } = await import("../db");
+      const { and, eq, desc, sql } = await import("drizzle-orm");
+
+      const svc = await storage.getClientReputationService(clientId);
+      const tier = svc ? extractTier(svc.serviceId) : null;
+      const hasAccess = canAccessFeature(tier, "competitorTracking");
+
+      if (!hasAccess) {
+        return res.json({
+          tier,
+          hasAccess: false,
+          upgradeRequired: "premium",
+          competitors: [],
+          ownStats: null,
+        });
+      }
+
+      // Own stats so the dashboard can render a "you vs. them" comparison
+      // without a second request.
+      const [own] = await db.select({
+        total_reviews: sql<number>`COUNT(*)::int`,
+        average_rating: sql<number>`COALESCE(ROUND(AVG(${monitoredReviews.rating})::numeric, 2), 0)::float`,
+      })
+        .from(monitoredReviews)
+        .where(eq(monitoredReviews.client_id, clientId));
+
+      const competitors = await db.select()
+        .from(reputationCompetitors)
+        .where(eq(reputationCompetitors.client_id, clientId))
+        .orderBy(reputationCompetitors.created_at);
+
+      const enriched = await Promise.all(competitors.map(async (c) => {
+        const [latest] = await db.select()
+          .from(reputationCompetitorSnapshots)
+          .where(eq(reputationCompetitorSnapshots.competitor_id, c.id))
+          .orderBy(desc(reputationCompetitorSnapshots.snapshot_date))
+          .limit(1);
+        return { ...c, latest_snapshot: latest ?? null };
+      }));
+
+      res.json({
+        tier,
+        hasAccess: true,
+        ownStats: own ?? { total_reviews: 0, average_rating: 0 },
+        competitors: enriched,
+      });
+    } catch (err: any) {
+      log.error("[portal] competitors list error:", err.message);
+      res.status(500).json({ error: "Failed to load competitors" });
+    }
+  });
+
+  /**
+   * GET /api/portal/reputation/competitors/trend?days=90
+   * Time series for each tracked competitor + the client's own snapshots
+   * (computed on-the-fly from monitored_reviews so we don't need yet
+   * another snapshot table for own data).
+   */
+  app.get("/api/portal/reputation/competitors/trend", requireClient, async (req, res) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const { reputationCompetitors, reputationCompetitorSnapshots } = await import("@shared/schema");
+      const { extractTier, canAccessFeature } = await import("@shared/reputationConfig");
+      const { db } = await import("../db");
+      const { and, eq, sql } = await import("drizzle-orm");
+
+      const svc = await storage.getClientReputationService(clientId);
+      const tier = svc ? extractTier(svc.serviceId) : null;
+      if (!canAccessFeature(tier, "competitorTracking")) {
+        return res.json({ tier, hasAccess: false, days: 0, series: [] });
+      }
+
+      const days = Math.min(Math.max(parseInt(String(req.query.days ?? "90"), 10) || 90, 7), 365);
+
+      const competitors = await db.select()
+        .from(reputationCompetitors)
+        .where(and(
+          eq(reputationCompetitors.client_id, clientId),
+          eq(reputationCompetitors.enabled, true),
+        ));
+
+      const series = await Promise.all(competitors.map(async (c) => {
+        const snapshots = await db.select()
+          .from(reputationCompetitorSnapshots)
+          .where(and(
+            eq(reputationCompetitorSnapshots.competitor_id, c.id),
+            sql`${reputationCompetitorSnapshots.snapshot_date} >= NOW() - (${sql.raw(String(days))} || ' days')::INTERVAL`,
+          ))
+          .orderBy(reputationCompetitorSnapshots.snapshot_date);
+        return { competitor: c, snapshots };
+      }));
+
+      res.json({ tier, hasAccess: true, days, series });
+    } catch (err: any) {
+      log.error("[portal] competitors trend error:", err.message);
+      res.status(500).json({ error: "Failed to load trend" });
+    }
+  });
+
+  /**
+   * POST /api/portal/reputation/competitors
+   * Customer-side add. Same place-id validation as the admin path.
+   * Tier-gated: only Premium can add.
+   */
+  app.post("/api/portal/reputation/competitors", requireClient, async (req, res) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const { reputationCompetitors } = await import("@shared/schema");
+      const { extractTier, canAccessFeature } = await import("@shared/reputationConfig");
+      const { db } = await import("../db");
+      const { eq } = await import("drizzle-orm");
+
+      const svc = await storage.getClientReputationService(clientId);
+      const tier = svc ? extractTier(svc.serviceId) : null;
+      if (!canAccessFeature(tier, "competitorTracking")) {
+        return res.status(403).json({ error: "Competitor tracking requires the Premium plan", upgrade: true });
+      }
+
+      const { place_id, display_name } = req.body ?? {};
+      if (!place_id || !display_name) {
+        return res.status(400).json({ error: "place_id and display_name are required" });
+      }
+
+      const { validateGooglePlaceId } = await import("../services/reputation/placeIdValidator");
+      const v = await validateGooglePlaceId(place_id);
+      if (!v.valid && !v.soft) {
+        return res.status(400).json({ error: `Invalid Google Place ID: ${v.reason}` });
+      }
+
+      const existing = await db.select({ id: reputationCompetitors.id })
+        .from(reputationCompetitors)
+        .where(eq(reputationCompetitors.client_id, clientId));
+      if (existing.length >= 5) {
+        return res.status(400).json({ error: "Maximum of 5 competitors per client" });
+      }
+
+      const [row] = await db.insert(reputationCompetitors).values({
+        client_id: clientId,
+        place_id,
+        display_name,
+        enabled: true,
+      } as any).returning();
+      res.json({ competitor: row });
+    } catch (err: any) {
+      if (String(err?.message || "").includes("idx_competitors_client_place")) {
+        return res.status(409).json({ error: "This competitor is already tracked" });
+      }
+      log.error("[portal] competitor add error:", err.message);
+      res.status(500).json({ error: "Failed to add competitor" });
+    }
+  });
+
+  app.delete("/api/portal/reputation/competitors/:id", requireClient, async (req, res) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+      const id = parseInt(req.params.id as string);
+      if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
+
+      const { reputationCompetitors } = await import("@shared/schema");
+      const { db } = await import("../db");
+      const { and, eq } = await import("drizzle-orm");
+
+      const result = await db.delete(reputationCompetitors)
+        .where(and(eq(reputationCompetitors.id, id), eq(reputationCompetitors.client_id, clientId)))
+        .returning({ id: reputationCompetitors.id });
+      if (result.length === 0) return res.status(404).json({ error: "Not found" });
+      res.json({ ok: true });
+    } catch (err: any) {
+      log.error("[portal] competitor remove error:", err.message);
+      res.status(500).json({ error: "Failed to remove competitor" });
+    }
+  });
+
+  /* ═══════════════════════════════════════════
      RankFlow Client Dashboard
      ═══════════════════════════════════════════ */
 
