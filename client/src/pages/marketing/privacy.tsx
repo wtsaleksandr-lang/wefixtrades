@@ -140,6 +140,40 @@ export default function PrivacyPage() {
                 </p>
               </Section>
 
+              <Section title="5a. Google API Services — Limited Use disclosure">
+                <p>
+                  When you connect your Google Business Profile to MapGuard, we receive
+                  data through Google API Services (specifically the <em>business.manage</em>
+                  scope: your business listing, reviews, and the ability to publish posts
+                  and reply to reviews on your behalf).
+                </p>
+                <p style={{ marginTop: 12 }}>
+                  <strong>WeFixTrades' use and transfer of information received from Google
+                  APIs to any other app will adhere to the{" "}
+                  <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener noreferrer" style={{ color: mkt.accent, textDecoration: "underline" }}>
+                    Google API Services User Data Policy
+                  </a>, including the Limited Use requirements.</strong>
+                </p>
+                <p style={{ marginTop: 12 }}>
+                  Concretely, this means we:
+                </p>
+                <ul style={{ paddingLeft: 20, marginTop: 8 }}>
+                  <li>Only use Google user data to provide and improve the user-facing features of MapGuard — visibility monitoring, automated Google Business posts, owner replies to reviews, and profile health alerts. We do not use this data for advertising, profiling, or any unrelated purpose.</li>
+                  <li>Do not transfer Google user data to third parties except as necessary to provide and improve those features (for example, calling Anthropic's API to draft a review reply or post body — the AI provider never retains the data).</li>
+                  <li>Do not allow humans to read your Google user data unless we have your explicit consent for a specific support case, it is necessary to investigate a security incident or comply with applicable law, or the data is aggregated and anonymized for usage analytics that don't identify any individual user.</li>
+                  <li>Do not sell Google user data to anyone, ever.</li>
+                </ul>
+                <p style={{ marginTop: 12 }}>
+                  Google OAuth tokens are stored encrypted at rest and used only by the
+                  MapGuard service to publish posts, fetch reviews, and post owner replies
+                  on the schedule and conditions you've configured. You can revoke our
+                  access any time from your Google account at{" "}
+                  <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener noreferrer" style={{ color: mkt.accent, textDecoration: "underline" }}>
+                    myaccount.google.com/permissions
+                  </a>.
+                </p>
+              </Section>
+
               <Section title="6. How long we keep information">
                 <p>We retain personal information for as long as your account is active or as needed to provide the Service, then:</p>
                 <ul style={{ paddingLeft: 20, marginTop: 8 }}>
