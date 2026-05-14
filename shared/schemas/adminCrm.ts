@@ -452,6 +452,16 @@ export const monitoredReviews = pgTable("monitored_reviews", {
   posted_via: varchar("posted_via", { length: 30 }), // "reputationshield" | "manual" | null
   posted_at: timestamp("posted_at"),
 
+  // Approval workflow (Sprint 1) — gates draft → publish behind an admin
+  // step. `requires_approval` defaults TRUE; only flips to FALSE when the
+  // review is eligible_for_auto_reply per reviewCore policy (5★ + non-escalated).
+  approval_status: varchar("approval_status", { length: 20 }).notNull().default("unreviewed"),
+  // unreviewed | approved | rejected | auto_approved
+  approved_by: integer("approved_by"),
+  approved_at: timestamp("approved_at"),
+  approval_notes: text("approval_notes"),
+  requires_approval: boolean("requires_approval").notNull().default(true),
+
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
 });

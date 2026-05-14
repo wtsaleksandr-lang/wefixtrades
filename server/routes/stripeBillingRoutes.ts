@@ -31,6 +31,7 @@ import { runPreFixAudit } from "../services/webfixAuditService";
 import { sendAdflowOnboardingEmail } from "../lib/adflowOnboardingEmail";
 import { buildLoginToken, storeCheckoutLoginToken } from "../lib/loginToken";
 import { kickoffMapguardService } from "../services/mapguardTaskEngine";
+import { kickoffReputationShieldService } from "../services/reputation/reputationShieldKickoff";
 
 const log = createLogger("StripeBilling");
 
@@ -350,6 +351,20 @@ async function provisionOrConfirmService(
         log.warn(`[billing-webhook] MapGuard kickoff failed for client ${clientId}: ${err.message}`);
       }
     }
+
+    // ReputationShield kickoff: send the welcome email that walks the
+    // customer through Google Business Profile OAuth. Idempotent via
+    // metadata.reputationshield_kickoff_at.
+    if (serviceId.startsWith("reputationshield")) {
+      try {
+        const result = await kickoffReputationShieldService(clientId, existing.id, serviceId);
+        if (result.kickedOff) {
+          log.info(`[billing-webhook] ReputationShield kickoff: welcome sent for client ${clientId} (${serviceId})`);
+        }
+      } catch (err: any) {
+        log.warn(`[billing-webhook] ReputationShield kickoff failed for client ${clientId}: ${err.message}`);
+      }
+    }
     return;
   }
 
@@ -509,6 +524,17 @@ async function provisionOrConfirmService(
       }
     } catch (err: any) {
       log.warn(`[billing-webhook] MapGuard kickoff failed for client ${clientId}: ${err.message}`);
+    }
+  }
+
+  if (serviceId.startsWith("reputationshield")) {
+    try {
+      const result = await kickoffReputationShieldService(clientId, clientService.id, serviceId);
+      if (result.kickedOff) {
+        log.info(`[billing-webhook] ReputationShield kickoff: welcome sent for client ${clientId} (${serviceId})`);
+      }
+    } catch (err: any) {
+      log.warn(`[billing-webhook] ReputationShield kickoff failed for client ${clientId}: ${err.message}`);
     }
   }
 }

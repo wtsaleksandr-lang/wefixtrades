@@ -68,6 +68,7 @@ type User, type InsertUser,
   type ReviewRequest, type InsertReviewRequest,
   monitoredReviews,
   type MonitoredReview, type InsertMonitoredReview,
+  reviewRequestSuppression, reviewResponseEdits,
   type TradelineConfig,
   type TradelineUsage, type InsertTradelineUsage,
   type TradelineCallLog, type InsertTradelineCallLog,
@@ -340,6 +341,55 @@ export interface IStorage {
   getReviewRequestStats(): Promise<{ total: number; pending: number; sent: number; clicked: number; routed_positive: number; routed_negative: number; feedback_captured: number; completed: number; failed: number; stopped: number; due_for_followup: number }>;
   stopReviewRequestsForBooking(bookingId: number): Promise<void>;
   findClientByUserId(userId: number): Promise<Client | undefined>;
+
+  // ─── Review-request suppression (DNC) ───
+  isReviewRequestSuppressed(clientId: number, customerEmail: string | null, customerPhone: string | null): Promise<boolean>;
+  addReviewRequestSuppression(data: {
+    client_id: number;
+    customer_email?: string | null;
+    customer_phone?: string | null;
+    reason?: string;
+    source?: string;
+    suppressed_by?: number | null;
+    metadata?: any;
+  }): Promise<{ id: number }>;
+  listReviewRequestSuppression(clientId: number, opts?: { limit?: number; offset?: number }): Promise<Array<{
+    id: number;
+    customer_email: string | null;
+    customer_phone: string | null;
+    reason: string | null;
+    source: string;
+    created_at: Date | null;
+  }>>;
+  removeReviewRequestSuppression(clientId: number, id: number): Promise<boolean>;
+
+  // ─── Rate-limit counters for review-request sends ───
+  /**
+   * Count successful review-request sends for this client today (UTC),
+   * optionally filtered by channel. Used by the service layer to enforce
+   * a per-client daily send cap (cost protection).
+   */
+  countReviewRequestSendsToday(clientId: number, channel?: "sms" | "email"): Promise<number>;
+
+  // ─── Response edit audit ───
+  appendReviewResponseEdit(data: {
+    monitored_review_id: number;
+    edited_by?: number | null;
+    edit_kind: string;
+    old_text?: string | null;
+    new_text?: string | null;
+    reason?: string | null;
+    metadata?: any;
+  }): Promise<{ id: number }>;
+  listReviewResponseEdits(monitoredReviewId: number): Promise<Array<{
+    id: number;
+    edited_by: number | null;
+    edit_kind: string;
+    old_text: string | null;
+    new_text: string | null;
+    reason: string | null;
+    created_at: Date | null;
+  }>>;
 
   // ─── Monitored Reviews ───
   upsertMonitoredReview(data: InsertMonitoredReview): Promise<{ review: MonitoredReview; isNew: boolean }>;
@@ -3321,6 +3371,160 @@ export class DatabaseStorage implements IStorage {
       .where(eq(clients.user_id, userId))
       .limit(1);
     return row;
+  }
+
+  // ═══════════════════════════════════════════════
+  // Review-request suppression (DNC)
+  // ═══════════════════════════════════════════════
+
+  async isReviewRequestSuppressed(
+    clientId: number,
+    customerEmail: string | null,
+    customerPhone: string | null,
+  ): Promise<boolean> {
+    if (!customerEmail && !customerPhone) return false;
+    const conditions: any[] = [];
+    if (customerEmail) {
+      conditions.push(sql`lower(${reviewRequestSuppression.customer_email}) = lower(${customerEmail})`);
+    }
+    if (customerPhone) {
+      conditions.push(eq(reviewRequestSuppression.customer_phone, customerPhone));
+    }
+    const [row] = await db.select({ id: reviewRequestSuppression.id })
+      .from(reviewRequestSuppression)
+      .where(and(
+        eq(reviewRequestSuppression.client_id, clientId),
+        sql`(${sql.join(conditions, sql` OR `)})`,
+      ))
+      .limit(1);
+    return !!row;
+  }
+
+  async addReviewRequestSuppression(data: {
+    client_id: number;
+    customer_email?: string | null;
+    customer_phone?: string | null;
+    reason?: string;
+    source?: string;
+    suppressed_by?: number | null;
+    metadata?: any;
+  }): Promise<{ id: number }> {
+    const [row] = await db.insert(reviewRequestSuppression).values({
+      client_id: data.client_id,
+      customer_email: data.customer_email ?? null,
+      customer_phone: data.customer_phone ?? null,
+      reason: data.reason ?? null,
+      source: data.source ?? "manual",
+      suppressed_by: data.suppressed_by ?? null,
+      metadata: data.metadata ?? null,
+    }).returning({ id: reviewRequestSuppression.id });
+    return row!;
+  }
+
+  async listReviewRequestSuppression(
+    clientId: number,
+    opts: { limit?: number; offset?: number } = {},
+  ): Promise<Array<{
+    id: number;
+    customer_email: string | null;
+    customer_phone: string | null;
+    reason: string | null;
+    source: string;
+    created_at: Date | null;
+  }>> {
+    const rows = await db.select({
+      id: reviewRequestSuppression.id,
+      customer_email: reviewRequestSuppression.customer_email,
+      customer_phone: reviewRequestSuppression.customer_phone,
+      reason: reviewRequestSuppression.reason,
+      source: reviewRequestSuppression.source,
+      created_at: reviewRequestSuppression.created_at,
+    })
+      .from(reviewRequestSuppression)
+      .where(eq(reviewRequestSuppression.client_id, clientId))
+      .orderBy(desc(reviewRequestSuppression.created_at))
+      .limit(opts.limit ?? 100)
+      .offset(opts.offset ?? 0);
+    return rows;
+  }
+
+  async removeReviewRequestSuppression(clientId: number, id: number): Promise<boolean> {
+    const result = await db.delete(reviewRequestSuppression)
+      .where(and(
+        eq(reviewRequestSuppression.id, id),
+        eq(reviewRequestSuppression.client_id, clientId),
+      ))
+      .returning({ id: reviewRequestSuppression.id });
+    return result.length > 0;
+  }
+
+  // ═══════════════════════════════════════════════
+  // Rate-limit counters
+  // ═══════════════════════════════════════════════
+
+  /**
+   * Count successful review-request sends today (UTC) for a client.
+   * Used by the service layer to enforce the daily SMS/email cap.
+   */
+  async countReviewRequestSendsToday(clientId: number, channel?: "sms" | "email"): Promise<number> {
+    const conditions: any[] = [
+      eq(reviewRequests.client_id, clientId),
+      sql`${reviewRequests.sent_at} >= date_trunc('day', NOW())`,
+      sql`${reviewRequests.status} IN ('sent', 'delivered')`,
+    ];
+    if (channel) conditions.push(eq(reviewRequests.channel, channel));
+    const [row] = await db.select({ n: sql<number>`COUNT(*)::int` })
+      .from(reviewRequests)
+      .where(and(...conditions));
+    return row?.n ?? 0;
+  }
+
+  // ═══════════════════════════════════════════════
+  // Response edit audit
+  // ═══════════════════════════════════════════════
+
+  async appendReviewResponseEdit(data: {
+    monitored_review_id: number;
+    edited_by?: number | null;
+    edit_kind: string;
+    old_text?: string | null;
+    new_text?: string | null;
+    reason?: string | null;
+    metadata?: any;
+  }): Promise<{ id: number }> {
+    const [row] = await db.insert(reviewResponseEdits).values({
+      monitored_review_id: data.monitored_review_id,
+      edited_by: data.edited_by ?? null,
+      edit_kind: data.edit_kind,
+      old_text: data.old_text ?? null,
+      new_text: data.new_text ?? null,
+      reason: data.reason ?? null,
+      metadata: data.metadata ?? null,
+    }).returning({ id: reviewResponseEdits.id });
+    return row!;
+  }
+
+  async listReviewResponseEdits(monitoredReviewId: number): Promise<Array<{
+    id: number;
+    edited_by: number | null;
+    edit_kind: string;
+    old_text: string | null;
+    new_text: string | null;
+    reason: string | null;
+    created_at: Date | null;
+  }>> {
+    return db.select({
+      id: reviewResponseEdits.id,
+      edited_by: reviewResponseEdits.edited_by,
+      edit_kind: reviewResponseEdits.edit_kind,
+      old_text: reviewResponseEdits.old_text,
+      new_text: reviewResponseEdits.new_text,
+      reason: reviewResponseEdits.reason,
+      created_at: reviewResponseEdits.created_at,
+    })
+      .from(reviewResponseEdits)
+      .where(eq(reviewResponseEdits.monitored_review_id, monitoredReviewId))
+      .orderBy(desc(reviewResponseEdits.created_at));
   }
 
   // ═══════════════════════════════════════════════

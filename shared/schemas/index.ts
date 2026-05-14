@@ -13,6 +13,7 @@ export * from "./mapguardMonitoring";
 export * from "./socialSync";
 export * from "./reviews";
 export * from "./reviewRequests";
+export * from "./reviewSuppression";
 export * from "./serviceCosts";
 export * from "./salesLeads";
 export * from "./rankflow";
