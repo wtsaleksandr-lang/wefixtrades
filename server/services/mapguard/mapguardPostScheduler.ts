@@ -77,6 +77,7 @@ function pickTheme(index: number, monthAnchor: Date): string {
 }
 
 interface FanoutSummary {
+  [key: string]: number;
   servicesConsidered: number;
   rowsCreated: number;
   rowsSkipped: number;

@@ -37,6 +37,7 @@ const log = createLogger("MapGuardReviewResponder");
 const MAX_REPLIES_PER_CLIENT_PER_RUN = 10;
 
 interface ResponderSummary {
+  [key: string]: number;
   clients_processed: number;
   reviews_ingested: number;
   replies_drafted: number;

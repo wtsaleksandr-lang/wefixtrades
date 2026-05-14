@@ -29,6 +29,7 @@ const MAX_RETRIES = 3;
 const BATCH_SIZE = 50;
 
 interface DrainSummary {
+  [key: string]: number;
   candidates: number;
   published: number;
   skipped_no_connection: number;
