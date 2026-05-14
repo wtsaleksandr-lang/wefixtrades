@@ -190,8 +190,12 @@ ${titleTag}
 function buildCtaHtml(cta: NonNullable<TransactionalEmailParams["cta"]>, theme: typeof DARK | typeof LIGHT): string {
   const block = cta.style === "block";
   const isLight = theme === LIGHT;
-  const buttonBg = isLight ? "#0F172A" : theme.accent;
-  const buttonFg = isLight ? "#FFFFFF" : "#0B0F14";
+  /* DOSS pattern: dark-theme email button is cream (#E6E3E0) with near-
+   * black text — same as the marketing site's primary CTA. Was previously
+   * blue button with #0B0F14 text, which read as "barely visible blue on
+   * blue" in customer inboxes. Light theme stays dark-bg / white-text. */
+  const buttonBg = isLight ? "#0F172A" : "#E6E3E0";
+  const buttonFg = isLight ? "#FFFFFF" : "#1E1E1E";
 
   if (block) {
     return `<a href="${cta.url}" style="display:block;background:${buttonBg};color:${buttonFg};font-size:15px;font-weight:700;padding:14px 24px;border-radius:10px;text-decoration:none;text-align:center;mso-padding-alt:0;">${cta.label}</a>`;

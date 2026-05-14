@@ -1,6 +1,7 @@
 <svg width="32" height="32" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- Dark rounded box background -->
-  <rect x="0.5" y="0.5" width="21" height="21" rx="5" fill="#1a1f1e" stroke="#0d3cfc" stroke-opacity="0.25" stroke-width="0.75"/>
+  <!-- Light grey badge — blue icon reads clearly on it. Was #1a1f1e
+       (near-black) which buried the blue strokes at favicon size. -->
+  <rect x="0.5" y="0.5" width="21" height="21" rx="5" fill="#E5E7EB" stroke="#0d3cfc" stroke-opacity="0.25" stroke-width="0.75"/>
   <!-- Top-left bracket -->
   <path d="M8 3H4C3.4 3 3 3.4 3 4V8" stroke="#0d3cfc" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>
   <!-- Top-right bracket -->

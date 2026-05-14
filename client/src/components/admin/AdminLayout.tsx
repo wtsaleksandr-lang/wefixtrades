@@ -740,7 +740,7 @@ export default function AdminLayout({
         {/* Logo area */}
         <div className="flex items-center justify-between h-14 px-4 border-b border-gray-100">
           <Link href="/admin/crm" className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-[#1a1f1e] border border-[rgba(13,60,252,0.15)] flex items-center justify-center">
+            <div className="w-7 h-7 rounded-lg bg-[#E5E7EB] border border-[rgba(13,60,252,0.18)] flex items-center justify-center">
               <svg viewBox="0 0 22 22" width={16} height={16} fill="none">
                 <path d="M8 3H4C3.4 3 3 3.4 3 4V8" stroke="#0d3cfc" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" />
                 <path d="M14 3H18C18.6 3 19 3.4 19 4V8" stroke="#0d3cfc" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" />

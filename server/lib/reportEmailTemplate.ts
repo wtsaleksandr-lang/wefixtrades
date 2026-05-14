@@ -72,7 +72,7 @@ export function buildAuditReportEmail(opts: {
         ${attachmentNote}
 
         <div style="text-align:center;margin:0 0 8px;">
-          <a href="${escHtml(reportUrl)}" target="_blank" style="display:inline-block;background:#0d3cfc;color:#0B0F14;font-size:14px;font-weight:700;padding:13px 26px;border-radius:10px;text-decoration:none;">
+          <a href="${escHtml(reportUrl)}" target="_blank" style="display:inline-block;background:#E6E3E0;color:#1E1E1E;font-size:14px;font-weight:700;padding:13px 26px;border-radius:10px;text-decoration:none;">
             View Full Report Online
           </a>
         </div>
