@@ -461,6 +461,145 @@ export function registerReputationRoutes(app: Express): void {
     }
   });
 
+  // ─── Competitor tracking (Premium tier, Sprint 3) ───
+
+  app.get("/api/reputation/clients/:clientId/competitors", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.clientId as string);
+      if (isNaN(clientId)) return res.status(400).json({ error: "Invalid client ID" });
+
+      const { reputationCompetitors, reputationCompetitorSnapshots } = await import("@shared/schema");
+      const { db } = await import("../db");
+      const { and, eq, sql, desc } = await import("drizzle-orm");
+
+      const competitors = await db.select()
+        .from(reputationCompetitors)
+        .where(eq(reputationCompetitors.client_id, clientId))
+        .orderBy(desc(reputationCompetitors.created_at));
+
+      // Attach the most-recent snapshot to each competitor for the
+      // dashboard "current vs your business" comparison.
+      const enriched = await Promise.all(competitors.map(async (c) => {
+        const [latest] = await db.select()
+          .from(reputationCompetitorSnapshots)
+          .where(eq(reputationCompetitorSnapshots.competitor_id, c.id))
+          .orderBy(desc(reputationCompetitorSnapshots.snapshot_date))
+          .limit(1);
+        return { ...c, latest_snapshot: latest ?? null };
+      }));
+
+      res.json({ competitors: enriched });
+    } catch (err: any) {
+      log.error("[reputation] List competitors error:", err.message);
+      res.status(500).json({ error: "Failed to list competitors" });
+    }
+  });
+
+  app.post("/api/reputation/clients/:clientId/competitors", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.clientId as string);
+      if (isNaN(clientId)) return res.status(400).json({ error: "Invalid client ID" });
+
+      const { place_id, display_name } = req.body ?? {};
+      if (!place_id || !display_name) {
+        return res.status(400).json({ error: "place_id and display_name are required" });
+      }
+
+      // Validate the competitor's place_id against Google Places.
+      const { validateGooglePlaceId } = await import("../services/reputation/placeIdValidator");
+      const v = await validateGooglePlaceId(place_id);
+      if (!v.valid && !v.soft) {
+        return res.status(400).json({ error: `Invalid Google Place ID: ${v.reason}` });
+      }
+
+      // Soft-cap of 5 competitors per client.
+      const { reputationCompetitors } = await import("@shared/schema");
+      const { db } = await import("../db");
+      const { eq } = await import("drizzle-orm");
+      const existing = await db.select({ id: reputationCompetitors.id })
+        .from(reputationCompetitors)
+        .where(eq(reputationCompetitors.client_id, clientId));
+      if (existing.length >= 5) {
+        return res.status(400).json({ error: "Maximum of 5 competitors per client" });
+      }
+
+      const [row] = await db.insert(reputationCompetitors).values({
+        client_id: clientId,
+        place_id,
+        display_name,
+        enabled: true,
+      } as any).returning();
+      res.json({ competitor: row });
+    } catch (err: any) {
+      if (String(err?.message || "").includes("idx_competitors_client_place")) {
+        return res.status(409).json({ error: "This competitor is already tracked" });
+      }
+      log.error("[reputation] Add competitor error:", err.message);
+      res.status(500).json({ error: "Failed to add competitor" });
+    }
+  });
+
+  app.delete("/api/reputation/clients/:clientId/competitors/:id", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.clientId as string);
+      const id = parseInt(req.params.id as string);
+      if (isNaN(clientId) || isNaN(id)) return res.status(400).json({ error: "Invalid IDs" });
+
+      const { reputationCompetitors } = await import("@shared/schema");
+      const { db } = await import("../db");
+      const { and, eq } = await import("drizzle-orm");
+
+      const result = await db.delete(reputationCompetitors)
+        .where(and(eq(reputationCompetitors.id, id), eq(reputationCompetitors.client_id, clientId)))
+        .returning({ id: reputationCompetitors.id });
+      if (result.length === 0) return res.status(404).json({ error: "Not found" });
+      res.json({ ok: true });
+    } catch (err: any) {
+      log.error("[reputation] Remove competitor error:", err.message);
+      res.status(500).json({ error: "Failed to remove competitor" });
+    }
+  });
+
+  /**
+   * Trend endpoint — last N days of snapshots per competitor, plus the
+   * client's own rolling-30-day stats so the dashboard can render a
+   * direct comparison. Used by the Premium-tier competitor dashboard.
+   */
+  app.get("/api/reputation/clients/:clientId/competitors/trend", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.clientId as string);
+      if (isNaN(clientId)) return res.status(400).json({ error: "Invalid client ID" });
+      const days = Math.min(Math.max(parseInt(String(req.query.days ?? "90"), 10) || 90, 7), 365);
+
+      const { reputationCompetitors, reputationCompetitorSnapshots } = await import("@shared/schema");
+      const { db } = await import("../db");
+      const { and, eq, sql, desc } = await import("drizzle-orm");
+
+      const competitors = await db.select()
+        .from(reputationCompetitors)
+        .where(and(
+          eq(reputationCompetitors.client_id, clientId),
+          eq(reputationCompetitors.enabled, true),
+        ));
+
+      const series = await Promise.all(competitors.map(async (c) => {
+        const snapshots = await db.select()
+          .from(reputationCompetitorSnapshots)
+          .where(and(
+            eq(reputationCompetitorSnapshots.competitor_id, c.id),
+            sql`${reputationCompetitorSnapshots.snapshot_date} >= NOW() - INTERVAL '${sql.raw(String(days))} days'`,
+          ))
+          .orderBy(reputationCompetitorSnapshots.snapshot_date);
+        return { competitor: c, snapshots };
+      }));
+
+      res.json({ days, series });
+    } catch (err: any) {
+      log.error("[reputation] Competitor trend error:", err.message);
+      res.status(500).json({ error: "Failed to load competitor trend" });
+    }
+  });
+
   app.delete("/api/reputation/clients/:clientId/locations/:id", requireAdmin, async (req: Request, res: Response) => {
     try {
       const clientId = parseInt(req.params.clientId as string);

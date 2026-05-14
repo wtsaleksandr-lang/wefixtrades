@@ -543,6 +543,17 @@ export function initScheduler() {
     }
   });
 
+  // Sprint 3: competitor tracking snapshot — daily 04:30 UTC. One row
+  // per (competitor, day); idempotent via the daily unique index.
+  cron.schedule("30 4 * * *", async () => {
+    try {
+      const { runCompetitorSnapshots } = await import("./competitorSnapshotWorker");
+      await runJob("competitor_snapshots", runCompetitorSnapshots);
+    } catch (err: any) {
+      log.error("competitor_snapshots error", { error: err.message });
+    }
+  }, { timezone: "UTC" });
+
   // Sprint 4: proactive Google OAuth token refresh for ReputationShield.
   // Refreshes tokens expiring inside 24h ahead of time so background syncs
   // don't fail with a stale-token error and customers don't see broken
