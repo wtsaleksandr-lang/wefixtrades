@@ -19,6 +19,8 @@ import type { ServiceCatalogRow } from "@shared/schema";
 import { getTradeLineDefaultConfig, serviceCatalog } from "@shared/schema";
 import { createLogger } from "../lib/logger";
 import { autoAssignSupplier } from "../services/supplierAssignment";
+import { getUpsellsForCart } from "../lib/checkoutUpsells";
+import { inArray, eq } from "drizzle-orm";
 
 const log = createLogger("PublicCheckout");
 
@@ -302,11 +304,49 @@ export function registerPublicCheckoutRoutes(app: Express): void {
         }
       }
 
+      /* ─── Optional cross-sell items (upsells in Stripe Checkout) ───
+       * Suggest 1-2 complementary products the customer can toggle on at
+       * the Stripe-hosted page. Skipped when:
+       *   - the cart is system_builder (those already have intent toward
+       *     a curated bundle; an upsell muddies the message)
+       *   - the cart is a bundle (same reason)
+       *   - mode === "payment" filters to one-time upsell prices only
+       *     (Stripe disallows recurring optional_items in payment mode) */
+      let optionalItems: Stripe.Checkout.SessionCreateParams.OptionalItem[] = [];
+      if (!bundle_id && !system_builder) {
+        try {
+          const upsellIds = getUpsellsForCart(services.map(s => s.id));
+          if (upsellIds.length > 0) {
+            const upsellRows = await db
+              .select()
+              .from(serviceCatalog)
+              .where(inArray(serviceCatalog.id, upsellIds));
+            for (const row of upsellRows) {
+              const priceId = (billingPeriod === "yearly" && row.stripe_yearly_price_id)
+                ? row.stripe_yearly_price_id
+                : row.stripe_price_id;
+              if (!priceId) continue;
+              // payment mode rejects recurring optional_items — filter.
+              if (mode === "payment" && row.billing_period !== "one-time") continue;
+              optionalItems.push({
+                price: priceId,
+                quantity: 1,
+                adjustable_quantity: { enabled: false, minimum: 1, maximum: 1 },
+              });
+              if (optionalItems.length >= 2) break;
+            }
+          }
+        } catch (err: any) {
+          log.warn("[public-checkout] upsell computation failed (continuing without)", { err: err?.message });
+        }
+      }
+
       const session = await stripe.checkout.sessions.create({
         customer: stripeCustomerId,
         mode: mode as Stripe.Checkout.SessionCreateParams.Mode,
         payment_method_types: paymentMethodTypes,
         line_items: lineItems,
+        ...(optionalItems.length > 0 ? { optional_items: optionalItems } : {}),
         ...(discounts.length > 0 ? { discounts } : { allow_promotion_codes: true }),
         metadata: {
           crm_client_id: String(client.id),
@@ -315,6 +355,7 @@ export function registerPublicCheckoutRoutes(app: Express): void {
           system_builder: system_builder ? "1" : "",
           billing_period: billingPeriod,
           source: "public_checkout",
+          upsells_offered: optionalItems.length > 0 ? "1" : "",
         },
         success_url: `${baseUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${baseUrl}/checkout/cancelled`,
