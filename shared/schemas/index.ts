@@ -29,3 +29,4 @@ export * from "./tradelineWidgetSites";
 export * from "./mobileRefreshTokens";
 export * from "./mobileDevices";
 export * from "./mobileCallRecords";
+export * from "./voicemails";
