@@ -155,6 +155,8 @@ export function buildPdfHtml(data: PdfReportData): string {
     padding: 16px 24px; background: ${COLORS.dark}; border-radius: 10px;
     margin-bottom: 16px;
   }
+  .header-left { display: flex; align-items: center; gap: 12px; }
+  .header-logo { width: 36px; height: 36px; flex-shrink: 0; }
   .header-brand { font-size: 18px; font-weight: 800; color: ${COLORS.white}; letter-spacing: -0.5px; }
   .header-brand span { color: ${COLORS.cyan}; }
   .header-date { font-size: 10px; color: rgba(255,255,255,0.5); }
@@ -257,9 +259,24 @@ export function buildPdfHtml(data: PdfReportData): string {
 
 <!-- Header -->
 <div class="header">
-  <div>
-    <div class="header-brand">We<span>Fix</span>Trades</div>
-    <div class="header-date">Local Business Audit Report${dateStr ? ` · ${esc(dateStr)}` : ""}</div>
+  <div class="header-left">
+    <!-- Brand icon (badged variant). Inlined here so the PDF renderer
+         (puppeteer/Chromium) embeds it without a network fetch. Mirrors
+         client/public/brand/icon-badged.svg. -->
+    <svg class="header-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+      <rect x="0.5" y="0.5" width="31" height="31" rx="7" fill="#E5E7EB" stroke="rgba(13,60,252,0.18)" stroke-width="1" />
+      <g transform="translate(4 4)">
+        <path d="M9 3H6a3 3 0 0 0-3 3v3" stroke="#0d3cfc" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+        <path d="M15 3h3a3 3 0 0 1 3 3v3" stroke="#0d3cfc" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+        <path d="M3 15v3a3 3 0 0 0 3 3h3" stroke="#0d3cfc" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+        <path d="M21 15v3a3 3 0 0 1-3 3h-3" stroke="#0d3cfc" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+        <path d="m8 12.5 3 3 5-6" stroke="#0d3cfc" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+      </g>
+    </svg>
+    <div>
+      <div class="header-brand">We<span>Fix</span>Trades</div>
+      <div class="header-date">Local Business Audit Report${dateStr ? ` · ${esc(dateStr)}` : ""}</div>
+    </div>
   </div>
 </div>
 

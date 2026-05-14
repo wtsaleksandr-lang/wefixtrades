@@ -127,9 +127,23 @@ function renderOgSvg(opts: {
       font-size="18" font-weight="700">Grade ${esc(grade)}</text>
   </g>
 
+  <!-- Brand logo (top-left). Badged icon — readable on the dark gradient bg. -->
+  <g transform="translate(60, 60)">
+    <rect x="0" y="0" width="56" height="56" rx="12" fill="#E5E7EB" stroke="rgba(13,60,252,0.18)" stroke-width="1"/>
+    <g transform="translate(7 7)">
+      <path d="M15.75 5.25H10.5a5.25 5.25 0 0 0-5.25 5.25v5.25" stroke="#0d3cfc" stroke-width="4.375" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      <path d="M26.25 5.25h5.25a5.25 5.25 0 0 1 5.25 5.25v5.25" stroke="#0d3cfc" stroke-width="4.375" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      <path d="M5.25 26.25v5.25a5.25 5.25 0 0 0 5.25 5.25h5.25" stroke="#0d3cfc" stroke-width="4.375" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      <path d="M36.75 26.25v5.25a5.25 5.25 0 0 1-5.25 5.25h-5.25" stroke="#0d3cfc" stroke-width="4.375" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      <path d="m14 21.875 5.25 5.25 8.75-10.5" stroke="#0d3cfc" stroke-width="4.375" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </g>
+    <text x="72" y="36" fill="#F9F9F9" font-family="system-ui,sans-serif"
+      font-size="28" font-weight="700" letter-spacing="-0.02em">We<tspan fill="#0d3cfc">Fix</tspan>Trades</text>
+  </g>
+
   <!-- Right side text -->
   <g transform="translate(480, 220)">
-    <!-- Brand -->
+    <!-- Brand label (kept for layout balance — small uppercase eyebrow) -->
     <text x="0" y="0" fill="${esc(colors.main)}" font-family="system-ui,sans-serif"
       font-size="14" font-weight="700" letter-spacing="2">WEFIXTRADES</text>
 
