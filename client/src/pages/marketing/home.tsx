@@ -629,7 +629,7 @@ export default function HomePage() {
               <div
                 data-testid="hero-headline"
                 className="hero-enter"
-                style={{ marginBottom: 24 }}
+                style={{ marginBottom: 16 }}
               >
                 <h1
                   style={{
@@ -685,8 +685,8 @@ export default function HomePage() {
                 className="hero-subtext hero-enter"
                 style={{
                   maxWidth: 520,
-                  marginTop: 18,
-                  marginBottom: 28,
+                  marginTop: 12,
+                  marginBottom: 20,
                   fontSize: 16,
                   lineHeight: 1.6,
                   fontWeight: 450,

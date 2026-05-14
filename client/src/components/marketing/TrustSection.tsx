@@ -31,7 +31,7 @@ export default function TrustSection() {
         marginTop: -28,
         position: "relative",
         zIndex: 9,
-        padding: "clamp(56px, 8vw, 80px) clamp(20px, 5vw, 80px) clamp(64px, 8vw, 96px)",
+        padding: "clamp(56px, 8vw, 80px) clamp(20px, 5vw, 80px) clamp(48px, 6vw, 72px)",
       }}
     >
       <div style={{ maxWidth: 980, margin: "0 auto", textAlign: "center" }}>

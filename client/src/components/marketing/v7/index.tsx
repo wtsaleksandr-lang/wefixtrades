@@ -69,7 +69,7 @@ interface V7HeroProps {
 
 export function V7Hero({ productName, eyebrow, headline, sub, ctas = [], visual, glow = true }: V7HeroProps) {
   return (
-    <section style={{ padding: "120px 24px 60px", position: "relative", overflow: "hidden", background: mkt.bg }}>
+    <section style={{ padding: "80px 24px 60px", position: "relative", overflow: "hidden", background: mkt.bg }}>
       {glow && (
         <div style={{
           position: "absolute", inset: 0, pointerEvents: "none",
