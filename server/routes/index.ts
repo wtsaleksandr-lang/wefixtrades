@@ -55,6 +55,7 @@ import { registerTradelineSetupRoutes } from "./tradelineSetupRoutes";
 import { registerAdminTradelineSetupsRoutes } from "./adminTradelineSetupsRoutes";
 import { registerAdminTradelineTemplatesRoutes } from "./adminTradelineTemplatesRoutes";
 import { registerTradelineChatInstallRoutes } from "./tradelineChatInstallRoutes";
+import { registerAdminTradelineLearningRoutes } from "./adminTradelineLearningRoutes";
 import { registerMobileAuthRoutes } from "./mobileAuthRoutes";
 import { registerMobileApiRoutes } from "./mobileApiRoutes";
 import { registerMobileVoiceRoutes } from "./mobileVoiceRoutes";
@@ -121,6 +122,7 @@ export async function registerRoutes(
   registerAdminTradelineSetupsRoutes(app);
   registerAdminTradelineTemplatesRoutes(app);
   registerTradelineChatInstallRoutes(app);
+  registerAdminTradelineLearningRoutes(app);
   registerMobileAuthRoutes(app);
   registerMobileApiRoutes(app);
   registerMobileVoiceRoutes(app);
