@@ -58,7 +58,7 @@ export function buildEmailHeader(opts: { tagline?: string; theme?: "dark" | "lig
         <td style="vertical-align:middle;padding-right:12px;">
           <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="border-collapse:separate;">
             <tr>
-              <td align="center" valign="middle" width="42" height="42" style="width:42px;height:42px;background:#0F172A;border:1px solid ${isLight ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.18)'};border-radius:11px;color:${ACCENT};font-size:20px;font-weight:700;font-family:Arial,sans-serif;line-height:42px;text-align:center;">&#10003;</td>
+              <td align="center" valign="middle" width="42" height="42" style="width:42px;height:42px;background:#E5E7EB;border:1px solid rgba(13,60,252,0.18);border-radius:11px;color:${ACCENT};font-size:20px;font-weight:700;font-family:Arial,sans-serif;line-height:42px;text-align:center;">&#10003;</td>
             </tr>
           </table>
         </td>
@@ -95,7 +95,7 @@ export function buildChatBubble(): string {
                   <div style="font-size:13px;font-weight:700;color:${TEXT_BRIGHT};">Have a question?</div>
                   <div style="font-size:12px;color:${TEXT_MUTED};margin-top:2px;">Chat with us — available 24/7.</div>
                 </td>
-                <td valign="middle" align="right" style="font-size:13px;font-weight:700;color:${ACCENT};white-space:nowrap;">→</td>
+                <td valign="middle" align="right" style="font-size:13px;font-weight:700;color:#FFFFFF;white-space:nowrap;">→</td>
               </tr>
             </table>
           </a>

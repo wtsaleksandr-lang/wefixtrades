@@ -120,8 +120,11 @@ export default function Logo({ size = "md", showWordmark = true, animate = true 
           width: iconPx,
           height: iconPx,
           borderRadius: 11,
-          background: "#1a1f1e",
-          border: `1.5px solid ${hovered ? "rgba(13,60,252,0.5)" : "rgba(13,60,252,0.15)"}`,
+          /* Grey badge backing instead of near-black — blue icon strokes
+           * read clearly on light grey but disappear into the old #1a1f1e
+           * background. */
+          background: "#E5E7EB",
+          border: `1.5px solid ${hovered ? "rgba(13,60,252,0.5)" : "rgba(13,60,252,0.18)"}`,
           boxShadow: hovered ? "0 0 0 4px rgba(13,60,252,0.08)" : "none",
           display: "flex",
           alignItems: "center",
