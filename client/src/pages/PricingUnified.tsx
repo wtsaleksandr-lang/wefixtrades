@@ -697,13 +697,17 @@ function OneTimeCard({ product, onCheckout, onInfo, bestFor }: { product: Produc
    ═══════════════════════════════════════════ */
 
 function ServiceCard({ product, yearly, onCheckout, onInfo, bestFor }: { product: ProductDef; yearly: boolean; onCheckout: (tier: Tier) => void; onInfo?: () => void; bestFor?: string }) {
-  const [activeTier, setActiveTier] = useState(0);
-  const [hover, setHover] = useState(false);
   const isTradelineProduct = product.id === "tradeline";
   const isRecommended = bestFor === "Recommended for you";
   const monthlyTiers = product.tiers.filter(t => t.billingPeriod === "monthly");
   const setupTier = product.tiers.find(t => t.billingPeriod === "one-time");
   const displayTiers = monthlyTiers.length > 0 ? monthlyTiers : product.tiers;
+  // Default to the highlighted ("Most Popular") tier if any, else fall back to first.
+  // Without this, multi-tier products like TradeLine open on Starter even when Pro is
+  // explicitly marked highlighted: true + badge: "Most Popular".
+  const highlightedIndex = displayTiers.findIndex(t => t.highlighted);
+  const [activeTier, setActiveTier] = useState(highlightedIndex >= 0 ? highlightedIndex : 0);
+  const [hover, setHover] = useState(false);
   const currentTier = displayTiers[activeTier] || displayTiers[0];
 
   return (
@@ -1133,6 +1137,7 @@ export default function PricingUnified() {
   const [checkoutItems, setCheckoutItems] = useState<CheckoutItem[]>([]);
   const [checkoutBundleId, setCheckoutBundleId] = useState<string | undefined>();
   const [checkoutBundlePrice, setCheckoutBundlePrice] = useState<number | undefined>();
+  const [checkoutSystemBuilder, setCheckoutSystemBuilder] = useState(false);
 
   function openBundleCheckout(bundle: BundleDef) {
     setCheckoutTitle(bundle.name);
@@ -1513,6 +1518,9 @@ function DecisionButton({ label, targetId }: { label: string; targetId: string }
                   setCheckoutItems(items);
                   setCheckoutBundleId(undefined);
                   setCheckoutBundlePrice(undefined);
+                  // Backend applies the SystemBuilder 7% off as a Stripe Coupon
+                  // when items.length >= 3 (same threshold the UI uses).
+                  setCheckoutSystemBuilder(items.length >= 3);
                   setCheckoutOpen(true);
                 }}
               />
@@ -1658,11 +1666,12 @@ function DecisionButton({ label, targetId }: { label: string; targetId: string }
       {/* ═══ CHECKOUT MODAL ═══ */}
       <CheckoutModal
         open={checkoutOpen}
-        onClose={() => setCheckoutOpen(false)}
+        onClose={() => { setCheckoutOpen(false); setCheckoutSystemBuilder(false); }}
         title={checkoutTitle}
         items={checkoutItems}
         bundleId={checkoutBundleId}
         bundlePrice={checkoutBundlePrice}
+        systemBuilder={checkoutSystemBuilder}
         yearly={yearly}
       />
 

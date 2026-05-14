@@ -34,8 +34,9 @@ interface CheckoutRequestBody {
   contact_email: string;
   contact_phone?: string;
   items: string[];          // service_catalog IDs, e.g. ["tradeline-starter", "mapguard-basic"]
-  bundle_id?: string;       // optional: which bundle this came from (metadata only)
+  bundle_id?: string;       // bundle this came from — triggers bundle-savings coupon
   billing_period?: "monthly" | "yearly"; // defaults to "monthly"
+  system_builder?: boolean; // true when this is the SystemBuilder cart path — triggers 7%
 }
 
 export function registerPublicCheckoutRoutes(app: Express): void {
@@ -94,7 +95,7 @@ export function registerPublicCheckoutRoutes(app: Express): void {
 
       /* ─── Validate input ─── */
       const body = req.body as CheckoutRequestBody;
-      const { business_name, contact_name, contact_email, contact_phone, items, bundle_id } = body;
+      const { business_name, contact_name, contact_email, contact_phone, items, bundle_id, system_builder } = body;
       const billingPeriod = body.billing_period === "yearly" ? "yearly" : "monthly";
 
       if (!business_name?.trim()) return res.status(400).json({ error: "Business name is required" });
@@ -257,21 +258,66 @@ export function registerPublicCheckoutRoutes(app: Express): void {
         "card", "us_bank_account", "cashapp", "afterpay_clearpay", "klarna", "acss_debit",
       ];
 
+      /* ─── Discount coupon (bundle savings OR SystemBuilder 7%) ───
+       * Previously the UI showed "$75 saved" or "7% off" but the discount was
+       * never sent to Stripe — customers got charged the full sum. We create
+       * a one-shot transient coupon per checkout when applicable. Stripe
+       * archives unused coupons automatically.
+       *
+       * Bundle savings take priority. If the same checkout is both a bundle
+       * AND the system_builder path, the bundle's exact savings amount wins
+       * (more accurate). */
+      const discounts: Stripe.Checkout.SessionCreateParams.Discount[] = [];
+      if (bundle_id) {
+        try {
+          const { ALL_BUNDLES, bundleSavings } = await import("@shared/pricing");
+          const bundle = ALL_BUNDLES.find(b => b.id === bundle_id);
+          if (bundle) {
+            const savingsDollars = bundleSavings(bundle);
+            if (savingsDollars > 0) {
+              const coupon = await stripe.coupons.create({
+                amount_off: savingsDollars * 100, // cents
+                currency: "usd",
+                duration: "once",
+                name: `${bundle.name} bundle savings`,
+                metadata: { bundle_id, source: "public_checkout_bundle" },
+              });
+              discounts.push({ coupon: coupon.id });
+            }
+          }
+        } catch (err: any) {
+          log.warn("[public-checkout] bundle coupon failed (continuing without)", { err: err?.message });
+        }
+      } else if (system_builder) {
+        try {
+          const coupon = await stripe.coupons.create({
+            percent_off: 7,
+            duration: "once",
+            name: "System Builder — 7% bundle discount",
+            metadata: { source: "system_builder" },
+          });
+          discounts.push({ coupon: coupon.id });
+        } catch (err: any) {
+          log.warn("[public-checkout] systembuilder coupon failed (continuing without)", { err: err?.message });
+        }
+      }
+
       const session = await stripe.checkout.sessions.create({
         customer: stripeCustomerId,
         mode: mode as Stripe.Checkout.SessionCreateParams.Mode,
         payment_method_types: paymentMethodTypes,
         line_items: lineItems,
+        ...(discounts.length > 0 ? { discounts } : { allow_promotion_codes: true }),
         metadata: {
           crm_client_id: String(client.id),
           service_catalog_id: services.map(s => s.id).join(","),
           bundle_id: bundle_id || "",
+          system_builder: system_builder ? "1" : "",
           billing_period: billingPeriod,
           source: "public_checkout",
         },
         success_url: `${baseUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${baseUrl}/checkout/cancelled`,
-        allow_promotion_codes: true,
         billing_address_collection: "auto",
       });
 

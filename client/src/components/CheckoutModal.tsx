@@ -26,14 +26,15 @@ export interface CheckoutModalProps {
   onClose: () => void;
   title: string;             // e.g. "Growth System" or "TradeLine™ Pro"
   items: CheckoutItem[];     // service IDs to checkout
-  bundleId?: string;         // optional bundle ID for metadata
+  bundleId?: string;         // optional bundle ID — backend applies bundle-savings coupon
   bundlePrice?: number;      // if bundle, the discounted monthly total
+  systemBuilder?: boolean;   // true when triggered from /pricing SystemBuilder — backend applies 7% coupon
   yearly: boolean;           // current billing toggle state
 }
 
 /* ─── Component ─── */
 
-export default function CheckoutModal({ open, onClose, title, items, bundleId, bundlePrice, yearly }: CheckoutModalProps) {
+export default function CheckoutModal({ open, onClose, title, items, bundleId, bundlePrice, systemBuilder, yearly }: CheckoutModalProps) {
   const [businessName, setBusinessName] = useState("");
   const [contactName, setContactName] = useState("");
   const [email, setEmail] = useState("");
@@ -83,6 +84,7 @@ export default function CheckoutModal({ open, onClose, title, items, bundleId, b
           contact_phone: phone.trim() || undefined,
           items: items.map(i => i.serviceId),
           bundle_id: bundleId,
+          system_builder: systemBuilder || undefined,
           billing_period: yearly ? "yearly" : "monthly",
         }),
       });

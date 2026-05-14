@@ -1490,10 +1490,81 @@ export class DatabaseStorage implements IStorage {
     if (Object.keys(updates).length === 0) {
       throw new Error("No publishable fields in draft");
     }
+
+    /* Snapshot the existing row BEFORE we mutate, so we can diff
+     * old-vs-new and only push to Stripe what actually changed. */
+    const [prevRow] = await db.select().from(serviceCatalog).where(eq(serviceCatalog.id, serviceId)).limit(1);
+
     const [updatedRow] = await db.update(serviceCatalog)
       .set({ ...updates, updated_at: new Date() })
       .where(eq(serviceCatalog.id, serviceId))
       .returning();
+
+    /* Push parent-product changes to Stripe (best-effort, non-throwing).
+     * - name/description change → stripe.products.update
+     * - default_price change    → stripe.prices.create + archive old,
+     *   then UPDATE service_catalog.stripe_price_id with the new ID
+     * - yearly mirror: when monthly price changes, recompute yearly
+     *   amount via monthlyToYearlyCents() and create matching Stripe
+     *   yearly price.
+     * If STRIPE_SECRET_KEY isn't configured, helpers no-op silently
+     * (e.g. in test env). Logged via createLogger("stripe-product-sync").
+     */
+    if (prevRow) {
+      const { syncProductMetadata, syncProductPrice, monthlyToYearlyCents } = await import("./services/stripeProductSync");
+      const stripeProductId = (updatedRow.stripe_product_id as string | null) ?? (prevRow.stripe_product_id as string | null);
+
+      if (stripeProductId) {
+        const newName = (updates.name as string | undefined) ?? undefined;
+        const newDescription = (updates.tagline as string | undefined) ?? (updates.description as string | undefined) ?? undefined;
+        const nameChanged = typeof newName === "string" && newName !== prevRow.name;
+        const descChanged = typeof newDescription === "string" && newDescription !== (prevRow.tagline ?? prevRow.description);
+        if (nameChanged || descChanged) {
+          await syncProductMetadata({
+            stripeProductId,
+            newName: nameChanged ? newName : undefined,
+            newDescription: descChanged ? newDescription : undefined,
+          });
+        }
+
+        // Price diff. default_price is in cents in our schema.
+        const newPriceCents = updates.default_price as number | undefined;
+        const billingPeriod = (updates.billing_period ?? prevRow.billing_period) as string | undefined;
+        if (typeof newPriceCents === "number" && newPriceCents !== prevRow.default_price) {
+          const period: "monthly" | "yearly" | "one_time" =
+            billingPeriod === "one-time" ? "one_time" : "monthly";
+
+          const priceResult = await syncProductPrice({
+            serviceCatalogId: serviceId,
+            stripeProductId,
+            oldStripePriceId: prevRow.stripe_price_id as string | null,
+            newAmountCents: newPriceCents,
+            period,
+          });
+          if (priceResult.ok && priceResult.newStripePriceId) {
+            await db.update(serviceCatalog)
+              .set({ stripe_price_id: priceResult.newStripePriceId, updated_at: new Date() })
+              .where(eq(serviceCatalog.id, serviceId));
+          }
+
+          // Yearly mirror — only for monthly products
+          if (period === "monthly") {
+            const yearlyResult = await syncProductPrice({
+              serviceCatalogId: serviceId,
+              stripeProductId,
+              oldStripePriceId: prevRow.stripe_yearly_price_id as string | null,
+              newAmountCents: monthlyToYearlyCents(newPriceCents),
+              period: "yearly",
+            });
+            if (yearlyResult.ok && yearlyResult.newStripeYearlyPriceId) {
+              await db.update(serviceCatalog)
+                .set({ stripe_yearly_price_id: yearlyResult.newStripeYearlyPriceId, updated_at: new Date() })
+                .where(eq(serviceCatalog.id, serviceId));
+            }
+          }
+        }
+      }
+    }
 
     /* Q5f: mirror parent.tiers entries to the matching per-tier
      * serviceCatalog sibling rows. The public-checkout + portal-subscribe
@@ -1503,6 +1574,7 @@ export class DatabaseStorage implements IStorage {
      * a tier id in the jsonb doesn't have a matching sibling row, log and
      * skip (admin needs to insert the row out-of-band first). */
     if (Array.isArray(updates.tiers)) {
+      const { syncProductMetadata, syncProductPrice, monthlyToYearlyCents } = await import("./services/stripeProductSync");
       for (const t of updates.tiers as Array<{
         id: string;
         name?: string;
@@ -1511,9 +1583,8 @@ export class DatabaseStorage implements IStorage {
         stripe_price_id?: string | null;
       }>) {
         if (!t?.id) continue;
-        const [sibling] = await db.select({ id: serviceCatalog.id })
-          .from(serviceCatalog).where(eq(serviceCatalog.id, t.id)).limit(1);
-        if (!sibling) {
+        const [siblingPrev] = await db.select().from(serviceCatalog).where(eq(serviceCatalog.id, t.id)).limit(1);
+        if (!siblingPrev) {
           log.warn("[publishProductDraft] tier id has no sibling row — skipped", { parent: serviceId, tier_id: t.id });
           continue;
         }
@@ -1531,6 +1602,48 @@ export class DatabaseStorage implements IStorage {
           await db.update(serviceCatalog)
             .set(siblingUpdate)
             .where(eq(serviceCatalog.id, t.id));
+        }
+
+        /* Stripe sync for this tier row (mirrors the parent-product logic above).
+         * Reads `stripe_product_id` from the sibling row itself — each per-tier
+         * row keeps its own Stripe Product binding. */
+        const tierStripeProductId = siblingPrev.stripe_product_id as string | null;
+        if (tierStripeProductId) {
+          // Name change → stripe.products.update
+          if (typeof t.name === "string" && t.name !== siblingPrev.name) {
+            await syncProductMetadata({ stripeProductId: tierStripeProductId, newName: t.name });
+          }
+          // Price change → new Stripe Price + archive old + persist new id
+          if (typeof t.price_cents === "number" && t.price_cents !== siblingPrev.default_price) {
+            const period: "monthly" | "yearly" | "one_time" =
+              ((t.billing_period ?? siblingPrev.billing_period) === "one-time") ? "one_time" : "monthly";
+            const priceResult = await syncProductPrice({
+              serviceCatalogId: t.id,
+              stripeProductId: tierStripeProductId,
+              oldStripePriceId: siblingPrev.stripe_price_id as string | null,
+              newAmountCents: t.price_cents,
+              period,
+            });
+            if (priceResult.ok && priceResult.newStripePriceId) {
+              await db.update(serviceCatalog)
+                .set({ stripe_price_id: priceResult.newStripePriceId, updated_at: new Date() })
+                .where(eq(serviceCatalog.id, t.id));
+            }
+            if (period === "monthly") {
+              const yearlyResult = await syncProductPrice({
+                serviceCatalogId: t.id,
+                stripeProductId: tierStripeProductId,
+                oldStripePriceId: siblingPrev.stripe_yearly_price_id as string | null,
+                newAmountCents: monthlyToYearlyCents(t.price_cents),
+                period: "yearly",
+              });
+              if (yearlyResult.ok && yearlyResult.newStripeYearlyPriceId) {
+                await db.update(serviceCatalog)
+                  .set({ stripe_yearly_price_id: yearlyResult.newStripeYearlyPriceId, updated_at: new Date() })
+                  .where(eq(serviceCatalog.id, t.id));
+              }
+            }
+          }
         }
       }
     }
