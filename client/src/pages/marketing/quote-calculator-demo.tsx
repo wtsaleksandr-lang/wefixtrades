@@ -212,7 +212,7 @@ const TRADES: TradeConfig[] = [
 ];
 
 const DARK = "#0d1514";
-const CYAN = "#00D4C8";
+const CYAN = "#0d3cfc";
 
 const BENEFITS = [
   { icon: Clock, text: "Instant prices, 24/7" },
@@ -420,7 +420,7 @@ export default function QuoteCalculatorDemo() {
                     width: 28,
                     height: 28,
                     borderRadius: 8,
-                    background: "rgba(102,232,250,0.10)",
+                    background: "rgba(13,60,252,0.10)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -606,8 +606,8 @@ function TradeDescriptions() {
               style={{
                 padding: "7px 14px",
                 borderRadius: 9999,
-                border: `1px solid ${isActive ? "rgba(102,232,250,0.3)" : mkt.border}`,
-                background: isActive ? "rgba(102,232,250,0.08)" : "transparent",
+                border: `1px solid ${isActive ? "rgba(13,60,252,0.3)" : mkt.border}`,
+                background: isActive ? "rgba(13,60,252,0.08)" : "transparent",
                 color: isActive ? mkt.accent : mkt.onDarkMuted,
                 fontSize: 13,
                 fontWeight: 600,

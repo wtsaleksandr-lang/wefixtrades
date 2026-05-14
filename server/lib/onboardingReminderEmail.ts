@@ -61,7 +61,7 @@ export async function sendOnboardingReminderEmail(data: OnboardingReminderData):
       : `Your <strong>${data.serviceName}</strong> setup form has been waiting ${data.daysWaiting} days. Every day this stays open is a day we can't deliver the service you signed up for. If something is blocking you, reply and we'll help.`;
 
   const progressLine = data.progressPercent
-    ? `<p style="font-size:13px;color:#8B919A;margin:0 0 16px;">You're already <strong style="color:#66E8FA;">${data.progressPercent}% through</strong> — your answers are saved, just pick up where you left off.</p>`
+    ? `<p style="font-size:13px;color:#8B919A;margin:0 0 16px;">You're already <strong style="color:#0d3cfc;">${data.progressPercent}% through</strong> — your answers are saved, just pick up where you left off.</p>`
     : "";
 
   const html = buildTransactionalEmail({

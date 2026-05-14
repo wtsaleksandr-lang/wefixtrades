@@ -112,7 +112,7 @@ function BookingPanel({ onClose }: { onClose: () => void }) {
 
       {selectedDay && selectedSlot ? (
         <div>
-          <div style={{ background: "rgba(102,232,250,0.10)", border: `1px solid #A7F3D0`, borderRadius: 10, padding: "12px 16px", marginBottom: 14, fontSize: 13, color: mkt.accent, fontWeight: 600 }}>
+          <div style={{ background: "rgba(13,60,252,0.10)", border: `1px solid #A7F3D0`, borderRadius: 10, padding: "12px 16px", marginBottom: 14, fontSize: 13, color: mkt.accent, fontWeight: 600 }}>
             <Check size={14} style={{ marginRight: 6, display: "inline" }} />
             {monthName} {selectedDay} at {selectedSlot} — Deposit: $200
           </div>
@@ -386,7 +386,7 @@ export default function DemoTemplatePage() {
                   })}
 
                   {/* Live estimate result */}
-                  <div style={{ background: "rgba(102,232,250,0.10)", border: `1px solid #A7F3D0`, borderRadius: 14, padding: "20px 24px", marginTop: 8 }}>
+                  <div style={{ background: "rgba(13,60,252,0.10)", border: `1px solid #A7F3D0`, borderRadius: 14, padding: "20px 24px", marginTop: 8 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                       <Zap size={15} color={mkt.accent} />
                       <span style={{ fontSize: 11, fontWeight: 700, color: mkt.accent, textTransform: "uppercase", letterSpacing: "0.08em" }}>Your Estimate</span>

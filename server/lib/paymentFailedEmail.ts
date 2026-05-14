@@ -61,7 +61,7 @@ function buildHtml(params: {
             </p>
           </div>
 
-          <a href="${params.portalUrl}" style="display:inline-block;background:#66E8FA;color:#0B0F14;font-size:14px;font-weight:700;padding:13px 24px;border-radius:10px;text-decoration:none;">
+          <a href="${params.portalUrl}" style="display:inline-block;background:#0d3cfc;color:#0B0F14;font-size:14px;font-weight:700;padding:13px 24px;border-radius:10px;text-decoration:none;">
             Update payment method
           </a>
 
@@ -71,7 +71,7 @@ function buildHtml(params: {
 
           <div style="border-top:1px solid rgba(255,255,255,0.06);margin:28px 0 14px;"></div>
           <p style="font-size:12px;color:#8B919A;line-height:1.6;margin:0;">
-            Something else going on? Reply to this email or reach us at <a href="mailto:${params.supportEmail}" style="color:#66E8FA;text-decoration:none;">${params.supportEmail}</a> — we can pause billing, adjust your plan, or work out a payment arrangement. We'd rather talk than lose you.
+            Something else going on? Reply to this email or reach us at <a href="mailto:${params.supportEmail}" style="color:#0d3cfc;text-decoration:none;">${params.supportEmail}</a> — we can pause billing, adjust your plan, or work out a payment arrangement. We'd rather talk than lose you.
           </p>
         </div>
         ${buildChatBubble()}

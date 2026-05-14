@@ -116,6 +116,11 @@ import PortalBilling from "@/pages/portal/PortalBilling";
 import PortalSettings from "@/pages/portal/PortalSettings";
 import PortalOnboarding from "@/pages/portal/PortalOnboarding";
 import TradelineSetupPage from "@/pages/portal/TradelineSetup";
+import PortalEmailDomainSetup from "@/pages/portal/PortalEmailDomainSetup";
+import ChatWidgetInstallEntry from "@/pages/portal/ChatWidgetInstallEntry";
+import ChatWidgetInstallOnboarding from "@/pages/portal/ChatWidgetInstallOnboarding";
+import InstallQueuePage from "@/pages/admin/InstallQueuePage";
+import PortalChatWidgetSetup from "@/pages/portal/PortalChatWidgetSetup";
 import PortalHelp from "@/pages/portal/PortalHelp";
 import PortalTicketDetail from "@/pages/portal/PortalTicketDetail";
 import SupportInboxPage from "@/pages/admin/SupportInboxPage";
@@ -134,6 +139,7 @@ import SystemAvailabilityPage from "@/pages/admin/SystemAvailabilityPage";
 import TradeLineOpsPage from "@/pages/admin/TradeLineOpsPage";
 import TradelineSetupsPage from "@/pages/admin/TradelineSetupsPage";
 import TradelineTemplatesPage from "@/pages/admin/TradelineTemplatesPage";
+import TradelineLearningPage from "@/pages/admin/TradelineLearningPage";
 import MobilePreviewPage from "@/pages/admin/MobilePreview";
 import QuoteQuickPage from "@/pages/admin/QuoteQuickPage";
 import BookingPage from "@/pages/public/BookingPage";
@@ -168,6 +174,7 @@ function Router() {
       <Route path="/admin/crm/tradeline-ops">{() => <RequirePortal><TradeLineOpsPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/tradeline-setups">{() => <RequirePortal><TradelineSetupsPage /></RequirePortal>}</Route>
       <Route path="/admin/tradeline/templates">{() => <RequirePortal><TradelineTemplatesPage /></RequirePortal>}</Route>
+      <Route path="/admin/tradeline/learning">{() => <RequirePortal><TradelineLearningPage /></RequirePortal>}</Route>
       <Route path="/admin/mobile-preview">{() => <RequirePortal><MobilePreviewPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/quotequick">{() => <RequirePortal><QuoteQuickPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/support/:id">{() => <RequirePortal><SupportTicketDetailPage /></RequirePortal>}</Route>
@@ -196,6 +203,11 @@ function Router() {
 
       {/* Client portal */}
       <Route path="/portal/tradeline/setup">{() => <RequireClient><TradelineSetupPage /></RequireClient>}</Route>
+      <Route path="/portal/tradeline/email-domain/setup">{() => <RequireClient><PortalEmailDomainSetup /></RequireClient>}</Route>
+      <Route path="/portal/tradeline/chat-widget/install">{() => <RequireClient><ChatWidgetInstallEntry /></RequireClient>}</Route>
+      <Route path="/portal/tradeline/chat-widget/install-onboarding">{() => <RequireClient><ChatWidgetInstallOnboarding /></RequireClient>}</Route>
+      <Route path="/admin/install-queue">{() => <RequirePortal><InstallQueuePage /></RequirePortal>}</Route>
+      <Route path="/portal/tradeline/chat-widget">{() => <RequireClient><PortalChatWidgetSetup /></RequireClient>}</Route>
       <Route path="/portal/onboarding/:id">{() => <RequireClient><PortalOnboarding /></RequireClient>}</Route>
       <Route path="/portal/services/:id">{() => <RequireClient><PortalServiceDetail /></RequireClient>}</Route>
       <Route path="/portal/mapguard">{() => <RequireClient><PortalMapguard /></RequireClient>}</Route>

@@ -226,7 +226,7 @@ const CSS = `
   display: inline-flex; align-items: center; justify-content: center;
   color: rgba(255,255,255,0.65);
 }
-.aio-dash-tab:first-child { background: rgba(102,232,250,0.18); color: ${mkt.accent}; border: 1px solid rgba(102,232,250,0.32); }
+.aio-dash-tab:first-child { background: rgba(13,60,252,0.18); color: ${mkt.accent}; border: 1px solid rgba(13,60,252,0.32); }
 .aio-dash-head {
   grid-column: 2;
   display: flex; align-items: center; gap: 6px;

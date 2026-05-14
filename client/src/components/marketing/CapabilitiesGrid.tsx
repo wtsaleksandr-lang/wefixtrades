@@ -65,7 +65,7 @@ export default function CapabilitiesGrid({ items, heading, sectionId }: Capabili
             transition: border-color 0.2s ease, transform 0.2s ease;
           }
           .cap-card:hover {
-            border-color: rgba(102,232,250,0.18);
+            border-color: rgba(13,60,252,0.18);
             transform: translateY(-1px);
           }
         `}</style>

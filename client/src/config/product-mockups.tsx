@@ -525,7 +525,7 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
           { label: "S", color: "#635BFF", angle: 200, ring: 2 },
           { label: "C", color: "#0EA5E9", angle: 270, ring: 2 },
           { label: "G", color: "#DC2626", angle: 340, ring: 2 },
-          { label: "QQ", color: "#66E8FA", angle: 60, ring: 2, size: 44 },
+          { label: "QQ", color: "#0d3cfc", angle: 60, ring: 2, size: 44 },
         ]}
       />,
     },

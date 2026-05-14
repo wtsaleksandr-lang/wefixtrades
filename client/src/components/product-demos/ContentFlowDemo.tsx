@@ -66,7 +66,7 @@ export default function ContentFlowDemo() {
         <AnimatePresence>
           {loop.step >= 3 && (
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-              style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 10, background: "rgba(102,232,250,0.10)", border: `1px solid rgba(102,232,250,0.24)`, fontSize: 12, color: mkt.accent, fontWeight: 600 }}>
+              style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 10, background: "rgba(13,60,252,0.10)", border: `1px solid rgba(13,60,252,0.24)`, fontSize: 12, color: mkt.accent, fontWeight: 600 }}>
               <Send size={14} /> Distributing to FB · IG · LinkedIn · GBP
             </motion.div>
           )}

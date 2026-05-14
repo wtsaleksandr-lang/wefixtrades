@@ -132,7 +132,12 @@ export function registerAuthRoutes(app: Express) {
         role: "client",
       });
 
-      // Create linked client record
+      // Create linked client record. New self-serve accounts get a 14-day
+      // Pro-features trial — gated everywhere via clientHasProAccess() in
+      // server/lib/clientProAccess.ts. trialProExpiryWorker flips the flag
+      // back to false on expiry and emails the trade.
+      const TRIAL_DAYS = 14;
+      const trialExpiresAt = new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000);
       const client = await storage.createClient({
         business_name: businessName.trim(),
         contact_name: name.trim(),
@@ -141,6 +146,8 @@ export function registerAuthRoutes(app: Express) {
         user_id: user.id,
         status: "lead",
         source: "website",
+        trial_pro_features_enabled: true,
+        trial_pro_expires_at: trialExpiresAt,
       });
 
       log.info("Self-serve signup completed", { userId: user.id, clientId: client.id });

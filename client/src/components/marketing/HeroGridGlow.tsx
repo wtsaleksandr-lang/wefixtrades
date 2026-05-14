@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 
 const ACCENT_COLORS = [
-  "rgba(102,232,250,0.18)",
-  "rgba(102,232,250,0.14)",
-  "rgba(102,232,250,0.22)",
-  "rgba(102,232,250,0.10)",
+  "rgba(13,60,252,0.18)",
+  "rgba(13,60,252,0.14)",
+  "rgba(13,60,252,0.22)",
+  "rgba(13,60,252,0.10)",
 ];
 
-const GLOW_SHADOW = "0 0 12px rgba(102,232,250,0.10)";
+const GLOW_SHADOW = "0 0 12px rgba(13,60,252,0.10)";
 const CELL_TRANSITION = "background-color 0.7s ease, box-shadow 0.7s ease";
 
 interface HeroGridGlowProps {

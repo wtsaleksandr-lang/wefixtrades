@@ -28,6 +28,7 @@ import {
   TILE,
 } from "@/components/effortel-blocks";
 import TradelineAgentGrid from "@/components/marketing/TradelineAgentGrid";
+import TradelineComparisonTable from "@/components/marketing/TradelineComparisonTable";
 
 const cfg = getProductBySlug("tradeline")!;
 
@@ -44,7 +45,7 @@ export default function TradeLineV7() {
           {/* Soft gradient backdrop */}
           <div style={{
             position: "absolute", inset: 0, pointerEvents: "none",
-            background: "radial-gradient(ellipse 60% 50% at 50% 0%, rgba(102,232,250,0.08) 0%, transparent 60%)",
+            background: "radial-gradient(ellipse 60% 50% at 50% 0%, rgba(13,60,252,0.08) 0%, transparent 60%)",
           }} />
           <div style={{ maxWidth: 1180, margin: "0 auto", position: "relative", textAlign: "center" }}>
             <span style={{
@@ -209,6 +210,9 @@ export default function TradeLineV7() {
         {/* ─────────────── 40 NICHE AGENTS GRID ─────────────── */}
         <TradelineAgentGrid />
 
+        {/* ─────────────── COMPETITIVE COMPARISON ─────────────── */}
+        <TradelineComparisonTable />
+
         {/* ─────────────── FINAL CTA ─────────────── */}
         <section style={{ padding: "100px 24px 140px" }}>
           <div style={{
@@ -220,7 +224,7 @@ export default function TradeLineV7() {
           }}>
             <div style={{
               position: "absolute", inset: 0, pointerEvents: "none",
-              background: "radial-gradient(ellipse 50% 80% at 50% 50%, rgba(102,232,250,0.10) 0%, transparent 60%)",
+              background: "radial-gradient(ellipse 50% 80% at 50% 50%, rgba(13,60,252,0.10) 0%, transparent 60%)",
             }} />
             <h2 style={{
               position: "relative",

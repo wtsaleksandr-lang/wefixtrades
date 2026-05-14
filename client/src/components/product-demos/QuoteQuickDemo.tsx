@@ -93,7 +93,7 @@ export default function QuoteQuickDemo() {
         </div>
 
         {/* Price */}
-        <div style={{ marginTop: 6, padding: "14px 16px", borderRadius: 12, background: "rgba(102,232,250,0.05)", border: `1px solid rgba(102,232,250,0.18)`, display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+        <div style={{ marginTop: 6, padding: "14px 16px", borderRadius: 12, background: "rgba(13,60,252,0.05)", border: `1px solid rgba(13,60,252,0.18)`, display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
           <span style={{ fontSize: 11, color: mkt.onDarkMuted, fontFamily: "'DM Mono', monospace", letterSpacing: "0.06em", textTransform: "uppercase" }}>Estimate</span>
           <AnimatePresence mode="wait">
             <motion.span

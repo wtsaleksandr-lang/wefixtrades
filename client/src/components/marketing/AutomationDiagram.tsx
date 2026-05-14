@@ -73,14 +73,14 @@ const C = {
   // V7-aligned palette — cyan accent leads, plus 3 supporting colorways pulled
   // from the effortel-blocks pastel palette but vibrant enough to read on dark.
   cyan: {
-    border: "#66E8FA",
-    borderMuted: "rgba(102,232,250,0.20)",
-    bg: "rgba(102,232,250,0.04)",
-    glow: "rgba(102,232,250,0.40)",
-    text: "#66E8FA",
-    edge: "rgba(102,232,250,0.35)",
-    inner: "rgba(102,232,250,0.08)",
-    innerBorder: "rgba(102,232,250,0.24)",
+    border: "#0d3cfc",
+    borderMuted: "rgba(13,60,252,0.20)",
+    bg: "rgba(13,60,252,0.04)",
+    glow: "rgba(13,60,252,0.40)",
+    text: "#0d3cfc",
+    edge: "rgba(13,60,252,0.35)",
+    inner: "rgba(13,60,252,0.08)",
+    innerBorder: "rgba(13,60,252,0.24)",
   },
   amber: {
     border: "#F7B430",
@@ -103,14 +103,14 @@ const C = {
     innerBorder: "rgba(16,185,129,0.24)",
   },
   magenta: {
-    border: "#9CF0FC",
-    borderMuted: "rgba(156,240,252,0.20)",
-    bg: "rgba(156,240,252,0.04)",
-    glow: "rgba(156,240,252,0.40)",
-    text: "#9CF0FC",
-    edge: "rgba(156,240,252,0.35)",
-    inner: "rgba(156,240,252,0.08)",
-    innerBorder: "rgba(156,240,252,0.24)",
+    border: "#0b34d6",
+    borderMuted: "rgba(13,60,252,0.20)",
+    bg: "rgba(13,60,252,0.04)",
+    glow: "rgba(13,60,252,0.40)",
+    text: "#0b34d6",
+    edge: "rgba(13,60,252,0.35)",
+    inner: "rgba(13,60,252,0.08)",
+    innerBorder: "rgba(13,60,252,0.24)",
   },
 };
 
@@ -606,11 +606,23 @@ export default function AutomationDiagram() {
   const { nodes, edges } = buildTabData(TAB_NODES[activeTab], layout);
   const activeTabDef = TABS.find((t) => t.key === activeTab)!;
 
-  // Scroll active tab into view on mobile
+  // Center the active tab horizontally inside the tab-scroller (mobile).
+  // Use container.scrollTo, NOT element.scrollIntoView — the latter scrolls
+  // the page vertically when the diagram is below the fold (e.g., on home),
+  // causing an auto-scroll-to-mid-page bug on initial load. We also skip the
+  // very first render: the initial tab is already correct, no movement needed.
+  const firstTabAutoScroll = useRef(true);
   useEffect(() => {
-    if (!tabScrollRef.current) return;
-    const el = tabScrollRef.current.querySelector("[data-active='true']") as HTMLElement | null;
-    el?.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
+    if (firstTabAutoScroll.current) { firstTabAutoScroll.current = false; return; }
+    const container = tabScrollRef.current;
+    if (!container) return;
+    const el = container.querySelector("[data-active='true']") as HTMLElement | null;
+    if (!el) return;
+    const elRect = el.getBoundingClientRect();
+    const containerRect = container.getBoundingClientRect();
+    const targetLeft =
+      container.scrollLeft + (elRect.left - containerRect.left) - (containerRect.width / 2) + (elRect.width / 2);
+    container.scrollTo({ left: targetLeft, behavior: "smooth" });
   }, [activeTab]);
 
   const onNodeClick = useCallback((_: React.MouseEvent, _node: Node) => {
@@ -728,7 +740,7 @@ export default function AutomationDiagram() {
                     fontFamily: "'Space Grotesk', 'DM Sans', system-ui, sans-serif",
                     letterSpacing: "0.01em",
                     transition: "all 0.2s ease",
-                    background: active ? "#00D4C8" : "transparent",
+                    background: active ? "#0d3cfc" : "transparent",
                     color: active ? "#0d1514" : "rgba(255,255,255,0.5)",
                     boxShadow: "none",
                     whiteSpace: "nowrap",

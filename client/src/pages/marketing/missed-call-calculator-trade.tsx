@@ -201,7 +201,7 @@ export default function MissedCallCalculatorTrade() {
                   >
                     <div style={{
                       width: 36, height: 36, borderRadius: 10,
-                      background: "rgba(102,232,250,0.10)",
+                      background: "rgba(13,60,252,0.10)",
                       display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                     }}>
                       <Icon size={16} color={mkt.accent} strokeWidth={1.8} />

@@ -117,7 +117,7 @@ export default function TemplatesPage() {
                             {template.tag}
                           </span>
                           {template.hasBooking && (
-                            <span style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10, fontWeight: 700, color: mkt.accent, background: "rgba(102,232,250,0.10)", padding: "2px 8px", borderRadius: 20 }}>
+                            <span style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10, fontWeight: 700, color: mkt.accent, background: "rgba(13,60,252,0.10)", padding: "2px 8px", borderRadius: 20 }}>
                               <Calendar size={9} /> Book
                             </span>
                           )}

@@ -103,6 +103,21 @@ export const aiChatRateLimiter = new RateLimiter(
 );
 
 /**
+ * Per-user cap for mobile voice transcription (/api/mobile/ai/transcribe).
+ *
+ * Whisper costs ~$0.006/min — at 30 transcripts/hr/user that's roughly
+ * $0.18/hr/user even in worst-case full-length clips, which is well
+ * within the AI cost envelope while still letting a real user dictate
+ * many short messages back-to-back. The 1-hour window matches OpenAI's
+ * own usage-tracking granularity.
+ */
+export const voiceTranscribeRateLimiter = new RateLimiter(
+  defaultStore,
+  30,             // max transcriptions per user
+  60 * 60_000,    // per 1-hour window
+);
+
+/**
  * Per-user-id dedupe for password-reset emails.
  *
  * Two clicks of "forgot password" within 60s should not mint two valid

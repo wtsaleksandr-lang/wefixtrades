@@ -194,14 +194,15 @@ function VoicePanel() {
                 ? `radial-gradient(circle, ${mkt.accent} 0%, ${mkt.accentDark} 100%)`
                 : `radial-gradient(circle, ${mkt.surface} 0%, ${mkt.surfaceAlt} 100%)`,
           display: "flex", alignItems: "center", justifyContent: "center",
+          /* In-call red glow stays as a signal-of-state affordance;
+           * idle/hover blue glows are removed per brand direction.
+           * Hover affordance is a white outline. */
           boxShadow: isInCall
             ? `0 0 ${30 + glowIntensity * 60}px rgba(239,68,68,${glowIntensity})`
-            : micHover && canStart
-              ? `0 0 50px rgba(102,232,250,0.5)`
-              : canStart || isConnecting
-                ? `0 0 40px rgba(102,232,250,0.25)`
-                : "none",
-          transition: "box-shadow 0.2s ease, background 0.2s ease",
+            : "none",
+          outline: micHover && canStart ? "2px solid #FFFFFF" : "none",
+          outlineOffset: "-2px",
+          transition: "box-shadow 0.2s ease, background 0.2s ease, outline 0.15s ease",
           marginBottom: 16,
           animation: canStart && isIdle && !micHover ? "micPulse 2s ease-in-out infinite" : undefined,
         }}
@@ -216,9 +217,10 @@ function VoicePanel() {
       </button>
       <style>{`
         @keyframes spin { to { transform: rotate(360deg) } }
+        /* Pulse via scale alone; colored glow removed per brand direction. */
         @keyframes micPulse {
-          0%, 100% { box-shadow: 0 0 20px rgba(102,232,250,0.2); transform: scale(1); }
-          50% { box-shadow: 0 0 40px rgba(102,232,250,0.45); transform: scale(1.06); }
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.06); }
         }
       `}</style>
 
@@ -321,7 +323,7 @@ function PricingCards() {
           style={{
             background: mkt.sectionLight, borderRadius: 20, padding: "32px 28px",
             border: `1px solid ${plan.highlighted ? mkt.accent : mkt.border}`,
-            boxShadow: plan.highlighted ? `0 0 40px rgba(102,232,250,0.1)` : "none",
+            boxShadow: plan.highlighted ? `0 0 40px rgba(13,60,252,0.1)` : "none",
             position: "relative",
           }}
         >
@@ -381,7 +383,7 @@ export default function DemoPage() {
 
         {/* ═══ HERO — minimal, animation retained ═══ */}
         <section style={{
-          background: `radial-gradient(ellipse 80% 60% at 50% 20%, rgba(102,232,250,0.08) 0%, ${mkt.bg} 70%)`,
+          background: `radial-gradient(ellipse 80% 60% at 50% 20%, rgba(13,60,252,0.08) 0%, ${mkt.bg} 70%)`,
           padding: "80px 28px 0", textAlign: "center", position: "relative",
         }}>
           <div style={{ maxWidth: 600, margin: "0 auto", position: "relative", zIndex: 1 }}>
@@ -407,7 +409,7 @@ export default function DemoPage() {
             border: `1px solid ${mkt.onDarkBorder}`,
             borderRadius: 24,
             overflow: "hidden",
-            boxShadow: `0 0 60px rgba(102,232,250,0.06), 0 2px 20px rgba(0,0,0,0.3)`,
+            boxShadow: `0 0 60px rgba(13,60,252,0.06), 0 2px 20px rgba(0,0,0,0.3)`,
           }}>
             {/* ── Mode toggle header ── */}
             <div style={{

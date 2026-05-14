@@ -66,7 +66,7 @@ function buildCallNotificationHtml(recipientEmail: string, data: TradeLineCallEm
     : "";
 
   const recordingLink = data.recordingUrl
-    ? `<p style="margin-top:12px;font-size:12px;"><a href="${data.recordingUrl}" style="color:#66E8FA;text-decoration:none;">Listen to recording</a></p>`
+    ? `<p style="margin-top:12px;font-size:12px;"><a href="${data.recordingUrl}" style="color:#0d3cfc;text-decoration:none;">Listen to recording</a></p>`
     : "";
 
   const bodyHtml = `
@@ -83,7 +83,7 @@ function buildCallNotificationHtml(recipientEmail: string, data: TradeLineCallEm
     recipientEmail,
     subjectForTitle: `New TradeLine call — ${data.callerName}`,
     eyebrow: "New Call",
-    eyebrowColor: "#66E8FA",
+    eyebrowColor: "#0d3cfc",
     headline: `New call from ${escapeHtml(data.callerName)}`,
     intro: `Your TradeLine answered a call and captured the following lead details.`,
     bodyHtml,

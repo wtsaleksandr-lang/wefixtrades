@@ -442,7 +442,7 @@ function DashboardPreview() {
               background:
                 i >= 10
                   ? mkt.accent
-                  : `rgba(102,232,250,${0.12 + i * 0.03})`,
+                  : `rgba(13,60,252,${0.12 + i * 0.03})`,
             }}
           />
         ))}
@@ -803,7 +803,7 @@ export default function ProductVisualPreview({
           borderRadius: 16,
           border: `1px solid ${mkt.border}`,
           boxShadow: isHovering
-            ? `0 20px 60px rgba(0,0,0,0.3), 0 0 0 1px rgba(102,232,250,0.12)`
+            ? `0 20px 60px rgba(0,0,0,0.3), 0 0 0 1px rgba(13,60,252,0.12)`
             : shadows.mega,
           overflow: "hidden",
           maxWidth: 420,

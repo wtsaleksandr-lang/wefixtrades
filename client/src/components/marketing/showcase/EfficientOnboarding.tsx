@@ -160,15 +160,15 @@ const CSS = `
 /* Active — bigger lifted card */
 .eo-stage-active .eo-stage-tile {
   background: rgba(255,255,255,0.08);
-  border-color: rgba(102,232,250,0.35);
+  border-color: rgba(13,60,252,0.35);
   transform: translateY(-6px) scale(1.04);
   box-shadow: 0 18px 40px rgba(0,0,0,0.45);
   min-height: 120px;
   padding: 16px 14px;
 }
 .eo-stage-active .eo-icon-block {
-  background: rgba(102,232,250,0.20);
-  border: 1px solid rgba(102,232,250,0.45);
+  background: rgba(13,60,252,0.20);
+  border: 1px solid rgba(13,60,252,0.45);
   color: ${mkt.accent};
   width: 36px; height: 36px;
 }
@@ -192,7 +192,7 @@ const CSS = `
 }
 .eo-rail-fill {
   position: absolute; left: 0; top: 13px; height: 3px;
-  background: linear-gradient(90deg, ${mkt.accent}, rgba(102,232,250,0));
+  background: linear-gradient(90deg, ${mkt.accent}, rgba(13,60,252,0));
   border-radius: 2px;
 }
 .eo-rail-bookends {

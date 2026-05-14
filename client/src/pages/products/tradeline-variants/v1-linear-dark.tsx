@@ -27,8 +27,8 @@ export default function TradeLineV1() {
           <div style={{
             position: "absolute", inset: 0,
             background: `
-              radial-gradient(ellipse 80% 60% at 50% 0%, rgba(102,232,250,0.10) 0%, transparent 60%),
-              radial-gradient(ellipse 60% 80% at 100% 50%, rgba(102,232,250,0.06) 0%, transparent 60%),
+              radial-gradient(ellipse 80% 60% at 50% 0%, rgba(13,60,252,0.10) 0%, transparent 60%),
+              radial-gradient(ellipse 60% 80% at 100% 50%, rgba(13,60,252,0.06) 0%, transparent 60%),
               radial-gradient(ellipse 60% 80% at 0% 70%, rgba(47,107,255,0.05) 0%, transparent 60%)
             `,
             pointerEvents: "none",
@@ -48,7 +48,7 @@ export default function TradeLineV1() {
               <div style={{
                 display: "inline-flex", alignItems: "center", gap: 8,
                 padding: "6px 14px", borderRadius: 999,
-                background: "rgba(102,232,250,0.08)", border: `1px solid rgba(102,232,250,0.20)`,
+                background: "rgba(13,60,252,0.08)", border: `1px solid rgba(13,60,252,0.20)`,
                 fontSize: 12, fontWeight: 600, letterSpacing: "0.04em", textTransform: "uppercase",
                 color: mkt.accent, marginBottom: 28,
               }}>
@@ -226,7 +226,7 @@ function ChatMockup() {
     <div style={{ position: "relative" }}>
       <div style={{
         position: "absolute", inset: -40,
-        background: "radial-gradient(ellipse, rgba(102,232,250,0.12) 0%, transparent 60%)",
+        background: "radial-gradient(ellipse, rgba(13,60,252,0.12) 0%, transparent 60%)",
         pointerEvents: "none", filter: "blur(40px)",
       }} />
       <div style={{
@@ -284,8 +284,8 @@ function Bubble({ who, text }: { who: "us" | "them"; text: string }) {
         maxWidth: "75%",
         padding: "10px 14px",
         borderRadius: 14,
-        background: isUs ? "rgba(102,232,250,0.10)" : "rgba(255,255,255,0.04)",
-        border: `1px solid ${isUs ? "rgba(102,232,250,0.18)" : mkt.onDarkBorder}`,
+        background: isUs ? "rgba(13,60,252,0.10)" : "rgba(255,255,255,0.04)",
+        border: `1px solid ${isUs ? "rgba(13,60,252,0.18)" : mkt.onDarkBorder}`,
         fontSize: 13, lineHeight: 1.5, color: mkt.onDark,
       }}>
         {text}

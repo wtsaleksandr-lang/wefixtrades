@@ -20,7 +20,7 @@ interface OnboardingEmailParams {
 function stepRow(n: number, text: string): string {
   return `<tr>
     <td style="padding:8px 12px 8px 0;vertical-align:top;width:24px;">
-      <span style="display:inline-block;width:22px;height:22px;background:rgba(102,232,250,0.12);color:#66E8FA;font-size:11px;font-weight:700;border-radius:6px;text-align:center;line-height:22px;">${n}</span>
+      <span style="display:inline-block;width:22px;height:22px;background:rgba(13,60,252,0.12);color:#0d3cfc;font-size:11px;font-weight:700;border-radius:6px;text-align:center;line-height:22px;">${n}</span>
     </td>
     <td style="padding:8px 0;font-size:13px;color:#CDD1D6;line-height:1.5;">${text}</td>
   </tr>`;

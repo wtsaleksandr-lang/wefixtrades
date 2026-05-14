@@ -73,7 +73,7 @@ function buildHtml(params: {
         ${rows}
         <tr>
           <td style="padding:14px;font-size:12px;font-weight:700;color:#8B919A;text-transform:uppercase;letter-spacing:0.06em;">Total paid</td>
-          <td style="padding:14px;font-size:18px;font-weight:800;color:#66E8FA;text-align:right;">${formatUsd(params.total_cents)}</td>
+          <td style="padding:14px;font-size:18px;font-weight:800;color:#0d3cfc;text-align:right;">${formatUsd(params.total_cents)}</td>
         </tr>
       </table>
       <table style="width:100%;font-size:12px;color:#8B919A;margin:0 0 8px;">
@@ -82,7 +82,7 @@ function buildHtml(params: {
         <tr><td style="padding:4px 0;">Reference</td><td style="padding:4px 0;text-align:right;color:#CDD1D6;font-family:'DM Mono',monospace;">${shortRef}</td></tr>
       </table>`,
     cta: { label: "View in your portal", url: params.portalUrl },
-    supportNote: `Questions about this charge? Reply to this email or reach us at <a href="mailto:${params.supportEmail}" style="color:#66E8FA;text-decoration:none;">${params.supportEmail}</a>.`,
+    supportNote: `Questions about this charge? Reply to this email or reach us at <a href="mailto:${params.supportEmail}" style="color:#0d3cfc;text-decoration:none;">${params.supportEmail}</a>.`,
   });
 }
 

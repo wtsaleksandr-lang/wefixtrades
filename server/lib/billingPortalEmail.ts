@@ -46,7 +46,7 @@ export async function sendBillingPortalLinkEmail(
       pasteLinkFallback: {
         url: data.portalUrl,
       },
-      supportNote: `Need help? Reply to this email or reach us at <a href="mailto:${supportEmail}" style="color:#66E8FA;text-decoration:none;">${supportEmail}</a>.`,
+      supportNote: `Need help? Reply to this email or reach us at <a href="mailto:${supportEmail}" style="color:#0d3cfc;text-decoration:none;">${supportEmail}</a>.`,
     });
 
     const text = buildPlainText({

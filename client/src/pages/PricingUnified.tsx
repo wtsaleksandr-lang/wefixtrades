@@ -26,8 +26,9 @@ const CARD_RADIUS = 16;
 const SECTION_PAD_X = 20; // desktop default, overridden to 6px on mobile via CSS
 const CARD_BG = "rgba(255,255,255,0.03)";
 const CARD_BORDER = "1px solid rgba(255,255,255,0.08)";
-const GLOW = `0 0 60px rgba(102,232,250,0.12), 0 0 20px rgba(102,232,250,0.06)`;
-const GLOW_STRONG = `0 0 60px rgba(102,232,250,0.18), 0 0 30px rgba(102,232,250,0.10)`;
+/* Pricing-card glows retired per brand direction (no glow halos on cards). */
+const GLOW = "none";
+const GLOW_STRONG = "none";
 
 /* ── Shared card inner spacing tokens ── */
 const CARD_PAD = "28px 26px 28px";
@@ -284,8 +285,8 @@ function ServiceInfoModal({ info, onClose }: { info: ServiceInfo; onClose: () =>
             transition: "background 0.15s, border-color 0.15s",
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = "rgba(102,232,250,0.08)";
-            e.currentTarget.style.borderColor = "rgba(102,232,250,0.2)";
+            e.currentTarget.style.background = "rgba(255,255,255,0.08)";
+            e.currentTarget.style.borderColor = "#FFFFFF";
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.background = "rgba(255,255,255,0.04)";
@@ -636,7 +637,7 @@ function OneTimeCard({ product, onCheckout, onInfo, bestFor }: { product: Produc
       onMouseLeave={() => setHover(false)}
       style={{
         background: CARD_BG,
-        border: isRecommended ? `1px solid rgba(102,232,250,0.25)` : isHighlighted ? `1px solid rgba(102,232,250,0.15)` : CARD_BORDER,
+        border: isRecommended ? `1px solid rgba(13,60,252,0.25)` : isHighlighted ? `1px solid rgba(13,60,252,0.15)` : CARD_BORDER,
         borderRadius: CARD_RADIUS,
         padding: CARD_PAD,
         display: "flex",
@@ -653,8 +654,8 @@ function OneTimeCard({ product, onCheckout, onInfo, bestFor }: { product: Produc
           position: "absolute", top: 12, right: 12,
           fontSize: 10, fontWeight: isRecommended ? 700 : 600,
           color: isRecommended ? mkt.accent : mkt.textMuted,
-          background: isRecommended ? "rgba(102,232,250,0.1)" : "rgba(255,255,255,0.06)",
-          border: isRecommended ? "1px solid rgba(102,232,250,0.25)" : "1px solid rgba(255,255,255,0.08)",
+          background: isRecommended ? "rgba(13,60,252,0.1)" : "rgba(255,255,255,0.06)",
+          border: isRecommended ? "1px solid rgba(13,60,252,0.25)" : "1px solid rgba(255,255,255,0.08)",
           borderRadius: 999, padding: "3px 10px", opacity: isRecommended ? 1 : 0.8,
         }}>
           {isRecommended ? bestFor : `Best for: ${bestFor}`}
@@ -712,7 +713,7 @@ function ServiceCard({ product, yearly, onCheckout, onInfo, bestFor }: { product
       onMouseLeave={() => setHover(false)}
       style={{
         background: CARD_BG,
-        border: isRecommended ? `1px solid rgba(102,232,250,0.25)` : CARD_BORDER,
+        border: isRecommended ? `1px solid rgba(13,60,252,0.25)` : CARD_BORDER,
         borderRadius: CARD_RADIUS,
         padding: CARD_PAD,
         display: "flex",
@@ -729,8 +730,8 @@ function ServiceCard({ product, yearly, onCheckout, onInfo, bestFor }: { product
           position: "absolute", top: 12, right: 12,
           fontSize: 10, fontWeight: isRecommended ? 700 : 600,
           color: isRecommended ? mkt.accent : mkt.textMuted,
-          background: isRecommended ? "rgba(102,232,250,0.1)" : "rgba(255,255,255,0.06)",
-          border: isRecommended ? "1px solid rgba(102,232,250,0.25)" : "1px solid rgba(255,255,255,0.08)",
+          background: isRecommended ? "rgba(13,60,252,0.1)" : "rgba(255,255,255,0.06)",
+          border: isRecommended ? "1px solid rgba(13,60,252,0.25)" : "1px solid rgba(255,255,255,0.08)",
           borderRadius: 999, padding: "3px 10px", opacity: isRecommended ? 1 : 0.8,
         }}>
           {isRecommended ? bestFor : `Best for: ${bestFor}`}
@@ -803,7 +804,7 @@ function ServiceCard({ product, yearly, onCheckout, onInfo, bestFor }: { product
 
       {/* TradeLine: usage callout */}
       {isTradelineProduct && currentTier.includedMins && (
-        <div style={{ marginBottom: 14, padding: "10px 14px", background: mkt.accentTint, borderRadius: 10, border: `1px solid rgba(102,232,250,0.08)` }}>
+        <div style={{ marginBottom: 14, padding: "10px 14px", background: mkt.accentTint, borderRadius: 10, border: `1px solid rgba(13,60,252,0.08)` }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: mkt.accent }}>
             Includes {currentTier.includedMins} mins (~{approxCalls(currentTier.includedMins)} calls)
           </div>
@@ -987,7 +988,7 @@ function PlanRecommenderQuiz({ onRecommend }: { onRecommend: (productIds: string
   if (!isOpen) {
     return (
       <div style={{
-        background: "rgba(102,232,250,0.04)", border: "1px solid rgba(102,232,250,0.12)",
+        background: "rgba(13,60,252,0.04)", border: "1px solid rgba(13,60,252,0.12)",
         borderRadius: CARD_RADIUS, padding: "16px 20px",
         display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
         flexWrap: "wrap", cursor: "pointer",
@@ -1017,7 +1018,7 @@ function PlanRecommenderQuiz({ onRecommend }: { onRecommend: (productIds: string
   if (recommendations.length > 0) {
     return (
       <div style={{
-        background: "rgba(102,232,250,0.04)", border: "1px solid rgba(102,232,250,0.12)",
+        background: "rgba(13,60,252,0.04)", border: "1px solid rgba(13,60,252,0.12)",
         borderRadius: CARD_RADIUS, padding: "20px 24px",
       }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
@@ -1043,7 +1044,7 @@ function PlanRecommenderQuiz({ onRecommend }: { onRecommend: (productIds: string
               }}>
                 <div style={{
                   width: 28, height: 28, borderRadius: 8, flexShrink: 0,
-                  background: "rgba(102,232,250,0.12)", display: "flex",
+                  background: "rgba(13,60,252,0.12)", display: "flex",
                   alignItems: "center", justifyContent: "center",
                 }}>
                   <Check size={14} color={mkt.accent} strokeWidth={2.5} />
@@ -1054,7 +1055,7 @@ function PlanRecommenderQuiz({ onRecommend }: { onRecommend: (productIds: string
                 </div>
                 <span style={{
                   fontSize: 9, fontWeight: 700, color: mkt.accent,
-                  background: "rgba(102,232,250,0.1)", border: "1px solid rgba(102,232,250,0.2)",
+                  background: "rgba(13,60,252,0.1)", border: "1px solid rgba(13,60,252,0.2)",
                   padding: "3px 8px", borderRadius: 999, whiteSpace: "nowrap", flexShrink: 0,
                   textTransform: "uppercase" as const, letterSpacing: "0.04em",
                 }}>
@@ -1071,7 +1072,7 @@ function PlanRecommenderQuiz({ onRecommend }: { onRecommend: (productIds: string
   const current = questions[step];
   return (
     <div style={{
-      background: "rgba(102,232,250,0.04)", border: "1px solid rgba(102,232,250,0.12)",
+      background: "rgba(13,60,252,0.04)", border: "1px solid rgba(13,60,252,0.12)",
       borderRadius: CARD_RADIUS, padding: "20px 24px",
     }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
@@ -1099,7 +1100,7 @@ function PlanRecommenderQuiz({ onRecommend }: { onRecommend: (productIds: string
               color: mkt.onDark, fontSize: 13, fontWeight: 600, fontFamily: FONT,
               cursor: "pointer", transition: "all 0.15s ease",
             }}
-            onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(102,232,250,0.3)"; e.currentTarget.style.background = "rgba(102,232,250,0.06)"; }}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#FFFFFF"; e.currentTarget.style.background = "rgba(255,255,255,0.06)"; }}
             onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)"; e.currentTarget.style.background = "rgba(255,255,255,0.03)"; }}
           >
             {opt.label}
@@ -1385,8 +1386,8 @@ function DecisionButton({ label, targetId }: { label: string; targetId: string }
       style={{
         padding: "12px 14px",
         borderRadius: 12,
-        border: `1px solid ${hover ? "rgba(102,232,250,0.25)" : "rgba(255,255,255,0.1)"}`,
-        background: hover ? "rgba(102,232,250,0.06)" : "rgba(255,255,255,0.03)",
+        border: `1px solid ${hover ? "rgba(13,60,252,0.25)" : "rgba(255,255,255,0.1)"}`,
+        background: hover ? "rgba(13,60,252,0.06)" : "rgba(255,255,255,0.03)",
         color: hover ? mkt.onDark : TEXT_STRONG,
         fontSize: 13,
         fontWeight: 600,
@@ -1669,7 +1670,7 @@ function DecisionButton({ label, targetId }: { label: string; targetId: string }
       <style>{`
         /* Info icon hover */
         .info-icon-trigger:hover {
-          background: rgba(102,232,250,0.12) !important;
+          background: rgba(13,60,252,0.12) !important;
           color: ${mkt.accent} !important;
         }
         /* Info modal animations */

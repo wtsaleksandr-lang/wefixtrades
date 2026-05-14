@@ -64,7 +64,7 @@ export async function sendPostSiteLaunchUpsell(
       url: webcareUrl,
       style: "primary",
     },
-    supportNote: `Questions? Just reply to this email or visit your <a href="${data.portalUrl}" style="color:#66E8FA;text-decoration:none;">client portal</a>.`,
+    supportNote: `Questions? Just reply to this email or visit your <a href="${data.portalUrl}" style="color:#0d3cfc;text-decoration:none;">client portal</a>.`,
   });
 
   const text = buildPlainText({
@@ -149,7 +149,7 @@ export async function sendPostWebFixUpsell(
       url: webcareUrl,
       style: "primary",
     },
-    supportNote: `Questions? Just reply to this email or visit your <a href="${data.portalUrl}" style="color:#66E8FA;text-decoration:none;">client portal</a>.`,
+    supportNote: `Questions? Just reply to this email or visit your <a href="${data.portalUrl}" style="color:#0d3cfc;text-decoration:none;">client portal</a>.`,
   });
 
   const text = buildPlainText({

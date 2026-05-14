@@ -251,7 +251,7 @@ export default function CalculatorLeadGate({
             transition: 'all 0.2s',
             opacity: submitting ? 0.7 : 1,
           }}
-          onMouseEnter={(e) => { if (!submitting) e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,212,200,0.3)'; }}
+          onMouseEnter={(e) => { if (!submitting) e.currentTarget.style.boxShadow = '0 4px 16px rgba(13,60,252,0.3)'; }}
           onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'none'; }}
         >
           {submitting ? (

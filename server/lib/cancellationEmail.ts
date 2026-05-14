@@ -80,7 +80,7 @@ function buildHtml(params: {
 
           <div style="border-top:1px solid rgba(255,255,255,0.06);margin:24px 0 14px;"></div>
           <p style="font-size:12px;color:#8B919A;line-height:1.6;margin:0;">
-            Changed your mind? Just reply to this email — we can reactivate in minutes. Or reach us at <a href="mailto:${params.supportEmail}" style="color:#66E8FA;text-decoration:none;">${params.supportEmail}</a>.
+            Changed your mind? Just reply to this email — we can reactivate in minutes. Or reach us at <a href="mailto:${params.supportEmail}" style="color:#0d3cfc;text-decoration:none;">${params.supportEmail}</a>.
           </p>
         </div>
         ${buildChatBubble()}

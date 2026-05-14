@@ -8,7 +8,7 @@ import { GLOBE_ARCS } from "./globeData";
 /* ── Config ─────────────────────────────────────────────────────────── */
 
 const LAND_DATA_URL = "//cdn.jsdelivr.net/npm/world-atlas/land-110m.json";
-const ACCENT = "#66E8FA";
+const ACCENT = "#0d3cfc";
 const ACCENT_RGB = "102,232,250";
 const SITE_BG = "#181D1F";
 
