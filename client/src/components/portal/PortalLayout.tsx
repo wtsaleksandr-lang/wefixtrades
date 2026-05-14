@@ -95,7 +95,10 @@ function buildNavItems(active: Set<string>): NavItem[] {
     { label: "Review Widget", href: "/portal/reviews/widget", icon: Code, indent: true, requires: "reputationshield" },
     { label: "Social Media", href: "/portal/socialsync", icon: Share2, requires: "socialsync" },
     { label: "SEO", href: "/portal/rankflow", icon: TrendingUp, requires: "rankflow" },
-    { label: "Articles", href: "/portal/articles", icon: FileText, requires: "rankflow" },
+    /* "Content" (formerly "Articles") shows for every customer — the page renders empty states
+       for customers without RankFlow/SocialSync content. Matches the always-visible pattern
+       of "Today's jobs", "Invoices", "Billing", "Add Services". ContentFlow Phase B7. */
+    { label: "Content", href: "/portal/articles", icon: FileText },
     { label: "MapGuard", href: "/portal/mapguard", icon: MapPin, requires: "mapguard" },
     /* BookFlow tabs are always visible — every customer has a job
        calendar and an invoice ledger, even if they're empty. The
