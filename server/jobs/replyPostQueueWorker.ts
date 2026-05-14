@@ -61,28 +61,75 @@ export async function drainReplyPostQueue(): Promise<ReplyQueueDrainResult> {
 
   for (const item of batch) {
     try {
-      if (item.platform !== "google") {
-        // Future: trustpilot/yelp/facebook. For now: mark unsupported.
+      // Fetch the review once — every platform needs its external ID.
+      const review = await storage.getMonitoredReviewById(item.monitored_review_id);
+      if (!review) {
+        await escalateOrRetry(item, "Monitored review not found", result);
+        continue;
+      }
+
+      let postResult: { ok: boolean; error?: string } = { ok: false, error: "no platform handler" };
+
+      if (item.platform === "google") {
+        if (!review.google_review_name) {
+          await escalateOrRetry(item, "Review missing google_review_name", result);
+          continue;
+        }
+        postResult = await postGoogleReviewReply(item.client_id, review.google_review_name, item.reply_text);
+      } else if (item.platform === "trustpilot") {
+        const { postTrustpilotReply, isConfigured: tpConfigured } = await import("../services/reputation/trustpilotClient");
+        if (!tpConfigured()) {
+          await escalateOrRetry(item, "Trustpilot not configured", result);
+          continue;
+        }
+        const bizUnit = (item.metadata as any)?.business_unit_id;
+        if (!bizUnit) {
+          await escalateOrRetry(item, "Trustpilot metadata.business_unit_id missing", result);
+          continue;
+        }
+        if (!review.external_review_id) {
+          await escalateOrRetry(item, "Review missing external_review_id for Trustpilot", result);
+          continue;
+        }
+        postResult = await postTrustpilotReply({
+          businessUnitId: bizUnit,
+          externalReviewId: review.external_review_id,
+          replyText: item.reply_text,
+        });
+      } else if (item.platform === "facebook") {
+        const { postFacebookReply, isConfigured: fbConfigured } = await import("../services/reputation/facebookReplyClient");
+        if (!fbConfigured()) {
+          await escalateOrRetry(item, "Facebook not configured", result);
+          continue;
+        }
+        if (!review.external_review_id) {
+          await escalateOrRetry(item, "Review missing external_review_id for Facebook", result);
+          continue;
+        }
+        postResult = await postFacebookReply({
+          clientId: item.client_id,
+          recommendationId: review.external_review_id,
+          replyText: item.reply_text,
+        });
+      } else if (item.platform === "yelp") {
+        // Yelp does not support programmatic replies. Dead-letter
+        // immediately with a clear operator-actionable message — no
+        // amount of retrying is going to change Yelp's API.
         await db.update(reviewReplyPostQueue)
           .set({
             status: "dead_letter",
-            last_error: `Unsupported platform: ${item.platform}`,
+            attempts: item.attempts + 1,
+            last_error: "Yelp does not support programmatic replies — reply manually via biz.yelp.com",
             last_attempt_at: new Date(),
             updated_at: new Date(),
           })
           .where(eq(reviewReplyPostQueue.id, item.id));
         result.deadLettered++;
         continue;
-      }
-
-      // Fetch the review to get google_review_name (the API resource ID)
-      const review = await storage.getMonitoredReviewById(item.monitored_review_id);
-      if (!review?.google_review_name) {
-        await escalateOrRetry(item, "Review missing google_review_name", result);
+      } else {
+        await escalateOrRetry(item, `Unsupported platform: ${item.platform}`, result);
         continue;
       }
-
-      const postResult = await postGoogleReviewReply(item.client_id, review.google_review_name, item.reply_text);
 
       if (postResult.ok) {
         await db.update(reviewReplyPostQueue)
