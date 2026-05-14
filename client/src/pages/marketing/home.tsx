@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, lazy, Suspense } from "react";
 import { Link } from "wouter";
 import gsap from "gsap";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
@@ -6,25 +6,16 @@ import { useScrollReveal } from "@/hooks/useScrollReveal";
 // WorkflowDemo removed in round 8 — covered by AutomationDiagram.
 import { mkt, colors, shadows, typography } from "@/theme/tokens";
 import HeroGridGlow from "@/components/marketing/HeroGridGlow";
-import ReviewsSection from "@/components/home/ReviewsSection";
 import IntegrationsTrustStrip from "@/components/marketing/IntegrationsTrustStrip";
 import HeroProductPreview from "@/components/marketing/HeroProductPreview";
 /* Removed: TrustMarquee (used fabricated customer logos — dishonest trust
  * signal that would fail any "google these companies" sniff test) and the
  * triple-row animated HeroTradeDivider (visual noise; the "Built for"
  * cycling badge already names the trade). */
-import CapabilitiesShowcase from "@/components/marketing/CapabilitiesShowcase";
-import StickyStackCards from "@/components/marketing/StickyStackCards";
-import ServiceStackTimeline from "@/components/marketing/ServiceStackTimeline";
-// FeatureCards + PillarAnimation removed in round 8 — covered by the
-// 3-type sections (CapabilitiesShowcase + StickyStackCards + ServiceStackTimeline).
-import CTASection from "@/components/marketing/CTASection";
-import TrustSection from "@/components/marketing/TrustSection";
-import GlobeSection from "@/components/marketing/globe/GlobeSection";
-// ServiceCards removed in round 8 — covered by ServiceStackTimeline.
 import { SurfaceSection } from "@/components/marketing/SurfaceSection";
 import BuiltForRotator from "@/components/marketing/BuiltForRotator";
-import AutomationDiagram from "@/components/marketing/AutomationDiagram";
+import TrustSection from "@/components/marketing/TrustSection";
+import CTASection from "@/components/marketing/CTASection";
 import {
   Zap, Check,
   ArrowRight, Star,
@@ -32,6 +23,28 @@ import {
   MapPin, Briefcase, Award, Hammer,
   Calculator, PhoneCall, RefreshCw, Wrench,
 } from "lucide-react";
+
+/* ─── Below-the-fold heavy components — lazy-loaded ───
+ *
+ * These render below the hero and add ~hundreds of KB to the JS bundle.
+ * React.lazy + Suspense defers their parse/eval until the chunk arrives.
+ * Suspense fallbacks reserve approximate heights to minimise CLS during
+ * the late-load. GlobeSection is doubly conditional (hasWebGL) — lazy
+ * also keeps the Three.js bundle entirely out of non-WebGL devices.
+ */
+const CapabilitiesShowcase = lazy(() => import("@/components/marketing/CapabilitiesShowcase"));
+const StickyStackCards = lazy(() => import("@/components/marketing/StickyStackCards"));
+const ServiceStackTimeline = lazy(() => import("@/components/marketing/ServiceStackTimeline"));
+const GlobeSection = lazy(() => import("@/components/marketing/globe/GlobeSection"));
+const ReviewsSection = lazy(() => import("@/components/home/ReviewsSection"));
+const AutomationDiagram = lazy(() => import("@/components/marketing/AutomationDiagram"));
+
+/* Fallback boxes — reserve typical rendered heights so the page doesn't
+ * jump when the lazy chunk arrives. Tuned for desktop; mobile heights are
+ * smaller but the CLS impact is the same proportion. */
+const lazyFallback = (minHeight: number) => (
+  <div aria-hidden="true" style={{ minHeight, background: "transparent" }} />
+);
 
 
 
@@ -770,19 +783,35 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Three product showcase types covering all 12 products: */}
-      <CapabilitiesShowcase />        {/* 4 money-makers */}
-      <StickyStackCards />            {/* 4 growth tools */}
-      <ServiceStackTimeline />        {/* 4 done-for-you */}
+      {/* Three product showcase types covering all 12 products — each lazy-
+          loaded to keep the initial home.tsx bundle small. Suspense fallback
+          heights reserve approximate rendered space to minimise CLS. */}
+      <Suspense fallback={lazyFallback(720)}>
+        <CapabilitiesShowcase />        {/* 4 money-makers */}
+      </Suspense>
+      <Suspense fallback={lazyFallback(640)}>
+        <StickyStackCards />            {/* 4 growth tools */}
+      </Suspense>
+      <Suspense fallback={lazyFallback(640)}>
+        <ServiceStackTimeline />        {/* 4 done-for-you */}
+      </Suspense>
       {/* Removed legacy sections (PillarAnimation, FeatureCards, ServiceCards,
           WorkflowDemo) — they duplicated the 3-type story above and broke the
           V7 visual cohesion as the user scrolled. AutomationDiagram remains as
           the interactive "How it works" deep-dive. */}
-      {hasWebGL && <GlobeSection />}
+      {hasWebGL && (
+        <Suspense fallback={lazyFallback(560)}>
+          <GlobeSection />
+        </Suspense>
+      )}
       <SurfaceSection overlap className="py-4">
-        <ReviewsSection />
+        <Suspense fallback={lazyFallback(480)}>
+          <ReviewsSection />
+        </Suspense>
       </SurfaceSection>
-      <AutomationDiagram />
+      <Suspense fallback={lazyFallback(560)}>
+        <AutomationDiagram />
+      </Suspense>
       <TrustSection />
       <CTASection />
       <ExitIntentPopup />
