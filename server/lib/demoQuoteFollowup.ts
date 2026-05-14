@@ -52,8 +52,8 @@ export function buildDemoQuoteEmail(ctx: DemoQuoteFollowupContext): {
   const quoteCallout = ctx.quoteAmount
     ? `<table cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 16px;">
         <tr>
-          <td style="padding:16px 18px;background:rgba(102,232,250,0.08);border:1px solid rgba(102,232,250,0.20);border-radius:10px;text-align:center;">
-            <p style="margin:0 0 4px;font-size:11px;color:#66E8FA;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;">Your estimate</p>
+          <td style="padding:16px 18px;background:rgba(13,60,252,0.08);border:1px solid rgba(13,60,252,0.20);border-radius:10px;text-align:center;">
+            <p style="margin:0 0 4px;font-size:11px;color:#0d3cfc;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;">Your estimate</p>
             <p style="margin:0;font-size:32px;font-weight:800;color:#F0F0F0;">${quoteDisplay}</p>
           </td>
         </tr>

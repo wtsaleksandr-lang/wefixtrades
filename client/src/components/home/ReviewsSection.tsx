@@ -142,7 +142,7 @@ function PilotBadge() {
         fontWeight: 700,
         letterSpacing: "0.06em",
         textTransform: "uppercase",
-        background: "rgba(102,232,250,0.12)",
+        background: "rgba(13,60,252,0.12)",
         color: mkt.accent,
       }}
     >

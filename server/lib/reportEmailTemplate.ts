@@ -1,6 +1,6 @@
 /**
  * Builds a professional HTML email for delivering an audit report.
- * Dark theme — matches the marketing site (#0B0F14 / #66E8FA).
+ * Dark theme — matches the marketing site (#0B0F14 / #0d3cfc).
  */
 
 import { buildLegalFooter, buildEmailHeader, buildChatBubble } from "./emailFooter";
@@ -18,7 +18,7 @@ export function buildAuditReportEmail(opts: {
 
   const gradeColor: Record<string, string> = {
     A: "#22C55E",
-    B: "#66E8FA",
+    B: "#0d3cfc",
     C: "#F59E0B",
     D: "#EF4444",
   };
@@ -45,7 +45,7 @@ export function buildAuditReportEmail(opts: {
       ${buildEmailHeader({ tagline: "Audit Report" })}
 
       <div style="background:#151A21;border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:36px 28px;">
-        <p style="font-size:12px;font-weight:700;color:#66E8FA;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 6px;">Your audit is ready</p>
+        <p style="font-size:12px;font-weight:700;color:#0d3cfc;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 6px;">Your audit is ready</p>
         <h1 style="font-size:22px;font-weight:700;color:#F0F0F0;margin:0 0 8px;line-height:1.3;">
           Here's what we found for ${escHtml(businessName)}
         </h1>
@@ -72,7 +72,7 @@ export function buildAuditReportEmail(opts: {
         ${attachmentNote}
 
         <div style="text-align:center;margin:0 0 8px;">
-          <a href="${escHtml(reportUrl)}" target="_blank" style="display:inline-block;background:#66E8FA;color:#0B0F14;font-size:14px;font-weight:700;padding:13px 26px;border-radius:10px;text-decoration:none;">
+          <a href="${escHtml(reportUrl)}" target="_blank" style="display:inline-block;background:#0d3cfc;color:#0B0F14;font-size:14px;font-weight:700;padding:13px 26px;border-radius:10px;text-decoration:none;">
             View Full Report Online
           </a>
         </div>
@@ -83,7 +83,7 @@ export function buildAuditReportEmail(opts: {
           You requested this audit from WeFixTrades. If this wasn't you, you can safely ignore this email.
         </p>
         <p style="font-size:11px;color:#555B63;line-height:1.5;margin:10px 0 0;word-break:break-all;">
-          <a href="${escHtml(reportUrl)}" style="color:#66E8FA;text-decoration:none;">${escHtml(reportUrl)}</a>
+          <a href="${escHtml(reportUrl)}" style="color:#0d3cfc;text-decoration:none;">${escHtml(reportUrl)}</a>
         </p>
       </div>
       ${buildChatBubble()}

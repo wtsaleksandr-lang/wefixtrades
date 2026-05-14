@@ -111,7 +111,7 @@ import("../server/lib/transactionalShell").then(async ({ buildTransactionalEmail
     headline: "Welcome aboard, Sam",
     intro: "Set a password to access your portal.",
     cta: { label: "Set your password", url: "https://wefixtrades.com/reset-password?token=abc" },
-    supportNote: `Reach us at <a href="mailto:support@wefixtrades.com" style="color:#66E8FA;">support@wefixtrades.com</a>.`,
+    supportNote: `Reach us at <a href="mailto:support@wefixtrades.com" style="color:#0d3cfc;">support@wefixtrades.com</a>.`,
     pasteLinkFallback: { url: "https://wefixtrades.com/reset-password?token=abc" },
     marketing: true, // adds an unsubscribe link via legal footer
   });

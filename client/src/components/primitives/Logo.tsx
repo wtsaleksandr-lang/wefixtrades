@@ -1,7 +1,7 @@
 import { useState, useEffect, type CSSProperties } from "react";
 import { Link } from "wouter";
 
-const ACCENT = "#66E8FA";
+const ACCENT = "#0d3cfc";
 const EASE = "cubic-bezier(0.4, 0, 0.2, 1)";
 const BRACKET_LEN = 14;
 const CHECK_LEN = 11; // M7.5 11.5 L10 14 L14.5 9 ≈ 3.54 + 6.73 ≈ 10.27
@@ -121,8 +121,8 @@ export default function Logo({ size = "md", showWordmark = true, animate = true 
           height: iconPx,
           borderRadius: 11,
           background: "#1a1f1e",
-          border: `1.5px solid ${hovered ? "rgba(102,232,250,0.5)" : "rgba(102,232,250,0.15)"}`,
-          boxShadow: hovered ? "0 0 0 4px rgba(102,232,250,0.08)" : "none",
+          border: `1.5px solid ${hovered ? "rgba(13,60,252,0.5)" : "rgba(13,60,252,0.15)"}`,
+          boxShadow: hovered ? "0 0 0 4px rgba(13,60,252,0.08)" : "none",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",

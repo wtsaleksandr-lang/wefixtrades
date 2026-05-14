@@ -99,7 +99,7 @@ export const DemoFrame = forwardRef<HTMLDivElement, DemoFrameProps>(
         {glow && (
           <div style={{
             position: "absolute", inset: -40,
-            background: "radial-gradient(ellipse, rgba(102,232,250,0.12) 0%, transparent 60%)",
+            background: "radial-gradient(ellipse, rgba(13,60,252,0.12) 0%, transparent 60%)",
             pointerEvents: "none", filter: "blur(40px)",
           }} />
         )}

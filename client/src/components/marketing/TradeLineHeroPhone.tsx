@@ -532,7 +532,7 @@ export default function TradeLineHeroPhone() {
 }
 
 const ACCENT = mkt.accent;
-const ACCENT_GLOW = "rgba(102,232,250,0.45)";
+const ACCENT_GLOW = "rgba(13,60,252,0.45)";
 
 const TLHP_CSS = `
 .tlhp-wrap {
@@ -553,7 +553,7 @@ const TLHP_CSS = `
   overflow: hidden;
   display: flex; flex-direction: column;
   cursor: pointer;
-  box-shadow: 0 30px 80px rgba(0,0,0,0.55), 0 0 0 1px rgba(102,232,250,0.06) inset;
+  box-shadow: 0 30px 80px rgba(0,0,0,0.55), 0 0 0 1px rgba(13,60,252,0.06) inset;
   user-select: none;
 }
 .tlhp-phone.paused::after {
@@ -596,14 +596,14 @@ const TLHP_CSS = `
   display: flex; align-items: center; gap: 12px;
   padding: 16px 16px 14px; flex-shrink: 0;
   border-bottom: 1px solid rgba(255,255,255,0.08);
-  background: linear-gradient(180deg, rgba(102,232,250,0.06) 0%, transparent 100%);
+  background: linear-gradient(180deg, rgba(13,60,252,0.06) 0%, transparent 100%);
 }
 .tlhp-voice-avatar {
   width: 38px; height: 38px; border-radius: 50%;
   background: var(--tlhp-accent); color: #00131a;
   display: flex; align-items: center; justify-content: center;
   font-weight: 700; font-size: 15px; flex-shrink: 0;
-  box-shadow: 0 0 0 3px rgba(102,232,250,0.18);
+  box-shadow: 0 0 0 3px rgba(13,60,252,0.18);
 }
 .tlhp-voice-meta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .tlhp-voice-name { font-weight: 600; color: #fff; font-size: 14.5px; letter-spacing: -0.1px; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -663,7 +663,7 @@ const TLHP_CSS = `
   font-size: 13.5px; font-weight: 500; line-height: 1.4; border-radius: 14px;
   opacity: 0; transform: translateY(16px);
   animation: tlhpBubbleIn 0.5s cubic-bezier(0.22,1,0.36,1) forwards;
-  box-shadow: 0 8px 22px rgba(102,232,250,0.18);
+  box-shadow: 0 8px 22px rgba(13,60,252,0.18);
 }
 @keyframes tlhpBubbleIn { to { opacity: 1; transform: translateY(0); } }
 
@@ -718,8 +718,8 @@ const TLHP_CSS = `
 }
 .tlhp-vt.ai {
   align-self: flex-start;
-  background: rgba(102,232,250,0.07);
-  border: 1px solid rgba(102,232,250,0.32);
+  background: rgba(13,60,252,0.07);
+  border: 1px solid rgba(13,60,252,0.32);
   color: #fff;
 }
 .tlhp-vt-icon {
@@ -733,8 +733,8 @@ const TLHP_CSS = `
   color: rgba(255,255,255,0.92);
 }
 .tlhp-vt.ai .tlhp-vt-icon {
-  background: rgba(102,232,250,0.18);
-  border: 1px solid rgba(102,232,250,0.45);
+  background: rgba(13,60,252,0.18);
+  border: 1px solid rgba(13,60,252,0.45);
   color: var(--tlhp-accent);
 }
 .tlhp-vt-icon svg { width: 12px; height: 12px; }
@@ -778,7 +778,7 @@ const TLHP_CSS = `
   border: 1px solid rgba(255,255,255,0.25); border-radius: 999px;
   transition: border-color 0.4s ease;
 }
-.tlhp-input.active { border-color: rgba(102,232,250,0.55); }
+.tlhp-input.active { border-color: rgba(13,60,252,0.55); }
 .tlhp-placeholder {
   flex: 1; font-size: 13.5px; color: rgba(255,255,255,0.40);
   min-height: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -799,7 +799,7 @@ const TLHP_CSS = `
 .tlhp-sendbtn.active {
   transform: scale(1.08);
   background: var(--tlhp-accent); color: #00131a;
-  box-shadow: 0 0 0 6px rgba(102,232,250,0.18);
+  box-shadow: 0 0 0 6px rgba(13,60,252,0.18);
 }
 .tlhp-sendbtn svg { width: 13px; height: 13px; }
 

@@ -128,7 +128,7 @@ export default function MapGuardCloudIllustration({ size = 720 }: Props) {
         </linearGradient>
         <linearGradient id="mg-cloud-tile" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="#B8F4EE" />
-          <stop offset="100%" stopColor="#7FE7E1" />
+          <stop offset="100%" stopColor="#0d3cfc" />
         </linearGradient>
       </defs>
       <rect x="0" y="0" width="480" height="320" rx="14" fill="url(#mg-sheen)" />
@@ -159,7 +159,7 @@ export default function MapGuardCloudIllustration({ size = 720 }: Props) {
         {dots.map((d) => {
           const accent = accents.get(d.key);
           const fill =
-            accent === "cyan" ? "#66E8FA" :
+            accent === "cyan" ? "#0d3cfc" :
             accent === "pink" ? "#F472B6" :
             "rgba(20,28,32,0.65)";
           const r = accent ? 1.9 : 1.5;
@@ -200,7 +200,7 @@ export default function MapGuardCloudIllustration({ size = 720 }: Props) {
         {/* Pill body — dark to match Effortel reference */}
         <rect x="0" y="0" width="92" height="22" rx="11" fill="#0E1116" />
         {/* Cyan location pin glyph */}
-        <g transform="translate(8, 5)" fill="#66E8FA">
+        <g transform="translate(8, 5)" fill="#0d3cfc">
           <path d="M 6 0
                    C 9.3 0 12 2.5 12 5.6
                    C 12 9 6 13 6 13

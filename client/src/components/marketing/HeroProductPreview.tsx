@@ -195,7 +195,7 @@ export default function HeroProductPreview() {
                 gap: 10,
                 padding: "8px 10px",
                 background: "rgba(255,255,255,0.03)",
-                border: `1px solid ${isNewest ? "rgba(102,232,250,0.25)" : "rgba(255,255,255,0.06)"}`,
+                border: `1px solid ${isNewest ? "rgba(13,60,252,0.25)" : "rgba(255,255,255,0.06)"}`,
                 borderRadius: 10,
                 opacity: 1 - i * 0.1,
                 animation: !reduceMotion && isNewest ? "preview-slide-in 0.5s ease-out" : undefined,

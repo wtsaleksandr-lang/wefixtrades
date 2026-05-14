@@ -16,7 +16,7 @@
  *   - <!DOCTYPE> + viewport meta + <title> for client compatibility
  *   - Default 520px max-width — comfortable on mobile, doesn't feel
  *     cramped on desktop
- *   - Default dark theme (#0B0F14 / #151A21 / #66E8FA accent) matching
+ *   - Default dark theme (#0B0F14 / #151A21 / #0d3cfc accent) matching
  *     the rest of the brand. Light theme available for callers that
  *     need it (e.g. ContentFlow review emails)
  *   - One CTA. If a template needs more, that's a flag the template
@@ -35,7 +35,7 @@ const DARK = {
   textBody: "#CDD1D6",
   textMuted: "#8B919A",
   textFaint: "#555B63",
-  accent: "#66E8FA",
+  accent: "#0d3cfc",
 } as const;
 
 const LIGHT = {

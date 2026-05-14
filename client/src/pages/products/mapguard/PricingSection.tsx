@@ -194,14 +194,15 @@ export default function PricingSection() {
                 onMouseEnter={(e) => {
                   const el = e.currentTarget as HTMLElement;
                   if (plan.highlighted) {
-                    el.style.boxShadow = "0 0 30px rgba(102,232,250,0.3)";
+                    el.style.outline = "2px solid #FFFFFF";
+                    el.style.outlineOffset = "-2px";
                   } else {
                     el.style.background = "rgba(255,255,255,0.1)";
                   }
                 }}
                 onMouseLeave={(e) => {
                   const el = e.currentTarget as HTMLElement;
-                  el.style.boxShadow = "none";
+                  el.style.outline = "none";
                   if (!plan.highlighted) {
                     el.style.background = "rgba(255,255,255,0.06)";
                   }

@@ -108,7 +108,7 @@ const CSS = `
   aspect-ratio: 1 / 1;
   background:
     radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px),
-    radial-gradient(ellipse 60% 50% at 50% 50%, rgba(102,232,250,0.05) 0%, transparent 70%);
+    radial-gradient(ellipse 60% 50% at 50% 50%, rgba(13,60,252,0.05) 0%, transparent 70%);
   background-size: 18px 18px, auto;
   border-radius: 22px;
 }
@@ -159,7 +159,7 @@ const CSS = `
   width: 6px; height: 6px; border-radius: 50%;
   background: ${mkt.accent};
   margin-right: 6px; vertical-align: middle;
-  box-shadow: 0 0 8px rgba(102,232,250,0.55);
+  box-shadow: 0 0 8px rgba(13,60,252,0.55);
 }
 .iorbit-center-grid {
   flex: 1;
@@ -178,8 +178,8 @@ const CSS = `
 .iorbit-cell-mark {
   display: block;
   width: 14px; height: 14px;
-  background: rgba(102,232,250,0.18);
-  border: 1px solid rgba(102,232,250,0.32);
+  background: rgba(13,60,252,0.18);
+  border: 1px solid rgba(13,60,252,0.32);
   border-radius: 4px;
 }
 .iorbit-cell-bar {

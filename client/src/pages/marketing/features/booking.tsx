@@ -26,7 +26,7 @@ function BookingMockup() {
           <div style={{ fontSize: 12, color: mkt.onDarkMuted, marginBottom: 2 }}>Available slots</div>
           <div style={{ fontSize: 18, fontWeight: 700, color: mkt.text }}>March 2026</div>
         </div>
-        <div style={{ fontSize: 11, fontWeight: 700, background: "rgba(102,232,250,0.10)", color: mkt.accent, padding: "4px 12px", borderRadius: 20 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, background: "rgba(13,60,252,0.10)", color: mkt.accent, padding: "4px 12px", borderRadius: 20 }}>
           Deposits via Stripe ✓
         </div>
       </div>

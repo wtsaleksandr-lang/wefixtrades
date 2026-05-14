@@ -158,7 +158,7 @@ const CSS = `
   font-family: ${MONO}; font-size: 9px; font-weight: 700;
   padding: 3px 8px; border-radius: 999px; letter-spacing: 0.04em;
 }
-.ps-pill-cyan { background: rgba(102,232,250,0.18); color: ${mkt.accent}; border: 1px solid rgba(102,232,250,0.32); }
+.ps-pill-cyan { background: rgba(13,60,252,0.18); color: ${mkt.accent}; border: 1px solid rgba(13,60,252,0.32); }
 .ps-pill-good { background: rgba(74,222,128,0.18); color: #4ade80; border: 1px solid rgba(74,222,128,0.32); position: static; }
 
 .ps-donut-tile { grid-row: 1; grid-column: 1; }

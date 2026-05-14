@@ -9,7 +9,7 @@ const PAGE_BG = "#0B0F14";
 const CARD_BG = "#151A21";
 const TEXT = "#F0F0F0";
 const TEXT_MUTED = "#CDD1D6";
-const ACCENT = "#66E8FA";
+const ACCENT = "#0d3cfc";
 
 function getClientIp(req: Request): string {
   const xff = req.headers["x-forwarded-for"];
@@ -27,7 +27,7 @@ function renderPage(opts: { title: string; heading: string; body: string; succes
   <style>
     body{margin:0;padding:60px 20px;background:${PAGE_BG};color:${TEXT};font-family:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;}
     .card{max-width:460px;background:${CARD_BG};border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:40px 32px;text-align:center;}
-    .badge{display:inline-block;background:rgba(102,232,250,0.12);color:${ACCENT};font-size:11px;font-weight:800;padding:5px 14px;border-radius:999px;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:18px;}
+    .badge{display:inline-block;background:rgba(13,60,252,0.12);color:${ACCENT};font-size:11px;font-weight:800;padding:5px 14px;border-radius:999px;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:18px;}
     h1{font-size:22px;font-weight:700;margin:0 0 12px;color:${TEXT};}
     p{font-size:14px;color:${TEXT_MUTED};line-height:1.6;margin:0 0 12px;}
     a{color:${accent};text-decoration:none;}

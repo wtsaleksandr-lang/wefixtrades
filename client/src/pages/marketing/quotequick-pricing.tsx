@@ -259,7 +259,7 @@ export default function QuoteQuickPricing() {
         <div style={{
           maxWidth: 700, margin: "0 auto clamp(48px, 6vw, 72px)",
           padding: "28px 24px", borderRadius: 16,
-          background: mkt.accentTint, border: `1px solid rgba(102,232,250,0.15)`,
+          background: mkt.accentTint, border: `1px solid rgba(13,60,252,0.15)`,
           textAlign: "center",
         }}>
           <p style={{ fontSize: "clamp(16px, 2.5vw, 20px)", fontWeight: 700, color: mkt.onDark, margin: "0 0 6px" }}>

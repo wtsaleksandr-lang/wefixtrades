@@ -30,7 +30,7 @@ export const REPORT_COLORS = {
   muted: "#8B919A",
   faint: "#555B63",
   tiny: "#3D434A",
-  accent: "#66E8FA",
+  accent: "#0d3cfc",
   positive: "#22C55E",
   negative: "#EF4444",
   warn: "#F59E0B",
@@ -89,7 +89,7 @@ function renderBadge(b: HeaderBadge): string {
     ? { bg: "rgba(34,197,94,0.10)", dot: REPORT_COLORS.positive, text: "#86EFAC" }
     : b.tone === "warn"
     ? { bg: "rgba(245,158,11,0.10)", dot: REPORT_COLORS.warn, text: "#FCD34D" }
-    : { bg: "rgba(102,232,250,0.10)", dot: REPORT_COLORS.accent, text: "#9CECF8" };
+    : { bg: "rgba(13,60,252,0.10)", dot: REPORT_COLORS.accent, text: "#9CECF8" };
 
   return `
     <span style="display:inline-block;background:${palette.bg};border:1px solid ${palette.bg.replace("0.10", "0.22")};border-radius:999px;padding:5px 10px 5px 9px;font-family:'Inter',system-ui,Arial,sans-serif;font-size:10.5px;font-weight:700;color:${palette.text};letter-spacing:0.04em;text-transform:uppercase;white-space:nowrap;">
@@ -255,7 +255,7 @@ export function buildRecommendations(opts: { title?: string; items: string[] }):
   const c = REPORT_COLORS;
   const title = opts.title || "What we're doing next month";
   return `
-    <div style="background:rgba(102,232,250,0.04);border:1px solid rgba(102,232,250,0.18);border-radius:12px;padding:18px 20px;margin:0 0 22px;">
+    <div style="background:rgba(13,60,252,0.04);border:1px solid rgba(13,60,252,0.18);border-radius:12px;padding:18px 20px;margin:0 0 22px;">
       <p style="font-size:10.5px;color:${c.accent};text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin:0 0 10px;">${escapeHtml(title)}</p>
       ${opts.items.slice(0, 4).map(it => `
         <p style="font-size:13px;color:${c.text};line-height:1.55;margin:0 0 6px;padding-left:14px;position:relative;">

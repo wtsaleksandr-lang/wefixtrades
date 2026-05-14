@@ -271,7 +271,7 @@ export default function ProfileChecker() {
           <div style={{
             position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)",
             width: 16, height: 16,
-            border: "2px solid rgba(102,232,250,0.2)",
+            border: "2px solid rgba(13,60,252,0.2)",
             borderTopColor: mkt.accent,
             borderRadius: "50%",
             animation: "mgSpinner 0.7s linear infinite",
@@ -351,7 +351,7 @@ export default function ProfileChecker() {
         }}>
           <div style={{
             width: 20, height: 20,
-            border: "2px solid rgba(102,232,250,0.2)",
+            border: "2px solid rgba(13,60,252,0.2)",
             borderTopColor: mkt.accent,
             borderRadius: "50%",
             animation: "mgSpinner 0.7s linear infinite",
@@ -486,7 +486,7 @@ export default function ProfileChecker() {
                 fontSize: 13, fontWeight: 700, textDecoration: "none",
                 transition: "box-shadow 0.2s, transform 0.2s",
               }}
-                onMouseEnter={(e) => { const el = e.currentTarget as HTMLElement; el.style.boxShadow = "0 0 20px rgba(102,232,250,0.25)"; el.style.transform = "translateY(-1px)"; }}
+                onMouseEnter={(e) => { const el = e.currentTarget as HTMLElement; el.style.boxShadow = "0 0 20px rgba(13,60,252,0.25)"; el.style.transform = "translateY(-1px)"; }}
                 onMouseLeave={(e) => { const el = e.currentTarget as HTMLElement; el.style.boxShadow = "none"; el.style.transform = "translateY(0)"; }}
               >
                 Start My Optimization

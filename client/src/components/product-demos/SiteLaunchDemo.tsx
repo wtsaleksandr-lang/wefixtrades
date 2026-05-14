@@ -40,7 +40,7 @@ export default function SiteLaunchDemo() {
           {/* Hero block */}
           <motion.div
             animate={{
-              background: s >= 1 ? "linear-gradient(135deg, #66E8FA 0%, #2D6A4F 100%)" : "rgba(255,255,255,0.06)",
+              background: s >= 1 ? "linear-gradient(135deg, #0d3cfc 0%, #2D6A4F 100%)" : "rgba(255,255,255,0.06)",
             }}
             transition={{ duration: 0.5 }}
             style={{ height: 110, padding: 18, display: "flex", flexDirection: "column", justifyContent: "center", gap: 8 }}

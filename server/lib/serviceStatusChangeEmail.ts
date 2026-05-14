@@ -102,7 +102,7 @@ export async function sendServiceStatusChangeEmail(data: ServiceStatusChangeData
   const ctaUrl = data.kind === "cancelled" && data.billingUrl ? data.billingUrl : data.serviceUrl;
 
   const noteHtml = data.note
-    ? `<p style="font-size:13px;color:#CDD1D6;line-height:1.6;margin:0 0 16px;padding:14px 16px;border-left:2px solid #66E8FA;background:#0F141A;border-radius:8px;">${escapeHtml(data.note)}</p>`
+    ? `<p style="font-size:13px;color:#CDD1D6;line-height:1.6;margin:0 0 16px;padding:14px 16px;border-left:2px solid #0d3cfc;background:#0F141A;border-radius:8px;">${escapeHtml(data.note)}</p>`
     : "";
 
   const html = buildTransactionalEmail({

@@ -60,10 +60,10 @@ export default function MapGuardIllustration({ size = 480 }: Props) {
       aria-label="MapGuard"
     >
       {/* Full-bleed cyan card */}
-      <rect x="0" y="0" width="480" height="360" fill="#7FE7E1" rx="16" />
+      <rect x="0" y="0" width="480" height="360" fill="#0d3cfc" rx="16" />
 
       {/* Cyan offset shadow under continent silhouette */}
-      <path d={NORTH_AMERICA_PATH} transform="translate(7,7)" fill="rgba(102,232,250,0.55)" />
+      <path d={NORTH_AMERICA_PATH} transform="translate(7,7)" fill="rgba(13,60,252,0.55)" />
 
       {/* Dark continent silhouette */}
       <path d={NORTH_AMERICA_PATH} fill="#0E1116" />
@@ -71,7 +71,7 @@ export default function MapGuardIllustration({ size = 480 }: Props) {
       {/* Dashed concentric coverage rings centered on the continent */}
       <g transform="translate(220,200)" opacity="0.55">
         {[24, 46, 70, 96, 124].map((r) => (
-          <circle key={r} cx="0" cy="0" r={r} fill="none" stroke="#7FE7E1" strokeWidth="0.8" strokeDasharray="2 3" />
+          <circle key={r} cx="0" cy="0" r={r} fill="none" stroke="#0d3cfc" strokeWidth="0.8" strokeDasharray="2 3" />
         ))}
       </g>
 
@@ -94,7 +94,7 @@ function PillChip({ x, y, label }: { x: number; y: number; label: string }) {
       {/* Pill body */}
       <rect x="0" y="0" width={w} height="26" rx="13" fill="#fff" />
       {/* Cyan circular pin with checkmark */}
-      <circle cx="13" cy="13" r="10" fill="#7FE7E1" />
+      <circle cx="13" cy="13" r="10" fill="#0d3cfc" />
       <path d="M 9 13 L 12 16 L 18 10" fill="none" stroke="#0E1116" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
       {/* Label */}
       <text

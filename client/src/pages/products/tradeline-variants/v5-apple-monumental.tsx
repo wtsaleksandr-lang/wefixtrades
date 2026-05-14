@@ -23,7 +23,7 @@ export default function TradeLineV5() {
           position: "relative",
           display: "flex", alignItems: "center", justifyContent: "center",
           padding: "120px 24px 80px",
-          background: `radial-gradient(ellipse 80% 60% at 50% 0%, rgba(102,232,250,0.12) 0%, transparent 60%), #000`,
+          background: `radial-gradient(ellipse 80% 60% at 50% 0%, rgba(13,60,252,0.12) 0%, transparent 60%), #000`,
         }}>
           <div style={{ maxWidth: 1280, margin: "0 auto", textAlign: "center", position: "relative" }}>
             <div style={{ fontSize: 13, letterSpacing: "0.4em", textTransform: "uppercase", color: mkt.accent, marginBottom: 32, fontWeight: 600 }}>
@@ -158,7 +158,7 @@ export default function TradeLineV5() {
         </FullBleedSection>
 
         {/* FINAL CTA — full-bleed dramatic */}
-        <FullBleedSection bg={`radial-gradient(ellipse 80% 80% at 50% 50%, rgba(102,232,250,0.10) 0%, transparent 70%), #000`} pad="200px 24px">
+        <FullBleedSection bg={`radial-gradient(ellipse 80% 80% at 50% 50%, rgba(13,60,252,0.10) 0%, transparent 70%), #000`} pad="200px 24px">
           <div style={{ textAlign: "center" }}>
             <h2 style={{ fontSize: "clamp(64px, 10vw, 160px)", fontWeight: 700, letterSpacing: "-0.06em", lineHeight: 0.92, marginBottom: 48 }}>
               Get it.<br />

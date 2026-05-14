@@ -7,7 +7,7 @@ export const eff = {
   bgSecondary: '#f5fcff',
   text: '#22282a',
   textBody: '#5f6f77',
-  accent: '#66e8fa',
+  accent: '#0d3cfc',
   buttonBg: '#394247',
   buttonBgHover: '#171818',
   buttonBorder: '#d5e1e7',

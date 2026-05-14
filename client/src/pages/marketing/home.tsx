@@ -258,7 +258,7 @@ function HeroEmailCapture() {
           fontFamily: typography.fontFamily, outline: "none",
           transition: "border-color 0.2s",
         }}
-        onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(102,232,250,0.4)"; }}
+        onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(13,60,252,0.4)"; }}
         onBlur={(e) => { e.currentTarget.style.borderColor = status === "error" ? "rgba(239,68,68,0.5)" : "rgba(255,255,255,0.12)"; }}
       />
       <button
@@ -336,9 +336,9 @@ const RESPONSIVE_CSS = `
     font-size: 14px; font-weight: 700; letter-spacing: 0.01em;
     text-decoration: none; border: none; cursor: pointer;
     transition: transform 0.15s ease, box-shadow 0.2s ease;
-    box-shadow: 0 8px 24px rgba(102,232,250,0.18);
+    box-shadow: 0 8px 24px rgba(13,60,252,0.18);
   }
-  .hero-cta-primary:hover { transform: translateY(-1px); box-shadow: 0 12px 32px rgba(102,232,250,0.28); }
+  .hero-cta-primary:hover { transform: translateY(-1px); box-shadow: 0 12px 32px rgba(13,60,252,0.28); }
   .hero-cta-secondary {
     display: inline-flex; align-items: center; gap: 8px;
     padding: 14px 22px; border-radius: 12px;
@@ -356,7 +356,7 @@ const RESPONSIVE_CSS = `
   }
   @keyframes flowPulse {
     0%, 100% { box-shadow: 0 8px 32px ${mkt.accentGlow}; }
-    50% { box-shadow: 0 8px 40px rgba(102,232,250,0.35); }
+    50% { box-shadow: 0 8px 40px rgba(13,60,252,0.35); }
   }
   .flow-center-node { animation: flowPulse 3s ease-in-out infinite; }
   .flow-node { transition: transform 0.2s ease, box-shadow 0.2s ease; }
@@ -530,7 +530,7 @@ export default function HomePage() {
             position: "absolute",
             top: "32%", left: "50%", transform: "translate(-50%, -50%)",
             width: 800, height: 500,
-            background: `radial-gradient(ellipse at center, rgba(102,232,250,0.08) 0%, rgba(102,232,250,0.03) 40%, transparent 70%)`,
+            background: `radial-gradient(ellipse at center, rgba(13,60,252,0.08) 0%, rgba(13,60,252,0.03) 40%, transparent 70%)`,
             pointerEvents: "none",
             zIndex: 1,
           }}
@@ -555,7 +555,7 @@ export default function HomePage() {
             bottom: -10px;
             height: 3px;
             border-radius: 999px;
-            background: rgba(102,232,250, 0.22);
+            background: rgba(13,60,252, 0.22);
             z-index: 0;
           }
           .wf-underline::after {
@@ -568,9 +568,9 @@ export default function HomePage() {
             border-radius: 999px;
             background: linear-gradient(
               90deg,
-              rgba(102,232,250,0) 0%,
-              rgba(102,232,250,0.85) 45%,
-              rgba(102,232,250,0) 100%
+              rgba(13,60,252,0) 0%,
+              rgba(13,60,252,0.85) 45%,
+              rgba(13,60,252,0) 100%
             );
             animation: wf_underline_beam 6.25s ease-in-out infinite;
             z-index: 1;
@@ -664,7 +664,7 @@ export default function HomePage() {
                       inset: 0,
                       zIndex: 1,
                       background:
-                        "radial-gradient(closest-side, rgba(102,232,250,0.15), rgba(102,232,250,0.06) 42%, transparent 78%)",
+                        "radial-gradient(closest-side, rgba(13,60,252,0.15), rgba(13,60,252,0.06) 42%, transparent 78%)",
                       filter: "blur(30px)",
                       opacity: 0.65,
                       pointerEvents: "none",
@@ -743,8 +743,8 @@ export default function HomePage() {
             style={{
               display: "inline-flex", alignItems: "center", gap: 6,
               padding: "6px 12px", borderRadius: 999,
-              background: "rgba(102,232,250,0.08)",
-              border: "1px solid rgba(102,232,250,0.18)",
+              background: "rgba(13,60,252,0.08)",
+              border: "1px solid rgba(13,60,252,0.18)",
               fontSize: 11, fontWeight: 700, letterSpacing: "0.08em",
               textTransform: "uppercase", color: mkt.accent,
               fontFamily: "'DM Mono', monospace",

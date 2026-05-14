@@ -212,7 +212,7 @@ export default function DemoPage() {
                     width: 72,
                     height: 72,
                     borderRadius: 18,
-                    background: "rgba(102,232,250,0.12)",
+                    background: "rgba(13,60,252,0.12)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",

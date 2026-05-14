@@ -32,7 +32,7 @@ function EngineMockup() {
           <div style={{ fontSize: 13, fontWeight: 700, color: mkt.text }}>Pricing Formula Builder</div>
           <div style={{ fontSize: 11, color: mkt.onDarkMuted }}>10 formula types available</div>
         </div>
-        <div style={{ marginLeft: "auto", fontSize: 11, fontWeight: 700, background: "rgba(102,232,250,0.10)", color: mkt.accent, padding: "3px 10px", borderRadius: 20 }}>AI Validated ✓</div>
+        <div style={{ marginLeft: "auto", fontSize: 11, fontWeight: 700, background: "rgba(13,60,252,0.10)", color: mkt.accent, padding: "3px 10px", borderRadius: 20 }}>AI Validated ✓</div>
       </div>
 
       {/* Formula type selector */}

@@ -169,8 +169,8 @@ export function registerMarketingRoutes(app: Express): void {
         .card{max-width:460px;background:#151A21;border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:40px 32px;text-align:center;}
         h1{font-size:22px;font-weight:700;margin:0 0 12px;}
         p{font-size:14px;color:#CDD1D6;line-height:1.6;margin:0 0 16px;}
-        a{color:#66E8FA;text-decoration:none;}
-        .tag{display:inline-block;background:rgba(102,232,250,0.12);color:#66E8FA;font-size:11px;font-weight:700;padding:4px 12px;border-radius:999px;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:20px;}
+        a{color:#0d3cfc;text-decoration:none;}
+        .tag{display:inline-block;background:rgba(13,60,252,0.12);color:#0d3cfc;font-size:11px;font-weight:700;padding:4px 12px;border-radius:999px;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:20px;}
       </style></head><body>
       <div class="card">
         <span class="tag">WeFixTrades</span>

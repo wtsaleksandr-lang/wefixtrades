@@ -279,7 +279,7 @@ export default function ResultsPanel({ inputs, tradeName, unlocked = false }: Re
                   <div style={{
                     display: 'flex', alignItems: 'center', gap: 12,
                     padding: 'clamp(8px, 1.5vw, 10px) clamp(10px, 2vw, 14px)',
-                    background: 'rgba(102,232,250,0.06)',
+                    background: 'rgba(13,60,252,0.06)',
                     border: `1px solid ${mkt.accent}22`, borderRadius: radius.sm,
                   }}>
                     <Zap size={16} color={mkt.accent} style={{ flexShrink: 0 }} />

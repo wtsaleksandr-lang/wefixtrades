@@ -32,7 +32,7 @@ interface AnalysisResult {
 function gradeColor(grade: string): string {
   switch (grade) {
     case "A": return "#10B981";
-    case "B": return "#66E8FA";
+    case "B": return "#0d3cfc";
     case "C": return "#F7B430";
     case "D": return "#F97316";
     case "F": return "#EF4444";
@@ -203,7 +203,7 @@ function EmailGate({ onSubmit }: { onSubmit: () => void }) {
   return (
     <div
       style={{
-        background: `linear-gradient(135deg, rgba(102,232,250,0.06) 0%, rgba(102,232,250,0.02) 100%)`,
+        background: `linear-gradient(135deg, rgba(13,60,252,0.06) 0%, rgba(13,60,252,0.02) 100%)`,
         border: `1px solid ${mkt.accent}`,
         borderRadius: 20,
         padding: "36px 28px",
@@ -215,7 +215,7 @@ function EmailGate({ onSubmit }: { onSubmit: () => void }) {
           width: 48,
           height: 48,
           borderRadius: 14,
-          background: "rgba(102,232,250,0.12)",
+          background: "rgba(13,60,252,0.12)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -345,11 +345,11 @@ export default function RankFlowDemo() {
         }
         .rankflow-input:focus {
           border-color: ${mkt.accent} !important;
-          box-shadow: 0 0 0 3px rgba(102,232,250,0.15) !important;
+          box-shadow: 0 0 0 3px rgba(13,60,252,0.15) !important;
         }
         .analyze-btn:hover:not(:disabled) {
           transform: translateY(-1px);
-          box-shadow: 0 8px 24px rgba(102,232,250,0.25);
+          box-shadow: 0 8px 24px rgba(13,60,252,0.25);
         }
       `}</style>
 
@@ -372,7 +372,7 @@ export default function RankFlowDemo() {
               width: 600,
               height: 600,
               borderRadius: "50%",
-              background: "radial-gradient(circle, rgba(102,232,250,0.08) 0%, transparent 65%)",
+              background: "radial-gradient(circle, rgba(13,60,252,0.08) 0%, transparent 65%)",
               pointerEvents: "none",
             }}
           />
@@ -400,8 +400,8 @@ export default function RankFlowDemo() {
                 display: "inline-flex",
                 alignItems: "center",
                 gap: 6,
-                background: "rgba(102,232,250,0.10)",
-                border: `1px solid rgba(102,232,250,0.25)`,
+                background: "rgba(13,60,252,0.10)",
+                border: `1px solid rgba(13,60,252,0.25)`,
                 borderRadius: 20,
                 padding: "5px 14px",
                 marginBottom: 20,
@@ -555,7 +555,7 @@ export default function RankFlowDemo() {
                     width: 64,
                     height: 64,
                     borderRadius: 16,
-                    background: "rgba(102,232,250,0.10)",
+                    background: "rgba(13,60,252,0.10)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -861,7 +861,7 @@ export default function RankFlowDemo() {
                 <div
                   style={{
                     padding: "28px 24px",
-                    background: `linear-gradient(135deg, rgba(102,232,250,0.06) 0%, rgba(102,232,250,0.02) 100%)`,
+                    background: `linear-gradient(135deg, rgba(13,60,252,0.06) 0%, rgba(13,60,252,0.02) 100%)`,
                     border: `1px solid ${mkt.border}`,
                     borderRadius: 16,
                     textAlign: "center",
