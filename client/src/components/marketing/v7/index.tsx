@@ -157,8 +157,10 @@ export function V7Section({ children, variant = "default", padding = 80, style, 
       style={{
         background: bg, color: mkt.onDark, fontFamily: SANS,
         padding: `${typeof padding === "number" ? `${padding}px` : padding} 24px`,
-        borderTop: variant === "subtle" ? `1px solid ${mkt.onDarkBorder}` : undefined,
-        borderBottom: variant === "subtle" ? `1px solid ${mkt.onDarkBorder}` : undefined,
+        /* PR 2: subtle-variant top/bottom borders use the warm-gray
+         * hairline so V7 section transitions match the new system. */
+        borderTop: variant === "subtle" ? `1px solid ${mkt.hairline}` : undefined,
+        borderBottom: variant === "subtle" ? `1px solid ${mkt.hairline}` : undefined,
         ...style,
       }}
     >

@@ -74,6 +74,15 @@
    * to avoid any layout shift on hover. */
   --glow-primary: inset 0 0 0 2px #FFFFFF;
 
+  /* Hairline system (marketing-polish PR 2).
+   * Warm-gray, low-alpha — DOSS pattern. Replaces the 6 ad-hoc
+   * rgba(255,255,255,0.04…0.12) variants previously scattered across
+   * card/section/divider rules. Backed by the same token values in
+   * client/src/theme/tokens.ts (mkt.hairline / hairlineStrong / hairlineDashed). */
+  --hairline:         rgba(133, 128, 123, 0.18);
+  --hairline-strong:  rgba(133, 128, 123, 0.32);
+  --hairline-dashed:  rgba(133, 128, 123, 0.08);
+
   --sidebar-primary-border: hsl(var(--sidebar-primary));
   --sidebar-primary-border: hsl(from hsl(var(--sidebar-primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
   --sidebar-accent-border: hsl(var(--sidebar-accent));
@@ -588,7 +597,7 @@
 .mkt-tile {
   position: relative;
   border-radius: 20px;
-  border: 1px solid rgba(255,255,255,0.08);
+  border: 1px solid var(--hairline);
   overflow: hidden;
   transition:
     transform var(--dur) var(--ease-out),
@@ -1083,7 +1092,7 @@
     rgba(24, 28, 27, 0.78);
   background-size: 16px 16px, auto;
   background-position: 0 0, 0 0;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--hairline);
   border-radius: 20px;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -1136,7 +1145,7 @@
    through only in the inter-card gutters (the Effortel "tile" look). */
 .mkt-menu-card {
   background: #181d1c;
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  border: 1px solid var(--hairline);
   border-radius: 16px;
   padding: 16px 16px;
   cursor: pointer;
@@ -1222,7 +1231,7 @@
   background:
     linear-gradient(160deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02)),
     rgba(20, 24, 23, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--hairline);
   filter: grayscale(0.7) brightness(0.92);
   position: relative;
   overflow: hidden;
@@ -1636,12 +1645,42 @@ button[style*="background:"][style*="border-radius"]:not([style*="transparent"])
 [data-v7-section-divider] {
   background-image: linear-gradient(90deg,
     transparent,
-    rgba(255,255,255,0.06) 50%,
+    var(--hairline) 50%,
     transparent
   );
   height: 1px;
   margin: 0 auto;
   max-width: 720px;
+}
+
+/* Generic hairline utilities (marketing-polish PR 2).
+ * Use these in JSX rather than redefining the same rgba values inline. */
+.mkt-hairline { background-color: var(--hairline); }
+.mkt-hairline-strong { background-color: var(--hairline-strong); }
+.mkt-divider-h {
+  height: 1px;
+  background-image: linear-gradient(90deg,
+    transparent,
+    var(--hairline) 50%,
+    transparent
+  );
+}
+.mkt-divider-v {
+  width: 1px;
+  align-self: stretch;
+  background-color: var(--hairline);
+}
+
+/* Dashed engineered grid pattern — DOSS hero treatment. Apply to any
+ * section background that wants the "engineered, not noisy" feel. Add
+ * `.mkt-grid-bg` to the section element. Spacing tuned to align with
+ * the 80px content padding used across V7 sections. */
+.mkt-grid-bg {
+  background-image:
+    linear-gradient(to right, var(--hairline-dashed) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--hairline-dashed) 1px, transparent 1px);
+  background-size: 80px 80px;
+  background-position: 0 0;
 }
 
 /* ─── Nav + footer hover polish ─────────────────────────────────────── */
@@ -1766,7 +1805,7 @@ select:focus {
   padding: 4px;
   gap: 2px;
   background: rgba(34, 40, 42, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--hairline);
   border-radius: 14px;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -1793,5 +1832,5 @@ select:focus {
   width: 1px;
   align-self: stretch;
   margin: 4px 0;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--hairline);
 }
