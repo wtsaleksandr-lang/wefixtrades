@@ -52,6 +52,7 @@ import { registerBookflowRoutes } from "./bookflowRoutes";
 import { registerAdminAlertRoutes } from "./adminAlertRoutes";
 import { registerChatAttachmentRoutes } from "./chatAttachmentRoutes";
 import { registerTradelineSetupRoutes } from "./tradelineSetupRoutes";
+import { registerTradelineWidgetRoutes } from "./tradelineWidgetRoutes";
 import { registerAdminTradelineSetupsRoutes } from "./adminTradelineSetupsRoutes";
 import { registerAdminTradelineTemplatesRoutes } from "./adminTradelineTemplatesRoutes";
 import { registerTradelineChatInstallRoutes } from "./tradelineChatInstallRoutes";
@@ -119,6 +120,7 @@ export async function registerRoutes(
   registerAdminAlertRoutes(app);
   registerChatAttachmentRoutes(app);
   registerTradelineSetupRoutes(app);
+  registerTradelineWidgetRoutes(app);
   registerAdminTradelineSetupsRoutes(app);
   registerAdminTradelineTemplatesRoutes(app);
   registerTradelineChatInstallRoutes(app);

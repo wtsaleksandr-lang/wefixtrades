@@ -25,6 +25,7 @@ export * from "./tradelineTemplateOverrides";
 export * from "./clientEmailIdentities";
 export * from "./tradelineChatInstallRequests";
 export * from "./tradelineLearningCandidates";
+export * from "./tradelineWidgetSites";
 export * from "./mobileRefreshTokens";
 export * from "./mobileDevices";
 export * from "./mobileCallRecords";

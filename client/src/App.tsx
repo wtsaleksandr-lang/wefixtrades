@@ -120,6 +120,7 @@ import PortalEmailDomainSetup from "@/pages/portal/PortalEmailDomainSetup";
 import ChatWidgetInstallEntry from "@/pages/portal/ChatWidgetInstallEntry";
 import ChatWidgetInstallOnboarding from "@/pages/portal/ChatWidgetInstallOnboarding";
 import InstallQueuePage from "@/pages/admin/InstallQueuePage";
+import PortalChatWidgetSetup from "@/pages/portal/PortalChatWidgetSetup";
 import PortalHelp from "@/pages/portal/PortalHelp";
 import PortalTicketDetail from "@/pages/portal/PortalTicketDetail";
 import SupportInboxPage from "@/pages/admin/SupportInboxPage";
@@ -206,6 +207,7 @@ function Router() {
       <Route path="/portal/tradeline/chat-widget/install">{() => <RequireClient><ChatWidgetInstallEntry /></RequireClient>}</Route>
       <Route path="/portal/tradeline/chat-widget/install-onboarding">{() => <RequireClient><ChatWidgetInstallOnboarding /></RequireClient>}</Route>
       <Route path="/admin/install-queue">{() => <RequirePortal><InstallQueuePage /></RequirePortal>}</Route>
+      <Route path="/portal/tradeline/chat-widget">{() => <RequireClient><PortalChatWidgetSetup /></RequireClient>}</Route>
       <Route path="/portal/onboarding/:id">{() => <RequireClient><PortalOnboarding /></RequireClient>}</Route>
       <Route path="/portal/services/:id">{() => <RequireClient><PortalServiceDetail /></RequireClient>}</Route>
       <Route path="/portal/mapguard">{() => <RequireClient><PortalMapguard /></RequireClient>}</Route>
