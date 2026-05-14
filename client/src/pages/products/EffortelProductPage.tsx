@@ -391,15 +391,12 @@ function TrustStrip({ cfg }: { cfg: ReturnType<typeof getProductBySlug> & {} }) 
 function HowItWorks({ steps }: { steps?: { title: string; desc: string }[] }) {
   if (!steps?.length) return null;
   return (
-    <section style={{ padding: "100px 24px", background: "rgba(255,255,255,0.02)", borderTop: `1px solid ${mkt.onDarkBorder}`, borderBottom: `1px solid ${mkt.onDarkBorder}` }}>
+    <section style={{ padding: "80px 24px", background: "rgba(255,255,255,0.02)", borderTop: `1px solid var(--hairline)`, borderBottom: `1px solid var(--hairline)` }}>
       <div style={{ maxWidth: 1180, margin: "0 auto" }}>
         <Reveal>
-          <div style={{ textAlign: "center", marginBottom: 56 }}>
-            <p style={{ fontFamily: MONO, fontSize: 11, letterSpacing: "0.16em", textTransform: "uppercase", color: mkt.accent, marginBottom: 12 }}>
+          <div style={{ textAlign: "center", marginBottom: 40 }}>
+            <h2 style={{ fontSize: "clamp(32px, 4vw, 48px)", fontWeight: 500, lineHeight: 1.05, letterSpacing: "-0.025em", color: mkt.onDark, margin: 0 }}>
               How it works
-            </p>
-            <h2 style={{ fontSize: "clamp(32px, 4vw, 48px)", fontWeight: 700, lineHeight: 1.05, letterSpacing: "-0.025em", color: mkt.onDark }}>
-              Live in minutes. Not weeks.
             </h2>
           </div>
         </Reveal>
@@ -444,14 +441,11 @@ function HowItWorks({ steps }: { steps?: { title: string; desc: string }[] }) {
 function Pricing({ pricing, primaryCta }: { pricing?: { plans: any[]; note?: string }; primaryCta: { label: string; href: string } }) {
   if (!pricing?.plans?.length) return null;
   return (
-    <section style={{ padding: "100px 24px" }}>
+    <section style={{ padding: "80px 24px" }}>
       <div style={{ maxWidth: 1180, margin: "0 auto" }}>
         <Reveal>
-          <div style={{ textAlign: "center", marginBottom: 48 }}>
-            <p style={{ fontFamily: MONO, fontSize: 11, letterSpacing: "0.16em", textTransform: "uppercase", color: mkt.accent, marginBottom: 12 }}>
-              Pricing
-            </p>
-            <h2 style={{ fontSize: "clamp(32px, 4vw, 48px)", fontWeight: 700, lineHeight: 1.05, letterSpacing: "-0.025em", color: mkt.onDark }}>
+          <div style={{ textAlign: "center", marginBottom: 40 }}>
+            <h2 style={{ fontSize: "clamp(32px, 4vw, 48px)", fontWeight: 500, lineHeight: 1.05, letterSpacing: "-0.025em", color: mkt.onDark, margin: 0 }}>
               Pick a tier. Cancel any time.
             </h2>
           </div>
@@ -459,39 +453,47 @@ function Pricing({ pricing, primaryCta }: { pricing?: { plans: any[]; note?: str
         <div style={{
           display: "grid",
           gridTemplateColumns: `repeat(${Math.min(pricing.plans.length, 3)}, 1fr)`,
+          alignItems: "stretch",
           gap: 16,
           maxWidth: pricing.plans.length === 1 ? 460 : pricing.plans.length === 2 ? 760 : 1080,
           margin: "0 auto",
         }} className="pricing-grid">
           {pricing.plans.map((p, i) => (
             <Reveal key={p.name} delay={i * 0.06}>
-              <div style={{
+              {/* Highlighted card: blue bg with WHITE text (high contrast).
+                * Non-highlighted: dark surface with normal text.
+                * Both cards: hover lifts + adds white border (matches the
+                * brand-wide pattern landed in PR #164/#165). */}
+              <div className="pricing-card" data-highlighted={p.highlighted ? "true" : "false"} style={{
                 background: p.highlighted ? mkt.accent : mkt.sectionLight,
-                color: p.highlighted ? mkt.dark : mkt.onDark,
+                color: p.highlighted ? "#FFFFFF" : mkt.onDark,
                 borderRadius: 20, padding: "32px 24px",
-                border: `1px solid ${p.highlighted ? mkt.accent : mkt.onDarkBorder}`,
+                border: `1px solid ${p.highlighted ? mkt.accent : "var(--hairline)"}`,
                 position: "relative",
-                boxShadow: p.highlighted ? "0 24px 60px rgba(13,60,252,0.18)" : undefined,
+                height: "100%",
+                display: "flex", flexDirection: "column",
+                transition: "transform 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease",
               }}>
                 {p.badge && (
                   <span style={{
                     position: "absolute", top: -10, left: 24,
                     fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase",
                     padding: "4px 10px", borderRadius: 999,
-                    background: p.highlighted ? mkt.dark : mkt.accent, color: p.highlighted ? mkt.accent : mkt.dark,
+                    background: p.highlighted ? "#FFFFFF" : mkt.accent,
+                    color: p.highlighted ? mkt.accent : "#FFFFFF",
                   }}>{p.badge}</span>
                 )}
-                <h3 style={{ fontSize: 18, fontWeight: 700, letterSpacing: "-0.01em", marginBottom: 8 }}>{p.name}</h3>
+                <h3 style={{ fontSize: 18, fontWeight: 700, letterSpacing: "-0.01em", marginBottom: 8, color: "inherit" }}>{p.name}</h3>
                 <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 6 }}>
-                  <span style={{ fontSize: 36, fontWeight: 700, letterSpacing: "-0.03em", lineHeight: 1 }}>
+                  <span style={{ fontSize: 36, fontWeight: 700, letterSpacing: "-0.03em", lineHeight: 1, color: "inherit" }}>
                     {p.price}
                   </span>
-                  <span style={{ fontSize: 13, opacity: 0.7 }}>{p.period}</span>
+                  <span style={{ fontSize: 13, opacity: 0.7, color: "inherit" }}>{p.period}</span>
                 </div>
-                <ul style={{ listStyle: "none", padding: 0, margin: "20px 0 24px", display: "flex", flexDirection: "column", gap: 8 }}>
+                <ul style={{ listStyle: "none", padding: 0, margin: "20px 0 24px", display: "flex", flexDirection: "column", gap: 8, flex: 1 }}>
                   {(p.features ?? []).slice(0, 5).map((f: string) => (
-                    <li key={f} style={{ display: "flex", gap: 10, alignItems: "flex-start", fontSize: 13, lineHeight: 1.45 }}>
-                      <Check size={14} style={{ marginTop: 3, flexShrink: 0, color: p.highlighted ? mkt.dark : mkt.accent }} strokeWidth={3} />
+                    <li key={f} style={{ display: "flex", gap: 10, alignItems: "flex-start", fontSize: 13, lineHeight: 1.45, color: "inherit" }}>
+                      <Check size={14} style={{ marginTop: 3, flexShrink: 0, color: p.highlighted ? "#FFFFFF" : mkt.accent }} strokeWidth={3} />
                       {f}
                     </li>
                   ))}
@@ -499,14 +501,14 @@ function Pricing({ pricing, primaryCta }: { pricing?: { plans: any[]; note?: str
                 <Link href={primaryCta.href} style={{
                   display: "block", textAlign: "center",
                   padding: "12px 14px", borderRadius: 10,
-                  background: p.highlighted ? mkt.dark : mkt.accent,
-                  color: p.highlighted ? mkt.accent : mkt.dark,
-                  fontFamily: MONO, fontSize: 11, fontWeight: 700,
-                  letterSpacing: "0.06em", textTransform: "uppercase",
+                  background: mkt.ctaBg,
+                  color: mkt.ctaText,
+                  fontSize: 13, fontWeight: 500,
                   textDecoration: "none",
                   lineHeight: 1.25,
                   whiteSpace: "normal",
                   overflowWrap: "break-word",
+                  marginTop: "auto",
                 }}>
                   {primaryCta.label}
                 </Link>
@@ -524,6 +526,15 @@ function Pricing({ pricing, primaryCta }: { pricing?: { plans: any[]; note?: str
         @media (max-width: 900px) {
           .pricing-grid { grid-template-columns: 1fr !important; max-width: 460px !important; }
         }
+        /* Hover: pop-out lift + white border on the card. The highlighted
+         * card already has a colored border (mkt.accent); on hover it
+         * gets a white outline instead so the affordance is consistent
+         * across both card types. */
+        .pricing-card:hover {
+          transform: translateY(-6px);
+          border-color: #FFFFFF !important;
+          box-shadow: 0 24px 48px rgba(0,0,0,0.28);
+        }
       `}</style>
     </section>
   );
@@ -536,15 +547,12 @@ function Faq({ items }: { items: { q: string; a: string }[] }) {
   const [openIdx, setOpenIdx] = useState<number | null>(0);
   if (!items.length) return null;
   return (
-    <section style={{ padding: "100px 24px", background: "rgba(255,255,255,0.02)", borderTop: `1px solid ${mkt.onDarkBorder}`, borderBottom: `1px solid ${mkt.onDarkBorder}` }}>
+    <section style={{ padding: "80px 24px", background: "rgba(255,255,255,0.02)", borderTop: `1px solid var(--hairline)`, borderBottom: `1px solid var(--hairline)` }}>
       <div style={{ maxWidth: 760, margin: "0 auto" }}>
         <Reveal>
-          <div style={{ textAlign: "center", marginBottom: 40 }}>
-            <p style={{ fontFamily: MONO, fontSize: 11, letterSpacing: "0.16em", textTransform: "uppercase", color: mkt.accent, marginBottom: 12 }}>
+          <div style={{ textAlign: "center", marginBottom: 32 }}>
+            <h2 style={{ fontSize: "clamp(32px, 4vw, 48px)", fontWeight: 500, lineHeight: 1.05, letterSpacing: "-0.025em", color: mkt.onDark, margin: 0 }}>
               FAQ
-            </p>
-            <h2 style={{ fontSize: "clamp(32px, 4vw, 48px)", fontWeight: 700, lineHeight: 1.05, letterSpacing: "-0.025em", color: mkt.onDark }}>
-              Quick answers.
             </h2>
           </div>
         </Reveal>
@@ -587,60 +595,66 @@ function Faq({ items }: { items: { q: string; a: string }[] }) {
 /* ════════════════════════════════════════════════════════════════
    SECTION: TESTIMONIALS
    ════════════════════════════════════════════════════════════════ */
-function Testimonials({ items }: { items: { quote: string; author: string; trade: string; city: string; rating: 5 }[] }) {
+/* Review-source label — text only, no badges/icons, per the brief.
+ * `unknown` covers data entries that weren't tagged (defaults to a
+ * neutral label rather than failing or hiding). */
+const SOURCE_LABEL: Record<string, string> = {
+  trustpilot: "Trustpilot review",
+  google_maps: "Google review",
+  facebook: "Facebook review",
+  google: "Google review",
+  internal_pilot: "Verified customer",
+  case_study: "Verified customer",
+};
+
+function Testimonials({ items }: { items: { quote: string; author: string; trade: string; city: string; rating: 5; source?: string }[] }) {
   if (!items.length) return null;
   return (
-    <section style={{ padding: "100px 24px" }}>
+    <section style={{ padding: "80px 24px" }}>
       <div style={{ maxWidth: 1180, margin: "0 auto" }}>
         <Reveal>
-          <div style={{ textAlign: "center", marginBottom: 48 }}>
-            <p style={{ fontFamily: MONO, fontSize: 11, letterSpacing: "0.16em", textTransform: "uppercase", color: mkt.accent, marginBottom: 12 }}>
-              From real trades businesses
-            </p>
-            <h2 style={{ fontSize: "clamp(32px, 4vw, 48px)", fontWeight: 700, lineHeight: 1.05, letterSpacing: "-0.025em", color: mkt.onDark }}>
-              Don't take our word for it.
+          <div style={{ textAlign: "center", marginBottom: 40 }}>
+            <h2 style={{ fontSize: "clamp(32px, 4vw, 48px)", fontWeight: 500, lineHeight: 1.05, letterSpacing: "-0.025em", color: mkt.onDark, margin: 0 }}>
+              Reviews
             </h2>
           </div>
         </Reveal>
+        {/* Trustpilot-style review cards — no avatars, no platform badges
+         * (just the source-name text under the reviewer). 7 cards per
+         * product page. auto-fit grid wraps responsively from 1→4 cols. */}
         <div style={{
           display: "grid",
-          gridTemplateColumns: items.length >= 2 ? "repeat(auto-fit, minmax(320px, 1fr))" : "1fr",
+          gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
           gap: 16,
-          maxWidth: items.length >= 2 ? 1080 : 640,
+          maxWidth: 1180,
           margin: "0 auto",
         }}>
-          {items.slice(0, 3).map((t, i) => (
-            <Reveal key={t.quote} delay={i * 0.06}>
-              <div style={{
-                padding: "28px 26px",
-                borderRadius: 18,
+          {items.slice(0, 7).map((t, i) => (
+            <Reveal key={t.quote} delay={i * 0.04}>
+              <div className="review-card" style={{
+                padding: "22px 22px",
+                borderRadius: 14,
                 background: mkt.sectionLight,
-                border: `1px solid ${mkt.onDarkBorder}`,
+                border: `1px solid var(--hairline)`,
                 height: "100%",
-                display: "flex", flexDirection: "column", gap: 18,
+                display: "flex", flexDirection: "column", gap: 14,
+                transition: "transform 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease",
               }}>
                 <div style={{ display: "flex", gap: 2, color: "#F59E0B" }}>
                   {[1, 2, 3, 4, 5].map((n) => (
                     <Star key={n} size={14} fill="#F59E0B" stroke="#F59E0B" />
                   ))}
                 </div>
-                <p style={{ fontSize: 15, lineHeight: 1.55, color: mkt.onDark, margin: 0, flex: 1, letterSpacing: "-0.005em" }}>
-                  "{t.quote}"
+                <p style={{ fontSize: 14, lineHeight: 1.55, color: mkt.onDark, margin: 0, flex: 1, letterSpacing: "-0.005em" }}>
+                  &ldquo;{t.quote}&rdquo;
                 </p>
-                <div style={{ display: "flex", alignItems: "center", gap: 12, paddingTop: 12, borderTop: `1px solid ${mkt.onDarkBorder}` }}>
-                  <div style={{
-                    width: 36, height: 36, borderRadius: "50%",
-                    background: `linear-gradient(135deg, ${mkt.accent}, ${mkt.accentDark})`,
-                    color: mkt.dark, display: "flex", alignItems: "center", justifyContent: "center",
-                    fontWeight: 700, fontSize: 13,
-                  }}>
-                    {t.author.charAt(0)}
+                <div style={{ paddingTop: 12, borderTop: `1px solid var(--hairline)` }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: mkt.onDark, marginBottom: 2 }}>{t.author}</div>
+                  <div style={{ fontSize: 11, color: mkt.onDarkFaint }}>
+                    {t.trade} &middot; {t.city}
                   </div>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: mkt.onDark }}>{t.author}</div>
-                    <div style={{ fontSize: 11, fontFamily: MONO, color: mkt.onDarkFaint, letterSpacing: "0.04em" }}>
-                      {t.trade} · {t.city}
-                    </div>
+                  <div style={{ fontSize: 10, color: mkt.onDarkFaint, marginTop: 6, opacity: 0.8 }}>
+                    {SOURCE_LABEL[t.source ?? "internal_pilot"] ?? "Verified customer"}
                   </div>
                 </div>
               </div>
@@ -648,6 +662,13 @@ function Testimonials({ items }: { items: { quote: string; author: string; trade
           ))}
         </div>
       </div>
+      <style>{`
+        .review-card:hover {
+          transform: translateY(-4px);
+          border-color: #FFFFFF !important;
+          box-shadow: 0 16px 32px rgba(0,0,0,0.22);
+        }
+      `}</style>
     </section>
   );
 }
@@ -657,11 +678,11 @@ function Testimonials({ items }: { items: { quote: string; author: string; trade
    ════════════════════════════════════════════════════════════════ */
 function FinalCta({ cfg }: { cfg: ReturnType<typeof getProductBySlug> & {} }) {
   return (
-    <section style={{ padding: "80px 24px 140px" }}>
+    <section style={{ padding: "80px 24px 80px" }}>
       <div style={{
         maxWidth: 980, margin: "0 auto",
         background: mkt.sectionLight,
-        borderRadius: 28, padding: "72px 32px",
+        borderRadius: 28, padding: "56px 32px",
         position: "relative", overflow: "hidden",
         textAlign: "center",
       }}>
