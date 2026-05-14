@@ -3155,16 +3155,44 @@ export function registerAdminCrmRoutes(app: Express): void {
       // Post the reply
       const postResult = await postGoogleReviewReply(review.client_id, review.google_review_name, responseText);
       if (!postResult.ok) {
-        // Fire alert so ops see persistent failures in Slack, not just per-request errors.
         const client = await storage.getClientById(review.client_id);
         const { notifyReplyPostFailure } = await import("../services/reputation/reputationAlerts");
         const retryable = /timeout|rate.?limit|5\d\d/i.test(postResult.error || "");
+
+        // Retryable failure → enqueue for the retry worker. Operator
+        // gets a 202 + queued-id so the UI can show "queued for retry"
+        // instead of an outright error toast.
+        if (retryable) {
+          const { enqueueReplyForRetry } = await import("../jobs/replyPostQueueWorker");
+          const queued = await enqueueReplyForRetry({
+            monitoredReviewId: review.id,
+            clientId: review.client_id,
+            replyText: responseText,
+            createdBy: (req.user as any)?.id ?? null,
+            initialError: postResult.error,
+          });
+          notifyReplyPostFailure({
+            clientId: review.client_id,
+            businessName: client?.business_name || `Client #${review.client_id}`,
+            reviewId: review.id,
+            error: postResult.error || "unknown",
+            retryable: true,
+          }).catch(() => { /* alert is best-effort */ });
+          return res.status(202).json({
+            error: postResult.error,
+            code: "QUEUED_FOR_RETRY",
+            queueId: queued.id,
+            alreadyQueued: !queued.enqueued,
+          });
+        }
+
+        // Non-retryable → immediate failure, no enqueue (would just dead-letter).
         notifyReplyPostFailure({
           clientId: review.client_id,
           businessName: client?.business_name || `Client #${review.client_id}`,
           reviewId: review.id,
           error: postResult.error || "unknown",
-          retryable,
+          retryable: false,
         }).catch(() => { /* alert is best-effort */ });
         return res.status(502).json({ error: postResult.error, code: "POST_FAILED" });
       }

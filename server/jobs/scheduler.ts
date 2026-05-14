@@ -530,6 +530,19 @@ export function initScheduler() {
     }
   });
 
+  // Sprint 2-3: reply-post retry queue. Drains the durable queue for
+  // failed Google replies (and future multi-platform replies) every 2
+  // minutes. Backoff is per-row so this just needs to wake up often
+  // enough to dispatch due rows; exponential schedule is in the worker.
+  cron.schedule("*/2 * * * *", async () => {
+    try {
+      const { drainReplyPostQueue } = await import("./replyPostQueueWorker");
+      await runJob("reply_post_queue_drain", drainReplyPostQueue);
+    } catch (err: any) {
+      log.error("reply_post_queue_drain error", { error: err.message });
+    }
+  });
+
   // Sprint 4: proactive Google OAuth token refresh for ReputationShield.
   // Refreshes tokens expiring inside 24h ahead of time so background syncs
   // don't fail with a stale-token error and customers don't see broken

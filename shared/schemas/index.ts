@@ -14,6 +14,7 @@ export * from "./socialSync";
 export * from "./reviews";
 export * from "./reviewRequests";
 export * from "./reviewSuppression";
+export * from "./reputationFoundations";
 export * from "./serviceCosts";
 export * from "./salesLeads";
 export * from "./rankflow";
