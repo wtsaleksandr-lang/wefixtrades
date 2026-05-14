@@ -387,6 +387,94 @@ export function registerReputationRoutes(app: Express): void {
     }
   });
 
+  // ─── Multi-location Google Business Profile (Sprint 2-3) ───
+
+  app.get("/api/reputation/clients/:clientId/locations", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.clientId as string);
+      if (isNaN(clientId)) return res.status(400).json({ error: "Invalid client ID" });
+      const locations = await storage.listGoogleLocations(clientId);
+      res.json({ locations });
+    } catch (err: any) {
+      log.error("[reputation] List locations error:", err.message);
+      res.status(500).json({ error: "Failed to list locations" });
+    }
+  });
+
+  app.post("/api/reputation/clients/:clientId/locations", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.clientId as string);
+      if (isNaN(clientId)) return res.status(400).json({ error: "Invalid client ID" });
+      const { place_id, location_name, address, is_primary } = req.body ?? {};
+      if (!place_id || !location_name) {
+        return res.status(400).json({ error: "place_id and location_name are required" });
+      }
+
+      // Validate place_id against Google Places — same path as single-location.
+      const { validateGooglePlaceId } = await import("../services/reputation/placeIdValidator");
+      const v = await validateGooglePlaceId(place_id);
+      if (!v.valid && !v.soft) {
+        return res.status(400).json({ error: `Invalid Google Place ID: ${v.reason}` });
+      }
+
+      const row = await storage.addGoogleLocation({
+        client_id: clientId,
+        place_id,
+        location_name,
+        address: address ?? null,
+        is_primary: !!is_primary,
+        enabled: true,
+        metadata: null,
+      } as any);
+      res.json({ location: row });
+    } catch (err: any) {
+      if (String(err?.message || "").includes("idx_gbl_client_place")) {
+        return res.status(409).json({ error: "This place_id is already configured for this client" });
+      }
+      log.error("[reputation] Add location error:", err.message);
+      res.status(500).json({ error: "Failed to add location" });
+    }
+  });
+
+  app.patch("/api/reputation/clients/:clientId/locations/:id", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.clientId as string);
+      const id = parseInt(req.params.id as string);
+      if (isNaN(clientId) || isNaN(id)) return res.status(400).json({ error: "Invalid IDs" });
+
+      const { location_name, address, enabled, is_primary } = req.body ?? {};
+
+      if (is_primary === true) {
+        const ok = await storage.setPrimaryGoogleLocation(clientId, id);
+        if (!ok) return res.status(404).json({ error: "Location not found" });
+      }
+      const updated = await storage.updateGoogleLocation(id, {
+        ...(location_name !== undefined ? { location_name } : {}),
+        ...(address !== undefined ? { address } : {}),
+        ...(enabled !== undefined ? { enabled } : {}),
+      } as any);
+      if (!updated) return res.status(404).json({ error: "Location not found" });
+      res.json({ location: updated });
+    } catch (err: any) {
+      log.error("[reputation] Update location error:", err.message);
+      res.status(500).json({ error: "Failed to update location" });
+    }
+  });
+
+  app.delete("/api/reputation/clients/:clientId/locations/:id", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.clientId as string);
+      const id = parseInt(req.params.id as string);
+      if (isNaN(clientId) || isNaN(id)) return res.status(400).json({ error: "Invalid IDs" });
+      const removed = await storage.removeGoogleLocation(clientId, id);
+      if (!removed) return res.status(404).json({ error: "Not found" });
+      res.json({ ok: true });
+    } catch (err: any) {
+      log.error("[reputation] Remove location error:", err.message);
+      res.status(500).json({ error: "Failed to remove location" });
+    }
+  });
+
   app.delete("/api/reputation/clients/:clientId/suppression/:id", requireAdmin, async (req: Request, res: Response) => {
     try {
       const clientId = parseInt(req.params.clientId as string);

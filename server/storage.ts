@@ -69,6 +69,8 @@ type User, type InsertUser,
   monitoredReviews,
   type MonitoredReview, type InsertMonitoredReview,
   reviewRequestSuppression, reviewResponseEdits,
+  googleBusinessLocations,
+  type GoogleLocation, type InsertGoogleLocation,
   type TradelineConfig,
   type TradelineUsage, type InsertTradelineUsage,
   type TradelineCallLog, type InsertTradelineCallLog,
@@ -370,6 +372,13 @@ export interface IStorage {
    * a per-client daily send cap (cost protection).
    */
   countReviewRequestSendsToday(clientId: number, channel?: "sms" | "email"): Promise<number>;
+
+  // ─── Multi-location Google Business Profile ───
+  listGoogleLocations(clientId: number): Promise<GoogleLocation[]>;
+  addGoogleLocation(data: InsertGoogleLocation): Promise<GoogleLocation>;
+  updateGoogleLocation(id: number, updates: Partial<InsertGoogleLocation>): Promise<GoogleLocation | undefined>;
+  setPrimaryGoogleLocation(clientId: number, locationId: number): Promise<boolean>;
+  removeGoogleLocation(clientId: number, locationId: number): Promise<boolean>;
 
   // ─── Response edit audit ───
   appendReviewResponseEdit(data: {
@@ -3455,6 +3464,69 @@ export class DatabaseStorage implements IStorage {
         eq(reviewRequestSuppression.client_id, clientId),
       ))
       .returning({ id: reviewRequestSuppression.id });
+    return result.length > 0;
+  }
+
+  // ═══════════════════════════════════════════════
+  // Multi-location Google Business Profile
+  // ═══════════════════════════════════════════════
+
+  async listGoogleLocations(clientId: number): Promise<GoogleLocation[]> {
+    return db.select()
+      .from(googleBusinessLocations)
+      .where(eq(googleBusinessLocations.client_id, clientId))
+      .orderBy(desc(googleBusinessLocations.is_primary), googleBusinessLocations.location_name);
+  }
+
+  async addGoogleLocation(data: InsertGoogleLocation): Promise<GoogleLocation> {
+    // If marked primary on insert, demote any existing primary first.
+    if (data.is_primary) {
+      await db.update(googleBusinessLocations)
+        .set({ is_primary: false, updated_at: new Date() })
+        .where(and(
+          eq(googleBusinessLocations.client_id, data.client_id),
+          eq(googleBusinessLocations.is_primary, true),
+        ));
+    }
+    const [row] = await db.insert(googleBusinessLocations).values(data).returning();
+    return row!;
+  }
+
+  async updateGoogleLocation(id: number, updates: Partial<InsertGoogleLocation>): Promise<GoogleLocation | undefined> {
+    const [row] = await db.update(googleBusinessLocations)
+      .set({ ...updates, updated_at: new Date() })
+      .where(eq(googleBusinessLocations.id, id))
+      .returning();
+    return row;
+  }
+
+  async setPrimaryGoogleLocation(clientId: number, locationId: number): Promise<boolean> {
+    // Demote current primary, promote the target, in a single transaction.
+    return await db.transaction(async (tx) => {
+      await tx.update(googleBusinessLocations)
+        .set({ is_primary: false, updated_at: new Date() })
+        .where(and(
+          eq(googleBusinessLocations.client_id, clientId),
+          eq(googleBusinessLocations.is_primary, true),
+        ));
+      const updated = await tx.update(googleBusinessLocations)
+        .set({ is_primary: true, updated_at: new Date() })
+        .where(and(
+          eq(googleBusinessLocations.id, locationId),
+          eq(googleBusinessLocations.client_id, clientId),
+        ))
+        .returning({ id: googleBusinessLocations.id });
+      return updated.length > 0;
+    });
+  }
+
+  async removeGoogleLocation(clientId: number, locationId: number): Promise<boolean> {
+    const result = await db.delete(googleBusinessLocations)
+      .where(and(
+        eq(googleBusinessLocations.id, locationId),
+        eq(googleBusinessLocations.client_id, clientId),
+      ))
+      .returning({ id: googleBusinessLocations.id });
     return result.length > 0;
   }
 
