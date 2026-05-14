@@ -212,15 +212,15 @@ export function registerMobileAiImagesRoutes(app: Express): void {
    *   - sig: HMAC-SHA256 hex over (userId|assetPath|exp)
    */
   app.get(
-    "/api/mobile/ai/image/*",
+    "/api/mobile/ai/image/*path",
     requireSessionOrBearer,
     async (req: Request, res: Response) => {
       try {
         const userId = (req.user as any)?.id as number | undefined;
         if (!userId) return res.status(401).json({ error: "Authentication required" });
 
-        // `req.params[0]` holds the wildcard portion in Express 4.x.
-        const assetPath = (req.params as any)[0] as string | undefined;
+        // `req.params.path` holds the wildcard portion (named wildcard *path).
+        const assetPath = (req.params as any).path as string | undefined;
         if (!assetPath) return res.status(400).json({ error: "asset path missing" });
 
         if (!assetBelongsToUser(assetPath, userId)) {
