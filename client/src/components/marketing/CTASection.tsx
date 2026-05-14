@@ -75,7 +75,7 @@ export default function CTASection({ heading, subtext, ctaLabel, ctaHref }: CTAS
         <Link href={ctaHref ?? "/demo"} style={{ textDecoration: "none", display: "block" }}>
           <div className="cta-inner-wrap">
             {/* Content */}
-            <div style={{ marginBottom: 40 }}>
+            <div style={{ marginBottom: 24 }}>
               <h2 style={{
                 fontSize: "clamp(28px, 3.5vw, 36px)",
                 fontWeight: 500,

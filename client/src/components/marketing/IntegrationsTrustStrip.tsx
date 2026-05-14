@@ -89,10 +89,16 @@ export default function IntegrationsTrustStrip() {
     <div
       data-testid="integrations-trust-strip"
       style={{
+        /* Density-spacing PR: was column with label-above-logos; now
+         * a single horizontal row so the label sits inline with the
+         * logos and saves ~40px of vertical space on every page that
+         * renders this strip. Wraps to two lines below ~640px. */
         display: "flex",
-        flexDirection: "column",
+        flexDirection: "row",
+        flexWrap: "wrap",
         alignItems: "center",
-        gap: 14,
+        justifyContent: "center",
+        gap: 28,
         padding: "20px 24px",
       }}
     >
@@ -105,6 +111,7 @@ export default function IntegrationsTrustStrip() {
           color: "rgba(255,255,255,0.4)",
           margin: 0,
           fontFamily: "'DM Mono', monospace",
+          whiteSpace: "nowrap",
         }}
       >
         Powered by the rails you already trust
@@ -114,7 +121,7 @@ export default function IntegrationsTrustStrip() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          gap: 40,
+          gap: 32,
           flexWrap: "wrap",
           color: LABEL_COLOR,
         }}

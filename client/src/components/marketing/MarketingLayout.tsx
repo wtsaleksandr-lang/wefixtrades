@@ -104,7 +104,7 @@ function MarketingFooter({ isMobile }: { isMobile: boolean }) {
       }}
     >
       {/* ── Main footer grid ───────────────────────────────────────── */}
-      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "60px 24px 0" }}>
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "40px 24px 0" }}>
         <div className="mkt-footer-grid">
           {/* Col 1 — Products */}
           <CollapsibleFooterSection title="Products" defaultOpen={!isMobile}>
