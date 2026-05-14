@@ -296,6 +296,24 @@ export async function processMapguardAlerts(
         .where(eq(mapguardAlerts.id, alert.id));
     }
 
+    // Customer-facing reassurance email — only on critical severity,
+    // and only for score/rating drops (lost rankings are too noisy for
+    // a direct customer email). Positive framing: "we noticed and
+    // we're already on it" rather than alarming technical details.
+    if (
+      candidate.severity === "critical" &&
+      (candidate.alert_type === "score_drop" || candidate.alert_type === "rating_drop")
+    ) {
+      try {
+        await sendCustomerReassuranceEmail(clientId, businessName, candidate);
+      } catch (err: any) {
+        log.warn("[mapguard-alert] customer reassurance email failed", {
+          client_id: clientId,
+          error: err.message,
+        });
+      }
+    }
+
     sent++;
   }
 
@@ -304,6 +322,137 @@ export async function processMapguardAlerts(
   }
 
   return { sent, deduplicated };
+}
+
+/* ═══════════════════════════════════════════
+   CUSTOMER-FACING REASSURANCE EMAIL
+   ═══════════════════════════════════════════ */
+
+async function sendCustomerReassuranceEmail(
+  clientId: number,
+  businessName: string,
+  candidate: AlertCandidate,
+): Promise<void> {
+  // Pull customer contact email lazily to avoid coupling the trigger
+  // evaluator to the clients table. Skip silently if no email or the
+  // customer has weekly_summary disabled (we treat that toggle as a
+  // proxy for "leave me alone unless it's truly critical" — and this
+  // IS truly critical, but we still want a single mute).
+  const { clients } = await import("@shared/schemas/adminCrm");
+  const [client] = await db
+    .select({
+      contact_email: clients.contact_email,
+      metadata: clients.metadata,
+    })
+    .from(clients)
+    .where(eq(clients.id, clientId))
+    .limit(1);
+
+  if (!client?.contact_email) return;
+
+  // Respect the same alerts.weekly_summary toggle the portal exposes —
+  // if the customer turned that off, hold these too. The portal copy
+  // describes it broadly enough to cover this case.
+  const meta = (client.metadata as Record<string, any> | null) || {};
+  const mgConfig = meta?.mapguard_config as Record<string, any> | undefined;
+  if (mgConfig?.alerts?.weekly_summary === false) return;
+
+  const transporter = getEmailTransporter();
+  if (!transporter) return;
+
+  const portalUrl = `${APP_URL}/portal/mapguard`;
+  const dropLabel =
+    candidate.alert_type === "score_drop"
+      ? `your visibility score dipped`
+      : `your Google rating dipped`;
+
+  const subject = `MapGuard noticed a dip for ${businessName} — we're on it`;
+
+  const text = [
+    `Hi,`,
+    ``,
+    `Quick heads-up: ${dropLabel} on Google over the last week.`,
+    ``,
+    `What this means: short-term changes like this happen for lots of`,
+    `reasons — a fresh competitor review, a temporary Google index`,
+    `shuffle, a holiday traffic dip. They don't always indicate a`,
+    `problem with your business.`,
+    ``,
+    `What we're doing: our team is already reviewing the change. If`,
+    `there's something to fix on your profile — outdated info, missing`,
+    `photos, a review needing a reply — we'll handle it as part of your`,
+    `MapGuard plan and you'll see it in your next weekly recap.`,
+    ``,
+    `No action needed from you. We just wanted you to hear it from us`,
+    `before you stumbled across it yourself.`,
+    ``,
+    `See your dashboard:`,
+    `  ${portalUrl}`,
+    ``,
+    `— The WeFixTrades MapGuard team`,
+    ``,
+    `(You can adjust alert preferences any time in your MapGuard`,
+    ` settings, or reply to mute these emails.)`,
+  ].join("\n");
+
+  const html = `<!doctype html>
+<html><body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1f2937; max-width: 600px; margin: 0 auto; padding: 24px; line-height: 1.5;">
+  <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+    <div style="width: 36px; height: 36px; background: #2D6A4F; border-radius: 8px;"></div>
+    <div>
+      <h2 style="margin: 0; color: #2D6A4F; font-size: 18px;">MapGuard</h2>
+      <p style="margin: 0; font-size: 12px; color: #6b7280;">A heads-up about ${escapeHtml(businessName)}</p>
+    </div>
+  </div>
+
+  <p>Hi,</p>
+
+  <p>Quick heads-up: <strong>${dropLabel}</strong> on Google over the last week.</p>
+
+  <p style="background: #f0fdf4; border-left: 3px solid #2D6A4F; padding: 12px 14px; margin: 16px 0; border-radius: 0 6px 6px 0;">
+    <strong style="color: #2D6A4F;">What we're doing:</strong> our team is already reviewing the change.
+    If there's something to fix on your profile — outdated info, missing photos, a review needing a reply —
+    we'll handle it as part of your MapGuard plan and you'll see it in your next weekly recap.
+  </p>
+
+  <p style="color: #6b7280; font-size: 14px;">
+    Short-term changes like this happen for lots of reasons — a fresh competitor review, a temporary Google
+    index shuffle, a holiday traffic dip. They don't always indicate a problem with your business.
+    <strong style="color: #1f2937;">No action needed from you.</strong> We just wanted you to hear it from
+    us before you stumbled across it yourself.
+  </p>
+
+  <p style="margin: 24px 0;">
+    <a href="${escapeAttr(portalUrl)}" style="display: inline-block; background: #2D6A4F; color: white; padding: 10px 16px; border-radius: 6px; text-decoration: none; font-weight: 500;">
+      Open your dashboard →
+    </a>
+  </p>
+
+  <p style="margin-top: 32px; color: #9ca3af; font-size: 12px; border-top: 1px solid #e5e7eb; padding-top: 12px;">
+    You can adjust alert preferences any time in your MapGuard settings, or reply to this email to mute
+    these reassurance notes. Your monthly performance report is unaffected.
+  </p>
+</body></html>`;
+
+  await transporter.sendMail({
+    from: `WeFixTrades MapGuard <${getFromAddress()}>`,
+    to: client.contact_email,
+    subject,
+    text,
+    html,
+  });
+
+  log.info("[mapguard-alert] customer reassurance email sent", {
+    client_id: clientId,
+    alert_type: candidate.alert_type,
+  });
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+function escapeAttr(s: string): string {
+  return escapeHtml(s);
 }
 
 /* ═══════════════════════════════════════════

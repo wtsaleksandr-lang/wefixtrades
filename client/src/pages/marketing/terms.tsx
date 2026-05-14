@@ -166,6 +166,14 @@ export default function TermsPage() {
                   be delivered. Does not cover changes of mind.
                 </p>
                 <p>
+                  <strong>MapGuard MapSetup (one-time $397):</strong> refundable in full
+                  until we deliver the initial baseline audit (typically within 72 hours
+                  of signup). Once the audit and first round of profile fixes have been
+                  performed, the setup fee is non-refundable because the work has been
+                  done. Monthly MapGuard plans purchased alongside MapSetup remain
+                  covered by the standard 30-day money-back guarantee above.
+                </p>
+                <p>
                   Our full trial and refund policy is available on request.
                 </p>
               </Section>
