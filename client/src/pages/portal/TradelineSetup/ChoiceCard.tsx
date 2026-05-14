@@ -4,9 +4,6 @@
  * Default-expanded: Option A (get a new number).
  * Other two cards are collapsed with "Show details". Clicking a collapsed
  * card expands it AND collapses the previously-open card (radio-style).
- *
- * Option C is locked behind Pro tier — surfaced as a disabled CTA + lock
- * icon when optionCEligible=false.
  */
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -18,7 +15,6 @@ import {
   Check,
   ChevronDown,
   Clock,
-  Lock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -29,13 +25,12 @@ interface OptionConfig {
   title: string;
   subtitle: string;
   icon: React.ElementType;
-  tag?: { text: string; tone: "recommended" | "premium" };
+  tag?: { text: string; tone: "recommended" };
   timeToActive: string;
   cost: string;
   bullets: string[];
   youHandle: string[];
   weHandle: string[];
-  requiresPro?: boolean;
 }
 
 const OPTIONS: OptionConfig[] = [
@@ -91,9 +86,8 @@ const OPTIONS: OptionConfig[] = [
     title: "Port your existing number into WeFixTrades",
     subtitle: "Your number becomes a WeFixTrades number with full AI integration.",
     icon: Repeat,
-    tag: { text: "Requires Pro", tone: "premium" },
     timeToActive: "1–3 weeks",
-    cost: "Premium feature — requires Pro plan",
+    cost: "Included in your plan",
     bullets: [
       "Your existing number is transferred to WeFixTrades.",
       "Full AI integration on the number your customers already know.",
@@ -111,24 +105,21 @@ const OPTIONS: OptionConfig[] = [
       "Status tracking with email updates",
       "Activation when the port completes",
     ],
-    requiresPro: true,
   },
 ];
 
 export interface ChoiceCardProps {
-  optionCEligible: boolean;
   onContinue: (mode: TradelineSetupMode) => void;
   isContinuing?: boolean;
 }
 
-export function ChoiceCard({ optionCEligible, onContinue, isContinuing = false }: ChoiceCardProps) {
+export function ChoiceCard({ onContinue, isContinuing = false }: ChoiceCardProps) {
   const [openId, setOpenId] = useState<TradelineSetupMode>("new");
 
   return (
     <div className="space-y-3">
       {OPTIONS.map((opt) => {
         const isOpen = openId === opt.key;
-        const locked = !!opt.requiresPro && !optionCEligible;
 
         return (
           <Collapsible
@@ -144,7 +135,6 @@ export function ChoiceCard({ optionCEligible, onContinue, isContinuing = false }
                 isOpen
                   ? "border-indigo-500 ring-2 ring-indigo-100"
                   : "border-gray-200 hover:border-gray-300",
-                locked && "opacity-90",
               )}
             >
               <CollapsibleTrigger asChild>
@@ -169,13 +159,11 @@ export function ChoiceCard({ optionCEligible, onContinue, isContinuing = false }
                           className={cn(
                             "text-[10px] uppercase tracking-wide font-semibold px-1.5 py-0.5 rounded",
                             opt.tag.tone === "recommended" && "bg-emerald-100 text-emerald-800",
-                            opt.tag.tone === "premium" && "bg-amber-100 text-amber-800",
                           )}
                         >
                           {opt.tag.text}
                         </span>
                       )}
-                      {locked && <Lock className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" aria-label="Locked" />}
                     </div>
                     <p className="text-sm text-gray-600 mt-0.5">{opt.subtitle}</p>
                     <div className="mt-2 flex items-center gap-3 text-xs text-gray-500">
@@ -236,21 +224,14 @@ export function ChoiceCard({ optionCEligible, onContinue, isContinuing = false }
                     </div>
                   </div>
 
-                  {locked ? (
-                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-900">
-                      Porting requires the Pro plan. Upgrade your tradeline subscription
-                      to unlock — or start with one of the other options today.
-                    </div>
-                  ) : (
-                    <Button
-                      type="button"
-                      className="w-full"
-                      onClick={() => onContinue(opt.key)}
-                      disabled={isContinuing}
-                    >
-                      {isContinuing ? "Loading…" : continueLabel(opt.key)}
-                    </Button>
-                  )}
+                  <Button
+                    type="button"
+                    className="w-full"
+                    onClick={() => onContinue(opt.key)}
+                    disabled={isContinuing}
+                  >
+                    {isContinuing ? "Loading…" : continueLabel(opt.key)}
+                  </Button>
                 </div>
               </CollapsibleContent>
             </div>

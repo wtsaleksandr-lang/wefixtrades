@@ -7,7 +7,7 @@
  *   - Option B Verizon (number ending in 1): single CDMA code
  *   - Option B Rogers (number ending in 2): GSM code + voicemail warning
  *   - Option B Bell (number ending in 3): device-settings fallback (no tel: link)
- *   - Option C: tier gate (asserts 403 surfacing) — full flow needs Pro client
+ *   - Option C: Continue button available on all tiers
  *
  * Run from Replit shell:
  *   TRADELINE_SETUP_TEST_MODE=true TEST_CLIENT_EMAIL=… TEST_CLIENT_PASSWORD=… \
@@ -217,8 +217,8 @@ test.describe("Tradeline setup wizard", () => {
     });
   });
 
-  test.describe("Option C (port existing) — tier-gated", () => {
-    test("locked: amber notice instead of disabled Continue", async ({ page }) => {
+  test.describe("Option C (port existing) — available on all tiers", () => {
+    test("Continue button visible, no Pro tag, no locked notice", async ({ page }) => {
       await ensureClientLogin(page);
       await page.goto("/portal/tradeline/setup", { waitUntil: "domcontentloaded" });
 
@@ -226,18 +226,12 @@ test.describe("Tradeline setup wizard", () => {
       await page.getByText(/Port your existing number/i).first().click();
       await page.waitForTimeout(300);
 
-      // Expect REQUIRES PRO tag and amber notice (assumes test client is not on Pro)
-      const proTag = page.getByText(/REQUIRES PRO/i).first();
-      const amberNotice = page.getByText(/Porting requires the Pro plan/i);
+      // No Pro tag, no locked-state copy
+      await expect(page.getByText(/REQUIRES PRO/i)).not.toBeVisible();
+      await expect(page.getByText(/Porting requires the Pro plan/i)).not.toBeVisible();
 
-      // If test client IS pro, this assertion would fail — skip in that case.
-      const isPro = await proTag.isVisible().then(() => false).catch(() => true);
-      test.skip(isPro, "Test client appears to have Pro — locked-state test not applicable");
-
-      await expect(amberNotice).toBeVisible();
-
-      // No Continue button (replaced by upgrade copy)
-      await expect(page.getByRole("button", { name: /Continue.*port.*existing/i })).not.toBeVisible();
+      // Continue button is rendered for all clients
+      await expect(page.getByRole("button", { name: /Continue.*port.*existing/i })).toBeVisible();
     });
   });
 

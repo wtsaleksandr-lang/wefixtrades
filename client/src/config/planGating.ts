@@ -1,3 +1,9 @@
+/**
+ * Currently unused — preserved for future abstract-plan-tier work.
+ * Tier gating today happens in tradelineTierGate.ts (per-feature, per-product).
+ * If this file is still unwired in 6 months, delete it.
+ */
+
 /* ─── Plan gating — single source of truth ─── */
 import { colors, mkt } from '@/theme/tokens';
 

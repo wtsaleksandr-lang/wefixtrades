@@ -16,7 +16,6 @@ import type { TradelinePhoneSetup } from "@shared/schema";
 
 interface SetupStateResponse {
   setup: TradelinePhoneSetup;
-  optionCEligible: boolean;
 }
 
 export function TradelineSetupBanner() {

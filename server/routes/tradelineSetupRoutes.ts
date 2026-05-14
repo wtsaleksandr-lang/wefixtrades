@@ -32,7 +32,6 @@ import { lookupCarrier } from "../services/tradelineSetup/carrierLookup";
 import { provisionNumber } from "../services/tradelineSetup/provisionNumber";
 import { placeTestCall, checkTestCallStatus } from "../services/tradelineSetup/forwardingVerifier";
 import { submitPort } from "../services/tradelineSetup/portRequest";
-import { hasTradelineProOrHigher } from "../lib/tradelineTierGate";
 import { uploadEncryptedBuffer, downloadDecrypted } from "../lib/objectStorage";
 import { trackEvent } from "../lib/analytics";
 import { createLogger } from "../lib/logger";
@@ -92,7 +91,6 @@ export function registerTradelineSetupRoutes(app: Express) {
         if (!clientId) return;
 
         const existing = await getSetupRow(clientId);
-        const tierEligible = await hasTradelineProOrHigher(clientId);
 
         if (!existing) {
           // First visit — insert a blank row and fire _started.
@@ -106,10 +104,10 @@ export function registerTradelineSetupRoutes(app: Express) {
           trackEvent(distinctId(req.user!.id), "tradeline_setup_started", {
             client_id: clientId,
           });
-          return res.json({ setup: row, optionCEligible: tierEligible, testMode: process.env.TRADELINE_SETUP_TEST_MODE === "true" });
+          return res.json({ setup: row, testMode: process.env.TRADELINE_SETUP_TEST_MODE === "true" });
         }
 
-        return res.json({ setup: existing, optionCEligible: tierEligible, testMode: process.env.TRADELINE_SETUP_TEST_MODE === "true" });
+        return res.json({ setup: existing, testMode: process.env.TRADELINE_SETUP_TEST_MODE === "true" });
       } catch (err) {
         log.error("GET setup failed", { err: (err as Error).message });
         return res.status(500).json({ error: "Failed to load setup state" });
@@ -129,16 +127,6 @@ export function registerTradelineSetupRoutes(app: Express) {
         const parsed = chooseModeBody.safeParse(req.body);
         if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
         const { mode } = parsed.data;
-
-        if (mode === "port") {
-          const eligible = await hasTradelineProOrHigher(clientId);
-          if (!eligible) {
-            return res.status(403).json({
-              error: "Porting requires Pro or Enterprise tradeline plan",
-              code: "tier_gate_port",
-            });
-          }
-        }
 
         const row = await dualWriteSetup({
           clientId,
@@ -467,10 +455,6 @@ export function registerTradelineSetupRoutes(app: Express) {
       try {
         const clientId = await withClientId(req, res);
         if (!clientId) return;
-        const eligible = await hasTradelineProOrHigher(clientId);
-        if (!eligible) {
-          return res.status(403).json({ error: "Porting requires Pro tier", code: "tier_gate_port" });
-        }
         const parsed = billUploadBody.safeParse(req.body);
         if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
 
@@ -511,10 +495,6 @@ export function registerTradelineSetupRoutes(app: Express) {
       try {
         const clientId = await withClientId(req, res);
         if (!clientId) return;
-        const eligible = await hasTradelineProOrHigher(clientId);
-        if (!eligible) {
-          return res.status(403).json({ error: "Porting requires Pro tier", code: "tier_gate_port" });
-        }
         const parsed = loaSignBody.safeParse(req.body);
         if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
 
@@ -555,10 +535,6 @@ export function registerTradelineSetupRoutes(app: Express) {
       try {
         const clientId = await withClientId(req, res);
         if (!clientId) return;
-        const eligible = await hasTradelineProOrHigher(clientId);
-        if (!eligible) {
-          return res.status(403).json({ error: "Porting requires Pro tier", code: "tier_gate_port" });
-        }
         const parsed = portSubmitBody.safeParse(req.body);
         if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
 
