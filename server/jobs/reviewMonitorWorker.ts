@@ -139,17 +139,37 @@ async function syncClientReviews(client: Client): Promise<SyncResult> {
     totalFetched: 0,
   };
 
-  if (!client.google_place_id && !client.facebook_page_url) {
-    result.error = "No google_place_id or facebook_page_url";
+  // Resolve which Google place IDs to sync. Multi-location clients now
+  // have rows in google_business_locations (Sprint 2-3); legacy single-
+  // location clients still keep clients.google_place_id and have NO
+  // rows in the new table — we fall back to the legacy field for them.
+  const locationRows = await storage.listGoogleLocations(client.id);
+  const enabledLocations = locationRows.filter((l) => l.enabled);
+
+  // Build the work list. Each entry: { placeId, label (for logs/dedup) }.
+  // For multi-location clients, label = location_name; for legacy, label = business_name.
+  const googleWork: Array<{ placeId: string; label: string }> = [];
+  if (enabledLocations.length > 0) {
+    for (const loc of enabledLocations) {
+      googleWork.push({ placeId: loc.place_id, label: loc.location_name });
+    }
+  } else if (client.google_place_id) {
+    googleWork.push({ placeId: client.google_place_id, label: client.business_name });
+  }
+
+  if (googleWork.length === 0 && !client.facebook_page_url) {
+    result.error = "No google_place_id, no multi-location rows, and no facebook_page_url";
     return result;
   }
 
-  // Google reviews
-  if (client.google_place_id) {
-    const rawGoogle = await fetchGoogleReviews(client.google_place_id, REVIEWS_PER_CLIENT);
+  // Google reviews — one fetch per enabled location.
+  for (const work of googleWork) {
+    const rawGoogle = await fetchGoogleReviews(work.placeId, REVIEWS_PER_CLIENT);
     if (rawGoogle) {
       result.totalFetched += rawGoogle.length;
-      await processReviews(client, rawGoogle, "google", client.google_place_id, result);
+      // Pass the location-specific place_id as the placeIdKey so dedup
+      // is scoped per-location (same review at two locations stays distinct).
+      await processReviews(client, rawGoogle, "google", work.placeId, result);
     }
   }
 
