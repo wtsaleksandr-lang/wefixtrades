@@ -606,11 +606,23 @@ export default function AutomationDiagram() {
   const { nodes, edges } = buildTabData(TAB_NODES[activeTab], layout);
   const activeTabDef = TABS.find((t) => t.key === activeTab)!;
 
-  // Scroll active tab into view on mobile
+  // Center the active tab horizontally inside the tab-scroller (mobile).
+  // Use container.scrollTo, NOT element.scrollIntoView — the latter scrolls
+  // the page vertically when the diagram is below the fold (e.g., on home),
+  // causing an auto-scroll-to-mid-page bug on initial load. We also skip the
+  // very first render: the initial tab is already correct, no movement needed.
+  const firstTabAutoScroll = useRef(true);
   useEffect(() => {
-    if (!tabScrollRef.current) return;
-    const el = tabScrollRef.current.querySelector("[data-active='true']") as HTMLElement | null;
-    el?.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
+    if (firstTabAutoScroll.current) { firstTabAutoScroll.current = false; return; }
+    const container = tabScrollRef.current;
+    if (!container) return;
+    const el = container.querySelector("[data-active='true']") as HTMLElement | null;
+    if (!el) return;
+    const elRect = el.getBoundingClientRect();
+    const containerRect = container.getBoundingClientRect();
+    const targetLeft =
+      container.scrollLeft + (elRect.left - containerRect.left) - (containerRect.width / 2) + (elRect.width / 2);
+    container.scrollTo({ left: targetLeft, behavior: "smooth" });
   }, [activeTab]);
 
   const onNodeClick = useCallback((_: React.MouseEvent, _node: Node) => {
