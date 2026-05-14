@@ -436,8 +436,7 @@ export default function ProductPage() {
                   data-testid="product-cta-start"
                   className="mkt-btn-primary"
                   style={{
-                    padding: "14px 30px", borderRadius: 10, background: mkt.accent,
-                    color: "#FFFFFF", fontSize: 15, fontWeight: 700, textDecoration: "none",
+                    padding: "14px 30px", fontSize: 15, textDecoration: "none",
                     display: "inline-block",
                   }}
                 >
@@ -763,8 +762,7 @@ export default function ProductPage() {
                 data-testid="product-cta-start-bottom"
                 className="mkt-btn-primary"
                 style={{
-                  display: "inline-block", padding: "15px 36px", borderRadius: 14,
-                  background: "#FFFFFF", color: mkt.accent, fontSize: 16, fontWeight: 700, textDecoration: "none",
+                  display: "inline-block", padding: "15px 36px", fontSize: 16, textDecoration: "none",
                 }}
               >
                 Start Free

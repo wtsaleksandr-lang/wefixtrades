@@ -231,12 +231,12 @@ export default function QuoteQuickPricing() {
               disabled={!!checkoutLoading}
               style={{
                 width: "100%", padding: "14px", borderRadius: 10, border: "none",
-                background: mkt.accent, color: mkt.dark, cursor: "pointer",
-                fontSize: 14, fontWeight: 700, marginBottom: 6, transition: "all 0.15s",
+                background: mkt.ctaBg, color: mkt.ctaText, cursor: "pointer",
+                fontSize: 14, fontWeight: 500, marginBottom: 6, transition: "background 0.15s",
                 opacity: checkoutLoading ? 0.6 : 1,
               }}
-              onMouseEnter={e => { if (!checkoutLoading) e.currentTarget.style.background = mkt.accentHover; }}
-              onMouseLeave={e => { e.currentTarget.style.background = mkt.accent; }}
+              onMouseEnter={e => { if (!checkoutLoading) e.currentTarget.style.background = mkt.ctaBgHover; }}
+              onMouseLeave={e => { e.currentTarget.style.background = mkt.ctaBg; }}
             >
               {checkoutLoading === 'business' ? 'Redirecting...' : hasCalc ? 'Choose Business' : 'Start Free Trial'}
             </button>
@@ -321,13 +321,13 @@ export default function QuoteQuickPricing() {
           <button
             onClick={() => hasCalc ? startCheckout('solo') : (window.location.href = '/Wizard')}
             style={{
-              padding: "16px 40px", borderRadius: 12, border: "none",
-              background: mkt.accent, color: mkt.dark, cursor: "pointer",
-              fontSize: 15, fontWeight: 700, transition: "all 0.15s",
+              padding: "16px 40px", borderRadius: 10, border: "none",
+              background: mkt.ctaBg, color: mkt.ctaText, cursor: "pointer",
+              fontSize: 15, fontWeight: 500, transition: "background 0.15s",
               display: "inline-flex", alignItems: "center", gap: 8,
             }}
-            onMouseEnter={e => { e.currentTarget.style.background = mkt.accentHover; }}
-            onMouseLeave={e => { e.currentTarget.style.background = mkt.accent; }}
+            onMouseEnter={e => { e.currentTarget.style.background = mkt.ctaBgHover; }}
+            onMouseLeave={e => { e.currentTarget.style.background = mkt.ctaBg; }}
           >
             {hasCalc ? 'Choose a Plan' : 'Start Free Trial'} <ArrowRight size={16} />
           </button>

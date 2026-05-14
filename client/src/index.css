@@ -464,30 +464,28 @@
   transition: color var(--dur) var(--ease-out), background var(--dur) var(--ease-out), opacity var(--dur) var(--ease-out), transform var(--dur) var(--ease-out);
 }
 
-/* CTA button — dark theme.
- * Base state is flat (no colored glow, no halo). Hover affords a white
- * inset border (see --glow-primary). Background darkens on hover. */
+/* CTA button — DOSS pattern (marketing-polish PR).
+ * Warm off-white cream background, near-black text. No uppercase, no
+ * letter-spacing — DOSS uses natural casing. Hover deepens the cream
+ * slightly; no colored halo, no inset border (those felt heavy). */
 .mkt-btn-primary {
   border-radius: 10px !important;
   cursor: pointer;
-  background: #0d3cfc;
-  color: #FFFFFF;
+  background: #E6E3E0;
+  color: #1E1E1E;
   font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  text-transform: none;
+  letter-spacing: 0;
   box-shadow: 0 1px 3px rgba(0,0,0,0.12);
   transition:
     transform var(--dur) var(--ease-out),
-    box-shadow var(--dur) var(--ease-out),
     background var(--dur) var(--ease-out),
-    border-color var(--dur) var(--ease-out),
     opacity var(--dur) var(--ease-out);
 }
 .mkt-btn-primary:hover {
-  transform: translateY(-2px);
-  background: #0b34d6;
-  box-shadow: var(--glow-primary);
-  will-change: transform, box-shadow;
+  background: #D4CFC9;
+  transform: translateY(-1px);
+  will-change: transform, background;
 }
 .mkt-btn-primary:active {
   transform: translateY(0px) scale(0.985);
