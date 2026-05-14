@@ -13,10 +13,11 @@
 
 import type { Express, Request, Response } from "express";
 import { z } from "zod";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "../db";
-import { mobileCallRecords, mobileDevices, mobilePlatformSchema } from "@shared/schema";
+import { mobileCallRecords, mobileDevices, mobilePlatformSchema, voicemails } from "@shared/schema";
 import { requireSessionOrBearer } from "../lib/mobileAuth";
+import { signRecordingUrl } from "./voicemailRoutes";
 import {
   getVoiceConfig,
   voiceConfigMissingKeys,
@@ -239,6 +240,96 @@ export function registerMobileVoiceRoutes(app: Express) {
       } catch (err) {
         log.error("Call history query failed", { err: (err as Error).message });
         return res.status(500).json({ error: "Failed to fetch call history" });
+      }
+    },
+  );
+
+  /* ─── Voicemails: list for the authenticated user ─── */
+  app.get(
+    "/api/mobile/voicemails",
+    requireSessionOrBearer,
+    async (req: Request, res: Response) => {
+      const user = req.user as any;
+      const unackOnly = req.query.unacknowledged === "true";
+      try {
+        const baseWhere = eq(voicemails.user_id, user.id as number);
+        const where = unackOnly
+          ? and(baseWhere, sql`${voicemails.acknowledged_at} IS NULL`)
+          : baseWhere;
+
+        const rows = await db
+          .select({
+            id: voicemails.id,
+            call_sid: voicemails.call_sid,
+            from_number: voicemails.from_number,
+            lead_id: voicemails.lead_id,
+            recording_duration: voicemails.recording_duration,
+            transcript: voicemails.transcript,
+            summary: voicemails.summary,
+            sentiment: voicemails.sentiment,
+            acknowledged_at: voicemails.acknowledged_at,
+            created_at: voicemails.created_at,
+          })
+          .from(voicemails)
+          .where(where)
+          .orderBy(desc(voicemails.created_at))
+          .limit(200);
+
+        const payload = rows.map((r) => ({
+          id: r.id,
+          callSid: r.call_sid,
+          fromNumber: r.from_number,
+          leadId: r.lead_id,
+          recordingUrl: signRecordingUrl(r.id),
+          recordingDuration: r.recording_duration,
+          transcript: r.transcript,
+          summary: r.summary,
+          sentiment: (r.sentiment as
+            | "urgent"
+            | "positive"
+            | "neutral"
+            | "negative"
+            | null) ?? null,
+          acknowledged: r.acknowledged_at !== null,
+          createdAt: r.created_at.toISOString(),
+        }));
+
+        return res.json({ voicemails: payload });
+      } catch (err) {
+        log.error("Voicemail list query failed", { err: (err as Error).message });
+        return res.status(500).json({ error: "Failed to fetch voicemails" });
+      }
+    },
+  );
+
+  /* ─── Voicemails: acknowledge (mark heard) ─── */
+  app.post(
+    "/api/mobile/voicemails/:id/acknowledge",
+    requireSessionOrBearer,
+    async (req: Request, res: Response) => {
+      const user = req.user as any;
+      const id = Number(req.params.id);
+      if (!Number.isFinite(id) || id <= 0) {
+        return res.status(400).json({ error: "Invalid id" });
+      }
+      try {
+        const result = await db
+          .update(voicemails)
+          .set({ acknowledged_at: new Date() })
+          .where(
+            and(
+              eq(voicemails.id, id),
+              eq(voicemails.user_id, user.id as number),
+            ),
+          );
+        const affected = (result as any).rowCount ?? 0;
+        if (affected === 0) {
+          return res.status(404).json({ error: "Voicemail not found" });
+        }
+        return res.json({ ok: true });
+      } catch (err) {
+        log.error("Voicemail acknowledge failed", { err: (err as Error).message });
+        return res.status(500).json({ error: "Acknowledge failed" });
       }
     },
   );
