@@ -16,7 +16,7 @@ import { and, eq, lte, sql } from "drizzle-orm";
 import { db } from "../db";
 import { reviewReplyPostQueue, monitoredReviews } from "@shared/schema";
 import { storage } from "../storage";
-import { postGoogleReviewReply } from "../services/socialSync/googleBusinessService";
+import { postGoogleReviewReply } from "../services/googleBusinessService";
 import { createLogger } from "../lib/logger";
 import { notifyReplyPostFailure } from "../services/reputation/reputationAlerts";
 
