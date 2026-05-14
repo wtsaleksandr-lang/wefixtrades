@@ -342,4 +342,125 @@ export function registerChatRoutes(app: Express): void {
     res.set("Cache-Control", "public, max-age=300");
     res.type("text/plain").send(TRADELINE_DEMO_PROMPT);
   });
+
+  /**
+   * GET /api/tradeline-demo/niche/:slug?voice=professional-female
+   *
+   * Returns niche-specific demo prompt + first message + voice config for
+   * the marketing "Meet your AI agents" cards. Wraps the selected
+   * TradeLine niche template into a public-facing demo persona (no real
+   * client data — speaks as a generic example business).
+   */
+  app.get("/api/tradeline-demo/niche/:slug", async (req: Request, res: Response) => {
+    try {
+      const { selectTemplate } = await import("../services/tradelineTemplates");
+      const { getVoicePreset } = await import("@shared/tradelineVoices");
+
+      const slug = String(req.params.slug || "").toLowerCase();
+      const voicePresetId = String(req.query.voice || "professional-female");
+
+      const template = selectTemplate(slug);
+      const voice = getVoicePreset(voicePresetId);
+
+      const sampleBusinessName = `${template.name} Pros`;
+      const sampleArea = "the Greater Toronto Area";
+      const services = template.fallbackServices.slice(0, 6);
+
+      const systemPrompt = [
+        `You are the AI demo receptionist for ${sampleBusinessName}, a ${template.name.toLowerCase()} business serving ${sampleArea}. This is a public marketing demo on the WeFixTrades product page — the caller is evaluating the AI, not booking a real job.`,
+        ``,
+        template.systemPromptBase,
+        ``,
+        `TONE: ${template.defaultTone === "professional" ? "Professional and courteous." : template.defaultTone === "friendly" ? "Friendly and warm." : "Casual and natural."}`,
+        ``,
+        `SAMPLE SERVICES WE OFFER:`,
+        ...services.map((s) => `- ${s}`),
+        ``,
+        `CALL FLOW: ${template.callFlowNotes}`,
+        ``,
+        `BOOKING: ${template.bookingBehavior}`,
+        ``,
+        `ESCALATION: ${template.escalationRules}`,
+        ``,
+        `WHEN UNSURE: ${template.fallbackBehavior}`,
+        ``,
+        `IMPORTANT — DEMO RULES:`,
+        `- This is a marketing demo. Don't actually book anything; if pressed, say "this is a demo of our AI — to book real ${template.name.toLowerCase()} work, head to wefixtrades.com".`,
+        `- Keep voice responses to 1-3 short sentences. Use natural spoken language and contractions.`,
+        `- Never claim to be a human. If asked, say you're an AI demo of a ${template.name.toLowerCase()} receptionist.`,
+        `- If the caller wants to test escalation, follow the ESCALATION rule literally — pretend you would escalate.`,
+      ].join("\n");
+
+      const firstMessage = `Hi, thanks for calling ${sampleBusinessName} — I'm the AI demo. What can I help you with?`;
+
+      res.set("Cache-Control", "public, max-age=120");
+      return res.json({
+        slug: template.id,
+        name: template.name,
+        defaultTone: template.defaultTone,
+        systemPrompt,
+        firstMessage,
+        voiceConfig: { provider: voice.provider, voiceId: voice.voiceId, label: voice.label, description: voice.description },
+      });
+    } catch (err) {
+      log.error("[tradeline-demo/niche] error", { err: (err as Error).message });
+      return res.status(500).json({ error: "Failed to load niche demo" });
+    }
+  });
+
+  /**
+   * POST /api/tradeline-demo/niche-chat
+   *
+   * Public chat endpoint for the per-niche marketing demo cards. Looks up
+   * the niche template server-side, builds the demo system prompt, and
+   * sends to the assistant pipeline with a systemOverride. Rate-limited
+   * the same way as /api/chat/sync.
+   */
+  app.post("/api/tradeline-demo/niche-chat", async (req: Request, res: Response) => {
+    try {
+      const clientIp = getClientIp(req);
+      if (!(await chatRateLimiter.check(clientIp))) {
+        return res.status(429).json({ error: "Too many requests, please try again shortly" });
+      }
+      const readiness = isReady();
+      if (!readiness.ready) {
+        return res.status(503).json({ error: "Chat is temporarily unavailable." });
+      }
+
+      const slug = String(req.body?.slug || "").toLowerCase();
+      const messages = req.body?.messages;
+      if (!slug || !validateMessages(messages)) {
+        return res.status(400).json({ error: "slug and messages are required" });
+      }
+
+      const { selectTemplate } = await import("../services/tradelineTemplates");
+      const template = selectTemplate(slug);
+
+      const sampleBusinessName = `${template.name} Pros`;
+      const services = template.fallbackServices.slice(0, 6);
+      const systemPrompt = [
+        `You are the AI demo receptionist for ${sampleBusinessName}, a ${template.name.toLowerCase()} business. This is a public marketing demo on the WeFixTrades product page.`,
+        template.systemPromptBase,
+        `TONE: ${template.defaultTone === "professional" ? "Professional and courteous." : template.defaultTone === "friendly" ? "Friendly and warm." : "Casual and natural."}`,
+        `SAMPLE SERVICES: ${services.join(", ")}.`,
+        `CALL FLOW: ${template.callFlowNotes}`,
+        `BOOKING: ${template.bookingBehavior}`,
+        `ESCALATION: ${template.escalationRules}`,
+        `WHEN UNSURE: ${template.fallbackBehavior}`,
+        `IMPORTANT: This is a demo — don't actually book anything. Keep responses to 1-3 short sentences. Never claim to be human; you're an AI demo of a ${template.name.toLowerCase()} receptionist.`,
+      ].join("\n\n");
+
+      const result = await assistantSync({
+        surface: "tradeline_demo",
+        messages,
+        sessionId: `niche-demo-${slug}-${crypto.randomUUID()}`,
+        systemOverride: systemPrompt,
+        maxTokens: 400,
+      });
+      return res.json({ reply: result.reply });
+    } catch (err: any) {
+      log.error("[tradeline-demo/niche-chat] error", { err: err?.message });
+      return res.status(500).json({ error: "Something went wrong. Please try again." });
+    }
+  });
 }
