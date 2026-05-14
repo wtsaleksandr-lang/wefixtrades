@@ -159,7 +159,7 @@ export interface ProcessQueueSummary {
   failed: number;
   retried: number;
   errors: string[];
-  /* Sprint 10/13: per-channel breakdown. */
+  /* Sprint 10/13/18: per-channel breakdown. */
   channels?: {
     wordpress: ChannelMetrics;
     gbp: ChannelMetrics;
@@ -167,6 +167,8 @@ export interface ProcessQueueSummary {
     instagram: ChannelMetrics;
     gbp_post: ChannelMetrics;
     email: ChannelMetrics;
+    linkedin: ChannelMetrics;
+    pinterest: ChannelMetrics;
     youtube: ChannelMetrics;
   };
 }
@@ -333,19 +335,23 @@ export async function retryDraft(draftId: number): Promise<RetryResult> {
 /* ─── Worker ────────────────────────────────────────────────────────── */
 
 /**
- * Sprint 8/9/10: drain up to BATCH_SIZE eligible drafts per channel
- * using atomic claims. Five channels supported:
- *   wordpress (RankFlow articles)
+ * Sprint 8/9/10/13/18: drain up to BATCH_SIZE eligible drafts per
+ * channel using atomic claims. Nine channels supported:
+ *   wordpress  (RankFlow articles)
  *   gbp        (ReputationShield review-replies — Sprint 9)
  *   facebook   (SocialSync posts — Sprint 10)
  *   instagram  (SocialSync posts — Sprint 10)
  *   gbp_post   (SocialSync GBP posts — Sprint 10, distinct from review-replies)
+ *   email      (Repurposed newsletter / email_post — Sprint 13)
+ *   linkedin   (Repurposed LinkedIn social_post — Sprint 18)
+ *   pinterest  (Repurposed Pinterest social_post — Sprint 18)
+ *   youtube    (Repurposed kind='video' uploads — Sprint 18)
  *
  * Per-channel metrics are recorded into summary.channels so the
  * runJob wrapper persists them into job_logs.metadata for the
  * /api/admin/contentflow/queue-metrics endpoint.
  *
- * Stale-lock recovery runs for all 5 channels at the top of every
+ * Stale-lock recovery runs for all 9 channels at the top of every
  * tick. Drain order is fixed but each is independent — SKIP LOCKED
  * is per-row so a slow facebook publish doesn't block instagram drain.
  */
@@ -363,13 +369,15 @@ export async function processQueue(): Promise<ProcessQueueSummary> {
       instagram: emptyChannelMetrics(),
       gbp_post: emptyChannelMetrics(),
       email: emptyChannelMetrics(),
+      linkedin: emptyChannelMetrics(),
+      pinterest: emptyChannelMetrics(),
       youtube: emptyChannelMetrics(),
     },
   };
 
   const now = new Date();
 
-  /* 1. Stale-lock recovery for all 6 channels. */
+  /* 1. Stale-lock recovery for all 9 channels. */
   const recoveryFns: Array<[string, () => Promise<number>]> = [
     ["wp", () => storage.recoverStaleWordpressClaims({ now, staleLockMs: STALE_LOCK_MS })],
     ["gbp", () => storage.recoverStaleGbpClaims({ now, staleLockMs: STALE_LOCK_MS })],
@@ -377,6 +385,9 @@ export async function processQueue(): Promise<ProcessQueueSummary> {
     ["instagram", () => storage.recoverStaleInstagramClaims({ now, staleLockMs: STALE_LOCK_MS })],
     ["gbp_post", () => storage.recoverStaleGbpPostClaims({ now, staleLockMs: STALE_LOCK_MS })],
     ["email", () => storage.recoverStaleEmailClaims({ now, staleLockMs: STALE_LOCK_MS })],
+    ["linkedin", () => storage.recoverStaleLinkedinClaims({ now, staleLockMs: STALE_LOCK_MS })],
+    ["pinterest", () => storage.recoverStalePinterestClaims({ now, staleLockMs: STALE_LOCK_MS })],
+    ["youtube", () => storage.recoverStaleYoutubeClaims({ now, staleLockMs: STALE_LOCK_MS })],
   ];
   for (const [tag, fn] of recoveryFns) {
     try {
@@ -387,13 +398,16 @@ export async function processQueue(): Promise<ProcessQueueSummary> {
     }
   }
 
-  /* 2-7. Drain each channel up to BATCH_SIZE. */
+  /* 2-10. Drain each channel up to BATCH_SIZE. */
   await drainWordpressQueue(summary);
   await drainGbpQueue(summary);
   await drainSocialChannel(summary, "facebook");
   await drainSocialChannel(summary, "instagram");
   await drainSocialChannel(summary, "gbp_post");
   await drainSocialChannel(summary, "email");
+  await drainSocialChannel(summary, "linkedin");
+  await drainSocialChannel(summary, "pinterest");
+  await drainSocialChannel(summary, "youtube");
 
   /* 8. Backpressure alerting — after each drain cycle. */
   await checkBackpressure().catch((err: any) => {
@@ -425,6 +439,9 @@ async function checkBackpressure(): Promise<void> {
           OR (${contentDrafts.metadata}->'gbp_post'->>'queue_status') = 'queued'
           OR (${contentDrafts.metadata}->'gbp'->>'queue_status') = 'queued'
           OR (${contentDrafts.metadata}->'email'->>'queue_status') = 'queued'
+          OR (${contentDrafts.metadata}->'linkedin'->>'queue_status') = 'queued'
+          OR (${contentDrafts.metadata}->'pinterest'->>'queue_status') = 'queued'
+          OR (${contentDrafts.metadata}->'youtube'->>'queue_status') = 'queued'
         )
       `);
 
@@ -464,6 +481,9 @@ async function checkBackpressure(): Promise<void> {
           OR (${contentDrafts.metadata}->'gbp_post'->>'queue_status') = 'queued'
           OR (${contentDrafts.metadata}->'gbp'->>'queue_status') = 'queued'
           OR (${contentDrafts.metadata}->'email'->>'queue_status') = 'queued'
+          OR (${contentDrafts.metadata}->'linkedin'->>'queue_status') = 'queued'
+          OR (${contentDrafts.metadata}->'pinterest'->>'queue_status') = 'queued'
+          OR (${contentDrafts.metadata}->'youtube'->>'queue_status') = 'queued'
         )
       `);
 
@@ -745,7 +765,7 @@ async function drainGbpQueue(summary: ProcessQueueSummary): Promise<void> {
  * adapter dispatch, cooling_down handling, and retry/dead-letter
  * logic — only the channel name varies.
  */
-type SocialChannel = "facebook" | "instagram" | "gbp_post" | "email" | "youtube";
+type SocialChannel = "facebook" | "instagram" | "gbp_post" | "email" | "linkedin" | "pinterest" | "youtube";
 
 async function drainSocialChannel(summary: ProcessQueueSummary, channel: SocialChannel): Promise<void> {
   const m = summary.channels?.[channel] ?? emptyChannelMetrics();
@@ -753,6 +773,9 @@ async function drainSocialChannel(summary: ProcessQueueSummary, channel: SocialC
     channel === "facebook" ? storage.claimNextFacebookJob.bind(storage)
     : channel === "instagram" ? storage.claimNextInstagramJob.bind(storage)
     : channel === "gbp_post" ? storage.claimNextGbpPostJob.bind(storage)
+    : channel === "linkedin" ? storage.claimNextLinkedinJob.bind(storage)
+    : channel === "pinterest" ? storage.claimNextPinterestJob.bind(storage)
+    : channel === "youtube" ? storage.claimNextYoutubeJob.bind(storage)
     : storage.claimNextEmailJob.bind(storage);
 
   for (let i = 0; i < BATCH_SIZE; i++) {

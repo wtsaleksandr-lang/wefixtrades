@@ -3699,7 +3699,7 @@ export class DatabaseStorage implements IStorage {
    * methods. Each public method below is a thin wrapper.
    */
   private async _claimNextSocialJob(
-    metadataKey: "facebook" | "instagram" | "gbp_post" | "email",
+    metadataKey: "facebook" | "instagram" | "gbp_post" | "email" | "linkedin" | "pinterest" | "youtube",
     targetPlatform: string,
     workerId: string,
     opts: { now?: Date; staleLockMs?: number; kindFilter?: string[]; successField?: string } = {},
@@ -3755,7 +3755,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   private async _recoverStaleSocialClaims(
-    metadataKey: "facebook" | "instagram" | "gbp_post" | "email",
+    metadataKey: "facebook" | "instagram" | "gbp_post" | "email" | "linkedin" | "pinterest" | "youtube",
     targetPlatform: string,
     opts: { now?: Date; staleLockMs?: number; kindFilter?: string[] } = {},
   ): Promise<number> {
@@ -3822,6 +3822,38 @@ export class DatabaseStorage implements IStorage {
   }
   async recoverStaleEmailClaims(opts: { now?: Date; staleLockMs?: number } = {}): Promise<number> {
     return this._recoverStaleSocialClaims("email", "email", { ...opts, kindFilter: ["email_post"] });
+  }
+
+  /* Sprint 18: LinkedIn, Pinterest, YouTube queues. Each writes its
+   * own metadata.<channel>.* lifecycle on the same content_drafts row.
+   * LinkedIn + Pinterest are kind='social_post' (with carousel allowed
+   * for completeness); YouTube is kind='video' and uses youtube_url as
+   * the don't-republish marker because the YouTube adapter persists
+   * remote_video_id + youtube_url + posted_at on success (not the
+   * remote_post_id key used by the other social adapters). */
+  async claimNextLinkedinJob(workerId: string, opts: { now?: Date; staleLockMs?: number } = {}): Promise<ContentDraft | null> {
+    return this._claimNextSocialJob("linkedin", "linkedin", workerId, { ...opts, kindFilter: ["social_post", "carousel_post"] });
+  }
+  async recoverStaleLinkedinClaims(opts: { now?: Date; staleLockMs?: number } = {}): Promise<number> {
+    return this._recoverStaleSocialClaims("linkedin", "linkedin", { ...opts, kindFilter: ["social_post", "carousel_post"] });
+  }
+
+  async claimNextPinterestJob(workerId: string, opts: { now?: Date; staleLockMs?: number } = {}): Promise<ContentDraft | null> {
+    return this._claimNextSocialJob("pinterest", "pinterest", workerId, { ...opts, kindFilter: ["social_post", "carousel_post"] });
+  }
+  async recoverStalePinterestClaims(opts: { now?: Date; staleLockMs?: number } = {}): Promise<number> {
+    return this._recoverStaleSocialClaims("pinterest", "pinterest", { ...opts, kindFilter: ["social_post", "carousel_post"] });
+  }
+
+  async claimNextYoutubeJob(workerId: string, opts: { now?: Date; staleLockMs?: number } = {}): Promise<ContentDraft | null> {
+    return this._claimNextSocialJob("youtube", "youtube", workerId, {
+      ...opts,
+      kindFilter: ["video"],
+      successField: "youtube_url",
+    });
+  }
+  async recoverStaleYoutubeClaims(opts: { now?: Date; staleLockMs?: number } = {}): Promise<number> {
+    return this._recoverStaleSocialClaims("youtube", "youtube", { ...opts, kindFilter: ["video"] });
   }
 
   /**
