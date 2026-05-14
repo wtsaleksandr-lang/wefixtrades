@@ -55,6 +55,7 @@ import { registerAdminTradelineSetupsRoutes } from "./adminTradelineSetupsRoutes
 import { registerMobileAuthRoutes } from "./mobileAuthRoutes";
 import { registerMobileApiRoutes } from "./mobileApiRoutes";
 import { registerMobileVoiceRoutes } from "./mobileVoiceRoutes";
+import { registerMobileAiRoutes } from "./mobileAiRoutes";
 import { registerTwilioVoiceCallbackRoutes } from "./twilioVoiceCallbackRoutes";
 
 export async function registerRoutes(
@@ -117,6 +118,7 @@ export async function registerRoutes(
   registerMobileAuthRoutes(app);
   registerMobileApiRoutes(app);
   registerMobileVoiceRoutes(app);
+  registerMobileAiRoutes(app);
   registerTwilioVoiceCallbackRoutes(app);
 
   return httpServer;
