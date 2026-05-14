@@ -6,8 +6,15 @@
  * Goal: pull secrets stored only in Doppler into the runtime env so we
  * don't have to manually mirror everything into Replit Secrets. The
  * inverse case — secrets only in Replit Secrets — also still works
- * because Replit-injected env vars take precedence (we only fill in
- * MISSING keys; never overwrite).
+ * because Replit-injected env vars take precedence by default (we only
+ * fill in MISSING keys; never overwrite).
+ *
+ * Override list (opt-in escape hatch): `DOPPLER_OVERRIDE_KEYS` —
+ * comma-separated list of env-var names whose Doppler value should WIN
+ * over any pre-existing process.env value. Default is empty (no
+ * overrides → existing behaviour). The list can be set in Replit
+ * Secrets (highest priority, useful for emergency disable) or in the
+ * Doppler config itself.
  *
  * Failure mode: soft. If DOPPLER_TOKEN is unset, Doppler is unreachable,
  * the response is malformed, or the request times out, we log a warning
@@ -54,23 +61,48 @@ import { execSync } from "node:child_process";
   }
 
   const secrets = payload?.secrets ?? {};
+
+  // Override list: Replit-Secret value takes precedence (emergency-disable
+  // path), else fall back to Doppler-stored value. Empty list = no overrides
+  // (current behaviour preserved).
+  const overrideRaw =
+    process.env.DOPPLER_OVERRIDE_KEYS ||
+    secrets["DOPPLER_OVERRIDE_KEYS"]?.computed ||
+    secrets["DOPPLER_OVERRIDE_KEYS"]?.raw ||
+    "";
+  const overrideKeys = new Set(
+    overrideRaw
+      .split(",")
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0),
+  );
+
   let applied = 0;
   let skippedExisting = 0;
   let skippedEmpty = 0;
+  let overrode = 0;
+  const overrodeNames: string[] = [];
 
   for (const [key, value] of Object.entries(secrets)) {
     // Doppler bookkeeping vars — never inject these into the app
     if (key.startsWith("DOPPLER_") || key === "NAME") continue;
 
-    // Replit Secrets / .env / runtime env wins over Doppler — preserve existing values.
-    // This means rotating a value in Replit Secrets but not Doppler stays consistent.
-    if (process.env[key] !== undefined && process.env[key] !== "") {
+    const force = overrideKeys.has(key);
+    const hasRuntime = process.env[key] !== undefined && process.env[key] !== "";
+
+    // Default rule: Replit / runtime env wins. Override list flips that for
+    // listed keys only.
+    if (hasRuntime && !force) {
       skippedExisting++;
       continue;
     }
 
     const v = value?.computed ?? value?.raw;
     if (typeof v === "string" && v.length > 0) {
+      if (force && hasRuntime && process.env[key] !== v) {
+        overrode++;
+        overrodeNames.push(key);
+      }
       process.env[key] = v;
       applied++;
     } else {
@@ -81,6 +113,7 @@ import { execSync } from "node:child_process";
   console.log(
     `[doppler-bootstrap] project=${project} config=${config} ` +
       `fetched=${Object.keys(secrets).length} applied=${applied} ` +
-      `kept-from-runtime=${skippedExisting} empty=${skippedEmpty}`,
+      `kept-from-runtime=${skippedExisting} empty=${skippedEmpty} overrode=${overrode}` +
+      (overrodeNames.length ? ` (${overrodeNames.join(",")})` : ""),
   );
 })();
