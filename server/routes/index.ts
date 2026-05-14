@@ -52,6 +52,7 @@ import { registerAdminAlertRoutes } from "./adminAlertRoutes";
 import { registerChatAttachmentRoutes } from "./chatAttachmentRoutes";
 import { registerTradelineSetupRoutes } from "./tradelineSetupRoutes";
 import { registerAdminTradelineSetupsRoutes } from "./adminTradelineSetupsRoutes";
+import { registerAdminTradelineTemplatesRoutes } from "./adminTradelineTemplatesRoutes";
 import { registerMobileAuthRoutes } from "./mobileAuthRoutes";
 import { registerMobileApiRoutes } from "./mobileApiRoutes";
 import { registerMobileVoiceRoutes } from "./mobileVoiceRoutes";
@@ -113,6 +114,7 @@ export async function registerRoutes(
   registerChatAttachmentRoutes(app);
   registerTradelineSetupRoutes(app);
   registerAdminTradelineSetupsRoutes(app);
+  registerAdminTradelineTemplatesRoutes(app);
   registerMobileAuthRoutes(app);
   registerMobileApiRoutes(app);
   registerMobileVoiceRoutes(app);
