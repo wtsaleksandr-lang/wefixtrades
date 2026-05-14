@@ -728,7 +728,7 @@ export default function AutomationDiagram() {
                     fontFamily: "'Space Grotesk', 'DM Sans', system-ui, sans-serif",
                     letterSpacing: "0.01em",
                     transition: "all 0.2s ease",
-                    background: active ? "#00D4C8" : "transparent",
+                    background: active ? "#0d3cfc" : "transparent",
                     color: active ? "#0d1514" : "rgba(255,255,255,0.5)",
                     boxShadow: "none",
                     whiteSpace: "nowrap",

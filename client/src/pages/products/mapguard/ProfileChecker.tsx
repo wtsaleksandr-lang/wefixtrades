@@ -90,7 +90,7 @@ function deriveGrade(biz: Business): { grade: string; color: string; gapCount: n
   if (!biz.photos || biz.photos.length < 3) gapCount++;
 
   if (pct >= 0.8) return { grade: "A", color: "#22C55E", gapCount };
-  if (pct >= 0.6) return { grade: "B", color: "#00D4C8", gapCount };
+  if (pct >= 0.6) return { grade: "B", color: "#0d3cfc", gapCount };
   if (pct >= 0.4) return { grade: "C", color: "#F59E0B", gapCount };
   return { grade: "D", color: "#EF4444", gapCount };
 }

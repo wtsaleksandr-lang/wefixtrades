@@ -125,7 +125,7 @@ export default function ReviewFunnel() {
   if (pageState === "loading") {
     return (
       <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh", background: "#f5f5f5" }}>
-        <Loader2 className="animate-spin" size={32} style={{ color: "#00D4C8" }} />
+        <Loader2 className="animate-spin" size={32} style={{ color: "#0d3cfc" }} />
       </div>
     );
   }
@@ -243,7 +243,7 @@ export default function ReviewFunnel() {
             rel="noopener noreferrer"
             style={{
               display: "inline-flex", alignItems: "center", gap: 8,
-              background: "#00D4C8", color: "#1A1A2E", fontSize: 14, fontWeight: 700,
+              background: "#0d3cfc", color: "#1A1A2E", fontSize: 14, fontWeight: 700,
               padding: "14px 28px", borderRadius: 10, textDecoration: "none",
             }}
           >

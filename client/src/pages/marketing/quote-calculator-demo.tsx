@@ -212,7 +212,7 @@ const TRADES: TradeConfig[] = [
 ];
 
 const DARK = "#0d1514";
-const CYAN = "#00D4C8";
+const CYAN = "#0d3cfc";
 
 const BENEFITS = [
   { icon: Clock, text: "Instant prices, 24/7" },
