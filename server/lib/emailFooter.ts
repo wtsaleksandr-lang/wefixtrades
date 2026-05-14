@@ -15,7 +15,7 @@
 
 import { buildUnsubscribeUrl } from "./unsubscribeToken";
 
-const ACCENT = "#66E8FA";
+const ACCENT = "#0d3cfc";
 const TEXT_BRIGHT = "#FAFAFA";
 const TEXT_MUTED = "#8B919A";
 const TEXT_FAINT = "#555B63";
@@ -89,7 +89,7 @@ export function buildChatBubble(): string {
             <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
               <tr>
                 <td valign="middle" style="width:36px;">
-                  <span style="display:inline-block;width:32px;height:32px;background:rgba(102,232,250,0.12);border-radius:8px;text-align:center;line-height:32px;font-size:16px;">💬</span>
+                  <span style="display:inline-block;width:32px;height:32px;background:rgba(13,60,252,0.12);border-radius:8px;text-align:center;line-height:32px;font-size:16px;">💬</span>
                 </td>
                 <td valign="middle" style="padding-left:12px;">
                   <div style="font-size:13px;font-weight:700;color:${TEXT_BRIGHT};">Have a question?</div>

@@ -96,7 +96,7 @@ const C = {
   white: "#FFFFFF",
   grey: "#6B7280",
   lightGrey: "#E5E7EB",
-  cyan: "#00D4C8",
+  cyan: "#0d3cfc",
   green: "#22C55E",
   amber: "#F59E0B",
   red: "#EF4444",

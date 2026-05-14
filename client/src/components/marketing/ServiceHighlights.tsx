@@ -51,9 +51,9 @@ const TABS = [
     key: "visibility",
     label: "VISIBILITY",
     icon: MapPin,
-    iconBg: "rgba(102,232,250,0.14)",
-    iconColor: "#54A1AB",
-    fillColor: "rgba(102,232,250,0.16)",
+    iconBg: "rgba(13,60,252,0.14)",
+    iconColor: "#0b34d6",
+    fillColor: "rgba(13,60,252,0.16)",
     title: "Stay visible where customers search",
     desc: "Your business information and customer feedback stay active and up to date, helping more customers find you.",
     cards: [

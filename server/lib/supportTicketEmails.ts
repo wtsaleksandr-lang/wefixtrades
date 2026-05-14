@@ -139,7 +139,7 @@ function buildTicketResolvedHtml(recipientEmail: string, data: TicketResolvedDat
     headline: "Your ticket has been resolved",
     intro: `Your support request "<strong style="color:#F0F0F0;">${escapeHtml(data.subject)}</strong>" has been marked as resolved.`,
     bodyHtml: `
-      <div style="background:rgba(102,232,250,0.06);border-left:2px solid #66E8FA;border-radius:4px;padding:12px 14px;margin:0 0 6px;">
+      <div style="background:rgba(13,60,252,0.06);border-left:2px solid #0d3cfc;border-radius:4px;padding:12px 14px;margin:0 0 6px;">
         <p style="font-size:13px;color:#CDD1D6;line-height:1.55;margin:0;">
           If this doesn't look right or you need more help, just reply from your portal and we'll reopen the ticket.
         </p>

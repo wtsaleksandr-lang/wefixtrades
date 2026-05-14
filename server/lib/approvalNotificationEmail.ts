@@ -40,7 +40,7 @@ export async function sendApprovalNotificationEmail(data: ApprovalNotificationDa
   // Build deliverables preview list
   const deliverableLines = data.deliverables
     .slice(0, 5)
-    .map((d) => `<li style="font-size:14px;color:#CDD1D6;line-height:1.8;">${d.label || d.kind}${d.url ? ` — <a href="${d.url}" style="color:#66E8FA;text-decoration:none;">View</a>` : ""}</li>`)
+    .map((d) => `<li style="font-size:14px;color:#CDD1D6;line-height:1.8;">${d.label || d.kind}${d.url ? ` — <a href="${d.url}" style="color:#0d3cfc;text-decoration:none;">View</a>` : ""}</li>`)
     .join("");
 
   const moreCount = data.deliverables.length > 5 ? data.deliverables.length - 5 : 0;
@@ -73,12 +73,12 @@ export async function sendApprovalNotificationEmail(data: ApprovalNotificationDa
       url: approveUrl,
       style: "primary",
     },
-    ctaFinePrint: `<a href="${portalUrl}" style="color:#66E8FA;text-decoration:none;font-size:12px;">Want changes instead? Add revision notes in your portal</a>`,
+    ctaFinePrint: `<a href="${portalUrl}" style="color:#0d3cfc;text-decoration:none;font-size:12px;">Want changes instead? Add revision notes in your portal</a>`,
     pasteLinkFallback: {
       label: "Approve link not working? Paste this URL:",
       url: approveUrl,
     },
-    supportNote: `This link expires in 24 hours. After that, log in to your <a href="${baseUrl}/portal/services" style="color:#66E8FA;text-decoration:none;">portal</a> to approve.`,
+    supportNote: `This link expires in 24 hours. After that, log in to your <a href="${baseUrl}/portal/services" style="color:#0d3cfc;text-decoration:none;">portal</a> to approve.`,
   });
 
   const text = buildPlainText({

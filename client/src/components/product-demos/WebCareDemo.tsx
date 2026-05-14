@@ -59,7 +59,7 @@ export default function WebCareDemo() {
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
-              style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 10, background: "rgba(102,232,250,0.10)", border: `1px solid rgba(102,232,250,0.24)`, fontSize: 12, color: mkt.accent, fontWeight: 600 }}
+              style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 10, background: "rgba(13,60,252,0.10)", border: `1px solid rgba(13,60,252,0.24)`, fontSize: 12, color: mkt.accent, fontWeight: 600 }}
             >
               <Check size={14} strokeWidth={3} /> Plugin auto-updated · WP Forms 1.8.4 → 1.8.5
             </motion.div>

@@ -9,7 +9,7 @@ import { MONO } from "@/components/effortel-blocks";
 import { Plus } from "lucide-react";
 
 const PRODUCTS = [
-  { rank: 1, name: "TRADELINE",      hue: "#66E8FA" },
+  { rank: 1, name: "TRADELINE",      hue: "#0d3cfc" },
   { rank: 2, name: "QUOTEQUICK PRO", hue: "#C5B4FF" },
   { rank: 3, name: "MAPGUARD",       hue: "#FFD66E" },
   { rank: 4, name: "WEBFIX",         hue: "#86EFAC" },
@@ -29,8 +29,8 @@ export default function StackBuilder() {
           <svg className="sb-spark" viewBox="0 0 160 60" preserveAspectRatio="none">
             <defs>
               <linearGradient id="sb-spark-grad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="rgba(102,232,250,0.42)" />
-                <stop offset="100%" stopColor="rgba(102,232,250,0)" />
+                <stop offset="0%" stopColor="rgba(13,60,252,0.42)" />
+                <stop offset="100%" stopColor="rgba(13,60,252,0)" />
               </linearGradient>
             </defs>
             <path
@@ -39,7 +39,7 @@ export default function StackBuilder() {
             />
             <path
               d="M2,42 L20,38 L36,30 L52,34 L70,22 L86,28 L104,18 L122,24 L140,12 L158,16"
-              fill="none" stroke="rgba(102,232,250,0.95)" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round"
+              fill="none" stroke="rgba(13,60,252,0.95)" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round"
             />
           </svg>
           <div className="sb-big">13.3M</div>
@@ -140,7 +140,7 @@ const CSS = `
   white-space: nowrap;
 }
 .sb-pill-good { background: rgba(74,222,128,0.18); color: #4ade80; border: 1px solid rgba(74,222,128,0.32); }
-.sb-pill-cyan { background: rgba(102,232,250,0.18); color: ${mkt.accent}; border: 1px solid rgba(102,232,250,0.32); }
+.sb-pill-cyan { background: rgba(13,60,252,0.18); color: ${mkt.accent}; border: 1px solid rgba(13,60,252,0.32); }
 .sb-icon-mini {
   display: inline-flex; width: 22px; height: 22px; align-items: center; justify-content: center;
   color: rgba(255,255,255,0.78);

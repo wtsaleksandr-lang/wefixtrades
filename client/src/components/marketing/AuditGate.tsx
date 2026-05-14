@@ -3,7 +3,7 @@ import { trackEvent } from "@/lib/trackEvent";
 import { Lock, Send, CheckCircle2, Loader2, Shield } from "lucide-react";
 
 const DARK = "#0d1514";
-const CYAN = "#00D4C8";
+const CYAN = "#0d3cfc";
 const WHITE = "#FFFFFF";
 const GREY = "#6B7280";
 const BORDER = "#E5E7EB";
@@ -288,7 +288,7 @@ export default function AuditGate({
             opacity: submitting ? 0.7 : 1,
           }}
           onMouseEnter={(e) => {
-            if (!submitting) e.currentTarget.style.boxShadow = "0 4px 16px rgba(0,212,200,0.3)";
+            if (!submitting) e.currentTarget.style.boxShadow = "0 4px 16px rgba(13,60,252,0.3)";
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.boxShadow = "none";

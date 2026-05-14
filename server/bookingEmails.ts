@@ -46,7 +46,7 @@ export async function sendBookingConfirmationToCustomer(booking: Booking, calcul
         ${detailRow("Date", dateDisplay)}
         ${detailRow("Time", timeDisplay)}
         ${quoteDisplay ? detailRow("Estimated quote", quoteDisplay) : ""}
-        ${booking.deposit_paid && depositDisplay ? detailRow("Deposit paid", depositDisplay, "#66E8FA") : ""}
+        ${booking.deposit_paid && depositDisplay ? detailRow("Deposit paid", depositDisplay, "#0d3cfc") : ""}
       </table>`,
     supportNote: `If you need to reschedule or cancel, please contact <strong style="color:#CDD1D6;font-weight:600;">${businessName}</strong> directly.`,
     showDividerBeforeSupport: true,

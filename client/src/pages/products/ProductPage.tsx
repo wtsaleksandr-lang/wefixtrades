@@ -473,7 +473,7 @@ function TradeLineSolutionSection() {
             transition: border-color 0.2s ease, transform 0.2s ease;
           }
           .tl-channel-card:hover {
-            border-color: rgba(102,232,250,0.18);
+            border-color: rgba(13,60,252,0.18);
             transform: translateY(-1px);
           }
         `}</style>
@@ -982,7 +982,7 @@ function WCWhatWeDoSection() {
             transition: border-color 0.2s ease, transform 0.2s ease;
           }
           .wc-card:hover {
-            border-color: rgba(102,232,250,0.18);
+            border-color: rgba(13,60,252,0.18);
             transform: translateY(-1px);
           }
         `}</style>
@@ -1392,7 +1392,7 @@ function QQSolutionSection() {
             transition: border-color 0.2s ease, transform 0.2s ease;
           }
           .qq-solution-card:hover {
-            border-color: rgba(102,232,250,0.18);
+            border-color: rgba(13,60,252,0.18);
             transform: translateY(-1px);
           }
         `}</style>
@@ -1500,7 +1500,7 @@ function QQDemoSection() {
             style={{
               position: "absolute",
               inset: 0,
-              background: `radial-gradient(ellipse at 50% 0%, rgba(102,232,250,0.04) 0%, transparent 70%)`,
+              background: `radial-gradient(ellipse at 50% 0%, rgba(13,60,252,0.04) 0%, transparent 70%)`,
               pointerEvents: "none",
             }}
           />
@@ -1857,7 +1857,7 @@ function RSWhatWeDoSection() {
             transition: border-color 0.2s ease, transform 0.2s ease;
           }
           .rs-whatwedo-card:hover {
-            border-color: rgba(102,232,250,0.18);
+            border-color: rgba(13,60,252,0.18);
             transform: translateY(-1px);
           }
           @media (max-width: 768px) {
@@ -2482,7 +2482,7 @@ function SSWhatWeDoSection() {
             transition: border-color 0.2s ease, transform 0.2s ease;
           }
           .ss-whatwedo-card:hover {
-            border-color: rgba(102,232,250,0.18);
+            border-color: rgba(13,60,252,0.18);
             transform: translateY(-1px);
           }
           @media (max-width: 768px) {
@@ -2899,7 +2899,7 @@ function SLDifferentiationSection() {
             transition: border-color 0.2s ease, transform 0.2s ease;
           }
           .sl-diff-card:hover {
-            border-color: rgba(102,232,250,0.18);
+            border-color: rgba(13,60,252,0.18);
             transform: translateY(-1px);
           }
         `}</style>

@@ -18,7 +18,7 @@ function QuoteMockup() {
     >
       {/* Form header */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 22, paddingBottom: 16, borderBottom: `1px solid ${mkt.borderLight}` }}>
-        <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(102,232,250,0.10)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(13,60,252,0.10)", display: "flex", alignItems: "center", justifyContent: "center" }}>
           <Zap size={18} color={mkt.accent} />
         </div>
         <div>
@@ -56,9 +56,9 @@ function QuoteMockup() {
       ))}
 
       {/* Result */}
-      <div style={{ background: "rgba(102,232,250,0.10)", borderRadius: 14, padding: "20px 22px", marginTop: 8 }}>
+      <div style={{ background: "rgba(13,60,252,0.10)", borderRadius: 14, padding: "20px 22px", marginTop: 8 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
-          <span style={{ background: "rgba(102,232,250,0.10)", borderRadius: 20, fontSize: 11, fontWeight: 700, color: mkt.accent, padding: "2px 10px" }}>
+          <span style={{ background: "rgba(13,60,252,0.10)", borderRadius: 20, fontSize: 11, fontWeight: 700, color: mkt.accent, padding: "2px 10px" }}>
             ✓ Estimate Ready
           </span>
           <span style={{ fontSize: 11, color: mkt.onDarkMuted, marginLeft: "auto" }}>Calculated in 0.2s</span>
@@ -69,7 +69,7 @@ function QuoteMockup() {
           <div style={{ flex: 1, background: mkt.accent, borderRadius: 9, padding: "10px", textAlign: "center", fontSize: 13, fontWeight: 700, color: "#FFFFFF" }}>
             Book Now
           </div>
-          <div style={{ flex: 1, background: "rgba(102,232,250,0.10)", border: `1px solid ${mkt.accent}30`, borderRadius: 9, padding: "10px", textAlign: "center", fontSize: 12, fontWeight: 600, color: mkt.accent }}>
+          <div style={{ flex: 1, background: "rgba(13,60,252,0.10)", border: `1px solid ${mkt.accent}30`, borderRadius: 9, padding: "10px", textAlign: "center", fontSize: 12, fontWeight: 600, color: mkt.accent }}>
             Get Quote PDF
           </div>
         </div>

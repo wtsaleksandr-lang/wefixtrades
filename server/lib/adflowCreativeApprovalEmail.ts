@@ -49,7 +49,7 @@ export async function sendAdflowCreativeApprovalEmail(data: AdflowCreativeApprov
       url: portalUrl,
       style: "primary",
     },
-    supportNote: `Log in to your <a href="${portalUrl}" style="color:#66E8FA;text-decoration:none;">portal</a> to review and approve your creatives.`,
+    supportNote: `Log in to your <a href="${portalUrl}" style="color:#0d3cfc;text-decoration:none;">portal</a> to review and approve your creatives.`,
   });
 
   const text = buildPlainText({

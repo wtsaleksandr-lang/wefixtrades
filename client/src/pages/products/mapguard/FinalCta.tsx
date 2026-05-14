@@ -24,7 +24,7 @@ export default function FinalCta() {
           width: 600,
           height: 400,
           borderRadius: "50%",
-          background: "radial-gradient(ellipse at center, rgba(102,232,250,0.06) 0%, transparent 70%)",
+          background: "radial-gradient(ellipse at center, rgba(13,60,252,0.06) 0%, transparent 70%)",
           pointerEvents: "none",
         }}
       />
@@ -83,7 +83,7 @@ export default function FinalCta() {
           }}
           onMouseEnter={(e) => {
             const el = e.currentTarget as HTMLElement;
-            el.style.boxShadow = "0 0 50px rgba(102,232,250,0.4), 0 0 80px rgba(102,232,250,0.15)";
+            el.style.boxShadow = "0 0 50px rgba(13,60,252,0.4), 0 0 80px rgba(13,60,252,0.15)";
             el.style.transform = "translateY(-2px)";
           }}
           onMouseLeave={(e) => {

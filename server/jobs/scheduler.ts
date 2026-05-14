@@ -47,6 +47,7 @@ import { fireAlert } from "../services/alertService";
 import { processEmailQueue } from "../services/emailQueueService";
 import { processEmbedBrokenDetection } from "./embedBrokenDetector";
 import { processBillRetention } from "./tradelineBillRetentionWorker";
+import { processProTrialExpiry } from "./trialProExpiryWorker";
 import { processTradelineProvisionRetry } from "./tradelineProvisionRetryWorker";
 
 const log = createLogger("Scheduler");
@@ -257,6 +258,16 @@ export function initScheduler() {
       await runJob("tradeline_bill_retention", processBillRetention);
     } catch (err: any) {
       log.error("tradeline_bill_retention cron handler error", { error: err.message });
+    }
+  }, { timezone: "UTC" });
+
+  // Pro-features trial expiry — daily at 04:00 UTC; flips the trial flag
+  // on clients past their 14-day window and emails the trade.
+  cron.schedule("0 4 * * *", async () => {
+    try {
+      await runJob("trial_pro_expiry", processProTrialExpiry);
+    } catch (err: any) {
+      log.error("trial_pro_expiry cron handler error", { error: err.message });
     }
   }, { timezone: "UTC" });
 

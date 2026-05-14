@@ -203,8 +203,8 @@ export default function LoginPage() {
     textTransform: "uppercase" as const,
     background: "none",
     border: "none",
-    borderBottom: `2px solid ${active ? "#66E8FA" : "transparent"}`,
-    color: active ? "#66E8FA" : mkt.onDarkMuted,
+    borderBottom: `2px solid ${active ? "#0d3cfc" : "transparent"}`,
+    color: active ? "#0d3cfc" : mkt.onDarkMuted,
     cursor: "pointer",
     transition: "color 180ms ease, border-color 180ms ease",
   });
@@ -212,7 +212,7 @@ export default function LoginPage() {
   const ctaBtnStyle = {
     width: "100%",
     padding: "12px 14px",
-    background: "#66E8FA",
+    background: "#0d3cfc",
     color: "#0B0F14",
     fontSize: 14,
     fontWeight: 700,
@@ -371,8 +371,8 @@ export default function LoginPage() {
                     role="status"
                     style={{
                       padding: "14px 16px",
-                      background: "rgba(102, 232, 250, 0.08)",
-                      border: "1px solid rgba(102, 232, 250, 0.30)",
+                      background: "rgba(13, 60, 252, 0.08)",
+                      border: "1px solid rgba(13, 60, 252, 0.30)",
                       borderRadius: 10,
                       fontSize: 13,
                       color: "#A8F0FA",
@@ -388,7 +388,7 @@ export default function LoginPage() {
                     href="/signup"
                     style={{ fontSize: 13, color: mkt.onDarkMuted, textDecoration: "none" }}
                   >
-                    New here? <span style={{ color: "#66E8FA" }}>Start free →</span>
+                    New here? <span style={{ color: "#0d3cfc" }}>Start free →</span>
                   </a>
                 </div>
               </>
@@ -501,7 +501,7 @@ export default function LoginPage() {
                         Forgot your password?
                       </a>
                       <a href="/signup" style={{ fontSize: 13, color: mkt.onDarkMuted, textDecoration: "none" }}>
-                        Don't have an account? <span style={{ color: "#66E8FA" }}>Sign up free</span>
+                        Don't have an account? <span style={{ color: "#0d3cfc" }}>Sign up free</span>
                       </a>
                     </>
                   )}

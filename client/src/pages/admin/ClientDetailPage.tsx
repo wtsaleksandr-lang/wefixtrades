@@ -1898,7 +1898,7 @@ function TradeLineAdminPanel({ clientServiceId, serviceName }: { clientServiceId
         className="flex items-center justify-between w-full p-4 text-left min-h-[44px]"
       >
         <span className="flex items-center gap-2 text-sm font-medium text-gray-900">
-          <PhoneCall className="w-4 h-4 text-teal-600" />
+          <PhoneCall className="w-4 h-4 text-blue-600" />
           {serviceName} — TradeLine Config
         </span>
         {open ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}

@@ -138,7 +138,7 @@ export default function TrustStrip() {
                 aria-hidden="true"
                 className="pointer-events-none absolute inset-0 opacity-60"
                 style={{
-                  background: "linear-gradient(120deg, transparent 0%, rgba(102,232,250,0.15) 50%, transparent 100%)",
+                  background: "linear-gradient(120deg, transparent 0%, rgba(13,60,252,0.15) 50%, transparent 100%)",
                   transform: "translateX(-120%)",
                   animation: shineKey > 0 ? "wftCardShine 0.9s ease-out forwards" : "none",
                 }}

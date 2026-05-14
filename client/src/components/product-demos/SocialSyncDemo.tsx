@@ -41,7 +41,7 @@ export default function SocialSyncDemo() {
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.35 }}
-                  style={{ display: "flex", alignItems: "center", gap: 10, padding: 10, borderRadius: 10, background: "rgba(255,255,255,0.04)", border: `1px solid ${publishing ? "rgba(102,232,250,0.35)" : mkt.onDarkBorder}` }}
+                  style={{ display: "flex", alignItems: "center", gap: 10, padding: 10, borderRadius: 10, background: "rgba(255,255,255,0.04)", border: `1px solid ${publishing ? "rgba(13,60,252,0.35)" : mkt.onDarkBorder}` }}
                 >
                   <div style={{ width: 38, fontSize: 9, fontFamily: "'DM Mono', monospace", color: mkt.onDarkFaint, letterSpacing: "0.06em" }}>{p.day}<br/>{p.time}</div>
                   <div style={{ flex: 1, fontSize: 12, fontWeight: 600, color: mkt.onDark, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.title}</div>
@@ -70,7 +70,7 @@ export default function SocialSyncDemo() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
-              style={{ marginTop: 6, padding: "10px 14px", borderRadius: 10, background: "rgba(102,232,250,0.10)", border: `1px solid rgba(102,232,250,0.24)`, fontSize: 11, color: mkt.accent, fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}
+              style={{ marginTop: 6, padding: "10px 14px", borderRadius: 10, background: "rgba(13,60,252,0.10)", border: `1px solid rgba(13,60,252,0.24)`, fontSize: 11, color: mkt.accent, fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}
             >
               <Send size={12} /> Publishing to 4 channels at once · ~2s
             </motion.div>

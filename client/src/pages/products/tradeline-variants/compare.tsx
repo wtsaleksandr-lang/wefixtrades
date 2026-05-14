@@ -92,7 +92,7 @@ export default function CompareIndex() {
       <div style={{ background: mkt.bg, color: mkt.onDark, minHeight: "100vh" }}>
         <section style={{ padding: "100px 24px 60px", textAlign: "center", borderBottom: `1px solid ${mkt.onDarkBorder}` }}>
           <div style={{ maxWidth: 800, margin: "0 auto" }}>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 14px", borderRadius: 999, background: "rgba(102,232,250,0.10)", border: `1px solid rgba(102,232,250,0.24)`, fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: mkt.accent, marginBottom: 24 }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 14px", borderRadius: 999, background: "rgba(13,60,252,0.10)", border: `1px solid rgba(13,60,252,0.24)`, fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: mkt.accent, marginBottom: 24 }}>
               Internal · Pick one
             </div>
             <h1 style={{ fontSize: "clamp(40px, 5vw, 64px)", fontWeight: 700, letterSpacing: "-0.04em", lineHeight: 1.05, marginBottom: 20 }}>
@@ -162,7 +162,7 @@ function VariantCard({ v }: { v: Variant }) {
           {v.recommended ? (
             <span style={{ fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 6, background: mkt.accent, color: mkt.dark, letterSpacing: "0.04em", textTransform: "uppercase" }}>★ Master</span>
           ) : v.matchesHomepage ? (
-            <span style={{ fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 6, background: "rgba(102,232,250,0.10)", color: mkt.accent, letterSpacing: "0.04em", textTransform: "uppercase" }}>Match</span>
+            <span style={{ fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 6, background: "rgba(13,60,252,0.10)", color: mkt.accent, letterSpacing: "0.04em", textTransform: "uppercase" }}>Match</span>
           ) : (
             <span style={{ fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 6, background: "rgba(247,180,48,0.10)", color: mkt.orange, letterSpacing: "0.04em", textTransform: "uppercase" }}>Diverge</span>
           )}

@@ -324,7 +324,7 @@ function VoiceBody() {
           boxShadow: isInCall
             ? `0 0 ${28 + glow * 90}px rgba(239,68,68,${glow})`
             : canStart
-              ? "0 0 38px rgba(102,232,250,0.28)"
+              ? "0 0 38px rgba(13,60,252,0.28)"
               : "none",
         }}
       >
@@ -388,8 +388,8 @@ const LAUNCHER_CSS = `
   font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
 }
 .tldl-open {
-  border-color: rgba(102,232,250,0.32);
-  box-shadow: 0 30px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(102,232,250,0.10);
+  border-color: rgba(13,60,252,0.32);
+  box-shadow: 0 30px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(13,60,252,0.10);
 }
 
 /* Collapsible panel (header + body) — bar stays outside this */
@@ -457,12 +457,12 @@ const LAUNCHER_CSS = `
   outline: none;
   user-select: none;
 }
-.tldl-bar:focus-visible { box-shadow: inset 0 0 0 2px rgba(102,232,250,0.45); }
+.tldl-bar:focus-visible { box-shadow: inset 0 0 0 2px rgba(13,60,252,0.45); }
 .tldl-bar-bot {
   width: 32px; height: 32px; border-radius: 9px;
   display: inline-flex; align-items: center; justify-content: center;
-  background: rgba(102,232,250,0.14);
-  border: 1px solid rgba(102,232,250,0.32);
+  background: rgba(13,60,252,0.14);
+  border: 1px solid rgba(13,60,252,0.32);
   color: var(--tldl-accent);
   flex-shrink: 0;
 }
@@ -554,7 +554,7 @@ const LAUNCHER_CSS = `
   outline: none;
   transition: border-color 180ms ease;
 }
-.tldl-chat-input input:focus { border-color: rgba(102,232,250,0.50); }
+.tldl-chat-input input:focus { border-color: rgba(13,60,252,0.50); }
 .tldl-chat-input button {
   width: 38px; height: 38px; border-radius: 10px; border: 0;
   background: var(--tldl-accent); color: #00131a;

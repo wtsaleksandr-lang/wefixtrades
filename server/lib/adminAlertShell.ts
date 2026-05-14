@@ -108,7 +108,7 @@ export function buildAdminAlertEmail(p: AdminAlertEmailParams): string {
 
   const ctaButton = p.cta
     ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td>
-        <a href="${p.cta.url}" style="display:inline-block;background:${isDark ? "#66E8FA" : "#0F172A"};color:${isDark ? "#0B0F14" : "#FFFFFF"};font-size:14px;font-weight:700;padding:11px 22px;border-radius:8px;text-decoration:none;mso-padding-alt:0;">${p.cta.label}</a>
+        <a href="${p.cta.url}" style="display:inline-block;background:${isDark ? "#0d3cfc" : "#0F172A"};color:${isDark ? "#0B0F14" : "#FFFFFF"};font-size:14px;font-weight:700;padding:11px 22px;border-radius:8px;text-decoration:none;mso-padding-alt:0;">${p.cta.label}</a>
       </td></tr></table>`
     : "";
 
@@ -127,7 +127,7 @@ export function buildAdminAlertEmail(p: AdminAlertEmailParams): string {
   // Brand wordmark — compact (smaller than buildEmailHeader's marketing version)
   const brand = `<table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin:0 auto 18px;">
     <tr><td>
-      <span style="font-family:'Inter',system-ui,Arial,sans-serif;font-weight:700;font-size:14px;letter-spacing:-0.02em;color:${t.textBright};">We<span style="color:#66E8FA;">Fix</span>Trades</span>
+      <span style="font-family:'Inter',system-ui,Arial,sans-serif;font-weight:700;font-size:14px;letter-spacing:-0.02em;color:${t.textBright};">We<span style="color:#0d3cfc;">Fix</span>Trades</span>
       <span style="font-family:'Inter',system-ui,Arial,sans-serif;font-size:10px;color:${t.textMuted};letter-spacing:0.1em;text-transform:uppercase;margin-left:8px;">Alerts</span>
     </td></tr>
   </table>`;

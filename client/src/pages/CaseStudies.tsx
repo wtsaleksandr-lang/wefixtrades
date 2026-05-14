@@ -462,7 +462,7 @@ function TestimonialCard({ study }: { study: Study }) {
             padding: "6px 12px",
             borderRadius: 999,
             border: `1px solid ${mkt.accentGlow}`,
-            background: "rgba(102,232,250,0.08)",
+            background: "rgba(13,60,252,0.08)",
           }}>
             {study.product}
           </span>
@@ -489,7 +489,7 @@ function TestimonialCard({ study }: { study: Study }) {
             <TradeIcon size={48} strokeWidth={1.6} />
           </div>
           <div style={{
-            background: "linear-gradient(160deg, rgba(102,232,250,0.18), rgba(102,232,250,0.04))",
+            background: "linear-gradient(160deg, rgba(13,60,252,0.18), rgba(13,60,252,0.04))",
             border: `1px solid ${mkt.accentGlow}`,
             borderRadius: 14,
             aspectRatio: "1",

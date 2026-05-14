@@ -86,7 +86,7 @@ export async function sendMetaReauthEmail(data: MetaReauthEmailData): Promise<bo
     },
     ctaFinePrint: "This will open the client's SocialSync settings where you can start the OAuth flow.",
     pasteLinkFallback: { url: reauthUrl },
-    supportNote: `If you have questions, reply to this email or reach us at <a href="mailto:support@wefixtrades.com" style="color:#66E8FA;text-decoration:none;">support@wefixtrades.com</a>.`,
+    supportNote: `If you have questions, reply to this email or reach us at <a href="mailto:support@wefixtrades.com" style="color:#0d3cfc;text-decoration:none;">support@wefixtrades.com</a>.`,
   });
 
   const text = buildPlainText({

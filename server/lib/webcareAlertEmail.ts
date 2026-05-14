@@ -89,7 +89,7 @@ function buildAlertHtml(data: DowntimeAlertData, portalUrl: string): string {
                   <span style="font-size:11px;font-weight:600;color:#8B919A;text-transform:uppercase;letter-spacing:0.08em;">Website</span>
                 </td>
                 <td style="padding:0;text-align:right;">
-                  <span style="font-size:13px;color:#66E8FA;">${escapeHtml(data.websiteUrl)}</span>
+                  <span style="font-size:13px;color:#0d3cfc;">${escapeHtml(data.websiteUrl)}</span>
                 </td>
               </tr>
             </table>
@@ -102,12 +102,12 @@ function buildAlertHtml(data: DowntimeAlertData, portalUrl: string): string {
             </p>
           </div>
 
-          <a href="${escapeHtml(portalUrl)}/portal" style="display:inline-block;background:#66E8FA;color:#0B0F14;font-size:14px;font-weight:700;padding:13px 24px;border-radius:10px;text-decoration:none;">
+          <a href="${escapeHtml(portalUrl)}/portal" style="display:inline-block;background:#0d3cfc;color:#0B0F14;font-size:14px;font-weight:700;padding:13px 24px;border-radius:10px;text-decoration:none;">
             View your portal &rarr;
           </a>
 
           <p style="font-size:12px;color:#8B919A;line-height:1.6;margin:16px 0 0;">
-            If you have questions, reply to this email or reach us at <a href="mailto:support@wefixtrades.com" style="color:#66E8FA;text-decoration:none;">support@wefixtrades.com</a>.
+            If you have questions, reply to this email or reach us at <a href="mailto:support@wefixtrades.com" style="color:#0d3cfc;text-decoration:none;">support@wefixtrades.com</a>.
           </p>
         </div>
         ${buildChatBubble()}

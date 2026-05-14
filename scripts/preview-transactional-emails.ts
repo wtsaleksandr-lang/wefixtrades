@@ -47,12 +47,12 @@ import("../server/lib/transactionalShell").then(async ({ buildTransactionalEmail
       <div style="border-top:1px solid rgba(255,255,255,0.06);margin:28px 0 22px;line-height:1px;font-size:0;">&nbsp;</div>
       <p style="font-size:12px;font-weight:600;color:#8B919A;text-transform:uppercase;letter-spacing:0.06em;margin:0 0 14px;">What's waiting for you</p>
       <table style="width:100%;border-collapse:collapse;">
-        <tr><td style="padding:6px 12px 6px 0;vertical-align:top;width:22px;"><span style="display:inline-block;width:20px;height:20px;background:rgba(102,232,250,0.12);color:#66E8FA;font-size:11px;font-weight:700;border-radius:5px;text-align:center;line-height:20px;">1</span></td><td style="padding:6px 0;font-size:13px;color:#CDD1D6;line-height:1.5;">Setup forms for every service you've purchased</td></tr>
-        <tr><td style="padding:6px 12px 6px 0;vertical-align:top;width:22px;"><span style="display:inline-block;width:20px;height:20px;background:rgba(102,232,250,0.12);color:#66E8FA;font-size:11px;font-weight:700;border-radius:5px;text-align:center;line-height:20px;">2</span></td><td style="padding:6px 0;font-size:13px;color:#CDD1D6;line-height:1.5;">Live task progress so you can see exactly what we're doing</td></tr>
-        <tr><td style="padding:6px 12px 6px 0;vertical-align:top;width:22px;"><span style="display:inline-block;width:20px;height:20px;background:rgba(102,232,250,0.12);color:#66E8FA;font-size:11px;font-weight:700;border-radius:5px;text-align:center;line-height:20px;">3</span></td><td style="padding:6px 0;font-size:13px;color:#CDD1D6;line-height:1.5;">Invoices, reports, and support — all in one place</td></tr>
+        <tr><td style="padding:6px 12px 6px 0;vertical-align:top;width:22px;"><span style="display:inline-block;width:20px;height:20px;background:rgba(13,60,252,0.12);color:#0d3cfc;font-size:11px;font-weight:700;border-radius:5px;text-align:center;line-height:20px;">1</span></td><td style="padding:6px 0;font-size:13px;color:#CDD1D6;line-height:1.5;">Setup forms for every service you've purchased</td></tr>
+        <tr><td style="padding:6px 12px 6px 0;vertical-align:top;width:22px;"><span style="display:inline-block;width:20px;height:20px;background:rgba(13,60,252,0.12);color:#0d3cfc;font-size:11px;font-weight:700;border-radius:5px;text-align:center;line-height:20px;">2</span></td><td style="padding:6px 0;font-size:13px;color:#CDD1D6;line-height:1.5;">Live task progress so you can see exactly what we're doing</td></tr>
+        <tr><td style="padding:6px 12px 6px 0;vertical-align:top;width:22px;"><span style="display:inline-block;width:20px;height:20px;background:rgba(13,60,252,0.12);color:#0d3cfc;font-size:11px;font-weight:700;border-radius:5px;text-align:center;line-height:20px;">3</span></td><td style="padding:6px 0;font-size:13px;color:#CDD1D6;line-height:1.5;">Invoices, reports, and support — all in one place</td></tr>
       </table>`,
     pasteLinkFallback: { url: setPasswordUrl },
-    supportNote: `Need anything? Just reply to this email or reach us at <a href="mailto:${supportEmail}" style="color:#66E8FA;text-decoration:none;">${supportEmail}</a>.`,
+    supportNote: `Need anything? Just reply to this email or reach us at <a href="mailto:${supportEmail}" style="color:#0d3cfc;text-decoration:none;">${supportEmail}</a>.`,
   });
   previews.push({
     slug: "01-account-welcome",
@@ -69,17 +69,17 @@ import("../server/lib/transactionalShell").then(async ({ buildTransactionalEmail
     headline: "Your instant quote calculator is live",
     intro: `Hi Sam, customers visiting your website can now get real-time quotes and submit qualified leads straight to your inbox.`,
     bodyHtml: `
-      <div style="background:rgba(102,232,250,0.06);border-left:2px solid #66E8FA;border-radius:4px;padding:12px 14px;margin:0 0 22px;">
+      <div style="background:rgba(13,60,252,0.06);border-left:2px solid #0d3cfc;border-radius:4px;padding:12px 14px;margin:0 0 22px;">
         <p style="font-size:13px;color:#CDD1D6;line-height:1.55;margin:0;">
-          <strong style="color:#66E8FA;font-weight:600;">Next:</strong> Grab the embed code from your portal and paste it into your site's footer — takes 30 seconds.
+          <strong style="color:#0d3cfc;font-weight:600;">Next:</strong> Grab the embed code from your portal and paste it into your site's footer — takes 30 seconds.
         </p>
       </div>
       <table style="width:100%;border-collapse:separate;border-spacing:0;">
-        <tr><td style="padding:0 0 10px;"><a href="https://wefixtrades.com/portal" style="display:block;background:#0F141A;border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:13px 16px;text-decoration:none;font-family:'Inter',system-ui,Arial,sans-serif;"><table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%"><tr><td style="font-size:14px;font-weight:600;color:#F0F0F0;">Your dashboard</td><td align="right" style="font-size:14px;font-weight:700;color:#66E8FA;white-space:nowrap;">→</td></tr></table></a></td></tr>
-        <tr><td style="padding:0 0 10px;"><a href="https://wefixtrades.com/portal/services" style="display:block;background:#0F141A;border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:13px 16px;text-decoration:none;font-family:'Inter',system-ui,Arial,sans-serif;"><table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%"><tr><td style="font-size:14px;font-weight:600;color:#F0F0F0;">Calculator &amp; embed code</td><td align="right" style="font-size:14px;font-weight:700;color:#66E8FA;white-space:nowrap;">→</td></tr></table></a></td></tr>
+        <tr><td style="padding:0 0 10px;"><a href="https://wefixtrades.com/portal" style="display:block;background:#0F141A;border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:13px 16px;text-decoration:none;font-family:'Inter',system-ui,Arial,sans-serif;"><table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%"><tr><td style="font-size:14px;font-weight:600;color:#F0F0F0;">Your dashboard</td><td align="right" style="font-size:14px;font-weight:700;color:#0d3cfc;white-space:nowrap;">→</td></tr></table></a></td></tr>
+        <tr><td style="padding:0 0 10px;"><a href="https://wefixtrades.com/portal/services" style="display:block;background:#0F141A;border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:13px 16px;text-decoration:none;font-family:'Inter',system-ui,Arial,sans-serif;"><table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%"><tr><td style="font-size:14px;font-weight:600;color:#F0F0F0;">Calculator &amp; embed code</td><td align="right" style="font-size:14px;font-weight:700;color:#0d3cfc;white-space:nowrap;">→</td></tr></table></a></td></tr>
       </table>`,
     showDividerBeforeSupport: true,
-    supportNote: `<strong style="color:#CDD1D6;font-weight:600;">Need anything?</strong> Reply to this email or reach us at <a href="mailto:support@wefixtrades.com" style="color:#66E8FA;text-decoration:none;">support@wefixtrades.com</a>. We monitor every inbox and reply fast.`,
+    supportNote: `<strong style="color:#CDD1D6;font-weight:600;">Need anything?</strong> Reply to this email or reach us at <a href="mailto:support@wefixtrades.com" style="color:#0d3cfc;text-decoration:none;">support@wefixtrades.com</a>. We monitor every inbox and reply fast.`,
   });
   previews.push({
     slug: "02-welcome-service-activation",
@@ -100,9 +100,9 @@ import("../server/lib/transactionalShell").then(async ({ buildTransactionalEmail
       <div style="border-top:1px solid rgba(255,255,255,0.06);margin:28px 0;line-height:1px;font-size:0;">&nbsp;</div>
       <p style="font-size:12px;font-weight:600;color:#8B919A;text-transform:uppercase;letter-spacing:0.06em;margin:0 0 16px;">What happens next</p>
       <table style="width:100%;border-collapse:collapse;">
-        <tr><td style="padding:8px 12px 8px 0;vertical-align:top;width:24px;"><span style="display:inline-block;width:22px;height:22px;background:rgba(102,232,250,0.12);color:#66E8FA;font-size:11px;font-weight:700;border-radius:6px;text-align:center;line-height:22px;">1</span></td><td style="padding:8px 0;font-size:13px;color:#CDD1D6;line-height:1.5;">You answer a few quick questions</td></tr>
-        <tr><td style="padding:8px 12px 8px 0;vertical-align:top;width:24px;"><span style="display:inline-block;width:22px;height:22px;background:rgba(102,232,250,0.12);color:#66E8FA;font-size:11px;font-weight:700;border-radius:6px;text-align:center;line-height:22px;">2</span></td><td style="padding:8px 0;font-size:13px;color:#CDD1D6;line-height:1.5;">We configure your system automatically</td></tr>
-        <tr><td style="padding:8px 12px 8px 0;vertical-align:top;width:24px;"><span style="display:inline-block;width:22px;height:22px;background:rgba(102,232,250,0.12);color:#66E8FA;font-size:11px;font-weight:700;border-radius:6px;text-align:center;line-height:22px;">3</span></td><td style="padding:8px 0;font-size:13px;color:#CDD1D6;line-height:1.5;">You go live and start capturing jobs</td></tr>
+        <tr><td style="padding:8px 12px 8px 0;vertical-align:top;width:24px;"><span style="display:inline-block;width:22px;height:22px;background:rgba(13,60,252,0.12);color:#0d3cfc;font-size:11px;font-weight:700;border-radius:6px;text-align:center;line-height:22px;">1</span></td><td style="padding:8px 0;font-size:13px;color:#CDD1D6;line-height:1.5;">You answer a few quick questions</td></tr>
+        <tr><td style="padding:8px 12px 8px 0;vertical-align:top;width:24px;"><span style="display:inline-block;width:22px;height:22px;background:rgba(13,60,252,0.12);color:#0d3cfc;font-size:11px;font-weight:700;border-radius:6px;text-align:center;line-height:22px;">2</span></td><td style="padding:8px 0;font-size:13px;color:#CDD1D6;line-height:1.5;">We configure your system automatically</td></tr>
+        <tr><td style="padding:8px 12px 8px 0;vertical-align:top;width:24px;"><span style="display:inline-block;width:22px;height:22px;background:rgba(13,60,252,0.12);color:#0d3cfc;font-size:11px;font-weight:700;border-radius:6px;text-align:center;line-height:22px;">3</span></td><td style="padding:8px 0;font-size:13px;color:#CDD1D6;line-height:1.5;">You go live and start capturing jobs</td></tr>
       </table>`,
     pasteLinkFallback: { label: "If the button doesn’t work, copy this link:", url: onboardingUrl },
     supportNote: "No technical work required. Everything is handled for you.",
@@ -142,7 +142,7 @@ import("../server/lib/transactionalShell").then(async ({ buildTransactionalEmail
         ${rows}
         <tr>
           <td style="padding:14px;font-size:12px;font-weight:700;color:#8B919A;text-transform:uppercase;letter-spacing:0.06em;">Total paid</td>
-          <td style="padding:14px;font-size:18px;font-weight:800;color:#66E8FA;text-align:right;">${formatUsd(totalCents)}</td>
+          <td style="padding:14px;font-size:18px;font-weight:800;color:#0d3cfc;text-align:right;">${formatUsd(totalCents)}</td>
         </tr>
       </table>
       <table style="width:100%;font-size:12px;color:#8B919A;margin:0 0 8px;">
@@ -151,7 +151,7 @@ import("../server/lib/transactionalShell").then(async ({ buildTransactionalEmail
         <tr><td style="padding:4px 0;">Reference</td><td style="padding:4px 0;text-align:right;color:#CDD1D6;font-family:'DM Mono',monospace;">CS_TEST_123XYZ</td></tr>
       </table>`,
     cta: { label: "View in your portal", url: "https://wefixtrades.com/portal/billing" },
-    supportNote: `Questions about this charge? Reply to this email or reach us at <a href="mailto:support@wefixtrades.com" style="color:#66E8FA;text-decoration:none;">support@wefixtrades.com</a>.`,
+    supportNote: `Questions about this charge? Reply to this email or reach us at <a href="mailto:support@wefixtrades.com" style="color:#0d3cfc;text-decoration:none;">support@wefixtrades.com</a>.`,
   });
   previews.push({
     slug: "04-payment-receipt",
@@ -193,7 +193,7 @@ import("../server/lib/transactionalShell").then(async ({ buildTransactionalEmail
         <tr><td style="padding:6px 0;font-size:12px;color:#8B919A;text-transform:uppercase;letter-spacing:0.06em;width:120px;">Date</td><td style="padding:6px 0;font-size:14px;color:#F0F0F0;font-weight:600;text-align:right;">Friday, May 9, 2026</td></tr>
         <tr><td style="padding:6px 0;font-size:12px;color:#8B919A;text-transform:uppercase;letter-spacing:0.06em;width:120px;">Time</td><td style="padding:6px 0;font-size:14px;color:#F0F0F0;font-weight:600;text-align:right;">3:00 PM</td></tr>
         <tr><td style="padding:6px 0;font-size:12px;color:#8B919A;text-transform:uppercase;letter-spacing:0.06em;width:120px;">Estimated quote</td><td style="padding:6px 0;font-size:14px;color:#F0F0F0;font-weight:600;text-align:right;">$420</td></tr>
-        <tr><td style="padding:6px 0;font-size:12px;color:#8B919A;text-transform:uppercase;letter-spacing:0.06em;width:120px;">Deposit paid</td><td style="padding:6px 0;font-size:14px;color:#66E8FA;font-weight:600;text-align:right;">$80</td></tr>
+        <tr><td style="padding:6px 0;font-size:12px;color:#8B919A;text-transform:uppercase;letter-spacing:0.06em;width:120px;">Deposit paid</td><td style="padding:6px 0;font-size:14px;color:#0d3cfc;font-weight:600;text-align:right;">$80</td></tr>
       </table>`,
     supportNote: `If you need to reschedule or cancel, please contact <strong style="color:#CDD1D6;font-weight:600;">Acme Plumbing</strong> directly.`,
     showDividerBeforeSupport: true,
@@ -262,8 +262,8 @@ import("../server/lib/transactionalShell").then(async ({ buildTransactionalEmail
     bodyHtml: `
       <table cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 16px;">
         <tr>
-          <td style="padding:16px 18px;background:rgba(102,232,250,0.08);border:1px solid rgba(102,232,250,0.20);border-radius:10px;text-align:center;">
-            <p style="margin:0 0 4px;font-size:11px;color:#66E8FA;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;">Your estimate</p>
+          <td style="padding:16px 18px;background:rgba(13,60,252,0.08);border:1px solid rgba(13,60,252,0.20);border-radius:10px;text-align:center;">
+            <p style="margin:0 0 4px;font-size:11px;color:#0d3cfc;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;">Your estimate</p>
             <p style="margin:0;font-size:32px;font-weight:800;color:#F0F0F0;">$8,200</p>
           </td>
         </tr>
@@ -289,13 +289,13 @@ import("../server/lib/transactionalShell").then(async ({ buildTransactionalEmail
     headerTagline: "Acme Plumbing · plumbing",
     eyebrow: "New quote request",
     headline: "Sam Rodriguez just requested a quote",
-    intro: `Quote: <strong style="color:#66E8FA;">$1,850</strong>. Full details below — reply within an hour for the best conversion.`,
+    intro: `Quote: <strong style="color:#0d3cfc;">$1,850</strong>. Full details below — reply within an hour for the best conversion.`,
     bodyHtml: `
       <table style="width:100%;border-collapse:collapse;background:#0F141A;border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:8px 14px;">
         <tr><td style="padding:6px 0;font-size:12px;color:#8B919A;text-transform:uppercase;letter-spacing:0.06em;width:80px;">Name</td><td style="padding:6px 0;font-size:14px;color:#F0F0F0;font-weight:600;text-align:right;">Sam Rodriguez</td></tr>
         <tr><td style="padding:6px 0;font-size:12px;color:#8B919A;text-transform:uppercase;letter-spacing:0.06em;width:80px;">Phone</td><td style="padding:6px 0;font-size:14px;color:#F0F0F0;font-weight:600;text-align:right;">+1 555 0142</td></tr>
         <tr><td style="padding:6px 0;font-size:12px;color:#8B919A;text-transform:uppercase;letter-spacing:0.06em;width:80px;">Email</td><td style="padding:6px 0;font-size:14px;color:#F0F0F0;font-weight:600;text-align:right;">sam@example.test</td></tr>
-        <tr><td style="padding:6px 0;font-size:12px;color:#8B919A;text-transform:uppercase;letter-spacing:0.06em;width:80px;">Quote</td><td style="padding:6px 0;font-size:14px;color:#66E8FA;font-weight:600;text-align:right;">$1,850</td></tr>
+        <tr><td style="padding:6px 0;font-size:12px;color:#8B919A;text-transform:uppercase;letter-spacing:0.06em;width:80px;">Quote</td><td style="padding:6px 0;font-size:14px;color:#0d3cfc;font-weight:600;text-align:right;">$1,850</td></tr>
       </table>
       <div style="margin:16px 0 0;padding:12px 14px;background:#0F141A;border:1px solid rgba(255,255,255,0.06);border-radius:8px;">
         <p style="font-size:11px;color:#8B919A;margin:0 0 8px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;">Key inputs</p>
@@ -306,7 +306,7 @@ import("../server/lib/transactionalShell").then(async ({ buildTransactionalEmail
         </table>
       </div>`,
     cta: { label: "View in dashboard", url: "https://wefixtrades.com/portal/quotequick" },
-    ctaFinePrint: `Or open the calculator directly: <a href="https://wefixtrades.com/calc/acme-plumbing" style="color:#66E8FA;text-decoration:none;">https://wefixtrades.com/calc/acme-plumbing</a>`,
+    ctaFinePrint: `Or open the calculator directly: <a href="https://wefixtrades.com/calc/acme-plumbing" style="color:#0d3cfc;text-decoration:none;">https://wefixtrades.com/calc/acme-plumbing</a>`,
   });
   previews.push({
     slug: "10-quote-request-notification",

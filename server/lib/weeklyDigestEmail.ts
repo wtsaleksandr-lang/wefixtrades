@@ -78,7 +78,7 @@ export async function sendWeeklyDigestEmail(data: WeeklyDigestData): Promise<boo
       (s) => `
     <tr>
       <td style="padding:14px 18px;border-bottom:1px solid rgba(255,255,255,0.06);">
-        <div style="font-size:24px;font-weight:700;color:#66E8FA;line-height:1;">${escapeHtml(String(s.value))}</div>
+        <div style="font-size:24px;font-weight:700;color:#0d3cfc;line-height:1;">${escapeHtml(String(s.value))}</div>
         <div style="font-size:13px;color:#F0F0F0;font-weight:600;margin-top:4px;">${escapeHtml(s.label)}</div>
         ${s.detail ? `<div style="font-size:11px;color:#8B919A;margin-top:2px;">${escapeHtml(s.detail)}</div>` : ""}
       </td>
@@ -95,7 +95,7 @@ export async function sendWeeklyDigestEmail(data: WeeklyDigestData): Promise<boo
   `;
 
   const highlightHtml = data.highlight
-    ? `<p style="font-size:13px;color:#CDD1D6;line-height:1.6;margin:0 0 16px;padding:14px 16px;border-left:2px solid #66E8FA;background:#0F141A;border-radius:8px;">${escapeHtml(data.highlight)}</p>`
+    ? `<p style="font-size:13px;color:#CDD1D6;line-height:1.6;margin:0 0 16px;padding:14px 16px;border-left:2px solid #0d3cfc;background:#0F141A;border-radius:8px;">${escapeHtml(data.highlight)}</p>`
     : "";
 
   const html = buildTransactionalEmail({

@@ -129,7 +129,7 @@ export default function SiteChatWidget() {
             width: 56,
             height: 56,
             borderRadius: 14,
-            background: "linear-gradient(135deg, #00D4C8 0%, #00B4AA 100%)",
+            background: "linear-gradient(135deg, #0d3cfc 0%, #0b34d6 100%)",
             border: "none",
             cursor: "pointer",
             display: "flex",
@@ -268,7 +268,7 @@ export default function SiteChatWidget() {
                   lineHeight: 1.5,
                   ...(msg.role === "assistant"
                     ? { background: "#fff", color: "#1A1A2E", border: "1px solid #E5E7EB" }
-                    : { background: "linear-gradient(135deg, #00D4C8, #00B4AA)", color: "#fff" }),
+                    : { background: "linear-gradient(135deg, #0d3cfc, #0b34d6)", color: "#fff" }),
                   wordBreak: "break-word",
                   whiteSpace: "pre-wrap",
                 }}
@@ -280,7 +280,7 @@ export default function SiteChatWidget() {
               <div style={{ display: "flex", gap: 4, padding: "8px 14px", alignSelf: "flex-start" }}>
                 {[0, 1, 2].map(i => (
                   <span key={i} style={{
-                    width: 6, height: 6, borderRadius: "50%", background: "#00D4C8",
+                    width: 6, height: 6, borderRadius: "50%", background: "#0d3cfc",
                     animation: `wftDotBounce 1.4s ease-in-out ${i * 0.2}s infinite both`,
                   }} />
                 ))}
@@ -316,7 +316,7 @@ export default function SiteChatWidget() {
                 background: streaming ? "#F9FAFB" : "#fff",
                 transition: "border-color 0.15s",
               }}
-              onFocus={e => { (e.currentTarget as HTMLElement).style.borderColor = "#00D4C8"; }}
+              onFocus={e => { (e.currentTarget as HTMLElement).style.borderColor = "#0d3cfc"; }}
               onBlur={e => { (e.currentTarget as HTMLElement).style.borderColor = "#E5E7EB"; }}
             />
             <button
@@ -328,7 +328,7 @@ export default function SiteChatWidget() {
                 height: 38,
                 borderRadius: 10,
                 border: "none",
-                background: "linear-gradient(135deg, #00D4C8, #00B4AA)",
+                background: "linear-gradient(135deg, #0d3cfc, #0b34d6)",
                 color: "#fff",
                 cursor: streaming ? "default" : "pointer",
                 display: "flex",

@@ -119,14 +119,14 @@ const CSS = `
 .psorbit-center-ring {
   position: absolute; inset: -10px;
   border-radius: 50%;
-  border: 2px solid rgba(102,232,250,0.55);
-  box-shadow: 0 0 24px rgba(102,232,250,0.30), inset 0 0 14px rgba(102,232,250,0.12);
+  border: 2px solid rgba(13,60,252,0.55);
+  box-shadow: 0 0 24px rgba(13,60,252,0.30), inset 0 0 14px rgba(13,60,252,0.12);
 }
 .psorbit-center-tile {
   position: absolute; inset: 0;
   border-radius: 50%;
-  background: radial-gradient(circle at 30% 30%, rgba(102,232,250,0.30), rgba(20,24,27,0.95) 70%);
-  border: 1px solid rgba(102,232,250,0.50);
+  background: radial-gradient(circle at 30% 30%, rgba(13,60,252,0.30), rgba(20,24,27,0.95) 70%);
+  border: 1px solid rgba(13,60,252,0.50);
   display: flex; align-items: center; justify-content: center;
   color: ${mkt.accent};
   box-shadow: 0 18px 40px rgba(0,0,0,0.45);

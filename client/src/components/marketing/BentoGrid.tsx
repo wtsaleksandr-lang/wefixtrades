@@ -57,7 +57,7 @@ function InvoiceMockup() {
     <div style={{ background: "#1e2522", borderRadius: 10, border: "1px solid rgba(255,255,255,0.08)", padding: "14px 16px", width: "100%", maxWidth: 300 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
         <span style={{ fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.75)" }}>Invoice #1042</span>
-        <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.06em", color: "#66E8FA", background: "rgba(102,232,250,0.12)", border: "1px solid rgba(102,232,250,0.2)", padding: "2px 8px", borderRadius: 4 }}>SENT</span>
+        <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.06em", color: "#0d3cfc", background: "rgba(13,60,252,0.12)", border: "1px solid rgba(13,60,252,0.2)", padding: "2px 8px", borderRadius: 4 }}>SENT</span>
       </div>
       <div style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", marginBottom: 8 }}>Bathroom Renovation</div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
@@ -100,8 +100,8 @@ function BrandMockup() {
   return (
     <div style={{ background: "#1e2522", borderRadius: 10, border: "1px solid rgba(255,255,255,0.08)", padding: "14px 16px", width: "100%", maxWidth: 300 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, paddingBottom: 10, borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-        <div style={{ width: 24, height: 24, borderRadius: 4, background: "rgba(102,232,250,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <span style={{ fontSize: 10, color: "#66E8FA", fontWeight: 700 }}>A</span>
+        <div style={{ width: 24, height: 24, borderRadius: 4, background: "rgba(13,60,252,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <span style={{ fontSize: 10, color: "#0d3cfc", fontWeight: 700 }}>A</span>
         </div>
         <span style={{ fontSize: 12, fontWeight: 600, color: "#fff" }}>AcePlumbing</span>
       </div>

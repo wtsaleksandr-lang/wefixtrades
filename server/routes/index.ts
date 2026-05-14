@@ -25,6 +25,7 @@ import { registerVapiRoutes } from "./vapiRoutes";
 import { registerPublicCheckoutRoutes } from "./publicCheckoutRoutes";
 import { registerIntegrationHealthRoutes } from "./integrationHealthRoutes";
 import { registerPortalRoutes } from "./portalRoutes";
+import { registerPortalEmailDomainRoutes } from "./portalEmailDomainRoutes";
 import { registerAdminSupportRoutes } from "./adminSupportRoutes";
 import { registerMissedCallLeadRoutes } from "./missedCallLeadRoutes";
 import { registerDemoLeadRoutes } from "./demoLeadRoutes";
@@ -51,14 +52,19 @@ import { registerBookflowRoutes } from "./bookflowRoutes";
 import { registerAdminAlertRoutes } from "./adminAlertRoutes";
 import { registerChatAttachmentRoutes } from "./chatAttachmentRoutes";
 import { registerTradelineSetupRoutes } from "./tradelineSetupRoutes";
+import { registerTradelineWidgetRoutes } from "./tradelineWidgetRoutes";
 import { registerAdminTradelineSetupsRoutes } from "./adminTradelineSetupsRoutes";
 import { registerAdminTradelineTemplatesRoutes } from "./adminTradelineTemplatesRoutes";
+import { registerTradelineChatInstallRoutes } from "./tradelineChatInstallRoutes";
+import { registerAdminTradelineLearningRoutes } from "./adminTradelineLearningRoutes";
 import { registerMobileAuthRoutes } from "./mobileAuthRoutes";
 import { registerMobileApiRoutes } from "./mobileApiRoutes";
 import { registerMobileVoiceRoutes } from "./mobileVoiceRoutes";
 import { registerMobileAiRoutes } from "./mobileAiRoutes";
 import { registerMobileAiVoiceRoutes } from "./mobileAiVoiceRoutes";
+import { registerMobileContactRoutes } from "./mobileContactRoutes";
 import { registerTwilioVoiceCallbackRoutes } from "./twilioVoiceCallbackRoutes";
+import { registerVoicemailRoutes } from "./voicemailRoutes";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -90,6 +96,7 @@ export async function registerRoutes(
   registerPublicCheckoutRoutes(app);
   registerIntegrationHealthRoutes(app);
   registerPortalRoutes(app);
+  registerPortalEmailDomainRoutes(app);
   registerAdminSupportRoutes(app);
   registerMissedCallLeadRoutes(app);
   registerDemoLeadRoutes(app);
@@ -116,14 +123,19 @@ export async function registerRoutes(
   registerAdminAlertRoutes(app);
   registerChatAttachmentRoutes(app);
   registerTradelineSetupRoutes(app);
+  registerTradelineWidgetRoutes(app);
   registerAdminTradelineSetupsRoutes(app);
   registerAdminTradelineTemplatesRoutes(app);
+  registerTradelineChatInstallRoutes(app);
+  registerAdminTradelineLearningRoutes(app);
   registerMobileAuthRoutes(app);
   registerMobileApiRoutes(app);
   registerMobileVoiceRoutes(app);
   registerMobileAiRoutes(app);
   registerMobileAiVoiceRoutes(app);
+  registerMobileContactRoutes(app);
   registerTwilioVoiceCallbackRoutes(app);
+  registerVoicemailRoutes(app);
 
   return httpServer;
 }

@@ -56,8 +56,8 @@ function CalcSeoTabs() {
               style={{
                 padding: '7px 14px',
                 borderRadius: 9999,
-                border: `1px solid ${isActive ? 'rgba(102,232,250,0.3)' : mkt.border}`,
-                background: isActive ? 'rgba(102,232,250,0.08)' : 'transparent',
+                border: `1px solid ${isActive ? 'rgba(13,60,252,0.3)' : mkt.border}`,
+                background: isActive ? 'rgba(13,60,252,0.08)' : 'transparent',
                 color: isActive ? mkt.accent : mkt.onDarkMuted,
                 fontSize: 13,
                 fontWeight: 600,

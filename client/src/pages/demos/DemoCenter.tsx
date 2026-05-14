@@ -110,7 +110,7 @@ function DemoCard({ d, i }: { d: DemoCardData; i: number }) {
         style={{
           display: "block", textDecoration: "none",
           background: mkt.sectionLight,
-          border: `1px solid ${hover ? "rgba(102,232,250,0.45)" : mkt.onDarkBorder}`,
+          border: `1px solid ${hover ? "rgba(13,60,252,0.45)" : mkt.onDarkBorder}`,
           borderRadius: 18, padding: 0,
           height: "100%",
           overflow: "hidden",

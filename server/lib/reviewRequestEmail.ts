@@ -29,7 +29,7 @@ export function buildReviewRequestEmailHtml(opts: {
 <html><body style="font-family:'Inter',Arial,sans-serif;margin:0;padding:0;background:#f5f5f5;">
 <table cellpadding="0" cellspacing="0" width="100%" style="max-width:520px;margin:24px auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
   <tr><td style="padding:28px 28px 0;text-align:center;">
-    <div style="display:inline-block;background:#66E8FA;color:#181D1F;font-size:12px;font-weight:800;padding:4px 14px;border-radius:999px;letter-spacing:0.04em;">WeFixTrades</div>
+    <div style="display:inline-block;background:#0d3cfc;color:#181D1F;font-size:12px;font-weight:800;padding:4px 14px;border-radius:999px;letter-spacing:0.04em;">WeFixTrades</div>
   </td></tr>
   <tr><td style="padding:24px 28px;">
     <h1 style="font-size:20px;font-weight:700;color:#1a1a2e;margin:0 0 8px;">Hi ${safeName},</h1>
@@ -40,7 +40,7 @@ export function buildReviewRequestEmailHtml(opts: {
       Your feedback takes less than a minute and helps other local customers find quality tradespeople.
     </p>
     <div style="text-align:center;margin-bottom:20px;">
-      <a href="${feedbackUrl}" style="display:inline-block;background:#00D4C8;color:#1A1A2E;font-size:14px;font-weight:700;padding:14px 32px;border-radius:10px;text-decoration:none;">
+      <a href="${feedbackUrl}" style="display:inline-block;background:#0d3cfc;color:#1A1A2E;font-size:14px;font-weight:700;padding:14px 32px;border-radius:10px;text-decoration:none;">
         Share Your Feedback &rarr;
       </a>
     </div>
@@ -48,7 +48,7 @@ export function buildReviewRequestEmailHtml(opts: {
   <tr><td style="padding:0 28px 20px;">
     <div style="border-top:1px solid #eee;padding-top:16px;font-size:12px;color:#999;line-height:1.5;">
       If the button doesn&rsquo;t work, copy and paste this link:<br/>
-      <a href="${feedbackUrl}" style="color:#00D4C8;word-break:break-all;">${feedbackUrl}</a>
+      <a href="${feedbackUrl}" style="color:#0d3cfc;word-break:break-all;">${feedbackUrl}</a>
     </div>
   </td></tr>
   <tr><td style="padding:12px 28px;background:#f9fafb;text-align:center;">
@@ -84,7 +84,7 @@ export function buildReminderEmailHtml(opts: {
 <html><body style="font-family:'Inter',Arial,sans-serif;margin:0;padding:0;background:#f5f5f5;">
 <table cellpadding="0" cellspacing="0" width="100%" style="max-width:520px;margin:24px auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
   <tr><td style="padding:28px 28px 0;text-align:center;">
-    <div style="display:inline-block;background:#66E8FA;color:#181D1F;font-size:12px;font-weight:800;padding:4px 14px;border-radius:999px;letter-spacing:0.04em;">WeFixTrades</div>
+    <div style="display:inline-block;background:#0d3cfc;color:#181D1F;font-size:12px;font-weight:800;padding:4px 14px;border-radius:999px;letter-spacing:0.04em;">WeFixTrades</div>
   </td></tr>
   <tr><td style="padding:24px 28px;">
     <h1 style="font-size:20px;font-weight:700;color:#1a1a2e;margin:0 0 12px;">${heading}</h1>
@@ -92,7 +92,7 @@ export function buildReminderEmailHtml(opts: {
       ${body}
     </p>
     <div style="text-align:center;margin-bottom:20px;">
-      <a href="${feedbackUrl}" style="display:inline-block;background:#00D4C8;color:#1A1A2E;font-size:14px;font-weight:700;padding:14px 32px;border-radius:10px;text-decoration:none;">
+      <a href="${feedbackUrl}" style="display:inline-block;background:#0d3cfc;color:#1A1A2E;font-size:14px;font-weight:700;padding:14px 32px;border-radius:10px;text-decoration:none;">
         ${cta} &rarr;
       </a>
     </div>
@@ -100,7 +100,7 @@ export function buildReminderEmailHtml(opts: {
   <tr><td style="padding:0 28px 20px;">
     <div style="border-top:1px solid #eee;padding-top:16px;font-size:12px;color:#999;line-height:1.5;">
       If the button doesn&rsquo;t work, copy and paste this link:<br/>
-      <a href="${feedbackUrl}" style="color:#00D4C8;word-break:break-all;">${feedbackUrl}</a>
+      <a href="${feedbackUrl}" style="color:#0d3cfc;word-break:break-all;">${feedbackUrl}</a>
     </div>
   </td></tr>
   <tr><td style="padding:12px 28px;background:#f9fafb;text-align:center;">

@@ -12,11 +12,11 @@ import { mkt } from "@/theme/tokens";
 
 /* ─── Brand-derived bar palette ─── */
 const BAR_COLORS = [
-  mkt.accent,          // cyan #66E8FA
-  "#9CF0FC",           // a200 lighter cyan
-  "#54A1AB",           // a700 teal
+  mkt.accent,          // cyan #0d3cfc
+  "#0b34d6",           // a200 lighter cyan
+  "#0b34d6",           // a700 teal
   "#F7B430",           // orange accent
-  "#68D4E3",           // a500 mid-cyan
+  "#0d3cfc",           // a500 mid-cyan
   "#D5E1E7",           // n300 light
   "#B1C5CE",           // n400 muted
   "#E879A0",           // warm pink for variety
@@ -24,7 +24,7 @@ const BAR_COLORS = [
   "#34D399",           // emerald
 ];
 
-const INLINE_COLORS = [mkt.accent, "#9CF0FC", "#68D4E3", "#54A1AB"];
+const INLINE_COLORS = [mkt.accent, "#0b34d6", "#0d3cfc", "#0b34d6"];
 
 const PIXEL_SIZE = 4;   // px — each square pixel
 const PIXEL_GAP = 1;    // px — gap between pixels in a column

@@ -69,7 +69,7 @@ export default function TradeLineChatDemo() {
       {/* Glow */}
       <div style={{
         position: "absolute", inset: -40,
-        background: "radial-gradient(ellipse, rgba(102,232,250,0.12) 0%, transparent 60%)",
+        background: "radial-gradient(ellipse, rgba(13,60,252,0.12) 0%, transparent 60%)",
         pointerEvents: "none", filter: "blur(40px)",
       }} />
 
@@ -147,8 +147,8 @@ function ChatBubble({ who, text }: { who: "us" | "them"; text: string }) {
         maxWidth: "78%",
         padding: "10px 14px",
         borderRadius: 14,
-        background: isUs ? "rgba(102,232,250,0.10)" : "rgba(255,255,255,0.04)",
-        border: `1px solid ${isUs ? "rgba(102,232,250,0.18)" : mkt.onDarkBorder}`,
+        background: isUs ? "rgba(13,60,252,0.10)" : "rgba(255,255,255,0.04)",
+        border: `1px solid ${isUs ? "rgba(13,60,252,0.18)" : mkt.onDarkBorder}`,
         fontSize: 13, lineHeight: 1.5, color: mkt.onDark,
       }}>
         {text}
@@ -166,7 +166,7 @@ function SystemPill({ text }: { text: string }) {
       background: mkt.accent, color: mkt.dark,
       fontSize: 13, fontWeight: 600,
       display: "inline-flex", alignItems: "center", gap: 8, alignSelf: "flex-start",
-      boxShadow: "0 4px 16px rgba(102,232,250,0.25)",
+      boxShadow: "0 4px 16px rgba(13,60,252,0.25)",
     }}>
       {text}
     </div>

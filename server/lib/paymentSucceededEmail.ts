@@ -57,7 +57,7 @@ export async function sendPaymentSucceededEmail(
           </tr>
           <tr>
             <td style="padding:14px;font-size:13px;color:#8B919A;border-bottom:1px solid rgba(255,255,255,0.06);">Amount paid</td>
-            <td style="padding:14px;font-size:14px;color:#66E8FA;text-align:right;font-weight:700;border-bottom:1px solid rgba(255,255,255,0.06);">${formatted}</td>
+            <td style="padding:14px;font-size:14px;color:#0d3cfc;text-align:right;font-weight:700;border-bottom:1px solid rgba(255,255,255,0.06);">${formatted}</td>
           </tr>
           <tr>
             <td style="padding:14px;font-size:13px;color:#8B919A;">Next billing date</td>
@@ -69,7 +69,7 @@ export async function sendPaymentSucceededEmail(
         url: data.billingPortalUrl,
       },
       ctaFinePrint: "View invoices, update payment method, or change your plan.",
-      supportNote: `Questions? Reply to this email or reach us at <a href="mailto:${supportEmail}" style="color:#66E8FA;text-decoration:none;">${supportEmail}</a>.`,
+      supportNote: `Questions? Reply to this email or reach us at <a href="mailto:${supportEmail}" style="color:#0d3cfc;text-decoration:none;">${supportEmail}</a>.`,
     });
 
     const text = buildPlainText({

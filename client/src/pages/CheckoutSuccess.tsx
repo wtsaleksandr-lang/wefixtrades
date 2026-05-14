@@ -116,8 +116,8 @@ export default function CheckoutSuccess() {
             {/* Auto-login status */}
             {autoLoginState === "loading" && (
               <div style={{
-                background: "rgba(102,232,250,0.08)",
-                border: "1px solid rgba(102,232,250,0.2)",
+                background: "rgba(13,60,252,0.08)",
+                border: "1px solid rgba(13,60,252,0.2)",
                 borderRadius: 10,
                 padding: "10px 16px",
                 fontSize: 13,
@@ -173,8 +173,8 @@ export default function CheckoutSuccess() {
 
           {/* Email notice */}
           <div style={{
-            background: "rgba(102,232,250,0.10)",
-            border: "1px solid rgba(102,232,250,0.12)",
+            background: "rgba(13,60,252,0.10)",
+            border: "1px solid rgba(13,60,252,0.12)",
             borderRadius: 12,
             padding: "16px 20px",
             display: "flex",

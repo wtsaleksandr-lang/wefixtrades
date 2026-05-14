@@ -28,8 +28,8 @@ export const colors = {
     blueGlow: 'rgba(47,107,255,0.2)',
     orange: '#FA4E1D',
     orangeTint: 'rgba(250,78,29,0.08)',
-    cyan: '#008BBE',
-    cyanTint: 'rgba(0,139,190,0.08)',
+    cyan: '#0d3cfc',
+    cyanTint: 'rgba(13,60,252,0.08)',
   },
   header: {
     frost: 'rgba(246,247,249,0.80)',
@@ -80,7 +80,7 @@ export const colors = {
   },
   chart: {
     c1: '#2F6BFF',
-    c2: '#008BBE',
+    c2: '#0d3cfc',
     c3: '#FA4E1D',
     c4: '#D97706',
     c5: '#EF4444',
@@ -95,11 +95,14 @@ export const colors = {
     n700: '#394247',
     n800: '#22282A',
     n900: '#171818',
-    a100: '#DCF7FD',
-    a200: '#9CF0FC',
-    a400: '#66E8FA',
-    a500: '#68D4E3',
-    a700: '#54A1AB',
+    /* Accent ramp — formerly teal/cyan, swapped to primary blue
+     * (#0d3cfc / #0b34d6 hover). Naming kept ("a100…a700") to avoid
+     * a rename storm; semantic is now "blue accent" not "cyan". */
+    a100: '#E6EAFF',
+    a200: '#0b34d6',
+    a400: '#0d3cfc',
+    a500: '#0d3cfc',
+    a700: '#0b34d6',
   },
 } as const;
 
@@ -136,7 +139,7 @@ export const shadows = {
   cardHover: '0 20px 36px #3331484d',
   button: '0 4px 10px rgba(0,0,0,0.08)',
   buttonHover: '0 6px 16px rgba(0,0,0,0.1)',
-  focus: '0 0 0 3px rgba(102,232,250,0.25)',
+  focus: '0 0 0 3px rgba(13,60,252,0.25)',
   frost: '0 6px 16px rgba(0,0,0,0.06)',
   mega: '0 16px 50px rgba(0,0,0,0.10)',
 } as const;
@@ -157,11 +160,14 @@ export const mkt = {
   textFaint: colors.effortel.n600,
   border: 'rgba(255,255,255,0.08)',
   borderLight: 'rgba(255,255,255,0.04)',
+  /* Accent: primary blue (#0d3cfc), hover dark blue (#0b34d6).
+   * Glow tint kept low-opacity for ambient gradients ONLY — do not use
+   * for hover halos. Hover affordance is a white border (see uses below). */
   accent: colors.effortel.a400,
   accentHover: colors.effortel.a200,
   accentDark: colors.effortel.a700,
-  accentTint: 'rgba(102,232,250,0.10)',
-  accentGlow: 'rgba(102,232,250,0.20)',
+  accentTint: 'rgba(13,60,252,0.10)',
+  accentGlow: 'rgba(13,60,252,0.20)',
   dark: colors.effortel.n900,
   darkHover: colors.effortel.n800,
   onDark: colors.effortel.n100,
@@ -177,7 +183,7 @@ export const mkt = {
   orange: '#F7B430',
   orangeTint: 'rgba(247,180,48,0.10)',
   cyan: colors.effortel.a500,
-  cyanTint: 'rgba(104,212,227,0.10)',
+  cyanTint: 'rgba(13,60,252,0.10)',
   cardBg: 'rgba(255,255,255,0.04)',
   cardBorder: 'rgba(255,255,255,0.08)',
   buttonBg: colors.effortel.a400,

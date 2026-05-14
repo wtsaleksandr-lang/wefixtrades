@@ -32,7 +32,7 @@ const COLORS = {
   textBright: "#F0F0F0",
   textBody: "#CDD1D6",
   textMuted: "#8B919A",
-  accent: "#66E8FA",
+  accent: "#0d3cfc",
   warn: "#F59E0B",
   alert: "#EF4444",
 } as const;

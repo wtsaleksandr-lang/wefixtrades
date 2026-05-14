@@ -103,8 +103,8 @@ const THEMES = {
     cardBg: "#F9FAFB",
     cardBorder: "#E5E7EB",
     cardHover: "#F3F4F6",
-    iconBg: "rgba(0,212,200,0.08)",
-    iconColor: "#00D4C8",
+    iconBg: "rgba(13,60,252,0.08)",
+    iconColor: "#0d3cfc",
     arrow: "#9CA3AF",
   },
   dark: {
@@ -115,8 +115,8 @@ const THEMES = {
     cardBg: "rgba(255,255,255,0.03)",
     cardBorder: "rgba(255,255,255,0.06)",
     cardHover: "rgba(255,255,255,0.06)",
-    iconBg: "rgba(102,232,250,0.10)",
-    iconColor: "#66E8FA",
+    iconBg: "rgba(13,60,252,0.10)",
+    iconColor: "#0d3cfc",
     arrow: "rgba(255,255,255,0.3)",
   },
   widget: {

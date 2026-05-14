@@ -32,9 +32,9 @@ export default function WeFixTradesLaptopHero({ size = 720 }: Props) {
           <stop offset="100%" stopColor="#0a0e14" />
         </linearGradient>
         <radialGradient id="wt-glow-cyan" cx="0.78" cy="0.32" r="0.55">
-          <stop offset="0%"   stopColor="rgba(102,232,250,0.48)" />
-          <stop offset="60%"  stopColor="rgba(102,232,250,0.10)" />
-          <stop offset="100%" stopColor="rgba(102,232,250,0)" />
+          <stop offset="0%"   stopColor="rgba(13,60,252,0.48)" />
+          <stop offset="60%"  stopColor="rgba(13,60,252,0.10)" />
+          <stop offset="100%" stopColor="rgba(13,60,252,0)" />
         </radialGradient>
         <radialGradient id="wt-glow-pink" cx="0.18" cy="0.72" r="0.50">
           <stop offset="0%"   stopColor="rgba(244,114,182,0.34)" />
@@ -164,7 +164,7 @@ export default function WeFixTradesLaptopHero({ size = 720 }: Props) {
         {/* SCREEN CONTENT — WeFixTrades site mock */}
         <g transform="translate(32,8)">
           {/* logo + brand */}
-          <rect x="14" y="10" width="14" height="14" rx="3" fill="#66E8FA" />
+          <rect x="14" y="10" width="14" height="14" rx="3" fill="#0d3cfc" />
           <text x="36" y="22" fontFamily="'Inter', system-ui, sans-serif" fontSize="11" fontWeight="800" fill="#fff" letterSpacing="-0.02em">
             WeFixTrades
           </text>
@@ -173,7 +173,7 @@ export default function WeFixTradesLaptopHero({ size = 720 }: Props) {
           <text x="190" y="22" fontFamily="'DM Mono', monospace" fontSize="7" fontWeight="600" fill="rgba(255,255,255,0.55)" letterSpacing="0.10em">PRICING</text>
           <text x="232" y="22" fontFamily="'DM Mono', monospace" fontSize="7" fontWeight="600" fill="rgba(255,255,255,0.55)" letterSpacing="0.10em">DEMO</text>
           {/* nav button */}
-          <rect x="262" y="10" width="22" height="16" rx="4" fill="#66E8FA" />
+          <rect x="262" y="10" width="22" height="16" rx="4" fill="#0d3cfc" />
           <text x="273" y="22" fontFamily="'DM Mono', monospace" fontSize="6" fontWeight="700" fill="#0a1018" textAnchor="middle">START</text>
         </g>
 
@@ -182,7 +182,7 @@ export default function WeFixTradesLaptopHero({ size = 720 }: Props) {
           <text x="148" y="50" textAnchor="middle" fontFamily="'Inter', system-ui, sans-serif" fontSize="17" fontWeight="800" fill="#fff" letterSpacing="-0.02em">
             Never miss a lead.
           </text>
-          <text x="148" y="72" textAnchor="middle" fontFamily="'Inter', system-ui, sans-serif" fontSize="17" fontWeight="800" fill="#66E8FA" letterSpacing="-0.02em">
+          <text x="148" y="72" textAnchor="middle" fontFamily="'Inter', system-ui, sans-serif" fontSize="17" fontWeight="800" fill="#0d3cfc" letterSpacing="-0.02em">
             Run on autopilot.
           </text>
           <text x="148" y="92" textAnchor="middle" fontFamily="'DM Sans', system-ui, sans-serif" fontSize="8" fill="rgba(255,255,255,0.55)">
@@ -190,7 +190,7 @@ export default function WeFixTradesLaptopHero({ size = 720 }: Props) {
           </text>
 
           {/* CTAs */}
-          <rect x="92" y="106" width="56" height="20" rx="5" fill="#66E8FA" />
+          <rect x="92" y="106" width="56" height="20" rx="5" fill="#0d3cfc" />
           <text x="120" y="119" textAnchor="middle" fontFamily="'DM Mono', monospace" fontSize="7" fontWeight="700" fill="#0a1018" letterSpacing="0.10em">START FREE</text>
 
           <rect x="156" y="106" width="56" height="20" rx="5" fill="none" stroke="rgba(255,255,255,0.32)" />

@@ -30,7 +30,7 @@ function buildBusinessNotificationEmail(calc: Calculator, lead: Lead, payload: a
   const detailRow = (label: string, value: string, accent?: boolean) => `
     <tr>
       <td style="padding:6px 0;font-size:12px;color:#8B919A;text-transform:uppercase;letter-spacing:0.06em;width:80px;">${label}</td>
-      <td style="padding:6px 0;font-size:14px;color:${accent ? "#66E8FA" : "#F0F0F0"};font-weight:600;text-align:right;">${value}</td>
+      <td style="padding:6px 0;font-size:14px;color:${accent ? "#0d3cfc" : "#F0F0F0"};font-weight:600;text-align:right;">${value}</td>
     </tr>`;
 
   const inputsBlock = answers
@@ -46,7 +46,7 @@ function buildBusinessNotificationEmail(calc: Calculator, lead: Lead, payload: a
 
   const secondaryCta = hostedLink
     ? `<p style="font-size:12px;color:#8B919A;line-height:1.6;margin:14px 0 0;">
-        Or open the calculator directly: <a href="${hostedLink}" style="color:#66E8FA;text-decoration:none;">${hostedLink}</a>
+        Or open the calculator directly: <a href="${hostedLink}" style="color:#0d3cfc;text-decoration:none;">${hostedLink}</a>
        </p>`
     : "";
 
@@ -55,7 +55,7 @@ function buildBusinessNotificationEmail(calc: Calculator, lead: Lead, payload: a
     headerTagline: `${calc.business_name} · ${calc.trade_type}`,
     eyebrow: "New quote request",
     headline: `${lead.name || "A new lead"} just requested a quote`,
-    intro: `Quote: <strong style="color:#66E8FA;">${quoteDisplay}</strong>. Full details below — reply within an hour for the best conversion.`,
+    intro: `Quote: <strong style="color:#0d3cfc;">${quoteDisplay}</strong>. Full details below — reply within an hour for the best conversion.`,
     bodyHtml: `
       <table style="width:100%;border-collapse:collapse;background:#0F141A;border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:8px 14px;">
         ${detailRow("Name", lead.name || "—")}

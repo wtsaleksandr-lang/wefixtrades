@@ -24,7 +24,7 @@ export default function HeroSection() {
           width: 500,
           height: 500,
           borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(102,232,250,0.06) 0%, transparent 70%)",
+          background: "radial-gradient(circle, rgba(13,60,252,0.06) 0%, transparent 70%)",
           pointerEvents: "none",
         }}
       />
@@ -149,17 +149,17 @@ export default function HeroSection() {
                 fontSize: 15,
                 fontWeight: 700,
                 textDecoration: "none",
-                boxShadow: "0 0 24px rgba(102,232,250,0.2)",
+                boxShadow: "0 0 24px rgba(13,60,252,0.2)",
                 transition: "box-shadow 0.3s ease, transform 0.2s ease",
               }}
               onMouseEnter={(e) => {
                 const el = e.currentTarget as HTMLElement;
-                el.style.boxShadow = "0 0 40px rgba(102,232,250,0.35)";
+                el.style.boxShadow = "0 0 40px rgba(13,60,252,0.35)";
                 el.style.transform = "translateY(-1px)";
               }}
               onMouseLeave={(e) => {
                 const el = e.currentTarget as HTMLElement;
-                el.style.boxShadow = "0 0 24px rgba(102,232,250,0.2)";
+                el.style.boxShadow = "0 0 24px rgba(13,60,252,0.2)";
                 el.style.transform = "translateY(0)";
               }}
             >
