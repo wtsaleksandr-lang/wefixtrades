@@ -48,6 +48,38 @@ export function voiceConfigMissingKeys(): string[] {
   return missing;
 }
 
+/**
+ * Look up the Twilio Push Credential SID for a given mobile platform.
+ *
+ * Push Credentials in Twilio are PER-PLATFORM, not per-device — a single
+ * iOS credential covers all iOS devices (built from the APNs .p8 key),
+ * and a single Android credential covers all Android devices (built from
+ * the FCM service-account JSON). When present in env, including this SID
+ * in the Voice grant lets Twilio deliver inbound calls as a push
+ * notification to the device.
+ *
+ * Returns undefined when the env var for that platform is unset — in
+ * which case access tokens still issue, outbound calls still work, but
+ * inbound calls won't reach the device via push.
+ */
+export function getPushCredentialSid(platform: "ios" | "android"): string | undefined {
+  if (platform === "ios") {
+    return process.env.TWILIO_PUSH_CREDENTIAL_SID_IOS || undefined;
+  }
+  return process.env.TWILIO_PUSH_CREDENTIAL_SID_ANDROID || undefined;
+}
+
+/**
+ * Per-platform readiness summary for the /voice/config endpoint so the
+ * mobile app can render an "inbound push delivery ready" indicator.
+ */
+export function pushReadyPlatforms(): { ios: boolean; android: boolean } {
+  return {
+    ios: !!process.env.TWILIO_PUSH_CREDENTIAL_SID_IOS,
+    android: !!process.env.TWILIO_PUSH_CREDENTIAL_SID_ANDROID,
+  };
+}
+
 export interface AccessTokenResult {
   token: string;
   identity: string;
