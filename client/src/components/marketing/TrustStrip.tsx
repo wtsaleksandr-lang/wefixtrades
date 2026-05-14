@@ -19,8 +19,11 @@ export default function TrustStrip({ theme = "dark" }: TrustStripProps) {
   return (
     <div
       style={{
-        borderTop: `1px solid ${isDark ? "rgba(255,255,255,0.06)" : "#e5e7eb"}`,
-        borderBottom: `1px solid ${isDark ? "rgba(255,255,255,0.06)" : "#e5e7eb"}`,
+        /* PR 2: hairline dividers per DOSS pattern. Dark theme reads
+         * from --hairline (warm gray, low alpha); light theme keeps
+         * its #e5e7eb neutral. */
+        borderTop: isDark ? "1px solid var(--hairline)" : "1px solid #e5e7eb",
+        borderBottom: isDark ? "1px solid var(--hairline)" : "1px solid #e5e7eb",
         padding: "clamp(14px, 2.5vw, 20px) 0",
         maxWidth: 640,
         margin: "clamp(24px, 4vw, 40px) auto",

@@ -490,8 +490,10 @@ export default function HomePage() {
 
       {/* Outer page background behind hero shell */}
       <div className="hero-shell-backdrop" style={{ background: mkt.darkBg, padding: "6px 6px 0", position: "relative" as const, zIndex: 1 }}>
-      {/* Shared grid zone — covers hero + trust marquee seamlessly */}
-      <div className="hero-first-screen-zone" style={{ position: "relative", background: mkt.darkBg, overflow: "hidden", display: "flex", flexDirection: "column", width: "100%", borderRadius: 24, border: "1px solid rgba(255,255,255,0.06)", boxShadow: "0 20px 60px rgba(0,0,0,0.25), 0 4px 20px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.04)" }}>
+      {/* Shared grid zone — covers hero + trust marquee seamlessly.
+       * mkt-grid-bg applies the DOSS dashed-grid pattern as a subtle
+       * background texture; the existing HeroGridGlow stays on top. */}
+      <div className="hero-first-screen-zone mkt-grid-bg" style={{ position: "relative", background: mkt.darkBg, overflow: "hidden", display: "flex", flexDirection: "column", width: "100%", borderRadius: 24, border: "1px solid var(--hairline)", boxShadow: "0 20px 60px rgba(0,0,0,0.25), 0 4px 20px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.04)" }}>
         {/* Subtle inner lighting overlay */}
         <div aria-hidden="true" style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(255,255,255,0.02), rgba(0,0,0,0.2))", pointerEvents: "none", zIndex: 0, borderRadius: "inherit" }} />
         <HeroGridGlow className="hero-grid-glow" />

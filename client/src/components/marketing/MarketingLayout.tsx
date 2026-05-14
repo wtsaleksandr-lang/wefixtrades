@@ -96,7 +96,9 @@ function MarketingFooter({ isMobile }: { isMobile: boolean }) {
     <footer
       data-testid="footer-marketing"
       style={{
-        borderTop: "none",
+        /* PR 2: hairline top border per DOSS pattern — gives the footer
+         * a clear structural boundary from the page content above. */
+        borderTop: "1px solid var(--hairline)",
         background: "#22282a",
         color: "rgba(255,255,255,0.5)",
       }}
@@ -255,13 +257,13 @@ function MarketingFooter({ isMobile }: { isMobile: boolean }) {
           gap: 32px;
         }
         /* Subtle dashed vertical divider between footer columns.
-           Drawn with a vertical repeating linear-gradient so the dash
-           cadence is consistent regardless of column height. */
+           PR 2: switched from bright rgba(255,255,255,0.22) to the
+           warm-gray hairline so it matches the rest of the DOSS system. */
         .mkt-footer-grid > * + * {
           background-image: linear-gradient(
             to bottom,
-            rgba(255,255,255,0.22) 0,
-            rgba(255,255,255,0.22) 6px,
+            var(--hairline) 0,
+            var(--hairline) 6px,
             transparent 6px,
             transparent 12px
           );
