@@ -65,7 +65,7 @@ function renderOgSvg(opts: {
 
   const gradeColors: Record<string, { main: string; bg: string }> = {
     A: { main: "#22C55E", bg: "#052E16" },
-    B: { main: "#00D4C8", bg: "#042F2E" },
+    B: { main: "#0d3cfc", bg: "#042F2E" },
     C: { main: "#F59E0B", bg: "#3D2800" },
     D: { main: "#EF4444", bg: "#3B0808" },
   };

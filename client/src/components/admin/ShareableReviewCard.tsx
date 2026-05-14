@@ -39,9 +39,9 @@ function stars(rating: number): string {
 }
 
 const STYLES: Record<CardStyle, { bg: string; text: string; accent: string; starColor: string; subtleText: string; border: string }> = {
-  light: { bg: "#FFFFFF", text: "#1a1a2e", accent: "#00D4C8", starColor: "#FBBF24", subtleText: "#9CA3AF", border: "1px solid #E5E7EB" },
-  dark: { bg: "#1a1a2e", text: "#FFFFFF", accent: "#00D4C8", starColor: "#FBBF24", subtleText: "rgba(255,255,255,0.5)", border: "none" },
-  accent: { bg: "#00D4C8", text: "#1a1a2e", accent: "#1a1a2e", starColor: "#1a1a2e", subtleText: "rgba(0,0,0,0.5)", border: "none" },
+  light: { bg: "#FFFFFF", text: "#1a1a2e", accent: "#0d3cfc", starColor: "#FBBF24", subtleText: "#9CA3AF", border: "1px solid #E5E7EB" },
+  dark: { bg: "#1a1a2e", text: "#FFFFFF", accent: "#0d3cfc", starColor: "#FBBF24", subtleText: "rgba(255,255,255,0.5)", border: "none" },
+  accent: { bg: "#0d3cfc", text: "#1a1a2e", accent: "#1a1a2e", starColor: "#1a1a2e", subtleText: "rgba(0,0,0,0.5)", border: "none" },
 };
 
 function ReviewCardTemplate({ data, style, size }: { data: ReviewCardData; style: CardStyle; size: "square" | "story" }) {

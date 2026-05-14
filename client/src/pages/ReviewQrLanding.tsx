@@ -50,7 +50,7 @@ export default function ReviewQrLanding() {
 
   return (
     <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh", background: "#f5f5f5" }}>
-      <Loader2 size={32} style={{ color: "#00D4C8" }} className="animate-spin" />
+      <Loader2 size={32} style={{ color: "#0d3cfc" }} className="animate-spin" />
     </div>
   );
 }

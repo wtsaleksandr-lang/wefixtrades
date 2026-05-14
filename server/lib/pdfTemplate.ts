@@ -62,7 +62,7 @@ const COLORS = {
   grey: "#6B7280",
   lightGrey: "#F3F4F6",
   border: "#E5E7EB",
-  cyan: "#00D4C8",
+  cyan: "#0d3cfc",
   green: "#22C55E",
   amber: "#F59E0B",
   red: "#EF4444",
@@ -211,7 +211,7 @@ export function buildPdfHtml(data: PdfReportData): string {
   table { width: 100%; border-collapse: collapse; font-size: 10px; }
   th { text-align: left; padding: 6px 8px; border-bottom: 2px solid ${COLORS.border}; font-weight: 700; color: ${COLORS.grey}; font-size: 9px; text-transform: uppercase; }
   td { padding: 6px 8px; border-bottom: 1px solid ${COLORS.lightGrey}; }
-  .row-user { background: rgba(0,212,200,0.06); font-weight: 600; }
+  .row-user { background: rgba(13,60,252,0.06); font-weight: 600; }
 
   /* Keywords */
   .kw-row { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid ${COLORS.lightGrey}; }

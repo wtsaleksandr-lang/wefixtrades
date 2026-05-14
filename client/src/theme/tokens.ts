@@ -183,7 +183,7 @@ export const mkt = {
   orange: '#F7B430',
   orangeTint: 'rgba(247,180,48,0.10)',
   cyan: colors.effortel.a500,
-  cyanTint: 'rgba(104,212,227,0.10)',
+  cyanTint: 'rgba(13,60,252,0.10)',
   cardBg: 'rgba(255,255,255,0.04)',
   cardBorder: 'rgba(255,255,255,0.08)',
   buttonBg: colors.effortel.a400,

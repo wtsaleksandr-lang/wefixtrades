@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 
 // ─── Design tokens ───────────────────
 const DARK = '#0d1514';
-const CYAN = '#00D4C8';
+const CYAN = '#0d3cfc';
 const GREEN = '#22C55E';
 const GREEN_BG = '#DCFCE7';
 const AMBER = '#F59E0B';
@@ -961,12 +961,12 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
   };
 
   const scoreRows = [
-    { key: 'googleMaps', icon: <MapPin size={18} color="#00D4C8" />, label: 'Google Maps Profile', score: scores.googleMaps?.score || 0, max: 25, note: 'How complete and trusted your Google profile is' },
-    { key: 'websiteQuality', icon: <Globe size={18} color="#00D4C8" />, label: 'Website Quality', score: liveWebsiteScore ?? scores.websiteQuality?.score ?? 0, max: 20, note: websiteScoreNote },
-    { key: 'searchVisibility', icon: <Search size={18} color="#00D4C8" />, label: 'Search Visibility', score: scores.searchVisibility?.score || 0, max: 20, note: 'How easily customers find you on Google' },
-    { key: 'competitorPosition', icon: <Trophy size={18} color="#00D4C8" />, label: 'Competitor Position', score: scores.competitorPositioning?.score || 0, max: 15, note: 'How you compare to local competitors' },
-    { key: 'adOpportunity', icon: <Megaphone size={18} color="#00D4C8" />, label: 'Ad Opportunity', score: scores.adOpportunity?.score || 0, max: 10, note: 'Whether Google Ads would help you get more calls' },
-    { key: 'demandCoverage', icon: <Clock size={18} color="#00D4C8" />, label: 'Demand Coverage', score: scores.demandCoverage?.score || 0, max: 10, note: "Whether you show up during evenings, weekends, and emergencies" },
+    { key: 'googleMaps', icon: <MapPin size={18} color="#0d3cfc" />, label: 'Google Maps Profile', score: scores.googleMaps?.score || 0, max: 25, note: 'How complete and trusted your Google profile is' },
+    { key: 'websiteQuality', icon: <Globe size={18} color="#0d3cfc" />, label: 'Website Quality', score: liveWebsiteScore ?? scores.websiteQuality?.score ?? 0, max: 20, note: websiteScoreNote },
+    { key: 'searchVisibility', icon: <Search size={18} color="#0d3cfc" />, label: 'Search Visibility', score: scores.searchVisibility?.score || 0, max: 20, note: 'How easily customers find you on Google' },
+    { key: 'competitorPosition', icon: <Trophy size={18} color="#0d3cfc" />, label: 'Competitor Position', score: scores.competitorPositioning?.score || 0, max: 15, note: 'How you compare to local competitors' },
+    { key: 'adOpportunity', icon: <Megaphone size={18} color="#0d3cfc" />, label: 'Ad Opportunity', score: scores.adOpportunity?.score || 0, max: 10, note: 'Whether Google Ads would help you get more calls' },
+    { key: 'demandCoverage', icon: <Clock size={18} color="#0d3cfc" />, label: 'Demand Coverage', score: scores.demandCoverage?.score || 0, max: 10, note: "Whether you show up during evenings, weekends, and emergencies" },
   ];
 
   const card = (extra?: any) => ({
@@ -1238,7 +1238,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
               onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%' }}>
-                <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 8, background: 'rgba(0,212,200,0.08)', flexShrink: 0 }}>
+                <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 8, background: 'rgba(13,60,252,0.08)', flexShrink: 0 }}>
                   {row.icon}
                 </span>
                 <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: DARK, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -2159,7 +2159,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
               { Icon: Users, title: 'Built for Trades', text: 'Designed for plumbers, HVAC, electricians and more.' },
             ].map(({ Icon, title, text }) => (
               <div key={title} style={{ background: GREY_BG, borderRadius: 12, padding: '12px 14px', display: 'flex', flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
-                <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(0,212,200,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(13,60,252,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   <Icon size={16} color={CYAN} />
                 </div>
                 <div style={{ flex: 1 }}>

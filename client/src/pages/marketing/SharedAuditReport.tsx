@@ -17,14 +17,14 @@ function scoreColor(score: number, max: number): string {
 
 function gradeColor(grade: string): string {
   if (grade === "A") return "#22C55E";
-  if (grade === "B") return "#00D4C8";
+  if (grade === "B") return "#0d3cfc";
   if (grade === "C") return "#F59E0B";
   return "#EF4444";
 }
 
 function gradeBg(grade: string): string {
   if (grade === "A") return "#DCFCE7";
-  if (grade === "B") return "rgba(0,212,200,0.15)";
+  if (grade === "B") return "rgba(13,60,252,0.15)";
   if (grade === "C") return "#FEF3C7";
   return "#FEE2E2";
 }
@@ -95,7 +95,7 @@ export default function SharedAuditReport() {
     <div style={{ padding: 40, textAlign: "center", fontFamily: "Inter, system-ui" }}>
       <h2 style={{ color: "#EF4444" }}>Report not found</h2>
       <p style={{ color: "#6B7280", marginTop: 8 }}>{error || "This report may have been removed."}</p>
-      <a href="/tools/free-audit" style={{ display: "inline-block", marginTop: 16, padding: "12px 24px", background: "#00D4C8", color: "#1A1A2E", borderRadius: 10, fontWeight: 700, textDecoration: "none" }}>Get your own free audit &rarr;</a>
+      <a href="/tools/free-audit" style={{ display: "inline-block", marginTop: 16, padding: "12px 24px", background: "#0d3cfc", color: "#1A1A2E", borderRadius: 10, fontWeight: 700, textDecoration: "none" }}>Get your own free audit &rarr;</a>
     </div>
   );
 
@@ -132,7 +132,7 @@ export default function SharedAuditReport() {
         <div className={s.stickyLogo}>We<span>Fix</span>Trades</div>
         <div style={{ flex: 1 }} />
         <span className={s.sharedBadge}>Shared Report</span>
-        <a href="/tools/free-audit" style={{ marginLeft: 8, padding: "6px 14px", borderRadius: 8, background: "#00D4C8", color: "#1A1A2E", fontWeight: 700, fontSize: 13, textDecoration: "none" }}>Get your own free audit &rarr;</a>
+        <a href="/tools/free-audit" style={{ marginLeft: 8, padding: "6px 14px", borderRadius: 8, background: "#0d3cfc", color: "#1A1A2E", fontWeight: 700, fontSize: 13, textDecoration: "none" }}>Get your own free audit &rarr;</a>
       </div>
 
       <div className={s.reportPage}>
@@ -309,7 +309,7 @@ export default function SharedAuditReport() {
               const rankColor = kw.organicRank ? (kw.organicRank <= 3 ? "#22C55E" : kw.organicRank <= 10 ? "#F59E0B" : "#EF4444") : "#EF4444";
               const rankBg = kw.organicRank ? (kw.organicRank <= 3 ? "#DCFCE7" : kw.organicRank <= 10 ? "#FEF3C7" : "#FEE2E2") : "#FEE2E2";
               const statusColor = kw.status === "strong" ? "#166534" : kw.status === "good" ? "#0a9e96" : kw.status === "below-fold" ? "#92400e" : "#991b1b";
-              const statusBg = kw.status === "strong" ? "#DCFCE7" : kw.status === "good" ? "rgba(0,212,200,0.12)" : kw.status === "below-fold" ? "#FEF3C7" : "#FEE2E2";
+              const statusBg = kw.status === "strong" ? "#DCFCE7" : kw.status === "good" ? "rgba(13,60,252,0.12)" : kw.status === "below-fold" ? "#FEF3C7" : "#FEE2E2";
               return (
                 <div key={i} className={s.kwRow}>
                   <div style={{ fontWeight: 600, color: "#1A1A2E", fontSize: 13 }}>{kw.keyword}</div>
@@ -397,7 +397,7 @@ export default function SharedAuditReport() {
 
         {/* Back to audit CTA */}
         <div style={{ textAlign: "center", marginTop: 24, marginBottom: 40 }}>
-          <a href="/tools/free-audit" style={{ display: "inline-block", padding: "14px 28px", background: "#00D4C8", color: "#1A1A2E", borderRadius: 12, fontWeight: 800, fontSize: 15, textDecoration: "none" }}>Get your own free audit &rarr;</a>
+          <a href="/tools/free-audit" style={{ display: "inline-block", padding: "14px 28px", background: "#0d3cfc", color: "#1A1A2E", borderRadius: 12, fontWeight: 800, fontSize: 15, textDecoration: "none" }}>Get your own free audit &rarr;</a>
         </div>
       </div>
 

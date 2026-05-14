@@ -887,7 +887,7 @@ export default function FreeAudit() {
                     textAlign: 'center', padding: '6px 0 2px',
                     fontSize: 12, color: '#6B7280',
                   }}>
-                    Report generated earlier today — <span style={{ color: '#00D4C8', cursor: 'pointer' }}
+                    Report generated earlier today — <span style={{ color: '#0d3cfc', cursor: 'pointer' }}
                       onClick={() => { if (lastPredRef.current) runAudit(lastPredRef.current, lastTradeRef.current || undefined); }}>
                       Refresh for latest data
                     </span>

@@ -270,7 +270,7 @@ function VoiceAndStyleCard({
         className="flex items-center justify-between w-full px-5 py-4 text-left"
       >
         <div className="flex items-center gap-2">
-          <Mic className="w-4 h-4 text-teal-600" />
+          <Mic className="w-4 h-4 text-blue-600" />
           <h2 className="text-sm font-semibold text-gray-900">Voice & Style</h2>
           <span className="text-xs text-gray-400">
             {VOICE_PRESETS.find(v => v.id === voicePresetId)?.label} · {TONE_OPTIONS.find(t => t.value === tone)?.label}
@@ -292,7 +292,7 @@ function VoiceAndStyleCard({
                   onClick={() => setVoicePresetId(v.id)}
                   className={`text-left px-2.5 py-2 rounded-lg border text-sm transition-colors ${
                     voicePresetId === v.id
-                      ? "border-teal-500 bg-teal-50 text-teal-900"
+                      ? "border-blue-500 bg-blue-50 text-blue-900"
                       : "border-gray-200 hover:border-gray-300 text-gray-700"
                   }`}
                 >
@@ -315,7 +315,7 @@ function VoiceAndStyleCard({
                     onClick={() => setTone(t.value)}
                     className={`flex-1 text-center px-2 py-1.5 rounded-lg border text-xs transition-colors ${
                       tone === t.value
-                        ? "border-teal-500 bg-teal-50 text-teal-900 font-medium"
+                        ? "border-blue-500 bg-blue-50 text-blue-900 font-medium"
                         : "border-gray-200 hover:border-gray-300 text-gray-600"
                     }`}
                   >
@@ -334,7 +334,7 @@ function VoiceAndStyleCard({
                     onClick={() => setLanguage(l.value)}
                     className={`px-2.5 py-1.5 rounded-lg border text-xs transition-colors ${
                       language === l.value
-                        ? "border-teal-500 bg-teal-50 text-teal-900 font-medium"
+                        ? "border-blue-500 bg-blue-50 text-blue-900 font-medium"
                         : "border-gray-200 hover:border-gray-300 text-gray-600"
                     }`}
                   >
@@ -370,7 +370,7 @@ function VoiceAndStyleCard({
                     onClick={() => setWidgetPreset(w.value)}
                     className={`flex-1 text-center px-2 py-1.5 rounded-lg border text-xs transition-colors ${
                       widgetPreset === w.value
-                        ? "border-teal-500 bg-teal-50 text-teal-900 font-medium"
+                        ? "border-blue-500 bg-blue-50 text-blue-900 font-medium"
                         : "border-gray-200 hover:border-gray-300 text-gray-600"
                     }`}
                   >
@@ -398,7 +398,7 @@ function VoiceAndStyleCard({
             <Button
               onClick={() => saveMutation.mutate()}
               disabled={saveMutation.isPending}
-              className="w-full h-9 text-sm bg-teal-600 hover:bg-teal-700"
+              className="w-full h-9 text-sm bg-blue-600 hover:bg-blue-700"
             >
               {saveMutation.isPending ? (
                 <><Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> Saving...</>
@@ -759,7 +759,7 @@ export default function PortalServiceDetail() {
               <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                 <div className="px-5 py-4 border-b border-gray-100">
                   <div className="flex items-center gap-2">
-                    <Wrench className="w-4 h-4 text-teal-600" />
+                    <Wrench className="w-4 h-4 text-blue-600" />
                     <h2 className="text-sm font-semibold text-gray-900">Fixes Progress</h2>
                   </div>
                   <p className="text-xs text-gray-500 mt-1">
@@ -769,7 +769,7 @@ export default function PortalServiceDetail() {
                   <div className="mt-2">
                     <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-teal-500 rounded-full transition-all"
+                        className="h-full bg-blue-500 rounded-full transition-all"
                         style={{ width: `${data.tasks.length > 0 ? Math.round((data.tasks.filter(t => t.status === "delivered").length / data.tasks.length) * 100) : 0}%` }}
                       />
                     </div>

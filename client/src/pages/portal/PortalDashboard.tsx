@@ -466,13 +466,13 @@ function PortalDashboardInner() {
               <div className="bg-white rounded-xl border border-gray-200 p-5">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-teal-50 flex items-center justify-center">
-                      <PhoneCall className="w-5 h-5 text-teal-600" />
+                    <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
+                      <PhoneCall className="w-5 h-5 text-blue-600" />
                     </div>
                     <div>
                       <h3 className="text-sm font-semibold text-gray-900">TradeLine</h3>
                       <div className="flex items-center gap-1.5 mt-0.5">
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium capitalize bg-teal-50 text-teal-700">
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium capitalize bg-blue-50 text-teal-700">
                           {(tlData.config.variant ?? "").replace(/_/g, " ")}
                         </span>
                         <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${statusBadge.cls}`}>

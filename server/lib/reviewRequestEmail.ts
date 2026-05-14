@@ -40,7 +40,7 @@ export function buildReviewRequestEmailHtml(opts: {
       Your feedback takes less than a minute and helps other local customers find quality tradespeople.
     </p>
     <div style="text-align:center;margin-bottom:20px;">
-      <a href="${feedbackUrl}" style="display:inline-block;background:#00D4C8;color:#1A1A2E;font-size:14px;font-weight:700;padding:14px 32px;border-radius:10px;text-decoration:none;">
+      <a href="${feedbackUrl}" style="display:inline-block;background:#0d3cfc;color:#1A1A2E;font-size:14px;font-weight:700;padding:14px 32px;border-radius:10px;text-decoration:none;">
         Share Your Feedback &rarr;
       </a>
     </div>
@@ -48,7 +48,7 @@ export function buildReviewRequestEmailHtml(opts: {
   <tr><td style="padding:0 28px 20px;">
     <div style="border-top:1px solid #eee;padding-top:16px;font-size:12px;color:#999;line-height:1.5;">
       If the button doesn&rsquo;t work, copy and paste this link:<br/>
-      <a href="${feedbackUrl}" style="color:#00D4C8;word-break:break-all;">${feedbackUrl}</a>
+      <a href="${feedbackUrl}" style="color:#0d3cfc;word-break:break-all;">${feedbackUrl}</a>
     </div>
   </td></tr>
   <tr><td style="padding:12px 28px;background:#f9fafb;text-align:center;">
@@ -92,7 +92,7 @@ export function buildReminderEmailHtml(opts: {
       ${body}
     </p>
     <div style="text-align:center;margin-bottom:20px;">
-      <a href="${feedbackUrl}" style="display:inline-block;background:#00D4C8;color:#1A1A2E;font-size:14px;font-weight:700;padding:14px 32px;border-radius:10px;text-decoration:none;">
+      <a href="${feedbackUrl}" style="display:inline-block;background:#0d3cfc;color:#1A1A2E;font-size:14px;font-weight:700;padding:14px 32px;border-radius:10px;text-decoration:none;">
         ${cta} &rarr;
       </a>
     </div>
@@ -100,7 +100,7 @@ export function buildReminderEmailHtml(opts: {
   <tr><td style="padding:0 28px 20px;">
     <div style="border-top:1px solid #eee;padding-top:16px;font-size:12px;color:#999;line-height:1.5;">
       If the button doesn&rsquo;t work, copy and paste this link:<br/>
-      <a href="${feedbackUrl}" style="color:#00D4C8;word-break:break-all;">${feedbackUrl}</a>
+      <a href="${feedbackUrl}" style="color:#0d3cfc;word-break:break-all;">${feedbackUrl}</a>
     </div>
   </td></tr>
   <tr><td style="padding:12px 28px;background:#f9fafb;text-align:center;">
