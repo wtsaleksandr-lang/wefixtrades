@@ -30,7 +30,6 @@ import { apiFetch } from "./apiClient";
 
 interface SetupStateResponse {
   setup: TradelinePhoneSetup;
-  optionCEligible: boolean;
   testMode?: boolean;
 }
 
@@ -99,7 +98,6 @@ export default function TradelineSetupPage() {
           <>
             {showChoice && (
               <ChoiceCard
-                optionCEligible={data.optionCEligible}
                 onContinue={(mode) => chooseMutation.mutate(mode)}
                 isContinuing={chooseMutation.isPending}
               />
