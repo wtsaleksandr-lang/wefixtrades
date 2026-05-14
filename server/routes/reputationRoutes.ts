@@ -304,6 +304,20 @@ export function registerReputationRoutes(app: Express): void {
         }
       }
 
+      // Validate place_id against Google Places before persisting. Caller
+      // may opt out with `skip_place_validation: true` for dev/recovery.
+      if (place_id && req.body?.skip_place_validation !== true) {
+        const { validateGooglePlaceId } = await import("../services/reputation/placeIdValidator");
+        const placeResult = await validateGooglePlaceId(place_id);
+        if (!placeResult.valid && !placeResult.soft) {
+          return res.status(400).json({ error: `Invalid Google Place ID: ${placeResult.reason}` });
+        }
+        // soft-pass (no API key, network blip, etc.) is logged but not blocked
+        if (!placeResult.valid && placeResult.soft) {
+          log.warn(`[reputation] Place ID soft-pass for client ${clientId}: ${placeResult.reason}`);
+        }
+      }
+
       await updateReviewLinkConfig(clientId, {
         review_link: review_link !== undefined ? review_link : undefined,
         place_id: place_id !== undefined ? place_id : undefined,
@@ -326,6 +340,64 @@ export function registerReputationRoutes(app: Express): void {
       res.json(result);
     } catch (err: any) {
       res.status(500).json({ error: "Validation failed" });
+    }
+  });
+
+  // ─── Review-request suppression (DNC) ───
+
+  app.get("/api/reputation/clients/:clientId/suppression", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.clientId as string);
+      if (isNaN(clientId)) return res.status(400).json({ error: "Invalid client ID" });
+      const limit = Math.min(parseInt(String(req.query.limit ?? "100"), 10) || 100, 500);
+      const offset = parseInt(String(req.query.offset ?? "0"), 10) || 0;
+      const rows = await storage.listReviewRequestSuppression(clientId, { limit, offset });
+      res.json({ suppressions: rows });
+    } catch (err: any) {
+      log.error("[reputation] List suppression error:", err.message);
+      res.status(500).json({ error: "Failed to list suppression" });
+    }
+  });
+
+  app.post("/api/reputation/clients/:clientId/suppression", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.clientId as string);
+      if (isNaN(clientId)) return res.status(400).json({ error: "Invalid client ID" });
+      const { customer_email, customer_phone, reason, source } = req.body ?? {};
+      if (!customer_email && !customer_phone) {
+        return res.status(400).json({ error: "Provide customer_email or customer_phone" });
+      }
+      const actor = (req as any).user?.id ?? null;
+      const result = await storage.addReviewRequestSuppression({
+        client_id: clientId,
+        customer_email: customer_email ?? null,
+        customer_phone: customer_phone ?? null,
+        reason: reason ?? undefined,
+        source: source ?? "manual",
+        suppressed_by: actor,
+      });
+      res.json({ id: result.id });
+    } catch (err: any) {
+      // Unique-index violation = already on list, treat as idempotent.
+      if (String(err?.message || "").includes("idx_review_suppression")) {
+        return res.status(200).json({ id: null, alreadySuppressed: true });
+      }
+      log.error("[reputation] Add suppression error:", err.message);
+      res.status(500).json({ error: "Failed to add suppression" });
+    }
+  });
+
+  app.delete("/api/reputation/clients/:clientId/suppression/:id", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.clientId as string);
+      const id = parseInt(req.params.id as string);
+      if (isNaN(clientId) || isNaN(id)) return res.status(400).json({ error: "Invalid IDs" });
+      const removed = await storage.removeReviewRequestSuppression(clientId, id);
+      if (!removed) return res.status(404).json({ error: "Not found" });
+      res.json({ ok: true });
+    } catch (err: any) {
+      log.error("[reputation] Remove suppression error:", err.message);
+      res.status(500).json({ error: "Failed to remove suppression" });
     }
   });
 

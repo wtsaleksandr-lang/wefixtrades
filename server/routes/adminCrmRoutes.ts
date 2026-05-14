@@ -2641,12 +2641,31 @@ export function registerAdminCrmRoutes(app: Express): void {
       const tone = toneOverride && validTones.includes(toneOverride) ? toneOverride as any : undefined;
       const result = await generateReviewDraft(review, client, tone);
 
+      // Determine approval treatment. 5★ + non-escalated drafts skip the
+      // approval gate (auto_approved); everything else requires human OK
+      // before publish. Mirrors the reviewCore auto-reply eligibility policy
+      // so admin and ingestion paths agree.
+      const isAutoApprovable = review.rating === 5 && result.tone === "positive";
+
       // Persist the draft
       await storage.updateMonitoredReview(review.id, {
         draft_response: result.draft,
         draft_generated_at: new Date(),
         draft_model: result.model,
+        approval_status: isAutoApprovable ? "auto_approved" : "unreviewed",
+        requires_approval: !isAutoApprovable,
       });
+
+      // Audit: AI-generated text logged as edit kind for the history panel.
+      await storage.appendReviewResponseEdit({
+        monitored_review_id: review.id,
+        edited_by: null,
+        edit_kind: "ai_generated",
+        old_text: null,
+        new_text: result.draft,
+        reason: `model=${result.model} tone=${result.tone}`,
+        metadata: { auto_approved: isAutoApprovable },
+      }).catch(() => { /* audit best-effort */ });
 
       await storage.logAdminActivity({
         actor_type: "human",
@@ -2660,6 +2679,7 @@ export function registerAdminCrmRoutes(app: Express): void {
           tone: result.tone,
           model: result.model,
           generated: result.generated,
+          auto_approved: isAutoApprovable,
           error: result.error || null,
         },
       });
@@ -2692,14 +2712,123 @@ export function registerAdminCrmRoutes(app: Express): void {
       const review = await storage.getMonitoredReviewById(id);
       if (!review) return res.status(404).json({ error: "Review not found" });
 
+      const newText = draft_response.trim().slice(0, 2000);
+      const oldText = review.draft_response ?? null;
+
       await storage.updateMonitoredReview(review.id, {
-        draft_response: draft_response.trim().slice(0, 2000),
+        draft_response: newText,
+        // A human edit invalidates any prior approval — they're changing the
+        // content. Resets to unreviewed so the approval gate fires again.
+        approval_status: "unreviewed",
+        approved_by: null,
+        approved_at: null,
       });
+
+      // Append to the edit history.
+      await storage.appendReviewResponseEdit({
+        monitored_review_id: review.id,
+        edited_by: (req.user as any)?.id ?? null,
+        edit_kind: "human_edit",
+        old_text: oldText,
+        new_text: newText,
+      }).catch(() => { /* audit best-effort */ });
 
       res.json({ ok: true });
     } catch (err: any) {
       log.error("[admin-crm] Save draft error:", err.message);
       res.status(500).json({ error: "Failed to save draft" });
+    }
+  });
+
+  /**
+   * POST /api/admin/crm/monitored-reviews/:id/approve
+   * Mark a draft response as approved for posting. Optionally publish
+   * immediately by passing `publish: true` (admin must still satisfy the
+   * Google-connection + google_review_name preconditions in post-to-google).
+   */
+  app.post("/api/admin/crm/monitored-reviews/:id/approve", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id as string);
+      const review = await storage.getMonitoredReviewById(id);
+      if (!review) return res.status(404).json({ error: "Review not found" });
+      if (!review.draft_response) {
+        return res.status(400).json({ error: "No draft to approve — generate one first" });
+      }
+
+      const actorId = (req.user as any)?.id ?? null;
+      await storage.updateMonitoredReview(review.id, {
+        approval_status: "approved",
+        approved_by: actorId,
+        approved_at: new Date(),
+        approval_notes: req.body?.notes ?? null,
+      });
+
+      await storage.appendReviewResponseEdit({
+        monitored_review_id: review.id,
+        edited_by: actorId,
+        edit_kind: "approval",
+        old_text: null,
+        new_text: review.draft_response,
+        reason: req.body?.notes ?? null,
+      }).catch(() => { /* audit best-effort */ });
+
+      res.json({ ok: true, approval_status: "approved" });
+    } catch (err: any) {
+      log.error("[admin-crm] Approve draft error:", err.message);
+      res.status(500).json({ error: "Failed to approve draft" });
+    }
+  });
+
+  /**
+   * POST /api/admin/crm/monitored-reviews/:id/reject
+   * Mark a draft response as rejected — won't be posted. Requires a reason.
+   */
+  app.post("/api/admin/crm/monitored-reviews/:id/reject", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id as string);
+      const reason = (req.body?.reason || "").toString().trim();
+      if (!reason) return res.status(400).json({ error: "reason is required when rejecting" });
+
+      const review = await storage.getMonitoredReviewById(id);
+      if (!review) return res.status(404).json({ error: "Review not found" });
+
+      const actorId = (req.user as any)?.id ?? null;
+      await storage.updateMonitoredReview(review.id, {
+        approval_status: "rejected",
+        approved_by: actorId,
+        approved_at: new Date(),
+        approval_notes: reason,
+      });
+
+      await storage.appendReviewResponseEdit({
+        monitored_review_id: review.id,
+        edited_by: actorId,
+        edit_kind: "rejection",
+        old_text: review.draft_response ?? null,
+        new_text: null,
+        reason,
+      }).catch(() => { /* audit best-effort */ });
+
+      res.json({ ok: true, approval_status: "rejected" });
+    } catch (err: any) {
+      log.error("[admin-crm] Reject draft error:", err.message);
+      res.status(500).json({ error: "Failed to reject draft" });
+    }
+  });
+
+  /**
+   * GET /api/admin/crm/monitored-reviews/:id/edit-history
+   * Audit trail of every change to this draft: AI generation, human edits,
+   * approvals/rejections, publishes. Drives the "history" panel in the admin UI.
+   */
+  app.get("/api/admin/crm/monitored-reviews/:id/edit-history", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id as string);
+      const edits = await storage.listReviewResponseEdits(id);
+      res.json({ edits });
+    } catch (err: any) {
+      log.error("[admin-crm] Edit history error:", err.message);
+      res.status(500).json({ error: "Failed to load edit history" });
     }
   });
 
@@ -2996,6 +3125,23 @@ export function registerAdminCrmRoutes(app: Express): void {
         });
       }
 
+      // Approval gate (Sprint 1) — refuse to post unreviewed drafts unless
+      // they fall under the auto_approved policy or the operator explicitly
+      // overrides via `force=true`. Without this, a misclick in the UI
+      // could publish an AI draft no human has read.
+      const reviewRow = review as any;
+      const approvalStatus = reviewRow.approval_status ?? "unreviewed";
+      const requiresApproval = reviewRow.requires_approval !== false;
+      const force = req.body?.force === true;
+      const isApproved = approvalStatus === "approved" || approvalStatus === "auto_approved";
+      if (requiresApproval && !isApproved && !force) {
+        return res.status(409).json({
+          error: "This draft has not been approved. Approve it first or pass force=true to override.",
+          code: "NOT_APPROVED",
+          approval_status: approvalStatus,
+        });
+      }
+
       // Check Google connection
       const { hasGoogleConnection, postGoogleReviewReply } = await import("../services/googleBusinessService");
       const connected = await hasGoogleConnection(review.client_id);
@@ -3019,6 +3165,16 @@ export function registerAdminCrmRoutes(app: Express): void {
         posted_via: "reputationshield",
         posted_at: new Date(),
       });
+
+      // Audit: record the publish in the edit history.
+      await storage.appendReviewResponseEdit({
+        monitored_review_id: reviewId,
+        edited_by: (req.user as any)?.id ?? null,
+        edit_kind: "post_published",
+        old_text: review.draft_response ?? null,
+        new_text: responseText,
+        reason: force ? "force-override" : `approval_status=${approvalStatus}`,
+      }).catch(() => { /* audit best-effort */ });
 
       await storage.logAdminActivity({
         actor_type: "human",

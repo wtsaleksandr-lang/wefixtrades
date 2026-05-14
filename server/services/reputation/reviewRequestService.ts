@@ -212,16 +212,44 @@ function buildDedupKey(clientId: number, sourceType: string, sourceId: number): 
   return `rr:${clientId}:${sourceType}:${sourceId}`;
 }
 
+/**
+ * Per-client daily review-request send caps. Tuned to keep Twilio/SendGrid
+ * cost predictable per ReputationShield seat — a single misbehaving caller
+ * to `enqueueFromBooking` cannot blow up the bill. Counts are taken over
+ * "sent + delivered" rows whose `sent_at` falls on the current UTC day.
+ */
+const DAILY_SEND_CAP_SMS = 50;
+const DAILY_SEND_CAP_EMAIL = 200;
+
 async function isEligible(
   clientId: number, customerPhone: string | null, customerEmail: string | null, dedupKey: string,
 ): Promise<{ eligible: boolean; reason?: string }> {
-  // Check dedup
+  // Must have at least one contact channel — check first, cheap & most common bail.
+  if (!customerPhone && !customerEmail) {
+    return { eligible: false, reason: "No phone or email available" };
+  }
+
+  // 1. DNC / suppression list — single indexed lookup, fail fast.
+  const suppressed = await storage.isReviewRequestSuppressed(clientId, customerEmail, customerPhone);
+  if (suppressed) {
+    return { eligible: false, reason: "Customer is on the review-request suppression list" };
+  }
+
+  // 2. Daily send cap — protects against runaway cost from caller bugs.
+  const channel = customerPhone ? "sms" : "email";
+  const sentToday = await storage.countReviewRequestSendsToday(clientId, channel);
+  const cap = channel === "sms" ? DAILY_SEND_CAP_SMS : DAILY_SEND_CAP_EMAIL;
+  if (sentToday >= cap) {
+    return { eligible: false, reason: `Daily ${channel.toUpperCase()} send cap reached (${cap}/day)` };
+  }
+
+  // 3. Dedup against same source (booking/lead).
   const existing = await storage.getReviewRequestByDedupKey(dedupKey);
   if (existing && existing.status !== "failed") {
     return { eligible: false, reason: "Review request already sent for this job" };
   }
 
-  // Check customer cooldown (same phone/email in recent window)
+  // 4. Customer cooldown (same phone/email in recent window).
   if (customerPhone || customerEmail) {
     const recent = await storage.listReviewRequests(clientId, 100);
     const cutoff = Date.now() - CUSTOMER_COOLDOWN_DAYS * 24 * 60 * 60 * 1000;
@@ -235,11 +263,6 @@ async function isEligible(
     if (recentForCustomer.length > 0) {
       return { eligible: false, reason: `Customer already received request within ${CUSTOMER_COOLDOWN_DAYS} days` };
     }
-  }
-
-  // Must have at least one contact channel
-  if (!customerPhone && !customerEmail) {
-    return { eligible: false, reason: "No phone or email available" };
   }
 
   return { eligible: true };
