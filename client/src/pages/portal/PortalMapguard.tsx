@@ -210,6 +210,12 @@ export default function PortalMapguard() {
                 automation has somewhere to publish. */}
             <GbpConnectBanner />
 
+            {/* Fresh-subscriber empty state — when the service is
+                active but no snapshots exist yet (typical first 24h).
+                Replaces the visually-empty dashboard with an explicit
+                "first scan in progress" reassurance. */}
+            {!data.current && data.snapshots.length === 0 && <FirstScanRunningCard />}
+
             {/* Health Banner */}
             {data.health && (
               <HealthBanner health={data.health} lastScan={data.last_scan} />
@@ -413,12 +419,7 @@ export default function PortalMapguard() {
                     <div>
                       <p className="text-sm font-semibold text-gray-900">Unlock faster growth</p>
                       <p className="text-xs text-gray-500 mt-0.5">Upgrade your plan to allow us to fix more issues each month and improve your ranking faster.</p>
-                      <button
-                        className="mt-2 inline-flex items-center px-4 py-2 rounded-lg text-xs font-semibold text-white bg-[#2D6A4F] hover:bg-[#1B4332] transition-colors"
-                        onClick={() => window.open("mailto:support@wefixtrades.com?subject=MapGuard%20Upgrade", "_blank")}
-                      >
-                        Upgrade Plan
-                      </button>
+                      <UpgradePlanButton />
                     </div>
                   </div>
                 )}
@@ -780,12 +781,18 @@ function GbpConnectBanner() {
     queryKey: ["/api/portal/mapguard/gbp/status"],
   });
   const [redirecting, setRedirecting] = useState(false);
+  // Explicit consent that we'll act as Manager on the customer's GBP.
+  // Required separate from Google's own OAuth consent — Google's screen
+  // is permission-scoped; this is the WeFixTrades agreement to act on
+  // their behalf, mirroring the audit's "legal hygiene" recommendation.
+  const [consented, setConsented] = useState(false);
 
   if (isLoading || !data) return null;
   if (data.connected) return null;
   if (!data.configured) return null; // ops hasn't set env vars yet — hide quietly
 
   const startConnect = async () => {
+    if (!consented) return;
     try {
       setRedirecting(true);
       const res = await fetch("/api/portal/mapguard/gbp/connect-url", { credentials: "include" });
@@ -814,9 +821,25 @@ function GbpConnectBanner() {
             We'll be able to post updates, respond to reviews, and protect your listing automatically.
             Takes about 30 seconds and you can revoke access any time from your Google account.
           </p>
+
+          <label className="flex items-start gap-2 mt-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={consented}
+              onChange={(e) => setConsented(e.target.checked)}
+              className="mt-0.5 w-3.5 h-3.5 rounded border-gray-300 text-[#008BBE] focus:ring-[#008BBE]"
+            />
+            <span className="text-[11px] text-gray-600 leading-snug">
+              I authorise WeFixTrades to act as a Manager on my Google Business Profile —
+              posting updates, replying to reviews, and editing listing information on my
+              behalf. I can revoke this access any time from my Google account. See our{" "}
+              <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-[#008BBE] underline">terms</a>.
+            </span>
+          </label>
+
           <Button
             onClick={startConnect}
-            disabled={redirecting}
+            disabled={redirecting || !consented}
             size="sm"
             className="mt-3 bg-[#008BBE] hover:bg-[#006fa0]"
           >
@@ -831,6 +854,75 @@ function GbpConnectBanner() {
           </Button>
         </div>
       </div>
+    </Card>
+  );
+}
+
+/* ─── Upgrade plan button ─────────────────────────────────────────
+   Opens the Stripe Customer Portal in a new tab so the customer can
+   change their MapGuard plan, update payment method, or cancel. Falls
+   back to a support email only if Stripe isn't reachable. */
+function UpgradePlanButton() {
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
+
+  const openBillingPortal = async () => {
+    try {
+      setLoading(true);
+      const res = await apiRequest("POST", "/api/portal/billing/portal-session", {});
+      const data = await res.json();
+      if (data?.url) {
+        window.open(data.url, "_blank");
+      } else {
+        throw new Error("No URL returned");
+      }
+    } catch (err: any) {
+      toast({
+        title: "Couldn't open billing portal",
+        description: "Email support@wefixtrades.com and we'll handle the upgrade for you.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <button
+      className="mt-2 inline-flex items-center px-4 py-2 rounded-lg text-xs font-semibold text-white bg-[#2D6A4F] hover:bg-[#1B4332] transition-colors disabled:opacity-60"
+      onClick={openBillingPortal}
+      disabled={loading}
+    >
+      {loading ? (
+        <>
+          <Loader2 className="w-3 h-3 mr-1.5 animate-spin" />
+          Opening…
+        </>
+      ) : (
+        "Upgrade Plan"
+      )}
+    </button>
+  );
+}
+
+/* ─── Empty-state card for fresh subscribers ──────────────────────
+   Shown when the customer is active but no scans have happened yet
+   (typical for the first 24h post-signup). Replaces the previous
+   nearly-empty dashboard with an explicit reassurance + timeline. */
+function FirstScanRunningCard() {
+  return (
+    <Card className="p-8 text-center bg-emerald-50/40 border-emerald-200">
+      <Shield className="w-10 h-10 text-emerald-600 mx-auto mb-3" />
+      <p className="text-sm font-semibold text-gray-900">First scan is running</p>
+      <p className="text-xs text-gray-600 mt-2 max-w-md mx-auto">
+        We're collecting your baseline visibility data right now. Your full dashboard
+        — score, rating, reviews, keyword rankings — will be ready within 24 hours.
+        We'll email you when the first report is available.
+      </p>
+      <p className="text-[11px] text-gray-400 mt-4">
+        Want to speed this up? Connect your Google Business Profile below so we can
+        start posting and responding on your behalf immediately.
+      </p>
     </Card>
   );
 }

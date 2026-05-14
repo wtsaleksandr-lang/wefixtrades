@@ -943,16 +943,30 @@ export interface PortfolioDashboard {
     alerts_7d: number;
     avg_score: number | null;
     upgrade_opportunities: number;
+    // Commercial + delivery proof metrics
+    mrr_cents: number;
+    basic_count: number;
+    pro_count: number;
+    posts_published_30d: number;
+    reviews_replied_30d: number;
   };
   clients: PortfolioClientRow[];
 }
+
+// Monthly list price per tier in cents. Mirrors service_catalog rows
+// for mapguard-basic ($99) and mapguard-pro ($149). Update here when
+// pricing changes — kept in sync via the seed-services script.
+const MAPGUARD_TIER_MRR_CENTS: Record<string, number> = {
+  "mapguard-basic": 9900,
+  "mapguard-pro": 14900,
+};
 
 export async function getMapguardPortfolioDashboard(): Promise<PortfolioDashboard> {
   // 1. Get all active MapGuard clients
   const activeClients = await getActiveMapguardClients();
   if (activeClients.length === 0) {
     return {
-      metrics: { total_clients: 0, significant_drops: 0, improved: 0, at_risk: 0, blocked_tasks: 0, waiting_supplier: 0, needs_review: 0, auto_tasks_7d: 0, alerts_7d: 0, avg_score: null, upgrade_opportunities: 0 },
+      metrics: { total_clients: 0, significant_drops: 0, improved: 0, at_risk: 0, blocked_tasks: 0, waiting_supplier: 0, needs_review: 0, auto_tasks_7d: 0, alerts_7d: 0, avg_score: null, upgrade_opportunities: 0, mrr_cents: 0, basic_count: 0, pro_count: 0, posts_published_30d: 0, reviews_replied_30d: 0 },
       clients: [],
     };
   }
@@ -1092,6 +1106,46 @@ export async function getMapguardPortfolioDashboard(): Promise<PortfolioDashboar
   const HEALTH_ORDER: Record<string, number> = { at_risk: 0, blocked: 1, waiting_delivery: 2, no_recent_scan: 3, new: 4, improved: 5, healthy: 6 };
   rows.sort((a, b) => (HEALTH_ORDER[a.health] ?? 9) - (HEALTH_ORDER[b.health] ?? 9) || (a.score_total ?? 0) - (b.score_total ?? 0));
 
+  // MRR + tier distribution. Pulls active mapguard-basic / mapguard-pro
+  // client_services rows and sums them against the tier price map.
+  // Hands the admin dashboard a real $ figure instead of just "X clients".
+  const tierDistribution = await db.execute(sql`
+    SELECT service_id, COUNT(*)::int AS count
+    FROM client_services
+    WHERE status = 'active'
+      AND enabled = TRUE
+      AND service_id IN ('mapguard-basic', 'mapguard-pro')
+    GROUP BY service_id
+  `);
+  let basicCount = 0;
+  let proCount = 0;
+  let mrrCents = 0;
+  for (const row of tierDistribution.rows as Array<{ service_id: string; count: number }>) {
+    const cents = MAPGUARD_TIER_MRR_CENTS[row.service_id] || 0;
+    mrrCents += cents * row.count;
+    if (row.service_id === "mapguard-basic") basicCount = row.count;
+    if (row.service_id === "mapguard-pro") proCount = row.count;
+  }
+
+  // Posts published in the last 30 days — proof that the GBP post
+  // automation is actually firing for the portfolio.
+  const [postsRow] = await db.execute(sql`
+    SELECT COUNT(*)::int AS count
+    FROM mapguard_posts
+    WHERE status = 'published'
+      AND published_at > NOW() - INTERVAL '30 days'
+  `).then((r) => r.rows as Array<{ count: number }>);
+
+  // Reviews replied in the last 30 days — proof that the review
+  // responder is actually firing.
+  const [reviewsRow] = await db.execute(sql`
+    SELECT COUNT(*)::int AS count
+    FROM reviews
+    WHERE platform = 'google_business'
+      AND reply_status = 'auto_replied'
+      AND reply_posted_at > NOW() - INTERVAL '30 days'
+  `).then((r) => r.rows as Array<{ count: number }>);
+
   return {
     metrics: {
       total_clients: activeClients.length,
@@ -1105,6 +1159,11 @@ export async function getMapguardPortfolioDashboard(): Promise<PortfolioDashboar
       alerts_7d: await getAlertCountSince(7),
       avg_score: scoreCount > 0 ? Math.round(scoreSum / scoreCount) : null,
       upgrade_opportunities: upgradeOpportunities,
+      mrr_cents: mrrCents,
+      basic_count: basicCount,
+      pro_count: proCount,
+      posts_published_30d: Number(postsRow?.count || 0),
+      reviews_replied_30d: Number(reviewsRow?.count || 0),
     },
     clients: rows,
   };

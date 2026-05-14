@@ -33,6 +33,7 @@ import DocsEmbed from "@/pages/marketing/docs/embed";
 import DocsDomain from "@/pages/marketing/docs/domain";
 import DocsBooking from "@/pages/marketing/docs/booking";
 import DocsAi from "@/pages/marketing/docs/ai";
+import DocsMapguard from "@/pages/marketing/docs/mapguard";
 import DocsWebhooks from "@/pages/marketing/docs/webhooks";
 import DocsTroubleshooting from "@/pages/marketing/docs/troubleshooting";
 import SolutionsVisibility from "@/pages/marketing/solutions-visibility";
@@ -223,7 +224,7 @@ function Router() {
 
       <Route path="/compare/reputationshield-vs-nicejob" component={CompareNiceJob} />
       <Route path="/compare/:slug" component={ComparisonPage} />
-      <Route path="/products/mapguard">{() => <EffortelProductPage slug="mapguard" />}</Route>
+      <Route path="/products/mapguard" component={MapGuardPage} />
       {/* TradeLine variant comparison — internal review pages, registered before /:slug */}
       {/* TradeLine consolidation — old routes redirect to unified product */}
       <Route path="/products/assistants">{() => <Redirect to="/products/tradeline" />}</Route>
@@ -284,6 +285,7 @@ function Router() {
       <Route path="/docs/domain" component={DocsDomain} />
       <Route path="/docs/booking" component={DocsBooking} />
       <Route path="/docs/ai" component={DocsAi} />
+      <Route path="/docs/mapguard" component={DocsMapguard} />
       <Route path="/docs/webhooks" component={DocsWebhooks} />
       <Route path="/docs/troubleshooting" component={DocsTroubleshooting} />
       <Route path="/dev/primitives">{() => <RequirePortal><PrimitivesPage /></RequirePortal>}</Route>

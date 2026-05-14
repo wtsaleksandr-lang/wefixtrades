@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Copy, Check, ChevronDown, ChevronRight, ArrowLeft, Menu, X, Code, Globe, Calendar, Bot, Webhook, AlertCircle, BookOpen } from "lucide-react";
+import { Copy, Check, ChevronDown, ChevronRight, ArrowLeft, Menu, X, Code, Globe, Calendar, Bot, Webhook, AlertCircle, BookOpen, Shield } from "lucide-react";
 import MarketingLayout from "./MarketingLayout";
 
 import { mkt, colors, shadows } from "@/theme/tokens";
@@ -26,6 +26,7 @@ const NAV_ITEMS = [
   { slug: "domain", label: "Custom Domain", icon: Globe },
   { slug: "booking", label: "Booking + Deposits", icon: Calendar },
   { slug: "ai", label: "AI Employee", icon: Bot },
+  { slug: "mapguard", label: "MapGuard", icon: Shield },
   { slug: "webhooks", label: "Webhooks", icon: Webhook },
   { slug: "troubleshooting", label: "Troubleshooting", icon: AlertCircle },
 ];

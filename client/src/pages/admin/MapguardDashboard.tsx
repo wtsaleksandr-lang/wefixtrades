@@ -40,6 +40,11 @@ interface PortfolioMetrics {
   alerts_7d: number;
   avg_score: number | null;
   upgrade_opportunities: number;
+  mrr_cents: number;
+  basic_count: number;
+  pro_count: number;
+  posts_published_30d: number;
+  reviews_replied_30d: number;
 }
 
 interface PortfolioClient {
@@ -188,18 +193,51 @@ export default function MapguardDashboard() {
             ))}
           </div>
         ) : metrics && (
-          <div className="grid auto-rows-fr grid-cols-2 md:grid-cols-5 gap-3">
-            <StatCard label="Active Clients" value={metrics.total_clients} icon={Users} color="bg-[#2D6A4F]" />
-            <StatCard label="At Risk" value={metrics.at_risk + metrics.significant_drops} icon={AlertTriangle} color={metrics.at_risk > 0 ? "bg-red-500" : "bg-gray-400"} />
-            <StatCard label="Improved" value={metrics.improved} icon={TrendingUp} color={metrics.improved > 0 ? "bg-emerald-500" : "bg-gray-400"} />
-            <StatCard
-              label="Avg Score"
-              value={metrics.avg_score !== null ? metrics.avg_score : "—"}
-              icon={Zap}
-              color="bg-blue-500"
-            />
-            <StatCard label="Upgrade Opps" value={metrics.upgrade_opportunities} icon={TrendingUp} color={metrics.upgrade_opportunities > 0 ? "bg-amber-500" : "bg-gray-400"} />
-          </div>
+          <>
+            <div className="grid auto-rows-fr grid-cols-2 md:grid-cols-5 gap-3">
+              <StatCard label="Active Clients" value={metrics.total_clients} icon={Users} color="bg-[#2D6A4F]" />
+              <StatCard label="At Risk" value={metrics.at_risk + metrics.significant_drops} icon={AlertTriangle} color={metrics.at_risk > 0 ? "bg-red-500" : "bg-gray-400"} />
+              <StatCard label="Improved" value={metrics.improved} icon={TrendingUp} color={metrics.improved > 0 ? "bg-emerald-500" : "bg-gray-400"} />
+              <StatCard
+                label="Avg Score"
+                value={metrics.avg_score !== null ? metrics.avg_score : "—"}
+                icon={Zap}
+                color="bg-blue-500"
+              />
+              <StatCard label="Upgrade Opps" value={metrics.upgrade_opportunities} icon={TrendingUp} color={metrics.upgrade_opportunities > 0 ? "bg-amber-500" : "bg-gray-400"} />
+            </div>
+
+            {/* Commercial + automation-delivery proof row. MRR shows
+                what the portfolio is worth right now; the 30d counters
+                show whether the post + review automation is actually
+                firing for paying customers. */}
+            <div className="grid auto-rows-fr grid-cols-2 md:grid-cols-4 gap-3 mt-3">
+              <StatCard
+                label="MRR"
+                value={`$${(metrics.mrr_cents / 100).toLocaleString("en-US", { maximumFractionDigits: 0 })}`}
+                icon={TrendingUp}
+                color="bg-emerald-600"
+              />
+              <StatCard
+                label="Tier Mix"
+                value={`${metrics.basic_count}B · ${metrics.pro_count}P`}
+                icon={Users}
+                color="bg-blue-600"
+              />
+              <StatCard
+                label="GBP Posts (30d)"
+                value={metrics.posts_published_30d}
+                icon={Zap}
+                color={metrics.posts_published_30d > 0 ? "bg-[#2D6A4F]" : "bg-gray-400"}
+              />
+              <StatCard
+                label="Replies (30d)"
+                value={metrics.reviews_replied_30d}
+                icon={CheckCircle}
+                color={metrics.reviews_replied_30d > 0 ? "bg-[#2D6A4F]" : "bg-gray-400"}
+              />
+            </div>
+          </>
         )}
 
         {/* Secondary metrics row */}
