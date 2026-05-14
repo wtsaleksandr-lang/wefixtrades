@@ -104,6 +104,12 @@ export const clients = pgTable("clients", {
   demo_mode: boolean("demo_mode").notNull().default(false),
   metadata: jsonb("metadata"),                             // flexible extra data
   journey_summary: text("journey_summary"),                 // pre-signup website chat summary
+  // 14-day trial of Pro-tier features at signup. trial_pro_features_enabled gates
+  // any Pro-only feature for self-serve trials regardless of subscription state.
+  // Daily cron (trialProExpiryWorker) flips the flag false when trial_pro_expires_at
+  // passes and emails the trade.
+  trial_pro_expires_at: timestamp("trial_pro_expires_at", { withTimezone: true }),
+  trial_pro_features_enabled: boolean("trial_pro_features_enabled").notNull().default(false),
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
 });
