@@ -1,6 +1,7 @@
 import { compileKnowledge, formatRecommendedServices, getRecommendedServices } from "./knowledgeBase";
 import type { TradelineConfig } from "@shared/schema";
 import { TRADELINE_DEMO_PROMPT } from "@shared/prompts/tradelineDemoPrompt";
+import { buildConciergeAddendum } from "./portalConciergeTemplates";
 
 /* ─── Types ─── */
 
@@ -776,6 +777,9 @@ STRICT RULES:
 
     // Mode-specific context
     parts.push(buildPortalModeContext(ctx));
+
+    // Niche-specific Concierge expertise (per-trade voice + knowledge)
+    parts.push(`\n=== ${buildConciergeAddendum(ctx.tradeType)}`);
   }
 
   // Priority logic
