@@ -13,9 +13,9 @@
 
 import type { Express, Request, Response } from "express";
 import { z } from "zod";
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { db } from "../db";
-import { mobileDevices, mobilePlatformSchema } from "@shared/schema";
+import { mobileCallRecords, mobileDevices, mobilePlatformSchema } from "@shared/schema";
 import { requireSessionOrBearer } from "../lib/mobileAuth";
 import {
   getVoiceConfig,
@@ -189,6 +189,38 @@ export function registerMobileVoiceRoutes(app: Express) {
       const ready = getVoiceConfig() !== null;
       const missing = voiceConfigMissingKeys();
       return res.json({ ready, missing });
+    },
+  );
+
+  /* ─── Recent calls for the authenticated user ─── */
+  app.get(
+    "/api/mobile/calls",
+    requireSessionOrBearer,
+    async (req: Request, res: Response) => {
+      const user = req.user as any;
+      const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 50));
+      try {
+        const rows = await db
+          .select({
+            id: mobileCallRecords.id,
+            call_sid: mobileCallRecords.call_sid,
+            direction: mobileCallRecords.direction,
+            from_number: mobileCallRecords.from_number,
+            to_number: mobileCallRecords.to_number,
+            status: mobileCallRecords.status,
+            duration_sec: mobileCallRecords.duration_sec,
+            started_at: mobileCallRecords.started_at,
+            ended_at: mobileCallRecords.ended_at,
+          })
+          .from(mobileCallRecords)
+          .where(eq(mobileCallRecords.user_id, user.id as number))
+          .orderBy(desc(mobileCallRecords.started_at))
+          .limit(limit);
+        return res.json({ calls: rows });
+      } catch (err) {
+        log.error("Call history query failed", { err: (err as Error).message });
+        return res.status(500).json({ error: "Failed to fetch call history" });
+      }
     },
   );
 
