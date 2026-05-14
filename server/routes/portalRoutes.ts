@@ -2394,6 +2394,60 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
   });
 
   /**
+   * GET /api/portal/mapguard/gbp/status
+   * Reports whether the authenticated client has an active Google
+   * Business connection (used to drive the "Connect Google Business"
+   * button shown on /portal/mapguard).
+   */
+  app.get("/api/portal/mapguard/gbp/status", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const connections = await storage.listSocialSyncConnections(clientId);
+      const conn = connections.find((c) => c.platform === "google_business");
+      const connected = !!(conn && conn.connection_status === "connected" && conn.external_page_id);
+
+      const { validateGoogleBusinessConfig } = await import("../services/socialSync/googleBusinessService");
+      const configCheck = validateGoogleBusinessConfig();
+
+      res.json({
+        connected,
+        configured: configCheck.valid,
+        location_name: conn?.external_page_id || null,
+      });
+    } catch (err) {
+      log.error("Portal mapguard GBP status error:", { error: String(err) });
+      res.status(500).json({ error: "Failed to load GBP status" });
+    }
+  });
+
+  /**
+   * GET /api/portal/mapguard/gbp/connect-url
+   * Returns an OAuth URL to start the customer-initiated Google
+   * Business connection. State is signed with source='portal-mapguard'
+   * so the OAuth callback knows to redirect back to /portal/mapguard.
+   */
+  app.get("/api/portal/mapguard/gbp/connect-url", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const { validateGoogleBusinessConfig, buildGoogleOAuthUrl } = await import("../services/socialSync/googleBusinessService");
+      const configCheck = validateGoogleBusinessConfig();
+      if (!configCheck.valid) {
+        return res.status(503).json({ error: "Google Business not configured", missing: configCheck.missing });
+      }
+
+      const url = buildGoogleOAuthUrl(clientId, { source: "portal-mapguard" });
+      res.json({ url });
+    } catch (err: any) {
+      log.error("Portal mapguard GBP connect-url error:", { error: err.message });
+      res.status(500).json({ error: "Failed to generate connect URL" });
+    }
+  });
+
+  /**
    * GET /api/portal/mapguard
    * Client-safe MapGuard dashboard data.
    * Returns snapshots, health, and trend data — no tasks, alerts, or supplier info.

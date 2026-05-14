@@ -23,6 +23,9 @@ import { checkAdflowMissingMetrics } from "./adflowMetricsCheckWorker";
 import { processWebcareHealthChecks } from "./webcareHealthWorker";
 import { processDunningQueue } from "./dunningWorker";
 import { processMapguardWeeklyUpdates } from "./mapguardWeeklyUpdateWorker";
+import { processMapguardPostDrain } from "./mapguardPostDrainer";
+import { fanoutMonthlyPosts } from "../services/mapguard/mapguardPostScheduler";
+import { processMapguardReviewResponses } from "../services/mapguard/mapguardReviewResponder";
 import { processTrialLifecycle, pauseExpiredTrials } from "./trialLifecycleWorker";
 /* Sprint 15: deprecated processSocialSyncQueue + socialSyncWorker.ts
  * deleted. SocialSync admin endpoints now route through ContentFlow's
@@ -332,6 +335,44 @@ export function initScheduler() {
       await runJob("mapguard_monthly_reports", processMapguardReports);
     } catch (err: any) {
       log.error("mapguard_monthly_reports cron handler error", { error: err.message });
+    }
+  }, { timezone: "UTC" });
+
+  // MapGuard GBP post fan-out — 03:00 UTC on the 1st of each month.
+  // Inserts N scheduled rows per active mapguard-basic / mapguard-pro
+  // subscriber (N = tier quota). Idempotent per (client_service_id,
+  // quota_period). See mapguardPostScheduler.ts.
+  cron.schedule("0 3 1 * *", async () => {
+    log.info("Running MapGuard monthly post fan-out...");
+    try {
+      await runJob("mapguard_post_fanout", () => fanoutMonthlyPosts());
+    } catch (err: any) {
+      log.error("mapguard_post_fanout cron handler error", { error: err.message });
+    }
+  }, { timezone: "UTC" });
+
+  // MapGuard GBP post drainer — 14:30 UTC daily. Picks up scheduled
+  // rows whose scheduled_for has passed, generates content via Claude,
+  // and publishes via the Google Business Profile localPosts API.
+  cron.schedule("30 14 * * *", async () => {
+    log.info("Running MapGuard post drainer...");
+    try {
+      await runJob("mapguard_post_drain", () => processMapguardPostDrain());
+    } catch (err: any) {
+      log.error("mapguard_post_drain cron handler error", { error: err.message });
+    }
+  }, { timezone: "UTC" });
+
+  // MapGuard review responder — 08:00 UTC daily. For each active
+  // ongoing MapGuard subscriber with a GBP connection, ingests fresh
+  // reviews, drafts AI replies, and auto-posts where policy allows.
+  // Human-attention-required reviews are held back for ops review.
+  cron.schedule("0 8 * * *", async () => {
+    log.info("Running MapGuard review responder...");
+    try {
+      await runJob("mapguard_review_responder", processMapguardReviewResponses);
+    } catch (err: any) {
+      log.error("mapguard_review_responder cron handler error", { error: err.message });
     }
   }, { timezone: "UTC" });
 

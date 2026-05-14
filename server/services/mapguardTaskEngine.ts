@@ -1141,6 +1141,19 @@ export async function kickoffMapguardService(
         console.warn(`[mapguard-kickoff] Failed to create ${t.task_type} for service ${clientServiceId}: ${err.message}`);
       }
     }
+
+    // Fire the freelancer brief once all setup kickoff tasks are queued.
+    // No-op when MAPGUARD_SETUP_FREELANCER_EMAIL isn't configured.
+    try {
+      const { sendMapguardSetupBrief } = await import("./mapguard/mapguardSetupBrief");
+      await sendMapguardSetupBrief({
+        clientId,
+        clientServiceId,
+        kickoffTaskTitles: created.map((t) => t.title),
+      });
+    } catch (err: any) {
+      console.warn(`[mapguard-kickoff] freelancer brief dispatch failed for cs ${clientServiceId}: ${err.message}`);
+    }
   } else {
     // Ongoing tier (basic / pro): just seed a baseline_audit_review task.
     try {

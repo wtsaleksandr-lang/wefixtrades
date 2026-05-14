@@ -1208,15 +1208,24 @@ export function registerSocialSyncRoutes(app: Express): void {
       }
 
       let clientId: number;
+      let source: string = "admin";
       try {
         const decoded = JSON.parse(rawPayload);
         clientId = decoded.clientId;
+        source = decoded.source || "admin";
         if (!clientId) throw new Error("Missing clientId");
       } catch {
         return res.redirect("/admin/crm/clients?gbp_error=invalid_state");
       }
 
       const result = await handleGoogleCallback(clientId, code);
+
+      // Branch on the source recorded at connect-URL time so customer-
+      // initiated connects from /portal/mapguard land back on their
+      // portal page instead of the admin CRM tab.
+      if (source === "portal-mapguard") {
+        return res.redirect(`/portal/mapguard?gbp_connected=1&locations=${result.locations.length}`);
+      }
       res.redirect(`/admin/crm/clients/${clientId}?tab=socialsync&gbp_connected=1&locations=${result.locations.length}`);
     } catch (err: any) {
       log.error("[socialsync] Google Business callback error:", err.message);

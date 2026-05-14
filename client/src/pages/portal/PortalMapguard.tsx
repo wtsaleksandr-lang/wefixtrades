@@ -205,6 +205,11 @@ export default function PortalMapguard() {
 
         {data && data.active && (
           <>
+            {/* Customer-initiated Google Business connection. Shown only
+                when the client isn't connected yet so the post + review
+                automation has somewhere to publish. */}
+            <GbpConnectBanner />
+
             {/* Health Banner */}
             {data.health && (
               <HealthBanner health={data.health} lastScan={data.last_scan} />
@@ -754,6 +759,78 @@ function MapguardConfigCard() {
           You're using the default MapGuard configuration.
         </p>
       )}
+    </Card>
+  );
+}
+
+/* ─── Google Business connect banner ──────────────────────────────
+   Shown only when the customer has not yet connected their GBP. The
+   automated post + review-response features need write-API access. On
+   click, we fetch a one-shot OAuth URL from the portal API and route
+   the browser to Google's consent screen. */
+interface GbpStatusResponse {
+  connected: boolean;
+  configured: boolean;
+  location_name: string | null;
+}
+
+function GbpConnectBanner() {
+  const { toast } = useToast();
+  const { data, isLoading } = useQuery<GbpStatusResponse>({
+    queryKey: ["/api/portal/mapguard/gbp/status"],
+  });
+  const [redirecting, setRedirecting] = useState(false);
+
+  if (isLoading || !data) return null;
+  if (data.connected) return null;
+  if (!data.configured) return null; // ops hasn't set env vars yet — hide quietly
+
+  const startConnect = async () => {
+    try {
+      setRedirecting(true);
+      const res = await fetch("/api/portal/mapguard/gbp/connect-url", { credentials: "include" });
+      if (!res.ok) throw new Error("connect-url fetch failed");
+      const { url } = await res.json();
+      window.location.href = url;
+    } catch {
+      setRedirecting(false);
+      toast({
+        title: "Couldn't start Google connection",
+        description: "Try again in a moment.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  return (
+    <Card className="p-5 border-blue-200 bg-blue-50/50">
+      <div className="flex items-start gap-3">
+        <div className="w-9 h-9 rounded-lg bg-[#008BBE] flex items-center justify-center shrink-0">
+          <MapPin className="w-4 h-4 text-white" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-gray-900">Connect your Google Business Profile</p>
+          <p className="text-xs text-gray-600 mt-0.5">
+            We'll be able to post updates, respond to reviews, and protect your listing automatically.
+            Takes about 30 seconds and you can revoke access any time from your Google account.
+          </p>
+          <Button
+            onClick={startConnect}
+            disabled={redirecting}
+            size="sm"
+            className="mt-3 bg-[#008BBE] hover:bg-[#006fa0]"
+          >
+            {redirecting ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                Connecting…
+              </>
+            ) : (
+              "Connect Google Business"
+            )}
+          </Button>
+        </div>
+      </div>
     </Card>
   );
 }

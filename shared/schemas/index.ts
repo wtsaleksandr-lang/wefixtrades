@@ -23,6 +23,7 @@ export * from "./contentflow";
 export * from "./emailUnsubscribes";
 export * from "./notificationPreferences";
 export * from "./mapguardConfig";
+export * from "./mapguardPosts";
 export * from "./tradelinePhoneSetups";
 export * from "./tradelineTemplateOverrides";
 export * from "./clientEmailIdentities";

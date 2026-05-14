@@ -111,13 +111,22 @@ const SCOPES = [
   "https://www.googleapis.com/auth/business.manage",
 ].join(" ");
 
-export function buildGoogleOAuthUrl(clientId: number): string {
+export function buildGoogleOAuthUrl(
+  clientId: number,
+  options?: { source?: "admin" | "portal-mapguard" },
+): string {
   const config = getGoogleBusinessConfig();
   if (!config.clientId || !config.redirectUri) {
     throw new Error("Google Business OAuth not configured");
   }
 
-  const payload = JSON.stringify({ clientId, ts: Date.now() });
+  // `source` is embedded in the signed state so the callback can decide
+  // where to redirect the browser after success (admin CRM vs portal).
+  const payload = JSON.stringify({
+    clientId,
+    ts: Date.now(),
+    source: options?.source || "admin",
+  });
   const signedState = signSocialSyncOAuthState(payload);
 
   const params = new URLSearchParams({
