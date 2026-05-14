@@ -25,6 +25,7 @@ process.on("SIGINT", () => { void shutdownAnalytics(); });
 
 import express, { type Request, Response, NextFunction } from "express";
 import helmet from "helmet";
+import cors from "cors";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import passport from "passport";
@@ -130,36 +131,204 @@ declare module "http" {
  *
  * Defense-in-depth HTTP headers. Adds HSTS, X-Content-Type-Options,
  * Referrer-Policy, X-DNS-Prefetch-Control, Cross-Origin-Opener-Policy,
- * and friends. Three opt-outs explained below.
+ * and friends. Opt-outs explained below.
  *
- *   1. contentSecurityPolicy: false
- *      The marketing site uses inline styles + loads third-party scripts
- *      (Stripe.js, Vapi widgets, Sentry browser SDK, PostHog). Enabling
- *      CSP without an explicit allowlist would break those. Tightening
- *      CSP is a follow-up — see WORKSTREAMS/general-audit.md.
+ *   1. contentSecurityPolicy is set in REPORT-ONLY mode below.
+ *      Violations are logged via /api/csp-report but not enforced yet.
+ *      Once we've collected ~a week of violation reports and refined
+ *      the allowlist, we'll graduate to enforce-mode in a follow-up.
  *
  *   2. crossOriginEmbedderPolicy: false
- *      Same reason as above — would block legitimate cross-origin
- *      iframes/scripts.
+ *      Would block legitimate cross-origin iframes/scripts the marketing
+ *      surface relies on.
  *
  *   3. frameguard: false  (X-Frame-Options NOT set globally)
  *      The QuoteQuick widget at /Calculator?...&embed=true is designed
- *      to be iframed on customer websites. Setting X-Frame-Options:
- *      SAMEORIGIN globally would break that core feature. Clickjacking
- *      protection on /admin and /portal should be added via per-route
- *      middleware in a follow-up PR.
+ *      to be iframed on customer websites. Clickjacking protection on
+ *      /admin and /portal is set per-route (see denyFrameEmbedding).
  *
- * crossOriginResourcePolicy left at default ("same-origin") — covers
- * API responses; third-party sites should not be fetching our endpoints
- * directly.
+ *   4. crossOriginResourcePolicy: false
+ *      Helmet's default is "same-origin", which would block
+ *      embed-widget.js / embed-chat.js / /Calculator from being loaded
+ *      cross-origin (customer.com -> wefixtrades.com). We re-set CORP
+ *      per-route below so admin/portal stay locked down but embed assets
+ *      remain reachable.
+ *
  * strictTransportSecurity (HSTS) at default: 180 days. Safe — the app
  * is exclusively HTTPS in production behind Replit's TLS-terminating LB.
  */
 app.use(
   helmet({
-    contentSecurityPolicy: false,
+    contentSecurityPolicy: false,           // see CSP-Report-Only block below
     crossOriginEmbedderPolicy: false,
     frameguard: false,
+    crossOriginResourcePolicy: false,       // see per-route CORP below
+  }),
+);
+
+/* ─── CSP — Report-Only mode ───
+ *
+ * Tight content-security policy that ALLOWS the third parties our
+ * marketing + portal pages actually load (Google Fonts, Fontshare, Vapi,
+ * Sentry, PostHog) and rejects everything else. Currently in
+ * Report-Only mode (header is Content-Security-Policy-Report-Only) —
+ * browsers will REPORT violations to /api/csp-report but not BLOCK
+ * them. This lets us collect real-world violation data before
+ * graduating to enforce-mode.
+ *
+ * 'unsafe-inline' is included for script-src + style-src because the
+ * codebase has many <style>{`...`}</style> blocks + inline style attrs
+ * + JSX-injected style strings (gsap, framer-motion). Tightening that
+ * out is a separate refactor.
+ */
+const cspDirectives = {
+  defaultSrc: ["'self'"],
+  scriptSrc: [
+    "'self'",
+    "'unsafe-inline'",
+    "'unsafe-eval'",                          // gsap and similar libs eval at runtime
+    "https://us.i.posthog.com",
+    "https://eu.i.posthog.com",
+    "https://*.posthog.com",
+    "https://*.sentry.io",
+    "https://*.ingest.sentry.io",
+    "https://*.vapi.ai",
+  ],
+  styleSrc: [
+    "'self'",
+    "'unsafe-inline'",
+    "https://fonts.googleapis.com",
+    "https://api.fontshare.com",
+    "https://*.fontshare.com",
+  ],
+  fontSrc: [
+    "'self'",
+    "data:",
+    "https://fonts.gstatic.com",
+    "https://api.fontshare.com",
+    "https://*.fontshare.com",
+  ],
+  imgSrc: [
+    "'self'",
+    "data:",
+    "blob:",
+    "https:",                                 // permissive — we render arbitrary GBP photos, OG previews, etc.
+  ],
+  connectSrc: [
+    "'self'",
+    "https://us.i.posthog.com",
+    "https://eu.i.posthog.com",
+    "https://*.posthog.com",
+    "https://*.sentry.io",
+    "https://*.ingest.sentry.io",
+    "https://api.vapi.ai",
+    "https://*.vapi.ai",
+    "wss://api.vapi.ai",
+    "wss://*.vapi.ai",
+  ],
+  frameSrc: [
+    "'self'",
+    "https://js.stripe.com",                  // 3DS / Stripe iframes if ever embedded
+    "https://hooks.stripe.com",
+    "https://*.vapi.ai",
+  ],
+  workerSrc: ["'self'", "blob:"],
+  manifestSrc: ["'self'"],
+  objectSrc: ["'none'"],
+  baseUri: ["'self'"],
+  formAction: ["'self'", "https://checkout.stripe.com"],
+  // frame-ancestors NOT set — let X-Frame-Options per-route handle clickjacking
+  // (CSP frame-ancestors would shadow our per-route X-Frame-Options DENY on /admin).
+  reportUri: ["/api/csp-report"],
+};
+app.use(
+  helmet.contentSecurityPolicy({
+    directives: cspDirectives,
+    reportOnly: true,
+  }),
+);
+
+/* ─── CSP report endpoint ───
+ *
+ * Browser POSTs JSON here whenever CSP-Report-Only sees a violation.
+ * We log via createLogger so violations show up in normal deploy logs.
+ * Body type varies (application/csp-report vs application/json depending
+ * on browser); accept both. Always 204 — we don't want the browser to
+ * retry / surface errors to the user.
+ */
+app.post(
+  "/api/csp-report",
+  express.json({ type: ["application/csp-report", "application/json", "*/*"], limit: "16kb" }),
+  (req: Request, res: Response) => {
+    const report = (req.body && (req.body["csp-report"] || req.body)) || {};
+    logger.info("[csp-report] violation", {
+      "blocked-uri": report["blocked-uri"],
+      "violated-directive": report["violated-directive"],
+      "document-uri": report["document-uri"],
+      "effective-directive": report["effective-directive"],
+      "source-file": report["source-file"],
+      "line-number": report["line-number"],
+    });
+    res.status(204).end();
+  },
+);
+
+/* ─── Per-route CORP ───
+ *
+ * helmet's CORP default is "same-origin", which would block
+ * cross-origin loads of our embed assets. Customer.com pages need to
+ * load /embed-widget.js (as <script>) + /Calculator (as iframe src).
+ * Mark those routes as "cross-origin" (i.e., world-readable as a static
+ * resource). Admin + portal stay locked down.
+ */
+const corpCrossOrigin = (_: Request, res: Response, next: NextFunction) => {
+  res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+  next();
+};
+const corpSameOrigin = (_: Request, res: Response, next: NextFunction) => {
+  res.setHeader("Cross-Origin-Resource-Policy", "same-origin");
+  next();
+};
+// Embed assets: world-readable
+app.use("/embed-widget.js", corpCrossOrigin);
+app.use("/embed-chat.js", corpCrossOrigin);
+app.use("/Calculator", corpCrossOrigin);
+// Sensitive surfaces: locked down (matches the X-Frame-Options below)
+app.use("/admin", corpSameOrigin);
+app.use("/portal", corpSameOrigin);
+app.use("/api/admin", corpSameOrigin);
+app.use("/api/portal", corpSameOrigin);
+
+/* ─── CORS ───
+ *
+ * Strict allowlist. Same-origin requests aren't subject to CORS at all,
+ * so this only matters for browser-initiated cross-origin requests. The
+ * QuoteQuick embed iframe is same-origin (the iframe loads
+ * wefixtrades.com/Calculator), so API calls from inside the iframe are
+ * NOT cross-origin. Server-to-server webhooks (Stripe, SendGrid,
+ * Twilio) don't involve CORS.
+ *
+ * Allowed origins: wefixtrades.com + .ca apex/www, plus localhost and
+ * Replit dev hosts for development.
+ */
+const corsAllowlist = [
+  "https://wefixtrades.com",
+  "https://www.wefixtrades.com",
+  "https://wefixtrades.ca",
+  "https://www.wefixtrades.ca",
+];
+const corsAllowDevRegex = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$|\.replit\.dev$/;
+app.use(
+  cors({
+    origin: (origin, cb) => {
+      // Same-origin requests have no Origin header; allow.
+      if (!origin) return cb(null, true);
+      if (corsAllowlist.includes(origin)) return cb(null, true);
+      if (corsAllowDevRegex.test(origin)) return cb(null, true);
+      logger.info("[cors] rejected cross-origin request", { origin });
+      return cb(new Error("CORS: origin not allowed"));
+    },
+    credentials: true,
   }),
 );
 
