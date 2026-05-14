@@ -57,6 +57,7 @@ import { registerMobileAuthRoutes } from "./mobileAuthRoutes";
 import { registerMobileApiRoutes } from "./mobileApiRoutes";
 import { registerMobileVoiceRoutes } from "./mobileVoiceRoutes";
 import { registerMobileAiRoutes } from "./mobileAiRoutes";
+import { registerMobileAiImagesRoutes } from "./mobileAiImagesRoutes";
 import { registerTwilioVoiceCallbackRoutes } from "./twilioVoiceCallbackRoutes";
 
 export async function registerRoutes(
@@ -121,6 +122,7 @@ export async function registerRoutes(
   registerMobileApiRoutes(app);
   registerMobileVoiceRoutes(app);
   registerMobileAiRoutes(app);
+  registerMobileAiImagesRoutes(app);
   registerTwilioVoiceCallbackRoutes(app);
 
   return httpServer;

@@ -51,36 +51,104 @@ import { assistantSync, isReady, type AssistantRequest } from "../services/assis
 import { assemblePortalContext } from "../services/portalAssistantContext";
 import { getOrCreateThread, derivePageContext } from "../services/threadService";
 import { chatRateLimiter } from "../services/rateLimiter";
+import { downloadDecrypted } from "../lib/objectStorage";
+import { buildSignedImageUrl, getDefaultBaseUrl } from "../lib/assistantImageUrl";
 import { createLogger } from "../lib/logger";
 
 const log = createLogger("MobileAi");
 
 const MAX_MESSAGES_RETURNED = 50;
 const MAX_CONTENT_LENGTH = 4000;
+const MAX_ATTACHMENTS_PER_MESSAGE = 4;
+
+/** Anthropic Messages API multimodal: accepted image MIME types. */
+const ANTHROPIC_IMAGE_MIMES = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);
+
+const attachmentRefSchema = z.object({
+  assetId: z.string().min(1).max(256),
+  mimeType: z.string().min(1).max(64),
+});
 
 const chatBodySchema = z.object({
   content: z.string().trim().min(1).max(MAX_CONTENT_LENGTH),
+  attachments: z.array(attachmentRefSchema).max(MAX_ATTACHMENTS_PER_MESSAGE).optional(),
 });
+
+/** Reference stored on the assistant_messages.attachments JSONB column. */
+interface StoredAttachmentRef {
+  assetId: string;
+  mimeType: string;
+  sizeBytes: number;
+}
+
+/** Shape returned to the mobile client (assetId + ready-to-fetch signed URL). */
+interface MobileAttachment {
+  assetId: string;
+  url: string;
+  mimeType: string;
+}
 
 interface MobileMessage {
   id: number;
   role: "user" | "assistant";
   content: string;
+  attachments?: MobileAttachment[];
   created_at: string;
 }
 
-function toMobileMessage(row: {
-  id: number;
-  role: string;
-  content: string;
-  created_at: Date | null;
-}): MobileMessage {
-  return {
+/**
+ * Validate + normalize whatever shape we read out of the JSONB column.
+ * We trust this code wrote the rows (post-migration), but be defensive
+ * about legacy nulls and malformed data so a bad row can't 500 the
+ * whole thread.
+ */
+function parseStoredAttachments(raw: unknown): StoredAttachmentRef[] {
+  if (!Array.isArray(raw)) return [];
+  const out: StoredAttachmentRef[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const a = item as Record<string, unknown>;
+    if (typeof a.assetId !== "string" || typeof a.mimeType !== "string") continue;
+    out.push({
+      assetId: a.assetId,
+      mimeType: a.mimeType,
+      sizeBytes: typeof a.sizeBytes === "number" ? a.sizeBytes : 0,
+    });
+  }
+  return out;
+}
+
+function signAttachmentsForUser(userId: number, refs: StoredAttachmentRef[]): MobileAttachment[] {
+  if (!refs.length) return [];
+  const base = getDefaultBaseUrl();
+  return refs.map((r) => ({
+    assetId: r.assetId,
+    mimeType: r.mimeType,
+    url: buildSignedImageUrl({ userId, assetPath: r.assetId, baseUrl: base }),
+  }));
+}
+
+function toMobileMessage(
+  row: {
+    id: number;
+    role: string;
+    content: string;
+    attachments: unknown;
+    created_at: Date | null;
+  },
+  userId: number,
+): MobileMessage {
+  const refs = parseStoredAttachments(row.attachments);
+  const out: MobileMessage = {
     id: row.id,
     role: row.role === "assistant" ? "assistant" : "user",
     content: row.content,
     created_at: (row.created_at ?? new Date()).toISOString(),
   };
+  if (refs.length) {
+    out.attachments = signAttachmentsForUser(userId, refs);
+  }
+  return out;
 }
 
 function getClientIp(req: Request): string {
@@ -97,12 +165,17 @@ function rateLimitKey(req: Request): string {
  * id + created_at preserved (the shared `loadThreadMessages` in
  * threadService.ts strips those fields).
  */
-async function loadRecentMessages(threadId: number, limit: number): Promise<MobileMessage[]> {
+async function loadRecentMessages(
+  threadId: number,
+  limit: number,
+  userId: number,
+): Promise<MobileMessage[]> {
   const rows = await db
     .select({
       id: assistantMessages.id,
       role: assistantMessages.role,
       content: assistantMessages.content,
+      attachments: assistantMessages.attachments,
       created_at: assistantMessages.created_at,
     })
     .from(assistantMessages)
@@ -110,7 +183,7 @@ async function loadRecentMessages(threadId: number, limit: number): Promise<Mobi
     .orderBy(desc(assistantMessages.created_at), desc(assistantMessages.id))
     .limit(limit);
 
-  return rows.reverse().map(toMobileMessage);
+  return rows.reverse().map((r) => toMobileMessage(r, userId));
 }
 
 export function registerMobileAiRoutes(app: Express): void {
@@ -132,7 +205,7 @@ export function registerMobileAiRoutes(app: Express): void {
         const pageContext = derivePageContext(undefined); // "general"
         const { id: threadId } = await getOrCreateThread(userId, "portal", pageContext);
 
-        const messages = await loadRecentMessages(threadId, MAX_MESSAGES_RETURNED);
+        const messages = await loadRecentMessages(threadId, MAX_MESSAGES_RETURNED, userId);
         return res.json({ threadId, messages });
       } catch (err) {
         log.error("thread load failed", { err: (err as Error).message });
@@ -172,9 +245,41 @@ export function registerMobileAiRoutes(app: Express): void {
 
         const parsed = chatBodySchema.safeParse(req.body);
         if (!parsed.success) {
-          return res.status(400).json({ error: "Invalid request: content must be a 1..4000 char string." });
+          return res.status(400).json({
+            error: "Invalid request: content must be a 1..4000 char string, attachments must be a list of {assetId, mimeType}.",
+          });
         }
         const userContent = parsed.data.content;
+        const attachmentRefs = parsed.data.attachments ?? [];
+
+        // Resolve attachments: ownership-check + load bytes from object
+        // storage. Any failure short-circuits the chat (we don't want to
+        // silently drop an image the user actually attached).
+        const resolvedAttachments: NonNullable<AssistantRequest["userAttachments"]> = [];
+        for (const ref of attachmentRefs) {
+          const ownerPrefix = `assistant-uploads/${userId}/`;
+          if (!ref.assetId.startsWith(ownerPrefix)) {
+            log.warn("attachment owner-mismatch rejected", { userId, assetId: ref.assetId });
+            return res.status(403).json({ error: "Attachment does not belong to caller" });
+          }
+          const mime = ref.mimeType.toLowerCase().split(";")[0].trim();
+          if (!ANTHROPIC_IMAGE_MIMES.has(mime)) {
+            return res.status(415).json({ error: `Unsupported attachment mimeType: ${ref.mimeType}` });
+          }
+          const dl = await downloadDecrypted(ref.assetId);
+          if (!dl.ok) {
+            log.error("attachment fetch failed", { userId, assetId: ref.assetId, err: dl.error });
+            return res.status(dl.notFound ? 404 : 502).json({
+              error: dl.notFound ? "Attachment not found" : "Attachment fetch failed",
+            });
+          }
+          resolvedAttachments.push({
+            assetId: ref.assetId,
+            mimeType: mime as "image/jpeg" | "image/png" | "image/gif" | "image/webp",
+            sizeBytes: dl.data.length,
+            data: dl.data,
+          });
+        }
 
         // Build the portal context the same way the portal does so the
         // assistant sees the user's clients/services/billing/etc.
@@ -194,6 +299,7 @@ export function registerMobileAiRoutes(app: Express): void {
           // turn; thread history is loaded server-side from DB.
           messages: [{ role: "user", content: userContent }],
           portalContext,
+          userAttachments: resolvedAttachments.length ? resolvedAttachments : undefined,
         };
 
         await assistantSync(assistantReq);
@@ -216,6 +322,7 @@ export function registerMobileAiRoutes(app: Express): void {
             id: assistantMessages.id,
             role: assistantMessages.role,
             content: assistantMessages.content,
+            attachments: assistantMessages.attachments,
             created_at: assistantMessages.created_at,
           })
           .from(assistantMessages)
@@ -232,8 +339,8 @@ export function registerMobileAiRoutes(app: Express): void {
         }
 
         return res.json({
-          userMessage: toMobileMessage(userRow),
-          assistantMessage: toMobileMessage(assistantRow),
+          userMessage: toMobileMessage(userRow, userId),
+          assistantMessage: toMobileMessage(assistantRow, userId),
         });
       } catch (err) {
         log.error("chat failed", { err: (err as Error).message });
