@@ -530,6 +530,20 @@ export function initScheduler() {
     }
   });
 
+  // Sprint 4: proactive Google OAuth token refresh for ReputationShield.
+  // Refreshes tokens expiring inside 24h ahead of time so background syncs
+  // don't fail with a stale-token error and customers don't see broken
+  // states the first time they open the portal after token expiry.
+  // Daily at 03:15 UTC — off-peak, after most providers' rate-limit windows reset.
+  cron.schedule("15 3 * * *", async () => {
+    try {
+      const { runReputationTokenRefresh } = await import("./reputationTokenRefreshWorker");
+      await runJob("reputation_token_refresh", runReputationTokenRefresh);
+    } catch (err: any) {
+      log.error("reputation_token_refresh error", { error: err.message });
+    }
+  }, { timezone: "UTC" });
+
   // Dunning queue worker — drains pending billing_dunning_events whose
   // scheduled_for has elapsed. Runs every 5 minutes so reminders go out
   // promptly when their day-2 / day-5 / day-7 window opens, while

@@ -57,6 +57,30 @@ export async function createPostJobReviewRequest(
     return { created: false, reason: "No linked client found for calculator owner" };
   }
 
+  // ─── Sprint 1 safety rails ─────────────────────────────────────────
+  // Honor the same protections we added to the ReputationShield path so
+  // the older booking-completion trigger doesn't bypass them. Without
+  // these, a suppression list entry / rate cap only blocks the new
+  // service-layer path and is silently bypassed here.
+
+  // 1. DNC / suppression list.
+  const isSuppressed = await storage.isReviewRequestSuppressed(
+    clientId,
+    booking.customer_email ?? null,
+    booking.customer_phone ?? null,
+  );
+  if (isSuppressed) {
+    return { created: false, reason: "Customer is on the review-request suppression list" };
+  }
+
+  // 2. Daily per-client send cap. Same caps as the ReputationShield path.
+  const channelGuess: "sms" | "email" = booking.customer_phone ? "sms" : "email";
+  const dailyCap = channelGuess === "sms" ? 50 : 200;
+  const sentToday = await storage.countReviewRequestSendsToday(clientId, channelGuess);
+  if (sentToday >= dailyCap) {
+    return { created: false, reason: `Daily ${channelGuess.toUpperCase()} send cap reached (${dailyCap}/day)` };
+  }
+
   // Generate review URLs
   const reviewUrl = generateGoogleReviewLink(googlePlaceId) || "";
   const facebookReviewUrl = generateFacebookReviewLink(facebookPageUrl);
