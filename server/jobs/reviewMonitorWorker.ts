@@ -229,6 +229,15 @@ export async function processReviewMonitoring(): Promise<{
     } catch (err: any) {
       errors.push(`Client ${client.id}: ${err.message}`);
       log.error(`[ReviewMonitor] Error syncing client ${client.id}:`, err.message);
+      // Fire alert (Slack + email + DB) — fireAlert dedupes 1h on
+      // (category, title) so upstream outages don't spam the channel.
+      const { notifyReviewSyncFailure } = await import("../services/reputation/reputationAlerts");
+      notifyReviewSyncFailure({
+        clientId: client.id,
+        businessName: client.business_name || `Client #${client.id}`,
+        platform: "google",
+        error: err.message,
+      }).catch(() => { /* alert is best-effort */ });
     }
   }
 

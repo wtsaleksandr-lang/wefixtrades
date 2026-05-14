@@ -3155,6 +3155,17 @@ export function registerAdminCrmRoutes(app: Express): void {
       // Post the reply
       const postResult = await postGoogleReviewReply(review.client_id, review.google_review_name, responseText);
       if (!postResult.ok) {
+        // Fire alert so ops see persistent failures in Slack, not just per-request errors.
+        const client = await storage.getClientById(review.client_id);
+        const { notifyReplyPostFailure } = await import("../services/reputation/reputationAlerts");
+        const retryable = /timeout|rate.?limit|5\d\d/i.test(postResult.error || "");
+        notifyReplyPostFailure({
+          clientId: review.client_id,
+          businessName: client?.business_name || `Client #${review.client_id}`,
+          reviewId: review.id,
+          error: postResult.error || "unknown",
+          retryable,
+        }).catch(() => { /* alert is best-effort */ });
         return res.status(502).json({ error: postResult.error, code: "POST_FAILED" });
       }
 
