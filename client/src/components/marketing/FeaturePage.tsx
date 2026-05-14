@@ -505,7 +505,7 @@ export default function FeaturePage({ config }: { config: FeaturePageConfig }) {
                 Talk to Sales
               </Link>
             </div>
-            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.38)", marginTop: 22 }}>
+            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.65)", marginTop: 22 }}>
               No credit card required · Live in 10 minutes · Cancel anytime
             </p>
           </div>
