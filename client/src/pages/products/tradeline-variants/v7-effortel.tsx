@@ -27,6 +27,7 @@ import {
   OrbitingLogos,
   TILE,
 } from "@/components/effortel-blocks";
+import TradelineAgentGrid from "@/components/marketing/TradelineAgentGrid";
 
 const cfg = getProductBySlug("tradeline")!;
 
@@ -204,6 +205,9 @@ export default function TradeLineV7() {
             <BadgePill label="Review Requests"  icon={<Star size={18} />}         iconBg="pink" />
           </div>
         </section>
+
+        {/* ─────────────── 40 NICHE AGENTS GRID ─────────────── */}
+        <TradelineAgentGrid />
 
         {/* ─────────────── FINAL CTA ─────────────── */}
         <section style={{ padding: "100px 24px 140px" }}>
