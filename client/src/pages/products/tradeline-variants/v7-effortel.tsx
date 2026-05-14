@@ -28,6 +28,7 @@ import {
   TILE,
 } from "@/components/effortel-blocks";
 import TradelineAgentGrid from "@/components/marketing/TradelineAgentGrid";
+import TradelineComparisonTable from "@/components/marketing/TradelineComparisonTable";
 
 const cfg = getProductBySlug("tradeline")!;
 
@@ -208,6 +209,9 @@ export default function TradeLineV7() {
 
         {/* ─────────────── 40 NICHE AGENTS GRID ─────────────── */}
         <TradelineAgentGrid />
+
+        {/* ─────────────── COMPETITIVE COMPARISON ─────────────── */}
+        <TradelineComparisonTable />
 
         {/* ─────────────── FINAL CTA ─────────────── */}
         <section style={{ padding: "100px 24px 140px" }}>
