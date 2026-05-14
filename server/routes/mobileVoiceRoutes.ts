@@ -21,6 +21,8 @@ import {
   getVoiceConfig,
   voiceConfigMissingKeys,
   mintAccessToken,
+  getPushCredentialSid,
+  pushReadyPlatforms,
 } from "../lib/twilioVoiceAccessToken";
 import { createLogger } from "../lib/logger";
 
@@ -49,9 +51,17 @@ export function registerMobileVoiceRoutes(app: Express) {
 
         const user = req.user as any;
 
-        // If a deviceId is given, look up that device's Twilio binding so the
-        // Voice grant can target it. If not yet bound, mint without binding —
-        // the app will register-and-retry.
+        // If a deviceId is given, look up that device's row so we can pick a
+        // pushCredentialSid for the Voice grant. Preference order:
+        //   1) Per-platform Twilio Push Credential SID from env
+        //      (TWILIO_PUSH_CREDENTIAL_SID_IOS / _ANDROID). This is the
+        //      canonical post-Phase-4-part-2 path — one credential covers
+        //      every device on that platform.
+        //   2) Legacy per-device twilio_binding_sid stored on the row, kept
+        //      for backward compatibility with any device that was bound
+        //      under the old per-device flow.
+        // If neither is available the token still issues; the app will
+        // register-and-retry, and outbound calls work regardless.
         let pushCredentialSid: string | undefined;
         if (deviceId) {
           const [row] = await db
@@ -64,10 +74,16 @@ export function registerMobileVoiceRoutes(app: Express) {
               ),
             )
             .limit(1);
-          if (row?.twilio_binding_sid) {
-            pushCredentialSid = row.twilio_binding_sid;
-          }
           if (row) {
+            const platform = row.platform === "ios" || row.platform === "android"
+              ? row.platform
+              : undefined;
+            if (platform) {
+              pushCredentialSid = getPushCredentialSid(platform);
+            }
+            if (!pushCredentialSid && row.twilio_binding_sid) {
+              pushCredentialSid = row.twilio_binding_sid;
+            }
             await db
               .update(mobileDevices)
               .set({ last_seen_at: new Date() })
@@ -188,7 +204,10 @@ export function registerMobileVoiceRoutes(app: Express) {
     async (_req: Request, res: Response) => {
       const ready = getVoiceConfig() !== null;
       const missing = voiceConfigMissingKeys();
-      return res.json({ ready, missing });
+      // pushReady lets the mobile app render an "inbound delivery ready"
+      // indicator per-platform without exposing the actual credential SIDs.
+      const pushReady = pushReadyPlatforms();
+      return res.json({ ready, missing, pushReady });
     },
   );
 
