@@ -163,6 +163,26 @@ app.use(
   }),
 );
 
+/* ─── Per-route frame protection (clickjacking) ───
+ *
+ * helmet's global frameguard is OFF (above) because the QuoteQuick widget
+ * at /Calculator?...&embed=true must be iframe-able on customer websites.
+ * But /admin and /portal are sensitive surfaces — no one should be
+ * iframing them. Set X-Frame-Options: DENY explicitly here.
+ *
+ * Applies to both API routes (/api/admin/*, /api/portal/*) and the SPA
+ * fallback paths (/admin/*, /portal/*) since Express middleware runs
+ * before serveStatic.
+ */
+const denyFrameEmbedding = (_: Request, res: Response, next: NextFunction) => {
+  res.setHeader("X-Frame-Options", "DENY");
+  next();
+};
+app.use("/admin", denyFrameEmbedding);
+app.use("/portal", denyFrameEmbedding);
+app.use("/api/admin", denyFrameEmbedding);
+app.use("/api/portal", denyFrameEmbedding);
+
 app.use(
   express.json({
     verify: (req, _res, buf) => {
