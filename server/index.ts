@@ -486,6 +486,13 @@ app.use((req, res, next) => {
 (async () => {
   await registerRoutes(httpServer, app);
 
+  /* Ensure the contentflow_settings table exists at boot (not lazily) so
+   * the dev and prod databases stay in sync — otherwise the deploy schema
+   * diff keeps proposing to DROP it. Non-blocking; errors are swallowed. */
+  import("./storage")
+    .then(({ storage }) => storage.getContentflowSettings())
+    .catch((err: any) => logger.warn("[boot] contentflow_settings ensure failed", { error: err?.message }));
+
   /* Real-time push. Attached to the same HTTP server so Socket.IO
    * shares Express's port and session cookie. Must run after
    * registerRoutes so any boot-time logAdminActivity calls have
