@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" fill="none" role="img" aria-label="WeFixTrades">
   <title>WeFixTrades</title>
-  <!-- Grey badge -->
-  <rect x="0.5" y="0.5" width="31" height="31" rx="7" fill="#E5E7EB" stroke="rgba(13,60,252,0.18)" stroke-width="1" />
+  <!-- Off-white badge (matches the homepage CTA button colour) -->
+  <rect x="0.5" y="0.5" width="31" height="31" rx="7" fill="#E6E3E0" stroke="rgba(13,60,252,0.18)" stroke-width="1" />
   <!-- Icon, centered inside the 32x32 badge (4px inset on each side, 24x24 icon) -->
   <g transform="translate(4 4)">
     <path d="M9 3H6a3 3 0 0 0-3 3v3" stroke="#0d3cfc" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
