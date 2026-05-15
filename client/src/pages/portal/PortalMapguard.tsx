@@ -25,6 +25,7 @@ import {
 import {
   Shield, Star, MessageSquare, MapPin, TrendingUp, TrendingDown,
   Minus, Eye, CheckCircle, Activity, Clock, Plus, X, Save, Loader2, Settings,
+  Calendar, AlertCircle, FileEdit, Send,
 } from "lucide-react";
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
@@ -425,6 +426,11 @@ export default function PortalMapguard() {
                 )}
               </Card>
             )}
+
+            {/* Post calendar — backed by mapguard_posts. Always shown
+                even when empty: the empty state explains that posts
+                are scheduled monthly. */}
+            <PostCalendarCard />
 
             {/* Recent Activity Feed */}
             {data.activity_feed && data.activity_feed.length > 0 && (
@@ -924,5 +930,156 @@ function FirstScanRunningCard() {
         start posting and responding on your behalf immediately.
       </p>
     </Card>
+  );
+}
+
+/* ─── Post calendar ───────────────────────────────────────────────
+   Shows the customer's mapguard_posts row history: published, drafted,
+   scheduled, skipped, failed. Backed by /api/portal/mapguard/posts.
+   Grouped by quota_period (YYYY-MM) so the customer can see "this is
+   what we're posting this month". Empty state explains the cadence. */
+
+interface MapguardPostRow {
+  id: number;
+  status: "scheduled" | "drafted" | "published" | "failed" | "skipped";
+  theme: string | null;
+  scheduled_for: string;
+  published_at: string | null;
+  content: string | null;
+  gbp_post_id: string | null;
+  quota_period: string;
+}
+
+interface PostsResponse {
+  posts: MapguardPostRow[];
+  by_period: Record<string, MapguardPostRow[]>;
+}
+
+const POST_STATUS_DISPLAY: Record<MapguardPostRow["status"], {
+  label: string;
+  icon: React.ElementType;
+  badgeClass: string;
+}> = {
+  scheduled: { label: "Scheduled",  icon: Calendar,  badgeClass: "bg-blue-50 text-blue-700 border-blue-200" },
+  drafted:   { label: "Drafted",    icon: FileEdit,  badgeClass: "bg-indigo-50 text-indigo-700 border-indigo-200" },
+  published: { label: "Published",  icon: Send,      badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+  skipped:   { label: "Skipped",    icon: AlertCircle, badgeClass: "bg-amber-50 text-amber-700 border-amber-200" },
+  failed:    { label: "Retrying",   icon: AlertCircle, badgeClass: "bg-amber-50 text-amber-700 border-amber-200" },
+};
+
+const THEME_LABEL: Record<string, string> = {
+  promotion: "Promo",
+  tip: "Tip",
+  service_highlight: "Service",
+  seasonal: "Seasonal",
+  review_response: "Trust signal",
+  company_update: "Update",
+};
+
+function PostCalendarCard() {
+  const { data, isLoading, error } = useQuery<PostsResponse>({
+    queryKey: ["/api/portal/mapguard/posts"],
+  });
+
+  if (isLoading) {
+    return (
+      <Card className="p-5">
+        <Skeleton className="h-4 w-40 mb-3" />
+        <Skeleton className="h-20 w-full" />
+      </Card>
+    );
+  }
+  if (error) return null; // dashboard already shows the error banner
+
+  const periods = data?.by_period ? Object.keys(data.by_period).sort().reverse() : [];
+
+  // Empty state — customer is subscribed but no posts have been
+  // scheduled yet (typical mid-month signup, before next 1st-of-month
+  // fan-out fires).
+  if (periods.length === 0) {
+    return (
+      <Card className="p-5">
+        <div className="flex items-center gap-2 mb-2">
+          <Calendar className="w-4 h-4 text-gray-700" />
+          <h2 className="text-sm font-semibold text-gray-900">Post calendar</h2>
+        </div>
+        <p className="text-xs text-gray-500">
+          Your Google Business posts will appear here once they're scheduled.
+          We schedule the next month's posts on the 1st of each month.
+        </p>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="p-5">
+      <div className="flex items-center gap-2 mb-3">
+        <Calendar className="w-4 h-4 text-gray-700" />
+        <h2 className="text-sm font-semibold text-gray-900">Post calendar</h2>
+      </div>
+
+      <div className="space-y-4">
+        {periods.map((period) => (
+          <PostPeriodSection key={period} period={period} posts={data!.by_period[period]} />
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+function PostPeriodSection({ period, posts }: { period: string; posts: MapguardPostRow[] }) {
+  // Format YYYY-MM → "May 2026"
+  const [y, m] = period.split("-");
+  const label = new Date(Date.UTC(parseInt(y, 10), parseInt(m, 10) - 1, 1))
+    .toLocaleString("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
+  const published = posts.filter((p) => p.status === "published").length;
+  const total = posts.length;
+
+  return (
+    <div>
+      <div className="flex items-baseline justify-between mb-2">
+        <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wide">{label}</h3>
+        <span className="text-[11px] text-gray-400">{published}/{total} posted</span>
+      </div>
+      <div className="space-y-2">
+        {posts.map((p) => <PostRow key={p.id} post={p} />)}
+      </div>
+    </div>
+  );
+}
+
+function PostRow({ post }: { post: MapguardPostRow }) {
+  const display = POST_STATUS_DISPLAY[post.status];
+  const Icon = display.icon;
+  const dateStr = new Date(post.published_at || post.scheduled_for).toLocaleDateString("en-US", {
+    month: "short", day: "numeric",
+  });
+  const themeLabel = post.theme ? (THEME_LABEL[post.theme] || post.theme) : null;
+  const preview = post.content ? post.content.slice(0, 140) + (post.content.length > 140 ? "…" : "") : null;
+
+  return (
+    <div className="flex items-start gap-3 px-3 py-2.5 rounded-lg bg-gray-50/60 border border-gray-100">
+      <div className="shrink-0 pt-0.5">
+        <Icon className="w-3.5 h-3.5 text-gray-500" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-1">
+          <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md border text-[10px] font-medium ${display.badgeClass}`}>
+            {display.label}
+          </span>
+          {themeLabel && (
+            <span className="text-[10px] text-gray-400">{themeLabel}</span>
+          )}
+          <span className="text-[10px] text-gray-400 ml-auto">{dateStr}</span>
+        </div>
+        {preview ? (
+          <p className="text-xs text-gray-700 leading-snug line-clamp-2">{preview}</p>
+        ) : (
+          <p className="text-[11px] text-gray-400 italic">
+            {post.status === "scheduled" ? "Content will be drafted closer to the publish date." : "—"}
+          </p>
+        )}
+      </div>
+    </div>
   );
 }

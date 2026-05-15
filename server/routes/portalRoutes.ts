@@ -2448,6 +2448,60 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
   });
 
   /**
+   * GET /api/portal/mapguard/posts
+   * Customer-safe post calendar. Returns every mapguard_posts row for
+   * the authenticated client, ordered by scheduled_for desc, so the
+   * portal can render a "what we posted / what's queued" timeline.
+   * Excludes internal-only fields (generator metadata, retry counters,
+   * raw error messages). Last 6 months only — older posts roll off.
+   */
+  app.get("/api/portal/mapguard/posts", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const { mapguardPosts } = await import("@shared/schemas/mapguardPosts");
+      const cutoff = new Date();
+      cutoff.setMonth(cutoff.getMonth() - 6);
+
+      const rows = await db
+        .select({
+          id: mapguardPosts.id,
+          status: mapguardPosts.status,
+          theme: mapguardPosts.theme,
+          scheduled_for: mapguardPosts.scheduled_for,
+          published_at: mapguardPosts.published_at,
+          content: mapguardPosts.content,
+          gbp_post_id: mapguardPosts.gbp_post_id,
+          quota_period: mapguardPosts.quota_period,
+        })
+        .from(mapguardPosts)
+        .where(and(
+          eq(mapguardPosts.client_id, clientId),
+          gte(mapguardPosts.scheduled_for, cutoff),
+        ))
+        .orderBy(desc(mapguardPosts.scheduled_for))
+        .limit(100);
+
+      // Group by quota_period (YYYY-MM) so the frontend can render
+      // month-by-month sections without re-bucketing every render.
+      const byPeriod: Record<string, typeof rows> = {};
+      for (const row of rows) {
+        const key = row.quota_period;
+        (byPeriod[key] ||= []).push(row);
+      }
+
+      res.json({
+        posts: rows,
+        by_period: byPeriod,
+      });
+    } catch (err: any) {
+      log.error("Portal mapguard posts error:", { error: err.message });
+      res.status(500).json({ error: "Failed to load posts" });
+    }
+  });
+
+  /**
    * GET /api/portal/mapguard
    * Client-safe MapGuard dashboard data.
    * Returns snapshots, health, and trend data — no tasks, alerts, or supplier info.
