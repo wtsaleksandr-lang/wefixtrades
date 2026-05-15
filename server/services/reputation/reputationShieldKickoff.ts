@@ -14,6 +14,7 @@ import { db } from "../../db";
 import { clientServices } from "@shared/schema";
 import { storage } from "../../storage";
 import { sendReputationShieldWelcome } from "../../lib/reputationShieldWelcomeEmail";
+import { mergeSettings } from "@shared/reputationConfig";
 import { createLogger } from "../../lib/logger";
 
 const log = createLogger("reputationshield-kickoff");
@@ -48,6 +49,21 @@ export async function kickoffReputationShieldService(
 
   if (claimed.length === 0) {
     return { kickedOff: false, reason: "already_kicked_off" };
+  }
+
+  // Provision baseline state — seed a default reputation_settings blob
+  // so the customer's portal + the daily workers (reports, monitoring,
+  // widget) read sane defaults from day one instead of cold-starting.
+  // Idempotent: skip if a settings blob already exists.
+  try {
+    const svc = await storage.getClientReputationService(clientId);
+    if (svc && !svc.metadata?.reputation_settings) {
+      const metadata = { ...(svc.metadata ?? {}), reputation_settings: mergeSettings(undefined) };
+      await storage.updateClientServiceMetadata(clientId, svc.serviceId, metadata);
+    }
+  } catch (err: any) {
+    log.warn(`Baseline settings seed failed for client ${clientId}: ${err.message}`);
+    // Non-fatal — mergeSettings(undefined) is also applied lazily on first read.
   }
 
   const client = await storage.getClientById(clientId);

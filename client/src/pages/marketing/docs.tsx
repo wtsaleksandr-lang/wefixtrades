@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "wouter";
-import { Search, Zap, Globe, Calendar, Bot, Code, AlertCircle, Webhook, ArrowRight, BookOpen, MessageSquare, Shield } from "lucide-react";
+import { Search, Zap, Globe, Calendar, Bot, Code, AlertCircle, Webhook, ArrowRight, BookOpen, MessageSquare, Shield, Star } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { V7PageShell } from "@/components/marketing/v7";
 import { Reveal, TILE, MONO } from "@/components/effortel-blocks";
@@ -52,6 +52,14 @@ const GUIDES = [
     icon: Shield,
     title: "MapGuard",
     description: "How MapGuard protects and grows your Google Business Profile — posts, replies, and reports.",
+    badge: null,
+    time: "6 min read",
+  },
+  {
+    slug: "reputationshield",
+    icon: Star,
+    title: "ReputationShield",
+    description: "Win more 5-star reviews, shield against public 1-stars, and respond to reviews automatically.",
     badge: null,
     time: "6 min read",
   },
