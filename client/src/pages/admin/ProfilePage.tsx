@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useCopilotForm } from "@/context/CopilotFormContext";
 import { Loader2, Save, AlertCircle, ChevronLeft } from "lucide-react";
 import { Link } from "wouter";
 
@@ -64,6 +65,25 @@ export default function ProfilePage() {
     setEmail(user?.email || "");
     setIsEditing(false);
   };
+
+  /* Phase 1c: register the profile edit form with the copilot. The name/
+   * email inputs only render in edit mode, so registration is gated on
+   * isEditing. */
+  useCopilotForm({
+    formLabel: "Profile",
+    fields: [
+      { key: "name", label: "Full name", required: true },
+      { key: "email", label: "Email address", required: true },
+    ],
+    values: { name, email },
+    onApply: (fills) => {
+      for (const f of fills) {
+        if (f.field_key === "name") setName(f.value);
+        else if (f.field_key === "email") setEmail(f.value);
+      }
+    },
+    enabled: isEditing,
+  });
 
   return (
     <AdminLayout pageContext={{ page: "profile" }}>

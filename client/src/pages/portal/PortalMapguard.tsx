@@ -18,6 +18,7 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { useCopilotForm } from "@/context/CopilotFormContext";
 import {
   type MapguardConfig,
   DEFAULT_MAPGUARD_CONFIG,
@@ -580,6 +581,65 @@ function MapguardConfigCard() {
     onError: () => {
       toast({ title: "Couldn't save", description: "Try again in a moment.", variant: "destructive" });
     },
+  });
+
+  /* Phase 1c: register the MapGuard monitoring settings with the copilot.
+   * custom_keywords is a comma-separated string on the wire; the threshold
+   * is clamped to 0-10 and weekly_summary is coerced from "true"/"false".
+   * Enabled only once the config draft has loaded. */
+  useCopilotForm({
+    formLabel: "MapGuard settings",
+    fields: [
+      { key: "city", label: "City / region for ranking searches" },
+      { key: "custom_keywords", label: "Tracked keywords (comma-separated, up to 50; blank = auto)" },
+      { key: "rank_drop_threshold", label: "Rank-drop alert threshold (0-10; 0 disables)" },
+      { key: "weekly_summary", label: "Weekly summary email (true | false)" },
+    ],
+    values: {
+      city: draft?.city ?? "",
+      custom_keywords: (draft?.custom_keywords ?? []).join(", "),
+      rank_drop_threshold: draft?.alerts.rank_drop_threshold ?? 0,
+      weekly_summary: draft?.alerts.weekly_summary ?? false,
+    },
+    onApply: (fills) => {
+      setDraft((prev) => {
+        if (!prev) return prev;
+        const next: MapguardConfig = {
+          ...prev,
+          alerts: { ...prev.alerts },
+        };
+        for (const f of fills) {
+          switch (f.field_key) {
+            case "city":
+              next.city = f.value.trim() || null;
+              break;
+            case "custom_keywords": {
+              const list = f.value
+                .split(",")
+                .map((k) => k.trim())
+                .filter(Boolean)
+                .slice(0, 50);
+              next.custom_keywords = list.length === 0 ? null : Array.from(new Set(list));
+              break;
+            }
+            case "rank_drop_threshold": {
+              const n = Number(f.value);
+              if (Number.isFinite(n)) {
+                next.alerts.rank_drop_threshold = Math.min(10, Math.max(0, Math.round(n)));
+              }
+              break;
+            }
+            case "weekly_summary":
+              if (f.value === "true" || f.value === "false") {
+                next.alerts.weekly_summary = f.value === "true";
+              }
+              break;
+          }
+        }
+        return next;
+      });
+    },
+    enabled: !!draft && !!data,
   });
 
   if (isLoading || !draft || !data) {

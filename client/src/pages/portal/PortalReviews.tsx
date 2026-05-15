@@ -1,6 +1,7 @@
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useCopilotForm } from "@/context/CopilotFormContext";
 import PortalLayout from "@/components/portal/PortalLayout";
 import UpsellCard from "@/components/portal/UpsellCard";
 import { Card } from "@/components/ui/card";
@@ -336,6 +337,32 @@ export default function PortalReviews() {
   const features = config?.features ?? {};
   const settings = config?.settings;
   const upgradeHints = config?.upgradeHints ?? {};
+
+  /* Phase 1c: register the manual "Request a Review" form with the copilot.
+   * (This page has no review-response draft state — responses are AI-drafted
+   * server-side; the only editable form here is the customer request form.)
+   * Enabled only while the request form is open and not yet sent. */
+  useCopilotForm({
+    formLabel: "Request a review",
+    fields: [
+      { key: "customer_name", label: "Customer name", required: true },
+      { key: "customer_email", label: "Customer email" },
+      { key: "customer_phone", label: "Customer phone" },
+      { key: "job_label", label: "Job description (optional)" },
+    ],
+    values: requestForm as unknown as Record<string, unknown>,
+    onApply: (fills) => {
+      const allowed = new Set(["customer_name", "customer_email", "customer_phone", "job_label"]);
+      setRequestForm((prev) => {
+        const next = { ...prev };
+        for (const f of fills) {
+          if (allowed.has(f.field_key)) (next as any)[f.field_key] = f.value;
+        }
+        return next;
+      });
+    },
+    enabled: showRequestForm && !requestSent,
+  });
 
   // No active service
   if (config && !config.active) {

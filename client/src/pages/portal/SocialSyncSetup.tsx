@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useCopilotForm } from "@/context/CopilotFormContext";
 
 const STEPS = ["Business", "Services", "Preferences", "Connect", "Review"];
 
@@ -110,6 +111,65 @@ export default function SocialSyncSetup() {
     igStatus?.connected && "Instagram",
     gbpStatus?.connected && "Google Business",
   ].filter(Boolean);
+
+  /* Phase 1c: register the whole SocialSync setup wizard with the copilot.
+   * The wizard is multi-step but state is one `form` object, so we register
+   * every field at once regardless of the current step. */
+  const VALID_TONES = TONES.map((t) => t.value);
+  const VALID_FREQUENCIES = FREQUENCIES.map((f) => f.value);
+  const VALID_PLATFORMS = ["facebook", "instagram", "google_business"];
+  useCopilotForm({
+    formLabel: "SocialSync setup",
+    fields: [
+      { key: "niche", label: "Business type / niche", required: true },
+      { key: "location", label: "Service area / location", required: true },
+      { key: "services", label: "Services offered (comma-separated)", required: true },
+      { key: "service_focus", label: "Services to emphasize (comma-separated, optional)" },
+      { key: "tone", label: `Tone (one of: ${VALID_TONES.join(", ")})` },
+      { key: "frequency", label: `Posting frequency (one of: ${VALID_FREQUENCIES.join(", ")})` },
+      {
+        key: "platform_preferences",
+        label: `Platforms (comma-separated; allowed: ${VALID_PLATFORMS.join(", ")})`,
+      },
+    ],
+    values: {
+      niche: form.niche,
+      location: form.location,
+      services: form.services,
+      service_focus: form.service_focus,
+      tone: form.tone,
+      frequency: form.frequency,
+      platform_preferences: form.platform_preferences.join(", "),
+    },
+    onApply: (fills) => {
+      setForm((f) => {
+        const next = { ...f };
+        for (const fill of fills) {
+          switch (fill.field_key) {
+            case "niche": next.niche = fill.value; break;
+            case "location": next.location = fill.value; break;
+            case "services": next.services = fill.value; break;
+            case "service_focus": next.service_focus = fill.value; break;
+            case "tone":
+              if (VALID_TONES.includes(fill.value)) next.tone = fill.value;
+              break;
+            case "frequency":
+              if (VALID_FREQUENCIES.includes(fill.value)) next.frequency = fill.value;
+              break;
+            case "platform_preferences": {
+              const picked = fill.value
+                .split(",")
+                .map((p) => p.trim())
+                .filter((p) => VALID_PLATFORMS.includes(p));
+              if (picked.length > 0) next.platform_preferences = Array.from(new Set(picked));
+              break;
+            }
+          }
+        }
+        return next;
+      });
+    },
+  });
 
   return (
     <PortalLayout>

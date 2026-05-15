@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useCopilotForm } from "@/context/CopilotFormContext";
 import { Plus, Trash2, Star, TrendingUp, TrendingDown, Lock, Loader2, Info } from "lucide-react";
 import { Link } from "wouter";
 
@@ -123,6 +124,25 @@ export default function PortalCompetitors() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/portal/reputation/competitors"] });
     },
+  });
+
+  /* Phase 1c: register the add-competitor form with the copilot. Only
+   * enabled while the add form is open so the AI doesn't propose fills
+   * when the form isn't on screen. */
+  useCopilotForm({
+    formLabel: "Add competitor",
+    fields: [
+      { key: "display_name", label: "Competitor display name", required: true },
+      { key: "place_id", label: "Google Place ID (e.g. ChIJ...)", required: true },
+    ],
+    values: { display_name: newName, place_id: newPlaceId },
+    onApply: (fills) => {
+      for (const f of fills) {
+        if (f.field_key === "display_name") setNewName(f.value);
+        else if (f.field_key === "place_id") setNewPlaceId(f.value);
+      }
+    },
+    enabled: showAddForm,
   });
 
   if (isLoading) {

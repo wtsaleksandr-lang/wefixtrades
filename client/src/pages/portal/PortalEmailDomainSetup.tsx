@@ -10,6 +10,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { useCopilotForm } from "@/context/CopilotFormContext";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -100,6 +101,26 @@ export default function PortalEmailDomainSetup() {
       setDomainInput("");
       queryClient.invalidateQueries({ queryKey: ["/api/portal/email-domain"] });
     },
+  });
+
+  /* Phase 1c: register the claim-domain form with the copilot. Only enabled
+   * when the claim flow is actually visible (Pro tier, no domain claimed
+   * yet) — the same condition that renders the Domain / Display name inputs. */
+  const claimFlowVisible = !!state.data?.proAccess && !state.data?.identity.customDomain;
+  useCopilotForm({
+    formLabel: "Email sender domain",
+    fields: [
+      { key: "domain", label: "Custom domain (e.g. joesplumbing.com)", required: true },
+      { key: "displayName", label: "Display name (optional)" },
+    ],
+    values: { domain: domainInput, displayName: displayInput },
+    onApply: (fills) => {
+      for (const f of fills) {
+        if (f.field_key === "domain") setDomainInput(f.value);
+        else if (f.field_key === "displayName") setDisplayInput(f.value);
+      }
+    },
+    enabled: claimFlowVisible,
   });
 
   if (state.isLoading) {

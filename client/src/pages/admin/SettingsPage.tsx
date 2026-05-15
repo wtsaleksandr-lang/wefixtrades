@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useCopilotForm } from "@/context/CopilotFormContext";
 import { Loader2, Save, Shield, ShieldCheck, ShieldOff, ChevronLeft } from "lucide-react";
 import { Link } from "wouter";
 
@@ -87,6 +88,45 @@ export default function SettingsPage() {
   const updateField = <K extends keyof UserSettings>(key: K, value: UserSettings[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
+
+  /* Phase 1c: register the account settings form with the copilot.
+   * Booleans are coerced from "true"/"false"; timezone is validated
+   * against the allowed list. */
+  useCopilotForm({
+    formLabel: "Account settings",
+    fields: [
+      { key: "businessName", label: "Business name" },
+      { key: "contactEmail", label: "Contact email" },
+      { key: "timezone", label: `Timezone (one of: ${TIMEZONES.join(", ")})` },
+      { key: "emailNotifications", label: "Email notifications (true | false)" },
+      { key: "weeklyReports", label: "Weekly reports (true | false)" },
+      { key: "aiAssistantEnabled", label: "AI assistant enabled (true | false)" },
+    ],
+    values: form as unknown as Record<string, unknown>,
+    onApply: (fills) => {
+      setForm((prev) => {
+        const next = { ...prev };
+        for (const f of fills) {
+          switch (f.field_key) {
+            case "businessName": next.businessName = f.value; break;
+            case "contactEmail": next.contactEmail = f.value; break;
+            case "timezone":
+              if (TIMEZONES.includes(f.value)) next.timezone = f.value;
+              break;
+            case "emailNotifications":
+            case "weeklyReports":
+            case "aiAssistantEnabled":
+              if (f.value === "true" || f.value === "false") {
+                next[f.field_key] = f.value === "true";
+              }
+              break;
+          }
+        }
+        return next;
+      });
+    },
+    enabled: !!data,
+  });
 
   return (
     <AdminLayout pageContext={{ page: "settings" }}>

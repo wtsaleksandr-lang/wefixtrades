@@ -11,6 +11,7 @@ import {
 import { Code, Copy, CheckCircle2, Lock, Loader2, Star, ExternalLink, ChevronLeft } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useCopilotForm } from "@/context/CopilotFormContext";
 
 /* Q3: small reusable back-to-parent link. Mirrors the pattern used by
    PortalServiceDetail / PortalTicketDetail / PaymentMethodsPage. */
@@ -77,6 +78,55 @@ export default function PortalWidget() {
     toast({ title: "Embed code copied" });
     setTimeout(() => setCopied(null), 3000);
   }
+
+  /* Phase 1c: register the review-widget settings with the copilot. The
+   * page persists each control immediately, so applied fills go straight
+   * to updateMutation. Numbers/booleans are coerced and validated against
+   * the allowed option sets. Enabled only when the widget service is
+   * active (the same condition that renders the settings controls). */
+  const MIN_RATING_OPTIONS = [3, 4, 5];
+  const MAX_REVIEWS_OPTIONS = [5, 10, 20];
+  useCopilotForm({
+    formLabel: "Review widget settings",
+    fields: [
+      { key: "enabled", label: "Widget enabled (true | false)" },
+      { key: "min_rating", label: `Minimum star rating (one of: ${MIN_RATING_OPTIONS.join(", ")})` },
+      { key: "max_reviews", label: `Max reviews shown (one of: ${MAX_REVIEWS_OPTIONS.join(", ")})` },
+      { key: "show_reviewer_name", label: "Show reviewer names (true | false)" },
+      { key: "show_date", label: "Show review dates (true | false)" },
+    ],
+    values: {
+      enabled: data?.settings?.enabled ?? false,
+      min_rating: data?.settings?.min_rating ?? 5,
+      max_reviews: data?.settings?.max_reviews ?? 5,
+      show_reviewer_name: data?.settings?.show_reviewer_name ?? true,
+      show_date: data?.settings?.show_date ?? true,
+    },
+    onApply: (fills) => {
+      const patch: Record<string, any> = {};
+      for (const f of fills) {
+        switch (f.field_key) {
+          case "enabled":
+          case "show_reviewer_name":
+          case "show_date":
+            if (f.value === "true" || f.value === "false") patch[f.field_key] = f.value === "true";
+            break;
+          case "min_rating": {
+            const n = Number(f.value);
+            if (MIN_RATING_OPTIONS.includes(n)) patch.min_rating = n;
+            break;
+          }
+          case "max_reviews": {
+            const n = Number(f.value);
+            if (MAX_REVIEWS_OPTIONS.includes(n)) patch.max_reviews = n;
+            break;
+          }
+        }
+      }
+      if (Object.keys(patch).length > 0) updateMutation.mutate(patch);
+    },
+    enabled: !!data?.active,
+  });
 
   if (isLoading) {
     return (
