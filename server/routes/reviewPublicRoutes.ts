@@ -224,21 +224,21 @@ export function registerReviewPublicRoutes(app: Express): void {
       const client = await storage.getClientByWidgetToken(widgetToken);
       if (!client) return res.status(404).json({ error: "Business not found" });
 
-      const { extractTier, mergeSettings } = await import("@shared/reputationConfig");
+      const { extractTier, mergeWidgetSettings } = await import("@shared/reputationConfig");
       const svc = await storage.getClientReputationService(client.id);
       if (!svc) return res.status(404).json({ error: "Widget not available" });
 
       const tier = extractTier(svc.serviceId);
-      const settings = mergeSettings(svc.metadata?.reputation_settings);
+      // mergeWidgetSettings returns a fully-populated WidgetSettings
+      // (same call the portal widget endpoint uses).
+      const w = mergeWidgetSettings(svc.metadata?.reputation_settings?.widget);
       // The badge widget is available on every active ReputationShield
       // tier; the carousel is Pro+, but that gate is enforced at the
       // portal (a non-Pro customer is never handed carousel embed code).
       // The data feed itself only needs an active service + the toggle.
-      if (!tier || !settings.widget.enabled) {
+      if (!tier || !w.enabled) {
         return res.status(403).json({ error: "Widget not enabled" });
       }
-
-      const w = settings.widget;
       const stats = await storage.getMonitoredReviewStats(client.id);
       // Over-fetch then filter to text-bearing reviews so a carousel of
       // N still fills up even when some high-rated reviews are bare stars.
