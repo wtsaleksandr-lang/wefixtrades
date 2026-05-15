@@ -593,7 +593,7 @@ export function registerTradelineSetupRoutes(app: Express) {
       try {
         const clientId = await withClientId(req, res);
         if (!clientId) return;
-        const objectKey = decodeURIComponent(req.params.objectKey);
+        const objectKey = decodeURIComponent(String(req.params.objectKey));
 
         // Ownership check: the object key must belong to this client's setup row.
         const setup = await getSetupRow(clientId);
