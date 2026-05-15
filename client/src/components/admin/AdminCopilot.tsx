@@ -397,10 +397,10 @@ function DraftBlock({
   }
 
   return (
-    <div className="mt-1.5 rounded-md border border-[#2D6A4F]/20 bg-[#F0F7F4] overflow-hidden text-xs">
+    <div className="mt-1.5 rounded-md border border-[#0d3cfc]/20 bg-[#EEF3FF] overflow-hidden text-xs">
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-1.5 bg-[#E8F4EE] border-b border-[#2D6A4F]/15">
-        <span className="font-semibold text-[#2D6A4F] uppercase tracking-wide text-[10px]">
+      <div className="flex items-center justify-between px-3 py-1.5 bg-[#DEE7FF] border-b border-[#0d3cfc]/15">
+        <span className="font-semibold text-[#0d3cfc] uppercase tracking-wide text-[10px]">
           Draft · {label}
         </span>
         <div className="flex items-center gap-1.5">
@@ -409,14 +409,14 @@ function DraftBlock({
               onClick={handleSave}
               disabled={saveState !== "idle"}
               className="text-[10px] font-medium px-2 py-0.5 rounded transition-colors disabled:opacity-60
-                text-[#2D6A4F] hover:text-[#1B4332] hover:bg-[#2D6A4F]/10"
+                text-[#0d3cfc] hover:text-[#0a31d6] hover:bg-[#0d3cfc]/10"
             >
               {saveState === "saving" ? "Saving…" : saveState === "saved" ? "Saved ✓" : saveState === "error" ? "Failed" : "Save to record"}
             </button>
           )}
           <button
             onClick={handleCopy}
-            className="text-[10px] font-medium text-[#2D6A4F] hover:text-[#1B4332] px-2 py-0.5 rounded hover:bg-[#2D6A4F]/10 transition-colors"
+            className="text-[10px] font-medium text-[#0d3cfc] hover:text-[#0a31d6] px-2 py-0.5 rounded hover:bg-[#0d3cfc]/10 transition-colors"
           >
             {copied ? "Copied!" : "Copy"}
           </button>
@@ -613,7 +613,7 @@ function ConfirmationCard({
           </button>
           <button
             onClick={() => onConfirm(callId)}
-            className="flex-1 text-xs font-medium text-white bg-[#2D6A4F] hover:bg-[#1B4332] py-1.5 rounded transition-colors"
+            className="flex-1 text-xs font-medium text-white bg-[#0d3cfc] hover:bg-[#0a31d6] py-1.5 rounded transition-colors"
           >
             Confirm
           </button>
@@ -962,7 +962,7 @@ export default function AdminCopilot({
 
   return (
     <div
-      className="fixed inset-y-0 right-0 z-50 w-full sm:w-auto flex flex-col border-l border-gray-200 shadow-xl"
+      className="fixed inset-y-0 right-0 z-50 w-full sm:w-auto flex flex-col border-l border-gray-200 border-t-[3px] border-t-[#0d3cfc] shadow-xl"
       style={{
         // Mobile: ignore inline width (Tailwind w-full wins). Desktop: use saved panelWidth.
         width: typeof window !== "undefined" && window.innerWidth >= 640 ? panelWidth : undefined,
@@ -975,7 +975,7 @@ export default function AdminCopilot({
         onPointerDown={handleResizeDown}
         onPointerMove={handleResizeMove}
         onPointerUp={handleResizeUp}
-        className="absolute inset-y-0 left-0 w-1.5 cursor-ew-resize z-10 hover:bg-[#2D6A4F]/20 transition-colors hidden sm:block"
+        className="absolute inset-y-0 left-0 w-1.5 cursor-ew-resize z-10 hover:bg-[#0d3cfc]/20 transition-colors hidden sm:block"
         style={{ touchAction: "none" }}
         title="Drag to resize"
         data-testid="copilot-resize-handle"
@@ -984,7 +984,7 @@ export default function AdminCopilot({
       {/* Header */}
       <div className="flex items-center justify-between h-14 px-4 border-b border-gray-100 shrink-0">
         <div className="flex items-center gap-2">
-          <BrainCircuit className="w-4 h-4 text-[#2D6A4F]" />
+          <BrainCircuit className="w-4 h-4 text-[#0d3cfc]" />
           <span className="text-sm font-semibold text-gray-900">AI Copilot</span>
           <span className="text-[10px] text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded">
             {pageContext.page.replace(/_/g, " ")}
@@ -1044,7 +1044,7 @@ export default function AdminCopilot({
             step="0.05"
             value={panelOpacity}
             onChange={(e) => setPanelOpacity(parseFloat(e.target.value))}
-            className="w-full accent-[#2D6A4F]"
+            className="w-full accent-[#0d3cfc]"
             data-testid="copilot-opacity-slider"
             aria-label="Panel transparency"
           />
@@ -1103,7 +1103,7 @@ export default function AdminCopilot({
               <div
                 className={`rounded-lg px-3 py-2 text-sm leading-relaxed ${
                   msg.role === "user"
-                    ? "max-w-[85%] bg-[#2D6A4F] text-white"
+                    ? "max-w-[85%] bg-[#0d3cfc] text-white"
                     : "max-w-[92%] bg-gray-50 text-gray-800"
                 }`}
               >
@@ -1142,7 +1142,7 @@ export default function AdminCopilot({
                         }
                       }}
                       title={a.hint}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-[#2D6A4F] bg-white border border-[#2D6A4F]/30 rounded-full hover:bg-[#F0F7F4] hover:border-[#2D6A4F]/60 transition-colors"
+                      className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-[#0d3cfc] bg-white border border-[#0d3cfc]/30 rounded-full hover:bg-[#EEF3FF] hover:border-[#0d3cfc]/60 transition-colors"
                       data-testid={`copilot-action-${i}-${j}`}
                     >
                       {a.label}
@@ -1158,9 +1158,9 @@ export default function AdminCopilot({
         {/* Q30c: FORM_FILL Apply/Skip card — only when the page declared
             fields AND the AI returned a valid proposal. */}
         {pendingFormFill && pendingFormFill.length > 0 && pageContext.formFillFields && pageContext.formFillFields.length > 0 && (
-          <div className="border border-[#2D6A4F]/30 bg-[#F0F7F4] rounded-lg p-3 space-y-2" data-testid="copilot-form-fill-card">
+          <div className="border border-[#0d3cfc]/30 bg-[#EEF3FF] rounded-lg p-3 space-y-2" data-testid="copilot-form-fill-card">
             <div className="flex items-center gap-1.5">
-              <Wand2 className="w-3.5 h-3.5 text-[#2D6A4F]" />
+              <Wand2 className="w-3.5 h-3.5 text-[#0d3cfc]" />
               <p className="text-xs font-medium text-gray-900">Apply these to the form?</p>
             </div>
             <ul className="space-y-1.5">
@@ -1189,7 +1189,7 @@ export default function AdminCopilot({
                     setApplyingFormFill(false);
                   }
                 }}
-                className="px-3 py-1 text-xs font-medium text-white bg-[#2D6A4F] rounded hover:bg-[#1B4332] disabled:opacity-60"
+                className="px-3 py-1 text-xs font-medium text-white bg-[#0d3cfc] rounded hover:bg-[#0a31d6] disabled:opacity-60"
                 data-testid="copilot-form-fill-apply"
               >
                 {applyingFormFill ? "Applying…" : "Apply"}
@@ -1257,7 +1257,7 @@ export default function AdminCopilot({
               attachments.some((a) => a.status === "pending") ||
               (!input.trim() && !attachments.some((a) => a.status === "uploaded"))
             }
-            className="bg-[#2D6A4F] hover:bg-[#1B4332] h-9 w-9 shrink-0"
+            className="bg-[#0d3cfc] hover:bg-[#0a31d6] h-9 w-9 shrink-0"
           >
             <Send className="w-3.5 h-3.5" />
           </Button>

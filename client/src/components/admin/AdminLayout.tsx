@@ -822,7 +822,7 @@ export default function AdminLayout({
             <Button
               variant="ghost"
               size="icon"
-              className={`h-8 w-8 ${copilotOpen ? "bg-[#F0F7F4] text-[#2D6A4F]" : "text-gray-500"}`}
+              className={`h-8 w-8 ${copilotOpen ? "bg-[#0d3cfc]/10 text-[#0d3cfc]" : "text-gray-500"}`}
               onClick={() => setCopilotOpen(!copilotOpen)}
               title="AI Copilot"
             >
