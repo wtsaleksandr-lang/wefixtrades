@@ -515,30 +515,28 @@ app.use((req, res, next) => {
       return res.status(400).type("html").send("<h1>Bad request</h1><p>Invalid draft id.</p>");
     }
     try {
-      const { db } = await import("./db");
-      const { sql } = await import("drizzle-orm");
-
-      const parentRes: any = await db.execute(sql`
-        SELECT id, kind, surface, status, target_platform, title, body, excerpt,
-               metadata, created_at
-        FROM content_drafts
-        WHERE id = ${draftId}
-        LIMIT 1
-      `);
-      const parentRows: any[] = (parentRes?.rows ?? parentRes) as any[];
-      if (!parentRows.length) {
+      const parentRes = await pool.query(
+        `SELECT id, kind, surface, status, target_platform, title, body, excerpt,
+                metadata, created_at
+         FROM content_drafts
+         WHERE id = $1
+         LIMIT 1`,
+        [draftId],
+      );
+      if (!parentRes.rows.length) {
         return res.status(404).type("html").send(`<h1>Draft ${draftId} not found</h1>`);
       }
-      const parent = parentRows[0];
+      const parent = parentRes.rows[0];
 
-      const childrenRes: any = await db.execute(sql`
-        SELECT id, kind, surface, status, target_platform, title, body, excerpt,
-               metadata, created_at
-        FROM content_drafts
-        WHERE (metadata->>'parent_draft_id')::int = ${draftId}
-        ORDER BY id ASC
-      `);
-      const children: any[] = (childrenRes?.rows ?? childrenRes) as any[];
+      const childrenRes = await pool.query(
+        `SELECT id, kind, surface, status, target_platform, title, body, excerpt,
+                metadata, created_at
+         FROM content_drafts
+         WHERE (metadata->>'parent_draft_id')::int = $1
+         ORDER BY id ASC`,
+        [draftId],
+      );
+      const children: any[] = childrenRes.rows;
 
       function escape(s: any): string {
         if (s == null) return "";
