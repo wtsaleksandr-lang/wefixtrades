@@ -227,11 +227,13 @@ export async function generateArticleBody(draftId: number): Promise<GenerateArti
 
   let raw: string;
   try {
-    raw = await generateContentflowText({
+    const gen = await generateContentflowText({
       system: SYSTEM_PROMPT,
       user: userPrompt,
       maxTokens: 2000,
     });
+    raw = gen.text;
+    storage.addDraftGenerationCost(draftId, gen.costMicroUsd).catch(() => {});
   } catch (err: any) {
     const msg = err?.message || String(err);
     log.error(`[contentflow] article generation AI call failed for draft ${draftId}: ${msg}`);

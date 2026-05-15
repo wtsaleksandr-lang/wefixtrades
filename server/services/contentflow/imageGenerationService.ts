@@ -24,6 +24,7 @@
 
 import crypto from "crypto";
 import { storage } from "../../storage";
+import { checkContentflowGate } from "./contentflowGate";
 import type { ContentDraft } from "@shared/schema";
 import { readBrandProfile } from "./brandProfile";
 import { createLogger } from "../../lib/logger";
@@ -61,7 +62,7 @@ export interface ImageBrand {
 export interface GenerateForDraftResult {
   ok: boolean;
   reason?: "skipped_kind" | "skipped_platform" | "skipped_already_has_image" | "no_prompt"
-         | "api_failed" | "moderation_blocked" | "upload_failed" | "config_missing";
+         | "api_failed" | "moderation_blocked" | "upload_failed" | "config_missing" | "paused";
   image_url?: string;           // either R2 URL OR OpenAI ephemeral URL (fallback)
   provider?: "openai" | "openai+r2";
   duration_ms?: number;
@@ -350,6 +351,13 @@ export async function generateForDraft(draftId: number): Promise<GenerateForDraf
 
     const finalPrompt = buildFinalPrompt({ postPrompt, brand, tradeType });
 
+    /* Product-level gate — kill switch + monthly spend cap. */
+    const gate = await checkContentflowGate();
+    if (!gate.allowed) {
+      log(`paused: ${gate.reason}`);
+      return { ok: false, reason: "paused", message: gate.reason, prompt_used: finalPrompt };
+    }
+
     /* Call image API. */
     const apiResult = await callImageApi(finalPrompt);
     if (!apiResult.ok) {
@@ -409,6 +417,10 @@ export async function generateForDraft(draftId: number): Promise<GenerateForDraf
       provider,
       promptHash: crypto.createHash("sha256").update(finalPrompt).digest("hex").slice(0, 16),
     });
+
+    /* Record estimated image-gen cost toward the monthly spend cap.
+     * gpt-image-1.5 @ medium 1024² ≈ $0.04 → 40,000 micro-USD. */
+    storage.addDraftGenerationCost(draftId, 40_000).catch(() => {});
 
     log(`success provider=${provider} url=${finalUrl.slice(0, 80)}`);
     return {

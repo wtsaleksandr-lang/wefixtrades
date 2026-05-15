@@ -95,6 +95,8 @@ type User, type InsertUser,
   type ContentDraft, type InsertContentDraft,
   type ContentApproval, type InsertContentApproval,
   type ContentAsset, type InsertContentAsset,
+  contentflowSettings,
+  type ContentflowSettings,
   // Routing Events
   routingEvents,
   type RoutingEvent, type InsertRoutingEvent,
@@ -3945,6 +3947,83 @@ export class DatabaseStorage implements IStorage {
       .where(eq(contentDrafts.id, id))
       .returning();
     return row;
+  }
+
+  /* ─── ContentFlow product settings (singleton row, id = 1) ───────── */
+
+  private _cfSettingsTableReady = false;
+
+  /** Lazily create the contentflow_settings table. The repo has no
+   *  migration step in the deploy pipeline, so this mirrors the same
+   *  CREATE TABLE IF NOT EXISTS pattern used by unsubscribeStorage —
+   *  the table self-creates on whichever database the app connects to. */
+  private async _ensureContentflowSettingsTable(): Promise<void> {
+    if (this._cfSettingsTableReady) return;
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS contentflow_settings (
+        id INTEGER PRIMARY KEY,
+        kill_switch BOOLEAN NOT NULL DEFAULT false,
+        text_tier VARCHAR(20) NOT NULL DEFAULT 'standard',
+        disabled_channels JSONB NOT NULL DEFAULT '[]'::jsonb,
+        monthly_spend_cap_usd INTEGER,
+        updated_at TIMESTAMP DEFAULT NOW(),
+        updated_by INTEGER
+      )
+    `);
+    this._cfSettingsTableReady = true;
+  }
+
+  async getContentflowSettings(): Promise<ContentflowSettings> {
+    await this._ensureContentflowSettingsTable();
+    const [row] = await db.select().from(contentflowSettings)
+      .where(eq(contentflowSettings.id, 1)).limit(1);
+    if (row) return row;
+    // Lazily create the singleton row with column defaults on first read.
+    const [created] = await db.insert(contentflowSettings)
+      .values({ id: 1 })
+      .onConflictDoNothing()
+      .returning();
+    if (created) return created;
+    // Race: another caller inserted it first — re-read.
+    const [existing] = await db.select().from(contentflowSettings)
+      .where(eq(contentflowSettings.id, 1)).limit(1);
+    return existing;
+  }
+
+  async updateContentflowSettings(
+    patch: { kill_switch?: boolean; text_tier?: string; disabled_channels?: string[]; monthly_spend_cap_usd?: number | null },
+    updatedBy?: number,
+  ): Promise<ContentflowSettings> {
+    await this.getContentflowSettings(); // ensure the singleton row exists
+    const [row] = await db.update(contentflowSettings)
+      .set({ ...patch, updated_at: new Date(), updated_by: updatedBy ?? null })
+      .where(eq(contentflowSettings.id, 1))
+      .returning();
+    return row;
+  }
+
+  /** Sum of generation_cost_micro_usd across all drafts created this
+   *  calendar month — the basis for the ContentFlow monthly spend cap. */
+  async getContentflowMonthlySpendMicroUsd(): Promise<number> {
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const [row] = await db.select({
+      total: sql<string>`COALESCE(SUM(${contentDrafts.generation_cost_micro_usd}), 0)`,
+    }).from(contentDrafts)
+      .where(gte(contentDrafts.created_at, monthStart));
+    return Number(row?.total ?? 0);
+  }
+
+  /** Add to a draft's recorded AI generation cost. Additive — a draft may
+   *  accrue text + image cost, and an admin regenerate adds more. */
+  async addDraftGenerationCost(draftId: number, microUsd: number): Promise<void> {
+    if (!Number.isFinite(microUsd) || microUsd <= 0) return;
+    await db.update(contentDrafts)
+      .set({
+        generation_cost_micro_usd: sql`COALESCE(${contentDrafts.generation_cost_micro_usd}, 0) + ${Math.round(microUsd)}`,
+        updated_at: new Date(),
+      })
+      .where(eq(contentDrafts.id, draftId));
   }
 
   /**

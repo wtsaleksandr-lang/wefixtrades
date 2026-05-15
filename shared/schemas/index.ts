@@ -20,6 +20,7 @@ export * from "./serviceCosts";
 export * from "./salesLeads";
 export * from "./rankflow";
 export * from "./contentflow";
+export * from "./contentflowSettings";
 export * from "./emailUnsubscribes";
 export * from "./notificationPreferences";
 export * from "./mapguardConfig";

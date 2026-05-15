@@ -14,6 +14,7 @@
 import type { Express, Request, Response } from "express";
 import { requireAdmin } from "../auth";
 import { storage } from "../storage";
+import { contentflowSettingsPatchSchema } from "@shared/schema";
 import { createDraftFromSocialPost } from "../services/contentflow/draftService";
 import { generateArticleBody } from "../services/contentflow/articleService";
 import {
@@ -1642,6 +1643,48 @@ export function registerContentFlowRoutes(app: Express): void {
       res.json({ ok: true, clientId, enabled });
     } catch (err: any) {
       log.error("[contentflow/video/toggle]", err?.message || err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  /* ─── Product-level admin config ───────────────────────────────── */
+
+  /**
+   * GET /api/admin/contentflow/config
+   * Returns the ContentFlow product settings (kill switch, model tier,
+   * channel toggles, spend cap) plus current month-to-date AI spend.
+   */
+  app.get("/api/admin/contentflow/config", requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      const settings = await storage.getContentflowSettings();
+      const spentMicro = await storage.getContentflowMonthlySpendMicroUsd();
+      res.json({
+        settings,
+        monthly_spend_usd: Math.round(spentMicro / 10_000) / 100,
+      });
+    } catch (err: any) {
+      log.error("[contentflow/config GET]", err?.message || err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  /**
+   * PUT /api/admin/contentflow/config
+   * Updates the kill switch / model tier / channel toggles / spend cap.
+   * Body: { kill_switch?, text_tier?, disabled_channels?, monthly_spend_cap_usd? }
+   */
+  app.put("/api/admin/contentflow/config", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const parsed = contentflowSettingsPatchSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid config", details: parsed.error.flatten() });
+      }
+      const updatedBy = (req.user as any)?.id ?? null;
+      const settings = await storage.updateContentflowSettings(parsed.data, updatedBy);
+      log.info("ContentFlow settings updated", { by: updatedBy, fields: Object.keys(parsed.data) });
+      res.json({ ok: true, settings });
+    } catch (err: any) {
+      log.error("[contentflow/config PUT]", err?.message || err);
       res.status(500).json({ error: err.message });
     }
   });
