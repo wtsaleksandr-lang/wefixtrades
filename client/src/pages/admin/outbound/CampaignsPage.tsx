@@ -140,7 +140,7 @@ function NewCampaignDialog({ open, onClose }: { open: boolean; onClose: () => vo
           </div>
           <div>
             <label className="text-xs font-medium text-gray-600">Sender Email</label>
-            <Input value={form.sender_email} onChange={(e) => setForm({ ...form, sender_email: e.target.value })} placeholder="alex@wefixtrades.com" />
+            <Input value={form.sender_email} onChange={(e) => setForm({ ...form, sender_email: e.target.value })} placeholder="support@wefixtrades.com" />
           </div>
           <div>
             <label className="text-xs font-medium text-gray-600">Description</label>
