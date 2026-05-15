@@ -138,7 +138,7 @@ interface OpenAiImageResponse {
   error?: { message?: string; type?: string; code?: string };
 }
 
-async function callImageApi(prompt: string): Promise<{ ok: true; url: string; revised_prompt?: string } | { ok: false; reason: GenerateForDraftResult["reason"]; message: string }> {
+async function callImageApi(prompt: string): Promise<{ ok: true; url?: string; b64?: string; revised_prompt?: string } | { ok: false; reason: GenerateForDraftResult["reason"]; message: string }> {
   /* Accept either env-var name. `AI_INTEGRATIONS_OPENAI_API_KEY` is
    * what the rest of this codebase already reads (Replit's default
    * naming for the integration). `OPENAI_API_KEY` is the canonical
@@ -182,11 +182,14 @@ async function callImageApi(prompt: string): Promise<{ ok: true; url: string; re
       }
       return { ok: false, reason: "api_failed", message: data.error?.message || `HTTP ${res.status}` };
     }
-    const url = data.data?.[0]?.url;
-    if (!url) {
-      return { ok: false, reason: "api_failed", message: "image API returned no url" };
+    const item = data.data?.[0];
+    /* DALL-E 3 returns `url`; gpt-image-1 / gpt-image-1.5 return
+     * `b64_json` and have NO url response_format option. Accept
+     * whichever the model produced — the caller persists it to R2. */
+    if (!item?.url && !item?.b64_json) {
+      return { ok: false, reason: "api_failed", message: "image API returned neither url nor b64_json" };
     }
-    return { ok: true, url, revised_prompt: data.data?.[0]?.revised_prompt };
+    return { ok: true, url: item.url, b64: item.b64_json, revised_prompt: item.revised_prompt };
   } catch (err: any) {
     clearTimeout(timeoutId);
     return { ok: false, reason: "api_failed", message: err?.message || String(err) };
@@ -219,17 +222,25 @@ function isR2Configured(): boolean {
  * the SDK if uploads grow more complex. For Sprint 11's "single PUT
  * per image" need, this is sufficient and dependency-free.
  */
-async function uploadToR2(args: { key: string; sourceUrl: string; contentType: string }): Promise<R2UploadResult> {
+async function uploadToR2(args: { key: string; contentType: string; sourceUrl?: string; buffer?: Buffer }): Promise<R2UploadResult> {
   if (!isR2Configured()) {
     return { ok: false, error: "R2 not configured" };
   }
   try {
-    /* Pull the source bytes from OpenAI's CDN. */
-    const sourceRes = await fetch(args.sourceUrl);
-    if (!sourceRes.ok) {
-      return { ok: false, error: `source fetch ${sourceRes.status}` };
+    /* Source bytes: a direct Buffer (b64_json image responses) or
+     * fetched from a CDN URL (DALL-E-style url responses). */
+    let buffer: Buffer;
+    if (args.buffer) {
+      buffer = args.buffer;
+    } else if (args.sourceUrl) {
+      const sourceRes = await fetch(args.sourceUrl);
+      if (!sourceRes.ok) {
+        return { ok: false, error: `source fetch ${sourceRes.status}` };
+      }
+      buffer = Buffer.from(await sourceRes.arrayBuffer());
+    } else {
+      return { ok: false, error: "no source (need sourceUrl or buffer)" };
     }
-    const buffer = Buffer.from(await sourceRes.arrayBuffer());
 
     /* SigV4 signed PUT to R2. R2 uses the same signing as S3. */
     const accessKey = process.env.R2_ACCESS_KEY_ID!;
@@ -356,19 +367,39 @@ export async function generateForDraft(draftId: number): Promise<GenerateForDraf
      * When R2 upload fails and we fall back to the ephemeral OpenAI URL
      * (~1h TTL), schedule a background re-upload so the image persists
      * beyond the publish window. */
+    /* gpt-image-1.x returns base64; DALL-E-style returns a CDN url.
+     * Decode b64 to a Buffer and upload that directly — never persist
+     * a multi-MB data URI to the DB as a fallback. */
+    const imageBuffer = apiResult.b64 ? Buffer.from(apiResult.b64, "base64") : null;
     let finalUrl = apiResult.url;
     let provider: "openai" | "openai+r2" = "openai";
     if (isR2Configured()) {
       const key = `${draft.client_id}/${draftId}/${crypto.randomBytes(6).toString("hex")}.png`;
-      const upload = await uploadToR2({ key, sourceUrl: apiResult.url, contentType: "image/png" });
+      const upload = await uploadToR2(
+        imageBuffer
+          ? { key, buffer: imageBuffer, contentType: "image/png" }
+          : { key, sourceUrl: apiResult.url!, contentType: "image/png" },
+      );
       if (upload.ok && upload.url) {
         finalUrl = upload.url;
         provider = "openai+r2";
       } else {
         logger.warn(`[contentflow][image-gen] draft=${draftId} R2 upload failed (${upload.error}) — falling back to provider URL`);
-        // Fire-and-forget background re-upload while the ephemeral URL is still alive
-        scheduleR2Reupload(draftId, apiResult.url, key).catch(() => {});
+        // Fire-and-forget background re-upload (only meaningful for url responses).
+        if (apiResult.url) scheduleR2Reupload(draftId, apiResult.url, key).catch(() => {});
       }
+    }
+
+    /* b64 response + R2 failed = no hostable URL. Fail cleanly instead
+     * of persisting a giant data URI or crashing on finalUrl.slice(). */
+    if (!finalUrl) {
+      log(`r2_failed_no_fallback`);
+      await persistImageMeta(draftId, {
+        image_generation_status: "failed",
+        image_generation_error: "R2 upload failed; gpt-image returned no hostable URL",
+        image_generation_at: new Date().toISOString(),
+      }).catch(() => {});
+      return { ok: false, reason: "api_failed", message: "R2 upload failed and provider returned no hostable URL", prompt_used: finalPrompt };
     }
 
     /* Persist on draft.metadata.media_plan + audit fields. */
