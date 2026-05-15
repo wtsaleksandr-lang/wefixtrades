@@ -9,14 +9,13 @@
  * and to the content_approvals audit trail; admin sees them in the
  * existing /admin/contentflow drawer.
  *
+ * Each tab (Articles / Social Posts / Videos) has a search + filter +
+ * date-range toolbar so a customer can quickly find a specific piece.
+ *
  * Card statuses surfaced:
  *   approved   = admin approved, client decision pending or noted
  *   published  = on WordPress (post URL shown when present)
  *   rejected   = decision recorded, no further action
- *
- * Note: this page does not display drafts in 'draft' status — those
- * are still being worked on by the admin and showing them would
- * confuse clients.
  */
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -32,6 +31,7 @@ import {
 } from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { FilterToolbar, dateRangeCutoff, type DateRange } from "@/components/datatable/FilterToolbar";
 
 interface ArticleListItem {
   id: number;
@@ -91,6 +91,10 @@ function formatRelative(iso: string): string {
   const days = Math.floor(h / 24);
   if (days < 7) return `${days}d ago`;
   return d.toLocaleDateString();
+}
+
+function uniqueSorted(arr: string[]): string[] {
+  return Array.from(new Set(arr.filter(Boolean))).sort();
 }
 
 /* ─── Page ────────────────────────────────────────────────────────── */
@@ -186,6 +190,31 @@ export default function PortalArticles() {
 
   const [activeTab, setActiveTab] = useState<"articles" | "social" | "videos">("articles");
 
+  /* Article tab filters (client-side). */
+  const [articleSearch, setArticleSearch] = useState("");
+  const [articleStatus, setArticleStatus] = useState<Set<string>>(new Set());
+  const [articleRange, setArticleRange] = useState<DateRange>("all");
+
+  const filteredArticles = useMemo(() => {
+    let rows = articles;
+    const q = articleSearch.trim().toLowerCase();
+    if (q) {
+      rows = rows.filter((a) =>
+        (a.title || "").toLowerCase().includes(q) ||
+        (a.excerpt || "").toLowerCase().includes(q),
+      );
+    }
+    if (articleStatus.size) rows = rows.filter((a) => articleStatus.has(badgeForArticle(a).label));
+    const cutoff = dateRangeCutoff(articleRange);
+    if (cutoff != null) rows = rows.filter((a) => new Date(a.created_at).getTime() >= cutoff);
+    return rows;
+  }, [articles, articleSearch, articleStatus, articleRange]);
+
+  const articleStatusOptions = useMemo(
+    () => uniqueSorted(articles.map((a) => badgeForArticle(a).label)).map((s) => ({ value: s, label: s })),
+    [articles],
+  );
+
   return (
     <PortalLayout>
       <div className="space-y-6">
@@ -257,6 +286,20 @@ export default function PortalArticles() {
           )}
         </div>
 
+        {/* Filter toolbar */}
+        {!isLoading && !isError && articles.length > 0 && (
+          <FilterToolbar
+            search={articleSearch}
+            onSearch={setArticleSearch}
+            searchPlaceholder="Search articles…"
+            filters={[
+              { label: "Status", options: articleStatusOptions, selected: articleStatus, onChange: setArticleStatus },
+            ]}
+            dateRange={articleRange}
+            onDateRange={setArticleRange}
+          />
+        )}
+
         {/* Article cards */}
         {isLoading && (
           <div className="grid gap-3 md:grid-cols-2 auto-rows-fr">
@@ -283,9 +326,15 @@ export default function PortalArticles() {
           </Card>
         )}
 
-        {!isLoading && articles.length > 0 && (
+        {!isLoading && !isError && articles.length > 0 && filteredArticles.length === 0 && (
+          <Card className="p-10 text-center text-sm text-muted-foreground">
+            No articles match your filters.
+          </Card>
+        )}
+
+        {!isLoading && filteredArticles.length > 0 && (
           <div className="grid gap-3 md:grid-cols-2 auto-rows-fr">
-            {articles.map((a) => {
+            {filteredArticles.map((a) => {
               const badge = badgeForArticle(a);
               return (
                 <Card
@@ -475,7 +524,31 @@ function SocialPostsSection() {
     },
   });
 
-  const posts = data?.posts ?? [];
+  const allPosts = data?.posts ?? [];
+  const [search, setSearch] = useState("");
+  const [platformFilter, setPlatformFilter] = useState<Set<string>>(new Set());
+  const [statusFilter, setStatusFilter] = useState<Set<string>>(new Set());
+  const [range, setRange] = useState<DateRange>("all");
+
+  const posts = useMemo(() => {
+    let rows = allPosts;
+    const q = search.trim().toLowerCase();
+    if (q) rows = rows.filter((p) => (p.post_text || "").toLowerCase().includes(q));
+    if (platformFilter.size) rows = rows.filter((p) => platformFilter.has(p.platform));
+    if (statusFilter.size) rows = rows.filter((p) => statusFilter.has(p.status));
+    const cutoff = dateRangeCutoff(range);
+    if (cutoff != null) rows = rows.filter((p) => new Date(p.created_at).getTime() >= cutoff);
+    return rows;
+  }, [allPosts, search, platformFilter, statusFilter, range]);
+
+  const platformOptions = useMemo(
+    () => uniqueSorted(allPosts.map((p) => p.platform)).map((p) => ({ value: p, label: p.replace(/_/g, " ") })),
+    [allPosts],
+  );
+  const statusOptions = useMemo(
+    () => uniqueSorted(allPosts.map((p) => p.status)).map((s) => ({ value: s, label: s })),
+    [allPosts],
+  );
 
   if (isLoading) {
     return (
@@ -499,7 +572,7 @@ function SocialPostsSection() {
     );
   }
 
-  if (posts.length === 0) {
+  if (allPosts.length === 0) {
     return (
       <Card className="p-12 text-center text-sm text-muted-foreground">
         <Share2 className="mx-auto h-8 w-8 opacity-50 mb-2" />
@@ -509,48 +582,68 @@ function SocialPostsSection() {
   }
 
   return (
-    <div className="grid gap-3 md:grid-cols-2 auto-rows-fr">
-      {posts.map((post) => (
-        <Card key={post.id} className="p-4 space-y-2">
-          <div className="flex items-center gap-2">
-            {PLATFORM_ICON[post.platform] || <Globe className="h-4 w-4 text-gray-500" />}
-            <span className="text-xs font-medium capitalize">{post.platform.replace(/_/g, " ")}</span>
-            <Badge variant="outline" className={`ml-auto text-[10px] ${STATUS_STYLE[post.status] || STATUS_STYLE.draft}`}>
-              {post.status === "ready" ? "Pending" : post.status}
-            </Badge>
-          </div>
+    <div className="space-y-3">
+      <FilterToolbar
+        search={search}
+        onSearch={setSearch}
+        searchPlaceholder="Search posts…"
+        filters={[
+          { label: "Platform", options: platformOptions, selected: platformFilter, onChange: setPlatformFilter },
+          { label: "Status", options: statusOptions, selected: statusFilter, onChange: setStatusFilter },
+        ]}
+        dateRange={range}
+        onDateRange={setRange}
+      />
 
-          {post.post_text && (
-            <p className="text-sm text-gray-700 line-clamp-4 whitespace-pre-wrap">
-              {post.post_text}
-            </p>
-          )}
-
-          {post.media_plan?.prompt && (
-            <div className="text-[10px] text-gray-400 italic">
-              Image: {post.media_plan.prompt}
-            </div>
-          )}
-
-          <div className="flex items-center gap-3 text-[10px] text-muted-foreground pt-1">
-            {post.scheduled_at && (
-              <span className="flex items-center gap-0.5">
-                <Calendar className="h-3 w-3" />
-                Scheduled: {new Date(post.scheduled_at).toLocaleDateString()}
-              </span>
-            )}
-            {post.published_at && (
-              <span className="flex items-center gap-0.5">
-                <CheckCircle2 className="h-3 w-3 text-emerald-500" />
-                Published: {formatRelative(post.published_at)}
-              </span>
-            )}
-            {!post.scheduled_at && !post.published_at && (
-              <span>{formatRelative(post.created_at)}</span>
-            )}
-          </div>
+      {posts.length === 0 ? (
+        <Card className="p-10 text-center text-sm text-muted-foreground">
+          No posts match your filters.
         </Card>
-      ))}
+      ) : (
+        <div className="grid gap-3 md:grid-cols-2 auto-rows-fr">
+          {posts.map((post) => (
+            <Card key={post.id} className="p-4 space-y-2">
+              <div className="flex items-center gap-2">
+                {PLATFORM_ICON[post.platform] || <Globe className="h-4 w-4 text-gray-500" />}
+                <span className="text-xs font-medium capitalize">{post.platform.replace(/_/g, " ")}</span>
+                <Badge variant="outline" className={`ml-auto text-[10px] ${STATUS_STYLE[post.status] || STATUS_STYLE.draft}`}>
+                  {post.status === "ready" ? "Pending" : post.status}
+                </Badge>
+              </div>
+
+              {post.post_text && (
+                <p className="text-sm text-gray-700 line-clamp-4 whitespace-pre-wrap">
+                  {post.post_text}
+                </p>
+              )}
+
+              {post.media_plan?.prompt && (
+                <div className="text-[10px] text-gray-400 italic">
+                  Image: {post.media_plan.prompt}
+                </div>
+              )}
+
+              <div className="flex items-center gap-3 text-[10px] text-muted-foreground pt-1">
+                {post.scheduled_at && (
+                  <span className="flex items-center gap-0.5">
+                    <Calendar className="h-3 w-3" />
+                    Scheduled: {new Date(post.scheduled_at).toLocaleDateString()}
+                  </span>
+                )}
+                {post.published_at && (
+                  <span className="flex items-center gap-0.5">
+                    <CheckCircle2 className="h-3 w-3 text-emerald-500" />
+                    Published: {formatRelative(post.published_at)}
+                  </span>
+                )}
+                {!post.scheduled_at && !post.published_at && (
+                  <span>{formatRelative(post.created_at)}</span>
+                )}
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -612,7 +705,26 @@ function VideoContentSection() {
     },
   });
 
-  const videos = videosData?.videos ?? [];
+  const allVideos = videosData?.videos ?? [];
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<Set<string>>(new Set());
+  const [range, setRange] = useState<DateRange>("all");
+
+  const videos = useMemo(() => {
+    let rows = allVideos;
+    const q = search.trim().toLowerCase();
+    if (q) rows = rows.filter((v) => (v.title || "").toLowerCase().includes(q) || (v.excerpt || "").toLowerCase().includes(q));
+    if (statusFilter.size) rows = rows.filter((v) => statusFilter.has(v.status));
+    const cutoff = dateRangeCutoff(range);
+    if (cutoff != null) rows = rows.filter((v) => new Date(v.created_at).getTime() >= cutoff);
+    return rows;
+  }, [allVideos, search, statusFilter, range]);
+
+  const statusOptions = useMemo(
+    () => uniqueSorted(allVideos.map((v) => v.status)).map((s) => ({ value: s, label: s })),
+    [allVideos],
+  );
+
   const actualVideos = videos.filter((v) => v.kind === "video");
   const scripts = videos.filter((v) => v.kind === "video_script");
 
@@ -661,6 +773,20 @@ function VideoContentSection() {
         </Card>
       )}
 
+      {/* Filter toolbar */}
+      {!videosLoading && !videosError && allVideos.length > 0 && (
+        <FilterToolbar
+          search={search}
+          onSearch={setSearch}
+          searchPlaceholder="Search videos…"
+          filters={[
+            { label: "Status", options: statusOptions, selected: statusFilter, onChange: setStatusFilter },
+          ]}
+          dateRange={range}
+          onDateRange={setRange}
+        />
+      )}
+
       {/* Videos list */}
       {videosLoading && (
         <div className="grid gap-3 md:grid-cols-2 auto-rows-fr">
@@ -680,10 +806,16 @@ function VideoContentSection() {
         </Card>
       )}
 
-      {!videosLoading && !videosError && videos.length === 0 && (
+      {!videosLoading && !videosError && allVideos.length === 0 && (
         <Card className="p-12 text-center text-sm text-muted-foreground">
           <Video className="mx-auto h-8 w-8 opacity-50 mb-2" />
           No videos yet. When articles are repurposed with video generation enabled, they will appear here.
+        </Card>
+      )}
+
+      {!videosLoading && !videosError && allVideos.length > 0 && videos.length === 0 && (
+        <Card className="p-10 text-center text-sm text-muted-foreground">
+          No videos match your filters.
         </Card>
       )}
 
