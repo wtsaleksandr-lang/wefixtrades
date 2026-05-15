@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect, useCallback } from "react";
 import { Loader2, Check, RefreshCw, KeyRound, AlertTriangle, Palette, X, Plus, Bell, Mail, MessageSquare, Image as ImageIcon } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
-import type { PortalChatContext } from "@/components/portal/PortalChatWidget";
+import { useCopilotForm } from "@/context/CopilotFormContext";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -119,31 +119,31 @@ export default function PortalSettings() {
   // Q23b: opt this page into the chat-driven form-fill flow. The assistant
   // can propose values for these contact-info fields; on Apply they patch
   // straight into `form` state (same fields the customer types into above).
-  const chatContext: PortalChatContext | undefined = data
-    ? {
-        fields: [
-          { key: "contact_name", label: "Contact Name", required: false },
-          { key: "contact_email", label: "Contact Email", required: false },
-          { key: "contact_phone", label: "Phone", required: false },
-          { key: "website_url", label: "Website", required: false },
-        ],
-        current_responses: form as unknown as Record<string, any>,
-        onApplyFill: (fills) => {
-          const allowed = new Set(["contact_name", "contact_email", "contact_phone", "website_url"]);
-          const patch: Partial<typeof form> = {};
-          for (const f of fills) {
-            if (!allowed.has(f.field_key)) continue;
-            (patch as any)[f.field_key] = f.value;
-          }
-          if (Object.keys(patch).length > 0) {
-            setForm((prev) => ({ ...prev, ...patch }));
-          }
-        },
+  useCopilotForm({
+    formLabel: "Account settings",
+    fields: [
+      { key: "contact_name", label: "Contact Name", required: false },
+      { key: "contact_email", label: "Contact Email", required: false },
+      { key: "contact_phone", label: "Phone", required: false },
+      { key: "website_url", label: "Website", required: false },
+    ],
+    values: form as unknown as Record<string, unknown>,
+    onApply: (fills) => {
+      const allowed = new Set(["contact_name", "contact_email", "contact_phone", "website_url"]);
+      const patch: Partial<typeof form> = {};
+      for (const f of fills) {
+        if (!allowed.has(f.field_key)) continue;
+        (patch as any)[f.field_key] = f.value;
       }
-    : undefined;
+      if (Object.keys(patch).length > 0) {
+        setForm((prev) => ({ ...prev, ...patch }));
+      }
+    },
+    enabled: !!data,
+  });
 
   return (
-    <PortalLayout chatContext={chatContext}>
+    <PortalLayout>
       <div className="max-w-2xl mx-auto space-y-6">
         <div>
           <h1 className="text-xl font-semibold text-gray-900">Settings</h1>

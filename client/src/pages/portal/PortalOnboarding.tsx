@@ -6,6 +6,7 @@ import PortalLayout from "@/components/portal/PortalLayout";
 import type { PortalChatContext } from "@/components/portal/PortalChatWidget";
 import { getFieldConfig } from "@/config/onboardingFields";
 import { useOnboardingResponses } from "@/context/OnboardingContext";
+import { useCopilotForm } from "@/context/CopilotFormContext";
 
 interface Step {
   key: string;
@@ -161,29 +162,37 @@ export default function PortalOnboarding() {
   const requiredSteps = data?.steps.filter((s) => s.required) ?? [];
   const optionalSteps = data?.steps.filter((s) => !s.required) ?? [];
 
-  // Build onboarding context for the global chat widget
+  // Phase 1b: register the onboarding form with the copilot form registry.
+  // Q23: when the assistant proposes form fills and the customer clicks Apply,
+  // onApply writes the proposed values into form state. Only updates keys that
+  // exist in the current step list — the server already filters but
+  // defence-in-depth.
+  useCopilotForm({
+    formLabel: data?.service_name ? `${data.service_name} setup` : "Onboarding",
+    fields: data?.steps?.map((s) => ({ key: s.key, label: s.label, required: s.required })) ?? [],
+    values: responses,
+    onApply: (fills) => {
+      if (!data) return;
+      const allowedKeys = new Set(data.steps.map((s) => s.key));
+      const patch: Record<string, any> = {};
+      for (const f of fills) {
+        if (!allowedKeys.has(f.field_key)) continue;
+        patch[f.field_key] = f.value;
+      }
+      if (Object.keys(patch).length > 0) {
+        setResponses((prev) => ({ ...prev, ...patch }));
+      }
+    },
+    enabled: !!(data && !isSubmitted),
+  });
+
+  // Build onboarding context for the global chat widget — reduced to the
+  // non-form-fill bits; fields/current_responses/onApplyFill moved to the hook.
   const chatContext: PortalChatContext | undefined =
     data && !isSubmitted
       ? {
           service_name: data.service_name ?? "service",
           service_id: data.service_id ?? undefined,
-          fields: data.steps.map((s) => ({ key: s.key, label: s.label, required: s.required })),
-          current_responses: responses,
-          // Q23: when the assistant proposes form fills and the customer clicks
-          // Apply in the chat widget, this callback writes the proposed values
-          // into the actual form state. Only updates keys that exist in the
-          // current step list — the server already filters but defence-in-depth.
-          onApplyFill: (fills) => {
-            const allowedKeys = new Set(data.steps.map((s) => s.key));
-            const patch: Record<string, any> = {};
-            for (const f of fills) {
-              if (!allowedKeys.has(f.field_key)) continue;
-              patch[f.field_key] = f.value;
-            }
-            if (Object.keys(patch).length > 0) {
-              setResponses((prev) => ({ ...prev, ...patch }));
-            }
-          },
         }
       : undefined;
 
