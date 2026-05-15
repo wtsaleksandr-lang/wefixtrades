@@ -284,12 +284,13 @@ function EmailGate({ onSubmit }: { onSubmit: (email: string) => void }) {
         <button
           onClick={handleSubmit}
           disabled={submitting}
+          className="wft-hover-border-white"
           style={{
             padding: "12px 20px",
             borderRadius: 10,
             border: "none",
             background: mkt.accent,
-            color: mkt.dark,
+            color: "#FFFFFF",
             fontSize: 14,
             fontWeight: 700,
             cursor: "pointer",

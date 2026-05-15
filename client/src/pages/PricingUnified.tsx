@@ -444,7 +444,9 @@ function CTAButton({ label, highlighted, fullWidth, onClick }: { label: string; 
         cursor: "pointer",
         transition: "all 0.2s ease",
         transform: hover ? "translateY(-1px)" : "none",
-        boxShadow: hover && highlighted ? shadows.focus : "none",
+        // Hover border: blue (highlighted) button → white inner border;
+        // ghost (non-highlighted) → no border change.
+        boxShadow: hover && highlighted ? "inset 0 0 0 1.5px #FFFFFF" : "none",
         letterSpacing: "0.01em",
       }}
     >

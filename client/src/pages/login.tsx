@@ -380,6 +380,7 @@ export default function LoginPage() {
                     <button
                       type="submit"
                       disabled={!email.trim() || requestLink.isPending}
+                      className="wft-hover-border-white"
                       style={{ ...ctaBtnStyle, marginTop: 18, opacity: !email.trim() || requestLink.isPending ? 0.6 : 1 }}
                       data-testid="button-email-me-a-link"
                     >
@@ -503,6 +504,7 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   disabled={requires2fa ? !totpCode.trim() || verify2fa.isPending : !email.trim() || !password || login.isPending}
+                  className="wft-hover-border-white"
                   style={{
                     ...ctaBtnStyle,
                     marginTop: 18,

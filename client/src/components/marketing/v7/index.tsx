@@ -113,7 +113,12 @@ export function V7Hero({ productName, eyebrow, headline, sub, ctas = [], visual,
           <Reveal delay={0.16}>
             <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
               {ctas.map((c, i) => (
-                <Link key={c.label} href={c.href} style={i === 0 ? ctaPrimary : ctaGhost}>
+                <Link
+                  key={c.label}
+                  href={c.href}
+                  className={i === 0 ? "wft-hover-border-white" : undefined}
+                  style={i === 0 ? ctaPrimary : ctaGhost}
+                >
                   {c.label} {i === 0 && <ArrowRight size={16} />}
                 </Link>
               ))}
@@ -250,7 +255,7 @@ export function V7FinalCta({ title, sub = "Setup is fast. No card required. Canc
         <p style={{ position: "relative", fontSize: 16, lineHeight: 1.55, color: mkt.onDarkMuted, marginBottom: 32, fontFamily: SANS }}>
           {sub}
         </p>
-        <Link href={primaryCta.href} style={{ ...ctaPrimary, position: "relative", fontSize: 14, padding: "16px 32px" }}>
+        <Link href={primaryCta.href} className="wft-hover-border-white" style={{ ...ctaPrimary, position: "relative", fontSize: 14, padding: "16px 32px" }}>
           {primaryCta.label} <ArrowRight size={18} />
         </Link>
       </div>

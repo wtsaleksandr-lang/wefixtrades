@@ -64,6 +64,7 @@ export default function CheckoutCancelled() {
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
             <a
               href="/pricing"
+              className="wft-hover-border-white"
               style={{
                 display: "inline-flex",
                 alignItems: "center",
@@ -71,7 +72,7 @@ export default function CheckoutCancelled() {
                 padding: "14px 28px",
                 borderRadius: 12,
                 background: mkt.accent,
-                color: mkt.dark,
+                color: "#FFFFFF",
                 fontSize: 14,
                 fontWeight: 700,
                 fontFamily: FONT,
