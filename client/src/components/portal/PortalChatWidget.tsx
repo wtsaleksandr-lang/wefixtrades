@@ -13,6 +13,7 @@ import { loadPortalMessages, savePortalMessages } from "@/lib/chatHelpers";
 import { useToast } from "@/hooks/use-toast";
 import CopilotPromptCard from "@/components/shared/CopilotPromptCard";
 import type { CopilotPromptRequest } from "@shared/copilotProtocol";
+import { useActiveCopilotForm } from "@/context/CopilotFormContext";
 
 const LAST_OPEN_KEY = "wft_portal_chat_last_open";
 const OPACITY_KEY = "wft_portal_chat_opacity";
@@ -203,6 +204,10 @@ export default function PortalChatWidget({
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [location, setLocation] = useLocation();
+  // Phase 1a: the form registered by the current page via useCopilotForm()
+  // is the universal source of fillable fields. Falls back to the legacy
+  // chatContext prop for pages not yet migrated to the hook.
+  const registeredForm = useActiveCopilotForm();
   // Q25: transparency slider — persists across mounts. 0.7 floor so messages remain readable.
   const [panelOpacity, setPanelOpacity] = useState<number>(() => {
     try {
@@ -345,12 +350,16 @@ export default function PortalChatWidget({
     const page_path = typeof window !== "undefined" ? location : undefined;
     const page_title = typeof document !== "undefined" ? document.title : undefined;
     const page_content = readPageContentSnapshot();
+    // Phase 1a: prefer the form registered via useCopilotForm(); fall back to
+    // the legacy chatContext prop for pages not yet migrated.
+    const formFields = registeredForm?.fields ?? chatContext?.fields;
+    const formValues = registeredForm ? registeredForm.getValues() : chatContext?.current_responses;
     if (isOnboarding) {
       return {
         service_name: chatContext!.service_name,
         service_id: chatContext!.service_id,
-        fields: chatContext!.fields,
-        current_responses: chatContext!.current_responses,
+        fields: formFields,
+        current_responses: formValues,
         page_path,
         page_title,
         page_content,
@@ -362,6 +371,10 @@ export default function PortalChatWidget({
       page_path,
       page_title,
       page_content,
+      // A registered form makes form-fill available on any page, not just onboarding.
+      ...(formFields && formFields.length > 0
+        ? { fields: formFields, current_responses: formValues }
+        : {}),
     };
   }
 
@@ -542,7 +555,13 @@ export default function PortalChatWidget({
     if (!pendingProposal || applyingProposal) return;
     setApplyingProposal(true);
     try {
-      if (chatContext?.onApplyFill) {
+      if (registeredForm) {
+        await registeredForm.onApply(pendingProposal);
+        setMessages((prev) => [...prev, {
+          role: "assistant" as const,
+          content: `Done — filled ${pendingProposal.length === 1 ? "1 field" : `${pendingProposal.length} fields`} for you. Please review before saving.`,
+        }]);
+      } else if (chatContext?.onApplyFill) {
         await chatContext.onApplyFill(pendingProposal);
         setMessages((prev) => [...prev, {
           role: "assistant" as const,
@@ -899,7 +918,8 @@ export default function PortalChatWidget({
                 </div>
                 <div className="space-y-1.5">
                   {pendingProposal.map((fill, i) => {
-                    const label = chatContext?.fields?.find((f) => f.key === fill.field_key)?.label ?? fill.field_key;
+                    const fieldDefs = registeredForm?.fields ?? chatContext?.fields;
+                    const label = fieldDefs?.find((f) => f.key === fill.field_key)?.label ?? fill.field_key;
                     return (
                       <div key={i} className="text-[11px] bg-white rounded border border-gray-100 px-2 py-1.5">
                         <p className="font-medium text-gray-700">{label}</p>

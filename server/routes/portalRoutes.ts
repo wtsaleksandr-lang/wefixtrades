@@ -1383,6 +1383,46 @@ Rules:
 - Skip the block when answering questions the user can resolve themselves (status checks, definitions, explanations).
 - The block is invisible to the customer; they see clickable buttons rendered from it.`;
 
+      /* Phase 1a: when the page registered an editable form (via the
+       * useCopilotForm hook), the client sends its fields here too — so
+       * form-fill works on ANY page, not just onboarding. Build the
+       * FORM_FILL instruction whenever editable fields are present. The
+       * onboarding branch keeps its own inline FORM_FILL block. */
+      const helpFormFields: Array<{ key: string; label: string; required?: boolean }> =
+        Array.isArray(context?.fields) ? context.fields : [];
+      let formFillInstruction = "";
+      if (helpFormFields.length > 0) {
+        const ffList = helpFormFields
+          .map((f) => `- ${f.label}${f.required ? " (required)" : " (optional)"} [key: ${f.key}]`)
+          .join("\n");
+        const ffValues = context?.current_responses
+          ? (Object.entries(context.current_responses)
+              .filter(([, v]) => v !== "" && v !== false && v != null)
+              .map(([k, v]) => `- ${k}: ${v}`)
+              .join("\n") || "None filled yet.")
+          : "None filled yet.";
+        formFillInstruction = `
+
+== FORM-FILL PROPOSALS ==
+This page has an editable form. Fields the customer can fill:
+${ffList}
+
+Currently filled in:
+${ffValues}
+
+When the customer has agreed on values for one or more fields, propose them by appending a single fenced block AT THE END of your reply:
+
+<<<FORM_FILL>>>
+{"fills":[{"field_key":"<key-from-above>","value":"<the value to set>","reason":"<one short sentence why>"}]}
+<<<END_FORM_FILL>>>
+
+Rules:
+- Only propose values the customer has affirmed in the conversation. Never auto-fill without an explicit yes.
+- field_key MUST be one of the keys above. Spelling + case matter.
+- value must be a string. Booleans use "true"/"false". Max 3 fills per block.
+- Put a human sentence before the block — the block is invisible; the customer sees Apply/Skip buttons.`;
+      }
+
       let systemPrompt: string;
       let escalationEnabled = false;
 
@@ -1411,7 +1451,7 @@ Do NOT:
 - Make up account-specific details (balances, dates, statuses)
 - Provide legal or financial advice
 - Discuss internal pricing or margins
-- Create tickets automatically — always offer first and let the user decide${actionProposalBlock}${COPILOT_PROMPT_INSTRUCTION}${pageContextBlock}`;
+- Create tickets automatically — always offer first and let the user decide${actionProposalBlock}${formFillInstruction}${COPILOT_PROMPT_INSTRUCTION}${pageContextBlock}`;
       } else {
         // Onboarding context — no escalation
         const fieldList = (context?.fields ?? [])
