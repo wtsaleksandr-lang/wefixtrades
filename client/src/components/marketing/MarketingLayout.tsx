@@ -151,37 +151,6 @@ function MarketingFooter({ isMobile }: { isMobile: boolean }) {
             {isAuthenticated && <FtLink href="/dashboard">Dashboard</FtLink>}
           </CollapsibleFooterSection>
 
-          {/* Col 4 — Legal */}
-          <CollapsibleFooterSection title="Legal" defaultOpen={!isMobile}>
-            <FtLink href="/privacy">Privacy Policy</FtLink>
-            <FtLink href="/terms">Terms of Service</FtLink>
-            <FtLink href="/terms">Cookie Policy</FtLink>
-            <FtLink href="/terms">GDPR</FtLink>
-            {isAuthenticated && (
-              <button
-                onClick={async () => {
-                  await fetch("/api/auth/logout", { method: "POST", credentials: "include" }).catch(() => {});
-                  queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
-                }}
-                style={{
-                  ...ftLink,
-                  fontSize: 12,
-                  // a11y: bumped from 0.28 to 0.6 to clear WCAG AA.
-                  color: "rgba(255,255,255,0.6)",
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  padding: "5px 0",
-                  fontFamily: "inherit",
-                  textAlign: "left",
-                }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.85)"; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.6)"; }}
-              >
-                Sign out
-              </button>
-            )}
-          </CollapsibleFooterSection>
         </div>
       </div>
 
@@ -245,6 +214,25 @@ function MarketingFooter({ isMobile }: { isMobile: boolean }) {
             <Link href="/terms" style={legalLinkStyle}>Terms</Link>
             <span style={legalDividerStyle} />
             <Link href="/terms" style={legalLinkStyle}>Cookies</Link>
+            {isAuthenticated && (
+              <>
+                <span style={legalDividerStyle} />
+                <button
+                  onClick={async () => {
+                    await fetch("/api/auth/logout", { method: "POST", credentials: "include" }).catch(() => {});
+                    queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
+                  }}
+                  style={{
+                    ...legalLinkStyle,
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                  }}
+                >
+                  Sign out
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -253,7 +241,7 @@ function MarketingFooter({ isMobile }: { isMobile: boolean }) {
       <style>{`
         .mkt-footer-grid {
           display: grid;
-          grid-template-columns: repeat(4, 1fr);
+          grid-template-columns: repeat(3, 1fr);
           gap: 32px;
         }
         /* Subtle dashed vertical divider between footer columns.
