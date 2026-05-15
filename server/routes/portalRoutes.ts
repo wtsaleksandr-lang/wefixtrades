@@ -64,6 +64,7 @@ import {
 } from "@shared/schema";
 import { SERVICES } from "@shared/services";
 import { ALL_BUNDLES, bundleSavings } from "@shared/pricing";
+import { COPILOT_PROMPT_INSTRUCTION, extractCopilotPrompt } from "@shared/copilotProtocol";
 import type { ServiceCatalogRow } from "@shared/schema";
 import { getMemory, saveMemory } from "../services/chatMemory";
 
@@ -1410,7 +1411,7 @@ Do NOT:
 - Make up account-specific details (balances, dates, statuses)
 - Provide legal or financial advice
 - Discuss internal pricing or margins
-- Create tickets automatically — always offer first and let the user decide${actionProposalBlock}${pageContextBlock}`;
+- Create tickets automatically — always offer first and let the user decide${actionProposalBlock}${COPILOT_PROMPT_INSTRUCTION}${pageContextBlock}`;
       } else {
         // Onboarding context — no escalation
         const fieldList = (context?.fields ?? [])
@@ -1466,7 +1467,7 @@ Rules for proposing fills:
 - value must be a string. For booleans use "true" / "false". For multi-select, comma-separated.
 - One proposal block per reply, max 3 fills inside.
 - Include a human-readable sentence in your reply BEFORE the FORM_FILL block — e.g. "Here's what I'll fill in — review and confirm below." The block itself is invisible to the customer; they see Apply/Skip buttons rendered from it.
-- If you're not ready to propose, just keep chatting — no FORM_FILL block.${actionProposalBlock}${pageContextBlock}`;
+- If you're not ready to propose, just keep chatting — no FORM_FILL block.${actionProposalBlock}${COPILOT_PROMPT_INSTRUCTION}${pageContextBlock}`;
       }
 
       const rawReply = await aiChat({
@@ -1569,11 +1570,17 @@ Rules for proposing fills:
         reply = reply.replace(/<<<FORM_FILL>>>[\s\S]*?<<<END_FORM_FILL>>>/, "").trim();
       }
 
+      // Phase 0: extract a COPILOT_PROMPT block — AI-generated confirmation
+      // buttons. Stripped from the visible reply; the client renders a
+      // CopilotPromptCard from `prompt_request`.
+      const { cleanedText: replyAfterPrompt, prompt: promptRequest } = extractCopilotPrompt(reply);
+      reply = replyAfterPrompt;
+
       // ─── Structured escalation detection (classification step) ───
       // Instead of fragile string matching, use a lightweight AI classification
       // to determine whether the reply offers/suggests escalation to human support.
       if (!escalationEnabled) {
-        return res.json({ reply, proposal, actions });
+        return res.json({ reply, proposal, actions, prompt_request: promptRequest });
       }
 
       let hasEscalationOffer = false;
@@ -1592,7 +1599,7 @@ Answer ONLY "YES" or "NO". Nothing else.`,
       }
 
       if (!hasEscalationOffer) {
-        return res.json({ reply, proposal, actions });
+        return res.json({ reply, proposal, actions, prompt_request: promptRequest });
       }
 
       // ─── Draft extraction (only runs when escalation detected) ───
@@ -1634,7 +1641,7 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
         // Don't fail the request — just return the reply without the draft
       }
 
-      res.json({ reply, escalation_draft: escalationDraft, proposal, actions });
+      res.json({ reply, escalation_draft: escalationDraft, proposal, actions, prompt_request: promptRequest });
     } catch (err) {
       log.error("Portal AI chat error:", { error: String(err) });
       res.json({ reply: "Sorry, the assistant is temporarily unavailable. You can still fill in the form manually." });

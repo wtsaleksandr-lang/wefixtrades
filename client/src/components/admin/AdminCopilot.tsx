@@ -7,6 +7,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { X, Send, BrainCircuit, Loader2, ChevronDown, ChevronUp, Code2, HelpCircle, Wand2, Settings as SettingsIcon } from "lucide-react";
 import { readSSEStream, type ChatMessage, type ToolCallEvent } from "@/lib/chatHelpers";
 import { useToast } from "@/hooks/use-toast";
+import CopilotPromptCard from "@/components/shared/CopilotPromptCard";
+import { extractCopilotPrompt, type CopilotPromptRequest } from "@shared/copilotProtocol";
 
 /* Q30b admin: lightweight action-button protocol shared shape (mirrors
  * the portal-side type but targets /admin/* paths). */
@@ -678,6 +680,8 @@ export default function AdminCopilot({
    * the chat transcript. Cleared on Apply, Skip, or new user turn. */
   const [pendingFormFill, setPendingFormFill] = useState<FormFillProposal[] | null>(null);
   const [applyingFormFill, setApplyingFormFill] = useState(false);
+  // Phase 0: AI-generated confirmation prompt (question + dynamic buttons).
+  const [pendingPrompt, setPendingPrompt] = useState<CopilotPromptRequest | null>(null);
 
   /* Resize + transparency (mirrors portal Q25/Q25a). Width is for desktop
    * only; mobile always full-width. Opacity floor 0.7 keeps text readable. */
@@ -853,6 +857,8 @@ export default function AdminCopilot({
     setStreaming(true);
     // Q30c: a new turn supersedes any unanswered fill proposal.
     setPendingFormFill(null);
+    // Phase 0: a new turn also supersedes any unanswered confirmation prompt.
+    setPendingPrompt(null);
 
     // Only send user/assistant messages to the API
     const apiMessages = updated.filter(
@@ -925,10 +931,15 @@ export default function AdminCopilot({
       const allowedKeys = new Set((pageContext.formFillFields ?? []).map((f) => f.key));
       const afterActions = extractActionProposals(assistantText);
       const afterFills = extractFormFill(afterActions.cleanedText, allowedKeys);
-      const cleanedText = afterFills.cleanedText;
+      // Phase 0: extract the COPILOT_PROMPT block last, from the already-cleaned text.
+      const afterPrompt = extractCopilotPrompt(afterFills.cleanedText);
+      const cleanedText = afterPrompt.cleanedText;
       const actions = afterActions.actions;
       if (afterFills.fills && afterFills.fills.length > 0) {
         setPendingFormFill(afterFills.fills);
+      }
+      if (afterPrompt.prompt) {
+        setPendingPrompt(afterPrompt.prompt);
       }
 
       if (toolCallReceived) {
@@ -1204,6 +1215,15 @@ export default function AdminCopilot({
               </button>
             </div>
           </div>
+        )}
+
+        {/* Phase 0: AI-generated confirmation prompt with dynamic buttons */}
+        {pendingPrompt && (
+          <CopilotPromptCard
+            request={pendingPrompt}
+            disabled={streaming}
+            onRespond={(v) => { setPendingPrompt(null); sendMessage(v); }}
+          />
         )}
 
         {/* Show chips after conversation too, for follow-up */}
