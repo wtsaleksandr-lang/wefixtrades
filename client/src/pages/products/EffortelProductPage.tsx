@@ -18,6 +18,7 @@ import { useState, useEffect, type ReactNode } from "react";
 import { Link } from "wouter";
 import { ArrowRight, Phone, MessageSquare, Calendar, Star, Clock, Sparkles, Check, ChevronDown } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
+import CheckoutIntakeModal from "@/components/marketing/CheckoutIntakeModal";
 import { mkt } from "@/theme/tokens";
 import { getProductBySlug } from "@/config/products";
 import {
@@ -438,8 +439,14 @@ function HowItWorks({ steps }: { steps?: { title: string; desc: string }[] }) {
 /* ════════════════════════════════════════════════════════════════
    SECTION: PRICING
    ════════════════════════════════════════════════════════════════ */
-function Pricing({ pricing, primaryCta }: { pricing?: { plans: any[]; note?: string }; primaryCta: { label: string; href: string } }) {
+function Pricing({ pricing, primaryCta }: { pricing?: { plans: any[]; note?: string; checkoutEnabled?: boolean }; primaryCta: { label: string; href: string } }) {
+  // When checkoutEnabled, each tier card opens CheckoutIntakeModal
+  // pre-loaded with that tier's SKU. `checkoutTier` = the open plan
+  // (null = closed). Products without checkoutEnabled keep the
+  // existing primaryCta link — zero behavior change.
+  const [checkoutTier, setCheckoutTier] = useState<{ sku: string; name: string; price: string } | null>(null);
   if (!pricing?.plans?.length) return null;
+  const checkoutEnabled = !!pricing.checkoutEnabled;
   return (
     <section style={{ padding: "80px 24px" }}>
       <div style={{ maxWidth: 1180, margin: "0 auto" }}>
@@ -498,20 +505,41 @@ function Pricing({ pricing, primaryCta }: { pricing?: { plans: any[]; note?: str
                     </li>
                   ))}
                 </ul>
-                <Link href={primaryCta.href} style={{
-                  display: "block", textAlign: "center",
-                  padding: "12px 14px", borderRadius: 10,
-                  background: mkt.ctaBg,
-                  color: mkt.ctaText,
-                  fontSize: 13, fontWeight: 500,
-                  textDecoration: "none",
-                  lineHeight: 1.25,
-                  whiteSpace: "normal",
-                  overflowWrap: "break-word",
-                  marginTop: "auto",
-                }}>
-                  {primaryCta.label}
-                </Link>
+                {checkoutEnabled && p.sku ? (
+                  <button
+                    type="button"
+                    onClick={() => setCheckoutTier({ sku: p.sku, name: p.name, price: `${p.price}${p.period}` })}
+                    style={{
+                      display: "block", width: "100%", textAlign: "center",
+                      padding: "12px 14px", borderRadius: 10,
+                      background: mkt.ctaBg,
+                      color: mkt.ctaText,
+                      fontSize: 13, fontWeight: 500,
+                      border: "none", cursor: "pointer",
+                      lineHeight: 1.25,
+                      whiteSpace: "normal",
+                      overflowWrap: "break-word",
+                      marginTop: "auto",
+                    }}
+                  >
+                    Get {p.name}
+                  </button>
+                ) : (
+                  <Link href={primaryCta.href} style={{
+                    display: "block", textAlign: "center",
+                    padding: "12px 14px", borderRadius: 10,
+                    background: mkt.ctaBg,
+                    color: mkt.ctaText,
+                    fontSize: 13, fontWeight: 500,
+                    textDecoration: "none",
+                    lineHeight: 1.25,
+                    whiteSpace: "normal",
+                    overflowWrap: "break-word",
+                    marginTop: "auto",
+                  }}>
+                    {primaryCta.label}
+                  </Link>
+                )}
               </div>
             </Reveal>
           ))}
@@ -536,6 +564,15 @@ function Pricing({ pricing, primaryCta }: { pricing?: { plans: any[]; note?: str
           box-shadow: 0 24px 48px rgba(0,0,0,0.28);
         }
       `}</style>
+
+      {/* Per-tier checkout — only mounts for checkoutEnabled products. */}
+      <CheckoutIntakeModal
+        open={!!checkoutTier}
+        onClose={() => setCheckoutTier(null)}
+        items={checkoutTier ? [checkoutTier.sku] : []}
+        bundleName={checkoutTier?.name}
+        priceLabel={checkoutTier?.price}
+      />
     </section>
   );
 }

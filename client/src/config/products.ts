@@ -4,10 +4,23 @@ import {
   formatPrice, type ProductDef, type Tier,
 } from "@shared/pricing";
 
-/** Build a pricingSection from the canonical pricing data */
-function buildPricingSection(product: ProductDef, note?: string) {
+/**
+ * Build a pricingSection from the canonical pricing data.
+ *
+ * `opts.checkout` opts a product into per-tier checkout: each tier
+ * card's button opens CheckoutIntakeModal pre-loaded with that tier's
+ * SKU instead of the generic primaryCTA link. The tier SKU (`t.id`,
+ * e.g. "reputationshield-pro") is always attached so this can be
+ * flipped on per product without further config changes.
+ */
+function buildPricingSection(
+  product: ProductDef,
+  note?: string,
+  opts?: { checkout?: boolean },
+) {
   return {
     plans: product.tiers.map((t: Tier) => ({
+      sku: t.id,
       name: t.name,
       price: formatPrice(t.price),
       period: t.billingPeriod === "monthly" ? "/mo" : " one-time",
@@ -16,6 +29,7 @@ function buildPricingSection(product: ProductDef, note?: string) {
       ...(t.highlighted ? { highlighted: true } : {}),
     })),
     note,
+    ...(opts?.checkout ? { checkoutEnabled: true } : {}),
   };
 }
 
@@ -39,7 +53,7 @@ export interface ProductPage {
   bestFor: string[];
   visuals: { title: string; desc: string; image?: string }[];
   faq: { q: string; a: string }[];
-  pricingSection: { plans: { name: string; price: string; period: string; features: string[]; badge?: string; highlighted?: boolean }[]; note?: string };
+  pricingSection: { plans: { sku?: string; name: string; price: string; period: string; features: string[]; badge?: string; highlighted?: boolean }[]; note?: string; checkoutEnabled?: boolean };
   related: string[];
 }
 
@@ -361,7 +375,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
       { q: "What if I get a bad review anyway?", a: "You\u2019ll get an instant email alert. AI drafts a calm, professional response. You can post it quickly \u2014 fast responses show future customers you care." },
       { q: "How is this different from Podium or NiceJob?", a: "ReputationShield is built specifically for trades businesses, costs a fraction of Podium ($399+/mo), and includes AI response drafting that NiceJob doesn\u2019t offer. No contracts, no sales calls, transparent pricing." },
     ],
-    pricingSection: buildPricingSection(REPUTATIONSHIELD, "Works with Google and Facebook. No contracts. Cancel anytime."),
+    pricingSection: buildPricingSection(REPUTATIONSHIELD, "Works with Google and Facebook. No contracts. Cancel anytime.", { checkout: true }),
     related: ["mapguard", "socialsync", "tradeline"],
   },
   {
