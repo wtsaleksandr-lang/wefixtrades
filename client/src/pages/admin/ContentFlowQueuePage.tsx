@@ -1,14 +1,14 @@
 /**
  * /admin/contentflow — ContentFlow draft queue.
  *
- * Read view + filter + click-through to a right-side drawer that exposes
- * approve/reject actions. Backed by the Sprint 1 verified endpoint
- * GET /api/admin/contentflow/queue plus the Sprint 2 detail/approve/reject
- * endpoints.
+ * List view with column-header filters (Client / Source / Kind / Status),
+ * a global text search, a Created sort + date-range control, bulk-select,
+ * and platform/source icons. Calendar + Settings views unchanged.
  *
- * Mobile: filters stack, table scrolls horizontally, drawer goes full-width.
+ * Filtering is client-side over the most recent 200 drafts so search and
+ * every header filter are instant.
  */
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -16,15 +16,19 @@ import AdminLayout from "@/components/admin/AdminLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
-import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { RefreshCw, Filter as FilterIcon, Inbox, Loader2, Calendar, ChevronLeft, ChevronRight, LayoutList, Facebook, Instagram, Globe, Mail, Settings } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  RefreshCw, Inbox, Loader2, Calendar, ChevronLeft, ChevronRight, LayoutList, Settings,
+  Search, ArrowDownUp, Facebook, Instagram, Globe, Mail, Linkedin, Youtube, Pin,
+  FileText, Share2, TrendingUp, MessageSquare, Video,
+} from "lucide-react";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import {
   CONTENT_DRAFT_STATUS_LABELS,
@@ -33,6 +37,7 @@ import {
 } from "@/config/portalLabels";
 import ContentFlowDraftDrawer from "@/components/contentflow/ContentFlowDraftDrawer";
 import ContentFlowSettingsPanel from "@/components/contentflow/ContentFlowSettingsPanel";
+import { HeaderFilterDropdown } from "@/components/datatable/HeaderFilterDropdown";
 
 interface ContentDraftRow {
   id: number;
@@ -48,22 +53,6 @@ interface ContentDraftRow {
   title: string | null;
   excerpt: string | null;
   metadata: any;
-}
-
-/** Sprint 5: derive a publish queue badge from the wordpress metadata. */
-function deriveQueueBadge(d: ContentDraftRow): { label: string; className: string } | null {
-  const wp = d.metadata?.wordpress;
-  if (!wp) return null;
-  if (wp.post_url && wp.post_id) return { label: "Published", className: "border-blue-300 text-blue-700" };
-  if (wp.queue_status === "publishing") return { label: "Publishing", className: "border-indigo-300 text-indigo-700" };
-  if (wp.queue_status === "queued") {
-    if (wp.scheduled_for && new Date(wp.scheduled_for).getTime() > Date.now()) {
-      return { label: "Scheduled", className: "border-violet-300 text-violet-700" };
-    }
-    return { label: "Queued", className: "border-emerald-300 text-emerald-700" };
-  }
-  if (wp.queue_status === "failed") return { label: "Failed", className: "border-red-300 text-red-700" };
-  return null;
 }
 
 interface QueueResponse {
@@ -89,10 +78,59 @@ const STATUS_OPTIONS = [
   "failed",
 ];
 
-const SURFACE_OPTIONS = ["socialsync", "rankflow"];
-const KIND_OPTIONS = ["social_post", "article", "caption"];
+type IconMeta = { label: string; icon: React.ReactNode };
 
-const ANY = "__any__";
+/* Source (which product generated the draft) — icons mirror the nav. */
+const SOURCE_META: Record<string, IconMeta> = {
+  socialsync: { label: "SocialSync", icon: <Share2 className="h-3.5 w-3.5 text-sky-600" /> },
+  rankflow: { label: "RankFlow", icon: <TrendingUp className="h-3.5 w-3.5 text-emerald-600" /> },
+  reputationshield: { label: "ReputationShield", icon: <MessageSquare className="h-3.5 w-3.5 text-amber-600" /> },
+};
+
+/* Content kind. */
+const KIND_META: Record<string, IconMeta> = {
+  social_post: { label: "Social post", icon: <Share2 className="h-3.5 w-3.5 text-sky-600" /> },
+  carousel_post: { label: "Carousel post", icon: <Share2 className="h-3.5 w-3.5 text-sky-600" /> },
+  article: { label: "Article", icon: <FileText className="h-3.5 w-3.5 text-indigo-600" /> },
+  caption: { label: "Caption", icon: <MessageSquare className="h-3.5 w-3.5 text-gray-600" /> },
+  google_post: { label: "Google post", icon: <Globe className="h-3.5 w-3.5 text-green-600" /> },
+  review_reply: { label: "Review reply", icon: <MessageSquare className="h-3.5 w-3.5 text-amber-600" /> },
+  video: { label: "Video", icon: <Video className="h-3.5 w-3.5 text-red-600" /> },
+  video_script: { label: "Video script", icon: <Video className="h-3.5 w-3.5 text-red-600" /> },
+  infographic: { label: "Infographic", icon: <FileText className="h-3.5 w-3.5 text-violet-600" /> },
+};
+
+/* Target platform (where the draft will post). */
+const PLATFORM_META: Record<string, IconMeta> = {
+  facebook: { label: "Facebook", icon: <Facebook className="h-3.5 w-3.5 text-blue-600" /> },
+  instagram: { label: "Instagram", icon: <Instagram className="h-3.5 w-3.5 text-pink-600" /> },
+  google_business: { label: "Google Business", icon: <Globe className="h-3.5 w-3.5 text-green-600" /> },
+  linkedin: { label: "LinkedIn", icon: <Linkedin className="h-3.5 w-3.5 text-sky-700" /> },
+  pinterest: { label: "Pinterest", icon: <Pin className="h-3.5 w-3.5 text-red-600" /> },
+  youtube: { label: "YouTube", icon: <Youtube className="h-3.5 w-3.5 text-red-600" /> },
+  email: { label: "Email", icon: <Mail className="h-3.5 w-3.5 text-gray-600" /> },
+  website: { label: "Website", icon: <Globe className="h-3.5 w-3.5 text-indigo-600" /> },
+};
+
+function metaFor(map: Record<string, IconMeta>, key: string): IconMeta {
+  return map[key] || { label: key.replace(/_/g, " "), icon: <FileText className="h-3.5 w-3.5 text-gray-400" /> };
+}
+
+/** Sprint 5: derive a publish queue badge from the wordpress metadata. */
+function deriveQueueBadge(d: ContentDraftRow): { label: string; className: string } | null {
+  const wp = d.metadata?.wordpress;
+  if (!wp) return null;
+  if (wp.post_url && wp.post_id) return { label: "Published", className: "border-blue-300 text-blue-700" };
+  if (wp.queue_status === "publishing") return { label: "Publishing", className: "border-indigo-300 text-indigo-700" };
+  if (wp.queue_status === "queued") {
+    if (wp.scheduled_for && new Date(wp.scheduled_for).getTime() > Date.now()) {
+      return { label: "Scheduled", className: "border-violet-300 text-violet-700" };
+    }
+    return { label: "Queued", className: "border-emerald-300 text-emerald-700" };
+  }
+  if (wp.queue_status === "failed") return { label: "Failed", className: "border-red-300 text-red-700" };
+  return null;
+}
 
 function formatRelative(iso: string): string {
   const d = new Date(iso);
@@ -108,6 +146,95 @@ function formatRelative(iso: string): string {
   return d.toLocaleDateString();
 }
 
+function uniqueSorted(arr: string[]): string[] {
+  return Array.from(new Set(arr.filter(Boolean))).sort();
+}
+
+type DateRange = "all" | "today" | "7d" | "30d";
+
+function dateRangeCutoff(range: DateRange): number | null {
+  if (range === "today") {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d.getTime();
+  }
+  if (range === "7d") return Date.now() - 7 * 86_400_000;
+  if (range === "30d") return Date.now() - 30 * 86_400_000;
+  return null;
+}
+
+/** Small icon with a fast, rounded hover tooltip naming what it is. */
+function IconTip({ icon, label }: { icon: React.ReactNode; label: string }) {
+  return (
+    <Tooltip delayDuration={120}>
+      <TooltipTrigger asChild>
+        <span className="inline-flex cursor-default items-center">{icon}</span>
+      </TooltipTrigger>
+      <TooltipContent className="rounded-md px-2 py-1 text-xs">{label}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+/** Created column header — toggles sort direction and picks a date range. */
+function CreatedHeader({
+  sortDir, onSort, dateRange, onDateRange,
+}: {
+  sortDir: "desc" | "asc";
+  onSort: (d: "desc" | "asc") => void;
+  dateRange: DateRange;
+  onDateRange: (r: DateRange) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const active = dateRange !== "all";
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className={`inline-flex items-center gap-1 -mx-1 rounded px-1 py-0.5 transition-colors hover:bg-gray-100 ${
+            active ? "font-semibold text-indigo-700" : ""
+          }`}
+        >
+          Created
+          <ArrowDownUp className="h-3 w-3 opacity-60" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-48 p-2">
+        <div className="mb-1 px-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Sort</div>
+        <button
+          type="button"
+          onClick={() => onSort("desc")}
+          className={`w-full rounded px-2 py-1.5 text-left text-sm hover:bg-gray-50 ${sortDir === "desc" ? "font-medium text-indigo-700" : ""}`}
+        >
+          Newest first
+        </button>
+        <button
+          type="button"
+          onClick={() => onSort("asc")}
+          className={`w-full rounded px-2 py-1.5 text-left text-sm hover:bg-gray-50 ${sortDir === "asc" ? "font-medium text-indigo-700" : ""}`}
+        >
+          Oldest first
+        </button>
+        <div className="mb-1 mt-2 px-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Date range</div>
+        {([["all", "All time"], ["today", "Today"], ["7d", "Last 7 days"], ["30d", "Last 30 days"]] as [DateRange, string][]).map(
+          ([v, label]) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => onDateRange(v)}
+              className={`w-full rounded px-2 py-1.5 text-left text-sm hover:bg-gray-50 ${dateRange === v ? "font-medium text-indigo-700" : ""}`}
+            >
+              {label}
+            </button>
+          ),
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+const TD_DIVIDER = "border-r border-gray-100";
+
 export default function ContentFlowQueuePage() {
   usePageTitle("ContentFlow Queue");
   const qc = useQueryClient();
@@ -115,25 +242,18 @@ export default function ContentFlowQueuePage() {
 
   const [viewMode, setViewMode] = useState<"list" | "calendar" | "settings">("list");
 
-  const [clientFilter, setClientFilter] = useState<string>(ANY);
-  const [statusFilter, setStatusFilter] = useState<string>(ANY);
-  const [surfaceFilter, setSurfaceFilter] = useState<string>(ANY);
-  const [kindFilter, setKindFilter] = useState<string>(ANY);
+  /* Filters — applied client-side over the loaded set. */
+  const [search, setSearch] = useState("");
+  const [clientFilter, setClientFilter] = useState<Set<string>>(new Set());
+  const [statusFilter, setStatusFilter] = useState<Set<string>>(new Set());
+  const [surfaceFilter, setSurfaceFilter] = useState<Set<string>>(new Set());
+  const [kindFilter, setKindFilter] = useState<Set<string>>(new Set());
+  const [dateRange, setDateRange] = useState<DateRange>("all");
+  const [sortDir, setSortDir] = useState<"desc" | "asc">("desc");
 
   const [drawerDraftId, setDrawerDraftId] = useState<number | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
-
-  // Sprint 5: bulk-select state for Queue/Retry actions.
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
-
-  function toggleSelected(id: number) {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
 
   const bulkQueueMutation = useMutation({
     mutationFn: async () => {
@@ -156,34 +276,17 @@ export default function ContentFlowQueuePage() {
     },
   });
 
-  // Build query string for the queue endpoint
-  const queueQuery = useMemo(() => {
-    const params = new URLSearchParams();
-    if (clientFilter !== ANY) params.set("client_id", clientFilter);
-    if (statusFilter !== ANY) params.set("status", statusFilter);
-    if (surfaceFilter !== ANY) params.set("surface", surfaceFilter);
-    if (kindFilter !== ANY) params.set("kind", kindFilter);
-    params.set("limit", "100");
-    return params.toString();
-  }, [clientFilter, statusFilter, surfaceFilter, kindFilter]);
-
-  const queueKey = ["/api/admin/contentflow/queue", queueQuery];
-
   const { data, isLoading, isError, error, isFetching, refetch } = useQuery<QueueResponse>({
-    queryKey: queueKey,
+    queryKey: ["/api/admin/contentflow/queue"],
     queryFn: async () => {
-      const url = `/api/admin/contentflow/queue?${queueQuery}`;
-      const res = await fetch(url, { credentials: "include" });
+      const res = await fetch("/api/admin/contentflow/queue?limit=200", { credentials: "include" });
       if (!res.ok) throw new Error(`Queue load failed: ${res.status}`);
       return res.json();
     },
     refetchInterval: 60_000,
   });
 
-  // Client list — for the client filter and to render names in the table.
-  // The /api/admin/crm/clients endpoint returns `{ data: rows, total }`
-  // and caps `limit` at 100 server-side. We also accept `{ clients: ... }`
-  // and a raw array for forward-compatibility with future shape changes.
+  // Client list — for the Client filter and to render names in the table.
   const { data: clientsResp } = useQuery<unknown>({
     queryKey: ["/api/admin/crm/clients"],
     queryFn: async () => {
@@ -211,6 +314,92 @@ export default function ContentFlowQueuePage() {
 
   const drafts = data?.drafts ?? [];
 
+  /* Header-filter option lists, derived from the loaded drafts. */
+  const clientOptions = useMemo(
+    () => uniqueSorted(drafts.map((d) => String(d.client_id))).map((id) => ({
+      value: id,
+      label: clientNameById.get(Number(id)) || `Client #${id}`,
+    })),
+    [drafts, clientNameById],
+  );
+  const surfaceOptions = useMemo(
+    () => uniqueSorted(drafts.map((d) => d.surface)).map((s) => {
+      const m = metaFor(SOURCE_META, s);
+      return { value: s, label: m.label, icon: m.icon };
+    }),
+    [drafts],
+  );
+  const kindOptions = useMemo(
+    () => uniqueSorted(drafts.map((d) => d.kind)).map((k) => {
+      const m = metaFor(KIND_META, k);
+      return { value: k, label: m.label, icon: m.icon };
+    }),
+    [drafts],
+  );
+  const statusOptions = useMemo(
+    () => STATUS_OPTIONS.map((s) => ({ value: s, label: statusLabel(CONTENT_DRAFT_STATUS_LABELS, s) })),
+    [],
+  );
+
+  /* Filtered + sorted view. */
+  const filtered = useMemo(() => {
+    let rows = drafts;
+    const q = search.trim().toLowerCase();
+    if (q) {
+      rows = rows.filter((d) =>
+        String(d.id).includes(q) ||
+        (d.title || "").toLowerCase().includes(q) ||
+        (clientNameById.get(d.client_id) || "").toLowerCase().includes(q),
+      );
+    }
+    if (clientFilter.size) rows = rows.filter((d) => clientFilter.has(String(d.client_id)));
+    if (statusFilter.size) rows = rows.filter((d) => statusFilter.has(d.status));
+    if (surfaceFilter.size) rows = rows.filter((d) => surfaceFilter.has(d.surface));
+    if (kindFilter.size) rows = rows.filter((d) => kindFilter.has(d.kind));
+    const cutoff = dateRangeCutoff(dateRange);
+    if (cutoff != null) rows = rows.filter((d) => new Date(d.created_at).getTime() >= cutoff);
+    return [...rows].sort((a, b) => {
+      const ta = new Date(a.created_at).getTime();
+      const tb = new Date(b.created_at).getTime();
+      return sortDir === "desc" ? tb - ta : ta - tb;
+    });
+  }, [drafts, search, clientFilter, statusFilter, surfaceFilter, kindFilter, dateRange, sortDir, clientNameById]);
+
+  const activeFilterCount =
+    clientFilter.size + statusFilter.size + surfaceFilter.size + kindFilter.size +
+    (dateRange !== "all" ? 1 : 0) + (search.trim() ? 1 : 0);
+
+  /* Bulk select — only approved, not-yet-published RankFlow articles. */
+  function canSelect(d: ContentDraftRow): boolean {
+    return (
+      d.status === "approved" &&
+      d.kind === "article" &&
+      d.surface === "rankflow" &&
+      !(d.metadata?.wordpress?.post_url && d.metadata?.wordpress?.post_id)
+    );
+  }
+  const selectableVisible = filtered.filter(canSelect);
+  const allVisibleSelected =
+    selectableVisible.length > 0 && selectableVisible.every((d) => selectedIds.has(d.id));
+  const someVisibleSelected = selectableVisible.some((d) => selectedIds.has(d.id));
+
+  function toggleSelected(id: number) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+  function toggleSelectAll() {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allVisibleSelected) selectableVisible.forEach((d) => next.delete(d.id));
+      else selectableVisible.forEach((d) => next.add(d.id));
+      return next;
+    });
+  }
+
   const openDrawer = (id: number) => {
     setDrawerDraftId(id);
     setDrawerOpen(true);
@@ -220,7 +409,7 @@ export default function ContentFlowQueuePage() {
     <AdminLayout>
       <div className="space-y-4">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">ContentFlow</h1>
             <p className="text-sm text-muted-foreground">
@@ -228,38 +417,44 @@ export default function ContentFlowQueuePage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <div className="flex rounded-lg border overflow-hidden">
+            {viewMode === "list" && (
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search posts or clients…"
+                  className="h-8 w-44 pl-8 text-sm sm:w-56"
+                  data-testid="contentflow-search"
+                />
+              </div>
+            )}
+            <div className="flex overflow-hidden rounded-lg border">
               <button
                 onClick={() => setViewMode("list")}
                 className={`px-3 py-1.5 text-xs font-medium ${
-                  viewMode === "list"
-                    ? "bg-gray-900 text-white"
-                    : "bg-white text-gray-600 hover:bg-gray-50"
+                  viewMode === "list" ? "bg-gray-900 text-white" : "bg-white text-gray-600 hover:bg-gray-50"
                 }`}
               >
-                <LayoutList className="h-3.5 w-3.5 inline mr-1" />
+                <LayoutList className="mr-1 inline h-3.5 w-3.5" />
                 List
               </button>
               <button
                 onClick={() => setViewMode("calendar")}
                 className={`px-3 py-1.5 text-xs font-medium ${
-                  viewMode === "calendar"
-                    ? "bg-gray-900 text-white"
-                    : "bg-white text-gray-600 hover:bg-gray-50"
+                  viewMode === "calendar" ? "bg-gray-900 text-white" : "bg-white text-gray-600 hover:bg-gray-50"
                 }`}
               >
-                <Calendar className="h-3.5 w-3.5 inline mr-1" />
+                <Calendar className="mr-1 inline h-3.5 w-3.5" />
                 Calendar
               </button>
               <button
                 onClick={() => setViewMode("settings")}
                 className={`px-3 py-1.5 text-xs font-medium ${
-                  viewMode === "settings"
-                    ? "bg-gray-900 text-white"
-                    : "bg-white text-gray-600 hover:bg-gray-50"
+                  viewMode === "settings" ? "bg-gray-900 text-white" : "bg-white text-gray-600 hover:bg-gray-50"
                 }`}
               >
-                <Settings className="h-3.5 w-3.5 inline mr-1" />
+                <Settings className="mr-1 inline h-3.5 w-3.5" />
                 Settings
               </button>
             </div>
@@ -273,77 +468,35 @@ export default function ContentFlowQueuePage() {
               disabled={isFetching}
               data-testid="contentflow-refresh"
             >
-              <RefreshCw className={`h-4 w-4 mr-1 ${isFetching ? "animate-spin" : ""}`} />
+              <RefreshCw className={`mr-1 h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
               Refresh
             </Button>
           </div>
-          {selectedIds.size > 0 && (
+        </div>
+
+        {/* Bulk action bar */}
+        {viewMode === "list" && selectedIds.size > 0 && (
+          <div className="flex items-center gap-3 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2">
+            <span className="text-sm font-medium text-indigo-900">
+              {selectedIds.size} selected
+            </span>
             <Button
               size="sm"
-              variant="default"
               onClick={() => bulkQueueMutation.mutate()}
               disabled={bulkQueueMutation.isPending}
               className="bg-indigo-600 hover:bg-indigo-700"
               data-testid="bulk-queue-publish-btn"
             >
-              {bulkQueueMutation.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
-              Queue {selectedIds.size} for Publish
+              {bulkQueueMutation.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+              Queue for Publish
             </Button>
-          )}
-        </div>
-
-        {/* Filters */}
-        {viewMode !== "settings" && (
-        <Card className="p-3">
-          <div className="flex items-center gap-2 mb-2 text-xs text-muted-foreground">
-            <FilterIcon className="h-3.5 w-3.5" />
-            <span>Filters</span>
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              className="ml-auto text-xs text-indigo-700 hover:underline"
+            >
+              Clear selection
+            </button>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            <FilterSelect
-              label="Client"
-              value={clientFilter}
-              onChange={setClientFilter}
-              options={[
-                { value: ANY, label: "Any client" },
-                ...clients.map((c) => ({
-                  value: String(c.id),
-                  label: c.business_name || `Client #${c.id}`,
-                })),
-              ]}
-            />
-            <FilterSelect
-              label="Status"
-              value={statusFilter}
-              onChange={setStatusFilter}
-              options={[
-                { value: ANY, label: "Any status" },
-                ...STATUS_OPTIONS.map((s) => ({
-                  value: s,
-                  label: statusLabel(CONTENT_DRAFT_STATUS_LABELS, s),
-                })),
-              ]}
-            />
-            <FilterSelect
-              label="Surface"
-              value={surfaceFilter}
-              onChange={setSurfaceFilter}
-              options={[
-                { value: ANY, label: "Any surface" },
-                ...SURFACE_OPTIONS.map((s) => ({ value: s, label: s })),
-              ]}
-            />
-            <FilterSelect
-              label="Kind"
-              value={kindFilter}
-              onChange={setKindFilter}
-              options={[
-                { value: ANY, label: "Any kind" },
-                ...KIND_OPTIONS.map((k) => ({ value: k, label: k.replace(/_/g, " ") })),
-              ]}
-            />
-          </div>
-        </Card>
         )}
 
         {/* Settings View */}
@@ -351,158 +504,221 @@ export default function ContentFlowQueuePage() {
 
         {/* Calendar View */}
         {viewMode === "calendar" && (
-          <ContentCalendarView drafts={drafts} isLoading={isLoading} onSelectDraft={openDrawer} />
+          <ContentCalendarView drafts={filtered} isLoading={isLoading} onSelectDraft={openDrawer} />
         )}
 
-        {/* Table */}
-        {viewMode === "list" && <Card className="overflow-hidden">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-8" />
-                  <TableHead className="w-16">ID</TableHead>
-                  <TableHead className="min-w-[160px]">Client</TableHead>
-                  <TableHead>Surface</TableHead>
-                  <TableHead>Kind</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="w-28">Publish</TableHead>
-                  <TableHead className="w-24">Quality</TableHead>
-                  <TableHead className="w-32">Created</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isLoading && (
-                  <>
-                    {[0, 1, 2, 3].map((i) => (
-                      <TableRow key={`s-${i}`}>
-                        {Array.from({ length: 9 }).map((_, j) => (
-                          <TableCell key={j}>
-                            <Skeleton className="h-4 w-full" />
-                          </TableCell>
-                        ))}
-                      </TableRow>
-                    ))}
-                  </>
-                )}
-
-                {isError && !isLoading && (
-                  <TableRow>
-                    <TableCell colSpan={9}>
-                      <div className="py-8 text-center text-sm text-red-700">
-                        Failed to load queue: {(error as any)?.message || "unknown error"}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                )}
-
-                {!isLoading && !isError && drafts.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={9}>
-                      <div className="py-12 flex flex-col items-center gap-2 text-sm text-muted-foreground">
-                        <Inbox className="h-8 w-8 opacity-50" />
-                        <div>No drafts match the current filters.</div>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                )}
-
-                {!isLoading && drafts.map((d) => {
-                  const queueBadge = deriveQueueBadge(d);
-                  const canSelect =
-                    d.status === "approved" &&
-                    d.kind === "article" &&
-                    d.surface === "rankflow" &&
-                    !(d.metadata?.wordpress?.post_url && d.metadata?.wordpress?.post_id);
-                  return (
-                  <TableRow
-                    key={d.id}
-                    className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => openDrawer(d.id)}
-                    data-testid={`contentflow-row-${d.id}`}
-                  >
-                    <TableCell onClick={(e) => e.stopPropagation()}>
-                      {canSelect && (
+        {/* List View */}
+        {viewMode === "list" && (
+          <Card className="overflow-hidden">
+            <TooltipProvider>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className={`w-8 ${TD_DIVIDER}`}>
                         <Checkbox
-                          checked={selectedIds.has(d.id)}
-                          onCheckedChange={() => toggleSelected(d.id)}
-                          aria-label={`Select draft ${d.id}`}
-                          data-testid={`select-row-${d.id}`}
+                          checked={allVisibleSelected ? true : someVisibleSelected ? "indeterminate" : false}
+                          onCheckedChange={toggleSelectAll}
+                          disabled={selectableVisible.length === 0}
+                          aria-label="Select all"
                         />
-                      )}
-                    </TableCell>
-                    <TableCell className="font-mono text-xs">#{d.id}</TableCell>
-                    <TableCell>
-                      <div className="font-medium text-sm">
-                        {clientNameById.get(d.client_id) || `Client #${d.client_id}`}
-                      </div>
-                      {d.title && (
-                        <div className="text-xs text-muted-foreground line-clamp-1 max-w-[260px]">
-                          {d.title}
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="text-xs">
-                        {d.surface}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-xs">
-                        {d.kind.replace(/_/g, " ")}
-                        {d.target_platform && (
-                          <span className="text-muted-foreground"> · {d.target_platform}</span>
-                        )}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant="outline"
-                        className={CONTENT_DRAFT_STATUS_STYLES[d.status] || "bg-gray-100 text-gray-600"}
-                      >
-                        {statusLabel(CONTENT_DRAFT_STATUS_LABELS, d.status)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {queueBadge ? (
-                        <Badge variant="outline" className={`text-xs ${queueBadge.className}`}>
-                          {queueBadge.label}
-                        </Badge>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {typeof d.quality_score === "number" ? (
-                        <span className={`text-xs font-mono ${
-                          d.quality_score >= 70 ? "text-emerald-700" :
-                          d.quality_score >= 40 ? "text-amber-700" : "text-red-700"
-                        }`}>
-                          {d.quality_score}
-                        </span>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground" title={new Date(d.created_at).toLocaleString()}>
-                      {formatRelative(d.created_at)}
-                    </TableCell>
-                  </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
+                      </TableHead>
+                      <TableHead className={`w-16 ${TD_DIVIDER}`}>ID</TableHead>
+                      <TableHead className={`min-w-[160px] ${TD_DIVIDER}`}>
+                        <HeaderFilterDropdown
+                          label="Client"
+                          searchable
+                          options={clientOptions}
+                          selected={clientFilter}
+                          onChange={setClientFilter}
+                        />
+                      </TableHead>
+                      <TableHead className={TD_DIVIDER}>
+                        <HeaderFilterDropdown
+                          label="Source"
+                          options={surfaceOptions}
+                          selected={surfaceFilter}
+                          onChange={setSurfaceFilter}
+                        />
+                      </TableHead>
+                      <TableHead className={TD_DIVIDER}>
+                        <HeaderFilterDropdown
+                          label="Kind"
+                          options={kindOptions}
+                          selected={kindFilter}
+                          onChange={setKindFilter}
+                        />
+                      </TableHead>
+                      <TableHead className={TD_DIVIDER}>
+                        <HeaderFilterDropdown
+                          label="Status"
+                          options={statusOptions}
+                          selected={statusFilter}
+                          onChange={setStatusFilter}
+                        />
+                      </TableHead>
+                      <TableHead className={`w-28 ${TD_DIVIDER}`}>Publish</TableHead>
+                      <TableHead className={`w-24 ${TD_DIVIDER}`}>Quality</TableHead>
+                      <TableHead className="w-36">
+                        <CreatedHeader
+                          sortDir={sortDir}
+                          onSort={setSortDir}
+                          dateRange={dateRange}
+                          onDateRange={setDateRange}
+                        />
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {isLoading && (
+                      <>
+                        {[0, 1, 2, 3].map((i) => (
+                          <TableRow key={`s-${i}`}>
+                            {Array.from({ length: 9 }).map((_, j) => (
+                              <TableCell key={j} className={j < 8 ? TD_DIVIDER : ""}>
+                                <Skeleton className="h-4 w-full" />
+                              </TableCell>
+                            ))}
+                          </TableRow>
+                        ))}
+                      </>
+                    )}
 
-          {!isLoading && drafts.length > 0 && (
-            <div className="border-t px-3 py-2 text-xs text-muted-foreground flex items-center justify-between">
-              <span>{drafts.length} {drafts.length === 1 ? "draft" : "drafts"}</span>
-              {data?.count === data?.limit && (
-                <span className="italic">showing first {data?.limit} — refine filters to narrow</span>
-              )}
-            </div>
-          )}
-        </Card>}
+                    {isError && !isLoading && (
+                      <TableRow>
+                        <TableCell colSpan={9}>
+                          <div className="py-8 text-center text-sm text-red-700">
+                            Failed to load queue: {(error as any)?.message || "unknown error"}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+
+                    {!isLoading && !isError && filtered.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={9}>
+                          <div className="flex flex-col items-center gap-2 py-12 text-sm text-muted-foreground">
+                            <Inbox className="h-8 w-8 opacity-50" />
+                            <div>
+                              {drafts.length === 0
+                                ? "No drafts yet."
+                                : "No drafts match the current filters."}
+                            </div>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+
+                    {!isLoading && filtered.map((d) => {
+                      const queueBadge = deriveQueueBadge(d);
+                      const selectable = canSelect(d);
+                      const src = metaFor(SOURCE_META, d.surface);
+                      const kind = metaFor(KIND_META, d.kind);
+                      const plat = d.target_platform ? metaFor(PLATFORM_META, d.target_platform) : null;
+                      return (
+                        <TableRow
+                          key={d.id}
+                          className="cursor-pointer hover:bg-muted/50"
+                          onClick={() => openDrawer(d.id)}
+                          data-testid={`contentflow-row-${d.id}`}
+                        >
+                          <TableCell className={TD_DIVIDER} onClick={(e) => e.stopPropagation()}>
+                            {selectable && (
+                              <Checkbox
+                                checked={selectedIds.has(d.id)}
+                                onCheckedChange={() => toggleSelected(d.id)}
+                                aria-label={`Select draft ${d.id}`}
+                                data-testid={`select-row-${d.id}`}
+                              />
+                            )}
+                          </TableCell>
+                          <TableCell className={`font-mono text-xs ${TD_DIVIDER}`}>#{d.id}</TableCell>
+                          <TableCell className={TD_DIVIDER}>
+                            <div className="text-sm font-medium">
+                              {clientNameById.get(d.client_id) || `Client #${d.client_id}`}
+                            </div>
+                            {d.title && (
+                              <div className="line-clamp-1 max-w-[260px] text-xs text-muted-foreground">
+                                {d.title}
+                              </div>
+                            )}
+                          </TableCell>
+                          <TableCell className={TD_DIVIDER}>
+                            <div className="flex items-center gap-1.5">
+                              <IconTip icon={src.icon} label={src.label} />
+                              <span className="text-xs">{src.label}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className={TD_DIVIDER}>
+                            <div className="flex items-center gap-1.5">
+                              <IconTip icon={kind.icon} label={kind.label} />
+                              <span className="text-xs">{kind.label}</span>
+                              {plat && <IconTip icon={plat.icon} label={plat.label} />}
+                            </div>
+                          </TableCell>
+                          <TableCell className={TD_DIVIDER}>
+                            <Badge
+                              variant="outline"
+                              className={CONTENT_DRAFT_STATUS_STYLES[d.status] || "bg-gray-100 text-gray-600"}
+                            >
+                              {statusLabel(CONTENT_DRAFT_STATUS_LABELS, d.status)}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className={TD_DIVIDER}>
+                            {queueBadge ? (
+                              <Badge variant="outline" className={`text-xs ${queueBadge.className}`}>
+                                {queueBadge.label}
+                              </Badge>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                          <TableCell className={TD_DIVIDER}>
+                            {typeof d.quality_score === "number" ? (
+                              <span
+                                className={`font-mono text-xs ${
+                                  d.quality_score >= 70
+                                    ? "text-emerald-700"
+                                    : d.quality_score >= 40
+                                    ? "text-amber-700"
+                                    : "text-red-700"
+                                }`}
+                              >
+                                {d.quality_score}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                          <TableCell
+                            className="text-xs text-muted-foreground"
+                            title={new Date(d.created_at).toLocaleString()}
+                          >
+                            {formatRelative(d.created_at)}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </TooltipProvider>
+
+            {!isLoading && (
+              <div className="flex items-center justify-between border-t px-3 py-2 text-xs text-muted-foreground">
+                <span>
+                  {filtered.length} {filtered.length === 1 ? "draft" : "drafts"}
+                  {activeFilterCount > 0 && drafts.length !== filtered.length && (
+                    <span className="text-muted-foreground/70"> of {drafts.length}</span>
+                  )}
+                </span>
+                {drafts.length >= 200 && (
+                  <span className="italic">showing the 200 most recent drafts</span>
+                )}
+              </div>
+            )}
+          </Card>
+        )}
       </div>
 
       <ContentFlowDraftDrawer
@@ -511,39 +727,11 @@ export default function ContentFlowQueuePage() {
         onOpenChange={(o) => {
           setDrawerOpen(o);
           if (!o) {
-            // Light delay so the queue refresh is visible after approve/reject.
             qc.invalidateQueries({ queryKey: ["/api/admin/contentflow/queue"] });
           }
         }}
       />
     </AdminLayout>
-  );
-}
-
-/* ─── Internal: filter select with label ─── */
-
-function FilterSelect({
-  label, value, onChange, options,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  options: { value: string; label: string }[];
-}) {
-  return (
-    <div className="flex flex-col gap-1">
-      <label className="text-xs uppercase tracking-wide text-muted-foreground">{label}</label>
-      <Select value={value} onValueChange={onChange}>
-        <SelectTrigger className="h-9 text-sm">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {options.map((o) => (
-            <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
   );
 }
 
@@ -590,7 +778,6 @@ function ContentCalendarView({
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
-  const [viewMode, setCalViewMode] = useState<"month" | "week">("month");
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
 
   const prevMonth = () => {
@@ -609,7 +796,6 @@ function ContentCalendarView({
     const map = new Map<string, ContentDraftRow[]>();
     for (const d of drafts) {
       const meta = d.metadata as any;
-      // Try multiple date sources
       const dateStr =
         meta?.wordpress?.scheduled_for ||
         meta?.calendar?.scheduled_for ||
@@ -634,23 +820,18 @@ function ContentCalendarView({
   const monthName = new Date(year, month).toLocaleString("default", { month: "long" });
   const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-  /* Get current week boundaries for week view */
   const todayKey = dateKey(today);
 
-  /* Build grid cells */
   const cells: Array<{ date: Date; key: string; inMonth: boolean }> = [];
-  // Previous month padding
   const prevMonthDays = getDaysInMonth(year, month === 0 ? 11 : month - 1);
   for (let i = firstDay - 1; i >= 0; i--) {
     const d = new Date(year, month - 1, prevMonthDays - i);
     cells.push({ date: d, key: dateKey(d), inMonth: false });
   }
-  // Current month days
   for (let day = 1; day <= daysInMonth; day++) {
     const d = new Date(year, month, day);
     cells.push({ date: d, key: dateKey(d), inMonth: true });
   }
-  // Next month padding to complete the grid
   const remaining = 7 - (cells.length % 7);
   if (remaining < 7) {
     for (let i = 1; i <= remaining; i++) {
@@ -664,7 +845,7 @@ function ContentCalendarView({
   if (isLoading) {
     return (
       <Card className="p-6">
-        <div className="flex items-center justify-center h-48">
+        <div className="flex h-48 items-center justify-center">
           <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
         </div>
       </Card>
@@ -674,8 +855,7 @@ function ContentCalendarView({
   return (
     <div className="space-y-4">
       <Card className="p-4">
-        {/* Calendar header */}
-        <div className="flex items-center justify-between mb-4">
+        <div className="mb-4 flex items-center justify-between">
           <Button variant="ghost" size="sm" onClick={prevMonth}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
@@ -687,17 +867,15 @@ function ContentCalendarView({
           </Button>
         </div>
 
-        {/* Day names */}
-        <div className="grid grid-cols-7 gap-px mb-1">
+        <div className="mb-1 grid grid-cols-7 gap-px">
           {dayNames.map((name) => (
-            <div key={name} className="text-center text-[10px] font-medium text-muted-foreground py-1">
+            <div key={name} className="py-1 text-center text-[10px] font-medium text-muted-foreground">
               {name}
             </div>
           ))}
         </div>
 
-        {/* Calendar grid */}
-        <div className="grid grid-cols-7 gap-px bg-gray-100 rounded-lg overflow-hidden">
+        <div className="grid grid-cols-7 gap-px overflow-hidden rounded-lg bg-gray-100">
           {cells.map((cell) => {
             const dayDrafts = draftsByDate.get(cell.key) ?? [];
             const isToday = cell.key === todayKey;
@@ -707,7 +885,6 @@ function ContentCalendarView({
             const failedCount = dayDrafts.filter((d) => d.status === "failed" || d.metadata?.wordpress?.queue_status === "failed").length;
             const draftCount = dayDrafts.filter((d) => d.status === "draft").length;
 
-            // Collect unique platforms
             const platforms = new Set<string>();
             for (const d of dayDrafts) {
               if (d.target_platform) platforms.add(d.target_platform);
@@ -724,46 +901,42 @@ function ContentCalendarView({
                   dayDrafts.length > 0 ? "cursor-pointer hover:bg-blue-50" : ""
                 }`}
               >
-                <div className={`text-xs mb-0.5 ${
-                  isToday
-                    ? "font-bold text-blue-600"
-                    : cell.inMonth
-                    ? "text-gray-700"
-                    : "text-gray-400"
-                }`}>
+                <div
+                  className={`mb-0.5 text-xs ${
+                    isToday ? "font-bold text-blue-600" : cell.inMonth ? "text-gray-700" : "text-gray-400"
+                  }`}
+                >
                   {cell.date.getDate()}
                 </div>
 
                 {dayDrafts.length > 0 && (
                   <div className="space-y-0.5">
-                    {/* Status dots */}
-                    <div className="flex gap-0.5 flex-wrap">
+                    <div className="flex flex-wrap gap-0.5">
                       {publishedCount > 0 && (
                         <span className="inline-flex items-center gap-0.5 text-[9px] text-emerald-700">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                           {publishedCount}
                         </span>
                       )}
                       {queuedCount > 0 && (
                         <span className="inline-flex items-center gap-0.5 text-[9px] text-blue-700">
-                          <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                          <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
                           {queuedCount}
                         </span>
                       )}
                       {failedCount > 0 && (
                         <span className="inline-flex items-center gap-0.5 text-[9px] text-red-700">
-                          <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                          <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
                           {failedCount}
                         </span>
                       )}
                       {draftCount > 0 && (
                         <span className="inline-flex items-center gap-0.5 text-[9px] text-gray-500">
-                          <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />
+                          <span className="h-1.5 w-1.5 rounded-full bg-gray-400" />
                           {draftCount}
                         </span>
                       )}
                     </div>
-                    {/* Platform icons */}
                     <div className="flex gap-0.5">
                       {Array.from(platforms).slice(0, 4).map((p) => (
                         <span key={p}>{PLATFORM_CAL_ICONS[p] || null}</span>
@@ -776,26 +949,26 @@ function ContentCalendarView({
           })}
         </div>
 
-        {/* Legend */}
-        <div className="flex gap-4 mt-3 text-[10px] text-muted-foreground">
-          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500" /> Published</span>
-          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500" /> Queued</span>
-          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500" /> Failed</span>
-          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-gray-400" /> Draft</span>
+        <div className="mt-3 flex gap-4 text-[10px] text-muted-foreground">
+          <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-emerald-500" /> Published</span>
+          <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-blue-500" /> Queued</span>
+          <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-red-500" /> Failed</span>
+          <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-gray-400" /> Draft</span>
         </div>
       </Card>
 
-      {/* Selected day details */}
       {selectedDay && (
         <Card className="p-4">
-          <h4 className="text-sm font-semibold mb-3">
+          <h4 className="mb-3 text-sm font-semibold">
             {new Date(selectedDay + "T00:00:00").toLocaleDateString("default", {
               weekday: "long",
               month: "long",
               day: "numeric",
               year: "numeric",
             })}
-            <Badge variant="outline" className="ml-2 text-[10px]">{selectedDrafts.length} {selectedDrafts.length === 1 ? "draft" : "drafts"}</Badge>
+            <Badge variant="outline" className="ml-2 text-[10px]">
+              {selectedDrafts.length} {selectedDrafts.length === 1 ? "draft" : "drafts"}
+            </Badge>
           </h4>
           {selectedDrafts.length === 0 && (
             <p className="text-xs text-muted-foreground">No drafts scheduled for this day.</p>
@@ -806,12 +979,12 @@ function ContentCalendarView({
               return (
                 <div
                   key={d.id}
-                  className="flex items-center gap-3 p-2 rounded-lg border hover:bg-muted/40 cursor-pointer transition-colors"
+                  className="flex cursor-pointer items-center gap-3 rounded-lg border p-2 transition-colors hover:bg-muted/40"
                   onClick={() => onSelectDraft(d.id)}
                 >
-                  <span className={`w-2 h-2 rounded-full flex-shrink-0 ${STATUS_DOT[d.status] || "bg-gray-400"}`} />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-xs font-medium truncate">{d.title || `Draft #${d.id}`}</div>
+                  <span className={`h-2 w-2 flex-shrink-0 rounded-full ${STATUS_DOT[d.status] || "bg-gray-400"}`} />
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-xs font-medium">{d.title || `Draft #${d.id}`}</div>
                     <div className="text-[10px] text-muted-foreground">
                       {d.kind.replace(/_/g, " ")}
                       {d.target_platform && <> / {d.target_platform}</>}
@@ -819,12 +992,12 @@ function ContentCalendarView({
                   </div>
                   <Badge
                     variant="outline"
-                    className={`text-[10px] flex-shrink-0 ${CONTENT_DRAFT_STATUS_STYLES[d.status] || "bg-gray-100"}`}
+                    className={`flex-shrink-0 text-[10px] ${CONTENT_DRAFT_STATUS_STYLES[d.status] || "bg-gray-100"}`}
                   >
                     {statusLabel(CONTENT_DRAFT_STATUS_LABELS, d.status)}
                   </Badge>
                   {queueBadge && (
-                    <Badge variant="outline" className={`text-[10px] flex-shrink-0 ${queueBadge.className}`}>
+                    <Badge variant="outline" className={`flex-shrink-0 text-[10px] ${queueBadge.className}`}>
                       {queueBadge.label}
                     </Badge>
                   )}
