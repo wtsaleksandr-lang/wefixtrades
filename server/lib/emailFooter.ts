@@ -33,20 +33,25 @@ const COMPANY_LOCATION = "Toronto, Canada";
 
 /**
  * Email-safe replication of the website navbar logo.
- * Centered as a unit. Icon (with subtle white border) on the left, then a
- * stacked column with the wordmark and (optional) tagline directly under it.
- * Tagline left-aligns with the "W" of WeFixTrades.
+ * Centered as a unit. Badged icon on the left, then a stacked column with
+ * the wordmark and (optional) tagline directly under it. Tagline
+ * left-aligns with the "W" of WeFixTrades.
+ *
+ * The icon is a hosted PNG (`/favicon.png`). It used to be an inline
+ * `data:image/svg+xml` URI, but Gmail (and most webmail clients) block
+ * `data:` URIs in <img> AND don't render SVG at all — so the logo silently
+ * failed in inboxes. A hosted raster PNG loads like any other email image.
  *
  * `theme` defaults to "dark". Pass `theme: "light"` when the header is
  * rendered against a light background (e.g. ContentFlow review emails) —
  * this swaps the wordmark + tagline text colors to dark variants so they
- * stay readable. The icon's own dark background and the cyan "Fix" accent
- * stay constant across both themes.
+ * stay readable. The badged icon stays constant across both themes.
  */
 export function buildEmailHeader(opts: { tagline?: string; theme?: "dark" | "light" } = {}): string {
   const isLight = opts.theme === "light";
   const wordmarkColor = isLight ? "#0F172A" : TEXT_BRIGHT;
   const taglineColor = isLight ? "#6B7280" : TEXT_MUTED;
+  const baseUrl = (process.env.APP_URL || "https://wefixtrades.com").replace(/\/$/, "");
 
   const taglineRow = opts.tagline
     ? `<div style="font-family:'Inter',system-ui,-apple-system,Arial,sans-serif;font-size:10.5px;color:${taglineColor};letter-spacing:0.09em;text-transform:uppercase;line-height:1;margin-top:4px;">${opts.tagline}</div>`
@@ -55,24 +60,11 @@ export function buildEmailHeader(opts: { tagline?: string; theme?: "dark" | "lig
   return `
     <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin:0 auto 24px;">
       <tr>
-        <td style="vertical-align:middle;padding-right:12px;">
-          <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="border-collapse:separate;">
-            <tr>
-              <td align="center" valign="middle" width="42" height="42" style="width:42px;height:42px;background:#E5E7EB;border:1px solid rgba(13,60,252,0.18);border-radius:11px;line-height:0;text-align:center;mso-line-height-rule:exactly;">
-                <!-- Brand icon — modern clients (Gmail/Apple Mail/Outlook.com/mobile) render the SVG;
-                     Outlook desktop falls back to the alt text. Both cases are acceptable. -->
-                <img src="data:image/svg+xml;utf8,${encodeURIComponent(
-                  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none">' +
-                  '<path d="M9 3H6a3 3 0 0 0-3 3v3" stroke="#0d3cfc" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>' +
-                  '<path d="M15 3h3a3 3 0 0 1 3 3v3" stroke="#0d3cfc" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>' +
-                  '<path d="M3 15v3a3 3 0 0 0 3 3h3" stroke="#0d3cfc" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>' +
-                  '<path d="M21 15v3a3 3 0 0 1-3 3h-3" stroke="#0d3cfc" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>' +
-                  '<path d="m8 12.5 3 3 5-6" stroke="#0d3cfc" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>' +
-                  '</svg>'
-                )}" width="24" height="24" alt="WeFixTrades" style="display:inline-block;vertical-align:middle;border:0;outline:none;text-decoration:none;" />
-              </td>
-            </tr>
-          </table>
+        <td style="vertical-align:middle;padding-right:12px;line-height:0;">
+          <!-- Brand icon — hosted PNG (badge + rounded corners baked in).
+               Renders in every email client; no data:/SVG support needed. -->
+          <img src="${baseUrl}/favicon.png" width="42" height="42" alt="WeFixTrades"
+               style="display:block;width:42px;height:42px;border:0;outline:none;text-decoration:none;border-radius:11px;" />
         </td>
         <td style="vertical-align:middle;text-align:left;">
           <div style="font-family:'Inter',system-ui,-apple-system,Arial,sans-serif;font-weight:700;font-size:20px;letter-spacing:-0.03em;color:${wordmarkColor};line-height:1;">We<span style="color:${ACCENT};">Fix</span>Trades</div>
