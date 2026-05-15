@@ -26,6 +26,7 @@ import {
   ACCESS_TOKEN_TTL_SEC,
 } from "../lib/mobileAuth";
 import { authRateLimiter } from "../services/rateLimiter";
+import { buildLoginToken } from "../lib/loginToken";
 import { createLogger } from "../lib/logger";
 
 const log = createLogger("MobileAuthRoutes");
@@ -178,6 +179,33 @@ export function registerMobileAuthRoutes(app: Express) {
     async (req: Request, res: Response) => {
       const u = req.user as any;
       return res.json({ id: u.id, email: u.email, role: u.role, name: u.name });
+    },
+  );
+
+  /**
+   * POST /api/auth/mobile/portal-session
+   * Bearer-authed. Mints a short-lived one-time login token and returns
+   * a URL the mobile app loads in its in-app Portal WebView. The web
+   * front-end consumes the token (/login?token=...) and establishes a
+   * normal session inside the WebView — so the user lands in the portal
+   * already signed in, no second login.
+   */
+  app.post(
+    "/api/auth/mobile/portal-session",
+    requireSessionOrBearer,
+    async (req: Request, res: Response) => {
+      try {
+        const userId = (req.user as any)?.id;
+        if (!userId) return res.status(401).json({ error: "Authentication required" });
+        const PORTAL_TOKEN_TTL = 5 * 60; // 5 min — consumed immediately on WebView load
+        const token = buildLoginToken(userId, PORTAL_TOKEN_TTL);
+        const baseUrl = process.env.APP_URL || `${req.protocol}://${req.get("host")}`;
+        const url = `${baseUrl}/login?token=${encodeURIComponent(token)}`;
+        return res.json({ url, expiresIn: PORTAL_TOKEN_TTL });
+      } catch (err) {
+        log.error("portal-session failed", { err: (err as Error).message });
+        res.status(500).json({ error: "Portal session failed" });
+      }
     },
   );
 
