@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import { CheckCircle2, XCircle, ExternalLink, Loader2 } from "lucide-react";
+import { CheckCircle2, XCircle, ExternalLink, Loader2, RefreshCw, Pause, Play } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -201,6 +201,48 @@ export default function ContentFlowDraftDrawer({ draftId, open, onOpenChange }: 
     },
   });
 
+  /* Admin controls: force-regenerate the article body, and pause/resume
+   * the draft's publish-queue eligibility. All three endpoints already
+   * exist server-side (regenerate-article / pause / resume) — this just
+   * surfaces them in the drawer. */
+  const regenerateMutation = useMutation({
+    mutationFn: async () => {
+      if (draftId === null) throw new Error("no draftId");
+      const res = await apiRequest("POST", `/api/admin/contentflow/drafts/${draftId}/regenerate-article`, {});
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Regenerated", description: "Article re-generated with a fresh AI pass." });
+      qc.invalidateQueries({ queryKey: ["/api/admin/contentflow/drafts", draftId] });
+      qc.invalidateQueries({ queryKey: ["/api/admin/contentflow/queue"] });
+    },
+    onError: (e: any) => {
+      toast({ variant: "destructive", title: "Regenerate failed", description: e?.message || "Unknown error" });
+    },
+  });
+
+  const pauseMutation = useMutation({
+    mutationFn: async (paused: boolean) => {
+      if (draftId === null) throw new Error("no draftId");
+      const action = paused ? "pause" : "resume";
+      const res = await apiRequest("POST", `/api/admin/contentflow/drafts/${draftId}/${action}`, {});
+      return res.json();
+    },
+    onSuccess: (_body: any, paused: boolean) => {
+      toast({
+        title: paused ? "Paused" : "Resumed",
+        description: paused
+          ? "Draft will be skipped by the publish queue until resumed."
+          : "Draft is eligible for the publish queue again.",
+      });
+      qc.invalidateQueries({ queryKey: ["/api/admin/contentflow/drafts", draftId] });
+      qc.invalidateQueries({ queryKey: ["/api/admin/contentflow/queue"] });
+    },
+    onError: (e: any) => {
+      toast({ variant: "destructive", title: "Action failed", description: e?.message || "Unknown error" });
+    },
+  });
+
   /**
    * "Tomorrow morning" preset = next 9:00 AM in the server's timezone.
    * Per Sprint 5 brief: server timezone unless an existing user-tz system
@@ -220,7 +262,15 @@ export default function ContentFlowDraftDrawer({ draftId, open, onOpenChange }: 
     rejectMutation.isPending ||
     publishMutation.isPending ||
     queueMutation.isPending ||
-    retryMutation.isPending;
+    retryMutation.isPending ||
+    regenerateMutation.isPending ||
+    pauseMutation.isPending;
+
+  // Admin-control visibility. Regenerate is article-only (re-runs the
+  // AI body generation). Pause/resume reads metadata.calendar.paused.
+  const isPaused = ((draft?.metadata as any)?.calendar?.paused) === true;
+  const canRegenerate =
+    !!draft && draft.kind === "article" && draft.surface === "rankflow" && !isTerminal;
 
   // Publish-to-WordPress visibility: only for approved RankFlow articles.
   // Read state from draft.metadata.wordpress (populated by the publisher
@@ -508,6 +558,38 @@ export default function ContentFlowDraftDrawer({ draftId, open, onOpenChange }: 
                 >
                   {retryMutation.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
                   Retry Publish
+                </Button>
+              )}
+              {canRegenerate && (
+                <Button
+                  data-testid="regenerate-article-btn"
+                  onClick={() => regenerateMutation.mutate()}
+                  disabled={busy}
+                  variant="outline"
+                  className="border-purple-300 text-purple-700 hover:bg-purple-50"
+                >
+                  {regenerateMutation.isPending
+                    ? <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                    : <RefreshCw className="h-4 w-4 mr-1" />}
+                  Regenerate
+                </Button>
+              )}
+              {!isTerminal && (
+                <Button
+                  data-testid="pause-resume-btn"
+                  onClick={() => pauseMutation.mutate(!isPaused)}
+                  disabled={busy}
+                  variant="outline"
+                  className={isPaused
+                    ? "border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                    : "border-slate-300 text-slate-700 hover:bg-slate-50"}
+                >
+                  {pauseMutation.isPending
+                    ? <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                    : isPaused
+                      ? <Play className="h-4 w-4 mr-1" />
+                      : <Pause className="h-4 w-4 mr-1" />}
+                  {isPaused ? "Resume" : "Pause"}
                 </Button>
               )}
               <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={busy} className="ml-auto">
