@@ -29,8 +29,16 @@ export const reviewRequestSuppression = pgTable(
     created_at: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => ({
+    /* Drizzle-kit's index generator was emitting `int4_ops` operator class
+     * for both columns when the second column was a SQL expression like
+     * `sql\`lower(${t.customer_email})\`` — copying the first column's
+     * type. PostgreSQL then rejects with "operator class int4_ops does
+     * not accept data type text". Workaround: keep the index on plain
+     * columns; case-insensitivity is enforced at the app layer
+     * (storage.ts lower-cases email before insert + lookup). Functionally
+     * equivalent — emails are stored canonically lowercase. */
     emailUq: uniqueIndex("idx_review_suppression_email")
-      .on(t.client_id, sql`lower(${t.customer_email})`)
+      .on(t.client_id, t.customer_email)
       .where(sql`${t.customer_email} IS NOT NULL`),
     phoneUq: uniqueIndex("idx_review_suppression_phone")
       .on(t.client_id, t.customer_phone)

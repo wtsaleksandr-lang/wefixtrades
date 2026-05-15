@@ -3394,9 +3394,13 @@ export class DatabaseStorage implements IStorage {
     customerPhone: string | null,
   ): Promise<boolean> {
     if (!customerEmail && !customerPhone) return false;
+    // Email lowercased at the boundary so a plain equality match hits the
+    // unique index. The DB index is no longer on lower() (Drizzle-kit had
+    // an operator-class bug there); we enforce case-insensitivity here.
+    const normalizedEmail = customerEmail ? customerEmail.trim().toLowerCase() : null;
     const conditions: any[] = [];
-    if (customerEmail) {
-      conditions.push(sql`lower(${reviewRequestSuppression.customer_email}) = lower(${customerEmail})`);
+    if (normalizedEmail) {
+      conditions.push(eq(reviewRequestSuppression.customer_email, normalizedEmail));
     }
     if (customerPhone) {
       conditions.push(eq(reviewRequestSuppression.customer_phone, customerPhone));
@@ -3420,9 +3424,15 @@ export class DatabaseStorage implements IStorage {
     suppressed_by?: number | null;
     metadata?: any;
   }): Promise<{ id: number }> {
+    // Normalize email to lowercase before insert so the unique index works
+    // as case-insensitive. See isReviewRequestSuppressed for the matching
+    // lookup-side normalization.
+    const normalizedEmail = data.customer_email
+      ? data.customer_email.trim().toLowerCase()
+      : null;
     const [row] = await db.insert(reviewRequestSuppression).values({
       client_id: data.client_id,
-      customer_email: data.customer_email ?? null,
+      customer_email: normalizedEmail,
       customer_phone: data.customer_phone ?? null,
       reason: data.reason ?? null,
       source: data.source ?? "manual",
