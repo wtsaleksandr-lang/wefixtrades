@@ -9,6 +9,7 @@ import { readSSEStream, type ChatMessage, type ToolCallEvent } from "@/lib/chatH
 import { useToast } from "@/hooks/use-toast";
 import CopilotPromptCard from "@/components/shared/CopilotPromptCard";
 import { extractCopilotPrompt, type CopilotPromptRequest } from "@shared/copilotProtocol";
+import { useActiveCopilotForm } from "@/context/CopilotFormContext";
 
 /* Q30b admin: lightweight action-button protocol shared shape (mirrors
  * the portal-side type but targets /admin/* paths). */
@@ -682,6 +683,10 @@ export default function AdminCopilot({
   const [applyingFormFill, setApplyingFormFill] = useState(false);
   // Phase 0: AI-generated confirmation prompt (question + dynamic buttons).
   const [pendingPrompt, setPendingPrompt] = useState<CopilotPromptRequest | null>(null);
+  // Phase 1a: a form registered via useCopilotForm() is the universal form-fill
+  // target; falls back to pageContext.formFillFields for not-yet-migrated pages.
+  const registeredForm = useActiveCopilotForm();
+  const formFieldDefs = registeredForm?.fields ?? pageContext.formFillFields;
 
   /* Resize + transparency (mirrors portal Q25/Q25a). Width is for desktop
    * only; mobile always full-width. Opacity floor 0.7 keeps text readable. */
@@ -878,6 +883,28 @@ export default function AdminCopilot({
         return collapsed || undefined;
       })();
 
+      // Phase 1a: when a page registered a form via useCopilotForm(), use it
+      // as the page's formFillFields so the AI knows what it can fill.
+      const effectivePageContext = registeredForm
+        ? {
+            ...pageContext,
+            formFillFields: registeredForm.fields.map((f) => {
+              const v = registeredForm.getValues()[f.key];
+              return {
+                key: f.key,
+                label: f.label,
+                required: f.required,
+                currentValue:
+                  typeof v === "string" || typeof v === "number" || typeof v === "boolean"
+                    ? v
+                    : v == null
+                      ? null
+                      : String(v),
+              };
+            }),
+          }
+        : pageContext;
+
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -886,7 +913,7 @@ export default function AdminCopilot({
           surface: "admin",
           messages: apiMessages.slice(-20),
           sessionId: getCopilotSessionId(),
-          pageContext,
+          pageContext: effectivePageContext,
           pageContentSnapshot,
           attachments: sentAttachments.map((a) => ({
             url: a.url,
@@ -928,7 +955,7 @@ export default function AdminCopilot({
       // the already-cleaned text. Both blocks land at the end of the reply per
       // the system prompt, so the user briefly sees the raw fenced text mid-
       // stream; the snap to cleaned happens here once the stream finishes.
-      const allowedKeys = new Set((pageContext.formFillFields ?? []).map((f) => f.key));
+      const allowedKeys = new Set((effectivePageContext.formFillFields ?? []).map((f) => f.key));
       const afterActions = extractActionProposals(assistantText);
       const afterFills = extractFormFill(afterActions.cleanedText, allowedKeys);
       // Phase 0: extract the COPILOT_PROMPT block last, from the already-cleaned text.
@@ -1168,7 +1195,7 @@ export default function AdminCopilot({
 
         {/* Q30c: FORM_FILL Apply/Skip card — only when the page declared
             fields AND the AI returned a valid proposal. */}
-        {pendingFormFill && pendingFormFill.length > 0 && pageContext.formFillFields && pageContext.formFillFields.length > 0 && (
+        {pendingFormFill && pendingFormFill.length > 0 && formFieldDefs && formFieldDefs.length > 0 && (
           <div className="border border-[#0d3cfc]/30 bg-[#EEF3FF] rounded-lg p-3 space-y-2" data-testid="copilot-form-fill-card">
             <div className="flex items-center gap-1.5">
               <Wand2 className="w-3.5 h-3.5 text-[#0d3cfc]" />
@@ -1176,7 +1203,7 @@ export default function AdminCopilot({
             </div>
             <ul className="space-y-1.5">
               {pendingFormFill.map((f, idx) => {
-                const fieldDef = pageContext.formFillFields?.find((x) => x.key === f.field_key);
+                const fieldDef = formFieldDefs?.find((x) => x.key === f.field_key);
                 return (
                   <li key={idx} className="text-xs bg-white rounded px-2 py-1.5 border border-gray-200">
                     <div className="font-medium text-gray-800">{fieldDef?.label ?? f.field_key}</div>
@@ -1193,7 +1220,12 @@ export default function AdminCopilot({
                 onClick={async () => {
                   setApplyingFormFill(true);
                   try {
-                    pageContext._onApplyFormFill?.(pendingFormFill);
+                    // Phase 1a: prefer the form registered via useCopilotForm().
+                    if (registeredForm) {
+                      await registeredForm.onApply(pendingFormFill);
+                    } else {
+                      pageContext._onApplyFormFill?.(pendingFormFill);
+                    }
                     toast({ title: "Applied to the form", description: `${pendingFormFill.length} field(s) updated. Review + save when ready.` });
                     setPendingFormFill(null);
                   } finally {

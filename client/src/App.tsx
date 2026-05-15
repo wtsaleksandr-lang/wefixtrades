@@ -3,6 +3,7 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { CopilotFormProvider } from "@/context/CopilotFormContext";
 import NotFound from "@/pages/not-found";
 import Wizard from "@/pages/wizard";
 import Calculator from "@/pages/calculator";
@@ -330,8 +331,10 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <Toaster />
-        <Router />
+        <CopilotFormProvider>
+          <Toaster />
+          <Router />
+        </CopilotFormProvider>
       </TooltipProvider>
     </QueryClientProvider>
   );
