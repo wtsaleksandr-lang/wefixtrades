@@ -67,7 +67,7 @@ function Button({ onClick, children, variant = "primary" }: { onClick: () => voi
 /* ─── Login screen ─── */
 
 export function LoginScreen({ onSignIn }: { onSignIn: () => void }) {
-  const [email, setEmail] = useState("alex@wefixtrades.com");
+  const [email, setEmail] = useState("you@wefixtrades.com");
   const [password, setPassword] = useState("••••••••");
   return (
     <ScreenContainer>
@@ -206,8 +206,8 @@ export function SettingsScreen({ onSignOut }: { onSignOut: () => void }) {
       </Section>
       <Section>
         <Card>
-          <H2>Alex T.</H2>
-          <Body muted>alex@wefixtrades.com</Body>
+          <H2>Demo User</H2>
+          <Body muted>you@wefixtrades.com</Body>
           <div className="mt-2">
             <Caption>Business</Caption>
             <Body>Demo Plumbing & Drains</Body>
