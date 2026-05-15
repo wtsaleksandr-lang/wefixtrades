@@ -74,7 +74,7 @@ export default function FinalCta() {
             padding: "16px 40px",
             borderRadius: 14,
             background: mkt.accent,
-            color: mkt.dark,
+            color: "#FFFFFF",
             fontSize: 16,
             fontWeight: 700,
             textDecoration: "none",

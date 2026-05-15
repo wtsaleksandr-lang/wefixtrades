@@ -27,7 +27,7 @@ import { Reveal, MONO, SANS } from "@/components/effortel-blocks";
 const ctaPrimary: CSSProperties = {
   display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 10,
   padding: "14px 22px", borderRadius: 10,
-  background: mkt.accent, color: mkt.dark,
+  background: mkt.accent, color: "#FFFFFF",
   fontFamily: MONO, fontSize: 13, fontWeight: 600,
   letterSpacing: "0.08em", textTransform: "uppercase",
   textDecoration: "none", textAlign: "center",

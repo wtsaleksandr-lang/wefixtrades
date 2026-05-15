@@ -244,7 +244,7 @@ export default function CalculatorLeadGate({
           aria-busy={submitting}
           style={{
             width: '100%', height: 48, borderRadius: radius.lg,
-            border: 'none', background: mkt.accent, color: '#0d1514',
+            border: 'none', background: mkt.accent, color: '#FFFFFF',
             fontSize: 15, fontWeight: 700,
             cursor: submitting ? 'not-allowed' : 'pointer',
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,

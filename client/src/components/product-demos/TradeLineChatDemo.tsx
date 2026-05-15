@@ -163,7 +163,7 @@ function SystemPill({ text }: { text: string }) {
       margin: "8px 0 0 36px",
       padding: "10px 14px",
       borderRadius: 10,
-      background: mkt.accent, color: mkt.dark,
+      background: mkt.accent, color: "#FFFFFF",
       fontSize: 13, fontWeight: 600,
       display: "inline-flex", alignItems: "center", gap: 8, alignSelf: "flex-start",
       boxShadow: "0 4px 16px rgba(13,60,252,0.25)",

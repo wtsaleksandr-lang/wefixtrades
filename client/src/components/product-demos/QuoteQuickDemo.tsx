@@ -116,7 +116,7 @@ export default function QuoteQuickDemo() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
-              style={{ marginTop: 4, padding: "10px 14px", borderRadius: 10, background: mkt.accent, color: mkt.dark, fontSize: 12, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 8, alignSelf: "flex-start" }}
+              style={{ marginTop: 4, padding: "10px 14px", borderRadius: 10, background: mkt.accent, color: "#FFFFFF", fontSize: 12, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 8, alignSelf: "flex-start" }}
             >
               <Check size={14} strokeWidth={3} /> Lead captured · sales notified
             </motion.div>

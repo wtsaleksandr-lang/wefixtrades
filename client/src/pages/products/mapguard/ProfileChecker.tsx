@@ -482,7 +482,7 @@ export default function ProfileChecker() {
               <Link href="/pricing" onClick={() => trackEvent("mapguard_primary_cta_clicked", { target: "/pricing" })} style={{
                 display: "inline-flex", alignItems: "center", gap: 6,
                 padding: "10px 20px", borderRadius: 10,
-                background: mkt.accent, color: mkt.dark,
+                background: mkt.accent, color: "#FFFFFF",
                 fontSize: 13, fontWeight: 700, textDecoration: "none",
                 transition: "box-shadow 0.2s, transform 0.2s",
               }}
