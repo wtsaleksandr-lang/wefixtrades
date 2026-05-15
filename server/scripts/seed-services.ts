@@ -182,14 +182,12 @@ async function main() {
       { title: "Update profile if seasonal changes needed", sort_order: 3, default_handled_by: "internal" , sla_days: 3 },
       { title: "Send monthly performance report", sort_order: 4, default_handled_by: "internal" , sla_days: 2 },
     ],
-    "reputationshield": [
-      { title: "Collect onboarding info", sort_order: 1, default_priority: "high", default_handled_by: "internal", default_waiting_on: "client" , sla_days: 2 },
-      { title: "Set up review request automation", sort_order: 2, default_handled_by: "internal" , sla_days: 2 },
-      { title: "Configure monitoring alerts", sort_order: 3, default_handled_by: "internal" , sla_days: 1 },
-      { title: "Create response templates", sort_order: 4, default_handled_by: "internal" , sla_days: 2 },
-      { title: "Test review request flow", sort_order: 5, default_handled_by: "internal" , sla_days: 1 },
-      { title: "Go live & send first review batch", description: "Final activation gate. Auto-activation will handle this if all readiness checks pass (google_place_id set, non-review tasks done).", sort_order: 6, default_handled_by: "internal", human_review_required: true , sla_days: 1 },
-    ],
+    /* ReputationShield intentionally has NO task template. It is a
+     * fully-automated, always_on service — kickoff (reputationShieldKickoff)
+     * provisions it with zero ops tasks. A bare "reputationshield" key
+     * here would also never match: live services are
+     * reputationshield-basic|pro|premium and recurringTaskWorker
+     * exact-matches service_id. Removed 2026-05-15 as dead config. */
     "webfix": [
       { title: "Collect access credentials & website URL", sort_order: 1, default_priority: "high", default_handled_by: "internal", default_waiting_on: "client" , sla_days: 1 },
       { title: "Run speed & SEO audit", sort_order: 2, default_handled_by: "internal" , sla_days: 1 },

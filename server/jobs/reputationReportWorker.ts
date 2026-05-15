@@ -24,10 +24,19 @@ const FREQUENCY_DAYS: Record<ReportFrequency, number> = {
   monthly: 27,
 };
 
+/**
+ * Public base URL for links in report emails. Mirrors the fallback
+ * chain reviewMonitorWorker uses for alert emails — the previous
+ * REPLIT_DEV_DOMAIN-only version produced an empty string (→ broken
+ * relative links) in production, where that var is unset.
+ */
 function getBaseUrl(): string {
-  return process.env.REPLIT_DEV_DOMAIN
-    ? `https://${process.env.REPLIT_DEV_DOMAIN}`
-    : "";
+  return (
+    process.env.APP_URL ||
+    process.env.APP_PUBLIC_URL ||
+    (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "") ||
+    "https://wefixtrades.com"
+  );
 }
 
 interface ClientReportCandidate {
