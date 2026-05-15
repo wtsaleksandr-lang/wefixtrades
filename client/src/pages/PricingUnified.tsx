@@ -435,7 +435,9 @@ function CTAButton({ label, highlighted, fullWidth, onClick }: { label: string; 
         background: highlighted
           ? hover ? mkt.accentHover : mkt.accent
           : hover ? "rgba(255,255,255,0.08)" : "transparent",
-        color: highlighted ? mkt.dark : mkt.onDark,
+        // White text on the blue (highlighted) CTA — the previous
+        // mkt.dark near-black was unreadable on #0d3cfc.
+        color: highlighted ? "#FFFFFF" : mkt.onDark,
         fontSize: 14,
         fontWeight: 700,
         fontFamily: FONT,
@@ -1010,7 +1012,7 @@ function PlanRecommenderQuiz({ onRecommend }: { onRecommend: (productIds: string
         <div style={{
           display: "flex", alignItems: "center", gap: 6,
           padding: "8px 18px", borderRadius: 10, background: mkt.accent,
-          color: mkt.dark, fontSize: 13, fontWeight: 700, fontFamily: FONT,
+          color: "#FFFFFF", fontSize: 13, fontWeight: 700, fontFamily: FONT,
           whiteSpace: "nowrap", flexShrink: 0,
         }}>
           <Target size={14} /> Take the quiz
@@ -1636,7 +1638,7 @@ function DecisionButton({ label, targetId }: { label: string; targetId: string }
                 onClick={() => openBundleCheckout(BUNDLE_GROWTH)}
                 style={{
                   flex: 1, maxWidth: 220, padding: "13px 20px", borderRadius: 12,
-                  border: "none", background: mkt.accent, color: mkt.dark,
+                  border: "none", background: mkt.accent, color: "#FFFFFF",
                   fontSize: 14, fontWeight: 700, fontFamily: FONT, cursor: "pointer",
                   transition: "all 0.2s ease",
                 }}

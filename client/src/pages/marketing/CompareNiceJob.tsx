@@ -201,7 +201,7 @@ export default function CompareNiceJob() {
           <p style={{ fontSize: 15, color: "#6B7280", marginBottom: 24 }}>No contracts. No sales calls. No setup fees. Start your free trial today.</p>
           <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
             <Link href="/Wizard">
-              <Button style={{ background: "#0d3cfc", color: "#1a1a2e", fontWeight: 700, padding: "14px 28px", borderRadius: 10, fontSize: 15 }}>
+              <Button style={{ background: "#0d3cfc", color: "#FFFFFF", fontWeight: 700, padding: "14px 28px", borderRadius: 10, fontSize: 15 }}>
                 Start Getting Reviews — Free Trial
               </Button>
             </Link>

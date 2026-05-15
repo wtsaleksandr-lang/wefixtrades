@@ -659,7 +659,7 @@ export default function BlogPage() {
                 <Link href="/Wizard" style={{
                   display: "inline-flex", alignItems: "center", gap: 8,
                   padding: "12px 28px", borderRadius: 14,
-                  background: mkt.accent, color: mkt.dark,
+                  background: mkt.accent, color: "#FFFFFF",
                   fontSize: 15, fontWeight: 700, textDecoration: "none",
                 }}>
                   Get Started Free <ArrowRight size={14} />

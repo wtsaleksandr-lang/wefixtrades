@@ -109,7 +109,7 @@ export default function SiteLaunchDemo() {
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
-              style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 10, background: mkt.accent, color: mkt.dark, fontSize: 12, fontWeight: 700, alignSelf: "flex-start" }}
+              style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 10, background: mkt.accent, color: "#FFFFFF", fontSize: 12, fontWeight: 700, alignSelf: "flex-start" }}
             >
               <Check size={14} strokeWidth={3} /> Launched · Lighthouse 98 · indexed by Google
             </motion.div>

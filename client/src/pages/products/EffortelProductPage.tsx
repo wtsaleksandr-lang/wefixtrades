@@ -207,7 +207,7 @@ function StickyMobileCta({ primaryCta, productName }: { primaryCta: { label: str
         </div>
         <Link href={primaryCta.href} style={{
           padding: "12px 16px", borderRadius: 10,
-          background: mkt.accent, color: mkt.dark,
+          background: mkt.accent, color: "#FFFFFF",
           fontFamily: MONO, fontSize: 12, fontWeight: 700,
           letterSpacing: "0.08em", textTransform: "uppercase",
           textDecoration: "none", whiteSpace: "nowrap",
@@ -407,7 +407,7 @@ function HowItWorks({ steps }: { steps?: { title: string; desc: string }[] }) {
                 <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
                   <div style={{
                     width: 36, height: 36, borderRadius: 10,
-                    background: mkt.accent, color: mkt.dark,
+                    background: mkt.accent, color: "#FFFFFF",
                     display: "flex", alignItems: "center", justifyContent: "center",
                     fontSize: 14, fontWeight: 700, fontFamily: MONO,
                   }}>
@@ -712,7 +712,7 @@ function FinalCta({ cfg }: { cfg: ReturnType<typeof getProductBySlug> & {} }) {
 const ctaPrimary: React.CSSProperties = {
   display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 10,
   padding: "14px 22px", borderRadius: 10,
-  background: mkt.accent, color: mkt.dark,
+  background: mkt.accent, color: "#FFFFFF",
   fontFamily: MONO, fontSize: 13, fontWeight: 600,
   letterSpacing: "0.08em", textTransform: "uppercase",
   textDecoration: "none",

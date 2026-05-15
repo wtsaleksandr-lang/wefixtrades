@@ -243,7 +243,7 @@ export default function ReviewFunnel() {
             rel="noopener noreferrer"
             style={{
               display: "inline-flex", alignItems: "center", gap: 8,
-              background: "#0d3cfc", color: "#1A1A2E", fontSize: 14, fontWeight: 700,
+              background: "#0d3cfc", color: "#FFFFFF", fontSize: 14, fontWeight: 700,
               padding: "14px 28px", borderRadius: 10, textDecoration: "none",
             }}
           >
