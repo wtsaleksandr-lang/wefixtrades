@@ -12,7 +12,7 @@ import { Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Check, ChevronLeft, Loader2 } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
-import type { PortalChatContext } from "@/components/portal/PortalChatWidget";
+import { useCopilotForm } from "@/context/CopilotFormContext";
 import { usePageTitle } from "@/hooks/usePageTitle";
 
 interface PaymentMethodsData {
@@ -99,7 +99,8 @@ export default function PaymentMethodsPage() {
 
   // Q23c: chat→form pre-fill for payment-method fields. AI proposes; user confirms; we patch.
   // Booleans accept "true"/"false" strings since FORM_FILL values are always strings.
-  const chatContext: PortalChatContext = {
+  useCopilotForm({
+    formLabel: "Payment methods",
     fields: [
       { key: "stripe", label: "Stripe Connect enabled", required: false },
       { key: "paypal_email", label: "PayPal Email", required: false },
@@ -109,8 +110,8 @@ export default function PaymentMethodsPage() {
       { key: "zelle_info", label: "Zelle Info (phone/email)", required: false },
       { key: "cash_accepted", label: "Accept Cash", required: false },
     ],
-    current_responses: form as unknown as Record<string, any>,
-    onApplyFill: (fills) => {
+    values: form as unknown as Record<string, unknown>,
+    onApply: (fills) => {
       const boolKeys = new Set(["stripe", "cash_accepted"]);
       const allowed = new Set(["stripe", "paypal_email", "bank_details", "etransfer_email", "venmo_handle", "zelle_info", "cash_accepted"]);
       const patch: Partial<PaymentMethodsData> = {};
@@ -126,7 +127,7 @@ export default function PaymentMethodsPage() {
         setForm((prev) => ({ ...prev, ...patch }));
       }
     },
-  };
+  });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -140,7 +141,7 @@ export default function PaymentMethodsPage() {
     "w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/20 focus:border-[#2D6A4F] transition-colors resize-vertical";
 
   return (
-    <PortalLayout chatContext={chatContext}>
+    <PortalLayout>
       <div className="max-w-2xl mx-auto space-y-6">
         <div>
           <Link href="/portal/billing">

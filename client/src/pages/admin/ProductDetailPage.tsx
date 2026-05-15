@@ -24,6 +24,7 @@ import { useRoute, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2, ChevronLeft, Check, AlertTriangle, FileEdit, History, Plus, Trash2, ArrowUp, ArrowDown, Star, Factory, X, Users, Ban, DollarSign } from "lucide-react";
 import AdminLayout from "@/components/admin/AdminLayout";
+import { useCopilotForm } from "@/context/CopilotFormContext";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -318,19 +319,34 @@ export default function ProductDetailPage() {
     });
   };
 
+  // Q30c / Phase 1b: register the product editor form with the copilot
+  // form registry. Only enabled once the live product has loaded.
+  useCopilotForm({
+    formLabel: "Product details",
+    fields: [
+      { key: "name", label: "Product name", required: true },
+      { key: "tagline", label: "Tagline" },
+      { key: "description", label: "Description" },
+      { key: "default_price_cents", label: "Default price (cents)" },
+      { key: "billing_period", label: "Billing period (monthly | one-time)" },
+      { key: "category", label: `Category (one of: ${CATEGORIES.join(", ")})` },
+    ],
+    values: {
+      name: form.name,
+      tagline: form.tagline,
+      description: form.description,
+      default_price_cents: form.default_price_cents,
+      billing_period: form.billing_period,
+      category: form.category,
+    },
+    onApply: onApplyAiFormFill,
+    enabled: !!live,
+  });
+
   return (
     <AdminLayout
       pageContext={{
         page: "product_detail",
-        formFillFields: live ? [
-          { key: "name", label: "Product name", required: true, currentValue: form.name },
-          { key: "tagline", label: "Tagline", currentValue: form.tagline },
-          { key: "description", label: "Description", currentValue: form.description },
-          { key: "default_price_cents", label: "Default price (cents)", currentValue: form.default_price_cents },
-          { key: "billing_period", label: "Billing period (monthly | one-time)", currentValue: form.billing_period },
-          { key: "category", label: `Category (one of: ${CATEGORIES.join(", ")})`, currentValue: form.category },
-        ] : undefined,
-        _onApplyFormFill: onApplyAiFormFill,
       }}
     >
       <div className="max-w-2xl mx-auto space-y-5">

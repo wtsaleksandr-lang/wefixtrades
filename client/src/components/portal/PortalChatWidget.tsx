@@ -339,7 +339,7 @@ export default function PortalChatWidget({
   }, [messages, loading, escalationDraft, historyView]);
 
   // Determine context for this request
-  const isOnboarding = !!(chatContext?.service_name && chatContext?.fields);
+  const isOnboarding = !!chatContext?.service_name;
   const escalationEnabled = !isOnboarding; // Only on help surface
 
   // Build the context payload for the API

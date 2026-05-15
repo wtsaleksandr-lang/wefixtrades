@@ -24,6 +24,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Loader2, ArrowRight, ExternalLink, Star } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
+import { useCopilotForm } from "@/context/CopilotFormContext";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useToast } from "@/hooks/use-toast";
 import type { Tier } from "@shared/tiers";
@@ -163,30 +164,32 @@ export default function PortalCatalog() {
       })
     : [];
 
-  const chatContext = chatFields.length > 0
-    ? {
-        fields: chatFields.map(({ key, label, required }) => ({ key, label, required })),
-        current_responses: Object.fromEntries(chatFields.map((f) => [f.key, f._current])),
-        onApplyFill: (fills: { field_key: string; value: string }[]) => {
-          const updates: Record<string, string> = {};
-          for (const fill of fills) {
-            if (!fill.field_key.startsWith("tier:")) continue;
-            const serviceId = fill.field_key.slice("tier:".length);
-            const svc = tierServices.find((s) => s.id === serviceId);
-            if (!svc) continue;
-            const validTier = (svc.tiers ?? []).find((t) => t.id === fill.value);
-            if (!validTier) continue;
-            updates[serviceId] = validTier.id;
-          }
-          if (Object.keys(updates).length > 0) {
-            setSelectedTier((prev) => ({ ...prev, ...updates }));
-          }
-        },
+  // Phase 1b: register the tier-selection synthetic form with the copilot
+  // form registry.
+  useCopilotForm({
+    formLabel: "Service tiers",
+    fields: chatFields.map(({ key, label, required }) => ({ key, label, required })),
+    values: Object.fromEntries(chatFields.map((f) => [f.key, f._current])),
+    onApply: (fills: { field_key: string; value: string }[]) => {
+      const updates: Record<string, string> = {};
+      for (const fill of fills) {
+        if (!fill.field_key.startsWith("tier:")) continue;
+        const serviceId = fill.field_key.slice("tier:".length);
+        const svc = tierServices.find((s) => s.id === serviceId);
+        if (!svc) continue;
+        const validTier = (svc.tiers ?? []).find((t) => t.id === fill.value);
+        if (!validTier) continue;
+        updates[serviceId] = validTier.id;
       }
-    : undefined;
+      if (Object.keys(updates).length > 0) {
+        setSelectedTier((prev) => ({ ...prev, ...updates }));
+      }
+    },
+    enabled: chatFields.length > 0,
+  });
 
   return (
-    <PortalLayout chatContext={chatContext}>
+    <PortalLayout>
       <div className="max-w-5xl mx-auto space-y-6">
         <div>
           <h1 className="text-xl font-semibold text-gray-900">Add Services</h1>

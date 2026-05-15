@@ -2,6 +2,7 @@ import { usePageTitle } from "@/hooks/usePageTitle";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import AdminLayout from "@/components/admin/AdminLayout";
+import { useCopilotForm } from "@/context/CopilotFormContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -296,6 +297,70 @@ export default function SuppliersPage() {
     return `$${dollars} / ${label}`;
   }
 
+  const VALID_TYPE = ["fiverr", "freelancer", "white_label", "automation", "internal"];
+  const VALID_SUP_TYPE = ["email", "api", "fiverr", "manual"];
+  const VALID_COST_TYPE = ["per_task", "monthly", "hourly", "per_project"];
+  const VALID_STATUS = ["active", "inactive"];
+
+  /* Q30c expansion / Phase 1b: register the add/edit supplier form with the
+   * copilot form registry. Only enabled while the form is open (showForm) so
+   * the AI doesn't propose fills when the operator isn't editing anything. */
+  useCopilotForm({
+    formLabel: "Supplier",
+    fields: [
+      { key: "name", label: "Supplier name", required: true },
+      { key: "type", label: "Type (fiverr | freelancer | white_label | automation | internal)" },
+      { key: "supplier_type", label: "Channel (email | api | fiverr | manual)" },
+      { key: "contact_name", label: "Contact name" },
+      { key: "contact_email", label: "Contact email" },
+      { key: "contact_phone", label: "Contact phone" },
+      { key: "platform_url", label: "Platform URL" },
+      { key: "fiverr_profile_url", label: "Fiverr profile URL" },
+      { key: "cost_rate_dollars", label: "Cost rate (dollars, numeric string)" },
+      { key: "cost_type", label: "Cost type (per_task | monthly | hourly | per_project)" },
+      { key: "notes", label: "Notes" },
+      { key: "status", label: "Status (active | inactive)" },
+    ],
+    values: {
+      name: form.name,
+      type: form.type,
+      supplier_type: form.supplier_type,
+      contact_name: form.contact_name,
+      contact_email: form.contact_email,
+      contact_phone: form.contact_phone,
+      platform_url: form.platform_url,
+      fiverr_profile_url: form.fiverr_profile_url,
+      cost_rate_dollars: form.cost_rate_dollars,
+      cost_type: form.cost_type,
+      notes: form.notes,
+      status: form.status,
+    },
+    onApply: (fills) => {
+      if (!showForm) return; // safety — only mutate when the form is open
+      setForm((f) => {
+        const next = { ...f };
+        for (const fill of fills) {
+          switch (fill.field_key) {
+            case "name": next.name = fill.value; break;
+            case "type": if (VALID_TYPE.includes(fill.value)) next.type = fill.value; break;
+            case "supplier_type": if (VALID_SUP_TYPE.includes(fill.value)) next.supplier_type = fill.value; break;
+            case "contact_name": next.contact_name = fill.value; break;
+            case "contact_email": next.contact_email = fill.value; break;
+            case "contact_phone": next.contact_phone = fill.value; break;
+            case "platform_url": next.platform_url = fill.value; break;
+            case "fiverr_profile_url": next.fiverr_profile_url = fill.value; break;
+            case "cost_rate_dollars": next.cost_rate_dollars = fill.value; break;
+            case "cost_type": if (VALID_COST_TYPE.includes(fill.value)) next.cost_type = fill.value; break;
+            case "notes": next.notes = fill.value; break;
+            case "status": if (VALID_STATUS.includes(fill.value)) next.status = fill.value; break;
+          }
+        }
+        return next;
+      });
+    },
+    enabled: showForm,
+  });
+
   // ─── Detail View ───
 
   if (detailId !== null) {
@@ -491,61 +556,12 @@ export default function SuppliersPage() {
 
   const activeSuppliers = suppliers.filter((s) => s.is_active);
 
-  /* Q30c expansion: AI form-fill for the add/edit supplier form. Only
-   * advertised while the form is open (showForm === true) so the AI
-   * doesn't propose fills when the operator isn't editing anything. */
-  const supplierFormFields = showForm
-    ? [
-        { key: "name", label: "Supplier name", required: true, currentValue: form.name },
-        { key: "type", label: "Type (fiverr | freelancer | white_label | automation | internal)", currentValue: form.type },
-        { key: "supplier_type", label: "Channel (email | api | fiverr | manual)", currentValue: form.supplier_type },
-        { key: "contact_name", label: "Contact name", currentValue: form.contact_name },
-        { key: "contact_email", label: "Contact email", currentValue: form.contact_email },
-        { key: "contact_phone", label: "Contact phone", currentValue: form.contact_phone },
-        { key: "platform_url", label: "Platform URL", currentValue: form.platform_url },
-        { key: "fiverr_profile_url", label: "Fiverr profile URL", currentValue: form.fiverr_profile_url },
-        { key: "cost_rate_dollars", label: "Cost rate (dollars, numeric string)", currentValue: form.cost_rate_dollars },
-        { key: "cost_type", label: "Cost type (per_task | monthly | hourly | per_project)", currentValue: form.cost_type },
-        { key: "notes", label: "Notes", currentValue: form.notes },
-        { key: "status", label: "Status (active | inactive)", currentValue: form.status },
-      ]
-    : undefined;
-
-  const VALID_TYPE = ["fiverr", "freelancer", "white_label", "automation", "internal"];
-  const VALID_SUP_TYPE = ["email", "api", "fiverr", "manual"];
-  const VALID_COST_TYPE = ["per_task", "monthly", "hourly", "per_project"];
-  const VALID_STATUS = ["active", "inactive"];
-
   return (
     <AdminLayout pageContext={{
       page: "suppliers",
       supplierCount: suppliers.length,
       activeSupplierCount: activeSuppliers.length,
       supplierNames: activeSuppliers.map((s) => s.name),
-      formFillFields: supplierFormFields,
-      _onApplyFormFill: (fills) => {
-        if (!showForm) return; // safety — only mutate when the form is open
-        setForm((f) => {
-          const next = { ...f };
-          for (const fill of fills) {
-            switch (fill.field_key) {
-              case "name": next.name = fill.value; break;
-              case "type": if (VALID_TYPE.includes(fill.value)) next.type = fill.value; break;
-              case "supplier_type": if (VALID_SUP_TYPE.includes(fill.value)) next.supplier_type = fill.value; break;
-              case "contact_name": next.contact_name = fill.value; break;
-              case "contact_email": next.contact_email = fill.value; break;
-              case "contact_phone": next.contact_phone = fill.value; break;
-              case "platform_url": next.platform_url = fill.value; break;
-              case "fiverr_profile_url": next.fiverr_profile_url = fill.value; break;
-              case "cost_rate_dollars": next.cost_rate_dollars = fill.value; break;
-              case "cost_type": if (VALID_COST_TYPE.includes(fill.value)) next.cost_type = fill.value; break;
-              case "notes": next.notes = fill.value; break;
-              case "status": if (VALID_STATUS.includes(fill.value)) next.status = fill.value; break;
-            }
-          }
-          return next;
-        });
-      },
     }}>
       <div className="max-w-6xl mx-auto space-y-4">
         {/* Header */}
