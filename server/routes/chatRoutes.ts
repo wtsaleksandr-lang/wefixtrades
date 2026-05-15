@@ -9,7 +9,8 @@ import { chatRateLimiter } from "../services/rateLimiter";
 import { db } from "../db";
 import { auditReports } from "@shared/schema";
 import { eq } from "drizzle-orm";
-import { shouldInjectTools, ADMIN_TOOLS, storePendingAction } from "../services/adminTools";
+import { shouldInjectTools, ADMIN_TOOLS } from "../services/adminTools";
+import { storePendingAction } from "../services/copilotActionRegistry";
 import { createLogger } from "../lib/logger";
 
 const log = createLogger("Chat");
@@ -209,7 +210,8 @@ async function writeStream(res: Response, req: AssistantRequest): Promise<void> 
           // Store action server-side — client only gets the call_id
           storePendingAction({
             call_id: callId,
-            tool_name: toolUseBlock.name,
+            surface: "admin",
+            action_name: toolUseBlock.name,
             args: toolInput,
             user_id: req.userId,
             session_id: req.sessionId,
