@@ -1,6 +1,7 @@
 import { compileKnowledge, formatRecommendedServices, getRecommendedServices } from "./knowledgeBase";
 import type { TradelineConfig } from "@shared/schema";
 import { TRADELINE_DEMO_PROMPT } from "@shared/prompts/tradelineDemoPrompt";
+import { COPILOT_PROMPT_INSTRUCTION } from "@shared/copilotProtocol";
 import { buildConciergeAddendum } from "./portalConciergeTemplates";
 
 /* ─── Types ─── */
@@ -479,6 +480,11 @@ Rules:
 - Max 3 actions per block, label ≤ 40 chars.
 - Skip the block when answering questions the operator can resolve on the CURRENT page (counts, statuses, definitions).
 - The block is invisible to the operator; they see clickable buttons rendered from it.`);
+
+  // Phase 0: confirmation/options protocol — lets the AI ask the operator a
+  // question with AI-generated buttons (+ optional free-text). Shared verbatim
+  // with the portal copilot.
+  parts.push(COPILOT_PROMPT_INSTRUCTION);
 
   return parts.join("\n");
 }

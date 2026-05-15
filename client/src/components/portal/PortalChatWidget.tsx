@@ -11,6 +11,8 @@ import ChatAttachmentInput, {
 } from "@/components/shared/ChatAttachmentInput";
 import { loadPortalMessages, savePortalMessages } from "@/lib/chatHelpers";
 import { useToast } from "@/hooks/use-toast";
+import CopilotPromptCard from "@/components/shared/CopilotPromptCard";
+import type { CopilotPromptRequest } from "@shared/copilotProtocol";
 
 const LAST_OPEN_KEY = "wft_portal_chat_last_open";
 const OPACITY_KEY = "wft_portal_chat_opacity";
@@ -218,6 +220,8 @@ export default function PortalChatWidget({
   // Q23: form-fill proposal card (rendered inline after the assistant reply that proposed it).
   const [pendingProposal, setPendingProposal] = useState<FormFillProposal[] | null>(null);
   const [applyingProposal, setApplyingProposal] = useState(false);
+  // Phase 0: AI-generated confirmation prompt (question + dynamic buttons).
+  const [pendingPrompt, setPendingPrompt] = useState<CopilotPromptRequest | null>(null);
   // Q24: cross-session / cross-device hydration — on first mount, fetch the
   // server-side thread for this user and merge if richer than localStorage.
   // Survives logout/login + different browsers/devices.
@@ -408,6 +412,7 @@ export default function PortalChatWidget({
     setLoading(true);
     setEscalationDraft(null);
     setTicketCreated(null);
+    setPendingPrompt(null);
 
     const currentCooldown = escalationCooldown;
     if (currentCooldown > 0) setEscalationCooldown(currentCooldown - 1);
@@ -472,6 +477,11 @@ export default function PortalChatWidget({
       // Q23: form-fill proposal — render an inline card with Apply/Skip
       if (data.proposal && Array.isArray(data.proposal.fills) && data.proposal.fills.length > 0) {
         setPendingProposal(data.proposal.fills as FormFillProposal[]);
+      }
+
+      // Phase 0: AI-generated confirmation prompt (server already sanitized it).
+      if (data.prompt_request) {
+        setPendingPrompt(data.prompt_request as CopilotPromptRequest);
       }
     } catch {
       setMessages((prev) => [...prev, {
@@ -918,6 +928,15 @@ export default function PortalChatWidget({
                   </button>
                 </div>
               </div>
+            )}
+
+            {/* Phase 0: AI-generated confirmation prompt with dynamic buttons */}
+            {pendingPrompt && (
+              <CopilotPromptCard
+                request={pendingPrompt}
+                disabled={loading}
+                onRespond={(v) => { setPendingPrompt(null); send(v); }}
+              />
             )}
 
             <div ref={endRef} />
