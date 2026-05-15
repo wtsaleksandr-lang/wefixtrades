@@ -4747,16 +4747,19 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
          use that tier's stripe_price_id + price_cents. Otherwise fall back to
          the product-level stripe_price_id (single-price products) or the
          first/highlighted tier when tiers exist but no tier_id was picked. */
-      const productTiers = Array.isArray(svc.tiers) ? (svc.tiers as Array<{
+      type ProductTier = {
         id: string;
         name: string;
         price_cents: number;
         billing_period: "monthly" | "one-time";
         stripe_price_id?: string | null;
         highlighted?: boolean;
-      }>) : null;
+      };
+      const productTiers: ProductTier[] | null = Array.isArray(svc.tiers)
+        ? (svc.tiers as ProductTier[])
+        : null;
 
-      let pickedTier: typeof productTiers extends Array<infer T> ? T : null = null as any;
+      let pickedTier: ProductTier | null = null;
       if (productTiers && productTiers.length > 0) {
         if (tier_id) {
           pickedTier = productTiers.find((t) => t.id === tier_id) ?? null;
@@ -4765,7 +4768,7 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
           }
         } else {
           // Default: highlighted tier if any, else first
-          pickedTier = productTiers.find((t) => t.highlighted) ?? productTiers[0];
+          pickedTier = productTiers.find((t) => t.highlighted) ?? productTiers[0] ?? null;
         }
       }
 

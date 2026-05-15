@@ -1647,7 +1647,9 @@ export class DatabaseStorage implements IStorage {
           log.warn("[publishProductDraft] tier id has no sibling row — skipped", { parent: serviceId, tier_id: t.id });
           continue;
         }
-        const siblingUpdate: Partial<InsertServiceCatalog> = { updated_at: new Date() };
+        // Drizzle update accepts any subset of the table columns; the
+        // insert schema omits updated_at, so we use a broader record type.
+        const siblingUpdate: Record<string, unknown> = { updated_at: new Date() };
         if (typeof t.name === "string") siblingUpdate.name = t.name;
         if (typeof t.price_cents === "number") siblingUpdate.default_price = t.price_cents;
         if (t.billing_period === "monthly" || t.billing_period === "one-time") {
