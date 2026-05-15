@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-interface CalendarConnection { id: number; platform: string; status: string; last_synced_at: string | null; slot_duration_minutes: number; buffer_minutes: number; booking_url?: string; }
+interface CalendarConnection { id: number; platform: string; status: string; last_synced_at: string | null; slot_duration_minutes: number; buffer_minutes: number; booking_url?: string; metadata?: Record<string, any> | null; }
 interface WorkingHours { day: string; enabled: boolean; start: string; end: string; }
 interface BookingRow { id: number; date: string; time: string; customer_name: string; customer_phone: string | null; customer_email: string | null; service: string | null; status: string; }
 
@@ -87,6 +87,7 @@ export default function BookingCalendarPage() {
   const { data: bk, isLoading: bl } = useQuery<{ data: BookingRow[]; total: number }>({ queryKey: ["/api/admin/booking/recent"] });
   const testM = useMutation({ mutationFn: async (id: number) => { const r = await apiRequest("POST", `/api/admin/booking/connections/${id}/test`); return r.json(); }, onSuccess: (d: any) => { toast({ title: "Works", description: `${d.slots?.length || 0} slots` }); }, onError: () => { toast({ title: "Test failed", variant: "destructive" }); } });
   const delM = useMutation({ mutationFn: async (id: number) => { await apiRequest("DELETE", `/api/admin/booking/connections/${id}`); }, onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/admin/booking/connections"] }); toast({ title: "Disconnected" }); } });
+  const acceptingM = useMutation({ mutationFn: async ({ id, metadata, accepting }: { id: number; metadata: Record<string, any> | null | undefined; accepting: boolean }) => { await apiRequest("PATCH", `/api/admin/booking/connections/${id}`, { metadata: { ...(metadata || {}), accepting_bookings: accepting } }); }, onSuccess: (_d, v) => { qc.invalidateQueries({ queryKey: ["/api/admin/booking/connections"] }); toast({ title: v.accepting ? "Accepting bookings" : "Bookings paused" }); }, onError: () => { toast({ title: "Update failed", variant: "destructive" }); } });
 
   return (
     <AdminLayout pageContext={{ page: "booking" }}>
@@ -105,10 +106,16 @@ export default function BookingCalendarPage() {
                   <div><div className="flex items-center gap-2"><span className="text-sm font-semibold text-gray-900">{PL[c.platform] || c.platform}</span><Badge variant="outline" className={SS[c.status] || "bg-gray-100 text-gray-500"}>{c.status}</Badge></div>
                     <div className="flex gap-3 mt-0.5">{c.slot_duration_minutes && <span className="text-xs text-gray-400">{c.slot_duration_minutes}min</span>}{c.last_synced_at && <span className="text-xs text-gray-400">Synced {new Date(c.last_synced_at).toLocaleDateString()}</span>}</div></div>
                 </div>
-                <div className="flex gap-1">
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-blue-600" onClick={() => testM.mutate(c.id)}>{testM.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}</Button>
-                  {c.booking_url && <Button variant="ghost" size="icon" className="h-8 w-8" asChild><a href={c.booking_url} target="_blank" rel="noopener noreferrer"><ExternalLink className="w-4 h-4" /></a></Button>}
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-red-600" onClick={() => { if (confirm("Disconnect?")) delM.mutate(c.id); }}><Trash2 className="w-4 h-4" /></Button>
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <Switch checked={c.metadata?.accepting_bookings !== false} disabled={acceptingM.isPending} onCheckedChange={(v) => acceptingM.mutate({ id: c.id, metadata: c.metadata, accepting: v })} />
+                    <span className="text-xs text-gray-500 hidden sm:inline">Accepting bookings</span>
+                  </div>
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-blue-600" onClick={() => testM.mutate(c.id)}>{testM.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}</Button>
+                    {c.booking_url && <Button variant="ghost" size="icon" className="h-8 w-8" asChild><a href={c.booking_url} target="_blank" rel="noopener noreferrer"><ExternalLink className="w-4 h-4" /></a></Button>}
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-red-600" onClick={() => { if (confirm("Disconnect?")) delM.mutate(c.id); }}><Trash2 className="w-4 h-4" /></Button>
+                  </div>
                 </div>
               </div>))}</div>}
           </TabsContent>

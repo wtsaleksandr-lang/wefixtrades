@@ -1,9 +1,10 @@
 import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -14,6 +15,8 @@ import {
   ArrowUpDown,
   Eye,
   Users,
+  Pause,
+  Play,
 } from "lucide-react";
 
 interface QQCalculator {
@@ -59,9 +62,26 @@ export default function QuoteQuickPage() {
   const [sortField, setSortField] = useState<SortField>("created_at");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
 
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
   const { data, isLoading } = useQuery<{ calculators: QQCalculator[] }>({
     queryKey: ["/api/admin/crm/quotequick/overview"],
     queryFn: () => apiRequest("GET", "/api/admin/crm/quotequick/overview").then((r) => r.json()),
+  });
+
+  const statusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: number; status: "live" | "paused" }) => {
+      const res = await apiRequest("PATCH", `/api/admin/crm/quotequick/${id}/status`, { status });
+      return res.json();
+    },
+    onSuccess: (_data, { status }) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/quotequick/overview"] });
+      toast({ title: status === "paused" ? "Calculator paused" : "Calculator resumed" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Update failed", description: err?.message || "Try again", variant: "destructive" });
+    },
   });
 
   const calculators = data?.calculators ?? [];
@@ -248,13 +268,38 @@ export default function QuoteQuickPage() {
                           {c.owner_email ?? "--"}
                         </td>
                         <td className="px-4 py-3">
-                          <Link
-                            href={`/EditCalculator?token=admin&slug=${c.slug}`}
-                            className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800 transition-colors"
-                          >
-                            <ExternalLink className="w-3 h-3" />
-                            Edit
-                          </Link>
+                          <div className="flex items-center gap-3">
+                            {c.status === "live" ? (
+                              <button
+                                onClick={() =>
+                                  statusMutation.mutate({ id: c.id, status: "paused" })
+                                }
+                                disabled={statusMutation.isPending}
+                                className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-800 transition-colors disabled:opacity-50"
+                              >
+                                <Pause className="w-3 h-3" />
+                                Pause
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() =>
+                                  statusMutation.mutate({ id: c.id, status: "live" })
+                                }
+                                disabled={statusMutation.isPending}
+                                className="inline-flex items-center gap-1 text-xs font-medium text-green-600 hover:text-green-800 transition-colors disabled:opacity-50"
+                              >
+                                <Play className="w-3 h-3" />
+                                Resume
+                              </button>
+                            )}
+                            <Link
+                              href={`/EditCalculator?token=admin&slug=${c.slug}`}
+                              className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800 transition-colors"
+                            >
+                              <ExternalLink className="w-3 h-3" />
+                              Edit
+                            </Link>
+                          </div>
                         </td>
                       </tr>
                     );

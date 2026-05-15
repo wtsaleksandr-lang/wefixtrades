@@ -821,6 +821,7 @@ export function registerAdminCrmRoutes(app: Express): void {
         client_id: clientServices.client_id,
         service_id: clientServices.service_id,
         status: clientServices.status,
+        enabled: clientServices.enabled,
         metadata: clientServices.metadata,
         business_name: clientsTable.business_name,
         service_name: serviceCatalog.name,
@@ -847,6 +848,7 @@ export function registerAdminCrmRoutes(app: Express): void {
           id: row.id,
           client_id: row.client_id,
           service_id: row.service_id,
+          enabled: row.enabled !== false,
           business_name: row.business_name || "Unknown",
           tier: row.service_id.replace("adflow-", ""),
           has_current_metrics: hasCurrentMetrics,
@@ -1600,6 +1602,46 @@ export function registerAdminCrmRoutes(app: Express): void {
     } catch (err: any) {
       log.error("[admin-crm] QuoteQuick overview error:", err.message);
       res.status(500).json({ error: "Failed to load QuoteQuick overview" });
+    }
+  });
+
+  /**
+   * PATCH /api/admin/crm/quotequick/:calculatorId/status
+   * Pause or resume a QuoteQuick calculator by setting its deployment status.
+   * status "paused" makes the public calculator 404; "live" restores it.
+   */
+  app.patch("/api/admin/crm/quotequick/:calculatorId/status", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const calculatorId = parseInt(String(req.params.calculatorId) as string);
+      if (isNaN(calculatorId)) {
+        return res.status(400).json({ error: "Invalid calculator ID" });
+      }
+
+      const status = req.body?.status;
+      if (status !== "live" && status !== "paused") {
+        return res.status(400).json({ error: "status must be 'live' or 'paused'" });
+      }
+
+      const deployment = await storage.upsertDeploymentStatus({
+        calculator_id: calculatorId,
+        status,
+      });
+
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: (req.user as any)?.id,
+        actor_name: (req.user as any)?.name || (req.user as any)?.email,
+        action: "quotequick.status_updated",
+        entity_type: "calculator",
+        entity_id: calculatorId,
+        summary: `${status === "paused" ? "Paused" : "Resumed"} QuoteQuick calculator #${calculatorId}`,
+        metadata: { status },
+      });
+
+      res.json(deployment);
+    } catch (err: any) {
+      log.error("[admin-crm] QuoteQuick status update error:", err.message);
+      res.status(500).json({ error: "Failed to update calculator status" });
     }
   });
 

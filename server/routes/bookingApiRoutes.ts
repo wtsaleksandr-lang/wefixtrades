@@ -84,6 +84,16 @@ export function registerBookingApiRoutes(app: Express): void {
 
       const result = await getAvailableSlots(clientId, date, clampedDays);
 
+      // Respect the admin "accepting bookings" pause toggle stored on the
+      // connection's metadata. Default true when unset.
+      const connMeta = (result.connection?.metadata as Record<string, any>) || {};
+      if (connMeta.accepting_bookings === false) {
+        return res.json({
+          slots: [],
+          message: "This business is not currently accepting online bookings.",
+        });
+      }
+
       if (result.fallbackUrl) {
         return res.json({
           slots: [],

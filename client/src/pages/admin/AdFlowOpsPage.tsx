@@ -4,7 +4,7 @@ import { Link } from "wouter";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, AlertTriangle, CheckCircle2, ExternalLink, ChevronRight, Eye, RotateCcw, X } from "lucide-react";
+import { Loader2, AlertTriangle, CheckCircle2, ExternalLink, ChevronRight, Eye, RotateCcw, X, Pause, Play } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -12,6 +12,7 @@ interface AdFlowServiceRow {
   id: number;
   client_id: number;
   service_id: string;
+  enabled: boolean;
   business_name: string;
   tier: string;
   has_current_metrics: boolean;
@@ -103,6 +104,20 @@ export default function AdFlowOpsPage() {
     },
     onError: (err: any) => {
       toast({ title: "Re-send failed", description: err?.message || "Try again", variant: "destructive" });
+    },
+  });
+
+  const enabledMutation = useMutation({
+    mutationFn: async ({ id, enabled }: { id: number; enabled: boolean }) => {
+      const res = await apiRequest("PATCH", `/api/admin/crm/client-services/${id}`, { enabled });
+      return res.json();
+    },
+    onSuccess: (_data, { enabled }) => {
+      toast({ title: enabled ? "AdFlow resumed" : "AdFlow paused" });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/adflow/services"] });
+    },
+    onError: (err: any) => {
+      toast({ title: "Update failed", description: err?.message || "Try again", variant: "destructive" });
     },
   });
 
@@ -220,6 +235,20 @@ export default function AdFlowOpsPage() {
                           title="Re-send report"
                         >
                           <RotateCcw className="w-3 h-3 mr-1" /> Re-send
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className={`h-7 px-2 text-xs ${svc.enabled ? "text-amber-600 hover:text-amber-700" : "text-emerald-600 hover:text-emerald-700"}`}
+                          onClick={() => enabledMutation.mutate({ id: svc.id, enabled: !svc.enabled })}
+                          disabled={enabledMutation.isPending}
+                          title={svc.enabled ? "Pause AdFlow (stops reports & metrics checks)" : "Resume AdFlow"}
+                        >
+                          {svc.enabled ? (
+                            <><Pause className="w-3 h-3 mr-1" /> Pause</>
+                          ) : (
+                            <><Play className="w-3 h-3 mr-1" /> Resume</>
+                          )}
                         </Button>
                       </div>
                     </td>
