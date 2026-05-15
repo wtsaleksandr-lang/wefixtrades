@@ -75,6 +75,13 @@ const CLIENT_FIELDS: ReadonlyArray<keyof BrandProfile> = [
   "service_focus",
   "visual_style",
   "reference_image_urls",
+  /* Content-preference fields — collected by the customer onboarding
+   * questionnaire (PortalContentPreferences). Safe for client editing;
+   * unlike colors / logo / forbidden_claims these only shape tone, not
+   * brand-safety guarantees. */
+  "target_audience",
+  "unique_selling_points",
+  "preferred_topics",
 ];
 
 const VALID_TONES: ReadonlySet<Tone> = new Set([

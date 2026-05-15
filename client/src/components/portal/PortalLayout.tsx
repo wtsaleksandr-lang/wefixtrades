@@ -17,6 +17,7 @@ import {
   Receipt,
   MapPin,
   Plus,
+  Sparkles,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useState } from "react";
@@ -99,6 +100,7 @@ function buildNavItems(active: Set<string>): NavItem[] {
        for customers without RankFlow/SocialSync content. Matches the always-visible pattern
        of "Today's jobs", "Invoices", "Billing", "Add Services". ContentFlow Phase B7. */
     { label: "Content", href: "/portal/articles", icon: FileText },
+    { label: "Content Style", href: "/portal/content-preferences", icon: Sparkles, indent: true },
     { label: "MapGuard", href: "/portal/mapguard", icon: MapPin, requires: "mapguard" },
     /* BookFlow tabs are always visible — every customer has a job
        calendar and an invoice ledger, even if they're empty. The
