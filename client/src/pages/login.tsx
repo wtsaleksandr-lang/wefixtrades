@@ -209,17 +209,22 @@ export default function LoginPage() {
     transition: "color 180ms ease, border-color 180ms ease",
   });
 
+  /* CTA test (just on /login per request): keep the #0D3CFC blue but
+   * flip text to off-white (#D5E1E7) so the button reads bright on the
+   * dark page. Previously the dark-on-blue combo made the button look
+   * muddy / "barely visible". */
   const ctaBtnStyle = {
     width: "100%",
     padding: "12px 14px",
-    background: "#0d3cfc",
-    color: "#0B0F14",
+    background: "#0D3CFC",
+    color: "#D5E1E7",
     fontSize: 14,
-    fontWeight: 700,
+    fontWeight: 600,
     border: "none",
     borderRadius: 10,
     cursor: "pointer",
     letterSpacing: "0.04em",
+    transition: "background 180ms ease",
   };
 
   const handleEmailLinkSubmit = (e: FormEvent) => {
@@ -308,7 +313,7 @@ export default function LoginPage() {
                   style={tabBtnStyle(mode === "password")}
                   data-testid="tab-password"
                 >
-                  Password
+                  Login
                 </button>
               </div>
             )}
@@ -332,8 +337,23 @@ export default function LoginPage() {
               </div>
             )}
 
-            {/* ─── Email-link mode ─── */}
-            {mode === "email-link" && !requires2fa && (
+            {/* ─── Email-link mode ───
+              * Both panels stay in the DOM so we can animate the height
+              * transition smoothly via the grid-template-rows trick
+              * (0fr <-> 1fr is interpolatable; auto-height is not).
+              * `pointer-events:none` + `aria-hidden` on the inactive
+              * panel keeps focus + clicks scoped to the active one. */}
+            <div
+              aria-hidden={!(mode === "email-link" && !requires2fa)}
+              style={{
+                display: "grid",
+                gridTemplateRows: mode === "email-link" && !requires2fa ? "1fr" : "0fr",
+                opacity: mode === "email-link" && !requires2fa ? 1 : 0,
+                pointerEvents: mode === "email-link" && !requires2fa ? "auto" : "none",
+                transition: "grid-template-rows 260ms cubic-bezier(0.4, 0, 0.2, 1), opacity 200ms ease",
+              }}
+            >
+              <div style={{ overflow: "hidden" }}>
               <>
                 {!linkSent ? (
                   <form onSubmit={handleEmailLinkSubmit}>
@@ -392,10 +412,21 @@ export default function LoginPage() {
                   </a>
                 </div>
               </>
-            )}
+              </div>
+            </div>
 
-            {/* ─── Password mode ─── */}
-            {(mode === "password" || requires2fa) && (
+            {/* ─── Password mode ─── (same grid-collapse pattern as above) */}
+            <div
+              aria-hidden={!(mode === "password" || requires2fa)}
+              style={{
+                display: "grid",
+                gridTemplateRows: mode === "password" || requires2fa ? "1fr" : "0fr",
+                opacity: mode === "password" || requires2fa ? 1 : 0,
+                pointerEvents: mode === "password" || requires2fa ? "auto" : "none",
+                transition: "grid-template-rows 260ms cubic-bezier(0.4, 0, 0.2, 1), opacity 200ms ease",
+              }}
+            >
+              <div style={{ overflow: "hidden" }}>
               <form onSubmit={handlePasswordSubmit}>
                 {!requires2fa ? (
                   <>
@@ -507,7 +538,8 @@ export default function LoginPage() {
                   )}
                 </div>
               </form>
-            )}
+              </div>
+            </div>
           </div>
         </div>
       </V7PageShell>
