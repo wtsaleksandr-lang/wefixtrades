@@ -494,6 +494,189 @@ app.use((req, res, next) => {
     res.redirect(302, "/admin/crm");
   });
 
+  /* Public ContentFlow draft preview — no auth required.
+   *
+   * Renders any content_draft as a readable HTML page, plus its children
+   * (repurposer fan-out) if any exist. Intended for demoing the system to
+   * stakeholders who don't have admin credentials. Read-only — no actions.
+   *
+   * Uses raw SQL (sql.raw) to dodge any schema-mismatch issues with
+   * Drizzle on tables where code is ahead of the DB. The repurposer chain
+   * currently can't fire on prod because of pending migrations
+   * (journey_summary, trial_pro_expires_at columns missing) — once those
+   * land, children populate here automatically.
+   *
+   * URL: /preview/article/:id
+   * ContentFlow Phase B7.6.
+   */
+  app.get("/preview/article/:id", async (req: Request, res: Response) => {
+    const draftId = parseInt(String(req.params.id), 10);
+    if (!Number.isFinite(draftId)) {
+      return res.status(400).type("html").send("<h1>Bad request</h1><p>Invalid draft id.</p>");
+    }
+    try {
+      const { db } = await import("./db");
+      const { sql } = await import("drizzle-orm");
+
+      const parentRes: any = await db.execute(sql`
+        SELECT id, kind, surface, status, target_platform, title, body, excerpt,
+               metadata, created_at
+        FROM content_drafts
+        WHERE id = ${draftId}
+        LIMIT 1
+      `);
+      const parentRows: any[] = (parentRes?.rows ?? parentRes) as any[];
+      if (!parentRows.length) {
+        return res.status(404).type("html").send(`<h1>Draft ${draftId} not found</h1>`);
+      }
+      const parent = parentRows[0];
+
+      const childrenRes: any = await db.execute(sql`
+        SELECT id, kind, surface, status, target_platform, title, body, excerpt,
+               metadata, created_at
+        FROM content_drafts
+        WHERE (metadata->>'parent_draft_id')::int = ${draftId}
+        ORDER BY id ASC
+      `);
+      const children: any[] = (childrenRes?.rows ?? childrenRes) as any[];
+
+      function escape(s: any): string {
+        if (s == null) return "";
+        return String(s).replace(/[&<>"']/g, (c) =>
+          ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as string),
+        );
+      }
+
+      function renderMarkdown(md: string): string {
+        // Minimal markdown → HTML for headings + paragraphs.
+        const lines = md.split(/\r?\n/);
+        const out: string[] = [];
+        let inPara = false;
+        for (const line of lines) {
+          const t = line.trim();
+          if (!t) {
+            if (inPara) {
+              out.push("</p>");
+              inPara = false;
+            }
+            continue;
+          }
+          if (t.startsWith("## ")) {
+            if (inPara) { out.push("</p>"); inPara = false; }
+            out.push(`<h2>${escape(t.slice(3))}</h2>`);
+          } else if (t.startsWith("# ")) {
+            if (inPara) { out.push("</p>"); inPara = false; }
+            out.push(`<h1>${escape(t.slice(2))}</h1>`);
+          } else {
+            if (!inPara) { out.push("<p>"); inPara = true; }
+            else { out.push(" "); }
+            out.push(escape(t));
+          }
+        }
+        if (inPara) out.push("</p>");
+        return out.join("");
+      }
+
+      function statusBadge(s: string): string {
+        const colors: Record<string, string> = {
+          draft: "#94a3b8",
+          awaiting_admin: "#f59e0b",
+          awaiting_client: "#f59e0b",
+          approved: "#10b981",
+          rejected: "#ef4444",
+          published: "#3b82f6",
+          delivered: "#3b82f6",
+          failed: "#ef4444",
+          pending_approval: "#f59e0b",
+        };
+        const color = colors[s] || "#64748b";
+        return `<span style="display:inline-block;padding:2px 8px;border-radius:4px;background:${color};color:white;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">${escape(s)}</span>`;
+      }
+
+      const parentMeta = parent.metadata || {};
+      const childCount = children.length;
+
+      const childrenHtml = childCount === 0
+        ? `<div style="padding:16px;background:#fff8e1;border-left:4px solid #f59e0b;border-radius:4px;margin-top:24px;">
+             <strong>No repurposer children yet.</strong><br/>
+             <span style="font-size:14px;color:#475569;">
+               The article is approved but the repurposer fan-out hasn't fired (or failed).
+               Once it runs, you'll see 8+ derivative drafts here: 3 Facebook captions, 3 Instagram captions,
+               1 Google Business Profile summary, 1 email newsletter, 1 LinkedIn post,
+               1 Pinterest post, and (if enabled) 1 video script + 1 infographic.
+               Currently blocked by pending DB migrations on production —
+               <code>journey_summary</code> / <code>trial_pro_expires_at</code> columns expected in code but absent in DB.
+             </span>
+           </div>`
+        : children.map((c: any) => {
+            const cMeta = c.metadata || {};
+            const imageUrl = cMeta.media_plan?.image_url || cMeta.media_plan?.url || null;
+            const target = c.target_platform || c.kind;
+            return `
+              <div style="border:1px solid #e2e8f0;border-radius:8px;padding:20px;margin-bottom:16px;background:white;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                  <div>
+                    <span style="display:inline-block;padding:4px 10px;background:#1e293b;color:white;border-radius:4px;font-size:12px;font-weight:600;text-transform:uppercase;">${escape(target)}</span>
+                    <span style="color:#64748b;font-size:13px;margin-left:8px;">draft #${c.id}</span>
+                  </div>
+                  ${statusBadge(c.status)}
+                </div>
+                ${c.title ? `<h3 style="margin:8px 0;font-size:16px;">${escape(c.title)}</h3>` : ""}
+                ${imageUrl ? `<img src="${escape(imageUrl)}" style="max-width:100%;border-radius:6px;margin:8px 0;" alt="" loading="lazy"/>` : ""}
+                <div style="white-space:pre-wrap;color:#1e293b;line-height:1.55;font-size:14px;">${escape(c.body || "(no body)")}</div>
+              </div>`;
+          }).join("");
+
+      const html = `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <meta name="robots" content="noindex,nofollow"/>
+  <title>ContentFlow preview — draft ${draftId}</title>
+  <style>
+    body { font: 16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; margin:0; background:#f8fafc; color:#0f172a; }
+    .container { max-width: 760px; margin: 32px auto; padding: 0 20px; }
+    .banner { background:#0f172a; color:white; padding:16px 20px; border-radius:8px; margin-bottom:24px; font-size:14px; }
+    .banner code { background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:3px; font-size:12px; }
+    .article { background:white; padding:32px; border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,0.05); }
+    .article h1 { font-size:28px; margin-top:0; }
+    .article h2 { font-size:20px; margin-top:28px; color:#334155; }
+    .article p { margin:12px 0; }
+    .meta { color:#64748b; font-size:13px; margin-bottom:24px; display:flex; gap:16px; align-items:center; flex-wrap:wrap; }
+    .children-section { margin-top:40px; }
+    .children-section h2 { font-size:18px; color:#1e293b; margin-bottom:16px; }
+    footer { color:#94a3b8; font-size:12px; text-align:center; margin:32px 0 16px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="banner">
+      <strong>ContentFlow preview</strong> — public read-only view of draft <code>#${draftId}</code> and its repurposed children. No admin auth required. Intended for stakeholder demo.
+    </div>
+    <article class="article">
+      <div class="meta">
+        ${statusBadge(parent.status)}
+        <span>kind: <code>${escape(parent.kind)}</code></span>
+        <span>surface: <code>${escape(parent.surface)}</code></span>
+        <span>created ${new Date(parent.created_at).toLocaleString()}</span>
+      </div>
+      ${renderMarkdown(parent.body || "")}
+    </article>
+    <div class="children-section">
+      <h2>Repurposed children (${childCount})</h2>
+      ${childrenHtml}
+    </div>
+    <footer>WeFixTrades ContentFlow · /preview/article/${draftId}</footer>
+  </div>
+</body>
+</html>`;
+      res.type("html").send(html);
+    } catch (err: any) {
+      res.status(500).type("html").send(`<h1>Preview failed</h1><pre>${err?.message || err}</pre>`);
+    }
+  });
+
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes
