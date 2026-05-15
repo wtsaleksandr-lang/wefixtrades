@@ -2,7 +2,9 @@ import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Smartphone, ExternalLink, Camera, Video } from "lucide-react";
 
-const ANDROID_PUBLIC_KEY = import.meta.env.VITE_APPETIZE_PUBLIC_KEY_ANDROID as string | undefined;
+const ANDROID_PUBLIC_KEY =
+  (import.meta.env.VITE_APPETIZE_PUBLIC_KEY_ANDROID as string | undefined) ||
+  "tok_ibheyws7qdsa2zyfklx2vyjbl4";
 const IOS_PUBLIC_KEY = import.meta.env.VITE_APPETIZE_PUBLIC_KEY_IOS as string | undefined;
 
 type Platform = "android" | "ios";
