@@ -125,6 +125,7 @@ import PortalArticles from "@/pages/portal/PortalArticles";
 import PortalContentPreferences from "@/pages/portal/PortalContentPreferences";
 import ResetPasswordPage from "@/pages/ResetPassword";
 import SignupPage from "@/pages/Signup";
+import SignupBusinessNamePage from "@/pages/SignupBusinessName";
 import BookingCalendarPage from "@/pages/admin/BookingCalendarPage";
 import SystemJobsPage from "@/pages/admin/SystemJobsPage";
 import SystemWorkersPage from "@/pages/admin/SystemWorkersPage";
@@ -262,6 +263,7 @@ function Router() {
       <Route path="/checkout/cancelled" component={CheckoutCancelled} />
       <Route path="/login" component={LoginPage} />
       <Route path="/signup" component={SignupPage} />
+      <Route path="/signup/business" component={SignupBusinessNamePage} />
       <Route path="/reset-password" component={ResetPasswordPage} />
       <Route path="/services" component={MarketingServices} />
       <Route path="/bundles">{() => <Redirect to="/pricing" />}</Route>

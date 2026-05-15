@@ -15,8 +15,21 @@ import { createLogger } from "../lib/logger";
 import { verifyLoginToken, getCheckoutLoginToken, buildLoginToken, MAGIC_LINK_TTL } from "../lib/loginToken";
 import { sendLoginLinkEmail } from "../lib/loginLinkEmail";
 import { sendSelfServeWelcome } from "../lib/selfServeWelcomeEmail";
+import {
+  buildGoogleSigninUrl,
+  verifySigninState,
+  exchangeCodeForProfile,
+  isGoogleSigninConfigured,
+} from "../lib/googleSignin";
 
 const log = createLogger("Auth");
+
+/** Role → post-login landing path. Mirrors the frontend completeLogin(). */
+function landingPathForRole(role: string | undefined): string {
+  if (role === "admin" || role === "portal") return "/admin/crm";
+  if (role === "client") return "/portal";
+  return "/dashboard";
+}
 
 function getClientIp(req: Request): string {
   return (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || "unknown";
@@ -176,6 +189,241 @@ export function registerAuthRoutes(app: Express) {
       log.error("Signup error", { error: String(err) });
       res.status(500).json({ error: "Failed to create account. Please try again." });
     }
+  });
+
+  /* ─── "Continue with Google" — OpenID Connect sign-in ───
+   *
+   * Three routes:
+   *   GET  /api/auth/google/start     → redirect to Google consent
+   *   GET  /api/auth/google/callback  → Google redirects back here
+   *   POST /api/auth/google/complete  → finish a brand-new signup by
+   *                                     supplying the business name
+   *
+   * Account resolution in the callback:
+   *   - google_sub matches a user        → log in
+   *   - email matches a password account → link google_sub + log in,
+   *     but ONLY if Google reports the email as verified
+   *   - no match                         → stash a pending signup in
+   *     the session, redirect to the business-name completion page
+   */
+
+  /** GET /api/auth/google/start — kick off the OAuth redirect. */
+  app.get("/api/auth/google/start", (req, res) => {
+    if (!isGoogleSigninConfigured()) {
+      return res.redirect("/login?google_error=not_configured");
+    }
+    const mode = req.query.mode === "signup" ? "signup" : "login";
+    try {
+      return res.redirect(buildGoogleSigninUrl(mode));
+    } catch (err: any) {
+      log.error("Google sign-in start failed", { error: err?.message });
+      return res.redirect("/login?google_error=start_failed");
+    }
+  });
+
+  /** GET /api/auth/google/callback — exchange the code, resolve the account. */
+  app.get("/api/auth/google/callback", async (req, res, next) => {
+    const { code, state, error: oauthError } = req.query;
+
+    if (oauthError) {
+      // User declined consent, or Google returned an error.
+      return res.redirect(`/login?google_error=${encodeURIComponent(String(oauthError))}`);
+    }
+    if (!code || typeof code !== "string") {
+      return res.redirect("/login?google_error=missing_code");
+    }
+    if (!verifySigninState(String(state))) {
+      log.warn("Google sign-in callback: state HMAC verification failed");
+      return res.redirect("/login?google_error=invalid_state");
+    }
+
+    let profile;
+    try {
+      profile = await exchangeCodeForProfile(code);
+    } catch (err: any) {
+      log.error("Google sign-in code exchange failed", { error: err?.message });
+      return res.redirect("/login?google_error=exchange_failed");
+    }
+
+    try {
+      // Helper: complete login for an existing user, honoring 2FA.
+      const loginExisting = async (userId: number) => {
+        const [fullUser] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+        if (!fullUser) return res.redirect("/login?google_error=account_lookup_failed");
+
+        if (fullUser.totp_enabled) {
+          // Route through the existing 2FA gate — Google sign-in must
+          // not bypass an app-level second factor the user chose to set.
+          const sess = req.session as any;
+          sess.pending2faUserId = fullUser.id;
+          return req.session.save((saveErr: Error | null) => {
+            if (saveErr) return next(saveErr);
+            return res.redirect("/login?verify2fa=1");
+          });
+        }
+
+        const sessionUser: Express.User = {
+          id: fullUser.id, email: fullUser.email, role: fullUser.role, name: fullUser.name,
+        };
+        return req.logIn(sessionUser, (loginErr) => {
+          if (loginErr) return next(loginErr);
+          return res.redirect(landingPathForRole(fullUser.role));
+        });
+      };
+
+      // 1. Known Google identity → straight in.
+      const byGoogle = await storage.getUserByGoogleSub(profile.sub);
+      if (byGoogle) {
+        return await loginExisting(byGoogle.id);
+      }
+
+      // 2. Email matches an existing (password) account.
+      const byEmail = await storage.getUserByEmail(profile.email);
+      if (byEmail) {
+        if (!profile.email_verified) {
+          // Can't safely attach a Google identity to an existing
+          // account when Google won't vouch for the email.
+          return res.redirect("/login?google_error=email_unverified");
+        }
+        // Auto-link: attach the Google sub to the existing account.
+        await db.update(users).set({ google_sub: profile.sub }).where(eq(users.id, byEmail.id));
+        log.info("Linked Google identity to existing account", { userId: byEmail.id });
+        return await loginExisting(byEmail.id);
+      }
+
+      // 3. Brand-new user — defer creation until they give a business
+      //    name. Stash the verified Google identity in the session.
+      const sess = req.session as any;
+      sess.pendingGoogleSignup = {
+        sub: profile.sub,
+        email: profile.email,
+        name: profile.name,
+        ts: Date.now(),
+      };
+      return req.session.save((saveErr: Error | null) => {
+        if (saveErr) return next(saveErr);
+        return res.redirect("/signup/business");
+      });
+    } catch (err: any) {
+      log.error("Google sign-in callback error", { error: String(err) });
+      return res.redirect("/login?google_error=internal");
+    }
+  });
+
+  /**
+   * POST /api/auth/google/complete
+   * Finishes a brand-new Google signup. Reads the pending signup from
+   * the session (set by the callback), creates the user + client with
+   * the supplied business name, and logs the user in.
+   */
+  app.post("/api/auth/google/complete", async (req, res, next) => {
+    try {
+      const sess = req.session as any;
+      const pending = sess.pendingGoogleSignup as
+        | { sub: string; email: string; name: string | null; ts: number }
+        | undefined;
+
+      if (!pending || !pending.sub || !pending.email) {
+        return res.status(400).json({ error: "No pending Google signup. Please start sign-in again." });
+      }
+      // Pending signup is short-lived — 30 min guards against a stale
+      // session being completed long after the OAuth handshake.
+      if (Date.now() - pending.ts > 30 * 60 * 1000) {
+        delete sess.pendingGoogleSignup;
+        return res.status(400).json({ error: "This signup session expired. Please sign in with Google again." });
+      }
+
+      const { businessName, phone } = req.body;
+      if (!businessName || typeof businessName !== "string" || !businessName.trim()) {
+        return res.status(400).json({ error: "Business name is required" });
+      }
+
+      // Race guard: another tab / a retry may have already created the
+      // account. If so, just log into it.
+      const alreadyByGoogle = await storage.getUserByGoogleSub(pending.sub);
+      if (alreadyByGoogle) {
+        delete sess.pendingGoogleSignup;
+        const su: Express.User = {
+          id: alreadyByGoogle.id, email: alreadyByGoogle.email,
+          role: alreadyByGoogle.role, name: alreadyByGoogle.name,
+        };
+        return req.logIn(su, (e) => {
+          if (e) return next(e);
+          return res.json({ user: su });
+        });
+      }
+      const alreadyByEmail = await storage.getUserByEmail(pending.email);
+      if (alreadyByEmail) {
+        return res.status(409).json({ error: "An account with this email already exists. Please sign in instead." });
+      }
+
+      // Google-created users get a random unusable password. They can
+      // claim a real one later via the forgot-password flow.
+      const randomPassword = randomBytes(32).toString("hex");
+      const user = await storage.createUser({
+        email: pending.email,
+        password_hash: hashPassword(randomPassword),
+        name: pending.name || pending.email.split("@")[0],
+        role: "client",
+        google_sub: pending.sub,
+      });
+
+      // Linked client record — same 14-day Pro-features trial as the
+      // standard self-serve signup (server/routes/authRoutes.ts signup).
+      const TRIAL_DAYS = 14;
+      const trialExpiresAt = new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000);
+      const client = await storage.createClient({
+        business_name: businessName.trim(),
+        contact_name: user.name || "",
+        contact_email: pending.email,
+        contact_phone: typeof phone === "string" && phone.trim() ? phone.trim() : null,
+        user_id: user.id,
+        status: "lead",
+        source: "website",
+        trial_pro_features_enabled: true,
+        trial_pro_expires_at: trialExpiresAt,
+      });
+
+      log.info("Google self-serve signup completed", { userId: user.id, clientId: client.id });
+
+      await storage.logAdminActivity({
+        actor_type: "system",
+        actor_name: "Google Sign-In",
+        action: "client.signup",
+        entity_type: "client",
+        entity_id: client.id,
+        summary: `Free account created via Google for "${businessName.trim()}" (${pending.email})`,
+      });
+
+      sendSelfServeWelcome({ user, client }).catch((err) =>
+        log.warn("[google-signup] welcome email failed", { userId: user.id, error: err?.message }),
+      );
+
+      delete sess.pendingGoogleSignup;
+
+      const sessionUser: Express.User = { id: user.id, email: user.email, role: user.role, name: user.name };
+      req.logIn(sessionUser, (loginErr) => {
+        if (loginErr) return next(loginErr);
+        return res.json({ user: sessionUser });
+      });
+    } catch (err) {
+      log.error("Google signup completion error", { error: String(err) });
+      res.status(500).json({ error: "Failed to finish signup. Please try again." });
+    }
+  });
+
+  /**
+   * GET /api/auth/google/pending
+   * Lets the business-name completion page confirm a pending Google
+   * signup exists (and prefill the person's name) before rendering.
+   */
+  app.get("/api/auth/google/pending", (req, res) => {
+    const sess = req.session as any;
+    const pending = sess.pendingGoogleSignup as
+      | { email: string; name: string | null; ts: number }
+      | undefined;
+    if (!pending) return res.json({ pending: false });
+    res.json({ pending: true, email: pending.email, name: pending.name });
   });
 
   /* ─── Token-based login (post-checkout auto-login) ─── */

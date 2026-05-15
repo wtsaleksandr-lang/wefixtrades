@@ -25,6 +25,14 @@ export const users = pgTable("users", {
   role: text("role").notNull().default("client"),
   totp_secret: text("totp_secret"),
   totp_enabled: boolean("totp_enabled").default(false),
+  /**
+   * Google account subject ID — the stable `sub` claim from Google's
+   * OpenID token. Set when a user signs in via "Continue with Google".
+   * Null for password-only accounts. Google-created users get a random
+   * unusable password_hash and can claim a real password later via the
+   * standard forgot-password flow.
+   */
+  google_sub: text("google_sub").unique(),
   created_at: timestamp("created_at").defaultNow(),
 });
 

@@ -235,6 +235,7 @@ export interface IStorage {
   createUser(data: InsertUser): Promise<User>;
   getUserById(id: number): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
+  getUserByGoogleSub(googleSub: string): Promise<User | undefined>;
   updateUser(id: number, updates: Partial<Pick<InsertUser, 'name' | 'email' | 'role'>>): Promise<User | undefined>;
   listUsers(limit?: number, offset?: number): Promise<User[]>;
   getUserCount(): Promise<number>;
@@ -1300,6 +1301,11 @@ export class DatabaseStorage implements IStorage {
 
   async getUserByEmail(email: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
+    return user;
+  }
+
+  async getUserByGoogleSub(googleSub: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.google_sub, googleSub)).limit(1);
     return user;
   }
 
