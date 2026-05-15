@@ -1,33 +1,28 @@
 /**
- * Admin tool definitions, pending action store, and executors.
+ * Admin copilot actions.
  *
- * Safety rules enforced here:
- * - Allowlist: only tools in TOOL_EXECUTORS can be executed
- * - Single-use: consumePendingAction deletes the entry on retrieval
- * - TTL: actions expire after 5 minutes
- * - User binding: stored user_id must match the confirming session
+ * Action definitions + executors for the ADMIN surface. They register into
+ * the shared copilotActionRegistry — the framework (pending-action store,
+ * single-use / TTL / user-binding, confirm flow) lives there. This file
+ * holds only admin-specific actions and the admin tool-injection gate.
  */
 
-import crypto from "crypto";
 import { storage } from "../storage";
 import type { PageContext } from "./promptBuilder";
 import { createLogger } from "../lib/logger";
+import {
+  registerCopilotAction,
+  getCopilotActionsForSurface,
+  type CopilotAction,
+  type ActionTool,
+  type PendingAction,
+  type ActionExecutionResult,
+} from "./copilotActionRegistry";
 
 const log = createLogger("AdminTools");
 
-/* ─── Tool type ─── */
-export interface AdminTool {
-  name: string;
-  description: string;
-  input_schema: {
-    type: "object";
-    properties: Record<string, { type: string; description?: string; enum?: string[] }>;
-    required?: string[];
-  };
-}
-
-/* ─── Tool definitions ─── */
-export const UPDATE_TASK_STATUS_TOOL: AdminTool = {
+/* ─── update_task_status ─── */
+const UPDATE_TASK_STATUS_TOOL: ActionTool = {
   name: "update_task_status",
   description:
     "Update the status of a fulfillment task. " +
@@ -56,63 +51,6 @@ export const UPDATE_TASK_STATUS_TOOL: AdminTool = {
   },
 };
 
-export const ADMIN_TOOLS: AdminTool[] = [UPDATE_TASK_STATUS_TOOL];
-
-/* ─── Pages where tools may be injected ─── */
-const TOOL_CAPABLE_PAGES = ["client_detail", "inbox"];
-
-/**
- * All four criteria must be true to inject tools:
- * 1. ADMIN_TOOLS_ENABLED env var is set
- * 2. Page is in the tool-capable list
- * 3. Page context exists
- * 4. At least one task with a valid numeric ID is present
- */
-export function shouldInjectTools(pageContext?: PageContext): boolean {
-  if (process.env.ADMIN_TOOLS_ENABLED !== "true") return false;
-  if (!pageContext) return false;
-  if (!TOOL_CAPABLE_PAGES.includes(pageContext.page)) return false;
-  return pageContext.topTasks?.some((t) => typeof t.id === "number") ?? false;
-}
-
-/* ─── Pending action store (in-process, TTL 5 min) ─── */
-export interface PendingToolAction {
-  call_id: string;
-  tool_name: string;
-  args: Record<string, unknown>;
-  user_id: number;
-  session_id: string;
-  expires: number;
-  /** Contextual metadata captured at store time (e.g. current_status for no-op detection) */
-  metadata?: Record<string, unknown>;
-}
-
-const pendingToolStore = new Map<string, PendingToolAction>();
-
-export function storePendingAction(action: PendingToolAction): void {
-  // Prune expired entries on each write
-  const now = Date.now();
-  for (const [id, a] of pendingToolStore) {
-    if (a.expires < now) pendingToolStore.delete(id);
-  }
-  pendingToolStore.set(action.call_id, action);
-}
-
-/** Retrieves and immediately deletes the action (single-use). Returns null if not found or expired. */
-export function consumePendingAction(call_id: string): PendingToolAction | null {
-  const action = pendingToolStore.get(call_id);
-  if (!action) return null;
-  pendingToolStore.delete(call_id);
-  if (action.expires < Date.now()) return null;
-  return action;
-}
-
-/* ─── Executor result type ─── */
-export interface ToolExecutionResult {
-  narrative: string;
-}
-
-/* ─── update_task_status executor ─── */
 const VALID_STATUSES = new Set([
   "not_started", "submitted", "in_progress",
   "waiting", "blocked", "qa_review", "revision_required",
@@ -120,9 +58,9 @@ const VALID_STATUSES = new Set([
 ]);
 
 async function executeUpdateTaskStatus(
-  action: PendingToolAction,
+  action: PendingAction,
   confirmedByUserId: number,
-): Promise<ToolExecutionResult> {
+): Promise<ActionExecutionResult> {
   const { args } = action;
   const task_id = args.task_id;
   const status = args.status as string;
@@ -190,10 +128,33 @@ async function executeUpdateTaskStatus(
   return { narrative };
 }
 
-/* ─── Allowlist — only entries here can be executed via /api/admin/tool-confirm ─── */
-export const TOOL_EXECUTORS: Record<
-  string,
-  (action: PendingToolAction, confirmedByUserId: number) => Promise<ToolExecutionResult>
-> = {
-  update_task_status: executeUpdateTaskStatus,
+const UPDATE_TASK_STATUS_ACTION: CopilotAction = {
+  name: "update_task_status",
+  surface: "admin",
+  riskTier: "low",
+  tool: UPDATE_TASK_STATUS_TOOL,
+  execute: executeUpdateTaskStatus,
 };
+
+/* ─── Register admin actions ─── */
+registerCopilotAction(UPDATE_TASK_STATUS_ACTION);
+
+/* ─── Admin tool-injection gate ─── */
+const TOOL_CAPABLE_PAGES = ["client_detail", "inbox"];
+
+/**
+ * All four criteria must be true to inject tools into the admin model call:
+ * 1. ADMIN_TOOLS_ENABLED env var is set
+ * 2. Page is in the tool-capable list
+ * 3. Page context exists
+ * 4. At least one task with a valid numeric ID is present
+ */
+export function shouldInjectTools(pageContext?: PageContext): boolean {
+  if (process.env.ADMIN_TOOLS_ENABLED !== "true") return false;
+  if (!pageContext) return false;
+  if (!TOOL_CAPABLE_PAGES.includes(pageContext.page)) return false;
+  return pageContext.topTasks?.some((t) => typeof t.id === "number") ?? false;
+}
+
+/** Anthropic tool definitions for the admin surface — handed to the model. */
+export const ADMIN_TOOLS: ActionTool[] = getCopilotActionsForSurface("admin").map((a) => a.tool);

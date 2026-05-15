@@ -1,6 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { requireAdmin } from "../auth";
-import { consumePendingAction, TOOL_EXECUTORS } from "../services/adminTools";
+import { consumePendingAction, getCopilotAction } from "../services/copilotActionRegistry";
 import { createLogger } from "../lib/logger";
 
 const log = createLogger("AdminTool");
@@ -49,14 +49,20 @@ export function registerAdminToolRoutes(app: Express): void {
         return res.status(403).json({ error: "Action belongs to a different session" });
       }
 
-      // Verify tool is in the allowlist
-      const executor = TOOL_EXECUTORS[action.tool_name];
-      if (!executor) {
-        return res.status(400).json({ error: `Unknown tool: ${action.tool_name}` });
+      // Separation guard — this is the ADMIN confirm endpoint; it must never
+      // execute a portal-surface action (and vice versa).
+      if (action.surface !== "admin") {
+        return res.status(403).json({ error: "Action surface mismatch" });
       }
 
-      // Execute — full action passed so executor can use session_id and metadata
-      const result = await executor(action, sessionUserId);
+      // Verify the action is registered for the admin surface (allowlist)
+      const def = getCopilotAction("admin", action.action_name);
+      if (!def) {
+        return res.status(400).json({ error: `Unknown action: ${action.action_name}` });
+      }
+
+      // Execute — full action passed so the executor can use session_id + metadata
+      const result = await def.execute(action, sessionUserId);
 
       return res.json({ success: true, narrative: result.narrative });
     } catch (err: any) {
