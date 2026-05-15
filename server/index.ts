@@ -481,6 +481,19 @@ app.use((req, res, next) => {
     return res.status(status).json({ message });
   });
 
+  /* Server-side admin convenience redirect.
+   *
+   * Lives ahead of the Vite/serveStatic catch-all so it intercepts /admin
+   * BEFORE the SPA HTML is served — browser sees a 302 and does a fresh
+   * full-page navigation to /admin/crm. Avoids the client-side redirect
+   * chain (/admin → <Redirect> → /admin/crm → RequirePortal) where a
+   * transient `isLoading` window in useAuth can cause the wrapper's
+   * "not portal user" branch to fire before the auth query resolves,
+   * landing the user on the marketing home. ContentFlow Phase B7.5. */
+  app.get("/admin", (_req: Request, res: Response) => {
+    res.redirect(302, "/admin/crm");
+  });
+
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes
