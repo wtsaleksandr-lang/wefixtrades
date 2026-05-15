@@ -1,0 +1,72 @@
+# Copilot form-fill exemptions (Phase 1d guard — scripts/check-copilot-forms.mjs)
+#
+# Pages listed here are NOT required to call useCopilotForm(). List a page
+# here only when it has no user-fillable form — a dashboard, a read-only
+# list/detail view, a wizard driven by button choices — or when filling it
+# with AI is deliberately disallowed (password / credential forms).
+#
+# If you add a new page WITH an editable form, do NOT list it here — wire it
+# with useCopilotForm() instead. If a listed page later gains a fillable
+# form, remove it from this list and wire it (the guard will remind you).
+
+# ── Admin: dashboards / lists / read-only / ops monitors ──
+client/src/pages/admin/AdFlowOpsPage.tsx
+client/src/pages/admin/AdminAuditLogPage.tsx
+client/src/pages/admin/AdminChatHistoryPage.tsx
+client/src/pages/admin/AiDashboard.tsx
+client/src/pages/admin/BillingPage.tsx
+client/src/pages/admin/BookingCalendarPage.tsx
+client/src/pages/admin/ClientsPage.tsx
+client/src/pages/admin/ContentFlowQueuePage.tsx
+client/src/pages/admin/CrmOverview.tsx
+client/src/pages/admin/InboxPage.tsx
+client/src/pages/admin/InstallQueuePage.tsx
+client/src/pages/admin/IntegrationHealthPage.tsx
+client/src/pages/admin/MapguardDashboard.tsx
+client/src/pages/admin/MobilePreview/PhoneFrame.tsx
+client/src/pages/admin/MobilePreview/PreviewScreens.tsx
+client/src/pages/admin/MobilePreview/index.tsx
+client/src/pages/admin/QuoteQuickPage.tsx
+client/src/pages/admin/RankFlowOpsPage.tsx
+client/src/pages/admin/SalesPipelinePage.tsx
+client/src/pages/admin/ServicesPage.tsx
+client/src/pages/admin/SocialSyncOpsPage.tsx
+client/src/pages/admin/SupportInboxPage.tsx
+client/src/pages/admin/SupportTicketDetailPage.tsx
+client/src/pages/admin/SystemAlertsPage.tsx
+client/src/pages/admin/SystemAvailabilityPage.tsx
+client/src/pages/admin/SystemJobsPage.tsx
+client/src/pages/admin/SystemWorkersPage.tsx
+client/src/pages/admin/TradeLineOpsPage.tsx
+client/src/pages/admin/TradelineLearningPage.tsx
+client/src/pages/admin/TradelineSetupsPage.tsx
+client/src/pages/admin/TradelineTemplatesPage.tsx
+client/src/pages/admin/outbound/CampaignsPage.tsx
+client/src/pages/admin/outbound/PipelinePage.tsx
+client/src/pages/admin/outbound/ProspectsPage.tsx
+
+# ── Admin: deliberately excluded — password / credential form ──
+client/src/pages/admin/ChangePasswordPage.tsx
+
+# ── Portal: dashboards / lists / read-only views ──
+client/src/pages/portal/ChatWidgetInstallEntry.tsx
+client/src/pages/portal/ChatWidgetInstallOnboarding.tsx
+client/src/pages/portal/DispatchPage.tsx
+client/src/pages/portal/InvoicesPage.tsx
+client/src/pages/portal/PortalBilling.tsx
+client/src/pages/portal/PortalChatHistoryPage.tsx
+client/src/pages/portal/PortalDashboard.tsx
+client/src/pages/portal/PortalHelp.tsx
+client/src/pages/portal/PortalRankFlow.tsx
+client/src/pages/portal/PortalServices.tsx
+client/src/pages/portal/PortalSocialSync.tsx
+
+# ── Portal: TradeLine setup wizard — button-driven choices, not a form ──
+client/src/pages/portal/TradelineSetup/BellDeviceSettings.tsx
+client/src/pages/portal/TradelineSetup/ChoiceCard.tsx
+client/src/pages/portal/TradelineSetup/DashboardBanner.tsx
+client/src/pages/portal/TradelineSetup/OptionANewNumber.tsx
+client/src/pages/portal/TradelineSetup/OptionBForward.tsx
+client/src/pages/portal/TradelineSetup/OptionCPort.tsx
+client/src/pages/portal/TradelineSetup/SignaturePad.tsx
+client/src/pages/portal/TradelineSetup/index.tsx
