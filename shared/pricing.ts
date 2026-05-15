@@ -533,6 +533,62 @@ export const ADFLOW: ProductDef = {
   ],
 };
 
+/* ═══════════════════════════════════════════
+   K. CONTENTFLOW
+   ═══════════════════════════════════════════ */
+export const CONTENTFLOW: ProductDef = {
+  id: "contentflow",
+  name: "ContentFlow™",
+  tagline: "AI that writes, designs, and publishes your content — across every channel",
+  category: "visibility",
+  tiers: [
+    {
+      id: "contentflow-creator",
+      name: "Creator",
+      price: 49,
+      billingPeriod: "monthly",
+      features: [
+        "1 business profile",
+        "~12 AI content pieces/month (articles + social posts)",
+        "Up to 3 connected channels",
+        "AI-generated images",
+        "Content-style questionnaire — set your tone, topics & audience",
+        "Approve-before-publish review queue",
+      ],
+    },
+    {
+      id: "contentflow-studio",
+      name: "Studio",
+      price: 99,
+      billingPeriod: "monthly",
+      highlighted: true,
+      badge: "Most Popular",
+      features: [
+        "Up to 3 business profiles",
+        "~40 AI content pieces/month",
+        "All publish channels (blog, Facebook, Instagram, Google, LinkedIn, Pinterest, email)",
+        "Premium AI model for higher-quality writing",
+        "AI-generated images on every post",
+        "Automated multi-channel repurposing",
+      ],
+    },
+    {
+      id: "contentflow-agency",
+      name: "Agency",
+      price: 199,
+      billingPeriod: "monthly",
+      features: [
+        "Unlimited business profiles",
+        "~120 AI content pieces/month",
+        "All publish channels",
+        "Premium AI model",
+        "AI video generation",
+        "Priority generation & support",
+      ],
+    },
+  ],
+};
+
 /* ─── All Products (ordered) ─── */
 export const ALL_PRODUCTS: ProductDef[] = [
   SITELAUNCH,
@@ -544,6 +600,7 @@ export const ALL_PRODUCTS: ProductDef[] = [
   RANKFLOW,
   REPUTATIONSHIELD,
   SOCIALSYNC,
+  CONTENTFLOW,
   WEBFIX,
 ];
 
