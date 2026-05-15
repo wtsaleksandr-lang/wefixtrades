@@ -1128,6 +1128,89 @@ export function registerAdminCrmRoutes(app: Express): void {
     }
   });
 
+  /**
+   * POST /api/admin/crm/fulfillment/:id/process
+   * AI assist for an automatable fulfillment task. Generates a concrete
+   * action plan via the provider rotator (Claude → OpenAI → Gemini) and
+   * records it on the task. Does NOT change task status — the operator
+   * still drives status with the normal controls.
+   */
+  app.post("/api/admin/crm/fulfillment/:id/process", requireAdmin, async (req: Request, res: Response) => {
+    const id = parseInt(String(req.params.id), 10);
+    if (!Number.isInteger(id) || id <= 0) {
+      return res.status(400).json({ error: "Invalid task id" });
+    }
+    try {
+      const task = await storage.getFulfillmentTask(id);
+      if (!task) return res.status(404).json({ error: "Fulfillment task not found" });
+      if (task.status === "delivered" || task.status === "cancelled") {
+        return res.status(400).json({ error: `Task is ${task.status} — nothing to process` });
+      }
+
+      await storage.updateFulfillmentTask(id, { automation_status: "running" } as any);
+
+      const { generateText } = await import("../services/ai/textRotator");
+      const outcome = await generateText({
+        tier: "standard",
+        max_tokens: 700,
+        system:
+          "You are an operations copilot for WeFixTrades, a done-for-you marketing agency for trades businesses. " +
+          "Given a client fulfillment task, produce a short, concrete action plan the admin can follow to complete it. " +
+          "Numbered steps only — no preamble, no sign-off. Each step is one concrete action. Maximum 8 steps.",
+        user: [
+          `Task: ${task.title}`,
+          task.description ? `Details: ${task.description}` : "",
+          task.service_name ? `Service: ${task.service_name}` : "",
+          task.client_name ? `Client: ${task.client_name}` : "",
+          `Current status: ${task.status}`,
+        ].filter(Boolean).join("\n"),
+      });
+
+      if (!outcome.ok) {
+        await storage.updateFulfillmentTask(id, { automation_status: "failed" } as any);
+        log.error("[admin-crm] fulfillment process — all AI providers failed", { taskId: id, tried: outcome.tried });
+        return res.status(502).json({ error: "AI providers unavailable — please try again shortly" });
+      }
+
+      const plan = outcome.data.text.trim();
+      if (!plan) {
+        await storage.updateFulfillmentTask(id, { automation_status: "failed" } as any);
+        return res.status(502).json({ error: "AI returned an empty plan — please try again" });
+      }
+
+      const firstLine = plan.split("\n").map((l) => l.trim()).find(Boolean);
+      const firstStep = firstLine ? firstLine.replace(/^\d+[.)]\s*/, "").slice(0, 280) : null;
+
+      await storage.updateFulfillmentTask(id, {
+        automation_status: "completed",
+        last_action: `AI assist via ${outcome.provider}`,
+        last_action_at: new Date(),
+        next_action: firstStep || task.next_action,
+        metadata: {
+          ...((task.metadata as Record<string, unknown>) || {}),
+          automation_plan: plan,
+          automation_plan_at: new Date().toISOString(),
+        },
+      } as any);
+
+      await storage.logAdminActivity({
+        actor_type: "ai_agent",
+        actor_id: (req.user as any)?.id,
+        actor_name: "AI Copilot",
+        action: "fulfillment.processed",
+        entity_type: "fulfillment_task",
+        entity_id: id,
+        summary: `AI assist generated an action plan for task "${task.title}" (provider: ${outcome.provider})`,
+      }).catch((err: any) => log.error("logAdminActivity failed", { error: err.message }));
+
+      res.json({ ok: true, result: { provider: outcome.provider, message: plan } });
+    } catch (err: any) {
+      await storage.updateFulfillmentTask(id, { automation_status: "failed" } as any).catch(() => {});
+      log.error("[admin-crm] fulfillment process error:", err.message);
+      res.status(500).json({ error: "Failed to process fulfillment task" });
+    }
+  });
+
   /* ═══════════════════════════════════════════
      Suppliers — moved to adminSupplierRoutes.ts
      See /api/admin/suppliers/* endpoints

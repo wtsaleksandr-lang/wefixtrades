@@ -210,7 +210,10 @@ export function TaskCard({
   async function handleProcess() {
     setProcessing(true);
     try {
-      const res = await fetch(`/api/admin/crm/fulfillment/${task.id}/process`, { method: "POST" });
+      const res = await fetch(`/api/admin/crm/fulfillment/${task.id}/process`, {
+        method: "POST",
+        credentials: "include",
+      });
       const data = await res.json();
       if (!res.ok) {
         toast({ title: "Process failed", description: data.error || "Unknown error", variant: "destructive" });
