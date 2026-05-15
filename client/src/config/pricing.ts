@@ -171,7 +171,7 @@ export function mergeProductsWithDb(base: Product[], overrides: DbProductOverrid
  * merged so per-tier price / features / badge / highlighted reflect
  * what admin published. Falls back to hardcoded ALL_PRODUCTS for any
  * product the DB doesn't yet have a row for. */
-import type { Tier as TierDef } from "@shared/pricing";
+import type { Tier as TierDef, ProductDef } from "@shared/pricing";
 
 function mergeTiers(base: TierDef[], dbTiers: NonNullable<DbProductOverride["tiers"]>): TierDef[] {
   const dbById = new Map(dbTiers.map((t) => [t.id, t]));

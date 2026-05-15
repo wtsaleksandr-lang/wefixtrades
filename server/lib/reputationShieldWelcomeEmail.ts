@@ -66,7 +66,7 @@ export async function sendReputationShieldWelcome(data: ReputationShieldWelcomeD
   `.trim();
 
   const html = buildTransactionalEmail({
-    subject,
+    subjectForTitle: subject,
     headline: "ReputationShield is ready",
     intro,
     bodyHtml,
