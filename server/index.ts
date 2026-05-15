@@ -86,6 +86,35 @@ function validateEnv(): void {
     }
   }
 
+  /* ─── ReputationShield env sanity check ───
+     RS fails silently per-customer when these are unset (review
+     ingestion / token encryption / request delivery all no-op).
+     Warn loudly at boot rather than discovering it via a support
+     ticket. Non-fatal — RS isn't the whole platform. */
+  {
+    const rsVars: Array<{ key: string; impact: string }> = [
+      { key: "OUTSCRAPER_API_KEY", impact: "Google/Facebook review ingestion is dead" },
+      { key: "TOKEN_ENCRYPTION_KEY", impact: "Google Business OAuth connect breaks" },
+      { key: "SMTP_HOST", impact: "review-request + report emails won't send" },
+    ];
+    const missingRs = rsVars.filter(({ key }) => !process.env[key]);
+    if (missingRs.length > 0) {
+      logger.warn(
+        "ReputationShield env vars missing — RS will partially fail: " +
+          missingRs.map(({ key, impact }) => `${key} (${impact})`).join("; "),
+      );
+    }
+    // Twilio is the marketed default review-request channel; its absence
+    // silently degrades RS to email-only.
+    const twilioVars = ["TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN"];
+    if (twilioVars.some((k) => !process.env[k])) {
+      logger.warn(
+        "ReputationShield: Twilio not fully configured — SMS review requests " +
+          "will fall back to email-only.",
+      );
+    }
+  }
+
   /* ─── Dev-tool guard: these flags must NEVER be set in production ─── */
   if (isProduction && process.env.DEV_TOOLS_ENABLED) {
     logger.error(
