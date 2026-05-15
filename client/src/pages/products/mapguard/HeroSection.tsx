@@ -145,7 +145,7 @@ export default function HeroSection() {
                 padding: "14px 28px",
                 borderRadius: 12,
                 background: mkt.accent,
-                color: mkt.dark,
+                color: "#FFFFFF",
                 fontSize: 15,
                 fontWeight: 700,
                 textDecoration: "none",
@@ -154,7 +154,8 @@ export default function HeroSection() {
               }}
               onMouseEnter={(e) => {
                 const el = e.currentTarget as HTMLElement;
-                el.style.boxShadow = "0 0 40px rgba(13,60,252,0.35)";
+                // White inner border + the existing outer glow on hover.
+                el.style.boxShadow = "inset 0 0 0 1.5px #FFFFFF, 0 0 40px rgba(13,60,252,0.35)";
                 el.style.transform = "translateY(-1px)";
               }}
               onMouseLeave={(e) => {

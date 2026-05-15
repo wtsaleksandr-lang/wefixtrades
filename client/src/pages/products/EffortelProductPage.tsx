@@ -275,7 +275,7 @@ function Hero({ cfg, hook, slug }: { cfg: ReturnType<typeof getProductBySlug> & 
             </Reveal>
             <Reveal delay={0.16}>
               <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                <Link href={cfg.primaryCTA.href} style={ctaPrimary}>
+                <Link href={cfg.primaryCTA.href} className="wft-hover-border-white" style={ctaPrimary}>
                   {cfg.primaryCTA.label} <ArrowRight size={16} />
                 </Link>
                 {cfg.secondaryCTA && (
@@ -348,7 +348,7 @@ function Hero({ cfg, hook, slug }: { cfg: ReturnType<typeof getProductBySlug> & 
         </Reveal>
         <Reveal delay={0.16}>
           <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-            <Link href={cfg.primaryCTA.href} style={ctaPrimary}>
+            <Link href={cfg.primaryCTA.href} className="wft-hover-border-white" style={ctaPrimary}>
               {cfg.primaryCTA.label} <ArrowRight size={16} />
             </Link>
             {cfg.secondaryCTA && (
@@ -697,7 +697,7 @@ function FinalCta({ cfg }: { cfg: ReturnType<typeof getProductBySlug> & {} }) {
         <p style={{ position: "relative", fontSize: 16, lineHeight: 1.55, color: mkt.onDarkMuted, marginBottom: 32 }}>
           Setup is fast. No card required. Cancel anytime.
         </p>
-        <Link href={cfg.primaryCTA.href} style={{ ...ctaPrimary, position: "relative", fontSize: 14, padding: "16px 32px" }}>
+        <Link href={cfg.primaryCTA.href} className="wft-hover-border-white" style={{ ...ctaPrimary, position: "relative", fontSize: 14, padding: "16px 32px" }}>
           {cfg.primaryCTA.label} <ArrowRight size={18} />
         </Link>
       </div>

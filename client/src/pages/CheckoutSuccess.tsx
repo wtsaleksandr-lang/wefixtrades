@@ -243,6 +243,7 @@ export default function CheckoutSuccess() {
             {isLoggedIn ? (
               <button
                 onClick={() => navigate("/portal")}
+                className="wft-hover-border-white"
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
@@ -250,7 +251,7 @@ export default function CheckoutSuccess() {
                   padding: "14px 28px",
                   borderRadius: 12,
                   background: mkt.accent,
-                  color: mkt.dark,
+                  color: "#FFFFFF",
                   fontSize: 14,
                   fontWeight: 700,
                   fontFamily: FONT,
@@ -265,6 +266,7 @@ export default function CheckoutSuccess() {
             ) : (
               <a
                 href="/"
+                className="wft-hover-border-white"
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
@@ -272,7 +274,7 @@ export default function CheckoutSuccess() {
                   padding: "14px 28px",
                   borderRadius: 12,
                   background: mkt.accent,
-                  color: mkt.dark,
+                  color: "#FFFFFF",
                   fontSize: 14,
                   fontWeight: 700,
                   fontFamily: FONT,

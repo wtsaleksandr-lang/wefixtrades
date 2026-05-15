@@ -491,6 +491,7 @@ export function MarketingNav() {
               href="/Wizard"
               onClick={() => setMenuOpen(false)}
               data-testid="nav-cta-start-free-mobile"
+              className="wft-hover-border-blue"
               style={{
                 display: "block",
                 marginTop: 12,

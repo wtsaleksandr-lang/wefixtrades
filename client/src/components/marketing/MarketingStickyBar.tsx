@@ -124,6 +124,7 @@ export default function MarketingStickyBar() {
          * tokens in tokens.ts; this component's structure is unchanged. */}
         <Link
           href="/Wizard"
+          className="wft-hover-border-blue"
           style={{
             display: "inline-flex",
             alignItems: "center",
