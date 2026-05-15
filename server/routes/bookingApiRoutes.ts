@@ -35,8 +35,11 @@ const createBookingBody = z.object({
   notes: z.string().optional(),
 });
 
+// client_id is optional: the admin BookFlow page is single-tenant and manages
+// the platform's own calendar connections, so it has no client selector.
+// Defaults to 0 (platform-owned) when omitted; per-client callers may still pass it.
 const createConnectionBody = z.object({
-  client_id: z.number().int().positive(),
+  client_id: z.number().int().nonnegative().optional(),
   platform: z.enum(["google_calendar", "cal_com", "calendly", "jobber", "manual"]),
   credentials: z.record(z.unknown()).optional(),
   calendar_id: z.string().optional(),
@@ -52,6 +55,42 @@ const createConnectionBody = z.object({
 });
 
 const updateConnectionBody = createConnectionBody.partial().omit({ client_id: true });
+
+// Working-hours editor payload. The admin page sends one row per weekday.
+const workingHoursBody = z.object({
+  timezone: z.string().min(1),
+  hours: z.array(z.object({
+    day: z.string().min(1),
+    enabled: z.boolean(),
+    start: z.string().regex(/^\d{2}:\d{2}$/),
+    end: z.string().regex(/^\d{2}:\d{2}$/),
+  })),
+});
+
+// Editor day labels ("Monday") ↔ stored jsonb keys ("monday"). The calendar
+// adapters key working_hours by lowercase day name and treat an absent day as
+// closed, so disabled rows are dropped on the way in and re-added on the way out.
+const WH_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+/** Convert the editor's array form to the keyed jsonb form (enabled days only). */
+function hoursArrayToObject(hours: { day: string; enabled: boolean; start: string; end: string }[]): Record<string, { start: string; end: string }> {
+  const obj: Record<string, { start: string; end: string }> = {};
+  for (const h of hours) {
+    if (h.enabled) obj[h.day.toLowerCase()] = { start: h.start, end: h.end };
+  }
+  return obj;
+}
+
+/** Convert stored keyed jsonb back to the editor's full 7-row array form. */
+function hoursObjectToArray(stored: Record<string, { start?: string; end?: string }> | null | undefined): { day: string; enabled: boolean; start: string; end: string }[] {
+  const src = stored && typeof stored === "object" ? stored : {};
+  return WH_DAYS.map((day, i) => {
+    const cfg = src[day.toLowerCase()];
+    return cfg
+      ? { day, enabled: true, start: cfg.start || "09:00", end: cfg.end || "17:00" }
+      : { day, enabled: i < 5, start: "09:00", end: "17:00" };
+  });
+}
 
 export function registerBookingApiRoutes(app: Express): void {
 
@@ -212,9 +251,10 @@ export function registerBookingApiRoutes(app: Express): void {
   app.post("/api/admin/booking/connections", requireAdmin, async (req: Request, res: Response) => {
     try {
       const body = createConnectionBody.parse(req.body);
+      const clientId = body.client_id ?? 0;
 
       const connection = await storage.createCalendarConnection({
-        client_id: body.client_id,
+        client_id: clientId,
         platform: body.platform,
         credentials: body.credentials || null,
         calendar_id: body.calendar_id || null,
@@ -234,7 +274,7 @@ export function registerBookingApiRoutes(app: Express): void {
         action: "calendar_connection.created",
         entity_type: "calendar_connection",
         entity_id: connection.id,
-        summary: `Created ${body.platform} calendar connection for client ${body.client_id}`,
+        summary: `Created ${body.platform} calendar connection for client ${clientId}`,
       });
 
       res.status(201).json(connection);
@@ -352,6 +392,101 @@ export function registerBookingApiRoutes(app: Express): void {
         success: false,
         error: err.message,
       });
+    }
+  });
+
+  /**
+   * GET /api/admin/booking/working-hours
+   * Returns the admin working-hours schedule + timezone.
+   *
+   * Scope: stored on the primary (oldest active) calendar connection's
+   * working_hours/timezone columns — that is the only working-hours field the
+   * slot-generation logic (googleCalendarAdapter) actually reads. When no
+   * connection exists yet, sensible defaults are returned.
+   */
+  app.get("/api/admin/booking/working-hours", requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      const connections = await storage.listCalendarConnections();
+      const primary = [...connections].reverse().find(c => c.is_active);
+
+      res.json({
+        hours: hoursObjectToArray(primary?.working_hours as Record<string, { start?: string; end?: string }> | null),
+        timezone: primary?.timezone || "America/New_York",
+      });
+    } catch (err: any) {
+      log.error("Failed to fetch working hours", { error: err.message });
+      res.status(500).json({ error: "Failed to fetch working hours" });
+    }
+  });
+
+  /**
+   * PUT /api/admin/booking/working-hours
+   * Persists the working-hours schedule + timezone onto the primary
+   * (oldest active) calendar connection so booking-slot generation uses it.
+   */
+  app.put("/api/admin/booking/working-hours", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const body = workingHoursBody.parse(req.body);
+
+      const connections = await storage.listCalendarConnections();
+      const primary = [...connections].reverse().find(c => c.is_active);
+      if (!primary) {
+        return res.status(409).json({ error: "Connect a calendar before setting working hours" });
+      }
+
+      const updated = await storage.updateCalendarConnection(primary.id, {
+        working_hours: hoursArrayToObject(body.hours),
+        timezone: body.timezone,
+      });
+
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: (req.user as any)?.id,
+        actor_name: (req.user as any)?.name || (req.user as any)?.email,
+        action: "calendar_connection.working_hours_updated",
+        entity_type: "calendar_connection",
+        entity_id: primary.id,
+        summary: `Updated working hours for calendar connection ${primary.id}`,
+      });
+
+      res.json({
+        hours: hoursObjectToArray(updated?.working_hours as Record<string, { start?: string; end?: string }> | null),
+        timezone: updated?.timezone || body.timezone,
+      });
+    } catch (err: any) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ error: err.errors });
+      }
+      log.error("Failed to update working hours", { error: err.message });
+      res.status(500).json({ error: "Failed to update working hours" });
+    }
+  });
+
+  /**
+   * GET /api/admin/booking/recent
+   * Returns recent bookings for the admin Bookings tab.
+   * Mirrors the row shape of GET /api/dashboard/bookings (the `bookings` table).
+   */
+  app.get("/api/admin/booking/recent", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const limit = Math.min(Math.max(parseInt(req.query.limit as string) || 100, 1), 500);
+      const rows = await storage.listRecentBookings(limit);
+
+      const data = rows.map(b => ({
+        id: b.id,
+        date: b.date,
+        time: b.time,
+        customer_name: b.customer_name,
+        customer_phone: b.customer_phone ?? null,
+        customer_email: b.customer_email ?? null,
+        service: null as string | null,
+        status: b.status,
+      }));
+
+      res.json({ data, total: data.length });
+    } catch (err: any) {
+      log.error("Failed to list recent bookings", { error: err.message });
+      res.status(500).json({ error: "Failed to list recent bookings" });
     }
   });
 }

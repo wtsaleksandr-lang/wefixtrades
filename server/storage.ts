@@ -201,6 +201,7 @@ export interface IStorage {
 
   createBooking(data: InsertBooking): Promise<Booking>;
   getBookingsByCalculatorId(calculatorId: number): Promise<Booking[]>;
+  listRecentBookings(limit?: number): Promise<Booking[]>;
   getBookingById(id: number): Promise<Booking | undefined>;
   updateBookingStatus(id: number, status: string): Promise<Booking | undefined>;
   updateBooking(id: number, updates: Partial<InsertBooking>): Promise<Booking | undefined>;
@@ -957,6 +958,12 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(bookings)
       .where(eq(bookings.calculator_id, calculatorId))
       .orderBy(desc(bookings.created_at));
+  }
+
+  async listRecentBookings(limit: number = 100): Promise<Booking[]> {
+    return db.select().from(bookings)
+      .orderBy(desc(bookings.date), desc(bookings.time))
+      .limit(limit);
   }
 
   async getBookingById(id: number): Promise<Booking | undefined> {

@@ -17,8 +17,10 @@ interface CalendarConnection { id: number; platform: string; status: string; las
 interface WorkingHours { day: string; enabled: boolean; start: string; end: string; }
 interface BookingRow { id: number; date: string; time: string; customer_name: string; customer_phone: string | null; customer_email: string | null; service: string | null; status: string; }
 
-const PL: Record<string, string> = { google: "Google Calendar", calcom: "Cal.com", calendly: "Calendly", manual: "Manual / URL" };
-const PC: Record<string, string> = { google: "bg-blue-50 text-blue-700 border-blue-200", calcom: "bg-violet-50 text-violet-700 border-violet-200", calendly: "bg-sky-50 text-sky-700 border-sky-200", manual: "bg-gray-50 text-gray-600 border-gray-200" };
+const PL: Record<string, string> = { google: "Google Calendar", google_calendar: "Google Calendar", calcom: "Cal.com", cal_com: "Cal.com", calendly: "Calendly", manual: "Manual / URL" };
+// Maps the dialog's short platform keys to the backend connection enum.
+const PLATFORM_API: Record<string, string> = { google: "google_calendar", calcom: "cal_com", calendly: "calendly", manual: "manual" };
+const PC: Record<string, string> = { google: "bg-blue-50 text-blue-700 border-blue-200", google_calendar: "bg-blue-50 text-blue-700 border-blue-200", calcom: "bg-violet-50 text-violet-700 border-violet-200", cal_com: "bg-violet-50 text-violet-700 border-violet-200", calendly: "bg-sky-50 text-sky-700 border-sky-200", manual: "bg-gray-50 text-gray-600 border-gray-200" };
 const SS: Record<string, string> = { connected: "bg-emerald-50 text-emerald-700", disconnected: "bg-gray-100 text-gray-500", error: "bg-red-50 text-red-700", confirmed: "bg-emerald-50 text-emerald-700", pending: "bg-amber-50 text-amber-700", cancelled: "bg-red-50 text-red-600" };
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const DWH: WorkingHours[] = DAYS.map((d, i) => ({ day: d, enabled: i < 5, start: "09:00", end: "17:00" }));
@@ -30,8 +32,15 @@ function ConnectDialog({ open, onClose }: { open: boolean; onClose: () => void }
   const connect = async () => {
     setConnecting(true);
     try {
-      if (platform === "google") { const r = await apiRequest("POST", "/api/admin/booking/connect", { platform: "google" }); const d = await r.json(); if (d.oauth_url) { window.location.href = d.oauth_url; return; } }
-      else { await apiRequest("POST", "/api/admin/booking/connect", { platform, api_key: apiKey || undefined, event_type_id: eventTypeId || undefined, booking_url: bookingUrl || undefined }); }
+      const credentials: Record<string, string> = {};
+      if (apiKey) credentials.api_key = apiKey;
+      const body: Record<string, unknown> = { platform: PLATFORM_API[platform] || platform };
+      if (Object.keys(credentials).length) body.credentials = credentials;
+      if (eventTypeId) body.calendar_id = eventTypeId;
+      if (bookingUrl) body.booking_url = bookingUrl;
+      const r = await apiRequest("POST", "/api/admin/booking/connections", body);
+      const d = await r.json();
+      if (d.oauth_url) { window.location.href = d.oauth_url; return; }
       qc.invalidateQueries({ queryKey: ["/api/admin/booking/connections"] }); toast({ title: "Calendar connected" }); onClose(); setPlatform(""); setApiKey(""); setEventTypeId(""); setBookingUrl("");
     } catch (e: any) { toast({ title: "Failed", description: e.message, variant: "destructive" }); } finally { setConnecting(false); }
   };
@@ -83,7 +92,7 @@ function HoursEditor() {
 export default function BookingCalendarPage() {
   usePageTitle("Booking Calendar");
   const qc = useQueryClient(); const { toast } = useToast(); const [connectOpen, setConnectOpen] = useState(false);
-  const { data: conns, isLoading: cl } = useQuery<CalendarConnection[]>({ queryKey: ["/api/admin/booking/connections"] });
+  const { data: conns, isLoading: cl } = useQuery<CalendarConnection[]>({ queryKey: ["/api/admin/booking/connections"], queryFn: async () => { const r = await apiRequest("GET", "/api/admin/booking/connections"); const d = await r.json(); return d.connections; } });
   const { data: bk, isLoading: bl } = useQuery<{ data: BookingRow[]; total: number }>({ queryKey: ["/api/admin/booking/recent"] });
   const testM = useMutation({ mutationFn: async (id: number) => { const r = await apiRequest("POST", `/api/admin/booking/connections/${id}/test`); return r.json(); }, onSuccess: (d: any) => { toast({ title: "Works", description: `${d.slots?.length || 0} slots` }); }, onError: () => { toast({ title: "Test failed", variant: "destructive" }); } });
   const delM = useMutation({ mutationFn: async (id: number) => { await apiRequest("DELETE", `/api/admin/booking/connections/${id}`); }, onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/admin/booking/connections"] }); toast({ title: "Disconnected" }); } });
