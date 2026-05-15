@@ -7,7 +7,7 @@ import { useLenis } from "@/hooks/useLenis";
 import { useAuth } from "@/hooks/useAuth";
 import { queryClient } from "@/lib/queryClient";
 import { mkt } from "@/theme/tokens";
-import { MarketingNav, useNavIsMobile } from "./navigation/MarketingNav";
+import { MarketingNav } from "./navigation/MarketingNav";
 import AnnouncementBanner from "./AnnouncementBanner";
 import MarketingStickyBar from "./MarketingStickyBar";
 
@@ -79,6 +79,7 @@ function CollapsibleFooterSection({ title, children, defaultOpen = true }: { tit
       <button
         onClick={() => setOpen(!open)}
         className="mkt-ft-toggle"
+        aria-expanded={open}
         style={{ ...ftHeading, width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", background: "none", border: "none", cursor: "pointer", fontFamily: "inherit" }}
       >
         <span>{title}</span>
@@ -89,8 +90,20 @@ function CollapsibleFooterSection({ title, children, defaultOpen = true }: { tit
   );
 }
 
-function MarketingFooter({ isMobile }: { isMobile: boolean }) {
-  const { isAuthenticated, isPortalUser } = useAuth();
+function MarketingFooter() {
+  const { isAuthenticated } = useAuth();
+  // Footer columns collapse into an accordion only in the 1-column mobile
+  // layout (≤480px) — that's the only width where the chevron toggle renders.
+  const [isAccordion, setIsAccordion] = useState(
+    () => typeof window !== "undefined" && window.matchMedia("(max-width: 480px)").matches,
+  );
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 480px)");
+    const onChange = () => setIsAccordion(mq.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
 
   return (
     <footer
@@ -107,7 +120,7 @@ function MarketingFooter({ isMobile }: { isMobile: boolean }) {
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "40px 24px 0" }}>
         <div className="mkt-footer-grid">
           {/* Col 1 — Products */}
-          <CollapsibleFooterSection title="Products" defaultOpen={!isMobile}>
+          <CollapsibleFooterSection title="Products" defaultOpen={!isAccordion}>
             <FtLink href="/products/tradeline">24/7 TradeLine™</FtLink>
             <FtLink href="/products/quickquotepro">QuoteQuick Pro™</FtLink>
             <FtLink href="/products/mapguard">MapGuard™</FtLink>
@@ -123,7 +136,7 @@ function MarketingFooter({ isMobile }: { isMobile: boolean }) {
           </CollapsibleFooterSection>
 
           {/* Col 2 — Solutions */}
-          <CollapsibleFooterSection title="Solutions" defaultOpen={!isMobile}>
+          <CollapsibleFooterSection title="Solutions" defaultOpen={!isAccordion}>
             <FtLink href="/solutions/for-plumbers">Plumbing</FtLink>
             <FtLink href="/solutions/for-hvac">HVAC</FtLink>
             <FtLink href="/solutions/for-electricians">Electrical</FtLink>
@@ -140,7 +153,7 @@ function MarketingFooter({ isMobile }: { isMobile: boolean }) {
           </CollapsibleFooterSection>
 
           {/* Col 3 — Resources + Tools */}
-          <CollapsibleFooterSection title="Resources" defaultOpen={!isMobile}>
+          <CollapsibleFooterSection title="Resources" defaultOpen={!isAccordion}>
             <FtLink href="/about">About Us</FtLink>
             <FtLink href="/contact">Contact Sales</FtLink>
             <FtLink href="/pricing">Pricing</FtLink>
@@ -302,7 +315,6 @@ function MarketingFooter({ isMobile }: { isMobile: boolean }) {
 export default function MarketingLayout({ children, hideSiteChat = false }: { children: ReactNode; hideSiteChat?: boolean }) {
   useLenis();
   const [location] = useLocation();
-  const isMobile = useNavIsMobile();
   usePageView(location);
 
   useEffect(() => {
@@ -329,7 +341,7 @@ export default function MarketingLayout({ children, hideSiteChat = false }: { ch
       <MarketingNav />
       <div style={{ height: 24, flexShrink: 0 }} />
       <main style={{ flex: 1 }}>{children}</main>
-      <MarketingFooter isMobile={isMobile} />
+      <MarketingFooter />
       <MarketingStickyBar />
       {!hideSiteChat && (
         <Suspense fallback={null}>
