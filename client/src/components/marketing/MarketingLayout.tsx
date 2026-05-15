@@ -1,6 +1,6 @@
 import { useEffect, lazy, Suspense, type CSSProperties, type ReactNode } from "react";
 import { Link, useLocation } from "wouter";
-import { ShieldCheck, Lock, Award, ChevronDown } from "lucide-react";
+import { ShieldCheck, Lock, Award, ChevronDown, Phone } from "lucide-react";
 import { useState } from "react";
 import { usePageView } from "@/hooks/usePageView";
 import { useLenis } from "@/hooks/useLenis";
@@ -17,11 +17,12 @@ const SiteChatWidget = lazy(() => import("@/components/SiteChatWidget"));
 
 const legalLinkStyle: CSSProperties = {
   fontSize: 10,
-  // a11y: 0.55 alpha on dark bg (#22282a) gives ~5.5:1 contrast, passes WCAG AA
-  // for normal text. Previously 0.32 (~2.5:1 — failed).
+  // a11y: 0.55 alpha on dark bg (#22282a) gives ~5.5:1 contrast, passes WCAG AA.
   color: "rgba(255,255,255,0.55)",
   textDecoration: "none",
-  padding: "0 12px",
+  // margin (not padding) so the center-out underline spans the text only.
+  margin: "0 12px",
+  padding: 0,
   fontFamily: "'DM Mono', monospace",
   letterSpacing: "0.06em",
 };
@@ -34,13 +35,12 @@ const legalDividerStyle: CSSProperties = {
 };
 
 const ftLink: CSSProperties = {
-  display: "block",
   fontSize: 12,
   fontWeight: 400,
   fontFamily: "'DM Mono', monospace",
   textTransform: "uppercase",
   letterSpacing: "0.04em",
-  // a11y: bumped from 0.35 (~2.7:1) to 0.6 (~6:1) to clear WCAG AA for normal text.
+  // a11y: 0.6 alpha (~6:1) clears WCAG AA for normal text.
   color: "rgba(255,255,255,0.6)",
   textDecoration: "none",
   lineHeight: 1.3,
@@ -52,19 +52,17 @@ const ftHeading: CSSProperties = {
   fontSize: 16,
   fontWeight: 700,
   color: "#f5fcff",
-  textTransform: "none",
   letterSpacing: "-0.01em",
-  paddingBottom: 12,
-  marginBottom: 12,
-  borderBottom: "none",
+  marginBottom: 10,
 };
 
 function FtLink({ href, children }: { href: string; children: React.ReactNode }) {
   return (
     <Link
       href={href}
+      className="mkt-ft-underline"
       style={ftLink}
-      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.85)"; }}
+      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.92)"; }}
       onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = ftLink.color as string; }}
     >
       {children}
@@ -72,45 +70,73 @@ function FtLink({ href, children }: { href: string; children: React.ReactNode })
   );
 }
 
-function CollapsibleFooterSection({ title, children, defaultOpen = true }: { title: string; children: React.ReactNode; defaultOpen?: boolean }) {
-  const [open, setOpen] = useState(defaultOpen);
+/** A plain footer column — heading + always-visible link list. */
+function FooterColumn({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div>
+      <div style={ftHeading}>{title}</div>
+      <div className="mkt-ft-list">{children}</div>
+    </div>
+  );
+}
+
+/**
+ * A footer column whose link list is hidden behind a toggle button and
+ * unfolds smoothly. The smooth height animation uses the grid 0fr→1fr
+ * technique — no fixed max-height, no JS measurement.
+ */
+function ExpandableFooterColumn({
+  title,
+  toggleLabel,
+  children,
+}: {
+  title: string;
+  toggleLabel: string;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div>
+      <div style={ftHeading}>{title}</div>
       <button
-        onClick={() => setOpen(!open)}
-        className="mkt-ft-toggle"
+        type="button"
+        onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        style={{ ...ftHeading, width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", background: "none", border: "none", cursor: "pointer", fontFamily: "inherit" }}
+        className="mkt-ft-expand"
+        style={{
+          ...ftLink,
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 6,
+          background: "none",
+          border: "none",
+          cursor: "pointer",
+          fontFamily: "inherit",
+        }}
       >
-        <span>{title}</span>
-        <ChevronDown size={12} className="mkt-ft-chevron" style={{ transition: "transform 0.2s", transform: open ? "rotate(180deg)" : "rotate(0)", opacity: 0.4 }} />
+        {toggleLabel}
+        <ChevronDown
+          size={12}
+          style={{ transition: "transform 0.25s ease", transform: open ? "rotate(180deg)" : "rotate(0)" }}
+        />
       </button>
-      {open && <div className="mkt-ft-list">{children}</div>}
+      <div className="mkt-ft-collapse" data-open={open}>
+        <div>
+          <div className="mkt-ft-list" style={{ paddingTop: 4 }}>{children}</div>
+        </div>
+      </div>
     </div>
   );
 }
 
 function MarketingFooter() {
   const { isAuthenticated } = useAuth();
-  // Footer columns collapse into an accordion only in the 1-column mobile
-  // layout (≤480px) — that's the only width where the chevron toggle renders.
-  const [isAccordion, setIsAccordion] = useState(
-    () => typeof window !== "undefined" && window.matchMedia("(max-width: 480px)").matches,
-  );
-
-  useEffect(() => {
-    const mq = window.matchMedia("(max-width: 480px)");
-    const onChange = () => setIsAccordion(mq.matches);
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
-  }, []);
+  const year = new Date().getFullYear();
 
   return (
     <footer
       data-testid="footer-marketing"
       style={{
-        /* PR 2: hairline top border per DOSS pattern — gives the footer
-         * a clear structural boundary from the page content above. */
         borderTop: "1px solid var(--hairline)",
         background: "#22282a",
         color: "rgba(255,255,255,0.5)",
@@ -119,8 +145,8 @@ function MarketingFooter() {
       {/* ── Main footer grid ───────────────────────────────────────── */}
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "40px 24px 0" }}>
         <div className="mkt-footer-grid">
-          {/* Col 1 — Products */}
-          <CollapsibleFooterSection title="Products" defaultOpen={!isAccordion}>
+          {/* Products — list hidden behind the "All Products" toggle */}
+          <ExpandableFooterColumn title="Products" toggleLabel="All Products">
             <FtLink href="/products/tradeline">24/7 TradeLine™</FtLink>
             <FtLink href="/products/quickquotepro">QuoteQuick Pro™</FtLink>
             <FtLink href="/products/mapguard">MapGuard™</FtLink>
@@ -133,37 +159,32 @@ function MarketingFooter() {
             <FtLink href="/products/contentflow">ContentFlow™</FtLink>
             <FtLink href="/products/adflow">AdFlow™</FtLink>
             <FtLink href="/products/bookflow">BookFlow™</FtLink>
-          </CollapsibleFooterSection>
+          </ExpandableFooterColumn>
 
-          {/* Col 2 — Solutions */}
-          <CollapsibleFooterSection title="Solutions" defaultOpen={!isAccordion}>
+          {/* Solutions — list hidden behind the "All Solutions" toggle */}
+          <ExpandableFooterColumn title="Solutions" toggleLabel="All Solutions">
             <FtLink href="/solutions/for-plumbers">Plumbing</FtLink>
             <FtLink href="/solutions/for-hvac">HVAC</FtLink>
             <FtLink href="/solutions/for-electricians">Electrical</FtLink>
             <FtLink href="/solutions/for-roofers">Roofing</FtLink>
             <FtLink href="/solutions/for-cleaners">Cleaning</FtLink>
-            <Link
-              href="/products"
-              style={{ ...ftLink, fontSize: 12, fontWeight: 500, color: mkt.accent, marginTop: 6, opacity: 0.7 }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.opacity = "1"; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.opacity = "0.7"; }}
-            >
-              All Solutions →
-            </Link>
-          </CollapsibleFooterSection>
+          </ExpandableFooterColumn>
 
-          {/* Col 3 — Resources + Tools */}
-          <CollapsibleFooterSection title="Resources" defaultOpen={!isAccordion}>
+          {/* Resources */}
+          <FooterColumn title="Resources">
             <FtLink href="/about">About Us</FtLink>
             <FtLink href="/contact">Contact Sales</FtLink>
             <FtLink href="/pricing">Pricing</FtLink>
+            {!isAuthenticated && <FtLink href="/login">Login</FtLink>}
+            {isAuthenticated && <FtLink href="/dashboard">Dashboard</FtLink>}
+          </FooterColumn>
+
+          {/* Tools — demos + free tools */}
+          <FooterColumn title="Tools">
             <FtLink href="/tools/free-audit">Free Audit Tool</FtLink>
             <FtLink href="/tools/missed-call-calculator">Missed Call Calculator</FtLink>
             <FtLink href="/tools/quote-demo">Quote Demo</FtLink>
-            {!isAuthenticated && <FtLink href="/login">Login</FtLink>}
-            {isAuthenticated && <FtLink href="/dashboard">Dashboard</FtLink>}
-          </CollapsibleFooterSection>
-
+          </FooterColumn>
         </div>
       </div>
 
@@ -196,10 +217,11 @@ function MarketingFooter() {
             <div style={{ display: "flex", gap: 14, marginBottom: 8, flexWrap: "wrap" }}>
               <a
                 href="tel:+19156153280"
-                style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", textDecoration: "none", fontWeight: 500 }}
+                style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, color: "rgba(255,255,255,0.55)", textDecoration: "none", fontWeight: 500 }}
                 data-testid="footer-phone"
               >
-                📞 +1 (915) 615-3280 · AI-answered 24/7
+                <Phone size={12} color={mkt.accent} strokeWidth={2} />
+                +1 (915) 615-3280 · AI-answered 24/7
               </a>
               <a
                 href="mailto:sales@wefixtrades.com"
@@ -214,19 +236,16 @@ function MarketingFooter() {
                 ✉️ support@wefixtrades.com
               </a>
             </div>
-            <p style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", margin: "0 0 4px", lineHeight: 1.5 }}>
-              &copy; {new Date().getFullYear()} WeFixTrades. All rights reserved.
-            </p>
-            <p style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", margin: 0, lineHeight: 1.5, maxWidth: 480 }}>
-              WeFixTrades is headquartered in Toronto, Canada.
+            <p style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", margin: 0, lineHeight: 1.5 }}>
+              &copy; {year} WeFixTrades. All rights reserved. Headquartered in Toronto, Canada.
             </p>
           </div>
           <div className="mkt-footer-legal-links" style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
-            <Link href="/privacy" style={legalLinkStyle}>Privacy</Link>
+            <Link href="/privacy" className="mkt-ft-underline" style={legalLinkStyle}>Privacy</Link>
             <span style={legalDividerStyle} />
-            <Link href="/terms" style={legalLinkStyle}>Terms</Link>
+            <Link href="/terms" className="mkt-ft-underline" style={legalLinkStyle}>Terms</Link>
             <span style={legalDividerStyle} />
-            <Link href="/terms" style={legalLinkStyle}>Cookies</Link>
+            <Link href="/terms" className="mkt-ft-underline" style={legalLinkStyle}>Cookies</Link>
             {isAuthenticated && (
               <>
                 <span style={legalDividerStyle} />
@@ -235,12 +254,8 @@ function MarketingFooter() {
                     await fetch("/api/auth/logout", { method: "POST", credentials: "include" }).catch(() => {});
                     queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
                   }}
-                  style={{
-                    ...legalLinkStyle,
-                    background: "none",
-                    border: "none",
-                    cursor: "pointer",
-                  }}
+                  className="mkt-ft-underline"
+                  style={{ ...legalLinkStyle, background: "none", border: "none", cursor: "pointer" }}
                 >
                   Sign out
                 </button>
@@ -250,16 +265,14 @@ function MarketingFooter() {
         </div>
       </div>
 
-      {/* ── Responsive CSS ─────────────────────────────────────────── */}
+      {/* ── Footer CSS ─────────────────────────────────────────────── */}
       <style>{`
         .mkt-footer-grid {
           display: grid;
-          grid-template-columns: repeat(3, 1fr);
+          grid-template-columns: repeat(4, 1fr);
           gap: 32px;
         }
-        /* Subtle dashed vertical divider between footer columns.
-           PR 2: switched from bright rgba(255,255,255,0.22) to the
-           warm-gray hairline so it matches the rest of the DOSS system. */
+        /* Subtle dashed vertical divider between footer columns. */
         .mkt-footer-grid > * + * {
           background-image: linear-gradient(
             to bottom,
@@ -271,11 +284,55 @@ function MarketingFooter() {
           background-repeat: repeat-y;
           background-size: 1px 12px;
           background-position: -16px top;
-          padding-left: 0;
         }
-        /* Desktop: hide chevrons, always show content */
-        .mkt-ft-chevron { display: none; }
-        .mkt-ft-toggle { cursor: default !important; }
+
+        /* Column link list — stacked, each link only as wide as its text
+           so the center-out underline sits under the text. */
+        .mkt-ft-list {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+        }
+
+        /* Center-out blue underline hover — footer links + legal links.
+           Grows from the centre on hover, folds back to the centre on leave. */
+        .mkt-ft-underline {
+          position: relative;
+          display: inline-block;
+        }
+        .mkt-ft-underline::after {
+          content: "";
+          position: absolute;
+          left: 0;
+          right: 0;
+          bottom: 3px;
+          height: 1.5px;
+          background: #0d3cfc;
+          transform: scaleX(0);
+          transform-origin: center;
+          transition: transform 0.22s ease;
+        }
+        .mkt-ft-underline:hover::after {
+          transform: scaleX(1);
+        }
+
+        /* "All Products" / "All Solutions" toggle — subtle brighten on hover. */
+        .mkt-ft-expand:hover {
+          color: rgba(255,255,255,0.92) !important;
+        }
+
+        /* Smooth unfold — grid 0fr → 1fr animates to content height. */
+        .mkt-ft-collapse {
+          display: grid;
+          grid-template-rows: 0fr;
+          transition: grid-template-rows 0.3s ease;
+        }
+        .mkt-ft-collapse[data-open="true"] {
+          grid-template-rows: 1fr;
+        }
+        .mkt-ft-collapse > div {
+          overflow: hidden;
+        }
 
         @media (max-width: 768px) {
           .mkt-footer-grid {
@@ -290,11 +347,8 @@ function MarketingFooter() {
         @media (max-width: 480px) {
           .mkt-footer-grid {
             grid-template-columns: 1fr;
-            gap: 8px;
+            gap: 20px;
           }
-          /* On small mobile: show chevrons for collapsible behavior */
-          .mkt-ft-chevron { display: block !important; }
-          .mkt-ft-toggle { cursor: pointer !important; }
           .mkt-footer-bottom {
             flex-direction: column !important;
           }
