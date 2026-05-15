@@ -35,6 +35,7 @@ import DocsDomain from "@/pages/marketing/docs/domain";
 import DocsBooking from "@/pages/marketing/docs/booking";
 import DocsAi from "@/pages/marketing/docs/ai";
 import DocsMapguard from "@/pages/marketing/docs/mapguard";
+import DocsReputationShield from "@/pages/marketing/docs/reputationshield";
 import DocsWebhooks from "@/pages/marketing/docs/webhooks";
 import DocsTroubleshooting from "@/pages/marketing/docs/troubleshooting";
 import SolutionsVisibility from "@/pages/marketing/solutions-visibility";
@@ -292,6 +293,7 @@ function Router() {
       <Route path="/docs/booking" component={DocsBooking} />
       <Route path="/docs/ai" component={DocsAi} />
       <Route path="/docs/mapguard" component={DocsMapguard} />
+      <Route path="/docs/reputationshield" component={DocsReputationShield} />
       <Route path="/docs/webhooks" component={DocsWebhooks} />
       <Route path="/docs/troubleshooting" component={DocsTroubleshooting} />
       <Route path="/dev/primitives">{() => <RequirePortal><PrimitivesPage /></RequirePortal>}</Route>
