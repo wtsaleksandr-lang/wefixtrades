@@ -7,6 +7,7 @@ import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { V7PageShell } from "@/components/marketing/v7";
 import { mkt } from "@/theme/tokens";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import GoogleSignInButton from "@/components/auth/GoogleSignInButton";
 
 export default function SignupPage() {
   const [businessName, setBusinessName] = useState("");
@@ -112,6 +113,15 @@ export default function SignupPage() {
           >
             Get started with WeFixTrades — no credit card required.
           </p>
+
+          {/* Fastest path first — one click, then a single business-name
+              prompt. Falls through to the full form below. */}
+          <GoogleSignInButton mode="signup" />
+          <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "20px 0" }}>
+            <div style={{ flex: 1, height: 1, background: mkt.onDarkBorder }} />
+            <span style={{ fontSize: 11, color: mkt.onDarkMuted, letterSpacing: "0.08em" }}>OR</span>
+            <div style={{ flex: 1, height: 1, background: mkt.onDarkBorder }} />
+          </div>
 
           <form onSubmit={handleSubmit}>
             <label style={labelStyle}>Business name</label>

@@ -8,6 +8,19 @@ import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { V7PageShell } from "@/components/marketing/v7";
 import { mkt } from "@/theme/tokens";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import GoogleSignInButton from "@/components/auth/GoogleSignInButton";
+
+/** Friendly copy for the ?google_error= codes the OAuth callback may return. */
+const GOOGLE_ERROR_COPY: Record<string, string> = {
+  not_configured: "Google sign-in isn't available right now. Please use email or password.",
+  email_unverified: "Your Google account's email isn't verified. Please sign in with email or password instead.",
+  invalid_state: "Google sign-in couldn't be verified. Please try again.",
+  missing_code: "Google sign-in didn't complete. Please try again.",
+  exchange_failed: "We couldn't complete sign-in with Google. Please try again.",
+  start_failed: "Couldn't start Google sign-in. Please try again.",
+  account_lookup_failed: "Something went wrong finding your account. Please try again.",
+  internal: "Google sign-in hit an unexpected error. Please try again.",
+};
 
 /**
  * Sign-in page.
@@ -39,6 +52,7 @@ export default function LoginPage() {
   const [linkSent, setLinkSent] = useState(false);
   const [tokenLoginError, setTokenLoginError] = useState<string | null>(null);
   const [tokenLoginPending, setTokenLoginPending] = useState(false);
+  const [googleError, setGoogleError] = useState<string | null>(null);
   const [, navigate] = useLocation();
   usePageTitle("Sign In");
 
@@ -102,6 +116,29 @@ export default function LoginPage() {
         setTokenLoginError(err.message);
         setTokenLoginPending(false);
       });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /* ─── Google sign-in callback landing ──────────────────────────
+     The OAuth callback redirects back here with either:
+       ?google_error=<code>  — show the failure reason
+       ?verify2fa=1          — the matched account has 2FA; the server
+                               already staged the pending 2FA user, so
+                               jump straight to the password tab's 2FA
+                               step (the verify-2fa endpoint reads the
+                               session, no email/password needed). */
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const gErr = params.get("google_error");
+    if (gErr) {
+      setGoogleError(GOOGLE_ERROR_COPY[gErr] || "Google sign-in didn't complete. Please try again.");
+      window.history.replaceState({}, "", "/login");
+    }
+    if (params.get("verify2fa") === "1") {
+      setMode("password");
+      setRequires2fa(true);
+      window.history.replaceState({}, "", "/login");
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -320,7 +357,7 @@ export default function LoginPage() {
 
             {/* Token-login error surfaces at the top — usually expired
                 or already-used link. */}
-            {tokenLoginError && (
+            {(tokenLoginError || googleError) && (
               <div
                 role="alert"
                 style={{
@@ -333,7 +370,7 @@ export default function LoginPage() {
                   color: "#FCA5A5",
                 }}
               >
-                {tokenLoginError}
+                {tokenLoginError || googleError}
               </div>
             )}
 
@@ -542,6 +579,20 @@ export default function LoginPage() {
               </form>
               </div>
             </div>
+
+            {/* ─── Continue with Google ───
+                Hidden during the 2FA step — the user is past the
+                identity-provider decision at that point. */}
+            {!requires2fa && (
+              <>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "22px 0 18px" }}>
+                  <div style={{ flex: 1, height: 1, background: mkt.onDarkBorder }} />
+                  <span style={{ fontSize: 11, color: mkt.onDarkMuted, letterSpacing: "0.08em" }}>OR</span>
+                  <div style={{ flex: 1, height: 1, background: mkt.onDarkBorder }} />
+                </div>
+                <GoogleSignInButton mode="login" />
+              </>
+            )}
           </div>
         </div>
       </V7PageShell>
