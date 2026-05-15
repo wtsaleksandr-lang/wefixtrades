@@ -138,6 +138,22 @@ export const TIER_REPORT_FREQUENCY: Record<ReputationTier, ReportFrequency> = {
   premium: "weekly",
 };
 
+/**
+ * Extra review-platform identifiers a client can connect beyond Google.
+ * Google is resolved from clients.google_place_id / google_business_locations;
+ * Facebook from clients.facebook_page_url. Yelp + Trustpilot live here
+ * because they have no dedicated client column. Empty/unset = not monitored.
+ */
+export interface PlatformConnections {
+  yelp_url: string | null;        // Yelp business URL or id
+  trustpilot_domain: string | null; // Trustpilot business domain, e.g. "example.com"
+}
+
+export const DEFAULT_PLATFORMS: PlatformConnections = {
+  yelp_url: null,
+  trustpilot_domain: null,
+};
+
 export interface ReputationSettings {
   channel_preference: "email" | "sms" | "auto";
   reminders_enabled: boolean;
@@ -145,6 +161,7 @@ export interface ReputationSettings {
   low_rating_alerts: boolean;
   report_enabled: boolean;
   widget?: WidgetSettings;
+  platforms?: PlatformConnections;
 }
 
 export const DEFAULT_SETTINGS: ReputationSettings = {
@@ -154,7 +171,19 @@ export const DEFAULT_SETTINGS: ReputationSettings = {
   low_rating_alerts: true,
   report_enabled: true,
   widget: DEFAULT_WIDGET_SETTINGS,
+  platforms: DEFAULT_PLATFORMS,
 };
+
+/** Merge partial platform connections with defaults. */
+export function mergePlatformConnections(
+  partial: Partial<PlatformConnections> | null | undefined,
+): PlatformConnections {
+  const base = { ...DEFAULT_PLATFORMS };
+  if (!partial) return base;
+  if (typeof partial.yelp_url === "string") base.yelp_url = partial.yelp_url.trim() || null;
+  if (typeof partial.trustpilot_domain === "string") base.trustpilot_domain = partial.trustpilot_domain.trim() || null;
+  return base;
+}
 
 /** Merge partial settings with defaults, rejecting invalid values. */
 export function mergeSettings(
@@ -180,6 +209,9 @@ export function mergeSettings(
   }
   if (partial.widget) {
     base.widget = mergeWidgetSettings(partial.widget);
+  }
+  if (partial.platforms) {
+    base.platforms = mergePlatformConnections(partial.platforms);
   }
 
   return base;

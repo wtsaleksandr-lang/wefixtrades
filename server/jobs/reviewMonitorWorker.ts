@@ -17,6 +17,8 @@ import { mergeSettings } from "@shared/reputationConfig";
 import {
   fetchGoogleReviews,
   fetchFacebookReviews,
+  fetchYelpReviews,
+  fetchTrustpilotReviews,
   normalizeReview,
   reviewDedupKey,
 } from "../lib/outscraper";
@@ -184,6 +186,41 @@ async function syncClientReviews(client: Client): Promise<SyncResult> {
     } catch (err: any) {
       log.error(`[ReviewMonitor] Facebook fetch error for client ${client.id}:`, err.message);
     }
+  }
+
+  // Yelp + Trustpilot reviews — the client connects these in their
+  // ReputationShield settings (no dedicated client column). Each fetch
+  // is isolated in its own try/catch so a bad platform response never
+  // blocks the Google/Facebook sync above.
+  try {
+    const svc = await storage.getClientReputationService(client.id);
+    const platforms = mergeSettings(svc?.metadata?.reputation_settings).platforms;
+
+    if (platforms?.yelp_url) {
+      try {
+        const rawYelp = await fetchYelpReviews(platforms.yelp_url, REVIEWS_PER_CLIENT);
+        if (rawYelp) {
+          result.totalFetched += rawYelp.length;
+          await processReviews(client, rawYelp, "yelp", `yelp:${platforms.yelp_url}`, result);
+        }
+      } catch (err: any) {
+        log.error(`[ReviewMonitor] Yelp fetch error for client ${client.id}:`, err.message);
+      }
+    }
+
+    if (platforms?.trustpilot_domain) {
+      try {
+        const rawTp = await fetchTrustpilotReviews(platforms.trustpilot_domain, REVIEWS_PER_CLIENT);
+        if (rawTp) {
+          result.totalFetched += rawTp.length;
+          await processReviews(client, rawTp, "trustpilot", `tp:${platforms.trustpilot_domain}`, result);
+        }
+      } catch (err: any) {
+        log.error(`[ReviewMonitor] Trustpilot fetch error for client ${client.id}:`, err.message);
+      }
+    }
+  } catch (err: any) {
+    log.error(`[ReviewMonitor] platform-settings load failed for client ${client.id}:`, err.message);
   }
 
   // Update sync timestamp

@@ -210,6 +210,103 @@ export async function fetchFacebookReviews(
 }
 
 /**
+ * Generic Outscraper review fetch for the non-Google platforms.
+ *
+ * Outscraper exposes per-platform review endpoints that all share the
+ * same async-poll response contract as reviews-v3. `endpoint` is the
+ * path (e.g. "yelp/reviews"), `query` is the platform-specific
+ * business identifier (Yelp business URL/id, Trustpilot domain/URL).
+ *
+ * NOTE: the exact endpoint paths/params should be confirmed against
+ * the live Outscraper account on first run — they are key-gated and
+ * wrapped in try/catch by every caller, so a wrong path degrades to
+ * "no reviews" + a logged error rather than breaking Google/FB sync.
+ */
+async function fetchPlatformReviews(
+  endpoint: string,
+  query: string,
+  limit: number,
+): Promise<OutscraperReview[] | null> {
+  const apiKey = getApiKey();
+  if (!apiKey) {
+    log.warn("[outscraper] OUTSCRAPER_API_KEY not set");
+    return null;
+  }
+  if (!query) {
+    log.warn(`[outscraper] No query provided for ${endpoint}`);
+    return null;
+  }
+
+  const params = new URLSearchParams({
+    query,
+    limit: String(limit),
+    sort: "newest",
+  });
+  const url = `${API_BASE}/${endpoint}?${params}`;
+
+  let r: globalThis.Response;
+  let rawText: string;
+  try {
+    r = await fetchWithRetry(url, {
+      method: "GET",
+      headers: { "X-API-KEY": apiKey },
+      timeoutMs: 25000,
+    });
+    rawText = await r.text();
+  } catch (err: any) {
+    log.error(`[outscraper] fetch ${endpoint} error:`, err.message);
+    return null;
+  }
+
+  if (!r.ok) {
+    log.error(`[outscraper] ${endpoint} non-OK:`, { arg0: r.status, arg1: rawText.slice(0, 500) });
+    return null;
+  }
+
+  let data: any;
+  try {
+    data = JSON.parse(rawText);
+  } catch {
+    log.error(`[outscraper] Invalid JSON from ${endpoint}`);
+    return null;
+  }
+
+  let rawReviews = data?.data;
+  if (data?.status === "Pending" && data?.results_location) {
+    rawReviews = await pollResults(data.results_location);
+  }
+
+  const reviews: any[] = Array.isArray(rawReviews)
+    ? rawReviews.flat()
+    : Array.isArray(data)
+      ? data.flat()
+      : [];
+  return reviews as OutscraperReview[];
+}
+
+/**
+ * Fetch Yelp reviews for a business via Outscraper.
+ * @param yelpQuery Yelp business URL or Yelp business id
+ */
+export async function fetchYelpReviews(
+  yelpQuery: string,
+  limit = 30,
+): Promise<OutscraperReview[] | null> {
+  return fetchPlatformReviews("yelp/reviews", yelpQuery, limit);
+}
+
+/**
+ * Fetch Trustpilot reviews for a business via Outscraper.
+ * @param trustpilotQuery Trustpilot business domain (e.g. "example.com") or full Trustpilot URL
+ */
+export async function fetchTrustpilotReviews(
+  trustpilotQuery: string,
+  limit = 30,
+): Promise<OutscraperReview[] | null> {
+  return fetchPlatformReviews("trustpilot/reviews", trustpilotQuery, limit);
+}
+
+/**
  * Normalize a raw Outscraper review into a consistent shape.
  */
 export function normalizeReview(raw: OutscraperReview): {
@@ -223,16 +320,19 @@ export function normalizeReview(raw: OutscraperReview): {
   googleReviewName: string | null;
   rawPayload: Record<string, any>;
 } {
-  const rating = typeof raw.review_rating === "number"
-    ? raw.review_rating
-    : typeof raw.rating === "number"
-      ? raw.rating
+  // Rating field name varies by platform (Google: review_rating;
+  // Yelp/Trustpilot: rating / review_rating). Coerce string ratings too.
+  const ratingRaw = raw.review_rating ?? raw.rating ?? (raw as any).stars;
+  const rating = typeof ratingRaw === "number"
+    ? ratingRaw
+    : typeof ratingRaw === "string" && !isNaN(parseFloat(ratingRaw))
+      ? parseFloat(ratingRaw)
       : 0;
 
-  const dateStr = raw.review_datetime_utc || raw.date || null;
+  const dateStr = raw.review_datetime_utc || raw.date || (raw as any).review_date || (raw as any).datetime || null;
   const publishedAt = dateStr ? new Date(dateStr) : null;
 
-  const responseText = raw.owner_answer || raw.response_text || null;
+  const responseText = raw.owner_answer || raw.response_text || (raw as any).reply || null;
   const responseDate = raw.owner_answer_timestamp
     ? new Date(raw.owner_answer_timestamp)
     : null;
@@ -243,10 +343,10 @@ export function normalizeReview(raw: OutscraperReview): {
     : null;
 
   return {
-    externalId: raw.review_id || raw.author_id || null,
-    reviewerName: raw.author_title || "Anonymous",
+    externalId: raw.review_id || raw.author_id || (raw as any).id || null,
+    reviewerName: raw.author_title || (raw as any).author_name || (raw as any).name || (raw as any).user_name || "Anonymous",
     rating,
-    reviewText: raw.review_text || null,
+    reviewText: raw.review_text || (raw as any).text || (raw as any).comment || null,
     publishedAt,
     responseText,
     responseDate,
