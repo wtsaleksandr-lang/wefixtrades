@@ -137,6 +137,9 @@ export default function PortalLayout({
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [mobileOpen, setMobileOpen] = useState(false);
+  // AI Copilot panel open/close — the trigger lives in the top navbar
+  // (mirrors the admin AdminLayout → AdminCopilot pattern).
+  const [copilotOpen, setCopilotOpen] = useState(false);
   const activePrefixes = useActiveServicePrefixes();
   const NAV_ITEMS = buildNavItems(activePrefixes);
 
@@ -263,6 +266,24 @@ export default function PortalLayout({
             </h1>
           </div>
           <div className="flex items-center gap-2">
+            {/* AI Copilot trigger — icon + label so users immediately
+                recognise it as the AI assistant, not a plain chat bubble. */}
+            <button
+              type="button"
+              onClick={() => setCopilotOpen((v) => !v)}
+              className={cn(
+                "inline-flex items-center gap-1.5 h-9 px-3 rounded-lg text-sm font-medium transition-colors",
+                copilotOpen
+                  ? "bg-[#0d3cfc]/10 text-[#0d3cfc]"
+                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+              )}
+              title="AI Copilot — your assistant"
+              aria-pressed={copilotOpen}
+              data-testid="portal-copilot-trigger"
+            >
+              <Sparkles className="w-4 h-4 shrink-0" aria-hidden="true" />
+              <span className="hidden sm:inline">AI Copilot</span>
+            </button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="w-8 h-8 min-w-[44px] min-h-[44px] rounded-full bg-[#2D6A4F] flex items-center justify-center hover:ring-2 hover:ring-[#2D6A4F]/20 transition-shadow">
@@ -314,8 +335,12 @@ export default function PortalLayout({
         </main>
       </div>
 
-      {/* Global portal assistant — single entry point for all portal pages */}
-      <PortalChatWidget chatContext={chatContext} />
+      {/* Global portal AI Copilot — opened from the top-navbar trigger */}
+      <PortalChatWidget
+        chatContext={chatContext}
+        open={copilotOpen}
+        onClose={() => setCopilotOpen(false)}
+      />
     </div>
     </OnboardingProvider>
   );

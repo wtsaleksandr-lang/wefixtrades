@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import {
-  MessageCircle, X, Send, Loader2, ClipboardList, CheckCircle2, Settings as SettingsIcon, History, Wand2,
+  X, Send, Loader2, ClipboardList, CheckCircle2, Settings as SettingsIcon, History, Wand2, Sparkles, ArrowLeft,
 } from "lucide-react";
 import ChatAttachmentInput, {
   ChatAttachmentChips,
@@ -14,9 +14,11 @@ import { useToast } from "@/hooks/use-toast";
 
 const LAST_OPEN_KEY = "wft_portal_chat_last_open";
 const OPACITY_KEY = "wft_portal_chat_opacity";
-const SIZE_KEY = "wft_portal_chat_size";
+const WIDTH_KEY = "wft_portal_chat_width";
 const DAY_MS = 24 * 60 * 60 * 1000;
-const MIN_W = 320, MIN_H = 400, DEFAULT_W = 384, DEFAULT_H = 520;
+const MIN_W = 320;
+const DEFAULT_W = 384;
+const MAX_W_VW_PCT = 0.85; // hard cap at 85% viewport width
 
 /** Grab a short, useful snapshot of what's visible to the user on the current page.
  *  Used by the chat assistant so it can answer page-aware questions like
@@ -177,10 +179,11 @@ function suggestionsForPath(path: string): string[] {
 }
 
 /**
- * PortalChatWidget — single global portal assistant.
+ * PortalChatWidget — single global portal AI Copilot.
  *
- * Rendered by PortalLayout on every portal page.
- * One floating FAB → one chat panel → one API endpoint.
+ * Rendered by PortalLayout on every portal page. The open/close state and
+ * the trigger button live in PortalLayout's top navbar (mirroring the admin
+ * AdminCopilot pattern), so this component is purely the panel.
  *
  * Context-aware:
  *  - Default (no chatContext or surface="help"): general support + escalation
@@ -188,13 +191,16 @@ function suggestionsForPath(path: string): string[] {
  */
 export default function PortalChatWidget({
   chatContext,
+  open,
+  onClose,
 }: {
   chatContext?: PortalChatContext;
+  open: boolean;
+  onClose: () => void;
 }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [location, setLocation] = useLocation();
-  const [open, setOpen] = useState(false);
   // Q25: transparency slider — persists across mounts. 0.7 floor so messages remain readable.
   const [panelOpacity, setPanelOpacity] = useState<number>(() => {
     try {
@@ -235,40 +241,38 @@ export default function PortalChatWidget({
     })();
     return () => { cancelled = true; };
   }, []);
-  // Q25a: drag-to-resize from top-left corner (panel is anchored bottom-right).
-  // Persist user's preferred size so it survives navigations + reloads.
-  const [size, setSize] = useState<{ w: number; h: number }>(() => {
+
+  // Drag-to-resize from the LEFT edge (panel anchored to the right edge,
+  // full viewport height — same as the admin Copilot). Dragging left grows
+  // the panel; right shrinks. Clamped MIN_W ≤ w ≤ 85vw. Width persists.
+  const [panelWidth, setPanelWidth] = useState<number>(() => {
     try {
-      const saved = JSON.parse(localStorage.getItem(SIZE_KEY) ?? "");
-      if (saved && typeof saved.w === "number" && typeof saved.h === "number") {
-        return { w: Math.max(MIN_W, saved.w), h: Math.max(MIN_H, saved.h) };
-      }
+      const v = parseInt(localStorage.getItem(WIDTH_KEY) ?? "", 10);
+      if (Number.isFinite(v) && v >= MIN_W) return v;
     } catch { /* noop */ }
-    return { w: DEFAULT_W, h: DEFAULT_H };
+    return DEFAULT_W;
   });
-  const resizeRef = useRef<{ startX: number; startY: number; startW: number; startH: number } | null>(null);
-  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+  useEffect(() => {
+    try { localStorage.setItem(WIDTH_KEY, String(panelWidth)); } catch { /* noop */ }
+  }, [panelWidth]);
+  const resizeRef = useRef<{ startX: number; startW: number } | null>(null);
+  const handleResizeDown = (e: React.PointerEvent) => {
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    resizeRef.current = { startX: e.clientX, startY: e.clientY, startW: size.w, startH: size.h };
+    resizeRef.current = { startX: e.clientX, startW: panelWidth };
   };
-  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+  const handleResizeMove = (e: React.PointerEvent) => {
     if (!resizeRef.current) return;
-    const { startX, startY, startW, startH } = resizeRef.current;
-    // Panel anchored bottom-right: dragging top-left corner UP-LEFT grows the panel.
-    const dx = startX - e.clientX;
-    const dy = startY - e.clientY;
-    const maxW = Math.min(window.innerWidth * 0.85, 800);
-    const maxH = Math.min(window.innerHeight * 0.85, 900);
-    setSize({
-      w: Math.max(MIN_W, Math.min(maxW, startW + dx)),
-      h: Math.max(MIN_H, Math.min(maxH, startH + dy)),
-    });
+    const { startX, startW } = resizeRef.current;
+    const maxW = Math.floor(window.innerWidth * MAX_W_VW_PCT);
+    // Dragging LEFT (clientX decreases) increases width.
+    const newW = Math.max(MIN_W, Math.min(maxW, startW + (startX - e.clientX)));
+    setPanelWidth(newW);
   };
-  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+  const handleResizeUp = (e: React.PointerEvent) => {
     (e.target as HTMLElement).releasePointerCapture(e.pointerId);
     resizeRef.current = null;
-    try { localStorage.setItem(SIZE_KEY, JSON.stringify(size)); } catch { /* noop */ }
   };
+
   // Q24: persist messages across page navigations + page reloads via localStorage.
   // Backend chat_memory table is also linked via session id once the user logs in.
   const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string; actions?: ActionProposal[] }[]>(
@@ -285,6 +289,31 @@ export default function PortalChatWidget({
   const attachmentInputRef = useRef<ChatAttachmentInputHandle | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // Inline chat-history view — replaces the message list + input with a
+  // read-only 7-day transcript. A "Return to chat" button brings the live
+  // chat back. (Previously this navigated to a separate /portal/chat-history
+  // page.)
+  const [historyView, setHistoryView] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [historyMessages, setHistoryMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
+
+  async function openHistory() {
+    setHistoryView(true);
+    setHistoryLoading(true);
+    setHistoryError(null);
+    try {
+      const res = await fetch("/api/portal/ai-chat/history", { credentials: "include" });
+      if (!res.ok) throw new Error(`Failed to load history (${res.status})`);
+      const data = await res.json();
+      setHistoryMessages(Array.isArray(data.messages) ? data.messages : []);
+    } catch (e) {
+      setHistoryError((e as Error).message);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }
+
   // Escalation state
   const [escalationDraft, setEscalationDraft] = useState<EscalationDraft | null>(null);
   const [draftSubject, setDraftSubject] = useState("");
@@ -297,8 +326,8 @@ export default function PortalChatWidget({
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, loading, escalationDraft]);
+    if (!historyView) endRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, loading, escalationDraft, historyView]);
 
   // Determine context for this request
   const isOnboarding = !!(chatContext?.service_name && chatContext?.fields);
@@ -543,109 +572,141 @@ export default function PortalChatWidget({
     }]);
   }
 
-  const title = isOnboarding ? "Setup Assistant" : "Support";
+  if (!open) return null;
 
   return (
-    <>
-      {/* FAB — always visible when panel is closed */}
-      {!open && (
-        <button
-          onClick={() => setOpen(true)}
-          className="fixed bottom-4 right-4 z-40 w-12 h-12 rounded-full bg-[#2D6A4F] text-white shadow-lg hover:bg-[#1B4332] flex items-center justify-center transition-colors"
-          title="Need help? Chat with our assistant"
-          aria-label="Open support chat"
-        >
-          <MessageCircle className="w-5 h-5" aria-hidden="true" />
-        </button>
+    <div
+      className="fixed inset-y-0 right-0 z-50 w-full sm:w-auto flex flex-col border-l border-gray-200 shadow-xl"
+      style={{
+        // Mobile: ignore inline width (Tailwind w-full wins). Desktop: use saved panelWidth.
+        width: typeof window !== "undefined" && window.innerWidth >= 640 ? panelWidth : undefined,
+        backgroundColor: `rgba(255, 255, 255, ${panelOpacity})`,
+      }}
+      data-testid="portal-chat-panel"
+    >
+      {/* Resize handle on the LEFT edge — drag left to grow, right to shrink. */}
+      <div
+        onPointerDown={handleResizeDown}
+        onPointerMove={handleResizeMove}
+        onPointerUp={handleResizeUp}
+        className="absolute inset-y-0 left-0 w-1.5 cursor-ew-resize z-10 hover:bg-[#0d3cfc]/20 transition-colors hidden sm:block"
+        style={{ touchAction: "none" }}
+        title="Drag to resize"
+        data-testid="chat-resize-handle"
+        aria-label="Resize AI Copilot panel"
+      />
+
+      {/* Header */}
+      <div className="flex items-center justify-between h-14 px-4 border-b border-gray-100 shrink-0">
+        <div className="flex items-center gap-2">
+          <Sparkles className="w-4 h-4 text-[#0d3cfc]" aria-hidden="true" />
+          <span className="text-sm font-semibold text-gray-900">AI Copilot</span>
+          {isOnboarding && (
+            <span className="text-[10px] text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded">setup</span>
+          )}
+        </div>
+        <div className="flex items-center gap-1">
+          {!historyView && (
+            <button
+              type="button"
+              onClick={openHistory}
+              title="View 7-day chat history"
+              className="text-[11px] text-gray-400 hover:text-gray-600 px-2 py-1"
+              data-testid="button-chat-history"
+            >
+              History
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setShowSettings((v) => !v)}
+            className={`p-1.5 rounded ${showSettings ? "bg-gray-100 text-gray-700" : "text-gray-400 hover:bg-gray-50 hover:text-gray-600"}`}
+            aria-label="Chat settings"
+            aria-pressed={showSettings}
+            data-testid="button-chat-settings"
+          >
+            <SettingsIcon className="w-3.5 h-3.5" aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1.5 rounded text-gray-400 hover:bg-gray-50 hover:text-gray-600"
+            aria-label="Close AI Copilot"
+          >
+            <X className="w-4 h-4" aria-hidden="true" />
+          </button>
+        </div>
+      </div>
+
+      {/* Q25: settings drawer — transparency slider */}
+      {showSettings && (
+        <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/80 space-y-2 shrink-0" data-testid="chat-settings-drawer">
+          <div className="flex items-center justify-between">
+            <label className="text-[11px] font-medium text-gray-600 uppercase tracking-wide">Panel transparency</label>
+            <span className="text-[10px] text-gray-500">{Math.round(panelOpacity * 100)}%</span>
+          </div>
+          <input
+            type="range"
+            min="0.7"
+            max="1"
+            step="0.05"
+            value={panelOpacity}
+            onChange={(e) => setPanelOpacity(parseFloat(e.target.value))}
+            className="w-full accent-[#0d3cfc]"
+            aria-label="Panel transparency"
+            data-testid="slider-chat-opacity"
+          />
+          <p className="text-[10px] text-gray-500">
+            Affects the panel background only — message bubbles stay solid so text remains readable.
+            Drag the left edge to resize the panel width.
+          </p>
+        </div>
       )}
 
-      {/* Chat panel */}
-      {open && (
-        <div
-          className="fixed bottom-4 right-4 z-50 flex flex-col rounded-xl border border-gray-200 shadow-xl overflow-hidden"
-          style={{
-            backgroundColor: `rgba(255, 255, 255, ${panelOpacity})`,
-            width: size.w,
-            height: size.h,
-          }}
-          data-testid="portal-chat-panel"
-        >
-          {/* Q25a: resize handle at top-left (panel grows up+left from bottom-right anchor) */}
-          <div
-            onPointerDown={handlePointerDown}
-            onPointerMove={handlePointerMove}
-            onPointerUp={handlePointerUp}
-            className="absolute top-0 left-0 w-4 h-4 cursor-nwse-resize z-10"
-            style={{ touchAction: "none" }}
-            title="Drag to resize"
-            data-testid="chat-resize-handle"
-            aria-label="Resize chat window"
-          >
-            {/* tiny visual cue: two diagonal lines in the corner */}
-            <svg width="14" height="14" viewBox="0 0 14 14" className="absolute top-0.5 left-0.5 text-white/60 pointer-events-none" aria-hidden="true">
-              <path d="M3 11 L11 3 M6 11 L11 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" fill="none" />
-            </svg>
+      {historyView ? (
+        /* ─── Inline history view ─── */
+        <>
+          <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-100 bg-gray-50/80 shrink-0">
+            <button
+              type="button"
+              onClick={() => setHistoryView(false)}
+              className="inline-flex items-center gap-1 text-xs font-medium text-[#0d3cfc] hover:text-[#0a31d6]"
+              data-testid="button-history-return"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" /> Return to chat
+            </button>
+            <span className="ml-auto text-[10px] text-gray-400 uppercase tracking-wide">7-day history</span>
           </div>
-          {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-[#2D6A4F] shrink-0">
-            <div className="flex items-center gap-2">
-              <MessageCircle className="w-4 h-4 text-white" />
-              <span className="text-sm font-medium text-white">{title}</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => {
-                  setLocation("/portal/chat-history");
-                  setOpen(false);
-                }}
-                className="p-1 rounded hover:bg-white/20 text-white"
-                aria-label="View chat history"
-                title="View 7-day chat history"
-                data-testid="button-chat-history"
-              >
-                <History className="w-4 h-4" aria-hidden="true" />
-              </button>
-              <button
-                onClick={() => setShowSettings((v) => !v)}
-                className={`p-1 rounded text-white ${showSettings ? "bg-white/30" : "hover:bg-white/20"}`}
-                aria-label="Chat settings"
-                aria-pressed={showSettings}
-                data-testid="button-chat-settings"
-              >
-                <SettingsIcon className="w-4 h-4" aria-hidden="true" />
-              </button>
-              <button
-                onClick={() => setOpen(false)}
-                className="p-1 rounded hover:bg-white/20 text-white"
-                aria-label="Close support chat"
-              >
-                <X className="w-4 h-4" aria-hidden="true" />
-              </button>
-            </div>
-          </div>
-
-          {/* Q25: settings drawer — transparency slider */}
-          {showSettings && (
-            <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/80 space-y-2" data-testid="chat-settings-drawer">
-              <div className="flex items-center justify-between">
-                <label className="text-[11px] font-medium text-gray-600 uppercase tracking-wide">Window transparency</label>
-                <span className="text-[10px] text-gray-500">{Math.round(panelOpacity * 100)}%</span>
+          <div className="flex-1 overflow-y-auto p-3 space-y-3" data-testid="chat-history-transcript">
+            {historyLoading && (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
               </div>
-              <input
-                type="range"
-                min="0.7"
-                max="1"
-                step="0.05"
-                value={panelOpacity}
-                onChange={(e) => setPanelOpacity(parseFloat(e.target.value))}
-                className="w-full"
-                aria-label="Window transparency"
-                data-testid="slider-chat-opacity"
-              />
-              <p className="text-[10px] text-gray-500">Affects the window only — message bubbles stay readable.</p>
-            </div>
-          )}
-
+            )}
+            {historyError && (
+              <div className="border border-red-200 bg-red-50 rounded-lg p-3 text-xs text-red-700">
+                {historyError}
+              </div>
+            )}
+            {!historyLoading && !historyError && historyMessages.length === 0 && (
+              <div className="text-center text-xs text-gray-500 py-10" data-testid="chat-history-empty">
+                No conversation history yet. The assistant keeps a 7-day rolling thread — come back after a chat.
+              </div>
+            )}
+            {historyMessages.map((m, i) => (
+              <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+                <div className={`max-w-[85%] rounded-lg px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap ${
+                  m.role === "user" ? "bg-[#0d3cfc] text-white" : "bg-gray-100 text-gray-800"
+                }`}>
+                  {m.content}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      ) : (
+        /* ─── Live chat view ─── */
+        <>
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-3 space-y-3">
             {/* Q25: history banner on next-day reopen with prior messages */}
@@ -688,7 +749,7 @@ export default function PortalChatWidget({
             {messages.map((m, i) => (
               <div key={i} className={`flex flex-col ${m.role === "user" ? "items-end" : "items-start"}`}>
                 <div className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
-                  m.role === "user" ? "bg-[#2D6A4F] text-white" : "bg-gray-100 text-gray-700"
+                  m.role === "user" ? "bg-[#0d3cfc] text-white" : "bg-gray-100 text-gray-700"
                 }`}>
                   {m.content}
                 </div>
@@ -703,7 +764,7 @@ export default function PortalChatWidget({
                             // Re-validate target once more before navigating.
                             if (!a.target.startsWith("/portal/") || a.target.includes("..") || a.target.includes(":")) return;
                             setLocation(a.target);
-                            setOpen(false);
+                            onClose();
                             return;
                           }
                           if (a.intent === "click") {
@@ -718,11 +779,11 @@ export default function PortalChatWidget({
                               return;
                             }
                             el.click();
-                            setOpen(false);
+                            onClose();
                           }
                         }}
                         title={a.hint}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-[#2D6A4F] bg-white border border-[#2D6A4F]/30 rounded-full hover:bg-[#F0F7F4] hover:border-[#2D6A4F]/60 transition-colors"
+                        className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-[#0d3cfc] bg-white border border-[#0d3cfc]/30 rounded-full hover:bg-[#EEF3FF] hover:border-[#0d3cfc]/60 transition-colors"
                         data-testid={`chat-action-${i}-${j}`}
                       >
                         {a.label}
@@ -736,9 +797,9 @@ export default function PortalChatWidget({
 
             {/* Escalation draft card */}
             {escalationDraft && !ticketCreated && (
-              <div className="border border-[#2D6A4F]/30 bg-[#F0F7F4] rounded-lg p-3 space-y-2">
+              <div className="border border-[#0d3cfc]/30 bg-[#EEF3FF] rounded-lg p-3 space-y-2">
                 <div className="flex items-center gap-1.5">
-                  <ClipboardList className="w-3.5 h-3.5 text-[#2D6A4F]" />
+                  <ClipboardList className="w-3.5 h-3.5 text-[#0d3cfc]" />
                   <p className="text-xs font-medium text-gray-900">Support Ticket Draft</p>
                 </div>
                 <p className="text-[10px] text-gray-500">Review and edit. No ticket until you confirm.</p>
@@ -750,7 +811,7 @@ export default function PortalChatWidget({
                       <input
                         value={draftSubject}
                         onChange={(e) => setDraftSubject(e.target.value)}
-                        className="w-full mt-0.5 px-2 py-1 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-[#2D6A4F]/30 bg-white"
+                        className="w-full mt-0.5 px-2 py-1 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-[#0d3cfc]/30 bg-white"
                       />
                     </div>
                     <div>
@@ -758,7 +819,7 @@ export default function PortalChatWidget({
                       <select
                         value={draftCategory}
                         onChange={(e) => setDraftCategory(e.target.value)}
-                        className="w-full mt-0.5 px-2 py-1 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-[#2D6A4F]/30 bg-white"
+                        className="w-full mt-0.5 px-2 py-1 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-[#0d3cfc]/30 bg-white"
                       >
                         {CATEGORIES.map((c) => (
                           <option key={c.value} value={c.value}>{c.label}</option>
@@ -772,7 +833,7 @@ export default function PortalChatWidget({
                       value={draftDescription}
                       onChange={(e) => setDraftDescription(e.target.value)}
                       rows={2}
-                      className="w-full mt-0.5 px-2 py-1 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-[#2D6A4F]/30 bg-white resize-none"
+                      className="w-full mt-0.5 px-2 py-1 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-[#0d3cfc]/30 bg-white resize-none"
                     />
                   </div>
                 </div>
@@ -781,7 +842,7 @@ export default function PortalChatWidget({
                   <button
                     onClick={submitEscalationTicket}
                     disabled={!draftSubject.trim() || !draftDescription.trim() || submittingTicket}
-                    className="px-3 py-1 text-xs font-medium text-white bg-[#2D6A4F] rounded hover:bg-[#1B4332] disabled:opacity-60 transition-colors"
+                    className="px-3 py-1 text-xs font-medium text-white bg-[#0d3cfc] rounded hover:bg-[#0a31d6] disabled:opacity-60 transition-colors"
                   >
                     {submittingTicket ? "Creating..." : "Create Ticket"}
                   </button>
@@ -819,9 +880,9 @@ export default function PortalChatWidget({
 
             {/* Q23: form-fill proposal card */}
             {pendingProposal && pendingProposal.length > 0 && (
-              <div className="border border-[#2D6A4F]/30 bg-[#F0F7F4] rounded-lg p-3 space-y-2" data-testid="form-fill-proposal">
+              <div className="border border-[#0d3cfc]/30 bg-[#EEF3FF] rounded-lg p-3 space-y-2" data-testid="form-fill-proposal">
                 <div className="flex items-center gap-1.5">
-                  <Wand2 className="w-3.5 h-3.5 text-[#2D6A4F]" />
+                  <Wand2 className="w-3.5 h-3.5 text-[#0d3cfc]" />
                   <p className="text-xs font-medium text-gray-900">
                     Suggested fill ({pendingProposal.length} field{pendingProposal.length === 1 ? "" : "s"})
                   </p>
@@ -842,7 +903,7 @@ export default function PortalChatWidget({
                   <button
                     onClick={applyProposal}
                     disabled={applyingProposal}
-                    className="px-3 py-1 text-xs font-medium text-white bg-[#2D6A4F] rounded hover:bg-[#1B4332] disabled:opacity-60 transition-colors"
+                    className="px-3 py-1 text-xs font-medium text-white bg-[#0d3cfc] rounded hover:bg-[#0a31d6] disabled:opacity-60 transition-colors"
                     data-testid="button-apply-fill"
                   >
                     {applyingProposal ? "Applying..." : "Apply"}
@@ -887,7 +948,7 @@ export default function PortalChatWidget({
                    preventDefault when it found files. */
                 onPaste={(e) => attachmentInputRef.current?.handlePaste(e)}
                 placeholder={isOnboarding ? "Ask about any field..." : "Type or paste a screenshot..."}
-                className="flex-1 text-sm px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/20 focus:border-[#2D6A4F]"
+                className="flex-1 text-sm px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0d3cfc]/20 focus:border-[#0d3cfc]"
               />
               <button
                 onClick={() => send()}
@@ -896,7 +957,7 @@ export default function PortalChatWidget({
                   attachments.some((a) => a.status === "pending") ||
                   (!input.trim() && !attachments.some((a) => a.status === "uploaded"))
                 }
-                className="p-2 rounded-lg bg-[#2D6A4F] text-white hover:bg-[#1B4332] disabled:opacity-40 transition-colors"
+                className="p-2 rounded-lg bg-[#0d3cfc] text-white hover:bg-[#0a31d6] disabled:opacity-40 transition-colors"
                 aria-label="Send message"
               >
                 <Send className="w-4 h-4" aria-hidden="true" />
@@ -907,8 +968,8 @@ export default function PortalChatWidget({
               You can close this — your conversation stays saved.
             </p>
           </div>
-        </div>
+        </>
       )}
-    </>
+    </div>
   );
 }
