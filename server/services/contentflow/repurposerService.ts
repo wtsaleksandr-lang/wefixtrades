@@ -36,7 +36,7 @@ import { sql } from "drizzle-orm";
 import { storage } from "../../storage";
 import { db } from "../../db";
 import { contentDrafts } from "@shared/schema";
-import { chat as aiChat } from "../aiService";
+import { generateContentflowText } from "./aiText";
 import { autoApproveDraft } from "./approvalService";
 import { enqueueSocialSyncDraft, enqueueEmailDraft } from "./wordpressQueue";
 import { generateForDraft as generateImageForDraft } from "./imageGenerationService";
@@ -217,9 +217,9 @@ async function aiDerivations(
   const userPrompt = buildUserPrompt(article, tradeType, brandLayer, performanceFeedback);
   let raw: string;
   try {
-    raw = await aiChat({
+    raw = await generateContentflowText({
       system: SYSTEM_PROMPT,
-      messages: [{ role: "user", content: userPrompt }],
+      user: userPrompt,
       maxTokens: 2000,
     });
   } catch (err: any) {
