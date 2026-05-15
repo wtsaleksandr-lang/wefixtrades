@@ -435,6 +435,7 @@ export default function PortalServiceDetail() {
   const isWebCare = data?.service.service_id?.startsWith("webcare");
   const isAdFlow = data?.service.service_id?.startsWith("adflow");
   const isQuoteQuick = data?.service.service_id?.startsWith("quotequick");
+  const isMapguard = data?.service.service_id?.startsWith("mapguard");
 
   // Tasks waiting on client approval (for SiteLaunch design approval flow)
   const approvalTasks = (data?.tasks || []).filter(
@@ -600,6 +601,30 @@ export default function PortalServiceDetail() {
                 </span>
               </div>
             </div>
+
+            {/* MapGuard subscribers — link prominently to the rich
+                /portal/mapguard dashboard instead of leaving them on
+                the generic task list (which is mostly empty for an
+                ongoing-tier MapGuard subscription). */}
+            {isMapguard && (
+              <a
+                href="/portal/mapguard"
+                className="block bg-emerald-50/40 border border-emerald-200 rounded-xl p-5 hover:bg-emerald-50 transition-colors"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-[#2D6A4F] flex items-center justify-center shrink-0">
+                    <Shield className="w-4 h-4 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-gray-900">Open your MapGuard dashboard →</p>
+                    <p className="text-xs text-gray-600 mt-0.5">
+                      See your visibility score, Google ranking trends, post calendar, and the
+                      improvements we've shipped this month.
+                    </p>
+                  </div>
+                </div>
+              </a>
+            )}
 
             {/* TradeLine section */}
             {isTradeLine && tlError && (
