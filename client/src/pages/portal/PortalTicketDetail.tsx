@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRoute, Link } from "wouter";
 import { Loader2, ArrowLeft, Send } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
+import { useCopilotForm } from "@/context/CopilotFormContext";
 
 /* ─── Types ─── */
 interface TicketDetail {
@@ -107,6 +108,21 @@ export default function PortalTicketDetail() {
   const ticket = data?.ticket;
   const messages = data?.messages ?? [];
   const isClosed = ticket?.status === "closed";
+
+  /* Phase 1c: register the ticket reply box with the copilot. Enabled only
+   * once the ticket has loaded and is not closed (same condition that
+   * renders the reply textarea). */
+  useCopilotForm({
+    formLabel: "Ticket reply",
+    fields: [{ key: "reply", label: "Reply message", required: true }],
+    values: { reply },
+    onApply: (fills) => {
+      for (const f of fills) {
+        if (f.field_key === "reply") setReply(f.value);
+      }
+    },
+    enabled: !!ticket && !isClosed,
+  });
 
   if (!ticketId) {
     return (

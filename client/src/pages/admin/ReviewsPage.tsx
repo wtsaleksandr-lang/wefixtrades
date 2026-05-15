@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useCopilotForm } from "@/context/CopilotFormContext";
 
 interface MonitoredReview {
   id: number;
@@ -328,6 +329,33 @@ export default function ReviewsPage() {
   const isLowRating = selected ? selected.rating <= 2 : false;
   const hasPublicResponse = selected ? !!selected.response_text : false;
   const hasDraft = !!draftText;
+
+  /* Phase 1c: register the review-response draft with the copilot. Only
+   * enabled while the review detail dialog is open (not in share mode) —
+   * the same condition that renders the draft textarea + tone selector. */
+  const DRAFT_TONES: DraftTone[] = ["auto", "positive", "negative", "neutral"];
+  useCopilotForm({
+    formLabel: "Review response draft",
+    fields: [
+      { key: "draftText", label: "Draft response text" },
+      { key: "draftTone", label: `Draft tone (one of: ${DRAFT_TONES.join(", ")})` },
+    ],
+    values: { draftText, draftTone },
+    onApply: (fills) => {
+      for (const f of fills) {
+        if (f.field_key === "draftText") {
+          setDraftText(f.value.slice(0, 2000));
+          setDraftEdited(true);
+          setCopied(false);
+        } else if (f.field_key === "draftTone") {
+          if ((DRAFT_TONES as string[]).includes(f.value)) {
+            setDraftTone(f.value as DraftTone);
+          }
+        }
+      }
+    },
+    enabled: !!selected && !shareMode,
+  });
 
   return (
     <AdminLayout pageContext={{ page: "reviews" }}>

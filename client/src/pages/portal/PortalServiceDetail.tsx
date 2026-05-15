@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
+import { useCopilotForm } from "@/context/CopilotFormContext";
 import {
   SERVICE_STATUS_LABELS, SERVICE_STATUS_STYLES,
   PAYMENT_STATUS_LABELS, PAYMENT_STATUS_STYLES,
@@ -262,6 +263,55 @@ function VoiceAndStyleCard({
     language !== (config?.personality?.language || "en") ||
     widgetPreset !== (config?.widgetStyle?.preset || "clean") ||
     bubbleLabel !== (config?.widgetStyle?.bubbleLabel || "Need help? Ask us");
+
+  /* Phase 1c: register the TradeLine Voice & Style settings with the
+   * copilot. This card only mounts for TradeLine services once the config
+   * has loaded, so registration is gated by the card's own lifecycle. */
+  useCopilotForm({
+    formLabel: "Voice & Style",
+    fields: [
+      {
+        key: "voicePresetId",
+        label: `Voice preset (one of: ${VOICE_PRESETS.map((v) => v.id).join(", ")})`,
+      },
+      { key: "tone", label: `Tone (one of: ${TONE_OPTIONS.map((t) => t.value).join(", ")})` },
+      { key: "humor", label: "Light humor (light | off)" },
+      {
+        key: "language",
+        label: `Language (one of: ${LANGUAGE_OPTIONS.map((l) => l.value).join(", ")})`,
+      },
+      {
+        key: "widgetPreset",
+        label: `Widget style (one of: ${WIDGET_PRESETS.map((w) => w.value).join(", ")})`,
+      },
+      { key: "bubbleLabel", label: "Chat bubble text" },
+    ],
+    values: { voicePresetId, tone, humor, language, widgetPreset, bubbleLabel },
+    onApply: (fills) => {
+      for (const f of fills) {
+        switch (f.field_key) {
+          case "voicePresetId":
+            if (VOICE_PRESETS.some((v) => v.id === f.value)) setVoicePresetId(f.value);
+            break;
+          case "tone":
+            if (TONE_OPTIONS.some((t) => t.value === f.value)) setTone(f.value);
+            break;
+          case "humor":
+            if (f.value === "light" || f.value === "off") setHumor(f.value);
+            break;
+          case "language":
+            if (LANGUAGE_OPTIONS.some((l) => l.value === f.value)) setLanguage(f.value);
+            break;
+          case "widgetPreset":
+            if (WIDGET_PRESETS.some((w) => w.value === f.value)) setWidgetPreset(f.value);
+            break;
+          case "bubbleLabel":
+            setBubbleLabel(f.value);
+            break;
+        }
+      }
+    },
+  });
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">

@@ -13,6 +13,7 @@ import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { useCopilotForm } from "@/context/CopilotFormContext";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -84,6 +85,47 @@ export default function PortalChatWidgetSetup() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/portal/widget/site"] });
     },
+  });
+
+  /* Phase 1c: register the widget customization form with the copilot.
+   * Enabled once the site has loaded (the same point the draft is seeded). */
+  const WIDGET_POSITIONS = ["bottom-right", "bottom-left", "floating"];
+  useCopilotForm({
+    formLabel: "Chat widget setup",
+    fields: [
+      { key: "display_name", label: "Header display name" },
+      { key: "greeting", label: "Greeting message" },
+      { key: "accent_color", label: "Accent color (hex, e.g. #2D6A4F)" },
+      { key: "position", label: `Position (one of: ${WIDGET_POSITIONS.join(", ")})` },
+      { key: "allowed_origins", label: "Allowed domains (comma-separated, optional)" },
+    ],
+    values: {
+      display_name: (draft.display_name as string) ?? "",
+      greeting: (draft.greeting as string) ?? "",
+      accent_color: (draft.accent_color as string) ?? "",
+      position: (draft.position as string) ?? "",
+      allowed_origins: (draft.allowed_origins as string) ?? "",
+    },
+    onApply: (fills) => {
+      setDraft((d) => {
+        const next = { ...d };
+        for (const fill of fills) {
+          switch (fill.field_key) {
+            case "display_name": next.display_name = fill.value; break;
+            case "greeting": next.greeting = fill.value; break;
+            case "accent_color": next.accent_color = fill.value; break;
+            case "allowed_origins": next.allowed_origins = fill.value; break;
+            case "position":
+              if (WIDGET_POSITIONS.includes(fill.value)) {
+                next.position = fill.value as WidgetSite["position"];
+              }
+              break;
+          }
+        }
+        return next;
+      });
+    },
+    enabled: !!state.data?.site,
   });
 
   if (state.isLoading) {

@@ -16,6 +16,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { useCopilotForm } from "@/context/CopilotFormContext";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -261,6 +262,48 @@ export default function PortalContentPreferences() {
     if (s.kind === "multi") return Array.isArray(v) && v.length > 0;
     return typeof v === "string" && v.trim().length > 0;
   }
+
+  /* Phase 1c: register the content-preferences questionnaire with the
+   * copilot form registry. The AI proposes answers for every step at once;
+   * single/multi values are validated against each step's option set, and
+   * comma-separated strings drive the multi-select fields. */
+  useCopilotForm({
+    formLabel: "Content style",
+    fields: STEPS.map((s) => ({
+      key: s.field,
+      label:
+        s.kind === "multi"
+          ? `${s.title} (comma-separated; allowed: ${(s.options ?? []).map((o) => o.value).join(", ")})`
+          : s.kind === "single"
+            ? `${s.title} (one of: ${(s.options ?? []).map((o) => o.value).join(", ")})`
+            : s.title,
+      required: !s.optional,
+    })),
+    values: answers as unknown as Record<string, unknown>,
+    onApply: (fills) => {
+      setAnswers((prev) => {
+        const next = { ...prev };
+        for (const fill of fills) {
+          const s = STEPS.find((st) => st.field === fill.field_key);
+          if (!s) continue;
+          if (s.kind === "text") {
+            next[s.field] = fill.value;
+          } else if (s.kind === "single") {
+            const allowed = new Set((s.options ?? []).map((o) => o.value));
+            if (allowed.has(fill.value)) next[s.field] = fill.value;
+          } else {
+            const allowed = new Set((s.options ?? []).map((o) => o.value));
+            const picked = fill.value
+              .split(",")
+              .map((v) => v.trim())
+              .filter((v) => allowed.has(v));
+            if (picked.length > 0) next[s.field] = Array.from(new Set(picked));
+          }
+        }
+        return next;
+      });
+    },
+  });
 
   if (isLoading) {
     return (

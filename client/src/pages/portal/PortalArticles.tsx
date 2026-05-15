@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { useCopilotForm } from "@/context/CopilotFormContext";
 import { FilterToolbar, dateRangeCutoff, type DateRange } from "@/components/datatable/FilterToolbar";
 
 interface ArticleListItem {
@@ -171,6 +172,21 @@ export default function PortalArticles() {
   const detailIsActionable =
     detail?.status === "approved" && detailReview !== "approved" && detailReview !== "rejected";
   const busy = approveMutation.isPending || changesMutation.isPending || rejectMutation.isPending;
+
+  /* Phase 1c: register the article-decision note with the copilot. Only
+   * enabled while the detail drawer is open on an actionable article —
+   * the same condition that renders the note textarea. */
+  useCopilotForm({
+    formLabel: "Article review note",
+    fields: [{ key: "note", label: "Review note (optional)" }],
+    values: { note },
+    onApply: (fills) => {
+      for (const f of fills) {
+        if (f.field_key === "note") setNote(f.value);
+      }
+    },
+    enabled: drawerOpen && !!detailIsActionable,
+  });
 
   const stats = useMemo(() => {
     const counts = { pending: 0, approved: 0, changes: 0, rejected: 0, published: 0 };

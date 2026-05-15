@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { useCopilotForm } from "@/context/CopilotFormContext";
 import { ArrowLeft, CheckCircle2, Loader2, Save, Layout, BarChart3, Send } from "lucide-react";
 
 /**
@@ -184,6 +185,59 @@ function SiteLaunchTemplateForm({ cs }: { cs: ClientService }) {
     },
     onError: (err: any) => {
       toast({ title: "Save failed", description: err?.message || "Try again", variant: "destructive" });
+    },
+  });
+
+  /* Phase 1c: register the SiteLaunch template form with the copilot. This
+   * sub-component only mounts for `sitelaunch-template` services, so the
+   * registration is naturally scoped. templateId is validated against the
+   * known template set. */
+  useCopilotForm({
+    formLabel: "SiteLaunch setup",
+    fields: [
+      {
+        key: "templateId",
+        label: `Template (one of: ${SITELAUNCH_TEMPLATES.map((t) => t.id).join(", ")})`,
+      },
+      { key: "brandColors", label: "Brand colors (hex pair, e.g. #2D6A4F,#F5FCFF)" },
+      { key: "logoUrl", label: "Logo URL" },
+      { key: "heroTitle", label: "Hero title" },
+      { key: "heroSub", label: "Hero subtitle" },
+      { key: "about", label: "Short about paragraph" },
+      { key: "servicesText", label: "Services (one per line: Name | description)" },
+      { key: "serviceArea", label: "Service area" },
+      { key: "phone", label: "Contact phone" },
+      { key: "email", label: "Contact email" },
+      { key: "address", label: "Address (optional)" },
+      { key: "hours", label: "Hours (optional)" },
+      { key: "domain", label: "Domain (if already owned)" },
+      { key: "notes", label: "Internal notes" },
+    ],
+    values: {
+      templateId, brandColors, logoUrl, heroTitle, heroSub, about,
+      servicesText, serviceArea, phone, email, address, hours, domain, notes,
+    },
+    onApply: (fills) => {
+      for (const f of fills) {
+        switch (f.field_key) {
+          case "templateId":
+            if (SITELAUNCH_TEMPLATES.some((t) => t.id === f.value)) setTemplateId(f.value);
+            break;
+          case "brandColors": setBrandColors(f.value); break;
+          case "logoUrl": setLogoUrl(f.value); break;
+          case "heroTitle": setHeroTitle(f.value); break;
+          case "heroSub": setHeroSub(f.value); break;
+          case "about": setAbout(f.value); break;
+          case "servicesText": setServicesText(f.value); break;
+          case "serviceArea": setServiceArea(f.value); break;
+          case "phone": setPhone(f.value); break;
+          case "email": setEmail(f.value); break;
+          case "address": setAddress(f.value); break;
+          case "hours": setHours(f.value); break;
+          case "domain": setDomain(f.value); break;
+          case "notes": setNotes(f.value); break;
+        }
+      }
     },
   });
 
@@ -375,6 +429,48 @@ function AdFlowMetricsForm({ cs }: { cs: ClientService }) {
     },
     onError: (err: any) => {
       toast({ title: "Send failed", description: err?.message || "Try again", variant: "destructive" });
+    },
+  });
+
+  /* Phase 1c: register the AdFlow metrics form with the copilot. This
+   * sub-component only mounts for `adflow-*` services. All values are kept
+   * as strings in form state (matching the inputs), so fills apply directly;
+   * numeric coercion happens in the save mutation. */
+  useCopilotForm({
+    formLabel: "AdFlow metrics",
+    fields: [
+      { key: "periodStart", label: "Period start (YYYY-MM-DD)" },
+      { key: "periodEnd", label: "Period end (YYYY-MM-DD)" },
+      { key: "impressions", label: "Impressions (number)" },
+      { key: "clicks", label: "Clicks (number)" },
+      { key: "leadsGenerated", label: "Leads generated (number)" },
+      { key: "costSpentCents", label: "Total spend in dollars (numeric string)" },
+      { key: "ctrPct", label: "CTR percent (numeric string)" },
+      { key: "cpcCents", label: "CPC in dollars (numeric string)" },
+      { key: "topCreative", label: "Top performing creative" },
+      { key: "recommendations", label: "Recommendations (one per line)" },
+      { key: "notes", label: "Notes" },
+    ],
+    values: {
+      periodStart, periodEnd, impressions, clicks, leadsGenerated,
+      costSpentCents, ctrPct, cpcCents, topCreative, recommendations, notes,
+    },
+    onApply: (fills) => {
+      for (const f of fills) {
+        switch (f.field_key) {
+          case "periodStart": setPeriodStart(f.value); break;
+          case "periodEnd": setPeriodEnd(f.value); break;
+          case "impressions": setImpressions(f.value); break;
+          case "clicks": setClicks(f.value); break;
+          case "leadsGenerated": setLeadsGenerated(f.value); break;
+          case "costSpentCents": setCostSpentCents(f.value); break;
+          case "ctrPct": setCtrPct(f.value); break;
+          case "cpcCents": setCpcCents(f.value); break;
+          case "topCreative": setTopCreative(f.value); break;
+          case "recommendations": setRecommendations(f.value); break;
+          case "notes": setNotes(f.value); break;
+        }
+      }
     },
   });
 
