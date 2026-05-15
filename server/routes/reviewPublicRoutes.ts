@@ -200,4 +200,73 @@ export function registerReviewPublicRoutes(app: Express): void {
       res.status(500).json({ error: "Something went wrong. Please try again." });
     }
   });
+
+  /**
+   * GET /api/review-widget/:widgetToken
+   * Public data feed for the embeddable review widget (embed-reviews.js).
+   * Returns the business's rating summary + a curated set of reviews
+   * filtered by the client's WidgetSettings. CORS-open + short-cached
+   * because it's fetched from third-party customer websites.
+   *
+   * Gated: requires an active ReputationShield service whose tier
+   * includes the reviewWidget feature (Pro+) and widget.enabled.
+   */
+  app.get("/api/review-widget/:widgetToken", async (req: Request, res: Response) => {
+    // Embedded cross-origin — allow any site, cache for 10 min.
+    res.set("Access-Control-Allow-Origin", "*");
+    res.set("Cache-Control", "public, max-age=600");
+    try {
+      const widgetToken = req.params.widgetToken as string;
+      if (!widgetToken || widgetToken.length < 16) {
+        return res.status(400).json({ error: "Invalid token" });
+      }
+
+      const client = await storage.getClientByWidgetToken(widgetToken);
+      if (!client) return res.status(404).json({ error: "Business not found" });
+
+      const { extractTier, mergeSettings } = await import("@shared/reputationConfig");
+      const svc = await storage.getClientReputationService(client.id);
+      if (!svc) return res.status(404).json({ error: "Widget not available" });
+
+      const tier = extractTier(svc.serviceId);
+      const settings = mergeSettings(svc.metadata?.reputation_settings);
+      // The badge widget is available on every active ReputationShield
+      // tier; the carousel is Pro+, but that gate is enforced at the
+      // portal (a non-Pro customer is never handed carousel embed code).
+      // The data feed itself only needs an active service + the toggle.
+      if (!tier || !settings.widget.enabled) {
+        return res.status(403).json({ error: "Widget not enabled" });
+      }
+
+      const w = settings.widget;
+      const stats = await storage.getMonitoredReviewStats(client.id);
+      // Over-fetch then filter to text-bearing reviews so a carousel of
+      // N still fills up even when some high-rated reviews are bare stars.
+      const raw = await storage.listMonitoredReviews({
+        clientId: client.id,
+        minRating: w.min_rating,
+        limit: Math.min(w.max_reviews * 3, 60),
+      });
+      const reviews = raw
+        .filter((r) => (r.review_text || "").trim().length > 0)
+        .slice(0, w.max_reviews)
+        .map((r) => ({
+          author: w.show_reviewer_name ? r.reviewer_name : "Verified customer",
+          rating: r.rating,
+          text: r.review_text,
+          date: w.show_date && r.published_at ? r.published_at : null,
+        }));
+
+      res.json({
+        business_name: client.business_name,
+        average_rating: Number(stats.averageRating?.toFixed?.(1) ?? stats.averageRating ?? 0),
+        total_reviews: stats.total,
+        type: w.type, // "badge" | "carousel"
+        reviews,
+      });
+    } catch (err: any) {
+      log.error("[review-widget] data feed error:", err.message);
+      res.status(500).json({ error: "Something went wrong" });
+    }
+  });
 }
