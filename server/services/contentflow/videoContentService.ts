@@ -179,11 +179,13 @@ export async function generateVideoScript(
     // Generate the script via Claude
     let raw: string;
     try {
-      raw = await generateContentflowText({
+      const gen = await generateContentflowText({
         system: SCRIPT_SYSTEM_PROMPT,
         user: buildScriptUserPrompt(article, tradeType, brandLayer),
         maxTokens: 2000,
       });
+      raw = gen.text;
+      storage.addDraftGenerationCost(articleDraftId, gen.costMicroUsd).catch(() => {});
     } catch (err: any) {
       log.error(`Video script AI call failed for article=${articleDraftId}: ${err?.message || err}`);
       return { ok: false, reason: "ai_failed", message: err?.message || String(err) };

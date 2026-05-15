@@ -377,6 +377,21 @@ export async function processQueue(): Promise<ProcessQueueSummary> {
 
   const now = new Date();
 
+  /* Product-level admin gate. Kill switch halts all publishing; the
+   * disabled-channels list skips individual channels. Fail-open on a
+   * settings read error so a transient DB hiccup never strands the queue. */
+  let cfKillSwitch = false;
+  let cfDisabledChannels: string[] = [];
+  try {
+    const cf = await storage.getContentflowSettings();
+    cfKillSwitch = cf.kill_switch === true;
+    cfDisabledChannels = (cf.disabled_channels as string[]) || [];
+  } catch (err: any) {
+    log.error("ContentFlow settings read failed — proceeding with all channels enabled", { error: err?.message });
+  }
+  const channelEnabled = (c: string) => !cfKillSwitch && !cfDisabledChannels.includes(c);
+  if (cfKillSwitch) log.warn("ContentFlow kill switch is ON — publishing paused this tick");
+
   /* 1. Stale-lock recovery for all 9 channels. */
   const recoveryFns: Array<[string, () => Promise<number>]> = [
     ["wp", () => storage.recoverStaleWordpressClaims({ now, staleLockMs: STALE_LOCK_MS })],
@@ -398,16 +413,18 @@ export async function processQueue(): Promise<ProcessQueueSummary> {
     }
   }
 
-  /* 2-10. Drain each channel up to BATCH_SIZE. */
-  await drainWordpressQueue(summary);
-  await drainGbpQueue(summary);
-  await drainSocialChannel(summary, "facebook");
-  await drainSocialChannel(summary, "instagram");
-  await drainSocialChannel(summary, "gbp_post");
-  await drainSocialChannel(summary, "email");
-  await drainSocialChannel(summary, "linkedin");
-  await drainSocialChannel(summary, "pinterest");
-  await drainSocialChannel(summary, "youtube");
+  /* 2-10. Drain each enabled channel up to BATCH_SIZE. Channels turned
+   * off in the admin ContentFlow settings (or all, under the kill switch)
+   * are skipped. */
+  if (channelEnabled("wordpress")) await drainWordpressQueue(summary);
+  if (channelEnabled("gbp")) await drainGbpQueue(summary);
+  if (channelEnabled("facebook")) await drainSocialChannel(summary, "facebook");
+  if (channelEnabled("instagram")) await drainSocialChannel(summary, "instagram");
+  if (channelEnabled("gbp_post")) await drainSocialChannel(summary, "gbp_post");
+  if (channelEnabled("email")) await drainSocialChannel(summary, "email");
+  if (channelEnabled("linkedin")) await drainSocialChannel(summary, "linkedin");
+  if (channelEnabled("pinterest")) await drainSocialChannel(summary, "pinterest");
+  if (channelEnabled("youtube")) await drainSocialChannel(summary, "youtube");
 
   /* 8. Backpressure alerting — after each drain cycle. */
   await checkBackpressure().catch((err: any) => {

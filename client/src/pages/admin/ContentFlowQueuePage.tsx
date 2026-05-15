@@ -24,7 +24,7 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { RefreshCw, Filter as FilterIcon, Inbox, Loader2, Calendar, ChevronLeft, ChevronRight, LayoutList, Facebook, Instagram, Globe, Mail } from "lucide-react";
+import { RefreshCw, Filter as FilterIcon, Inbox, Loader2, Calendar, ChevronLeft, ChevronRight, LayoutList, Facebook, Instagram, Globe, Mail, Settings } from "lucide-react";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import {
   CONTENT_DRAFT_STATUS_LABELS,
@@ -32,6 +32,7 @@ import {
   statusLabel,
 } from "@/config/portalLabels";
 import ContentFlowDraftDrawer from "@/components/contentflow/ContentFlowDraftDrawer";
+import ContentFlowSettingsPanel from "@/components/contentflow/ContentFlowSettingsPanel";
 
 interface ContentDraftRow {
   id: number;
@@ -112,7 +113,7 @@ export default function ContentFlowQueuePage() {
   const qc = useQueryClient();
   const { toast } = useToast();
 
-  const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
+  const [viewMode, setViewMode] = useState<"list" | "calendar" | "settings">("list");
 
   const [clientFilter, setClientFilter] = useState<string>(ANY);
   const [statusFilter, setStatusFilter] = useState<string>(ANY);
@@ -250,6 +251,17 @@ export default function ContentFlowQueuePage() {
                 <Calendar className="h-3.5 w-3.5 inline mr-1" />
                 Calendar
               </button>
+              <button
+                onClick={() => setViewMode("settings")}
+                className={`px-3 py-1.5 text-xs font-medium ${
+                  viewMode === "settings"
+                    ? "bg-gray-900 text-white"
+                    : "bg-white text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                <Settings className="h-3.5 w-3.5 inline mr-1" />
+                Settings
+              </button>
             </div>
             <Button
               variant="outline"
@@ -281,6 +293,7 @@ export default function ContentFlowQueuePage() {
         </div>
 
         {/* Filters */}
+        {viewMode !== "settings" && (
         <Card className="p-3">
           <div className="flex items-center gap-2 mb-2 text-xs text-muted-foreground">
             <FilterIcon className="h-3.5 w-3.5" />
@@ -331,6 +344,10 @@ export default function ContentFlowQueuePage() {
             />
           </div>
         </Card>
+        )}
+
+        {/* Settings View */}
+        {viewMode === "settings" && <ContentFlowSettingsPanel />}
 
         {/* Calendar View */}
         {viewMode === "calendar" && (

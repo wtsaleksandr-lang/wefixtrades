@@ -217,11 +217,13 @@ async function aiDerivations(
   const userPrompt = buildUserPrompt(article, tradeType, brandLayer, performanceFeedback);
   let raw: string;
   try {
-    raw = await generateContentflowText({
+    const gen = await generateContentflowText({
       system: SYSTEM_PROMPT,
       user: userPrompt,
       maxTokens: 2000,
     });
+    raw = gen.text;
+    storage.addDraftGenerationCost(article.id, gen.costMicroUsd).catch(() => {});
   } catch (err: any) {
     log.error(`[contentflow][repurposer] AI call failed for parent=${article.id}: ${err?.message || err}`);
     return null;
