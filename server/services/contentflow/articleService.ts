@@ -4,9 +4,9 @@
  * Mirrors draftService.ts but for the RankFlow surface:
  *  - createDraftFromRankflowTask: idempotently inserts a content_drafts
  *    row for a page_create task and back-fills rankflow_tasks.content_draft_id.
- *  - generateArticleBody: runs the AI generation step against the existing
- *    aiService (Anthropic Claude Haiku 4.5) and updates the draft body /
- *    title / excerpt. Never throws — returns a result object so callers in
+ *  - generateArticleBody: runs the AI generation step through the provider
+ *    rotator (Claude Haiku 4.5 → OpenAI fallback) and updates the draft body
+ *    / title / excerpt. Never throws — returns a result object so callers in
  *    fire-and-forget paths cannot surface unhandled rejections.
  *
  * The two functions are split deliberately: the route hook calls
@@ -21,7 +21,7 @@ import { rankflowTasks } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { storage } from "../../storage";
 import type { ContentDraft, RankflowTask, RankflowProfile } from "@shared/schema";
-import { chat as aiChat } from "../aiService";
+import { generateContentflowText } from "./aiText";
 import { readBrandProfile, buildBrandLayerText } from "./brandProfile";
 import { buildPerformanceFeedback } from "./performanceTracker";
 import { createLogger } from "../../lib/logger";
@@ -227,9 +227,9 @@ export async function generateArticleBody(draftId: number): Promise<GenerateArti
 
   let raw: string;
   try {
-    raw = await aiChat({
+    raw = await generateContentflowText({
       system: SYSTEM_PROMPT,
-      messages: [{ role: "user", content: userPrompt }],
+      user: userPrompt,
       maxTokens: 2000,
     });
   } catch (err: any) {

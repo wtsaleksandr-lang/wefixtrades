@@ -19,7 +19,7 @@ import { storage } from "../../storage";
 import { db } from "../../db";
 import { clientServices, contentDrafts } from "@shared/schema";
 import { readBrandProfile, buildBrandLayerText } from "./brandProfile";
-import { chat as aiChat } from "../aiService";
+import { generateContentflowText } from "./aiText";
 import { autoApproveDraft } from "./approvalService";
 import { buildCalendarMetadata } from "./calendarMetadata";
 import { createLogger } from "../../lib/logger";
@@ -179,9 +179,9 @@ export async function generateVideoScript(
     // Generate the script via Claude
     let raw: string;
     try {
-      raw = await aiChat({
+      raw = await generateContentflowText({
         system: SCRIPT_SYSTEM_PROMPT,
-        messages: [{ role: "user", content: buildScriptUserPrompt(article, tradeType, brandLayer) }],
+        user: buildScriptUserPrompt(article, tradeType, brandLayer),
         maxTokens: 2000,
       });
     } catch (err: any) {
