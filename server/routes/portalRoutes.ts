@@ -3,7 +3,7 @@ import { requireClient, requireClientStrict, hashPassword, verifyPassword } from
 import { storage } from "../storage";
 import { db } from "../db";
 import { eq, and, asc, desc, sql, gte } from "drizzle-orm";
-import { chat as aiChat } from "../services/aiService";
+import { chat as aiChat, streamChat } from "../services/aiService";
 import { generateMonthlyPlan } from "../services/rankflow/planGenerator";
 import { generateTasksFromPlan } from "../services/rankflow/taskGenerator";
 import { generateKeywordTargets, clusterKeywords, deriveTargetServices } from "../services/rankflow/keywordHelper";
@@ -67,6 +67,12 @@ import { ALL_BUNDLES, bundleSavings } from "@shared/pricing";
 import { COPILOT_PROMPT_INSTRUCTION, extractCopilotPrompt } from "@shared/copilotProtocol";
 import type { ServiceCatalogRow } from "@shared/schema";
 import { getMemory, saveMemory } from "../services/chatMemory";
+import {
+  getCopilotActionsForSurface,
+  storePendingAction,
+  newCallId,
+  PENDING_ACTION_TTL_MS,
+} from "../services/copilotActionRegistry";
 
 import { compileMonthlyReport } from "../services/mapguardReports";
 import { getExecutionUsage } from "../services/mapguardTaskEngine";
@@ -1342,6 +1348,9 @@ export function registerPortalRoutes(app: Express) {
         return res.status(400).json({ error: "messages array is required" });
       }
 
+      // requireClient guarantees an authenticated portal user.
+      const portalUserId = (req as any).user?.id as number | undefined;
+
       // Client can signal "don't offer escalation" (e.g. after dismissing a draft)
       const skipEscalation = context?.skip_escalation === true;
 
@@ -1510,19 +1519,78 @@ Rules for proposing fills:
 - If you're not ready to propose, just keep chatting — no FORM_FILL block.${actionProposalBlock}${COPILOT_PROMPT_INSTRUCTION}${pageContextBlock}`;
       }
 
-      const rawReply = await aiChat({
+      // Stream the assistant reply over SSE. Headers go out before the first
+      // token so the client renders text as it arrives. The assembled text is
+      // accumulated into `rawReply` and post-processed exactly as the previous
+      // single-shot path did (action / form-fill / prompt / escalation parsing).
+      res.setHeader("Content-Type", "text/event-stream");
+      res.setHeader("Cache-Control", "no-cache");
+      res.setHeader("Connection", "keep-alive");
+      res.setHeader("X-Accel-Buffering", "no");
+
+      // Phase 2b portal tool-use: inject portal-surface actions only when the
+      // PORTAL_TOOLS_ENABLED kill-switch is on AND at least one portal action
+      // is registered. Until portal actions ship (2b-3) this resolves to no
+      // tools and the route streams plain text exactly as before.
+      const portalTools =
+        process.env.PORTAL_TOOLS_ENABLED === "true"
+          ? getCopilotActionsForSurface("portal").map((a) => a.tool)
+          : [];
+
+      let rawReply = "";
+      let toolEmitted = false;
+
+      const stream = streamChat({
         system: systemPrompt,
         messages: sanitizedMessages.map((m: { role: string; content: string }) => ({
           role: m.role as "user" | "assistant",
           content: m.content,
         })),
         maxTokens: 500,
+        tools: portalTools.length ? portalTools : undefined,
       });
+
+      for await (const event of stream) {
+        if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+          rawReply += event.delta.text;
+          res.write(`data: ${JSON.stringify({ text: event.delta.text })}\n\n`);
+        }
+      }
+
+      // If the model called a portal action, store it server-side (single-use,
+      // user-bound, 5-min TTL) and emit a tool_call event — the client renders
+      // a confirm card and posts the opaque call_id to the portal confirm
+      // endpoint (Phase 2b-2). Dormant until portal actions + the kill-switch
+      // are live.
+      try {
+        const finalMsg = await stream.finalMessage();
+        if (finalMsg.stop_reason === "tool_use" && portalTools.length && portalUserId) {
+          const toolUseBlock = finalMsg.content.find((b: any) => b.type === "tool_use") as any;
+          if (toolUseBlock) {
+            const callId = newCallId();
+            storePendingAction({
+              call_id: callId,
+              surface: "portal",
+              action_name: toolUseBlock.name,
+              args: (toolUseBlock.input ?? {}) as Record<string, unknown>,
+              user_id: portalUserId,
+              session_id: `portal_${portalUserId}`,
+              expires: Date.now() + PENDING_ACTION_TTL_MS,
+            });
+            res.write(
+              `data: ${JSON.stringify({ tool_call: { call_id: callId, tool_name: toolUseBlock.name, display: { args: toolUseBlock.input ?? {} } } })}\n\n`,
+            );
+            toolEmitted = true;
+          }
+        }
+      } catch {
+        // finalMessage() failed — skip the tool_call event; the streamed text
+        // has already been delivered.
+      }
 
       // Q24: persist the full conversation server-side so it survives logout +
       // device switch (localStorage on the client is browser-local only).
       // Keyed by user id; 7-day rolling window per the chat_memory helper.
-      const portalUserId = (req as any).user?.id as number | undefined;
       if (portalUserId) {
         const portalSessionId = `portal_${portalUserId}`;
         const persisted = [
@@ -1616,41 +1684,40 @@ Rules for proposing fills:
       const { cleanedText: replyAfterPrompt, prompt: promptRequest } = extractCopilotPrompt(reply);
       reply = replyAfterPrompt;
 
-      // ─── Structured escalation detection (classification step) ───
-      // Instead of fragile string matching, use a lightweight AI classification
-      // to determine whether the reply offers/suggests escalation to human support.
-      if (!escalationEnabled) {
-        return res.json({ reply, proposal, actions, prompt_request: promptRequest });
-      }
+      // ─── Structured escalation detection ───
+      // A lightweight AI classification decides whether the reply offers to
+      // escalate to human support; if so, a second call extracts a ticket
+      // draft. Skipped when escalation is disabled (onboarding mode) or the
+      // model called a tool this turn.
+      let escalationDraft:
+        | { subject: string; category: string; description: string; ai_summary: string | null }
+        | null = null;
 
-      let hasEscalationOffer = false;
-      try {
-        const classification = await aiChat({
-          system: `You are a binary classifier. Given an assistant reply from a customer support chat, determine if the assistant is offering, suggesting, or asking the customer about creating a support ticket or escalating to a human agent.
+      if (escalationEnabled && !toolEmitted) {
+        let hasEscalationOffer = false;
+        try {
+          const classification = await aiChat({
+            system: `You are a binary classifier. Given an assistant reply from a customer support chat, determine if the assistant is offering, suggesting, or asking the customer about creating a support ticket or escalating to a human agent.
 
 Answer ONLY "YES" or "NO". Nothing else.`,
-          messages: [{ role: "user" as const, content: reply }],
-          maxTokens: 5,
-        });
-        hasEscalationOffer = classification.trim().toUpperCase().startsWith("YES");
-      } catch (err) {
-        log.error("[portal-ai] Escalation classification failed:", { error: String(err) });
-        // On failure, don't block the reply — just skip escalation
-      }
+            messages: [{ role: "user" as const, content: reply }],
+            maxTokens: 5,
+          });
+          hasEscalationOffer = classification.trim().toUpperCase().startsWith("YES");
+        } catch (err) {
+          log.error("[portal-ai] Escalation classification failed:", { error: String(err) });
+          // On failure, don't block the reply — just skip escalation
+        }
 
-      if (!hasEscalationOffer) {
-        return res.json({ reply, proposal, actions, prompt_request: promptRequest });
-      }
+        if (hasEscalationOffer) {
+          // ─── Draft extraction (only runs when escalation detected) ───
+          const conversationSummary = sanitizedMessages
+            .map((m: { role: string; content: string }) => `${m.role === "user" ? "Customer" : "Assistant"}: ${m.content}`)
+            .join("\n");
 
-      // ─── Draft extraction (only runs when escalation detected) ───
-      const conversationSummary = sanitizedMessages
-        .map((m: { role: string; content: string }) => `${m.role === "user" ? "Customer" : "Assistant"}: ${m.content}`)
-        .join("\n");
-
-      let escalationDraft = null;
-      try {
-        const draftJson = await aiChat({
-          system: `You are extracting a structured support ticket draft from a customer support conversation.
+          try {
+            const draftJson = await aiChat({
+              system: `You are extracting a structured support ticket draft from a customer support conversation.
 Given the conversation below, create a JSON object with these fields:
 - "subject": A clear, concise ticket title (max 80 characters). Describe the customer's issue, not a question.
 - "category": Exactly one of: general, billing, service, onboarding, access, other
@@ -1658,33 +1725,55 @@ Given the conversation below, create a JSON object with these fields:
 - "ai_summary": A 1-2 sentence internal note for the support team about what was discussed and what the customer needs.
 
 Respond with ONLY valid JSON, no markdown fences, no explanation.`,
-          messages: [{ role: "user" as const, content: conversationSummary }],
-          maxTokens: 300,
-        });
+              messages: [{ role: "user" as const, content: conversationSummary }],
+              maxTokens: 300,
+            });
 
-        // Parse JSON from AI response — handle potential markdown fences
-        const jsonStr = draftJson.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
-        const parsed = JSON.parse(jsonStr);
+            // Parse JSON from AI response — handle potential markdown fences
+            const jsonStr = draftJson.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+            const parsed = JSON.parse(jsonStr);
 
-        // Validate required fields
-        const validCategories = ["general", "billing", "service", "onboarding", "access", "other"];
-        if (parsed.subject && parsed.description) {
-          escalationDraft = {
-            subject: String(parsed.subject).slice(0, 100),
-            category: validCategories.includes(parsed.category) ? parsed.category : "general",
-            description: String(parsed.description).slice(0, 2000),
-            ai_summary: parsed.ai_summary ? String(parsed.ai_summary).slice(0, 500) : null,
-          };
+            // Validate required fields
+            const validCategories = ["general", "billing", "service", "onboarding", "access", "other"];
+            if (parsed.subject && parsed.description) {
+              escalationDraft = {
+                subject: String(parsed.subject).slice(0, 100),
+                category: validCategories.includes(parsed.category) ? parsed.category : "general",
+                description: String(parsed.description).slice(0, 2000),
+                ai_summary: parsed.ai_summary ? String(parsed.ai_summary).slice(0, 500) : null,
+              };
+            }
+          } catch (err) {
+            log.error("[portal-ai] Failed to generate escalation draft:", { error: String(err) });
+            // Don't fail the request — just deliver the reply without the draft
+          }
         }
-      } catch (err) {
-        log.error("[portal-ai] Failed to generate escalation draft:", { error: String(err) });
-        // Don't fail the request — just return the reply without the draft
       }
 
-      res.json({ reply, escalation_draft: escalationDraft, proposal, actions, prompt_request: promptRequest });
+      // Single post-stream meta event: the cleaned reply (fenced blocks
+      // stripped) plus any structured cards. The client snaps the streamed
+      // bubble to `reply` and renders the cards from this payload.
+      res.write(
+        `data: ${JSON.stringify({ meta: { reply, escalation_draft: escalationDraft, proposal, actions, prompt_request: promptRequest } })}\n\n`,
+      );
+      res.write("data: [DONE]\n\n");
+      res.end();
     } catch (err) {
       log.error("Portal AI chat error:", { error: String(err) });
-      res.json({ reply: "Sorry, the assistant is temporarily unavailable. You can still fill in the form manually." });
+      // SSE headers are already configured by this point; surface the failure
+      // as a normal meta reply so the client still shows a friendly assistant
+      // message (mirrors the pre-streaming behaviour, which returned a reply).
+      try {
+        if (!res.writableEnded) {
+          res.write(
+            `data: ${JSON.stringify({ meta: { reply: "Sorry, the assistant is temporarily unavailable. You can still fill in the form manually." } })}\n\n`,
+          );
+          res.write("data: [DONE]\n\n");
+          res.end();
+        }
+      } catch {
+        // Client already disconnected — nothing more to send.
+      }
     }
   });
 
