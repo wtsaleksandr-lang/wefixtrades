@@ -81,7 +81,8 @@ export async function kickoffReputationShieldService(
       businessName: client.business_name || "your business",
       tierLabel,
       portalUrl: `${baseUrl}/portal/reviews`,
-      connectGoogleUrl: `${baseUrl}/portal/reviews?action=connect-google`,
+      // Land new customers on the guided setup wizard, not the raw dashboard.
+      connectGoogleUrl: `${baseUrl}/portal/reviews/setup`,
     });
   } catch (err: any) {
     log.warn(`Welcome email failed for client ${clientId}: ${err.message}`);

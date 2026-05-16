@@ -15,7 +15,7 @@ import {
   Star, TrendingUp, MessageSquare, Send, ShieldCheck, AlertTriangle,
   ChevronDown, ChevronUp, Loader2, RefreshCw, ThumbsDown, Settings, Lock, Code,
   QrCode, UserPlus, CheckCircle2, Unplug, ExternalLink, PauseCircle, PlayCircle,
-  CheckCircle, XCircle, MessageSquareWarning,
+  CheckCircle, XCircle, MessageSquareWarning, Sparkles,
 } from "lucide-react";
 import { Link } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
@@ -413,6 +413,11 @@ export default function PortalReviews() {
             <p className="text-sm text-gray-500">How customers see your business online</p>
           </div>
           <div className="flex gap-2">
+            <Link href="/portal/reviews/setup">
+              <Button variant="outline" size="sm" className="h-8">
+                <Sparkles className="w-3.5 h-3.5 mr-1" /> Setup
+              </Button>
+            </Link>
             <Link href="/portal/reviews/competitors">
               <Button variant="outline" size="sm" className="h-8">
                 <TrendingUp className="w-3.5 h-3.5 mr-1" /> Competitors

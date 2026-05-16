@@ -105,6 +105,7 @@ import PortalServices from "@/pages/portal/PortalServices";
 import PortalReviews from "@/pages/portal/PortalReviews";
 import PortalCompetitors from "@/pages/portal/PortalCompetitors";
 import PortalWidget from "@/pages/portal/PortalWidget";
+import PortalReviewsSetup from "@/pages/portal/PortalReviewsSetup";
 import PortalServiceDetail from "@/pages/portal/PortalServiceDetail";
 import PortalBilling from "@/pages/portal/PortalBilling";
 import PortalSettings from "@/pages/portal/PortalSettings";
@@ -210,6 +211,7 @@ function Router() {
       <Route path="/portal/services">{() => <RequireClient><PortalServices /></RequireClient>}</Route>
       <Route path="/portal/catalog">{() => <RequireClient><PortalCatalog /></RequireClient>}</Route>
       <Route path="/portal/reviews/widget">{() => <RequireClient><PortalWidget /></RequireClient>}</Route>
+      <Route path="/portal/reviews/setup">{() => <RequireClient><PortalReviewsSetup /></RequireClient>}</Route>
       <Route path="/portal/reviews/competitors">{() => <RequireClient><PortalCompetitors /></RequireClient>}</Route>
       <Route path="/portal/reviews">{() => <RequireClient><PortalReviews /></RequireClient>}</Route>
       <Route path="/portal/rankflow">{() => <RequireClient><PortalRankFlow /></RequireClient>}</Route>
