@@ -1508,26 +1508,32 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
 
       </Shell>
 
-      {/* Desktop side preview panel — sticky, visible from step 1 onward */}
+      {/* Desktop side preview — a premium "stage": the real widget on a dark
+          surface, with a desktop/mobile device toggle and a phone frame. */}
       {showSidePreview && (
         <div className="wizard-side-preview">
           <div style={{
-            position: 'sticky', top: 80,
-            borderRadius: '16px', overflow: 'hidden',
-            border: `1px solid ${p.colors.border}`,
-            background: '#fff',
-            boxShadow: p.shadows.wizardCard,
+            position: 'sticky', top: 24,
+            borderRadius: 22, overflow: 'hidden',
+            background: 'linear-gradient(168deg, #273449 0%, #0f172a 100%)',
+            boxShadow: '0 26px 52px -18px rgba(15,23,42,0.55)',
           }}>
+            {/* Stage header */}
             <div style={{
-              padding: '10px 16px',
-              borderBottom: `1px solid ${p.colors.borderLight}`,
-              display: 'flex', alignItems: 'center', gap: 8,
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '16px 20px 14px',
             }}>
-              <Eye style={{ width: 14, height: 14, color: p.colors.accent }} />
-              <span style={{ fontSize: 13, fontWeight: 600, color: p.colors.heading }}>Live Preview</span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.14em', color: '#9aa8bd' }}>
+                  LIVE PREVIEW
+                </span>
+                <span style={{ fontSize: 12, color: '#64748b' }}>
+                  Exactly what your customers see
+                </span>
+              </div>
               <div style={{
-                marginLeft: 'auto', display: 'flex', gap: 2, padding: 2,
-                borderRadius: 8, background: '#F3F4F6',
+                display: 'flex', gap: 3, padding: 3, borderRadius: 10,
+                background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.07)',
               }}>
                 {([['desktop', Monitor], ['mobile', Smartphone]] as const).map(([mode, Icon]) => (
                   <button
@@ -1538,31 +1544,43 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                     title={`${mode === 'desktop' ? 'Desktop' : 'Mobile'} preview`}
                     style={{
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      width: 30, height: 24, borderRadius: 6, border: 'none', cursor: 'pointer',
-                      background: previewDevice === mode ? '#fff' : 'transparent',
-                      boxShadow: previewDevice === mode ? '0 1px 2px rgba(0,0,0,0.1)' : 'none',
+                      width: 34, height: 27, borderRadius: 7, border: 'none', cursor: 'pointer',
+                      background: previewDevice === mode ? 'rgba(255,255,255,0.16)' : 'transparent',
                       transition: 'all 0.15s ease',
                     }}
                   >
-                    <Icon style={{ width: 14, height: 14, color: previewDevice === mode ? p.colors.accent : p.colors.muted }} />
+                    <Icon style={{ width: 14, height: 14, color: previewDevice === mode ? '#ffffff' : '#64748b' }} />
                   </button>
                 ))}
               </div>
             </div>
+
+            {/* Stage surface — the real QuoteWidget */}
             <div
               className="widget-scope"
-              style={{ background: '#f8fafb', padding: previewDevice === 'mobile' ? '16px 0' : 0 }}
+              style={{ padding: previewDevice === 'mobile' ? '2px 20px 30px' : '2px 24px 30px' }}
             >
-              <div style={{
-                maxWidth: previewDevice === 'mobile' ? 390 : '100%',
-                margin: '0 auto', transition: 'max-width 0.2s ease',
-              }}>
-                <QuoteWidget calculator={previewCalculatorData} isEmbed />
-              </div>
+              {previewDevice === 'mobile' ? (
+                <div style={{
+                  maxWidth: 386, margin: '0 auto',
+                  background: '#0b1120', borderRadius: 42, padding: 12,
+                  border: '1px solid rgba(255,255,255,0.09)',
+                  boxShadow: '0 18px 38px rgba(0,0,0,0.5)',
+                }}>
+                  <div style={{ borderRadius: 31, overflow: 'hidden', background: '#fff' }}>
+                    <QuoteWidget calculator={previewCalculatorData} isEmbed />
+                  </div>
+                </div>
+              ) : (
+                <div style={{
+                  maxWidth: 560, margin: '0 auto',
+                  borderRadius: 16, overflow: 'hidden', background: '#fff',
+                  boxShadow: '0 18px 42px rgba(0,0,0,0.42)',
+                }}>
+                  <QuoteWidget calculator={previewCalculatorData} isEmbed />
+                </div>
+              )}
             </div>
-
-            {/* Feature toggle previews — show what enabled features will look like */}
-            <FeatureTogglePreviews layout={ws.calculatorSettings?.ui_template?.layout} primaryColor={ws.primaryColor} />
           </div>
         </div>
       )}
