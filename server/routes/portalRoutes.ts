@@ -68,13 +68,15 @@ import { COPILOT_PROMPT_INSTRUCTION, extractCopilotPrompt } from "@shared/copilo
 import type { ServiceCatalogRow } from "@shared/schema";
 import { getMemory, saveMemory } from "../services/chatMemory";
 import {
-  getCopilotActionsForSurface,
   getCopilotAction,
   storePendingAction,
   consumePendingAction,
   newCallId,
   PENDING_ACTION_TTL_MS,
 } from "../services/copilotActionRegistry";
+// Importing portalTools registers the portal-surface actions into the
+// shared registry (mirrors how chatRoutes imports adminTools).
+import { PORTAL_TOOLS } from "../services/portalTools";
 
 import { compileMonthlyReport } from "../services/mapguardReports";
 import { getExecutionUsage } from "../services/mapguardTaskEngine";
@@ -1530,14 +1532,10 @@ Rules for proposing fills:
       res.setHeader("Connection", "keep-alive");
       res.setHeader("X-Accel-Buffering", "no");
 
-      // Phase 2b portal tool-use: inject portal-surface actions only when the
-      // PORTAL_TOOLS_ENABLED kill-switch is on AND at least one portal action
-      // is registered. Until portal actions ship (2b-3) this resolves to no
-      // tools and the route streams plain text exactly as before.
-      const portalTools =
-        process.env.PORTAL_TOOLS_ENABLED === "true"
-          ? getCopilotActionsForSurface("portal").map((a) => a.tool)
-          : [];
+      // Phase 2b portal tool-use: inject the registered portal-surface
+      // actions only when the PORTAL_TOOLS_ENABLED kill-switch is on. With
+      // the switch off the route streams plain text exactly as before.
+      const portalTools = process.env.PORTAL_TOOLS_ENABLED === "true" ? PORTAL_TOOLS : [];
 
       let rawReply = "";
       let toolEmitted = false;
