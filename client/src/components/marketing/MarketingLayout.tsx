@@ -81,50 +81,69 @@ function FooterColumn({ title, children }: { title: string; children: React.Reac
 }
 
 /**
- * A footer column whose link list is hidden behind a toggle button and
- * unfolds smoothly. The smooth height animation uses the grid 0fr→1fr
- * technique — no fixed max-height, no JS measurement.
+ * A footer column that shows the first half of its links, with the rest
+ * hidden behind a toggle. The remainder unfolds smoothly via the grid
+ * 0fr→1fr technique — no fixed max-height, no JS measurement.
  */
 function ExpandableFooterColumn({
   title,
   toggleLabel,
-  children,
+  links,
 }: {
   title: string;
   toggleLabel: string;
-  children: React.ReactNode;
+  links: { href: string; label: string }[];
 }) {
   const [open, setOpen] = useState(false);
+  const half = Math.ceil(links.length / 2);
+  const visible = links.slice(0, half);
+  const hidden = links.slice(half);
   return (
     <div>
       <div style={ftHeading}>{title}</div>
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        className="mkt-ft-expand"
-        style={{
-          ...ftLink,
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 6,
-          background: "none",
-          border: "none",
-          cursor: "pointer",
-          fontFamily: "inherit",
-        }}
-      >
-        {toggleLabel}
-        <ChevronDown
-          size={12}
-          style={{ transition: "transform 0.25s ease", transform: open ? "rotate(180deg)" : "rotate(0)" }}
-        />
-      </button>
-      <div className="mkt-ft-collapse" data-open={open}>
-        <div>
-          <div className="mkt-ft-list" style={{ paddingTop: 4 }}>{children}</div>
-        </div>
+      {/* First half — always visible */}
+      <div className="mkt-ft-list">
+        {visible.map((l) => (
+          <FtLink key={l.href + l.label} href={l.href}>{l.label}</FtLink>
+        ))}
       </div>
+      {hidden.length > 0 && (
+        <>
+          {/* Second half — unfolds below the visible half */}
+          <div className="mkt-ft-collapse" data-open={open}>
+            <div>
+              <div className="mkt-ft-list">
+                {hidden.map((l) => (
+                  <FtLink key={l.href + l.label} href={l.href}>{l.label}</FtLink>
+                ))}
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setOpen((o) => !o)}
+            aria-expanded={open}
+            className="mkt-ft-expand"
+            style={{
+              ...ftLink,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              marginTop: 4,
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              fontFamily: "inherit",
+            }}
+          >
+            {open ? "Show less" : toggleLabel}
+            <ChevronDown
+              size={12}
+              style={{ transition: "transform 0.25s ease", transform: open ? "rotate(180deg)" : "rotate(0)" }}
+            />
+          </button>
+        </>
+      )}
     </div>
   );
 }
@@ -145,30 +164,38 @@ function MarketingFooter() {
       {/* ── Main footer grid ───────────────────────────────────────── */}
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "40px 24px 0" }}>
         <div className="mkt-footer-grid">
-          {/* Products — list hidden behind the "All Products" toggle */}
-          <ExpandableFooterColumn title="Products" toggleLabel="All Products">
-            <FtLink href="/products/tradeline">24/7 TradeLine™</FtLink>
-            <FtLink href="/products/quickquotepro">QuoteQuick Pro™</FtLink>
-            <FtLink href="/products/mapguard">MapGuard™</FtLink>
-            <FtLink href="/products/reputationshield">ReputationShield™</FtLink>
-            <FtLink href="/products/socialsync">SocialSync™</FtLink>
-            <FtLink href="/products/rankflow">RankFlow™</FtLink>
-            <FtLink href="/products/sitelaunch">SiteLaunch™</FtLink>
-            <FtLink href="/products/webcare">WebCare™</FtLink>
-            <FtLink href="/products/webfix">WebFix™</FtLink>
-            <FtLink href="/products/contentflow">ContentFlow™</FtLink>
-            <FtLink href="/products/adflow">AdFlow™</FtLink>
-            <FtLink href="/products/bookflow">BookFlow™</FtLink>
-          </ExpandableFooterColumn>
+          {/* Products — first half shown, rest behind "All Products" */}
+          <ExpandableFooterColumn
+            title="Products"
+            toggleLabel="All Products"
+            links={[
+              { href: "/products/tradeline", label: "24/7 TradeLine™" },
+              { href: "/products/quickquotepro", label: "QuoteQuick Pro™" },
+              { href: "/products/mapguard", label: "MapGuard™" },
+              { href: "/products/reputationshield", label: "ReputationShield™" },
+              { href: "/products/socialsync", label: "SocialSync™" },
+              { href: "/products/rankflow", label: "RankFlow™" },
+              { href: "/products/sitelaunch", label: "SiteLaunch™" },
+              { href: "/products/webcare", label: "WebCare™" },
+              { href: "/products/webfix", label: "WebFix™" },
+              { href: "/products/contentflow", label: "ContentFlow™" },
+              { href: "/products/adflow", label: "AdFlow™" },
+              { href: "/products/bookflow", label: "BookFlow™" },
+            ]}
+          />
 
-          {/* Solutions — list hidden behind the "All Solutions" toggle */}
-          <ExpandableFooterColumn title="Solutions" toggleLabel="All Solutions">
-            <FtLink href="/solutions/for-plumbers">Plumbing</FtLink>
-            <FtLink href="/solutions/for-hvac">HVAC</FtLink>
-            <FtLink href="/solutions/for-electricians">Electrical</FtLink>
-            <FtLink href="/solutions/for-roofers">Roofing</FtLink>
-            <FtLink href="/solutions/for-cleaners">Cleaning</FtLink>
-          </ExpandableFooterColumn>
+          {/* Solutions — first half shown, rest behind "All Solutions" */}
+          <ExpandableFooterColumn
+            title="Solutions"
+            toggleLabel="All Solutions"
+            links={[
+              { href: "/solutions/for-plumbers", label: "Plumbing" },
+              { href: "/solutions/for-hvac", label: "HVAC" },
+              { href: "/solutions/for-electricians", label: "Electrical" },
+              { href: "/solutions/for-roofers", label: "Roofing" },
+              { href: "/solutions/for-cleaners", label: "Cleaning" },
+            ]}
+          />
 
           {/* Resources */}
           <FooterColumn title="Resources">
