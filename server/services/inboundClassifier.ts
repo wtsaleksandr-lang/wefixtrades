@@ -25,7 +25,7 @@ const log = createLogger("InboundClassifier");
 const INTERNAL_CLIENT_NAME = "WeFixTrades · Internal";
 let _internalClientIdCache: number | null = null;
 
-async function getOrCreateInternalClientId(): Promise<number> {
+export async function getOrCreateInternalClientId(): Promise<number> {
   if (_internalClientIdCache) return _internalClientIdCache;
   const [existing] = await db.select().from(clients).where(eq(clients.business_name, INTERNAL_CLIENT_NAME)).limit(1);
   if (existing) {
