@@ -66,25 +66,47 @@ export interface ToolCallEvent {
 }
 
 /* ─── SSE stream reader ─── */
+/**
+ * Reads a `text/event-stream` response and dispatches parsed events:
+ *  - `{ text }`      — appended; `onChunk` receives the full text so far.
+ *  - `{ tool_call }` — forwarded to `onToolCall` when provided.
+ *  - `{ meta }`      — forwarded to `onMeta` when provided. The portal route
+ *                      uses this to deliver post-stream results (the cleaned
+ *                      reply, escalation draft, action proposals, etc.).
+ *  - `{ error }`     — throws.
+ *  - `[DONE]`        — ends the stream.
+ *
+ * Partial `data:` lines split across network reads are buffered until their
+ * terminating newline arrives, so large events (e.g. the portal `meta`
+ * payload) parse reliably instead of being silently dropped.
+ */
 export async function readSSEStream(
   response: Response,
   onChunk: (text: string) => void,
   onToolCall?: (event: ToolCallEvent) => void,
+  onMeta?: (meta: any) => void,
 ): Promise<string> {
   const reader = response.body?.getReader();
   if (!reader) return "";
 
   const decoder = new TextDecoder();
   let fullText = "";
+  let buffer = "";
 
   try {
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-      const chunk = decoder.decode(value, { stream: true });
-      const lines = chunk.split("\n").filter((l) => l.startsWith("data: "));
+      buffer += decoder.decode(value, { stream: true });
 
-      for (const line of lines) {
+      // Drain every complete line; keep any trailing partial line buffered
+      // for the next read.
+      let nl: number;
+      while ((nl = buffer.indexOf("\n")) >= 0) {
+        const line = buffer.slice(0, nl);
+        buffer = buffer.slice(nl + 1);
+        if (!line.startsWith("data: ")) continue;
+
         const data = line.slice(6);
         if (data === "[DONE]") return fullText;
         try {
@@ -98,6 +120,9 @@ export async function readSSEStream(
           }
           if (parsed.tool_call && onToolCall) {
             onToolCall(parsed.tool_call as ToolCallEvent);
+          }
+          if (parsed.meta && onMeta) {
+            onMeta(parsed.meta);
           }
         } catch (e) {
           if (e instanceof Error && e.message !== "Unexpected end of JSON input") throw e;

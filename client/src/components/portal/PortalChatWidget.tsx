@@ -9,7 +9,7 @@ import ChatAttachmentInput, {
   type ChatAttachment,
   type ChatAttachmentInputHandle,
 } from "@/components/shared/ChatAttachmentInput";
-import { loadPortalMessages, savePortalMessages } from "@/lib/chatHelpers";
+import { loadPortalMessages, savePortalMessages, readSSEStream } from "@/lib/chatHelpers";
 import { useToast } from "@/hooks/use-toast";
 import CopilotPromptCard from "@/components/shared/CopilotPromptCard";
 import type { CopilotPromptRequest } from "@shared/copilotProtocol";
@@ -416,7 +416,9 @@ export default function PortalChatWidget({
     const renderedContent = msg + attachmentSuffix;
 
     const updated = [...messages, { role: "user" as const, content: renderedContent }];
-    setMessages(updated);
+    /* Show the user's message plus an empty assistant bubble straight away;
+     * the bubble renders a spinner until the first streamed token arrives. */
+    setMessages([...updated, { role: "assistant" as const, content: "" }]);
     setInput("");
     /* Capture the attachment list now and clear the chip strip so the
      * next message starts fresh. */
@@ -446,13 +448,27 @@ export default function PortalChatWidget({
           })),
         }),
       });
-      const data = await res.json();
+      if (!res.ok) throw new Error("Chat request failed");
 
-      // Q30b: parse + sanitize ACTION_PROPOSAL from server response. The
-      // server already whitelisted to /portal/* paths; we re-validate here
-      // as defence in depth and to drop any malformed entries before render.
-      const safeActions: ActionProposal[] | undefined = Array.isArray(data.actions)
-        ? data.actions
+      /* The route streams the reply as SSE: `text` deltas fill the bubble
+       * live, then one `meta` event delivers the cleaned reply plus any
+       * structured cards (escalation draft, form-fill, action proposals,
+       * confirmation prompt). Server-side parsing is unchanged from the
+       * pre-streaming endpoint — only the transport differs. */
+      let meta: any = null;
+      const streamedText = await readSSEStream(
+        res,
+        (fullText) => {
+          setMessages([...updated, { role: "assistant" as const, content: fullText }]);
+        },
+        undefined, // tool_call confirmation cards land in Phase 2b-2
+        (m) => { meta = m; },
+      );
+
+      // Q30b: re-validate ACTION_PROPOSAL entries the server already
+      // whitelisted to /portal/* paths — defence in depth before render.
+      const safeActions: ActionProposal[] | undefined = meta && Array.isArray(meta.actions)
+        ? meta.actions
             .filter((a: any) => {
               if (!a || typeof a.label !== "string" || typeof a.target !== "string") return false;
               if (a.intent === "navigate") {
@@ -472,15 +488,20 @@ export default function PortalChatWidget({
             }))
         : undefined;
 
-      setMessages((prev) => [...prev, {
-        role: "assistant",
-        content: data.reply || "Sorry, something went wrong.",
+      // Snap the streamed bubble to the server's cleaned reply (fenced blocks
+      // stripped) and attach any action buttons.
+      const replyText =
+        (meta && typeof meta.reply === "string" ? meta.reply : streamedText) ||
+        "Sorry, something went wrong.";
+      setMessages([...updated, {
+        role: "assistant" as const,
+        content: replyText,
         actions: safeActions && safeActions.length > 0 ? safeActions : undefined,
       }]);
 
       // Handle escalation draft (only for help surface)
-      if (escalationEnabled && data.escalation_draft) {
-        const draft = data.escalation_draft as EscalationDraft;
+      if (escalationEnabled && meta?.escalation_draft) {
+        const draft = meta.escalation_draft as EscalationDraft;
         setEscalationDraft(draft);
         setDraftSubject(draft.subject);
         setDraftCategory(draft.category);
@@ -488,17 +509,17 @@ export default function PortalChatWidget({
       }
 
       // Q23: form-fill proposal — render an inline card with Apply/Skip
-      if (data.proposal && Array.isArray(data.proposal.fills) && data.proposal.fills.length > 0) {
-        setPendingProposal(data.proposal.fills as FormFillProposal[]);
+      if (meta?.proposal && Array.isArray(meta.proposal.fills) && meta.proposal.fills.length > 0) {
+        setPendingProposal(meta.proposal.fills as FormFillProposal[]);
       }
 
       // Phase 0: AI-generated confirmation prompt (server already sanitized it).
-      if (data.prompt_request) {
-        setPendingPrompt(data.prompt_request as CopilotPromptRequest);
+      if (meta?.prompt_request) {
+        setPendingPrompt(meta.prompt_request as CopilotPromptRequest);
       }
     } catch {
-      setMessages((prev) => [...prev, {
-        role: "assistant",
+      setMessages([...updated, {
+        role: "assistant" as const,
         content: "Something went wrong. Please try again.",
       }]);
     } finally {
@@ -780,7 +801,9 @@ export default function PortalChatWidget({
                 <div className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
                   m.role === "user" ? "bg-[#0d3cfc] text-white" : "bg-gray-100 text-gray-700"
                 }`}>
-                  {m.content}
+                  {m.content
+                    ? m.content
+                    : <Loader2 className="w-4 h-4 animate-spin text-gray-400" />}
                 </div>
                 {m.role === "assistant" && m.actions && m.actions.length > 0 && (
                   <div className="mt-1.5 flex flex-wrap gap-1.5 max-w-[85%]" data-testid={`chat-actions-${i}`}>
@@ -895,14 +918,6 @@ export default function PortalChatWidget({
                   <Link href={`/portal/help/tickets/${ticketCreated.id}`} className="text-[10px] text-emerald-700 underline hover:no-underline">
                     View ticket
                   </Link>
-                </div>
-              </div>
-            )}
-
-            {loading && (
-              <div className="flex justify-start">
-                <div className="bg-gray-100 rounded-lg px-3 py-2">
-                  <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
                 </div>
               </div>
             )}
