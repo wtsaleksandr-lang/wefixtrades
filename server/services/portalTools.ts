@@ -20,9 +20,10 @@
  * with no further wiring.
  */
 
+import crypto from "crypto";
 import { db } from "../db";
-import { eq } from "drizzle-orm";
-import { clients } from "@shared/schema";
+import { eq, desc } from "drizzle-orm";
+import { clients, bookflowInvoices } from "@shared/schema";
 import {
   notificationPreferencesSchema,
   parseNotificationPreferences,
@@ -202,8 +203,194 @@ const UPDATE_NOTIFICATION_PREFERENCE_ACTION: CopilotAction = {
   execute: executeUpdateNotificationPreference,
 };
 
+/* ─── draft_invoice ─── */
+
+/* Phase 2c (draft tier). The action only PREPARES a draft BookFlow invoice
+ * (status "draft"); it never sends. The user reviews the draft and sends it
+ * to their customer through the existing BookFlow UI. Drafting has no
+ * outbound side-effect — it writes one DB row and nothing else. */
+
+const MAX_INVOICE_DOLLARS = 1_000_000;
+
+/** Next per-client invoice number: INV-001, INV-002, … (mirrors bookflowRoutes). */
+async function nextInvoiceNumber(clientId: number): Promise<string> {
+  const [latest] = await db
+    .select({ invoice_number: bookflowInvoices.invoice_number })
+    .from(bookflowInvoices)
+    .where(eq(bookflowInvoices.client_id, clientId))
+    .orderBy(desc(bookflowInvoices.id))
+    .limit(1);
+  if (!latest?.invoice_number) return "INV-001";
+  const match = latest.invoice_number.match(/INV-(\d+)/);
+  const next = match ? parseInt(match[1], 10) + 1 : 1;
+  return `INV-${String(next).padStart(3, "0")}`;
+}
+
+const dollarsToCents = (dollars: number): number => Math.round(dollars * 100);
+const formatDollars = (cents: number): string => `$${(cents / 100).toFixed(2)}`;
+
+const DRAFT_INVOICE_TOOL: ActionTool = {
+  name: "draft_invoice",
+  description:
+    "Draft an invoice in BookFlow for one of the user's own customers. " +
+    "Call this only when the user explicitly asks to create or draft an invoice in this turn. " +
+    "This creates a DRAFT only — it does NOT send anything to anyone. The user reviews the draft and " +
+    "sends it to their customer themselves from the BookFlow invoices page. " +
+    "Amounts are in dollars. Before calling this tool, state the invoice details (customer, work, " +
+    "amount) in plain language. Do not call this tool more than once per turn.",
+  input_schema: {
+    type: "object",
+    properties: {
+      customer_name: {
+        type: "string",
+        description: "Name of the customer being invoiced (one of the user's own customers).",
+      },
+      item_description: {
+        type: "string",
+        description: "Plain-language description of the work done or goods supplied.",
+      },
+      amount_dollars: {
+        type: "number",
+        description: "Total amount for the work, in dollars (e.g. 1500 for $1,500.00). Must be greater than 0.",
+      },
+      customer_email: {
+        type: "string",
+        description: "The customer's email (optional). Not needed to draft — only to send the invoice later.",
+      },
+      tax_dollars: {
+        type: "number",
+        description: "Tax amount in dollars (optional, defaults to 0).",
+      },
+      due_in_days: {
+        type: "number",
+        description: "How many days from today the invoice is due (optional, whole number 1–365).",
+      },
+      notes: {
+        type: "string",
+        description: "An optional note to show on the invoice.",
+      },
+    },
+    required: ["customer_name", "item_description", "amount_dollars"],
+  },
+};
+
+async function executeDraftInvoice(
+  action: PendingAction,
+  confirmedByUserId: number,
+): Promise<ActionExecutionResult> {
+  const { args } = action;
+
+  // Re-validate every arg before any write — executors never trust stored args.
+  const customerName = typeof args.customer_name === "string" ? args.customer_name.trim() : "";
+  if (!customerName) throw new Error("A customer name is required.");
+  if (customerName.length > 200) throw new Error("Customer name is too long.");
+
+  const itemDescription = typeof args.item_description === "string" ? args.item_description.trim() : "";
+  if (!itemDescription) throw new Error("A description of the work is required.");
+  if (itemDescription.length > 500) throw new Error("Item description is too long.");
+
+  const amountDollars = args.amount_dollars;
+  if (typeof amountDollars !== "number" || !Number.isFinite(amountDollars) || amountDollars <= 0) {
+    throw new Error("The invoice amount must be a positive number of dollars.");
+  }
+  if (amountDollars > MAX_INVOICE_DOLLARS) {
+    throw new Error("That invoice amount looks too large — please double-check it.");
+  }
+
+  let taxDollars = 0;
+  const taxRaw = args.tax_dollars;
+  if (taxRaw !== undefined && taxRaw !== null) {
+    if (typeof taxRaw !== "number" || !Number.isFinite(taxRaw) || taxRaw < 0) {
+      throw new Error("Tax must be a non-negative number of dollars.");
+    }
+    if (taxRaw > MAX_INVOICE_DOLLARS) {
+      throw new Error("That tax amount looks too large — please double-check it.");
+    }
+    taxDollars = taxRaw;
+  }
+
+  let dueDate: Date | null = null;
+  const dueRaw = args.due_in_days;
+  if (dueRaw !== undefined && dueRaw !== null) {
+    if (typeof dueRaw !== "number" || !Number.isInteger(dueRaw) || dueRaw < 1 || dueRaw > 365) {
+      throw new Error("The due date must be a whole number of days between 1 and 365.");
+    }
+    dueDate = new Date(Date.now() + dueRaw * 24 * 60 * 60 * 1000);
+  }
+
+  const customerEmail =
+    typeof args.customer_email === "string" && args.customer_email.trim()
+      ? args.customer_email.trim().slice(0, 200)
+      : null;
+  const notes =
+    typeof args.notes === "string" && args.notes.trim() ? args.notes.trim().slice(0, 1000) : null;
+
+  // Data-scoping: draft the invoice ONLY in the confirming user's own BookFlow.
+  const clientId = await resolveClientId(confirmedByUserId);
+  if (!clientId) {
+    throw new Error("No client record is linked to your account.");
+  }
+
+  const unitPriceCents = dollarsToCents(amountDollars);
+  const taxCents = dollarsToCents(taxDollars);
+  const subtotalCents = unitPriceCents;
+  const totalCents = subtotalCents + taxCents;
+  const invoiceNumber = await nextInvoiceNumber(clientId);
+
+  const [invoice] = await db
+    .insert(bookflowInvoices)
+    .values({
+      client_id: clientId,
+      customer_name: customerName,
+      customer_email: customerEmail,
+      line_items: [{ description: itemDescription, quantity: 1, unit_price_cents: unitPriceCents }],
+      subtotal_cents: subtotalCents,
+      tax_cents: taxCents,
+      total_cents: totalCents,
+      invoice_number: invoiceNumber,
+      pay_link_token: crypto.randomBytes(16).toString("hex"),
+      due_date: dueDate,
+      notes,
+      status: "draft",
+    })
+    .returning();
+
+  // Audit trail — recorded against the invoice row with an ai_agent actor.
+  await storage.logAdminActivity({
+    actor_type: "ai_agent",
+    actor_id: confirmedByUserId,
+    actor_name: "Portal Copilot",
+    action: "ai_tool.executed",
+    entity_type: "bookflow_invoice",
+    entity_id: invoice.id,
+    summary: `Portal copilot drafted invoice ${invoiceNumber} for ${customerName} (${formatDollars(totalCents)})`,
+    metadata: {
+      tool_name: "draft_invoice",
+      args,
+      session_id: action.session_id,
+      confirmed_by_user_id: confirmedByUserId,
+      invoice_id: invoice.id,
+    },
+  }).catch((err: Error) => log.error("logAdminActivity failed", { error: err.message }));
+
+  return {
+    narrative:
+      `Done — drafted invoice ${invoiceNumber} for ${customerName}, ${formatDollars(totalCents)}. ` +
+      "It's saved as a draft — review it and send it to your customer from the BookFlow invoices page when you're ready.",
+  };
+}
+
+const DRAFT_INVOICE_ACTION: CopilotAction = {
+  name: "draft_invoice",
+  surface: "portal",
+  riskTier: "draft",
+  tool: DRAFT_INVOICE_TOOL,
+  execute: executeDraftInvoice,
+};
+
 /* ─── Register portal actions ─── */
 registerCopilotAction(UPDATE_NOTIFICATION_PREFERENCE_ACTION);
+registerCopilotAction(DRAFT_INVOICE_ACTION);
 
 /** Anthropic tool definitions for the portal surface — handed to the model. */
 export const PORTAL_TOOLS: ActionTool[] = getCopilotActionsForSurface("portal").map((a) => a.tool);
