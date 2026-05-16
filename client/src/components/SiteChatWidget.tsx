@@ -5,6 +5,10 @@ import {
   loadMessages, saveMessages, loadOpenState, saveOpenState,
   type ChatMessage,
 } from "@/lib/chatHelpers";
+import { SERVICES, type Service } from "@shared/services";
+import { parseRecommendations } from "@/lib/recommendations";
+import { RecommendationCard } from "@/components/RecommendationCard";
+import CheckoutModal from "@/components/CheckoutModal";
 
 const GREETING: ChatMessage = {
   role: "assistant",
@@ -23,6 +27,7 @@ export default function SiteChatWidget() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const sessionId = useRef(getSessionId());
+  const [checkoutService, setCheckoutService] = useState<Service | null>(null);
 
   // Persist messages and open state
   useEffect(() => { saveMessages(messages); }, [messages]);
@@ -256,26 +261,68 @@ export default function SiteChatWidget() {
               background: "#F9FAFB",
             }}
           >
-            {messages.map((msg, i) => (
-              <div
-                key={i}
-                style={{
-                  maxWidth: "82%",
-                  alignSelf: msg.role === "assistant" ? "flex-start" : "flex-end",
-                  padding: "10px 14px",
-                  borderRadius: msg.role === "assistant" ? "14px 14px 14px 4px" : "14px 14px 4px 14px",
-                  fontSize: 13,
-                  lineHeight: 1.5,
-                  ...(msg.role === "assistant"
-                    ? { background: "#fff", color: "#1A1A2E", border: "1px solid #E5E7EB" }
-                    : { background: "linear-gradient(135deg, #0d3cfc, #0b34d6)", color: "#fff" }),
-                  wordBreak: "break-word",
-                  whiteSpace: "pre-wrap",
-                }}
-              >
-                {msg.content || "\u00A0"}
-              </div>
-            ))}
+            {messages.map((msg, i) => {
+              if (msg.role === "user") {
+                return (
+                  <div
+                    key={i}
+                    style={{
+                      maxWidth: "82%",
+                      alignSelf: "flex-end",
+                      padding: "10px 14px",
+                      borderRadius: "14px 14px 4px 14px",
+                      fontSize: 13,
+                      lineHeight: 1.5,
+                      background: "linear-gradient(135deg, #0d3cfc, #0b34d6)",
+                      color: "#fff",
+                      wordBreak: "break-word",
+                      whiteSpace: "pre-wrap",
+                    }}
+                  >
+                    {msg.content || "\u00A0"}
+                  </div>
+                );
+              }
+              // Assistant \u2014 strip any recommendation block, render product
+              // cards for the services it named.
+              const { cleanText, serviceIds } = parseRecommendations(msg.content);
+              const recs = serviceIds
+                .map((id) => SERVICES.find((s) => s.id === id))
+                .filter((s): s is Service => !!s);
+              return (
+                <div
+                  key={i}
+                  style={{
+                    maxWidth: "92%",
+                    alignSelf: "flex-start",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 8,
+                  }}
+                >
+                  {(cleanText.trim() || recs.length === 0) && (
+                    <div
+                      style={{
+                        padding: "10px 14px",
+                        borderRadius: "14px 14px 14px 4px",
+                        fontSize: 13,
+                        lineHeight: 1.5,
+                        background: "#fff",
+                        color: "#1A1A2E",
+                        border: "1px solid #E5E7EB",
+                        wordBreak: "break-word",
+                        whiteSpace: "pre-wrap",
+                      }}
+                    >
+                      {cleanText || "\u00A0"}
+                    </div>
+                  )}
+                  {recs.map((s) => (
+                    <RecommendationCard key={s.id} service={s} onAddToPackage={setCheckoutService} />
+                  ))}
+                </div>
+              );
+            })}
             {streaming && messages[messages.length - 1]?.content === "" && (
               <div style={{ display: "flex", gap: 4, padding: "8px 14px", alignSelf: "flex-start" }}>
                 {[0, 1, 2].map(i => (
@@ -371,6 +418,23 @@ export default function SiteChatWidget() {
           }
         }
       `}</style>
+
+      <CheckoutModal
+        open={!!checkoutService}
+        onClose={() => setCheckoutService(null)}
+        title={checkoutService?.name ?? ""}
+        items={
+          checkoutService
+            ? [{
+                serviceId: checkoutService.id,
+                label: checkoutService.name,
+                price: checkoutService.price,
+                billingPeriod: checkoutService.billingPeriod,
+              }]
+            : []
+        }
+        yearly={false}
+      />
     </>
   );
 }

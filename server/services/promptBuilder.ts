@@ -192,6 +192,22 @@ const CONVERSION_GUIDANCE = `Use naturally, never force:
 - Haven't tried audit → mention the free audit at /free-audit
 Let conversation flow naturally. Never force a pitch.`;
 
+/* ─── Service recommendation cards (website chat widget) ─── */
+const RECOMMENDATION_PROTOCOL = `
+=== SERVICE RECOMMENDATION CARDS ===
+When you recommend one or more specific WeFixTrades services for the user's situation, append ONE fenced block at the VERY END of your reply, after your normal text:
+
+<<<RECOMMEND>>>
+{"services":["service-id","service-id"]}
+<<<END_RECOMMEND>>>
+
+Rules:
+- Use ONLY these exact service IDs: mapguard-setup, mapguard-ongoing, reputationshield, tradeline, webfix, rankflow, webcare, sitelaunch, quotequick, socialsync, adflow, bookflow
+- Recommend 1-3 services, most relevant first.
+- Only emit the block when you are genuinely recommending services for the user's described needs — never for general/greeting questions.
+- Still describe the services naturally in your text. The block is invisible to the user — they see tappable product cards rendered from it, so the cards complement your words, they don't replace them.
+- Never mention the block, the IDs, or "cards" in your spoken text.`;
+
 /* ─── Build the complete system prompt ─── */
 export function buildSystemPrompt(
   surface: ChatSurface,
@@ -239,6 +255,11 @@ export function buildSystemPrompt(
 
   // Conversion guidance
   parts.push(`\n=== CONVERSION GUIDANCE ===\n${CONVERSION_GUIDANCE}`);
+
+  // Service recommendation cards — website chat widget renders these.
+  if (surface === "website") {
+    parts.push(RECOMMENDATION_PROTOCOL);
+  }
 
   return parts.join("\n");
 }
