@@ -18,6 +18,12 @@ export type VapiCallStatus =
   | "ended"         // Call finished normally
   | "error";        // Something went wrong
 
+/** One finalized line of the voice conversation. */
+export interface TranscriptLine {
+  role: "user" | "assistant";
+  text: string;
+}
+
 export interface VapiCallState {
   status: VapiCallStatus;
   /** True when the user is speaking (speech-start → speech-end) */
@@ -30,6 +36,8 @@ export interface VapiCallState {
   errorMessage: string | null;
   /** Vapi call ID once assigned */
   callId: string | null;
+  /** Running transcript of the conversation (finalized lines only) */
+  transcript: TranscriptLine[];
 }
 
 export interface UseVapiCallReturn extends VapiCallState {
@@ -64,6 +72,7 @@ export function useVapiCall(options?: UseVapiCallOptions): UseVapiCallReturn {
     volumeLevel: 0,
     errorMessage: null,
     callId: null,
+    transcript: [],
   });
 
   const vapiRef = useRef<any>(null);
@@ -100,7 +109,7 @@ export function useVapiCall(options?: UseVapiCallOptions): UseVapiCallReturn {
     // Prevent double-start
     if (state.status === "connecting" || state.status === "active") return;
 
-    setState((s) => ({ ...s, status: "loading", errorMessage: null, callId: null }));
+    setState((s) => ({ ...s, status: "loading", errorMessage: null, callId: null, transcript: [] }));
 
     try {
       // Fetch config if not cached
@@ -175,6 +184,18 @@ export function useVapiCall(options?: UseVapiCallOptions): UseVapiCallReturn {
           setState((s) => ({
             ...s,
             isAssistantSpeaking: msg.status === "started",
+          }));
+        } else if (
+          msg.type === "transcript" &&
+          msg.transcriptType === "final" &&
+          typeof msg.transcript === "string" &&
+          msg.transcript.trim()
+        ) {
+          // Accumulate the conversation so it can be read on screen.
+          const role: "user" | "assistant" = msg.role === "assistant" ? "assistant" : "user";
+          setState((s) => ({
+            ...s,
+            transcript: [...s.transcript, { role, text: msg.transcript.trim() }],
           }));
         }
       });
