@@ -1729,6 +1729,45 @@ export function registerAdminCrmRoutes(app: Express): void {
   });
 
   /**
+   * POST /api/admin/crm/quotequick/:calculatorId/edit-link
+   * Renews the calculator's 7-day edit token and returns its edit-page URL.
+   * Lets an admin open any calculator's editor without knowing the owner's token
+   * (and without hitting the "edit access expired" screen on stale calculators).
+   */
+  app.post("/api/admin/crm/quotequick/:calculatorId/edit-link", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const calculatorId = parseInt(String(req.params.calculatorId) as string);
+      if (isNaN(calculatorId)) {
+        return res.status(400).json({ error: "Invalid calculator ID" });
+      }
+
+      const calculator = await storage.getCalculatorById(calculatorId);
+      if (!calculator) {
+        return res.status(404).json({ error: "Calculator not found" });
+      }
+
+      // Renew the edit window so the (admin-initiated) edit session is always valid.
+      const renewedExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      await storage.updateCalculator(calculatorId, { token_expires_at: renewedExpiry });
+
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: (req.user as any)?.id,
+        actor_name: (req.user as any)?.name || (req.user as any)?.email,
+        action: "quotequick.edit_link_issued",
+        entity_type: "calculator",
+        entity_id: calculatorId,
+        summary: `Opened editor for QuoteQuick calculator #${calculatorId}`,
+      });
+
+      res.json({ edit_url: `/edit-calculator?token=${calculator.edit_token}` });
+    } catch (err: any) {
+      log.error("[admin-crm] QuoteQuick edit-link error:", err.message);
+      res.status(500).json({ error: "Failed to issue edit link" });
+    }
+  });
+
+  /**
    * GET /api/admin/crm/clients/:id/quotequick
    * Returns QuoteQuick calculator data for a specific client (via user_id linkage).
    */
