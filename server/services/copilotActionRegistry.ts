@@ -23,11 +23,17 @@ export type ActionSurface = "admin" | "portal";
 
 /**
  * Risk tier governs how autonomous an action may be:
- *  - "low":   may execute immediately after one human confirm click.
+ *  - "low":   may execute after one human confirm click.
  *  - "draft": money / outbound / irreversible — the action only PREPARES a
  *             draft; a human still performs the final send/commit.
+ *  - "auto":  executes immediately, with NO confirmation. Reserved for
+ *             actions that are customer-satisfying, stay within the
+ *             prebuilt product's customization limits, and structurally
+ *             cannot cause financial loss. Admission to this tier is
+ *             decided per action at build time — never judged by the model
+ *             at runtime. (Phase 3.)
  */
-export type ActionRiskTier = "low" | "draft";
+export type ActionRiskTier = "low" | "draft" | "auto";
 
 /** Anthropic tool-use schema shape. */
 export interface ActionTool {
