@@ -55,7 +55,7 @@ const HERO_HOOKS: Record<string, { eyebrow: string; headline: ReactNode; sub: st
   reputationshield: {
     eyebrow: "One ignored bad review can cost you 22 customers.",
     headline: <>Every review answered.<br/><span style={{ color: mkt.accent }}>Within minutes.</span></>,
-    sub: "AI drafts a personal reply to every Google, Yelp, and Facebook review. 5-stars get amplified. 1-stars get flagged to your phone.",
+    sub: "AI drafts a personal reply to every Google and Facebook review. 5-stars get amplified. 1-stars get flagged to your phone.",
   },
   socialsync: {
     eyebrow: "Posting consistently is a full-time job. You already have one.",
