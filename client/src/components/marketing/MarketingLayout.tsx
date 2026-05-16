@@ -189,11 +189,18 @@ function MarketingFooter() {
             title="Solutions"
             toggleLabel="All Solutions"
             links={[
-              { href: "/solutions/for-plumbers", label: "Plumbing" },
+              { href: "/solutions/for-plumbers", label: "Plumbers" },
               { href: "/solutions/for-hvac", label: "HVAC" },
-              { href: "/solutions/for-electricians", label: "Electrical" },
-              { href: "/solutions/for-roofers", label: "Roofing" },
-              { href: "/solutions/for-cleaners", label: "Cleaning" },
+              { href: "/solutions/for-electricians", label: "Electricians" },
+              { href: "/solutions/for-roofers", label: "Roofers" },
+              { href: "/solutions/for-cleaners", label: "Cleaners" },
+              { href: "/solutions/for-landscapers", label: "Landscapers" },
+              { href: "/solutions/for-pest-control", label: "Pest Control" },
+              { href: "/solutions/for-garage-door", label: "Garage Door" },
+              { href: "/solutions/for-locksmiths", label: "Locksmiths" },
+              { href: "/solutions/for-painters", label: "Painters" },
+              { href: "/solutions/for-remodelers", label: "Remodelers" },
+              { href: "/solutions/for-general-contractors", label: "General Contractors" },
             ]}
           />
 
