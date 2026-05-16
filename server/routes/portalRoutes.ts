@@ -69,7 +69,9 @@ import type { ServiceCatalogRow } from "@shared/schema";
 import { getMemory, saveMemory } from "../services/chatMemory";
 import {
   getCopilotActionsForSurface,
+  getCopilotAction,
   storePendingAction,
+  consumePendingAction,
   newCallId,
   PENDING_ACTION_TTL_MS,
 } from "../services/copilotActionRegistry";
@@ -1798,6 +1800,77 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
     } catch (err: any) {
       log.error("[portal-ai/history] Error:", { error: err.message });
       res.status(500).json({ error: "Failed to load chat history" });
+    }
+  });
+
+  /**
+   * POST /api/portal/ai-chat/confirm
+   *
+   * Confirms and executes a pending portal-copilot tool action.
+   *
+   * Body: { call_id: string, confirmed: true }
+   *
+   * Security (mirrors /api/admin/tool-confirm):
+   * - requireClient — authenticated portal user only
+   * - PORTAL_TOOLS_ENABLED kill-switch must be on
+   * - call_id must exist in the pending-action store (server-generated;
+   *   the client never supplies the args)
+   * - the stored user_id must match the session user
+   * - the action's surface must be "portal" — this endpoint never executes
+   *   an admin-surface action (and the admin endpoint never executes a
+   *   portal one)
+   * - the action must be registered for the portal surface (allowlist)
+   * - the store entry is consumed (single-use) on first retrieval — no replay
+   * - the executor re-validates args before any write
+   */
+  app.post("/api/portal/ai-chat/confirm", requireClient, async (req: Request, res: Response) => {
+    try {
+      // Hard kill switch — must match the gate in the streaming route.
+      if (process.env.PORTAL_TOOLS_ENABLED !== "true") {
+        return res.status(404).json({ error: "Not found" });
+      }
+
+      const { call_id, confirmed } = req.body ?? {};
+
+      if (typeof call_id !== "string" || call_id.trim() === "") {
+        return res.status(400).json({ error: "call_id is required" });
+      }
+      if (confirmed !== true) {
+        return res.status(400).json({ error: "confirmed must be true" });
+      }
+
+      // Look up and immediately consume the pending action (single-use).
+      const action = consumePendingAction(call_id);
+      if (!action) {
+        return res.status(404).json({ error: "Pending action not found or expired" });
+      }
+
+      // Verify the confirming user matches the one who initiated the tool call.
+      const sessionUserId = (req.user as any)?.id;
+      if (action.user_id !== sessionUserId) {
+        return res.status(403).json({ error: "Action belongs to a different session" });
+      }
+
+      // Separation guard — this is the PORTAL confirm endpoint; it must never
+      // execute an admin-surface action.
+      if (action.surface !== "portal") {
+        return res.status(403).json({ error: "Action surface mismatch" });
+      }
+
+      // Verify the action is registered for the portal surface (allowlist).
+      const def = getCopilotAction("portal", action.action_name);
+      if (!def) {
+        return res.status(400).json({ error: `Unknown action: ${action.action_name}` });
+      }
+
+      // Execute — the full action is passed so the executor can use
+      // session_id + metadata. Executors re-validate args before any write.
+      const result = await def.execute(action, sessionUserId);
+
+      return res.json({ success: true, narrative: result.narrative });
+    } catch (err: any) {
+      log.error("[portal-ai/confirm] Execution error:", { error: err.message });
+      return res.status(500).json({ error: err.message || "Tool execution failed" });
     }
   });
 

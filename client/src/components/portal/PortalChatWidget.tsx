@@ -60,6 +60,25 @@ export interface FormFillProposal {
   reason?: string;
 }
 
+/* Phase 2b: a portal action the copilot proposed via native tool-use. The
+ * route streams it as a `tool_call` SSE event after storing a single-use,
+ * user-bound PendingAction; the widget renders a confirm card and posts the
+ * opaque call_id to /api/portal/ai-chat/confirm. The args are display-only —
+ * the server holds the authoritative copy and re-validates before executing. */
+export interface PortalToolCallEvent {
+  call_id: string;
+  tool_name: string;
+  display?: { args?: Record<string, unknown> };
+}
+
+interface PortalToolCall {
+  callId: string;
+  toolName: string;
+  args: Record<string, unknown>;
+  state: "pending" | "confirming";
+  error?: string;
+}
+
 export interface PortalChatContext {
   /** "help" for general support (escalation enabled), or omit for onboarding */
   surface?: "help";
@@ -227,6 +246,9 @@ export default function PortalChatWidget({
   const [applyingProposal, setApplyingProposal] = useState(false);
   // Phase 0: AI-generated confirmation prompt (question + dynamic buttons).
   const [pendingPrompt, setPendingPrompt] = useState<CopilotPromptRequest | null>(null);
+  // Phase 2b: a portal action the copilot proposed via tool-use, awaiting the
+  // customer's confirm/cancel. Rendered as a card; never auto-executes.
+  const [pendingToolCall, setPendingToolCall] = useState<PortalToolCall | null>(null);
   // Q24: cross-session / cross-device hydration — on first mount, fetch the
   // server-side thread for this user and merge if richer than localStorage.
   // Survives logout/login + different browsers/devices.
@@ -402,7 +424,9 @@ export default function PortalChatWidget({
      * Block while a previous send is still in flight, or while any
      * attachment is still uploading. */
     const hasUploadedAttachments = attachments.some((a) => a.status === "uploaded");
-    if ((!msg && !hasUploadedAttachments) || loading) return;
+    // Block while streaming, while attachments upload, or while a proposed
+    // action is still awaiting the customer's confirm/cancel.
+    if ((!msg && !hasUploadedAttachments) || loading || pendingToolCall) return;
     if (attachments.some((a) => a.status === "pending")) return;
 
     /* Compose the user-visible message. If the user attached files
@@ -456,12 +480,15 @@ export default function PortalChatWidget({
        * confirmation prompt). Server-side parsing is unchanged from the
        * pre-streaming endpoint — only the transport differs. */
       let meta: any = null;
+      // `any` (like `meta`) — a closure-assigned typed local gets narrowed
+      // away by control-flow analysis; the value is cast at the use site.
+      let toolCallEvent: any = null;
       const streamedText = await readSSEStream(
         res,
         (fullText) => {
           setMessages([...updated, { role: "assistant" as const, content: fullText }]);
         },
-        undefined, // tool_call confirmation cards land in Phase 2b-2
+        (tc) => { toolCallEvent = tc; },
         (m) => { meta = m; },
       );
 
@@ -488,34 +515,57 @@ export default function PortalChatWidget({
             }))
         : undefined;
 
-      // Snap the streamed bubble to the server's cleaned reply (fenced blocks
-      // stripped) and attach any action buttons.
-      const replyText =
-        (meta && typeof meta.reply === "string" ? meta.reply : streamedText) ||
-        "Sorry, something went wrong.";
-      setMessages([...updated, {
-        role: "assistant" as const,
-        content: replyText,
-        actions: safeActions && safeActions.length > 0 ? safeActions : undefined,
-      }]);
+      const replyText = meta && typeof meta.reply === "string" ? meta.reply : streamedText;
 
-      // Handle escalation draft (only for help surface)
-      if (escalationEnabled && meta?.escalation_draft) {
-        const draft = meta.escalation_draft as EscalationDraft;
-        setEscalationDraft(draft);
-        setDraftSubject(draft.subject);
-        setDraftCategory(draft.category);
-        setDraftDescription(draft.description);
-      }
+      if (toolCallEvent) {
+        /* The copilot proposed an action. Keep the assistant's lead-in text
+         * only when non-empty; the confirmation card renders separately from
+         * `pendingToolCall`. A new turn is blocked until the customer
+         * confirms or cancels — escalation / form-fill / prompt cards never
+         * co-occur with a tool call, so they are skipped here. */
+        const tc = toolCallEvent as PortalToolCallEvent;
+        setMessages(
+          replyText
+            ? [...updated, {
+                role: "assistant" as const,
+                content: replyText,
+                actions: safeActions && safeActions.length > 0 ? safeActions : undefined,
+              }]
+            : [...updated],
+        );
+        setPendingToolCall({
+          callId: tc.call_id,
+          toolName: tc.tool_name,
+          args: tc.display?.args ?? {},
+          state: "pending",
+        });
+      } else {
+        // Snap the streamed bubble to the server's cleaned reply (fenced
+        // blocks stripped) and attach any action buttons.
+        setMessages([...updated, {
+          role: "assistant" as const,
+          content: replyText || "Sorry, something went wrong.",
+          actions: safeActions && safeActions.length > 0 ? safeActions : undefined,
+        }]);
 
-      // Q23: form-fill proposal — render an inline card with Apply/Skip
-      if (meta?.proposal && Array.isArray(meta.proposal.fills) && meta.proposal.fills.length > 0) {
-        setPendingProposal(meta.proposal.fills as FormFillProposal[]);
-      }
+        // Handle escalation draft (only for help surface)
+        if (escalationEnabled && meta?.escalation_draft) {
+          const draft = meta.escalation_draft as EscalationDraft;
+          setEscalationDraft(draft);
+          setDraftSubject(draft.subject);
+          setDraftCategory(draft.category);
+          setDraftDescription(draft.description);
+        }
 
-      // Phase 0: AI-generated confirmation prompt (server already sanitized it).
-      if (meta?.prompt_request) {
-        setPendingPrompt(meta.prompt_request as CopilotPromptRequest);
+        // Q23: form-fill proposal — render an inline card with Apply/Skip
+        if (meta?.proposal && Array.isArray(meta.proposal.fills) && meta.proposal.fills.length > 0) {
+          setPendingProposal(meta.proposal.fills as FormFillProposal[]);
+        }
+
+        // Phase 0: AI-generated confirmation prompt (server already sanitized it).
+        if (meta?.prompt_request) {
+          setPendingPrompt(meta.prompt_request as CopilotPromptRequest);
+        }
       }
     } catch {
       setMessages([...updated, {
@@ -525,6 +575,47 @@ export default function PortalChatWidget({
     } finally {
       setLoading(false);
     }
+  }
+
+  /* Phase 2b: confirm a portal action the copilot proposed. Posts the opaque
+   * call_id to the portal confirm endpoint, which re-validates the action
+   * (single-use, user-bound, portal-surface, allowlisted) and executes it
+   * server-side, then returns a narrative shown as an assistant message. */
+  async function confirmToolCall() {
+    if (!pendingToolCall || pendingToolCall.state !== "pending") return;
+    setPendingToolCall({ ...pendingToolCall, state: "confirming", error: undefined });
+    try {
+      const res = await fetch("/api/portal/ai-chat/confirm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ call_id: pendingToolCall.callId, confirmed: true }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({ error: "Failed" }));
+        throw new Error(body.error || "Failed");
+      }
+      const { narrative } = await res.json();
+      setPendingToolCall(null);
+      setMessages((prev) => [...prev, { role: "assistant" as const, content: narrative || "Done." }]);
+      // The action changed the customer's own data — refresh active queries
+      // so the portal page behind the widget reflects it.
+      queryClient.invalidateQueries();
+    } catch (err) {
+      // Keep the card so the customer can retry; surface the error inline.
+      setPendingToolCall((prev) =>
+        prev ? { ...prev, state: "pending" as const, error: (err as Error).message } : null,
+      );
+    }
+  }
+
+  function cancelToolCall() {
+    if (!pendingToolCall) return;
+    setPendingToolCall(null);
+    setMessages((prev) => [...prev, {
+      role: "assistant" as const,
+      content: "No problem — I won't make that change.",
+    }]);
   }
 
   async function submitEscalationTicket() {
@@ -965,6 +1056,66 @@ export default function PortalChatWidget({
               </div>
             )}
 
+            {/* Phase 2b: portal action the copilot proposed — confirm/cancel.
+                Nothing executes until the customer clicks Confirm. */}
+            {pendingToolCall && (
+              <div
+                className="rounded-lg border border-amber-200 bg-amber-50 overflow-hidden text-xs"
+                data-testid="portal-tool-confirm-card"
+              >
+                <div className="flex items-center justify-between px-3 py-1.5 bg-amber-100 border-b border-amber-200">
+                  <span className="font-semibold text-amber-800 uppercase tracking-wide text-[10px]">
+                    ⚡ Proposed action
+                  </span>
+                </div>
+                <div className="px-3 py-2 space-y-1">
+                  <p className="text-sm font-medium text-gray-900">
+                    {pendingToolCall.toolName.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase())}
+                  </p>
+                  {Object.keys(pendingToolCall.args).length > 0 && (
+                    <ul className="space-y-0.5">
+                      {Object.entries(pendingToolCall.args).map(([k, v]) => (
+                        <li key={k} className="text-xs text-gray-600">
+                          <span className="text-gray-400">{k.replace(/_/g, " ")}:</span> {String(v)}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <p className="text-[10px] text-gray-500">
+                    The assistant will only do this after you confirm.
+                  </p>
+                  {pendingToolCall.error && (
+                    <p className="text-xs text-red-500">{pendingToolCall.error}</p>
+                  )}
+                </div>
+                {pendingToolCall.state === "pending" && (
+                  <div className="flex gap-2 px-3 py-2 border-t border-amber-200">
+                    <button
+                      onClick={cancelToolCall}
+                      className="flex-1 text-xs text-gray-500 hover:text-gray-700 py-1.5 rounded border border-gray-200 bg-white hover:bg-gray-50 transition-colors"
+                      data-testid="button-tool-cancel"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={confirmToolCall}
+                      className="flex-1 text-xs font-medium text-white bg-[#0d3cfc] hover:bg-[#0a31d6] py-1.5 rounded transition-colors"
+                      data-testid="button-tool-confirm"
+                    >
+                      Confirm
+                    </button>
+                  </div>
+                )}
+                {pendingToolCall.state === "confirming" && (
+                  <div className="px-3 py-2 border-t border-amber-200 text-center">
+                    <span className="text-xs text-gray-400 inline-flex items-center justify-center gap-1">
+                      <Loader2 className="w-3 h-3 animate-spin" /> Applying…
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Phase 0: AI-generated confirmation prompt with dynamic buttons */}
             {pendingPrompt && (
               <CopilotPromptCard
@@ -989,7 +1140,7 @@ export default function PortalChatWidget({
                 value={attachments}
                 onChange={setAttachments}
                 variant="portal"
-                disabled={loading}
+                disabled={loading || !!pendingToolCall}
               />
               <input
                 value={input}
@@ -1001,13 +1152,21 @@ export default function PortalChatWidget({
                    input as normal because handlePaste only calls
                    preventDefault when it found files. */
                 onPaste={(e) => attachmentInputRef.current?.handlePaste(e)}
-                placeholder={isOnboarding ? "Ask about any field..." : "Type or paste a screenshot..."}
-                className="flex-1 text-sm px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0d3cfc]/20 focus:border-[#0d3cfc]"
+                placeholder={
+                  pendingToolCall
+                    ? "Confirm or cancel the action above…"
+                    : isOnboarding
+                      ? "Ask about any field..."
+                      : "Type or paste a screenshot..."
+                }
+                disabled={!!pendingToolCall}
+                className="flex-1 text-sm px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0d3cfc]/20 focus:border-[#0d3cfc] disabled:bg-gray-50"
               />
               <button
                 onClick={() => send()}
                 disabled={
                   loading ||
+                  !!pendingToolCall ||
                   attachments.some((a) => a.status === "pending") ||
                   (!input.trim() && !attachments.some((a) => a.status === "uploaded"))
                 }
