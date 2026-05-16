@@ -10,6 +10,7 @@
 import { storage } from "../storage";
 import type { PageContext } from "./promptBuilder";
 import { createLogger } from "../lib/logger";
+import { sendSupportEmail } from "../lib/supportEmail";
 import { extractTier, canAccessFeature } from "@shared/reputationConfig";
 import {
   registerCopilotAction,
@@ -272,9 +273,116 @@ const DRAFT_REVIEW_REPLY_ACTION: CopilotAction = {
   summarize: summarizeDraftReviewReply,
 };
 
+/* ─── send_support_email ─── */
+const SEND_SUPPORT_EMAIL_TOOL: ActionTool = {
+  name: "send_support_email",
+  description:
+    "Send a branded support email to the client currently in context. " +
+    "Call this ONLY when the admin explicitly asks to email or message the client in this turn. " +
+    "The client_id MUST come from the 'Client: <name> (ID: N)' line in PAGE CONTEXT — never invent an ID. " +
+    "Write the subject and the full body. The body is plain text; blank lines separate paragraphs. " +
+    "Do NOT add a signature, logo, or greeting boilerplate — the email is wrapped in the company template. " +
+    "Before calling this tool, briefly state who you are emailing and the gist of the message. " +
+    "Do not call this tool more than once per turn.",
+  input_schema: {
+    type: "object",
+    properties: {
+      client_id: {
+        type: "number",
+        description: "Numeric database ID of the client. Must come from 'Client: ... (ID: N)' in page context.",
+      },
+      subject: {
+        type: "string",
+        description: "The email subject line.",
+      },
+      body: {
+        type: "string",
+        description: "The full email body in plain text. Blank lines separate paragraphs.",
+      },
+    },
+    required: ["client_id", "subject", "body"],
+  },
+};
+
+async function executeSendSupportEmail(
+  action: PendingAction,
+  confirmedByUserId: number,
+): Promise<ActionExecutionResult> {
+  const { args } = action;
+  const clientId = args.client_id;
+  const subject = typeof args.subject === "string" ? args.subject.trim() : "";
+  const body = typeof args.body === "string" ? args.body.trim() : "";
+
+  if (typeof clientId !== "number" || !Number.isInteger(clientId) || clientId <= 0) {
+    throw new Error("Invalid client_id: must be a positive integer");
+  }
+  if (!subject) throw new Error("The email subject is empty.");
+  if (subject.length > 200) throw new Error("The email subject is too long.");
+  if (!body) throw new Error("The email body is empty.");
+  if (body.length > 6000) throw new Error("The email body is too long.");
+
+  const client = await storage.getClientById(clientId);
+  if (!client) throw new Error(`Client #${clientId} not found`);
+  if (!client.contact_email) {
+    throw new Error(`${client.business_name} has no contact email on file — add one before sending.`);
+  }
+
+  await sendSupportEmail({ to: client.contact_email, subject, body });
+
+  await storage.logAdminActivity({
+    actor_type: "ai_agent",
+    actor_id: confirmedByUserId,
+    actor_name: "AI Copilot",
+    action: "ai_tool.executed",
+    entity_type: "client",
+    entity_id: clientId,
+    summary: `AI sent a support email to ${client.business_name}: "${subject}"`,
+    metadata: {
+      tool_name: "send_support_email",
+      args: { client_id: clientId, subject },
+      session_id: action.session_id,
+      confirmed_by_user_id: confirmedByUserId,
+    },
+  }).catch((err: Error) => log.error("logAdminActivity failed", { error: err.message }));
+
+  return {
+    narrative:
+      `Sent a support email to ${client.business_name} (${client.contact_email}) — "${subject}". ` +
+      "It's on its way out through the email queue.",
+  };
+}
+
+/** Confirmation-card preview for send_support_email. */
+function summarizeSendSupportEmail(args: Record<string, unknown>, context?: unknown): ToolCallSummary {
+  const pageCtx = context as PageContext | undefined;
+  const clientName = pageCtx?.clientName ?? "this client";
+  const subject = typeof args.subject === "string" ? args.subject : "";
+  const body = typeof args.body === "string" ? args.body : "";
+  const preview = body.length > 200 ? `${body.slice(0, 200)}…` : body;
+
+  return {
+    title: "Send support email",
+    lines: [
+      `To: ${clientName}`,
+      `Subject: ${subject || "(no subject)"}`,
+      preview ? `"${preview}"` : "(empty body)",
+    ],
+  };
+}
+
+const SEND_SUPPORT_EMAIL_ACTION: CopilotAction = {
+  name: "send_support_email",
+  surface: "admin",
+  riskTier: "low",
+  tool: SEND_SUPPORT_EMAIL_TOOL,
+  execute: executeSendSupportEmail,
+  summarize: summarizeSendSupportEmail,
+};
+
 /* ─── Register admin actions ─── */
 registerCopilotAction(UPDATE_TASK_STATUS_ACTION);
 registerCopilotAction(DRAFT_REVIEW_REPLY_ACTION);
+registerCopilotAction(SEND_SUPPORT_EMAIL_ACTION);
 
 /* ─── Admin tool-injection gate ─── */
 const TOOL_CAPABLE_PAGES = ["client_detail", "inbox", "reviews"];
@@ -284,8 +392,9 @@ const TOOL_CAPABLE_PAGES = ["client_detail", "inbox", "reviews"];
  * 1. ADMIN_TOOLS_ENABLED env var is set
  * 2. Page is in the tool-capable list
  * 3. Page context exists
- * 4. The page exposes at least one actionable entity with a numeric ID —
- *    a task (update_task_status) or a review (draft_review_reply)
+ * 4. The page exposes at least one actionable entity — a task
+ *    (update_task_status), a review (draft_review_reply), or a client
+ *    (send_support_email)
  */
 export function shouldInjectTools(pageContext?: PageContext): boolean {
   if (process.env.ADMIN_TOOLS_ENABLED !== "true") return false;
@@ -293,7 +402,8 @@ export function shouldInjectTools(pageContext?: PageContext): boolean {
   if (!TOOL_CAPABLE_PAGES.includes(pageContext.page)) return false;
   const hasTasks = pageContext.topTasks?.some((t) => typeof t.id === "number") ?? false;
   const hasReviews = pageContext.topReviews?.some((r) => typeof r.id === "number") ?? false;
-  return hasTasks || hasReviews;
+  const hasClient = typeof pageContext.clientId === "number";
+  return hasTasks || hasReviews || hasClient;
 }
 
 /** Anthropic tool definitions for the admin surface — handed to the model. */
