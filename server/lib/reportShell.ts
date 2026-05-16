@@ -53,6 +53,7 @@ export function buildReportHeader(opts: { product: string; badge?: HeaderBadge }
   const accent = REPORT_COLORS.accent;
   const muted = REPORT_COLORS.muted;
   const bright = REPORT_COLORS.bright;
+  const baseUrl = (process.env.APP_URL || "https://wefixtrades.com").replace(/\/$/, "");
 
   const badgeHtml = badge ? `
     <td valign="middle" align="right" style="white-space:nowrap;">
@@ -65,12 +66,10 @@ export function buildReportHeader(opts: { product: string; badge?: HeaderBadge }
         <td valign="middle" style="padding:0;">
           <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="border-collapse:separate;">
             <tr>
-              <td valign="middle" style="padding-right:11px;">
-                <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="border-collapse:separate;">
-                  <tr>
-                    <td align="center" valign="middle" width="38" height="38" style="width:38px;height:38px;background:#1a1f1e;border:1px solid rgba(255,255,255,0.18);border-radius:10px;color:${accent};font-size:18px;font-weight:700;font-family:Arial,sans-serif;line-height:38px;text-align:center;">&#10003;</td>
-                  </tr>
-                </table>
+              <td valign="middle" style="padding-right:11px;line-height:0;">
+                <!-- Brand icon — hosted PNG (bare open-checkbox mark, no badge). -->
+                <img src="${baseUrl}/favicon.png" width="38" height="38" alt="WeFixTrades"
+                     style="display:block;width:38px;height:38px;border:0;outline:none;text-decoration:none;" />
               </td>
               <td valign="middle" style="text-align:left;">
                 <div style="font-family:'Inter',system-ui,-apple-system,Arial,sans-serif;font-weight:700;font-size:18px;letter-spacing:-0.03em;color:${bright};line-height:1;">We<span style="color:${accent};">Fix</span>Trades</div>
