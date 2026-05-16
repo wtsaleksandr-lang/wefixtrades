@@ -609,6 +609,19 @@ export function initScheduler() {
     }
   }, { timezone: "UTC" });
 
+  // ReputationShield "connect Google" re-nudge — daily at 16:00 UTC.
+  // Follows up with customers who activated RS but never completed the
+  // Google OAuth step (without which the product produces nothing).
+  // Capped at 2 nudges/customer; idempotent via client_services.metadata.
+  cron.schedule("0 16 * * *", async () => {
+    try {
+      const { processReputationConnectNudges } = await import("./reputationConnectNudgeWorker");
+      await runJob("reputation_connect_nudge", processReputationConnectNudges);
+    } catch (err: any) {
+      log.error("reputation_connect_nudge error", { error: err.message });
+    }
+  }, { timezone: "UTC" });
+
   // Dunning queue worker — drains pending billing_dunning_events whose
   // scheduled_for has elapsed. Runs every 5 minutes so reminders go out
   // promptly when their day-2 / day-5 / day-7 window opens, while
