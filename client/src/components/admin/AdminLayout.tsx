@@ -36,6 +36,7 @@ import {
   Phone,
   FileText,
   ServerCog,
+  Bell,
 } from "lucide-react";
 import AdminCopilot, { type AdminPageContext } from "./AdminCopilot";
 import { useAuth } from "@/hooks/useAuth";
@@ -68,6 +69,7 @@ const CORE_ITEMS = [
   { label: "Inbox", href: "/admin/crm/inbox", icon: Inbox },
   { label: "Support", href: "/admin/crm/support", icon: LifeBuoy, countKey: "support" as const },
   { label: "Alerts", href: "/admin/crm/alerts", icon: AlertTriangle, countKey: "alerts" as const },
+  { label: "AI Agenda", href: "/admin/notices", icon: Bell },
 ];
 
 /* ─── Collapsible groups ─── */

@@ -230,6 +230,9 @@ export default function SettingsPage() {
         {/* AI Customer Service — per-channel kill switches */}
         <AiChannelSettingsSection />
 
+        {/* How the AI escalates to the founder */}
+        <AiContactSection />
+
         {/* Two-Factor Authentication */}
         <TwoFactorSection />
 
@@ -499,6 +502,110 @@ function TwoFactorSection() {
           </div>
         </div>
       )}
+    </Card>
+  );
+}
+
+/* ─── How the AI escalates to the founder (Phase 3e-ii-a) ─── */
+
+interface AiContactPref {
+  ai_contact_method: string;
+  ai_contact_phone: string;
+}
+
+function AiContactSection() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const { data, isLoading } = useQuery<AiContactPref>({
+    queryKey: ["/api/user/ai-contact"],
+  });
+
+  const [method, setMethod] = useState("dashboard");
+  const [phone, setPhone] = useState("");
+  useEffect(() => {
+    if (data) {
+      setMethod(data.ai_contact_method || "dashboard");
+      setPhone(data.ai_contact_phone || "");
+    }
+  }, [data]);
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("PATCH", "/api/user/ai-contact", {
+        ai_contact_method: method,
+        ai_contact_phone: phone.trim(),
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/user/ai-contact"] });
+      toast({ title: "Saved", description: "AI contact preference updated." });
+    },
+    onError: () => {
+      toast({
+        title: "Save failed",
+        description: "Could not save the preference. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const needsPhone = method === "sms" || method === "whatsapp";
+  const blocked = needsPhone && phone.trim().length === 0;
+
+  return (
+    <Card className="p-5 space-y-4">
+      <div>
+        <h3 className="text-sm font-semibold text-gray-700">How the AI reaches you</h3>
+        <p className="text-xs text-gray-400 mt-0.5">
+          When the AI can't tell whether something needs your decision, it escalates. Every
+          escalation is saved to the dashboard agenda — choose whether it should also ping you.
+        </p>
+      </div>
+
+      <div className="space-y-3">
+        <div>
+          <Label className="text-xs text-gray-600">Escalation method</Label>
+          <Select value={method} onValueChange={setMethod}>
+            <SelectTrigger className="mt-1 max-w-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="dashboard">Dashboard agenda only</SelectItem>
+              <SelectItem value="sms">Text message (SMS)</SelectItem>
+              <SelectItem value="whatsapp">WhatsApp</SelectItem>
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-gray-400 mt-1">
+            {method === "dashboard"
+              ? "Escalations appear in the AI Agenda in your dashboard. No text is sent."
+              : method === "sms"
+                ? "The AI also texts your number; the full summary stays in the AI Agenda."
+                : "The AI also messages your number on WhatsApp; the full summary stays in the AI Agenda."}
+          </p>
+        </div>
+
+        {needsPhone && (
+          <div>
+            <Label className="text-xs text-gray-600">Your personal number (with country code)</Label>
+            <Input
+              type="tel"
+              placeholder="+1 555 123 4567"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              className="mt-1 max-w-xs"
+              data-testid="ai-contact-phone"
+            />
+          </div>
+        )}
+      </div>
+
+      <Button
+        onClick={() => saveMutation.mutate()}
+        disabled={isLoading || saveMutation.isPending || blocked}
+        data-testid="ai-contact-save"
+      >
+        {saveMutation.isPending ? "Saving..." : "Save"}
+      </Button>
     </Card>
   );
 }

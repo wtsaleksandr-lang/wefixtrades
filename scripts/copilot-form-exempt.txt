@@ -12,6 +12,7 @@
 # ── Admin: dashboards / lists / read-only / ops monitors ──
 client/src/pages/admin/AdFlowOpsPage.tsx
 client/src/pages/admin/AdminAuditLogPage.tsx
+client/src/pages/admin/AdminNoticesPage.tsx
 client/src/pages/admin/AdminChatHistoryPage.tsx
 client/src/pages/admin/AiDashboard.tsx
 client/src/pages/admin/BillingPage.tsx

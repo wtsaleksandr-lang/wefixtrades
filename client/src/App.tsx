@@ -120,6 +120,7 @@ import PortalHelp from "@/pages/portal/PortalHelp";
 import PortalTicketDetail from "@/pages/portal/PortalTicketDetail";
 import SupportInboxPage from "@/pages/admin/SupportInboxPage";
 import SupportTicketDetailPage from "@/pages/admin/SupportTicketDetailPage";
+import AdminNoticesPage from "@/pages/admin/AdminNoticesPage";
 import PortalMapguard from "@/pages/portal/PortalMapguard";
 import SocialSyncSetup from "@/pages/portal/SocialSyncSetup";
 import PortalSocialSync from "@/pages/portal/PortalSocialSync";
@@ -175,6 +176,7 @@ function Router() {
       <Route path="/admin/crm/quotequick">{() => <RequirePortal><QuoteQuickPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/support/:id">{() => <RequirePortal><SupportTicketDetailPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/support">{() => <RequirePortal><SupportInboxPage /></RequirePortal>}</Route>
+      <Route path="/admin/notices">{() => <RequirePortal><AdminNoticesPage /></RequirePortal>}</Route>
       <Route path="/admin/booking">{() => <RequirePortal><BookingCalendarPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/services">{() => <RequirePortal><ServicesPage /></RequirePortal>}</Route>
       <Route path="/admin/products/:id">{() => <RequirePortal><ProductDetailPage /></RequirePortal>}</Route>
