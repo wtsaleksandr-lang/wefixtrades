@@ -3,7 +3,9 @@ import { requireClient, requireClientStrict, hashPassword, verifyPassword } from
 import { storage } from "../storage";
 import { db } from "../db";
 import { eq, and, asc, desc, sql, gte } from "drizzle-orm";
-import { chat as aiChat, streamChat } from "../services/aiService";
+import { chat as aiChat, streamChat, getModel } from "../services/aiService";
+import { logUsage } from "../services/usageTracker";
+import { getBudgetBandForPortalUser, modelOverrideForBand } from "../services/aiBudget";
 import { generateMonthlyPlan } from "../services/rankflow/planGenerator";
 import { generateTasksFromPlan } from "../services/rankflow/taskGenerator";
 import { generateKeywordTargets, clusterKeywords, deriveTargetServices } from "../services/rankflow/keywordHelper";
@@ -1557,6 +1559,21 @@ Rules for proposing fills:
       let rawReply = "";
       let toolEmitted = false;
 
+      // Phase 3b-iii budget dial — when this client's trailing-30-day AI
+      // spend is over the soft cap, drop the copilot to the cheapest capable
+      // model. Never an off-switch: service continues, just leaner.
+      // getBudgetBandForPortalUser is fail-open (errors → within-budget).
+      const budgetBand = portalUserId
+        ? await getBudgetBandForPortalUser(portalUserId)
+        : null;
+      const budgetModelOverride = budgetBand ? modelOverrideForBand(budgetBand.band) : undefined;
+      if (budgetModelOverride) {
+        log.info(`[ai-chat] client over AI budget — copilot model → ${budgetModelOverride}`, {
+          userId: portalUserId,
+        });
+      }
+
+      const startMs = Date.now();
       const stream = streamChat({
         system: systemPrompt,
         messages: sanitizedMessages.map((m: { role: string; content: string }) => ({
@@ -1565,6 +1582,7 @@ Rules for proposing fills:
         })),
         maxTokens: 500,
         tools: portalTools.length ? portalTools : undefined,
+        modelOverride: budgetModelOverride,
       });
 
       for await (const event of stream) {
@@ -1634,6 +1652,30 @@ Rules for proposing fills:
         }
       } catch {
         // finalMessage() failed — skip tool handling; the streamed text stands.
+      }
+
+      // Phase 3b-iii: log copilot usage to ai_usage_logs so the per-client
+      // cost ledger + the budget dial have data. The portal route streams
+      // directly (not via assistantStream), so it must log its own usage.
+      // Best-effort — a logging failure never affects the reply.
+      if (portalUserId) {
+        try {
+          const usageMsg = await stream.finalMessage();
+          logUsage({
+            model: budgetModelOverride || getModel(),
+            surface: "portal",
+            provider: "anthropic",
+            channel: "chat",
+            sessionId: `portal_${portalUserId}`,
+            userId: portalUserId,
+            inputTokens: usageMsg.usage?.input_tokens,
+            outputTokens: usageMsg.usage?.output_tokens,
+            latencyMs: Date.now() - startMs,
+            success: true,
+          });
+        } catch {
+          /* usage logging is best-effort */
+        }
       }
 
       // Q24: persist the full conversation server-side so it survives logout +
