@@ -4,30 +4,13 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, AlertTriangle, Check, Copy, ExternalLink, RefreshCw, Lock, Building2, Palette, MessageSquare, Save, Clock, DollarSign, ChevronDown, ChevronUp, Plus, Trash2, GripVertical, Calculator, Eye, Globe, Code2, Link2, CheckCircle2, XCircle } from 'lucide-react';
+import { Loader2, AlertTriangle, Check, Copy, ExternalLink, RefreshCw, Lock, Building2, Palette, MessageSquare, Save, Clock, ChevronDown, Calculator, Eye, Globe, Link2, CheckCircle2, XCircle } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { trackEvent } from '@/lib/trackEvent';
 import { isValidSlug, HOSTING_DOMAIN } from '@shared/slugUtils';
-
-interface QuestionOption {
-  label: string;
-  value: string;
-  price_impact: number;
-}
-
-interface Question {
-  id: string;
-  label: string;
-  type: string;
-  options: QuestionOption[];
-}
-
-interface PricingConfig {
-  questions: Question[];
-  base_price: number;
-  currency: string;
-}
+import { validatePricingConfig, type PricingConfigV1 } from '@shared/pricingConfig';
+import PricingConfigEditor from '@/components/calculator/PricingConfigEditor';
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
@@ -79,135 +62,6 @@ function SkeletonLoader() {
           ))}
         </div>
       </div>
-    </div>
-  );
-}
-
-function QuestionEditor({
-  question,
-  index,
-  totalQuestions,
-  onUpdate,
-  onRemove,
-  onMoveUp,
-  onMoveDown,
-}: {
-  question: Question;
-  index: number;
-  totalQuestions: number;
-  onUpdate: (q: Question) => void;
-  onRemove: () => void;
-  onMoveUp: () => void;
-  onMoveDown: () => void;
-}) {
-  const [expanded, setExpanded] = useState(false);
-
-  const updateOption = (optIdx: number, field: keyof QuestionOption, val: string | number) => {
-    const newOpts = [...question.options];
-    newOpts[optIdx] = { ...newOpts[optIdx], [field]: val };
-    onUpdate({ ...question, options: newOpts });
-  };
-
-  const addOption = () => {
-    const newOpts = [...question.options, { label: '', value: `opt_${Date.now()}`, price_impact: 0 }];
-    onUpdate({ ...question, options: newOpts });
-  };
-
-  const removeOption = (optIdx: number) => {
-    const newOpts = question.options.filter((_, i) => i !== optIdx);
-    onUpdate({ ...question, options: newOpts });
-  };
-
-  return (
-    <div className="border border-slate-200 rounded-xl bg-white overflow-hidden" data-testid={`question-editor-${index}`}>
-      <div className="flex items-center gap-2 px-4 py-3 bg-slate-50/80 border-b border-slate-100">
-        <GripVertical className="w-4 h-4 text-slate-300 flex-shrink-0" />
-        <span className="text-xs font-bold text-slate-400 flex-shrink-0">Q{index + 1}</span>
-        <span className="text-sm font-medium text-slate-700 flex-1 truncate">{question.label || 'Untitled Question'}</span>
-        <div className="flex items-center gap-1 flex-shrink-0">
-          <button onClick={onMoveUp} disabled={index === 0}
-            className="p-1 rounded hover:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-            data-testid={`button-move-up-${index}`}>
-            <ChevronUp className="w-4 h-4 text-slate-500" />
-          </button>
-          <button onClick={onMoveDown} disabled={index === totalQuestions - 1}
-            className="p-1 rounded hover:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-            data-testid={`button-move-down-${index}`}>
-            <ChevronDown className="w-4 h-4 text-slate-500" />
-          </button>
-          <button onClick={() => setExpanded(p => !p)}
-            className="p-1 rounded hover:bg-slate-200 transition-colors"
-            data-testid={`button-toggle-question-${index}`}>
-            <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${expanded ? 'rotate-180' : ''}`} />
-          </button>
-          <button onClick={onRemove}
-            className="p-1 rounded hover:bg-red-50 transition-colors"
-            data-testid={`button-remove-question-${index}`}>
-            <Trash2 className="w-3.5 h-3.5 text-red-400 hover:text-red-600" />
-          </button>
-        </div>
-      </div>
-
-      {expanded && (
-        <div className="p-4 space-y-4 animate-fade-in-up">
-          <div>
-            <Label className="text-xs font-semibold text-slate-500">Question Label</Label>
-            <Input
-              className="mt-1.5 premium-input"
-              value={question.label}
-              onChange={e => onUpdate({ ...question, label: e.target.value })}
-              placeholder="e.g., What type of service do you need?"
-              data-testid={`input-question-label-${index}`}
-            />
-          </div>
-
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <Label className="text-xs font-semibold text-slate-500">Answer Options</Label>
-              <span className="text-xs text-slate-400">{question.options.length} option{question.options.length !== 1 ? 's' : ''}</span>
-            </div>
-
-            <div className="space-y-2">
-              {question.options.map((opt, optIdx) => (
-                <div key={optIdx} className="flex items-center gap-2 p-2.5 bg-slate-50 rounded-lg border border-slate-100" data-testid={`option-row-${index}-${optIdx}`}>
-                  <div className="flex-1 min-w-0">
-                    <Input
-                      className="premium-input text-sm h-9"
-                      value={opt.label}
-                      onChange={e => updateOption(optIdx, 'label', e.target.value)}
-                      placeholder="Option label"
-                      data-testid={`input-option-label-${index}-${optIdx}`}
-                    />
-                  </div>
-                  <div className="w-24 flex-shrink-0">
-                    <div className="relative">
-                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400">$</span>
-                      <Input
-                        className="premium-input text-sm h-9 pl-6 text-right"
-                        type="number"
-                        value={opt.price_impact}
-                        onChange={e => updateOption(optIdx, 'price_impact', parseFloat(e.target.value) || 0)}
-                        data-testid={`input-option-price-${index}-${optIdx}`}
-                      />
-                    </div>
-                  </div>
-                  <button onClick={() => removeOption(optIdx)}
-                    className="p-1.5 rounded hover:bg-red-50 transition-colors flex-shrink-0"
-                    data-testid={`button-remove-option-${index}-${optIdx}`}>
-                    <Trash2 className="w-3.5 h-3.5 text-red-400" />
-                  </button>
-                </div>
-              ))}
-            </div>
-
-            <button onClick={addOption}
-              className="mt-2 flex items-center gap-1.5 text-xs font-medium text-emerald-600 hover:text-emerald-700 transition-colors py-1.5"
-              data-testid={`button-add-option-${index}`}>
-              <Plus className="w-3.5 h-3.5" /> Add Option
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -417,7 +271,6 @@ function ChangeUrlSection({ calculatorId, currentSlug, token, onSlugChanged }: {
 
 function DeploySection({ slug, origin }: { slug: string; origin: string }) {
   const [showEmbed, setShowEmbed] = useState(false);
-  const calcUrl = `${origin}/calculator?slug=${slug}`;
   const hostedUrl = `${slug}.${HOSTING_DOMAIN}`;
   const inlineEmbed = `<script src="${origin}/embed-widget.js"\n  data-calculator-slug="${slug}"\n  async>\n</script>\n<div id="quotequick-widget"></div>`;
   const popupEmbed = `<script src="${origin}/embed-widget.js"\n  data-calculator-slug="${slug}"\n  data-mode="popup"\n  data-button-label="Get a Free Quote"\n  async>\n</script>`;
@@ -484,7 +337,7 @@ export default function EditCalculator() {
   const qc = useQueryClient();
 
   const [editData, setEditData] = useState<any>({});
-  const [pricingConfig, setPricingConfig] = useState<PricingConfig | null>(null);
+  const [pricingConfig, setPricingConfig] = useState<PricingConfigV1 | null>(null);
   const [saved, setSaved] = useState(false);
   const [duplicateResult, setDuplicateResult] = useState<any>(null);
   const [currentSlug, setCurrentSlug] = useState<string>('');
@@ -506,8 +359,10 @@ export default function EditCalculator() {
   useEffect(() => {
     if (calculator && Object.keys(editData).length === 0) {
       setEditData(calculator);
+      // Normalise pricing_config to a valid PricingConfigV1 (invalid/legacy
+      // shapes fall back to call-for-quote — never crash the editor).
       if (calculator.pricing_config) {
-        setPricingConfig(calculator.pricing_config as PricingConfig);
+        setPricingConfig(validatePricingConfig(calculator.pricing_config).config);
       }
     }
     if (calculator?.slug && !currentSlug) {
@@ -557,49 +412,6 @@ export default function EditCalculator() {
     }
     saveMutation.mutate(updates);
   }, [editData, pricingConfig]);
-
-  const updateQuestion = useCallback((idx: number, q: Question) => {
-    setPricingConfig(prev => {
-      if (!prev) return prev;
-      const questions = [...prev.questions];
-      questions[idx] = q;
-      return { ...prev, questions };
-    });
-  }, []);
-
-  const removeQuestion = useCallback((idx: number) => {
-    setPricingConfig(prev => {
-      if (!prev) return prev;
-      return { ...prev, questions: prev.questions.filter((_, i) => i !== idx) };
-    });
-  }, []);
-
-  const moveQuestion = useCallback((idx: number, dir: -1 | 1) => {
-    setPricingConfig(prev => {
-      if (!prev) return prev;
-      const questions = [...prev.questions];
-      const target = idx + dir;
-      if (target < 0 || target >= questions.length) return prev;
-      [questions[idx], questions[target]] = [questions[target], questions[idx]];
-      return { ...prev, questions };
-    });
-  }, []);
-
-  const addQuestion = useCallback(() => {
-    setPricingConfig(prev => {
-      if (!prev) return prev;
-      const newQ: Question = {
-        id: `q_${Date.now()}`,
-        label: '',
-        type: 'select',
-        options: [
-          { label: '', value: `opt_${Date.now()}_1`, price_impact: 0 },
-          { label: '', value: `opt_${Date.now()}_2`, price_impact: 0 },
-        ],
-      };
-      return { ...prev, questions: [...prev.questions, newQ] };
-    });
-  }, []);
 
   if (!token) return (
     <div className="min-h-screen flex items-center justify-center px-4 gradient-mesh">
@@ -773,54 +585,9 @@ export default function EditCalculator() {
           {pricingConfig && (
             <Card className="shadow-sm border-emerald-100" data-testid="section-pricing">
               <CardContent className="p-6">
-                <SectionHeader icon={Calculator} title="Pricing & Questions" iconBg="bg-emerald-50" iconColor="text-emerald-600" />
-                <p className="text-xs text-slate-400 -mt-2 mb-5">Customize the questions your customers answer and adjust the pricing logic.</p>
-
-                <div className="mb-6">
-                  <Label className="text-xs font-semibold text-slate-500">Base Price</Label>
-                  <p className="text-xs text-slate-400 mt-0.5 mb-1.5">Starting price before any options are selected</p>
-                  <div className="relative w-40">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium text-slate-400">
-                      {pricingConfig.currency === 'USD' ? '$' : pricingConfig.currency}
-                    </span>
-                    <Input
-                      className="premium-input pl-7 text-lg font-semibold"
-                      type="number"
-                      value={pricingConfig.base_price}
-                      onChange={e => setPricingConfig(prev => prev ? { ...prev, base_price: parseFloat(e.target.value) || 0 } : prev)}
-                      data-testid="input-base-price"
-                    />
-                  </div>
-                </div>
-
-                <div className="mb-3 flex items-center justify-between">
-                  <div>
-                    <Label className="text-xs font-semibold text-slate-500">Questions</Label>
-                    <p className="text-xs text-slate-400 mt-0.5">Each question shows as a step in your calculator. Click to expand and edit.</p>
-                  </div>
-                  <span className="text-xs text-slate-400 font-medium bg-slate-100 px-2 py-1 rounded-full">{pricingConfig.questions.length} question{pricingConfig.questions.length !== 1 ? 's' : ''}</span>
-                </div>
-
-                <div className="space-y-3 mb-4">
-                  {pricingConfig.questions.map((q, idx) => (
-                    <QuestionEditor
-                      key={q.id}
-                      question={q}
-                      index={idx}
-                      totalQuestions={pricingConfig.questions.length}
-                      onUpdate={updated => updateQuestion(idx, updated)}
-                      onRemove={() => removeQuestion(idx)}
-                      onMoveUp={() => moveQuestion(idx, -1)}
-                      onMoveDown={() => moveQuestion(idx, 1)}
-                    />
-                  ))}
-                </div>
-
-                <button onClick={addQuestion}
-                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-slate-200 text-sm font-medium text-slate-500 hover:border-emerald-300 hover:text-emerald-600 hover:bg-emerald-50/50 transition-all"
-                  data-testid="button-add-question">
-                  <Plus className="w-4 h-4" /> Add Question
-                </button>
+                <SectionHeader icon={Calculator} title="Pricing" iconBg="bg-emerald-50" iconColor="text-emerald-600" />
+                <p className="text-xs text-slate-400 -mt-2 mb-5">Set how your calculator prices jobs. Changes go live when you save.</p>
+                <PricingConfigEditor config={pricingConfig} onChange={setPricingConfig} />
               </CardContent>
             </Card>
           )}
