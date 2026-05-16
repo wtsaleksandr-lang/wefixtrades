@@ -9,6 +9,10 @@ import VoiceVisualizer, { HeroSoundBars } from "@/components/marketing/VoiceVisu
 import { Send, Bot, User, Mic, PhoneOff, Phone, MessageSquare, ArrowRight, Loader2, ChevronDown, Check } from "lucide-react";
 import { mkt } from "@/theme/tokens";
 import { TRADELINE, formatPrice } from "@/config/pricing";
+import { SERVICES, type Service } from "@shared/services";
+import { parseRecommendations } from "@/lib/recommendations";
+import { RecommendationCard } from "@/components/RecommendationCard";
+import CheckoutModal from "@/components/CheckoutModal";
 
 /* ═══════════════════════════════════════════════════════════════════
    TYPES
@@ -28,6 +32,7 @@ function ChatPanel() {
     { role: "assistant", content: "Hi! I'm the 24/7 TradeLine assistant. Ask me about services, get a quick estimate, or find out how we help trades businesses grow. What can I help you with?" },
   ]);
   const [inputValue, setInputValue] = useState("");
+  const [checkoutService, setCheckoutService] = useState<Service | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -68,34 +73,60 @@ function ChatPanel() {
   };
 
   return (
+    <>
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       {/* Messages area */}
       <div ref={scrollContainerRef} style={{
         flex: 1, overflowY: "auto", padding: "20px 18px", display: "flex",
         flexDirection: "column", gap: 12,
       }}>
-        {messages.map((msg, idx) => (
-          <div key={idx} style={{ display: "flex", justifyContent: msg.role === "user" ? "flex-end" : "flex-start", gap: 8, alignItems: "flex-end" }}>
-            {msg.role === "assistant" && (
-              <div style={{ width: 28, height: 28, borderRadius: "50%", background: mkt.accent, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                <Bot size={13} color={mkt.buttonText} />
+        {messages.map((msg, idx) => {
+          if (msg.role === "user") {
+            return (
+              <div key={idx} style={{ display: "flex", justifyContent: "flex-end", gap: 8, alignItems: "flex-end" }}>
+                <div style={{
+                  maxWidth: "78%", padding: "11px 15px",
+                  borderRadius: "16px 16px 4px 16px",
+                  background: mkt.accent, color: mkt.buttonText,
+                  fontSize: 14, lineHeight: 1.55,
+                }}>{msg.content}</div>
+                <div style={{ width: 28, height: 28, borderRadius: "50%", background: mkt.sectionLighter, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <User size={13} color={mkt.onDarkMuted} />
+                </div>
               </div>
-            )}
-            <div style={{
-              maxWidth: "78%", padding: "11px 15px",
-              borderRadius: msg.role === "user" ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
-              background: msg.role === "user" ? mkt.accent : mkt.surface,
-              color: msg.role === "user" ? mkt.buttonText : mkt.text,
-              fontSize: 14, lineHeight: 1.55,
-              border: msg.role === "assistant" ? `1px solid ${mkt.onDarkBorder}` : "none",
-            }}>{msg.content}</div>
-            {msg.role === "user" && (
-              <div style={{ width: 28, height: 28, borderRadius: "50%", background: mkt.sectionLighter, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                <User size={13} color={mkt.onDarkMuted} />
-              </div>
-            )}
-          </div>
-        ))}
+            );
+          }
+          // Assistant — strip the recommendation block and render product cards.
+          const { cleanText, serviceIds } = parseRecommendations(msg.content);
+          const recs = serviceIds
+            .map((id) => SERVICES.find((s) => s.id === id))
+            .filter((s): s is Service => !!s);
+          return (
+            <div key={idx} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {(cleanText.trim() || recs.length === 0) && (
+                <div style={{ display: "flex", justifyContent: "flex-start", gap: 8, alignItems: "flex-end" }}>
+                  <div style={{ width: 28, height: 28, borderRadius: "50%", background: mkt.accent, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <Bot size={13} color={mkt.buttonText} />
+                  </div>
+                  <div style={{
+                    maxWidth: "78%", padding: "11px 15px",
+                    borderRadius: "16px 16px 16px 4px",
+                    background: mkt.surface, color: mkt.text,
+                    fontSize: 14, lineHeight: 1.55,
+                    border: `1px solid ${mkt.onDarkBorder}`,
+                  }}>{cleanText}</div>
+                </div>
+              )}
+              {recs.length > 0 && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, paddingLeft: 36, maxWidth: 380 }}>
+                  {recs.map((s) => (
+                    <RecommendationCard key={s.id} service={s} onAddToPackage={setCheckoutService} />
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
         {sendMutation.isPending && (
           <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
             <div style={{ width: 28, height: 28, borderRadius: "50%", background: mkt.accent, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -139,6 +170,23 @@ function ChatPanel() {
         </button>
       </div>
     </div>
+    <CheckoutModal
+      open={!!checkoutService}
+      onClose={() => setCheckoutService(null)}
+      title={checkoutService?.name ?? ""}
+      items={
+        checkoutService
+          ? [{
+              serviceId: checkoutService.id,
+              label: checkoutService.name,
+              price: checkoutService.price,
+              billingPeriod: checkoutService.billingPeriod,
+            }]
+          : []
+      }
+      yearly={false}
+    />
+    </>
   );
 }
 
