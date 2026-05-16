@@ -1,6 +1,5 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Link } from "wouter";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { apiRequest } from "@/lib/queryClient";
@@ -81,6 +80,19 @@ export default function QuoteQuickPage() {
     },
     onError: (err: any) => {
       toast({ title: "Update failed", description: err?.message || "Try again", variant: "destructive" });
+    },
+  });
+
+  const editLinkMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await apiRequest("POST", `/api/admin/crm/quotequick/${id}/edit-link`);
+      return res.json() as Promise<{ edit_url: string }>;
+    },
+    onSuccess: (data) => {
+      if (data?.edit_url) window.location.href = data.edit_url;
+    },
+    onError: (err: any) => {
+      toast({ title: "Could not open editor", description: err?.message || "Try again", variant: "destructive" });
     },
   });
 
@@ -292,13 +304,14 @@ export default function QuoteQuickPage() {
                                 Resume
                               </button>
                             )}
-                            <Link
-                              href={`/EditCalculator?token=admin&slug=${c.slug}`}
-                              className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800 transition-colors"
+                            <button
+                              onClick={() => editLinkMutation.mutate(c.id)}
+                              disabled={editLinkMutation.isPending}
+                              className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800 transition-colors disabled:opacity-50"
                             >
                               <ExternalLink className="w-3 h-3" />
                               Edit
-                            </Link>
+                            </button>
                           </div>
                         </td>
                       </tr>
