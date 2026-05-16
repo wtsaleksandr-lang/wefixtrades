@@ -16,6 +16,8 @@ import {
   Users,
   Pause,
   Play,
+  Bell,
+  BellOff,
 } from "lucide-react";
 
 interface QQCalculator {
@@ -29,6 +31,7 @@ interface QQCalculator {
   total_leads: number;
   status: string;
   created_at: string;
+  notifications_enabled: boolean;
 }
 
 type SortField = "business_name" | "plan_tier" | "status" | "total_views" | "total_leads" | "created_at";
@@ -37,7 +40,8 @@ type SortDir = "asc" | "desc";
 const TIER_BADGE: Record<string, { label: string; bg: string; text: string }> = {
   free:     { label: "Free",     bg: "bg-gray-100",   text: "text-gray-600" },
   starter:  { label: "Starter",  bg: "bg-blue-50",    text: "text-blue-700" },
-  business: { label: "Business", bg: "bg-emerald-50", text: "text-emerald-700" },
+  business: { label: "Pro",      bg: "bg-emerald-50", text: "text-emerald-700" },
+  pro:      { label: "Pro",      bg: "bg-emerald-50", text: "text-emerald-700" },
 };
 
 const STATUS_BADGE: Record<string, { label: string; bg: string; text: string }> = {
@@ -93,6 +97,20 @@ export default function QuoteQuickPage() {
     },
     onError: (err: any) => {
       toast({ title: "Could not open editor", description: err?.message || "Try again", variant: "destructive" });
+    },
+  });
+
+  const notificationsMutation = useMutation({
+    mutationFn: async ({ id, enabled }: { id: number; enabled: boolean }) => {
+      const res = await apiRequest("PATCH", `/api/admin/crm/quotequick/${id}/notifications`, { enabled });
+      return res.json();
+    },
+    onSuccess: (_data, { enabled }) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/quotequick/overview"] });
+      toast({ title: enabled ? "Lead notifications enabled" : "Lead notifications disabled" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Update failed", description: err?.message || "Try again", variant: "destructive" });
     },
   });
 
@@ -304,6 +322,21 @@ export default function QuoteQuickPage() {
                                 Resume
                               </button>
                             )}
+                            <button
+                              onClick={() =>
+                                notificationsMutation.mutate({ id: c.id, enabled: !c.notifications_enabled })
+                              }
+                              disabled={notificationsMutation.isPending}
+                              title={c.notifications_enabled ? "Lead notifications on — click to mute" : "Lead notifications muted — click to enable"}
+                              className={`inline-flex items-center gap-1 text-xs font-medium transition-colors disabled:opacity-50 ${
+                                c.notifications_enabled
+                                  ? "text-gray-600 hover:text-gray-900"
+                                  : "text-amber-600 hover:text-amber-800"
+                              }`}
+                            >
+                              {c.notifications_enabled ? <Bell className="w-3 h-3" /> : <BellOff className="w-3 h-3" />}
+                              {c.notifications_enabled ? "Notifying" : "Muted"}
+                            </button>
                             <button
                               onClick={() => editLinkMutation.mutate(c.id)}
                               disabled={editLinkMutation.isPending}

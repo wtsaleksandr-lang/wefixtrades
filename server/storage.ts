@@ -750,6 +750,7 @@ export class DatabaseStorage implements IStorage {
       plan_tier: calculators.plan_tier,
       total_views: calculators.total_views,
       created_at: calculators.created_at,
+      calculator_settings: calculators.calculator_settings,
     }).from(calculators).orderBy(desc(calculators.created_at));
 
     const PLAN_REVENUE: Record<string, number> = { 'free': 0, 'starter': 4900, 'business': 9900 };
@@ -761,12 +762,15 @@ export class DatabaseStorage implements IStorage {
       const [leadRow] = await db.select({ count: sql<number>`count(*)::int` })
         .from(leads).where(eq(leads.calculator_id, calc.id));
       const tier = (calc.plan_tier as string) ?? 'free';
+      const settings = (calc.calculator_settings as any) || {};
       results.push({
         ...calc,
         total_leads: leadRow?.count ?? 0,
         status: deploy?.status ?? 'draft',
         price_cents: PLAN_REVENUE[tier] ?? 0,
         cost_cents: tier === 'free' ? 0 : QQ_COST_CENTS,
+        // Lead email notifications are on unless explicitly disabled.
+        notifications_enabled: settings?.followup?.notifications?.email_enabled !== false,
       });
     }
     return results;

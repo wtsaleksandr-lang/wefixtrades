@@ -1768,6 +1768,59 @@ export function registerAdminCrmRoutes(app: Express): void {
   });
 
   /**
+   * PATCH /api/admin/crm/quotequick/:calculatorId/notifications
+   * Enable or disable lead email notifications for a calculator
+   * (calculator_settings.followup.notifications.email_enabled).
+   */
+  app.patch("/api/admin/crm/quotequick/:calculatorId/notifications", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const calculatorId = parseInt(String(req.params.calculatorId) as string);
+      if (isNaN(calculatorId)) {
+        return res.status(400).json({ error: "Invalid calculator ID" });
+      }
+
+      const enabled = req.body?.enabled;
+      if (typeof enabled !== "boolean") {
+        return res.status(400).json({ error: "enabled must be a boolean" });
+      }
+
+      const calculator = await storage.getCalculatorById(calculatorId);
+      if (!calculator) {
+        return res.status(404).json({ error: "Calculator not found" });
+      }
+
+      const settings = (calculator.calculator_settings as any) || {};
+      const followup = settings.followup || {};
+      const notifications = followup.notifications || {};
+      const updatedSettings = {
+        ...settings,
+        followup: {
+          ...followup,
+          notifications: { ...notifications, email_enabled: enabled },
+        },
+      };
+
+      await storage.updateCalculator(calculatorId, { calculator_settings: updatedSettings });
+
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: (req.user as any)?.id,
+        actor_name: (req.user as any)?.name || (req.user as any)?.email,
+        action: "quotequick.notifications_updated",
+        entity_type: "calculator",
+        entity_id: calculatorId,
+        summary: `${enabled ? "Enabled" : "Disabled"} lead notifications for QuoteQuick calculator #${calculatorId}`,
+        metadata: { email_enabled: enabled },
+      });
+
+      res.json({ success: true, notifications_enabled: enabled });
+    } catch (err: any) {
+      log.error("[admin-crm] QuoteQuick notifications update error:", err.message);
+      res.status(500).json({ error: "Failed to update notifications" });
+    }
+  });
+
+  /**
    * GET /api/admin/crm/clients/:id/quotequick
    * Returns QuoteQuick calculator data for a specific client (via user_id linkage).
    */
