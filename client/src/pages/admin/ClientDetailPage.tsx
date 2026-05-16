@@ -1115,7 +1115,7 @@ export default function ClientDetailPage() {
           </TabsContent>
 
           {/* ─── Billing Tab ─── */}
-          <TabsContent value="billing" className="mt-4">
+          <TabsContent value="billing" className="mt-4 space-y-4">
             <Card>
               <div className="p-4 border-b border-gray-100">
                 <h3 className="text-sm font-semibold text-gray-900">Payments ({payments?.length ?? 0})</h3>
@@ -1194,6 +1194,7 @@ export default function ClientDetailPage() {
                 )}
               </div>
             </Card>
+            <CostProfitPanel clientId={client.id} />
           </TabsContent>
 
           {/* ─── Reputation Tab ─── */}
@@ -1397,6 +1398,112 @@ export default function ClientDetailPage() {
 }
 
 /* ─── Reputation Ops Panel (inline component) ─── */
+
+/* ─── Cost & Profit Panel (Billing tab) ─── */
+
+interface CostLedger {
+  client_id: number;
+  window_days: number;
+  revenue_usd: number;
+  cost_usd: number;
+  profit_usd: number;
+  margin_pct: number | null;
+  cost_breakdown: Record<string, number>;
+}
+
+const COST_LABELS: Record<string, string> = {
+  ai_content: "AI content generation",
+  ai_image: "AI image generation",
+  ai_quality: "AI quality gate",
+  ai_review: "AI review replies",
+  copilot_ai: "Portal copilot (AI chat)",
+  sms: "SMS",
+  email: "Email",
+  infra: "Infrastructure",
+};
+
+/**
+ * Measured operational spend for a client over the last 30 days — actual AI,
+ * SMS, email and infra cost. Distinct from the header's contract COGS figure.
+ */
+function CostProfitPanel({ clientId }: { clientId: number }) {
+  const { data, isLoading } = useQuery<CostLedger>({
+    queryKey: [`/api/admin/crm/clients/${clientId}/cost-ledger`],
+  });
+
+  const usd = (n: number) => `$${n.toFixed(2)}`;
+
+  return (
+    <Card>
+      <div className="p-4 border-b border-gray-100">
+        <h3 className="text-sm font-semibold text-gray-900">Operational Cost &amp; Profit</h3>
+        <p className="text-xs text-gray-500 mt-0.5">
+          Measured spend over the last {data?.window_days ?? 30} days — actual AI, SMS, email and
+          infrastructure cost, separate from the contract figures in the header.
+        </p>
+      </div>
+
+      {isLoading || !data ? (
+        <div className="p-4 space-y-2">
+          <Skeleton className="h-16 w-full" />
+          <Skeleton className="h-24 w-full" />
+        </div>
+      ) : (
+        <div className="p-4 space-y-4">
+          <div className="grid grid-cols-4 gap-4">
+            <div>
+              <p className="text-xs text-gray-500">Revenue</p>
+              <p className="text-lg font-semibold text-gray-900">{usd(data.revenue_usd)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Cost</p>
+              <p className="text-lg font-semibold text-gray-900">{usd(data.cost_usd)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Profit</p>
+              <p className={`text-lg font-semibold ${data.profit_usd >= 0 ? "text-emerald-700" : "text-red-600"}`}>
+                {usd(data.profit_usd)}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Margin</p>
+              <p className={`text-lg font-semibold ${
+                data.margin_pct === null ? "text-gray-400"
+                  : data.margin_pct >= 50 ? "text-emerald-700"
+                  : data.margin_pct >= 20 ? "text-amber-600"
+                  : "text-red-600"
+              }`}>
+                {data.margin_pct === null ? "—" : `${data.margin_pct}%`}
+              </p>
+            </div>
+          </div>
+
+          <div className="border-t border-gray-100 pt-3">
+            <p className="text-xs font-medium text-gray-600 mb-2">Cost breakdown</p>
+            {(() => {
+              const rows = Object.entries(data.cost_breakdown)
+                .filter(([, v]) => v > 0)
+                .sort((a, b) => b[1] - a[1]);
+              if (rows.length === 0) {
+                return <p className="text-xs text-gray-500">No measured costs in this window.</p>;
+              }
+              return (
+                <div className="space-y-1.5">
+                  {rows.map(([type, amount]) => (
+                    <div key={type} className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600">{COST_LABELS[type] ?? type}</span>
+                      <span className="font-medium text-gray-900">{usd(amount)}</span>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+      )}
+    </Card>
+  );
+}
 
 function ReputationOpsPanel({ clientId }: { clientId: number }) {
   const queryClient = useQueryClient();
