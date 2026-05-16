@@ -197,6 +197,7 @@ function ChatPanel() {
 function VoicePanel() {
   const vapi = useVapiCall();
   const [micHover, setMicHover] = useState(false);
+  const [checkoutService, setCheckoutService] = useState<Service | null>(null);
   const isInCall = vapi.status === "active";
   const isConnecting = vapi.status === "connecting" || vapi.status === "loading";
   const isEnded = vapi.status === "ended";
@@ -205,10 +206,11 @@ function VoicePanel() {
   const canStart = vapi.isAvailable && (isIdle || isEnded || isError);
   const glowIntensity = isInCall ? 0.15 + vapi.volumeLevel * 0.45 : 0;
   const hasTranscript = vapi.transcript.length > 0;
+  const hasRecs = vapi.recommendedServiceIds.length > 0;
   const transcriptEndRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     transcriptEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [vapi.transcript.length]);
+  }, [vapi.transcript.length, vapi.recommendedServiceIds.length]);
 
   let statusLabel: string = "";
   let statusColor: string = mkt.onDarkMuted;
@@ -227,7 +229,8 @@ function VoicePanel() {
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: hasTranscript ? "flex-start" : "center", height: "100%", padding: "32px 24px", textAlign: "center" }}>
+    <>
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: (hasTranscript || hasRecs) ? "flex-start" : "center", height: "100%", padding: "32px 24px", textAlign: "center" }}>
       {/* Mic orb */}
       <button
         data-testid="voice-demo-start"
@@ -315,8 +318,8 @@ function VoicePanel() {
         </button>
       )}
 
-      {/* Live transcript — converts the voice conversation to readable text */}
-      {hasTranscript && (
+      {/* Live transcript + recommendation cards pushed by the voice assistant */}
+      {(hasTranscript || hasRecs) && (
         <div style={{
           marginTop: 20, width: "100%", maxWidth: 440,
           flex: 1, minHeight: 0, overflowY: "auto",
@@ -338,10 +341,37 @@ function VoicePanel() {
               {line.text}
             </div>
           ))}
+          {hasRecs && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 4 }}>
+              {vapi.recommendedServiceIds
+                .map((id) => SERVICES.find((s) => s.id === id))
+                .filter((s): s is Service => !!s)
+                .map((s) => (
+                  <RecommendationCard key={s.id} service={s} onAddToPackage={setCheckoutService} />
+                ))}
+            </div>
+          )}
           <div ref={transcriptEndRef} />
         </div>
       )}
     </div>
+    <CheckoutModal
+      open={!!checkoutService}
+      onClose={() => setCheckoutService(null)}
+      title={checkoutService?.name ?? ""}
+      items={
+        checkoutService
+          ? [{
+              serviceId: checkoutService.id,
+              label: checkoutService.name,
+              price: checkoutService.price,
+              billingPeriod: checkoutService.billingPeriod,
+            }]
+          : []
+      }
+      yearly={false}
+    />
+    </>
   );
 }
 
