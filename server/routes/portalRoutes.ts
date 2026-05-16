@@ -77,6 +77,7 @@ import {
 // Importing portalTools registers the portal-surface actions into the
 // shared registry (mirrors how chatRoutes imports adminTools).
 import { PORTAL_TOOLS } from "../services/portalTools";
+import { getAiChannelSettings } from "../services/aiChannelSettings";
 
 import { compileMonthlyReport } from "../services/mapguardReports";
 import { getExecutionUsage } from "../services/mapguardTaskEngine";
@@ -1354,6 +1355,22 @@ export function registerPortalRoutes(app: Express) {
 
       // requireClient guarantees an authenticated portal user.
       const portalUserId = (req as any).user?.id as number | undefined;
+
+      // Phase 3a kill switch — if AI chat is paused, return a brief notice
+      // over SSE instead of an AI response. (Fail-open: a missing settings
+      // table reads as enabled, so this only triggers on an explicit pause.)
+      const aiChannels = await getAiChannelSettings();
+      if (!aiChannels.chat_enabled) {
+        res.setHeader("Content-Type", "text/event-stream");
+        res.setHeader("Cache-Control", "no-cache");
+        res.setHeader("Connection", "keep-alive");
+        res.setHeader("X-Accel-Buffering", "no");
+        res.write(
+          `data: ${JSON.stringify({ meta: { reply: "Our AI assistant is paused for maintenance right now. Please reach our team from the Help page and we'll get back to you shortly." } })}\n\n`,
+        );
+        res.write("data: [DONE]\n\n");
+        return res.end();
+      }
 
       // Client can signal "don't offer escalation" (e.g. after dismissing a draft)
       const skipEscalation = context?.skip_escalation === true;

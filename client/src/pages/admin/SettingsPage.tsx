@@ -227,6 +227,9 @@ export default function SettingsPage() {
           </div>
         </Card>
 
+        {/* AI Customer Service — per-channel kill switches */}
+        <AiChannelSettingsSection />
+
         {/* Two-Factor Authentication */}
         <TwoFactorSection />
 
@@ -496,6 +499,78 @@ function TwoFactorSection() {
           </div>
         </div>
       )}
+    </Card>
+  );
+}
+
+/* ─── AI Customer Service — per-channel kill switches (Phase 3a) ─── */
+
+interface AiChannelFlags {
+  chat_enabled: boolean;
+  email_enabled: boolean;
+  sms_enabled: boolean;
+  voice_enabled: boolean;
+}
+
+const AI_CHANNELS: { key: keyof AiChannelFlags; label: string; description: string }[] = [
+  { key: "chat_enabled", label: "Chat widget", description: "AI replies in the client portal chat assistant." },
+  { key: "email_enabled", label: "Email", description: "AI handling of customer support email." },
+  { key: "sms_enabled", label: "SMS", description: "AI handling of customer support text messages." },
+  { key: "voice_enabled", label: "Voice calls", description: "AI handling of inbound voice calls." },
+];
+
+function AiChannelSettingsSection() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const { data, isLoading } = useQuery<{ settings: AiChannelFlags }>({
+    queryKey: ["/api/admin/ai-channel-settings"],
+  });
+
+  const toggleMutation = useMutation({
+    mutationFn: async (patch: Partial<AiChannelFlags>) => {
+      const res = await apiRequest("PATCH", "/api/admin/ai-channel-settings", patch);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/ai-channel-settings"] });
+      toast({ title: "AI channel updated" });
+    },
+    onError: () => {
+      toast({
+        title: "Update failed",
+        description: "Could not change the AI channel. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const flags = data?.settings;
+
+  return (
+    <Card className="p-5 space-y-4">
+      <div>
+        <h3 className="text-sm font-semibold text-gray-700">AI Customer Service</h3>
+        <p className="text-xs text-gray-400 mt-0.5">
+          Pause AI responses on any channel. Changes take effect immediately.
+        </p>
+      </div>
+      <div className="space-y-4">
+        {AI_CHANNELS.map((ch) => (
+          <div key={ch.key} className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-700">{ch.label}</p>
+              <p className="text-xs text-gray-400">{ch.description}</p>
+            </div>
+            <Switch
+              checked={flags?.[ch.key] ?? true}
+              onCheckedChange={(v) => toggleMutation.mutate({ [ch.key]: v })}
+              disabled={isLoading || toggleMutation.isPending}
+              data-testid={`ai-channel-${ch.key}`}
+            />
+          </div>
+        ))}
+      </div>
     </Card>
   );
 }

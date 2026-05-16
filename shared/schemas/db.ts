@@ -884,6 +884,21 @@ export const insertEmailQueueSchema = createInsertSchema(emailQueue).omit({ id: 
 export type InsertEmailQueue = z.infer<typeof insertEmailQueueSchema>;
 export type EmailQueueItem = typeof emailQueue.$inferSelect;
 
+/* ─── AI Channel Settings (global kill switches, Phase 3a) ─── */
+// Singleton config row (id = 1). Each boolean gates whether the AI responds
+// on that customer-facing channel; the founder toggles them from the admin
+// Settings page. All default ON.
+export const aiChannelSettings = pgTable("ai_channel_settings", {
+  id: integer("id").primaryKey(),
+  chat_enabled: boolean("chat_enabled").notNull().default(true),
+  email_enabled: boolean("email_enabled").notNull().default(true),
+  sms_enabled: boolean("sms_enabled").notNull().default(true),
+  voice_enabled: boolean("voice_enabled").notNull().default(true),
+  updated_at: timestamp("updated_at").defaultNow(),
+  updated_by: integer("updated_by"),
+});
+export type AiChannelSettings = typeof aiChannelSettings.$inferSelect;
+
 /* ─── Vapi Webhook Events (diagnostic log) ─── */
 export const vapiWebhookEvents = pgTable("vapi_webhook_events", {
   id: serial("id").primaryKey(),
