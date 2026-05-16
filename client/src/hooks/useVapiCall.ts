@@ -38,6 +38,8 @@ export interface VapiCallState {
   callId: string | null;
   /** Running transcript of the conversation (finalized lines only) */
   transcript: TranscriptLine[];
+  /** Service IDs the assistant pushed via the recommend_services tool */
+  recommendedServiceIds: string[];
 }
 
 export interface UseVapiCallReturn extends VapiCallState {
@@ -73,6 +75,7 @@ export function useVapiCall(options?: UseVapiCallOptions): UseVapiCallReturn {
     errorMessage: null,
     callId: null,
     transcript: [],
+    recommendedServiceIds: [],
   });
 
   const vapiRef = useRef<any>(null);
@@ -109,7 +112,7 @@ export function useVapiCall(options?: UseVapiCallOptions): UseVapiCallReturn {
     // Prevent double-start
     if (state.status === "connecting" || state.status === "active") return;
 
-    setState((s) => ({ ...s, status: "loading", errorMessage: null, callId: null, transcript: [] }));
+    setState((s) => ({ ...s, status: "loading", errorMessage: null, callId: null, transcript: [], recommendedServiceIds: [] }));
 
     try {
       // Fetch config if not cached
@@ -197,6 +200,30 @@ export function useVapiCall(options?: UseVapiCallOptions): UseVapiCallReturn {
             ...s,
             transcript: [...s.transcript, { role, text: msg.transcript.trim() }],
           }));
+        } else if (msg.type === "tool-calls" || msg.type === "function-call") {
+          // The recommend_services tool fires alongside the spoken reply —
+          // pull the service IDs out so the UI can show product cards.
+          const calls: any[] =
+            msg.toolCalls || msg.toolCallList ||
+            (msg.functionCall ? [{ function: msg.functionCall }] : []);
+          const ids: string[] = [];
+          for (const call of calls) {
+            const fn = call?.function || call;
+            if (fn?.name !== "recommend_services") continue;
+            let args = fn.arguments ?? fn.parameters;
+            if (typeof args === "string") {
+              try { args = JSON.parse(args); } catch { args = {}; }
+            }
+            if (Array.isArray(args?.serviceIds)) {
+              ids.push(...args.serviceIds.filter((x: unknown): x is string => typeof x === "string"));
+            }
+          }
+          if (ids.length) {
+            setState((s) => ({
+              ...s,
+              recommendedServiceIds: Array.from(new Set([...s.recommendedServiceIds, ...ids])),
+            }));
+          }
         }
       });
 
