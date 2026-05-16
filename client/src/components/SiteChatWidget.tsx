@@ -204,7 +204,7 @@ export default function SiteChatWidget() {
         }}>
           {/* Header */}
           <div style={{
-            background: "linear-gradient(135deg, #1A1A2E 0%, #16213E 100%)",
+            background: "linear-gradient(135deg, #0d3cfc 0%, #0b34d6 100%)",
             padding: "14px 16px",
             display: "flex",
             alignItems: "center",

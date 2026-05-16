@@ -4,7 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { X, Send, BrainCircuit, Loader2, ChevronDown, ChevronUp, Code2, HelpCircle, Wand2, Settings as SettingsIcon } from "lucide-react";
+import { X, Send, Sparkles, Loader2, ChevronDown, ChevronUp, Code2, HelpCircle, Wand2, Settings as SettingsIcon } from "lucide-react";
 import { readSSEStream, type ChatMessage, type ToolCallEvent } from "@/lib/chatHelpers";
 import { useToast } from "@/hooks/use-toast";
 import CopilotPromptCard from "@/components/shared/CopilotPromptCard";
@@ -998,7 +998,7 @@ export default function AdminCopilot({
 
   return (
     <div
-      className="fixed inset-y-0 right-0 z-50 w-full sm:w-auto flex flex-col border-l border-gray-200 border-t-[3px] border-t-[#0d3cfc] shadow-xl"
+      className="fixed inset-y-0 right-0 z-50 w-full sm:w-auto flex flex-col border-l border-gray-200 shadow-xl"
       style={{
         // Mobile: ignore inline width (Tailwind w-full wins). Desktop: use saved panelWidth.
         width: typeof window !== "undefined" && window.innerWidth >= 640 ? panelWidth : undefined,
@@ -1011,16 +1011,19 @@ export default function AdminCopilot({
         onPointerDown={handleResizeDown}
         onPointerMove={handleResizeMove}
         onPointerUp={handleResizeUp}
-        className="absolute inset-y-0 left-0 w-1.5 cursor-ew-resize z-10 hover:bg-[#0d3cfc]/20 transition-colors hidden sm:block"
+        className="group absolute inset-y-0 left-0 w-2 cursor-ew-resize z-10 hidden sm:flex items-center justify-center hover:bg-[#0d3cfc]/10 transition-colors"
         style={{ touchAction: "none" }}
         title="Drag to resize"
         data-testid="copilot-resize-handle"
         aria-label="Resize Copilot panel"
-      />
+      >
+        {/* Always-visible grip so the resize affordance is discoverable. */}
+        <div className="h-8 w-1 rounded-full bg-gray-300 group-hover:bg-[#0d3cfc] transition-colors" />
+      </div>
       {/* Header */}
-      <div className="flex items-center justify-between h-14 px-4 border-b border-gray-100 shrink-0">
+      <div className="flex items-center justify-between h-14 px-4 border-2 border-[#0d3cfc] shrink-0">
         <div className="flex items-center gap-2">
-          <BrainCircuit className="w-4 h-4 text-[#0d3cfc]" />
+          <Sparkles className="w-4 h-4 text-[#0d3cfc]" />
           <span className="text-sm font-semibold text-gray-900">AI Copilot</span>
           <span className="text-[10px] text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded">
             {pageContext.page.replace(/_/g, " ")}
@@ -1095,7 +1098,7 @@ export default function AdminCopilot({
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
         {messages.length === 0 && (
           <div className="text-center py-6">
-            <BrainCircuit className="w-8 h-8 text-gray-200 mx-auto mb-3" />
+            <Sparkles className="w-8 h-8 text-gray-200 mx-auto mb-3" />
             <p className="text-sm text-gray-500">Ask me about this page.</p>
             <p className="text-xs text-gray-400 mt-1 mb-4">I can explain what you see, suggest next steps, and answer questions.</p>
 

@@ -730,12 +730,15 @@ export default function PortalChatWidget({
         onPointerDown={handleResizeDown}
         onPointerMove={handleResizeMove}
         onPointerUp={handleResizeUp}
-        className="absolute inset-y-0 left-0 w-1.5 cursor-ew-resize z-10 hover:bg-[#0d3cfc]/20 transition-colors hidden sm:block"
+        className="group absolute inset-y-0 left-0 w-2 cursor-ew-resize z-10 hidden sm:flex items-center justify-center hover:bg-[#0d3cfc]/10 transition-colors"
         style={{ touchAction: "none" }}
         title="Drag to resize"
         data-testid="chat-resize-handle"
         aria-label="Resize AI Copilot panel"
-      />
+      >
+        {/* Always-visible grip so the resize affordance is discoverable. */}
+        <div className="h-8 w-1 rounded-full bg-gray-300 group-hover:bg-[#0d3cfc] transition-colors" />
+      </div>
 
       {/* Header */}
       <div className="flex items-center justify-between h-14 px-4 border-b border-gray-100 shrink-0">
