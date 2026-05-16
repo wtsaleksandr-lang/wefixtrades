@@ -25,6 +25,7 @@ import { sendAdflowCreativeApprovalEmail } from "../lib/adflowCreativeApprovalEm
 import crypto from "crypto";
 import { createLogger } from "../lib/logger";
 import { saveFile, deleteFile } from "../services/fileStorage";
+import { getClientCostLedger } from "../services/clientCostLedger";
 import type { Deliverable } from "@shared/schema";
 
 const log = createLogger("AdminCRM");
@@ -1227,6 +1228,21 @@ export function registerAdminCrmRoutes(app: Express): void {
       res.json(rows);
     } catch (err: any) {
       res.status(500).json({ error: "Failed to list payments" });
+    }
+  });
+
+  /**
+   * GET /api/admin/crm/clients/:id/cost-ledger — measured operational spend
+   * (serviceCostLogs + infra + portal copilot AI) over a trailing 30 days.
+   */
+  app.get("/api/admin/crm/clients/:id/cost-ledger", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(String(req.params.id) as string);
+      const ledger = await getClientCostLedger(clientId);
+      res.json(ledger);
+    } catch (err: any) {
+      log.error("[admin-crm] Cost ledger error:", err?.message);
+      res.status(500).json({ error: "Failed to load cost ledger" });
     }
   });
 
