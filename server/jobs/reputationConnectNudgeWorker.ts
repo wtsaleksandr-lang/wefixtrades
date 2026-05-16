@@ -142,6 +142,6 @@ export async function processReputationConnectNudges(): Promise<NudgeSummary> {
     }
   }
 
-  log.info("ReputationShield connect-nudge run complete", summary);
+  log.info("ReputationShield connect-nudge run complete", { ...summary });
   return summary;
 }
