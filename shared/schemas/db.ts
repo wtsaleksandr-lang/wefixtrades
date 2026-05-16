@@ -294,7 +294,7 @@ export const supportTickets = pgTable("support_tickets", {
   category: varchar("category", { length: 50 }).notNull().default("general"),
   // general | billing | service | onboarding | access | other
   source: varchar("source", { length: 30 }).notNull().default("manual"),
-  // manual | ai_escalation | admin_created
+  // manual | ai_escalation | admin_created | inbound_email
   assigned_to: integer("assigned_to").references(() => users.id),
   ai_summary: text("ai_summary"),
   ai_priority_hint: varchar("ai_priority_hint", { length: 20 }),
