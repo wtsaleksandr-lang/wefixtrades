@@ -503,13 +503,18 @@ function TwoFactorSection() {
   );
 }
 
-/* ─── AI Customer Service — per-channel kill switches (Phase 3a) ─── */
+/* ─── AI Customer Service — kill switches + budget dial (Phase 3a / 3b-iii) ─── */
 
 interface AiChannelFlags {
   chat_enabled: boolean;
   email_enabled: boolean;
   sms_enabled: boolean;
   voice_enabled: boolean;
+}
+
+interface AiSettings extends AiChannelFlags {
+  /** Founder-set monthly AI budget per client, in cents. */
+  default_ai_budget_cents: number;
 }
 
 const AI_CHANNELS: { key: keyof AiChannelFlags; label: string; description: string }[] = [
@@ -523,29 +528,48 @@ function AiChannelSettingsSection() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data, isLoading } = useQuery<{ settings: AiChannelFlags }>({
+  const { data, isLoading } = useQuery<{ settings: AiSettings }>({
     queryKey: ["/api/admin/ai-channel-settings"],
   });
 
-  const toggleMutation = useMutation({
-    mutationFn: async (patch: Partial<AiChannelFlags>) => {
+  const updateMutation = useMutation({
+    mutationFn: async (patch: Partial<AiSettings>) => {
       const res = await apiRequest("PATCH", "/api/admin/ai-channel-settings", patch);
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/ai-channel-settings"] });
-      toast({ title: "AI channel updated" });
+      toast({ title: "AI settings updated" });
     },
     onError: () => {
       toast({
         title: "Update failed",
-        description: "Could not change the AI channel. Please try again.",
+        description: "Could not save the AI setting. Please try again.",
         variant: "destructive",
       });
     },
   });
 
-  const flags = data?.settings;
+  const settings = data?.settings;
+
+  // Budget input — local draft, committed on blur / Enter.
+  const [budgetDollars, setBudgetDollars] = useState("");
+  useEffect(() => {
+    if (settings) setBudgetDollars((settings.default_ai_budget_cents / 100).toFixed(2));
+  }, [settings?.default_ai_budget_cents]);
+
+  const saveBudget = () => {
+    if (!settings) return;
+    const dollars = parseFloat(budgetDollars);
+    if (!Number.isFinite(dollars) || dollars < 0 || dollars > 1000) {
+      // Invalid — revert to the saved value.
+      setBudgetDollars((settings.default_ai_budget_cents / 100).toFixed(2));
+      return;
+    }
+    const cents = Math.round(dollars * 100);
+    if (cents === settings.default_ai_budget_cents) return;
+    updateMutation.mutate({ default_ai_budget_cents: cents });
+  };
 
   return (
     <Card className="p-5 space-y-4">
@@ -563,13 +587,39 @@ function AiChannelSettingsSection() {
               <p className="text-xs text-gray-400">{ch.description}</p>
             </div>
             <Switch
-              checked={flags?.[ch.key] ?? true}
-              onCheckedChange={(v) => toggleMutation.mutate({ [ch.key]: v })}
-              disabled={isLoading || toggleMutation.isPending}
+              checked={settings?.[ch.key] ?? true}
+              onCheckedChange={(v) => updateMutation.mutate({ [ch.key]: v })}
+              disabled={isLoading || updateMutation.isPending}
               data-testid={`ai-channel-${ch.key}`}
             />
           </div>
         ))}
+      </div>
+
+      <div className="border-t border-gray-100 pt-4">
+        <p className="text-sm font-medium text-gray-700">Default monthly AI budget per client</p>
+        <p className="text-xs text-gray-400 mt-0.5 mb-2">
+          When a client's 30-day AI spend exceeds this plus a $10 overage, their portal copilot
+          switches to the cheapest model. It never stops responding.
+        </p>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-gray-500">$</span>
+          <Input
+            type="number"
+            min="0"
+            step="1"
+            className="w-28 h-9"
+            value={budgetDollars}
+            onChange={(e) => setBudgetDollars(e.target.value)}
+            onBlur={saveBudget}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+            }}
+            disabled={isLoading || updateMutation.isPending}
+            data-testid="ai-default-budget"
+          />
+          <span className="text-xs text-gray-400">/ client / month</span>
+        </div>
       </div>
     </Card>
   );

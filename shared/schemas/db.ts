@@ -894,6 +894,9 @@ export const aiChannelSettings = pgTable("ai_channel_settings", {
   email_enabled: boolean("email_enabled").notNull().default(true),
   sms_enabled: boolean("sms_enabled").notNull().default(true),
   voice_enabled: boolean("voice_enabled").notNull().default(true),
+  // Phase 3b-iii: founder-set monthly AI budget per client (cents). Feeds the
+  // budget dial — a model-selection control, never an off-switch. $5 default.
+  default_ai_budget_cents: integer("default_ai_budget_cents").notNull().default(500),
   updated_at: timestamp("updated_at").defaultNow(),
   updated_by: integer("updated_by"),
 });

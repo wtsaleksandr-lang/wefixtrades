@@ -1409,6 +1409,31 @@ interface CostLedger {
   profit_usd: number;
   margin_pct: number | null;
   cost_breakdown: Record<string, number>;
+  budget: {
+    band: "within" | "soft_cap" | "over";
+    ai_spend_usd: number;
+    budget_usd: number;
+    soft_cap_usd: number;
+  };
+}
+
+const BAND_STYLES: Record<CostLedger["budget"]["band"], { label: string; cls: string }> = {
+  within: { label: "Within budget", cls: "bg-emerald-50 text-emerald-700" },
+  soft_cap: { label: "Soft cap", cls: "bg-amber-50 text-amber-700" },
+  over: { label: "Over — running lean", cls: "bg-red-50 text-red-600" },
+};
+
+/** AI budget band badge — state at a glance, numbers on hover. */
+function BudgetBandBadge({ budget }: { budget: CostLedger["budget"] }) {
+  const s = BAND_STYLES[budget.band];
+  return (
+    <span
+      className={`inline-flex items-center shrink-0 px-2 py-0.5 rounded-full text-[11px] font-medium ${s.cls}`}
+      title={`AI spend $${budget.ai_spend_usd.toFixed(2)} of $${budget.budget_usd.toFixed(2)} budget — soft cap $${budget.soft_cap_usd.toFixed(2)}`}
+    >
+      {s.label}
+    </span>
+  );
 }
 
 const COST_LABELS: Record<string, string> = {
@@ -1436,7 +1461,10 @@ function CostProfitPanel({ clientId }: { clientId: number }) {
   return (
     <Card>
       <div className="p-4 border-b border-gray-100">
-        <h3 className="text-sm font-semibold text-gray-900">Operational Cost &amp; Profit</h3>
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-sm font-semibold text-gray-900">Operational Cost &amp; Profit</h3>
+          {data?.budget && <BudgetBandBadge budget={data.budget} />}
+        </div>
         <p className="text-xs text-gray-500 mt-0.5">
           Measured spend over the last {data?.window_days ?? 30} days — actual AI, SMS, email and
           infrastructure cost, separate from the contract figures in the header.

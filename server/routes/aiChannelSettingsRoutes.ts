@@ -4,6 +4,7 @@ import {
   getAiChannelSettings,
   updateAiChannelSettings,
   type AiChannelFlags,
+  type AiSettings,
 } from "../services/aiChannelSettings";
 import { createLogger } from "../lib/logger";
 
@@ -35,12 +36,19 @@ export function registerAiChannelSettingsRoutes(app: Express): void {
   app.patch("/api/admin/ai-channel-settings", requireAdmin, async (req: Request, res: Response) => {
     try {
       const body = (req.body ?? {}) as Record<string, unknown>;
-      const patch: Partial<AiChannelFlags> = {};
+      const patch: Partial<AiSettings> = {};
       for (const key of CHANNEL_KEYS) {
         if (typeof body[key] === "boolean") patch[key] = body[key] as boolean;
       }
+      if (body.default_ai_budget_cents !== undefined) {
+        const cents = Number(body.default_ai_budget_cents);
+        if (!Number.isInteger(cents) || cents < 0 || cents > 100_000) {
+          return res.status(400).json({ error: "default_ai_budget_cents must be an integer 0–100000" });
+        }
+        patch.default_ai_budget_cents = cents;
+      }
       if (Object.keys(patch).length === 0) {
-        return res.status(400).json({ error: "No valid channel flags supplied" });
+        return res.status(400).json({ error: "No valid settings supplied" });
       }
 
       const userId = (req.user as any)?.id as number;
