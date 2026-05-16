@@ -358,7 +358,21 @@ export default function ReviewsPage() {
   });
 
   return (
-    <AdminLayout pageContext={{ page: "reviews" }}>
+    <AdminLayout
+      pageContext={{
+        page: "reviews",
+        // Feed the visible reviews to the copilot so it can reference them
+        // by [ID: N] when drafting replies via tool-use.
+        topReviews: reviews.slice(0, 15).map((r) => ({
+          id: r.id,
+          reviewer: r.reviewer_name,
+          rating: r.rating,
+          snippet: r.review_text ? r.review_text.slice(0, 140) : undefined,
+          hasDraft: !!r.draft_response,
+          hasResponse: !!r.response_text,
+        })),
+      }}
+    >
       <div className="max-w-6xl mx-auto space-y-4">
         {/* Header */}
         <div>

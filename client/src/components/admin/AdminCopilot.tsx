@@ -71,6 +71,15 @@ export interface AdminPageContext {
     automation_status?: string | null;
     next_action?: string | null;
   }>;
+  /** Monitored reviews visible on the reviews page — feeds review tool-use. */
+  topReviews?: Array<{
+    id?: number;
+    reviewer: string;
+    rating: number;
+    snippet?: string;
+    hasDraft?: boolean;
+    hasResponse?: boolean;
+  }>;
   latestPayment?: { status: string; amount_cents: number; date: string | null };
   supplierNames?: string[];
   blockedCount?: number;
@@ -587,21 +596,10 @@ function ConfirmationCard({
         </Tooltip>
       </div>
       <div className="px-3 py-2 space-y-1">
-        <p className="text-sm font-medium text-gray-900 truncate">"{display.task_title}"</p>
-        <p className="text-xs text-gray-600">
-          {display.current_status === "unknown" ? (
-            <>Set to <span className="font-medium text-gray-800">{display.proposed_status.replace(/_/g, " ")}</span></>
-          ) : (
-            <>
-              <span className="text-gray-400">{display.current_status.replace(/_/g, " ")}</span>
-              {" → "}
-              <span className="font-medium text-gray-800">{display.proposed_status.replace(/_/g, " ")}</span>
-            </>
-          )}
-        </p>
-        {display.reason && (
-          <p className="text-xs text-gray-500 italic">{display.reason}</p>
-        )}
+        <p className="text-sm font-medium text-gray-900">{display.title}</p>
+        {display.lines.map((line, i) => (
+          <p key={i} className="text-xs text-gray-600 break-words">{line}</p>
+        ))}
         {error && (
           <p className="text-xs text-red-500">{error}</p>
         )}

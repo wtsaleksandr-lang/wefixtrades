@@ -10,6 +10,7 @@
 import { storage } from "../storage";
 import type { PageContext } from "./promptBuilder";
 import { createLogger } from "../lib/logger";
+import { extractTier, canAccessFeature } from "@shared/reputationConfig";
 import {
   registerCopilotAction,
   getCopilotActionsForSurface,
@@ -17,6 +18,7 @@ import {
   type ActionTool,
   type PendingAction,
   type ActionExecutionResult,
+  type ToolCallSummary,
 } from "./copilotActionRegistry";
 
 const log = createLogger("AdminTools");
@@ -128,32 +130,170 @@ async function executeUpdateTaskStatus(
   return { narrative };
 }
 
+/** Confirmation-card preview for update_task_status — resolves the task
+ *  title + current status from page context so the card reads naturally. */
+function summarizeUpdateTaskStatus(args: Record<string, unknown>, context?: unknown): ToolCallSummary {
+  const pageCtx = context as PageContext | undefined;
+  const taskId = typeof args.task_id === "number" ? args.task_id : undefined;
+  const task = pageCtx?.topTasks?.find((t) => t.id === taskId);
+  const taskTitle = task?.title ?? (taskId ? `Task #${taskId}` : "Unknown task");
+  const currentStatus = task?.status ?? "unknown";
+  const proposedStatus = typeof args.status === "string" ? args.status : "";
+  const reason = typeof args.reason === "string" ? args.reason : undefined;
+
+  const lines = [
+    `Task: "${taskTitle}"`,
+    currentStatus === "unknown"
+      ? `Set to ${proposedStatus.replace(/_/g, " ")}`
+      : `${currentStatus.replace(/_/g, " ")} → ${proposedStatus.replace(/_/g, " ")}`,
+  ];
+  if (reason) lines.push(`Reason: ${reason}`);
+
+  return { title: "Update task status", lines, metadata: { current_status: currentStatus } };
+}
+
 const UPDATE_TASK_STATUS_ACTION: CopilotAction = {
   name: "update_task_status",
   surface: "admin",
   riskTier: "low",
   tool: UPDATE_TASK_STATUS_TOOL,
   execute: executeUpdateTaskStatus,
+  summarize: summarizeUpdateTaskStatus,
+};
+
+/* ─── draft_review_reply ─── */
+const DRAFT_REVIEW_REPLY_TOOL: ActionTool = {
+  name: "draft_review_reply",
+  description:
+    "Save a draft reply to a monitored customer review. " +
+    "Call this ONLY when the admin explicitly asks to draft or write a reply to a review in this turn. " +
+    "The review_id MUST come from the [ID: N] values in the PAGE CONTEXT topReviews list — never invent an ID. " +
+    "This SAVES A DRAFT only — it does NOT post anything publicly. The admin reviews, approves and posts " +
+    "the reply through the existing review tools. " +
+    "Before calling this tool, briefly state the reply you are about to draft. " +
+    "Do not call this tool more than once per turn.",
+  input_schema: {
+    type: "object",
+    properties: {
+      review_id: {
+        type: "number",
+        description: "Numeric database ID of the review. Must come from topReviews [ID: N] in page context.",
+      },
+      reply_text: {
+        type: "string",
+        description: "The owner reply to save as a draft. Write it in full, ready for the admin to review.",
+      },
+    },
+    required: ["review_id", "reply_text"],
+  },
+};
+
+async function executeDraftReviewReply(
+  action: PendingAction,
+  confirmedByUserId: number,
+): Promise<ActionExecutionResult> {
+  const { args } = action;
+  const reviewId = args.review_id;
+  const replyText = typeof args.reply_text === "string" ? args.reply_text.trim() : "";
+
+  if (typeof reviewId !== "number" || !Number.isInteger(reviewId) || reviewId <= 0) {
+    throw new Error("Invalid review_id: must be a positive integer");
+  }
+  if (!replyText) throw new Error("The reply text is empty.");
+  if (replyText.length > 4000) throw new Error("The reply text is too long.");
+
+  const review = await storage.getMonitoredReviewById(reviewId);
+  if (!review) throw new Error(`Review #${reviewId} not found`);
+
+  // Feature gate — drafting AI replies requires the client's plan to include
+  // it, mirroring the manual draft-response endpoint.
+  if (review.client_id) {
+    const svc = await storage.getClientReputationService(review.client_id);
+    const tier = svc ? extractTier(svc.serviceId) : null;
+    if (!canAccessFeature(tier, "aiDrafts")) {
+      throw new Error("This client's plan doesn't include AI review drafts.");
+    }
+  }
+
+  // Draft tier: only PREPARE the draft. It stays "unreviewed" so the admin
+  // still approves and posts it through the existing review tools.
+  await storage.updateMonitoredReview(reviewId, {
+    draft_response: replyText,
+    draft_generated_at: new Date(),
+    draft_model: "ai-copilot",
+    approval_status: "unreviewed",
+    requires_approval: true,
+  });
+
+  await storage.logAdminActivity({
+    actor_type: "ai_agent",
+    actor_id: confirmedByUserId,
+    actor_name: "AI Copilot",
+    action: "ai_tool.executed",
+    entity_type: "monitored_review",
+    entity_id: reviewId,
+    summary: `AI drafted a reply to ${review.reviewer_name}'s ${review.rating}★ review`,
+    metadata: {
+      tool_name: "draft_review_reply",
+      args,
+      session_id: action.session_id,
+      confirmed_by_user_id: confirmedByUserId,
+    },
+  }).catch((err: Error) => log.error("logAdminActivity failed", { error: err.message }));
+
+  return {
+    narrative:
+      `Saved a draft reply to ${review.reviewer_name}'s review. ` +
+      "It's awaiting your approval — review and post it from the review tools when you're happy with it.",
+  };
+}
+
+/** Confirmation-card preview for draft_review_reply. */
+function summarizeDraftReviewReply(args: Record<string, unknown>, context?: unknown): ToolCallSummary {
+  const pageCtx = context as PageContext | undefined;
+  const reviewId = typeof args.review_id === "number" ? args.review_id : undefined;
+  const review = pageCtx?.topReviews?.find((r) => r.id === reviewId);
+  const who = review ? `${review.reviewer}'s review` : reviewId ? `review #${reviewId}` : "a review";
+  const replyText = typeof args.reply_text === "string" ? args.reply_text : "";
+  const preview = replyText.length > 160 ? `${replyText.slice(0, 160)}…` : replyText;
+
+  return {
+    title: "Draft review reply",
+    lines: [`Reply to ${who}`, preview ? `"${preview}"` : "(empty reply)"],
+  };
+}
+
+const DRAFT_REVIEW_REPLY_ACTION: CopilotAction = {
+  name: "draft_review_reply",
+  surface: "admin",
+  riskTier: "draft",
+  tool: DRAFT_REVIEW_REPLY_TOOL,
+  execute: executeDraftReviewReply,
+  summarize: summarizeDraftReviewReply,
 };
 
 /* ─── Register admin actions ─── */
 registerCopilotAction(UPDATE_TASK_STATUS_ACTION);
+registerCopilotAction(DRAFT_REVIEW_REPLY_ACTION);
 
 /* ─── Admin tool-injection gate ─── */
-const TOOL_CAPABLE_PAGES = ["client_detail", "inbox"];
+const TOOL_CAPABLE_PAGES = ["client_detail", "inbox", "reviews"];
 
 /**
  * All four criteria must be true to inject tools into the admin model call:
  * 1. ADMIN_TOOLS_ENABLED env var is set
  * 2. Page is in the tool-capable list
  * 3. Page context exists
- * 4. At least one task with a valid numeric ID is present
+ * 4. The page exposes at least one actionable entity with a numeric ID —
+ *    a task (update_task_status) or a review (draft_review_reply)
  */
 export function shouldInjectTools(pageContext?: PageContext): boolean {
   if (process.env.ADMIN_TOOLS_ENABLED !== "true") return false;
   if (!pageContext) return false;
   if (!TOOL_CAPABLE_PAGES.includes(pageContext.page)) return false;
-  return pageContext.topTasks?.some((t) => typeof t.id === "number") ?? false;
+  const hasTasks = pageContext.topTasks?.some((t) => typeof t.id === "number") ?? false;
+  const hasReviews = pageContext.topReviews?.some((r) => typeof r.id === "number") ?? false;
+  return hasTasks || hasReviews;
 }
 
 /** Anthropic tool definitions for the admin surface — handed to the model. */

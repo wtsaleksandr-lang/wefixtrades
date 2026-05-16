@@ -57,11 +57,12 @@ export function saveOpenState(open: boolean): void {
 export interface ToolCallEvent {
   call_id: string;
   tool_name: string;
+  /** Action-agnostic confirmation-card preview built by the action's summarize() hook. */
   display: {
-    task_title: string;
-    current_status: string;
-    proposed_status: string;
-    reason?: string;
+    /** Confirmation-card heading. */
+    title: string;
+    /** Human-readable lines describing what will happen on confirm. */
+    lines: string[];
   };
 }
 
