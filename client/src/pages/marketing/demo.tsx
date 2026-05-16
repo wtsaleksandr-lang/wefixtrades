@@ -156,6 +156,11 @@ function VoicePanel() {
   const isIdle = vapi.status === "idle";
   const canStart = vapi.isAvailable && (isIdle || isEnded || isError);
   const glowIntensity = isInCall ? 0.15 + vapi.volumeLevel * 0.45 : 0;
+  const hasTranscript = vapi.transcript.length > 0;
+  const transcriptEndRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    transcriptEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [vapi.transcript.length]);
 
   let statusLabel: string = "";
   let statusColor: string = mkt.onDarkMuted;
@@ -174,7 +179,7 @@ function VoicePanel() {
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", padding: "32px 24px", textAlign: "center" }}>
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: hasTranscript ? "flex-start" : "center", height: "100%", padding: "32px 24px", textAlign: "center" }}>
       {/* Mic orb */}
       <button
         data-testid="voice-demo-start"
@@ -260,6 +265,33 @@ function VoicePanel() {
         >
           <PhoneOff size={13} /> End Call
         </button>
+      )}
+
+      {/* Live transcript — converts the voice conversation to readable text */}
+      {hasTranscript && (
+        <div style={{
+          marginTop: 20, width: "100%", maxWidth: 440,
+          flex: 1, minHeight: 0, overflowY: "auto",
+          display: "flex", flexDirection: "column", gap: 8, textAlign: "left",
+        }}>
+          {vapi.transcript.map((line, i) => (
+            <div
+              key={i}
+              style={{
+                alignSelf: line.role === "user" ? "flex-end" : "flex-start",
+                maxWidth: "85%",
+                padding: "8px 12px", borderRadius: 12,
+                background: line.role === "user" ? mkt.accent : mkt.surface,
+                color: line.role === "user" ? "#FFFFFF" : mkt.text,
+                border: line.role === "user" ? "none" : `1px solid ${mkt.onDarkBorder}`,
+                fontSize: 13, lineHeight: 1.5,
+              }}
+            >
+              {line.text}
+            </div>
+          ))}
+          <div ref={transcriptEndRef} />
+        </div>
       )}
     </div>
   );
@@ -416,15 +448,15 @@ export default function DemoPage() {
               display: "flex", alignItems: "center", justifyContent: "space-between",
               padding: "14px 20px",
               borderBottom: `1px solid ${mkt.onDarkBorder}`,
-              background: mkt.sectionLight,
+              background: mkt.accent,
             }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#22C55E" }} />
-                <span style={{ fontSize: 14, fontWeight: 600, color: mkt.text }}>24/7 TradeLine</span>
+                <span style={{ fontSize: 14, fontWeight: 600, color: "#FFFFFF" }}>24/7 TradeLine</span>
               </div>
               <div style={{
                 display: "flex", gap: 2, padding: 3,
-                background: mkt.bg, borderRadius: 10, border: `1px solid ${mkt.onDarkBorder}`,
+                background: "rgba(255,255,255,0.15)", borderRadius: 10, border: "1px solid rgba(255,255,255,0.25)",
               }}>
                 <button
                   onClick={() => setMode("chat")}
@@ -432,8 +464,8 @@ export default function DemoPage() {
                     display: "flex", alignItems: "center", gap: 5,
                     padding: "6px 14px", borderRadius: 8, border: "none", cursor: "pointer",
                     fontSize: 12, fontWeight: 600,
-                    background: mode === "chat" ? mkt.accentTint : "transparent",
-                    color: mode === "chat" ? mkt.accent : mkt.onDarkFaint,
+                    background: mode === "chat" ? "#FFFFFF" : "transparent",
+                    color: mode === "chat" ? mkt.accent : "rgba(255,255,255,0.85)",
                     transition: "all 0.15s ease",
                   }}
                 >
@@ -445,8 +477,8 @@ export default function DemoPage() {
                     display: "flex", alignItems: "center", gap: 5,
                     padding: "6px 14px", borderRadius: 8, border: "none", cursor: "pointer",
                     fontSize: 12, fontWeight: 600,
-                    background: mode === "voice" ? mkt.accentTint : "transparent",
-                    color: mode === "voice" ? mkt.accent : mkt.onDarkFaint,
+                    background: mode === "voice" ? "#FFFFFF" : "transparent",
+                    color: mode === "voice" ? mkt.accent : "rgba(255,255,255,0.85)",
                     transition: "all 0.15s ease",
                   }}
                 >
