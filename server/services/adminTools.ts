@@ -11,6 +11,8 @@ import { storage } from "../storage";
 import type { PageContext } from "./promptBuilder";
 import { createLogger } from "../lib/logger";
 import { sendSupportEmail } from "../lib/supportEmail";
+import { sendSMS, isTwilioConfigured } from "../twilioClient";
+import { logSmsCost } from "./socialSync/costTracker";
 import { extractTier, canAccessFeature } from "@shared/reputationConfig";
 import {
   registerCopilotAction,
@@ -379,10 +381,109 @@ const SEND_SUPPORT_EMAIL_ACTION: CopilotAction = {
   summarize: summarizeSendSupportEmail,
 };
 
+/* ─── send_support_sms ─── */
+const SEND_SUPPORT_SMS_TOOL: ActionTool = {
+  name: "send_support_sms",
+  description:
+    "Send a support text message (SMS) to the client currently in context. " +
+    "Call this ONLY when the admin explicitly asks to text or SMS the client in this turn. " +
+    "The client_id MUST come from the 'Client: <name> (ID: N)' line in PAGE CONTEXT — never invent an ID. " +
+    "Keep the message concise and plain. For anything long or formatted, use send_support_email instead. " +
+    "Before calling this tool, briefly state who you are texting and the gist of the message. " +
+    "Do not call this tool more than once per turn.",
+  input_schema: {
+    type: "object",
+    properties: {
+      client_id: {
+        type: "number",
+        description: "Numeric database ID of the client. Must come from 'Client: ... (ID: N)' in page context.",
+      },
+      message: {
+        type: "string",
+        description: "The SMS body in plain text. Keep it concise.",
+      },
+    },
+    required: ["client_id", "message"],
+  },
+};
+
+async function executeSendSupportSms(
+  action: PendingAction,
+  confirmedByUserId: number,
+): Promise<ActionExecutionResult> {
+  const { args } = action;
+  const clientId = args.client_id;
+  const message = typeof args.message === "string" ? args.message.trim() : "";
+
+  if (typeof clientId !== "number" || !Number.isInteger(clientId) || clientId <= 0) {
+    throw new Error("Invalid client_id: must be a positive integer");
+  }
+  if (!message) throw new Error("The SMS message is empty.");
+  if (message.length > 480) {
+    throw new Error("The SMS message is too long — keep it under 480 characters, or send an email instead.");
+  }
+  if (!isTwilioConfigured()) throw new Error("SMS isn't available — Twilio is not configured.");
+
+  const client = await storage.getClientById(clientId);
+  if (!client) throw new Error(`Client #${clientId} not found`);
+  if (!client.contact_phone) {
+    throw new Error(`${client.business_name} has no contact phone on file — add one before sending.`);
+  }
+
+  const sid = await sendSMS(client.contact_phone, message);
+
+  // Log the SMS cost so it surfaces in the per-client cost ledger.
+  await logSmsCost(clientId);
+
+  await storage.logAdminActivity({
+    actor_type: "ai_agent",
+    actor_id: confirmedByUserId,
+    actor_name: "AI Copilot",
+    action: "ai_tool.executed",
+    entity_type: "client",
+    entity_id: clientId,
+    summary: `AI sent a support SMS to ${client.business_name}`,
+    metadata: {
+      tool_name: "send_support_sms",
+      args: { client_id: clientId, message },
+      twilio_sid: sid,
+      session_id: action.session_id,
+      confirmed_by_user_id: confirmedByUserId,
+    },
+  }).catch((err: Error) => log.error("logAdminActivity failed", { error: err.message }));
+
+  return {
+    narrative: `Sent a support SMS to ${client.business_name} (${client.contact_phone}). It's on its way via Twilio.`,
+  };
+}
+
+/** Confirmation-card preview for send_support_sms. */
+function summarizeSendSupportSms(args: Record<string, unknown>, context?: unknown): ToolCallSummary {
+  const pageCtx = context as PageContext | undefined;
+  const clientName = pageCtx?.clientName ?? "this client";
+  const message = typeof args.message === "string" ? args.message : "";
+  const preview = message.length > 200 ? `${message.slice(0, 200)}…` : message;
+
+  return {
+    title: "Send support SMS",
+    lines: [`To: ${clientName}`, preview ? `"${preview}"` : "(empty message)"],
+  };
+}
+
+const SEND_SUPPORT_SMS_ACTION: CopilotAction = {
+  name: "send_support_sms",
+  surface: "admin",
+  riskTier: "low",
+  tool: SEND_SUPPORT_SMS_TOOL,
+  execute: executeSendSupportSms,
+  summarize: summarizeSendSupportSms,
+};
+
 /* ─── Register admin actions ─── */
 registerCopilotAction(UPDATE_TASK_STATUS_ACTION);
 registerCopilotAction(DRAFT_REVIEW_REPLY_ACTION);
 registerCopilotAction(SEND_SUPPORT_EMAIL_ACTION);
+registerCopilotAction(SEND_SUPPORT_SMS_ACTION);
 
 /* ─── Admin tool-injection gate ─── */
 const TOOL_CAPABLE_PAGES = ["client_detail", "inbox", "reviews"];
