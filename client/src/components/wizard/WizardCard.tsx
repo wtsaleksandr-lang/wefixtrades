@@ -22,7 +22,7 @@ import {
   Search, ChevronDown, ExternalLink, Copy, Zap, AlertCircle,
   RotateCcw, Code2, Eye, Upload, Trash2, Image as ImageIcon, ChevronRight,
   FileText, Shield, Mail, Phone, User, Building2, Settings2,
-  CheckCircle2, TriangleAlert
+  CheckCircle2, TriangleAlert, Smartphone, Monitor
 } from 'lucide-react';
 import { useMutation } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
@@ -125,16 +125,19 @@ function loadStep(): number {
 }
 
 const p = platformTheme;
-// Flow order: Step 0 (trade) → Step 2 (pricing) → Step 1 (preview/design) → Step 4 (generate) → Step 5 (publish)
-// Step 3 (lead form) is skipped — defaults are good enough, accessible via Advanced in step 1.
-const TOTAL_STEPS = 4; // Visual steps shown to user (not internal step count)
+// Flow order: Step 0 (trade) → Step 2 (pricing) → Step 1 (preview/design) → Step 5 (publish)
+// Step 3 (lead form) and Step 4 (test gate) are off-path, reached from within step 1.
+const TOTAL_STEPS = 3; // Real build steps the user moves through before the result.
 
-// Visual step number for progress display
+// 1-based visual step for the progress display. The published result screen
+// is `TOTAL_STEPS + 1` so the counter reads "Published" rather than a step number.
 function visualStep(internalStep: number): number {
-  if (internalStep === 0) return 0; // Trade
-  if (internalStep === 2) return 1; // Pricing
-  if (internalStep === 1) return 2; // Preview & polish
-  if (internalStep === 4 || internalStep === 5) return 3; // Publish
+  if (internalStep === 0) return 1; // Trade
+  if (internalStep === 2) return 2; // Pricing
+  if (internalStep === 1) return 3; // Customize & publish
+  if (internalStep === 3) return 3; // Lead form — sub-screen of step 3
+  if (internalStep === 4) return 3; // Test gate — sub-screen of step 3
+  if (internalStep === 5) return TOTAL_STEPS + 1; // Published result
   return internalStep;
 }
 
@@ -181,6 +184,8 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
   const [justSaved, setJustSaved] = useState(false);
   const [showPublishConfirm, setShowPublishConfirm] = useState(false);
   const [mobileMode, setMobileMode] = useState<'edit' | 'preview'>('edit');
+  const [previewDevice, setPreviewDevice] = useState<'desktop' | 'mobile'>('desktop');
+  const [publishError, setPublishError] = useState('');
   const saveFlashRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -806,7 +811,9 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
     e.target.value = '';
   };
 
-  const showSidePreview = step > 0 && step !== 5;
+  // Live preview is shown on every build step (including the first) — only the
+  // published result screen (step 5) hides it.
+  const showSidePreview = step !== 5;
 
   return (
     <>
@@ -1187,15 +1194,16 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
               <button
                 data-testid="button-publish-from-preview"
                 onClick={() => {
-                  // Pre-publish validation
+                  // Pre-publish validation — surfaced inline, not via browser alert()
                   if (!ws.businessName.trim()) {
-                    alert('Please enter your business name before publishing.');
+                    setPublishError('Please enter your business name before publishing.');
                     return;
                   }
                   if (!ws.ownerEmail.trim()) {
-                    alert('Please enter your email so leads can reach you.');
+                    setPublishError('Please enter your email so leads can reach you.');
                     return;
                   }
+                  setPublishError('');
                   if (!showPublishConfirm && !generateMutation.isPending) {
                     setShowPublishConfirm(true);
                     return;
@@ -1220,6 +1228,11 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                   <><Zap style={{ width: '16px', height: '16px' }} /> Publish My Calculator</>
                 )}
               </button>
+              {publishError && !genError && (
+                <p style={{ fontSize: '13px', color: p.colors.danger, marginTop: '8px', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                  <AlertCircle style={{ width: 14, height: 14, flexShrink: 0 }} /> {publishError}
+                </p>
+              )}
               {genError && (
                 <p style={{ fontSize: '13px', color: p.colors.danger, marginTop: '8px', textAlign: 'center' }}>{genError}</p>
               )}
@@ -1506,16 +1519,46 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
             boxShadow: p.shadows.wizardCard,
           }}>
             <div style={{
-              padding: '12px 16px',
+              padding: '10px 16px',
               borderBottom: `1px solid ${p.colors.borderLight}`,
               display: 'flex', alignItems: 'center', gap: 8,
             }}>
               <Eye style={{ width: 14, height: 14, color: p.colors.accent }} />
               <span style={{ fontSize: 13, fontWeight: 600, color: p.colors.heading }}>Live Preview</span>
-              <span style={{ fontSize: 11, color: p.colors.muted, marginLeft: 'auto' }}>Customer view</span>
+              <div style={{
+                marginLeft: 'auto', display: 'flex', gap: 2, padding: 2,
+                borderRadius: 8, background: '#F3F4F6',
+              }}>
+                {([['desktop', Monitor], ['mobile', Smartphone]] as const).map(([mode, Icon]) => (
+                  <button
+                    key={mode}
+                    data-testid={`preview-device-${mode}`}
+                    onClick={() => setPreviewDevice(mode)}
+                    aria-label={`${mode} preview`}
+                    title={`${mode === 'desktop' ? 'Desktop' : 'Mobile'} preview`}
+                    style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      width: 30, height: 24, borderRadius: 6, border: 'none', cursor: 'pointer',
+                      background: previewDevice === mode ? '#fff' : 'transparent',
+                      boxShadow: previewDevice === mode ? '0 1px 2px rgba(0,0,0,0.1)' : 'none',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    <Icon style={{ width: 14, height: 14, color: previewDevice === mode ? p.colors.accent : p.colors.muted }} />
+                  </button>
+                ))}
+              </div>
             </div>
-            <div style={{ background: '#f8fafb' }} className="widget-scope">
-              <QuoteWidget calculator={previewCalculatorData} isEmbed />
+            <div
+              className="widget-scope"
+              style={{ background: '#f8fafb', padding: previewDevice === 'mobile' ? '16px 0' : 0 }}
+            >
+              <div style={{
+                maxWidth: previewDevice === 'mobile' ? 390 : '100%',
+                margin: '0 auto', transition: 'max-width 0.2s ease',
+              }}>
+                <QuoteWidget calculator={previewCalculatorData} isEmbed />
+              </div>
             </div>
 
             {/* Feature toggle previews — show what enabled features will look like */}
@@ -1971,9 +2014,11 @@ function Shell({ children, step, total, onHelp, title, subtitle, generating, gen
   title?: string; subtitle?: string; generating?: boolean; genProgress?: number;
   justSaved?: boolean; stepTime?: string;
 }) {
+  // `step` is 1-based; the published result screen is `total + 1`.
+  const isResult = step > total;
   const progress = generating
-    ? ((step / total) * 100 + (genProgress || 0) / total)
-    : Math.min(((step + 1) / total) * 100, 100);
+    ? Math.min((step / total) * 100, 100)
+    : Math.min((step / total) * 100, 100);
 
   return (
     <div style={{
@@ -1988,15 +2033,15 @@ function Shell({ children, step, total, onHelp, title, subtitle, generating, gen
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ fontSize: '12px', fontWeight: 600, letterSpacing: '0.02em', color: p.colors.muted }}>
-              {step >= total - 1 ? 'Final step' : `Step ${step + 1} of ${total}`}
+              {isResult ? 'Published' : `Step ${step} of ${total}`}
             </span>
-            {step >= 3 && step < total - 1 && (
+            {!isResult && step === total && (
               <span style={{
                 fontSize: '11px', fontWeight: 600, color: '#059669',
                 background: '#ECFDF5', border: '1px solid #A7F3D0',
                 padding: '2px 8px', borderRadius: 20,
               }}>
-                Almost done
+                Last step
               </span>
             )}
           </div>
