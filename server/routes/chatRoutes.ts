@@ -10,7 +10,7 @@ import { db } from "../db";
 import { auditReports } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { shouldInjectTools, ADMIN_TOOLS } from "../services/adminTools";
-import { storePendingAction } from "../services/copilotActionRegistry";
+import { storePendingAction, getCopilotAction } from "../services/copilotActionRegistry";
 import { createLogger } from "../lib/logger";
 
 const log = createLogger("Chat");
@@ -197,15 +197,17 @@ async function writeStream(res: Response, req: AssistantRequest): Promise<void> 
           const callId = crypto.randomUUID();
           const toolInput = toolUseBlock.input as Record<string, unknown>;
 
-          // Resolve display fields from page context to avoid a DB round-trip
-          const taskId = toolInput.task_id as number | undefined;
-          const taskFromCtx = req.pageContext?.topTasks?.find((t) => t.id === taskId);
-          const display = {
-            task_title: taskFromCtx?.title ?? (taskId ? `Task #${taskId}` : "Unknown task"),
-            current_status: taskFromCtx?.status ?? "unknown",
-            proposed_status: (toolInput.status as string) ?? "",
-            reason: toolInput.reason as string | undefined,
-          };
+          // Build the confirmation-card display from the action's own
+          // summarize() hook; fall back to a generic args view. This keeps
+          // writeStream action-agnostic — each action shapes its own card.
+          const def = getCopilotAction("admin", toolUseBlock.name);
+          const summary = def?.summarize?.(toolInput, req.pageContext);
+          const display = summary
+            ? { title: summary.title, lines: summary.lines }
+            : {
+                title: String(toolUseBlock.name).replace(/_/g, " "),
+                lines: Object.entries(toolInput).map(([k, v]) => `${k.replace(/_/g, " ")}: ${String(v)}`),
+              };
 
           // Store action server-side — client only gets the call_id
           storePendingAction({
@@ -216,7 +218,7 @@ async function writeStream(res: Response, req: AssistantRequest): Promise<void> 
             user_id: req.userId,
             session_id: req.sessionId,
             expires: Date.now() + 5 * 60 * 1000,
-            metadata: { current_status: display.current_status },
+            metadata: summary?.metadata,
           });
 
           res.write(`data: ${JSON.stringify({ tool_call: { call_id: callId, tool_name: toolUseBlock.name, display } })}\n\n`);

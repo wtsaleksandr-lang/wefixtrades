@@ -60,6 +60,15 @@ export interface PageContext {
     automation_status?: string | null;
     next_action?: string | null;
   }>;
+  /** Monitored reviews visible on the admin reviews page — feeds tool-use. */
+  topReviews?: Array<{
+    id?: number;
+    reviewer: string;
+    rating: number;
+    snippet?: string;
+    hasDraft?: boolean;
+    hasResponse?: boolean;
+  }>;
   latestPayment?: { status: string; amount_cents: number; date: string | null };
   supplierNames?: string[];
   blockedCount?: number;
@@ -407,6 +416,19 @@ ${buildDraftingSection(ctx)}`);
       if (t.automation_status && t.automation_status !== "idle") detail.push(`automation: ${t.automation_status}`);
       if (t.next_action) detail.push(`next: ${t.next_action}`);
       lines.push(`${i + 1}. ${idPrefix}${detail.join(", ")}`);
+    });
+  }
+
+  // Review list
+  if (ctx.topReviews?.length) {
+    const hasIds = ctx.topReviews.some((r) => typeof r.id === "number");
+    lines.push(`\nVisible reviews (${ctx.topReviews.length})${hasIds ? " — use [ID: N] when calling tools" : ""}:`);
+    ctx.topReviews.slice(0, 12).forEach((r, i) => {
+      const idPrefix = typeof r.id === "number" ? `[ID: ${r.id}] ` : "";
+      const stars = "★".repeat(Math.max(0, Math.min(5, Math.round(r.rating))));
+      const state = r.hasResponse ? "responded" : r.hasDraft ? "draft saved" : "no reply yet";
+      const snippet = r.snippet ? ` — "${r.snippet}"` : "";
+      lines.push(`${i + 1}. ${idPrefix}${stars} ${r.reviewer}${snippet} (${state})`);
     });
   }
 

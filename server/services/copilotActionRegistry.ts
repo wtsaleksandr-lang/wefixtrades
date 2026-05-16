@@ -45,6 +45,20 @@ export interface ActionExecutionResult {
 }
 
 /**
+ * Confirmation-card preview built at tool-call time, before the user
+ * confirms. `title` + `lines` are what the card renders; `metadata` is
+ * optional context handed to the executor (e.g. for no-op checks).
+ */
+export interface ToolCallSummary {
+  /** Confirmation-card heading. */
+  title: string;
+  /** Human-readable lines describing what will happen on confirm. */
+  lines: string[];
+  /** Optional context captured for the executor; stored on the PendingAction. */
+  metadata?: Record<string, unknown>;
+}
+
+/**
  * A pending, awaiting-confirmation action. Stored server-side only; the
  * client ever only holds the opaque call_id.
  */
@@ -68,6 +82,13 @@ export interface CopilotAction {
   tool: ActionTool;
   /** Runs after the user confirms. MUST re-validate args before any write. */
   execute: (action: PendingAction, confirmedByUserId: number) => Promise<ActionExecutionResult>;
+  /**
+   * Optional. Builds the confirmation-card preview from the model's tool
+   * args at tool-call time. `context` is the surface's page context, if
+   * any (typed `unknown` to keep the registry decoupled — the action casts
+   * it). When omitted, the surface emits a generic preview from raw args.
+   */
+  summarize?: (args: Record<string, unknown>, context?: unknown) => ToolCallSummary;
 }
 
 /* ─── Registry ─── */
