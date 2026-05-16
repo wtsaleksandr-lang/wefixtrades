@@ -14,6 +14,7 @@
 import type { Express, Request, Response } from "express";
 import { z } from "zod";
 import { requireSessionOrBearer } from "../lib/mobileAuth";
+import { sendSMS, isTwilioConfigured } from "../twilioClient";
 import { db } from "../db";
 import { clients, clientServices } from "@shared/schema";
 import { and, eq, inArray, sql } from "drizzle-orm";
@@ -136,6 +137,49 @@ export function registerMobileApiRoutes(app: Express) {
       } catch (err) {
         log.error("duty PATCH failed", { err: (err as Error).message });
         res.status(500).json({ error: "Duty toggle failed" });
+      }
+    },
+  );
+
+  /* ─── POST "on my way" ETA text to a customer ─── */
+  const etaBody = z.object({
+    to: z.string().min(7).max(20),
+    etaMinutes: z.number().int().min(1).max(480),
+  });
+
+  app.post(
+    "/api/mobile/notify-eta",
+    requireSessionOrBearer,
+    async (req: Request, res: Response) => {
+      try {
+        const u = req.user as any;
+        const parsed = etaBody.safeParse(req.body);
+        if (!parsed.success) return res.status(400).json({ error: "Invalid request" });
+
+        if (!isTwilioConfigured()) {
+          return res.status(503).json({ error: "Text messaging isn't set up yet", code: "sms_unconfigured" });
+        }
+
+        // Sign the text with the business name so the customer knows who.
+        const clientId = await resolveClientId(u.id);
+        let businessName = "Your tradesperson";
+        if (clientId) {
+          const [c] = await db
+            .select({ business_name: clients.business_name })
+            .from(clients)
+            .where(eq(clients.id, clientId))
+            .limit(1);
+          if (c?.business_name) businessName = c.business_name;
+        }
+
+        const eta = parsed.data.etaMinutes;
+        const body = `On my way! ETA about ${eta} minute${eta === 1 ? "" : "s"}. - ${businessName}`;
+        const sid = await sendSMS(parsed.data.to.trim(), body);
+
+        return res.json({ ok: true, sid });
+      } catch (err) {
+        log.error("notify-eta failed", { err: (err as Error).message });
+        res.status(500).json({ error: "Couldn't send the message — try again" });
       }
     },
   );
