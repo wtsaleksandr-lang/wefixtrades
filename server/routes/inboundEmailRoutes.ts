@@ -25,7 +25,7 @@ import { sql } from "drizzle-orm";
 import { clients, ticketMessages } from "@shared/schema";
 import { storage } from "../storage";
 import { getOrCreateInternalClientId } from "../services/inboundClassifier";
-import { sendAdminNewTicketAlert } from "../lib/supportTicketEmails";
+import { processInboundEmail } from "../services/inboundEmailConcierge";
 import { createLogger } from "../lib/logger";
 
 const log = createLogger("InboundEmail");
@@ -265,25 +265,10 @@ export function registerInboundEmailRoutes(app: Express): void {
           log.info(`[inbound-email] opened ticket #${ticketId} from ${senderEmail ?? "unknown"}`);
         }
 
-        // Notify the founder of genuinely new tickets (reuses 3c-ii).
-        if (isNewTicket && ticketId) {
-          const newTicketId = ticketId;
-          const baseUrl = process.env.APP_URL || process.env.APP_PUBLIC_URL || "https://wefixtrades.com";
-          void sendAdminNewTicketAlert({
-            ticketId: newTicketId,
-            subject,
-            clientName: senderEmail ?? "Unknown sender",
-            category: "general",
-            priority: "normal",
-            description: content,
-            source: "inbound_email",
-            adminUrl: `${baseUrl}/admin/crm/support/${newTicketId}`,
-          }).then((notified) => {
-            if (notified) {
-              storage.updateSupportTicket(newTicketId, { admin_notified: true }).catch(() => {});
-            }
-          }).catch(() => {});
-        }
+        // Phase 3e-ii-b — hand the ingested email to the AI concierge: it
+        // triages (reply / ignore / escalate) and, when the concierge is off,
+        // falls back to the plain new-ticket founder alert. Fire-and-forget.
+        if (ticketId) void processInboundEmail(ticketId, isNewTicket);
 
         return res.status(200).json({ ok: true, ticket_id: ticketId });
       } catch (err: any) {
