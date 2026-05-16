@@ -9,7 +9,7 @@ export default function DocsReputationShield() {
     <DocsLayout
       activeSlug="reputationshield"
       title="ReputationShield Guide"
-      description="How ReputationShield wins you more 5-star reviews, shields you from public 1-stars, and responds to reviews automatically."
+      description="How ReputationShield wins you more 5-star reviews, shields you from public 1-stars, and drafts a reply to every review."
     >
       <DocH2>What ReputationShield does</DocH2>
       <p style={{ fontSize: 15, color: mkt.onDarkMuted, lineHeight: 1.7, marginBottom: 16 }}>
@@ -86,17 +86,20 @@ export default function DocsReputationShield() {
 
       <Accordion title="AI-drafted replies" icon="✍️">
         <p style={{ fontSize: 14, color: mkt.onDarkMuted, lineHeight: 1.6 }}>
-          Every review gets an AI-drafted reply in your business's voice — gracious for positive
-          reviews, calm and empathetic for critical ones, never defensive. 5-star replies can
-          post automatically; lower-rated replies wait for your one-click approval so you stay
-          in control of sensitive responses.
+          Every review — Google or Facebook — gets an AI-drafted reply in your business's voice:
+          gracious for positive reviews, calm and empathetic for critical ones, never defensive.
+          Lower-rated replies wait for your one-click approval so you stay in control of
+          sensitive responses.
         </p>
       </Accordion>
 
-      <Accordion title="Posting to Google" icon="↩️">
+      <Accordion title="Posting your reply" icon="↩️">
         <p style={{ fontSize: 14, color: mkt.onDarkMuted, lineHeight: 1.6 }}>
-          Approved replies post directly to Google through the official API — no copy-paste.
-          Fast public responses show future customers you're attentive.
+          <strong>Google:</strong> approved replies post straight to Google through the official
+          API — no copy-paste. <strong>Facebook:</strong> we draft the reply and surface it in
+          your portal ready to go; you paste it onto the review yourself (Facebook's API doesn't
+          permit posting owner replies for you). Either way, fast public responses show future
+          customers you're attentive.
         </p>
       </Accordion>
 
