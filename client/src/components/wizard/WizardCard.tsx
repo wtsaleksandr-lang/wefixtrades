@@ -1555,10 +1555,14 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
               </div>
             </div>
 
-            {/* Stage surface — the real QuoteWidget */}
+            {/* Stage surface — the real QuoteWidget, centred on a preview canvas */}
             <div
               className="widget-scope"
-              style={{ padding: previewDevice === 'mobile' ? '2px 20px 30px' : '2px 24px 30px' }}
+              style={{
+                padding: previewDevice === 'mobile' ? '8px 20px 36px' : '8px 24px 36px',
+                minHeight: 564,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}
             >
               {previewDevice === 'mobile' ? (
                 <div style={{
