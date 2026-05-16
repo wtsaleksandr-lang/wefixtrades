@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useCopilotForm } from "@/context/CopilotFormContext";
 
 /**
  * ReputationShield onboarding wizard.
@@ -119,6 +120,39 @@ export default function PortalReviewsSetup() {
       toast({ title: "Couldn't start Google connection", variant: "destructive" });
     }
   };
+
+  /* Register the wizard's fillable fields with the AI copilot. Applied
+     fills land in local state; the customer still clicks the relevant
+     Save button (the wizard has two independent save groups). */
+  useCopilotForm({
+    formLabel: "ReputationShield setup wizard",
+    fields: [
+      { key: "channel", label: "Review-request channel (one of: auto, sms, email)" },
+      { key: "delay", label: "Send delay after job (hours — one of: 0, 2, 24, 48)" },
+      { key: "yelp_url", label: "Yelp business URL" },
+      { key: "trustpilot_domain", label: "Trustpilot business domain" },
+    ],
+    values: { channel, delay, yelp_url: yelpUrl, trustpilot_domain: trustpilot },
+    onApply: (fills) => {
+      for (const f of fills) {
+        switch (f.field_key) {
+          case "channel":
+            if (["auto", "sms", "email"].includes(f.value)) setChannel(f.value);
+            break;
+          case "delay":
+            if (["0", "2", "24", "48"].includes(String(f.value))) setDelay(String(f.value));
+            break;
+          case "yelp_url":
+            setYelpUrl(f.value);
+            break;
+          case "trustpilot_domain":
+            setTrustpilot(f.value);
+            break;
+        }
+      }
+    },
+    enabled: !!config?.active,
+  });
 
   if (configLoading) {
     return (
