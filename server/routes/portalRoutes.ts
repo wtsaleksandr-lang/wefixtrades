@@ -22,7 +22,7 @@ import {
 } from "../services/contentflow/approvalService";
 import { getOrCreateThread, loadThreadMessages, derivePageContext } from "../services/threadService";
 import { authRateLimiter, portalReviewRateLimiter } from "../services/rateLimiter";
-import { sendTicketCreatedEmail } from "../lib/supportTicketEmails";
+import { sendTicketCreatedEmail, sendAdminNewTicketAlert } from "../lib/supportTicketEmails";
 import { sendBillingPortalLinkEmail } from "../lib/billingPortalEmail";
 import { buildBillingPortalUrl } from "../lib/billingPortalToken";
 import Stripe from "stripe";
@@ -1221,6 +1221,30 @@ export function registerPortalRoutes(app: Express) {
       } catch (err: any) {
         log.warn(`[support-ticket-email] lookup failed for ticket #${ticket.id}:`, err.message);
       }
+
+      // Phase 3c-ii: notify the founder of every client-raised ticket. The
+      // portal path previously left admin_notified false and pinged nobody.
+      // Fire-and-forget so it never delays the response.
+      void (async () => {
+        try {
+          const [client] = await db.select({ business_name: clients.business_name })
+            .from(clients).where(eq(clients.id, clientId)).limit(1);
+          const baseUrl = process.env.APP_URL || process.env.APP_PUBLIC_URL || "https://wefixtrades.com";
+          const notified = await sendAdminNewTicketAlert({
+            ticketId: ticket.id,
+            subject: ticket.subject,
+            clientName: client?.business_name || `Client #${clientId}`,
+            category: ticket.category || "general",
+            priority: ticket.priority || "normal",
+            description: ticket.description || "",
+            source: ticket.source || "manual",
+            adminUrl: `${baseUrl}/admin/crm/support/${ticket.id}`,
+          });
+          if (notified) await storage.updateSupportTicket(ticket.id, { admin_notified: true });
+        } catch (err: any) {
+          log.warn(`[support-ticket] admin alert failed for ticket #${ticket.id}:`, err.message);
+        }
+      })();
 
       res.status(201).json({
         id: ticket.id,

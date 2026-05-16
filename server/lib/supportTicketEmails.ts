@@ -1,17 +1,20 @@
 /**
- * Support ticket transactional emails.
+ * Support ticket emails.
  *
- * Three templates:
+ * Customer-facing (transactional shell):
  *   1. Ticket created — "We received your request"
  *   2. Ticket reply — "New reply on your ticket"
  *   3. Ticket resolved — "Your ticket has been resolved"
  *
- * All use the transactional shell for consistent branding.
+ * Founder-facing (admin alert shell):
+ *   4. New-ticket alert — pings the founder when a ticket is raised
+ *
  * Safe-fail: every export catches errors and logs — never throws.
  */
 
 import { getEmailTransporter, getFromAddress } from "./emailTransport";
 import { buildTransactionalEmail, buildPlainText } from "./transactionalShell";
+import { buildAdminAlertEmail, buildAdminAlertPlainText } from "./adminAlertShell";
 import { createLogger } from "./logger";
 import { queueEmail } from "../services/emailQueueService";
 
@@ -167,6 +170,82 @@ export async function sendTicketResolvedEmail(
     return true;
   } catch (err: any) {
     log.error(`Ticket resolved email failed for ${recipientEmail}: ${err.message}`);
+    return false;
+  }
+}
+
+/* ─── Admin: New Ticket Alert (Phase 3c-ii) ─── */
+
+export interface AdminNewTicketData {
+  ticketId: number;
+  subject: string;
+  clientName: string;
+  category: string;
+  priority: string;
+  description: string;
+  /** "manual" | "ai_escalation" | … */
+  source: string;
+  /** Deep link to the admin ticket view. */
+  adminUrl: string;
+}
+
+/**
+ * Notify the founder that a new support ticket was raised. Queued to
+ * ADMIN_EMAIL via the email queue. Never throws — returns false on any
+ * failure (including ADMIN_EMAIL not being configured).
+ */
+export async function sendAdminNewTicketAlert(data: AdminNewTicketData): Promise<boolean> {
+  try {
+    const adminEmail = process.env.ADMIN_EMAIL || process.env.INTERNAL_LEAD_EMAIL;
+    if (!adminEmail) {
+      log.warn("No ADMIN_EMAIL configured — skipping new-ticket admin alert");
+      return false;
+    }
+    const ticketRef = `#${data.ticketId}`;
+    const descPreview = data.description.length > 400
+      ? data.description.slice(0, 400) + "…"
+      : data.description;
+    const urgent = data.priority === "urgent" || data.priority === "high";
+    const detailRows = [
+      { label: "Ticket", value: ticketRef },
+      { label: "Client", value: data.clientName },
+      { label: "Category", value: data.category },
+      { label: "Priority", value: data.priority },
+      { label: "Source", value: data.source },
+    ];
+
+    const html = buildAdminAlertEmail({
+      recipientEmail: adminEmail,
+      subjectForTitle: `New support ticket ${ticketRef}`,
+      alertType: "New support ticket",
+      alertTone: urgent ? "critical" : "info",
+      headline: data.subject,
+      summary: `${data.clientName} raised a new support ticket.`,
+      detailRows,
+      bodyHtml: `<div style="background:#F9FAFB;border:1px solid #E5E7EB;border-radius:8px;padding:14px 16px;">
+        <p style="font-size:13px;color:#374151;line-height:1.6;margin:0;white-space:pre-wrap;">${escapeHtml(descPreview)}</p>
+      </div>`,
+      cta: { label: "Open Ticket", url: data.adminUrl },
+      footerNote: "You're receiving this because a customer raised a support ticket.",
+    });
+    const text = buildAdminAlertPlainText({
+      alertType: "New support ticket",
+      headline: data.subject,
+      summary: `${data.clientName} raised a new support ticket.`,
+      detailRows,
+      bodyText: descPreview,
+      cta: { label: "Open Ticket", url: data.adminUrl },
+    });
+
+    await queueEmail(adminEmail, `New support ticket ${ticketRef} — ${data.subject}`, html, text, {
+      source: "support_ticket_admin_alert",
+      entity_type: "support_ticket",
+      entity_id: data.ticketId,
+    });
+    log.info(`New-ticket admin alert queued for ${adminEmail} — ticket ${ticketRef}`);
+    return true;
+  } catch (err: any) {
+    log.error(`New-ticket admin alert failed: ${err.message}`);
     return false;
   }
 }
