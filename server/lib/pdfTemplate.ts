@@ -260,18 +260,13 @@ export function buildPdfHtml(data: PdfReportData): string {
 <!-- Header -->
 <div class="header">
   <div class="header-left">
-    <!-- Brand icon (badged variant). Inlined here so the PDF renderer
+    <!-- Brand icon (bare, no badge). Inlined here so the PDF renderer
          (puppeteer/Chromium) embeds it without a network fetch. Mirrors
-         client/public/brand/icon-badged.svg. -->
-    <svg class="header-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
-      <rect x="0.5" y="0.5" width="31" height="31" rx="7" fill="#E5E7EB" stroke="rgba(13,60,252,0.18)" stroke-width="1" />
-      <g transform="translate(4 4)">
-        <path d="M9 3H6a3 3 0 0 0-3 3v3" stroke="#0d3cfc" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
-        <path d="M15 3h3a3 3 0 0 1 3 3v3" stroke="#0d3cfc" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
-        <path d="M3 15v3a3 3 0 0 0 3 3h3" stroke="#0d3cfc" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
-        <path d="M21 15v3a3 3 0 0 1-3 3h-3" stroke="#0d3cfc" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
-        <path d="m8 12.5 3 3 5-6" stroke="#0d3cfc" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
-      </g>
+         client/public/brand/icon-dark.svg. The header bar has a dark
+         background, so the open-checkbox box uses the white stroke. -->
+    <svg class="header-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
+      <path d="M12 7 H4 V20 H17 V12.5" stroke="#F9F9F9" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" />
+      <path d="M8 13 11.5 16.5 21 5" stroke="#0d3cfc" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
     </svg>
     <div>
       <div class="header-brand">We<span>Fix</span>Trades</div>

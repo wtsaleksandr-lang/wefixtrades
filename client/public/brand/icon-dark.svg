@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" role="img" aria-label="WeFixTrades icon">
+  <title>WeFixTrades</title>
+  <!-- DARK-background icon: white open checkbox + blue check.
+       Top-right corner is OPEN — the check exits through it. -->
+  <path d="M12 7 H4 V20 H17 V12.5" stroke="#F9F9F9" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M8 13 11.5 16.5 21 5" stroke="#0d3cfc" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+</svg>

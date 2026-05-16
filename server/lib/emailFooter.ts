@@ -37,10 +37,11 @@ const COMPANY_LOCATION = "Toronto, Canada";
  * the wordmark and (optional) tagline directly under it. Tagline
  * left-aligns with the "W" of WeFixTrades.
  *
- * The icon is a hosted PNG (`/favicon.png`). It used to be an inline
- * `data:image/svg+xml` URI, but Gmail (and most webmail clients) block
- * `data:` URIs in <img> AND don't render SVG at all — so the logo silently
- * failed in inboxes. A hosted raster PNG loads like any other email image.
+ * The icon is a hosted PNG (`/favicon.png`) — the bare open-checkbox
+ * mark, no badge. It used to be an inline `data:image/svg+xml` URI, but
+ * Gmail (and most webmail clients) block `data:` URIs in <img> AND don't
+ * render SVG at all — so the logo silently failed in inboxes. A hosted
+ * raster PNG loads like any other email image.
  *
  * `theme` defaults to "dark". Pass `theme: "light"` when the header is
  * rendered against a light background (e.g. ContentFlow review emails) —
@@ -61,10 +62,10 @@ export function buildEmailHeader(opts: { tagline?: string; theme?: "dark" | "lig
     <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin:0 auto 24px;">
       <tr>
         <td style="vertical-align:middle;padding-right:12px;line-height:0;">
-          <!-- Brand icon — hosted PNG (badge + rounded corners baked in).
+          <!-- Brand icon — hosted PNG (bare open-checkbox mark, no badge).
                Renders in every email client; no data:/SVG support needed. -->
           <img src="${baseUrl}/favicon.png" width="42" height="42" alt="WeFixTrades"
-               style="display:block;width:42px;height:42px;border:0;outline:none;text-decoration:none;border-radius:11px;" />
+               style="display:block;width:42px;height:42px;border:0;outline:none;text-decoration:none;" />
         </td>
         <td style="vertical-align:middle;text-align:left;">
           <div style="font-family:'Inter',system-ui,-apple-system,Arial,sans-serif;font-weight:700;font-size:20px;letter-spacing:-0.03em;color:${wordmarkColor};line-height:1;">We<span style="color:${ACCENT};">Fix</span>Trades</div>

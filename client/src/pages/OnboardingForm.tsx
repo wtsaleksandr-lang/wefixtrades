@@ -308,16 +308,11 @@ export default function OnboardingForm() {
         {/* Header */}
         <div className="text-center mb-2">
           <div className="flex items-center justify-center gap-2 mb-3">
-            <div className="w-7 h-7 rounded-lg bg-[#1a1f1e] border border-[rgba(13,60,252,0.15)] flex items-center justify-center">
-              <svg viewBox="0 0 22 22" width={14} height={14} fill="none">
-                <path d="M8 3H4C3.4 3 3 3.4 3 4V8" stroke="#0d3cfc" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" />
-                <path d="M14 3H18C18.6 3 19 3.4 19 4V8" stroke="#0d3cfc" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" />
-                <path d="M8 19H4C3.4 19 3 18.6 3 18V14" stroke="#0d3cfc" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" />
-                <path d="M14 19H18C18.6 19 19 18.6 19 18V14" stroke="#0d3cfc" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" />
-                <path d="M7.5 11.5L10 14L14.5 9" stroke="#0d3cfc" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </div>
-            <span className="text-sm font-bold text-gray-900">We<span className="text-[#2D6A4F]">Fix</span>Trades</span>
+            <svg viewBox="0 0 24 24" width={28} height={28} fill="none" aria-label="WeFixTrades">
+              <path d="M12 7 H4 V20 H17 V12.5" stroke="#1E1E1E" strokeWidth={2.3} strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M8 13 11.5 16.5 21 5" stroke="#0d3cfc" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            <span className="text-sm font-bold text-gray-900">We<span className="text-[#0d3cfc]">Fix</span>Trades</span>
           </div>
           <p className="text-sm text-gray-500">
             We'll set everything up for you based on your answers.

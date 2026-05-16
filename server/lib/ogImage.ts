@@ -127,17 +127,14 @@ function renderOgSvg(opts: {
       font-size="18" font-weight="700">Grade ${esc(grade)}</text>
   </g>
 
-  <!-- Brand logo (top-left). Badged icon — readable on the dark gradient bg. -->
+  <!-- Brand logo (top-left). Bare icon (no badge), white open checkbox so it
+       reads on the dark gradient bg; check stays brand blue. -->
   <g transform="translate(60, 60)">
-    <rect x="0" y="0" width="56" height="56" rx="12" fill="#E5E7EB" stroke="rgba(13,60,252,0.18)" stroke-width="1"/>
-    <g transform="translate(7 7)">
-      <path d="M15.75 5.25H10.5a5.25 5.25 0 0 0-5.25 5.25v5.25" stroke="#0d3cfc" stroke-width="4.375" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-      <path d="M26.25 5.25h5.25a5.25 5.25 0 0 1 5.25 5.25v5.25" stroke="#0d3cfc" stroke-width="4.375" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-      <path d="M5.25 26.25v5.25a5.25 5.25 0 0 0 5.25 5.25h5.25" stroke="#0d3cfc" stroke-width="4.375" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-      <path d="M36.75 26.25v5.25a5.25 5.25 0 0 1-5.25 5.25h-5.25" stroke="#0d3cfc" stroke-width="4.375" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-      <path d="m14 21.875 5.25 5.25 8.75-10.5" stroke="#0d3cfc" stroke-width="4.375" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <g transform="scale(2)">
+      <path d="M12 7 H4 V20 H17 V12.5" stroke="#F9F9F9" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      <path d="M8 13 11.5 16.5 21 5" stroke="#0d3cfc" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
     </g>
-    <text x="72" y="36" fill="#F9F9F9" font-family="system-ui,sans-serif"
+    <text x="64" y="34" fill="#F9F9F9" font-family="system-ui,sans-serif"
       font-size="28" font-weight="700" letter-spacing="-0.02em">We<tspan fill="#0d3cfc">Fix</tspan>Trades</text>
   </g>
 

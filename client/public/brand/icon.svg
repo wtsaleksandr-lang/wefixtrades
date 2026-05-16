@@ -1,13 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" role="img" aria-label="WeFixTrades icon">
   <title>WeFixTrades</title>
-  <!-- Top-left bracket -->
-  <path d="M9 3H6a3 3 0 0 0-3 3v3" stroke="#0d3cfc" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
-  <!-- Top-right bracket -->
-  <path d="M15 3h3a3 3 0 0 1 3 3v3" stroke="#0d3cfc" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
-  <!-- Bottom-left bracket -->
-  <path d="M3 15v3a3 3 0 0 0 3 3h3" stroke="#0d3cfc" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
-  <!-- Bottom-right bracket -->
-  <path d="M21 15v3a3 3 0 0 1-3 3h-3" stroke="#0d3cfc" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
-  <!-- Checkmark -->
-  <path d="m8 12.5 3 3 5-6" stroke="#0d3cfc" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+  <!-- LIGHT-background icon: dark (ink) open checkbox + blue check.
+       Top-right corner is OPEN — the check exits through it.
+       For dark backgrounds use icon-dark.svg. -->
+  <path d="M12 7 H4 V20 H17 V12.5" stroke="#1E1E1E" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M8 13 11.5 16.5 21 5" stroke="#0d3cfc" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
 </svg>
