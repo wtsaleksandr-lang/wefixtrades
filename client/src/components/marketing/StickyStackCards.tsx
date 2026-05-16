@@ -27,7 +27,7 @@ const CARDS_DATA = [
     accentBg: "#cffafe",
     title: "Every review answered. Even at 11 PM.",
     description:
-      "ReputationShield drafts a personal reply to every Google, Yelp, and Facebook review within minutes. 5-stars get amplified. 1-stars get flagged to your phone before they spread.",
+      "ReputationShield drafts a personal reply to every Google and Facebook review within minutes. 5-stars get amplified. 1-stars get flagged to your phone before they spread.",
     riveUrl:
       "https://cdn.prod.website-files.com/66e53bf67b6fc1646ce0777e/67eabdfb3bb7821ba4c09216_home___stack___dashboards_final.riv",
     reversed: true,

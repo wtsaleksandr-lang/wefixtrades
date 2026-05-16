@@ -4,13 +4,12 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
   CheckCircle2, Circle, Loader2, ChevronLeft, ArrowRight, Star,
-  Link2, MessageSquare, Globe, QrCode,
+  Link2, MessageSquare, QrCode,
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -22,8 +21,7 @@ import { useCopilotForm } from "@/context/CopilotFormContext";
  * A guided setup checklist for a new ReputationShield subscriber.
  * Every step here is reachable individually elsewhere in the portal,
  * but a fresh customer needs one place that walks them through it in
- * order — connect Google, set how requests go out, add other review
- * sites, grab a QR code.
+ * order — connect Google, set how requests go out, grab a QR code.
  *
  * This is a checklist (not a hard-gated linear wizard): each step
  * shows done / to-do and is independently actionable. Connecting
@@ -37,7 +35,6 @@ interface RepConfig {
   settings: {
     channel_preference: "email" | "sms" | "auto";
     review_request_delay_hours: number;
-    platforms?: { yelp_url: string | null; trustpilot_domain: string | null };
   } | null;
 }
 interface GoogleStatus {
@@ -82,16 +79,11 @@ export default function PortalReviewsSetup() {
   /* ─ Step 2: request settings ─ */
   const [channel, setChannel] = useState<string>("auto");
   const [delay, setDelay] = useState<string>("2");
-  /* ─ Step 3: other platforms ─ */
-  const [yelpUrl, setYelpUrl] = useState("");
-  const [trustpilot, setTrustpilot] = useState("");
 
   useEffect(() => {
     if (config?.settings) {
       setChannel(config.settings.channel_preference || "auto");
       setDelay(String(config.settings.review_request_delay_hours ?? 2));
-      setYelpUrl(config.settings.platforms?.yelp_url || "");
-      setTrustpilot(config.settings.platforms?.trustpilot_domain || "");
     }
   }, [config]);
 
@@ -122,17 +114,14 @@ export default function PortalReviewsSetup() {
   };
 
   /* Register the wizard's fillable fields with the AI copilot. Applied
-     fills land in local state; the customer still clicks the relevant
-     Save button (the wizard has two independent save groups). */
+     fills land in local state; the customer still clicks Save. */
   useCopilotForm({
     formLabel: "ReputationShield setup wizard",
     fields: [
       { key: "channel", label: "Review-request channel (one of: auto, sms, email)" },
       { key: "delay", label: "Send delay after job (hours — one of: 0, 2, 24, 48)" },
-      { key: "yelp_url", label: "Yelp business URL" },
-      { key: "trustpilot_domain", label: "Trustpilot business domain" },
     ],
-    values: { channel, delay, yelp_url: yelpUrl, trustpilot_domain: trustpilot },
+    values: { channel, delay },
     onApply: (fills) => {
       for (const f of fills) {
         switch (f.field_key) {
@@ -141,12 +130,6 @@ export default function PortalReviewsSetup() {
             break;
           case "delay":
             if (["0", "2", "24", "48"].includes(String(f.value))) setDelay(String(f.value));
-            break;
-          case "yelp_url":
-            setYelpUrl(f.value);
-            break;
-          case "trustpilot_domain":
-            setTrustpilot(f.value);
             break;
         }
       }
@@ -191,7 +174,7 @@ export default function PortalReviewsSetup() {
         <div>
           <h1 className="text-lg font-semibold text-gray-900">Set up ReputationShield</h1>
           <p className="text-sm text-gray-500">
-            Four quick steps and your reviews start growing on autopilot.
+            Three quick steps and your reviews start growing on autopilot.
           </p>
         </div>
 
@@ -267,54 +250,9 @@ export default function PortalReviewsSetup() {
           </Button>
         </StepCard>
 
-        {/* ─ Step 3: Other platforms ─ */}
+        {/* ─ Step 3: QR code ─ */}
         <StepCard
           n={3}
-          done={!!(yelpUrl || trustpilot)}
-          optional
-          icon={Globe}
-          title="Add other review sites"
-          desc="We monitor Google and Facebook automatically. Add your Yelp and Trustpilot links and we'll watch those too."
-        >
-          <div className="space-y-3">
-            <div>
-              <label className="text-xs text-gray-500 mb-1 block">Yelp business URL</label>
-              <Input
-                value={yelpUrl}
-                onChange={(e) => setYelpUrl(e.target.value)}
-                placeholder="https://www.yelp.com/biz/your-business"
-                className="h-9 text-sm"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 mb-1 block">Trustpilot domain</label>
-              <Input
-                value={trustpilot}
-                onChange={(e) => setTrustpilot(e.target.value)}
-                placeholder="yourbusiness.com"
-                className="h-9 text-sm"
-              />
-            </div>
-          </div>
-          <Button
-            size="sm"
-            variant="outline"
-            className="mt-3 h-8"
-            disabled={saveSettings.isPending}
-            onClick={() => saveSettings.mutate({
-              platforms: {
-                yelp_url: yelpUrl.trim() || null,
-                trustpilot_domain: trustpilot.trim() || null,
-              },
-            })}
-          >
-            {saveSettings.isPending ? "Saving…" : "Save review sites"}
-          </Button>
-        </StepCard>
-
-        {/* ─ Step 4: QR code ─ */}
-        <StepCard
-          n={4}
           done={!!qr?.qrUrl}
           optional
           icon={QrCode}

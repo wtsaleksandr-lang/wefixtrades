@@ -25,7 +25,7 @@ export default function DocsReputationShield() {
         "AI-drafted owner replies, posted to Google with one click (or auto-posted)",
         "QR codes so techs can collect reviews in person, on-site",
         "An embeddable review widget for your website",
-        "Monitoring across Google, Facebook, Yelp, and Trustpilot",
+        "Monitoring across Google and Facebook reviews",
         "Instant low-rating alerts + a monthly reputation report",
       ]} />
 
@@ -123,9 +123,9 @@ export default function DocsReputationShield() {
 
       <DocH2>Platforms we monitor</DocH2>
       <p style={{ fontSize: 14, color: mkt.onDarkMuted, lineHeight: 1.6, marginBottom: 12 }}>
-        Google is connected via OAuth. Facebook is picked up from your page URL. Yelp and
-        Trustpilot can be added in your portal settings — paste your Yelp business URL and your
-        Trustpilot domain and we'll monitor reviews there too.
+        We focus where your customers actually leave reviews: <strong>Google</strong> —
+        connected via OAuth, the platform that drives the bulk of trades-business reviews —
+        and <strong>Facebook</strong>, picked up automatically from your page URL.
       </p>
 
       <DocH2>The monthly report</DocH2>

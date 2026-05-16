@@ -326,9 +326,9 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
     },
     {
       number: "04",
-      title: "Reputation On Every Platform",
-      description: "Monitors Google, Yelp, Facebook, and Better Business Bureau. One inbox for every channel.",
-      cta: { label: "See Channels", href: "/products/reputationshield" },
+      title: "Every Review, One Inbox",
+      description: "Monitors your Google and Facebook reviews. Every reply drafted for you, ready to post in one place.",
+      cta: { label: "Learn More", href: "/products/reputationshield" },
       mockup: <OrbitingLogos
         center={<div style={{ background: TILE.white.bg, color: TILE.white.ink, borderRadius: 14, padding: 18, minWidth: 220, fontFamily: SANS, boxShadow: "0 16px 40px rgba(0,0,0,0.4)" }}>
           <div style={{ fontSize: 11, fontFamily: MONO, color: TILE.white.muted, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Reputation</div>
@@ -339,10 +339,8 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
           <div style={{ fontSize: 11, color: TILE.white.muted, marginTop: 4 }}>247 reviews</div>
         </div>}
         logos={[
-          { label: "G", color: "#DC2626", angle: 200, ring: 2 },
-          { label: "Y", color: "#D32323", angle: 270, ring: 2 },
-          { label: "F", color: "#1877F2", angle: 340, ring: 2 },
-          { label: "B", color: "#C9342B", angle: 60, ring: 2 },
+          { label: "G", color: "#DC2626", angle: 220, ring: 2 },
+          { label: "F", color: "#1877F2", angle: 320, ring: 2 },
         ]}
       />,
     },
