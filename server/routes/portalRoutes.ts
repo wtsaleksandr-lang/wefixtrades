@@ -1567,25 +1567,56 @@ Rules for proposing fills:
         if (finalMsg.stop_reason === "tool_use" && portalTools.length && portalUserId) {
           const toolUseBlock = finalMsg.content.find((b: any) => b.type === "tool_use") as any;
           if (toolUseBlock) {
-            const callId = newCallId();
-            storePendingAction({
-              call_id: callId,
-              surface: "portal",
-              action_name: toolUseBlock.name,
-              args: (toolUseBlock.input ?? {}) as Record<string, unknown>,
-              user_id: portalUserId,
-              session_id: `portal_${portalUserId}`,
-              expires: Date.now() + PENDING_ACTION_TTL_MS,
-            });
-            res.write(
-              `data: ${JSON.stringify({ tool_call: { call_id: callId, tool_name: toolUseBlock.name, display: { args: toolUseBlock.input ?? {} } } })}\n\n`,
-            );
+            const toolArgs = (toolUseBlock.input ?? {}) as Record<string, unknown>;
+            const def = getCopilotAction("portal", toolUseBlock.name);
+
+            if (def?.riskTier === "auto") {
+              // Autonomous tier — execute immediately, no confirm card. The
+              // executor re-validates args + audit-logs; the narrative is
+              // appended to the reply so it flows through saveMemory + meta.
+              try {
+                const result = await def.execute(
+                  {
+                    call_id: newCallId(),
+                    surface: "portal",
+                    action_name: toolUseBlock.name,
+                    args: toolArgs,
+                    user_id: portalUserId,
+                    session_id: `portal_${portalUserId}`,
+                    expires: Date.now() + PENDING_ACTION_TTL_MS,
+                  },
+                  portalUserId,
+                );
+                rawReply += (rawReply ? "\n\n" : "") + result.narrative;
+              } catch (err) {
+                log.error("[portal-ai] auto action failed:", { error: String(err) });
+                rawReply += (rawReply ? "\n\n" : "") +
+                  "I wasn't able to complete that just now — please try again or rephrase.";
+              }
+            } else {
+              // Confirm-gated tier — store the pending action (single-use,
+              // user-bound, 5-min TTL) and emit a tool_call event; the client
+              // renders a confirm card and posts the call_id to the confirm
+              // endpoint.
+              const callId = newCallId();
+              storePendingAction({
+                call_id: callId,
+                surface: "portal",
+                action_name: toolUseBlock.name,
+                args: toolArgs,
+                user_id: portalUserId,
+                session_id: `portal_${portalUserId}`,
+                expires: Date.now() + PENDING_ACTION_TTL_MS,
+              });
+              res.write(
+                `data: ${JSON.stringify({ tool_call: { call_id: callId, tool_name: toolUseBlock.name, display: { args: toolArgs } } })}\n\n`,
+              );
+            }
             toolEmitted = true;
           }
         }
       } catch {
-        // finalMessage() failed — skip the tool_call event; the streamed text
-        // has already been delivered.
+        // finalMessage() failed — skip tool handling; the streamed text stands.
       }
 
       // Q24: persist the full conversation server-side so it survives logout +

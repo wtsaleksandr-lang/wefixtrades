@@ -194,34 +194,64 @@ async function writeStream(res: Response, req: AssistantRequest): Promise<void> 
       if (finalMsg.stop_reason === "tool_use" && req.tools?.length && req.userId) {
         const toolUseBlock = finalMsg.content.find((b: any) => b.type === "tool_use") as any;
         if (toolUseBlock) {
-          const callId = crypto.randomUUID();
           const toolInput = toolUseBlock.input as Record<string, unknown>;
-
-          // Build the confirmation-card display from the action's own
-          // summarize() hook; fall back to a generic args view. This keeps
-          // writeStream action-agnostic — each action shapes its own card.
           const def = getCopilotAction("admin", toolUseBlock.name);
-          const summary = def?.summarize?.(toolInput, req.pageContext);
-          const display = summary
-            ? { title: summary.title, lines: summary.lines }
-            : {
-                title: String(toolUseBlock.name).replace(/_/g, " "),
-                lines: Object.entries(toolInput).map(([k, v]) => `${k.replace(/_/g, " ")}: ${String(v)}`),
-              };
 
-          // Store action server-side — client only gets the call_id
-          storePendingAction({
-            call_id: callId,
-            surface: "admin",
-            action_name: toolUseBlock.name,
-            args: toolInput,
-            user_id: req.userId,
-            session_id: req.sessionId,
-            expires: Date.now() + 5 * 60 * 1000,
-            metadata: summary?.metadata,
-          });
+          if (def?.riskTier === "auto") {
+            // Autonomous tier — execute immediately, no confirm card. The
+            // executor re-validates args + audit-logs; the narrative is
+            // streamed back as reply text and folded into fullReply so it
+            // persists with the conversation.
+            let narrative: string;
+            try {
+              const result = await def.execute(
+                {
+                  call_id: crypto.randomUUID(),
+                  surface: "admin",
+                  action_name: toolUseBlock.name,
+                  args: toolInput,
+                  user_id: req.userId,
+                  session_id: req.sessionId,
+                  expires: Date.now() + 5 * 60 * 1000,
+                },
+                req.userId,
+              );
+              narrative = result.narrative;
+            } catch (err: any) {
+              log.error("[chat] auto action failed:", err?.message);
+              narrative = "I wasn't able to complete that action just now.";
+            }
+            const chunk = (fullReply ? "\n\n" : "") + narrative;
+            fullReply += chunk;
+            res.write(`data: ${JSON.stringify({ text: chunk })}\n\n`);
+          } else {
+            const callId = crypto.randomUUID();
 
-          res.write(`data: ${JSON.stringify({ tool_call: { call_id: callId, tool_name: toolUseBlock.name, display } })}\n\n`);
+            // Build the confirmation-card display from the action's own
+            // summarize() hook; fall back to a generic args view. This keeps
+            // writeStream action-agnostic — each action shapes its own card.
+            const summary = def?.summarize?.(toolInput, req.pageContext);
+            const display = summary
+              ? { title: summary.title, lines: summary.lines }
+              : {
+                  title: String(toolUseBlock.name).replace(/_/g, " "),
+                  lines: Object.entries(toolInput).map(([k, v]) => `${k.replace(/_/g, " ")}: ${String(v)}`),
+                };
+
+            // Store action server-side — client only gets the call_id
+            storePendingAction({
+              call_id: callId,
+              surface: "admin",
+              action_name: toolUseBlock.name,
+              args: toolInput,
+              user_id: req.userId,
+              session_id: req.sessionId,
+              expires: Date.now() + 5 * 60 * 1000,
+              metadata: summary?.metadata,
+            });
+
+            res.write(`data: ${JSON.stringify({ tool_call: { call_id: callId, tool_name: toolUseBlock.name, display } })}\n\n`);
+          }
         }
       }
     } catch {
