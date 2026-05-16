@@ -154,8 +154,12 @@ Files a user sends their copilot (chat attachments — e.g. a tradesperson
 photographing something to ask about it) are **retrievable for ~14 days**,
 then auto-purged.
 
-- A "Shared files" view in the portal concierge (and the admin copilot) —
-  recent attachments, retrievable.
+- A "Shared files" view is reachable from **both the client portal and the
+  admin dashboard** — recent attachments, retrievable by the user.
+- **The AI has access to these files too** — the concierge and the admin
+  copilot can retrieve and re-reference a file shared earlier within the
+  retention window (e.g. "the photo you sent me on Tuesday"), not just the
+  human. Stored files are part of the copilot's accessible working context.
 - **Files consumed into a record persist with that record** — e.g. an invoice
   photo that became a BookFlow invoice stays attached to the invoice; it is
   not subject to the 14-day purge. The TTL applies only to transient
