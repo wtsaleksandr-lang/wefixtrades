@@ -33,6 +33,10 @@ export const users = pgTable("users", {
    * standard forgot-password flow.
    */
   google_sub: text("google_sub").unique(),
+  // Phase 3e-ii: how the AI escalates to this user. "dashboard" = an agenda
+  // notice only; "sms" / "whatsapp" also ping ai_contact_phone via Twilio.
+  ai_contact_method: varchar("ai_contact_method", { length: 20 }).notNull().default("dashboard"),
+  ai_contact_phone: text("ai_contact_phone"),
   created_at: timestamp("created_at").defaultNow(),
 });
 
@@ -901,6 +905,27 @@ export const aiChannelSettings = pgTable("ai_channel_settings", {
   updated_by: integer("updated_by"),
 });
 export type AiChannelSettings = typeof aiChannelSettings.$inferSelect;
+
+/* ─── Admin Notices — the founder's AI agenda (Phase 3e-ii) ─── */
+// A durable record of every AI escalation to the founder. Always written;
+// the founder's users.ai_contact_method decides whether an SMS / WhatsApp
+// ping also fires. Read from the admin dashboard agenda view.
+export const adminNotices = pgTable("admin_notices", {
+  id: serial("id").primaryKey(),
+  type: varchar("type", { length: 40 }).notNull(),
+  // e.g. inbound_email_uncertain
+  title: text("title").notNull(),
+  summary: text("summary").notNull(),
+  entity_type: varchar("entity_type", { length: 40 }),  // support_ticket | client | …
+  entity_id: integer("entity_id"),
+  status: varchar("status", { length: 20 }).notNull().default("unread"),
+  // unread | read | actioned
+  created_at: timestamp("created_at").defaultNow(),
+  read_at: timestamp("read_at"),
+});
+export const insertAdminNoticeSchema = createInsertSchema(adminNotices).omit({ id: true, created_at: true });
+export type InsertAdminNotice = z.infer<typeof insertAdminNoticeSchema>;
+export type AdminNotice = typeof adminNotices.$inferSelect;
 
 /* ─── Vapi Webhook Events (diagnostic log) ─── */
 export const vapiWebhookEvents = pgTable("vapi_webhook_events", {
