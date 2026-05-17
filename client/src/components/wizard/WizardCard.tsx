@@ -1499,6 +1499,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                 rangeMin={ws.calculatorSettings?.manual_range_min || 100}
                 rangeMax={ws.calculatorSettings?.manual_range_max || 500}
                 customConfig={ws.calculatorSettings?.manual_custom_config}
+                fieldOverrides={ws.calculatorSettings?.field_overrides || {}}
                 onChange={(key, val) => set('calculatorSettings', { ...ws.calculatorSettings, [key]: val })}
               />
             )}

@@ -90,6 +90,7 @@ export default function QuoteWidget({ calculator, isEmbed = false }: QuoteWidget
       quoteRules: calcSettings.quote_rules,
       serviceTypes: calcSettings.serviceTypes,
       tradeInputs: calcSettings.trade_inputs,
+      fieldOverrides: calcSettings.field_overrides,
     };
 
     const flow = buildWidgetFlow(pricingConfig, template, flowSettings);

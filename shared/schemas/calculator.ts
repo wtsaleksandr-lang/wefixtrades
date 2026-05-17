@@ -291,6 +291,17 @@ export const calculatorSettingsSchema = z.object({
     show_countdown: z.boolean().default(false),
   }).default({}),
 
+  // Owner edits to the auto-generated customer-facing fields, keyed by the
+  // question id from widgetFlowBuilder (e.g. 'quantity', 'package_tier',
+  // 'addon_selection'). Applied as a post-pass when the widget flow is built.
+  field_overrides: z.record(z.object({
+    label: z.string().optional(),
+    min: z.number().optional(),
+    max: z.number().optional(),
+    step: z.number().optional(),
+    hidden: z.boolean().optional(),
+  })).default({}),
+
   ai_employee: z.object({
     enabled: z.boolean().default(false),
     trial_started_at: z.number().nullable().default(null),
