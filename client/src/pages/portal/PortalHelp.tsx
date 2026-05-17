@@ -150,7 +150,7 @@ function TicketSection() {
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
               placeholder="e.g. Question about my MapGuard service"
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/20 focus:border-[#2D6A4F]"
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0d3cfc]/20 focus:border-[#0d3cfc]"
             />
           </div>
           <div>
@@ -158,7 +158,7 @@ function TicketSection() {
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/20 focus:border-[#2D6A4F] bg-white"
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0d3cfc]/20 focus:border-[#0d3cfc] bg-white"
             >
               {CATEGORIES.map((c) => (
                 <option key={c.value} value={c.value}>{c.label}</option>
@@ -174,14 +174,14 @@ function TicketSection() {
               onChange={(e) => setMessage(e.target.value)}
               placeholder="Describe what you need help with..."
               rows={3}
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/20 focus:border-[#2D6A4F] resize-none"
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0d3cfc]/20 focus:border-[#0d3cfc] resize-none"
             />
           </div>
           <div className="flex items-center gap-3">
             <button
               type="submit"
               disabled={!subject.trim() || !message.trim() || createTicket.isPending}
-              className="px-4 py-2 text-sm font-medium text-white bg-[#2D6A4F] rounded-lg hover:bg-[#1B4332] disabled:opacity-60 transition-colors"
+              className="px-4 py-2 text-sm font-medium text-white bg-[#0d3cfc] rounded-lg hover:bg-[#0b34d6] disabled:opacity-60 transition-colors"
             >
               {createTicket.isPending ? "Submitting..." : "Submit Ticket"}
             </button>

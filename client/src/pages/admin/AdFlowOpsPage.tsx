@@ -197,7 +197,7 @@ export default function AdFlowOpsPage() {
                     <td className="px-4 py-3">
                       <Link
                         href={`/admin/crm/clients/${svc.client_id}`}
-                        className="text-sm font-medium text-gray-900 hover:text-[#2D6A4F] transition-colors"
+                        className="text-sm font-medium text-gray-900 hover:text-[#0d3cfc] transition-colors"
                       >
                         {svc.business_name}
                       </Link>
@@ -255,7 +255,7 @@ export default function AdFlowOpsPage() {
                     <td className="px-4 py-3">
                       <Link
                         href={`/admin/service-ops?csid=${svc.id}`}
-                        className="text-gray-400 hover:text-[#2D6A4F] transition-colors"
+                        className="text-gray-400 hover:text-[#0d3cfc] transition-colors"
                         title="Enter metrics"
                       >
                         <ChevronRight className="w-4 h-4" />

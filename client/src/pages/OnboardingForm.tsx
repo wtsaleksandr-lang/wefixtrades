@@ -111,11 +111,11 @@ function SetupProgress({ token }: { token: string }) {
   return (
     <div className="min-h-screen bg-[#F6F7F9] flex items-center justify-center p-4">
       <Card className="max-w-md w-full p-8 text-center">
-        <div className="w-12 h-12 rounded-full bg-[#F0F7F4] flex items-center justify-center mx-auto mb-5">
+        <div className="w-12 h-12 rounded-full bg-[#EEF3FF] flex items-center justify-center mx-auto mb-5">
           {failed ? (
             <AlertTriangle className="w-6 h-6 text-amber-500" />
           ) : (
-            <Settings2 className={`w-6 h-6 text-[#2D6A4F] ${!allDone ? "animate-spin" : ""}`} style={{ animationDuration: "3s" }} />
+            <Settings2 className={`w-6 h-6 text-[#0d3cfc] ${!allDone ? "animate-spin" : ""}`} style={{ animationDuration: "3s" }} />
           )}
         </div>
 
@@ -130,7 +130,7 @@ function SetupProgress({ token }: { token: string }) {
           {steps.map((s, i) => (
             <div key={i} className="flex items-center gap-3">
               {s.done ? (
-                <CheckCircle2 className="w-4 h-4 text-[#2D6A4F] flex-shrink-0" />
+                <CheckCircle2 className="w-4 h-4 text-[#0d3cfc] flex-shrink-0" />
               ) : failed ? (
                 <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0" />
               ) : (
@@ -152,8 +152,8 @@ function SetupProgress({ token }: { token: string }) {
         )}
 
         {allDone && (
-          <div className="bg-[#F0F7F4] rounded-lg p-3 mt-2">
-            <p className="text-sm text-[#2D6A4F] font-medium flex items-center justify-center gap-1.5">
+          <div className="bg-[#EEF3FF] rounded-lg p-3 mt-2">
+            <p className="text-sm text-[#0d3cfc] font-medium flex items-center justify-center gap-1.5">
               <Zap className="w-3.5 h-3.5" /> Setup complete — you can close this page
             </p>
           </div>
@@ -326,7 +326,7 @@ export default function OnboardingForm() {
               <div
                 key={i}
                 className={`h-1.5 flex-1 rounded-full transition-colors ${
-                  i <= currentStep ? "bg-[#2D6A4F]" : "bg-gray-200"
+                  i <= currentStep ? "bg-[#0d3cfc]" : "bg-gray-200"
                 }`}
               />
             ))}
@@ -359,7 +359,7 @@ export default function OnboardingForm() {
                       type="checkbox"
                       checked={!!responses[step.key]}
                       onChange={(e) => setResponses({ ...responses, [step.key]: e.target.checked })}
-                      className="mt-0.5 w-4 h-4 rounded border-gray-300 text-[#2D6A4F] focus:ring-[#2D6A4F]"
+                      className="mt-0.5 w-4 h-4 rounded border-gray-300 text-[#0d3cfc] focus:ring-[#0d3cfc]"
                     />
                     <div>
                       <span className="text-sm text-gray-700">
@@ -408,7 +408,7 @@ export default function OnboardingForm() {
               <Button
                 type="submit"
                 disabled={submitting}
-                className="flex-1 bg-[#2D6A4F] hover:bg-[#1B4332] min-h-[44px]"
+                className="flex-1 bg-[#0d3cfc] hover:bg-[#0b34d6] min-h-[44px]"
               >
                 {submitting ? (
                   <span className="flex items-center gap-2">
@@ -421,7 +421,7 @@ export default function OnboardingForm() {
             ) : (
               <Button
                 type="submit"
-                className="flex-1 bg-[#2D6A4F] hover:bg-[#1B4332] min-h-[44px]"
+                className="flex-1 bg-[#0d3cfc] hover:bg-[#0b34d6] min-h-[44px]"
               >
                 Continue <ArrowRight className="w-4 h-4 ml-1" />
               </Button>

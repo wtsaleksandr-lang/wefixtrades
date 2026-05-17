@@ -199,7 +199,7 @@ function SiteLaunchTemplateForm({ cs }: { cs: ClientService }) {
         key: "templateId",
         label: `Template (one of: ${SITELAUNCH_TEMPLATES.map((t) => t.id).join(", ")})`,
       },
-      { key: "brandColors", label: "Brand colors (hex pair, e.g. #2D6A4F,#F5FCFF)" },
+      { key: "brandColors", label: "Brand colors (hex pair, e.g. #0d3cfc,#F5FCFF)" },
       { key: "logoUrl", label: "Logo URL" },
       { key: "heroTitle", label: "Hero title" },
       { key: "heroSub", label: "Hero subtitle" },
@@ -243,10 +243,10 @@ function SiteLaunchTemplateForm({ cs }: { cs: ClientService }) {
 
   return (
     <div className="max-w-3xl space-y-5">
-      <Card className="p-5 bg-[#F0F7F4] border-[#2D6A4F]/20">
+      <Card className="p-5 bg-[#EEF3FF] border-[#0d3cfc]/20">
         <div className="flex items-start gap-3">
-          <div className="w-9 h-9 rounded-lg bg-white border border-[#2D6A4F]/20 flex items-center justify-center flex-shrink-0">
-            <Layout className="w-4 h-4 text-[#2D6A4F]" />
+          <div className="w-9 h-9 rounded-lg bg-white border border-[#0d3cfc]/20 flex items-center justify-center flex-shrink-0">
+            <Layout className="w-4 h-4 text-[#0d3cfc]" />
           </div>
           <div>
             <h2 className="text-sm font-semibold text-gray-900 mb-1">SiteLaunch Template</h2>
@@ -269,13 +269,13 @@ function SiteLaunchTemplateForm({ cs }: { cs: ClientService }) {
                 onClick={() => setTemplateId(t.id)}
                 className={`text-left px-4 py-3 rounded-lg border transition-colors ${
                   templateId === t.id
-                    ? "border-[#2D6A4F] bg-[#F0F7F4]"
+                    ? "border-[#0d3cfc] bg-[#EEF3FF]"
                     : "border-gray-200 hover:border-gray-300 bg-white"
                 }`}
               >
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-sm font-semibold text-gray-900">{t.name}</span>
-                  {templateId === t.id && <CheckCircle2 className="w-4 h-4 text-[#2D6A4F]" />}
+                  {templateId === t.id && <CheckCircle2 className="w-4 h-4 text-[#0d3cfc]" />}
                 </div>
                 <p className="text-xs text-gray-500">Best for: {t.best_for}</p>
               </button>
@@ -283,7 +283,7 @@ function SiteLaunchTemplateForm({ cs }: { cs: ClientService }) {
           </div>
         </div>
 
-        <Field label="Brand colors (hex pair, e.g. #2D6A4F,#F5FCFF)" value={brandColors} onChange={setBrandColors} />
+        <Field label="Brand colors (hex pair, e.g. #0d3cfc,#F5FCFF)" value={brandColors} onChange={setBrandColors} />
         <Field label="Logo URL (or paste CDN link)" value={logoUrl} onChange={setLogoUrl} />
 
         <div className="border-t border-gray-100 pt-5">
@@ -329,7 +329,7 @@ function SiteLaunchTemplateForm({ cs }: { cs: ClientService }) {
           <Button
             onClick={() => mutation.mutate()}
             disabled={mutation.isPending}
-            className="bg-[#2D6A4F] hover:bg-[#1B4332] text-white"
+            className="bg-[#0d3cfc] hover:bg-[#0b34d6] text-white"
           >
             {mutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
             Save template config
@@ -537,7 +537,7 @@ function AdFlowMetricsForm({ cs }: { cs: ClientService }) {
           <Button
             onClick={() => saveMutation.mutate()}
             disabled={saveMutation.isPending}
-            className="bg-[#2D6A4F] hover:bg-[#1B4332] text-white"
+            className="bg-[#0d3cfc] hover:bg-[#0b34d6] text-white"
           >
             {saveMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
             Save Metrics

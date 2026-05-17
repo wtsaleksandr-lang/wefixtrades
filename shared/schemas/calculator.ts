@@ -108,7 +108,7 @@ export const calculatorSettingsSchema = z.object({
 
   appearance: z.object({
     color_theme: z.enum(['graphite', 'navy', 'emerald', 'slate', 'custom']).default('emerald'),
-    accent_color: z.string().default('#2D6A4F'),
+    accent_color: z.string().default('#0d3cfc'),
     button_style: z.enum(['soft-rounded', 'sharp', 'pill']).default('soft-rounded'),
     border_radius: z.enum(['compact', 'medium', 'large']).default('medium'),
     surface_style: z.enum(['solid', 'glassmorphic', 'elevated']).default('solid'),

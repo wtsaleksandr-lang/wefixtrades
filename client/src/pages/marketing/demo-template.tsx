@@ -514,7 +514,7 @@ export default function DemoTemplatePage() {
               )}
 
               {/* CTA box */}
-              <div style={{ background: `linear-gradient(135deg, ${mkt.accent}, #1B4332)`, borderRadius: 16, padding: "24px", color: "#FFFFFF" }}>
+              <div style={{ background: `linear-gradient(135deg, ${mkt.accent}, #0b34d6)`, borderRadius: 16, padding: "24px", color: "#FFFFFF" }}>
                 <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 8, lineHeight: 1.3 }}>
                   Build this calculator for your business
                 </div>

@@ -303,7 +303,7 @@ export default function PortalOnboarding() {
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="flex-1 px-4 py-3 text-sm font-medium text-white bg-[#2D6A4F] rounded-lg hover:bg-[#1B4332] transition-colors disabled:opacity-60"
+                  className="flex-1 px-4 py-3 text-sm font-medium text-white bg-[#0d3cfc] rounded-lg hover:bg-[#0b34d6] transition-colors disabled:opacity-60"
                 >
                   {submitMutation.isPending ? (
                     <span className="flex items-center justify-center gap-2">
@@ -416,13 +416,13 @@ function PortalSetupProgress({
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
-      <div className="w-12 h-12 rounded-full bg-[#F0F7F4] flex items-center justify-center mx-auto mb-5">
+      <div className="w-12 h-12 rounded-full bg-[#EEF3FF] flex items-center justify-center mx-auto mb-5">
         {failed ? (
           <AlertTriangle className="w-6 h-6 text-amber-500" />
         ) : needsFollowup ? (
           <AlertTriangle className="w-6 h-6 text-amber-500" />
         ) : (
-          <Settings2 className={`w-6 h-6 text-[#2D6A4F] ${!allDone && isTradeLine ? "animate-spin" : ""}`} style={{ animationDuration: "3s" }} />
+          <Settings2 className={`w-6 h-6 text-[#0d3cfc] ${!allDone && isTradeLine ? "animate-spin" : ""}`} style={{ animationDuration: "3s" }} />
         )}
       </div>
       <h1 className="text-lg font-semibold text-gray-900">{headline}</h1>
@@ -432,7 +432,7 @@ function PortalSetupProgress({
         {steps.map((s, i) => (
           <div key={i} className="flex items-center gap-3">
             {s.done ? (
-              <CheckCircle2 className="w-4 h-4 text-[#2D6A4F] flex-shrink-0" />
+              <CheckCircle2 className="w-4 h-4 text-[#0d3cfc] flex-shrink-0" />
             ) : failed ? (
               <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0" />
             ) : isTradeLine ? (
@@ -463,7 +463,7 @@ function PortalSetupProgress({
 
       {(allDone || failed || (!isTradeLine && !needsFollowup)) && (
         <Link href="/portal/services">
-          <button className="px-4 py-2 text-sm font-medium text-[#2D6A4F] bg-[#F0F7F4] rounded-lg hover:bg-[#e0efe8] transition-colors">
+          <button className="px-4 py-2 text-sm font-medium text-[#0d3cfc] bg-[#EEF3FF] rounded-lg hover:bg-[#e0efe8] transition-colors">
             Back to Services
           </button>
         </Link>
@@ -493,7 +493,7 @@ function FieldRow({
           type="checkbox"
           checked={!!value}
           onChange={(e) => onChange(e.target.checked)}
-          className="mt-0.5 w-4 h-4 rounded border-gray-300 text-[#2D6A4F] focus:ring-[#2D6A4F]"
+          className="mt-0.5 w-4 h-4 rounded border-gray-300 text-[#0d3cfc] focus:ring-[#0d3cfc]"
         />
         <div className="flex-1">
           <span className="text-sm text-gray-700">
@@ -528,7 +528,7 @@ function FieldRow({
         <select
           value={value || ""}
           onChange={(e) => onChange(e.target.value)}
-          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/20 focus:border-[#2D6A4F] transition-colors"
+          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#0d3cfc]/20 focus:border-[#0d3cfc] transition-colors"
         >
           <option value="">Select...</option>
           {config.options.map((opt) => (
@@ -563,7 +563,7 @@ function FieldRow({
         value={value || ""}
         onChange={(e) => onChange(e.target.value)}
         placeholder={config.placeholder || (step.required ? "Type your answer here" : "Optional — skip if you're not sure")}
-        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/20 focus:border-[#2D6A4F] transition-colors"
+        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#0d3cfc]/20 focus:border-[#0d3cfc] transition-colors"
       />
     </div>
   );

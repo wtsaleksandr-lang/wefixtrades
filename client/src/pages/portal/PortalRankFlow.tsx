@@ -115,7 +115,7 @@ export default function PortalRankFlow() {
         {/* ─── Header ─── */}
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <TrendingUp className="w-5 h-5 text-[#2D6A4F]" />
+            <TrendingUp className="w-5 h-5 text-[#0d3cfc]" />
             <h1 className="text-lg font-semibold text-gray-900">RankFlow SEO Report</h1>
             <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-50 text-emerald-700 capitalize">{tier}</span>
           </div>
@@ -140,7 +140,7 @@ export default function PortalRankFlow() {
               checked={!isArticleGenPaused}
               onCheckedChange={(checked) => pauseMutation.mutate(!checked)}
               disabled={pauseMutation.isPending || automationStatus?.all_automation_paused}
-              className="data-[state=checked]:bg-[#2D6A4F]"
+              className="data-[state=checked]:bg-[#0d3cfc]"
             />
           </div>
           {isArticleGenPaused && (
@@ -159,8 +159,8 @@ export default function PortalRankFlow() {
 
         {/* ─── Monthly Narrative ─── */}
         {data.narrative && (
-          <div className="bg-[#F0F7F4] border border-[#2D6A4F]/10 rounded-xl px-5 py-4">
-            <p className="text-sm text-[#1B4332] leading-relaxed">{data.narrative}</p>
+          <div className="bg-[#EEF3FF] border border-[#0d3cfc]/10 rounded-xl px-5 py-4">
+            <p className="text-sm text-[#0b34d6] leading-relaxed">{data.narrative}</p>
           </div>
         )}
 
@@ -185,7 +185,7 @@ export default function PortalRankFlow() {
             <span className="text-xs text-gray-400">{m.progressPct}% complete</span>
           </div>
           <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
-            <div className="h-full bg-[#2D6A4F] rounded-full transition-all duration-500" style={{ width: `${m.progressPct}%` }} />
+            <div className="h-full bg-[#0d3cfc] rounded-full transition-all duration-500" style={{ width: `${m.progressPct}%` }} />
           </div>
         </div>
 
@@ -305,7 +305,7 @@ export default function PortalRankFlow() {
             <ul className="divide-y divide-gray-50">
               {data.nextUp.map((item, i) => (
                 <li key={i} className="px-5 py-3 flex items-center gap-3">
-                  <ArrowRight className="w-4 h-4 text-[#2D6A4F] shrink-0" />
+                  <ArrowRight className="w-4 h-4 text-[#0d3cfc] shrink-0" />
                   <p className="text-sm text-gray-700">{item}</p>
                 </li>
               ))}
@@ -398,7 +398,7 @@ function SearchConsoleCard() {
           </p>
         </div>
         <button
-          className="mt-3 w-full py-2 rounded-lg text-sm font-medium text-white bg-[#2D6A4F] hover:bg-[#1B4332] disabled:opacity-50 transition-colors"
+          className="mt-3 w-full py-2 rounded-lg text-sm font-medium text-white bg-[#0d3cfc] hover:bg-[#0b34d6] disabled:opacity-50 transition-colors"
           disabled={connectMutation.isPending}
           onClick={() => connectMutation.mutate()}
         >
@@ -419,7 +419,7 @@ function SearchConsoleCard() {
         </div>
       </div>
       <button
-        className="w-full py-2.5 rounded-lg text-sm font-medium text-white bg-[#2D6A4F] hover:bg-[#1B4332] disabled:opacity-50 transition-colors"
+        className="w-full py-2.5 rounded-lg text-sm font-medium text-white bg-[#0d3cfc] hover:bg-[#0b34d6] disabled:opacity-50 transition-colors"
         disabled={connectMutation.isPending}
         onClick={() => connectMutation.mutate()}
       >
@@ -513,7 +513,7 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
     return (
       <div className="max-w-md mx-auto py-16 text-center">
         <div className="w-14 h-14 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-4">
-          <Sparkles className="w-7 h-7 text-[#2D6A4F]" />
+          <Sparkles className="w-7 h-7 text-[#0d3cfc]" />
         </div>
         <h1 className="text-lg font-semibold text-gray-900 mb-2">You're all set!</h1>
         <p className="text-sm text-gray-500">We're starting your SEO work now. Check back soon to see progress.</p>
@@ -524,13 +524,13 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
   return (
     <div className="max-w-md mx-auto py-8">
       <div className="text-center mb-6">
-        <TrendingUp className="w-8 h-8 text-[#2D6A4F] mx-auto mb-3" />
+        <TrendingUp className="w-8 h-8 text-[#0d3cfc] mx-auto mb-3" />
         <h1 className="text-lg font-semibold text-gray-900">Set Up RankFlow</h1>
         <p className="text-sm text-gray-500 mt-1">Tell us about your business so we can start improving your local SEO.</p>
       </div>
       <div className="flex items-center gap-2 mb-6">
         {[1, 2, 3].map(s => (
-          <div key={s} className={`flex-1 h-1.5 rounded-full transition-colors ${s <= step ? "bg-[#2D6A4F]" : "bg-gray-200"}`} />
+          <div key={s} className={`flex-1 h-1.5 rounded-full transition-colors ${s <= step ? "bg-[#0d3cfc]" : "bg-gray-200"}`} />
         ))}
       </div>
       <p className="text-xs text-gray-400 text-center mb-4">Step {step} of 3</p>
@@ -541,7 +541,7 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
             <Field label="Business name" placeholder="e.g. Ace Plumbing" value={form.business_name} onChange={v => setForm({ ...form, business_name: v })} />
             <Field label="Website URL" placeholder="e.g. https://aceplumbing.ca" value={form.website_url} onChange={v => setForm({ ...form, website_url: v })} type="url" />
           </div>
-          <button className="w-full py-2.5 rounded-lg text-sm font-medium text-white bg-[#2D6A4F] hover:bg-[#1B4332] disabled:opacity-50 transition-colors" disabled={!canAdvance1} onClick={() => setStep(2)}>Continue</button>
+          <button className="w-full py-2.5 rounded-lg text-sm font-medium text-white bg-[#0d3cfc] hover:bg-[#0b34d6] disabled:opacity-50 transition-colors" disabled={!canAdvance1} onClick={() => setStep(2)}>Continue</button>
         </div>
       )}
 
@@ -550,7 +550,7 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
           <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">What type of trade?</label>
-              <select className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/30 bg-white" value={form.niche} onChange={e => setForm({ ...form, niche: e.target.value })}>
+              <select className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0d3cfc]/30 bg-white" value={form.niche} onChange={e => setForm({ ...form, niche: e.target.value })}>
                 <option value="">Select your trade...</option>
                 {TRADE_OPTIONS.map(t => <option key={t} value={t.toLowerCase()}>{t}</option>)}
               </select>
@@ -561,7 +561,7 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
           </div>
           <div className="flex gap-2">
             <button className="flex-1 py-2.5 rounded-lg text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors" onClick={() => setStep(1)}>Back</button>
-            <button className="flex-1 py-2.5 rounded-lg text-sm font-medium text-white bg-[#2D6A4F] hover:bg-[#1B4332] disabled:opacity-50 transition-colors" disabled={!canAdvance2} onClick={() => setStep(3)}>Continue</button>
+            <button className="flex-1 py-2.5 rounded-lg text-sm font-medium text-white bg-[#0d3cfc] hover:bg-[#0b34d6] disabled:opacity-50 transition-colors" disabled={!canAdvance2} onClick={() => setStep(3)}>Continue</button>
           </div>
         </div>
       )}
@@ -585,7 +585,7 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
           {error && <p className="text-sm text-red-600 text-center">{error}</p>}
           <div className="flex gap-2">
             <button className="flex-1 py-2.5 rounded-lg text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors" onClick={() => setStep(2)}>Back</button>
-            <button className="flex-1 py-2.5 rounded-lg text-sm font-medium text-white bg-[#2D6A4F] hover:bg-[#1B4332] disabled:opacity-50 transition-colors" disabled={onboard.isPending} onClick={() => onboard.mutate()}>
+            <button className="flex-1 py-2.5 rounded-lg text-sm font-medium text-white bg-[#0d3cfc] hover:bg-[#0b34d6] disabled:opacity-50 transition-colors" disabled={onboard.isPending} onClick={() => onboard.mutate()}>
               {onboard.isPending ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Start My SEO"}
             </button>
           </div>
@@ -608,7 +608,7 @@ function Field({ label, placeholder, value, onChange, type, optional, hint }: {
       </label>
       <input
         type={type || "text"} placeholder={placeholder}
-        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/30 focus:border-[#2D6A4F]"
+        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0d3cfc]/30 focus:border-[#0d3cfc]"
         value={value} onChange={e => onChange(e.target.value)}
       />
       {hint && <p className="text-[10px] text-gray-400 mt-1">{hint}</p>}

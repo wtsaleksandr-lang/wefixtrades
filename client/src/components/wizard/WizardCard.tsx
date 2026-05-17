@@ -1922,7 +1922,7 @@ function FeatureTogglePreviews({ layout, primaryColor }: { layout?: any; primary
   const breakdown = layout?.show_breakdown;
   const trust = layout?.show_trust_block;
   const testimonials = layout?.show_testimonials;
-  const accent = primaryColor || '#2D6A4F';
+  const accent = primaryColor || '#0d3cfc';
 
   if (!sticky && !breakdown && !trust && !testimonials) return null;
 
@@ -2082,8 +2082,8 @@ function Shell({ children, step, total, onHelp, title, subtitle, generating, gen
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{
               fontSize: '11px', fontWeight: 600,
-              color: justSaved ? '#2D6A4F' : 'transparent',
-              background: justSaved ? '#F0F7F4' : 'transparent',
+              color: justSaved ? '#0d3cfc' : 'transparent',
+              background: justSaved ? '#EEF3FF' : 'transparent',
               border: `1px solid ${justSaved ? '#A7F3D0' : 'transparent'}`,
               padding: '2px 8px', borderRadius: 20,
               transition: 'all 0.3s ease',

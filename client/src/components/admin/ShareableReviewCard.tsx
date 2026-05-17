@@ -184,7 +184,7 @@ export default function ShareableReviewCard({ businessName, reviewerName, rating
         <Button
           onClick={downloadImage}
           disabled={generating}
-          className="bg-[#2D6A4F] hover:bg-[#1B4332]"
+          className="bg-[#0d3cfc] hover:bg-[#0b34d6]"
         >
           {generating ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Download className="w-4 h-4 mr-1" />}
           Download {size === "square" ? "1080×1080" : "1080×1920"} PNG

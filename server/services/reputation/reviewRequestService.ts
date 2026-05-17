@@ -143,7 +143,7 @@ function buildEmailHtml(customerName: string, businessName: string, reviewLink: 
   return `<!DOCTYPE html>
 <html><body style="font-family:'Inter',Arial,sans-serif;margin:0;padding:0;background:#f5f5f5;">
 <table cellpadding="0" cellspacing="0" width="100%" style="max-width:520px;margin:24px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
-  <tr><td style="padding:20px 24px;background:#2D6A4F;">
+  <tr><td style="padding:20px 24px;background:#0d3cfc;">
     <h1 style="color:#fff;font-size:16px;margin:0;">${businessName}</h1>
   </td></tr>
   <tr><td style="padding:24px;">
@@ -151,7 +151,7 @@ function buildEmailHtml(customerName: string, businessName: string, reviewLink: 
     <p style="font-size:14px;color:#333;margin:0 0 16px;">Thanks for choosing us! We hope you were happy with our work.</p>
     <p style="font-size:14px;color:#333;margin:0 0 20px;">If you have a moment, a quick Google review would really help our small business. It only takes a minute:</p>
     <div style="text-align:center;margin:0 0 20px;">
-      <a href="${reviewLink}" style="display:inline-block;background:#2D6A4F;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">Leave a Review</a>
+      <a href="${reviewLink}" style="display:inline-block;background:#0d3cfc;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">Leave a Review</a>
     </div>
     <p style="font-size:13px;color:#888;margin:0;">Thank you for your support!</p>
   </td></tr>

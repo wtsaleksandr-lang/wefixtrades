@@ -2015,7 +2015,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
 
           {/* RANKFLOW CTA */}
           {rfRec && (
-            <div style={{ background: 'linear-gradient(135deg, #1B4332 0%, #2D6A4F 100%)', borderRadius: r16, padding: '28px 22px', marginTop: 24 }}>
+            <div style={{ background: 'linear-gradient(135deg, #0b34d6 0%, #0d3cfc 100%)', borderRadius: r16, padding: '28px 22px', marginTop: 24 }}>
               {/* Header */}
               <div style={{ marginBottom: 16 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>

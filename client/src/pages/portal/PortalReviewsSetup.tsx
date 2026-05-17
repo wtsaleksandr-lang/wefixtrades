@@ -271,7 +271,7 @@ export default function PortalReviewsSetup() {
               <a
                 href={`https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${encodeURIComponent(qr.qrUrl)}&margin=20&format=png`}
                 download="review-qr-code.png"
-                className="text-xs font-medium text-[#2D6A4F] hover:underline"
+                className="text-xs font-medium text-[#0d3cfc] hover:underline"
               >
                 Download print version
               </a>
@@ -292,7 +292,7 @@ export default function PortalReviewsSetup() {
             </p>
           </div>
           <Link href="/portal/reviews">
-            <Button size="sm" className="bg-[#2D6A4F] hover:bg-[#1B4332]">
+            <Button size="sm" className="bg-[#0d3cfc] hover:bg-[#0b34d6]">
               Go to dashboard <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
             </Button>
           </Link>

@@ -136,16 +136,16 @@ export default function PaymentMethodsPage() {
 
   const labelClass = "block text-xs font-medium text-gray-600 mb-1";
   const inputClass =
-    "w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/20 focus:border-[#2D6A4F] transition-colors";
+    "w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#0d3cfc]/20 focus:border-[#0d3cfc] transition-colors";
   const textareaClass =
-    "w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/20 focus:border-[#2D6A4F] transition-colors resize-vertical";
+    "w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#0d3cfc]/20 focus:border-[#0d3cfc] transition-colors resize-vertical";
 
   return (
     <PortalLayout>
       <div className="max-w-2xl mx-auto space-y-6">
         <div>
           <Link href="/portal/billing">
-            <a className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-[#2D6A4F] transition-colors mb-2" data-testid="link-back-to-billing">
+            <a className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-[#0d3cfc] transition-colors mb-2" data-testid="link-back-to-billing">
               <ChevronLeft className="w-3.5 h-3.5" />
               Back to Billing
             </a>
@@ -180,7 +180,7 @@ export default function PaymentMethodsPage() {
                     onChange={(e) => setForm({ ...form, stripe: e.target.checked })}
                     className="sr-only peer"
                   />
-                  <div className="w-9 h-5 bg-gray-200 peer-focus:ring-2 peer-focus:ring-[#2D6A4F]/20 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#2D6A4F]"></div>
+                  <div className="w-9 h-5 bg-gray-200 peer-focus:ring-2 peer-focus:ring-[#0d3cfc]/20 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#0d3cfc]"></div>
                 </label>
               </div>
               <p className="text-[10px] text-gray-400 mt-2">
@@ -280,7 +280,7 @@ export default function PaymentMethodsPage() {
                     onChange={(e) => setForm({ ...form, cash_accepted: e.target.checked })}
                     className="sr-only peer"
                   />
-                  <div className="w-9 h-5 bg-gray-200 peer-focus:ring-2 peer-focus:ring-[#2D6A4F]/20 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#2D6A4F]"></div>
+                  <div className="w-9 h-5 bg-gray-200 peer-focus:ring-2 peer-focus:ring-[#0d3cfc]/20 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#0d3cfc]"></div>
                 </label>
               </div>
             </div>
@@ -290,7 +290,7 @@ export default function PaymentMethodsPage() {
               <button
                 type="submit"
                 disabled={saveMutation.isPending}
-                className="px-5 py-2.5 text-sm font-medium text-white bg-[#2D6A4F] rounded-lg hover:bg-[#1B4332] transition-colors disabled:opacity-60"
+                className="px-5 py-2.5 text-sm font-medium text-white bg-[#0d3cfc] rounded-lg hover:bg-[#0b34d6] transition-colors disabled:opacity-60"
               >
                 {saveMutation.isPending ? "Saving..." : "Save Payment Methods"}
               </button>

@@ -269,7 +269,7 @@ export default function SupportTicketDetailPage() {
                       title="Customer will see this message"
                       className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
                         visibility === "customer"
-                          ? "bg-[#2D6A4F] text-white ring-2 ring-[#2D6A4F]/30"
+                          ? "bg-[#0d3cfc] text-white ring-2 ring-[#0d3cfc]/30"
                           : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                       }`}
                     >
@@ -313,7 +313,7 @@ export default function SupportTicketDetailPage() {
                       className={`flex-1 text-sm px-3 py-2.5 border rounded-lg focus:outline-none focus:ring-2 resize-none ${
                         visibility === "internal"
                           ? "border-amber-300 focus:ring-amber-200/50 focus:border-amber-400 bg-amber-50"
-                          : "border-gray-200 focus:ring-[#2D6A4F]/20 focus:border-[#2D6A4F]"
+                          : "border-gray-200 focus:ring-[#0d3cfc]/20 focus:border-[#0d3cfc]"
                       }`}
                     />
                     <button
@@ -322,7 +322,7 @@ export default function SupportTicketDetailPage() {
                       className={`px-3 py-2.5 rounded-lg text-white disabled:opacity-40 transition-colors self-end ${
                         visibility === "internal"
                           ? "bg-amber-500 hover:bg-amber-600"
-                          : "bg-[#2D6A4F] hover:bg-[#1B4332]"
+                          : "bg-[#0d3cfc] hover:bg-[#0b34d6]"
                       }`}
                     >
                       {sendMessage.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
@@ -354,7 +354,7 @@ export default function SupportTicketDetailPage() {
                       value={ticket.status}
                       onChange={(e) => updateTicket.mutate({ status: e.target.value })}
                       disabled={updateTicket.isPending}
-                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/20 focus:border-[#2D6A4F]"
+                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#0d3cfc]/20 focus:border-[#0d3cfc]"
                     >
                       {STATUSES.map((s) => (
                         <option key={s.value} value={s.value}>{s.label}</option>
@@ -368,7 +368,7 @@ export default function SupportTicketDetailPage() {
                         value={ticket.priority}
                         onChange={(e) => updateTicket.mutate({ priority: e.target.value })}
                         disabled={updateTicket.isPending}
-                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/20 focus:border-[#2D6A4F]"
+                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#0d3cfc]/20 focus:border-[#0d3cfc]"
                       >
                         {PRIORITIES.map((p) => (
                           <option key={p.value} value={p.value}>{p.label}</option>
@@ -381,7 +381,7 @@ export default function SupportTicketDetailPage() {
                         value={ticket.category}
                         onChange={(e) => updateTicket.mutate({ category: e.target.value })}
                         disabled={updateTicket.isPending}
-                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/20 focus:border-[#2D6A4F]"
+                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#0d3cfc]/20 focus:border-[#0d3cfc]"
                       >
                         {CATEGORIES.map((c) => (
                           <option key={c.value} value={c.value}>{c.label}</option>
@@ -394,7 +394,7 @@ export default function SupportTicketDetailPage() {
                         value={ticket.assigned_to ?? ""}
                         onChange={(e) => updateTicket.mutate({ assigned_to: e.target.value ? Number(e.target.value) : null })}
                         disabled={updateTicket.isPending}
-                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/20 focus:border-[#2D6A4F]"
+                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#0d3cfc]/20 focus:border-[#0d3cfc]"
                       >
                         <option value="">Unassigned</option>
                         {(adminUsers ?? []).map((u) => (

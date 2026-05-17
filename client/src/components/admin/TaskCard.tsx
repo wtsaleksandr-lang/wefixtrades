@@ -138,7 +138,7 @@ function getPrimaryAction(status: string): { label: string; nextStatus: string }
 }
 
 const ACTION_STYLES: Record<string, string> = {
-  "Start": "border-2 border-[#2D6A4F] text-[#2D6A4F] bg-white hover:bg-[#F0F7F4] font-semibold",
+  "Start": "border-2 border-[#0d3cfc] text-[#0d3cfc] bg-white hover:bg-[#EEF3FF] font-semibold",
   "Done": "bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm font-semibold",
   "Follow up": "border-2 border-amber-500 text-amber-600 bg-white hover:bg-amber-50 font-semibold",
   "Resolve": "border-2 border-red-500 text-red-600 bg-white hover:bg-red-50 font-semibold",
@@ -240,7 +240,7 @@ export function TaskCard({
           <div className="min-w-0 flex-1">
             {showClient ? (
               <Link href={`/admin/crm/clients/${task.client_id}`}>
-                <span className="text-sm font-medium text-gray-900 hover:text-[#2D6A4F] cursor-pointer line-clamp-2">
+                <span className="text-sm font-medium text-gray-900 hover:text-[#0d3cfc] cursor-pointer line-clamp-2">
                   {task.title}
                 </span>
               </Link>
@@ -297,7 +297,7 @@ export function TaskCard({
 
           {showClient && (
             <Link href={`/admin/crm/clients/${task.client_id}`}>
-              <span className="font-medium text-gray-600 hover:text-[#2D6A4F] cursor-pointer">
+              <span className="font-medium text-gray-600 hover:text-[#0d3cfc] cursor-pointer">
                 {task.client_name || `Client #${task.client_id}`}
               </span>
             </Link>

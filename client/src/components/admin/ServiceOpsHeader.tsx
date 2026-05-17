@@ -91,7 +91,7 @@ export default function ServiceOpsHeader({ clientId, serviceFilter, helpCues }: 
       </div>
       <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden mb-2">
         <div
-          className={`h-full rounded-full transition-all ${allDone ? "bg-emerald-500" : "bg-[#2D6A4F]"}`}
+          className={`h-full rounded-full transition-all ${allDone ? "bg-emerald-500" : "bg-[#0d3cfc]"}`}
           style={{ width: `${pct}%` }}
         />
       </div>
@@ -132,7 +132,7 @@ export default function ServiceOpsHeader({ clientId, serviceFilter, helpCues }: 
       {/* Next step guidance */}
       {nextTask && !allDone && (
         <div className="mt-2 flex items-center gap-1.5 text-xs text-gray-500">
-          <ArrowRight className="w-3 h-3 text-[#2D6A4F]" />
+          <ArrowRight className="w-3 h-3 text-[#0d3cfc]" />
           <span>
             <span className="font-medium text-gray-700">Next:</span> {nextTask.title}
             {nextTask.waiting_on && (

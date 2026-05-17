@@ -258,7 +258,7 @@ export default function RankFlowTab({ clientId }: { clientId: number }) {
           <p className="text-sm text-gray-500 mb-3">No RankFlow profile for this client yet.</p>
           <Button
             size="sm"
-            className="bg-[#2D6A4F] hover:bg-[#1B4332] text-white"
+            className="bg-[#0d3cfc] hover:bg-[#0b34d6] text-white"
             onClick={async () => {
               await apiRequest("PUT", `/api/rankflow/clients/${clientId}/profile`, { plan_tier: "starter", enabled: false });
               invalidate();
@@ -344,7 +344,7 @@ export default function RankFlowTab({ clientId }: { clientId: number }) {
         <div className="flex gap-2 flex-wrap">
           <Button
             size="sm"
-            className="bg-[#2D6A4F] hover:bg-[#1B4332] text-white"
+            className="bg-[#0d3cfc] hover:bg-[#0b34d6] text-white"
             onClick={() => generatePlan.mutate()}
             disabled={generatePlan.isPending}
           >
@@ -389,7 +389,7 @@ export default function RankFlowTab({ clientId }: { clientId: number }) {
                   </div>
                   <div className="flex gap-1 shrink-0">
                     {b.status === "draft" && (
-                      <Button size="sm" className="h-7 px-2 text-xs bg-[#2D6A4F] hover:bg-[#1B4332] text-white" onClick={() => { setBatchAssignDialog(b); setBatchAssignTo(""); }}>
+                      <Button size="sm" className="h-7 px-2 text-xs bg-[#0d3cfc] hover:bg-[#0b34d6] text-white" onClick={() => { setBatchAssignDialog(b); setBatchAssignTo(""); }}>
                         Assign
                       </Button>
                     )}
@@ -437,7 +437,7 @@ export default function RankFlowTab({ clientId }: { clientId: number }) {
           <DialogHeader><DialogTitle>Assign Task</DialogTitle></DialogHeader>
           <p className="text-sm text-gray-600 mb-2">{assignDialogTask?.title}</p>
           <Input placeholder="Assign to (name or vendor)" value={assignTo} onChange={e => setAssignTo(e.target.value)} />
-          <Button className="w-full mt-2 bg-[#2D6A4F] hover:bg-[#1B4332] text-white" disabled={!assignTo.trim()} onClick={() => {
+          <Button className="w-full mt-2 bg-[#0d3cfc] hover:bg-[#0b34d6] text-white" disabled={!assignTo.trim()} onClick={() => {
             if (assignDialogTask) {
               taskAction.mutate({ taskId: assignDialogTask.id, action: "assign", body: { assigned_to: assignTo.trim() } });
               setAssignDialogTask(null);
@@ -487,7 +487,7 @@ export default function RankFlowTab({ clientId }: { clientId: number }) {
           <DialogHeader><DialogTitle>Assign Batch</DialogTitle></DialogHeader>
           <p className="text-sm text-gray-600 mb-2">{batchAssignDialog?.batch_type} — {(batchAssignDialog?.task_ids as number[])?.length} tasks</p>
           <Input placeholder="Vendor name" value={batchAssignTo} onChange={e => setBatchAssignTo(e.target.value)} />
-          <Button className="w-full mt-2 bg-[#2D6A4F] hover:bg-[#1B4332] text-white" disabled={!batchAssignTo.trim()} onClick={() => {
+          <Button className="w-full mt-2 bg-[#0d3cfc] hover:bg-[#0b34d6] text-white" disabled={!batchAssignTo.trim()} onClick={() => {
             if (batchAssignDialog) {
               batchAction.mutate({ batchId: batchAssignDialog.id, action: "assign", body: { assigned_to: batchAssignTo.trim() } });
               setBatchAssignDialog(null);
@@ -583,7 +583,7 @@ function RankFlowTaskCard({
           <p className="text-sm font-medium text-gray-900 line-clamp-2">{t.title}</p>
           <div className="flex gap-1 shrink-0">
             {t.status === "pending" && (
-              <Button size="sm" className="h-7 px-2 text-xs bg-[#2D6A4F] hover:bg-[#1B4332] text-white" onClick={() => onAssign(t)}>Assign</Button>
+              <Button size="sm" className="h-7 px-2 text-xs bg-[#0d3cfc] hover:bg-[#0b34d6] text-white" onClick={() => onAssign(t)}>Assign</Button>
             )}
             {t.status === "assigned" && (
               <Button size="sm" className="h-7 px-2 text-xs bg-indigo-600 hover:bg-indigo-700 text-white" onClick={() => onAction(t.id, "start")}>Start</Button>

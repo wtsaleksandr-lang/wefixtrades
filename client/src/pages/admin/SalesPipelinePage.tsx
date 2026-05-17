@@ -86,18 +86,18 @@ export default function SalesPipelinePage() {
             <h1 className="text-lg font-bold text-gray-900">Sales Pipeline</h1>
             <p className="text-xs text-gray-500">{data?.total || 0} leads total</p>
           </div>
-          <Button size="sm" className="bg-[#2D6A4F] hover:bg-[#1B4332]" onClick={() => setShowAdd(true)}>
+          <Button size="sm" className="bg-[#0d3cfc] hover:bg-[#0b34d6]" onClick={() => setShowAdd(true)}>
             <Plus className="w-3.5 h-3.5 mr-1" /> Add Lead
           </Button>
         </div>
 
         {/* Stage counts */}
         <div className="flex flex-wrap gap-2">
-          <button onClick={() => setFilter("all")} className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${filter === "all" ? "bg-[#2D6A4F] text-white border-[#2D6A4F]" : "bg-white text-gray-600 border-gray-200"}`}>
+          <button onClick={() => setFilter("all")} className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${filter === "all" ? "bg-[#0d3cfc] text-white border-[#0d3cfc]" : "bg-white text-gray-600 border-gray-200"}`}>
             All ({data?.total || 0})
           </button>
           {STAGES.map(s => (
-            <button key={s.key} onClick={() => setFilter(s.key)} className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${filter === s.key ? "bg-[#2D6A4F] text-white border-[#2D6A4F]" : "bg-white text-gray-600 border-gray-200"}`}>
+            <button key={s.key} onClick={() => setFilter(s.key)} className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${filter === s.key ? "bg-[#0d3cfc] text-white border-[#0d3cfc]" : "bg-white text-gray-600 border-gray-200"}`}>
               {s.label} ({counts[s.key] || 0})
             </button>
           ))}
@@ -206,7 +206,7 @@ export default function SalesPipelinePage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowAdd(false)}>Cancel</Button>
-            <Button className="bg-[#2D6A4F] hover:bg-[#1B4332]" onClick={() => createLead.mutate(addForm)} disabled={!addForm.business_name || createLead.isPending}>
+            <Button className="bg-[#0d3cfc] hover:bg-[#0b34d6]" onClick={() => createLead.mutate(addForm)} disabled={!addForm.business_name || createLead.isPending}>
               {createLead.isPending ? "Adding..." : "Add Lead"}
             </Button>
           </DialogFooter>
@@ -220,7 +220,7 @@ export default function SalesPipelinePage() {
           <Textarea value={noteText} onChange={e => setNoteText(e.target.value)} placeholder="What happened? e.g. Sent intro email, Called and left voicemail" rows={3} />
           <DialogFooter>
             <Button variant="outline" onClick={() => setNoteLeadId(null)}>Cancel</Button>
-            <Button className="bg-[#2D6A4F] hover:bg-[#1B4332]" onClick={() => noteLeadId && markContacted.mutate({ id: noteLeadId, notes: noteText })} disabled={markContacted.isPending}>
+            <Button className="bg-[#0d3cfc] hover:bg-[#0b34d6]" onClick={() => noteLeadId && markContacted.mutate({ id: noteLeadId, notes: noteText })} disabled={markContacted.isPending}>
               {markContacted.isPending ? "Saving..." : "Mark Contacted"}
             </Button>
           </DialogFooter>

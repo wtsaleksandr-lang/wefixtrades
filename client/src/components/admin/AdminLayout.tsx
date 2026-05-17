@@ -178,7 +178,7 @@ function NavGroup({
             className={cn(
               "flex-1 flex items-center justify-between gap-1.5 px-3 py-2 text-xs font-semibold uppercase tracking-wide rounded-lg cursor-pointer transition-colors text-left",
               headerActive
-                ? "bg-[#F0F7F4] text-[#2D6A4F]"
+                ? "bg-[#EEF3FF] text-[#0d3cfc]"
                 : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
             )}
             title={`Open ${label} catalogue`}
@@ -222,11 +222,11 @@ function NavGroup({
                 className={cn(
                   "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors min-h-[40px]",
                   active
-                    ? "bg-[#F0F7F4] text-[#2D6A4F] font-medium"
+                    ? "bg-[#EEF3FF] text-[#0d3cfc] font-medium"
                     : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                 )}
               >
-                <item.icon className={cn("w-4 h-4 shrink-0", active ? "text-[#2D6A4F]" : "text-gray-400")} />
+                <item.icon className={cn("w-4 h-4 shrink-0", active ? "text-[#0d3cfc]" : "text-gray-400")} />
                 <span className="flex-1">{item.label}</span>
                 {badgeCount > 0 && (
                   <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold bg-red-500 text-white">
@@ -270,11 +270,11 @@ function SidebarNav({
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors min-h-[44px]",
                 active
-                  ? "bg-[#F0F7F4] text-[#2D6A4F] font-medium"
+                  ? "bg-[#EEF3FF] text-[#0d3cfc] font-medium"
                   : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
               )}
             >
-              <item.icon className={cn("w-4 h-4 shrink-0", active ? "text-[#2D6A4F]" : "text-gray-400")} />
+              <item.icon className={cn("w-4 h-4 shrink-0", active ? "text-[#0d3cfc]" : "text-gray-400")} />
               <span className="flex-1">{item.label}</span>
               {badgeCount > 0 && (
                 <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold bg-red-500 text-white">
@@ -300,7 +300,7 @@ function SidebarNav({
             const className = cn(
               "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors min-h-[40px]",
               active
-                ? "bg-[#F0F7F4] text-[#2D6A4F] font-medium"
+                ? "bg-[#EEF3FF] text-[#0d3cfc] font-medium"
                 : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
             );
             // Q20: View-as-customer opens portal in NEW TAB so the admin's
@@ -323,7 +323,7 @@ function SidebarNav({
                   className={className}
                   data-testid="view-as-customer"
                 >
-                  <item.icon className={cn("w-4 h-4 shrink-0", active ? "text-[#2D6A4F]" : "text-gray-400")} />
+                  <item.icon className={cn("w-4 h-4 shrink-0", active ? "text-[#0d3cfc]" : "text-gray-400")} />
                   {item.label}
                 </a>
               );
@@ -335,7 +335,7 @@ function SidebarNav({
                 onClick={onNavigate}
                 className={className}
               >
-                <item.icon className={cn("w-4 h-4 shrink-0", active ? "text-[#2D6A4F]" : "text-gray-400")} />
+                <item.icon className={cn("w-4 h-4 shrink-0", active ? "text-[#0d3cfc]" : "text-gray-400")} />
                 {item.label}
               </Link>
             );
@@ -413,7 +413,7 @@ function QuickAddClientDialog({ open, onClose }: { open: boolean; onClose: () =>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={() => mutation.mutate(form)} disabled={!form.business_name || mutation.isPending} className="bg-[#2D6A4F] hover:bg-[#1B4332]">
+          <Button onClick={() => mutation.mutate(form)} disabled={!form.business_name || mutation.isPending} className="bg-[#0d3cfc] hover:bg-[#0b34d6]">
             {mutation.isPending ? "Creating..." : "Create"}
           </Button>
         </DialogFooter>
@@ -537,7 +537,7 @@ function QuickAddTaskDialog({ open, onClose }: { open: boolean; onClose: () => v
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={() => mutation.mutate()} disabled={!form.client_id || !form.title || mutation.isPending} className="bg-[#2D6A4F] hover:bg-[#1B4332]">
+          <Button onClick={() => mutation.mutate()} disabled={!form.client_id || !form.title || mutation.isPending} className="bg-[#0d3cfc] hover:bg-[#0b34d6]">
             {mutation.isPending ? "Creating..." : "Create"}
           </Button>
         </DialogFooter>
@@ -639,7 +639,7 @@ function QuickAddPaymentDialog({ open, onClose }: { open: boolean; onClose: () =
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={() => mutation.mutate()} disabled={!form.client_id || !form.amount || mutation.isPending} className="bg-[#2D6A4F] hover:bg-[#1B4332]">
+          <Button onClick={() => mutation.mutate()} disabled={!form.client_id || !form.amount || mutation.isPending} className="bg-[#0d3cfc] hover:bg-[#0b34d6]">
             {mutation.isPending ? "Creating..." : "Create"}
           </Button>
         </DialogFooter>
@@ -715,7 +715,7 @@ export default function AdminLayout({
     {/* Skip-to-content — visible only when keyboard-focused. */}
     <a
       href="#main-content"
-      className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:px-3 focus:py-1.5 focus:rounded-md focus:bg-[#2D6A4F] focus:text-white focus:text-sm focus:font-medium focus:shadow-lg"
+      className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:px-3 focus:py-1.5 focus:rounded-md focus:bg-[#0d3cfc] focus:text-white focus:text-sm focus:font-medium focus:shadow-lg"
     >
       Skip to main content
     </a>
@@ -800,7 +800,7 @@ export default function AdminLayout({
           <div className="flex items-center gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button size="sm" className="bg-[#2D6A4F] hover:bg-[#1B4332] h-8 px-3 gap-1.5">
+                <Button size="sm" className="bg-[#0d3cfc] hover:bg-[#0b34d6] h-8 px-3 gap-1.5">
                   <Plus className="w-3.5 h-3.5" />
                   <span className="hidden sm:inline text-xs">Quick Add</span>
                 </Button>
@@ -828,7 +828,7 @@ export default function AdminLayout({
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="w-7 h-7 rounded-full bg-[#2D6A4F] flex items-center justify-center hover:ring-2 hover:ring-[#2D6A4F]/20 transition-shadow">
+                <button className="w-7 h-7 rounded-full bg-[#0d3cfc] flex items-center justify-center hover:ring-2 hover:ring-[#0d3cfc]/20 transition-shadow">
                   <span className="text-white text-[10px] font-bold">{initials}</span>
                 </button>
               </DropdownMenuTrigger>

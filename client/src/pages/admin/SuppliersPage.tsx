@@ -425,10 +425,10 @@ export default function SuppliersPage() {
                       <span className="text-gray-500 text-xs">Links</span>
                       <div className="flex flex-col gap-0.5">
                         {supplierDetail.fiverr_profile_url && (
-                          <a href={supplierDetail.fiverr_profile_url} target="_blank" rel="noopener noreferrer" className="text-xs text-[#2D6A4F] hover:underline">Fiverr Profile</a>
+                          <a href={supplierDetail.fiverr_profile_url} target="_blank" rel="noopener noreferrer" className="text-xs text-[#0d3cfc] hover:underline">Fiverr Profile</a>
                         )}
                         {supplierDetail.platform_url && (
-                          <a href={supplierDetail.platform_url} target="_blank" rel="noopener noreferrer" className="text-xs text-[#2D6A4F] hover:underline">Platform URL</a>
+                          <a href={supplierDetail.platform_url} target="_blank" rel="noopener noreferrer" className="text-xs text-[#0d3cfc] hover:underline">Platform URL</a>
                         )}
                         {!supplierDetail.fiverr_profile_url && !supplierDetail.platform_url && <span className="text-gray-400 text-xs">-</span>}
                       </div>
@@ -493,7 +493,7 @@ export default function SuppliersPage() {
                       <p className="text-xs text-gray-400">
                         Tasks appear here as soon as a client orders a service this supplier covers,
                         or after you manually assign one from a
-                        {" "}<a href="/admin/crm/clients" className="text-[#2D6A4F] hover:underline font-medium">client's fulfillment tab</a>.
+                        {" "}<a href="/admin/crm/clients" className="text-[#0d3cfc] hover:underline font-medium">client's fulfillment tab</a>.
                       </p>
                     </div>
                   ) : (
@@ -601,7 +601,7 @@ export default function SuppliersPage() {
             >
               <Download className="w-4 h-4 mr-1" /> Export CSV
             </Button>
-            <Button size="sm" onClick={openAddForm} className="bg-[#2D6A4F] hover:bg-[#1B4332] min-h-[36px]">
+            <Button size="sm" onClick={openAddForm} className="bg-[#0d3cfc] hover:bg-[#0b34d6] min-h-[36px]">
               <Plus className="w-4 h-4 mr-1" /> Add Supplier
             </Button>
           </div>
@@ -909,7 +909,7 @@ function SupplierFormDialog({
                     key={svc.id}
                     className={`flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer transition-colors ${
                       form.supported_services.includes(svc.id)
-                        ? "bg-[#2D6A4F]/10 border border-[#2D6A4F]/30"
+                        ? "bg-[#0d3cfc]/10 border border-[#0d3cfc]/30"
                         : "hover:bg-gray-50 border border-transparent"
                     }`}
                   >
@@ -917,7 +917,7 @@ function SupplierFormDialog({
                       type="checkbox"
                       checked={form.supported_services.includes(svc.id)}
                       onChange={() => onToggleService(svc.id)}
-                      className="rounded border-gray-300 text-[#2D6A4F] focus:ring-[#2D6A4F]"
+                      className="rounded border-gray-300 text-[#0d3cfc] focus:ring-[#0d3cfc]"
                     />
                     <span className="text-sm text-gray-800">{svc.name}</span>
                     <span className="text-xs text-gray-400 ml-auto">{svc.id}</span>
@@ -933,7 +933,7 @@ function SupplierFormDialog({
           <Button
             onClick={onSubmit}
             disabled={!form.name || !form.contact_email || isPending}
-            className="bg-[#2D6A4F] hover:bg-[#1B4332]"
+            className="bg-[#0d3cfc] hover:bg-[#0b34d6]"
           >
             {isPending ? "Saving..." : editingId ? "Update" : "Create"}
           </Button>

@@ -153,7 +153,7 @@ function CsvUploadDialog({ open, onClose }: { open: boolean; onClose: () => void
           <Button
             onClick={() => mutation.mutate()}
             disabled={!text.trim() || mutation.isPending}
-            className="bg-[#2D6A4F] hover:bg-[#1B4332]"
+            className="bg-[#0d3cfc] hover:bg-[#0b34d6]"
           >
             {mutation.isPending ? "Importing..." : "Import"}
           </Button>
@@ -223,7 +223,7 @@ function ReviewDialog({
           <Button
             onClick={() => mutation.mutate()}
             disabled={mutation.isPending}
-            className={action === "approve" ? "bg-[#2D6A4F] hover:bg-[#1B4332]" : "bg-red-600 hover:bg-red-700"}
+            className={action === "approve" ? "bg-[#0d3cfc] hover:bg-[#0b34d6]" : "bg-red-600 hover:bg-red-700"}
           >
             {mutation.isPending ? "Saving..." : action.charAt(0).toUpperCase() + action.slice(1)}
           </Button>
@@ -306,7 +306,7 @@ export default function ProspectsPage() {
                 {enrichBatch.isPending ? "Enriching..." : `AI Enrich (${selected.length})`}
               </Button>
             )}
-            <Button size="sm" className="bg-[#2D6A4F] hover:bg-[#1B4332] gap-1.5" onClick={() => setCsvOpen(true)}>
+            <Button size="sm" className="bg-[#0d3cfc] hover:bg-[#0b34d6] gap-1.5" onClick={() => setCsvOpen(true)}>
               <Upload className="w-3.5 h-3.5" />
               Import CSV
             </Button>
@@ -359,7 +359,7 @@ export default function ProspectsPage() {
           ) : rows.length === 0 ? (
             <div className="p-8 text-center text-sm text-gray-500">
               No prospects found.{" "}
-              <button onClick={() => setCsvOpen(true)} className="text-[#2D6A4F] underline">Import a CSV</button> to get started.
+              <button onClick={() => setCsvOpen(true)} className="text-[#0d3cfc] underline">Import a CSV</button> to get started.
             </div>
           ) : (
             <table className="w-full text-sm">

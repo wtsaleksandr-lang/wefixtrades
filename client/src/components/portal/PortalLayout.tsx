@@ -163,7 +163,7 @@ export default function PortalLayout({
         straight to the page body. */}
     <a
       href="#main-content"
-      className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:px-3 focus:py-1.5 focus:rounded-md focus:bg-[#2D6A4F] focus:text-white focus:text-sm focus:font-medium focus:shadow-lg"
+      className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:px-3 focus:py-1.5 focus:rounded-md focus:bg-[#0d3cfc] focus:text-white focus:text-sm focus:font-medium focus:shadow-lg"
     >
       Skip to main content
     </a>
@@ -225,11 +225,11 @@ export default function PortalLayout({
                     "flex items-center gap-3 rounded-lg text-sm transition-colors min-h-[44px]",
                     item.indent ? "pl-9 pr-3 py-2" : "px-3 py-2.5",
                     active
-                      ? "bg-[#F0F7F4] text-[#2D6A4F] font-medium"
+                      ? "bg-[#EEF3FF] text-[#0d3cfc] font-medium"
                       : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                   )}
                 >
-                  <item.icon className={cn("w-4 h-4 shrink-0", active ? "text-[#2D6A4F]" : "text-gray-400")} />
+                  <item.icon className={cn("w-4 h-4 shrink-0", active ? "text-[#0d3cfc]" : "text-gray-400")} />
                   {item.label}
                 </Link>
               );
@@ -282,7 +282,7 @@ export default function PortalLayout({
             </button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="w-8 h-8 min-w-[44px] min-h-[44px] rounded-full bg-[#2D6A4F] flex items-center justify-center hover:ring-2 hover:ring-[#2D6A4F]/20 transition-shadow">
+                <button className="w-8 h-8 min-w-[44px] min-h-[44px] rounded-full bg-[#0d3cfc] flex items-center justify-center hover:ring-2 hover:ring-[#0d3cfc]/20 transition-shadow">
                   <span className="text-white text-[10px] font-bold">{initials}</span>
                 </button>
               </DropdownMenuTrigger>

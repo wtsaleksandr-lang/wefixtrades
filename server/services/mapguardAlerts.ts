@@ -398,9 +398,9 @@ async function sendCustomerReassuranceEmail(
   const html = `<!doctype html>
 <html><body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1f2937; max-width: 600px; margin: 0 auto; padding: 24px; line-height: 1.5;">
   <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
-    <div style="width: 36px; height: 36px; background: #2D6A4F; border-radius: 8px;"></div>
+    <div style="width: 36px; height: 36px; background: #0d3cfc; border-radius: 8px;"></div>
     <div>
-      <h2 style="margin: 0; color: #2D6A4F; font-size: 18px;">MapGuard</h2>
+      <h2 style="margin: 0; color: #0d3cfc; font-size: 18px;">MapGuard</h2>
       <p style="margin: 0; font-size: 12px; color: #6b7280;">A heads-up about ${escapeHtml(businessName)}</p>
     </div>
   </div>
@@ -409,8 +409,8 @@ async function sendCustomerReassuranceEmail(
 
   <p>Quick heads-up: <strong>${dropLabel}</strong> on Google over the last week.</p>
 
-  <p style="background: #f0fdf4; border-left: 3px solid #2D6A4F; padding: 12px 14px; margin: 16px 0; border-radius: 0 6px 6px 0;">
-    <strong style="color: #2D6A4F;">What we're doing:</strong> our team is already reviewing the change.
+  <p style="background: #f0fdf4; border-left: 3px solid #0d3cfc; padding: 12px 14px; margin: 16px 0; border-radius: 0 6px 6px 0;">
+    <strong style="color: #0d3cfc;">What we're doing:</strong> our team is already reviewing the change.
     If there's something to fix on your profile — outdated info, missing photos, a review needing a reply —
     we'll handle it as part of your MapGuard plan and you'll see it in your next weekly recap.
   </p>
@@ -423,7 +423,7 @@ async function sendCustomerReassuranceEmail(
   </p>
 
   <p style="margin: 24px 0;">
-    <a href="${escapeAttr(portalUrl)}" style="display: inline-block; background: #2D6A4F; color: white; padding: 10px 16px; border-radius: 6px; text-decoration: none; font-weight: 500;">
+    <a href="${escapeAttr(portalUrl)}" style="display: inline-block; background: #0d3cfc; color: white; padding: 10px 16px; border-radius: 6px; text-decoration: none; font-weight: 500;">
       Open your dashboard →
     </a>
   </p>

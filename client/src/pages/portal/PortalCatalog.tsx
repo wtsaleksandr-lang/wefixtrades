@@ -241,7 +241,7 @@ export default function PortalCatalog() {
                   key={b.id}
                   className={`h-full bg-white rounded-xl border p-5 flex flex-col gap-3 hover:shadow-sm transition-shadow ${
                     b.highlighted
-                      ? "border-[#2D6A4F]/40 ring-1 ring-[#2D6A4F]/20"
+                      ? "border-[#0d3cfc]/40 ring-1 ring-[#0d3cfc]/20"
                       : "border-gray-200"
                   }`}
                   data-testid={`bundle-card-${b.id}`}
@@ -252,7 +252,7 @@ export default function PortalCatalog() {
                       <p className="text-xs text-gray-500 mt-0.5">{b.tagline}</p>
                     </div>
                     {b.badge && (
-                      <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[#F0F7F4] text-[#2D6A4F]">
+                      <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[#EEF3FF] text-[#0d3cfc]">
                         {b.badge}
                       </span>
                     )}
@@ -267,7 +267,7 @@ export default function PortalCatalog() {
                     ))}
                   </ul>
 
-                  <div className="text-sm font-semibold text-[#2D6A4F]">
+                  <div className="text-sm font-semibold text-[#0d3cfc]">
                     ${b.price}{b.billingPeriod === "monthly" ? "/mo" : " one-time"}
                     {b.savings > 0 && (
                       <span className="ml-2 text-[11px] font-normal text-emerald-600">
@@ -280,7 +280,7 @@ export default function PortalCatalog() {
                     type="button"
                     onClick={() => handleAddBundle(b)}
                     disabled={pendingId !== null}
-                    className="w-full px-3 py-2 text-xs font-medium text-white bg-[#2D6A4F] rounded-lg hover:bg-[#1B4332] transition-colors disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center gap-1"
+                    className="w-full px-3 py-2 text-xs font-medium text-white bg-[#0d3cfc] rounded-lg hover:bg-[#0b34d6] transition-colors disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center gap-1"
                     data-testid={`bundle-add-${b.id}`}
                   >
                     {pendingId === `bundle:${b.id}` ? (
@@ -332,7 +332,7 @@ export default function PortalCatalog() {
                           key={t.id}
                           className={`flex items-center gap-2 px-2.5 py-1.5 rounded-md border text-xs cursor-pointer transition-colors ${
                             checked
-                              ? "border-[#2D6A4F] bg-[#F0F7F4]"
+                              ? "border-[#0d3cfc] bg-[#EEF3FF]"
                               : "border-gray-200 bg-white hover:border-gray-300"
                           }`}
                           data-testid={`catalog-tier-${svc.id}-${t.id}`}
@@ -343,17 +343,17 @@ export default function PortalCatalog() {
                             value={t.id}
                             checked={checked}
                             onChange={() => setSelectedTier((s) => ({ ...s, [svc.id]: t.id }))}
-                            className="h-3.5 w-3.5 accent-[#2D6A4F]"
+                            className="h-3.5 w-3.5 accent-[#0d3cfc]"
                           />
                           <span className="font-medium text-gray-800 flex-1">{t.name}</span>
                           {t.highlighted && <Star className="w-3 h-3 text-amber-500 fill-amber-500" />}
-                          <span className="font-semibold text-[#2D6A4F]">{tierPriceLabel(t)}</span>
+                          <span className="font-semibold text-[#0d3cfc]">{tierPriceLabel(t)}</span>
                         </label>
                       );
                     })}
                   </div>
                 ) : (
-                  <div className="text-sm font-semibold text-[#2D6A4F]">{svc.priceLabel}</div>
+                  <div className="text-sm font-semibold text-[#0d3cfc]">{svc.priceLabel}</div>
                 )}
 
                 <div className="flex items-center gap-2 pt-1">
@@ -361,7 +361,7 @@ export default function PortalCatalog() {
                     type="button"
                     onClick={() => handleAdd(svc)}
                     disabled={pendingId !== null}
-                    className="flex-1 px-3 py-2 text-xs font-medium text-white bg-[#2D6A4F] rounded-lg hover:bg-[#1B4332] transition-colors disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center gap-1"
+                    className="flex-1 px-3 py-2 text-xs font-medium text-white bg-[#0d3cfc] rounded-lg hover:bg-[#0b34d6] transition-colors disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center gap-1"
                     data-testid={`catalog-add-${svc.id}`}
                   >
                     {pendingId === svc.id ? (
@@ -374,7 +374,7 @@ export default function PortalCatalog() {
                     href={productPageUrl(svc.id)}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="px-3 py-2 text-xs font-medium text-[#2D6A4F] border border-[#2D6A4F]/30 rounded-lg hover:bg-[#F0F7F4] transition-colors inline-flex items-center justify-center gap-1"
+                    className="px-3 py-2 text-xs font-medium text-[#0d3cfc] border border-[#0d3cfc]/30 rounded-lg hover:bg-[#EEF3FF] transition-colors inline-flex items-center justify-center gap-1"
                     data-testid={`catalog-readmore-${svc.id}`}
                   >
                     Learn more <ExternalLink className="w-3 h-3" />
