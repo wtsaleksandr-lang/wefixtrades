@@ -46,3 +46,21 @@ export function buildSubdomain(slug: string, domain: string = HOSTING_DOMAIN): s
 export function buildHostedUrl(slug: string, domain: string = HOSTING_DOMAIN): string {
   return `https://${slug}.${domain}`;
 }
+
+/**
+ * Resolve the hosted-calculator slug from a hostname — e.g.
+ * `joes-plumbing.your-quote.net` yields `joes-plumbing`. Returns null when the
+ * host is not a single-level, non-www subdomain of HOSTING_DOMAIN, so the
+ * normal `?slug=` query path (embeds, the main app domain) is unaffected.
+ * Defaults to the current browser hostname when no argument is given.
+ */
+export function hostedSlugFromHost(hostname?: string): string | null {
+  const host = (hostname ?? (typeof window !== 'undefined' ? window.location.hostname : '')).toLowerCase();
+  if (!host || !HOSTING_DOMAIN) return null;
+  const suffix = '.' + HOSTING_DOMAIN.toLowerCase();
+  if (!host.endsWith(suffix)) return null;
+  const sub = host.slice(0, -suffix.length);
+  // Only a single, non-www label maps to a calculator slug.
+  if (!sub || sub === 'www' || sub.includes('.')) return null;
+  return sub;
+}

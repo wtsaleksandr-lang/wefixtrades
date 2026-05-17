@@ -3,28 +3,11 @@ import AIChatBubble from '@/components/ai/AIChatBubble';
 import { Loader2, SearchX } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
-import { HOSTING_DOMAIN } from '@shared/slugUtils';
+import { hostedSlugFromHost } from '@shared/slugUtils';
 
 // Legacy CalculatorWidget is no longer rendered. QuoteWidget (v2) is the
 // sole implementation. The legacy file remains in the repo untouched for
 // reference but is not imported here.
-
-/**
- * Resolve the calculator slug from the hosting subdomain — e.g. a request to
- * `joes-plumbing.your-quote.net` yields slug `joes-plumbing`. Returns null when
- * the host is not a single-level subdomain of HOSTING_DOMAIN, so the normal
- * `?slug=` query path (used by embeds and the main app domain) is unaffected.
- */
-function slugFromHost(): string | null {
-  const host = (typeof window !== 'undefined' ? window.location.hostname : '').toLowerCase();
-  if (!host || !HOSTING_DOMAIN) return null;
-  const suffix = '.' + HOSTING_DOMAIN.toLowerCase();
-  if (!host.endsWith(suffix)) return null;
-  const sub = host.slice(0, -suffix.length);
-  // Only a single, non-www label maps to a calculator slug.
-  if (!sub || sub === 'www' || sub.includes('.')) return null;
-  return sub;
-}
 
 /** Inject widget fonts if not already present (needed for iframe embeds on external sites) */
 function useEmbedFonts(isEmbed: boolean) {
@@ -43,7 +26,7 @@ export default function Calculator() {
   const params = new URLSearchParams(window.location.search);
   // Slug comes from `?slug=` (embeds, app domain) or, failing that, from the
   // hosting subdomain ({slug}.your-quote.net).
-  const slug = params.get('slug') || slugFromHost();
+  const slug = params.get('slug') || hostedSlugFromHost();
   const isEmbed = params.get('embed') === 'true';
   const previewToken = params.get('preview');
 
