@@ -11,6 +11,7 @@ import PricingIntakeStage2 from './PricingIntakeStage2';
 import TestGateStep, { type TestGateResult } from './TestGateStep';
 import LeadFormStep from './LeadFormStep';
 import PublishStep from './PublishStep';
+import TemplatePickerStep from './TemplatePickerStep';
 import { trackEvent } from '@/lib/trackEvent';
 import QuoteWidget from '@/components/quote-widget/QuoteWidget';
 import type { CalculatorData } from '@/components/quote-widget/types';
@@ -128,16 +129,17 @@ const p = platformTheme;
 // Linear flow: Step 0 (trade) → Step 2 (pricing) → Step 3 (contact form)
 //            → Step 1 (customize & publish) → Step 5 (result).
 // Step 4 (test gate) is off-path / unused.
-const TOTAL_STEPS = 4; // Trade · Pricing · Contact form · Customize & publish.
+const TOTAL_STEPS = 5; // Trade · Template · Pricing · Contact · Branding.
 
 // 1-based visual step for the progress display. The published result screen
 // is `TOTAL_STEPS + 1` so the counter reads "Published" rather than a step number.
 function visualStep(internalStep: number): number {
   if (internalStep === 0) return 1; // Trade
-  if (internalStep === 2) return 2; // Pricing
-  if (internalStep === 3) return 3; // Contact form
-  if (internalStep === 1) return 4; // Customize & publish
-  if (internalStep === 4) return 4; // Test gate (off-path)
+  if (internalStep === 6) return 2; // Template
+  if (internalStep === 2) return 3; // Pricing
+  if (internalStep === 3) return 4; // Contact form
+  if (internalStep === 1) return 5; // Customize & publish
+  if (internalStep === 4) return 5; // Test gate (off-path)
   if (internalStep === 5) return TOTAL_STEPS + 1; // Published result
   return internalStep;
 }
@@ -149,6 +151,7 @@ const STEP_TITLES = [
   'Contact form setup',
   'Quick accuracy check',
   'You\u2019re live!',
+  'Pick a template',
 ];
 const STEP_SUBTITLES = [
   'Tell us your trade and we\u2019ll set everything up.',
@@ -157,6 +160,7 @@ const STEP_SUBTITLES = [
   'Choose what info to collect from customers.',
   'Test a couple of quotes to make sure the numbers look right.',
   'Copy your link and start getting leads.',
+  'Choose a starting point \u2014 or start blank. You customise everything next.',
 ];
 const STEP_HINTS = [
   'Next: set your pricing',
@@ -223,6 +227,30 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
     if (saveFlashRef.current) clearTimeout(saveFlashRef.current);
     saveFlashRef.current = setTimeout(() => setJustSaved(false), 2200);
   }, [ws, step]);
+
+  // Template-picker selection → apply the template's layout to calculator_settings.
+  const handleTemplateSelect = (id: string) => {
+    const tid = id === 'blank' ? 'classic_single' : id;
+    const tmpl = getTemplateById(tid);
+    set('calculatorSettings', {
+      ...ws.calculatorSettings,
+      ui_template: {
+        ...ws.calculatorSettings.ui_template,
+        template_id: tid,
+        ...(tmpl ? {
+          layout: {
+            ...ws.calculatorSettings.ui_template?.layout,
+            style: tmpl.layout_style,
+            sticky_summary: tmpl.defaults.sticky_summary,
+            show_breakdown: tmpl.defaults.show_breakdown,
+            show_trust_block: tmpl.defaults.show_trust_block,
+            show_testimonials: tmpl.defaults.show_testimonials,
+            show_images: tmpl.defaults.show_images,
+          },
+        } : {}),
+      },
+    });
+  };
 
   useEffect(() => {
     const currentTemplateId = ws.calculatorSettings.ui_template?.template_id || 'classic_single';
@@ -368,7 +396,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
       if (ws.isCustomTrade && ws.customTradeData.charge_method === 'not_sure') {
         triggerPricingDraft();
       }
-      setStep(2); // Flow: trade → pricing (skip design)
+      setStep(6); // Flow: trade → template
     }
   };
 
@@ -1213,6 +1241,17 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
           </div>
         )}
 
+        {/* Step 6 (visual step 2): Template picker */}
+        {step === 6 && (
+          <TemplatePickerStep
+            selectedId={ws.calculatorSettings.ui_template?.template_id || 'classic_single'}
+            onSelect={handleTemplateSelect}
+            onBack={() => setStep(0)}
+            onContinue={() => setStep(2)}
+            onSave={handleManualSave}
+          />
+        )}
+
         {/* Step 2: Pricing Logic */}
         {step === 2 && (
           <div className="animate-fade-in-up">
@@ -1409,7 +1448,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                 ))}
               </div>
             )}
-            <Footer onBack={() => setStep(0)} onNext={tryStep2Continue} onSave={handleManualSave} hint={STEP_HINTS[2]} />
+            <Footer onBack={() => setStep(6)} onNext={tryStep2Continue} onSave={handleManualSave} hint={STEP_HINTS[2]} />
           </div>
         )}
 
@@ -2041,7 +2080,7 @@ function GeneratingAnimation({ progress, businessName }: { progress: number; bus
 // 5-step target model: Trade · Template · Pricing · Branding · Go live.
 // Stage 1 wires the layout for today's 4 build steps; Template + Go-live
 // land as their own stages.
-const NAV_STEPS = ['Trade', 'Pricing', 'Contact', 'Branding'];
+const NAV_STEPS = ['Trade', 'Template', 'Pricing', 'Contact', 'Branding'];
 
 function WizardNav({ current, onHelp, justSaved }: {
   current: number; onHelp: () => void; justSaved?: boolean;
