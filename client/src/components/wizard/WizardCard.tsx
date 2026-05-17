@@ -143,8 +143,8 @@ function visualStep(internalStep: number): number {
 }
 
 const STEP_TITLES = [
-  'What does your business do?',
-  'Customize your calculator',
+  'What\u2019s your trade?',
+  'Branding & offers',
   'Set your pricing',
   'Contact form setup',
   'Quick accuracy check',
@@ -830,39 +830,16 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
 
   return (
     <>
-      {/* Mobile Edit/Preview toggle — only visible on small screens when preview is available */}
-      {showSidePreview && (
-        <div className="wizard-mobile-toggle" style={{
-          display: 'none', gap: 0, marginBottom: 12, borderRadius: 10, overflow: 'hidden',
-          border: `1px solid ${p.colors.border}`, background: '#F3F4F6',
-        }}>
-          <button onClick={() => setMobileMode('edit')} style={{
-            flex: 1, padding: '10px 0', fontSize: 13, fontWeight: 600, border: 'none', cursor: 'pointer',
-            background: mobileMode === 'edit' ? '#fff' : 'transparent',
-            color: mobileMode === 'edit' ? p.colors.heading : p.colors.muted,
-            boxShadow: mobileMode === 'edit' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-            borderRadius: mobileMode === 'edit' ? 8 : 0, margin: 2, transition: 'all 0.15s ease',
-          }}>
-            ✏️ Edit
-          </button>
-          <button onClick={() => setMobileMode('preview')} style={{
-            flex: 1, padding: '10px 0', fontSize: 13, fontWeight: 600, border: 'none', cursor: 'pointer',
-            background: mobileMode === 'preview' ? '#fff' : 'transparent',
-            color: mobileMode === 'preview' ? p.colors.heading : p.colors.muted,
-            boxShadow: mobileMode === 'preview' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-            borderRadius: mobileMode === 'preview' ? 8 : 0, margin: 2, transition: 'all 0.15s ease',
-          }}>
-            👁 Preview
-          </button>
-        </div>
-      )}
-
-      <div className={showSidePreview ? `wizard-dual-layout ${mobileMode === 'preview' ? 'wizard-mobile-preview' : 'wizard-mobile-edit'}` : ""}>
-      <Shell step={visualStep(step)} total={TOTAL_STEPS} onHelp={() => setShowHelp(true)}
-        title={STEP_TITLES[step]} subtitle={STEP_SUBTITLES[step]}
-        generating={generateMutation.isPending} genProgress={genProgress}
-        justSaved={justSaved} stepTime={STEP_TIME[step]}
-      >
+      <WizardNav current={visualStep(step)} onHelp={() => setShowHelp(true)} justSaved={justSaved} />
+      <div className={`wizard-shell-body ${showSidePreview ? '' : 'wizard-no-preview'}`}>
+        <div className="wizard-left">
+          <div className="wizard-left-inner">
+            {STEP_TITLES[step] && (
+              <div className="wizard-step-head">
+                <h2 className="wizard-step-title">{STEP_TITLES[step]}</h2>
+                {STEP_SUBTITLES[step] && <p className="wizard-step-sub">{STEP_SUBTITLES[step]}</p>}
+              </div>
+            )}
 
         {/* Step 0: Business & Trade Setup */}
         {step === 0 && (
@@ -1502,18 +1479,12 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
            2. Inline preview (mobile, inside Step 1)
            The old LivePreview was a static summary, not the actual calculator. */}
 
-      </Shell>
+          </div>
+        </div>
 
-      {/* Desktop side preview — a premium "stage": the real widget on a dark
-          surface, with a desktop/mobile device toggle and a phone frame. */}
-      {showSidePreview && (
-        <div className="wizard-side-preview">
-          <div style={{
-            position: 'sticky', top: 24,
-            borderRadius: 22, overflow: 'hidden',
-            background: 'linear-gradient(168deg, #273449 0%, #0f172a 100%)',
-            boxShadow: '0 26px 52px -18px rgba(15,23,42,0.55)',
-          }}>
+        {showSidePreview && (
+          <div className="wizard-preview-fixed">
+            <div className="wizard-preview-stage">
             {/* Stage header */}
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -1586,34 +1557,73 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
       )}
       </div>
 
-      {/* Dual-column + mobile toggle CSS */}
+      {/* App-shell layout CSS */}
       <style>{`
-        .wizard-dual-layout {
-          display: grid;
-          grid-template-columns: 1fr;
-          gap: 24px;
-          align-items: start;
+        .wizard-navbar {
+          display: flex; align-items: center; justify-content: space-between;
+          height: 60px; padding: 0 22px; box-sizing: border-box;
+          background: #fff; border-bottom: 1px solid ${p.colors.borderLight};
+          position: sticky; top: 0; z-index: 30;
         }
-        @media (min-width: 900px) {
-          .wizard-dual-layout {
-            grid-template-columns: minmax(400px, 480px) minmax(320px, 1fr);
-          }
-          .wizard-mobile-toggle { display: none !important; }
+        .wizard-nav-brand {
+          display: flex; align-items: center; gap: 8px; text-decoration: none;
+          font-size: 15px; font-weight: 800; color: ${p.colors.heading}; flex-shrink: 0;
         }
-        .wizard-side-preview {
-          display: none;
+        .wizard-nav-steps { display: flex; align-items: center; }
+        .wizard-nav-step { display: flex; align-items: center; }
+        .wizard-nav-num {
+          width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0;
+          display: flex; align-items: center; justify-content: center;
+          font-size: 12px; font-weight: 700;
         }
-        @media (min-width: 900px) {
-          .wizard-side-preview {
-            display: block;
-          }
+        .wizard-nav-label { font-size: 13px; font-weight: 600; margin-left: 8px; white-space: nowrap; }
+        .wizard-nav-line { width: 30px; height: 1.5px; background: ${p.colors.border}; margin: 0 12px; }
+        .wizard-nav-step[data-state="todo"] .wizard-nav-num { background: #EEF1F5; color: ${p.colors.subtle}; }
+        .wizard-nav-step[data-state="todo"] .wizard-nav-label { color: ${p.colors.subtle}; }
+        .wizard-nav-step[data-state="active"] .wizard-nav-num { background: ${p.colors.accent}; color: #fff; }
+        .wizard-nav-step[data-state="active"] .wizard-nav-label { color: ${p.colors.heading}; }
+        .wizard-nav-step[data-state="done"] .wizard-nav-num { background: ${p.colors.accentLighter}; color: ${p.colors.accent}; }
+        .wizard-nav-step[data-state="done"] .wizard-nav-label { color: ${p.colors.muted}; }
+        .wizard-nav-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+        .wizard-nav-saved {
+          font-size: 11px; font-weight: 600; color: ${p.colors.accentDark};
+          background: ${p.colors.accentLighter}; padding: 3px 9px; border-radius: 999px;
+          transition: opacity 0.3s ease;
         }
-        /* Mobile: show toggle bar */
-        @media (max-width: 899px) {
-          .wizard-mobile-toggle { display: flex !important; }
-          .wizard-mobile-preview > .wizard-side-preview { display: block !important; }
-          .wizard-mobile-preview > div:first-child { display: none; }
-          .wizard-mobile-edit > .wizard-side-preview { display: none; }
+        .wizard-nav-help {
+          width: 28px; height: 28px; border-radius: 50%; cursor: pointer;
+          border: 1px solid ${p.colors.border}; background: #fff;
+          color: ${p.colors.muted}; font-weight: 700; font-size: 13px;
+        }
+        .wizard-shell-body { display: flex; align-items: stretch; min-height: calc(100vh - 60px); }
+        .wizard-left {
+          width: 384px; flex-shrink: 0; background: #fff;
+          border-right: 1px solid ${p.colors.borderLight};
+          max-height: calc(100vh - 60px); overflow-y: auto;
+        }
+        .wizard-left-inner { padding: 26px 26px 52px; }
+        .wizard-step-head { margin-bottom: 20px; }
+        .wizard-step-title { font-size: 19px; font-weight: 800; letter-spacing: -0.02em; color: ${p.colors.heading}; margin: 0 0 4px; }
+        .wizard-step-sub { font-size: 13px; line-height: 1.5; color: ${p.colors.muted}; margin: 0; }
+        .wizard-preview-fixed {
+          flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center;
+          padding: 30px; box-sizing: border-box;
+          background: linear-gradient(180deg, #eef1f6 0%, #e8ecf2 100%);
+          position: sticky; top: 60px; height: calc(100vh - 60px);
+        }
+        .wizard-preview-stage {
+          width: 100%; max-width: 780px; display: flex; flex-direction: column;
+          border-radius: 22px;
+          background: linear-gradient(168deg, #273449 0%, #0f172a 100%);
+          box-shadow: 0 26px 52px -18px rgba(15,23,42,0.55);
+        }
+        .wizard-no-preview .wizard-left { width: 100%; border-right: none; }
+        @media (max-width: 980px) {
+          .wizard-shell-body { flex-direction: column; }
+          .wizard-left { width: 100%; max-height: none; overflow-y: visible; border-right: none; }
+          .wizard-preview-fixed { position: static; height: auto; min-height: 480px; }
+          .wizard-nav-label { display: none; }
+          .wizard-nav-line { width: 16px; margin: 0 6px; }
         }
       `}</style>
 
@@ -2026,6 +2036,43 @@ function GeneratingAnimation({ progress, businessName }: { progress: number; bus
 
 
 
+
+/* ─── Top step navbar (app-shell chrome) ─── */
+// 5-step target model: Trade · Template · Pricing · Branding · Go live.
+// Stage 1 wires the layout for today's 4 build steps; Template + Go-live
+// land as their own stages.
+const NAV_STEPS = ['Trade', 'Pricing', 'Contact', 'Branding'];
+
+function WizardNav({ current, onHelp, justSaved }: {
+  current: number; onHelp: () => void; justSaved?: boolean;
+}) {
+  return (
+    <div className="wizard-navbar">
+      <a href="/" className="wizard-nav-brand" aria-label="WeFixTrades home">
+        <img src="/favicon.svg" alt="" style={{ width: 22, height: 22 }}
+          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+        <span>QuoteQuick</span>
+      </a>
+      <div className="wizard-nav-steps">
+        {NAV_STEPS.map((label, i) => {
+          const n = i + 1;
+          const state = current > n ? 'done' : current === n ? 'active' : 'todo';
+          return (
+            <div key={n} className="wizard-nav-step" data-state={state}>
+              <span className="wizard-nav-num">{state === 'done' ? '✓' : n}</span>
+              <span className="wizard-nav-label">{label}</span>
+              {n < NAV_STEPS.length && <span className="wizard-nav-line" />}
+            </div>
+          );
+        })}
+      </div>
+      <div className="wizard-nav-right">
+        <span className="wizard-nav-saved" style={{ opacity: justSaved ? 1 : 0 }}>✓ Saved</span>
+        <button onClick={onHelp} className="wizard-nav-help" aria-label="Help">?</button>
+      </div>
+    </div>
+  );
+}
 
 function Shell({ children, step, total, onHelp, title, subtitle, generating, genProgress, justSaved, stepTime }: {
   children: any; step: number; total: number; onHelp: () => void;
