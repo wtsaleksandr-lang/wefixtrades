@@ -100,7 +100,7 @@ const GRADE_COLORS: Record<string, string> = {
 
 /* ─── Activity rotation icons/colors ─── */
 const ACTIVITY_ICONS = [Shield, MapPin, Eye, Star, Activity];
-const ACTIVITY_COLORS = ["bg-[#2D6A4F]", "bg-purple-500", "bg-indigo-500", "bg-amber-500", "bg-blue-500"];
+const ACTIVITY_COLORS = ["bg-[#0d3cfc]", "bg-purple-500", "bg-indigo-500", "bg-amber-500", "bg-blue-500"];
 
 /* ─── Delta Display ─── */
 function Delta({ value, suffix, invert }: { value: number | null; suffix?: string; invert?: boolean }) {
@@ -173,7 +173,7 @@ export default function PortalMapguard() {
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#2D6A4F] flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl bg-[#0d3cfc] flex items-center justify-center">
             <Shield className="w-5 h-5 text-white" />
           </div>
           <div>
@@ -241,7 +241,7 @@ export default function PortalMapguard() {
                   }
                   delta={data.deltas?.score}
                   deltaSuffix=" pts"
-                  accent="bg-[#2D6A4F]"
+                  accent="bg-[#0d3cfc]"
                 />
                 <MetricCard
                   icon={Star}
@@ -300,7 +300,7 @@ export default function PortalMapguard() {
                       <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#9ca3af" }} />
                       <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: "#9ca3af" }} />
                       <Tooltip content={<ChartTooltipContent />} />
-                      <Line type="monotone" dataKey="Score" stroke="#2D6A4F" strokeWidth={2} dot={{ r: 3, fill: "#2D6A4F" }} />
+                      <Line type="monotone" dataKey="Score" stroke="#0d3cfc" strokeWidth={2} dot={{ r: 3, fill: "#0d3cfc" }} />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
@@ -337,7 +337,7 @@ export default function PortalMapguard() {
                 </p>
                 <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-[#2D6A4F] rounded-full transition-all"
+                    className="h-full bg-[#0d3cfc] rounded-full transition-all"
                     style={{ width: `${Math.min(100, data.execution_progress.completed * 20)}%` }}
                   />
                 </div>
@@ -362,7 +362,7 @@ export default function PortalMapguard() {
                 ) : (
                   <ActivityItem
                     icon={Eye}
-                    color="bg-[#2D6A4F]"
+                    color="bg-[#0d3cfc]"
                     title="We are continuously monitoring and improving your visibility"
                     description=""
                   />
@@ -955,7 +955,7 @@ function UpgradePlanButton() {
 
   return (
     <button
-      className="mt-2 inline-flex items-center px-4 py-2 rounded-lg text-xs font-semibold text-white bg-[#2D6A4F] hover:bg-[#1B4332] transition-colors disabled:opacity-60"
+      className="mt-2 inline-flex items-center px-4 py-2 rounded-lg text-xs font-semibold text-white bg-[#0d3cfc] hover:bg-[#0b34d6] transition-colors disabled:opacity-60"
       onClick={openBillingPortal}
       disabled={loading}
     >

@@ -80,8 +80,8 @@ function RequestReset() {
           </p>
 
           {sent ? (
-            <div style={{ background: "rgba(45,106,79,0.08)", borderRadius: 8, padding: 16 }}>
-              <p style={{ fontSize: 14, color: "#2D6A4F", fontWeight: 500, marginBottom: 4 }}>
+            <div style={{ background: "rgba(13,60,252,0.08)", borderRadius: 8, padding: 16 }}>
+              <p style={{ fontSize: 14, color: "#0d3cfc", fontWeight: 500, marginBottom: 4 }}>
                 Check your email
               </p>
               <p style={{ fontSize: 13, color: mkt.onDarkMuted, lineHeight: 1.5 }}>
@@ -90,7 +90,7 @@ function RequestReset() {
               </p>
               <a
                 href="/login"
-                style={{ display: "inline-block", marginTop: 16, fontSize: 13, color: "#2D6A4F", textDecoration: "none", fontWeight: 500 }}
+                style={{ display: "inline-block", marginTop: 16, fontSize: 13, color: "#0d3cfc", textDecoration: "none", fontWeight: 500 }}
               >
                 Back to sign in
               </a>
@@ -212,8 +212,8 @@ function SetNewPassword({ token, navigate }: { token: string; navigate: (path: s
           </h1>
 
           {done ? (
-            <div style={{ background: "rgba(45,106,79,0.08)", borderRadius: 8, padding: 16 }}>
-              <p style={{ fontSize: 14, color: "#2D6A4F", fontWeight: 500, marginBottom: 4 }}>
+            <div style={{ background: "rgba(13,60,252,0.08)", borderRadius: 8, padding: 16 }}>
+              <p style={{ fontSize: 14, color: "#0d3cfc", fontWeight: 500, marginBottom: 4 }}>
                 Password updated
               </p>
               <p style={{ fontSize: 13, color: mkt.onDarkMuted, lineHeight: 1.5 }}>

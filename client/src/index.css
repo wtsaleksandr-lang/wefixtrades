@@ -178,7 +178,7 @@
   select:focus-visible,
   summary:focus-visible,
   [tabindex]:not([tabindex="-1"]):focus-visible {
-    outline: 2px solid #2D6A4F;
+    outline: 2px solid #0d3cfc;
     outline-offset: 2px;
     border-radius: 4px;
   }

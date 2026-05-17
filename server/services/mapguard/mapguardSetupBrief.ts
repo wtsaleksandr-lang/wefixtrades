@@ -113,7 +113,7 @@ export async function sendMapguardSetupBrief(input: BriefInput): Promise<boolean
 
   const html = `<!doctype html>
 <html><body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1f2937; max-width: 600px; margin: 0 auto; padding: 24px;">
-  <h2 style="color: #2D6A4F; margin: 0 0 16px 0;">MapSetup brief</h2>
+  <h2 style="color: #0d3cfc; margin: 0 0 16px 0;">MapSetup brief</h2>
   <p style="margin: 0 0 16px 0;">New customer is ready for first-pass work.</p>
 
   <table style="width: 100%; border-collapse: collapse; margin-bottom: 16px;">
@@ -131,7 +131,7 @@ export async function sendMapguardSetupBrief(input: BriefInput): Promise<boolean
   </ol>
 
   <p style="margin: 24px 0;">
-    <a href="${escapeAttr(adminUrl)}" style="display: inline-block; background: #2D6A4F; color: white; padding: 10px 16px; border-radius: 6px; text-decoration: none; font-weight: 500;">
+    <a href="${escapeAttr(adminUrl)}" style="display: inline-block; background: #0d3cfc; color: white; padding: 10px 16px; border-radius: 6px; text-decoration: none; font-weight: 500;">
       Open customer in admin CRM →
     </a>
   </p>

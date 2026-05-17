@@ -154,7 +154,7 @@ export default function PortalSocialSync() {
           <p className="text-gray-500 font-medium">You haven't set up SocialSync yet</p>
           <p className="text-sm text-gray-400 mt-1 mb-4">Tell us about your business and we'll start creating content for you.</p>
           <Link href="/portal/socialsync-setup">
-            <Button className="bg-[#2D6A4F] hover:bg-[#1B4332]">Set Up SocialSync</Button>
+            <Button className="bg-[#0d3cfc] hover:bg-[#0b34d6]">Set Up SocialSync</Button>
           </Link>
         </div>
       </PortalLayout>
@@ -198,7 +198,7 @@ export default function PortalSocialSync() {
               checked={!isAutoPostPaused}
               onCheckedChange={(checked) => pauseMutation.mutate(!checked)}
               disabled={pauseMutation.isPending || automationStatus?.all_automation_paused}
-              className="data-[state=checked]:bg-[#2D6A4F]"
+              className="data-[state=checked]:bg-[#0d3cfc]"
             />
           </div>
           {isAutoPostPaused && (
@@ -213,15 +213,15 @@ export default function PortalSocialSync() {
         </Card>
 
         {/* Status banner */}
-        <Card className={`p-5 ${data.status === "active" ? "bg-[#F0F7F4] border-[#2D6A4F]/10" : "bg-gray-50"}`}>
+        <Card className={`p-5 ${data.status === "active" ? "bg-[#EEF3FF] border-[#0d3cfc]/10" : "bg-gray-50"}`}>
           <div className="flex items-start gap-3">
             {data.status === "active" ? (
-              <CheckCircle className="w-5 h-5 text-[#2D6A4F] mt-0.5 flex-shrink-0" />
+              <CheckCircle className="w-5 h-5 text-[#0d3cfc] mt-0.5 flex-shrink-0" />
             ) : (
               <Clock className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" />
             )}
             <div>
-              <p className={`text-sm font-semibold ${data.status === "active" ? "text-[#2D6A4F]" : "text-gray-700"}`}>{msg.headline}</p>
+              <p className={`text-sm font-semibold ${data.status === "active" ? "text-[#0d3cfc]" : "text-gray-700"}`}>{msg.headline}</p>
               <p className="text-xs text-gray-500 mt-0.5">{msg.sub}</p>
             </div>
           </div>
@@ -244,7 +244,7 @@ export default function PortalSocialSync() {
         {/* Next Scheduled */}
         {data.next_scheduled && (
           <Card className="p-4 flex items-center gap-3">
-            <Calendar className="w-4 h-4 text-[#2D6A4F]" />
+            <Calendar className="w-4 h-4 text-[#0d3cfc]" />
             <div>
               <p className="text-xs text-gray-500">Next scheduled post</p>
               <p className="text-sm font-medium text-gray-800">{data.next_scheduled.platform} — {data.next_scheduled.scheduled_for}</p>
@@ -299,7 +299,7 @@ export default function PortalSocialSync() {
                     </div>
                     {isEditing ? (
                       <textarea
-                        className="w-full text-sm text-gray-800 border border-gray-200 rounded-md p-2 font-sans resize-y min-h-[100px] focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/20"
+                        className="w-full text-sm text-gray-800 border border-gray-200 rounded-md p-2 font-sans resize-y min-h-[100px] focus:outline-none focus:ring-2 focus:ring-[#0d3cfc]/20"
                         value={editText}
                         onChange={(e) => setEditText(e.target.value)}
                         maxLength={3000}
@@ -308,14 +308,14 @@ export default function PortalSocialSync() {
                       <p className="text-sm text-gray-800 whitespace-pre-wrap">{p.post_text}</p>
                     )}
                     {p.hashtags && p.hashtags.length > 0 && !isEditing && (
-                      <p className="text-xs text-[#2D6A4F] mt-2">{p.hashtags.map(h => `#${h}`).join(" ")}</p>
+                      <p className="text-xs text-[#0d3cfc] mt-2">{p.hashtags.map(h => `#${h}`).join(" ")}</p>
                     )}
                     <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100">
                       {isEditing ? (
                         <>
                           <Button
                             size="sm"
-                            className="bg-[#2D6A4F] hover:bg-[#1B4332] text-white text-xs"
+                            className="bg-[#0d3cfc] hover:bg-[#0b34d6] text-white text-xs"
                             disabled={isBusy || editText.trim().length < 10}
                             onClick={() => saveEdit(p.id)}
                           >
@@ -336,7 +336,7 @@ export default function PortalSocialSync() {
                         <>
                           <Button
                             size="sm"
-                            className="bg-[#2D6A4F] hover:bg-[#1B4332] text-white text-xs"
+                            className="bg-[#0d3cfc] hover:bg-[#0b34d6] text-white text-xs"
                             disabled={isBusy}
                             onClick={() => callAction(p.id, "approve")}
                           >

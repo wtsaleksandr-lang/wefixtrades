@@ -85,7 +85,7 @@ function OpsIntelligenceWidget() {
     <Card className="p-0 overflow-hidden col-span-full">
       <div className="flex items-center justify-between px-4 pt-4 pb-2 border-b border-gray-100">
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-md bg-[#2D6A4F] flex items-center justify-center">
+          <div className="w-6 h-6 rounded-md bg-[#0d3cfc] flex items-center justify-center">
             <AlertTriangle className="w-3.5 h-3.5 text-white" />
           </div>
           <div>
@@ -229,7 +229,7 @@ function TriggerOpsRunButton({ small }: { small?: boolean }) {
     return (
       <button
         onClick={handleRun}
-        className="text-[10px] text-[#2D6A4F] hover:underline font-medium"
+        className="text-[10px] text-[#0d3cfc] hover:underline font-medium"
       >
         Run now
       </button>
@@ -239,7 +239,7 @@ function TriggerOpsRunButton({ small }: { small?: boolean }) {
   return (
     <button
       onClick={handleRun}
-      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#2D6A4F] text-white text-xs font-medium rounded-lg hover:bg-[#235c43] transition-colors"
+      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#0d3cfc] text-white text-xs font-medium rounded-lg hover:bg-[#235c43] transition-colors"
     >
       <RefreshCw className="w-3 h-3" />
       Run Ops Analysis
@@ -376,7 +376,7 @@ function QaQueueWidget() {
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <Link href={`/admin/crm/clients/${t.client_id}`}>
-                        <p className="text-sm font-medium text-gray-800 hover:text-[#2D6A4F] truncate cursor-pointer">{t.title}</p>
+                        <p className="text-sm font-medium text-gray-800 hover:text-[#0d3cfc] truncate cursor-pointer">{t.title}</p>
                       </Link>
                       <div className="flex items-center gap-2 mt-0.5 text-[11px] text-gray-500">
                         <span>{t.client_name ?? "Unknown client"}</span>
@@ -468,7 +468,7 @@ export default function CrmOverview() {
             ))
           ) : (
             <>
-              <StatCard label="Clients" value={data?.totalClients ?? 0} icon={Users} href="/admin/crm/clients" color="bg-[#2D6A4F]" />
+              <StatCard label="Clients" value={data?.totalClients ?? 0} icon={Users} href="/admin/crm/clients" color="bg-[#0d3cfc]" />
               <StatCard label="Active Services" value={data?.activeServices ?? 0} icon={Wrench} href="/admin/crm/services" color="bg-blue-500" />
               <StatCard label="Onboarding" value={data?.pendingOnboarding ?? 0} icon={ClipboardList} href="/admin/crm/inbox" color="bg-amber-500" />
               <StatCard label="Open Tasks" value={data?.openFulfillment ?? 0} icon={Truck} href="/admin/crm/inbox" color="bg-purple-500" />
@@ -493,7 +493,7 @@ export default function CrmOverview() {
             <div className="flex items-center justify-between px-4 pt-4 pb-2">
               <h3 className="text-sm font-semibold text-gray-900">Recent Clients</h3>
               <Link href="/admin/crm/clients">
-                <span className="text-xs text-[#2D6A4F] font-medium hover:underline">View all</span>
+                <span className="text-xs text-[#0d3cfc] font-medium hover:underline">View all</span>
               </Link>
             </div>
             {isLoading ? (
@@ -502,7 +502,7 @@ export default function CrmOverview() {
               </div>
             ) : !data?.recentClients?.length ? (
               <div className="px-4 pb-4">
-                <p className="text-sm text-gray-500">No clients yet. <a href="/admin/crm/clients" className="text-[#2D6A4F] hover:underline">Add your first client</a> to get started.</p>
+                <p className="text-sm text-gray-500">No clients yet. <a href="/admin/crm/clients" className="text-[#0d3cfc] hover:underline">Add your first client</a> to get started.</p>
               </div>
             ) : (
               <div className="divide-y divide-gray-50">
@@ -523,7 +523,7 @@ export default function CrmOverview() {
             <div className="flex items-center justify-between px-4 pt-4 pb-2">
               <h3 className="text-sm font-semibold text-gray-900">Open Tasks</h3>
               <Link href="/admin/crm/inbox">
-                <span className="text-xs text-[#2D6A4F] font-medium hover:underline">View inbox</span>
+                <span className="text-xs text-[#0d3cfc] font-medium hover:underline">View inbox</span>
               </Link>
             </div>
             {isLoading ? (

@@ -84,7 +84,7 @@ export default function PortalServices() {
                 wave 1, so existing customers can self-serve adding a
                 bundle without an admin in the loop. */}
             <a href="/plans" target="_blank" rel="noreferrer">
-              <button className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-white bg-[#2D6A4F] rounded-lg hover:bg-[#1B4332] transition-colors min-h-[36px]">
+              <button className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-white bg-[#0d3cfc] rounded-lg hover:bg-[#0b34d6] transition-colors min-h-[36px]">
                 <Plus className="w-3.5 h-3.5" />
                 Add a service
               </button>
@@ -157,7 +157,7 @@ export default function PortalServices() {
               {qqData.calculator.edit_url && (
                 <a
                   href={qqData.calculator.edit_url}
-                  className="inline-flex items-center gap-1.5 text-xs text-[#2D6A4F] font-medium hover:underline"
+                  className="inline-flex items-center gap-1.5 text-xs text-[#0d3cfc] font-medium hover:underline"
                 >
                   Edit Calculator <ExternalLink className="w-3 h-3" />
                 </a>
@@ -225,7 +225,7 @@ export default function PortalServices() {
                         </div>
                         <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
                           <div
-                            className="h-full bg-[#2D6A4F] rounded-full transition-all"
+                            className="h-full bg-[#0d3cfc] rounded-full transition-all"
                             style={{ width: `${progress}%` }}
                           />
                         </div>
@@ -237,7 +237,7 @@ export default function PortalServices() {
                       <span className="text-xs text-gray-400">
                         {svc.billing_period === "one-time" ? "One-time" : svc.billing_period === "monthly" ? "Monthly" : ""}
                       </span>
-                      <span className="text-xs text-[#2D6A4F] font-medium flex items-center gap-1">
+                      <span className="text-xs text-[#0d3cfc] font-medium flex items-center gap-1">
                         View Details <ArrowRight className="w-3 h-3" />
                       </span>
                     </div>

@@ -40,7 +40,7 @@ function buildEmailHtml(data: {
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="margin:0;padding:0;background:#f4f4f5;font-family:Inter,-apple-system,sans-serif;">
 <table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;margin-top:24px;margin-bottom:24px;">
-  <tr><td style="background:#2D6A4F;padding:32px 24px;text-align:center;">
+  <tr><td style="background:#0d3cfc;padding:32px 24px;text-align:center;">
     <h1 style="color:#ffffff;margin:0;font-size:22px;font-weight:700;">Weekly Quote Performance</h1>
     <p style="color:#a7d4bb;margin:8px 0 0;font-size:14px;">${data.businessName}</p>
   </td></tr>
@@ -49,7 +49,7 @@ function buildEmailHtml(data: {
       <tr>
         <td width="50%" style="padding:8px;">
           <div style="background:#f0fdf4;border-radius:8px;padding:16px;text-align:center;">
-            <div style="font-size:28px;font-weight:700;color:#2D6A4F;">${data.views}</div>
+            <div style="font-size:28px;font-weight:700;color:#0d3cfc;">${data.views}</div>
             <div style="font-size:12px;color:#6b7280;margin-top:4px;">Total Views</div>
           </div>
         </td>
@@ -81,7 +81,7 @@ function buildEmailHtml(data: {
     </div>` : ''}
     <div style="text-align:center;margin-top:24px;">
       <a href="${process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : ''}/Dashboard?token=${data.editToken}"
-         style="display:inline-block;background:#2D6A4F;color:#ffffff;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">
+         style="display:inline-block;background:#0d3cfc;color:#ffffff;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">
         Edit Pricing to Improve Conversions
       </a>
     </div>

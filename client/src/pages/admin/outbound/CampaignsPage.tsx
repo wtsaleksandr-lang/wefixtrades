@@ -149,7 +149,7 @@ function NewCampaignDialog({ open, onClose }: { open: boolean; onClose: () => vo
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={() => mutation.mutate()} disabled={!form.name || mutation.isPending} className="bg-[#2D6A4F] hover:bg-[#1B4332]">
+          <Button onClick={() => mutation.mutate()} disabled={!form.name || mutation.isPending} className="bg-[#0d3cfc] hover:bg-[#0b34d6]">
             {mutation.isPending ? "Creating..." : "Create"}
           </Button>
         </DialogFooter>
@@ -330,7 +330,7 @@ export default function CampaignsPage() {
             <h2 className="text-lg font-semibold text-gray-900">Outreach Campaigns</h2>
             <p className="text-sm text-gray-500">Link to existing Instantly or Smartlead campaigns</p>
           </div>
-          <Button size="sm" className="bg-[#2D6A4F] hover:bg-[#1B4332] gap-1.5" onClick={() => setNewCampaignOpen(true)}>
+          <Button size="sm" className="bg-[#0d3cfc] hover:bg-[#0b34d6] gap-1.5" onClick={() => setNewCampaignOpen(true)}>
             <Plus className="w-3.5 h-3.5" />
             New Campaign
           </Button>
@@ -344,14 +344,14 @@ export default function CampaignsPage() {
             ) : campaigns.length === 0 ? (
               <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
                 <p className="text-sm text-gray-500">No campaigns yet.</p>
-                <Button size="sm" className="mt-3 bg-[#2D6A4F] hover:bg-[#1B4332]" onClick={() => setNewCampaignOpen(true)}>Create your first campaign</Button>
+                <Button size="sm" className="mt-3 bg-[#0d3cfc] hover:bg-[#0b34d6]" onClick={() => setNewCampaignOpen(true)}>Create your first campaign</Button>
               </div>
             ) : (
               campaigns.map((c) => (
                 <div
                   key={c.id}
                   onClick={() => setSelectedCampaignId(c.id === selectedCampaignId ? null : c.id)}
-                  className={`bg-white rounded-lg border cursor-pointer hover:border-[#2D6A4F] transition-colors p-4 ${c.id === selectedCampaignId ? "border-[#2D6A4F] shadow-sm" : "border-gray-200"}`}
+                  className={`bg-white rounded-lg border cursor-pointer hover:border-[#0d3cfc] transition-colors p-4 ${c.id === selectedCampaignId ? "border-[#0d3cfc] shadow-sm" : "border-gray-200"}`}
                 >
                   <div className="flex items-start justify-between">
                     <div>

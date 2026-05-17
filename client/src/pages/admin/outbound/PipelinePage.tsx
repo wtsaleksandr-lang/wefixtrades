@@ -131,7 +131,7 @@ function MoveStageDlg({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={() => mutation.mutate()} disabled={!stage || mutation.isPending} className="bg-[#2D6A4F] hover:bg-[#1B4332]">
+          <Button onClick={() => mutation.mutate()} disabled={!stage || mutation.isPending} className="bg-[#0d3cfc] hover:bg-[#0b34d6]">
             {mutation.isPending ? "Moving..." : "Move"}
           </Button>
         </DialogFooter>
@@ -204,7 +204,7 @@ function OpportunityCard({
         <Button
           size="sm"
           variant="ghost"
-          className="h-6 text-xs px-2 text-[#2D6A4F] hover:bg-[#F0F7F4]"
+          className="h-6 text-xs px-2 text-[#0d3cfc] hover:bg-[#EEF3FF]"
           onClick={() => onMove(opp)}
         >
           Move <ChevronRight className="w-3 h-3" />

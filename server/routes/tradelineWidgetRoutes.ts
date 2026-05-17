@@ -27,7 +27,7 @@ import { createLogger } from "../lib/logger";
 const log = createLogger("Widget");
 
 const DEFAULT_GREETING = "Hi there — how can we help today?";
-const DEFAULT_ACCENT = "#2D6A4F";
+const DEFAULT_ACCENT = "#0d3cfc";
 
 function generateSiteKey(): string {
   // 32-hex characters — short enough to embed, long enough to be unguessable

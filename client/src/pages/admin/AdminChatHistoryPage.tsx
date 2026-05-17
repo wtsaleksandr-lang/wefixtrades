@@ -50,7 +50,7 @@ export default function AdminChatHistoryPage() {
 
         <div className="flex items-center justify-between">
           <h1 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-            <MessageSquare className="w-4 h-4 text-[#2D6A4F]" />
+            <MessageSquare className="w-4 h-4 text-[#0d3cfc]" />
             AI Copilot — conversation history
           </h1>
           <span className="text-[10px] text-gray-400 uppercase tracking-wide">
@@ -98,7 +98,7 @@ export default function AdminChatHistoryPage() {
                 <div
                   className={`max-w-[85%] rounded-lg px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap ${
                     m.role === "user"
-                      ? "bg-[#2D6A4F] text-white"
+                      ? "bg-[#0d3cfc] text-white"
                       : "bg-gray-100 text-gray-800"
                   }`}
                 >

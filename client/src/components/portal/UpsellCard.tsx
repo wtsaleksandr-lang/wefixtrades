@@ -45,11 +45,11 @@ export default function UpsellCard({
   return (
     <Link
       href="/portal/catalog"
-      className="flex items-start gap-3 bg-gradient-to-r from-[#F0F7F4] to-white border border-[#2D6A4F]/20 rounded-xl p-4 hover:shadow-sm transition-all group"
+      className="flex items-start gap-3 bg-gradient-to-r from-[#EEF3FF] to-white border border-[#0d3cfc]/20 rounded-xl p-4 hover:shadow-sm transition-all group"
       data-testid={`upsell-${recommendPrefix}`}
     >
-      <div className="w-9 h-9 rounded-lg bg-white border border-[#2D6A4F]/20 flex items-center justify-center shrink-0">
-        <Sparkles className="w-4 h-4 text-[#2D6A4F]" />
+      <div className="w-9 h-9 rounded-lg bg-white border border-[#0d3cfc]/20 flex items-center justify-center shrink-0">
+        <Sparkles className="w-4 h-4 text-[#0d3cfc]" />
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
@@ -58,7 +58,7 @@ export default function UpsellCard({
         </div>
         <p className="text-xs text-gray-600 mt-0.5">{pitch}</p>
       </div>
-      <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-[#2D6A4F] transition-colors shrink-0 mt-1" />
+      <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-[#0d3cfc] transition-colors shrink-0 mt-1" />
     </Link>
   );
 }

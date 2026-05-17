@@ -92,7 +92,7 @@ export default function PortalBilling() {
           <Button
             onClick={openBillingPortal}
             disabled={portalLoading}
-            className="bg-[#2D6A4F] hover:bg-[#1B4332]"
+            className="bg-[#0d3cfc] hover:bg-[#0b34d6]"
           >
             {portalLoading ? (
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -232,7 +232,7 @@ export default function PortalBilling() {
                                   type="button"
                                   onClick={openBillingPortal}
                                   disabled={portalLoading}
-                                  className="inline-flex items-center gap-1 text-xs font-medium text-[#2D6A4F] hover:text-[#1B4332] disabled:opacity-50"
+                                  className="inline-flex items-center gap-1 text-xs font-medium text-[#0d3cfc] hover:text-[#0b34d6] disabled:opacity-50"
                                 >
                                   Pay now <ExternalLink className="w-3 h-3" />
                                 </button>

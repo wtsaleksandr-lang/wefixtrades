@@ -203,7 +203,7 @@ export default function BillingPage() {
                       <p className="text-gray-700 font-medium mb-1">No payment records yet.</p>
                       <p className="text-xs text-gray-500">
                         Payments appear here as soon as a client checks out via Stripe or you log a manual payment from
-                        {" "}<Link href="/admin/crm/clients" className="text-[#2D6A4F] hover:underline font-medium">a client's page</Link>.
+                        {" "}<Link href="/admin/crm/clients" className="text-[#0d3cfc] hover:underline font-medium">a client's page</Link>.
                       </p>
                     </TableCell>
                   </TableRow>
@@ -212,7 +212,7 @@ export default function BillingPage() {
                     <TableRow key={p.id}>
                       <TableCell>
                         <Link href={`/admin/crm/clients/${p.client_id}`}>
-                          <span className="text-sm font-medium text-gray-900 hover:text-[#2D6A4F]">
+                          <span className="text-sm font-medium text-gray-900 hover:text-[#0d3cfc]">
                             {p.client_name || `Client #${p.client_id}`}
                           </span>
                         </Link>
@@ -252,7 +252,7 @@ export default function BillingPage() {
                 <p className="text-gray-700 font-medium mb-1 text-sm">No payment records yet.</p>
                 <p className="text-xs text-gray-500">
                   Payments appear here as soon as a client checks out, or you log a manual one on
-                  {" "}<Link href="/admin/crm/clients" className="text-[#2D6A4F] hover:underline font-medium">a client's page</Link>.
+                  {" "}<Link href="/admin/crm/clients" className="text-[#0d3cfc] hover:underline font-medium">a client's page</Link>.
                 </p>
               </div>
             ) : (
@@ -261,7 +261,7 @@ export default function BillingPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <Link href={`/admin/crm/clients/${p.client_id}`}>
-                        <span className="text-sm font-medium text-gray-900 hover:text-[#2D6A4F]">
+                        <span className="text-sm font-medium text-gray-900 hover:text-[#0d3cfc]">
                           {p.client_name || `Client #${p.client_id}`}
                         </span>
                       </Link>

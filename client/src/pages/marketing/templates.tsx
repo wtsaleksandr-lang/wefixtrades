@@ -184,7 +184,7 @@ export default function TemplatesPage() {
         </div>
 
         {/* CTA band */}
-        <div style={{ background: `linear-gradient(135deg, ${mkt.accent} 0%, #1B4332 100%)`, padding: "96px 28px", textAlign: "center" }}>
+        <div style={{ background: `linear-gradient(135deg, ${mkt.accent} 0%, #0b34d6 100%)`, padding: "96px 28px", textAlign: "center" }}>
           <div style={{ maxWidth: 640, margin: "0 auto" }}>
             <h2 style={{ fontSize: "clamp(26px, 3vw, 40px)", fontWeight: 800, color: "#FFFFFF", margin: "0 0 14px", letterSpacing: "-0.02em" }}>
               Not sure which template to use?

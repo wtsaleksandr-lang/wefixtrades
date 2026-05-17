@@ -448,7 +448,7 @@ export default function ProductDetailPage() {
                     size="sm"
                     onClick={() => publish.mutate()}
                     disabled={publish.isPending || (requiresMultiApprove && remaining > 0 && !currentUserApproved)}
-                    className="bg-[#2D6A4F] hover:bg-[#1B4332]"
+                    className="bg-[#0d3cfc] hover:bg-[#0b34d6]"
                     data-testid="button-publish"
                   >
                     {publish.isPending
@@ -903,7 +903,7 @@ export default function ProductDetailPage() {
                     saveDraft.mutate();
                   }}
                   disabled={!hasChanges || saveDraft.isPending}
-                  className="bg-[#2D6A4F] hover:bg-[#1B4332]"
+                  className="bg-[#0d3cfc] hover:bg-[#0b34d6]"
                   data-testid="button-save-draft"
                 >
                   {saveDraft.isPending ? "Saving..." : hasPendingDraft ? "Update Draft" : "Save as Draft"}
@@ -1021,7 +1021,7 @@ function SuppliersPanel({ serviceId, serviceName }: { serviceId: string; service
             <h2 className="text-sm font-semibold text-gray-900">Suppliers</h2>
             <p className="text-[11px] text-gray-500 mt-0.5">
               Who fulfills this product. Changes take effect immediately.
-              Manage supplier records on <a href="/admin/crm/suppliers" className="text-[#2D6A4F] underline">Suppliers</a>.
+              Manage supplier records on <a href="/admin/crm/suppliers" className="text-[#0d3cfc] underline">Suppliers</a>.
             </p>
           </div>
         </div>
@@ -1117,7 +1117,7 @@ function SuppliersPanel({ serviceId, serviceName }: { serviceId: string; service
                       setEditingCost(null);
                     }}
                     disabled={setCost.isPending || costInput.trim() === ""}
-                    className="h-7 text-[11px] bg-[#2D6A4F] hover:bg-[#1B4332]"
+                    className="h-7 text-[11px] bg-[#0d3cfc] hover:bg-[#0b34d6]"
                     data-testid={`supplier-cost-save-${s.id}`}
                   >
                     Save
@@ -1174,7 +1174,7 @@ function SuppliersPanel({ serviceId, serviceName }: { serviceId: string; service
               setSelectedSupplier("");
             }}
             disabled={!selectedSupplier || toggle.isPending}
-            className="bg-[#2D6A4F] hover:bg-[#1B4332]"
+            className="bg-[#0d3cfc] hover:bg-[#0b34d6]"
             data-testid="supplier-assign-btn"
           >
             <Plus className="w-3.5 h-3.5 mr-1" /> Assign
@@ -1292,7 +1292,7 @@ function SubscribersPanel({ serviceId, serviceName }: { serviceId: string; servi
             >
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-gray-900 truncate">
-                  <a href={`/admin/crm/clients/${s.client_id}`} className="hover:text-[#2D6A4F] hover:underline">
+                  <a href={`/admin/crm/clients/${s.client_id}`} className="hover:text-[#0d3cfc] hover:underline">
                     {s.client_name}
                   </a>
                 </p>
@@ -1342,7 +1342,7 @@ function SubscribersPanel({ serviceId, serviceName }: { serviceId: string; servi
           <ul className="mt-2 space-y-1">
             {cancelled.map((s) => (
               <li key={s.id} className="px-3 py-1.5 text-[11px] text-gray-500 bg-gray-50 rounded">
-                <a href={`/admin/crm/clients/${s.client_id}`} className="hover:text-[#2D6A4F] hover:underline">
+                <a href={`/admin/crm/clients/${s.client_id}`} className="hover:text-[#0d3cfc] hover:underline">
                   {s.client_name}
                 </a>
                 {s.cancelled_at && ` · cancelled ${new Date(s.cancelled_at).toLocaleDateString()}`}

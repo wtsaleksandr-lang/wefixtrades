@@ -329,8 +329,8 @@ function OverviewSection({ token, onNavigate }: { token: string; onNavigate: (s:
           {currentPlan === 'free' && !isTrialExpired && trialDaysLeft > 7 && (
             <button onClick={() => startCheckout('solo')} style={{
               display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 6,
-              fontSize: 11, fontWeight: 700, color: '#2D6A4F', textDecoration: 'none',
-              background: '#F0F7F4', border: '1px solid #A7F3D0', padding: '3px 10px', borderRadius: 20,
+              fontSize: 11, fontWeight: 700, color: '#0d3cfc', textDecoration: 'none',
+              background: '#EEF3FF', border: '1px solid #A7F3D0', padding: '3px 10px', borderRadius: 20,
               cursor: 'pointer',
             }}>
               <Sparkles size={9} /> Upgrade — from $49/mo

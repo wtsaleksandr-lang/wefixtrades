@@ -662,7 +662,7 @@ export default function PortalServiceDetail() {
                 className="block bg-emerald-50/40 border border-emerald-200 rounded-xl p-5 hover:bg-emerald-50 transition-colors"
               >
                 <div className="flex items-start gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-[#2D6A4F] flex items-center justify-center shrink-0">
+                  <div className="w-9 h-9 rounded-lg bg-[#0d3cfc] flex items-center justify-center shrink-0">
                     <Shield className="w-4 h-4 text-white" />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -781,7 +781,7 @@ export default function PortalServiceDetail() {
                       {tlData.config.website.hostedUrl && (
                         <div className="flex items-center gap-2">
                           <Globe className="w-3.5 h-3.5 text-gray-400" />
-                          <a href={tlData.config.website.hostedUrl} target="_blank" rel="noopener noreferrer" className="text-[#2D6A4F] hover:underline text-xs truncate">
+                          <a href={tlData.config.website.hostedUrl} target="_blank" rel="noopener noreferrer" className="text-[#0d3cfc] hover:underline text-xs truncate">
                             {tlData.config.website.hostedUrl}
                           </a>
                         </div>

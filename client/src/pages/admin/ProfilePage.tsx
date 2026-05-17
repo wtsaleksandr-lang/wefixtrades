@@ -100,7 +100,7 @@ export default function ProfilePage() {
         {/* Avatar + display info */}
         <Card className="p-5 space-y-4">
           <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-full bg-[#2D6A4F] flex items-center justify-center">
+            <div className="w-14 h-14 rounded-full bg-[#0d3cfc] flex items-center justify-center">
               <span className="text-white text-xl font-bold">
                 {(user?.name || user?.email || "A").charAt(0).toUpperCase()}
               </span>

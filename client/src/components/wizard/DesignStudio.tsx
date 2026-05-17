@@ -347,7 +347,7 @@ function ChipGroup({ options, value, onChange, testIdPrefix }: {
               color: active ? 'white' : p.colors.body,
               fontSize: '13px', fontWeight: active ? 600 : 500,
               cursor: 'pointer', transition: 'all 0.2s ease',
-              boxShadow: active ? '0 2px 8px rgba(45,106,79,0.2)' : 'none',
+              boxShadow: active ? '0 2px 8px rgba(13,60,252,0.2)' : 'none',
               WebkitTapHighlightColor: 'transparent',
             }}
           >
@@ -546,7 +546,7 @@ function AppearanceTab({ settings, onChange }: {
                   if (/^#[0-9a-fA-F]{0,6}$/.test(e.target.value)) onChange('accent_color', e.target.value);
                 }}
                 className="premium-input"
-                placeholder="#2D6A4F"
+                placeholder="#0d3cfc"
                 style={{ fontFamily: 'monospace', fontSize: '14px' }}
               />
             </div>
@@ -614,7 +614,7 @@ function AppearanceTab({ settings, onChange }: {
               <div style={{
                 width: 48, height: 32, borderRadius: opt.radius,
                 border: `2px solid ${active ? p.colors.accent : '#d1d5db'}`,
-                background: active ? 'rgba(45,106,79,0.06)' : '#f9fafb',
+                background: active ? 'rgba(13,60,252,0.06)' : '#f9fafb',
               }} />
               <span style={{ fontSize: 11, fontWeight: 500, color: active ? p.colors.accentDark : p.colors.muted }}>{opt.label}</span>
             </button>

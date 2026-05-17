@@ -197,7 +197,7 @@ export default function ClientsPage() {
             >
               <Download className="w-4 h-4 mr-1" /> Export CSV
             </Button>
-            <Button size="sm" onClick={() => setShowAdd(true)} className="bg-[#2D6A4F] hover:bg-[#1B4332] min-h-[36px]">
+            <Button size="sm" onClick={() => setShowAdd(true)} className="bg-[#0d3cfc] hover:bg-[#0b34d6] min-h-[36px]">
               <Plus className="w-4 h-4 mr-1" /> Add Client
             </Button>
           </div>
@@ -323,7 +323,7 @@ export default function ClientsPage() {
                     </TableCell>
                     <TableCell>
                       <Link href={`/admin/crm/clients/${client.id}`}>
-                        <span className="font-medium text-gray-900 hover:text-[#2D6A4F]">
+                        <span className="font-medium text-gray-900 hover:text-[#0d3cfc]">
                           {client.business_name}
                         </span>
                       </Link>
@@ -397,7 +397,7 @@ export default function ClientsPage() {
               <Button
                 onClick={() => createMutation.mutate(form)}
                 disabled={!form.business_name || createMutation.isPending}
-                className="bg-[#2D6A4F] hover:bg-[#1B4332]"
+                className="bg-[#0d3cfc] hover:bg-[#0b34d6]"
               >
                 {createMutation.isPending ? "Creating..." : "Create"}
               </Button>

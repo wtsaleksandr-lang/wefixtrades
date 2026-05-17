@@ -246,7 +246,7 @@ export default function PortalArticles() {
           <button
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
               activeTab === "articles"
-                ? "border-[#2D6A4F] text-[#2D6A4F]"
+                ? "border-[#0d3cfc] text-[#0d3cfc]"
                 : "border-transparent text-muted-foreground hover:text-gray-700"
             }`}
             onClick={() => setActiveTab("articles")}
@@ -257,7 +257,7 @@ export default function PortalArticles() {
           <button
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
               activeTab === "social"
-                ? "border-[#2D6A4F] text-[#2D6A4F]"
+                ? "border-[#0d3cfc] text-[#0d3cfc]"
                 : "border-transparent text-muted-foreground hover:text-gray-700"
             }`}
             onClick={() => setActiveTab("social")}
@@ -268,7 +268,7 @@ export default function PortalArticles() {
           <button
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
               activeTab === "videos"
-                ? "border-[#2D6A4F] text-[#2D6A4F]"
+                ? "border-[#0d3cfc] text-[#0d3cfc]"
                 : "border-transparent text-muted-foreground hover:text-gray-700"
             }`}
             onClick={() => setActiveTab("videos")}
@@ -776,7 +776,7 @@ function VideoContentSection() {
               onClick={() => toggleMutation.mutate(!settings.video_generation_enabled)}
               disabled={toggleMutation.isPending}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                settings.video_generation_enabled ? "bg-[#2D6A4F]" : "bg-gray-300"
+                settings.video_generation_enabled ? "bg-[#0d3cfc]" : "bg-gray-300"
               }`}
             >
               <span

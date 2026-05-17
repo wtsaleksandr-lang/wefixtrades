@@ -71,7 +71,7 @@ export default function UpgradeGate({ currentPlan, feature, featureLabel, childr
           style={{
             display: "inline-flex", alignItems: "center", gap: 5,
             padding: "6px 14px", borderRadius: 8,
-            background: "#2D6A4F", color: "#FFFFFF",
+            background: "#0d3cfc", color: "#FFFFFF",
             fontSize: 12, fontWeight: 700, textDecoration: "none",
           }}
         >
@@ -122,7 +122,7 @@ export default function UpgradeGate({ currentPlan, feature, featureLabel, childr
         style={{
           display: "inline-flex", alignItems: "center", gap: 6,
           padding: "10px 18px", borderRadius: 9,
-          background: "#2D6A4F", color: "#FFFFFF",
+          background: "#0d3cfc", color: "#FFFFFF",
           fontSize: 13, fontWeight: 700, textDecoration: "none",
           whiteSpace: "nowrap", flexShrink: 0,
         }}

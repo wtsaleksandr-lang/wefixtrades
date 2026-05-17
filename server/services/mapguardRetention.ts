@@ -217,7 +217,7 @@ export async function sendWeeklyUpdate(clientId: number, email: string, business
   const html = `<!DOCTYPE html>
 <html><body style="font-family:'Inter',Arial,sans-serif;margin:0;padding:0;background:#F3F4F6;">
 <table cellpadding="0" cellspacing="0" width="100%" style="max-width:560px;margin:24px auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
-  <tr><td style="padding:20px 28px;background:#2D6A4F;">
+  <tr><td style="padding:20px 28px;background:#0d3cfc;">
     <p style="color:#d1fae5;font-size:11px;font-weight:700;letter-spacing:0.05em;margin:0;">MAPGUARD WEEKLY UPDATE</p>
     <p style="color:#ffffff;font-size:16px;font-weight:600;margin:6px 0 0;">${esc(businessName)}</p>
   </td></tr>
@@ -226,7 +226,7 @@ export async function sendWeeklyUpdate(clientId: number, email: string, business
     <ul style="margin:0 0 20px;padding-left:18px;line-height:1.7;">${bulletHtml}</ul>
   </td></tr>
   <tr><td style="padding:0 28px 24px;text-align:center;">
-    <a href="${portalUrl}/portal/mapguard" style="display:inline-block;background:#2D6A4F;color:#ffffff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">View Your Dashboard</a>
+    <a href="${portalUrl}/portal/mapguard" style="display:inline-block;background:#0d3cfc;color:#ffffff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">View Your Dashboard</a>
   </td></tr>
   <tr><td style="padding:12px 28px;background:#f9fafb;text-align:center;border-top:1px solid #e5e7eb;">
     <p style="font-size:11px;color:#9ca3af;margin:0;">MapGuard Weekly Update &middot; WeFixTrades</p>

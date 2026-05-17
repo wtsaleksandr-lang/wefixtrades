@@ -40,7 +40,7 @@ interface SiteResponse {
   tradeType: string | null;
 }
 
-const DEFAULT_ACCENT = "#2D6A4F";
+const DEFAULT_ACCENT = "#0d3cfc";
 const DEFAULT_GREETING = "Hi there — how can we help today?";
 
 function buildSnippet(host: string, siteKey: string): string {
@@ -95,7 +95,7 @@ export default function PortalChatWidgetSetup() {
     fields: [
       { key: "display_name", label: "Header display name" },
       { key: "greeting", label: "Greeting message" },
-      { key: "accent_color", label: "Accent color (hex, e.g. #2D6A4F)" },
+      { key: "accent_color", label: "Accent color (hex, e.g. #0d3cfc)" },
       { key: "position", label: `Position (one of: ${WIDGET_POSITIONS.join(", ")})` },
       { key: "allowed_origins", label: "Allowed domains (comma-separated, optional)" },
     ],
@@ -232,7 +232,7 @@ export default function PortalChatWidgetSetup() {
                   id="accent"
                   value={(draft.accent_color as string) || ""}
                   onChange={(e) => setDraft({ ...draft, accent_color: e.target.value })}
-                  placeholder="#2D6A4F"
+                  placeholder="#0d3cfc"
                 />
                 <input
                   type="color"

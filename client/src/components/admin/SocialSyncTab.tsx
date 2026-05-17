@@ -636,7 +636,7 @@ export default function SocialSyncTab({ clientId }: { clientId: number }) {
         <p className="text-sm text-gray-600">No SocialSync profile configured for this client.</p>
         <Button
           size="sm"
-          className="bg-[#2D6A4F] hover:bg-[#1B4332]"
+          className="bg-[#0d3cfc] hover:bg-[#0b34d6]"
           onClick={() => {
             setEditingProfile(true);
             setProfileForm({ niche: "", location: "", services: "", tone: "professional", frequency: "3_per_week", service_focus: "", platform_preferences: "facebook,instagram" });
@@ -680,7 +680,7 @@ export default function SocialSyncTab({ clientId }: { clientId: number }) {
                 platform_preferences: (profile.platform_preferences || []).join(", "),
               });
             }}>Edit Profile</Button>
-            <Button size="sm" className="bg-[#2D6A4F] hover:bg-[#1B4332]" onClick={() => generateWeek.mutate()} disabled={generateWeek.isPending || !profile.enabled}>
+            <Button size="sm" className="bg-[#0d3cfc] hover:bg-[#0b34d6]" onClick={() => generateWeek.mutate()} disabled={generateWeek.isPending || !profile.enabled}>
               {generateWeek.isPending ? <><RefreshCw className="w-3.5 h-3.5 mr-1 animate-spin" /> Generating...</> : <><Zap className="w-3.5 h-3.5 mr-1" /> Generate Week</>}
             </Button>
           </div>
@@ -1368,7 +1368,7 @@ export default function SocialSyncTab({ clientId }: { clientId: number }) {
                   </div>
                   <div className="flex justify-end gap-2">
                     <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setRlEditing(false)}>Cancel</Button>
-                    <Button size="sm" className="h-7 text-xs bg-[#2D6A4F] hover:bg-[#1B4332]"
+                    <Button size="sm" className="h-7 text-xs bg-[#0d3cfc] hover:bg-[#0b34d6]"
                       onClick={() => saveReviewLink.mutate({ review_link: rlEdit.review_link || undefined, place_id: rlEdit.place_id || undefined })}
                       disabled={saveReviewLink.isPending}
                     >{saveReviewLink.isPending ? "Saving..." : "Save"}</Button>
@@ -1454,7 +1454,7 @@ export default function SocialSyncTab({ clientId }: { clientId: number }) {
                 <Input placeholder="Email" value={rrForm.customer_email} onChange={(e) => setRrForm({ ...rrForm, customer_email: e.target.value })} className="text-xs h-8" />
               </div>
               <div className="flex justify-end mt-2">
-                <Button size="sm" className="h-7 text-xs bg-[#2D6A4F] hover:bg-[#1B4332]"
+                <Button size="sm" className="h-7 text-xs bg-[#0d3cfc] hover:bg-[#0b34d6]"
                   disabled={!rrForm.customer_name || (!rrForm.customer_phone && !rrForm.customer_email) || enqueueRR.isPending || rrStatus?.readiness === "blocked"}
                   onClick={() => enqueueRR.mutate({ customer_name: rrForm.customer_name, customer_phone: rrForm.customer_phone || undefined, customer_email: rrForm.customer_email || undefined })}
                 >
@@ -1640,7 +1640,7 @@ function DeliveryStatusCard({
         </div>
         <div className="flex items-center gap-2">
           {state === "awaiting_review" && (
-            <Button size="sm" className="h-7 text-xs bg-[#2D6A4F] hover:bg-[#1B4332]" onClick={onGenerateWeek} disabled={isGenerating}>
+            <Button size="sm" className="h-7 text-xs bg-[#0d3cfc] hover:bg-[#0b34d6]" onClick={onGenerateWeek} disabled={isGenerating}>
               {isGenerating ? <><RefreshCw className="w-3 h-3 mr-1 animate-spin" />Generating...</> : <><Zap className="w-3 h-3 mr-1" />Generate First Week</>}
             </Button>
           )}
@@ -1653,7 +1653,7 @@ function DeliveryStatusCard({
       </div>
 
       <div className="flex items-start gap-2 text-xs">
-        <ArrowRight className="w-3.5 h-3.5 text-[#2D6A4F] mt-0.5 flex-shrink-0" />
+        <ArrowRight className="w-3.5 h-3.5 text-[#0d3cfc] mt-0.5 flex-shrink-0" />
         <span className="text-gray-700">{nextAction}</span>
       </div>
 
@@ -1758,7 +1758,7 @@ function ProfileEditor({
       </div>
       <div className="flex justify-end gap-2 mt-4">
         <Button variant="outline" size="sm" onClick={onCancel}>Cancel</Button>
-        <Button size="sm" className="bg-[#2D6A4F] hover:bg-[#1B4332]" onClick={handleSave} disabled={isPending}>
+        <Button size="sm" className="bg-[#0d3cfc] hover:bg-[#0b34d6]" onClick={handleSave} disabled={isPending}>
           {isPending ? "Saving..." : "Save Profile"}
         </Button>
       </div>
