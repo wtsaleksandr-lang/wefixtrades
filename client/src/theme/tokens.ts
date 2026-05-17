@@ -105,6 +105,39 @@ export const colors = {
     a500: '#0d3cfc',
     a700: '#0b34d6',
   },
+  /* QuoteQuick dashboard design lock — canonical surface palette for the
+   * builder wizard. See docs/quotequick-dashboard-design-lock.md.
+   * Assembled into a usable theme by theme/dashboardTheme.ts. */
+  dashboard: {
+    canvas: '#A2B6BF',
+    panel: '#E4EDF1',
+    card: '#FFFFFF',
+    cardMuted: '#F4F6F8',
+    cardHover: '#F7F9FB',
+    navActiveBg: '#22282A',
+    navActiveIcon: '#0d3cfc',
+    navIcon: '#6B7886',
+    navIconHover: '#3A434B',
+    accent: '#0d3cfc',
+    accentDark: '#0b34d6',
+    accentLight: '#4f6dfd',
+    accentLighter: '#E6EAFF',
+    accentTint: 'rgba(13,60,252,0.08)',
+    heading: '#22282A',
+    body: '#4A5560',
+    muted: '#7E8A94',
+    subtle: '#A2AEB7',
+    border: '#D8E0E6',
+    borderLight: '#E8EDF1',
+    badgeBlueBg: '#D9E2FF',
+    badgeBlueText: '#0b34d6',
+    badgeGreenBg: '#BEEFD3',
+    badgeGreenText: '#1B7A3D',
+    badgeRedBg: '#F6D8DA',
+    badgeRedText: '#B23A45',
+    badgeAmberBg: '#FBE6C8',
+    badgeAmberText: '#9A6512',
+  },
 } as const;
 
 export const typography = {
