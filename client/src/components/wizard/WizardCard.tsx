@@ -130,26 +130,29 @@ const p = platformTheme;
 // Linear flow: Step 0 (trade) → Step 2 (pricing) → Step 3 (contact form)
 //            → Step 1 (customize & publish) → Step 5 (result).
 // Step 4 (test gate) is off-path / unused.
-const TOTAL_STEPS = 5; // Trade · Template · Pricing · Contact · Branding.
+const TOTAL_STEPS = 6; // Trade · Template · Pricing · Contact · Branding.
 
 // 1-based visual step for the progress display. The published result screen
 // is `TOTAL_STEPS + 1` so the counter reads "Published" rather than a step number.
 function visualStep(internalStep: number): number {
-  if (internalStep === 0) return 1; // Trade
-  if (internalStep === 6) return 2; // Template
-  if (internalStep === 2) return 3; // Pricing
-  if (internalStep === 3) return 4; // Contact form
-  if (internalStep === 1) return 5; // Customize & publish
-  if (internalStep === 4) return 5; // Test gate (off-path)
-  if (internalStep === 5) return TOTAL_STEPS + 1; // Published result
+  if (internalStep === 0) return 1; // Business info
+  if (internalStep === 6) return 2; // Templates
+  if (internalStep === 1) return 3; // Design
+  if (internalStep === 2) return 4; // Logic
+  if (internalStep === 3) return 5; // CTA & Marketing
+  if (internalStep === 4) return 6; // Test gate (off-path)
+  if (internalStep === 5) return 6; // Installation / go-live
   return internalStep;
 }
 
+// Visual step (1-based) -> internal step id. Used by the clickable top nav.
+const VISUAL_TO_INTERNAL = [0, 6, 1, 2, 3, 5];
+
 const STEP_TITLES = [
   'What\u2019s your trade?',
-  'Branding & offers',
+  'Design your calculator',
   'Set your pricing',
-  'Contact form setup',
+  'CTA & marketing',
   'Quick accuracy check',
   'You\u2019re live!',
   'Pick a template',
@@ -158,16 +161,16 @@ const STEP_SUBTITLES = [
   'Tell us your trade and we\u2019ll set everything up.',
   'Pick your colors and branding. See changes live on the right.',
   'Choose how you charge. We\u2019ll build the quote logic for you.',
-  'Choose what info to collect from customers.',
+  'Set up lead capture, your call-to-action and upsells.',
   'Test a couple of quotes to make sure the numbers look right.',
-  'Copy your link and start getting leads.',
+  'Publish your calculator, then grab your link or embed code.',
   'Choose a starting point \u2014 or start blank. You customise everything next.',
 ];
 const STEP_HINTS = [
+  'Next: pick a template',
   'Next: set your pricing',
-  'All set! Review and publish below.',
   'Next: set up your contact form',
-  '',
+  'Next: install & go live',
   'Publishing your calculator...',
   '',
 ];
@@ -176,7 +179,7 @@ const STEP_TIME = ['~1 min', '', '~1 min', '', '', ''];
 export default function WizardCard({ embed = false }: { embed?: boolean }) {
   const savedResult = loadResult();
   const savedStep = loadStep();
-  const [step, setStep] = useState(savedResult && savedStep === 5 ? 5 : (savedStep < 5 ? savedStep : 0));
+  const [step, setStep] = useState(savedResult && savedStep === 5 ? 5 : ([0, 1, 2, 3, 6].includes(savedStep) ? savedStep : 0));
   const [ws, setWs] = useState<WizardState>(loadState);
   const [showHelp, setShowHelp] = useState(false);
   const [tradeSearch, setTradeSearch] = useState('');
@@ -860,17 +863,19 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
 
   // Live preview is shown on every build step (including the first) — only the
   // published result screen (step 5) hides it.
-  const showSidePreview = step !== 5;
+  // Preview shows on every step except the post-publish PublishStep screen.
+  const showSidePreview = !(step === 5 && result);
 
   return (
     <>
-      <WizardNav current={visualStep(step)} onHelp={() => setShowHelp(true)} justSaved={justSaved} />
+      <WizardNav current={visualStep(step)} onHelp={() => setShowHelp(true)} justSaved={justSaved}
+        onNavigate={(v) => setStep(VISUAL_TO_INTERNAL[v - 1])} />
       <div className={`wizard-shell-body ${showSidePreview ? '' : 'wizard-no-preview'} ${step === 6 ? 'wizard-template-mode' : ''}`}>
         <div className="wizard-left">
           <div className="wizard-left-inner">
             {STEP_TITLES[step] && (
               <div className="wizard-step-head">
-                <h2 className="wizard-step-title">{STEP_TITLES[step]}</h2>
+                <h2 className="wizard-step-title">{step === 5 ? (result ? 'You\'re live!' : 'Install & go live') : STEP_TITLES[step]}</h2>
                 {STEP_SUBTITLES[step] && <p className="wizard-step-sub">{STEP_SUBTITLES[step]}</p>}
               </div>
             )}
@@ -1228,76 +1233,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                 onChange={(newSettings) => set('calculatorSettings', newSettings)}
               />
             </details>
-
-            {/* Publish with confirmation */}
-            <div style={{ marginTop: '16px' }}>
-              {showPublishConfirm && !generateMutation.isPending && (
-                <div style={{
-                  padding: '16px', borderRadius: p.radius.md, marginBottom: '12px',
-                  background: '#F0FDF4', border: '1px solid #BBF7D0',
-                }}>
-                  <p style={{ fontSize: '14px', fontWeight: 600, color: '#065F46', marginBottom: '8px' }}>Ready to go live?</p>
-                  <div style={{ fontSize: '13px', color: '#047857', lineHeight: 1.8 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
-                      <span>Trade</span><strong>{selectedTradeLabel || ws.customTradeData?.short_description || 'Custom'}</strong>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
-                      <span>Leads sent to</span><strong>{ws.ownerEmail}</strong>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0', alignItems: 'center' }}>
-                      <span>Brand color</span><div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><div style={{ width: 12, height: 12, borderRadius: 3, background: ws.primaryColor }} /><strong>{ws.primaryColor}</strong></div>
-                    </div>
-                  </div>
-                  <p style={{ fontSize: '11px', color: '#059669', marginTop: '8px' }}>You can always edit after publishing.</p>
-                </div>
-              )}
-              <button
-                data-testid="button-publish-from-preview"
-                onClick={() => {
-                  // Pre-publish validation — surfaced inline, not via browser alert()
-                  if (!ws.businessName.trim()) {
-                    setPublishError('Please enter your business name before publishing.');
-                    return;
-                  }
-                  if (!ws.ownerEmail.trim()) {
-                    setPublishError('Please enter your email so leads can reach you.');
-                    return;
-                  }
-                  setPublishError('');
-                  if (!showPublishConfirm && !generateMutation.isPending) {
-                    setShowPublishConfirm(true);
-                    return;
-                  }
-                  generateMutation.mutate();
-                }}
-                disabled={generateMutation.isPending}
-                style={{
-                  width: '100%', padding: '16px', borderRadius: p.radius.lg,
-                  background: p.colors.accent, color: 'white', border: 'none',
-                  fontSize: '15px', fontWeight: 700, cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-                  transition: p.transitions.fast,
-                  opacity: generateMutation.isPending ? 0.6 : 1,
-                }}
-              >
-                {generateMutation.isPending ? (
-                  <><Loader2 style={{ width: '16px', height: '16px', animation: 'spin 1s linear infinite' }} /> Building your calculator...</>
-                ) : showPublishConfirm ? (
-                  <><Zap style={{ width: '16px', height: '16px' }} /> Confirm &amp; Publish</>
-                ) : (
-                  <><Zap style={{ width: '16px', height: '16px' }} /> Publish My Calculator</>
-                )}
-              </button>
-              {publishError && !genError && (
-                <p style={{ fontSize: '13px', color: p.colors.danger, marginTop: '8px', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-                  <AlertCircle style={{ width: 14, height: 14, flexShrink: 0 }} /> {publishError}
-                </p>
-              )}
-              {genError && (
-                <p style={{ fontSize: '13px', color: p.colors.danger, marginTop: '8px', textAlign: 'center' }}>{genError}</p>
-              )}
-            </div>
-            <Footer onBack={() => setStep(3)} onNext={undefined} onSave={handleManualSave} hint={STEP_HINTS[1]} />
+            <Footer onBack={() => setStep(6)} onNext={() => setStep(2)} onSave={handleManualSave} hint={STEP_HINTS[1]} />
           </div>
         )}
 
@@ -1307,7 +1243,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
             selectedId={ws.calculatorSettings.ui_template?.template_id || 'classic_single'}
             onSelect={handleTemplateSelect}
             onBack={() => setStep(0)}
-            onContinue={() => setStep(2)}
+            onContinue={() => setStep(1)}
             onSave={handleManualSave}
           />
         )}
@@ -1510,7 +1446,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                 ))}
               </div>
             )}
-            <Footer onBack={() => setStep(6)} onNext={tryStep2Continue} onSave={handleManualSave} hint={STEP_HINTS[2]} />
+            <Footer onBack={() => setStep(1)} onNext={tryStep2Continue} onSave={handleManualSave} hint={STEP_HINTS[2]} />
           </div>
         )}
 
@@ -1523,7 +1459,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
               set('calculatorSettings', { ...ws.calculatorSettings, lead_form: lf });
             }}
             onBack={() => setStep(2)}
-            onNext={() => setStep(1)}
+            onNext={() => setStep(5)}
             onSave={handleManualSave}
             draftGenerating={!!ws.draftJobId}
           />
@@ -1565,13 +1501,86 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
         )}
 
         {step === 5 && !result && (
-          <div className="animate-fade-in-up" style={{ textAlign: 'center', padding: '24px 0' }}>
-            <p style={{ fontSize: '14px', color: p.colors.muted, marginBottom: '16px' }}>
-              Your previous session expired. Let's generate a fresh calculator.
-            </p>
-            <PrimaryBtn testId="button-back-to-generate" onClick={() => setStep(4)} fullWidth>
-              <ArrowLeft style={{ width: '16px', height: '16px' }} /> Back to Generate
-            </PrimaryBtn>
+          <div className="animate-fade-in-up">
+            <div style={{
+              display: 'flex', gap: 10, padding: 12, borderRadius: p.radius.md,
+              background: p.colors.surfaceRaised, marginBottom: 18,
+            }}>
+              <Zap style={{ width: 16, height: 16, color: p.colors.accent, flexShrink: 0, marginTop: 1 }} />
+              <p style={{ fontSize: 12.5, color: p.colors.body, lineHeight: 1.5, margin: 0 }}>
+                Last step — publish your calculator to make it live. You'll get your shareable link, embed code and the done-for-you install option.
+              </p>
+            </div>
+
+            {/* Publish with confirmation */}
+            <div style={{ marginTop: '4px' }}>
+              {showPublishConfirm && !generateMutation.isPending && (
+                <div style={{
+                  padding: '16px', borderRadius: p.radius.md, marginBottom: '12px',
+                  background: '#F0FDF4', border: '1px solid #BBF7D0',
+                }}>
+                  <p style={{ fontSize: '14px', fontWeight: 600, color: '#065F46', marginBottom: '8px' }}>Ready to go live?</p>
+                  <div style={{ fontSize: '13px', color: '#047857', lineHeight: 1.8 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
+                      <span>Trade</span><strong>{selectedTradeLabel || ws.customTradeData?.short_description || 'Custom'}</strong>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
+                      <span>Leads sent to</span><strong>{ws.ownerEmail}</strong>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0', alignItems: 'center' }}>
+                      <span>Brand color</span><div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><div style={{ width: 12, height: 12, borderRadius: 3, background: ws.primaryColor }} /><strong>{ws.primaryColor}</strong></div>
+                    </div>
+                  </div>
+                  <p style={{ fontSize: '11px', color: '#059669', marginTop: '8px' }}>You can always edit after publishing.</p>
+                </div>
+              )}
+              <button
+                data-testid="button-publish-from-preview"
+                onClick={() => {
+                  // Pre-publish validation — surfaced inline, not via browser alert()
+                  if (!ws.businessName.trim()) {
+                    setPublishError('Please enter your business name before publishing.');
+                    return;
+                  }
+                  if (!ws.ownerEmail.trim()) {
+                    setPublishError('Please enter your email so leads can reach you.');
+                    return;
+                  }
+                  setPublishError('');
+                  if (!showPublishConfirm && !generateMutation.isPending) {
+                    setShowPublishConfirm(true);
+                    return;
+                  }
+                  generateMutation.mutate();
+                }}
+                disabled={generateMutation.isPending}
+                style={{
+                  width: '100%', padding: '16px', borderRadius: p.radius.lg,
+                  background: p.colors.accent, color: 'white', border: 'none',
+                  fontSize: '15px', fontWeight: 700, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                  transition: p.transitions.fast,
+                  opacity: generateMutation.isPending ? 0.6 : 1,
+                }}
+              >
+                {generateMutation.isPending ? (
+                  <><Loader2 style={{ width: '16px', height: '16px', animation: 'spin 1s linear infinite' }} /> Building your calculator...</>
+                ) : showPublishConfirm ? (
+                  <><Zap style={{ width: '16px', height: '16px' }} /> Confirm &amp; Publish</>
+                ) : (
+                  <><Zap style={{ width: '16px', height: '16px' }} /> Publish My Calculator</>
+                )}
+              </button>
+              {publishError && !genError && (
+                <p style={{ fontSize: '13px', color: p.colors.danger, marginTop: '8px', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                  <AlertCircle style={{ width: 14, height: 14, flexShrink: 0 }} /> {publishError}
+                </p>
+              )}
+              {genError && (
+                <p style={{ fontSize: '13px', color: p.colors.danger, marginTop: '8px', textAlign: 'center' }}>{genError}</p>
+              )}
+            </div>
+            <Footer onBack={() => setStep(3)} onNext={undefined} onSave={handleManualSave} hint={STEP_HINTS[5]} />
           </div>
         )}
 
@@ -1672,6 +1681,12 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
         }
         .wizard-nav-steps { display: flex; align-items: center; }
         .wizard-nav-step { display: flex; align-items: center; }
+        .wizard-nav-stepbtn {
+          display: flex; align-items: center; gap: 0;
+          border: none; background: none; padding: 4px 6px; margin: -4px 0;
+          border-radius: 8px; font: inherit; transition: background 0.12s ease;
+        }
+        .wizard-nav-stepbtn:not(:disabled):hover { background: ${p.colors.surfaceRaised}; }
         .wizard-nav-num {
           width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0;
           display: flex; align-items: center; justify-content: center;
@@ -2016,10 +2031,11 @@ function GeneratingAnimation({ progress, businessName }: { progress: number; bus
 // 5-step target model: Trade · Template · Pricing · Branding · Go live.
 // Stage 1 wires the layout for today's 4 build steps; Template + Go-live
 // land as their own stages.
-const NAV_STEPS = ['Trade', 'Template', 'Pricing', 'Contact', 'Branding'];
+const NAV_STEPS = ['Business', 'Templates', 'Design', 'Logic', 'CTA & Marketing', 'Install'];
 
-function WizardNav({ current, onHelp, justSaved }: {
+function WizardNav({ current, onHelp, justSaved, onNavigate }: {
   current: number; onHelp: () => void; justSaved?: boolean;
+  onNavigate?: (visualStep: number) => void;
 }) {
   return (
     <div className="wizard-navbar">
@@ -2032,10 +2048,21 @@ function WizardNav({ current, onHelp, justSaved }: {
         {NAV_STEPS.map((label, i) => {
           const n = i + 1;
           const state = current > n ? 'done' : current === n ? 'active' : 'todo';
+          // Clickable only for reached steps (done or active) — no skipping ahead.
+          const reachable = n <= current && !!onNavigate;
           return (
             <div key={n} className="wizard-nav-step" data-state={state}>
-              <span className="wizard-nav-num">{state === 'done' ? '✓' : n}</span>
-              <span className="wizard-nav-label">{label}</span>
+              <button
+                type="button"
+                className="wizard-nav-stepbtn"
+                data-testid={`nav-step-${n}`}
+                disabled={!reachable || n === current}
+                onClick={() => reachable && onNavigate!(n)}
+                style={{ cursor: reachable && n !== current ? 'pointer' : 'default' }}
+              >
+                <span className="wizard-nav-num">{state === 'done' ? '✓' : n}</span>
+                <span className="wizard-nav-label">{label}</span>
+              </button>
               {n < NAV_STEPS.length && <span className="wizard-nav-line" />}
             </div>
           );
