@@ -11,6 +11,7 @@ import {
 
 import { slugify, isValidSlug, buildSubdomain, HOSTING_DOMAIN } from '@shared/slugUtils';
 import type { CalculatorSettings } from '@shared/schema';
+import { trackEvent } from '@/lib/trackEvent';
 
 const p = platformTheme;
 
@@ -125,7 +126,7 @@ export default function PublishStep({ result, publishData, testPassed, leadFormV
     { id: 'hosted', label: 'Share a Link', icon: <Globe style={{ width: '14px', height: '14px' }} /> },
     { id: 'embed', label: 'Add to Website', icon: <Code2 style={{ width: '14px', height: '14px' }} /> },
     { id: 'custom', label: 'Custom Domain', icon: <Server style={{ width: '14px', height: '14px' }} />, pro: true },
-    { id: 'install', label: 'We Install It', icon: <Wrench style={{ width: '14px', height: '14px' }} />, pro: true },
+    { id: 'install', label: 'We Install It', icon: <Wrench style={{ width: '14px', height: '14px' }} /> },
   ];
 
   const domainStatus = publishData.custom_domain_status;
@@ -1071,73 +1072,86 @@ function CustomDomainTab({ customDomain, setCustomDomain, domainStatus, sslStatu
 }
 
 function DoneForYouTab() {
+  const [requested, setRequested] = useState(false);
   return (
     <div data-testid="tab-done-for-you">
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
         <div style={{
           width: '28px', height: '28px', borderRadius: '6px',
-          background: '#FEF3C7', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: p.colors.accentLighter, display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
-          <Wrench style={{ width: '14px', height: '14px', color: '#D97706' }} />
+          <Wrench style={{ width: '14px', height: '14px', color: p.colors.accent }} />
         </div>
         <div style={{ flex: 1 }}>
           <p style={{ fontSize: '14px', fontWeight: 600, color: p.colors.heading, margin: 0 }}>Done-For-You Install</p>
-          <p style={{ fontSize: '11px', color: p.colors.muted, margin: 0 }}>We install it on your website</p>
+          <p style={{ fontSize: '11px', color: p.colors.muted, margin: 0 }}>We put it on your site — you don't touch any code</p>
         </div>
         <span style={{
-          fontSize: '10px', fontWeight: 700, color: '#D97706',
-          background: '#FEF3C7', padding: '2px 8px', borderRadius: '6px',
-        }}>PRO</span>
+          fontSize: '12px', fontWeight: 700, color: '#fff',
+          background: p.colors.accent, padding: '3px 9px', borderRadius: '6px',
+        }}>$75</span>
       </div>
 
       <div style={{
         padding: '16px', borderRadius: p.radius.md,
-        background: '#FFFBEB', border: '1px solid #FDE68A30',
+        background: p.colors.surfaceRaised, border: `1px solid ${p.colors.borderLight}`,
         marginTop: '12px',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
-          <Lock style={{ width: '14px', height: '14px', color: '#D97706' }} />
-          <p style={{ fontSize: '12px', fontWeight: 600, color: '#92400E', margin: 0 }}>
-            Available on Pro plan
-          </p>
-        </div>
-
-        <p style={{ fontSize: '12px', color: '#78350F', margin: '0 0 14px', lineHeight: 1.5 }}>
-          Our team will install your calculator directly on your website. Just grant temporary editor access and we handle the rest.
+        <p style={{ fontSize: '12px', color: p.colors.body, margin: '0 0 14px', lineHeight: 1.5 }}>
+          Prefer not to deal with embed codes? For a <strong>one-time&nbsp;$75</strong>, our
+          team installs your calculator directly on your website — you just grant temporary
+          editor access and we handle the rest.
         </p>
 
         <div style={{
           padding: '12px', borderRadius: '8px',
-          background: 'white', border: '1px solid #FDE68A',
+          background: '#fff', border: `1px solid ${p.colors.borderLight}`,
         }}>
-          <p style={{ fontSize: '11px', fontWeight: 600, color: '#78350F', margin: '0 0 8px' }}>How it works:</p>
+          <p style={{ fontSize: '11px', fontWeight: 600, color: p.colors.heading, margin: '0 0 8px' }}>How it works:</p>
           {[
-            'Submit your website URL and login details securely',
+            'Submit your website URL and access details securely',
             'Our team installs the calculator on the page you choose',
             'We verify everything works and notify you',
-            'Status updates: Installation Pending → Installed',
+            'Typically live within 1–2 business days',
           ].map((s, i) => (
             <div key={i} style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '6px' }}>
               <span style={{
                 width: '18px', height: '18px', borderRadius: '50%', flexShrink: 0,
-                background: '#FEF3C7', color: '#D97706',
+                background: p.colors.accentLighter, color: p.colors.accent,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: '10px', fontWeight: 700,
               }}>{i + 1}</span>
-              <p style={{ fontSize: '11px', color: '#78350F', margin: 0 }}>{s}</p>
+              <p style={{ fontSize: '11px', color: p.colors.body, margin: 0 }}>{s}</p>
             </div>
           ))}
         </div>
 
-        <button disabled style={{
-          width: '100%', padding: '10px', borderRadius: p.radius.sm, border: 'none',
-          background: '#E5E7EB', color: '#9CA3AF', cursor: 'not-allowed',
-          fontSize: '13px', fontWeight: 600, marginTop: '12px',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-        }}>
-          <Lock style={{ width: '13px', height: '13px' }} />
-          Upgrade to Pro
-        </button>
+        {requested ? (
+          <div data-testid="install-requested" style={{
+            marginTop: '12px', padding: '10px 12px', borderRadius: p.radius.sm,
+            background: p.colors.accentLighter, border: `1px solid ${p.colors.accent}30`,
+            display: 'flex', alignItems: 'center', gap: '8px',
+          }}>
+            <Check style={{ width: '14px', height: '14px', color: p.colors.accent, flexShrink: 0 }} />
+            <p style={{ fontSize: '12px', fontWeight: 500, color: p.colors.accentDark, margin: 0 }}>
+              Request received — we'll email you to arrange the install and the $75.
+            </p>
+          </div>
+        ) : (
+          <button
+            data-testid="button-request-install"
+            onClick={() => { trackEvent('install_requested'); setRequested(true); }}
+            style={{
+              width: '100%', padding: '11px', borderRadius: p.radius.sm, border: 'none',
+              background: p.colors.accent, color: '#fff', cursor: 'pointer',
+              fontSize: '13px', fontWeight: 700, marginTop: '12px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+            }}
+          >
+            <Wrench style={{ width: '13px', height: '13px' }} />
+            Request my install — $75
+          </button>
+        )}
       </div>
     </div>
   );
