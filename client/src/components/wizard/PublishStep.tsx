@@ -421,7 +421,7 @@ export default function PublishStep({ result, publishData, testPassed, leadFormV
             )}
 
             {activeTab === 'install' && (
-              <DoneForYouTab />
+              <DoneForYouTab result={result} />
             )}
           </div>
 
@@ -1071,8 +1071,38 @@ function CustomDomainTab({ customDomain, setCustomDomain, domainStatus, sslStatu
   );
 }
 
-function DoneForYouTab() {
+function DoneForYouTab({ result }: { result: any }) {
   const [requested, setRequested] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const calcId = result?.calculator?.id;
+  const token = result?.edit_token;
+  const canPay = !!calcId && !!token;
+
+  const handlePay = async () => {
+    if (!canPay || loading) return;
+    setLoading(true);
+    setError(null);
+    trackEvent('install_requested');
+    try {
+      const res = await fetch('/api/calculators/install-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ calculator_id: calcId, token }),
+      });
+      const data = await res.json();
+      if (res.ok && data.checkout_url) {
+        window.location.href = data.checkout_url;
+      } else {
+        setError(data.error || 'Could not start checkout. Please try again.');
+        setLoading(false);
+      }
+    } catch {
+      setError('Network error. Please try again.');
+      setLoading(false);
+    }
+  };
   return (
     <div data-testid="tab-done-for-you">
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
@@ -1126,6 +1156,13 @@ function DoneForYouTab() {
           ))}
         </div>
 
+        {error && (
+          <p data-testid="install-error" style={{
+            marginTop: '10px', fontSize: '11px', fontWeight: 500,
+            color: '#DC2626', margin: '10px 0 0',
+          }}>{error}</p>
+        )}
+
         {requested ? (
           <div data-testid="install-requested" style={{
             marginTop: '12px', padding: '10px 12px', borderRadius: p.radius.sm,
@@ -1134,24 +1171,30 @@ function DoneForYouTab() {
           }}>
             <Check style={{ width: '14px', height: '14px', color: p.colors.accent, flexShrink: 0 }} />
             <p style={{ fontSize: '12px', fontWeight: 500, color: p.colors.accentDark, margin: 0 }}>
-              Request received — we'll email you to arrange the install and the $75.
+              Publish your calculator first — then come back here to pay for the install.
             </p>
           </div>
         ) : (
           <button
             data-testid="button-request-install"
-            onClick={() => { trackEvent('install_requested'); setRequested(true); }}
+            onClick={() => { canPay ? handlePay() : setRequested(true); }}
+            disabled={loading}
             style={{
               width: '100%', padding: '11px', borderRadius: p.radius.sm, border: 'none',
-              background: p.colors.accent, color: '#fff', cursor: 'pointer',
+              background: p.colors.accent, color: '#fff',
+              cursor: loading ? 'wait' : 'pointer', opacity: loading ? 0.7 : 1,
               fontSize: '13px', fontWeight: 700, marginTop: '12px',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
             }}
           >
             <Wrench style={{ width: '13px', height: '13px' }} />
-            Request my install — $75
+            {loading ? 'Opening secure checkout…' : 'Pay $75 & book my install'}
           </button>
         )}
+
+        <p style={{ fontSize: '10px', color: p.colors.muted, margin: '8px 0 0', textAlign: 'center' }}>
+          Secure payment via Stripe · one-time charge
+        </p>
       </div>
     </div>
   );

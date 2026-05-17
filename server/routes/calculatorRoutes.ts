@@ -602,4 +602,57 @@ export function registerCalculatorRoutes(app: Express): void {
       res.status(500).json({ error: "Failed to create checkout" });
     }
   });
+
+  // Done-for-you install — one-time $75 payment linked to a calculator
+  const installCheckoutBody = z.object({
+    calculator_id: z.number().int().positive(),
+    token: z.string().min(1),
+  });
+
+  app.post("/api/calculators/install-checkout", async (req, res) => {
+    try {
+      const key = process.env.STRIPE_SECRET_KEY;
+      if (!key) return res.status(503).json({ error: "Payments not configured" });
+      const stripe = new Stripe(key, { apiVersion: "2025-01-27.acacia" as any });
+
+      const parsed = installCheckoutBody.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ error: "Invalid request" });
+
+      const calculator = await storage.getCalculatorByToken(parsed.data.token);
+      if (!calculator || calculator.id !== parsed.data.calculator_id) {
+        return res.status(404).json({ error: "Calculator not found" });
+      }
+
+      const priceId = process.env.STRIPE_PRICE_QQ_INSTALL;
+      if (!priceId) {
+        return res.status(400).json({ error: "Install price not configured. Contact support." });
+      }
+
+      const baseUrl = process.env.APP_URL || `${req.protocol}://${req.get("host")}`;
+
+      const session = await stripe.checkout.sessions.create({
+        mode: 'payment',
+        line_items: [{ price: priceId, quantity: 1 }],
+        customer_email: calculator.owner_email || undefined,
+        metadata: {
+          source: 'quotequick_install',
+          calculator_id: String(calculator.id),
+          calculator_slug: calculator.slug,
+        },
+        success_url: `${baseUrl}/dashboard?token=${parsed.data.token}&install_paid=1`,
+        cancel_url: `${baseUrl}/dashboard?token=${parsed.data.token}&install_cancelled=1`,
+      });
+
+      storage.trackEvent({
+        calculator_id: calculator.id,
+        event_type: 'install_requested',
+        metadata: { stripe_session_id: session.id },
+      }).catch(() => {});
+
+      res.json({ checkout_url: session.url });
+    } catch (err: any) {
+      log.error("[install-checkout] Error:", err.message);
+      res.status(500).json({ error: "Failed to create checkout" });
+    }
+  });
 }
