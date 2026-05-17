@@ -14,6 +14,36 @@ interface PriceRevealStepProps {
 }
 
 /**
+ * Animated count-up — eases a number from 0 on first reveal up to its target,
+ * and from the current displayed value to a new target whenever inputs change.
+ * easeOutCubic; respects prefers-reduced-motion by snapping instantly.
+ */
+function useCountUp(target: number, durationMs = 680): number {
+  const reduceMotion = typeof window !== 'undefined'
+    && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  const [value, setValue] = useState(reduceMotion ? target : 0);
+  const valueRef = useRef(value);
+  valueRef.current = value;
+  const rafRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (reduceMotion) { setValue(target); return; }
+    const from = valueRef.current;
+    if (Math.abs(from - target) < 0.005) { setValue(target); return; }
+    const start = performance.now();
+    const animate = (now: number) => {
+      const t = Math.min(1, (now - start) / durationMs);
+      const eased = 1 - Math.pow(1 - t, 3);
+      setValue(from + (target - from) * eased);
+      if (t < 1) rafRef.current = requestAnimationFrame(animate);
+      else setValue(target);
+    };
+    rafRef.current = requestAnimationFrame(animate);
+    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+  }, [target, durationMs, reduceMotion]);
+  return value;
+}
+
+/**
  * Calculates and displays the estimate. Derives the result
  * synchronously from estimateInputs — no stale-dependency risk.
  * Zero changes to calculateEstimate.ts.
@@ -123,6 +153,7 @@ function ExactPriceBlock({
   breakdown: Array<{ label: string; amount: number }>;
   callUs: boolean;
 }) {
+  const shownTotal = useCountUp(total);
   return (
     <div style={{
       borderRadius: eff.radiusXl,
@@ -151,7 +182,7 @@ function ExactPriceBlock({
           lineHeight: 1,
           letterSpacing: '-0.02em',
         }}>
-          ${total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          ${shownTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
         </p>
       </div>
 
@@ -206,6 +237,8 @@ function RangeBlock({
   rangeMin: number;
   rangeMax: number;
 }) {
+  const shownMin = useCountUp(rangeMin);
+  const shownMax = useCountUp(rangeMax);
   return (
     <div style={{
       borderRadius: eff.radiusXl,
@@ -234,7 +267,7 @@ function RangeBlock({
         lineHeight: 1.1,
         letterSpacing: '-0.02em',
       }}>
-        ${rangeMin.toLocaleString()} &ndash; ${rangeMax.toLocaleString()}
+        ${Math.round(shownMin).toLocaleString()} &ndash; ${Math.round(shownMax).toLocaleString()}
       </p>
       <p style={{ fontSize: '14px', color: eff.textBody, margin: 0, lineHeight: 1.5 }}>
         Contact us for an exact quote tailored to your needs.
