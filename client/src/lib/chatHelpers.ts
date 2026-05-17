@@ -145,6 +145,8 @@ export interface SendChatParams {
   reportId?: string;
   auditContext?: Record<string, any>;
   pageContext?: Record<string, any>;
+  /** Live text snapshot of the page the visitor is viewing (website surface). */
+  pageContentSnapshot?: string;
   /** Portal page hint (e.g., "overview", "billing", "onboarding") */
   page?: string;
   /** Portal onboarding ID (for onboarding page context) */
