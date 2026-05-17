@@ -865,7 +865,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
   return (
     <>
       <WizardNav current={visualStep(step)} onHelp={() => setShowHelp(true)} justSaved={justSaved} />
-      <div className={`wizard-shell-body ${showSidePreview ? '' : 'wizard-no-preview'}`}>
+      <div className={`wizard-shell-body ${showSidePreview ? '' : 'wizard-no-preview'} ${step === 6 ? 'wizard-template-mode' : ''}`}>
         <div className="wizard-left">
           <div className="wizard-left-inner">
             {STEP_TITLES[step] && (
@@ -1719,6 +1719,21 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
           box-shadow: 0 26px 52px -18px rgba(15,23,42,0.55);
         }
         .wizard-no-preview .wizard-left { width: 100%; border-right: none; }
+
+        /* Template step — Elfsight layout: preview is the main screen, the
+           template strip docks beneath it (full width, both desktop & mobile). */
+        .wizard-shell-body.wizard-template-mode { flex-direction: column; }
+        .wizard-template-mode .wizard-preview-fixed {
+          order: 0; position: static; height: auto; min-height: 460px; width: 100%;
+        }
+        .wizard-template-mode .wizard-left {
+          order: 1; width: 100%; max-height: none; overflow-y: visible;
+          border-right: none; border-top: 1px solid ${p.colors.borderLight};
+        }
+        .wizard-template-mode .wizard-left-inner { padding: 18px 26px 30px; }
+        .template-strip::-webkit-scrollbar { display: none; }
+        .template-strip { touch-action: pan-x; }
+
         @media (max-width: 980px) {
           .wizard-shell-body { flex-direction: column; }
           .wizard-left { width: 100%; max-height: none; overflow-y: visible; border-right: none; }
