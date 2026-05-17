@@ -22,7 +22,7 @@ import {
   Search, ChevronDown, ExternalLink, Copy, Zap, AlertCircle,
   RotateCcw, Code2, Eye, Upload, Trash2, Image as ImageIcon, ChevronRight,
   FileText, Shield, Mail, Phone, User, Building2, Settings2,
-  CheckCircle2, TriangleAlert, Smartphone, Monitor
+  CheckCircle2, TriangleAlert, Smartphone, Monitor, Save
 } from 'lucide-react';
 import { useMutation } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
@@ -210,6 +210,18 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
     setWs(p => ({ ...p, [k]: v }));
     if (validationErrors[k]) setValidationErrors(p => { const n = { ...p }; delete n[k]; return n; });
   }, [validationErrors]);
+
+  // Explicit "Save" — the wizard auto-persists to localStorage on every change,
+  // but the per-step Save button gives the user explicit, reassuring control.
+  const handleManualSave = useCallback(() => {
+    try {
+      localStorage.setItem('qq_wizard', JSON.stringify(ws));
+      localStorage.setItem('qq_step', String(step));
+    } catch {}
+    setJustSaved(true);
+    if (saveFlashRef.current) clearTimeout(saveFlashRef.current);
+    saveFlashRef.current = setTimeout(() => setJustSaved(false), 2200);
+  }, [ws, step]);
 
   useEffect(() => {
     const currentTemplateId = ws.calculatorSettings.ui_template?.template_id || 'classic_single';
@@ -1024,7 +1036,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                 error={validationErrors.ownerEmail} />
             </div>
 
-            <Footer onBack={undefined} onNext={tryStep0Continue}
+            <Footer onBack={undefined} onNext={tryStep0Continue} onSave={handleManualSave}
               nextDisabled={false} backDisabled hint={STEP_HINTS[0]} />
           </div>
         )}
@@ -1237,7 +1249,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                 <p style={{ fontSize: '13px', color: p.colors.danger, marginTop: '8px', textAlign: 'center' }}>{genError}</p>
               )}
             </div>
-            <Footer onBack={() => setStep(2)} onNext={undefined} hint={STEP_HINTS[1]} />
+            <Footer onBack={() => setStep(2)} onNext={undefined} onSave={handleManualSave} hint={STEP_HINTS[1]} />
           </div>
         )}
 
@@ -1437,7 +1449,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                 ))}
               </div>
             )}
-            <Footer onBack={() => setStep(0)} onNext={tryStep2Continue} hint={STEP_HINTS[2]} />
+            <Footer onBack={() => setStep(0)} onNext={tryStep2Continue} onSave={handleManualSave} hint={STEP_HINTS[2]} />
           </div>
         )}
 
@@ -2280,8 +2292,34 @@ function MiniField({ label, required, optional, error, children }: {
 }
 
 
-function Footer({ onBack, onNext, nextDisabled, backDisabled, children, hint }: {
-  onBack?: () => void; onNext?: () => void; nextDisabled?: boolean; backDisabled?: boolean;
+/* Secondary "Save" button — persists the draft and flashes confirmation. */
+function SaveButton({ onSave }: { onSave: () => void }) {
+  const [saved, setSaved] = useState(false);
+  return (
+    <button
+      data-testid="button-save"
+      onClick={() => { onSave(); setSaved(true); setTimeout(() => setSaved(false), 1800); }}
+      style={{
+        display: 'flex', alignItems: 'center', gap: '6px',
+        padding: '10px 16px', borderRadius: p.radius.md,
+        border: `1px solid ${saved ? p.colors.accent : p.colors.border}`,
+        background: saved ? p.colors.accentLighter : '#FFFFFF',
+        cursor: 'pointer', fontSize: '14px', fontWeight: 600,
+        color: saved ? p.colors.accentDark : p.colors.body,
+        transition: p.transitions.fast, WebkitTapHighlightColor: 'transparent',
+        minHeight: '44px',
+      }}
+    >
+      {saved
+        ? <><Check style={{ width: 15, height: 15 }} /> Saved</>
+        : <><Save style={{ width: 15, height: 15 }} /> Save</>}
+    </button>
+  );
+}
+
+function Footer({ onBack, onNext, onSave, nextDisabled, backDisabled, children, hint }: {
+  onBack?: () => void; onNext?: () => void; onSave?: () => void;
+  nextDisabled?: boolean; backDisabled?: boolean;
   children?: any; hint?: string;
 }) {
   return (
@@ -2291,7 +2329,7 @@ function Footer({ onBack, onNext, nextDisabled, backDisabled, children, hint }: 
           {hint}
         </p>
       )}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}>
         <button data-testid="button-back"
           onClick={backDisabled ? undefined : onBack} disabled={backDisabled}
           style={{
@@ -2306,11 +2344,14 @@ function Footer({ onBack, onNext, nextDisabled, backDisabled, children, hint }: 
         >
           <ArrowLeft style={{ width: '16px', height: '16px' }} /> Back
         </button>
-        {children || (
-          <PrimaryBtn testId="button-continue" onClick={onNext} disabled={nextDisabled}>
-            Continue <ArrowRight style={{ width: '16px', height: '16px' }} />
-          </PrimaryBtn>
-        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {onSave && <SaveButton onSave={onSave} />}
+          {children || (onNext ? (
+            <PrimaryBtn testId="button-continue" onClick={onNext} disabled={nextDisabled}>
+              Continue <ArrowRight style={{ width: '16px', height: '16px' }} />
+            </PrimaryBtn>
+          ) : null)}
+        </div>
       </div>
     </div>
   );

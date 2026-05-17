@@ -45,10 +45,10 @@ export const platformTheme = {
     wizardCard: '0 2px 12px rgba(0,0,0,0.04), 0 0 1px rgba(0,0,0,0.06)',
     lg: shadows.lg,
     xl: shadows.xl,
-    button: `0 1px 3px rgba(45,106,79,0.15), 0 1px 2px rgba(0,0,0,0.06)`,
-    buttonHover: `0 4px 14px rgba(45,106,79,0.2), 0 1px 3px rgba(0,0,0,0.06)`,
-    focus: `0 0 0 3px rgba(45,106,79,0.12)`,
-    selected: `0 0 0 2px ${pc.accent}30, 0 1px 4px rgba(45,106,79,0.08)`,
+    button: `0 1px 3px rgba(13,60,252,0.18), 0 1px 2px rgba(0,0,0,0.06)`,
+    buttonHover: `0 6px 16px rgba(13,60,252,0.26), 0 1px 3px rgba(0,0,0,0.06)`,
+    focus: `0 0 0 3px rgba(13,60,252,0.14)`,
+    selected: `0 0 0 2px ${pc.accent}33, 0 1px 4px rgba(13,60,252,0.1)`,
   },
 
   radius: {
