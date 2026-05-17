@@ -13,6 +13,16 @@ interface LeadCaptureStepProps {
   accentColor?: string;
 }
 
+type CustomFieldType = 'text' | 'email' | 'phone' | 'number' | 'select' | 'textarea' | 'checkbox';
+
+interface CustomField {
+  id: string;
+  type: CustomFieldType;
+  label: string;
+  required: boolean;
+  options: string[];
+}
+
 /**
  * Collects lead information and submits to POST /api/leads.
  * Reads/writes through widget state (leadData, smsConsent, leadSubmitted).
@@ -43,6 +53,21 @@ export default function LeadCaptureStep({ step, accentColor }: LeadCaptureStepPr
   // Ref-based guard prevents double-submit across re-renders
   const submitLockRef = useRef(false);
 
+  // Owner-defined custom lead fields (calculator_settings.lead_form.custom_fields).
+  const customFields = useMemo<CustomField[]>(() => {
+    const cs = config.calculator.calculator_settings as any;
+    const cf = cs?.lead_form?.custom_fields;
+    return Array.isArray(cf) ? cf : [];
+  }, [config.calculator.calculator_settings]);
+  const [customValues, setCustomValues] = useState<Record<string, string | boolean>>({});
+  const [customErrors, setCustomErrors] = useState<Record<string, string>>({});
+
+  const setCustomValue = (id: string, value: string | boolean) => {
+    setCustomValues((p) => ({ ...p, [id]: value }));
+    setCustomErrors((p) => ({ ...p, [id]: '' }));
+    setError(null);
+  };
+
   const smsConsent = state.lead.smsConsent;
 
   function validateFields(): boolean {
@@ -66,8 +91,18 @@ export default function LeadCaptureStep({ step, accentColor }: LeadCaptureStepPr
       errs.phone = 'Please enter a valid phone number.';
     }
 
+    // Required custom fields
+    const cErrs: Record<string, string> = {};
+    for (const f of customFields) {
+      if (!f.required) continue;
+      const v = customValues[f.id];
+      const empty = f.type === 'checkbox' ? v !== true : !String(v ?? '').trim();
+      if (empty) cErrs[f.id] = `${f.label || 'This field'} is required.`;
+    }
+    setCustomErrors(cErrs);
+
     setFieldErrors(errs);
-    if (Object.keys(errs).length > 0) return false;
+    if (Object.keys(errs).length > 0 || Object.keys(cErrs).length > 0) return false;
 
     setError(null);
     return true;
@@ -94,8 +129,15 @@ export default function LeadCaptureStep({ step, accentColor }: LeadCaptureStepPr
         return;
       }
 
-      // Ensure answers is always a non-null object
-      const safeAnswers = (answers && typeof answers === 'object') ? answers : {};
+      // Ensure answers is always a non-null object (cloned — never mutate state).
+      const safeAnswers: Record<string, any> = { ...((answers && typeof answers === 'object') ? answers : {}) };
+      // Merge owner-defined custom field values, keyed by their label.
+      for (const f of customFields) {
+        const v = customValues[f.id];
+        if (v !== undefined && v !== '' && v !== false) {
+          safeAnswers[f.label || f.id] = v;
+        }
+      }
 
       // Ensure quote_amount is a finite number or null
       const rawTotal = estimate?.total;
@@ -250,6 +292,68 @@ export default function LeadCaptureStep({ step, accentColor }: LeadCaptureStepPr
             onBlur={(e) => { e.currentTarget.style.borderColor = eff.buttonBorder; e.currentTarget.style.boxShadow = 'none'; }}
           />
         </div>
+
+        {/* Custom fields (owner-defined) */}
+        {customFields.map((f) => {
+          const val = customValues[f.id];
+          const err = customErrors[f.id];
+          if (f.type === 'checkbox') {
+            return (
+              <div key={f.id}>
+                <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '4px 0', cursor: 'pointer' }}>
+                  <Checkbox
+                    checked={val === true}
+                    onCheckedChange={(c) => setCustomValue(f.id, !!c)}
+                    className="h-5 w-5 rounded border-[#d5e1e7] data-[state=checked]:bg-[#394247] data-[state=checked]:border-[#394247] data-[state=checked]:text-[#e4edf1] focus-visible:ring-[#d5e1e7]"
+                    style={{ marginTop: '2px' }}
+                  />
+                  <span style={{ fontSize: '13px', color: eff.textBody, lineHeight: 1.5 }}>
+                    {f.label}{f.required ? ' *' : ''}
+                  </span>
+                </label>
+                {err && <p style={{ fontSize: '12px', color: eff.error, margin: '4px 0 0' }}>{err}</p>}
+              </div>
+            );
+          }
+          return (
+            <div key={f.id}>
+              <label htmlFor={`cf-${f.id}`} style={{ fontSize: '13px', fontWeight: 600, color: eff.text, display: 'block', marginBottom: '6px' }}>
+                {f.label}
+                {!f.required && <span style={{ fontWeight: 400, color: eff.textBody }}> (optional)</span>}
+              </label>
+              {f.type === 'select' ? (
+                <select
+                  id={`cf-${f.id}`}
+                  value={String(val ?? '')}
+                  onChange={(e) => setCustomValue(f.id, e.target.value)}
+                  style={{ ...inputStyle, ...(err ? { borderColor: eff.error } : {}) }}
+                >
+                  <option value="">Select...</option>
+                  {(f.options || []).map((o) => <option key={o} value={o}>{o}</option>)}
+                </select>
+              ) : f.type === 'textarea' ? (
+                <textarea
+                  id={`cf-${f.id}`}
+                  rows={3}
+                  value={String(val ?? '')}
+                  onChange={(e) => setCustomValue(f.id, e.target.value)}
+                  style={{ ...inputStyle, resize: 'vertical', ...(err ? { borderColor: eff.error } : {}) }}
+                />
+              ) : (
+                <input
+                  id={`cf-${f.id}`}
+                  type={f.type === 'number' ? 'number' : f.type === 'email' ? 'email' : f.type === 'phone' ? 'tel' : 'text'}
+                  value={String(val ?? '')}
+                  onChange={(e) => setCustomValue(f.id, e.target.value)}
+                  style={{ ...inputStyle, ...(err ? { borderColor: eff.error } : {}) }}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = err ? eff.error : eff.buttonBg; e.currentTarget.style.boxShadow = `0 0 0 3px ${eff.buttonBorder}`; }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = err ? eff.error : eff.buttonBorder; e.currentTarget.style.boxShadow = 'none'; }}
+                />
+              )}
+              {err && <p style={{ fontSize: '12px', color: eff.error, margin: '4px 0 0' }}>{err}</p>}
+            </div>
+          );
+        })}
 
         {/* SMS consent */}
         <label style={{

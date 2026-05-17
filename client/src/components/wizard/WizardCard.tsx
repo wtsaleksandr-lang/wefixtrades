@@ -1500,9 +1500,13 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
         {step === 3 && (
           <LeadFormStep
             leadForm={ws.calculatorSettings.lead_form}
+            action={ws.calculatorSettings.action}
             ownerEmail={ws.ownerEmail}
             onChange={(lf) => {
               set('calculatorSettings', { ...ws.calculatorSettings, lead_form: lf });
+            }}
+            onActionChange={(a) => {
+              set('calculatorSettings', { ...ws.calculatorSettings, action: a });
             }}
             onBack={() => setStep(2)}
             onNext={() => setStep(5)}

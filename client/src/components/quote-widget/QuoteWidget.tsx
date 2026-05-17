@@ -86,6 +86,7 @@ export default function QuoteWidget({ calculator, isEmbed = false }: QuoteWidget
         calcSettings.calculator_type === 'estimate_plus_booking' &&
         bookingSettings.enabled === true,
       leadForm: calcSettings.lead_form,
+      action: calcSettings.action,
       promotionsEnabled: calcSettings.promotions?.enabled === true,
       quoteRules: calcSettings.quote_rules,
       serviceTypes: calcSettings.serviceTypes,

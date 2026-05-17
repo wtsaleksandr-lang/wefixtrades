@@ -24,6 +24,14 @@ export interface FlowBuilderSettings {
     fields?: Record<string, boolean>;
     cta_text?: string;
   };
+  /**
+   * Post-quote action config from calculator_settings.action. When `mode` is
+   * 'none' or 'redirect' the lead_capture step is dropped from the flow.
+   */
+  action?: {
+    mode?: 'lead_form' | 'redirect' | 'none';
+    redirect?: { heading?: string; caption?: string; button_text?: string; button_url?: string };
+  };
   /** Booking enabled */
   bookingEnabled?: boolean;
   /** Promotions/coupon enabled */
@@ -83,6 +91,10 @@ export function buildWidgetFlow(
   template: TemplateDefinition,
   settings: FlowBuilderSettings = {},
 ): WizardFlow {
+  // Whether the post-quote lead_capture step is part of the flow.
+  // 'redirect' / 'none' action modes drop it; default is 'lead_form'.
+  const includeLeadCapture = (settings.action?.mode ?? 'lead_form') === 'lead_form';
+
   // If the template already has wizard_steps, use them directly.
   // This allows fully custom flows defined at the template level.
   // Populate any empty service_type select options from calculator settings.
@@ -90,7 +102,7 @@ export function buildWidgetFlow(
     const serviceTypes: Array<{ value: string; label: string }> =
       (settings as any).serviceTypes ?? [];
 
-    const steps = template.wizard_steps.map((step) => {
+    const rawSteps = template.wizard_steps.map((step) => {
       if (!serviceTypes.length || step.type !== 'question') return step;
       const questions = step.questions.map((q) => {
         if (q.id === 'service_type' && q.type === 'select' && (!q.options || q.options.length === 0)) {
@@ -100,6 +112,10 @@ export function buildWidgetFlow(
       });
       return { ...step, questions };
     });
+
+    const steps = includeLeadCapture
+      ? rawSteps
+      : rawSteps.filter((s) => s.type !== 'lead_capture');
 
     return applyFieldOverrides({
       version: 1,
@@ -129,8 +145,10 @@ export function buildWidgetFlow(
   // Step 3: Price reveal
   steps.push(buildPriceRevealStep(pricingConfig));
 
-  // Step 4: Lead capture (always present)
-  steps.push(buildLeadCaptureStep(settings));
+  // Step 4: Lead capture — present unless the action mode is 'none'/'redirect'
+  if (includeLeadCapture) {
+    steps.push(buildLeadCaptureStep(settings));
+  }
 
   // Step 5: Booking (if enabled)
   if (settings.bookingEnabled) {

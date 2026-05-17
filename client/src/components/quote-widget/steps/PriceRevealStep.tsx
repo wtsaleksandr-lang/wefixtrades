@@ -63,6 +63,11 @@ export default function PriceRevealStep({ step, accentColor }: PriceRevealStepPr
     return result;
   }, [config.pricingConfig, estimateInputs]);
 
+  // Post-quote action: 'redirect' mode shows a CTA button instead of a lead form.
+  const action = (config.calculator.calculator_settings as any)?.action;
+  const redirect = action?.mode === 'redirect' ? action?.redirect : null;
+  const showRedirect = !!(redirect && redirect.button_url);
+
   const trackedRef = useRef(false);
   useEffect(() => {
     if (!trackedRef.current && config.calculator.id === 0) {
@@ -102,6 +107,11 @@ export default function PriceRevealStep({ step, accentColor }: PriceRevealStepPr
           breakdown={estimate.breakdown}
           callUs={estimate.callUs}
         />
+      )}
+
+      {/* Redirect CTA — shown when action.mode is 'redirect' */}
+      {showRedirect && estimate && (
+        <RedirectCtaBlock redirect={redirect} />
       )}
 
       {/* Trust microcopy */}
@@ -340,6 +350,44 @@ function PayDepositButton({
       <CreditCard style={{ width: 16, height: 16 }} />
       {paying ? 'Redirecting to payment...' : label}
     </button>
+  );
+}
+
+/** Redirect CTA — heading + caption + button, shown when action.mode is 'redirect'. */
+function RedirectCtaBlock({
+  redirect,
+}: {
+  redirect: { heading?: string; caption?: string; button_text?: string; button_url?: string };
+}) {
+  const go = () => {
+    if (redirect.button_url) window.open(redirect.button_url, '_blank', 'noopener');
+  };
+  return (
+    <div style={{
+      borderRadius: eff.radiusXl,
+      border: `1px solid ${eff.buttonBorder}`,
+      background: eff.bgSecondary,
+      padding: '24px 20px',
+      textAlign: 'center',
+    }}>
+      <p style={{ fontSize: '18px', fontWeight: 700, color: eff.text, margin: '0 0 6px' }}>
+        {redirect.heading || 'Thanks for your interest!'}
+      </p>
+      {redirect.caption && (
+        <p style={{ fontSize: '14px', color: eff.textBody, margin: '0 0 16px', lineHeight: 1.5 }}>
+          {redirect.caption}
+        </p>
+      )}
+      <button
+        type="button"
+        onClick={go}
+        style={{ ...primaryButtonStyle, ...(redirect.caption ? {} : { marginTop: '12px' }) }}
+        onMouseOver={(e) => (e.currentTarget.style.background = eff.buttonBgHover)}
+        onMouseOut={(e) => (e.currentTarget.style.background = eff.buttonBg)}
+      >
+        {redirect.button_text || 'Continue'}
+      </button>
+    </div>
   );
 }
 
