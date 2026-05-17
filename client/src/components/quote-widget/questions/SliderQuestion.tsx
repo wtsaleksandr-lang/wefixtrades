@@ -39,7 +39,7 @@ export default function SliderQuestion({ question, value, onChange, accentColor 
         step={question.step ?? 1}
         unitSuffix={question.unit_suffix || question.unit || ''}
         onChange={(v) => onChange(v)}
-        accentColor={eff.buttonBg}
+        accentColor={accentColor || eff.accent}
       />
     </div>
   );

@@ -3,22 +3,29 @@
  * Visual only — no logic, no state, no dependencies.
  */
 export const eff = {
-  bg: '#e4edf1',
-  bgSecondary: '#f5fcff',
-  text: '#22282a',
-  textBody: '#5f6f77',
+  bg: '#eef1f6',
+  bgSecondary: '#f7f9fc',
+  text: '#0f172a',
+  textBody: '#5b6573',
+  textMuted: '#94a3b8',
   accent: '#0d3cfc',
-  buttonBg: '#394247',
-  buttonBgHover: '#171818',
-  buttonBorder: '#d5e1e7',
-  buttonText: '#e4edf1',
+  accentTint: 'rgba(13,60,252,0.08)',
+  accentSoft: 'rgba(13,60,252,0.14)',
+  // Primary CTA — brand blue (was a flat dark grey, which read dated).
+  buttonBg: '#0d3cfc',
+  buttonBgHover: '#0a30d1',
+  buttonBorder: '#e1e7ef',
+  buttonText: '#ffffff',
   font: '"Satoshi Variable", system-ui, sans-serif',
   fontMono: '"Et Mono", "SF Mono", "Roboto Mono", monospace',
   radiusSm: '0.5em',
   radiusMd: '0.75em',
   radiusLg: '1em',
-  radiusXl: '1.5em',
-  radius2xl: '1.75em',
+  radiusXl: '1.25em',
+  radius2xl: '1.5em',
+  /** Premium card / control shadows */
+  shadowCard: '0 12px 40px rgba(15,23,42,0.08), 0 2px 8px rgba(15,23,42,0.04)',
+  shadowButton: '0 8px 20px rgba(13,60,252,0.28)',
   /** Semantic color for validation errors */
   error: '#dc2626',
   /** Semantic color for success states */
@@ -70,7 +77,7 @@ export const primaryButtonStyle: React.CSSProperties = {
   alignItems: 'center',
   justifyContent: 'center',
   gap: '8px',
-  borderRadius: eff.radiusXl,
+  borderRadius: eff.radiusLg,
   padding: '16px 24px',
   fontSize: '15px',
   fontWeight: 700,
@@ -79,7 +86,8 @@ export const primaryButtonStyle: React.CSSProperties = {
   border: 'none',
   cursor: 'pointer',
   fontFamily: eff.font,
-  transition: 'background 0.15s, transform 0.1s',
+  boxShadow: eff.shadowButton,
+  transition: 'background 0.15s, transform 0.1s, box-shadow 0.15s',
   letterSpacing: '0.01em',
 };
 

@@ -206,7 +206,7 @@ function WidgetCard({
         background: '#fff',
         borderRadius: eff.radius2xl,
         border: `1px solid ${eff.buttonBorder}`,
-        boxShadow: '0 8px 32px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.03)',
+        boxShadow: eff.shadowCard,
         overflow: 'hidden',
       }}
     >
