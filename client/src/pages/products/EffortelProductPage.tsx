@@ -43,8 +43,8 @@ const HERO_HOOKS: Record<string, { eyebrow: string; headline: ReactNode; sub: st
     sub: "AI answers every call and chat 24/7, gives instant estimates, books jobs, and follows up — automatically.",
   },
   quickquotepro: {
-    eyebrow: "Tired of \"how much?\" calls killing your day?",
-    headline: <>Instant quotes.<br/><span style={{ color: mkt.accent }}>Live in 5 minutes.</span></>,
+    eyebrow: "",
+    headline: <>Instant quotes. <span style={{ color: mkt.accent }}>Live in 5 minutes.</span></>,
     sub: "Customers get accurate prices on your website 24/7. Every quote captures a lead. Live in 5 minutes — no platform switch.",
   },
   mapguard: {
@@ -318,18 +318,26 @@ function Hero({ cfg, hook, slug }: { cfg: ReturnType<typeof getProductBySlug> & 
   }
 
   // Default centered hero for all other products
+  const isQQ = slug === "quickquotepro";
   return (
     <section style={{ padding: "120px 24px 80px", position: "relative", overflow: "hidden" }}>
       <div style={{
         position: "absolute", inset: 0, pointerEvents: "none",
         background: "radial-gradient(ellipse 60% 50% at 50% 0%, rgba(13,60,252,0.08) 0%, transparent 60%)",
       }} />
+      {isQQ && (
+        <span style={{ position: "absolute", top: 24, left: 24, fontFamily: MONO, fontSize: 12, letterSpacing: "0.16em", textTransform: "uppercase", color: mkt.accent }}>
+          {cfg.name}
+        </span>
+      )}
       <div style={{ maxWidth: 1180, margin: "0 auto", position: "relative", textAlign: "center" }}>
-        <Reveal>
-          <span style={{ display: "inline-block", fontFamily: MONO, fontSize: 12, letterSpacing: "0.16em", textTransform: "uppercase", color: mkt.accent, marginBottom: 16 }}>
-            {cfg.name}
-          </span>
-        </Reveal>
+        {!isQQ && (
+          <Reveal>
+            <span style={{ display: "inline-block", fontFamily: MONO, fontSize: 12, letterSpacing: "0.16em", textTransform: "uppercase", color: mkt.accent, marginBottom: 16 }}>
+              {cfg.name}
+            </span>
+          </Reveal>
+        )}
         {hook?.eyebrow && (
           <Reveal delay={0.04}>
             <p style={{ fontSize: 14, color: mkt.onDarkFaint, fontStyle: "italic", marginBottom: 18, maxWidth: 540, margin: "0 auto 18px" }}>
@@ -338,7 +346,7 @@ function Hero({ cfg, hook, slug }: { cfg: ReturnType<typeof getProductBySlug> & 
           </Reveal>
         )}
         <Reveal delay={0.08}>
-          <h1 style={{ fontSize: "clamp(44px, 6.5vw, 80px)", fontWeight: 700, lineHeight: 0.98, letterSpacing: "-0.03em", color: mkt.onDark, marginBottom: 24, maxWidth: 920, margin: "0 auto 24px" }}>
+          <h1 style={{ fontSize: isQQ ? "clamp(35px, 5.2vw, 64px)" : "clamp(44px, 6.5vw, 80px)", fontWeight: 700, lineHeight: 0.98, letterSpacing: "-0.03em", color: mkt.onDark, marginBottom: 24, maxWidth: 920, margin: "0 auto 24px" }}>
             {hook?.headline ?? cfg.shortTagline}
           </h1>
         </Reveal>
@@ -353,7 +361,7 @@ function Hero({ cfg, hook, slug }: { cfg: ReturnType<typeof getProductBySlug> & 
               {cfg.primaryCTA.label} <ArrowRight size={16} />
             </Link>
             {cfg.secondaryCTA && (
-              <Link href={cfg.secondaryCTA.href} style={ctaGhost}>
+              <Link href={cfg.secondaryCTA.href} className="wft-hover-border-white" style={ctaGhost}>
                 {cfg.secondaryCTA.label}
               </Link>
             )}
