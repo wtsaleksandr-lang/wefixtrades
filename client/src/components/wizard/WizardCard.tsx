@@ -1151,6 +1151,60 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
               </div>
             </div>
 
+            {/* Offers & call-to-action */}
+            <div style={{
+              marginTop: '4px', marginBottom: '18px', padding: '16px',
+              borderRadius: p.radius.md, border: `1px solid ${p.colors.borderLight}`,
+              background: p.colors.surfaceRaised,
+            }}>
+              <p style={{ ...p.typography.label, marginBottom: '10px' }}>Offers &amp; call-to-action</p>
+
+              <label htmlFor="cta-text" style={{ fontSize: '12px', fontWeight: 500, color: p.colors.body, display: 'block', marginBottom: '6px' }}>
+                Button text
+              </label>
+              <input
+                id="cta-text" data-testid="input-cta-text"
+                value={ws.calculatorSettings?.lead_form?.cta?.button_text || ''}
+                onChange={e => set('calculatorSettings', {
+                  ...ws.calculatorSettings,
+                  lead_form: {
+                    ...ws.calculatorSettings.lead_form,
+                    cta: { ...ws.calculatorSettings.lead_form?.cta, button_text: e.target.value.slice(0, 40) },
+                  },
+                })}
+                placeholder="Get My Free Quote"
+                className="premium-input"
+              />
+
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', marginTop: '14px' }}>
+                <input
+                  type="checkbox" data-testid="toggle-upsell"
+                  checked={ws.calculatorSettings?.conversion?.show_upsell === true}
+                  onChange={e => set('calculatorSettings', {
+                    ...ws.calculatorSettings,
+                    conversion: { ...ws.calculatorSettings.conversion, show_upsell: e.target.checked },
+                  })}
+                  style={{ width: 15, height: 15, accentColor: p.colors.accent }}
+                />
+                <span style={{ fontSize: '13px', fontWeight: 500, color: p.colors.body }}>
+                  Show a special offer / upsell
+                </span>
+              </label>
+              {ws.calculatorSettings?.conversion?.show_upsell && (
+                <input
+                  data-testid="input-upsell-text"
+                  value={ws.calculatorSettings?.conversion?.upsell_text || ''}
+                  onChange={e => set('calculatorSettings', {
+                    ...ws.calculatorSettings,
+                    conversion: { ...ws.calculatorSettings.conversion, upsell_text: e.target.value.slice(0, 80) },
+                  })}
+                  placeholder="e.g. Book this week and save 10%"
+                  className="premium-input"
+                  style={{ marginTop: '8px' }}
+                />
+              )}
+            </div>
+
             {/* Advanced design — collapsed by default */}
             <details style={{ marginTop: '4px' }}>
               <summary style={{
