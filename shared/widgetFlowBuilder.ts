@@ -37,6 +37,43 @@ export interface FlowBuilderSettings {
   serviceTypes?: Array<{ value: string; label: string }>;
   /** Trade-specific input definitions */
   tradeInputs?: Record<string, unknown>;
+  /**
+   * Owner edits to auto-generated fields, keyed by question id
+   * (calculator_settings.field_overrides). Applied as a final post-pass.
+   */
+  fieldOverrides?: Record<string, {
+    label?: string; min?: number; max?: number; step?: number; hidden?: boolean;
+  }>;
+}
+
+/**
+ * Apply owner field overrides (label / min / max / step / hidden) to a built
+ * flow. A hidden question is dropped; an input step left with no questions is
+ * dropped too, so the customer never sees an empty step.
+ */
+function applyFieldOverrides(flow: WizardFlow, overrides?: FlowBuilderSettings['fieldOverrides']): WizardFlow {
+  if (!overrides || Object.keys(overrides).length === 0) return flow;
+  const steps: StepDefinition[] = [];
+  for (const step of flow.steps) {
+    const questions = (step.questions || [])
+      .filter((q) => !overrides[q.id]?.hidden)
+      .map((q) => {
+        const o = overrides[q.id];
+        if (!o) return q;
+        return {
+          ...q,
+          ...(o.label !== undefined ? { label: o.label } : {}),
+          ...(o.min !== undefined ? { min: o.min } : {}),
+          ...(o.max !== undefined ? { max: o.max } : {}),
+          ...(o.step !== undefined ? { step: o.step } : {}),
+        };
+      });
+    // Drop input steps that lost their only question.
+    const isInputStep = ['question', 'multi_question', 'package_selection', 'addon_selection'].includes(step.type);
+    if (isInputStep && (step.questions?.length || 0) > 0 && questions.length === 0) continue;
+    steps.push({ ...step, questions });
+  }
+  return { ...flow, steps };
 }
 
 /* ─── Builder ─── */
@@ -64,7 +101,7 @@ export function buildWidgetFlow(
       return { ...step, questions };
     });
 
-    return {
+    return applyFieldOverrides({
       version: 1,
       id: `flow_${template.id}`,
       name: template.name,
@@ -75,7 +112,7 @@ export function buildWidgetFlow(
         show_step_count: template.layout_style === 'multi_step',
         mobile_optimized: true,
       },
-    };
+    }, settings.fieldOverrides);
   }
 
   // Otherwise, generate steps from the pricing config
@@ -105,7 +142,7 @@ export function buildWidgetFlow(
 
   const isMultiStep = template.layout_style === 'multi_step' || steps.length > 3;
 
-  return {
+  return applyFieldOverrides({
     version: 1,
     id: `flow_${template.id}_${pricingConfig.pricingType}`,
     name: template.name,
@@ -116,7 +153,7 @@ export function buildWidgetFlow(
       show_step_count: isMultiStep,
       mobile_optimized: true,
     },
-  };
+  }, settings.fieldOverrides);
 }
 
 /* ─── Input Step Builders (per pricing type) ─── */
