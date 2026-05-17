@@ -100,11 +100,12 @@ export const calculatorSettingsSchema = z.object({
   pricing_audit: pricingAuditLogSchema.optional(),
 
   // Manual pricing mode (standard trades — set via PricingStrategySelector)
-  pricing_mode: z.enum(['ai_suggested', 'hourly', 'fixed', 'range']).default('ai_suggested'),
+  pricing_mode: z.enum(['ai_suggested', 'hourly', 'fixed', 'range', 'custom']).default('ai_suggested'),
   manual_hourly_rate: z.number().optional(),
   manual_fixed_price: z.number().optional(),
   manual_range_min: z.number().optional(),
   manual_range_max: z.number().optional(),
+  manual_custom_config: z.record(z.any()).optional(),
 
   appearance: z.object({
     color_theme: z.enum(['graphite', 'navy', 'emerald', 'slate', 'custom']).default('emerald'),

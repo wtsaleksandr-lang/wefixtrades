@@ -12,6 +12,7 @@ import TestGateStep, { type TestGateResult } from './TestGateStep';
 import LeadFormStep from './LeadFormStep';
 import PublishStep from './PublishStep';
 import TemplatePickerStep from './TemplatePickerStep';
+import PricingConfigEditor from '@/components/calculator/PricingConfigEditor';
 import { trackEvent } from '@/lib/trackEvent';
 import QuoteWidget from '@/components/quote-widget/QuoteWidget';
 import type { CalculatorData } from '@/components/quote-widget/types';
@@ -735,12 +736,17 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
         const max = ws.calculatorSettings?.manual_range_max || 500;
         return { pricingType: 'price_range_only', rangeLabel: 'Estimated Cost', rangeMin: min, rangeMax: max };
       }
+      if (mode === 'custom') {
+        const cfg = ws.calculatorSettings?.manual_custom_config as any;
+        if (cfg && cfg.pricingType) return cfg;
+        return { pricingType: 'hourly', unitName: 'hour', rate: 0 };
+      }
     }
     // 4. Standard trade with AI mode or default → use trade defaults
     const trade = TRADES.find(tr => tr.id === ws.selectedTrade);
     if (trade && (trade as any).defaultPricing) return (trade as any).defaultPricing;
     return { pricingType: 'hourly', unitName: 'hour', rate: 75, baseFee: 50 };
-  }, [ws.isCustomTrade, ws.customTradeData, ws.stage2Data, ws.calculatorSettings.pricing_draft, ws.selectedTrade, ws.calculatorSettings?.pricing_mode, ws.calculatorSettings?.manual_hourly_rate, ws.calculatorSettings?.manual_fixed_price, ws.calculatorSettings?.manual_range_min, ws.calculatorSettings?.manual_range_max]);
+  }, [ws.isCustomTrade, ws.customTradeData, ws.stage2Data, ws.calculatorSettings.pricing_draft, ws.selectedTrade, ws.calculatorSettings?.pricing_mode, ws.calculatorSettings?.manual_hourly_rate, ws.calculatorSettings?.manual_fixed_price, ws.calculatorSettings?.manual_range_min, ws.calculatorSettings?.manual_range_max, ws.calculatorSettings?.manual_custom_config]);
 
   // Synthetic CalculatorData for live preview (no DB save required)
   const previewCalculatorData = useMemo<CalculatorData>(() => ({
@@ -1492,6 +1498,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                 fixedPrice={ws.calculatorSettings?.manual_fixed_price || 200}
                 rangeMin={ws.calculatorSettings?.manual_range_min || 100}
                 rangeMax={ws.calculatorSettings?.manual_range_max || 500}
+                customConfig={ws.calculatorSettings?.manual_custom_config}
                 onChange={(key, val) => set('calculatorSettings', { ...ws.calculatorSettings, [key]: val })}
               />
             )}
@@ -1865,7 +1872,7 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
 
 /* ─── Pricing Strategy Selector (Step 2 for standard trades) ─── */
 function PricingStrategySelector({
-  trade, pricingMode, hourlyRate, fixedPrice, rangeMin, rangeMax, onChange,
+  trade, pricingMode, hourlyRate, fixedPrice, rangeMin, rangeMax, customConfig, onChange,
 }: {
   trade: string;
   pricingMode: string;
@@ -1873,6 +1880,7 @@ function PricingStrategySelector({
   fixedPrice: number;
   rangeMin: number;
   rangeMax: number;
+  customConfig?: any;
   onChange: (key: string, val: any) => void;
 }) {
   const modes = [
@@ -1880,6 +1888,7 @@ function PricingStrategySelector({
     { id: 'hourly', label: 'Hourly Rate', desc: 'Charge by the hour with a base fee.', icon: Clock },
     { id: 'fixed', label: 'Fixed Price', desc: 'Set a flat rate per job type.', icon: DollarSign },
     { id: 'range', label: 'Price Range', desc: 'Show a min–max estimate to customers.', icon: ArrowRight },
+    { id: 'custom', label: 'Custom Logic', desc: 'Build it yourself — rates, tiers, add-ons, fees.', icon: Settings2 },
   ];
 
   return (
@@ -1983,6 +1992,17 @@ function PricingStrategySelector({
         <p style={{ fontSize: 12, color: p.colors.muted, marginTop: 8 }}>
           Customers will see: "${rangeMin}–${rangeMax}" as the estimated range
         </p>
+      )}
+
+      {pricingMode === 'custom' && (
+        <div style={{ marginTop: 4 }}>
+          <PricingConfigEditor
+            config={(customConfig && customConfig.pricingType)
+              ? customConfig
+              : { pricingType: 'hourly', unitName: 'hour', rate: 0 } as any}
+            onChange={(c) => onChange('manual_custom_config', c)}
+          />
+        </div>
       )}
     </div>
   );
