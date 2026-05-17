@@ -118,14 +118,8 @@ export default function TemplatePickerStep({ selectedId, onSelect, onBack, onCon
 
   return (
     <div data-testid="template-picker">
-      <div style={{ marginBottom: 12 }}>
-        <p style={{ fontSize: 13, color: p.colors.muted, margin: 0, lineHeight: 1.5 }}>
-          Pick a starting layout — the preview above updates instantly. You can fine-tune everything later.
-        </p>
-      </div>
-
       {/* Horizontal template strip — arrows + drag/swipe */}
-      <div style={{ position: 'relative', marginBottom: 18 }}>
+      <div style={{ position: 'relative', marginBottom: 18, marginTop: 4 }}>
         <button
           type="button" data-testid="template-scroll-left" aria-label="Scroll left"
           onClick={arrow(-1)}
