@@ -12,6 +12,7 @@ import LeadsPage from "@/pages/leads";
 import Dashboard from "@/pages/dashboard";
 import LoginPage from "@/pages/login";
 import MarketingHome from "@/pages/marketing/home";
+import { hostedSlugFromHost } from "@shared/slugUtils";
 import MarketingProduct from "@/pages/marketing/product";
 import MarketingPricing from "@/pages/marketing/pricing";
 import QuoteQuickPricing from "@/pages/marketing/quotequick-pricing";
@@ -147,10 +148,19 @@ import InvoicesPage from "@/pages/portal/InvoicesPage";
 import PaymentMethodsPage from "@/pages/portal/PaymentMethodsPage";
 import PortalCatalog from "@/pages/portal/PortalCatalog";
 
+/**
+ * Root route. On a hosted-calculator subdomain ({slug}.your-quote.net) the
+ * bare `/` shows that customer's calculator; everywhere else it's the
+ * marketing home page.
+ */
+function RootRoute() {
+  return hostedSlugFromHost() ? <Calculator /> : <MarketingHome />;
+}
+
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={MarketingHome} />
+      <Route path="/" component={RootRoute} />
 
       <Route path="/admin/ai">{() => <RequirePortal><AiDashboard /></RequirePortal>}</Route>
       <Route path="/admin/crm/sales">{() => <RequirePortal><SalesPipelinePage /></RequirePortal>}</Route>
