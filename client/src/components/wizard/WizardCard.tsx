@@ -13,6 +13,7 @@ import LeadFormStep from './LeadFormStep';
 import PublishStep from './PublishStep';
 import TemplatePickerStep from './TemplatePickerStep';
 import PricingBuildStep from './PricingBuildStep';
+import WizardSecondaryNav, { type SecondarySection } from './WizardSecondaryNav';
 import { trackEvent } from '@/lib/trackEvent';
 import QuoteWidget from '@/components/quote-widget/QuoteWidget';
 import type { CalculatorData } from '@/components/quote-widget/types';
@@ -176,10 +177,44 @@ const STEP_HINTS = [
 ];
 const STEP_TIME = ['~1 min', '', '~1 min', '', '', ''];
 
+// 2nd-bar contextual sections, keyed by INTERNAL step id. Steps with fewer
+// than 2 entries render no 2nd bar (WizardSecondaryNav returns null).
+const SECONDARY_SECTIONS: Record<number, SecondarySection[]> = {
+  0: [
+    { id: 'business', label: 'Business', target: '#wiz-sec-business', Icon: Building2 },
+    { id: 'trade', label: 'Trade', target: '#wiz-sec-trade', Icon: Briefcase },
+    { id: 'contact', label: 'Contact', target: '#wiz-sec-contact', Icon: Mail },
+  ],
+  1: [
+    { id: 'branding', label: 'Branding', target: '#wiz-sec-branding', Icon: ImageIcon },
+    { id: 'look', label: 'Look & feel', target: '#wiz-sec-look', Icon: Sparkles },
+    { id: 'offers', label: 'Offers', target: '#wiz-sec-offers', Icon: Zap },
+  ],
+  2: [
+    { id: 'model', label: 'Pricing', target: '[data-testid="card-pricing-model"]', Icon: Wrench },
+    { id: 'fields', label: 'Fields', target: '[data-testid="button-add-field"]', Icon: Layers },
+  ],
+  3: [
+    { id: 'capture', label: 'Lead form', target: '[data-testid="mode-optional"]', Icon: User },
+    { id: 'cta', label: 'Call to action', target: '[data-testid="input-cta-text"]', Icon: Zap },
+    { id: 'delivery', label: 'Delivery', target: '[data-testid="toggle-delivery-section"]', Icon: Mail },
+  ],
+};
+
 export default function WizardCard({ embed = false }: { embed?: boolean }) {
   const savedResult = loadResult();
   const savedStep = loadStep();
   const [step, setStep] = useState(savedResult && savedStep === 5 ? 5 : ([0, 1, 2, 3, 6].includes(savedStep) ? savedStep : 0));
+  // 2nd-bar contextual section state.
+  const [activeSection, setActiveSection] = useState('');
+  useEffect(() => {
+    setActiveSection(SECONDARY_SECTIONS[step]?.[0]?.id || '');
+  }, [step]);
+  const handleSection = (id: string) => {
+    setActiveSection(id);
+    const sec = (SECONDARY_SECTIONS[step] || []).find((s) => s.id === id);
+    if (sec) document.querySelector(sec.target)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
   const [ws, setWs] = useState<WizardState>(loadState);
   const [showHelp, setShowHelp] = useState(false);
   const [tradeSearch, setTradeSearch] = useState('');
@@ -871,6 +906,11 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
       <WizardNav current={visualStep(step)} onHelp={() => setShowHelp(true)} justSaved={justSaved}
         onNavigate={(v) => setStep(VISUAL_TO_INTERNAL[v - 1])} />
       <div className={`wizard-shell-body ${showSidePreview ? '' : 'wizard-no-preview'} ${step === 6 ? 'wizard-template-mode' : ''}`}>
+        <WizardSecondaryNav
+          sections={SECONDARY_SECTIONS[step] || []}
+          active={activeSection}
+          onSelect={handleSection}
+        />
         <div className="wizard-left">
           <div className="wizard-left-inner">
             {STEP_TITLES[step] && (
@@ -883,6 +923,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
         {/* Step 0: Business & Trade Setup */}
         {step === 0 && (
           <div className="animate-fade-in-up">
+            <div id="wiz-sec-business" style={{ scrollMarginTop: 16 }} />
             <InputField
               id="business-name" testId="input-business-name"
               label="Business Name" required
@@ -891,6 +932,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
               error={validationErrors.businessName}
             />
 
+            <div id="wiz-sec-trade" style={{ scrollMarginTop: 16 }} />
             <div style={{ marginTop: '20px', marginBottom: '10px' }}>
               <label style={{ ...p.typography.label, display: 'block', marginBottom: '4px' }}>
                 What kind of work do you do? <span style={{ color: p.colors.danger }}>*</span>
@@ -1045,6 +1087,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
               </>
             )}
 
+            <div id="wiz-sec-contact" style={{ scrollMarginTop: 16 }} />
             <div style={{ marginTop: '18px' }}>
               <InputField id="owner-email" testId="input-owner-email"
                 label="Your Email" sublabel="(for lead notifications)" type="email" required
@@ -1085,6 +1128,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
             </div>
 
             {/* Quick customization */}
+            <div id="wiz-sec-branding" style={{ scrollMarginTop: 16 }} />
             <div className="animate-fade-in-up" style={{ marginBottom: '20px' }}>
               <label style={{ ...p.typography.label, display: 'block', marginBottom: '12px' }}>
                 Brand Color
@@ -1163,6 +1207,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
             </div>
 
             {/* Offers & call-to-action */}
+            <div id="wiz-sec-offers" style={{ scrollMarginTop: 16 }} />
             <div style={{
               marginTop: '4px', marginBottom: '18px', padding: '16px',
               borderRadius: p.radius.md, border: `1px solid ${p.colors.borderLight}`,
@@ -1217,6 +1262,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
             </div>
 
             {/* Advanced design — collapsed by default */}
+            <div id="wiz-sec-look" style={{ scrollMarginTop: 16 }} />
             <details style={{ marginTop: '4px' }}>
               <summary style={{
                 fontSize: '13px', fontWeight: 600, color: p.colors.accent,
@@ -1749,12 +1795,45 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
         .template-strip::-webkit-scrollbar { display: none; }
         .template-strip { touch-action: pan-x; }
 
+        /* 2nd bar — contextual per-step adjustments. Desktop = left rail. */
+        .wizard-2ndbar {
+          display: flex; flex-direction: column; gap: 4px;
+          width: 96px; flex-shrink: 0; box-sizing: border-box;
+          background: #fff; border-right: 1px solid ${p.colors.borderLight};
+          padding: 16px 8px;
+          position: sticky; top: 60px; height: calc(100vh - 60px);
+        }
+        .wizard-2ndbar-item {
+          display: flex; flex-direction: column; align-items: center; gap: 5px;
+          border: none; background: none; cursor: pointer;
+          padding: 9px 4px; border-radius: 10px; transition: background 0.12s ease;
+        }
+        .wizard-2ndbar-item:hover { background: ${p.colors.surfaceRaised}; }
+        .wizard-2ndbar-item.is-active { background: ${p.colors.accentLighter}; }
+        .wizard-2ndbar-icon {
+          width: 34px; height: 34px; border-radius: 9px; flex-shrink: 0;
+          display: flex; align-items: center; justify-content: center;
+        }
+        .wizard-2ndbar-label { font-size: 11px; font-weight: 600; text-align: center; line-height: 1.25; }
+
         @media (max-width: 980px) {
           .wizard-shell-body { flex-direction: column; }
           .wizard-left { width: 100%; max-height: none; overflow-y: visible; border-right: none; }
+          .wizard-left-inner { padding-bottom: 84px; }
           .wizard-preview-fixed { position: static; height: auto; min-height: 480px; }
           .wizard-nav-label { display: none; }
           .wizard-nav-line { width: 16px; margin: 0 6px; }
+          /* 2nd bar becomes a fixed bottom bar on mobile. */
+          .wizard-2ndbar {
+            position: fixed; bottom: 0; left: 0; right: 0;
+            flex-direction: row; width: auto; height: 62px;
+            border-right: none; border-top: 1px solid ${p.colors.borderLight};
+            padding: 6px 8px; gap: 0; z-index: 25;
+            box-shadow: 0 -2px 12px rgba(15,23,42,0.06);
+          }
+          .wizard-2ndbar-item { flex: 1; padding: 5px 2px; gap: 3px; }
+          .wizard-2ndbar-icon { width: 26px; height: 26px; }
+          .wizard-2ndbar-label { font-size: 10px; }
         }
       `}</style>
 
