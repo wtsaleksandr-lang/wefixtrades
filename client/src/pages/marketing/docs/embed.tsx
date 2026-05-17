@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import DocsLayout, { Step, CodeBlock, Accordion, InfoBox, DocH2, DocH3, Checklist } from "@/components/marketing/DocsLayout";
 import { mkt } from "@/theme/tokens";
+import { HOSTING_DOMAIN } from "@shared/slugUtils";
 
 export default function DocsEmbed() {
   useEffect(() => { document.title = "Embed Guide — QuoteQuick Pro Docs"; }, []);
@@ -26,7 +27,7 @@ export default function DocsEmbed() {
       </Step>
 
       <InfoBox type="tip">
-        <strong>Fastest option:</strong> Skip embedding entirely. Share your free hosted link (e.g. <code>your-slug.instant-quote.com</code>) via email, Instagram bio, or Google Business profile — no website needed.
+        <strong>Fastest option:</strong> Skip embedding entirely. Share your free hosted link (e.g. <code>your-slug.{HOSTING_DOMAIN}</code>) via email, Instagram bio, or Google Business profile — no website needed.
       </InfoBox>
 
       <DocH2>Three Embed Options</DocH2>
@@ -35,7 +36,7 @@ export default function DocsEmbed() {
       <p style={{ fontSize: 15, color: mkt.onDarkMuted, lineHeight: 1.7, marginBottom: 12 }}>
         Every calculator gets a free public URL. No embedding required.
       </p>
-      <CodeBlock lang="text" code={`https://your-slug.instant-quote.com`} />
+      <CodeBlock lang="text" code={`https://your-slug.${HOSTING_DOMAIN}`} />
       <p style={{ fontSize: 14, color: mkt.onDarkMuted, lineHeight: 1.6, marginBottom: 12 }}>
         Or use the direct link:
       </p>

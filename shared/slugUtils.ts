@@ -27,14 +27,21 @@ export function isValidSlug(slug: string): { valid: boolean; reason?: string } {
   return { valid: true };
 }
 
-// Resolve hosting domain from environment.
-// Server: process.env.QQ_HOSTING_DOMAIN
-// Client (Vite): VITE_QQ_HOSTING_DOMAIN is statically replaced at build time
+// Resolve the hosting domain for hosted calculators ({slug}.<domain>).
+// - Server: the real `process.env.QQ_HOSTING_DOMAIN` Node env var.
+// - Client: Vite's `define` (vite.config.ts) statically inlines
+//   `process.env.QQ_HOSTING_DOMAIN` as a string literal at build time, so no
+//   live `process` reference survives in the browser bundle.
+// NOTE: a prior `typeof process !== 'undefined'` guard here made the client
+// always fall through to the default — the env value was never read in the
+// browser. Read it directly; the Vite define leaves a plain string literal.
 const resolveHostingDomain = (): string => {
-  if (typeof process !== 'undefined' && process.env?.QQ_HOSTING_DOMAIN) {
-    return process.env.QQ_HOSTING_DOMAIN;
-  }
-  return 'instant-quote.com';
+  // After the Vite define this is a plain string literal in the browser; the
+  // try/catch only guards a hypothetical context where `process` is neither
+  // defined nor replaced.
+  let fromEnv: string | undefined;
+  try { fromEnv = process.env.QQ_HOSTING_DOMAIN; } catch { fromEnv = undefined; }
+  return fromEnv && fromEnv.length > 0 ? fromEnv : 'your-quote.net';
 };
 
 export const HOSTING_DOMAIN = resolveHostingDomain();
