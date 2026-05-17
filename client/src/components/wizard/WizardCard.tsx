@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { platformTheme } from '@/theme/platformTheme';
+import { dashboardTheme } from '@/theme/dashboardTheme';
 import { CATEGORIES, TRADES, getTradesByCategory, type Trade } from '@/data/trades';
 import { calculatorSettingsSchema, customTradeDataSchema, type CalculatorSettings, type CustomTradeData, type Stage2Data, type SampleQuote } from '@shared/schema';
 import DesignStudio from './DesignStudio';
@@ -128,6 +129,7 @@ function loadStep(): number {
 }
 
 const p = platformTheme;
+const d = dashboardTheme;
 // Linear flow: Step 0 (trade) → Step 2 (pricing) → Step 3 (contact form)
 //            → Step 1 (customize & publish) → Step 5 (result).
 // Step 4 (test gate) is off-path / unused.
@@ -903,6 +905,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
 
   return (
     <>
+      <div className="wizard-shell">
       <WizardNav current={visualStep(step)} onHelp={() => setShowHelp(true)} justSaved={justSaved}
         onNavigate={(v) => setStep(VISUAL_TO_INTERNAL[v - 1])} />
       <div className={`wizard-shell-body ${showSidePreview ? '' : 'wizard-no-preview'} ${step === 6 ? 'wizard-template-mode' : ''}`}>
@@ -1716,14 +1719,24 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
         </div>
       )}
       </div>
+      </div>
 
       {/* App-shell layout CSS */}
       <style>{`
+        .wizard-shell {
+          background: ${d.colors.canvas};
+          min-height: 100vh;
+          padding: ${d.layout.shellPad};
+          box-sizing: border-box;
+        }
+        /* Detached, floating header bar — "split bars and sections". */
         .wizard-navbar {
           display: flex; align-items: center; justify-content: space-between;
           height: 60px; padding: 0 22px; box-sizing: border-box;
-          background: #fff; border-bottom: 1px solid ${p.colors.borderLight};
-          position: sticky; top: 0; z-index: 30;
+          background: ${d.colors.panelHeader};
+          border-radius: ${d.radius.panel};
+          box-shadow: ${d.shadows.panel};
+          position: sticky; top: ${d.layout.shellPad}; z-index: 30;
         }
         .wizard-nav-brand {
           display: flex; align-items: center; gap: 8px; text-decoration: none;
@@ -1736,7 +1749,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
           border: none; background: none; padding: 4px 6px; margin: -4px 0;
           border-radius: 8px; font: inherit; transition: background 0.12s ease;
         }
-        .wizard-nav-stepbtn:not(:disabled):hover { background: ${p.colors.surfaceRaised}; }
+        .wizard-nav-stepbtn:not(:disabled):hover { background: rgba(255,255,255,0.6); }
         .wizard-nav-num {
           width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0;
           display: flex; align-items: center; justify-content: center;
@@ -1744,7 +1757,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
         }
         .wizard-nav-label { font-size: 13px; font-weight: 600; margin-left: 8px; white-space: nowrap; }
         .wizard-nav-line { width: 30px; height: 1.5px; background: ${p.colors.border}; margin: 0 12px; }
-        .wizard-nav-step[data-state="todo"] .wizard-nav-num { background: #EEF1F5; color: ${p.colors.subtle}; }
+        .wizard-nav-step[data-state="todo"] .wizard-nav-num { background: #FFFFFF; color: ${d.colors.subtle}; }
         .wizard-nav-step[data-state="todo"] .wizard-nav-label { color: ${p.colors.subtle}; }
         .wizard-nav-step[data-state="active"] .wizard-nav-num { background: ${p.colors.accent}; color: #fff; }
         .wizard-nav-step[data-state="active"] .wizard-nav-label { color: ${p.colors.heading}; }
@@ -1761,11 +1774,20 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
           border: 1px solid ${p.colors.border}; background: #fff;
           color: ${p.colors.muted}; font-weight: 700; font-size: 13px;
         }
-        .wizard-shell-body { display: flex; align-items: stretch; min-height: calc(100vh - 60px); }
+        /* Main floating panel — sits below the header bar with a canvas gap. */
+        .wizard-shell-body {
+          display: flex; align-items: stretch;
+          height: calc(100vh - 60px - ${d.layout.shellPad} - ${d.layout.shellPad} - ${d.layout.panelGap});
+          margin-top: ${d.layout.panelGap};
+          background: ${d.colors.panel};
+          border-radius: ${d.radius.panel};
+          box-shadow: ${d.shadows.panel};
+          overflow: hidden;
+        }
         .wizard-left {
-          width: 384px; flex-shrink: 0; background: #fff;
-          border-right: 1px solid ${p.colors.borderLight};
-          max-height: calc(100vh - 60px); overflow-y: auto;
+          width: 384px; flex-shrink: 0; background: ${d.colors.card};
+          border-right: 1px solid ${d.colors.borderLight};
+          height: 100%; overflow-y: auto;
         }
         .wizard-left-inner { padding: 26px 26px 52px; }
         .wizard-step-head { margin-bottom: 20px; }
@@ -1774,8 +1796,8 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
         .wizard-preview-fixed {
           flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center;
           padding: 30px; box-sizing: border-box;
-          background: linear-gradient(180deg, #eef1f6 0%, #e8ecf2 100%);
-          position: sticky; top: 60px; height: calc(100vh - 60px);
+          background: ${d.colors.panel};
+          height: 100%; overflow-y: auto;
         }
         .wizard-preview-stage {
           width: 100%; max-width: 780px; display: flex; flex-direction: column;
@@ -1787,13 +1809,15 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
 
         /* Template step — Elfsight layout: preview is the main screen, the
            template strip docks beneath it (full width, both desktop & mobile). */
-        .wizard-shell-body.wizard-template-mode { flex-direction: column; }
+        .wizard-shell-body.wizard-template-mode {
+          flex-direction: column; height: auto; overflow: visible;
+        }
         .wizard-template-mode .wizard-preview-fixed {
-          order: 0; position: static; height: auto; min-height: 460px; width: 100%;
+          order: 0; height: auto; min-height: 460px; width: 100%; overflow-y: visible;
         }
         .wizard-template-mode .wizard-left {
-          order: 1; width: 100%; max-height: none; overflow-y: visible;
-          border-right: none; border-top: 1px solid ${p.colors.borderLight};
+          order: 1; width: 100%; height: auto; overflow-y: visible;
+          border-right: none; border-top: 1px solid ${d.colors.borderLight};
         }
         .wizard-template-mode .wizard-left-inner { padding: 18px 26px 30px; }
         .template-strip::-webkit-scrollbar { display: none; }
@@ -1803,17 +1827,17 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
         .wizard-2ndbar {
           display: flex; flex-direction: column; gap: 4px;
           width: 96px; flex-shrink: 0; box-sizing: border-box;
-          background: #fff; border-right: 1px solid ${p.colors.borderLight};
+          background: transparent; border-right: 1px solid ${d.colors.borderLight};
           padding: 16px 8px;
-          position: sticky; top: 60px; height: calc(100vh - 60px);
+          height: 100%; overflow-y: auto;
         }
         .wizard-2ndbar-item {
           display: flex; flex-direction: column; align-items: center; gap: 5px;
           border: none; background: none; cursor: pointer;
           padding: 9px 4px; border-radius: 10px; transition: background 0.12s ease;
         }
-        .wizard-2ndbar-item:hover { background: ${p.colors.surfaceRaised}; }
-        .wizard-2ndbar-item.is-active { background: ${p.colors.accentLighter}; }
+        .wizard-2ndbar-item:hover { background: rgba(255,255,255,0.6); }
+        .wizard-2ndbar-item.is-active { background: transparent; }
         .wizard-2ndbar-icon {
           width: 34px; height: 34px; border-radius: 9px; flex-shrink: 0;
           display: flex; align-items: center; justify-content: center;
@@ -1821,17 +1845,18 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
         .wizard-2ndbar-label { font-size: 11px; font-weight: 600; text-align: center; line-height: 1.25; }
 
         @media (max-width: 980px) {
-          .wizard-shell-body { flex-direction: column; }
-          .wizard-left { width: 100%; max-height: none; overflow-y: visible; border-right: none; }
+          .wizard-shell-body { flex-direction: column; height: auto; overflow: visible; }
+          .wizard-left { width: 100%; height: auto; overflow-y: visible; border-right: none; }
           .wizard-left-inner { padding-bottom: 84px; }
-          .wizard-preview-fixed { position: static; height: auto; min-height: 480px; }
+          .wizard-preview-fixed { height: auto; min-height: 480px; overflow-y: visible; }
           .wizard-nav-label { display: none; }
           .wizard-nav-line { width: 16px; margin: 0 6px; }
           /* 2nd bar becomes a fixed bottom bar on mobile. */
           .wizard-2ndbar {
             position: fixed; bottom: 0; left: 0; right: 0;
             flex-direction: row; width: auto; height: 62px;
-            border-right: none; border-top: 1px solid ${p.colors.borderLight};
+            background: ${d.colors.panelHeader};
+            border-right: none; border-top: 1px solid ${d.colors.borderLight};
             padding: 6px 8px; gap: 0; z-index: 25;
             box-shadow: 0 -2px 12px rgba(15,23,42,0.06);
           }

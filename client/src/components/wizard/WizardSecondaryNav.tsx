@@ -2,7 +2,7 @@
 // Top bar = step navigation; this bar = the sub-sections of the active step.
 // Desktop: a vertical left rail. Mobile: a bottom bar. (Positioning is done
 // by the .wizard-2ndbar CSS in WizardCard's style block.)
-import { platformTheme as p } from '@/theme/platformTheme';
+import { dashboardTheme as d } from '@/theme/dashboardTheme';
 
 export interface SecondarySection {
   id: string;
@@ -35,15 +35,16 @@ export default function WizardSecondaryNav({
             <span
               className="wizard-2ndbar-icon"
               style={{
-                background: on ? p.colors.accent : p.colors.surfaceRaised,
-                color: on ? '#fff' : p.colors.muted,
+                background: on ? d.colors.navActiveBg : 'transparent',
+                color: on ? d.colors.navActiveIcon : d.colors.navIcon,
+                boxShadow: on ? d.shadows.nav : 'none',
               }}
             >
               <s.Icon style={{ width: 16, height: 16 }} />
             </span>
             <span
               className="wizard-2ndbar-label"
-              style={{ color: on ? p.colors.heading : p.colors.muted }}
+              style={{ color: on ? d.colors.heading : d.colors.muted }}
             >
               {s.label}
             </span>
