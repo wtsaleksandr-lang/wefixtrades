@@ -125,18 +125,19 @@ function loadStep(): number {
 }
 
 const p = platformTheme;
-// Flow order: Step 0 (trade) → Step 2 (pricing) → Step 1 (preview/design) → Step 5 (publish)
-// Step 3 (lead form) and Step 4 (test gate) are off-path, reached from within step 1.
-const TOTAL_STEPS = 3; // Real build steps the user moves through before the result.
+// Linear flow: Step 0 (trade) → Step 2 (pricing) → Step 3 (contact form)
+//            → Step 1 (customize & publish) → Step 5 (result).
+// Step 4 (test gate) is off-path / unused.
+const TOTAL_STEPS = 4; // Trade · Pricing · Contact form · Customize & publish.
 
 // 1-based visual step for the progress display. The published result screen
 // is `TOTAL_STEPS + 1` so the counter reads "Published" rather than a step number.
 function visualStep(internalStep: number): number {
   if (internalStep === 0) return 1; // Trade
   if (internalStep === 2) return 2; // Pricing
-  if (internalStep === 1) return 3; // Customize & publish
-  if (internalStep === 3) return 3; // Lead form — sub-screen of step 3
-  if (internalStep === 4) return 3; // Test gate — sub-screen of step 3
+  if (internalStep === 3) return 3; // Contact form
+  if (internalStep === 1) return 4; // Customize & publish
+  if (internalStep === 4) return 4; // Test gate (off-path)
   if (internalStep === 5) return TOTAL_STEPS + 1; // Published result
   return internalStep;
 }
@@ -160,7 +161,7 @@ const STEP_SUBTITLES = [
 const STEP_HINTS = [
   'Next: set your pricing',
   'All set! Review and publish below.',
-  'Next: customize your calculator',
+  'Next: set up your contact form',
   '',
   'Publishing your calculator...',
   '',
@@ -436,14 +437,14 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
     if (!ws.isCustomTrade || ws.customTradeData.charge_method === 'not_sure') {
       setValidationErrors({});
       trackEvent('wizard_pricing_set', { trade: ws.selectedTrade, isCustom: false });
-      setStep(1); // Flow: pricing → preview/polish (skip lead form)
+      setStep(3); // Flow: pricing → contact form
       return;
     }
     const errs = validateStage2();
     setValidationErrors(errs);
     if (Object.keys(errs).length === 0) {
       trackEvent('wizard_pricing_set', { trade: ws.selectedTrade, isCustom: true });
-      setStep(1); // Flow: pricing → preview/polish (skip lead form)
+      setStep(3); // Flow: pricing → contact form
     }
   };
 
@@ -1163,24 +1164,6 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
               />
             </details>
 
-            {/* Quick link to lead form customization */}
-            <button
-              type="button"
-              onClick={() => setStep(3)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '6px',
-                fontSize: '13px', fontWeight: 500, color: p.colors.muted,
-                background: 'none', border: 'none', cursor: 'pointer',
-                padding: '8px 0', marginTop: '4px',
-                transition: p.transitions.fast,
-              }}
-              onMouseEnter={e => { e.currentTarget.style.color = p.colors.accent; }}
-              onMouseLeave={e => { e.currentTarget.style.color = p.colors.muted; }}
-            >
-              <Settings2 style={{ width: '13px', height: '13px' }} />
-              Customize customer contact form
-            </button>
-
             {/* Publish with confirmation */}
             <div style={{ marginTop: '16px' }}>
               {showPublishConfirm && !generateMutation.isPending && (
@@ -1249,7 +1232,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                 <p style={{ fontSize: '13px', color: p.colors.danger, marginTop: '8px', textAlign: 'center' }}>{genError}</p>
               )}
             </div>
-            <Footer onBack={() => setStep(2)} onNext={undefined} onSave={handleManualSave} hint={STEP_HINTS[1]} />
+            <Footer onBack={() => setStep(3)} onNext={undefined} onSave={handleManualSave} hint={STEP_HINTS[1]} />
           </div>
         )}
 
@@ -1461,8 +1444,9 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
             onChange={(lf) => {
               set('calculatorSettings', { ...ws.calculatorSettings, lead_form: lf });
             }}
-            onBack={() => setStep(1)}
+            onBack={() => setStep(2)}
             onNext={() => setStep(1)}
+            onSave={handleManualSave}
             draftGenerating={!!ws.draftJobId}
           />
         )}

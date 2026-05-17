@@ -40,6 +40,7 @@ interface LeadFormStepProps {
   onChange: (lf: LeadFormData) => void;
   onBack: () => void;
   onNext: () => void;
+  onSave?: () => void;
   draftGenerating?: boolean;
 }
 
@@ -75,9 +76,10 @@ function validateWebhookUrl(url: string): boolean {
   } catch { return false; }
 }
 
-export default function LeadFormStep({ leadForm, ownerEmail, onChange, onBack, onNext, draftGenerating }: LeadFormStepProps) {
+export default function LeadFormStep({ leadForm, ownerEmail, onChange, onBack, onNext, onSave, draftGenerating }: LeadFormStepProps) {
   const [showDelivery, setShowDelivery] = useState(false);
   const [showSpam, setShowSpam] = useState(false);
+  const [savedFlash, setSavedFlash] = useState(false);
 
   useEffect(() => {
     if (!leadForm.delivery.primary_email && ownerEmail) {
@@ -527,16 +529,31 @@ export default function LeadFormStep({ leadForm, ownerEmail, onChange, onBack, o
         }}>
           Back
         </button>
-        <button data-testid="button-next" disabled={!canContinue} onClick={onNext} style={{
-          padding: '10px 24px', borderRadius: p.radius.sm, border: 'none',
-          background: canContinue ? p.colors.accent : '#D1D5DB',
-          cursor: canContinue ? 'pointer' : 'not-allowed',
-          fontSize: '14px', fontWeight: 600, color: 'white',
-          opacity: canContinue ? 1 : 0.7,
-          transition: p.transitions.normal,
-        }}>
-          Continue
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {onSave && (
+            <button data-testid="button-save"
+              onClick={() => { onSave(); setSavedFlash(true); setTimeout(() => setSavedFlash(false), 1800); }}
+              style={{
+                padding: '10px 20px', borderRadius: p.radius.sm,
+                border: `1px solid ${savedFlash ? p.colors.accent : p.colors.border}`,
+                background: savedFlash ? p.colors.accentLighter : 'white',
+                cursor: 'pointer', fontSize: '14px', fontWeight: 600,
+                color: savedFlash ? p.colors.accentDark : p.colors.body,
+              }}>
+              {savedFlash ? 'Saved ✓' : 'Save'}
+            </button>
+          )}
+          <button data-testid="button-next" disabled={!canContinue} onClick={onNext} style={{
+            padding: '10px 24px', borderRadius: p.radius.sm, border: 'none',
+            background: canContinue ? p.colors.accent : '#D1D5DB',
+            cursor: canContinue ? 'pointer' : 'not-allowed',
+            fontSize: '14px', fontWeight: 600, color: 'white',
+            opacity: canContinue ? 1 : 0.7,
+            transition: p.transitions.normal,
+          }}>
+            Continue
+          </button>
+        </div>
       </div>
     </div>
   );
