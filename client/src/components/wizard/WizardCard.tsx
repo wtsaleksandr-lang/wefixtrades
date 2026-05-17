@@ -143,8 +143,8 @@ function visualStep(internalStep: number): number {
 }
 
 const STEP_TITLES = [
-  'What does your business do?',
-  'Customize your calculator',
+  'What\u2019s your trade?',
+  'Branding & offers',
   'Set your pricing',
   'Contact form setup',
   'Quick accuracy check',
