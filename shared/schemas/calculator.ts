@@ -210,7 +210,7 @@ export const calculatorSettingsSchema = z.object({
     custom_domain_status: z.enum(['none', 'pending_dns', 'dns_verified', 'ssl_provisioning', 'active', 'failed']).default('none'),
     ssl_status: z.enum(['none', 'pending', 'provisioning', 'active', 'failed']).default('none'),
     last_dns_check: z.number().nullable().default(null),
-    hosting_domain: z.string().default('instant-quote.com'),
+    hosting_domain: z.string().default('your-quote.net'),
   }).default({}),
 
   followup: z.object({
