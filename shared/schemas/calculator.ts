@@ -178,6 +178,16 @@ export const calculatorSettingsSchema = z.object({
       job_notes: z.boolean().default(false),
       file_upload: z.boolean().default(false),
     }).default({}),
+    // Arbitrary owner-defined lead fields (e.g. Estimated Budget, Preferred
+    // Timeframe). Rendered by the widget's LeadCaptureStep below the standard
+    // fields. `options` is only used when type === 'select'.
+    custom_fields: z.array(z.object({
+      id: z.string(),
+      type: z.enum(['text', 'email', 'phone', 'number', 'select', 'textarea', 'checkbox']),
+      label: z.string(),
+      required: z.boolean().default(false),
+      options: z.array(z.string()).default([]),
+    })).default([]),
     consent: z.object({
       enabled: z.boolean().default(true),
       text: z.string().default('I agree to be contacted about my quote.'),
@@ -195,6 +205,21 @@ export const calculatorSettingsSchema = z.object({
     spam: z.object({
       honeypot: z.boolean().default(true),
       recaptcha: z.boolean().default(false),
+    }).default({}),
+  }).default({}),
+
+  // What happens after the customer sees their estimate.
+  //  - lead_form: collect a lead (uses the `lead_form` block above)
+  //  - redirect:  show a heading/caption/button that links to redirect.button_url
+  //  - none:      show only the estimate, nothing after
+  action: z.object({
+    version: z.number().default(1),
+    mode: z.enum(['lead_form', 'redirect', 'none']).default('lead_form'),
+    redirect: z.object({
+      heading: z.string().default('Thanks for your interest!'),
+      caption: z.string().default(''),
+      button_text: z.string().default('Continue'),
+      button_url: z.string().default(''),
     }).default({}),
   }).default({}),
 
