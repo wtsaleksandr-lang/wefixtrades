@@ -12,7 +12,7 @@ import TestGateStep, { type TestGateResult } from './TestGateStep';
 import LeadFormStep from './LeadFormStep';
 import PublishStep from './PublishStep';
 import TemplatePickerStep from './TemplatePickerStep';
-import PricingConfigEditor from '@/components/calculator/PricingConfigEditor';
+import PricingBuildStep from './PricingBuildStep';
 import { trackEvent } from '@/lib/trackEvent';
 import QuoteWidget from '@/components/quote-widget/QuoteWidget';
 import type { CalculatorData } from '@/components/quote-widget/types';
@@ -23,7 +23,7 @@ import {
   Layers, AlertTriangle, Car, Briefcase, Plus, HelpCircle, X,
   Search, ChevronDown, ExternalLink, Copy, Zap, AlertCircle,
   RotateCcw, Code2, Eye, Upload, Trash2, Image as ImageIcon, ChevronRight,
-  FileText, Shield, Mail, Phone, User, Building2, Settings2,
+  FileText, Shield, Mail, Phone, User, Building2,
   CheckCircle2, TriangleAlert, Smartphone, Monitor, Save
 } from 'lucide-react';
 import { useMutation } from '@tanstack/react-query';
@@ -1491,7 +1491,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                 )}
               </>
             ) : (
-              <PricingStrategySelector
+              <PricingBuildStep
                 trade={selectedTradeLabel || 'your trade'}
                 pricingMode={ws.calculatorSettings?.pricing_mode || 'ai_suggested'}
                 hourlyRate={ws.calculatorSettings?.manual_hourly_rate || 75}
@@ -1868,160 +1868,6 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
-
-
-/* ─── Pricing Strategy Selector (Step 2 for standard trades) ─── */
-function PricingStrategySelector({
-  trade, pricingMode, hourlyRate, fixedPrice, rangeMin, rangeMax, customConfig, onChange,
-}: {
-  trade: string;
-  pricingMode: string;
-  hourlyRate: number;
-  fixedPrice: number;
-  rangeMin: number;
-  rangeMax: number;
-  customConfig?: any;
-  onChange: (key: string, val: any) => void;
-}) {
-  const modes = [
-    { id: 'ai_suggested', label: 'AI Suggested', desc: `We'll build pricing based on ${trade} industry data.`, icon: Sparkles },
-    { id: 'hourly', label: 'Hourly Rate', desc: 'Charge by the hour with a base fee.', icon: Clock },
-    { id: 'fixed', label: 'Fixed Price', desc: 'Set a flat rate per job type.', icon: DollarSign },
-    { id: 'range', label: 'Price Range', desc: 'Show a min–max estimate to customers.', icon: ArrowRight },
-    { id: 'custom', label: 'Custom Logic', desc: 'Build it yourself — rates, tiers, add-ons, fees.', icon: Settings2 },
-  ];
-
-  return (
-    <div>
-      <p style={{ fontSize: 13, color: p.colors.muted, marginBottom: 16, lineHeight: 1.5 }}>
-        Choose how you'd like to price your services. You can always adjust later.
-      </p>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
-        {modes.map(m => {
-          const active = pricingMode === m.id;
-          return (
-            <button
-              key={m.id}
-              onClick={() => onChange('pricing_mode', m.id)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 12,
-                padding: '14px 16px', borderRadius: 12,
-                border: active ? `2px solid ${p.colors.accent}` : `1px solid ${p.colors.border}`,
-                background: active ? p.colors.accentLighter : '#fff',
-                cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s ease',
-              }}
-            >
-              <div style={{
-                width: 36, height: 36, borderRadius: 10,
-                background: active ? p.colors.accent : p.colors.surfaceRaised,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-              }}>
-                <m.icon style={{ width: 16, height: 16, color: active ? '#fff' : p.colors.muted }} />
-              </div>
-              <div>
-                <p style={{ fontSize: 14, fontWeight: 600, color: p.colors.heading, margin: 0 }}>{m.label}</p>
-                <p style={{ fontSize: 12, color: p.colors.muted, margin: 0, lineHeight: 1.4 }}>{m.desc}</p>
-              </div>
-              {active && <Check style={{ width: 16, height: 16, color: p.colors.accent, marginLeft: 'auto', flexShrink: 0 }} />}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Mode-specific inputs */}
-      {pricingMode === 'ai_suggested' && (
-        <div style={{
-          padding: 14, borderRadius: 10,
-          background: p.colors.accentLighter, border: `1px solid ${p.colors.accentLighter}`,
-          display: 'flex', alignItems: 'flex-start', gap: 10,
-        }}>
-          <Sparkles style={{ width: 16, height: 16, color: p.colors.accent, flexShrink: 0, marginTop: 1 }} />
-          <p style={{ fontSize: 13, color: p.colors.accentDark, lineHeight: 1.5, margin: 0 }}>
-            AI will generate optimized pricing for {trade} based on industry benchmarks. You'll review and adjust in the next step.
-          </p>
-        </div>
-      )}
-
-      {pricingMode === 'hourly' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div>
-            <label style={{ ...p.typography.label, display: 'block', marginBottom: 6 }}>Hourly Rate ($)</label>
-            <input type="number" min="1" value={hourlyRate}
-              onChange={e => onChange('manual_hourly_rate', Number(e.target.value) || 0)}
-              className="premium-input" style={{ width: '100%', padding: '10px 14px', fontSize: 14 }} />
-            <p style={{ fontSize: 12, color: p.colors.muted, marginTop: 4 }}>
-              Example quote: ${hourlyRate * 2}–${hourlyRate * 4} for a typical {trade} job (2–4 hours)
-            </p>
-          </div>
-        </div>
-      )}
-
-      {pricingMode === 'fixed' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div>
-            <label style={{ ...p.typography.label, display: 'block', marginBottom: 6 }}>Base Price ($)</label>
-            <input type="number" min="1" value={fixedPrice}
-              onChange={e => onChange('manual_fixed_price', Number(e.target.value) || 0)}
-              className="premium-input" style={{ width: '100%', padding: '10px 14px', fontSize: 14 }} />
-            <p style={{ fontSize: 12, color: p.colors.muted, marginTop: 4 }}>
-              Customers will see: "Starting from ${fixedPrice}"
-            </p>
-          </div>
-        </div>
-      )}
-
-      {pricingMode === 'range' && (
-        <div style={{ display: 'flex', gap: 12 }}>
-          <div style={{ flex: 1 }}>
-            <label style={{ ...p.typography.label, display: 'block', marginBottom: 6 }}>Min ($)</label>
-            <input type="number" min="1" value={rangeMin}
-              onChange={e => onChange('manual_range_min', Number(e.target.value) || 0)}
-              className="premium-input" style={{ width: '100%', padding: '10px 14px', fontSize: 14 }} />
-          </div>
-          <div style={{ flex: 1 }}>
-            <label style={{ ...p.typography.label, display: 'block', marginBottom: 6 }}>Max ($)</label>
-            <input type="number" min="1" value={rangeMax}
-              onChange={e => onChange('manual_range_max', Number(e.target.value) || 0)}
-              className="premium-input" style={{ width: '100%', padding: '10px 14px', fontSize: 14 }} />
-          </div>
-        </div>
-      )}
-
-      {pricingMode === 'range' && (
-        <p style={{ fontSize: 12, color: p.colors.muted, marginTop: 8 }}>
-          Customers will see: "${rangeMin}–${rangeMax}" as the estimated range
-        </p>
-      )}
-
-      {pricingMode === 'custom' && (
-        <div style={{ marginTop: 4 }}>
-          <PricingConfigEditor
-            config={(customConfig && customConfig.pricingType)
-              ? customConfig
-              : { pricingType: 'hourly', unitName: 'hour', rate: 0 } as any}
-            onChange={(c) => onChange('manual_custom_config', c)}
-          />
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* Need Clock icon for pricing selector */
-const Clock = ({ style, ...rest }: any) => (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style} {...rest}>
-    <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
-  </svg>
-);
-
-const DollarSign = ({ style, ...rest }: any) => (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style} {...rest}>
-    <line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-  </svg>
-);
 
 /** Preview sections for enabled feature toggles — renders below the QuoteWidget */
 function FeatureTogglePreviews({ layout, primaryColor }: { layout?: any; primaryColor?: string }) {
