@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useLocation } from "wouter";
 import { Send, X, MessageCircle } from "lucide-react";
 import {
   getSessionId, readSSEStream, sendChatMessage,
@@ -15,6 +16,19 @@ const GREETING: ChatMessage = {
   content: "Hey! I'm here if you have any questions about growing your trades business online. What can I help you with?",
 };
 
+/**
+ * Capture a live text snapshot of the page the visitor is on, so the
+ * assistant can answer about what they're looking at — and stay current
+ * with the site without any sync step. Prefers <main> to skip nav /
+ * footer / the chat widget itself.
+ */
+function capturePageSnapshot(): string {
+  if (typeof document === "undefined") return "";
+  const root = document.querySelector("main") ?? document.body;
+  const text = (root as HTMLElement).innerText || "";
+  return text.replace(/\n{3,}/g, "\n\n").trim().slice(0, 4000);
+}
+
 export default function SiteChatWidget() {
   const [open, setOpen] = useState(() => loadOpenState());
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
@@ -28,6 +42,7 @@ export default function SiteChatWidget() {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const sessionId = useRef(getSessionId());
   const [checkoutService, setCheckoutService] = useState<Service | null>(null);
+  const [location] = useLocation();
 
   // Persist messages and open state
   useEffect(() => { saveMessages(messages); }, [messages]);
@@ -84,6 +99,10 @@ export default function SiteChatWidget() {
         surface: "website",
         messages: newMessages,
         sessionId: sessionId.current,
+        // Live page context — the assistant can answer about the page the
+        // visitor is on, always current with whatever is published.
+        pageContext: { route: location, page: location },
+        pageContentSnapshot: capturePageSnapshot(),
       });
 
       if (!res.ok) {

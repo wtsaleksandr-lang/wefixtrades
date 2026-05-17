@@ -150,11 +150,12 @@ async function parseAssistantRequest(req: Request): Promise<
       sessionId: surface === "portal" ? `portal_${resolvedUserId}` : sid,
       userId: resolvedUserId,
       auditContext: auditCtx,
-      pageContext: surface === "admin" && clientPageCtx
+      pageContext: (surface === "admin" || surface === "website") && clientPageCtx
         ? {
             ...clientPageCtx,
-            // Q26: untyped DOM snapshot — supplements the structured context for pages
-            // that don't expose all data through the typed pageContext.
+            // Untyped DOM snapshot — admin: supplements the typed context;
+            // website: the live page the visitor is reading, so the chat
+            // assistant stays current with whatever was just published.
             pageContentSnapshot: typeof clientPageSnap === "string" ? clientPageSnap.slice(0, 2000) : undefined,
           }
         : undefined,
