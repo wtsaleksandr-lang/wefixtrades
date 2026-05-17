@@ -1785,7 +1785,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
           overflow: hidden;
         }
         .wizard-left {
-          width: 384px; flex-shrink: 0; background: ${d.colors.card};
+          width: 384px; flex-shrink: 0; background: ${d.colors.panel};
           border-right: 1px solid ${d.colors.borderLight};
           height: 100%; overflow-y: auto;
         }

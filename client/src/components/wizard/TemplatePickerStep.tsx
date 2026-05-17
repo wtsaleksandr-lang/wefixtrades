@@ -8,6 +8,7 @@
 import { useRef, useState } from 'react';
 import { TEMPLATE_LIBRARY } from '@shared/templateLibrary';
 import { platformTheme } from '@/theme/platformTheme';
+import { dashboardTheme as d } from '@/theme/dashboardTheme';
 import { Check, ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, Save } from 'lucide-react';
 
 const p = platformTheme;
@@ -48,7 +49,7 @@ function TemplateThumb({ layout, blank }: { layout: string; blank?: boolean }) {
     );
   }
   return (
-    <div style={{ height: 88, borderRadius: 8, background: '#fff', border: `1px solid ${p.colors.borderLight}`, padding: 9, overflow: 'hidden' }}>
+    <div style={{ height: 88, borderRadius: d.radius.control, background: d.colors.cardMuted, border: 'none', padding: 9, overflow: 'hidden' }}>
       {layout === 'two_column' ? (
         <div style={{ display: 'flex', gap: 7, height: '100%' }}>
           <div style={{ flex: 1.4, display: 'flex', flexDirection: 'column', gap: 5 }}>
@@ -126,9 +127,9 @@ export default function TemplatePickerStep({ selectedId, onSelect, onBack, onCon
           style={{
             position: 'absolute', left: -6, top: '50%', transform: 'translateY(-50%)', zIndex: 2,
             width: 32, height: 32, borderRadius: '50%', cursor: 'pointer',
-            border: `1px solid ${p.colors.border}`, background: '#fff',
+            border: 'none', background: d.colors.card,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: p.shadows.sm,
+            boxShadow: d.shadows.card,
           }}
         >
           <ChevronLeft style={{ width: 16, height: 16, color: p.colors.muted }} />
@@ -154,10 +155,12 @@ export default function TemplatePickerStep({ selectedId, onSelect, onBack, onCon
                 data-testid={`template-card-${t.id}`}
                 onClick={() => handleCardClick(t.id)}
                 style={{
-                  flex: '0 0 auto', width: 152, textAlign: 'left', padding: 9, cursor: 'pointer',
-                  borderRadius: 12, background: '#fff',
-                  border: active ? `2px solid ${p.colors.accent}` : `1px solid ${p.colors.border}`,
-                  position: 'relative', transition: 'border-color 0.15s ease',
+                  flex: '0 0 auto', width: 152, textAlign: 'left', padding: 10, cursor: 'pointer',
+                  borderRadius: d.radius.card, background: d.colors.card, border: 'none',
+                  boxShadow: active
+                    ? `0 0 0 2px ${d.colors.accent}, ${d.shadows.card}`
+                    : d.shadows.card,
+                  position: 'relative', transition: d.transitions.fast,
                 }}
               >
                 {active && (
@@ -187,9 +190,9 @@ export default function TemplatePickerStep({ selectedId, onSelect, onBack, onCon
           style={{
             position: 'absolute', right: -6, top: '50%', transform: 'translateY(-50%)', zIndex: 2,
             width: 32, height: 32, borderRadius: '50%', cursor: 'pointer',
-            border: `1px solid ${p.colors.border}`, background: '#fff',
+            border: 'none', background: d.colors.card,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: p.shadows.sm,
+            boxShadow: d.shadows.card,
           }}
         >
           <ChevronRight style={{ width: 16, height: 16, color: p.colors.muted }} />

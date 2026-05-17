@@ -13,6 +13,7 @@ import {
   ChevronLeft, Plus, Info, Package, Ruler, Layers, Wrench, Pencil, EyeOff, RotateCcw,
 } from 'lucide-react';
 import { platformTheme as p } from '@/theme/platformTheme';
+import { dashboardTheme as d } from '@/theme/dashboardTheme';
 import { FAMILY_LABELS, type PricingType } from '@shared/pricingConfig';
 import PricingConfigEditor from '@/components/calculator/PricingConfigEditor';
 
@@ -74,12 +75,14 @@ function ListRow({
       disabled={!interactive}
       style={{
         display: 'flex', alignItems: 'center', gap: 12, width: '100%',
-        padding: '13px 14px', borderRadius: p.radius.md, textAlign: 'left',
-        border: `1px solid ${accent ? p.colors.accent : p.colors.borderLight}`,
-        background: accent ? p.colors.accentLighter : '#fff',
+        padding: '13px 14px', borderRadius: d.radius.card, textAlign: 'left', border: 'none',
+        background: accent ? d.colors.accentLighter : d.colors.card,
+        boxShadow: accent
+          ? `0 0 0 1.5px ${d.colors.accent}, ${d.shadows.card}`
+          : d.shadows.card,
         cursor: interactive ? 'pointer' : 'default',
         opacity: faded ? 0.6 : 1,
-        transition: p.transitions.fast,
+        transition: d.transitions.fast,
       }}
     >
       <div style={{
@@ -96,8 +99,8 @@ function ListRow({
       </div>
       {badge && (
         <span style={{
-          fontSize: 11, fontWeight: 700, color: p.colors.accentDark,
-          background: p.colors.accentLighter, padding: '3px 8px', borderRadius: p.radius.pill,
+          fontSize: 11, fontWeight: 700, color: d.colors.badgeBlueText,
+          background: d.colors.badgeBlueBg, padding: '3px 8px', borderRadius: d.radius.pill,
         }}>{badge}</span>
       )}
       {interactive && (badge === 'Hidden'
@@ -243,7 +246,7 @@ function MoneyInput({ label, hint, value, onChange, testId }: {
         <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 14, color: p.colors.subtle }}>$</span>
         <input type="number" min="0" value={value || ''}
           onChange={e => onChange(Number(e.target.value) || 0)}
-          className="premium-input" style={{ width: '100%', padding: '10px 14px 10px 26px', fontSize: 14 }}
+          className="premium-input" style={{ width: '100%', padding: '10px 14px 10px 26px', fontSize: 14, fontFamily: d.typography.fontMono }}
           data-testid={testId} />
       </div>
       {hint && <p style={{ fontSize: 12, color: p.colors.muted, marginTop: 5, lineHeight: 1.5 }}>{hint}</p>}
@@ -285,10 +288,10 @@ function ModelPanel({
               onClick={() => onChange('pricing_mode', m.id)}
               style={{
                 display: 'flex', alignItems: 'center', gap: 12, padding: '13px 14px',
-                borderRadius: p.radius.md, textAlign: 'left', cursor: 'pointer',
-                border: active ? `2px solid ${p.colors.accent}` : `1px solid ${p.colors.border}`,
-                background: active ? p.colors.accentLighter : '#fff',
-                transition: p.transitions.fast,
+                borderRadius: d.radius.card, textAlign: 'left', cursor: 'pointer', border: 'none',
+                background: active ? d.colors.accentLighter : d.colors.card,
+                boxShadow: active ? `0 0 0 2px ${d.colors.accent}, ${d.shadows.card}` : d.shadows.card,
+                transition: d.transitions.fast,
               }}>
               <div style={{
                 width: 34, height: 34, borderRadius: 9, flexShrink: 0,
@@ -375,7 +378,7 @@ function FieldEditPanel({
       <label style={{ ...p.typography.label, display: 'block', marginBottom: 5 }}>{label}</label>
       <input type="number" value={draft[key] ?? ''} placeholder="default"
         onChange={e => patch({ [key]: e.target.value === '' ? undefined : Number(e.target.value) })}
-        className="premium-input" style={{ width: '100%', padding: '10px 12px', fontSize: 14 }}
+        className="premium-input" style={{ width: '100%', padding: '10px 12px', fontSize: 14, fontFamily: d.typography.fontMono }}
         data-testid={`input-field-${key}`} />
     </div>
   );
@@ -420,9 +423,9 @@ function FieldEditPanel({
           onClick={() => patch({ hidden: !hidden })}
           style={{
             display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '12px 14px',
-            borderRadius: p.radius.md, cursor: 'pointer', textAlign: 'left',
-            border: `1px solid ${hidden ? p.colors.accent : p.colors.borderLight}`,
-            background: hidden ? p.colors.accentLighter : '#fff',
+            borderRadius: d.radius.card, cursor: 'pointer', textAlign: 'left', border: 'none',
+            background: hidden ? d.colors.accentLighter : d.colors.card,
+            boxShadow: hidden ? `0 0 0 1.5px ${d.colors.accent}, ${d.shadows.card}` : d.shadows.card,
           }}>
           <EyeOff style={{ width: 16, height: 16, color: hidden ? p.colors.accent : p.colors.muted, flexShrink: 0 }} />
           <div style={{ flex: 1 }}>
@@ -489,8 +492,8 @@ function AddFieldPanel({ isCustom, onPickPricingField, onBack }: {
             onClick={onPickPricingField}
             style={{
               display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '13px 14px',
-              borderRadius: p.radius.md, textAlign: 'left', cursor: 'pointer',
-              border: `1px solid ${p.colors.border}`, background: '#fff', transition: p.transitions.fast,
+              borderRadius: d.radius.card, textAlign: 'left', cursor: 'pointer', border: 'none',
+              background: d.colors.card, boxShadow: d.shadows.card, transition: d.transitions.fast,
             }}>
             <div style={{
               width: 34, height: 34, borderRadius: 9, flexShrink: 0,
