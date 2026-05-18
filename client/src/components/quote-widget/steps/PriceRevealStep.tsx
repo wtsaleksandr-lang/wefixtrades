@@ -154,6 +154,36 @@ export default function PriceRevealStep({ step, accentColor }: PriceRevealStepPr
 
 /* ─── Sub-blocks ─── */
 
+/**
+ * Segmented cost-breakdown bar — a single pill split into shares proportional
+ * to each line item. Minimal, single-accent, no axes (design-lock data-viz).
+ */
+function BreakdownBar({
+  breakdown,
+  colors,
+}: {
+  breakdown: Array<{ label: string; amount: number }>;
+  colors: string[];
+}) {
+  const segs = breakdown
+    .map((line, i) => ({ amount: line.amount, color: colors[i] }))
+    .filter((s) => s.amount > 0);
+  const total = segs.reduce((sum, s) => sum + s.amount, 0);
+  if (segs.length < 2 || total <= 0) return null;
+  return (
+    <div style={{
+      display: 'flex', gap: '2px', height: '10px', marginTop: '14px',
+      borderRadius: eff.radiusXl, overflow: 'hidden', background: eff.chartTrack,
+    }}>
+      {segs.map((s, i) => (
+        <div key={i} style={{
+          flexGrow: s.amount, flexBasis: 0, minWidth: '4px', background: s.color,
+        }} />
+      ))}
+    </div>
+  );
+}
+
 function ExactPriceBlock({
   total,
   breakdown,
@@ -164,6 +194,14 @@ function ExactPriceBlock({
   callUs: boolean;
 }) {
   const shownTotal = useCountUp(total);
+
+  // Per-line segment colours — positive line items get the accent ramp in
+  // order; the bar + line swatches only appear with 2+ positive shares.
+  let segCursor = 0;
+  const segColors = breakdown.map((line) =>
+    line.amount > 0 ? eff.chartSeg[segCursor++ % eff.chartSeg.length] : eff.textMuted,
+  );
+  const showBreakdownBar = breakdown.filter((b) => b.amount > 0).length >= 2;
   return (
     <div style={{
       borderRadius: eff.radiusXl,
@@ -196,10 +234,13 @@ function ExactPriceBlock({
         </p>
       </div>
 
+      {showBreakdownBar && <BreakdownBar breakdown={breakdown} colors={segColors} />}
+
       {breakdown.length > 0 && (
         <div style={{
-          borderTop: `1px solid ${eff.buttonBorder}`,
-          paddingTop: '16px',
+          borderTop: showBreakdownBar ? 'none' : `1px solid ${eff.buttonBorder}`,
+          paddingTop: showBreakdownBar ? 0 : '16px',
+          marginTop: showBreakdownBar ? '12px' : 0,
           display: 'flex',
           flexDirection: 'column',
           gap: '8px',
@@ -208,9 +249,18 @@ function ExactPriceBlock({
             <div key={i} style={{
               display: 'flex',
               justifyContent: 'space-between',
+              alignItems: 'center',
               fontSize: '14px',
             }}>
-              <span style={{ color: eff.textBody }}>{line.label}</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '7px', color: eff.textBody }}>
+                {showBreakdownBar && (
+                  <span style={{
+                    width: '8px', height: '8px', borderRadius: '2px',
+                    background: segColors[i], flexShrink: 0,
+                  }} />
+                )}
+                {line.label}
+              </span>
               <span style={{ fontWeight: 600, color: eff.text, fontFamily: eff.fontMono }}>
                 ${line.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
