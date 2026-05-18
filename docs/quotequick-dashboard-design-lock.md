@@ -198,7 +198,44 @@ padding, 12px 700-weight mono text.
 
 ---
 
-## 9 · Consuming the lock
+## 9 · Data visualisation
+
+Charts follow the same minimalist language as the rest of the lock.
+Tokens: `dashboardTheme.chart`.
+
+### Chart types
+
+| Type | Use | Recipe |
+|------|-----|--------|
+| **Ring / donut** | A single part-of-whole or progress % | Thin stroke ring — `chart.ringTrack` track, `chart.ringValue` value arc; big mono numeral centred; optional pastel delta pill below |
+| **Progress bar** | A single % or a position on a scale | Pill-shaped track (`chart.barTrack`) + fill (`chart.barFill`); mono % |
+| **Segmented bar** | Part-to-whole breakdown (2–5 shares) | One pill bar split into segments tinted from `chart.seg[]`; mono values |
+| **Area sparkline** | A trend over time | Single line — `chart.lineUp` (rising) or `chart.lineDown` (falling) — with a soft gradient fade (`chart.lineUpFill` / `lineDownFill`) |
+
+### Rules
+
+- **Single accent.** A chart uses one colour family, never a rainbow palette.
+- **No chrome.** No axes, gridlines, legends, or tick labels. Charts are
+  glanceable, not analytical-grade.
+- **Mono numerals.** Every value, %, or delta in `fontMono`.
+- **Deltas are pastel pills.** Up = green badge, down = red badge (§2), with
+  an arrow. A delta needs a real comparison point — never fake one.
+- **Soft, rounded, borderless** — same as cards (§5, §7).
+
+### Where charts belong
+
+- **Admin QuoteQuick dashboard** — the natural home for the full set
+  (rings, sparklines, period-over-period deltas): calculator analytics,
+  leads over time, conversion %, quote-value trends.
+- **Customer calculator widget** — charts are allowed **only when they show
+  real data from that quote**: e.g. a segmented cost-breakdown bar, or a
+  range gauge placing the estimate on a low–high band. Trend lines and
+  delta pills do **not** belong in the widget — a one-off quote has no
+  history to compare against.
+
+---
+
+## 10 · Consuming the lock
 
 ```ts
 import { dashboardTheme as d } from '@/theme/dashboardTheme';
@@ -206,8 +243,9 @@ import { dashboardTheme as d } from '@/theme/dashboardTheme';
 // d.colors.canvas, d.colors.card, d.colors.accent ...
 // d.radius.panel, d.radius.card ...
 // d.shadows.card, d.layout.panelGap, d.typography.fontMono ...
+// d.chart.ringValue, d.chart.seg, d.chart.lineUp ...
 ```
 
 The builder wizard (`client/src/components/wizard/`) is the first surface to
-adopt this — see the follow-up PR. `dashboardTheme` is intentionally shaped
-like `platformTheme` so the migration is mostly a token swap.
+adopt this. `dashboardTheme` is intentionally shaped like `platformTheme` so
+the migration is mostly a token swap.
