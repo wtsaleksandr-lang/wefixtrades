@@ -1734,7 +1734,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
           display: flex; align-items: center; justify-content: space-between;
           height: 60px; padding: 0 22px; box-sizing: border-box;
           background: ${d.colors.panelHeader};
-          border-radius: ${d.radius.panel};
+          border-radius: 14px;
           box-shadow: ${d.shadows.panel};
           position: sticky; top: ${d.layout.shellPad}; z-index: 30;
         }
@@ -1742,8 +1742,8 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
           display: flex; align-items: center; gap: 8px; text-decoration: none;
           font-size: 15px; font-weight: 800; color: ${p.colors.heading}; flex-shrink: 0;
         }
-        .wizard-nav-steps { display: flex; align-items: center; }
-        .wizard-nav-step { display: flex; align-items: center; }
+        .wizard-nav-steps { display: flex; align-items: center; min-width: 0; overflow: hidden; }
+        .wizard-nav-step { display: flex; align-items: center; flex-shrink: 0; }
         .wizard-nav-stepbtn {
           display: flex; align-items: center; gap: 0;
           border: none; background: none; padding: 4px 6px; margin: -4px 0;
@@ -1753,15 +1753,17 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
         .wizard-nav-num {
           width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0;
           display: flex; align-items: center; justify-content: center;
-          font-size: 12px; font-weight: 700;
+          font-size: 12px; font-weight: 700; line-height: 1;
+          font-variant-numeric: tabular-nums;
         }
         .wizard-nav-label { font-size: 13px; font-weight: 600; margin-left: 8px; white-space: nowrap; }
-        .wizard-nav-line { width: 30px; height: 1.5px; background: ${p.colors.border}; margin: 0 12px; }
-        .wizard-nav-step[data-state="todo"] .wizard-nav-num { background: #FFFFFF; color: ${d.colors.subtle}; }
+        .wizard-nav-line { width: 20px; height: 1.5px; background: ${p.colors.border}; margin: 0 8px; flex-shrink: 1; }
+        /* Step circles are always numbered (never checkmarks) and always filled. */
+        .wizard-nav-step[data-state="todo"] .wizard-nav-num { background: #D6DEE6; color: ${p.colors.muted}; }
         .wizard-nav-step[data-state="todo"] .wizard-nav-label { color: ${p.colors.subtle}; }
-        .wizard-nav-step[data-state="active"] .wizard-nav-num { background: ${p.colors.accent}; color: #fff; }
+        .wizard-nav-step[data-state="active"] .wizard-nav-num { background: ${p.colors.accent}; color: #fff; box-shadow: 0 0 0 3px ${p.colors.accentLighter}; }
         .wizard-nav-step[data-state="active"] .wizard-nav-label { color: ${p.colors.heading}; }
-        .wizard-nav-step[data-state="done"] .wizard-nav-num { background: ${p.colors.accentLighter}; color: ${p.colors.accent}; }
+        .wizard-nav-step[data-state="done"] .wizard-nav-num { background: ${p.colors.accent}; color: #fff; }
         .wizard-nav-step[data-state="done"] .wizard-nav-label { color: ${p.colors.muted}; }
         .wizard-nav-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
         .wizard-nav-saved {
@@ -1774,6 +1776,11 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
           border: 1px solid ${p.colors.border}; background: #fff;
           color: ${p.colors.muted}; font-weight: 700; font-size: 13px;
         }
+        /* Native colour picker — round the inner swatch so the custom-colour
+           control reads as a circle alongside the preset swatches. */
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: none; border-radius: 50%; }
+        input[type="color"]::-moz-color-swatch { border: none; border-radius: 50%; }
         /* Main floating panel — sits below the header bar with a canvas gap. */
         .wizard-shell-body {
           display: flex; align-items: stretch;
@@ -1851,6 +1858,11 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
         }
         .wizard-2ndbar-label { font-size: 11px; font-weight: 600; text-align: center; line-height: 1.25; }
 
+        /* Hide step labels before the row can overflow the navbar. */
+        @media (max-width: 1180px) {
+          .wizard-nav-label { display: none; }
+          .wizard-nav-line { width: 14px; margin: 0 5px; }
+        }
         @media (max-width: 980px) {
           .wizard-shell-body { flex-direction: column; height: auto; overflow: visible; }
           .wizard-left { width: 100%; height: auto; overflow-y: visible; border-right: none; }
@@ -2176,7 +2188,7 @@ function WizardNav({ current, onHelp, justSaved, onNavigate }: {
                 onClick={() => reachable && onNavigate!(n)}
                 style={{ cursor: reachable && n !== current ? 'pointer' : 'default' }}
               >
-                <span className="wizard-nav-num">{state === 'done' ? '✓' : n}</span>
+                <span className="wizard-nav-num">{n}</span>
                 <span className="wizard-nav-label">{label}</span>
               </button>
               {n < NAV_STEPS.length && <span className="wizard-nav-line" />}
