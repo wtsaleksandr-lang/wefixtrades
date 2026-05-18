@@ -10,12 +10,13 @@ import { validateFormula, runCalculations, type FormulaContext } from '@shared/f
 import {
   Plus, Trash2, ChevronLeft, Hash, SlidersHorizontal, List, CircleDot,
   CheckSquare, ToggleLeft, Type, Sigma, Eye, Sparkles, Loader2,
+  Image as ImageIcon, Heading, Search, X,
 } from 'lucide-react';
 
 /* ─── Types (mirror calculator_settings.advanced) ─── */
 
-type FieldType = 'number' | 'slider' | 'select' | 'radio' | 'multi_select' | 'toggle' | 'text';
-interface AdvOption { id: string; label: string; value: number; }
+type FieldType = 'number' | 'slider' | 'select' | 'radio' | 'multi_select' | 'toggle' | 'text' | 'image_choice' | 'heading';
+interface AdvOption { id: string; label: string; value: number; image?: string; }
 type RuleOp = 'eq' | 'ne' | 'gt' | 'lt' | 'gte' | 'lte';
 interface VisRule { field: string; op: RuleOp; value: number; }
 interface AdvField {
@@ -44,21 +45,38 @@ interface Props {
   onExitAdvanced: () => void;
 }
 
-const FIELD_TYPES: { id: FieldType; label: string; Icon: any }[] = [
-  { id: 'number', label: 'Number', Icon: Hash },
-  { id: 'slider', label: 'Slider', Icon: SlidersHorizontal },
-  { id: 'select', label: 'Dropdown', Icon: List },
-  { id: 'radio', label: 'Radio', Icon: CircleDot },
-  { id: 'multi_select', label: 'Checkboxes', Icon: CheckSquare },
-  { id: 'toggle', label: 'Toggle', Icon: ToggleLeft },
-  { id: 'text', label: 'Text', Icon: Type },
+/** Catalogue used both by the type dropdown and the visual field picker. */
+const FIELD_TYPES: { id: FieldType; label: string; desc: string; Icon: any; cat: string }[] = [
+  { id: 'number', label: 'Number', desc: 'A numeric value the customer types in', Icon: Hash, cat: 'Basic inputs' },
+  { id: 'slider', label: 'Slider', desc: 'Pick a value by dragging along a range', Icon: SlidersHorizontal, cat: 'Basic inputs' },
+  { id: 'text', label: 'Text', desc: 'Free text — not used in the pricing math', Icon: Type, cat: 'Basic inputs' },
+  { id: 'select', label: 'Dropdown', desc: 'Choose one option from a compact list', Icon: List, cat: 'Choices' },
+  { id: 'radio', label: 'Radio buttons', desc: 'Choose one — every option stays visible', Icon: CircleDot, cat: 'Choices' },
+  { id: 'multi_select', label: 'Checkboxes', desc: 'Choose any number of options', Icon: CheckSquare, cat: 'Choices' },
+  { id: 'toggle', label: 'Toggle', desc: 'A simple on / off switch', Icon: ToggleLeft, cat: 'Choices' },
+  { id: 'image_choice', label: 'Image choice', desc: 'Pick an option shown as an image card', Icon: ImageIcon, cat: 'Visual' },
+  { id: 'heading', label: 'Heading', desc: 'A section title — not an input', Icon: Heading, cat: 'Layout' },
 ];
-const OPTION_TYPES = new Set<FieldType>(['select', 'radio', 'multi_select']);
+const FIELD_CATS = ['Basic inputs', 'Choices', 'Visual', 'Layout'];
+const OPTION_TYPES = new Set<FieldType>(['select', 'radio', 'multi_select', 'image_choice']);
 
 const gid = (pfx: string) => `${pfx}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
 
-function newField(): AdvField {
-  return { id: gid('fld'), name: 'New field', label: 'New field', type: 'number', default_value: 0, min: 0, max: 100, step: 1, options: [], on_value: 1 };
+function newField(type: FieldType = 'number'): AdvField {
+  const base: AdvField = {
+    id: gid('fld'), type,
+    name: type === 'heading' ? 'Section heading' : 'New field',
+    label: type === 'heading' ? 'Section heading' : 'New field',
+    options: [], on_value: 1,
+  };
+  if (type === 'number' || type === 'slider') { base.default_value = 0; base.min = 0; base.max = 100; base.step = 1; }
+  if (OPTION_TYPES.has(type)) {
+    base.options = [
+      { id: gid('opt'), label: 'Option 1', value: 0 },
+      { id: gid('opt'), label: 'Option 2', value: 0 },
+    ];
+  }
+  return base;
 }
 function newCalc(): AdvCalc {
   return { id: gid('calc'), name: 'Total', formula: '', format: 'currency' };
@@ -118,7 +136,11 @@ export default function AdvancedBuilder({ advanced, onChange, onExitAdvanced }: 
   };
 
   /* fields */
-  const addField = () => patch({ fields: [...fields, newField()] });
+  const [showPicker, setShowPicker] = useState(false);
+  const addField = (type: FieldType) => {
+    patch({ fields: [...fields, newField(type)] });
+    setShowPicker(false);
+  };
   const updateField = (id: string, u: Partial<AdvField>) =>
     patch({ fields: fields.map((f) => (f.id === id ? { ...f, ...u } : f)) });
   const removeField = (id: string) => patch({ fields: fields.filter((f) => f.id !== id) });
@@ -135,7 +157,7 @@ export default function AdvancedBuilder({ advanced, onChange, onExitAdvanced }: 
     for (const f of fields) {
       if (f.type === 'number' || f.type === 'slider') ctx[f.name] = f.default_value ?? f.min ?? 0;
       else if (f.type === 'toggle') ctx[f.name] = 0;
-      else if (f.type === 'select' || f.type === 'radio') ctx[f.name] = f.options?.[0]?.value ?? 0;
+      else if (f.type === 'select' || f.type === 'radio' || f.type === 'image_choice') ctx[f.name] = f.options?.[0]?.value ?? 0;
       else if (f.type === 'multi_select') ctx[f.name] = [];
       else ctx[f.name] = '';
     }
@@ -206,7 +228,7 @@ export default function AdvancedBuilder({ advanced, onChange, onExitAdvanced }: 
           <FieldCard key={f.id} field={f} allFields={fields}
             onChange={(u) => updateField(f.id, u)} onRemove={() => removeField(f.id)} />
         ))}
-        <button type="button" data-testid="button-add-adv-field" onClick={addField}
+        <button type="button" data-testid="button-add-adv-field" onClick={() => setShowPicker(true)}
           style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
             padding: '11px', borderRadius: d.radius.card, cursor: 'pointer',
@@ -250,6 +272,121 @@ export default function AdvancedBuilder({ advanced, onChange, onExitAdvanced }: 
           </select>
         </div>
       )}
+
+      {showPicker && <FieldPickerModal onPick={addField} onClose={() => setShowPicker(false)} />}
+    </div>
+  );
+}
+
+/* ─── Field picker modal — visual, searchable, categorised ─── */
+
+function FieldPickerModal({ onPick, onClose }: {
+  onPick: (type: FieldType) => void; onClose: () => void;
+}) {
+  const [q, setQ] = useState('');
+  const query = q.trim().toLowerCase();
+  const matches = (t: typeof FIELD_TYPES[number]) =>
+    !query || t.label.toLowerCase().includes(query) || t.desc.toLowerCase().includes(query);
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 60, display: 'flex',
+        alignItems: 'center', justifyContent: 'center', padding: 20,
+        background: 'rgba(17,24,39,0.45)',
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        data-testid="field-picker"
+        style={{
+          width: '100%', maxWidth: 540, maxHeight: '82vh', display: 'flex', flexDirection: 'column',
+          background: d.colors.panel, borderRadius: d.radius.panel, boxShadow: d.shadows.panel,
+          overflow: 'hidden',
+        }}
+      >
+        {/* header */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '16px 18px 12px',
+        }}>
+          <div>
+            <p style={{ ...p.typography.h3, margin: 0 }}>Add a field</p>
+            <p style={{ fontSize: 12, color: p.colors.muted, margin: '2px 0 0' }}>
+              Pick what the customer fills in.
+            </p>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Close"
+            style={{
+              width: 30, height: 30, borderRadius: d.radius.control, flexShrink: 0,
+              border: 'none', background: d.colors.card, boxShadow: d.shadows.card,
+              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+            <X style={{ width: 15, height: 15, color: p.colors.muted }} />
+          </button>
+        </div>
+
+        {/* search */}
+        <div style={{ padding: '0 18px 12px', position: 'relative' }}>
+          <Search style={{
+            width: 15, height: 15, color: p.colors.subtle,
+            position: 'absolute', left: 30, top: 11,
+          }} />
+          <input
+            autoFocus value={q} onChange={(e) => setQ(e.target.value)}
+            placeholder="Search field types…" className={inputCls}
+            data-testid="field-picker-search"
+            style={{ width: '100%', padding: '9px 12px 9px 34px', fontSize: 13 }}
+          />
+        </div>
+
+        {/* categorised list */}
+        <div style={{ overflowY: 'auto', padding: '4px 18px 18px' }}>
+          {FIELD_CATS.map((cat) => {
+            const items = FIELD_TYPES.filter((t) => t.cat === cat && matches(t));
+            if (items.length === 0) return null;
+            return (
+              <div key={cat} style={{ marginBottom: 14 }}>
+                <p style={{
+                  fontSize: 11, fontWeight: 700, color: p.colors.subtle,
+                  letterSpacing: '0.07em', textTransform: 'uppercase', margin: '0 0 7px',
+                }}>{cat}</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                  {items.map((t) => (
+                    <button key={t.id} type="button" data-testid={`field-picker-${t.id}`}
+                      onClick={() => onPick(t.id)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 11, width: '100%',
+                        padding: '11px 13px', borderRadius: d.radius.card, textAlign: 'left',
+                        border: 'none', background: d.colors.card, boxShadow: d.shadows.card,
+                        cursor: 'pointer', transition: p.transitions.fast,
+                      }}>
+                      <div style={{
+                        width: 36, height: 36, borderRadius: 9, flexShrink: 0,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        background: p.colors.accentLighter, color: p.colors.accent,
+                      }}>
+                        <t.Icon style={{ width: 17, height: 17 }} />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontSize: 13.5, fontWeight: 600, color: p.colors.heading, margin: 0 }}>{t.label}</p>
+                        <p style={{ fontSize: 12, color: p.colors.muted, margin: 0, lineHeight: 1.4 }}>{t.desc}</p>
+                      </div>
+                      <Plus style={{ width: 15, height: 15, color: p.colors.subtle, flexShrink: 0 }} />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+          {FIELD_TYPES.every((t) => !matches(t)) && (
+            <p style={{ fontSize: 13, color: p.colors.muted, textAlign: 'center', padding: '16px 0' }}>
+              No field types match “{q}”.
+            </p>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -308,26 +445,33 @@ function FieldCard({ field, allFields, onChange, onRemove }: {
       {OPTION_TYPES.has(f.type) && (
         <div style={{ marginTop: 8 }}>
           <label style={{ ...p.typography.captionSm, display: 'block', marginBottom: 5 }}>
-            Options (label + value)
+            {f.type === 'image_choice' ? 'Options (label · value · image URL)' : 'Options (label + value)'}
           </label>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {(f.options || []).map((o, i) => (
-              <div key={o.id} style={{ display: 'flex', gap: 6 }}>
-                <input className={inputCls} value={o.label} placeholder="Option label"
-                  onChange={(e) => setOptions((f.options || []).map((x, j) => j === i ? { ...x, label: e.target.value } : x))}
-                  style={{ flex: 1, fontSize: 13 }} />
-                <input className={inputCls} type="number" value={o.value}
-                  onChange={(e) => setOptions((f.options || []).map((x, j) => j === i ? { ...x, value: Number(e.target.value) || 0 } : x))}
-                  style={{ width: 84, fontSize: 13, fontFamily: d.typography.fontMono }} />
-                <button type="button" aria-label="Remove option"
-                  onClick={() => setOptions((f.options || []).filter((_, j) => j !== i))}
-                  style={{
-                    width: 30, height: 30, flexShrink: 0, borderRadius: d.radius.control,
-                    border: `1px solid ${p.colors.borderLight}`, background: '#fff', cursor: 'pointer',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}>
-                  <Trash2 style={{ width: 13, height: 13, color: p.colors.muted }} />
-                </button>
+              <div key={o.id}>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <input className={inputCls} value={o.label} placeholder="Option label"
+                    onChange={(e) => setOptions((f.options || []).map((x, j) => j === i ? { ...x, label: e.target.value } : x))}
+                    style={{ flex: 1, fontSize: 13 }} />
+                  <input className={inputCls} type="number" value={o.value}
+                    onChange={(e) => setOptions((f.options || []).map((x, j) => j === i ? { ...x, value: Number(e.target.value) || 0 } : x))}
+                    style={{ width: 84, fontSize: 13, fontFamily: d.typography.fontMono }} />
+                  <button type="button" aria-label="Remove option"
+                    onClick={() => setOptions((f.options || []).filter((_, j) => j !== i))}
+                    style={{
+                      width: 30, height: 30, flexShrink: 0, borderRadius: d.radius.control,
+                      border: `1px solid ${p.colors.borderLight}`, background: '#fff', cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                    <Trash2 style={{ width: 13, height: 13, color: p.colors.muted }} />
+                  </button>
+                </div>
+                {f.type === 'image_choice' && (
+                  <input className={inputCls} value={o.image || ''} placeholder="https://image-url…"
+                    onChange={(e) => setOptions((f.options || []).map((x, j) => j === i ? { ...x, image: e.target.value } : x))}
+                    style={{ width: '100%', fontSize: 12, marginTop: 4 }} />
+                )}
               </div>
             ))}
           </div>

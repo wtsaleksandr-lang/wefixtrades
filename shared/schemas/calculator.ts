@@ -345,7 +345,7 @@ export const calculatorSettingsSchema = z.object({
       id: z.string(),
       name: z.string(),
       label: z.string(),
-      type: z.enum(['number', 'slider', 'select', 'radio', 'multi_select', 'toggle', 'text']),
+      type: z.enum(['number', 'slider', 'select', 'radio', 'multi_select', 'toggle', 'text', 'image_choice', 'heading']),
       help: z.string().optional(),
       required: z.boolean().default(false),
       // number / slider
@@ -356,11 +356,13 @@ export const calculatorSettingsSchema = z.object({
       unit: z.string().optional(),
       // toggle — numeric value contributed when on
       on_value: z.number().default(1),
-      // select / radio / multi_select — each option carries a numeric value
+      // select / radio / multi_select / image_choice — each option carries a
+      // numeric value; image_choice options also carry an image URL.
       options: z.array(z.object({
         id: z.string(),
         label: z.string(),
         value: z.number().default(0),
+        image: z.string().optional(),
       })).default([]),
       // Conditional visibility — when set, the field shows only while another
       // field's value satisfies the rule. Hidden fields contribute 0 to formulas.
