@@ -58,6 +58,61 @@ function Badge({ config }: { config: { label: string; bg: string; text: string }
   );
 }
 
+/* ─── Data-viz (design-lock: single-accent, no axes, mono numerals) ─── */
+
+const QQ_ACCENT = "#0d3cfc";
+const QQ_RING_TRACK = "#E2E7EE";
+const QQ_SEG = ["#0d3cfc", "#4f6dfd", "#9DB0FE"];
+
+/** Conversion-rate donut — leads ÷ views. */
+function ConversionRing({ leads, views }: { leads: number; views: number }) {
+  const pct = views > 0 ? Math.min(1, leads / views) : 0;
+  const r = 52;
+  const circ = 2 * Math.PI * r;
+  return (
+    <svg viewBox="0 0 120 120" className="w-28 h-28 shrink-0">
+      <circle cx="60" cy="60" r={r} fill="none" stroke={QQ_RING_TRACK} strokeWidth="9" />
+      <circle
+        cx="60" cy="60" r={r} fill="none" stroke={QQ_ACCENT} strokeWidth="9"
+        strokeLinecap="round" strokeDasharray={`${circ * pct} ${circ}`}
+        transform="rotate(-90 60 60)"
+      />
+      <text
+        x="60" y="60" textAnchor="middle" dominantBaseline="central"
+        style={{ fontFamily: "monospace", fontSize: "23px", fontWeight: 700, fill: "#22282A" }}
+      >
+        {Math.round(pct * 100)}%
+      </text>
+    </svg>
+  );
+}
+
+/** Plan-mix segmented bar — share of calculators by plan tier. */
+function PlanMixBar({ tiers }: { tiers: { label: string; count: number }[] }) {
+  const total = tiers.reduce((s, t) => s + t.count, 0);
+  return (
+    <div>
+      <div className="flex gap-0.5 h-2.5 rounded-full overflow-hidden" style={{ background: QQ_RING_TRACK }}>
+        {total > 0 &&
+          tiers.map((t, i) =>
+            t.count > 0 ? (
+              <div key={t.label} style={{ flexGrow: t.count, flexBasis: 0, background: QQ_SEG[i % QQ_SEG.length] }} />
+            ) : null,
+          )}
+      </div>
+      <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3">
+        {tiers.map((t, i) => (
+          <div key={t.label} className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-sm shrink-0" style={{ background: QQ_SEG[i % QQ_SEG.length] }} />
+            <span className="text-xs text-gray-500">{t.label}</span>
+            <span className="text-xs font-mono font-semibold text-gray-900">{t.count}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function QuoteQuickPage() {
   usePageTitle("QuoteQuick");
 
@@ -157,6 +212,12 @@ export default function QuoteQuickPage() {
   const totalViews = calculators.reduce((s, c) => s + c.total_views, 0);
   const paidCount = calculators.filter((c) => c.plan_tier !== "free").length;
 
+  const tierMix = [
+    { label: "Free", count: calculators.filter((c) => c.plan_tier === "free").length },
+    { label: "Starter", count: calculators.filter((c) => c.plan_tier === "starter").length },
+    { label: "Pro", count: calculators.filter((c) => c.plan_tier === "business" || c.plan_tier === "pro").length },
+  ];
+
   function SortHeader({ field, label }: { field: SortField; label: string }) {
     const active = sortField === field;
     return (
@@ -189,7 +250,7 @@ export default function QuoteQuickPage() {
                 <Calculator className="w-4 h-4 text-blue-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-gray-900">{calculators.length}</p>
+                <p className="text-2xl font-bold font-mono text-gray-900">{calculators.length}</p>
                 <p className="text-xs text-gray-500">Total calculators</p>
               </div>
             </div>
@@ -200,7 +261,7 @@ export default function QuoteQuickPage() {
                 <Eye className="w-4 h-4 text-green-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-gray-900">{totalLive}</p>
+                <p className="text-2xl font-bold font-mono text-gray-900">{totalLive}</p>
                 <p className="text-xs text-gray-500">Live</p>
               </div>
             </div>
@@ -211,7 +272,7 @@ export default function QuoteQuickPage() {
                 <Users className="w-4 h-4 text-purple-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-gray-900">{totalLeads.toLocaleString()}</p>
+                <p className="text-2xl font-bold font-mono text-gray-900">{totalLeads.toLocaleString()}</p>
                 <p className="text-xs text-gray-500">Total leads</p>
               </div>
             </div>
@@ -222,10 +283,32 @@ export default function QuoteQuickPage() {
                 <Calculator className="w-4 h-4 text-emerald-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-gray-900">{paidCount}</p>
+                <p className="text-2xl font-bold font-mono text-gray-900">{paidCount}</p>
                 <p className="text-xs text-gray-500">Paid plans</p>
               </div>
             </div>
+          </Card>
+        </div>
+
+        {/* Calculator analytics */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Card className="p-5">
+            <p className="text-xs font-medium uppercase tracking-wider text-gray-500 mb-3">Lead conversion</p>
+            <div className="flex items-center gap-5">
+              <ConversionRing leads={totalLeads} views={totalViews} />
+              <div className="space-y-1">
+                <p className="text-sm text-gray-600">
+                  <span className="font-mono font-semibold text-gray-900">{totalLeads.toLocaleString()}</span> leads
+                </p>
+                <p className="text-sm text-gray-600">
+                  from <span className="font-mono font-semibold text-gray-900">{totalViews.toLocaleString()}</span> views
+                </p>
+              </div>
+            </div>
+          </Card>
+          <Card className="p-5">
+            <p className="text-xs font-medium uppercase tracking-wider text-gray-500 mb-4">Plan mix</p>
+            <PlanMixBar tiers={tierMix} />
           </Card>
         </div>
 
