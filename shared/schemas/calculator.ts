@@ -148,6 +148,13 @@ export const calculatorSettingsSchema = z.object({
     show_starting_price: z.boolean().default(false),
     urgency_message: z.string().optional(),
     delay_result: z.boolean().default(false),
+    // Owner-provided "typical job" low/high. When enabled, the widget plots
+    // the customer's exact estimate on this band as a context gauge.
+    context_range: z.object({
+      enabled: z.boolean().default(false),
+      low: z.number().default(0),
+      high: z.number().default(0),
+    }).default({}),
   }).default({}),
 
   integrations: z.object({

@@ -1019,6 +1019,38 @@ function ConversionTab({ settings, onChange, conversionBlocks, onBlocksChange }:
       />
 
       <ToggleSwitch
+        value={settings.context_range?.enabled ?? false}
+        onChange={v => onChange('context_range', { ...settings.context_range, enabled: v })}
+        testId="toggle-context-range"
+        label="Typical-range gauge"
+        sublabel="Plot the estimate on a low–high band for context"
+      />
+      {settings.context_range?.enabled && (
+        <div style={{ display: 'flex', gap: '10px', paddingBottom: '8px' }}>
+          <div style={{ flex: 1 }}>
+            <StudioInput
+              value={settings.context_range?.low ? String(settings.context_range.low) : ''}
+              onChange={v => onChange('context_range', { ...settings.context_range, low: Number(v) || 0 })}
+              testId="input-context-low"
+              type="number"
+              placeholder="0"
+              label="Typical low ($)"
+            />
+          </div>
+          <div style={{ flex: 1 }}>
+            <StudioInput
+              value={settings.context_range?.high ? String(settings.context_range.high) : ''}
+              onChange={v => onChange('context_range', { ...settings.context_range, high: Number(v) || 0 })}
+              testId="input-context-high"
+              type="number"
+              placeholder="0"
+              label="Typical high ($)"
+            />
+          </div>
+        </div>
+      )}
+
+      <ToggleSwitch
         value={settings.show_upsell}
         onChange={v => onChange('show_upsell', v)}
         testId="toggle-upsell"

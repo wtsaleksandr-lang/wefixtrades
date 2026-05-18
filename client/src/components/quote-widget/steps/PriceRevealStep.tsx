@@ -68,6 +68,10 @@ export default function PriceRevealStep({ step, accentColor }: PriceRevealStepPr
   const redirect = action?.mode === 'redirect' ? action?.redirect : null;
   const showRedirect = !!(redirect && redirect.button_url);
 
+  // Owner-configured typical-range gauge (conversion.context_range).
+  const cr = (config.calculator.calculator_settings as any)?.conversion?.context_range;
+  const contextRange = cr?.enabled && cr.high > cr.low ? { low: cr.low, high: cr.high } : null;
+
   const trackedRef = useRef(false);
   useEffect(() => {
     if (!trackedRef.current && config.calculator.id === 0) {
@@ -106,6 +110,7 @@ export default function PriceRevealStep({ step, accentColor }: PriceRevealStepPr
           total={estimate.total}
           breakdown={estimate.breakdown}
           callUs={estimate.callUs}
+          contextRange={contextRange}
         />
       )}
 
@@ -184,14 +189,60 @@ function BreakdownBar({
   );
 }
 
+/**
+ * Estimate context gauge — plots the quote on the owner-provided typical
+ * low–high band. Real data only: the band is owner-configured, not derived.
+ */
+function RangeGauge({ low, high, value }: { low: number; high: number; value: number }) {
+  const span = high - low;
+  if (span <= 0) return null;
+  const pct = Math.max(0, Math.min(1, (value - low) / span));
+  const fmt = (n: number) => `$${Math.round(n).toLocaleString()}`;
+  return (
+    <div style={{ marginTop: '18px' }}>
+      <p style={{
+        fontSize: '12px', fontWeight: 600, color: eff.textBody,
+        textTransform: 'uppercase', letterSpacing: '0.04em',
+        margin: '0 0 10px', fontFamily: eff.font,
+      }}>
+        How your estimate compares
+      </p>
+      <div style={{
+        position: 'relative', height: '8px',
+        borderRadius: eff.radiusXl, background: eff.chartTrack,
+      }}>
+        <div style={{
+          position: 'absolute', left: 0, top: 0, bottom: 0,
+          width: `${pct * 100}%`, background: eff.accent, borderRadius: eff.radiusXl,
+        }} />
+        <div style={{
+          position: 'absolute', left: `${pct * 100}%`, top: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: '16px', height: '16px', borderRadius: '50%',
+          background: '#fff', border: `3px solid ${eff.accent}`, boxShadow: eff.shadowCard,
+        }} />
+      </div>
+      <div style={{
+        display: 'flex', justifyContent: 'space-between', marginTop: '7px',
+        fontSize: '12px', color: eff.textBody, fontFamily: eff.fontMono,
+      }}>
+        <span>{fmt(low)}</span>
+        <span>{fmt(high)}</span>
+      </div>
+    </div>
+  );
+}
+
 function ExactPriceBlock({
   total,
   breakdown,
   callUs,
+  contextRange,
 }: {
   total: number;
   breakdown: Array<{ label: string; amount: number }>;
   callUs: boolean;
+  contextRange?: { low: number; high: number } | null;
 }) {
   const shownTotal = useCountUp(total);
 
@@ -267,6 +318,10 @@ function ExactPriceBlock({
             </div>
           ))}
         </div>
+      )}
+
+      {contextRange && (
+        <RangeGauge low={contextRange.low} high={contextRange.high} value={total} />
       )}
 
       {callUs && (
