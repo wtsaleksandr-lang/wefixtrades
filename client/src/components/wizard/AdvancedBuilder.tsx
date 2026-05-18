@@ -3,7 +3,7 @@
 // a Fields editor + a Calculations editor (formula input with insert chips and
 // live validation). Edits write straight to calculator_settings.advanced, so
 // the wizard's live-preview pane renders the result instantly.
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { platformTheme as p } from '@/theme/platformTheme';
 import { dashboardTheme as d } from '@/theme/dashboardTheme';
@@ -11,7 +11,7 @@ import { validateFormula, runCalculations, type FormulaContext } from '@shared/f
 import {
   Plus, Trash2, ChevronLeft, Hash, SlidersHorizontal, List, CircleDot,
   CheckSquare, ToggleLeft, Type, Sigma, Eye, Sparkles, Loader2,
-  Image as ImageIcon, Heading, Search, X, ChevronDown, Info,
+  Image as ImageIcon, Heading, Search, X, ChevronDown, Info, CheckCircle2,
 } from 'lucide-react';
 
 /* ─── Types (mirror calculator_settings.advanced) ─── */
@@ -60,6 +60,24 @@ const FIELD_TYPES: { id: FieldType; label: string; desc: string; Icon: any; cat:
 ];
 const FIELD_CATS = ['Basic inputs', 'Choices', 'Visual', 'Layout'];
 const OPTION_TYPES = new Set<FieldType>(['select', 'radio', 'multi_select', 'image_choice']);
+
+/** Staged labels shown while the AI generator runs (a single request). */
+const AI_STAGES = [
+  'Reading your description…',
+  'Designing the input fields…',
+  'Writing the pricing formulas…',
+  'Putting it all together…',
+];
+
+/** One-tap starting points for the AI generator. */
+const AI_PRESETS: { label: string; prompt: string }[] = [
+  { label: 'House cleaning', prompt: 'A house cleaning quote — number of bedrooms, number of bathrooms, a toggle for deep clean, and a frequency dropdown (one-off, weekly, fortnightly). Price per room plus a deep-clean surcharge.' },
+  { label: 'Moving / removals', prompt: 'A removals quote — number of rooms, distance in miles, a toggle for a packing service, and flights of stairs. Base price per room, a mileage charge, and an optional packing fee.' },
+  { label: 'Roofing', prompt: 'A roofing estimate — roof area in square metres, a dropdown for roof type (flat, pitched, complex), and a toggle for scaffolding. Price per square metre with a multiplier for roof type.' },
+  { label: 'Painting', prompt: 'A painting quote — number of rooms, a dropdown for finish quality (standard, premium), wall area in square metres, and a toggle for ceilings included. Price per square metre by finish.' },
+  { label: 'Landscaping', prompt: 'A landscaping quote — garden area in square metres, a dropdown for service (mowing, full maintenance, redesign), and a toggle for green-waste removal.' },
+  { label: 'Electrical', prompt: 'An electrical job quote — number of sockets/points, a dropdown for job type (install, repair, inspection), a call-out toggle, and estimated hours. Hourly rate plus a call-out fee.' },
+];
 
 const gid = (pfx: string) => `${pfx}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
 
@@ -112,10 +130,24 @@ export default function AdvancedBuilder({ advanced, onChange, onExitAdvanced }: 
   const [aiText, setAiText] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState('');
+  const [aiStage, setAiStage] = useState(0);
+  const [aiResult, setAiResult] = useState<{ fields: number; calcs: string[] } | null>(null);
+
+  // Cycle the staged progress labels while a generation is in flight.
+  useEffect(() => {
+    if (!aiLoading) { setAiStage(0); return; }
+    const iv = setInterval(
+      () => setAiStage((s) => Math.min(s + 1, AI_STAGES.length - 1)),
+      1300,
+    );
+    return () => clearInterval(iv);
+  }, [aiLoading]);
+
   const aiGenerate = async () => {
     if (!aiText.trim() || aiLoading) return;
     setAiLoading(true);
     setAiError('');
+    setAiResult(null);
     try {
       const res = await fetch('/api/ai/generate-advanced-calculator', {
         method: 'POST',
@@ -127,6 +159,10 @@ export default function AdvancedBuilder({ advanced, onChange, onExitAdvanced }: 
         setAiError(data?.error || 'Could not generate a calculator. Try rephrasing.');
       } else {
         onChange({ ...advanced, ...data.advanced, enabled: true });
+        setAiResult({
+          fields: (data.advanced.fields || []).length,
+          calcs: (data.advanced.calculations || []).map((x: any) => x.name).filter(Boolean),
+        });
         setAiText('');
       }
     } catch {
@@ -194,12 +230,31 @@ export default function AdvancedBuilder({ advanced, onChange, onExitAdvanced }: 
         borderRadius: d.radius.card, background: p.colors.accentLighter,
         padding: 14, marginBottom: 18,
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 4 }}>
           <Sparkles style={{ width: 16, height: 16, color: p.colors.accent }} />
           <span style={{ fontSize: 13, fontWeight: 700, color: p.colors.accentDark }}>
             Describe it, let AI build it
           </span>
         </div>
+        <p style={{ fontSize: 12, color: p.colors.muted, margin: '0 0 9px', lineHeight: 1.5 }}>
+          Name the inputs the customer picks and how the price adds up — the more specific, the better.
+        </p>
+
+        {/* preset quick-starts */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 9 }}>
+          {AI_PRESETS.map((preset) => (
+            <button key={preset.label} type="button" data-testid={`ai-preset-${preset.label}`}
+              onClick={() => { setAiText(preset.prompt); setAiError(''); }}
+              style={{
+                padding: '4px 10px', borderRadius: d.radius.pill, cursor: 'pointer',
+                border: `1px solid ${p.colors.borderHover}`, background: '#fff',
+                fontSize: 12, fontWeight: 600, color: p.colors.body,
+              }}>
+              {preset.label}
+            </button>
+          ))}
+        </div>
+
         <textarea data-testid="input-ai-describe" value={aiText}
           onChange={(e) => setAiText(e.target.value)} rows={3} className={inputCls}
           placeholder="e.g. A moving quote — number of rooms, distance in miles, optional packing service, then 10% tax."
@@ -217,9 +272,39 @@ export default function AdvancedBuilder({ advanced, onChange, onExitAdvanced }: 
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
           }}>
           {aiLoading
-            ? <><Loader2 className="animate-spin" style={{ width: 15, height: 15 }} /> Generating…</>
+            ? <><Loader2 className="animate-spin" style={{ width: 15, height: 15 }} /> {AI_STAGES[aiStage]}</>
             : <><Sparkles style={{ width: 15, height: 15 }} /> {(fields.length || calcs.length) ? 'Regenerate' : 'Generate calculator'}</>}
         </button>
+
+        {/* post-generation explanation */}
+        {aiResult && !aiLoading && (
+          <div data-testid="ai-result-summary" style={{
+            marginTop: 10, padding: '11px 12px', borderRadius: d.radius.control,
+            background: '#fff', boxShadow: d.shadows.card,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+              <CheckCircle2 style={{ width: 16, height: 16, color: p.colors.accent, flexShrink: 0, marginTop: 1 }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontSize: 12.5, fontWeight: 700, color: p.colors.heading, margin: 0 }}>
+                  Calculator built
+                </p>
+                <p style={{ fontSize: 12, color: p.colors.muted, margin: '2px 0 0', lineHeight: 1.5 }}>
+                  Added {aiResult.fields} field{aiResult.fields === 1 ? '' : 's'}
+                  {' '}and {aiResult.calcs.length} calculation{aiResult.calcs.length === 1 ? '' : 's'}
+                  {aiResult.calcs.length > 0 ? ` (${aiResult.calcs.join(', ')})` : ''}.
+                  Review and tweak anything below.
+                </p>
+              </div>
+              <button type="button" aria-label="Dismiss" onClick={() => setAiResult(null)}
+                style={{
+                  border: 'none', background: 'none', cursor: 'pointer', padding: 2, flexShrink: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                <X style={{ width: 14, height: 14, color: p.colors.subtle }} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ─── FIELDS ─── */}
