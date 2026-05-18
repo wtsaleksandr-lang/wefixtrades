@@ -925,7 +925,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
 
         {/* Step 0: Business & Trade Setup */}
         {step === 0 && (
-          <div className="animate-fade-in-up">
+          <div className="animate-fade-in-up wizard-step-fill">
             <div id="wiz-sec-business" style={{ scrollMarginTop: 16 }} />
             <InputField
               id="business-name" testId="input-business-name"
@@ -1106,7 +1106,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
 
         {/* Step 1: Preview & Polish (side panel shows live preview on desktop) */}
         {step === 1 && (
-          <div>
+          <div className="wizard-step-fill">
             {/* Mobile-only: inline preview (hidden on desktop where side panel shows) */}
             <div className="lg:hidden animate-fade-in-up" style={{
               marginBottom: '24px', padding: '16px', borderRadius: p.radius.lg,
@@ -1299,7 +1299,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
 
         {/* Step 2: Pricing Logic */}
         {step === 2 && (
-          <div className="animate-fade-in-up">
+          <div className="animate-fade-in-up wizard-step-fill">
             {ws.isCustomTrade ? (
               <>
                 {ws.customTradeData.charge_method !== 'not_sure' && (
@@ -1554,7 +1554,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
         )}
 
         {step === 5 && !result && (
-          <div className="animate-fade-in-up">
+          <div className="animate-fade-in-up wizard-step-fill">
             <div style={{
               display: 'flex', gap: 10, padding: 12, borderRadius: p.radius.md,
               background: p.colors.surfaceRaised, marginBottom: 18,
@@ -1690,7 +1690,9 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
               className="widget-scope"
               style={{
                 padding: previewDevice === 'mobile' ? '8px 20px 36px' : '8px 24px 36px',
-                minHeight: 564,
+                /* Template step stacks the preview above the form — keep it
+                   compact so the template strip stays near the fold. */
+                minHeight: step === 6 ? 0 : 564,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}
             >
@@ -1809,11 +1811,18 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
           border-right: 1px solid ${d.colors.borderLight};
           height: 100%; overflow-y: auto;
         }
-        .wizard-left-inner { padding: 26px 26px 0; min-height: 100%; box-sizing: border-box; }
-        /* Step footer — sticky to the bottom of the form panel, always visible. */
+        .wizard-left-inner {
+          padding: 26px 26px 0; min-height: 100%; box-sizing: border-box;
+          display: flex; flex-direction: column;
+        }
+        /* The Action step owns its footer internally, so its root must fill
+           the column for that footer's margin-top:auto to reach the bottom. */
+        .wizard-left-inner > .wizard-step-fill { flex: 1; display: flex; flex-direction: column; }
+        /* Step footer — pinned to the bottom of the form panel (margin-top:auto),
+           and sticky so it stays visible while a long form scrolls. */
         .wizard-footer {
           position: sticky; bottom: 0; z-index: 5;
-          margin: 28px -26px 0; padding: 14px 26px 16px;
+          margin: auto -26px 0; padding: 14px 26px 16px;
           background: ${d.colors.panel};
           border-top: 1px solid ${d.colors.borderLight};
         }
@@ -1840,7 +1849,8 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
           flex-direction: column; height: auto; overflow: visible;
         }
         .wizard-template-mode .wizard-preview-fixed {
-          order: 0; height: auto; min-height: 460px; width: 100%; overflow-y: visible;
+          order: 0; flex: none; height: auto; min-height: 0;
+          width: 100%; overflow-y: visible; padding: 20px 24px;
         }
         .wizard-template-mode .wizard-left {
           order: 1; width: 100%; height: auto; overflow-y: visible;

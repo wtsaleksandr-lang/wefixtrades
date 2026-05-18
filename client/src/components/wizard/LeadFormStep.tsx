@@ -218,7 +218,7 @@ export default function LeadFormStep({
   const canContinue = validationErrors.length === 0;
 
   return (
-    <div className="animate-fade-in-up">
+    <div className="animate-fade-in-up wizard-step-fill">
       {draftGenerating && (
         <div data-testid="draft-generating-banner" style={{
           padding: '12px 16px', borderRadius: p.radius.md,

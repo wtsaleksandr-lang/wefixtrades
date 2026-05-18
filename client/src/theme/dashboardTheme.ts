@@ -103,7 +103,7 @@ export const dashboardTheme = {
 
   typography: {
     fontUi: '"Satoshi Variable", system-ui, sans-serif',
-    fontMono: '"Et Mono", "SF Mono", "Roboto Mono", monospace',
+    fontMono: '"SF Mono", "Menlo", "Consolas", "Roboto Mono", monospace',
     h1: { fontSize: '24px', fontWeight: 700, lineHeight: 1.3, color: d.heading, letterSpacing: '-0.02em' },
     h2: { fontSize: '20px', fontWeight: 700, lineHeight: 1.35, color: d.heading, letterSpacing: '-0.01em' },
     h3: { fontSize: '17px', fontWeight: 600, lineHeight: 1.4, color: d.heading },
