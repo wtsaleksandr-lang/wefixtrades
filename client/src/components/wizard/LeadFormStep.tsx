@@ -4,6 +4,7 @@
 // Lead form, arbitrary owner-defined "+ Add Field" custom fields.
 import { useState, useEffect } from 'react';
 import { platformTheme } from '@/theme/platformTheme';
+import { dashboardTheme as d } from '@/theme/dashboardTheme';
 import {
   Users, Mail, Phone, MapPin, Calendar, FileText, Upload, Shield,
   Send, Globe, Bot, ChevronDown, ChevronUp, Lock,
@@ -260,8 +261,9 @@ export default function LeadFormStep({
                 onClick={() => onActionChange({ ...action, mode: opt.value })}
                 style={{
                   padding: '14px 16px', borderRadius: p.radius.md, border: 'none',
-                  background: selected ? p.colors.accentLighter : 'white',
-                  outline: selected ? `2px solid ${p.colors.accent}` : `1px solid ${p.colors.border}`,
+                  background: selected ? p.colors.accentLighter : d.colors.card,
+                  outline: 'none',
+                  boxShadow: selected ? `0 0 0 2px ${p.colors.accent}, ${d.shadows.card}` : d.shadows.card,
                   cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px',
                   textAlign: 'left', transition: p.transitions.normal,
                 }}>
@@ -296,7 +298,7 @@ export default function LeadFormStep({
             <label style={{ ...p.typography.label, display: 'block', marginBottom: '10px' }}>Redirect Content</label>
             <div style={{
               padding: '14px 16px', borderRadius: p.radius.md,
-              border: `1px solid ${p.colors.border}`, background: 'white',
+              border: 'none', background: d.colors.card, boxShadow: d.shadows.card,
             }}>
               <div style={{ marginBottom: '10px' }}>
                 <label style={{ ...p.typography.captionSm, display: 'block', marginBottom: '4px' }}>Heading</label>
@@ -341,7 +343,7 @@ export default function LeadFormStep({
             </label>
             <div style={{
               padding: '24px 16px', borderRadius: p.radius.md, textAlign: 'center',
-              border: `1px solid ${p.colors.border}`, background: '#FAFAFA',
+              border: 'none', background: d.colors.cardMuted, boxShadow: d.shadows.card,
             }}>
               <p style={{ fontSize: '16px', fontWeight: 700, color: p.colors.heading, margin: '0 0 6px' }}>
                 {action.redirect.heading || 'Thanks for your interest!'}
@@ -402,8 +404,9 @@ export default function LeadFormStep({
                     }}
                     style={{
                       padding: '14px 16px', borderRadius: p.radius.md, border: 'none',
-                      background: selected ? p.colors.accentLighter : 'white',
-                      outline: selected ? `2px solid ${p.colors.accent}` : `1px solid ${p.colors.border}`,
+                      background: selected ? p.colors.accentLighter : d.colors.card,
+                      outline: 'none',
+                      boxShadow: selected ? `0 0 0 2px ${p.colors.accent}, ${d.shadows.card}` : d.shadows.card,
                       cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px',
                       textAlign: 'left', transition: p.transitions.normal,
                     }}>
@@ -441,8 +444,9 @@ export default function LeadFormStep({
                 return (
                   <div key={field.id} data-testid={`field-toggle-${field.id}`} style={{
                     padding: '10px 14px', borderRadius: p.radius.sm,
-                    border: `1px solid ${enabled ? p.colors.border : p.colors.borderLight}`,
-                    background: enabled ? 'white' : '#F9FAFB',
+                    border: 'none',
+                    background: enabled ? d.colors.card : d.colors.cardMuted,
+                    boxShadow: enabled ? d.shadows.card : 'none',
                     display: 'flex', alignItems: 'center', gap: '10px',
                     opacity: field.pro ? 0.55 : 1,
                   }}>
@@ -487,7 +491,7 @@ export default function LeadFormStep({
               {customFields.map(field => (
                 <div key={field.id} data-testid={`custom-field-${field.id}`} style={{
                   padding: '12px 14px', borderRadius: p.radius.md,
-                  border: `1px solid ${p.colors.border}`, background: 'white',
+                  border: 'none', background: d.colors.card, boxShadow: d.shadows.card,
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <input data-testid={`custom-field-label-${field.id}`} type="text"
@@ -554,7 +558,7 @@ export default function LeadFormStep({
             <label style={{ ...p.typography.label, display: 'block', marginBottom: '10px' }}>Consent & Compliance</label>
             <div style={{
               padding: '14px 16px', borderRadius: p.radius.md,
-              border: `1px solid ${p.colors.border}`, background: 'white',
+              border: 'none', background: d.colors.card, boxShadow: d.shadows.card,
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
                 <button data-testid="toggle-consent" type="button"
@@ -607,7 +611,7 @@ export default function LeadFormStep({
             <label style={{ ...p.typography.label, display: 'block', marginBottom: '10px' }}>Call-to-Action Button</label>
             <div style={{
               padding: '14px 16px', borderRadius: p.radius.md,
-              border: `1px solid ${p.colors.border}`, background: 'white',
+              border: 'none', background: d.colors.card, boxShadow: d.shadows.card,
             }}>
               <div style={{ marginBottom: '10px' }}>
                 <label style={{ ...p.typography.captionSm, display: 'block', marginBottom: '4px' }}>Button Text</label>
@@ -634,7 +638,7 @@ export default function LeadFormStep({
               onClick={() => setShowDelivery(!showDelivery)}
               style={{
                 width: '100%', padding: '12px 16px', borderRadius: p.radius.md,
-                border: `1px solid ${p.colors.border}`, background: 'white', cursor: 'pointer',
+                border: 'none', background: d.colors.card, boxShadow: d.shadows.card, cursor: 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -648,7 +652,7 @@ export default function LeadFormStep({
             {showDelivery && (
               <div style={{
                 padding: '14px 16px', borderRadius: `0 0 ${p.radius.md} ${p.radius.md}`,
-                border: `1px solid ${p.colors.border}`, borderTop: 'none', background: '#FAFAFA',
+                border: 'none', borderTop: 'none', background: d.colors.cardMuted, boxShadow: d.shadows.card,
               }}>
                 <div style={{ marginBottom: '10px' }}>
                   <label style={{ ...p.typography.captionSm, display: 'block', marginBottom: '4px' }}>Primary Email</label>
@@ -689,7 +693,7 @@ export default function LeadFormStep({
               onClick={() => setShowSpam(!showSpam)}
               style={{
                 width: '100%', padding: '12px 16px', borderRadius: p.radius.md,
-                border: `1px solid ${p.colors.border}`, background: 'white', cursor: 'pointer',
+                border: 'none', background: d.colors.card, boxShadow: d.shadows.card, cursor: 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -703,7 +707,7 @@ export default function LeadFormStep({
             {showSpam && (
               <div style={{
                 padding: '14px 16px', borderRadius: `0 0 ${p.radius.md} ${p.radius.md}`,
-                border: `1px solid ${p.colors.border}`, borderTop: 'none', background: '#FAFAFA',
+                border: 'none', borderTop: 'none', background: d.colors.cardMuted, boxShadow: d.shadows.card,
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
                   <button data-testid="toggle-honeypot" type="button"
@@ -747,7 +751,7 @@ export default function LeadFormStep({
             </label>
             <div style={{
               padding: '20px 16px', borderRadius: p.radius.md,
-              border: `1px solid ${p.colors.border}`, background: '#FAFAFA',
+              border: 'none', background: d.colors.cardMuted, boxShadow: d.shadows.card,
             }}>
               {leadForm.mode === 'gated' && (
                 <div style={{
