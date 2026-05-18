@@ -1729,21 +1729,34 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
           padding: ${d.layout.shellPad};
           box-sizing: border-box;
         }
-        /* Detached, floating header bar — "split bars and sections". */
+        /* Detached, floating header bar — "split bars and sections".
+           Two rows: a compact brand row, then the full-width step rail. */
         .wizard-navbar {
-          display: flex; align-items: center; justify-content: space-between;
-          height: 60px; padding: 0 22px; box-sizing: border-box;
+          display: flex; flex-direction: column; gap: 5px;
+          height: 84px; padding: 8px 16px 10px; box-sizing: border-box;
           background: ${d.colors.panelHeader};
           border-radius: 14px;
           box-shadow: ${d.shadows.panel};
           position: sticky; top: ${d.layout.shellPad}; z-index: 30;
         }
-        .wizard-nav-brand {
-          display: flex; align-items: center; gap: 8px; text-decoration: none;
-          font-size: 15px; font-weight: 800; color: ${p.colors.heading}; flex-shrink: 0;
+        .wizard-nav-top {
+          display: flex; align-items: center; justify-content: space-between;
+          flex-shrink: 0; height: 26px;
         }
-        .wizard-nav-steps { display: flex; align-items: center; min-width: 0; overflow: hidden; }
-        .wizard-nav-step { display: flex; align-items: center; flex-shrink: 0; }
+        .wizard-nav-brand {
+          display: flex; align-items: center; gap: 7px; text-decoration: none;
+          font-size: 13px; font-weight: 800; color: ${p.colors.heading}; flex-shrink: 0;
+        }
+        /* Step rail — full navbar width; scrolls horizontally if it can't fit. */
+        .wizard-nav-steps {
+          display: flex; align-items: center; flex: 1; min-height: 0;
+          overflow-x: auto; overflow-y: hidden; scrollbar-width: none;
+        }
+        .wizard-nav-steps::-webkit-scrollbar { display: none; }
+        /* Steps grow to fill the rail; the connector line absorbs the slack.
+           They never shrink below their content — the rail scrolls instead. */
+        .wizard-nav-step { display: flex; align-items: center; flex: 1 0 auto; }
+        .wizard-nav-step:last-child { flex: 0 0 auto; }
         .wizard-nav-stepbtn {
           display: flex; align-items: center; gap: 0;
           border: none; background: none; padding: 4px 6px; margin: -4px 0;
@@ -1757,7 +1770,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
           font-variant-numeric: tabular-nums;
         }
         .wizard-nav-label { font-size: 13px; font-weight: 600; margin-left: 8px; white-space: nowrap; }
-        .wizard-nav-line { width: 20px; height: 1.5px; background: ${p.colors.border}; margin: 0 8px; flex-shrink: 1; }
+        .wizard-nav-line { flex: 1 1 12px; min-width: 12px; height: 1.5px; background: ${p.colors.border}; margin: 0 6px; }
         /* Step circles are always numbered (never checkmarks) and always filled. */
         .wizard-nav-step[data-state="todo"] .wizard-nav-num { background: #D6DEE6; color: ${p.colors.muted}; }
         .wizard-nav-step[data-state="todo"] .wizard-nav-label { color: ${p.colors.subtle}; }
@@ -1772,7 +1785,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
           transition: opacity 0.3s ease;
         }
         .wizard-nav-help {
-          width: 28px; height: 28px; border-radius: 50%; cursor: pointer;
+          width: 24px; height: 24px; border-radius: 50%; cursor: pointer;
           border: 1px solid ${p.colors.border}; background: #fff;
           color: ${p.colors.muted}; font-weight: 700; font-size: 13px;
         }
@@ -1784,7 +1797,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
         /* Main floating panel — sits below the header bar with a canvas gap. */
         .wizard-shell-body {
           display: flex; align-items: stretch;
-          height: calc(100vh - 60px - ${d.layout.shellPad} - ${d.layout.shellPad} - ${d.layout.panelGap});
+          height: calc(100vh - 84px - ${d.layout.shellPad} - ${d.layout.shellPad} - ${d.layout.panelGap});
           margin-top: ${d.layout.panelGap};
           background: ${d.colors.panel};
           border-radius: ${d.radius.panel};
@@ -1858,11 +1871,6 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
         }
         .wizard-2ndbar-label { font-size: 11px; font-weight: 600; text-align: center; line-height: 1.25; }
 
-        /* Hide step labels before the row can overflow the navbar. */
-        @media (max-width: 1180px) {
-          .wizard-nav-label { display: none; }
-          .wizard-nav-line { width: 14px; margin: 0 5px; }
-        }
         @media (max-width: 980px) {
           .wizard-shell-body { flex-direction: column; height: auto; overflow: visible; }
           .wizard-left { width: 100%; height: auto; overflow-y: visible; border-right: none; }
@@ -1870,7 +1878,6 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
           .wizard-footer { position: static; }
           .wizard-preview-fixed { height: auto; min-height: 480px; overflow-y: visible; }
           .wizard-nav-label { display: none; }
-          .wizard-nav-line { width: 16px; margin: 0 6px; }
           /* 2nd bar becomes a fixed bottom bar on mobile. */
           .wizard-2ndbar {
             position: fixed; bottom: 0; left: 0; right: 0;
@@ -2167,11 +2174,17 @@ function WizardNav({ current, onHelp, justSaved, onNavigate }: {
 }) {
   return (
     <div className="wizard-navbar">
-      <a href="/" className="wizard-nav-brand" aria-label="WeFixTrades home">
-        <img src="/favicon.svg" alt="" style={{ width: 22, height: 22 }}
-          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-        <span>QuoteQuick</span>
-      </a>
+      <div className="wizard-nav-top">
+        <a href="/" className="wizard-nav-brand" aria-label="WeFixTrades home">
+          <img src="/favicon.svg" alt="" style={{ width: 16, height: 16 }}
+            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+          <span>QuoteQuick</span>
+        </a>
+        <div className="wizard-nav-right">
+          <span className="wizard-nav-saved" style={{ opacity: justSaved ? 1 : 0 }}>✓ Saved</span>
+          <button onClick={onHelp} className="wizard-nav-help" aria-label="Help">?</button>
+        </div>
+      </div>
       <div className="wizard-nav-steps">
         {NAV_STEPS.map((label, i) => {
           const n = i + 1;
@@ -2195,10 +2208,6 @@ function WizardNav({ current, onHelp, justSaved, onNavigate }: {
             </div>
           );
         })}
-      </div>
-      <div className="wizard-nav-right">
-        <span className="wizard-nav-saved" style={{ opacity: justSaved ? 1 : 0 }}>✓ Saved</span>
-        <button onClick={onHelp} className="wizard-nav-help" aria-label="Help">?</button>
       </div>
     </div>
   );
