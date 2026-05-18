@@ -142,7 +142,7 @@ export default function QuoteWidget({ calculator, isEmbed = false }: QuoteWidget
       {isAdvanced ? (
         <div
           className="mx-auto w-full"
-          style={{ maxWidth: '576px', fontFamily: eff.font, color: eff.text }}
+          style={{ maxWidth: '780px', fontFamily: eff.font, color: eff.text }}
         >
           <AdvancedCalculator
             businessName={calculator.business_name}
