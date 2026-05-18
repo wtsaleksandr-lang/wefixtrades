@@ -34,12 +34,14 @@ interface AdvField {
 }
 interface AdvCalc { id: string; name: string; formula: string; format: 'number' | 'currency' | 'percent'; }
 interface AdvHeader { title?: string; subtitle?: string; align?: 'left' | 'center' | 'right'; }
+interface AdvResults { heading?: string; footnote?: string; show_breakdown?: boolean; }
 export interface AdvancedConfig {
   enabled?: boolean;
   fields?: AdvField[];
   calculations?: AdvCalc[];
   result_calc?: string;
   header?: AdvHeader;
+  results?: AdvResults;
 }
 
 interface Props {
@@ -150,6 +152,10 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
   const resultName = advanced.result_calc || (calcs.length ? calcs[calcs.length - 1].name : '');
   const resultCalc = calcs.find((c) => c.name === resultName);
   const headline = values[resultName] ?? 0;
+  const results = advanced.results || {};
+  const showBreakdown = results.show_breakdown !== false;
+  const resultHeading = (results.heading || '').trim() || resultCalc?.name || 'Total';
+  const footnoteText = (results.footnote || '').trim() || 'Instant estimate based on your inputs.';
   const breakdown = calcs.filter((c) => c.name !== resultName);
   const visibleFields = fields.filter((f) => visibleIds.has(f.id));
 
@@ -215,7 +221,7 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
               fontSize: '11px', fontWeight: 700, color: eff.textBody,
               textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 6px',
             }}>
-              {resultCalc?.name || 'Total'}
+              {resultHeading}
             </p>
             <p style={{
               fontSize: 'clamp(28px, 6vw, 38px)', fontWeight: 800, color: eff.text,
@@ -224,7 +230,7 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
               {formatResult(headline, resultCalc?.format || 'currency')}
             </p>
 
-            {breakdown.length > 0 && (
+            {showBreakdown && breakdown.length > 0 && (
               <div style={{
                 marginTop: '16px', paddingTop: '14px', borderTop: `1px solid ${eff.buttonBorder}`,
                 display: 'flex', flexDirection: 'column', gap: '9px',
@@ -243,7 +249,7 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
             <p style={{
               fontSize: '11px', color: eff.textMuted, margin: '14px 0 0', lineHeight: 1.5,
             }}>
-              Instant estimate based on your inputs.
+              {footnoteText}
             </p>
           </div>
         )}

@@ -39,9 +39,10 @@ const RULE_OPS: { id: RuleOp; label: string }[] = [
 interface AdvCalc { id: string; name: string; formula: string; format: 'number' | 'currency' | 'percent'; }
 type HeaderAlign = 'left' | 'center' | 'right';
 interface AdvHeader { title?: string; subtitle?: string; align?: HeaderAlign; }
+interface AdvResults { heading?: string; footnote?: string; show_breakdown?: boolean; }
 export interface AdvancedConfigData {
   enabled?: boolean; fields?: AdvField[]; calculations?: AdvCalc[]; result_calc?: string;
-  header?: AdvHeader;
+  header?: AdvHeader; results?: AdvResults;
 }
 
 interface Props {
@@ -128,6 +129,7 @@ export default function AdvancedBuilder({ advanced, onChange, onExitAdvanced }: 
   const fields = advanced.fields || [];
   const calcs = advanced.calculations || [];
   const header = advanced.header || {};
+  const results = advanced.results || {};
 
   const patch = (next: Partial<AdvancedConfigData>) => onChange({ ...advanced, ...next });
 
@@ -400,6 +402,44 @@ export default function AdvancedBuilder({ advanced, onChange, onExitAdvanced }: 
             );
           })}
         </div>
+      </div>
+
+      {/* ─── Results section ─── */}
+      <div style={{ margin: '22px 0 10px' }}><SectionLabel>Results section</SectionLabel></div>
+      <div style={cardStyle} data-testid="adv-results-editor">
+        <label style={{ ...p.typography.captionSm, display: 'block', marginBottom: 4 }}>Result label</label>
+        <input className={inputCls} data-testid="adv-results-heading"
+          value={results.heading || ''}
+          onChange={(e) => patch({ results: { ...results, heading: e.target.value } })}
+          placeholder="Defaults to the headline calculation’s name"
+          style={{ width: '100%', fontSize: 13, marginBottom: 10 }} />
+        <label style={{ ...p.typography.captionSm, display: 'block', marginBottom: 4 }}>Footnote</label>
+        <input className={inputCls} data-testid="adv-results-footnote"
+          value={results.footnote || ''}
+          onChange={(e) => patch({ results: { ...results, footnote: e.target.value } })}
+          placeholder="Instant estimate based on your inputs."
+          style={{ width: '100%', fontSize: 13, marginBottom: 10 }} />
+        <button type="button" data-testid="adv-results-breakdown"
+          onClick={() => patch({ results: { ...results, show_breakdown: results.show_breakdown === false } })}
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+            width: '100%', border: 'none', background: 'none', cursor: 'pointer', padding: 0,
+          }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: p.colors.body }}>
+            Show price breakdown
+          </span>
+          <span style={{
+            width: 38, height: 22, borderRadius: 11, flexShrink: 0, position: 'relative',
+            transition: p.transitions.fast,
+            background: results.show_breakdown === false ? p.colors.borderHover : p.colors.accent,
+          }}>
+            <span style={{
+              position: 'absolute', top: 3, left: results.show_breakdown === false ? 3 : 19,
+              width: 16, height: 16, borderRadius: '50%', background: '#fff',
+              transition: p.transitions.fast,
+            }} />
+          </span>
+        </button>
       </div>
 
       {showPicker && <FieldPickerModal onPick={addField} onClose={() => setShowPicker(false)} />}
