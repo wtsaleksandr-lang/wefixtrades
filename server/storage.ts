@@ -175,6 +175,7 @@ export interface IStorage {
 
   getAllCalculatorsWithEmail(): Promise<Calculator[]>;
   getAllCalculatorsForAdmin(): Promise<any[]>;
+  getQuoteQuickLeadTrend(days: number): Promise<Array<{ date: string; count: number }>>;
   findCalculatorByStripeSubscriptionId(subscriptionId: string): Promise<Calculator | undefined>;
   markLeadReplied(leadId: number): Promise<Lead | undefined>;
   upsertAnalyticsSummary(data: InsertAnalyticsSummary): Promise<AnalyticsSummary>;
@@ -774,6 +775,34 @@ export class DatabaseStorage implements IStorage {
       });
     }
     return results;
+  }
+
+  /**
+   * Daily lead counts across all QuoteQuick calculators for the last N days.
+   * Returns a continuous series (days with no leads are filled with 0) so the
+   * admin trend chart has no gaps.
+   */
+  async getQuoteQuickLeadTrend(days: number): Promise<Array<{ date: string; count: number }>> {
+    const span = Math.max(1, Math.min(days, 365));
+    const cutoff = new Date(Date.now() - (span - 1) * 86400000);
+    cutoff.setHours(0, 0, 0, 0);
+
+    const rows = await db.select({
+      day: sql<string>`to_char(date_trunc('day', ${leads.created_date}), 'YYYY-MM-DD')`,
+      count: sql<number>`count(*)::int`,
+    })
+      .from(leads)
+      .where(gte(leads.created_date, cutoff))
+      .groupBy(sql`date_trunc('day', ${leads.created_date})`);
+
+    const byDay = new Map(rows.map((r) => [r.day, r.count]));
+    const series: Array<{ date: string; count: number }> = [];
+    for (let i = 0; i < span; i++) {
+      const d = new Date(cutoff.getTime() + i * 86400000);
+      const key = d.toISOString().slice(0, 10);
+      series.push({ date: key, count: byDay.get(key) ?? 0 });
+    }
+    return series;
   }
 
   async findCalculatorByStripeSubscriptionId(subscriptionId: string): Promise<Calculator | undefined> {
