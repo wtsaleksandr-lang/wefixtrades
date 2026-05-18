@@ -1809,11 +1809,18 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
           border-right: 1px solid ${d.colors.borderLight};
           height: 100%; overflow-y: auto;
         }
-        .wizard-left-inner { padding: 26px 26px 0; min-height: 100%; box-sizing: border-box; }
-        /* Step footer — sticky to the bottom of the form panel, always visible. */
+        .wizard-left-inner {
+          padding: 26px 26px 0; min-height: 100%; box-sizing: border-box;
+          display: flex; flex-direction: column;
+        }
+        /* The Action step owns its footer internally, so its root must fill
+           the column for that footer's margin-top:auto to reach the bottom. */
+        .wizard-left-inner > .wizard-step-fill { flex: 1; display: flex; flex-direction: column; }
+        /* Step footer — pinned to the bottom of the form panel (margin-top:auto),
+           and sticky so it stays visible while a long form scrolls. */
         .wizard-footer {
           position: sticky; bottom: 0; z-index: 5;
-          margin: 28px -26px 0; padding: 14px 26px 16px;
+          margin: auto -26px 0; padding: 14px 26px 16px;
           background: ${d.colors.panel};
           border-top: 1px solid ${d.colors.borderLight};
         }
@@ -1840,7 +1847,8 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
           flex-direction: column; height: auto; overflow: visible;
         }
         .wizard-template-mode .wizard-preview-fixed {
-          order: 0; height: auto; min-height: 460px; width: 100%; overflow-y: visible;
+          order: 0; flex: none; height: auto; min-height: 0;
+          width: 100%; overflow-y: visible; padding: 20px 24px;
         }
         .wizard-template-mode .wizard-left {
           order: 1; width: 100%; height: auto; overflow-y: visible;

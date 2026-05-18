@@ -1319,13 +1319,9 @@
    Extracted from effortel.com DevTools.
    ═══════════════════════════════════════════════════ */
 
-@font-face {
-  font-family: 'Et Mono';
-  src: url('https://cdn.prod.website-files.com/66e53bf67b6fc1646ce0777e/678541298a6dd5f874e10d02_et_mono.woff2') format('woff2');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
+/* 'Et Mono' was @font-face'd from a Webflow CDN that 403s hotlinks — every
+   page load fired a failing request. Dropped: monospace consumers fall back
+   to a robust system mono stack instead (see theme fontMono tokens). */
 
 .nav-btn {
   position: relative;

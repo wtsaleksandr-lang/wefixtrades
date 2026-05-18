@@ -17,7 +17,7 @@ export const eff = {
   buttonBorder: '#e1e7ef',
   buttonText: '#ffffff',
   font: '"Satoshi Variable", system-ui, sans-serif',
-  fontMono: '"Et Mono", "SF Mono", "Roboto Mono", monospace',
+  fontMono: '"SF Mono", "Menlo", "Consolas", "Roboto Mono", monospace',
   radiusSm: '0.5em',
   radiusMd: '0.75em',
   radiusLg: '1em',

@@ -155,7 +155,7 @@ hard. Separation is mostly surface contrast; shadow is a finishing touch.
 ## 6 · Typography
 
 - **UI font**: `Satoshi Variable`, system-ui fallback (unchanged).
-- **Monospace**: `"Et Mono", "SF Mono", "Roboto Mono", monospace`
+- **Monospace**: `"SF Mono", "Menlo", "Consolas", "Roboto Mono", monospace`
   (`dashboardTheme.typography.fontMono`).
 - **Numerals & dates are mono.** Any KPI value, price, count, percentage,
   duration or date in this surface is set in `fontMono`. Prose stays in the
