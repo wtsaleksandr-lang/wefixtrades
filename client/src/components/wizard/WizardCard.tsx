@@ -1710,7 +1710,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                 </div>
               ) : (
                 <div style={{
-                  maxWidth: 720, margin: '0 auto',
+                  width: '100%', maxWidth: 720, margin: '0 auto',
                   borderRadius: 16, overflow: 'hidden', background: '#fff',
                   boxShadow: d.shadows.cardHover,
                 }}>
