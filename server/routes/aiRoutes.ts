@@ -6,6 +6,7 @@ import { storage } from "../storage";
 import { PRICING_TYPES, validatePricingConfig, FAMILY_LABELS, FAMILY_DESCRIPTIONS } from "@shared/pricingConfig";
 import { pricingIntakeSchema, sampleQuoteSchema, type PricingDraftJob } from "@shared/schema";
 import { generatePricingConfigDraft } from "../aiPricingAgent";
+import { validateFormula } from "@shared/formulaEngine";
 import { buildSystemPrompt, runChatCompletion } from "../aiChatEngine";
 import { createLogger } from "../lib/logger";
 import { aiChatRateLimiter } from "../services/rateLimiter";
@@ -224,6 +225,79 @@ Return ONLY the JSON object.`;
     } catch (error: any) {
       log.error("AI advanced calculator generation error:", error);
       res.status(500).json({ error: "Failed to generate calculator" });
+    }
+  });
+
+  /**
+   * POST /api/ai/generate-formula
+   * Plain-language description -> a single formula expression for one
+   * calculation, constrained to the fields/calcs that already exist.
+   */
+  app.post("/api/ai/generate-formula", async (req, res) => {
+    try {
+      const parsed = z.object({
+        description: z.string().min(2).max(600),
+        fields: z.array(z.object({ name: z.string(), type: z.string().optional() })).max(40).optional(),
+        calculations: z.array(z.object({ name: z.string() })).max(20).optional(),
+      }).safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid request", details: parsed.error.flatten() });
+      }
+      const { description, fields = [], calculations = [] } = parsed.data;
+
+      const fieldList = fields.length
+        ? fields.map((f) => `- [${f.name}]${f.type ? ` (${f.type})` : ""}`).join("\n")
+        : "(no fields defined yet)";
+      const calcList = calculations.length
+        ? calculations.map((c) => `- [${c.name}]`).join("\n")
+        : "(no earlier calculations)";
+
+      const prompt = `You write ONE pricing formula expression for a calculator.
+
+Available fields (reference by exact name in [square brackets]):
+${fieldList}
+
+Earlier calculations you may also reference:
+${calcList}
+
+What this formula should do: ${description}
+
+Formula syntax:
+- reference a field or earlier calculation by its exact name in [square brackets]
+- operators: + - * / ^ and parentheses
+- functions: SUM, MIN, MAX, ROUND, ROUNDUP, ROUNDDOWN, ABS, IF, AND, OR, NOT, CONTAINS
+- comparisons inside IF: = != < > <= >=
+
+Rules:
+- Use ONLY names that appear in the lists above. Never invent a field.
+- Return ONE formula expression — no explanation.
+
+Return JSON: { "formula": "<the formula expression>" }`;
+
+      const completion = await getOpenAI().chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [{ role: "user", content: prompt }],
+        response_format: { type: "json_object" },
+      });
+
+      let raw: any;
+      try {
+        raw = JSON.parse(completion.choices[0]?.message?.content || "{}");
+      } catch {
+        return res.status(500).json({ error: "AI returned invalid JSON" });
+      }
+      const formula = typeof raw?.formula === "string" ? raw.formula.trim().slice(0, 600) : "";
+      if (!formula) {
+        return res.status(422).json({ error: "Could not build a formula from that description" });
+      }
+      const check = validateFormula(formula);
+      if (!check.valid) {
+        return res.status(422).json({ error: `AI produced an invalid formula (${check.error || "parse error"})` });
+      }
+      res.json({ success: true, formula });
+    } catch (error: any) {
+      log.error("AI formula generation error:", error);
+      res.status(500).json({ error: "Failed to generate formula" });
     }
   });
 

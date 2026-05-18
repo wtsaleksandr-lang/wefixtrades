@@ -11,7 +11,7 @@ import { validateFormula, runCalculations, type FormulaContext } from '@shared/f
 import {
   Plus, Trash2, ChevronLeft, Hash, SlidersHorizontal, List, CircleDot,
   CheckSquare, ToggleLeft, Type, Sigma, Eye, Sparkles, Loader2,
-  Image as ImageIcon, Heading, Search, X,
+  Image as ImageIcon, Heading, Search, X, ChevronDown, Info,
 } from 'lucide-react';
 
 /* ─── Types (mirror calculator_settings.advanced) ─── */
@@ -243,8 +243,8 @@ export default function AdvancedBuilder({ advanced, onChange, onExitAdvanced }: 
       {/* ─── CALCULATIONS ─── */}
       <div style={{ margin: '22px 0 10px' }}><SectionLabel>Calculations</SectionLabel></div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {calcs.map((c) => (
-          <CalcCard key={c.id} calc={c} fields={fields}
+        {calcs.map((c, idx) => (
+          <CalcCard key={c.id} calc={c} fields={fields} otherCalcs={calcs.slice(0, idx)}
             preview={calcValues[c.name]}
             onChange={(u) => updateCalc(c.id, u)} onRemove={() => removeCalc(c.id)} />
         ))}
@@ -560,29 +560,146 @@ function VisibilityRule({ field, allFields, onChange }: {
 
 /* ─── Calculation card ─── */
 
-const FN_CHIPS = ['SUM(', 'IF(', 'MIN(', 'MAX(', 'ROUND('];
-const OP_CHIPS = ['+', '−', '×', '÷', '(', ')'];
-const OP_MAP: Record<string, string> = { '−': '-', '×': '*', '÷': '/' };
+type TermOp = '+' | '-' | '*' | '/';
+interface GuidedTerm { id: string; op: TermOp; kind: 'field' | 'calc' | 'number'; ref: string; num: number; }
 
-function CalcCard({ calc, fields, preview, onChange, onRemove }: {
-  calc: AdvCalc; fields: AdvField[]; preview?: number;
+const TERM_OPS: { id: TermOp; label: string }[] = [
+  { id: '+', label: '+' }, { id: '-', label: '−' }, { id: '*', label: '×' }, { id: '/', label: '÷' },
+];
+const OP_CHIPS = ['+', '−', '×', '÷', '(', ')', '^'];
+const OP_MAP: Record<string, string> = { '−': '-', '×': '*', '÷': '/' };
+const FN_CHIPS = ['SUM(', 'IF(', 'MIN(', 'MAX(', 'ROUND('];
+const FN_REF: { sig: string; desc: string }[] = [
+  { sig: 'SUM(a, b, …)', desc: 'Adds every value together.' },
+  { sig: 'IF(test, yes, no)', desc: 'Uses one value when the test is true, another when false.' },
+  { sig: 'MIN(…) / MAX(…)', desc: 'The smallest / largest of the values.' },
+  { sig: 'ROUND(value, places)', desc: 'Rounds to the nearest number — ROUNDUP / ROUNDDOWN force the direction.' },
+  { sig: 'ABS(value)', desc: 'Drops a negative sign.' },
+];
+
+/**
+ * Try to read a formula as a simple left-to-right chain of values joined by
+ * `+ − × ÷` (what the guided builder can show as steps). Returns `null` for
+ * anything with brackets, functions or comparisons — the caller then falls
+ * back to Formula mode.
+ */
+function parseLinear(formula: string, calcNames: string[]): GuidedTerm[] | null {
+  const s = (formula || '').trim();
+  if (!s) return [];
+  const toks: string[] = [];
+  let i = 0;
+  while (i < s.length) {
+    const c = s[i];
+    if (c === ' ' || c === '\t' || c === '\n' || c === '\r') { i++; continue; }
+    if (c === '[') {
+      const end = s.indexOf(']', i);
+      if (end === -1) return null;
+      toks.push(s.slice(i, end + 1));
+      i = end + 1; continue;
+    }
+    if ('+-*/'.includes(c)) { toks.push(c); i++; continue; }
+    if ((c >= '0' && c <= '9') || c === '.') {
+      let j = i;
+      while (j < s.length && ((s[j] >= '0' && s[j] <= '9') || s[j] === '.')) j++;
+      toks.push(s.slice(i, j));
+      i = j; continue;
+    }
+    return null; // paren, function, comparison, bare identifier → not linear
+  }
+  const terms: GuidedTerm[] = [];
+  let expectValue = true;
+  let pendingOp: TermOp = '+';
+  for (const tk of toks) {
+    if (expectValue) {
+      if ('+-*/'.includes(tk)) return null;
+      if (tk.startsWith('[')) {
+        const ref = tk.slice(1, -1).trim();
+        if (!ref) return null;
+        terms.push({ id: gid('trm'), op: pendingOp, kind: calcNames.includes(ref) ? 'calc' : 'field', ref, num: 0 });
+      } else {
+        const num = parseFloat(tk);
+        if (!isFinite(num)) return null;
+        terms.push({ id: gid('trm'), op: pendingOp, kind: 'number', ref: '', num });
+      }
+      expectValue = false;
+    } else {
+      if (!'+-*/'.includes(tk)) return null;
+      pendingOp = tk as TermOp;
+      expectValue = true;
+    }
+  }
+  if (expectValue) return null; // trailing operator
+  return terms;
+}
+
+function compileTerms(terms: GuidedTerm[]): string {
+  return terms
+    .map((t, i) => {
+      const tok = t.kind === 'number' ? String(t.num || 0) : `[${t.ref}]`;
+      return i === 0 ? tok : `${t.op} ${tok}`;
+    })
+    .join(' ');
+}
+
+function CalcCard({ calc, fields, otherCalcs, preview, onChange, onRemove }: {
+  calc: AdvCalc; fields: AdvField[]; otherCalcs: AdvCalc[]; preview?: number;
   onChange: (u: Partial<AdvCalc>) => void; onRemove: () => void;
 }) {
   const c = calc;
+  const calcNames = useMemo(() => otherCalcs.map((x) => x.name), [otherCalcs]);
   const check = validateFormula(c.formula);
-  const insert = (token: string) => onChange({ formula: (c.formula ? c.formula + ' ' : '') + token });
+  const linear = useMemo(() => parseLinear(c.formula, calcNames), [c.formula, calcNames]);
+  const hasFormula = c.formula.trim() !== '';
+
+  const [mode, setMode] = useState<'guided' | 'formula'>(linear !== null ? 'guided' : 'formula');
+  const [showRef, setShowRef] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiText, setAiText] = useState('');
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiErr, setAiErr] = useState('');
+
+  const insert = (token: string) => onChange({ formula: (c.formula ? c.formula.trimEnd() + ' ' : '') + token });
+
+  const aiGenerate = async () => {
+    if (!aiText.trim() || aiBusy) return;
+    setAiBusy(true);
+    setAiErr('');
+    try {
+      const res = await fetch('/api/ai/generate-formula', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          description: aiText.trim(),
+          fields: fields.map((f) => ({ name: f.name, type: f.type })),
+          calculations: otherCalcs.map((x) => ({ name: x.name })),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.formula) {
+        setAiErr(data?.error || 'Could not build a formula. Try rephrasing.');
+      } else {
+        onChange({ formula: data.formula });
+        setAiOpen(false);
+        setAiText('');
+        if (parseLinear(data.formula, calcNames) === null) setMode('formula');
+      }
+    } catch {
+      setAiErr('Something went wrong. Please try again.');
+    } finally {
+      setAiBusy(false);
+    }
+  };
 
   const previewText = useMemo(() => {
-    if (!c.formula.trim()) return '';
-    if (!check.valid) return check.error || 'Invalid formula';
     const v = preview ?? 0;
     if (c.format === 'currency') return '$' + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     if (c.format === 'percent') return v.toLocaleString('en-US', { maximumFractionDigits: 1 }) + '%';
     return v.toLocaleString('en-US', { maximumFractionDigits: 2 });
-  }, [c.formula, c.format, check.valid, check.error, preview]);
+  }, [c.format, preview]);
 
   return (
     <div style={cardStyle} data-testid={`adv-calc-${c.id}`}>
+      {/* name + format + delete */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <input className={inputCls} value={c.name}
           onChange={(e) => onChange({ name: e.target.value })}
@@ -604,38 +721,308 @@ function CalcCard({ calc, fields, preview, onChange, onRemove }: {
         </button>
       </div>
 
-      <div style={{ marginTop: 8 }}>
-        <input className={inputCls} data-testid={`adv-calc-formula-${c.id}`}
-          value={c.formula} onChange={(e) => onChange({ formula: e.target.value })}
-          placeholder="e.g. [Rooms] * 50 + [Extras]"
-          style={{
-            width: '100%', padding: '10px 12px', fontSize: 13, fontFamily: d.typography.fontMono,
-            borderColor: c.formula && !check.valid ? p.colors.danger : undefined,
-          }} />
-      </div>
-
-      {/* insert chips */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 8 }}>
-        {fields.map((f) => (
-          <Chip key={f.id} onClick={() => insert(`[${f.name}]`)} accent>{f.name}</Chip>
-        ))}
-        {OP_CHIPS.map((op) => (
-          <Chip key={op} onClick={() => insert(OP_MAP[op] || op)}>{op}</Chip>
-        ))}
-        {FN_CHIPS.map((fn) => (
-          <Chip key={fn} onClick={() => insert(fn)}>{fn}</Chip>
+      {/* mode toggle */}
+      <div style={{
+        display: 'flex', gap: 3, marginTop: 10, padding: 3, width: 'fit-content',
+        borderRadius: d.radius.control, background: p.colors.surfaceRaised,
+      }}>
+        {([['guided', 'Guided'], ['formula', 'Formula']] as const).map(([m, lbl]) => (
+          <button key={m} type="button" data-testid={`adv-calc-mode-${m}-${c.id}`}
+            onClick={() => setMode(m)}
+            style={{
+              padding: '5px 14px', borderRadius: 6, border: 'none', cursor: 'pointer',
+              fontSize: 12, fontWeight: 600,
+              background: mode === m ? '#fff' : 'transparent',
+              color: mode === m ? p.colors.accentDark : p.colors.muted,
+              boxShadow: mode === m ? d.shadows.card : 'none',
+            }}>
+            {lbl}
+          </button>
         ))}
       </div>
 
-      {/* validation / live value */}
-      {c.formula.trim() !== '' && (
-        <p style={{
-          fontSize: 12, margin: '8px 0 0', fontFamily: d.typography.fontMono,
-          color: check.valid ? p.colors.muted : p.colors.danger,
-        }}>
-          {check.valid ? `= ${previewText}` : check.error}
+      {/* GUIDED mode */}
+      {mode === 'guided' && (
+        <div style={{ marginTop: 10 }}>
+          {linear !== null ? (
+            <GuidedBuilder terms={linear} fields={fields} calcNames={calcNames}
+              onChange={(terms) => onChange({ formula: compileTerms(terms) })} />
+          ) : (
+            <div style={{
+              display: 'flex', gap: 8, padding: '10px 12px',
+              borderRadius: d.radius.control, background: p.colors.accentLighter,
+            }}>
+              <Info style={{ width: 15, height: 15, color: p.colors.accent, flexShrink: 0, marginTop: 1 }} />
+              <div>
+                <p style={{ fontSize: 12.5, color: p.colors.body, margin: 0, lineHeight: 1.5 }}>
+                  This formula uses functions or grouping that the guided builder can’t show as steps.
+                </p>
+                <button type="button" onClick={() => setMode('formula')}
+                  style={{
+                    border: 'none', background: 'none', padding: '4px 0 0', cursor: 'pointer',
+                    color: p.colors.accent, fontSize: 12, fontWeight: 700,
+                  }}>
+                  Edit in Formula mode →
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* FORMULA mode */}
+      {mode === 'formula' && (
+        <div style={{ marginTop: 10 }}>
+          <textarea className={inputCls} data-testid={`adv-calc-formula-${c.id}`}
+            value={c.formula} onChange={(e) => onChange({ formula: e.target.value })}
+            rows={2} placeholder="e.g. [Rooms] * 50 + [Extras]"
+            style={{
+              width: '100%', padding: '10px 12px', fontSize: 13, resize: 'vertical',
+              fontFamily: d.typography.fontMono, lineHeight: 1.5,
+              borderColor: hasFormula && !check.valid ? p.colors.danger : undefined,
+            }} />
+
+          {/* insert chip groups */}
+          <ChipGroup label="Fields">
+            {fields.filter((f) => f.type !== 'heading' && f.type !== 'text').map((f) => (
+              <Chip key={f.id} onClick={() => insert(`[${f.name}]`)} accent>{f.name}</Chip>
+            ))}
+            {fields.filter((f) => f.type !== 'heading' && f.type !== 'text').length === 0 && (
+              <span style={{ fontSize: 11.5, color: p.colors.subtle }}>Add fields above first</span>
+            )}
+          </ChipGroup>
+          {calcNames.length > 0 && (
+            <ChipGroup label="Calcs">
+              {calcNames.map((n) => <Chip key={n} onClick={() => insert(`[${n}]`)} accent>{n}</Chip>)}
+            </ChipGroup>
+          )}
+          <ChipGroup label="Operators">
+            {OP_CHIPS.map((op) => <Chip key={op} onClick={() => insert(OP_MAP[op] || op)}>{op}</Chip>)}
+          </ChipGroup>
+          <ChipGroup label="Functions">
+            {FN_CHIPS.map((fn) => <Chip key={fn} onClick={() => insert(fn)}>{fn}</Chip>)}
+          </ChipGroup>
+
+          {/* AI + reference */}
+          <div style={{ display: 'flex', gap: 16, marginTop: 10, flexWrap: 'wrap' }}>
+            <button type="button" data-testid={`adv-calc-ai-${c.id}`}
+              onClick={() => { setAiOpen((v) => !v); setAiErr(''); }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 5, border: 'none', background: 'none',
+                cursor: 'pointer', color: p.colors.accent, fontSize: 12, fontWeight: 700,
+              }}>
+              <Sparkles style={{ width: 13, height: 13 }} /> Generate with AI
+            </button>
+            <button type="button" onClick={() => setShowRef((v) => !v)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 4, border: 'none', background: 'none',
+                cursor: 'pointer', color: p.colors.muted, fontSize: 12, fontWeight: 600,
+              }}>
+              <ChevronDown style={{
+                width: 13, height: 13, transition: p.transitions.fast,
+                transform: showRef ? 'none' : 'rotate(-90deg)',
+              }} />
+              Functions &amp; syntax
+            </button>
+          </div>
+
+          {aiOpen && (
+            <div style={{
+              marginTop: 8, padding: 10, borderRadius: d.radius.control, background: p.colors.accentLighter,
+            }}>
+              <input className={inputCls} value={aiText} onChange={(e) => setAiText(e.target.value)}
+                data-testid={`adv-calc-ai-input-${c.id}`}
+                placeholder="Describe the maths — e.g. rooms times 50, plus 30 when packing is on"
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); aiGenerate(); } }}
+                style={{ width: '100%', fontSize: 12.5, padding: '9px 11px' }} />
+              {aiErr && <p style={{ fontSize: 11.5, color: p.colors.danger, margin: '6px 0 0' }}>{aiErr}</p>}
+              <button type="button" onClick={aiGenerate} disabled={aiBusy || !aiText.trim()}
+                style={{
+                  marginTop: 8, padding: '8px 14px', borderRadius: d.radius.control, border: 'none',
+                  background: p.colors.accent, color: '#fff', fontSize: 12, fontWeight: 700,
+                  cursor: aiBusy || !aiText.trim() ? 'default' : 'pointer',
+                  opacity: aiBusy || !aiText.trim() ? 0.6 : 1,
+                  display: 'flex', alignItems: 'center', gap: 6,
+                }}>
+                {aiBusy
+                  ? <><Loader2 className="animate-spin" style={{ width: 13, height: 13 }} /> Building…</>
+                  : <><Sparkles style={{ width: 13, height: 13 }} /> Build formula</>}
+              </button>
+            </div>
+          )}
+
+          {showRef && (
+            <div style={{
+              marginTop: 8, padding: '10px 12px', borderRadius: d.radius.control,
+              background: p.colors.surfaceRaised, display: 'flex', flexDirection: 'column', gap: 6,
+            }}>
+              {FN_REF.map((fn) => (
+                <div key={fn.sig} style={{ lineHeight: 1.45 }}>
+                  <code style={{ fontSize: 11.5, fontFamily: d.typography.fontMono, fontWeight: 700, color: p.colors.body }}>
+                    {fn.sig}
+                  </code>
+                  <span style={{ fontSize: 11.5, color: p.colors.muted }}> — {fn.desc}</span>
+                </div>
+              ))}
+              <p style={{ fontSize: 11.5, color: p.colors.subtle, margin: '2px 0 0', lineHeight: 1.45 }}>
+                Reference any field by its name in [square brackets]. Operators: + − × ÷ ^ and ( ).
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* live preview / validation */}
+      <div style={{ marginTop: 10 }}>
+        {!hasFormula ? (
+          <p style={{ fontSize: 12, color: p.colors.subtle, margin: 0 }}>
+            Build the formula above — the sample result will appear here.
+          </p>
+        ) : !check.valid ? (
+          <div style={{
+            display: 'flex', gap: 7, padding: '8px 11px', borderRadius: d.radius.control,
+            background: 'rgba(239,68,68,0.08)',
+          }}>
+            <X style={{ width: 14, height: 14, color: p.colors.danger, flexShrink: 0, marginTop: 1 }} />
+            <span style={{ fontSize: 12, color: p.colors.danger }} data-testid={`adv-calc-error-${c.id}`}>
+              {check.error}
+            </span>
+          </div>
+        ) : (
+          <div style={{
+            display: 'flex', alignItems: 'baseline', gap: 8, padding: '8px 11px',
+            borderRadius: d.radius.control, background: p.colors.accentLighter,
+          }}>
+            <span style={{
+              fontSize: 10, fontWeight: 700, color: p.colors.accentDark,
+              textTransform: 'uppercase', letterSpacing: '0.06em',
+            }}>
+              Sample result
+            </span>
+            <span style={{
+              fontSize: 14, fontWeight: 800, color: p.colors.accentDark, fontFamily: d.typography.fontMono,
+            }} data-testid={`adv-calc-preview-${c.id}`}>
+              {previewText}
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Guided (step-by-step) formula builder ─── */
+
+function GuidedBuilder({ terms, fields, calcNames, onChange }: {
+  terms: GuidedTerm[]; fields: AdvField[]; calcNames: string[];
+  onChange: (terms: GuidedTerm[]) => void;
+}) {
+  const valueFields = fields.filter((f) => f.type !== 'heading' && f.type !== 'text');
+  const validValues = new Set<string>([
+    'num',
+    ...valueFields.map((f) => `f:${f.name}`),
+    ...calcNames.map((n) => `c:${n}`),
+  ]);
+
+  const updateTerm = (id: string, u: Partial<GuidedTerm>) =>
+    onChange(terms.map((t) => (t.id === id ? { ...t, ...u } : t)));
+  const removeTerm = (id: string) => onChange(terms.filter((t) => t.id !== id));
+  const addTerm = () => {
+    const first = valueFields[0];
+    onChange([...terms, {
+      id: gid('trm'), op: '+',
+      kind: first ? 'field' : 'number', ref: first ? first.name : '', num: 0,
+    }]);
+  };
+
+  const termValue = (t: GuidedTerm) =>
+    t.kind === 'number' ? 'num' : t.kind === 'calc' ? `c:${t.ref}` : `f:${t.ref}`;
+  const onValueChange = (t: GuidedTerm, raw: string) => {
+    if (raw === 'num') updateTerm(t.id, { kind: 'number' });
+    else if (raw.startsWith('c:')) updateTerm(t.id, { kind: 'calc', ref: raw.slice(2) });
+    else updateTerm(t.id, { kind: 'field', ref: raw.slice(2) });
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      {terms.length === 0 && (
+        <p style={{ fontSize: 12, color: p.colors.muted, margin: '0 0 2px', lineHeight: 1.5 }}>
+          Start with a field or a number, then add steps to build up the price.
         </p>
       )}
+      {terms.map((t, i) => {
+        const cur = termValue(t);
+        const missing = !validValues.has(cur);
+        return (
+          <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }} data-testid={`adv-term-${t.id}`}>
+            {i === 0 ? (
+              <span style={{
+                width: 34, flexShrink: 0, fontSize: 13, fontWeight: 700,
+                color: p.colors.subtle, textAlign: 'center',
+              }}>=</span>
+            ) : (
+              <select className={inputCls} value={t.op}
+                onChange={(e) => updateTerm(t.id, { op: e.target.value as TermOp })}
+                style={{ width: 44, flexShrink: 0, fontSize: 14, padding: '8px 4px' }}>
+                {TERM_OPS.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+              </select>
+            )}
+            <select className={inputCls} value={cur}
+              onChange={(e) => onValueChange(t, e.target.value)}
+              style={{ flex: 1, minWidth: 0, fontSize: 13 }}>
+              {missing && <option value={cur}>⚠ {t.ref || 'unknown'} (missing)</option>}
+              {valueFields.length > 0 && (
+                <optgroup label="Fields">
+                  {valueFields.map((f) => <option key={f.id} value={`f:${f.name}`}>{f.label || f.name}</option>)}
+                </optgroup>
+              )}
+              {calcNames.length > 0 && (
+                <optgroup label="Other calculations">
+                  {calcNames.map((n) => <option key={n} value={`c:${n}`}>{n}</option>)}
+                </optgroup>
+              )}
+              <option value="num">A number…</option>
+            </select>
+            {t.kind === 'number' && (
+              <input className={inputCls} type="number" value={t.num}
+                onChange={(e) => updateTerm(t.id, { num: Number(e.target.value) || 0 })}
+                style={{ width: 84, flexShrink: 0, fontSize: 13, fontFamily: d.typography.fontMono }} />
+            )}
+            <button type="button" aria-label="Remove step" onClick={() => removeTerm(t.id)}
+              style={{
+                width: 30, height: 30, flexShrink: 0, borderRadius: d.radius.control,
+                border: `1px solid ${p.colors.borderLight}`, background: '#fff', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+              <Trash2 style={{ width: 13, height: 13, color: p.colors.muted }} />
+            </button>
+          </div>
+        );
+      })}
+      <button type="button" data-testid="adv-add-term" onClick={addTerm}
+        style={{
+          marginTop: 2, alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 5,
+          border: 'none', background: 'none', cursor: 'pointer',
+          color: p.colors.accent, fontSize: 12, fontWeight: 600,
+        }}>
+        <Plus style={{ width: 13, height: 13 }} /> Add step
+      </button>
+    </div>
+  );
+}
+
+function ChipGroup({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginTop: 8 }}>
+      <span style={{
+        fontSize: 10, fontWeight: 700, color: p.colors.subtle, letterSpacing: '0.06em',
+        textTransform: 'uppercase', flexShrink: 0, width: 56, paddingTop: 5, lineHeight: 1.3,
+      }}>
+        {label}
+      </span>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, flex: 1, minWidth: 0 }}>
+        {children}
+      </div>
     </div>
   );
 }
