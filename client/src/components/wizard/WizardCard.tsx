@@ -151,24 +151,6 @@ function visualStep(internalStep: number): number {
 // Visual step (1-based) -> internal step id. Used by the clickable top nav.
 const VISUAL_TO_INTERNAL = [0, 6, 1, 2, 3, 5];
 
-const STEP_TITLES = [
-  'What\u2019s your trade?',
-  'Design your calculator',
-  'Set your pricing',
-  'CTA & marketing',
-  'Quick accuracy check',
-  'You\u2019re live!',
-  'Pick a template',
-];
-const STEP_SUBTITLES = [
-  'Tell us your trade and we\u2019ll set everything up.',
-  'Pick your colors and branding. See changes live on the right.',
-  'Choose how you charge. We\u2019ll build the quote logic for you.',
-  'Set up lead capture, your call-to-action and upsells.',
-  'Test a couple of quotes to make sure the numbers look right.',
-  'Publish your calculator, then grab your link or embed code.',
-  'Choose a starting point \u2014 or start blank. You customise everything next.',
-];
 const STEP_HINTS = [
   'Next: pick a template',
   'Next: set your pricing',
@@ -916,12 +898,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
         />
         <div className="wizard-left">
           <div className="wizard-left-inner">
-            {STEP_TITLES[step] && (
-              <div className="wizard-step-head">
-                <h2 className="wizard-step-title">{step === 5 ? (result ? 'You\'re live!' : 'Install & go live') : STEP_TITLES[step]}</h2>
-                {STEP_SUBTITLES[step] && <p className="wizard-step-sub">{STEP_SUBTITLES[step]}</p>}
-              </div>
-            )}
+
 
         {/* Step 0: Business & Trade Setup */}
         {step === 0 && (
@@ -1107,28 +1084,9 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
         {/* Step 1: Preview & Polish (side panel shows live preview on desktop) */}
         {step === 1 && (
           <div className="wizard-step-fill">
-            {/* Mobile-only: inline preview (hidden on desktop where side panel shows) */}
-            <div className="lg:hidden animate-fade-in-up" style={{
-              marginBottom: '24px', padding: '16px', borderRadius: p.radius.lg,
-              border: `1px solid ${p.colors.border}`, background: p.colors.surfaceRaised,
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-                <div>
-                  <p style={{ fontSize: '13px', fontWeight: 600, color: p.colors.heading, margin: '0 0 2px' }}>
-                    Live preview
-                  </p>
-                  <p style={{ fontSize: '12px', color: p.colors.muted, margin: 0 }}>
-                    Interact with it — this is exactly what your customers see.
-                  </p>
-                </div>
-              </div>
-              <div style={{
-                borderRadius: p.radius.md, overflow: 'hidden',
-                background: '#f8fafb',
-              }}>
-                <QuoteWidget calculator={previewCalculatorData} isEmbed />
-              </div>
-            </div>
+            {/* The live preview renders once, in `wizard-preview-fixed`
+               (desktop: side column; mobile: stacked above the form) — no
+               inline duplicate here. */}
 
             {/* Quick customization */}
             <div id="wiz-sec-branding" style={{ scrollMarginTop: 16 }} />
@@ -1136,26 +1094,51 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
               <label style={{ ...p.typography.label, display: 'block', marginBottom: '12px' }}>
                 Brand Color
               </label>
-              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '20px' }}>
-                {['#0284C7', '#0ea5e9', '#2563EB', '#059669', '#f59e0b', '#ef4444', '#7C3AED', '#ec4899'].map(color => (
-                  <button
-                    key={color}
-                    data-testid={`color-option-${color.replace('#', '')}`}
-                    onClick={() => set('primaryColor', color)}
-                    style={{
-                      width: '40px', height: '40px', borderRadius: '50%', backgroundColor: color,
-                      border: ws.primaryColor === color ? `3px solid ${p.colors.heading}` : '2px solid transparent',
-                      cursor: 'pointer', transform: ws.primaryColor === color ? 'scale(1.15)' : 'scale(1)',
-                      transition: p.transitions.spring,
-                      boxShadow: ws.primaryColor === color ? `0 4px 14px ${color}40` : '0 1px 3px rgba(0,0,0,0.08)',
-                      outline: 'none', WebkitTapHighlightColor: 'transparent',
-                    }}
-                  />
-                ))}
-                <div style={{ width: '1px', height: '24px', background: p.colors.border, margin: '0 2px' }} />
-                <input data-testid="input-custom-color" type="color" value={ws.primaryColor}
-                  onChange={e => set('primaryColor', e.target.value)}
-                  style={{ width: '40px', height: '40px', borderRadius: '50%', border: `1px solid ${p.colors.border}`, cursor: 'pointer', padding: '3px', background: 'white' }} />
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '9px', alignItems: 'center', marginBottom: '20px' }}>
+                {['#0284C7', '#0ea5e9', '#2563EB', '#059669', '#f59e0b', '#ef4444', '#7C3AED', '#ec4899'].map(color => {
+                  const selected = ws.primaryColor === color;
+                  return (
+                    <button
+                      key={color}
+                      data-testid={`color-option-${color.replace('#', '')}`}
+                      onClick={() => set('primaryColor', color)}
+                      aria-label={`Brand colour ${color}`}
+                      style={{
+                        width: '34px', height: '34px', borderRadius: '50%', backgroundColor: color,
+                        border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0,
+                        boxShadow: selected
+                          ? `0 0 0 2px ${d.colors.panel}, 0 0 0 4px ${color}`
+                          : '0 0 0 1px rgba(15,23,42,0.10)',
+                        transition: 'box-shadow 0.15s ease',
+                        outline: 'none', WebkitTapHighlightColor: 'transparent',
+                      }}
+                    />
+                  );
+                })}
+                {(() => {
+                  const presets = ['#0284C7', '#0ea5e9', '#2563EB', '#059669', '#f59e0b', '#ef4444', '#7C3AED', '#ec4899'];
+                  const isCustom = !presets.includes(ws.primaryColor);
+                  return (
+                    <label
+                      title="Custom colour"
+                      style={{
+                        position: 'relative', width: '34px', height: '34px', flexShrink: 0,
+                        borderRadius: '50%', cursor: 'pointer', display: 'block',
+                        background: 'conic-gradient(from 0deg, #ef4444, #f59e0b, #059669, #0ea5e9, #2563eb, #7c3aed, #ec4899, #ef4444)',
+                        boxShadow: isCustom
+                          ? `0 0 0 2px ${d.colors.panel}, 0 0 0 4px ${ws.primaryColor}`
+                          : '0 0 0 1px rgba(15,23,42,0.10)',
+                      }}
+                    >
+                      <input data-testid="input-custom-color" type="color" value={ws.primaryColor}
+                        onChange={e => set('primaryColor', e.target.value)}
+                        style={{
+                          position: 'absolute', inset: 0, width: '100%', height: '100%',
+                          opacity: 0, cursor: 'pointer', border: 'none', padding: 0, margin: 0,
+                        }} />
+                    </label>
+                  );
+                })()}
               </div>
 
               <div style={{ marginBottom: '18px' }}>
@@ -1649,19 +1632,11 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
         {showSidePreview && (
           <div className="wizard-preview-fixed">
             <div className="wizard-preview-stage">
-            {/* Stage header */}
+            {/* Stage header — device toggle only */}
             <div style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '16px 20px 14px',
+              display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
+              padding: '10px 20px 6px',
             }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.14em', color: p.colors.subtle }}>
-                  LIVE PREVIEW
-                </span>
-                <span style={{ fontSize: 12, color: p.colors.muted }}>
-                  Exactly what your customers see
-                </span>
-              </div>
               <div style={{
                 display: 'flex', gap: 3, padding: 3, borderRadius: 10,
                 background: '#fff', border: `1px solid ${p.colors.borderLight}`,
@@ -1690,10 +1665,10 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
             <div
               className="widget-scope"
               style={{
-                padding: previewDevice === 'mobile' ? '8px 20px 36px' : '8px 24px 36px',
+                padding: previewDevice === 'mobile' ? '4px 20px 24px' : '4px 24px 24px',
                 /* Template step stacks the preview above the form — keep it
                    compact so the template strip stays near the fold. */
-                minHeight: step === 6 ? 0 : 564,
+                minHeight: step === 6 ? 0 : 430,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}
             >
@@ -1813,7 +1788,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
           height: 100%; overflow-y: auto;
         }
         .wizard-left-inner {
-          padding: 26px 26px 0; min-height: 100%; box-sizing: border-box;
+          padding: 20px 22px 0; min-height: 100%; box-sizing: border-box;
           display: flex; flex-direction: column;
         }
         /* The Action step owns its footer internally, so its root must fill
@@ -1823,7 +1798,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
            and sticky so it stays visible while a long form scrolls. */
         .wizard-footer {
           position: sticky; bottom: 0; z-index: 5;
-          margin: auto -26px 0; padding: 14px 26px 16px;
+          margin: auto -22px 0; padding: 12px 22px 14px;
           background: ${d.colors.panel};
           border-top: 1px solid ${d.colors.borderLight};
         }
@@ -1832,7 +1807,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
         .wizard-step-sub { font-size: 13px; line-height: 1.5; color: ${p.colors.muted}; margin: 0; }
         .wizard-preview-fixed {
           flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center;
-          padding: 24px; box-sizing: border-box;
+          padding: 16px; box-sizing: border-box;
           background: ${d.colors.panel};
           height: 100%; overflow-y: auto;
         }
@@ -1887,7 +1862,12 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
           .wizard-left { width: 100%; height: auto; overflow-y: visible; border-right: none; }
           .wizard-left-inner { padding-bottom: 84px; min-height: 0; }
           .wizard-footer { position: static; }
-          .wizard-preview-fixed { height: auto; min-height: 480px; overflow-y: visible; }
+          /* Single preview, stacked above the form (order:-1) — never a
+             second copy under the footer. */
+          .wizard-preview-fixed {
+            order: -1; height: auto; min-height: 0; overflow-y: visible;
+            padding: 12px 16px; border-bottom: 1px solid ${d.colors.borderLight};
+          }
           .wizard-nav-label { display: none; }
           /* 2nd bar becomes a fixed bottom bar on mobile. */
           .wizard-2ndbar {
