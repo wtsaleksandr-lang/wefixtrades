@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { platformTheme as p } from '@/theme/platformTheme';
 import { dashboardTheme as d } from '@/theme/dashboardTheme';
+import AdvancedBuilder, { type AdvancedConfigData } from './AdvancedBuilder';
 import { FAMILY_LABELS, type PricingType } from '@shared/pricingConfig';
 import PricingConfigEditor from '@/components/calculator/PricingConfigEditor';
 
@@ -44,6 +45,7 @@ interface Props {
   rangeMax: number;
   customConfig?: any;
   fieldOverrides: Record<string, FieldOverride>;
+  advanced?: AdvancedConfigData;
   onChange: (key: string, val: any) => void;
 }
 
@@ -529,6 +531,17 @@ export default function PricingBuildStep(props: Props) {
   const [view, setView] = useState<'build' | 'model' | 'field' | 'add'>('build');
   const [editId, setEditId] = useState<string | null>(null);
 
+  // Advanced "build it yourself" mode — takes over the whole step.
+  if (props.advanced?.enabled) {
+    return (
+      <AdvancedBuilder
+        advanced={props.advanced}
+        onChange={(next) => onChange('advanced', next)}
+        onExitAdvanced={() => onChange('advanced', { ...props.advanced, enabled: false })}
+      />
+    );
+  }
+
   const overrides = fieldOverrides || {};
   const { fields, emptyNote } = deriveFields(pricingMode, customConfig);
 
@@ -658,6 +671,33 @@ export default function PricingBuildStep(props: Props) {
           <Pencil style={{ width: 11, height: 11 }} /> Tap any field to rename or adjust it
         </p>
       )}
+
+      {/* Advanced mode entry — full manual fields + formula builder */}
+      <button type="button" data-testid="button-advanced-mode"
+        onClick={() => onChange('advanced', { ...(props.advanced || {}), enabled: true })}
+        style={{
+          marginTop: 20, width: '100%', padding: '13px 14px',
+          display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left',
+          borderRadius: d.radius.card, cursor: 'pointer', border: 'none',
+          background: d.colors.card, boxShadow: d.shadows.card, transition: p.transitions.fast,
+        }}>
+        <div style={{
+          width: 34, height: 34, borderRadius: 9, flexShrink: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: p.colors.surfaceRaised, color: p.colors.muted,
+        }}>
+          <SlidersHorizontal style={{ width: 16, height: 16 }} />
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ fontSize: 14, fontWeight: 600, color: p.colors.heading, margin: 0 }}>
+            Build it yourself
+          </p>
+          <p style={{ fontSize: 12, color: p.colors.muted, margin: 0, lineHeight: 1.4 }}>
+            Advanced — your own fields and pricing formulas.
+          </p>
+        </div>
+        <ChevronRight style={{ width: 16, height: 16, color: p.colors.subtle, flexShrink: 0 }} />
+      </button>
     </div>
   );
 }
