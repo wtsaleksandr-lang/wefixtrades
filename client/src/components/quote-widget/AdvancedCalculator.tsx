@@ -169,11 +169,11 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
 
       {/* ── Body — inputs alongside a standing result panel ── */}
       <div style={{
-        display: 'flex', flexWrap: 'wrap', gap: '18px', padding: '22px',
+        display: 'flex', flexWrap: 'wrap', gap: '16px', padding: '20px',
         background: eff.bg,
       }}>
         {/* Inputs */}
-        <div style={{ flex: '1 1 290px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div style={{ flex: '1 1 260px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {visibleFields.length === 0 && (
             <p style={{ fontSize: '14px', color: eff.textBody, padding: '20px 0' }}>
               This calculator hasn't been set up yet.
@@ -188,7 +188,7 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
         {/* Result panel — a separate rounded container */}
         {calcs.length > 0 && (
           <div style={{
-            flex: '1 1 220px', minWidth: 0, alignSelf: 'flex-start',
+            flex: '1 1 200px', minWidth: 0, alignSelf: 'flex-start',
             borderRadius: eff.radiusXl, background: '#fff',
             border: `1px solid ${eff.buttonBorder}`, boxShadow: eff.shadowCard,
             padding: '20px',
