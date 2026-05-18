@@ -1810,6 +1810,14 @@ select:focus {
   z-index: 2;
 }
 
+/* Mobile: the swiper's `overflow: visible` (for the desktop 3D peek) lets
+   the scaled + rotated side slides spill past the viewport, forcing
+   horizontal page overflow — which squashes the whole page. Clip on small
+   screens; the peek effect isn't meaningful there anyway. */
+@media (max-width: 760px) {
+  .cs-simple-slider .swiper { overflow: hidden; }
+}
+
 /* ─── Arrow capsule under the swiper ─── */
 .cs-arrow-group {
   display: inline-flex;
