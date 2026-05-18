@@ -1,211 +1,181 @@
-// Template-picker step — Elfsight-style. The live calculator preview is the
-// main screen (rendered by WizardCard's preview pane); this component is the
-// dock beneath it: a single horizontal row of template cards, scrollable by
-// ‹ › arrows and by drag/swipe, with "Continue with this template" pinned.
+// Template-picker step — two levels. First the owner picks a LAYOUT
+// (single-column / two-column / multi-step), then a TEMPLATE within that
+// layout. The layout stays switchable: returning here and choosing a
+// different layout re-picks. "Blank" is the first option in every layout.
 //
-// NOTE: the catalogue is seeded with the 6 layout templates + a Blank option.
-// The real per-trade template set is authored later.
-import { useRef, useState } from 'react';
-import { TEMPLATE_LIBRARY } from '@shared/templateLibrary';
+// The themed template gallery (the real per-use-case presets) is authored in
+// a later increment; today level 2 lists the layout's structural variants.
+import { useState } from 'react';
+import {
+  LAYOUTS, getTemplatesByLayout, getTemplateById,
+  type LayoutStyle, type TemplateDefinition,
+} from '@shared/templateLibrary';
 import { platformTheme } from '@/theme/platformTheme';
 import { dashboardTheme as d } from '@/theme/dashboardTheme';
-import { Check, ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, Save } from 'lucide-react';
+import { Check, ArrowLeft, ArrowRight, ChevronLeft, Save } from 'lucide-react';
 
 const p = platformTheme;
 
-interface CatalogueItem {
-  id: string;
-  name: string;
-  description: string;
-  layout_style: 'single_page' | 'multi_step' | 'two_column';
+interface Props {
+  selectedId: string;
+  onSelect: (templateId: string, layout: LayoutStyle) => void;
+  onBack: () => void;
+  onContinue: () => void;
+  onSave?: () => void;
 }
 
-const BLANK: CatalogueItem = {
-  id: 'blank',
-  name: 'Blank',
-  description: 'Start from scratch',
-  layout_style: 'single_page',
-};
-
-const ITEMS: CatalogueItem[] = [
-  BLANK,
-  ...TEMPLATE_LIBRARY.map(t => ({
-    id: t.id, name: t.name, description: t.description, layout_style: t.layout_style,
-  })),
-];
-
-/* Stylised mini-mockup of a template's layout. */
-function TemplateThumb({ layout, blank }: { layout: string; blank?: boolean }) {
+/* Stylised mini-mockup of a layout / template. */
+function Mockup({ layout, blank }: { layout: LayoutStyle; blank?: boolean }) {
   const bar = (w: string, h = 7, c = '#cdd5e0') => (
     <div style={{ width: w, height: h, borderRadius: 3, background: c }} />
   );
   if (blank) {
     return (
       <div style={{
-        height: 88, borderRadius: 8, border: `1.5px dashed ${p.colors.borderHover}`,
+        height: 96, borderRadius: d.radius.control, border: `1.5px dashed ${p.colors.borderHover}`,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        color: p.colors.subtle, fontSize: 24, fontWeight: 300, background: '#fff',
+        color: p.colors.subtle, fontSize: 26, fontWeight: 300, background: '#fff',
       }}>+</div>
     );
   }
   return (
-    <div style={{ height: 88, borderRadius: d.radius.control, background: d.colors.cardMuted, border: 'none', padding: 9, overflow: 'hidden' }}>
+    <div style={{ height: 96, borderRadius: d.radius.control, background: d.colors.cardMuted, padding: 11, overflow: 'hidden' }}>
       {layout === 'two_column' ? (
-        <div style={{ display: 'flex', gap: 7, height: '100%' }}>
-          <div style={{ flex: 1.4, display: 'flex', flexDirection: 'column', gap: 5 }}>
-            {bar('70%')}{bar('100%', 12)}{bar('100%', 12)}{bar('55%')}
+        <div style={{ display: 'flex', gap: 8, height: '100%' }}>
+          <div style={{ flex: 1.4, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {bar('70%')}{bar('100%', 13)}{bar('100%', 13)}{bar('55%')}
           </div>
-          <div style={{ flex: 1, borderRadius: 6, background: p.colors.accent, display: 'flex', flexDirection: 'column', gap: 4, padding: 6 }}>
-            {bar('60%', 5, 'rgba(255,255,255,0.5)')}{bar('80%', 9, 'rgba(255,255,255,0.85)')}
+          <div style={{ flex: 1, borderRadius: 6, background: p.colors.accent, display: 'flex', flexDirection: 'column', gap: 5, padding: 7 }}>
+            {bar('60%', 5, 'rgba(255,255,255,0.5)')}{bar('80%', 10, 'rgba(255,255,255,0.85)')}
           </div>
         </div>
       ) : layout === 'multi_step' ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
           <div style={{ display: 'flex', gap: 4 }}>
             {bar('33%', 4, p.colors.accent)}{bar('33%', 4)}{bar('33%', 4)}
           </div>
-          {bar('60%')}{bar('100%', 14)}
-          <div style={{ alignSelf: 'flex-end' }}>{bar('34px', 11, p.colors.accent)}</div>
+          {bar('60%')}{bar('100%', 16)}
+          <div style={{ alignSelf: 'flex-end' }}>{bar('38px', 12, p.colors.accent)}</div>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {bar('55%')}{bar('100%', 12)}{bar('100%', 12)}
-          <div style={{ borderRadius: 5, background: p.colors.accentLighter, height: 17 }} />
-          {bar('40px', 11, p.colors.accent)}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+          {bar('55%')}{bar('100%', 13)}{bar('100%', 13)}
+          <div style={{ borderRadius: 5, background: p.colors.accentLighter, height: 19 }} />
+          {bar('44px', 12, p.colors.accent)}
         </div>
       )}
     </div>
   );
 }
 
-interface Props {
-  selectedId: string;
-  onSelect: (id: string) => void;
-  onBack: () => void;
-  onContinue: () => void;
-  onSave?: () => void;
+/* A selectable card (used for both layouts and templates). */
+function PickCard({ testId, active, mockup, name, desc, onClick }: {
+  testId: string; active: boolean; mockup: React.ReactNode;
+  name: string; desc: string; onClick: () => void;
+}) {
+  return (
+    <button
+      type="button" data-testid={testId} onClick={onClick}
+      style={{
+        textAlign: 'left', padding: 11, cursor: 'pointer', width: '100%',
+        borderRadius: d.radius.card, background: d.colors.card, border: 'none',
+        boxShadow: active ? `0 0 0 2px ${d.colors.accent}, ${d.shadows.card}` : d.shadows.card,
+        position: 'relative', transition: d.transitions.fast,
+      }}
+    >
+      {active && (
+        <div style={{
+          position: 'absolute', top: 9, right: 9, width: 20, height: 20, zIndex: 1,
+          borderRadius: '50%', background: p.colors.accent,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <Check style={{ width: 12, height: 12, color: '#fff' }} />
+        </div>
+      )}
+      {mockup}
+      <p style={{ fontSize: 13, fontWeight: 600, color: p.colors.heading, margin: '9px 2px 1px', lineHeight: 1.3 }}>
+        {name}
+      </p>
+      <p style={{ fontSize: 11.5, color: p.colors.muted, margin: '0 2px', lineHeight: 1.4 }}>
+        {desc}
+      </p>
+    </button>
+  );
 }
 
 export default function TemplatePickerStep({ selectedId, onSelect, onBack, onContinue, onSave }: Props) {
   const [savedFlash, setSavedFlash] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const currentTemplate: TemplateDefinition | undefined = getTemplateById(selectedId);
+  const [view, setView] = useState<'layouts' | 'templates'>('layouts');
+  const [activeLayout, setActiveLayout] = useState<LayoutStyle>(currentTemplate?.layout_style || 'single_page');
 
-  // Drag-to-scroll — tracks movement so a drag doesn't fire a card click.
-  const drag = useRef({ active: false, startX: 0, startScroll: 0, moved: 0 });
-
-  const onPointerDown = (e: React.PointerEvent) => {
-    const el = scrollRef.current;
-    if (!el) return;
-    drag.current = { active: true, startX: e.clientX, startScroll: el.scrollLeft, moved: 0 };
-  };
-  const onPointerMove = (e: React.PointerEvent) => {
-    const el = scrollRef.current;
-    if (!el || !drag.current.active) return;
-    const dx = e.clientX - drag.current.startX;
-    drag.current.moved = Math.max(drag.current.moved, Math.abs(dx));
-    el.scrollLeft = drag.current.startScroll - dx;
-  };
-  const onPointerUp = () => { drag.current.active = false; };
-
-  const handleCardClick = (id: string) => {
-    // Suppress the click that ends a drag gesture.
-    if (drag.current.moved > 6) return;
-    onSelect(id);
-  };
-
-  const arrow = (dir: -1 | 1) => () => {
-    scrollRef.current?.scrollBy({ left: dir * 240, behavior: 'smooth' });
-  };
+  const sectionHead = (title: string, sub: string) => (
+    <div style={{ marginBottom: 14 }}>
+      <p style={{ fontSize: 16, fontWeight: 800, color: p.colors.heading, margin: 0, letterSpacing: '-0.01em' }}>{title}</p>
+      <p style={{ fontSize: 12.5, color: p.colors.muted, margin: '3px 0 0', lineHeight: 1.5 }}>{sub}</p>
+    </div>
+  );
 
   return (
     <div data-testid="template-picker">
-      {/* Horizontal template strip — arrows + drag/swipe */}
-      <div style={{ position: 'relative', marginBottom: 18, marginTop: 4 }}>
-        <button
-          type="button" data-testid="template-scroll-left" aria-label="Scroll left"
-          onClick={arrow(-1)}
-          style={{
-            position: 'absolute', left: -6, top: '50%', transform: 'translateY(-50%)', zIndex: 2,
-            width: 32, height: 32, borderRadius: '50%', cursor: 'pointer',
-            border: 'none', background: d.colors.card,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: d.shadows.card,
-          }}
-        >
-          <ChevronLeft style={{ width: 16, height: 16, color: p.colors.muted }} />
-        </button>
-
-        <div
-          ref={scrollRef}
-          className="template-strip"
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerLeave={onPointerUp}
-          style={{
-            display: 'flex', gap: 12, overflowX: 'auto', padding: '4px 28px 10px',
-            scrollbarWidth: 'none', cursor: 'grab', WebkitOverflowScrolling: 'touch',
-          }}
-        >
-          {ITEMS.map(t => {
-            const active = selectedId === t.id;
-            return (
-              <button
-                key={t.id}
-                data-testid={`template-card-${t.id}`}
-                onClick={() => handleCardClick(t.id)}
-                style={{
-                  flex: '0 0 auto', width: 152, textAlign: 'left', padding: 10, cursor: 'pointer',
-                  borderRadius: d.radius.card, background: d.colors.card, border: 'none',
-                  boxShadow: active
-                    ? `0 0 0 2px ${d.colors.accent}, ${d.shadows.card}`
-                    : d.shadows.card,
-                  position: 'relative', transition: d.transitions.fast,
-                }}
-              >
-                {active && (
-                  <div style={{
-                    position: 'absolute', top: 7, right: 7, width: 19, height: 19,
-                    borderRadius: '50%', background: p.colors.accent, zIndex: 1,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}>
-                    <Check style={{ width: 11, height: 11, color: '#fff' }} />
-                  </div>
-                )}
-                <TemplateThumb layout={t.layout_style} blank={t.id === 'blank'} />
-                <p style={{ fontSize: 12.5, fontWeight: 600, color: p.colors.heading, margin: '8px 2px 1px', lineHeight: 1.3 }}>
-                  {t.name}
-                </p>
-                <p style={{ fontSize: 11, color: p.colors.muted, margin: '0 2px', lineHeight: 1.35, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {t.description}
-                </p>
-              </button>
-            );
-          })}
-        </div>
-
-        <button
-          type="button" data-testid="template-scroll-right" aria-label="Scroll right"
-          onClick={arrow(1)}
-          style={{
-            position: 'absolute', right: -6, top: '50%', transform: 'translateY(-50%)', zIndex: 2,
-            width: 32, height: 32, borderRadius: '50%', cursor: 'pointer',
-            border: 'none', background: d.colors.card,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: d.shadows.card,
-          }}
-        >
-          <ChevronRight style={{ width: 16, height: 16, color: p.colors.muted }} />
-        </button>
+      <div style={{ maxWidth: 720, margin: '0 auto', marginBottom: 18 }}>
+        {view === 'layouts' ? (
+          <>
+            {sectionHead('Choose a layout', 'The overall shape of your calculator — you can switch it any time.')}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
+              {LAYOUTS.map(l => (
+                <PickCard
+                  key={l.id} testId={`layout-${l.id}`}
+                  active={view === 'layouts' && currentTemplate?.layout_style === l.id}
+                  mockup={<Mockup layout={l.id} />}
+                  name={l.name} desc={l.description}
+                  onClick={() => { setActiveLayout(l.id); setView('templates'); }}
+                />
+              ))}
+            </div>
+          </>
+        ) : (
+          <>
+            <button
+              type="button" data-testid="back-to-layouts" onClick={() => setView('layouts')}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 4, border: 'none', background: 'none',
+                cursor: 'pointer', color: p.colors.accent, fontSize: 13, fontWeight: 600,
+                padding: 0, marginBottom: 10,
+              }}
+            >
+              <ChevronLeft style={{ width: 15, height: 15 }} /> Choose a different layout
+            </button>
+            {sectionHead(
+              'Pick a template',
+              'Start blank, or from a ready-made template — you customise everything next.',
+            )}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
+              <PickCard
+                testId="template-card-blank"
+                active={selectedId === 'blank'}
+                mockup={<Mockup layout={activeLayout} blank />}
+                name="Blank" desc="Start from scratch"
+                onClick={() => onSelect('blank', activeLayout)}
+              />
+              {getTemplatesByLayout(activeLayout).map(t => (
+                <PickCard
+                  key={t.id} testId={`template-card-${t.id}`}
+                  active={selectedId === t.id}
+                  mockup={<Mockup layout={t.layout_style} />}
+                  name={t.name} desc={t.description}
+                  onClick={() => onSelect(t.id, t.layout_style)}
+                />
+              ))}
+            </div>
+          </>
+        )}
       </div>
 
-      {/* Footer — Back · Save · Continue with this template */}
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
-      }}>
+      {/* Footer — Back · Save · Continue */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
         <button
-          data-testid="button-back"
-          onClick={onBack}
+          data-testid="button-back" onClick={onBack}
           style={{
             display: 'flex', alignItems: 'center', gap: 6, minHeight: 44,
             padding: '10px 16px', borderRadius: p.radius.md, cursor: 'pointer',
@@ -234,8 +204,7 @@ export default function TemplatePickerStep({ selectedId, onSelect, onBack, onCon
             </button>
           )}
           <button
-            data-testid="button-continue"
-            onClick={onContinue}
+            data-testid="button-continue" onClick={onContinue}
             style={{
               display: 'flex', alignItems: 'center', gap: 8, minHeight: 44,
               padding: '10px 22px', borderRadius: p.radius.md, cursor: 'pointer',
@@ -243,7 +212,7 @@ export default function TemplatePickerStep({ selectedId, onSelect, onBack, onCon
               fontSize: 14, fontWeight: 700,
             }}
           >
-            Continue with this template <ArrowRight style={{ width: 16, height: 16 }} />
+            Continue <ArrowRight style={{ width: 16, height: 16 }} />
           </button>
         </div>
       </div>

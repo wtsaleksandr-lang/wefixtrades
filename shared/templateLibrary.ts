@@ -180,6 +180,35 @@ export function getTemplateById(id: string): TemplateDefinition | undefined {
   return TEMPLATE_LIBRARY.find(t => t.id === id);
 }
 
+/* ─── Layouts ─── */
+
+export type LayoutStyle = 'single_page' | 'two_column' | 'multi_step';
+
+export interface LayoutDefinition {
+  id: LayoutStyle;
+  name: string;
+  description: string;
+}
+
+/**
+ * The three layout families. Step 2 of the wizard picks a layout first, then a
+ * template within it — the layout is the structural skeleton and stays
+ * switchable afterwards; templates carry presets + theme.
+ */
+export const LAYOUTS: LayoutDefinition[] = [
+  { id: 'single_page', name: 'Single column', description: 'Everything stacked top to bottom, with the price at the end.' },
+  { id: 'two_column', name: 'Two column', description: 'Inputs on the left, a live price panel on the right.' },
+  { id: 'multi_step', name: 'Multi-step', description: 'One question at a time, with a progress bar.' },
+];
+
+export function getLayoutById(id: string): LayoutDefinition | undefined {
+  return LAYOUTS.find(l => l.id === id);
+}
+
+export function getTemplatesByLayout(style: LayoutStyle): TemplateDefinition[] {
+  return TEMPLATE_LIBRARY.filter(t => t.layout_style === style);
+}
+
 const TRADE_TEMPLATE_MAP: Record<string, string> = {
   house_cleaning: 'classic_two_column',
   office_cleaning: 'classic_two_column',
