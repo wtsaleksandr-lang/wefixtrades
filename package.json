@@ -11,6 +11,7 @@
     "check": "tsc",
     "check:copilot-forms": "node scripts/check-copilot-forms.mjs",
     "smoke:quick": "tsx script/smoke.ts",
+    "test:formula": "tsx scripts/check-formula.ts",
     "db:push": "drizzle-kit push",
     "test:e2e": "npx playwright test tests/e2e/audit-flow.spec.ts",
     "test:smoke": "npx playwright test tests/e2e/smoke.spec.ts",
