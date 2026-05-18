@@ -75,6 +75,23 @@ export const dashboardTheme = {
     nav: '0 6px 16px rgba(13,60,252,0.24)',
   },
 
+  /**
+   * Data-visualisation palette — minimal, single-accent, no axes/gridlines/
+   * legends. See the "Data visualisation" section of the design-lock doc.
+   */
+  chart: {
+    ringTrack: '#C7D0D7',                   // donut/ring — remaining arc
+    ringValue: '#22282A',                   // donut/ring — value arc
+    barTrack: '#D8E0E6',                    // progress bar — track
+    barFill: d.accent,                      // progress bar — fill (brand blue)
+    lineUp: '#46C36A',                      // positive trend line
+    lineUpFill: 'rgba(70,195,106,0.20)',    // positive area gradient
+    lineDown: '#E98C97',                    // negative trend line
+    lineDownFill: 'rgba(233,140,151,0.18)', // negative area gradient
+    // Segmented breakdown bar — accent-family ramp for stacked shares.
+    seg: ['#0d3cfc', '#4f6dfd', '#8c9dfe', '#c2ccff'],
+  },
+
   /** "Split bars and sections" layout metrics. */
   layout: {
     shellPad: '16px',   // bare canvas around the whole shell
