@@ -4,6 +4,7 @@
 // live validation). Edits write straight to calculator_settings.advanced, so
 // the wizard's live-preview pane renders the result instantly.
 import { useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { platformTheme as p } from '@/theme/platformTheme';
 import { dashboardTheme as d } from '@/theme/dashboardTheme';
 import { validateFormula, runCalculations, type FormulaContext } from '@shared/formulaEngine';
@@ -288,7 +289,7 @@ function FieldPickerModal({ onPick, onClose }: {
   const matches = (t: typeof FIELD_TYPES[number]) =>
     !query || t.label.toLowerCase().includes(query) || t.desc.toLowerCase().includes(query);
 
-  return (
+  return createPortal(
     <div
       onClick={onClose}
       style={{
@@ -387,7 +388,8 @@ function FieldPickerModal({ onPick, onClose }: {
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
