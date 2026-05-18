@@ -31,6 +31,12 @@ export const eff = {
   /** Semantic color for success states */
   success: '#16a34a',
   successBg: '#f0fdf4',
+  /**
+   * Cost-breakdown chart — track + accent-family segment ramp.
+   * Single-accent per the design-lock data-viz rules.
+   */
+  chartTrack: '#e6ebf2',
+  chartSeg: ['#0d3cfc', '#4f6dfd', '#8c9dfe', '#c2ccff'],
 } as const;
 
 /** Shared style for step titles */
