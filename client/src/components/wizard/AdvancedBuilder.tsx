@@ -12,6 +12,7 @@ import {
   Plus, Trash2, ChevronLeft, Hash, SlidersHorizontal, List, CircleDot,
   CheckSquare, ToggleLeft, Type, Sigma, Eye, Sparkles, Loader2,
   Image as ImageIcon, Heading, Search, X, ChevronDown, Info, CheckCircle2,
+  AlignLeft, AlignCenter, AlignRight,
 } from 'lucide-react';
 
 /* ─── Types (mirror calculator_settings.advanced) ─── */
@@ -36,8 +37,11 @@ const RULE_OPS: { id: RuleOp; label: string }[] = [
   { id: 'lte', label: 'is at most' },
 ];
 interface AdvCalc { id: string; name: string; formula: string; format: 'number' | 'currency' | 'percent'; }
+type HeaderAlign = 'left' | 'center' | 'right';
+interface AdvHeader { title?: string; subtitle?: string; align?: HeaderAlign; }
 export interface AdvancedConfigData {
   enabled?: boolean; fields?: AdvField[]; calculations?: AdvCalc[]; result_calc?: string;
+  header?: AdvHeader;
 }
 
 interface Props {
@@ -123,6 +127,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 export default function AdvancedBuilder({ advanced, onChange, onExitAdvanced }: Props) {
   const fields = advanced.fields || [];
   const calcs = advanced.calculations || [];
+  const header = advanced.header || {};
 
   const patch = (next: Partial<AdvancedConfigData>) => onChange({ ...advanced, ...next });
 
@@ -358,6 +363,44 @@ export default function AdvancedBuilder({ advanced, onChange, onExitAdvanced }: 
           </select>
         </div>
       )}
+
+      {/* ─── Header ─── */}
+      <div style={{ margin: '22px 0 10px' }}><SectionLabel>Header</SectionLabel></div>
+      <div style={cardStyle} data-testid="adv-header-editor">
+        <label style={{ ...p.typography.captionSm, display: 'block', marginBottom: 4 }}>Title</label>
+        <input className={inputCls} data-testid="adv-header-title"
+          value={header.title || ''}
+          onChange={(e) => patch({ header: { ...header, title: e.target.value } })}
+          placeholder="Defaults to your business name"
+          style={{ width: '100%', fontSize: 13, marginBottom: 10 }} />
+        <label style={{ ...p.typography.captionSm, display: 'block', marginBottom: 4 }}>Caption</label>
+        <input className={inputCls} data-testid="adv-header-subtitle"
+          value={header.subtitle || ''}
+          onChange={(e) => patch({ header: { ...header, subtitle: e.target.value } })}
+          placeholder="A short supporting line — optional"
+          style={{ width: '100%', fontSize: 13, marginBottom: 10 }} />
+        <label style={{ ...p.typography.captionSm, display: 'block', marginBottom: 5 }}>Alignment</label>
+        <div style={{
+          display: 'flex', gap: 3, padding: 3, width: 'fit-content',
+          borderRadius: d.radius.control, background: p.colors.surfaceRaised,
+        }}>
+          {([['left', AlignLeft], ['center', AlignCenter], ['right', AlignRight]] as const).map(([a, Icon]) => {
+            const active = (header.align || 'center') === a;
+            return (
+              <button key={a} type="button" data-testid={`adv-header-align-${a}`}
+                onClick={() => patch({ header: { ...header, align: a } })}
+                style={{
+                  width: 40, height: 30, borderRadius: 6, border: 'none', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: active ? '#fff' : 'transparent',
+                  boxShadow: active ? d.shadows.card : 'none',
+                }}>
+                <Icon style={{ width: 15, height: 15, color: active ? p.colors.accentDark : p.colors.muted }} />
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       {showPicker && <FieldPickerModal onPick={addField} onClose={() => setShowPicker(false)} />}
     </div>
