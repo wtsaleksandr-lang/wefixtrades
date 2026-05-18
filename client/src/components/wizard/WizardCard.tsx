@@ -1654,16 +1654,16 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
               padding: '16px 20px 14px',
             }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.14em', color: '#9aa8bd' }}>
+                <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.14em', color: p.colors.subtle }}>
                   LIVE PREVIEW
                 </span>
-                <span style={{ fontSize: 12, color: '#64748b' }}>
+                <span style={{ fontSize: 12, color: p.colors.muted }}>
                   Exactly what your customers see
                 </span>
               </div>
               <div style={{
                 display: 'flex', gap: 3, padding: 3, borderRadius: 10,
-                background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.07)',
+                background: '#fff', border: `1px solid ${p.colors.borderLight}`,
               }}>
                 {([['desktop', Monitor], ['mobile', Smartphone]] as const).map(([mode, Icon]) => (
                   <button
@@ -1675,11 +1675,11 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                     style={{
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       width: 34, height: 27, borderRadius: 7, border: 'none', cursor: 'pointer',
-                      background: previewDevice === mode ? 'rgba(255,255,255,0.16)' : 'transparent',
+                      background: previewDevice === mode ? p.colors.accentLighter : 'transparent',
                       transition: 'all 0.15s ease',
                     }}
                   >
-                    <Icon style={{ width: 14, height: 14, color: previewDevice === mode ? '#ffffff' : '#64748b' }} />
+                    <Icon style={{ width: 14, height: 14, color: previewDevice === mode ? p.colors.accent : p.colors.muted }} />
                   </button>
                 ))}
               </div>
@@ -1699,7 +1699,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                   maxWidth: 386, margin: '0 auto',
                   background: '#0b1120', borderRadius: 42, padding: 12,
                   border: '1px solid rgba(255,255,255,0.09)',
-                  boxShadow: '0 18px 38px rgba(0,0,0,0.5)',
+                  boxShadow: '0 14px 32px rgba(20,30,45,0.22)',
                 }}>
                   <div style={{ borderRadius: 31, overflow: 'hidden', background: '#fff' }}>
                     <QuoteWidget calculator={previewCalculatorData} isEmbed />
@@ -1709,7 +1709,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                 <div style={{
                   maxWidth: 560, margin: '0 auto',
                   borderRadius: 16, overflow: 'hidden', background: '#fff',
-                  boxShadow: '0 18px 42px rgba(0,0,0,0.42)',
+                  boxShadow: d.shadows.cardHover,
                 }}>
                   <QuoteWidget calculator={previewCalculatorData} isEmbed />
                 </div>
@@ -1785,25 +1785,32 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
           overflow: hidden;
         }
         .wizard-left {
-          width: 384px; flex-shrink: 0; background: ${d.colors.panel};
+          width: 420px; flex-shrink: 0; background: ${d.colors.panel};
           border-right: 1px solid ${d.colors.borderLight};
           height: 100%; overflow-y: auto;
         }
-        .wizard-left-inner { padding: 26px 26px 52px; }
+        .wizard-left-inner { padding: 26px 26px 0; min-height: 100%; box-sizing: border-box; }
+        /* Step footer — sticky to the bottom of the form panel, always visible. */
+        .wizard-footer {
+          position: sticky; bottom: 0; z-index: 5;
+          margin: 28px -26px 0; padding: 14px 26px 16px;
+          background: ${d.colors.panel};
+          border-top: 1px solid ${d.colors.borderLight};
+        }
         .wizard-step-head { margin-bottom: 20px; }
         .wizard-step-title { font-size: 19px; font-weight: 800; letter-spacing: -0.02em; color: ${p.colors.heading}; margin: 0 0 4px; }
         .wizard-step-sub { font-size: 13px; line-height: 1.5; color: ${p.colors.muted}; margin: 0; }
         .wizard-preview-fixed {
           flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center;
-          padding: 30px; box-sizing: border-box;
+          padding: 24px; box-sizing: border-box;
           background: ${d.colors.panel};
           height: 100%; overflow-y: auto;
         }
+        /* Light preview column — no dark frame; the calculator card sits
+           directly on the panel grey (one preview, on-lock). */
         .wizard-preview-stage {
-          width: 100%; max-width: 780px; display: flex; flex-direction: column;
-          border-radius: 22px;
-          background: linear-gradient(168deg, #273449 0%, #0f172a 100%);
-          box-shadow: 0 26px 52px -18px rgba(15,23,42,0.55);
+          width: 100%; max-width: 620px; display: flex; flex-direction: column;
+          background: transparent;
         }
         .wizard-no-preview .wizard-left { width: 100%; border-right: none; }
 
@@ -1847,7 +1854,8 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
         @media (max-width: 980px) {
           .wizard-shell-body { flex-direction: column; height: auto; overflow: visible; }
           .wizard-left { width: 100%; height: auto; overflow-y: visible; border-right: none; }
-          .wizard-left-inner { padding-bottom: 84px; }
+          .wizard-left-inner { padding-bottom: 84px; min-height: 0; }
+          .wizard-footer { position: static; }
           .wizard-preview-fixed { height: auto; min-height: 480px; overflow-y: visible; }
           .wizard-nav-label { display: none; }
           .wizard-nav-line { width: 16px; margin: 0 6px; }
@@ -2464,7 +2472,7 @@ function Footer({ onBack, onNext, onSave, nextDisabled, backDisabled, children, 
   children?: any; hint?: string;
 }) {
   return (
-    <div style={{ marginTop: '28px', paddingTop: '20px', borderTop: `1px solid ${p.colors.borderLight}` }}>
+    <div className="wizard-footer">
       {hint && (
         <p style={{ fontSize: '12px', color: p.colors.muted, marginBottom: '12px', textAlign: 'center', lineHeight: 1.4 }}>
           {hint}
@@ -2480,7 +2488,7 @@ function Footer({ onBack, onNext, onSave, nextDisabled, backDisabled, children, 
             cursor: backDisabled ? 'default' : 'pointer',
             fontSize: '14px', fontWeight: 500, color: backDisabled ? p.colors.subtle : p.colors.muted,
             transition: p.transitions.fast, opacity: backDisabled ? 0.5 : 1,
-            WebkitTapHighlightColor: 'transparent', minHeight: '44px',
+            WebkitTapHighlightColor: 'transparent', minHeight: '44px', whiteSpace: 'nowrap',
           }}
         >
           <ArrowLeft style={{ width: '16px', height: '16px' }} /> Back
@@ -2517,7 +2525,7 @@ function PrimaryBtn({ children, onClick, disabled, loading, testId, fullWidth, s
         background: disabled && !loading ? '#D1D5DB' : (hovered && !disabled ? p.colors.accentDark : p.colors.accent),
         color: disabled && !loading ? '#9CA3AF' : 'white',
         cursor: disabled ? (loading ? 'wait' : 'not-allowed') : 'pointer',
-        fontSize: '14px', fontWeight: 600,
+        fontSize: '14px', fontWeight: 600, whiteSpace: 'nowrap',
         boxShadow: disabled ? 'none' : (hovered && !disabled ? p.shadows.buttonHover : p.shadows.button),
         opacity: loading ? 0.9 : 1,
         width: fullWidth ? '100%' : 'auto',

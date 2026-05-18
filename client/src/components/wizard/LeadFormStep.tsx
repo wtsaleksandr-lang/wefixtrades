@@ -839,9 +839,8 @@ export default function LeadFormStep({
       )}
 
       {/* Footer */}
-      <div style={{
+      <div className="wizard-footer" style={{
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        paddingTop: '16px', borderTop: `1px solid ${p.colors.borderLight}`,
       }}>
         <button data-testid="button-back" type="button" onClick={onBack} style={{
           padding: '10px 20px', borderRadius: p.radius.sm, border: `1px solid ${p.colors.border}`,
