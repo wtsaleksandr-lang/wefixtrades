@@ -8,6 +8,7 @@ import { getWidgetTheme } from '@/theme/widgetTheme';
 import { WidgetProvider } from './WidgetContext';
 import { useWidgetState } from './useWidgetState';
 import StepRenderer from './StepRenderer';
+import AdvancedCalculator from './AdvancedCalculator';
 import StepHelp from './StepHelp';
 import type { CalculatorData, WidgetConfig } from './types';
 
@@ -132,20 +133,38 @@ export default function QuoteWidget({ calculator, isEmbed = false }: QuoteWidget
     }
   }, [calculator.id, calculator.slug]);
 
+  // Advanced (custom-built) calculator — bypasses the pricing-family flow.
+  const advancedConfig = ((calculator.calculator_settings || {}) as any).advanced;
+  const isAdvanced = !!advancedConfig?.enabled;
+
   return (
     <WidgetErrorBoundary businessName={calculator.business_name}>
-      <WidgetProvider config={config}>
+      {isAdvanced ? (
         <div
           className="mx-auto w-full"
-          style={{
-            maxWidth: '576px',
-            fontFamily: eff.font,
-            color: eff.text,
-          }}
+          style={{ maxWidth: '576px', fontFamily: eff.font, color: eff.text }}
         >
-          <WidgetCard theme={theme} calculator={calculator} />
+          <AdvancedCalculator
+            businessName={calculator.business_name}
+            logoUrl={calculator.logo_url}
+            advanced={advancedConfig}
+            accentColor={theme.colors.primary}
+          />
         </div>
-      </WidgetProvider>
+      ) : (
+        <WidgetProvider config={config}>
+          <div
+            className="mx-auto w-full"
+            style={{
+              maxWidth: '576px',
+              fontFamily: eff.font,
+              color: eff.text,
+            }}
+          >
+            <WidgetCard theme={theme} calculator={calculator} />
+          </div>
+        </WidgetProvider>
+      )}
     </WidgetErrorBoundary>
   );
 }
