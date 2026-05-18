@@ -33,11 +33,13 @@ interface AdvField {
   visible_when?: { field: string; op: string; value: number };
 }
 interface AdvCalc { id: string; name: string; formula: string; format: 'number' | 'currency' | 'percent'; }
+interface AdvHeader { title?: string; subtitle?: string; align?: 'left' | 'center' | 'right'; }
 export interface AdvancedConfig {
   enabled?: boolean;
   fields?: AdvField[];
   calculations?: AdvCalc[];
   result_calc?: string;
+  header?: AdvHeader;
 }
 
 interface Props {
@@ -158,17 +160,30 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
       overflow: 'hidden', fontFamily: eff.font,
     }}>
       {/* ── Title bar (its own separated bar) ── */}
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
-        padding: '18px 24px', borderBottom: `1px solid ${eff.buttonBorder}`,
-      }}>
-        {logoUrl && (
-          <img src={logoUrl} alt="" style={{ width: 28, height: 28, borderRadius: eff.radiusMd, objectFit: 'contain' }} />
-        )}
-        <p style={{ fontSize: '17px', fontWeight: 800, color: eff.text, margin: 0, letterSpacing: '-0.01em' }}>
-          {businessName || 'Get a Quote'}
-        </p>
-      </div>
+      {(() => {
+        const header = advanced.header || {};
+        const align = header.align || 'center';
+        const justify = align === 'left' ? 'flex-start' : align === 'right' ? 'flex-end' : 'center';
+        const title = (header.title || '').trim() || businessName || 'Get a Quote';
+        const subtitle = (header.subtitle || '').trim();
+        return (
+          <div style={{ padding: '18px 24px', borderBottom: `1px solid ${eff.buttonBorder}` }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: justify, gap: '10px' }}>
+              {logoUrl && (
+                <img src={logoUrl} alt="" style={{ width: 28, height: 28, borderRadius: eff.radiusMd, objectFit: 'contain' }} />
+              )}
+              <p style={{ fontSize: '17px', fontWeight: 800, color: eff.text, margin: 0, letterSpacing: '-0.01em' }}>
+                {title}
+              </p>
+            </div>
+            {subtitle && (
+              <p style={{ fontSize: '13px', color: eff.textBody, margin: '5px 0 0', textAlign: align, lineHeight: 1.5 }}>
+                {subtitle}
+              </p>
+            )}
+          </div>
+        );
+      })()}
 
       {/* ── Body — inputs alongside a standing result panel ── */}
       <div style={{

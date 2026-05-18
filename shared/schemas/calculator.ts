@@ -382,6 +382,13 @@ export const calculatorSettingsSchema = z.object({
     })).default([]),
     // Name of the calculation shown as the headline result (defaults to last).
     result_calc: z.string().default(''),
+    // Optional header shown above the inputs. `title` falls back to the
+    // business name when blank; `subtitle` is an optional supporting line.
+    header: z.object({
+      title: z.string().default(''),
+      subtitle: z.string().default(''),
+      align: z.enum(['left', 'center', 'right']).default('center'),
+    }).default({}),
   }).default({}),
 
   ai_employee: z.object({
