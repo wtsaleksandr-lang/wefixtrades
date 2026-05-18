@@ -389,6 +389,14 @@ export const calculatorSettingsSchema = z.object({
       subtitle: z.string().default(''),
       align: z.enum(['left', 'center', 'right']).default('center'),
     }).default({}),
+    // Optional result-panel customisation. `heading` overrides the result
+    // label, `footnote` overrides the supporting line, `show_breakdown`
+    // toggles the per-calculation breakdown list.
+    results: z.object({
+      heading: z.string().default(''),
+      footnote: z.string().default(''),
+      show_breakdown: z.boolean().default(true),
+    }).default({}),
   }).default({}),
 
   ai_employee: z.object({
