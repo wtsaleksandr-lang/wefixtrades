@@ -362,6 +362,13 @@ export const calculatorSettingsSchema = z.object({
         label: z.string(),
         value: z.number().default(0),
       })).default([]),
+      // Conditional visibility — when set, the field shows only while another
+      // field's value satisfies the rule. Hidden fields contribute 0 to formulas.
+      visible_when: z.object({
+        field: z.string(),
+        op: z.enum(['eq', 'ne', 'gt', 'lt', 'gte', 'lte']),
+        value: z.number().default(0),
+      }).optional(),
     })).default([]),
     // Named calculations. `formula` may reference field names and the result
     // of any earlier calculation; they run top-to-bottom (subtotals → total).

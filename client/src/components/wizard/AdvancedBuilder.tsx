@@ -9,18 +9,30 @@ import { dashboardTheme as d } from '@/theme/dashboardTheme';
 import { validateFormula, runCalculations, type FormulaContext } from '@shared/formulaEngine';
 import {
   Plus, Trash2, ChevronLeft, Hash, SlidersHorizontal, List, CircleDot,
-  CheckSquare, ToggleLeft, Type, Sigma,
+  CheckSquare, ToggleLeft, Type, Sigma, Eye,
 } from 'lucide-react';
 
 /* ─── Types (mirror calculator_settings.advanced) ─── */
 
 type FieldType = 'number' | 'slider' | 'select' | 'radio' | 'multi_select' | 'toggle' | 'text';
 interface AdvOption { id: string; label: string; value: number; }
+type RuleOp = 'eq' | 'ne' | 'gt' | 'lt' | 'gte' | 'lte';
+interface VisRule { field: string; op: RuleOp; value: number; }
 interface AdvField {
   id: string; name: string; label: string; type: FieldType;
   required?: boolean; default_value?: number; min?: number; max?: number;
   step?: number; unit?: string; on_value?: number; options?: AdvOption[];
+  visible_when?: VisRule;
 }
+
+const RULE_OPS: { id: RuleOp; label: string }[] = [
+  { id: 'eq', label: 'is' },
+  { id: 'ne', label: 'is not' },
+  { id: 'gt', label: 'is over' },
+  { id: 'lt', label: 'is under' },
+  { id: 'gte', label: 'is at least' },
+  { id: 'lte', label: 'is at most' },
+];
 interface AdvCalc { id: string; name: string; formula: string; format: 'number' | 'currency' | 'percent'; }
 export interface AdvancedConfigData {
   enabled?: boolean; fields?: AdvField[]; calculations?: AdvCalc[]; result_calc?: string;
@@ -130,7 +142,7 @@ export default function AdvancedBuilder({ advanced, onChange, onExitAdvanced }: 
       <div style={{ marginBottom: 10 }}><SectionLabel>Fields the customer fills in</SectionLabel></div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {fields.map((f) => (
-          <FieldCard key={f.id} field={f}
+          <FieldCard key={f.id} field={f} allFields={fields}
             onChange={(u) => updateField(f.id, u)} onRemove={() => removeField(f.id)} />
         ))}
         <button type="button" data-testid="button-add-adv-field" onClick={addField}
@@ -183,8 +195,9 @@ export default function AdvancedBuilder({ advanced, onChange, onExitAdvanced }: 
 
 /* ─── Field card ─── */
 
-function FieldCard({ field, onChange, onRemove }: {
-  field: AdvField; onChange: (u: Partial<AdvField>) => void; onRemove: () => void;
+function FieldCard({ field, allFields, onChange, onRemove }: {
+  field: AdvField; allFields: AdvField[];
+  onChange: (u: Partial<AdvField>) => void; onRemove: () => void;
 }) {
   const f = field;
   const setOptions = (options: AdvOption[]) => onChange({ options });
@@ -267,6 +280,73 @@ function FieldCard({ field, onChange, onRemove }: {
           </button>
         </div>
       )}
+
+      {/* Conditional visibility */}
+      <VisibilityRule field={f} allFields={allFields} onChange={onChange} />
+    </div>
+  );
+}
+
+/* ─── Conditional-visibility rule editor ─── */
+
+function VisibilityRule({ field, allFields, onChange }: {
+  field: AdvField; allFields: AdvField[]; onChange: (u: Partial<AdvField>) => void;
+}) {
+  const others = allFields.filter((x) => x.id !== field.id);
+  const rule = field.visible_when;
+  const setRule = (u: Partial<VisRule>) =>
+    onChange({ visible_when: { field: rule?.field ?? '', op: rule?.op ?? 'eq', value: rule?.value ?? 0, ...u } });
+
+  if (!rule) {
+    if (others.length === 0) return null;
+    return (
+      <button type="button" data-testid={`adv-field-addrule-${field.id}`}
+        onClick={() => onChange({ visible_when: { field: others[0].name, op: 'eq', value: 0 } })}
+        style={{
+          marginTop: 8, paddingTop: 8, width: '100%',
+          borderTop: `1px solid ${p.colors.borderLight}`,
+          display: 'flex', alignItems: 'center', gap: 5, justifyContent: 'flex-start',
+          border: 'none', borderTopWidth: 1, borderTopStyle: 'solid',
+          borderTopColor: p.colors.borderLight, background: 'none', cursor: 'pointer',
+          color: p.colors.accent, fontSize: 12, fontWeight: 600,
+        }}>
+        <Eye style={{ width: 13, height: 13 }} /> Show only when…
+      </button>
+    );
+  }
+
+  const ctrl = others.find((x) => x.name === rule.field);
+  const ctrlIsOptions = !!ctrl && OPTION_TYPES.has(ctrl.type);
+
+  return (
+    <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${p.colors.borderLight}` }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+        <span style={{ ...p.typography.captionSm }}>Show only when</span>
+        <button type="button" onClick={() => onChange({ visible_when: undefined })}
+          style={{ border: 'none', background: 'none', cursor: 'pointer', color: p.colors.muted, fontSize: 11, fontWeight: 600 }}>
+          Always show
+        </button>
+      </div>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        <select className={inputCls} value={rule.field} onChange={(e) => setRule({ field: e.target.value })}
+          style={{ flex: '1 1 108px', fontSize: 12 }}>
+          {others.map((o) => <option key={o.id} value={o.name}>{o.label}</option>)}
+        </select>
+        <select className={inputCls} value={rule.op} onChange={(e) => setRule({ op: e.target.value as RuleOp })}
+          style={{ flex: '0 0 94px', fontSize: 12 }}>
+          {RULE_OPS.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+        </select>
+        {ctrlIsOptions ? (
+          <select className={inputCls} value={rule.value} onChange={(e) => setRule({ value: Number(e.target.value) })}
+            style={{ flex: '1 1 88px', fontSize: 12 }}>
+            {(ctrl!.options || []).map((o) => <option key={o.id} value={o.value}>{o.label}</option>)}
+          </select>
+        ) : (
+          <input className={inputCls} type="number" value={rule.value}
+            onChange={(e) => setRule({ value: Number(e.target.value) || 0 })}
+            style={{ flex: '0 0 78px', fontSize: 12, fontFamily: d.typography.fontMono }} />
+        )}
+      </div>
     </div>
   );
 }

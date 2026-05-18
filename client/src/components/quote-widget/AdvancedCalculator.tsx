@@ -27,6 +27,7 @@ interface AdvField {
   unit?: string;
   on_value?: number;
   options?: AdvOption[];
+  visible_when?: { field: string; op: string; value: number };
 }
 interface AdvCalc { id: string; name: string; formula: string; format: 'number' | 'currency' | 'percent'; }
 export interface AdvancedConfig {
@@ -57,22 +58,40 @@ function initAnswers(fields: AdvField[]): Record<string, Answer> {
   return a;
 }
 
-/** Map raw answers to the numeric/array context the formula engine consumes. */
-function buildContext(fields: AdvField[], answers: Record<string, Answer>): FormulaContext {
-  const ctx: FormulaContext = {};
-  for (const f of fields) {
-    const v = answers[f.name];
-    if (f.type === 'number' || f.type === 'slider') ctx[f.name] = Number(v) || 0;
-    else if (f.type === 'text') ctx[f.name] = String(v ?? '');
-    else if (f.type === 'toggle') ctx[f.name] = v ? (f.on_value ?? 1) : 0;
-    else if (f.type === 'select' || f.type === 'radio') {
-      ctx[f.name] = f.options?.find((o) => o.id === v)?.value ?? 0;
-    } else if (f.type === 'multi_select') {
-      const ids = Array.isArray(v) ? v : [];
-      ctx[f.name] = (f.options || []).filter((o) => ids.includes(o.id)).map((o) => o.value);
-    }
+/** The numeric/array value a single field contributes to a formula context. */
+function rawFieldValue(f: AdvField, answers: Record<string, Answer>): FormulaContext[string] {
+  const v = answers[f.name];
+  if (f.type === 'number' || f.type === 'slider') return Number(v) || 0;
+  if (f.type === 'text') return String(v ?? '');
+  if (f.type === 'toggle') return v ? (f.on_value ?? 1) : 0;
+  if (f.type === 'select' || f.type === 'radio') return f.options?.find((o) => o.id === v)?.value ?? 0;
+  const ids = Array.isArray(v) ? v : [];
+  return (f.options || []).filter((o) => ids.includes(o.id)).map((o) => o.value);
+}
+
+/** The value a hidden field contributes — neutral so formulas ignore it. */
+function emptyFieldValue(f: AdvField): FormulaContext[string] {
+  return f.type === 'multi_select' ? [] : f.type === 'text' ? '' : 0;
+}
+
+function asNumber(v: FormulaContext[string]): number {
+  if (typeof v === 'number') return v;
+  if (Array.isArray(v)) return v.reduce<number>((s, x) => s + (typeof x === 'number' ? x : 0), 0);
+  const n = parseFloat(String(v));
+  return isFinite(n) ? n : 0;
+}
+
+/** Whether a field's conditional-visibility rule passes. */
+function rulePasses(rule: { op: string; value: number }, controlValue: number): boolean {
+  switch (rule.op) {
+    case 'eq': return controlValue === rule.value;
+    case 'ne': return controlValue !== rule.value;
+    case 'gt': return controlValue > rule.value;
+    case 'lt': return controlValue < rule.value;
+    case 'gte': return controlValue >= rule.value;
+    case 'lte': return controlValue <= rule.value;
+    default: return true;
   }
-  return ctx;
 }
 
 function formatResult(v: number, format: AdvCalc['format']): string {
@@ -95,7 +114,29 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
   const [answers, setAnswers] = useState<Record<string, Answer>>(() => initAnswers(fields));
   const setAnswer = (name: string, value: Answer) => setAnswers((p) => ({ ...p, [name]: value }));
 
-  const ctx = useMemo(() => buildContext(fields, answers), [fields, answers]);
+  // Raw values (every field) → visibility → formula context (a hidden field
+  // contributes a neutral value so it doesn't skew the total).
+  const raw = useMemo(() => {
+    const c: FormulaContext = {};
+    for (const f of fields) c[f.name] = rawFieldValue(f, answers);
+    return c;
+  }, [fields, answers]);
+
+  const visibleIds = useMemo(() => {
+    const s = new Set<string>();
+    for (const f of fields) {
+      if (!f.visible_when) { s.add(f.id); continue; }
+      if (rulePasses(f.visible_when, asNumber(raw[f.visible_when.field] ?? 0))) s.add(f.id);
+    }
+    return s;
+  }, [fields, raw]);
+
+  const ctx = useMemo(() => {
+    const c: FormulaContext = {};
+    for (const f of fields) c[f.name] = visibleIds.has(f.id) ? raw[f.name] : emptyFieldValue(f);
+    return c;
+  }, [fields, raw, visibleIds]);
+
   const { values } = useMemo(() => runCalculations(calcs, ctx), [calcs, ctx]);
 
   const resultName = advanced.result_calc || (calcs.length ? calcs[calcs.length - 1].name : '');
@@ -131,7 +172,7 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
 
         {/* Fields */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-          {fields.map((f) => (
+          {fields.filter((f) => visibleIds.has(f.id)).map((f) => (
             <FieldInput key={f.id} field={f} value={answers[f.name]} accent={accent}
               onChange={(v) => setAnswer(f.name, v)} />
           ))}
