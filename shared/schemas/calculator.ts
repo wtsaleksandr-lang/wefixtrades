@@ -334,6 +334,47 @@ export const calculatorSettingsSchema = z.object({
     hidden: z.boolean().optional(),
   })).default({}),
 
+  // Advanced custom-calculator builder ("build it yourself" mode). When
+  // `advanced.enabled` is true the widget renders these owner-defined fields
+  // and evaluates the calculation formulas (shared/formulaEngine.ts) instead
+  // of the pricing-family flow. See docs / quotequick-advanced-builder.md.
+  advanced: z.object({
+    enabled: z.boolean().default(false),
+    // Customer-facing input fields. `name` is the identifier used in formulas.
+    fields: z.array(z.object({
+      id: z.string(),
+      name: z.string(),
+      label: z.string(),
+      type: z.enum(['number', 'slider', 'select', 'radio', 'multi_select', 'toggle', 'text']),
+      help: z.string().optional(),
+      required: z.boolean().default(false),
+      // number / slider
+      default_value: z.number().optional(),
+      min: z.number().optional(),
+      max: z.number().optional(),
+      step: z.number().optional(),
+      unit: z.string().optional(),
+      // toggle — numeric value contributed when on
+      on_value: z.number().default(1),
+      // select / radio / multi_select — each option carries a numeric value
+      options: z.array(z.object({
+        id: z.string(),
+        label: z.string(),
+        value: z.number().default(0),
+      })).default([]),
+    })).default([]),
+    // Named calculations. `formula` may reference field names and the result
+    // of any earlier calculation; they run top-to-bottom (subtotals → total).
+    calculations: z.array(z.object({
+      id: z.string(),
+      name: z.string(),
+      formula: z.string().default(''),
+      format: z.enum(['number', 'currency', 'percent']).default('currency'),
+    })).default([]),
+    // Name of the calculation shown as the headline result (defaults to last).
+    result_calc: z.string().default(''),
+  }).default({}),
+
   ai_employee: z.object({
     enabled: z.boolean().default(false),
     trial_started_at: z.number().nullable().default(null),
