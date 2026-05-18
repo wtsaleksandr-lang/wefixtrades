@@ -1,6 +1,7 @@
 // FROZEN — scheduled for rebuild in Phase 3 (Builder Wizard). Do not add features.
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { platformTheme } from '@/theme/platformTheme';
+import { dashboardTheme as d } from '@/theme/dashboardTheme';
 import { calculateEstimate, type EstimateInputs, type EstimateResult } from '@shared/calculateEstimate';
 import { type PricingConfigV1 } from '@shared/pricingConfig';
 import {
@@ -492,7 +493,7 @@ export default function TestGateStep({
             </p>
             <button data-testid="button-open-refine" onClick={() => setRefineOpen(true)} style={{
               marginTop: '8px', padding: '6px 12px', borderRadius: p.radius.sm,
-              border: `1px solid ${p.colors.border}`, background: 'white',
+              border: 'none', background: d.colors.card, boxShadow: d.shadows.card,
               fontSize: '12px', fontWeight: 600, color: p.colors.accent,
               cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '5px',
             }}>
@@ -517,7 +518,7 @@ export default function TestGateStep({
             <button data-testid="button-close-advanced" onClick={() => { setAdvancedMode(false); setAdjustments({}); }}
               style={{
                 padding: '4px 10px', borderRadius: p.radius.sm,
-                border: `1px solid ${p.colors.border}`, background: 'white',
+                border: 'none', background: d.colors.card, boxShadow: d.shadows.card,
                 fontSize: '11px', fontWeight: 600, color: p.colors.muted, cursor: 'pointer',
               }}>
               Close
@@ -885,7 +886,7 @@ export default function TestGateStep({
                 </button>
                 <button data-testid="button-reset-tune" onClick={handleResetTune} style={{
                   padding: '12px 16px', borderRadius: p.radius.md,
-                  border: `1px solid ${p.colors.border}`, background: 'white',
+                  border: 'none', background: d.colors.card, boxShadow: d.shadows.card,
                   fontSize: '13px', fontWeight: 600, color: p.colors.muted,
                   cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px',
                 }}>
@@ -975,7 +976,7 @@ export default function TestGateStep({
       <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
         <button data-testid="button-back" onClick={onBack} style={{
           flex: '0 0 auto', padding: '12px 20px', borderRadius: p.radius.md,
-          border: `1px solid ${p.colors.border}`, background: 'white',
+          border: 'none', background: d.colors.card, boxShadow: d.shadows.card,
           fontSize: '14px', fontWeight: 600, color: p.colors.body, cursor: 'pointer',
         }}>
           Back
@@ -1008,7 +1009,7 @@ export default function TestGateStep({
             {accuracyScore >= 55 && (
               <button data-testid="button-continue-anyway" onClick={handlePublish} style={{
                 padding: '12px 16px', borderRadius: p.radius.md,
-                border: `1px solid ${p.colors.border}`, background: 'white',
+                border: 'none', background: d.colors.card, boxShadow: d.shadows.card,
                 fontSize: '13px', fontWeight: 600, color: p.colors.body, cursor: 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
                 whiteSpace: 'nowrap',
@@ -1031,7 +1032,7 @@ export default function TestGateStep({
             </button>
             <button data-testid="button-fine-tune" onClick={() => setRefineOpen(true)} style={{
               padding: '12px 16px', borderRadius: p.radius.md,
-              border: `1px solid ${p.colors.border}`, background: 'white',
+              border: 'none', background: d.colors.card, boxShadow: d.shadows.card,
               fontSize: '13px', fontWeight: 600, color: p.colors.accent, cursor: 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
               whiteSpace: 'nowrap',

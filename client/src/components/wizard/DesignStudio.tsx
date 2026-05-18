@@ -2,6 +2,7 @@
 // This component will be decomposed into tab-level modules.
 import { useState, useCallback } from 'react';
 import { platformTheme } from '@/theme/platformTheme';
+import { dashboardTheme as d } from '@/theme/dashboardTheme';
 import type { CalculatorSettings } from '@shared/schema';
 import { TEMPLATE_LIBRARY, getTemplateById } from '@shared/templateLibrary';
 import type { TemplateDefinition } from '@shared/templateLibrary';
@@ -164,7 +165,8 @@ export default function DesignStudio({ settings, onChange }: DesignStudioProps) 
                 position: 'relative',
                 padding: '14px 12px',
                 borderRadius: p.radius.md,
-                border: active ? `2px solid ${p.colors.accent}` : `1px solid ${p.colors.border}`,
+                border: 'none',
+                boxShadow: active ? `0 0 0 2px ${p.colors.accent}, ${d.shadows.card}` : d.shadows.card,
                 background: active ? p.colors.accentLighter : '#FFFFFF',
                 cursor: 'pointer',
                 display: 'flex',
@@ -425,7 +427,7 @@ function CollapsibleSection({ title, children, testId, badge }: {
   return (
     <div style={{
       marginTop: '16px', borderRadius: p.radius.md,
-      border: `1px solid ${p.colors.border}`, overflow: 'hidden',
+      border: 'none', boxShadow: d.shadows.card, overflow: 'hidden',
     }}>
       <button
         data-testid={testId}
@@ -492,7 +494,8 @@ function AppearanceTab({ settings, onChange }: {
                 width: '64px', display: 'flex', flexDirection: 'column',
                 alignItems: 'center', gap: '8px', padding: '12px 8px',
                 borderRadius: p.radius.md, cursor: 'pointer',
-                border: active ? `2px solid ${p.colors.accent}` : `1px solid ${p.colors.border}`,
+                border: 'none',
+                boxShadow: active ? `0 0 0 2px ${p.colors.accent}, ${d.shadows.card}` : d.shadows.card,
                 background: active ? p.colors.accentLighter : '#FFFFFF',
                 transition: 'all 0.2s ease',
                 WebkitTapHighlightColor: 'transparent',
@@ -574,7 +577,8 @@ function AppearanceTab({ settings, onChange }: {
               onClick={() => onChange('button_style', opt.value)}
               style={{
                 flex: 1, padding: '12px 8px', borderRadius: 12, cursor: 'pointer',
-                border: active ? `2px solid ${p.colors.accent}` : `1px solid ${p.colors.border}`,
+                border: 'none',
+                boxShadow: active ? `0 0 0 2px ${p.colors.accent}, ${d.shadows.card}` : d.shadows.card,
                 background: active ? p.colors.accentLighter : '#fff',
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
                 transition: 'all 0.15s ease',
@@ -606,7 +610,8 @@ function AppearanceTab({ settings, onChange }: {
               onClick={() => onChange('border_radius', opt.value)}
               style={{
                 flex: 1, padding: '12px 8px', borderRadius: 12, cursor: 'pointer',
-                border: active ? `2px solid ${p.colors.accent}` : `1px solid ${p.colors.border}`,
+                border: 'none',
+                boxShadow: active ? `0 0 0 2px ${p.colors.accent}, ${d.shadows.card}` : d.shadows.card,
                 background: active ? p.colors.accentLighter : '#fff',
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
                 transition: 'all 0.15s ease',
@@ -636,7 +641,8 @@ function AppearanceTab({ settings, onChange }: {
               onClick={() => onChange('surface_style', opt.value)}
               style={{
                 flex: 1, padding: '12px 8px', borderRadius: 12, cursor: 'pointer',
-                border: active ? `2px solid ${p.colors.accent}` : `1px solid ${p.colors.border}`,
+                border: 'none',
+                boxShadow: active ? `0 0 0 2px ${p.colors.accent}, ${d.shadows.card}` : d.shadows.card,
                 background: active ? p.colors.accentLighter : '#fafbfc',
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
                 transition: 'all 0.15s ease',
@@ -672,7 +678,8 @@ function AppearanceTab({ settings, onChange }: {
               onClick={() => onChange('font', font.value)}
               style={{
                 padding: '8px 14px', borderRadius: '8px',
-                border: active ? `2px solid ${p.colors.accent}` : `1px solid ${p.colors.border}`,
+                border: 'none',
+                boxShadow: active ? `0 0 0 2px ${p.colors.accent}, ${d.shadows.card}` : d.shadows.card,
                 background: active ? p.colors.accentLighter : '#FFFFFF',
                 cursor: 'pointer', fontSize: '13px', fontWeight: 500,
                 fontFamily: font.family,

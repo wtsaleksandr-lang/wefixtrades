@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'wouter';
 import { platformTheme } from '@/theme/platformTheme';
+import { dashboardTheme as d } from '@/theme/dashboardTheme';
 import {
   Check, Copy, ExternalLink, Code2, ChevronDown, RotateCcw,
   AlertCircle, Shield, Mail, Bot, Sparkles, Globe,
@@ -273,7 +274,7 @@ export default function PublishStep({ result, publishData, testPassed, leadFormV
           {/* Pre-publish slug editor */}
           <div data-testid="pre-publish-slug-section" style={{
             padding: '16px', borderRadius: p.radius.md,
-            border: `1px solid ${p.colors.border}`, background: 'white',
+            border: 'none', background: d.colors.card, boxShadow: d.shadows.card,
             marginBottom: '14px',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
@@ -385,7 +386,7 @@ export default function PublishStep({ result, publishData, testPassed, leadFormV
           {/* Tab Content */}
           <div style={{
             padding: '16px', borderRadius: p.radius.md,
-            border: `1px solid ${p.colors.border}`, background: 'white',
+            border: 'none', background: d.colors.card, boxShadow: d.shadows.card,
             marginBottom: '20px',
           }}>
             {activeTab === 'hosted' && (
@@ -523,7 +524,7 @@ export default function PublishStep({ result, publishData, testPassed, leadFormV
 
       <button data-testid="button-start-over" onClick={onStartOver} style={{
         width: '100%', padding: '12px', borderRadius: p.radius.md,
-        border: `1px solid ${p.colors.border}`, background: '#FFFFFF',
+        border: 'none', background: d.colors.card, boxShadow: d.shadows.card,
         cursor: 'pointer', fontSize: '14px', fontWeight: 500, color: p.colors.muted,
         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
         transition: p.transitions.fast, WebkitTapHighlightColor: 'transparent',
