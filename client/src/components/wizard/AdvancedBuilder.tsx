@@ -1,0 +1,369 @@
+// Advanced custom-calculator builder — phase 1d of the advanced-builder epic.
+// The "build it yourself" UI shown in the Logic step when advanced mode is on:
+// a Fields editor + a Calculations editor (formula input with insert chips and
+// live validation). Edits write straight to calculator_settings.advanced, so
+// the wizard's live-preview pane renders the result instantly.
+import { useMemo } from 'react';
+import { platformTheme as p } from '@/theme/platformTheme';
+import { dashboardTheme as d } from '@/theme/dashboardTheme';
+import { validateFormula, runCalculations, type FormulaContext } from '@shared/formulaEngine';
+import {
+  Plus, Trash2, ChevronLeft, Hash, SlidersHorizontal, List, CircleDot,
+  CheckSquare, ToggleLeft, Type, Sigma,
+} from 'lucide-react';
+
+/* ─── Types (mirror calculator_settings.advanced) ─── */
+
+type FieldType = 'number' | 'slider' | 'select' | 'radio' | 'multi_select' | 'toggle' | 'text';
+interface AdvOption { id: string; label: string; value: number; }
+interface AdvField {
+  id: string; name: string; label: string; type: FieldType;
+  required?: boolean; default_value?: number; min?: number; max?: number;
+  step?: number; unit?: string; on_value?: number; options?: AdvOption[];
+}
+interface AdvCalc { id: string; name: string; formula: string; format: 'number' | 'currency' | 'percent'; }
+export interface AdvancedConfigData {
+  enabled?: boolean; fields?: AdvField[]; calculations?: AdvCalc[]; result_calc?: string;
+}
+
+interface Props {
+  advanced: AdvancedConfigData;
+  onChange: (next: AdvancedConfigData) => void;
+  onExitAdvanced: () => void;
+}
+
+const FIELD_TYPES: { id: FieldType; label: string; Icon: any }[] = [
+  { id: 'number', label: 'Number', Icon: Hash },
+  { id: 'slider', label: 'Slider', Icon: SlidersHorizontal },
+  { id: 'select', label: 'Dropdown', Icon: List },
+  { id: 'radio', label: 'Radio', Icon: CircleDot },
+  { id: 'multi_select', label: 'Checkboxes', Icon: CheckSquare },
+  { id: 'toggle', label: 'Toggle', Icon: ToggleLeft },
+  { id: 'text', label: 'Text', Icon: Type },
+];
+const OPTION_TYPES = new Set<FieldType>(['select', 'radio', 'multi_select']);
+
+const gid = (pfx: string) => `${pfx}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
+
+function newField(): AdvField {
+  return { id: gid('fld'), name: 'New field', label: 'New field', type: 'number', default_value: 0, min: 0, max: 100, step: 1, options: [], on_value: 1 };
+}
+function newCalc(): AdvCalc {
+  return { id: gid('calc'), name: 'Total', formula: '', format: 'currency' };
+}
+
+/* ─── Small UI helpers ─── */
+
+const cardStyle: React.CSSProperties = {
+  borderRadius: d.radius.card, background: d.colors.card, boxShadow: d.shadows.card,
+  padding: '14px', border: 'none',
+};
+const inputCls = 'premium-input';
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <span style={{
+      fontSize: 11, fontWeight: 700, color: p.colors.subtle,
+      letterSpacing: '0.08em', textTransform: 'uppercase',
+    }}>{children}</span>
+  );
+}
+
+/* ─── Main ─── */
+
+export default function AdvancedBuilder({ advanced, onChange, onExitAdvanced }: Props) {
+  const fields = advanced.fields || [];
+  const calcs = advanced.calculations || [];
+
+  const patch = (next: Partial<AdvancedConfigData>) => onChange({ ...advanced, ...next });
+
+  /* fields */
+  const addField = () => patch({ fields: [...fields, newField()] });
+  const updateField = (id: string, u: Partial<AdvField>) =>
+    patch({ fields: fields.map((f) => (f.id === id ? { ...f, ...u } : f)) });
+  const removeField = (id: string) => patch({ fields: fields.filter((f) => f.id !== id) });
+
+  /* calcs */
+  const addCalc = () => patch({ calculations: [...calcs, newCalc()] });
+  const updateCalc = (id: string, u: Partial<AdvCalc>) =>
+    patch({ calculations: calcs.map((c) => (c.id === id ? { ...c, ...u } : c)) });
+  const removeCalc = (id: string) => patch({ calculations: calcs.filter((c) => c.id !== id) });
+
+  // Sample context (field defaults) for live formula previews.
+  const sampleCtx = useMemo<FormulaContext>(() => {
+    const ctx: FormulaContext = {};
+    for (const f of fields) {
+      if (f.type === 'number' || f.type === 'slider') ctx[f.name] = f.default_value ?? f.min ?? 0;
+      else if (f.type === 'toggle') ctx[f.name] = 0;
+      else if (f.type === 'select' || f.type === 'radio') ctx[f.name] = f.options?.[0]?.value ?? 0;
+      else if (f.type === 'multi_select') ctx[f.name] = [];
+      else ctx[f.name] = '';
+    }
+    return ctx;
+  }, [fields]);
+  const calcValues = useMemo(() => runCalculations(calcs, sampleCtx).values, [calcs, sampleCtx]);
+
+  return (
+    <div className="animate-fade-in-up wizard-step-fill" data-testid="advanced-builder">
+      {/* Header */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        gap: 10, marginBottom: 14,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Sigma style={{ width: 18, height: 18, color: p.colors.accent }} />
+          <span style={{ ...p.typography.h3, margin: 0 }}>Custom calculator</span>
+        </div>
+        <button type="button" data-testid="button-exit-advanced" onClick={onExitAdvanced}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 4, border: 'none', background: 'none',
+            cursor: 'pointer', color: p.colors.accent, fontSize: 13, fontWeight: 600,
+          }}>
+          <ChevronLeft style={{ width: 15, height: 15 }} /> Simple mode
+        </button>
+      </div>
+      <p style={{ fontSize: 13, color: p.colors.muted, lineHeight: 1.5, margin: '0 0 18px' }}>
+        Build your own fields and pricing formulas. The preview updates as you go.
+      </p>
+
+      {/* ─── FIELDS ─── */}
+      <div style={{ marginBottom: 10 }}><SectionLabel>Fields the customer fills in</SectionLabel></div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {fields.map((f) => (
+          <FieldCard key={f.id} field={f}
+            onChange={(u) => updateField(f.id, u)} onRemove={() => removeField(f.id)} />
+        ))}
+        <button type="button" data-testid="button-add-adv-field" onClick={addField}
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+            padding: '11px', borderRadius: d.radius.card, cursor: 'pointer',
+            border: `1px dashed ${p.colors.borderHover}`, background: '#fff',
+            color: p.colors.accent, fontSize: 13, fontWeight: 600,
+          }}>
+          <Plus style={{ width: 15, height: 15 }} /> Add field
+        </button>
+      </div>
+
+      {/* ─── CALCULATIONS ─── */}
+      <div style={{ margin: '22px 0 10px' }}><SectionLabel>Calculations</SectionLabel></div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {calcs.map((c) => (
+          <CalcCard key={c.id} calc={c} fields={fields}
+            preview={calcValues[c.name]}
+            onChange={(u) => updateCalc(c.id, u)} onRemove={() => removeCalc(c.id)} />
+        ))}
+        <button type="button" data-testid="button-add-adv-calc" onClick={addCalc}
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+            padding: '11px', borderRadius: d.radius.card, cursor: 'pointer',
+            border: `1px dashed ${p.colors.borderHover}`, background: '#fff',
+            color: p.colors.accent, fontSize: 13, fontWeight: 600,
+          }}>
+          <Plus style={{ width: 15, height: 15 }} /> Add calculation
+        </button>
+      </div>
+
+      {/* Result picker */}
+      {calcs.length > 1 && (
+        <div style={{ marginTop: 16 }}>
+          <label style={{ ...p.typography.label, display: 'block', marginBottom: 5 }}>
+            Headline result
+          </label>
+          <select className={inputCls} data-testid="select-result-calc"
+            value={advanced.result_calc || calcs[calcs.length - 1].name}
+            onChange={(e) => patch({ result_calc: e.target.value })}
+            style={{ width: '100%', padding: '10px 12px', fontSize: 14 }}>
+            {calcs.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
+          </select>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── Field card ─── */
+
+function FieldCard({ field, onChange, onRemove }: {
+  field: AdvField; onChange: (u: Partial<AdvField>) => void; onRemove: () => void;
+}) {
+  const f = field;
+  const setOptions = (options: AdvOption[]) => onChange({ options });
+
+  return (
+    <div style={cardStyle} data-testid={`adv-field-${f.id}`}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <input className={inputCls} value={f.label}
+          onChange={(e) => onChange({ label: e.target.value, name: e.target.value })}
+          placeholder="Field name" style={{ flex: 1, fontSize: 13 }} />
+        <select className={inputCls} value={f.type}
+          onChange={(e) => onChange({ type: e.target.value as FieldType })}
+          style={{ width: 124, fontSize: 13, flexShrink: 0 }}>
+          {FIELD_TYPES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+        </select>
+        <button type="button" onClick={onRemove} aria-label="Remove field"
+          style={{
+            width: 32, height: 32, borderRadius: d.radius.control, flexShrink: 0,
+            border: `1px solid ${p.colors.borderLight}`, background: '#fff', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+          <Trash2 style={{ width: 14, height: 14, color: p.colors.muted }} />
+        </button>
+      </div>
+
+      {/* type-specific config */}
+      {(f.type === 'number' || f.type === 'slider') && (
+        <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+          {([['min', 'Min'], ['max', 'Max'], ['step', 'Step'], ['default_value', 'Default']] as const).map(([k, lbl]) => (
+            <div key={k} style={{ flex: 1 }}>
+              <label style={{ ...p.typography.captionSm, display: 'block', marginBottom: 3 }}>{lbl}</label>
+              <input className={inputCls} type="number" value={(f as any)[k] ?? ''}
+                onChange={(e) => onChange({ [k]: e.target.value === '' ? undefined : Number(e.target.value) } as any)}
+                style={{ width: '100%', padding: '8px 10px', fontSize: 13, fontFamily: d.typography.fontMono }} />
+            </div>
+          ))}
+        </div>
+      )}
+      {f.type === 'toggle' && (
+        <div style={{ marginTop: 8 }}>
+          <label style={{ ...p.typography.captionSm, display: 'block', marginBottom: 3 }}>Value when on</label>
+          <input className={inputCls} type="number" value={f.on_value ?? 1}
+            onChange={(e) => onChange({ on_value: Number(e.target.value) || 0 })}
+            style={{ width: 120, padding: '8px 10px', fontSize: 13, fontFamily: d.typography.fontMono }} />
+        </div>
+      )}
+      {OPTION_TYPES.has(f.type) && (
+        <div style={{ marginTop: 8 }}>
+          <label style={{ ...p.typography.captionSm, display: 'block', marginBottom: 5 }}>
+            Options (label + value)
+          </label>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {(f.options || []).map((o, i) => (
+              <div key={o.id} style={{ display: 'flex', gap: 6 }}>
+                <input className={inputCls} value={o.label} placeholder="Option label"
+                  onChange={(e) => setOptions((f.options || []).map((x, j) => j === i ? { ...x, label: e.target.value } : x))}
+                  style={{ flex: 1, fontSize: 13 }} />
+                <input className={inputCls} type="number" value={o.value}
+                  onChange={(e) => setOptions((f.options || []).map((x, j) => j === i ? { ...x, value: Number(e.target.value) || 0 } : x))}
+                  style={{ width: 84, fontSize: 13, fontFamily: d.typography.fontMono }} />
+                <button type="button" aria-label="Remove option"
+                  onClick={() => setOptions((f.options || []).filter((_, j) => j !== i))}
+                  style={{
+                    width: 30, height: 30, flexShrink: 0, borderRadius: d.radius.control,
+                    border: `1px solid ${p.colors.borderLight}`, background: '#fff', cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                  <Trash2 style={{ width: 13, height: 13, color: p.colors.muted }} />
+                </button>
+              </div>
+            ))}
+          </div>
+          <button type="button"
+            onClick={() => setOptions([...(f.options || []), { id: gid('opt'), label: 'Option', value: 0 }])}
+            style={{
+              marginTop: 6, display: 'flex', alignItems: 'center', gap: 5, border: 'none',
+              background: 'none', cursor: 'pointer', color: p.colors.accent, fontSize: 12, fontWeight: 600,
+            }}>
+            <Plus style={{ width: 13, height: 13 }} /> Add option
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── Calculation card ─── */
+
+const FN_CHIPS = ['SUM(', 'IF(', 'MIN(', 'MAX(', 'ROUND('];
+const OP_CHIPS = ['+', '−', '×', '÷', '(', ')'];
+const OP_MAP: Record<string, string> = { '−': '-', '×': '*', '÷': '/' };
+
+function CalcCard({ calc, fields, preview, onChange, onRemove }: {
+  calc: AdvCalc; fields: AdvField[]; preview?: number;
+  onChange: (u: Partial<AdvCalc>) => void; onRemove: () => void;
+}) {
+  const c = calc;
+  const check = validateFormula(c.formula);
+  const insert = (token: string) => onChange({ formula: (c.formula ? c.formula + ' ' : '') + token });
+
+  const previewText = useMemo(() => {
+    if (!c.formula.trim()) return '';
+    if (!check.valid) return check.error || 'Invalid formula';
+    const v = preview ?? 0;
+    if (c.format === 'currency') return '$' + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    if (c.format === 'percent') return v.toLocaleString('en-US', { maximumFractionDigits: 1 }) + '%';
+    return v.toLocaleString('en-US', { maximumFractionDigits: 2 });
+  }, [c.formula, c.format, check.valid, check.error, preview]);
+
+  return (
+    <div style={cardStyle} data-testid={`adv-calc-${c.id}`}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <input className={inputCls} value={c.name}
+          onChange={(e) => onChange({ name: e.target.value })}
+          placeholder="Calculation name" style={{ flex: 1, fontSize: 13 }} />
+        <select className={inputCls} value={c.format}
+          onChange={(e) => onChange({ format: e.target.value as AdvCalc['format'] })}
+          style={{ width: 110, fontSize: 13, flexShrink: 0 }}>
+          <option value="currency">Currency</option>
+          <option value="number">Number</option>
+          <option value="percent">Percent</option>
+        </select>
+        <button type="button" onClick={onRemove} aria-label="Remove calculation"
+          style={{
+            width: 32, height: 32, borderRadius: d.radius.control, flexShrink: 0,
+            border: `1px solid ${p.colors.borderLight}`, background: '#fff', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+          <Trash2 style={{ width: 14, height: 14, color: p.colors.muted }} />
+        </button>
+      </div>
+
+      <div style={{ marginTop: 8 }}>
+        <input className={inputCls} data-testid={`adv-calc-formula-${c.id}`}
+          value={c.formula} onChange={(e) => onChange({ formula: e.target.value })}
+          placeholder="e.g. [Rooms] * 50 + [Extras]"
+          style={{
+            width: '100%', padding: '10px 12px', fontSize: 13, fontFamily: d.typography.fontMono,
+            borderColor: c.formula && !check.valid ? p.colors.danger : undefined,
+          }} />
+      </div>
+
+      {/* insert chips */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 8 }}>
+        {fields.map((f) => (
+          <Chip key={f.id} onClick={() => insert(`[${f.name}]`)} accent>{f.name}</Chip>
+        ))}
+        {OP_CHIPS.map((op) => (
+          <Chip key={op} onClick={() => insert(OP_MAP[op] || op)}>{op}</Chip>
+        ))}
+        {FN_CHIPS.map((fn) => (
+          <Chip key={fn} onClick={() => insert(fn)}>{fn}</Chip>
+        ))}
+      </div>
+
+      {/* validation / live value */}
+      {c.formula.trim() !== '' && (
+        <p style={{
+          fontSize: 12, margin: '8px 0 0', fontFamily: d.typography.fontMono,
+          color: check.valid ? p.colors.muted : p.colors.danger,
+        }}>
+          {check.valid ? `= ${previewText}` : check.error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function Chip({ children, onClick, accent }: { children: React.ReactNode; onClick: () => void; accent?: boolean }) {
+  return (
+    <button type="button" onClick={onClick}
+      style={{
+        padding: '4px 9px', borderRadius: d.radius.pill, cursor: 'pointer', border: 'none',
+        fontSize: 12, fontWeight: 600,
+        fontFamily: accent ? 'inherit' : d.typography.fontMono,
+        background: accent ? p.colors.accentLighter : p.colors.surfaceRaised,
+        color: accent ? p.colors.accentDark : p.colors.body,
+      }}>
+      {children}
+    </button>
+  );
+}
