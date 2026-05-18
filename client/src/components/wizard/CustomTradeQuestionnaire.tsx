@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Check, ChevronDown, ChevronUp, CreditCard } from 'lucide-react';
 import { type CustomTradeData, type CalculatorSettings, type BookingSettings, bookingSettingsSchema } from '@shared/schema';
 import { platformTheme } from '@/theme/platformTheme';
+import { dashboardTheme as d } from '@/theme/dashboardTheme';
 
 const p = platformTheme;
 
@@ -130,8 +131,9 @@ export default function CustomTradeQuestionnaire({ data, onChange, calculatorSet
                   minHeight: '44px',
                   padding: '10px 14px',
                   borderRadius: p.radius.sm,
-                  border: selected ? `1.5px solid ${p.colors.accent}` : `1px solid ${p.colors.borderLight}`,
-                  background: selected ? p.colors.accentLighter : 'transparent',
+                  border: 'none',
+                  boxShadow: selected ? `0 0 0 1.5px ${p.colors.accent}, ${d.shadows.card}` : d.shadows.card,
+                  background: selected ? p.colors.accentLighter : d.colors.card,
                   cursor: 'pointer',
                   transition: p.transitions.fast,
                   outline: 'none',
@@ -243,8 +245,9 @@ export default function CustomTradeQuestionnaire({ data, onChange, calculatorSet
                   minHeight: '44px',
                   padding: '10px 14px',
                   borderRadius: p.radius.sm,
-                  border: checked ? `1.5px solid ${p.colors.accent}` : `1px solid ${p.colors.borderLight}`,
-                  background: checked ? p.colors.accentLighter : 'transparent',
+                  border: 'none',
+                  boxShadow: checked ? `0 0 0 1.5px ${p.colors.accent}, ${d.shadows.card}` : d.shadows.card,
+                  background: checked ? p.colors.accentLighter : d.colors.card,
                   cursor: 'pointer',
                   transition: p.transitions.fast,
                   outline: 'none',
@@ -286,8 +289,9 @@ export default function CustomTradeQuestionnaire({ data, onChange, calculatorSet
               minHeight: '44px',
               padding: '10px 14px',
               borderRadius: p.radius.sm,
-              border: (data.price_factors || []).includes('Other') ? `1.5px solid ${p.colors.accent}` : `1px solid ${p.colors.borderLight}`,
-              background: (data.price_factors || []).includes('Other') ? p.colors.accentLighter : 'transparent',
+              border: 'none',
+              boxShadow: (data.price_factors || []).includes('Other') ? `0 0 0 1.5px ${p.colors.accent}, ${d.shadows.card}` : d.shadows.card,
+              background: (data.price_factors || []).includes('Other') ? p.colors.accentLighter : d.colors.card,
               cursor: 'pointer',
               transition: p.transitions.fast,
               outline: 'none',
@@ -379,8 +383,9 @@ export default function CustomTradeQuestionnaire({ data, onChange, calculatorSet
                   minHeight: '44px',
                   padding: '10px 14px',
                   borderRadius: p.radius.sm,
-                  border: selected ? `1.5px solid ${p.colors.accent}` : `1px solid ${p.colors.borderLight}`,
-                  background: selected ? p.colors.accentLighter : 'transparent',
+                  border: 'none',
+                  boxShadow: selected ? `0 0 0 1.5px ${p.colors.accent}, ${d.shadows.card}` : d.shadows.card,
+                  background: selected ? p.colors.accentLighter : d.colors.card,
                   cursor: 'pointer',
                   transition: p.transitions.fast,
                   outline: 'none',
@@ -509,7 +514,8 @@ function BookingToggleSection({
       {bookingEnabled && (
         <div
           style={{
-            border: `1px solid ${p.colors.borderLight}`,
+            border: 'none',
+            boxShadow: d.shadows.card,
             borderRadius: p.radius.md,
             background: p.colors.surfaceRaised,
             overflow: 'hidden',
@@ -568,8 +574,8 @@ function BookingToggleSection({
                             style={{
                               padding: '6px 14px',
                               borderRadius: p.radius.sm,
-                              border: selected ? `1.5px solid ${p.colors.accent}` : `1px solid ${p.colors.borderLight}`,
-                              background: selected ? p.colors.accentLighter : 'transparent',
+                              border: 'none', boxShadow: selected ? `0 0 0 1.5px ${p.colors.accent}, ${d.shadows.card}` : d.shadows.card,
+                              background: selected ? p.colors.accentLighter : d.colors.card,
                               cursor: 'pointer',
                               fontSize: '13px',
                               fontWeight: selected ? 500 : 400,
@@ -613,8 +619,8 @@ function BookingToggleSection({
                         style={{
                           padding: '6px 14px',
                           borderRadius: p.radius.sm,
-                          border: selected ? `1.5px solid ${p.colors.accent}` : `1px solid ${p.colors.borderLight}`,
-                          background: selected ? p.colors.accentLighter : 'transparent',
+                          border: 'none', boxShadow: selected ? `0 0 0 1.5px ${p.colors.accent}, ${d.shadows.card}` : d.shadows.card,
+                          background: selected ? p.colors.accentLighter : d.colors.card,
                           cursor: 'pointer',
                           fontSize: '13px',
                           fontWeight: selected ? 500 : 400,
@@ -634,8 +640,9 @@ function BookingToggleSection({
                     style={{
                       padding: '6px 14px',
                       borderRadius: p.radius.sm,
-                      border: bs.slot_duration_minutes !== 30 && bs.slot_duration_minutes !== 60 ? `1.5px solid ${p.colors.accent}` : `1px solid ${p.colors.borderLight}`,
-                      background: bs.slot_duration_minutes !== 30 && bs.slot_duration_minutes !== 60 ? p.colors.accentLighter : 'transparent',
+                      border: 'none',
+                      boxShadow: bs.slot_duration_minutes !== 30 && bs.slot_duration_minutes !== 60 ? `0 0 0 1.5px ${p.colors.accent}, ${d.shadows.card}` : d.shadows.card,
+                      background: bs.slot_duration_minutes !== 30 && bs.slot_duration_minutes !== 60 ? p.colors.accentLighter : d.colors.card,
                       cursor: 'pointer',
                       fontSize: '13px',
                       fontWeight: bs.slot_duration_minutes !== 30 && bs.slot_duration_minutes !== 60 ? 500 : 400,
@@ -679,8 +686,9 @@ function BookingToggleSection({
                           width: '42px',
                           height: '36px',
                           borderRadius: p.radius.sm,
-                          border: active ? `1.5px solid ${p.colors.accent}` : `1px solid ${p.colors.borderLight}`,
-                          background: active ? p.colors.accentLighter : 'transparent',
+                          border: 'none',
+                          boxShadow: active ? `0 0 0 1.5px ${p.colors.accent}, ${d.shadows.card}` : d.shadows.card,
+                          background: active ? p.colors.accentLighter : d.colors.card,
                           cursor: 'pointer',
                           fontSize: '12px',
                           fontWeight: active ? 600 : 400,
