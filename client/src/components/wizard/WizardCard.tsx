@@ -925,7 +925,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
 
         {/* Step 0: Business & Trade Setup */}
         {step === 0 && (
-          <div className="animate-fade-in-up">
+          <div className="animate-fade-in-up wizard-step-fill">
             <div id="wiz-sec-business" style={{ scrollMarginTop: 16 }} />
             <InputField
               id="business-name" testId="input-business-name"
@@ -1106,7 +1106,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
 
         {/* Step 1: Preview & Polish (side panel shows live preview on desktop) */}
         {step === 1 && (
-          <div>
+          <div className="wizard-step-fill">
             {/* Mobile-only: inline preview (hidden on desktop where side panel shows) */}
             <div className="lg:hidden animate-fade-in-up" style={{
               marginBottom: '24px', padding: '16px', borderRadius: p.radius.lg,
@@ -1299,7 +1299,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
 
         {/* Step 2: Pricing Logic */}
         {step === 2 && (
-          <div className="animate-fade-in-up">
+          <div className="animate-fade-in-up wizard-step-fill">
             {ws.isCustomTrade ? (
               <>
                 {ws.customTradeData.charge_method !== 'not_sure' && (
@@ -1554,7 +1554,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
         )}
 
         {step === 5 && !result && (
-          <div className="animate-fade-in-up">
+          <div className="animate-fade-in-up wizard-step-fill">
             <div style={{
               display: 'flex', gap: 10, padding: 12, borderRadius: p.radius.md,
               background: p.colors.surfaceRaised, marginBottom: 18,
