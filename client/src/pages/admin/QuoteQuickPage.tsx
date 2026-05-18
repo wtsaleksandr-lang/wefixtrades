@@ -113,6 +113,37 @@ function PlanMixBar({ tiers }: { tiers: { label: string; count: number }[] }) {
   );
 }
 
+/** Lead-trend area sparkline — single line + gradient fade, no axes. */
+function LeadTrendSparkline({ data }: { data: { date: string; count: number }[] }) {
+  if (data.length < 2) {
+    return <div className="h-20 flex items-center text-xs text-gray-400">Not enough data yet.</div>;
+  }
+  const w = 600, h = 80, pad = 5;
+  const max = Math.max(1, ...data.map((d) => d.count));
+  const pts = data.map((d, i) => {
+    const x = pad + (i / (data.length - 1)) * (w - 2 * pad);
+    const y = pad + (1 - d.count / max) * (h - 2 * pad);
+    return [x, y] as const;
+  });
+  const line = pts.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)} ${y.toFixed(1)}`).join(" ");
+  const area = `${line} L${pts[pts.length - 1][0].toFixed(1)} ${h} L${pts[0][0].toFixed(1)} ${h} Z`;
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="w-full h-20">
+      <defs>
+        <linearGradient id="qq-trend-fill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={QQ_ACCENT} stopOpacity="0.2" />
+          <stop offset="100%" stopColor={QQ_ACCENT} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d={area} fill="url(#qq-trend-fill)" />
+      <path
+        d={line} fill="none" stroke={QQ_ACCENT} strokeWidth="2"
+        strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke"
+      />
+    </svg>
+  );
+}
+
 export default function QuoteQuickPage() {
   usePageTitle("QuoteQuick");
 
@@ -126,6 +157,11 @@ export default function QuoteQuickPage() {
   const { data, isLoading } = useQuery<{ calculators: QQCalculator[] }>({
     queryKey: ["/api/admin/crm/quotequick/overview"],
     queryFn: () => apiRequest("GET", "/api/admin/crm/quotequick/overview").then((r) => r.json()),
+  });
+
+  const { data: trendData } = useQuery<{ trend: { date: string; count: number }[]; total: number }>({
+    queryKey: ["/api/admin/crm/quotequick/trends"],
+    queryFn: () => apiRequest("GET", "/api/admin/crm/quotequick/trends").then((r) => r.json()),
   });
 
   const statusMutation = useMutation({
@@ -289,6 +325,19 @@ export default function QuoteQuickPage() {
             </div>
           </Card>
         </div>
+
+        {/* Lead trend */}
+        <Card className="p-5">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-medium uppercase tracking-wider text-gray-500">
+              Leads — last {trendData?.trend.length ?? 30} days
+            </p>
+            <p className="text-sm font-mono font-semibold text-gray-900">
+              {(trendData?.total ?? 0).toLocaleString()}
+            </p>
+          </div>
+          <LeadTrendSparkline data={trendData?.trend ?? []} />
+        </Card>
 
         {/* Calculator analytics */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

@@ -1708,6 +1708,22 @@ export function registerAdminCrmRoutes(app: Express): void {
   });
 
   /**
+   * GET /api/admin/crm/quotequick/trends?days=30
+   * Daily lead counts across all QuoteQuick calculators — feeds the admin
+   * trend sparkline. `days` is clamped to 7..90.
+   */
+  app.get("/api/admin/crm/quotequick/trends", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const days = Math.max(7, Math.min(parseInt(String(req.query.days ?? "30"), 10) || 30, 90));
+      const trend = await storage.getQuoteQuickLeadTrend(days);
+      res.json({ trend, total: trend.reduce((sum, d) => sum + d.count, 0) });
+    } catch (err: any) {
+      log.error("[admin-crm] QuoteQuick trends error:", err.message);
+      res.status(500).json({ error: "Failed to load QuoteQuick trends" });
+    }
+  });
+
+  /**
    * PATCH /api/admin/crm/quotequick/:calculatorId/status
    * Pause or resume a QuoteQuick calculator by setting its deployment status.
    * status "paused" makes the public calculator 404; "live" restores it.
