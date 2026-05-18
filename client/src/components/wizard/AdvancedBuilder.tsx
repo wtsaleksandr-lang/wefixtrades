@@ -12,7 +12,7 @@ import {
   Plus, Trash2, ChevronLeft, Hash, SlidersHorizontal, List, CircleDot,
   CheckSquare, ToggleLeft, Type, Sigma, Eye, Sparkles, Loader2,
   Image as ImageIcon, Heading, Search, X, ChevronDown, Info, CheckCircle2,
-  AlignLeft, AlignCenter, AlignRight,
+  AlignLeft, AlignCenter, AlignRight, Upload, FileCheck2,
 } from 'lucide-react';
 
 /* ─── Types (mirror calculator_settings.advanced) ─── */
@@ -139,6 +139,46 @@ export default function AdvancedBuilder({ advanced, onChange, onExitAdvanced }: 
   const [aiError, setAiError] = useState('');
   const [aiStage, setAiStage] = useState(0);
   const [aiResult, setAiResult] = useState<{ fields: number; calcs: string[] } | null>(null);
+
+  /* Quote-upload → AI proposal (Phase 4) */
+  const [quoteBusy, setQuoteBusy] = useState(false);
+  const [quoteError, setQuoteError] = useState('');
+  const [proposal, setProposal] = useState<
+    { advanced: AdvancedConfigData; notes: string; fields: number; calcs: string[] } | null
+  >(null);
+
+  const uploadQuote = async (file: File) => {
+    if (quoteBusy) return;
+    setQuoteBusy(true);
+    setQuoteError('');
+    setProposal(null);
+    try {
+      const body = new FormData();
+      body.append('file', file);
+      const res = await fetch('/api/ai/quote-to-calculator', { method: 'POST', body });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.advanced) {
+        setQuoteError(data?.error || 'Could not read that quote. Try a clearer photo.');
+      } else {
+        setProposal({
+          advanced: data.advanced,
+          notes: typeof data.notes === 'string' ? data.notes : '',
+          fields: (data.advanced.fields || []).length,
+          calcs: (data.advanced.calculations || []).map((x: any) => x.name).filter(Boolean),
+        });
+      }
+    } catch {
+      setQuoteError('Something went wrong. Please try again.');
+    } finally {
+      setQuoteBusy(false);
+    }
+  };
+
+  const approveProposal = () => {
+    if (!proposal) return;
+    onChange({ ...advanced, ...proposal.advanced, enabled: true });
+    setProposal(null);
+  };
 
   // Cycle the staged progress labels while a generation is in flight.
   useEffect(() => {
@@ -308,6 +348,91 @@ export default function AdvancedBuilder({ advanced, onChange, onExitAdvanced }: 
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
                 <X style={{ width: 14, height: 14, color: p.colors.subtle }} />
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ─── Start from an existing quote (Phase 4) ─── */}
+      <div style={{
+        borderRadius: d.radius.card, background: d.colors.card, padding: 14, marginBottom: 18,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 4 }}>
+          <Upload style={{ width: 16, height: 16, color: p.colors.accent }} />
+          <span style={{ fontSize: 13, fontWeight: 700, color: p.colors.heading }}>
+            Start from an existing quote
+          </span>
+        </div>
+        <p style={{ fontSize: 12, color: p.colors.muted, margin: '0 0 9px', lineHeight: 1.5 }}>
+          Upload a photo or screenshot of a written quote or price list — AI reads the pricing and proposes a calculator.
+        </p>
+
+        {!proposal && (
+          <label data-testid="quote-upload-label" style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+            padding: '11px', borderRadius: d.radius.card,
+            cursor: quoteBusy ? 'default' : 'pointer',
+            border: `1px dashed ${p.colors.borderHover}`, background: '#fff',
+            color: p.colors.accent, fontSize: 13, fontWeight: 600,
+          }}>
+            <input type="file" accept="image/png,image/jpeg,image/webp" style={{ display: 'none' }}
+              data-testid="quote-upload-input" disabled={quoteBusy}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) uploadQuote(f);
+                e.target.value = '';
+              }} />
+            {quoteBusy
+              ? <><Loader2 className="animate-spin" style={{ width: 15, height: 15 }} /> Reading your quote…</>
+              : <><Upload style={{ width: 15, height: 15 }} /> Upload a quote image</>}
+          </label>
+        )}
+        {quoteError && (
+          <p style={{ fontSize: 12, color: p.colors.danger, margin: '8px 0 0' }}>{quoteError}</p>
+        )}
+
+        {proposal && (
+          <div data-testid="quote-proposal" style={{
+            padding: '12px', borderRadius: d.radius.control, background: '#fff', boxShadow: d.shadows.card,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+              <FileCheck2 style={{ width: 16, height: 16, color: p.colors.accent, flexShrink: 0, marginTop: 1 }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontSize: 12.5, fontWeight: 700, color: p.colors.heading, margin: 0 }}>
+                  Proposed calculator
+                </p>
+                {proposal.notes && (
+                  <p style={{ fontSize: 12, color: p.colors.muted, margin: '2px 0 0', lineHeight: 1.5 }}>
+                    {proposal.notes}
+                  </p>
+                )}
+                <p style={{ fontSize: 12, color: p.colors.body, margin: '4px 0 0', lineHeight: 1.5 }}>
+                  {proposal.fields} field{proposal.fields === 1 ? '' : 's'}
+                  {' '}and {proposal.calcs.length} calculation{proposal.calcs.length === 1 ? '' : 's'}
+                  {proposal.calcs.length > 0 ? ` (${proposal.calcs.join(', ')})` : ''}.
+                </p>
+              </div>
+            </div>
+            <p style={{ fontSize: 11.5, color: p.colors.subtle, margin: '8px 0 0', lineHeight: 1.45 }}>
+              Approving replaces the current fields and formulas — you can edit everything afterwards.
+            </p>
+            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+              <button type="button" data-testid="quote-proposal-approve" onClick={approveProposal}
+                style={{
+                  flex: 1, padding: '9px', borderRadius: d.radius.control, border: 'none', cursor: 'pointer',
+                  background: p.colors.accent, color: '#fff', fontSize: 12.5, fontWeight: 700,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                }}>
+                <CheckCircle2 style={{ width: 14, height: 14 }} /> Approve &amp; add
+              </button>
+              <button type="button" data-testid="quote-proposal-decline" onClick={() => setProposal(null)}
+                style={{
+                  padding: '9px 14px', borderRadius: d.radius.control, cursor: 'pointer',
+                  border: `1px solid ${p.colors.borderLight}`, background: '#fff',
+                  color: p.colors.muted, fontSize: 12.5, fontWeight: 600,
+                }}>
+                Decline
               </button>
             </div>
           </div>
