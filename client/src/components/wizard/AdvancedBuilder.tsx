@@ -315,8 +315,23 @@ export default function AdvancedBuilder({ advanced, onChange, onExitAdvanced }: 
       </div>
 
       {/* ─── FIELDS ─── */}
-      <div style={{ marginBottom: 10 }}><SectionLabel>Fields the customer fills in</SectionLabel></div>
+      <div style={{ marginBottom: 8 }}>
+        <SectionLabel>Fields the customer fills in</SectionLabel>
+        <p style={{ fontSize: 12, color: p.colors.muted, margin: '3px 0 0', lineHeight: 1.5 }}>
+          The inputs shown in the calculator — reference any of them in your formulas.
+        </p>
+      </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {fields.length === 0 && (
+          <div style={{
+            padding: '16px 14px', borderRadius: d.radius.card, background: d.colors.card,
+            textAlign: 'center',
+          }}>
+            <p style={{ fontSize: 13, color: p.colors.muted, margin: 0, lineHeight: 1.5 }}>
+              No fields yet — add what the customer picks, like rooms, area or service options.
+            </p>
+          </div>
+        )}
         {fields.map((f) => (
           <FieldCard key={f.id} field={f} allFields={fields}
             onChange={(u) => updateField(f.id, u)} onRemove={() => removeField(f.id)} />
@@ -333,8 +348,23 @@ export default function AdvancedBuilder({ advanced, onChange, onExitAdvanced }: 
       </div>
 
       {/* ─── CALCULATIONS ─── */}
-      <div style={{ margin: '22px 0 10px' }}><SectionLabel>Calculations</SectionLabel></div>
+      <div style={{ margin: '22px 0 8px' }}>
+        <SectionLabel>Calculations</SectionLabel>
+        <p style={{ fontSize: 12, color: p.colors.muted, margin: '3px 0 0', lineHeight: 1.5 }}>
+          Named formulas that work out the price. They run top to bottom, so a later one can use an earlier result.
+        </p>
+      </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {calcs.length === 0 && (
+          <div style={{
+            padding: '16px 14px', borderRadius: d.radius.card, background: d.colors.card,
+            textAlign: 'center',
+          }}>
+            <p style={{ fontSize: 13, color: p.colors.muted, margin: 0, lineHeight: 1.5 }}>
+              No calculations yet — add one to turn the fields above into a price.
+            </p>
+          </div>
+        )}
         {calcs.map((c, idx) => (
           <CalcCard key={c.id} calc={c} fields={fields} otherCalcs={calcs.slice(0, idx)}
             preview={calcValues[c.name]}
@@ -569,10 +599,18 @@ function FieldCard({ field, allFields, onChange, onRemove }: {
 }) {
   const f = field;
   const setOptions = (options: AdvOption[]) => onChange({ options });
+  const TypeIcon = (FIELD_TYPES.find((t) => t.id === f.type) || FIELD_TYPES[0]).Icon;
 
   return (
     <div style={cardStyle} data-testid={`adv-field-${f.id}`}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{
+          width: 30, height: 30, borderRadius: 8, flexShrink: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: p.colors.accentLighter, color: p.colors.accent,
+        }}>
+          <TypeIcon style={{ width: 15, height: 15 }} />
+        </div>
         <input className={inputCls} value={f.label}
           onChange={(e) => onChange({ label: e.target.value, name: e.target.value })}
           placeholder="Field name" style={{ flex: 1, fontSize: 13 }} />
@@ -869,6 +907,13 @@ function CalcCard({ calc, fields, otherCalcs, preview, onChange, onRemove }: {
     <div style={cardStyle} data-testid={`adv-calc-${c.id}`}>
       {/* name + format + delete */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{
+          width: 30, height: 30, borderRadius: 8, flexShrink: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: p.colors.accentLighter, color: p.colors.accent,
+        }}>
+          <Sigma style={{ width: 15, height: 15 }} />
+        </div>
         <input className={inputCls} value={c.name}
           onChange={(e) => onChange({ name: e.target.value })}
           placeholder="Calculation name" style={{ flex: 1, fontSize: 13 }} />
