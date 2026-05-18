@@ -1710,7 +1710,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                 </div>
               ) : (
                 <div style={{
-                  maxWidth: 560, margin: '0 auto',
+                  maxWidth: 720, margin: '0 auto',
                   borderRadius: 16, overflow: 'hidden', background: '#fff',
                   boxShadow: d.shadows.cardHover,
                 }}>
@@ -1839,7 +1839,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
         /* Light preview column — no dark frame; the calculator card sits
            directly on the panel grey (one preview, on-lock). */
         .wizard-preview-stage {
-          width: 100%; max-width: 620px; display: flex; flex-direction: column;
+          width: 100%; max-width: 820px; display: flex; flex-direction: column;
           background: transparent;
         }
         .wizard-no-preview .wizard-left { width: 100%; border-right: none; }
