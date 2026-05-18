@@ -15,12 +15,12 @@ import { eff } from './designTokens';
 
 /* ─── Config types (mirror calculator_settings.advanced) ─── */
 
-interface AdvOption { id: string; label: string; value: number; }
+interface AdvOption { id: string; label: string; value: number; image?: string; }
 interface AdvField {
   id: string;
   name: string;
   label: string;
-  type: 'number' | 'slider' | 'select' | 'radio' | 'multi_select' | 'toggle' | 'text';
+  type: 'number' | 'slider' | 'select' | 'radio' | 'multi_select' | 'toggle' | 'text' | 'image_choice' | 'heading';
   help?: string;
   required?: boolean;
   default_value?: number;
@@ -55,7 +55,7 @@ function initAnswers(fields: AdvField[]): Record<string, Answer> {
     if (f.type === 'number' || f.type === 'slider') a[f.name] = f.default_value ?? f.min ?? 0;
     else if (f.type === 'toggle') a[f.name] = false;
     else if (f.type === 'multi_select') a[f.name] = [];
-    else if (f.type === 'select' || f.type === 'radio') a[f.name] = f.options?.[0]?.id ?? '';
+    else if (f.type === 'select' || f.type === 'radio' || f.type === 'image_choice') a[f.name] = f.options?.[0]?.id ?? '';
     else a[f.name] = '';
   }
   return a;
@@ -64,10 +64,13 @@ function initAnswers(fields: AdvField[]): Record<string, Answer> {
 /** The numeric/array value a single field contributes to a formula context. */
 function rawFieldValue(f: AdvField, answers: Record<string, Answer>): FormulaContext[string] {
   const v = answers[f.name];
+  if (f.type === 'heading') return 0;
   if (f.type === 'number' || f.type === 'slider') return Number(v) || 0;
   if (f.type === 'text') return String(v ?? '');
   if (f.type === 'toggle') return v ? (f.on_value ?? 1) : 0;
-  if (f.type === 'select' || f.type === 'radio') return f.options?.find((o) => o.id === v)?.value ?? 0;
+  if (f.type === 'select' || f.type === 'radio' || f.type === 'image_choice') {
+    return f.options?.find((o) => o.id === v)?.value ?? 0;
+  }
   const ids = Array.isArray(v) ? v : [];
   return (f.options || []).filter((o) => ids.includes(o.id)).map((o) => o.value);
 }
@@ -248,6 +251,17 @@ function FieldInput({ field, value, accent, onChange }: {
     boxSizing: 'border-box',
   };
 
+  if (f.type === 'heading') {
+    return (
+      <p style={{
+        fontSize: '15px', fontWeight: 700, color: eff.text, margin: '2px 0 0',
+        paddingBottom: '7px', borderBottom: `1px solid ${eff.buttonBorder}`,
+      }}>
+        {f.label}
+      </p>
+    );
+  }
+
   if (f.type === 'number') {
     return (
       <div>
@@ -352,6 +366,41 @@ function FieldInput({ field, value, accent, onChange }: {
                   border: sel ? `5px solid ${accent}` : `2px solid ${eff.buttonBorder}`, background: '#fff',
                 }} />
                 <span style={{ fontSize: '14px', color: eff.text }}>{o.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  if (f.type === 'image_choice') {
+    return (
+      <div>
+        <label style={labelStyle}>{f.label}</label>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
+          {(f.options || []).map((o) => {
+            const sel = value === o.id;
+            return (
+              <button key={o.id} type="button" onClick={() => onChange(o.id)}
+                style={{
+                  display: 'flex', flexDirection: 'column', gap: '6px', padding: '8px',
+                  borderRadius: eff.radiusMd, cursor: 'pointer', border: 'none',
+                  background: sel ? eff.accentTint : '#fff',
+                  boxShadow: sel ? `0 0 0 2px ${accent}` : `0 0 0 1px ${eff.buttonBorder}`,
+                }}>
+                <div style={{
+                  width: '100%', aspectRatio: '3 / 2', borderRadius: eff.radiusSm,
+                  background: eff.bg, overflow: 'hidden',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  {o.image
+                    ? <img src={o.image} alt={o.label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    : <span style={{ fontSize: '11px', color: eff.textMuted }}>No image</span>}
+                </div>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: eff.text, textAlign: 'center' }}>
+                  {o.label}
+                </span>
               </button>
             );
           })}
