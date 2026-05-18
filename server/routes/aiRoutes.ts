@@ -1,6 +1,7 @@
-import type { Express, Request, Response } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { randomBytes } from "crypto";
+import multer from "multer";
 import OpenAI from "openai";
 import { storage } from "../storage";
 import { PRICING_TYPES, validatePricingConfig, FAMILY_LABELS, FAMILY_DESCRIPTIONS } from "@shared/pricingConfig";
@@ -81,6 +82,16 @@ function sanitizeAdvancedAi(raw: any): { fields: any[]; calculations: any[]; res
 
   return { fields, calculations, result_calc };
 }
+
+/**
+ * In-memory upload handler for the quote-to-calculator route. A quote photo
+ * arrives as multipart/form-data so it bypasses the global JSON body parser.
+ */
+const QUOTE_IMAGE_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
+const quoteUpload = multer({
+  limits: { fileSize: 8 * 1024 * 1024, files: 1 },
+  fileFilter: (_req, file, cb) => cb(null, QUOTE_IMAGE_TYPES.includes(file.mimetype)),
+});
 
 const draftJobs = new Map<string, PricingDraftJob>();
 
@@ -300,6 +311,93 @@ Return JSON: { "formula": "<the formula expression>" }`;
       res.status(500).json({ error: "Failed to generate formula" });
     }
   });
+
+  /**
+   * POST /api/ai/quote-to-calculator
+   * A photo / screenshot of an existing written quote -> a proposed advanced
+   * calculator config. The owner reviews and approves it in the builder.
+   */
+  app.post(
+    "/api/ai/quote-to-calculator",
+    (req: Request, res: Response, next: NextFunction) => {
+      quoteUpload.single("file")(req, res, (err: any) => {
+        if (err) {
+          const tooBig = err?.code === "LIMIT_FILE_SIZE";
+          return res.status(tooBig ? 413 : 400).json({
+            error: tooBig ? "Image is too large — keep it under 8 MB." : "Could not read the uploaded file.",
+          });
+        }
+        next();
+      });
+    },
+    async (req: Request, res: Response) => {
+      try {
+        const file = (req as any).file as { buffer: Buffer; mimetype: string } | undefined;
+        if (!file || !file.buffer || file.buffer.length === 0) {
+          return res.status(400).json({ error: "Upload a clear image of the quote (PNG, JPG or WEBP)." });
+        }
+        const dataUrl = `data:${file.mimetype};base64,${file.buffer.toString("base64")}`;
+
+        const prompt = `You set up an instant-price calculator from a photo of an existing written quote or price list.
+
+Read the image and work out the pricing structure: what does the final price depend on, and how is it calculated?
+
+Output a JSON object: { "fields": [...], "calculations": [...], "result_calc": "<headline calculation name>", "notes": "<one short sentence on what you read>" }
+
+FIELDS — the inputs a customer would pick. Each: { "name": "Short label", "type": "<type>", ...options }
+- "number" / "slider": { "min": n, "max": n, "step": n, "default_value": n, "unit": "optional" }
+- "select" / "radio": { "options": [ { "label": "Text", "value": <number> } ] } — each option contributes its numeric value
+- "multi_select": { "options": [...] } — checkboxes; selected option values are summed
+- "toggle": { "on_value": <number> } — on/off switch contributing on_value when on
+
+CALCULATIONS — named formulas, computed top to bottom (a later one may reference an earlier one):
+{ "name": "Subtotal", "formula": "...", "format": "currency" | "number" | "percent" }
+- reference any field or earlier calculation by name in [square brackets]
+- operators + - * / ^ and parentheses; functions SUM, MIN, MAX, ROUND, IF
+
+Rules:
+- Use the real numbers and line items visible in the quote.
+- 2-8 fields, 1-3 calculations. The headline calculation is the final price.
+- Every name used in a formula MUST be an existing field or earlier calculation.
+- If the image is not a quote or price list, return empty "fields" and "calculations" arrays.
+Return ONLY the JSON object.`;
+
+        const completion = await getOpenAI().chat.completions.create({
+          model: "gpt-4o-mini",
+          messages: [{
+            role: "user",
+            content: [
+              { type: "text", text: prompt },
+              { type: "image_url", image_url: { url: dataUrl } },
+            ],
+          }],
+          response_format: { type: "json_object" },
+        });
+
+        let raw: any;
+        try {
+          raw = JSON.parse(completion.choices[0]?.message?.content || "{}");
+        } catch {
+          return res.status(500).json({ error: "AI returned invalid JSON" });
+        }
+
+        const advanced = sanitizeAdvancedAi(raw);
+        if (advanced.fields.length === 0 && advanced.calculations.length === 0) {
+          return res.status(422).json({
+            error: "Couldn't read a pricing structure from that image. Try a clearer, well-lit photo of the quote.",
+          });
+        }
+        res.json({
+          success: true,
+          advanced: { enabled: true, ...advanced },
+          notes: typeof raw?.notes === "string" ? raw.notes.slice(0, 400) : "",
+        });
+      } catch (error: any) {
+        log.error("AI quote-to-calculator error:", error);
+        res.status(500).json({ error: "Failed to analyse the quote" });
+      }
+    },
+  );
 
   const pricingDraftBody = z.object({
     pricing_intake: pricingIntakeSchema,
