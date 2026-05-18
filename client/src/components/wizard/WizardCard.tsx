@@ -19,7 +19,7 @@ import { trackEvent } from '@/lib/trackEvent';
 import QuoteWidget from '@/components/quote-widget/QuoteWidget';
 import type { CalculatorData } from '@/components/quote-widget/types';
 import { mapPricingIntakeToConfig } from '@shared/pricingIntakeMapper';
-import { getRecommendedTemplate, getTemplateById } from '@shared/templateLibrary';
+import { getRecommendedTemplate, getTemplateById, type LayoutStyle } from '@shared/templateLibrary';
 import {
   Loader2, ArrowRight, ArrowLeft, Check, Sparkles, Wrench, Hammer,
   Layers, AlertTriangle, Car, Briefcase, Plus, HelpCircle, X,
@@ -251,26 +251,25 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
     saveFlashRef.current = setTimeout(() => setJustSaved(false), 2200);
   }, [ws, step]);
 
-  // Template-picker selection → apply the template's layout to calculator_settings.
-  const handleTemplateSelect = (id: string) => {
-    const tid = id === 'blank' ? 'classic_single' : id;
-    const tmpl = getTemplateById(tid);
+  // Template-picker selection → apply the template (or a blank start) and its
+  // layout to calculator_settings. `id === 'blank'` keeps the chosen layout
+  // with no presets; a real template carries its own layout + display defaults.
+  const handleTemplateSelect = (id: string, layout: LayoutStyle) => {
+    const tmpl = getTemplateById(id);
     set('calculatorSettings', {
       ...ws.calculatorSettings,
       ui_template: {
         ...ws.calculatorSettings.ui_template,
-        template_id: tid,
-        ...(tmpl ? {
-          layout: {
-            ...ws.calculatorSettings.ui_template?.layout,
-            style: tmpl.layout_style,
-            sticky_summary: tmpl.defaults.sticky_summary,
-            show_breakdown: tmpl.defaults.show_breakdown,
-            show_trust_block: tmpl.defaults.show_trust_block,
-            show_testimonials: tmpl.defaults.show_testimonials,
-            show_images: tmpl.defaults.show_images,
-          },
-        } : {}),
+        template_id: id,
+        layout: {
+          ...ws.calculatorSettings.ui_template?.layout,
+          style: tmpl ? tmpl.layout_style : layout,
+          sticky_summary: tmpl ? tmpl.defaults.sticky_summary : layout === 'two_column',
+          show_breakdown: tmpl ? tmpl.defaults.show_breakdown : true,
+          show_trust_block: tmpl ? tmpl.defaults.show_trust_block : false,
+          show_testimonials: tmpl ? tmpl.defaults.show_testimonials : false,
+          show_images: tmpl ? tmpl.defaults.show_images : false,
+        },
       },
     });
   };
