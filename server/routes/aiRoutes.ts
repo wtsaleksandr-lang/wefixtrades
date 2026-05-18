@@ -33,6 +33,54 @@ const generatePricingBody = z.object({
   services: z.string().optional(),
 });
 
+const generateAdvancedBody = z.object({
+  description: z.string().min(3).max(2000),
+  trade_type: z.string().max(120).optional(),
+});
+
+/**
+ * Coerce a raw AI response into a safe `calculator_settings.advanced` config:
+ * stable ids, valid field types, clamped counts. Never throws.
+ */
+function sanitizeAdvancedAi(raw: any): { fields: any[]; calculations: any[]; result_calc: string } {
+  const VALID_TYPES = ['number', 'slider', 'select', 'radio', 'multi_select', 'toggle', 'text'];
+  const str = (v: any, max: number, fallback: string) =>
+    (typeof v === 'string' && v.trim() ? v.trim() : fallback).slice(0, max);
+  const numOrU = (v: any) => (v == null || v === '' || isNaN(Number(v)) ? undefined : Number(v));
+
+  const fields = (Array.isArray(raw?.fields) ? raw.fields : []).slice(0, 20).map((f: any, i: number) => {
+    const name = str(f?.name ?? f?.label, 60, `Field ${i + 1}`);
+    const type = VALID_TYPES.includes(f?.type) ? f.type : 'number';
+    const options = (Array.isArray(f?.options) ? f.options : []).slice(0, 12).map((o: any, j: number) => ({
+      id: `opt_${i}_${j}`,
+      label: str(o?.label, 60, `Option ${j + 1}`),
+      value: Number(o?.value) || 0,
+    }));
+    return {
+      id: `fld_${i}`, name, label: name, type,
+      required: !!f?.required,
+      default_value: numOrU(f?.default_value),
+      min: numOrU(f?.min), max: numOrU(f?.max), step: numOrU(f?.step),
+      unit: f?.unit ? str(f.unit, 16, '') : undefined,
+      on_value: numOrU(f?.on_value) ?? 1,
+      options,
+    };
+  });
+
+  const calculations = (Array.isArray(raw?.calculations) ? raw.calculations : []).slice(0, 10).map((c: any, i: number) => ({
+    id: `calc_${i}`,
+    name: str(c?.name, 60, `Calculation ${i + 1}`),
+    formula: typeof c?.formula === 'string' ? c.formula.slice(0, 600) : '',
+    format: ['number', 'currency', 'percent'].includes(c?.format) ? c.format : 'currency',
+  }));
+
+  const result_calc = (typeof raw?.result_calc === 'string' && calculations.some((c: any) => c.name === raw.result_calc))
+    ? raw.result_calc
+    : (calculations.length ? calculations[calculations.length - 1].name : '');
+
+  return { fields, calculations, result_calc };
+}
+
 const draftJobs = new Map<string, PricingDraftJob>();
 
 const JOB_TTL_MS = 5 * 60 * 1000;
@@ -109,6 +157,73 @@ Return ONLY the JSON pricing config object.`;
     } catch (error: any) {
       log.error("AI pricing generation error:", error);
       res.status(500).json({ error: "Failed to generate pricing configuration" });
+    }
+  });
+
+  /**
+   * POST /api/ai/generate-advanced-calculator
+   * Plain-language description -> a full advanced calculator config
+   * (fields + calculations) for the custom-builder mode.
+   */
+  app.post("/api/ai/generate-advanced-calculator", async (req, res) => {
+    try {
+      const parsed = generateAdvancedBody.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid request", details: parsed.error.flatten() });
+      }
+      const { description, trade_type } = parsed.data;
+
+      const prompt = `You design custom price calculators for small businesses.
+
+The owner describes what they want; you output the calculator as JSON.
+
+Description: ${description}
+${trade_type ? `Trade: ${trade_type}` : ""}
+
+Output a JSON object: { "fields": [...], "calculations": [...], "result_calc": "<headline calculation name>" }
+
+FIELDS — the inputs the customer fills in. Each: { "name": "Short label", "type": "<type>", ...options }
+- "number" / "slider": { "min": n, "max": n, "step": n, "default_value": n, "unit": "optional" }
+- "select" / "radio": { "options": [ { "label": "Text", "value": <number> } ] } — each option contributes its numeric value
+- "multi_select": { "options": [...] } — checkboxes; selected option values are summed
+- "toggle": { "on_value": <number> } — on/off switch contributing on_value when on
+- "text": free text (not used in math)
+
+CALCULATIONS — named formulas, computed top to bottom (a later one may reference an earlier one):
+{ "name": "Subtotal", "formula": "...", "format": "currency" | "number" | "percent" }
+Formula syntax:
+- reference any field or earlier calculation by name in [square brackets]: [Number of rooms]
+- operators + - * / ^ and parentheses
+- functions: SUM, MIN, MAX, ROUND, ROUNDUP, ROUNDDOWN, ABS, IF, AND, OR, NOT, CONTAINS
+- comparisons inside IF: = != < > <= >=
+
+Rules:
+- 2-8 fields, 1-3 calculations. The headline calculation is the final price the customer sees.
+- Every name used in a formula MUST be an existing field or earlier calculation.
+- Use realistic numbers for the trade.
+Return ONLY the JSON object.`;
+
+      const completion = await getOpenAI().chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [{ role: "user", content: prompt }],
+        response_format: { type: "json_object" },
+      });
+
+      let raw: any;
+      try {
+        raw = JSON.parse(completion.choices[0]?.message?.content || "{}");
+      } catch {
+        return res.status(500).json({ error: "AI returned invalid JSON" });
+      }
+
+      const advanced = sanitizeAdvancedAi(raw);
+      if (advanced.fields.length === 0 && advanced.calculations.length === 0) {
+        return res.status(422).json({ error: "Could not build a calculator from that description" });
+      }
+      res.json({ success: true, advanced: { enabled: true, ...advanced } });
+    } catch (error: any) {
+      log.error("AI advanced calculator generation error:", error);
+      res.status(500).json({ error: "Failed to generate calculator" });
     }
   });
 

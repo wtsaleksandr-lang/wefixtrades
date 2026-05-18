@@ -3,13 +3,13 @@
 // a Fields editor + a Calculations editor (formula input with insert chips and
 // live validation). Edits write straight to calculator_settings.advanced, so
 // the wizard's live-preview pane renders the result instantly.
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { platformTheme as p } from '@/theme/platformTheme';
 import { dashboardTheme as d } from '@/theme/dashboardTheme';
 import { validateFormula, runCalculations, type FormulaContext } from '@shared/formulaEngine';
 import {
   Plus, Trash2, ChevronLeft, Hash, SlidersHorizontal, List, CircleDot,
-  CheckSquare, ToggleLeft, Type, Sigma, Eye,
+  CheckSquare, ToggleLeft, Type, Sigma, Eye, Sparkles, Loader2,
 } from 'lucide-react';
 
 /* ─── Types (mirror calculator_settings.advanced) ─── */
@@ -89,6 +89,34 @@ export default function AdvancedBuilder({ advanced, onChange, onExitAdvanced }: 
 
   const patch = (next: Partial<AdvancedConfigData>) => onChange({ ...advanced, ...next });
 
+  /* AI generator */
+  const [aiText, setAiText] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState('');
+  const aiGenerate = async () => {
+    if (!aiText.trim() || aiLoading) return;
+    setAiLoading(true);
+    setAiError('');
+    try {
+      const res = await fetch('/api/ai/generate-advanced-calculator', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ description: aiText.trim() }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.advanced) {
+        setAiError(data?.error || 'Could not generate a calculator. Try rephrasing.');
+      } else {
+        onChange({ ...advanced, ...data.advanced, enabled: true });
+        setAiText('');
+      }
+    } catch {
+      setAiError('Something went wrong. Please try again.');
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
   /* fields */
   const addField = () => patch({ fields: [...fields, newField()] });
   const updateField = (id: string, u: Partial<AdvField>) =>
@@ -134,9 +162,42 @@ export default function AdvancedBuilder({ advanced, onChange, onExitAdvanced }: 
           <ChevronLeft style={{ width: 15, height: 15 }} /> Simple mode
         </button>
       </div>
-      <p style={{ fontSize: 13, color: p.colors.muted, lineHeight: 1.5, margin: '0 0 18px' }}>
+      <p style={{ fontSize: 13, color: p.colors.muted, lineHeight: 1.5, margin: '0 0 14px' }}>
         Build your own fields and pricing formulas. The preview updates as you go.
       </p>
+
+      {/* ─── AI generator ─── */}
+      <div style={{
+        borderRadius: d.radius.card, background: p.colors.accentLighter,
+        padding: 14, marginBottom: 18,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 8 }}>
+          <Sparkles style={{ width: 16, height: 16, color: p.colors.accent }} />
+          <span style={{ fontSize: 13, fontWeight: 700, color: p.colors.accentDark }}>
+            Describe it, let AI build it
+          </span>
+        </div>
+        <textarea data-testid="input-ai-describe" value={aiText}
+          onChange={(e) => setAiText(e.target.value)} rows={3} className={inputCls}
+          placeholder="e.g. A moving quote — number of rooms, distance in miles, optional packing service, then 10% tax."
+          style={{ width: '100%', fontSize: 13, resize: 'vertical', padding: '10px 12px' }} />
+        {aiError && (
+          <p style={{ fontSize: 12, color: p.colors.danger, margin: '6px 0 0' }}>{aiError}</p>
+        )}
+        <button type="button" data-testid="button-ai-generate" onClick={aiGenerate}
+          disabled={aiLoading || !aiText.trim()}
+          style={{
+            marginTop: 8, width: '100%', padding: '10px', borderRadius: d.radius.control,
+            border: 'none', cursor: aiLoading || !aiText.trim() ? 'default' : 'pointer',
+            background: p.colors.accent, color: '#fff', fontSize: 13, fontWeight: 700,
+            opacity: aiLoading || !aiText.trim() ? 0.6 : 1,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+          }}>
+          {aiLoading
+            ? <><Loader2 className="animate-spin" style={{ width: 15, height: 15 }} /> Generating…</>
+            : <><Sparkles style={{ width: 15, height: 15 }} /> {(fields.length || calcs.length) ? 'Regenerate' : 'Generate calculator'}</>}
+        </button>
+      </div>
 
       {/* ─── FIELDS ─── */}
       <div style={{ marginBottom: 10 }}><SectionLabel>Fields the customer fills in</SectionLabel></div>
