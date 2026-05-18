@@ -1690,7 +1690,9 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
               className="widget-scope"
               style={{
                 padding: previewDevice === 'mobile' ? '8px 20px 36px' : '8px 24px 36px',
-                minHeight: 564,
+                /* Template step stacks the preview above the form — keep it
+                   compact so the template strip stays near the fold. */
+                minHeight: step === 6 ? 0 : 564,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}
             >
