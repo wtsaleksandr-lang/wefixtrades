@@ -149,7 +149,7 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
   const visibleFields = fields.filter((f) => visibleIds.has(f.id));
 
   return (
-    <div style={{
+    <div data-testid="advanced-calculator" style={{
       background: '#fff', borderRadius: eff.radius2xl,
       border: `1px solid ${eff.buttonBorder}`, boxShadow: eff.shadowCard,
       overflow: 'hidden', fontFamily: eff.font,
