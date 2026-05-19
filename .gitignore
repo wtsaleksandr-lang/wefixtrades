@@ -11,6 +11,7 @@ tests/e2e/admin-crm/.auth/
 .claude/worktrees/
 playwright-report/
 test-results/
+audit-report/
 
 # Runtime-generated email chart images
 data/email-charts/*

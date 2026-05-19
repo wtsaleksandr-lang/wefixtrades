@@ -12,6 +12,8 @@
     "check:copilot-forms": "node scripts/check-copilot-forms.mjs",
     "smoke:quick": "tsx script/smoke.ts",
     "test:formula": "tsx scripts/check-formula.ts",
+    "audit": "npm run build && playwright test --config audit.config.ts",
+    "audit:update": "npm run build && playwright test --config audit.config.ts --update-snapshots",
     "db:push": "drizzle-kit push",
     "test:e2e": "npx playwright test tests/e2e/audit-flow.spec.ts",
     "test:smoke": "npx playwright test tests/e2e/smoke.spec.ts",
@@ -127,6 +129,7 @@
     "zod-validation-error": "^3.4.0"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.11.3",
     "@playwright/test": "^1.59.1",
     "@replit/vite-plugin-cartographer": "^0.4.4",
     "@replit/vite-plugin-dev-banner": "^0.1.1",
