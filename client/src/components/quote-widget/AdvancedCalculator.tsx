@@ -265,12 +265,13 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
             }}>
               {resultHeading}
             </p>
-            <p style={{
+            <p data-testid="advanced-result" style={{
               fontSize: 'clamp(28px, 6vw, 38px)', fontWeight: 800, color: c.resultText,
               margin: 0, fontFamily: eff.fontMono, lineHeight: 1.05, letterSpacing: '-0.02em',
             }}>
               {formatResult(headline, resultCalc?.format || 'currency')}
             </p>
+
 
             {showBreakdown && breakdown.length > 0 && (
               <div style={{
