@@ -904,7 +904,8 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
     <>
       <div className="wizard-shell">
       <WizardNav current={visualStep(step)} onHelp={() => setShowHelp(true)} justSaved={justSaved}
-        onNavigate={(v) => setStep(VISUAL_TO_INTERNAL[v - 1])} />
+        onNavigate={(v) => setStep(VISUAL_TO_INTERNAL[v - 1])}
+        device={previewDevice} onDeviceChange={setPreviewDevice} showDevice={showSidePreview} />
       <div className={`wizard-shell-body ${showSidePreview ? '' : 'wizard-no-preview'} ${step === 6 ? 'wizard-template-mode' : ''}`}>
         <WizardSecondaryNav
           sections={SECONDARY_SECTIONS[step] || []}
@@ -1692,34 +1693,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
         {showSidePreview && (
           <div className="wizard-preview-fixed">
             <div className="wizard-preview-stage">
-            {/* Stage header — device toggle only */}
-            <div style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
-              padding: '10px 20px 6px',
-            }}>
-              <div style={{
-                display: 'flex', gap: 3, padding: 3, borderRadius: 10,
-                background: '#fff', border: `1px solid ${p.colors.borderLight}`,
-              }}>
-                {([['desktop', Monitor], ['mobile', Smartphone]] as const).map(([mode, Icon]) => (
-                  <button
-                    key={mode}
-                    data-testid={`preview-device-${mode}`}
-                    onClick={() => setPreviewDevice(mode)}
-                    aria-label={`${mode} preview`}
-                    title={`${mode === 'desktop' ? 'Desktop' : 'Mobile'} preview`}
-                    style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      width: 34, height: 27, borderRadius: 7, border: 'none', cursor: 'pointer',
-                      background: previewDevice === mode ? p.colors.accentLighter : 'transparent',
-                      transition: 'all 0.15s ease',
-                    }}
-                  >
-                    <Icon style={{ width: 14, height: 14, color: previewDevice === mode ? p.colors.accent : p.colors.muted }} />
-                  </button>
-                ))}
-              </div>
-            </div>
+            {/* Device toggle moved to the top navbar (compact step rail). */}
 
             {/* Stage surface — the real QuoteWidget, centred on a preview canvas */}
             <div
@@ -1785,16 +1759,29 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
           display: flex; align-items: center; gap: 7px; text-decoration: none;
           font-size: 13px; font-weight: 800; color: ${p.colors.heading}; flex-shrink: 0;
         }
-        /* Step rail — full navbar width; scrolls horizontally if it can't fit. */
+        /* Step rail — compact, left-aligned icons; the device toggle sits
+           in the freed space on the right. The step list scrolls if needed. */
         .wizard-nav-steps {
-          display: flex; align-items: center; flex: 1; min-height: 0;
+          display: flex; align-items: center; flex: 1; min-height: 0; gap: 12px;
+        }
+        .wizard-nav-steplist {
+          display: flex; align-items: center; flex: 1; min-width: 0;
           overflow-x: auto; overflow-y: hidden; scrollbar-width: none;
         }
-        .wizard-nav-steps::-webkit-scrollbar { display: none; }
-        /* Steps grow to fill the rail; the connector line absorbs the slack.
-           They never shrink below their content — the rail scrolls instead. */
-        .wizard-nav-step { display: flex; align-items: center; flex: 1 0 auto; }
-        .wizard-nav-step:last-child { flex: 0 0 auto; }
+        .wizard-nav-steplist::-webkit-scrollbar { display: none; }
+        /* Steps stay compact -- no stretching; the connector is a short
+           fixed segment so the icons pack tightly to the left. */
+        .wizard-nav-step { display: flex; align-items: center; flex: 0 0 auto; }
+        .wizard-nav-device {
+          display: flex; gap: 3px; padding: 3px; flex-shrink: 0;
+          border-radius: 9px; background: #fff;
+          border: 1px solid ${p.colors.borderLight};
+        }
+        .wizard-nav-device button {
+          display: flex; align-items: center; justify-content: center;
+          width: 32px; height: 25px; border-radius: 7px; border: none;
+          cursor: pointer; transition: background 0.15s ease;
+        }
         .wizard-nav-stepbtn {
           display: flex; align-items: center; gap: 0;
           border: none; background: none; padding: 4px 6px; margin: -4px 0;
@@ -1808,7 +1795,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
           font-variant-numeric: tabular-nums;
         }
         .wizard-nav-label { font-size: 13px; font-weight: 600; margin-left: 8px; white-space: nowrap; }
-        .wizard-nav-line { flex: 1 1 12px; min-width: 12px; height: 1.5px; background: ${p.colors.border}; margin: 0 6px; }
+        .wizard-nav-line { flex: 0 0 18px; width: 18px; height: 1.5px; background: ${p.colors.border}; margin: 0 5px; }
         /* Step circles are always numbered (never checkmarks) and always filled. */
         .wizard-nav-step[data-state="todo"] .wizard-nav-num { background: #D6DEE6; color: ${p.colors.muted}; }
         .wizard-nav-step[data-state="todo"] .wizard-nav-label { color: ${p.colors.subtle}; }
@@ -2222,9 +2209,11 @@ function GeneratingAnimation({ progress, businessName }: { progress: number; bus
 // land as their own stages.
 const NAV_STEPS = ['Business', 'Templates', 'Design', 'Logic', 'CTA & Marketing', 'Install'];
 
-function WizardNav({ current, onHelp, justSaved, onNavigate }: {
+function WizardNav({ current, onHelp, justSaved, onNavigate, device, onDeviceChange, showDevice }: {
   current: number; onHelp: () => void; justSaved?: boolean;
   onNavigate?: (visualStep: number) => void;
+  device?: 'desktop' | 'mobile'; onDeviceChange?: (d: 'desktop' | 'mobile') => void;
+  showDevice?: boolean;
 }) {
   return (
     <div className="wizard-navbar">
@@ -2240,6 +2229,7 @@ function WizardNav({ current, onHelp, justSaved, onNavigate }: {
         </div>
       </div>
       <div className="wizard-nav-steps">
+        <div className="wizard-nav-steplist">
         {NAV_STEPS.map((label, i) => {
           const n = i + 1;
           const state = current > n ? 'done' : current === n ? 'active' : 'todo';
@@ -2262,6 +2252,24 @@ function WizardNav({ current, onHelp, justSaved, onNavigate }: {
             </div>
           );
         })}
+        </div>
+        {showDevice && device && onDeviceChange && (
+          <div className="wizard-nav-device">
+            {([['desktop', Monitor], ['mobile', Smartphone]] as const).map(([mode, Icon]) => (
+              <button
+                key={mode}
+                type="button"
+                data-testid={`preview-device-${mode}`}
+                onClick={() => onDeviceChange(mode)}
+                aria-label={`${mode} preview`}
+                title={`${mode === 'desktop' ? 'Desktop' : 'Mobile'} preview`}
+                style={{ background: device === mode ? p.colors.accentLighter : 'transparent' }}
+              >
+                <Icon style={{ width: 14, height: 14, color: device === mode ? p.colors.accent : p.colors.muted }} />
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
