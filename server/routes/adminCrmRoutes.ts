@@ -4,6 +4,7 @@ import { storage } from "../storage";
 import { advanceSetupStage, getTradeLineReadiness, getTradeLineDefaultConfig } from "@shared/schema";
 import { sendOnboardingEmail } from "../lib/onboardingEmail";
 import { tiersSchema } from "@shared/tiers";
+import { QUOTEQUICK_PLAN_REVENUE_CENTS } from "@shared/pricing";
 import { automationConfigSchema } from "@shared/automationConfig";
 import { z } from "zod";
 
@@ -1961,11 +1962,7 @@ export function registerAdminCrmRoutes(app: Express): void {
       const calcs = await storage.getCalculatorsByUserId(client.user_id);
       const results = [];
 
-      const PLAN_REVENUE: Record<string, number> = {
-        free: 0,
-        starter: 4900,
-        business: 9900,
-      };
+      const PLAN_REVENUE = QUOTEQUICK_PLAN_REVENUE_CENTS;
       const QQ_COST_CENTS = 500;
 
       let totalRevenue = 0;
