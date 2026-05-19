@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { useCopilotForm } from "@/context/CopilotFormContext";
 
 /* ─── Types ─── */
 
@@ -183,6 +184,57 @@ export default function BookFlowSetupPage() {
     const origin = typeof window !== "undefined" ? window.location.origin : "";
     return `${origin}/book/${form.slug.trim()}`;
   }, [form.slug]);
+
+  /* Register the booking-page fields with the AI copilot. Applied fills
+     land in local form state; the tradesperson still clicks Save. */
+  useCopilotForm({
+    formLabel: "BookFlow booking-page setup",
+    fields: [
+      { key: "business_name", label: "Business name shown on the public booking page", required: true },
+      { key: "slug", label: "Booking page address (lowercase letters, numbers and hyphens only)", required: true },
+      { key: "accent_color", label: "Accent colour as a hex code (e.g. #3B82F6)" },
+      { key: "slot_duration_minutes", label: "Default slot length in minutes (5–480)" },
+      { key: "buffer_minutes", label: "Buffer between jobs in minutes (0–240)" },
+      { key: "confirmation_message", label: "Confirmation message shown to customers after they book" },
+    ],
+    values: {
+      business_name: form.business_name ?? "",
+      slug: form.slug ?? "",
+      accent_color: form.accent_color ?? "",
+      slot_duration_minutes: form.slot_duration_minutes ?? 60,
+      buffer_minutes: form.buffer_minutes ?? 15,
+      confirmation_message: form.confirmation_message ?? "",
+    },
+    onApply: (fills) => {
+      for (const f of fills) {
+        switch (f.field_key) {
+          case "business_name":
+            setForm((p) => ({ ...p, business_name: f.value }));
+            break;
+          case "slug":
+            setSlugTouched(true);
+            setForm((p) => ({ ...p, slug: slugify(f.value) }));
+            break;
+          case "accent_color":
+            setForm((p) => ({ ...p, accent_color: f.value }));
+            break;
+          case "slot_duration_minutes": {
+            const n = parseInt(f.value, 10);
+            if (!Number.isNaN(n)) setForm((p) => ({ ...p, slot_duration_minutes: n }));
+            break;
+          }
+          case "buffer_minutes": {
+            const n = parseInt(f.value, 10);
+            if (!Number.isNaN(n)) setForm((p) => ({ ...p, buffer_minutes: n }));
+            break;
+          }
+          case "confirmation_message":
+            setForm((p) => ({ ...p, confirmation_message: f.value }));
+            break;
+        }
+      }
+    },
+  });
 
   const validate = (): string | null => {
     if (!form.business_name?.trim()) return "Business name is required.";
