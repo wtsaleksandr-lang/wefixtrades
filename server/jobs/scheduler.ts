@@ -493,6 +493,16 @@ export function initScheduler() {
     }
   });
 
+  // TODO(fast-follow): ContentFlow per-client generation worker.
+  // ContentFlow is now a standalone SKU (phase2-decision #3) sold as
+  // Creator/Studio/Agency. It has publish/performance/retention jobs but
+  // NO scheduled worker that *generates* content for a client on a
+  // ContentFlow-only plan — today content is only created as a side
+  // effect of RankFlow/SocialSync tasks. A paying ContentFlow-only
+  // customer currently gets nothing generated. Build a contentflowWorker
+  // (per-client, tier-quota-driven: ~12/40/120 pieces/mo, gated by
+  // contentflowGate) and register its cron tick here.
+
   cron.schedule("0 6 * * 0", async () => {
     log.info("Running SocialSync weekly content generation...");
     try {

@@ -49,6 +49,18 @@ const TRADELINE_TIER_PRICE_ENV: Record<string, { monthly: string; yearly: string
 };
 
 /**
+ * ContentFlow standalone-SKU price env placeholders (phase2-decision #3).
+ * Same env-var fallback model as TradeLine: catalog stripe_price_id first,
+ * then these env vars. TODO(alex): provision the live Stripe recurring
+ * prices and set these in Doppler wefixtrades/prd.
+ */
+const CONTENTFLOW_TIER_PRICE_ENV: Record<string, { monthly: string; yearly: string }> = {
+  "contentflow-creator": { monthly: "STRIPE_CONTENTFLOW_CREATOR_PRICE", yearly: "STRIPE_CONTENTFLOW_CREATOR_YEARLY_PRICE" },
+  "contentflow-studio":  { monthly: "STRIPE_CONTENTFLOW_STUDIO_PRICE",  yearly: "STRIPE_CONTENTFLOW_STUDIO_YEARLY_PRICE" },
+  "contentflow-agency":  { monthly: "STRIPE_CONTENTFLOW_AGENCY_PRICE",  yearly: "STRIPE_CONTENTFLOW_AGENCY_YEARLY_PRICE" },
+};
+
+/**
  * Resolve the Stripe price ID for a catalog service.
  * Prefers the catalog-stored id; falls back to an env-var placeholder for
  * the TradeLine tiers. Returns null when no price is configured.
@@ -57,7 +69,7 @@ function resolveStripePriceId(svc: ServiceCatalogRow, wantsYearly: boolean): str
   const catalogId = wantsYearly ? svc.stripe_yearly_price_id : svc.stripe_price_id;
   if (catalogId) return catalogId;
 
-  const envKeys = TRADELINE_TIER_PRICE_ENV[svc.id];
+  const envKeys = TRADELINE_TIER_PRICE_ENV[svc.id] ?? CONTENTFLOW_TIER_PRICE_ENV[svc.id];
   if (envKeys) {
     const envVal = process.env[wantsYearly ? envKeys.yearly : envKeys.monthly];
     if (envVal && envVal.trim()) return envVal.trim();

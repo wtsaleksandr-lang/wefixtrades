@@ -1,6 +1,6 @@
 import {
   TRADELINE, QUOTEQUICK, WEBCARE, MAPGUARD, SITELAUNCH,
-  REPUTATIONSHIELD, SOCIALSYNC, RANKFLOW, WEBFIX, ADFLOW,
+  REPUTATIONSHIELD, SOCIALSYNC, RANKFLOW, WEBFIX, ADFLOW, CONTENTFLOW,
   formatPrice, type ProductDef, type Tier,
 } from "@shared/pricing";
 
@@ -515,27 +515,10 @@ export const PRODUCT_PAGES: ProductPage[] = [
       { q: "How does the AI know what to write about?", a: "It uses your brand profile, service descriptions, service area, and industry knowledge to generate relevant, helpful content. Topics rotate automatically so you never repeat." },
       { q: "Can I edit content before it goes live?", a: "Yes. Every piece is available for review. You can edit text, approve as-is, or reject and request a rewrite." },
       { q: "What if I don’t like the tone?", a: "You can adjust your brand voice settings at any time. Choose between friendly, professional, or direct — and add any specific phrases or terminology you prefer." },
-      { q: "How is this different from SocialSync?", a: "SocialSync focuses on social media posting. ContentFlow is the unified engine that powers articles, social posts, and GBP updates together. If you have SocialSync, ContentFlow is the brain behind it." },
-      { q: "How much content do I get?", a: "Content volume depends on your plan. Contact us for details on articles per month, social posts, and GBP update frequency." },
+      { q: "How is this different from SocialSync?", a: "SocialSync focuses specifically on social media posting. ContentFlow is a standalone content engine that produces articles, social posts, and GBP updates together — you can buy it on its own, no SocialSync subscription required. The two work well together but neither needs the other." },
+      { q: "How much content do I get?", a: "It depends on your plan: Creator includes 12 pieces per month, Studio 40, and Agency 120 — a mix of articles, social posts, and GBP updates." },
     ],
-    pricingSection: {
-      plans: [
-        {
-          name: "ContentFlow",
-          price: "Custom",
-          period: "",
-          features: [
-            "AI article generation for your blog",
-            "Social media posts (Facebook, Instagram, GBP)",
-            "Brand voice matching & quality checks",
-            "Multi-channel auto-publishing",
-            "Content calendar & approval workflow",
-            "Monthly content performance summary",
-          ],
-        },
-      ],
-      note: "ContentFlow is included with SocialSync and RankFlow plans. Contact us for standalone pricing.",
-    },
+    pricingSection: buildPricingSection(CONTENTFLOW, "Standalone plans — no SocialSync or RankFlow subscription required. No contracts. Cancel anytime.", { checkout: true }),
     related: ["socialsync", "rankflow", "mapguard"],
   },
   {
