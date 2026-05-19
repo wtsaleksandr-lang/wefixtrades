@@ -1,0 +1,100 @@
+name: Audit
+
+# Visual + accessibility audit of the built client. Runs against the static
+# build served by `vite preview` — no database, server or secrets needed.
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      update_snapshots:
+        description: Regenerate the visual baselines and commit them
+        type: boolean
+        default: false
+
+jobs:
+  a11y-visual:
+    name: Accessibility + visual regression
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    container:
+      image: mcr.microsoft.com/playwright:v1.59.1-jammy
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+
+      # Are visual baselines already committed?
+      - id: baselines
+        run: |
+          if find tests/audit -name '*.png' -type f 2>/dev/null | grep -q .; then
+            echo "exist=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exist=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Normal run — compare against the committed baselines.
+      - name: Audit — accessibility + visual regression
+        if: ${{ steps.baselines.outputs.exist == 'true' && !(github.event_name == 'workflow_dispatch' && inputs.update_snapshots) }}
+        run: npx playwright test --config audit.config.ts
+
+      # Bootstrap (no baselines yet) or a requested refresh — regenerate them.
+      - name: Generate visual baselines
+        if: ${{ steps.baselines.outputs.exist == 'false' || (github.event_name == 'workflow_dispatch' && inputs.update_snapshots) }}
+        run: npx playwright test --config audit.config.ts --update-snapshots
+
+      - name: Commit baselines
+        if: ${{ steps.baselines.outputs.exist == 'false' || (github.event_name == 'workflow_dispatch' && inputs.update_snapshots) }}
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tests/audit
+          if git diff --cached --quiet; then
+            echo "baselines unchanged"
+          else
+            git commit -m "chore(quotequick): visual audit baselines"
+            git push origin "HEAD:${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}}"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: audit-report
+          path: audit-report/
+          retention-days: 14
+
+  lighthouse:
+    name: Lighthouse (informational)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Serve the static build
+        run: |
+          npx vite preview --port 5000 --strictPort &
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:5000/ >/dev/null && break
+            sleep 2
+          done
+      - name: Lighthouse
+        uses: treosh/lighthouse-ci-action@v12
+        continue-on-error: true
+        with:
+          urls: http://localhost:5000/wizard
+          uploadArtifacts: true
+          temporaryPublicStorage: true
