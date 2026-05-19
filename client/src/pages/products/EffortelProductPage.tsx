@@ -468,7 +468,7 @@ function Pricing({ pricing, primaryCta }: { pricing?: { plans: any[]; note?: str
   if (!pricing?.plans?.length) return null;
   const checkoutEnabled = !!pricing.checkoutEnabled;
   return (
-    <section style={{ padding: "80px 24px" }}>
+    <section id="pricing" style={{ padding: "80px 24px" }}>
       <div style={{ maxWidth: 1180, margin: "0 auto" }}>
         <Reveal>
           <div style={{ textAlign: "center", marginBottom: 40 }}>
