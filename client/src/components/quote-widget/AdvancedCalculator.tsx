@@ -9,7 +9,7 @@
  *
  * Phases 1c / 2 / visual-parity / theming of the advanced-builder epic.
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { runCalculations, type FormulaContext } from '@shared/formulaEngine';
 import { eff } from './designTokens';
 import { resolveWidgetTheme, type WidgetTheme } from './widgetThemes';
@@ -127,6 +127,28 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
 
   const [answers, setAnswers] = useState<Record<string, Answer>>(() => initAnswers(fields));
   const setAnswer = (name: string, value: Answer) => setAnswers((p) => ({ ...p, [name]: value }));
+
+  // Keep answers in sync when the field set changes — a template being
+  // applied or fields edited in the builder. New fields get their default
+  // value (otherwise sliders read "undefined" and totals stay at 0).
+  useEffect(() => {
+    setAnswers((prev) => {
+      let changed = false;
+      const next: Record<string, Answer> = { ...prev };
+      for (const f of fields) {
+        if (f.name in next) continue;
+        next[f.name] =
+          f.type === 'number' || f.type === 'slider' ? (f.default_value ?? f.min ?? 0)
+            : f.type === 'toggle' ? false
+              : f.type === 'multi_select' ? []
+                : (f.type === 'select' || f.type === 'radio' || f.type === 'image_choice')
+                  ? (f.options?.[0]?.id ?? '')
+                  : '';
+        changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, [fields]);
 
   // Raw values (every field) → visibility → formula context (a hidden field
   // contributes a neutral value so it doesn't skew the total).
