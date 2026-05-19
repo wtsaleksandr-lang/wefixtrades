@@ -71,7 +71,7 @@ export default function AiDashboard() {
 
   if (isLoading) return <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}><Loader2 size={32} className="animate-spin" style={{ color: c.accent }} /></div>;
 
-  if (!isAuthenticated || (user?.role !== "admin" && user?.role !== "portal")) {
+  if (!isAuthenticated || user?.role !== "admin") {
     return (
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: c.bg }}>
         <div style={{ textAlign: "center", padding: 40 }}>

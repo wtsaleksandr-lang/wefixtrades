@@ -73,7 +73,7 @@ export default function LoginPage() {
     } catch { /* noop */ }
 
     const role = data.user?.role;
-    if (role === "admin" || role === "portal") {
+    if (role === "admin") {
       navigate("/admin/crm");
     } else if (role === "client") {
       navigate("/portal");
