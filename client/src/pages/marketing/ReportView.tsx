@@ -4,8 +4,30 @@ import { SERVICES, getServicesForIssues } from '@shared/services';
 import AuditGate from "@/components/marketing/AuditGate";
 import InfoTooltip from "@/components/marketing/InfoTooltip";
 import NextStepSuggestions from "@/components/marketing/NextStepSuggestions";
+import CheckoutIntakeModal from "@/components/marketing/CheckoutIntakeModal";
 import { trackEvent } from "@/lib/trackEvent";
 import { useToast } from "@/hooks/use-toast";
+
+/**
+ * Map an audit `@shared/services` id to the purchasable service_catalog
+ * tier SKU that the /api/public/checkout endpoint expects. The audit
+ * catalog uses product-level ids; the checkout endpoint resolves rows by
+ * tier SKU, so multi-tier products must point at their entry tier.
+ * Ids already equal to a catalog SKU map to themselves.
+ */
+const AUDIT_SERVICE_TO_CATALOG_SKU: Record<string, string> = {
+  "rankflow": "rankflow-starter",
+  "tradeline": "tradeline-starter",
+  "quotequick": "quotequick-starter",
+  "webcare": "webcare-basic",
+  "socialsync": "socialsync-starter",
+  "adflow": "adflow-starter",
+  "mapguard-ongoing": "mapguard-basic",
+  "reputationshield": "reputationshield-basic",
+};
+function toCatalogSku(auditServiceId: string): string {
+  return AUDIT_SERVICE_TO_CATALOG_SKU[auditServiceId] ?? auditServiceId;
+}
 
 // ─── Design tokens ───────────────────
 const DARK = '#0d1514';
@@ -333,6 +355,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
   const [copiedLink, setCopiedLink] = useState(false);
   const [activeTab, setActiveTab] = useState<'maps' | 'website' | 'plan'>('maps');
   const [selected, setSelected] = useState<string[]>([]);
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
   const toggleService = (id: string) =>
     setSelected(prev => prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]);
   const detectedIssues: string[] = report?.detectedIssues || [];
@@ -2243,7 +2266,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
               {selected.length} service{selected.length > 1 ? 's' : ''} selected · <span style={{ color: CYAN, fontWeight: 700 }}>${totalPrice}/mo</span>
             </span>
             <button
-              onClick={() => { trackEvent("audit_primary_cta_clicked", { services: selected }); window.location.href = '/checkout?services=' + selected.join(','); }}
+              onClick={() => { trackEvent("audit_primary_cta_clicked", { services: selected }); setCheckoutOpen(true); }}
               {...hoverProps('getstarted')}
               style={{ background: hovered === 'getstarted' ? '#00BFB8' : CYAN, color: DARK, border: 'none', borderRadius: 10, padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s ease', transform: hovered === 'getstarted' ? 'translateY(-1px)' : 'none' }}
             >
@@ -2252,6 +2275,18 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
           </div>
         </div>
       )}
+
+      {/* Checkout intake modal — re-points the audit funnel at the working
+          /api/public/checkout flow (per phase2 decision #4). */}
+      <CheckoutIntakeModal
+        open={checkoutOpen}
+        onClose={() => setCheckoutOpen(false)}
+        items={selected.map(toCatalogSku)}
+        bundleName={selected.length === 1
+          ? (SERVICES.find(s => s.id === selected[0])?.name ?? "your services")
+          : `${selected.length} services`}
+        priceLabel={`$${totalPrice}/mo`}
+      />
 
       {/* Secondary CTA — cross-tool */}
       {unlocked && (
