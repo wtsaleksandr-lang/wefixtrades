@@ -67,25 +67,23 @@ export const TEMPLATE_PRESETS: TemplatePreset[] = [
     },
   },
 
-  /* ── 2. Car rental ── */
+  /* ── 2. Driveway paving ── */
   {
-    id: 'car_rental', name: 'Car Rental', description: 'Per-day vehicle hire with options.',
+    id: 'driveway_paving', name: 'Driveway Paving', description: 'Area-based driveway paving estimate.',
     layout: 'single_page', theme: 'midnight',
     advanced: {
       enabled: true, theme: 'midnight',
-      header: { title: 'Car Rental Calculator', subtitle: 'Work out the cost of your rental.', align: 'left' },
+      header: { title: 'Driveway Paving Cost Calculator', subtitle: 'Estimate your new driveway in seconds.', align: 'left' },
       fields: [
-        { id: 'vehicle', name: 'Vehicle Type', label: 'Vehicle Type', type: 'select',
-          options: [opt('Compact', 30), opt('Sedan', 45), opt('SUV', 65), opt('Van', 85)] },
-        { id: 'transmission', name: 'Transmission', label: 'Transmission Type', type: 'radio',
-          options: [opt('Automatic', 0), opt('Manual', -5)] },
-        { id: 'addons', name: 'Additional Options', label: 'Additional Options', type: 'multi_select',
-          options: [opt('Child Car Seat', 8), opt('Winter Tires', 12)] },
-        { id: 'days', name: 'Rental Days', label: 'Rental Days', type: 'number',
-          min: 1, max: 60, step: 1, default_value: 3, unit: 'days' },
+        { id: 'area', name: 'Driveway Area', label: 'Driveway area', type: 'slider',
+          min: 10, max: 300, step: 5, default_value: 50, unit: 'sqm' },
+        { id: 'material', name: 'Surface Material', label: 'Surface material', type: 'select',
+          options: [opt('Asphalt', 45), opt('Concrete', 60), opt('Block paving', 90), opt('Resin', 110)] },
+        { id: 'removal', name: 'Old Surface Removal', label: 'Remove the old surface', type: 'toggle', on_value: 600 },
+        { id: 'edging', name: 'Decorative Edging', label: 'Add decorative edging', type: 'toggle', on_value: 350 },
       ],
-      calculations: [calc('Total Rental Cost', '([Vehicle Type] + [Transmission] + [Additional Options]) * [Rental Days]')],
-      result_calc: 'Total Rental Cost',
+      calculations: [calc('Total Paving Cost', '[Driveway Area] * [Surface Material] + [Old Surface Removal] + [Decorative Edging]')],
+      result_calc: 'Total Paving Cost',
     },
   },
 
@@ -129,23 +127,25 @@ export const TEMPLATE_PRESETS: TemplatePreset[] = [
     },
   },
 
-  /* ── 5. Event planner ── */
+  /* ── 5. Landscaping ── */
   {
-    id: 'event_planner', name: 'Event Planner', description: 'Per-guest event pricing with catering.',
-    layout: 'two_column', theme: 'magenta',
+    id: 'landscaping', name: 'Landscaping', description: 'Garden landscaping & maintenance quote.',
+    layout: 'two_column', theme: 'forest',
     advanced: {
-      enabled: true, theme: 'magenta',
-      header: { title: 'Event Planner Price Calculator', align: 'left' },
+      enabled: true, theme: 'forest',
+      header: { title: 'Landscaping & Garden Quote', subtitle: 'Tell us about your garden for an instant price.', align: 'left' },
       fields: [
-        { id: 'guests', name: 'Guests', label: 'How many guests will attend?', type: 'slider',
-          min: 10, max: 300, step: 5, default_value: 60, unit: 'guests' },
-        { id: 'catering', name: 'Catering', label: 'Catering options', type: 'multi_select',
-          options: [opt('Entrance', 6), opt('Main menu', 22), opt('Dessert', 9), opt('Cake', 7)] },
-        { id: 'services', name: 'Services', label: 'Supplementary services', type: 'multi_select',
-          options: [opt('Music DJ', 450), opt('Decoration', 600), opt('Invitations', 180), opt('Waiters', 800)] },
+        { id: 'area', name: 'Garden Area', label: 'Garden area', type: 'slider',
+          min: 10, max: 1000, step: 10, default_value: 120, unit: 'sqm' },
+        { id: 'service', name: 'Service', label: 'Service needed', type: 'select',
+          options: [opt('Mowing & tidy-up', 3), opt('Full maintenance', 7), opt('Garden redesign', 22)] },
+        { id: 'extras', name: 'Extras', label: 'Extras', type: 'multi_select',
+          options: [opt('Green-waste removal', 90), opt('New turf', 480), opt('Planting & beds', 320)] },
+        { id: 'visits', name: 'Visits', label: 'Visits per month', type: 'number',
+          min: 1, max: 8, step: 1, default_value: 1, unit: '/mo' },
       ],
-      calculations: [calc('Estimate', '[Guests] * (20 + [Catering]) + [Services]')],
-      result_calc: 'Estimate',
+      calculations: [calc('Estimated Quote', '[Garden Area] * [Service] * [Visits] + [Extras]')],
+      result_calc: 'Estimated Quote',
     },
   },
 
@@ -167,22 +167,24 @@ export const TEMPLATE_PRESETS: TemplatePreset[] = [
     },
   },
 
-  /* ── 7. Hotel booking ── */
+  /* ── 7. Fence installation ── */
   {
-    id: 'hotel_booking', name: 'Hotel Booking', description: 'Per-night accommodation pricing.',
+    id: 'fence_installation', name: 'Fence Installation', description: 'Per-metre fencing install estimate.',
     layout: 'single_page', theme: 'forest',
     advanced: {
       enabled: true, theme: 'forest',
-      header: { title: 'Hotel or Accommodation Booking', subtitle: 'Fill out the details to estimate your stay.', align: 'left' },
+      header: { title: 'Fence Installation Cost Calculator', subtitle: 'Estimate your new fence in seconds.', align: 'left' },
       fields: [
-        { id: 'nights', name: 'Nights', label: 'Number of nights', type: 'number',
-          min: 1, max: 60, step: 1, default_value: 2, unit: 'nights' },
-        { id: 'room', name: 'Room Type', label: 'Room type', type: 'select',
-          options: [opt('Standard Room', 90), opt('Deluxe Room', 140), opt('Suite', 240)] },
-        { id: 'breakfast', name: 'Breakfast', label: 'Add breakfast', type: 'toggle', on_value: 14 },
+        { id: 'length', name: 'Fence Length', label: 'Fence length', type: 'slider',
+          min: 1, max: 200, step: 1, default_value: 20, unit: 'm' },
+        { id: 'material', name: 'Fence Type', label: 'Fence type', type: 'select',
+          options: [opt('Timber panel', 38), opt('Closeboard', 52), opt('Composite', 78), opt('Metal railing', 95)] },
+        { id: 'gates', name: 'Gates', label: 'Number of gates', type: 'number',
+          min: 0, max: 6, step: 1, default_value: 1 },
+        { id: 'removal', name: 'Old Fence Removal', label: 'Remove the old fence', type: 'toggle', on_value: 220 },
       ],
-      calculations: [calc('Total Cost', '([Room Type] + [Breakfast]) * [Nights]')],
-      result_calc: 'Total Cost',
+      calculations: [calc('Total Fencing Cost', '[Fence Length] * [Fence Type] + [Gates] * 180 + [Old Fence Removal]')],
+      result_calc: 'Total Fencing Cost',
     },
   },
 
@@ -230,25 +232,24 @@ export const TEMPLATE_PRESETS: TemplatePreset[] = [
     },
   },
 
-  /* ── 10. College net price ── */
+  /* ── 10. Interior painting ── */
   {
-    id: 'college_net_price', name: 'College Net Price', description: 'Tuition minus aid net-cost estimate.',
+    id: 'interior_painting', name: 'Interior Painting', description: 'Room + finish interior painting quote.',
     layout: 'two_column', theme: 'mint',
     advanced: {
       enabled: true, theme: 'mint',
-      header: { title: 'College Net Price Calculator', align: 'left' },
+      header: { title: 'Interior Painting Cost Calculator', subtitle: 'Get an instant price for your paint job.', align: 'left' },
       fields: [
-        { id: 'tuition', name: 'Tuition Fees', label: 'Tuition Fees', type: 'slider',
-          min: 5000, max: 50000, step: 500, default_value: 27000, unit: '$' },
-        { id: 'accommodation', name: 'Accommodation Costs', label: 'Accommodation Costs', type: 'slider',
-          min: 3000, max: 20000, step: 500, default_value: 5000, unit: '$' },
-        { id: 'other', name: 'Other Expenses', label: 'Other Expenses', type: 'slider',
-          min: 1000, max: 10000, step: 250, default_value: 4300, unit: '$' },
-        { id: 'aid', name: 'Scholarships', label: 'Scholarships and Grants', type: 'number',
-          min: 0, max: 50000, step: 500, default_value: 15000, unit: '$' },
+        { id: 'wall_area', name: 'Wall Area', label: 'Wall area to paint', type: 'slider',
+          min: 10, max: 500, step: 5, default_value: 80, unit: 'sqm' },
+        { id: 'rooms', name: 'Rooms', label: 'Number of rooms', type: 'number',
+          min: 1, max: 20, step: 1, default_value: 3 },
+        { id: 'finish', name: 'Finish Quality', label: 'Finish quality', type: 'select',
+          options: [opt('Standard', 9), opt('Premium', 14), opt('Designer', 20)] },
+        { id: 'ceilings', name: 'Ceilings', label: 'Include ceilings', type: 'toggle', on_value: 240 },
       ],
-      calculations: [calc('Net Price After Aid', '[Tuition Fees] + [Accommodation Costs] + [Other Expenses] - [Scholarships]')],
-      result_calc: 'Net Price After Aid',
+      calculations: [calc('Total Painting Cost', '[Wall Area] * [Finish Quality] + [Rooms] * 35 + [Ceilings]')],
+      result_calc: 'Total Painting Cost',
     },
   },
 
