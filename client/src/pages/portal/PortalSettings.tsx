@@ -873,6 +873,25 @@ function ChannelRow({
 }
 
 /* ─── Logo Section (Q15) ─── */
+
+const LOGO_ACCEPT = "image/png,image/jpeg,image/gif,image/webp,image/svg+xml";
+const LOGO_MAX_BYTES = 5 * 1024 * 1024;
+
+/** Read a File into a bare base64 string (no `data:` prefix). */
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = String(reader.result || "");
+      // result is a data URL: "data:<mime>;base64,<payload>"
+      const comma = result.indexOf(",");
+      resolve(comma >= 0 ? result.slice(comma + 1) : result);
+    };
+    reader.onerror = () => reject(new Error("Could not read file"));
+    reader.readAsDataURL(file);
+  });
+}
+
 function LogoSection({
   initialLogoUrl,
   labelClass,
@@ -891,6 +910,16 @@ function LogoSection({
     setLogoUrl(initialLogoUrl ?? "");
   }, [initialLogoUrl]);
 
+  const onLogoPersisted = (nextUrl: string | null) => {
+    queryClient.invalidateQueries({ queryKey: ["/api/portal/settings"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/portal/overview"] });
+    setLogoUrl(nextUrl ?? "");
+    setLogoError("");
+    setLogoSaved(true);
+    setTimeout(() => setLogoSaved(false), 2500);
+  };
+
+  // Path A — paste a public URL.
   const saveLogo = useMutation({
     mutationFn: async () => {
       const trimmed = logoUrl.trim();
@@ -903,14 +932,27 @@ function LogoSection({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to save logo");
-      return data;
+      return data as { logo_url: string | null };
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/portal/settings"] });
-      setLogoError("");
-      setLogoSaved(true);
-      setTimeout(() => setLogoSaved(false), 2500);
+    onSuccess: (data) => onLogoPersisted(data.logo_url),
+    onError: (err: Error) => setLogoError(err.message),
+  });
+
+  // Path B — upload an image file directly.
+  const uploadLogo = useMutation({
+    mutationFn: async (file: File) => {
+      const base64 = await fileToBase64(file);
+      const res = await fetch("/api/portal/logo/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ file: base64, filename: file.name }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to upload logo");
+      return data as { logo_url: string | null };
     },
+    onSuccess: (data) => onLogoPersisted(data.logo_url),
     onError: (err: Error) => setLogoError(err.message),
   });
 
@@ -925,60 +967,110 @@ function LogoSection({
     saveLogo.mutate();
   };
 
+  const handleFilePick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setLogoError("");
+    const file = e.target.files?.[0];
+    // Reset the input so picking the same file again still fires onChange.
+    e.target.value = "";
+    if (!file) return;
+    if (file.size > LOGO_MAX_BYTES) {
+      setLogoError("Logo file exceeds the 5 MB limit.");
+      return;
+    }
+    if (!LOGO_ACCEPT.split(",").includes(file.type)) {
+      setLogoError("Unsupported image type — use PNG, JPG, GIF, WEBP or SVG.");
+      return;
+    }
+    uploadLogo.mutate(file);
+  };
+
+  const busy = saveLogo.isPending || uploadLogo.isPending;
+
   return (
-    <form onSubmit={handleSubmit}>
-      <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
-        <div className="flex items-center gap-2">
-          <ImageIcon className="w-4 h-4 text-gray-400" />
-          <h2 className="text-sm font-semibold text-gray-900">Business Logo</h2>
-        </div>
-        <p className="text-xs text-gray-500 -mt-2">
-          Paste a public URL to your logo. Used on your portal sidebar and on invoices.
-          File upload coming soon — for now host on Imgur, Cloudinary, your own site, etc.
-        </p>
-        <div className="flex items-start gap-4">
-          {logoUrl ? (
-            <img
-              src={logoUrl}
-              alt="Logo preview"
-              className="w-16 h-16 rounded-lg border border-gray-200 object-contain bg-gray-50 shrink-0"
-              onError={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = "0.3"; }}
-              data-testid="logo-preview"
-            />
-          ) : (
-            <div className="w-16 h-16 rounded-lg border border-dashed border-gray-300 bg-gray-50 flex items-center justify-center shrink-0">
-              <ImageIcon className="w-5 h-5 text-gray-300" />
-            </div>
-          )}
-          <div className="flex-1 min-w-0">
-            <label className={labelClass}>Logo URL</label>
-            <input
-              type="url"
-              placeholder="https://example.com/logo.png"
-              className={inputClass}
-              value={logoUrl}
-              onChange={(e) => setLogoUrl(e.target.value)}
-              data-testid="input-logo-url"
-            />
+    <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
+      <div className="flex items-center gap-2">
+        <ImageIcon className="w-4 h-4 text-gray-400" />
+        <h2 className="text-sm font-semibold text-gray-900">Business Logo</h2>
+      </div>
+      <p className="text-xs text-gray-500 -mt-2">
+        Used on your portal sidebar and on invoices. Upload an image file, or paste a public URL.
+      </p>
+
+      <div className="flex items-start gap-4">
+        {logoUrl ? (
+          <img
+            src={logoUrl}
+            alt="Logo preview"
+            className="w-16 h-16 rounded-lg border border-gray-200 object-contain bg-gray-50 shrink-0"
+            onError={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = "0.3"; }}
+            data-testid="logo-preview"
+          />
+        ) : (
+          <div className="w-16 h-16 rounded-lg border border-dashed border-gray-300 bg-gray-50 flex items-center justify-center shrink-0">
+            <ImageIcon className="w-5 h-5 text-gray-300" />
           </div>
-        </div>
-        {logoError && <p className="text-xs text-red-600">{logoError}</p>}
-        <div className="flex items-center gap-3 pt-1">
-          <button
-            type="submit"
-            disabled={saveLogo.isPending}
-            className="px-4 py-2 text-sm font-medium text-white bg-[#0d3cfc] rounded-lg hover:bg-[#0b34d6] transition-colors disabled:opacity-60"
-            data-testid="button-save-logo"
-          >
-            {saveLogo.isPending ? "Saving..." : "Save Logo"}
-          </button>
-          {logoSaved && (
-            <span className="flex items-center gap-1 text-xs text-emerald-600">
-              <Check className="w-3.5 h-3.5" /> Saved
-            </span>
-          )}
+        )}
+
+        <div className="flex-1 min-w-0 space-y-3">
+          {/* Path B — file upload */}
+          <div>
+            <label className={labelClass}>Upload a file</label>
+            <label
+              className={`inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-gray-200 bg-white hover:border-[#0d3cfc]/40 cursor-pointer transition-colors ${
+                busy ? "opacity-60 pointer-events-none" : ""
+              }`}
+              data-testid="label-logo-upload"
+            >
+              {uploadLogo.isPending ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <ImageIcon className="w-4 h-4 text-gray-500" />
+              )}
+              {uploadLogo.isPending ? "Uploading…" : "Choose image"}
+              <input
+                type="file"
+                accept={LOGO_ACCEPT}
+                className="hidden"
+                onChange={handleFilePick}
+                disabled={busy}
+                data-testid="input-logo-file"
+              />
+            </label>
+            <p className="text-[10px] text-gray-400 mt-1">PNG, JPG, GIF, WEBP or SVG — up to 5 MB.</p>
+          </div>
+
+          {/* Path A — paste URL */}
+          <form onSubmit={handleSubmit}>
+            <label className={labelClass}>Or paste a logo URL</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="url"
+                placeholder="https://example.com/logo.png"
+                className={inputClass}
+                value={logoUrl}
+                onChange={(e) => setLogoUrl(e.target.value)}
+                disabled={busy}
+                data-testid="input-logo-url"
+              />
+              <button
+                type="submit"
+                disabled={busy}
+                className="px-4 py-2 text-sm font-medium text-white bg-[#0d3cfc] rounded-lg hover:bg-[#0b34d6] transition-colors disabled:opacity-60 shrink-0"
+                data-testid="button-save-logo"
+              >
+                {saveLogo.isPending ? "Saving..." : "Save"}
+              </button>
+            </div>
+          </form>
         </div>
       </div>
-    </form>
+
+      {logoError && <p className="text-xs text-red-600" data-testid="logo-error">{logoError}</p>}
+      {logoSaved && (
+        <span className="flex items-center gap-1 text-xs text-emerald-600" data-testid="logo-saved">
+          <Check className="w-3.5 h-3.5" /> Saved
+        </span>
+      )}
+    </div>
   );
 }
