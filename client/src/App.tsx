@@ -48,7 +48,6 @@ import ToolsHub from "@/pages/marketing/tools-hub";
 import SharedAuditReport from "@/pages/marketing/SharedAuditReport";
 import CompareNiceJob from "@/pages/marketing/CompareNiceJob";
 import ComparisonPage from "@/pages/marketing/ComparisonPage";
-import NewProductPage from "@/pages/products/ProductPage";
 import EffortelProductPage from "@/pages/products/EffortelProductPage";
 import SolutionPage from "@/pages/solutions/SolutionPage";
 import DemoCenter from "@/pages/demos/DemoCenter";
