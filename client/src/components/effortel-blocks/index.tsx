@@ -404,13 +404,34 @@ export function Reveal({
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true, margin: "-80px" });
   const reduced = useReducedMotion();
+  // `armed` gates the hide-then-reveal animation. The component renders its
+  // content FULLY VISIBLE on first paint — so crawlers, non-JS visitors, and
+  // the pre-hydration paint always see real content instead of an opacity-0
+  // blank section. After mount, JS arms the effect ONLY for elements that are
+  // still below the fold; on-screen elements stay visible (no flash), and
+  // below-fold elements are hidden, then animated in when scrolled into view.
+  const [armed, setArmed] = useState(false);
+  useEffect(() => {
+    // Only arm the reveal if this element is currently off-screen. Elements
+    // already in the viewport at mount keep their visible first paint.
+    const el = ref.current;
+    if (el && el.getBoundingClientRect().top > window.innerHeight) {
+      setArmed(true);
+    }
+  }, []);
+
   if (reduced) return <div style={style}>{children}</div>;
+
+  // armed && !inView → below-fold and not yet scrolled to: hidden.
+  // Everything else (pre-mount, on-screen at mount, scrolled into view): visible.
+  const hidden = armed && !inView;
   return (
     <motion.div
       ref={ref}
       style={style}
-      initial={{ opacity: 0, y: 18 }}
-      animate={inView ? { opacity: 1, y: 0 } : {}}
+      // No `initial` — first paint is the visible state, so SSR/crawler
+      // markup is never blank. `animate` then drives hide → reveal.
+      animate={hidden ? { opacity: 0, y: 18 } : { opacity: 1, y: 0 }}
       transition={{ duration: 0.55, delay, ease: [0.22, 1, 0.36, 1] }}
     >
       {children}
