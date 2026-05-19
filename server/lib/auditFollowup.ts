@@ -121,10 +121,15 @@ View your report: {{report_link}}
 
 export async function enqueueAuditFollowupSequence(ctx: AuditFollowupContext): Promise<void> {
   const now = Date.now();
+  // Match every other email lib (accountWelcomeEmail.ts, cancellationEmail.ts,
+  // etc.): APP_URL with the wefixtrades.com fallback. The previous
+  // REPLIT_DEV_DOMAIN-with-empty-fallback shipped relative, unclickable
+  // links in any environment where that var was unset.
+  const baseUrl = process.env.APP_URL || process.env.APP_PUBLIC_URL || "https://wefixtrades.com";
   const reportLink = ctx.auditReportId
-    ? `${process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : ""}/audit/report/${ctx.auditReportId}`
+    ? `${baseUrl}/audit/report/${ctx.auditReportId}`
     : "";
-  const calculatorLink = `${process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : ""}/tools/missed-call-calculator`;
+  const calculatorLink = `${baseUrl}/tools/missed-call-calculator`;
 
   const jobs: InsertAuditFollowupEmail[] = SEQUENCE.map((step) => {
     const runAt = new Date(now + step.offsetDays * 24 * 60 * 60 * 1000);
