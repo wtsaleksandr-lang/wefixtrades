@@ -1,4 +1,4 @@
-import type { Express, Request, Response, NextFunction } from "express";
+import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import { requireClient, requireClientStrict, hashPassword, verifyPassword } from "../auth";
 import { storage } from "../storage";
 import { db } from "../db";
@@ -86,6 +86,7 @@ import { getExecutionUsage } from "../services/mapguardTaskEngine";
 import { generateClientActivityFeed } from "../services/mapguardRetention";
 import { getClientPerformanceSummary } from "../services/mapguardMonitor";
 import { createLogger } from "../lib/logger";
+import { saveFile, deleteFile } from "../services/fileStorage";
 
 const log = createLogger("Portal");
 
@@ -5373,6 +5374,89 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
     } catch (err: any) {
       log.error("[portal/logo] Error:", { error: err.message });
       res.status(500).json({ error: "Failed to update logo" });
+    }
+  });
+
+  /**
+   * POST /api/portal/logo/upload
+   * Q15 (file-upload): accept a logo image file directly instead of
+   * requiring the customer to host it elsewhere. Body is a base64 JSON
+   * payload — same pattern as the admin deliverables upload
+   * (`/api/admin/crm/fulfillment/:id/deliverables`); no multer dependency.
+   * Body: { file: "base64data...", filename: "logo.png" }
+   *
+   * The file is stored via fileStorage.saveFile() under data/uploads/logos
+   * and served from the /uploads static mount (server/index.ts). The
+   * resulting public URL is persisted to clients.logo_url, replacing any
+   * previous value and deleting a previously-uploaded file.
+   *
+   * TODO(alex): in production the data/uploads directory is local to the
+   * Replit container and is wiped on redeploy. Before launch, point
+   * fileStorage at a durable bucket (Replit Object Storage via
+   * server/lib/objectStorage.ts, or set LOGO_UPLOAD_BUCKET) so customer
+   * logos survive deploys. Paste-URL logos are unaffected.
+   */
+  // The global express.json() parser defaults to a 100 KB body limit, which
+  // is far too small for a base64-encoded image. Mount a route-scoped parser
+  // with a raised limit (5 MB binary -> ~6.8 MB base64, +slack) ahead of the
+  // handler so the upload body is accepted.
+  const logoUploadBodyParser = express.json({ limit: "8mb" });
+
+  app.post("/api/portal/logo/upload", requireClientStrict, logoUploadBodyParser, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const { file, filename } = req.body ?? {};
+      if (!file || typeof file !== "string") {
+        return res.status(400).json({ error: "file (base64 string) is required" });
+      }
+      if (!filename || typeof filename !== "string") {
+        return res.status(400).json({ error: "filename is required" });
+      }
+
+      // Only allow common raster/vector image extensions.
+      const ext = (filename.match(/\.[a-z0-9]+$/i)?.[0] || "").toLowerCase();
+      const ALLOWED_EXT = [".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg"];
+      if (!ALLOWED_EXT.includes(ext)) {
+        return res.status(400).json({
+          error: "Unsupported image type — use PNG, JPG, GIF, WEBP or SVG",
+        });
+      }
+
+      const buffer = Buffer.from(file, "base64");
+      if (buffer.length === 0) {
+        return res.status(400).json({ error: "File is empty or invalid base64" });
+      }
+      // 5 MB limit — logos are small; this also bounds the JSON body size.
+      const MAX_SIZE = 5 * 1024 * 1024;
+      if (buffer.length > MAX_SIZE) {
+        return res.status(400).json({ error: "Logo exceeds 5 MB limit" });
+      }
+
+      const url = await saveFile(buffer, `logo${ext}`, "logos");
+
+      // Replace the stored reference, cleaning up a previously-uploaded file.
+      const [prev] = await db
+        .select({ logo_url: clients.logo_url })
+        .from(clients)
+        .where(eq(clients.id, clientId))
+        .limit(1);
+
+      await db.update(clients)
+        .set({ logo_url: url, updated_at: new Date() })
+        .where(eq(clients.id, clientId));
+
+      const prevUrl = prev?.logo_url;
+      if (prevUrl && prevUrl.startsWith("/uploads/logos/") && prevUrl !== url) {
+        await deleteFile(prevUrl).catch(() => {});
+      }
+
+      log.info("[portal/logo/upload] uploaded", { clientId, size: buffer.length });
+      res.status(201).json({ ok: true, logo_url: url });
+    } catch (err: any) {
+      log.error("[portal/logo/upload] Error:", { error: err.message });
+      res.status(500).json({ error: "Failed to upload logo" });
     }
   });
 }
