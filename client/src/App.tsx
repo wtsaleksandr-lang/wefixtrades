@@ -76,6 +76,7 @@ import SuppliersPage from "@/pages/admin/SuppliersPage";
 import InboxPage from "@/pages/admin/InboxPage";
 import SystemAlertsPage from "@/pages/admin/SystemAlertsPage";
 import AdminAuditLogPage from "@/pages/admin/AdminAuditLogPage";
+import AuditLeadsPage from "@/pages/admin/AuditLeadsPage";
 import AdminChatHistoryPage from "@/pages/admin/AdminChatHistoryPage";
 import PortalChatHistoryPage from "@/pages/portal/PortalChatHistoryPage";
 import IntegrationHealthPage from "@/pages/admin/IntegrationHealthPage";
@@ -172,6 +173,7 @@ function Router() {
       <Route path="/admin/crm/inbox">{() => <RequirePortal><InboxPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/alerts">{() => <RequirePortal><SystemAlertsPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/audit-log">{() => <RequirePortal><AdminAuditLogPage /></RequirePortal>}</Route>
+      <Route path="/admin/crm/audit-leads">{() => <RequirePortal><AuditLeadsPage /></RequirePortal>}</Route>
       <Route path="/admin/chat-history">{() => <RequirePortal><AdminChatHistoryPage /></RequirePortal>}</Route>
       <Route path="/admin/system/integrations">{() => <RequirePortal><IntegrationHealthPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/billing">{() => <RequirePortal><BillingPage /></RequirePortal>}</Route>

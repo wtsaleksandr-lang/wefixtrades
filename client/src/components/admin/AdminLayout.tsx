@@ -35,6 +35,7 @@ import {
   AlertTriangle,
   Phone,
   FileText,
+  ClipboardList,
   ServerCog,
   Bell,
 } from "lucide-react";
@@ -95,6 +96,7 @@ const FINANCE_ITEMS = [
   { label: "Billing", href: "/admin/crm/billing", icon: CreditCard },
   { label: "Suppliers", href: "/admin/crm/suppliers", icon: Factory },
   { label: "Sales", href: "/admin/crm/sales", icon: Target },
+  { label: "Audit Leads", href: "/admin/crm/audit-leads", icon: ClipboardList },
 ];
 
 const OUTBOUND_ITEMS = [
