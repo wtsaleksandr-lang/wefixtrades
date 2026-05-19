@@ -8,6 +8,7 @@ import { createPortal } from 'react-dom';
 import { platformTheme as p } from '@/theme/platformTheme';
 import { dashboardTheme as d } from '@/theme/dashboardTheme';
 import { validateFormula, runCalculations, type FormulaContext } from '@shared/formulaEngine';
+import { WIDGET_THEME_LIST } from '@/components/quote-widget/widgetThemes';
 import {
   Plus, Trash2, ChevronLeft, Hash, SlidersHorizontal, List, CircleDot,
   CheckSquare, ToggleLeft, Type, Sigma, Eye, Sparkles, Loader2,
@@ -42,7 +43,7 @@ interface AdvHeader { title?: string; subtitle?: string; align?: HeaderAlign; }
 interface AdvResults { heading?: string; footnote?: string; show_breakdown?: boolean; }
 export interface AdvancedConfigData {
   enabled?: boolean; fields?: AdvField[]; calculations?: AdvCalc[]; result_calc?: string;
-  header?: AdvHeader; results?: AdvResults;
+  header?: AdvHeader; results?: AdvResults; theme?: string;
 }
 
 interface Props {
@@ -520,6 +521,35 @@ export default function AdvancedBuilder({ advanced, onChange, onExitAdvanced }: 
           </select>
         </div>
       )}
+
+      {/* ─── Theme ─── */}
+      <div style={{ margin: '22px 0 10px' }}><SectionLabel>Theme</SectionLabel></div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }} data-testid="adv-theme-picker">
+        {WIDGET_THEME_LIST.map((t) => {
+          const active = (advanced.theme || 'light') === t.id;
+          return (
+            <button key={t.id} type="button" data-testid={`adv-theme-${t.id}`}
+              onClick={() => patch({ theme: t.id })}
+              style={{
+                display: 'flex', flexDirection: 'column', gap: 6, padding: 8, cursor: 'pointer',
+                borderRadius: d.radius.card, background: d.colors.card, border: 'none',
+                boxShadow: active ? `0 0 0 2px ${p.colors.accent}, ${d.shadows.card}` : d.shadows.card,
+              }}>
+              <div style={{
+                display: 'flex', width: 76, height: 40, borderRadius: 7, overflow: 'hidden',
+                border: `1px solid ${p.colors.borderLight}`,
+              }}>
+                <div style={{ flex: 1.6, background: t.surface }} />
+                <div style={{ flex: 1, background: t.result }} />
+              </div>
+              <span style={{
+                fontSize: 11.5, fontWeight: 600, textAlign: 'center',
+                color: active ? p.colors.accentDark : p.colors.body,
+              }}>{t.name}</span>
+            </button>
+          );
+        })}
+      </div>
 
       {/* ─── Header ─── */}
       <div style={{ margin: '22px 0 10px' }}><SectionLabel>Header</SectionLabel></div>
