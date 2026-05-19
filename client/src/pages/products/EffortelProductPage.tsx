@@ -91,7 +91,7 @@ const HERO_HOOKS: Record<string, { eyebrow: string; headline: ReactNode; sub: st
   adflow: {
     eyebrow: "Most trade businesses pay $80+ per Google Ads lead. There's a way down to $20.",
     headline: <>Real ads.<br/><span style={{ color: mkt.accent }}>Real ROI.</span></>,
-    sub: "Google + Meta campaigns managed by humans + AI. Weekly tuning. Plain-English reports — no agency-speak.",
+    sub: "Google + Meta campaigns run by a vetted ad-agency partner. Weekly tuning. Plain-English reports — no agency-speak.",
   },
   bookflow: {
     eyebrow: "Phone tag is the silent revenue killer.",

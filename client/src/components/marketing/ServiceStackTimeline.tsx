@@ -58,8 +58,8 @@ const SERVICES: Service[] = [
   {
     number: "03",
     product: "AdFlow",
-    title: "Real ads. Real humans tuning bids. Real ROI in your inbox.",
-    hook: "Google + Meta campaigns managed by our team. Weekly tuning, swap creative, pause losers. Reports you can read — no agency-speak.",
+    title: "Real ads. A vetted agency tuning bids. Real ROI in your inbox.",
+    hook: "Google + Meta campaigns run by a vetted ad-agency partner. Weekly tuning, swap creative, pause losers. Reports you can read — no agency-speak.",
     href: "/products/adflow",
     icon: Megaphone,
     bullets: ["Cost-per-lead drops weekly", "Trade-buyer creative", "Plain-English reports"],

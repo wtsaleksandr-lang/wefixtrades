@@ -723,7 +723,7 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
     {
       number: "01",
       title: "Google Ads, Run For You",
-      description: "Real campaigns, managed by humans + AI. We tune bids, swap creative, and pause losers — every week.",
+      description: "Real campaigns, run by a vetted ad-agency partner. They tune bids, swap creative, and pause losers — every week.",
       cta: { label: "Learn More", href: "/products/adflow" },
       mockup: (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr", gap: 32, maxWidth: 880, width: "100%", alignItems: "center" }} className="effortel-grid-2">
