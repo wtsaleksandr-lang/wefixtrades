@@ -156,7 +156,7 @@ export default function QuoteWidget({ calculator, isEmbed = false }: QuoteWidget
           <div
             className="mx-auto w-full"
             style={{
-              maxWidth: '576px',
+              maxWidth: '720px',
               fontFamily: eff.font,
               color: eff.text,
             }}

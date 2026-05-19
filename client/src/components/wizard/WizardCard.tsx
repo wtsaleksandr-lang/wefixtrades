@@ -271,9 +271,12 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
       });
       return;
     }
-    // Blank — keep the chosen layout with no presets.
+    // Blank — keep the chosen layout with no presets. Clear any `advanced`
+    // preset left over from a previously-selected themed template, so the
+    // preview renders a real, plain default calculator (#7).
     set('calculatorSettings', {
       ...ws.calculatorSettings,
+      advanced: undefined as any,
       ui_template: {
         ...ws.calculatorSettings.ui_template,
         template_id: id,
@@ -1695,34 +1698,53 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
             <div className="wizard-preview-stage">
             {/* Device toggle moved to the top navbar (compact step rail). */}
 
-            {/* Stage surface — the real QuoteWidget, centred on a preview canvas */}
+            {/* Stage surface — the real QuoteWidget, framed as a live embed.
+                Desktop: a wide browser-chrome card. Mobile: a phone shell. */}
             <div
               className="widget-scope"
               style={{
-                padding: previewDevice === 'mobile' ? '4px 20px 24px' : '4px 24px 24px',
-                /* Template step stacks the preview above the form — keep it
-                   compact so the template strip stays near the fold. */
+                width: '100%', padding: '8px 8px 28px',
                 minHeight: step === 6 ? 0 : 430,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}
             >
               {previewDevice === 'mobile' ? (
                 <div style={{
-                  maxWidth: 386, margin: '0 auto',
-                  background: '#0b1120', borderRadius: 42, padding: 12,
-                  border: '1px solid rgba(255,255,255,0.09)',
-                  boxShadow: '0 14px 32px rgba(20,30,45,0.22)',
+                  width: '100%', maxWidth: 392, flexShrink: 0, margin: '0 auto',
+                  background: 'linear-gradient(160deg, #1e293b, #0f172a)',
+                  borderRadius: 44, padding: '12px 10px',
+                  boxShadow: '0 22px 48px rgba(15,23,42,0.30), inset 0 0 0 1px rgba(255,255,255,0.06)',
                 }}>
-                  <div style={{ borderRadius: 31, overflow: 'hidden', background: '#fff' }}>
+                  <div style={{ height: 5, width: 42, borderRadius: 3, background: 'rgba(255,255,255,0.22)', margin: '0 auto 9px' }} />
+                  <div style={{ borderRadius: 34, overflow: 'hidden', background: '#fff' }}>
                     <QuoteWidget calculator={previewCalculatorData} isEmbed />
                   </div>
                 </div>
               ) : (
                 <div style={{
-                  width: '100%', maxWidth: 720, margin: '0 auto',
+                  width: '100%', maxWidth: 820, margin: '0 auto',
                   borderRadius: 16, overflow: 'hidden', background: '#fff',
-                  boxShadow: d.shadows.cardHover,
+                  border: `1px solid ${p.colors.borderLight}`,
+                  boxShadow: '0 20px 48px rgba(15,23,42,0.16), 0 2px 8px rgba(15,23,42,0.06)',
                 }}>
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: 7,
+                    padding: '9px 14px', background: '#fbfcfd',
+                    borderBottom: `1px solid ${p.colors.borderLight}`,
+                  }}>
+                    <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#f87171' }} />
+                    <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#fbbf24' }} />
+                    <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#34d399' }} />
+                    <div style={{
+                      flex: 1, maxWidth: 300, margin: '0 auto', textAlign: 'center',
+                      fontSize: 11, fontWeight: 500, color: p.colors.subtle,
+                      background: '#fff', border: `1px solid ${p.colors.borderLight}`,
+                      borderRadius: 999, padding: '3px 12px',
+                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    }}>
+                      {(ws.businessName || 'your-business').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 28)}.your-quote.net
+                    </div>
+                  </div>
                   <QuoteWidget calculator={previewCalculatorData} isEmbed />
                 </div>
               )}
@@ -1855,15 +1877,15 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
         .wizard-step-sub { font-size: 13px; line-height: 1.5; color: ${p.colors.muted}; margin: 0; }
         .wizard-preview-fixed {
           flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center;
-          padding: 10px; box-sizing: border-box;
-          background: ${d.colors.panel};
+          padding: 20px; box-sizing: border-box;
+          background: radial-gradient(120% 80% at 50% 0%, #f4f6f9 0%, ${d.colors.panel} 72%);
           height: 100%; overflow-y: auto;
         }
-        /* Light preview column — no dark frame; the calculator card sits
-           directly on the panel grey (one preview, on-lock). */
+        /* Preview canvas — the calculator is framed as a real embed:
+           a browser-chrome card on desktop, a phone shell on mobile. */
         .wizard-preview-stage {
-          width: 100%; max-width: 820px; display: flex; flex-direction: column;
-          background: transparent;
+          width: 100%; max-width: 920px; display: flex; flex-direction: column;
+          align-items: center; background: transparent;
         }
         .wizard-no-preview .wizard-left { width: 100%; border-right: none; }
 
