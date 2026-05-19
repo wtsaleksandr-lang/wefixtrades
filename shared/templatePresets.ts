@@ -74,6 +74,15 @@ export interface TemplateField {
   id: string; name: string; label: string; type: FieldType;
   required?: boolean; default_value?: number; min?: number; max?: number;
   step?: number; unit?: string; on_value?: number; options?: TemplateOption[];
+  /**
+   * Optional layout hint — column span inside the inputs grid. `1` (default)
+   * means the field occupies one grid column; `2` makes it span the full
+   * width. Combined with the natural auto-fit grid this lets two short
+   * fields sit side-by-side on a single row without disturbing other
+   * templates (which simply leave it unset). Mobile (<=480px) always
+   * collapses to a single column regardless.
+   */
+  colSpan?: 1 | 2;
 }
 
 export interface TemplateCalculation {
@@ -592,22 +601,25 @@ export function buildBlankPreviewConfig(
 ): AdvancedConfigShape & { __preview: true } {
   // Leave `header.title` blank so the renderer falls back to the live
   // `calculator.business_name` (which updates as the user types), keeping the
-  // preview header reactive.
+  // preview header reactive. No `subtitle` — Wave G removed the auto-subtitle
+  // from the placeholder so the preview header reads as a single clean line.
+  // Service type + Quantity share a row (`colSpan: 1`); Add-ons spans the
+  // full width below them.
   return {
     enabled: true,
     theme: 'light',
     layout,
     fields: [
-      { id: 'service', name: 'Service', label: 'Service type', type: 'select',
+      { id: 'service', name: 'Service', label: 'Service type', type: 'select', colSpan: 1,
         options: [opt('Standard', 100), opt('Premium', 180), opt('Deluxe', 260)] },
-      { id: 'quantity', name: 'Quantity', label: 'How many?', type: 'number',
+      { id: 'quantity', name: 'Quantity', label: 'Quantity', type: 'number', colSpan: 1,
         min: 1, max: 50, step: 1, default_value: 1 },
-      { id: 'addons', name: 'Add-ons', label: 'Add-ons', type: 'multi_select',
+      { id: 'addons', name: 'Add-ons', label: 'Add-ons', type: 'multi_select', colSpan: 2,
         options: [opt('Express', 40), opt('Materials', 60), opt('Warranty', 25)] },
     ],
     calculations: [calc('Estimated Total', '[Service] * [Quantity] + [Add-ons]')],
     result_calc: 'Estimated Total',
-    header: { title: '', subtitle: 'A quick preview — pick a template above to customise.', align: 'left' },
+    header: { title: '', align: 'left' },
     results: { footnote: 'Preview only — your real numbers appear once you set pricing.' },
     __preview: true,
   } as AdvancedConfigShape & { __preview: true };

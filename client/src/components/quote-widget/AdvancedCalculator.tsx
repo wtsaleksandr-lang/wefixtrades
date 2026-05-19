@@ -33,6 +33,8 @@ interface AdvField {
   on_value?: number;
   options?: AdvOption[];
   visible_when?: { field: string; op: string; value: number };
+  /** Optional grid column span (1 = half width, 2 = full width). */
+  colSpan?: 1 | 2;
 }
 interface AdvCalc { id: string; name: string; formula: string; format: 'number' | 'currency' | 'percent'; }
 interface AdvHeader { title?: string; subtitle?: string; align?: 'left' | 'center' | 'right'; }
@@ -287,9 +289,16 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
         .${gridId}-fields {
           display: grid;
           gap: 12px;
-          grid-template-columns: 1fr;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
           align-content: start;
           min-width: 0;
+        }
+        .${gridId}-fields > * { grid-column: span 2; min-width: 0; }
+        .${gridId}-fields > [data-colspan="1"] { grid-column: span 1; }
+        /* Very narrow screens — collapse all fields to a single column so a
+           pair of side-by-side inputs stack cleanly on the smallest phones. */
+        @media (max-width: 360px) {
+          .${gridId}-fields > [data-colspan="1"] { grid-column: span 2; }
         }
         .${gridId}-result { align-self: start; min-width: 0; }
         @media (min-width: 560px) {
@@ -301,6 +310,7 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
             grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
             gap: 12px;
           }
+          .${gridId}[data-layout="multi-column"] .${gridId}-fields > * { grid-column: auto; }
         }
       `}</style>
       <div className={gridId} data-layout={layout} data-testid="advanced-body"
@@ -313,8 +323,10 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
             </p>
           )}
           {visibleFields.map((f) => (
-            <FieldInput key={f.id} field={f} value={answers[f.name]} accent={accent} theme={c}
-              onChange={(v) => setAnswer(f.name, v)} />
+            <div key={f.id} data-colspan={f.colSpan === 1 ? '1' : '2'} style={{ minWidth: 0 }}>
+              <FieldInput field={f} value={answers[f.name]} accent={accent} theme={c}
+                onChange={(v) => setAnswer(f.name, v)} />
+            </div>
           ))}
         </div>
 
