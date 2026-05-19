@@ -12,7 +12,6 @@ import PricingIntakeStage2 from './PricingIntakeStage2';
 import TestGateStep, { type TestGateResult } from './TestGateStep';
 import LeadFormStep from './LeadFormStep';
 import PublishStep from './PublishStep';
-import TemplatePickerStep from './TemplatePickerStep';
 import PricingBuildStep from './PricingBuildStep';
 import WizardSecondaryNav, { type SecondarySection } from './WizardSecondaryNav';
 import { trackEvent } from '@/lib/trackEvent';
@@ -20,7 +19,8 @@ import QuoteWidget from '@/components/quote-widget/QuoteWidget';
 import type { CalculatorData } from '@/components/quote-widget/types';
 import { mapPricingIntakeToConfig } from '@shared/pricingIntakeMapper';
 import { getRecommendedTemplate, getTemplateById } from '@shared/templateLibrary';
-import { getTemplatePreset, toAdvancedConfig, type TemplateLayout } from '@shared/templatePresets';
+import { getTemplatePreset, toAdvancedConfig, normalizeLayout, type TemplateLayout } from '@shared/templatePresets';
+import BuilderStep1 from './BuilderStep1';
 import {
   Loader2, ArrowRight, ArrowLeft, Check, Sparkles, Wrench, Hammer,
   Layers, AlertTriangle, Car, Briefcase, Plus, HelpCircle, X,
@@ -131,42 +131,45 @@ function loadStep(): number {
 
 const p = platformTheme;
 const d = dashboardTheme;
-// Linear flow: Step 0 (trade) → Step 2 (pricing) → Step 3 (contact form)
+// Linear flow: Step 0 (Start — business name, layout, template gallery, trade)
+//            → Step 2 (pricing) → Step 3 (contact form)
 //            → Step 1 (customize & publish) → Step 5 (result).
-// Step 4 (test gate) is off-path / unused.
-const TOTAL_STEPS = 6; // Trade · Template · Pricing · Contact · Branding.
+// Step 4 (test gate) is off-path / unused. Step 6 (the old standalone template
+// picker) is RETIRED — the gallery now lives inside Step 0 (BuilderStep1).
+const TOTAL_STEPS = 5; // Start · Design · Logic · CTA · Install.
 
 // 1-based visual step for the progress display. The published result screen
 // is `TOTAL_STEPS + 1` so the counter reads "Published" rather than a step number.
 function visualStep(internalStep: number): number {
-  if (internalStep === 0) return 1; // Business info
-  if (internalStep === 6) return 2; // Templates
-  if (internalStep === 1) return 3; // Design
-  if (internalStep === 2) return 4; // Logic
-  if (internalStep === 3) return 5; // CTA & Marketing
-  if (internalStep === 4) return 6; // Test gate (off-path)
-  if (internalStep === 5) return 6; // Installation / go-live
+  if (internalStep === 0) return 1; // Start — business + layout + template
+  if (internalStep === 1) return 2; // Design
+  if (internalStep === 2) return 3; // Logic
+  if (internalStep === 3) return 4; // CTA & Marketing
+  if (internalStep === 4) return 5; // Test gate (off-path)
+  if (internalStep === 5) return 5; // Installation / go-live
   return internalStep;
 }
 
 // Visual step (1-based) -> internal step id. Used by the clickable top nav.
-const VISUAL_TO_INTERNAL = [0, 6, 1, 2, 3, 5];
+const VISUAL_TO_INTERNAL = [0, 1, 2, 3, 5];
 
-const STEP_HINTS = [
-  'Next: pick a template',
-  'Next: set your pricing',
-  'Next: set up your contact form',
-  'Next: install & go live',
-  'Publishing your calculator...',
-  '',
-];
-const STEP_TIME = ['~1 min', '', '~1 min', '', '', ''];
+// Keyed by INTERNAL step id (0 Start · 1 Design · 2 Logic · 3 CTA · 5 Install).
+// Flow order: 0 → 1 → 2 → 3 → 5.
+const STEP_HINTS: Record<number, string> = {
+  0: 'Next: customize your design',
+  1: 'Next: set your pricing',
+  2: 'Next: set up your contact form',
+  3: 'Next: install & go live',
+  5: '',
+};
+const STEP_TIME = ['~1 min', '', '', '', ''];
 
 // 2nd-bar contextual sections, keyed by INTERNAL step id. Steps with fewer
 // than 2 entries render no 2nd bar (WizardSecondaryNav returns null).
 const SECONDARY_SECTIONS: Record<number, SecondarySection[]> = {
   0: [
-    { id: 'business', label: 'Business', target: '#wiz-sec-business', Icon: Building2 },
+    { id: 'business', label: 'Business', target: '[data-testid="input-business-name"]', Icon: Building2 },
+    { id: 'template', label: 'Template', target: '[data-testid="layout-selector"]', Icon: Layers },
     { id: 'trade', label: 'Trade', target: '#wiz-sec-trade', Icon: Briefcase },
     { id: 'contact', label: 'Contact', target: '#wiz-sec-contact', Icon: Mail },
   ],
@@ -189,7 +192,9 @@ const SECONDARY_SECTIONS: Record<number, SecondarySection[]> = {
 export default function WizardCard({ embed = false }: { embed?: boolean }) {
   const savedResult = loadResult();
   const savedStep = loadStep();
-  const [step, setStep] = useState(savedResult && savedStep === 5 ? 5 : ([0, 1, 2, 3, 6].includes(savedStep) ? savedStep : 0));
+  // Step 6 (the retired standalone template picker) folds back into Step 0.
+  const normalizedSavedStep = savedStep === 6 ? 0 : savedStep;
+  const [step, setStep] = useState(savedResult && normalizedSavedStep === 5 ? 5 : ([0, 1, 2, 3].includes(normalizedSavedStep) ? normalizedSavedStep : 0));
   // 2nd-bar contextual section state.
   const [activeSection, setActiveSection] = useState('');
   useEffect(() => {
@@ -261,6 +266,31 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
   // schema-valid even though the advanced renderer reads `advanced.layout`.
   const layoutToStepperStyle = (l: TemplateLayout): 'single_page' | 'two_column' | 'multi_step' =>
     l === 'two-column' ? 'two_column' : l === 'multi-column' ? 'multi_step' : 'single_page';
+
+  // The currently-selected `TemplateLayout` — read from `advanced.layout` if a
+  // themed template is applied, otherwise coerced from the legacy stepper style.
+  // Drives BuilderStep1's compact layout selector + the live preview.
+  const currentLayout: TemplateLayout = normalizeLayout(
+    (ws.calculatorSettings.advanced as any)?.layout
+    ?? ws.calculatorSettings.ui_template?.layout?.style,
+  );
+
+  // Layout-only change (no template) — keeps the gallery filtered and drives
+  // the live preview. Mirrors the "blank" branch of handleTemplateSelect.
+  const handleLayoutChange = (layout: TemplateLayout) => {
+    set('calculatorSettings', {
+      ...ws.calculatorSettings,
+      advanced: undefined as any,
+      ui_template: {
+        ...ws.calculatorSettings.ui_template,
+        layout: {
+          ...ws.calculatorSettings.ui_template?.layout,
+          style: layoutToStepperStyle(layout),
+          sticky_summary: layout === 'two-column',
+        },
+      },
+    });
+  };
 
   const handleTemplateSelect = (id: string, layout: TemplateLayout) => {
     // A themed template — drop its whole preset config into the calculator.
@@ -443,7 +473,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
       if (ws.isCustomTrade && ws.customTradeData.charge_method === 'not_sure') {
         triggerPricingDraft();
       }
-      setStep(6); // Flow: trade → template
+      setStep(1); // Flow: Start (business + template + trade) → Design
     }
   };
 
@@ -915,7 +945,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
       <WizardNav current={visualStep(step)} onHelp={() => setShowHelp(true)} justSaved={justSaved}
         onNavigate={(v) => setStep(VISUAL_TO_INTERNAL[v - 1])}
         device={previewDevice} onDeviceChange={setPreviewDevice} showDevice={showSidePreview} />
-      <div className={`wizard-shell-body ${showSidePreview ? '' : 'wizard-no-preview'} ${step === 6 ? 'wizard-template-mode' : ''}`}>
+      <div className={`wizard-shell-body ${showSidePreview ? '' : 'wizard-no-preview'}`}>
         <WizardSecondaryNav
           sections={SECONDARY_SECTIONS[step] || []}
           active={activeSection}
@@ -925,20 +955,26 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
           <div className="wizard-left-inner">
 
 
-        {/* Step 0: Business & Trade Setup */}
+        {/* Step 0 (visual Step 1): Start — business name, layout, template
+           gallery, then trade picker + email. One screen; BuilderStep1 owns
+           the business name / layout / gallery; the trade picker + email are
+           passed in as children so later steps keep working unchanged. */}
         {step === 0 && (
-          <div className="animate-fade-in-up wizard-step-fill">
-            <div id="wiz-sec-business" style={{ scrollMarginTop: 16 }} />
-            <InputField
-              id="business-name" testId="input-business-name"
-              label="Business Name" required
-              value={ws.businessName} onChange={v => set('businessName', v)}
-              placeholder="e.g. Metro Plumbing Co."
-              error={validationErrors.businessName}
-            />
-
+          <BuilderStep1
+            businessName={ws.businessName}
+            onBusinessNameChange={v => set('businessName', v)}
+            businessNameError={validationErrors.businessName}
+            selectedTemplateId={ws.calculatorSettings.ui_template?.template_id || 'blank'}
+            selectedLayout={currentLayout}
+            onSelect={handleTemplateSelect}
+            onLayoutChange={handleLayoutChange}
+            footer={
+              <Footer onBack={undefined} onNext={tryStep0Continue} onSave={handleManualSave}
+                nextDisabled={false} backDisabled hint={STEP_HINTS[0]} />
+            }
+          >
             <div id="wiz-sec-trade" style={{ scrollMarginTop: 16 }} />
-            <div style={{ marginTop: '10px', marginBottom: '10px' }}>
+            <div style={{ marginTop: '22px', marginBottom: '10px' }}>
               <label style={{ ...p.typography.label, display: 'block', marginBottom: '4px' }}>
                 What kind of work do you do? <span style={{ color: p.colors.danger }}>*</span>
               </label>
@@ -1101,9 +1137,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                 error={validationErrors.ownerEmail} />
             </div>
 
-            <Footer onBack={undefined} onNext={tryStep0Continue} onSave={handleManualSave}
-              nextDisabled={false} backDisabled hint={STEP_HINTS[0]} />
-          </div>
+          </BuilderStep1>
         )}
 
         {/* Step 1: Preview & Polish (side panel shows live preview on desktop) */}
@@ -1335,19 +1369,8 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                 onChange={(newSettings) => set('calculatorSettings', newSettings)}
               />
             </details>
-            <Footer onBack={() => setStep(6)} onNext={() => setStep(2)} onSave={handleManualSave} hint={STEP_HINTS[1]} />
+            <Footer onBack={() => setStep(0)} onNext={() => setStep(2)} onSave={handleManualSave} hint={STEP_HINTS[1]} />
           </div>
-        )}
-
-        {/* Step 6 (visual step 2): Template picker */}
-        {step === 6 && (
-          <TemplatePickerStep
-            selectedId={ws.calculatorSettings.ui_template?.template_id || 'classic_single'}
-            onSelect={handleTemplateSelect}
-            onBack={() => setStep(0)}
-            onContinue={() => setStep(1)}
-            onSave={handleManualSave}
-          />
         )}
 
         {/* Step 2: Pricing Logic */}
@@ -1710,7 +1733,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
               className="widget-scope"
               style={{
                 width: '100%', padding: '8px 8px 28px',
-                minHeight: step === 6 ? 0 : 430,
+                minHeight: 430,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}
             >
@@ -2232,10 +2255,10 @@ function GeneratingAnimation({ progress, businessName }: { progress: number; bus
 
 
 /* ─── Top step navbar (app-shell chrome) ─── */
-// 5-step target model: Trade · Template · Pricing · Branding · Go live.
-// Stage 1 wires the layout for today's 4 build steps; Template + Go-live
-// land as their own stages.
-const NAV_STEPS = ['Business', 'Templates', 'Design', 'Logic', 'CTA & Marketing', 'Install'];
+// 5-step model: Start · Design · Logic · CTA & Marketing · Install.
+// "Start" collapses the old separate Business + Templates steps into one
+// screen (BuilderStep1): business name, layout, template gallery, trade.
+const NAV_STEPS = ['Start', 'Design', 'Logic', 'CTA & Marketing', 'Install'];
 
 function WizardNav({ current, onHelp, justSaved, onNavigate, device, onDeviceChange, showDevice }: {
   current: number; onHelp: () => void; justSaved?: boolean;

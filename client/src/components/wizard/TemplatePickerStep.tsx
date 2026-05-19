@@ -23,8 +23,9 @@ interface Props {
   onSave?: () => void;
 }
 
-/* Stylised mini-mockup of a layout / template. */
-function Mockup({ layout, blank }: { layout: TemplateLayout; blank?: boolean }) {
+/* Stylised mini-mockup of a layout / template. Exported so the rebuilt
+   builder Step 1 (BuilderStep1) reuses the exact same visual language. */
+export function Mockup({ layout, blank }: { layout: TemplateLayout; blank?: boolean }) {
   const bar = (w: string, h = 7, c = '#cdd5e0') => (
     <div style={{ width: w, height: h, borderRadius: 3, background: c }} />
   );
@@ -68,8 +69,9 @@ function Mockup({ layout, blank }: { layout: TemplateLayout; blank?: boolean }) 
   );
 }
 
-/* A selectable card (used for both layouts and templates). */
-function PickCard({ testId, active, mockup, name, desc, onClick }: {
+/* A selectable card (used for both layouts and templates). Exported for reuse
+   by the rebuilt builder Step 1 (BuilderStep1). */
+export function PickCard({ testId, active, mockup, name, desc, onClick }: {
   testId: string; active: boolean; mockup: React.ReactNode;
   name: string; desc: string; onClick: () => void;
 }) {
