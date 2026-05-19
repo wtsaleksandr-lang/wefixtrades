@@ -94,10 +94,10 @@ export const dashboardTheme = {
 
   /** "Split bars and sections" layout metrics. */
   layout: {
-    shellPad: '16px',   // bare canvas around the whole shell
-    panelGap: '14px',   // gap between the header bar and the main panel
-    panelPad: '24px',   // inner padding of a panel / content area
-    cardGap: '12px',    // gap between stacked content cards
+    shellPad: '8px',    // bare canvas around the whole shell
+    panelGap: '8px',    // gap between the header bar and the main panel
+    panelPad: '12px',   // inner padding of a panel / content area
+    cardGap: '6px',     // gap between stacked content cards
     railWidth: '76px',  // icon-only nav rail width
   },
 

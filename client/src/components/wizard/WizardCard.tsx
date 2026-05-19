@@ -912,14 +912,14 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
             />
 
             <div id="wiz-sec-trade" style={{ scrollMarginTop: 16 }} />
-            <div style={{ marginTop: '20px', marginBottom: '10px' }}>
+            <div style={{ marginTop: '10px', marginBottom: '10px' }}>
               <label style={{ ...p.typography.label, display: 'block', marginBottom: '4px' }}>
                 What kind of work do you do? <span style={{ color: p.colors.danger }}>*</span>
               </label>
             </div>
 
             {/* Trade search — find your trade instantly */}
-            <div style={{ marginBottom: '14px', position: 'relative' }}>
+            <div style={{ marginBottom: '7px', position: 'relative' }}>
               <div style={{ position: 'relative' }}>
                 <Search style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', width: '16px', height: '16px', color: p.colors.subtle }} />
                 <input
@@ -977,7 +977,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                 <p style={{ fontSize: '12px', color: p.colors.subtle, marginBottom: '8px' }}>Or browse by category:</p>
               </div>
             )}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px', marginBottom: '16px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px', marginBottom: '8px' }}>
               {CATEGORIES.map((cat) => {
                 const Icon = ICON_MAP[cat.icon] || Plus;
                 const sel = ws.selectedCategory === cat.id;
@@ -1067,7 +1067,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
             )}
 
             <div id="wiz-sec-contact" style={{ scrollMarginTop: 16 }} />
-            <div style={{ marginTop: '18px' }}>
+            <div style={{ marginTop: '9px' }}>
               <InputField id="owner-email" testId="input-owner-email"
                 label="Your Email" sublabel="(for lead notifications)" type="email" required
                 value={ws.ownerEmail} onChange={v => set('ownerEmail', v)}
@@ -1089,11 +1089,11 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
 
             {/* Quick customization */}
             <div id="wiz-sec-branding" style={{ scrollMarginTop: 16 }} />
-            <div className="animate-fade-in-up" style={{ marginBottom: '20px' }}>
-              <label style={{ ...p.typography.label, display: 'block', marginBottom: '12px' }}>
+            <div className="animate-fade-in-up" style={{ marginBottom: '10px' }}>
+              <label style={{ ...p.typography.label, display: 'block', marginBottom: '6px' }}>
                 Brand Color
               </label>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '9px', alignItems: 'center', marginBottom: '20px' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '9px', alignItems: 'center', marginBottom: '10px' }}>
                 {['#0284C7', '#0ea5e9', '#2563EB', '#059669', '#f59e0b', '#ef4444', '#7C3AED', '#ec4899'].map(color => {
                   const selected = ws.primaryColor === color;
                   return (
@@ -1140,13 +1140,13 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                 })()}
               </div>
 
-              <div style={{ marginBottom: '18px' }}>
+              <div style={{ marginBottom: '9px' }}>
                 <label style={{ ...p.typography.label, display: 'block', marginBottom: '8px' }}>
                   Brand Logo <span style={{ fontWeight: 400, color: p.colors.subtle, textTransform: 'none', fontSize: '11px' }}>(optional)</span>
                 </label>
                 {ws.logoUrl ? (
                   <div style={{
-                    display: 'flex', alignItems: 'center', gap: '12px',
+                    display: 'flex', alignItems: 'center', gap: '6px',
                     padding: '12px 16px', borderRadius: p.radius.md,
                     border: `1px solid ${p.colors.border}`, background: p.colors.surfaceRaised,
                   }}>
@@ -1175,7 +1175,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                 {logoError && <p data-testid="text-logo-error" style={{ fontSize: '12px', color: p.colors.danger, marginTop: '6px' }}>{logoError}</p>}
               </div>
 
-              <div style={{ marginBottom: '18px' }}>
+              <div style={{ marginBottom: '9px' }}>
                 <label htmlFor="tagline" style={{ ...p.typography.label, display: 'block', marginBottom: '8px' }}>
                   Tagline <span style={{ fontWeight: 400, color: p.colors.subtle, textTransform: 'none', fontSize: '11px' }}>(optional)</span>
                 </label>
@@ -1194,7 +1194,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
             {/* Offers & call-to-action */}
             <div id="wiz-sec-offers" style={{ scrollMarginTop: 16 }} />
             <div style={{
-              marginTop: '4px', marginBottom: '18px', padding: '16px',
+              marginTop: '4px', marginBottom: '9px', padding: '16px',
               borderRadius: p.radius.md, border: `1px solid ${p.colors.borderLight}`,
               background: p.colors.surfaceRaised,
             }}>
@@ -1217,7 +1217,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                 className="premium-input"
               />
 
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', marginTop: '14px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', marginTop: '7px' }}>
                 <input
                   type="checkbox" data-testid="toggle-upsell"
                   checked={ws.calculatorSettings?.conversion?.show_upsell === true}
@@ -1285,7 +1285,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
             {ws.isCustomTrade ? (
               <>
                 {ws.customTradeData.charge_method !== 'not_sure' && (
-                  <div style={{ marginBottom: '20px' }}>
+                  <div style={{ marginBottom: '10px' }}>
                     <PricingIntakeStage2
                       stage1={ws.customTradeData}
                       data={ws.stage2Data}
@@ -1313,7 +1313,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                   <div>
                     <div style={{
                       padding: '16px', borderRadius: p.radius.md,
-                      background: '#F0FDF4', border: '1px solid #BBF7D0', marginBottom: '16px',
+                      background: '#F0FDF4', border: '1px solid #BBF7D0', marginBottom: '8px',
                       display: 'flex', alignItems: 'flex-start', gap: '10px',
                     }}>
                       <CheckCircle2 style={{ width: '18px', height: '18px', color: '#059669', flexShrink: 0, marginTop: '1px' }} />
@@ -1330,11 +1330,11 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                       </div>
                     </div>
 
-                    <div style={{ padding: '16px', borderRadius: p.radius.md, border: `1px solid ${p.colors.border}`, background: '#FFFFFF', marginBottom: '16px' }}>
+                    <div style={{ padding: '16px', borderRadius: p.radius.md, border: `1px solid ${p.colors.border}`, background: '#FFFFFF', marginBottom: '8px' }}>
                       <p style={{ fontSize: '11px', fontWeight: 700, color: p.colors.subtle, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '10px' }}>
                         Pricing Family
                       </p>
-                      <p style={{ fontSize: '14px', fontWeight: 500, color: p.colors.heading, marginBottom: '16px' }}>
+                      <p style={{ fontSize: '14px', fontWeight: 500, color: p.colors.heading, marginBottom: '8px' }}>
                         {ws.calculatorSettings.pricing_draft?.pricing_config?.pricingType || 'Custom'}
                       </p>
 
@@ -1367,7 +1367,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                   <div>
                     <div style={{
                       padding: '16px', borderRadius: p.radius.md,
-                      background: '#FEF3C7', border: '1px solid #FDE68A', marginBottom: '16px',
+                      background: '#FEF3C7', border: '1px solid #FDE68A', marginBottom: '8px',
                       display: 'flex', alignItems: 'flex-start', gap: '10px',
                     }}>
                       <TriangleAlert style={{ width: '18px', height: '18px', color: '#D97706', flexShrink: 0, marginTop: '1px' }} />
@@ -1392,15 +1392,15 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                   <div style={{ padding: '8px 0' }}>
                     <div style={{
                       padding: '16px', borderRadius: p.radius.md,
-                      border: `1px solid ${p.colors.border}`, background: '#FFFFFF', marginBottom: '20px',
+                      border: `1px solid ${p.colors.border}`, background: '#FFFFFF', marginBottom: '10px',
                     }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
                         <FileText style={{ width: '16px', height: '16px', color: p.colors.accent }} />
                         <p style={{ fontSize: '14px', fontWeight: 600, color: p.colors.heading, margin: 0 }}>
                           Sample Quotes <span style={{ fontSize: '12px', fontWeight: 400, color: p.colors.muted }}>(optional)</span>
                         </p>
                       </div>
-                      <p style={{ fontSize: '12px', color: p.colors.muted, lineHeight: 1.5, marginBottom: '14px' }}>
+                      <p style={{ fontSize: '12px', color: p.colors.muted, lineHeight: 1.5, marginBottom: '7px' }}>
                         Share 1-3 past jobs so AI can calibrate pricing. Leave blank to skip.
                       </p>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -1472,7 +1472,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
               />
             )}
             {Object.keys(validationErrors).some(k => k.startsWith('stage2')) && (
-              <div data-testid="stage2-errors" style={{ marginTop: '12px', padding: '12px 14px', borderRadius: p.radius.md, background: '#FEF2F2', border: '1px solid #FECACA', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <div data-testid="stage2-errors" style={{ marginTop: '6px', padding: '12px 14px', borderRadius: p.radius.md, background: '#FEF2F2', border: '1px solid #FECACA', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                 {Object.entries(validationErrors).filter(([k]) => k.startsWith('stage2')).map(([k, v]) => (
                   <p key={k} data-testid={`error-${k}`} style={{ fontSize: '12px', color: '#DC2626', margin: 0 }}>{v}</p>
                 ))}
@@ -1552,7 +1552,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
             <div style={{ marginTop: '4px' }}>
               {showPublishConfirm && !generateMutation.isPending && (
                 <div style={{
-                  padding: '16px', borderRadius: p.radius.md, marginBottom: '12px',
+                  padding: '16px', borderRadius: p.radius.md, marginBottom: '6px',
                   background: '#F0FDF4', border: '1px solid #BBF7D0',
                 }}>
                   <p style={{ fontSize: '14px', fontWeight: 600, color: '#065F46', marginBottom: '8px' }}>Ready to go live?</p>
@@ -1787,7 +1787,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
           height: 100%; overflow-y: auto;
         }
         .wizard-left-inner {
-          padding: 20px 22px 0; min-height: 100%; box-sizing: border-box;
+          padding: 12px 14px 0; min-height: 100%; box-sizing: border-box;
           display: flex; flex-direction: column;
         }
         /* The Action step owns its footer internally, so its root must fill
@@ -1797,7 +1797,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
            and sticky so it stays visible while a long form scrolls. */
         .wizard-footer {
           position: sticky; bottom: 0; z-index: 5;
-          margin: auto -22px 0; padding: 12px 22px 14px;
+          margin: auto -14px 0; padding: 8px 14px 10px;
           background: ${d.colors.panel};
           border-top: 1px solid ${d.colors.borderLight};
         }
@@ -1806,7 +1806,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
         .wizard-step-sub { font-size: 13px; line-height: 1.5; color: ${p.colors.muted}; margin: 0; }
         .wizard-preview-fixed {
           flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center;
-          padding: 16px; box-sizing: border-box;
+          padding: 10px; box-sizing: border-box;
           background: ${d.colors.panel};
           height: 100%; overflow-y: auto;
         }
@@ -1912,7 +1912,7 @@ function LivePreview({ ws, tradeLabel, categoryLabel, isOpen, onToggle, step }: 
   if (step === 4 || step === 5) return null;
 
   return (
-    <div style={{ marginTop: '20px', borderTop: `1px solid ${p.colors.borderLight}`, paddingTop: '16px' }}>
+    <div style={{ marginTop: '10px', borderTop: `1px solid ${p.colors.borderLight}`, paddingTop: '16px' }}>
       <button data-testid="button-live-preview-toggle" onClick={onToggle}
         style={{
           width: '100%', padding: '12px 16px', borderRadius: p.radius.md,
@@ -1939,7 +1939,7 @@ function LivePreview({ ws, tradeLabel, categoryLabel, isOpen, onToggle, step }: 
           marginTop: '10px', padding: '20px', borderRadius: p.radius.md,
           border: `1px solid ${p.colors.border}`, background: 'white',
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
             {ws.logoUrl ? (
               <img data-testid="preview-logo" src={ws.logoUrl} alt="Logo" style={{ width: '40px', height: '40px', objectFit: 'contain', borderRadius: '8px' }} />
             ) : (
@@ -1961,7 +1961,7 @@ function LivePreview({ ws, tradeLabel, categoryLabel, isOpen, onToggle, step }: 
 
           <div style={{
             padding: '12px 16px', borderRadius: p.radius.sm,
-            background: '#F3F4F6', marginBottom: '12px',
+            background: '#F3F4F6', marginBottom: '6px',
           }}>
             <p style={{ fontSize: '11px', fontWeight: 700, color: p.colors.subtle, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '6px' }}>Category</p>
             <p data-testid="preview-category" style={{ fontSize: '14px', fontWeight: 500, color: p.colors.heading }}>
@@ -1973,7 +1973,7 @@ function LivePreview({ ws, tradeLabel, categoryLabel, isOpen, onToggle, step }: 
           </div>
 
           <div style={{
-            marginTop: '12px', padding: '10px 16px', borderRadius: p.radius.sm,
+            marginTop: '6px', padding: '10px 16px', borderRadius: p.radius.sm,
             background: `${ws.primaryColor || '#0284C7'}0A`,
             border: `1px solid ${ws.primaryColor || '#0284C7'}18`,
             display: 'flex', alignItems: 'center', gap: '8px',
@@ -2000,7 +2000,7 @@ function LivePreview({ ws, tradeLabel, categoryLabel, isOpen, onToggle, step }: 
 function SummaryCard({ ws, tradeLabel }: { ws: WizardState; tradeLabel: string }) {
   return (
     <div style={{
-      marginTop: '20px', padding: '16px', borderRadius: p.radius.md,
+      marginTop: '10px', padding: '16px', borderRadius: p.radius.md,
       background: p.colors.surfaceRaised, border: `1px solid ${p.colors.borderLight}`,
     }}>
       <p style={{ fontSize: '11px', fontWeight: 700, color: p.colors.subtle, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '10px' }}>
@@ -2018,7 +2018,7 @@ function SummaryCard({ ws, tradeLabel }: { ws: WizardState; tradeLabel: string }
 
 function SummaryRow({ label, value }: { label: string; value: string }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '6px' }}>
       <span style={{ fontSize: '12px', color: p.colors.muted, flexShrink: 0, minWidth: '60px' }}>{label}</span>
       <span style={{ fontSize: '13px', fontWeight: 500, color: p.colors.heading, textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>{value}</span>
     </div>
@@ -2127,7 +2127,7 @@ function GeneratingAnimation({ progress, businessName }: { progress: number; bus
       <h3 style={{ fontSize: '18px', fontWeight: 700, color: p.colors.heading, marginBottom: '6px' }}>
         Building {businessName || 'Your Calculator'}
       </h3>
-      <p style={{ fontSize: '13px', color: p.colors.muted, marginBottom: '24px', minHeight: '20px' }}>
+      <p style={{ fontSize: '13px', color: p.colors.muted, marginBottom: '12px', minHeight: '20px' }}>
         {messages[msgIndex]}
       </p>
 
@@ -2224,7 +2224,7 @@ function Shell({ children, step, total, onHelp, title, subtitle, generating, gen
         padding: '20px 24px 20px', position: 'relative',
         borderRadius: '20px 20px 0 0', borderBottom: `1px solid ${p.colors.borderLight}`,
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ fontSize: '12px', fontWeight: 600, letterSpacing: '0.02em', color: p.colors.muted }}>
               {isResult ? 'Published' : `Step ${step} of ${total}`}
@@ -2274,7 +2274,7 @@ function Shell({ children, step, total, onHelp, title, subtitle, generating, gen
         <div style={{
           height: '3px', borderRadius: '2px',
           background: p.colors.borderLight,
-          marginTop: '14px', overflow: 'hidden',
+          marginTop: '7px', overflow: 'hidden',
         }}>
           <div style={{
             height: '100%', width: `${progress}%`,
@@ -2485,7 +2485,7 @@ function Footer({ onBack, onNext, onSave, nextDisabled, backDisabled, children, 
   return (
     <div className="wizard-footer">
       {hint && (
-        <p style={{ fontSize: '12px', color: p.colors.muted, marginBottom: '12px', textAlign: 'center', lineHeight: 1.4 }}>
+        <p style={{ fontSize: '12px', color: p.colors.muted, marginBottom: '6px', textAlign: 'center', lineHeight: 1.4 }}>
           {hint}
         </p>
       )}
@@ -2612,7 +2612,7 @@ function HelpModal({ onClose }: { onClose: () => void }) {
           <div style={{ width: '36px', height: '4px', borderRadius: '2px', background: p.colors.border, margin: '0 auto 16px' }} />
         )}
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
           <h3 style={{ fontSize: '20px', fontWeight: 700, color: p.colors.heading }}>How it works</h3>
           <button data-testid="button-close-help" onClick={onClose} aria-label="Close"
             style={{
@@ -2625,13 +2625,13 @@ function HelpModal({ onClose }: { onClose: () => void }) {
           </button>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '28px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '14px' }}>
           {[
             { n: 1, text: 'Customize your instant quote tool' },
             { n: 2, text: 'Set your pricing logic' },
             { n: 3, text: 'Publish and start receiving qualified leads' },
           ].map(item => (
-            <div key={item.n} style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
+            <div key={item.n} style={{ display: 'flex', gap: '7px', alignItems: 'center' }}>
               <div style={{
                 width: '32px', height: '32px', borderRadius: '50%', flexShrink: 0,
                 background: p.colors.accentLighter,
@@ -2649,7 +2649,7 @@ function HelpModal({ onClose }: { onClose: () => void }) {
 
         <p style={{
           fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
-          color: p.colors.subtle, marginBottom: '12px',
+          color: p.colors.subtle, marginBottom: '6px',
         }}>
           Questions
         </p>
@@ -2684,10 +2684,10 @@ function HelpModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <div style={{
-          marginTop: '24px', padding: '16px', borderRadius: p.radius.md,
+          marginTop: '12px', padding: '16px', borderRadius: p.radius.md,
           background: '#FFFBEB', textAlign: 'center',
         }}>
-          <p style={{ fontSize: '14px', fontWeight: 500, color: p.colors.heading, marginBottom: '12px' }}>
+          <p style={{ fontSize: '14px', fontWeight: 500, color: p.colors.heading, marginBottom: '6px' }}>
             Need something custom?
           </p>
           <button
