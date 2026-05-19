@@ -308,7 +308,10 @@ export function registerPortalRoutes(app: Express) {
         adflowMetrics = meta.latest_report || null;
       }
 
-      // Tasks — client-safe fields only (including deliverables)
+      // Tasks — client-safe fields only. `metadata` is selected here only so
+      // we can extract the WebFix post-fix before/after report (stored in
+      // task metadata, not as a real deliverable URL); it is NOT returned
+      // to the client — see safeTasks below, which strips it.
       const tasks = await db
         .select({
           id: fulfillmentTasks.id,
@@ -319,13 +322,26 @@ export function registerPortalRoutes(app: Express) {
           completed_at: fulfillmentTasks.completed_at,
           sort_order: fulfillmentTasks.sort_order,
           deliverables: fulfillmentTasks.deliverables,
+          metadata: fulfillmentTasks.metadata,
         })
         .from(fulfillmentTasks)
         .where(eq(fulfillmentTasks.client_service_id, serviceId))
         .orderBy(fulfillmentTasks.sort_order);
 
-      // Filter waiting_on: only show if "client", otherwise null
-      const safeTasks = tasks.map((t) => ({
+      // WebFix: surface the post-fix before/after audit report. It is
+      // stored in fulfillmentTask.metadata.post_audit (the deliverable row
+      // has an empty url), so without this it never reaches the portal.
+      let webfixAudit: Record<string, any> | null = null;
+      if (service.service_id.startsWith("webfix")) {
+        for (const t of tasks) {
+          const m = (t.metadata as Record<string, any>) || {};
+          if (m.post_audit) webfixAudit = m.post_audit;
+        }
+      }
+
+      // Filter waiting_on: only show if "client", otherwise null. Drop the
+      // internal `metadata` field — never exposed to the client.
+      const safeTasks = tasks.map(({ metadata: _internal, ...t }) => ({
         ...t,
         waiting_on: t.waiting_on === "client" ? "client" : null,
       }));
@@ -366,6 +382,7 @@ export function registerPortalRoutes(app: Express) {
         onboarding: onboarding ?? null,
         payments,
         ...(adflowMetrics ? { adflow_metrics: adflowMetrics } : {}),
+        ...(webfixAudit ? { webfix_audit: webfixAudit } : {}),
       });
     } catch (err) {
       log.error("Portal service detail error:", { error: String(err) });
