@@ -144,7 +144,7 @@ export const TEMPLATE_PRESETS: TemplatePreset[] = [
         { id: 'services', name: 'Services', label: 'Supplementary services', type: 'multi_select',
           options: [opt('Music DJ', 450), opt('Decoration', 600), opt('Invitations', 180), opt('Waiters', 800)] },
       ],
-      calculations: [calc('Estimate', '[Guests] * [Catering] + [Services]')],
+      calculations: [calc('Estimate', '[Guests] * (20 + [Catering]) + [Services]')],
       result_calc: 'Estimate',
     },
   },
