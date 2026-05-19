@@ -539,7 +539,7 @@ export function registerCalculatorRoutes(app: Express): void {
   const checkoutBody = z.object({
     calculator_id: z.number().int().positive(),
     token: z.string().min(1),
-    plan: z.enum(['solo', 'business']),
+    plan: z.enum(['starter', 'pro']),
     billing: z.enum(['monthly', 'annual']).default('monthly'),
   });
 
@@ -557,12 +557,14 @@ export function registerCalculatorRoutes(app: Express): void {
         return res.status(404).json({ error: "Calculator not found" });
       }
 
-      // Map plan + billing to Stripe price IDs (configured in env)
+      // Map plan + billing to Stripe price IDs (configured in env).
+      // Alex provisions the 4 live prices in Stripe and sets these in
+      // Doppler prd; until then checkout 400s with "Price not configured".
       const priceMap: Record<string, string | undefined> = {
-        'solo_monthly': process.env.STRIPE_PRICE_QQ_SOLO_MONTHLY,
-        'solo_annual': process.env.STRIPE_PRICE_QQ_SOLO_ANNUAL,
-        'business_monthly': process.env.STRIPE_PRICE_QQ_BUSINESS_MONTHLY,
-        'business_annual': process.env.STRIPE_PRICE_QQ_BUSINESS_ANNUAL,
+        'starter_monthly': process.env.STRIPE_PRICE_QQ_STARTER_MONTHLY,
+        'starter_annual': process.env.STRIPE_PRICE_QQ_STARTER_ANNUAL,
+        'pro_monthly': process.env.STRIPE_PRICE_QQ_PRO_MONTHLY,
+        'pro_annual': process.env.STRIPE_PRICE_QQ_PRO_ANNUAL,
       };
 
       const priceKey = `${parsed.data.plan}_${parsed.data.billing}`;
@@ -571,7 +573,8 @@ export function registerCalculatorRoutes(app: Express): void {
         return res.status(400).json({ error: `Price not configured for ${priceKey}. Contact support.` });
       }
 
-      const planTier = parsed.data.plan === 'business' ? 'business' : 'starter';
+      // plan_tier matches planGating.ts PlanTier ('starter' | 'pro').
+      const planTier = parsed.data.plan;
       const baseUrl = process.env.APP_URL || `${req.protocol}://${req.get("host")}`;
 
       const session = await stripe.checkout.sessions.create({

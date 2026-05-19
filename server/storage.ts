@@ -117,6 +117,7 @@ type User, type InsertUser,
   type ProductDraft, type InsertProductDraft,
 } from "@shared/schema";
 import { eq, desc, sql, and, gte, lte, ilike, or, isNotNull, count } from "drizzle-orm";
+import { QUOTEQUICK_PLAN_REVENUE_CENTS } from "@shared/pricing";
 import { createLogger } from "./lib/logger";
 import { kickoffMapguardService } from "./services/mapguardTaskEngine";
 
@@ -754,7 +755,7 @@ export class DatabaseStorage implements IStorage {
       calculator_settings: calculators.calculator_settings,
     }).from(calculators).orderBy(desc(calculators.created_at));
 
-    const PLAN_REVENUE: Record<string, number> = { 'free': 0, 'starter': 4900, 'business': 9900 };
+    const PLAN_REVENUE = QUOTEQUICK_PLAN_REVENUE_CENTS;
     const QQ_COST_CENTS = 500;
 
     const results = [];

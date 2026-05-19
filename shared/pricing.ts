@@ -693,3 +693,16 @@ export function bundleSavings(bundle: BundleDef): number {
   const separate = bundle.includes.reduce((sum, item) => sum + item.value, 0);
   return separate - bundle.price;
 }
+
+/**
+ * Monthly revenue in cents per QuoteQuick plan_tier, derived from the canonical
+ * QUOTEQUICK tiers. plan_tier DB values are the bare tier key (the `quotequick-`
+ * prefix stripped from each tier id), e.g. "starter" / "pro". "free" is a
+ * paused/unpaid calculator and is added explicitly (not a priced tier).
+ */
+export const QUOTEQUICK_PLAN_REVENUE_CENTS: Record<string, number> = {
+  free: 0,
+  ...Object.fromEntries(
+    QUOTEQUICK.tiers.map(t => [t.id.replace(/^quotequick-/, ""), t.price * 100]),
+  ),
+};
