@@ -396,6 +396,9 @@ export const calculatorSettingsSchema = z.object({
       heading: z.string().default(''),
       footnote: z.string().default(''),
       show_breakdown: z.boolean().default(true),
+      // Label for the call-to-action button in the result panel. Blank hides
+      // the button; defaults to a quote CTA.
+      cta_label: z.string().default('Get My Quote'),
     }).default({}),
     // Visual theme id — recolours the widget (see client widgetThemes.ts:
     // light | midnight | coral | forest | mint | magenta).
