@@ -1831,6 +1831,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
               {previewDevice === 'mobile' ? (
                 <div
                   data-testid="preview-bezel-mobile"
+                  className="qq-bezel qq-bezel--mobile"
                   style={{
                     width: '100%', maxWidth: 390, maxHeight: 780, flexShrink: 0, margin: '0 auto',
                     background: 'linear-gradient(160deg, #1e293b, #0f172a)',
@@ -1847,6 +1848,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
               ) : (
                 <div
                   data-testid="preview-bezel-desktop"
+                  className="qq-bezel qq-bezel--desktop"
                   style={{
                     width: '100%', maxWidth: 820, maxHeight: 640, margin: '0 auto',
                     borderRadius: 16, overflow: 'hidden', background: '#fff',
@@ -1855,7 +1857,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                     boxShadow: '0 20px 48px rgba(15,23,42,0.16), 0 2px 8px rgba(15,23,42,0.06)',
                   }}
                 >
-                  <div style={{
+                  <div className="qq-bezel-chrome" style={{
                     display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0,
                     padding: '9px 14px', background: '#fbfcfd',
                     borderBottom: `1px solid ${p.colors.borderLight}`,
@@ -2107,6 +2109,62 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
           .wizard-2ndbar-item { flex: 1; padding: 5px 2px; gap: 3px; }
           .wizard-2ndbar-icon { width: 26px; height: 26px; }
           .wizard-2ndbar-label { font-size: 10px; }
+        }
+        /* Wave G mobile polish — phones (≤480px). Tighten the step-circle row
+           so all 5 numbers + the device toggle sit on a single line without
+           overflowing on 360–414px viewports. Labels stay hidden (the 980px
+           rule already does that); we just shrink circles, connectors and
+           gaps, and reserve no extra padding around the device toggle. The
+           steplist no longer scrolls — items shrink to fit, never overflow. */
+        @media (max-width: 480px) {
+          .wizard-navbar { padding: 8px 10px 10px; }
+          .wizard-nav-steps { gap: 6px; }
+          .wizard-nav-steplist {
+            gap: 0;
+            overflow-x: hidden;
+            justify-content: flex-start;
+          }
+          .wizard-nav-stepbtn { padding: 2px 1px; }
+          .wizard-nav-num { width: 20px; height: 20px; font-size: 11px; }
+          .wizard-nav-step[data-state="active"] .wizard-nav-num {
+            box-shadow: 0 0 0 2px ${p.colors.accentLighter};
+          }
+          .wizard-nav-line { flex: 0 0 8px; width: 8px; margin: 0 2px; }
+          .wizard-nav-device { padding: 2px; gap: 2px; }
+          .wizard-nav-device button { width: 26px; height: 22px; border-radius: 6px; }
+          .wizard-nav-right { gap: 6px; }
+          .wizard-nav-help, .wizard-nav-close { width: 22px; height: 22px; }
+          /* Fix 5 — visible 1px separator between the step navbar and the
+             widget pane below it. */
+          .wizard-preview-fixed {
+            padding: 12px 8px;
+            margin-top: 1px;
+            border-top: 1px solid ${p.colors.border};
+          }
+        }
+
+        /* Wave G — Fix 3 / meta. On a mobile-sized viewport (≤768px) neither
+           bezel may impose a cap that ends up narrower than the screen. The
+           desktop frame collapses to full screen width (the browser-chrome
+           "your-quote.net" pill stays — just expanded). The mobile bezel
+           also stretches to the available width minus a small symmetric
+           padding, so the calculator pane fills the screen. */
+        @media (max-width: 768px) {
+          .wizard-preview-fixed { padding: 12px 8px; box-sizing: border-box; }
+          .wizard-preview-stage { max-width: 100%; }
+          .wizard-preview-fixed > .wizard-preview-stage > .widget-scope { padding: 0 !important; }
+          .qq-bezel--desktop {
+            max-width: 100% !important;
+            max-height: none !important;
+            border-radius: 12px;
+          }
+          .qq-bezel--mobile {
+            max-width: 100% !important;
+            max-height: none !important;
+            padding: 8px 6px !important;
+            border-radius: 28px;
+          }
+          .qq-bezel--mobile > div:last-child { border-radius: 22px; }
         }
       `}</style>
 
