@@ -145,6 +145,7 @@ import PayInvoicePage from "@/pages/public/PayInvoicePage";
 import DispatchPage from "@/pages/portal/DispatchPage";
 import InvoicesPage from "@/pages/portal/InvoicesPage";
 import PaymentMethodsPage from "@/pages/portal/PaymentMethodsPage";
+import BookFlowSetupPage from "@/pages/portal/BookFlowSetupPage";
 import PortalCatalog from "@/pages/portal/PortalCatalog";
 
 /**
@@ -236,6 +237,7 @@ function Router() {
       <Route path="/portal/dispatch">{() => <RequireClient><DispatchPage /></RequireClient>}</Route>
       <Route path="/portal/invoices">{() => <RequireClient><InvoicesPage /></RequireClient>}</Route>
       <Route path="/portal/payment-methods">{() => <RequireClient><PaymentMethodsPage /></RequireClient>}</Route>
+      <Route path="/portal/bookflow-setup">{() => <RequireClient><BookFlowSetupPage /></RequireClient>}</Route>
       <Route path="/portal/help">{() => <RequireClient><PortalHelp /></RequireClient>}</Route>
       <Route path="/portal/chat-history">{() => <RequireClient><PortalChatHistoryPage /></RequireClient>}</Route>
       <Route path="/portal/settings">{() => <RequireClient><PortalSettings /></RequireClient>}</Route>

@@ -31,6 +31,13 @@ import {
 } from "@shared/schema";
 import { sendInvoiceEmail } from "../lib/invoiceEmail";
 import { createLogger } from "../lib/logger";
+import {
+  getBookFlowSettingsBySlug,
+  getBookFlowSettings,
+  getAvailableSlots,
+  createAppointment,
+  setupBookFlow,
+} from "../services/booking/bookflowService";
 
 const log = createLogger("BookFlow");
 
@@ -113,6 +120,56 @@ const checkoutBody = z.object({
   customer_email: z.string().email().optional(),
   customer_phone: z.string().optional(),
   quote_details: z.record(z.unknown()).optional(),
+});
+
+/* ─── BookFlow public booking + setup validation ─── */
+
+const workingDaySchema = z.object({
+  enabled: z.boolean(),
+  start: z.string().regex(/^\d{2}:\d{2}$/, "Expected HH:MM"),
+  end: z.string().regex(/^\d{2}:\d{2}$/, "Expected HH:MM"),
+});
+
+const serviceDefSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  duration_minutes: z.number().int().positive(),
+  price_cents: z.number().int().min(0),
+  description: z.string().optional(),
+});
+
+/** Public booking submission from /book/:slug. */
+const publicBookBody = z.object({
+  customerName: z.string().min(1),
+  customerPhone: z.string().min(1),
+  customerEmail: z.string().email().optional(),
+  customerAddress: z.string().optional(),
+  serviceId: z.string().optional(),
+  startTime: z.string().min(1), // ISO timestamp
+  notes: z.string().optional(),
+});
+
+/** Portal setup payload — configure the public booking page. */
+const setupBody = z.object({
+  business_name: z.string().min(1).optional(),
+  slug: z
+    .string()
+    .regex(/^[a-z0-9-]+$/, "Slug may only contain lowercase letters, numbers and hyphens")
+    .min(2)
+    .max(60)
+    .optional(),
+  is_active: z.boolean().optional(),
+  timezone: z.string().optional(),
+  slot_duration_minutes: z.number().int().min(5).max(480).optional(),
+  buffer_minutes: z.number().int().min(0).max(240).optional(),
+  working_hours: z.record(workingDaySchema).optional(),
+  services: z.array(serviceDefSchema).optional(),
+  confirmation_message: z.string().max(2000).optional(),
+  auto_confirm: z.boolean().optional(),
+  accent_color: z
+    .string()
+    .regex(/^#[0-9A-Fa-f]{6}$/, "Expected a hex colour like #3B82F6")
+    .optional(),
 });
 
 /* ─── Route Registration ─── */
@@ -753,6 +810,193 @@ export function registerBookflowRoutes(app: Express): void {
     } catch (err: any) {
       log.error("Failed to load bookflow settings", { error: err.message });
       res.status(500).json({ error: "Failed to load settings" });
+    }
+  });
+
+  /* ═══════════════════════════════════════════
+     BookFlow setup — Portal (configure public booking page)
+     ═══════════════════════════════════════════ */
+
+  /** GET /api/portal/bookflow/setup — get the booking-page config for the current client */
+  app.get("/api/portal/bookflow/setup", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const settings = await getBookFlowSettings(clientId);
+
+      if (!settings) {
+        // Pre-fill business name from the client record so the form starts useful.
+        const [client] = await db
+          .select({ business_name: clients.business_name })
+          .from(clients)
+          .where(eq(clients.id, clientId))
+          .limit(1);
+        return res.json({
+          configured: false,
+          is_active: false,
+          business_name: client?.business_name ?? "",
+          slug: null,
+          timezone: "America/New_York",
+          slot_duration_minutes: 60,
+          buffer_minutes: 15,
+          working_hours: null,
+          services: null,
+          confirmation_message: null,
+          auto_confirm: true,
+          accent_color: "#3B82F6",
+        });
+      }
+
+      res.json({ configured: true, ...settings });
+    } catch (err: any) {
+      log.error("Failed to load BookFlow setup", { error: err.message });
+      res.status(500).json({ error: "Failed to load BookFlow setup" });
+    }
+  });
+
+  /** PATCH /api/portal/bookflow/setup — create or update the booking-page config */
+  app.patch("/api/portal/bookflow/setup", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const parsed = setupBody.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid input", details: parsed.error.flatten() });
+      }
+
+      // Guard against a slug collision with a different client.
+      if (parsed.data.slug) {
+        const existingBySlug = await getBookFlowSettingsBySlug(parsed.data.slug);
+        if (existingBySlug && existingBySlug.client_id !== clientId) {
+          return res.status(409).json({ error: "That booking-page address is already taken. Choose another." });
+        }
+      }
+
+      const settings = await setupBookFlow(clientId, parsed.data);
+      log.info("BookFlow setup saved", { clientId: String(clientId), slug: settings.slug ?? "" });
+      res.json({ configured: true, ...settings });
+    } catch (err: any) {
+      log.error("Failed to save BookFlow setup", { error: err.message });
+      res.status(500).json({ error: "Failed to save BookFlow setup" });
+    }
+  });
+
+  /* ═══════════════════════════════════════════
+     BookFlow public booking flow — /book/:slug
+     (no auth — these power the public BookingPage)
+     ═══════════════════════════════════════════ */
+
+  /** GET /api/bookflow/:slug — public booking-page config */
+  app.get("/api/bookflow/:slug", async (req: Request, res: Response) => {
+    try {
+      const slug = String(req.params.slug);
+      const settings = await getBookFlowSettingsBySlug(slug);
+
+      if (!settings || !settings.is_active) {
+        return res.status(404).json({ error: "Booking page not found" });
+      }
+
+      // Shape mapped to the BookflowConfig interface BookingPage expects.
+      res.json({
+        businessName: settings.business_name ?? "Booking",
+        slug: settings.slug,
+        timezone: settings.timezone ?? "America/New_York",
+        slotDurationMinutes: settings.slot_duration_minutes ?? 60,
+        services: (settings.services as unknown[] | null) ?? null,
+        workingHours: (settings.working_hours as Record<string, unknown> | null) ?? null,
+        confirmationMessage: settings.confirmation_message ?? null,
+        autoConfirm: settings.auto_confirm ?? true,
+        accentColor: settings.accent_color ?? "#3B82F6",
+      });
+    } catch (err: any) {
+      log.error("Failed to load public booking config", { error: err.message });
+      res.status(500).json({ error: "Failed to load booking page" });
+    }
+  });
+
+  /** GET /api/bookflow/:slug/slots — available appointment slots */
+  app.get("/api/bookflow/:slug/slots", async (req: Request, res: Response) => {
+    try {
+      const slug = String(req.params.slug);
+      const settings = await getBookFlowSettingsBySlug(slug);
+
+      if (!settings || !settings.is_active) {
+        return res.status(404).json({ error: "Booking page not found" });
+      }
+
+      const date = (req.query.date as string) || new Date().toISOString().slice(0, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        return res.status(400).json({ error: "Invalid date — expected YYYY-MM-DD" });
+      }
+      const daysRaw = parseInt(String(req.query.days ?? "7"), 10);
+      const days = Number.isFinite(daysRaw) ? Math.min(Math.max(daysRaw, 1), 30) : 7;
+
+      const slots = await getAvailableSlots(settings.client_id, date, days);
+      res.json({ slots });
+    } catch (err: any) {
+      log.error("Failed to load booking slots", { error: err.message });
+      res.status(500).json({ error: "Failed to load slots" });
+    }
+  });
+
+  /** POST /api/bookflow/:slug/book — create an appointment from the public page */
+  app.post("/api/bookflow/:slug/book", async (req: Request, res: Response) => {
+    try {
+      const slug = String(req.params.slug);
+      const settings = await getBookFlowSettingsBySlug(slug);
+
+      if (!settings || !settings.is_active) {
+        return res.status(404).json({ error: "Booking page not found" });
+      }
+
+      const parsed = publicBookBody.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid input", details: parsed.error.flatten() });
+      }
+      const { data } = parsed;
+
+      // Resolve the chosen service (if any) from the configured catalog.
+      const services = (settings.services as Array<{
+        id: string;
+        name: string;
+        duration_minutes: number;
+      }> | null) ?? [];
+      const service = data.serviceId ? services.find((s) => s.id === data.serviceId) : undefined;
+
+      const appointment = await createAppointment(settings.client_id, {
+        customerName: data.customerName,
+        customerPhone: data.customerPhone,
+        customerEmail: data.customerEmail,
+        customerAddress: data.customerAddress,
+        serviceName: service?.name,
+        serviceDurationMinutes: service?.duration_minutes,
+        startTime: data.startTime,
+        notes: data.notes,
+        source: "direct",
+      });
+
+      res.status(201).json({
+        success: true,
+        appointment: {
+          id: appointment.id,
+          status: appointment.status,
+          startTime: appointment.start_time,
+          endTime: appointment.end_time,
+          serviceName: appointment.service_name,
+        },
+        confirmationMessage: settings.confirmation_message ?? null,
+      });
+    } catch (err: any) {
+      // Slot-conflict / inactive errors from the service are user-facing.
+      const msg = String(err?.message ?? "Booking failed");
+      const isConflict = /no longer available|not active/i.test(msg);
+      if (isConflict) {
+        return res.status(409).json({ error: msg });
+      }
+      log.error("Failed to create public booking", { error: msg });
+      res.status(500).json({ error: "Failed to create booking" });
     }
   });
 }
