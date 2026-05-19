@@ -206,7 +206,7 @@ export const WEBCARE: ProductDef = {
       features: [
         "Monthly software & security updates",
         "24/7 uptime monitoring",
-        "Daily automated backups",
+        "Monthly security & SSL health checks",
         "1 content change per month",
         "Email support",
       ],

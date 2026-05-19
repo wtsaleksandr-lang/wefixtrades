@@ -439,7 +439,7 @@ export const PRODUCT_TESTIMONIALS: Record<string, ProductTestimonial[]> = {
       source: "trustpilot",
     },
     {
-      quote: "Backups every day. Site got hacked once before I signed up; would have lost everything without them.",
+      quote: "They caught a security issue and patched it before it became a problem. My site went down once before I signed up — never again.",
       author: "Doug L.",
       trade: "Plumber",
       city: "Hamilton, ON",

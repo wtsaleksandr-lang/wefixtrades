@@ -48,11 +48,11 @@ const SERVICES: Service[] = [
   {
     number: "02",
     product: "WebCare",
-    title: "Updates, backups, uptime. We watch your site so you don't have to.",
-    hook: "Plugin and theme updates auto-tested before they go live. Daily backups. 15-minute uptime checks. Monthly health report.",
+    title: "Updates, security, uptime. We watch your site so you don't have to.",
+    hook: "Plugin and theme updates auto-tested before they go live. Security & SSL checks. 15-minute uptime checks. Monthly health report.",
     href: "/products/webcare",
     icon: ShieldCheck,
-    bullets: ["99.99% uptime tracked", "Daily backup snapshots", "Monthly health report"],
+    bullets: ["99.99% uptime tracked", "Security & SSL checks", "Monthly health report"],
     tile: <KpiTile a={{ value: "99.99%", label: "30-day uptime", color: "mint" }} b={{ value: "47", label: "Updates / mo", color: "cyanSoft" }} c={{ value: "0", label: "Breaks reaching prod", color: "lavender" }} />,
   },
   {

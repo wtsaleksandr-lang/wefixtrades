@@ -48,7 +48,7 @@ export async function sendPostSiteLaunchUpsell(
       <li><strong style="color:#F0F0F0;">Speed & uptime</strong> — keeping load times fast and the site online 24/7</li>
     </ul>
     <p style="font-size:14px;color:#CDD1D6;line-height:1.6;margin:0 0 4px;">
-      <strong style="color:#F0F0F0;">WebCare</strong> handles all of this for you — monitoring, updates, backups, and content changes — so your site stays sharp without you thinking about it.
+      <strong style="color:#F0F0F0;">WebCare</strong> handles all of this for you — monitoring, updates, security checks, and content changes — so your site stays sharp without you thinking about it.
     </p>
   `;
 
@@ -75,7 +75,7 @@ export async function sendPostSiteLaunchUpsell(
       "- Content updates (new services, seasonal offers)\n" +
       "- Security patches (WordPress & plugin updates)\n" +
       "- Speed & uptime monitoring\n\n" +
-      "WebCare handles all of this for you — monitoring, updates, backups, and content changes.",
+      "WebCare handles all of this for you — monitoring, updates, security checks, and content changes.",
     ctaLabel: "Learn about WebCare",
     ctaUrl: webcareUrl,
     supportNote: `Questions? Visit your portal: ${data.portalUrl}`,
@@ -128,7 +128,7 @@ export async function sendPostWebFixUpsell(
     </p>
     <ul style="font-size:14px;color:#CDD1D6;line-height:1.8;margin:0 0 16px;padding-left:20px;">
       <li>24/7 uptime monitoring with instant alerts</li>
-      <li>Automated backups and security patches</li>
+      <li>Automated security patches and SSL health checks</li>
       <li>Monthly content changes included</li>
       <li>Priority support when something breaks</li>
     </ul>
@@ -159,7 +159,7 @@ export async function sendPostWebFixUpsell(
       "Websites don't stay fixed forever. Plugins update, configs drift, and new issues creep in.\n\n" +
       "WebCare keeps your site in top shape year-round:\n" +
       "- 24/7 uptime monitoring\n" +
-      "- Automated backups and security patches\n" +
+      "- Automated security patches and SSL health checks\n" +
       "- Monthly content changes included\n" +
       "- Priority support when something breaks",
     ctaLabel: "Add WebCare",

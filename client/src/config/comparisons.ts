@@ -439,7 +439,7 @@ export const COMPARISON_DATA: ComparisonData[] = [
     productName: "WebCare",
     heroTitle: "WebCare vs the Alternatives",
     heroSubtitle:
-      "Website maintenance done for you. Updates, backups, security, and content changes — handled every month.",
+      "Website maintenance done for you. Updates, security checks, monitoring, and content changes — handled every month.",
     seoTitle: "WebCare vs WP Buffs, GoWP, Sucuri, Maintainn | WeFixTrades",
     seoDescription:
       "Compare WebCare to WP Buffs, GoWP, Sucuri, and Maintainn. AI-powered monitoring, automated updates, trades-specific, from $79/mo.",
@@ -452,7 +452,7 @@ export const COMPARISON_DATA: ComparisonData[] = [
     rows: [
       { feature: "Software & security updates", values: [true, true, true, true] },
       { feature: "24/7 uptime monitoring", values: [true, true, true, true] },
-      { feature: "Daily automated backups", values: [true, true, true, true] },
+      { feature: "Security & SSL health checks", values: [true, true, true, true] },
       { feature: "Content changes included", values: [true, "Add-on", false, "1/mo"] },
       { feature: "AI-powered monitoring", values: [true, false, false, false] },
       { feature: "Performance checks", values: ["Pro", true, false, true] },

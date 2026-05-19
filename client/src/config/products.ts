@@ -204,20 +204,20 @@ export const PRODUCT_PAGES: ProductPage[] = [
     secondaryCTA: { label: "See Pricing", href: "/pricing" },
     highlights: [
       "Your website stays updated and working — we handle it every month",
-      "Security patches and backups applied automatically",
+      "Security patches and SSL health checks applied automatically",
       "Your business info, hours, and services always stay current",
       "Small content changes handled for you — just send us a message",
       "24/7 uptime monitoring — if your site goes down, we know first",
     ],
     outcomes: [
-      { title: "Fewer website problems", desc: "Updates, patches, and backups happen automatically. You don't get surprised by a broken site." },
+      { title: "Fewer website problems", desc: "Updates, patches, and security checks happen automatically. You don't get surprised by a broken site." },
       { title: "Better first impression", desc: "Customers always see a professional, working website with accurate info." },
       { title: "Fewer missed leads", desc: "Broken forms, outdated pages, and slow load times cost real enquiries. WebCare keeps everything running." },
       { title: "Less time wasted", desc: "No more chasing developers or trying to fix things yourself. We handle it." },
     ],
     howItWorks: [
       { title: "We review your site", desc: "We check your website for outdated info, broken elements, and security issues. No technical work on your end." },
-      { title: "We take care of it every month", desc: "Updates, patches, backups, and content changes — handled. You get a simple summary of what we did." },
+      { title: "We take care of it every month", desc: "Updates, patches, security checks, and content changes — handled. You get a simple summary of what we did." },
       { title: "You reach out when you need changes", desc: "New phone number? Updated hours? Seasonal promotion? Just message us and we'll take care of it." },
     ],
     bestFor: ["Plumbers", "Electricians", "HVAC Technicians", "Roofers", "Cleaners", "General Contractors", "Landscapers", "Painters"],

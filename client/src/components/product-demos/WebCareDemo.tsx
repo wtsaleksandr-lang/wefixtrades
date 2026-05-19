@@ -19,7 +19,7 @@ export default function WebCareDemo() {
       ref={loop.ref}
       onMouseEnter={loop.onMouseEnter}
       onMouseLeave={loop.onMouseLeave}
-      ariaLabel="Animated demo: uptime check dots filling green over the past 4.5 hours, plugin auto-updating, daily backup completing."
+      ariaLabel="Animated demo: uptime check dots filling green over the past 4.5 hours, plugin auto-updating, security and SSL check passing."
       maxWidth={420}
     >
       <DemoHeader icon={<ShieldCheck size={16} />} title="WebCare" subtitle="your-trade.com · 99.99%" status="Healthy" />
@@ -49,7 +49,7 @@ export default function WebCareDemo() {
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
           <Mini label="Uptime 30d" value="99.99%" color="#10B981" />
           <Mini label="Updates" value="47" color={mkt.accent} />
-          <Mini label="Backups" value="30" color={mkt.accent} />
+          <Mini label="Security checks" value="OK" color={mkt.accent} />
         </div>
 
         {/* Auto-update toast */}
@@ -74,7 +74,7 @@ export default function WebCareDemo() {
               exit={{ opacity: 0 }}
               style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 10, background: "rgba(16,185,129,0.10)", border: `1px solid rgba(16,185,129,0.28)`, fontSize: 12, color: "#10B981", fontWeight: 600 }}
             >
-              <Check size={14} strokeWidth={3} /> Daily backup snapshot · 247 MB
+              <Check size={14} strokeWidth={3} /> Security & SSL check passed · no issues found
             </motion.div>
           )}
         </AnimatePresence>

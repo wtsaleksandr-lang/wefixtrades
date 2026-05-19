@@ -48,7 +48,7 @@ const BENEFITS: Benefit[] = [
   {
     icon: <ShieldCheck size={18} strokeWidth={1.8} />,
     title: "Secure Reliability",
-    desc: "Monitored uptime, backups, and security patches keep your site and data safe 24/7.",
+    desc: "Monitored uptime, security checks, and patching keep your site safe 24/7.",
   },
 ];
 

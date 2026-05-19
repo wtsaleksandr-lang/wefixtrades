@@ -76,7 +76,7 @@ const HERO_HOOKS: Record<string, { eyebrow: string; headline: ReactNode; sub: st
   webcare: {
     eyebrow: "Last time WordPress broke your site, you lost a day fixing it.",
     headline: <>We watch your site.<br/><span style={{ color: mkt.accent }}>So you don't have to.</span></>,
-    sub: "Uptime checks every 15 minutes. Daily backups. Plugin updates auto-tested. Monthly health report.",
+    sub: "Uptime checks every 15 minutes. Plugin updates auto-tested. Security & SSL checks. Monthly health report.",
   },
   webfix: {
     eyebrow: "Slow website? You're invisible to Google and your visitors.",
