@@ -21,6 +21,7 @@ import MarketingLayout from "@/components/marketing/MarketingLayout";
 import CheckoutIntakeModal from "@/components/marketing/CheckoutIntakeModal";
 import { mkt } from "@/theme/tokens";
 import { getProductBySlug } from "@/config/products";
+import { usePageMeta } from "@/lib/usePageMeta";
 import {
   NumberedCard,
   BadgePill,
@@ -101,6 +102,17 @@ const HERO_HOOKS: Record<string, { eyebrow: string; headline: ReactNode; sub: st
 
 export default function EffortelProductPage({ slug }: { slug: string }) {
   const cfg = getProductBySlug(slug);
+
+  // Per-page SEO — apply the product's own title/description/canonical from
+  // config/products.ts so every product page ships its own <head> meta
+  // instead of the generic site title. Called before any early return to
+  // keep hook order stable; falls back to neutral copy when slug is unknown.
+  usePageMeta({
+    title: cfg?.seoTitle ?? "Product — WeFixTrades",
+    description: cfg?.seoDescription ?? "",
+    canonicalPath: `/products/${slug}`,
+  });
+
   if (!cfg) return <NotFound />;
 
   const sections: ProductMockupSection[] = PRODUCT_MOCKUPS[slug] ?? PRODUCT_MOCKUPS.__default;
