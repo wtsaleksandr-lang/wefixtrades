@@ -102,7 +102,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
       { q: "How long does setup take?", a: "Most businesses are live in minutes. Add your services, pricing, and hours. Deploy the widget and forward your calls." },
       { q: "Can I cancel anytime?", a: "Yes. No contracts. No cancellation fees." },
     ],
-    pricingSection: buildPricingSection(TRADELINE, "Overage: $0.15/min after included minutes."),
+    pricingSection: buildPricingSection(TRADELINE, "Overage: $0.15/min after included minutes.", { checkout: true }),
     related: ["quickquotepro", "reputationshield"],
   },
   {
