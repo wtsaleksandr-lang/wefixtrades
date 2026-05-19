@@ -574,3 +574,41 @@ export function toAdvancedConfig(t: TemplateConfig): AdvancedConfigShape {
     ...(t.results ? { results: t.results } : {}),
   };
 }
+
+/**
+ * Build a synthetic placeholder `AdvancedConfigShape` for the live preview.
+ *
+ * Used when the user picks a layout (or Blank) with no real template — the
+ * `AdvancedCalculator` renderer needs a real config to render the CSS-Grid
+ * layouts, otherwise the preview falls back to the legacy stepper pipeline
+ * that doesn't honour `single-column | two-column | multi-column` at all.
+ *
+ * This config is PREVIEW-ONLY: callers must NOT persist it to a saved
+ * calculator. It carries `__preview: true` so persistence layers can filter
+ * it out, and `calculator_settings` strips it on Continue.
+ */
+export function buildBlankPreviewConfig(
+  layout: TemplateLayout, _businessName?: string,
+): AdvancedConfigShape & { __preview: true } {
+  // Leave `header.title` blank so the renderer falls back to the live
+  // `calculator.business_name` (which updates as the user types), keeping the
+  // preview header reactive.
+  return {
+    enabled: true,
+    theme: 'light',
+    layout,
+    fields: [
+      { id: 'service', name: 'Service', label: 'Service type', type: 'select',
+        options: [opt('Standard', 100), opt('Premium', 180), opt('Deluxe', 260)] },
+      { id: 'quantity', name: 'Quantity', label: 'How many?', type: 'number',
+        min: 1, max: 50, step: 1, default_value: 1 },
+      { id: 'addons', name: 'Add-ons', label: 'Add-ons', type: 'multi_select',
+        options: [opt('Express', 40), opt('Materials', 60), opt('Warranty', 25)] },
+    ],
+    calculations: [calc('Estimated Total', '[Service] * [Quantity] + [Add-ons]')],
+    result_calc: 'Estimated Total',
+    header: { title: '', subtitle: 'A quick preview — pick a template above to customise.', align: 'left' },
+    results: { footnote: 'Preview only — your real numbers appear once you set pricing.' },
+    __preview: true,
+  } as AdvancedConfigShape & { __preview: true };
+}

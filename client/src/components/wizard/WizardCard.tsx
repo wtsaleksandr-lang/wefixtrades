@@ -2,6 +2,7 @@
 // Sub-components: DesignStudio, CustomTradeQuestionnaire, PricingIntakeStage2, TestGateStep, LeadFormStep, PublishStep.
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
+import { useLocation } from 'wouter';
 import { platformTheme } from '@/theme/platformTheme';
 import { dashboardTheme } from '@/theme/dashboardTheme';
 import { CATEGORIES, TRADES, getTradesByCategory, type Trade } from '@/data/trades';
@@ -19,7 +20,7 @@ import QuoteWidget from '@/components/quote-widget/QuoteWidget';
 import type { CalculatorData } from '@/components/quote-widget/types';
 import { mapPricingIntakeToConfig } from '@shared/pricingIntakeMapper';
 import { getRecommendedTemplate, getTemplateById } from '@shared/templateLibrary';
-import { getTemplatePreset, toAdvancedConfig, normalizeLayout, type TemplateLayout } from '@shared/templatePresets';
+import { getTemplatePreset, toAdvancedConfig, normalizeLayout, buildBlankPreviewConfig, type TemplateLayout } from '@shared/templatePresets';
 import BuilderStep1 from './BuilderStep1';
 import {
   Loader2, ArrowRight, ArrowLeft, Check, Sparkles, Wrench, Hammer,
@@ -190,6 +191,17 @@ const SECONDARY_SECTIONS: Record<number, SecondarySection[]> = {
 };
 
 export default function WizardCard({ embed = false }: { embed?: boolean }) {
+  const [, navigate] = useLocation();
+  // Close the wizard overlay — return to wherever the user came from (home,
+  // product page, etc.) via the browser history; fall back to `/` if the
+  // wizard was opened directly (no history).
+  const closeWizard = useCallback(() => {
+    if (typeof window !== 'undefined' && window.history.length > 1) {
+      window.history.back();
+    } else {
+      navigate('/');
+    }
+  }, [navigate]);
   const savedResult = loadResult();
   const savedStep = loadStep();
   // Step 6 (the retired standalone template picker) folds back into Step 0.
@@ -275,12 +287,44 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
     ?? ws.calculatorSettings.ui_template?.layout?.style,
   );
 
+  // Auto-infer the selected trade from the picked template's `trades[]` —
+  // when a non-blank template is selected, set `ws.selectedTrade` to the
+  // template's canonical trade (`trades[0]`) and the matching category, so
+  // we can hide the redundant trade picker UI on Step 1. Validates against
+  // `TRADES` to guarantee a downstream-safe trade id; if no match, no-ops.
+  useEffect(() => {
+    const templateId = ws.calculatorSettings.ui_template?.template_id;
+    if (!templateId || templateId === 'blank') return;
+    const preset = getTemplatePreset(templateId);
+    const tradeId = preset?.trades?.[0];
+    if (!tradeId) return;
+    const trade = TRADES.find(t => t.id === tradeId);
+    if (!trade) return;
+    if (ws.selectedTrade === trade.id && ws.selectedCategory === trade.categoryId) return;
+    setWs(prev => ({ ...prev, selectedTrade: trade.id, selectedCategory: trade.categoryId, isCustomTrade: false }));
+  }, [ws.calculatorSettings.ui_template?.template_id]);
+
+  // Whether the user has a non-blank template selected — drives the trade
+  // picker visibility (it stays hidden when a template's trade is inferred).
+  const hasTemplateTrade = useMemo(() => {
+    const templateId = ws.calculatorSettings.ui_template?.template_id;
+    if (!templateId || templateId === 'blank') return false;
+    const preset = getTemplatePreset(templateId);
+    const tradeId = preset?.trades?.[0];
+    if (!tradeId) return false;
+    return TRADES.some(t => t.id === tradeId);
+  }, [ws.calculatorSettings.ui_template?.template_id]);
+
   // Layout-only change (no template) — keeps the gallery filtered and drives
-  // the live preview. Mirrors the "blank" branch of handleTemplateSelect.
+  // the live preview. Populates `advanced` with a synthetic, preview-only
+  // placeholder so the `AdvancedCalculator` renderer (which honours the real
+  // `single-column | two-column | multi-column` CSS Grid layouts) is used,
+  // instead of falling back to the legacy stepper pipeline that ignores them.
+  // The placeholder is flagged `__preview` and stripped on Continue.
   const handleLayoutChange = (layout: TemplateLayout) => {
     set('calculatorSettings', {
       ...ws.calculatorSettings,
-      advanced: undefined as any,
+      advanced: buildBlankPreviewConfig(layout, ws.businessName) as any,
       ui_template: {
         ...ws.calculatorSettings.ui_template,
         layout: {
@@ -307,12 +351,12 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
       });
       return;
     }
-    // Blank — keep the chosen layout with no presets. Clear any `advanced`
-    // preset left over from a previously-selected themed template, so the
-    // preview renders a real, plain default calculator (#7).
+    // Blank — keep the chosen layout with a synthetic, preview-only advanced
+    // config so the preview visibly reflects the chosen layout (CSS Grid).
+    // The placeholder is stripped on Continue (see tryStep0Continue).
     set('calculatorSettings', {
       ...ws.calculatorSettings,
-      advanced: undefined as any,
+      advanced: buildBlankPreviewConfig(layout, ws.businessName) as any,
       ui_template: {
         ...ws.calculatorSettings.ui_template,
         template_id: id,
@@ -472,6 +516,12 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
     if (Object.keys(errs).length === 0) {
       if (ws.isCustomTrade && ws.customTradeData.charge_method === 'not_sure') {
         triggerPricingDraft();
+      }
+      // Strip the synthetic preview-only `advanced` placeholder before
+      // advancing — it must never be persisted to a saved calculator.
+      const adv = ws.calculatorSettings.advanced as any;
+      if (adv && adv.__preview) {
+        set('calculatorSettings', { ...ws.calculatorSettings, advanced: undefined as any });
       }
       setStep(1); // Flow: Start (business + template + trade) → Design
     }
@@ -824,23 +874,41 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
     return { pricingType: 'hourly', unitName: 'hour', rate: 75, baseFee: 50 };
   }, [ws.isCustomTrade, ws.customTradeData, ws.stage2Data, ws.calculatorSettings.pricing_draft, ws.selectedTrade, ws.calculatorSettings?.pricing_mode, ws.calculatorSettings?.manual_hourly_rate, ws.calculatorSettings?.manual_fixed_price, ws.calculatorSettings?.manual_range_min, ws.calculatorSettings?.manual_range_max, ws.calculatorSettings?.manual_custom_config]);
 
-  // Synthetic CalculatorData for live preview (no DB save required)
-  const previewCalculatorData = useMemo<CalculatorData>(() => ({
-    id: -1, // Sentinel: preview mode — LeadCaptureStep/BookingStep skip API calls
-    slug: 'preview',
-    business_name: ws.businessName || 'Your Business',
-    tagline: ws.tagline || undefined,
-    logo_url: ws.logoUrl || undefined,
-    primary_color: ws.primaryColor || '#394247',
-    pricing_config: resolvedPricingConfig,
-    cta_button_text: ws.calculatorSettings?.lead_form?.cta?.button_text || undefined,
-    lead_thank_you_message: ws.calculatorSettings?.lead_form?.cta?.helper_text || undefined,
-    calculator_settings: {
-      ...ws.calculatorSettings,
-      calculator_type: ws.calculatorSettings?.calculator_type || 'estimate_only',
-      ui_template: ws.calculatorSettings?.ui_template || { template_id: 'classic_single' },
-    },
-  }), [ws.businessName, ws.tagline, ws.logoUrl, ws.primaryColor, resolvedPricingConfig, ws.calculatorSettings]);
+  // Synthetic CalculatorData for live preview (no DB save required).
+  //
+  // When the user is on Step 0 with no real template selected, we inject a
+  // synthetic preview-only `advanced` placeholder so the `AdvancedCalculator`
+  // renderer (which honours the real `single-column | two-column |
+  // multi-column` CSS Grid layouts) is used — instead of falling back to the
+  // legacy stepper pipeline that ignores them. This is preview-only and is
+  // NEVER persisted to the calculator (see `tryStep0Continue`).
+  const previewCalculatorData = useMemo<CalculatorData>(() => {
+    const existingAdvanced = (ws.calculatorSettings as any)?.advanced;
+    const templateId = ws.calculatorSettings?.ui_template?.template_id;
+    const noRealTemplate = !templateId || templateId === 'blank' || !getTemplatePreset(templateId);
+    const advancedForPreview = existingAdvanced && existingAdvanced.enabled
+      ? existingAdvanced
+      : (step === 0 && noRealTemplate
+          ? buildBlankPreviewConfig(currentLayout, ws.businessName)
+          : undefined);
+    return {
+      id: -1, // Sentinel: preview mode — LeadCaptureStep/BookingStep skip API calls
+      slug: 'preview',
+      business_name: ws.businessName || 'Your Business',
+      tagline: ws.tagline || undefined,
+      logo_url: ws.logoUrl || undefined,
+      primary_color: ws.primaryColor || '#394247',
+      pricing_config: resolvedPricingConfig,
+      cta_button_text: ws.calculatorSettings?.lead_form?.cta?.button_text || undefined,
+      lead_thank_you_message: ws.calculatorSettings?.lead_form?.cta?.helper_text || undefined,
+      calculator_settings: {
+        ...ws.calculatorSettings,
+        calculator_type: ws.calculatorSettings?.calculator_type || 'estimate_only',
+        ui_template: ws.calculatorSettings?.ui_template || { template_id: 'classic_single' },
+        ...(advancedForPreview ? { advanced: advancedForPreview } : {}),
+      },
+    };
+  }, [ws.businessName, ws.tagline, ws.logoUrl, ws.primaryColor, resolvedPricingConfig, ws.calculatorSettings, step, currentLayout]);
 
   const [testHistory, setTestHistory] = useState<TestGateResult | null>(() => {
     const th = ws.calculatorSettings.test_history;
@@ -941,9 +1009,10 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
 
   return (
     <>
-      <div className="wizard-shell">
+      <div className={`wizard-shell ${embed ? '' : 'wizard-shell-modal'}`} role={embed ? undefined : 'dialog'} aria-modal={embed ? undefined : true} aria-label="QuoteQuick builder">
       <WizardNav current={visualStep(step)} onHelp={() => setShowHelp(true)} justSaved={justSaved}
         onNavigate={(v) => setStep(VISUAL_TO_INTERNAL[v - 1])}
+        onClose={embed ? undefined : closeWizard}
         device={previewDevice} onDeviceChange={setPreviewDevice} showDevice={showSidePreview} />
       <div className={`wizard-shell-body ${showSidePreview ? '' : 'wizard-no-preview'}`}>
         <WizardSecondaryNav
@@ -974,6 +1043,26 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
             }
           >
             <div id="wiz-sec-trade" style={{ scrollMarginTop: 16 }} />
+            {hasTemplateTrade ? (
+              /* A template was picked — its `trades[0]` was auto-applied to
+                 `ws.selectedTrade`. We hide the old trade picker (the
+                 redundant second taxonomy under the template categories) and
+                 surface a slim confirmation chip instead. */
+              <div
+                data-testid="trade-inferred-chip"
+                style={{
+                  marginTop: '14px', marginBottom: '4px',
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  padding: '6px 12px', borderRadius: 999,
+                  background: p.colors.accentLighter, color: p.colors.accentDark,
+                  fontSize: 12, fontWeight: 600,
+                }}
+              >
+                <Check style={{ width: 12, height: 12 }} />
+                Trade: {selectedTradeLabel || ws.selectedTrade}
+              </div>
+            ) : (
+            <>
             <div style={{ marginTop: '22px', marginBottom: '10px' }}>
               <label style={{ ...p.typography.label, display: 'block', marginBottom: '4px' }}>
                 What kind of work do you do? <span style={{ color: p.colors.danger }}>*</span>
@@ -1127,9 +1216,11 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                 )}
               </>
             )}
+            </>
+            )}
 
             <div id="wiz-sec-contact" style={{ scrollMarginTop: 16 }} />
-            <div style={{ marginTop: '9px' }}>
+            <div style={{ marginTop: hasTemplateTrade ? '14px' : '9px' }}>
               <InputField id="owner-email" testId="input-owner-email"
                 label="Your Email" sublabel="(for lead notifications)" type="email" required
                 value={ws.ownerEmail} onChange={v => set('ownerEmail', v)}
@@ -1738,26 +1829,34 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
               }}
             >
               {previewDevice === 'mobile' ? (
-                <div style={{
-                  width: '100%', maxWidth: 392, flexShrink: 0, margin: '0 auto',
-                  background: 'linear-gradient(160deg, #1e293b, #0f172a)',
-                  borderRadius: 44, padding: '12px 10px',
-                  boxShadow: '0 22px 48px rgba(15,23,42,0.30), inset 0 0 0 1px rgba(255,255,255,0.06)',
-                }}>
-                  <div style={{ height: 5, width: 42, borderRadius: 3, background: 'rgba(255,255,255,0.22)', margin: '0 auto 9px' }} />
-                  <div style={{ borderRadius: 34, overflow: 'hidden', background: '#fff' }}>
+                <div
+                  data-testid="preview-bezel-mobile"
+                  style={{
+                    width: '100%', maxWidth: 390, maxHeight: 780, flexShrink: 0, margin: '0 auto',
+                    background: 'linear-gradient(160deg, #1e293b, #0f172a)',
+                    borderRadius: 44, padding: '12px 10px', boxSizing: 'border-box',
+                    overflow: 'hidden', display: 'flex', flexDirection: 'column',
+                    boxShadow: '0 22px 48px rgba(15,23,42,0.30), inset 0 0 0 1px rgba(255,255,255,0.06)',
+                  }}
+                >
+                  <div style={{ height: 5, width: 42, borderRadius: 3, background: 'rgba(255,255,255,0.22)', margin: '0 auto 9px', flexShrink: 0 }} />
+                  <div style={{ borderRadius: 34, overflow: 'auto', background: '#fff', flex: 1 }}>
                     <QuoteWidget calculator={previewCalculatorData} isEmbed />
                   </div>
                 </div>
               ) : (
-                <div style={{
-                  width: '100%', maxWidth: 820, margin: '0 auto',
-                  borderRadius: 16, overflow: 'hidden', background: '#fff',
-                  border: `1px solid ${p.colors.borderLight}`,
-                  boxShadow: '0 20px 48px rgba(15,23,42,0.16), 0 2px 8px rgba(15,23,42,0.06)',
-                }}>
+                <div
+                  data-testid="preview-bezel-desktop"
+                  style={{
+                    width: '100%', maxWidth: 820, maxHeight: 640, margin: '0 auto',
+                    borderRadius: 16, overflow: 'hidden', background: '#fff',
+                    border: `1px solid ${p.colors.borderLight}`,
+                    display: 'flex', flexDirection: 'column',
+                    boxShadow: '0 20px 48px rgba(15,23,42,0.16), 0 2px 8px rgba(15,23,42,0.06)',
+                  }}
+                >
                   <div style={{
-                    display: 'flex', alignItems: 'center', gap: 7,
+                    display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0,
                     padding: '9px 14px', background: '#fbfcfd',
                     borderBottom: `1px solid ${p.colors.borderLight}`,
                   }}>
@@ -1774,7 +1873,9 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                       {(ws.businessName || 'your-business').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 28)}.your-quote.net
                     </div>
                   </div>
-                  <QuoteWidget calculator={previewCalculatorData} isEmbed />
+                  <div style={{ flex: 1, overflow: 'auto' }}>
+                    <QuoteWidget calculator={previewCalculatorData} isEmbed />
+                  </div>
                 </div>
               )}
             </div>
@@ -1865,6 +1966,29 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
           border: 1px solid ${p.colors.border}; background: #fff;
           color: ${p.colors.muted}; font-weight: 700; font-size: 13px;
         }
+        /* X close — sits immediately to the right of the ? help icon. */
+        .wizard-nav-close {
+          width: 24px; height: 24px; border-radius: 50%; cursor: pointer;
+          border: 1px solid ${p.colors.border}; background: #fff;
+          color: ${p.colors.muted}; padding: 0;
+          display: flex; align-items: center; justify-content: center;
+          transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+        }
+        .wizard-nav-close:hover {
+          background: ${p.colors.surfaceRaised};
+          color: ${p.colors.heading};
+          border-color: ${p.colors.border};
+        }
+        /* Modal-overlay shell — the wizard sits on top of the page the user
+           came from with a dimmed backdrop and a clipped frame, giving the
+           "opens as a window" feel rather than a standalone route. */
+        .wizard-shell-modal {
+          position: fixed; inset: 0; z-index: 1000;
+          background: rgba(15, 23, 42, 0.55);
+          overflow-y: auto;
+          backdrop-filter: blur(2px);
+          -webkit-backdrop-filter: blur(2px);
+        }
         /* Native colour picker — round the inner swatch so the custom-colour
            control reads as a circle alongside the preset swatches. */
         input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
@@ -1913,8 +2037,9 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
         /* Preview canvas — the calculator is framed as a real embed:
            a browser-chrome card on desktop, a phone shell on mobile. */
         .wizard-preview-stage {
-          width: 100%; max-width: 920px; display: flex; flex-direction: column;
-          align-items: center; background: transparent;
+          width: 100%; max-width: 920px; max-height: 100%;
+          display: flex; flex-direction: column;
+          align-items: center; justify-content: center; background: transparent;
         }
         .wizard-no-preview .wizard-left { width: 100%; border-right: none; }
 
@@ -2260,11 +2385,12 @@ function GeneratingAnimation({ progress, businessName }: { progress: number; bus
 // screen (BuilderStep1): business name, layout, template gallery, trade.
 const NAV_STEPS = ['Start', 'Design', 'Logic', 'CTA & Marketing', 'Install'];
 
-function WizardNav({ current, onHelp, justSaved, onNavigate, device, onDeviceChange, showDevice }: {
+function WizardNav({ current, onHelp, justSaved, onNavigate, device, onDeviceChange, showDevice, onClose }: {
   current: number; onHelp: () => void; justSaved?: boolean;
   onNavigate?: (visualStep: number) => void;
   device?: 'desktop' | 'mobile'; onDeviceChange?: (d: 'desktop' | 'mobile') => void;
   showDevice?: boolean;
+  onClose?: () => void;
 }) {
   return (
     <div className="wizard-navbar">
@@ -2277,6 +2403,18 @@ function WizardNav({ current, onHelp, justSaved, onNavigate, device, onDeviceCha
         <div className="wizard-nav-right">
           <span className="wizard-nav-saved" style={{ opacity: justSaved ? 1 : 0 }}>✓ Saved</span>
           <button onClick={onHelp} className="wizard-nav-help" aria-label="Help">?</button>
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="wizard-nav-close"
+              data-testid="quotequick-close"
+              aria-label="Close QuoteQuick"
+              title="Close"
+            >
+              <X style={{ width: 14, height: 14 }} aria-hidden="true" />
+            </button>
+          )}
         </div>
       </div>
       <div className="wizard-nav-steps">
