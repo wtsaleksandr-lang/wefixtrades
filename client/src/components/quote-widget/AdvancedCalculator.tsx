@@ -44,6 +44,7 @@ export interface AdvancedConfig {
   header?: AdvHeader;
   results?: AdvResults;
   theme?: string;
+  layout?: 'single_page' | 'two_column' | 'multi_step';
 }
 
 interface Props {
@@ -199,10 +200,12 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
         );
       })()}
 
-      {/* ── Body — inputs alongside a standing result panel ── */}
+      {/* ── Body — two_column puts the result beside the inputs; single_page
+            and multi_step stack it below. ── */}
       <div style={{
-        display: 'flex', flexWrap: 'wrap', gap: '16px', padding: '20px',
-        background: c.bg,
+        display: 'flex', flexWrap: 'wrap',
+        flexDirection: (advanced.layout || 'two_column') === 'two_column' ? 'row' : 'column',
+        gap: '16px', padding: '20px', background: c.bg,
       }}>
         {/* Inputs */}
         <div style={{ flex: '1 1 260px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: '16px' }}>

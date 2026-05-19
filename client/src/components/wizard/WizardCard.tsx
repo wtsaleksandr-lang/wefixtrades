@@ -266,7 +266,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
           template_id: id,
           layout: { ...ws.calculatorSettings.ui_template?.layout, style: preset.layout },
         },
-        advanced: preset.advanced as any,
+        advanced: { ...preset.advanced, layout: preset.layout } as any,
       });
       return;
     }

@@ -9,6 +9,7 @@ import { platformTheme as p } from '@/theme/platformTheme';
 import { dashboardTheme as d } from '@/theme/dashboardTheme';
 import { validateFormula, runCalculations, type FormulaContext } from '@shared/formulaEngine';
 import { WIDGET_THEME_LIST } from '@/components/quote-widget/widgetThemes';
+import { LAYOUTS } from '@shared/templateLibrary';
 import {
   Plus, Trash2, ChevronLeft, Hash, SlidersHorizontal, List, CircleDot,
   CheckSquare, ToggleLeft, Type, Sigma, Eye, Sparkles, Loader2,
@@ -44,6 +45,7 @@ interface AdvResults { heading?: string; footnote?: string; show_breakdown?: boo
 export interface AdvancedConfigData {
   enabled?: boolean; fields?: AdvField[]; calculations?: AdvCalc[]; result_calc?: string;
   header?: AdvHeader; results?: AdvResults; theme?: string;
+  layout?: 'single_page' | 'two_column' | 'multi_step';
 }
 
 interface Props {
@@ -521,6 +523,31 @@ export default function AdvancedBuilder({ advanced, onChange, onExitAdvanced }: 
           </select>
         </div>
       )}
+
+      {/* ─── Layout ─── */}
+      <div style={{ margin: '22px 0 10px' }}><SectionLabel>Layout</SectionLabel></div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }} data-testid="adv-layout-picker">
+        {LAYOUTS.map((l) => {
+          const active = (advanced.layout || 'two_column') === l.id;
+          return (
+            <button key={l.id} type="button" data-testid={`adv-layout-${l.id}`}
+              onClick={() => patch({ layout: l.id })}
+              style={{
+                flex: '1 1 150px', textAlign: 'left', padding: '10px 12px', cursor: 'pointer',
+                borderRadius: d.radius.card, background: d.colors.card, border: 'none',
+                boxShadow: active ? `0 0 0 2px ${p.colors.accent}, ${d.shadows.card}` : d.shadows.card,
+              }}>
+              <p style={{
+                fontSize: 13, fontWeight: 600, margin: 0,
+                color: active ? p.colors.accentDark : p.colors.heading,
+              }}>{l.name}</p>
+              <p style={{ fontSize: 11.5, color: p.colors.muted, margin: '2px 0 0', lineHeight: 1.4 }}>
+                {l.description}
+              </p>
+            </button>
+          );
+        })}
+      </div>
 
       {/* ─── Theme ─── */}
       <div style={{ margin: '22px 0 10px' }}><SectionLabel>Theme</SectionLabel></div>
