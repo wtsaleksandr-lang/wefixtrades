@@ -1086,8 +1086,6 @@ export function registerAdminCrmRoutes(app: Express): void {
             log.warn(`[webfix-post-audit] failed for client_service #${task.client_service_id}:`, { error: err.message }),
           );
         }
-
-        // AdFlow report trigger removed — Sprint 1: AdFlow dropped.
       }
 
       // Auto-dispatch to supplier when a task moves into in_progress/submitted

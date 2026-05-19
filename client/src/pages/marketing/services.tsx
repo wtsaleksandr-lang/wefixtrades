@@ -255,7 +255,7 @@ export default function ServicesPage() {
       id: "webcare",
       img: webcareIcon,
       title: "WebCare",
-      desc: "Ongoing website maintenance. Updates, backups, and monitoring so your site stays working.",
+      desc: "Ongoing website maintenance. Updates, security checks, and monitoring so your site stays working.",
       from: `From $79/mo`,
       testid: "service-webcare",
       btnTestid: "button-request-info-webcare",

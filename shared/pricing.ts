@@ -206,7 +206,7 @@ export const WEBCARE: ProductDef = {
       features: [
         "Monthly software & security updates",
         "24/7 uptime monitoring",
-        "Daily automated backups",
+        "Monthly security & SSL health checks",
         "1 content change per month",
         "Email support",
       ],
@@ -293,7 +293,7 @@ export const REPUTATIONSHIELD: ProductDef = {
   tiers: [
     {
       id: "reputationshield-basic",
-      name: "Grow",
+      name: "Basic",
       price: 79,
       billingPeriod: "monthly",
       features: [
@@ -314,7 +314,7 @@ export const REPUTATIONSHIELD: ProductDef = {
       highlighted: true,
       badge: "Most Popular",
       features: [
-        "Everything in Grow",
+        "Everything in Basic",
         "AI-drafted review responses — edit and post in seconds",
         "Full review carousel widget with rotating testimonials",
         "Google + Facebook review destination choice for customers",
@@ -324,7 +324,7 @@ export const REPUTATIONSHIELD: ProductDef = {
     },
     {
       id: "reputationshield-premium",
-      name: "Scale",
+      name: "Premium",
       price: 179,
       billingPeriod: "monthly",
       features: [

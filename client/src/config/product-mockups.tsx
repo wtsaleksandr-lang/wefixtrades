@@ -555,7 +555,7 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       mockup: <Wide><StatTrio
         a={{ value: "47", label: "Updates this month", color: "cyanSoft", icon: <Zap size={16} /> }}
         b={{ value: "0", label: "Breaks reaching prod", color: "mint", icon: <ShieldCheck size={16} /> }}
-        c={{ value: "Daily", label: "Backup snapshots", color: "lavender", icon: <Clock size={16} /> }}
+        c={{ value: "100%", label: "SSL & security checks", color: "lavender", icon: <ShieldCheck size={16} /> }}
       /></Wide>,
     },
     {
@@ -572,7 +572,7 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
     {
       number: "04",
       title: "One Dashboard For Everything",
-      description: "Site health, traffic, security, backups — one place. Plus monthly health reports delivered to your inbox.",
+      description: "Site health, traffic, uptime, security — one place. Plus monthly health reports delivered to your inbox.",
       cta: { label: "See Dashboard", href: "/portal" },
       mockup: <OrbitingLogos
         center={<div style={{ background: TILE.white.bg, color: TILE.white.ink, borderRadius: 14, padding: 18, minWidth: 200, fontFamily: SANS, boxShadow: "0 16px 40px rgba(0,0,0,0.4)" }}>
@@ -723,7 +723,7 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
     {
       number: "01",
       title: "Google Ads, Run For You",
-      description: "Real campaigns, managed by humans + AI. We tune bids, swap creative, and pause losers — every week.",
+      description: "Real campaigns, run by a vetted ad-agency partner. They tune bids, swap creative, and pause losers — every week.",
       cta: { label: "Learn More", href: "/products/adflow" },
       mockup: (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr", gap: 32, maxWidth: 880, width: "100%", alignItems: "center" }} className="effortel-grid-2">

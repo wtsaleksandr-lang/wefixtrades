@@ -98,7 +98,7 @@ const SERVICE_INFO: Record<string, ServiceInfo> = {
   webcare: {
     name: "WebCare\u2122",
     headline: "Your website stays updated, secure, and working",
-    bullets: ["Monthly software and security updates", "24/7 uptime monitoring", "Daily backups", "Small content changes handled for you"],
+    bullets: ["Monthly software and security updates", "24/7 uptime monitoring", "Security & SSL health checks", "Small content changes handled for you"],
     href: "/products/webcare",
     trustLine: "Your website keeps running \u2014 you never have to worry about it",
     bestFor: "ongoing website maintenance",

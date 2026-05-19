@@ -35,7 +35,7 @@ const CARDS_DATA = [
     accentBg: "#d1fae5",
     title: "Show up where customers are searching.",
     description:
-      "RankFlow tracks every keyword that drives trades work in your service area — daily. The monthly report tells you exactly which pages to update and which competitors are gaining ground.",
+      "RankFlow tracks every keyword that drives trades work in your service area — weekly. The monthly report tells you exactly which pages to update and which competitors are gaining ground.",
     reversed: false,
   },
   {

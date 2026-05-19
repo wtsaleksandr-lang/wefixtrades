@@ -1,6 +1,6 @@
 import {
   TRADELINE, QUOTEQUICK, WEBCARE, MAPGUARD, SITELAUNCH,
-  REPUTATIONSHIELD, SOCIALSYNC, RANKFLOW, WEBFIX, ADFLOW,
+  REPUTATIONSHIELD, SOCIALSYNC, RANKFLOW, WEBFIX, ADFLOW, CONTENTFLOW,
   formatPrice, type ProductDef, type Tier,
 } from "@shared/pricing";
 
@@ -204,20 +204,20 @@ export const PRODUCT_PAGES: ProductPage[] = [
     secondaryCTA: { label: "See Pricing", href: "/pricing" },
     highlights: [
       "Your website stays updated and working — we handle it every month",
-      "Security patches and backups applied automatically",
+      "Security patches and SSL health checks applied automatically",
       "Your business info, hours, and services always stay current",
       "Small content changes handled for you — just send us a message",
       "24/7 uptime monitoring — if your site goes down, we know first",
     ],
     outcomes: [
-      { title: "Fewer website problems", desc: "Updates, patches, and backups happen automatically. You don't get surprised by a broken site." },
+      { title: "Fewer website problems", desc: "Updates, patches, and security checks happen automatically. You don't get surprised by a broken site." },
       { title: "Better first impression", desc: "Customers always see a professional, working website with accurate info." },
       { title: "Fewer missed leads", desc: "Broken forms, outdated pages, and slow load times cost real enquiries. WebCare keeps everything running." },
       { title: "Less time wasted", desc: "No more chasing developers or trying to fix things yourself. We handle it." },
     ],
     howItWorks: [
       { title: "We review your site", desc: "We check your website for outdated info, broken elements, and security issues. No technical work on your end." },
-      { title: "We take care of it every month", desc: "Updates, patches, backups, and content changes — handled. You get a simple summary of what we did." },
+      { title: "We take care of it every month", desc: "Updates, patches, security checks, and content changes — handled. You get a simple summary of what we did." },
       { title: "You reach out when you need changes", desc: "New phone number? Updated hours? Seasonal promotion? Just message us and we'll take care of it." },
     ],
     bestFor: ["Plumbers", "Electricians", "HVAC Technicians", "Roofers", "Cleaners", "General Contractors", "Landscapers", "Painters"],
@@ -370,7 +370,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
       { q: "What is the \u201cshield\u201d?", a: "When a customer has a bad experience, they see a private feedback form instead of being sent to Google. You get the complaint and a chance to make it right \u2014 before it becomes a public 1-star review." },
       { q: "How do review requests get sent?", a: "By SMS or email, automatically after each completed job. SMS is the default because it gets 3\u20135x more responses. You can also generate QR codes for in-person collection." },
       { q: "How do you respond to reviews?", a: "AI generates personalized, professional responses matching your business tone. Positive reviews are replied to automatically. Negative reviews get a carefully drafted response reviewed before posting." },
-      { q: "Can I respond to reviews from here?", a: "Yes. AI drafts a professional response based on the review text and your business type. On the Pro plan you can edit and copy it. On Scale, you can post it directly to Google with one click." },
+      { q: "Can I respond to reviews from here?", a: "Yes. AI drafts a professional response based on the review text and your business type. On the Pro plan you can edit and copy it. On Premium, you can post it directly to Google with one click." },
       { q: "Will this help me get more reviews?", a: "Yes. Automated SMS and email requests after every job significantly increase the number of reviews you receive. We track which requests lead to reviews." },
       { q: "What if I get a bad review anyway?", a: "You\u2019ll get an instant email alert. AI drafts a calm, professional response. You can post it quickly \u2014 fast responses show future customers you care." },
       { q: "How is this different from Podium or NiceJob?", a: "ReputationShield is built specifically for trades businesses, costs a fraction of Podium ($399+/mo), and includes AI response drafting that NiceJob doesn\u2019t offer. No contracts, no sales calls, transparent pricing." },
@@ -515,27 +515,10 @@ export const PRODUCT_PAGES: ProductPage[] = [
       { q: "How does the AI know what to write about?", a: "It uses your brand profile, service descriptions, service area, and industry knowledge to generate relevant, helpful content. Topics rotate automatically so you never repeat." },
       { q: "Can I edit content before it goes live?", a: "Yes. Every piece is available for review. You can edit text, approve as-is, or reject and request a rewrite." },
       { q: "What if I don’t like the tone?", a: "You can adjust your brand voice settings at any time. Choose between friendly, professional, or direct — and add any specific phrases or terminology you prefer." },
-      { q: "How is this different from SocialSync?", a: "SocialSync focuses on social media posting. ContentFlow is the unified engine that powers articles, social posts, and GBP updates together. If you have SocialSync, ContentFlow is the brain behind it." },
-      { q: "How much content do I get?", a: "Content volume depends on your plan. Contact us for details on articles per month, social posts, and GBP update frequency." },
+      { q: "How is this different from SocialSync?", a: "SocialSync focuses specifically on social media posting. ContentFlow is a standalone content engine that produces articles, social posts, and GBP updates together — you can buy it on its own, no SocialSync subscription required. The two work well together but neither needs the other." },
+      { q: "How much content do I get?", a: "It depends on your plan: Creator includes 12 pieces per month, Studio 40, and Agency 120 — a mix of articles, social posts, and GBP updates." },
     ],
-    pricingSection: {
-      plans: [
-        {
-          name: "ContentFlow",
-          price: "Custom",
-          period: "",
-          features: [
-            "AI article generation for your blog",
-            "Social media posts (Facebook, Instagram, GBP)",
-            "Brand voice matching & quality checks",
-            "Multi-channel auto-publishing",
-            "Content calendar & approval workflow",
-            "Monthly content performance summary",
-          ],
-        },
-      ],
-      note: "ContentFlow is included with SocialSync and RankFlow plans. Contact us for standalone pricing.",
-    },
+    pricingSection: buildPricingSection(CONTENTFLOW, "Standalone plans — no SocialSync or RankFlow subscription required. No contracts. Cancel anytime.", { checkout: true }),
     related: ["socialsync", "rankflow", "mapguard"],
   },
   {

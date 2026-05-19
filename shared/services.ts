@@ -4,7 +4,7 @@
  */
 import {
   SITELAUNCH, TRADELINE, QUOTEQUICK, MAPGUARD,
-  REPUTATIONSHIELD, SOCIALSYNC, WEBFIX, RANKFLOW, WEBCARE, ADFLOW,
+  REPUTATIONSHIELD, SOCIALSYNC, WEBFIX, RANKFLOW, WEBCARE, ADFLOW, CONTENTFLOW,
   lowestMonthly, formatPrice,
   type ProductDef,
 } from "./pricing";
@@ -205,6 +205,25 @@ export const SERVICES: Service[] = [
     features: [
       ...SOCIALSYNC.tiers[0].features,
       ...SOCIALSYNC.tiers[1].features.filter(f => !SOCIALSYNC.tiers[0].features.includes(f)).map(f => `${f} (Growth)`),
+    ],
+  },
+  {
+    id: "contentflow",
+    name: CONTENTFLOW.name,
+    tagline: CONTENTFLOW.tagline,
+    description:
+      "Standalone AI content engine — articles, social posts, and Google Business Profile updates generated in your brand voice and auto-published across every channel. Sold on its own; no SocialSync or RankFlow subscription required.",
+    price: lowestMonthly(CONTENTFLOW)!,
+    priceLabel: `From ${formatPrice(lowestMonthly(CONTENTFLOW)!)}/mo`,
+    billingPeriod: "monthly",
+    category: "visibility",
+    fixesIssues: [
+      "low-visibility",
+      "low-search-ranking",
+    ],
+    features: [
+      ...CONTENTFLOW.tiers[0].features,
+      ...CONTENTFLOW.tiers[1].features.filter(f => !CONTENTFLOW.tiers[0].features.includes(f)).map(f => `${f} (Studio)`),
     ],
   },
   {
