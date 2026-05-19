@@ -11,11 +11,14 @@
  * when a portal account is auto-provisioned for a paying customer (that
  * one ships a password-set magic link).
  *
- * No-ops if SMTP is not configured. Send failures are logged but never
- * throw — signup must succeed even when email is down.
+ * Delivery goes through the durable email queue (emailQueueService) so a
+ * transient SMTP blip doesn't lose the first email a new account ever
+ * receives — the queue worker retries up to 3× with backoff and alerts
+ * on final failure. Enqueue itself never throws to the caller; signup
+ * must succeed even when the DB-backed queue is unavailable.
  */
 
-import { getEmailTransporter, getFromAddress } from "./emailTransport";
+import { queueEmail } from "../services/emailQueueService";
 import { buildTransactionalEmail, buildPlainText } from "./transactionalShell";
 import type { User, Client } from "@shared/schema";
 import { createLogger } from "./logger";
@@ -37,63 +40,63 @@ function stepRow(n: number, text: string): string {
 }
 
 export async function sendSelfServeWelcome(params: SendParams): Promise<boolean> {
-  const transporter = getEmailTransporter();
-  if (!transporter) {
-    log.warn("[self-serve-welcome] SMTP not configured — skipping");
-    return false;
-  }
-
   if (!params.client.contact_email) {
     log.warn(`[self-serve-welcome] Client #${params.client.id} has no email — skipping`);
     return false;
   }
 
   const baseUrl = process.env.APP_URL || process.env.APP_PUBLIC_URL || "https://wefixtrades.com";
-  const supportEmail = process.env.ADMIN_EMAIL || process.env.INTERNAL_LEAD_EMAIL || getFromAddress();
+  const supportEmail = process.env.ADMIN_EMAIL || process.env.INTERNAL_LEAD_EMAIL || "support@wefixtrades.com";
   const portalUrl = `${baseUrl}/portal`;
   const contactName = params.client.contact_name || params.client.business_name || "there";
   const firstName = contactName.split(" ")[0] || "there";
   const businessName = params.client.business_name;
+  const subject = `Welcome to WeFixTrades, ${firstName}`;
+
+  const html = buildTransactionalEmail({
+    recipientEmail: params.client.contact_email,
+    subjectForTitle: subject,
+    eyebrow: "Account created",
+    headline: `You're in, ${firstName}`,
+    intro: `Your free account for <strong style="color:#F0F0F0;">${businessName}</strong> is ready. From your dashboard you can try the free tools, pick services that fit your trade, and add team members when you're ready.`,
+    cta: { label: "Open your dashboard", url: portalUrl },
+    ctaFinePrint: `If you ever lose this link, just go to wefixtrades.com and log in with the email + password you just set.`,
+    bodyHtml: `
+      <div style="border-top:1px solid rgba(255,255,255,0.06);margin:28px 0 22px;line-height:1px;font-size:0;">&nbsp;</div>
+      <p style="font-size:12px;font-weight:600;color:#8B919A;text-transform:uppercase;letter-spacing:0.06em;margin:0 0 14px;">
+        Three places to start
+      </p>
+      <table style="width:100%;border-collapse:collapse;">
+        ${stepRow(1, "Run a free Google Business + website audit to see where you stand")}
+        ${stepRow(2, "Try the missed-call revenue calculator for your trade")}
+        ${stepRow(3, "Browse services or talk to us about what would move the needle first")}
+      </table>`,
+    pasteLinkFallback: { url: portalUrl },
+    supportNote: `Questions? Just reply to this email or reach us at <a href="mailto:${supportEmail}" style="color:#0d3cfc;text-decoration:none;">${supportEmail}</a>.`,
+  });
+
+  const text = buildPlainText({
+    headline: `You're in, ${firstName}`,
+    intro: `Your free WeFixTrades account for ${businessName} is ready. Try the free tools, pick services that fit your trade, or add team members when you're ready.`,
+    ctaLabel: "Open your dashboard",
+    ctaUrl: portalUrl,
+    supportNote: `Questions? Reach us at ${supportEmail}.`,
+  });
 
   try {
-    await transporter.sendMail({
-      from: `WeFixTrades <${getFromAddress()}>`,
-      to: params.client.contact_email,
-      replyTo: supportEmail,
-      subject: `Welcome to WeFixTrades, ${firstName}`,
-      html: buildTransactionalEmail({
-        recipientEmail: params.client.contact_email,
-        subjectForTitle: `Welcome to WeFixTrades, ${firstName}`,
-        eyebrow: "Account created",
-        headline: `You're in, ${firstName}`,
-        intro: `Your free account for <strong style="color:#F0F0F0;">${businessName}</strong> is ready. From your dashboard you can try the free tools, pick services that fit your trade, and add team members when you're ready.`,
-        cta: { label: "Open your dashboard", url: portalUrl },
-        ctaFinePrint: `If you ever lose this link, just go to wefixtrades.com and log in with the email + password you just set.`,
-        bodyHtml: `
-          <div style="border-top:1px solid rgba(255,255,255,0.06);margin:28px 0 22px;line-height:1px;font-size:0;">&nbsp;</div>
-          <p style="font-size:12px;font-weight:600;color:#8B919A;text-transform:uppercase;letter-spacing:0.06em;margin:0 0 14px;">
-            Three places to start
-          </p>
-          <table style="width:100%;border-collapse:collapse;">
-            ${stepRow(1, "Run a free Google Business + website audit to see where you stand")}
-            ${stepRow(2, "Try the missed-call revenue calculator for your trade")}
-            ${stepRow(3, "Browse services or talk to us about what would move the needle first")}
-          </table>`,
-        pasteLinkFallback: { url: portalUrl },
-        supportNote: `Questions? Just reply to this email or reach us at <a href="mailto:${supportEmail}" style="color:#0d3cfc;text-decoration:none;">${supportEmail}</a>.`,
-      }),
-      text: buildPlainText({
-        headline: `You're in, ${firstName}`,
-        intro: `Your free WeFixTrades account for ${businessName} is ready. Try the free tools, pick services that fit your trade, or add team members when you're ready.`,
-        ctaLabel: "Open your dashboard",
-        ctaUrl: portalUrl,
-        supportNote: `Questions? Reach us at ${supportEmail}.`,
-      }),
+    // Durable delivery: enqueue rather than send inline so a transient
+    // SMTP failure doesn't drop a new account's first email. The queue
+    // worker (processEmailQueue) retries with backoff and alerts on
+    // final failure.
+    await queueEmail(params.client.contact_email, subject, html, text, {
+      kind: "self_serve_welcome",
+      user_id: params.user.id,
+      client_id: params.client.id,
     });
-    log.info(`[self-serve-welcome] Sent to ${params.client.contact_email} for user #${params.user.id}`);
+    log.info(`[self-serve-welcome] Queued for ${params.client.contact_email} (user #${params.user.id})`);
     return true;
   } catch (err: any) {
-    log.error(`[self-serve-welcome] Send failed for user #${params.user.id}:`, err.message);
+    log.error(`[self-serve-welcome] Enqueue failed for user #${params.user.id}:`, err?.message);
     return false;
   }
 }
