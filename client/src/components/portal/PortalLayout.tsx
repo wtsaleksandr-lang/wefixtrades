@@ -106,6 +106,7 @@ function buildNavItems(active: Set<string>): NavItem[] {
        calendar and an invoice ledger, even if they're empty. The
        child pages render their own empty states. */
     { label: "Today's jobs", href: "/portal/dispatch", icon: Calendar },
+    { label: "Booking page", href: "/portal/bookflow-setup", icon: Settings, indent: true },
     { label: "Invoices", href: "/portal/invoices", icon: Receipt },
     { label: "Billing", href: "/portal/billing", icon: CreditCard },
     /* Q16: dedicated entry-point to the in-portal service catalog */
