@@ -4,6 +4,12 @@ import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { V7Hero, V7PageShell } from "@/components/marketing/v7";
 import { mkt, colors } from "@/theme/tokens";
 import { trackEvent } from "@/lib/trackEvent";
+import { QUOTEQUICK, getTier, yearlyMonthlyEquiv } from "@shared/pricing";
+
+/* Canonical QuoteQuick pricing — single source of truth (shared/pricing.ts).
+   Decision #1 (phase2-decisions): Starter $49 / Pro $79. */
+const STARTER = getTier(QUOTEQUICK, "Starter")!;
+const PRO = getTier(QUOTEQUICK, "Pro")!;
 
 /* ─── FAQ ─── */
 
@@ -11,7 +17,7 @@ const FAQS = [
   { q: "Do I need a website?", a: "No. Every calculator gets a hosted page you can share via link — email, text, social media, Google Business profile. If you do have a website, you can embed it with one line of code." },
   { q: "Can I use this with Jobber or Housecall Pro?", a: "Yes. QuoteQuick works alongside whatever you already use. Leads come to your email and dashboard — no platform switch needed." },
   { q: "How fast can I set it up?", a: "Most users go live in under 5 minutes. Pick your trade, set your rate, and publish. No code, no design skills needed." },
-  { q: "What happens after the trial?", a: "After 14 days, choose Solo ($49/mo) or Business ($99/mo). Your calculator stays live — you just pick a plan. No data is lost." },
+  { q: "What happens after the trial?", a: "After 14 days, choose Starter ($49/mo) or Pro ($79/mo). Your calculator stays live — you just pick a plan. No data is lost." },
   { q: "Can I cancel anytime?", a: "Yes. No contracts, no lock-in. Cancel from your dashboard in one click. Annual plans keep access until the period ends." },
 ];
 
@@ -77,7 +83,7 @@ export default function QuoteQuickPricing() {
   const calcId = params.get('cid');
   const hasCalc = !!(calcToken && calcId);
 
-  const startCheckout = async (plan: 'solo' | 'business') => {
+  const startCheckout = async (plan: 'starter' | 'pro') => {
     if (!hasCalc) {
       // New user — go to wizard
       window.location.href = '/Wizard';
@@ -106,8 +112,9 @@ export default function QuoteQuickPricing() {
     }
   };
 
-  const soloPrice = annual ? 39 : 49;
-  const bizPrice = annual ? 79 : 99;
+  // Derived from canonical pricing. Annual = yearly total / 12 (10% off).
+  const starterPrice = annual ? yearlyMonthlyEquiv(STARTER.price) : STARTER.price;
+  const proPrice = annual ? yearlyMonthlyEquiv(PRO.price) : PRO.price;
 
   return (
     <MarketingLayout>
@@ -148,7 +155,7 @@ export default function QuoteQuickPricing() {
               }}
             >
               Annual
-              <span style={{ fontSize: 11, fontWeight: 700, marginLeft: 6, color: annual ? mkt.dark : mkt.accent }}>Save 20%</span>
+              <span style={{ fontSize: 11, fontWeight: 700, marginLeft: 6, color: annual ? mkt.dark : mkt.accent }}>Save 10%</span>
             </button>
           </div>
         </div>
@@ -159,22 +166,22 @@ export default function QuoteQuickPricing() {
           gap: 20, marginBottom: "clamp(48px, 6vw, 72px)", maxWidth: 700, margin: "0 auto",
         }}>
 
-          {/* SOLO */}
+          {/* STARTER */}
           <div style={{
             borderRadius: 16, padding: "32px 28px",
             background: mkt.sectionLight, border: `1px solid ${mkt.onDarkBorder}`,
           }}>
-            <p style={{ fontSize: 13, fontWeight: 700, color: mkt.onDarkMuted, textTransform: "uppercase", letterSpacing: "0.05em", margin: "0 0 4px" }}>Solo</p>
+            <p style={{ fontSize: 13, fontWeight: 700, color: mkt.onDarkMuted, textTransform: "uppercase", letterSpacing: "0.05em", margin: "0 0 4px" }}>Starter</p>
             <p style={{ fontSize: 13, color: mkt.onDarkMuted, margin: "0 0 20px" }}>For one-person trades</p>
             <div style={{ display: "flex", alignItems: "flex-end", gap: 4, marginBottom: 4 }}>
-              <span style={{ fontSize: 40, fontWeight: 700, color: mkt.onDark, letterSpacing: "-0.02em", lineHeight: 1 }}>${soloPrice}</span>
+              <span style={{ fontSize: 40, fontWeight: 700, color: mkt.onDark, letterSpacing: "-0.02em", lineHeight: 1 }}>${starterPrice}</span>
               <span style={{ fontSize: 14, color: mkt.onDarkMuted, marginBottom: 6 }}>/mo</span>
             </div>
-            {annual && <p style={{ fontSize: 12, color: mkt.accent, margin: "0 0 20px" }}>Billed yearly (${soloPrice * 12}/yr)</p>}
-            {!annual && <p style={{ fontSize: 12, color: mkt.onDarkMuted, margin: "0 0 20px" }}>${39}/mo billed annually</p>}
+            {annual && <p style={{ fontSize: 12, color: mkt.accent, margin: "0 0 20px" }}>Billed yearly (${starterPrice * 12}/yr)</p>}
+            {!annual && <p style={{ fontSize: 12, color: mkt.onDarkMuted, margin: "0 0 20px" }}>${yearlyMonthlyEquiv(STARTER.price)}/mo billed annually</p>}
 
             <button
-              onClick={() => startCheckout('solo')}
+              onClick={() => startCheckout('starter')}
               disabled={!!checkoutLoading}
               style={{
                 width: "100%", padding: "14px", borderRadius: 10, border: `1px solid ${mkt.onDarkBorder}`,
@@ -185,7 +192,7 @@ export default function QuoteQuickPricing() {
               onMouseEnter={e => { if (!checkoutLoading) { e.currentTarget.style.borderColor = mkt.accent; e.currentTarget.style.color = mkt.accent; } }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = mkt.border as string; e.currentTarget.style.color = mkt.text; }}
             >
-              {checkoutLoading === 'solo' ? 'Redirecting...' : hasCalc ? 'Choose Solo' : 'Start Free Trial'}
+              {checkoutLoading === 'starter' ? 'Redirecting...' : hasCalc ? 'Choose Starter' : 'Start Free Trial'}
             </button>
             <p style={{ fontSize: 11, color: mkt.onDarkMuted, textAlign: "center", margin: "0 0 20px" }}>{hasCalc ? 'Instant activation' : 'No credit card required'}</p>
 
@@ -201,7 +208,7 @@ export default function QuoteQuickPricing() {
             </div>
           </div>
 
-          {/* BUSINESS */}
+          {/* PRO */}
           <div style={{
             borderRadius: 16, padding: "32px 28px",
             background: mkt.sectionLight,
@@ -217,17 +224,17 @@ export default function QuoteQuickPricing() {
               MOST POPULAR
             </div>
 
-            <p style={{ fontSize: 13, fontWeight: 700, color: mkt.accent, textTransform: "uppercase", letterSpacing: "0.05em", margin: "0 0 4px" }}>Business</p>
+            <p style={{ fontSize: 13, fontWeight: 700, color: mkt.accent, textTransform: "uppercase", letterSpacing: "0.05em", margin: "0 0 4px" }}>Pro</p>
             <p style={{ fontSize: 13, color: mkt.onDarkMuted, margin: "0 0 20px" }}>For teams &amp; multi-service</p>
             <div style={{ display: "flex", alignItems: "flex-end", gap: 4, marginBottom: 4 }}>
-              <span style={{ fontSize: 40, fontWeight: 700, color: mkt.onDark, letterSpacing: "-0.02em", lineHeight: 1 }}>${bizPrice}</span>
+              <span style={{ fontSize: 40, fontWeight: 700, color: mkt.onDark, letterSpacing: "-0.02em", lineHeight: 1 }}>${proPrice}</span>
               <span style={{ fontSize: 14, color: mkt.onDarkMuted, marginBottom: 6 }}>/mo</span>
             </div>
-            {annual && <p style={{ fontSize: 12, color: mkt.accent, margin: "0 0 20px" }}>Billed yearly (${bizPrice * 12}/yr)</p>}
-            {!annual && <p style={{ fontSize: 12, color: mkt.onDarkMuted, margin: "0 0 20px" }}>${79}/mo billed annually</p>}
+            {annual && <p style={{ fontSize: 12, color: mkt.accent, margin: "0 0 20px" }}>Billed yearly (${proPrice * 12}/yr)</p>}
+            {!annual && <p style={{ fontSize: 12, color: mkt.onDarkMuted, margin: "0 0 20px" }}>${yearlyMonthlyEquiv(PRO.price)}/mo billed annually</p>}
 
             <button
-              onClick={() => startCheckout('business')}
+              onClick={() => startCheckout('pro')}
               disabled={!!checkoutLoading}
               style={{
                 width: "100%", padding: "14px", borderRadius: 10, border: "none",
@@ -238,12 +245,12 @@ export default function QuoteQuickPricing() {
               onMouseEnter={e => { if (!checkoutLoading) e.currentTarget.style.background = mkt.ctaBgHover; }}
               onMouseLeave={e => { e.currentTarget.style.background = mkt.ctaBg; }}
             >
-              {checkoutLoading === 'business' ? 'Redirecting...' : hasCalc ? 'Choose Business' : 'Start Free Trial'}
+              {checkoutLoading === 'pro' ? 'Redirecting...' : hasCalc ? 'Choose Pro' : 'Start Free Trial'}
             </button>
             <p style={{ fontSize: 11, color: mkt.onDarkMuted, textAlign: "center", margin: "0 0 20px" }}>{hasCalc ? 'Instant activation' : 'No credit card required'}</p>
 
             <div style={{ borderTop: `1px solid ${mkt.onDarkBorder}`, paddingTop: 16 }}>
-              <Feature text="Everything in Solo, plus:" />
+              <Feature text="Everything in Starter, plus:" />
               <Feature text="Up to 5 calculators" highlight />
               <Feature text="SMS + WhatsApp follow-ups" highlight />
               <Feature text="Remove all QuoteQuick branding" highlight />
@@ -319,7 +326,7 @@ export default function QuoteQuickPricing() {
             14 days free. No credit card. Live in 5 minutes.
           </p>
           <button
-            onClick={() => hasCalc ? startCheckout('solo') : (window.location.href = '/Wizard')}
+            onClick={() => hasCalc ? startCheckout('starter') : (window.location.href = '/Wizard')}
             style={{
               padding: "16px 40px", borderRadius: 10, border: "none",
               background: mkt.ctaBg, color: mkt.ctaText, cursor: "pointer",
