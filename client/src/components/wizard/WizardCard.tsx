@@ -19,8 +19,8 @@ import { trackEvent } from '@/lib/trackEvent';
 import QuoteWidget from '@/components/quote-widget/QuoteWidget';
 import type { CalculatorData } from '@/components/quote-widget/types';
 import { mapPricingIntakeToConfig } from '@shared/pricingIntakeMapper';
-import { getRecommendedTemplate, getTemplateById, type LayoutStyle } from '@shared/templateLibrary';
-import { getTemplatePreset } from '@shared/templatePresets';
+import { getRecommendedTemplate, getTemplateById } from '@shared/templateLibrary';
+import { getTemplatePreset, toAdvancedConfig, type TemplateLayout } from '@shared/templatePresets';
 import {
   Loader2, ArrowRight, ArrowLeft, Check, Sparkles, Wrench, Hammer,
   Layers, AlertTriangle, Car, Briefcase, Plus, HelpCircle, X,
@@ -256,7 +256,13 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
   // Template-picker selection → apply the template (or a blank start) and its
   // layout to calculator_settings. `id === 'blank'` keeps the chosen layout
   // with no presets; a real template carries its own layout + display defaults.
-  const handleTemplateSelect = (id: string, layout: LayoutStyle) => {
+  // The themed/advanced template layout (`TemplateLayout`) maps onto the
+  // legacy stepper `ui_template.layout.style` enum so that field stays
+  // schema-valid even though the advanced renderer reads `advanced.layout`.
+  const layoutToStepperStyle = (l: TemplateLayout): 'single_page' | 'two_column' | 'multi_step' =>
+    l === 'two-column' ? 'two_column' : l === 'multi-column' ? 'multi_step' : 'single_page';
+
+  const handleTemplateSelect = (id: string, layout: TemplateLayout) => {
     // A themed template — drop its whole preset config into the calculator.
     const preset = getTemplatePreset(id);
     if (preset) {
@@ -265,9 +271,9 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
         ui_template: {
           ...ws.calculatorSettings.ui_template,
           template_id: id,
-          layout: { ...ws.calculatorSettings.ui_template?.layout, style: preset.layout },
+          layout: { ...ws.calculatorSettings.ui_template?.layout, style: layoutToStepperStyle(preset.layout) },
         },
-        advanced: { ...preset.advanced, layout: preset.layout } as any,
+        advanced: toAdvancedConfig(preset) as any,
       });
       return;
     }
@@ -282,8 +288,8 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
         template_id: id,
         layout: {
           ...ws.calculatorSettings.ui_template?.layout,
-          style: layout,
-          sticky_summary: layout === 'two_column',
+          style: layoutToStepperStyle(layout),
+          sticky_summary: layout === 'two-column',
           show_breakdown: true,
           show_trust_block: false,
           show_testimonials: false,

@@ -6,8 +6,9 @@
 // The themed template gallery (the real per-use-case presets) is authored in
 // a later increment; today level 2 lists the layout's structural variants.
 import { useState } from 'react';
-import { LAYOUTS, type LayoutStyle } from '@shared/templateLibrary';
-import { getPresetsByLayout, getTemplatePreset } from '@shared/templatePresets';
+import {
+  TEMPLATE_LAYOUTS, getPresetsByLayout, getTemplatePreset, type TemplateLayout,
+} from '@shared/templatePresets';
 import { platformTheme } from '@/theme/platformTheme';
 import { dashboardTheme as d } from '@/theme/dashboardTheme';
 import { Check, ArrowLeft, ArrowRight, ChevronLeft, Save } from 'lucide-react';
@@ -16,14 +17,14 @@ const p = platformTheme;
 
 interface Props {
   selectedId: string;
-  onSelect: (templateId: string, layout: LayoutStyle) => void;
+  onSelect: (templateId: string, layout: TemplateLayout) => void;
   onBack: () => void;
   onContinue: () => void;
   onSave?: () => void;
 }
 
 /* Stylised mini-mockup of a layout / template. */
-function Mockup({ layout, blank }: { layout: LayoutStyle; blank?: boolean }) {
+function Mockup({ layout, blank }: { layout: TemplateLayout; blank?: boolean }) {
   const bar = (w: string, h = 7, c = '#cdd5e0') => (
     <div style={{ width: w, height: h, borderRadius: 3, background: c }} />
   );
@@ -38,7 +39,7 @@ function Mockup({ layout, blank }: { layout: LayoutStyle; blank?: boolean }) {
   }
   return (
     <div style={{ height: 96, borderRadius: d.radius.control, background: d.colors.cardMuted, padding: 11, overflow: 'hidden' }}>
-      {layout === 'two_column' ? (
+      {layout === 'two-column' ? (
         <div style={{ display: 'flex', gap: 8, height: '100%' }}>
           <div style={{ flex: 1.4, display: 'flex', flexDirection: 'column', gap: 6 }}>
             {bar('70%')}{bar('100%', 13)}{bar('100%', 13)}{bar('55%')}
@@ -47,13 +48,14 @@ function Mockup({ layout, blank }: { layout: LayoutStyle; blank?: boolean }) {
             {bar('60%', 5, 'rgba(255,255,255,0.5)')}{bar('80%', 10, 'rgba(255,255,255,0.85)')}
           </div>
         </div>
-      ) : layout === 'multi_step' ? (
+      ) : layout === 'multi-column' ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-          <div style={{ display: 'flex', gap: 4 }}>
-            {bar('33%', 4, p.colors.accent)}{bar('33%', 4)}{bar('33%', 4)}
+          <div style={{ display: 'flex', gap: 5 }}>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>{bar('70%', 4)}{bar('100%', 11)}</div>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>{bar('70%', 4)}{bar('100%', 11)}</div>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>{bar('70%', 4)}{bar('100%', 11)}</div>
           </div>
-          {bar('60%')}{bar('100%', 16)}
-          <div style={{ alignSelf: 'flex-end' }}>{bar('38px', 12, p.colors.accent)}</div>
+          <div style={{ borderRadius: 5, background: p.colors.accent, height: 19 }} />
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
@@ -105,7 +107,7 @@ export default function TemplatePickerStep({ selectedId, onSelect, onBack, onCon
   const [savedFlash, setSavedFlash] = useState(false);
   const currentPreset = getTemplatePreset(selectedId);
   const [view, setView] = useState<'layouts' | 'templates'>('layouts');
-  const [activeLayout, setActiveLayout] = useState<LayoutStyle>(currentPreset?.layout || 'single_page');
+  const [activeLayout, setActiveLayout] = useState<TemplateLayout>(currentPreset?.layout || 'single-column');
 
   const sectionHead = (title: string, sub: string) => (
     <div style={{ marginBottom: 14 }}>
@@ -121,7 +123,7 @@ export default function TemplatePickerStep({ selectedId, onSelect, onBack, onCon
           <>
             {sectionHead('Choose a layout', 'The overall shape of your calculator — you can switch it any time.')}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
-              {LAYOUTS.map(l => (
+              {TEMPLATE_LAYOUTS.map(l => (
                 <PickCard
                   key={l.id} testId={`layout-${l.id}`}
                   active={view === 'layouts' && currentPreset?.layout === l.id}

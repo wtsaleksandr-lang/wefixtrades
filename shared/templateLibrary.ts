@@ -1,4 +1,32 @@
+/**
+ * Template library — legacy structural taxonomy for the pricing-family
+ * STEPPER flow (`buildWidgetFlow` / `StepRenderer`).
+ *
+ * ⚠️  This file is NOT the template catalogue. The single source of truth for
+ * QuoteQuick's themed calculator templates is `shared/templatePresets.ts`
+ * (`TemplateConfig` / `TEMPLATE_PRESETS`).
+ *
+ * What lives here, and why:
+ *  - `TemplateDefinition` / `TEMPLATE_LIBRARY` — structural definitions the
+ *    *legacy non-advanced stepper path* still consumes (it needs
+ *    `layout_style` + optional `wizard_steps`). That path is out of scope for
+ *    the builder-foundation refactor; leave it intact.
+ *  - `TRADE_TEMPLATE_MAP` / `getRecommendedTemplate` — trade → recommended
+ *    template id. Still used by the wizard to pre-pick a template.
+ *  - `getTemplateById` — resolves an id to a `TemplateDefinition`. It now ALSO
+ *    resolves a unified `TemplateConfig` preset id (from `templatePresets.ts`)
+ *    by bridging it to a structural definition, so `QuoteWidget` no longer
+ *    silently falls back to `classic_single` for a preset id.
+ *
+ * The `LayoutStyle` here is the *flow* layout for the stepper (`single_page |
+ * two_column | multi_step`) — a different concept from the advanced renderer's
+ * `TemplateLayout`. The real advanced layout catalogue lives in
+ * `templatePresets.ts` (`TEMPLATE_LAYOUTS`).
+ */
 import type { StepDefinition } from "./wizardSchema";
+import { TEMPLATE_PRESETS, getTemplatePreset } from "./templatePresets";
+
+/* ─── Legacy stepper template definitions ─── */
 
 export interface TemplateDefinition {
   id: string;
@@ -23,10 +51,21 @@ export interface TemplateDefinition {
   /**
    * Optional wizard step definitions for schema-driven rendering.
    * When present, the customer-facing widget renders these steps
-   * instead of hardcoded UI. Added in Phase 1 for forward compatibility.
+   * instead of hardcoded UI.
    */
   wizard_steps?: StepDefinition[];
 }
+
+/** The `layout_style` of the legacy stepper flow — not the advanced layout. */
+export type LayoutStyle = TemplateDefinition['layout_style'];
+
+const DEFAULT_DEFAULTS: TemplateDefinition['defaults'] = {
+  sticky_summary: false,
+  show_breakdown: true,
+  show_trust_block: false,
+  show_testimonials: false,
+  show_images: false,
+};
 
 export const TEMPLATE_LIBRARY: TemplateDefinition[] = [
   {
@@ -35,13 +74,7 @@ export const TEMPLATE_LIBRARY: TemplateDefinition[] = [
     description: 'Simple, scrollable layout — works for everything',
     best_for: ['general', 'small_services', 'mobile_first'],
     layout_style: 'single_page',
-    defaults: {
-      sticky_summary: false,
-      show_breakdown: true,
-      show_trust_block: false,
-      show_testimonials: false,
-      show_images: false,
-    },
+    defaults: { ...DEFAULT_DEFAULTS },
     features: {},
   },
   {
@@ -50,13 +83,7 @@ export const TEMPLATE_LIBRARY: TemplateDefinition[] = [
     description: 'Inputs on left, live price summary on right',
     best_for: ['cleaning', 'painting', 'landscaping'],
     layout_style: 'two_column',
-    defaults: {
-      sticky_summary: true,
-      show_breakdown: true,
-      show_trust_block: false,
-      show_testimonials: false,
-      show_images: false,
-    },
+    defaults: { ...DEFAULT_DEFAULTS, sticky_summary: true },
     features: {},
   },
   {
@@ -65,15 +92,9 @@ export const TEMPLATE_LIBRARY: TemplateDefinition[] = [
     description: 'Step-by-step with progress bar — great for complex quotes',
     best_for: ['renovation', 'concrete', 'higher_ticket'],
     layout_style: 'multi_step',
-    defaults: {
-      sticky_summary: true,
-      show_breakdown: true,
-      show_trust_block: true,
-      show_testimonials: false,
-      show_images: false,
-    },
+    defaults: { ...DEFAULT_DEFAULTS, sticky_summary: true, show_trust_block: true },
     features: { stepper: true },
-    // Proof-of-concept wizard step definitions — will be populated per-trade in Phase 2
+    // Proof-of-concept wizard step definitions — populated per-trade in Phase 2
     wizard_steps: [
       {
         id: 'scope',
@@ -135,13 +156,7 @@ export const TEMPLATE_LIBRARY: TemplateDefinition[] = [
     description: 'Compare packages side-by-side as cards',
     best_for: ['photography', 'detailing', 'moving'],
     layout_style: 'single_page',
-    defaults: {
-      sticky_summary: false,
-      show_breakdown: true,
-      show_trust_block: false,
-      show_testimonials: false,
-      show_images: false,
-    },
+    defaults: { ...DEFAULT_DEFAULTS },
     features: { package_cards: true },
   },
   {
@@ -150,13 +165,7 @@ export const TEMPLATE_LIBRARY: TemplateDefinition[] = [
     description: 'Shows price range, encourages contact for exact quote',
     best_for: ['complex_quotes', 'renovation', 'roofing'],
     layout_style: 'single_page',
-    defaults: {
-      sticky_summary: false,
-      show_breakdown: false,
-      show_trust_block: true,
-      show_testimonials: false,
-      show_images: false,
-    },
+    defaults: { ...DEFAULT_DEFAULTS, show_breakdown: false, show_trust_block: true },
     features: { hides_exact_total: true, encourages_contact: true },
   },
   {
@@ -165,49 +174,58 @@ export const TEMPLATE_LIBRARY: TemplateDefinition[] = [
     description: 'Get estimate, then book instantly — ideal with booking enabled',
     best_for: ['cleaning', 'photography', 'therapy', 'massage'],
     layout_style: 'two_column',
-    defaults: {
-      sticky_summary: true,
-      show_breakdown: true,
-      show_trust_block: false,
-      show_testimonials: false,
-      show_images: false,
-    },
+    defaults: { ...DEFAULT_DEFAULTS, sticky_summary: true },
     features: { booking_cta_emphasis: true },
   },
 ];
 
-export function getTemplateById(id: string): TemplateDefinition | undefined {
-  return TEMPLATE_LIBRARY.find(t => t.id === id);
-}
-
-/* ─── Layouts ─── */
-
-export type LayoutStyle = 'single_page' | 'two_column' | 'multi_step';
-
-export interface LayoutDefinition {
-  id: LayoutStyle;
-  name: string;
-  description: string;
+/**
+ * Map a unified `TemplateConfig` layout to a stepper `layout_style`. A themed
+ * template carrying `multi-column` maps onto the stepper's `multi_step`.
+ */
+function presetLayoutToStyle(layout: string): LayoutStyle {
+  if (layout === 'two-column') return 'two_column';
+  if (layout === 'multi-column') return 'multi_step';
+  return 'single_page';
 }
 
 /**
- * The three layout families. Step 2 of the wizard picks a layout first, then a
- * template within it — the layout is the structural skeleton and stays
- * switchable afterwards; templates carry presets + theme.
+ * Bridge a unified `TemplateConfig` preset to a structural `TemplateDefinition`
+ * so the legacy stepper/flow code can consume it. Presets are themed/advanced
+ * calculators — they have no `wizard_steps`, so the flow builder generates a
+ * flow from the pricing config as usual.
  */
-export const LAYOUTS: LayoutDefinition[] = [
-  { id: 'single_page', name: 'Single column', description: 'Everything stacked top to bottom, with the price at the end.' },
-  { id: 'two_column', name: 'Two column', description: 'Inputs on the left, a live price panel on the right.' },
-  { id: 'multi_step', name: 'Multi-step', description: 'One question at a time, with a progress bar.' },
-];
-
-export function getLayoutById(id: string): LayoutDefinition | undefined {
-  return LAYOUTS.find(l => l.id === id);
+function presetAsDefinition(id: string): TemplateDefinition | undefined {
+  const preset = getTemplatePreset(id);
+  if (!preset) return undefined;
+  const layout_style = presetLayoutToStyle(preset.layout);
+  return {
+    id: preset.id,
+    name: preset.name,
+    description: preset.description,
+    best_for: preset.trades,
+    layout_style,
+    defaults: {
+      ...DEFAULT_DEFAULTS,
+      sticky_summary: layout_style !== 'single_page',
+      show_breakdown: preset.results?.show_breakdown !== false,
+    },
+    features: {},
+  };
 }
 
-export function getTemplatesByLayout(style: LayoutStyle): TemplateDefinition[] {
-  return TEMPLATE_LIBRARY.filter(t => t.layout_style === style);
+/**
+ * Resolve a template id to a `TemplateDefinition`. Accepts BOTH a structural
+ * `TEMPLATE_LIBRARY` id AND a unified `TEMPLATE_PRESETS` id — the two id
+ * namespaces are now reconciled, so a preset id no longer silently collapses
+ * to `classic_single`. Returns `undefined` for a genuinely unknown id; callers
+ * decide how to fall back.
+ */
+export function getTemplateById(id: string): TemplateDefinition | undefined {
+  return TEMPLATE_LIBRARY.find(t => t.id === id) ?? presetAsDefinition(id);
 }
+
+/* ─── Trade → recommended template ─── */
 
 const TRADE_TEMPLATE_MAP: Record<string, string> = {
   house_cleaning: 'classic_two_column',
@@ -253,4 +271,14 @@ const TRADE_TEMPLATE_MAP: Record<string, string> = {
 export function getRecommendedTemplate(tradeId: string, bookingEnabled: boolean): string {
   if (bookingEnabled) return 'estimate_then_book';
   return TRADE_TEMPLATE_MAP[tradeId] || 'classic_single';
+}
+
+/**
+ * Recommend a unified themed template (`TemplateConfig` id) for a trade, by
+ * scanning each preset's `trades` list. Phase 2's categorized gallery uses
+ * this to pre-pick a themed template. Returns `undefined` if no preset claims
+ * the trade — the caller can then fall back to the structural recommendation.
+ */
+export function getRecommendedPreset(tradeId: string): string | undefined {
+  return TEMPLATE_PRESETS.find(t => t.trades.includes(tradeId))?.id;
 }

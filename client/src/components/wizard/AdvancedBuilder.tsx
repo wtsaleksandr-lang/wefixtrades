@@ -9,7 +9,7 @@ import { platformTheme as p } from '@/theme/platformTheme';
 import { dashboardTheme as d } from '@/theme/dashboardTheme';
 import { validateFormula, runCalculations, type FormulaContext } from '@shared/formulaEngine';
 import { WIDGET_THEME_LIST } from '@/components/quote-widget/widgetThemes';
-import { LAYOUTS } from '@shared/templateLibrary';
+import { TEMPLATE_LAYOUTS, normalizeLayout, type TemplateLayout } from '@shared/templatePresets';
 import {
   Plus, Trash2, ChevronLeft, Hash, SlidersHorizontal, List, CircleDot,
   CheckSquare, ToggleLeft, Type, Sigma, Eye, Sparkles, Loader2,
@@ -45,7 +45,8 @@ interface AdvResults { heading?: string; footnote?: string; show_breakdown?: boo
 export interface AdvancedConfigData {
   enabled?: boolean; fields?: AdvField[]; calculations?: AdvCalc[]; result_calc?: string;
   header?: AdvHeader; results?: AdvResults; theme?: string;
-  layout?: 'single_page' | 'two_column' | 'multi_step';
+  // Real layout enum; legacy values still accepted on read (coerced).
+  layout?: TemplateLayout | 'single_page' | 'two_column' | 'multi_step';
 }
 
 interface Props {
@@ -527,8 +528,8 @@ export default function AdvancedBuilder({ advanced, onChange, onExitAdvanced }: 
       {/* ─── Layout ─── */}
       <div style={{ margin: '22px 0 10px' }}><SectionLabel>Layout</SectionLabel></div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }} data-testid="adv-layout-picker">
-        {LAYOUTS.map((l) => {
-          const active = (advanced.layout || 'two_column') === l.id;
+        {TEMPLATE_LAYOUTS.map((l) => {
+          const active = normalizeLayout(advanced.layout) === l.id;
           return (
             <button key={l.id} type="button" data-testid={`adv-layout-${l.id}`}
               onClick={() => patch({ layout: l.id })}
