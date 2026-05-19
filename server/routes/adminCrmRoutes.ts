@@ -1,7 +1,8 @@
 import type { Express, Request, Response } from "express";
 import { requireAdmin, hashPassword } from "../auth";
 import { storage } from "../storage";
-import { advanceSetupStage, getTradeLineReadiness } from "@shared/schema";
+import { advanceSetupStage, getTradeLineReadiness, getTradeLineDefaultConfig } from "@shared/schema";
+import { sendOnboardingEmail } from "../lib/onboardingEmail";
 import { tiersSchema } from "@shared/tiers";
 import { automationConfigSchema } from "@shared/automationConfig";
 import { z } from "zod";
@@ -1443,7 +1444,13 @@ export function registerAdminCrmRoutes(app: Express): void {
       const service = await storage.getServiceById(service_id);
       if (!service) return res.status(404).json({ error: "Service not found in catalog" });
 
-      // 1. Create client_service
+      // 1. Create client_service.
+      // For TradeLine services, seed the variant-specific config defaults so
+      // the admin-provision path matches the self-serve checkout path
+      // (publicCheckoutRoutes) — without this, an admin-provisioned TradeLine
+      // service has no config and onboarding-answer mapping has nothing to
+      // merge into.
+      const tradelineDefaults = getTradeLineDefaultConfig(service_id);
       const clientService = await storage.createClientService({
         client_id: clientId,
         service_id,
@@ -1452,7 +1459,19 @@ export function registerAdminCrmRoutes(app: Express): void {
         fulfillment_mode: fulfillment_mode || "internal",
         price_cents: price_override ?? service.default_price,
         billing_period: service.billing_period,
+        metadata: tradelineDefaults ? { tradeline: tradelineDefaults } : undefined,
       });
+
+      // 1b. Auto-populate TradeLine notification recipients from client
+      // contact info (mirrors the self-serve checkout path).
+      if (tradelineDefaults) {
+        const notifications: { email: string[]; sms: string[] } = { email: [], sms: [] };
+        if (client.contact_email) notifications.email.push(client.contact_email);
+        if (client.contact_phone) notifications.sms.push(client.contact_phone);
+        if (notifications.email.length || notifications.sms.length) {
+          await storage.updateTradeLineConfig(clientService.id, { notifications });
+        }
+      }
 
       // 2. Create invoice
       const payment = await storage.createClientPayment({
@@ -1465,9 +1484,13 @@ export function registerAdminCrmRoutes(app: Express): void {
         actor_type: "human",
       });
 
-      // 3. Create onboarding submission (if template exists)
+      // 3. Create onboarding submission (if template exists) and send the
+      // onboarding email. Previously the admin-provision path created the
+      // submission but never sent the email (only the Stripe webhook path
+      // did), leaving the submission stuck in "not_sent" — glue gap C2.
       const onboardingTemplate = await storage.getOnboardingTemplate(service_id);
       let onboarding = null;
+      let onboardingEmailSent = false;
       if (onboardingTemplate) {
         onboarding = await storage.createOnboardingSubmission({
           client_service_id: clientService.id,
@@ -1476,6 +1499,31 @@ export function registerAdminCrmRoutes(app: Express): void {
           status: "not_sent",
           actor_type: "human",
         });
+
+        // Send the onboarding email so the client gets their form link
+        // without an admin manually triggering it.
+        if (onboarding.access_token) {
+          const baseUrl = process.env.APP_URL || `${req.protocol}://${req.get("host")}`;
+          try {
+            const sent = await sendOnboardingEmail({
+              client,
+              serviceName: service.name,
+              accessToken: onboarding.access_token,
+              baseUrl,
+            });
+            if (sent) {
+              await storage.updateOnboardingSubmission(onboarding.id, {
+                status: "sent",
+                sent_at: new Date(),
+              });
+              onboardingEmailSent = true;
+            }
+          } catch (err: any) {
+            // Non-fatal: SMTP may be unconfigured. Submission stays "not_sent"
+            // and an admin can resend later.
+            log.warn(`[admin-crm] onboarding email failed for client_service #${clientService.id}: ${err.message}`);
+          }
+        }
       }
 
       // 4. Create tasks from template
@@ -1517,6 +1565,42 @@ export function registerAdminCrmRoutes(app: Express): void {
         );
       }
 
+      // 6b. Auto-create the portal login if the client doesn't have one yet
+      // (glue gap C1). Without this, an admin had to manually create the
+      // account before the client could log in to view their service or
+      // complete onboarding. Non-fatal — provisioning still succeeds if this
+      // fails. The temp password is returned so the admin can relay it.
+      let portalAccount: { created: boolean; email: string | null; temporary_password?: string } = {
+        created: false, email: null,
+      };
+      try {
+        if (!client.user_id && client.contact_email) {
+          const email = client.contact_email.toLowerCase().trim();
+          const existingByEmail = await storage.getUserByEmail(email);
+          if (existingByEmail) {
+            if (existingByEmail.role === "client") {
+              await storage.updateClient(clientId, { user_id: existingByEmail.id });
+              portalAccount = { created: false, email: existingByEmail.email };
+            }
+          } else {
+            const tempPassword = crypto.randomBytes(6).toString("base64url");
+            const user = await storage.createUser({
+              email,
+              password_hash: hashPassword(tempPassword),
+              name: client.contact_name || client.business_name,
+              role: "client",
+            });
+            await storage.updateClient(clientId, { user_id: user.id });
+            portalAccount = { created: true, email: user.email, temporary_password: tempPassword };
+          }
+        } else if (client.user_id) {
+          const existingUser = await storage.getUserById(client.user_id);
+          portalAccount = { created: false, email: existingUser?.email ?? client.contact_email };
+        }
+      } catch (err: any) {
+        log.warn(`[admin-crm] portal account auto-create failed for client #${clientId}: ${err.message}`);
+      }
+
       // 7. Log activity
       await storage.logAdminActivity({
         actor_type: "human",
@@ -1526,13 +1610,18 @@ export function registerAdminCrmRoutes(app: Express): void {
         entity_type: "client_service",
         entity_id: clientService.id,
         summary: `Provisioned "${service.name}" for client "${client.business_name}" — ${tasks.length} tasks created`,
-        metadata: { service_id, tasks_created: tasks.length, has_onboarding: !!onboarding },
+        metadata: {
+          service_id, tasks_created: tasks.length, has_onboarding: !!onboarding,
+          onboarding_email_sent: onboardingEmailSent, portal_account_created: portalAccount.created,
+        },
       });
 
       res.status(201).json({
         clientService,
         payment,
         onboarding,
+        onboardingEmailSent,
+        portalAccount,
         tasksCreated: tasks.length,
       });
     } catch (err: any) {
