@@ -66,7 +66,7 @@ const HERO_HOOKS: Record<string, { eyebrow: string; headline: ReactNode; sub: st
   rankflow: {
     eyebrow: "Hiring an SEO agency? They charge $2K/mo for the same data.",
     headline: <>Outrank competitors.<br/><span style={{ color: mkt.accent }}>Without an agency.</span></>,
-    sub: "Daily keyword tracking + monthly reports that tell you exactly which pages to update. No fluff, no agency-speak.",
+    sub: "Weekly keyword tracking + monthly reports that tell you exactly which pages to update. No fluff, no agency-speak.",
   },
   sitelaunch: {
     eyebrow: "Your current site looks like 2014. Visitors notice.",

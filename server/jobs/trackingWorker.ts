@@ -44,7 +44,16 @@ export async function processRankFlowTracking(): Promise<{
         if (kwLimit > 0) {
           // Priority keywords first (already sorted by priority desc from storage)
           const kwInputs = keywords.slice(0, kwLimit).map(k => ({ id: k.id, keyword: k.keyword }));
-          const rankResults = await checkKeywordRanks(kwInputs, domain, profile.location || undefined);
+          // Pass client_id so checkKeywordRanks can use the client's
+          // Search Console connection as the rank data source. Without
+          // it, SC is skipped and every keyword logs position: null.
+          const rankResults = await checkKeywordRanks(
+            kwInputs,
+            domain,
+            profile.location || undefined,
+            undefined,
+            profile.client_id,
+          );
 
           for (const result of rankResults) {
             const lastRanking = await storage.getLastRankingForKeyword(result.keyword_id);
