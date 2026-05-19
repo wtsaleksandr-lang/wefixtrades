@@ -6,10 +6,8 @@
 // The themed template gallery (the real per-use-case presets) is authored in
 // a later increment; today level 2 lists the layout's structural variants.
 import { useState } from 'react';
-import {
-  LAYOUTS, getTemplatesByLayout, getTemplateById,
-  type LayoutStyle, type TemplateDefinition,
-} from '@shared/templateLibrary';
+import { LAYOUTS, type LayoutStyle } from '@shared/templateLibrary';
+import { getPresetsByLayout, getTemplatePreset } from '@shared/templatePresets';
 import { platformTheme } from '@/theme/platformTheme';
 import { dashboardTheme as d } from '@/theme/dashboardTheme';
 import { Check, ArrowLeft, ArrowRight, ChevronLeft, Save } from 'lucide-react';
@@ -105,9 +103,9 @@ function PickCard({ testId, active, mockup, name, desc, onClick }: {
 
 export default function TemplatePickerStep({ selectedId, onSelect, onBack, onContinue, onSave }: Props) {
   const [savedFlash, setSavedFlash] = useState(false);
-  const currentTemplate: TemplateDefinition | undefined = getTemplateById(selectedId);
+  const currentPreset = getTemplatePreset(selectedId);
   const [view, setView] = useState<'layouts' | 'templates'>('layouts');
-  const [activeLayout, setActiveLayout] = useState<LayoutStyle>(currentTemplate?.layout_style || 'single_page');
+  const [activeLayout, setActiveLayout] = useState<LayoutStyle>(currentPreset?.layout || 'single_page');
 
   const sectionHead = (title: string, sub: string) => (
     <div style={{ marginBottom: 14 }}>
@@ -126,7 +124,7 @@ export default function TemplatePickerStep({ selectedId, onSelect, onBack, onCon
               {LAYOUTS.map(l => (
                 <PickCard
                   key={l.id} testId={`layout-${l.id}`}
-                  active={view === 'layouts' && currentTemplate?.layout_style === l.id}
+                  active={view === 'layouts' && currentPreset?.layout === l.id}
                   mockup={<Mockup layout={l.id} />}
                   name={l.name} desc={l.description}
                   onClick={() => { setActiveLayout(l.id); setView('templates'); }}
@@ -158,13 +156,13 @@ export default function TemplatePickerStep({ selectedId, onSelect, onBack, onCon
                 name="Blank" desc="Start from scratch"
                 onClick={() => onSelect('blank', activeLayout)}
               />
-              {getTemplatesByLayout(activeLayout).map(t => (
+              {getPresetsByLayout(activeLayout).map(t => (
                 <PickCard
                   key={t.id} testId={`template-card-${t.id}`}
                   active={selectedId === t.id}
-                  mockup={<Mockup layout={t.layout_style} />}
+                  mockup={<Mockup layout={t.layout} />}
                   name={t.name} desc={t.description}
-                  onClick={() => onSelect(t.id, t.layout_style)}
+                  onClick={() => onSelect(t.id, t.layout)}
                 />
               ))}
             </div>
