@@ -397,6 +397,9 @@ export const calculatorSettingsSchema = z.object({
       footnote: z.string().default(''),
       show_breakdown: z.boolean().default(true),
     }).default({}),
+    // Visual theme id — recolours the widget (see client widgetThemes.ts:
+    // light | midnight | coral | forest | mint | magenta).
+    theme: z.string().default('light'),
   }).default({}),
 
   ai_employee: z.object({
