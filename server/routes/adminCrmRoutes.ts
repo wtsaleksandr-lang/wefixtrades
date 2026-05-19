@@ -541,6 +541,25 @@ export function registerAdminCrmRoutes(app: Express): void {
     }
   });
 
+  /**
+   * GET /api/admin/crm/audit-submissions
+   * Leads captured by the free website-audit tool's email gate. These land
+   * in `audit_submissions` and were previously surfaced by no route — Alex
+   * never saw them. Lists newest-first with a total for pagination.
+   */
+  app.get("/api/admin/crm/audit-submissions", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 50));
+      const offset = Math.max(0, parseInt(req.query.offset as string) || 0);
+      const rows = await storage.listAuditSubmissions(limit, offset);
+      const total = await storage.getAuditSubmissionCount();
+      res.json({ data: rows, total });
+    } catch (err: any) {
+      log.error("[admin-crm] List audit submissions error:", err.message);
+      res.status(500).json({ error: "Failed to list audit submissions" });
+    }
+  });
+
   app.post("/api/admin/crm/clients", requireAdmin, async (req: Request, res: Response) => {
     try {
       const client = await storage.createClient(req.body);

@@ -246,8 +246,8 @@ export const PRODUCT_PAGES: ProductPage[] = [
     seoDescription: "Get a professional, mobile-first trade website with built-in lead capture \u2014 custom designed, SEO-ready, and live in 5 business days. You own it. No contracts.",
     category: "core",
     heroVisualType: "website",
-    primaryCTA: { label: "Get Your Website Built", href: "/Wizard" },
-    secondaryCTA: { label: "See What\u2019s Included", href: "#sitelaunch-included" },
+    primaryCTA: { label: "Get Your Website Built", href: "#pricing" },
+    secondaryCTA: { label: "See What\u2019s Included", href: "#pricing" },
     highlights: [
       "Mobile-first design \u2014 Most of your customers will find you on their phone. Your site works perfectly on every screen.",
       "Speed optimized \u2014 Fast-loading pages mean fewer visitors bouncing before they contact you.",
@@ -283,7 +283,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
       { q: "Do I need hosting?", a: "Hosting is separate and typically costs $10\u201320/month. We\u2019ll recommend the best option and set it up for you." },
       { q: "Can I add QuoteQuick later?", a: "Yes. QuoteQuick can be added anytime \u2014 it\u2019s a standalone tool that embeds into any website. SiteLaunch sites come pre-wired for it." },
     ],
-    pricingSection: buildPricingSection(SITELAUNCH, "One-time build fee. No contracts. No monthly retainers unless you want optional support."),
+    pricingSection: buildPricingSection(SITELAUNCH, "One-time build fee. No contracts. No monthly retainers unless you want optional support.", { checkout: true }),
     related: ["quickquotepro", "rankflow", "webcare"],
   },
   {

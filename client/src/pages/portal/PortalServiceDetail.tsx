@@ -82,6 +82,19 @@ interface ServiceDetail {
     period_start?: string;
     period_end?: string;
   };
+  /** WebFix post-fix before/after audit report (from task metadata). */
+  webfix_audit?: {
+    audited_at?: string;
+    url?: string;
+    metrics?: { performance_score?: number };
+    comparison?: {
+      performance_delta?: number;
+      fcp_delta_ms?: number;
+      lcp_delta_ms?: number;
+    };
+    ai_report?: string;
+    improvements_summary?: string;
+  };
 }
 
 interface TradeLineCallRow {
@@ -850,6 +863,54 @@ export default function PortalServiceDetail() {
                     </div>
                   </div>
                 </div>
+                {/* Post-fix before/after performance report. Stored in task
+                    metadata (the deliverable row carries an empty url), so it
+                    is surfaced via the response's webfix_audit field. */}
+                {data.webfix_audit && (
+                  <div className="px-5 py-4 border-b border-gray-100">
+                    <p className="text-xs font-medium text-gray-700 mb-2">Before / After Performance Report</p>
+                    {(() => {
+                      const wa = data.webfix_audit!;
+                      const after = wa.metrics?.performance_score;
+                      const delta = wa.comparison?.performance_delta;
+                      const before =
+                        after != null && delta != null ? after - delta : undefined;
+                      return (
+                        <>
+                          {(before != null || after != null) && (
+                            <div className="flex items-center gap-3 mb-3">
+                              <div className="flex-1 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 text-center">
+                                <p className="text-[10px] uppercase tracking-wide text-gray-400">Before</p>
+                                <p className="text-lg font-semibold text-gray-500">{before ?? "-"}</p>
+                              </div>
+                              <div className="text-gray-300">→</div>
+                              <div className="flex-1 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2 text-center">
+                                <p className="text-[10px] uppercase tracking-wide text-emerald-500">After</p>
+                                <p className="text-lg font-semibold text-emerald-700">{after ?? "-"}</p>
+                              </div>
+                              {delta != null && delta > 0 && (
+                                <div className="text-xs font-medium text-emerald-600 whitespace-nowrap">
+                                  +{delta} pts
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          {wa.improvements_summary && (
+                            <p className="text-sm font-medium text-gray-800 mb-1">{wa.improvements_summary}</p>
+                          )}
+                          {wa.ai_report && (
+                            <p className="text-sm text-gray-600 whitespace-pre-line">{wa.ai_report}</p>
+                          )}
+                          {wa.audited_at && (
+                            <p className="text-[11px] text-gray-400 mt-2">
+                              Verified {formatDate(wa.audited_at)}
+                            </p>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
+                )}
                 {/* Deliverables from completed tasks */}
                 {webFixDeliverables.length > 0 && (
                   <div className="px-5 py-4">
