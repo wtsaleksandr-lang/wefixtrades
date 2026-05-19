@@ -87,6 +87,8 @@ export interface TemplateHeader {
 
 export interface TemplateResults {
   heading?: string; footnote?: string; show_breakdown?: boolean;
+  /** Result-panel call-to-action button label (empty string hides it). */
+  cta_label?: string;
 }
 
 /* ─── The canonical template config ─── */
@@ -344,6 +346,180 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     ],
     result_calc: 'Total Renovation Cost',
   },
+
+  /* ══════════════════════════════════════════════════════════════════
+     Phase 3 — premium reference templates. Five designs, each authored
+     in all three layouts (single-column / two-column / multi-column)
+     so the gallery can show the same calculator in every arrangement.
+     Fields + formulas are identical across a design's three variants;
+     only `id`, `name` and `layout` differ.
+     ══════════════════════════════════════════════════════════════════ */
+
+  /* ── Premium 1. Wedding Photography ── (blue → `light` theme) */
+  ...(() => {
+    const fields: TemplateField[] = [
+      { id: 'hours', name: 'Hours of Coverage', label: 'Hours of coverage', type: 'slider',
+        min: 4, max: 12, step: 1, default_value: 8, unit: 'hrs' },
+      { id: 'album', name: 'Photo Album', label: 'Photo album', type: 'select',
+        options: [opt('No Album', 0), opt('Standard', 350), opt('Premium', 750)] },
+      { id: 'second_photographer', name: 'Second Photographer', label: 'Add a second photographer', type: 'toggle', on_value: 400 },
+      { id: 'travel', name: 'Travel Distance', label: 'Travel distance', type: 'slider',
+        min: 0, max: 100, step: 5, default_value: 10, unit: 'miles' },
+    ];
+    const calculations: TemplateCalculation[] = [
+      calc('Total Cost', '[Hours of Coverage] * 150 + [Photo Album] + [Second Photographer] + [Travel Distance] * 2.5'),
+      calc('Deposit Required', 'ROUND([Total Cost] * 0.2, 2)'),
+    ];
+    const header: TemplateHeader = {
+      title: 'Wedding Photography Quote Calculator',
+      subtitle: 'Book Your Wedding Photographer Today!', align: 'left',
+    };
+    const results: TemplateResults = {
+      footnote: 'Deposit to be paid upfront to secure your date.',
+      cta_label: 'Contact Us',
+    };
+    const base = {
+      name: 'Wedding Photography', description: 'Premium wedding photography quote with album & travel options.',
+      category: 'Photography & Events', trades: ['photographer'],
+      theme: 'light', fields, calculations, result_calc: 'Total Cost', header, results,
+    };
+    return [
+      { id: 'wedding_photography_single_col', layout: 'single-column' as TemplateLayout, ...base },
+      { id: 'wedding_photography_two_col', layout: 'two-column' as TemplateLayout, ...base },
+      { id: 'wedding_photography_multi_col', layout: 'multi-column' as TemplateLayout, ...base },
+    ];
+  })(),
+
+  /* ── Premium 2. House Renovation ── (dark forest-green → `forest` theme) */
+  ...(() => {
+    const fields: TemplateField[] = [
+      { id: 'area', name: 'Area to Renovate', label: 'Area to renovate', type: 'slider',
+        min: 100, max: 5000, step: 50, default_value: 500, unit: 'sq ft' },
+      { id: 'material_cost', name: 'Material Cost', label: 'Material cost per sq ft', type: 'slider',
+        min: 5, max: 50, step: 1, default_value: 20, unit: '$/sq ft' },
+      { id: 'labor_rate', name: 'Labor Rate', label: 'Labor rate per hour', type: 'slider',
+        min: 10, max: 100, step: 5, default_value: 50, unit: '$/hr' },
+      { id: 'labor_hours', name: 'Labor Hours', label: 'Estimated labor hours', type: 'slider',
+        min: 10, max: 500, step: 10, default_value: 100, unit: 'hrs' },
+    ];
+    const calculations: TemplateCalculation[] = [
+      calc('Material Cost', '[Area to Renovate] * [Material Cost]'),
+      calc('Labor Cost', '[Labor Rate] * [Labor Hours]'),
+      calc('Total Renovation Cost', '[Material Cost] + [Labor Cost]'),
+    ];
+    const header: TemplateHeader = {
+      title: 'House Renovation Cost Calculator',
+      subtitle: 'Ready to Start Your Renovation?', align: 'left',
+    };
+    const results: TemplateResults = { footnote: 'A clear, itemised estimate — material and labour broken out so you know exactly where your budget goes.', cta_label: 'Contact Us' };
+    const base = {
+      name: 'House Renovation Pro', description: 'Premium whole-home renovation estimate with material & labour breakdown.',
+      category: 'Construction', trades: ['general_contractor', 'handyman'],
+      theme: 'forest', fields, calculations, result_calc: 'Total Renovation Cost', header, results,
+    };
+    return [
+      { id: 'house_renovation_single_col', layout: 'single-column' as TemplateLayout, ...base },
+      { id: 'house_renovation_two_col', layout: 'two-column' as TemplateLayout, ...base },
+      { id: 'house_renovation_multi_col', layout: 'multi-column' as TemplateLayout, ...base },
+    ];
+  })(),
+
+  /* ── Premium 3. Carpet Cleaning ── (mint/green → `mint` theme) */
+  ...(() => {
+    const fields: TemplateField[] = [
+      { id: 'room_size', name: 'Room Size', label: 'Average room size', type: 'slider',
+        min: 100, max: 500, step: 10, default_value: 250, unit: 'sq ft' },
+      { id: 'rooms', name: 'Number of Rooms', label: 'Number of rooms', type: 'slider',
+        min: 1, max: 10, step: 1, default_value: 1, unit: 'rooms' },
+      { id: 'extras', name: 'Additional Services', label: 'Additional services', type: 'multi_select',
+        options: [opt('Stain Removal', 35), opt('Deodorizing', 25), opt('Scotchgard Protection', 45)] },
+    ];
+    const calculations: TemplateCalculation[] = [
+      calc('Total Cost', '([Room Size] * 0.45 + 25) * [Number of Rooms] + [Additional Services]'),
+      calc('Cost per Room', 'ROUND([Total Cost] / [Number of Rooms], 2)'),
+    ];
+    const header: TemplateHeader = {
+      title: 'Carpet Cleaning Cost Calculator',
+      subtitle: 'Get Your Carpets Cleaned Now', align: 'left',
+    };
+    const results: TemplateResults = { footnote: 'Fresh, deep-cleaned carpets — book in minutes with an instant, all-in price.', cta_label: 'Book Now' };
+    const base = {
+      name: 'Carpet Cleaning Pro', description: 'Premium room-based carpet cleaning quote with optional treatments.',
+      category: 'Cleaning', trades: ['house_cleaning'],
+      theme: 'mint', fields, calculations, result_calc: 'Total Cost', header, results,
+    };
+    return [
+      { id: 'carpet_cleaning_single_col', layout: 'single-column' as TemplateLayout, ...base },
+      { id: 'carpet_cleaning_two_col', layout: 'two-column' as TemplateLayout, ...base },
+      { id: 'carpet_cleaning_multi_col', layout: 'multi-column' as TemplateLayout, ...base },
+    ];
+  })(),
+
+  /* ── Premium 4. Roof Repair ── (dark forest-green → `forest` theme) */
+  ...(() => {
+    const fields: TemplateField[] = [
+      { id: 'roof_area', name: 'Roof Area', label: 'Roof area', type: 'slider',
+        min: 100, max: 5000, step: 50, default_value: 1500, unit: 'sq ft' },
+      { id: 'material_type', name: 'Material Type', label: 'Material type', type: 'select',
+        options: [opt('Asphalt Shingles', 4), opt('Metal', 8), opt('Tile', 12)] },
+      { id: 'complexity', name: 'Repair Complexity', label: 'Repair complexity', type: 'radio',
+        options: [opt('Simple', 1), opt('Moderate', 1.4), opt('Complex', 1.9)] },
+    ];
+    const calculations: TemplateCalculation[] = [
+      calc('Material Cost', '[Roof Area] * [Material Type]'),
+      calc('Labor Cost', 'ROUND([Roof Area] * 3.5 * [Repair Complexity], 2)'),
+      calc('Total Roof Repair Cost', '[Material Cost] + [Labor Cost]'),
+    ];
+    const header: TemplateHeader = {
+      title: 'Roof Repair Cost Calculator',
+      subtitle: 'Get Your Roof Repaired Now', align: 'left',
+    };
+    const results: TemplateResults = { footnote: 'A protected, watertight roof — get a transparent estimate with material and labour itemised.', cta_label: 'Schedule Now' };
+    const base = {
+      name: 'Roof Repair Pro', description: 'Premium roof repair estimate by area, material and job complexity.',
+      category: 'Construction', trades: ['roofing'],
+      theme: 'forest', fields, calculations, result_calc: 'Total Roof Repair Cost', header, results,
+    };
+    return [
+      { id: 'roof_repair_single_col', layout: 'single-column' as TemplateLayout, ...base },
+      { id: 'roof_repair_two_col', layout: 'two-column' as TemplateLayout, ...base },
+      { id: 'roof_repair_multi_col', layout: 'multi-column' as TemplateLayout, ...base },
+    ];
+  })(),
+
+  /* ── Premium 5. Moving Cost ── (blue → `light` theme) */
+  ...(() => {
+    const fields: TemplateField[] = [
+      { id: 'distance', name: 'Distance', label: 'Moving distance', type: 'slider',
+        min: 0, max: 3000, step: 25, default_value: 50, unit: 'miles' },
+      { id: 'home_size', name: 'Home Size', label: 'Home size', type: 'select',
+        options: [opt('1 Bedroom', 400), opt('2 Bedroom', 700), opt('3 Bedroom', 1100), opt('4 Bedroom', 1600)] },
+      { id: 'packing', name: 'Packing Service', label: 'Add a full packing service', type: 'toggle', on_value: 350 },
+      { id: 'extras', name: 'Additional Services', label: 'Additional services', type: 'multi_select',
+        options: [opt('Storage', 200), opt('Fragile Item Handling', 150), opt('Cleaning', 180), opt('Full Value Protection Insurance', 250)] },
+    ];
+    const calculations: TemplateCalculation[] = [
+      calc('Transportation Cost', '[Distance] * 1.2 + [Home Size]'),
+      calc('Packing Service Cost', '[Packing Service]'),
+      calc('Additional Services Cost', '[Additional Services]'),
+      calc('Total Moving Cost', '[Transportation Cost] + [Packing Service Cost] + [Additional Services Cost]'),
+    ];
+    const header: TemplateHeader = {
+      title: 'Moving Cost Calculator',
+      subtitle: 'Ready to Make Your Move?', align: 'left',
+    };
+    const results: TemplateResults = { footnote: 'One clear price for your whole move — transport, packing and extras itemised.', cta_label: 'Get a Quote Now' };
+    const base = {
+      name: 'Moving Cost Pro', description: 'Premium end-to-end moving quote with packing and add-on services.',
+      category: 'Moving', trades: ['moving_services'],
+      theme: 'light', fields, calculations, result_calc: 'Total Moving Cost', header, results,
+    };
+    return [
+      { id: 'moving_cost_single_col', layout: 'single-column' as TemplateLayout, ...base },
+      { id: 'moving_cost_two_col', layout: 'two-column' as TemplateLayout, ...base },
+      { id: 'moving_cost_multi_col', layout: 'multi-column' as TemplateLayout, ...base },
+    ];
+  })(),
 ];
 
 /* ─── Lookups ─── */
