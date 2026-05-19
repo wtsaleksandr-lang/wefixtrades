@@ -400,6 +400,9 @@ export const calculatorSettingsSchema = z.object({
     // Visual theme id — recolours the widget (see client widgetThemes.ts:
     // light | midnight | coral | forest | mint | magenta).
     theme: z.string().default('light'),
+    // Layout of the advanced calculator — two_column puts the result panel
+    // beside the inputs; single_page / multi_step stack it below.
+    layout: z.enum(['single_page', 'two_column', 'multi_step']).default('two_column'),
   }).default({}),
 
   ai_employee: z.object({
