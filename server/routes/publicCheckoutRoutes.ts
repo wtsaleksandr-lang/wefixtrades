@@ -30,6 +30,41 @@ function getStripe(): Stripe | null {
   return new Stripe(key, { apiVersion: "2025-01-27.acacia" as any });
 }
 
+/**
+ * Env-var placeholder Stripe price IDs for the public TradeLine tiers.
+ *
+ * The TradeLine tier SKUs (tradeline-starter/pro/premium) are purchasable
+ * from the marketing pricing page. Their Stripe prices are provisioned by
+ * Alex separately (live mode) and supplied via these env vars — so the
+ * checkout works without anyone running sync-stripe.ts in production.
+ *
+ * Resolution order (see resolveStripePriceId): catalog stripe_price_id
+ * first (sync-stripe path), then the env-var placeholder. If neither is
+ * set the checkout returns a clean "contact us" error rather than failing.
+ */
+const TRADELINE_TIER_PRICE_ENV: Record<string, { monthly: string; yearly: string }> = {
+  "tradeline-starter": { monthly: "STRIPE_TRADELINE_STARTER_PRICE", yearly: "STRIPE_TRADELINE_STARTER_YEARLY_PRICE" },
+  "tradeline-pro":     { monthly: "STRIPE_TRADELINE_PRO_PRICE",     yearly: "STRIPE_TRADELINE_PRO_YEARLY_PRICE" },
+  "tradeline-premium": { monthly: "STRIPE_TRADELINE_PREMIUM_PRICE", yearly: "STRIPE_TRADELINE_PREMIUM_YEARLY_PRICE" },
+};
+
+/**
+ * Resolve the Stripe price ID for a catalog service.
+ * Prefers the catalog-stored id; falls back to an env-var placeholder for
+ * the TradeLine tiers. Returns null when no price is configured.
+ */
+function resolveStripePriceId(svc: ServiceCatalogRow, wantsYearly: boolean): string | null {
+  const catalogId = wantsYearly ? svc.stripe_yearly_price_id : svc.stripe_price_id;
+  if (catalogId) return catalogId;
+
+  const envKeys = TRADELINE_TIER_PRICE_ENV[svc.id];
+  if (envKeys) {
+    const envVal = process.env[wantsYearly ? envKeys.yearly : envKeys.monthly];
+    if (envVal && envVal.trim()) return envVal.trim();
+  }
+  return null;
+}
+
 interface CheckoutRequestBody {
   business_name: string;
   contact_name: string;
@@ -112,9 +147,11 @@ export function registerPublicCheckoutRoutes(app: Express): void {
         const svc = await storage.getServiceById(id);
         if (!svc) return res.status(400).json({ error: `Unknown service: ${id}` });
         if (!svc.is_active) return res.status(400).json({ error: `Service ${svc.name} is not available` });
-        // Determine which Stripe price to use
+        // Determine which Stripe price to use. Resolution prefers the
+        // catalog-stored price id and falls back to an env-var placeholder
+        // for the TradeLine tier SKUs (see resolveStripePriceId).
         const wantsYearly = billingPeriod === "yearly" && svc.billing_period === "monthly";
-        const resolvedPriceId = wantsYearly ? svc.stripe_yearly_price_id : svc.stripe_price_id;
+        const resolvedPriceId = resolveStripePriceId(svc, wantsYearly);
         if (!resolvedPriceId) {
           const missing = wantsYearly ? "yearly" : "default";
           return res.status(400).json({ error: `${svc.name} does not have a ${missing} price configured. Please contact us.` });
