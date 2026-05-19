@@ -215,6 +215,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
   const [mobileMode, setMobileMode] = useState<'edit' | 'preview'>('edit');
   const [previewDevice, setPreviewDevice] = useState<'desktop' | 'mobile'>('desktop');
   const [publishError, setPublishError] = useState('');
+  const [ctaHelpOpen, setCtaHelpOpen] = useState(false);
   const saveFlashRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -1108,7 +1109,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
               <label style={{ ...p.typography.label, display: 'block', marginBottom: '6px' }}>
                 Brand Color
               </label>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '9px', alignItems: 'center', marginBottom: '10px' }}>
+              <div style={{ display: 'flex', flexWrap: 'nowrap', gap: '7px', alignItems: 'center', marginBottom: '10px' }}>
                 {['#0284C7', '#0ea5e9', '#2563EB', '#059669', '#f59e0b', '#ef4444', '#7C3AED', '#ec4899'].map(color => {
                   const selected = ws.primaryColor === color;
                   return (
@@ -1118,15 +1119,25 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                       onClick={() => set('primaryColor', color)}
                       aria-label={`Brand colour ${color}`}
                       style={{
-                        width: '34px', height: '34px', borderRadius: '50%', backgroundColor: color,
+                        width: '30px', height: '30px', borderRadius: '50%', backgroundColor: color,
+                        backgroundImage: 'linear-gradient(150deg, rgba(255,255,255,0.45), rgba(255,255,255,0) 55%)',
                         border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
                         boxShadow: selected
-                          ? `0 0 0 2px ${d.colors.panel}, 0 0 0 4px ${color}`
-                          : '0 0 0 1px rgba(15,23,42,0.10)',
-                        transition: 'box-shadow 0.15s ease',
+                          ? `0 0 0 2px ${d.colors.panel}, 0 0 0 3.5px ${color}, 0 2px 5px rgba(15,23,42,0.18)`
+                          : '0 1px 2px rgba(15,23,42,0.18), inset 0 0 0 1px rgba(15,23,42,0.06)',
+                        transform: selected ? 'scale(1.06)' : 'scale(1)',
+                        transition: 'box-shadow 0.15s ease, transform 0.12s ease',
                         outline: 'none', WebkitTapHighlightColor: 'transparent',
                       }}
-                    />
+                    >
+                      {selected && (
+                        <Check style={{
+                          width: '14px', height: '14px', color: '#FFFFFF', strokeWidth: 3,
+                          filter: 'drop-shadow(0 1px 1.5px rgba(15,23,42,0.55))',
+                        }} />
+                      )}
+                    </button>
                   );
                 })}
                 {(() => {
@@ -1136,12 +1147,14 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                     <label
                       title="Custom colour"
                       style={{
-                        position: 'relative', width: '34px', height: '34px', flexShrink: 0,
+                        position: 'relative', width: '30px', height: '30px', flexShrink: 0,
                         borderRadius: '50%', cursor: 'pointer', display: 'block',
                         background: 'conic-gradient(from 0deg, #ef4444, #f59e0b, #059669, #0ea5e9, #2563eb, #7c3aed, #ec4899, #ef4444)',
+                        transform: isCustom ? 'scale(1.06)' : 'scale(1)',
+                        transition: 'box-shadow 0.15s ease, transform 0.12s ease',
                         boxShadow: isCustom
-                          ? `0 0 0 2px ${d.colors.panel}, 0 0 0 4px ${ws.primaryColor}`
-                          : '0 0 0 1px rgba(15,23,42,0.10)',
+                          ? `0 0 0 2px ${d.colors.panel}, 0 0 0 3.5px ${ws.primaryColor}, 0 2px 5px rgba(15,23,42,0.18)`
+                          : '0 1px 2px rgba(15,23,42,0.18), inset 0 0 0 1px rgba(15,23,42,0.06)',
                       }}
                     >
                       <input data-testid="input-custom-color" type="color" value={ws.primaryColor}
@@ -1155,10 +1168,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                 })()}
               </div>
 
-              <div style={{ marginBottom: '9px' }}>
-                <label style={{ ...p.typography.label, display: 'block', marginBottom: '8px' }}>
-                  Brand Logo <span style={{ fontWeight: 400, color: p.colors.subtle, textTransform: 'none', fontSize: '11px' }}>(optional)</span>
-                </label>
+              <div style={{ marginBottom: '8px' }}>
                 {ws.logoUrl ? (
                   <div style={{
                     display: 'flex', alignItems: 'center', gap: '6px',
@@ -1167,8 +1177,8 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                   }}>
                     <img src={ws.logoUrl} alt="Logo" style={{ width: '48px', height: '48px', objectFit: 'contain', borderRadius: '8px', background: 'white', border: `1px solid ${p.colors.borderLight}` }} />
                     <div style={{ flex: 1 }}>
-                      <p style={{ fontSize: '13px', fontWeight: 500, color: p.colors.heading }}>Logo uploaded</p>
-                      <p style={{ fontSize: '11px', color: p.colors.muted }}>PNG, JPG, or SVG</p>
+                      <p style={{ fontSize: '13px', fontWeight: 600, color: p.colors.heading }}>Brand logo</p>
+                      <p style={{ fontSize: '11px', color: p.colors.muted }}>Uploaded &middot; PNG, JPG or SVG</p>
                     </div>
                     <button data-testid="button-remove-logo" onClick={() => set('logoUrl', '')}
                       style={{ width: '36px', height: '36px', borderRadius: '8px', border: `1px solid ${p.colors.border}`, background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -1182,27 +1192,27 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
                     border: `1.5px dashed ${p.colors.border}`, background: p.colors.surfaceRaised,
                     cursor: 'pointer', transition: p.transitions.fast,
                   }}>
-                    <Upload style={{ width: '18px', height: '18px', color: p.colors.subtle }} />
-                    <span style={{ fontSize: '14px', color: p.colors.muted }}>Upload PNG, JPG or SVG</span>
+                    <Upload style={{ width: '18px', height: '18px', color: p.colors.subtle, flexShrink: 0 }} />
+                    <span style={{ fontSize: '13.5px', color: p.colors.muted }}>
+                      <strong style={{ fontWeight: 600, color: p.colors.heading }}>Brand logo</strong> &mdash; upload PNG, JPG or SVG <span style={{ color: p.colors.subtle }}>(optional)</span>
+                    </span>
                     <input type="file" accept=".png,.jpg,.jpeg,.svg" onChange={handleLogoUpload} style={{ display: 'none' }} />
                   </label>
                 )}
                 {logoError && <p data-testid="text-logo-error" style={{ fontSize: '12px', color: p.colors.danger, marginTop: '6px' }}>{logoError}</p>}
               </div>
 
-              <div style={{ marginBottom: '9px' }}>
-                <label htmlFor="tagline" style={{ ...p.typography.label, display: 'block', marginBottom: '8px' }}>
-                  Tagline <span style={{ fontWeight: 400, color: p.colors.subtle, textTransform: 'none', fontSize: '11px' }}>(optional)</span>
-                </label>
+              <div className="float-field" style={{ marginBottom: '8px' }}>
                 <input id="tagline" data-testid="input-tagline"
                   value={ws.tagline} onChange={e => { if (e.target.value.length <= 120) set('tagline', e.target.value); }}
-                  placeholder="e.g. Trusted concrete specialists serving the GTA."
-                  className="premium-input" maxLength={120} />
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '4px' }}>
-                  <span style={{ fontSize: '11px', color: ws.tagline.length > 100 ? p.colors.warning : p.colors.subtle, fontWeight: 500 }}>
-                    {ws.tagline.length}/120
-                  </span>
-                </div>
+                  placeholder=" "
+                  className="premium-input" maxLength={120}
+                  style={{ paddingRight: '52px' }} />
+                <label htmlFor="tagline">Tagline (optional)</label>
+                <span style={{
+                  position: 'absolute', right: '14px', bottom: '8px', fontSize: '10px', fontWeight: 600,
+                  color: ws.tagline.length > 100 ? p.colors.warning : p.colors.subtle, pointerEvents: 'none',
+                }}>{ws.tagline.length}/120</span>
               </div>
             </div>
 
@@ -1215,22 +1225,58 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
             }}>
               <p style={{ ...p.typography.label, marginBottom: '10px' }}>Offers &amp; call-to-action</p>
 
-              <label htmlFor="cta-text" style={{ fontSize: '12px', fontWeight: 500, color: p.colors.body, display: 'block', marginBottom: '6px' }}>
-                Button text
-              </label>
-              <input
-                id="cta-text" data-testid="input-cta-text"
-                value={ws.calculatorSettings?.lead_form?.cta?.button_text || ''}
-                onChange={e => set('calculatorSettings', {
-                  ...ws.calculatorSettings,
-                  lead_form: {
-                    ...ws.calculatorSettings.lead_form,
-                    cta: { ...ws.calculatorSettings.lead_form?.cta, button_text: e.target.value.slice(0, 40) },
-                  },
-                })}
-                placeholder="Get My Free Quote"
-                className="premium-input"
-              />
+              <div style={{ position: 'relative', marginBottom: '9px' }}>
+                <input
+                  id="cta-text" data-testid="input-cta-text"
+                  className="cta-button-input"
+                  value={ws.calculatorSettings?.lead_form?.cta?.button_text || ''}
+                  onChange={e => set('calculatorSettings', {
+                    ...ws.calculatorSettings,
+                    lead_form: {
+                      ...ws.calculatorSettings.lead_form,
+                      cta: { ...ws.calculatorSettings.lead_form?.cta, button_text: e.target.value.slice(0, 40) },
+                    },
+                  })}
+                  placeholder="Get My Free Quote"
+                  aria-label="Call-to-action button text"
+                  style={{
+                    width: '100%', boxSizing: 'border-box',
+                    padding: '14px 42px', borderRadius: '12px', border: 'none',
+                    background: ws.primaryColor, color: '#FFFFFF',
+                    fontSize: '15px', fontWeight: 700, fontFamily: 'inherit',
+                    textAlign: 'center', cursor: 'text',
+                    WebkitAppearance: 'none', appearance: 'none', outline: 'none',
+                    boxShadow: `0 4px 14px ${ws.primaryColor}55, inset 0 1px 0 rgba(255,255,255,0.28)`,
+                  }}
+                />
+                <button
+                  type="button" data-testid="button-cta-help"
+                  onClick={() => setCtaHelpOpen(o => !o)}
+                  aria-label="What is this field?"
+                  style={{
+                    position: 'absolute', top: '50%', right: '9px', transform: 'translateY(-50%)',
+                    width: '22px', height: '22px', borderRadius: '50%', border: 'none', padding: 0,
+                    background: 'rgba(255,255,255,0.22)', color: '#FFFFFF', cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}
+                >
+                  <HelpCircle style={{ width: '14px', height: '14px' }} />
+                </button>
+                {ctaHelpOpen && (
+                  <div data-testid="cta-help-popover" style={{
+                    position: 'absolute', top: 'calc(100% + 8px)', right: 0, zIndex: 30,
+                    width: '244px', padding: '12px 14px', borderRadius: '10px', background: '#FFFFFF',
+                    border: `1px solid ${p.colors.borderLight}`, boxShadow: '0 10px 30px rgba(15,23,42,0.18)',
+                  }}>
+                    <p style={{ fontSize: '12px', fontWeight: 700, color: p.colors.heading, margin: '0 0 4px' }}>
+                      This is your action button
+                    </p>
+                    <p style={{ fontSize: '12px', lineHeight: 1.5, color: p.colors.muted, margin: 0 }}>
+                      It&rsquo;s the button customers tap to submit their details. Type the text it should show.
+                    </p>
+                  </div>
+                )}
+              </div>
 
               <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', marginTop: '7px' }}>
                 <input
@@ -1873,7 +1919,9 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
         .wizard-2ndbar-label { font-size: 11px; font-weight: 600; text-align: center; line-height: 1.25; }
 
         @media (max-width: 980px) {
-          .wizard-shell-body { flex-direction: column; height: auto; overflow: visible; }
+          /* overflow:hidden so the 14px corner radius clips the stacked
+             child panels — height:auto means content still flows freely. */
+          .wizard-shell-body { flex-direction: column; height: auto; overflow: hidden; }
           .wizard-left { width: 100%; height: auto; overflow-y: visible; border-right: none; }
           .wizard-left-inner { padding-bottom: 84px; min-height: 0; }
           .wizard-footer { position: static; }
