@@ -41,7 +41,7 @@ const RULE_OPS: { id: RuleOp; label: string }[] = [
 interface AdvCalc { id: string; name: string; formula: string; format: 'number' | 'currency' | 'percent'; }
 type HeaderAlign = 'left' | 'center' | 'right';
 interface AdvHeader { title?: string; subtitle?: string; align?: HeaderAlign; }
-interface AdvResults { heading?: string; footnote?: string; show_breakdown?: boolean; }
+interface AdvResults { heading?: string; footnote?: string; show_breakdown?: boolean; cta_label?: string; }
 export interface AdvancedConfigData {
   enabled?: boolean; fields?: AdvField[]; calculations?: AdvCalc[]; result_calc?: string;
   header?: AdvHeader; results?: AdvResults; theme?: string;
@@ -630,6 +630,14 @@ export default function AdvancedBuilder({ advanced, onChange, onExitAdvanced }: 
           value={results.footnote || ''}
           onChange={(e) => patch({ results: { ...results, footnote: e.target.value } })}
           placeholder="Instant estimate based on your inputs."
+          style={{ width: '100%', fontSize: 13, marginBottom: 10 }} />
+        <label style={{ ...p.typography.captionSm, display: 'block', marginBottom: 4 }}>
+          Call-to-action button
+        </label>
+        <input className={inputCls} data-testid="adv-results-cta"
+          value={results.cta_label === undefined ? 'Get My Quote' : results.cta_label}
+          onChange={(e) => patch({ results: { ...results, cta_label: e.target.value } })}
+          placeholder="Button label — leave blank to hide"
           style={{ width: '100%', fontSize: 13, marginBottom: 10 }} />
         <button type="button" data-testid="adv-results-breakdown"
           onClick={() => patch({ results: { ...results, show_breakdown: results.show_breakdown === false } })}

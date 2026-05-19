@@ -35,7 +35,7 @@ interface AdvField {
 }
 interface AdvCalc { id: string; name: string; formula: string; format: 'number' | 'currency' | 'percent'; }
 interface AdvHeader { title?: string; subtitle?: string; align?: 'left' | 'center' | 'right'; }
-interface AdvResults { heading?: string; footnote?: string; show_breakdown?: boolean; }
+interface AdvResults { heading?: string; footnote?: string; show_breakdown?: boolean; cta_label?: string; }
 export interface AdvancedConfig {
   enabled?: boolean;
   fields?: AdvField[];
@@ -140,6 +140,11 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
   const [answers, setAnswers] = useState<Record<string, Answer>>(() => initAnswers(fields));
   const setAnswer = (name: string, value: Answer) => setAnswers((p) => ({ ...p, [name]: value }));
 
+  // Result-panel call-to-action — button → inline lead form → thank-you.
+  const [leadView, setLeadView] = useState<'cta' | 'form' | 'done'>('cta');
+  const [leadName, setLeadName] = useState('');
+  const [leadEmail, setLeadEmail] = useState('');
+
   // Keep answers in sync when the field set changes — a template being
   // applied or fields edited in the builder. A field missing an answer (or
   // holding one no longer valid for its options, e.g. after switching
@@ -198,6 +203,21 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
   // translucent divider; a white panel keeps the theme border.
   const resultTinted = c.result.toLowerCase() !== c.surface.toLowerCase();
   const resultDivider = resultTinted ? 'rgba(255,255,255,0.22)' : c.border;
+
+  // CTA — always high-contrast against the result panel (a solid accent
+  // button on a white panel; a white button on a coloured panel).
+  const ctaLabel = results.cta_label === undefined ? 'Get My Quote' : results.cta_label;
+  const showCta = ctaLabel.trim() !== '';
+  const ctaBg = resultTinted ? '#ffffff' : accent;
+  const ctaFg = resultTinted ? c.result : '#ffffff';
+  const leadEmailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(leadEmail.trim());
+  const leadReady = leadName.trim() !== '' && leadEmailOk;
+  const leadInputStyle: React.CSSProperties = {
+    width: '100%', height: '40px', borderRadius: eff.radiusMd,
+    border: '1px solid rgba(15,23,42,0.14)', padding: '0 12px', fontSize: '13px',
+    background: '#ffffff', color: '#0f172a', fontFamily: eff.font, outline: 'none',
+    boxSizing: 'border-box',
+  };
 
   return (
     <div data-testid="advanced-calculator" style={{
@@ -294,6 +314,62 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
             }}>
               {footnoteText}
             </p>
+
+            {showCta && (
+              <div style={{ marginTop: '14px' }}>
+                {leadView === 'cta' && (
+                  <button type="button" data-testid="advanced-cta"
+                    onClick={() => setLeadView('form')}
+                    style={{
+                      width: '100%', height: '46px', borderRadius: eff.radiusMd, border: 'none',
+                      background: ctaBg, color: ctaFg, fontSize: '14px', fontWeight: 800,
+                      cursor: 'pointer', fontFamily: eff.font, letterSpacing: '0.01em',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                      boxShadow: '0 6px 16px rgba(0,0,0,0.18)',
+                    }}>
+                    {ctaLabel} <span style={{ fontSize: '16px' }}>→</span>
+                  </button>
+                )}
+
+                {leadView === 'form' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <input data-testid="advanced-cta-name" type="text" placeholder="Your name"
+                      value={leadName} onChange={(e) => setLeadName(e.target.value)}
+                      style={leadInputStyle} />
+                    <input data-testid="advanced-cta-email" type="email" placeholder="Email address"
+                      value={leadEmail} onChange={(e) => setLeadEmail(e.target.value)}
+                      style={leadInputStyle} />
+                    <button type="button" data-testid="advanced-cta-send"
+                      onClick={() => { if (leadReady) setLeadView('done'); }}
+                      style={{
+                        width: '100%', height: '44px', borderRadius: eff.radiusMd, border: 'none',
+                        background: ctaBg, color: ctaFg, fontSize: '14px', fontWeight: 800,
+                        cursor: leadReady ? 'pointer' : 'default', opacity: leadReady ? 1 : 0.6,
+                        fontFamily: eff.font,
+                      }}>
+                      Send
+                    </button>
+                  </div>
+                )}
+
+                {leadView === 'done' && (
+                  <div data-testid="advanced-cta-done" style={{
+                    display: 'flex', alignItems: 'center', gap: '8px',
+                    padding: '11px 13px', borderRadius: eff.radiusMd,
+                    background: resultTinted ? 'rgba(255,255,255,0.16)' : c.accentTint,
+                  }}>
+                    <span style={{
+                      width: '20px', height: '20px', borderRadius: '50%', flexShrink: 0,
+                      background: ctaBg, color: ctaFg, fontSize: '12px', fontWeight: 800,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>✓</span>
+                    <span style={{ fontSize: '13px', fontWeight: 600, color: c.resultText }}>
+                      Thanks — we’ll be in touch shortly.
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
