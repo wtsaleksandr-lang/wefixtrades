@@ -1,4 +1,4 @@
-import WizardCard from '@/components/wizard/WizardCard';
+import WizardCard from '@/components/wizard/legacy/WizardCard';
 
 // The wizard is a full app-shell (its own top navbar + split body), so the
 // page is just a full-bleed mount point.
