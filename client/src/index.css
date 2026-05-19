@@ -316,6 +316,43 @@
   color: #9CA3AF;
 }
 
+/* Floating-label field — the label sits inside the input and floats up
+   on focus / when filled. Requires DOM order: input THEN label, and the
+   input must carry placeholder=" " so :placeholder-shown works. */
+.float-field {
+  position: relative;
+}
+.float-field > .premium-input {
+  padding-top: 20px;
+  padding-bottom: 6px;
+}
+.float-field > label {
+  position: absolute;
+  left: 17px;
+  top: 14px;
+  font-size: 14px;
+  color: #9CA3AF;
+  pointer-events: none;
+  transition: all 0.15s ease;
+}
+.float-field > .premium-input:focus + label,
+.float-field > .premium-input:not(:placeholder-shown) + label {
+  top: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #2F6BFF;
+}
+
+/* CTA "Button text" field — styled to look like the live action button. */
+.cta-button-input::placeholder {
+  color: rgba(255, 255, 255, 0.72);
+  font-weight: 600;
+}
+.cta-button-input:focus-visible {
+  outline: 2px solid #FFFFFF;
+  outline-offset: -5px;
+}
+
 .wizard-bg {
   background: #F7F8FA;
   min-height: 100vh;
