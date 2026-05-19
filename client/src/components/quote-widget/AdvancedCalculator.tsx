@@ -11,6 +11,7 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { runCalculations, type FormulaContext } from '@shared/formulaEngine';
+import { normalizeLayout, type TemplateLayout } from '@shared/templatePresets';
 import { eff } from './designTokens';
 import { resolveWidgetTheme, type WidgetTheme } from './widgetThemes';
 
@@ -44,7 +45,12 @@ export interface AdvancedConfig {
   header?: AdvHeader;
   results?: AdvResults;
   theme?: string;
-  layout?: 'single_page' | 'two_column' | 'multi_step';
+  /**
+   * Real layout: `single-column | two-column | multi-column`. Legacy values
+   * (`single_page | two_column | multi_step`) are still accepted on read and
+   * coerced via `normalizeLayout()`.
+   */
+  layout?: TemplateLayout | 'single_page' | 'two_column' | 'multi_step';
 }
 
 interface Props {
@@ -219,6 +225,18 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
     boxSizing: 'border-box',
   };
 
+  // ── Layout ──
+  // Real, CSS-Grid-backed layouts. Mobile-first: every layout is a single
+  // stacked column by default; the wider arrangements switch on at >=560px.
+  // Spacing is deliberately tight — no wasted gaps.
+  const layout: TemplateLayout = normalizeLayout(advanced.layout);
+  const hasResult = calcs.length > 0;
+  // A unique scope so the responsive rules don't leak between embeds.
+  const gridId = useMemo(
+    () => 'advcalc-' + Math.random().toString(36).slice(2, 8),
+    [],
+  );
+
   return (
     <div data-testid="advanced-calculator" style={{
       background: c.surface, borderRadius: eff.radius2xl,
@@ -251,17 +269,46 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
         );
       })()}
 
-      {/* ── Body — two_column puts the result beside the inputs; single_page
-            and multi_step stack it below. ── */}
-      <div style={{
-        display: 'flex', flexWrap: 'wrap',
-        flexDirection: (advanced.layout || 'two_column') === 'two_column' ? 'row' : 'column',
-        gap: '16px', padding: '20px', background: c.bg,
-      }}>
+      {/* ── Body ──
+          Real CSS-Grid layouts, mobile-first. Base styles below are the
+          narrow-screen single-column state; the scoped <style> block widens
+          them at >=560px per layout:
+            single-column — one column, result below.
+            two-column    — inputs column + result column.
+            multi-column  — a 3-up auto-fit input grid, result spans full width.
+          Tight gaps throughout — no wasted vertical space. */}
+      <style>{`
+        .${gridId} {
+          display: grid;
+          gap: 12px;
+          padding: 16px;
+          grid-template-columns: 1fr;
+        }
+        .${gridId}-fields {
+          display: grid;
+          gap: 12px;
+          grid-template-columns: 1fr;
+          align-content: start;
+          min-width: 0;
+        }
+        .${gridId}-result { align-self: start; min-width: 0; }
+        @media (min-width: 560px) {
+          .${gridId} { gap: 14px; padding: 20px; }
+          .${gridId}[data-layout="two-column"] {
+            grid-template-columns: 1fr minmax(190px, 0.8fr);
+          }
+          .${gridId}[data-layout="multi-column"] .${gridId}-fields {
+            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+            gap: 12px;
+          }
+        }
+      `}</style>
+      <div className={gridId} data-layout={layout} data-testid="advanced-body"
+        style={{ background: c.bg }}>
         {/* Inputs */}
-        <div style={{ flex: '1 1 260px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div className={`${gridId}-fields`}>
           {visibleFields.length === 0 && (
-            <p style={{ fontSize: '14px', color: c.textBody, padding: '20px 0' }}>
+            <p style={{ fontSize: '14px', color: c.textBody, padding: '16px 0' }}>
               This calculator hasn't been set up yet.
             </p>
           )}
@@ -272,12 +319,11 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
         </div>
 
         {/* Result panel — a separate rounded container */}
-        {calcs.length > 0 && (
-          <div style={{
-            flex: '1 1 200px', minWidth: 0, alignSelf: 'flex-start',
+        {hasResult && (
+          <div className={`${gridId}-result`} style={{
             borderRadius: eff.radiusXl, background: c.result,
             border: resultTinted ? 'none' : `1px solid ${c.border}`, boxShadow: c.shadow,
-            padding: '20px',
+            padding: '18px',
           }}>
             <p style={{
               fontSize: '11px', fontWeight: 700, color: c.resultMuted,
