@@ -16,8 +16,6 @@ const CARDS_DATA = [
     title: "Stay visible without hiring a marketer.",
     description:
       "SocialSync drafts your weekly posts in your voice — Facebook, Instagram, LinkedIn, Google Business. You approve in one tap. We handle the calendar, the captions, and the analytics.",
-    riveUrl:
-      "https://cdn.prod.website-files.com/66e53bf67b6fc1646ce0777e/67ed2478edc45f9d6824a0f1_home___stack___customers.riv",
     reversed: false,
   },
   {
@@ -28,8 +26,6 @@ const CARDS_DATA = [
     title: "Every review answered. Even at 11 PM.",
     description:
       "ReputationShield drafts a personal reply to every Google and Facebook review within minutes. 5-stars get amplified. 1-stars get flagged to your phone before they spread.",
-    riveUrl:
-      "https://cdn.prod.website-files.com/66e53bf67b6fc1646ce0777e/67eabdfb3bb7821ba4c09216_home___stack___dashboards_final.riv",
     reversed: true,
   },
   {
@@ -40,8 +36,6 @@ const CARDS_DATA = [
     title: "Show up where customers are searching.",
     description:
       "RankFlow tracks every keyword that drives trades work in your service area — daily. The monthly report tells you exactly which pages to update and which competitors are gaining ground.",
-    riveUrl:
-      "https://cdn.prod.website-files.com/66e53bf67b6fc1646ce0777e/67eabdfc4740322102620c37_home___stack___userinterface.riv",
     reversed: false,
   },
   {
@@ -52,8 +46,6 @@ const CARDS_DATA = [
     title: "Build authority. Without writing a word.",
     description:
       "ContentFlow drafts trade-specific articles every month — tuned to your service area, your voice, and what's actually ranking. One tap publishes to your site and auto-distributes to your channels.",
-    riveUrl:
-      "https://cdn.prod.website-files.com/66e53bf67b6fc1646ce0777e/67eabdfb5cec85cbd9a56fd5_home___stack___dunning%20(1).riv",
     reversed: true,
   },
 ] as const;
@@ -64,7 +56,7 @@ const CARD_BG = "#f5fcff";   // --color--background-secondary (card)
 const TEXT = "#22282a";      // --swatch--n-800
 const TEXT_MUTED = "#5f6f77"; // --swatch--n-600
 
-/* ── mockup sub-components (replace with Rive when ready) ────────────── */
+/* ── mockup sub-components — on-brand React card visuals ─────────────── */
 
 function CustomerPortalMockup() {
   // SocialSync — content calendar with multi-channel posts queued/published
@@ -442,13 +434,9 @@ export default function StickyStackCards() {
                     minHeight: mobile ? 280 : 380,
                   }}
                 >
-                  {/*
-                    TODO: Replace with Rive component when @rive-app/react-canvas is installed:
-                    import { useRive } from "@rive-app/react-canvas";
-                    const { RiveComponent } = useRive({ src: card.riveUrl,
-                      stateMachines: "State Machine 1", artboard: "Artboard", autoplay: true });
-                    return <RiveComponent style={{ width: "100%", height: "100%" }} />;
-                  */}
+                  {/* Card visual — on-brand React mockup (see MOCKUPS map).
+                      Built in-repo so the section needs no external animation
+                      assets or extra runtime dependency. */}
                   <VisualMockup />
                 </div>
               </div>

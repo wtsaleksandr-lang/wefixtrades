@@ -50,7 +50,6 @@ import CompareNiceJob from "@/pages/marketing/CompareNiceJob";
 import ComparisonPage from "@/pages/marketing/ComparisonPage";
 import NewProductPage from "@/pages/products/ProductPage";
 import EffortelProductPage from "@/pages/products/EffortelProductPage";
-import MapGuardPage from "@/pages/products/mapguard";
 import SolutionPage from "@/pages/solutions/SolutionPage";
 import DemoCenter from "@/pages/demos/DemoCenter";
 import DemoPage from "@/pages/demos/DemoPage";
@@ -244,7 +243,10 @@ function Router() {
 
       <Route path="/compare/reputationshield-vs-nicejob" component={CompareNiceJob} />
       <Route path="/compare/:slug" component={ComparisonPage} />
-      <Route path="/products/mapguard" component={MapGuardPage} />
+      {/* MapGuard renders through the shared EffortelProductPage template
+          (the /products/:slug route below) so all 12 product pages follow the
+          same hero → trust → cards → how-it-works → proof → CTA rhythm.
+          MapGuard copy lives in config/products.ts + config/product-mockups. */}
       {/* TradeLine variant comparison — internal review pages, registered before /:slug */}
       {/* TradeLine consolidation — old routes redirect to unified product */}
       <Route path="/products/assistants">{() => <Redirect to="/products/tradeline" />}</Route>

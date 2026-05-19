@@ -22,10 +22,12 @@ export const colors = {
     onDarkBorder: 'rgba(255,255,255,0.08)',
   },
   accent: {
-    blue: '#2F6BFF',
-    blueHover: '#2557E6',
-    blueTint: '#EAF1FF',
-    blueGlow: 'rgba(47,107,255,0.2)',
+    /* Brand blue — #0d3cfc. Previously a drifted #2F6BFF; unified so every
+     * token group resolves to the single brand value. */
+    blue: '#0d3cfc',
+    blueHover: '#0b34d6',
+    blueTint: '#E6EAFF',
+    blueGlow: 'rgba(13,60,252,0.2)',
     orange: '#FA4E1D',
     orangeTint: 'rgba(250,78,29,0.08)',
     cyan: '#0d3cfc',
@@ -67,7 +69,7 @@ export const colors = {
     surfaceHover: '#F8F9FB',
   },
   widget: {
-    defaultAccent: '#2F6BFF',
+    defaultAccent: '#0d3cfc',
     heading: '#111827',
     body: '#374151',
     muted: '#6B7280',
@@ -80,7 +82,7 @@ export const colors = {
     background: '#F6F7F9',
   },
   chart: {
-    c1: '#2F6BFF',
+    c1: '#0d3cfc',
     c2: '#0d3cfc',
     c3: '#FA4E1D',
     c4: '#D97706',
