@@ -20,6 +20,7 @@ import QuoteWidget from '@/components/quote-widget/QuoteWidget';
 import type { CalculatorData } from '@/components/quote-widget/types';
 import { mapPricingIntakeToConfig } from '@shared/pricingIntakeMapper';
 import { getRecommendedTemplate, getTemplateById, type LayoutStyle } from '@shared/templateLibrary';
+import { getTemplatePreset } from '@shared/templatePresets';
 import {
   Loader2, ArrowRight, ArrowLeft, Check, Sparkles, Wrench, Hammer,
   Layers, AlertTriangle, Car, Briefcase, Plus, HelpCircle, X,
@@ -255,7 +256,21 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
   // layout to calculator_settings. `id === 'blank'` keeps the chosen layout
   // with no presets; a real template carries its own layout + display defaults.
   const handleTemplateSelect = (id: string, layout: LayoutStyle) => {
-    const tmpl = getTemplateById(id);
+    // A themed template — drop its whole preset config into the calculator.
+    const preset = getTemplatePreset(id);
+    if (preset) {
+      set('calculatorSettings', {
+        ...ws.calculatorSettings,
+        ui_template: {
+          ...ws.calculatorSettings.ui_template,
+          template_id: id,
+          layout: { ...ws.calculatorSettings.ui_template?.layout, style: preset.layout },
+        },
+        advanced: preset.advanced as any,
+      });
+      return;
+    }
+    // Blank — keep the chosen layout with no presets.
     set('calculatorSettings', {
       ...ws.calculatorSettings,
       ui_template: {
@@ -263,12 +278,12 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
         template_id: id,
         layout: {
           ...ws.calculatorSettings.ui_template?.layout,
-          style: tmpl ? tmpl.layout_style : layout,
-          sticky_summary: tmpl ? tmpl.defaults.sticky_summary : layout === 'two_column',
-          show_breakdown: tmpl ? tmpl.defaults.show_breakdown : true,
-          show_trust_block: tmpl ? tmpl.defaults.show_trust_block : false,
-          show_testimonials: tmpl ? tmpl.defaults.show_testimonials : false,
-          show_images: tmpl ? tmpl.defaults.show_images : false,
+          style: layout,
+          sticky_summary: layout === 'two_column',
+          show_breakdown: true,
+          show_trust_block: false,
+          show_testimonials: false,
+          show_images: false,
         },
       },
     });
