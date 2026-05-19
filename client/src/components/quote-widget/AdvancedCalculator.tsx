@@ -449,11 +449,14 @@ function FieldInput({ field, value, accent, theme, onChange }: {
     );
   }
 
+  // Stable id so the `<label>` associates with its control (a11y).
+  const inputId = `adv-field-${f.id || f.name?.replace(/[^a-z0-9]+/gi, '_') || 'x'}`;
+
   if (f.type === 'number') {
     return (
       <div>
-        <label style={labelStyle(c)}>{f.label}</label>
-        <input type="number" value={value as number} min={f.min} max={f.max} step={f.step}
+        <label htmlFor={inputId} style={labelStyle(c)}>{f.label}</label>
+        <input id={inputId} type="number" value={value as number} min={f.min} max={f.max} step={f.step}
           onChange={(e) => onChange(e.target.value === '' ? 0 : Number(e.target.value))}
           style={{ ...inputBase, fontFamily: eff.fontMono }} />
       </div>
@@ -463,8 +466,8 @@ function FieldInput({ field, value, accent, theme, onChange }: {
   if (f.type === 'text') {
     return (
       <div>
-        <label style={labelStyle(c)}>{f.label}</label>
-        <input type="text" value={value as string}
+        <label htmlFor={inputId} style={labelStyle(c)}>{f.label}</label>
+        <input id={inputId} type="text" value={value as string}
           onChange={(e) => onChange(e.target.value)} style={inputBase} />
       </div>
     );
@@ -483,7 +486,7 @@ function FieldInput({ field, value, accent, theme, onChange }: {
             {String(value)}{f.unit ? ' ' + f.unit : ''}
           </span>
         </div>
-        <input type="range" min={min} max={max} step={f.step || 1} value={value as number}
+        <input id={inputId} aria-label={f.label} type="range" min={min} max={max} step={f.step || 1} value={value as number}
           onChange={(e) => onChange(Number(e.target.value))}
           style={{ width: '100%', accentColor: accent }} />
         <div style={{
@@ -525,8 +528,8 @@ function FieldInput({ field, value, accent, theme, onChange }: {
   if (f.type === 'select') {
     return (
       <div>
-        <label style={labelStyle(c)}>{f.label}</label>
-        <select value={value as string} onChange={(e) => onChange(e.target.value)} style={inputBase}>
+        <label htmlFor={inputId} style={labelStyle(c)}>{f.label}</label>
+        <select id={inputId} value={value as string} onChange={(e) => onChange(e.target.value)} style={inputBase}>
           {(f.options || []).map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
         </select>
       </div>
