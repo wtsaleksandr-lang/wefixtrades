@@ -56,15 +56,27 @@ interface Props {
 
 type Answer = number | string | boolean | string[];
 
+/** The default answer for a single field. */
+function defaultAnswer(f: AdvField): Answer {
+  if (f.type === 'number' || f.type === 'slider') return f.default_value ?? f.min ?? 0;
+  if (f.type === 'toggle') return false;
+  if (f.type === 'multi_select') return [];
+  if (f.type === 'select' || f.type === 'radio' || f.type === 'image_choice') return f.options?.[0]?.id ?? '';
+  return '';
+}
+
+/** True when a stored answer is no longer valid for its field. */
+function answerInvalid(f: AdvField, value: Answer): boolean {
+  if (value === undefined) return true;
+  if (f.type === 'select' || f.type === 'radio' || f.type === 'image_choice') {
+    return !(f.options || []).some((o) => o.id === value);
+  }
+  return false;
+}
+
 function initAnswers(fields: AdvField[]): Record<string, Answer> {
   const a: Record<string, Answer> = {};
-  for (const f of fields) {
-    if (f.type === 'number' || f.type === 'slider') a[f.name] = f.default_value ?? f.min ?? 0;
-    else if (f.type === 'toggle') a[f.name] = false;
-    else if (f.type === 'multi_select') a[f.name] = [];
-    else if (f.type === 'select' || f.type === 'radio' || f.type === 'image_choice') a[f.name] = f.options?.[0]?.id ?? '';
-    else a[f.name] = '';
-  }
+  for (const f of fields) a[f.name] = defaultAnswer(f);
   return a;
 }
 
@@ -129,22 +141,19 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
   const setAnswer = (name: string, value: Answer) => setAnswers((p) => ({ ...p, [name]: value }));
 
   // Keep answers in sync when the field set changes — a template being
-  // applied or fields edited in the builder. New fields get their default
-  // value (otherwise sliders read "undefined" and totals stay at 0).
+  // applied or fields edited in the builder. A field missing an answer (or
+  // holding one no longer valid for its options, e.g. after switching
+  // template) is reset to its default — otherwise sliders read "undefined"
+  // and totals stay at 0.
   useEffect(() => {
     setAnswers((prev) => {
       let changed = false;
       const next: Record<string, Answer> = { ...prev };
       for (const f of fields) {
-        if (f.name in next) continue;
-        next[f.name] =
-          f.type === 'number' || f.type === 'slider' ? (f.default_value ?? f.min ?? 0)
-            : f.type === 'toggle' ? false
-              : f.type === 'multi_select' ? []
-                : (f.type === 'select' || f.type === 'radio' || f.type === 'image_choice')
-                  ? (f.options?.[0]?.id ?? '')
-                  : '';
-        changed = true;
+        if (answerInvalid(f, next[f.name])) {
+          next[f.name] = defaultAnswer(f);
+          changed = true;
+        }
       }
       return changed ? next : prev;
     });
