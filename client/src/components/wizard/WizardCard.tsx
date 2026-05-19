@@ -1792,7 +1792,8 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
           height: calc(100vh - 84px - ${d.layout.shellPad} - ${d.layout.shellPad} - ${d.layout.panelGap});
           margin-top: ${d.layout.panelGap};
           background: ${d.colors.panel};
-          border-radius: ${d.radius.panel};
+          /* Matches the navbar's corner radius. */
+          border-radius: 14px;
           box-shadow: ${d.shadows.panel};
           overflow: hidden;
         }
