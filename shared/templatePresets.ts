@@ -88,6 +88,31 @@ export interface TemplateField {
 export interface TemplateCalculation {
   id: string; name: string; formula: string;
   format: 'number' | 'currency' | 'percent';
+  /**
+   * Wave H4 — Elfsight-style display fields. ALL optional and backward-
+   * compatible: every existing template (66 entries at time of writing) is
+   * valid without setting any of these.
+   *
+   * - `resultMode`    — controls where this calc renders in the result panel.
+   *   `'primary'`     → renders as the large headline value (the calc that
+   *                     "is" the price).
+   *   `'secondary'`   → renders as a breakdown row beneath the headline.
+   *   `undefined`     → treated as `'secondary'` for rendering, but the
+   *                     legacy `result_calc` field still wins when no calc
+   *                     is explicitly marked primary.
+   * - `caption`       — optional supplementary line rendered below this
+   *                     calc's value (e.g. "incl. tax", "per visit").
+   * - `showInResults` — `false` hides this calc from the result panel
+   *                     (formula still evaluates so later calcs can chain
+   *                     off it). `undefined` or `true` shows it — preserving
+   *                     current behaviour.
+   * - `divider`       — when `true`, render a thin divider above this row
+   *                     in the result panel for visual grouping.
+   */
+  resultMode?: 'primary' | 'secondary';
+  caption?: string;
+  showInResults?: boolean;
+  divider?: boolean;
 }
 
 export interface TemplateHeader {
