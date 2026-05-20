@@ -1,7 +1,11 @@
-import WizardCard from '@/components/wizard/legacy/WizardCard';
+// /wizard — Elfsight-clone editor shell (Wave H1).
+//
+// The new shell is the canonical builder. The legacy 5-step wizard is
+// preserved at /wizard/legacy (see pages/wizard-legacy.tsx) and will be
+// retired once H2-H7 finish the tab content.
 
-// The wizard is a full app-shell (its own top navbar + split body), so the
-// page is just a full-bleed mount point.
+import WizardShell from '@/components/wizard/elfsight/WizardShell';
+
 export default function Wizard() {
   const isEmbed = ['1', 'true'].includes(
     new URLSearchParams(window.location.search).get('embed') || ''
@@ -10,10 +14,10 @@ export default function Wizard() {
   if (isEmbed) {
     return (
       <div className="w-full">
-        <WizardCard embed />
+        <WizardShell embed />
       </div>
     );
   }
 
-  return <WizardCard />;
+  return <WizardShell />;
 }

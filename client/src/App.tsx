@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { CopilotFormProvider } from "@/context/CopilotFormContext";
 import NotFound from "@/pages/not-found";
 import Wizard from "@/pages/wizard";
+import WizardLegacy from "@/pages/wizard-legacy";
 import Calculator from "@/pages/calculator";
 import EditCalculator from "@/pages/edit-calculator";
 import LeadsPage from "@/pages/leads";
@@ -332,12 +333,14 @@ function Router() {
       <Route path="/audit/report/:id" component={SharedAuditReport} />
       <Route path="/book/:slug" component={BookingPage} />
       <Route path="/pay/:token" component={PayInvoicePage} />
+      <Route path="/wizard/legacy" component={WizardLegacy} />
       <Route path="/wizard" component={Wizard} />
       <Route path="/calculator" component={Calculator} />
       <Route path="/edit-calculator" component={EditCalculator} />
       <Route path="/leads" component={LeadsPage} />
       <Route path="/dashboard" component={Dashboard} />
       {/* Redirect legacy uppercase routes to canonical lowercase */}
+      <Route path="/Wizard/legacy">{() => <Redirect to="/wizard/legacy" />}</Route>
       <Route path="/Wizard">{() => <Redirect to="/wizard" />}</Route>
       <Route path="/Calculator">{() => <Redirect to="/calculator" />}</Route>
       <Route path="/EditCalculator">{() => <Redirect to="/edit-calculator" />}</Route>
