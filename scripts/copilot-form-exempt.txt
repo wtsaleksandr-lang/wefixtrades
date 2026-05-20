@@ -72,3 +72,5 @@ client/src/pages/portal/TradelineSetup/OptionBForward.tsx
 client/src/pages/portal/TradelineSetup/OptionCPort.tsx
 client/src/pages/portal/TradelineSetup/SignaturePad.tsx
 client/src/pages/portal/TradelineSetup/index.tsx
+
+client/src/pages/admin/MapguardOpsPage.tsx
