@@ -295,6 +295,49 @@ export default function SettingsTab({ settings, onChange }: Props) {
         </FloatField>
       </fieldset>
 
+      {/* Wave Q-E — Brand badge toggle. Free users see the toggle as
+       *  read-only with an "Upgrade to Pro" call-to-action; Pro / Business
+       *  users can flip it. Client-side tier detection is not yet wired,
+       *  so for now the toggle is permanently disabled with the upgrade
+       *  link surfaced. The server-side gate (Wave Q-D) enforces this on
+       *  save regardless of what the client sends. */}
+      <fieldset className="qq-style-group" data-testid="settings-group-brand-badge">
+        <legend className="qq-style-legend">
+          WeFixTrades brand badge
+          <InfoCue
+            testid="settings-brand-badge"
+            text='Free plan calculators show a "QuoteQuick by WeFixTrades" badge on the hosted page and any embedded widgets. Pro and Business plans remove the badge.'
+          />
+        </legend>
+        <div
+          className="qq-brand-badge-row"
+          data-testid="settings-brand-badge-row"
+        >
+          <label className="qq-brand-badge-toggle">
+            <input
+              type="checkbox"
+              checked
+              disabled
+              data-testid="settings-brand-badge-input"
+              aria-label="Show WeFixTrades brand badge"
+            />
+            <span>
+              <span className="qq-brand-badge-title">Show WeFixTrades branding on the widget</span>
+              <span className="qq-brand-badge-sub">
+                Required on the Free plan.{' '}
+                <a
+                  href="/pricing/quotequick"
+                  className="qq-brand-badge-link"
+                  data-testid="settings-brand-badge-upgrade"
+                >
+                  Upgrade to Pro ($29/mo) to remove it →
+                </a>
+              </span>
+            </span>
+          </label>
+        </div>
+      </fieldset>
+
       <style>{`
         /* Reuse the Style tab's spacing rhythm — see StyleTab.tsx for the
            canonical .qq-style-* class definitions. The few overrides below
@@ -403,6 +446,38 @@ export default function SettingsTab({ settings, onChange }: Props) {
           font-size: 11.5px; color: ${p.colors.muted};
           margin: 4px 0 0;
         }
+        /* Wave Q-E — brand badge toggle */
+        .qq-brand-badge-row {
+          padding: 12px 14px;
+          background: ${p.colors.surfaceRaised};
+          border: 1px solid ${p.colors.borderLight};
+          border-radius: 10px;
+        }
+        .qq-brand-badge-toggle {
+          display: grid; grid-template-columns: 18px 1fr;
+          gap: 10px; align-items: flex-start;
+          cursor: not-allowed;
+        }
+        .qq-brand-badge-toggle input[type="checkbox"] {
+          margin-top: 2px; width: 16px; height: 16px;
+          accent-color: ${p.colors.accent};
+          opacity: 0.55;
+        }
+        .qq-brand-badge-title {
+          display: block;
+          font-size: 12.5px; font-weight: 700;
+          color: ${p.colors.heading};
+        }
+        .qq-brand-badge-sub {
+          display: block;
+          font-size: 11.5px; color: ${p.colors.muted};
+          line-height: 1.5; margin-top: 4px;
+        }
+        .qq-brand-badge-link {
+          color: ${p.colors.accent}; font-weight: 700;
+          text-decoration: none;
+        }
+        .qq-brand-badge-link:hover { text-decoration: underline; }
       `}</style>
     </section>
   );

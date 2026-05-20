@@ -71,11 +71,13 @@ function validateEnv(): void {
 
   /* ─── QuoteQuick Stripe price sanity check ─── */
   if (process.env.STRIPE_SECRET_KEY) {
+    // Wave Q — three-tier ladder. Starter price vars are legacy and only
+    // honoured for grandfathered subs; missing them is no longer a warn.
     const qqPriceVars = [
-      "STRIPE_PRICE_QQ_STARTER_MONTHLY",
-      "STRIPE_PRICE_QQ_STARTER_ANNUAL",
       "STRIPE_PRICE_QQ_PRO_MONTHLY",
       "STRIPE_PRICE_QQ_PRO_ANNUAL",
+      "STRIPE_PRICE_QQ_BUSINESS_MONTHLY",
+      "STRIPE_PRICE_QQ_BUSINESS_ANNUAL",
     ];
     const missingQq = qqPriceVars.filter((key) => !process.env[key]);
     if (missingQq.length > 0) {

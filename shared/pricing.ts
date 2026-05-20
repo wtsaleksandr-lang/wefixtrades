@@ -6,7 +6,17 @@
  */
 
 /* ─── Billing ─── */
-export const YEARLY_DISCOUNT_PCT = 0.10; // 10% discount for yearly billing
+export const YEARLY_DISCOUNT_PCT = 0.10; // Default — 10% discount for yearly billing across most products.
+// Wave Q — QuoteQuick uses a deeper 17% annual discount ("two months free")
+// matching the modal industry pattern (ConvertCalculator, Jotform mid-range).
+// Used by the QuoteQuick marketing page + checkout flow only.
+export const QUOTEQUICK_YEARLY_DISCOUNT_PCT = 0.17;
+export function qqYearlyTotal(monthly: number): number {
+  return Math.round(monthly * 12 * (1 - QUOTEQUICK_YEARLY_DISCOUNT_PCT));
+}
+export function qqYearlyMonthlyEquiv(monthly: number): number {
+  return Math.round((monthly * 12 * (1 - QUOTEQUICK_YEARLY_DISCOUNT_PCT)) / 12);
+}
 
 export function yearlyTotal(monthly: number): number {
   return Math.round(monthly * 12 * (1 - YEARLY_DISCOUNT_PCT));
@@ -153,33 +163,60 @@ export const QUOTEQUICK: ProductDef = {
   tagline: "Instant quotes on your website. Qualified leads in your inbox.",
   category: "leads",
   tiers: [
+    /* Wave Q — pricing restructure. Three-tier ladder anchored on a free
+     * forever plan with WeFixTrades branding (Wave P-H badge). Pro at $29
+     * unlocks badge removal + custom domain + SMS; Business at $79 adds
+     * the AI assistant + bookings + webhooks + multi-calc. Matches the
+     * market: free-with-badge is the standard freemium pattern; $29 is
+     * the badge-removal sweet spot (Calculoid $19, Jotform Bronze $39,
+     * ConvertCalculator Pro $40); $79 sits with Involve.me Grow $69 and
+     * Interact Growth $89. The Starter $49 tier was removed because it
+     * couldn't differentiate from a free-with-badge plan above or a $79
+     * Pro below — classic muddy-middle. */
     {
-      id: "quotequick-starter",
-      name: "Starter",
-      price: 49,
+      id: "quotequick-free",
+      name: "Free",
+      price: 0,
       billingPeriod: "monthly",
       features: [
-        "Instant quote widget on your site",
+        "1 instant quote calculator",
+        "Hosted quote page (`{your-name}.your-quote.net`)",
+        "Embed snippet for any website",
         "Lead capture with every quote",
-        "Email notifications",
-        "Lead dashboard",
-        "Embed on any website",
+        "50 leads/month",
+        "WeFixTrades branding shown",
       ],
     },
     {
       id: "quotequick-pro",
       name: "Pro",
-      price: 79,
+      price: 29,
       billingPeriod: "monthly",
       highlighted: true,
       badge: "Most Popular",
       features: [
-        "Everything in Starter, plus:",
-        "Online booking integration",
-        "Automated email + SMS follow-ups",
-        "Custom branding + styling",
+        "Everything in Free, plus:",
+        "Remove WeFixTrades branding",
+        "Custom domain (e.g. quotes.yoursite.com)",
+        "Up to 1,000 leads/month",
+        "Email + SMS follow-ups",
+        "Indefinite hosted-link reservation",
+        "Priority email support",
+      ],
+    },
+    {
+      id: "quotequick-business",
+      name: "Business",
+      price: 79,
+      billingPeriod: "monthly",
+      features: [
+        "Everything in Pro, plus:",
+        "Up to 5 calculators",
+        "Online booking + deposits",
+        "Webhook / CRM integration (Zapier, Stripe, HubSpot)",
+        "AI quote assistant",
         "Coupon codes + promotions",
-        "Webhook / CRM integration",
+        "5,000 leads/month",
       ],
     },
     /* Wave L I1 — one-time install service.
@@ -635,7 +672,7 @@ export const BUNDLE_STARTER: BundleDef = {
   includes: [
     { productId: "mapguard", tierId: "mapguard-basic", label: "MapGuard Basic \u2014 Google Maps visibility", value: 99 },
     { productId: "reputationshield", tierId: "reputationshield-basic", label: "ReputationShield Basic \u2014 Review management", value: 79 },
-    { productId: "quotequick", tierId: "quotequick-pro", label: "QuoteQuick Pro \u2014 Instant quotes", value: 79 },
+    { productId: "quotequick", tierId: "quotequick-business", label: "QuoteQuick Business \u2014 Instant quotes + bookings + CRM", value: 79 },
   ],
 };
 
@@ -716,12 +753,21 @@ export function bundleSavings(bundle: BundleDef): number {
 /**
  * Monthly revenue in cents per QuoteQuick plan_tier, derived from the canonical
  * QUOTEQUICK tiers. plan_tier DB values are the bare tier key (the `quotequick-`
- * prefix stripped from each tier id), e.g. "starter" / "pro". "free" is a
- * paused/unpaid calculator and is added explicitly (not a priced tier).
+ * prefix stripped from each tier id): "free" / "pro" / "business". The one-time
+ * "install" tier is excluded — it's not a recurring plan_tier.
+ *
+ * Wave Q — legacy "starter" (the old $49 tier, retired May 2026) is kept in
+ * the map at $49/mo so any grandfathered DB rows still report correctly until
+ * the migration runs. The marketing UI never offers it again; existing
+ * customers can either stay on starter pricing or upgrade via the dashboard.
  */
 export const QUOTEQUICK_PLAN_REVENUE_CENTS: Record<string, number> = {
   free: 0,
+  // Legacy — retained for backward compatibility with any pre-Wave-Q rows.
+  starter: 4900,
   ...Object.fromEntries(
-    QUOTEQUICK.tiers.map(t => [t.id.replace(/^quotequick-/, ""), t.price * 100]),
+    QUOTEQUICK.tiers
+      .filter(t => t.billingPeriod === "monthly")
+      .map(t => [t.id.replace(/^quotequick-/, ""), t.price * 100]),
   ),
 };

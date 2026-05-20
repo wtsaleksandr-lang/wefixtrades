@@ -786,28 +786,17 @@ function AppearanceTab({ settings, onChange }: {
           sublabel="(optional)"
         />
 
+        {/* Wave Q-F — dropped the phantom "10% off for keeping the badge"
+         *  discount that was never wired in pricing.ts. New strategy:
+         *  free plan = badge shown (mandatory); Pro plan = badge removed.
+         *  No reverse discount. Sublabel reflects the new policy. */}
         <ToggleSwitch
           value={settings.show_powered_by}
           onChange={v => onChange('show_powered_by', v)}
           testId="toggle-powered-by"
-          label="Show 'Powered by' badge"
-          sublabel={settings.show_powered_by
-            ? "Keep the badge and get 10% off your subscription"
-            : "Badge hidden — no discount applied"}
+          label="Show 'QuoteQuick by WeFixTrades' badge"
+          sublabel="Free plan: required. Pro and Business plans: optional."
         />
-        {settings.show_powered_by && (
-          <div style={{
-            padding: '10px 14px', borderRadius: p.radius.sm,
-            background: '#F0FDF4', border: '1px solid #BBF7D0',
-            display: 'flex', alignItems: 'center', gap: '8px',
-            marginBottom: '8px',
-          }}>
-            <DollarSign style={{ width: '14px', height: '14px', color: '#059669', flexShrink: 0 }} />
-            <span style={{ fontSize: '12px', color: '#166534' }}>
-              10% discount applied for displaying the badge.
-            </span>
-          </div>
-        )}
       </CollapsibleSection>
     </div>
   );
