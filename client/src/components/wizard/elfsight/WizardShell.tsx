@@ -33,9 +33,10 @@ import { apiRequest } from '@/lib/queryClient';
 import { platformTheme } from '@/theme/platformTheme';
 import { dashboardTheme } from '@/theme/dashboardTheme';
 import {
-  buildBlankPreviewConfig,
+  buildBlankPreviewConfig, getTemplatePreset,
   type TemplateField, type TemplateCalculation, type TemplateConfig,
 } from '@shared/templatePresets';
+import AIBubble from './AIBubble';
 import EditorTopBar from './EditorTopBar';
 import EditorTabs from './EditorTabs';
 import TabPlaceholder from './TabPlaceholder';
@@ -339,6 +340,12 @@ export default function WizardShell({ embed = false }: Props) {
     setState((s) => ({ ...s, fields: [...s.fields, makeField(publicType)] }));
   }, []);
 
+  // ── Wave K: apply a template preset by id (used by the AI assistant). ─
+  const applyTemplatePreset = useCallback((presetId: string) => {
+    const preset = getTemplatePreset(presetId);
+    if (preset) applyTemplate(preset);
+  }, [applyTemplate]);
+
   // ── Wave I (a)+(b): cross-section DnD router ─────────────────────────
   const sensors = useEditorDndSensors();
   const onDragEnd = useCallback((event: DragEndEvent) => {
@@ -609,6 +616,23 @@ export default function WizardShell({ embed = false }: Props) {
                 />
               </div>
             </div>
+
+            {/* Wave K — floating AI assistant. Lives inside the frame so it
+                 inherits data-theme. The bubble is fixed-position so it
+                 doesn't disturb the editor layout. */}
+            <AIBubble
+              conversationId={state.activeTemplateId ?? 'draft'}
+              state={state}
+              setFields={setFields}
+              setCalculations={setCalculations}
+              setHeader={setHeader}
+              setResults={setResults}
+              setStyle={setStyle}
+              setSettings={setSettings}
+              setLogo={setLogo}
+              applyTemplatePreset={applyTemplatePreset}
+              replaceTemplate={applyTemplate}
+            />
 
             {showHelp && (
               <div
