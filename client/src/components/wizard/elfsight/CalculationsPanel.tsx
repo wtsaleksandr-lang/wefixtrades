@@ -206,6 +206,16 @@ export default function CalculationsPanel({ calculations, fields, onChange }: Pr
           color: #fff;
           box-shadow: ${p.shadows.buttonHover};
         }
+        /* Wave N — match the smaller mobile sizing applied to "+ Add field"
+           in AddFieldMenu. Empty-state emphasis variant keeps its prominence. */
+        @media (max-width: 480px) {
+          .qq-calcs-add:not(.is-emphasis) {
+            padding: 6px 10px;
+            font-size: 12px;
+            min-height: 32px;
+            gap: 4px;
+          }
+        }
         .qq-calcs-list {
           list-style: none; margin: 0; padding: 0;
           display: flex; flex-direction: column; gap: 8px;
