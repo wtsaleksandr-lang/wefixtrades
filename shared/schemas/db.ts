@@ -1,4 +1,4 @@
-import { pgTable, text, varchar, serial, integer, timestamp, jsonb, json, boolean, uuid, index } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, serial, integer, timestamp, jsonb, json, boolean, uuid, index, numeric } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -37,6 +37,12 @@ export const users = pgTable("users", {
   // notice only; "sms" / "whatsapp" also ping ai_contact_phone via Twilio.
   ai_contact_method: varchar("ai_contact_method", { length: 20 }).notNull().default("dashboard"),
   ai_contact_phone: text("ai_contact_phone"),
+  // Wave K — cumulative AI spend (USD) + lifetime vision-image count. The
+  // QuoteQuick editor's AI assistant decrements against these; the admin
+  // /admin/crm/ai-budget page resets them. NUMERIC(10,4) → reads as string
+  // through pg-node so the service casts to number on read.
+  ai_spend_usd: numeric("ai_spend_usd", { precision: 10, scale: 4 }).notNull().default("0"),
+  ai_images_used: integer("ai_images_used").notNull().default(0),
   created_at: timestamp("created_at").defaultNow(),
 });
 
