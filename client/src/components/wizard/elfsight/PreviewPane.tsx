@@ -13,7 +13,8 @@ import { useMemo } from 'react';
 import QuoteWidget from '@/components/quote-widget/QuoteWidget';
 import type { CalculatorData } from '@/components/quote-widget/types';
 import {
-  buildBlankPreviewConfig, type TemplateLayout, type TemplateField,
+  buildBlankPreviewConfig,
+  type TemplateLayout, type TemplateField, type TemplateCalculation,
 } from '@shared/templatePresets';
 import { platformTheme } from '@/theme/platformTheme';
 import type { PreviewDevice } from './types';
@@ -32,9 +33,19 @@ interface Props {
    * sensible. The Wave F `__preview: true` flag is preserved end-to-end.
    */
   fields?: TemplateField[];
+  /**
+   * Live calculations list from the Build > Calculations panel (Wave H3).
+   * When provided non-empty, it replaces the placeholder seed's
+   * calculations; an empty array falls back to the seed so the preview
+   * still shows a sensible price while the user is mid-build. The Wave F
+   * `__preview: true` flag is preserved.
+   */
+  calculations?: TemplateCalculation[];
 }
 
-export default function PreviewPane({ businessName, layout, device, fields }: Props) {
+export default function PreviewPane({
+  businessName, layout, device, fields, calculations,
+}: Props) {
   // Synthetic CalculatorData (preview-only). `id: -1` mirrors the legacy
   // sentinel so any downstream code that branches on a real id still treats
   // this as a preview.
@@ -43,7 +54,20 @@ export default function PreviewPane({ businessName, layout, device, fields }: Pr
     // H2: when the shell carries an explicit fields list (the user has begun
     // editing), it takes over from the placeholder seed. Both an empty array
     // and a populated array count as explicit — only `undefined` falls back.
-    const merged = fields !== undefined ? { ...advanced, fields } : advanced;
+    let merged = fields !== undefined ? { ...advanced, fields } : advanced;
+    // H3: same pattern for calculations, but with a twist — an empty array
+    // falls back to the seed (so the preview still has a result to show).
+    if (calculations && calculations.length > 0) {
+      // Keep the seed's `result_calc` as the headline by default; if the
+      // first user calc's name happens to differ, fall back to it so the
+      // preview always has a headline to render.
+      const stillHasHeadline = calculations.some((c) => c.name === merged.result_calc);
+      merged = {
+        ...merged,
+        calculations,
+        result_calc: stillHasHeadline ? merged.result_calc : calculations[calculations.length - 1].name,
+      };
+    }
     return {
       id: -1,
       slug: 'preview',
@@ -56,7 +80,7 @@ export default function PreviewPane({ businessName, layout, device, fields }: Pr
         advanced: merged,
       },
     };
-  }, [businessName, layout, fields]);
+  }, [businessName, layout, fields, calculations]);
 
   return (
     <div className="qq-preview-pane" data-testid="editor-preview-pane">

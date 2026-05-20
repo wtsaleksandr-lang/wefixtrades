@@ -1,13 +1,14 @@
 // BuildTab — root of the Build tab content.
 //
-// Wave H2 hosts the Fields panel. Calculations (H3) and Header & Results (H4)
-// land in future waves and slot in below as additional sections. The Build
+// Wave H2 introduced the Fields panel. Wave H3 adds the Calculations panel
+// directly below. Header & Results (H4) will slot in below that. The Build
 // tab also keeps the existing "Business name" input from H1 since it's the
 // only top-level identity field — it lives at the top of the column.
 
 import { platformTheme } from '@/theme/platformTheme';
-import type { TemplateField } from '@shared/templatePresets';
+import type { TemplateField, TemplateCalculation } from '@shared/templatePresets';
 import FieldsPanel from './FieldsPanel';
+import CalculationsPanel from './CalculationsPanel';
 
 const p = platformTheme;
 
@@ -16,10 +17,14 @@ interface Props {
   onBusinessNameChange: (v: string) => void;
   fields: TemplateField[];
   onFieldsChange: (next: TemplateField[]) => void;
+  calculations: TemplateCalculation[];
+  onCalculationsChange: (next: TemplateCalculation[]) => void;
 }
 
 export default function BuildTab({
-  businessName, onBusinessNameChange, fields, onFieldsChange,
+  businessName, onBusinessNameChange,
+  fields, onFieldsChange,
+  calculations, onCalculationsChange,
 }: Props) {
   return (
     <div
@@ -56,6 +61,14 @@ export default function BuildTab({
       <div className="qq-build-divider" />
 
       <FieldsPanel fields={fields} onChange={onFieldsChange} />
+
+      <div className="qq-build-divider" />
+
+      <CalculationsPanel
+        calculations={calculations}
+        fields={fields}
+        onChange={onCalculationsChange}
+      />
 
       <style>{`
         .qq-build-tab {
