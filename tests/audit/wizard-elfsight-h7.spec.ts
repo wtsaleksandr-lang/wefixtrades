@@ -66,12 +66,12 @@ test.describe('wizard H7 — Install tab', () => {
     await expect(page.getByTestId('install-guide-grid')).toBeVisible();
   });
 
-  test('Language picker exposes at least 10 options', async ({ page }) => {
+  test('Language picker exposes at least 5 options', async ({ page }) => {
     await gotoInstallTab(page);
 
     const sel = page.getByTestId('install-select-language');
     const optionCount = await sel.locator('option').count();
-    expect(optionCount).toBeGreaterThanOrEqual(10);
+    expect(optionCount).toBeGreaterThanOrEqual(5); // Wave Q-Hotfix: trimmed 12→5 most-popular
   });
 
   test('Selecting a non-English language updates the lang attribute in the embed snippet', async ({ page }) => {
