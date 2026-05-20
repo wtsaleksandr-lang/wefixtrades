@@ -721,6 +721,190 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     ];
   })(),
 
+  /* ── Trade 6. Tile Installation (Construction) ── */
+  ...(() => {
+    const fields: TemplateField[] = [
+      { id: 'area', name: 'Tile Area', label: 'Area to tile', type: 'slider',
+        min: 20, max: 1500, step: 10, default_value: 120, unit: 'sq ft' },
+      { id: 'tile_type', name: 'Tile Type', label: 'Tile type', type: 'select',
+        options: [opt('Ceramic', 7), opt('Porcelain', 11), opt('Natural stone', 18), opt('Large-format / luxury', 24)] },
+      { id: 'pattern', name: 'Pattern', label: 'Layout pattern', type: 'radio',
+        options: [opt('Straight set', 0), opt('Diagonal', 1.5), opt('Herringbone / chevron', 3.5)] },
+      { id: 'location', name: 'Location', label: 'Where is it going?', type: 'select',
+        options: [opt('Floor', 0), opt('Wall', 1.5), opt('Shower / wet area', 4.5), opt('Backsplash', 2)] },
+      { id: 'extras', name: 'Extras', label: 'Add-ons', type: 'multi_select',
+        options: [opt('Remove existing tile', 320), opt('Subfloor prep', 275), opt('Heated floor system', 850), opt('Sealing & grout finish', 145)] },
+    ];
+    const calculations: TemplateCalculation[] = [
+      calc('Materials & Labor', '[Tile Area] * ([Tile Type] + [Pattern] + [Location])'),
+      calc('Estimated Total', '[Materials & Labor] + [Extras]'),
+    ];
+    const header: TemplateHeader = {
+      title: 'Tile Installation Calculator',
+      subtitle: 'Floors, walls, showers — get a per-square-foot price for any tile job.', align: 'left',
+    };
+    const results: TemplateResults = {
+      footnote: 'Premium materials, lifetime workmanship warranty. Free measurement visit included.',
+      cta_label: 'Get a Detailed Quote',
+    };
+    const base = {
+      name: 'Tile Installation', description: 'Tile install quote by area, type, pattern and location.',
+      category: 'Construction', trades: ['tile_installation', 'flooring_installation'],
+      theme: 'light', fields, calculations, result_calc: 'Estimated Total', header, results,
+    };
+    return [
+      { id: 'tile_installation_single_col', layout: 'single-column' as TemplateLayout, ...base },
+      { id: 'tile_installation_two_col', layout: 'two-column' as TemplateLayout, ...base },
+    ];
+  })(),
+
+  /* ── Trade 7. Window Replacement (Home Improvement) ── */
+  ...(() => {
+    const fields: TemplateField[] = [
+      { id: 'windows', name: 'Number of Windows', label: 'Number of windows', type: 'slider',
+        min: 1, max: 30, step: 1, default_value: 6, unit: 'windows' },
+      { id: 'window_type', name: 'Window Type', label: 'Window type', type: 'select',
+        options: [opt('Single-hung vinyl', 425), opt('Double-hung vinyl', 565), opt('Casement', 685), opt('Fiberglass premium', 845), opt('Bay / bow', 1450)] },
+      { id: 'glass', name: 'Glass Package', label: 'Glass package', type: 'radio',
+        options: [opt('Double-pane standard', 0), opt('Double-pane low-E', 65), opt('Triple-pane', 175)] },
+      { id: 'removal', name: 'Removal', label: 'Remove & haul old windows', type: 'toggle', on_value: 245 },
+      { id: 'extras', name: 'Extras', label: 'Add-ons', type: 'multi_select',
+        options: [opt('Custom trim', 95), opt('Interior blinds', 145), opt('Exterior wrap', 85), opt('Lifetime warranty upgrade', 195)] },
+    ];
+    const calculations: TemplateCalculation[] = [
+      calc('Windows Subtotal', '[Number of Windows] * ([Window Type] + [Glass Package])'),
+      calc('Extras Total', '[Extras] * [Number of Windows]'),
+      calc('Estimated Total', '[Windows Subtotal] + [Removal] + [Extras Total]'),
+    ];
+    const header: TemplateHeader = {
+      title: 'Window Replacement Estimator',
+      subtitle: 'Energy-efficient new windows — get a per-window price you can trust.', align: 'left',
+    };
+    const results: TemplateResults = {
+      footnote: 'ENERGY STAR-rated windows installed by certified pros. Lifetime product warranty.',
+      cta_label: 'Schedule a Measurement',
+    };
+    const base = {
+      name: 'Window Replacement', description: 'Per-window replacement quote with glass packages and trim add-ons.',
+      category: 'Home Improvement', trades: ['window_replacement'],
+      theme: 'light', fields, calculations, result_calc: 'Estimated Total', header, results,
+    };
+    return [
+      { id: 'window_replacement_single_col', layout: 'single-column' as TemplateLayout, ...base },
+      { id: 'window_replacement_two_col', layout: 'two-column' as TemplateLayout, ...base },
+    ];
+  })(),
+
+  /* ── Trade 8. Door Installation (Home Improvement) ── */
+  ...(() => {
+    const fields: TemplateField[] = [
+      { id: 'door_type', name: 'Door Type', label: 'Door type', type: 'select',
+        options: [opt('Interior pre-hung', 285), opt('Interior solid-core', 425), opt('Exterior steel', 685), opt('Exterior fiberglass', 845), opt('Sliding patio door', 1250), opt('French double door', 1650)] },
+      { id: 'doors', name: 'Number of Doors', label: 'Number of doors', type: 'number',
+        min: 1, max: 15, step: 1, default_value: 2 },
+      { id: 'removal', name: 'Remove Old Door', label: 'Remove the old door & frame', type: 'toggle', on_value: 95 },
+      { id: 'hardware', name: 'Hardware Level', label: 'Hardware level', type: 'radio',
+        options: [opt('Standard knob set', 0), opt('Mid-range lever set', 75), opt('Premium smart lock', 245)] },
+      { id: 'extras', name: 'Extras', label: 'Add-ons', type: 'multi_select',
+        options: [opt('Custom trim & casing', 145), opt('Weatherstripping upgrade', 65), opt('Re-frame opening', 320), opt('Paint or stain finish', 125)] },
+    ];
+    const calculations: TemplateCalculation[] = [
+      calc('Doors Subtotal', '([Door Type] + [Hardware Level]) * [Number of Doors]'),
+      calc('Service Total', '[Removal] * [Number of Doors] + [Extras]'),
+      calc('Estimated Total', '[Doors Subtotal] + [Service Total]'),
+    ];
+    const header: TemplateHeader = {
+      title: 'Door Installation Cost Calculator',
+      subtitle: 'Interior or exterior, single or French — get a clear quote per door.', align: 'left',
+    };
+    const results: TemplateResults = {
+      footnote: 'Pro install, all hardware fitted, debris removed. Most jobs done in a single day.',
+      cta_label: 'Get a Detailed Quote',
+    };
+    const base = {
+      name: 'Door Installation', description: 'Per-door install quote covering interior, exterior and patio doors.',
+      category: 'Home Improvement', trades: ['door_installation'],
+      theme: 'mint', fields, calculations, result_calc: 'Estimated Total', header, results,
+    };
+    return [
+      { id: 'door_installation_single_col', layout: 'single-column' as TemplateLayout, ...base },
+      { id: 'door_installation_two_col', layout: 'two-column' as TemplateLayout, ...base },
+    ];
+  })(),
+
+  /* ── Trade 9. Siding Installation (Construction) ── */
+  ...(() => {
+    const fields: TemplateField[] = [
+      { id: 'area', name: 'Siding Area', label: 'Exterior wall area', type: 'slider',
+        min: 200, max: 5000, step: 50, default_value: 1800, unit: 'sq ft' },
+      { id: 'material', name: 'Material', label: 'Siding material', type: 'select',
+        options: [opt('Vinyl', 5), opt('Fiber-cement', 9), opt('Engineered wood', 11), opt('Cedar', 14), opt('Stone veneer accent', 22)] },
+      { id: 'stories', name: 'Home Stories', label: 'Home height', type: 'radio',
+        options: [opt('1 story', 0), opt('2 story', 1.5), opt('3 story', 3.5)] },
+      { id: 'removal', name: 'Remove Old Siding', label: 'Remove existing siding', type: 'toggle', on_value: 1450 },
+      { id: 'extras', name: 'Extras', label: 'Add-ons', type: 'multi_select',
+        options: [opt('Insulation wrap (R-3)', 1850), opt('New gutters', 1450), opt('Trim & soffit upgrade', 1250), opt('Lifetime color warranty', 950)] },
+    ];
+    const calculations: TemplateCalculation[] = [
+      calc('Material & Labor', '[Siding Area] * ([Material] + [Home Stories])'),
+      calc('Estimated Total', '[Material & Labor] + [Remove Old Siding] + [Extras]'),
+    ];
+    const header: TemplateHeader = {
+      title: 'Siding Installation Estimator',
+      subtitle: 'Refresh your home exterior with a transparent per-square-foot quote.', align: 'left',
+    };
+    const results: TemplateResults = {
+      footnote: 'Premium materials, factory-trained installers, manufacturer-backed warranties.',
+      cta_label: 'Book a Free Inspection',
+    };
+    const base = {
+      name: 'Siding Installation', description: 'Whole-home siding quote by area, material and number of stories.',
+      category: 'Construction', trades: ['siding_installation'],
+      theme: 'forest', fields, calculations, result_calc: 'Estimated Total', header, results,
+    };
+    return [
+      { id: 'siding_installation_single_col', layout: 'single-column' as TemplateLayout, ...base },
+      { id: 'siding_installation_two_col', layout: 'two-column' as TemplateLayout, ...base },
+    ];
+  })(),
+
+  /* ── Trade 10. Deck Construction (Outdoor) ── */
+  ...(() => {
+    const fields: TemplateField[] = [
+      { id: 'area', name: 'Deck Area', label: 'Deck size', type: 'slider',
+        min: 50, max: 1500, step: 10, default_value: 300, unit: 'sq ft' },
+      { id: 'material', name: 'Decking Material', label: 'Decking material', type: 'select',
+        options: [opt('Pressure-treated pine', 22), opt('Cedar', 35), opt('Composite (mid)', 48), opt('Composite (premium)', 62), opt('Hardwood (ipe)', 78)] },
+      { id: 'height', name: 'Deck Height', label: 'Deck height', type: 'radio',
+        options: [opt('Ground level', 0), opt('Raised (under 8 ft)', 6), opt('Elevated (8 ft+)', 14)] },
+      { id: 'railing', name: 'Railing', label: 'Railing style', type: 'select',
+        options: [opt('No railing', 0), opt('Wood railing', 28), opt('Aluminum railing', 42), opt('Glass panel railing', 68)] },
+      { id: 'extras', name: 'Extras', label: 'Add-ons', type: 'multi_select',
+        options: [opt('Built-in bench seating', 850), opt('Pergola / shade structure', 1850), opt('LED step lighting', 650), opt('Stairs (one set)', 950)] },
+    ];
+    const calculations: TemplateCalculation[] = [
+      calc('Deck Subtotal', '[Deck Area] * ([Decking Material] + [Deck Height] + [Railing])'),
+      calc('Estimated Total', '[Deck Subtotal] + [Extras]'),
+    ];
+    const header: TemplateHeader = {
+      title: 'Deck Construction Estimator',
+      subtitle: 'Design your dream deck — get a transparent material + labor quote in seconds.', align: 'left',
+    };
+    const results: TemplateResults = {
+      footnote: 'Custom-built decks with permits, inspection, and 10-year structural warranty included.',
+      cta_label: 'Design My Deck',
+    };
+    const base = {
+      name: 'Deck Construction', description: 'Custom deck build quote by area, material, height and railing style.',
+      category: 'Outdoor', trades: ['deck_construction', 'deck_building'],
+      theme: 'forest', fields, calculations, result_calc: 'Estimated Total', header, results,
+    };
+    return [
+      { id: 'deck_construction_single_col', layout: 'single-column' as TemplateLayout, ...base },
+      { id: 'deck_construction_two_col', layout: 'two-column' as TemplateLayout, ...base },
+    ];
+  })(),
+
 ];
 
 /* ─── Lookups ─── */
