@@ -120,6 +120,27 @@ import { eq, desc, sql, and, gte, lte, ilike, or, isNotNull, count } from "drizz
 import { QUOTEQUICK_PLAN_REVENUE_CENTS } from "@shared/pricing";
 import { createLogger } from "./lib/logger";
 import { kickoffMapguardService } from "./services/mapguardTaskEngine";
+import { extractPlaceId } from "@shared/utils/googlePlaceId";
+
+/**
+ * Normalise a client write that may set google_place_id from a pasted
+ * Google Maps URL. Mutates a shallow copy and never throws.
+ *  - Clean ChIJ id → kept verbatim
+ *  - Maps URL with `place_id:` param or data-segment hex pair → cleaned
+ *  - Short / CID / unrecognised URLs → kept as-is so the value isn't
+ *    silently dropped; downstream API calls will surface the error.
+ */
+function sanitizeClientPlaceId<T extends { google_place_id?: string | null }>(data: T): T {
+  if (!data || typeof data.google_place_id !== "string") return data;
+  const { placeId, reason } = extractPlaceId(data.google_place_id);
+  if (placeId && placeId !== data.google_place_id) {
+    return { ...data, google_place_id: placeId };
+  }
+  if (!placeId && reason && reason !== "already_clean" && reason !== "empty") {
+    log.warn(`[storage] google_place_id appears malformed (reason=${reason}); storing as-provided`);
+  }
+  return data;
+}
 
 const log = createLogger("Storage");
 
@@ -1473,12 +1494,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createClient(data: InsertClient): Promise<Client> {
-    const [row] = await db.insert(clients).values(data).returning();
+    const sanitized = sanitizeClientPlaceId(data);
+    const [row] = await db.insert(clients).values(sanitized).returning();
     return row;
   }
 
   async updateClient(id: number, updates: Partial<InsertClient>): Promise<Client | undefined> {
-    const [row] = await db.update(clients).set({ ...updates, updated_at: new Date() }).where(eq(clients.id, id)).returning();
+    const sanitized = sanitizeClientPlaceId(updates);
+    const [row] = await db.update(clients).set({ ...sanitized, updated_at: new Date() }).where(eq(clients.id, id)).returning();
     return row;
   }
 
