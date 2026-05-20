@@ -103,6 +103,27 @@ export function registerQuoteQuickAiChatRoutes(app: Express): void {
     }
     const { message, image, history, shellState } = parsed.data;
 
+    /* Wave Q-Hotfix — plan-tier gate. The AI quote assistant is a Business
+     * tier ($79/mo) feature per the Wave Q pricing page. Free and Pro
+     * tiers get a 402 + a structured upgrade hint instead of a generic
+     * budget error. We resolve the tier off the user's most-recent
+     * QuoteQuick calculator (same heuristic as the budget service). */
+    try {
+      const { resolveUserPlanTier } = await import("../services/quotequickAiBudget");
+      const planTier = await resolveUserPlanTier(userId);
+      const allowed = planTier === "business";
+      if (!allowed) {
+        return res.status(402).json({
+          error: "business_tier_required",
+          current_tier: planTier,
+          upgrade_url: "/pricing/quotequick",
+          message: "The AI quote assistant is a Business plan feature. Upgrade to unlock it.",
+        });
+      }
+    } catch (err: any) {
+      log.warn("plan_tier resolution failed; falling back to budget-only gate", { error: err?.message });
+    }
+
     /* (2) Validate the Anthropic key. We don't 500 the whole API just
      *     because the key is missing — give the client a clean code. */
     const cfg = validateConfig();

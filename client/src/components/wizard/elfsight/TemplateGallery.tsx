@@ -396,39 +396,35 @@ function TemplateBrowseModal({ activeTemplateId, onClose, onApplyTemplate }: Mod
             data-testid="template-browse-search"
           />
         </div>
-        {/* Wave M — chips row with a right-edge fade mask hinting at more.
-            The inner scroller owns the actual horizontal scroll. */}
-        <div className="qq-tg-modal-cats-wrap">
-          <div
-            className="qq-tg-modal-cats"
-            role="tablist"
-            data-testid="template-browse-cats"
+        {/* Wave Q-Hotfix — category filter is now a dropdown <select>
+            (per user request). The previous Wave M chips strip was
+            scroll-x with a fade mask; the dropdown is more compact and
+            doesn't require horizontal swiping to discover categories. */}
+        <div className="qq-tg-modal-filter-row">
+          <label
+            htmlFor="qq-tg-modal-cat-select"
+            className="qq-tg-modal-filter-label"
           >
-            <button
-              type="button"
-              className={`qq-tg-modal-cat${activeCategory === 'All' ? ' is-active' : ''}`}
-              onClick={() => setActiveCategory('All')}
-              data-testid="template-browse-cat-all"
-            >
-              All ({TEMPLATE_PRESETS.length})
-            </button>
+            Filter
+          </label>
+          <select
+            id="qq-tg-modal-cat-select"
+            className="qq-tg-modal-cat-select"
+            value={activeCategory}
+            onChange={(e) => setActiveCategory(e.target.value)}
+            data-testid="template-browse-cat-select"
+            aria-label="Filter templates by category"
+          >
+            <option value="All">All categories ({TEMPLATE_PRESETS.length})</option>
             {categories.map((c) => {
               const count = TEMPLATE_PRESETS.filter((t) => t.category === c).length;
-              const slug = c.toLowerCase().replace(/[^a-z0-9]+/g, '-');
               return (
-                <button
-                  key={c}
-                  type="button"
-                  className={`qq-tg-modal-cat${activeCategory === c ? ' is-active' : ''}`}
-                  onClick={() => setActiveCategory(c)}
-                  data-testid={`template-browse-cat-${slug}`}
-                >
+                <option key={c} value={c}>
                   {c} ({count})
-                </button>
+                </option>
               );
             })}
-          </div>
-          <span className="qq-tg-modal-cats-fade" aria-hidden="true" />
+          </select>
         </div>
         <div className="qq-tg-modal-grid" data-testid="template-browse-grid">
           {visible.map((t) => {
@@ -512,38 +508,31 @@ function TemplateBrowseModal({ activeTemplateId, onClose, onApplyTemplate }: Mod
           border-color: ${p.colors.accent};
           box-shadow: 0 0 0 3px ${p.colors.accentLighter};
         }
-        /* Wave M — chips row wrapper with a right-edge fade hinting "more". */
-        .qq-tg-modal-cats-wrap {
-          position: relative;
+        /* Wave Q-Hotfix — dropdown filter (replaces Wave M chips). */
+        .qq-tg-modal-filter-row {
+          display: flex; align-items: center; gap: 10px;
+          padding: 10px 18px;
           border-bottom: 1px solid ${p.colors.borderLight};
           flex-shrink: 0;
         }
-        .qq-tg-modal-cats {
-          display: flex; gap: 6px; padding: 10px 18px;
-          overflow-x: auto; overflow-y: hidden;
-          scrollbar-width: none;
-          -webkit-overflow-scrolling: touch;
-          scroll-snap-type: x proximity;
-        }
-        .qq-tg-modal-cats::-webkit-scrollbar { display: none; }
-        .qq-tg-modal-cats-fade {
-          position: absolute; top: 0; right: 0; bottom: 1px;
-          width: 36px;
-          pointer-events: none;
-          background: linear-gradient(to right, rgba(255,255,255,0), #fff 70%);
-        }
-        .qq-tg-modal-cat {
-          font: inherit; font-size: 11.5px; font-weight: 700;
+        .qq-tg-modal-filter-label {
+          font-size: 11.5px; font-weight: 700;
           color: ${p.colors.muted};
-          background: transparent;
-          border: 1px solid ${p.colors.border};
-          border-radius: 999px; padding: 4px 12px;
-          cursor: pointer; white-space: nowrap; flex-shrink: 0;
-          scroll-snap-align: start;
-          transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+          text-transform: uppercase; letter-spacing: 0.04em;
+          flex-shrink: 0;
         }
-        .qq-tg-modal-cat.is-active {
-          color: #fff; background: ${p.colors.accent};
+        .qq-tg-modal-cat-select {
+          flex: 1; min-width: 0;
+          font: inherit; font-size: 13px; font-weight: 600;
+          color: ${p.colors.heading};
+          background: #fff;
+          border: 1px solid ${p.colors.border};
+          border-radius: 8px;
+          padding: 8px 12px; min-height: 38px;
+          cursor: pointer;
+          outline: none;
+        }
+        .qq-tg-modal-cat-select:focus {
           border-color: ${p.colors.accent};
         }
         .qq-tg-modal-grid {
@@ -551,14 +540,23 @@ function TemplateBrowseModal({ activeTemplateId, onClose, onApplyTemplate }: Mod
           display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
           overflow-y: auto;
         }
-        /* Wave M — variant for name-only cards inside the browse modal. */
+        /* Wave Q-Hotfix — name-only cards inside the browse modal.
+         * Title is now more prominent (13px / 700 / 2-line clamp / explicit
+         * dark color) per user feedback that titles "had no visible title".
+         * The previous Wave M variant inherited a 12px / 1-line clamp from
+         * the strip card and was easy to mistake for empty. */
         .qq-tg-card--no-sub .qq-tg-card-body {
-          min-height: 0;
-          padding: 4px 2px 2px;
+          min-height: 38px;
+          padding: 8px 4px 6px;
         }
         .qq-tg-card--no-sub .qq-tg-card-name {
+          font-size: 13px;
+          font-weight: 700;
+          color: ${p.colors.heading};
+          line-height: 1.3;
           -webkit-line-clamp: 2;
           white-space: normal;
+          text-align: center;
         }
         .qq-tg-modal-empty {
           grid-column: 1 / -1;
@@ -572,10 +570,10 @@ function TemplateBrowseModal({ activeTemplateId, onClose, onApplyTemplate }: Mod
           .qq-tg-modal { max-height: 96vh; }
           .qq-tg-modal-grid { grid-template-columns: repeat(2, 1fr); }
           .qq-tg-modal-close { min-width: 44px; min-height: 44px; }
-          .qq-tg-modal-cat { min-height: 36px; font-size: 12.5px; }
           .qq-tg-modal-search { padding: 10px 12px 4px; }
           .qq-tg-modal-search-input { padding: 11px 12px; min-height: 44px; }
-          .qq-tg-modal-cats { padding: 10px 12px; }
+          .qq-tg-modal-filter-row { padding: 10px 12px; }
+          .qq-tg-modal-cat-select { min-height: 44px; font-size: 14px; }
         }
       `}</style>
     </div>
