@@ -420,19 +420,17 @@ export interface ShellLanguageOption {
   native: string;
 }
 
+// Wave R-pre v2 — trimmed from 12 to the 5 most-spoken/most-common
+// target languages for North-American + European trade businesses. Per
+// user feedback ("reduce to 5 most popular"). The translation strings
+// themselves are still a TODO; this picker stamps lang="…" on the embed
+// snippet today.
 export const SHELL_LANGUAGES: ReadonlyArray<ShellLanguageOption> = [
   { code: 'en', label: 'English', native: 'English' },
   { code: 'es', label: 'Spanish', native: 'Español' },
-  { code: 'zh', label: 'Mandarin Chinese', native: '中文' },
-  { code: 'hi', label: 'Hindi', native: 'हिन्दी' },
   { code: 'fr', label: 'French', native: 'Français' },
   { code: 'de', label: 'German', native: 'Deutsch' },
-  { code: 'ru', label: 'Russian', native: 'Русский' },
   { code: 'pt', label: 'Portuguese', native: 'Português' },
-  { code: 'ja', label: 'Japanese', native: '日本語' },
-  { code: 'ar', label: 'Arabic', native: 'العربية' },
-  { code: 'it', label: 'Italian', native: 'Italiano' },
-  { code: 'ko', label: 'Korean', native: '한국어' },
 ];
 
 export const DEFAULT_SHELL_LANGUAGE = 'en';

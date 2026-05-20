@@ -41,6 +41,7 @@ import InstallGuideModal, {
   INSTALL_GUIDES, type InstallGuideId,
 } from './InstallGuideModal';
 import HostedPageSection from './HostedPageSection';
+import FloatField from './FloatField';
 
 const p = platformTheme;
 const d = dashboardTheme;
@@ -432,33 +433,32 @@ export default function InstallTab({
 
       <div className="qq-install-divider" />
 
-      {/* ── 2. Language picker ──────────────────────────────────────── */}
+      {/* ── 2. Language picker ──────────────────────────────────────
+       *  Wave R-pre v2 — promoted to FloatField; "Language" is now the
+       *  floating label inside the field. InfoCue moves to the field's
+       *  top-right corner. No "Widget language" heading above. */}
       <section className="qq-install-section" data-testid="install-section-language">
-        <h3 className="qq-install-h">Widget language</h3>
-        <p className="qq-install-sub">
-          Sets the <code className="qq-install-code-inline">lang</code> attribute on the
-          embedded widget. Tells assistive tech and search engines what language the
-          calculator renders in.
-        </p>
-        <label
+        <FloatField
+          label="Widget language"
           htmlFor="qq-install-language-select"
-          style={{ display: 'block', fontSize: 12, fontWeight: 700, color: p.colors.heading, marginBottom: 6 }}
+          variant="select"
+          infoText="Sets the lang attribute on the embedded widget so assistive tech and search engines know what language the calculator renders in."
+          infoTestid="install-language"
         >
-          Language
-        </label>
-        <select
-          id="qq-install-language-select"
-          value={language}
-          onChange={(e) => setLanguage(e.target.value)}
-          data-testid="install-select-language"
-          className="qq-install-select"
-        >
-          {SHELL_LANGUAGES.map((l) => (
-            <option key={l.code} value={l.code}>
-              {l.label} ({l.native}) — {l.code}
-            </option>
-          ))}
-        </select>
+          <select
+            id="qq-install-language-select"
+            value={language}
+            onChange={(e) => setLanguage(e.target.value)}
+            data-testid="install-select-language"
+            className="premium-input"
+          >
+            {SHELL_LANGUAGES.map((l) => (
+              <option key={l.code} value={l.code}>
+                {l.label} ({l.native}) — {l.code}
+              </option>
+            ))}
+          </select>
+        </FloatField>
         <p
           className="qq-install-current"
           data-testid="install-current-language"

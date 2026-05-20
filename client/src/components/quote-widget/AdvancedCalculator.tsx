@@ -169,6 +169,10 @@ interface Props {
   logoUrl?: string;
   advanced: AdvancedConfig;
   accentColor?: string;
+  /** Wave R-pre v2 — when true (wizard preview), renders a small pencil
+   *  icon next to the calculator title so the user knows it's editable.
+   *  Public hosted page + actual customer embeds default to false. */
+  editableTitle?: boolean;
 }
 
 type Answer = number | string | boolean | string[];
@@ -296,7 +300,7 @@ const labelStyle = (c: WidgetTheme): React.CSSProperties => ({
   fontSize: '13px', fontWeight: 600, color: c.text, display: 'block', marginBottom: '7px',
 });
 
-export default function AdvancedCalculator({ businessName, logoUrl, advanced, accentColor }: Props) {
+export default function AdvancedCalculator({ businessName, logoUrl, advanced, accentColor, editableTitle = false }: Props) {
   // Resolve the base theme, then compose the optional `advanced.style`
   // overrides on top. The Wave H5 style slot wins where it sets a value;
   // absent fields fall through to the resolved theme (which itself already
@@ -477,9 +481,33 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
               )}
               <p
                 data-testid="advanced-title"
-                style={{ fontSize: '17px', fontWeight: 800, color: c.text, margin: 0, letterSpacing: '-0.01em' }}
+                style={{ fontSize: '17px', fontWeight: 800, color: c.text, margin: 0, letterSpacing: '-0.01em', display: 'inline-flex', alignItems: 'center', gap: 6 }}
               >
                 {title}
+                {editableTitle && (
+                  <span
+                    aria-hidden="true"
+                    data-testid="advanced-title-edit-hint"
+                    title="Click to edit"
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      width: 18, height: 18, borderRadius: 4,
+                      color: c.textBody,
+                      opacity: 0.55,
+                      transition: 'opacity 0.12s ease',
+                    }}
+                  >
+                    {/* lucide-style pencil glyph (small inline SVG, no
+                        extra import on AdvancedCalculator). */}
+                    <svg
+                      width={12} height={12} viewBox="0 0 24 24"
+                      fill="none" stroke="currentColor" strokeWidth={2.4}
+                      strokeLinecap="round" strokeLinejoin="round"
+                    >
+                      <path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z" />
+                    </svg>
+                  </span>
+                )}
               </p>
             </div>
             {subtitle && (
@@ -691,7 +719,34 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
                 )}
 
                 {leadView === 'form' && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div
+                    className="qq-lead-form-enter"
+                    style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}
+                    data-testid="advanced-lead-form"
+                  >
+                    {/* Wave R-pre v2 — back button to return from the
+                     *  lead-capture form to the calculator inputs.
+                     *  Previously the user could only progress; pressing
+                     *  "Get a quote" was a one-way trip. */}
+                    <button
+                      type="button"
+                      data-testid="advanced-cta-back"
+                      onClick={() => setLeadView('cta')}
+                      style={{
+                        alignSelf: 'flex-start',
+                        display: 'inline-flex', alignItems: 'center', gap: 6,
+                        padding: '6px 10px', marginBottom: '4px',
+                        background: 'transparent',
+                        color: c.resultMuted,
+                        border: 'none',
+                        fontSize: '13px', fontWeight: 600,
+                        cursor: 'pointer', fontFamily,
+                        borderRadius: 6,
+                      }}
+                      aria-label="Back to calculator"
+                    >
+                      <span aria-hidden="true">←</span> Back
+                    </button>
                     <input data-testid="advanced-cta-name" type="text" placeholder="Your name"
                       value={leadName} onChange={(e) => setLeadName(e.target.value)}
                       style={leadInputStyle} />

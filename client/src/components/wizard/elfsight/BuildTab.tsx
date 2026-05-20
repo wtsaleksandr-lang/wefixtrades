@@ -164,10 +164,13 @@ export default function BuildTab({
 
       <style>{`
         .qq-build-tab {
-          display: flex; flex-direction: column; gap: 14px;
+          /* Wave R-pre v2 — tightened section gap 14 → 10px and removed
+           * the divider's outer margin so the business-name component
+           * doesn't float in dead space above and below. */
+          display: flex; flex-direction: column; gap: 10px;
         }
         .qq-build-divider {
-          height: 1px; background: ${p.colors.borderLight}; margin: 2px 0;
+          height: 1px; background: ${p.colors.borderLight}; margin: 0;
         }
         /* Wave J item 5 — logo + name composite. */
         .qq-business-composite {

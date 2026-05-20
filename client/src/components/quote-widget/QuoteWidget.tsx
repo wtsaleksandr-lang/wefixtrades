@@ -57,6 +57,10 @@ interface QuoteWidgetProps {
    *  the badge again above the previewed widget creates a duplicated
    *  look. Public hosted page + actual customer embeds keep the badge. */
   hideBrandBadge?: boolean;
+  /** Wave R-pre v2 — when true (wizard preview), surfaces an editability
+   *  hint (small pencil glyph) next to the calculator title. Public
+   *  visitors should never see the pencil. */
+  editableTitle?: boolean;
 }
 
 /**
@@ -68,7 +72,7 @@ interface QuoteWidgetProps {
  * 4. Wraps children in WidgetProvider (state context)
  * 5. Renders current step via StepRenderer
  */
-export default function QuoteWidget({ calculator, isEmbed = false, hideBrandBadge = false }: QuoteWidgetProps) {
+export default function QuoteWidget({ calculator, isEmbed = false, hideBrandBadge = false, editableTitle = false }: QuoteWidgetProps) {
   const config = useMemo<WidgetConfig>(() => {
     // Guard: missing or null pricing_config falls back to call-for-quote
     const rawPricing = calculator.pricing_config ?? CALL_FOR_QUOTE_FALLBACK;
@@ -173,6 +177,7 @@ export default function QuoteWidget({ calculator, isEmbed = false, hideBrandBadg
             logoUrl={calculator.logo_url}
             advanced={advancedConfig}
             accentColor={theme.colors.primary}
+            editableTitle={editableTitle}
           />
         </div>
       ) : (

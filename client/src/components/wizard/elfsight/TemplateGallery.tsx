@@ -19,6 +19,7 @@
 // touch swipe on phones. The Browse-all modal is full-screen on phones.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { X } from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
 import { dashboardTheme } from '@/theme/dashboardTheme';
 import {
@@ -380,7 +381,7 @@ function TemplateBrowseModal({ activeTemplateId, onClose, onApplyTemplate }: Mod
             aria-label="Close template browser"
             data-testid="template-browse-close"
           >
-            ×
+            <X size={18} aria-hidden="true" />
           </button>
         </div>
         {/* Wave M — search field. Filters by template name (case-insensitive
@@ -465,8 +466,12 @@ function TemplateBrowseModal({ activeTemplateId, onClose, onApplyTemplate }: Mod
         }
         .qq-tg-modal {
           background: #fff; border-radius: 14px;
-          width: 100%; max-width: 880px;
-          max-height: 86vh; display: flex; flex-direction: column;
+          /* Wave R-pre v2 — tightened from 880 to 720 max-width and added
+           * 78vh max-height on desktop so the modal doesn't dominate the
+           * screen. The audit pass found the old 880×86vh was felt as
+           * "huge" relative to the actual content shown. */
+          width: 100%; max-width: 720px;
+          max-height: 78vh; display: flex; flex-direction: column;
           box-shadow: ${p.shadows.xl};
           overflow: hidden;
         }
@@ -478,14 +483,28 @@ function TemplateBrowseModal({ activeTemplateId, onClose, onApplyTemplate }: Mod
         .qq-tg-modal-title {
           margin: 0; font-size: 14px; font-weight: 800; color: ${p.colors.heading};
         }
+        /* Wave R-pre v2 — close button restyled. Was 32×32 round, muted
+         * grey, hard to spot. Now 40×40, heading-coloured X icon, with a
+         * subtle background ring + a clear surfaceRaised hover. */
         .qq-tg-modal-close {
-          width: 32px; height: 32px; border-radius: 50%;
-          background: transparent; border: 1px solid ${p.colors.border};
-          font-size: 18px; line-height: 1; color: ${p.colors.muted};
+          width: 40px; height: 40px; border-radius: 50%;
+          background: ${p.colors.surfaceRaised};
+          border: 1px solid ${p.colors.border};
+          color: ${p.colors.heading};
           cursor: pointer;
           display: flex; align-items: center; justify-content: center;
+          flex-shrink: 0;
+          transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
         }
-        .qq-tg-modal-close:hover { background: ${p.colors.surfaceRaised}; }
+        .qq-tg-modal-close:hover {
+          background: ${p.colors.danger ?? '#dc2626'};
+          border-color: ${p.colors.danger ?? '#dc2626'};
+          color: #fff;
+        }
+        .qq-tg-modal-close:focus-visible {
+          outline: none;
+          box-shadow: 0 0 0 3px ${p.colors.accentLighter};
+        }
         /* Wave M — search bar above the category chips. */
         .qq-tg-modal-search {
           padding: 12px 18px 4px;
@@ -540,14 +559,20 @@ function TemplateBrowseModal({ activeTemplateId, onClose, onApplyTemplate }: Mod
           display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
           overflow-y: auto;
         }
-        /* Wave Q-Hotfix — name-only cards inside the browse modal.
-         * Title is now more prominent (13px / 700 / 2-line clamp / explicit
-         * dark color) per user feedback that titles "had no visible title".
-         * The previous Wave M variant inherited a 12px / 1-line clamp from
-         * the strip card and was easy to mistake for empty. */
+        /* Wave R-pre v2 — name-only cards inside the browse modal.
+         * Previous version (Wave Q-Hotfix) bumped title weight + size,
+         * but 1-line vs 2-line titles still rendered at the TOP of a
+         * fixed-height card body — making rows look misaligned. Now
+         * the body is a centered flex container with a stable 48px
+         * min-height so both 1-line and 2-line titles share the same
+         * row baseline. */
         .qq-tg-card--no-sub .qq-tg-card-body {
-          min-height: 38px;
-          padding: 8px 4px 6px;
+          min-height: 48px;
+          padding: 8px 6px 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex: 0 0 auto;
         }
         .qq-tg-card--no-sub .qq-tg-card-name {
           font-size: 13px;
@@ -557,6 +582,7 @@ function TemplateBrowseModal({ activeTemplateId, onClose, onApplyTemplate }: Mod
           -webkit-line-clamp: 2;
           white-space: normal;
           text-align: center;
+          width: 100%;
         }
         .qq-tg-modal-empty {
           grid-column: 1 / -1;

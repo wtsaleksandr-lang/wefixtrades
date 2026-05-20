@@ -362,6 +362,67 @@
 /* Some inputs (number, email, password) hide the placeholder when focused
  * — :placeholder-shown handles those uniformly with text-type inputs. */
 
+/* Wave R-pre v2 — premium smooth-entry animations.
+ *
+ * 1. .qq-lead-form-enter — when the user clicks "Get a quote" on the
+ *    AdvancedCalculator, the form slides in + fades from the same place
+ *    the CTA was. No jarring instant swap.
+ * 2. .qq-hosted-frame — when a visitor lands on {slug}.your-quote.net,
+ *    the wrapping frame fades + slides up subtly. Reduced-motion users
+ *    get the instant render.
+ * 3. Reduce-motion respect at the bottom.
+ */
+@keyframes qqLeadFormSlide {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.qq-lead-form-enter {
+  animation: qqLeadFormSlide 240ms cubic-bezier(0.22, 1, 0.36, 1);
+  transform-origin: top center;
+}
+
+@keyframes qqHostedEntrance {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.qq-hosted-frame {
+  /* Hosted page wrap (HostedPageFrame) — see client/src/components/hosted-page/HostedPageFrame.tsx */
+  animation: qqHostedEntrance 360ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.qq-hosted-card {
+  animation: qqHostedEntrance 460ms cubic-bezier(0.22, 1, 0.36, 1);
+  animation-delay: 80ms;
+  animation-fill-mode: backwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .qq-lead-form-enter,
+  .qq-hosted-frame,
+  .qq-hosted-card {
+    animation: none !important;
+  }
+}
+
+/* Wave R-pre v2 — InfoCue overlay positioned at the field's top-right.
+ * Global rule (set by Alex): all help icons live at the top-right corner
+ * of the input field itself, NOT next to a section title. */
+.float-field--with-info > .premium-input {
+  padding-right: 38px;
+}
+.float-field--with-info > select.premium-input {
+  padding-right: 52px;
+}
+.float-field-info {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 /* Wave J — InfoCue trigger + popover (item 2). Inherits the editor theme
  * via CSS variables defined under [data-theme="…"] on the shell root. */
 .qq-info-cue {

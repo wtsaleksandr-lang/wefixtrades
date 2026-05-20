@@ -976,14 +976,12 @@ export default function WizardShell({ embed = false }: Props) {
               overflow: hidden;
               will-change: width, opacity;
             }
-            .qq-editor-left {
-              /* Match the right-pane transition so when the right collapses
-               * to width:0, the left grows to fill smoothly instead of
-               * jumping. */
-              transition: flex 320ms cubic-bezier(0.22, 1, 0.36, 1),
-                          width 320ms cubic-bezier(0.22, 1, 0.36, 1);
-              will-change: flex, width;
-            }
+            /* Wave R-pre F note — we intentionally do NOT transition the
+             * left pane. The drag-resize handle measures width
+             * immediately after mouseup, and a transition there caused
+             * the audit test to read width mid-animation (~5px off).
+             * The right pane's own transition + the user's eye filling
+             * in the rest gives a perfectly smooth fold/unfold. */
             .qq-editor-body.is-preview-collapsed .qq-editor-right {
               flex: 0 0 0 !important;
               width: 0 !important;

@@ -81,17 +81,16 @@ export default function HeaderResultsPanel({
         {...(headerSelected ? { 'data-selected-in-pane': '' } : {})}
         onClick={() => selection.select({ kind: 'header', id: '__header' })}
       >
-        <h3 className="qq-headres-title">
-          Header
-          <InfoCue
-            testid="headerresults-header"
-            text="Sits at the top of your calculator. Leave the title blank to fall back to your business name — leave the subtitle blank to hide it."
-          />
-        </h3>
+        <h3 className="qq-headres-title">Header</h3>
       </header>
 
       <div className="qq-headres-grid">
-        <FloatField label="Title" htmlFor="qq-headres-title">
+        <FloatField
+          label="Title"
+          htmlFor="qq-headres-title"
+          infoText="Sits at the top of your calculator. Leave blank to fall back to your business name."
+          infoTestid="headerresults-header"
+        >
           <input
             id="qq-headres-title"
             type="text"
@@ -102,7 +101,12 @@ export default function HeaderResultsPanel({
             data-testid="input-header-title"
           />
         </FloatField>
-        <FloatField label="Subtitle" htmlFor="qq-headres-subtitle">
+        <FloatField
+          label="Subtitle"
+          htmlFor="qq-headres-subtitle"
+          infoText="Optional. Leave blank to hide the subtitle."
+          infoTestid="headerresults-subtitle"
+        >
           <input
             id="qq-headres-subtitle"
             type="text"
@@ -124,17 +128,16 @@ export default function HeaderResultsPanel({
         {...(resultsSelected ? { 'data-selected-in-pane': '' } : {})}
         onClick={() => selection.select({ kind: 'results', id: '__results' })}
       >
-        <h3 className="qq-headres-title">
-          Results
-          <InfoCue
-            testid="headerresults-results"
-            text="What the headline price panel says. The headline value comes from the calculation you pick below."
-          />
-        </h3>
+        <h3 className="qq-headres-title">Results</h3>
       </header>
 
       <div className="qq-headres-grid">
-        <FloatField label="Heading" htmlFor="qq-headres-heading">
+        <FloatField
+          label="Heading"
+          htmlFor="qq-headres-heading"
+          infoText="The text shown above the headline number (e.g. 'Estimated total')."
+          infoTestid="headerresults-heading"
+        >
           <input
             id="qq-headres-heading"
             type="text"
@@ -145,7 +148,12 @@ export default function HeaderResultsPanel({
             data-testid="input-results-heading"
           />
         </FloatField>
-        <FloatField label="Footer / footnote" htmlFor="qq-headres-footnote">
+        <FloatField
+          label="Footer / footnote"
+          htmlFor="qq-headres-footnote"
+          infoText="Small print under the headline. Use for disclaimers or 'taxes not included'."
+          infoTestid="headerresults-footnote"
+        >
           <input
             id="qq-headres-footnote"
             type="text"
@@ -161,37 +169,35 @@ export default function HeaderResultsPanel({
       <div className="qq-headres-divider" />
 
       {calculations.length === 0 ? (
-        <div>
-          <span className="qq-headres-label">
-            Headline result
-            <InfoCue testid="headerresults-headline" text="Which calculation is the big number?" />
-          </span>
-          <p className="qq-headres-empty" data-testid="headerresults-no-calcs">
-            Add a calculation above to pick a headline.
-          </p>
-        </div>
+        <p className="qq-headres-empty" data-testid="headerresults-no-calcs">
+          Add a calculation above to pick a headline.
+        </p>
       ) : (
-        <div>
-          <span className="qq-headres-label">
-            Headline result
-            <InfoCue testid="headerresults-headline" text="Which calculation is the big number?" />
-          </span>
-          <FloatField label="Headline result" htmlFor="qq-headres-headline" variant="select">
-            <select
-              id="qq-headres-headline"
-              className="premium-input"
-              value={effectiveHeadlineId}
-              onChange={(e) => onResultCalcChange(e.target.value)}
-              data-testid="select-headline-calc"
-            >
-              {calculations.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name || '(untitled calculation)'}
-                </option>
-              ))}
-            </select>
-          </FloatField>
-        </div>
+        /* Wave R-pre v2 — removed the duplicate "Headline result" span
+         * that Alex flagged. The FloatField's own label sits inside the
+         * <select> already; the InfoCue moves into the field's top-right
+         * via FloatField's new `infoText` prop. */
+        <FloatField
+          label="Headline result"
+          htmlFor="qq-headres-headline"
+          variant="select"
+          infoText="Pick which calculation drives the big number shown on the results panel."
+          infoTestid="headerresults-headline"
+        >
+          <select
+            id="qq-headres-headline"
+            className="premium-input"
+            value={effectiveHeadlineId}
+            onChange={(e) => onResultCalcChange(e.target.value)}
+            data-testid="select-headline-calc"
+          >
+            {calculations.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name || '(untitled calculation)'}
+              </option>
+            ))}
+          </select>
+        </FloatField>
       )}
 
       <style>{`
