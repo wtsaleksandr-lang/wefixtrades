@@ -557,7 +557,20 @@ function TemplateBrowseModal({ activeTemplateId, onClose, onApplyTemplate }: Mod
         .qq-tg-modal-grid {
           padding: 16px 18px 24px;
           display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+          grid-auto-rows: 1fr;
           overflow-y: auto;
+        }
+        /* Wave R-pre W-CARDS — force equal card heights per row.
+         * grid-auto-rows: 1fr above makes every row in the modal grid
+         * stretch to the tallest cell. The card itself is already a
+         * column flex container, so stretching is automatic. We also
+         * pin a min-height on the card so very short single-line
+         * titles still hit a consistent baseline when a row contains
+         * only short titles (no 2-line peer to stretch against). */
+        .qq-tg-modal-grid .qq-tg-card,
+        .qq-tg-modal-grid .qq-tg-card--no-sub {
+          height: 100%;
+          min-height: 150px;
         }
         /* Wave R-pre v2 — name-only cards inside the browse modal.
          * Previous version (Wave Q-Hotfix) bumped title weight + size,
@@ -572,7 +585,7 @@ function TemplateBrowseModal({ activeTemplateId, onClose, onApplyTemplate }: Mod
           display: flex;
           align-items: center;
           justify-content: center;
-          flex: 0 0 auto;
+          flex: 1 1 auto;
         }
         .qq-tg-card--no-sub .qq-tg-card-name {
           font-size: 13px;
