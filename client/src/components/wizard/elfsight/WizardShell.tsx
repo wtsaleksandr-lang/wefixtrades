@@ -521,9 +521,26 @@ export default function WizardShell({ embed = false }: Props) {
           // appearance slot. The flow builder + widget read it from
           // there at render time, and /api/widget-deposit/create-session
           // re-validates against it server-side.
+          //
+          // Wave R-1 — also flatten the wizard's `scheduling` slot into
+          // appearance.scheduling + a top-level scheduling_enabled bool
+          // (so the widget can cheaply check whether to show the step).
           appearance: {
             show_powered_by: settings.brandBadge !== false,
             ...(settings.deposit ? { deposit: settings.deposit } : {}),
+            ...(settings.scheduling
+              ? {
+                  scheduling_enabled: !!settings.scheduling.enabled,
+                  scheduling: {
+                    enabled: !!settings.scheduling.enabled,
+                    working_days: settings.scheduling.workingDays,
+                    working_hours_start: settings.scheduling.workingHoursStart,
+                    working_hours_end: settings.scheduling.workingHoursEnd,
+                    slot_duration_minutes: settings.scheduling.slotDurationMinutes,
+                    buffer_minutes: settings.scheduling.bufferMinutes,
+                  },
+                }
+              : {}),
           },
         },
       });

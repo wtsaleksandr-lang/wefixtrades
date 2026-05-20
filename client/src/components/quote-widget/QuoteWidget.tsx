@@ -92,11 +92,19 @@ export default function QuoteWidget({ calculator, isEmbed = false, hideBrandBadg
     }
 
     const bookingSettings = calcSettings.booking_settings || {};
+    // Wave R-1 — scheduling lives under `appearance` (and is mirrored to a
+    // top-level `appearance.scheduling_enabled` for cheap lookup).
+    const appearance = calcSettings.appearance || {};
+    const schedulingEnabled = !!(
+      appearance.scheduling_enabled ||
+      appearance.scheduling?.enabled
+    );
     const flowSettings: FlowBuilderSettings = {
       calculatorType: calcSettings.calculator_type,
       bookingEnabled:
         calcSettings.calculator_type === 'estimate_plus_booking' &&
         bookingSettings.enabled === true,
+      schedulingEnabled,
       leadForm: calcSettings.lead_form,
       action: calcSettings.action,
       promotionsEnabled: calcSettings.promotions?.enabled === true,

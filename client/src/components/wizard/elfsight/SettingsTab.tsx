@@ -20,6 +20,7 @@ import { platformTheme } from '@/theme/platformTheme';
 import { TRADES, type Trade } from '@/data/trades';
 import {
   DEFAULT_SHELL_NUMBER_FORMAT,
+  DEFAULT_SHELL_SCHEDULING,
   type ShellSettings,
   type ShellPricing,
   type ShellPricingMode,
@@ -27,6 +28,10 @@ import {
   type ShellThousandsSep,
   type ShellDecimalSep,
   type ShellDeposit,
+  type ShellSchedulingSettings,
+  type ShellSlotDurationMinutes,
+  type ShellBufferMinutes,
+  type ShellWorkingDay,
 } from './types';
 import FloatField from './FloatField';
 
@@ -44,6 +49,33 @@ const THOUSANDS_OPTIONS: ReadonlyArray<{ value: ShellThousandsSep; label: string
 const DECIMAL_OPTIONS: ReadonlyArray<{ value: ShellDecimalSep; label: string }> = [
   { value: 'dot',   label: 'Dot (.)' },
   { value: 'comma', label: 'Comma (,)' },
+];
+
+/* Wave R-1 — Booking section constants. Mon-Sun in calendar order; we store
+   0=Sun..6=Sat under the hood (matches JS Date.getDay()), so the UI flips
+   the index but the persisted value is always the standard JS day index. */
+const SCHEDULING_DAYS: ReadonlyArray<{ value: ShellWorkingDay; label: string }> = [
+  { value: 1, label: 'Mon' },
+  { value: 2, label: 'Tue' },
+  { value: 3, label: 'Wed' },
+  { value: 4, label: 'Thu' },
+  { value: 5, label: 'Fri' },
+  { value: 6, label: 'Sat' },
+  { value: 0, label: 'Sun' },
+];
+
+const SLOT_DURATION_OPTIONS: ReadonlyArray<{ value: ShellSlotDurationMinutes; label: string }> = [
+  { value: 15, label: '15 minutes' },
+  { value: 30, label: '30 minutes' },
+  { value: 45, label: '45 minutes' },
+  { value: 60, label: '60 minutes' },
+];
+
+const BUFFER_OPTIONS: ReadonlyArray<{ value: ShellBufferMinutes; label: string }> = [
+  { value: 0,  label: 'No buffer' },
+  { value: 5,  label: '5 minutes' },
+  { value: 10, label: '10 minutes' },
+  { value: 15, label: '15 minutes' },
 ];
 
 interface Props {
@@ -75,6 +107,8 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
   const numberFormat: ShellNumberFormat =
     settings.numberFormat ?? { ...DEFAULT_SHELL_NUMBER_FORMAT };
   const ctaLabel = settings.ctaLabel ?? '';
+  const scheduling: ShellSchedulingSettings =
+    settings.scheduling ?? { ...DEFAULT_SHELL_SCHEDULING };
 
   const patchPricing = useCallback(
     (next: Partial<ShellPricing>) =>
@@ -85,6 +119,20 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
     (next: Partial<ShellNumberFormat>) =>
       patch({ numberFormat: { ...numberFormat, ...next } }),
     [patch, numberFormat],
+  );
+  const patchScheduling = useCallback(
+    (next: Partial<ShellSchedulingSettings>) =>
+      patch({ scheduling: { ...scheduling, ...next } }),
+    [patch, scheduling],
+  );
+  const toggleWorkingDay = useCallback(
+    (day: ShellWorkingDay) => {
+      const set = new Set<ShellWorkingDay>(scheduling.workingDays);
+      if (set.has(day)) set.delete(day);
+      else set.add(day);
+      patchScheduling({ workingDays: Array.from(set).sort((a, b) => a - b) as ShellWorkingDay[] });
+    },
+    [patchScheduling, scheduling.workingDays],
   );
 
   // Wave R-2 — Stripe deposit step config (maps to
@@ -465,6 +513,119 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
         </FloatField>
       </fieldset>
 
+      {/* ── Online booking (Wave R-1) ───────────────────────────── */}
+      <fieldset className="qq-style-group" data-testid="settings-group-scheduling">
+        <legend className="qq-style-legend">
+          Online booking
+          <InfoCue
+            testid="settings-scheduling"
+            text="Lets customers book a time on your calendar after the quote step. Slots fill from your working hours minus existing bookings."
+          />
+        </legend>
+
+        <div className="qq-scheduling-toggle" data-testid="scheduling-toggle-row">
+          <label className="qq-brand-badge-toggle">
+            <input
+              type="checkbox"
+              checked={scheduling.enabled}
+              onChange={(e) => patchScheduling({ enabled: e.target.checked })}
+              data-testid="scheduling-enabled-input"
+              aria-label="Enable online booking"
+            />
+            <span>
+              <span className="qq-brand-badge-title">Let customers book a time on your calendar</span>
+              <span className="qq-brand-badge-sub">
+                The widget shows a 14-day picker after the price reveal. Slots are local to your working hours.
+              </span>
+            </span>
+          </label>
+        </div>
+
+        {scheduling.enabled && (
+          <div className="qq-scheduling-body" data-testid="scheduling-body">
+            <p className="qq-scheduling-sublabel">Working days</p>
+            <div className="qq-scheduling-days" role="group" aria-label="Working days">
+              {SCHEDULING_DAYS.map((d) => {
+                const checked = scheduling.workingDays.includes(d.value);
+                return (
+                  <label
+                    key={d.value}
+                    className={`qq-scheduling-daychip${checked ? ' is-active' : ''}`}
+                    data-testid={`scheduling-day-${d.value}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleWorkingDay(d.value)}
+                      aria-label={`Working day ${d.label}`}
+                    />
+                    <span>{d.label}</span>
+                  </label>
+                );
+              })}
+            </div>
+
+            <div className="qq-style-grid" style={{ marginTop: 12 }}>
+              <FloatField label="Start time" htmlFor="qq-settings-sched-start">
+                <input
+                  id="qq-settings-sched-start"
+                  type="time"
+                  className="premium-input"
+                  placeholder=" "
+                  value={scheduling.workingHoursStart}
+                  onChange={(e) => patchScheduling({ workingHoursStart: e.target.value })}
+                  data-testid="scheduling-input-start"
+                />
+              </FloatField>
+              <FloatField label="End time" htmlFor="qq-settings-sched-end">
+                <input
+                  id="qq-settings-sched-end"
+                  type="time"
+                  className="premium-input"
+                  placeholder=" "
+                  value={scheduling.workingHoursEnd}
+                  onChange={(e) => patchScheduling({ workingHoursEnd: e.target.value })}
+                  data-testid="scheduling-input-end"
+                />
+              </FloatField>
+            </div>
+
+            <div className="qq-style-grid" style={{ marginTop: 12 }}>
+              <FloatField label="Slot duration" htmlFor="qq-settings-sched-duration" variant="select">
+                <select
+                  id="qq-settings-sched-duration"
+                  className="premium-input"
+                  value={scheduling.slotDurationMinutes}
+                  onChange={(e) =>
+                    patchScheduling({ slotDurationMinutes: Number(e.target.value) as ShellSlotDurationMinutes })
+                  }
+                  data-testid="scheduling-select-duration"
+                >
+                  {SLOT_DURATION_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </FloatField>
+              <FloatField label="Buffer between slots" htmlFor="qq-settings-sched-buffer" variant="select">
+                <select
+                  id="qq-settings-sched-buffer"
+                  className="premium-input"
+                  value={scheduling.bufferMinutes}
+                  onChange={(e) =>
+                    patchScheduling({ bufferMinutes: Number(e.target.value) as ShellBufferMinutes })
+                  }
+                  data-testid="scheduling-select-buffer"
+                >
+                  {BUFFER_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </FloatField>
+            </div>
+          </div>
+        )}
+      </fieldset>
+
       {/* Wave Q-E — Brand badge toggle. Free users see the toggle as
        *  read-only with an "Upgrade to Pro" call-to-action; Pro / Business
        *  users can flip it. Client-side tier detection is not yet wired,
@@ -671,6 +832,52 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
           text-decoration: none;
         }
         .qq-brand-badge-link:hover { text-decoration: underline; }
+        /* Wave R-1 — Online booking */
+        .qq-scheduling-toggle {
+          padding: 12px 14px;
+          background: ${p.colors.surfaceRaised};
+          border: 1px solid ${p.colors.borderLight};
+          border-radius: 10px;
+        }
+        .qq-scheduling-body {
+          margin-top: 14px;
+          display: flex; flex-direction: column;
+        }
+        .qq-scheduling-sublabel {
+          font-size: 11px; font-weight: 700;
+          color: ${p.colors.muted};
+          text-transform: uppercase; letter-spacing: 0.06em;
+          margin: 0 0 8px;
+        }
+        .qq-scheduling-days {
+          display: grid; gap: 6px;
+          grid-template-columns: repeat(7, minmax(0, 1fr));
+        }
+        @media (max-width: 480px) {
+          .qq-scheduling-days { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+        }
+        .qq-scheduling-daychip {
+          display: flex; align-items: center; justify-content: center;
+          padding: 6px 2px;
+          font-size: 12.5px; font-weight: 600;
+          border-radius: 8px;
+          background: #fff;
+          border: 1px solid ${p.colors.border};
+          color: ${p.colors.body};
+          cursor: pointer;
+          user-select: none;
+          transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+        }
+        .qq-scheduling-daychip:hover { border-color: ${p.colors.accent}; }
+        .qq-scheduling-daychip input[type="checkbox"] {
+          /* Hide the native checkbox — the chip itself is the affordance. */
+          position: absolute; opacity: 0; pointer-events: none;
+        }
+        .qq-scheduling-daychip.is-active {
+          background: ${p.colors.accentLighter};
+          border-color: ${p.colors.accent};
+          color: ${p.colors.accentDark};
+        }
       `}</style>
     </section>
   );

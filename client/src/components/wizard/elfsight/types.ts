@@ -207,6 +207,13 @@ export interface ShellSettings {
    */
   brandBadge?: boolean;
   /**
+   * Wave R-1 — Calendly-style online booking. When enabled, the widget
+   * surfaces a scheduling step after the price reveal. Persists into
+   * `calculator_settings.appearance.scheduling` (+ a server-side
+   * availability_rules row on save).
+   */
+  scheduling?: ShellSchedulingSettings;
+  /**
    * Wave R-2 — Stripe deposit step config. Maps to
    * `calculator_settings.appearance.deposit` on save. When `enabled` is
    * true (and the calculator has a connected Stripe account), the widget
@@ -235,6 +242,38 @@ export interface ShellDeposit {
   label?: string;
   required?: boolean;
 }
+
+/* ─────────────────────────────────────────────────────────────────────
+ * Wave R-1 — Online booking settings
+ * ───────────────────────────────────────────────────────────────────── */
+
+export type ShellSlotDurationMinutes = 15 | 30 | 45 | 60;
+export type ShellBufferMinutes = 0 | 5 | 10 | 15;
+/** 0 = Sunday … 6 = Saturday (matches JS Date.getDay()). */
+export type ShellWorkingDay = 0 | 1 | 2 | 3 | 4 | 5 | 6;
+
+export interface ShellSchedulingSettings {
+  enabled: boolean;
+  /** Days of the week the business takes bookings. */
+  workingDays: ShellWorkingDay[];
+  /** "HH:MM" 24h. */
+  workingHoursStart: string;
+  /** "HH:MM" 24h. */
+  workingHoursEnd: string;
+  /** Length of one booking slot. */
+  slotDurationMinutes: ShellSlotDurationMinutes;
+  /** Gap between slots. */
+  bufferMinutes: ShellBufferMinutes;
+}
+
+export const DEFAULT_SHELL_SCHEDULING: Readonly<ShellSchedulingSettings> = {
+  enabled: false,
+  workingDays: [1, 2, 3, 4, 5],
+  workingHoursStart: '09:00',
+  workingHoursEnd: '17:00',
+  slotDurationMinutes: 30,
+  bufferMinutes: 0,
+};
 
 /* ─────────────────────────────────────────────────────────────────────
  * Wave P — hosted-page chrome (Install tab "Hosted page" section).

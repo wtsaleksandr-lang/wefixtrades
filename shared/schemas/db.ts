@@ -298,6 +298,49 @@ export const insertWidgetDepositSchema = createInsertSchema(widgetDeposits).omit
 export type InsertWidgetDeposit = z.infer<typeof insertWidgetDepositSchema>;
 export type WidgetDeposit = typeof widgetDeposits.$inferSelect;
 
+/* ─── Widget Scheduling (Wave R-1) ─── */
+// One row per calculator. Drives the Calendly-style picker on the widget.
+export const availabilityRules = pgTable("availability_rules", {
+  id: serial("id").primaryKey(),
+  calculator_id: integer("calculator_id").notNull().references(() => calculators.id),
+  enabled: boolean("enabled").notNull().default(false),
+  // 0=Sun..6=Sat
+  working_days: jsonb("working_days").notNull().default([1, 2, 3, 4, 5]),
+  working_hours_start: text("working_hours_start").notNull().default("09:00"),
+  working_hours_end: text("working_hours_end").notNull().default("17:00"),
+  timezone: text("timezone").notNull().default("America/Toronto"),
+  slot_duration_minutes: integer("slot_duration_minutes").notNull().default(30),
+  buffer_minutes: integer("buffer_minutes").notNull().default(0),
+  updated_at: timestamp("updated_at").defaultNow(),
+});
+
+export const scheduledAppointments = pgTable("scheduled_appointments", {
+  id: serial("id").primaryKey(),
+  calculator_id: integer("calculator_id").notNull().references(() => calculators.id),
+  lead_id: integer("lead_id").references(() => leads.id),
+  customer_name: text("customer_name"),
+  customer_email: text("customer_email"),
+  customer_phone: text("customer_phone"),
+  scheduled_for: timestamp("scheduled_for").notNull(),
+  duration_minutes: integer("duration_minutes").notNull().default(30),
+  notes: text("notes"),
+  status: text("status").notNull().default("confirmed"),
+  created_at: timestamp("created_at").defaultNow(),
+});
+
+export const insertAvailabilityRuleSchema = createInsertSchema(availabilityRules).omit({
+  id: true,
+  updated_at: true,
+});
+export const insertScheduledAppointmentSchema = createInsertSchema(scheduledAppointments).omit({
+  id: true,
+  created_at: true,
+});
+export type AvailabilityRule = typeof availabilityRules.$inferSelect;
+export type InsertAvailabilityRule = z.infer<typeof insertAvailabilityRuleSchema>;
+export type ScheduledAppointment = typeof scheduledAppointments.$inferSelect;
+export type InsertScheduledAppointment = z.infer<typeof insertScheduledAppointmentSchema>;
+
 /* ─── Calendar Connections ─── */
 export const calendarConnections = pgTable("calendar_connections", {
   id: serial("id").primaryKey(),
