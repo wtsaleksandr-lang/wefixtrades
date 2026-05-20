@@ -182,6 +182,210 @@ export interface ShellSettings {
    * scope for H7 — only the picker + LANG attribute persist for now.
    */
   language?: string;
+  /**
+   * Wave P — hosted-page chrome. Drives the wrapping background +
+   * optional headline / centered card on `{slug}.your-quote.net` and the
+   * direct `/calculator?slug=…` URL. Embedded widgets (via `embed-widget
+   * .js`) bypass this entirely — they render the bare widget so it sits
+   * inside whatever container the host page provides.
+   */
+  hostedPage?: HostedPageSettings;
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+ * Wave P — hosted-page chrome (Install tab "Hosted page" section).
+ * ───────────────────────────────────────────────────────────────────── */
+
+export type HostedBackgroundPresetId =
+  | 'flat-white'
+  | 'flat-midnight'
+  | 'soft-brand-gradient'
+  | 'dotted-grid-light'
+  | 'dotted-grid-dark'
+  | 'mesh-blur'
+  | 'topo-lines'
+  | 'diagonal-stripes';
+
+export type HostedBackground =
+  | { kind: 'preset'; presetId: HostedBackgroundPresetId }
+  | { kind: 'solid'; color: string }
+  | { kind: 'image'; dataUrl: string; overlay?: number /* 0..1 darken */ };
+
+export interface HostedPageSettings {
+  background?: HostedBackground;
+  /** True = widget sits on a centered card with shadow. False = full-bleed. */
+  showCard?: boolean;
+  /** Optional headline rendered above the widget (e.g. "Get a quote from Joe's Plumbing"). */
+  headline?: string;
+  /** Optional subhead under the headline. */
+  subheadline?: string;
+  /** Show the business logo above the headline (uses ShellState.logo data URL). */
+  showLogo?: boolean;
+}
+
+export const DEFAULT_HOSTED_PAGE: HostedPageSettings = {
+  background: { kind: 'preset', presetId: 'soft-brand-gradient' },
+  showCard: true,
+  headline: '',
+  subheadline: '',
+  showLogo: true,
+};
+
+/** Catalogue of background presets — referenced by the wizard picker and
+ *  the public-page renderer. Keep label + cssBackground in sync; the
+ *  `cssBackground` runs inside HostedPageFrame's style attribute. The
+ *  `swatch` is a smaller-resolution CSS for the preset gallery thumbnails. */
+export const HOSTED_BACKGROUND_PRESETS: ReadonlyArray<{
+  id: HostedBackgroundPresetId;
+  label: string;
+  cssBackground: string;
+  swatch: string;
+  /** True = dark preset; the headline/subhead flip to a light foreground. */
+  dark?: boolean;
+}> = [
+  {
+    id: 'flat-white',
+    label: 'Flat white',
+    cssBackground: '#f7f8fa',
+    swatch: '#f7f8fa',
+  },
+  {
+    id: 'flat-midnight',
+    label: 'Flat midnight',
+    cssBackground: '#0b1020',
+    swatch: '#0b1020',
+    dark: true,
+  },
+  {
+    id: 'soft-brand-gradient',
+    label: 'Soft brand gradient',
+    cssBackground: 'linear-gradient(160deg, rgba(13,60,252,0.10) 0%, rgba(13,60,252,0.02) 60%, #fff 100%)',
+    swatch: 'linear-gradient(160deg, rgba(13,60,252,0.18) 0%, rgba(13,60,252,0.04) 70%, #fff 100%)',
+  },
+  {
+    id: 'dotted-grid-light',
+    label: 'Dotted grid · light',
+    cssBackground:
+      'radial-gradient(circle at 1px 1px, rgba(15,23,42,0.10) 1px, transparent 0) 0 0 / 22px 22px, #fafbfc',
+    swatch:
+      'radial-gradient(circle at 1px 1px, rgba(15,23,42,0.18) 1px, transparent 0) 0 0 / 8px 8px, #fafbfc',
+  },
+  {
+    id: 'dotted-grid-dark',
+    label: 'Dotted grid · dark',
+    cssBackground:
+      'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.10) 1px, transparent 0) 0 0 / 22px 22px, #0b1020',
+    swatch:
+      'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.20) 1px, transparent 0) 0 0 / 8px 8px, #0b1020',
+    dark: true,
+  },
+  {
+    id: 'mesh-blur',
+    label: 'Mesh blur',
+    cssBackground:
+      'radial-gradient(at 20% 20%, rgba(13,60,252,0.30) 0px, transparent 50%),' +
+      'radial-gradient(at 80% 0%, rgba(34,211,238,0.22) 0px, transparent 50%),' +
+      'radial-gradient(at 70% 80%, rgba(244,114,182,0.20) 0px, transparent 50%),' +
+      'radial-gradient(at 0% 100%, rgba(168,85,247,0.18) 0px, transparent 50%),' +
+      '#f8fafc',
+    swatch:
+      'radial-gradient(at 20% 20%, rgba(13,60,252,0.40) 0px, transparent 50%),' +
+      'radial-gradient(at 80% 0%, rgba(34,211,238,0.30) 0px, transparent 50%),' +
+      'radial-gradient(at 70% 80%, rgba(244,114,182,0.28) 0px, transparent 50%),' +
+      '#f8fafc',
+  },
+  {
+    id: 'topo-lines',
+    label: 'Topographic',
+    cssBackground:
+      'repeating-linear-gradient(0deg, transparent 0 23px, rgba(15,23,42,0.045) 23px 24px),' +
+      'repeating-linear-gradient(90deg, transparent 0 23px, rgba(15,23,42,0.045) 23px 24px),' +
+      '#fbfcfd',
+    swatch:
+      'repeating-linear-gradient(0deg, transparent 0 7px, rgba(15,23,42,0.10) 7px 8px),' +
+      'repeating-linear-gradient(90deg, transparent 0 7px, rgba(15,23,42,0.10) 7px 8px),' +
+      '#fbfcfd',
+  },
+  {
+    id: 'diagonal-stripes',
+    label: 'Diagonal stripes',
+    cssBackground:
+      'repeating-linear-gradient(135deg, rgba(15,23,42,0.04) 0 14px, transparent 14px 28px), #fafbfc',
+    swatch:
+      'repeating-linear-gradient(135deg, rgba(15,23,42,0.10) 0 6px, transparent 6px 12px), #fafbfc',
+  },
+];
+
+export function getHostedBackgroundPreset(id: HostedBackgroundPresetId) {
+  return HOSTED_BACKGROUND_PRESETS.find((p) => p.id === id) ?? HOSTED_BACKGROUND_PRESETS[0];
+}
+
+/**
+ * Wave P — smart default background.
+ *
+ * Picks a sensible preset for the hosted page based on the user's chosen
+ * accent color + body background. Goals:
+ *  - Dark body  → dark preset.
+ *  - Cool / neutral accents → soft brand gradient (uses the accent).
+ *  - Warm accents (red/orange/yellow) → mesh-blur (looks premium without
+ *    clashing with the accent).
+ *  - Green / earthy accents → dotted-grid-light (subtle, doesn't compete).
+ *
+ * The picker is intentionally simple — a hand-tuned hue-bucket map — so
+ * the result is predictable for users iterating colors in the Style tab.
+ */
+export function smartDefaultHostedBackgroundId(
+  accentHex: string | undefined,
+  bodyBgHex: string | undefined,
+): HostedBackgroundPresetId {
+  const bodyDark = isHexDarkForSmartDefault(bodyBgHex);
+  if (bodyDark) return 'dotted-grid-dark';
+  const hue = hexToHue(accentHex ?? '#0d3cfc');
+  if (hue === null) return 'soft-brand-gradient';
+  // Hue buckets (HSL degrees):
+  //   0–30  red       → mesh-blur (warm-on-warm clashes with gradient)
+  //   30–70 orange/yellow → mesh-blur
+  //   70–170 green/teal   → dotted-grid-light
+  //   170–260 blue/purple → soft-brand-gradient
+  //   260–340 magenta     → mesh-blur
+  //   340–360 red         → mesh-blur
+  if (hue < 30 || hue >= 340) return 'mesh-blur';
+  if (hue < 70) return 'mesh-blur';
+  if (hue < 170) return 'dotted-grid-light';
+  if (hue < 260) return 'soft-brand-gradient';
+  return 'mesh-blur';
+}
+
+function isHexDarkForSmartDefault(hex: string | undefined): boolean {
+  if (!hex) return false;
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return false;
+  const v = m[1];
+  const r = parseInt(v.slice(0, 2), 16);
+  const g = parseInt(v.slice(2, 4), 16);
+  const b = parseInt(v.slice(4, 6), 16);
+  const luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  return luma < 110;
+}
+
+function hexToHue(hex: string): number | null {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return null;
+  const v = m[1];
+  const r = parseInt(v.slice(0, 2), 16) / 255;
+  const g = parseInt(v.slice(2, 4), 16) / 255;
+  const b = parseInt(v.slice(4, 6), 16) / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const delta = max - min;
+  if (delta === 0) return 0;
+  let h = 0;
+  if (max === r) h = ((g - b) / delta) % 6;
+  else if (max === g) h = (b - r) / delta + 2;
+  else h = (r - g) / delta + 4;
+  h *= 60;
+  if (h < 0) h += 360;
+  return h;
 }
 
 /**

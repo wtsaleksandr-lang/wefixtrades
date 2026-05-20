@@ -35,11 +35,12 @@ import CheckoutIntakeModal from '@/components/marketing/CheckoutIntakeModal';
 import { HOSTING_DOMAIN, slugify, buildHostedUrl } from '@shared/slugUtils';
 import {
   DEFAULT_SHELL_LANGUAGE, SHELL_LANGUAGES, getShellLanguage,
-  type ShellSettings,
+  type ShellSettings, type HostedPageSettings, type ShellStyle,
 } from './types';
 import InstallGuideModal, {
   INSTALL_GUIDES, type InstallGuideId,
 } from './InstallGuideModal';
+import HostedPageSection from './HostedPageSection';
 
 const p = platformTheme;
 const d = dashboardTheme;
@@ -54,13 +55,16 @@ interface Props {
   /** Wave O — business name from ShellState; used to derive a hosted-link slug
    *  preview when no published slug exists yet. */
   businessName?: string;
-  /** Wave O — true when the calculator is already published with the given
-   *  slug. Controls the "(reserved — activates after publish)" hint. */
-  isPublished?: boolean;
+  /** Wave P — logo data URL from ShellState; surfaced into the hosted page
+   *  customisation section to enable/disable the show-logo toggle. */
+  logoUrl?: string | null;
+  /** Wave P — current ShellStyle (accent + body bg) so the hosted-page
+   *  section can pick a smart default background preset for the user. */
+  style?: ShellStyle;
 }
 
 export default function InstallTab({
-  settings, onChange, embedSlug, businessName = '', isPublished = false,
+  settings, onChange, embedSlug, businessName = '', logoUrl = null, style,
 }: Props) {
   const language = settings.language ?? DEFAULT_SHELL_LANGUAGE;
 
@@ -171,14 +175,17 @@ export default function InstallTab({
             >
               {hostedDisplay}
             </div>
-            {!isPublished && (
-              <span
-                className="qq-install-hosted-badge"
-                data-testid="install-hosted-badge"
-              >
-                Reserved — activates after publish
-              </span>
-            )}
+            {/* Wave P — every save auto-publishes server-side, so the page
+             *  goes live the moment the user lands on Install. Show a
+             *  positive "live" confirmation instead of the old, misleading
+             *  "Reserved — activates after publish" pill. */}
+            <span
+              className="qq-install-hosted-badge is-live"
+              data-testid="install-hosted-badge"
+              data-state="live"
+            >
+              Live
+            </span>
           </div>
           <div className="qq-install-hosted-actions">
             <button
@@ -191,13 +198,11 @@ export default function InstallTab({
               {hostedCopyOk ? 'Link copied' : 'Copy link'}
             </button>
             <a
-              href={isPublished ? hostedUrl : undefined}
-              target={isPublished ? '_blank' : undefined}
-              rel={isPublished ? 'noreferrer noopener' : undefined}
-              className={`qq-install-hosted-open${isPublished ? '' : ' is-disabled'}`}
+              href={hostedUrl}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="qq-install-hosted-open"
               data-testid="install-hosted-open"
-              aria-disabled={!isPublished}
-              onClick={(e) => { if (!isPublished) e.preventDefault(); }}
             >
               <ExternalLink size={13} aria-hidden="true" />
               Open
@@ -209,6 +214,23 @@ export default function InstallTab({
           </p>
         </div>
       </section>
+
+      <div className="qq-install-divider" />
+
+      {/* ── Wave P — hosted page customisation ─────────────────────
+       *
+       * Lives between the hosted link and the language picker. Lets the
+       * user pick a background preset / solid color / custom image, a
+       * centered-card vs full-bleed layout, and an optional headline +
+       * subhead + logo for the hosted page only. */}
+      <HostedPageSection
+        value={settings.hostedPage}
+        onChange={(next: HostedPageSettings) => onChange({ ...settings, hostedPage: next })}
+        businessName={businessName}
+        logoUrl={logoUrl}
+        accentColor={style?.accent}
+        bodyBackgroundColor={style?.background}
+      />
 
       <div className="qq-install-divider" />
 
@@ -414,6 +436,14 @@ export default function InstallTab({
           padding: 3px 8px;
           line-height: 1.3;
           white-space: nowrap;
+        }
+        /* Wave P — every save auto-publishes; the badge is now a positive
+         * "Live" pill instead of the old "Reserved — activates after
+         * publish" warning pill. */
+        .qq-install-hosted-badge.is-live {
+          color: #097a4a;
+          background: rgba(34, 197, 94, 0.13);
+          border-color: rgba(34, 197, 94, 0.35);
         }
         .qq-install-hosted-actions {
           display: flex; gap: 8px; flex-wrap: wrap;

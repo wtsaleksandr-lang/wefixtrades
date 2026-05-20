@@ -602,6 +602,8 @@ export default function WizardShell({ embed = false }: Props) {
                       settings={state.settings ?? {}}
                       onChange={setSettings}
                       businessName={state.businessName}
+                      logoUrl={state.logo}
+                      style={state.style ?? { ...DEFAULT_SHELL_STYLE }}
                     />
                   ) : (
                     <TabPlaceholder
