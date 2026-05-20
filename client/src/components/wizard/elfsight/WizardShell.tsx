@@ -34,7 +34,7 @@ import { platformTheme } from '@/theme/platformTheme';
 import { dashboardTheme } from '@/theme/dashboardTheme';
 import {
   buildBlankPreviewConfig,
-  type TemplateField, type TemplateCalculation,
+  type TemplateField, type TemplateCalculation, type TemplateConfig,
 } from '@shared/templatePresets';
 import EditorTopBar from './EditorTopBar';
 import EditorTabs from './EditorTabs';
@@ -43,6 +43,7 @@ import BuildTab from './BuildTab';
 import PreviewPane from './PreviewPane';
 import StyleTab from './StyleTab';
 import SettingsTab from './SettingsTab';
+import InstallTab from './InstallTab';
 import { makeField } from './FieldsPanel';
 import { SelectionProvider } from './selection';
 import { useEditorDndSensors, DND_CONTAINERS } from './dnd';
@@ -195,6 +196,12 @@ export default function WizardShell({ embed = false }: Props) {
     window.addEventListener('touchend', onUp);
   }, []);
 
+  // ── Wave H7: reflect the chosen language on the shell wrapper. Only the
+  // LANG attribute is wired; translation strings are out of scope.
+  // TODO(i18n): when translations land, propagate down to AdvancedCalculator
+  // and the wizard headline copy as well.
+  const shellLang = (state.settings?.language ?? 'en');
+
   // ── Wave I (h): mount/unmount transition state ────────────────────────
   // The modal wrapper paints in `is-entering` → `is-open` for the open
   // animation, and is set to `is-leaving` for ~180ms (snappier on mobile)
@@ -248,6 +255,52 @@ export default function WizardShell({ embed = false }: Props) {
         return c;
       });
       return { ...s, resultCalcId: calcId, calculations: nextCalcs };
+    });
+  }, []);
+
+  // ── Wave H7: apply a template preset (or "start blank"). Replaces the
+  // structural slice of state (layout / fields / calculations / header /
+  // results / resultCalcId) with the picked preset. Preserves the user's
+  // business name, settings (trade / lead email / pricing / etc.), and
+  // style overrides — those are independent of the template choice.
+  // Passing `null` resets to a blank seed.
+  const applyTemplate = useCallback((preset: TemplateConfig | null) => {
+    setState((s) => {
+      if (!preset) {
+        // Blank seed — same as the H1 first-load behaviour.
+        const layout = s.layout; // keep whatever layout was set
+        return {
+          ...s,
+          activeTemplateId: undefined,
+          fields: seedFields(layout),
+          calculations: seedCalculations(layout),
+          header: {},
+          results: {},
+          resultCalcId: undefined,
+        };
+      }
+      // Clone deep enough that mutation in the editor doesn't reach back
+      // into the catalogue object (the preset is shared across tabs).
+      const nextFields = preset.fields.map((f) => ({ ...f }));
+      const nextCalcs = preset.calculations.map((c) => ({ ...c }));
+      // Find the headline calc id (if the preset names a specific one).
+      const headlineCalc = nextCalcs.find((c) => c.name === preset.result_calc);
+      return {
+        ...s,
+        activeTemplateId: preset.id,
+        layout: preset.layout,
+        fields: nextFields,
+        calculations: nextCalcs,
+        header: {
+          title: preset.header?.title,
+          subtitle: preset.header?.subtitle,
+        },
+        results: {
+          heading: preset.results?.heading,
+          footnote: preset.results?.footnote,
+        },
+        resultCalcId: headlineCalc?.id,
+      };
     });
   }, []);
 
@@ -324,6 +377,12 @@ export default function WizardShell({ embed = false }: Props) {
         advanced.results = { cta_label: ctaLabel };
       }
 
+      // Wave H7 — surface the language pick as both a top-level
+      // `calculator_settings.language` (explicit, easy for server consumers)
+      // AND inside `shell_settings.language` (raw user state). The server
+      // schema's `.catchall(z.any())` accepts the top-level field.
+      const language = (settings.language ?? 'en');
+
       const res = await apiRequest('POST', '/api/calculators', {
         business_name: state.businessName,
         trade_type: tradeId || 'general',
@@ -336,6 +395,7 @@ export default function WizardShell({ embed = false }: Props) {
           ui_template: { template_id: 'classic_single' },
           advanced,
           shell_settings: settings,
+          language,
         },
       });
       return res.json();
@@ -393,6 +453,7 @@ export default function WizardShell({ embed = false }: Props) {
           aria-label="QuoteQuick editor"
           data-testid="quotequick-editor-shell"
           data-modal-phase={embed ? 'embed' : openPhase}
+          lang={shellLang}
         >
           <div className="qq-editor-frame">
             <EditorTopBar
@@ -426,6 +487,8 @@ export default function WizardShell({ embed = false }: Props) {
                       onResultsChange={setResults}
                       resultCalcId={state.resultCalcId}
                       onResultCalcChange={setResultCalc}
+                      activeTemplateId={state.activeTemplateId}
+                      onApplyTemplate={applyTemplate}
                     />
                   ) : activeTab === 'style' ? (
                     <StyleTab
@@ -434,6 +497,11 @@ export default function WizardShell({ embed = false }: Props) {
                     />
                   ) : activeTab === 'settings' ? (
                     <SettingsTab
+                      settings={state.settings ?? {}}
+                      onChange={setSettings}
+                    />
+                  ) : activeTab === 'install' ? (
+                    <InstallTab
                       settings={state.settings ?? {}}
                       onChange={setSettings}
                     />
