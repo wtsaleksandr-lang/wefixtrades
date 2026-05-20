@@ -15,6 +15,7 @@ import { platformTheme } from '@/theme/platformTheme';
 import type { TemplateField, TemplateOption } from '@shared/templatePresets';
 import AddFieldMenu from './AddFieldMenu';
 import FieldRow from './FieldRow';
+import InfoCue from './InfoCue';
 import { PUBLIC_TO_FIELD_TYPE, type PublicFieldType } from './types';
 
 const p = platformTheme;
@@ -93,8 +94,13 @@ export default function FieldsPanel({ fields, onChange }: Props) {
     >
       <header className="qq-fields-header">
         <div>
-          <h3 className="qq-fields-title">Fields</h3>
-          <p className="qq-fields-sub">Inputs the visitor fills in. Edits update the preview live.</p>
+          <h3 className="qq-fields-title">
+            Fields
+            <InfoCue
+              testid="fields-title"
+              text="Inputs the visitor fills in. Edits update the preview live."
+            />
+          </h3>
         </div>
         {!isEmpty && <AddFieldMenu onPick={handleAdd} />}
       </header>

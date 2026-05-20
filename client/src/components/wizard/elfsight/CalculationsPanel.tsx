@@ -14,6 +14,7 @@ import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { platformTheme } from '@/theme/platformTheme';
 import type { TemplateCalculation, TemplateField } from '@shared/templatePresets';
 import CalculationRow from './CalculationRow';
+import InfoCue from './InfoCue';
 
 const p = platformTheme;
 
@@ -84,13 +85,13 @@ export default function CalculationsPanel({ calculations, fields, onChange }: Pr
     >
       <header className="qq-calcs-header">
         <div>
-          <h3 className="qq-calcs-title">Calculations</h3>
-          <p className="qq-calcs-sub">
-            Formulas that turn fields into a price. Reference fields with
-            <span className="qq-calcs-helptoken qq-calcs-helptoken--field">[Field name]</span>
-            and earlier calcs with
-            <span className="qq-calcs-helptoken qq-calcs-helptoken--calc">[Calc name]</span>.
-          </p>
+          <h3 className="qq-calcs-title">
+            Calculations
+            <InfoCue
+              testid="calcs-title"
+              text="Formulas that turn fields into a price. Reference fields with [Field name] and earlier calcs with [Calc name]."
+            />
+          </h3>
         </div>
         {!isEmpty && (
           <button
@@ -108,11 +109,12 @@ export default function CalculationsPanel({ calculations, fields, onChange }: Pr
       {isEmpty ? (
         <div className="qq-calcs-empty" data-testid="editor-calculations-empty">
           <div className="qq-calcs-empty-illus" aria-hidden="true">∑</div>
-          <p className="qq-calcs-empty-title">No calculations yet</p>
-          <p className="qq-calcs-empty-sub">
-            Add your first calculation to turn the visitor's inputs into a price.
-            You can use math operators, functions like ROUND or IF, and reference
-            any field from above.
+          <p className="qq-calcs-empty-title">
+            No calculations yet
+            <InfoCue
+              testid="calcs-empty"
+              text="Add your first calculation to turn the visitor's inputs into a price. You can use math operators, functions like ROUND or IF, and reference any field from above."
+            />
           </p>
           <button
             type="button"
