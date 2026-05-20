@@ -17,6 +17,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Bot, X, Send, Image as ImageIcon, Trash2, AlertTriangle, Loader2, Sparkles } from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
 import { applyAiToolCall, type AiToolCall } from './aiToolApplier';
@@ -266,6 +267,45 @@ export default function AIBubble(props: AIBubbleProps) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  /* ─── B3 fix (2026-05-20) ───────────────────────────────────────────────
+   * The editor frame (`.qq-editor-frame`) has `transform` + `will-change:
+   * transform`, which makes it a containing block for any descendant with
+   * `position: fixed`. That meant the bubble's `bottom: 18px` resolved
+   * relative to the SCROLLABLE frame (whose bottom is far below the
+   * viewport on the Build tab), pushing the bubble ~305px below the fold.
+   *
+   * Fix: portal the floating bubble + panel out of the editor frame to
+   * `document.body`, so `position: fixed` resolves against the real
+   * viewport. We mirror the editor shell's `data-theme` onto the portal
+   * root so the existing `[data-theme="dark"] .qq-ai-...` rules keep
+   * working unchanged. An anchor span is rendered in-tree so we can locate
+   * the originating editor shell at mount time (and observe theme changes).
+   * ──────────────────────────────────────────────────────────────────── */
+  const anchorRef = useRef<HTMLSpanElement>(null);
+  const [portalEl, setPortalEl] = useState<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const div = document.createElement('div');
+    div.className = 'qq-ai-portal';
+    // Embed mode (or pre-mount) → fallback to "light".
+    const shell = anchorRef.current?.closest<HTMLElement>('[data-theme]');
+    div.setAttribute('data-theme', shell?.getAttribute('data-theme') ?? 'light');
+    document.body.appendChild(div);
+    setPortalEl(div);
+
+    // Mirror live data-theme changes from the shell (day/night toggle).
+    let mo: MutationObserver | null = null;
+    if (shell) {
+      mo = new MutationObserver(() => {
+        div.setAttribute('data-theme', shell.getAttribute('data-theme') ?? 'light');
+      });
+      mo.observe(shell, { attributes: true, attributeFilter: ['data-theme'] });
+    }
+    return () => {
+      mo?.disconnect();
+      div.remove();
+    };
+  }, []);
+
   // Persist history on every change.
   useEffect(() => { saveHistory(conversationId, messages); }, [conversationId, messages]);
 
@@ -463,7 +503,12 @@ export default function AIBubble(props: AIBubbleProps) {
     );
   }, [budget]);
 
-  return (
+  // Anchor span: in-tree presence so we can locate the originating editor
+  // shell (for theme mirroring) and so React's reconciliation has a stable
+  // host node. The actual bubble + panel are portaled below.
+  const anchor = <span ref={anchorRef} aria-hidden="true" style={{ display: 'none' }} data-testid="aibubble-anchor" />;
+
+  const portaledUi = (
     <>
       {/* Floating bubble (always rendered, hidden via CSS when panel is open) */}
       <button
@@ -886,6 +931,13 @@ export default function AIBubble(props: AIBubbleProps) {
         [data-theme="dark"] .qq-ai-confirm-applied { background: #064e3b; border-color: #065f46; color: #d1fae5; }
         [data-theme="dark"] .qq-ai-confirm-cancelled { background: #1e293b; border-color: #334155; color: #cbd5e1; }
       `}</style>
+    </>
+  );
+
+  return (
+    <>
+      {anchor}
+      {portalEl ? createPortal(portaledUi, portalEl) : null}
     </>
   );
 }
