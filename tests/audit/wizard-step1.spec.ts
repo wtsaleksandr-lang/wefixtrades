@@ -1,6 +1,11 @@
 /**
  * QuoteQuick wizard — Step 1 UX-QA (Wave F).
  *
+ * Wave H1 note: the legacy 5-step wizard now lives at /wizard/legacy. The
+ * canonical /wizard route mounts the new Elfsight-clone editor shell
+ * (covered by wizard-elfsight-h1.spec.ts). This spec keeps the Wave F
+ * runtime assertions for the legacy DOM and points at the new path.
+ *
  * Runtime UX assertions a code-review can't catch:
  *  1. Typing the business name updates the live preview header within 500ms.
  *  2. Clicking each layout actually changes the preview's DOM (the advanced
@@ -28,7 +33,7 @@ test.describe('wizard step 1 — UX-QA', () => {
   });
 
   test('business name typing updates the preview header live', async ({ page }) => {
-    await page.goto('/wizard', { waitUntil: 'domcontentloaded' });
+    await page.goto('/wizard/legacy', { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(1500);
 
     const name = `UX QA ${Date.now()}`;
@@ -42,7 +47,7 @@ test.describe('wizard step 1 — UX-QA', () => {
   });
 
   test('each layout visibly changes the preview', async ({ page }) => {
-    await page.goto('/wizard', { waitUntil: 'domcontentloaded' });
+    await page.goto('/wizard/legacy', { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(1500);
 
     const layouts = ['single-column', 'two-column', 'multi-column'] as const;
@@ -56,7 +61,7 @@ test.describe('wizard step 1 — UX-QA', () => {
   });
 
   test('non-blank template hides trade picker and infers trade', async ({ page }) => {
-    await page.goto('/wizard', { waitUntil: 'domcontentloaded' });
+    await page.goto('/wizard/legacy', { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(1500);
 
     // Pick a layout with a known non-blank template that has a `trades[]`.
@@ -74,7 +79,7 @@ test.describe('wizard step 1 — UX-QA', () => {
   });
 
   test('Blank template brings the trade picker back', async ({ page }) => {
-    await page.goto('/wizard', { waitUntil: 'domcontentloaded' });
+    await page.goto('/wizard/legacy', { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(1500);
 
     // First pick a non-blank template so we have something to "undo" to blank.
@@ -95,7 +100,7 @@ test.describe('wizard step 1 — UX-QA', () => {
     // Start from `/` so there IS a history entry to go back to.
     await page.goto('/', { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(400);
-    await page.goto('/wizard', { waitUntil: 'domcontentloaded' });
+    await page.goto('/wizard/legacy', { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(1200);
 
     const closeBtn = page.getByTestId('quotequick-close');
@@ -105,6 +110,6 @@ test.describe('wizard step 1 — UX-QA', () => {
 
     // After close the wizard's outer shell must no longer be the current page.
     await expect(page.locator('.wizard-shell-modal')).toHaveCount(0);
-    expect(new URL(page.url()).pathname).not.toBe('/wizard');
+    expect(new URL(page.url()).pathname).not.toBe('/wizard/legacy');
   });
 });
