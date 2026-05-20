@@ -21,14 +21,21 @@ import { resolveWidgetTheme, type WidgetTheme } from './widgetThemes';
 /**
  * Wave H5 — Style tab integration.
  *
- * Font stacks for the curated `advanced.style.fontFamily` enum. Only system /
- * Inter / Manrope — no new web-font packages loaded; system stack is the
- * default Satoshi-led one already used across the widget.
+ * Font stacks for the curated `advanced.style.fontFamily` enum.
+ * Wave L S3 — expanded set with explicit Satoshi, Geist, Plus Jakarta Sans,
+ * IBM Plex Sans, Outfit and Sora. Every stack ends with `system-ui,
+ * sans-serif` so a failed webfont request still renders sensibly.
  */
 const FONT_STACKS: Record<AdvFontFamily, string> = {
   system: eff.font,
   inter: '"Inter", system-ui, sans-serif',
   manrope: '"Manrope", system-ui, sans-serif',
+  satoshi: '"Satoshi Variable", "Satoshi", system-ui, sans-serif',
+  geist: '"Geist", "Geist Sans", system-ui, sans-serif',
+  jakarta: '"Plus Jakarta Sans", system-ui, sans-serif',
+  plex: '"IBM Plex Sans", system-ui, sans-serif',
+  outfit: '"Outfit", system-ui, sans-serif',
+  sora: '"Sora", system-ui, sans-serif',
 };
 
 /** Map widget-width enum → outer max-width applied to the calculator root. */

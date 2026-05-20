@@ -217,15 +217,15 @@ export default function PreviewOverlay({
           /* Invisible marker — does not capture pointer events. */
           pointer-events: none;
         }
-        /* Wave L E2 — smaller minus icon (~22px visible) inside a 44×44
+        /* Wave L E2 — smaller minus icon (~22px visible) inside a 44x44
          * transparent hit-target so the accessible touch surface stays
          * compliant. The hit-target re-enables pointer events since the
          * parent overlay has them disabled.
          *
-         * Hover-to-reveal is dropped: the parent overlay has
-         * `pointer-events: none` which disables :hover on the wrapper,
-         * so the remove icon now sits at a subtle 0.7 opacity by default
-         * and goes solid on its own :hover. */
+         * Hover-to-reveal is dropped: the parent overlay has pointer-events
+         * none which disables hover on the wrapper, so the remove icon now
+         * sits at a subtle 0.7 opacity by default and goes solid on its own
+         * hover. */
         .qq-preview-field-deco-remove {
           position: absolute;
           top: -22px; right: -22px;
