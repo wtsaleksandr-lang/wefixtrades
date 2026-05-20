@@ -87,6 +87,7 @@ import ServiceOpsPage from "@/pages/admin/ServiceOpsPage";
 import MapguardDashboard from "@/pages/admin/MapguardDashboard";
 import MapguardOpsPage from "@/pages/admin/MapguardOpsPage";
 import WebCareOpsPage from "@/pages/admin/WebCareOpsPage";
+import AiBudgetPage from "@/pages/admin/AiBudgetPage";
 import ReviewsPage from "@/pages/admin/ReviewsPage";
 import RankFlowOpsPage from "@/pages/admin/RankFlowOpsPage";
 import AdFlowOpsPage from "@/pages/admin/AdFlowOpsPage";
@@ -198,6 +199,7 @@ function Router() {
       <Route path="/admin/crm/mapguard">{() => <RequirePortal><MapguardDashboard /></RequirePortal>}</Route>
       <Route path="/admin/crm/mapguard/ops">{() => <RequirePortal><MapguardOpsPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/webcare/ops">{() => <RequirePortal><WebCareOpsPage /></RequirePortal>}</Route>
+      <Route path="/admin/crm/ai-budget">{() => <RequirePortal><AiBudgetPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/reviews">{() => <RequirePortal><ReviewsPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/profile">{() => <RequirePortal><ProfilePage /></RequirePortal>}</Route>
       <Route path="/admin/crm/settings">{() => <RequirePortal><SettingsPage /></RequirePortal>}</Route>
