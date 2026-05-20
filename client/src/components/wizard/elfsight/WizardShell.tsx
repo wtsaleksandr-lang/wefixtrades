@@ -601,6 +601,7 @@ export default function WizardShell({ embed = false }: Props) {
                     <InstallTab
                       settings={state.settings ?? {}}
                       onChange={setSettings}
+                      businessName={state.businessName}
                     />
                   ) : (
                     <TabPlaceholder
