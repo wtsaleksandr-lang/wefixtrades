@@ -45,8 +45,13 @@ const UPSELL_MAP: Record<string, string[]> = {
   "socialsync-pro":     ["adflow-growth"],
 
   // ─── QuoteQuick (quoting) → reputation (qualified leads convert better with strong reviews) ───
-  "quotequick-starter": ["reputationshield-basic"],
-  "quotequick-pro":     ["reputationshield-basic"],
+  // Wave Q — three-tier ladder (Free / Pro / Business). Legacy "starter" key
+  // retained as an alias so any grandfathered checkout flows still surface the
+  // right upsell; the marketing UI never offers a quotequick-starter SKU again.
+  "quotequick-starter":  ["reputationshield-basic"],
+  "quotequick-free":     ["reputationshield-basic"],
+  "quotequick-pro":      ["reputationshield-basic"],
+  "quotequick-business": ["reputationshield-basic"],
 
   // ─── One-time website services → ongoing care + visibility ───
   "webfix":     ["webcare-basic"],

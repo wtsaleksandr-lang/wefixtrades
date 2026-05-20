@@ -467,7 +467,7 @@ export default function QuoteCalculatorDemo() {
                     color: "rgba(13,21,20,0.6)",
                     fontWeight: 500,
                   }}>
-                    No credit card required · Live in 5 minutes · From $49/mo
+                    No credit card required · Live in 5 minutes · Free + from $29/mo
                   </div>
                 </div>
                 <div style={{
@@ -685,7 +685,7 @@ const DEMO_FAQ_ITEMS = [
   },
   {
     question: "Is there a free trial?",
-    answer: "You can try the full demo on this page to see exactly how it works. Plans start at $49/mo with no contracts — cancel anytime.",
+    answer: "Yes — QuoteQuick has a Free forever plan. Try the full demo on this page to see exactly how it works. Paid plans start at $29/mo (Pro removes the WeFixTrades badge + adds custom domain & SMS). No contracts — cancel anytime.",
   },
 ];
 

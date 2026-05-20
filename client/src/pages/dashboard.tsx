@@ -333,7 +333,7 @@ function OverviewSection({ token, onNavigate }: { token: string; onNavigate: (s:
               background: '#EEF3FF', border: '1px solid #A7F3D0', padding: '3px 10px', borderRadius: 20,
               cursor: 'pointer',
             }}>
-              <Sparkles size={9} /> Upgrade — from $49/mo
+              <Sparkles size={9} /> Upgrade — from $29/mo
             </button>
           )}
         </div>
