@@ -296,8 +296,16 @@ function formatResult(
   return formatNumber(v, 0, 2, thousandsSep, decimalSep);
 }
 
-const labelStyle = (c: WidgetTheme): React.CSSProperties => ({
-  fontSize: '13px', fontWeight: 600, color: c.text, display: 'block', marginBottom: '7px',
+/**
+ * Wave R-pre W-LABELS — small de-emphasised header for grouped fields
+ * (radio, multi-select, image_choice, slider). Per Alex's global rule,
+ * prominent "above-the-input" titles aren't allowed. Group renderers
+ * can't carry a floating label naturally (no single input to float into)
+ * so we keep a tiny uppercase caption instead.
+ */
+const groupHeaderStyle = (c: WidgetTheme): React.CSSProperties => ({
+  fontSize: '11px', fontWeight: 600, color: c.textMuted, display: 'block',
+  marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.04em',
 });
 
 export default function AdvancedCalculator({ businessName, logoUrl, advanced, accentColor, editableTitle = false }: Props) {
@@ -824,6 +832,19 @@ function FieldInput({ field, value, accent, theme, onChange, radiusPx, fieldStyl
     boxSizing: 'border-box',
   };
 
+  // Wave R-pre W-LABELS — Alex's global rule: titles INSIDE the field, not
+  // above. We wrap text / number / select renderers with `.qq-w-float`
+  // (defined in client/src/index.css) and expose the active theme via CSS
+  // custom properties on the wrapper itself so the floating label respects
+  // light / midnight / coral / sage / teal / blush themes (and any custom
+  // Style-tab accent override).
+  const floatVars: React.CSSProperties = {
+    // CSS variables consumed by .qq-w-float in index.css.
+    ['--qq-w-label' as any]: c.textMuted,
+    ['--qq-w-label-focus' as any]: accent,
+    ['--qq-w-bg' as any]: isOutline ? c.bg : c.surface,
+  };
+
   if (f.type === 'heading') {
     return (
       <p style={{
@@ -840,21 +861,37 @@ function FieldInput({ field, value, accent, theme, onChange, radiusPx, fieldStyl
 
   if (f.type === 'number') {
     return (
-      <div>
-        <label htmlFor={inputId} style={labelStyle(c)}>{f.label}</label>
-        <input id={inputId} type="number" value={value as number} min={f.min} max={f.max} step={f.step}
+      <div className="qq-w-float" style={floatVars}>
+        <input
+          id={inputId}
+          className="qq-w-input"
+          type="number"
+          value={value as number}
+          min={f.min}
+          max={f.max}
+          step={f.step}
+          placeholder=" "
           onChange={(e) => onChange(e.target.value === '' ? 0 : Number(e.target.value))}
-          style={{ ...inputBase, fontFamily: eff.fontMono }} />
+          style={{ ...inputBase, fontFamily: eff.fontMono }}
+        />
+        <label htmlFor={inputId}>{f.label}{f.unit ? ` (${f.unit})` : ''}</label>
       </div>
     );
   }
 
   if (f.type === 'text') {
     return (
-      <div>
-        <label htmlFor={inputId} style={labelStyle(c)}>{f.label}</label>
-        <input id={inputId} type="text" value={value as string}
-          onChange={(e) => onChange(e.target.value)} style={inputBase} />
+      <div className="qq-w-float" style={floatVars}>
+        <input
+          id={inputId}
+          className="qq-w-input"
+          type="text"
+          value={value as string}
+          placeholder=" "
+          onChange={(e) => onChange(e.target.value)}
+          style={inputBase}
+        />
+        <label htmlFor={inputId}>{f.label}</label>
       </div>
     );
   }
@@ -863,8 +900,15 @@ function FieldInput({ field, value, accent, theme, onChange, radiusPx, fieldStyl
     const min = f.min ?? 0, max = f.max ?? 100;
     return (
       <div>
+        {/* Wave R-pre W-LABELS — slider can't float-label naturally, so we
+            keep a small uppercase caption + the live numeric value chip on
+            the right. Per Alex's rule we treat this as a "group caption"
+            rather than a prominent above-the-input title. */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-          <span style={{ fontSize: '13px', fontWeight: 600, color: c.text }}>{f.label}</span>
+          <span style={{
+            fontSize: '11px', fontWeight: 600, color: c.textMuted,
+            textTransform: 'uppercase', letterSpacing: '0.04em',
+          }}>{f.label}</span>
           <span style={{
             fontSize: '13px', fontWeight: 700, color: accent, fontFamily: eff.fontMono,
             background: c.accentTint, borderRadius: eff.radiusSm, padding: '3px 9px',
@@ -914,11 +958,17 @@ function FieldInput({ field, value, accent, theme, onChange, radiusPx, fieldStyl
 
   if (f.type === 'select') {
     return (
-      <div>
-        <label htmlFor={inputId} style={labelStyle(c)}>{f.label}</label>
-        <select id={inputId} value={value as string} onChange={(e) => onChange(e.target.value)} style={inputBase}>
+      <div className="qq-w-float" style={floatVars}>
+        <select
+          id={inputId}
+          className="qq-w-input"
+          value={value as string}
+          onChange={(e) => onChange(e.target.value)}
+          style={inputBase}
+        >
           {(f.options || []).map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
         </select>
+        <label htmlFor={inputId}>{f.label}</label>
       </div>
     );
   }
@@ -926,7 +976,7 @@ function FieldInput({ field, value, accent, theme, onChange, radiusPx, fieldStyl
   if (f.type === 'radio') {
     return (
       <div>
-        <label style={labelStyle(c)}>{f.label}</label>
+        <label style={groupHeaderStyle(c)}>{f.label}</label>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {(f.options || []).map((o) => {
             const sel = value === o.id;
@@ -956,7 +1006,7 @@ function FieldInput({ field, value, accent, theme, onChange, radiusPx, fieldStyl
   if (f.type === 'image_choice') {
     return (
       <div>
-        <label style={labelStyle(c)}>{f.label}</label>
+        <label style={groupHeaderStyle(c)}>{f.label}</label>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
           {(f.options || []).map((o) => {
             const sel = value === o.id;
@@ -993,7 +1043,7 @@ function FieldInput({ field, value, accent, theme, onChange, radiusPx, fieldStyl
   const ids = Array.isArray(value) ? value : [];
   return (
     <div>
-      <label style={labelStyle(c)}>{f.label}</label>
+      <label style={groupHeaderStyle(c)}>{f.label}</label>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
         {(f.options || []).map((o) => {
           const sel = ids.includes(o.id);
