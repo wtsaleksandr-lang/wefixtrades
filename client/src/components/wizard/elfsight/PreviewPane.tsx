@@ -12,7 +12,9 @@
 import { useMemo } from 'react';
 import QuoteWidget from '@/components/quote-widget/QuoteWidget';
 import type { CalculatorData } from '@/components/quote-widget/types';
-import { buildBlankPreviewConfig, type TemplateLayout } from '@shared/templatePresets';
+import {
+  buildBlankPreviewConfig, type TemplateLayout, type TemplateField,
+} from '@shared/templatePresets';
 import { platformTheme } from '@/theme/platformTheme';
 import type { PreviewDevice } from './types';
 
@@ -22,14 +24,26 @@ interface Props {
   businessName: string;
   layout: TemplateLayout;
   device: PreviewDevice;
+  /**
+   * Live fields list from the Build > Fields panel (Wave H2). When provided
+   * (incl. an explicit empty array), the preview renders these fields
+   * instead of the placeholder seed. The placeholder seed is still produced
+   * via `buildBlankPreviewConfig` so calculations/header defaults stay
+   * sensible. The Wave F `__preview: true` flag is preserved end-to-end.
+   */
+  fields?: TemplateField[];
 }
 
-export default function PreviewPane({ businessName, layout, device }: Props) {
+export default function PreviewPane({ businessName, layout, device, fields }: Props) {
   // Synthetic CalculatorData (preview-only). `id: -1` mirrors the legacy
   // sentinel so any downstream code that branches on a real id still treats
   // this as a preview.
   const previewCalculatorData = useMemo<CalculatorData>(() => {
     const advanced = buildBlankPreviewConfig(layout, businessName);
+    // H2: when the shell carries an explicit fields list (the user has begun
+    // editing), it takes over from the placeholder seed. Both an empty array
+    // and a populated array count as explicit — only `undefined` falls back.
+    const merged = fields !== undefined ? { ...advanced, fields } : advanced;
     return {
       id: -1,
       slug: 'preview',
@@ -39,10 +53,10 @@ export default function PreviewPane({ businessName, layout, device }: Props) {
       calculator_settings: {
         calculator_type: 'estimate_only',
         ui_template: { template_id: 'classic_single' },
-        advanced,
+        advanced: merged,
       },
     };
-  }, [businessName, layout]);
+  }, [businessName, layout, fields]);
 
   return (
     <div className="qq-preview-pane" data-testid="editor-preview-pane">
