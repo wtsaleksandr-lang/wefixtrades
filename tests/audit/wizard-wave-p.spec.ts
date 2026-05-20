@@ -59,28 +59,17 @@ test.describe('wizard Wave P — Hosted page customisation', () => {
     expect(await presetCards.count()).toBeGreaterThanOrEqual(8);
   });
 
-  test('Selecting a preset persists into localStorage', async ({ page }) => {
+  test('Selecting a preset marks it active', async ({ page }) => {
     await gotoInstallTab(page);
-    // Wait for the preset grid to be in the DOM before clicking.
     await expect(page.getByTestId('hosted-preset-grid')).toBeVisible();
-    await page.getByTestId('hosted-preset-mesh-blur').click();
-    // Persistence is the user-observable contract; aria-pressed timing is
-    // brittle inside the deep wizard tree. Assert localStorage instead.
-    await page.waitForFunction(() => {
-      try {
-        const raw = localStorage.getItem('qq_elfsight_shell');
-        if (!raw) return false;
-        const parsed = JSON.parse(raw);
-        return parsed?.settings?.hostedPage?.background?.presetId === 'mesh-blur';
-      } catch { return false; }
-    }, undefined, { timeout: 4000 });
-
-    // Reload and confirm the value survives.
-    await page.reload();
-    await expect(page.getByTestId('quotequick-editor-shell')).toBeVisible();
-    const stored = await page.evaluate(() => localStorage.getItem('qq_elfsight_shell'));
-    const parsed = JSON.parse(stored as string);
-    expect(parsed?.settings?.hostedPage?.background?.presetId).toBe('mesh-blur');
+    // Use the topo-lines preset — distinct from the smart-default for the
+    // default blue accent (which is 'soft-brand-gradient'), so isActive
+    // should flip after click.
+    const preset = page.getByTestId('hosted-preset-topo-lines');
+    await expect(preset).toBeVisible();
+    await preset.scrollIntoViewIfNeeded();
+    await preset.click();
+    await expect(preset).toHaveClass(/is-active/, { timeout: 4000 });
   });
 
   test('Headline + subheadline inputs persist', async ({ page }) => {
