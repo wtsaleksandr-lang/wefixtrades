@@ -838,7 +838,6 @@ export default function WizardShell({ embed = false }: Props) {
             .qq-editor-save-error { font-size: 11.5px; color: ${p.colors.danger}; font-weight: 600; }
             .qq-editor-right {
               flex: 1; min-width: 0;
-              background: radial-gradient(120% 80% at 50% 0%, #f4f6f9 0%, ${d.colors.panel} 72%);
               overflow-y: auto;
             }
             .qq-preview-pane {
