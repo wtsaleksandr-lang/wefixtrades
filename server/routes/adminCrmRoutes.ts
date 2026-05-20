@@ -560,6 +560,55 @@ export function registerAdminCrmRoutes(app: Express): void {
     }
   });
 
+  /**
+   * GET /api/admin/crm/webcare/ops
+   * Read-only admin oversight panel for WebCare. Returns one row per
+   * active WebCare client_service plus top-of-page summary tiles
+   * (failing uptime in last 24h, overdue plugin updates, overdue health
+   * checks). Composes data already written by the webcare health +
+   * maintenance workers — no new storage. See WebCareOpsPage.tsx.
+   */
+  app.get("/api/admin/crm/webcare/ops", requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      const rows = await storage.listWebCareOpsRows();
+      const now = Date.now();
+      const ONE_DAY_MS = 86_400_000;
+
+      // "Failing uptime in last 24h" = last uptime check was DOWN AND happened in the last 24h.
+      const failingUptime24h = rows.filter(r =>
+        r.last_uptime_check?.status === "down" &&
+        (now - new Date(r.last_uptime_check.ts).getTime()) <= ONE_DAY_MS
+      ).length;
+
+      // "Overdue plugin updates" = WebCare maintenance worker runs monthly;
+      // mark overdue if no run in 40 days (gives ~10 days slack after the
+      // expected monthly run).
+      const PLUGIN_OVERDUE_MS = 40 * ONE_DAY_MS;
+      const overduePluginUpdates = rows.filter(r =>
+        !r.last_plugin_update_at ||
+        (now - new Date(r.last_plugin_update_at).getTime()) > PLUGIN_OVERDUE_MS
+      ).length;
+
+      // Health checks share the maintenance worker's monthly cadence.
+      const overdueHealthChecks = rows.filter(r =>
+        !r.last_health_check_at ||
+        (now - new Date(r.last_health_check_at).getTime()) > PLUGIN_OVERDUE_MS
+      ).length;
+
+      res.json({
+        generated_at: new Date().toISOString(),
+        total_active: rows.length,
+        failing_uptime_24h: failingUptime24h,
+        overdue_plugin_updates: overduePluginUpdates,
+        overdue_health_checks: overdueHealthChecks,
+        rows,
+      });
+    } catch (err: any) {
+      log.error("[admin-crm] WebCare ops error:", err.message);
+      res.status(500).json({ error: "Failed to load WebCare ops data" });
+    }
+  });
+
   app.post("/api/admin/crm/clients", requireAdmin, async (req: Request, res: Response) => {
     try {
       const client = await storage.createClient(req.body);
