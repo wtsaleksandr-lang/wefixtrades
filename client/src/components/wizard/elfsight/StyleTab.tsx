@@ -28,6 +28,8 @@ import {
   type ShellFieldStyle,
   type ShellWidgetWidth,
 } from './types';
+import InfoCue from './InfoCue';
+import FloatField from './FloatField';
 
 const p = platformTheme;
 
@@ -78,10 +80,13 @@ export default function StyleTab({ style, onChange }: Props) {
     >
       {/* ── Colours ─────────────────────────────────────────────── */}
       <fieldset className="qq-style-group" data-testid="style-group-colours">
-        <legend className="qq-style-legend">Colours</legend>
-        <p className="qq-style-sub">
-          The accent colour drives the primary CTA and slider track.
-        </p>
+        <legend className="qq-style-legend">
+          Colours
+          <InfoCue
+            testid="style-colours"
+            text="The accent colour drives the primary CTA and slider track."
+          />
+        </legend>
         <div className="qq-style-grid">
           <ColourField
             label="Accent"
@@ -116,26 +121,31 @@ export default function StyleTab({ style, onChange }: Props) {
 
       {/* ── Typography ──────────────────────────────────────────── */}
       <fieldset className="qq-style-group" data-testid="style-group-typography">
-        <legend className="qq-style-legend">Typography</legend>
-        <p className="qq-style-sub">Pick a font family from the curated set.</p>
-        <label className="qq-style-label" htmlFor="qq-style-font">Font family</label>
-        <select
-          id="qq-style-font"
-          className="qq-style-select"
-          value={fontFamily}
-          onChange={(e) => patch({ fontFamily: e.target.value as ShellFontFamily })}
-          data-testid="style-select-font"
-        >
-          {(Object.keys(FONT_FAMILY_LABELS) as ShellFontFamily[]).map((k) => (
-            <option key={k} value={k}>{FONT_FAMILY_LABELS[k]}</option>
-          ))}
-        </select>
+        <legend className="qq-style-legend">
+          Typography
+          <InfoCue testid="style-typography" text="Pick a font family from the curated set." />
+        </legend>
+        <FloatField label="Font family" htmlFor="qq-style-font" variant="select">
+          <select
+            id="qq-style-font"
+            className="premium-input"
+            value={fontFamily}
+            onChange={(e) => patch({ fontFamily: e.target.value as ShellFontFamily })}
+            data-testid="style-select-font"
+          >
+            {(Object.keys(FONT_FAMILY_LABELS) as ShellFontFamily[]).map((k) => (
+              <option key={k} value={k}>{FONT_FAMILY_LABELS[k]}</option>
+            ))}
+          </select>
+        </FloatField>
       </fieldset>
 
       {/* ── Shape ────────────────────────────────────────────────── */}
       <fieldset className="qq-style-group" data-testid="style-group-shape">
-        <legend className="qq-style-legend">Shape</legend>
-        <p className="qq-style-sub">Tune how inputs and cards look.</p>
+        <legend className="qq-style-legend">
+          Shape
+          <InfoCue testid="style-shape" text="Tune how inputs and cards look." />
+        </legend>
 
         <label className="qq-style-label">Field style</label>
         <SegmentedControl<ShellFieldStyle>
@@ -173,8 +183,10 @@ export default function StyleTab({ style, onChange }: Props) {
 
       {/* ── Layout ──────────────────────────────────────────────── */}
       <fieldset className="qq-style-group" data-testid="style-group-layout">
-        <legend className="qq-style-legend">Layout</legend>
-        <p className="qq-style-sub">Choose how wide the widget renders on the page.</p>
+        <legend className="qq-style-legend">
+          Layout
+          <InfoCue testid="style-layout" text="Choose how wide the widget renders on the page." />
+        </legend>
         <label className="qq-style-label">Widget width</label>
         <SegmentedControl<ShellWidgetWidth>
           name="widget-width"
@@ -201,14 +213,11 @@ export default function StyleTab({ style, onChange }: Props) {
           margin: 0;
         }
         .qq-style-legend {
+          display: inline-flex; align-items: center;
           font-size: 13px; font-weight: 800;
           color: ${p.colors.heading};
           padding: 0 6px;
           letter-spacing: -0.005em;
-        }
-        .qq-style-sub {
-          font-size: 12px; color: ${p.colors.muted};
-          margin: 0 0 12px; line-height: 1.5;
         }
         .qq-style-grid {
           display: grid; gap: 10px;
@@ -246,8 +255,9 @@ export default function StyleTab({ style, onChange }: Props) {
           display: flex; flex-direction: column; gap: 6px; min-width: 0;
         }
         .qq-style-colour-row {
-          display: flex; align-items: center; gap: 8px;
+          display: flex; align-items: stretch; gap: 8px;
         }
+        .qq-style-colour-fieldwrap { flex: 1; min-width: 0; }
         .qq-style-swatch {
           width: 34px; height: 34px;
           border: 1px solid ${p.colors.border};
@@ -307,7 +317,7 @@ export default function StyleTab({ style, onChange }: Props) {
   );
 }
 
-/* ─── ColourField — native colour input + hex text field ─── */
+/* ─── ColourField — native colour input + hex text field with floating label ─── */
 function ColourField({
   label, value, fallback, onChange, testid,
 }: {
@@ -321,11 +331,9 @@ function ColourField({
   // anything else we feed it the fallback so the swatch stays useful while
   // the user is mid-type.
   const swatchValue = safeHex(value) || safeHex(fallback) || '#000000';
+  const inputId = `${testid}-hex-input`;
   return (
     <div className="qq-style-colour">
-      <span className="qq-style-label" style={{ marginBottom: 0 }}>
-        {label}
-      </span>
       <div className="qq-style-colour-row">
         <input
           type="color"
@@ -338,23 +346,24 @@ function ColourField({
           data-testid={`${testid}-swatch`}
           onChange={(e) => onChange(e.target.value)}
         />
-        <input
-          type="text"
-          className="qq-style-hex"
-          value={value}
-          aria-label={`${label} hex`}
-          placeholder={fallback}
-          data-testid={testid}
-          onChange={(e) => {
-            const raw = e.target.value;
-            // Allow the user to type freely; only persist when it parses to
-            // a hex. If they clear the field, fall back to the brand default.
-            if (raw.trim() === '') { onChange(fallback); return; }
-            const hex = safeHex(raw);
-            if (hex) onChange(hex);
-            else onChange(raw); // keep the in-progress text in state
-          }}
-        />
+        <FloatField label={label} htmlFor={inputId} className="qq-style-colour-fieldwrap">
+          <input
+            id={inputId}
+            type="text"
+            className="premium-input"
+            placeholder=" "
+            value={value}
+            aria-label={`${label} hex`}
+            data-testid={testid}
+            onChange={(e) => {
+              const raw = e.target.value;
+              if (raw.trim() === '') { onChange(fallback); return; }
+              const hex = safeHex(raw);
+              if (hex) onChange(hex);
+              else onChange(raw);
+            }}
+          />
+        </FloatField>
       </div>
     </div>
   );
