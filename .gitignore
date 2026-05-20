@@ -12,6 +12,7 @@ tests/e2e/admin-crm/.auth/
 playwright-report/
 test-results/
 audit-report/
+audit-evidence/
 
 # Runtime-generated email chart images
 data/email-charts/*
