@@ -10,6 +10,7 @@
 // engine which evaluates calcs in order.
 
 import { useRef, useState } from 'react';
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { platformTheme } from '@/theme/platformTheme';
 import type { TemplateCalculation, TemplateField } from '@shared/templatePresets';
 import CalculationRow from './CalculationRow';
@@ -124,24 +125,29 @@ export default function CalculationsPanel({ calculations, fields, onChange }: Pr
           </button>
         </div>
       ) : (
-        <ol className="qq-calcs-list" data-testid="editor-calculations-list">
-          {calculations.map((c, i) => (
-            <li key={c.id}>
-              <CalculationRow
-                calc={c}
-                index={i}
-                total={calculations.length}
-                fields={fields}
-                precedingCalcs={calculations.slice(0, i)}
-                onChange={(next) => handleRowChange(i, next)}
-                onRemove={() => handleRemove(i)}
-                onMoveUp={() => handleMove(i, -1)}
-                onMoveDown={() => handleMove(i, 1)}
-                defaultExpanded={c.id === justAddedId}
-              />
-            </li>
-          ))}
-        </ol>
+        <SortableContext
+          items={calculations.map((c) => c.id)}
+          strategy={verticalListSortingStrategy}
+        >
+          <ol className="qq-calcs-list" data-testid="editor-calculations-list">
+            {calculations.map((c, i) => (
+              <li key={c.id}>
+                <CalculationRow
+                  calc={c}
+                  index={i}
+                  total={calculations.length}
+                  fields={fields}
+                  precedingCalcs={calculations.slice(0, i)}
+                  onChange={(next) => handleRowChange(i, next)}
+                  onRemove={() => handleRemove(i)}
+                  onMoveUp={() => handleMove(i, -1)}
+                  onMoveDown={() => handleMove(i, 1)}
+                  defaultExpanded={c.id === justAddedId}
+                />
+              </li>
+            ))}
+          </ol>
+        </SortableContext>
       )}
 
       <style>{`

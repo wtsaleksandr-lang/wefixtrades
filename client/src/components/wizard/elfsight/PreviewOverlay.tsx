@@ -1,0 +1,323 @@
+// PreviewOverlay — Wave I items (b), (c), (f).
+//
+// Sits INSIDE PreviewPane, absolutely positioned over the rendered
+// AdvancedCalculator. Tracks the bounding box of each rendered preview field
+// and, for each, draws:
+//   - a transparent click hit-target that sets selection ({kind:'field', id})
+//   - a small "−" remove icon on hover/tap (≥44×44 mobile tap target).
+// At the end of the field list it draws a "+ Add field" dashed slot tied to
+// the SAME AddFieldMenu (rendered as a portal — see item e).
+//
+// Implementation notes:
+//  - We can't intersperse DOM inside AdvancedCalculator without forking that
+//    component. So we measure rendered field nodes (`[data-colspan]`) inside
+//    the calculator on every render + on resize / scroll, then position the
+//    overlay decorations on top.
+//  - The decorators are only drawn on the FIRST <number_of_shell_fields>
+//    field nodes — these correspond 1:1 with the shell's `fields[]` since
+//    AdvancedCalculator emits them in shell order. We DO NOT decorate fields
+//    that don't have a matching shell entry (e.g. legacy seeds).
+//  - Selection target nodes are also registered with SelectionProvider so a
+//    pane-side click can scroll the matching preview field into view.
+
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useDroppable } from '@dnd-kit/core';
+import { platformTheme } from '@/theme/platformTheme';
+import type { TemplateField } from '@shared/templatePresets';
+import AddFieldMenu from './AddFieldMenu';
+import { DND_CONTAINERS } from './dnd';
+import { useSelection } from './selection';
+import type { PublicFieldType } from './types';
+
+const p = platformTheme;
+
+interface Props {
+  /** Live shell fields. Decorators only paint where `fields[i]` exists. */
+  fields: TemplateField[];
+  /**
+   * Container the AdvancedCalculator is rendered inside. The overlay attaches
+   * inside this container, and measurements are relative to it. Accepts the
+   * standard RefObject shape; may be null on first render and will get
+   * populated by commit-time.
+   */
+  containerRef: React.RefObject<HTMLDivElement | null>;
+  /** Callback when a user removes a field from the preview (− icon). */
+  onRemoveField: (fieldId: string) => void;
+  /** Callback when the user picks a field type from the in-preview +Add menu. */
+  onAddField: (publicType: PublicFieldType) => void;
+}
+
+interface FieldBox {
+  fieldId: string;
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+interface AppendBox {
+  left: number;
+  top: number;
+  width: number;
+}
+
+/** Read all rendered preview field nodes and map them 1:1 to shell fields. */
+function measureFields(
+  container: HTMLElement,
+  fields: TemplateField[],
+): { fieldBoxes: FieldBox[]; appendBox: AppendBox | null } {
+  const calc = container.querySelector<HTMLElement>(
+    '[data-testid="advanced-calculator"]',
+  );
+  if (!calc) return { fieldBoxes: [], appendBox: null };
+  const fieldNodes = calc.querySelectorAll<HTMLElement>('[data-colspan]');
+  const containerRect = container.getBoundingClientRect();
+  const out: FieldBox[] = [];
+  // Map by index up to min(fieldNodes, fields). Fields after the last shell
+  // field (if any DOM nodes leak through) are ignored.
+  const count = Math.min(fieldNodes.length, fields.length);
+  for (let i = 0; i < count; i++) {
+    const node = fieldNodes[i];
+    const r = node.getBoundingClientRect();
+    out.push({
+      fieldId: fields[i].id,
+      left: r.left - containerRect.left,
+      top: r.top - containerRect.top,
+      width: r.width,
+      height: r.height,
+    });
+  }
+  // Append slot — directly under the last rendered field node, full-width
+  // across the inputs grid container.
+  let appendBox: AppendBox | null = null;
+  if (count > 0) {
+    const last = fieldNodes[count - 1];
+    const grid = last.parentElement;
+    if (grid) {
+      const gridRect = grid.getBoundingClientRect();
+      const lastRect = last.getBoundingClientRect();
+      appendBox = {
+        left: gridRect.left - containerRect.left,
+        top: lastRect.bottom - containerRect.top + 8,
+        width: gridRect.width,
+      };
+    }
+  }
+  return { fieldBoxes: out, appendBox };
+}
+
+export default function PreviewOverlay({
+  fields, containerRef, onRemoveField, onAddField,
+}: Props) {
+  const [boxes, setBoxes] = useState<FieldBox[]>([]);
+  const [appendBox, setAppendBox] = useState<AppendBox | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const selfRef = useRef<HTMLDivElement | null>(null);
+
+  // Measure on every relevant change (fields list, container resize, scroll).
+  useLayoutEffect(() => {
+    // Prefer the explicit containerRef; fall back to this overlay's
+    // parentElement when the parent's ref hasn't populated yet (timing
+    // can vary depending on commit ordering between sibling components).
+    const container = containerRef.current ?? selfRef.current?.parentElement ?? null;
+    if (!container) return;
+    const update = () => {
+      const { fieldBoxes, appendBox } = measureFields(container, fields);
+      setBoxes(fieldBoxes);
+      setAppendBox(appendBox);
+    };
+    update();
+    // Re-measure on next frames in case the calculator's grid lays out
+    // late (async style application from emotion / inline <style>).
+    const r1 = requestAnimationFrame(update);
+    const r2 = requestAnimationFrame(() => requestAnimationFrame(update));
+
+    const ro = new ResizeObserver(() => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      rafRef.current = requestAnimationFrame(update);
+    });
+    ro.observe(container);
+    const calcEl = container.querySelector('[data-testid="advanced-calculator"]');
+    if (calcEl) ro.observe(calcEl as Element);
+
+    // MutationObserver — re-measure when the calculator's children change
+    // (fields added/removed, grid laid out, etc.). This catches the common
+    // case where useLayoutEffect runs BEFORE the QuoteWidget renders its
+    // inner DOM (a render-once delay in some embed paths).
+    const mo = new MutationObserver(() => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      rafRef.current = requestAnimationFrame(update);
+    });
+    mo.observe(container, { childList: true, subtree: true });
+
+    const onScroll = () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      rafRef.current = requestAnimationFrame(update);
+    };
+    container.addEventListener('scroll', onScroll, true);
+    window.addEventListener('resize', onScroll);
+    return () => {
+      cancelAnimationFrame(r1);
+      cancelAnimationFrame(r2);
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      ro.disconnect();
+      mo.disconnect();
+      container.removeEventListener('scroll', onScroll, true);
+      window.removeEventListener('resize', onScroll);
+    };
+  }, [fields, containerRef]);
+
+  return (
+    <div
+      ref={selfRef}
+      className="qq-preview-overlay"
+      aria-hidden="false"
+      data-testid="preview-overlay"
+    >
+      {boxes.map((b) => (
+        <FieldDecorator
+          key={b.fieldId}
+          box={b}
+          onRemove={() => onRemoveField(b.fieldId)}
+        />
+      ))}
+      {appendBox && (
+        <AppendSlot
+          box={appendBox}
+          onAddField={onAddField}
+        />
+      )}
+
+      <style>{`
+        .qq-preview-overlay {
+          position: absolute; inset: 0;
+          pointer-events: none;
+        }
+        .qq-preview-field-deco {
+          position: absolute;
+          pointer-events: auto;
+          border-radius: 10px;
+          transition: box-shadow 0.12s ease, border-color 0.12s ease;
+          background: transparent;
+          border: 2px solid transparent;
+        }
+        .qq-preview-field-deco.is-selected {
+          border-color: ${p.colors.accent};
+          box-shadow: 0 0 0 4px ${p.colors.accentLighter};
+        }
+        .qq-preview-field-deco-hit {
+          position: absolute; inset: 0; cursor: pointer; background: transparent;
+          border: 0; padding: 0;
+        }
+        .qq-preview-field-deco-remove {
+          position: absolute;
+          top: -10px; right: -10px;
+          width: 26px; height: 26px;
+          min-width: 44px; min-height: 44px;
+          padding: 0; margin: -9px;
+          background: transparent; border: 0;
+          display: inline-flex; align-items: center; justify-content: center;
+          cursor: pointer; opacity: 0;
+          transition: opacity 0.12s ease;
+          z-index: 2;
+        }
+        .qq-preview-field-deco:hover .qq-preview-field-deco-remove,
+        .qq-preview-field-deco:focus-within .qq-preview-field-deco-remove,
+        .qq-preview-field-deco.is-selected .qq-preview-field-deco-remove {
+          opacity: 1;
+        }
+        @media (pointer: coarse) {
+          /* On touch devices show the remove icon always so it's reachable. */
+          .qq-preview-field-deco-remove { opacity: 1; }
+        }
+        .qq-preview-field-deco-remove-glyph {
+          width: 22px; height: 22px; border-radius: 50%;
+          background: #fff; color: ${p.colors.danger};
+          border: 1px solid ${p.colors.danger};
+          display: inline-flex; align-items: center; justify-content: center;
+          font-size: 14px; font-weight: 800; line-height: 1;
+          box-shadow: 0 1px 4px rgba(15,23,42,0.18);
+        }
+        .qq-preview-append-slot {
+          position: absolute;
+          pointer-events: auto;
+          padding: 14px 12px;
+          background: rgba(13, 60, 252, 0.04);
+          border: 1.5px dashed ${p.colors.accent};
+          border-radius: 12px;
+          color: ${p.colors.accent};
+          display: flex; align-items: center; justify-content: center;
+          font-size: 12.5px; font-weight: 700;
+          min-height: 48px;
+          transition: background 0.12s ease;
+        }
+        .qq-preview-append-slot.is-drop-target {
+          background: rgba(13, 60, 252, 0.10);
+          border-style: solid;
+        }
+      `}</style>
+    </div>
+  );
+}
+
+interface FieldDecoratorProps {
+  box: FieldBox;
+  onRemove: () => void;
+}
+
+function FieldDecorator({ box, onRemove }: FieldDecoratorProps) {
+  const selection = useSelection();
+  const isSel = selection.isSelected({ kind: 'field', id: box.fieldId });
+  const registerSel = selection.registerNode({ kind: 'field', id: box.fieldId }, 'preview');
+  return (
+    <div
+      ref={registerSel}
+      className={`qq-preview-field-deco${isSel ? ' is-selected' : ''}`}
+      data-testid={`preview-field-deco-${box.fieldId}`}
+      data-preview-field-id={box.fieldId}
+      {...(isSel ? { 'data-selected-in-preview': '' } : {})}
+      style={{ left: box.left, top: box.top, width: box.width, height: box.height }}
+    >
+      <button
+        type="button"
+        className="qq-preview-field-deco-hit"
+        aria-label="Select field"
+        data-testid={`preview-field-select-${box.fieldId}`}
+        onClick={() => selection.select({ kind: 'field', id: box.fieldId })}
+      />
+      <button
+        type="button"
+        className="qq-preview-field-deco-remove"
+        aria-label="Remove field"
+        data-testid={`preview-field-remove-${box.fieldId}`}
+        onClick={(e) => { e.stopPropagation(); onRemove(); }}
+      >
+        <span className="qq-preview-field-deco-remove-glyph" aria-hidden="true">−</span>
+      </button>
+    </div>
+  );
+}
+
+interface AppendSlotProps {
+  box: AppendBox;
+  onAddField: (publicType: PublicFieldType) => void;
+}
+
+function AppendSlot({ box, onAddField }: AppendSlotProps) {
+  // Drop target for the in-preview append slot. Also surfaces a click-pick
+  // AddFieldMenu in the same position so users get a tap-to-add path.
+  const { setNodeRef, isOver } = useDroppable({
+    id: DND_CONTAINERS.previewAppend,
+    data: { kind: 'preview-append' },
+  });
+  return (
+    <div
+      ref={setNodeRef}
+      className={`qq-preview-append-slot${isOver ? ' is-drop-target' : ''}`}
+      data-testid="preview-add-slot"
+      style={{ left: box.left, top: box.top, width: box.width }}
+    >
+      <AddFieldMenu onPick={onAddField} />
+    </div>
+  );
+}

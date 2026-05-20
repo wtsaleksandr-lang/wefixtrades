@@ -3,7 +3,14 @@
 // Owns the list of fields rendered as <FieldRow/>s. Add/remove/reorder/edit
 // all flow through `onChange(nextFields)`. The parent (`BuildTab`) hands the
 // updated array back up to `WizardShell` which re-renders the preview.
+//
+// Wave I:
+//  - Renders inside a SortableContext (id = DND_CONTAINERS.fields). The
+//    enclosing DndContext lives in WizardShell so cross-section drags from
+//    `AddFieldMenu` into the preview can route through a single onDragEnd.
+//  - Up/Down arrow buttons remain as keyboard / a11y fallback (see FieldRow).
 
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { platformTheme } from '@/theme/platformTheme';
 import type { TemplateField, TemplateOption } from '@shared/templatePresets';
 import AddFieldMenu from './AddFieldMenu';
@@ -31,7 +38,7 @@ function defaultOptions(): TemplateOption[] {
   ];
 }
 
-function makeField(publicType: PublicFieldType): TemplateField {
+export function makeField(publicType: PublicFieldType): TemplateField {
   const type = PUBLIC_TO_FIELD_TYPE[publicType];
   const id = uid(type);
   switch (publicType) {
@@ -103,21 +110,26 @@ export default function FieldsPanel({ fields, onChange }: Props) {
           <AddFieldMenu onPick={handleAdd} emphasis />
         </div>
       ) : (
-        <ol className="qq-fields-list" data-testid="editor-fields-list">
-          {fields.map((f, i) => (
-            <li key={f.id}>
-              <FieldRow
-                field={f}
-                index={i}
-                total={fields.length}
-                onChange={(next) => handleRowChange(i, next)}
-                onRemove={() => handleRemove(i)}
-                onMoveUp={() => handleMove(i, -1)}
-                onMoveDown={() => handleMove(i, 1)}
-              />
-            </li>
-          ))}
-        </ol>
+        <SortableContext
+          items={fields.map((f) => f.id)}
+          strategy={verticalListSortingStrategy}
+        >
+          <ol className="qq-fields-list" data-testid="editor-fields-list">
+            {fields.map((f, i) => (
+              <li key={f.id}>
+                <FieldRow
+                  field={f}
+                  index={i}
+                  total={fields.length}
+                  onChange={(next) => handleRowChange(i, next)}
+                  onRemove={() => handleRemove(i)}
+                  onMoveUp={() => handleMove(i, -1)}
+                  onMoveDown={() => handleMove(i, 1)}
+                />
+              </li>
+            ))}
+          </ol>
+        </SortableContext>
       )}
 
       <style>{`

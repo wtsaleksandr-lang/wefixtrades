@@ -19,6 +19,7 @@ import { useMemo } from 'react';
 import { platformTheme } from '@/theme/platformTheme';
 import type { TemplateCalculation } from '@shared/templatePresets';
 import type { ShellHeader, ShellResults } from './types';
+import { useSelection } from './selection';
 
 const p = platformTheme;
 
@@ -57,13 +58,27 @@ export default function HeaderResultsPanel({
   const updateHeader = (patch: Partial<ShellHeader>) => onHeaderChange({ ...header, ...patch });
   const updateResults = (patch: Partial<ShellResults>) => onResultsChange({ ...results, ...patch });
 
+  // Wave I (c): selection sync. Clicking inside the "Header" or "Results"
+  // sub-section in the left pane outlines the matching block in the preview.
+  const selection = useSelection();
+  const headerSelected = selection.isSelected({ kind: 'header', id: '__header' });
+  const resultsSelected = selection.isSelected({ kind: 'results', id: '__results' });
+  const registerHeaderPane = selection.registerNode({ kind: 'header', id: '__header' }, 'pane');
+  const registerResultsPane = selection.registerNode({ kind: 'results', id: '__results' }, 'pane');
+
   return (
     <section
       className="qq-headres-panel"
       data-testid="editor-headerresults-panel"
       aria-label="Header and results"
     >
-      <header className="qq-headres-section">
+      <header
+        ref={registerHeaderPane}
+        className={`qq-headres-section qq-headres-select${headerSelected ? ' is-selected' : ''}`}
+        data-testid="editor-headerresults-header-section"
+        {...(headerSelected ? { 'data-selected-in-pane': '' } : {})}
+        onClick={() => selection.select({ kind: 'header', id: '__header' })}
+      >
         <h3 className="qq-headres-title">Header</h3>
         <p className="qq-headres-sub">
           Sits at the top of your calculator. Leave the title blank to fall
@@ -104,7 +119,13 @@ export default function HeaderResultsPanel({
 
       <div className="qq-headres-divider" />
 
-      <header className="qq-headres-section">
+      <header
+        ref={registerResultsPane}
+        className={`qq-headres-section qq-headres-select${resultsSelected ? ' is-selected' : ''}`}
+        data-testid="editor-headerresults-results-section"
+        {...(resultsSelected ? { 'data-selected-in-pane': '' } : {})}
+        onClick={() => selection.select({ kind: 'results', id: '__results' })}
+      >
         <h3 className="qq-headres-title">Results</h3>
         <p className="qq-headres-sub">
           What the headline price panel says. The headline value comes from
@@ -176,6 +197,17 @@ export default function HeaderResultsPanel({
           display: flex; flex-direction: column; gap: 12px;
         }
         .qq-headres-section { margin: 0; }
+        .qq-headres-select {
+          padding: 6px 8px; border-radius: 8px;
+          border: 1px solid transparent;
+          cursor: pointer;
+          transition: background 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+        }
+        .qq-headres-select.is-selected {
+          background: ${p.colors.accentLighter};
+          border-color: ${p.colors.accent};
+          box-shadow: 0 0 0 2px ${p.colors.accentLighter};
+        }
         .qq-headres-title {
           margin: 0; font-size: 14px; font-weight: 700;
           color: ${p.colors.heading}; letter-spacing: -0.005em;

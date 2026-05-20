@@ -11,9 +11,13 @@
 // earlier calcs).
 
 import { useState } from 'react';
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { platformTheme } from '@/theme/platformTheme';
 import type { TemplateCalculation, TemplateField } from '@shared/templatePresets';
 import FormulaEditor from './FormulaEditor';
+import { DragHandleGlyph } from './dnd';
+import { useSelection } from './selection';
 
 const p = platformTheme;
 
@@ -51,16 +55,49 @@ export default function CalculationRow({
 }: Props) {
   const [expanded, setExpanded] = useState(Boolean(defaultExpanded));
   const [confirmRemove, setConfirmRemove] = useState(false);
+  const selection = useSelection();
+  const isSel = selection.isSelected({ kind: 'calc', id: calc.id });
+  const registerSel = selection.registerNode({ kind: 'calc', id: calc.id }, 'pane');
+
+  const {
+    attributes, listeners, setNodeRef, transform, transition, isDragging,
+  } = useSortable({ id: calc.id });
+
+  const dragStyle: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.55 : 1,
+    zIndex: isDragging ? 2 : 'auto',
+  };
 
   const update = (patch: Partial<TemplateCalculation>) => onChange({ ...calc, ...patch });
 
   return (
     <div
-      className={`qq-calc-row${expanded ? ' is-expanded' : ''}`}
+      ref={(el) => { setNodeRef(el); registerSel(el); }}
+      style={dragStyle}
+      className={`qq-calc-row${expanded ? ' is-expanded' : ''}${isSel ? ' is-selected' : ''}`}
       data-testid={`calc-row-${calc.id}`}
       data-calc-row=""
+      {...(isSel ? { 'data-testid-state': 'selected-in-pane', 'data-selected-in-pane': '' } : {})}
+      onClick={(e) => {
+        const t = e.target as HTMLElement;
+        if (t.closest('button, input, select, textarea, [data-no-select]')) return;
+        selection.select({ kind: 'calc', id: calc.id });
+      }}
     >
       <div className="qq-calc-row-head">
+        <button
+          type="button"
+          className="qq-calc-row-handle"
+          aria-label={`Drag to reorder ${calc.name}`}
+          data-testid={`calc-row-handle-${calc.id}`}
+          data-no-select=""
+          {...attributes}
+          {...listeners}
+        >
+          <DragHandleGlyph />
+        </button>
         <button
           type="button"
           className="qq-calc-row-toggle"
@@ -237,10 +274,27 @@ export default function CalculationRow({
           border-color: ${p.colors.accent};
           box-shadow: ${p.shadows.selected};
         }
+        .qq-calc-row.is-selected {
+          border-color: ${p.colors.accent};
+          box-shadow: 0 0 0 2px ${p.colors.accentLighter};
+        }
         .qq-calc-row-head {
-          display: flex; align-items: center; gap: 8px;
+          display: flex; align-items: center; gap: 6px;
           padding: 8px 10px;
         }
+        .qq-calc-row-handle {
+          display: inline-flex; align-items: center; justify-content: center;
+          width: 22px; height: 26px; padding: 0; border-radius: 6px;
+          border: 1px solid transparent; background: transparent;
+          color: ${p.colors.subtle}; cursor: grab; touch-action: none;
+          flex-shrink: 0;
+          transition: background 0.1s ease, color 0.1s ease, border-color 0.1s ease;
+        }
+        .qq-calc-row-handle:hover {
+          background: ${p.colors.surfaceRaised}; color: ${p.colors.heading};
+          border-color: ${p.colors.borderLight};
+        }
+        .qq-calc-row-handle:active { cursor: grabbing; }
         .qq-calc-row-toggle {
           flex: 1; min-width: 0;
           display: flex; align-items: center; gap: 9px;

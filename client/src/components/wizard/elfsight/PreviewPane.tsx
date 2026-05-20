@@ -8,8 +8,17 @@
 //
 // Bezels: desktop = browser-chrome card, mobile = phone shell. Wave G's
 // `qq-bezel` classes and ≤768px media rules apply unchanged.
+//
+// Wave I (items b, c, f):
+//  - The preview bezel container is a droppable target — drops from
+//    AddFieldMenu append a new field of that type.
+//  - Inside the bezel we mount <PreviewOverlay/> that draws per-field
+//    selection rings + remove (−) icons, AND a "+ Add field" slot at the end
+//    of the inputs list. The slot is itself a droppable target and clicking
+//    it opens the AddFieldMenu (portaled, mobile bottom sheet).
 
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
+import { useDroppable } from '@dnd-kit/core';
 import QuoteWidget from '@/components/quote-widget/QuoteWidget';
 import type { CalculatorData } from '@/components/quote-widget/types';
 import {
@@ -17,9 +26,12 @@ import {
   type TemplateLayout, type TemplateField, type TemplateCalculation,
 } from '@shared/templatePresets';
 import { platformTheme } from '@/theme/platformTheme';
+import { useSelection } from './selection';
+import { DND_CONTAINERS } from './dnd';
+import PreviewOverlay from './PreviewOverlay';
 import type {
   PreviewDevice, ShellHeader, ShellResults, ShellStyle,
-  ShellSettings, ShellNumberFormat,
+  ShellSettings, ShellNumberFormat, PublicFieldType,
 } from './types';
 import { DEFAULT_SHELL_NUMBER_FORMAT } from './types';
 
@@ -29,54 +41,19 @@ interface Props {
   businessName: string;
   layout: TemplateLayout;
   device: PreviewDevice;
-  /**
-   * Live fields list from the Build > Fields panel (Wave H2). When provided
-   * (incl. an explicit empty array), the preview renders these fields
-   * instead of the placeholder seed. The placeholder seed is still produced
-   * via `buildBlankPreviewConfig` so calculations/header defaults stay
-   * sensible. The Wave F `__preview: true` flag is preserved end-to-end.
-   */
   fields?: TemplateField[];
-  /**
-   * Live calculations list from the Build > Calculations panel (Wave H3).
-   * When provided non-empty, it replaces the placeholder seed's
-   * calculations; an empty array falls back to the seed so the preview
-   * still shows a sensible price while the user is mid-build. The Wave F
-   * `__preview: true` flag is preserved.
-   */
   calculations?: TemplateCalculation[];
-  /**
-   * Wave H4 — header overrides (title / subtitle). Either field, when a
-   * non-empty string, overrides the seed; blanks fall through to the
-   * defaults (business_name fallback for title; no subtitle).
-   */
   header?: ShellHeader;
-  /** Wave H4 — result-panel overrides (heading / footnote). */
   results?: ShellResults;
-  /**
-   * Wave H4 — explicit headline calc id. Used to look up the calc in the
-   * (post-merge) calculations array and set `result_calc` to its NAME (the
-   * runtime config still keys headline by name). If the id no longer
-   * resolves to a calc, the seed headline wins.
-   */
   resultCalcId?: string;
-  /**
-   * Wave H5 — Style tab overrides (colours / typography / shape / layout).
-   * Merged onto the `advanced.style` slot the renderer consumes. Absent or
-   * partial style falls through to the placeholder seed's defaults.
-   */
   style?: ShellStyle;
-  /**
-   * Wave H6 — Settings tab values. `settings.numberFormat` flows into
-   * `advanced.numberFormat` so the renderer's `formatResult` honours the
-   * user's locale choices; `settings.ctaLabel` overrides
-   * `advanced.results.cta_label` when set. Trade / lead email / pricing
-   * mode do NOT affect the preview directly — they only matter on save.
-   */
   settings?: ShellSettings;
+  /** Wave I (f): remove a field from inside the preview overlay. */
+  onRemoveField?: (fieldId: string) => void;
+  /** Wave I (f): add a field via the in-preview +Add slot. */
+  onAddField?: (publicType: PublicFieldType) => void;
 }
 
-/** Map shell thousands sep enum to the literal the renderer accepts. */
 function thousandsLiteral(sep: ShellNumberFormat['thousands']): ',' | ' ' | '' {
   return sep === 'comma' ? ',' : sep === 'space' ? ' ' : '';
 }
@@ -87,22 +64,18 @@ function decimalLiteral(sep: ShellNumberFormat['decimal']): '.' | ',' {
 export default function PreviewPane({
   businessName, layout, device, fields, calculations,
   header, results, resultCalcId, style, settings,
+  onRemoveField, onAddField,
 }: Props) {
-  // Synthetic CalculatorData (preview-only). `id: -1` mirrors the legacy
-  // sentinel so any downstream code that branches on a real id still treats
-  // this as a preview.
+  const selection = useSelection();
+  // Track which field came from the live shell list — only those get the
+  // per-field decorators. Placeholder seed fields (when `fields` is undefined)
+  // are left alone since we can't reorder/remove them via the shell.
+  const shellFields = fields ?? [];
+
   const previewCalculatorData = useMemo<CalculatorData>(() => {
     const advanced = buildBlankPreviewConfig(layout, businessName);
-    // H2: when the shell carries an explicit fields list (the user has begun
-    // editing), it takes over from the placeholder seed. Both an empty array
-    // and a populated array count as explicit — only `undefined` falls back.
     let merged = fields !== undefined ? { ...advanced, fields } : advanced;
-    // H3: same pattern for calculations, but with a twist — an empty array
-    // falls back to the seed (so the preview still has a result to show).
     if (calculations && calculations.length > 0) {
-      // Keep the seed's `result_calc` as the headline by default; if the
-      // first user calc's name happens to differ, fall back to it so the
-      // preview always has a headline to render.
       const stillHasHeadline = calculations.some((c) => c.name === merged.result_calc);
       merged = {
         ...merged,
@@ -110,18 +83,10 @@ export default function PreviewPane({
         result_calc: stillHasHeadline ? merged.result_calc : calculations[calculations.length - 1].name,
       };
     }
-    // H4 — apply explicit headline by id (preferred over the legacy name
-    // match above). If the id resolves to a calc, set `result_calc` to that
-    // calc's current NAME (the renderer keys headline by name AND honours
-    // resultMode: 'primary'; either path lands on the same calc).
     if (resultCalcId) {
       const hit = merged.calculations.find((c) => c.id === resultCalcId);
       if (hit) merged = { ...merged, result_calc: hit.name };
     }
-    // H4 — header overrides. Only non-empty trimmed values override; blanks
-    // fall through to the existing fallbacks (business_name for title, no
-    // subtitle). The Wave G "no auto-subtitle" behaviour is preserved
-    // because a blank subtitle does NOT override the empty seed.
     if (header) {
       const titleOverride = (header.title ?? '').trim();
       const subtitleOverride = (header.subtitle ?? '').trim();
@@ -130,7 +95,6 @@ export default function PreviewPane({
       if (subtitleOverride !== '') mergedHeader.subtitle = header.subtitle;
       merged = { ...merged, header: mergedHeader };
     }
-    // H4 — results overrides. Non-empty heading / footnote replace seed.
     if (results) {
       const headingOverride = (results.heading ?? '').trim();
       const footnoteOverride = (results.footnote ?? '').trim();
@@ -139,19 +103,12 @@ export default function PreviewPane({
       if (footnoteOverride !== '') mergedResults.footnote = results.footnote;
       merged = { ...merged, results: mergedResults };
     }
-    // H5 — Style tab overrides merge over the seed's `style` slot, with
-    // shell values winning where set. The renderer (AdvancedCalculator) does
-    // its own per-field fallback to defaults so a partial style is safe.
     if (style) {
       merged = {
         ...merged,
         style: { ...(merged.style ?? {}), ...style },
       };
     }
-    // H6 — Settings tab. `numberFormat` flows into the renderer via
-    // `advanced.numberFormat`; `ctaLabel`, when set, overrides
-    // `advanced.results.cta_label`. Absent settings → renderer keeps its
-    // pre-H6 en-US defaults / default CTA label.
     {
       const nf = settings?.numberFormat ?? DEFAULT_SHELL_NUMBER_FORMAT;
       const numberFormat = {
@@ -183,6 +140,53 @@ export default function PreviewPane({
     };
   }, [businessName, layout, fields, calculations, header, results, resultCalcId, style, settings]);
 
+  // Droppable wrapper for item (b) — drag from AddFieldMenu onto the preview
+  // bezel. `data.kind: 'preview-append'` so WizardShell's onDragEnd appends.
+  const { setNodeRef: setDropNodeRef, isOver } = useDroppable({
+    id: 'qq-dnd-preview-pane',
+    data: { kind: 'preview-append' },
+  });
+
+  // Results / header selection (item c) — clicking these regions selects them.
+  // The decorators sit inside the bezel container, on top of the QuoteWidget.
+  const resultsSel = selection.isSelected({ kind: 'results', id: '__results' });
+  const headerSel = selection.isSelected({ kind: 'header', id: '__header' });
+  const resultsRegisterRef = selection.registerNode({ kind: 'results', id: '__results' }, 'preview');
+  const headerRegisterRef = selection.registerNode({ kind: 'header', id: '__header' }, 'preview');
+  const previewBezelRef = useRef<HTMLDivElement | null>(null);
+  // The overlay is rendered inside this inner wrapper (the QuoteWidget host)
+  // so coords are relative to it, not the bezel.
+  const overlayHostRef = useRef<HTMLDivElement | null>(null);
+
+  /** Combine the droppable setNodeRef and the bezel ref into one ref callback. */
+  const setBezelRef = (el: HTMLDivElement | null) => {
+    setDropNodeRef(el);
+    previewBezelRef.current = el;
+  };
+
+  // Header and results regions overlay over the AdvancedCalculator. They're
+  // identified by data-testid="advanced-title" and the result-panel container.
+  // We attach click handlers via event delegation on the bezel.
+  const onBezelClick = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    // If the user clicked a real input/button inside the widget, let it run.
+    if (target.closest('input, select, button, textarea')) return;
+    // Results region — anywhere inside the result panel.
+    const resultBlock = target.closest('[data-testid="result-output"]')
+      || target.closest('[data-testid="advanced-result"]')
+      || target.closest('.qq-result-block');
+    if (resultBlock) {
+      selection.select({ kind: 'results', id: '__results' });
+      return;
+    }
+    // Header region.
+    const headerBlock = target.closest('[data-testid="advanced-title"]')?.closest('div');
+    if (headerBlock) {
+      selection.select({ kind: 'header', id: '__header' });
+      return;
+    }
+  };
+
   return (
     <div className="qq-preview-pane" data-testid="editor-preview-pane">
       <div className="qq-preview-stage">
@@ -195,9 +199,12 @@ export default function PreviewPane({
         >
           {device === 'mobile' ? (
             <div
+              ref={setBezelRef}
               data-testid="preview-bezel-mobile"
-              className="qq-bezel qq-bezel--mobile"
+              className={`qq-bezel qq-bezel--mobile${isOver ? ' is-drop-target' : ''}`}
+              onClick={onBezelClick}
               style={{
+                position: 'relative',
                 width: '100%', maxWidth: 390, maxHeight: 780, flexShrink: 0, margin: '0 auto',
                 background: 'linear-gradient(160deg, #1e293b, #0f172a)',
                 borderRadius: 44, padding: '12px 10px', boxSizing: 'border-box',
@@ -206,15 +213,32 @@ export default function PreviewPane({
               }}
             >
               <div style={{ height: 5, width: 42, borderRadius: 3, background: 'rgba(255,255,255,0.22)', margin: '0 auto 9px', flexShrink: 0 }} />
-              <div style={{ borderRadius: 34, overflow: 'auto', background: '#fff', flex: 1 }}>
+              <div ref={overlayHostRef} style={{ borderRadius: 34, overflow: 'auto', background: '#fff', flex: 1, position: 'relative' }}>
                 <QuoteWidget calculator={previewCalculatorData} isEmbed />
+                {shellFields.length > 0 && onRemoveField && onAddField && (
+                  <PreviewOverlay
+                    fields={shellFields}
+                    containerRef={overlayHostRef as React.RefObject<HTMLDivElement>}
+                    onRemoveField={onRemoveField}
+                    onAddField={onAddField}
+                  />
+                )}
+                {resultsSel && (
+                  <div ref={resultsRegisterRef} data-selected-in-preview="" data-testid="preview-selected-results" style={{ display: 'none' }} />
+                )}
+                {headerSel && (
+                  <div ref={headerRegisterRef} data-selected-in-preview="" data-testid="preview-selected-header" style={{ display: 'none' }} />
+                )}
               </div>
             </div>
           ) : (
             <div
+              ref={setBezelRef}
               data-testid="preview-bezel-desktop"
-              className="qq-bezel qq-bezel--desktop"
+              className={`qq-bezel qq-bezel--desktop${isOver ? ' is-drop-target' : ''}`}
+              onClick={onBezelClick}
               style={{
+                position: 'relative',
                 width: '100%', maxWidth: 820, maxHeight: 640, margin: '0 auto',
                 borderRadius: 16, overflow: 'hidden', background: '#fff',
                 border: `1px solid ${p.colors.borderLight}`,
@@ -245,13 +269,36 @@ export default function PreviewPane({
                   {(businessName || 'your-business').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 28)}.your-quote.net
                 </div>
               </div>
-              <div style={{ flex: 1, overflow: 'auto' }}>
+              <div ref={overlayHostRef} style={{ flex: 1, overflow: 'auto', position: 'relative' }}>
                 <QuoteWidget calculator={previewCalculatorData} isEmbed />
+                {shellFields.length > 0 && onRemoveField && onAddField && (
+                  <PreviewOverlay
+                    fields={shellFields}
+                    containerRef={overlayHostRef as React.RefObject<HTMLDivElement>}
+                    onRemoveField={onRemoveField}
+                    onAddField={onAddField}
+                  />
+                )}
+                {resultsSel && (
+                  <div ref={resultsRegisterRef} data-selected-in-preview="" data-testid="preview-selected-results" style={{ display: 'none' }} />
+                )}
+                {headerSel && (
+                  <div ref={headerRegisterRef} data-selected-in-preview="" data-testid="preview-selected-header" style={{ display: 'none' }} />
+                )}
               </div>
             </div>
           )}
         </div>
       </div>
+      <style>{`
+        .qq-bezel.is-drop-target {
+          outline: 3px dashed ${p.colors.accent};
+          outline-offset: -3px;
+        }
+      `}</style>
     </div>
   );
 }
+
+// Re-export to satisfy non-type consumers in stable order — nothing external.
+export { DND_CONTAINERS };
