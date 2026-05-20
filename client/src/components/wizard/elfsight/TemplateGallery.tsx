@@ -336,11 +336,18 @@ interface ModalProps {
 function TemplateBrowseModal({ activeTemplateId, onClose, onApplyTemplate }: ModalProps) {
   const categories = useMemo(() => getTemplateCategories(), []);
   const [activeCategory, setActiveCategory] = useState<string>('All');
+  // Wave M — search field (case-insensitive substring on name). Combines
+  // with the active category (AND logic).
+  const [search, setSearch] = useState<string>('');
 
   const visible = useMemo(() => {
-    if (activeCategory === 'All') return TEMPLATE_PRESETS;
-    return TEMPLATE_PRESETS.filter((t) => t.category === activeCategory);
-  }, [activeCategory]);
+    const q = search.trim().toLowerCase();
+    const byCat = activeCategory === 'All'
+      ? TEMPLATE_PRESETS
+      : TEMPLATE_PRESETS.filter((t) => t.category === activeCategory);
+    if (!q) return byCat;
+    return byCat.filter((t) => t.name.toLowerCase().includes(q));
+  }, [activeCategory, search]);
 
   // ESC to close.
   useEffect(() => {
@@ -376,52 +383,78 @@ function TemplateBrowseModal({ activeTemplateId, onClose, onApplyTemplate }: Mod
             ×
           </button>
         </div>
-        <div className="qq-tg-modal-cats" role="tablist">
-          <button
-            type="button"
-            className={`qq-tg-modal-cat${activeCategory === 'All' ? ' is-active' : ''}`}
-            onClick={() => setActiveCategory('All')}
-            data-testid="template-browse-cat-all"
+        {/* Wave M — search field. Filters by template name (case-insensitive
+            substring) and combines with the active category. */}
+        <div className="qq-tg-modal-search">
+          <input
+            type="search"
+            className="qq-tg-modal-search-input"
+            placeholder="Search templates..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            aria-label="Search templates"
+            data-testid="template-browse-search"
+          />
+        </div>
+        {/* Wave M — chips row with a right-edge fade mask hinting at more.
+            The inner scroller owns the actual horizontal scroll. */}
+        <div className="qq-tg-modal-cats-wrap">
+          <div
+            className="qq-tg-modal-cats"
+            role="tablist"
+            data-testid="template-browse-cats"
           >
-            All ({TEMPLATE_PRESETS.length})
-          </button>
-          {categories.map((c) => {
-            const count = TEMPLATE_PRESETS.filter((t) => t.category === c).length;
-            const slug = c.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-            return (
-              <button
-                key={c}
-                type="button"
-                className={`qq-tg-modal-cat${activeCategory === c ? ' is-active' : ''}`}
-                onClick={() => setActiveCategory(c)}
-                data-testid={`template-browse-cat-${slug}`}
-              >
-                {c} ({count})
-              </button>
-            );
-          })}
+            <button
+              type="button"
+              className={`qq-tg-modal-cat${activeCategory === 'All' ? ' is-active' : ''}`}
+              onClick={() => setActiveCategory('All')}
+              data-testid="template-browse-cat-all"
+            >
+              All ({TEMPLATE_PRESETS.length})
+            </button>
+            {categories.map((c) => {
+              const count = TEMPLATE_PRESETS.filter((t) => t.category === c).length;
+              const slug = c.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+              return (
+                <button
+                  key={c}
+                  type="button"
+                  className={`qq-tg-modal-cat${activeCategory === c ? ' is-active' : ''}`}
+                  onClick={() => setActiveCategory(c)}
+                  data-testid={`template-browse-cat-${slug}`}
+                >
+                  {c} ({count})
+                </button>
+              );
+            })}
+          </div>
+          <span className="qq-tg-modal-cats-fade" aria-hidden="true" />
         </div>
         <div className="qq-tg-modal-grid" data-testid="template-browse-grid">
           {visible.map((t) => {
             const accent = templateAccent(t.id);
             const isActive = t.id === activeTemplateId;
-            const tradeTags = (t.trades ?? []).slice(0, 2).join(', ');
+            // Wave M — subtitle (trade tags) removed; name + mockup only.
             return (
               <button
                 key={t.id}
                 type="button"
-                className={`qq-tg-card${isActive ? ' is-active' : ''}`}
+                className={`qq-tg-card qq-tg-card--no-sub${isActive ? ' is-active' : ''}`}
                 data-testid={`template-browse-card-${t.id}`}
                 onClick={() => onApplyTemplate(t)}
               >
                 <TemplateCardMockup accent={accent} />
                 <div className="qq-tg-card-body">
                   <span className="qq-tg-card-name">{t.name}</span>
-                  <span className="qq-tg-card-tags">{tradeTags || t.category}</span>
                 </div>
               </button>
             );
           })}
+          {visible.length === 0 && (
+            <p className="qq-tg-modal-empty" data-testid="template-browse-empty">
+              No templates match "{search}".
+            </p>
+          )}
         </div>
       </div>
 
@@ -457,11 +490,47 @@ function TemplateBrowseModal({ activeTemplateId, onClose, onApplyTemplate }: Mod
           display: flex; align-items: center; justify-content: center;
         }
         .qq-tg-modal-close:hover { background: ${p.colors.surfaceRaised}; }
-        .qq-tg-modal-cats {
-          display: flex; gap: 6px; padding: 10px 18px;
-          overflow-x: auto; scrollbar-width: thin;
+        /* Wave M — search bar above the category chips. */
+        .qq-tg-modal-search {
+          padding: 12px 18px 4px;
+          flex-shrink: 0;
+        }
+        .qq-tg-modal-search-input {
+          width: 100%; box-sizing: border-box;
+          font: inherit; font-size: 13px;
+          padding: 9px 12px;
+          border: 1px solid ${p.colors.border};
+          border-radius: 9px;
+          background: #fff; color: ${p.colors.heading};
+          transition: border-color 0.12s ease, box-shadow 0.12s ease;
+        }
+        .qq-tg-modal-search-input::placeholder {
+          color: ${p.colors.muted};
+        }
+        .qq-tg-modal-search-input:focus {
+          outline: none;
+          border-color: ${p.colors.accent};
+          box-shadow: 0 0 0 3px ${p.colors.accentLighter};
+        }
+        /* Wave M — chips row wrapper with a right-edge fade hinting "more". */
+        .qq-tg-modal-cats-wrap {
+          position: relative;
           border-bottom: 1px solid ${p.colors.borderLight};
           flex-shrink: 0;
+        }
+        .qq-tg-modal-cats {
+          display: flex; gap: 6px; padding: 10px 18px;
+          overflow-x: auto; overflow-y: hidden;
+          scrollbar-width: none;
+          -webkit-overflow-scrolling: touch;
+          scroll-snap-type: x proximity;
+        }
+        .qq-tg-modal-cats::-webkit-scrollbar { display: none; }
+        .qq-tg-modal-cats-fade {
+          position: absolute; top: 0; right: 0; bottom: 1px;
+          width: 36px;
+          pointer-events: none;
+          background: linear-gradient(to right, rgba(255,255,255,0), #fff 70%);
         }
         .qq-tg-modal-cat {
           font: inherit; font-size: 11.5px; font-weight: 700;
@@ -470,6 +539,7 @@ function TemplateBrowseModal({ activeTemplateId, onClose, onApplyTemplate }: Mod
           border: 1px solid ${p.colors.border};
           border-radius: 999px; padding: 4px 12px;
           cursor: pointer; white-space: nowrap; flex-shrink: 0;
+          scroll-snap-align: start;
           transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
         }
         .qq-tg-modal-cat.is-active {
@@ -481,12 +551,31 @@ function TemplateBrowseModal({ activeTemplateId, onClose, onApplyTemplate }: Mod
           display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
           overflow-y: auto;
         }
+        /* Wave M — variant for name-only cards inside the browse modal. */
+        .qq-tg-card--no-sub .qq-tg-card-body {
+          min-height: 0;
+          padding: 4px 2px 2px;
+        }
+        .qq-tg-card--no-sub .qq-tg-card-name {
+          -webkit-line-clamp: 2;
+          white-space: normal;
+        }
+        .qq-tg-modal-empty {
+          grid-column: 1 / -1;
+          text-align: center;
+          font-size: 12.5px; color: ${p.colors.muted};
+          padding: 28px 8px;
+          margin: 0;
+        }
         @media (max-width: 768px) {
           .qq-tg-modal-backdrop { padding: 8px; }
           .qq-tg-modal { max-height: 96vh; }
           .qq-tg-modal-grid { grid-template-columns: repeat(2, 1fr); }
           .qq-tg-modal-close { min-width: 44px; min-height: 44px; }
           .qq-tg-modal-cat { min-height: 36px; font-size: 12.5px; }
+          .qq-tg-modal-search { padding: 10px 12px 4px; }
+          .qq-tg-modal-search-input { padding: 11px 12px; min-height: 44px; }
+          .qq-tg-modal-cats { padding: 10px 12px; }
         }
       `}</style>
     </div>
