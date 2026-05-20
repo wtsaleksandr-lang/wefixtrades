@@ -20,6 +20,8 @@ import { platformTheme } from '@/theme/platformTheme';
 import type { TemplateCalculation } from '@shared/templatePresets';
 import type { ShellHeader, ShellResults } from './types';
 import { useSelection } from './selection';
+import InfoCue from './InfoCue';
+import FloatField from './FloatField';
 
 const p = platformTheme;
 
@@ -79,42 +81,38 @@ export default function HeaderResultsPanel({
         {...(headerSelected ? { 'data-selected-in-pane': '' } : {})}
         onClick={() => selection.select({ kind: 'header', id: '__header' })}
       >
-        <h3 className="qq-headres-title">Header</h3>
-        <p className="qq-headres-sub">
-          Sits at the top of your calculator. Leave the title blank to fall
-          back to your business name — leave the subtitle blank to hide it.
-        </p>
+        <h3 className="qq-headres-title">
+          Header
+          <InfoCue
+            testid="headerresults-header"
+            text="Sits at the top of your calculator. Leave the title blank to fall back to your business name — leave the subtitle blank to hide it."
+          />
+        </h3>
       </header>
 
       <div className="qq-headres-grid">
-        <Field
-          label="Title"
-          htmlFor="qq-headres-title"
-        >
+        <FloatField label="Title" htmlFor="qq-headres-title">
           <input
             id="qq-headres-title"
             type="text"
-            className="qq-headres-input"
+            className="premium-input"
+            placeholder=" "
             value={header.title ?? ''}
             onChange={(e) => updateHeader({ title: e.target.value })}
-            placeholder="Falls back to your business name"
             data-testid="input-header-title"
           />
-        </Field>
-        <Field
-          label="Subtitle"
-          htmlFor="qq-headres-subtitle"
-        >
+        </FloatField>
+        <FloatField label="Subtitle" htmlFor="qq-headres-subtitle">
           <input
             id="qq-headres-subtitle"
             type="text"
-            className="qq-headres-input"
+            className="premium-input"
+            placeholder=" "
             value={header.subtitle ?? ''}
             onChange={(e) => updateHeader({ subtitle: e.target.value })}
-            placeholder="Optional — hidden when blank"
             data-testid="input-header-subtitle"
           />
-        </Field>
+        </FloatField>
       </div>
 
       <div className="qq-headres-divider" />
@@ -126,71 +124,75 @@ export default function HeaderResultsPanel({
         {...(resultsSelected ? { 'data-selected-in-pane': '' } : {})}
         onClick={() => selection.select({ kind: 'results', id: '__results' })}
       >
-        <h3 className="qq-headres-title">Results</h3>
-        <p className="qq-headres-sub">
-          What the headline price panel says. The headline value comes from
-          the calculation you pick below.
-        </p>
+        <h3 className="qq-headres-title">
+          Results
+          <InfoCue
+            testid="headerresults-results"
+            text="What the headline price panel says. The headline value comes from the calculation you pick below."
+          />
+        </h3>
       </header>
 
       <div className="qq-headres-grid">
-        <Field
-          label="Heading"
-          htmlFor="qq-headres-heading"
-        >
+        <FloatField label="Heading" htmlFor="qq-headres-heading">
           <input
             id="qq-headres-heading"
             type="text"
-            className="qq-headres-input"
+            className="premium-input"
+            placeholder=" "
             value={results.heading ?? ''}
             onChange={(e) => updateResults({ heading: e.target.value })}
-            placeholder="e.g. Your Total"
             data-testid="input-results-heading"
           />
-        </Field>
-        <Field
-          label="Footer / footnote"
-          htmlFor="qq-headres-footnote"
-        >
+        </FloatField>
+        <FloatField label="Footer / footnote" htmlFor="qq-headres-footnote">
           <input
             id="qq-headres-footnote"
             type="text"
-            className="qq-headres-input"
+            className="premium-input"
+            placeholder=" "
             value={results.footnote ?? ''}
             onChange={(e) => updateResults({ footnote: e.target.value })}
-            placeholder="e.g. Final price subject to inspection"
             data-testid="input-results-footnote"
           />
-        </Field>
+        </FloatField>
       </div>
 
       <div className="qq-headres-divider" />
 
-      <Field
-        label="Headline result"
-        htmlFor="qq-headres-headline"
-        sub="Which calculation is the big number?"
-      >
-        {calculations.length === 0 ? (
+      {calculations.length === 0 ? (
+        <div>
+          <span className="qq-headres-label">
+            Headline result
+            <InfoCue testid="headerresults-headline" text="Which calculation is the big number?" />
+          </span>
           <p className="qq-headres-empty" data-testid="headerresults-no-calcs">
             Add a calculation above to pick a headline.
           </p>
-        ) : (
-          <select
-            id="qq-headres-headline"
-            className="qq-headres-input"
-            value={effectiveHeadlineId}
-            onChange={(e) => onResultCalcChange(e.target.value)}
-            data-testid="select-headline-calc"
-          >
-            {calculations.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name || '(untitled calculation)'}
-              </option>
-            ))}
-          </select>
-        )}
-      </Field>
+        </div>
+      ) : (
+        <div>
+          <span className="qq-headres-label">
+            Headline result
+            <InfoCue testid="headerresults-headline" text="Which calculation is the big number?" />
+          </span>
+          <FloatField label="Headline result" htmlFor="qq-headres-headline" variant="select">
+            <select
+              id="qq-headres-headline"
+              className="premium-input"
+              value={effectiveHeadlineId}
+              onChange={(e) => onResultCalcChange(e.target.value)}
+              data-testid="select-headline-calc"
+            >
+              {calculations.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name || '(untitled calculation)'}
+                </option>
+              ))}
+            </select>
+          </FloatField>
+        </div>
+      )}
 
       <style>{`
         .qq-headres-panel {
@@ -211,10 +213,7 @@ export default function HeaderResultsPanel({
         .qq-headres-title {
           margin: 0; font-size: 14px; font-weight: 700;
           color: ${p.colors.heading}; letter-spacing: -0.005em;
-        }
-        .qq-headres-sub {
-          margin: 3px 0 0; font-size: 11.5px; color: ${p.colors.subtle};
-          line-height: 1.5;
+          display: inline-flex; align-items: center;
         }
         .qq-headres-grid {
           display: grid; gap: 10px;
@@ -245,31 +244,11 @@ export default function HeaderResultsPanel({
           border: 1px dashed ${p.colors.border}; border-radius: 8px;
         }
         .qq-headres-label {
-          display: block; font-size: 11px; font-weight: 700;
+          display: flex; align-items: center; font-size: 11px; font-weight: 700;
           color: ${p.colors.heading};
           letter-spacing: 0.02em; text-transform: uppercase; margin-bottom: 4px;
         }
-        .qq-headres-fieldsub {
-          margin: 0 0 4px; font-size: 11px; color: ${p.colors.subtle};
-        }
       `}</style>
     </section>
-  );
-}
-
-function Field({
-  label, htmlFor, sub, children,
-}: {
-  label: string;
-  htmlFor: string;
-  sub?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div>
-      <label className="qq-headres-label" htmlFor={htmlFor}>{label}</label>
-      {sub && <p className="qq-headres-fieldsub">{sub}</p>}
-      {children}
-    </div>
   );
 }
