@@ -340,6 +340,29 @@ export default function WizardShell({ embed = false }: Props) {
     setState((s) => ({ ...s, fields: [...s.fields, makeField(publicType)] }));
   }, []);
 
+  // ── Wave L E3: swipe-to-delete undo. PreviewPane dispatches a
+  // `qq-undo-restore-field` event on window when the user taps Undo. We
+  // splice the field back in at its original index. Defensive: if the
+  // index is out of range (e.g. lots of edits happened in the undo window)
+  // we append instead.
+  useEffect(() => {
+    const onRestore = (e: Event) => {
+      const ev = e as CustomEvent<{ field: TemplateField; index: number }>;
+      const detail = ev.detail;
+      if (!detail || !detail.field) return;
+      setState((s) => {
+        // Avoid duplicates if the field still exists (e.g. removal failed).
+        if (s.fields.some((f) => f.id === detail.field.id)) return s;
+        const next = [...s.fields];
+        const ins = Math.max(0, Math.min(detail.index, next.length));
+        next.splice(ins, 0, detail.field);
+        return { ...s, fields: next };
+      });
+    };
+    window.addEventListener('qq-undo-restore-field', onRestore as EventListener);
+    return () => window.removeEventListener('qq-undo-restore-field', onRestore as EventListener);
+  }, []);
+
   // ── Wave K: apply a template preset by id (used by the AI assistant). ─
   const applyTemplatePreset = useCallback((presetId: string) => {
     const preset = getTemplatePreset(presetId);
@@ -601,6 +624,7 @@ export default function WizardShell({ embed = false }: Props) {
               <div className="qq-editor-right" data-testid="editor-right-pane">
                 <PreviewPane
                   businessName={state.businessName}
+                  onBusinessNameChange={setBusinessName}
                   logo={state.logo ?? null}
                   layout={state.layout}
                   device={device}

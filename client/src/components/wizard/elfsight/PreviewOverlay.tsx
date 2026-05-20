@@ -193,9 +193,16 @@ export default function PreviewOverlay({
           position: absolute; inset: 0;
           pointer-events: none;
         }
+        /* Wave L E4 + B1 — the decorator wrapper is now POINTER-EVENTS:NONE
+         * so clicks/drags pass through to the underlying input controls
+         * (sliders, checkboxes, dropdowns, etc.). Selection happens via
+         * bezel-level click delegation in PreviewPane.onBezelClick(), which
+         * already skips controls. The wrapper still paints its outline ring
+         * when selected — that's purely visual and doesn't need to capture
+         * events. */
         .qq-preview-field-deco {
           position: absolute;
-          pointer-events: auto;
+          pointer-events: none;
           border-radius: 10px;
           transition: box-shadow 0.12s ease, border-color 0.12s ease;
           background: transparent;
@@ -205,24 +212,37 @@ export default function PreviewOverlay({
           border-color: ${p.colors.accent};
           box-shadow: 0 0 0 4px ${p.colors.accentLighter};
         }
-        .qq-preview-field-deco-hit {
-          position: absolute; inset: 0; cursor: pointer; background: transparent;
-          border: 0; padding: 0;
+        .qq-preview-field-deco-marker {
+          position: absolute; inset: 0;
+          /* Invisible marker — does not capture pointer events. */
+          pointer-events: none;
         }
+        /* Wave L E2 — smaller minus icon (~22px visible) inside a 44×44
+         * transparent hit-target so the accessible touch surface stays
+         * compliant. The hit-target re-enables pointer events since the
+         * parent overlay has them disabled.
+         *
+         * Hover-to-reveal is dropped: the parent overlay has
+         * `pointer-events: none` which disables :hover on the wrapper,
+         * so the remove icon now sits at a subtle 0.7 opacity by default
+         * and goes solid on its own :hover. */
         .qq-preview-field-deco-remove {
           position: absolute;
-          top: -10px; right: -10px;
-          width: 26px; height: 26px;
-          min-width: 44px; min-height: 44px;
-          padding: 0; margin: -9px;
+          top: -22px; right: -22px;
+          width: 44px; height: 44px;
+          padding: 0; margin: 0;
           background: transparent; border: 0;
           display: inline-flex; align-items: center; justify-content: center;
-          cursor: pointer; opacity: 0;
+          cursor: pointer;
+          opacity: 0.7;
           transition: opacity 0.12s ease;
           z-index: 2;
+          pointer-events: auto;
         }
-        .qq-preview-field-deco:hover .qq-preview-field-deco-remove,
-        .qq-preview-field-deco:focus-within .qq-preview-field-deco-remove,
+        .qq-preview-field-deco-remove:hover,
+        .qq-preview-field-deco-remove:focus-visible {
+          opacity: 1;
+        }
         .qq-preview-field-deco.is-selected .qq-preview-field-deco-remove {
           opacity: 1;
         }
@@ -230,12 +250,15 @@ export default function PreviewOverlay({
           /* On touch devices show the remove icon always so it's reachable. */
           .qq-preview-field-deco-remove { opacity: 1; }
         }
+        /* Wave L E2 — shrunk the visible glyph from 22px → 18px so the
+         * minus icon doesn't dominate each field row. Hit-target stays 44×44
+         * via the parent button. */
         .qq-preview-field-deco-remove-glyph {
-          width: 22px; height: 22px; border-radius: 50%;
+          width: 18px; height: 18px; border-radius: 50%;
           background: #fff; color: ${p.colors.danger};
           border: 1px solid ${p.colors.danger};
           display: inline-flex; align-items: center; justify-content: center;
-          font-size: 14px; font-weight: 800; line-height: 1;
+          font-size: 12px; font-weight: 800; line-height: 1;
           box-shadow: 0 1px 4px rgba(15,23,42,0.18);
         }
         .qq-preview-append-slot {
@@ -269,6 +292,11 @@ function FieldDecorator({ box, onRemove }: FieldDecoratorProps) {
   const selection = useSelection();
   const isSel = selection.isSelected({ kind: 'field', id: box.fieldId });
   const registerSel = selection.registerNode({ kind: 'field', id: box.fieldId }, 'preview');
+  // Wave L E4 + B1 — the decorator is now POINTER-EVENTS:NONE at the wrapper
+  // level (see CSS below). Selection is delegated up to the bezel click
+  // handler in PreviewPane (which already bails out on real form controls).
+  // This is the root fix for sliders not dragging and additional-services
+  // checkboxes not toggling — the previous overlay was eating every click.
   return (
     <div
       ref={registerSel}
@@ -278,12 +306,12 @@ function FieldDecorator({ box, onRemove }: FieldDecoratorProps) {
       {...(isSel ? { 'data-selected-in-preview': '' } : {})}
       style={{ left: box.left, top: box.top, width: box.width, height: box.height }}
     >
-      <button
-        type="button"
-        className="qq-preview-field-deco-hit"
-        aria-label="Select field"
+      {/* Invisible select-target for tests that still query for it. Does
+       * NOT intercept pointer events — it's a marker, not a hit-button. */}
+      <span
+        className="qq-preview-field-deco-marker"
         data-testid={`preview-field-select-${box.fieldId}`}
-        onClick={() => selection.select({ kind: 'field', id: box.fieldId })}
+        aria-hidden="true"
       />
       <button
         type="button"
