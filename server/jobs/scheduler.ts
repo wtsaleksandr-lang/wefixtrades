@@ -33,6 +33,7 @@ import { processTrialLifecycle, pauseExpiredTrials } from "./trialLifecycleWorke
  * Sprint 10 cron retirement was already in production. */
 import { processImageRetention } from "./imageRetentionWorker";
 import { processPerformanceQueue } from "./performanceWorker";
+import { processContentflowGeneration } from "./contentflowGenerationWorker";
 import { processQueue as processWordpressPublishQueue } from "../services/contentflow/wordpressQueue";
 import { generateAllDue } from "../services/socialSync/orchestrator";
 import { checkConnectionExpiry } from "../services/socialSync/connectionLifecycle";
@@ -493,15 +494,37 @@ export function initScheduler() {
     }
   });
 
-  // TODO(fast-follow): ContentFlow per-client generation worker.
-  // ContentFlow is now a standalone SKU (phase2-decision #3) sold as
-  // Creator/Studio/Agency. It has publish/performance/retention jobs but
-  // NO scheduled worker that *generates* content for a client on a
-  // ContentFlow-only plan — today content is only created as a side
-  // effect of RankFlow/SocialSync tasks. A paying ContentFlow-only
-  // customer currently gets nothing generated. Build a contentflowWorker
-  // (per-client, tier-quota-driven: ~12/40/120 pieces/mo, gated by
-  // contentflowGate) and register its cron tick here.
+  /* ContentFlow per-client generation worker.
+   *
+   * Daily at 08:30 UTC. For every active standalone ContentFlow
+   * subscription (Creator / Studio / Agency), dispatches the SocialSync
+   * orchestrator to generate that tier's slice of monthly content. The
+   * worker is the scheduler + dispatcher only — actual AI generation
+   * lives in server/services/socialSync/orchestrator.ts and
+   * server/services/contentflow/*. Both the global ContentFlow gate
+   * (kill-switch + spend-cap) and the per-tier monthly quota are
+   * enforced here; per-call gating is also applied inside aiText.ts.
+   *
+   * Idempotent per (client_service_id, UTC day) via the bookkeeping
+   * stamped on clientServices.metadata.contentflow.
+   *
+   * Overlap-guarded: a long-running generation tick (sequential per
+   * client, with AI calls) MUST NOT overlap with the next day's tick. */
+  let contentflowGenerationRunning = false;
+  cron.schedule("30 8 * * *", async () => {
+    if (contentflowGenerationRunning) {
+      log.debug("contentflow_generation skipped — previous tick still running");
+      return;
+    }
+    contentflowGenerationRunning = true;
+    try {
+      await runJob("contentflow_generation", processContentflowGeneration);
+    } catch (err: any) {
+      log.error("contentflow_generation cron handler error", { error: err.message });
+    } finally {
+      contentflowGenerationRunning = false;
+    }
+  }, { timezone: "UTC" });
 
   cron.schedule("0 6 * * 0", async () => {
     log.info("Running SocialSync weekly content generation...");
@@ -540,6 +563,7 @@ export function initScheduler() {
       "Review follow-up worker: every minute",
       "Review monitoring: every 6 hours",
       "Reputation reports: 09:00 UTC daily",
+      "ContentFlow per-client generation: 08:30 UTC every day",
       "SocialSync queue worker: every 2 minutes",
       "SocialSync weekly generation: 06:00 UTC every Sunday",
       "SocialSync expiry check: 04:00 UTC every day",
