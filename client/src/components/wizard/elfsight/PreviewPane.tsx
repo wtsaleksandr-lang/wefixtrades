@@ -218,6 +218,55 @@ export default function PreviewPane({
     }
   };
 
+  // Wave L M1 — auto-zoom-out on mobile so the whole mockup fits without
+  // the user needing to scroll inside the bezel. We measure the natural
+  // height of the calculator inside the bezel and apply CSS transform:
+  // scale(...) clamped 0.6-1.0 on the mockup container.
+  //
+  // Critically: pinch-zoom must still work. We only set `transform` on the
+  // bezel container, NOT `touch-action: none` — native pinch on iOS/Android
+  // remains operational because no listeners block pointer events.
+  const bezelScaleRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (device !== 'mobile') {
+      if (bezelScaleRef.current) {
+        bezelScaleRef.current.style.transform = '';
+      }
+      return;
+    }
+    const calc = () => {
+      const wrap = bezelScaleRef.current;
+      if (!wrap) return;
+      // Available area is roughly the wrapping pane height; we read the
+      // closest qq-editor-right (or fallback to viewport innerHeight).
+      const pane = wrap.closest('.qq-editor-right') as HTMLElement | null
+        || wrap.parentElement;
+      if (!pane) return;
+      const available = pane.clientHeight - 32; // breathing room
+      // Reset transform first so naturalHeight is measured correctly.
+      wrap.style.transform = '';
+      const natural = wrap.scrollHeight;
+      if (natural <= 0 || available <= 0) return;
+      let scale = available / natural;
+      if (scale >= 1) {
+        wrap.style.transform = '';
+        return;
+      }
+      scale = Math.max(0.6, Math.min(1, scale));
+      wrap.style.transformOrigin = 'top center';
+      wrap.style.transform = `scale(${scale.toFixed(3)})`;
+    };
+    const raf = requestAnimationFrame(calc);
+    const ro = new ResizeObserver(() => requestAnimationFrame(calc));
+    if (bezelScaleRef.current) ro.observe(bezelScaleRef.current);
+    window.addEventListener('resize', calc);
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+      window.removeEventListener('resize', calc);
+    };
+  }, [device, fields, calculations]);
+
   // Wave L E5 — editable preview header title.
   //
   // State + box drives an absolutely-positioned <input> overlay that paints
@@ -389,7 +438,7 @@ export default function PreviewPane({
         >
           {device === 'mobile' ? (
             <div
-              ref={setBezelRef}
+              ref={(el) => { setBezelRef(el); bezelScaleRef.current = el; }}
               data-testid="preview-bezel-mobile"
               className={`qq-bezel qq-bezel--mobile${isOver ? ' is-drop-target' : ''}`}
               onClick={onBezelClick}
