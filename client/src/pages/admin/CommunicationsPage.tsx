@@ -13,8 +13,9 @@
  * inbound texts appear without manual refresh. No websocket / SSE.
  */
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Device, Call } from "@twilio/voice-sdk";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { Button } from "@/components/ui/button";
@@ -38,6 +39,8 @@ import {
   PhoneOff,
   AlertTriangle,
   RefreshCw,
+  Check,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -596,6 +599,21 @@ function NewMessageDialog({
 
 /* ─── Phone panel ────────────────────────────────────────────────── */
 
+/**
+ * Token refresh interval — Twilio access tokens are typically 1h TTL,
+ * so we re-fetch every 30 min to stay well clear of expiry.
+ */
+const TOKEN_REFRESH_MS = 30 * 60 * 1000;
+
+type DialerState =
+  | "idle"
+  | "initializing"  // fetching token / setting up device
+  | "ready"         // device registered, no active call
+  | "calling"      // outbound call in progress (ringing or connected)
+  | "incoming"     // inbound call ringing
+  | "not_configured" // env vars missing or device init failed
+  ;
+
 function PhonePanel({
   voiceReady,
   voiceMissing,
@@ -608,7 +626,15 @@ function PhonePanel({
   const { toast } = useToast();
   const [dialNumber, setDialNumber] = useState("");
 
-  const { data: callsData, isLoading: callsLoading } = useQuery<{ calls: TwilioCall[] }>({
+  // Voice SDK plumbing
+  const deviceRef = useRef<Device | null>(null);
+  const activeCallRef = useRef<Call | null>(null);
+  const [dialerState, setDialerState] = useState<DialerState>("idle");
+  const [activeCallNumber, setActiveCallNumber] = useState<string | null>(null);
+  const [incomingCall, setIncomingCall] = useState<Call | null>(null);
+  const [initError, setInitError] = useState<string | null>(null);
+
+  const { data: callsData, isLoading: callsLoading, refetch: refetchCalls } = useQuery<{ calls: TwilioCall[] }>({
     queryKey: ["/api/admin/twilio/calls"],
     queryFn: async () => {
       const res = await fetch("/api/admin/twilio/calls?limit=50", { credentials: "include" });
@@ -618,105 +644,362 @@ function PhonePanel({
     refetchInterval: 30000,
   });
 
-  // NOTE: Twilio Voice JS SDK ("@twilio/voice-sdk") is intentionally NOT
-  // bundled in v1 — it's a heavy client dep and Alex hasn't created the
-  // TwiML App yet. Once TWILIO_APP_SID exists we can:
-  //   1. npm i @twilio/voice-sdk
-  //   2. const Device = new (await import('@twilio/voice-sdk')).Device(token)
-  //   3. Device.connect({ params: { To: dialNumber } })
-  // The /api/admin/twilio/voice-token endpoint is already wired and ready.
-  //
-  // For now, "Call" surfaces a helpful toast that tells Alex exactly what
-  // env vars to set. This is a v1 scaffold, not a working dialer.
-  const handleCall = () => {
+  /* Fetch a fresh access token from the server. */
+  const fetchToken = useCallback(async (): Promise<string> => {
+    const res = await fetch("/api/admin/twilio/voice-token", { credentials: "include" });
+    if (!res.ok) {
+      // 503 → voice not configured; bubble up so caller can show empty state.
+      const detail = await res.json().catch(() => ({}));
+      throw new Error(detail?.error || `token fetch failed (${res.status})`);
+    }
+    const data = await res.json();
+    if (!data?.token) throw new Error("token missing in response");
+    return data.token as string;
+  }, []);
+
+  /* Initialize the Voice SDK Device. Called on mount + when voiceReady flips. */
+  useEffect(() => {
     if (!voiceReady) {
+      setDialerState("not_configured");
+      return;
+    }
+
+    let cancelled = false;
+    let refreshTimer: ReturnType<typeof setInterval> | null = null;
+
+    (async () => {
+      setDialerState("initializing");
+      setInitError(null);
+      try {
+        const token = await fetchToken();
+        if (cancelled) return;
+
+        const device = new Device(token, {
+          // Use the SDK defaults — codecs etc. The TwiML App handles routing.
+          logLevel: "warn",
+        });
+
+        device.on(Device.EventName.Registered, () => {
+          if (cancelled) return;
+          setDialerState((s) => (s === "calling" || s === "incoming" ? s : "ready"));
+        });
+
+        device.on(Device.EventName.Error, (err: any) => {
+          // Surface as toast; don't tear down the device — SDK auto-retries.
+          toast({
+            title: "Voice error",
+            description: err?.message ?? "Unknown Voice SDK error",
+            variant: "destructive",
+          });
+        });
+
+        device.on(Device.EventName.Incoming, (call: Call) => {
+          if (cancelled) return;
+          setIncomingCall(call);
+          setDialerState("incoming");
+
+          call.on("cancel", () => {
+            setIncomingCall((c) => (c === call ? null : c));
+            setDialerState((s) => (s === "incoming" ? "ready" : s));
+          });
+          call.on("disconnect", () => {
+            setIncomingCall((c) => (c === call ? null : c));
+            setDialerState((s) => (s === "incoming" ? "ready" : s));
+            refetchCalls();
+          });
+          call.on("reject", () => {
+            setIncomingCall((c) => (c === call ? null : c));
+            setDialerState((s) => (s === "incoming" ? "ready" : s));
+          });
+        });
+
+        await device.register();
+        if (cancelled) {
+          device.destroy();
+          return;
+        }
+        deviceRef.current = device;
+
+        // Periodic token refresh.
+        refreshTimer = setInterval(async () => {
+          try {
+            const fresh = await fetchToken();
+            device.updateToken(fresh);
+          } catch (err: any) {
+            // Non-fatal — keep current token until it expires.
+            // eslint-disable-next-line no-console
+            console.warn("[voice] token refresh failed", err?.message);
+          }
+        }, TOKEN_REFRESH_MS);
+      } catch (err: any) {
+        if (cancelled) return;
+        setInitError(err?.message ?? "Failed to initialize Voice SDK");
+        setDialerState("not_configured");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      if (refreshTimer) clearInterval(refreshTimer);
+      if (activeCallRef.current) {
+        try { activeCallRef.current.disconnect(); } catch { /* noop */ }
+        activeCallRef.current = null;
+      }
+      if (deviceRef.current) {
+        try { deviceRef.current.destroy(); } catch { /* noop */ }
+        deviceRef.current = null;
+      }
+    };
+  }, [voiceReady, fetchToken, toast, refetchCalls]);
+
+  /* Place an outbound call. */
+  const handleCall = async () => {
+    if (!dialNumber.trim()) return;
+    const device = deviceRef.current;
+    if (!device) {
       toast({
-        title: "Voice dialer not configured",
-        description: `Set in Doppler: ${voiceMissing.join(", ") || "TWILIO_APP_SID"}. See setup notes.`,
+        title: "Voice not ready",
+        description: initError ?? "Device still initializing.",
         variant: "destructive",
       });
       return;
     }
-    toast({
-      title: "Voice SDK not bundled yet",
-      description: "TODO: install @twilio/voice-sdk on the client. Access token endpoint is live.",
-    });
+    try {
+      setDialerState("calling");
+      setActiveCallNumber(dialNumber);
+      const call = await device.connect({ params: { To: dialNumber } });
+      activeCallRef.current = call;
+      call.on("disconnect", () => {
+        activeCallRef.current = null;
+        setActiveCallNumber(null);
+        setDialerState("ready");
+        refetchCalls();
+      });
+      call.on("cancel", () => {
+        activeCallRef.current = null;
+        setActiveCallNumber(null);
+        setDialerState("ready");
+      });
+      call.on("error", (err: any) => {
+        toast({
+          title: "Call error",
+          description: err?.message ?? "Call failed",
+          variant: "destructive",
+        });
+        activeCallRef.current = null;
+        setActiveCallNumber(null);
+        setDialerState("ready");
+      });
+    } catch (err: any) {
+      toast({
+        title: "Call failed",
+        description: err?.message ?? "Could not place call",
+        variant: "destructive",
+      });
+      setActiveCallNumber(null);
+      setDialerState("ready");
+    }
   };
+
+  /* Hang up the currently active outbound call. */
+  const handleHangup = () => {
+    if (activeCallRef.current) {
+      try { activeCallRef.current.disconnect(); } catch { /* noop */ }
+    }
+  };
+
+  /* Accept / decline incoming call. */
+  const handleAcceptIncoming = () => {
+    if (!incomingCall) return;
+    try {
+      incomingCall.accept();
+      activeCallRef.current = incomingCall;
+      setActiveCallNumber(incomingCall.parameters?.From ?? null);
+      setDialerState("calling");
+      setIncomingCall(null);
+    } catch (err: any) {
+      toast({ title: "Accept failed", description: err?.message ?? "", variant: "destructive" });
+    }
+  };
+  const handleDeclineIncoming = () => {
+    if (!incomingCall) return;
+    try { incomingCall.reject(); } catch { /* noop */ }
+    setIncomingCall(null);
+    setDialerState("ready");
+  };
+
+  // The voice panel is "configured" if the server says so AND device init didn't fail.
+  const showEmptyState = !voiceReady || dialerState === "not_configured";
+  const showIncomingBanner = dialerState === "incoming" && incomingCall;
+  const showActiveCallBanner = dialerState === "calling" && activeCallNumber;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr] gap-3">
       {/* Dialer */}
-      <Card className="p-5 flex flex-col">
+      <Card className="p-5 flex flex-col" data-testid="twilio-dialer-panel">
         <div className="flex items-center gap-2 mb-1">
           <PhoneCall className="w-4 h-4 text-[#0d3cfc]" />
           <h3 className="text-sm font-semibold text-gray-900">Dialer</h3>
+          {dialerState === "ready" && (
+            <span className="ml-auto inline-flex items-center gap-1 text-[10px] text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-full">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-500" /> Ready
+            </span>
+          )}
+          {dialerState === "initializing" && (
+            <span className="ml-auto inline-flex items-center gap-1 text-[10px] text-gray-600 bg-gray-50 border border-gray-200 px-1.5 py-0.5 rounded-full">
+              <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-pulse" /> Connecting…
+            </span>
+          )}
         </div>
         <p className="text-xs text-gray-500 mb-4">
           {fromNumber ? <>From {formatPhone(fromNumber)}</> : "From: Twilio number not set"}
         </p>
 
-        {!voiceReady && (
-          <ConfigBanner
-            title="Voice dialer not ready"
-            missing={voiceMissing}
-            help="Create a TwiML App in the Twilio Console (Voice URL → /api/twilio/voice-twiml) and set TWILIO_APP_SID. Also need TWILIO_API_KEY + TWILIO_API_KEY_SECRET (separate from your Auth Token)."
-          />
-        )}
-
-        <div className="mt-4">
-          <FloatField
-            label="Number to call (e.g. +15551234567)"
-            htmlFor="twilio-dial-to"
-            infoText="E.164 format with country code. The call originates from your Twilio number."
-          >
-            <input
-              id="twilio-dial-to"
-              className="premium-input"
-              placeholder=" "
-              value={dialNumber}
-              onChange={(e) => setDialNumber(e.target.value)}
-              data-testid="twilio-dial-input"
+        {showEmptyState ? (
+          <>
+            <ConfigBanner
+              title="Voice dialer not configured"
+              missing={voiceMissing}
+              help={
+                initError
+                  ? `Init error: ${initError}. Verify TWILIO_APP_SID points at a TwiML App whose Voice URL is /api/twilio/voice-twiml.`
+                  : "Create a TwiML App in the Twilio Console (Voice URL → /api/twilio/voice-twiml) and set TWILIO_APP_SID. Also need TWILIO_API_KEY + TWILIO_API_KEY_SECRET (separate from your Auth Token)."
+              }
             />
-          </FloatField>
-        </div>
+            <div className="mt-5 p-4 rounded-lg border border-dashed border-gray-200 text-center" data-testid="twilio-dialer-empty">
+              <Phone className="w-7 h-7 text-gray-300 mx-auto" />
+              <p className="text-sm font-medium text-gray-600 mt-2">Voice not configured</p>
+              <p className="text-xs text-gray-400 mt-1 max-w-xs mx-auto">
+                Set the env vars above in Doppler and reload to enable browser-based calling.
+              </p>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="mt-2">
+              <FloatField
+                label="Number to call (e.g. +15551234567)"
+                htmlFor="twilio-dial-to"
+                infoText="E.164 format with country code. The call originates from your Twilio number."
+              >
+                <input
+                  id="twilio-dial-to"
+                  className="premium-input"
+                  placeholder=" "
+                  value={dialNumber}
+                  onChange={(e) => setDialNumber(e.target.value)}
+                  disabled={dialerState === "calling"}
+                  data-testid="twilio-dial-input"
+                />
+              </FloatField>
+            </div>
 
-        {/* Dial pad */}
-        <div className="grid grid-cols-3 gap-2 mt-4">
-          {["1","2","3","4","5","6","7","8","9","*","0","#"].map((d) => (
-            <button
-              key={d}
-              type="button"
-              onClick={() => setDialNumber((n) => n + d)}
-              className="h-12 rounded-xl bg-gray-50 hover:bg-gray-100 active:bg-gray-200 text-gray-800 text-base font-medium transition-colors"
-              data-testid={`twilio-dial-key-${d}`}
-            >
-              {d}
-            </button>
-          ))}
-        </div>
+            {/* Dial pad */}
+            <div className="grid grid-cols-3 gap-2 mt-4">
+              {["1","2","3","4","5","6","7","8","9","*","0","#"].map((d) => (
+                <button
+                  key={d}
+                  type="button"
+                  onClick={() => {
+                    if (dialerState === "calling" && activeCallRef.current) {
+                      // Send DTMF tone during an active call.
+                      try { activeCallRef.current.sendDigits(d); } catch { /* noop */ }
+                    } else {
+                      setDialNumber((n) => n + d);
+                    }
+                  }}
+                  className="h-12 rounded-xl bg-gray-50 hover:bg-gray-100 active:bg-gray-200 text-gray-800 text-base font-medium transition-colors"
+                  data-testid={`twilio-dial-key-${d}`}
+                >
+                  {d}
+                </button>
+              ))}
+            </div>
 
-        <div className="grid grid-cols-2 gap-2 mt-3">
-          <Button
-            variant="outline"
-            onClick={() => setDialNumber("")}
-            disabled={!dialNumber}
-          >
-            Clear
-          </Button>
-          <Button
-            onClick={handleCall}
-            disabled={!dialNumber || !voiceReady}
-            className="bg-green-600 hover:bg-green-700 gap-1.5"
-            data-testid="twilio-call-button"
-          >
-            <PhoneCall className="w-4 h-4" /> Call
-          </Button>
-        </div>
+            <div className="grid grid-cols-2 gap-2 mt-3">
+              <Button
+                variant="outline"
+                onClick={() => setDialNumber("")}
+                disabled={!dialNumber || dialerState === "calling"}
+              >
+                Clear
+              </Button>
+              {dialerState === "calling" ? (
+                <Button
+                  onClick={handleHangup}
+                  className="bg-red-600 hover:bg-red-700 gap-1.5"
+                  data-testid="twilio-hangup-button"
+                >
+                  <PhoneOff className="w-4 h-4" /> Hang up
+                </Button>
+              ) : (
+                <Button
+                  onClick={handleCall}
+                  disabled={!dialNumber || dialerState !== "ready"}
+                  className="bg-green-600 hover:bg-green-700 gap-1.5"
+                  data-testid="twilio-call-button"
+                >
+                  <PhoneCall className="w-4 h-4" /> Call
+                </Button>
+              )}
+            </div>
 
-        {/* Inbound-call banner placeholder */}
-        <div className="mt-5 p-3 rounded-lg border border-dashed border-gray-200 text-center">
-          <p className="text-xs text-gray-400">Incoming-call banner will appear here once the Voice SDK is bundled.</p>
-        </div>
+            {/* Active call banner */}
+            {showActiveCallBanner && (
+              <div
+                className="mt-5 p-3 rounded-lg border border-green-200 bg-green-50 flex items-center gap-3"
+                data-testid="twilio-active-call-banner"
+              >
+                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-medium text-green-900">In call</p>
+                  <p className="text-xs text-green-700 truncate">{formatPhone(activeCallNumber)}</p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleHangup}
+                  className="h-7 px-2 gap-1 border-red-200 text-red-700 hover:bg-red-50"
+                >
+                  <PhoneOff className="w-3.5 h-3.5" /> End
+                </Button>
+              </div>
+            )}
+
+            {/* Incoming-call banner */}
+            {showIncomingBanner && (
+              <div
+                className="mt-5 p-3 rounded-lg border border-blue-200 bg-blue-50 flex items-center gap-3"
+                data-testid="twilio-incoming-call-banner"
+              >
+                <PhoneIncoming className="w-5 h-5 text-blue-600 animate-pulse" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-medium text-blue-900">Incoming call</p>
+                  <p className="text-xs text-blue-700 truncate">
+                    {formatPhone(incomingCall?.parameters?.From ?? null)}
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={handleAcceptIncoming}
+                  className="h-7 px-2 gap-1 bg-green-600 hover:bg-green-700"
+                  data-testid="twilio-incoming-accept"
+                >
+                  <Check className="w-3.5 h-3.5" /> Accept
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleDeclineIncoming}
+                  className="h-7 px-2 gap-1 border-red-200 text-red-700 hover:bg-red-50"
+                  data-testid="twilio-incoming-decline"
+                >
+                  <X className="w-3.5 h-3.5" /> Decline
+                </Button>
+              </div>
+            )}
+          </>
+        )}
       </Card>
 
       {/* Recent calls */}
