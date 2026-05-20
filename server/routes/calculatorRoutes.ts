@@ -342,6 +342,27 @@ export function registerCalculatorRoutes(app: Express): void {
 
       if (updates.calculator_settings) {
         const currentSettings = (calculator.calculator_settings as any) || {};
+        // Wave Q-D — tier gate on the WeFixTrades brand badge.
+        // appearance.show_powered_by = false is the "hide the badge"
+        // toggle (Wave P-H). It is the primary Pro upsell, so free-tier
+        // calculators cannot apply it. We strip the offending key from
+        // the patch BEFORE the deep merge so the user's existing value
+        // (true by default) is preserved.
+        const incomingAppearance = (updates.calculator_settings as any).appearance;
+        if (incomingAppearance && incomingAppearance.show_powered_by === false) {
+          const planTier = (calculator.plan_tier ?? 'free') as string;
+          const paidTier = planTier === 'pro' || planTier === 'business' || planTier === 'starter';
+          if (!paidTier) {
+            // Strip the hide-toggle from the patch; keep every other
+            // appearance field intact.
+            const { show_powered_by: _stripped, ...restAppearance } = incomingAppearance;
+            void _stripped;
+            (updates.calculator_settings as any).appearance = restAppearance;
+            log.info("Wave Q gate — stripped show_powered_by=false from free-tier calculator", {
+              calculator_id: calculator.id,
+            });
+          }
+        }
         // Deep merge: preserve nested objects that aren't being replaced
         const merged = deepMergeSettings(currentSettings, updates.calculator_settings as Record<string, any>);
         try {
@@ -571,7 +592,9 @@ export function registerCalculatorRoutes(app: Express): void {
   const checkoutBody = z.object({
     calculator_id: z.number().int().positive(),
     token: z.string().min(1),
-    plan: z.enum(['starter', 'pro']),
+    // Wave Q — three-tier ladder. 'starter' kept for back-compat with any
+    // links that still point at it; server maps it to the new 'pro' price.
+    plan: z.enum(['starter', 'pro', 'business']),
     billing: z.enum(['monthly', 'annual']).default('monthly'),
   });
 
@@ -589,14 +612,23 @@ export function registerCalculatorRoutes(app: Express): void {
         return res.status(404).json({ error: "Calculator not found" });
       }
 
-      // Map plan + billing to Stripe price IDs (configured in env).
-      // Alex provisions the 4 live prices in Stripe and sets these in
-      // Doppler prd; until then checkout 400s with "Price not configured".
+      // Wave Q — map plan + billing to Stripe price IDs (env).
+      //   pro       monthly/annual = STRIPE_PRICE_QQ_PRO_*
+      //   business  monthly/annual = STRIPE_PRICE_QQ_BUSINESS_*
+      //   starter   (legacy)       = falls back to pro price for any old
+      //                              checkout link that still uses it.
+      // Alex provisions live prices in Stripe + Doppler prd; until then
+      // checkout 400s with "Price not configured".
       const priceMap: Record<string, string | undefined> = {
-        'starter_monthly': process.env.STRIPE_PRICE_QQ_STARTER_MONTHLY,
-        'starter_annual': process.env.STRIPE_PRICE_QQ_STARTER_ANNUAL,
         'pro_monthly': process.env.STRIPE_PRICE_QQ_PRO_MONTHLY,
         'pro_annual': process.env.STRIPE_PRICE_QQ_PRO_ANNUAL,
+        'business_monthly': process.env.STRIPE_PRICE_QQ_BUSINESS_MONTHLY,
+        'business_annual': process.env.STRIPE_PRICE_QQ_BUSINESS_ANNUAL,
+        // Legacy starter → pro fallback.
+        'starter_monthly':
+          process.env.STRIPE_PRICE_QQ_STARTER_MONTHLY ?? process.env.STRIPE_PRICE_QQ_PRO_MONTHLY,
+        'starter_annual':
+          process.env.STRIPE_PRICE_QQ_STARTER_ANNUAL ?? process.env.STRIPE_PRICE_QQ_PRO_ANNUAL,
       };
 
       const priceKey = `${parsed.data.plan}_${parsed.data.billing}`;
@@ -605,8 +637,11 @@ export function registerCalculatorRoutes(app: Express): void {
         return res.status(400).json({ error: `Price not configured for ${priceKey}. Contact support.` });
       }
 
-      // plan_tier matches planGating.ts PlanTier ('starter' | 'pro').
-      const planTier = parsed.data.plan;
+      // Wave Q — plan_tier on the calculator row.
+      //   - 'starter' inbound (legacy link) is normalised to 'pro' so the
+      //     row reflects the current ladder.
+      //   - 'pro' and 'business' map verbatim.
+      const planTier = parsed.data.plan === 'starter' ? 'pro' : parsed.data.plan;
       const baseUrl = process.env.APP_URL || `${req.protocol}://${req.get("host")}`;
 
       const session = await stripe.checkout.sessions.create({

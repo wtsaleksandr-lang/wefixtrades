@@ -248,10 +248,13 @@ export default function QuoteQuickPage() {
   const totalViews = calculators.reduce((s, c) => s + c.total_views, 0);
   const paidCount = calculators.filter((c) => c.plan_tier !== "free").length;
 
+  // Wave Q — three-tier ladder (Free / Pro $29 / Business $79). Legacy
+  // "starter" rows roll into "Pro" so the admin admin counts stay clean
+  // until any grandfathered customers migrate (none expected pre-launch).
   const tierMix = [
     { label: "Free", count: calculators.filter((c) => c.plan_tier === "free").length },
-    { label: "Starter", count: calculators.filter((c) => c.plan_tier === "starter").length },
-    { label: "Pro", count: calculators.filter((c) => c.plan_tier === "business" || c.plan_tier === "pro").length },
+    { label: "Pro", count: calculators.filter((c) => c.plan_tier === "pro" || c.plan_tier === "starter").length },
+    { label: "Business", count: calculators.filter((c) => c.plan_tier === "business").length },
   ];
 
   function SortHeader({ field, label }: { field: SortField; label: string }) {

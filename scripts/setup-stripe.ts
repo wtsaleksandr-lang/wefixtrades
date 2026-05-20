@@ -131,11 +131,13 @@ async function main() {
   }
 
   /* ─── 3. Price ID validation ──────────────────────────────────── */
+  // Wave Q — three-tier ladder (Free is non-Stripe; Pro $29, Business $79).
+  // Starter price vars are legacy; only honoured for grandfathered subs.
   const priceVars = [
-    "STRIPE_PRICE_QQ_STARTER_MONTHLY",
-    "STRIPE_PRICE_QQ_STARTER_ANNUAL",
     "STRIPE_PRICE_QQ_PRO_MONTHLY",
     "STRIPE_PRICE_QQ_PRO_ANNUAL",
+    "STRIPE_PRICE_QQ_BUSINESS_MONTHLY",
+    "STRIPE_PRICE_QQ_BUSINESS_ANNUAL",
   ];
   for (const v of priceVars) {
     const id = process.env[v];
