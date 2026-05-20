@@ -806,12 +806,19 @@ export default function WizardShell({ embed = false }: Props) {
               background: ${p.colors.surfaceRaised};
               color: ${p.colors.heading};
             }
+            /* Wave L N1 — keep the tab bar visible while the left-pane content
+             * scrolls. The tabs are a child of .qq-editor-frame (siblings of
+             * .qq-editor-body), so sticky to the top of the frame; the topbar
+             * sits at 0..~46px so the tabs sit at the topbar's height. */
             .qq-editor-tabs {
               display: flex; flex-shrink: 0;
               background: #fff;
               border-bottom: 1px solid ${d.colors.borderLight};
               overflow-x: auto;
               scrollbar-width: none;
+              position: sticky;
+              top: 0;
+              z-index: 5;
             }
             .qq-editor-tabs::-webkit-scrollbar { display: none; }
             .qq-editor-tabs-inner {
@@ -868,10 +875,29 @@ export default function WizardShell({ embed = false }: Props) {
             .qq-editor-resize.is-resizing > span {
               background: ${p.colors.accent};
             }
+            /* Wave L N2 — sticky bottom actions row.
+             *
+             * When the user is tweaking Style/Settings/Install values, the
+             * footer Save-draft action needs to stay anchored at the bottom
+             * of the left pane so it doesn't disappear off-screen during
+             * scroll. We make the actions row sticky to bottom:0 of its
+             * scroll container (.qq-editor-left). Background is opaque so
+             * scrolled content behind it doesn't bleed through.
+             *
+             * The negative horizontal margins extend the row's hairline
+             * separator across the full pane width despite the padding on
+             * the wrapping .qq-editor-left-inner. */
             .qq-editor-actions {
               display: flex; align-items: center; gap: 10px;
-              margin-top: auto; padding-top: 14px;
+              margin-top: auto;
+              padding: 12px 18px 14px;
+              margin-left: -18px; margin-right: -18px;
               border-top: 1px solid ${d.colors.borderLight};
+              background: ${d.colors.panel};
+              position: sticky; bottom: 0; z-index: 4;
+            }
+            .qq-editor-shell[data-theme="dark"] .qq-editor-actions {
+              background: var(--qq-surface);
             }
             .qq-editor-btn {
               display: inline-flex; align-items: center; justify-content: center;
