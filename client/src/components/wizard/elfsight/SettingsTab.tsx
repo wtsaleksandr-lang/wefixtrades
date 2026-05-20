@@ -514,14 +514,14 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
       </fieldset>
 
       {/* ── Online booking (Wave R-1) ───────────────────────────── */}
+      {/* W-R1 / W-SETTINGS-STYLE merge: section InfoCue replaced with a
+          subtle paragraph below the legend — same pattern Deposit/Brand
+          adopted (commits 09c62328 + 0bc105e5). */}
       <fieldset className="qq-style-group" data-testid="settings-group-scheduling">
-        <legend className="qq-style-legend">
-          Online booking
-          <InfoCue
-            testid="settings-scheduling"
-            text="Lets customers book a time on your calendar after the quote step. Slots fill from your working hours minus existing bookings."
-          />
-        </legend>
+        <legend className="qq-style-legend">Online booking</legend>
+        <p className="qq-style-sectionhint">
+          Lets customers book a time on your calendar after the quote step. Slots fill from your working hours minus existing bookings.
+        </p>
 
         <div className="qq-scheduling-toggle" data-testid="scheduling-toggle-row">
           <label className="qq-brand-badge-toggle">
