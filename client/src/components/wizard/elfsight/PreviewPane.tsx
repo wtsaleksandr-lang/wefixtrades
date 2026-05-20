@@ -17,7 +17,7 @@ import {
   type TemplateLayout, type TemplateField, type TemplateCalculation,
 } from '@shared/templatePresets';
 import { platformTheme } from '@/theme/platformTheme';
-import type { PreviewDevice } from './types';
+import type { PreviewDevice, ShellHeader, ShellResults } from './types';
 
 const p = platformTheme;
 
@@ -41,10 +41,26 @@ interface Props {
    * `__preview: true` flag is preserved.
    */
   calculations?: TemplateCalculation[];
+  /**
+   * Wave H4 — header overrides (title / subtitle). Either field, when a
+   * non-empty string, overrides the seed; blanks fall through to the
+   * defaults (business_name fallback for title; no subtitle).
+   */
+  header?: ShellHeader;
+  /** Wave H4 — result-panel overrides (heading / footnote). */
+  results?: ShellResults;
+  /**
+   * Wave H4 — explicit headline calc id. Used to look up the calc in the
+   * (post-merge) calculations array and set `result_calc` to its NAME (the
+   * runtime config still keys headline by name). If the id no longer
+   * resolves to a calc, the seed headline wins.
+   */
+  resultCalcId?: string;
 }
 
 export default function PreviewPane({
   businessName, layout, device, fields, calculations,
+  header, results, resultCalcId,
 }: Props) {
   // Synthetic CalculatorData (preview-only). `id: -1` mirrors the legacy
   // sentinel so any downstream code that branches on a real id still treats
@@ -68,6 +84,35 @@ export default function PreviewPane({
         result_calc: stillHasHeadline ? merged.result_calc : calculations[calculations.length - 1].name,
       };
     }
+    // H4 — apply explicit headline by id (preferred over the legacy name
+    // match above). If the id resolves to a calc, set `result_calc` to that
+    // calc's current NAME (the renderer keys headline by name AND honours
+    // resultMode: 'primary'; either path lands on the same calc).
+    if (resultCalcId) {
+      const hit = merged.calculations.find((c) => c.id === resultCalcId);
+      if (hit) merged = { ...merged, result_calc: hit.name };
+    }
+    // H4 — header overrides. Only non-empty trimmed values override; blanks
+    // fall through to the existing fallbacks (business_name for title, no
+    // subtitle). The Wave G "no auto-subtitle" behaviour is preserved
+    // because a blank subtitle does NOT override the empty seed.
+    if (header) {
+      const titleOverride = (header.title ?? '').trim();
+      const subtitleOverride = (header.subtitle ?? '').trim();
+      const mergedHeader = { ...(merged.header || { title: '', align: 'left' as const }) };
+      if (titleOverride !== '') mergedHeader.title = header.title!;
+      if (subtitleOverride !== '') mergedHeader.subtitle = header.subtitle;
+      merged = { ...merged, header: mergedHeader };
+    }
+    // H4 — results overrides. Non-empty heading / footnote replace seed.
+    if (results) {
+      const headingOverride = (results.heading ?? '').trim();
+      const footnoteOverride = (results.footnote ?? '').trim();
+      const mergedResults = { ...(merged.results || {}) };
+      if (headingOverride !== '') mergedResults.heading = results.heading;
+      if (footnoteOverride !== '') mergedResults.footnote = results.footnote;
+      merged = { ...merged, results: mergedResults };
+    }
     return {
       id: -1,
       slug: 'preview',
@@ -80,7 +125,7 @@ export default function PreviewPane({
         advanced: merged,
       },
     };
-  }, [businessName, layout, fields, calculations]);
+  }, [businessName, layout, fields, calculations, header, results, resultCalcId]);
 
   return (
     <div className="qq-preview-pane" data-testid="editor-preview-pane">
