@@ -106,10 +106,19 @@ export const PRODUCT_PAGES: ProductPage[] = [
     related: ["quickquotepro", "reputationshield"],
   },
   {
+    // P3 fix (2026-05-20): brand-name unification. The product shipped with
+    // three different names showing in the wild \u2014 "QuoteQuick" (wizard
+    // wordmark), "QUOTEQUICK PRO" (product page kicker, from this `name`),
+    // and `quickquotepro` (URL slug + id). Canonical name is now
+    // **QuoteQuick** (drops the Pro suffix and the trademark, matches the
+    // wizard wordmark and the broader site copy). The URL slug stays
+    // `quickquotepro` intentionally \u2014 changing it breaks SEO and existing
+    // inbound links. So user-visible everything-says-QuoteQuick + URL
+    // unchanged.
     slug: "quickquotepro",
-    name: "QuoteQuick Pro\u2122",
+    name: "QuoteQuick",
     shortTagline: "Instant quotes on your website. Qualified leads in your inbox.",
-    seoTitle: "QuoteQuick Pro\u2122 \u2014 Instant Quote Calculator for Trades | WeFixTrades",
+    seoTitle: "QuoteQuick \u2014 Instant Quote Calculator for Trades | WeFixTrades",
     seoDescription: "Your customers get instant prices on your website. You get qualified leads with every quote. Live in 5 minutes. No platform switch. Free for 14 days.",
     category: "core",
     heroVisualType: "calculator",
