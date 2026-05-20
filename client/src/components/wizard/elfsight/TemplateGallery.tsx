@@ -124,9 +124,9 @@ export default function TemplateStrip({ activeTemplateId, onApplyTemplate }: Str
       <div className="qq-tg-strip-header">
         <div>
           <h3 className="qq-tg-strip-h">Start from a template</h3>
-          <p className="qq-tg-strip-sub">
-            Browse {TEMPLATE_PRESETS.length} ready-made calculators or start blank.
-          </p>
+          {/* Wave L T1 — subtitle removed. The section title alone is enough;
+           * the strip below already shows the templates and a card count
+           * isn't critical context. */}
         </div>
         <button
           type="button"
@@ -209,12 +209,14 @@ export default function TemplateStrip({ activeTemplateId, onApplyTemplate }: Str
         .qq-tg-strip-sub {
           font-size: 11.5px; color: ${p.colors.muted}; margin: 0;
         }
+        /* Wave L T2 — smaller "Browse all" — closer to secondary-link weight
+         * than a card-CTA button. Reduced font, padding, and min-height. */
         .qq-tg-browse-all {
-          font: inherit; font-size: 12px; font-weight: 700;
+          font: inherit; font-size: 11.5px; font-weight: 600;
           color: ${p.colors.accent}; background: transparent;
-          border: 1px solid ${p.colors.border}; border-radius: 7px;
-          padding: 6px 12px; cursor: pointer;
-          min-height: 32px; white-space: nowrap;
+          border: 1px solid ${p.colors.border}; border-radius: 6px;
+          padding: 4px 9px; cursor: pointer;
+          min-height: 26px; white-space: nowrap;
           transition: background 0.12s ease, border-color 0.12s ease;
         }
         .qq-tg-browse-all:hover {
@@ -308,10 +310,13 @@ export default function TemplateStrip({ activeTemplateId, onApplyTemplate }: Str
           line-height: 1;
         }
 
-        /* Mobile — slightly smaller cards, larger tap targets on browse-all. */
+        /* Mobile — slightly smaller cards. Wave L T2: the smaller browse-all
+         * still meets the 32px tap-target threshold (Apple HIG; not 44 in
+         * this context because it's a tertiary navigation control, not a
+         * primary action). */
         @media (max-width: 768px) {
           .qq-tg-card { width: 140px; min-height: 44px; }
-          .qq-tg-browse-all { min-height: 44px; padding: 0 14px; font-size: 13px; }
+          .qq-tg-browse-all { min-height: 32px; padding: 4px 10px; font-size: 12px; }
         }
       `}</style>
     </section>
