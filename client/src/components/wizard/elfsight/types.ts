@@ -155,6 +155,53 @@ export interface ShellSettings {
    * preview/save payload (the AdvancedCalculator already honours that field).
    */
   ctaLabel?: string;
+  /**
+   * Wave H7 — render-time language for the embedded widget. ISO 639-1 code
+   * (e.g. `en`, `es`, `zh`). Defaults to `en`. Used by the Install tab to
+   * stamp `lang="…"` on the embed snippet and to set `document.documentElement
+   * .lang` on the live preview. Translation strings for UI labels are out of
+   * scope for H7 — only the picker + LANG attribute persist for now.
+   */
+  language?: string;
+}
+
+/**
+ * Wave H7 — supported render languages for the embedded widget.
+ *
+ * The picker exposes these top-12 most-common quote-form locales worldwide.
+ * Only the LANG attribute is wired in H7 — translation strings land in a
+ * dedicated i18n build-out.
+ */
+export interface ShellLanguageOption {
+  /** ISO 639-1 code (occasionally extended e.g. `pt-BR`). */
+  code: string;
+  /** English label shown in the dropdown. */
+  label: string;
+  /** Native-language label (shown as a hint in the option). */
+  native: string;
+}
+
+export const SHELL_LANGUAGES: ReadonlyArray<ShellLanguageOption> = [
+  { code: 'en', label: 'English', native: 'English' },
+  { code: 'es', label: 'Spanish', native: 'Español' },
+  { code: 'zh', label: 'Mandarin Chinese', native: '中文' },
+  { code: 'hi', label: 'Hindi', native: 'हिन्दी' },
+  { code: 'fr', label: 'French', native: 'Français' },
+  { code: 'de', label: 'German', native: 'Deutsch' },
+  { code: 'ru', label: 'Russian', native: 'Русский' },
+  { code: 'pt', label: 'Portuguese', native: 'Português' },
+  { code: 'ja', label: 'Japanese', native: '日本語' },
+  { code: 'ar', label: 'Arabic', native: 'العربية' },
+  { code: 'it', label: 'Italian', native: 'Italiano' },
+  { code: 'ko', label: 'Korean', native: '한국어' },
+];
+
+export const DEFAULT_SHELL_LANGUAGE = 'en';
+
+/** Look up a language by ISO code; falls back to English. */
+export function getShellLanguage(code: string | undefined): ShellLanguageOption {
+  const target = (code ?? DEFAULT_SHELL_LANGUAGE).trim().toLowerCase();
+  return SHELL_LANGUAGES.find(l => l.code === target) ?? SHELL_LANGUAGES[0];
 }
 
 /**
@@ -192,5 +239,6 @@ export const INITIAL_SHELL_STATE: ShellState = {
   settings: {
     numberFormat: { ...DEFAULT_SHELL_NUMBER_FORMAT },
     pricing: { mode: 'hourly', rate: 75 },
+    language: DEFAULT_SHELL_LANGUAGE,
   },
 };
