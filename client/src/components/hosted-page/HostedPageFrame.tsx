@@ -33,6 +33,9 @@ interface Props {
   logoUrl?: string | null;
   businessName?: string;
   children: ReactNode;
+  /** Wave P — used in the wizard preview pane. Drops `min-height: 100vh`
+   *  and reduces top/bottom padding so the frame fits inside the bezel. */
+  compact?: boolean;
 }
 
 function resolveBackgroundCss(s: HostedPageSettings): { background: string; dark: boolean } {
@@ -67,7 +70,7 @@ function isHexDark(hex: string): boolean {
 }
 
 export default function HostedPageFrame({
-  settings, logoUrl, businessName, children,
+  settings, logoUrl, businessName, children, compact = false,
 }: Props) {
   const resolved: HostedPageSettings = { ...DEFAULT_HOSTED_PAGE, ...(settings ?? {}) };
   const { background, dark } = resolveBackgroundCss(resolved);
@@ -81,9 +84,9 @@ export default function HostedPageFrame({
   const fgMuted = dark ? 'rgba(229,231,235,0.72)' : 'rgba(15,23,42,0.65)';
 
   const wrapperStyle: CSSProperties = {
-    minHeight: '100vh',
+    minHeight: compact ? 'auto' : '100vh',
     background,
-    padding: '40px 16px',
+    padding: compact ? '20px 12px' : '40px 16px',
     boxSizing: 'border-box',
     color: fg,
   };

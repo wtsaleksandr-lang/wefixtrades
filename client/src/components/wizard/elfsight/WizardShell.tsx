@@ -675,6 +675,11 @@ export default function WizardShell({ embed = false }: Props) {
                   settings={state.settings}
                   onRemoveField={removeField}
                   onAddField={addField}
+                  /* Wave P — when the Install tab is active, render the
+                   * widget inside the user's chosen hosted-page chrome so
+                   * the preview matches what visitors at {slug}.your-quote
+                   * .net actually see. */
+                  hostedFrame={activeTab === 'install'}
                 />
               </div>
             </div>
