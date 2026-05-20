@@ -110,7 +110,7 @@ async function autoProcessAITasks(planId: number, maxTasks: number): Promise<num
       await storage.assignRankflowTask(task.id, "ai_engine");
       await storage.startRankflowTask(task.id);
 
-      const stubProof = {
+      const stubProof: { urls: string[]; notes: string } = {
         urls: [],
         notes: `[AI-generated] Task "${task.title}" completed by AI engine. Content/output pending review.`,
       };
@@ -145,8 +145,25 @@ async function autoProcessAITasks(planId: number, maxTasks: number): Promise<num
       );
 
       if (qaResult.overall_passed) {
-        await storage.approveRankflowTask(task.id, task.estimated_cost || undefined);
-        completed++;
+        // Quality guard: if the AI submitted with stub/empty proof (no URLs
+        // present), do NOT auto-approve. updateRankflowTaskQA above already
+        // moved the task to `qa_review`; leaving it there forces an admin
+        // to verify real evidence before the task is marked done.
+        // Tasks with genuine proof (any URL present) continue the happy
+        // path and get auto-approved as before. See
+        // WORKSTREAMS/launch-audit/rankflow.md.
+        const proofUrls = Array.isArray(stubProof.urls) ? stubProof.urls : [];
+        const hasRealProof = proofUrls.some(
+          (u) => typeof u === "string" && u.trim().length > 0,
+        );
+        if (!hasRealProof) {
+          log.info(
+            `[rankflow-worker] Task ${task.id} passed QA but has empty proof — held in qa_review for admin verification`,
+          );
+        } else {
+          await storage.approveRankflowTask(task.id, task.estimated_cost || undefined);
+          completed++;
+        }
       }
     } catch (err: any) {
       log.error(`[rankflow-worker] AI task ${task.id} error:`, err.message);
