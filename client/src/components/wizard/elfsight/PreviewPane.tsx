@@ -17,7 +17,11 @@ import {
   type TemplateLayout, type TemplateField, type TemplateCalculation,
 } from '@shared/templatePresets';
 import { platformTheme } from '@/theme/platformTheme';
-import type { PreviewDevice, ShellHeader, ShellResults, ShellStyle } from './types';
+import type {
+  PreviewDevice, ShellHeader, ShellResults, ShellStyle,
+  ShellSettings, ShellNumberFormat,
+} from './types';
+import { DEFAULT_SHELL_NUMBER_FORMAT } from './types';
 
 const p = platformTheme;
 
@@ -62,11 +66,27 @@ interface Props {
    * partial style falls through to the placeholder seed's defaults.
    */
   style?: ShellStyle;
+  /**
+   * Wave H6 — Settings tab values. `settings.numberFormat` flows into
+   * `advanced.numberFormat` so the renderer's `formatResult` honours the
+   * user's locale choices; `settings.ctaLabel` overrides
+   * `advanced.results.cta_label` when set. Trade / lead email / pricing
+   * mode do NOT affect the preview directly — they only matter on save.
+   */
+  settings?: ShellSettings;
+}
+
+/** Map shell thousands sep enum to the literal the renderer accepts. */
+function thousandsLiteral(sep: ShellNumberFormat['thousands']): ',' | ' ' | '' {
+  return sep === 'comma' ? ',' : sep === 'space' ? ' ' : '';
+}
+function decimalLiteral(sep: ShellNumberFormat['decimal']): '.' | ',' {
+  return sep === 'comma' ? ',' : '.';
 }
 
 export default function PreviewPane({
   businessName, layout, device, fields, calculations,
-  header, results, resultCalcId, style,
+  header, results, resultCalcId, style, settings,
 }: Props) {
   // Synthetic CalculatorData (preview-only). `id: -1` mirrors the legacy
   // sentinel so any downstream code that branches on a real id still treats
@@ -128,6 +148,27 @@ export default function PreviewPane({
         style: { ...(merged.style ?? {}), ...style },
       };
     }
+    // H6 — Settings tab. `numberFormat` flows into the renderer via
+    // `advanced.numberFormat`; `ctaLabel`, when set, overrides
+    // `advanced.results.cta_label`. Absent settings → renderer keeps its
+    // pre-H6 en-US defaults / default CTA label.
+    {
+      const nf = settings?.numberFormat ?? DEFAULT_SHELL_NUMBER_FORMAT;
+      const numberFormat = {
+        thousands: thousandsLiteral(nf.thousands),
+        decimal: decimalLiteral(nf.decimal),
+        currency: (nf.currency || 'USD').toUpperCase(),
+      };
+      merged = { ...merged, numberFormat };
+
+      const cta = (settings?.ctaLabel ?? '').trim();
+      if (cta !== '') {
+        merged = {
+          ...merged,
+          results: { ...(merged.results ?? {}), cta_label: cta },
+        };
+      }
+    }
     return {
       id: -1,
       slug: 'preview',
@@ -140,7 +181,7 @@ export default function PreviewPane({
         advanced: merged,
       },
     };
-  }, [businessName, layout, fields, calculations, header, results, resultCalcId, style]);
+  }, [businessName, layout, fields, calculations, header, results, resultCalcId, style, settings]);
 
   return (
     <div className="qq-preview-pane" data-testid="editor-preview-pane">

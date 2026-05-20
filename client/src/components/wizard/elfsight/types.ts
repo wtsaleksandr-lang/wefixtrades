@@ -96,10 +96,73 @@ export const FONT_FAMILY_LABELS: Record<AdvFontFamily, string> = {
 };
 
 /**
+ * Pricing model — Wave H6. A slimmer take on the legacy wizard's
+ * Pricing step. The Elfsight clone exposes three top-level modes; per-mode
+ * value inputs map onto the canonical `PricingConfigV1` shapes at save time.
+ *  - `hourly` → `{ pricingType: 'hourly', rate }`
+ *  - `fixed`  → `{ pricingType: 'min_charge_plus_addons', minCharge }`
+ *  - `custom` → `{ pricingType: 'per_unit', unitName: label, rate }`
+ */
+export type ShellPricingMode = 'hourly' | 'fixed' | 'custom';
+
+export interface ShellPricing {
+  mode: ShellPricingMode;
+  /** Hourly rate (mode = 'hourly') or custom per-unit rate (mode = 'custom'). */
+  rate?: number;
+  /** Fixed price (mode = 'fixed'). */
+  value?: number;
+  /** Custom unit label (mode = 'custom'). */
+  label?: string;
+}
+
+/**
+ * Number formatting — Wave H6. Drives the renderer's currency formatting in
+ * the preview and the persisted calculator config. `thousands` and `decimal`
+ * must differ (the picker enforces this); `currency` is a 3-letter code that
+ * defaults to `USD`.
+ */
+export type ShellThousandsSep = 'comma' | 'space' | 'none';
+export type ShellDecimalSep = 'dot' | 'comma';
+
+export interface ShellNumberFormat {
+  thousands: ShellThousandsSep;
+  decimal: ShellDecimalSep;
+  currency: string;
+}
+
+export const DEFAULT_SHELL_NUMBER_FORMAT: Readonly<ShellNumberFormat> = {
+  thousands: 'comma',
+  decimal: 'dot',
+  currency: 'USD',
+};
+
+/**
+ * Settings tab state — Wave H6. Every field optional so older persisted state
+ * pre-dating H6 still parses cleanly. Defaults are applied lazily by readers
+ * (StyleTab pattern) — there is no per-field migration required.
+ */
+export interface ShellSettings {
+  /** WeFixTrades trade id (matches `client/src/data/trades.ts`). */
+  tradeId?: string;
+  /** Lead notification email — single recipient. Basic format check only. */
+  leadEmail?: string;
+  /** Pricing model + per-mode value inputs. */
+  pricing?: ShellPricing;
+  /** Number formatting (thousands / decimal / currency). */
+  numberFormat?: ShellNumberFormat;
+  /**
+   * Custom CTA label — when set, overrides `results.cta_label` in the
+   * preview/save payload (the AdvancedCalculator already honours that field).
+   */
+  ctaLabel?: string;
+}
+
+/**
  * H2 shell state — carries the live, editable fields list. H4 adds optional
  * header / results overrides + a `resultCalcId` carrying the user's
  * explicit headline choice (an id rather than a name, to survive renames).
  * H5 adds optional `style` overrides for the Style tab.
+ * H6 adds optional `settings` for the Settings tab.
  */
 export interface ShellState {
   businessName: string;
@@ -114,6 +177,8 @@ export interface ShellState {
   resultCalcId?: string;
   /** H5 — Style tab overrides. Seeded to brand defaults on first load. */
   style?: ShellStyle;
+  /** H6 — Settings tab values (trade / lead email / pricing / number format / CTA label). */
+  settings?: ShellSettings;
 }
 
 export const INITIAL_SHELL_STATE: ShellState = {
@@ -124,4 +189,8 @@ export const INITIAL_SHELL_STATE: ShellState = {
   header: {},
   results: {},
   style: { ...DEFAULT_ADV_STYLE },
+  settings: {
+    numberFormat: { ...DEFAULT_SHELL_NUMBER_FORMAT },
+    pricing: { mode: 'hourly', rate: 75 },
+  },
 };
