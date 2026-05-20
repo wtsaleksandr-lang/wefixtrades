@@ -193,6 +193,33 @@ export default function WizardShell({ embed = false }: Props) {
   const [device, setDevice] = useState<PreviewDevice>('desktop');
   const [justSaved, setJustSaved] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+
+  // Wave R-pre D — token-driven plan_tier load. When the wizard is opened
+  // via `/wizard?token=...` (the post-publish dashboard link), fetch the
+  // calculator's plan_tier and surface it to tier-aware bits (Settings
+  // tab brand-badge toggle, future AI/feature gates). Plain `/wizard`
+  // visitors default to 'free'. No leak: the endpoint returns only id,
+  // slug, plan_tier, business_name.
+  const [planTier, setPlanTier] = useState<string>('free');
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const token = params.get('token');
+      if (!token) return;
+      let cancelled = false;
+      (async () => {
+        try {
+          const r = await fetch(`/api/calculators/me?token=${encodeURIComponent(token)}`);
+          if (!r.ok) return;
+          const data = await r.json();
+          if (!cancelled && typeof data?.plan_tier === 'string') {
+            setPlanTier(data.plan_tier);
+          }
+        } catch { /* silent — plan_tier stays 'free' */ }
+      })();
+      return () => { cancelled = true; };
+    } catch { /* no window — SSR no-op */ }
+  }, []);
   // Wave J item 3 — editor chrome theme (light/dark). Independent of the
   // template-level theme that drives the live preview / AdvancedCalculator.
   const [editorTheme, setEditorTheme] = useState<EditorTheme>(() => loadEditorTheme());
@@ -485,6 +512,11 @@ export default function WizardShell({ embed = false }: Props) {
           ...(state.logo ? { logo: state.logo } : {}),
           shell_settings: { ...settings, logo: state.logo ?? null },
           language,
+          // Wave R-pre D — map brandBadge (wizard) to appearance
+          // .show_powered_by (server schema). The server-side gate
+          // (Wave Q-D) strips show_powered_by=false for free-tier
+          // calculators, so this only takes effect for Pro / Business.
+          appearance: { show_powered_by: settings.brandBadge !== false },
         },
       });
       return res.json();
@@ -601,6 +633,7 @@ export default function WizardShell({ embed = false }: Props) {
                     <SettingsTab
                       settings={state.settings ?? {}}
                       onChange={setSettings}
+                      planTier={planTier}
                     />
                   ) : activeTab === 'install' ? (
                     <InstallTab
@@ -932,10 +965,24 @@ export default function WizardShell({ embed = false }: Props) {
                prefers-reduced-motion at the block at the bottom of this
                style sheet. */
             .qq-editor-right {
-              transition: width 250ms ease-out, opacity 220ms ease-out,
-                          flex 250ms ease-out, padding 250ms ease-out,
-                          border 250ms ease-out;
+              /* Wave R-pre F — smoother fold/unfold. Slightly longer
+               * duration + cubic-bezier with overshoot dampener so the
+               * pane glides rather than snaps. Same property list. */
+              transition: width 320ms cubic-bezier(0.22, 1, 0.36, 1),
+                          opacity 260ms cubic-bezier(0.22, 1, 0.36, 1),
+                          flex 320ms cubic-bezier(0.22, 1, 0.36, 1),
+                          padding 320ms cubic-bezier(0.22, 1, 0.36, 1),
+                          border 320ms cubic-bezier(0.22, 1, 0.36, 1);
               overflow: hidden;
+              will-change: width, opacity;
+            }
+            .qq-editor-left {
+              /* Match the right-pane transition so when the right collapses
+               * to width:0, the left grows to fill smoothly instead of
+               * jumping. */
+              transition: flex 320ms cubic-bezier(0.22, 1, 0.36, 1),
+                          width 320ms cubic-bezier(0.22, 1, 0.36, 1);
+              will-change: flex, width;
             }
             .qq-editor-body.is-preview-collapsed .qq-editor-right {
               flex: 0 0 0 !important;

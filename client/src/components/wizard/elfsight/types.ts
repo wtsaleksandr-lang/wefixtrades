@@ -198,6 +198,14 @@ export interface ShellSettings {
    * pick a slug before the calculator exists server-side.
    */
   preferredSlug?: string;
+  /**
+   * Wave R-pre D — owner's preference for the WeFixTrades brand badge.
+   * `true` (default) shows the badge on hosted + embed; `false` hides it.
+   * The server-side gate (Wave Q-D) strips a `false` value for free-tier
+   * calculators, so this only takes effect for Pro / Business plans.
+   * Maps to calculator_settings.appearance.show_powered_by on save.
+   */
+  brandBadge?: boolean;
 }
 
 /* ─────────────────────────────────────────────────────────────────────

@@ -576,8 +576,14 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
             style={{
               borderRadius: radiusResultPx, background: c.result,
               border: resultTinted ? 'none' : `1px solid ${c.border}`, boxShadow: c.shadow,
-              padding: '18px',
-              display: 'flex', flexDirection: 'column', gap: '6px',
+              padding: '20px',
+              display: 'flex', flexDirection: 'column', gap: '10px',
+              // Wave R-pre E — defensive against the reported "quoted amount
+              // overlaps other content" — wrap long numeric values rather
+              // than punching through the panel's right edge, and let the
+              // panel grow rather than clipping.
+              overflow: 'visible',
+              minWidth: 0,
             }}
           >
             <p
@@ -586,15 +592,27 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
                 position: 'relative', zIndex: 1,
                 fontSize: '11px', fontWeight: 700, color: c.resultMuted,
                 textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0,
+                lineHeight: 1.3,
               }}
             >
               {resultHeading}
             </p>
             <p data-testid="advanced-result" style={{
               position: 'relative', zIndex: 1,
-              fontSize: 'clamp(28px, 6vw, 38px)', fontWeight: 800, color: c.resultText,
-              margin: 0, paddingTop: '2px',
-              fontFamily: eff.fontMono, lineHeight: 1.1, letterSpacing: '-0.02em',
+              // Wave R-pre E — tighten the upper-bound font-size and bump
+              // the line-height. The previous clamp(28-38, lineHeight 1.1)
+              // could collide with the breakdown rows below when the
+              // amount wrapped on narrow viewports. Wider line-height +
+              // wordBreak: break-word lets long currency values wrap
+              // cleanly instead of overlapping adjacent rows.
+              fontSize: 'clamp(26px, 5.5vw, 34px)',
+              fontWeight: 800, color: c.resultText,
+              margin: 0, paddingTop: 0,
+              fontFamily: eff.fontMono,
+              lineHeight: 1.18,
+              letterSpacing: '-0.015em',
+              wordBreak: 'break-word',
+              overflowWrap: 'anywhere',
             }}>
               {formatResult(headline, resultCalc?.format || 'currency', advanced.numberFormat)}
             </p>

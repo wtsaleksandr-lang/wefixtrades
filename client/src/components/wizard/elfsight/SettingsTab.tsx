@@ -49,9 +49,19 @@ const DECIMAL_OPTIONS: ReadonlyArray<{ value: ShellDecimalSep; label: string }> 
 interface Props {
   settings: ShellSettings;
   onChange: (next: ShellSettings) => void;
+  /** Wave R-pre D — the calculator owner's plan_tier. Free disables the
+   *  brand-badge toggle (server gate still strips it on PATCH if a free
+   *  user manages to bypass the client); Pro / Business enables it. */
+  planTier?: string;
 }
 
-export default function SettingsTab({ settings, onChange }: Props) {
+export default function SettingsTab({ settings, onChange, planTier = 'free' }: Props) {
+  const isPaidTier = planTier === 'pro' || planTier === 'business' || planTier === 'starter';
+  // brandBadge field maps to calculator_settings.appearance.show_powered_by
+  // on save (wired in WizardShell). True = show; false = hide. Default
+  // true for everyone; only paid users' false-values survive the server
+  // gate (Wave Q-D).
+  const showBrandBadge = settings.brandBadge !== false;
   const patch = useCallback(
     (next: Partial<ShellSettings>) => onChange({ ...settings, ...next }),
     [settings, onChange],
@@ -312,26 +322,37 @@ export default function SettingsTab({ settings, onChange }: Props) {
         <div
           className="qq-brand-badge-row"
           data-testid="settings-brand-badge-row"
+          data-plan-tier={planTier}
+          data-paid-tier={isPaidTier ? 'true' : 'false'}
         >
-          <label className="qq-brand-badge-toggle">
+          <label className={`qq-brand-badge-toggle${isPaidTier ? '' : ' is-locked'}`}>
             <input
               type="checkbox"
-              checked
-              disabled
+              checked={isPaidTier ? showBrandBadge : true}
+              disabled={!isPaidTier}
+              onChange={(e) => {
+                if (isPaidTier) patch({ brandBadge: e.target.checked });
+              }}
               data-testid="settings-brand-badge-input"
               aria-label="Show WeFixTrades brand badge"
             />
             <span>
               <span className="qq-brand-badge-title">Show WeFixTrades branding on the widget</span>
               <span className="qq-brand-badge-sub">
-                Required on the Free plan.{' '}
-                <a
-                  href="/pricing/quotequick"
-                  className="qq-brand-badge-link"
-                  data-testid="settings-brand-badge-upgrade"
-                >
-                  Upgrade to Pro ($29/mo) to remove it →
-                </a>
+                {isPaidTier ? (
+                  <>You're on the {planTier === 'business' ? 'Business' : 'Pro'} plan — toggle this off to hide the badge on the hosted page and embeds.</>
+                ) : (
+                  <>
+                    Required on the Free plan.{' '}
+                    <a
+                      href="/pricing/quotequick"
+                      className="qq-brand-badge-link"
+                      data-testid="settings-brand-badge-upgrade"
+                    >
+                      Upgrade to Pro ($29/mo) to remove it →
+                    </a>
+                  </>
+                )}
               </span>
             </span>
           </label>
@@ -456,13 +477,14 @@ export default function SettingsTab({ settings, onChange }: Props) {
         .qq-brand-badge-toggle {
           display: grid; grid-template-columns: 18px 1fr;
           gap: 10px; align-items: flex-start;
-          cursor: not-allowed;
+          cursor: pointer;
         }
+        .qq-brand-badge-toggle.is-locked { cursor: not-allowed; }
         .qq-brand-badge-toggle input[type="checkbox"] {
           margin-top: 2px; width: 16px; height: 16px;
           accent-color: ${p.colors.accent};
-          opacity: 0.55;
         }
+        .qq-brand-badge-toggle.is-locked input[type="checkbox"] { opacity: 0.55; }
         .qq-brand-badge-title {
           display: block;
           font-size: 12.5px; font-weight: 700;

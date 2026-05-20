@@ -83,12 +83,16 @@ export default function InstallTab({
   const slug = hasRealSlug ? derivedSlug : 'YOUR-CALCULATOR-ID';
 
   // Wave P-F — debounced availability check + custom-slug editor.
+  // Wave R-pre B — 'error' kind added so a 500 from the server (e.g. DB
+  // migration not yet applied) reads as "couldn't check" instead of
+  // misleading the user into thinking their slug is taken.
   type SlugStatus =
     | { kind: 'idle' }
     | { kind: 'checking' }
     | { kind: 'available'; slug: string }
     | { kind: 'taken'; slug: string; alternative?: string }
-    | { kind: 'invalid'; reason: string };
+    | { kind: 'invalid'; reason: string }
+    | { kind: 'error' };
   const [slugStatus, setSlugStatus] = useState<SlugStatus>({ kind: 'idle' });
   const [editingSlug, setEditingSlug] = useState(false);
   const [draftSlug, setDraftSlug] = useState(preferredSlug || autoDerived || '');
@@ -104,14 +108,26 @@ export default function InstallTab({
         const res = await fetch(
           `/api/calculators/check-slug?slug=${encodeURIComponent(derivedSlug)}`,
         );
+        // Wave R-pre B — distinguish a transport / server error from
+        // "slug is taken." Without this, a 500 (e.g. DB migration not
+        // applied) makes the wizard say "this slug is in use" which is
+        // exactly what bit Alex on the lestorna.your-quote.net attempt.
+        if (!res.ok) {
+          setSlugStatus({ kind: 'error' });
+          return;
+        }
         const data = await res.json();
         if (data?.available) {
           setSlugStatus({ kind: 'available', slug: derivedSlug });
         } else if (data?.error) {
-          // The server lumps "invalid" and "taken" into the same shape;
-          // we only show the "alternative" hint when it really is taken.
+          // Reserved-words / invalid-format come back with a descriptive
+          // reason. "Failed to check slug" / generic server errors land
+          // in the error state instead so we don't lie to the user.
+          const looksLikeServerError = /failed|unknown|error|database/i.test(data.error);
           const looksLikeReserved = /reserved|invalid|hyphen|character/i.test(data.error);
-          if (looksLikeReserved) {
+          if (looksLikeServerError) {
+            setSlugStatus({ kind: 'error' });
+          } else if (looksLikeReserved) {
             setSlugStatus({ kind: 'invalid', reason: data.error });
           } else {
             setSlugStatus({ kind: 'taken', slug: derivedSlug, alternative: `${derivedSlug}-2` });
@@ -120,7 +136,9 @@ export default function InstallTab({
           setSlugStatus({ kind: 'taken', slug: derivedSlug, alternative: `${derivedSlug}-2` });
         }
       } catch {
-        setSlugStatus({ kind: 'idle' });
+        // Wave R-pre B — network failure isn't "idle"; the user should
+        // see that we couldn't verify instead of nothing.
+        setSlugStatus({ kind: 'error' });
       }
     }, 450);
     return () => window.clearTimeout(handle);
@@ -327,6 +345,18 @@ export default function InstallTab({
               >
                 pick a custom slug
               </button>.
+            </p>
+          )}
+          {/* Wave R-pre B — explicit server-error state so a 500 from
+              check-slug doesn't masquerade as "taken". */}
+          {!editingSlug && slugStatus.kind === 'error' && (
+            <p
+              className="qq-install-hosted-status is-muted"
+              data-testid="install-hosted-slug-status"
+              data-state="error"
+            >
+              Couldn't verify availability right now — try again in a moment.
+              Your slug isn't necessarily taken.
             </p>
           )}
           {!editingSlug && slugStatus.kind === 'invalid' && (
