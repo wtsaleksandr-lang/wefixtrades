@@ -16,6 +16,7 @@ import { createMapguardTask, getExecutionUsageForMany } from "./mapguardTaskEngi
 import type { MapguardTask } from "@shared/schemas/mapguard";
 import { processMapguardAlerts, getAlertCountSince, checkCostAlert } from "./mapguardAlerts";
 import { parseMapguardConfig } from "@shared/schemas/mapguardConfig";
+import { buildMonitorKeywords } from "./mapguardKeywords";
 import { createLogger } from "../lib/logger";
 
 const log = createLogger("MapguardMonitor");
@@ -646,20 +647,16 @@ export async function runMapguardScan(client: MapguardClient): Promise<{
 }
 
 /* ═══════════════════════════════════════════
-   KEYWORD GENERATION (simplified)
+   KEYWORD GENERATION
+   ═══════════════════════════════════════════
+   Per-trade and per-category curated keyword bundles live in
+   ./mapguardKeywords (imported at top of file). The previous flat
+   "<trade> <city>" generator misfired on multi-word trade IDs
+   (e.g. "kitchen_remodeling Sydney") and stuffed the "emergency"
+   modifier into trades where it makes no sense. The dedicated module
+   curates intent-driven keywords for the highest-volume trades and
+   falls back to a category-aware generator for the rest.
    ═══════════════════════════════════════════ */
-
-function buildMonitorKeywords(trade: string, city: string): string[] {
-  const base = trade.toLowerCase();
-  return [
-    `${base} ${city}`,
-    `${base} near me`,
-    `best ${base} ${city}`,
-    `${base} services ${city}`,
-    `emergency ${base} ${city}`,
-    `local ${base} ${city}`,
-  ];
-}
 
 /* ═══════════════════════════════════════════
    BATCH SCAN (all active clients)

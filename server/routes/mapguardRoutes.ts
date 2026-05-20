@@ -46,6 +46,10 @@ import {
 import { getRecentAlerts, dismissAlert } from "../services/mapguardAlerts";
 import { compileMonthlyReport, sendMonthlyReportEmail, sendAllMonthlyReports } from "../services/mapguardReports";
 import { getLastClientActivityDate } from "../services/mapguardRetention";
+import { db } from "../db";
+import { mapguardSnapshots, mapguardAlerts } from "@shared/schemas/mapguardMonitoring";
+import { clients, clientServices, serviceCatalog } from "@shared/schemas/adminCrm";
+import { eq, and, sql } from "drizzle-orm";
 import { createLogger } from "../lib/logger";
 
 const log = createLogger("MapguardRoutes");
@@ -650,5 +654,186 @@ export function registerMapguardRoutes(app: Express) {
       statuses: MAPGUARD_TASK_STATUSES,
       transitions: MAPGUARD_STATUS_TRANSITIONS,
     });
+  });
+
+  /* ─── Operational dashboard ─────────────────────────────
+     Surfaces the signals the audit-fixes added to scan_metadata so an
+     admin can actually SEE Serper outages, Places quota issues, and
+     coverage gaps. Without this dashboard, the new error fields just
+     pile up in jsonb columns and nobody notices.
+     ────────────────────────────────────────────────────── */
+  app.get("/api/mapguard/ops/health", requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      const now = new Date();
+      const sevenDaysAgo = new Date(now.getTime() - 7 * 86_400_000);
+      const fourteenDaysAgo = new Date(now.getTime() - 14 * 86_400_000);
+
+      // 1. Active clients with a mapguard service.
+      const [activeRow] = await db.select({ count: sql<number>`count(*)::int` })
+        .from(clientServices)
+        .innerJoin(serviceCatalog, eq(clientServices.service_id, serviceCatalog.id))
+        .where(and(
+          eq(clientServices.status, "active"),
+          eq(clientServices.enabled, true),
+          sql`${serviceCatalog.id} LIKE 'mapguard%'`,
+        ));
+      const activeClients = activeRow?.count ?? 0;
+
+      // 2. Scan stats over last 7 days. We aggregate scan_metadata.errors
+      //    (a JSONB array) by exploding into a derived rowset. A scan is
+      //    "hard_error" if the snapshot has zero score data points
+      //    (place + keywords both failed) — otherwise warnings only.
+      const recentScans = await db.select({
+        id: mapguardSnapshots.id,
+        client_id: mapguardSnapshots.client_id,
+        business_name: mapguardSnapshots.business_name,
+        captured_at: mapguardSnapshots.captured_at,
+        score_total: mapguardSnapshots.score_total,
+        keywords_tracked: mapguardSnapshots.keywords_tracked,
+        scan_metadata: mapguardSnapshots.scan_metadata,
+      })
+        .from(mapguardSnapshots)
+        .where(sql`${mapguardSnapshots.captured_at} >= ${sevenDaysAgo}`)
+        .orderBy(sql`${mapguardSnapshots.captured_at} DESC`);
+
+      const scansTotal = recentScans.length;
+      let scansSuccess = 0;
+      let scansWithWarnings = 0;
+      let scansHardError = 0;
+      const errorBreakdown = new Map<string, number>();
+      const recentFailed: Array<{ snapshot_id: number; client_id: number; business_name: string; captured_at: string; errors: string[] }> = [];
+      const durations: number[] = [];
+
+      for (const s of recentScans) {
+        const meta = (s.scan_metadata as any) || {};
+        const errors: string[] = Array.isArray(meta.errors) ? meta.errors : [];
+        const dur = typeof meta.duration_ms === "number" ? meta.duration_ms : null;
+        if (dur != null) durations.push(dur);
+
+        // Tag each error code (collapse "serper_keyword_errors:3/8" into
+        // its prefix so the bucket is meaningful).
+        for (const e of errors) {
+          const code = e.includes(":") ? e.split(":")[0] : e;
+          errorBreakdown.set(code, (errorBreakdown.get(code) ?? 0) + 1);
+        }
+
+        const hardError = (s.score_total == null) || (s.score_total === 0 && (s.keywords_tracked ?? 0) === 0 && errors.length > 0);
+        if (hardError) {
+          scansHardError++;
+          if (recentFailed.length < 10) {
+            recentFailed.push({
+              snapshot_id: s.id,
+              client_id: s.client_id,
+              business_name: s.business_name ?? "",
+              captured_at: s.captured_at.toISOString(),
+              errors,
+            });
+          }
+        } else if (errors.length > 0) {
+          scansWithWarnings++;
+        } else {
+          scansSuccess++;
+        }
+      }
+
+      durations.sort((a, b) => a - b);
+      const pct = (p: number) => durations.length === 0 ? null : durations[Math.min(durations.length - 1, Math.floor(p * durations.length))];
+
+      // 3. Coverage gaps — active clients with no snapshot in last 14 days.
+      const activeClientList = await db.select({
+        client_id: clients.id,
+        business_name: clients.business_name,
+        client_service_id: clientServices.id,
+      })
+        .from(clientServices)
+        .innerJoin(clients, eq(clientServices.client_id, clients.id))
+        .innerJoin(serviceCatalog, eq(clientServices.service_id, serviceCatalog.id))
+        .where(and(
+          eq(clientServices.status, "active"),
+          eq(clientServices.enabled, true),
+          sql`${serviceCatalog.id} LIKE 'mapguard%'`,
+        ));
+
+      const lastSnapshotByClient = await db.select({
+        client_id: mapguardSnapshots.client_id,
+        last_at: sql<Date>`MAX(${mapguardSnapshots.captured_at})`,
+      })
+        .from(mapguardSnapshots)
+        .groupBy(mapguardSnapshots.client_id);
+      const lastByClient = new Map(lastSnapshotByClient.map(r => [r.client_id, r.last_at]));
+
+      const uncoveredClients = activeClientList
+        .map(c => ({
+          client_id: c.client_id,
+          business_name: c.business_name,
+          last_scan_at: lastByClient.get(c.client_id) ?? null,
+        }))
+        .filter(c => !c.last_scan_at || (c.last_scan_at as Date) < fourteenDaysAgo)
+        .map(c => ({
+          ...c,
+          last_scan_at: c.last_scan_at ? (c.last_scan_at as Date).toISOString() : null,
+        }))
+        .slice(0, 20);
+
+      // 4. Alerts in the last 7 days — by alert_type.
+      const recentAlertRows = await db.select({
+        alert_type: mapguardAlerts.alert_type,
+        count: sql<number>`count(*)::int`,
+      })
+        .from(mapguardAlerts)
+        .where(sql`${mapguardAlerts.created_at} >= ${sevenDaysAgo}`)
+        .groupBy(mapguardAlerts.alert_type);
+      const alertsByType: Record<string, number> = {};
+      let alertsTotal = 0;
+      for (const r of recentAlertRows) {
+        alertsByType[r.alert_type] = r.count;
+        alertsTotal += r.count;
+      }
+
+      // 5. Serper-outage signal — share of recent scans whose error list
+      //    indicates a serper_keyword_errors event. > 25% in last 24h
+      //    suggests an active outage worth paging.
+      const oneDayAgo = new Date(now.getTime() - 86_400_000);
+      const last24h = recentScans.filter(s => s.captured_at >= oneDayAgo);
+      const serperErrorScans = last24h.filter(s => {
+        const meta = (s.scan_metadata as any) || {};
+        const errors: string[] = Array.isArray(meta.errors) ? meta.errors : [];
+        return errors.some(e => e.startsWith("serper_keyword_errors"));
+      }).length;
+
+      res.json({
+        generated_at: now.toISOString(),
+        active_clients: activeClients,
+        scans_last_7d: {
+          total: scansTotal,
+          success: scansSuccess,
+          warnings_only: scansWithWarnings,
+          hard_errors: scansHardError,
+        },
+        scan_errors_breakdown: Object.fromEntries(errorBreakdown),
+        recent_failed_scans: recentFailed,
+        duration_ms: {
+          p50: pct(0.5),
+          p95: pct(0.95),
+          p99: pct(0.99),
+          sample_size: durations.length,
+        },
+        uncovered_clients: uncoveredClients,
+        alerts_last_7d: {
+          total: alertsTotal,
+          by_type: alertsByType,
+        },
+        serper_outage_signal: {
+          scans_last_24h: last24h.length,
+          serper_errored_scans: serperErrorScans,
+          rate: last24h.length > 0 ? serperErrorScans / last24h.length : 0,
+          alert_threshold: 0.25,
+          likely_outage: last24h.length >= 5 && (serperErrorScans / last24h.length) > 0.25,
+        },
+      });
+    } catch (err: any) {
+      log.error("[mapguard] ops/health error:", err);
+      res.status(500).json({ error: "Failed to load operational health" });
+    }
   });
 }
