@@ -905,6 +905,185 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     ];
   })(),
 
+  /* ── Trade 11. Insulation Installation (Home Improvement) ── */
+  ...(() => {
+    const fields: TemplateField[] = [
+      { id: 'area', name: 'Insulation Area', label: 'Area to insulate', type: 'slider',
+        min: 100, max: 4000, step: 50, default_value: 1200, unit: 'sq ft' },
+      { id: 'type', name: 'Insulation Type', label: 'Insulation type', type: 'select',
+        options: [opt('Fiberglass batt', 1.8), opt('Blown-in cellulose', 2.4), opt('Spray foam (open-cell)', 4.2), opt('Spray foam (closed-cell)', 5.8), opt('Rigid foam board', 3.4)] },
+      { id: 'location', name: 'Location', label: 'Where is the insulation going?', type: 'radio',
+        options: [opt('Attic', 0), opt('Walls', 0.8), opt('Crawl space / basement', 1.4), opt('Rim joist seal', 2.2)] },
+      { id: 'removal', name: 'Remove Old Insulation', label: 'Remove existing insulation', type: 'toggle', on_value: 685 },
+      { id: 'extras', name: 'Extras', label: 'Add-ons', type: 'multi_select',
+        options: [opt('Air sealing & gap fill', 485), opt('Vapor barrier', 325), opt('Attic baffles', 245), opt('Energy audit report', 295)] },
+    ];
+    const calculations: TemplateCalculation[] = [
+      calc('Materials & Labor', '[Insulation Area] * ([Insulation Type] + [Location])'),
+      calc('Estimated Total', '[Materials & Labor] + [Remove Old Insulation] + [Extras]'),
+    ];
+    const header: TemplateHeader = {
+      title: 'Insulation Installation Quote',
+      subtitle: 'Lower energy bills, year-round comfort — get a per-square-foot quote now.', align: 'left',
+    };
+    const results: TemplateResults = {
+      footnote: 'BPI-certified installers. Most homeowners see a 15-25% energy bill reduction.',
+      cta_label: 'Schedule an Energy Audit',
+    };
+    const base = {
+      name: 'Insulation Installation', description: 'Insulation quote by area, type and location with energy-audit add-on.',
+      category: 'Home Improvement', trades: ['insulation_installation'],
+      theme: 'mint', fields, calculations, result_calc: 'Estimated Total', header, results,
+    };
+    return [
+      { id: 'insulation_installation_single_col', layout: 'single-column' as TemplateLayout, ...base },
+      { id: 'insulation_installation_two_col', layout: 'two-column' as TemplateLayout, ...base },
+    ];
+  })(),
+
+  /* ── Trade 12. Pest Control (Specialty Services) ── */
+  ...(() => {
+    const fields: TemplateField[] = [
+      { id: 'pest', name: 'Pest Type', label: 'What pest are you dealing with?', type: 'select',
+        options: [opt('General (ants / spiders / roaches)', 145), opt('Rodents (mice / rats)', 245), opt('Bed bugs', 485), opt('Termites', 685), opt('Wasps / hornets', 195), opt('Wildlife removal', 385)] },
+      { id: 'home_size', name: 'Home Size', label: 'Home size', type: 'radio',
+        options: [opt('Under 1,500 sq ft', 0), opt('1,500 to 3,000 sq ft', 65), opt('Over 3,000 sq ft', 145)] },
+      { id: 'plan', name: 'Service Plan', label: 'Service plan', type: 'select',
+        options: [opt('One-time treatment', 0), opt('Quarterly plan (annual)', 95), opt('Monthly premium plan', 245)] },
+      { id: 'extras', name: 'Extras', label: 'Add-ons', type: 'multi_select',
+        options: [opt('Exterior perimeter spray', 85), opt('Attic / crawl-space treatment', 145), opt('Eco-friendly products', 65), opt('Follow-up inspection', 75)] },
+    ];
+    const calculations: TemplateCalculation[] = [
+      calc('Treatment Cost', '[Pest Type] + [Home Size]'),
+      calc('Estimated Total', '[Treatment Cost] + [Service Plan] + [Extras]'),
+    ];
+    const header: TemplateHeader = {
+      title: 'Pest Control Service Quote',
+      subtitle: 'Identify your pest, get an instant treatment price — protection starts today.', align: 'left',
+    };
+    const results: TemplateResults = {
+      footnote: 'Licensed pest pros, family- and pet-safe options. 30-day satisfaction guarantee.',
+      cta_label: 'Schedule a Treatment',
+    };
+    const base = {
+      name: 'Pest Control', description: 'Per-pest treatment quote with home-size sizing and recurring plan options.',
+      category: 'Specialty Services', trades: ['pest_control'],
+      theme: 'forest', fields, calculations, result_calc: 'Estimated Total', header, results,
+    };
+    return [
+      { id: 'pest_control_single_col', layout: 'single-column' as TemplateLayout, ...base },
+      { id: 'pest_control_two_col', layout: 'two-column' as TemplateLayout, ...base },
+    ];
+  })(),
+
+  /* ── Trade 13. Tree Service (Outdoor) ── */
+  ...(() => {
+    const fields: TemplateField[] = [
+      { id: 'service', name: 'Service Type', label: 'Service type', type: 'select',
+        options: [opt('Trimming / pruning', 285), opt('Tree removal', 685), opt('Stump grinding', 195), opt('Emergency / storm damage', 950)] },
+      { id: 'trees', name: 'Number of Trees', label: 'Number of trees', type: 'number',
+        min: 1, max: 25, step: 1, default_value: 1 },
+      { id: 'size', name: 'Tree Size', label: 'Average tree size', type: 'radio',
+        options: [opt('Small (under 25 ft)', 0), opt('Medium (25 to 50 ft)', 185), opt('Large (50 to 75 ft)', 425), opt('Very large (75 ft+)', 850)] },
+      { id: 'access', name: 'Access Difficulty', label: 'Site access', type: 'radio',
+        options: [opt('Easy access', 0), opt('Tight / fenced yard', 145), opt('Crane required', 685)] },
+      { id: 'extras', name: 'Extras', label: 'Add-ons', type: 'multi_select',
+        options: [opt('Haul wood away', 145), opt('Wood chipping on site', 95), opt('Stump grinding included', 195), opt('Cabling / bracing', 245)] },
+    ];
+    const calculations: TemplateCalculation[] = [
+      calc('Per-Tree Cost', '[Service Type] + [Tree Size]'),
+      calc('Job Subtotal', '[Per-Tree Cost] * [Number of Trees] + [Access Difficulty]'),
+      calc('Estimated Total', '[Job Subtotal] + [Extras]'),
+    ];
+    const header: TemplateHeader = {
+      title: 'Tree Service Cost Calculator',
+      subtitle: 'Trimming, removal, storm response — get an instant arborist quote.', align: 'left',
+    };
+    const results: TemplateResults = {
+      footnote: 'Certified arborists, fully insured crews. Emergency response available 24/7.',
+      cta_label: 'Request a Site Visit',
+    };
+    const base = {
+      name: 'Tree Service', description: 'Per-tree trimming, removal and stump-grinding quote with access-difficulty sizing.',
+      category: 'Outdoor', trades: ['tree_trimming', 'tree_service'],
+      theme: 'forest', fields, calculations, result_calc: 'Estimated Total', header, results,
+    };
+    return [
+      { id: 'tree_service_single_col', layout: 'single-column' as TemplateLayout, ...base },
+      { id: 'tree_service_two_col', layout: 'two-column' as TemplateLayout, ...base },
+    ];
+  })(),
+
+  /* ── Trade 14. Junk Removal (Specialty Services) ── */
+  ...(() => {
+    const fields: TemplateField[] = [
+      { id: 'load_size', name: 'Load Size', label: 'How much junk?', type: 'select',
+        options: [opt('Single item pickup', 95), opt('Quarter truck load', 195), opt('Half truck load', 345), opt('Three-quarter truck load', 485), opt('Full truck load', 595)] },
+      { id: 'category', name: 'Item Category', label: 'What kind of items?', type: 'radio',
+        options: [opt('General household', 0), opt('Furniture / appliances', 65), opt('Construction debris', 145), opt('Yard waste', 45)] },
+      { id: 'access', name: 'Access', label: 'Where are the items?', type: 'select',
+        options: [opt('Curbside / garage', 0), opt('Inside ground floor', 35), opt('Upstairs / basement', 85)] },
+      { id: 'extras', name: 'Extras', label: 'Add-ons', type: 'multi_select',
+        options: [opt('Same-day pickup', 65), opt('E-waste / electronics', 75), opt('Hazardous item disposal', 145), opt('Light cleaning after', 95)] },
+    ];
+    const calculations: TemplateCalculation[] = [
+      calc('Pickup Cost', '[Load Size] + [Item Category] + [Access]'),
+      calc('Estimated Total', '[Pickup Cost] + [Extras]'),
+    ];
+    const header: TemplateHeader = {
+      title: 'Junk Removal Quote',
+      subtitle: 'From a single piece to a full truck — fast, transparent, no surprises.', align: 'left',
+    };
+    const results: TemplateResults = {
+      footnote: 'We load, haul, sweep up, and donate or recycle whenever possible.',
+      cta_label: 'Book a Pickup',
+    };
+    const base = {
+      name: 'Junk Removal', description: 'Junk pickup quote by load size, item category and access difficulty.',
+      category: 'Specialty Services', trades: ['junk_removal'],
+      theme: 'coral', fields, calculations, result_calc: 'Estimated Total', header, results,
+    };
+    return [
+      { id: 'junk_removal_single_col', layout: 'single-column' as TemplateLayout, ...base },
+      { id: 'junk_removal_two_col', layout: 'two-column' as TemplateLayout, ...base },
+    ];
+  })(),
+
+  /* ── Trade 15. Pool Cleaning & Maintenance (Outdoor) ── */
+  ...(() => {
+    const fields: TemplateField[] = [
+      { id: 'pool_size', name: 'Pool Size', label: 'Pool size (gallons)', type: 'slider',
+        min: 5000, max: 50000, step: 1000, default_value: 15000, unit: 'gal' },
+      { id: 'service', name: 'Service Type', label: 'Service type', type: 'select',
+        options: [opt('Weekly maintenance', 110), opt('One-time deep clean', 295), opt('Opening / closing service', 385), opt('Green-to-clean rescue', 485)] },
+      { id: 'pool_type', name: 'Pool Type', label: 'Pool type', type: 'radio',
+        options: [opt('In-ground concrete', 0), opt('Vinyl liner', -15), opt('Fiberglass', -25), opt('Saltwater system', 25)] },
+      { id: 'extras', name: 'Extras', label: 'Add-ons', type: 'multi_select',
+        options: [opt('Chemical balancing', 45), opt('Filter cleaning', 65), opt('Tile scrubbing', 85), opt('Equipment inspection', 75)] },
+    ];
+    const calculations: TemplateCalculation[] = [
+      calc('Service Cost', '[Service Type] + [Pool Type] + [Pool Size] * 0.004'),
+      calc('Estimated Total', '[Service Cost] + [Extras]'),
+    ];
+    const header: TemplateHeader = {
+      title: 'Pool Cleaning Quote',
+      subtitle: 'Crystal-clear water all season — get a per-visit price right now.', align: 'left',
+    };
+    const results: TemplateResults = {
+      footnote: 'Trained pool techs, all chemicals included. Discounts on prepaid season packages.',
+      cta_label: 'Schedule Pool Service',
+    };
+    const base = {
+      name: 'Pool Cleaning & Maintenance', description: 'Pool service quote by size, type and visit frequency.',
+      category: 'Outdoor', trades: ['pool_cleaning', 'pool_service'],
+      theme: 'mint', fields, calculations, result_calc: 'Estimated Total', header, results,
+    };
+    return [
+      { id: 'pool_cleaning_single_col', layout: 'single-column' as TemplateLayout, ...base },
+      { id: 'pool_cleaning_two_col', layout: 'two-column' as TemplateLayout, ...base },
+    ];
+  })(),
+
 ];
 
 /* ─── Lookups ─── */
