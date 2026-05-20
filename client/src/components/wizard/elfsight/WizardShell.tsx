@@ -33,9 +33,11 @@ import EditorTabs from './EditorTabs';
 import TabPlaceholder from './TabPlaceholder';
 import BuildTab from './BuildTab';
 import PreviewPane from './PreviewPane';
+import StyleTab from './StyleTab';
 import {
-  INITIAL_SHELL_STATE, type EditorTab, type PreviewDevice, type ShellState,
-  type ShellHeader, type ShellResults,
+  INITIAL_SHELL_STATE, DEFAULT_SHELL_STYLE,
+  type EditorTab, type PreviewDevice, type ShellState,
+  type ShellHeader, type ShellResults, type ShellStyle,
 } from './types';
 
 const p = platformTheme;
@@ -89,6 +91,11 @@ function loadShellState(): ShellState {
         header: parsed.header ?? {},
         results: parsed.results ?? {},
         resultCalcId: parsed.resultCalcId,
+        // H5 — Style overrides. Older persisted state pre-dates it; seed with
+        // the brand defaults so the StyleTab starts from a known baseline.
+        // An explicit partial style merges over the defaults so missing fields
+        // fall through to brand rather than reading `undefined`.
+        style: { ...DEFAULT_SHELL_STYLE, ...(parsed.style ?? {}) },
       };
     }
   } catch {}
@@ -96,6 +103,7 @@ function loadShellState(): ShellState {
     ...INITIAL_SHELL_STATE,
     fields: seedFields(INITIAL_SHELL_STATE.layout),
     calculations: seedCalculations(INITIAL_SHELL_STATE.layout),
+    style: { ...DEFAULT_SHELL_STYLE },
   };
 }
 
@@ -136,6 +144,10 @@ export default function WizardShell({ embed = false }: Props) {
 
   const setResults = useCallback((next: ShellResults) => {
     setState((s) => ({ ...s, results: next }));
+  }, []);
+
+  const setStyle = useCallback((next: ShellStyle) => {
+    setState((s) => ({ ...s, style: next }));
   }, []);
 
   /**
@@ -238,6 +250,11 @@ export default function WizardShell({ embed = false }: Props) {
                   resultCalcId={state.resultCalcId}
                   onResultCalcChange={setResultCalc}
                 />
+              ) : activeTab === 'style' ? (
+                <StyleTab
+                  style={state.style ?? { ...DEFAULT_SHELL_STYLE }}
+                  onChange={setStyle}
+                />
               ) : (
                 <TabPlaceholder
                   tab={activeTab}
@@ -278,6 +295,7 @@ export default function WizardShell({ embed = false }: Props) {
               header={state.header}
               results={state.results}
               resultCalcId={state.resultCalcId}
+              style={state.style}
             />
           </div>
         </div>
