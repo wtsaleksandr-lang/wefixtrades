@@ -1050,6 +1050,17 @@ export default function WizardShell({ embed = false }: Props) {
                 border-bottom: 1px solid ${d.colors.borderLight};
                 order: 1;
               }
+              /* Wave N — trim wasted side-padding on the editor pane so field
+                 row titles (e.g. "Local Incentives", "Professional
+                 installation") get the horizontal room they need. Desktop
+                 padding (18px) stays — only the mobile gutter is tightened. */
+              .qq-editor-left-inner {
+                padding: 14px 8px 20px;
+              }
+              .qq-editor-actions {
+                padding: 12px 8px 14px;
+                margin-left: -8px; margin-right: -8px;
+              }
               .qq-editor-resize { display: none !important; }
               .qq-editor-right { order: 0; }
               .qq-preview-pane {
