@@ -20,7 +20,6 @@ import { platformTheme } from '@/theme/platformTheme';
 import type { TemplateCalculation } from '@shared/templatePresets';
 import type { ShellHeader, ShellResults } from './types';
 import { useSelection } from './selection';
-import InfoCue from './InfoCue';
 import FloatField from './FloatField';
 
 const p = platformTheme;
@@ -202,11 +201,16 @@ export default function HeaderResultsPanel({
 
       <style>{`
         .qq-headres-panel {
-          display: flex; flex-direction: column; gap: 12px;
+          /* W-SECTIONS — tightened gap (12 → 6px). The "Header" and
+           * "Results" titles below should sit right against their input
+           * grid; the divider already provides the visual break. */
+          display: flex; flex-direction: column; gap: 6px;
         }
         .qq-headres-section { margin: 0; }
         .qq-headres-select {
-          padding: 6px 8px; border-radius: 8px;
+          /* W-SECTIONS — smaller padding so the subtle label hugs the
+           * inputs below. The selection pill still reads clearly. */
+          padding: 2px 6px; border-radius: 6px;
           border: 1px solid transparent;
           cursor: pointer;
           transition: background 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
@@ -217,8 +221,11 @@ export default function HeaderResultsPanel({
           box-shadow: 0 0 0 2px ${p.colors.accentLighter};
         }
         .qq-headres-title {
-          margin: 0; font-size: 14px; font-weight: 700;
-          color: ${p.colors.heading}; letter-spacing: -0.005em;
+          /* W-SECTIONS — subtle all-caps label, per Alex's global rule. */
+          margin: 0;
+          font-size: 11.5px; font-weight: 600;
+          color: ${p.colors.muted};
+          text-transform: uppercase; letter-spacing: 0.04em;
           display: inline-flex; align-items: center;
         }
         .qq-headres-grid {

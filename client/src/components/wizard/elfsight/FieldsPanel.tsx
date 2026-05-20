@@ -16,7 +16,6 @@ import { platformTheme } from '@/theme/platformTheme';
 import type { TemplateField, TemplateOption } from '@shared/templatePresets';
 import AddFieldMenu from './AddFieldMenu';
 import FieldRow from './FieldRow';
-import InfoCue from './InfoCue';
 import { PUBLIC_TO_FIELD_TYPE, type PublicFieldType } from './types';
 
 const p = platformTheme;
@@ -118,13 +117,7 @@ export default function FieldsPanel({ fields, onChange }: Props) {
     >
       <header className="qq-fields-header">
         <div>
-          <h3 className="qq-fields-title">
-            Fields
-            <InfoCue
-              testid="fields-title"
-              text="Inputs the visitor fills in. Edits update the preview live."
-            />
-          </h3>
+          <h3 className="qq-fields-title">Fields</h3>
         </div>
         {!isEmpty && <AddFieldMenu onPick={handleAdd} />}
       </header>
@@ -180,15 +173,23 @@ export default function FieldsPanel({ fields, onChange }: Props) {
 
       <style>{`
         .qq-fields-panel {
-          display: flex; flex-direction: column; gap: 12px;
+          /* W-SECTIONS — tightened gap so the section title sits right
+           * above the first input row (6px instead of 12px). */
+          display: flex; flex-direction: column; gap: 6px;
         }
         .qq-fields-header {
-          display: flex; align-items: flex-start; justify-content: space-between;
+          display: flex; align-items: center; justify-content: space-between;
           gap: 12px;
+          /* W-SECTIONS — keep title flush with the input row below. */
+          margin: 0 0 0;
         }
         .qq-fields-title {
-          margin: 0; font-size: 14px; font-weight: 700;
-          color: ${p.colors.heading}; letter-spacing: -0.005em;
+          /* W-SECTIONS — subtle all-caps label, per Alex's global rule
+           * "section titles smaller, more subtle, closer to inputs". */
+          margin: 0;
+          font-size: 11.5px; font-weight: 600;
+          color: ${p.colors.muted};
+          text-transform: uppercase; letter-spacing: 0.04em;
         }
         .qq-fields-sub {
           margin: 3px 0 0; font-size: 11.5px; color: ${p.colors.subtle};
