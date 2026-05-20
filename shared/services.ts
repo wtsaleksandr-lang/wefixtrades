@@ -270,14 +270,25 @@ export const SERVICES: Service[] = [
   },
 ];
 
+// Services that should not appear in audit-tool recommendations even
+// though they exist in the catalog. BookFlow has no standalone tier
+// SKU in the checkout catalog (see AUDIT_SERVICE_TO_CATALOG_SKU in
+// client/src/pages/marketing/ReportView.tsx), so recommending it gives
+// the visitor a "Buy services" CTA that 400s on Unknown service.
+// Today BookFlow is only sold bundled into adjacent products, so we
+// hide it from audit recs rather than ship a broken purchase path.
+const AUDIT_EXCLUDED_SERVICE_IDS = new Set<string>(["bookflow"]);
+
 export function getServicesForIssues(issues: string[]): Service[] {
   if (!issues.length) return [];
-  const scored = SERVICES.map(service => ({
-    service,
-    matchCount: service.fixesIssues.filter(i => issues.includes(i)).length
-  }))
-  .filter(s => s.matchCount > 0)
-  .sort((a, b) => b.matchCount - a.matchCount);
+  const scored = SERVICES
+    .filter(service => !AUDIT_EXCLUDED_SERVICE_IDS.has(service.id))
+    .map(service => ({
+      service,
+      matchCount: service.fixesIssues.filter(i => issues.includes(i)).length
+    }))
+    .filter(s => s.matchCount > 0)
+    .sort((a, b) => b.matchCount - a.matchCount);
   const seenCategories = new Set<string>();
   const deduplicated = scored.filter(({ service }) => {
     if (seenCategories.has(service.category)) return false;
