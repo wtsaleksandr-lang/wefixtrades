@@ -70,6 +70,22 @@ export async function readAllBudgetConfigs(): Promise<Record<string, AiBudgetCon
 }
 
 /** Resolve the effective config for a user (per-tier override → global → seed default). */
+/**
+ * Wave Q-Hotfix — resolve a user's effective plan_tier from their most-
+ * recent calculator. Exported so route handlers (e.g. AI chat) can gate
+ * features by tier without duplicating the lookup. Returns 'free' when
+ * the user has no calculator yet.
+ */
+export async function resolveUserPlanTier(userId: number): Promise<string> {
+  const [calcRow] = await db
+    .select({ plan_tier: calculators.plan_tier })
+    .from(calculators)
+    .where(eq(calculators.user_id, userId))
+    .orderBy(sql`${calculators.created_at} DESC`)
+    .limit(1);
+  return (calcRow?.plan_tier ?? "free").trim();
+}
+
 export async function getEffectiveBudgetConfig(userId: number): Promise<{
   values: AiBudgetConfigValues;
   scope: AiBudgetScope;
@@ -78,13 +94,7 @@ export async function getEffectiveBudgetConfig(userId: number): Promise<{
   // Look up the user's plan_tier via their most-recent calculator (the
   // tier lives there, not on users). If the user has no calculator yet,
   // we treat them as `free`.
-  const [calcRow] = await db
-    .select({ plan_tier: calculators.plan_tier })
-    .from(calculators)
-    .where(eq(calculators.user_id, userId))
-    .orderBy(sql`${calculators.created_at} DESC`)
-    .limit(1);
-  const tier = (calcRow?.plan_tier ?? "free").trim();
+  const tier = await resolveUserPlanTier(userId);
   const tierScope = `tier_${tier}` as AiBudgetScope;
 
   const rows = await db.select().from(aiBudgetConfig);

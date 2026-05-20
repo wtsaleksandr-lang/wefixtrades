@@ -691,9 +691,20 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getCalculatorByOldSlug(oldSlug: string): Promise<Calculator | undefined> {
-    // Search for a calculator that has this slug in its _slug_redirects metadata
+    // Search for a calculator that has this slug in its _slug_redirects metadata.
+    //
+    // Wave Q-Hotfix — the previous version dropped the `jsonb_typeof` guard.
+    // When any row had `calculator_settings._slug_redirects` as null or as a
+    // non-array (e.g. legacy rows pre-slug-redirect feature), the bare
+    // `@> [...]::jsonb` containment check threw and bubbled out as HTTP 500
+    // from the /api/calculators/lookup endpoint, killing the hosted-page
+    // feature entirely. The typeof guard short-circuits rows that don't
+    // have an array there so the containment runs only on safe shapes.
     const results = await db.select().from(calculators)
-      .where(sql`${calculators.calculator_settings}::jsonb -> '_slug_redirects' @> ${JSON.stringify([{ slug: oldSlug }])}::jsonb`)
+      .where(sql`
+        jsonb_typeof(${calculators.calculator_settings}::jsonb -> '_slug_redirects') = 'array'
+        AND ${calculators.calculator_settings}::jsonb -> '_slug_redirects' @> ${JSON.stringify([{ slug: oldSlug }])}::jsonb
+      `)
       .limit(1);
     return results[0];
   }

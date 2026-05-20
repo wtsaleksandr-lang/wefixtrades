@@ -466,10 +466,10 @@ export default function PreviewPane({
                     businessName={businessName}
                     compact
                   >
-                    <QuoteWidget calculator={previewCalculatorData} isEmbed />
+                    <QuoteWidget calculator={previewCalculatorData} isEmbed hideBrandBadge />
                   </HostedPageFrame>
                 ) : (
-                  <QuoteWidget calculator={previewCalculatorData} isEmbed />
+                  <QuoteWidget calculator={previewCalculatorData} isEmbed hideBrandBadge />
                 )}
                 {shellFields.length > 0 && onRemoveField && onAddField && (
                   <PreviewOverlay
@@ -558,10 +558,10 @@ export default function PreviewPane({
                     businessName={businessName}
                     compact
                   >
-                    <QuoteWidget calculator={previewCalculatorData} isEmbed />
+                    <QuoteWidget calculator={previewCalculatorData} isEmbed hideBrandBadge />
                   </HostedPageFrame>
                 ) : (
-                  <QuoteWidget calculator={previewCalculatorData} isEmbed />
+                  <QuoteWidget calculator={previewCalculatorData} isEmbed hideBrandBadge />
                 )}
                 {shellFields.length > 0 && onRemoveField && onAddField && (
                   <PreviewOverlay

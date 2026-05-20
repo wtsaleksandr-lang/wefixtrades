@@ -244,15 +244,22 @@ export function registerCalculatorRoutes(app: Express): void {
         calculator = await storage.getCalculatorBySlug(slug);
       }
 
-      // If not found by slug, check old slug redirects
+      // If not found by slug, check old slug redirects.
+      // Wave Q-Hotfix — wrap in try/catch so a query error never escapes
+      // as a 500 from this endpoint; redirect lookup is a best-effort path,
+      // not a precondition for serving the live hosted page.
       if (!calculator && slug) {
-        const redirected = await storage.getCalculatorByOldSlug(slug);
-        if (redirected) {
-          return res.json({
-            redirect: true,
-            new_slug: redirected.slug,
-            new_url: `/Calculator?slug=${redirected.slug}`,
-          });
+        try {
+          const redirected = await storage.getCalculatorByOldSlug(slug);
+          if (redirected) {
+            return res.json({
+              redirect: true,
+              new_slug: redirected.slug,
+              new_url: `/Calculator?slug=${redirected.slug}`,
+            });
+          }
+        } catch (redirectErr: any) {
+          log.warn('Old-slug redirect lookup failed (non-fatal)', { slug, error: redirectErr.message });
         }
       }
 

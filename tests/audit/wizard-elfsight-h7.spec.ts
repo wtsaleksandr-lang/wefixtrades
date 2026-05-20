@@ -203,8 +203,8 @@ test.describe('wizard H7 — Template gallery', () => {
     await expect(modal).toBeVisible({ timeout: 1500 });
     await expect(page.getByTestId('template-browse-grid')).toBeVisible();
 
-    // At least the all-category pill is present.
-    await expect(page.getByTestId('template-browse-cat-all')).toBeVisible();
+    // Wave Q-Hotfix — chip row replaced with a <select> dropdown.
+    await expect(page.getByTestId('template-browse-cat-select')).toBeVisible();
 
     // Close.
     await page.getByTestId('template-browse-close').click();

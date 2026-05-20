@@ -56,21 +56,23 @@ export default function WeFixTradesBadge({
   const url = buildUrl(context, slug ?? undefined);
 
   if (variant === 'header') {
+    // Wave Q-Hotfix — exact-match the EditorTopBar `qq-editor-brand` mark
+    // (favicon 14-16px + "QuoteQuick" at 12-13px font-weight 800). No pill
+    // background, no border, no dot, no "by WeFixTrades" — minimal so it
+    // doesn't fight the widget for attention but stays visible enough for
+    // the free-tier free-advertising signal. Per user feedback, the old
+    // styling was "absolutely huge and ugly".
     const style: CSSProperties = {
       display: 'inline-flex',
       alignItems: 'center',
       gap: 6,
-      padding: '4px 10px',
-      borderRadius: 999,
-      background: onDarkBackground ? 'rgba(255,255,255,0.10)' : 'rgba(13,60,252,0.08)',
-      border: `1px solid ${onDarkBackground ? 'rgba(255,255,255,0.18)' : 'rgba(13,60,252,0.24)'}`,
-      color: onDarkBackground ? '#e5e7eb' : '#0d3cfc',
-      fontSize: 11,
-      fontWeight: 700,
-      letterSpacing: 0.1,
       textDecoration: 'none',
+      fontSize: 12,
+      fontWeight: 800,
+      color: onDarkBackground ? '#e5e7eb' : '#0f172a',
       lineHeight: 1.3,
       whiteSpace: 'nowrap',
+      opacity: 0.78,
       transition: 'opacity 0.12s ease',
     };
     return (
@@ -82,12 +84,18 @@ export default function WeFixTradesBadge({
         data-testid="wefixtrades-badge-header"
         data-context={context}
         aria-label="QuoteQuick by WeFixTrades"
+        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.opacity = '1'; }}
+        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.opacity = '0.78'; }}
       >
-        <span aria-hidden="true" style={{
-          display: 'inline-block', width: 6, height: 6, borderRadius: 999,
-          background: onDarkBackground ? '#7ab2ff' : '#0d3cfc',
-        }} />
-        QuoteQuick by WeFixTrades
+        <img
+          src="/favicon.svg"
+          alt=""
+          width={14}
+          height={14}
+          style={{ width: 14, height: 14, display: 'block' }}
+          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+        />
+        <span>QuoteQuick</span>
       </a>
     );
   }

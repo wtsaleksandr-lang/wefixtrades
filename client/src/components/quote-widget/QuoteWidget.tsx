@@ -51,6 +51,12 @@ class WidgetErrorBoundary extends Component<{ children: ReactNode; businessName?
 interface QuoteWidgetProps {
   calculator: CalculatorData;
   isEmbed?: boolean;
+  /** Wave Q-Hotfix — when true (wizard preview pane), suppress the
+   *  WeFixTrades brand badge. The wizard's own EditorTopBar already
+   *  renders the QuoteQuick brand mark in its top-left corner; rendering
+   *  the badge again above the previewed widget creates a duplicated
+   *  look. Public hosted page + actual customer embeds keep the badge. */
+  hideBrandBadge?: boolean;
 }
 
 /**
@@ -62,7 +68,7 @@ interface QuoteWidgetProps {
  * 4. Wraps children in WidgetProvider (state context)
  * 5. Renders current step via StepRenderer
  */
-export default function QuoteWidget({ calculator, isEmbed = false }: QuoteWidgetProps) {
+export default function QuoteWidget({ calculator, isEmbed = false, hideBrandBadge = false }: QuoteWidgetProps) {
   const config = useMemo<WidgetConfig>(() => {
     // Guard: missing or null pricing_config falls back to call-for-quote
     const rawPricing = calculator.pricing_config ?? CALL_FOR_QUOTE_FALLBACK;
@@ -141,7 +147,10 @@ export default function QuoteWidget({ calculator, isEmbed = false }: QuoteWidget
   // Wave P-H — show "QuoteQuick by WeFixTrades" badge unless the Pro-plan
   // toggle hides it. Defaults to TRUE (free users see it).
   const appearance = (calculator.calculator_settings as any)?.appearance || {};
-  const showBrandBadge = appearance.show_powered_by !== false;
+  // Wave Q-Hotfix — `hideBrandBadge` (from wizard preview) wins over the
+  // `appearance.show_powered_by` setting. So the badge is suppressed in
+  // the wizard chrome but still respects the Pro plan toggle elsewhere.
+  const showBrandBadge = !hideBrandBadge && appearance.show_powered_by !== false;
   // `isEmbed` distinguishes the iframe / embedded variant; the hosted
   // page sets it false. Used for UTM attribution only.
   const badgeContext: 'hosted' | 'embed' = isEmbed ? 'embed' : 'hosted';
