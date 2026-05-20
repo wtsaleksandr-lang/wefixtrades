@@ -43,6 +43,7 @@ import BuildTab from './BuildTab';
 import PreviewPane from './PreviewPane';
 import StyleTab from './StyleTab';
 import SettingsTab from './SettingsTab';
+import InstallTab from './InstallTab';
 import { makeField } from './FieldsPanel';
 import { SelectionProvider } from './selection';
 import { useEditorDndSensors, DND_CONTAINERS } from './dnd';
@@ -195,6 +196,12 @@ export default function WizardShell({ embed = false }: Props) {
     window.addEventListener('touchend', onUp);
   }, []);
 
+  // ── Wave H7: reflect the chosen language on the shell wrapper. Only the
+  // LANG attribute is wired; translation strings are out of scope.
+  // TODO(i18n): when translations land, propagate down to AdvancedCalculator
+  // and the wizard headline copy as well.
+  const shellLang = (state.settings?.language ?? 'en');
+
   // ── Wave I (h): mount/unmount transition state ────────────────────────
   // The modal wrapper paints in `is-entering` → `is-open` for the open
   // animation, and is set to `is-leaving` for ~180ms (snappier on mobile)
@@ -324,6 +331,12 @@ export default function WizardShell({ embed = false }: Props) {
         advanced.results = { cta_label: ctaLabel };
       }
 
+      // Wave H7 — surface the language pick as both a top-level
+      // `calculator_settings.language` (explicit, easy for server consumers)
+      // AND inside `shell_settings.language` (raw user state). The server
+      // schema's `.catchall(z.any())` accepts the top-level field.
+      const language = (settings.language ?? 'en');
+
       const res = await apiRequest('POST', '/api/calculators', {
         business_name: state.businessName,
         trade_type: tradeId || 'general',
@@ -336,6 +349,7 @@ export default function WizardShell({ embed = false }: Props) {
           ui_template: { template_id: 'classic_single' },
           advanced,
           shell_settings: settings,
+          language,
         },
       });
       return res.json();
@@ -393,6 +407,7 @@ export default function WizardShell({ embed = false }: Props) {
           aria-label="QuoteQuick editor"
           data-testid="quotequick-editor-shell"
           data-modal-phase={embed ? 'embed' : openPhase}
+          lang={shellLang}
         >
           <div className="qq-editor-frame">
             <EditorTopBar
@@ -434,6 +449,11 @@ export default function WizardShell({ embed = false }: Props) {
                     />
                   ) : activeTab === 'settings' ? (
                     <SettingsTab
+                      settings={state.settings ?? {}}
+                      onChange={setSettings}
+                    />
+                  ) : activeTab === 'install' ? (
+                    <InstallTab
                       settings={state.settings ?? {}}
                       onChange={setSettings}
                     />
