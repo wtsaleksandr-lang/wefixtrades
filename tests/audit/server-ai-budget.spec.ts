@@ -40,6 +40,38 @@ test.describe('server — quotequickAiBudget cost math', () => {
     expect(unknown).toBeCloseTo(sonnet, 6);
   });
 
+  test('costForUsage charges cache_creation tokens at 1.25× input rate', () => {
+    // Haiku 4.5 input rate = $1.00 / 1M. 10K cache-creation tokens →
+    // (10000/1M) * 1.00 * 1.25 = $0.0125. No output, no fresh input.
+    const cost = costForUsage('claude-haiku-4-5-20251001', 0, 0, 10_000, 0);
+    expect(cost).toBeCloseTo(0.0125, 6);
+  });
+
+  test('costForUsage charges cache_read tokens at 0.10× input rate', () => {
+    // Sonnet 4.6 input rate = $3.00 / 1M. 100K cache-read tokens →
+    // (100000/1M) * 3.00 * 0.10 = $0.03.
+    const cost = costForUsage('claude-sonnet-4-6', 0, 0, 0, 100_000);
+    expect(cost).toBeCloseTo(0.03, 6);
+  });
+
+  test('costForUsage sums fresh + cache_creation + cache_read + output', () => {
+    // Haiku 4.5: input $1.00/M, output $5.00/M.
+    //   fresh 1K input    → 1000/1M * 1.00      = 0.001
+    //   creation 2K       → 2000/1M * 1.00*1.25 = 0.0025
+    //   read 100K         → 100000/1M * 1.00*0.10 = 0.01
+    //   output 500        → 500/1M * 5.00       = 0.0025
+    //   total             = 0.016
+    const cost = costForUsage('claude-haiku-4-5-20251001', 1_000, 500, 2_000, 100_000);
+    expect(cost).toBeCloseTo(0.016, 6);
+  });
+
+  test('costForUsage default cache args preserve the 3-arg back-compat behaviour', () => {
+    // Omitted cache args = 0 → equal to the legacy 3-arg call.
+    const legacy = costForUsage('claude-haiku-4-5-20251001', 10_000, 1_000);
+    const explicit = costForUsage('claude-haiku-4-5-20251001', 10_000, 1_000, 0, 0);
+    expect(explicit).toBeCloseTo(legacy, 6);
+  });
+
   test('estimateCallCost rounds in the right direction for a small text turn', () => {
     const est = estimateCallCost({
       model: 'claude-haiku-4-5-20251001',

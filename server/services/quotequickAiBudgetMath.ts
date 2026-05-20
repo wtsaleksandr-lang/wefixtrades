@@ -20,12 +20,34 @@ const FALLBACK_MODEL = "claude-sonnet-4-6";
 
 export type SupportedModel = keyof typeof MODEL_PRICING;
 
-/** Compute the USD cost of a single AI call from its token usage. */
-export function costForUsage(model: string, inputTokens: number, outputTokens: number): number {
+/** Anthropic prompt-cache pricing multipliers (relative to the base input rate).
+ *  - Cache-create writes count at 1.25× base input.
+ *  - Cache reads count at 0.10× base input.
+ *  See https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching#pricing.
+ */
+export const CACHE_CREATION_MULTIPLIER = 1.25;
+export const CACHE_READ_MULTIPLIER = 0.10;
+
+/** Compute the USD cost of a single AI call from its token usage.
+ *
+ *  `inputTokens` counts FRESH (uncached) input only. Cache-creation and
+ *  cache-read tokens are billed at different rates and must be passed in
+ *  separately or they'll undercount real spend. The 3- and 5-arg overloads
+ *  are equivalent for back-compat with older call sites that don't track
+ *  cache tiers. */
+export function costForUsage(
+  model: string,
+  inputTokens: number,
+  outputTokens: number,
+  cacheCreationTokens: number = 0,
+  cacheReadTokens: number = 0,
+): number {
   const pricing = MODEL_PRICING[model] ?? MODEL_PRICING[FALLBACK_MODEL];
   const input = (inputTokens / 1_000_000) * pricing.inputPer1M;
+  const cacheCreate = (cacheCreationTokens / 1_000_000) * pricing.inputPer1M * CACHE_CREATION_MULTIPLIER;
+  const cacheRead = (cacheReadTokens / 1_000_000) * pricing.inputPer1M * CACHE_READ_MULTIPLIER;
   const output = (outputTokens / 1_000_000) * pricing.outputPer1M;
-  return Math.round((input + output) * 1_000_000) / 1_000_000;
+  return Math.round((input + cacheCreate + cacheRead + output) * 1_000_000) / 1_000_000;
 }
 
 /** Coarse pre-call estimate. Skews high so we under-issue rather than overspend. */

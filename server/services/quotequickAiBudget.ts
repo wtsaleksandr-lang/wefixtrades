@@ -178,34 +178,57 @@ export async function getUserBudgetSnapshot(userId: number): Promise<BudgetSnaps
   };
 }
 
-/** Record an actual call result after Anthropic responds. */
+/** Record an actual call result after Anthropic responds.
+ *
+ *  Both writes (insert into ai_spend_log + update users.ai_spend_usd /
+ *  ai_images_used) MUST land together or not at all. Without a transaction
+ *  a partial failure leaves the lifetime counter stale and the cap
+ *  enforcement undercounts — so we wrap the pair in db.transaction and let
+ *  either statement's failure roll the other back. */
 export async function recordSpend(opts: {
   userId: number;
   model: string;
   inputTokens: number;
   outputTokens: number;
   imageCount: number;
+  /** Tokens written to Anthropic's prompt cache on this call (billed at 1.25× input). */
+  cacheCreationTokens?: number;
+  /** Tokens served from Anthropic's prompt cache on this call (billed at 0.10× input). */
+  cacheReadTokens?: number;
 }): Promise<{ cost_usd: number }> {
-  const cost = costForUsage(opts.model, opts.inputTokens, opts.outputTokens);
+  const cacheCreation = opts.cacheCreationTokens ?? 0;
+  const cacheRead = opts.cacheReadTokens ?? 0;
+  const cost = costForUsage(
+    opts.model,
+    opts.inputTokens,
+    opts.outputTokens,
+    cacheCreation,
+    cacheRead,
+  );
 
-  await db.insert(aiSpendLog).values({
-    user_id: opts.userId,
-    day: utcDayKey(),
-    model: opts.model,
-    input_tokens: opts.inputTokens,
-    output_tokens: opts.outputTokens,
-    image_count: opts.imageCount,
-    cost_usd: String(cost),
+  // The log row stores total input tokens for analytics (fresh + cache). The
+  // cost column is the source of truth for spend math.
+  const totalInputTokens = opts.inputTokens + cacheCreation + cacheRead;
+
+  await db.transaction(async (tx) => {
+    await tx.insert(aiSpendLog).values({
+      user_id: opts.userId,
+      day: utcDayKey(),
+      model: opts.model,
+      input_tokens: totalInputTokens,
+      output_tokens: opts.outputTokens,
+      image_count: opts.imageCount,
+      cost_usd: String(cost),
+    });
+
+    await tx
+      .update(users)
+      .set({
+        ai_spend_usd: sql`${users.ai_spend_usd} + ${cost}`,
+        ai_images_used: sql`${users.ai_images_used} + ${opts.imageCount}`,
+      })
+      .where(eq(users.id, opts.userId));
   });
-
-  // Increment cumulative + image counters atomically.
-  await db
-    .update(users)
-    .set({
-      ai_spend_usd: sql`${users.ai_spend_usd} + ${cost}`,
-      ai_images_used: sql`${users.ai_images_used} + ${opts.imageCount}`,
-    })
-    .where(eq(users.id, opts.userId));
 
   log.info(`[budget] user=${opts.userId} model=${opts.model} cost=$${cost.toFixed(6)} img=${opts.imageCount}`);
   return { cost_usd: cost };

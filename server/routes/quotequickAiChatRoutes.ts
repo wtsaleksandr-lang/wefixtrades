@@ -220,16 +220,26 @@ export function registerQuoteQuickAiChatRoutes(app: Express): void {
 
       const final = await stream.finalMessage();
       const usage = (final as any)?.usage ?? {};
-      inputTokens = (usage.input_tokens ?? 0) + (usage.cache_read_input_tokens ?? 0) + (usage.cache_creation_input_tokens ?? 0);
+      // Anthropic's usage object splits prompt input into three buckets:
+      //   - input_tokens                (fresh, billed at 1× input rate)
+      //   - cache_creation_input_tokens (cache writes, 1.25× input rate)
+      //   - cache_read_input_tokens     (cache hits, 0.10× input rate)
+      // We track all three so the cumulative-cap doesn't undercount real spend.
+      const freshInput = usage.input_tokens ?? 0;
+      const cacheCreation = usage.cache_creation_input_tokens ?? 0;
+      const cacheRead = usage.cache_read_input_tokens ?? 0;
+      inputTokens = freshInput + cacheRead + cacheCreation;
       outputTokens = usage.output_tokens ?? 0;
 
       /* (8) Record actual spend. */
       const { cost_usd } = await recordSpend({
         userId,
         model,
-        inputTokens: usage.input_tokens ?? 0,
+        inputTokens: freshInput,
         outputTokens,
         imageCount: hasImage ? 1 : 0,
+        cacheCreationTokens: cacheCreation,
+        cacheReadTokens: cacheRead,
       });
 
       const after = await getUserBudgetSnapshot(userId);
