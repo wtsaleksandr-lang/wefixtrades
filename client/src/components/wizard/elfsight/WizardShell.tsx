@@ -62,6 +62,8 @@ const d = dashboardTheme;
 const STORAGE_KEY = 'qq_elfsight_shell';
 const PANE_WIDTH_KEY = 'qq_editor_pane_width';
 const EDITOR_THEME_KEY = 'qq_editor_theme';
+// Wave M — fold/unfold preview pane. Persists across reloads.
+const PREVIEW_COLLAPSED_KEY = 'qq_preview_collapsed';
 const PANE_WIDTH_MIN = 320;
 const PANE_WIDTH_MAX = 640;
 const PANE_WIDTH_DEFAULT = 420;
@@ -139,6 +141,14 @@ function loadPaneWidth(): number {
   return PANE_WIDTH_DEFAULT;
 }
 
+// Wave M — load the persisted fold/unfold state. Defaults to false (preview
+// shown) so first-time users see the full editor + preview layout.
+function loadPreviewCollapsed(): boolean {
+  try {
+    return localStorage.getItem(PREVIEW_COLLAPSED_KEY) === '1';
+  } catch { return false; }
+}
+
 function thousandsLiteral(sep: ShellNumberFormat['thousands']): ',' | ' ' | '' {
   return sep === 'comma' ? ',' : sep === 'space' ? ' ' : '';
 }
@@ -197,6 +207,19 @@ export default function WizardShell({ embed = false }: Props) {
   useEffect(() => {
     try { localStorage.setItem(PANE_WIDTH_KEY, String(paneWidth)); } catch {}
   }, [paneWidth]);
+
+  // ── Wave M: fold/unfold preview pane ──────────────────────────────────
+  const [previewCollapsed, setPreviewCollapsed] = useState<boolean>(
+    () => loadPreviewCollapsed(),
+  );
+  useEffect(() => {
+    try {
+      localStorage.setItem(PREVIEW_COLLAPSED_KEY, previewCollapsed ? '1' : '0');
+    } catch {}
+  }, [previewCollapsed]);
+  const togglePreviewCollapsed = useCallback(() => {
+    setPreviewCollapsed((v) => !v);
+  }, []);
 
   const onResizeStart = useCallback((startX: number, startWidth: number) => {
     setIsResizing(true);
@@ -528,9 +551,17 @@ export default function WizardShell({ embed = false }: Props) {
               onClose={handleClose}
             />
 
-            <EditorTabs active={activeTab} onChange={setActiveTab} />
+            <EditorTabs
+              active={activeTab}
+              onChange={setActiveTab}
+              previewCollapsed={previewCollapsed}
+              onTogglePreview={togglePreviewCollapsed}
+            />
 
-            <div className="qq-editor-body">
+            <div
+              className={`qq-editor-body${previewCollapsed ? ' is-preview-collapsed' : ''}`}
+              data-preview-collapsed={previewCollapsed ? 'true' : 'false'}
+            >
               <div
                 className="qq-editor-left"
                 data-testid="editor-left-panel"
@@ -621,7 +652,11 @@ export default function WizardShell({ embed = false }: Props) {
                 </button>
               </div>
 
-              <div className="qq-editor-right" data-testid="editor-right-pane">
+              <div
+                className="qq-editor-right"
+                data-testid="editor-right-pane"
+                aria-hidden={previewCollapsed || undefined}
+              >
                 <PreviewPane
                   businessName={state.businessName}
                   onBusinessNameChange={setBusinessName}
@@ -768,6 +803,9 @@ export default function WizardShell({ embed = false }: Props) {
               }
               .wizard-shell-modal.is-entering { background: rgba(15,23,42,0.55); backdrop-filter: blur(2px); }
               .wizard-shell-modal.is-leaving  { background: rgba(15,23,42,0); backdrop-filter: blur(0); opacity: 0; }
+              /* Wave M — kill the fold animation when reduced motion. */
+              .qq-editor-right { transition: none !important; }
+              .qq-editor-fold { transition: none !important; }
             }
             .qq-editor-topbar {
               display: flex; align-items: center; gap: 10px;
@@ -835,9 +873,71 @@ export default function WizardShell({ embed = false }: Props) {
             }
             .qq-editor-tab:hover { color: ${p.colors.heading}; }
             .qq-editor-tab.is-active { font-weight: 700; }
+
+            /* Wave M — fold/unfold preview button, pushed to the far right
+               of the tab row so it sits on the same horizontal line as the
+               tabs but visibly separate. */
+            .qq-editor-fold {
+              margin-left: auto;
+              display: inline-flex; align-items: center; gap: 6px;
+              padding: 6px 10px;
+              min-height: 32px;
+              border: 1px solid transparent;
+              border-radius: 7px;
+              background: transparent;
+              color: ${p.colors.muted};
+              font: inherit; font-size: 12px; font-weight: 600;
+              cursor: pointer;
+              transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+            }
+            .qq-editor-fold:hover {
+              color: ${p.colors.accent};
+              background: ${p.colors.accentLighter};
+              border-color: ${p.colors.accentLighter};
+            }
+            .qq-editor-fold:focus-visible {
+              outline: none;
+              border-color: ${p.colors.accent};
+              box-shadow: 0 0 0 2px ${p.colors.accentLighter};
+            }
+            .qq-editor-fold.is-collapsed {
+              color: ${p.colors.accent};
+              background: ${p.colors.accentLighter};
+            }
+            .qq-editor-fold-label {
+              font-weight: 600;
+              letter-spacing: 0.005em;
+            }
+
             .qq-editor-body {
               display: flex; align-items: stretch;
               flex: 1; min-height: 0;
+            }
+            /* Wave M — collapse transition. We animate the right pane's
+               width/opacity. The left pane is flex: 1 once collapsed, so
+               it naturally fills the space. 250ms ease-out, respects
+               prefers-reduced-motion at the block at the bottom of this
+               style sheet. */
+            .qq-editor-right {
+              transition: width 250ms ease-out, opacity 220ms ease-out,
+                          flex 250ms ease-out, padding 250ms ease-out,
+                          border 250ms ease-out;
+              overflow: hidden;
+            }
+            .qq-editor-body.is-preview-collapsed .qq-editor-right {
+              flex: 0 0 0 !important;
+              width: 0 !important;
+              min-width: 0 !important;
+              opacity: 0;
+              pointer-events: none;
+              border-left: 0;
+            }
+            .qq-editor-body.is-preview-collapsed .qq-editor-left {
+              flex: 1 1 auto;
+              width: auto !important;
+            }
+            .qq-editor-body.is-preview-collapsed .qq-editor-resize {
+              display: none !important;
             }
             .qq-editor-left {
               position: relative;
@@ -971,6 +1071,21 @@ export default function WizardShell({ embed = false }: Props) {
               }
               .qq-bezel--mobile > div:last-child { border-radius: 22px; }
               .qq-editor-tab { padding: 10px 12px; font-size: 12.5px; }
+              /* Wave M — tap-target on mobile + collapse the stacked
+                 preview (mobile lays out vertically: preview on top, editor
+                 below — collapsing hides it entirely so the editor uses
+                 the full viewport height). */
+              .qq-editor-fold {
+                min-height: 44px;
+                padding: 8px 12px;
+                font-size: 13px;
+              }
+              .qq-editor-body.is-preview-collapsed .qq-editor-right {
+                display: none;
+                height: 0 !important;
+                padding: 0 !important;
+                border: 0 !important;
+              }
             }
             @media (max-width: 480px) {
               .qq-editor-topbar { padding: 8px 10px; gap: 6px; }
