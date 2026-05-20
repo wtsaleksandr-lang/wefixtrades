@@ -24,6 +24,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { BrainCircuit, DollarSign, ImageIcon, Loader2, RotateCw, Save } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useCopilotForm } from "@/context/CopilotFormContext";
 
 interface BudgetValues {
   cap_lifetime_usd: number;
@@ -70,14 +71,28 @@ function ScopeForm({
   values,
   onSave,
   saving,
+  externalDraft,
+  onDraftChange,
 }: {
   scope: string;
   values: BudgetValues;
   onSave: (next: BudgetValues) => void;
   saving: boolean;
+  /** Optional controlled draft (used for the global row so the page can
+   *  observe its values and register them with the AI copilot). */
+  externalDraft?: BudgetValues;
+  onDraftChange?: (next: BudgetValues) => void;
 }) {
-  const [draft, setDraft] = useState<BudgetValues>(values);
-  useEffect(() => { setDraft(values); }, [values, scope]);
+  const [localDraft, setLocalDraft] = useState<BudgetValues>(values);
+  const draft = externalDraft ?? localDraft;
+  const setDraft: (next: BudgetValues | ((prev: BudgetValues) => BudgetValues)) => void = (next) => {
+    const resolved = typeof next === "function" ? (next as (p: BudgetValues) => BudgetValues)(draft) : next;
+    if (onDraftChange) onDraftChange(resolved);
+    else setLocalDraft(resolved);
+  };
+  useEffect(() => {
+    if (externalDraft === undefined) setLocalDraft(values);
+  }, [values, scope, externalDraft]);
 
   const dirty = useMemo(() => {
     return (Object.keys(draft) as Array<keyof BudgetValues>).some(k => Number(draft[k]) !== Number(values[k]));
@@ -168,6 +183,60 @@ export default function AiBudgetPage() {
 
   const tierScopes = (data?.scopes ?? []).filter(s => s !== "global");
 
+  /* Lift the global draft up so the AI copilot can fill it. Per-tier
+   * overrides stay self-contained — admins typically tweak them by hand
+   * and they're not always exposed. The page-level registration below
+   * targets the global row, which is always present. */
+  const [globalDraft, setGlobalDraft] = useState<BudgetValues | null>(null);
+  useEffect(() => {
+    if (data?.global) setGlobalDraft((prev) => prev ?? data.global);
+  }, [data?.global]);
+
+  /* Register the editable budget fields with the AI copilot. The apply
+   * handler updates the local draft only — the admin still clicks Save. */
+  useCopilotForm({
+    formLabel: "AI budget (global default)",
+    fields: [
+      { key: "cap_lifetime_usd", label: "Lifetime cap in USD (per-user)" },
+      { key: "soft_warn_pct", label: "Soft warning threshold as a percentage of the lifetime cap (0-100)" },
+      { key: "per_call_max_usd", label: "Maximum cost of a single AI call in USD" },
+      { key: "daily_ceiling_usd", label: "Daily spend ceiling in USD (per-user)" },
+      { key: "image_lifetime_cap", label: "Maximum lifetime image uploads (per-user, integer)" },
+    ],
+    values: {
+      cap_lifetime_usd: globalDraft?.cap_lifetime_usd ?? data?.global.cap_lifetime_usd ?? 0,
+      soft_warn_pct: globalDraft?.soft_warn_pct ?? data?.global.soft_warn_pct ?? 0,
+      per_call_max_usd: globalDraft?.per_call_max_usd ?? data?.global.per_call_max_usd ?? 0,
+      daily_ceiling_usd: globalDraft?.daily_ceiling_usd ?? data?.global.daily_ceiling_usd ?? 0,
+      image_lifetime_cap: globalDraft?.image_lifetime_cap ?? data?.global.image_lifetime_cap ?? 0,
+    },
+    onApply: (fills) => {
+      setGlobalDraft((prev) => {
+        const base: BudgetValues = prev ?? data?.global ?? {
+          cap_lifetime_usd: 0,
+          soft_warn_pct: 0,
+          per_call_max_usd: 0,
+          daily_ceiling_usd: 0,
+          image_lifetime_cap: 0,
+        };
+        const next: BudgetValues = { ...base };
+        for (const f of fills) {
+          const n = Number(f.value);
+          if (!Number.isFinite(n)) continue;
+          switch (f.field_key) {
+            case "cap_lifetime_usd": next.cap_lifetime_usd = n; break;
+            case "per_call_max_usd": next.per_call_max_usd = n; break;
+            case "daily_ceiling_usd": next.daily_ceiling_usd = n; break;
+            case "soft_warn_pct": next.soft_warn_pct = Math.round(n); break;
+            case "image_lifetime_cap": next.image_lifetime_cap = Math.round(n); break;
+          }
+        }
+        return next;
+      });
+    },
+    enabled: Boolean(data?.global),
+  });
+
   return (
     <AdminLayout pageContext={{ page: "ai-budget" }}>
       <div className="max-w-5xl mx-auto space-y-6">
@@ -214,6 +283,8 @@ export default function AiBudgetPage() {
             <ScopeForm
               scope="global"
               values={data.global}
+              externalDraft={globalDraft ?? data.global}
+              onDraftChange={setGlobalDraft}
               saving={saveMutation.isPending && saveMutation.variables?.scope === "global"}
               onSave={(values) => saveMutation.mutate({ scope: "global", values })}
             />
