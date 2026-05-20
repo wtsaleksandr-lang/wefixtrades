@@ -82,41 +82,24 @@ test.describe('wizard M — Browse-all modal cleanup', () => {
     await expect(page.getByTestId('template-browse-empty')).toBeVisible();
   });
 
-  test('Filter chip row scrolls horizontally without clipping', async ({ page }) => {
+  test('Category filter is a <select> dropdown (Wave Q-Hotfix)', async ({ page }) => {
     await openBrowseModal(page);
 
-    const cats = page.getByTestId('template-browse-cats');
-    await expect(cats).toBeVisible();
-
-    const computed = await cats.evaluate((el) => {
-      const cs = window.getComputedStyle(el);
-      return {
-        overflowX: cs.overflowX,
-        scrollWidth: el.scrollWidth,
-        clientWidth: el.clientWidth,
-      };
-    });
-    expect(computed.overflowX).toBe('auto');
-    // The chip row HAS more content than fits — that's the entire fix:
-    // it scrolls instead of clipping.
-    expect(computed.scrollWidth).toBeGreaterThanOrEqual(computed.clientWidth);
-
-    // Programmatic scroll proves it's actually scrollable when overflowing.
-    if (computed.scrollWidth > computed.clientWidth) {
-      await cats.evaluate((el) => { el.scrollLeft = 100; });
-      await page.waitForTimeout(120);
-      const sl = await cats.evaluate((el) => el.scrollLeft);
-      expect(sl).toBeGreaterThan(40);
-    }
+    const select = page.getByTestId('template-browse-cat-select');
+    await expect(select).toBeVisible();
+    // It's a native <select>, not a button row.
+    const tagName = await select.evaluate((el) => el.tagName);
+    expect(tagName).toBe('SELECT');
+    // First option is "All categories (N)".
+    const firstText = await select.locator('option').first().textContent();
+    expect(firstText ?? '').toMatch(/^All categories/);
   });
 
-  test('Selecting a chip narrows the visible cards', async ({ page }) => {
+  test('Selecting a dropdown option narrows the visible cards', async ({ page }) => {
     await openBrowseModal(page);
 
-    // Pick the Automotive chip — car_towing belongs to Automotive.
-    await page.getByTestId('template-browse-cat-automotive').click();
+    await page.getByTestId('template-browse-cat-select').selectOption('Automotive');
     await expect(page.getByTestId('template-browse-card-car_towing')).toBeVisible();
-    // A non-automotive template should disappear.
     await expect(page.getByTestId('template-browse-card-driveway_paving')).toHaveCount(0);
   });
 
@@ -247,16 +230,14 @@ test.describe('wizard M — Mobile (390×844)', () => {
     // Tap target ≥40px (target is 44px with some slack for rounding).
     expect(searchBox!.height).toBeGreaterThanOrEqual(40);
 
-    const cats = page.getByTestId('template-browse-cats');
-    const overflow = await cats.evaluate((el) => window.getComputedStyle(el).overflowX);
-    expect(overflow).toBe('auto');
-    const widths = await cats.evaluate((el) => ({
-      scrollWidth: el.scrollWidth,
-      clientWidth: el.clientWidth,
-    }));
-    // On a 390px viewport the chip row must overflow horizontally — that's
-    // the whole point of the scroll fix.
-    expect(widths.scrollWidth).toBeGreaterThan(widths.clientWidth);
+    // Wave Q-Hotfix — chip row replaced with a <select> dropdown. The
+    // dropdown is a single full-width control; assert it's visible + has
+    // a ≥40px tap target on mobile.
+    const select = page.getByTestId('template-browse-cat-select');
+    await expect(select).toBeVisible();
+    const selBox = await select.boundingBox();
+    expect(selBox).not.toBeNull();
+    expect(selBox!.height).toBeGreaterThanOrEqual(40);
 
     // Grid is 2-column on mobile — assert via computed grid-template-columns.
     const grid = page.getByTestId('template-browse-grid');
