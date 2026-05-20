@@ -34,10 +34,12 @@ import TabPlaceholder from './TabPlaceholder';
 import BuildTab from './BuildTab';
 import PreviewPane from './PreviewPane';
 import StyleTab from './StyleTab';
+import SettingsTab from './SettingsTab';
 import {
-  INITIAL_SHELL_STATE, DEFAULT_SHELL_STYLE,
+  INITIAL_SHELL_STATE, DEFAULT_SHELL_STYLE, DEFAULT_SHELL_NUMBER_FORMAT,
   type EditorTab, type PreviewDevice, type ShellState,
   type ShellHeader, type ShellResults, type ShellStyle,
+  type ShellSettings, type ShellNumberFormat, type ShellPricing,
 } from './types';
 
 const p = platformTheme;
@@ -96,6 +98,18 @@ function loadShellState(): ShellState {
         // An explicit partial style merges over the defaults so missing fields
         // fall through to brand rather than reading `undefined`.
         style: { ...DEFAULT_SHELL_STYLE, ...(parsed.style ?? {}) },
+        // H6 — Settings tab values. Older persisted state pre-dates them; we
+        // seed sensible defaults so the SettingsTab and downstream consumers
+        // (preview number formatting, save-draft payload) always have a
+        // shape they can read. An explicit partial merges over the defaults.
+        settings: {
+          ...(INITIAL_SHELL_STATE.settings ?? {}),
+          ...(parsed.settings ?? {}),
+          numberFormat: {
+            ...DEFAULT_SHELL_NUMBER_FORMAT,
+            ...((parsed.settings && parsed.settings.numberFormat) ?? {}),
+          },
+        },
       };
     }
   } catch {}
@@ -105,6 +119,51 @@ function loadShellState(): ShellState {
     calculations: seedCalculations(INITIAL_SHELL_STATE.layout),
     style: { ...DEFAULT_SHELL_STYLE },
   };
+}
+
+/**
+ * Map the user-facing `ShellThousandsSep` enum to the literal character the
+ * renderer's `AdvNumberFormat.thousands` accepts.
+ */
+function thousandsLiteral(sep: ShellNumberFormat['thousands']): ',' | ' ' | '' {
+  return sep === 'comma' ? ',' : sep === 'space' ? ' ' : '';
+}
+function decimalLiteral(sep: ShellNumberFormat['decimal']): '.' | ',' {
+  return sep === 'comma' ? ',' : '.';
+}
+
+/** Render-ready number-format slot for `advanced.numberFormat`. */
+function toAdvNumberFormat(nf: ShellNumberFormat | undefined) {
+  const resolved = nf ?? DEFAULT_SHELL_NUMBER_FORMAT;
+  return {
+    thousands: thousandsLiteral(resolved.thousands),
+    decimal: decimalLiteral(resolved.decimal),
+    currency: resolved.currency || 'USD',
+  };
+}
+
+/**
+ * Convert the user's three-mode pricing pick into the canonical
+ * `PricingConfigV1` shape the server validates. Falls back to the H1 minimal
+ * stub when the user hasn't filled the value yet so the save-draft contract
+ * stays valid in both directions.
+ */
+function toPricingConfig(pricing: ShellPricing | undefined) {
+  if (!pricing) {
+    return { pricingType: 'hourly', unitName: 'hour', rate: 75, baseFee: 50 } as const;
+  }
+  if (pricing.mode === 'hourly') {
+    const rate = typeof pricing.rate === 'number' && pricing.rate >= 0 ? pricing.rate : 75;
+    return { pricingType: 'hourly', unitName: 'hour', rate } as const;
+  }
+  if (pricing.mode === 'fixed') {
+    const minCharge = typeof pricing.value === 'number' && pricing.value >= 0 ? pricing.value : 0;
+    return { pricingType: 'min_charge_plus_addons', minCharge } as const;
+  }
+  // custom → per_unit; require a unit name and a rate
+  const unitName = (pricing.label ?? '').trim() || 'unit';
+  const rate = typeof pricing.rate === 'number' && pricing.rate >= 0 ? pricing.rate : 1;
+  return { pricingType: 'per_unit', unitName, rate } as const;
 }
 
 interface Props {
@@ -150,6 +209,10 @@ export default function WizardShell({ embed = false }: Props) {
     setState((s) => ({ ...s, style: next }));
   }, []);
 
+  const setSettings = useCallback((next: ShellSettings) => {
+    setState((s) => ({ ...s, settings: next }));
+  }, []);
+
   /**
    * Set the headline calc by id. ALSO promotes that calc's `resultMode` to
    * `'primary'` and demotes any other primaries to `'secondary'`, so the
@@ -169,22 +232,57 @@ export default function WizardShell({ embed = false }: Props) {
 
   // Save round-trip — keeps the legacy POST /api/calculators contract live
   // from the new shell so future phases can extend it without re-introducing
-  // the persistence layer from scratch. Wave H1 only sends businessName +
-  // a sentinel draft flag (`is_draft: true`) — backend treats missing
-  // pricing_config as a draft already (see __preview strip / draft logic).
+  // the persistence layer from scratch.
+  //
+  // Wave H6 — `state.settings` drives the four payload fields that previously
+  // came from hardcoded stubs:
+  //   - pricing_config ← `settings.pricing` (or the H1 stub when unset)
+  //   - owner_email    ← `settings.leadEmail` (only when it parses)
+  //   - trade_type     ← `settings.tradeId` (else 'general' so the server
+  //                       schema's `trade_type.min(1)` still passes)
+  //   - calculator_settings.advanced.numberFormat ← `settings.numberFormat`
+  //     (and `.results.cta_label` ← `settings.ctaLabel` when set)
+  // Older persisted state where `settings` is undefined behaves exactly like
+  // the H1 stub — backward-compat with the saved-draft contract.
   const saveDraftMutation = useMutation({
     mutationFn: async () => {
+      const settings = state.settings ?? {};
+      const leadEmail = (settings.leadEmail ?? '').trim();
+      const leadEmailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(leadEmail);
+      const tradeId = (settings.tradeId ?? '').trim();
+      const ctaLabel = (settings.ctaLabel ?? '').trim();
+
+      const advanced: Record<string, unknown> = {
+        // The renderer reads `advanced.numberFormat` directly — see
+        // AdvancedCalculator's formatResult() (Wave H6).
+        numberFormat: toAdvNumberFormat(settings.numberFormat),
+      };
+      if (ctaLabel !== '') {
+        advanced.results = { cta_label: ctaLabel };
+      }
+
       const res = await apiRequest('POST', '/api/calculators', {
         business_name: state.businessName,
+        // Server's createCalculatorBody requires a non-empty trade_type. The
+        // H1 stub omitted it; if Settings hasn't touched the field yet, send
+        // the catch-all 'general' so the contract stays valid both before and
+        // after a user picks a real trade.
+        trade_type: tradeId || 'general',
         is_draft: true,
-        // Minimum viable pricing_config so the schema validator passes —
-        // server still strips `__preview` configs. Wave H2+ replaces this
-        // with the real Fields/Calculations payload.
-        pricing_config: { pricingType: 'hourly', unitName: 'hour', rate: 75, baseFee: 50 },
+        // Wave H6 — derive from settings.pricing (falls back to the H1
+        // minimal stub when unset).
+        pricing_config: toPricingConfig(settings.pricing),
+        ...(leadEmailOk ? { owner_email: leadEmail } : {}),
         primary_color: p.colors.accent,
         calculator_settings: {
           calculator_type: 'estimate_only',
           ui_template: { template_id: 'classic_single' },
+          advanced,
+          // Stash the raw shell settings as well so a server-side consumer
+          // can recover the user's exact intent (trade id, CTA label, etc.)
+          // without re-deriving from the canonical fields. Zod silently
+          // drops unknown keys → forward-compatible.
+          shell_settings: settings,
         },
       });
       return res.json();
@@ -255,6 +353,11 @@ export default function WizardShell({ embed = false }: Props) {
                   style={state.style ?? { ...DEFAULT_SHELL_STYLE }}
                   onChange={setStyle}
                 />
+              ) : activeTab === 'settings' ? (
+                <SettingsTab
+                  settings={state.settings ?? {}}
+                  onChange={setSettings}
+                />
               ) : (
                 <TabPlaceholder
                   tab={activeTab}
@@ -296,6 +399,7 @@ export default function WizardShell({ embed = false }: Props) {
               results={state.results}
               resultCalcId={state.resultCalcId}
               style={state.style}
+              settings={state.settings}
             />
           </div>
         </div>
