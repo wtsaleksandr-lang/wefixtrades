@@ -47,12 +47,35 @@ export const FIELD_TYPE_TO_PUBLIC: Partial<Record<TemplateField['type'], PublicF
   heading: 'heading',
 };
 
-/** H2 shell state — carries the live, editable fields list. */
+/** Header overrides — Wave H4. Both optional; blank values fall back to
+ *  the AdvancedCalculator's defaults (businessName / no subtitle). */
+export interface ShellHeader {
+  title?: string;
+  subtitle?: string;
+}
+
+/** Results overrides — Wave H4. Optional. */
+export interface ShellResults {
+  heading?: string;
+  footnote?: string;
+}
+
+/**
+ * H2 shell state — carries the live, editable fields list. H4 adds optional
+ * header / results overrides + a `resultCalcId` carrying the user's
+ * explicit headline choice (an id rather than a name, to survive renames).
+ */
 export interface ShellState {
   businessName: string;
   layout: TemplateLayout;
   fields: TemplateField[];
   calculations: TemplateCalculation[];
+  /** H4 — header overrides (title / subtitle). */
+  header?: ShellHeader;
+  /** H4 — result-panel overrides (heading / footnote). */
+  results?: ShellResults;
+  /** H4 — the calc id (not name) chosen as the headline. */
+  resultCalcId?: string;
 }
 
 export const INITIAL_SHELL_STATE: ShellState = {
@@ -60,4 +83,6 @@ export const INITIAL_SHELL_STATE: ShellState = {
   layout: 'two-column',
   fields: [],
   calculations: [],
+  header: {},
+  results: {},
 };

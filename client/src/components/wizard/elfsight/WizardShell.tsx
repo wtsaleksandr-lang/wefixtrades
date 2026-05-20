@@ -35,6 +35,7 @@ import BuildTab from './BuildTab';
 import PreviewPane from './PreviewPane';
 import {
   INITIAL_SHELL_STATE, type EditorTab, type PreviewDevice, type ShellState,
+  type ShellHeader, type ShellResults,
 } from './types';
 
 const p = platformTheme;
@@ -83,6 +84,11 @@ function loadShellState(): ShellState {
         calculations: hasCalcs
           ? parsed.calculations
           : (parsed.calculations === undefined ? seedCalculations(layout) : []),
+        // H4 — header & results overrides. Both are optional objects; if the
+        // persisted state pre-dates them they're seeded to empty objects.
+        header: parsed.header ?? {},
+        results: parsed.results ?? {},
+        resultCalcId: parsed.resultCalcId,
       };
     }
   } catch {}
@@ -122,6 +128,31 @@ export default function WizardShell({ embed = false }: Props) {
 
   const setCalculations = useCallback((next: TemplateCalculation[]) => {
     setState((s) => ({ ...s, calculations: next }));
+  }, []);
+
+  const setHeader = useCallback((next: ShellHeader) => {
+    setState((s) => ({ ...s, header: next }));
+  }, []);
+
+  const setResults = useCallback((next: ShellResults) => {
+    setState((s) => ({ ...s, results: next }));
+  }, []);
+
+  /**
+   * Set the headline calc by id. ALSO promotes that calc's `resultMode` to
+   * `'primary'` and demotes any other primaries to `'secondary'`, so the
+   * renderer's explicit-primary rule and the UI's segmented control stay
+   * in sync.
+   */
+  const setResultCalc = useCallback((calcId: string) => {
+    setState((s) => {
+      const nextCalcs = s.calculations.map((c) => {
+        if (c.id === calcId) return { ...c, resultMode: 'primary' as const };
+        if (c.resultMode === 'primary') return { ...c, resultMode: 'secondary' as const };
+        return c;
+      });
+      return { ...s, resultCalcId: calcId, calculations: nextCalcs };
+    });
   }, []);
 
   // Save round-trip — keeps the legacy POST /api/calculators contract live
@@ -200,6 +231,12 @@ export default function WizardShell({ embed = false }: Props) {
                   onFieldsChange={setFields}
                   calculations={state.calculations}
                   onCalculationsChange={setCalculations}
+                  header={state.header ?? {}}
+                  onHeaderChange={setHeader}
+                  results={state.results ?? {}}
+                  onResultsChange={setResults}
+                  resultCalcId={state.resultCalcId}
+                  onResultCalcChange={setResultCalc}
                 />
               ) : (
                 <TabPlaceholder
@@ -238,6 +275,9 @@ export default function WizardShell({ embed = false }: Props) {
               device={device}
               fields={state.fields}
               calculations={state.calculations}
+              header={state.header}
+              results={state.results}
+              resultCalcId={state.resultCalcId}
             />
           </div>
         </div>

@@ -9,6 +9,8 @@ import { platformTheme } from '@/theme/platformTheme';
 import type { TemplateField, TemplateCalculation } from '@shared/templatePresets';
 import FieldsPanel from './FieldsPanel';
 import CalculationsPanel from './CalculationsPanel';
+import HeaderResultsPanel from './HeaderResultsPanel';
+import type { ShellHeader, ShellResults } from './types';
 
 const p = platformTheme;
 
@@ -19,12 +21,22 @@ interface Props {
   onFieldsChange: (next: TemplateField[]) => void;
   calculations: TemplateCalculation[];
   onCalculationsChange: (next: TemplateCalculation[]) => void;
+  /** Wave H4. */
+  header: ShellHeader;
+  onHeaderChange: (next: ShellHeader) => void;
+  results: ShellResults;
+  onResultsChange: (next: ShellResults) => void;
+  resultCalcId?: string;
+  onResultCalcChange: (calcId: string) => void;
 }
 
 export default function BuildTab({
   businessName, onBusinessNameChange,
   fields, onFieldsChange,
   calculations, onCalculationsChange,
+  header, onHeaderChange,
+  results, onResultsChange,
+  resultCalcId, onResultCalcChange,
 }: Props) {
   return (
     <div
@@ -68,6 +80,18 @@ export default function BuildTab({
         calculations={calculations}
         fields={fields}
         onChange={onCalculationsChange}
+      />
+
+      <div className="qq-build-divider" />
+
+      <HeaderResultsPanel
+        header={header}
+        onHeaderChange={onHeaderChange}
+        results={results}
+        onResultsChange={onResultsChange}
+        calculations={calculations}
+        resultCalcId={resultCalcId}
+        onResultCalcChange={onResultCalcChange}
       />
 
       <style>{`
