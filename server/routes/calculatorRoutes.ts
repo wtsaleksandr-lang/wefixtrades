@@ -6,6 +6,7 @@ import { storage } from "../storage";
 import { validatePricingConfig } from "@shared/pricingConfig";
 import { calculatorSettingsSchema } from "@shared/schema";
 import { slugify, isValidSlug, buildSubdomain, HOSTING_DOMAIN } from "@shared/slugUtils";
+import { touchCalculatorActivity } from "../services/quotequickSlugLifecycle";
 import { createLogger } from "../lib/logger";
 
 const log = createLogger("Calculator");
@@ -41,7 +42,19 @@ function deepMergeSettings(base: Record<string, any>, patch: Record<string, any>
   return result;
 }
 
-async function generateUniqueSlug(businessName?: string): Promise<string> {
+async function generateUniqueSlug(
+  businessName?: string,
+  preferredSlug?: string,
+): Promise<string> {
+  // Wave P-F — if the wizard sent a preferred slug AND it's valid AND
+  // unique, use it. Otherwise fall back to the derived/business-name path.
+  if (preferredSlug) {
+    const validation = isValidSlug(preferredSlug);
+    if (validation.valid) {
+      const existing = await storage.getCalculatorBySlug(preferredSlug);
+      if (!existing) return preferredSlug;
+    }
+  }
   const base = businessName ? slugify(businessName) : randomBytes(6).toString("hex");
   const existing = await storage.getCalculatorBySlug(base);
   if (!existing) return base;
@@ -65,6 +78,11 @@ const createCalculatorBody = z.object({
   primary_color: z.string().optional(),
   theme_overrides: z.record(z.any()).nullable().optional(),
   calculator_settings: z.record(z.any()).nullable().optional(),
+  // Wave P-F — optional preferred slug. When provided AND valid AND not
+  // taken, the server uses it verbatim instead of slugifying the business
+  // name. When taken or invalid, generateUniqueSlug falls back to the
+  // derived value. Subject to the same regex + reserved-words check.
+  preferred_slug: z.string().optional(),
 });
 
 const updateCalculatorBody = z.object({
@@ -106,7 +124,7 @@ export function registerCalculatorRoutes(app: Express): void {
         return res.status(400).json({ error: "Invalid request", details: parsed.error.flatten() });
       }
 
-      const slug = await generateUniqueSlug(parsed.data.business_name);
+      const slug = await generateUniqueSlug(parsed.data.business_name, parsed.data.preferred_slug);
       const edit_token = generateToken();
       const token_expires_at = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
@@ -155,7 +173,9 @@ export function registerCalculatorRoutes(app: Express): void {
         auto_republish: true,
       });
 
-      const subdomain = buildSubdomain(calculator.slug, HOSTING_DOMAIN);
+      // Slug is non-null at create time (we just assigned it via
+       // generateUniqueSlug); narrow the post-Wave-P-E nullable type.
+      const subdomain = buildSubdomain(calculator.slug as string, HOSTING_DOMAIN);
       res.json({
         success: true,
         calculator: { ...calculator, is_token_expired: false },
@@ -365,6 +385,10 @@ export function registerCalculatorRoutes(app: Express): void {
         }
       }
 
+      // Wave P-E — owner edit counts as activity. Resets the slug-release
+      // warning and bumps updated_at so the cron leaves the slug alone.
+      touchCalculatorActivity(calculator.id).catch(() => {});
+
       res.json({ success: true, calculator: updated, auto_republished: autoRepublished });
     } catch (error: any) {
       log.error("Update calculator error:", error);
@@ -456,8 +480,11 @@ export function registerCalculatorRoutes(app: Express): void {
       // Store old slug in metadata for redirect (30-day window)
       const settings = (calculator.calculator_settings as any) || {};
       const oldSlugs: { slug: string; changed_at: number }[] = settings._slug_redirects || [];
-      // Add current slug to redirect list
-      oldSlugs.push({ slug: calculator.slug, changed_at: Date.now() });
+      // Add current slug to redirect list (post-Wave-P-E the column is
+      // nullable, but a released slug is never re-changed via this path).
+      if (calculator.slug) {
+        oldSlugs.push({ slug: calculator.slug, changed_at: Date.now() });
+      }
       // Keep only redirects from the last 30 days
       const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
       const activeRedirects = oldSlugs.filter(r => r.changed_at > thirtyDaysAgo);
@@ -501,6 +528,11 @@ export function registerCalculatorRoutes(app: Express): void {
       const parsed = trackViewBody.safeParse(_req.body);
       if (parsed.success) {
         await storage.incrementViews(parsed.data.calculator_id);
+        // Wave P-E — bump the activity timestamp + clear any pending
+        // slug-release warning the moment a real visitor lands. Same
+        // call is also made by the PATCH /api/calculators route so any
+        // owner edit counts as activity too.
+        touchCalculatorActivity(parsed.data.calculator_id).catch(() => {});
         const ua = _req.headers['user-agent'] || '';
         const isMobile = /Mobile|Android|iPhone/i.test(ua);
         const isTablet = /iPad|Tablet/i.test(ua);

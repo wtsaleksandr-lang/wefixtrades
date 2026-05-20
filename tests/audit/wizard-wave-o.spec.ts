@@ -75,17 +75,25 @@ test.describe('wizard Wave O — Install tab refresh', () => {
     await expect(url).toContainText('joes-plumbing-and-heating.');
   });
 
-  test('Reserved badge appears when calculator is not yet published', async ({ page }) => {
+  test('Live badge is shown (Wave P — auto-publish on save)', async ({ page }) => {
+    // Wave P removed the misleading "Reserved" badge — every save
+    // auto-publishes server-side, so the hosted link is live as soon as
+    // the user lands on Install. The badge now reads 'Live'.
     await gotoInstallTab(page);
-    await expect(page.getByTestId('install-hosted-badge')).toBeVisible();
-    await expect(page.getByTestId('install-hosted-badge')).toContainText(/reserved/i);
+    const badge = page.getByTestId('install-hosted-badge');
+    await expect(badge).toBeVisible();
+    await expect(badge).toContainText(/live/i);
+    await expect(badge).toHaveAttribute('data-state', 'live');
   });
 
-  test('Open button is disabled while unpublished', async ({ page }) => {
+  test('Open button is always clickable on the hosted link card (Wave P)', async ({ page }) => {
+    // Wave P dropped the unpublished-disable gate. The Open link is now
+    // an unconditional `<a href>` to the hosted URL.
     await gotoInstallTab(page);
     const open = page.getByTestId('install-hosted-open');
-    await expect(open).toHaveClass(/is-disabled/);
-    await expect(open).toHaveAttribute('aria-disabled', 'true');
+    await expect(open).toBeVisible();
+    await expect(open).not.toHaveAttribute('aria-disabled', 'true');
+    await expect(open).toHaveAttribute('href', /your-quote\.net/);
   });
 
   test('Platform guides render as clickable cards (not inline tabs)', async ({ page }) => {

@@ -54,6 +54,7 @@ import { processBillRetention } from "./tradelineBillRetentionWorker";
 import { processProTrialExpiry } from "./trialProExpiryWorker";
 import { processTradelineProvisionRetry } from "./tradelineProvisionRetryWorker";
 import { processRoutingEngine } from "../engine/routingWorker";
+import { releaseStaleSlugs } from "../services/quotequickSlugLifecycle";
 
 const log = createLogger("Scheduler");
 
@@ -244,6 +245,21 @@ export function initScheduler() {
     }
   }, { timezone: "UTC" });
 
+
+  // Wave P-E — QuoteQuick slug lifecycle. Daily at 04:30 UTC. Warns
+  // free-tier owners at day 23 of inactivity; releases the slug at day 30
+  // (sets calculators.slug = NULL so the subdomain returns to the pool).
+  // Paid tiers are excluded.
+  cron.schedule("30 4 * * *", async () => {
+    try {
+      await runJob("quotequick_slug_release", async () => {
+        const result = await releaseStaleSlugs();
+        return result;
+      });
+    } catch (err: any) {
+      log.error("quotequick_slug_release cron handler error", { error: err.message });
+    }
+  }, { timezone: "UTC" });
 
   cron.schedule("0 3 * * *", async () => {
     log.info("Running chat memory cleanup...");

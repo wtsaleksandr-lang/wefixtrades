@@ -130,10 +130,27 @@ export function registerDomainRoutes(app: Express): void {
       const settings = (calculator.calculator_settings as any) || {};
       const publish = settings.publish || {};
 
+      // Wave P-E — slug is now nullable. A null slug means the
+      // calculator's subdomain has been released; the caller (owner)
+      // sees `released` status instead of subdomain/URL details.
+      const slug = calculator.slug;
+      if (!slug) {
+        res.json({
+          slug: null,
+          subdomain: '',
+          hosted_url: '',
+          custom_domain: publish.custom_domain || '',
+          custom_domain_status: publish.custom_domain_status || 'none',
+          ssl_status: publish.ssl_status || 'none',
+          last_dns_check: publish.last_dns_check || null,
+          slug_status: 'released',
+        });
+        return;
+      }
       res.json({
-        slug: calculator.slug,
-        subdomain: buildSubdomain(calculator.slug, HOSTING_DOMAIN),
-        hosted_url: `https://${buildSubdomain(calculator.slug, HOSTING_DOMAIN)}`,
+        slug,
+        subdomain: buildSubdomain(slug, HOSTING_DOMAIN),
+        hosted_url: `https://${buildSubdomain(slug, HOSTING_DOMAIN)}`,
         custom_domain: publish.custom_domain || '',
         custom_domain_status: publish.custom_domain_status || 'none',
         ssl_status: publish.ssl_status || 'none',

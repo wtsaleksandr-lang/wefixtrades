@@ -64,7 +64,10 @@ export const passwordResetTokens = pgTable("password_reset_tokens", {
 export const calculators = pgTable("calculators", {
   id: serial("id").primaryKey(),
   user_id: integer("user_id").references(() => users.id),
-  slug: varchar("slug", { length: 255 }).notNull().unique(),
+  // Wave P-E — slug becomes nullable so the slug-release cron can null
+  // the column without orphaning the calculator row. Uniqueness is still
+  // enforced for non-null values. A null slug = released-back-to-pool.
+  slug: varchar("slug", { length: 255 }).unique(),
   business_name: text("business_name").notNull(),
   trade_type: text("trade_type").notNull(),
   tagline: text("tagline"),
@@ -86,6 +89,14 @@ export const calculators = pgTable("calculators", {
   plan_tier: text("plan_tier").default("free"),
   stripe_subscription_id: text("stripe_subscription_id"),
   created_at: timestamp("created_at").defaultNow(),
+  // Wave P — slug lifecycle. Every edit / public view bumps `updated_at`.
+  // The slug-release cron compares this against now() to decide whether
+  // a free-tier calculator has been abandoned long enough to release its
+  // subdomain back to the pool. Paid tiers are excluded by the cron.
+  // `slug_release_warned_at` records when we sent the 7-day-warning email
+  // so we don't spam the owner every cron tick.
+  updated_at: timestamp("updated_at").defaultNow(),
+  slug_release_warned_at: timestamp("slug_release_warned_at"),
 });
 
 export const leads = pgTable("leads", {

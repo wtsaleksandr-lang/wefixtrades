@@ -20,6 +20,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import QuoteWidget from '@/components/quote-widget/QuoteWidget';
+import HostedPageFrame from '@/components/hosted-page/HostedPageFrame';
 import type { CalculatorData } from '@/components/quote-widget/types';
 import {
   buildBlankPreviewConfig,
@@ -59,6 +60,10 @@ interface Props {
   onRemoveField?: (fieldId: string) => void;
   /** Wave I (f): add a field via the in-preview +Add slot. */
   onAddField?: (publicType: PublicFieldType) => void;
+  /** Wave P — when true, wrap the QuoteWidget in HostedPageFrame so the
+   *  preview matches the public hosted page. Defaults to false (bare
+   *  widget, the long-standing behaviour). */
+  hostedFrame?: boolean;
 }
 
 function thousandsLiteral(sep: ShellNumberFormat['thousands']): ',' | ' ' | '' {
@@ -72,6 +77,7 @@ export default function PreviewPane({
   businessName, onBusinessNameChange, logo, layout, device, fields, calculations,
   header, results, resultCalcId, style, settings,
   onRemoveField, onAddField,
+  hostedFrame = false,
 }: Props) {
   const selection = useSelection();
   // Track which field came from the live shell list — only those get the
@@ -453,7 +459,18 @@ export default function PreviewPane({
             >
               <div style={{ height: 5, width: 42, borderRadius: 3, background: 'rgba(255,255,255,0.22)', margin: '0 auto 9px', flexShrink: 0 }} />
               <div ref={overlayHostRef} style={{ borderRadius: 34, overflow: 'auto', background: '#fff', flex: 1, position: 'relative' }}>
-                <QuoteWidget calculator={previewCalculatorData} isEmbed />
+                {hostedFrame ? (
+                  <HostedPageFrame
+                    settings={settings?.hostedPage}
+                    logoUrl={logo}
+                    businessName={businessName}
+                    compact
+                  >
+                    <QuoteWidget calculator={previewCalculatorData} isEmbed />
+                  </HostedPageFrame>
+                ) : (
+                  <QuoteWidget calculator={previewCalculatorData} isEmbed />
+                )}
                 {shellFields.length > 0 && onRemoveField && onAddField && (
                   <PreviewOverlay
                     fields={shellFields}
@@ -534,7 +551,18 @@ export default function PreviewPane({
                 </div>
               </div>
               <div ref={overlayHostRef} style={{ flex: 1, overflow: 'auto', position: 'relative' }}>
-                <QuoteWidget calculator={previewCalculatorData} isEmbed />
+                {hostedFrame ? (
+                  <HostedPageFrame
+                    settings={settings?.hostedPage}
+                    logoUrl={logo}
+                    businessName={businessName}
+                    compact
+                  >
+                    <QuoteWidget calculator={previewCalculatorData} isEmbed />
+                  </HostedPageFrame>
+                ) : (
+                  <QuoteWidget calculator={previewCalculatorData} isEmbed />
+                )}
                 {shellFields.length > 0 && onRemoveField && onAddField && (
                   <PreviewOverlay
                     fields={shellFields}

@@ -1,5 +1,6 @@
 import QuoteWidget from '@/components/quote-widget/QuoteWidget';
 import AIChatBubble from '@/components/ai/AIChatBubble';
+import HostedPageFrame from '@/components/hosted-page/HostedPageFrame';
 import { Loader2, SearchX } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
@@ -113,9 +114,51 @@ export default function Calculator() {
 
   const isPreview = calculator?.is_preview === true;
 
+  // Wave P — hosted-page chrome on the public viewer.
+  //   shell_settings.hostedPage carries the wizard's hosted-page choices
+  //   (background, headline, card layout). Embedded widgets bypass the
+  //   frame entirely — they're rendered inside the host site's own page,
+  //   where adding our background would clash.
+  const hostedPageSettings = calculator?.calculator_settings?.shell_settings?.hostedPage;
+  const hostedLogoUrl = calculator?.logo_url ?? null;
+  const hostedBusinessName: string | undefined = calculator?.business_name;
+  // Wave P-H — appearance.show_powered_by drives both the header pill on
+  // QuoteWidget AND the footer CTA on HostedPageFrame. Defaults true
+  // (free tier); Pro plan toggles it off.
+  const showBrandFooter =
+    calculator?.calculator_settings?.appearance?.show_powered_by !== false;
+
+  const widget = (
+    <>
+      <QuoteWidget calculator={calculator} isEmbed={isEmbed} />
+      {showChatBubble && (
+        <AIChatBubble
+          calculatorId={calculator.id}
+          accentColor={accentColor}
+          businessName={calculator.business_name}
+          theme={calculator.theme_overrides}
+        />
+      )}
+    </>
+  );
+
+  if (isEmbed) {
+    return (
+      <div>
+        {widget}
+      </div>
+    );
+  }
+
   return (
-    <div className={isEmbed ? '' : 'min-h-screen bg-slate-50 py-8 px-4'}>
-      {isPreview && !isEmbed && (
+    <HostedPageFrame
+      settings={hostedPageSettings}
+      logoUrl={hostedLogoUrl}
+      businessName={hostedBusinessName}
+      slug={calculator?.slug ?? null}
+      showBrandFooter={showBrandFooter}
+    >
+      {isPreview && (
         <div style={{
           maxWidth: '576px',
           margin: '0 auto 12px',
@@ -131,15 +174,7 @@ export default function Calculator() {
           Preview mode — this calculator is not live yet. Only you can see this.
         </div>
       )}
-      <QuoteWidget calculator={calculator} isEmbed={isEmbed} />
-      {showChatBubble && (
-        <AIChatBubble
-          calculatorId={calculator.id}
-          accentColor={accentColor}
-          businessName={calculator.business_name}
-          theme={calculator.theme_overrides}
-        />
-      )}
-    </div>
+      {widget}
+    </HostedPageFrame>
   );
 }

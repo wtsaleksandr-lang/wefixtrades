@@ -470,6 +470,11 @@ export default function WizardShell({ embed = false }: Props) {
         pricing_config: toPricingConfig(settings.pricing),
         ...(leadEmailOk ? { owner_email: leadEmail } : {}),
         primary_color: p.colors.accent,
+        // Wave P-F — pass the user's custom slug pick (if any) so the
+        // server uses it verbatim instead of slugifying business name.
+        // generateUniqueSlug() falls back gracefully when it's missing,
+        // invalid, or taken.
+        ...(settings.preferredSlug ? { preferred_slug: settings.preferredSlug } : {}),
         calculator_settings: {
           calculator_type: 'estimate_only',
           ui_template: { template_id: 'classic_single' },
@@ -602,6 +607,8 @@ export default function WizardShell({ embed = false }: Props) {
                       settings={state.settings ?? {}}
                       onChange={setSettings}
                       businessName={state.businessName}
+                      logoUrl={state.logo}
+                      style={state.style ?? { ...DEFAULT_SHELL_STYLE }}
                     />
                   ) : (
                     <TabPlaceholder
@@ -673,6 +680,11 @@ export default function WizardShell({ embed = false }: Props) {
                   settings={state.settings}
                   onRemoveField={removeField}
                   onAddField={addField}
+                  /* Wave P — when the Install tab is active, render the
+                   * widget inside the user's chosen hosted-page chrome so
+                   * the preview matches what visitors at {slug}.your-quote
+                   * .net actually see. */
+                  hostedFrame={activeTab === 'install'}
                 />
               </div>
             </div>

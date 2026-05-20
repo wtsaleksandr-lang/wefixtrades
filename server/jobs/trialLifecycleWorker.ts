@@ -241,6 +241,10 @@ export async function processTrialLifecycle(): Promise<{ processed: number; emai
       .from(leads).where(eq(leads.calculator_id, calc.id));
     const leadCount = leadRow?.count ?? 0;
 
+    // Wave P-E — slug can now be null (released-back-to-pool). Skip the
+    // trial-lifecycle email for released calculators; nothing useful to
+    // link to.
+    if (!calc.slug) continue;
     const ctx = {
       businessName: calc.business_name,
       slug: calc.slug,
