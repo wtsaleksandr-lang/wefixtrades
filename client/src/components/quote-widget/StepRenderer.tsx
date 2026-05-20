@@ -7,6 +7,7 @@ import PackageSelectionStep from './steps/PackageSelectionStep';
 import AddonSelectionStep from './steps/AddonSelectionStep';
 import LeadCaptureStep from './steps/LeadCaptureStep';
 import BookingStep from './steps/BookingStep';
+import DepositStep from './steps/DepositStep';
 import ConfirmationStep from './steps/ConfirmationStep';
 
 interface StepRendererProps {
@@ -43,6 +44,9 @@ export default function StepRenderer({ step, accentColor }: StepRendererProps) {
 
     case 'booking':
       return <BookingStep step={step} accentColor={accentColor} />;
+
+    case 'deposit':
+      return <DepositStep step={step} accentColor={accentColor} />;
 
     case 'confirmation':
       return <ConfirmationStep step={step} accentColor={accentColor} />;
