@@ -218,10 +218,12 @@ export default function FieldsPanel({ fields, onChange }: Props) {
           margin: 0 0 10px; max-width: 320px;
           font-size: 12.5px; color: ${p.colors.muted}; line-height: 1.55;
         }
-        /* Wave L E6 — first-visit DnD hint. */
+        /* Wave L E6 — first-visit DnD hint.
+         * Wave R-pre v2 — repositioned to sit ABOVE the first field (was
+         * bottom:-34px which overlapped the second field row). */
         .qq-fields-li { position: relative; }
         .qq-fields-dnd-hint {
-          position: absolute; left: 0; bottom: -34px;
+          position: absolute; left: 0; top: -34px;
           display: inline-flex; align-items: center; gap: 8px;
           padding: 6px 10px;
           font-size: 11.5px; font-weight: 600;
@@ -233,7 +235,7 @@ export default function FieldsPanel({ fields, onChange }: Props) {
           pointer-events: auto;
         }
         .qq-fields-dnd-hint::before {
-          content: ""; position: absolute; top: -5px; left: 16px;
+          content: ""; position: absolute; bottom: -5px; left: 16px;
           width: 8px; height: 8px; background: #0f172a;
           transform: rotate(45deg);
         }

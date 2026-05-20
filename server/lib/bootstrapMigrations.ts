@@ -29,16 +29,19 @@
 
 import fs from "fs/promises";
 import path from "path";
-import { fileURLToPath } from "url";
 import { pool } from "../db";
 import { createLogger } from "./logger";
 
 const log = createLogger("BootstrapMigrations");
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-// server/lib → server → project root → migrations/
-const MIGRATIONS_DIR = path.resolve(__dirname, "../../migrations");
+// Resolve migrations/ relative to the working directory. Both Vite dev
+// (process.cwd() = project root) and the prod CJS bundle (process.cwd() =
+// dist/) end up correct because we look for the migrations folder beside
+// process.cwd() OR one level up.
+const MIGRATIONS_DIR_CANDIDATES = [
+  path.resolve(process.cwd(), "migrations"),
+  path.resolve(process.cwd(), "..", "migrations"),
+];
 
 const LEDGER_DDL = `
   CREATE TABLE IF NOT EXISTS __bootstrap_migrations (
@@ -53,9 +56,23 @@ export async function bootstrapMigrations(): Promise<void> {
     return;
   }
 
+  let migrationsDir: string | null = null;
+  for (const candidate of MIGRATIONS_DIR_CANDIDATES) {
+    try {
+      const stat = await fs.stat(candidate);
+      if (stat.isDirectory()) { migrationsDir = candidate; break; }
+    } catch { /* try next */ }
+  }
+  if (!migrationsDir) {
+    log.warn("migrations/ directory not found in any candidate path — skipping bootstrap", {
+      candidates: MIGRATIONS_DIR_CANDIDATES,
+    });
+    return;
+  }
+
   let files: string[];
   try {
-    const entries = await fs.readdir(MIGRATIONS_DIR);
+    const entries = await fs.readdir(migrationsDir);
     files = entries
       .filter((f) => f.endsWith(".sql"))
       .sort(); // ASCII sort = 0001_ < 0002_ < ... < 0099_
@@ -86,7 +103,7 @@ export async function bootstrapMigrations(): Promise<void> {
     log.info(`Applying ${pending.length} pending migration(s): ${pending.join(", ")}`);
 
     for (const file of pending) {
-      const sqlPath = path.join(MIGRATIONS_DIR, file);
+      const sqlPath = path.join(migrationsDir, file);
       const sql = await fs.readFile(sqlPath, "utf-8");
       try {
         await client.query("BEGIN");
