@@ -148,6 +148,9 @@ export const STEP_TYPES = [
   "price_reveal",
   "lead_capture",
   "booking",
+  // Wave R-1 — Calendly-style scheduling picker inserted after price_reveal
+  // when appearance.scheduling_enabled is true.
+  "scheduling",
   "confirmation",
 ] as const;
 

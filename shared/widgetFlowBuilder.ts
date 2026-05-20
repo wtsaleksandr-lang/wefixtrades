@@ -32,8 +32,14 @@ export interface FlowBuilderSettings {
     mode?: 'lead_form' | 'redirect' | 'none';
     redirect?: { heading?: string; caption?: string; button_text?: string; button_url?: string };
   };
-  /** Booking enabled */
+  /** Booking enabled (legacy date+slot booking step) */
   bookingEnabled?: boolean;
+  /**
+   * Wave R-1 — Calendly-style scheduling picker enabled. Maps to
+   * `calculator_settings.appearance.scheduling_enabled`. When true, a
+   * `scheduling` step is inserted right after `price_reveal`.
+   */
+  schedulingEnabled?: boolean;
   /** Promotions/coupon enabled */
   promotionsEnabled?: boolean;
   /** Quote rules (expiration) */
@@ -113,9 +119,21 @@ export function buildWidgetFlow(
       return { ...step, questions };
     });
 
-    const steps = includeLeadCapture
+    let steps = includeLeadCapture
       ? rawSteps
       : rawSteps.filter((s) => s.type !== 'lead_capture');
+
+    // Wave R-1 — splice scheduling step in immediately after price_reveal
+    // (or at the end of the flow if no price_reveal exists).
+    if (settings.schedulingEnabled) {
+      const schedStep = buildSchedulingStep();
+      const idx = steps.findIndex((s) => s.type === 'price_reveal');
+      if (idx >= 0) {
+        steps = [...steps.slice(0, idx + 1), schedStep, ...steps.slice(idx + 1)];
+      } else {
+        steps = [...steps, schedStep];
+      }
+    }
 
     return applyFieldOverrides({
       version: 1,
@@ -144,6 +162,12 @@ export function buildWidgetFlow(
 
   // Step 3: Price reveal
   steps.push(buildPriceRevealStep(pricingConfig));
+
+  // Wave R-1 — scheduling picker, inserted between price reveal and the
+  // post-quote lead-capture step when enabled by the owner.
+  if (settings.schedulingEnabled) {
+    steps.push(buildSchedulingStep());
+  }
 
   // Step 4: Lead capture — present unless the action mode is 'none'/'redirect'
   if (includeLeadCapture) {
@@ -382,6 +406,25 @@ function buildBookingStep(): StepDefinition {
     title: 'Book your appointment',
     subtitle: 'Choose a date and time that works for you.',
     questions: [],
+    config: { show_progress: true, can_skip: true, auto_advance: false },
+  };
+}
+
+function buildSchedulingStep(): StepDefinition {
+  return {
+    id: 'scheduling',
+    type: 'scheduling',
+    title: 'Pick a time',
+    subtitle: 'Choose a slot that works for you — we\'ll lock it in instantly.',
+    questions: [],
+    help: {
+      title: 'About booking',
+      items: [
+        { question: 'Is this confirmed right away?', answer: 'Yes. Picking a slot books it instantly on our calendar.' },
+        { question: 'Can I reschedule?', answer: 'Get in touch and we\'ll move you to another slot — no problem.' },
+      ],
+      cta: 'Lock in a time now and skip the back-and-forth.',
+    },
     config: { show_progress: true, can_skip: true, auto_advance: false },
   };
 }

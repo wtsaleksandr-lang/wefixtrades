@@ -516,7 +516,25 @@ export default function WizardShell({ embed = false }: Props) {
           // .show_powered_by (server schema). The server-side gate
           // (Wave Q-D) strips show_powered_by=false for free-tier
           // calculators, so this only takes effect for Pro / Business.
-          appearance: { show_powered_by: settings.brandBadge !== false },
+          // Wave R-1 — also flatten the wizard's `scheduling` slot into
+          // appearance.scheduling + a top-level scheduling_enabled bool
+          // (so the widget can cheaply check whether to show the step).
+          appearance: {
+            show_powered_by: settings.brandBadge !== false,
+            ...(settings.scheduling
+              ? {
+                  scheduling_enabled: !!settings.scheduling.enabled,
+                  scheduling: {
+                    enabled: !!settings.scheduling.enabled,
+                    working_days: settings.scheduling.workingDays,
+                    working_hours_start: settings.scheduling.workingHoursStart,
+                    working_hours_end: settings.scheduling.workingHoursEnd,
+                    slot_duration_minutes: settings.scheduling.slotDurationMinutes,
+                    buffer_minutes: settings.scheduling.bufferMinutes,
+                  },
+                }
+              : {}),
+          },
         },
       });
       return res.json();
