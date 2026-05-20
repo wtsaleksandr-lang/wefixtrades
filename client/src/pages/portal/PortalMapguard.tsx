@@ -9,6 +9,7 @@ import { usePageTitle } from "@/hooks/usePageTitle";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+import { Link } from "wouter";
 import PortalLayout from "@/components/portal/PortalLayout";
 import UpsellCard from "@/components/portal/UpsellCard";
 import { Card } from "@/components/ui/card";
@@ -80,6 +81,15 @@ interface MapguardData {
     keywords_in_local_pack: number | null;
     keywords_in_top_10: number | null;
   }>;
+  /**
+   * Present when the customer has a completed mapguard-setup but no
+   * active monthly plan. Drives the "Continue with Basic/Pro" banner.
+   */
+  setup_completed_upsell?: {
+    should_show: boolean;
+    completed_at: string | null;
+    days_since_completion: number | null;
+  };
 }
 
 /* ─── Health Mapping (internal → client-friendly) ─── */
@@ -156,6 +166,91 @@ function ChartTooltipContent({ active, payload, label }: any) {
   );
 }
 
+/* ─── Setup-completion upsell banner ─── */
+/**
+ * Rendered when the customer finished a `mapguard-setup` project but
+ * has no active monthly plan. Replaces the bland "MapGuard is not
+ * active" empty state with a clear next-step CTA. Dismiss is sticky
+ * server-side via metadata.upsell_dismissed.
+ */
+function SetupCompletionUpsellBanner({
+  completedAt,
+  daysSinceCompletion,
+}: {
+  completedAt: string | null;
+  daysSinceCompletion: number | null;
+}) {
+  const queryClient = useQueryClient();
+  const dismiss = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/portal/mapguard/upsell/dismiss", {});
+      return res;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/portal/mapguard"] });
+    },
+  });
+
+  const sinceCopy =
+    daysSinceCompletion == null ? "Your MapGuard setup is complete."
+      : daysSinceCompletion === 0 ? "Your MapGuard setup is complete."
+      : daysSinceCompletion === 1 ? "Your MapGuard setup wrapped up yesterday."
+      : `Your MapGuard setup wrapped up ${daysSinceCompletion} days ago.`;
+
+  return (
+    <Card className="p-6 border-emerald-200 bg-gradient-to-br from-emerald-50 to-white">
+      <div className="flex items-start gap-4">
+        <div className="w-10 h-10 rounded-xl bg-[#2D6A4F] flex items-center justify-center flex-shrink-0">
+          <CheckCircle className="w-5 h-5 text-white" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <h2 className="text-base font-semibold text-gray-900">{sinceCopy}</h2>
+          <p className="text-sm text-gray-600 mt-1">
+            Your Google Business profile, listings, and visibility groundwork
+            are in place. Continue with monthly monitoring to catch problems
+            before your customers do.
+          </p>
+
+          <ul className="mt-4 space-y-2 text-sm text-gray-700">
+            <li className="flex items-start gap-2">
+              <Shield className="w-4 h-4 text-[#2D6A4F] mt-0.5 flex-shrink-0" />
+              <span><b>Basic</b> — weekly visibility scans + alerting on rating, reviews, and keyword drops.</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <TrendingUp className="w-4 h-4 text-[#2D6A4F] mt-0.5 flex-shrink-0" />
+              <span><b>Pro</b> — Basic plus monthly competitor tracking and priority issue response.</span>
+            </li>
+          </ul>
+
+          <div className="mt-5 flex flex-wrap items-center gap-3">
+            <Link
+              href="/portal/services"
+              className="inline-flex items-center justify-center px-5 py-2 bg-[#2D6A4F] text-white text-sm font-semibold rounded-lg hover:bg-[#1F5040] transition-colors"
+              data-testid="upsell-see-plans"
+            >
+              See plans
+            </Link>
+            <button
+              type="button"
+              onClick={() => dismiss.mutate()}
+              disabled={dismiss.isPending}
+              className="text-sm text-gray-500 hover:text-gray-700 disabled:opacity-50"
+              data-testid="upsell-dismiss"
+            >
+              {dismiss.isPending ? "Dismissing…" : "Not now"}
+            </button>
+          </div>
+          {completedAt && (
+            <p className="mt-3 text-xs text-gray-400">
+              Setup completed {new Date(completedAt).toLocaleDateString()}.
+            </p>
+          )}
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 /* ─── Main Page ─── */
 export default function PortalMapguard() {
   usePageTitle("MapGuard");
@@ -197,7 +292,14 @@ export default function PortalMapguard() {
           </Card>
         )}
 
-        {data && !data.active && (
+        {data && !data.active && data.setup_completed_upsell?.should_show && (
+          <SetupCompletionUpsellBanner
+            completedAt={data.setup_completed_upsell.completed_at}
+            daysSinceCompletion={data.setup_completed_upsell.days_since_completion}
+          />
+        )}
+
+        {data && !data.active && !data.setup_completed_upsell?.should_show && (
           <Card className="p-8 text-center">
             <Shield className="w-10 h-10 text-gray-200 mx-auto mb-3" />
             <p className="text-sm font-medium text-gray-700">MapGuard is not active on your account</p>
