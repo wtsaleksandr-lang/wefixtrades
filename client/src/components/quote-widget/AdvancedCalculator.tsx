@@ -1004,31 +1004,44 @@ function FieldInput({ field, value, accent, theme, onChange, radiusPx, fieldStyl
   }
 
   if (f.type === 'image_choice') {
+    // Wave W-R4 — image-answer cards as a first-class field type. Per the
+    // competitor audit this is the highest-engagement input for trade biz;
+    // we render a responsive grid that flows 3-up on desktop (~≥440px row
+    // space) and collapses to 2-up on mobile, with a per-card accent ring
+    // for the selected state and a friendly emoji placeholder when no
+    // image is uploaded yet. Tap target ≥44px (minHeight 120px covers it).
     return (
       <div>
         <label style={groupHeaderStyle(c)}>{f.label}</label>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+          gap: '10px',
+        }}>
           {(f.options || []).map((o) => {
             const sel = value === o.id;
             return (
               <button key={o.id} type="button" onClick={() => onChange(o.id)}
+                aria-pressed={sel}
                 style={{
-                  display: 'flex', flexDirection: 'column', gap: '6px', padding: '8px',
-                  borderRadius: radiusPx, cursor: 'pointer', border: 'none',
+                  display: 'flex', flexDirection: 'column', gap: '8px',
+                  padding: '8px', minHeight: '120px',
+                  borderRadius: radiusPx, cursor: 'pointer',
+                  border: `2px solid ${sel ? accent : c.border}`,
                   background: sel ? c.accentTint : (isOutline ? 'transparent' : c.surface),
-                  boxShadow: sel ? `0 0 0 2px ${accent}`
-                    : (isOutline ? `0 0 0 2px ${c.border}` : `0 0 0 1px ${c.border}`),
+                  textAlign: 'left',
+                  transition: 'border-color 0.12s ease, background 0.12s ease',
                 }}>
                 <div style={{
-                  width: '100%', aspectRatio: '3 / 2', borderRadius: eff.radiusSm,
+                  width: '100%', aspectRatio: '4 / 3', borderRadius: eff.radiusSm,
                   background: c.bg, overflow: 'hidden',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
                   {o.image
                     ? <img src={o.image} alt={o.label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    : <span style={{ fontSize: '11px', color: c.textMuted }}>No image</span>}
+                    : <span aria-hidden="true" style={{ fontSize: '28px', color: c.textMuted }}>🏠</span>}
                 </div>
-                <span style={{ fontSize: '13px', fontWeight: 600, color: c.text, textAlign: 'center' }}>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: c.text }}>
                   {o.label}
                 </span>
               </button>
