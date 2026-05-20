@@ -1,6 +1,12 @@
 /**
  * QuoteQuick wizard — Step 1 mobile polish (Wave G).
  *
+ * Wave H1 note: the legacy 5-step wizard now lives at /wizard/legacy. The
+ * canonical /wizard route mounts the new Elfsight-clone editor shell
+ * (covered by wizard-elfsight-h1.spec.ts). This spec keeps the Wave G
+ * mobile-polish runtime assertions for the legacy DOM and points at the
+ * new path.
+ *
  * Verifies the five user-reported mobile issues are fixed on a real phone
  * viewport (iPhone 14-ish: 390 × 844):
  *  1. Step circles + device toggle fit within the viewport width — no
@@ -31,7 +37,7 @@ test.describe('wizard step 1 — mobile polish (Wave G)', () => {
   });
 
   test('step circles + device toggle fit one line, no horizontal overflow', async ({ page }) => {
-    await page.goto('/wizard', { waitUntil: 'domcontentloaded' });
+    await page.goto('/wizard/legacy', { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(1500);
 
     const navbar = page.locator('.wizard-navbar').first();
@@ -61,7 +67,7 @@ test.describe('wizard step 1 — mobile polish (Wave G)', () => {
   });
 
   test('widget uses near-full viewport width on mobile', async ({ page }) => {
-    await page.goto('/wizard', { waitUntil: 'domcontentloaded' });
+    await page.goto('/wizard/legacy', { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(1500);
 
     // Either bezel may be visible — default is desktop. On mobile screens
@@ -82,7 +88,7 @@ test.describe('wizard step 1 — mobile polish (Wave G)', () => {
   });
 
   test('Service type + Quantity render on the same row', async ({ page }) => {
-    await page.goto('/wizard', { waitUntil: 'domcontentloaded' });
+    await page.goto('/wizard/legacy', { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(1500);
 
     // Find the field wrappers carrying data-colspan inside the calculator.
@@ -106,7 +112,7 @@ test.describe('wizard step 1 — mobile polish (Wave G)', () => {
   });
 
   test('placeholder widget has no subtitle paragraph', async ({ page }) => {
-    await page.goto('/wizard', { waitUntil: 'domcontentloaded' });
+    await page.goto('/wizard/legacy', { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(1500);
 
     const calc = page.getByTestId('advanced-calculator').first();
@@ -120,7 +126,7 @@ test.describe('wizard step 1 — mobile polish (Wave G)', () => {
   });
 
   test('1px separator between step navbar and widget pane', async ({ page }) => {
-    await page.goto('/wizard', { waitUntil: 'domcontentloaded' });
+    await page.goto('/wizard/legacy', { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(1500);
 
     const preview = page.locator('.wizard-preview-fixed').first();
