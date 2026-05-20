@@ -74,6 +74,7 @@ import { registerQuoteQuickAiChatRoutes } from "./quotequickAiChatRoutes";
 import { registerAdminAiBudgetRoutes } from "./adminAiBudgetRoutes";
 import { registerTwilioCommsRoutes } from "./twilioCommsRoutes";
 import { registerWidgetSchedulingRoutes } from "./widgetSchedulingRoutes";
+import { registerQuoteSnapshotRoutes } from "./quoteSnapshotRoutes";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -154,6 +155,7 @@ export async function registerRoutes(
   registerAdminAiBudgetRoutes(app);
   registerTwilioCommsRoutes(app);
   registerWidgetSchedulingRoutes(app);
+  registerQuoteSnapshotRoutes(app);
 
   return httpServer;
 }

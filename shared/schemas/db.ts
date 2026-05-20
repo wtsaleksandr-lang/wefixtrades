@@ -1034,3 +1034,37 @@ export const vapiWebhookEvents = pgTable("vapi_webhook_events", {
 export const insertVapiWebhookEventSchema = createInsertSchema(vapiWebhookEvents).omit({ id: true, created_at: true });
 export type InsertVapiWebhookEvent = z.infer<typeof insertVapiWebhookEventSchema>;
 export type VapiWebhookEventRow = typeof vapiWebhookEvents.$inferSelect;
+
+/* ─── Quote Snapshots (Wave R3 — shareable quote URLs) ─── */
+//
+// One row per saved quote. Created from PriceRevealStep when the customer
+// (or contractor) clicks "Save + share". Reachable at /q/:snapshot_slug.
+// The owner_edit_token is the contractor's proof-of-ownership for PATCH /
+// DELETE; it's stored in localStorage on the creating device only and is
+// NEVER returned by the public GET endpoint.
+export const quoteSnapshots = pgTable("quote_snapshots", {
+  id: serial("id").primaryKey(),
+  snapshot_slug: varchar("snapshot_slug", { length: 16 }).notNull().unique(),
+  calculator_id: integer("calculator_id").notNull().references(() => calculators.id),
+  lead_id: integer("lead_id").references(() => leads.id),
+  owner_edit_token: varchar("owner_edit_token", { length: 64 }),
+  inputs: jsonb("inputs").notNull(),
+  computed: jsonb("computed").notNull(),
+  customer_name: text("customer_name"),
+  customer_email: text("customer_email"),
+  view_count: integer("view_count").notNull().default(0),
+  created_at: timestamp("created_at").defaultNow(),
+  last_viewed_at: timestamp("last_viewed_at"),
+  last_edited_at: timestamp("last_edited_at"),
+  expires_at: timestamp("expires_at"),
+});
+
+export const insertQuoteSnapshotSchema = createInsertSchema(quoteSnapshots).omit({
+  id: true,
+  created_at: true,
+  last_viewed_at: true,
+  last_edited_at: true,
+  view_count: true,
+});
+export type InsertQuoteSnapshot = z.infer<typeof insertQuoteSnapshotSchema>;
+export type QuoteSnapshot = typeof quoteSnapshots.$inferSelect;
