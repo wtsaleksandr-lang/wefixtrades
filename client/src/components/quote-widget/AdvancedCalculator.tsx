@@ -36,7 +36,15 @@ interface AdvField {
   /** Optional grid column span (1 = half width, 2 = full width). */
   colSpan?: 1 | 2;
 }
-interface AdvCalc { id: string; name: string; formula: string; format: 'number' | 'currency' | 'percent'; }
+interface AdvCalc {
+  id: string; name: string; formula: string;
+  format: 'number' | 'currency' | 'percent';
+  /** Wave H4 — display-mode flags. All optional / backward-compatible. */
+  resultMode?: 'primary' | 'secondary';
+  caption?: string;
+  showInResults?: boolean;
+  divider?: boolean;
+}
 interface AdvHeader { title?: string; subtitle?: string; align?: 'left' | 'center' | 'right'; }
 interface AdvResults { heading?: string; footnote?: string; show_breakdown?: boolean; cta_label?: string; }
 export interface AdvancedConfig {
@@ -197,14 +205,27 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
 
   const { values } = useMemo(() => runCalculations(calcs, ctx), [calcs, ctx]);
 
-  const resultName = advanced.result_calc || (calcs.length ? calcs[calcs.length - 1].name : '');
-  const resultCalc = calcs.find((cl) => cl.name === resultName);
+  // Wave H4 — headline selection:
+  //  1. The first calc explicitly marked `resultMode: 'primary'` wins.
+  //  2. Else the legacy `advanced.result_calc` (by name) wins.
+  //  3. Else the last calc in the list (back-compat default).
+  const explicitPrimary = calcs.find((cl) => cl.resultMode === 'primary');
+  const legacyHeadline = advanced.result_calc
+    ? calcs.find((cl) => cl.name === advanced.result_calc)
+    : undefined;
+  const resultCalc = explicitPrimary || legacyHeadline || (calcs.length ? calcs[calcs.length - 1] : undefined);
+  const resultName = resultCalc?.name || '';
   const headline = values[resultName] ?? 0;
   const results = advanced.results || {};
   const showBreakdown = results.show_breakdown !== false;
   const resultHeading = (results.heading || '').trim() || resultCalc?.name || 'Total';
   const footnoteText = (results.footnote || '').trim() || 'Instant estimate based on your inputs.';
-  const breakdown = calcs.filter((cl) => cl.name !== resultName);
+  // Breakdown rows = every calc visible in the result panel that ISN'T the
+  // headline. `showInResults === false` hides explicitly; undefined defaults
+  // to shown (preserves pre-H4 behaviour).
+  const breakdown = calcs.filter((cl) =>
+    cl.name !== resultName && cl.showInResults !== false,
+  );
   const visibleFields = fields.filter((f) => visibleIds.has(f.id));
 
   // A tinted result panel (coral / dark) drops its border and uses a
@@ -349,6 +370,18 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
             }}>
               {formatResult(headline, resultCalc?.format || 'currency')}
             </p>
+            {/* Wave H4 — optional caption beneath the headline value. */}
+            {resultCalc?.caption && resultCalc.caption.trim() !== '' && (
+              <p
+                data-testid="advanced-result-caption"
+                style={{
+                  fontSize: '12px', color: c.resultMuted, margin: '4px 0 0',
+                  lineHeight: 1.5,
+                }}
+              >
+                {resultCalc.caption}
+              </p>
+            )}
 
 
             {showBreakdown && breakdown.length > 0 && (
@@ -357,11 +390,32 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
                 display: 'flex', flexDirection: 'column', gap: '9px',
               }}>
                 {breakdown.map((cl) => (
-                  <div key={cl.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
-                    <span style={{ color: c.resultMuted }}>{cl.name}</span>
-                    <span style={{ fontWeight: 700, color: c.resultText, fontFamily: eff.fontMono }}>
-                      {formatResult(values[cl.name] ?? 0, cl.format)}
-                    </span>
+                  <div
+                    key={cl.id}
+                    data-testid={`advanced-breakdown-${cl.id}`}
+                    style={{
+                      display: 'flex', flexDirection: 'column', gap: '3px',
+                      // Wave H4 — `divider: true` puts a thin rule above the row.
+                      ...(cl.divider ? {
+                        paddingTop: '9px',
+                        borderTop: `1px solid ${resultDivider}`,
+                      } : null),
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                      <span style={{ color: c.resultMuted }}>{cl.name}</span>
+                      <span style={{ fontWeight: 700, color: c.resultText, fontFamily: eff.fontMono }}>
+                        {formatResult(values[cl.name] ?? 0, cl.format)}
+                      </span>
+                    </div>
+                    {cl.caption && cl.caption.trim() !== '' && (
+                      <span
+                        data-testid={`advanced-breakdown-caption-${cl.id}`}
+                        style={{ fontSize: '11px', color: c.resultMuted, lineHeight: 1.4 }}
+                      >
+                        {cl.caption}
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>
