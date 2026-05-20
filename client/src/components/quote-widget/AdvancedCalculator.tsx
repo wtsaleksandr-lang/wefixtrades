@@ -234,15 +234,38 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
   const calcs = advanced.calculations || [];
 
   // Resolved Style tab choices — used to drive the renderer's structural
-  // tokens (font / radius / field-style / widget-width). Each falls back to
-  // a sensible default so a config without a `style` slot looks unchanged.
+  // tokens (font / radius / field-style / widget-width).
+  //
+  // CRITICAL — per-field fallback to LEGACY pre-H5 tokens. A template
+  // persisted without an `advanced.style` slot (the existing 106 templates,
+  // and anything authored before Wave H5) must render IDENTICALLY to the
+  // pre-H5 build: rounded `eff.radius2xl` outer card, `eff.radiusXl` result
+  // panel, `eff.radiusMd` inputs/CTA, Satoshi (`eff.font`), filled inputs,
+  // no max-width cap (the outer QuoteWidget wrapper handles sizing).
+  //
+  // Only when the user has explicitly set a field via the Style tab does
+  // that user value win. Don't apply structural defaults blanket; that's
+  // what regressed the pre-H5 look for every existing template.
   const style = advanced.style || {};
-  const fontFamily = FONT_STACKS[style.fontFamily ?? 'system'];
-  const radiusValue = typeof style.radius === 'number' ? style.radius : 12;
-  const radiusPx = `${radiusValue}px`;
-  const radiusInnerPx = `${Math.max(0, radiusValue - 2)}px`;
+  const fontFamily = style.fontFamily !== undefined
+    ? FONT_STACKS[style.fontFamily]
+    : eff.font;
+  // Outer card radius — legacy `eff.radius2xl` (~24px) when unset.
+  // Result panel uses the same px value when set (matches H5 preview), but
+  // falls back to `eff.radiusXl` (~20px) when unset.
+  // Inputs / CTA / lead-form inputs use the legacy 2px-inset value when set,
+  // or `eff.radiusMd` (~12px) when unset.
+  const radiusSet = typeof style.radius === 'number';
+  const radiusValue = radiusSet ? (style.radius as number) : 12;
+  const radiusOuterPx = radiusSet ? `${radiusValue}px` : eff.radius2xl;
+  const radiusResultPx = radiusSet ? `${radiusValue}px` : eff.radiusXl;
+  const radiusInnerPx = radiusSet ? `${Math.max(0, radiusValue - 2)}px` : eff.radiusMd;
+  // Legacy was filled-only — defaulting to 'filled' is back-compat-safe.
   const fieldStyle: AdvFieldStyle = style.fieldStyle ?? 'filled';
-  const widgetWidth: AdvWidgetWidth = style.widgetWidth ?? 'wide';
+  // `widgetWidth` undefined → no max-width cap (the outer QuoteWidget wrapper
+  // handled sizing pre-H5). Only apply a fixed cap when the user picked one.
+  const widgetWidth: AdvWidgetWidth | undefined = style.widgetWidth;
+  const maxWidthStyle: string | undefined = widgetWidth ? WIDTH_PX[widgetWidth] : undefined;
 
   const [answers, setAnswers] = useState<Record<string, Answer>>(() => initAnswers(fields));
   const setAnswer = (name: string, value: Answer) => setAnswers((p) => ({ ...p, [name]: value }));
@@ -355,13 +378,14 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
     <div
       data-testid="advanced-calculator"
       data-field-style={fieldStyle}
-      data-widget-width={widgetWidth}
-      data-style-radius={radiusValue}
+      data-widget-width={widgetWidth ?? 'legacy'}
+      data-style-radius={radiusSet ? radiusValue : 'legacy'}
       style={{
-        background: c.surface, borderRadius: radiusPx,
+        background: c.surface, borderRadius: radiusOuterPx,
         border: `1px solid ${c.border}`, boxShadow: c.shadow,
         overflow: 'hidden', fontFamily,
-        maxWidth: WIDTH_PX[widgetWidth], margin: '0 auto', width: '100%',
+        ...(maxWidthStyle ? { maxWidth: maxWidthStyle } : null),
+        margin: '0 auto', width: '100%',
       }}
     >
       {/* ── Title bar (its own separated bar) ── */}
@@ -469,7 +493,7 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
             className={`${gridId}-result`}
             data-testid="advanced-result-panel"
             style={{
-              borderRadius: radiusPx, background: c.result,
+              borderRadius: radiusResultPx, background: c.result,
               border: resultTinted ? 'none' : `1px solid ${c.border}`, boxShadow: c.shadow,
               padding: '18px',
             }}

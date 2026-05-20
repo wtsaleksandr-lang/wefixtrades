@@ -139,6 +139,29 @@ test.describe('wizard H5 — Style tab', () => {
     expect(parseFloat(computed)).toBe(24);
   });
 
+  test('Font family change to Manrope flows to the preview calculator root', async ({ page }) => {
+    await gotoStyleTab(page);
+
+    const calc = page.getByTestId('advanced-calculator');
+    await expect(calc).toBeVisible({ timeout: 3000 });
+
+    // Drive the font select to Manrope. The dropdown value is the curated
+    // enum key (`manrope`); the renderer maps it to a `"Manrope", ...` stack.
+    await page.getByTestId('style-select-font').selectOption('manrope');
+
+    // The calculator root's computed font-family must include Manrope.
+    // Manrope is loaded via the index.html Google Fonts link — without
+    // that load, the font name is still present in the computed style
+    // string (browsers report the declared stack), but the assertion
+    // also doubles as a guard against the stack being misconfigured.
+    await expect.poll(
+      async () => (await calc.evaluate(
+        (el) => window.getComputedStyle(el).fontFamily,
+      )).toLowerCase(),
+      { timeout: 1500, intervals: [100, 200, 300] },
+    ).toContain('manrope');
+  });
+
   test('Widget width segmented control changes the preview container width', async ({ page }) => {
     await gotoStyleTab(page);
 
