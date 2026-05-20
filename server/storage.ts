@@ -171,6 +171,35 @@ async function fireMapguardKickoffIfActive(
   }
 }
 
+/**
+ * WebCareOpsRow — one row per active WebCare client_service, surfaced on
+ * the admin /admin/crm/webcare/ops page. Composes data already written by
+ * the webcare workers (health worker writes uptime_history + last
+ * downtime alert; maintenance worker writes last_plugin_update, last
+ * health report, monthly_report, uptime_percent). Read-only.
+ */
+export interface WebCareOpsRow {
+  client_service_id: number;
+  client_id: number;
+  business_name: string;
+  website_url: string | null;
+  service_id: string;                      // webcare-basic | webcare-pro
+  plan_tier: "basic" | "pro" | "unknown";
+  cs_status: string;                       // active | paused | …
+  /** Last uptime check from uptime_history (null if no checks yet). */
+  last_uptime_check: { ts: string; status: "up" | "down"; http_status: number | null } | null;
+  /** Rolling uptime percent over the last 30 days of checks (null if no history). */
+  uptime_percent_30d: number | null;
+  /** Last successful monthly plugin-update sweep timestamp. */
+  last_plugin_update_at: string | null;
+  /** Last monthly health check timestamp (from maintenance worker). */
+  last_health_check_at: string | null;
+  /** Content automation status — Pro tier only, null otherwise. */
+  content_automation: { last_published_at: string | null; published_this_month: number } | null;
+  /** Last downtime alert sent (4h cooldown marker from health worker). */
+  last_downtime_alert_at: string | null;
+}
+
 export interface IStorage {
   createCalculator(data: InsertCalculator): Promise<Calculator>;
   getCalculatorById(id: number): Promise<Calculator | undefined>;
@@ -304,6 +333,9 @@ export interface IStorage {
   createClientService(data: InsertClientService): Promise<ClientService>;
   updateClientService(id: number, updates: Partial<InsertClientService>): Promise<ClientService | undefined>;
   getActiveServiceCount(): Promise<number>;
+
+  // WebCare admin oversight — read-only per-client roll-up of WebCare state
+  listWebCareOpsRows(): Promise<WebCareOpsRow[]>;
 
   // Orders
   listOrders(clientId?: number, limit?: number, offset?: number): Promise<Order[]>;
@@ -1832,6 +1864,83 @@ export class DatabaseStorage implements IStorage {
       await fireMapguardKickoffIfActive(row.id);
     }
     return row;
+  }
+
+  /**
+   * Per-client roll-up of WebCare state for the admin oversight panel
+   * (/admin/crm/webcare/ops). Read-only — purely composes data already
+   * written by the webcare health + maintenance workers into
+   * client_services.metadata. No new storage; no mutation.
+   */
+  async listWebCareOpsRows(): Promise<WebCareOpsRow[]> {
+    const rows = await db
+      .select({
+        cs_id: clientServices.id,
+        cs_client_id: clientServices.client_id,
+        cs_service_id: clientServices.service_id,
+        cs_status: clientServices.status,
+        cs_metadata: clientServices.metadata,
+        client_business_name: clients.business_name,
+        client_website_url: clients.website_url,
+      })
+      .from(clientServices)
+      .innerJoin(clients, eq(clientServices.client_id, clients.id))
+      .where(
+        and(
+          sql`${clientServices.service_id} LIKE 'webcare%'`,
+          eq(clientServices.enabled, true),
+          // Include both active + paused so admins can see the paused ones —
+          // exclude only cancelled/completed which carry no live signal.
+          sql`${clientServices.status} NOT IN ('cancelled', 'completed')`,
+        ),
+      )
+      .orderBy(desc(clientServices.updated_at));
+
+    return rows.map((r): WebCareOpsRow => {
+      const meta = (r.cs_metadata as Record<string, any>) || {};
+      const history = Array.isArray(meta.uptime_history) ? meta.uptime_history : [];
+      const lastEntry = history.length > 0 ? history[history.length - 1] : null;
+
+      // Last 30 days = ~30 * 96 entries at 15-min intervals — same window
+      // the maintenance worker uses for its uptime_percent calc.
+      const recent = history.slice(-2880);
+      const upCount = recent.filter((h: any) => h.status === "up").length;
+      const uptimePercent = recent.length > 0 ? Math.round((upCount / recent.length) * 1000) / 10 : null;
+
+      const tier: "basic" | "pro" | "unknown" =
+        r.cs_service_id === "webcare-pro" ? "pro" :
+        r.cs_service_id === "webcare-basic" ? "basic" :
+        "unknown";
+
+      // Content automation tracking — Pro tier only. The content worker
+      // stamps metadata.last_content_published_at + a per-month counter.
+      const monthKey = new Date().toISOString().slice(0, 7); // YYYY-MM
+      const contentCounts = (meta.content_published_by_month as Record<string, number>) || {};
+      const contentAutomation = tier === "pro" ? {
+        last_published_at: meta.last_content_published_at || null,
+        published_this_month: contentCounts[monthKey] ?? 0,
+      } : null;
+
+      return {
+        client_service_id: r.cs_id,
+        client_id: r.cs_client_id,
+        business_name: r.client_business_name,
+        website_url: r.client_website_url,
+        service_id: r.cs_service_id,
+        plan_tier: tier,
+        cs_status: r.cs_status,
+        last_uptime_check: lastEntry ? {
+          ts: lastEntry.ts,
+          status: lastEntry.status,
+          http_status: lastEntry.http_status ?? null,
+        } : null,
+        uptime_percent_30d: uptimePercent,
+        last_plugin_update_at: meta.last_plugin_update?.checked_at ?? null,
+        last_health_check_at: meta.last_health_report?.checked_at ?? meta.last_maintenance_at ?? null,
+        content_automation: contentAutomation,
+        last_downtime_alert_at: meta.last_downtime_alert_at ?? null,
+      };
+    });
   }
 
   async updateClientService(id: number, updates: Partial<InsertClientService>): Promise<ClientService | undefined> {
