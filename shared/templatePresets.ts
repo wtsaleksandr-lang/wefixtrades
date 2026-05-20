@@ -68,7 +68,13 @@ export type FieldType =
   | 'number' | 'slider' | 'select' | 'radio'
   | 'multi_select' | 'toggle' | 'text' | 'image_choice' | 'heading';
 
-export interface TemplateOption { id: string; label: string; value: number; }
+export interface TemplateOption {
+  id: string;
+  label: string;
+  value: number;
+  /** Wave W-R4 — optional image (data URL) for `image_choice` field cards. */
+  image?: string;
+}
 
 export interface TemplateField {
   id: string; name: string; label: string; type: FieldType;
