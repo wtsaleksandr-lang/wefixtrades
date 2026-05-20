@@ -1,4 +1,4 @@
-import type { Express, Request, Response } from "express";
+import express, { type Express, type Request, type Response } from "express";
 import { requireAdmin, hashPassword } from "../auth";
 import { storage } from "../storage";
 import { advanceSetupStage, getTradeLineReadiness, getTradeLineDefaultConfig } from "@shared/schema";
@@ -3923,7 +3923,14 @@ export function registerAdminCrmRoutes(app: Express): void {
    * Upload a deliverable (base64 JSON body — no multer dependency).
    * Body: { file: "base64data...", filename: "mockup.png", label: "Design mockup v1", kind: "mockup" }
    */
-  app.post("/api/admin/crm/fulfillment/:id/deliverables", requireAdmin, async (req: Request, res: Response) => {
+  // The global express.json() parser defaults to a 100 KB body limit, which
+  // is far too small for a base64-encoded deliverable (handler enforces a
+  // 10 MB binary cap). Mount a route-scoped parser with a raised limit
+  // (matches the portal logo upload pattern in portalRoutes.ts) so the
+  // upload body actually reaches the handler before being rejected.
+  const deliverableUploadBodyParser = express.json({ limit: "16mb" });
+
+  app.post("/api/admin/crm/fulfillment/:id/deliverables", requireAdmin, deliverableUploadBodyParser, async (req: Request, res: Response) => {
     try {
       const id = parseInt(String(req.params.id) as string);
       if (isNaN(id)) return res.status(400).json({ error: "Invalid task id" });
