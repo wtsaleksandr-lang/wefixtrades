@@ -39,6 +39,9 @@ const p = platformTheme;
 
 interface Props {
   businessName: string;
+  /** Wave J item 5 — business logo (data URL or null). Surfaces in the
+   *  preview header alongside the business name. */
+  logo?: string | null;
   layout: TemplateLayout;
   device: PreviewDevice;
   fields?: TemplateField[];
@@ -62,7 +65,7 @@ function decimalLiteral(sep: ShellNumberFormat['decimal']): '.' | ',' {
 }
 
 export default function PreviewPane({
-  businessName, layout, device, fields, calculations,
+  businessName, logo, layout, device, fields, calculations,
   header, results, resultCalcId, style, settings,
   onRemoveField, onAddField,
 }: Props) {
@@ -130,6 +133,7 @@ export default function PreviewPane({
       id: -1,
       slug: 'preview',
       business_name: businessName || 'Your Business',
+      ...(logo ? { logo_url: logo } : {}),
       primary_color: p.colors.accent,
       pricing_config: { pricingType: 'hourly', unitName: 'hour', rate: 75, baseFee: 50 },
       calculator_settings: {
@@ -138,7 +142,7 @@ export default function PreviewPane({
         advanced: merged,
       },
     };
-  }, [businessName, layout, fields, calculations, header, results, resultCalcId, style, settings]);
+  }, [businessName, logo, layout, fields, calculations, header, results, resultCalcId, style, settings]);
 
   // Droppable wrapper for item (b) — drag from AddFieldMenu onto the preview
   // bezel. `data.kind: 'preview-append'` so WizardShell's onDragEnd appends.
