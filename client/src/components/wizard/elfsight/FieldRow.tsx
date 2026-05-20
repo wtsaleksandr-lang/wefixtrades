@@ -1,17 +1,34 @@
 // FieldRow — one row in the Build > Fields list.
 //
-// Collapsed row shows: type icon · inline label · up/down/remove buttons + a
-// chevron to expand. Expanded row reveals a type-specific editor:
+// Collapsed row shows: drag-handle · type icon · inline label · up/down/remove
+// buttons + a chevron to expand. Expanded row reveals a type-specific editor:
 //   - slider / number  → label, default, min, max, step
-//   - select / radio / image_choice → label + options list (add/remove/move)
+//   - select / radio / image_choice → label + options list (add/remove/move +
+//     drag-and-drop reorder via @dnd-kit, with arrow-button fallbacks kept).
 //   - heading → label only
 //
 // Edits propagate via `onChange(updatedField)`; the parent owns the array.
+//
+// Wave I:
+//  - Drag handle (`field-row-handle-<id>`) wired via @dnd-kit's useSortable
+//    (handled by FieldsPanel's SortableContext). Arrows kept as a11y fallback.
+//  - Options list is its own sortable list (DndContext at FieldRow level so
+//    it doesn't interfere with the outer Fields drag). Touch sensor enabled.
+//  - Selection sync: tapping the row body or the type badge sets selection.
 
 import { useState } from 'react';
+import {
+  DndContext, type DragEndEvent, closestCenter,
+} from '@dnd-kit/core';
+import {
+  SortableContext, useSortable, arrayMove, verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { platformTheme } from '@/theme/platformTheme';
 import type { TemplateField, TemplateOption } from '@shared/templatePresets';
 import { FIELD_TYPE_TO_PUBLIC } from './types';
+import { useEditorDndSensors, DND_CONTAINERS, DragHandleGlyph } from './dnd';
+import { useSelection } from './selection';
 
 const p = platformTheme;
 
@@ -64,6 +81,21 @@ export default function FieldRow({
 }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
+  const selection = useSelection();
+  const isSel = selection.isSelected({ kind: 'field', id: field.id });
+  const registerSel = selection.registerNode({ kind: 'field', id: field.id }, 'pane');
+
+  // @dnd-kit sortable wiring — the SortableContext lives in FieldsPanel.
+  const {
+    attributes, listeners, setNodeRef, transform, transition, isDragging,
+  } = useSortable({ id: field.id });
+
+  const dragStyle: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.55 : 1,
+    zIndex: isDragging ? 2 : 'auto',
+  };
 
   const supportsOptions = field.type === 'select' || field.type === 'radio' || field.type === 'image_choice';
   const supportsNumeric = field.type === 'slider' || field.type === 'number';
@@ -87,13 +119,48 @@ export default function FieldRow({
     update({ options: arr });
   };
 
+  // Options sortable handler — local DndContext (own sensors) so the outer
+  // Fields drag isn't disrupted while editing nested options.
+  const optionSensors = useEditorDndSensors();
+  const handleOptionsDragEnd = (e: DragEndEvent) => {
+    const { active, over } = e;
+    if (!over || active.id === over.id) return;
+    const arr = [...(field.options || [])];
+    const oldIdx = arr.findIndex((o) => o.id === active.id);
+    const newIdx = arr.findIndex((o) => o.id === over.id);
+    if (oldIdx < 0 || newIdx < 0) return;
+    update({ options: arrayMove(arr, oldIdx, newIdx) });
+  };
+
   return (
     <div
-      className={`qq-field-row${expanded ? ' is-expanded' : ''}`}
+      ref={(el) => { setNodeRef(el); registerSel(el); }}
+      style={dragStyle}
+      className={`qq-field-row${expanded ? ' is-expanded' : ''}${isSel ? ' is-selected' : ''}`}
       data-testid={`field-row-${field.id}`}
       data-field-type={field.type}
+      {...(isSel ? { 'data-testid-state': 'selected-in-pane', 'data-selected-in-pane': '' } : {})}
+      onClick={(e) => {
+        // Only set selection when the user clicked the row chrome itself —
+        // not when they hit a button or expanded body (which has its own
+        // affordances). Lets users tap an empty stretch of the row to focus.
+        const t = e.target as HTMLElement;
+        if (t.closest('button, input, select, textarea, [data-no-select]')) return;
+        selection.select({ kind: 'field', id: field.id });
+      }}
     >
       <div className="qq-field-row-head">
+        <button
+          type="button"
+          className="qq-field-row-handle"
+          aria-label={`Drag to reorder ${field.label}`}
+          data-testid={`field-row-handle-${field.id}`}
+          data-no-select=""
+          {...attributes}
+          {...listeners}
+        >
+          <DragHandleGlyph />
+        </button>
         <button
           type="button"
           className="qq-field-row-toggle"
@@ -213,61 +280,42 @@ export default function FieldRow({
           )}
 
           {supportsOptions && (
-            <div className="qq-field-options">
+            <div className="qq-field-options" data-testid={`field-row-options-${field.id}`}>
               <Label>Options</Label>
-              <div className="qq-field-options-list">
-                {(field.options || []).map((o, i) => (
-                  <div key={o.id} className="qq-field-option-row" data-testid={`field-row-option-${field.id}-${o.id}`}>
-                    <input
-                      type="text"
-                      className="qq-field-input qq-field-option-label"
-                      value={o.label}
-                      onChange={(e) => {
-                        const nextLabel = e.target.value;
-                        // Keep id stable but refresh it only if it was clearly auto-derived.
-                        const wasAuto = o.id === optionIdFromLabel(o.label, o.id);
-                        updateOption(o.id, {
-                          label: nextLabel,
-                          ...(wasAuto ? { id: optionIdFromLabel(nextLabel, o.id) } : {}),
-                        });
-                      }}
-                      placeholder="Label"
-                      data-testid={`field-row-option-label-${field.id}-${i}`}
-                    />
-                    <input
-                      type="number"
-                      className="qq-field-input qq-field-option-value"
-                      value={o.value}
-                      onChange={(e) => updateOption(o.id, { value: Number(e.target.value) })}
-                      placeholder="Value"
-                      data-testid={`field-row-option-value-${field.id}-${i}`}
-                    />
-                    <button
-                      type="button"
-                      className="qq-field-row-iconbtn"
-                      onClick={() => moveOption(o.id, -1)}
-                      disabled={i === 0}
-                      aria-label="Move option up"
-                      data-testid={`field-row-option-up-${field.id}-${i}`}
-                    >▲</button>
-                    <button
-                      type="button"
-                      className="qq-field-row-iconbtn"
-                      onClick={() => moveOption(o.id, 1)}
-                      disabled={i === (field.options || []).length - 1}
-                      aria-label="Move option down"
-                      data-testid={`field-row-option-down-${field.id}-${i}`}
-                    >▼</button>
-                    <button
-                      type="button"
-                      className="qq-field-row-iconbtn is-danger"
-                      onClick={() => removeOption(o.id)}
-                      aria-label="Remove option"
-                      data-testid={`field-row-option-remove-${field.id}-${i}`}
-                    >×</button>
+              <DndContext
+                sensors={optionSensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleOptionsDragEnd}
+                id={DND_CONTAINERS.fieldOptions(field.id)}
+              >
+                <SortableContext
+                  items={(field.options || []).map((o) => o.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div className="qq-field-options-list">
+                    {(field.options || []).map((o, i) => (
+                      <SortableOptionRow
+                        key={o.id}
+                        fieldId={field.id}
+                        option={o}
+                        index={i}
+                        total={(field.options || []).length}
+                        onLabelChange={(label) => {
+                          const wasAuto = o.id === optionIdFromLabel(o.label, o.id);
+                          updateOption(o.id, {
+                            label,
+                            ...(wasAuto ? { id: optionIdFromLabel(label, o.id) } : {}),
+                          });
+                        }}
+                        onValueChange={(value) => updateOption(o.id, { value })}
+                        onMoveUp={() => moveOption(o.id, -1)}
+                        onMoveDown={() => moveOption(o.id, 1)}
+                        onRemove={() => removeOption(o.id)}
+                      />
+                    ))}
                   </div>
-                ))}
-              </div>
+                </SortableContext>
+              </DndContext>
               <button
                 type="button"
                 className="qq-field-add-option"
@@ -289,10 +337,27 @@ export default function FieldRow({
           border-color: ${p.colors.accent};
           box-shadow: ${p.shadows.selected};
         }
+        .qq-field-row.is-selected {
+          border-color: ${p.colors.accent};
+          box-shadow: 0 0 0 2px ${p.colors.accentLighter};
+        }
         .qq-field-row-head {
-          display: flex; align-items: center; gap: 8px;
+          display: flex; align-items: center; gap: 6px;
           padding: 8px 10px;
         }
+        .qq-field-row-handle {
+          display: inline-flex; align-items: center; justify-content: center;
+          width: 22px; height: 26px; padding: 0; border-radius: 6px;
+          border: 1px solid transparent; background: transparent;
+          color: ${p.colors.subtle}; cursor: grab; touch-action: none;
+          flex-shrink: 0;
+          transition: background 0.1s ease, color 0.1s ease, border-color 0.1s ease;
+        }
+        .qq-field-row-handle:hover {
+          background: ${p.colors.surfaceRaised}; color: ${p.colors.heading};
+          border-color: ${p.colors.borderLight};
+        }
+        .qq-field-row-handle:active { cursor: grabbing; }
         .qq-field-row-toggle {
           flex: 1; min-width: 0;
           display: flex; align-items: center; gap: 9px;
@@ -363,7 +428,7 @@ export default function FieldRow({
         }
         .qq-field-option-row {
           display: grid; gap: 5px; align-items: center;
-          grid-template-columns: minmax(0, 1.6fr) minmax(0, 0.8fr) auto auto auto;
+          grid-template-columns: 22px minmax(0, 1.6fr) minmax(0, 0.8fr) auto auto auto;
         }
         .qq-field-add-option {
           align-self: flex-start; padding: 6px 10px; border-radius: 7px;
@@ -374,6 +439,92 @@ export default function FieldRow({
         }
         .qq-field-add-option:hover { background: ${p.colors.accentLight}; }
       `}</style>
+    </div>
+  );
+}
+
+interface SortableOptionRowProps {
+  fieldId: string;
+  option: TemplateOption;
+  index: number;
+  total: number;
+  onLabelChange: (label: string) => void;
+  onValueChange: (value: number) => void;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  onRemove: () => void;
+}
+
+function SortableOptionRow({
+  fieldId, option: o, index: i, total, onLabelChange, onValueChange,
+  onMoveUp, onMoveDown, onRemove,
+}: SortableOptionRowProps) {
+  const {
+    attributes, listeners, setNodeRef, transform, transition, isDragging,
+  } = useSortable({ id: o.id });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.55 : 1,
+    zIndex: isDragging ? 2 : 'auto',
+  };
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="qq-field-option-row"
+      data-testid={`field-row-option-${fieldId}-${o.id}`}
+    >
+      <button
+        type="button"
+        className="qq-field-row-handle"
+        aria-label="Drag to reorder option"
+        data-testid={`field-row-option-handle-${fieldId}-${i}`}
+        data-no-select=""
+        {...attributes}
+        {...listeners}
+      >
+        <DragHandleGlyph />
+      </button>
+      <input
+        type="text"
+        className="qq-field-input qq-field-option-label"
+        value={o.label}
+        onChange={(e) => onLabelChange(e.target.value)}
+        placeholder="Label"
+        data-testid={`field-row-option-label-${fieldId}-${i}`}
+      />
+      <input
+        type="number"
+        className="qq-field-input qq-field-option-value"
+        value={o.value}
+        onChange={(e) => onValueChange(Number(e.target.value))}
+        placeholder="Value"
+        data-testid={`field-row-option-value-${fieldId}-${i}`}
+      />
+      <button
+        type="button"
+        className="qq-field-row-iconbtn"
+        onClick={onMoveUp}
+        disabled={i === 0}
+        aria-label="Move option up"
+        data-testid={`field-row-option-up-${fieldId}-${i}`}
+      >▲</button>
+      <button
+        type="button"
+        className="qq-field-row-iconbtn"
+        onClick={onMoveDown}
+        disabled={i === total - 1}
+        aria-label="Move option down"
+        data-testid={`field-row-option-down-${fieldId}-${i}`}
+      >▼</button>
+      <button
+        type="button"
+        className="qq-field-row-iconbtn is-danger"
+        onClick={onRemove}
+        aria-label="Remove option"
+        data-testid={`field-row-option-remove-${fieldId}-${i}`}
+      >×</button>
     </div>
   );
 }
