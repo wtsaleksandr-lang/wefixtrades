@@ -29,34 +29,41 @@ interface Props {
 export default function EditorTabs({
   active, onChange, previewCollapsed = false, onTogglePreview,
 }: Props) {
+  // The tablist contains ONLY tab buttons (axe rule aria-required-children).
+  // The fold/unfold button is a sibling of the tablist, not a child — both sit
+  // inside `.qq-editor-tabs-inner` which is a flex container.
   return (
     <div
       className="qq-editor-tabs"
-      role="tablist"
-      aria-label="Editor sections"
       data-testid="editor-tabs"
     >
       <div className="qq-editor-tabs-inner">
-        {EDITOR_TABS.map(({ id, label }) => {
-          const isActive = id === active;
-          return (
-            <button
-              key={id}
-              type="button"
-              role="tab"
-              aria-selected={isActive}
-              data-testid={`editor-tab-${id}`}
-              className={`qq-editor-tab${isActive ? ' is-active' : ''}`}
-              onClick={() => onChange(id)}
-              style={{
-                color: isActive ? p.colors.accent : p.colors.muted,
-                borderBottomColor: isActive ? p.colors.accent : 'transparent',
-              }}
-            >
-              {label}
-            </button>
-          );
-        })}
+        <div
+          className="qq-editor-tabs-list"
+          role="tablist"
+          aria-label="Editor sections"
+        >
+          {EDITOR_TABS.map(({ id, label }) => {
+            const isActive = id === active;
+            return (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                data-testid={`editor-tab-${id}`}
+                className={`qq-editor-tab${isActive ? ' is-active' : ''}`}
+                onClick={() => onChange(id)}
+                style={{
+                  color: isActive ? p.colors.accent : p.colors.muted,
+                  borderBottomColor: isActive ? p.colors.accent : 'transparent',
+                }}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
         {onTogglePreview && (
           <button
             type="button"
