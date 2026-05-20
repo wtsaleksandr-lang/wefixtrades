@@ -238,13 +238,12 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
         data-testid="settings-group-deposit"
         data-stripe-connected={stripeConnected ? 'true' : 'false'}
       >
-        <legend className="qq-style-legend">
-          Deposit
-          <InfoCue
-            testid="settings-deposit"
-            text="Optionally collect a deposit at booking time. Stripe Connect routes the money to your account; WeFixTrades takes a small platform fee per transaction."
-          />
-        </legend>
+        <legend className="qq-style-legend">Deposit</legend>
+        <p className="qq-style-sectionhint">
+          Optionally collect a deposit at booking time. Stripe Connect routes
+          the money to your account; WeFixTrades takes a small platform fee
+          per transaction.
+        </p>
 
         {!stripeConnected && (
           <p
