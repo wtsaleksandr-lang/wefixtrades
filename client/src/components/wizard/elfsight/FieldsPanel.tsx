@@ -10,6 +10,7 @@
 //    `AddFieldMenu` into the preview can route through a single onDragEnd.
 //  - Up/Down arrow buttons remain as keyboard / a11y fallback (see FieldRow).
 
+import { useEffect, useState } from 'react';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { platformTheme } from '@/theme/platformTheme';
 import type { TemplateField, TemplateOption } from '@shared/templatePresets';
@@ -19,6 +20,7 @@ import InfoCue from './InfoCue';
 import { PUBLIC_TO_FIELD_TYPE, type PublicFieldType } from './types';
 
 const p = platformTheme;
+const DND_HINT_KEY = 'qq_dnd_hint_seen';
 
 interface Props {
   fields: TemplateField[];
@@ -62,6 +64,28 @@ export function makeField(publicType: PublicFieldType): TemplateField {
 
 export default function FieldsPanel({ fields, onChange }: Props) {
   const isEmpty = fields.length === 0;
+
+  // Wave L E6 — first-visit DnD discoverability hint. Shown once per user
+  // (localStorage flag), only when there's at least one field to drag.
+  // Auto-dismisses after 4s; user can also dismiss explicitly.
+  const [showDndHint, setShowDndHint] = useState(false);
+  useEffect(() => {
+    if (isEmpty) return;
+    let seen = false;
+    try { seen = localStorage.getItem(DND_HINT_KEY) === '1'; } catch {}
+    if (seen) return;
+    setShowDndHint(true);
+    const id = window.setTimeout(() => {
+      setShowDndHint(false);
+      try { localStorage.setItem(DND_HINT_KEY, '1'); } catch {}
+    }, 4000);
+    return () => window.clearTimeout(id);
+  }, [isEmpty]);
+
+  const dismissDndHint = () => {
+    setShowDndHint(false);
+    try { localStorage.setItem(DND_HINT_KEY, '1'); } catch {}
+  };
 
   const handleAdd = (publicType: PublicFieldType) => {
     onChange([...fields, makeField(publicType)]);
@@ -122,7 +146,7 @@ export default function FieldsPanel({ fields, onChange }: Props) {
         >
           <ol className="qq-fields-list" data-testid="editor-fields-list">
             {fields.map((f, i) => (
-              <li key={f.id}>
+              <li key={f.id} className="qq-fields-li" data-first={i === 0 ? '1' : '0'}>
                 <FieldRow
                   field={f}
                   index={i}
@@ -132,6 +156,22 @@ export default function FieldsPanel({ fields, onChange }: Props) {
                   onMoveUp={() => handleMove(i, -1)}
                   onMoveDown={() => handleMove(i, 1)}
                 />
+                {/* Wave L E6 — first-visit DnD hint anchored to first row. */}
+                {i === 0 && showDndHint && (
+                  <div
+                    className="qq-fields-dnd-hint"
+                    role="status"
+                    data-testid="fields-dnd-hint"
+                  >
+                    <span>Tap and hold the handle to reorder fields</span>
+                    <button
+                      type="button"
+                      aria-label="Dismiss reorder hint"
+                      data-testid="fields-dnd-hint-dismiss"
+                      onClick={dismissDndHint}
+                    >×</button>
+                  </div>
+                )}
               </li>
             ))}
           </ol>
@@ -177,6 +217,45 @@ export default function FieldsPanel({ fields, onChange }: Props) {
         .qq-fields-empty-sub {
           margin: 0 0 10px; max-width: 320px;
           font-size: 12.5px; color: ${p.colors.muted}; line-height: 1.55;
+        }
+        /* Wave L E6 — first-visit DnD hint. */
+        .qq-fields-li { position: relative; }
+        .qq-fields-dnd-hint {
+          position: absolute; left: 0; bottom: -34px;
+          display: inline-flex; align-items: center; gap: 8px;
+          padding: 6px 10px;
+          font-size: 11.5px; font-weight: 600;
+          color: #fff; background: #0f172a;
+          border-radius: 8px;
+          box-shadow: 0 6px 14px rgba(15,23,42,0.18);
+          animation: qq-dnd-hint-in 220ms ease-out;
+          z-index: 4;
+          pointer-events: auto;
+        }
+        .qq-fields-dnd-hint::before {
+          content: ""; position: absolute; top: -5px; left: 16px;
+          width: 8px; height: 8px; background: #0f172a;
+          transform: rotate(45deg);
+        }
+        .qq-fields-dnd-hint button {
+          font: inherit; cursor: pointer;
+          background: transparent; border: 0;
+          color: rgba(255,255,255,0.6);
+          font-size: 14px; line-height: 1;
+          padding: 0 0 0 4px;
+        }
+        .qq-fields-dnd-hint button:hover { color: #fff; }
+        @keyframes qq-dnd-hint-in {
+          from { opacity: 0; transform: translateY(-4px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        /* Wave L E6 — stronger drag handle contrast on mobile so it's
+         * easier to discover than the desktop subtle treatment. */
+        @media (max-width: 768px) {
+          .qq-field-row-handle,
+          .qq-calc-row-handle {
+            color: #475569 !important;
+          }
         }
       `}</style>
     </section>

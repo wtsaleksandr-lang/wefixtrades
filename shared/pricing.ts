@@ -182,6 +182,25 @@ export const QUOTEQUICK: ProductDef = {
         "Webhook / CRM integration",
       ],
     },
+    /* Wave L I1 — one-time install service.
+     *
+     * Surfaced via the Install tab CTA when the user doesn't want to
+     * embed the widget themselves. Stripe price id is wired off
+     * STRIPE_QUOTEQUICK_INSTALL_PRICE (server-side env var; Alex
+     * provisions live). Tier is intentionally kept inside QUOTEQUICK
+     * (not its own product) so it surfaces alongside the subscription
+     * options in catalogue UIs without duplicating product chrome. */
+    {
+      id: "quotequick-install",
+      name: "Install service",
+      price: 75,
+      billingPeriod: "one-time",
+      features: [
+        "We install QuoteQuick on your website",
+        "Configure it for your trade",
+        "Verify it's capturing leads — within 24 hours",
+      ],
+    },
   ],
 };
 

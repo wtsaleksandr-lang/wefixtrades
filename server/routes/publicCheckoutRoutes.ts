@@ -61,6 +61,22 @@ const CONTENTFLOW_TIER_PRICE_ENV: Record<string, { monthly: string; yearly: stri
 };
 
 /**
+ * Wave L I1 — QuoteQuick one-time install service. $75 one-time SKU
+ * surfaced via the Install tab CTA in the editor.
+ *
+ * Same env-var fallback model as TradeLine / ContentFlow above: catalog
+ * stripe_price_id first (sync-stripe writes it back after provisioning),
+ * then this env var. TODO(alex): provision STRIPE_QUOTEQUICK_INSTALL_PRICE
+ * in Doppler wefixtrades/prd and rerun sync-stripe.
+ *
+ * The tier is one-time, so only the `monthly` slot is meaningful here —
+ * yearly is left unset and the resolver returns null when `wantsYearly`.
+ */
+const QUOTEQUICK_TIER_PRICE_ENV: Record<string, { monthly: string; yearly: string }> = {
+  "quotequick-install": { monthly: "STRIPE_QUOTEQUICK_INSTALL_PRICE", yearly: "" },
+};
+
+/**
  * Resolve the Stripe price ID for a catalog service.
  * Prefers the catalog-stored id; falls back to an env-var placeholder for
  * the TradeLine tiers. Returns null when no price is configured.
@@ -69,9 +85,13 @@ function resolveStripePriceId(svc: ServiceCatalogRow, wantsYearly: boolean): str
   const catalogId = wantsYearly ? svc.stripe_yearly_price_id : svc.stripe_price_id;
   if (catalogId) return catalogId;
 
-  const envKeys = TRADELINE_TIER_PRICE_ENV[svc.id] ?? CONTENTFLOW_TIER_PRICE_ENV[svc.id];
+  const envKeys = TRADELINE_TIER_PRICE_ENV[svc.id]
+    ?? CONTENTFLOW_TIER_PRICE_ENV[svc.id]
+    ?? QUOTEQUICK_TIER_PRICE_ENV[svc.id];
   if (envKeys) {
-    const envVal = process.env[wantsYearly ? envKeys.yearly : envKeys.monthly];
+    const envName = wantsYearly ? envKeys.yearly : envKeys.monthly;
+    if (!envName) return null;
+    const envVal = process.env[envName];
     if (envVal && envVal.trim()) return envVal.trim();
   }
   return null;

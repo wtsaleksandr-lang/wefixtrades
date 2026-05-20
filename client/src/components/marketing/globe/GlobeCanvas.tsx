@@ -194,15 +194,19 @@ export default function GlobeCanvas({
         const textureCanvas = createDottedEarthCanvas(land.features);
         const texture = new CanvasTexture(textureCanvas);
 
-        // Emissive material: semi-transparent globe with cyan dots
+        // Emissive material: semi-transparent globe with cyan dots.
+        // Wave L H2 — brightened dot emission. The brand `#0d3cfc` dots felt
+        // too dark on the navy hero background; raising emissiveIntensity
+        // (0.9 → 1.6) makes them read as recognisably brand-blue without
+        // shifting hue. Slight opacity bump keeps the globe surface readable.
         const material = new MeshPhongMaterial({
           color: new Color(SITE_BG),
           emissive: new Color(ACCENT),
           emissiveMap: texture,
-          emissiveIntensity: 0.9,
+          emissiveIntensity: 1.6,
           shininess: 5,
           transparent: true,
-          opacity: 0.82,
+          opacity: 0.92,
         });
 
         globe.globeMaterial(material);

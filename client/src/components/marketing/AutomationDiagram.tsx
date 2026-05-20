@@ -650,7 +650,19 @@ export default function AutomationDiagram() {
     >
       <style>{DIAGRAM_CSS}</style>
 
-      {/* ── Heading ── */}
+      {/* ── Heading ──
+       *
+       * Wave L H4 — rewritten. The old copy ("Every automation flows through
+       * a simple pipeline. Drag the canvas to explore.") was abstract and
+       * design-speak; it didn't tell anyone what the product DOES or how fast.
+       * New copy leads with the outcome (calls answered, quotes sent, reviews
+       * collected, rankings climbed) and anchors the speed claim explicitly.
+       *
+       * TODO(post-launch): the canvas itself still leads with abstract icons;
+       * a tougher rewrite would replace it with a live mini-widget builder
+       * OR a finished calculator with the lead-capture flow inline. That's
+       * a bigger lift — booked for a later wave so we don't risk the launch.
+       */}
       <div style={{ textAlign: "center", marginBottom: 24, padding: "0 20px" }}>
         <h2
           style={{
@@ -663,19 +675,19 @@ export default function AutomationDiagram() {
             opacity: 1,
           }}
         >
-          See how it <span style={{ color: C.accent }}>works</span>
+          Four flows. <span style={{ color: C.accent }}>Done in under 5 min.</span>
         </h2>
         <p
           style={{
             fontSize: isMobile ? 15 : 17,
             color: C.textMuted,
             lineHeight: 1.6,
-            maxWidth: 460,
+            maxWidth: 540,
             margin: "0 auto",
             opacity: 1,
           }}
         >
-          Every automation flows through a simple pipeline. Drag the canvas to explore.
+          Calls answered. Quotes sent. Reviews collected. Rankings climbed. Pick a flow and watch it run.
         </p>
       </div>
 

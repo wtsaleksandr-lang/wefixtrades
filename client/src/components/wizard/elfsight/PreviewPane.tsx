@@ -17,7 +17,7 @@
 //    of the inputs list. The slot is itself a droppable target and clicking
 //    it opens the AddFieldMenu (portaled, mobile bottom sheet).
 
-import { useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import QuoteWidget from '@/components/quote-widget/QuoteWidget';
 import type { CalculatorData } from '@/components/quote-widget/types';
@@ -29,6 +29,7 @@ import { platformTheme } from '@/theme/platformTheme';
 import { useSelection } from './selection';
 import { DND_CONTAINERS } from './dnd';
 import PreviewOverlay from './PreviewOverlay';
+import AddFieldMenu from './AddFieldMenu';
 import type {
   PreviewDevice, ShellHeader, ShellResults, ShellStyle,
   ShellSettings, ShellNumberFormat, PublicFieldType,
@@ -39,6 +40,9 @@ const p = platformTheme;
 
 interface Props {
   businessName: string;
+  /** Wave L E5 — two-way bind. When the user inline-edits the preview header
+   *  title, this fires; the Build-tab business-name field stays in sync. */
+  onBusinessNameChange?: (v: string) => void;
   /** Wave J item 5 — business logo (data URL or null). Surfaces in the
    *  preview header alongside the business name. */
   logo?: string | null;
@@ -65,7 +69,7 @@ function decimalLiteral(sep: ShellNumberFormat['decimal']): '.' | ',' {
 }
 
 export default function PreviewPane({
-  businessName, logo, layout, device, fields, calculations,
+  businessName, onBusinessNameChange, logo, layout, device, fields, calculations,
   header, results, resultCalcId, style, settings,
   onRemoveField, onAddField,
 }: Props) {
@@ -171,12 +175,21 @@ export default function PreviewPane({
   // Header and results regions overlay over the AdvancedCalculator. They're
   // identified by data-testid="advanced-title" and the result-panel container.
   // We attach click handlers via event delegation on the bezel.
+  //
+  // Wave L E4 + B1 — also handles field-level selection now that the
+  // PreviewOverlay's per-field wrapper is pointer-events:none. The
+  // closest('input,…') bail-out keeps real controls (sliders, checkboxes,
+  // dropdowns) interactive. The field-level fallback walks up to the matching
+  // [data-colspan] node and looks up its index against the rendered field
+  // boxes from PreviewOverlay (via the data-preview-field-id attribute).
   const onBezelClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
-    // If the user clicked a real input/button inside the widget, let it run.
-    if (target.closest('input, select, button, textarea')) return;
+    // If the user clicked a real input/button/control, let it run.
+    if (target.closest('input, select, button, textarea, label, a, [role="slider"], [role="radio"], [role="checkbox"], [role="option"]')) {
+      return;
+    }
     // Results region — anywhere inside the result panel.
-    const resultBlock = target.closest('[data-testid="result-output"]')
+    const resultBlock = target.closest('[data-testid="advanced-result-panel"]')
       || target.closest('[data-testid="advanced-result"]')
       || target.closest('.qq-result-block');
     if (resultBlock) {
@@ -187,9 +200,231 @@ export default function PreviewPane({
     const headerBlock = target.closest('[data-testid="advanced-title"]')?.closest('div');
     if (headerBlock) {
       selection.select({ kind: 'header', id: '__header' });
+      // Wave L E5 — clicking the title block ALSO opens the inline editor.
+      // The Build-tab business-name field stays the canonical source; this
+      // is just a second affordance for the same value.
+      openTitleEditor();
       return;
     }
+    // Field region. Find the [data-colspan] cell and map its index to the
+    // matching shell field id.
+    const fieldCell = target.closest('[data-colspan]') as HTMLElement | null;
+    if (fieldCell && fieldCell.parentElement) {
+      const cells = Array.from(fieldCell.parentElement.querySelectorAll<HTMLElement>('[data-colspan]'));
+      const idx = cells.indexOf(fieldCell);
+      if (idx >= 0 && idx < shellFields.length) {
+        selection.select({ kind: 'field', id: shellFields[idx].id });
+      }
+    }
   };
+
+  // Wave L M1 — auto-zoom-out on mobile so the whole mockup fits without
+  // the user needing to scroll inside the bezel. We measure the natural
+  // height of the calculator inside the bezel and apply CSS transform:
+  // scale(...) clamped 0.6-1.0 on the mockup container.
+  //
+  // Critically: pinch-zoom must still work. We only set `transform` on the
+  // bezel container, NOT `touch-action: none` — native pinch on iOS/Android
+  // remains operational because no listeners block pointer events.
+  const bezelScaleRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (device !== 'mobile') {
+      if (bezelScaleRef.current) {
+        bezelScaleRef.current.style.transform = '';
+      }
+      return;
+    }
+    const calc = () => {
+      const wrap = bezelScaleRef.current;
+      if (!wrap) return;
+      // Available area is roughly the wrapping pane height; we read the
+      // closest qq-editor-right (or fallback to viewport innerHeight).
+      const pane = wrap.closest('.qq-editor-right') as HTMLElement | null
+        || wrap.parentElement;
+      if (!pane) return;
+      const available = pane.clientHeight - 32; // breathing room
+      // Reset transform first so naturalHeight is measured correctly.
+      wrap.style.transform = '';
+      const natural = wrap.scrollHeight;
+      if (natural <= 0 || available <= 0) return;
+      let scale = available / natural;
+      if (scale >= 1) {
+        wrap.style.transform = '';
+        return;
+      }
+      scale = Math.max(0.6, Math.min(1, scale));
+      wrap.style.transformOrigin = 'top center';
+      wrap.style.transform = `scale(${scale.toFixed(3)})`;
+    };
+    const raf = requestAnimationFrame(calc);
+    const ro = new ResizeObserver(() => requestAnimationFrame(calc));
+    if (bezelScaleRef.current) ro.observe(bezelScaleRef.current);
+    window.addEventListener('resize', calc);
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+      window.removeEventListener('resize', calc);
+    };
+  }, [device, fields, calculations]);
+
+  // Wave L E5 — editable preview header title.
+  //
+  // State + box drives an absolutely-positioned <input> overlay that paints
+  // ON TOP of the static `<p data-testid="advanced-title">` rendered by
+  // AdvancedCalculator. Clicking the title (via bezel delegation) opens the
+  // editor; blur or Enter commits the value to `businessName` via the
+  // two-way bind. Empty values are allowed — the title gracefully falls
+  // back to the placeholder while editing.
+  const [titleEditing, setTitleEditing] = useState(false);
+  const [titleBox, setTitleBox] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
+  const titleInputRef = useRef<HTMLInputElement | null>(null);
+
+  const measureTitle = useCallback(() => {
+    const host = overlayHostRef.current;
+    if (!host) return;
+    const t = host.querySelector<HTMLElement>('[data-testid="advanced-title"]');
+    if (!t) { setTitleBox(null); return; }
+    const hostRect = host.getBoundingClientRect();
+    const r = t.getBoundingClientRect();
+    setTitleBox({
+      left: r.left - hostRect.left,
+      top: r.top - hostRect.top,
+      width: Math.max(r.width, 200),
+      height: r.height,
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!titleEditing) return;
+    measureTitle();
+    const id1 = requestAnimationFrame(measureTitle);
+    const onResize = () => measureTitle();
+    window.addEventListener('resize', onResize);
+    return () => { cancelAnimationFrame(id1); window.removeEventListener('resize', onResize); };
+  }, [titleEditing, measureTitle, businessName, header]);
+
+  const openTitleEditor = useCallback(() => {
+    if (!onBusinessNameChange) return;
+    measureTitle();
+    setTitleEditing(true);
+    setTimeout(() => { titleInputRef.current?.focus(); titleInputRef.current?.select(); }, 0);
+  }, [onBusinessNameChange, measureTitle]);
+
+  // Wave L E3 — swipe-to-delete on mobile. Listen for touchstart on the
+  // overlay host; if the user swipes > 80px horizontally (either direction)
+  // on a field cell, remove that field and show an undo toast.
+  //
+  // No new deps: pure pointer/touch events on the host element. The drag
+  // gesture from @dnd-kit is on the LEFT-PANE field rows (and the add-field
+  // menu), not here, so there's no conflict.
+  const [undo, setUndo] = useState<null | { field: TemplateField; index: number }>(null);
+  const undoTimerRef = useRef<number | null>(null);
+  const onUndo = useCallback(() => {
+    if (!undo) return;
+    // Re-insert the field at its original position. We have to read the
+    // current fields list at click time so the splice respects any other
+    // changes that happened during the undo window.
+    const u = undo;
+    setUndo(null);
+    if (undoTimerRef.current) { window.clearTimeout(undoTimerRef.current); undoTimerRef.current = null; }
+    // Re-insert via onAddField is not possible (it only appends). The parent
+    // doesn't expose a generic setFields, but the field deletion happened via
+    // the same `onRemoveField` path the shell uses. For the undo we use a
+    // direct DOM-bypass: we synthesise a `qq-undo-restore` custom event and
+    // let WizardShell listen for it via window.
+    const ev = new CustomEvent('qq-undo-restore-field', {
+      detail: { field: u.field, index: u.index },
+    });
+    window.dispatchEvent(ev);
+  }, [undo]);
+
+  useEffect(() => {
+    const host = overlayHostRef.current;
+    if (!host || !onRemoveField || shellFields.length === 0) return;
+    let startX = 0;
+    let startY = 0;
+    let startCell: HTMLElement | null = null;
+    let trackingId = -1;
+    const SWIPE_PX = 80;
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return;
+      const t = e.touches[0];
+      const target = (e.target as HTMLElement);
+      // Don't start swipe-tracking on interactive controls — leaves native
+      // slider drag / button taps unaffected.
+      if (target.closest('input, button, a, label, select, textarea, [role="slider"]')) return;
+      const cell = target.closest('[data-colspan]') as HTMLElement | null;
+      if (!cell || !cell.parentElement) return;
+      startCell = cell;
+      startX = t.clientX;
+      startY = t.clientY;
+      trackingId = t.identifier;
+      // Subtle visual cue: outline the cell while tracking.
+      cell.dataset.swipeTracking = '1';
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      if (!startCell || trackingId < 0) return;
+      const t = Array.from(e.touches).find((x) => x.identifier === trackingId);
+      if (!t) return;
+      const dx = t.clientX - startX;
+      const dy = t.clientY - startY;
+      // Cancel if mostly vertical — let scroll happen.
+      if (Math.abs(dy) > Math.abs(dx)) {
+        if (startCell) delete startCell.dataset.swipeTracking;
+        startCell = null;
+        return;
+      }
+      // Visually pull the cell with the finger (capped at 100px).
+      const offset = Math.max(-100, Math.min(100, dx));
+      startCell.style.transform = `translateX(${offset}px)`;
+      startCell.style.opacity = String(1 - Math.min(Math.abs(offset) / 160, 0.5));
+    };
+    const onTouchEnd = (e: TouchEvent) => {
+      const t = Array.from(e.changedTouches).find((x) => x.identifier === trackingId);
+      if (!t || !startCell || !startCell.parentElement) {
+        if (startCell) {
+          startCell.style.transform = '';
+          startCell.style.opacity = '';
+          delete startCell.dataset.swipeTracking;
+        }
+        startCell = null;
+        trackingId = -1;
+        return;
+      }
+      const dx = t.clientX - startX;
+      const cells = Array.from(startCell.parentElement.querySelectorAll<HTMLElement>('[data-colspan]'));
+      const idx = cells.indexOf(startCell);
+      if (Math.abs(dx) >= SWIPE_PX && idx >= 0 && idx < shellFields.length) {
+        const field = shellFields[idx];
+        // Visual: slide out the rest of the way.
+        startCell.style.transform = `translateX(${dx > 0 ? 400 : -400}px)`;
+        startCell.style.opacity = '0';
+        setUndo({ field, index: idx });
+        if (undoTimerRef.current) window.clearTimeout(undoTimerRef.current);
+        undoTimerRef.current = window.setTimeout(() => setUndo(null), 4000);
+        // Defer the actual removal so the slide-out paints.
+        window.setTimeout(() => onRemoveField(field.id), 160);
+      } else {
+        // Snap back.
+        startCell.style.transform = '';
+        startCell.style.opacity = '';
+      }
+      if (startCell) delete startCell.dataset.swipeTracking;
+      startCell = null;
+      trackingId = -1;
+    };
+    host.addEventListener('touchstart', onTouchStart, { passive: true });
+    host.addEventListener('touchmove', onTouchMove, { passive: true });
+    host.addEventListener('touchend', onTouchEnd, { passive: true });
+    host.addEventListener('touchcancel', onTouchEnd, { passive: true });
+    return () => {
+      host.removeEventListener('touchstart', onTouchStart);
+      host.removeEventListener('touchmove', onTouchMove);
+      host.removeEventListener('touchend', onTouchEnd);
+      host.removeEventListener('touchcancel', onTouchEnd);
+    };
+  }, [shellFields, onRemoveField]);
 
   return (
     <div className="qq-preview-pane" data-testid="editor-preview-pane">
@@ -203,7 +438,7 @@ export default function PreviewPane({
         >
           {device === 'mobile' ? (
             <div
-              ref={setBezelRef}
+              ref={(el) => { setBezelRef(el); bezelScaleRef.current = el; }}
               data-testid="preview-bezel-mobile"
               className={`qq-bezel qq-bezel--mobile${isOver ? ' is-drop-target' : ''}`}
               onClick={onBezelClick}
@@ -225,6 +460,31 @@ export default function PreviewPane({
                     containerRef={overlayHostRef as React.RefObject<HTMLDivElement>}
                     onRemoveField={onRemoveField}
                     onAddField={onAddField}
+                  />
+                )}
+                {shellFields.length === 0 && onAddField && (
+                  <PreviewEmptyState onAddField={onAddField} />
+                )}
+                {titleEditing && titleBox && onBusinessNameChange && (
+                  <input
+                    ref={titleInputRef}
+                    type="text"
+                    className="qq-preview-title-edit"
+                    data-testid="preview-title-edit"
+                    placeholder="Add your business name here"
+                    value={businessName}
+                    onChange={(e) => onBusinessNameChange(e.target.value)}
+                    onBlur={() => setTitleEditing(false)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === 'Escape') {
+                        (e.target as HTMLInputElement).blur();
+                      }
+                    }}
+                    style={{
+                      position: 'absolute',
+                      left: titleBox.left, top: titleBox.top,
+                      width: titleBox.width, height: titleBox.height,
+                    }}
                   />
                 )}
                 {resultsSel && (
@@ -283,6 +543,31 @@ export default function PreviewPane({
                     onAddField={onAddField}
                   />
                 )}
+                {shellFields.length === 0 && onAddField && (
+                  <PreviewEmptyState onAddField={onAddField} />
+                )}
+                {titleEditing && titleBox && onBusinessNameChange && (
+                  <input
+                    ref={titleInputRef}
+                    type="text"
+                    className="qq-preview-title-edit"
+                    data-testid="preview-title-edit"
+                    placeholder="Add your business name here"
+                    value={businessName}
+                    onChange={(e) => onBusinessNameChange(e.target.value)}
+                    onBlur={() => setTitleEditing(false)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === 'Escape') {
+                        (e.target as HTMLInputElement).blur();
+                      }
+                    }}
+                    style={{
+                      position: 'absolute',
+                      left: titleBox.left, top: titleBox.top,
+                      width: titleBox.width, height: titleBox.height,
+                    }}
+                  />
+                )}
                 {resultsSel && (
                   <div ref={resultsRegisterRef} data-selected-in-preview="" data-testid="preview-selected-results" style={{ display: 'none' }} />
                 )}
@@ -294,10 +579,74 @@ export default function PreviewPane({
           )}
         </div>
       </div>
+      {/* Wave L E3 — swipe-to-delete undo toast. Fixed-position so it floats
+       * over the preview without disturbing layout; auto-dismisses after 4s. */}
+      {undo && (
+        <div
+          className="qq-preview-undo-toast"
+          role="status"
+          data-testid="preview-undo-toast"
+        >
+          <span>Field removed</span>
+          <button
+            type="button"
+            onClick={onUndo}
+            data-testid="preview-undo-button"
+          >
+            Undo
+          </button>
+        </div>
+      )}
       <style>{`
         .qq-bezel.is-drop-target {
           outline: 3px dashed ${p.colors.accent};
           outline-offset: -3px;
+        }
+        /* Wave L E5 — inline editor input for the preview header title. */
+        .qq-preview-title-edit {
+          font-size: 17px; font-weight: 800;
+          letter-spacing: -0.01em;
+          color: #0f172a;
+          background: #fff;
+          border: 2px solid ${p.colors.accent};
+          border-radius: 6px;
+          padding: 0 6px;
+          outline: none;
+          box-sizing: border-box;
+          z-index: 3;
+        }
+        .qq-preview-title-edit::placeholder {
+          color: #94a3b8; font-weight: 600;
+        }
+        /* Wave L E3 — swipe-to-delete visual feedback. */
+        [data-colspan][data-swipe-tracking="1"] {
+          transition: none;
+        }
+        [data-colspan] {
+          transition: transform 160ms ease, opacity 160ms ease;
+        }
+        .qq-preview-undo-toast {
+          position: fixed; bottom: 24px; left: 50%;
+          transform: translateX(-50%);
+          z-index: 1300;
+          display: inline-flex; align-items: center; gap: 12px;
+          padding: 10px 16px;
+          font-size: 13px; font-weight: 600;
+          color: #fff; background: #0f172a;
+          border-radius: 999px;
+          box-shadow: 0 10px 30px rgba(15,23,42,0.30);
+          animation: qq-toast-in 180ms ease-out;
+        }
+        .qq-preview-undo-toast button {
+          font: inherit; cursor: pointer;
+          padding: 0 0 0 4px;
+          background: transparent; border: 0;
+          color: ${p.colors.accentLighter};
+          text-decoration: underline;
+        }
+        @keyframes qq-toast-in {
+          from { opacity: 0; transform: translate(-50%, 6px); }
+          to   { opacity: 1; transform: translate(-50%, 0); }
         }
       `}</style>
     </div>
@@ -306,3 +655,68 @@ export default function PreviewPane({
 
 // Re-export to satisfy non-type consumers in stable order — nothing external.
 export { DND_CONTAINERS };
+
+/* ─── Wave L E1 — empty-state placeholder ──────────────────────────────
+ * Rendered when there are zero fields in the preview. A large dashed
+ * dropzone with a big `+` icon and "Add your first field" copy. Click /
+ * tap opens the same AddFieldMenu used by the Build tab + the in-preview
+ * append slot. */
+function PreviewEmptyState({ onAddField }: { onAddField: (publicType: PublicFieldType) => void }) {
+  return (
+    <div
+      className="qq-preview-empty-state"
+      data-testid="preview-empty-state"
+      aria-label="No fields yet — add one to get started"
+    >
+      <div className="qq-preview-empty-state-card">
+        <div className="qq-preview-empty-state-plus" aria-hidden="true">＋</div>
+        <p className="qq-preview-empty-state-title">Add your first field</p>
+        <p className="qq-preview-empty-state-sub">
+          Pick a slider, dropdown, choice, image choice, number, or heading
+          to start building your calculator.
+        </p>
+        <div className="qq-preview-empty-state-cta">
+          <AddFieldMenu onPick={onAddField} emphasis />
+        </div>
+      </div>
+      <style>{`
+        .qq-preview-empty-state {
+          position: absolute;
+          left: 0; right: 0; bottom: 0;
+          /* Sit below the title bar (~62px) so the heading is still visible. */
+          top: 70px;
+          display: flex; align-items: center; justify-content: center;
+          padding: 24px;
+          background: rgba(255,255,255,0.92);
+          pointer-events: none;
+        }
+        .qq-preview-empty-state-card {
+          pointer-events: auto;
+          width: 100%; max-width: 360px;
+          padding: 28px 24px;
+          background: #fff;
+          border: 2px dashed rgba(13, 60, 252, 0.45);
+          border-radius: 16px;
+          display: flex; flex-direction: column; align-items: center;
+          gap: 8px; text-align: center;
+        }
+        .qq-preview-empty-state-plus {
+          width: 56px; height: 56px; border-radius: 50%;
+          background: rgba(13, 60, 252, 0.10);
+          color: ${p.colors.accent};
+          font-size: 32px; font-weight: 300; line-height: 1;
+          display: inline-flex; align-items: center; justify-content: center;
+        }
+        .qq-preview-empty-state-title {
+          font-size: 16px; font-weight: 800; color: ${p.colors.heading};
+          margin: 4px 0 0;
+        }
+        .qq-preview-empty-state-sub {
+          font-size: 12.5px; color: ${p.colors.muted};
+          margin: 0 0 8px; line-height: 1.55; max-width: 280px;
+        }
+        .qq-preview-empty-state-cta { margin-top: 4px; }
+      `}</style>
+    </div>
+  );
+}

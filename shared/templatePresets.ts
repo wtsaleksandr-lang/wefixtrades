@@ -1329,7 +1329,18 @@ export function getTemplateCategories(): string[] {
  * `__preview` flag here so a saved style survives a server round-trip.
  */
 export type AdvFieldStyle = 'filled' | 'outline';
-export type AdvFontFamily = 'system' | 'inter' | 'manrope';
+/**
+ * Curated font families exposed in the Style tab.
+ *
+ * Wave L S3 — expanded with modern grotesks that fit the design system
+ * (Satoshi, Geist, Plus Jakarta Sans, IBM Plex Sans, Outfit, Sora). The
+ * resolved font-family stacks (client/src/components/wizard/elfsight/types.ts
+ * → FONT_FAMILY_STACKS) all end with `system-ui, sans-serif` so a network
+ * failure to load the webfont degrades gracefully.
+ */
+export type AdvFontFamily =
+  | 'system' | 'inter' | 'manrope'
+  | 'satoshi' | 'geist' | 'jakarta' | 'plex' | 'outfit' | 'sora';
 export type AdvWidgetWidth = 'narrow' | 'wide' | 'full';
 export interface AdvStyle {
   /** Accent / CTA colour. Overrides theme.accent. */

@@ -14,6 +14,7 @@
 // anchored to the icon via getBoundingClientRect().
 
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 interface Props {
   text: string;
@@ -34,15 +35,38 @@ export default function InfoCue({ text, label = 'More info', testid }: Props) {
   const [pos, setPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   const popoverId = useId();
   const tid = testid ? `info-cue-${testid}` : 'info-cue';
+  // Wave L P2 — detect the nearest editor-shell theme so the portaled
+  // popover can apply matching dark-mode styles (its parent in the DOM is
+  // now document.body, so it can't inherit the [data-theme] selector
+  // chained off .qq-editor-shell).
+  const editorTheme = (() => {
+    if (typeof document === 'undefined') return 'light';
+    const t = triggerRef.current?.closest('.qq-editor-shell') as HTMLElement | null;
+    return t?.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+  })();
 
+  // Wave L P2 — position immediately adjacent to the icon.
+  // Width is clamped to min(280, viewportWidth - 32) and centred on the
+  // trigger; auto-flips above when there's no room below. Tracking is via
+  // getBoundingClientRect of the trigger button. Since the popover is now
+  // portaled to document.body (not inside the wizard-shell-modal which has
+  // its own `transform` from the open animation), `position: fixed` resolves
+  // to the actual viewport.
   const placePopover = useCallback(() => {
     const btn = triggerRef.current;
     if (!btn) return;
     const r = btn.getBoundingClientRect();
-    const top = r.bottom + 6;
-    const desiredLeft = r.left + r.width / 2 - 140; // 280px-wide card centred
-    const maxLeft = (typeof window !== 'undefined' ? window.innerWidth : 1024) - 12 - 280;
-    const left = Math.max(8, Math.min(desiredLeft, maxLeft));
+    const vw = typeof window !== 'undefined' ? window.innerWidth : 1024;
+    const vh = typeof window !== 'undefined' ? window.innerHeight : 768;
+    const popW = Math.min(280, vw - 32);
+    const popHEst = 100;
+    // Centre on the trigger horizontally, then clamp to viewport with 8px
+    // margin.
+    const desiredLeft = r.left + r.width / 2 - popW / 2;
+    const left = Math.max(8, Math.min(desiredLeft, vw - 8 - popW));
+    // Prefer below the trigger; flip above when there isn't room.
+    const fitsBelow = r.bottom + 6 + popHEst <= vh - 8;
+    const top = fitsBelow ? r.bottom + 6 : Math.max(8, r.top - 6 - popHEst);
     setPos({ top, left });
   }, []);
 
@@ -75,6 +99,10 @@ export default function InfoCue({ text, label = 'More info', testid }: Props) {
       window.removeEventListener('resize', onScroll);
     };
   }, [open, placePopover]);
+
+  // Wave L P1 — defensive guard: an InfoCue with no text shouldn't render
+  // the trigger at all, otherwise the user clicks a `?` and nothing happens.
+  if (!text || !text.trim()) return null;
 
   return (
     <>
@@ -113,13 +141,14 @@ export default function InfoCue({ text, label = 'More info', testid }: Props) {
       >
         <span aria-hidden="true">?</span>
       </button>
-      {open && (
+      {open && typeof document !== 'undefined' && createPortal(
         <div
           ref={popoverRef}
           id={popoverId}
           role="tooltip"
           className="qq-info-cue-popover"
           data-testid={`${tid}-popover`}
+          data-theme={editorTheme}
           style={{ top: pos.top, left: pos.left }}
           onMouseLeave={() => {
             if (stickyRef.current) return;
@@ -127,7 +156,8 @@ export default function InfoCue({ text, label = 'More info', testid }: Props) {
           }}
         >
           {text}
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );

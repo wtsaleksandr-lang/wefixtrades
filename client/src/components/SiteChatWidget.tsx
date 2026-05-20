@@ -207,7 +207,9 @@ export default function SiteChatWidget() {
         />
       )}
 
-      {/* Chat panel */}
+      {/* Chat panel.
+       * Wave L C1 — explicit max-width/max-height clamps so the panel header
+       * always fits inside the viewport on 360px and 390px-wide phones. */}
       {open && (
         <div className="wft-site-chat-panel" onWheel={e => e.stopPropagation()} style={{
           position: "fixed",
@@ -215,9 +217,9 @@ export default function SiteChatWidget() {
           right: 24,
           zIndex: 9999,
           width: 360,
-          maxWidth: "calc(100vw - 32px)",
+          maxWidth: "calc(100vw - 16px)",
           height: 500,
-          maxHeight: "calc(100vh - 48px)",
+          maxHeight: "90vh",
           borderRadius: 16,
           overflow: "hidden",
           display: "flex",
@@ -237,11 +239,14 @@ export default function SiteChatWidget() {
           }}>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 14, fontWeight: 800, color: "#fff" }}>We're here to help</div>
+              {/* Wave L C2 — removed "Usually replies instantly". An AI
+               * assistant always does, so the line read as off-brand
+               * marketing speak rather than a useful signal. */}
               <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", display: "flex", alignItems: "center", gap: 4, marginTop: 2 }}>
                 <span style={{
                   width: 6, height: 6, borderRadius: "50%", background: "#22C55E", display: "inline-block",
                 }} />
-                Available 24/7 — Usually replies instantly
+                Available 24/7
               </div>
             </div>
             <button
@@ -417,14 +422,18 @@ export default function SiteChatWidget() {
           40% { transform: scale(1); opacity: 1; }
         }
         @media (max-width: 480px) {
+          /* Wave L C1 — tighter clamps so the panel header stays fully
+           * visible on small phones (360 / 390px). 8px symmetric margin
+           * leaves room for the safe-area inset on iOS notch devices. */
           .wft-site-chat-panel {
-            bottom: 16px !important;
-            right: 16px !important;
-            left: 16px !important;
+            bottom: 8px !important;
+            right: 8px !important;
+            left: 8px !important;
+            top: auto !important;
             width: auto !important;
-            max-width: none !important;
-            height: calc(100vh - 80px) !important;
-            max-height: calc(100vh - 80px) !important;
+            max-width: calc(100vw - 16px) !important;
+            height: 90vh !important;
+            max-height: 90vh !important;
             border-radius: 16px !important;
           }
           .wft-site-chat-backdrop {

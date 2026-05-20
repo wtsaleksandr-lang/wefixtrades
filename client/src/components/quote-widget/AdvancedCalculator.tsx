@@ -21,14 +21,21 @@ import { resolveWidgetTheme, type WidgetTheme } from './widgetThemes';
 /**
  * Wave H5 — Style tab integration.
  *
- * Font stacks for the curated `advanced.style.fontFamily` enum. Only system /
- * Inter / Manrope — no new web-font packages loaded; system stack is the
- * default Satoshi-led one already used across the widget.
+ * Font stacks for the curated `advanced.style.fontFamily` enum.
+ * Wave L S3 — expanded set with explicit Satoshi, Geist, Plus Jakarta Sans,
+ * IBM Plex Sans, Outfit and Sora. Every stack ends with `system-ui,
+ * sans-serif` so a failed webfont request still renders sensibly.
  */
 const FONT_STACKS: Record<AdvFontFamily, string> = {
   system: eff.font,
   inter: '"Inter", system-ui, sans-serif',
   manrope: '"Manrope", system-ui, sans-serif',
+  satoshi: '"Satoshi Variable", "Satoshi", system-ui, sans-serif',
+  geist: '"Geist", "Geist Sans", system-ui, sans-serif',
+  jakarta: '"Plus Jakarta Sans", system-ui, sans-serif',
+  plex: '"IBM Plex Sans", system-ui, sans-serif',
+  outfit: '"Outfit", system-ui, sans-serif',
+  sora: '"Sora", system-ui, sans-serif',
 };
 
 /** Map widget-width enum → outer max-width applied to the calculator root. */
@@ -554,7 +561,14 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
           ))}
         </div>
 
-        {/* Result panel — a separate rounded container */}
+        {/* Result panel — a separate rounded container.
+         *
+         * Wave L B2 — explicit flex column with a gap so the heading label
+         * ("Estimated Total") and the big amount can't overlap on any
+         * device / theme combination. Previously each `<p>` used only its
+         * own margin which interacted poorly with the inline `lineHeight: 1.05`
+         * on the amount — on mobile dark mode the labels were getting clipped.
+         */}
         {hasResult && (
           <div
             className={`${gridId}-result`}
@@ -563,20 +577,24 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
               borderRadius: radiusResultPx, background: c.result,
               border: resultTinted ? 'none' : `1px solid ${c.border}`, boxShadow: c.shadow,
               padding: '18px',
+              display: 'flex', flexDirection: 'column', gap: '6px',
             }}
           >
             <p
               data-testid="advanced-result-heading"
               style={{
+                position: 'relative', zIndex: 1,
                 fontSize: '11px', fontWeight: 700, color: c.resultMuted,
-                textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 6px',
+                textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0,
               }}
             >
               {resultHeading}
             </p>
             <p data-testid="advanced-result" style={{
+              position: 'relative', zIndex: 1,
               fontSize: 'clamp(28px, 6vw, 38px)', fontWeight: 800, color: c.resultText,
-              margin: 0, fontFamily: eff.fontMono, lineHeight: 1.05, letterSpacing: '-0.02em',
+              margin: 0, paddingTop: '2px',
+              fontFamily: eff.fontMono, lineHeight: 1.1, letterSpacing: '-0.02em',
             }}>
               {formatResult(headline, resultCalc?.format || 'currency', advanced.numberFormat)}
             </p>

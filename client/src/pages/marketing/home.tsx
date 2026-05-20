@@ -728,11 +728,14 @@ export default function HomePage() {
 
               <div className="hero-enter hero-cta-row">
                 <Link href="/Wizard" className="hero-cta-primary wf-cta-shimmer" data-testid="hero-cta-primary">
-                  <span>Start free — no card</span>
+                  {/* Wave L H1 — shortened from "Start free — no card" so it
+                   * doesn't truncate on 390px mobile. The "no card required"
+                   * note is still present below as `hero-cta-note`. */}
+                  <span>Start free</span>
                   <ArrowRight size={16} strokeWidth={2.5} />
                 </Link>
                 <Link href="/demo" className="hero-cta-secondary" data-testid="hero-cta-secondary">
-                  <span>See 2-min demo</span>
+                  <span>Watch demo</span>
                 </Link>
               </div>
               <div className="hero-enter" style={{ marginTop: 12 }}>

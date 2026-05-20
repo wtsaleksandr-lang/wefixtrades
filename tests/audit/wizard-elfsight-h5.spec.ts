@@ -78,8 +78,10 @@ test.describe('wizard H5 — Style tab', () => {
 
     // A high-contrast, unambiguous test colour.
     const target = '#ff5500';
-    // The hex text input — driving the same `style.accent` state as the
-    // swatch — is the most stable way to set a known value in the test.
+    // Wave L S1 — the hex text input lives inside a portaled popover that
+    // opens when the swatch circle is clicked. Open it first, then fill.
+    await page.getByTestId('style-input-accent-trigger').click();
+    await expect(page.getByTestId('style-input-accent-popover')).toBeVisible({ timeout: 2000 });
     const hex = page.getByTestId('style-input-accent');
     await hex.fill(target);
     // Move focus so any blur-driven commit fires (none here, but defensive).

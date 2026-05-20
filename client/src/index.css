@@ -387,7 +387,7 @@
 .qq-info-cue-popover {
   position: fixed;
   z-index: 2000;
-  width: 280px; max-width: calc(100vw - 16px);
+  width: 280px; max-width: calc(100vw - 32px);
   padding: 10px 12px;
   background: #ffffff;
   color: #1f2937;
@@ -396,6 +396,15 @@
   border-radius: 10px;
   box-shadow: 0 16px 40px rgba(15, 23, 42, 0.18);
   pointer-events: auto;
+}
+/* Wave L P1 + P2 — InfoCue is now portaled to document.body so it bypasses
+ * the wizard-shell-modal's transform context. Theme is forwarded onto the
+ * popover via data-theme so dark mode still styles correctly. */
+.qq-info-cue-popover[data-theme="dark"] {
+  background: #1E293B;
+  color: #F1F5F9;
+  border-color: #334155;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
 }
 
 /* Wave J — editor chrome theme variables (item 3). Default = light.
@@ -472,6 +481,99 @@
 }
 .qq-editor-shell[data-theme="dark"] .premium-input::placeholder {
   color: #64748B;
+}
+
+/* Wave L D1 — broader dark-mode coverage.
+ *
+ * Several text surfaces previously left their light-theme colour intact when
+ * the editor flipped to dark, leaving black/grey text on the dark navy
+ * background. This block forces every editor-chrome text token to invert.
+ *
+ * Selectors are scoped under .qq-editor-shell[data-theme="dark"] so the
+ * preview (which has its OWN template-level theme) is unaffected. */
+.qq-editor-shell[data-theme="dark"] .qq-fields-title,
+.qq-editor-shell[data-theme="dark"] .qq-fields-sub,
+.qq-editor-shell[data-theme="dark"] .qq-fields-empty-title,
+.qq-editor-shell[data-theme="dark"] .qq-fields-empty-sub,
+.qq-editor-shell[data-theme="dark"] .qq-style-h,
+.qq-editor-shell[data-theme="dark"] .qq-style-sub,
+.qq-editor-shell[data-theme="dark"] .qq-install-h,
+.qq-editor-shell[data-theme="dark"] .qq-install-sub,
+.qq-editor-shell[data-theme="dark"] .qq-install-current,
+.qq-editor-shell[data-theme="dark"] .qq-headres-sub,
+.qq-editor-shell[data-theme="dark"] .qq-headres-help,
+.qq-editor-shell[data-theme="dark"] .qq-calc-sub,
+.qq-editor-shell[data-theme="dark"] .qq-tg-strip-h,
+.qq-editor-shell[data-theme="dark"] .qq-tg-strip-sub,
+.qq-editor-shell[data-theme="dark"] .qq-tg-card-name,
+.qq-editor-shell[data-theme="dark"] .qq-tg-card-tags,
+.qq-editor-shell[data-theme="dark"] .qq-tg-modal-title,
+.qq-editor-shell[data-theme="dark"] .qq-tg-modal-cat,
+.qq-editor-shell[data-theme="dark"] .qq-addfield-trigger,
+.qq-editor-shell[data-theme="dark"] .qq-addfield-label,
+.qq-editor-shell[data-theme="dark"] .qq-addfield-hint,
+.qq-editor-shell[data-theme="dark"] .qq-addfield-sheet-title,
+.qq-editor-shell[data-theme="dark"] label,
+.qq-editor-shell[data-theme="dark"] legend {
+  color: var(--qq-text) !important;
+}
+/* Slightly dimmed variants for help-text / hint copy in dark mode. */
+.qq-editor-shell[data-theme="dark"] .qq-fields-sub,
+.qq-editor-shell[data-theme="dark"] .qq-fields-empty-sub,
+.qq-editor-shell[data-theme="dark"] .qq-style-sub,
+.qq-editor-shell[data-theme="dark"] .qq-install-sub,
+.qq-editor-shell[data-theme="dark"] .qq-install-current,
+.qq-editor-shell[data-theme="dark"] .qq-headres-sub,
+.qq-editor-shell[data-theme="dark"] .qq-calc-sub,
+.qq-editor-shell[data-theme="dark"] .qq-tg-strip-sub,
+.qq-editor-shell[data-theme="dark"] .qq-tg-card-tags,
+.qq-editor-shell[data-theme="dark"] .qq-addfield-hint {
+  color: var(--qq-muted) !important;
+}
+/* Browse-templates surfaces in dark mode. */
+.qq-editor-shell[data-theme="dark"] .qq-tg-card,
+.qq-editor-shell[data-theme="dark"] .qq-tg-modal,
+.qq-editor-shell[data-theme="dark"] .qq-tg-modal-header,
+.qq-editor-shell[data-theme="dark"] .qq-tg-browse-all,
+.qq-editor-shell[data-theme="dark"] .qq-tg-modal-close,
+.qq-editor-shell[data-theme="dark"] .qq-tg-mockup {
+  background: #243149 !important;
+  border-color: var(--qq-border) !important;
+  color: var(--qq-text);
+}
+.qq-editor-shell[data-theme="dark"] .qq-tg-modal-cat {
+  background: transparent !important;
+  border-color: var(--qq-border) !important;
+}
+.qq-editor-shell[data-theme="dark"] .qq-tg-modal-cat.is-active {
+  background: #0d3cfc !important; color: #fff !important;
+}
+/* AddFieldMenu trigger / popover / sheet in dark mode. */
+.qq-editor-shell[data-theme="dark"] .qq-addfield-trigger {
+  background: #243149 !important;
+  border-color: var(--qq-border) !important;
+}
+.qq-editor-shell[data-theme="dark"] .qq-addfield-menu,
+.qq-editor-shell[data-theme="dark"] .qq-addfield-sheet,
+.qq-editor-shell[data-theme="dark"] .qq-addfield-sheet-cancel {
+  background: var(--qq-surface) !important;
+  border-color: var(--qq-border) !important;
+  color: var(--qq-text);
+}
+/* SegmentedControl + range slider in dark mode. */
+.qq-editor-shell[data-theme="dark"] .qq-style-seg {
+  background: #1a2438 !important;
+  border-color: var(--qq-border) !important;
+}
+.qq-editor-shell[data-theme="dark"] .qq-style-seg-btn {
+  color: var(--qq-muted) !important;
+}
+.qq-editor-shell[data-theme="dark"] .qq-style-seg-btn[aria-checked="true"] {
+  background: var(--qq-surface) !important;
+  color: var(--qq-text) !important;
+}
+.qq-editor-shell[data-theme="dark"] .qq-style-value {
+  color: var(--qq-muted) !important;
 }
 
 /* Wave J — dotted-grid background on the live preview pane (item 6).

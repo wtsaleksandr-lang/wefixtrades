@@ -82,17 +82,36 @@ export type {
 /** The brand defaults exported through the shell scope. */
 export const DEFAULT_SHELL_STYLE: Required<ShellStyle> = DEFAULT_ADV_STYLE;
 
-/** Curated font families — only what's already available; no new packages. */
+/**
+ * Curated font families.
+ *
+ * Wave L S3 — added Satoshi (explicit), Geist, Plus Jakarta Sans, IBM Plex
+ * Sans, Outfit, Sora. Every stack ends with `system-ui, sans-serif` so a
+ * failed webfont request still renders the calculator in a sensible
+ * fallback. Loaders live in client/index.html.
+ */
 export const FONT_FAMILY_STACKS: Record<AdvFontFamily, string> = {
   system: '"Satoshi Variable", system-ui, sans-serif',
   inter: '"Inter", system-ui, sans-serif',
   manrope: '"Manrope", system-ui, sans-serif',
+  satoshi: '"Satoshi Variable", "Satoshi", system-ui, sans-serif',
+  geist: '"Geist", "Geist Sans", system-ui, sans-serif',
+  jakarta: '"Plus Jakarta Sans", system-ui, sans-serif',
+  plex: '"IBM Plex Sans", system-ui, sans-serif',
+  outfit: '"Outfit", system-ui, sans-serif',
+  sora: '"Sora", system-ui, sans-serif',
 };
 
 export const FONT_FAMILY_LABELS: Record<AdvFontFamily, string> = {
   system: 'System (Satoshi)',
   inter: 'Inter',
   manrope: 'Manrope',
+  satoshi: 'Satoshi',
+  geist: 'Geist',
+  jakarta: 'Plus Jakarta Sans',
+  plex: 'IBM Plex Sans',
+  outfit: 'Outfit',
+  sora: 'Sora',
 };
 
 /**

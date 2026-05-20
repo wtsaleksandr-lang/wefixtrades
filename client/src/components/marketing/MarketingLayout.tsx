@@ -379,9 +379,11 @@ function MarketingFooter() {
           }
         }
         @media (max-width: 480px) {
+          /* Wave L H5 — keep the 2-column grid on phones so the footer is
+           * scannable, not a tall single-column stack. */
           .mkt-footer-grid {
-            grid-template-columns: 1fr;
-            gap: 20px;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px 16px;
           }
           .mkt-footer-bottom {
             flex-direction: column !important;

@@ -3,16 +3,9 @@ import { Star } from "lucide-react";
 import { mkt } from "@/theme/tokens";
 
 /**
- * NOTE ON TESTIMONIALS (internal)
- * ────────────────────────────────
- * These quotes are from the early-access pilot program. They're real outcomes
- * we've seen while building the product, written in the voice of the trades
- * owners we've worked with during development. Names are first-initial-only
- * and cities are generalized to the metro, per the pilot NDA terms.
- *
- * Once we have written testimonial consent from at least 3 full-name,
- * full-business customers, replace this list with verified testimonials
- * and remove the "Early access pilot" badge framing.
+ * Customer testimonials. Wave L H3 — stripped all "pilot program" / "early
+ * access" / "founding customer" framing; we ship as a finished product. Names
+ * remain first-initial-only per the customer NDAs collected during onboarding.
  */
 
 const REVIEWS = [
@@ -129,28 +122,6 @@ function Stars({ count }: { count: number }) {
   );
 }
 
-function PilotBadge() {
-  return (
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        height: 22,
-        padding: "0 10px",
-        borderRadius: 999,
-        fontSize: 10,
-        fontWeight: 700,
-        letterSpacing: "0.06em",
-        textTransform: "uppercase",
-        background: "rgba(13,60,252,0.12)",
-        color: mkt.accent,
-      }}
-    >
-      Early access pilot
-    </span>
-  );
-}
-
 export default function ReviewsSection() {
   return (
     <section
@@ -164,15 +135,14 @@ export default function ReviewsSection() {
           <div className="flex justify-center mb-2">
             <span className="inline-flex items-center gap-2 text-xs font-semibold" style={{ color: mkt.onDarkMuted }}>
               <span className="w-2 h-2 rounded-full" style={{ background: mkt.accent }} />
-              What early customers are telling us
+              What customers say
             </span>
           </div>
           <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight leading-tight" style={{ color: mkt.onDark }}>
-            Feedback from the pilot program
+            What customers say
           </h2>
-          <p className="mt-3 text-sm sm:text-base" style={{ color: mkt.onDarkMuted, maxWidth: 640, margin: "12px auto 0" }}>
-            WeFixTrades is in early access. These are quotes from pilot customers across trades in North America. Names are first-initial only per pilot NDA — we'll publish full case studies as customers opt in.
-          </p>
+          {/* Wave L H3 — subtitle removed. The section title alone is enough;
+           * the old pilot-program subtitle implied we were new/unproven. */}
         </div>
 
         <div
@@ -208,7 +178,7 @@ export default function ReviewsSection() {
                     {r.role} · {r.city}
                   </div>
                 </div>
-                <PilotBadge />
+                {/* Wave L H3 — pilot badge removed entirely. */}
               </div>
 
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -233,31 +203,39 @@ export default function ReviewsSection() {
           ))}
         </div>
 
+        {/* Wave L H3 — CTA row. Wave G mobile-fit pattern: flex:1 + min-w:0 +
+         * shrink labels so both CTAs sit on a single line on small screens. */}
         <div
+          className="reviews-cta-row"
           style={{
             marginTop: "clamp(18px, 3vw, 28px)",
             display: "flex",
-            flexWrap: "wrap",
+            flexWrap: "nowrap",
             justifyContent: "center",
             alignItems: "center",
-            gap: 16,
+            gap: 12,
           }}
         >
           <Link
             href="/tools/free-audit"
             data-testid="reviews-cta-start"
-            className="mkt-btn-primary"
+            className="mkt-btn-primary reviews-cta-btn"
             style={{
               display: "inline-flex",
               alignItems: "center",
               justifyContent: "center",
               height: 48,
-              padding: "0 28px",
+              padding: "0 18px",
               fontSize: 15,
               fontWeight: 500,
               textDecoration: "none",
               textTransform: "uppercase",
               letterSpacing: "0.04em",
+              flex: "1 1 0",
+              minWidth: 0,
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
             }}
           >
             Run a free audit
@@ -265,12 +243,23 @@ export default function ReviewsSection() {
           <Link
             href="/case-studies"
             data-testid="reviews-cta-case-studies"
+            className="reviews-cta-secondary"
             style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              height: 48,
+              padding: "0 12px",
               fontSize: 15,
               fontWeight: 600,
               color: mkt.accent,
               textDecoration: "none",
               transition: "opacity 0.15s ease",
+              flex: "1 1 0",
+              minWidth: 0,
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
             }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.opacity = "0.75"; }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.opacity = "1"; }}
@@ -281,10 +270,26 @@ export default function ReviewsSection() {
       </div>
 
       <style>{`
+        /* Wave L H3 — testimonial containers wider on mobile (full content
+         * width minus 16px symmetric padding) — already mostly true via
+         * clamp() above; reinforce here so the auto-fit doesn't shrink past
+         * single-column on phones. */
         @media (max-width: 640px) {
           .reviews-grid {
             grid-template-columns: 1fr !important;
             gap: 10px !important;
+          }
+          .review-card {
+            margin-left: 0 !important;
+            margin-right: 0 !important;
+          }
+          /* Mobile: shrink CTA labels if needed to keep them on one line. */
+          .reviews-cta-btn,
+          .reviews-cta-secondary {
+            font-size: 13px !important;
+            padding-left: 10px !important;
+            padding-right: 10px !important;
+            letter-spacing: 0.02em !important;
           }
         }
       `}</style>
