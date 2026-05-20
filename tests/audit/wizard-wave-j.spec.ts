@@ -157,8 +157,16 @@ test.describe('wizard J — Wave J UI refinement (desktop)', () => {
     await openWizard(page);
     const right = page.getByTestId('editor-right-pane');
     await expect(right).toBeVisible();
-    const bg = await right.evaluate((el) => getComputedStyle(el).backgroundImage);
-    expect(bg.toLowerCase()).toContain('radial-gradient');
+    const cs = await right.evaluate((el) => {
+      const s = getComputedStyle(el);
+      return { bg: s.backgroundImage, size: s.backgroundSize };
+    });
+    // The dot pattern uses `radial-gradient(circle, ...)` — the old leftover
+    // pre-Wave-J gradient was also a radial-gradient but with a percentage
+    // ellipse, so asserting just "radial-gradient" was a false-positive guard.
+    expect(cs.bg.toLowerCase()).toContain('radial-gradient(circle,');
+    // Dot spacing is 16px × 16px.
+    expect(cs.size.replace(/\s+/g, ' ').trim()).toMatch(/^16px 16px$/);
   });
 });
 
@@ -227,7 +235,11 @@ test.describe('wizard J — Wave J UI refinement (mobile 390×844)', () => {
     await openWizard(page);
     const right = page.getByTestId('editor-right-pane');
     await expect(right).toBeVisible();
-    const bg = await right.evaluate((el) => getComputedStyle(el).backgroundImage);
-    expect(bg.toLowerCase()).toContain('radial-gradient');
+    const cs = await right.evaluate((el) => {
+      const s = getComputedStyle(el);
+      return { bg: s.backgroundImage, size: s.backgroundSize };
+    });
+    expect(cs.bg.toLowerCase()).toContain('radial-gradient(circle,');
+    expect(cs.size.replace(/\s+/g, ' ').trim()).toMatch(/^16px 16px$/);
   });
 });
