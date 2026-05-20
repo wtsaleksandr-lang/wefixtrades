@@ -2701,6 +2701,26 @@ ${JSON.stringify(auditData, null, 2)}`;
     log.info('[audit] FINAL recommended:', { detail: recommendedServices?.length || 0 });
     return res.json({ ok: true, report_json: auditData, reportId });
   } catch (e: any) {
+    // B4 fix (2026-05-20): the post-deploy QA on 2026-05-20 saw a "Setup
+    // might have expired. Please try again." surface on one live audit run.
+    // No structured trace existed for the failure path, so reproducibility
+    // was impossible. We now log a single structured line on every /generate
+    // failure with the elapsed time, the business name (if parsable from the
+    // request), the error class + message and a short stack hint so any
+    // future repro is one log-line away from a root cause.
+    const elapsed = Date.now() - startTime;
+    const bizName = (() => { try { return String(req.body?.business?.name ?? ""); } catch { return ""; } })();
+    const placeId = (() => { try { return String(req.body?.business?.placeId ?? ""); } catch { return ""; } })();
+    log.error("[audit/generate] FAILED", {
+      elapsedMs: elapsed,
+      businessName: bizName,
+      placeId,
+      errorClass: e?.constructor?.name ?? typeof e,
+      errorMessage: e?.message ?? String(e),
+      // First few stack frames only — enough to identify the call site
+      // without flooding the log with framework noise.
+      stackHead: (e?.stack ?? "").split("\n").slice(0, 4).join(" | "),
+    });
     return safeJsonError(res, 500, e?.message || "generate failed");
   }
 });

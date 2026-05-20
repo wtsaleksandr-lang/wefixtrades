@@ -389,6 +389,15 @@ export default function FreeAudit() {
         body
       );
       setBusy("Generating report\u2026");
+      // B4 fix (2026-05-20): the post-deploy QA on 2026-05-20 saw a one-off
+      // "Setup might have expired. Please try again." surface from a slow
+      // /audit/generate run. Raised this call's client-side timeout from
+      // the postJSON default (30s) to 60s \u2014 /audit/generate fans out across
+      // Outscraper, Serper, DataForSEO and PageSpeed in parallel and can
+      // legitimately need ~30\u201345s under load. Server-side, see the
+      // [audit/generate] start/end timing log added in server/auditRoutes.ts
+      // so future timeouts surface a useful "where did the seconds go"
+      // breakdown.
       const rep = await postJSON<{
         ok: true;
         report_json: any;
@@ -402,7 +411,8 @@ export default function FreeAudit() {
           trade: (details as any).trade || "",
           city: (details as any).city || "",
           tradeOverride: tradeOverride || null,
-        }
+        },
+        60000
       );
       setReport(rep.report_json);
       if (rep.reportId) setReportId(rep.reportId);
