@@ -15,7 +15,7 @@ const GUIDES = [
     title: "Embed Guide",
     description: "Add your calculator to any website in 5 minutes. WordPress, Wix, Squarespace, Shopify — covered.",
     badge: "Popular",
-    badgeColor: "#2F6BFF",
+    badgeColor: "#0d3cfc",
     badgeBg: "#EAF1FF",
     time: "5 min read",
   },

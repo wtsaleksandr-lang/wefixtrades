@@ -26,7 +26,7 @@ export const PLAN_MONTHLY_PRICES: Record<PlanTier, string> = {
 
 export const PLAN_BADGE_STYLES: Record<PlanTier, { bg: string; color: string; border: string }> = {
   free:    { bg: colors.platform.surfaceRaised, color: colors.widget.muted, border: colors.widget.border },
-  starter: { bg: "#EAF1FF", color: "#2F6BFF", border: "#D4E2FF" },
+  starter: { bg: "#EAF1FF", color: "#0d3cfc", border: "#D4E2FF" },
   pro:     { bg: colors.platform.accentLighter, color: colors.platform.accent, border: "#A7F3D0" },
   elite:   { bg: colors.status.warningLight, color: mkt.warning, border: "#FDE68A" },
 };

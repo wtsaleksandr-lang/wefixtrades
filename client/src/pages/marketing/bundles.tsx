@@ -236,7 +236,7 @@ export default function BundlesPage() {
         <div style={s.bundlesSection}>
           <div style={s.bundlesGrid}>
             <div style={s.bundleCard} data-testid="bundle-starter">
-              <span style={{ ...s.badge, background: "#EAF1FF", color: "#2F6BFF" }}>
+              <span style={{ ...s.badge, background: "#EAF1FF", color: "#0d3cfc" }}>
                 Best value starter
               </span>
               <h2 style={s.bundleName}>Starter System</h2>

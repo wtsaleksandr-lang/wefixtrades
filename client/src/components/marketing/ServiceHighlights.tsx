@@ -14,7 +14,7 @@ const TABS = [
     cards: [
       { text: "Incoming call", accent: "#FA4E1D" },
       { text: "Call captured", accent: "#10B981" },
-      { text: "Follow-up scheduled", accent: "#2F6BFF" },
+      { text: "Follow-up scheduled", accent: "#0d3cfc" },
     ],
   },
   {
@@ -28,7 +28,7 @@ const TABS = [
     desc: "Customers can request pricing directly from your website without waiting for a callback.",
     cards: [
       { text: "Service selected", accent: "#D4A017" },
-      { text: "Price range", accent: "#2F6BFF" },
+      { text: "Price range", accent: "#0d3cfc" },
       { text: "Quote ready", accent: "#10B981" },
     ],
   },
@@ -44,7 +44,7 @@ const TABS = [
     cards: [
       { text: "★★★★★", accent: "#F59E0B" },
       { text: "Customer feedback received", accent: "#10B981" },
-      { text: "Review published", accent: "#2F6BFF" },
+      { text: "Review published", accent: "#0d3cfc" },
     ],
   },
   {
@@ -57,7 +57,7 @@ const TABS = [
     title: "Stay visible where customers search",
     desc: "Your business information and customer feedback stay active and up to date, helping more customers find you.",
     cards: [
-      { text: "Business listing", accent: "#2F6BFF" },
+      { text: "Business listing", accent: "#0d3cfc" },
       { text: "Rating score", accent: "#F59E0B" },
       { text: "Visibility indicator", accent: "#10B981" },
     ],
