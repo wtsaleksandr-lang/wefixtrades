@@ -329,6 +329,35 @@ const RESPONSIVE_CSS = `
     .hero-cta-row { justify-content: center; }
   }
   .hero-cta-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  /* Mobile (≤640px): keep the two hero CTAs on one row instead of stacking.
+   * flex-wrap: nowrap + flex: 1 1 0 + min-width: 0 lets both buttons share
+   * the row width without overflow on 360–414px viewports. Padding is
+   * tightened to keep the ≥44px tap target while shrinking horizontally. */
+  @media (max-width: 640px) {
+    .hero-cta-row {
+      flex-wrap: nowrap !important;
+      gap: 10px !important;
+      width: 100%;
+      max-width: 100%;
+    }
+    .hero-cta-row > .hero-cta-primary,
+    .hero-cta-row > .hero-cta-secondary {
+      flex: 1 1 0;
+      min-width: 0;
+      padding: 13px 14px;
+      justify-content: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-size: 13px;
+    }
+    .hero-cta-row > .hero-cta-primary > span,
+    .hero-cta-row > .hero-cta-secondary > span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      min-width: 0;
+    }
+  }
   /* DOSS pattern: cream off-white primary CTA, no blue glow.
    * Hover is a subtle color deepening (no halo, no transform stack).
    * font-weight 500 matches DOSS's "confident not shouty" tone. */
