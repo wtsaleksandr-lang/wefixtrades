@@ -435,6 +435,22 @@ export default function FieldRow({
         .qq-field-row-confirm {
           display: inline-flex; align-items: center; gap: 4px;
         }
+        /* Wave N — on narrow viewports, free horizontal space so long
+         * labels like "Local Incentives" / "Professional installation"
+         * don't ellipsis-clamp inside the row. We drop the redundant
+         * trailing typename badge (the icon-badge already conveys the
+         * field type), tighten the row padding, and shrink the action
+         * iconbtns from 26 → 22 px. */
+        @media (max-width: 480px) {
+          .qq-field-row-head { padding: 7px 7px; gap: 4px; }
+          .qq-field-row-handle { width: 18px; height: 24px; }
+          .qq-field-row-toggle { gap: 6px; padding: 3px 0; }
+          .qq-field-row-typename { display: none; }
+          .qq-field-type-badge { width: 22px; height: 22px; font-size: 12px; }
+          .qq-field-row-actions { gap: 2px; }
+          .qq-field-row-iconbtn { min-width: 22px; height: 22px; padding: 0 4px; font-size: 11px; }
+          .qq-field-row-iconbtn.is-danger-solid { padding: 0 8px; font-size: 10.5px; }
+        }
         .qq-field-row-body {
           padding: 4px 12px 14px; display: flex; flex-direction: column; gap: 8px;
           border-top: 1px solid ${p.colors.borderLight};
