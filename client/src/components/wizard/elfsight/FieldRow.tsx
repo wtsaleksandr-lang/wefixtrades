@@ -29,6 +29,7 @@ import type { TemplateField, TemplateOption } from '@shared/templatePresets';
 import { FIELD_TYPE_TO_PUBLIC } from './types';
 import { useEditorDndSensors, DND_CONTAINERS, DragHandleGlyph } from './dnd';
 import { useSelection } from './selection';
+import FloatField from './FloatField';
 
 const p = platformTheme;
 
@@ -231,57 +232,68 @@ export default function FieldRow({
 
       {expanded && (
         <div className="qq-field-row-body" data-testid={`field-row-body-${field.id}`}>
-          <Label>Label</Label>
-          <input
-            type="text"
-            className="qq-field-input"
-            value={field.label}
-            onChange={(e) => update({ label: e.target.value })}
-            data-testid={`field-row-input-label-${field.id}`}
-          />
+          {/* Wave L L1 — embedded floating labels. Each input title now sits
+           * inside the field, not as a separate label above it. */}
+          <FloatField label="Label" htmlFor={`field-row-input-label-${field.id}`}>
+            <input
+              id={`field-row-input-label-${field.id}`}
+              type="text"
+              className="premium-input qq-field-input"
+              placeholder=" "
+              value={field.label}
+              onChange={(e) => update({ label: e.target.value })}
+              data-testid={`field-row-input-label-${field.id}`}
+            />
+          </FloatField>
 
           {supportsNumeric && (
             <>
               <div className="qq-field-grid-3">
-                <div>
-                  <Label>Min</Label>
+                <FloatField label="Min" htmlFor={`field-row-input-min-${field.id}`}>
                   <input
+                    id={`field-row-input-min-${field.id}`}
                     type="number"
-                    className="qq-field-input"
+                    className="premium-input qq-field-input"
+                    placeholder=" "
                     value={field.min ?? 0}
                     onChange={(e) => update({ min: Number(e.target.value) })}
                     data-testid={`field-row-input-min-${field.id}`}
                   />
-                </div>
-                <div>
-                  <Label>Max</Label>
+                </FloatField>
+                <FloatField label="Max" htmlFor={`field-row-input-max-${field.id}`}>
                   <input
+                    id={`field-row-input-max-${field.id}`}
                     type="number"
-                    className="qq-field-input"
+                    className="premium-input qq-field-input"
+                    placeholder=" "
                     value={field.max ?? 100}
                     onChange={(e) => update({ max: Number(e.target.value) })}
                     data-testid={`field-row-input-max-${field.id}`}
                   />
-                </div>
-                <div>
-                  <Label>Step</Label>
+                </FloatField>
+                <FloatField label="Step" htmlFor={`field-row-input-step-${field.id}`}>
                   <input
+                    id={`field-row-input-step-${field.id}`}
                     type="number"
-                    className="qq-field-input"
+                    className="premium-input qq-field-input"
+                    placeholder=" "
                     value={field.step ?? 1}
                     onChange={(e) => update({ step: Number(e.target.value) })}
                     data-testid={`field-row-input-step-${field.id}`}
                   />
-                </div>
+                </FloatField>
               </div>
-              <Label>Default</Label>
-              <input
-                type="number"
-                className="qq-field-input"
-                value={field.default_value ?? 0}
-                onChange={(e) => update({ default_value: Number(e.target.value) })}
-                data-testid={`field-row-input-default-${field.id}`}
-              />
+              <FloatField label="Default" htmlFor={`field-row-input-default-${field.id}`}>
+                <input
+                  id={`field-row-input-default-${field.id}`}
+                  type="number"
+                  className="premium-input qq-field-input"
+                  placeholder=" "
+                  value={field.default_value ?? 0}
+                  onChange={(e) => update({ default_value: Number(e.target.value) })}
+                  data-testid={`field-row-input-default-${field.id}`}
+                />
+              </FloatField>
             </>
           )}
 
