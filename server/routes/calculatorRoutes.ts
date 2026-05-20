@@ -6,6 +6,7 @@ import { storage } from "../storage";
 import { validatePricingConfig } from "@shared/pricingConfig";
 import { calculatorSettingsSchema } from "@shared/schema";
 import { slugify, isValidSlug, buildSubdomain, HOSTING_DOMAIN } from "@shared/slugUtils";
+import { touchCalculatorActivity } from "../services/quotequickSlugLifecycle";
 import { createLogger } from "../lib/logger";
 
 const log = createLogger("Calculator");
@@ -155,7 +156,9 @@ export function registerCalculatorRoutes(app: Express): void {
         auto_republish: true,
       });
 
-      const subdomain = buildSubdomain(calculator.slug, HOSTING_DOMAIN);
+      // Slug is non-null at create time (we just assigned it via
+       // generateUniqueSlug); narrow the post-Wave-P-E nullable type.
+      const subdomain = buildSubdomain(calculator.slug as string, HOSTING_DOMAIN);
       res.json({
         success: true,
         calculator: { ...calculator, is_token_expired: false },
@@ -365,6 +368,10 @@ export function registerCalculatorRoutes(app: Express): void {
         }
       }
 
+      // Wave P-E — owner edit counts as activity. Resets the slug-release
+      // warning and bumps updated_at so the cron leaves the slug alone.
+      touchCalculatorActivity(calculator.id).catch(() => {});
+
       res.json({ success: true, calculator: updated, auto_republished: autoRepublished });
     } catch (error: any) {
       log.error("Update calculator error:", error);
@@ -456,8 +463,11 @@ export function registerCalculatorRoutes(app: Express): void {
       // Store old slug in metadata for redirect (30-day window)
       const settings = (calculator.calculator_settings as any) || {};
       const oldSlugs: { slug: string; changed_at: number }[] = settings._slug_redirects || [];
-      // Add current slug to redirect list
-      oldSlugs.push({ slug: calculator.slug, changed_at: Date.now() });
+      // Add current slug to redirect list (post-Wave-P-E the column is
+      // nullable, but a released slug is never re-changed via this path).
+      if (calculator.slug) {
+        oldSlugs.push({ slug: calculator.slug, changed_at: Date.now() });
+      }
       // Keep only redirects from the last 30 days
       const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
       const activeRedirects = oldSlugs.filter(r => r.changed_at > thirtyDaysAgo);
@@ -501,6 +511,11 @@ export function registerCalculatorRoutes(app: Express): void {
       const parsed = trackViewBody.safeParse(_req.body);
       if (parsed.success) {
         await storage.incrementViews(parsed.data.calculator_id);
+        // Wave P-E — bump the activity timestamp + clear any pending
+        // slug-release warning the moment a real visitor lands. Same
+        // call is also made by the PATCH /api/calculators route so any
+        // owner edit counts as activity too.
+        touchCalculatorActivity(parsed.data.calculator_id).catch(() => {});
         const ua = _req.headers['user-agent'] || '';
         const isMobile = /Mobile|Android|iPhone/i.test(ua);
         const isTablet = /iPad|Tablet/i.test(ua);
