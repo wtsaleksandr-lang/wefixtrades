@@ -279,12 +279,18 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
               {logoUrl && (
                 <img src={logoUrl} alt="" style={{ width: 28, height: 28, borderRadius: eff.radiusMd, objectFit: 'contain' }} />
               )}
-              <p style={{ fontSize: '17px', fontWeight: 800, color: c.text, margin: 0, letterSpacing: '-0.01em' }}>
+              <p
+                data-testid="advanced-title"
+                style={{ fontSize: '17px', fontWeight: 800, color: c.text, margin: 0, letterSpacing: '-0.01em' }}
+              >
                 {title}
               </p>
             </div>
             {subtitle && (
-              <p style={{ fontSize: '13px', color: c.textBody, margin: '5px 0 0', textAlign: align, lineHeight: 1.5 }}>
+              <p
+                data-testid="advanced-subtitle"
+                style={{ fontSize: '13px', color: c.textBody, margin: '5px 0 0', textAlign: align, lineHeight: 1.5 }}
+              >
                 {subtitle}
               </p>
             )}
@@ -358,10 +364,13 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
             border: resultTinted ? 'none' : `1px solid ${c.border}`, boxShadow: c.shadow,
             padding: '18px',
           }}>
-            <p style={{
-              fontSize: '11px', fontWeight: 700, color: c.resultMuted,
-              textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 6px',
-            }}>
+            <p
+              data-testid="advanced-result-heading"
+              style={{
+                fontSize: '11px', fontWeight: 700, color: c.resultMuted,
+                textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 6px',
+              }}
+            >
               {resultHeading}
             </p>
             <p data-testid="advanced-result" style={{
@@ -393,6 +402,7 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
                   <div
                     key={cl.id}
                     data-testid={`advanced-breakdown-${cl.id}`}
+                    data-divider={cl.divider ? 'true' : 'false'}
                     style={{
                       display: 'flex', flexDirection: 'column', gap: '3px',
                       // Wave H4 — `divider: true` puts a thin rule above the row.
