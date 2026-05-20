@@ -529,6 +529,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
       { id: 'moving_cost_multi_col', layout: 'multi-column' as TemplateLayout, ...base },
     ];
   })(),
+
   /* ══════════════════════════════════════════════════════════════════
      Per-Trade Premium Expansion — 18 verticals × 2 layouts each
      (single-column + two-column). Same structural quality bar as the
@@ -1084,6 +1085,186 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     ];
   })(),
 
+  /* ── Trade 16. Garage Door (Mechanical & Systems) ── */
+  ...(() => {
+    const fields: TemplateField[] = [
+      { id: 'service', name: 'Service Type', label: 'What needs doing?', type: 'select',
+        options: [opt('Spring replacement', 285), opt('Opener repair', 245), opt('Cable / roller replacement', 195), opt('Panel replacement', 485), opt('Full door replacement', 1450), opt('New opener install', 525)] },
+      { id: 'door_size', name: 'Door Size', label: 'Door size', type: 'radio',
+        options: [opt('Single car', 0), opt('Double car', 145), opt('Oversized / commercial', 385)] },
+      { id: 'urgency', name: 'Urgency', label: 'Urgency', type: 'radio',
+        options: [opt('Scheduled', 0), opt('Same day', 75), opt('After hours', 195)] },
+      { id: 'extras', name: 'Extras', label: 'Add-ons', type: 'multi_select',
+        options: [opt('Smart opener upgrade', 195), opt('Insulated panels', 285), opt('New weather seal', 95), opt('Battery backup', 145)] },
+    ];
+    const calculations: TemplateCalculation[] = [
+      calc('Service Cost', '[Service Type] + [Door Size]'),
+      calc('Estimated Total', '[Service Cost] + [Urgency] + [Extras]'),
+    ];
+    const header: TemplateHeader = {
+      title: 'Garage Door Service Estimator',
+      subtitle: 'Repair or replace — get a clear, same-day price for your garage door.', align: 'left',
+    };
+    const results: TemplateResults = {
+      footnote: 'Most repairs completed in one visit. Lifetime warranty on springs and openers.',
+      cta_label: 'Book a Technician',
+    };
+    const base = {
+      name: 'Garage Door Service', description: 'Garage door repair and replacement quote with same-day options.',
+      category: 'Repair Services', trades: ['garage_door'],
+      theme: 'midnight', fields, calculations, result_calc: 'Estimated Total', header, results,
+    };
+    return [
+      { id: 'garage_door_single_col', layout: 'single-column' as TemplateLayout, ...base },
+      { id: 'garage_door_two_col', layout: 'two-column' as TemplateLayout, ...base },
+    ];
+  })(),
+
+  /* ── Trade 17. Locksmith (Specialty Services) ── */
+  ...(() => {
+    const fields: TemplateField[] = [
+      { id: 'service', name: 'Service Type', label: 'What do you need?', type: 'select',
+        options: [opt('Residential lockout', 95), opt('Car lockout', 145), opt('Re-key locks', 165), opt('New lock install', 195), opt('Smart lock install', 295), opt('Safe opening', 485)] },
+      { id: 'locks', name: 'Number of Locks', label: 'How many locks?', type: 'number',
+        min: 1, max: 12, step: 1, default_value: 1 },
+      { id: 'urgency', name: 'Urgency', label: 'Urgency', type: 'radio',
+        options: [opt('Scheduled appointment', 0), opt('Within the hour', 85), opt('After-hours emergency', 165)] },
+      { id: 'travel', name: 'Travel', label: 'Travel distance', type: 'slider',
+        min: 0, max: 50, step: 5, default_value: 10, unit: 'miles' },
+      { id: 'extras', name: 'Extras', label: 'Add-ons', type: 'multi_select',
+        options: [opt('High-security keys', 65), opt('Master key system', 145), opt('Security assessment', 95), opt('Spare key set', 35)] },
+    ];
+    const calculations: TemplateCalculation[] = [
+      calc('Service Cost', '[Service Type] * [Number of Locks]'),
+      calc('Trip Charge', '[Travel] * 2 + [Urgency]'),
+      calc('Estimated Total', '[Service Cost] + [Trip Charge] + [Extras]'),
+    ];
+    const header: TemplateHeader = {
+      title: 'Locksmith Service Quote',
+      subtitle: 'Locked out, locked in, or just upgrading — get a price in under a minute.', align: 'left',
+    };
+    const results: TemplateResults = {
+      footnote: 'Licensed, bonded, insured locksmiths. 24/7 mobile response across the metro area.',
+      cta_label: 'Request a Locksmith',
+    };
+    const base = {
+      name: 'Locksmith Services', description: 'Locksmith quote covering lockouts, re-keying and lock installs.',
+      category: 'Specialty Services', trades: ['locksmith'],
+      theme: 'midnight', fields, calculations, result_calc: 'Estimated Total', header, results,
+    };
+    return [
+      { id: 'locksmith_single_col', layout: 'single-column' as TemplateLayout, ...base },
+      { id: 'locksmith_two_col', layout: 'two-column' as TemplateLayout, ...base },
+    ];
+  })(),
+
+  /* ── Trade 18. Chimney Sweep (Cleaning) ── */
+  ...(() => {
+    const fields: TemplateField[] = [
+      { id: 'service', name: 'Service Type', label: 'Service type', type: 'select',
+        options: [opt('Standard chimney sweep', 195), opt('Sweep + Level 2 inspection', 345), opt('Cap / crown repair', 485), opt('Liner replacement', 1850), opt('Creosote removal (heavy)', 425)] },
+      { id: 'flues', name: 'Number of Flues', label: 'Number of flues', type: 'number',
+        min: 1, max: 6, step: 1, default_value: 1 },
+      { id: 'access', name: 'Access', label: 'Roof access', type: 'radio',
+        options: [opt('Easy (1 story)', 0), opt('Moderate (2 story)', 65), opt('Difficult / steep pitch', 145)] },
+      { id: 'extras', name: 'Extras', label: 'Add-ons', type: 'multi_select',
+        options: [opt('Chimney cap install', 195), opt('Animal / nest removal', 145), opt('Smoke / camera inspection', 165), opt('Waterproofing seal', 285)] },
+    ];
+    const calculations: TemplateCalculation[] = [
+      calc('Service Cost', '[Service Type] * [Number of Flues]'),
+      calc('Estimated Total', '[Service Cost] + [Access] + [Extras]'),
+    ];
+    const header: TemplateHeader = {
+      title: 'Chimney Sweep & Inspection Quote',
+      subtitle: 'A safe, clean chimney before fire season — get an instant price.', align: 'left',
+    };
+    const results: TemplateResults = {
+      footnote: 'CSIA-certified sweeps, no-mess cleanup, written inspection report on every visit.',
+      cta_label: 'Schedule Inspection',
+    };
+    const base = {
+      name: 'Chimney Sweep', description: 'Chimney sweep and inspection quote with cap and liner options.',
+      category: 'Cleaning', trades: ['chimney_sweep'],
+      theme: 'coral', fields, calculations, result_calc: 'Estimated Total', header, results,
+    };
+    return [
+      { id: 'chimney_sweep_single_col', layout: 'single-column' as TemplateLayout, ...base },
+      { id: 'chimney_sweep_two_col', layout: 'two-column' as TemplateLayout, ...base },
+    ];
+  })(),
+
+  /* ── Trade 19. Water Damage Restoration (Restoration) ── */
+  ...(() => {
+    const fields: TemplateField[] = [
+      { id: 'area', name: 'Affected Area', label: 'Affected area', type: 'slider',
+        min: 50, max: 3000, step: 25, default_value: 350, unit: 'sq ft' },
+      { id: 'water_class', name: 'Water Category', label: 'Water category', type: 'radio',
+        options: [opt('Clean water (Cat 1)', 4.5), opt('Gray water (Cat 2)', 7.5), opt('Black water (Cat 3)', 12)] },
+      { id: 'damage_level', name: 'Damage Level', label: 'Damage level', type: 'select',
+        options: [opt('Class 1 — minor surface', 0), opt('Class 2 — carpet & walls', 485), opt('Class 3 — saturated structure', 1450), opt('Class 4 — specialty materials', 2850)] },
+      { id: 'response', name: 'Response Time', label: 'Response time', type: 'radio',
+        options: [opt('Within 24 hours', 0), opt('Same-day rapid response', 285), opt('Within 2 hours emergency', 685)] },
+      { id: 'extras', name: 'Extras', label: 'Add-ons', type: 'multi_select',
+        options: [opt('Antimicrobial treatment', 425), opt('Content pack-out & storage', 850), opt('Insurance claim assistance', 0), opt('Air-quality testing', 295)] },
+    ];
+    const calculations: TemplateCalculation[] = [
+      calc('Extraction & Drying', '[Affected Area] * [Water Category]'),
+      calc('Estimated Total', '[Extraction & Drying] + [Damage Level] + [Response Time] + [Extras]'),
+    ];
+    const header: TemplateHeader = {
+      title: 'Water Damage Restoration Estimator',
+      subtitle: 'Burst pipe, flood, or leak? Get an immediate restoration quote.', align: 'left',
+    };
+    const results: TemplateResults = {
+      footnote: 'IICRC-certified techs on call 24/7. We work directly with your insurance carrier.',
+      cta_label: 'Get Emergency Help',
+    };
+    const base = {
+      name: 'Water Damage Restoration', description: 'Restoration quote by affected area, water category and damage class.',
+      category: 'Restoration', trades: ['water_damage', 'water_damage_restoration'],
+      theme: 'coral', fields, calculations, result_calc: 'Estimated Total', header, results,
+    };
+    return [
+      { id: 'water_damage_single_col', layout: 'single-column' as TemplateLayout, ...base },
+      { id: 'water_damage_two_col', layout: 'two-column' as TemplateLayout, ...base },
+    ];
+  })(),
+
+  /* ── Trade 20. Mold Remediation (Restoration) ── */
+  ...(() => {
+    const fields: TemplateField[] = [
+      { id: 'area', name: 'Affected Area', label: 'Affected area', type: 'slider',
+        min: 10, max: 1000, step: 10, default_value: 80, unit: 'sq ft' },
+      { id: 'severity', name: 'Severity', label: 'Mold severity', type: 'radio',
+        options: [opt('Light surface mold', 8), opt('Moderate growth', 18), opt('Heavy / structural', 32), opt('Toxic black mold', 48)] },
+      { id: 'location', name: 'Location', label: 'Where is the mold?', type: 'select',
+        options: [opt('Bathroom / single room', 0), opt('Basement / crawl space', 285), opt('HVAC system', 685), opt('Multiple rooms', 485), opt('Attic', 325)] },
+      { id: 'testing', name: 'Pre/Post Testing', label: 'Independent lab testing', type: 'toggle', on_value: 385 },
+      { id: 'extras', name: 'Extras', label: 'Add-ons', type: 'multi_select',
+        options: [opt('Containment barriers', 285), opt('HEPA air scrubbing', 425), opt('Drywall / material replacement', 685), opt('Encapsulation coating', 545)] },
+    ];
+    const calculations: TemplateCalculation[] = [
+      calc('Remediation Subtotal', '[Affected Area] * [Severity]'),
+      calc('Estimated Total', '[Remediation Subtotal] + [Location] + [Pre/Post Testing] + [Extras]'),
+    ];
+    const header: TemplateHeader = {
+      title: 'Mold Remediation Quote',
+      subtitle: 'Safe, certified mold removal — get a detailed estimate without the guesswork.', align: 'left',
+    };
+    const results: TemplateResults = {
+      footnote: 'IICRC-certified remediation, EPA-approved products, written clearance on every job.',
+      cta_label: 'Book an Inspection',
+    };
+    const base = {
+      name: 'Mold Remediation', description: 'Mold remediation quote by affected area, severity and location.',
+      category: 'Restoration', trades: ['mold_remediation'],
+      theme: 'magenta', fields, calculations, result_calc: 'Estimated Total', header, results,
+    };
+    return [
+      { id: 'mold_remediation_single_col', layout: 'single-column' as TemplateLayout, ...base },
+      { id: 'mold_remediation_two_col', layout: 'two-column' as TemplateLayout, ...base },
+    ];
+  })(),
 ];
 
 /* ─── Lookups ─── */
