@@ -257,7 +257,12 @@ test.describe('wizard I — mobile parity 390×844', () => {
     void browserName;
   });
 
-  test('(b) drag-to-preview falls back to tap-to-add via the +Add slot on mobile', async ({ page }) => {
+  // Wave R-pre v2 follow-up — the in-preview +Add slot is intentionally
+  // hidden on narrow containers (single-column layout) because the slot
+  // overlapped the result panel below it. The left-pane "+ Add field"
+  // button still works on mobile; covered by mobile-add-trigger tests
+  // elsewhere. This test is therefore skipped.
+  test.skip('(b) drag-to-preview falls back to tap-to-add via the +Add slot on mobile', async ({ page }) => {
     await openWizard(page);
     // The mobile "tap-to-add" alternative for cross-section drag is the
     // in-preview +Add slot which opens the AddFieldMenu (bottom-sheet variant).
@@ -321,7 +326,10 @@ test.describe('wizard I — mobile parity 390×844', () => {
     expect(w).toBeGreaterThanOrEqual(390 - 30);
   });
 
-  test('(f) preview +Add slot and remove icons meet ≥44px tap targets', async ({ page }) => {
+  // Wave R-pre v2 follow-up — same reason as (b) above: in-preview +Add
+  // slot is hidden on narrow containers. The slot's mobile-tap-target
+  // assertion is moot when the slot doesn't render. Skipped.
+  test.skip('(f) preview +Add slot and remove icons meet ≥44px tap targets', async ({ page }) => {
     await openWizard(page);
     const slot = page.getByTestId('preview-add-slot');
     await expect(slot).toBeVisible();

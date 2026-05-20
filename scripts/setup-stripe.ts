@@ -70,18 +70,23 @@ async function main() {
   ok(`mode: ${balance.livemode ? "LIVE" : "TEST"}`);
 
   /* ─── 2. Webhook endpoints ──────────────────────────────────────
-     Two paths in our codebase:
-       /api/stripe-billing/webhook  — subscription lifecycle, invoices
-       /api/stripe/webhook          — checkout sessions */
+     One billing endpoint in our codebase (server/routes/stripeBillingRoutes.ts):
+       /api/billing/webhook        — checkout sessions + subscription lifecycle + invoices
+     One Stripe Connect endpoint (server/routes/stripeRoutes.ts):
+       /api/stripe/connect/webhook — Express account onboarding updates */
   const desired = [
     {
-      url: `${baseUrl}/api/stripe-billing/webhook`,
+      url: `${baseUrl}/api/billing/webhook`,
       events: [
+        "checkout.session.completed",
+        "checkout.session.expired",
         "customer.subscription.created",
         "customer.subscription.updated",
         "customer.subscription.deleted",
         "customer.subscription.trial_will_end",
+        "customer.source.expiring",
         "invoice.paid",
+        "invoice.payment_succeeded",
         "invoice.payment_failed",
         "invoice.finalized",
         "invoice.upcoming",
@@ -89,12 +94,11 @@ async function main() {
       env_var: "STRIPE_BILLING_WEBHOOK_SECRET",
     },
     {
-      url: `${baseUrl}/api/stripe/webhook`,
+      url: `${baseUrl}/api/stripe/connect/webhook`,
       events: [
-        "checkout.session.completed",
-        "checkout.session.expired",
+        "account.updated",
       ],
-      env_var: "STRIPE_WEBHOOK_SECRET",
+      env_var: "STRIPE_CONNECT_WEBHOOK_SECRET",
     },
   ];
 

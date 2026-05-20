@@ -18,7 +18,9 @@ import { useToast } from "@/hooks/use-toast";
 const AUDIT_SERVICE_TO_CATALOG_SKU: Record<string, string> = {
   "rankflow": "rankflow-starter",
   "tradeline": "tradeline-starter",
-  "quotequick": "quotequick-starter",
+  // Wave Q — legacy quotequick-starter retired. Map to the entry-level paid
+  // tier (Pro at $29/mo). Free plan exists but isn't a purchasable checkout SKU.
+  "quotequick": "quotequick-pro",
   "webcare": "webcare-basic",
   "socialsync": "socialsync-starter",
   "adflow": "adflow-starter",

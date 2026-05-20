@@ -486,6 +486,21 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Wave R-pre A — apply any pending hand-rolled SQL migrations BEFORE
+  // any route is mounted. Without this, a republish of code that
+  // references a new column (Wave P added updated_at + slug_release_warned_at
+  // to calculators) and lands BEFORE Alex hand-runs `db:push` causes every
+  // calculator query to 500 in production. The bootstrapper is idempotent:
+  // each migration file uses IF NOT EXISTS / ADD COLUMN IF NOT EXISTS,
+  // tracked in __bootstrap_migrations so re-runs are no-ops.
+  try {
+    const { bootstrapMigrations } = await import("./lib/bootstrapMigrations");
+    await bootstrapMigrations();
+  } catch (err: any) {
+    logger.error("[boot] bootstrap migrations FAILED — refusing to start", { error: err?.message });
+    process.exit(1);
+  }
+
   await registerRoutes(httpServer, app);
 
   /* Ensure the contentflow_settings table exists at boot (not lazily) so

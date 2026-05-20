@@ -63,22 +63,55 @@ export default function ServicesPage() {
 
   const statMap = new Map((stats ?? []).map(s => [s.service_id, s.count]));
 
-  // Merge catalog from DB with core services list
-  const catalogMap = new Map((catalog ?? []).map(s => [s.id, s]));
-  const merged = CORE_SERVICES.map(core => {
-    const db = catalogMap.get(core.id);
+  // Merge catalog from DB with core services list.
+  //
+  // Wave Q audit (W-PRICING) — products in `shared/pricing.ts` get one
+  // service_catalog row per TIER (e.g. quotequick-free, quotequick-pro,
+  // quotequick-business, quotequick-install). The legacy product-level
+  // rows like bare `quotequick` were soft-retired by
+  // retire-duplicate-services.sql. If we iterate CORE_SERVICES first (which
+  // is keyed by product id), tier-level rows never appear and per-tier
+  // prices show as blank.
+  //
+  // New approach: iterate the DB catalog primarily. Each row already has
+  // name + price + billing period from the seed. Then append any
+  // CORE_SERVICES entries the DB doesn't have yet (marked "Not yet active").
+  const coreMap = new Map(CORE_SERVICES.map(s => [s.id, s]));
+  const dbCatalog = (catalog ?? []).filter(s => s.is_active);
+
+  const dbRows = dbCatalog.map(db => {
+    const core = coreMap.get(db.id);
     return {
-      id: core.id,
-      name: db?.name || core.name,
-      description: db?.description || core.description,
-      category: db?.category || core.category,
-      default_price: db?.default_price ?? null,
-      billing_period: db?.billing_period ?? "monthly",
-      is_active: db?.is_active ?? true,
-      inDatabase: !!db,
-      activeClients: statMap.get(core.id) ?? 0,
+      id: db.id,
+      name: db.name || core?.name || db.id,
+      description: db.description || core?.description || "",
+      category: db.category || core?.category || "leads",
+      default_price: db.default_price ?? null,
+      billing_period: db.billing_period ?? "monthly",
+      is_active: db.is_active,
+      inDatabase: true,
+      activeClients: statMap.get(db.id) ?? 0,
     };
   });
+
+  // Append product-level placeholders for products that aren't in the DB at all
+  // (e.g. bookflow — flagged for setup). Skip any whose id already exists in DB.
+  const dbIds = new Set(dbCatalog.map(s => s.id));
+  const fallbackRows = CORE_SERVICES
+    .filter(core => !dbIds.has(core.id))
+    .map(core => ({
+      id: core.id,
+      name: core.name,
+      description: core.description,
+      category: core.category,
+      default_price: null as number | null,
+      billing_period: "monthly",
+      is_active: true,
+      inDatabase: false,
+      activeClients: statMap.get(core.id) ?? 0,
+    }));
+
+  const merged = [...dbRows, ...fallbackRows];
 
   const topByClients = [...merged]
     .sort((a, b) => b.activeClients - a.activeClients)
@@ -147,9 +180,18 @@ export default function ServicesPage() {
           </div>
         )}
 
-        <Card className="p-4">
+        <Card className="p-4 space-y-2">
           <p className="text-xs text-gray-400">
             These are all available services in your catalog. Services marked "Not yet active" need to be set up before they can be assigned to clients. Contact support if you need help activating a service.
+          </p>
+          <p className="text-[11px] text-gray-400">
+            <strong className="text-gray-500">Source of truth:</strong>{" "}
+            Marketing pricing pages read from <code>shared/pricing.ts</code> (compiled into the
+            client bundle). The admin product editor writes to the <code>service_catalog</code>{" "}
+            DB table, which is seeded from the same file via{" "}
+            <code>server/scripts/seed-services.ts</code>. Customer checkout + Stripe sync read
+            from the DB. So price edits in this dashboard go live for customers immediately, but
+            the marketing site keeps showing the bundle value until the next deploy.
           </p>
         </Card>
       </div>

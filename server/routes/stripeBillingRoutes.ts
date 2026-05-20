@@ -738,6 +738,30 @@ async function handleCardExpiring(source: Stripe.Card | Stripe.Source, eventId: 
   log.info(`[billing-webhook] Card expiring for customer ${customerId}, email queued`);
 }
 
+/**
+ * Wave Q — map a Stripe Price ID back to a local QuoteQuick plan_tier.
+ * Returns null if the price ID doesn't match any QuoteQuick price.
+ *
+ * Legacy STARTER_* env vars (if still set) resolve to 'pro' — Wave Q
+ * grandfathers starter customers onto Pro tier.
+ */
+function priceIdToQuoteQuickTier(priceId: string | null | undefined): string | null {
+  if (!priceId) return null;
+  const proIds = [
+    process.env.STRIPE_PRICE_QQ_PRO_MONTHLY,
+    process.env.STRIPE_PRICE_QQ_PRO_ANNUAL,
+    process.env.STRIPE_PRICE_QQ_STARTER_MONTHLY,  // legacy → pro
+    process.env.STRIPE_PRICE_QQ_STARTER_ANNUAL,   // legacy → pro
+  ].filter(Boolean);
+  const businessIds = [
+    process.env.STRIPE_PRICE_QQ_BUSINESS_MONTHLY,
+    process.env.STRIPE_PRICE_QQ_BUSINESS_ANNUAL,
+  ].filter(Boolean);
+  if (proIds.includes(priceId)) return "pro";
+  if (businessIds.includes(priceId)) return "business";
+  return null;
+}
+
 async function handleSubscriptionUpdated(
   subscription: Stripe.Subscription,
   previousAttrs: Partial<Stripe.Subscription> | undefined,
@@ -759,6 +783,30 @@ async function handleSubscriptionUpdated(
       stripeSubscriptionId: subscription.id,
       reason: "subscription_canceled",
     }).catch(err => log.warn(`[dunning] cancel-on-canceled-update failed:`, err.message));
+  }
+
+  // ── QuoteQuick: keep calculators.plan_tier in sync with the subscription's
+  // current price. Covers tier swaps (Pro ↔ Business) made via the Stripe
+  // customer portal, where checkout.session.completed never fires. Idempotent
+  // — only writes when the resolved tier differs from the current row.
+  //
+  // We look up by stripe_subscription_id (set on checkout.session.completed).
+  // For older rows that predate that field, this is a no-op and the next
+  // checkout (or manual sync) will populate it.
+  try {
+    const qqCalculator = await storage.findCalculatorByStripeSubscriptionId(subscription.id);
+    if (qqCalculator) {
+      const priceId = subscription.items?.data?.[0]?.price?.id ?? null;
+      const newTier = priceIdToQuoteQuickTier(priceId);
+      if (newTier && newTier !== qqCalculator.plan_tier) {
+        await storage.updateCalculator(qqCalculator.id, { plan_tier: newTier });
+        log.info(`[billing-webhook] QuoteQuick calculator ${qqCalculator.id} plan_tier ${qqCalculator.plan_tier} → ${newTier} (subscription ${subscription.id})`);
+      } else if (!newTier && priceId) {
+        log.warn(`[billing-webhook] QuoteQuick subscription ${subscription.id} updated to unknown price ${priceId} — calculator ${qqCalculator.id} plan_tier NOT changed`);
+      }
+    }
+  } catch (err: any) {
+    log.warn(`[billing-webhook] QuoteQuick plan_tier sync failed for subscription ${subscription.id}:`, err.message);
   }
 }
 

@@ -362,6 +362,130 @@
 /* Some inputs (number, email, password) hide the placeholder when focused
  * — :placeholder-shown handles those uniformly with text-type inputs. */
 
+/* Wave R-pre v2 — premium smooth-entry animations.
+ *
+ * 1. .qq-lead-form-enter — when the user clicks "Get a quote" on the
+ *    AdvancedCalculator, the form slides in + fades from the same place
+ *    the CTA was. No jarring instant swap.
+ * 2. .qq-hosted-frame — when a visitor lands on {slug}.your-quote.net,
+ *    the wrapping frame fades + slides up subtly. Reduced-motion users
+ *    get the instant render.
+ * 3. Reduce-motion respect at the bottom.
+ */
+@keyframes qqLeadFormSlide {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.qq-lead-form-enter {
+  animation: qqLeadFormSlide 240ms cubic-bezier(0.22, 1, 0.36, 1);
+  transform-origin: top center;
+}
+
+@keyframes qqHostedEntrance {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.qq-hosted-frame {
+  /* Hosted page wrap (HostedPageFrame) — see client/src/components/hosted-page/HostedPageFrame.tsx */
+  animation: qqHostedEntrance 360ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.qq-hosted-card {
+  animation: qqHostedEntrance 460ms cubic-bezier(0.22, 1, 0.36, 1);
+  animation-delay: 80ms;
+  animation-fill-mode: backwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .qq-lead-form-enter,
+  .qq-hosted-frame,
+  .qq-hosted-card {
+    animation: none !important;
+  }
+}
+
+/* Wave R-pre v2 — InfoCue overlay positioned at the field's top-right.
+ * Global rule (set by Alex): all help icons live at the top-right corner
+ * of the input field itself, NOT next to a section title. */
+.float-field--with-info > .premium-input {
+  padding-right: 38px;
+}
+.float-field--with-info > select.premium-input {
+  padding-right: 52px;
+}
+.float-field-info {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Wave R-pre W-LABELS — widget-scoped floating-label pattern.
+ *
+ * The wizard's `.float-field` above is keyed to fixed light-mode colors,
+ * but the embedded WIDGET supports multiple themes (light / midnight /
+ * coral / sage / teal / blush / custom). Each instance sets CSS variables
+ * via inline `style` on the wrapper so the floating label adapts to the
+ * active theme.
+ *
+ * Required CSS variables (set inline by FieldInput):
+ *   --qq-w-label       — resting label color (textMuted)
+ *   --qq-w-label-focus — floated label color (accent)
+ *   --qq-w-bg          — background color of the label "chip" when floated
+ *                       (matches the field surface so it can punch through
+ *                       the input's border-stroke).
+ *
+ * DOM order must be: input/select THEN <label> for `:placeholder-shown`
+ * (text/number) and the always-floated select variant to work.
+ */
+.qq-w-float {
+  position: relative;
+}
+.qq-w-float > input.qq-w-input,
+.qq-w-float > select.qq-w-input,
+.qq-w-float > textarea.qq-w-input {
+  padding-top: 20px;
+  padding-bottom: 6px;
+}
+.qq-w-float > label {
+  position: absolute;
+  left: 14px;
+  top: 14px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--qq-w-label, #9CA3AF);
+  pointer-events: none;
+  transition: top 0.15s ease, font-size 0.15s ease, color 0.15s ease;
+  background: transparent;
+  padding: 0 2px;
+  line-height: 1;
+}
+/* Text/number/textarea: `:placeholder-shown` drives the resting state. */
+.qq-w-float > input.qq-w-input:focus + label,
+.qq-w-float > input.qq-w-input:not(:placeholder-shown) + label,
+.qq-w-float > textarea.qq-w-input:focus + label,
+.qq-w-float > textarea.qq-w-input:not(:placeholder-shown) + label {
+  top: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--qq-w-label-focus, #0d3cfc);
+}
+/* <select> doesn't honour :placeholder-shown — selects always have a
+ * value once mounted, so we always show the label in the floated state.
+ * The native chevron lives on the right so reserve a bit of padding. */
+.qq-w-float > select.qq-w-input {
+  padding-right: 30px;
+}
+.qq-w-float > select.qq-w-input + label {
+  top: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--qq-w-label-focus, #0d3cfc);
+}
+
 /* Wave J — InfoCue trigger + popover (item 2). Inherits the editor theme
  * via CSS variables defined under [data-theme="…"] on the shell root. */
 .qq-info-cue {

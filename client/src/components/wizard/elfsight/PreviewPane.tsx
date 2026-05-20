@@ -432,6 +432,74 @@ export default function PreviewPane({
     };
   }, [shellFields, onRemoveField]);
 
+  // Wave R-pre C — when the Install tab previews the hosted page, skip
+  // the wizard's device-bezel chrome entirely. The HostedPageFrame already
+  // provides background + optional headline + centered widget card, so
+  // wrapping that in a phone shell / browser shell creates a 5-6 level
+  // nested-card pattern (Alex called this out as "very weird layered
+  // system"). On Install we render HostedPageFrame as the direct preview
+  // child; on Build/Style/Settings the bezel chrome stays so the user can
+  // still see the bare-widget shape inside a phone / desktop frame.
+  if (hostedFrame) {
+    return (
+      <div
+        className="qq-preview-pane qq-preview-pane--hosted"
+        data-testid="editor-preview-pane"
+      >
+        <div
+          className="qq-preview-hosted-scroll"
+          ref={overlayHostRef}
+          data-testid="preview-hosted-scroll"
+          data-device={device}
+        >
+          <HostedPageFrame
+            settings={settings?.hostedPage}
+            logoUrl={logo}
+            businessName={businessName}
+          >
+            <QuoteWidget calculator={previewCalculatorData} isEmbed hideBrandBadge editableTitle />
+          </HostedPageFrame>
+          {shellFields.length > 0 && onRemoveField && onAddField && (
+            <PreviewOverlay
+              fields={shellFields}
+              containerRef={overlayHostRef as React.RefObject<HTMLDivElement>}
+              onRemoveField={onRemoveField}
+              onAddField={onAddField}
+            />
+          )}
+          {shellFields.length === 0 && onAddField && (
+            <PreviewEmptyState onAddField={onAddField} />
+          )}
+        </div>
+        <style>{`
+          .qq-preview-pane--hosted {
+            /* No bezel, no chrome — let HostedPageFrame own the look. */
+            background: transparent;
+            padding: 0;
+            overflow: hidden;
+            display: flex; flex-direction: column;
+            height: 100%;
+          }
+          .qq-preview-hosted-scroll {
+            flex: 1; min-height: 0;
+            overflow: auto;
+            position: relative;
+            /* Constrain to the canonical mobile width when device=mobile so
+               the user can confirm what a phone visitor sees, without the
+               heavy phone-shell graphic. */
+          }
+          .qq-preview-hosted-scroll[data-device="mobile"] > .qq-hosted-frame {
+            max-width: 390px;
+            margin: 0 auto;
+            box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
+            border-radius: 18px;
+            overflow: hidden;
+          }
+        `}</style>
+      </div>
+    );
+  }
+
   return (
     <div className="qq-preview-pane" data-testid="editor-preview-pane">
       <div className="qq-preview-stage">
@@ -466,10 +534,10 @@ export default function PreviewPane({
                     businessName={businessName}
                     compact
                   >
-                    <QuoteWidget calculator={previewCalculatorData} isEmbed hideBrandBadge />
+                    <QuoteWidget calculator={previewCalculatorData} isEmbed hideBrandBadge editableTitle />
                   </HostedPageFrame>
                 ) : (
-                  <QuoteWidget calculator={previewCalculatorData} isEmbed hideBrandBadge />
+                  <QuoteWidget calculator={previewCalculatorData} isEmbed hideBrandBadge editableTitle />
                 )}
                 {shellFields.length > 0 && onRemoveField && onAddField && (
                   <PreviewOverlay
@@ -558,10 +626,10 @@ export default function PreviewPane({
                     businessName={businessName}
                     compact
                   >
-                    <QuoteWidget calculator={previewCalculatorData} isEmbed hideBrandBadge />
+                    <QuoteWidget calculator={previewCalculatorData} isEmbed hideBrandBadge editableTitle />
                   </HostedPageFrame>
                 ) : (
-                  <QuoteWidget calculator={previewCalculatorData} isEmbed hideBrandBadge />
+                  <QuoteWidget calculator={previewCalculatorData} isEmbed hideBrandBadge editableTitle />
                 )}
                 {shellFields.length > 0 && onRemoveField && onAddField && (
                   <PreviewOverlay

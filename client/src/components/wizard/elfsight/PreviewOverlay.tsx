@@ -89,8 +89,14 @@ function measureFields(
   }
   // Append slot — directly under the last rendered field node, full-width
   // across the inputs grid container.
+  //
+  // Wave R-pre v2 — skip the append slot when the widget's body is in
+  // single-column layout (mobile preview OR narrow desktop). In that
+  // case the result panel stacks directly below the fields and the
+  // absolute-positioned slot lands on top of it. The user still has the
+  // left-pane '+ Add field' button to add fields on mobile.
   let appendBox: AppendBox | null = null;
-  if (count > 0) {
+  if (count > 0 && containerRect.width >= 560) {
     const last = fieldNodes[count - 1];
     const grid = last.parentElement;
     if (grid) {
@@ -181,6 +187,13 @@ export default function PreviewOverlay({
           onRemove={() => onRemoveField(b.fieldId)}
         />
       ))}
+      {/* Wave R-pre v2 — the in-preview append slot was overlapping the
+       *  result panel on single-column layouts (mobile preview + narrow
+       *  desktop). The result panel is a sibling grid cell that on mobile
+       *  stacks BELOW the fields column; the absolute-positioned slot was
+       *  landing on top of it. The user already has the left-pane '+ Add
+       *  field' button for the same purpose, so we hide the in-preview
+       *  overlay slot on narrow widths via the CSS rule below. */}
       {appendBox && (
         <AppendSlot
           box={appendBox}
@@ -277,6 +290,15 @@ export default function PreviewOverlay({
         .qq-preview-append-slot.is-drop-target {
           background: rgba(13, 60, 252, 0.10);
           border-style: solid;
+        }
+        /* Wave R-pre v2 — hide the in-preview append slot when the
+         * widget is rendering single-column (mobile + narrow desktop
+         * preview). On those layouts the result panel stacks directly
+         * below the fields, and the absolute-positioned append slot
+         * lands on top of it. The left-pane "+ Add field" button still
+         * works on mobile, so users don't lose the affordance. */
+        @media (max-width: 560px) {
+          .qq-preview-append-slot { display: none !important; }
         }
       `}</style>
     </div>

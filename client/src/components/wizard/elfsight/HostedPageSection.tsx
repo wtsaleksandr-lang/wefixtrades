@@ -16,6 +16,7 @@ import { useRef } from 'react';
 import { Upload, Trash2 } from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
 import { dashboardTheme } from '@/theme/dashboardTheme';
+import FloatField from './FloatField';
 import {
   DEFAULT_HOSTED_PAGE, HOSTED_BACKGROUND_PRESETS,
   smartDefaultHostedBackgroundId,
@@ -267,27 +268,47 @@ export default function HostedPageSection({
         </label>
       </div>
 
-      {/* ── Header copy ─────────────────────────────────────────── */}
+      {/* ── Header copy ─────────────────────────────────────────────
+       *  Wave R-pre v2 — moved to FloatField pattern. The "Headline /
+       *  Subheadline" labels live INSIDE the inputs (floating); the
+       *  placeholders provide concrete examples. No header text above
+       *  the field per Alex's global rule. */}
       <div className="qq-hosted-block">
-        <div className="qq-hosted-block-h">Headline (optional)</div>
-        <input
-          type="text"
-          value={cur.headline ?? ''}
-          onChange={(e) => setHeadline(e.target.value)}
-          placeholder={`Get a quote from ${businessName?.trim() || 'your business'}`}
-          maxLength={80}
-          className="qq-hosted-text-input"
-          data-testid="hosted-headline-input"
-        />
-        <input
-          type="text"
-          value={cur.subheadline ?? ''}
-          onChange={(e) => setSubheadline(e.target.value)}
-          placeholder="Tell us a few details and we'll send a fast estimate."
-          maxLength={140}
-          className="qq-hosted-text-input qq-hosted-text-input-sub"
-          data-testid="hosted-subheadline-input"
-        />
+        <FloatField
+          label="Headline (optional)"
+          htmlFor="qq-hosted-headline-input"
+          infoText="Optional headline rendered above the widget on the hosted page. Leave empty to skip."
+          infoTestid="hosted-headline"
+        >
+          <input
+            id="qq-hosted-headline-input"
+            type="text"
+            value={cur.headline ?? ''}
+            onChange={(e) => setHeadline(e.target.value)}
+            placeholder=" "
+            maxLength={80}
+            className="premium-input"
+            data-testid="hosted-headline-input"
+          />
+        </FloatField>
+        <div style={{ height: 8 }} />
+        <FloatField
+          label="Subheadline (optional)"
+          htmlFor="qq-hosted-subheadline-input"
+          infoText="One-line subtext under the headline. Helps set tone for the visitor."
+          infoTestid="hosted-subheadline"
+        >
+          <input
+            id="qq-hosted-subheadline-input"
+            type="text"
+            value={cur.subheadline ?? ''}
+            onChange={(e) => setSubheadline(e.target.value)}
+            placeholder=" "
+            maxLength={140}
+            className="premium-input"
+            data-testid="hosted-subheadline-input"
+          />
+        </FloatField>
         <label className="qq-hosted-switch-row qq-hosted-switch-row-tight" data-testid="hosted-logo-toggle">
           <input
             type="checkbox"

@@ -194,6 +194,28 @@ export function registerCalculatorRoutes(app: Express): void {
     }
   });
 
+  // Wave R-pre D — cheap "what plan_tier am I on?" endpoint for the
+  // wizard's tier-aware UI bits (e.g. brand-badge toggle in Settings).
+  // Token-authenticated; returns only the minimal fields the client
+  // needs, no calculator_settings leak.
+  app.get("/api/calculators/me", async (req, res) => {
+    try {
+      const token = typeof req.query.token === 'string' ? req.query.token : '';
+      if (!token) return res.status(400).json({ error: "Missing token" });
+      const calc = await storage.getCalculatorByToken(token);
+      if (!calc) return res.status(404).json({ error: "Calculator not found" });
+      res.json({
+        id: calc.id,
+        slug: calc.slug,
+        plan_tier: (calc as any).plan_tier ?? 'free',
+        business_name: calc.business_name,
+      });
+    } catch (err: any) {
+      log.error("calculators/me error:", err);
+      res.status(500).json({ error: "Failed to fetch calculator identity" });
+    }
+  });
+
   app.get("/api/calculators/check-slug", async (req, res) => {
     try {
       const parsed = checkSlugBody.safeParse(req.query);

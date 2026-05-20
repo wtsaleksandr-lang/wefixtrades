@@ -169,6 +169,10 @@ interface Props {
   logoUrl?: string;
   advanced: AdvancedConfig;
   accentColor?: string;
+  /** Wave R-pre v2 — when true (wizard preview), renders a small pencil
+   *  icon next to the calculator title so the user knows it's editable.
+   *  Public hosted page + actual customer embeds default to false. */
+  editableTitle?: boolean;
 }
 
 type Answer = number | string | boolean | string[];
@@ -292,11 +296,19 @@ function formatResult(
   return formatNumber(v, 0, 2, thousandsSep, decimalSep);
 }
 
-const labelStyle = (c: WidgetTheme): React.CSSProperties => ({
-  fontSize: '13px', fontWeight: 600, color: c.text, display: 'block', marginBottom: '7px',
+/**
+ * Wave R-pre W-LABELS — small de-emphasised header for grouped fields
+ * (radio, multi-select, image_choice, slider). Per Alex's global rule,
+ * prominent "above-the-input" titles aren't allowed. Group renderers
+ * can't carry a floating label naturally (no single input to float into)
+ * so we keep a tiny uppercase caption instead.
+ */
+const groupHeaderStyle = (c: WidgetTheme): React.CSSProperties => ({
+  fontSize: '11px', fontWeight: 600, color: c.textMuted, display: 'block',
+  marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.04em',
 });
 
-export default function AdvancedCalculator({ businessName, logoUrl, advanced, accentColor }: Props) {
+export default function AdvancedCalculator({ businessName, logoUrl, advanced, accentColor, editableTitle = false }: Props) {
   // Resolve the base theme, then compose the optional `advanced.style`
   // overrides on top. The Wave H5 style slot wins where it sets a value;
   // absent fields fall through to the resolved theme (which itself already
@@ -477,9 +489,33 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
               )}
               <p
                 data-testid="advanced-title"
-                style={{ fontSize: '17px', fontWeight: 800, color: c.text, margin: 0, letterSpacing: '-0.01em' }}
+                style={{ fontSize: '17px', fontWeight: 800, color: c.text, margin: 0, letterSpacing: '-0.01em', display: 'inline-flex', alignItems: 'center', gap: 6 }}
               >
                 {title}
+                {editableTitle && (
+                  <span
+                    aria-hidden="true"
+                    data-testid="advanced-title-edit-hint"
+                    title="Click to edit"
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      width: 18, height: 18, borderRadius: 4,
+                      color: c.textBody,
+                      opacity: 0.55,
+                      transition: 'opacity 0.12s ease',
+                    }}
+                  >
+                    {/* lucide-style pencil glyph (small inline SVG, no
+                        extra import on AdvancedCalculator). */}
+                    <svg
+                      width={12} height={12} viewBox="0 0 24 24"
+                      fill="none" stroke="currentColor" strokeWidth={2.4}
+                      strokeLinecap="round" strokeLinejoin="round"
+                    >
+                      <path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z" />
+                    </svg>
+                  </span>
+                )}
               </p>
             </div>
             {subtitle && (
@@ -576,8 +612,14 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
             style={{
               borderRadius: radiusResultPx, background: c.result,
               border: resultTinted ? 'none' : `1px solid ${c.border}`, boxShadow: c.shadow,
-              padding: '18px',
-              display: 'flex', flexDirection: 'column', gap: '6px',
+              padding: '20px',
+              display: 'flex', flexDirection: 'column', gap: '10px',
+              // Wave R-pre E — defensive against the reported "quoted amount
+              // overlaps other content" — wrap long numeric values rather
+              // than punching through the panel's right edge, and let the
+              // panel grow rather than clipping.
+              overflow: 'visible',
+              minWidth: 0,
             }}
           >
             <p
@@ -586,15 +628,27 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
                 position: 'relative', zIndex: 1,
                 fontSize: '11px', fontWeight: 700, color: c.resultMuted,
                 textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0,
+                lineHeight: 1.3,
               }}
             >
               {resultHeading}
             </p>
             <p data-testid="advanced-result" style={{
               position: 'relative', zIndex: 1,
-              fontSize: 'clamp(28px, 6vw, 38px)', fontWeight: 800, color: c.resultText,
-              margin: 0, paddingTop: '2px',
-              fontFamily: eff.fontMono, lineHeight: 1.1, letterSpacing: '-0.02em',
+              // Wave R-pre E — tighten the upper-bound font-size and bump
+              // the line-height. The previous clamp(28-38, lineHeight 1.1)
+              // could collide with the breakdown rows below when the
+              // amount wrapped on narrow viewports. Wider line-height +
+              // wordBreak: break-word lets long currency values wrap
+              // cleanly instead of overlapping adjacent rows.
+              fontSize: 'clamp(26px, 5.5vw, 34px)',
+              fontWeight: 800, color: c.resultText,
+              margin: 0, paddingTop: 0,
+              fontFamily: eff.fontMono,
+              lineHeight: 1.18,
+              letterSpacing: '-0.015em',
+              wordBreak: 'break-word',
+              overflowWrap: 'anywhere',
             }}>
               {formatResult(headline, resultCalc?.format || 'currency', advanced.numberFormat)}
             </p>
@@ -673,7 +727,34 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
                 )}
 
                 {leadView === 'form' && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div
+                    className="qq-lead-form-enter"
+                    style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}
+                    data-testid="advanced-lead-form"
+                  >
+                    {/* Wave R-pre v2 — back button to return from the
+                     *  lead-capture form to the calculator inputs.
+                     *  Previously the user could only progress; pressing
+                     *  "Get a quote" was a one-way trip. */}
+                    <button
+                      type="button"
+                      data-testid="advanced-cta-back"
+                      onClick={() => setLeadView('cta')}
+                      style={{
+                        alignSelf: 'flex-start',
+                        display: 'inline-flex', alignItems: 'center', gap: 6,
+                        padding: '6px 10px', marginBottom: '4px',
+                        background: 'transparent',
+                        color: c.resultMuted,
+                        border: 'none',
+                        fontSize: '13px', fontWeight: 600,
+                        cursor: 'pointer', fontFamily,
+                        borderRadius: 6,
+                      }}
+                      aria-label="Back to calculator"
+                    >
+                      <span aria-hidden="true">←</span> Back
+                    </button>
                     <input data-testid="advanced-cta-name" type="text" placeholder="Your name"
                       value={leadName} onChange={(e) => setLeadName(e.target.value)}
                       style={leadInputStyle} />
@@ -751,6 +832,19 @@ function FieldInput({ field, value, accent, theme, onChange, radiusPx, fieldStyl
     boxSizing: 'border-box',
   };
 
+  // Wave R-pre W-LABELS — Alex's global rule: titles INSIDE the field, not
+  // above. We wrap text / number / select renderers with `.qq-w-float`
+  // (defined in client/src/index.css) and expose the active theme via CSS
+  // custom properties on the wrapper itself so the floating label respects
+  // light / midnight / coral / sage / teal / blush themes (and any custom
+  // Style-tab accent override).
+  const floatVars: React.CSSProperties = {
+    // CSS variables consumed by .qq-w-float in index.css.
+    ['--qq-w-label' as any]: c.textMuted,
+    ['--qq-w-label-focus' as any]: accent,
+    ['--qq-w-bg' as any]: isOutline ? c.bg : c.surface,
+  };
+
   if (f.type === 'heading') {
     return (
       <p style={{
@@ -767,21 +861,37 @@ function FieldInput({ field, value, accent, theme, onChange, radiusPx, fieldStyl
 
   if (f.type === 'number') {
     return (
-      <div>
-        <label htmlFor={inputId} style={labelStyle(c)}>{f.label}</label>
-        <input id={inputId} type="number" value={value as number} min={f.min} max={f.max} step={f.step}
+      <div className="qq-w-float" style={floatVars}>
+        <input
+          id={inputId}
+          className="qq-w-input"
+          type="number"
+          value={value as number}
+          min={f.min}
+          max={f.max}
+          step={f.step}
+          placeholder=" "
           onChange={(e) => onChange(e.target.value === '' ? 0 : Number(e.target.value))}
-          style={{ ...inputBase, fontFamily: eff.fontMono }} />
+          style={{ ...inputBase, fontFamily: eff.fontMono }}
+        />
+        <label htmlFor={inputId}>{f.label}{f.unit ? ` (${f.unit})` : ''}</label>
       </div>
     );
   }
 
   if (f.type === 'text') {
     return (
-      <div>
-        <label htmlFor={inputId} style={labelStyle(c)}>{f.label}</label>
-        <input id={inputId} type="text" value={value as string}
-          onChange={(e) => onChange(e.target.value)} style={inputBase} />
+      <div className="qq-w-float" style={floatVars}>
+        <input
+          id={inputId}
+          className="qq-w-input"
+          type="text"
+          value={value as string}
+          placeholder=" "
+          onChange={(e) => onChange(e.target.value)}
+          style={inputBase}
+        />
+        <label htmlFor={inputId}>{f.label}</label>
       </div>
     );
   }
@@ -790,8 +900,15 @@ function FieldInput({ field, value, accent, theme, onChange, radiusPx, fieldStyl
     const min = f.min ?? 0, max = f.max ?? 100;
     return (
       <div>
+        {/* Wave R-pre W-LABELS — slider can't float-label naturally, so we
+            keep a small uppercase caption + the live numeric value chip on
+            the right. Per Alex's rule we treat this as a "group caption"
+            rather than a prominent above-the-input title. */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-          <span style={{ fontSize: '13px', fontWeight: 600, color: c.text }}>{f.label}</span>
+          <span style={{
+            fontSize: '11px', fontWeight: 600, color: c.textMuted,
+            textTransform: 'uppercase', letterSpacing: '0.04em',
+          }}>{f.label}</span>
           <span style={{
             fontSize: '13px', fontWeight: 700, color: accent, fontFamily: eff.fontMono,
             background: c.accentTint, borderRadius: eff.radiusSm, padding: '3px 9px',
@@ -841,11 +958,17 @@ function FieldInput({ field, value, accent, theme, onChange, radiusPx, fieldStyl
 
   if (f.type === 'select') {
     return (
-      <div>
-        <label htmlFor={inputId} style={labelStyle(c)}>{f.label}</label>
-        <select id={inputId} value={value as string} onChange={(e) => onChange(e.target.value)} style={inputBase}>
+      <div className="qq-w-float" style={floatVars}>
+        <select
+          id={inputId}
+          className="qq-w-input"
+          value={value as string}
+          onChange={(e) => onChange(e.target.value)}
+          style={inputBase}
+        >
           {(f.options || []).map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
         </select>
+        <label htmlFor={inputId}>{f.label}</label>
       </div>
     );
   }
@@ -853,7 +976,7 @@ function FieldInput({ field, value, accent, theme, onChange, radiusPx, fieldStyl
   if (f.type === 'radio') {
     return (
       <div>
-        <label style={labelStyle(c)}>{f.label}</label>
+        <label style={groupHeaderStyle(c)}>{f.label}</label>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {(f.options || []).map((o) => {
             const sel = value === o.id;
@@ -883,7 +1006,7 @@ function FieldInput({ field, value, accent, theme, onChange, radiusPx, fieldStyl
   if (f.type === 'image_choice') {
     return (
       <div>
-        <label style={labelStyle(c)}>{f.label}</label>
+        <label style={groupHeaderStyle(c)}>{f.label}</label>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
           {(f.options || []).map((o) => {
             const sel = value === o.id;
@@ -920,7 +1043,7 @@ function FieldInput({ field, value, accent, theme, onChange, radiusPx, fieldStyl
   const ids = Array.isArray(value) ? value : [];
   return (
     <div>
-      <label style={labelStyle(c)}>{f.label}</label>
+      <label style={groupHeaderStyle(c)}>{f.label}</label>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
         {(f.options || []).map((o) => {
           const sel = ids.includes(o.id);

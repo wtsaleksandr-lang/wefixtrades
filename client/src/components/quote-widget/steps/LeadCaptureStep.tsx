@@ -39,6 +39,7 @@ export default function LeadCaptureStep({ step, accentColor }: LeadCaptureStepPr
     estimateInputs,
     answers,
     nextStep,
+    prevStep,
   } = useWidgetState();
 
   // Derive current estimate for quote_amount (same pattern as PriceRevealStep)
@@ -222,6 +223,28 @@ export default function LeadCaptureStep({ step, accentColor }: LeadCaptureStepPr
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       <div>
+        {/* Wave R-pre v2 — back button at top of the lead-capture step.
+         *  Previously the user could only go forward; no way back to the
+         *  calculator. Uses prevStep from useWidgetState which knows the
+         *  flow's previous visible step. */}
+        <button
+          type="button"
+          onClick={prevStep}
+          data-testid="lead-capture-back"
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            padding: '6px 10px', marginBottom: 12,
+            background: 'transparent',
+            color: eff.textBody,
+            border: 'none',
+            fontSize: '13px', fontWeight: 600,
+            cursor: 'pointer',
+            borderRadius: 6,
+          }}
+          aria-label="Back"
+        >
+          <span aria-hidden="true">←</span> Back
+        </button>
         <h3 style={stepTitleStyle}>Where should we send your quote?</h3>
         <p style={{ ...stepSubtitleStyle, margin: '6px 0 0' }}>
           We'll email you a detailed breakdown. No account needed.

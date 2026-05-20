@@ -384,6 +384,105 @@ const RESPONSIVE_CSS = `
   .hero-cta-secondary:hover { background: ${mkt.ctaSecondaryBgHover}; border-color: ${mkt.ctaSecondaryBorderHover}; }
   .hero-cta-secondary:focus-visible { outline: 2px solid ${mkt.focusRing}; outline-offset: 2px; }
   .hero-cta-note { font-size: 12px; color: ${mkt.textMuted}; }
+
+  /* ─── W-HERO warm-canvas variants (Alex variant 04) ───
+   * Scoped to the homepage hero only. Primary is the deep brand blue on
+   * cream with a subtle inset highlight + drop shadow. Secondary is a
+   * ghost outline that fills to slate-100 on hover. */
+  .hero-cta-primary-warm {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 14px 22px; border-radius: 10px;
+    background: ${mkt.accent}; color: #FFFFFF;
+    font-size: 14px; font-weight: 600; letter-spacing: 0.01em;
+    text-decoration: none; cursor: pointer;
+    border: 0.5px solid rgba(15,23,42,0.06);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.18),
+      0 4px 14px rgba(13,60,252,0.28),
+      0 1px 2px rgba(15,23,42,0.06);
+    transition: background 0.18s ease, transform 0.15s ease, box-shadow 0.18s ease;
+  }
+  .hero-cta-primary-warm:hover {
+    background: ${mkt.accentHover};
+    transform: translateY(-1px);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.22),
+      0 6px 20px rgba(13,60,252,0.34),
+      0 2px 4px rgba(15,23,42,0.08);
+  }
+  .hero-cta-primary-warm:active { transform: translateY(0); }
+  .hero-cta-primary-warm:focus-visible { outline: 2px solid ${mkt.accent}; outline-offset: 3px; }
+  .hero-cta-secondary-warm {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 14px 22px; border-radius: 10px;
+    background: transparent;
+    color: #334155;
+    border: 1.5px solid ${mkt.warmHairlineStrong};
+    font-size: 14px; font-weight: 600;
+    text-decoration: none; cursor: pointer;
+    transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+  }
+  .hero-cta-secondary-warm:hover {
+    background: rgba(15,23,42,0.04);
+    border-color: rgba(15,23,42,0.32);
+    color: ${mkt.onWarm};
+  }
+  .hero-cta-secondary-warm:focus-visible { outline: 2px solid ${mkt.accent}; outline-offset: 3px; }
+  .hero-cta-note-warm { font-size: 12px; color: ${mkt.onWarmFaint}; }
+  /* Warm-variant CTA row keeps the same mobile collapse rules. */
+  .hero-cta-row > .hero-cta-primary-warm,
+  .hero-cta-row > .hero-cta-secondary-warm { box-sizing: border-box; }
+  @media (max-width: 640px) {
+    .hero-cta-row > .hero-cta-primary-warm,
+    .hero-cta-row > .hero-cta-secondary-warm {
+      flex: 1 1 0;
+      min-width: 0;
+      padding: 13px 14px;
+      justify-content: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-size: 13px;
+    }
+  }
+  /* Warm hero subtle canvas-noise overlay — drawn over the cream base.
+   * Uses a tiny inline SVG to avoid an extra asset round-trip. */
+  .hero-warm-noise {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.55;
+    mix-blend-mode: multiply;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.35  0 0 0 0 0.32  0 0 0 0 0.26  0 0 0 0.18 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+    background-size: 160px 160px;
+    z-index: 0;
+  }
+  /* Top + bottom hairlines that "frame" the warm hero section. */
+  .hero-warm-hairline {
+    position: absolute;
+    left: 8%; right: 8%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, ${mkt.warmHairlineStrong} 18%, ${mkt.warmHairlineStrong} 82%, transparent);
+    opacity: 0.55;
+    pointer-events: none;
+    z-index: 1;
+  }
+  /* Bottom transition: 80px gradient strip fading cream → dark slate
+   * so the hand-off to the IntegrationsTrustStrip on dark is buttery,
+   * not a hard color edge. */
+  .hero-warm-fade {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: 96px;
+    background: linear-gradient(to bottom, rgba(243,237,223,0) 0%, rgba(40,46,49,0.18) 55%, ${mkt.darkBg} 100%);
+    pointer-events: none;
+    z-index: 2;
+  }
+  /* Scoped headline polish for warm hero — micro text-shadow for that
+   * "premium printed page" feel without smudging the type. */
+  .hero-warm-headline {
+    text-shadow: 0 1px 2px rgba(15,23,42,0.04);
+  }
   @media (max-width: 820px) {
     .flow-map-desktop { display: none !important; } /* already hidden inline */
     .flow-map-mobile { display: none !important; }
@@ -517,19 +616,23 @@ export default function HomePage() {
     <MarketingLayout>
       <style>{RESPONSIVE_CSS}</style>
 
-      {/* Outer page background behind hero shell */}
+      {/* Outer page background behind hero shell — kept dark slate so the
+       * cream hero reads as a "warm canvas island" framed by the rest of
+       * the site palette (Alex variant 04 / W-HERO). */}
       <div className="hero-shell-backdrop" style={{ background: mkt.darkBg, padding: "6px 6px 0", position: "relative" as const, zIndex: 1 }}>
-      {/* Shared grid zone — covers hero + trust marquee seamlessly.
-       * mkt-grid-bg applies the DOSS dashed-grid pattern as a subtle
-       * background texture; the existing HeroGridGlow stays on top. */}
-      <div className="hero-first-screen-zone mkt-grid-bg" style={{ position: "relative", background: mkt.darkBg, overflow: "hidden", display: "flex", flexDirection: "column", width: "100%", borderRadius: 24, border: "1px solid var(--hairline)", boxShadow: "0 20px 60px rgba(0,0,0,0.25), 0 4px 20px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.04)" }}>
-        {/* Subtle inner lighting overlay */}
-        <div aria-hidden="true" style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(255,255,255,0.02), rgba(0,0,0,0.2))", pointerEvents: "none", zIndex: 0, borderRadius: "inherit" }} />
+      {/* Warm-canvas hero zone — cream base + low-opacity canvas noise.
+       * IntegrationsTrustStrip lives OUTSIDE this zone (on dark) so the
+       * cream doesn't have to deal with white-text integration logos. */}
+      <div className="hero-first-screen-zone" style={{ position: "relative", background: mkt.warmCanvas, overflow: "hidden", display: "flex", flexDirection: "column", width: "100%", borderRadius: 24, border: `1px solid ${mkt.warmHairline}`, boxShadow: "0 20px 60px rgba(15,23,42,0.18), 0 4px 20px rgba(15,23,42,0.10), inset 0 1px 0 rgba(255,255,255,0.45)" }}>
+        {/* Canvas noise — subtle texture so it doesn't read as flat beige. */}
+        <div aria-hidden="true" className="hero-warm-noise" />
+        {/* Top hairline — slate-blue, "framed printed page" feel. */}
+        <div aria-hidden="true" className="hero-warm-hairline" style={{ top: 18 }} />
         <HeroGridGlow className="hero-grid-glow" />
 
-        {/* Built-for rotator — top-left, below navbar */}
+        {/* Built-for rotator — top-left, below navbar (onWarm variant) */}
         <div style={{ position: "absolute", top: 56, left: 28, zIndex: 3 }}>
-          <BuiltForRotator />
+          <BuiltForRotator variant="onWarm" />
         </div>
 
       <section
@@ -537,12 +640,15 @@ export default function HomePage() {
         className="hero-section-responsive"
         style={{
           background: "transparent",
-          padding: "132px 28px 56px",
+          padding: "132px 28px 96px",
           marginTop: -8,
           position: "relative",
         }}
       >
 
+        {/* Warm cream centre wash — a barely-visible lighter ellipse behind
+         * the copy. Same role as the previous dark `hero-safe-zone` but
+         * tonally inverted so the headline gets a soft halo, not a smudge. */}
         <div
           aria-hidden="true"
           className="hero-safe-zone"
@@ -554,19 +660,21 @@ export default function HomePage() {
             width: "70%",
             maxWidth: 1000,
             height: "55%",
-            background: `radial-gradient(ellipse at center, rgba(34,40,42,0.95) 0%, rgba(34,40,42,0.82) 20%, rgba(34,40,42,0.58) 38%, rgba(34,40,42,0.22) 58%, rgba(34,40,42,0.06) 74%, transparent 90%)`,
+            background: `radial-gradient(ellipse at center, rgba(255,253,247,0.85) 0%, rgba(255,253,247,0.55) 28%, rgba(255,253,247,0.22) 55%, transparent 80%)`,
             pointerEvents: "none",
             zIndex: 1,
           }}
         />
 
+        {/* Soft brand-blue ambient glow — keeps the accent connection
+         * to the rest of the brand without being garish on cream. */}
         <div
           aria-hidden="true"
           style={{
             position: "absolute",
             top: "32%", left: "50%", transform: "translate(-50%, -50%)",
             width: 800, height: 500,
-            background: `radial-gradient(ellipse at center, rgba(13,60,252,0.08) 0%, rgba(13,60,252,0.03) 40%, transparent 70%)`,
+            background: `radial-gradient(ellipse at center, rgba(13,60,252,0.06) 0%, rgba(13,60,252,0.025) 40%, transparent 70%)`,
             pointerEvents: "none",
             zIndex: 1,
           }}
@@ -661,13 +769,14 @@ export default function HomePage() {
                 style={{ marginBottom: 16 }}
               >
                 <h1
+                  className="hero-warm-headline"
                   style={{
                     fontSize: "clamp(28px, 4.5vw, 44px)",
                     fontWeight: 700,
                     lineHeight: 1.1,
                     letterSpacing: "-0.02em",
                     margin: 0,
-                    color: mkt.text,
+                    color: mkt.onWarm,
                     fontFamily: typography.fontFamily,
                   }}
                 >
@@ -675,6 +784,7 @@ export default function HomePage() {
                 </h1>
 
                 <h1
+                  className="hero-warm-headline"
                   style={{
                     position: "relative",
                     fontSize: "clamp(32px, 5.6vw, 56px)",
@@ -719,7 +829,7 @@ export default function HomePage() {
                   fontSize: 16,
                   lineHeight: 1.6,
                   fontWeight: 450,
-                  color: mkt.textMuted,
+                  color: mkt.onWarmMuted,
                   fontFamily: typography.fontFamily,
                 }}
               >
@@ -727,19 +837,19 @@ export default function HomePage() {
               </p>
 
               <div className="hero-enter hero-cta-row">
-                <Link href="/Wizard" className="hero-cta-primary wf-cta-shimmer" data-testid="hero-cta-primary">
+                <Link href="/Wizard" className="hero-cta-primary-warm wf-cta-shimmer" data-testid="hero-cta-primary">
                   {/* Wave L H1 — shortened from "Start free — no card" so it
                    * doesn't truncate on 390px mobile. The "no card required"
                    * note is still present below as `hero-cta-note`. */}
                   <span>Start free</span>
                   <ArrowRight size={16} strokeWidth={2.5} />
                 </Link>
-                <Link href="/demo" className="hero-cta-secondary" data-testid="hero-cta-secondary">
+                <Link href="/demo" className="hero-cta-secondary-warm" data-testid="hero-cta-secondary">
                   <span>Watch demo</span>
                 </Link>
               </div>
               <div className="hero-enter" style={{ marginTop: 12 }}>
-                <span className="hero-cta-note">
+                <span className="hero-cta-note-warm">
                   Free 14-day trial · Cancel anytime · Setup in under 10 minutes
                 </span>
               </div>
@@ -754,10 +864,21 @@ export default function HomePage() {
 
       </section>
 
-      <div style={{ marginTop: "auto", paddingTop: 34 }}>
+      {/* Bottom hairline — mirrors the top hairline so the cream hero
+       * reads as a deliberate "framed" island, not a half-finished band. */}
+      <div aria-hidden="true" className="hero-warm-hairline" style={{ bottom: 100 }} />
+      {/* Cream → dark slate gradient fade. Lives INSIDE the cream zone
+       * so the transition happens before the hero's rounded bottom edge
+       * meets the outer dark backdrop. */}
+      <div aria-hidden="true" className="hero-warm-fade" />
+      </div>{/* end warm-canvas hero zone */}
+
+      {/* Integrations trust strip — pulled OUT of the cream zone and sat
+       * on the existing dark backdrop so its white-on-dark logos work as
+       * designed. The cream fade above flows smoothly into this strip. */}
+      <div style={{ paddingTop: 28, paddingBottom: 4 }}>
         <IntegrationsTrustStrip />
       </div>
-      </div>{/* end shared grid zone */}
       </div>{/* end hero shell backdrop */}
       {/* HeroTradeDivider removed in the C-direction premium rewrite —
        * the cycling "Built for: <trade>" badge above the headline already

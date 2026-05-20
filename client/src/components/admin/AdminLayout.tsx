@@ -69,6 +69,7 @@ const CORE_ITEMS = [
   { label: "Overview", href: "/admin/crm", icon: LayoutDashboard },
   { label: "Clients", href: "/admin/crm/clients", icon: Users },
   { label: "Inbox", href: "/admin/crm/inbox", icon: Inbox },
+  { label: "Communications", href: "/admin/crm/communications", icon: Phone },
   { label: "Support", href: "/admin/crm/support", icon: LifeBuoy, countKey: "support" as const },
   { label: "Alerts", href: "/admin/crm/alerts", icon: AlertTriangle, countKey: "alerts" as const },
   { label: "AI Agenda", href: "/admin/notices", icon: Bell },

@@ -14,7 +14,6 @@ import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { platformTheme } from '@/theme/platformTheme';
 import type { TemplateCalculation, TemplateField } from '@shared/templatePresets';
 import CalculationRow from './CalculationRow';
-import InfoCue from './InfoCue';
 
 const p = platformTheme;
 
@@ -85,13 +84,7 @@ export default function CalculationsPanel({ calculations, fields, onChange }: Pr
     >
       <header className="qq-calcs-header">
         <div>
-          <h3 className="qq-calcs-title">
-            Calculations
-            <InfoCue
-              testid="calcs-title"
-              text="Formulas that turn fields into a price. Reference fields with [Field name] and earlier calcs with [Calc name]."
-            />
-          </h3>
+          <h3 className="qq-calcs-title">Calculations</h3>
         </div>
         {!isEmpty && (
           <button
@@ -109,13 +102,7 @@ export default function CalculationsPanel({ calculations, fields, onChange }: Pr
       {isEmpty ? (
         <div className="qq-calcs-empty" data-testid="editor-calculations-empty">
           <div className="qq-calcs-empty-illus" aria-hidden="true">∑</div>
-          <p className="qq-calcs-empty-title">
-            No calculations yet
-            <InfoCue
-              testid="calcs-empty"
-              text="Add your first calculation to turn the visitor's inputs into a price. You can use math operators, functions like ROUND or IF, and reference any field from above."
-            />
-          </p>
+          <p className="qq-calcs-empty-title">No calculations yet</p>
           <button
             type="button"
             className="qq-calcs-add is-emphasis"
@@ -154,15 +141,22 @@ export default function CalculationsPanel({ calculations, fields, onChange }: Pr
 
       <style>{`
         .qq-calcs-panel {
-          display: flex; flex-direction: column; gap: 12px;
+          /* W-SECTIONS — tightened gap (12 → 6px) so the section title
+           * sits right above the first input row. */
+          display: flex; flex-direction: column; gap: 6px;
         }
         .qq-calcs-header {
-          display: flex; align-items: flex-start; justify-content: space-between;
+          display: flex; align-items: center; justify-content: space-between;
           gap: 12px;
+          margin: 0 0 0;
         }
         .qq-calcs-title {
-          margin: 0; font-size: 14px; font-weight: 700;
-          color: ${p.colors.heading}; letter-spacing: -0.005em;
+          /* W-SECTIONS — subtle all-caps label, per Alex's global rule
+           * "section titles smaller, more subtle, closer to inputs". */
+          margin: 0;
+          font-size: 11.5px; font-weight: 600;
+          color: ${p.colors.muted};
+          text-transform: uppercase; letter-spacing: 0.04em;
         }
         .qq-calcs-sub {
           margin: 3px 0 0; font-size: 11.5px; color: ${p.colors.subtle};

@@ -41,6 +41,7 @@ import InstallGuideModal, {
   INSTALL_GUIDES, type InstallGuideId,
 } from './InstallGuideModal';
 import HostedPageSection from './HostedPageSection';
+import FloatField from './FloatField';
 
 const p = platformTheme;
 const d = dashboardTheme;
@@ -83,12 +84,16 @@ export default function InstallTab({
   const slug = hasRealSlug ? derivedSlug : 'YOUR-CALCULATOR-ID';
 
   // Wave P-F — debounced availability check + custom-slug editor.
+  // Wave R-pre B — 'error' kind added so a 500 from the server (e.g. DB
+  // migration not yet applied) reads as "couldn't check" instead of
+  // misleading the user into thinking their slug is taken.
   type SlugStatus =
     | { kind: 'idle' }
     | { kind: 'checking' }
     | { kind: 'available'; slug: string }
     | { kind: 'taken'; slug: string; alternative?: string }
-    | { kind: 'invalid'; reason: string };
+    | { kind: 'invalid'; reason: string }
+    | { kind: 'error' };
   const [slugStatus, setSlugStatus] = useState<SlugStatus>({ kind: 'idle' });
   const [editingSlug, setEditingSlug] = useState(false);
   const [draftSlug, setDraftSlug] = useState(preferredSlug || autoDerived || '');
@@ -104,14 +109,26 @@ export default function InstallTab({
         const res = await fetch(
           `/api/calculators/check-slug?slug=${encodeURIComponent(derivedSlug)}`,
         );
+        // Wave R-pre B — distinguish a transport / server error from
+        // "slug is taken." Without this, a 500 (e.g. DB migration not
+        // applied) makes the wizard say "this slug is in use" which is
+        // exactly what bit Alex on the lestorna.your-quote.net attempt.
+        if (!res.ok) {
+          setSlugStatus({ kind: 'error' });
+          return;
+        }
         const data = await res.json();
         if (data?.available) {
           setSlugStatus({ kind: 'available', slug: derivedSlug });
         } else if (data?.error) {
-          // The server lumps "invalid" and "taken" into the same shape;
-          // we only show the "alternative" hint when it really is taken.
+          // Reserved-words / invalid-format come back with a descriptive
+          // reason. "Failed to check slug" / generic server errors land
+          // in the error state instead so we don't lie to the user.
+          const looksLikeServerError = /failed|unknown|error|database/i.test(data.error);
           const looksLikeReserved = /reserved|invalid|hyphen|character/i.test(data.error);
-          if (looksLikeReserved) {
+          if (looksLikeServerError) {
+            setSlugStatus({ kind: 'error' });
+          } else if (looksLikeReserved) {
             setSlugStatus({ kind: 'invalid', reason: data.error });
           } else {
             setSlugStatus({ kind: 'taken', slug: derivedSlug, alternative: `${derivedSlug}-2` });
@@ -120,7 +137,9 @@ export default function InstallTab({
           setSlugStatus({ kind: 'taken', slug: derivedSlug, alternative: `${derivedSlug}-2` });
         }
       } catch {
-        setSlugStatus({ kind: 'idle' });
+        // Wave R-pre B — network failure isn't "idle"; the user should
+        // see that we couldn't verify instead of nothing.
+        setSlugStatus({ kind: 'error' });
       }
     }, 450);
     return () => window.clearTimeout(handle);
@@ -329,6 +348,18 @@ export default function InstallTab({
               </button>.
             </p>
           )}
+          {/* Wave R-pre B — explicit server-error state so a 500 from
+              check-slug doesn't masquerade as "taken". */}
+          {!editingSlug && slugStatus.kind === 'error' && (
+            <p
+              className="qq-install-hosted-status is-muted"
+              data-testid="install-hosted-slug-status"
+              data-state="error"
+            >
+              Couldn't verify availability right now — try again in a moment.
+              Your slug isn't necessarily taken.
+            </p>
+          )}
           {!editingSlug && slugStatus.kind === 'invalid' && (
             <p className="qq-install-hosted-status is-warn" data-testid="install-hosted-slug-status" data-state="invalid">
               {slugStatus.reason}.{' '}
@@ -402,33 +433,32 @@ export default function InstallTab({
 
       <div className="qq-install-divider" />
 
-      {/* ── 2. Language picker ──────────────────────────────────────── */}
+      {/* ── 2. Language picker ──────────────────────────────────────
+       *  Wave R-pre v2 — promoted to FloatField; "Language" is now the
+       *  floating label inside the field. InfoCue moves to the field's
+       *  top-right corner. No "Widget language" heading above. */}
       <section className="qq-install-section" data-testid="install-section-language">
-        <h3 className="qq-install-h">Widget language</h3>
-        <p className="qq-install-sub">
-          Sets the <code className="qq-install-code-inline">lang</code> attribute on the
-          embedded widget. Tells assistive tech and search engines what language the
-          calculator renders in.
-        </p>
-        <label
+        <FloatField
+          label="Widget language"
           htmlFor="qq-install-language-select"
-          style={{ display: 'block', fontSize: 12, fontWeight: 700, color: p.colors.heading, marginBottom: 6 }}
+          variant="select"
+          infoText="Sets the lang attribute on the embedded widget so assistive tech and search engines know what language the calculator renders in."
+          infoTestid="install-language"
         >
-          Language
-        </label>
-        <select
-          id="qq-install-language-select"
-          value={language}
-          onChange={(e) => setLanguage(e.target.value)}
-          data-testid="install-select-language"
-          className="qq-install-select"
-        >
-          {SHELL_LANGUAGES.map((l) => (
-            <option key={l.code} value={l.code}>
-              {l.label} ({l.native}) — {l.code}
-            </option>
-          ))}
-        </select>
+          <select
+            id="qq-install-language-select"
+            value={language}
+            onChange={(e) => setLanguage(e.target.value)}
+            data-testid="install-select-language"
+            className="premium-input"
+          >
+            {SHELL_LANGUAGES.map((l) => (
+              <option key={l.code} value={l.code}>
+                {l.label} ({l.native}) — {l.code}
+              </option>
+            ))}
+          </select>
+        </FloatField>
         <p
           className="qq-install-current"
           data-testid="install-current-language"
