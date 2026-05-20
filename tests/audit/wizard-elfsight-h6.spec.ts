@@ -22,6 +22,7 @@
  * Runs under audit.config.ts (vite preview on :5000, no API).
  */
 import { test, expect, type Page } from '@playwright/test';
+import { calculatorSettingsSchema } from '../../shared/schemas/calculator';
 
 async function clearShellState(page: Page) {
   await page.addInitScript(() => {
@@ -239,5 +240,80 @@ test.describe('wizard H6 — Settings tab', () => {
     expect(body.calculator_settings?.advanced?.numberFormat?.currency).toBe('EUR');
     // Custom CTA label is mirrored into advanced.results.cta_label.
     expect(body.calculator_settings?.advanced?.results?.cta_label).toBe('Book Now');
+  });
+
+  /**
+   * Regression guard — the H6 reviewer flagged that the server-side
+   * `calculatorSettingsSchema.parse()` was silently stripping
+   * `calculator_settings.advanced.numberFormat` and
+   * `calculator_settings.shell_settings` (Zod drops unknown keys by default).
+   * A user who picked EUR / comma-decimal lost those settings on save.
+   *
+   * Round-trip the captured payload through the real schema and assert both
+   * keys survive. Mocked transport is fine for the request itself — we're
+   * testing the server's validator contract, not the network round-trip.
+   */
+  test('Save-draft payload survives calculatorSettingsSchema.parse() round-trip', async ({ page }) => {
+    let capturedBody: Record<string, unknown> | null = null;
+    await page.route('**/api/calculators', async (route) => {
+      try {
+        capturedBody = JSON.parse(route.request().postData() || '{}');
+      } catch {
+        capturedBody = null;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          calculator: { id: 1, slug: 'qa-h6-rt', edit_token: 'qa', is_token_expired: false },
+          slug: 'qa-h6-rt',
+          subdomain: 'qa.example.com',
+          hosted_url: 'https://qa.example.com',
+          edit_token: 'qa',
+          edit_url: '/EditCalculator?token=qa',
+          calculator_url: '/Calculator?slug=qa-h6-rt',
+          leads_url: '/Leads?token=qa',
+          dashboard_url: '/Dashboard?token=qa',
+        }),
+      });
+    });
+
+    await gotoSettingsTab(page);
+
+    // Pick the data-loss scenario: EUR currency, comma decimal, space
+    // thousands — the exact combo that vanished pre-fix.
+    await page.getByTestId('settings-input-trade-search').fill('house cleaning');
+    await page.getByTestId('settings-trade-option-house_cleaning').click();
+    await page.getByTestId('settings-select-thousands').selectOption('space');
+    await page.getByTestId('settings-select-decimal').selectOption('comma');
+    await page.getByTestId('settings-input-currency').fill('EUR');
+    await page.getByTestId('settings-input-cta-label').fill('Reserver');
+
+    await page.getByTestId('editor-tab-build').click();
+    await page.getByTestId('input-business-name').fill('QA H6 Roundtrip');
+
+    const reqPromise = page.waitForRequest('**/api/calculators');
+    await page.getByTestId('quotequick-save-draft').click();
+    await reqPromise;
+
+    expect(capturedBody).not.toBeNull();
+    const body = capturedBody as Record<string, any>;
+
+    // Pre-fix: parsed.advanced.numberFormat was undefined (Zod stripped it).
+    // Post-fix: explicit schema field preserves it through the round-trip.
+    const parsed = calculatorSettingsSchema.parse(body.calculator_settings);
+    expect((parsed as any).advanced?.numberFormat).toBeDefined();
+    expect((parsed as any).advanced?.numberFormat?.currency).toBe('EUR');
+    expect((parsed as any).advanced?.numberFormat?.thousands).toBe(' ');
+    expect((parsed as any).advanced?.numberFormat?.decimal).toBe(',');
+
+    // Pre-fix: parsed.shell_settings was undefined. Post-fix: preserved.
+    expect((parsed as any).shell_settings).toBeDefined();
+    expect((parsed as any).shell_settings?.tradeId).toBe('house_cleaning');
+    expect((parsed as any).shell_settings?.numberFormat?.currency).toBe('EUR');
+    expect((parsed as any).shell_settings?.numberFormat?.thousands).toBe('space');
+    expect((parsed as any).shell_settings?.numberFormat?.decimal).toBe('comma');
+    expect((parsed as any).shell_settings?.ctaLabel).toBe('Reserver');
   });
 });
