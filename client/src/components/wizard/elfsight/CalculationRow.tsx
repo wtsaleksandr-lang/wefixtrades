@@ -55,6 +55,8 @@ export default function CalculationRow({
 }: Props) {
   const [expanded, setExpanded] = useState(Boolean(defaultExpanded));
   const [confirmRemove, setConfirmRemove] = useState(false);
+  // Wave J item 4 — hover outline mirror of FieldRow.
+  const [hoverOutline, setHoverOutline] = useState(false);
   const selection = useSelection();
   const isSel = selection.isSelected({ kind: 'calc', id: calc.id });
   const registerSel = selection.registerNode({ kind: 'calc', id: calc.id }, 'pane');
@@ -79,6 +81,9 @@ export default function CalculationRow({
       className={`qq-calc-row${expanded ? ' is-expanded' : ''}${isSel ? ' is-selected' : ''}`}
       data-testid={`calc-row-${calc.id}`}
       data-calc-row=""
+      data-hover-outline={hoverOutline ? 'true' : 'false'}
+      onMouseEnter={() => setHoverOutline(true)}
+      onMouseLeave={() => setHoverOutline(false)}
       {...(isSel ? { 'data-testid-state': 'selected-in-pane', 'data-selected-in-pane': '' } : {})}
       onClick={(e) => {
         const t = e.target as HTMLElement;
@@ -282,19 +287,27 @@ export default function CalculationRow({
           display: flex; align-items: center; gap: 6px;
           padding: 8px 10px;
         }
+        /* Wave J item 4 — persistent drag-handle. Mirrors FieldRow. */
         .qq-calc-row-handle {
           display: inline-flex; align-items: center; justify-content: center;
           width: 22px; height: 26px; padding: 0; border-radius: 6px;
-          border: 1px solid transparent; background: transparent;
-          color: ${p.colors.subtle}; cursor: grab; touch-action: none;
+          border: 1px solid ${p.colors.borderLight};
+          background: ${p.colors.surfaceRaised};
+          color: ${p.colors.muted};
+          cursor: grab; touch-action: none;
           flex-shrink: 0;
           transition: background 0.1s ease, color 0.1s ease, border-color 0.1s ease;
         }
         .qq-calc-row-handle:hover {
-          background: ${p.colors.surfaceRaised}; color: ${p.colors.heading};
-          border-color: ${p.colors.borderLight};
+          background: ${p.colors.accentLighter};
+          color: ${p.colors.accent};
+          border-color: ${p.colors.accent};
         }
         .qq-calc-row-handle:active { cursor: grabbing; }
+        .qq-calc-row:hover,
+        .qq-calc-row[data-hover-outline="true"] {
+          border-color: rgba(13, 60, 252, 0.40);
+        }
         .qq-calc-row-toggle {
           flex: 1; min-width: 0;
           display: flex; align-items: center; gap: 9px;

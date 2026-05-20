@@ -81,6 +81,9 @@ export default function FieldRow({
 }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
+  // Wave J item 4 — exposes hover state as a data attribute so the spec can
+  // assert "row gets a hover outline" without sniffing computed CSS.
+  const [hoverOutline, setHoverOutline] = useState(false);
   const selection = useSelection();
   const isSel = selection.isSelected({ kind: 'field', id: field.id });
   const registerSel = selection.registerNode({ kind: 'field', id: field.id }, 'pane');
@@ -139,6 +142,9 @@ export default function FieldRow({
       className={`qq-field-row${expanded ? ' is-expanded' : ''}${isSel ? ' is-selected' : ''}`}
       data-testid={`field-row-${field.id}`}
       data-field-type={field.type}
+      data-hover-outline={hoverOutline ? 'true' : 'false'}
+      onMouseEnter={() => setHoverOutline(true)}
+      onMouseLeave={() => setHoverOutline(false)}
       {...(isSel ? { 'data-testid-state': 'selected-in-pane', 'data-selected-in-pane': '' } : {})}
       onClick={(e) => {
         // Only set selection when the user clicked the row chrome itself —
@@ -345,19 +351,30 @@ export default function FieldRow({
           display: flex; align-items: center; gap: 6px;
           padding: 8px 10px;
         }
+        /* Wave J item 4 — persistent drag-handle. Always visible (no
+         * hover-only opacity), more contrasted base colour, and a tinted
+         * background so mobile users can see it without hovering. */
         .qq-field-row-handle {
           display: inline-flex; align-items: center; justify-content: center;
           width: 22px; height: 26px; padding: 0; border-radius: 6px;
-          border: 1px solid transparent; background: transparent;
-          color: ${p.colors.subtle}; cursor: grab; touch-action: none;
+          border: 1px solid ${p.colors.borderLight};
+          background: ${p.colors.surfaceRaised};
+          color: ${p.colors.muted};
+          cursor: grab; touch-action: none;
           flex-shrink: 0;
           transition: background 0.1s ease, color 0.1s ease, border-color 0.1s ease;
         }
         .qq-field-row-handle:hover {
-          background: ${p.colors.surfaceRaised}; color: ${p.colors.heading};
-          border-color: ${p.colors.borderLight};
+          background: ${p.colors.accentLighter};
+          color: ${p.colors.accent};
+          border-color: ${p.colors.accent};
         }
         .qq-field-row-handle:active { cursor: grabbing; }
+        /* Wave J item 4 — subtle outlined border on row hover. */
+        .qq-field-row:hover,
+        .qq-field-row[data-hover-outline="true"] {
+          border-color: rgba(13, 60, 252, 0.40);
+        }
         .qq-field-row-toggle {
           flex: 1; min-width: 0;
           display: flex; align-items: center; gap: 9px;

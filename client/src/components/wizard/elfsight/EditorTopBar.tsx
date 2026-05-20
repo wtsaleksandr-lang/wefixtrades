@@ -1,18 +1,20 @@
-// EditorTopBar — Elfsight-clone editor top bar (Wave H1).
+// EditorTopBar — Elfsight-clone editor top bar (Wave H1 → Wave J).
 //
 // Layout (left→right):
 //   • QuoteQuick brand mark + "Saved" pill (when present)
 //   • spacer
 //   • desktop / mobile device toggle (reuses Wave G's compact sizing)
+//   • sun / moon  day-night toggle  (Wave J item 3)
 //   • ?  help
 //   • X  close (history.back fallback to /)
 //
 // Brand styling only — no Elfsight colours. Accent comes from platformTheme.
 // All testids stable: quotequick-close, preview-device-desktop, preview-device-mobile.
+// Wave J adds: editor-theme-toggle.
 
-import { HelpCircle, Monitor, Smartphone, X } from 'lucide-react';
+import { HelpCircle, Monitor, Moon, Smartphone, Sun, X } from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
-import type { PreviewDevice } from './types';
+import type { EditorTheme, PreviewDevice } from './types';
 
 const p = platformTheme;
 
@@ -20,13 +22,21 @@ interface Props {
   justSaved?: boolean;
   device: PreviewDevice;
   onDeviceChange: (d: PreviewDevice) => void;
+  /** Wave J — current editor chrome theme. */
+  editorTheme: EditorTheme;
+  /** Wave J — flip the chrome theme. */
+  onEditorThemeChange: (t: EditorTheme) => void;
   onHelp: () => void;
   onClose: () => void;
 }
 
 export default function EditorTopBar({
-  justSaved, device, onDeviceChange, onHelp, onClose,
+  justSaved, device, onDeviceChange,
+  editorTheme, onEditorThemeChange,
+  onHelp, onClose,
 }: Props) {
+  const nextTheme: EditorTheme = editorTheme === 'dark' ? 'light' : 'dark';
+  const Icon = editorTheme === 'dark' ? Sun : Moon;
   return (
     <div className="qq-editor-topbar" data-testid="editor-top-bar">
       <a href="/" className="qq-editor-brand" aria-label="WeFixTrades home">
@@ -70,6 +80,18 @@ export default function EditorTopBar({
           </button>
         ))}
       </div>
+
+      <button
+        type="button"
+        onClick={() => onEditorThemeChange(nextTheme)}
+        className="qq-editor-icon-btn"
+        data-testid="editor-theme-toggle"
+        data-theme-state={editorTheme}
+        aria-label={`Switch editor to ${nextTheme} mode`}
+        title={`Switch to ${nextTheme} mode`}
+      >
+        <Icon style={{ width: 14, height: 14 }} aria-hidden="true" />
+      </button>
 
       <button
         type="button"

@@ -204,12 +204,16 @@ export function getShellLanguage(code: string | undefined): ShellLanguageOption 
   return SHELL_LANGUAGES.find(l => l.code === target) ?? SHELL_LANGUAGES[0];
 }
 
+/** Wave J — chrome theme for the editor surfaces only (NOT the template/preview). */
+export type EditorTheme = 'light' | 'dark';
+
 /**
  * H2 shell state — carries the live, editable fields list. H4 adds optional
  * header / results overrides + a `resultCalcId` carrying the user's
  * explicit headline choice (an id rather than a name, to survive renames).
  * H5 adds optional `style` overrides for the Style tab.
  * H6 adds optional `settings` for the Settings tab.
+ * Wave J — adds optional `editorTheme` (chrome only) and `logo` (data URL).
  */
 export interface ShellState {
   businessName: string;
@@ -228,6 +232,12 @@ export interface ShellState {
   settings?: ShellSettings;
   /** H7 — id of the last-applied TEMPLATE_PRESETS entry (or undefined = blank). */
   activeTemplateId?: string;
+  /** Wave J — editor chrome theme (light/dark). Only the chrome flips; the
+   *  preview/template honours its own template-level theme. */
+  editorTheme?: EditorTheme;
+  /** Wave J — business logo (data URL or null). Persisted in shell state and
+   *  surfaced into save-draft payload alongside business name. */
+  logo?: string | null;
 }
 
 export const INITIAL_SHELL_STATE: ShellState = {
@@ -243,4 +253,7 @@ export const INITIAL_SHELL_STATE: ShellState = {
     pricing: { mode: 'hourly', rate: 75 },
     language: DEFAULT_SHELL_LANGUAGE,
   },
+  // Wave J — editorTheme + logo are left undefined so loaders can detect
+  // "user hasn't picked yet" vs "user explicitly chose light".
+  logo: null,
 };

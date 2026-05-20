@@ -343,6 +343,164 @@
   color: #0d3cfc;
 }
 
+/* Wave J — `select` variant. <select> doesn't honour :placeholder-shown,
+ * so we drive the label state by the input/select's value via the
+ * data-empty attribute set by the parent. */
+.float-field--select > select.premium-input,
+.float-field > select.premium-input {
+  padding-top: 20px;
+  padding-bottom: 6px;
+  padding-right: 30px;
+}
+.float-field--select > select.premium-input + label,
+.float-field > select.premium-input + label {
+  top: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #0d3cfc;
+}
+/* Some inputs (number, email, password) hide the placeholder when focused
+ * — :placeholder-shown handles those uniformly with text-type inputs. */
+
+/* Wave J — InfoCue trigger + popover (item 2). Inherits the editor theme
+ * via CSS variables defined under [data-theme="…"] on the shell root. */
+.qq-info-cue {
+  --info-bg: #ffffff;
+  --info-border: #E5E7EB;
+  --info-fg: #6B7280;
+  --info-fg-hover: #0d3cfc;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px; min-width: 18px;
+  padding: 0; margin-left: 6px;
+  border-radius: 50%;
+  border: 1px solid var(--info-border);
+  background: var(--info-bg);
+  color: var(--info-fg);
+  font-size: 11px; font-weight: 700; line-height: 1;
+  cursor: pointer; vertical-align: middle;
+  transition: color 0.12s ease, border-color 0.12s ease, background 0.12s ease;
+}
+.qq-info-cue:hover, .qq-info-cue[aria-expanded="true"] {
+  color: var(--info-fg-hover);
+  border-color: var(--info-fg-hover);
+}
+.qq-info-cue-popover {
+  position: fixed;
+  z-index: 2000;
+  width: 280px; max-width: calc(100vw - 16px);
+  padding: 10px 12px;
+  background: #ffffff;
+  color: #1f2937;
+  font-size: 12px; line-height: 1.5;
+  border: 1px solid #E5E7EB;
+  border-radius: 10px;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.18);
+  pointer-events: auto;
+}
+
+/* Wave J — editor chrome theme variables (item 3). Default = light.
+ * The toggle on EditorTopBar sets data-theme on the shell root. */
+.qq-editor-shell {
+  --qq-bg: #F7F8FA;
+  --qq-surface: #FFFFFF;
+  --qq-text: #111827;
+  --qq-muted: #6B7280;
+  --qq-border: #E5E7EB;
+  --qq-dot: rgba(15, 23, 42, 0.10);
+}
+.qq-editor-shell[data-theme="dark"] {
+  --qq-bg: #0F172A;
+  --qq-surface: #1E293B;
+  --qq-text: #F1F5F9;
+  --qq-muted: #94A3B8;
+  --qq-border: #334155;
+  --qq-dot: rgba(255, 255, 255, 0.10);
+}
+.qq-editor-shell[data-theme="dark"] {
+  background: var(--qq-bg) !important;
+  color: var(--qq-text);
+}
+.qq-editor-shell[data-theme="dark"] .qq-editor-frame,
+.qq-editor-shell[data-theme="dark"] .qq-editor-topbar,
+.qq-editor-shell[data-theme="dark"] .qq-editor-tabs,
+.qq-editor-shell[data-theme="dark"] .qq-editor-left {
+  background: var(--qq-surface) !important;
+  color: var(--qq-text);
+  border-color: var(--qq-border);
+}
+.qq-editor-shell[data-theme="dark"] .qq-editor-brand,
+.qq-editor-shell[data-theme="dark"] .qq-editor-tab,
+.qq-editor-shell[data-theme="dark"] .qq-headres-title,
+.qq-editor-shell[data-theme="dark"] .qq-style-legend,
+.qq-editor-shell[data-theme="dark"] .qq-style-label,
+.qq-editor-shell[data-theme="dark"] .qq-field-row-label {
+  color: var(--qq-text) !important;
+}
+.qq-editor-shell[data-theme="dark"] .qq-info-cue {
+  --info-bg: var(--qq-surface);
+  --info-border: var(--qq-border);
+  --info-fg: var(--qq-muted);
+}
+.qq-editor-shell[data-theme="dark"] .qq-info-cue-popover {
+  background: var(--qq-surface);
+  color: var(--qq-text);
+  border-color: var(--qq-border);
+}
+.qq-editor-shell[data-theme="dark"] .qq-editor-icon-btn {
+  background: var(--qq-surface);
+  border-color: var(--qq-border);
+  color: var(--qq-muted);
+}
+.qq-editor-shell[data-theme="dark"] .qq-editor-icon-btn:hover {
+  background: #334155;
+  color: var(--qq-text);
+}
+.qq-editor-shell[data-theme="dark"] .qq-field-row,
+.qq-editor-shell[data-theme="dark"] .qq-style-group,
+.qq-editor-shell[data-theme="dark"] .qq-calc-row {
+  background: #243149;
+  border-color: var(--qq-border);
+}
+.qq-editor-shell[data-theme="dark"] .premium-input,
+.qq-editor-shell[data-theme="dark"] .qq-style-hex,
+.qq-editor-shell[data-theme="dark"] .qq-style-select,
+.qq-editor-shell[data-theme="dark"] .qq-headres-input,
+.qq-editor-shell[data-theme="dark"] .qq-field-input {
+  background: #243149;
+  border-color: var(--qq-border);
+  color: var(--qq-text);
+}
+.qq-editor-shell[data-theme="dark"] .premium-input::placeholder {
+  color: #64748B;
+}
+
+/* Wave J — dotted-grid background on the live preview pane (item 6).
+ * The dot colour adapts to the editor theme via --qq-dot. */
+.qq-editor-right {
+  background-image: radial-gradient(circle, var(--qq-dot, rgba(15,23,42,0.10)) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+.qq-editor-shell[data-theme="dark"] .qq-editor-right {
+  background-color: #0F172A;
+}
+
+/* Wave J — drag-handle affordances (item 4). The handle glyph is always
+ * visible (not hover-gated) so mobile users can see it too. Rows get a
+ * subtle outlined border on hover for desktop discoverability. */
+.qq-field-row-handle,
+.qq-calc-row-handle {
+  color: #94A3B8 !important;
+  opacity: 1 !important;
+}
+.qq-field-row:hover,
+.qq-calc-row:hover {
+  border-color: rgba(13, 60, 252, 0.45);
+}
+.qq-field-row[data-hover-outline="true"],
+.qq-calc-row[data-hover-outline="true"] {
+  border-color: rgba(13, 60, 252, 0.45);
+}
+
 /* CTA "Button text" field — styled to look like the live action button. */
 .cta-button-input::placeholder {
   color: rgba(255, 255, 255, 0.72);

@@ -27,6 +27,8 @@ import {
   type ShellThousandsSep,
   type ShellDecimalSep,
 } from './types';
+import InfoCue from './InfoCue';
+import FloatField from './FloatField';
 
 const p = platformTheme;
 
@@ -88,27 +90,27 @@ export default function SettingsTab({ settings, onChange }: Props) {
 
       {/* ── Lead notification email ─────────────────────────────── */}
       <fieldset className="qq-style-group" data-testid="settings-group-lead-email">
-        <legend className="qq-style-legend">Lead notification email</legend>
-        <p className="qq-style-sub">
-          Where customer leads are sent when someone hits the CTA. Single
-          email; team forwarding is configured upstream.
-        </p>
-        <label className="qq-style-label" htmlFor="qq-settings-leademail">
-          Email
-        </label>
-        <input
-          id="qq-settings-leademail"
-          type="email"
-          className="qq-style-hex"
-          style={{ width: '100%' }}
-          value={leadEmail}
-          placeholder="you@yourbusiness.com"
-          onChange={(e) => patch({ leadEmail: e.target.value })}
-          data-testid="settings-input-lead-email"
-          aria-invalid={
-            leadEmail.trim() !== '' && !EMAIL_RE.test(leadEmail.trim()) ? 'true' : 'false'
-          }
-        />
+        <legend className="qq-style-legend">
+          Lead notification email
+          <InfoCue
+            testid="settings-lead-email"
+            text="Where customer leads are sent when someone hits the CTA. Single email; team forwarding is configured upstream."
+          />
+        </legend>
+        <FloatField label="Lead notification email" htmlFor="qq-settings-leademail">
+          <input
+            id="qq-settings-leademail"
+            type="email"
+            className="premium-input"
+            placeholder=" "
+            value={leadEmail}
+            onChange={(e) => patch({ leadEmail: e.target.value })}
+            data-testid="settings-input-lead-email"
+            aria-invalid={
+              leadEmail.trim() !== '' && !EMAIL_RE.test(leadEmail.trim()) ? 'true' : 'false'
+            }
+          />
+        </FloatField>
         {leadEmail.trim() !== '' && !EMAIL_RE.test(leadEmail.trim()) && (
           <p
             className="qq-settings-error"
@@ -122,11 +124,13 @@ export default function SettingsTab({ settings, onChange }: Props) {
 
       {/* ── Pricing model ───────────────────────────────────────── */}
       <fieldset className="qq-style-group" data-testid="settings-group-pricing">
-        <legend className="qq-style-legend">Pricing model</legend>
-        <p className="qq-style-sub">
-          The shape of your price. Saved alongside the calculator config —
-          the renderer's pricing engine will pick this up downstream.
-        </p>
+        <legend className="qq-style-legend">
+          Pricing model
+          <InfoCue
+            testid="settings-pricing"
+            text="The shape of your price. Saved alongside the calculator config — the renderer's pricing engine will pick this up downstream."
+          />
+        </legend>
         <label className="qq-style-label">Mode</label>
         <SegmentedControl<ShellPricingMode>
           name="pricing-mode"
@@ -142,93 +146,86 @@ export default function SettingsTab({ settings, onChange }: Props) {
 
         {pricing.mode === 'hourly' && (
           <div className="qq-settings-row" data-testid="settings-pricing-hourly">
-            <label className="qq-style-label" htmlFor="qq-settings-rate">
-              Rate per hour ($)
-            </label>
-            <input
-              id="qq-settings-rate"
-              type="number"
-              min={0}
-              step={1}
-              className="qq-style-hex"
-              style={{ width: '100%' }}
-              value={pricing.rate ?? ''}
-              onChange={(e) => patchPricing({ rate: numOrUndef(e.target.value) })}
-              data-testid="settings-input-pricing-rate"
-              placeholder="75"
-            />
+            <FloatField label="Rate per hour ($)" htmlFor="qq-settings-rate">
+              <input
+                id="qq-settings-rate"
+                type="number"
+                min={0}
+                step={1}
+                className="premium-input"
+                placeholder=" "
+                value={pricing.rate ?? ''}
+                onChange={(e) => patchPricing({ rate: numOrUndef(e.target.value) })}
+                data-testid="settings-input-pricing-rate"
+              />
+            </FloatField>
           </div>
         )}
 
         {pricing.mode === 'fixed' && (
           <div className="qq-settings-row" data-testid="settings-pricing-fixed">
-            <label className="qq-style-label" htmlFor="qq-settings-value">
-              Fixed price ($)
-            </label>
-            <input
-              id="qq-settings-value"
-              type="number"
-              min={0}
-              step={1}
-              className="qq-style-hex"
-              style={{ width: '100%' }}
-              value={pricing.value ?? ''}
-              onChange={(e) => patchPricing({ value: numOrUndef(e.target.value) })}
-              data-testid="settings-input-pricing-value"
-              placeholder="350"
-            />
+            <FloatField label="Fixed price ($)" htmlFor="qq-settings-value">
+              <input
+                id="qq-settings-value"
+                type="number"
+                min={0}
+                step={1}
+                className="premium-input"
+                placeholder=" "
+                value={pricing.value ?? ''}
+                onChange={(e) => patchPricing({ value: numOrUndef(e.target.value) })}
+                data-testid="settings-input-pricing-value"
+              />
+            </FloatField>
           </div>
         )}
 
         {pricing.mode === 'custom' && (
           <div className="qq-settings-row" data-testid="settings-pricing-custom">
-            <label className="qq-style-label" htmlFor="qq-settings-custom-label">
-              Unit-rate label
-            </label>
-            <input
-              id="qq-settings-custom-label"
-              type="text"
-              className="qq-style-hex"
-              style={{ width: '100%' }}
-              value={pricing.label ?? ''}
-              onChange={(e) => patchPricing({ label: e.target.value })}
-              data-testid="settings-input-pricing-label"
-              placeholder="sq ft"
-            />
-            <label className="qq-style-label" htmlFor="qq-settings-custom-rate" style={{ marginTop: 10 }}>
-              Rate per unit ($)
-            </label>
-            <input
-              id="qq-settings-custom-rate"
-              type="number"
-              min={0}
-              step={1}
-              className="qq-style-hex"
-              style={{ width: '100%' }}
-              value={pricing.rate ?? ''}
-              onChange={(e) => patchPricing({ rate: numOrUndef(e.target.value) })}
-              data-testid="settings-input-pricing-custom-rate"
-              placeholder="6"
-            />
+            <FloatField label="Unit-rate label" htmlFor="qq-settings-custom-label">
+              <input
+                id="qq-settings-custom-label"
+                type="text"
+                className="premium-input"
+                placeholder=" "
+                value={pricing.label ?? ''}
+                onChange={(e) => patchPricing({ label: e.target.value })}
+                data-testid="settings-input-pricing-label"
+              />
+            </FloatField>
+            <div style={{ marginTop: 10 }}>
+              <FloatField label="Rate per unit ($)" htmlFor="qq-settings-custom-rate">
+                <input
+                  id="qq-settings-custom-rate"
+                  type="number"
+                  min={0}
+                  step={1}
+                  className="premium-input"
+                  placeholder=" "
+                  value={pricing.rate ?? ''}
+                  onChange={(e) => patchPricing({ rate: numOrUndef(e.target.value) })}
+                  data-testid="settings-input-pricing-custom-rate"
+                />
+              </FloatField>
+            </div>
           </div>
         )}
       </fieldset>
 
       {/* ── Number formatting ───────────────────────────────────── */}
       <fieldset className="qq-style-group" data-testid="settings-group-numberformat">
-        <legend className="qq-style-legend">Number formatting</legend>
-        <p className="qq-style-sub">
-          How prices display in the calculator. Currency is a 3-letter ISO
-          code (USD / EUR / GBP / …).
-        </p>
+        <legend className="qq-style-legend">
+          Number formatting
+          <InfoCue
+            testid="settings-numberformat"
+            text="How prices display in the calculator. Currency is a 3-letter ISO code (USD / EUR / GBP / …)."
+          />
+        </legend>
         <div className="qq-style-grid">
-          <div>
-            <label className="qq-style-label" htmlFor="qq-settings-thousands">
-              Thousands separator
-            </label>
+          <FloatField label="Thousands separator" htmlFor="qq-settings-thousands" variant="select">
             <select
               id="qq-settings-thousands"
-              className="qq-style-select"
+              className="premium-input"
               value={numberFormat.thousands}
               onChange={(e) =>
                 patchNumberFormat({ thousands: e.target.value as ShellThousandsSep })
@@ -239,14 +236,11 @@ export default function SettingsTab({ settings, onChange }: Props) {
                 <option key={o.value} value={o.value}>{o.label}</option>
               ))}
             </select>
-          </div>
-          <div>
-            <label className="qq-style-label" htmlFor="qq-settings-decimal">
-              Decimal separator
-            </label>
+          </FloatField>
+          <FloatField label="Decimal separator" htmlFor="qq-settings-decimal" variant="select">
             <select
               id="qq-settings-decimal"
-              className="qq-style-select"
+              className="premium-input"
               value={numberFormat.decimal}
               onChange={(e) =>
                 patchNumberFormat({ decimal: e.target.value as ShellDecimalSep })
@@ -257,47 +251,48 @@ export default function SettingsTab({ settings, onChange }: Props) {
                 <option key={o.value} value={o.value}>{o.label}</option>
               ))}
             </select>
-          </div>
+          </FloatField>
         </div>
-        <label className="qq-style-label" htmlFor="qq-settings-currency" style={{ marginTop: 12 }}>
-          Currency code
-        </label>
-        <input
-          id="qq-settings-currency"
-          type="text"
-          maxLength={3}
-          className="qq-style-hex"
-          style={{ width: '100%', textTransform: 'uppercase' }}
-          value={numberFormat.currency}
-          onChange={(e) =>
-            patchNumberFormat({ currency: e.target.value.toUpperCase().replace(/[^A-Z]/g, '') })
-          }
-          data-testid="settings-input-currency"
-          placeholder="USD"
-          aria-invalid={!CURRENCY_RE.test(numberFormat.currency) ? 'true' : 'false'}
-        />
+        <div style={{ marginTop: 12 }}>
+          <FloatField label="Currency code" htmlFor="qq-settings-currency">
+            <input
+              id="qq-settings-currency"
+              type="text"
+              maxLength={3}
+              className="premium-input"
+              placeholder=" "
+              style={{ textTransform: 'uppercase' }}
+              value={numberFormat.currency}
+              onChange={(e) =>
+                patchNumberFormat({ currency: e.target.value.toUpperCase().replace(/[^A-Z]/g, '') })
+              }
+              data-testid="settings-input-currency"
+              aria-invalid={!CURRENCY_RE.test(numberFormat.currency) ? 'true' : 'false'}
+            />
+          </FloatField>
+        </div>
       </fieldset>
 
       {/* ── Custom CTA label ────────────────────────────────────── */}
       <fieldset className="qq-style-group" data-testid="settings-group-cta">
-        <legend className="qq-style-legend">Custom CTA label</legend>
-        <p className="qq-style-sub">
-          Overrides the result-panel button text. Leave blank to keep the
-          default (“Get My Quote”).
-        </p>
-        <label className="qq-style-label" htmlFor="qq-settings-cta-label">
-          CTA label
-        </label>
-        <input
-          id="qq-settings-cta-label"
-          type="text"
-          className="qq-style-hex"
-          style={{ width: '100%' }}
-          value={ctaLabel}
-          onChange={(e) => patch({ ctaLabel: e.target.value })}
-          data-testid="settings-input-cta-label"
-          placeholder="Get My Quote"
-        />
+        <legend className="qq-style-legend">
+          Custom CTA label
+          <InfoCue
+            testid="settings-cta"
+            text='Overrides the result-panel button text. Leave blank to keep the default ("Get My Quote").'
+          />
+        </legend>
+        <FloatField label="CTA label" htmlFor="qq-settings-cta-label">
+          <input
+            id="qq-settings-cta-label"
+            type="text"
+            className="premium-input"
+            placeholder=" "
+            value={ctaLabel}
+            onChange={(e) => patch({ ctaLabel: e.target.value })}
+            data-testid="settings-input-cta-label"
+          />
+        </FloatField>
       </fieldset>
 
       <style>{`
@@ -315,14 +310,11 @@ export default function SettingsTab({ settings, onChange }: Props) {
           margin: 0;
         }
         .qq-style-legend {
+          display: inline-flex; align-items: center;
           font-size: 13px; font-weight: 800;
           color: ${p.colors.heading};
           padding: 0 6px;
           letter-spacing: -0.005em;
-        }
-        .qq-style-sub {
-          font-size: 12px; color: ${p.colors.muted};
-          margin: 0 0 12px; line-height: 1.5;
         }
         .qq-style-grid {
           display: grid; gap: 10px;
@@ -435,24 +427,24 @@ function TradeSection({
 
   return (
     <fieldset className="qq-style-group" data-testid="settings-group-trade">
-      <legend className="qq-style-legend">Trade</legend>
-      <p className="qq-style-sub">
-        Which trade this calculator is for. Drives template suggestions and
-        downstream copy. Search the list below.
-      </p>
-      <label className="qq-style-label" htmlFor="qq-settings-trade-search">
-        Search trades
-      </label>
-      <input
-        id="qq-settings-trade-search"
-        type="text"
-        className="qq-style-hex"
-        style={{ width: '100%' }}
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder={current?.label ?? 'e.g. plumbing, roofing, …'}
-        data-testid="settings-input-trade-search"
-      />
+      <legend className="qq-style-legend">
+        Trade
+        <InfoCue
+          testid="settings-trade"
+          text="Which trade this calculator is for. Drives template suggestions and downstream copy. Search the list below."
+        />
+      </legend>
+      <FloatField label="Search trades" htmlFor="qq-settings-trade-search">
+        <input
+          id="qq-settings-trade-search"
+          type="text"
+          className="premium-input"
+          placeholder=" "
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          data-testid="settings-input-trade-search"
+        />
+      </FloatField>
       <p className="qq-trade-current" data-testid="settings-current-trade">
         Selected:{' '}
         <strong style={{ color: p.colors.heading }}>
