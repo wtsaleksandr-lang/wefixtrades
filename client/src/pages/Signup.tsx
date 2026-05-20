@@ -182,6 +182,11 @@ export default function SignupPage() {
               </p>
             )}
 
+            {/* B2 fix (2026-05-20): submit was rendering beige/cream because it
+                read `mkt.buttonBg` / `mkt.buttonText`, which are deprecated
+                aliases for the cream secondary tokens. Primary conversion
+                surface should match /login's "Email me a link →" — brand blue
+                #0D3CFC with off-white text. */}
             <button
               type="submit"
               disabled={signup.isPending}
@@ -189,13 +194,14 @@ export default function SignupPage() {
                 width: "100%",
                 padding: "14px 0",
                 fontSize: 14,
-                fontWeight: 500,
-                color: mkt.buttonText,
-                background: mkt.buttonBg,
+                fontWeight: 600,
+                color: "#D5E1E7",
+                background: "#0D3CFC",
                 border: "none",
-                borderRadius: 8,
+                borderRadius: 10,
                 cursor: signup.isPending ? "wait" : "pointer",
                 opacity: signup.isPending ? 0.7 : 1,
+                letterSpacing: "0.04em",
                 transition: "background 0.15s ease, opacity 0.15s ease",
               }}
             >
