@@ -8,8 +8,11 @@
 
 import type { Express, Request, Response } from "express";
 import Stripe from "stripe";
+import { eq } from "drizzle-orm";
 import { requireAdmin } from "../auth";
 import { storage } from "../storage";
+import { db } from "../db";
+import { widgetDeposits } from "@shared/schema";
 import { sendOnboardingEmail } from "../lib/onboardingEmail";
 import { sendPaymentReceipt } from "../lib/paymentReceiptEmail";
 import { sendAccountWelcome } from "../lib/accountWelcomeEmail";
@@ -216,6 +219,12 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   // ─── QuoteQuick direct checkout (calculator-linked) ───
   if (session.metadata?.source === 'quotequick_checkout') {
     await handleQuoteQuickCheckout(session);
+    return;
+  }
+
+  // ─── Wave R-2: widget deposit (Stripe Connect to calculator owner) ───
+  if (session.metadata?.source === 'widget_deposit') {
+    await handleWidgetDepositCompleted(session);
     return;
   }
 
@@ -928,4 +937,53 @@ async function handleQuoteQuickCheckout(session: Stripe.Checkout.Session) {
 
   log.info(`[billing-webhook] QuoteQuick calculator ${calculatorId} upgraded to ${planTier}${wasPaused ? ' (reactivated)' : ''}`);
 }
+
+/* ─── Wave R-2 Widget Deposit Handler ─── */
+
+/**
+ * Mark the matching widget_deposits row paid when its Checkout session
+ * completes. Lookup is by metadata.widget_deposit_id (preferred) with a
+ * fallback to stripe_session_id for resilience.
+ */
+async function handleWidgetDepositCompleted(session: Stripe.Checkout.Session) {
+  const depositIdRaw = session.metadata?.widget_deposit_id;
+  const depositId = depositIdRaw ? parseInt(depositIdRaw, 10) : NaN;
+
+  const paymentIntentId = typeof session.payment_intent === "string"
+    ? session.payment_intent
+    : (session.payment_intent as Stripe.PaymentIntent | null)?.id ?? null;
+
+  let updated;
+  if (Number.isFinite(depositId)) {
+    [updated] = await db
+      .update(widgetDeposits)
+      .set({
+        status: "paid",
+        paid_at: new Date(),
+        stripe_payment_intent_id: paymentIntentId ?? undefined,
+        stripe_session_id: session.id,
+      })
+      .where(eq(widgetDeposits.id, depositId))
+      .returning();
+  }
+  if (!updated) {
+    [updated] = await db
+      .update(widgetDeposits)
+      .set({
+        status: "paid",
+        paid_at: new Date(),
+        stripe_payment_intent_id: paymentIntentId ?? undefined,
+      })
+      .where(eq(widgetDeposits.stripe_session_id, session.id))
+      .returning();
+  }
+
+  if (!updated) {
+    log.warn(`[widget-deposit] checkout.session.completed could not match a widget_deposits row (session ${session.id})`);
+    return;
+  }
+
+  log.info(`[widget-deposit] Deposit #${updated.id} marked paid (session ${session.id})`);
+}
+
 

@@ -265,6 +265,39 @@ export const insertBookingSchema = createInsertSchema(bookings).omit({
   created_at: true,
 });
 
+/* ─── Widget Deposits (Wave R-2) ──────────────────────────────────
+   Stripe Checkout deposits initiated from the QuoteQuick widget's
+   post-quote "Secure your slot" panel. Money flows via Stripe Connect
+   to the calculator owner's connected account; the row tracks the
+   session lifecycle (pending → paid / failed / refunded). See
+   migrations/0016_widget_deposits.sql for the canonical DDL. */
+export const widgetDeposits = pgTable("widget_deposits", {
+  id: serial("id").primaryKey(),
+  calculator_id: integer("calculator_id").notNull().references(() => calculators.id),
+  lead_id: integer("lead_id").references(() => leads.id),
+  amount_cents: integer("amount_cents").notNull(),
+  currency: text("currency").notNull().default("usd"),
+  stripe_session_id: text("stripe_session_id"),
+  stripe_payment_intent_id: text("stripe_payment_intent_id"),
+  // pending | paid | failed | refunded
+  status: text("status").notNull().default("pending"),
+  customer_email: text("customer_email"),
+  metadata: jsonb("metadata"),
+  created_at: timestamp("created_at").defaultNow(),
+  paid_at: timestamp("paid_at"),
+}, (table) => ({
+  calcIdx: index("idx_widget_deposits_calc").on(table.calculator_id, table.created_at),
+  sessionIdx: index("idx_widget_deposits_session").on(table.stripe_session_id),
+}));
+
+export const insertWidgetDepositSchema = createInsertSchema(widgetDeposits).omit({
+  id: true,
+  created_at: true,
+  paid_at: true,
+});
+export type InsertWidgetDeposit = z.infer<typeof insertWidgetDepositSchema>;
+export type WidgetDeposit = typeof widgetDeposits.$inferSelect;
+
 /* ─── Calendar Connections ─── */
 export const calendarConnections = pgTable("calendar_connections", {
   id: serial("id").primaryKey(),

@@ -26,6 +26,7 @@ import {
   type ShellNumberFormat,
   type ShellThousandsSep,
   type ShellDecimalSep,
+  type ShellDeposit,
 } from './types';
 import FloatField from './FloatField';
 
@@ -84,6 +85,19 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
     (next: Partial<ShellNumberFormat>) =>
       patch({ numberFormat: { ...numberFormat, ...next } }),
     [patch, numberFormat],
+  );
+
+  // Wave R-2 — Stripe deposit step config (maps to
+  // calculator_settings.appearance.deposit on save). The fieldset
+  // disables itself when the underlying calculator has no connected
+  // Stripe account (see WizardShell wiring).
+  const deposit: ShellDeposit = settings.deposit ?? {
+    enabled: false, mode: 'percent', value: 15, label: '', required: false,
+  };
+  const stripeConnected = settings.stripeConnected !== false;
+  const patchDeposit = useCallback(
+    (next: Partial<ShellDeposit>) => patch({ deposit: { ...deposit, ...next } }),
+    [patch, deposit],
   );
 
   return (
@@ -214,6 +228,160 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
                 />
               </FloatField>
             </div>
+          </div>
+        )}
+      </fieldset>
+
+      {/* ── Deposit (Wave R-2) ──────────────────────────────────── */}
+      <fieldset
+        className={`qq-style-group qq-settings-deposit${stripeConnected ? '' : ' is-disabled'}`}
+        data-testid="settings-group-deposit"
+        data-stripe-connected={stripeConnected ? 'true' : 'false'}
+      >
+        <legend className="qq-style-legend">
+          Deposit
+          <InfoCue
+            testid="settings-deposit"
+            text="Optionally collect a deposit at booking time. Stripe Connect routes the money to your account; WeFixTrades takes a small platform fee per transaction."
+          />
+        </legend>
+
+        {!stripeConnected && (
+          <p
+            className="qq-settings-deposit-warning"
+            data-testid="settings-deposit-no-stripe"
+            style={{
+              fontSize: 12,
+              color: p.colors.muted,
+              margin: '0 0 10px',
+              lineHeight: 1.45,
+            }}
+          >
+            Connect Stripe in your dashboard first to enable deposits.
+          </p>
+        )}
+
+        <label
+          className="qq-deposit-toggle"
+          style={{
+            display: 'flex', alignItems: 'flex-start', gap: 10,
+            cursor: stripeConnected ? 'pointer' : 'not-allowed',
+            opacity: stripeConnected ? 1 : 0.55,
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={deposit.enabled === true}
+            disabled={!stripeConnected}
+            onChange={(e) => patchDeposit({ enabled: e.target.checked })}
+            data-testid="settings-deposit-enabled"
+            aria-label="Collect a deposit when customers book"
+          />
+          <span>
+            <span style={{ fontWeight: 700, fontSize: 13, color: p.colors.heading }}>
+              Collect a deposit when customers book
+            </span>
+            <span style={{ display: 'block', fontSize: 12, color: p.colors.muted, marginTop: 2 }}>
+              Adds a "Secure your slot" step after the quote. Money flows directly to your Stripe account.
+            </span>
+          </span>
+        </label>
+
+        {deposit.enabled && stripeConnected && (
+          <div className="qq-settings-row" data-testid="settings-deposit-fields">
+            <label className="qq-style-label" style={{ marginTop: 4 }}>Deposit type</label>
+            <SegmentedControl<'percent' | 'fixed'>
+              name="deposit-mode"
+              testid="settings-segmented-deposit"
+              value={deposit.mode === 'fixed' ? 'fixed' : 'percent'}
+              options={[
+                { value: 'percent', label: 'Percent (%)' },
+                { value: 'fixed',   label: 'Fixed ($)' },
+              ]}
+              onChange={(mode) => patchDeposit({ mode })}
+            />
+
+            <div style={{ marginTop: 12 }}>
+              <FloatField
+                label={deposit.mode === 'fixed' ? 'Deposit amount ($)' : 'Deposit percentage (%)'}
+                htmlFor="qq-settings-deposit-value"
+                infoText={
+                  deposit.mode === 'fixed'
+                    ? 'Charged in dollars regardless of quote size. Stripe requires a $0.50 minimum.'
+                    : 'Charged as a percentage of the customer\'s quote total. E.g. 15 → 15%.'
+                }
+                infoTestid="settings-deposit-value-info"
+              >
+                <input
+                  id="qq-settings-deposit-value"
+                  type="number"
+                  min={0}
+                  step={deposit.mode === 'fixed' ? 1 : 0.5}
+                  className="premium-input"
+                  placeholder=" "
+                  value={deposit.value ?? ''}
+                  onChange={(e) => patchDeposit({ value: numOrUndef(e.target.value) })}
+                  data-testid="settings-input-deposit-value"
+                  aria-invalid={
+                    deposit.value !== undefined && Number(deposit.value) <= 0
+                      ? 'true'
+                      : 'false'
+                  }
+                />
+              </FloatField>
+              {deposit.value !== undefined && Number(deposit.value) <= 0 && (
+                <p
+                  className="qq-settings-error"
+                  data-testid="settings-deposit-value-error"
+                  style={{ fontSize: 11.5, color: p.colors.danger, margin: '6px 0 0' }}
+                >
+                  Enter a positive amount.
+                </p>
+              )}
+            </div>
+
+            <div style={{ marginTop: 12 }}>
+              <FloatField
+                label="Custom label (optional)"
+                htmlFor="qq-settings-deposit-label"
+                infoText='Overrides the deposit headline shown to customers. E.g. "Secure your slot — $50". Leave blank to use the default.'
+                infoTestid="settings-deposit-label-info"
+              >
+                <input
+                  id="qq-settings-deposit-label"
+                  type="text"
+                  className="premium-input"
+                  placeholder=" "
+                  value={deposit.label ?? ''}
+                  onChange={(e) => patchDeposit({ label: e.target.value })}
+                  data-testid="settings-input-deposit-label"
+                />
+              </FloatField>
+            </div>
+
+            <label
+              className="qq-deposit-required"
+              style={{
+                display: 'flex', alignItems: 'flex-start', gap: 10,
+                marginTop: 12, cursor: 'pointer',
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={deposit.required === true}
+                onChange={(e) => patchDeposit({ required: e.target.checked })}
+                data-testid="settings-deposit-required"
+                aria-label="Require the deposit before booking is confirmed"
+              />
+              <span>
+                <span style={{ fontWeight: 700, fontSize: 12.5, color: p.colors.heading }}>
+                  Require deposit to confirm booking
+                </span>
+                <span style={{ display: 'block', fontSize: 11.5, color: p.colors.muted, marginTop: 2 }}>
+                  When off, customers can skip and arrange payment with you later.
+                </span>
+              </span>
+            </label>
           </div>
         )}
       </fieldset>

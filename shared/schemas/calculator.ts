@@ -163,6 +163,22 @@ export const calculatorSettingsSchema = z.object({
     trust_badge_text: z.string().default('No obligation'),
     company_phone: z.string().optional(),
     show_powered_by: z.boolean().default(true),
+
+    // Wave R-2 — Stripe deposit step. When `enabled` is true and the
+    // calculator has a connected Stripe account, the widget inserts a
+    // "Secure your slot" deposit panel after the price reveal step.
+    // Deposit amount is either a percentage of the quote (`mode='percent'`,
+    // `value=15` → 15%) or a fixed dollar amount (`mode='fixed'`,
+    // `value=50` → $50). `label` overrides the default panel headline.
+    // `required` (default false) forces the customer to pay before
+    // advancing — when false a "Skip" option is shown.
+    deposit: z.object({
+      enabled: z.boolean().default(false),
+      mode: z.enum(['percent', 'fixed']).default('percent'),
+      value: z.number().min(0).default(15),
+      label: z.string().default(''),
+      required: z.boolean().default(false),
+    }).default({}),
   }).default({}),
 
   layout: z.object({

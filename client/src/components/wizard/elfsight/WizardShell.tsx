@@ -516,7 +516,15 @@ export default function WizardShell({ embed = false }: Props) {
           // .show_powered_by (server schema). The server-side gate
           // (Wave Q-D) strips show_powered_by=false for free-tier
           // calculators, so this only takes effect for Pro / Business.
-          appearance: { show_powered_by: settings.brandBadge !== false },
+          //
+          // Wave R-2 — surface the deposit config under the same
+          // appearance slot. The flow builder + widget read it from
+          // there at render time, and /api/widget-deposit/create-session
+          // re-validates against it server-side.
+          appearance: {
+            show_powered_by: settings.brandBadge !== false,
+            ...(settings.deposit ? { deposit: settings.deposit } : {}),
+          },
         },
       });
       return res.json();

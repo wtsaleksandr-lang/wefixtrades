@@ -20,6 +20,7 @@ import { registerAiChannelSettingsRoutes } from "./aiChannelSettingsRoutes";
 import { registerInboundEmailRoutes } from "./inboundEmailRoutes";
 import { registerFounderNotifyRoutes } from "./founderNotifyRoutes";
 import { registerStripeBillingRoutes } from "./stripeBillingRoutes";
+import { registerWidgetDepositRoutes } from "./widgetDepositRoutes";
 import { registerBillingPortalRoute } from "./billingPortalRoute";
 import { registerEmailTrackingRoutes } from "./emailTrackingRoutes";
 import { registerSendgridWebhookRoutes } from "./sendgridWebhookRoutes";
@@ -96,6 +97,7 @@ export async function registerRoutes(
   registerAdminToolRoutes(app);
   registerAiChannelSettingsRoutes(app);
   registerStripeBillingRoutes(app);
+  registerWidgetDepositRoutes(app);
   registerBillingPortalRoute(app);
   registerEmailTrackingRoutes(app);
   registerSendgridWebhookRoutes(app);
