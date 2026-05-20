@@ -49,7 +49,7 @@ import { SelectionProvider } from './selection';
 import { useEditorDndSensors, DND_CONTAINERS } from './dnd';
 import {
   INITIAL_SHELL_STATE, DEFAULT_SHELL_STYLE, DEFAULT_SHELL_NUMBER_FORMAT,
-  type EditorTab, type PreviewDevice, type ShellState,
+  type EditorTab, type EditorTheme, type PreviewDevice, type ShellState,
   type ShellHeader, type ShellResults, type ShellStyle,
   type ShellSettings, type ShellNumberFormat, type ShellPricing,
   type PublicFieldType,
@@ -60,9 +60,22 @@ const d = dashboardTheme;
 
 const STORAGE_KEY = 'qq_elfsight_shell';
 const PANE_WIDTH_KEY = 'qq_editor_pane_width';
+const EDITOR_THEME_KEY = 'qq_editor_theme';
 const PANE_WIDTH_MIN = 320;
 const PANE_WIDTH_MAX = 640;
 const PANE_WIDTH_DEFAULT = 420;
+
+function readPrefersDark(): boolean {
+  if (typeof window === 'undefined' || !window.matchMedia) return false;
+  try { return window.matchMedia('(prefers-color-scheme: dark)').matches; } catch { return false; }
+}
+function loadEditorTheme(): EditorTheme {
+  try {
+    const raw = localStorage.getItem(EDITOR_THEME_KEY);
+    if (raw === 'light' || raw === 'dark') return raw;
+  } catch {}
+  return readPrefersDark() ? 'dark' : 'light';
+}
 
 function seedFields(layout: ShellState['layout']): TemplateField[] {
   return buildBlankPreviewConfig(layout).fields.map((f) => ({ ...f }));
@@ -101,6 +114,8 @@ function loadShellState(): ShellState {
             ...((parsed.settings && parsed.settings.numberFormat) ?? {}),
           },
         },
+        // Wave J — logo (optional). null when not set, data URL when uploaded.
+        logo: (typeof parsed.logo === 'string' && parsed.logo) ? parsed.logo : (parsed.logo === null ? null : null),
       };
     }
   } catch {}
@@ -167,6 +182,12 @@ export default function WizardShell({ embed = false }: Props) {
   const [device, setDevice] = useState<PreviewDevice>('desktop');
   const [justSaved, setJustSaved] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  // Wave J item 3 — editor chrome theme (light/dark). Independent of the
+  // template-level theme that drives the live preview / AdvancedCalculator.
+  const [editorTheme, setEditorTheme] = useState<EditorTheme>(() => loadEditorTheme());
+  useEffect(() => {
+    try { localStorage.setItem(EDITOR_THEME_KEY, editorTheme); } catch {}
+  }, [editorTheme]);
 
   // ── Wave I (d): resizable left pane width ─────────────────────────────
   const [paneWidth, setPaneWidth] = useState<number>(() => loadPaneWidth());
@@ -221,6 +242,12 @@ export default function WizardShell({ embed = false }: Props) {
 
   const setBusinessName = useCallback((v: string) => {
     setState((s) => ({ ...s, businessName: v }));
+  }, []);
+
+  // Wave J item 5 — logo (data URL or null). Persisted alongside the rest
+  // of the shell state via the existing localStorage write effect.
+  const setLogo = useCallback((next: string | null) => {
+    setState((s) => ({ ...s, logo: next }));
   }, []);
 
   const setFields = useCallback((next: TemplateField[]) => {
@@ -394,7 +421,11 @@ export default function WizardShell({ embed = false }: Props) {
           calculator_type: 'estimate_only',
           ui_template: { template_id: 'classic_single' },
           advanced,
-          shell_settings: settings,
+          // Wave J item 5 — surface the logo into the saved payload so the
+          // server can stash it. Stored as a top-level slot inside
+          // calculator_settings (the schema's .catchall(z.any()) accepts it).
+          ...(state.logo ? { logo: state.logo } : {}),
+          shell_settings: { ...settings, logo: state.logo ?? null },
           language,
         },
       });
@@ -453,6 +484,7 @@ export default function WizardShell({ embed = false }: Props) {
           aria-label="QuoteQuick editor"
           data-testid="quotequick-editor-shell"
           data-modal-phase={embed ? 'embed' : openPhase}
+          data-theme={editorTheme}
           lang={shellLang}
         >
           <div className="qq-editor-frame">
@@ -460,6 +492,8 @@ export default function WizardShell({ embed = false }: Props) {
               justSaved={justSaved}
               device={device}
               onDeviceChange={setDevice}
+              editorTheme={editorTheme}
+              onEditorThemeChange={setEditorTheme}
               onHelp={() => setShowHelp(true)}
               onClose={handleClose}
             />
@@ -477,6 +511,8 @@ export default function WizardShell({ embed = false }: Props) {
                     <BuildTab
                       businessName={state.businessName}
                       onBusinessNameChange={setBusinessName}
+                      logo={state.logo ?? null}
+                      onLogoChange={setLogo}
                       fields={state.fields}
                       onFieldsChange={setFields}
                       calculations={state.calculations}
@@ -558,6 +594,7 @@ export default function WizardShell({ embed = false }: Props) {
               <div className="qq-editor-right" data-testid="editor-right-pane">
                 <PreviewPane
                   businessName={state.businessName}
+                  logo={state.logo ?? null}
                   layout={state.layout}
                   device={device}
                   fields={state.fields}
