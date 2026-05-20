@@ -190,6 +190,14 @@ export interface ShellSettings {
    * inside whatever container the host page provides.
    */
   hostedPage?: HostedPageSettings;
+  /**
+   * Wave P-F — user-chosen slug override. When set, the wizard sends it
+   * as `preferred_slug` on save and the server uses it verbatim (if
+   * valid + unique). When undefined, the server derives a slug from
+   * businessName via slugify. Stored at the wizard level so the user can
+   * pick a slug before the calculator exists server-side.
+   */
+  preferredSlug?: string;
 }
 
 /* ─────────────────────────────────────────────────────────────────────

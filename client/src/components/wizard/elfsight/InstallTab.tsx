@@ -27,8 +27,8 @@
 // `translations` map keyed by ISO code; supply translated strings for the
 // AdvancedCalculator's hardcoded labels and the wizard headline copy.
 
-import { useMemo, useState } from 'react';
-import { ExternalLink } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Check, ExternalLink, Pencil, X } from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
 import { dashboardTheme } from '@/theme/dashboardTheme';
 import CheckoutIntakeModal from '@/components/marketing/CheckoutIntakeModal';
@@ -68,15 +68,79 @@ export default function InstallTab({
 }: Props) {
   const language = settings.language ?? DEFAULT_SHELL_LANGUAGE;
 
-  // Slug resolution order:
+  // Slug resolution order (Wave P-F):
   //   1. real published slug (embedSlug prop)
-  //   2. derived from businessName via shared slugify
-  //   3. placeholder "YOUR-CALCULATOR-ID"
+  //   2. user-chosen preferred slug (settings.preferredSlug)
+  //   3. derived from businessName via shared slugify
+  //   4. placeholder "YOUR-CALCULATOR-ID"
+  const preferredSlug = (settings.preferredSlug ?? '').trim();
+  const autoDerived = businessName ? slugify(businessName) : '';
   const derivedSlug = (embedSlug ?? '').trim()
-    || (businessName ? slugify(businessName) : '')
+    || preferredSlug
+    || autoDerived
     || 'your-calculator-id';
-  const hasRealSlug = !!(embedSlug && embedSlug.trim()) || !!businessName;
+  const hasRealSlug = !!(embedSlug && embedSlug.trim()) || !!preferredSlug || !!businessName;
   const slug = hasRealSlug ? derivedSlug : 'YOUR-CALCULATOR-ID';
+
+  // Wave P-F — debounced availability check + custom-slug editor.
+  type SlugStatus =
+    | { kind: 'idle' }
+    | { kind: 'checking' }
+    | { kind: 'available'; slug: string }
+    | { kind: 'taken'; slug: string; alternative?: string }
+    | { kind: 'invalid'; reason: string };
+  const [slugStatus, setSlugStatus] = useState<SlugStatus>({ kind: 'idle' });
+  const [editingSlug, setEditingSlug] = useState(false);
+  const [draftSlug, setDraftSlug] = useState(preferredSlug || autoDerived || '');
+
+  useEffect(() => {
+    if (!hasRealSlug || derivedSlug === 'your-calculator-id') {
+      setSlugStatus({ kind: 'idle' });
+      return;
+    }
+    setSlugStatus({ kind: 'checking' });
+    const handle = window.setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `/api/calculators/check-slug?slug=${encodeURIComponent(derivedSlug)}`,
+        );
+        const data = await res.json();
+        if (data?.available) {
+          setSlugStatus({ kind: 'available', slug: derivedSlug });
+        } else if (data?.error) {
+          // The server lumps "invalid" and "taken" into the same shape;
+          // we only show the "alternative" hint when it really is taken.
+          const looksLikeReserved = /reserved|invalid|hyphen|character/i.test(data.error);
+          if (looksLikeReserved) {
+            setSlugStatus({ kind: 'invalid', reason: data.error });
+          } else {
+            setSlugStatus({ kind: 'taken', slug: derivedSlug, alternative: `${derivedSlug}-2` });
+          }
+        } else {
+          setSlugStatus({ kind: 'taken', slug: derivedSlug, alternative: `${derivedSlug}-2` });
+        }
+      } catch {
+        setSlugStatus({ kind: 'idle' });
+      }
+    }, 450);
+    return () => window.clearTimeout(handle);
+  }, [derivedSlug, hasRealSlug]);
+
+  const commitDraftSlug = () => {
+    const cleaned = slugify(draftSlug.trim());
+    if (!cleaned) {
+      onChange({ ...settings, preferredSlug: undefined });
+    } else {
+      onChange({ ...settings, preferredSlug: cleaned });
+    }
+    setEditingSlug(false);
+  };
+
+  const clearPreferred = () => {
+    onChange({ ...settings, preferredSlug: undefined });
+    setDraftSlug(autoDerived);
+    setEditingSlug(false);
+  };
 
   const [snippetCopyOk, setSnippetCopyOk] = useState(false);
   const [hostedCopyOk, setHostedCopyOk] = useState(false);
@@ -167,26 +231,130 @@ export default function InstallTab({
           required.
         </p>
         <div className="qq-install-hosted-card">
-          <div className="qq-install-hosted-url-row">
-            <div
-              className="qq-install-hosted-url"
-              data-testid="install-hosted-url"
-              data-slug={derivedSlug}
-            >
-              {hostedDisplay}
+          {editingSlug ? (
+            <div className="qq-install-hosted-edit-row" data-testid="install-hosted-edit-row">
+              <div className="qq-install-hosted-edit-prefix">https://</div>
+              <input
+                type="text"
+                value={draftSlug}
+                onChange={(e) => setDraftSlug(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') commitDraftSlug();
+                  if (e.key === 'Escape') { setEditingSlug(false); setDraftSlug(preferredSlug || autoDerived); }
+                }}
+                className="qq-install-hosted-edit-input"
+                data-testid="install-hosted-slug-input"
+                aria-label="Custom slug"
+                spellCheck={false}
+                autoFocus
+              />
+              <div className="qq-install-hosted-edit-suffix">.{HOSTING_DOMAIN}</div>
+              <button
+                type="button"
+                onClick={commitDraftSlug}
+                className="qq-install-hosted-edit-save"
+                data-testid="install-hosted-slug-save"
+                aria-label="Save slug"
+                title="Save"
+              >
+                <Check size={14} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                onClick={() => { setEditingSlug(false); setDraftSlug(preferredSlug || autoDerived); }}
+                className="qq-install-hosted-edit-cancel"
+                data-testid="install-hosted-slug-cancel"
+                aria-label="Cancel slug edit"
+                title="Cancel"
+              >
+                <X size={14} aria-hidden="true" />
+              </button>
             </div>
-            {/* Wave P — every save auto-publishes server-side, so the page
-             *  goes live the moment the user lands on Install. Show a
-             *  positive "live" confirmation instead of the old, misleading
-             *  "Reserved — activates after publish" pill. */}
-            <span
-              className="qq-install-hosted-badge is-live"
-              data-testid="install-hosted-badge"
-              data-state="live"
-            >
-              Live
-            </span>
-          </div>
+          ) : (
+            <div className="qq-install-hosted-url-row">
+              <div
+                className="qq-install-hosted-url"
+                data-testid="install-hosted-url"
+                data-slug={derivedSlug}
+              >
+                {hostedDisplay}
+              </div>
+              {/* Wave P — every save auto-publishes server-side, so the page
+               *  goes live the moment the user lands on Install. Show a
+               *  positive "live" confirmation instead of the old, misleading
+               *  "Reserved — activates after publish" pill. */}
+              <span
+                className="qq-install-hosted-badge is-live"
+                data-testid="install-hosted-badge"
+                data-state="live"
+              >
+                Live
+              </span>
+              <button
+                type="button"
+                onClick={() => { setDraftSlug(preferredSlug || autoDerived || ''); setEditingSlug(true); }}
+                className="qq-install-hosted-edit-trigger"
+                data-testid="install-hosted-slug-edit"
+                aria-label="Customise slug"
+                title="Use a custom slug"
+              >
+                <Pencil size={12} aria-hidden="true" />
+              </button>
+            </div>
+          )}
+
+          {/* Wave P-F — live availability hint based on /api/calculators/check-slug. */}
+          {!editingSlug && slugStatus.kind === 'checking' && (
+            <p className="qq-install-hosted-status is-checking" data-testid="install-hosted-slug-status" data-state="checking">
+              Checking availability…
+            </p>
+          )}
+          {!editingSlug && slugStatus.kind === 'available' && (
+            <p className="qq-install-hosted-status is-ok" data-testid="install-hosted-slug-status" data-state="available">
+              ✓ This slug is available — yours on first save.
+            </p>
+          )}
+          {!editingSlug && slugStatus.kind === 'taken' && (
+            <p className="qq-install-hosted-status is-warn" data-testid="install-hosted-slug-status" data-state="taken">
+              <strong>{slugStatus.slug}</strong> is already in use. Your link will be{' '}
+              <code className="qq-install-code-inline">{slugStatus.alternative}</code>{' '}
+              unless you{' '}
+              <button
+                type="button"
+                onClick={() => { setDraftSlug(preferredSlug || autoDerived || ''); setEditingSlug(true); }}
+                className="qq-install-hosted-status-link"
+                data-testid="install-hosted-slug-status-customise"
+              >
+                pick a custom slug
+              </button>.
+            </p>
+          )}
+          {!editingSlug && slugStatus.kind === 'invalid' && (
+            <p className="qq-install-hosted-status is-warn" data-testid="install-hosted-slug-status" data-state="invalid">
+              {slugStatus.reason}.{' '}
+              <button
+                type="button"
+                onClick={() => { setDraftSlug(autoDerived || ''); setEditingSlug(true); }}
+                className="qq-install-hosted-status-link"
+                data-testid="install-hosted-slug-status-customise"
+              >
+                Pick a custom slug
+              </button>.
+            </p>
+          )}
+          {!editingSlug && preferredSlug && (
+            <p className="qq-install-hosted-status is-muted" data-testid="install-hosted-slug-preferred">
+              You picked a custom slug.{' '}
+              <button
+                type="button"
+                onClick={clearPreferred}
+                className="qq-install-hosted-status-link"
+                data-testid="install-hosted-slug-clear-preferred"
+              >
+                Use the auto-derived one instead
+              </button>.
+            </p>
+          )}
           <div className="qq-install-hosted-actions">
             <button
               type="button"
@@ -445,6 +613,71 @@ export default function InstallTab({
           background: rgba(34, 197, 94, 0.13);
           border-color: rgba(34, 197, 94, 0.35);
         }
+        /* Wave P-F — custom-slug edit row + live availability hint. */
+        .qq-install-hosted-edit-trigger {
+          display: inline-flex; align-items: center; justify-content: center;
+          width: 24px; height: 24px;
+          background: transparent; border: 1px solid ${p.colors.border};
+          border-radius: 6px;
+          color: ${p.colors.muted}; cursor: pointer;
+          margin-left: 4px;
+          flex-shrink: 0;
+        }
+        .qq-install-hosted-edit-trigger:hover {
+          background: ${d.colors.canvas};
+          color: ${p.colors.heading};
+          border-color: ${p.colors.accent};
+        }
+        .qq-install-hosted-edit-row {
+          display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
+        }
+        .qq-install-hosted-edit-prefix,
+        .qq-install-hosted-edit-suffix {
+          font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+          font-size: 12.5px; color: ${p.colors.muted};
+        }
+        .qq-install-hosted-edit-input {
+          flex: 1; min-width: 100px;
+          font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+          font-size: 13.5px; font-weight: 700;
+          padding: 6px 8px;
+          background: #fff;
+          border: 1px solid ${p.colors.border};
+          border-radius: 7px;
+          color: ${p.colors.heading};
+          outline: none;
+        }
+        .qq-install-hosted-edit-input:focus { border-color: ${p.colors.accent}; }
+        .qq-install-hosted-edit-save,
+        .qq-install-hosted-edit-cancel {
+          width: 28px; height: 28px;
+          display: inline-flex; align-items: center; justify-content: center;
+          border-radius: 7px; cursor: pointer;
+          flex-shrink: 0;
+        }
+        .qq-install-hosted-edit-save {
+          background: ${p.colors.accent}; color: #fff; border: none;
+          box-shadow: ${p.shadows.button};
+        }
+        .qq-install-hosted-edit-cancel {
+          background: #fff; color: ${p.colors.muted};
+          border: 1px solid ${p.colors.border};
+        }
+        .qq-install-hosted-status {
+          margin: 4px 0 0;
+          font-size: 11.5px; line-height: 1.5;
+          color: ${p.colors.muted};
+        }
+        .qq-install-hosted-status.is-checking { color: ${p.colors.muted}; font-style: italic; }
+        .qq-install-hosted-status.is-ok { color: #097a4a; font-weight: 600; }
+        .qq-install-hosted-status.is-warn { color: ${p.colors.warning ?? '#a8741b'}; }
+        .qq-install-hosted-status.is-muted { color: ${p.colors.muted}; }
+        .qq-install-hosted-status-link {
+          background: transparent; border: none; padding: 0;
+          color: ${p.colors.accent}; font: inherit; font-weight: 600;
+          cursor: pointer; text-decoration: underline;
+        }
+        .qq-install-hosted-status-link:hover { color: ${p.colors.accentDark ?? p.colors.accent}; }
         .qq-install-hosted-actions {
           display: flex; gap: 8px; flex-wrap: wrap;
         }

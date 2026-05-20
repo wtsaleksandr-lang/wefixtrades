@@ -470,6 +470,11 @@ export default function WizardShell({ embed = false }: Props) {
         pricing_config: toPricingConfig(settings.pricing),
         ...(leadEmailOk ? { owner_email: leadEmail } : {}),
         primary_color: p.colors.accent,
+        // Wave P-F — pass the user's custom slug pick (if any) so the
+        // server uses it verbatim instead of slugifying business name.
+        // generateUniqueSlug() falls back gracefully when it's missing,
+        // invalid, or taken.
+        ...(settings.preferredSlug ? { preferred_slug: settings.preferredSlug } : {}),
         calculator_settings: {
           calculator_type: 'estimate_only',
           ui_template: { template_id: 'classic_single' },

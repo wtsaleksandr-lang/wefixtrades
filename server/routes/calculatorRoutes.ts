@@ -42,7 +42,19 @@ function deepMergeSettings(base: Record<string, any>, patch: Record<string, any>
   return result;
 }
 
-async function generateUniqueSlug(businessName?: string): Promise<string> {
+async function generateUniqueSlug(
+  businessName?: string,
+  preferredSlug?: string,
+): Promise<string> {
+  // Wave P-F — if the wizard sent a preferred slug AND it's valid AND
+  // unique, use it. Otherwise fall back to the derived/business-name path.
+  if (preferredSlug) {
+    const validation = isValidSlug(preferredSlug);
+    if (validation.valid) {
+      const existing = await storage.getCalculatorBySlug(preferredSlug);
+      if (!existing) return preferredSlug;
+    }
+  }
   const base = businessName ? slugify(businessName) : randomBytes(6).toString("hex");
   const existing = await storage.getCalculatorBySlug(base);
   if (!existing) return base;
@@ -66,6 +78,11 @@ const createCalculatorBody = z.object({
   primary_color: z.string().optional(),
   theme_overrides: z.record(z.any()).nullable().optional(),
   calculator_settings: z.record(z.any()).nullable().optional(),
+  // Wave P-F — optional preferred slug. When provided AND valid AND not
+  // taken, the server uses it verbatim instead of slugifying the business
+  // name. When taken or invalid, generateUniqueSlug falls back to the
+  // derived value. Subject to the same regex + reserved-words check.
+  preferred_slug: z.string().optional(),
 });
 
 const updateCalculatorBody = z.object({
@@ -107,7 +124,7 @@ export function registerCalculatorRoutes(app: Express): void {
         return res.status(400).json({ error: "Invalid request", details: parsed.error.flatten() });
       }
 
-      const slug = await generateUniqueSlug(parsed.data.business_name);
+      const slug = await generateUniqueSlug(parsed.data.business_name, parsed.data.preferred_slug);
       const edit_token = generateToken();
       const token_expires_at = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
