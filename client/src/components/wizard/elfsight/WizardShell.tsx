@@ -24,9 +24,11 @@ import { useLocation } from 'wouter';
 import { apiRequest } from '@/lib/queryClient';
 import { platformTheme } from '@/theme/platformTheme';
 import { dashboardTheme } from '@/theme/dashboardTheme';
+import { buildBlankPreviewConfig, type TemplateField } from '@shared/templatePresets';
 import EditorTopBar from './EditorTopBar';
 import EditorTabs from './EditorTabs';
 import TabPlaceholder from './TabPlaceholder';
+import BuildTab from './BuildTab';
 import PreviewPane from './PreviewPane';
 import {
   INITIAL_SHELL_STATE, type EditorTab, type PreviewDevice, type ShellState,
@@ -37,18 +39,39 @@ const d = dashboardTheme;
 
 const STORAGE_KEY = 'qq_elfsight_shell';
 
+/**
+ * Seed the initial Build > Fields list from the same placeholder config used
+ * by the live preview. Once the user edits the list, the persisted state
+ * takes over (see localStorage rehydrate below).
+ */
+function seedFields(layout: ShellState['layout']): TemplateField[] {
+  return buildBlankPreviewConfig(layout).fields.map((f) => ({ ...f }));
+}
+
 function loadShellState(): ShellState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
+      const layout = parsed.layout ?? INITIAL_SHELL_STATE.layout;
+      const hasFields = Array.isArray(parsed.fields) && parsed.fields.length > 0;
       return {
         ...INITIAL_SHELL_STATE,
         ...parsed,
+        layout,
+        // H2 introduces `fields`; older persisted state pre-dates it, so seed
+        // from the placeholder when absent. Empty-array edits are preserved.
+        fields: hasFields
+          ? parsed.fields
+          : (parsed.fields === undefined ? seedFields(layout) : []),
+        calculations: Array.isArray(parsed.calculations) ? parsed.calculations : [],
       };
     }
   } catch {}
-  return { ...INITIAL_SHELL_STATE };
+  return {
+    ...INITIAL_SHELL_STATE,
+    fields: seedFields(INITIAL_SHELL_STATE.layout),
+  };
 }
 
 interface Props {
@@ -72,6 +95,10 @@ export default function WizardShell({ embed = false }: Props) {
 
   const setBusinessName = useCallback((v: string) => {
     setState((s) => ({ ...s, businessName: v }));
+  }, []);
+
+  const setFields = useCallback((next: TemplateField[]) => {
+    setState((s) => ({ ...s, fields: next }));
   }, []);
 
   // Save round-trip — keeps the legacy POST /api/calculators contract live
@@ -142,11 +169,20 @@ export default function WizardShell({ embed = false }: Props) {
         <div className="qq-editor-body">
           <div className="qq-editor-left" data-testid="editor-left-panel">
             <div className="qq-editor-left-inner">
-              <TabPlaceholder
-                tab={activeTab}
-                businessName={state.businessName}
-                onBusinessNameChange={setBusinessName}
-              />
+              {activeTab === 'build' ? (
+                <BuildTab
+                  businessName={state.businessName}
+                  onBusinessNameChange={setBusinessName}
+                  fields={state.fields}
+                  onFieldsChange={setFields}
+                />
+              ) : (
+                <TabPlaceholder
+                  tab={activeTab}
+                  businessName={state.businessName}
+                  onBusinessNameChange={setBusinessName}
+                />
+              )}
               {/* Save-draft hook — keeps POST /api/calculators alive from
                   the new shell. Visible in the Build tab so QA can hit it. */}
               {activeTab === 'build' && (
@@ -175,6 +211,7 @@ export default function WizardShell({ embed = false }: Props) {
               businessName={state.businessName}
               layout={state.layout}
               device={device}
+              fields={state.fields}
             />
           </div>
         </div>
