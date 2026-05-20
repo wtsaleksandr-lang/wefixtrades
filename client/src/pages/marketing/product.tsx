@@ -378,8 +378,8 @@ export default function ProductPage() {
             overflow: "hidden",
           }}
         >
-          <div style={{ position: "absolute", top: -100, right: -60, width: 500, height: 500, borderRadius: "50%", background: "rgba(47,107,255,0.08)", pointerEvents: "none" }} />
-          <div style={{ position: "absolute", bottom: -80, left: -80, width: 400, height: 400, borderRadius: "50%", background: "rgba(47,107,255,0.07)", pointerEvents: "none" }} />
+          <div style={{ position: "absolute", top: -100, right: -60, width: 500, height: 500, borderRadius: "50%", background: "rgba(13,60,252,0.08)", pointerEvents: "none" }} />
+          <div style={{ position: "absolute", bottom: -80, left: -80, width: 400, height: 400, borderRadius: "50%", background: "rgba(13,60,252,0.07)", pointerEvents: "none" }} />
 
           <div
             className="hero-grid"
@@ -395,7 +395,7 @@ export default function ProductPage() {
             <div>
               <div style={{
                 display: "inline-flex", alignItems: "center", gap: 6,
-                background: "rgba(47,107,255,0.20)", border: "1px solid rgba(47,107,255,0.35)",
+                background: "rgba(13,60,252,0.20)", border: "1px solid rgba(13,60,252,0.35)",
                 borderRadius: 20, padding: "5px 14px", marginBottom: 28,
               }}>
                 <span style={{ fontSize: 12, fontWeight: 700, color: "#6EE7B7", letterSpacing: "0.02em" }}>
@@ -507,7 +507,7 @@ export default function ProductPage() {
                     </div>
                     <div style={{ fontSize: 11, fontWeight: 700, color: "#FFF" }}>AI Employee <span style={{ color: mkt.success }}>●</span></div>
                   </div>
-                  <div style={{ background: "rgba(47,107,255,0.20)", borderRadius: "10px 10px 10px 3px", padding: "9px 12px", fontSize: 12.5, color: "rgba(255,255,255,0.82)", lineHeight: 1.5 }}>
+                  <div style={{ background: "rgba(13,60,252,0.20)", borderRadius: "10px 10px 10px 3px", padding: "9px 12px", fontSize: 12.5, color: "rgba(255,255,255,0.82)", lineHeight: 1.5 }}>
                     Great! Your booking is confirmed. See you Tuesday at 9am 👋
                   </div>
                 </div>

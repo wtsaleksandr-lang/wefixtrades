@@ -185,7 +185,7 @@ export default function FeaturePage({ config }: { config: FeaturePageConfig }) {
         >
           {/* Ambient orbs */}
           <div style={{ position: "absolute", top: -80, right: -60, width: 480, height: 480, borderRadius: "50%", background: `${hero.accentColor}14`, pointerEvents: "none" }} />
-          <div style={{ position: "absolute", bottom: -80, left: -60, width: 360, height: 360, borderRadius: "50%", background: "rgba(47,107,255,0.07)", pointerEvents: "none" }} />
+          <div style={{ position: "absolute", bottom: -80, left: -60, width: 360, height: 360, borderRadius: "50%", background: "rgba(13,60,252,0.07)", pointerEvents: "none" }} />
 
           <div
             className="feature-hero-grid"

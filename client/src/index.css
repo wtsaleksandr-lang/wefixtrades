@@ -302,8 +302,8 @@
 }
 
 .premium-input:focus {
-  border-color: #2F6BFF;
-  box-shadow: 0 0 0 3px rgba(47, 107, 255, 0.15);
+  border-color: #0d3cfc;
+  box-shadow: 0 0 0 3px rgba(13, 60, 252, 0.15);
   outline: none;
   background: #FFFFFF;
 }
@@ -340,7 +340,7 @@
   top: 6px;
   font-size: 11px;
   font-weight: 600;
-  color: #2F6BFF;
+  color: #0d3cfc;
 }
 
 /* CTA "Button text" field — styled to look like the live action button. */
@@ -897,7 +897,7 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #2F6BFF;
+  background: #0d3cfc;
   flex-shrink: 0;
 }
 .htd-badge__text {

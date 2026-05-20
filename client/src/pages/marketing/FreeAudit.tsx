@@ -521,14 +521,14 @@ export default function FreeAudit() {
           .audit-container { padding: 120px 24px 80px; }
         }
         .audit-input:focus {
-          border-color: #2F6BFF !important;
-          box-shadow: 0 0 0 4px rgba(47,107,255,0.16) !important;
+          border-color: #0d3cfc !important;
+          box-shadow: 0 0 0 4px rgba(13,60,252,0.16) !important;
         }
         .audit-suggestion:hover {
-          background: rgba(47,107,255,0.06) !important;
+          background: rgba(13,60,252,0.06) !important;
         }
         .audit-suggestion:active {
-          background: rgba(47,107,255,0.10) !important;
+          background: rgba(13,60,252,0.10) !important;
         }
         .audit-shimmer {
           height: 4px;
@@ -542,7 +542,7 @@ export default function FreeAudit() {
           position: absolute;
           inset: 0;
           border-radius: 4px;
-          background: linear-gradient(90deg, transparent, #2F6BFF, transparent);
+          background: linear-gradient(90deg, transparent, #0d3cfc, transparent);
           animation: audit-shimmer-move 1.4s ease-in-out infinite;
         }
         @keyframes audit-shimmer-move {
@@ -676,8 +676,8 @@ export default function FreeAudit() {
                       transform: "translateY(-50%)",
                       width: 18,
                       height: 18,
-                      border: "2px solid rgba(47,107,255,0.2)",
-                      borderTopColor: "#2F6BFF",
+                      border: "2px solid rgba(13,60,252,0.2)",
+                      borderTopColor: "#0d3cfc",
                       borderRadius: "50%",
                       animation: "spin 0.7s linear infinite",
                     }}
@@ -758,9 +758,9 @@ export default function FreeAudit() {
                           ) : (
                             <div style={{
                               width: 36, height: 36, borderRadius: "50%",
-                              background: "rgba(47,107,255,0.08)",
+                              background: "rgba(13,60,252,0.08)",
                               display: "flex", alignItems: "center", justifyContent: "center",
-                              flexShrink: 0, fontSize: 15, fontWeight: 700, color: "#2F6BFF",
+                              flexShrink: 0, fontSize: 15, fontWeight: 700, color: "#0d3cfc",
                             }}>
                               {p.name?.charAt(0) || "?"}
                             </div>
@@ -851,8 +851,8 @@ export default function FreeAudit() {
                           style={{
                             width: 15,
                             height: 15,
-                            border: "2px solid rgba(47,107,255,0.3)",
-                            borderTopColor: "#2F6BFF",
+                            border: "2px solid rgba(13,60,252,0.3)",
+                            borderTopColor: "#0d3cfc",
                             borderRadius: "50%",
                             animation: "spin 0.7s linear infinite",
                           }}
@@ -940,8 +940,8 @@ export default function FreeAudit() {
               {
                 href: "/tools/quote-demo",
                 icon: Calculator,
-                iconColor: "#2F6BFF",
-                iconBg: "rgba(47,107,255,0.08)",
+                iconColor: "#0d3cfc",
+                iconBg: "rgba(13,60,252,0.08)",
                 title: "Instant Quote Demo",
                 desc: "Let customers get prices on your website",
               },
