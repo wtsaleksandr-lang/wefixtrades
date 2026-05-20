@@ -24,7 +24,10 @@ import { useLocation } from 'wouter';
 import { apiRequest } from '@/lib/queryClient';
 import { platformTheme } from '@/theme/platformTheme';
 import { dashboardTheme } from '@/theme/dashboardTheme';
-import { buildBlankPreviewConfig, type TemplateField } from '@shared/templatePresets';
+import {
+  buildBlankPreviewConfig,
+  type TemplateField, type TemplateCalculation,
+} from '@shared/templatePresets';
 import EditorTopBar from './EditorTopBar';
 import EditorTabs from './EditorTabs';
 import TabPlaceholder from './TabPlaceholder';
@@ -48,6 +51,15 @@ function seedFields(layout: ShellState['layout']): TemplateField[] {
   return buildBlankPreviewConfig(layout).fields.map((f) => ({ ...f }));
 }
 
+/**
+ * Seed the initial Build > Calculations list from the same placeholder config
+ * used by the live preview. This means the preview shows a real price out of
+ * the box. Once the user edits the list, persistence takes over.
+ */
+function seedCalculations(layout: ShellState['layout']): TemplateCalculation[] {
+  return buildBlankPreviewConfig(layout).calculations.map((c) => ({ ...c }));
+}
+
 function loadShellState(): ShellState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -55,6 +67,7 @@ function loadShellState(): ShellState {
       const parsed = JSON.parse(raw);
       const layout = parsed.layout ?? INITIAL_SHELL_STATE.layout;
       const hasFields = Array.isArray(parsed.fields) && parsed.fields.length > 0;
+      const hasCalcs = Array.isArray(parsed.calculations) && parsed.calculations.length > 0;
       return {
         ...INITIAL_SHELL_STATE,
         ...parsed,
@@ -64,13 +77,19 @@ function loadShellState(): ShellState {
         fields: hasFields
           ? parsed.fields
           : (parsed.fields === undefined ? seedFields(layout) : []),
-        calculations: Array.isArray(parsed.calculations) ? parsed.calculations : [],
+        // H3 introduces editable `calculations`; older persisted state
+        // pre-dates it, so seed from the placeholder when absent (so the
+        // preview shows a real price). An explicit empty array is preserved.
+        calculations: hasCalcs
+          ? parsed.calculations
+          : (parsed.calculations === undefined ? seedCalculations(layout) : []),
       };
     }
   } catch {}
   return {
     ...INITIAL_SHELL_STATE,
     fields: seedFields(INITIAL_SHELL_STATE.layout),
+    calculations: seedCalculations(INITIAL_SHELL_STATE.layout),
   };
 }
 
@@ -99,6 +118,10 @@ export default function WizardShell({ embed = false }: Props) {
 
   const setFields = useCallback((next: TemplateField[]) => {
     setState((s) => ({ ...s, fields: next }));
+  }, []);
+
+  const setCalculations = useCallback((next: TemplateCalculation[]) => {
+    setState((s) => ({ ...s, calculations: next }));
   }, []);
 
   // Save round-trip — keeps the legacy POST /api/calculators contract live
@@ -175,6 +198,8 @@ export default function WizardShell({ embed = false }: Props) {
                   onBusinessNameChange={setBusinessName}
                   fields={state.fields}
                   onFieldsChange={setFields}
+                  calculations={state.calculations}
+                  onCalculationsChange={setCalculations}
                 />
               ) : (
                 <TabPlaceholder
@@ -212,6 +237,7 @@ export default function WizardShell({ embed = false }: Props) {
               layout={state.layout}
               device={device}
               fields={state.fields}
+              calculations={state.calculations}
             />
           </div>
         </div>
