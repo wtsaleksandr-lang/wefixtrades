@@ -27,7 +27,15 @@ const FONT: React.CSSProperties = {
   letterSpacing: "0.05em",
 };
 
-export default function BuiltForRotator() {
+interface BuiltForRotatorProps {
+  /** Color variant. `onDark` (default) for slate/dark backgrounds;
+   * `onWarm` is for the W-HERO warm cream canvas — uses slate-600
+   * for the "Built for:" label so it stays readable on cream. */
+  variant?: "onDark" | "onWarm";
+}
+
+export default function BuiltForRotator({ variant = "onDark" }: BuiltForRotatorProps = {}) {
+  const labelColor = variant === "onWarm" ? mkt.onWarmMuted : mkt.onDarkMuted;
   const [index, setIndex] = useState(0);
   const [phase, setPhase] = useState<"visible" | "exiting" | "entering">("visible");
   const timerRef = useRef<ReturnType<typeof setTimeout>>();
@@ -74,7 +82,7 @@ export default function BuiltForRotator() {
 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-      <span style={{ ...FONT, color: mkt.onDarkMuted, whiteSpace: "nowrap", flexShrink: 0 }}>
+      <span style={{ ...FONT, color: labelColor, whiteSpace: "nowrap", flexShrink: 0 }}>
         Built for:
       </span>
       <span

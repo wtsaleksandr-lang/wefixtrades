@@ -276,6 +276,19 @@ export const mkt = {
   sectionLight: '#242d30',
   /** Even lighter — for alternating sections that need clear pop */
   sectionLighter: '#2e393c',
+
+  /* Warm cream "canvas" palette — W-HERO (Alex variant 04).
+   * Scoped to the homepage hero only. Other surfaces stay on the dark
+   * DOSS palette. Headline uses rich black (slate-950 — `onWarm`), sub
+   * uses slate-600 (`onWarmMuted`), captions use slate-500
+   * (`onWarmFaint`). Hairlines are slate-blue at 0.10 opacity. */
+  warmCanvas: '#F3EDDF',
+  warmCanvasMuted: '#EFE7D8',
+  onWarm: '#0F172A',
+  onWarmMuted: '#475569',
+  onWarmFaint: '#64748B',
+  warmHairline: 'rgba(71,85,105,0.12)',
+  warmHairlineStrong: 'rgba(15,23,42,0.18)',
 } as const;
 
 export const tokens = {
