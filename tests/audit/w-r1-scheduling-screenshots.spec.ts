@@ -18,6 +18,12 @@
 
 import { test, expect } from '@playwright/test';
 import path from 'path';
+import { fileURLToPath } from 'url';
+
+// ESM-safe equivalent of __dirname — the audit config runs Playwright in
+// ESM mode, so the CommonJS `__dirname` global is undefined.
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const SHOT_DIR = path.join(__dirname, '..', '..', '_screenshots');
 
