@@ -87,6 +87,36 @@ export type ConversionTestimonialItem = z.infer<typeof conversionTestimonialItem
 
 /* ─── Calculator Settings (master schema) ─── */
 
+/**
+ * Wave H6 — raw Settings tab state stashed verbatim on save-draft so a
+ * server-side consumer can recover the user's exact intent (trade id, lead
+ * email, pricing pick, number-format pick, CTA label) without re-deriving
+ * from the canonical fields.
+ *
+ * Mirrors the client `ShellSettings` shape in
+ * `client/src/components/wizard/elfsight/types.ts`. Every field is optional
+ * because the wizard persists in-flight edits — most payloads will only
+ * carry a subset. Unknown nested keys are tolerated via `.catchall(z.any())`
+ * on the nested objects so a future client field doesn't fail validation
+ * at the server boundary.
+ */
+const shellSettingsSchema = z.object({
+  tradeId: z.string().optional(),
+  leadEmail: z.string().optional(),
+  pricing: z.object({
+    mode: z.enum(['hourly', 'fixed', 'custom']),
+    rate: z.number().optional(),
+    value: z.number().optional(),
+    label: z.string().optional(),
+  }).partial().catchall(z.any()).optional(),
+  numberFormat: z.object({
+    thousands: z.enum(['comma', 'space', 'none']),
+    decimal: z.enum(['dot', 'comma']),
+    currency: z.string(),
+  }).partial().catchall(z.any()).optional(),
+  ctaLabel: z.string().optional(),
+}).catchall(z.any());
+
 export const calculatorSettingsSchema = z.object({
   settings_version: z.number().default(1),
 
@@ -94,6 +124,15 @@ export const calculatorSettingsSchema = z.object({
   booking_settings: bookingSettingsSchema,
   ui_template: uiTemplateSchema,
   conversion_blocks: conversionBlocksSchema,
+
+  /**
+   * Wave H6 — raw Settings tab payload (see `shellSettingsSchema` above).
+   * Without this explicit field, Zod's default strip-unknown-keys behaviour
+   * silently dropped the H6 client's `shell_settings` on `parse()` —
+   * meaning user picks (EUR currency, comma-decimal, etc.) never survived
+   * the save-draft round-trip.
+   */
+  shell_settings: shellSettingsSchema.optional(),
 
   pricing_draft: pricingDraftSchema,
   pricing_intake: pricingIntakeSchema.optional(),
@@ -419,6 +458,17 @@ export const calculatorSettingsSchema = z.object({
       },
       z.enum(['single-column', 'two-column', 'multi-column']).default('two-column'),
     ),
+    // Wave H6 — number-format overrides (drives the renderer's currency
+    // formatting independent of the user's browser locale). Mirrors the
+    // shared `AdvNumberFormat` interface in `shared/templatePresets.ts`.
+    // Optional — absent slot means pre-H6 en-US defaults.
+    // Without this explicit field, Zod's strip-unknown-keys behaviour
+    // silently dropped the H6 client's `advanced.numberFormat` on `parse()`.
+    numberFormat: z.object({
+      thousands: z.enum([',', ' ', '']).optional(),
+      decimal: z.enum(['.', ',']).optional(),
+      currency: z.string().optional(),
+    }).optional(),
   }).default({}),
 
   ai_employee: z.object({
