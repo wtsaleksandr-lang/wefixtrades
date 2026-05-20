@@ -163,6 +163,67 @@ export default function CalculationRow({
             precedingCalcs={precedingCalcs}
             autoFocus={defaultExpanded}
           />
+
+          {/* Wave H4 — Elfsight-style display controls. All optional; default
+              behaviour is preserved when nothing is touched. */}
+          <div className="qq-calc-display" data-testid={`calc-row-display-${calc.id}`}>
+            <div className="qq-calc-display-row">
+              <Label>Result mode</Label>
+              <div
+                className="qq-calc-seg"
+                role="radiogroup"
+                aria-label="Result mode"
+                data-testid={`calc-row-resultmode-${calc.id}`}
+              >
+                {(['primary', 'secondary'] as const).map((mode) => {
+                  // `undefined` defaults to 'secondary' for selection display.
+                  const current = calc.resultMode ?? 'secondary';
+                  const selected = current === mode;
+                  return (
+                    <button
+                      key={mode}
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      className={`qq-calc-seg-btn${selected ? ' is-active' : ''}`}
+                      onClick={() => update({ resultMode: mode })}
+                      data-testid={`calc-row-resultmode-${mode}-${calc.id}`}
+                    >
+                      {mode === 'primary' ? 'Primary' : 'Secondary'}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="qq-calc-display-row">
+              <Label>Caption</Label>
+              <input
+                type="text"
+                className="qq-calc-input"
+                value={calc.caption ?? ''}
+                onChange={(e) => update({ caption: e.target.value })}
+                placeholder="Optional supplementary line"
+                data-testid={`calc-row-input-caption-${calc.id}`}
+              />
+            </div>
+
+            <div className="qq-calc-display-toggles">
+              <ToggleField
+                testId={`calc-row-toggle-showinresults-${calc.id}`}
+                label="Show in results"
+                // Undefined = shown (back-compat default).
+                checked={calc.showInResults !== false}
+                onChange={(next) => update({ showInResults: next })}
+              />
+              <ToggleField
+                testId={`calc-row-toggle-divider-${calc.id}`}
+                label="Divider above"
+                checked={calc.divider === true}
+                onChange={(next) => update({ divider: next })}
+              />
+            </div>
+          </div>
         </div>
       )}
 
@@ -245,8 +306,89 @@ export default function CalculationRow({
         .qq-calc-input:focus {
           border-color: ${p.colors.accent}; box-shadow: ${p.shadows.focus};
         }
+
+        /* H4 display controls */
+        .qq-calc-display {
+          display: flex; flex-direction: column; gap: 10px;
+          padding: 10px 12px;
+          border-radius: 8px;
+          background: ${p.colors.surfaceRaised};
+          border: 1px solid ${p.colors.borderLight};
+        }
+        .qq-calc-display-row {
+          display: flex; flex-direction: column; gap: 4px;
+        }
+        .qq-calc-display-toggles {
+          display: flex; flex-wrap: wrap; gap: 8px;
+        }
+        .qq-calc-seg {
+          display: inline-flex; align-items: stretch;
+          padding: 3px; gap: 3px;
+          background: #fff;
+          border: 1px solid ${p.colors.border}; border-radius: 8px;
+          width: fit-content;
+        }
+        .qq-calc-seg-btn {
+          font: inherit; font-size: 11.5px; font-weight: 700;
+          padding: 5px 12px; border-radius: 6px;
+          border: none; background: transparent; color: ${p.colors.muted};
+          cursor: pointer;
+          transition: background 0.1s ease, color 0.1s ease;
+        }
+        .qq-calc-seg-btn:hover:not(.is-active) {
+          background: ${p.colors.surfaceRaised}; color: ${p.colors.heading};
+        }
+        .qq-calc-seg-btn.is-active {
+          background: ${p.colors.accent}; color: #fff;
+          box-shadow: ${p.shadows.button};
+        }
+        .qq-calc-toggle {
+          display: inline-flex; align-items: center; gap: 8px;
+          padding: 6px 10px; border-radius: 8px;
+          background: #fff; border: 1px solid ${p.colors.border};
+          cursor: pointer; font: inherit; font-size: 11.5px; font-weight: 600;
+          color: ${p.colors.body};
+          transition: background 0.1s ease, border-color 0.1s ease;
+        }
+        .qq-calc-toggle:hover { border-color: ${p.colors.accent}; }
+        .qq-calc-toggle-swatch {
+          width: 28px; height: 16px; border-radius: 8px; flex-shrink: 0;
+          background: ${p.colors.border}; position: relative;
+          transition: background 0.12s ease;
+        }
+        .qq-calc-toggle-swatch::after {
+          content: ''; position: absolute;
+          top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%;
+          background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+          transition: left 0.12s ease;
+        }
+        .qq-calc-toggle.is-on .qq-calc-toggle-swatch { background: ${p.colors.accent}; }
+        .qq-calc-toggle.is-on .qq-calc-toggle-swatch::after { left: 14px; }
       `}</style>
     </div>
+  );
+}
+
+function ToggleField({
+  label, checked, onChange, testId,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (next: boolean) => void;
+  testId: string;
+}) {
+  return (
+    <button
+      type="button"
+      className={`qq-calc-toggle${checked ? ' is-on' : ''}`}
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      data-testid={testId}
+    >
+      <span className="qq-calc-toggle-swatch" aria-hidden="true" />
+      <span>{label}</span>
+    </button>
   );
 }
 
