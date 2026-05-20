@@ -17,7 +17,7 @@ import {
   type TemplateLayout, type TemplateField, type TemplateCalculation,
 } from '@shared/templatePresets';
 import { platformTheme } from '@/theme/platformTheme';
-import type { PreviewDevice, ShellHeader, ShellResults } from './types';
+import type { PreviewDevice, ShellHeader, ShellResults, ShellStyle } from './types';
 
 const p = platformTheme;
 
@@ -56,11 +56,17 @@ interface Props {
    * resolves to a calc, the seed headline wins.
    */
   resultCalcId?: string;
+  /**
+   * Wave H5 — Style tab overrides (colours / typography / shape / layout).
+   * Merged onto the `advanced.style` slot the renderer consumes. Absent or
+   * partial style falls through to the placeholder seed's defaults.
+   */
+  style?: ShellStyle;
 }
 
 export default function PreviewPane({
   businessName, layout, device, fields, calculations,
-  header, results, resultCalcId,
+  header, results, resultCalcId, style,
 }: Props) {
   // Synthetic CalculatorData (preview-only). `id: -1` mirrors the legacy
   // sentinel so any downstream code that branches on a real id still treats
@@ -113,6 +119,15 @@ export default function PreviewPane({
       if (footnoteOverride !== '') mergedResults.footnote = results.footnote;
       merged = { ...merged, results: mergedResults };
     }
+    // H5 — Style tab overrides merge over the seed's `style` slot, with
+    // shell values winning where set. The renderer (AdvancedCalculator) does
+    // its own per-field fallback to defaults so a partial style is safe.
+    if (style) {
+      merged = {
+        ...merged,
+        style: { ...(merged.style ?? {}), ...style },
+      };
+    }
     return {
       id: -1,
       slug: 'preview',
@@ -125,7 +140,7 @@ export default function PreviewPane({
         advanced: merged,
       },
     };
-  }, [businessName, layout, fields, calculations, header, results, resultCalcId]);
+  }, [businessName, layout, fields, calculations, header, results, resultCalcId, style]);
 
   return (
     <div className="qq-preview-pane" data-testid="editor-preview-pane">

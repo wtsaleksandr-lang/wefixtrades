@@ -1316,9 +1316,61 @@ export function getTemplateCategories(): string[] {
 /* ─── Runtime config bridge ─── */
 
 /**
+ * Wave H5 — Style tab overrides.
+ *
+ * Composed on top of the resolved `WidgetTheme` at render time. Every field is
+ * optional; absent fields fall through to the theme defaults so a calculator
+ * without a Style customisation looks identical to its template. The shape is
+ * intentionally narrow: it carries USER choices, not derivations (e.g.
+ * accentTint is recomputed from `accent` at render time).
+ *
+ * `fieldStyle`, `radius` and `widgetWidth` are structural — the renderer
+ * applies them via inline styles / data-attributes. They are PERSISTABLE: no
+ * `__preview` flag here so a saved style survives a server round-trip.
+ */
+export type AdvFieldStyle = 'filled' | 'outline';
+export type AdvFontFamily = 'system' | 'inter' | 'manrope';
+export type AdvWidgetWidth = 'narrow' | 'wide' | 'full';
+export interface AdvStyle {
+  /** Accent / CTA colour. Overrides theme.accent. */
+  accent?: string;
+  /** Calculator body background. Overrides theme.bg. */
+  background?: string;
+  /** Primary text colour. Overrides theme.text. */
+  text?: string;
+  /** Result-panel background. Overrides theme.result. */
+  resultsBg?: string;
+  fontFamily?: AdvFontFamily;
+  fieldStyle?: AdvFieldStyle;
+  /** Corner radius in pixels (0–24). */
+  radius?: number;
+  widgetWidth?: AdvWidgetWidth;
+}
+
+/**
+ * Brand defaults — Wave H5. Used by the StyleTab and by
+ * `buildBlankPreviewConfig` so the preview seeds with the user's brand instead
+ * of the Elfsight default.
+ */
+export const DEFAULT_ADV_STYLE: Required<AdvStyle> = {
+  accent: '#0d3cfc',
+  background: '#ffffff',
+  text: '#0f172a',
+  resultsBg: '#ffffff',
+  fontFamily: 'system',
+  fieldStyle: 'filled',
+  radius: 12,
+  widgetWidth: 'wide',
+};
+
+/**
  * The runtime `calculator_settings.advanced` shape — what the renderer and the
  * builder persist. Kept identical to the pre-refactor shape so no stored
  * calculator needs migration; only the catalogue module shape changed.
+ *
+ * Wave H5 widens it with the optional `style` slot — back-compatible (older
+ * configs render unchanged because every style field is optional and falls
+ * through to the resolved theme).
  */
 export interface AdvancedConfigShape {
   enabled: true;
@@ -1329,6 +1381,8 @@ export interface AdvancedConfigShape {
   result_calc: string;
   header: TemplateHeader;
   results?: TemplateResults;
+  /** Wave H5 — user-driven Style tab overrides. */
+  style?: AdvStyle;
 }
 
 /** Produce a persistable `calculator_settings.advanced` object from a template. */
@@ -1382,6 +1436,9 @@ export function buildBlankPreviewConfig(
     result_calc: 'Estimated Total',
     header: { title: '', align: 'left' },
     results: { footnote: 'Preview only — your real numbers appear once you set pricing.' },
+    // Wave H5 — seed with brand defaults so the placeholder preview already
+    // reads "on brand" and the Style tab starts from a known baseline.
+    style: { ...DEFAULT_ADV_STYLE },
     __preview: true,
   } as AdvancedConfigShape & { __preview: true };
 }

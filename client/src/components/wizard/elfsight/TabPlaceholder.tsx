@@ -18,7 +18,7 @@ interface Props {
 
 const WAVE_BY_TAB: Record<EditorTab, string> = {
   build: 'Wave H2-H4',
-  style: 'Wave H5',
+  style: 'Wave H5', // implemented — but kept as a fallback waypoint
   settings: 'Wave H6',
   install: 'Wave H7',
 };

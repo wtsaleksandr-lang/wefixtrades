@@ -11,9 +11,79 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { runCalculations, type FormulaContext } from '@shared/formulaEngine';
-import { normalizeLayout, type TemplateLayout } from '@shared/templatePresets';
+import {
+  normalizeLayout, type TemplateLayout,
+  type AdvStyle, type AdvFontFamily, type AdvFieldStyle, type AdvWidgetWidth,
+} from '@shared/templatePresets';
 import { eff } from './designTokens';
 import { resolveWidgetTheme, type WidgetTheme } from './widgetThemes';
+
+/**
+ * Wave H5 — Style tab integration.
+ *
+ * Font stacks for the curated `advanced.style.fontFamily` enum. Only system /
+ * Inter / Manrope — no new web-font packages loaded; system stack is the
+ * default Satoshi-led one already used across the widget.
+ */
+const FONT_STACKS: Record<AdvFontFamily, string> = {
+  system: eff.font,
+  inter: '"Inter", system-ui, sans-serif',
+  manrope: '"Manrope", system-ui, sans-serif',
+};
+
+/** Map widget-width enum → outer max-width applied to the calculator root. */
+const WIDTH_PX: Record<AdvWidgetWidth, string> = {
+  narrow: '520px',
+  wide: '820px',
+  full: '100%',
+};
+
+/**
+ * Helper to convert a hex colour to an rgba string with `alpha` so the
+ * Style-tab accent can drive a sensible accent tint without the user
+ * configuring it explicitly. Falls back to the input string on unparseable
+ * input — the renderer just gets a slightly off tint, not a crash.
+ */
+function hexToRgba(hex: string, alpha: number): string {
+  const m = hex.trim().replace('#', '');
+  const full = m.length === 3 ? m.split('').map((c) => c + c).join('') : m;
+  if (!/^[0-9a-fA-F]{6}$/.test(full)) return hex;
+  const r = parseInt(full.slice(0, 2), 16);
+  const g = parseInt(full.slice(2, 4), 16);
+  const b = parseInt(full.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+/**
+ * Compose the user's Style tab choices on top of a resolved `WidgetTheme`.
+ * Every field is optional — absent fields fall through to the theme value.
+ * Returns a NEW theme object so downstream identity-equality checks stay
+ * sound, and recomputes the accent tint from the new accent.
+ */
+function applyStyleOverrides(base: WidgetTheme, style: AdvStyle | undefined): WidgetTheme {
+  if (!style) return base;
+  const next: WidgetTheme = { ...base };
+  if (style.accent) {
+    next.accent = style.accent;
+    next.accentTint = hexToRgba(style.accent, 0.10);
+  }
+  if (style.background) {
+    next.bg = style.background;
+  }
+  if (style.text) {
+    next.text = style.text;
+  }
+  if (style.resultsBg) {
+    next.result = style.resultsBg;
+    // If the user explicitly picked a non-default results bg, recompute the
+    // result text colour for legible contrast. White / very-light backgrounds
+    // keep the theme's `text`; everything else uses white for the value.
+    const isLight = /^#?(f|e)/i.test(style.resultsBg.replace('#', ''));
+    next.resultText = isLight ? next.text : '#ffffff';
+    next.resultMuted = isLight ? base.resultMuted : 'rgba(255,255,255,0.82)';
+  }
+  return next;
+}
 
 /* ─── Config types (mirror calculator_settings.advanced) ─── */
 
@@ -61,6 +131,11 @@ export interface AdvancedConfig {
    * coerced via `normalizeLayout()`.
    */
   layout?: TemplateLayout | 'single_page' | 'two_column' | 'multi_step';
+  /**
+   * Wave H5 — user-driven Style tab overrides. Composed on top of the
+   * resolved `WidgetTheme`. Every field optional → fully back-compatible.
+   */
+  style?: AdvStyle;
 }
 
 interface Props {
@@ -148,10 +223,49 @@ const labelStyle = (c: WidgetTheme): React.CSSProperties => ({
 });
 
 export default function AdvancedCalculator({ businessName, logoUrl, advanced, accentColor }: Props) {
-  const c = resolveWidgetTheme(advanced.theme, accentColor);
+  // Resolve the base theme, then compose the optional `advanced.style`
+  // overrides on top. The Wave H5 style slot wins where it sets a value;
+  // absent fields fall through to the resolved theme (which itself already
+  // honours a top-level `accentColor` override for back-compat).
+  const baseTheme = resolveWidgetTheme(advanced.theme, accentColor);
+  const c = applyStyleOverrides(baseTheme, advanced.style);
   const accent = c.accent;
   const fields = advanced.fields || [];
   const calcs = advanced.calculations || [];
+
+  // Resolved Style tab choices — used to drive the renderer's structural
+  // tokens (font / radius / field-style / widget-width).
+  //
+  // CRITICAL — per-field fallback to LEGACY pre-H5 tokens. A template
+  // persisted without an `advanced.style` slot (the existing 106 templates,
+  // and anything authored before Wave H5) must render IDENTICALLY to the
+  // pre-H5 build: rounded `eff.radius2xl` outer card, `eff.radiusXl` result
+  // panel, `eff.radiusMd` inputs/CTA, Satoshi (`eff.font`), filled inputs,
+  // no max-width cap (the outer QuoteWidget wrapper handles sizing).
+  //
+  // Only when the user has explicitly set a field via the Style tab does
+  // that user value win. Don't apply structural defaults blanket; that's
+  // what regressed the pre-H5 look for every existing template.
+  const style = advanced.style || {};
+  const fontFamily = style.fontFamily !== undefined
+    ? FONT_STACKS[style.fontFamily]
+    : eff.font;
+  // Outer card radius — legacy `eff.radius2xl` (~24px) when unset.
+  // Result panel uses the same px value when set (matches H5 preview), but
+  // falls back to `eff.radiusXl` (~20px) when unset.
+  // Inputs / CTA / lead-form inputs use the legacy 2px-inset value when set,
+  // or `eff.radiusMd` (~12px) when unset.
+  const radiusSet = typeof style.radius === 'number';
+  const radiusValue = radiusSet ? (style.radius as number) : 12;
+  const radiusOuterPx = radiusSet ? `${radiusValue}px` : eff.radius2xl;
+  const radiusResultPx = radiusSet ? `${radiusValue}px` : eff.radiusXl;
+  const radiusInnerPx = radiusSet ? `${Math.max(0, radiusValue - 2)}px` : eff.radiusMd;
+  // Legacy was filled-only — defaulting to 'filled' is back-compat-safe.
+  const fieldStyle: AdvFieldStyle = style.fieldStyle ?? 'filled';
+  // `widgetWidth` undefined → no max-width cap (the outer QuoteWidget wrapper
+  // handled sizing pre-H5). Only apply a fixed cap when the user picked one.
+  const widgetWidth: AdvWidgetWidth | undefined = style.widgetWidth;
+  const maxWidthStyle: string | undefined = widgetWidth ? WIDTH_PX[widgetWidth] : undefined;
 
   const [answers, setAnswers] = useState<Record<string, Answer>>(() => initAnswers(fields));
   const setAnswer = (name: string, value: Answer) => setAnswers((p) => ({ ...p, [name]: value }));
@@ -242,9 +356,9 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
   const leadEmailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(leadEmail.trim());
   const leadReady = leadName.trim() !== '' && leadEmailOk;
   const leadInputStyle: React.CSSProperties = {
-    width: '100%', height: '40px', borderRadius: eff.radiusMd,
+    width: '100%', height: '40px', borderRadius: radiusInnerPx,
     border: '1px solid rgba(15,23,42,0.14)', padding: '0 12px', fontSize: '13px',
-    background: '#ffffff', color: '#0f172a', fontFamily: eff.font, outline: 'none',
+    background: '#ffffff', color: '#0f172a', fontFamily, outline: 'none',
     boxSizing: 'border-box',
   };
 
@@ -261,11 +375,19 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
   );
 
   return (
-    <div data-testid="advanced-calculator" style={{
-      background: c.surface, borderRadius: eff.radius2xl,
-      border: `1px solid ${c.border}`, boxShadow: c.shadow,
-      overflow: 'hidden', fontFamily: eff.font,
-    }}>
+    <div
+      data-testid="advanced-calculator"
+      data-field-style={fieldStyle}
+      data-widget-width={widgetWidth ?? 'legacy'}
+      data-style-radius={radiusSet ? radiusValue : 'legacy'}
+      style={{
+        background: c.surface, borderRadius: radiusOuterPx,
+        border: `1px solid ${c.border}`, boxShadow: c.shadow,
+        overflow: 'hidden', fontFamily,
+        ...(maxWidthStyle ? { maxWidth: maxWidthStyle } : null),
+        margin: '0 auto', width: '100%',
+      }}
+    >
       {/* ── Title bar (its own separated bar) ── */}
       {(() => {
         const header = advanced.header || {};
@@ -351,19 +473,31 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
           )}
           {visibleFields.map((f) => (
             <div key={f.id} data-colspan={f.colSpan === 1 ? '1' : '2'} style={{ minWidth: 0 }}>
-              <FieldInput field={f} value={answers[f.name]} accent={accent} theme={c}
-                onChange={(v) => setAnswer(f.name, v)} />
+              <FieldInput
+                field={f}
+                value={answers[f.name]}
+                accent={accent}
+                theme={c}
+                radiusPx={radiusInnerPx}
+                fieldStyle={fieldStyle}
+                fontFamily={fontFamily}
+                onChange={(v) => setAnswer(f.name, v)}
+              />
             </div>
           ))}
         </div>
 
         {/* Result panel — a separate rounded container */}
         {hasResult && (
-          <div className={`${gridId}-result`} style={{
-            borderRadius: eff.radiusXl, background: c.result,
-            border: resultTinted ? 'none' : `1px solid ${c.border}`, boxShadow: c.shadow,
-            padding: '18px',
-          }}>
+          <div
+            className={`${gridId}-result`}
+            data-testid="advanced-result-panel"
+            style={{
+              borderRadius: radiusResultPx, background: c.result,
+              border: resultTinted ? 'none' : `1px solid ${c.border}`, boxShadow: c.shadow,
+              padding: '18px',
+            }}
+          >
             <p
               data-testid="advanced-result-heading"
               style={{
@@ -443,9 +577,9 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
                   <button type="button" data-testid="advanced-cta"
                     onClick={() => setLeadView('form')}
                     style={{
-                      width: '100%', height: '46px', borderRadius: eff.radiusMd, border: 'none',
+                      width: '100%', height: '46px', borderRadius: radiusInnerPx, border: 'none',
                       background: ctaBg, color: ctaFg, fontSize: '14px', fontWeight: 800,
-                      cursor: 'pointer', fontFamily: eff.font, letterSpacing: '0.01em',
+                      cursor: 'pointer', fontFamily, letterSpacing: '0.01em',
                       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
                       boxShadow: '0 6px 16px rgba(0,0,0,0.18)',
                     }}>
@@ -464,10 +598,10 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
                     <button type="button" data-testid="advanced-cta-send"
                       onClick={() => { if (leadReady) setLeadView('done'); }}
                       style={{
-                        width: '100%', height: '44px', borderRadius: eff.radiusMd, border: 'none',
+                        width: '100%', height: '44px', borderRadius: radiusInnerPx, border: 'none',
                         background: ctaBg, color: ctaFg, fontSize: '14px', fontWeight: 800,
                         cursor: leadReady ? 'pointer' : 'default', opacity: leadReady ? 1 : 0.6,
-                        fontFamily: eff.font,
+                        fontFamily,
                       }}>
                       Send
                     </button>
@@ -501,16 +635,34 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
 
 /* ─── One field ─── */
 
-function FieldInput({ field, value, accent, theme, onChange }: {
-  field: AdvField; value: Answer; accent: string; theme: WidgetTheme; onChange: (v: Answer) => void;
+function FieldInput({ field, value, accent, theme, onChange, radiusPx, fieldStyle, fontFamily }: {
+  field: AdvField;
+  value: Answer;
+  accent: string;
+  theme: WidgetTheme;
+  onChange: (v: Answer) => void;
+  /** Wave H5 — corner radius applied to inputs / cards. */
+  radiusPx: string;
+  /** Wave H5 — `filled` (default) vs `outline`. */
+  fieldStyle: AdvFieldStyle;
+  /** Wave H5 — resolved font stack. */
+  fontFamily: string;
 }) {
   const f = field;
   const c = theme;
 
+  // Wave H5 — field style:
+  //   filled   = themed surface fill, single-stroke border (the legacy look).
+  //   outline  = transparent fill, thicker stroke so the input reads outlined
+  //              against the body background. Both apply the user's radius.
+  const isOutline = fieldStyle === 'outline';
   const inputBase: React.CSSProperties = {
-    width: '100%', height: '44px', borderRadius: eff.radiusMd,
-    border: `1px solid ${c.border}`, padding: '0 14px', fontSize: '14px',
-    color: c.text, background: c.surface, fontFamily: eff.font, outline: 'none',
+    width: '100%', height: '44px', borderRadius: radiusPx,
+    border: isOutline ? `2px solid ${c.border}` : `1px solid ${c.border}`,
+    padding: '0 14px', fontSize: '14px',
+    color: c.text,
+    background: isOutline ? 'transparent' : c.surface,
+    fontFamily, outline: 'none',
     boxSizing: 'border-box',
   };
 
@@ -581,8 +733,9 @@ function FieldInput({ field, value, accent, theme, onChange }: {
     return (
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px',
-        padding: '12px 14px', borderRadius: eff.radiusMd, background: c.surface,
-        border: `1px solid ${c.border}`,
+        padding: '12px 14px', borderRadius: radiusPx,
+        background: isOutline ? 'transparent' : c.surface,
+        border: isOutline ? `2px solid ${c.border}` : `1px solid ${c.border}`,
       }}>
         <span style={{ fontSize: '14px', fontWeight: 600, color: c.text }}>{f.label}</span>
         <button type="button" onClick={() => onChange(!on)} aria-pressed={on}
@@ -623,9 +776,11 @@ function FieldInput({ field, value, accent, theme, onChange }: {
               <button key={o.id} type="button" onClick={() => onChange(o.id)}
                 style={{
                   display: 'flex', alignItems: 'center', gap: '10px', textAlign: 'left',
-                  padding: '11px 13px', borderRadius: eff.radiusMd, cursor: 'pointer',
-                  border: 'none', background: sel ? c.accentTint : c.surface,
-                  boxShadow: sel ? `0 0 0 1.5px ${accent}` : `0 0 0 1px ${c.border}`,
+                  padding: '11px 13px', borderRadius: radiusPx, cursor: 'pointer',
+                  border: 'none',
+                  background: sel ? c.accentTint : (isOutline ? 'transparent' : c.surface),
+                  boxShadow: sel ? `0 0 0 1.5px ${accent}`
+                    : (isOutline ? `0 0 0 2px ${c.border}` : `0 0 0 1px ${c.border}`),
                 }}>
                 <span style={{
                   width: '16px', height: '16px', borderRadius: '50%', flexShrink: 0,
@@ -651,9 +806,10 @@ function FieldInput({ field, value, accent, theme, onChange }: {
               <button key={o.id} type="button" onClick={() => onChange(o.id)}
                 style={{
                   display: 'flex', flexDirection: 'column', gap: '6px', padding: '8px',
-                  borderRadius: eff.radiusMd, cursor: 'pointer', border: 'none',
-                  background: sel ? c.accentTint : c.surface,
-                  boxShadow: sel ? `0 0 0 2px ${accent}` : `0 0 0 1px ${c.border}`,
+                  borderRadius: radiusPx, cursor: 'pointer', border: 'none',
+                  background: sel ? c.accentTint : (isOutline ? 'transparent' : c.surface),
+                  boxShadow: sel ? `0 0 0 2px ${accent}`
+                    : (isOutline ? `0 0 0 2px ${c.border}` : `0 0 0 1px ${c.border}`),
                 }}>
                 <div style={{
                   width: '100%', aspectRatio: '3 / 2', borderRadius: eff.radiusSm,
@@ -688,9 +844,11 @@ function FieldInput({ field, value, accent, theme, onChange }: {
               onClick={() => onChange(sel ? ids.filter((x) => x !== o.id) : [...ids, o.id])}
               style={{
                 display: 'flex', alignItems: 'center', gap: '10px', textAlign: 'left',
-                padding: '11px 13px', borderRadius: eff.radiusMd, cursor: 'pointer',
-                border: 'none', background: sel ? c.accentTint : c.surface,
-                boxShadow: sel ? `0 0 0 1.5px ${accent}` : `0 0 0 1px ${c.border}`,
+                padding: '11px 13px', borderRadius: radiusPx, cursor: 'pointer',
+                border: 'none',
+                background: sel ? c.accentTint : (isOutline ? 'transparent' : c.surface),
+                boxShadow: sel ? `0 0 0 1.5px ${accent}`
+                  : (isOutline ? `0 0 0 2px ${c.border}` : `0 0 0 1px ${c.border}`),
               }}>
               <span style={{
                 width: '18px', height: '18px', borderRadius: '5px', flexShrink: 0,
