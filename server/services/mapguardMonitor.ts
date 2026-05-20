@@ -32,6 +32,17 @@ const log = createLogger("MapguardMonitor");
 const SERPER_TIMEOUT = 15_000;
 const PLACES_TIMEOUT = 10_000;
 
+// Load-test hooks. All default to production behavior when unset.
+// SERPER_BASE_URL / PLACES_BASE_URL let scripts/load/mock-apis.ts intercept
+// upstream traffic without touching the network.
+// MAPGUARD_LOAD_MODE bypasses DB reads/writes inside the scan path so the
+// k6 harness can hammer the worker without polluting dev data; see
+// scripts/load/README.md for the full env recipe.
+const SERPER_BASE_URL = process.env.SERPER_BASE_URL || "https://google.serper.dev";
+const PLACES_BASE_URL = process.env.PLACES_BASE_URL || "https://places.googleapis.com/v1/places";
+const LOAD_MODE = process.env.MAPGUARD_LOAD_MODE === "1";
+const LOAD_CLIENT_COUNT = Number.parseInt(process.env.MAPGUARD_LOAD_CLIENT_COUNT || "100", 10) || 100;
+
 /* ═══════════════════════════════════════════
    ACTIVE CLIENT DISCOVERY
    ═══════════════════════════════════════════ */
@@ -71,6 +82,24 @@ export async function getActiveMapguardClients(): Promise<MapguardClient[]> {
   return rows as MapguardClient[];
 }
 
+/**
+ * Generate N synthetic MapguardClient records for load testing. Used only
+ * when MAPGUARD_LOAD_MODE=1 — the IDs collide with nothing real because
+ * runMapguardScan also short-circuits all DB writes in that mode.
+ */
+function buildSyntheticLoadClients(count: number): MapguardClient[] {
+  const trades = ["plumber", "electrician", "roofer", "hvac", "carpenter"];
+  return Array.from({ length: count }, (_, i) => ({
+    client_id: 900_000 + i,
+    client_service_id: 900_000 + i,
+    business_name: `LoadTest Business ${i}`,
+    place_id: `LOADTEST_PLACE_${i.toString().padStart(4, "0")}`,
+    trade_type: trades[i % trades.length]!,
+    website_url: `https://loadtest-${i}.example.com`,
+    metadata: { city: "Sydney" },
+  }));
+}
+
 /* ═══════════════════════════════════════════
    DATA FETCHING (lightweight recurring scan)
    ═══════════════════════════════════════════ */
@@ -98,7 +127,7 @@ async function fetchPlaceDetails(placeId: string): Promise<{
       return null;
     }
     const fields = "displayName,rating,userRatingCount,photos,websiteUri,regularOpeningHours,editorialSummary";
-    const url = `https://places.googleapis.com/v1/places/${placeId}?fields=${fields}&key=${key}`;
+    const url = `${PLACES_BASE_URL}/${placeId}?fields=${fields}&key=${key}`;
     const res = await fetch(url, { ...withSignal(PLACES_TIMEOUT) });
     if (!res.ok) {
       // Surface non-2xx status so ops can distinguish a missing/invalid
@@ -156,7 +185,7 @@ async function fetchKeywordRankings(keywords: string[], businessName: string, ci
 
   const promises = keywords.map(async (keyword): Promise<KeywordResult> => {
     try {
-      const searchRes = await fetch("https://google.serper.dev/search", {
+      const searchRes = await fetch(`${SERPER_BASE_URL}/search`, {
         method: "POST",
         headers: { "X-API-KEY": apiKey, "Content-Type": "application/json" },
         body: JSON.stringify({ q: `${keyword} ${city}`, num: 20, gl: "au" }),
@@ -168,7 +197,7 @@ async function fetchKeywordRankings(keywords: string[], businessName: string, ci
       }
       const searchData = await searchRes.json();
 
-      const mapsRes = await fetch("https://google.serper.dev/maps", {
+      const mapsRes = await fetch(`${SERPER_BASE_URL}/maps`, {
         method: "POST",
         headers: { "X-API-KEY": apiKey, "Content-Type": "application/json" },
         body: JSON.stringify({ q: `${keyword} ${city}`, gl: "au" }),
@@ -554,11 +583,15 @@ export async function runMapguardScan(client: MapguardClient): Promise<{
     ? rankedKeywords.reduce((sum, k) => sum + k.organicRank!, 0) / rankedKeywords.length
     : null;
 
-  // Get previous snapshot for change detection
-  const [previousSnapshot] = await db.select().from(mapguardSnapshots)
-    .where(eq(mapguardSnapshots.client_id, client.client_id))
-    .orderBy(desc(mapguardSnapshots.captured_at))
-    .limit(1);
+  // Get previous snapshot for change detection. In LOAD_MODE we never
+  // touch the snapshot table — k6 runs are throwaway and seeding history
+  // would leak into real dev data.
+  const previousSnapshot = LOAD_MODE
+    ? undefined
+    : (await db.select().from(mapguardSnapshots)
+        .where(eq(mapguardSnapshots.client_id, client.client_id))
+        .orderBy(desc(mapguardSnapshots.captured_at))
+        .limit(1))[0];
 
   // Build snapshot data
   const snapshotData: InsertMapguardSnapshot = {
@@ -607,6 +640,15 @@ export async function runMapguardScan(client: MapguardClient): Promise<{
   // Detect changes
   const changes = detectChanges(snapshotData, previousSnapshot || null);
   snapshotData.changes = changes as any;
+
+  // LOAD_MODE short-circuit: skip every DB write and downstream side
+  // effect. Returns a synthetic in-memory snapshot so callers measure
+  // pure scan-path latency instead of accidentally exercising the
+  // snapshot-history retention worker.
+  if (LOAD_MODE) {
+    const syntheticSnapshot = { ...snapshotData, id: 0 } as MapguardSnapshot;
+    return { snapshot: syntheticSnapshot, changes, tasksCreated: 0, alertsSent: 0 };
+  }
 
   // Store snapshot
   const [snapshot] = await db.insert(mapguardSnapshots).values(snapshotData).returning();
@@ -702,8 +744,10 @@ async function runMapguardBatchScanInner(): Promise<{
   alertsSent: number;
   results: Array<{ client_id: number; business_name: string; score: number | null; significant: boolean; error?: string }>;
 }> {
-  const activeClients = await getActiveMapguardClients();
-  log.info(`[mapguard-monitor] Starting batch scan for ${activeClients.length} clients`);
+  const activeClients = LOAD_MODE
+    ? buildSyntheticLoadClients(LOAD_CLIENT_COUNT)
+    : await getActiveMapguardClients();
+  log.info(`[mapguard-monitor] Starting batch scan for ${activeClients.length} clients${LOAD_MODE ? " (LOAD_MODE)" : ""}`);
 
   let scanned = 0;
   let errorCount = 0;
@@ -737,8 +781,10 @@ async function runMapguardBatchScanInner(): Promise<{
       log.error(`[mapguard-monitor] Scan failed for ${client.business_name}:`, err.message);
     }
 
-    // Brief pause between clients to be polite to APIs
-    if (activeClients.indexOf(client) < activeClients.length - 1) {
+    // Brief pause between clients to be polite to APIs. Skipped in
+    // LOAD_MODE because the mock APIs have no rate limits and the pause
+    // would dominate every measurement.
+    if (!LOAD_MODE && activeClients.indexOf(client) < activeClients.length - 1) {
       await new Promise(r => setTimeout(r, 2000));
     }
   }
