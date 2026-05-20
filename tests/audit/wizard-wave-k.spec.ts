@@ -235,6 +235,132 @@ test.describe('wizard K — AI bubble UI', () => {
   });
 });
 
+test.describe('wizard K — destructive tool confirmation gating', () => {
+  test.beforeEach(async ({ page }) => {
+    await clearShellState(page);
+    await mockBudget(page);
+  });
+
+  test('replace_template is queued until the user clicks Apply', async ({ page }) => {
+    await gotoEditor(page);
+
+    const newTemplate = {
+      layout: 'single-column',
+      header: { title: 'Roof Repair Pro', subtitle: 'Get a quick estimate' },
+      fields: [
+        { id: 'rrp_area', name: 'Area (sqft)', label: 'Area (sqft)', type: 'number', default_value: 500 },
+        { id: 'rrp_pitch', name: 'Pitch', label: 'Pitch', type: 'slider', default_value: 4, min: 1, max: 12 },
+      ],
+      calculations: [
+        { id: 'rrp_total', name: 'Estimate', formula: '[Area (sqft)] * 6 + [Pitch] * 50', format: 'currency' },
+      ],
+      result_calc: 'rrp_total',
+    };
+
+    await mockChat(page, buildSseStream([
+      { event: 'open', data: { model: 'claude-haiku-4-5-20251001', estimate_usd: 0.01 } },
+      { event: 'text', data: { delta: 'Here is a new roof repair calculator.' } },
+      { event: 'tool_use', data: {
+        id: 'toolu_replace_1',
+        name: 'replace_template',
+        input: { template_config: newTemplate, confirm_required: true },
+      } },
+      { event: 'done', data: {
+        cost_usd: 0.018,
+        snapshot: { ...DEFAULT_BUDGET, cumulative_usd: 0.068 },
+        warn: false,
+      } },
+    ]));
+
+    await page.getByTestId('aibubble-toggle').click();
+    await page.getByTestId('aibubble-input').fill('build a roof repair calculator');
+    await page.getByTestId('aibubble-send').click();
+
+    // Confirmation card surfaces, with both Apply and Cancel buttons visible.
+    const confirmCard = page.getByTestId('aibubble-confirm-card');
+    await expect(confirmCard).toBeVisible({ timeout: 4000 });
+    await expect(confirmCard).toHaveAttribute('data-state', 'pending');
+    await expect(page.getByTestId('aibubble-confirm-apply')).toBeVisible();
+    await expect(page.getByTestId('aibubble-confirm-cancel')).toBeVisible();
+    await expect(page.getByTestId('aibubble-confirm-title')).toContainText('Roof Repair Pro');
+
+    // Before clicking Apply: ShellState must NOT yet reflect the new template.
+    const before = await page.evaluate(() => localStorage.getItem('qq_elfsight_shell'));
+    if (before) {
+      const parsedBefore = JSON.parse(before);
+      const labelsBefore = (parsedBefore.fields ?? []).map((f: any) => f.label);
+      expect(labelsBefore).not.toContain('Area (sqft)');
+      expect(labelsBefore).not.toContain('Pitch');
+    }
+    // Tool chip should NOT exist yet (chip is only added on apply).
+    await expect(page.getByTestId('aibubble-tool-chip')).toHaveCount(0);
+
+    // Click Apply.
+    await page.getByTestId('aibubble-confirm-apply').click();
+
+    // Card flips to applied state and the tool chip appears.
+    await expect(confirmCard).toHaveAttribute('data-state', 'applied', { timeout: 3000 });
+    await expect(page.getByTestId('aibubble-confirm-applied')).toBeVisible();
+    await expect(page.getByTestId('aibubble-tool-chip')).toHaveCount(1);
+
+    // Now ShellState reflects the AI-supplied config.
+    const after = await page.evaluate(() => localStorage.getItem('qq_elfsight_shell'));
+    expect(after).not.toBeNull();
+    const parsedAfter = JSON.parse(after as string);
+    const labelsAfter = (parsedAfter.fields ?? []).map((f: any) => f.label);
+    expect(labelsAfter).toContain('Area (sqft)');
+    expect(labelsAfter).toContain('Pitch');
+  });
+
+  test('Cancel on a queued replace_template leaves fields untouched', async ({ page }) => {
+    await gotoEditor(page);
+
+    const newTemplate = {
+      layout: 'single-column',
+      header: { title: 'Some Template' },
+      fields: [
+        { id: 'x_a', name: 'Should Not Appear', label: 'Should Not Appear', type: 'number' },
+      ],
+      calculations: [
+        { id: 'x_t', name: 'Total', formula: '[Should Not Appear]', format: 'currency' },
+      ],
+      result_calc: 'x_t',
+    };
+
+    await mockChat(page, buildSseStream([
+      { event: 'open', data: { model: 'claude-haiku-4-5-20251001', estimate_usd: 0.01 } },
+      { event: 'tool_use', data: {
+        id: 'toolu_replace_2',
+        name: 'replace_template',
+        input: { template_config: newTemplate, confirm_required: true },
+      } },
+      { event: 'done', data: {
+        cost_usd: 0.011,
+        snapshot: { ...DEFAULT_BUDGET, cumulative_usd: 0.061 },
+        warn: false,
+      } },
+    ]));
+
+    await page.getByTestId('aibubble-toggle').click();
+    await page.getByTestId('aibubble-input').fill('replace it');
+    await page.getByTestId('aibubble-send').click();
+
+    await expect(page.getByTestId('aibubble-confirm-card')).toBeVisible({ timeout: 4000 });
+    await page.getByTestId('aibubble-confirm-cancel').click();
+
+    await expect(page.getByTestId('aibubble-confirm-cancelled')).toBeVisible({ timeout: 2000 });
+    await expect(page.getByTestId('aibubble-tool-chip')).toHaveCount(0);
+
+    // ShellState was NOT mutated — the cancelled field never lands.
+    const stored = await page.evaluate(() => localStorage.getItem('qq_elfsight_shell'));
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      const labels = (parsed.fields ?? []).map((f: any) => f.label);
+      expect(labels).not.toContain('Should Not Appear');
+    }
+  });
+});
+
 test.describe('wizard K — AI bubble (mobile)', () => {
   test.use({ viewport: { width: 390, height: 844 } });
 

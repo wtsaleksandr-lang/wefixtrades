@@ -54,7 +54,20 @@ interface ChatMessage {
   content: string;
   /** Visible "tool used" chips beneath the assistant message. */
   toolChips?: string[];
+  /** Pending destructive tool calls awaiting explicit user confirmation. */
+  pendingConfirms?: PendingConfirm[];
   imageThumb?: string;
+}
+
+/** A destructive tool call (replace_template / apply_template) queued for
+ *  user confirmation before it's applied to ShellState. */
+interface PendingConfirm {
+  /** Stable key for React + dedup. */
+  key: string;
+  call: AiToolCall;
+  /** Becomes true once the user clicks Apply or Cancel — keeps the card
+   *  in-place as a record but disables the buttons. */
+  resolved?: 'applied' | 'cancelled';
 }
 
 interface BudgetSnapshot {
@@ -121,6 +134,33 @@ function fileToDataUrl(file: File): Promise<string> {
     r.onerror = () => reject(r.error);
     r.readAsDataURL(file);
   });
+}
+
+/** Tools that wipe the calculator state — require explicit user confirmation
+ *  before applying. The model can still call them, but the chip stays "Pending"
+ *  until the user clicks [Apply]. */
+const DESTRUCTIVE_TOOL_NAMES = new Set(['replace_template', 'apply_template']);
+
+/** Human description of a pending destructive call (shown in the confirm card). */
+function describePendingConfirm(call: AiToolCall): { title: string; body: string } {
+  const i: any = call.input || {};
+  if (call.name === 'apply_template') {
+    const name = String(i.preset_id ?? 'a template');
+    return {
+      title: `AI wants to apply "${name}"`,
+      body: 'Your current fields and calculations will be replaced.',
+    };
+  }
+  // replace_template
+  const cfg: any = i.template_config ?? {};
+  const fieldCount = Array.isArray(cfg.fields) ? cfg.fields.length : 0;
+  const calcCount = Array.isArray(cfg.calculations) ? cfg.calculations.length : 0;
+  const title = (cfg.header?.title && String(cfg.header.title).trim()) || 'a new calculator';
+  return {
+    title: `AI wants to build "${title}"`,
+    body: `Your current fields will be replaced with ${fieldCount} new field${fieldCount === 1 ? '' : 's'}` +
+      (calcCount ? ` and ${calcCount} calculation${calcCount === 1 ? '' : 's'}.` : '.'),
+  };
 }
 
 /* ─── Tool-chip label (one-liner the user sees) ─── */
@@ -313,6 +353,22 @@ export default function AIBubble(props: AIBubbleProps) {
             ));
           },
           onToolUse: (call) => {
+            // Destructive tools (replace_template / apply_template) wipe the
+            // calculator state. Queue them for user confirmation rather than
+            // applying immediately — the user clicks [Apply] in the inline
+            // card to commit. Every other tool applies right away.
+            if (DESTRUCTIVE_TOOL_NAMES.has(call.name)) {
+              const confirmKey = call.id ?? `pending_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+              setMessages(prev => prev.map(m =>
+                m.id === assistantId
+                  ? {
+                    ...m,
+                    pendingConfirms: [...(m.pendingConfirms ?? []), { key: confirmKey, call }],
+                  }
+                  : m
+              ));
+              return;
+            }
             try { applyAiToolCall(call, props); } catch (err: any) {
               // Even on apply failure, surface the attempt to the user.
               setStreamErr(`tool ${call.name} failed: ${err?.message ?? err}`);
@@ -354,6 +410,45 @@ export default function AIBubble(props: AIBubbleProps) {
     setStreamErr(null);
     try { localStorage.removeItem(HISTORY_KEY_PREFIX + conversationId); } catch {}
   }, [conversationId]);
+
+  /* ─── Destructive-tool confirmation ─── */
+
+  /** User clicked [Apply] on a queued replace_template / apply_template card. */
+  const onConfirmApply = useCallback((messageId: string, confirmKey: string) => {
+    setMessages(prev => prev.map(m => {
+      if (m.id !== messageId) return m;
+      const pending = (m.pendingConfirms ?? []).find(p => p.key === confirmKey);
+      if (!pending || pending.resolved) return m;
+      try {
+        applyAiToolCall(pending.call, props);
+      } catch (err: any) {
+        setStreamErr(`tool ${pending.call.name} failed: ${err?.message ?? err}`);
+        return m;
+      }
+      return {
+        ...m,
+        pendingConfirms: (m.pendingConfirms ?? []).map(p =>
+          p.key === confirmKey ? { ...p, resolved: 'applied' as const } : p,
+        ),
+        toolChips: [...(m.toolChips ?? []), describeTool(pending.call)],
+      };
+    }));
+  }, [props]);
+
+  /** User clicked [Cancel] — drop the queued call. We don't send a follow-up
+   *  tool_result here because the chat stream has already completed; the
+   *  cancellation only affects local state. */
+  const onConfirmCancel = useCallback((messageId: string, confirmKey: string) => {
+    setMessages(prev => prev.map(m => {
+      if (m.id !== messageId) return m;
+      return {
+        ...m,
+        pendingConfirms: (m.pendingConfirms ?? []).map(p =>
+          p.key === confirmKey ? { ...p, resolved: 'cancelled' as const } : p,
+        ),
+      };
+    }));
+  }, []);
 
   /* ─── Render ─── */
 
@@ -430,6 +525,60 @@ export default function AIBubble(props: AIBubbleProps) {
                     {m.toolChips.map((chip, i) => (
                       <span key={i} className="qq-ai-chip" data-testid="aibubble-tool-chip">✓ {chip}</span>
                     ))}
+                  </div>
+                )}
+                {m.pendingConfirms && m.pendingConfirms.length > 0 && (
+                  <div className="qq-ai-confirms">
+                    {m.pendingConfirms.map(pc => {
+                      const { title, body } = describePendingConfirm(pc.call);
+                      const resolved = pc.resolved;
+                      return (
+                        <div
+                          key={pc.key}
+                          className={`qq-ai-confirm qq-ai-confirm-${resolved ?? 'pending'}`}
+                          data-testid="aibubble-confirm-card"
+                          data-state={resolved ?? 'pending'}
+                          role="group"
+                          aria-label="Confirm destructive AI action"
+                        >
+                          <div className="qq-ai-confirm-title" data-testid="aibubble-confirm-title">
+                            <AlertTriangle className="w-3.5 h-3.5" />
+                            <span>{title}</span>
+                          </div>
+                          <div className="qq-ai-confirm-body">{body}</div>
+                          {resolved === 'applied' && (
+                            <div className="qq-ai-confirm-status" data-testid="aibubble-confirm-applied">
+                              Applied
+                            </div>
+                          )}
+                          {resolved === 'cancelled' && (
+                            <div className="qq-ai-confirm-status" data-testid="aibubble-confirm-cancelled">
+                              Cancelled
+                            </div>
+                          )}
+                          {!resolved && (
+                            <div className="qq-ai-confirm-actions">
+                              <button
+                                type="button"
+                                className="qq-ai-confirm-cancel"
+                                onClick={() => onConfirmCancel(m.id, pc.key)}
+                                data-testid="aibubble-confirm-cancel"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                className="qq-ai-confirm-apply"
+                                onClick={() => onConfirmApply(m.id, pc.key)}
+                                data-testid="aibubble-confirm-apply"
+                              >
+                                Apply
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -620,6 +769,48 @@ export default function AIBubble(props: AIBubbleProps) {
           background: rgba(13, 60, 252, 0.08);
           color: #0d3cfc;
         }
+
+        /* Inline confirmation card for destructive AI actions
+           (replace_template / apply_template). */
+        .qq-ai-confirms {
+          display: flex; flex-direction: column; gap: 6px;
+          margin-top: 8px;
+        }
+        .qq-ai-confirm {
+          background: #fffbeb; border: 1px solid #fde68a;
+          border-radius: 10px; padding: 8px 10px;
+          color: #92400e;
+        }
+        .qq-ai-confirm-applied { background: #ecfdf5; border-color: #a7f3d0; color: #065f46; }
+        .qq-ai-confirm-cancelled { background: #f1f5f9; border-color: #e2e8f0; color: #475569; }
+        .qq-ai-confirm-title {
+          display: inline-flex; align-items: center; gap: 4px;
+          font-size: 12px; font-weight: 700;
+        }
+        .qq-ai-confirm-body {
+          font-size: 11.5px; margin-top: 4px; line-height: 1.4;
+          color: inherit; opacity: 0.85;
+        }
+        .qq-ai-confirm-actions {
+          display: flex; gap: 6px; margin-top: 8px;
+        }
+        .qq-ai-confirm-apply {
+          background: #0d3cfc; color: #fff; border: none; cursor: pointer;
+          font-size: 11.5px; font-weight: 600;
+          padding: 5px 12px; border-radius: 6px;
+        }
+        .qq-ai-confirm-apply:hover { background: #0b34d6; }
+        .qq-ai-confirm-cancel {
+          background: transparent; color: inherit;
+          border: 1px solid currentColor; cursor: pointer;
+          font-size: 11.5px; font-weight: 600;
+          padding: 4px 11px; border-radius: 6px;
+          opacity: 0.7;
+        }
+        .qq-ai-confirm-cancel:hover { opacity: 1; }
+        .qq-ai-confirm-status {
+          margin-top: 4px; font-size: 11px; font-weight: 600;
+        }
         .qq-ai-err {
           padding: 7px 12px; background: #fef2f2; color: #991b1b;
           font-size: 11.5px; border-top: 1px solid #fee2e2;
@@ -691,6 +882,9 @@ export default function AIBubble(props: AIBubbleProps) {
         [data-theme="dark"] .qq-ai-input { background: #1e293b; color: #e2e8f0; border-color: rgba(255,255,255,0.12); }
         [data-theme="dark"] .qq-ai-iconbtn { background: #1e293b; color: #94a3b8; }
         [data-theme="dark"] .qq-ai-budget-meter { background: #1e293b; color: #cbd5e1; border-color: rgba(255,255,255,0.06); }
+        [data-theme="dark"] .qq-ai-confirm { background: #422006; border-color: #78350f; color: #fde68a; }
+        [data-theme="dark"] .qq-ai-confirm-applied { background: #064e3b; border-color: #065f46; color: #d1fae5; }
+        [data-theme="dark"] .qq-ai-confirm-cancelled { background: #1e293b; border-color: #334155; color: #cbd5e1; }
       `}</style>
     </>
   );
