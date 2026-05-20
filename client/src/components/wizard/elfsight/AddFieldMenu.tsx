@@ -351,6 +351,18 @@ export default function AddFieldMenu({ onPick, emphasis = false }: Props) {
           border-radius: 10px;
           min-height: 48px;
         }
+
+        /* Wave N — secondary-sized "+ Add field" trigger on phones. The
+           in-preview "+ Add component" affordance (Wave L) is the 44px
+           primary tap target; the Build-tab Add buttons can be smaller. */
+        @media (max-width: 480px) {
+          .qq-addfield-trigger:not(.is-emphasis) {
+            padding: 6px 10px;
+            font-size: 12px;
+            min-height: 32px;
+            gap: 4px;
+          }
+        }
       `}</style>
     </div>
   );
