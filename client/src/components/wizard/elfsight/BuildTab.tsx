@@ -10,6 +10,7 @@ import type { TemplateField, TemplateCalculation } from '@shared/templatePresets
 import FieldsPanel from './FieldsPanel';
 import CalculationsPanel from './CalculationsPanel';
 import HeaderResultsPanel from './HeaderResultsPanel';
+import TemplateStrip, { type ApplyTemplatePayload } from './TemplateGallery';
 import type { ShellHeader, ShellResults } from './types';
 
 const p = platformTheme;
@@ -28,6 +29,9 @@ interface Props {
   onResultsChange: (next: ShellResults) => void;
   resultCalcId?: string;
   onResultCalcChange: (calcId: string) => void;
+  /** Wave H7. */
+  activeTemplateId?: string;
+  onApplyTemplate: (next: ApplyTemplatePayload) => void;
 }
 
 export default function BuildTab({
@@ -37,6 +41,7 @@ export default function BuildTab({
   header, onHeaderChange,
   results, onResultsChange,
   resultCalcId, onResultCalcChange,
+  activeTemplateId, onApplyTemplate,
 }: Props) {
   return (
     <div
@@ -44,6 +49,14 @@ export default function BuildTab({
       data-testid="editor-tabpanel-build"
       role="tabpanel"
     >
+      {/* H7 — horizontal template scroller, single-row, at the top. */}
+      <TemplateStrip
+        activeTemplateId={activeTemplateId}
+        onApplyTemplate={onApplyTemplate}
+      />
+
+      <div className="qq-build-divider" />
+
       <section className="qq-build-section" data-testid="editor-business-section">
         <label
           htmlFor="qq-shell-business-name"

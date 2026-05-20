@@ -34,7 +34,7 @@ import { platformTheme } from '@/theme/platformTheme';
 import { dashboardTheme } from '@/theme/dashboardTheme';
 import {
   buildBlankPreviewConfig,
-  type TemplateField, type TemplateCalculation,
+  type TemplateField, type TemplateCalculation, type TemplateConfig,
 } from '@shared/templatePresets';
 import EditorTopBar from './EditorTopBar';
 import EditorTabs from './EditorTabs';
@@ -258,6 +258,52 @@ export default function WizardShell({ embed = false }: Props) {
     });
   }, []);
 
+  // ── Wave H7: apply a template preset (or "start blank"). Replaces the
+  // structural slice of state (layout / fields / calculations / header /
+  // results / resultCalcId) with the picked preset. Preserves the user's
+  // business name, settings (trade / lead email / pricing / etc.), and
+  // style overrides — those are independent of the template choice.
+  // Passing `null` resets to a blank seed.
+  const applyTemplate = useCallback((preset: TemplateConfig | null) => {
+    setState((s) => {
+      if (!preset) {
+        // Blank seed — same as the H1 first-load behaviour.
+        const layout = s.layout; // keep whatever layout was set
+        return {
+          ...s,
+          activeTemplateId: undefined,
+          fields: seedFields(layout),
+          calculations: seedCalculations(layout),
+          header: {},
+          results: {},
+          resultCalcId: undefined,
+        };
+      }
+      // Clone deep enough that mutation in the editor doesn't reach back
+      // into the catalogue object (the preset is shared across tabs).
+      const nextFields = preset.fields.map((f) => ({ ...f }));
+      const nextCalcs = preset.calculations.map((c) => ({ ...c }));
+      // Find the headline calc id (if the preset names a specific one).
+      const headlineCalc = nextCalcs.find((c) => c.name === preset.result_calc);
+      return {
+        ...s,
+        activeTemplateId: preset.id,
+        layout: preset.layout,
+        fields: nextFields,
+        calculations: nextCalcs,
+        header: {
+          title: preset.header?.title,
+          subtitle: preset.header?.subtitle,
+        },
+        results: {
+          heading: preset.results?.heading,
+          footnote: preset.results?.footnote,
+        },
+        resultCalcId: headlineCalc?.id,
+      };
+    });
+  }, []);
+
   // ── Wave I (f): in-preview remove / add ──────────────────────────────
   const removeField = useCallback((fieldId: string) => {
     setState((s) => ({ ...s, fields: s.fields.filter((f) => f.id !== fieldId) }));
@@ -441,6 +487,8 @@ export default function WizardShell({ embed = false }: Props) {
                       onResultsChange={setResults}
                       resultCalcId={state.resultCalcId}
                       onResultCalcChange={setResultCalc}
+                      activeTemplateId={state.activeTemplateId}
+                      onApplyTemplate={applyTemplate}
                     />
                   ) : activeTab === 'style' ? (
                     <StyleTab

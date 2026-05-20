@@ -226,6 +226,8 @@ export interface ShellState {
   style?: ShellStyle;
   /** H6 — Settings tab values (trade / lead email / pricing / number format / CTA label). */
   settings?: ShellSettings;
+  /** H7 — id of the last-applied TEMPLATE_PRESETS entry (or undefined = blank). */
+  activeTemplateId?: string;
 }
 
 export const INITIAL_SHELL_STATE: ShellState = {
