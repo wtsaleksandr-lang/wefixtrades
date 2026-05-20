@@ -30,24 +30,24 @@ async function gotoFreshEditor(page: Page) {
 
 test.describe('Wave L — editor preview polish', () => {
   test('E1: empty-state placeholder appears when fields are removed', async ({ page }) => {
-    await gotoFreshEditor(page);
-    // Default seed has fields; remove them all via the Build tab to reach
-    // the empty state. The build-tab remove buttons are field-row-remove-*.
-    await page.getByTestId('quotequick-editor-shell').waitFor();
-    // Empty the field list using a localStorage rewrite — quicker + less
-    // brittle than chaining UI removes.
-    await page.evaluate(() => {
-      const raw = localStorage.getItem('qq_elfsight_shell');
-      if (raw) {
-        try {
-          const parsed = JSON.parse(raw);
-          parsed.fields = [];
-          parsed.calculations = [];
-          localStorage.setItem('qq_elfsight_shell', JSON.stringify(parsed));
-        } catch {}
-      }
+    // Pre-seed an empty fields[] BEFORE navigating so the wizard's
+    // loadShellState picks it up on first mount. (gotoFreshEditor's
+    // addInitScript REMOVES the key on every navigation including reload,
+    // so a post-mount rewrite-then-reload would be wiped — we install our
+    // own seed-empty init script that runs after the clear.)
+    await page.addInitScript(() => {
+      try {
+        localStorage.removeItem('qq_dnd_hint_seen');
+        // Plant an explicit empty fields state — the loader keeps
+        // `fields: []` when explicitly provided (vs `undefined` which
+        // triggers the seed path).
+        localStorage.setItem('qq_elfsight_shell', JSON.stringify({
+          fields: [], calculations: [],
+        }));
+      } catch {}
     });
-    await page.reload();
+    await page.goto(WIZARD_URL);
+    await expect(page.getByTestId('quotequick-editor-shell')).toBeVisible();
     await expect(page.getByTestId('preview-empty-state')).toBeVisible();
     // Clicking the add-field-trigger inside the empty state opens the menu.
     await page.getByTestId('preview-empty-state').getByTestId('add-field-trigger').click();
@@ -70,8 +70,11 @@ test.describe('Wave L — editor preview polish', () => {
 
   test('E4 + B1: a range slider inside the preview can be dragged', async ({ page }) => {
     await gotoFreshEditor(page);
-    // The blank seed includes a slider field. Find the first range input
-    // in the preview and confirm setting its value via DOM fires onChange.
+    // The default seed (service select + quantity number + addons multi)
+    // doesn't include a slider — add one via the Build-tab Add menu so the
+    // preview renders an <input type="range">.
+    await page.getByTestId('add-field-trigger').first().click();
+    await page.getByTestId('add-field-slider').first().click();
     const slider = page.locator('input[type="range"]').first();
     await expect(slider).toBeVisible();
     const before = await slider.inputValue();
@@ -105,13 +108,13 @@ test.describe('Wave L — editor preview polish', () => {
 
   test('I1: install tab shows the $75 install CTA which opens checkout modal', async ({ page }) => {
     await gotoFreshEditor(page);
-    await page.getByRole('tab', { name: /install/i }).click().catch(async () => {
-      // Fallback: editor tabs use buttons, not tabs.
-      await page.getByTestId('quotequick-editor-shell').locator('text=Install').first().click();
-    });
+    // Use the editor-tab testid contract used elsewhere in the audit suite.
+    await page.getByTestId('editor-tab-install').click();
+    await expect(page.getByTestId('editor-tabpanel-install')).toBeVisible({ timeout: 2000 });
     await expect(page.getByTestId('install-doneforyou-cta')).toBeVisible();
     await page.getByTestId('install-doneforyou-cta').click();
-    // CheckoutIntakeModal renders a 'business_name' input field once open.
-    await expect(page.locator('input[name="business_name"], input[id*="business_name"]').first()).toBeVisible({ timeout: 5000 });
+    // CheckoutIntakeModal renders an input wired with data-testid
+    // "intake-business-name" — this is the canonical testid for the field.
+    await expect(page.getByTestId('intake-business-name')).toBeVisible({ timeout: 5000 });
   });
 });

@@ -253,13 +253,18 @@ test.describe('wizard H7 — Mobile (390×844)', () => {
     expect(sl).toBeGreaterThan(100);
   });
 
-  test('Template browse-all is ≥44px tap target on mobile', async ({ page }) => {
+  test('Template browse-all button is sized as a secondary action on mobile', async ({ page }) => {
     await openWizard(page);
 
+    // Wave L T2 — the Browse-all CTA was deliberately reduced to a smaller
+    // secondary-style button (mobile min-height: 32px; was 44px). The
+    // primary affordance on mobile is the horizontal template scroller —
+    // Browse-all is a follow-on link, not the headline CTA. Assert the
+    // button is still rendered with a usable tap surface (≥28px).
     const btn = page.getByTestId('template-browse-all');
     const box = await btn.boundingBox();
     expect(box).not.toBeNull();
-    expect(box!.height).toBeGreaterThanOrEqual(40);
+    expect(box!.height).toBeGreaterThanOrEqual(28);
   });
 
   test('Selecting a language on mobile still updates the snippet', async ({ page }) => {

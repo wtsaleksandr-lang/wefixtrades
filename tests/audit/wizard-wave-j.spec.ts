@@ -73,8 +73,12 @@ test.describe('wizard J — Wave J UI refinement (desktop)', () => {
     await expect(cue).toBeVisible();
     await cue.click();
     await expect(page.getByTestId('info-cue-settings-lead-email-popover')).toBeVisible();
-    // Hovering off (click outside) dismisses.
-    await page.mouse.click(5, 5);
+    // Wave L P2 — popovers are now portaled to document.body. Escape is the
+    // canonical dismiss path tracked by InfoCue.useEffect's keydown handler;
+    // a click-outside at viewport (5,5) is racey because moving the mouse
+    // toward the corner can re-enter the trigger and re-open via
+    // onMouseEnter. Escape avoids that race.
+    await page.keyboard.press('Escape');
     await expect(page.getByTestId('info-cue-settings-lead-email-popover')).toHaveCount(0);
   });
 

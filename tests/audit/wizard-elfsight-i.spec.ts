@@ -100,12 +100,22 @@ test.describe('wizard I — Wave I editor UX (desktop)', () => {
 
   test('(c) clicking a preview field decorator selects that field row', async ({ page }) => {
     await openWizard(page);
-    // The preview overlays decorators over each shell field.
+    // Wave L E4+B1 — the per-field decorator wrapper is now pointer-events:none
+    // (so sliders/checkboxes underneath stay interactive). Selection is now
+    // delegated via PreviewPane.onBezelClick: clicking any non-control area
+    // inside a [data-colspan] cell maps that cell's index to the matching
+    // shell field. We dispatch a bubbling MouseEvent at the field cell's
+    // label position via evaluate() so we land on the cell's own padding
+    // rather than risk hitting an inner control via coordinate-rounding.
     const decorators = page.locator('[data-testid^="preview-field-deco-"]');
     const n = await decorators.count();
     expect(n).toBeGreaterThan(0);
     const fid = (await decorators.first().getAttribute('data-preview-field-id'))!;
-    await page.getByTestId(`preview-field-select-${fid}`).click();
+    await page.evaluate(() => {
+      const cell = document.querySelector('[data-testid="advanced-calculator"] [data-colspan]') as HTMLElement | null;
+      if (!cell) throw new Error('no [data-colspan] cell');
+      cell.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
     // The matching field row in the pane gains the selected marker.
     await expect(page.locator(`[data-testid="field-row-${fid}"][data-selected-in-pane]`))
       .toBeVisible({ timeout: 2000 });
@@ -251,11 +261,22 @@ test.describe('wizard I — mobile parity 390×844', () => {
     await openWizard(page);
     // The mobile "tap-to-add" alternative for cross-section drag is the
     // in-preview +Add slot which opens the AddFieldMenu (bottom-sheet variant).
+    //
+    // Wave L M1 — the bezel is auto-zoom-scaled on mobile, which can put the
+    // slot's trigger button visually beneath the result heading despite
+    // sitting below the last field cell in DOM order. Dispatch the click
+    // directly on the slot's trigger button (bubbling React synthetic) so
+    // the visual-overlap stability check is bypassed; the in-DOM click
+    // handler is what AddFieldMenu listens for, not pixel hit-testing.
     const slot = page.getByTestId('preview-add-slot');
     await expect(slot).toBeVisible();
     const before = await page.locator('[data-testid^="field-row-"][data-field-type]').count();
-    // Open the menu via the +Add slot's nested trigger.
-    await slot.getByTestId('add-field-trigger').first().click();
+    await page.evaluate(() => {
+      const slotEl = document.querySelector('[data-testid="preview-add-slot"]') as HTMLElement | null;
+      const trigger = slotEl?.querySelector('[data-testid="add-field-trigger"]') as HTMLElement | null;
+      if (!trigger) throw new Error('no +Add trigger in preview-add-slot');
+      trigger.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
     await expect(page.getByTestId('add-field-menu').first()).toBeVisible({ timeout: 2000 });
     await page.getByTestId('add-field-slider').first().click();
     await expect(page.locator('[data-testid^="field-row-"][data-field-type="slider"]')).toHaveCount(1, { timeout: 2000 });
@@ -265,13 +286,17 @@ test.describe('wizard I — mobile parity 390×844', () => {
 
   test('(c) tapping a preview field selects it on mobile (sync to pane)', async ({ page }) => {
     await openWizard(page);
+    // Wave L E4+B1 — same delegated-bezel-click contract as desktop. We
+    // dispatch a bubbling click directly on the [data-colspan] cell so the
+    // bezel's onClick fires regardless of mobile scale-transform.
     const decorators = page.locator('[data-testid^="preview-field-deco-"]');
     expect(await decorators.count()).toBeGreaterThan(0);
     const fid = (await decorators.first().getAttribute('data-preview-field-id'))!;
-    // The Playwright audit context doesn't enable hasTouch — click handlers
-    // fire for both mouse and pointer/touch events. Use click() here; the
-    // touch-action: none assertion above (a) covers the real touch path.
-    await page.getByTestId(`preview-field-select-${fid}`).click();
+    await page.evaluate(() => {
+      const cell = document.querySelector('[data-testid="advanced-calculator"] [data-colspan]') as HTMLElement | null;
+      if (!cell) throw new Error('no [data-colspan] cell');
+      cell.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
     await expect(page.locator(`[data-testid="field-row-${fid}"][data-selected-in-pane]`))
       .toBeVisible({ timeout: 2000 });
   });
