@@ -744,7 +744,15 @@ export function Ticker({
   value, duration = 1.6, delay = 0, style,
 }: { value: string; duration?: number; delay?: number; style?: CSSProperties }) {
   const ref = useRef<HTMLSpanElement>(null);
-  const inView = useInView(ref, { once: true, margin: "-40px" });
+  // B1 fix (2026-05-20): previously used `margin: "-40px"` which shrinks the
+  // observer's effective viewport in all directions and was unreliable on
+  // small mobile viewports — count-ups never fired on the live product pages
+  // at 390×844, leaving every stat tile showing "0%/<0s/0+" forever. Switch
+  // to a generous rootMargin (`0px 0px -10% 0px`) so the animation fires
+  // when the element is anywhere within the visible viewport (minus a small
+  // bottom sliver so we wait until the tile is comfortably on-screen),
+  // `amount: 0` to fire on ANY intersection, and NO mobile-disabling guard.
+  const inView = useInView(ref, { once: true, margin: "0px 0px -10% 0px", amount: 0 });
   const reduced = useReducedMotion();
   const parsed = parseValue(value);
   const hasDecimal = String(parsed.num).includes(".") || value.includes(".");
