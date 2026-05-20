@@ -75,3 +75,4 @@ client/src/pages/portal/TradelineSetup/index.tsx
 
 client/src/pages/admin/MapguardOpsPage.tsx
 client/src/pages/admin/WebCareOpsPage.tsx
+client/src/pages/admin/CommunicationsPage.tsx  # Wave R-pre: SMS/voice panel — Twilio composer + dial pad; copilot-fill not yet wired (would need to map message body + recipient phone)
