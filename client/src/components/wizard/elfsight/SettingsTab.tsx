@@ -27,7 +27,6 @@ import {
   type ShellThousandsSep,
   type ShellDecimalSep,
 } from './types';
-import InfoCue from './InfoCue';
 import FloatField from './FloatField';
 
 const p = platformTheme;
@@ -100,14 +99,13 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
 
       {/* ── Lead notification email ─────────────────────────────── */}
       <fieldset className="qq-style-group" data-testid="settings-group-lead-email">
-        <legend className="qq-style-legend">
-          Lead notification email
-          <InfoCue
-            testid="settings-lead-email"
-            text="Where customer leads are sent when someone hits the CTA. Single email; team forwarding is configured upstream."
-          />
-        </legend>
-        <FloatField label="Lead notification email" htmlFor="qq-settings-leademail">
+        <legend className="qq-style-legend">Lead notification email</legend>
+        <FloatField
+          label="Lead notification email"
+          htmlFor="qq-settings-leademail"
+          infoText="Where customer leads are sent when someone hits the CTA. Single email; team forwarding is configured upstream."
+          infoTestid="settings-lead-email"
+        >
           <input
             id="qq-settings-leademail"
             type="email"
@@ -134,13 +132,11 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
 
       {/* ── Pricing model ───────────────────────────────────────── */}
       <fieldset className="qq-style-group" data-testid="settings-group-pricing">
-        <legend className="qq-style-legend">
-          Pricing model
-          <InfoCue
-            testid="settings-pricing"
-            text="The shape of your price. Saved alongside the calculator config — the renderer's pricing engine will pick this up downstream."
-          />
-        </legend>
+        <legend className="qq-style-legend">Pricing model</legend>
+        <p className="qq-style-sectionhint" data-testid="settings-pricing-hint">
+          The shape of your price. Saved alongside the calculator config — the
+          renderer's pricing engine will pick this up downstream.
+        </p>
         <label className="qq-style-label">Mode</label>
         <SegmentedControl<ShellPricingMode>
           name="pricing-mode"
@@ -224,13 +220,11 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
 
       {/* ── Number formatting ───────────────────────────────────── */}
       <fieldset className="qq-style-group" data-testid="settings-group-numberformat">
-        <legend className="qq-style-legend">
-          Number formatting
-          <InfoCue
-            testid="settings-numberformat"
-            text="How prices display in the calculator. Currency is a 3-letter ISO code (USD / EUR / GBP / …)."
-          />
-        </legend>
+        <legend className="qq-style-legend">Number formatting</legend>
+        <p className="qq-style-sectionhint" data-testid="settings-numberformat-hint">
+          How prices display in the calculator. Currency is a 3-letter ISO code
+          (USD / EUR / GBP / …).
+        </p>
         <div className="qq-style-grid">
           <FloatField label="Thousands separator" htmlFor="qq-settings-thousands" variant="select">
             <select
@@ -285,14 +279,13 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
 
       {/* ── Custom CTA label ────────────────────────────────────── */}
       <fieldset className="qq-style-group" data-testid="settings-group-cta">
-        <legend className="qq-style-legend">
-          Custom CTA label
-          <InfoCue
-            testid="settings-cta"
-            text='Overrides the result-panel button text. Leave blank to keep the default ("Get My Quote").'
-          />
-        </legend>
-        <FloatField label="CTA label" htmlFor="qq-settings-cta-label">
+        <legend className="qq-style-legend">Custom CTA label</legend>
+        <FloatField
+          label="CTA label"
+          htmlFor="qq-settings-cta-label"
+          infoText='Overrides the result-panel button text. Leave blank to keep the default ("Get My Quote").'
+          infoTestid="settings-cta"
+        >
           <input
             id="qq-settings-cta-label"
             type="text"
@@ -312,13 +305,12 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
        *  link surfaced. The server-side gate (Wave Q-D) enforces this on
        *  save regardless of what the client sends. */}
       <fieldset className="qq-style-group" data-testid="settings-group-brand-badge">
-        <legend className="qq-style-legend">
-          WeFixTrades brand badge
-          <InfoCue
-            testid="settings-brand-badge"
-            text='Free plan calculators show a "QuoteQuick by WeFixTrades" badge on the hosted page and any embedded widgets. Pro and Business plans remove the badge.'
-          />
-        </legend>
+        <legend className="qq-style-legend">WeFixTrades brand badge</legend>
+        <p className="qq-style-sectionhint" data-testid="settings-brand-badge-hint">
+          Free plan calculators show a "QuoteQuick by WeFixTrades" badge on the
+          hosted page and any embedded widgets. Pro and Business plans remove
+          the badge.
+        </p>
         <div
           className="qq-brand-badge-row"
           data-testid="settings-brand-badge-row"
@@ -373,12 +365,24 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
           background: #fff;
           margin: 0;
         }
+        /* W-SETTINGS-STYLE — subtle all-caps section label, matches the
+         * Build tab treatment landed by W-SECTIONS. Sits flush above the
+         * first input rather than reading as a bold heading. */
         .qq-style-legend {
-          display: inline-flex; align-items: center;
-          font-size: 13px; font-weight: 800;
-          color: ${p.colors.heading};
-          padding: 0 6px;
-          letter-spacing: -0.005em;
+          display: block;
+          font-size: 11.5px; font-weight: 600;
+          color: ${p.colors.muted};
+          text-transform: uppercase; letter-spacing: 0.04em;
+          margin: 0 0 6px;
+          padding: 0;
+        }
+        /* Section-level help that used to live in an InfoCue beside the
+         * legend. Same muted styling, sits under the legend as a body
+         * line so it reads like a caption, not a heading. */
+        .qq-style-sectionhint {
+          margin: 0 0 8px;
+          font-size: 11.5px; line-height: 1.5;
+          color: ${p.colors.subtle};
         }
         .qq-style-grid {
           display: grid; gap: 10px;
@@ -524,14 +528,13 @@ function TradeSection({
 
   return (
     <fieldset className="qq-style-group" data-testid="settings-group-trade">
-      <legend className="qq-style-legend">
-        Trade
-        <InfoCue
-          testid="settings-trade"
-          text="Which trade this calculator is for. Drives template suggestions and downstream copy. Search the list below."
-        />
-      </legend>
-      <FloatField label="Search trades" htmlFor="qq-settings-trade-search">
+      <legend className="qq-style-legend">Trade</legend>
+      <FloatField
+        label="Search trades"
+        htmlFor="qq-settings-trade-search"
+        infoText="Which trade this calculator is for. Drives template suggestions and downstream copy. Search the list below."
+        infoTestid="settings-trade"
+      >
         <input
           id="qq-settings-trade-search"
           type="text"
