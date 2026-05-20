@@ -18,6 +18,7 @@
 import { useMemo, useState } from 'react';
 import { platformTheme } from '@/theme/platformTheme';
 import { dashboardTheme } from '@/theme/dashboardTheme';
+import CheckoutIntakeModal from '@/components/marketing/CheckoutIntakeModal';
 import {
   DEFAULT_SHELL_LANGUAGE, SHELL_LANGUAGES, getShellLanguage,
   type ShellSettings,
@@ -72,6 +73,11 @@ export default function InstallTab({ settings, onChange, embedSlug }: Props) {
   const slug = (embedSlug ?? '').trim() || 'YOUR-CALCULATOR-ID';
   const [copyOk, setCopyOk] = useState(false);
   const [activeGuide, setActiveGuide] = useState<InstallGuide>('wordpress');
+  // Wave L I1 — done-for-you install CTA. Opens the existing
+  // CheckoutIntakeModal with the new $75 quotequick-install SKU
+  // (added to shared/pricing.ts under QUOTEQUICK.tiers). Stripe price id is
+  // wired server-side via STRIPE_QUOTEQUICK_INSTALL_PRICE env var.
+  const [installCheckoutOpen, setInstallCheckoutOpen] = useState(false);
 
   // The origin only matters for the displayed snippet — the audit suite
   // doesn't load the snippet, only inspects the textual `lang` attribute.
@@ -197,7 +203,48 @@ export default function InstallTab({ settings, onChange, embedSlug }: Props) {
 
       <div className="qq-install-divider" />
 
-      {/* ── 3. Quick install guides ────────────────────────────────── */}
+      {/* ── 3. Done-for-you install service — Wave L I1 ─────────────
+       *
+       * Sits between the embed snippet and the DIY guides so users who
+       * don't want to embed the snippet themselves see the CTA before
+       * digging into per-CMS instructions. Brand-blue panel, single CTA
+       * that opens CheckoutIntakeModal pre-loaded with the install SKU. */}
+      <section
+        className="qq-install-section qq-install-doneforyou"
+        data-testid="install-section-doneforyou"
+      >
+        <div className="qq-install-doneforyou-card">
+          <div className="qq-install-doneforyou-copy">
+            <h3 className="qq-install-doneforyou-h">
+              Don't want to install it yourself? We'll do it for $75.
+            </h3>
+            <p className="qq-install-doneforyou-sub">
+              We install QuoteQuick on your website, configure it for your trade,
+              and verify it's capturing leads — within 24 hours.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="qq-install-doneforyou-cta"
+            onClick={() => setInstallCheckoutOpen(true)}
+            data-testid="install-doneforyou-cta"
+          >
+            Have us install it — $75
+          </button>
+        </div>
+      </section>
+
+      <CheckoutIntakeModal
+        open={installCheckoutOpen}
+        onClose={() => setInstallCheckoutOpen(false)}
+        items={['quotequick-install']}
+        bundleName="QuoteQuick Install Service"
+        priceLabel="$75 one-time"
+      />
+
+      <div className="qq-install-divider" />
+
+      {/* ── 4. Quick install guides ────────────────────────────────── */}
       <section className="qq-install-section" data-testid="install-section-guides">
         <h3 className="qq-install-h">Quick install guides</h3>
         <p className="qq-install-sub">
@@ -321,6 +368,42 @@ export default function InstallTab({ settings, onChange, embedSlug }: Props) {
         }
         .qq-install-guide-list li { margin: 6px 0; }
 
+        /* Wave L I1 — done-for-you install panel. Brand-blue tinted card with
+         * a copy block on the left and a primary CTA on the right; stacks
+         * on mobile. */
+        .qq-install-doneforyou-card {
+          display: flex; align-items: center; justify-content: space-between;
+          gap: 14px;
+          padding: 14px 16px;
+          border-radius: 12px;
+          background: linear-gradient(135deg, rgba(13,60,252,0.10), rgba(13,60,252,0.04));
+          border: 1px solid rgba(13,60,252,0.28);
+        }
+        .qq-install-doneforyou-copy { flex: 1; min-width: 0; }
+        .qq-install-doneforyou-h {
+          margin: 0 0 4px;
+          font-size: 13.5px; font-weight: 800;
+          color: ${p.colors.heading};
+          letter-spacing: -0.005em;
+          line-height: 1.3;
+        }
+        .qq-install-doneforyou-sub {
+          margin: 0;
+          font-size: 12px; color: ${p.colors.muted};
+          line-height: 1.55;
+        }
+        .qq-install-doneforyou-cta {
+          flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
+          padding: 10px 16px; border-radius: 8px;
+          font-size: 13px; font-weight: 700; cursor: pointer;
+          background: ${p.colors.accent}; color: #fff; border: none;
+          box-shadow: ${p.shadows.button};
+          transition: box-shadow 0.12s ease, transform 0.06s ease;
+          white-space: nowrap;
+        }
+        .qq-install-doneforyou-cta:hover { box-shadow: ${p.shadows.buttonHover}; }
+        .qq-install-doneforyou-cta:active { transform: translateY(1px); }
+
         /* Mobile — tap targets ≥44px, picker full width (already), snippet
            wraps without breaking layout. */
         @media (max-width: 768px) {
@@ -328,6 +411,12 @@ export default function InstallTab({ settings, onChange, embedSlug }: Props) {
           .qq-install-copy-btn { min-height: 44px; padding: 0 16px; font-size: 13px; }
           .qq-install-guide-tab { min-height: 44px; font-size: 13px; }
           .qq-install-snippet { font-size: 12.5px; }
+          .qq-install-doneforyou-card {
+            flex-direction: column; align-items: stretch;
+          }
+          .qq-install-doneforyou-cta {
+            min-height: 44px; font-size: 14px;
+          }
         }
       `}</style>
     </div>
