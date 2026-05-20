@@ -1,12 +1,24 @@
-// InstallTab — Wave H7. The "Install" tab of the Elfsight-clone editor.
+// InstallTab — Wave H7, then Wave L (done-for-you CTA), then Wave O.
 //
-// Three sections, top-to-bottom:
-//   1. Language picker (controls the render-time LANG of the embedded
-//      widget; persisted to ShellSettings.language).
-//   2. Embed snippet (script tag using the existing `/embed-widget.js`
-//      pattern from the legacy PublishStep; with a "Copy" button).
-//   3. Quick install guides (WordPress / Wix / Squarespace / Plain HTML)
-//      — inline tabs, light copy.
+// Wave O changes:
+//   - New "Hosted link" section at the top of the tab. Surfaces the
+//     {slug}.your-quote.net subdomain users get for free, with Copy + Open
+//     buttons and a short "this is the no-install option" explainer.
+//     Slug is derived from `businessName` via shared/slugUtils.slugify();
+//     a "(reserved — activates after publish)" hint signals when the URL
+//     isn't live yet. This is the explicit user ask: "users to click and
+//     view their version of the widget with their unique sub domain."
+//   - The per-platform install guides are now MODAL containers. Each
+//     platform is a click card; the existing 3-line inline list is gone.
+//     Detail level matches the public /docs/embed guide (numbered steps,
+//     tips, common-mistake callouts). See InstallGuideModal.tsx.
+//
+// Sections, top-to-bottom:
+//   1. Hosted link (Wave O — new)
+//   2. Language picker (Wave H7)
+//   3. Embed snippet (Wave H7)
+//   4. Done-for-you install CTA ($75 — Wave L I1)
+//   5. Platform guide cards → modal (Wave O — replaces inline tabs)
 //
 // Translation strings for the live calculator UI (button labels, "Get my
 // quote", "Step X of Y") are NOT in scope for H7. The picker only stamps
@@ -16,48 +28,21 @@
 // AdvancedCalculator's hardcoded labels and the wizard headline copy.
 
 import { useMemo, useState } from 'react';
+import { ExternalLink } from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
 import { dashboardTheme } from '@/theme/dashboardTheme';
 import CheckoutIntakeModal from '@/components/marketing/CheckoutIntakeModal';
+import { HOSTING_DOMAIN, slugify, buildHostedUrl } from '@shared/slugUtils';
 import {
   DEFAULT_SHELL_LANGUAGE, SHELL_LANGUAGES, getShellLanguage,
   type ShellSettings,
 } from './types';
+import InstallGuideModal, {
+  INSTALL_GUIDES, type InstallGuideId,
+} from './InstallGuideModal';
 
 const p = platformTheme;
 const d = dashboardTheme;
-
-type InstallGuide = 'wordpress' | 'wix' | 'squarespace' | 'html';
-
-const GUIDE_TABS: ReadonlyArray<{ id: InstallGuide; label: string }> = [
-  { id: 'wordpress', label: 'WordPress' },
-  { id: 'wix', label: 'Wix' },
-  { id: 'squarespace', label: 'Squarespace' },
-  { id: 'html', label: 'Plain HTML' },
-];
-
-const GUIDE_COPY: Record<InstallGuide, ReadonlyArray<string>> = {
-  wordpress: [
-    'Open the page or post in WordPress where you want the calculator.',
-    'Add a "Custom HTML" block.',
-    'Paste the embed snippet and publish.',
-  ],
-  wix: [
-    'In the Wix editor, click "Add Elements" → "Embed Code" → "Embed HTML".',
-    'Paste the embed snippet into the iframe code dialog.',
-    'Click "Update" and publish your site.',
-  ],
-  squarespace: [
-    'Edit the page and add a new "Code" block.',
-    'Paste the embed snippet (HTML mode, no escaping).',
-    'Save and publish.',
-  ],
-  html: [
-    'Open the .html file or template where you want the calculator.',
-    'Paste the embed snippet inside the <body>, where it should appear.',
-    'Upload the file to your server.',
-  ],
-};
 
 interface Props {
   /** Current settings (read for `language` + a slug-ish key for the snippet). */
@@ -66,13 +51,32 @@ interface Props {
   onChange: (next: ShellSettings) => void;
   /** Optional published-calculator slug to embed; falls back to a draft placeholder. */
   embedSlug?: string;
+  /** Wave O — business name from ShellState; used to derive a hosted-link slug
+   *  preview when no published slug exists yet. */
+  businessName?: string;
+  /** Wave O — true when the calculator is already published with the given
+   *  slug. Controls the "(reserved — activates after publish)" hint. */
+  isPublished?: boolean;
 }
 
-export default function InstallTab({ settings, onChange, embedSlug }: Props) {
+export default function InstallTab({
+  settings, onChange, embedSlug, businessName = '', isPublished = false,
+}: Props) {
   const language = settings.language ?? DEFAULT_SHELL_LANGUAGE;
-  const slug = (embedSlug ?? '').trim() || 'YOUR-CALCULATOR-ID';
-  const [copyOk, setCopyOk] = useState(false);
-  const [activeGuide, setActiveGuide] = useState<InstallGuide>('wordpress');
+
+  // Slug resolution order:
+  //   1. real published slug (embedSlug prop)
+  //   2. derived from businessName via shared slugify
+  //   3. placeholder "YOUR-CALCULATOR-ID"
+  const derivedSlug = (embedSlug ?? '').trim()
+    || (businessName ? slugify(businessName) : '')
+    || 'your-calculator-id';
+  const hasRealSlug = !!(embedSlug && embedSlug.trim()) || !!businessName;
+  const slug = hasRealSlug ? derivedSlug : 'YOUR-CALCULATOR-ID';
+
+  const [snippetCopyOk, setSnippetCopyOk] = useState(false);
+  const [hostedCopyOk, setHostedCopyOk] = useState(false);
+  const [activeGuide, setActiveGuide] = useState<InstallGuideId | null>(null);
   // Wave L I1 — done-for-you install CTA. Opens the existing
   // CheckoutIntakeModal with the new $75 quotequick-install SKU
   // (added to shared/pricing.ts under QUOTEQUICK.tiers). Stripe price id is
@@ -91,8 +95,6 @@ export default function InstallTab({ settings, onChange, embedSlug }: Props) {
 
   // Realistic embed snippet matching the existing repo pattern from
   // `client/public/widget/embed.js` / legacy PublishStep.
-  // The `lang` attribute is the ONLY i18n wiring in H7 — host pages can read
-  // it; the loader script itself ignores it today (// TODO(i18n) above).
   const snippet =
     `<script src="${origin}/embed-widget.js"\n` +
     `  data-calculator-slug="${slug}"\n` +
@@ -101,18 +103,24 @@ export default function InstallTab({ settings, onChange, embedSlug }: Props) {
     `</script>\n` +
     `<div id="quotequick-widget"></div>`;
 
+  // Wave O — hosted-link URL preview.
+  const hostedUrl = buildHostedUrl(derivedSlug);
+  const hostedDisplay = `${derivedSlug}.${HOSTING_DOMAIN}`;
+
   const setLanguage = (code: string) => {
     onChange({ ...settings, language: code });
   };
 
-  const handleCopy = async () => {
+  const copyText = async (
+    text: string,
+    setFlag: (v: boolean) => void,
+  ) => {
     try {
       if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(snippet);
+        await navigator.clipboard.writeText(text);
       } else {
-        // Fallback for older browsers — no new deps.
         const ta = document.createElement('textarea');
-        ta.value = snippet;
+        ta.value = text;
         ta.setAttribute('readonly', '');
         ta.style.position = 'absolute';
         ta.style.left = '-9999px';
@@ -121,8 +129,8 @@ export default function InstallTab({ settings, onChange, embedSlug }: Props) {
         document.execCommand('copy');
         document.body.removeChild(ta);
       }
-      setCopyOk(true);
-      setTimeout(() => setCopyOk(false), 1600);
+      setFlag(true);
+      setTimeout(() => setFlag(false), 1600);
     } catch {
       /* swallow — copy is a convenience */
     }
@@ -136,7 +144,75 @@ export default function InstallTab({ settings, onChange, embedSlug }: Props) {
       data-testid="editor-tabpanel-install"
       role="tabpanel"
     >
-      {/* ── 1. Language picker ──────────────────────────────────────── */}
+      {/* ── 1. Hosted link — Wave O ─────────────────────────────────
+       *
+       * The "no-install" option. Even users who don't have a website (or
+       * don't want to touch one) can share the calculator at a unique
+       * subdomain. Three controls:
+       *   - URL display (always visible, copy-friendly typography)
+       *   - Copy link button
+       *   - Open in new tab button (only enabled once published) */}
+      <section
+        className="qq-install-section qq-install-hosted"
+        data-testid="install-section-hosted"
+      >
+        <h3 className="qq-install-h">Hosted link — no install needed</h3>
+        <p className="qq-install-sub">
+          Every calculator gets a free hosted URL. Share it in emails, your
+          Instagram bio, or your Google Business profile — no website
+          required.
+        </p>
+        <div className="qq-install-hosted-card">
+          <div className="qq-install-hosted-url-row">
+            <div
+              className="qq-install-hosted-url"
+              data-testid="install-hosted-url"
+              data-slug={derivedSlug}
+            >
+              {hostedDisplay}
+            </div>
+            {!isPublished && (
+              <span
+                className="qq-install-hosted-badge"
+                data-testid="install-hosted-badge"
+              >
+                Reserved — activates after publish
+              </span>
+            )}
+          </div>
+          <div className="qq-install-hosted-actions">
+            <button
+              type="button"
+              onClick={() => copyText(hostedUrl, setHostedCopyOk)}
+              className="qq-install-hosted-copy"
+              data-testid="install-hosted-copy"
+              aria-label="Copy hosted link"
+            >
+              {hostedCopyOk ? 'Link copied' : 'Copy link'}
+            </button>
+            <a
+              href={isPublished ? hostedUrl : undefined}
+              target={isPublished ? '_blank' : undefined}
+              rel={isPublished ? 'noreferrer noopener' : undefined}
+              className={`qq-install-hosted-open${isPublished ? '' : ' is-disabled'}`}
+              data-testid="install-hosted-open"
+              aria-disabled={!isPublished}
+              onClick={(e) => { if (!isPublished) e.preventDefault(); }}
+            >
+              <ExternalLink size={13} aria-hidden="true" />
+              Open
+            </a>
+          </div>
+          <p className="qq-install-hosted-foot">
+            Want a custom domain (e.g. <code className="qq-install-code-inline">quotes.yoursite.com</code>)?
+            That's available on the Pro plan.
+          </p>
+        </div>
+      </section>
+
+      <div className="qq-install-divider" />
+
+      {/* ── 2. Language picker ──────────────────────────────────────── */}
       <section className="qq-install-section" data-testid="install-section-language">
         <h3 className="qq-install-h">Widget language</h3>
         <p className="qq-install-sub">
@@ -175,7 +251,7 @@ export default function InstallTab({ settings, onChange, embedSlug }: Props) {
 
       <div className="qq-install-divider" />
 
-      {/* ── 2. Embed snippet ────────────────────────────────────────── */}
+      {/* ── 3. Embed snippet ────────────────────────────────────────── */}
       <section className="qq-install-section" data-testid="install-section-embed">
         <h3 className="qq-install-h">Embed snippet</h3>
         <p className="qq-install-sub">
@@ -191,21 +267,21 @@ export default function InstallTab({ settings, onChange, embedSlug }: Props) {
           </pre>
           <button
             type="button"
-            onClick={handleCopy}
+            onClick={() => copyText(snippet, setSnippetCopyOk)}
             data-testid="install-copy-snippet"
             className="qq-install-copy-btn"
             aria-label="Copy embed snippet"
           >
-            {copyOk ? 'Copied' : 'Copy'}
+            {snippetCopyOk ? 'Copied' : 'Copy'}
           </button>
         </div>
       </section>
 
       <div className="qq-install-divider" />
 
-      {/* ── 3. Done-for-you install service — Wave L I1 ─────────────
+      {/* ── 4. Done-for-you install service — Wave L I1 ─────────────
        *
-       * Sits between the embed snippet and the DIY guides so users who
+       * Sits between the embed snippet and the platform guides so users who
        * don't want to embed the snippet themselves see the CTA before
        * digging into per-CMS instructions. Brand-blue panel, single CTA
        * that opens CheckoutIntakeModal pre-loaded with the install SKU. */}
@@ -244,43 +320,44 @@ export default function InstallTab({ settings, onChange, embedSlug }: Props) {
 
       <div className="qq-install-divider" />
 
-      {/* ── 4. Quick install guides ────────────────────────────────── */}
+      {/* ── 5. Platform install guides (modal-based) — Wave O ───────
+       *
+       * One click card per platform; clicking opens InstallGuideModal with
+       * a detailed numbered walkthrough + tips + common-mistake callouts.
+       * Replaces the previous inline 3-line tab list. */}
       <section className="qq-install-section" data-testid="install-section-guides">
-        <h3 className="qq-install-h">Quick install guides</h3>
+        <h3 className="qq-install-h">Platform install guides</h3>
         <p className="qq-install-sub">
-          Pick your site builder for a 3-step install walkthrough.
+          Pick your platform for a detailed step-by-step walkthrough.
         </p>
         <div
-          className="qq-install-guide-tabs"
-          role="tablist"
-          data-testid="install-guide-tabs"
+          className="qq-install-guide-grid"
+          data-testid="install-guide-grid"
         >
-          {GUIDE_TABS.map((g) => {
-            const active = activeGuide === g.id;
-            return (
-              <button
-                key={g.id}
-                type="button"
-                role="tab"
-                aria-selected={active}
-                onClick={() => setActiveGuide(g.id)}
-                data-testid={`install-guide-tab-${g.id}`}
-                className={`qq-install-guide-tab${active ? ' is-active' : ''}`}
-              >
-                {g.label}
-              </button>
-            );
-          })}
-        </div>
-        <ol
-          className="qq-install-guide-list"
-          data-testid={`install-guide-list-${activeGuide}`}
-        >
-          {GUIDE_COPY[activeGuide].map((step, i) => (
-            <li key={i}>{step}</li>
+          {INSTALL_GUIDES.map((g) => (
+            <button
+              key={g.id}
+              type="button"
+              onClick={() => setActiveGuide(g.id)}
+              className="qq-install-guide-card"
+              data-testid={`install-guide-card-${g.id}`}
+              aria-haspopup="dialog"
+            >
+              <span aria-hidden="true" className="qq-install-guide-card-icon">{g.icon}</span>
+              <span className="qq-install-guide-card-body">
+                <span className="qq-install-guide-card-label">{g.label}</span>
+                <span className="qq-install-guide-card-cta">View guide →</span>
+              </span>
+            </button>
           ))}
-        </ol>
+        </div>
       </section>
+
+      <InstallGuideModal
+        activeId={activeGuide}
+        onClose={() => setActiveGuide(null)}
+        snippet={snippet}
+      />
 
       <style>{`
         .qq-install-tab {
@@ -303,6 +380,78 @@ export default function InstallTab({ settings, onChange, embedSlug }: Props) {
         .qq-install-divider {
           height: 1px; background: ${p.colors.borderLight}; margin: 2px 0;
         }
+
+        /* Hosted-link card — Wave O */
+        .qq-install-hosted-card {
+          padding: 14px 16px;
+          background: ${d.colors.canvas};
+          border: 1px solid ${p.colors.borderLight};
+          border-radius: 12px;
+          display: flex; flex-direction: column; gap: 10px;
+        }
+        .qq-install-hosted-url-row {
+          display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+          min-width: 0;
+        }
+        .qq-install-hosted-url {
+          font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+          font-size: 13.5px; font-weight: 700;
+          color: ${p.colors.heading};
+          padding: 6px 10px;
+          background: #fff;
+          border: 1px solid ${p.colors.border};
+          border-radius: 7px;
+          word-break: break-all;
+          flex: 1; min-width: 0;
+        }
+        .qq-install-hosted-badge {
+          flex-shrink: 0;
+          font-size: 11px; font-weight: 700;
+          color: ${p.colors.warning ?? '#a8741b'};
+          background: rgba(255, 176, 32, 0.14);
+          border: 1px solid rgba(255, 176, 32, 0.32);
+          border-radius: 999px;
+          padding: 3px 8px;
+          line-height: 1.3;
+          white-space: nowrap;
+        }
+        .qq-install-hosted-actions {
+          display: flex; gap: 8px; flex-wrap: wrap;
+        }
+        .qq-install-hosted-copy,
+        .qq-install-hosted-open {
+          display: inline-flex; align-items: center; gap: 6px;
+          padding: 8px 14px; border-radius: 8px;
+          font-size: 12.5px; font-weight: 700;
+          cursor: pointer;
+          min-height: 36px;
+          transition: box-shadow 0.12s ease, transform 0.06s ease, background 0.12s ease;
+          text-decoration: none;
+        }
+        .qq-install-hosted-copy {
+          background: ${p.colors.accent}; color: #fff;
+          border: none;
+          box-shadow: ${p.shadows.button};
+        }
+        .qq-install-hosted-copy:hover { box-shadow: ${p.shadows.buttonHover}; }
+        .qq-install-hosted-copy:active { transform: translateY(1px); }
+        .qq-install-hosted-open {
+          background: #fff;
+          color: ${p.colors.heading};
+          border: 1px solid ${p.colors.border};
+        }
+        .qq-install-hosted-open:hover { background: ${d.colors.canvas}; }
+        .qq-install-hosted-open.is-disabled {
+          color: ${p.colors.muted};
+          cursor: not-allowed;
+          opacity: 0.65;
+        }
+        .qq-install-hosted-foot {
+          margin: 0;
+          font-size: 11.5px; color: ${p.colors.muted};
+          line-height: 1.5;
+        }
+
         .qq-install-select {
           width: 100%; padding: 9px 12px; box-sizing: border-box;
           font-size: 13px; color: ${p.colors.body}; background: #fff;
@@ -340,33 +489,52 @@ export default function InstallTab({ settings, onChange, embedSlug }: Props) {
         }
         .qq-install-copy-btn:hover { box-shadow: ${p.shadows.buttonHover}; }
         .qq-install-copy-btn:active { transform: translateY(1px); }
-        .qq-install-guide-tabs {
-          display: flex; gap: 6px; flex-wrap: wrap;
-          padding: 4px; background: ${d.colors.canvas};
-          border: 1px solid ${p.colors.border}; border-radius: 10px;
-          margin-bottom: 12px;
+
+        /* Wave O — platform guide cards (modal-based). 2-up grid that
+         * collapses to 1-up on mobile. */
+        .qq-install-guide-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 8px;
         }
-        .qq-install-guide-tab {
-          flex: 1 1 auto; min-width: 80px;
-          padding: 8px 12px; border-radius: 7px;
-          font: inherit; font-size: 12.5px; font-weight: 600;
-          background: transparent; color: ${p.colors.muted};
-          border: 1px solid transparent; cursor: pointer;
-          transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
-          min-height: 36px;
+        .qq-install-guide-card {
+          display: flex; align-items: center; gap: 10px;
+          text-align: left;
+          padding: 10px 12px;
+          background: #fff;
+          border: 1px solid ${p.colors.border};
+          border-radius: 10px;
+          cursor: pointer;
+          font: inherit;
+          transition: border-color 0.12s ease, box-shadow 0.12s ease, transform 0.06s ease;
+          min-height: 56px;
         }
-        .qq-install-guide-tab:hover { color: ${p.colors.heading}; }
-        .qq-install-guide-tab.is-active {
-          background: #fff; color: ${p.colors.heading};
-          border-color: ${p.colors.borderLight};
-          box-shadow: ${p.shadows.button};
+        .qq-install-guide-card:hover {
+          border-color: ${p.colors.accent};
+          box-shadow: 0 2px 8px rgba(13, 60, 252, 0.10);
         }
-        .qq-install-guide-list {
-          margin: 0; padding: 0 0 0 20px;
-          font-size: 12.5px; color: ${p.colors.body};
-          line-height: 1.6;
+        .qq-install-guide-card:active { transform: translateY(1px); }
+        .qq-install-guide-card-icon {
+          display: inline-flex; align-items: center; justify-content: center;
+          width: 32px; height: 32px;
+          background: ${d.colors.canvas};
+          border-radius: 8px;
+          font-size: 18px;
+          flex-shrink: 0;
         }
-        .qq-install-guide-list li { margin: 6px 0; }
+        .qq-install-guide-card-body {
+          display: flex; flex-direction: column; min-width: 0; flex: 1;
+        }
+        .qq-install-guide-card-label {
+          font-size: 12.5px; font-weight: 700;
+          color: ${p.colors.heading};
+          line-height: 1.3;
+        }
+        .qq-install-guide-card-cta {
+          font-size: 11px; color: ${p.colors.accent};
+          font-weight: 600;
+          margin-top: 2px;
+        }
 
         /* Wave L I1 — done-for-you install panel. Brand-blue tinted card with
          * a copy block on the left and a primary CTA on the right; stacks
@@ -405,11 +573,10 @@ export default function InstallTab({ settings, onChange, embedSlug }: Props) {
         .qq-install-doneforyou-cta:active { transform: translateY(1px); }
 
         /* Mobile — tap targets ≥44px, picker full width (already), snippet
-           wraps without breaking layout. */
+           wraps without breaking layout, guide grid collapses to 1-up. */
         @media (max-width: 768px) {
           .qq-install-select { min-height: 44px; padding: 11px 12px; font-size: 14px; }
           .qq-install-copy-btn { min-height: 44px; padding: 0 16px; font-size: 13px; }
-          .qq-install-guide-tab { min-height: 44px; font-size: 13px; }
           .qq-install-snippet { font-size: 12.5px; }
           .qq-install-doneforyou-card {
             flex-direction: column; align-items: stretch;
@@ -417,6 +584,10 @@ export default function InstallTab({ settings, onChange, embedSlug }: Props) {
           .qq-install-doneforyou-cta {
             min-height: 44px; font-size: 14px;
           }
+          .qq-install-hosted-copy,
+          .qq-install-hosted-open { min-height: 44px; font-size: 13px; }
+          .qq-install-guide-grid { grid-template-columns: 1fr; }
+          .qq-install-guide-card { min-height: 56px; }
         }
       `}</style>
     </div>

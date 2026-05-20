@@ -62,7 +62,8 @@ test.describe('wizard H7 — Install tab', () => {
     await expect(page.getByTestId('install-embed-snippet')).toBeVisible();
     await expect(page.getByTestId('install-copy-snippet')).toBeVisible();
     await expect(page.getByTestId('install-section-guides')).toBeVisible();
-    await expect(page.getByTestId('install-guide-tabs')).toBeVisible();
+    // Wave O — guide tabs were replaced with click-to-open platform cards.
+    await expect(page.getByTestId('install-guide-grid')).toBeVisible();
   });
 
   test('Language picker exposes at least 10 options', async ({ page }) => {
@@ -91,21 +92,28 @@ test.describe('wizard H7 — Install tab', () => {
     expect(parsed?.settings?.language).toBe('es');
   });
 
-  test('Quick install guide tabs swap content', async ({ page }) => {
+  test('Platform guide cards open detailed modal (Wave O)', async ({ page }) => {
     await gotoInstallTab(page);
 
-    // Default = WordPress.
-    await expect(page.getByTestId('install-guide-list-wordpress')).toBeVisible();
+    // Cards visible in the grid.
+    await expect(page.getByTestId('install-guide-card-wordpress-elementor')).toBeVisible();
+    await expect(page.getByTestId('install-guide-card-wix')).toBeVisible();
+    await expect(page.getByTestId('install-guide-card-squarespace')).toBeVisible();
+    await expect(page.getByTestId('install-guide-card-html')).toBeVisible();
 
-    await page.getByTestId('install-guide-tab-wix').click();
-    await expect(page.getByTestId('install-guide-list-wix')).toBeVisible();
-    await expect(page.getByTestId('install-guide-tab-wix')).toHaveAttribute('aria-selected', 'true');
+    // Clicking a card opens the modal with platform-specific content.
+    await page.getByTestId('install-guide-card-wix').click();
+    const modal = page.getByTestId('install-guide-modal');
+    await expect(modal).toBeVisible();
+    await expect(modal).toHaveAttribute('data-platform', 'wix');
 
-    await page.getByTestId('install-guide-tab-squarespace').click();
-    await expect(page.getByTestId('install-guide-list-squarespace')).toBeVisible();
+    // Modal has a copy-snippet CTA and a done button.
+    await expect(page.getByTestId('install-guide-modal-copy')).toBeVisible();
+    await expect(page.getByTestId('install-guide-modal-done')).toBeVisible();
 
-    await page.getByTestId('install-guide-tab-html').click();
-    await expect(page.getByTestId('install-guide-list-html')).toBeVisible();
+    // Done closes the dialog.
+    await page.getByTestId('install-guide-modal-done').click();
+    await expect(modal).not.toBeVisible();
   });
 });
 
