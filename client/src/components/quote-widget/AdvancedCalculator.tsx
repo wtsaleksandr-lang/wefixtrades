@@ -117,6 +117,20 @@ interface AdvCalc {
 }
 interface AdvHeader { title?: string; subtitle?: string; align?: 'left' | 'center' | 'right'; }
 interface AdvResults { heading?: string; footnote?: string; show_breakdown?: boolean; cta_label?: string; }
+/**
+ * Wave H6 — Settings tab number-format slot. Drives the renderer's
+ * currency / number formatting independent of the user's browser locale.
+ * Every field optional so an absent slot renders identically to the pre-H6
+ * `en-US` defaults (`1,234.56`, `$` prefix).
+ */
+export interface AdvNumberFormat {
+  /** Thousands separator literal (`","` / `" "` / `""`). */
+  thousands?: ',' | ' ' | '';
+  /** Decimal separator literal. Must differ from `thousands`. */
+  decimal?: '.' | ',';
+  /** ISO-4217 3-letter code; used to pick a currency symbol. */
+  currency?: string;
+}
 export interface AdvancedConfig {
   enabled?: boolean;
   fields?: AdvField[];
@@ -136,6 +150,11 @@ export interface AdvancedConfig {
    * resolved `WidgetTheme`. Every field optional → fully back-compatible.
    */
   style?: AdvStyle;
+  /**
+   * Wave H6 — Settings tab number-format overrides (thousands / decimal /
+   * currency). Absent slot → pre-H6 en-US defaults.
+   */
+  numberFormat?: AdvNumberFormat;
 }
 
 interface Props {
@@ -210,12 +229,60 @@ function rulePasses(rule: { op: string; value: number }, controlValue: number): 
   }
 }
 
-function formatResult(v: number, format: AdvCalc['format']): string {
-  if (format === 'currency') {
-    return '$' + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+/** Minimal ISO-4217 → symbol map. Codes outside the map render as the code
+ *  itself (e.g. `INR 1,234`), which is still legible. */
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  USD: '$', CAD: '$', AUD: '$', NZD: '$', SGD: '$', HKD: '$', MXN: '$',
+  EUR: '€', GBP: '£', JPY: '¥', CNY: '¥', CHF: 'CHF',
+  SEK: 'kr', NOK: 'kr', DKK: 'kr', PLN: 'zł', INR: '₹', BRL: 'R$', ZAR: 'R',
+};
+
+/**
+ * Format a number using user-chosen thousands/decimal separators.
+ * `minFrac` is the floor (so currency stays as `0.00`); `maxFrac` is the
+ * rounding ceiling. Negative values keep their sign.
+ */
+function formatNumber(
+  v: number,
+  minFrac: number,
+  maxFrac: number,
+  thousandsSep: string,
+  decimalSep: string,
+): string {
+  const sign = v < 0 ? '-' : '';
+  const abs = Math.abs(v);
+  // Locale-agnostic — `toFixed` rounds to `maxFrac`; trailing zeros are then
+  // stripped down to `minFrac`. This matches `toLocaleString({ min, max })`.
+  const fixed = abs.toFixed(maxFrac);
+  let [intPart, fracPart = ''] = fixed.split('.');
+  while (fracPart.length > minFrac && fracPart.endsWith('0')) {
+    fracPart = fracPart.slice(0, -1);
   }
-  if (format === 'percent') return v.toLocaleString('en-US', { maximumFractionDigits: 1 }) + '%';
-  return v.toLocaleString('en-US', { maximumFractionDigits: 2 });
+  const withThousands = thousandsSep
+    ? intPart.replace(/\B(?=(\d{3})+(?!\d))/g, thousandsSep)
+    : intPart;
+  return sign + withThousands + (fracPart ? decimalSep + fracPart : '');
+}
+
+function formatResult(
+  v: number,
+  format: AdvCalc['format'],
+  numberFormat?: AdvNumberFormat,
+): string {
+  // Defaults match the pre-H6 en-US behaviour exactly when `numberFormat` is
+  // absent (`,` thousands, `.` decimal, `$` symbol).
+  const thousandsSep = numberFormat?.thousands ?? ',';
+  const decimalSep = numberFormat?.decimal ?? '.';
+  const currencyCode = (numberFormat?.currency ?? 'USD').toUpperCase();
+  const symbol = CURRENCY_SYMBOLS[currencyCode] ?? `${currencyCode} `;
+
+  if (format === 'currency') {
+    return symbol + formatNumber(v, 2, 2, thousandsSep, decimalSep);
+  }
+  if (format === 'percent') {
+    return formatNumber(v, 0, 1, thousandsSep, decimalSep) + '%';
+  }
+  return formatNumber(v, 0, 2, thousandsSep, decimalSep);
 }
 
 const labelStyle = (c: WidgetTheme): React.CSSProperties => ({
@@ -511,7 +578,7 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
               fontSize: 'clamp(28px, 6vw, 38px)', fontWeight: 800, color: c.resultText,
               margin: 0, fontFamily: eff.fontMono, lineHeight: 1.05, letterSpacing: '-0.02em',
             }}>
-              {formatResult(headline, resultCalc?.format || 'currency')}
+              {formatResult(headline, resultCalc?.format || 'currency', advanced.numberFormat)}
             </p>
             {/* Wave H4 — optional caption beneath the headline value. */}
             {resultCalc?.caption && resultCalc.caption.trim() !== '' && (
@@ -549,7 +616,7 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
                       <span style={{ color: c.resultMuted }}>{cl.name}</span>
                       <span style={{ fontWeight: 700, color: c.resultText, fontFamily: eff.fontMono }}>
-                        {formatResult(values[cl.name] ?? 0, cl.format)}
+                        {formatResult(values[cl.name] ?? 0, cl.format, advanced.numberFormat)}
                       </span>
                     </div>
                     {cl.caption && cl.caption.trim() !== '' && (

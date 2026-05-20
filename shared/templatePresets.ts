@@ -1364,6 +1364,18 @@ export const DEFAULT_ADV_STYLE: Required<AdvStyle> = {
 };
 
 /**
+ * Number-format overrides — Wave H6. Drives the renderer's currency
+ * formatting independent of the user's browser locale. Optional; absent slot
+ * → pre-H6 en-US defaults.
+ */
+export interface AdvNumberFormat {
+  thousands?: ',' | ' ' | '';
+  decimal?: '.' | ',';
+  /** ISO-4217 3-letter code. */
+  currency?: string;
+}
+
+/**
  * The runtime `calculator_settings.advanced` shape — what the renderer and the
  * builder persist. Kept identical to the pre-refactor shape so no stored
  * calculator needs migration; only the catalogue module shape changed.
@@ -1371,6 +1383,8 @@ export const DEFAULT_ADV_STYLE: Required<AdvStyle> = {
  * Wave H5 widens it with the optional `style` slot — back-compatible (older
  * configs render unchanged because every style field is optional and falls
  * through to the resolved theme).
+ * Wave H6 widens it again with the optional `numberFormat` slot — also
+ * back-compatible (absent → pre-H6 en-US defaults).
  */
 export interface AdvancedConfigShape {
   enabled: true;
@@ -1383,6 +1397,8 @@ export interface AdvancedConfigShape {
   results?: TemplateResults;
   /** Wave H5 — user-driven Style tab overrides. */
   style?: AdvStyle;
+  /** Wave H6 — user-driven Settings tab number-format overrides. */
+  numberFormat?: AdvNumberFormat;
 }
 
 /** Produce a persistable `calculator_settings.advanced` object from a template. */
