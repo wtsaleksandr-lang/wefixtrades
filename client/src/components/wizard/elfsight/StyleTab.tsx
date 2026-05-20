@@ -18,7 +18,8 @@
 // Zero new dependencies — colour pickers are native `<input type="color">`
 // with a hex text field as a fallback / direct-edit affordance.
 
-import { useCallback } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { platformTheme } from '@/theme/platformTheme';
 import {
   DEFAULT_SHELL_STYLE,
@@ -78,53 +79,57 @@ export default function StyleTab({ style, onChange }: Props) {
       aria-label="Style"
       role="tabpanel"
     >
-      {/* ── Colours ─────────────────────────────────────────────── */}
-      <fieldset className="qq-style-group" data-testid="style-group-colours">
-        <legend className="qq-style-legend">
-          Colours
-          <InfoCue
-            testid="style-colours"
-            text="The accent colour drives the primary CTA and slider track."
-          />
-        </legend>
-        <div className="qq-style-grid">
-          <ColourField
+      {/* ── Colours ─────────────────────────────────────────────────
+       *
+       * Wave L S1 — single row of small clickable circles. Each circle is the
+       * current swatch colour; click opens a popover with the native picker
+       * + the hex text field. Wave L S2 — visible "Colors" heading dropped;
+       * the swatch row is self-explanatory. The `<legend>` semantic stays for
+       * screen readers (hidden visually). */}
+      <fieldset className="qq-style-group qq-style-group--colours" data-testid="style-group-colours">
+        <legend className="qq-style-legend qq-style-legend--sr-only">Colours</legend>
+        <div className="qq-style-swatches" data-testid="style-swatches-row">
+          <ColourSwatch
             label="Accent"
             testid="style-input-accent"
             value={accent}
             fallback={DEFAULT_SHELL_STYLE.accent}
             onChange={(v) => patch({ accent: v })}
           />
-          <ColourField
+          <ColourSwatch
             label="Background"
             testid="style-input-background"
             value={background}
             fallback={DEFAULT_SHELL_STYLE.background}
             onChange={(v) => patch({ background: v })}
           />
-          <ColourField
+          <ColourSwatch
             label="Text"
             testid="style-input-text"
             value={text}
             fallback={DEFAULT_SHELL_STYLE.text}
             onChange={(v) => patch({ text: v })}
           />
-          <ColourField
-            label="Results background"
+          <ColourSwatch
+            label="Results bg"
             testid="style-input-resultsbg"
             value={resultsBg}
             fallback={DEFAULT_SHELL_STYLE.resultsBg}
             onChange={(v) => patch({ resultsBg: v })}
           />
+          <InfoCue
+            testid="style-colours"
+            text="The accent colour drives the primary CTA and slider track. Tap a swatch to change a colour."
+          />
         </div>
       </fieldset>
 
-      {/* ── Typography ──────────────────────────────────────────── */}
+      {/* ── Typography ──────────────────────────────────────────────
+       *
+       * Wave L S2 — visible "Typography" heading dropped; the font picker
+       * speaks for itself. Legend kept for screen readers. */}
       <fieldset className="qq-style-group" data-testid="style-group-typography">
-        <legend className="qq-style-legend">
-          Typography
-          <InfoCue testid="style-typography" text="Pick a font family from the curated set." />
-        </legend>
+        <legend className="qq-style-legend qq-style-legend--sr-only">Typography</legend>
         <FloatField label="Font family" htmlFor="qq-style-font" variant="select">
           <select
             id="qq-style-font"
@@ -219,12 +224,83 @@ export default function StyleTab({ style, onChange }: Props) {
           padding: 0 6px;
           letter-spacing: -0.005em;
         }
+        /* Wave L S2 — screen-reader-only legend (Colors / Typography). The
+         * visible text is dropped because the controls below speak for
+         * themselves, but the <legend> stays for assistive tech. */
+        .qq-style-legend--sr-only {
+          position: absolute;
+          width: 1px; height: 1px;
+          padding: 0; margin: -1px; overflow: hidden;
+          clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+        }
         .qq-style-grid {
           display: grid; gap: 10px;
           grid-template-columns: repeat(2, minmax(0, 1fr));
         }
         @media (max-width: 480px) {
           .qq-style-grid { grid-template-columns: 1fr; }
+        }
+
+        /* Wave L S1 — single-row swatches. Extra bottom padding so the
+         * absolute-positioned label sits inside the fieldset. */
+        .qq-style-swatches {
+          display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+          padding-bottom: 16px;
+        }
+        /* When the colours fieldset is the swatch-only variant, drop its
+         * generous bottom padding since the swatches own the spacing. */
+        .qq-style-group--colours {
+          padding-bottom: 8px;
+        }
+        .qq-style-swatch-btn {
+          position: relative;
+          width: 36px; height: 36px; border-radius: 50%;
+          border: 2px solid #fff;
+          box-shadow: 0 0 0 1px ${p.colors.border}, 0 1px 4px rgba(15,23,42,0.10);
+          cursor: pointer; padding: 0;
+          transition: box-shadow 0.12s ease, transform 0.06s ease;
+        }
+        .qq-style-swatch-btn:hover {
+          box-shadow: 0 0 0 2px ${p.colors.accent}, 0 4px 10px rgba(15,23,42,0.16);
+          transform: translateY(-1px);
+        }
+        .qq-style-swatch-btn[aria-expanded="true"] {
+          box-shadow: 0 0 0 2px ${p.colors.accent}, 0 6px 14px rgba(15,23,42,0.20);
+        }
+        .qq-style-swatch-label {
+          position: absolute;
+          top: 100%; left: 50%; transform: translateX(-50%);
+          margin-top: 4px;
+          font-size: 10px; font-weight: 600;
+          color: ${p.colors.muted}; white-space: nowrap;
+          letter-spacing: -0.01em;
+        }
+        .qq-style-swatches-spacer {
+          flex: 1;
+        }
+        .qq-style-swatch-popover {
+          position: fixed;
+          z-index: 2000;
+          width: 240px;
+          padding: 12px;
+          background: #fff;
+          border: 1px solid ${p.colors.border};
+          border-radius: 10px;
+          box-shadow: 0 16px 40px rgba(15,23,42,0.18);
+          display: flex; flex-direction: column; gap: 8px;
+        }
+        .qq-style-swatch-popover-h {
+          font-size: 11.5px; font-weight: 700;
+          color: ${p.colors.heading};
+        }
+        /* Wave L S1 — dark-mode popover. */
+        .qq-editor-shell[data-theme="dark"] .qq-style-swatch-popover {
+          background: #243149;
+          border-color: var(--qq-border);
+          color: var(--qq-text);
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-style-swatch-popover-h {
+          color: var(--qq-text);
         }
         .qq-style-label {
           display: flex; align-items: center; justify-content: space-between;
@@ -317,8 +393,14 @@ export default function StyleTab({ style, onChange }: Props) {
   );
 }
 
-/* ─── ColourField — native colour input + hex text field with floating label ─── */
-function ColourField({
+/* ─── ColourSwatch — Wave L S1 single-row picker ─────────────────────
+ *
+ * Compact circle showing the current colour. Click opens a portaled
+ * popover containing the native picker + the hex text field — same
+ * controls the old ColourField had, just packaged behind a smaller
+ * affordance. Outside-click / Escape dismiss; positioned via
+ * getBoundingClientRect of the trigger. */
+function ColourSwatch({
   label, value, fallback, onChange, testid,
 }: {
   label: string;
@@ -327,45 +409,111 @@ function ColourField({
   onChange: (v: string) => void;
   testid: string;
 }) {
-  // The native swatch demands a strict 7-char hex; if the typed-in value is
-  // anything else we feed it the fallback so the swatch stays useful while
-  // the user is mid-type.
   const swatchValue = safeHex(value) || safeHex(fallback) || '#000000';
-  const inputId = `${testid}-hex-input`;
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const popoverRef = useRef<HTMLDivElement | null>(null);
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const expandedHex = swatchValue.length === 4
+    ? '#' + swatchValue.slice(1).split('').map((c) => c + c).join('')
+    : swatchValue;
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    const measure = () => {
+      const t = triggerRef.current;
+      if (!t) return;
+      const r = t.getBoundingClientRect();
+      const POP_W = 240;
+      const POP_H = 140;
+      let left = r.left;
+      if (left + POP_W > window.innerWidth - 8) left = window.innerWidth - POP_W - 8;
+      let top = r.bottom + 6;
+      if (top + POP_H > window.innerHeight - 8) top = r.top - POP_H - 6;
+      setPos({ top, left: Math.max(8, left) });
+    };
+    measure();
+    const onScroll = () => measure();
+    window.addEventListener('scroll', onScroll, true);
+    window.addEventListener('resize', onScroll);
+    return () => {
+      window.removeEventListener('scroll', onScroll, true);
+      window.removeEventListener('resize', onScroll);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (triggerRef.current?.contains(t)) return;
+      if (popoverRef.current?.contains(t)) return;
+      setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', onDoc);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDoc);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
   return (
-    <div className="qq-style-colour">
-      <div className="qq-style-colour-row">
-        <input
-          type="color"
-          className="qq-style-swatch"
-          value={swatchValue.length === 4
-            // expand #abc → #aabbcc for the native picker
-            ? '#' + swatchValue.slice(1).split('').map((c) => c + c).join('')
-            : swatchValue}
-          aria-label={`${label} colour`}
-          data-testid={`${testid}-swatch`}
-          onChange={(e) => onChange(e.target.value)}
-        />
-        <FloatField label={label} htmlFor={inputId} className="qq-style-colour-fieldwrap">
-          <input
-            id={inputId}
-            type="text"
-            className="premium-input"
-            placeholder=" "
-            value={value}
-            aria-label={`${label} hex`}
-            data-testid={testid}
-            onChange={(e) => {
-              const raw = e.target.value;
-              if (raw.trim() === '') { onChange(fallback); return; }
-              const hex = safeHex(raw);
-              if (hex) onChange(hex);
-              else onChange(raw);
-            }}
-          />
-        </FloatField>
-      </div>
-    </div>
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        className="qq-style-swatch-btn"
+        data-testid={`${testid}-trigger`}
+        aria-label={`Edit ${label} colour`}
+        aria-expanded={open}
+        title={`${label} (${value})`}
+        onClick={() => setOpen((v) => !v)}
+        style={{ background: expandedHex }}
+      >
+        <span className="qq-style-swatch-label">{label}</span>
+      </button>
+      {open && pos && typeof document !== 'undefined' && createPortal(
+        <div
+          ref={popoverRef}
+          className="qq-style-swatch-popover"
+          data-testid={`${testid}-popover`}
+          style={{ top: pos.top, left: pos.left }}
+        >
+          <div className="qq-style-swatch-popover-h">{label}</div>
+          <div className="qq-style-colour-row">
+            <input
+              type="color"
+              className="qq-style-swatch"
+              value={expandedHex}
+              aria-label={`${label} colour`}
+              data-testid={`${testid}-swatch`}
+              onChange={(e) => onChange(e.target.value)}
+            />
+            <FloatField label="Hex" htmlFor={`${testid}-hex-input`} className="qq-style-colour-fieldwrap">
+              <input
+                id={`${testid}-hex-input`}
+                type="text"
+                className="premium-input"
+                placeholder=" "
+                value={value}
+                aria-label={`${label} hex`}
+                data-testid={testid}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  if (raw.trim() === '') { onChange(fallback); return; }
+                  const hex = safeHex(raw);
+                  if (hex) onChange(hex);
+                  else onChange(raw);
+                }}
+              />
+            </FloatField>
+          </div>
+        </div>,
+        document.body,
+      )}
+    </>
   );
 }
 
