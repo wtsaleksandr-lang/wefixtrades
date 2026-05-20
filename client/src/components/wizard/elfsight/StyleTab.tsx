@@ -29,7 +29,6 @@ import {
   type ShellFieldStyle,
   type ShellWidgetWidth,
 } from './types';
-import InfoCue from './InfoCue';
 import FloatField from './FloatField';
 
 const p = platformTheme;
@@ -117,10 +116,6 @@ export default function StyleTab({ style, onChange }: Props) {
             fallback={DEFAULT_SHELL_STYLE.resultsBg}
             onChange={(v) => patch({ resultsBg: v })}
           />
-          <InfoCue
-            testid="style-colours"
-            text="The accent colour drives the primary CTA and slider track. Tap a swatch to change a colour."
-          />
         </div>
       </fieldset>
 
@@ -147,10 +142,10 @@ export default function StyleTab({ style, onChange }: Props) {
 
       {/* ── Shape ────────────────────────────────────────────────── */}
       <fieldset className="qq-style-group" data-testid="style-group-shape">
-        <legend className="qq-style-legend">
-          Shape
-          <InfoCue testid="style-shape" text="Tune how inputs and cards look." />
-        </legend>
+        <legend className="qq-style-legend">Shape</legend>
+        <p className="qq-style-sectionhint" data-testid="style-shape-hint">
+          Tune how inputs and cards look.
+        </p>
 
         <label className="qq-style-label">Field style</label>
         <SegmentedControl<ShellFieldStyle>
@@ -188,10 +183,10 @@ export default function StyleTab({ style, onChange }: Props) {
 
       {/* ── Layout ──────────────────────────────────────────────── */}
       <fieldset className="qq-style-group" data-testid="style-group-layout">
-        <legend className="qq-style-legend">
-          Layout
-          <InfoCue testid="style-layout" text="Choose how wide the widget renders on the page." />
-        </legend>
+        <legend className="qq-style-legend">Layout</legend>
+        <p className="qq-style-sectionhint" data-testid="style-layout-hint">
+          Choose how wide the widget renders on the page.
+        </p>
         <label className="qq-style-label">Widget width</label>
         <SegmentedControl<ShellWidgetWidth>
           name="widget-width"
@@ -217,12 +212,24 @@ export default function StyleTab({ style, onChange }: Props) {
           background: #fff;
           margin: 0;
         }
+        /* W-SETTINGS-STYLE — subtle all-caps section label, matches the
+         * Build tab treatment landed by W-SECTIONS. Sits flush above the
+         * first input rather than reading as a bold heading. */
         .qq-style-legend {
-          display: inline-flex; align-items: center;
-          font-size: 13px; font-weight: 800;
-          color: ${p.colors.heading};
-          padding: 0 6px;
-          letter-spacing: -0.005em;
+          display: block;
+          font-size: 11.5px; font-weight: 600;
+          color: ${p.colors.muted};
+          text-transform: uppercase; letter-spacing: 0.04em;
+          margin: 0 0 6px;
+          padding: 0;
+        }
+        /* Section-level help that used to live in an InfoCue beside the
+         * legend. Same muted styling, sits under the legend as a body
+         * line so it reads like a caption, not a heading. */
+        .qq-style-sectionhint {
+          margin: 0 0 8px;
+          font-size: 11.5px; line-height: 1.5;
+          color: ${p.colors.subtle};
         }
         /* Wave L S2 — screen-reader-only legend (Colors / Typography). The
          * visible text is dropped because the controls below speak for
