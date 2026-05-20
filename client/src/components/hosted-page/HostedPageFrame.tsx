@@ -27,6 +27,7 @@ import {
   DEFAULT_HOSTED_PAGE,
   getHostedBackgroundPreset,
 } from '@/components/wizard/elfsight/types';
+import WeFixTradesBadge from './WeFixTradesBadge';
 
 interface Props {
   settings?: HostedPageSettings | null;
@@ -36,6 +37,11 @@ interface Props {
   /** Wave P — used in the wizard preview pane. Drops `min-height: 100vh`
    *  and reduces top/bottom padding so the frame fits inside the bezel. */
   compact?: boolean;
+  /** Wave P-H — when false (Pro plan), hides the "Get your free quoting
+   *  widget" CTA at the bottom of the page. Defaults to true. */
+  showBrandFooter?: boolean;
+  /** Wave P-H — UTM attribution slot for the footer badge. */
+  slug?: string | null;
 }
 
 function resolveBackgroundCss(s: HostedPageSettings): { background: string; dark: boolean } {
@@ -71,6 +77,7 @@ function isHexDark(hex: string): boolean {
 
 export default function HostedPageFrame({
   settings, logoUrl, businessName, children, compact = false,
+  showBrandFooter = true, slug,
 }: Props) {
   const resolved: HostedPageSettings = { ...DEFAULT_HOSTED_PAGE, ...(settings ?? {}) };
   const { background, dark } = resolveBackgroundCss(resolved);
@@ -138,6 +145,20 @@ export default function HostedPageFrame({
         ) : (
           <div className="qq-hosted-bleed">
             {children}
+          </div>
+        )}
+        {/* Wave P-H — free-tier footer CTA. Skipped on the compact
+         *  (wizard-preview) variant to keep the in-editor preview clean;
+         *  the wizard already shows the header badge on the widget itself
+         *  so the user sees their brand exposure footprint. */}
+        {showBrandFooter && !compact && (
+          <div style={{ textAlign: 'center' }}>
+            <WeFixTradesBadge
+              variant="footer"
+              context="hosted"
+              slug={slug ?? null}
+              onDarkBackground={dark}
+            />
           </div>
         )}
       </div>

@@ -122,6 +122,11 @@ export default function Calculator() {
   const hostedPageSettings = calculator?.calculator_settings?.shell_settings?.hostedPage;
   const hostedLogoUrl = calculator?.logo_url ?? null;
   const hostedBusinessName: string | undefined = calculator?.business_name;
+  // Wave P-H — appearance.show_powered_by drives both the header pill on
+  // QuoteWidget AND the footer CTA on HostedPageFrame. Defaults true
+  // (free tier); Pro plan toggles it off.
+  const showBrandFooter =
+    calculator?.calculator_settings?.appearance?.show_powered_by !== false;
 
   const widget = (
     <>
@@ -150,6 +155,8 @@ export default function Calculator() {
       settings={hostedPageSettings}
       logoUrl={hostedLogoUrl}
       businessName={hostedBusinessName}
+      slug={calculator?.slug ?? null}
+      showBrandFooter={showBrandFooter}
     >
       {isPreview && (
         <div style={{

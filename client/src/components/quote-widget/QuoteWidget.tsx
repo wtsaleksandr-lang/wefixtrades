@@ -1,5 +1,6 @@
 import { useMemo, useEffect, useRef, Component, type ReactNode } from 'react';
 import { ChevronLeft, ArrowRight, AlertTriangle } from 'lucide-react';
+import WeFixTradesBadge from '@/components/hosted-page/WeFixTradesBadge';
 import { trackEvent } from '@/lib/trackEvent';
 import { validatePricingConfig, CALL_FOR_QUOTE_FALLBACK } from '@shared/pricingConfig';
 import { getTemplateById } from '@shared/templateLibrary';
@@ -137,6 +138,15 @@ export default function QuoteWidget({ calculator, isEmbed = false }: QuoteWidget
   const advancedConfig = ((calculator.calculator_settings || {}) as any).advanced;
   const isAdvanced = !!advancedConfig?.enabled;
 
+  // Wave P-H — show "QuoteQuick by WeFixTrades" badge unless the Pro-plan
+  // toggle hides it. Defaults to TRUE (free users see it).
+  const appearance = (calculator.calculator_settings as any)?.appearance || {};
+  const showBrandBadge = appearance.show_powered_by !== false;
+  // `isEmbed` distinguishes the iframe / embedded variant; the hosted
+  // page sets it false. Used for UTM attribution only.
+  const badgeContext: 'hosted' | 'embed' = isEmbed ? 'embed' : 'hosted';
+  const calcSlug = (calculator as any)?.slug ?? null;
+
   return (
     <WidgetErrorBoundary businessName={calculator.business_name}>
       {isAdvanced ? (
@@ -144,6 +154,11 @@ export default function QuoteWidget({ calculator, isEmbed = false }: QuoteWidget
           className="mx-auto w-full"
           style={{ maxWidth: '780px', fontFamily: eff.font, color: eff.text }}
         >
+          {showBrandBadge && (
+            <div style={{ display: 'flex', justifyContent: 'flex-start', padding: '8px 4px 0' }}>
+              <WeFixTradesBadge variant="header" context={badgeContext} slug={calcSlug} />
+            </div>
+          )}
           <AdvancedCalculator
             businessName={calculator.business_name}
             logoUrl={calculator.logo_url}
@@ -161,6 +176,11 @@ export default function QuoteWidget({ calculator, isEmbed = false }: QuoteWidget
               color: eff.text,
             }}
           >
+            {showBrandBadge && (
+              <div style={{ display: 'flex', justifyContent: 'flex-start', padding: '8px 4px 0' }}>
+                <WeFixTradesBadge variant="header" context={badgeContext} slug={calcSlug} />
+              </div>
+            )}
             <WidgetCard theme={theme} calculator={calculator} />
           </div>
         </WidgetProvider>
