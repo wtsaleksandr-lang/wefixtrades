@@ -442,7 +442,15 @@ export default function FormulaEditor({
     <div className="qq-formula-editor" data-testid={`calc-row-formula-${calcId}`}>
       <div className="qq-formula-toolbar">
         <span className="qq-formula-label">Formula</span>
-        <InsertMenu calcId={calcId} items={insertItems} onPick={handleInsert} />
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <FormulaAIButton
+            calcId={calcId}
+            fields={fields}
+            precedingCalcs={precedingCalcs}
+            onAccept={(next) => onChange(next)}
+          />
+          <InsertMenu calcId={calcId} items={insertItems} onPick={handleInsert} />
+        </div>
       </div>
       <input
         ref={inputRef}
@@ -563,6 +571,263 @@ export default function FormulaEditor({
           font-size: 11.5px; font-weight: 600; color: ${p.colors.danger};
           padding-top: 1px;
         }
+      `}</style>
+    </div>
+  );
+}
+
+/* ── Wave AD-1 — ✨ Formula help (AI) ─────────────────────────────────────
+ * A sparkle button that opens an inline panel below the toolbar. The user
+ * describes the desired calculation in plain language; the server returns a
+ * candidate formula (validated server-side via `validateFormula`). The user
+ * accepts (auto-fills the formula editor) or discards. The available fields
+ * and preceding calc names are sent with the request so the model can only
+ * reference things that actually exist in the row's row-context. */
+
+interface FormulaAIButtonProps {
+  calcId: string;
+  fields: TemplateField[];
+  precedingCalcs: TemplateCalculation[];
+  onAccept: (formula: string) => void;
+}
+
+function FormulaAIButton({ calcId, fields, precedingCalcs, onAccept }: FormulaAIButtonProps) {
+  const [open, setOpen] = useState(false);
+  const [prompt, setPrompt] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [candidate, setCandidate] = useState<string | null>(null);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', onDoc);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDoc);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  const submit = async () => {
+    const trimmed = prompt.trim();
+    if (!trimmed || busy) return;
+    setBusy(true);
+    setError(null);
+    setCandidate(null);
+    try {
+      const res = await fetch('/api/ai/formula-help', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: trimmed,
+          availableFields: fields.map((f) => f.name),
+          precedingCalcs: precedingCalcs.map((c) => c.name),
+        }),
+      });
+      const data: any = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (res.status === 401) {
+          setError('Sign in to use AI formula help.');
+        } else if (res.status === 503) {
+          setError('AI is unavailable right now — try again shortly.');
+        } else {
+          setError(data?.message || data?.error || `Couldn't generate a formula (HTTP ${res.status}).`);
+        }
+        return;
+      }
+      const formula = typeof data?.formula === 'string' ? data.formula.trim() : '';
+      if (!formula) {
+        setError('AI returned an empty formula.');
+        return;
+      }
+      setCandidate(formula);
+    } catch (err: any) {
+      setError(String(err?.message ?? 'Network error'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const accept = () => {
+    if (!candidate) return;
+    onAccept(candidate);
+    setOpen(false);
+    setPrompt('');
+    setCandidate(null);
+    setError(null);
+  };
+
+  const discard = () => {
+    setCandidate(null);
+    setError(null);
+  };
+
+  return (
+    <div ref={rootRef} className="qq-formula-ai-root">
+      <button
+        type="button"
+        className="qq-formula-ai-trigger"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        aria-label="AI formula help"
+        title="AI formula help"
+        data-testid={`calc-row-formula-ai-trigger-${calcId}`}
+      >
+        <span aria-hidden="true">✨</span>
+      </button>
+      {open && (
+        <div
+          role="dialog"
+          aria-label="AI formula help"
+          className="qq-formula-ai-panel"
+          data-testid={`calc-row-formula-ai-panel-${calcId}`}
+        >
+          <div className="qq-formula-ai-hdr">
+            <span aria-hidden="true">✨</span>
+            <span>AI formula help</span>
+          </div>
+          <textarea
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            placeholder="Describe what to calculate, e.g. '10% tax on subtotal plus shipping'"
+            rows={3}
+            className="qq-formula-ai-input"
+            data-testid={`calc-row-formula-ai-input-${calcId}`}
+            disabled={busy}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); submit(); }
+            }}
+          />
+          {!candidate && (
+            <button
+              type="button"
+              onClick={submit}
+              disabled={busy || !prompt.trim()}
+              className="qq-formula-ai-go"
+              data-testid={`calc-row-formula-ai-go-${calcId}`}
+            >
+              {busy ? 'Thinking…' : 'Generate'}
+            </button>
+          )}
+          {error && (
+            <div className="qq-formula-ai-err" role="alert" data-testid={`calc-row-formula-ai-error-${calcId}`}>
+              {error}
+            </div>
+          )}
+          {candidate && (
+            <div className="qq-formula-ai-result" data-testid={`calc-row-formula-ai-result-${calcId}`}>
+              <div className="qq-formula-ai-result-lbl">Suggested formula</div>
+              <code className="qq-formula-ai-result-code">{candidate}</code>
+              <div className="qq-formula-ai-result-actions">
+                <button
+                  type="button"
+                  onClick={discard}
+                  className="qq-formula-ai-discard"
+                  data-testid={`calc-row-formula-ai-discard-${calcId}`}
+                >
+                  Discard
+                </button>
+                <button
+                  type="button"
+                  onClick={accept}
+                  className="qq-formula-ai-accept"
+                  data-testid={`calc-row-formula-ai-accept-${calcId}`}
+                >
+                  Use this
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+      <style>{`
+        .qq-formula-ai-root { position: relative; display: inline-block; }
+        .qq-formula-ai-trigger {
+          display: inline-flex; align-items: center; justify-content: center;
+          width: 28px; height: 28px; padding: 0; border-radius: 7px;
+          font: inherit; font-size: 14px; line-height: 1; cursor: pointer;
+          background: ${p.colors.accentLighter}; color: ${p.colors.accent};
+          border: 1px solid ${p.colors.accent};
+          transition: background 0.1s ease, transform 0.1s ease;
+        }
+        .qq-formula-ai-trigger:hover { background: ${p.colors.accentLight}; transform: translateY(-1px); }
+        .qq-formula-ai-panel {
+          position: absolute; right: 0; top: calc(100% + 6px); z-index: 60;
+          width: 300px; max-width: calc(100vw - 24px);
+          padding: 10px;
+          background: #fff; border-radius: 10px;
+          border: 1px solid ${p.colors.borderLight};
+          box-shadow: ${p.shadows.lg};
+          display: flex; flex-direction: column; gap: 8px;
+        }
+        .qq-formula-ai-hdr {
+          display: inline-flex; align-items: center; gap: 5px;
+          font-size: 11px; font-weight: 700;
+          color: ${p.colors.heading};
+          text-transform: uppercase; letter-spacing: 0.04em;
+        }
+        .qq-formula-ai-input {
+          width: 100%; box-sizing: border-box; resize: vertical;
+          padding: 7px 9px; font: inherit; font-size: 12.5px;
+          color: ${p.colors.body}; background: #fff;
+          border: 1px solid ${p.colors.border}; border-radius: 7px;
+          outline: none; min-height: 60px;
+        }
+        .qq-formula-ai-input:focus {
+          border-color: ${p.colors.accent}; box-shadow: ${p.shadows.focus};
+        }
+        .qq-formula-ai-go {
+          align-self: flex-end;
+          font: inherit; font-size: 12px; font-weight: 700; cursor: pointer;
+          padding: 6px 14px; border-radius: 7px;
+          background: ${p.colors.accent}; color: #fff; border: none;
+        }
+        .qq-formula-ai-go:disabled { opacity: 0.55; cursor: not-allowed; }
+        .qq-formula-ai-err {
+          font-size: 11.5px; color: ${p.colors.danger};
+          background: ${p.colors.dangerLight};
+          padding: 6px 8px; border-radius: 6px;
+        }
+        .qq-formula-ai-result {
+          display: flex; flex-direction: column; gap: 6px;
+          padding: 8px; border-radius: 7px;
+          background: ${p.colors.surfaceRaised};
+          border: 1px solid ${p.colors.borderLight};
+        }
+        .qq-formula-ai-result-lbl {
+          font-size: 10.5px; font-weight: 700; color: ${p.colors.subtle};
+          text-transform: uppercase; letter-spacing: 0.04em;
+        }
+        .qq-formula-ai-result-code {
+          display: block; word-break: break-all;
+          font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+          font-size: 12px; color: ${p.colors.heading};
+          background: #fff; padding: 6px 8px; border-radius: 5px;
+          border: 1px solid ${p.colors.borderLight};
+        }
+        .qq-formula-ai-result-actions {
+          display: flex; gap: 6px; justify-content: flex-end;
+        }
+        .qq-formula-ai-discard {
+          font: inherit; font-size: 11.5px; font-weight: 600; cursor: pointer;
+          padding: 5px 10px; border-radius: 6px;
+          background: transparent; color: ${p.colors.muted};
+          border: 1px solid ${p.colors.border};
+        }
+        .qq-formula-ai-discard:hover { color: ${p.colors.heading}; }
+        .qq-formula-ai-accept {
+          font: inherit; font-size: 11.5px; font-weight: 700; cursor: pointer;
+          padding: 5px 12px; border-radius: 6px;
+          background: ${p.colors.accent}; color: #fff; border: none;
+        }
+        .qq-formula-ai-accept:hover { filter: brightness(1.05); }
       `}</style>
     </div>
   );
