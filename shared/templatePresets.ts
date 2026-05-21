@@ -1567,6 +1567,408 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     result_calc: 'Estimated Project Cost',
     results: { footnote: 'Many utilities offer EV-charger rebates of $200-$1000 — applied after quote acceptance.' },
   },
+
+  /* ── Wave Y Batch 4 — Outdoor / Driveway category ── */
+
+  /* ── 27. Lawn care subscription ── */
+  {
+    id: 'lawn_care_subscription', name: 'Lawn Care Subscription',
+    description: 'Recurring lawn maintenance with visit-cadence pricing.',
+    category: 'Outdoor', trades: ['lawn_mowing', 'landscaping', 'garden_maintenance'],
+    layout: 'two-column', theme: 'forest',
+    header: { title: 'Lawn Care Subscription Quote', subtitle: 'Per-visit price for ongoing yard maintenance.', align: 'left' },
+    fields: [
+      { id: 'lawn_size', name: 'Lawn Size', label: 'Lawn size', type: 'slider',
+        min: 500, max: 30000, step: 100, default_value: 5000, unit: 'sqft' },
+      { id: 'frequency', name: 'Frequency', label: 'How often?', type: 'select',
+        options: [opt('Weekly', 1.0), opt('Bi-weekly', 0.65), opt('Monthly', 0.45)] },
+      { id: 'services', name: 'Services', label: 'Included services', type: 'multi_select',
+        options: [opt('Mow', 25), opt('Edge + trim', 18), opt('Blow-off cleanup', 12), opt('Fertilizer', 35), opt('Weed control', 30)] },
+      { id: 'season', name: 'Season Length', label: 'Season length', type: 'radio',
+        options: [opt('Full season (8 months)', 1.0), opt('Spring + summer (5 months)', 0.7), opt('Maintenance-only (3 months)', 0.45)] },
+    ],
+    calculations: [calc('Per-Visit Cost', '[Lawn Size] * 0.008 * [Frequency] + [Services]')],
+    result_calc: 'Per-Visit Cost',
+    results: { footnote: 'Seasonal pre-pay discount of 8% available. Cancel anytime with 30 days notice.' },
+  },
+
+  /* ── 28. Concrete driveway replacement ── */
+  {
+    id: 'concrete_driveway_replacement', name: 'Concrete Driveway',
+    description: 'New concrete driveway with finish + removal modifiers.',
+    category: 'Driveway', trades: ['concrete_driveway', 'concrete_patio', 'concrete_slab'],
+    layout: 'single-column', theme: 'midnight',
+    header: { title: 'Concrete Driveway Quote', subtitle: 'New driveway pricing from your yard dimensions.', align: 'left' },
+    fields: [
+      { id: 'area', name: 'Driveway Area', label: 'Driveway area', type: 'slider',
+        min: 100, max: 2000, step: 25, default_value: 500, unit: 'sqft' },
+      { id: 'finish', name: 'Finish', label: 'Finish type', type: 'select',
+        options: [opt('Standard broom', 7), opt('Exposed aggregate', 11), opt('Stamped pattern', 14), opt('Colored + stamped', 18)] },
+      { id: 'thickness', name: 'Thickness', label: 'Concrete thickness', type: 'radio',
+        options: [opt('4" (light residential)', 1.0), opt('5" (recommended)', 1.18), opt('6" (heavy vehicle)', 1.35)] },
+      { id: 'extras', name: 'Extras', label: 'Extras', type: 'multi_select',
+        options: [opt('Remove old surface', 1100), opt('Reinforce with rebar', 480), opt('Add drainage channel', 620)] },
+    ],
+    calculations: [calc('Estimated Project Cost', '[Driveway Area] * [Finish] * [Thickness] + [Extras]')],
+    result_calc: 'Estimated Project Cost',
+  },
+
+  /* ── 29. Tree service ── */
+  {
+    id: 'tree_service', name: 'Tree Service',
+    description: 'Trimming or removal estimate per tree with height + access modifiers.',
+    category: 'Outdoor', trades: ['tree_service', 'tree_trimming'],
+    layout: 'two-column', theme: 'forest',
+    header: { title: 'Tree Service Quote', subtitle: 'Trim, prune or remove — priced per tree.', align: 'left' },
+    fields: [
+      { id: 'service', name: 'Service', label: 'Service needed', type: 'radio',
+        options: [opt('Trim / prune', 200), opt('Removal (no stump)', 600), opt('Removal + stump grind', 850)] },
+      { id: 'trees', name: 'Trees', label: 'Number of trees', type: 'number',
+        min: 1, max: 20, step: 1, default_value: 1 },
+      { id: 'height', name: 'Height', label: 'Tallest tree', type: 'select',
+        options: [opt('Under 25 ft', 1.0), opt('25-50 ft', 1.4), opt('50-75 ft', 1.9), opt('75+ ft', 2.6)] },
+      { id: 'access', name: 'Access', label: 'Site access', type: 'radio',
+        options: [opt('Easy (truck access)', 0), opt('Moderate (gate / yard work)', 120), opt('Difficult (over house / power lines)', 350)] },
+      { id: 'haul', name: 'Haul Away', label: 'Haul away debris', type: 'toggle', on_value: 180 },
+    ],
+    calculations: [calc('Estimated Quote', '[Service] * [Trees] * [Height] + [Access] + [Haul Away]')],
+    result_calc: 'Estimated Quote',
+    results: { footnote: 'Certified arborists, fully insured. Free on-site assessment for jobs over $1500.' },
+  },
+
+  /* ── 30. Pressure washing ── */
+  {
+    id: 'pressure_washing_quote', name: 'Pressure Washing',
+    description: 'Per-sqft exterior surface clean with multi-surface support.',
+    category: 'Cleaning', trades: ['pressure_washing', 'window_cleaning'],
+    layout: 'single-column', theme: 'forest',
+    header: { title: 'Pressure Washing Quote', subtitle: 'Restore curb appeal — driveway, siding, deck, patio.', align: 'left' },
+    fields: [
+      { id: 'area', name: 'Area', label: 'Total area', type: 'slider',
+        min: 100, max: 5000, step: 50, default_value: 800, unit: 'sqft' },
+      { id: 'surface', name: 'Surface Type', label: 'Surface type', type: 'select',
+        options: [opt('Concrete / driveway', 0.30), opt('Wood deck', 0.45), opt('Vinyl siding', 0.35), opt('Brick / stone', 0.40), opt('Roof (soft wash)', 0.55)] },
+      { id: 'extras', name: 'Extras', label: 'Add-ons', type: 'multi_select',
+        options: [opt('Mildew / mold treatment', 80), opt('Sealing after wash', 220), opt('Stairs / railings', 95)] },
+      { id: 'access', name: 'Access', label: 'Site access', type: 'radio',
+        options: [opt('Standard', 0), opt('Second story', 75), opt('Hard-to-reach', 150)] },
+    ],
+    calculations: [calc('Estimated Quote', '[Area] * [Surface Type] + [Access] + [Extras]')],
+    result_calc: 'Estimated Quote',
+  },
+
+  /* ── Wave Y Batch 5 — Auto / Emergency category ── */
+
+  /* ── 31. Mobile car detailing ── */
+  {
+    id: 'mobile_car_detail', name: 'Mobile Car Detailing',
+    description: 'Per-vehicle detail with package tiers and add-on services.',
+    category: 'Automotive', trades: ['mobile_car_detailing', 'auto_detailing'],
+    layout: 'two-column', theme: 'midnight',
+    header: { title: 'Mobile Car Detail Quote', subtitle: 'We come to you. Priced by vehicle size + service tier.', align: 'left' },
+    fields: [
+      { id: 'vehicle', name: 'Vehicle Size', label: 'Vehicle size', type: 'radio',
+        options: [opt('Sedan / coupe', 1.0), opt('SUV / mid-size', 1.25), opt('Truck / full-size SUV', 1.5), opt('Van / 3-row SUV', 1.75)] },
+      { id: 'package', name: 'Package', label: 'Detail package', type: 'select',
+        options: [opt('Exterior only', 65), opt('Interior only', 85), opt('Full detail (in + out)', 145), opt('Premium (clay bar + wax)', 220), opt('Showroom (ceramic top-up)', 350)] },
+      { id: 'extras', name: 'Extras', label: 'Add-ons', type: 'multi_select',
+        options: [opt('Engine bay clean', 45), opt('Headlight restoration', 60), opt('Pet hair removal', 35), opt('Odor elimination', 50), opt('Leather conditioning', 40)] },
+      { id: 'condition', name: 'Condition', label: 'Current condition', type: 'radio',
+        options: [opt('Light (regular cleaning)', 0), opt('Moderate (3-6 months neglect)', 30), opt('Heavy (over a year)', 75)] },
+    ],
+    calculations: [calc('Estimated Quote', '[Detail Package] * [Vehicle Size] + [Add-ons] + [Condition]')],
+    result_calc: 'Estimated Quote',
+  },
+
+  /* ── 32. Locksmith service ── */
+  {
+    id: 'locksmith_service', name: 'Locksmith Service',
+    description: 'Per-service locksmith pricing with urgency modifier.',
+    category: 'Emergency', trades: ['locksmith'],
+    layout: 'single-column', theme: 'midnight',
+    header: { title: 'Locksmith Service Quote', subtitle: 'Upfront pricing — no surprises when we arrive.', align: 'left' },
+    fields: [
+      { id: 'service', name: 'Service', label: 'Service needed', type: 'select',
+        options: [opt('Home lockout', 95), opt('Car lockout', 110), opt('Rekey lock', 65), opt('New deadbolt install', 180), opt('Smart lock install', 280), opt('Key duplication', 25)] },
+      { id: 'quantity', name: 'Quantity', label: 'How many?', type: 'number',
+        min: 1, max: 10, step: 1, default_value: 1 },
+      { id: 'urgency', name: 'Urgency', label: 'When?', type: 'radio',
+        options: [opt('Within a few days', 0), opt('Within 24 hours', 35), opt('Now (within 1 hour)', 95)] },
+      { id: 'time', name: 'Time of Service', label: 'Time of service', type: 'radio',
+        options: [opt('Business hours', 0), opt('After hours / weekend', 45), opt('Overnight / holiday', 95)] },
+    ],
+    calculations: [calc('Estimated Cost', '[Service] * [Quantity] + [Urgency] + [Time of Service]')],
+    result_calc: 'Estimated Cost',
+  },
+
+  /* ── 33. Water damage restoration ── */
+  {
+    id: 'water_damage_restoration', name: 'Water Damage Restoration',
+    description: 'Emergency water-damage scoping by affected area and severity.',
+    category: 'Emergency', trades: ['water_damage_restoration', 'water_damage'],
+    layout: 'two-column', theme: 'magenta',
+    header: { title: 'Water Damage Restoration Quote', subtitle: 'Fast response, certified technicians, insurance billing ready.', align: 'left' },
+    fields: [
+      { id: 'area', name: 'Affected Area', label: 'Affected area', type: 'slider',
+        min: 50, max: 3000, step: 25, default_value: 250, unit: 'sqft' },
+      { id: 'severity', name: 'Severity', label: 'Water severity (Class)', type: 'radio',
+        options: [opt('Class 1 (clean, minor)', 1.0), opt('Class 2 (gray water)', 1.4), opt('Class 3 (extensive saturation)', 2.0), opt('Class 4 (sewage / hazardous)', 2.8)] },
+      { id: 'response', name: 'Response Time', label: 'Response time', type: 'select',
+        options: [opt('Next business day', 0), opt('Within 24 hours', 220), opt('Within 4 hours (emergency)', 580)] },
+      { id: 'services', name: 'Services', label: 'Included services', type: 'multi_select',
+        options: [opt('Water extraction', 350), opt('Structural drying', 480), opt('Mold prevention', 280), opt('Contents pack-out', 620), opt('Reconstruction estimate', 0)] },
+    ],
+    calculations: [calc('Estimated Cost', '[Affected Area] * 2.2 * [Severity] + [Response Time] + [Services]')],
+    result_calc: 'Estimated Cost',
+    results: { footnote: 'IICRC-certified technicians. Most insurance providers covered — we bill directly when possible.' },
+  },
+
+  /* ── 34. Emergency HVAC repair ── */
+  {
+    id: 'emergency_hvac', name: 'Emergency HVAC',
+    description: 'After-hours HVAC repair with diagnostic + parts modifiers.',
+    category: 'Emergency', trades: ['emergency_hvac', 'hvac_services'],
+    layout: 'single-column', theme: 'midnight',
+    header: { title: 'Emergency HVAC Service', subtitle: 'Heat down? Cooling out? Same-day diagnosis.', align: 'left' },
+    fields: [
+      { id: 'system', name: 'System', label: 'Which system?', type: 'radio',
+        options: [opt('AC / cooling', 0), opt('Furnace / heating', 0), opt('Heat pump', 30), opt('Mini-split', 45)] },
+      { id: 'time', name: 'Time of Service', label: 'Time of service', type: 'select',
+        options: [opt('Business hours', 95), opt('Evening (5-10 PM)', 175), opt('Overnight (10 PM-7 AM)', 295), opt('Weekend / holiday', 220)] },
+      { id: 'issue', name: 'Symptom', label: 'What\'s wrong?', type: 'select',
+        options: [opt('Not turning on', 0), opt('Running but not heating/cooling', 75), opt('Loud noise / vibration', 60), opt('Leaking water', 110), opt('Strange smell / burning', 140)] },
+      { id: 'extras', name: 'Add-ons', label: 'Add-ons', type: 'multi_select',
+        options: [opt('Refrigerant top-up', 220), opt('Capacitor replacement', 175), opt('Thermostat replacement', 145), opt('System tune-up after fix', 95)] },
+    ],
+    calculations: [calc('Estimated Cost', '[Time of Service] + [System] + [Symptom] + [Add-ons]')],
+    result_calc: 'Estimated Cost',
+    results: { footnote: 'Diagnostic fee applies toward repair cost when work is performed same visit.' },
+  },
+
+  /* ── Wave Y Batch 6 — Professional services category ── */
+
+  /* ── 35. Web design quote ── */
+  {
+    id: 'web_design_quote', name: 'Web Design',
+    description: 'Website design + build pricing by page count and feature scope.',
+    category: 'Professional', trades: ['web_design'],
+    layout: 'two-column', theme: 'midnight',
+    header: { title: 'Web Design Quote', subtitle: 'A new site, priced from your feature list.', align: 'left' },
+    fields: [
+      { id: 'pages', name: 'Pages', label: 'Number of pages', type: 'slider',
+        min: 1, max: 50, step: 1, default_value: 8 },
+      { id: 'tier', name: 'Design Tier', label: 'Design tier', type: 'radio',
+        options: [opt('Template-based', 1.0), opt('Custom design', 1.8), opt('Premium custom + branding', 2.8)] },
+      { id: 'features', name: 'Features', label: 'Features to include', type: 'multi_select',
+        options: [opt('Contact form + CRM hookup', 280), opt('Blog / CMS', 450), opt('E-commerce (up to 50 products)', 1400), opt('Booking / scheduling', 380), opt('Multilingual (2 languages)', 850), opt('Member portal', 1200)] },
+      { id: 'turnaround', name: 'Turnaround', label: 'Turnaround', type: 'select',
+        options: [opt('Standard (6-8 weeks)', 1.0), opt('Fast (3-4 weeks)', 1.25), opt('Rush (2 weeks)', 1.55)] },
+    ],
+    calculations: [calc('Estimated Project Cost', '[Pages] * 280 * [Design Tier] * [Turnaround] + [Features]')],
+    result_calc: 'Estimated Project Cost',
+    results: { footnote: 'Includes 1 year of hosting and 3 rounds of design revisions.' },
+  },
+
+  /* ── 36. Photography package ── */
+  {
+    id: 'photography_package', name: 'Photography Package',
+    description: 'Event or session photography quote by type, hours and deliverables.',
+    category: 'Professional', trades: ['photography'],
+    layout: 'two-column', theme: 'magenta',
+    header: { title: 'Photography Package Quote', subtitle: 'Coverage, edits, and deliverables — priced from your event.', align: 'left' },
+    fields: [
+      { id: 'event_type', name: 'Event Type', label: 'Event type', type: 'select',
+        options: [opt('Portrait session', 250), opt('Family / lifestyle', 380), opt('Corporate event', 850), opt('Wedding', 2400), opt('Real estate listing', 320), opt('Product / e-commerce', 480)] },
+      { id: 'hours', name: 'Hours', label: 'Hours of coverage', type: 'number',
+        min: 1, max: 12, step: 1, default_value: 3, unit: 'hr' },
+      { id: 'deliverables', name: 'Deliverables', label: 'Deliverables', type: 'multi_select',
+        options: [opt('Edited digital gallery', 0), opt('Printed photo book', 240), opt('Highlight reel (2-min video)', 380), opt('Same-day sneak peek', 150), opt('RAW file delivery', 200)] },
+      { id: 'second_shooter', name: 'Second Shooter', label: 'Add a second photographer', type: 'toggle', on_value: 550 },
+    ],
+    calculations: [calc('Estimated Quote', '[Event Type] + [Hours] * 90 + [Deliverables] + [Second Shooter]')],
+    result_calc: 'Estimated Quote',
+  },
+
+  /* ── 37. Moving service ── */
+  {
+    id: 'moving_service', name: 'Moving Service',
+    description: 'Local or long-distance moving quote by home size, distance and crew.',
+    category: 'Professional', trades: ['moving'],
+    layout: 'single-column', theme: 'forest',
+    header: { title: 'Moving Service Quote', subtitle: 'Door-to-door pricing from your home size and distance.', align: 'left' },
+    fields: [
+      { id: 'home_size', name: 'Home Size', label: 'Home size', type: 'select',
+        options: [opt('Studio / 1 bed', 1.0), opt('2 bedroom', 1.5), opt('3 bedroom', 2.1), opt('4+ bedroom', 2.8)] },
+      { id: 'distance', name: 'Distance', label: 'Move distance', type: 'slider',
+        min: 5, max: 1500, step: 5, default_value: 25, unit: 'miles' },
+      { id: 'crew', name: 'Crew', label: 'Crew size', type: 'radio',
+        options: [opt('2-person crew', 1.0), opt('3-person crew (faster)', 1.35), opt('4-person crew (large homes)', 1.7)] },
+      { id: 'extras', name: 'Extras', label: 'Add-ons', type: 'multi_select',
+        options: [opt('Full packing service', 480), opt('Specialty item (piano / safe)', 320), opt('Storage (1 month)', 180), opt('Disassembly + reassembly', 220), opt('Insurance bump (full value)', 150)] },
+      { id: 'day', name: 'Day', label: 'Moving day', type: 'select',
+        options: [opt('Weekday', 1.0), opt('Saturday', 1.15), opt('Sunday / holiday', 1.3)] },
+    ],
+    calculations: [calc('Estimated Cost', '([Home Size] * 480 + [Distance] * 1.6) * [Crew] * [Day] + [Extras]')],
+    result_calc: 'Estimated Cost',
+    results: { footnote: 'Local moves include 60 miles. Long-distance includes blanket-wrap + tie-down.' },
+  },
+
+  /* ── 38. Home inspection ── */
+  {
+    id: 'home_inspection_quote', name: 'Home Inspection',
+    description: 'Pre-purchase home inspection by sqft, home age and add-on tests.',
+    category: 'Professional', trades: ['home_inspection'],
+    layout: 'two-column', theme: 'light',
+    header: { title: 'Home Inspection Quote', subtitle: 'Independent inspection priced from your listing details.', align: 'left' },
+    fields: [
+      { id: 'sqft', name: 'Home Size', label: 'Home size', type: 'slider',
+        min: 600, max: 8000, step: 100, default_value: 2000, unit: 'sqft' },
+      { id: 'age', name: 'Home Age', label: 'Home age', type: 'select',
+        options: [opt('Newer (under 10 yrs)', 1.0), opt('10-30 yrs', 1.1), opt('30-60 yrs', 1.2), opt('60+ yrs (heritage)', 1.35)] },
+      { id: 'addons', name: 'Add-on Tests', label: 'Add-on tests', type: 'multi_select',
+        options: [opt('Radon test', 145), opt('Mold inspection', 220), opt('Termite / pest', 195), opt('Sewer scope camera', 280), opt('Pool / spa inspection', 175), opt('Thermal imaging scan', 260)] },
+      { id: 'turnaround', name: 'Turnaround', label: 'Report turnaround', type: 'radio',
+        options: [opt('Standard (48 hours)', 0), opt('Rush (next business day)', 95), opt('Same-day report', 180)] },
+    ],
+    calculations: [calc('Estimated Quote', '[Home Size] * 0.18 * [Home Age] + [Add-on Tests] + [Report Turnaround]')],
+    result_calc: 'Estimated Quote',
+  },
+
+  /* ── Wave Y Batch 7 — Specialty (6 templates) ── */
+
+  /* ── 39. Solar panel installation ── */
+  {
+    id: 'solar_panel_install', name: 'Solar Panel Installation',
+    description: 'Rooftop solar quote by system size, roof type and battery storage.',
+    category: 'Renewable Energy', trades: ['solar_panel_installation', 'solar_battery'],
+    layout: 'two-column', theme: 'forest',
+    header: { title: 'Solar Panel Install Quote', subtitle: 'A clean-energy estimate based on your home and goals.', align: 'left' },
+    fields: [
+      { id: 'system_size', name: 'System Size', label: 'System size', type: 'slider',
+        min: 3, max: 25, step: 0.5, default_value: 8, unit: 'kW' },
+      { id: 'roof_type', name: 'Roof Type', label: 'Roof type', type: 'select',
+        options: [opt('Asphalt shingle', 1.0), opt('Tile (clay / concrete)', 1.18), opt('Metal standing seam', 1.1), opt('Flat / membrane', 1.12)] },
+      { id: 'battery', name: 'Battery Storage', label: 'Battery storage', type: 'radio',
+        options: [opt('No battery', 0), opt('Single battery (~13 kWh)', 12500), opt('Dual battery (~26 kWh)', 22500)] },
+      { id: 'extras', name: 'Extras', label: 'Extras', type: 'multi_select',
+        options: [opt('EV charger pre-wire', 380), opt('Critter guard', 240), opt('Monitoring app (premium)', 180), opt('Roof reinforcement', 850), opt('Permit + interconnect handling', 0)] },
+    ],
+    calculations: [calc('Estimated System Cost', '[System Size] * 2800 * [Roof Type] + [Battery Storage] + [Extras]')],
+    result_calc: 'Estimated System Cost',
+    results: { footnote: 'Eligible for 30% federal tax credit + many state and utility incentives.' },
+  },
+
+  /* ── 40. Pool service ── */
+  {
+    id: 'pool_service_quote', name: 'Pool Service',
+    description: 'Recurring pool maintenance by pool size and visit cadence.',
+    category: 'Outdoor', trades: ['pool_service', 'pool_cleaning'],
+    layout: 'single-column', theme: 'forest',
+    header: { title: 'Pool Service Quote', subtitle: 'Weekly clean + chemistry — priced from your pool size.', align: 'left' },
+    fields: [
+      { id: 'pool_size', name: 'Pool Size', label: 'Pool size', type: 'select',
+        options: [opt('Small (under 15,000 gal)', 1.0), opt('Medium (15-25,000 gal)', 1.3), opt('Large (25,000+ gal)', 1.7)] },
+      { id: 'frequency', name: 'Frequency', label: 'Visit frequency', type: 'radio',
+        options: [opt('Weekly', 1.0), opt('Bi-weekly', 0.55), opt('Monthly', 0.30)] },
+      { id: 'services', name: 'Services', label: 'Included per visit', type: 'multi_select',
+        options: [opt('Skim + vacuum', 30), opt('Brush walls + tile line', 18), opt('Chemistry test + adjust', 22), opt('Filter rinse', 15), opt('Equipment check', 12)] },
+      { id: 'chemicals', name: 'Chemicals', label: 'Chemicals', type: 'radio',
+        options: [opt('You supply', 0), opt('We supply standard', 45), opt('We supply premium (saltwater / mineral)', 75)] },
+    ],
+    calculations: [calc('Per-Visit Cost', '[Services] * [Pool Size] * [Frequency] + [Chemicals]')],
+    result_calc: 'Per-Visit Cost',
+  },
+
+  /* ── 41. Pest control ── */
+  {
+    id: 'pest_control_quote', name: 'Pest Control',
+    description: 'Recurring pest control by home size and treatment scope.',
+    category: 'Cleaning', trades: ['pest_control'],
+    layout: 'two-column', theme: 'light',
+    header: { title: 'Pest Control Quote', subtitle: 'Targeted, family-safe treatment — quarterly or one-time.', align: 'left' },
+    fields: [
+      { id: 'home_size', name: 'Home Size', label: 'Home size', type: 'slider',
+        min: 600, max: 6000, step: 100, default_value: 1800, unit: 'sqft' },
+      { id: 'plan', name: 'Plan', label: 'Service plan', type: 'radio',
+        options: [opt('One-time treatment', 1.0), opt('Quarterly (recommended)', 0.40), opt('Monthly (heavy issue)', 0.18)] },
+      { id: 'pests', name: 'Pests', label: 'Target pests', type: 'multi_select',
+        options: [opt('General (ants, spiders)', 35), opt('Roaches', 65), opt('Wasps / hornets', 75), opt('Mice / rats', 110), opt('Termites (inspection)', 145), opt('Bedbugs (per room)', 220)] },
+      { id: 'scope', name: 'Scope', label: 'Treatment scope', type: 'select',
+        options: [opt('Interior only', 0), opt('Exterior only', 0), opt('Interior + exterior (full perimeter)', 60)] },
+    ],
+    calculations: [calc('Estimated Cost', '[Home Size] * 0.06 * [Plan] + [Pests] + [Scope]')],
+    result_calc: 'Estimated Cost',
+    results: { footnote: 'Quarterly plans include free re-treatment between visits if pests return.' },
+  },
+
+  /* ── 42. Roof replacement ── */
+  {
+    id: 'roof_replacement', name: 'Roof Replacement',
+    description: 'Full roof replacement by sqft, material and complexity.',
+    category: 'Construction', trades: ['roofing'],
+    layout: 'two-column', theme: 'midnight',
+    header: { title: 'Roof Replacement Quote', subtitle: 'New roof estimate by roof size, material and roof complexity.', align: 'left' },
+    fields: [
+      { id: 'roof_size', name: 'Roof Size', label: 'Roof size', type: 'slider',
+        min: 500, max: 5000, step: 50, default_value: 1800, unit: 'sqft' },
+      { id: 'material', name: 'Material', label: 'Roofing material', type: 'select',
+        options: [opt('3-tab shingle', 4.5), opt('Architectural shingle', 6.5), opt('Metal standing seam', 11), opt('Clay tile', 14), opt('Slate', 19)] },
+      { id: 'complexity', name: 'Complexity', label: 'Roof complexity', type: 'radio',
+        options: [opt('Simple (gable / hip)', 1.0), opt('Moderate (dormers, multiple slopes)', 1.18), opt('Complex (turrets, valleys, intersections)', 1.4)] },
+      { id: 'tear_off', name: 'Tear-Off', label: 'Tear off existing layers', type: 'radio',
+        options: [opt('No (overlay)', 0), opt('One layer', 1200), opt('Two layers', 2200)] },
+      { id: 'extras', name: 'Extras', label: 'Add-ons', type: 'multi_select',
+        options: [opt('Ice + water barrier upgrade', 580), opt('Ridge ventilation', 420), opt('New gutters', 1450), opt('Skylights (3-pack)', 1800)] },
+    ],
+    calculations: [calc('Estimated Project Cost', '[Roof Size] * [Material] * [Complexity] + [Tear-Off] + [Extras]')],
+    result_calc: 'Estimated Project Cost',
+    results: { footnote: 'Includes manufacturer warranty (25-50 yrs depending on material) and 10-year workmanship warranty.' },
+  },
+
+  /* ── 43. Garage door service ── */
+  {
+    id: 'garage_door_service', name: 'Garage Door Service',
+    description: 'Install, repair or replace by door size and opener.',
+    category: 'Mechanical', trades: ['garage_door'],
+    layout: 'single-column', theme: 'forest',
+    header: { title: 'Garage Door Service Quote', subtitle: 'Repair, replace, or install — priced from your door spec.', align: 'left' },
+    fields: [
+      { id: 'service', name: 'Service', label: 'Service needed', type: 'radio',
+        options: [opt('Repair only', 180), opt('New door install', 1400), opt('Door + opener replacement', 2200)] },
+      { id: 'door_size', name: 'Door Size', label: 'Door size', type: 'select',
+        options: [opt('Single (8-9 ft)', 1.0), opt('Double (16 ft)', 1.65), opt('Carriage / oversized', 2.1)] },
+      { id: 'door_type', name: 'Door Style', label: 'Door style', type: 'select',
+        options: [opt('Steel panel', 0), opt('Insulated steel', 380), opt('Wood / wood-look', 950), opt('Glass / modern', 1500)] },
+      { id: 'opener', name: 'Opener', label: 'Opener (if installing)', type: 'radio',
+        options: [opt('Chain drive', 280), opt('Belt drive (quieter)', 380), opt('Smart / Wi-Fi enabled', 520)] },
+      { id: 'extras', name: 'Extras', label: 'Add-ons', type: 'multi_select',
+        options: [opt('Battery backup', 120), opt('Keypad entry', 75), opt('Haul old door', 95), opt('New springs', 220)] },
+    ],
+    calculations: [calc('Estimated Cost', '[Service] * [Door Size] + [Door Style] + [Opener] + [Extras]')],
+    result_calc: 'Estimated Cost',
+  },
+
+  /* ── 44. Appliance repair ── */
+  {
+    id: 'appliance_repair', name: 'Appliance Repair',
+    description: 'Per-appliance repair estimate with diagnostic + parts modifiers.',
+    category: 'Mechanical', trades: ['appliance_repair'],
+    layout: 'single-column', theme: 'midnight',
+    header: { title: 'Appliance Repair Quote', subtitle: 'Flat-rate diagnostic. No surprise charges after the fix.', align: 'left' },
+    fields: [
+      { id: 'appliance', name: 'Appliance', label: 'Which appliance?', type: 'select',
+        options: [opt('Refrigerator', 220), opt('Dishwasher', 180), opt('Washer / dryer', 195), opt('Range / oven', 210), opt('Microwave', 145), opt('Garbage disposal', 130)] },
+      { id: 'age', name: 'Age', label: 'Appliance age', type: 'radio',
+        options: [opt('Under 5 years', 1.0), opt('5-10 years', 1.15), opt('10+ years', 1.3)] },
+      { id: 'symptom', name: 'Symptom', label: 'Main symptom', type: 'select',
+        options: [opt('Won\'t turn on', 0), opt('Runs but not working', 40), opt('Strange noise', 35), opt('Leaking', 60), opt('Burning smell / sparking', 85)] },
+      { id: 'parts', name: 'Parts', label: 'Replacement part needed', type: 'radio',
+        options: [opt('Diagnostic only', 0), opt('Minor part (under $50)', 60), opt('Major part ($50-$200)', 175), opt('OEM/specialty part ($200+)', 320)] },
+    ],
+    calculations: [calc('Estimated Cost', '[Appliance] * [Age] + [Symptom] + [Parts]')],
+    result_calc: 'Estimated Cost',
+    results: { footnote: 'Diagnostic fee waived when repair is performed. 90-day warranty on all parts and labor.' },
+  },
 ];
 
 /* ─── Lookups ─── */
