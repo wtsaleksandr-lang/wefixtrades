@@ -188,6 +188,10 @@ test.describe('wizard M — Fold/unfold preview', () => {
 /* ──────────────────────────────────────────────────────────── */
 
 test.describe('wizard M — Fold/unfold preview (persistence)', () => {
+  // Wave AA — same as the fold-toggle suite above: fold is mobile-only now,
+  // so this persistence check must run in mobile viewport too.
+  test.use({ viewport: { width: 390, height: 844 } });
+
   test('Collapsed state persists across reload', async ({ page }) => {
     await page.goto('/wizard', { waitUntil: 'domcontentloaded' });
     await page.evaluate(() => {
