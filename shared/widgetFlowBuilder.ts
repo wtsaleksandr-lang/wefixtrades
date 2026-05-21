@@ -32,8 +32,26 @@ export interface FlowBuilderSettings {
     mode?: 'lead_form' | 'redirect' | 'none';
     redirect?: { heading?: string; caption?: string; button_text?: string; button_url?: string };
   };
-  /** Booking enabled */
+  /** Booking enabled (legacy date+slot booking step) */
   bookingEnabled?: boolean;
+  /**
+   * Wave R-1 — Calendly-style scheduling picker enabled. Maps to
+   * `calculator_settings.appearance.scheduling_enabled`. When true, a
+   * `scheduling` step is inserted right after `price_reveal`.
+   */
+  schedulingEnabled?: boolean;
+  /**
+   * Wave R-2 — Stripe deposit step config (calculator_settings.appearance.deposit).
+   * When `enabled` is true the builder inserts a `deposit` step between
+   * lead capture / booking and confirmation.
+   */
+  deposit?: {
+    enabled?: boolean;
+    mode?: 'percent' | 'fixed';
+    value?: number;
+    label?: string;
+    required?: boolean;
+  };
   /** Promotions/coupon enabled */
   promotionsEnabled?: boolean;
   /** Quote rules (expiration) */
@@ -113,9 +131,27 @@ export function buildWidgetFlow(
       return { ...step, questions };
     });
 
-    const steps = includeLeadCapture
+    let steps = includeLeadCapture
       ? rawSteps
       : rawSteps.filter((s) => s.type !== 'lead_capture');
+
+    // Wave R-1 — splice scheduling step in immediately after price_reveal
+    // (or at the end of the flow if no price_reveal exists).
+    if (settings.schedulingEnabled) {
+      const schedStep = buildSchedulingStep();
+      const idx = steps.findIndex((s) => s.type === 'price_reveal');
+      if (idx >= 0) {
+        steps = [...steps.slice(0, idx + 1), schedStep, ...steps.slice(idx + 1)];
+      } else {
+        steps = [...steps, schedStep];
+      }
+    }
+
+    // Wave R-2 — splice the deposit step in just before confirmation
+    // (or at the end if no confirmation step exists).
+    if (settings.deposit?.enabled) {
+      steps = insertDepositStep(steps, settings.deposit);
+    }
 
     return applyFieldOverrides({
       version: 1,
@@ -145,6 +181,12 @@ export function buildWidgetFlow(
   // Step 3: Price reveal
   steps.push(buildPriceRevealStep(pricingConfig));
 
+  // Wave R-1 — scheduling picker, inserted between price reveal and the
+  // post-quote lead-capture step when enabled by the owner.
+  if (settings.schedulingEnabled) {
+    steps.push(buildSchedulingStep());
+  }
+
   // Step 4: Lead capture — present unless the action mode is 'none'/'redirect'
   if (includeLeadCapture) {
     steps.push(buildLeadCaptureStep(settings));
@@ -153,6 +195,11 @@ export function buildWidgetFlow(
   // Step 5: Booking (if enabled)
   if (settings.bookingEnabled) {
     steps.push(buildBookingStep());
+  }
+
+  // Wave R-2: Deposit (if enabled) — sits between booking and confirmation.
+  if (settings.deposit?.enabled) {
+    steps.push(buildDepositStep(settings.deposit));
   }
 
   // Step 6: Confirmation
@@ -386,6 +433,25 @@ function buildBookingStep(): StepDefinition {
   };
 }
 
+function buildSchedulingStep(): StepDefinition {
+  return {
+    id: 'scheduling',
+    type: 'scheduling',
+    title: 'Pick a time',
+    subtitle: 'Choose a slot that works for you — we\'ll lock it in instantly.',
+    questions: [],
+    help: {
+      title: 'About booking',
+      items: [
+        { question: 'Is this confirmed right away?', answer: 'Yes. Picking a slot books it instantly on our calendar.' },
+        { question: 'Can I reschedule?', answer: 'Get in touch and we\'ll move you to another slot — no problem.' },
+      ],
+      cta: 'Lock in a time now and skip the back-and-forth.',
+    },
+    config: { show_progress: true, can_skip: true, auto_advance: false },
+  };
+}
+
 function buildConfirmationStep(): StepDefinition {
   return {
     id: 'confirmation',
@@ -394,4 +460,58 @@ function buildConfirmationStep(): StepDefinition {
     questions: [],
     config: { show_progress: false, can_skip: false, auto_advance: false },
   };
+}
+
+/* ─── Wave R-2: deposit step helpers ─── */
+
+function buildDepositStep(
+  deposit: NonNullable<FlowBuilderSettings['deposit']>,
+): StepDefinition {
+  const mode = deposit.mode === 'fixed' ? 'fixed' : 'percent';
+  const value = Number(deposit.value) || 0;
+  const fallbackTitle =
+    mode === 'percent'
+      ? `Secure your slot with a ${value}% deposit`
+      : `Secure your slot with a $${value} deposit`;
+  return {
+    id: 'deposit',
+    type: 'deposit',
+    title: (deposit.label || '').trim() || fallbackTitle,
+    subtitle: 'Charged to your card now; the rest is due after the job.',
+    questions: [],
+    help: {
+      title: 'About this deposit',
+      items: [
+        { question: 'Why a deposit?', answer: 'It locks in your slot on the provider\'s calendar so they can hold time for your job.' },
+        { question: 'Is this refundable?', answer: 'Refund policy varies by provider — ask the provider directly. The deposit is held by Stripe and credited toward your final invoice.' },
+        { question: 'Do I have to pay now?', answer: deposit.required ? 'Yes — paying the deposit is required to confirm your booking.' : 'No — you can skip and arrange payment later directly with the provider.' },
+      ],
+      cta: 'Payment is processed securely by Stripe. We never see your card details.',
+    },
+    config: {
+      show_progress: true,
+      can_skip: deposit.required !== true,
+      auto_advance: false,
+    },
+  };
+}
+
+/**
+ * Insert the deposit step into a template-defined flow. Sits just before
+ * the confirmation step when one exists, otherwise appended at the end.
+ */
+function insertDepositStep(
+  steps: StepDefinition[],
+  deposit: NonNullable<FlowBuilderSettings['deposit']>,
+): StepDefinition[] {
+  const depositStep = buildDepositStep(deposit);
+  const confirmationIdx = steps.findIndex((s) => s.type === 'confirmation');
+  if (confirmationIdx < 0) {
+    return [...steps, depositStep];
+  }
+  return [
+    ...steps.slice(0, confirmationIdx),
+    depositStep,
+    ...steps.slice(confirmationIdx),
+  ];
 }

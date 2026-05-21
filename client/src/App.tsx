@@ -147,6 +147,7 @@ import MobilePreviewPage from "@/pages/admin/MobilePreview";
 import QuoteQuickPage from "@/pages/admin/QuoteQuickPage";
 import BookingPage from "@/pages/public/BookingPage";
 import PayInvoicePage from "@/pages/public/PayInvoicePage";
+import QuoteSnapshotPage from "@/pages/quote-snapshot";
 import DispatchPage from "@/pages/portal/DispatchPage";
 import InvoicesPage from "@/pages/portal/InvoicesPage";
 import PaymentMethodsPage from "@/pages/portal/PaymentMethodsPage";
@@ -341,6 +342,8 @@ function Router() {
       <Route path="/audit/report/:id" component={SharedAuditReport} />
       <Route path="/book/:slug" component={BookingPage} />
       <Route path="/pay/:token" component={PayInvoicePage} />
+      {/* Wave R3 — public shareable quote URL (snapshot pattern). */}
+      <Route path="/q/:slug" component={QuoteSnapshotPage} />
       <Route path="/wizard/legacy" component={WizardLegacy} />
       <Route path="/wizard" component={Wizard} />
       <Route path="/calculator" component={Calculator} />

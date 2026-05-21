@@ -16,7 +16,7 @@
 //    it doesn't interfere with the outer Fields drag). Touch sensor enabled.
 //  - Selection sync: tapping the row body or the type badge sets selection.
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   DndContext, type DragEndEvent, closestCenter,
 } from '@dnd-kit/core';
@@ -318,6 +318,7 @@ export default function FieldRow({
                         option={o}
                         index={i}
                         total={(field.options || []).length}
+                        imageMode={field.type === 'image_choice'}
                         onLabelChange={(label) => {
                           const wasAuto = o.id === optionIdFromLabel(o.label, o.id);
                           updateOption(o.id, {
@@ -326,6 +327,7 @@ export default function FieldRow({
                           });
                         }}
                         onValueChange={(value) => updateOption(o.id, { value })}
+                        onImageChange={(image) => updateOption(o.id, { image })}
                         onMoveUp={() => moveOption(o.id, -1)}
                         onMoveDown={() => moveOption(o.id, 1)}
                         onRemove={() => removeOption(o.id)}
@@ -475,6 +477,52 @@ export default function FieldRow({
           display: grid; gap: 5px; align-items: center;
           grid-template-columns: 22px minmax(0, 1.6fr) minmax(0, 0.8fr) auto auto auto;
         }
+        /* Wave W-R4 — image_choice options reserve a 32×32 thumbnail column
+           between the drag handle and the label input. */
+        .qq-field-option-row.is-image-mode {
+          grid-template-columns: 22px 32px minmax(0, 1.6fr) minmax(0, 0.8fr) auto auto auto;
+        }
+        .qq-field-option-thumb {
+          position: relative; width: 32px; height: 32px;
+          padding: 0; border-radius: 6px; overflow: hidden;
+          background: ${p.colors.surfaceRaised};
+          border: 1px solid ${p.colors.borderLight};
+          cursor: pointer; flex-shrink: 0;
+          display: inline-flex; align-items: center; justify-content: center;
+          transition: border-color 0.1s ease, box-shadow 0.1s ease;
+        }
+        .qq-field-option-thumb:hover {
+          border-color: ${p.colors.accent};
+          box-shadow: 0 0 0 2px ${p.colors.accentLighter};
+        }
+        .qq-field-option-thumb img {
+          width: 100%; height: 100%; object-fit: cover; display: block;
+        }
+        .qq-field-option-thumb-empty {
+          font-size: 16px; line-height: 1; color: ${p.colors.muted};
+        }
+        .qq-field-option-thumb-overlay {
+          position: absolute; inset: 0;
+          display: flex; align-items: center; justify-content: center;
+          background: rgba(15,23,42,0.55); color: #fff;
+          font-size: 9px; font-weight: 700; letter-spacing: 0.04em;
+          text-transform: uppercase;
+          opacity: 0; transition: opacity 0.1s ease;
+        }
+        .qq-field-option-thumb:hover .qq-field-option-thumb-overlay,
+        .qq-field-option-thumb:focus-visible .qq-field-option-thumb-overlay {
+          opacity: 1;
+        }
+        .qq-field-option-error {
+          grid-column: 1 / -1;
+          font-size: 11px; font-weight: 600; color: ${p.colors.danger};
+          padding: 2px 4px;
+        }
+        @media (max-width: 480px) {
+          .qq-field-option-row.is-image-mode {
+            grid-template-columns: 22px 32px minmax(0, 1fr) minmax(0, 0.7fr) auto auto auto;
+          }
+        }
         .qq-field-add-option {
           align-self: flex-start; padding: 6px 10px; border-radius: 7px;
           font: inherit; font-size: 11.5px; font-weight: 700; cursor: pointer;
@@ -493,31 +541,58 @@ interface SortableOptionRowProps {
   option: TemplateOption;
   index: number;
   total: number;
+  /** Wave W-R4 — when true, render the per-option image upload column. */
+  imageMode?: boolean;
   onLabelChange: (label: string) => void;
   onValueChange: (value: number) => void;
+  onImageChange?: (image: string | undefined) => void;
   onMoveUp: () => void;
   onMoveDown: () => void;
   onRemove: () => void;
 }
 
+const OPTION_IMAGE_MAX_BYTES = 2 * 1024 * 1024; // 2 MB cap, same as logo upload.
+
 function SortableOptionRow({
-  fieldId, option: o, index: i, total, onLabelChange, onValueChange,
-  onMoveUp, onMoveDown, onRemove,
+  fieldId, option: o, index: i, total, imageMode, onLabelChange, onValueChange,
+  onImageChange, onMoveUp, onMoveDown, onRemove,
 }: SortableOptionRowProps) {
   const {
     attributes, listeners, setNodeRef, transform, transition, isDragging,
   } = useSortable({ id: o.id });
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [uploadError, setUploadError] = useState<string>('');
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.55 : 1,
     zIndex: isDragging ? 2 : 'auto',
   };
+
+  const handleFile = (file: File | undefined) => {
+    if (!file || !onImageChange) return;
+    if (!file.type.startsWith('image/')) {
+      setUploadError('Please choose an image.');
+      return;
+    }
+    if (file.size > OPTION_IMAGE_MAX_BYTES) {
+      setUploadError('Image must be under 2 MB.');
+      return;
+    }
+    setUploadError('');
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result;
+      if (typeof result === 'string') onImageChange(result);
+    };
+    reader.readAsDataURL(file);
+  };
+
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className="qq-field-option-row"
+      className={`qq-field-option-row${imageMode ? ' is-image-mode' : ''}`}
       data-testid={`field-row-option-${fieldId}-${o.id}`}
     >
       <button
@@ -531,6 +606,34 @@ function SortableOptionRow({
       >
         <DragHandleGlyph />
       </button>
+      {imageMode && (
+        <button
+          type="button"
+          className="qq-field-option-thumb"
+          onClick={() => fileInputRef.current?.click()}
+          aria-label={o.image ? 'Replace option image' : 'Upload option image'}
+          data-testid={`field-row-option-image-${fieldId}-${i}`}
+          data-has-image={o.image ? 'true' : 'false'}
+        >
+          {o.image
+            ? <img src={o.image} alt="" />
+            : <span className="qq-field-option-thumb-empty" aria-hidden="true">🏠</span>}
+          <span className="qq-field-option-thumb-overlay" aria-hidden="true">
+            {o.image ? 'Replace' : 'Upload'}
+          </span>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            style={{ display: 'none' }}
+            data-testid={`field-row-option-image-input-${fieldId}-${i}`}
+            onChange={(e) => {
+              handleFile(e.target.files?.[0]);
+              e.target.value = '';
+            }}
+          />
+        </button>
+      )}
       <input
         type="text"
         className="qq-field-input qq-field-option-label"
@@ -570,6 +673,12 @@ function SortableOptionRow({
         aria-label="Remove option"
         data-testid={`field-row-option-remove-${fieldId}-${i}`}
       >×</button>
+      {imageMode && uploadError && (
+        <span
+          className="qq-field-option-error"
+          data-testid={`field-row-option-image-error-${fieldId}-${i}`}
+        >{uploadError}</span>
+      )}
     </div>
   );
 }

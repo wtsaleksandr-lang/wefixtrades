@@ -92,11 +92,19 @@ export default function QuoteWidget({ calculator, isEmbed = false, hideBrandBadg
     }
 
     const bookingSettings = calcSettings.booking_settings || {};
+    // Wave R-1 — scheduling lives under `appearance` (and is mirrored to a
+    // top-level `appearance.scheduling_enabled` for cheap lookup).
+    const appearance = calcSettings.appearance || {};
+    const schedulingEnabled = !!(
+      appearance.scheduling_enabled ||
+      appearance.scheduling?.enabled
+    );
     const flowSettings: FlowBuilderSettings = {
       calculatorType: calcSettings.calculator_type,
       bookingEnabled:
         calcSettings.calculator_type === 'estimate_plus_booking' &&
         bookingSettings.enabled === true,
+      schedulingEnabled,
       leadForm: calcSettings.lead_form,
       action: calcSettings.action,
       promotionsEnabled: calcSettings.promotions?.enabled === true,
@@ -104,6 +112,12 @@ export default function QuoteWidget({ calculator, isEmbed = false, hideBrandBadg
       serviceTypes: calcSettings.serviceTypes,
       tradeInputs: calcSettings.trade_inputs,
       fieldOverrides: calcSettings.field_overrides,
+      // Wave R-2 — Stripe deposit step. The flow builder splices the
+      // deposit panel in only when this slot is enabled; the server-side
+      // /api/widget-deposit/create-session endpoint re-validates against
+      // the stored calculator_settings.appearance.deposit, so this is
+      // purely a renderer hint.
+      deposit: calcSettings.appearance?.deposit,
     };
 
     const flow = buildWidgetFlow(pricingConfig, template, flowSettings);

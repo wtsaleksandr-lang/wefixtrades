@@ -1,11 +1,12 @@
 import { useMemo, useEffect, useRef, useState } from 'react';
-import { Phone, Shield, CreditCard } from 'lucide-react';
+import { Phone, Shield, CreditCard, Share2, Copy, Check, X, Mail, MessageCircle } from 'lucide-react';
 import HelpTip from '../HelpTip';
 import { trackEvent } from '@/lib/trackEvent';
 import { useWidgetState } from '../useWidgetState';
-import { calculateEstimate } from '@shared/calculateEstimate';
+import { calculateEstimate, type EstimateResult } from '@shared/calculateEstimate';
 import { eff, stepTitleStyle, primaryButtonStyle } from '../designTokens';
 import type { StepDefinition } from '@shared/wizardSchema';
+import { OWNER_EDIT_TOKEN_KEY_PREFIX } from '@shared/quoteSnapshot';
 import BookNowInlineWidget from './BookNowInlineWidget';
 
 interface PriceRevealStepProps {
@@ -152,6 +153,11 @@ export default function PriceRevealStep({ step, accentColor }: PriceRevealStepPr
           calculatorSettings={config.calculator.calculator_settings}
           totalDollars={estimate.total}
         />
+      )}
+
+      {/* Wave R3 — Save + share this quote (live shareable URL). */}
+      {estimate && estimate.type !== 'call_for_quote' && (
+        <ShareQuoteButton estimate={estimate} />
       )}
     </div>
   );
@@ -493,6 +499,275 @@ function RedirectCtaBlock({
         {redirect.button_text || 'Continue'}
       </button>
     </div>
+  );
+}
+
+/**
+ * Wave R3 — "Save + share this quote" button + modal.
+ *
+ * Posts the current widget state to /api/q/create and surfaces a modal
+ * with the resulting public URL. The owner_edit_token returned by the
+ * server is stored in localStorage so the creating device can edit the
+ * snapshot later via the public viewer's "Edit values" panel.
+ *
+ * Hidden for demo calculators (id <= 0) — snapshots there would orphan
+ * because the calculator isn't persisted.
+ */
+function ShareQuoteButton({ estimate }: { estimate: EstimateResult }) {
+  const { config, estimateInputs, answers, leadData } = useWidgetState();
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  // Demo / preview calculators don't get persistent snapshots — the
+  // server would reject the create call and we'd surface an error to a
+  // user who can't fix it. Just hide the button.
+  if (!config.calculator.slug || config.calculator.id <= 0) return null;
+
+  async function handleCreate() {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/q/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          slug: config.calculator.slug,
+          inputs: { estimateInputs, answers },
+          computed: estimate,
+          customer_name: leadData?.name || null,
+          customer_email: leadData?.email || null,
+        }),
+      });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({ error: 'Failed' }));
+        throw new Error(json.error || 'Failed to create shareable link');
+      }
+      const json = await res.json() as {
+        url: string;
+        snapshot_slug: string;
+        owner_edit_token: string;
+      };
+      // Persist owner token to localStorage so this device can edit later.
+      try {
+        localStorage.setItem(OWNER_EDIT_TOKEN_KEY_PREFIX + json.snapshot_slug, json.owner_edit_token);
+      } catch { /* ignore quota / private mode */ }
+      const fullUrl = typeof window !== 'undefined'
+        ? `${window.location.origin}${json.url}`
+        : json.url;
+      setShareUrl(fullUrl);
+      trackEvent('quote_snapshot_created', { snapshot_slug: json.snapshot_slug });
+    } catch (err: any) {
+      setError(err?.message || 'Could not create link');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function handleOpen() {
+    setOpen(true);
+    if (!shareUrl) handleCreate();
+  }
+
+  function handleClose() {
+    setOpen(false);
+    setError(null);
+    setCopied(false);
+  }
+
+  async function handleCopy() {
+    if (!shareUrl) return;
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      setError('Copy failed — please select and copy manually');
+    }
+  }
+
+  const messageBody = shareUrl
+    ? `Here's your quote from ${config.calculator.business_name}: ${shareUrl}`
+    : '';
+  const smsHref = shareUrl ? `sms:?body=${encodeURIComponent(messageBody)}` : '#';
+  const whatsappHref = shareUrl ? `https://wa.me/?text=${encodeURIComponent(messageBody)}` : '#';
+  const emailHref = shareUrl
+    ? `mailto:?subject=${encodeURIComponent(`Your quote from ${config.calculator.business_name}`)}&body=${encodeURIComponent(messageBody)}`
+    : '#';
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={handleOpen}
+        data-testid="share-quote-button"
+        style={{
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+          fontSize: 14, fontWeight: 600, color: eff.text,
+          background: 'transparent',
+          border: `1px solid ${eff.buttonBorder}`,
+          borderRadius: eff.radiusXl,
+          padding: '12px 18px',
+          cursor: 'pointer', fontFamily: eff.font,
+          transition: 'background 0.15s, border-color 0.15s',
+        }}
+        onMouseEnter={(e) => { e.currentTarget.style.background = eff.bgSecondary; e.currentTarget.style.borderColor = eff.textMuted; }}
+        onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = eff.buttonBorder; }}
+      >
+        <Share2 style={{ width: 16, height: 16 }} />
+        Save + share this quote
+      </button>
+
+      {open && (
+        <div
+          data-testid="share-quote-modal"
+          onClick={handleClose}
+          style={{
+            position: 'fixed', inset: 0,
+            background: 'rgba(15,23,42,0.5)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: 16, zIndex: 1000,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: '#fff', borderRadius: eff.radius2xl,
+              boxShadow: eff.shadowCard,
+              maxWidth: 460, width: '100%',
+              padding: '24px',
+              fontFamily: eff.font, color: eff.text,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 14 }}>
+              <div>
+                <p style={{ fontSize: 17, fontWeight: 700, margin: '0 0 4px' }}>
+                  Your shareable quote link
+                </p>
+                <p style={{ fontSize: 13, color: eff.textBody, margin: 0, lineHeight: 1.5 }}>
+                  Send it to your customer — they can revisit it any time. You can edit the values later from the same link on this device.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleClose}
+                aria-label="Close"
+                style={{
+                  background: 'transparent', border: 'none', cursor: 'pointer',
+                  padding: 4, color: eff.textBody, borderRadius: eff.radiusSm,
+                  display: 'flex',
+                }}
+              >
+                <X style={{ width: 18, height: 18 }} />
+              </button>
+            </div>
+
+            {loading && (
+              <div style={{
+                background: eff.bgSecondary,
+                borderRadius: eff.radiusMd,
+                padding: '14px 16px',
+                fontSize: 13, color: eff.textBody,
+                textAlign: 'center',
+              }}>
+                Creating link…
+              </div>
+            )}
+
+            {error && !loading && (
+              <div style={{
+                background: '#fef2f2', borderRadius: eff.radiusMd,
+                padding: '14px 16px', fontSize: 13, color: eff.error,
+              }}>
+                {error}
+              </div>
+            )}
+
+            {shareUrl && !loading && (
+              <>
+                <div style={{
+                  display: 'flex', gap: 8, alignItems: 'stretch',
+                  border: `1px solid ${eff.buttonBorder}`,
+                  borderRadius: eff.radiusMd, padding: '4px 4px 4px 12px',
+                  background: eff.bgSecondary,
+                }}>
+                  <input
+                    type="text"
+                    readOnly
+                    value={shareUrl}
+                    onFocus={(e) => e.currentTarget.select()}
+                    data-testid="share-quote-url"
+                    style={{
+                      flex: 1, border: 'none', background: 'transparent',
+                      fontSize: 13, fontFamily: eff.fontMono, color: eff.text,
+                      outline: 'none', minWidth: 0,
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleCopy}
+                    data-testid="share-quote-copy"
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 6,
+                      fontSize: 13, fontWeight: 700, color: eff.buttonText,
+                      background: eff.buttonBg,
+                      border: 'none', borderRadius: eff.radiusSm,
+                      padding: '8px 14px', cursor: 'pointer', fontFamily: eff.font,
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = eff.buttonBgHover; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = eff.buttonBg; }}
+                  >
+                    {copied ? <Check style={{ width: 14, height: 14 }} /> : <Copy style={{ width: 14, height: 14 }} />}
+                    {copied ? 'Copied' : 'Copy'}
+                  </button>
+                </div>
+
+                <div style={{
+                  display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8,
+                  marginTop: 14,
+                }}>
+                  <ShareIntentLink href={smsHref} label="SMS" testid="share-intent-sms" icon={<MessageCircle style={{ width: 14, height: 14 }} />} />
+                  <ShareIntentLink href={whatsappHref} label="WhatsApp" testid="share-intent-whatsapp" icon={<MessageCircle style={{ width: 14, height: 14 }} />} />
+                  <ShareIntentLink href={emailHref} label="Email" testid="share-intent-email" icon={<Mail style={{ width: 14, height: 14 }} />} />
+                </div>
+
+                <p style={{ fontSize: 12, color: eff.textMuted, margin: '14px 0 0', lineHeight: 1.5 }}>
+                  Tip: bookmark this link on your phone so you can pull it up for your customer later.
+                </p>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+function ShareIntentLink({
+  href, label, icon, testid,
+}: { href: string; label: string; icon: React.ReactNode; testid: string }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer noopener"
+      data-testid={testid}
+      style={{
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+        fontSize: 13, fontWeight: 600, color: eff.text,
+        background: '#fff',
+        border: `1px solid ${eff.buttonBorder}`,
+        borderRadius: eff.radiusMd,
+        padding: '10px 8px',
+        textDecoration: 'none',
+        fontFamily: eff.font,
+      }}
+    >
+      {icon}
+      {label}
+    </a>
   );
 }
 

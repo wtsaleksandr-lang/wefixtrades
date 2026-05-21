@@ -148,6 +148,12 @@ export const STEP_TYPES = [
   "price_reveal",
   "lead_capture",
   "booking",
+  // Wave R-1 — Calendly-style scheduling picker inserted after price_reveal
+  // when appearance.scheduling_enabled is true.
+  "scheduling",
+  // Wave R-2 — Stripe Checkout deposit (post-quote, pre-confirmation).
+  // See client/src/components/quote-widget/steps/DepositStep.tsx.
+  "deposit",
   "confirmation",
 ] as const;
 

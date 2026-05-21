@@ -163,6 +163,32 @@ export const calculatorSettingsSchema = z.object({
     trust_badge_text: z.string().default('No obligation'),
     company_phone: z.string().optional(),
     show_powered_by: z.boolean().default(true),
+
+    // Wave R-2 — Stripe deposit step. When `enabled` is true and the
+    // calculator has a connected Stripe account, the widget inserts a
+    // "Secure your slot" deposit panel after the price reveal step.
+    deposit: z.object({
+      enabled: z.boolean().default(false),
+      mode: z.enum(['percent', 'fixed']).default('percent'),
+      value: z.number().min(0).default(15),
+      label: z.string().default(''),
+      required: z.boolean().default(false),
+    }).default({}),
+
+    // Wave R-1 — online-booking (Calendly-style) toggle + persisted owner
+    // preferences. The widget reads `scheduling_enabled` to decide whether
+    // to surface the scheduling step. `scheduling` mirrors the relevant
+    // fields of the `availability_rules` row so the wizard can show
+    // configured values without a separate DB fetch.
+    scheduling_enabled: z.boolean().optional(),
+    scheduling: z.object({
+      enabled: z.boolean().default(false),
+      working_days: z.array(z.number().int().min(0).max(6)).default([1, 2, 3, 4, 5]),
+      working_hours_start: z.string().default('09:00'),
+      working_hours_end: z.string().default('17:00'),
+      slot_duration_minutes: z.number().int().default(30),
+      buffer_minutes: z.number().int().default(0),
+    }).partial().optional(),
   }).default({}),
 
   layout: z.object({

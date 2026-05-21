@@ -265,6 +265,82 @@ export const insertBookingSchema = createInsertSchema(bookings).omit({
   created_at: true,
 });
 
+/* ─── Widget Deposits (Wave R-2) ──────────────────────────────────
+   Stripe Checkout deposits initiated from the QuoteQuick widget's
+   post-quote "Secure your slot" panel. Money flows via Stripe Connect
+   to the calculator owner's connected account; the row tracks the
+   session lifecycle (pending → paid / failed / refunded). See
+   migrations/0016_widget_deposits.sql for the canonical DDL. */
+export const widgetDeposits = pgTable("widget_deposits", {
+  id: serial("id").primaryKey(),
+  calculator_id: integer("calculator_id").notNull().references(() => calculators.id),
+  lead_id: integer("lead_id").references(() => leads.id),
+  amount_cents: integer("amount_cents").notNull(),
+  currency: text("currency").notNull().default("usd"),
+  stripe_session_id: text("stripe_session_id"),
+  stripe_payment_intent_id: text("stripe_payment_intent_id"),
+  // pending | paid | failed | refunded
+  status: text("status").notNull().default("pending"),
+  customer_email: text("customer_email"),
+  metadata: jsonb("metadata"),
+  created_at: timestamp("created_at").defaultNow(),
+  paid_at: timestamp("paid_at"),
+}, (table) => ({
+  calcIdx: index("idx_widget_deposits_calc").on(table.calculator_id, table.created_at),
+  sessionIdx: index("idx_widget_deposits_session").on(table.stripe_session_id),
+}));
+
+export const insertWidgetDepositSchema = createInsertSchema(widgetDeposits).omit({
+  id: true,
+  created_at: true,
+  paid_at: true,
+});
+export type InsertWidgetDeposit = z.infer<typeof insertWidgetDepositSchema>;
+export type WidgetDeposit = typeof widgetDeposits.$inferSelect;
+
+/* ─── Widget Scheduling (Wave R-1) ─── */
+// One row per calculator. Drives the Calendly-style picker on the widget.
+export const availabilityRules = pgTable("availability_rules", {
+  id: serial("id").primaryKey(),
+  calculator_id: integer("calculator_id").notNull().references(() => calculators.id),
+  enabled: boolean("enabled").notNull().default(false),
+  // 0=Sun..6=Sat
+  working_days: jsonb("working_days").notNull().default([1, 2, 3, 4, 5]),
+  working_hours_start: text("working_hours_start").notNull().default("09:00"),
+  working_hours_end: text("working_hours_end").notNull().default("17:00"),
+  timezone: text("timezone").notNull().default("America/Toronto"),
+  slot_duration_minutes: integer("slot_duration_minutes").notNull().default(30),
+  buffer_minutes: integer("buffer_minutes").notNull().default(0),
+  updated_at: timestamp("updated_at").defaultNow(),
+});
+
+export const scheduledAppointments = pgTable("scheduled_appointments", {
+  id: serial("id").primaryKey(),
+  calculator_id: integer("calculator_id").notNull().references(() => calculators.id),
+  lead_id: integer("lead_id").references(() => leads.id),
+  customer_name: text("customer_name"),
+  customer_email: text("customer_email"),
+  customer_phone: text("customer_phone"),
+  scheduled_for: timestamp("scheduled_for").notNull(),
+  duration_minutes: integer("duration_minutes").notNull().default(30),
+  notes: text("notes"),
+  status: text("status").notNull().default("confirmed"),
+  created_at: timestamp("created_at").defaultNow(),
+});
+
+export const insertAvailabilityRuleSchema = createInsertSchema(availabilityRules).omit({
+  id: true,
+  updated_at: true,
+});
+export const insertScheduledAppointmentSchema = createInsertSchema(scheduledAppointments).omit({
+  id: true,
+  created_at: true,
+});
+export type AvailabilityRule = typeof availabilityRules.$inferSelect;
+export type InsertAvailabilityRule = z.infer<typeof insertAvailabilityRuleSchema>;
+export type ScheduledAppointment = typeof scheduledAppointments.$inferSelect;
+export type InsertScheduledAppointment = z.infer<typeof insertScheduledAppointmentSchema>;
+
 /* ─── Calendar Connections ─── */
 export const calendarConnections = pgTable("calendar_connections", {
   id: serial("id").primaryKey(),
@@ -958,3 +1034,37 @@ export const vapiWebhookEvents = pgTable("vapi_webhook_events", {
 export const insertVapiWebhookEventSchema = createInsertSchema(vapiWebhookEvents).omit({ id: true, created_at: true });
 export type InsertVapiWebhookEvent = z.infer<typeof insertVapiWebhookEventSchema>;
 export type VapiWebhookEventRow = typeof vapiWebhookEvents.$inferSelect;
+
+/* ─── Quote Snapshots (Wave R3 — shareable quote URLs) ─── */
+//
+// One row per saved quote. Created from PriceRevealStep when the customer
+// (or contractor) clicks "Save + share". Reachable at /q/:snapshot_slug.
+// The owner_edit_token is the contractor's proof-of-ownership for PATCH /
+// DELETE; it's stored in localStorage on the creating device only and is
+// NEVER returned by the public GET endpoint.
+export const quoteSnapshots = pgTable("quote_snapshots", {
+  id: serial("id").primaryKey(),
+  snapshot_slug: varchar("snapshot_slug", { length: 16 }).notNull().unique(),
+  calculator_id: integer("calculator_id").notNull().references(() => calculators.id),
+  lead_id: integer("lead_id").references(() => leads.id),
+  owner_edit_token: varchar("owner_edit_token", { length: 64 }),
+  inputs: jsonb("inputs").notNull(),
+  computed: jsonb("computed").notNull(),
+  customer_name: text("customer_name"),
+  customer_email: text("customer_email"),
+  view_count: integer("view_count").notNull().default(0),
+  created_at: timestamp("created_at").defaultNow(),
+  last_viewed_at: timestamp("last_viewed_at"),
+  last_edited_at: timestamp("last_edited_at"),
+  expires_at: timestamp("expires_at"),
+});
+
+export const insertQuoteSnapshotSchema = createInsertSchema(quoteSnapshots).omit({
+  id: true,
+  created_at: true,
+  last_viewed_at: true,
+  last_edited_at: true,
+  view_count: true,
+});
+export type InsertQuoteSnapshot = z.infer<typeof insertQuoteSnapshotSchema>;
+export type QuoteSnapshot = typeof quoteSnapshots.$inferSelect;

@@ -206,7 +206,74 @@ export interface ShellSettings {
    * Maps to calculator_settings.appearance.show_powered_by on save.
    */
   brandBadge?: boolean;
+  /**
+   * Wave R-1 — Calendly-style online booking. When enabled, the widget
+   * surfaces a scheduling step after the price reveal. Persists into
+   * `calculator_settings.appearance.scheduling` (+ a server-side
+   * availability_rules row on save).
+   */
+  scheduling?: ShellSchedulingSettings;
+  /**
+   * Wave R-2 — Stripe deposit step config. Maps to
+   * `calculator_settings.appearance.deposit` on save. When `enabled` is
+   * true (and the calculator has a connected Stripe account), the widget
+   * inserts a "Secure your slot" deposit panel after the price reveal.
+   */
+  deposit?: ShellDeposit;
+  /**
+   * Wave R-2 — whether the underlying calculator owner has finished the
+   * Stripe Connect onboarding. Set by upstream consumers from the
+   * server-side connect/status check; the SettingsTab reads it to
+   * disable the Deposit fieldset when no Connect account exists.
+   */
+  stripeConnected?: boolean;
 }
+
+/**
+ * Wave R-2 — Stripe deposit config. `mode='percent'` interprets `value`
+ * as a percentage of the customer's quote; `mode='fixed'` interprets it
+ * as a dollar amount. `label` overrides the panel headline; `required`
+ * forces payment before advancing (when false a "Skip" link is shown).
+ */
+export interface ShellDeposit {
+  enabled?: boolean;
+  mode?: 'percent' | 'fixed';
+  value?: number;
+  label?: string;
+  required?: boolean;
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+ * Wave R-1 — Online booking settings
+ * ───────────────────────────────────────────────────────────────────── */
+
+export type ShellSlotDurationMinutes = 15 | 30 | 45 | 60;
+export type ShellBufferMinutes = 0 | 5 | 10 | 15;
+/** 0 = Sunday … 6 = Saturday (matches JS Date.getDay()). */
+export type ShellWorkingDay = 0 | 1 | 2 | 3 | 4 | 5 | 6;
+
+export interface ShellSchedulingSettings {
+  enabled: boolean;
+  /** Days of the week the business takes bookings. */
+  workingDays: ShellWorkingDay[];
+  /** "HH:MM" 24h. */
+  workingHoursStart: string;
+  /** "HH:MM" 24h. */
+  workingHoursEnd: string;
+  /** Length of one booking slot. */
+  slotDurationMinutes: ShellSlotDurationMinutes;
+  /** Gap between slots. */
+  bufferMinutes: ShellBufferMinutes;
+}
+
+export const DEFAULT_SHELL_SCHEDULING: Readonly<ShellSchedulingSettings> = {
+  enabled: false,
+  workingDays: [1, 2, 3, 4, 5],
+  workingHoursStart: '09:00',
+  workingHoursEnd: '17:00',
+  slotDurationMinutes: 30,
+  bufferMinutes: 0,
+};
 
 /* ─────────────────────────────────────────────────────────────────────
  * Wave P — hosted-page chrome (Install tab "Hosted page" section).

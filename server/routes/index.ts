@@ -20,6 +20,7 @@ import { registerAiChannelSettingsRoutes } from "./aiChannelSettingsRoutes";
 import { registerInboundEmailRoutes } from "./inboundEmailRoutes";
 import { registerFounderNotifyRoutes } from "./founderNotifyRoutes";
 import { registerStripeBillingRoutes } from "./stripeBillingRoutes";
+import { registerWidgetDepositRoutes } from "./widgetDepositRoutes";
 import { registerBillingPortalRoute } from "./billingPortalRoute";
 import { registerEmailTrackingRoutes } from "./emailTrackingRoutes";
 import { registerSendgridWebhookRoutes } from "./sendgridWebhookRoutes";
@@ -72,6 +73,8 @@ import { registerVoicemailRoutes } from "./voicemailRoutes";
 import { registerQuoteQuickAiChatRoutes } from "./quotequickAiChatRoutes";
 import { registerAdminAiBudgetRoutes } from "./adminAiBudgetRoutes";
 import { registerTwilioCommsRoutes } from "./twilioCommsRoutes";
+import { registerWidgetSchedulingRoutes } from "./widgetSchedulingRoutes";
+import { registerQuoteSnapshotRoutes } from "./quoteSnapshotRoutes";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -96,6 +99,7 @@ export async function registerRoutes(
   registerAdminToolRoutes(app);
   registerAiChannelSettingsRoutes(app);
   registerStripeBillingRoutes(app);
+  registerWidgetDepositRoutes(app);
   registerBillingPortalRoute(app);
   registerEmailTrackingRoutes(app);
   registerSendgridWebhookRoutes(app);
@@ -150,6 +154,8 @@ export async function registerRoutes(
   registerQuoteQuickAiChatRoutes(app);
   registerAdminAiBudgetRoutes(app);
   registerTwilioCommsRoutes(app);
+  registerWidgetSchedulingRoutes(app);
+  registerQuoteSnapshotRoutes(app);
 
   return httpServer;
 }

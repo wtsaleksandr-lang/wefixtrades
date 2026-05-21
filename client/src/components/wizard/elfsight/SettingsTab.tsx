@@ -20,14 +20,19 @@ import { platformTheme } from '@/theme/platformTheme';
 import { TRADES, type Trade } from '@/data/trades';
 import {
   DEFAULT_SHELL_NUMBER_FORMAT,
+  DEFAULT_SHELL_SCHEDULING,
   type ShellSettings,
   type ShellPricing,
   type ShellPricingMode,
   type ShellNumberFormat,
   type ShellThousandsSep,
   type ShellDecimalSep,
+  type ShellDeposit,
+  type ShellSchedulingSettings,
+  type ShellSlotDurationMinutes,
+  type ShellBufferMinutes,
+  type ShellWorkingDay,
 } from './types';
-import InfoCue from './InfoCue';
 import FloatField from './FloatField';
 
 const p = platformTheme;
@@ -44,6 +49,33 @@ const THOUSANDS_OPTIONS: ReadonlyArray<{ value: ShellThousandsSep; label: string
 const DECIMAL_OPTIONS: ReadonlyArray<{ value: ShellDecimalSep; label: string }> = [
   { value: 'dot',   label: 'Dot (.)' },
   { value: 'comma', label: 'Comma (,)' },
+];
+
+/* Wave R-1 — Booking section constants. Mon-Sun in calendar order; we store
+   0=Sun..6=Sat under the hood (matches JS Date.getDay()), so the UI flips
+   the index but the persisted value is always the standard JS day index. */
+const SCHEDULING_DAYS: ReadonlyArray<{ value: ShellWorkingDay; label: string }> = [
+  { value: 1, label: 'Mon' },
+  { value: 2, label: 'Tue' },
+  { value: 3, label: 'Wed' },
+  { value: 4, label: 'Thu' },
+  { value: 5, label: 'Fri' },
+  { value: 6, label: 'Sat' },
+  { value: 0, label: 'Sun' },
+];
+
+const SLOT_DURATION_OPTIONS: ReadonlyArray<{ value: ShellSlotDurationMinutes; label: string }> = [
+  { value: 15, label: '15 minutes' },
+  { value: 30, label: '30 minutes' },
+  { value: 45, label: '45 minutes' },
+  { value: 60, label: '60 minutes' },
+];
+
+const BUFFER_OPTIONS: ReadonlyArray<{ value: ShellBufferMinutes; label: string }> = [
+  { value: 0,  label: 'No buffer' },
+  { value: 5,  label: '5 minutes' },
+  { value: 10, label: '10 minutes' },
+  { value: 15, label: '15 minutes' },
 ];
 
 interface Props {
@@ -75,6 +107,8 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
   const numberFormat: ShellNumberFormat =
     settings.numberFormat ?? { ...DEFAULT_SHELL_NUMBER_FORMAT };
   const ctaLabel = settings.ctaLabel ?? '';
+  const scheduling: ShellSchedulingSettings =
+    settings.scheduling ?? { ...DEFAULT_SHELL_SCHEDULING };
 
   const patchPricing = useCallback(
     (next: Partial<ShellPricing>) =>
@@ -85,6 +119,33 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
     (next: Partial<ShellNumberFormat>) =>
       patch({ numberFormat: { ...numberFormat, ...next } }),
     [patch, numberFormat],
+  );
+  const patchScheduling = useCallback(
+    (next: Partial<ShellSchedulingSettings>) =>
+      patch({ scheduling: { ...scheduling, ...next } }),
+    [patch, scheduling],
+  );
+  const toggleWorkingDay = useCallback(
+    (day: ShellWorkingDay) => {
+      const set = new Set<ShellWorkingDay>(scheduling.workingDays);
+      if (set.has(day)) set.delete(day);
+      else set.add(day);
+      patchScheduling({ workingDays: Array.from(set).sort((a, b) => a - b) as ShellWorkingDay[] });
+    },
+    [patchScheduling, scheduling.workingDays],
+  );
+
+  // Wave R-2 — Stripe deposit step config (maps to
+  // calculator_settings.appearance.deposit on save). The fieldset
+  // disables itself when the underlying calculator has no connected
+  // Stripe account (see WizardShell wiring).
+  const deposit: ShellDeposit = settings.deposit ?? {
+    enabled: false, mode: 'percent', value: 15, label: '', required: false,
+  };
+  const stripeConnected = settings.stripeConnected !== false;
+  const patchDeposit = useCallback(
+    (next: Partial<ShellDeposit>) => patch({ deposit: { ...deposit, ...next } }),
+    [patch, deposit],
   );
 
   return (
@@ -100,14 +161,13 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
 
       {/* ── Lead notification email ─────────────────────────────── */}
       <fieldset className="qq-style-group" data-testid="settings-group-lead-email">
-        <legend className="qq-style-legend">
-          Lead notification email
-          <InfoCue
-            testid="settings-lead-email"
-            text="Where customer leads are sent when someone hits the CTA. Single email; team forwarding is configured upstream."
-          />
-        </legend>
-        <FloatField label="Lead notification email" htmlFor="qq-settings-leademail">
+        <legend className="qq-style-legend">Lead notification email</legend>
+        <FloatField
+          label="Lead notification email"
+          htmlFor="qq-settings-leademail"
+          infoText="Where customer leads are sent when someone hits the CTA. Single email; team forwarding is configured upstream."
+          infoTestid="settings-lead-email"
+        >
           <input
             id="qq-settings-leademail"
             type="email"
@@ -134,13 +194,11 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
 
       {/* ── Pricing model ───────────────────────────────────────── */}
       <fieldset className="qq-style-group" data-testid="settings-group-pricing">
-        <legend className="qq-style-legend">
-          Pricing model
-          <InfoCue
-            testid="settings-pricing"
-            text="The shape of your price. Saved alongside the calculator config — the renderer's pricing engine will pick this up downstream."
-          />
-        </legend>
+        <legend className="qq-style-legend">Pricing model</legend>
+        <p className="qq-style-sectionhint" data-testid="settings-pricing-hint">
+          The shape of your price. Saved alongside the calculator config — the
+          renderer's pricing engine will pick this up downstream.
+        </p>
         <label className="qq-style-label">Mode</label>
         <SegmentedControl<ShellPricingMode>
           name="pricing-mode"
@@ -222,15 +280,166 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
         )}
       </fieldset>
 
+      {/* ── Deposit (Wave R-2) ──────────────────────────────────── */}
+      <fieldset
+        className={`qq-style-group qq-settings-deposit${stripeConnected ? '' : ' is-disabled'}`}
+        data-testid="settings-group-deposit"
+        data-stripe-connected={stripeConnected ? 'true' : 'false'}
+      >
+        <legend className="qq-style-legend">Deposit</legend>
+        <p className="qq-style-sectionhint">
+          Optionally collect a deposit at booking time. Stripe Connect routes
+          the money to your account; WeFixTrades takes a small platform fee
+          per transaction.
+        </p>
+
+        {!stripeConnected && (
+          <p
+            className="qq-settings-deposit-warning"
+            data-testid="settings-deposit-no-stripe"
+            style={{
+              fontSize: 12,
+              color: p.colors.muted,
+              margin: '0 0 10px',
+              lineHeight: 1.45,
+            }}
+          >
+            Connect Stripe in your dashboard first to enable deposits.
+          </p>
+        )}
+
+        <label
+          className="qq-deposit-toggle"
+          style={{
+            display: 'flex', alignItems: 'flex-start', gap: 10,
+            cursor: stripeConnected ? 'pointer' : 'not-allowed',
+            opacity: stripeConnected ? 1 : 0.55,
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={deposit.enabled === true}
+            disabled={!stripeConnected}
+            onChange={(e) => patchDeposit({ enabled: e.target.checked })}
+            data-testid="settings-deposit-enabled"
+            aria-label="Collect a deposit when customers book"
+          />
+          <span>
+            <span style={{ fontWeight: 700, fontSize: 13, color: p.colors.heading }}>
+              Collect a deposit when customers book
+            </span>
+            <span style={{ display: 'block', fontSize: 12, color: p.colors.muted, marginTop: 2 }}>
+              Adds a "Secure your slot" step after the quote. Money flows directly to your Stripe account.
+            </span>
+          </span>
+        </label>
+
+        {deposit.enabled && stripeConnected && (
+          <div className="qq-settings-row" data-testid="settings-deposit-fields">
+            <label className="qq-style-label" style={{ marginTop: 4 }}>Deposit type</label>
+            <SegmentedControl<'percent' | 'fixed'>
+              name="deposit-mode"
+              testid="settings-segmented-deposit"
+              value={deposit.mode === 'fixed' ? 'fixed' : 'percent'}
+              options={[
+                { value: 'percent', label: 'Percent (%)' },
+                { value: 'fixed',   label: 'Fixed ($)' },
+              ]}
+              onChange={(mode) => patchDeposit({ mode })}
+            />
+
+            <div style={{ marginTop: 12 }}>
+              <FloatField
+                label={deposit.mode === 'fixed' ? 'Deposit amount ($)' : 'Deposit percentage (%)'}
+                htmlFor="qq-settings-deposit-value"
+                infoText={
+                  deposit.mode === 'fixed'
+                    ? 'Charged in dollars regardless of quote size. Stripe requires a $0.50 minimum.'
+                    : 'Charged as a percentage of the customer\'s quote total. E.g. 15 → 15%.'
+                }
+                infoTestid="settings-deposit-value-info"
+              >
+                <input
+                  id="qq-settings-deposit-value"
+                  type="number"
+                  min={0}
+                  step={deposit.mode === 'fixed' ? 1 : 0.5}
+                  className="premium-input"
+                  placeholder=" "
+                  value={deposit.value ?? ''}
+                  onChange={(e) => patchDeposit({ value: numOrUndef(e.target.value) })}
+                  data-testid="settings-input-deposit-value"
+                  aria-invalid={
+                    deposit.value !== undefined && Number(deposit.value) <= 0
+                      ? 'true'
+                      : 'false'
+                  }
+                />
+              </FloatField>
+              {deposit.value !== undefined && Number(deposit.value) <= 0 && (
+                <p
+                  className="qq-settings-error"
+                  data-testid="settings-deposit-value-error"
+                  style={{ fontSize: 11.5, color: p.colors.danger, margin: '6px 0 0' }}
+                >
+                  Enter a positive amount.
+                </p>
+              )}
+            </div>
+
+            <div style={{ marginTop: 12 }}>
+              <FloatField
+                label="Custom label (optional)"
+                htmlFor="qq-settings-deposit-label"
+                infoText='Overrides the deposit headline shown to customers. E.g. "Secure your slot — $50". Leave blank to use the default.'
+                infoTestid="settings-deposit-label-info"
+              >
+                <input
+                  id="qq-settings-deposit-label"
+                  type="text"
+                  className="premium-input"
+                  placeholder=" "
+                  value={deposit.label ?? ''}
+                  onChange={(e) => patchDeposit({ label: e.target.value })}
+                  data-testid="settings-input-deposit-label"
+                />
+              </FloatField>
+            </div>
+
+            <label
+              className="qq-deposit-required"
+              style={{
+                display: 'flex', alignItems: 'flex-start', gap: 10,
+                marginTop: 12, cursor: 'pointer',
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={deposit.required === true}
+                onChange={(e) => patchDeposit({ required: e.target.checked })}
+                data-testid="settings-deposit-required"
+                aria-label="Require the deposit before booking is confirmed"
+              />
+              <span>
+                <span style={{ fontWeight: 700, fontSize: 12.5, color: p.colors.heading }}>
+                  Require deposit to confirm booking
+                </span>
+                <span style={{ display: 'block', fontSize: 11.5, color: p.colors.muted, marginTop: 2 }}>
+                  When off, customers can skip and arrange payment with you later.
+                </span>
+              </span>
+            </label>
+          </div>
+        )}
+      </fieldset>
+
       {/* ── Number formatting ───────────────────────────────────── */}
       <fieldset className="qq-style-group" data-testid="settings-group-numberformat">
-        <legend className="qq-style-legend">
-          Number formatting
-          <InfoCue
-            testid="settings-numberformat"
-            text="How prices display in the calculator. Currency is a 3-letter ISO code (USD / EUR / GBP / …)."
-          />
-        </legend>
+        <legend className="qq-style-legend">Number formatting</legend>
+        <p className="qq-style-sectionhint" data-testid="settings-numberformat-hint">
+          How prices display in the calculator. Currency is a 3-letter ISO code
+          (USD / EUR / GBP / …).
+        </p>
         <div className="qq-style-grid">
           <FloatField label="Thousands separator" htmlFor="qq-settings-thousands" variant="select">
             <select
@@ -285,14 +494,13 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
 
       {/* ── Custom CTA label ────────────────────────────────────── */}
       <fieldset className="qq-style-group" data-testid="settings-group-cta">
-        <legend className="qq-style-legend">
-          Custom CTA label
-          <InfoCue
-            testid="settings-cta"
-            text='Overrides the result-panel button text. Leave blank to keep the default ("Get My Quote").'
-          />
-        </legend>
-        <FloatField label="CTA label" htmlFor="qq-settings-cta-label">
+        <legend className="qq-style-legend">Custom CTA label</legend>
+        <FloatField
+          label="CTA label"
+          htmlFor="qq-settings-cta-label"
+          infoText='Overrides the result-panel button text. Leave blank to keep the default ("Get My Quote").'
+          infoTestid="settings-cta"
+        >
           <input
             id="qq-settings-cta-label"
             type="text"
@@ -305,6 +513,119 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
         </FloatField>
       </fieldset>
 
+      {/* ── Online booking (Wave R-1) ───────────────────────────── */}
+      {/* W-R1 / W-SETTINGS-STYLE merge: section InfoCue replaced with a
+          subtle paragraph below the legend — same pattern Deposit/Brand
+          adopted (commits 09c62328 + 0bc105e5). */}
+      <fieldset className="qq-style-group" data-testid="settings-group-scheduling">
+        <legend className="qq-style-legend">Online booking</legend>
+        <p className="qq-style-sectionhint">
+          Lets customers book a time on your calendar after the quote step. Slots fill from your working hours minus existing bookings.
+        </p>
+
+        <div className="qq-scheduling-toggle" data-testid="scheduling-toggle-row">
+          <label className="qq-brand-badge-toggle">
+            <input
+              type="checkbox"
+              checked={scheduling.enabled}
+              onChange={(e) => patchScheduling({ enabled: e.target.checked })}
+              data-testid="scheduling-enabled-input"
+              aria-label="Enable online booking"
+            />
+            <span>
+              <span className="qq-brand-badge-title">Let customers book a time on your calendar</span>
+              <span className="qq-brand-badge-sub">
+                The widget shows a 14-day picker after the price reveal. Slots are local to your working hours.
+              </span>
+            </span>
+          </label>
+        </div>
+
+        {scheduling.enabled && (
+          <div className="qq-scheduling-body" data-testid="scheduling-body">
+            <p className="qq-scheduling-sublabel">Working days</p>
+            <div className="qq-scheduling-days" role="group" aria-label="Working days">
+              {SCHEDULING_DAYS.map((d) => {
+                const checked = scheduling.workingDays.includes(d.value);
+                return (
+                  <label
+                    key={d.value}
+                    className={`qq-scheduling-daychip${checked ? ' is-active' : ''}`}
+                    data-testid={`scheduling-day-${d.value}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleWorkingDay(d.value)}
+                      aria-label={`Working day ${d.label}`}
+                    />
+                    <span>{d.label}</span>
+                  </label>
+                );
+              })}
+            </div>
+
+            <div className="qq-style-grid" style={{ marginTop: 12 }}>
+              <FloatField label="Start time" htmlFor="qq-settings-sched-start">
+                <input
+                  id="qq-settings-sched-start"
+                  type="time"
+                  className="premium-input"
+                  placeholder=" "
+                  value={scheduling.workingHoursStart}
+                  onChange={(e) => patchScheduling({ workingHoursStart: e.target.value })}
+                  data-testid="scheduling-input-start"
+                />
+              </FloatField>
+              <FloatField label="End time" htmlFor="qq-settings-sched-end">
+                <input
+                  id="qq-settings-sched-end"
+                  type="time"
+                  className="premium-input"
+                  placeholder=" "
+                  value={scheduling.workingHoursEnd}
+                  onChange={(e) => patchScheduling({ workingHoursEnd: e.target.value })}
+                  data-testid="scheduling-input-end"
+                />
+              </FloatField>
+            </div>
+
+            <div className="qq-style-grid" style={{ marginTop: 12 }}>
+              <FloatField label="Slot duration" htmlFor="qq-settings-sched-duration" variant="select">
+                <select
+                  id="qq-settings-sched-duration"
+                  className="premium-input"
+                  value={scheduling.slotDurationMinutes}
+                  onChange={(e) =>
+                    patchScheduling({ slotDurationMinutes: Number(e.target.value) as ShellSlotDurationMinutes })
+                  }
+                  data-testid="scheduling-select-duration"
+                >
+                  {SLOT_DURATION_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </FloatField>
+              <FloatField label="Buffer between slots" htmlFor="qq-settings-sched-buffer" variant="select">
+                <select
+                  id="qq-settings-sched-buffer"
+                  className="premium-input"
+                  value={scheduling.bufferMinutes}
+                  onChange={(e) =>
+                    patchScheduling({ bufferMinutes: Number(e.target.value) as ShellBufferMinutes })
+                  }
+                  data-testid="scheduling-select-buffer"
+                >
+                  {BUFFER_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </FloatField>
+            </div>
+          </div>
+        )}
+      </fieldset>
+
       {/* Wave Q-E — Brand badge toggle. Free users see the toggle as
        *  read-only with an "Upgrade to Pro" call-to-action; Pro / Business
        *  users can flip it. Client-side tier detection is not yet wired,
@@ -312,13 +633,12 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
        *  link surfaced. The server-side gate (Wave Q-D) enforces this on
        *  save regardless of what the client sends. */}
       <fieldset className="qq-style-group" data-testid="settings-group-brand-badge">
-        <legend className="qq-style-legend">
-          WeFixTrades brand badge
-          <InfoCue
-            testid="settings-brand-badge"
-            text='Free plan calculators show a "QuoteQuick by WeFixTrades" badge on the hosted page and any embedded widgets. Pro and Business plans remove the badge.'
-          />
-        </legend>
+        <legend className="qq-style-legend">WeFixTrades brand badge</legend>
+        <p className="qq-style-sectionhint" data-testid="settings-brand-badge-hint">
+          Free plan calculators show a "QuoteQuick by WeFixTrades" badge on the
+          hosted page and any embedded widgets. Pro and Business plans remove
+          the badge.
+        </p>
         <div
           className="qq-brand-badge-row"
           data-testid="settings-brand-badge-row"
@@ -373,12 +693,24 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
           background: #fff;
           margin: 0;
         }
+        /* W-SETTINGS-STYLE — subtle all-caps section label, matches the
+         * Build tab treatment landed by W-SECTIONS. Sits flush above the
+         * first input rather than reading as a bold heading. */
         .qq-style-legend {
-          display: inline-flex; align-items: center;
-          font-size: 13px; font-weight: 800;
-          color: ${p.colors.heading};
-          padding: 0 6px;
-          letter-spacing: -0.005em;
+          display: block;
+          font-size: 11.5px; font-weight: 600;
+          color: ${p.colors.muted};
+          text-transform: uppercase; letter-spacing: 0.04em;
+          margin: 0 0 6px;
+          padding: 0;
+        }
+        /* Section-level help that used to live in an InfoCue beside the
+         * legend. Same muted styling, sits under the legend as a body
+         * line so it reads like a caption, not a heading. */
+        .qq-style-sectionhint {
+          margin: 0 0 8px;
+          font-size: 11.5px; line-height: 1.5;
+          color: ${p.colors.subtle};
         }
         .qq-style-grid {
           display: grid; gap: 10px;
@@ -500,6 +832,52 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
           text-decoration: none;
         }
         .qq-brand-badge-link:hover { text-decoration: underline; }
+        /* Wave R-1 — Online booking */
+        .qq-scheduling-toggle {
+          padding: 12px 14px;
+          background: ${p.colors.surfaceRaised};
+          border: 1px solid ${p.colors.borderLight};
+          border-radius: 10px;
+        }
+        .qq-scheduling-body {
+          margin-top: 14px;
+          display: flex; flex-direction: column;
+        }
+        .qq-scheduling-sublabel {
+          font-size: 11px; font-weight: 700;
+          color: ${p.colors.muted};
+          text-transform: uppercase; letter-spacing: 0.06em;
+          margin: 0 0 8px;
+        }
+        .qq-scheduling-days {
+          display: grid; gap: 6px;
+          grid-template-columns: repeat(7, minmax(0, 1fr));
+        }
+        @media (max-width: 480px) {
+          .qq-scheduling-days { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+        }
+        .qq-scheduling-daychip {
+          display: flex; align-items: center; justify-content: center;
+          padding: 6px 2px;
+          font-size: 12.5px; font-weight: 600;
+          border-radius: 8px;
+          background: #fff;
+          border: 1px solid ${p.colors.border};
+          color: ${p.colors.body};
+          cursor: pointer;
+          user-select: none;
+          transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+        }
+        .qq-scheduling-daychip:hover { border-color: ${p.colors.accent}; }
+        .qq-scheduling-daychip input[type="checkbox"] {
+          /* Hide the native checkbox — the chip itself is the affordance. */
+          position: absolute; opacity: 0; pointer-events: none;
+        }
+        .qq-scheduling-daychip.is-active {
+          background: ${p.colors.accentLighter};
+          border-color: ${p.colors.accent};
+          color: ${p.colors.accentDark};
+        }
       `}</style>
     </section>
   );
@@ -524,14 +902,13 @@ function TradeSection({
 
   return (
     <fieldset className="qq-style-group" data-testid="settings-group-trade">
-      <legend className="qq-style-legend">
-        Trade
-        <InfoCue
-          testid="settings-trade"
-          text="Which trade this calculator is for. Drives template suggestions and downstream copy. Search the list below."
-        />
-      </legend>
-      <FloatField label="Search trades" htmlFor="qq-settings-trade-search">
+      <legend className="qq-style-legend">Trade</legend>
+      <FloatField
+        label="Search trades"
+        htmlFor="qq-settings-trade-search"
+        infoText="Which trade this calculator is for. Drives template suggestions and downstream copy. Search the list below."
+        infoTestid="settings-trade"
+      >
         <input
           id="qq-settings-trade-search"
           type="text"
