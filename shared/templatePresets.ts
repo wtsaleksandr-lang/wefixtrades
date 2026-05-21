@@ -1296,6 +1296,277 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
       { id: 'mold_remediation_two_col', layout: 'two-column' as TemplateLayout, ...base },
     ];
   })(),
+
+  /* ── Wave Y Batch 1 — Cleaning category expansion ──
+     Four functional quote calculators covering the cleaning trades
+     already present in client/src/data/trades.ts. Each uses generic
+     industry inputs (square footage, level of soiling, add-ons) — no
+     copy or visual identity borrowed from any external source. */
+
+  /* ── 15. Deep home cleaning ── */
+  {
+    id: 'deep_home_cleaning', name: 'Deep Home Cleaning',
+    description: 'Square-footage + room-count deep clean estimate with add-ons.',
+    category: 'Cleaning', trades: ['deep_cleaning', 'house_cleaning'],
+    layout: 'two-column', theme: 'light',
+    header: { title: 'Deep Cleaning Estimate', subtitle: 'A thorough top-to-bottom clean — priced from your home size.', align: 'left' },
+    fields: [
+      { id: 'sqft', name: 'Home Size', label: 'Home size', type: 'slider',
+        min: 400, max: 6000, step: 50, default_value: 1500, unit: 'sqft' },
+      { id: 'bedrooms', name: 'Bedrooms', label: 'Bedrooms', type: 'number',
+        min: 0, max: 10, step: 1, default_value: 3 },
+      { id: 'bathrooms', name: 'Bathrooms', label: 'Bathrooms', type: 'number',
+        min: 0, max: 8, step: 1, default_value: 2 },
+      { id: 'condition', name: 'Condition', label: 'Current condition', type: 'select',
+        options: [opt('Lightly soiled', 0), opt('Average', 60), opt('Heavily soiled', 180)] },
+      { id: 'extras', name: 'Add-ons', label: 'Add-on services', type: 'multi_select',
+        options: [opt('Inside fridge', 35), opt('Inside oven', 40), opt('Inside cabinets', 55), opt('Windows (interior)', 70)] },
+    ],
+    calculations: [calc('Estimated Quote', '[Home Size] * 0.18 + [Bedrooms] * 25 + [Bathrooms] * 30 + [Condition] + [Add-ons]')],
+    result_calc: 'Estimated Quote',
+    results: { footnote: 'Final price confirmed after a 5-minute walk-through. Re-clean guarantee within 24 hrs.' },
+  },
+
+  /* ── 16. Move-in / move-out cleaning ── */
+  {
+    id: 'move_out_cleaning', name: 'Move-Out Cleaning',
+    description: 'Lease-handover clean priced by home size + urgency.',
+    category: 'Cleaning', trades: ['move_in_out_cleaning', 'deep_cleaning'],
+    layout: 'single-column', theme: 'light',
+    header: { title: 'Move-Out Cleaning Quote', subtitle: 'Get your full deposit back — priced for the handover.', align: 'left' },
+    fields: [
+      { id: 'sqft', name: 'Home Size', label: 'Home size', type: 'slider',
+        min: 300, max: 5000, step: 50, default_value: 1200, unit: 'sqft' },
+      { id: 'condition', name: 'Move-Out Condition', label: 'How is the home being left?', type: 'select',
+        options: [opt('Fairly clean', 0), opt('Average', 80), opt('Rough', 220)] },
+      { id: 'urgency', name: 'Urgency', label: 'When do you need it?', type: 'radio',
+        options: [opt('Within a week', 0), opt('Within 48 hours', 60), opt('Same-day rush', 150)] },
+      { id: 'extras', name: 'Extras', label: 'Add-on services', type: 'multi_select',
+        options: [opt('Inside appliances', 60), opt('Carpet shampoo', 120), opt('Wall touch-up wash', 50), opt('Garage', 80)] },
+    ],
+    calculations: [calc('Estimated Quote', '[Home Size] * 0.22 + [Move-Out Condition] + [Urgency] + [Extras]')],
+    result_calc: 'Estimated Quote',
+  },
+
+  /* ── 17. Office / commercial cleaning ── */
+  {
+    id: 'office_cleaning', name: 'Office Cleaning',
+    description: 'Recurring commercial cleaning by square footage + visit cadence.',
+    category: 'Cleaning', trades: ['office_cleaning', 'commercial_cleaning'],
+    layout: 'two-column', theme: 'midnight',
+    header: { title: 'Office Cleaning Estimate', subtitle: 'Per-visit pricing for ongoing commercial cleans.', align: 'left' },
+    fields: [
+      { id: 'sqft', name: 'Office Size', label: 'Office size', type: 'slider',
+        min: 500, max: 25000, step: 100, default_value: 3000, unit: 'sqft' },
+      { id: 'frequency', name: 'Frequency', label: 'How often?', type: 'select',
+        options: [opt('Daily (5x/wk)', 1.0), opt('Three times a week', 0.85), opt('Weekly', 0.65), opt('Bi-weekly', 0.55)] },
+      { id: 'time', name: 'Time of Service', label: 'When does the team come?', type: 'radio',
+        options: [opt('Business hours', 0), opt('After hours', 35), opt('Weekends only', 60)] },
+      { id: 'extras', name: 'Extras', label: 'Included services', type: 'multi_select',
+        options: [opt('Restroom sanitation', 25), opt('Trash removal', 15), opt('Floor buffing', 65), opt('Window interior', 45)] },
+    ],
+    calculations: [calc('Per-Visit Cost', '[Office Size] * 0.06 * [Frequency] + [Time of Service] + [Extras]')],
+    result_calc: 'Per-Visit Cost',
+    results: { footnote: 'Recurring contracts unlock additional savings — ask about our 6-month rate.' },
+  },
+
+  /* ── 18. Window cleaning ── */
+  {
+    id: 'window_cleaning_quote', name: 'Window Cleaning',
+    description: 'Per-window pricing with story-height and access modifiers.',
+    category: 'Cleaning', trades: ['window_cleaning', 'pressure_washing'],
+    layout: 'single-column', theme: 'forest',
+    header: { title: 'Window Cleaning Quote', subtitle: 'Streak-free clean, inside and out.', align: 'left' },
+    fields: [
+      { id: 'windows', name: 'Windows', label: 'Number of windows', type: 'slider',
+        min: 1, max: 60, step: 1, default_value: 12 },
+      { id: 'stories', name: 'Stories', label: 'Building height', type: 'radio',
+        options: [opt('Single-story', 0), opt('Two-story', 4), opt('Three+ story', 9)] },
+      { id: 'sides', name: 'Sides', label: 'Sides to clean', type: 'select',
+        options: [opt('Exterior only', 1.0), opt('Interior + exterior', 1.7)] },
+      { id: 'screens', name: 'Screens', label: 'Include window screens', type: 'toggle', on_value: 45 },
+      { id: 'tracks', name: 'Tracks', label: 'Detail clean the tracks', type: 'toggle', on_value: 35 },
+    ],
+    calculations: [calc('Estimated Quote', '[Number of windows] * (8 + [Stories]) * [Sides] + [Screens] + [Tracks]')],
+    result_calc: 'Estimated Quote',
+  },
+
+  /* ── Wave Y Batch 2 — Renovation category ── */
+
+  /* ── 19. Kitchen renovation ── */
+  {
+    id: 'kitchen_renovation', name: 'Kitchen Renovation',
+    description: 'Full-kitchen remodel estimate by size, cabinet grade and finishes.',
+    category: 'Renovation', trades: ['kitchen_renovation', 'general_renovation', 'general_contractor'],
+    layout: 'two-column', theme: 'midnight',
+    header: { title: 'Kitchen Renovation Estimate', subtitle: 'A starting price for your full kitchen remodel.', align: 'left' },
+    fields: [
+      { id: 'kitchen_size', name: 'Kitchen Size', label: 'Kitchen size', type: 'slider',
+        min: 80, max: 600, step: 10, default_value: 180, unit: 'sqft' },
+      { id: 'cabinets', name: 'Cabinets', label: 'Cabinet grade', type: 'select',
+        options: [opt('Stock', 90), opt('Semi-custom', 160), opt('Custom built-in', 280)] },
+      { id: 'counters', name: 'Countertops', label: 'Countertop material', type: 'select',
+        options: [opt('Laminate', 30), opt('Quartz', 75), opt('Granite', 85), opt('Marble', 130)] },
+      { id: 'appliances', name: 'Appliances', label: 'Appliance package', type: 'radio',
+        options: [opt('Keep existing', 0), opt('Mid-range refresh', 4500), opt('Pro-grade upgrade', 12000)] },
+      { id: 'plumbing_electric', name: 'Plumbing/Electric', label: 'Plumbing + electrical scope', type: 'multi_select',
+        options: [opt('Move sink', 850), opt('Add island circuit', 700), opt('Under-cabinet lighting', 450), opt('New backsplash', 600)] },
+    ],
+    calculations: [calc('Estimated Project Cost', '[Kitchen Size] * ([Cabinets] + [Countertops]) + [Appliances] + [Plumbing/Electric]')],
+    result_calc: 'Estimated Project Cost',
+    results: { footnote: 'Estimate excludes structural work and permits — confirmed during on-site consultation.' },
+  },
+
+  /* ── 20. Bathroom renovation ── */
+  {
+    id: 'bathroom_renovation', name: 'Bathroom Renovation',
+    description: 'Bathroom remodel pricing by fixture tier and tile coverage.',
+    category: 'Renovation', trades: ['bathroom_renovation', 'general_renovation'],
+    layout: 'two-column', theme: 'light',
+    header: { title: 'Bathroom Renovation Quote', subtitle: 'Estimate your new bathroom in seconds.', align: 'left' },
+    fields: [
+      { id: 'size', name: 'Bathroom Size', label: 'Bathroom size', type: 'select',
+        options: [opt('Half bath', 1.0), opt('Full bath (60-80 sqft)', 2.2), opt('Primary suite (100+ sqft)', 3.5)] },
+      { id: 'tier', name: 'Finish Tier', label: 'Finish tier', type: 'radio',
+        options: [opt('Standard', 3500), opt('Premium', 7200), opt('Luxury', 14500)] },
+      { id: 'shower', name: 'Shower / Tub', label: 'Shower / tub change', type: 'select',
+        options: [opt('Keep existing', 0), opt('New tub-shower combo', 1800), opt('Walk-in shower', 3400), opt('Freestanding tub', 4200)] },
+      { id: 'extras', name: 'Extras', label: 'Add-ons', type: 'multi_select',
+        options: [opt('Heated floor', 1400), opt('Double vanity', 1900), opt('Smart toilet', 1200), opt('Recessed lighting', 700)] },
+    ],
+    calculations: [calc('Estimated Quote', '[Finish Tier] * [Bathroom Size] + [Shower / Tub] + [Extras]')],
+    result_calc: 'Estimated Quote',
+  },
+
+  /* ── 21. Basement finishing ── */
+  {
+    id: 'basement_finishing', name: 'Basement Finishing',
+    description: 'Per-sqft basement finish estimate with ceiling + scope modifiers.',
+    category: 'Renovation', trades: ['basement_renovation', 'general_renovation'],
+    layout: 'single-column', theme: 'midnight',
+    header: { title: 'Basement Finishing Cost Calculator', subtitle: 'Unfinished to fully-finished — priced from the studs out.', align: 'left' },
+    fields: [
+      { id: 'sqft', name: 'Basement Size', label: 'Basement size', type: 'slider',
+        min: 200, max: 2500, step: 50, default_value: 800, unit: 'sqft' },
+      { id: 'ceiling', name: 'Ceiling', label: 'Ceiling treatment', type: 'select',
+        options: [opt('Exposed (painted)', 8), opt('Drop tile', 14), opt('Full drywall', 22)] },
+      { id: 'rooms', name: 'Rooms', label: 'Rooms to add', type: 'multi_select',
+        options: [opt('Bedroom', 4200), opt('Bathroom', 7800), opt('Wet bar / kitchenette', 5600), opt('Home theater', 3900)] },
+      { id: 'egress', name: 'Egress Window', label: 'Add egress window', type: 'toggle', on_value: 3200 },
+    ],
+    calculations: [calc('Estimated Project Cost', '[Basement Size] * [Ceiling] + [Rooms] + [Egress Window]')],
+    result_calc: 'Estimated Project Cost',
+  },
+
+  /* ── 22. Interior painting ── */
+  {
+    id: 'interior_painting', name: 'Interior Painting',
+    description: 'Per-sqft interior paint quote with prep and ceiling-height modifiers.',
+    category: 'Renovation', trades: ['painting', 'interior_painting'],
+    layout: 'two-column', theme: 'light',
+    header: { title: 'Interior Painting Quote', subtitle: 'Walls, ceilings, trim — priced by room or whole-home.', align: 'left' },
+    fields: [
+      { id: 'sqft', name: 'Wall Area', label: 'Wall area to paint', type: 'slider',
+        min: 200, max: 5000, step: 50, default_value: 1200, unit: 'sqft' },
+      { id: 'coats', name: 'Coats', label: 'Number of coats', type: 'radio',
+        options: [opt('One coat', 1.0), opt('Two coats (recommended)', 1.6)] },
+      { id: 'ceiling_height', name: 'Ceiling Height', label: 'Ceiling height', type: 'select',
+        options: [opt('Standard (8 ft)', 1.0), opt('High (9-10 ft)', 1.15), opt('Vaulted (12+ ft)', 1.35)] },
+      { id: 'prep', name: 'Prep', label: 'Prep work', type: 'multi_select',
+        options: [opt('Patch holes', 120), opt('Sand & prime', 180), opt('Remove wallpaper', 400)] },
+      { id: 'trim', name: 'Trim', label: 'Include trim + doors', type: 'toggle', on_value: 350 },
+    ],
+    calculations: [calc('Estimated Quote', '[Wall Area] * 1.3 * [Coats] * [Ceiling Height] + [Prep] + [Trim]')],
+    result_calc: 'Estimated Quote',
+    results: { footnote: 'Includes premium paint and one accent wall. Final scope confirmed on-site.' },
+  },
+
+  /* ── Wave Y Batch 3 — Mechanical / Systems category ── */
+
+  /* ── 23. HVAC installation ── */
+  {
+    id: 'hvac_installation', name: 'HVAC Installation',
+    description: 'New HVAC system estimate by home size and equipment tier.',
+    category: 'Mechanical', trades: ['hvac_services', 'hvac_installation'],
+    layout: 'two-column', theme: 'midnight',
+    header: { title: 'HVAC Installation Quote', subtitle: 'New system pricing in under a minute.', align: 'left' },
+    fields: [
+      { id: 'home_size', name: 'Home Size', label: 'Home size', type: 'slider',
+        min: 600, max: 6000, step: 100, default_value: 1800, unit: 'sqft' },
+      { id: 'system_type', name: 'System Type', label: 'System type', type: 'select',
+        options: [opt('Central AC only', 4500), opt('Furnace only', 4200), opt('Central AC + furnace', 7800), opt('Heat pump (all-in-one)', 9500), opt('Ductless mini-split', 5800)] },
+      { id: 'efficiency', name: 'Efficiency Tier', label: 'Efficiency tier', type: 'radio',
+        options: [opt('Standard (14 SEER)', 1.0), opt('High-efficiency (18 SEER)', 1.25), opt('Top tier (20+ SEER)', 1.5)] },
+      { id: 'extras', name: 'Add-ons', label: 'Add-ons', type: 'multi_select',
+        options: [opt('Smart thermostat', 380), opt('Whole-home humidifier', 750), opt('UV air purifier', 620), opt('Duct cleaning', 450)] },
+    ],
+    calculations: [calc('Estimated Project Cost', '[System Type] * [Efficiency Tier] + [Home Size] * 0.8 + [Add-ons]')],
+    result_calc: 'Estimated Project Cost',
+    results: { footnote: 'Includes equipment, standard installation, and a 10-year parts warranty.' },
+  },
+
+  /* ── 24. Plumbing service ── */
+  {
+    id: 'plumbing_service', name: 'Plumbing Service',
+    description: 'Per-job plumbing estimate by service type + urgency.',
+    category: 'Mechanical', trades: ['plumbing', 'emergency_plumbing'],
+    layout: 'single-column', theme: 'midnight',
+    header: { title: 'Plumbing Service Quote', subtitle: 'Get an upfront price before the truck rolls.', align: 'left' },
+    fields: [
+      { id: 'service', name: 'Service', label: 'Service needed', type: 'select',
+        options: [opt('Leak repair', 220), opt('Drain clearing', 180), opt('Faucet replacement', 280), opt('Toilet replacement', 420), opt('Water heater install', 1800)] },
+      { id: 'units', name: 'Units', label: 'How many fixtures?', type: 'number',
+        min: 1, max: 10, step: 1, default_value: 1 },
+      { id: 'urgency', name: 'Urgency', label: 'When do you need it?', type: 'radio',
+        options: [opt('Within a week', 0), opt('Within 24 hours', 75), opt('Emergency / same-day', 220)] },
+      { id: 'extras', name: 'Extras', label: 'Add-ons', type: 'multi_select',
+        options: [opt('Hauling away old fixture', 60), opt('Pressure test', 90), opt('Camera inspection', 140)] },
+    ],
+    calculations: [calc('Estimated Cost', '[Service] * [Units] + [Urgency] + [Extras]')],
+    result_calc: 'Estimated Cost',
+  },
+
+  /* ── 25. Electrical work ── */
+  {
+    id: 'electrical_work', name: 'Electrical Work',
+    description: 'Per-job electrical estimate covering common residential scopes.',
+    category: 'Mechanical', trades: ['electrical', 'emergency_electrical'],
+    layout: 'single-column', theme: 'midnight',
+    header: { title: 'Electrical Work Quote', subtitle: 'From a single outlet to a full panel upgrade.', align: 'left' },
+    fields: [
+      { id: 'job_type', name: 'Job Type', label: 'Job type', type: 'select',
+        options: [opt('Add outlet / switch', 175), opt('New light fixture', 220), opt('Ceiling fan install', 290), opt('Panel upgrade (200A)', 2400), opt('Whole-home rewire', 8500)] },
+      { id: 'quantity', name: 'Quantity', label: 'How many?', type: 'number',
+        min: 1, max: 20, step: 1, default_value: 1 },
+      { id: 'access', name: 'Access', label: 'Access difficulty', type: 'radio',
+        options: [opt('Easy (open wall / accessible)', 0), opt('Moderate', 45), opt('Difficult (finished wall, tight crawl)', 120)] },
+      { id: 'permit', name: 'Permit', label: 'Pull a permit', type: 'toggle', on_value: 220 },
+    ],
+    calculations: [calc('Estimated Cost', '[Job Type] * [Quantity] + [Access] * [Quantity] + [Permit]')],
+    result_calc: 'Estimated Cost',
+  },
+
+  /* ── 26. EV charger installation ── */
+  {
+    id: 'ev_charger_install', name: 'EV Charger Installation',
+    description: 'Level-2 EV charger install with electrical-scope modifiers.',
+    category: 'Mechanical', trades: ['ev_charger_installation', 'electrical'],
+    layout: 'two-column', theme: 'forest',
+    header: { title: 'EV Charger Install Quote', subtitle: 'Get charging at home — priced from your garage out.', align: 'left' },
+    fields: [
+      { id: 'charger_level', name: 'Charger Level', label: 'Charger level', type: 'radio',
+        options: [opt('Level 1 (120V)', 350), opt('Level 2 (240V, 32A)', 950), opt('Level 2 (240V, 50A)', 1250)] },
+      { id: 'wire_distance', name: 'Wire Distance', label: 'Distance from panel', type: 'slider',
+        min: 5, max: 120, step: 5, default_value: 25, unit: 'ft' },
+      { id: 'panel_upgrade', name: 'Panel Upgrade', label: 'Panel upgrade needed?', type: 'radio',
+        options: [opt('No (panel has capacity)', 0), opt('Subpanel add', 1100), opt('Full panel upgrade', 2400)] },
+      { id: 'extras', name: 'Extras', label: 'Extras', type: 'multi_select',
+        options: [opt('Permit + inspection', 220), opt('Trenching (outdoor)', 380), opt('Smart load-management module', 280)] },
+    ],
+    calculations: [calc('Estimated Project Cost', '[Charger Level] + [Wire Distance] * 8 + [Panel Upgrade] + [Extras]')],
+    result_calc: 'Estimated Project Cost',
+    results: { footnote: 'Many utilities offer EV-charger rebates of $200-$1000 — applied after quote acceptance.' },
+  },
 ];
 
 /* ─── Lookups ─── */
