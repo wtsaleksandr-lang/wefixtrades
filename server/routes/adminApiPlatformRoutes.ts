@@ -12,8 +12,10 @@
  *   POST   /keys/:keyId/enable            — re-enable
  *   POST   /keys/:keyId/revoke            — permanent status='revoked'
  *   POST   /subscriptions/:userId/suspend — status='paused'
+ *   POST   /subscriptions/:userId/resume  — un-pauses a paused subscription
  *   POST   /subscriptions/:userId/refund  — record intent (no Stripe call)
  *   GET    /metrics                       — global counters
+ *   GET    /metrics/mrr-history           — monthly MRR rolled up over N months
  */
 
 import type { Express, Request, Response } from "express";
@@ -293,6 +295,50 @@ export function registerAdminApiPlatformRoutes(app: Express): void {
     },
   );
 
+  /* ─── POST /subscriptions/:userId/resume ─────────────────────────── */
+  app.post(
+    `${BASE}/subscriptions/:userId/resume`,
+    requireAdmin,
+    async (req: Request, res: Response) => {
+      const userId = Number.parseInt(String(req.params.userId), 10);
+      if (!Number.isFinite(userId)) {
+        res.status(400).json({ error: "invalid_user_id" });
+        return;
+      }
+      try {
+        const [existing] = await db
+          .select()
+          .from(apiSubscriptions)
+          .where(eq(apiSubscriptions.user_id, userId))
+          .limit(1);
+        if (!existing) {
+          res.status(404).json({ error: "subscription_not_found" });
+          return;
+        }
+        if (existing.status !== "paused") {
+          res.status(409).json({
+            error: "subscription_not_paused",
+            message: `Cannot resume subscription in status '${existing.status}'. Only paused subscriptions can be resumed.`,
+            current_status: existing.status,
+          });
+          return;
+        }
+        const [updated] = await db
+          .update(apiSubscriptions)
+          .set({ status: "active", updated_at: new Date() })
+          .where(eq(apiSubscriptions.user_id, userId))
+          .returning();
+        await audit(req, "api_subscription.resumed", "api_subscription", userId,
+          `Resumed API subscription for user ${userId}`,
+          { user_id: userId, tier: updated.tier, previous_status: "paused" });
+        res.json({ ok: true, subscription: updated });
+      } catch (err: any) {
+        log.error("resume failed", { error: err?.message, userId });
+        res.status(500).json({ error: "resume_failed" });
+      }
+    },
+  );
+
   /* ─── POST /subscriptions/:userId/refund (intent only) ──────────── */
   app.post(
     `${BASE}/subscriptions/:userId/refund`,
@@ -357,10 +403,12 @@ export function registerAdminApiPlatformRoutes(app: Express): void {
         .select({ tier: apiSubscriptions.tier, status: apiSubscriptions.status })
         .from(apiSubscriptions);
       let monthlyRevenueDollars = 0;
+      let activeCustomers = 0;
       const tierCounts: Record<string, number> = {};
       for (const s of activeSubs) {
         tierCounts[s.tier] = (tierCounts[s.tier] ?? 0) + 1;
         if (s.status === "active") {
+          activeCustomers += 1;
           const t = getApiTier(s.tier);
           if (t) monthlyRevenueDollars += t.priceMonthly;
         }
@@ -368,6 +416,7 @@ export function registerAdminApiPlatformRoutes(app: Express): void {
 
       res.json({
         active_keys: Number(activeKeysRow?.n ?? 0),
+        active_customers: activeCustomers,
         calls_today: Number(callsToday?.n ?? 0),
         calls_this_month: Number(callsMonth?.n ?? 0),
         top_users_this_month: topUsers.map((u) => ({
@@ -383,4 +432,87 @@ export function registerAdminApiPlatformRoutes(app: Express): void {
       res.status(500).json({ error: "metrics_failed" });
     }
   });
+
+  /* ─── GET /metrics/mrr-history ───────────────────────────────────
+   * Monthly MRR over the past N months. A subscription is treated as
+   * "active during month M" if it was created on or before the end of
+   * month M AND it was not yet fully wound-down before the start of
+   * month M (current_period_end > start_of_M or status is still active/
+   * trialing/paused/past_due today). Free-tier subs (priceMonthly=0)
+   * contribute zero to MRR and are excluded from the active count.
+   *
+   * Note: schema has no per-month status history yet, so this is a
+   * "best-effort historical" view based on created_at + current
+   * status + current_period_end. Exact replay of past status changes
+   * will require an api_subscription_events table (Wave AJ-6).
+   * ─────────────────────────────────────────────────────────────── */
+  app.get(
+    `${BASE}/metrics/mrr-history`,
+    requireAdmin,
+    async (req: Request, res: Response) => {
+      // window=6mo (default) | 12mo | 24mo
+      const windowParam = String(req.query.window ?? "6mo");
+      const match = /^(\d+)mo$/.exec(windowParam);
+      const months = match ? Math.min(36, Math.max(1, Number.parseInt(match[1], 10))) : 6;
+
+      try {
+        const subs = await db
+          .select({
+            tier: apiSubscriptions.tier,
+            status: apiSubscriptions.status,
+            created_at: apiSubscriptions.created_at,
+            current_period_end: apiSubscriptions.current_period_end,
+          })
+          .from(apiSubscriptions);
+
+        // Build N month buckets, earliest first. Each bucket is the
+        // first ms of that month (UTC) → first ms of the next month.
+        const now = new Date();
+        const buckets: { start: Date; end: Date; label: string }[] = [];
+        for (let i = months - 1; i >= 0; i--) {
+          const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
+          const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i + 1, 1));
+          // YYYY-MM label
+          const label = `${start.getUTCFullYear()}-${String(start.getUTCMonth() + 1).padStart(2, "0")}`;
+          buckets.push({ start, end, label });
+        }
+
+        // "Live now" statuses — subs in these states are presumed to have
+        // been active through to the present unless current_period_end says
+        // otherwise. cancelled/canceled get bounded by current_period_end.
+        const liveStatuses = new Set(["active", "trialing", "paused", "past_due"]);
+
+        const data = buckets.map((b) => {
+          let mrr = 0;
+          let activeSubs = 0;
+          for (const s of subs) {
+            if (!s.created_at) continue;
+            const createdAt = new Date(s.created_at);
+            if (createdAt >= b.end) continue; // not yet created this month
+            // Cut-off: when did this sub stop being billable?
+            // - If still in a live status, presume it ran through to now.
+            // - If cancelled, current_period_end is the last day of access.
+            const stopAt = liveStatuses.has(s.status)
+              ? null
+              : s.current_period_end
+                ? new Date(s.current_period_end)
+                : createdAt; // unknown end → treat as ended at creation
+            if (stopAt !== null && stopAt <= b.start) continue; // ended before this month
+            const tier = getApiTier(s.tier);
+            const price = tier?.priceMonthly ?? 0;
+            if (price > 0) {
+              mrr += price;
+              activeSubs += 1;
+            }
+          }
+          return { month: b.label, mrr, active_subs: activeSubs };
+        });
+
+        res.json({ data, window: `${months}mo` });
+      } catch (err: any) {
+        log.error("mrr history failed", { error: err?.message });
+        res.status(500).json({ error: "mrr_history_failed" });
+      }
+    },
+  );
 }

@@ -106,12 +106,18 @@ interface ApiTierDef {
 
 interface MetricsResponse {
   active_keys: number;
+  active_customers: number;
   calls_today: number;
   calls_this_month: number;
   top_users_this_month: { user_id: number; calls: number }[];
   subscriptions_by_tier: Record<string, number>;
   estimated_monthly_revenue_usd: number;
   tier_catalog: ApiTierDef[];
+}
+
+interface MrrHistoryResponse {
+  data: { month: string; mrr: number; active_subs: number }[];
+  window: string;
 }
 
 interface ApiUserRow {
@@ -173,23 +179,32 @@ function TierMixBar({ counts, catalog }: { counts: Record<string, number>; catal
   );
 }
 
-/** Simple MRR bar chart — 6 evenly-spaced bars. We don't have historical MRR
- *  in the metrics endpoint yet (AJ-2 only returns current), so each bar
- *  shows the current month's MRR replicated as a placeholder series. The
- *  shape is correct so when historical data lands the swap is one-liner. */
-function MrrBars({ current }: { current: number }) {
-  // Until /metrics returns history, project current as flat 6-month line.
-  const series = Array.from({ length: 6 }, () => current);
-  const max = Math.max(1, ...series);
+/** Historical MRR bar chart — consumes the /metrics/mrr-history series.
+ *  Each bar is one month, earliest left → most recent right. The current
+ *  month is highlighted in accent; prior months in muted accent. */
+function MrrBars({ series }: { series: { month: string; mrr: number }[] }) {
+  if (series.length === 0) {
+    return (
+      <div className="h-24 flex items-center justify-center text-xs text-gray-400">
+        No historical data yet.
+      </div>
+    );
+  }
+  const max = Math.max(1, ...series.map((s) => s.mrr));
   return (
     <div className="flex items-end gap-2 h-24">
-      {series.map((v, i) => (
-        <div key={i} className="flex-1 flex flex-col items-center gap-1">
+      {series.map((s, i) => (
+        <div key={s.month} className="flex-1 flex flex-col items-center gap-1">
           <div
             className="w-full rounded-sm"
-            style={{ height: `${(v / max) * 100}%`, background: i === series.length - 1 ? ACCENT : "#A9B7FE" }}
-            title={`$${v.toLocaleString()}`}
+            style={{
+              height: `${(s.mrr / max) * 100}%`,
+              background: i === series.length - 1 ? ACCENT : "#A9B7FE",
+              minHeight: s.mrr > 0 ? "2px" : "0",
+            }}
+            title={`${s.month}: $${s.mrr.toLocaleString()}`}
           />
+          <span className="text-[10px] text-gray-400 font-mono">{s.month.slice(5)}</span>
         </div>
       ))}
     </div>
@@ -265,6 +280,12 @@ export default function ApiPlatformPage() {
     queryFn: () => apiRequest("GET", "/api/admin/api-platform/keys").then((r) => r.json()),
   });
 
+  const mrrHistoryQuery = useQuery<MrrHistoryResponse>({
+    queryKey: ["/api/admin/api-platform/metrics/mrr-history?window=6mo"],
+    queryFn: () =>
+      apiRequest("GET", "/api/admin/api-platform/metrics/mrr-history?window=6mo").then((r) => r.json()),
+  });
+
   /* ── Mutations ─────────────────────────────────────────────── */
 
   const keyMutation = useMutation({
@@ -301,7 +322,10 @@ export default function ApiPlatformPage() {
   const users = usersQuery.data?.users ?? [];
   const keys = keysQuery.data?.keys ?? [];
 
-  const activeCustomerCount = users.filter((u) => u.status === "active").length;
+  // Server-side authoritative count from /metrics; fallback to client-side
+  // count off /users while metrics is loading or on transient error.
+  const activeCustomerCount =
+    metrics?.active_customers ?? users.filter((u) => u.status === "active").length;
 
   // MRR — sum across active subs using the tier catalog from /metrics.
   const computedMrr = useMemo(() => {
@@ -684,13 +708,13 @@ export default function ApiPlatformPage() {
                     ${computedMrr.toLocaleString()}
                   </p>
                 </div>
-                {metricsQuery.isLoading ? (
+                {mrrHistoryQuery.isLoading ? (
                   <Skeleton className="h-24 w-full" />
                 ) : (
-                  <MrrBars current={computedMrr} />
+                  <MrrBars series={mrrHistoryQuery.data?.data ?? []} />
                 )}
                 <p className="text-xs text-gray-400 mt-3">
-                  Historical MRR series lands once <code className="font-mono">api_subscription_events</code> backfill completes.
+                  Best-effort historical view (created_at + current status + period_end). Exact per-month replay lands with <code className="font-mono">api_subscription_events</code>.
                 </p>
               </Card>
               <Card className="p-5">
