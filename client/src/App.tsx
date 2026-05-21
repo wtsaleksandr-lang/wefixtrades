@@ -147,6 +147,8 @@ import MobilePreviewPage from "@/pages/admin/MobilePreview";
 import QuoteQuickPage from "@/pages/admin/QuoteQuickPage";
 import QuoteQuickTradesPage from "@/pages/admin/QuoteQuickTradesPage";
 import QuoteQuickTradeDetailPage from "@/pages/admin/QuoteQuickTradeDetailPage";
+import QuoteQuickTemplatesPage from "@/pages/admin/QuoteQuickTemplatesPage";
+import QuoteQuickTemplateDetailPage from "@/pages/admin/QuoteQuickTemplateDetailPage";
 import BookingPage from "@/pages/public/BookingPage";
 import PayInvoicePage from "@/pages/public/PayInvoicePage";
 import QuoteSnapshotPage from "@/pages/quote-snapshot";
@@ -197,6 +199,9 @@ function Router() {
       <Route path="/admin/crm/quotequick">{() => <RequirePortal><QuoteQuickPage /></RequirePortal>}</Route>
       <Route path="/admin/quotequick/trades/:id">{(params) => <RequirePortal><QuoteQuickTradeDetailPage tradeId={params.id} /></RequirePortal>}</Route>
       <Route path="/admin/quotequick/trades">{() => <RequirePortal><QuoteQuickTradesPage /></RequirePortal>}</Route>
+      {/* AI-3b template editor routes */}
+      <Route path="/admin/quotequick/templates/:id">{(params) => <RequirePortal><QuoteQuickTemplateDetailPage templateId={params.id} /></RequirePortal>}</Route>
+      <Route path="/admin/quotequick/templates">{() => <RequirePortal><QuoteQuickTemplatesPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/support/:id">{() => <RequirePortal><SupportTicketDetailPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/support">{() => <RequirePortal><SupportInboxPage /></RequirePortal>}</Route>
       <Route path="/admin/notices">{() => <RequirePortal><AdminNoticesPage /></RequirePortal>}</Route>
