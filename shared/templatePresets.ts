@@ -153,6 +153,12 @@ export interface TemplateConfig {
   layout: TemplateLayout;
   /** Widget theme id (see client widgetThemes.ts). */
   theme: string;
+  /**
+   * Wave W-AH-2 — default trade-relevant Lucide icon name rendered in the
+   * widget header's logo slot when no user logo has been uploaded. Keeps
+   * templates looking polished out of the box. Optional & back-compat.
+   */
+  defaultIcon?: string;
   /** Input fields. */
   fields: TemplateField[];
   /** Calculations / formulas. */
@@ -178,7 +184,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
   {
     id: 'car_towing', name: 'Car Towing', description: 'Distance-based tow pricing with add-on services.',
     category: 'Automotive', trades: ['auto_detailing'],
-    layout: 'single-column', theme: 'midnight',
+    layout: 'single-column', theme: 'midnight', defaultIcon: 'Truck',
     header: { title: 'Car Towing Cost Calculator', subtitle: 'Estimate the cost of your tow in seconds.', align: 'left' },
     fields: [
       { id: 'vehicle_type', name: 'Vehicle Type', label: 'Vehicle Type', type: 'select',
@@ -199,7 +205,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
   {
     id: 'driveway_paving', name: 'Driveway Paving', description: 'Area-based driveway paving estimate.',
     category: 'Construction', trades: ['concrete_driveway', 'concrete_patio'],
-    layout: 'single-column', theme: 'midnight',
+    layout: 'single-column', theme: 'midnight', defaultIcon: 'Construction',
     header: { title: 'Driveway Paving Cost Calculator', subtitle: 'Estimate your new driveway in seconds.', align: 'left' },
     fields: [
       { id: 'area', name: 'Driveway Area', label: 'Driveway area', type: 'slider',
@@ -217,7 +223,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
   {
     id: 'property_cleaning', name: 'Property Cleaning', description: 'Room-based cleaning quote with extras.',
     category: 'Cleaning', trades: ['house_cleaning', 'office_cleaning', 'deep_cleaning'],
-    layout: 'two-column', theme: 'light',
+    layout: 'two-column', theme: 'light', defaultIcon: 'Sparkles',
     header: { title: 'Cleaning Price Calculator', subtitle: 'Tell us about your property for an instant price.', align: 'left' },
     fields: [
       { id: 'bedrooms', name: 'Bedrooms', label: 'Number of bedrooms', type: 'number', min: 0, max: 12, step: 1, default_value: 2 },
@@ -234,7 +240,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
   {
     id: 'energy_upgrade', name: 'Energy Upgrade', description: 'Home efficiency upgrade estimate.',
     category: 'Home Improvement', trades: ['hvac_services'],
-    layout: 'multi-column', theme: 'midnight',
+    layout: 'multi-column', theme: 'midnight', defaultIcon: 'Leaf',
     header: { title: 'Energy Efficiency Upgrade Calculator', align: 'left' },
     fields: [
       { id: 'upgrade', name: 'Upgrade Type', label: 'Upgrade Type', type: 'select',
@@ -253,7 +259,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
   {
     id: 'landscaping', name: 'Landscaping', description: 'Garden landscaping & maintenance quote.',
     category: 'Outdoor', trades: ['landscaping', 'lawn_mowing', 'garden_maintenance', 'tree_trimming'],
-    layout: 'two-column', theme: 'forest',
+    layout: 'two-column', theme: 'forest', defaultIcon: 'Trees',
     header: { title: 'Landscaping & Garden Quote', subtitle: 'Tell us about your garden for an instant price.', align: 'left' },
     fields: [
       { id: 'area', name: 'Garden Area', label: 'Garden area', type: 'slider',
@@ -273,7 +279,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
   {
     id: 'gutter_cleaning', name: 'Gutter Cleaning', description: 'Length-based gutter cleaning quote.',
     category: 'Cleaning', trades: ['window_cleaning', 'pressure_washing'],
-    layout: 'single-column', theme: 'forest',
+    layout: 'single-column', theme: 'forest', defaultIcon: 'Droplets',
     header: { title: 'Gutter Cleaning Cost Calculator', align: 'left' },
     fields: [
       { id: 'length', name: 'Gutter Length', label: 'Gutter length', type: 'slider',
@@ -289,7 +295,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
   {
     id: 'fence_installation', name: 'Fence Installation', description: 'Per-metre fencing install estimate.',
     category: 'Outdoor', trades: ['fence_installation', 'deck_building'],
-    layout: 'single-column', theme: 'forest',
+    layout: 'single-column', theme: 'forest', defaultIcon: 'Fence',
     header: { title: 'Fence Installation Cost Calculator', subtitle: 'Estimate your new fence in seconds.', align: 'left' },
     fields: [
       { id: 'length', name: 'Fence Length', label: 'Fence length', type: 'slider',
@@ -308,7 +314,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
   {
     id: 'roof_repair', name: 'Roof Repair', description: 'Area + material roof repair estimate.',
     category: 'Construction', trades: ['roofing'],
-    layout: 'two-column', theme: 'midnight',
+    layout: 'two-column', theme: 'midnight', defaultIcon: 'Home',
     header: { title: 'Roof Repair & Replacement Cost Estimator', align: 'left' },
     fields: [
       { id: 'roof_size', name: 'Roof Size', label: 'Roof Size', type: 'number',
@@ -329,7 +335,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
   {
     id: 'solar_panels', name: 'Solar Panels', description: 'Solar install cost from system size.',
     category: 'Home Improvement', trades: ['hvac_services'],
-    layout: 'multi-column', theme: 'light',
+    layout: 'multi-column', theme: 'light', defaultIcon: 'Sun',
     header: { title: 'Solar Panel Cost Calculator', subtitle: 'Estimate the cost of your solar installation.', align: 'left' },
     fields: [
       { id: 'panels', name: 'Panels', label: 'Number of solar panels', type: 'slider',
@@ -348,7 +354,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
   {
     id: 'interior_painting', name: 'Interior Painting', description: 'Room + finish interior painting quote.',
     category: 'Home Improvement', trades: ['interior_painting', 'exterior_painting'],
-    layout: 'two-column', theme: 'mint',
+    layout: 'two-column', theme: 'mint', defaultIcon: 'PaintBucket',
     header: { title: 'Interior Painting Cost Calculator', subtitle: 'Get an instant price for your paint job.', align: 'left' },
     fields: [
       { id: 'wall_area', name: 'Wall Area', label: 'Wall area to paint', type: 'slider',
@@ -367,7 +373,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
   {
     id: 'house_renovation', name: 'House Renovation', description: 'Area + labour renovation estimate.',
     category: 'Construction', trades: ['general_renovation', 'kitchen_remodel', 'bathroom_remodel', 'flooring_installation'],
-    layout: 'multi-column', theme: 'light',
+    layout: 'multi-column', theme: 'light', defaultIcon: 'Hammer',
     header: { title: 'House Renovation Cost Calculator', align: 'left' },
     fields: [
       { id: 'area', name: 'Area to Renovate', label: 'Area to renovate', type: 'slider',
@@ -1308,7 +1314,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'deep_home_cleaning', name: 'Deep Home Cleaning',
     description: 'Square-footage + room-count deep clean estimate with add-ons.',
     category: 'Cleaning', trades: ['deep_cleaning', 'house_cleaning'],
-    layout: 'two-column', theme: 'light',
+    layout: 'two-column', theme: 'light', defaultIcon: 'Sparkles',
     header: { title: 'Deep Cleaning Estimate', subtitle: 'A thorough top-to-bottom clean — priced from your home size.', align: 'left' },
     fields: [
       { id: 'sqft', name: 'Home Size', label: 'Home size', type: 'slider',
@@ -1332,7 +1338,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'move_out_cleaning', name: 'Move-Out Cleaning',
     description: 'Lease-handover clean priced by home size + urgency.',
     category: 'Cleaning', trades: ['move_in_out_cleaning', 'deep_cleaning'],
-    layout: 'single-column', theme: 'light',
+    layout: 'single-column', theme: 'light', defaultIcon: 'PackageOpen',
     header: { title: 'Move-Out Cleaning Quote', subtitle: 'Get your full deposit back — priced for the handover.', align: 'left' },
     fields: [
       { id: 'sqft', name: 'Home Size', label: 'Home size', type: 'slider',
@@ -1353,7 +1359,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'office_cleaning', name: 'Office Cleaning',
     description: 'Recurring commercial cleaning by square footage + visit cadence.',
     category: 'Cleaning', trades: ['office_cleaning', 'commercial_cleaning'],
-    layout: 'two-column', theme: 'midnight',
+    layout: 'two-column', theme: 'midnight', defaultIcon: 'Building2',
     header: { title: 'Office Cleaning Estimate', subtitle: 'Per-visit pricing for ongoing commercial cleans.', align: 'left' },
     fields: [
       { id: 'sqft', name: 'Office Size', label: 'Office size', type: 'slider',
@@ -1375,7 +1381,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'window_cleaning_quote', name: 'Window Cleaning',
     description: 'Per-window pricing with story-height and access modifiers.',
     category: 'Cleaning', trades: ['window_cleaning', 'pressure_washing'],
-    layout: 'single-column', theme: 'forest',
+    layout: 'single-column', theme: 'forest', defaultIcon: 'RectangleHorizontal',
     header: { title: 'Window Cleaning Quote', subtitle: 'Streak-free clean, inside and out.', align: 'left' },
     fields: [
       { id: 'windows', name: 'Windows', label: 'Number of windows', type: 'slider',
@@ -1398,7 +1404,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'kitchen_renovation', name: 'Kitchen Renovation',
     description: 'Full-kitchen remodel estimate by size, cabinet grade and finishes.',
     category: 'Renovation', trades: ['kitchen_remodel', 'general_renovation', 'general_contractor'],
-    layout: 'two-column', theme: 'midnight',
+    layout: 'two-column', theme: 'midnight', defaultIcon: 'ChefHat',
     header: { title: 'Kitchen Renovation Estimate', subtitle: 'A starting price for your full kitchen remodel.', align: 'left' },
     fields: [
       { id: 'kitchen_size', name: 'Kitchen Size', label: 'Kitchen size', type: 'slider',
@@ -1422,7 +1428,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'bathroom_renovation', name: 'Bathroom Renovation',
     description: 'Bathroom remodel pricing by fixture tier and tile coverage.',
     category: 'Renovation', trades: ['bathroom_remodel', 'general_renovation'],
-    layout: 'two-column', theme: 'light',
+    layout: 'two-column', theme: 'light', defaultIcon: 'Bath',
     header: { title: 'Bathroom Renovation Quote', subtitle: 'Estimate your new bathroom in seconds.', align: 'left' },
     fields: [
       { id: 'size', name: 'Bathroom Size', label: 'Bathroom size', type: 'select',
@@ -1443,7 +1449,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'basement_finishing', name: 'Basement Finishing',
     description: 'Per-sqft basement finish estimate with ceiling + scope modifiers.',
     category: 'Renovation', trades: ['basement_finishing', 'general_renovation'],
-    layout: 'single-column', theme: 'midnight',
+    layout: 'single-column', theme: 'midnight', defaultIcon: 'Wrench',
     header: { title: 'Basement Finishing Cost Calculator', subtitle: 'Unfinished to fully-finished — priced from the studs out.', align: 'left' },
     fields: [
       { id: 'sqft', name: 'Basement Size', label: 'Basement size', type: 'slider',
@@ -1467,7 +1473,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'interior_painting_pro', name: 'Interior Painting (Pro)',
     description: 'Per-sqft interior paint quote with prep and ceiling-height modifiers.',
     category: 'Renovation', trades: ['painting', 'interior_painting'],
-    layout: 'two-column', theme: 'light',
+    layout: 'two-column', theme: 'light', defaultIcon: 'Paintbrush2',
     header: { title: 'Interior Painting Quote', subtitle: 'Walls, ceilings, trim — priced by room or whole-home.', align: 'left' },
     fields: [
       { id: 'sqft', name: 'Wall Area', label: 'Wall area to paint', type: 'slider',
@@ -1492,7 +1498,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'hvac_installation', name: 'HVAC Installation',
     description: 'New HVAC system estimate by home size and equipment tier.',
     category: 'Mechanical', trades: ['hvac_services', 'hvac_installation'],
-    layout: 'two-column', theme: 'midnight',
+    layout: 'two-column', theme: 'midnight', defaultIcon: 'Thermometer',
     header: { title: 'HVAC Installation Quote', subtitle: 'New system pricing in under a minute.', align: 'left' },
     fields: [
       { id: 'home_size', name: 'Home Size', label: 'Home size', type: 'slider',
@@ -1514,7 +1520,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'plumbing_service', name: 'Plumbing Service',
     description: 'Per-job plumbing estimate by service type + urgency.',
     category: 'Mechanical', trades: ['plumbing_services', 'emergency_plumbing'],
-    layout: 'single-column', theme: 'midnight',
+    layout: 'single-column', theme: 'midnight', defaultIcon: 'Wrench',
     header: { title: 'Plumbing Service Quote', subtitle: 'Get an upfront price before the truck rolls.', align: 'left' },
     fields: [
       { id: 'service', name: 'Service', label: 'Service needed', type: 'select',
@@ -1535,7 +1541,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'electrical_work', name: 'Electrical Work',
     description: 'Per-job electrical estimate covering common residential scopes.',
     category: 'Mechanical', trades: ['electrical_services', 'emergency_electrical'],
-    layout: 'single-column', theme: 'midnight',
+    layout: 'single-column', theme: 'midnight', defaultIcon: 'Zap',
     header: { title: 'Electrical Work Quote', subtitle: 'From a single outlet to a full panel upgrade.', align: 'left' },
     fields: [
       { id: 'job_type', name: 'Job Type', label: 'Job type', type: 'select',
@@ -1555,7 +1561,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'ev_charger_install', name: 'EV Charger Installation',
     description: 'Level-2 EV charger install with electrical-scope modifiers.',
     category: 'Mechanical', trades: ['ev_charger', 'electrical_services'],
-    layout: 'two-column', theme: 'forest',
+    layout: 'two-column', theme: 'forest', defaultIcon: 'BatteryCharging',
     header: { title: 'EV Charger Install Quote', subtitle: 'Get charging at home — priced from your garage out.', align: 'left' },
     fields: [
       { id: 'charger_level', name: 'Charger Level', label: 'Charger level', type: 'radio',
@@ -1579,7 +1585,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'lawn_care_subscription', name: 'Lawn Care Subscription',
     description: 'Recurring lawn maintenance with visit-cadence pricing.',
     category: 'Outdoor', trades: ['lawn_mowing', 'landscaping', 'garden_maintenance'],
-    layout: 'two-column', theme: 'forest',
+    layout: 'two-column', theme: 'forest', defaultIcon: 'Trees',
     header: { title: 'Lawn Care Subscription Quote', subtitle: 'Per-visit price for ongoing yard maintenance.', align: 'left' },
     fields: [
       { id: 'lawn_size', name: 'Lawn Size', label: 'Lawn size', type: 'slider',
@@ -1601,7 +1607,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'concrete_driveway_replacement', name: 'Concrete Driveway',
     description: 'New concrete driveway with finish + removal modifiers.',
     category: 'Driveway', trades: ['concrete_driveway', 'concrete_patio', 'concrete_slab'],
-    layout: 'single-column', theme: 'midnight',
+    layout: 'single-column', theme: 'midnight', defaultIcon: 'Construction',
     header: { title: 'Concrete Driveway Quote', subtitle: 'New driveway pricing from your yard dimensions.', align: 'left' },
     fields: [
       { id: 'area', name: 'Driveway Area', label: 'Driveway area', type: 'slider',
@@ -1622,7 +1628,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'tree_service', name: 'Tree Service',
     description: 'Trimming or removal estimate per tree with height + access modifiers.',
     category: 'Outdoor', trades: ['tree_service', 'tree_trimming'],
-    layout: 'two-column', theme: 'forest',
+    layout: 'two-column', theme: 'forest', defaultIcon: 'TreeDeciduous',
     header: { title: 'Tree Service Quote', subtitle: 'Trim, prune or remove — priced per tree.', align: 'left' },
     fields: [
       { id: 'service', name: 'Service', label: 'Service needed', type: 'radio',
@@ -1645,7 +1651,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'pressure_washing_quote', name: 'Pressure Washing',
     description: 'Per-sqft exterior surface clean with multi-surface support.',
     category: 'Cleaning', trades: ['pressure_washing', 'window_cleaning'],
-    layout: 'single-column', theme: 'forest',
+    layout: 'single-column', theme: 'forest', defaultIcon: 'Droplets',
     header: { title: 'Pressure Washing Quote', subtitle: 'Restore curb appeal — driveway, siding, deck, patio.', align: 'left' },
     fields: [
       { id: 'area', name: 'Area', label: 'Total area', type: 'slider',
@@ -1668,7 +1674,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'mobile_car_detail', name: 'Mobile Car Detailing',
     description: 'Per-vehicle detail with package tiers and add-on services.',
     category: 'Automotive', trades: ['mobile_car_detailing', 'auto_detailing'],
-    layout: 'two-column', theme: 'midnight',
+    layout: 'two-column', theme: 'midnight', defaultIcon: 'Car',
     header: { title: 'Mobile Car Detail Quote', subtitle: 'We come to you. Priced by vehicle size + service tier.', align: 'left' },
     fields: [
       { id: 'vehicle', name: 'Vehicle Size', label: 'Vehicle size', type: 'radio',
@@ -1689,7 +1695,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'locksmith_service', name: 'Locksmith Service',
     description: 'Per-service locksmith pricing with urgency modifier.',
     category: 'Emergency', trades: ['locksmith'],
-    layout: 'single-column', theme: 'midnight',
+    layout: 'single-column', theme: 'midnight', defaultIcon: 'KeyRound',
     header: { title: 'Locksmith Service Quote', subtitle: 'Upfront pricing — no surprises when we arrive.', align: 'left' },
     fields: [
       { id: 'service', name: 'Service', label: 'Service needed', type: 'select',
@@ -1710,7 +1716,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'water_damage_restoration', name: 'Water Damage Restoration',
     description: 'Emergency water-damage scoping by affected area and severity.',
     category: 'Emergency', trades: ['water_damage_restoration', 'water_damage'],
-    layout: 'two-column', theme: 'magenta',
+    layout: 'two-column', theme: 'magenta', defaultIcon: 'Droplet',
     header: { title: 'Water Damage Restoration Quote', subtitle: 'Fast response, certified technicians, insurance billing ready.', align: 'left' },
     fields: [
       { id: 'area', name: 'Affected Area', label: 'Affected area', type: 'slider',
@@ -1732,7 +1738,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'emergency_hvac', name: 'Emergency HVAC',
     description: 'After-hours HVAC repair with diagnostic + parts modifiers.',
     category: 'Emergency', trades: ['emergency_hvac', 'hvac_services'],
-    layout: 'single-column', theme: 'midnight',
+    layout: 'single-column', theme: 'midnight', defaultIcon: 'Flame',
     header: { title: 'Emergency HVAC Service', subtitle: 'Heat down? Cooling out? Same-day diagnosis.', align: 'left' },
     fields: [
       { id: 'system', name: 'System', label: 'Which system?', type: 'radio',
@@ -1756,7 +1762,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'web_design_quote', name: 'Web Design',
     description: 'Website design + build pricing by page count and feature scope.',
     category: 'Professional', trades: ['web_design'],
-    layout: 'two-column', theme: 'midnight',
+    layout: 'two-column', theme: 'midnight', defaultIcon: 'Globe',
     header: { title: 'Web Design Quote', subtitle: 'A new site, priced from your feature list.', align: 'left' },
     fields: [
       { id: 'pages', name: 'Pages', label: 'Number of pages', type: 'slider',
@@ -1778,7 +1784,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'photography_package', name: 'Photography Package',
     description: 'Event or session photography quote by type, hours and deliverables.',
     category: 'Professional', trades: ['photography'],
-    layout: 'two-column', theme: 'magenta',
+    layout: 'two-column', theme: 'magenta', defaultIcon: 'Camera',
     header: { title: 'Photography Package Quote', subtitle: 'Coverage, edits, and deliverables — priced from your event.', align: 'left' },
     fields: [
       { id: 'event_type', name: 'Event Type', label: 'Event type', type: 'select',
@@ -1798,7 +1804,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'moving_service', name: 'Moving Service',
     description: 'Local or long-distance moving quote by home size, distance and crew.',
     category: 'Professional', trades: ['moving_services'],
-    layout: 'single-column', theme: 'forest',
+    layout: 'single-column', theme: 'forest', defaultIcon: 'Truck',
     header: { title: 'Moving Service Quote', subtitle: 'Door-to-door pricing from your home size and distance.', align: 'left' },
     fields: [
       { id: 'home_size', name: 'Home Size', label: 'Home size', type: 'select',
@@ -1822,7 +1828,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'home_inspection_quote', name: 'Home Inspection',
     description: 'Pre-purchase home inspection by sqft, home age and add-on tests.',
     category: 'Professional', trades: ['home_inspection'],
-    layout: 'two-column', theme: 'light',
+    layout: 'two-column', theme: 'light', defaultIcon: 'ClipboardCheck',
     header: { title: 'Home Inspection Quote', subtitle: 'Independent inspection priced from your listing details.', align: 'left' },
     fields: [
       { id: 'sqft', name: 'Home Size', label: 'Home size', type: 'slider',
@@ -1845,7 +1851,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'solar_panel_install', name: 'Solar Panel Installation',
     description: 'Rooftop solar quote by system size, roof type and battery storage.',
     category: 'Renewable Energy', trades: ['solar_panel', 'solar_battery'],
-    layout: 'two-column', theme: 'forest',
+    layout: 'two-column', theme: 'forest', defaultIcon: 'Sun',
     header: { title: 'Solar Panel Install Quote', subtitle: 'A clean-energy estimate based on your home and goals.', align: 'left' },
     fields: [
       { id: 'system_size', name: 'System Size', label: 'System size', type: 'slider',
@@ -1867,7 +1873,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'pool_service_quote', name: 'Pool Service',
     description: 'Recurring pool maintenance by pool size and visit cadence.',
     category: 'Outdoor', trades: ['pool_service', 'pool_cleaning'],
-    layout: 'single-column', theme: 'forest',
+    layout: 'single-column', theme: 'forest', defaultIcon: 'Waves',
     header: { title: 'Pool Service Quote', subtitle: 'Weekly clean + chemistry — priced from your pool size.', align: 'left' },
     fields: [
       { id: 'pool_size', name: 'Pool Size', label: 'Pool size', type: 'select',
@@ -1888,7 +1894,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'pest_control_quote', name: 'Pest Control',
     description: 'Recurring pest control by home size and treatment scope.',
     category: 'Cleaning', trades: ['pest_control'],
-    layout: 'two-column', theme: 'light',
+    layout: 'two-column', theme: 'light', defaultIcon: 'Bug',
     header: { title: 'Pest Control Quote', subtitle: 'Targeted, family-safe treatment — quarterly or one-time.', align: 'left' },
     fields: [
       { id: 'home_size', name: 'Home Size', label: 'Home size', type: 'slider',
@@ -1910,7 +1916,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'roof_replacement', name: 'Roof Replacement',
     description: 'Full roof replacement by sqft, material and complexity.',
     category: 'Construction', trades: ['roofing'],
-    layout: 'two-column', theme: 'midnight',
+    layout: 'two-column', theme: 'midnight', defaultIcon: 'Home',
     header: { title: 'Roof Replacement Quote', subtitle: 'New roof estimate by roof size, material and roof complexity.', align: 'left' },
     fields: [
       { id: 'roof_size', name: 'Roof Size', label: 'Roof size', type: 'slider',
@@ -1934,7 +1940,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'garage_door_service', name: 'Garage Door Service',
     description: 'Install, repair or replace by door size and opener.',
     category: 'Mechanical', trades: ['garage_door'],
-    layout: 'single-column', theme: 'forest',
+    layout: 'single-column', theme: 'forest', defaultIcon: 'DoorOpen',
     header: { title: 'Garage Door Service Quote', subtitle: 'Repair, replace, or install — priced from your door spec.', align: 'left' },
     fields: [
       { id: 'service', name: 'Service', label: 'Service needed', type: 'radio',
@@ -1957,7 +1963,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'appliance_repair', name: 'Appliance Repair',
     description: 'Per-appliance repair estimate with diagnostic + parts modifiers.',
     category: 'Mechanical', trades: ['appliance_repair'],
-    layout: 'single-column', theme: 'midnight',
+    layout: 'single-column', theme: 'midnight', defaultIcon: 'Refrigerator',
     header: { title: 'Appliance Repair Quote', subtitle: 'Flat-rate diagnostic. No surprise charges after the fix.', align: 'left' },
     fields: [
       { id: 'appliance', name: 'Appliance', label: 'Which appliance?', type: 'select',
@@ -1979,7 +1985,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'junk_removal_quote', name: 'Junk Removal',
     description: 'Truck-load pricing with surcharges for stairs, distance, and same-day pickup.',
     category: 'Cleaning', trades: ['junk_removal'],
-    layout: 'single-column', theme: 'mint',
+    layout: 'single-column', theme: 'mint', defaultIcon: 'Trash2',
     header: { title: 'Junk Removal Quote', subtitle: 'Get an instant price based on how much you have to haul.', align: 'left' },
     fields: [
       { id: 'load_size', name: 'Load Size', label: 'Truck load size', type: 'select',
@@ -2003,7 +2009,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'window_replacement_quote', name: 'Window Replacement',
     description: 'Per-window pricing by type, frame material, and energy rating.',
     category: 'Home Improvement', trades: ['window_replacement'],
-    layout: 'two-column', theme: 'midnight',
+    layout: 'two-column', theme: 'midnight', defaultIcon: 'RectangleHorizontal',
     header: { title: 'Window Replacement Estimate', subtitle: 'Tell us about your windows for an instant quote.', align: 'left' },
     fields: [
       { id: 'count', name: 'Count', label: 'Number of windows', type: 'number',
@@ -2027,7 +2033,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'mold_remediation_quote', name: 'Mold Remediation',
     description: 'Severity-tiered remediation with containment, HVAC, and post-test add-ons.',
     category: 'Emergency', trades: ['mold_remediation'],
-    layout: 'two-column', theme: 'forest',
+    layout: 'two-column', theme: 'forest', defaultIcon: 'Biohazard',
     header: { title: 'Mold Remediation Quote', subtitle: 'Get a transparent estimate based on severity and area.', align: 'left' },
     fields: [
       { id: 'area', name: 'Area', label: 'Affected area', type: 'slider',
@@ -2169,6 +2175,8 @@ export interface AdvNumberFormat {
 export interface AdvancedConfigShape {
   enabled: true;
   theme: string;
+  /** Wave W-AH-2 — Lucide icon name used in the header's logo slot fallback. */
+  defaultIcon?: string;
   layout: TemplateLayout;
   fields: TemplateField[];
   calculations: TemplateCalculation[];
@@ -2192,6 +2200,7 @@ export function toAdvancedConfig(t: TemplateConfig): AdvancedConfigShape {
     result_calc: t.result_calc,
     header: t.header,
     ...(t.results ? { results: t.results } : {}),
+    ...(t.defaultIcon ? { defaultIcon: t.defaultIcon } : {}),
   };
 }
 
