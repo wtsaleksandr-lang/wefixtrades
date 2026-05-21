@@ -23,6 +23,7 @@ import { createPortal } from 'react-dom';
 import {
   MousePointerClick, Square, Type, Receipt,
   Layers, Box, Frame, CheckCircle2, XCircle,
+  Lock, Sparkles, ChevronRight,
   type LucideIcon,
 } from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
@@ -39,6 +40,10 @@ import {
   type ShellBodyWeight,
   type ShellFontSize,
 } from './types';
+import type {
+  AdvBgMode, AdvBgGradientDirection,
+  AdvResultEmphasis, AdvResultBorder,
+} from '@shared/templatePresets';
 import FloatField from './FloatField';
 import InfoCue from './InfoCue';
 import { QUOTEQUICK_STYLE_PRESETS } from '@/data/quoteQuickStylePresets';
@@ -57,6 +62,15 @@ interface Props {
   logo?: string | null;
   /** W-AO-6b — replace the logo (data URL) or clear (null). */
   onLogoChange?: (next: string | null) => void;
+  /**
+   * W-AO-6c — calculator owner's plan tier. Drives the Brand Studio
+   * lock affordance: free-tier users see the controls (so they know
+   * what's behind the paywall) but the section header shows a Lock +
+   * Upgrade button; clicking edit controls is allowed for preview, but
+   * the server strips the fields on save (defensive — see
+   * calculatorRoutes.ts).
+   */
+  planTier?: string;
 }
 
 const HEX_RE = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
@@ -117,7 +131,12 @@ const TOKEN_FALLBACKS = {
   error: '#dc2626',
 } as const;
 
-export default function StyleTab({ style, onChange, logo, onLogoChange }: Props) {
+export default function StyleTab({ style, onChange, logo, onLogoChange, planTier = 'free' }: Props) {
+  // W-AO-6c — Brand Studio is a Pro / Business upsell. Free users see the
+  // controls (preview-only) so they understand the value; the section
+  // header shows a Lock + Upgrade CTA and the server strips the fields
+  // before persistence for non-paid plans.
+  const isProTier = planTier === 'pro' || planTier === 'business' || planTier === 'starter';
   /** Patch a single style field (skipping `undefined` so blanks fall through). */
   const patch = useCallback(
     (next: Partial<ShellStyle>) => onChange({ ...style, ...next }),
@@ -633,6 +652,20 @@ export default function StyleTab({ style, onChange, logo, onLogoChange }: Props)
         />
       </fieldset>
 
+      {/* ── W-AO-6c — Brand Studio (Pro) ────────────────────────────
+       *
+       * Three Pro-tier features grouped in a single collapsible section
+       * at the bottom of the Style tab: Custom CSS, image / gradient
+       * background, and result-panel overrides. Free users see the
+       * controls (preview-only) but the section header shows a Lock +
+       * Upgrade CTA; the server strips the fields before persistence
+       * for non-paid plans. */}
+      <BrandStudioGroup
+        style={style}
+        patch={patch}
+        isProTier={isProTier}
+      />
+
       <style>{`
         /* W-AO-9 — section gap tightened 18px → 2px. The 1px border on
          * each .qq-style-group keeps the visual separation clear; the
@@ -970,8 +1003,465 @@ export default function StyleTab({ style, onChange, logo, onLogoChange }: Props)
           text-decoration: underline;
         }
         .qq-style-logo-clear:hover { color: ${p.colors.heading}; }
+
+        /* ── W-AO-6c — Brand Studio (Pro) ────────────────────────── */
+        .qq-bs-group { position: relative; }
+        .qq-bs-header {
+          display: flex; align-items: center; justify-content: space-between;
+          gap: 8px;
+          width: 100%; padding: 0;
+          background: transparent; border: none;
+          cursor: pointer; font: inherit; text-align: left;
+        }
+        .qq-bs-header-title {
+          display: inline-flex; align-items: center; gap: 6px;
+          font-size: 11.5px; font-weight: 600; letter-spacing: 0.04em;
+          color: ${p.colors.muted}; text-transform: uppercase;
+        }
+        .qq-bs-pill {
+          display: inline-flex; align-items: center; gap: 4px;
+          padding: 2px 8px; margin-left: 4px;
+          font-size: 10px; font-weight: 700; letter-spacing: 0.02em;
+          color: #fff;
+          background: linear-gradient(135deg, ${p.colors.accent}, #7c3aed);
+          border-radius: 999px;
+          text-transform: none;
+        }
+        .qq-bs-chev {
+          color: ${p.colors.muted};
+          transition: transform 0.18s ease;
+        }
+        .qq-bs-chev.is-open { transform: rotate(90deg); }
+        .qq-bs-body {
+          display: flex; flex-direction: column; gap: 12px;
+          margin-top: 14px;
+        }
+        .qq-bs-upsell {
+          display: flex; align-items: flex-start; gap: 10px;
+          padding: 12px;
+          background: linear-gradient(135deg, ${p.colors.accentLighter} 0%, #ffffff 100%);
+          border: 1px dashed ${p.colors.accent};
+          border-radius: 10px;
+        }
+        .qq-bs-upsell-icon {
+          flex-shrink: 0;
+          width: 32px; height: 32px;
+          display: inline-flex; align-items: center; justify-content: center;
+          background: ${p.colors.accent};
+          color: #fff;
+          border-radius: 8px;
+        }
+        .qq-bs-upsell-body {
+          flex: 1; min-width: 0;
+          display: flex; flex-direction: column; gap: 6px;
+        }
+        .qq-bs-upsell-title {
+          font-size: 13px; font-weight: 700;
+          color: ${p.colors.heading};
+          margin: 0;
+        }
+        .qq-bs-upsell-sub {
+          font-size: 11.5px; line-height: 1.45;
+          color: ${p.colors.muted};
+          margin: 0;
+        }
+        .qq-bs-upsell-cta {
+          align-self: flex-start;
+          display: inline-flex; align-items: center; gap: 6px;
+          padding: 6px 12px;
+          font: inherit; font-size: 11.5px; font-weight: 700;
+          color: #fff; background: ${p.colors.accent};
+          border: none; border-radius: 6px;
+          cursor: pointer; text-decoration: none;
+        }
+        .qq-bs-upsell-cta:hover { filter: brightness(1.08); }
+        .qq-bs-sub {
+          border: 1px solid ${p.colors.borderLight};
+          border-radius: 10px;
+          padding: 12px 12px 14px;
+          background: #fff;
+        }
+        .qq-bs-sub-title {
+          font-size: 11.5px; font-weight: 600; letter-spacing: 0.04em;
+          color: ${p.colors.muted}; text-transform: uppercase;
+          margin: 0 0 8px;
+        }
+        .qq-bs-sub-hint {
+          font-size: 11px; line-height: 1.5;
+          color: ${p.colors.subtle};
+          margin: 0 0 8px;
+        }
+        .qq-bs-css {
+          width: 100%;
+          height: 200px;
+          padding: 10px 12px;
+          font: inherit;
+          font-family: 'SF Mono', Menlo, Consolas, monospace;
+          font-size: 12.5px; line-height: 1.5;
+          color: ${p.colors.body};
+          background: #fff;
+          border: 1px solid ${p.colors.border};
+          border-radius: 8px;
+          outline: none;
+          resize: vertical;
+          box-sizing: border-box;
+        }
+        .qq-bs-css:focus {
+          border-color: ${p.colors.accent};
+          box-shadow: 0 0 0 3px ${p.colors.accentLighter};
+        }
+        .qq-bs-bg-image-row {
+          display: flex; align-items: center; gap: 10px;
+          margin-top: 8px;
+        }
+        .qq-bs-bg-image-thumb {
+          flex-shrink: 0;
+          width: 56px; height: 40px;
+          border: 1px dashed ${p.colors.border};
+          border-radius: 8px;
+          background-size: cover; background-position: center;
+          background-color: ${p.colors.borderLight};
+          cursor: pointer; padding: 0; overflow: hidden;
+          display: inline-flex; align-items: center; justify-content: center;
+          color: ${p.colors.muted};
+        }
+        .qq-bs-bg-image-thumb:hover {
+          border-color: ${p.colors.accent};
+          color: ${p.colors.accent};
+        }
+        .qq-bs-bg-image-meta {
+          flex: 1; min-width: 0;
+          font-size: 11.5px;
+          color: ${p.colors.muted};
+        }
+        .qq-bs-bg-image-clear {
+          align-self: flex-start;
+          font: inherit; font-size: 11px; font-weight: 600;
+          color: ${p.colors.danger};
+          background: transparent; border: none; padding: 0;
+          cursor: pointer; text-decoration: underline;
+        }
+        .qq-bs-locked { opacity: 0.55; pointer-events: none; }
       `}</style>
     </section>
+  );
+}
+
+/* ─── W-AO-6c — Brand Studio (Pro) section ─────────────────────────
+ *
+ * One collapsible group containing the three Wave 1 features:
+ *   1. Custom CSS — textarea (monospace, 200px tall) scoped to the widget.
+ *   2. Background — solid / gradient / image with overlay tint.
+ *   3. Result panel — accent / bg overrides + emphasis + border treatment.
+ *
+ * Persistence is on `advanced.style.*` (see AdvStyle in templatePresets.ts).
+ * The free-tier preview shows every control — that's the whole point of the
+ * upsell — but the section header carries a Lock icon + Upgrade CTA, and
+ * the server strips the fields before save for non-paid plans.
+ */
+function BrandStudioGroup({
+  style, patch, isProTier,
+}: {
+  style: ShellStyle;
+  patch: (next: Partial<ShellStyle>) => void;
+  isProTier: boolean;
+}) {
+  const [open, setOpen] = useState(true);
+  const bgImageInputRef = useRef<HTMLInputElement | null>(null);
+
+  const customCss = style.customCss ?? '';
+  const bgMode: AdvBgMode = style.bgMode ?? 'solid';
+  const gradFrom = style.bgGradient?.from ?? style.background ?? '#0d3cfc';
+  const gradTo = style.bgGradient?.to ?? '#ffffff';
+  const gradDir: AdvBgGradientDirection = style.bgGradient?.direction ?? 'linear-down';
+  const bgImageUrl = style.bgImageUrl ?? '';
+  const bgImageTint = typeof style.bgImageTint === 'number' ? style.bgImageTint : 0;
+  const rpAccent = style.resultPanel?.accentOverride ?? '';
+  const rpBg = style.resultPanel?.bgOverride ?? '';
+  const rpEmphasis: AdvResultEmphasis = style.resultPanel?.emphasis ?? 'normal';
+  const rpBorder: AdvResultBorder = style.resultPanel?.border ?? 'subtle';
+
+  const onBgImageFile = useCallback((file: File | null) => {
+    if (!file) { patch({ bgImageUrl: undefined }); return; }
+    if (file.size > LOGO_MAX_BYTES * 2) return; // 2 MB ceiling for bg art
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result;
+      if (typeof result === 'string') patch({ bgImageUrl: result });
+    };
+    reader.readAsDataURL(file);
+  }, [patch]);
+
+  const setGradient = (next: Partial<NonNullable<ShellStyle['bgGradient']>>) => {
+    patch({
+      bgGradient: {
+        from: gradFrom, to: gradTo, direction: gradDir,
+        ...style.bgGradient,
+        ...next,
+      },
+    });
+  };
+  const setResultPanel = (next: Partial<NonNullable<ShellStyle['resultPanel']>>) => {
+    patch({
+      resultPanel: { ...(style.resultPanel ?? {}), ...next },
+    });
+  };
+
+  return (
+    <fieldset
+      className="qq-style-group qq-bs-group"
+      data-testid="style-group-brand-studio"
+      data-pro-tier={isProTier ? 'true' : 'false'}
+    >
+      <legend className="qq-style-legend" style={{ width: '100%' }}>
+        <button
+          type="button"
+          className="qq-bs-header"
+          data-testid="style-bs-toggle"
+          aria-expanded={open}
+          onClick={() => setOpen((v) => !v)}
+        >
+          <span className="qq-bs-header-title">
+            {!isProTier && <Lock size={12} aria-hidden="true" />}
+            Brand Studio
+            <span className="qq-bs-pill" aria-label="Pro plan feature">
+              <Sparkles size={10} aria-hidden="true" /> Pro
+            </span>
+          </span>
+          <ChevronRight
+            size={14}
+            className={'qq-bs-chev' + (open ? ' is-open' : '')}
+            aria-hidden="true"
+          />
+        </button>
+      </legend>
+
+      {open && (
+        <div className="qq-bs-body">
+          {!isProTier && (
+            <div className="qq-bs-upsell" data-testid="style-bs-upsell">
+              <span className="qq-bs-upsell-icon" aria-hidden="true">
+                <Sparkles size={16} />
+              </span>
+              <div className="qq-bs-upsell-body">
+                <p className="qq-bs-upsell-title">Brand Studio is a Pro feature</p>
+                <p className="qq-bs-upsell-sub">
+                  Preview the controls below — your saved settings keep their existing look.
+                  Upgrade to Pro ($29/mo) to publish custom CSS, image / gradient backgrounds,
+                  and result-panel styling on your widget.
+                </p>
+                <a
+                  href="/pricing/quotequick"
+                  className="qq-bs-upsell-cta"
+                  data-testid="style-bs-upgrade"
+                >
+                  Upgrade to Pro →
+                </a>
+              </div>
+            </div>
+          )}
+
+          {/* 1. Custom CSS */}
+          <div className="qq-bs-sub" data-testid="style-bs-sub-customcss">
+            <p className="qq-bs-sub-title">Custom CSS</p>
+            <p className="qq-bs-sub-hint">
+              Advanced. Inject custom CSS scoped to your widget. Pro plan required.
+            </p>
+            <textarea
+              className="qq-bs-css"
+              data-testid="style-bs-customcss"
+              spellCheck={false}
+              placeholder="/* Scoped to your widget. Example:
+.qq-w-input { border-radius: 16px; }
+.qq-bs-result { text-shadow: 0 1px 2px rgba(0,0,0,0.08); } */"
+              value={customCss}
+              onChange={(e) => patch({ customCss: e.target.value })}
+              aria-label="Custom CSS"
+            />
+          </div>
+
+          {/* 2. Background */}
+          <div className="qq-bs-sub" data-testid="style-bs-sub-background">
+            <p className="qq-bs-sub-title">Background</p>
+            <p className="qq-bs-sub-hint">
+              Override the widget body background. Solid keeps the picker in Colours;
+              Gradient and Image are Pro-only and render only on Pro plans.
+            </p>
+            <SegmentedControl<AdvBgMode>
+              name="bs-bg-mode"
+              testid="style-bs-bg-mode"
+              value={bgMode}
+              options={[
+                { value: 'solid', label: 'Solid' },
+                { value: 'gradient', label: 'Gradient' },
+                { value: 'image', label: 'Image' },
+              ]}
+              onChange={(v) => patch({ bgMode: v })}
+            />
+
+            {bgMode === 'gradient' && (
+              <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div className="qq-style-swatches" style={{ paddingBottom: 0 }}>
+                  <ColourSwatch
+                    icon={Layers}
+                    label="From"
+                    testid="style-bs-bg-grad-from"
+                    value={gradFrom}
+                    fallback="#0d3cfc"
+                    onChange={(v) => setGradient({ from: v })}
+                  />
+                  <ColourSwatch
+                    icon={Layers}
+                    label="To"
+                    testid="style-bs-bg-grad-to"
+                    value={gradTo}
+                    fallback="#ffffff"
+                    onChange={(v) => setGradient({ to: v })}
+                  />
+                </div>
+                <label className="qq-style-label" style={{ marginTop: 4 }}>
+                  <span className="qq-style-label-text">Direction</span>
+                </label>
+                <SegmentedControl<AdvBgGradientDirection>
+                  name="bs-bg-grad-dir"
+                  testid="style-bs-bg-grad-dir"
+                  value={gradDir}
+                  options={[
+                    { value: 'linear-down', label: '↓' },
+                    { value: 'linear-up', label: '↑' },
+                    { value: 'linear-right', label: '→' },
+                    { value: 'linear-left', label: '←' },
+                    { value: 'radial', label: '○' },
+                  ]}
+                  onChange={(v) => setGradient({ direction: v })}
+                />
+              </div>
+            )}
+
+            {bgMode === 'image' && (
+              <div style={{ marginTop: 12 }}>
+                <div className="qq-bs-bg-image-row">
+                  <button
+                    type="button"
+                    className="qq-bs-bg-image-thumb"
+                    data-testid="style-bs-bg-image-upload"
+                    aria-label={bgImageUrl ? 'Replace background image' : 'Upload background image'}
+                    onClick={() => bgImageInputRef.current?.click()}
+                    style={bgImageUrl ? { backgroundImage: `url(${bgImageUrl})` } : undefined}
+                  >
+                    {!bgImageUrl && <span aria-hidden="true">＋</span>}
+                  </button>
+                  <input
+                    ref={bgImageInputRef}
+                    type="file"
+                    accept="image/*"
+                    aria-label="Upload background image"
+                    data-testid="style-bs-bg-image-input"
+                    style={{ position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap', border: 0 }}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0] ?? null;
+                      onBgImageFile(f);
+                      e.target.value = '';
+                    }}
+                  />
+                  <div className="qq-bs-bg-image-meta">
+                    {bgImageUrl ? (
+                      <>
+                        Background image set.{' '}
+                        <button
+                          type="button"
+                          className="qq-bs-bg-image-clear"
+                          data-testid="style-bs-bg-image-clear"
+                          onClick={() => patch({ bgImageUrl: undefined })}
+                        >Remove</button>
+                      </>
+                    ) : (
+                      <>Drop an image or click to choose. PNG / JPG / SVG up to 2&nbsp;MB.</>
+                    )}
+                  </div>
+                </div>
+                <label className="qq-style-label" htmlFor="qq-bs-bg-tint" style={{ marginTop: 12 }}>
+                  Overlay tint
+                  <span className="qq-style-value" data-testid="style-bs-bg-tint-value">
+                    {bgImageTint}%
+                  </span>
+                </label>
+                <input
+                  id="qq-bs-bg-tint"
+                  type="range"
+                  min={0}
+                  max={50}
+                  step={1}
+                  value={bgImageTint}
+                  onChange={(e) => patch({ bgImageTint: Number(e.target.value) })}
+                  className="qq-style-range"
+                  data-testid="style-bs-bg-tint"
+                  aria-valuemin={0}
+                  aria-valuemax={50}
+                  aria-valuenow={bgImageTint}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* 3. Result panel */}
+          <div className="qq-bs-sub" data-testid="style-bs-sub-resultpanel">
+            <p className="qq-bs-sub-title">Result panel</p>
+            <p className="qq-bs-sub-hint">
+              Override the result-card colours, headline weight, and border treatment.
+              Each control is optional — leave blank to inherit the primary accent /
+              results background tokens.
+            </p>
+            <div className="qq-style-swatches" style={{ paddingBottom: 0 }}>
+              <ColourSwatch
+                icon={MousePointerClick}
+                label="Accent"
+                testid="style-bs-rp-accent"
+                value={rpAccent || (style.accent ?? '#0d3cfc')}
+                fallback={style.accent ?? '#0d3cfc'}
+                onChange={(v) => setResultPanel({ accentOverride: v })}
+              />
+              <ColourSwatch
+                icon={Receipt}
+                label="Background"
+                testid="style-bs-rp-bg"
+                value={rpBg || (style.resultsBg ?? '#ffffff')}
+                fallback={style.resultsBg ?? '#ffffff'}
+                onChange={(v) => setResultPanel({ bgOverride: v })}
+              />
+            </div>
+            <label className="qq-style-label" style={{ marginTop: 12 }}>
+              <span className="qq-style-label-text">Emphasis</span>
+            </label>
+            <SegmentedControl<AdvResultEmphasis>
+              name="bs-rp-emphasis"
+              testid="style-bs-rp-emphasis"
+              value={rpEmphasis}
+              options={[
+                { value: 'subtle', label: 'Subtle' },
+                { value: 'normal', label: 'Normal' },
+                { value: 'bold', label: 'Bold' },
+              ]}
+              onChange={(v) => setResultPanel({ emphasis: v })}
+            />
+            <label className="qq-style-label" style={{ marginTop: 12 }}>
+              <span className="qq-style-label-text">Border</span>
+            </label>
+            <SegmentedControl<AdvResultBorder>
+              name="bs-rp-border"
+              testid="style-bs-rp-border"
+              value={rpBorder}
+              options={[
+                { value: 'none', label: 'None' },
+                { value: 'subtle', label: 'Subtle' },
+                { value: 'accent', label: 'Accent' },
+              ]}
+              onChange={(v) => setResultPanel({ border: v })}
+            />
+          </div>
+        </div>
+      )}
+    </fieldset>
   );
 }
 

@@ -676,6 +676,7 @@ export default function WizardShell({ embed = false }: Props) {
                       onChange={setStyle}
                       logo={state.logo ?? null}
                       onLogoChange={setLogo}
+                      planTier={planTier}
                     />
                   ) : activeTab === 'settings' ? (
                     <SettingsTab

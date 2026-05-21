@@ -192,6 +192,12 @@ export default function QuoteWidget({ calculator, isEmbed = false, hideBrandBadg
             advanced={advancedConfig}
             accentColor={theme.colors.primary}
             editableTitle={editableTitle}
+            // W-AO-6c — surface plan tier + calculator id so Brand Studio
+            // gating (Pro+ only) + scoped custom CSS (`.qq-widget-${id}`)
+            // both fire correctly. Free-tier calculators ignore Brand
+            // Studio fields entirely; Pro+ get the persisted overrides.
+            planTier={(calculator as any).plan_tier ?? 'free'}
+            calculatorId={calculator.id}
           />
         </div>
       ) : (

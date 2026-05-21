@@ -371,6 +371,8 @@ export function registerCalculatorRoutes(app: Express): void {
 
       if (updates.calculator_settings) {
         const currentSettings = (calculator.calculator_settings as any) || {};
+        const planTier = (calculator.plan_tier ?? 'free') as string;
+        const paidTier = planTier === 'pro' || planTier === 'business' || planTier === 'starter';
         // Wave Q-D — tier gate on the WeFixTrades brand badge.
         // appearance.show_powered_by = false is the "hide the badge"
         // toggle (Wave P-H). It is the primary Pro upsell, so free-tier
@@ -379,8 +381,6 @@ export function registerCalculatorRoutes(app: Express): void {
         // (true by default) is preserved.
         const incomingAppearance = (updates.calculator_settings as any).appearance;
         if (incomingAppearance && incomingAppearance.show_powered_by === false) {
-          const planTier = (calculator.plan_tier ?? 'free') as string;
-          const paidTier = planTier === 'pro' || planTier === 'business' || planTier === 'starter';
           if (!paidTier) {
             // Strip the hide-toggle from the patch; keep every other
             // appearance field intact.
@@ -391,6 +391,39 @@ export function registerCalculatorRoutes(app: Express): void {
               calculator_id: calculator.id,
             });
           }
+        }
+        // W-AO-6c — Brand Studio tier gate. The Pro upsell ships three
+        // groups of `advanced.style.*` fields (custom CSS, image / gradient
+        // background, result-panel overrides). Free-tier calculators can
+        // PREVIEW them in the wizard (so users see what's behind the
+        // paywall) but the patch is stripped here before the deep merge,
+        // so the persisted row keeps its existing values. We return a
+        // `X-Brand-Studio-Stripped` response header listing the dropped
+        // groups so the UI can surface a toast.
+        const droppedBrandStudio: string[] = [];
+        const incomingAdvanced = (updates.calculator_settings as any).advanced;
+        if (incomingAdvanced && incomingAdvanced.style && !paidTier) {
+          const incomingStyle = incomingAdvanced.style as Record<string, unknown>;
+          const { customCss, bgMode, bgGradient, bgImageUrl, bgImageTint, resultPanel, ...restStyle } = incomingStyle;
+          if (customCss !== undefined) droppedBrandStudio.push('customCss');
+          if (bgMode !== undefined) droppedBrandStudio.push('bgMode');
+          if (bgGradient !== undefined) droppedBrandStudio.push('bgGradient');
+          if (bgImageUrl !== undefined) droppedBrandStudio.push('bgImageUrl');
+          if (bgImageTint !== undefined) droppedBrandStudio.push('bgImageTint');
+          if (resultPanel !== undefined) droppedBrandStudio.push('resultPanel');
+          if (droppedBrandStudio.length > 0) {
+            (updates.calculator_settings as any).advanced = {
+              ...incomingAdvanced,
+              style: restStyle,
+            };
+            log.info("W-AO-6c gate — stripped Brand Studio fields from free-tier calculator", {
+              calculator_id: calculator.id,
+              dropped: droppedBrandStudio,
+            });
+          }
+        }
+        if (droppedBrandStudio.length > 0) {
+          res.setHeader('X-Brand-Studio-Stripped', droppedBrandStudio.join(','));
         }
         // Deep merge: preserve nested objects that aren't being replaced
         const merged = deepMergeSettings(currentSettings, updates.calculator_settings as Record<string, any>);
