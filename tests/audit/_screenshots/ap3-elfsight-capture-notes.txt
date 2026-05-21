@@ -1,0 +1,5 @@
+GET https://elfsight.com/calculator-widget/templates/ → HTTP 404
+GET https://elfsight.com/calculator-widget/ → HTTP 200
+Elfsight: full-grid screenshot → ap3-elfsight-gallery-full.png
+Elfsight: best card selector="div[class*="template-card"]" matches=47
+Elfsight: saved 7 card screenshots
