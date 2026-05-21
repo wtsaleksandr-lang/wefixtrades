@@ -1034,6 +1034,31 @@ export default function WizardShell({ embed = false }: Props) {
             .qq-editor-body.is-preview-collapsed .qq-editor-resize {
               display: none !important;
             }
+
+            /* Wave AA — fold/unfold preview is mobile-only. On desktop
+               (>768px) the left-pane stretched to full width when the
+               preview was collapsed, which looked wrong since the split
+               view IS the desktop layout. Hide the fold button + neutralise
+               any persisted collapsed state on desktop. */
+            @media (min-width: 769px) {
+              .qq-editor-fold { display: none !important; }
+              .qq-editor-body.is-preview-collapsed .qq-editor-right {
+                flex: 1 1 auto !important;
+                width: auto !important;
+                min-width: 0 !important;
+                opacity: 1 !important;
+                pointer-events: auto !important;
+                border-left: 1px solid ${d.colors.borderLight} !important;
+              }
+              .qq-editor-body.is-preview-collapsed .qq-editor-left {
+                flex: 0 0 auto;
+                width: var(--qq-editor-pane-width, 420px) !important;
+              }
+              .qq-editor-body.is-preview-collapsed .qq-editor-resize {
+                display: flex !important;
+              }
+            }
+
             .qq-editor-left {
               position: relative;
               flex-shrink: 0;
@@ -1110,14 +1135,27 @@ export default function WizardShell({ embed = false }: Props) {
               overflow-y: auto;
             }
             .qq-preview-pane {
+              /* Wave AA — anchor widget to TOP of preview area (was centered
+                 vertically). Combined with the +22% taller desktop frame,
+                 this keeps the widget consistently positioned regardless of
+                 content height. */
               position: sticky; top: 0;
-              display: flex; align-items: center; justify-content: center;
-              padding: 20px; box-sizing: border-box; min-height: 100%;
+              display: flex; align-items: flex-start; justify-content: center;
+              padding: 24px 20px; box-sizing: border-box; min-height: 100%;
+              /* Wave AA — visible dotted-grid background. Subtle but clearly
+                 perceptible canvas texture; uses theme-aware color so dark
+                 editor mode gets matching dots. */
+              background-image: radial-gradient(circle, ${p.colors.border} 1.2px, transparent 1.2px);
+              background-size: 22px 22px;
+              background-position: 0 0;
+            }
+            .qq-editor-shell[data-theme="dark"] .qq-preview-pane {
+              background-image: radial-gradient(circle, rgba(255,255,255,0.10) 1.2px, transparent 1.2px);
             }
             .qq-preview-stage {
               width: 100%; max-width: 920px;
               display: flex; flex-direction: column;
-              align-items: center; justify-content: center; background: transparent;
+              align-items: center; justify-content: flex-start; background: transparent;
             }
             .qq-editor-help {
               position: fixed; inset: 0; z-index: 1100;

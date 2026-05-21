@@ -124,6 +124,13 @@ test.describe('wizard M — Browse-all modal cleanup', () => {
 /* ──────────────────────────────────────────────────────────── */
 
 test.describe('wizard M — Fold/unfold preview', () => {
+  // Wave AA — fold/unfold is now mobile-only (Alex's direction: on desktop
+  // the previous "collapse the right pane" behavior stretched the left
+  // pane to full width which looked wrong since split-view IS the desktop
+  // layout). All tests in this block run in mobile viewport so they
+  // continue to validate the toggle/collapse/restore behavior on the
+  // surface where it now lives.
+  test.use({ viewport: { width: 390, height: 844 } });
   test.beforeEach(async ({ page }) => { await clearShellState(page); });
 
   test('Toggle collapses and restores the right preview pane', async ({ page }) => {
@@ -181,6 +188,10 @@ test.describe('wizard M — Fold/unfold preview', () => {
 /* ──────────────────────────────────────────────────────────── */
 
 test.describe('wizard M — Fold/unfold preview (persistence)', () => {
+  // Wave AA — same as the fold-toggle suite above: fold is mobile-only now,
+  // so this persistence check must run in mobile viewport too.
+  test.use({ viewport: { width: 390, height: 844 } });
+
   test('Collapsed state persists across reload', async ({ page }) => {
     await page.goto('/wizard', { waitUntil: 'domcontentloaded' });
     await page.evaluate(() => {

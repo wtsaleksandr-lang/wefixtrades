@@ -18,6 +18,7 @@ import type { TemplateCalculation, TemplateField } from '@shared/templatePresets
 import FormulaEditor from './FormulaEditor';
 import { DragHandleGlyph } from './dnd';
 import { useSelection } from './selection';
+import InfoCue from './InfoCue';
 
 const p = platformTheme;
 
@@ -203,7 +204,10 @@ export default function CalculationRow({
               behaviour is preserved when nothing is touched. */}
           <div className="qq-calc-display" data-testid={`calc-row-display-${calc.id}`}>
             <div className="qq-calc-display-row">
-              <Label>Result mode</Label>
+              <Label
+                info="Primary makes this calculation the big headline price shown at the top of the result panel. Secondary renders it as a smaller breakdown row beneath the headline."
+                infoTestid={`calc-row-resultmode-info-${calc.id}`}
+              >Result mode</Label>
               <div
                 className="qq-calc-seg"
                 role="radiogroup"
@@ -232,7 +236,10 @@ export default function CalculationRow({
             </div>
 
             <div className="qq-calc-display-row">
-              <Label>Caption</Label>
+              <Label
+                info="Optional small subtitle shown beneath this calculation in the result panel. Use it for tax notes, validity windows, or fine print."
+                infoTestid={`calc-row-caption-info-${calc.id}`}
+              >Caption</Label>
               <input
                 type="text"
                 className="qq-calc-input"
@@ -247,6 +254,7 @@ export default function CalculationRow({
               <ToggleField
                 testId={`calc-row-toggle-showinresults-${calc.id}`}
                 label="Show in results"
+                info="When off, this calculation still computes (and other formulas can reference it) but it doesn't appear in the customer-facing result panel. Useful for intermediate values you don't want to expose."
                 // Undefined = shown (back-compat default).
                 checked={calc.showInResults !== false}
                 onChange={(next) => update({ showInResults: next })}
@@ -254,6 +262,7 @@ export default function CalculationRow({
               <ToggleField
                 testId={`calc-row-toggle-divider-${calc.id}`}
                 label="Divider above"
+                info="Draws a thin horizontal line above this row in the breakdown. Use it to visually group related rows (e.g. add a divider above the first 'fee' row to separate subtotal items from adjustments)."
                 checked={calc.divider === true}
                 onChange={(next) => update({ divider: next })}
               />
@@ -430,34 +439,51 @@ export default function CalculationRow({
 }
 
 function ToggleField({
-  label, checked, onChange, testId,
+  label, checked, onChange, testId, info, infoTestid,
 }: {
   label: string;
   checked: boolean;
   onChange: (next: boolean) => void;
   testId: string;
+  /** Optional explanatory text shown via an inline `?` InfoCue. Wave AA #5. */
+  info?: string;
+  infoTestid?: string;
 }) {
   return (
-    <button
-      type="button"
-      className={`qq-calc-toggle${checked ? ' is-on' : ''}`}
-      role="switch"
-      aria-checked={checked}
-      onClick={() => onChange(!checked)}
-      data-testid={testId}
-    >
-      <span className="qq-calc-toggle-swatch" aria-hidden="true" />
-      <span>{label}</span>
-    </button>
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+      <button
+        type="button"
+        className={`qq-calc-toggle${checked ? ' is-on' : ''}`}
+        role="switch"
+        aria-checked={checked}
+        onClick={() => onChange(!checked)}
+        data-testid={testId}
+      >
+        <span className="qq-calc-toggle-swatch" aria-hidden="true" />
+        <span>{label}</span>
+      </button>
+      {info ? <InfoCue testid={infoTestid ?? testId + '-info'} text={info} /> : null}
+    </span>
   );
 }
 
-function Label({ children }: { children: React.ReactNode }) {
+function Label({
+  children, info, infoTestid,
+}: {
+  children: React.ReactNode;
+  /** Optional explanatory text shown via an inline `?` InfoCue. Wave AA #5. */
+  info?: string;
+  infoTestid?: string;
+}) {
   return (
     <span style={{
       fontSize: 11, fontWeight: 700, color: platformTheme.colors.heading,
-      letterSpacing: '0.02em', textTransform: 'uppercase', display: 'block',
+      letterSpacing: '0.02em', textTransform: 'uppercase',
+      display: 'inline-flex', alignItems: 'center', gap: 5,
       marginBottom: 4,
-    }}>{children}</span>
+    }}>
+      {children}
+      {info ? <InfoCue testid={infoTestid ?? 'calc-row-label'} text={info} /> : null}
+    </span>
   );
 }

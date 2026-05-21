@@ -580,8 +580,11 @@ export default function InstallTab({
       />
 
       <style>{`
+        /* Wave AA — sector gaps tightened from 16 → 10 (and the sub-headline
+           bottom-margin 10 → 6) so the Install tab reads as a cohesive panel
+           rather than a sequence of disconnected slabs. */
         .qq-install-tab {
-          display: flex; flex-direction: column; gap: 16px;
+          display: flex; flex-direction: column; gap: 10px;
         }
         .qq-install-h {
           font-size: 13px; font-weight: 700; color: ${p.colors.heading};
@@ -589,7 +592,7 @@ export default function InstallTab({
         }
         .qq-install-sub {
           font-size: 12px; color: ${p.colors.muted};
-          margin: 0 0 10px; line-height: 1.5;
+          margin: 0 0 6px; line-height: 1.5;
         }
         .qq-install-code-inline {
           font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
