@@ -372,7 +372,15 @@ export default function TradeLineHeroPhone() {
       await wait(200);
     }
 
+    // Clear the static skeleton (rendered in JSX for first paint) before the
+    // first scenario animates in. resetBody() handles all subsequent loops.
+    function clearSkeleton() {
+      if (!bodyRef.current) return;
+      bodyRef.current.querySelectorAll("[data-skel]").forEach((n) => n.remove());
+    }
+
     (async function loop() {
+      clearSkeleton();
       while (!cancelled) {
         for (let i = 0; i < SCENARIOS.length; i++) {
           if (cancelled) return;
@@ -460,7 +468,25 @@ export default function TradeLineHeroPhone() {
           </div>
         </div>
 
-        <div ref={bodyRef} className="tlhp-body" />
+        <div ref={bodyRef} className="tlhp-body">
+          {/* Static skeleton — visible from first paint until the JS demo loop
+              removes it (runs t≈0, before first scenario animates in). Shapes
+              mirror real user / AI / user bubble cadence so there's no layout
+              shift when real content paints. data-skel marks nodes for the
+              clearSkeleton() removal pass. */}
+          <div className="tlhp-skel-user" data-skel aria-hidden>
+            <div className="tlhp-skel-line" style={{ width: "82%" }} />
+            <div className="tlhp-skel-line" style={{ width: "54%" }} />
+          </div>
+          <div className="tlhp-skel-ai" data-skel aria-hidden>
+            <div className="tlhp-skel-line" style={{ width: "70%" }} />
+            <div className="tlhp-skel-line" style={{ width: "88%" }} />
+            <div className="tlhp-skel-line" style={{ width: "46%" }} />
+          </div>
+          <div className="tlhp-skel-user" data-skel aria-hidden>
+            <div className="tlhp-skel-line" style={{ width: "62%" }} />
+          </div>
+        </div>
 
         {/* CHAT INPUT */}
         <div ref={inputRef} className="tlhp-input">
@@ -654,6 +680,27 @@ const TLHP_CSS = `
 }
 .tlhp-body::-webkit-scrollbar { width: 0; }
 .tlhp-body.reset { opacity: 0; transition: opacity 0.55s ease; }
+
+/* ═══ FIRST-PAINT SKELETON (cleared by JS before scenario 1) ═══ */
+.tlhp-skel-user, .tlhp-skel-ai {
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 11px 14px; border-radius: 14px;
+}
+.tlhp-skel-user {
+  align-self: flex-end; max-width: 84%;
+  background: rgba(148, 163, 184, 0.18);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+}
+.tlhp-skel-ai {
+  align-self: flex-start; max-width: 92%;
+  background: transparent;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  padding: 12px 14px 14px;
+}
+.tlhp-skel-line {
+  height: 10px; border-radius: 6px;
+  background: rgba(148, 163, 184, 0.18);
+}
 
 /* ═══ CHAT BUBBLES ═══ */
 .tlhp-bubble-user {
