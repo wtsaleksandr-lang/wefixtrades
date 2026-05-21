@@ -43,6 +43,7 @@ import {
 import type {
   AdvBgMode, AdvBgGradientDirection,
   AdvResultEmphasis, AdvResultBorder,
+  AdvStepTransition,
 } from '@shared/templatePresets';
 import FloatField from './FloatField';
 import InfoCue from './InfoCue';
@@ -202,6 +203,25 @@ export default function StyleTab({ style, onChange, logo, onLogoChange, planTier
       aria-label="Style"
       role="tabpanel"
     >
+      {/* ── W-AO-6d — Brand Kit (Pro) ────────────────────────────────
+       *
+       * Reusable bundle of Style settings the user can apply across
+       * every calculator they own. Sits at the top so it's the first
+       * thing a Pro user reaches for; free users see a Lock + upsell.
+       * The picker / save dialog talk to /api/portal/brand-kits/* via
+       * the cookie-authenticated portal session. If the user isn't
+       * portal-authenticated (e.g. token-based edit page), the
+       * picker silently degrades to a sign-in CTA. */}
+      <BrandKitGroup
+        style={style}
+        logo={logo ?? null}
+        onApply={(next, nextLogo) => {
+          onChange({ ...style, ...next });
+          if (nextLogo && onLogoChange) onLogoChange(nextLogo);
+        }}
+        isProTier={isProTier}
+      />
+
       {/* ── Theme presets (W-AO-6b) ─────────────────────────────────
        *
        * One-click bundles that overwrite every Style token. Sits at the top
@@ -1180,6 +1200,12 @@ function BrandStudioGroup({
   const rpBg = style.resultPanel?.bgOverride ?? '';
   const rpEmphasis: AdvResultEmphasis = style.resultPanel?.emphasis ?? 'normal';
   const rpBorder: AdvResultBorder = style.resultPanel?.border ?? 'subtle';
+  // W-AO-6d — Brand Studio Wave 2 animations bundle.
+  const animStep: AdvStepTransition = style.animations?.step_transition ?? 'none';
+  const animDuration: number = typeof style.animations?.duration_ms === 'number'
+    ? Math.max(100, Math.min(600, Math.round(style.animations.duration_ms)))
+    : 250;
+  const animReduce: boolean = style.animations?.reduced_motion_respect !== false;
 
   const onBgImageFile = useCallback((file: File | null) => {
     if (!file) { patch({ bgImageUrl: undefined }); return; }
@@ -1204,6 +1230,18 @@ function BrandStudioGroup({
   const setResultPanel = (next: Partial<NonNullable<ShellStyle['resultPanel']>>) => {
     patch({
       resultPanel: { ...(style.resultPanel ?? {}), ...next },
+    });
+  };
+  // W-AO-6d — animations setter; merges into the optional bundle.
+  const setAnimations = (next: Partial<NonNullable<ShellStyle['animations']>>) => {
+    patch({
+      animations: {
+        step_transition: animStep,
+        duration_ms: animDuration,
+        reduced_motion_respect: animReduce,
+        ...(style.animations ?? {}),
+        ...next,
+      },
     });
   };
 
@@ -1459,6 +1497,72 @@ function BrandStudioGroup({
               onChange={(v) => setResultPanel({ border: v })}
             />
           </div>
+
+          {/* 4. W-AO-6d — Animations (step transitions, Pro tier) ─────
+           *
+           * Drives the wizard step transition between the lead-form
+           * panels in the renderer. `none` keeps the legacy instant
+           * mount; the other three apply scoped CSS keyframes per
+           * panel. `Respect prefers-reduced-motion` defaults on so an
+           * OS-level a11y setting always wins over the configured
+           * value. */}
+          <div className="qq-bs-sub" data-testid="style-bs-sub-animations">
+            <p className="qq-bs-sub-title">Animations</p>
+            <p className="qq-bs-sub-hint">
+              Smooth the transition between calculator steps (lead form, scheduling, etc.).
+              Subtle motion makes the widget feel premium. Honours OS-level reduced-motion
+              by default.
+            </p>
+            <label className="qq-style-label">
+              <span className="qq-style-label-text">Step transition</span>
+            </label>
+            <SegmentedControl<AdvStepTransition>
+              name="bs-anim-step"
+              testid="style-bs-anim-step"
+              value={animStep}
+              options={[
+                { value: 'none', label: 'None' },
+                { value: 'fade', label: 'Fade' },
+                { value: 'slide', label: 'Slide' },
+                { value: 'slide-fade', label: 'Slide + Fade' },
+              ]}
+              onChange={(v) => setAnimations({ step_transition: v })}
+            />
+            <label className="qq-style-label" htmlFor="qq-bs-anim-duration" style={{ marginTop: 12 }}>
+              <span className="qq-style-label-text">
+                Duration <span className="qq-style-label-meta">{animDuration}ms</span>
+              </span>
+            </label>
+            <input
+              id="qq-bs-anim-duration"
+              type="range"
+              min={100}
+              max={600}
+              step={10}
+              value={animDuration}
+              onChange={(e) => setAnimations({ duration_ms: Number(e.target.value) })}
+              className="qq-style-range"
+              data-testid="style-bs-anim-duration"
+              aria-valuemin={100}
+              aria-valuemax={600}
+              aria-valuenow={animDuration}
+            />
+            <label
+              className="qq-style-label"
+              style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
+            >
+              <input
+                type="checkbox"
+                checked={animReduce}
+                onChange={(e) => setAnimations({ reduced_motion_respect: e.target.checked })}
+                data-testid="style-bs-anim-reduce"
+                aria-label="Respect prefers-reduced-motion"
+              />
+              <span className="qq-style-label-text" style={{ margin: 0 }}>
+                Respect prefers-reduced-motion
+              </span>
+            </label>
+          </div>
         </div>
       )}
     </fieldset>
@@ -1666,5 +1770,350 @@ function SegmentedControl<T extends string | number>({
         );
       })}
     </div>
+  );
+}
+
+/* ─── W-AO-6d — Brand Kit (Pro) section ─────────────────────────────
+ *
+ * Two affordances:
+ *   1. Apply Brand Kit — picker modal listing the user's kits.
+ *   2. Save current as Brand Kit — small inline dialog (name + desc).
+ *
+ * On mount we GET /api/portal/brand-kits/. Three response shapes drive
+ * the UI:
+ *   - 200 → render the kits list + Save dialog.
+ *   - 401/403 with `pro_tier_required` → render the Pro upsell.
+ *   - 401 (no session) → render a "Sign in to use Brand Kits" CTA so
+ *     the token-based edit page doesn't error out.
+ *
+ * Empty-state CTA is the same Save dialog with the prompt re-worded.
+ */
+interface BrandKitListItem {
+  id: string;
+  name: string;
+  description: string | null;
+  style: Record<string, unknown>;
+  logo_url: string | null;
+  is_default: boolean;
+  created_at: string;
+}
+
+function BrandKitGroup({
+  style, logo, onApply, isProTier,
+}: {
+  style: ShellStyle;
+  logo: string | null;
+  onApply: (nextStyle: Partial<ShellStyle>, nextLogo: string | null) => void;
+  isProTier: boolean;
+}) {
+  const [kits, setKits] = useState<BrandKitListItem[] | null>(null);
+  const [loadState, setLoadState] = useState<'loading' | 'ready' | 'unauthenticated' | 'pro-required' | 'error'>('loading');
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [saveOpen, setSaveOpen] = useState(false);
+  const [saveName, setSaveName] = useState('');
+  const [saveDesc, setSaveDesc] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const refreshKits = useCallback(async () => {
+    setLoadState('loading');
+    setErrorMsg(null);
+    try {
+      const res = await fetch('/api/portal/brand-kits', { credentials: 'include' });
+      if (res.status === 401) {
+        setKits(null);
+        setLoadState('unauthenticated');
+        return;
+      }
+      if (res.status === 403) {
+        const body = await res.json().catch(() => ({}));
+        if (body?.error === 'pro_tier_required') {
+          setKits(null);
+          setLoadState('pro-required');
+          return;
+        }
+        setKits(null);
+        setLoadState('error');
+        return;
+      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const body = await res.json();
+      setKits(Array.isArray(body?.kits) ? body.kits : []);
+      setLoadState('ready');
+    } catch (err: any) {
+      setKits(null);
+      setLoadState('error');
+      setErrorMsg(err?.message ?? 'Failed to load Brand Kits');
+    }
+  }, []);
+
+  useEffect(() => { void refreshKits(); }, [refreshKits]);
+
+  const handleSave = useCallback(async () => {
+    if (!saveName.trim()) return;
+    setBusy(true);
+    setErrorMsg(null);
+    try {
+      const res = await fetch('/api/portal/brand-kits', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          name: saveName.trim(),
+          description: saveDesc.trim() || null,
+          style,
+          logo_url: logo || null,
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error ?? `HTTP ${res.status}`);
+      }
+      setSaveOpen(false);
+      setSaveName('');
+      setSaveDesc('');
+      await refreshKits();
+    } catch (err: any) {
+      setErrorMsg(err?.message ?? 'Failed to save Brand Kit');
+    } finally {
+      setBusy(false);
+    }
+  }, [saveName, saveDesc, style, logo, refreshKits]);
+
+  const handleApply = useCallback((kit: BrandKitListItem) => {
+    onApply(kit.style as Partial<ShellStyle>, kit.logo_url);
+    setPickerOpen(false);
+  }, [onApply]);
+
+  // Free-tier rendering: lock + upsell. Match BrandStudioGroup styling.
+  if (!isProTier || loadState === 'pro-required') {
+    return (
+      <fieldset className="qq-style-group" data-testid="style-group-brand-kit" data-pro-tier="false">
+        <legend className="qq-style-legend">
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Lock size={12} aria-hidden="true" />
+            Brand Kit
+            <span className="qq-bs-pill" aria-label="Pro plan feature">
+              <Sparkles size={10} aria-hidden="true" /> Pro
+            </span>
+          </span>
+        </legend>
+        <p className="qq-bs-sub-hint" style={{ margin: '6px 0 8px' }}>
+          Save your widget's look as a reusable Brand Kit and apply it across every
+          calculator you own. Upgrade to Pro ($29/mo) to unlock.
+        </p>
+        <a
+          href="/pricing/quotequick"
+          className="qq-bs-upsell-cta"
+          data-testid="style-bk-upgrade"
+        >
+          Upgrade to Pro →
+        </a>
+      </fieldset>
+    );
+  }
+
+  if (loadState === 'unauthenticated') {
+    return (
+      <fieldset className="qq-style-group" data-testid="style-group-brand-kit" data-pro-tier="true">
+        <legend className="qq-style-legend">
+          Brand Kit
+          <span className="qq-bs-pill" aria-label="Pro plan feature">
+            <Sparkles size={10} aria-hidden="true" /> Pro
+          </span>
+        </legend>
+        <p className="qq-bs-sub-hint" style={{ margin: '6px 0 8px' }}>
+          Sign in to the portal to save reusable Brand Kits across your calculators.
+        </p>
+      </fieldset>
+    );
+  }
+
+  const isEmpty = loadState === 'ready' && (kits?.length ?? 0) === 0;
+
+  return (
+    <fieldset className="qq-style-group" data-testid="style-group-brand-kit" data-pro-tier="true">
+      <legend className="qq-style-legend">
+        Brand Kit
+        <span className="qq-bs-pill" aria-label="Pro plan feature">
+          <Sparkles size={10} aria-hidden="true" /> Pro
+        </span>
+      </legend>
+
+      {isEmpty ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <p className="qq-bs-sub-hint" style={{ margin: 0 }}>
+            Create your first Brand Kit from this calculator's current style. Apply it
+            instantly to your other calculators to keep branding consistent.
+          </p>
+          <button
+            type="button"
+            className="qq-bs-upsell-cta"
+            data-testid="style-bk-create-first"
+            onClick={() => { setSaveOpen(true); setSaveName(''); setSaveDesc(''); }}
+            style={{ alignSelf: 'flex-start' }}
+          >
+            Create Brand Kit
+          </button>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className="qq-bs-upsell-cta"
+            data-testid="style-bk-apply"
+            onClick={() => setPickerOpen(true)}
+            disabled={loadState !== 'ready'}
+          >
+            Apply Brand Kit
+          </button>
+          <button
+            type="button"
+            className="qq-bs-upsell-cta"
+            data-testid="style-bk-save"
+            onClick={() => { setSaveOpen(true); setSaveName(''); setSaveDesc(''); }}
+            disabled={loadState !== 'ready'}
+            style={{ background: '#fff', color: p.colors.body, border: `1px solid ${p.colors.borderLight}` }}
+          >
+            Save current as Brand Kit
+          </button>
+          {loadState === 'loading' && <span className="qq-bs-sub-hint" style={{ alignSelf: 'center' }}>Loading…</span>}
+        </div>
+      )}
+
+      {errorMsg && <p className="qq-bs-sub-hint" style={{ color: '#b91c1c', marginTop: 6 }}>{errorMsg}</p>}
+
+      {/* Picker modal — simple inline card list. Avoids the portal stack
+       *  the ColourSwatch uses; this is a lightweight inline dropdown
+       *  rendered immediately below the action row. */}
+      {pickerOpen && kits && (
+        <div
+          className="qq-bk-picker"
+          role="dialog"
+          aria-label="Choose a Brand Kit"
+          data-testid="style-bk-picker"
+          style={{
+            marginTop: 10,
+            border: `1px solid ${p.colors.borderLight}`,
+            borderRadius: 10,
+            padding: 10,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 8,
+            background: '#fafafa',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <strong style={{ fontSize: 13 }}>Choose a Brand Kit</strong>
+            <button
+              type="button"
+              onClick={() => setPickerOpen(false)}
+              aria-label="Close picker"
+              data-testid="style-bk-picker-close"
+              style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 14 }}
+            >×</button>
+          </div>
+          {kits.map((kit) => {
+            const accentSwatch = (kit.style as any)?.accent ?? '#0d3cfc';
+            return (
+              <button
+                type="button"
+                key={kit.id}
+                onClick={() => handleApply(kit)}
+                data-testid={`style-bk-pick-${kit.id}`}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10, padding: 8,
+                  background: '#fff', border: `1px solid ${p.colors.borderLight}`,
+                  borderRadius: 8, cursor: 'pointer', textAlign: 'left',
+                }}
+              >
+                {kit.logo_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={kit.logo_url}
+                    alt=""
+                    style={{ width: 28, height: 28, borderRadius: 6, objectFit: 'cover' }}
+                  />
+                ) : (
+                  <span style={{ width: 28, height: 28, borderRadius: 6, background: '#e5e7eb', display: 'inline-block' }} />
+                )}
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ display: 'block', fontSize: 13, fontWeight: 600 }}>{kit.name}</span>
+                  {kit.description && (
+                    <span style={{ display: 'block', fontSize: 11, color: p.colors.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {kit.description}
+                    </span>
+                  )}
+                </span>
+                <span
+                  aria-hidden="true"
+                  style={{ width: 16, height: 16, borderRadius: '50%', background: String(accentSwatch), border: `1px solid ${p.colors.borderLight}` }}
+                />
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Save dialog */}
+      {saveOpen && (
+        <div
+          className="qq-bk-save"
+          role="dialog"
+          aria-label="Save current style as a Brand Kit"
+          data-testid="style-bk-save-dialog"
+          style={{
+            marginTop: 10,
+            border: `1px solid ${p.colors.borderLight}`,
+            borderRadius: 10,
+            padding: 10,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 8,
+            background: '#fafafa',
+          }}
+        >
+          <strong style={{ fontSize: 13 }}>Save Brand Kit</strong>
+          <input
+            type="text"
+            placeholder="Name (required)"
+            value={saveName}
+            onChange={(e) => setSaveName(e.target.value)}
+            data-testid="style-bk-save-name"
+            maxLength={120}
+            style={{ height: 34, padding: '0 8px', borderRadius: 6, border: `1px solid ${p.colors.borderLight}` }}
+          />
+          <input
+            type="text"
+            placeholder="Description (optional)"
+            value={saveDesc}
+            onChange={(e) => setSaveDesc(e.target.value)}
+            data-testid="style-bk-save-desc"
+            maxLength={2000}
+            style={{ height: 34, padding: '0 8px', borderRadius: 6, border: `1px solid ${p.colors.borderLight}` }}
+          />
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <button
+              type="button"
+              onClick={() => setSaveOpen(false)}
+              data-testid="style-bk-save-cancel"
+              style={{ background: '#fff', color: p.colors.body, border: `1px solid ${p.colors.borderLight}`, borderRadius: 6, padding: '6px 10px', cursor: 'pointer' }}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleSave()}
+              disabled={busy || !saveName.trim()}
+              data-testid="style-bk-save-submit"
+              className="qq-bs-upsell-cta"
+              style={{ opacity: busy || !saveName.trim() ? 0.6 : 1 }}
+            >
+              {busy ? 'Saving…' : 'Save'}
+            </button>
+          </div>
+        </div>
+      )}
+    </fieldset>
   );
 }
