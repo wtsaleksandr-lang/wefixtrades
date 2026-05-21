@@ -25,6 +25,7 @@ import crypto from "crypto";
 import { storage } from "../../../storage";
 import { getEmailTransporter, getFromAddress } from "../../../lib/emailTransport";
 import { buildLegalFooter, buildEmailHeader } from "../../../lib/emailFooter";
+import { isEmailUnsubscribed } from "../../../lib/unsubscribeStorage";
 import type {
   PublishAdapter,
   PublishAdapterOptions,
@@ -167,6 +168,14 @@ export const emailAdapter: PublishAdapter = {
       const msg = "no recipient available (metadata.email.recipient / clients.contact_email / ADMIN_EMAIL all empty)";
       log.warn(`${logPrefix} draft=${draft.id} ${msg}`);
       return { ok: false, reason: "validation", message: msg, retryable: false };
+    }
+
+    /* CAN-SPAM / CASL compliance (W-AX-2): newsletter-style content is
+     * marketing, not transactional — must consult suppression list
+     * before sending. Drop with audit; don't bounce, don't retry. */
+    if (await isEmailUnsubscribed(recipient)) {
+      log.info(`${logPrefix} draft=${draft.id} skipped recipient=${recipient} reason=unsubscribed`);
+      return { ok: false, reason: "recipient_unsubscribed", message: "recipient unsubscribed", retryable: false };
     }
 
     const transporter = resolveTransporter();

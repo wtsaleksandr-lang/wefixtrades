@@ -9,6 +9,7 @@ import { storage } from "../storage";
 import { getEmailTransporter, getFromAddress } from "../lib/emailTransport";
 import { createLogger } from "../lib/logger";
 import { fireAlert } from "./alertService";
+import { isEmailUnsubscribed } from "../lib/unsubscribeStorage";
 
 const log = createLogger("EmailQueue");
 
@@ -35,6 +36,15 @@ export async function queueEmail(
 /**
  * Process the email queue -- called by the scheduler every minute.
  * Picks up to 10 pending emails, sends them, and updates status.
+ *
+ * W-AX-2: re-checks isEmailUnsubscribed() at drain time to close the
+ * enqueue→drain race window. If the recipient unsubscribed after
+ * enqueue, the row is marked status='skipped_unsubscribed' (terminal,
+ * not retried, not bounced).
+ *
+ * TODO: test — add a unit/integration test exercising the
+ * unsubscribe-between-enqueue-and-drain scenario once a server-side
+ * test framework is wired up (currently only Playwright e2e exists).
  */
 export async function processEmailQueue(): Promise<{ sent: number; failed: number }> {
   const transporter = getEmailTransporter();
@@ -50,6 +60,19 @@ export async function processEmailQueue(): Promise<{ sent: number; failed: numbe
   let failed = 0;
 
   for (const item of pending) {
+    /* W-AX-2: re-check suppression at drain time. A recipient may have
+     * unsubscribed between enqueue and now — CAN-SPAM/CASL require us
+     * to honour that. Drop with audit; don't re-enqueue, don't bounce. */
+    if (await isEmailUnsubscribed(item.to_email)) {
+      await storage.updateEmailQueueItem(item.id, {
+        status: "skipped_unsubscribed",
+        attempts: (item.attempts ?? 0) + 1,
+        last_error: "recipient unsubscribed at drain time",
+      });
+      log.info(`Email #${item.id} skipped — recipient unsubscribed: ${item.to_email}`);
+      continue;
+    }
+
     await storage.updateEmailQueueItem(item.id, { status: "sending" });
 
     try {
