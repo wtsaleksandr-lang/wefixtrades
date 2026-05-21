@@ -77,6 +77,8 @@ import InboxPage from "@/pages/admin/InboxPage";
 import CommunicationsPage from "@/pages/admin/CommunicationsPage";
 import SystemAlertsPage from "@/pages/admin/SystemAlertsPage";
 import AdminAuditLogPage from "@/pages/admin/AdminAuditLogPage";
+/* AI-3c audit log */
+import AuditLogPage from "@/pages/admin/AuditLogPage";
 import AuditLeadsPage from "@/pages/admin/AuditLeadsPage";
 import AdminChatHistoryPage from "@/pages/admin/AdminChatHistoryPage";
 import PortalChatHistoryPage from "@/pages/portal/PortalChatHistoryPage";
@@ -181,6 +183,8 @@ function Router() {
       <Route path="/admin/crm/communications">{() => <RequirePortal><CommunicationsPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/alerts">{() => <RequirePortal><SystemAlertsPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/audit-log">{() => <RequirePortal><AdminAuditLogPage /></RequirePortal>}</Route>
+      {/* AI-3c audit log */}
+      <Route path="/admin/audit-log">{() => <RequirePortal><AuditLogPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/audit-leads">{() => <RequirePortal><AuditLeadsPage /></RequirePortal>}</Route>
       <Route path="/admin/chat-history">{() => <RequirePortal><AdminChatHistoryPage /></RequirePortal>}</Route>
       <Route path="/admin/system/integrations">{() => <RequirePortal><IntegrationHealthPage /></RequirePortal>}</Route>
