@@ -249,6 +249,20 @@ export default function ApiPlatformUserDetailPage({ userId }: { userId: string }
     },
   });
 
+  const resumeMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/admin/api-platform/subscriptions/${userIdNum}/resume`);
+      return res.json();
+    },
+    onSuccess: () => {
+      invalidate();
+      toast({ title: "Subscription resumed" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Resume failed", description: err?.message || "Try again", variant: "destructive" });
+    },
+  });
+
   const refundMutation = useMutation({
     mutationFn: async (payload: { reason: string | null; amount_cents: number | null }) => {
       const res = await apiRequest("POST", `/api/admin/api-platform/subscriptions/${userIdNum}/refund`, payload);
@@ -416,9 +430,8 @@ export default function ApiPlatformUserDetailPage({ userId }: { userId: string }
                 {sub.status === "paused" && (
                   <button
                     onClick={() => setSubConfirm({ action: "resume" })}
-                    disabled={suspendMutation.isPending}
+                    disabled={resumeMutation.isPending}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-emerald-200 bg-emerald-50 text-emerald-700 text-sm hover:bg-emerald-100 disabled:opacity-50"
-                    title="Resume by clearing the paused state — currently sends the same suspend endpoint (toggle); will route to dedicated /resume once AJ-2 adds it."
                   >
                     <Play className="w-3.5 h-3.5" />
                     Resume
@@ -678,15 +691,14 @@ export default function ApiPlatformUserDetailPage({ userId }: { userId: string }
                 <AlertDialogTitle>Resume this subscription?</AlertDialogTitle>
                 <AlertDialogDescription>
                   Re-activate the customer's API access. They'll begin accepting requests again under their current
-                  tier quotas. (Currently routes through the suspend endpoint as a toggle — dedicated resume
-                  endpoint pending in a follow-up.)
+                  tier quotas.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                 <AlertDialogAction
                   className="bg-emerald-600 hover:bg-emerald-700"
-                  onClick={() => { suspendMutation.mutate(); setSubConfirm(null); }}
+                  onClick={() => { resumeMutation.mutate(); setSubConfirm(null); }}
                 >
                   Resume
                 </AlertDialogAction>
