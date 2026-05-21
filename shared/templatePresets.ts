@@ -1973,6 +1973,79 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     result_calc: 'Estimated Cost',
     results: { footnote: 'Diagnostic fee waived when repair is performed. 90-day warranty on all parts and labor.' },
   },
+
+  /* ── 45. Junk Removal (sample — W-AH-1) ── */
+  {
+    id: 'junk_removal_quote', name: 'Junk Removal',
+    description: 'Truck-load pricing with surcharges for stairs, distance, and same-day pickup.',
+    category: 'Cleaning', trades: ['junk_removal'],
+    layout: 'single-column', theme: 'mint',
+    header: { title: 'Junk Removal Quote', subtitle: 'Get an instant price based on how much you have to haul.', align: 'left' },
+    fields: [
+      { id: 'load_size', name: 'Load Size', label: 'Truck load size', type: 'select',
+        options: [opt('1/4 truck', 120), opt('1/2 truck', 220), opt('3/4 truck', 320), opt('Full truck', 425)] },
+      { id: 'mattresses', name: 'Mattresses', label: 'Mattresses', type: 'number',
+        min: 0, max: 5, step: 1, default_value: 0, unit: 'item' },
+      { id: 'appliances', name: 'Appliances', label: 'Appliances', type: 'number',
+        min: 0, max: 5, step: 1, default_value: 0, unit: 'item' },
+      { id: 'stairs', name: 'Stairs', label: 'Items located up/down stairs', type: 'toggle', on_value: 50 },
+      { id: 'distance', name: 'Distance', label: 'Distance to drop-off', type: 'slider',
+        min: 0, max: 30, step: 1, default_value: 10, unit: 'miles' },
+      { id: 'same_day', name: 'Same-day pickup', label: 'Same-day pickup', type: 'toggle', on_value: 75 },
+    ],
+    calculations: [calc('Total Removal Cost', '[Load Size] + [Mattresses] * 25 + [Appliances] * 45 + [Stairs] + [Distance] * 2 + [Same-day pickup]')],
+    result_calc: 'Total Removal Cost',
+    results: { footnote: 'Includes labor and disposal fees. Hazardous materials quoted separately.' },
+  },
+
+  /* ── 46. Window Replacement (sample — W-AH-1) ── */
+  {
+    id: 'window_replacement_quote', name: 'Window Replacement',
+    description: 'Per-window pricing by type, frame material, and energy rating.',
+    category: 'Home Improvement', trades: ['window_replacement'],
+    layout: 'two-column', theme: 'midnight',
+    header: { title: 'Window Replacement Estimate', subtitle: 'Tell us about your windows for an instant quote.', align: 'left' },
+    fields: [
+      { id: 'count', name: 'Count', label: 'Number of windows', type: 'number',
+        min: 1, max: 30, step: 1, default_value: 4, unit: 'window' },
+      { id: 'type', name: 'Type', label: 'Window type', type: 'select',
+        options: [opt('Single hung', 250), opt('Double hung', 320), opt('Sliding', 290), opt('Picture', 410), opt('Bay', 780)] },
+      { id: 'frame', name: 'Frame', label: 'Frame material', type: 'select',
+        options: [opt('Vinyl', 0), opt('Fiberglass', 110), opt('Wood', 180), opt('Aluminum', 60)] },
+      { id: 'glass', name: 'Glass', label: 'Glass package', type: 'select',
+        options: [opt('Standard double-pane', 0), opt('Energy-efficient (Low-E)', 85), opt('Triple-pane', 180)] },
+      { id: 'install', name: 'Professional installation per window', label: 'Professional installation per window', type: 'toggle', on_value: 145 },
+      { id: 'disposal', name: 'Haul away old windows', label: 'Haul away old windows', type: 'toggle', on_value: 60 },
+    ],
+    calculations: [calc('Total Window Replacement', '[Count] * ([Type] + [Frame] + [Glass] + [Professional installation per window]) + [Haul away old windows]')],
+    result_calc: 'Total Window Replacement',
+    results: { footnote: 'Final price includes materials and labor. Custom shapes or historical-property windows priced separately.' },
+  },
+
+  /* ── 47. Mold Remediation (sample — W-AH-1) ── */
+  {
+    id: 'mold_remediation_quote', name: 'Mold Remediation',
+    description: 'Severity-tiered remediation with containment, HVAC, and post-test add-ons.',
+    category: 'Emergency', trades: ['mold_remediation'],
+    layout: 'two-column', theme: 'forest',
+    header: { title: 'Mold Remediation Quote', subtitle: 'Get a transparent estimate based on severity and area.', align: 'left' },
+    fields: [
+      { id: 'area', name: 'Area', label: 'Affected area', type: 'slider',
+        min: 10, max: 2000, step: 10, default_value: 150, unit: 'sqft' },
+      { id: 'severity', name: 'Severity', label: 'Severity', type: 'select',
+        options: [opt('Surface mold (visible only)', 8), opt('Moderate (subsurface, no structural)', 14), opt('Severe (structural damage)', 26)] },
+      { id: 'mold_type', name: 'Mold Type', label: 'Mold type', type: 'select',
+        options: [opt('Common (Cladosporium / Penicillium)', 0), opt('Aspergillus', 300), opt('Stachybotrys / Black mold', 850)] },
+      { id: 'containment', name: 'Containment & negative-air setup required', label: 'Containment & negative-air setup required', type: 'toggle', on_value: 800 },
+      { id: 'hvac', name: 'HVAC/ductwork remediation', label: 'HVAC/ductwork remediation', type: 'toggle', on_value: 650 },
+      { id: 'post_test', name: 'Third-party air-quality test after remediation', label: 'Third-party air-quality test after remediation', type: 'toggle', on_value: 425 },
+      { id: 'urgency', name: 'Urgency', label: 'Urgency', type: 'select',
+        options: [opt('Standard scheduling', 0), opt('Within 48 hours', 350), opt('Emergency (24h)', 900)] },
+    ],
+    calculations: [calc('Total Remediation Cost', '[Area] * [Severity] + [Mold Type] + [Containment & negative-air setup required] + [HVAC/ductwork remediation] + [Third-party air-quality test after remediation] + [Urgency]')],
+    result_calc: 'Total Remediation Cost',
+    results: { footnote: 'Includes lab analysis, EPA-protocol removal, and post-job clean. Insurance documentation provided on request.' },
+  },
 ];
 
 /* ─── Lookups ─── */
