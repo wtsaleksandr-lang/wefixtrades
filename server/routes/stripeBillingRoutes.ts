@@ -30,6 +30,7 @@ import { sendPaymentSucceededEmail } from "../lib/paymentSucceededEmail";
 import { buildBillingPortalUrl } from "../lib/billingPortalToken";
 import { getTradeLineDefaultConfig } from "@shared/schema";
 import { createLogger } from "../lib/logger";
+import { recordRevenueForClient } from "../services/clientCostBilling";
 import { fireAlert } from "../services/alertService";
 import { autoAssignSupplier } from "../services/supplierAssignment";
 import { runPreFixAudit } from "../services/webfixAuditService";
@@ -643,6 +644,12 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
     stripe_invoice_id: invoice.id,
     actor_type: "system",
   });
+
+  // W-BA-2 (Phase 3b §5) — accumulate revenue into the variable-cost ledger.
+  recordRevenueForClient({
+    clientId: client.id,
+    amountCents: invoice.amount_paid ?? 0,
+  }).catch(err => log.warn(`[billing-cost] revenue record failed: ${err.message}`));
 
   log.info(`[billing-webhook] Recorded renewal payment for client ${client.id}: $${((invoice.amount_paid ?? 0) / 100).toFixed(2)}`);
 }

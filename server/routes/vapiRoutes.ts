@@ -35,6 +35,7 @@ import {
 } from "../services/vapiService";
 import { logUsage } from "../services/usageTracker";
 import { getModel } from "../services/aiService";
+import { recordVoiceCostForClient } from "../services/clientCostBilling";
 import { aiChannelGateOn } from "../services/aiChannelGate";
 import { handleSalesCallEnded } from "../services/wftSalesLine";
 import {
@@ -223,6 +224,16 @@ export function registerVapiRoutes(app: Express): void {
               durationSeconds: report.duration,
             },
           });
+
+          // W-BA-2 (Phase 3b §5) — record voice cost against the client.
+          if (tradeLineResolved?.client?.id && report.duration) {
+            recordVoiceCostForClient({
+              clientId: tradeLineResolved.client.id,
+              durationSeconds: report.duration,
+            }).catch(err =>
+              log.warn(`[vapi-cost] voice cost record failed: ${(err as Error).message}`),
+            );
+          }
 
           // If this was a TradeLine call, log to tradeline_call_log + update usage
           if (tradeLineResolved) {

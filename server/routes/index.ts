@@ -16,6 +16,7 @@ import { registerTwilioRoutes } from "./twilioRoutes";
 import { registerChatRoutes } from "./chatRoutes";
 import { registerAdminRoutes } from "./adminRoutes";
 import { registerAdminCrmRoutes } from "./adminCrmRoutes";
+import { registerAdminClientCostsRoutes } from "./adminClientCostsRoutes";
 import { registerAdminToolRoutes } from "./adminToolRoutes";
 import { registerAiChannelSettingsRoutes } from "./aiChannelSettingsRoutes";
 import { registerAdminAiChannelGatesRoutes } from "./adminAiChannelGatesRoutes";
@@ -111,6 +112,7 @@ export async function registerRoutes(
   registerChatRoutes(app);
   registerAdminRoutes(app);
   registerAdminCrmRoutes(app);
+  registerAdminClientCostsRoutes(app);
   registerAdminToolRoutes(app);
   registerAiChannelSettingsRoutes(app);
   registerAdminAiChannelGatesRoutes(app);

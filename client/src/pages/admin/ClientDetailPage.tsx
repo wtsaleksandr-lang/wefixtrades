@@ -34,6 +34,9 @@ import { Star as StarIcon } from "lucide-react";
 import MapguardOpsTab from "@/components/admin/MapguardOpsTab";
 import ModeToggle from "@/components/portal/ModeToggle";
 import SocialSyncTab from "@/components/admin/SocialSyncTab";
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip as RTooltip, ResponsiveContainer, CartesianGrid,
+} from "recharts";
 
 /* ─── Types ─── */
 interface Client {
@@ -1197,6 +1200,7 @@ export default function ClientDetailPage() {
               </div>
             </Card>
             <CostProfitPanel clientId={client.id} />
+            <VariableCostPanel clientId={client.id} />
           </TabsContent>
 
           {/* ─── Reputation Tab ─── */}
@@ -1532,6 +1536,259 @@ function CostProfitPanel({ clientId }: { clientId: number }) {
         </div>
       )}
     </Card>
+  );
+}
+
+/* ─── Variable-cost panel (Phase 3b §5) ─── */
+
+interface VariableCosts {
+  client_id: number;
+  current_month: string | null;
+  ai_cost_cents_month: number;
+  ai_cost_cents_lifetime: number;
+  sms_cost_cents_month: number;
+  sms_cost_cents_lifetime: number;
+  voice_cost_cents_month: number;
+  voice_cost_cents_lifetime: number;
+  revenue_cents_month: number;
+  revenue_cents_lifetime: number;
+  profit_cents_month: number;
+  profit_cents_lifetime: number;
+  default_budget_cents: number;
+  soft_cap_delta_cents: number;
+}
+
+interface CostHistoryRow {
+  client_id: number;
+  month: string;
+  ai_cost_cents: number;
+  sms_cost_cents: number;
+  voice_cost_cents: number;
+  revenue_cents: number;
+}
+
+interface CostHistoryResponse {
+  client_id: number;
+  months: number;
+  history: CostHistoryRow[];
+}
+
+function VariableCostPanel({ clientId }: { clientId: number }) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const costsKey = `/api/admin/clients/${clientId}/variable-costs`;
+  const historyKey = `/api/admin/clients/${clientId}/cost-history?months=6`;
+
+  const { data: costs, isLoading } = useQuery<VariableCosts>({ queryKey: [costsKey] });
+  const { data: hist } = useQuery<CostHistoryResponse>({ queryKey: [historyKey] });
+
+  const [editing, setEditing] = useState(false);
+  const [budgetDraft, setBudgetDraft] = useState<string>("");
+
+  useEffect(() => {
+    if (costs && !editing) {
+      setBudgetDraft(((costs.default_budget_cents ?? 1000) / 100).toFixed(2));
+    }
+  }, [costs?.default_budget_cents, editing]);
+
+  const saveBudget = useMutation({
+    mutationFn: async () => {
+      const cents = Math.round(parseFloat(budgetDraft || "0") * 100);
+      return apiRequest("PATCH", `/api/admin/clients/${clientId}/budget`, {
+        default_budget_cents: cents,
+      });
+    },
+    onSuccess: () => {
+      toast({ title: "Budget saved" });
+      setEditing(false);
+      queryClient.invalidateQueries({ queryKey: [costsKey] });
+    },
+    onError: () => toast({ title: "Could not save budget", variant: "destructive" }),
+  });
+
+  const usd = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+
+  if (isLoading || !costs) {
+    return (
+      <Card>
+        <div className="p-4"><Skeleton className="h-32 w-full" /></div>
+      </Card>
+    );
+  }
+
+  // Budget band logic mirrors aiBudgetRouter.classifyBand.
+  const budget = costs.default_budget_cents;
+  const softCap = budget + costs.soft_cap_delta_cents;
+  const spend = costs.ai_cost_cents_month;
+  const band: "default" | "soft_cap" | "over_cap" =
+    spend >= softCap ? "over_cap" : spend >= budget ? "soft_cap" : "default";
+  const pctOfBudget = budget > 0 ? Math.min(100, Math.round((spend / budget) * 100)) : 0;
+  const monthLabel = costs.current_month ?? "this month";
+  const revenue = costs.revenue_cents_month;
+  const totalCost =
+    costs.ai_cost_cents_month + costs.sms_cost_cents_month + costs.voice_cost_cents_month;
+  const profit = costs.profit_cents_month;
+  const marginPct = revenue > 0 ? Math.round((profit / revenue) * 100) : null;
+
+  // Chart data: stack cost categories, line for revenue.
+  const chartData = (hist?.history ?? []).map((r) => ({
+    month: r.month.slice(5), // 'MM' part
+    AI: Math.round(r.ai_cost_cents / 100),
+    SMS: Math.round(r.sms_cost_cents / 100),
+    Voice: Math.round(r.voice_cost_cents / 100),
+    Revenue: Math.round(r.revenue_cents / 100),
+  }));
+
+  const BAND_PILL: Record<typeof band, { label: string; cls: string }> = {
+    default: { label: "Within budget", cls: "bg-emerald-50 text-emerald-700" },
+    soft_cap: { label: "Soft cap", cls: "bg-amber-50 text-amber-700" },
+    over_cap: { label: "Over — cheapest model only", cls: "bg-red-50 text-red-700" },
+  };
+
+  return (
+    <Card>
+      <div className="p-4 border-b border-gray-100 flex items-center justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold text-gray-900">Cost &amp; Profit ({monthLabel})</h3>
+          <p className="text-xs text-gray-500">
+            Variable-cost ledger — AI + SMS + voice spend vs revenue, current month and lifetime.
+          </p>
+        </div>
+        <span className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium ${BAND_PILL[band].cls}`}>
+          {BAND_PILL[band].label}
+        </span>
+      </div>
+      <div className="p-4 space-y-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+          <Stat label="Revenue" value={usd(revenue)} />
+          <Stat label="AI cost" value={usd(costs.ai_cost_cents_month)} extra={
+            <span className="text-[11px] text-gray-500">{pctOfBudget}% of ${(budget/100).toFixed(0)} budget</span>
+          } />
+          <Stat label="SMS + Voice" value={usd(costs.sms_cost_cents_month + costs.voice_cost_cents_month)} />
+          <Stat
+            label="Profit"
+            value={usd(profit)}
+            valueClass={profit >= 0 ? "text-emerald-700" : "text-red-600"}
+            extra={marginPct === null
+              ? <span className="text-[11px] text-gray-400">no revenue yet</span>
+              : <span className="text-[11px] text-gray-500">{marginPct}% margin</span>}
+          />
+        </div>
+
+        {/* Budget progress bar */}
+        <div>
+          <div className="flex items-center justify-between text-[11px] text-gray-500 mb-1">
+            <span>AI spend vs default budget</span>
+            <span>{usd(spend)} / {usd(budget)} (soft cap {usd(softCap)})</span>
+          </div>
+          <div className="h-2 bg-gray-100 rounded">
+            <div
+              className={`h-2 rounded ${band === "over_cap" ? "bg-red-500" : band === "soft_cap" ? "bg-amber-500" : "bg-emerald-500"}`}
+              style={{ width: `${pctOfBudget}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Lifetime */}
+        <div className="border-t border-gray-100 pt-3 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+          <Stat label="Lifetime revenue" value={usd(costs.revenue_cents_lifetime)} muted />
+          <Stat label="Lifetime AI" value={usd(costs.ai_cost_cents_lifetime)} muted />
+          <Stat label="Lifetime SMS+Voice" value={usd(costs.sms_cost_cents_lifetime + costs.voice_cost_cents_lifetime)} muted />
+          <Stat
+            label="Lifetime profit"
+            value={usd(costs.profit_cents_lifetime)}
+            muted
+            valueClass={costs.profit_cents_lifetime >= 0 ? "text-emerald-700" : "text-red-600"}
+          />
+        </div>
+
+        {/* 6-month chart */}
+        {chartData.length > 0 && (
+          <div className="border-t border-gray-100 pt-3">
+            <p className="text-xs font-medium text-gray-600 mb-2">Cost vs revenue (last 6 months, USD)</p>
+            <div style={{ width: "100%", height: 180 }}>
+              <ResponsiveContainer>
+                <BarChart data={chartData} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
+                  <CartesianGrid stroke="#F3F4F6" vertical={false} />
+                  <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} />
+                  <RTooltip />
+                  <Bar dataKey="AI" stackId="cost" fill="#6366F1" />
+                  <Bar dataKey="SMS" stackId="cost" fill="#22D3EE" />
+                  <Bar dataKey="Voice" stackId="cost" fill="#F59E0B" />
+                  <Bar dataKey="Revenue" fill="#22C55E" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
+
+        {/* Budget editor */}
+        <div className="border-t border-gray-100 pt-3 flex items-center gap-2 text-sm">
+          <span className="text-gray-600">Default monthly AI budget:</span>
+          {!editing ? (
+            <>
+              <span className="font-medium">${(budget / 100).toFixed(2)}</span>
+              <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => setEditing(true)}>
+                Edit
+              </Button>
+            </>
+          ) : (
+            <>
+              <span className="text-gray-500">$</span>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                value={budgetDraft}
+                onChange={(e) => setBudgetDraft(e.target.value)}
+                className="h-7 w-24 text-xs"
+              />
+              <Button
+                size="sm"
+                className="h-7 px-3 text-xs"
+                onClick={() => saveBudget.mutate()}
+                disabled={saveBudget.isPending}
+              >
+                Save
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs"
+                onClick={() => setEditing(false)}
+              >
+                Cancel
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function Stat({
+  label,
+  value,
+  valueClass,
+  extra,
+  muted,
+}: {
+  label: string;
+  value: string;
+  valueClass?: string;
+  extra?: React.ReactNode;
+  muted?: boolean;
+}) {
+  return (
+    <div>
+      <p className={`text-xs ${muted ? "text-gray-400" : "text-gray-500"}`}>{label}</p>
+      <p className={`text-base font-semibold ${valueClass ?? (muted ? "text-gray-600" : "text-gray-900")}`}>
+        {value}
+      </p>
+      {extra && <div className="mt-0.5">{extra}</div>}
+    </div>
   );
 }
 

@@ -9,10 +9,13 @@
  */
 
 import { db } from "../db";
-import { aiUsageLogs } from "@shared/schema";
+import { eq } from "drizzle-orm";
+import { aiUsageLogs, clients } from "@shared/schema";
 import type { ChatSurface } from "./promptBuilder";
 import { createLogger } from "../lib/logger";
 import { estimateCostMicroCents } from "./aiPricing";
+import { estimateCostCentsFromTable } from "./aiModelPricingTable";
+import { incrementVariableCost } from "./clientVariableCosts";
 
 const log = createLogger("UsageTracker");
 
@@ -65,8 +68,53 @@ export async function logUsage(params: UsageLogParams): Promise<void> {
       loop_run_id: params.loopRunId || null,
       step_index: params.stepIndex ?? null,
     });
+
+    // W-BA-2 (Phase 3b §5): increment the per-client variable-cost cache so
+    // the admin "Cost & Profit" view + the budget router both see fresh
+    // spend on the next request. Best-effort; never block chat on it.
+    if (
+      params.success &&
+      params.userId &&
+      params.inputTokens != null &&
+      params.outputTokens != null
+    ) {
+      await recordAiCostForUser({
+        userId: params.userId,
+        model: params.model,
+        inputTokens: params.inputTokens,
+        outputTokens: params.outputTokens,
+      });
+    }
   } catch (err) {
     // Never let logging failures break the chat flow
     log.error("[usage] Failed to log AI usage:", { error: String(err) });
+  }
+}
+
+/**
+ * Phase 3b §5 — resolve a userId → clientId and increment
+ * `client_variable_costs.ai_cost_cents_*`. Silent on failure.
+ */
+async function recordAiCostForUser(opts: {
+  userId: number;
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+}): Promise<void> {
+  try {
+    const cents = await estimateCostCentsFromTable(opts.model, opts.inputTokens, opts.outputTokens);
+    if (cents <= 0) return;
+    const [client] = await db
+      .select({ id: clients.id })
+      .from(clients)
+      .where(eq(clients.user_id, opts.userId))
+      .limit(1);
+    if (!client?.id) return;
+    await incrementVariableCost({ clientId: client.id, kind: "ai", cents });
+  } catch (err) {
+    log.warn("recordAiCostForUser failed (non-fatal)", {
+      userId: opts.userId,
+      error: String(err),
+    });
   }
 }
