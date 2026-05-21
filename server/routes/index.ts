@@ -81,6 +81,7 @@ import { registerQuoteQuickPublicRoutes } from "./quotequickPublicRoutes";
 import { registerAdminApiPlatformRoutes } from "./adminApiPlatformRoutes";
 import { registerPortalApiKeysRoutes } from "./portalApiKeysRoutes";
 import { registerAdminAuditLogRoutes } from "./adminAuditLogRoutes";
+import { registerApiV1Routes } from "./apiV1";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -168,6 +169,7 @@ export async function registerRoutes(
   registerAdminApiPlatformRoutes(app);
   registerPortalApiKeysRoutes(app);
   registerAdminAuditLogRoutes(app);
+  registerApiV1Routes(app);
 
   return httpServer;
 }

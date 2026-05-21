@@ -176,3 +176,50 @@ export const apiRateLimitBuckets = pgTable("api_rate_limit_buckets", {
 export const insertApiRateLimitBucketSchema = createInsertSchema(apiRateLimitBuckets);
 export type InsertApiRateLimitBucket = z.infer<typeof insertApiRateLimitBucketSchema>;
 export type ApiRateLimitBucket = typeof apiRateLimitBuckets.$inferSelect;
+
+/* ─── api_webhooks (Wave AJ-6) ─────────────────────────────────────
+ * Webhook subscriptions for external API consumers. POSTed to when an
+ * event the customer subscribed to fires (e.g. submission.created).
+ *
+ * `secret` is the HMAC signing secret in plaintext — required so the
+ * dispatcher can sign outbound payloads. Returned to the customer
+ * EXACTLY ONCE at creation; redacted in subsequent GETs.
+ *
+ * Tier gating lives in the route handler (uses ApiTier.webhookQuota);
+ * no DB cap.
+ * ─────────────────────────────────────────────────────────────── */
+export const apiWebhooks = pgTable(
+  "api_webhooks",
+  {
+    id: text("id").primaryKey(),
+    user_id: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    url: text("url").notNull(),
+    /** Plaintext HMAC signing secret. Returned once at creation, redacted afterwards. */
+    secret: varchar("secret", { length: 80 }).notNull(),
+    /** JSON array of event-type strings. e.g. ["submission.created"] */
+    events: jsonb("events").notNull().default([]),
+    /** active | revoked */
+    status: varchar("status", { length: 20 }).notNull().default("active"),
+    last_delivery_at: timestamp("last_delivery_at"),
+    last_delivery_status: integer("last_delivery_status"),
+    total_deliveries: integer("total_deliveries").notNull().default(0),
+    created_at: timestamp("created_at").notNull().defaultNow(),
+    updated_at: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => ({
+    userIdx: index("idx_api_webhooks_user").on(t.user_id),
+    statusIdx: index("idx_api_webhooks_status").on(t.status),
+  }),
+);
+
+export const insertApiWebhookSchema = createInsertSchema(apiWebhooks).omit({
+  created_at: true,
+  updated_at: true,
+  total_deliveries: true,
+  last_delivery_at: true,
+  last_delivery_status: true,
+});
+export type InsertApiWebhook = z.infer<typeof insertApiWebhookSchema>;
+export type ApiWebhook = typeof apiWebhooks.$inferSelect;

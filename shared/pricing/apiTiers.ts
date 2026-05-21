@@ -28,6 +28,15 @@ export interface ApiTier {
   monthlyCallQuota: number;
   /** Token-bucket capacity (and refill per minute) for short-burst limiting. */
   rateLimitPerMinute: number;
+  /**
+   * Max calculators the user can own via the API (Wave AJ-6). -1 = unlimited.
+   * Counted against active (non-deleted) calculators only.
+   */
+  maxCalculators: number;
+  /**
+   * Max webhook subscriptions allowed (Wave AJ-6). -1 = unlimited, 0 = none.
+   */
+  webhookQuota: number;
   /** Bullet copy for the pricing page. */
   features: string[];
   /** Env-var name holding the Stripe price id for monthly billing. */
@@ -44,6 +53,8 @@ export const API_TIERS: ApiTier[] = [
     priceAnnual: 0,
     monthlyCallQuota: 100,
     rateLimitPerMinute: 5,
+    maxCalculators: 1,
+    webhookQuota: 0,
     features: ["1 API key", "Sandbox mode", "Community support"],
     stripeMonthlyPriceEnv: "",
     stripeAnnualPriceEnv: "",
@@ -56,6 +67,8 @@ export const API_TIERS: ApiTier[] = [
     priceAnnual: 290,
     monthlyCallQuota: 5_000,
     rateLimitPerMinute: 30,
+    maxCalculators: 3,
+    webhookQuota: 5,
     features: ["3 API keys", "Webhooks", "Email support"],
     stripeMonthlyPriceEnv: "STRIPE_API_STARTER_MONTHLY_PRICE",
     stripeAnnualPriceEnv: "STRIPE_API_STARTER_ANNUAL_PRICE",
@@ -67,6 +80,8 @@ export const API_TIERS: ApiTier[] = [
     priceAnnual: 790,
     monthlyCallQuota: 50_000,
     rateLimitPerMinute: 120,
+    maxCalculators: 25,
+    webhookQuota: 20,
     features: ["Unlimited keys", "Custom webhooks", "Priority email"],
     stripeMonthlyPriceEnv: "STRIPE_API_GROWTH_MONTHLY_PRICE",
     stripeAnnualPriceEnv: "STRIPE_API_GROWTH_ANNUAL_PRICE",
@@ -78,6 +93,8 @@ export const API_TIERS: ApiTier[] = [
     priceAnnual: 1_990,
     monthlyCallQuota: 500_000,
     rateLimitPerMinute: 600,
+    maxCalculators: -1,
+    webhookQuota: 100,
     features: ["SLA 99.9%", "Multi-team", "Dedicated Slack"],
     stripeMonthlyPriceEnv: "STRIPE_API_SCALE_MONTHLY_PRICE",
     stripeAnnualPriceEnv: "STRIPE_API_SCALE_ANNUAL_PRICE",
