@@ -323,8 +323,9 @@
   position: relative;
 }
 .float-field > .premium-input {
-  padding-top: 20px;
-  padding-bottom: 6px;
+  padding-top: 24px;
+  padding-bottom: 4px;
+  font-size: 13.5px;
 }
 .float-field > label {
   position: absolute;
@@ -348,9 +349,10 @@
  * data-empty attribute set by the parent. */
 .float-field--select > select.premium-input,
 .float-field > select.premium-input {
-  padding-top: 20px;
-  padding-bottom: 6px;
+  padding-top: 24px;
+  padding-bottom: 4px;
   padding-right: 30px;
+  font-size: 13.5px;
 }
 .float-field--select > select.premium-input + label,
 .float-field > select.premium-input + label {
