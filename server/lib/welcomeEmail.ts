@@ -74,7 +74,6 @@ function getServiceCopy(serviceId: string): ServiceCopy {
     intro: "We've completed the initial setup — your site is now being monitored for uptime, security, and performance around the clock.",
     firstAction: "Check your monitoring dashboard",
   };
-  /* AdFlow dropped (Sprint 1) — kept for legacy client_services that may still exist */
   if (serviceId.startsWith("adflow")) return {
     hero: "Your ad campaigns are running",
     intro: "Tracking, creatives, and targeting are all live. The white-label team is monitoring daily for the first week to dial in performance.",
