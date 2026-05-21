@@ -2443,13 +2443,21 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
       logoSize: 'medium',
       // W-AS-1b — AO-6c Brand Studio: dark industrial diagonal gradient
       // body + bold orange-accented result panel.
+      // W-AS-1c — direction promoted from clamped `'linear-down'` to true
+      // diagonal `'to bottom right'`; border softened from full `'accent'`
+      // to `'accent-tinted'`; per-template `animations` bundle added.
       bgMode: 'gradient',
-      bgGradient: { from: '#0f172a', to: '#1e293b', direction: 'linear-down' },
+      bgGradient: { from: '#0f172a', to: '#1e293b', direction: 'to bottom right' },
       bgImageTint: 0,
       resultPanel: {
         accentOverride: '#fb923c',
         emphasis: 'bold',
-        border: 'accent',
+        border: 'accent-tinted',
+      },
+      animations: {
+        step_transition: 'slide-fade',
+        duration_ms: 280,
+        reduced_motion_respect: true,
       },
     },
     fields: [
@@ -2509,13 +2517,21 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
       logoSize: 'medium',
       // W-AS-1b — AO-6c Brand Studio: clean glass gradient body, normal
       // indigo-accented result panel with hairline border.
+      // W-AS-1c — direction normalised to CSS-standard `'to bottom'`;
+      // border stays `'subtle'` (already correct); animations bundle added
+      // with a calm 220ms fade.
       bgMode: 'gradient',
-      bgGradient: { from: '#f8fafc', to: '#e0e7ff', direction: 'linear-down' },
+      bgGradient: { from: '#f8fafc', to: '#e0e7ff', direction: 'to bottom' },
       bgImageTint: 0,
       resultPanel: {
         accentOverride: '#4f46e5',
         emphasis: 'normal',
         border: 'subtle',
+      },
+      animations: {
+        step_transition: 'fade',
+        duration_ms: 220,
+        reduced_motion_respect: true,
       },
     },
     fields: [
@@ -2574,13 +2590,21 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
       logoSize: 'medium',
       // W-AS-1b — AO-6c Brand Studio: warm urgent amber→peach gradient
       // body, bold red-accented result panel with accent border.
+      // W-AS-1c — direction normalised to CSS-standard `'to bottom'`;
+      // border softened from full `'accent'` to `'accent-tinted'` so the
+      // red doesn't shout over the amber body; animations bundle added.
       bgMode: 'gradient',
-      bgGradient: { from: '#fef3c7', to: '#fed7aa', direction: 'linear-down' },
+      bgGradient: { from: '#fef3c7', to: '#fed7aa', direction: 'to bottom' },
       bgImageTint: 0,
       resultPanel: {
         accentOverride: '#dc2626',
         emphasis: 'bold',
-        border: 'accent',
+        border: 'accent-tinted',
+      },
+      animations: {
+        step_transition: 'slide',
+        duration_ms: 250,
+        reduced_motion_respect: true,
       },
     },
     fields: [
@@ -2760,9 +2784,15 @@ export interface AdvStyle {
 /** W-AO-6c — Brand Studio background mode. */
 export type AdvBgMode = 'solid' | 'gradient' | 'image';
 
-/** W-AO-6c — gradient direction shorthand consumed by the renderer. */
+/** W-AO-6c — gradient direction shorthand consumed by the renderer.
+ *  W-AS-1c — extended with standard CSS linear-gradient direction shorthands
+ *  (`'to top'`, `'to bottom right'`, …) so templates can pick diagonals.
+ *  The legacy `'linear-*'` values are retained for backwards-compat with
+ *  any stored configs from AO-6c. */
 export type AdvBgGradientDirection =
-  | 'linear-up' | 'linear-down' | 'linear-left' | 'linear-right' | 'radial';
+  | 'linear-up' | 'linear-down' | 'linear-left' | 'linear-right' | 'radial'
+  | 'to top' | 'to top right' | 'to right' | 'to bottom right'
+  | 'to bottom' | 'to bottom left' | 'to left' | 'to top left';
 
 /** W-AO-6c — two-stop gradient + direction. */
 export interface AdvBgGradient {
@@ -2774,8 +2804,10 @@ export interface AdvBgGradient {
 /** W-AO-6c — result-panel emphasis token. */
 export type AdvResultEmphasis = 'subtle' | 'normal' | 'bold';
 
-/** W-AO-6c — result-panel border treatment. */
-export type AdvResultBorder = 'none' | 'subtle' | 'accent';
+/** W-AO-6c — result-panel border treatment.
+ *  W-AS-1c — `'accent-tinted'` added: a 1.5px accent border at ~22% opacity,
+ *  midway between the hairline `'subtle'` and the full-strength `'accent'`. */
+export type AdvResultBorder = 'none' | 'subtle' | 'accent' | 'accent-tinted';
 
 /** W-AO-6c — result-panel overrides. Every field optional; absent →
  *  the existing renderer defaults win. */
