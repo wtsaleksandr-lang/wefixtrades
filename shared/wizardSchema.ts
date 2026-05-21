@@ -133,6 +133,26 @@ export const questionDefinitionSchema = z.object({
     "selected_difficulty_id",
     "is_after_hours",
   ]).optional(),
+
+  // Wave W-LAYOUT — how this question packs into a MultiQuestionStep.
+  // "full"  : spans the full row (default; existing behavior)
+  // "half"  : spans one of two columns; pairs with another half-width
+  //           question if one is adjacent in the visible list, otherwise
+  //           falls back to full-width on its own row. Mobile (<360px)
+  //           always collapses to full.
+  // Optional (not `.default()`) so existing literal-typed question
+  // objects across the codebase don't have to be updated — the renderer
+  // treats missing as 'full'.
+  width: z.enum(["full", "half"]).optional(),
+
+  // Wave W-LAYOUT — how a multi-select/checkbox/radio question lays out
+  // its options.
+  //   "auto"   : inline (horizontal) when ≤4 options AND all labels short
+  //              (≤14 chars); stacked otherwise. Default — surprises least.
+  //   "inline" : force horizontal layout (wraps if it overflows).
+  //   "stack"  : force vertical (the legacy default).
+  // Optional for the same reason as `width` — renderer treats missing as 'auto'.
+  options_layout: z.enum(["auto", "inline", "stack"]).optional(),
 });
 
 export type QuestionDefinition = z.infer<typeof questionDefinitionSchema>;

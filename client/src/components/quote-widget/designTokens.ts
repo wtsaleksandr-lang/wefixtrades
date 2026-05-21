@@ -58,22 +58,31 @@ export const stepSubtitleStyle: React.CSSProperties = {
 };
 
 /** Shared style for question labels */
+// Wave W-LAYOUT — bumped marginBottom 8 → 12 so the title breathes
+// against the input/placeholder below it. The previous 8px was tight
+// enough that placeholder text felt glued to the title (see #366
+// follow-up screenshot from Alex). 12px lines up with the 4-step
+// vertical rhythm used elsewhere in the widget.
 export const labelStyle: React.CSSProperties = {
   fontSize: '14px',
   fontWeight: 600,
   color: eff.text,
   lineHeight: 1.3,
   display: 'block',
-  marginBottom: '8px',
+  marginBottom: '12px',
   fontFamily: eff.font,
 };
 
 /** Shared style for question descriptions */
+// Wave W-LAYOUT — when both label and description are present, the
+// stack is now (label) → 12px → (desc) → 10px → (input). Previously
+// 8/8 felt cramped because the desc text was visually closer to the
+// input than to the label it described.
 export const descStyle: React.CSSProperties = {
   fontSize: '13px',
   color: eff.textBody,
   lineHeight: 1.5,
-  margin: '0 0 8px',
+  margin: '-4px 0 10px',
 };
 
 /** Shared style for primary CTA buttons */

@@ -246,6 +246,39 @@ export default function FieldRow({
             />
           </FloatField>
 
+          {/* Wave W-LAYOUT — Width toggle.
+              field.colSpan === 1   → half (one of two grid columns)
+              field.colSpan === 2 / undefined → full (spans both)
+              Picking "Full" sets colSpan to undefined (cleaner — no
+              stored value when the field uses the default). The
+              widget's grid (AdvancedCalculator data-colspan="1" / wizard
+              MultiQuestionStep data-question-width="half") and the
+              admin preview pane both honor this. Mobile (<=360px /
+              <=480px) always collapses to one column regardless. */}
+          <div className="qq-field-width" data-testid={`field-row-width-${field.id}`}>
+            <span className="qq-field-width-label">Width</span>
+            <div className="qq-field-width-segmented" role="group" aria-label="Field width">
+              <button
+                type="button"
+                className={`qq-field-width-btn${field.colSpan === 1 ? ' is-active' : ''}`}
+                aria-pressed={field.colSpan === 1}
+                onClick={() => update({ colSpan: 1 })}
+                data-testid={`field-row-width-half-${field.id}`}
+              >
+                ½
+              </button>
+              <button
+                type="button"
+                className={`qq-field-width-btn${field.colSpan !== 1 ? ' is-active' : ''}`}
+                aria-pressed={field.colSpan !== 1}
+                onClick={() => update({ colSpan: undefined })}
+                data-testid={`field-row-width-full-${field.id}`}
+              >
+                Full
+              </button>
+            </div>
+          </div>
+
           {supportsNumeric && (
             <>
               <div className="qq-field-grid-3">
@@ -469,6 +502,37 @@ export default function FieldRow({
         }
         .qq-field-grid-3 {
           display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;
+        }
+        /* Wave W-LAYOUT — Width toggle (½ / Full). Sits inline as a row
+           of its own under the Label field. Visually matches the
+           SegmentedControl in SettingsTab but compressed for the dense
+           Build > Fields panel. */
+        .qq-field-width {
+          display: flex; align-items: center; gap: 10px;
+          padding: 2px 2px 0;
+        }
+        .qq-field-width-label {
+          font-size: 11.5px; font-weight: 600; color: ${p.colors.subtle};
+          text-transform: uppercase; letter-spacing: 0.04em;
+        }
+        .qq-field-width-segmented {
+          display: inline-flex; border: 1px solid ${p.colors.border};
+          border-radius: 7px; overflow: hidden; background: #fff;
+        }
+        .qq-field-width-btn {
+          padding: 5px 12px; border: none; background: transparent;
+          font: inherit; font-size: 12px; font-weight: 600;
+          color: ${p.colors.body}; cursor: pointer;
+          transition: background 0.1s ease, color 0.1s ease;
+        }
+        .qq-field-width-btn + .qq-field-width-btn {
+          border-left: 1px solid ${p.colors.border};
+        }
+        .qq-field-width-btn:hover {
+          background: ${p.colors.accentLighter};
+        }
+        .qq-field-width-btn.is-active {
+          background: ${p.colors.accent}; color: #fff;
         }
         .qq-field-options-list {
           display: flex; flex-direction: column; gap: 5px;
