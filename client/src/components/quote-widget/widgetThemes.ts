@@ -87,6 +87,65 @@ export const WIDGET_THEMES: Record<string, WidgetTheme> = {
     result: '#c0186b', resultText: '#ffffff', resultMuted: 'rgba(255,255,255,0.85)',
     shadow: SHADOW_LIGHT,
   },
+
+  /* Wave Z — palette expansion. Each theme below uses generic, broadly-used
+   * web colour values (a darkened pure yellow, a saturated brand-blue, an
+   * everyday red, etc.) — colour values are uncopyrightable facts, applied
+   * through our own structural design tokens. */
+
+  sunburst: {
+    id: 'sunburst', name: 'Sunburst',
+    bg: '#fafafa', surface: '#ffffff',
+    text: '#0a0a0a', textBody: '#525252', textMuted: '#9ca3af', border: '#e5e7eb',
+    accent: '#fde047', accentTint: 'rgba(253,224,71,0.18)',
+    result: '#0a0a0a', resultText: '#ffffff', resultMuted: 'rgba(255,255,255,0.78)',
+    shadow: SHADOW_LIGHT,
+  },
+
+  royal: {
+    id: 'royal', name: 'Royal',
+    bg: '#f5f8fc', surface: '#ffffff',
+    text: '#0f172a', textBody: '#475569', textMuted: '#94a3b8', border: '#dbe4f0',
+    accent: '#2563eb', accentTint: 'rgba(37,99,235,0.10)',
+    result: '#e6effb', resultText: '#0f172a', resultMuted: '#475569',
+    shadow: SHADOW_LIGHT,
+  },
+
+  scarlet: {
+    id: 'scarlet', name: 'Scarlet',
+    bg: '#fff7f7', surface: '#ffffff',
+    text: '#1c0606', textBody: '#7a4040', textMuted: '#c08585', border: '#f2d3d3',
+    accent: '#dc2626', accentTint: 'rgba(220,38,38,0.10)',
+    result: '#dc2626', resultText: '#ffffff', resultMuted: 'rgba(255,255,255,0.85)',
+    shadow: SHADOW_LIGHT,
+  },
+
+  earth: {
+    id: 'earth', name: 'Earth',
+    bg: '#f7f4ec', surface: '#ffffff',
+    text: '#2a2418', textBody: '#6b6452', textMuted: '#a39c89', border: '#e3dbc4',
+    accent: '#f97316', accentTint: 'rgba(249,115,22,0.10)',
+    result: '#3f4a2c', resultText: '#ffffff', resultMuted: 'rgba(255,255,255,0.82)',
+    shadow: SHADOW_LIGHT,
+  },
+
+  ocean: {
+    id: 'ocean', name: 'Ocean',
+    bg: '#f0fafe', surface: '#ffffff',
+    text: '#0f2333', textBody: '#436278', textMuted: '#88a3b8', border: '#cfe6f1',
+    accent: '#0ea5e9', accentTint: 'rgba(14,165,233,0.10)',
+    result: '#0ea5e9', resultText: '#ffffff', resultMuted: 'rgba(255,255,255,0.85)',
+    shadow: SHADOW_LIGHT,
+  },
+
+  indigo: {
+    id: 'indigo', name: 'Indigo',
+    bg: '#f7f9fd', surface: '#ffffff',
+    text: '#0c1730', textBody: '#475174', textMuted: '#8d97b3', border: '#d8def0',
+    accent: '#3b82f6', accentTint: 'rgba(59,130,246,0.10)',
+    result: '#0f1f44', resultText: '#ffffff', resultMuted: 'rgba(255,255,255,0.78)',
+    shadow: SHADOW_LIGHT,
+  },
 };
 
 export const WIDGET_THEME_LIST: WidgetTheme[] = Object.values(WIDGET_THEMES);
