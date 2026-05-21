@@ -90,3 +90,15 @@ client/src/pages/admin/QuoteQuickTradeDetailPage.tsx
 client/src/pages/admin/QuoteQuickTradesPage.tsx
 client/src/pages/admin/WaitlistPage.tsx
 client/src/pages/portal/PortalBrandKitsPage.tsx
+
+# ── W-AW-1: TradeLine voices admin + portal knowledge base + setup voice picker ──
+client/src/pages/portal/PortalTradelineKnowledgePage.tsx
+client/src/pages/portal/PortalTradelineVoicePage.tsx
+client/src/pages/portal/TradelineSetup/VoicePicker.tsx
+client/src/pages/admin/TradelineVoicesPage.tsx
+
+# ── W-AV-1: Business Operator AI activity oversight (read-mostly admin UI) ──
+client/src/pages/admin/AdminAiActivityPage.tsx
+
+# ── W-AX-1: System-wide AI gate dashboard (admin oversight UI, kill switches + budgets) ──
+client/src/pages/admin/AdminAiGatesPage.tsx
