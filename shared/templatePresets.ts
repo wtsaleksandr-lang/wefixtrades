@@ -1387,7 +1387,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
       { id: 'screens', name: 'Screens', label: 'Include window screens', type: 'toggle', on_value: 45 },
       { id: 'tracks', name: 'Tracks', label: 'Detail clean the tracks', type: 'toggle', on_value: 35 },
     ],
-    calculations: [calc('Estimated Quote', '[Number of windows] * (8 + [Stories]) * [Sides] + [Screens] + [Tracks]')],
+    calculations: [calc('Estimated Quote', '[Windows] * (8 + [Stories]) * [Sides] + [Screens] + [Tracks]')],
     result_calc: 'Estimated Quote',
   },
 
@@ -1397,7 +1397,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
   {
     id: 'kitchen_renovation', name: 'Kitchen Renovation',
     description: 'Full-kitchen remodel estimate by size, cabinet grade and finishes.',
-    category: 'Renovation', trades: ['kitchen_renovation', 'general_renovation', 'general_contractor'],
+    category: 'Renovation', trades: ['kitchen_remodel', 'general_renovation', 'general_contractor'],
     layout: 'two-column', theme: 'midnight',
     header: { title: 'Kitchen Renovation Estimate', subtitle: 'A starting price for your full kitchen remodel.', align: 'left' },
     fields: [
@@ -1421,7 +1421,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
   {
     id: 'bathroom_renovation', name: 'Bathroom Renovation',
     description: 'Bathroom remodel pricing by fixture tier and tile coverage.',
-    category: 'Renovation', trades: ['bathroom_renovation', 'general_renovation'],
+    category: 'Renovation', trades: ['bathroom_remodel', 'general_renovation'],
     layout: 'two-column', theme: 'light',
     header: { title: 'Bathroom Renovation Quote', subtitle: 'Estimate your new bathroom in seconds.', align: 'left' },
     fields: [
@@ -1442,7 +1442,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
   {
     id: 'basement_finishing', name: 'Basement Finishing',
     description: 'Per-sqft basement finish estimate with ceiling + scope modifiers.',
-    category: 'Renovation', trades: ['basement_renovation', 'general_renovation'],
+    category: 'Renovation', trades: ['basement_finishing', 'general_renovation'],
     layout: 'single-column', theme: 'midnight',
     header: { title: 'Basement Finishing Cost Calculator', subtitle: 'Unfinished to fully-finished — priced from the studs out.', align: 'left' },
     fields: [
@@ -1509,7 +1509,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
   {
     id: 'plumbing_service', name: 'Plumbing Service',
     description: 'Per-job plumbing estimate by service type + urgency.',
-    category: 'Mechanical', trades: ['plumbing', 'emergency_plumbing'],
+    category: 'Mechanical', trades: ['plumbing_services', 'emergency_plumbing'],
     layout: 'single-column', theme: 'midnight',
     header: { title: 'Plumbing Service Quote', subtitle: 'Get an upfront price before the truck rolls.', align: 'left' },
     fields: [
@@ -1530,7 +1530,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
   {
     id: 'electrical_work', name: 'Electrical Work',
     description: 'Per-job electrical estimate covering common residential scopes.',
-    category: 'Mechanical', trades: ['electrical', 'emergency_electrical'],
+    category: 'Mechanical', trades: ['electrical_services', 'emergency_electrical'],
     layout: 'single-column', theme: 'midnight',
     header: { title: 'Electrical Work Quote', subtitle: 'From a single outlet to a full panel upgrade.', align: 'left' },
     fields: [
@@ -1550,7 +1550,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
   {
     id: 'ev_charger_install', name: 'EV Charger Installation',
     description: 'Level-2 EV charger install with electrical-scope modifiers.',
-    category: 'Mechanical', trades: ['ev_charger_installation', 'electrical'],
+    category: 'Mechanical', trades: ['ev_charger', 'electrical_services'],
     layout: 'two-column', theme: 'forest',
     header: { title: 'EV Charger Install Quote', subtitle: 'Get charging at home — priced from your garage out.', align: 'left' },
     fields: [
@@ -1676,7 +1676,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
       { id: 'condition', name: 'Condition', label: 'Current condition', type: 'radio',
         options: [opt('Light (regular cleaning)', 0), opt('Moderate (3-6 months neglect)', 30), opt('Heavy (over a year)', 75)] },
     ],
-    calculations: [calc('Estimated Quote', '[Detail Package] * [Vehicle Size] + [Add-ons] + [Condition]')],
+    calculations: [calc('Estimated Quote', '[Package] * [Vehicle Size] + [Extras] + [Condition]')],
     result_calc: 'Estimated Quote',
   },
 
@@ -1793,7 +1793,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
   {
     id: 'moving_service', name: 'Moving Service',
     description: 'Local or long-distance moving quote by home size, distance and crew.',
-    category: 'Professional', trades: ['moving'],
+    category: 'Professional', trades: ['moving_services'],
     layout: 'single-column', theme: 'forest',
     header: { title: 'Moving Service Quote', subtitle: 'Door-to-door pricing from your home size and distance.', align: 'left' },
     fields: [
@@ -1830,7 +1830,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
       { id: 'turnaround', name: 'Turnaround', label: 'Report turnaround', type: 'radio',
         options: [opt('Standard (48 hours)', 0), opt('Rush (next business day)', 95), opt('Same-day report', 180)] },
     ],
-    calculations: [calc('Estimated Quote', '[Home Size] * 0.18 * [Home Age] + [Add-on Tests] + [Report Turnaround]')],
+    calculations: [calc('Estimated Quote', '[Home Size] * 0.18 * [Home Age] + [Add-on Tests] + [Turnaround]')],
     result_calc: 'Estimated Quote',
   },
 
@@ -1840,7 +1840,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
   {
     id: 'solar_panel_install', name: 'Solar Panel Installation',
     description: 'Rooftop solar quote by system size, roof type and battery storage.',
-    category: 'Renewable Energy', trades: ['solar_panel_installation', 'solar_battery'],
+    category: 'Renewable Energy', trades: ['solar_panel', 'solar_battery'],
     layout: 'two-column', theme: 'forest',
     header: { title: 'Solar Panel Install Quote', subtitle: 'A clean-energy estimate based on your home and goals.', align: 'left' },
     fields: [
