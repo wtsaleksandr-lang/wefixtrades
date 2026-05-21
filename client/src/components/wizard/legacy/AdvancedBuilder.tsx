@@ -159,10 +159,23 @@ export default function AdvancedBuilder({ advanced, onChange, onExitAdvanced }: 
     try {
       const body = new FormData();
       body.append('file', file);
-      const res = await fetch('/api/ai/quote-to-calculator', { method: 'POST', body });
+      // Wave AD-2 — include credentials so the route runs in the same auth
+      // context as the rest of the wizard (lets us tie usage to the signed-in
+      // user once /api/ai/quote-to-calculator is wired into the spend log).
+      const res = await fetch('/api/ai/quote-to-calculator', {
+        method: 'POST',
+        credentials: 'include',
+        body,
+      });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.advanced) {
-        setQuoteError(data?.error || 'Could not read that quote. Try a clearer photo.');
+        if (res.status === 401) {
+          setQuoteError('Sign in to use AI image-to-template. Open this calculator from your dashboard.');
+        } else if (res.status === 503) {
+          setQuoteError('AI is unavailable right now — try again shortly.');
+        } else {
+          setQuoteError(data?.error || 'Could not read that quote. Try a clearer photo.');
+        }
       } else {
         setProposal({
           advanced: data.advanced,
@@ -202,6 +215,7 @@ export default function AdvancedBuilder({ advanced, onChange, onExitAdvanced }: 
     try {
       const res = await fetch('/api/ai/generate-advanced-calculator', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ description: aiText.trim() }),
       });
@@ -1064,6 +1078,7 @@ function CalcCard({ calc, fields, otherCalcs, preview, onChange, onRemove }: {
     try {
       const res = await fetch('/api/ai/generate-formula', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           description: aiText.trim(),

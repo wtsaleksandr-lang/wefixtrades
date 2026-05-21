@@ -215,6 +215,20 @@ async function streamChat(
       handlers.onError(`budget:${parsed.code}`);
       return;
     }
+    // Wave AD-2 — surface auth errors as a distinct code so the UI can render
+    // a clear "sign in to use AI" message instead of the generic
+    // "Authentication required" string the middleware returns. Common case:
+    // the wizard was opened via `/wizard?token=...` from a logged-out
+    // browser, so the user has token-scoped read access but no session
+    // cookie for the AI chat endpoint.
+    if (res.status === 401) {
+      handlers.onError('auth:required');
+      return;
+    }
+    if (res.status === 402 && parsed?.error === 'business_tier_required') {
+      handlers.onError('tier:business_required');
+      return;
+    }
     handlers.onError(parsed?.error || `HTTP ${res.status}`);
     return;
   }
@@ -634,7 +648,11 @@ export default function AIBubble(props: AIBubbleProps) {
             <div className="qq-ai-err" data-testid="aibubble-error" role="alert">
               {streamErr.startsWith('budget:')
                 ? 'AI budget reached for this calculator.'
-                : `Something went wrong: ${streamErr}`}
+                : streamErr === 'auth:required'
+                  ? 'Sign in to use the AI assistant. Open this calculator from your dashboard, or refresh the page.'
+                  : streamErr === 'tier:business_required'
+                    ? 'The AI assistant is a Business-plan feature. Upgrade to unlock it.'
+                    : `Something went wrong: ${streamErr}`}
             </div>
           )}
 
