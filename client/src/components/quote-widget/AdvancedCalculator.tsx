@@ -17,6 +17,7 @@ import {
 } from '@shared/templatePresets';
 import { eff } from './designTokens';
 import { resolveWidgetTheme, type WidgetTheme } from './widgetThemes';
+import { useCountUp } from './useCountUp';
 
 /**
  * Wave H5 — Style tab integration.
@@ -416,6 +417,10 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
   const resultCalc = explicitPrimary || legacyHeadline || (calcs.length ? calcs[calcs.length - 1] : undefined);
   const resultName = resultCalc?.name || '';
   const headline = values[resultName] ?? 0;
+  // Wave AA — animated headline. Boots from 0 → headline on mount, then
+  // smooth-transitions to each new value as sliders / selects change.
+  // Respects prefers-reduced-motion (returns the target value verbatim).
+  const animatedHeadline = useCountUp(headline);
   const results = advanced.results || {};
   const showBreakdown = results.show_breakdown !== false;
   const resultHeading = (results.heading || '').trim() || resultCalc?.name || 'Total';
@@ -650,7 +655,7 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
               wordBreak: 'break-word',
               overflowWrap: 'anywhere',
             }}>
-              {formatResult(headline, resultCalc?.format || 'currency', advanced.numberFormat)}
+              {formatResult(animatedHeadline, resultCalc?.format || 'currency', advanced.numberFormat)}
             </p>
             {/* Wave H4 — optional caption beneath the headline value. */}
             {resultCalc?.caption && resultCalc.caption.trim() !== '' && (
