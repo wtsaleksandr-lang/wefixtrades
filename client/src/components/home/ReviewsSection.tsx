@@ -269,7 +269,12 @@ export default function ReviewsSection() {
               padding: "0 12px",
               fontSize: 15,
               fontWeight: 600,
-              color: mkt.accent,
+              /* Wave AE-3 — brand blue (#0d3cfc) on the dark slate review
+               * card surface (rgb(36,45,48)) computed to a 2.06 ratio, well
+               * below WCAG AA. Flip to mkt.onDark (near-white) which sits
+               * comfortably above the 4.5 threshold and keeps the secondary
+               * link visually distinct from the cream primary CTA next to it. */
+              color: mkt.onDark,
               textDecoration: "none",
               transition: "opacity 0.15s ease",
               flex: "1 1 0",

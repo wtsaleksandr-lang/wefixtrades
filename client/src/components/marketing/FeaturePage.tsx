@@ -450,9 +450,11 @@ export default function FeaturePage({ config }: { config: FeaturePageConfig }) {
         <section data-testid="feature-faq-section" style={{ background: C.bg, padding: "96px 28px" }}>
           <div style={{ maxWidth: 760, margin: "0 auto" }}>
             <div style={{ textAlign: "center", marginBottom: 48 }} data-reveal="fade-up">
-              <div style={{ fontSize: 11, fontWeight: 700, color: C.sage, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>
-                FAQ
-              </div>
+              {/* Wave AE-3 — removed the "FAQ" eyebrow pill above the
+                 "Common questions" H2. Both labels meant the same thing
+                 (one is just the abbreviation of the other); the pill was
+                 a visual stutter rather than a useful category cue. Same
+                 pattern as the ReviewsSection.tsx fix landed in Wave AE. */}
               <h2 style={{ fontSize: "clamp(24px, 3vw, 36px)", fontWeight: 600, color: C.heading, letterSpacing: "-0.025em" }}>
                 Common questions
               </h2>

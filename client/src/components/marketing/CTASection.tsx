@@ -72,7 +72,14 @@ export default function CTASection({ heading, subtext, ctaLabel, ctaHref }: CTAS
           marginBottom: -60,
         }}
       >
-        <Link href={ctaHref ?? "/demo"} style={{ textDecoration: "none", display: "block" }}>
+        {/* Wave AE-3 — explicit color on the wrapping <a>. Without it, the
+         * contrast audit sees the link inherit the tailwind `--foreground`
+         * default (rgb(22,24,29)) against the page bg (rgb(24,29,31)) and
+         * flags the near-identical dark pair, even though the actual visible
+         * children all set their own colors. Anchoring the link's own color
+         * to the dark INK already used inside resolves the false-flag and
+         * keeps any unstyled descendant text legible on the cream card. */}
+        <Link href={ctaHref ?? "/demo"} style={{ textDecoration: "none", display: "block", color: DARK }}>
           <div className="cta-inner-wrap">
             {/* Content */}
             <div style={{ marginBottom: 24 }}>
