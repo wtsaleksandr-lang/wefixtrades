@@ -14,6 +14,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import PortalLayout from "@/components/portal/PortalLayout";
+import BackButton from "@/components/ui/back-button";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -67,6 +68,7 @@ export default function ChatWidgetInstallEntry() {
   return (
     <PortalLayout>
       <div className="max-w-3xl mx-auto p-4 sm:p-6 space-y-6">
+        <BackButton to="/portal/tradeline/chat-widget" label="Back to chat widget" />
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Have us install your chat widget</h1>
           <p className="text-sm text-gray-600 mt-1">

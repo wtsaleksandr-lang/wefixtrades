@@ -2,6 +2,7 @@ import { usePageTitle } from "@/hooks/usePageTitle";
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import PortalLayout from "@/components/portal/PortalLayout";
+import BackButton from "@/components/ui/back-button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -185,6 +186,7 @@ export default function PortalCompetitors() {
   return (
     <PortalLayout>
       <div className="max-w-6xl mx-auto px-4 py-8">
+        <BackButton to="/portal/reviews" label="Back to Reviews" className="mb-3" />
         {/* Header */}
         <div className="flex items-start justify-between mb-8">
           <div>

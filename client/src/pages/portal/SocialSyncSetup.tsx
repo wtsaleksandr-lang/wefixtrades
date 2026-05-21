@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { ArrowRight, ArrowLeft, CheckCircle, Link2, AlertTriangle } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
+import BackButton from "@/components/ui/back-button";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -174,6 +175,7 @@ export default function SocialSyncSetup() {
   return (
     <PortalLayout>
       <div className="max-w-xl mx-auto p-4 space-y-5">
+        <BackButton to="/portal/socialsync" label="Back to Social Media" />
         {/* Header */}
         <div>
           <h1 className="text-lg font-bold text-gray-900">{isEditing ? "Edit SocialSync Settings" : "Set Up SocialSync"}</h1>
