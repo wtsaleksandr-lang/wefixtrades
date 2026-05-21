@@ -120,7 +120,21 @@ export default function TradelineSetupPage() {
           </>
         )}
 
-        <div className="pt-2 text-center">
+        <div className="pt-2 text-center space-x-4">
+          <button
+            type="button"
+            onClick={() => setLocation("/portal/tradeline/voice")}
+            className="text-sm text-indigo-600 hover:text-indigo-700 underline-offset-2 hover:underline"
+          >
+            Choose your AI voice →
+          </button>
+          <button
+            type="button"
+            onClick={() => setLocation("/portal/tradeline/knowledge")}
+            className="text-sm text-indigo-600 hover:text-indigo-700 underline-offset-2 hover:underline"
+          >
+            Edit knowledge base →
+          </button>
           <button
             type="button"
             onClick={goToDashboard}

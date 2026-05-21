@@ -24,6 +24,7 @@ import {
   buildAssistantConfigWithAvailability,
   buildTradeLineAssistantConfig,
   buildTradeLineContext,
+  buildTradeLineContextWithKnowledge,
   resolveTradeLineClient,
   logTradeLineCall,
   processTradeLineCallPostHook,
@@ -120,7 +121,11 @@ export function registerVapiRoutes(app: Express): void {
 
           // Use TradeLine mode-aware handler if resolved, otherwise default
           const reply = tradeLineResolved
-            ? await handleTradeLineConversationTurn(messages, callId, buildTradeLineContext(tradeLineResolved))
+            ? await handleTradeLineConversationTurn(
+                messages,
+                callId,
+                await buildTradeLineContextWithKnowledge(tradeLineResolved),
+              )
             : await handleConversationTurn(messages, callId);
 
           return res.json({ reply });
@@ -339,7 +344,11 @@ export function registerVapiRoutes(app: Express): void {
       }
 
       const reply = tradeLineCtx
-        ? await handleTradeLineConversationTurn(vapiMessages, convCallId, buildTradeLineContext(tradeLineCtx))
+        ? await handleTradeLineConversationTurn(
+            vapiMessages,
+            convCallId,
+            await buildTradeLineContextWithKnowledge(tradeLineCtx),
+          )
         : await handleConversationTurn(vapiMessages, convCallId);
 
       // Vapi custom-llm expects this response format

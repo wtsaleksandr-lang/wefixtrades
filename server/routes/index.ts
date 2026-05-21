@@ -82,6 +82,8 @@ import { registerQuoteQuickPublicRoutes } from "./quotequickPublicRoutes";
 import { registerAdminApiPlatformRoutes } from "./adminApiPlatformRoutes";
 import { registerPortalApiKeysRoutes } from "./portalApiKeysRoutes";
 import { registerPortalBrandKitsRoutes } from "./portalBrandKitsRoutes";
+import { registerAdminTradelineVoicesRoutes } from "./adminTradelineVoicesRoutes";
+import { registerPortalTradelineKnowledgeRoutes } from "./portalTradelineKnowledgeRoutes";
 import { registerAdminAuditLogRoutes } from "./adminAuditLogRoutes";
 import { registerApiV1Routes } from "./apiV1";
 
@@ -172,6 +174,8 @@ export async function registerRoutes(
   registerAdminApiPlatformRoutes(app);
   registerPortalApiKeysRoutes(app);
   registerPortalBrandKitsRoutes(app);
+  registerAdminTradelineVoicesRoutes(app);
+  registerPortalTradelineKnowledgeRoutes(app);
   registerAdminAuditLogRoutes(app);
   registerApiV1Routes(app);
 

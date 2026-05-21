@@ -1,0 +1,330 @@
+/**
+ * Wave W-AW-1 — Admin TradeLine voice catalog + per-client assistant settings.
+ *
+ * Replaces the static `shared/tradelineVoices.ts` registry with a DB-backed
+ * catalog managed from the admin UI. Also exposes per-client settings CRUD
+ * (voice id, greeting override, response style, monthly minute budget) and
+ * a usage roll-up endpoint for the analytics chart.
+ *
+ * Endpoints (all requireAdmin):
+ *   GET    /api/admin/tradeline/voices                — list catalog
+ *   POST   /api/admin/tradeline/voices                — add a new voice
+ *   PATCH  /api/admin/tradeline/voices/:id            — edit metadata
+ *   DELETE /api/admin/tradeline/voices/:id            — soft archive
+ *   GET    /api/admin/tradeline/voices/usage          — usage roll-up
+ *   GET    /api/admin/tradeline/settings/clients      — clients + their settings
+ *   PATCH  /api/admin/tradeline/settings/:clientId    — upsert per-client settings
+ *
+ * All mutations write to admin_activity_log so the audit page tells the
+ * story.
+ */
+
+import type { Express, Request, Response } from "express";
+import { z } from "zod";
+import { db } from "../db";
+import {
+  tradelineVoices,
+  tradelineAssistantSettings,
+  clients,
+} from "@shared/schema";
+import { requireAdmin } from "../auth";
+import { storage } from "../storage";
+import { createLogger } from "../lib/logger";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
+
+const log = createLogger("AdminTradelineVoices");
+
+const VOICE_BASE = "/api/admin/tradeline/voices";
+const SETTINGS_BASE = "/api/admin/tradeline/settings";
+
+const tagsSchema = z.array(z.string().max(40)).max(20).optional();
+
+const createVoiceBody = z.object({
+  id: z
+    .string()
+    .min(2)
+    .max(80)
+    .regex(/^[a-z0-9][a-z0-9_-]*$/, "id must be lowercase alphanumeric / dash / underscore"),
+  elevenlabs_voice_id: z.string().min(1).max(120),
+  display_name: z.string().min(1).max(120),
+  description: z.string().max(2000).nullable().optional(),
+  gender: z.enum(["female", "male", "neutral"]).nullable().optional(),
+  accent: z.string().max(40).nullable().optional(),
+  tags: tagsSchema,
+  sample_audio_url: z.string().max(2000).nullable().optional(),
+  status: z.enum(["active", "archived"]).optional(),
+});
+
+const updateVoiceBody = z.object({
+  elevenlabs_voice_id: z.string().min(1).max(120).optional(),
+  display_name: z.string().min(1).max(120).optional(),
+  description: z.string().max(2000).nullable().optional(),
+  gender: z.enum(["female", "male", "neutral"]).nullable().optional(),
+  accent: z.string().max(40).nullable().optional(),
+  tags: tagsSchema,
+  sample_audio_url: z.string().max(2000).nullable().optional(),
+  status: z.enum(["active", "archived"]).optional(),
+});
+
+const settingsBody = z.object({
+  voice_id: z.string().max(80).nullable().optional(),
+  greeting: z.string().max(2000).nullable().optional(),
+  response_style: z.enum(["concise", "detailed", "friendly"]).nullable().optional(),
+  monthly_minute_budget: z.number().int().min(0).max(1_000_000).nullable().optional(),
+  monthly_minute_used: z.number().int().min(0).optional(),
+  auto_disable_on_cap: z.boolean().optional(),
+  fallback_voice_id: z.string().max(80).nullable().optional(),
+});
+
+export function registerAdminTradelineVoicesRoutes(app: Express): void {
+  /* ─── GET /voices — list catalog ─── */
+  app.get(VOICE_BASE, requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      const rows = await db
+        .select()
+        .from(tradelineVoices)
+        .orderBy(asc(tradelineVoices.display_name));
+      res.json({ voices: rows });
+    } catch (err: any) {
+      log.error("list voices failed", { error: err?.message });
+      res.status(500).json({ error: "list_voices_failed" });
+    }
+  });
+
+  /* ─── POST /voices — add new ─── */
+  app.post(VOICE_BASE, requireAdmin, async (req: Request, res: Response) => {
+    const parsed = createVoiceBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "invalid_body", details: parsed.error.format() });
+      return;
+    }
+    try {
+      const [created] = await db
+        .insert(tradelineVoices)
+        .values({
+          id: parsed.data.id,
+          elevenlabs_voice_id: parsed.data.elevenlabs_voice_id,
+          display_name: parsed.data.display_name,
+          description: parsed.data.description ?? null,
+          gender: parsed.data.gender ?? null,
+          accent: parsed.data.accent ?? null,
+          tags: parsed.data.tags ?? [],
+          sample_audio_url: parsed.data.sample_audio_url ?? null,
+          status: parsed.data.status ?? "active",
+        })
+        .returning();
+
+      await storage.logAdminActivity({
+        actor_type: "admin",
+        actor_id: req.user?.id ?? null,
+        actor_name: (req.user as any)?.email ?? "admin",
+        action: "tradeline.voice_added",
+        entity_type: "tradeline_voice",
+        entity_id: null,
+        summary: `Added voice "${created.display_name}" (${created.id})`,
+        metadata: { voice_id: created.id, elevenlabs_voice_id: created.elevenlabs_voice_id },
+      });
+      res.status(201).json({ voice: created });
+    } catch (err: any) {
+      // Likely a unique-id collision
+      if (String(err?.code) === "23505") {
+        res.status(409).json({ error: "voice_id_taken" });
+        return;
+      }
+      log.error("create voice failed", { error: err?.message });
+      res.status(500).json({ error: "create_voice_failed" });
+    }
+  });
+
+  /* ─── PATCH /voices/:id — edit ─── */
+  app.patch(`${VOICE_BASE}/:id`, requireAdmin, async (req: Request, res: Response) => {
+    const id = String(req.params.id);
+    const parsed = updateVoiceBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "invalid_body", details: parsed.error.format() });
+      return;
+    }
+    try {
+      const patch: Record<string, unknown> = { updated_at: new Date() };
+      for (const key of Object.keys(parsed.data) as Array<keyof typeof parsed.data>) {
+        const v = parsed.data[key];
+        if (v !== undefined) patch[key] = v;
+      }
+      const [updated] = await db
+        .update(tradelineVoices)
+        .set(patch)
+        .where(eq(tradelineVoices.id, id))
+        .returning();
+      if (!updated) {
+        res.status(404).json({ error: "voice_not_found" });
+        return;
+      }
+      await storage.logAdminActivity({
+        actor_type: "admin",
+        actor_id: req.user?.id ?? null,
+        actor_name: (req.user as any)?.email ?? "admin",
+        action: "tradeline.voice_updated",
+        entity_type: "tradeline_voice",
+        entity_id: null,
+        summary: `Updated voice "${updated.display_name}" (${updated.id})`,
+        metadata: { voice_id: updated.id, changed: Object.keys(parsed.data) },
+      });
+      res.json({ voice: updated });
+    } catch (err: any) {
+      log.error("update voice failed", { error: err?.message, id });
+      res.status(500).json({ error: "update_voice_failed" });
+    }
+  });
+
+  /* ─── DELETE /voices/:id — soft archive ─── */
+  app.delete(`${VOICE_BASE}/:id`, requireAdmin, async (req: Request, res: Response) => {
+    const id = String(req.params.id);
+    try {
+      const [updated] = await db
+        .update(tradelineVoices)
+        .set({ status: "archived", updated_at: new Date() })
+        .where(eq(tradelineVoices.id, id))
+        .returning();
+      if (!updated) {
+        res.status(404).json({ error: "voice_not_found" });
+        return;
+      }
+      await storage.logAdminActivity({
+        actor_type: "admin",
+        actor_id: req.user?.id ?? null,
+        actor_name: (req.user as any)?.email ?? "admin",
+        action: "tradeline.voice_archived",
+        entity_type: "tradeline_voice",
+        entity_id: null,
+        summary: `Archived voice "${updated.display_name}" (${updated.id})`,
+        metadata: { voice_id: updated.id },
+      });
+      res.json({ voice: updated });
+    } catch (err: any) {
+      log.error("archive voice failed", { error: err?.message, id });
+      res.status(500).json({ error: "archive_voice_failed" });
+    }
+  });
+
+  /* ─── GET /voices/usage — voice usage roll-up ───────────────────────
+   * Aggregates `monthly_minute_used` across per-client settings, grouped
+   * by voice_id. This is intentionally cheap (one indexed scan) so the
+   * admin chart loads instantly even with a big roster.
+   * ──────────────────────────────────────────────────────────────── */
+  app.get(`${VOICE_BASE}/usage`, requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      const rows = await db
+        .select({
+          voice_id: tradelineAssistantSettings.voice_id,
+          minutes_used: sql<number>`COALESCE(SUM(${tradelineAssistantSettings.monthly_minute_used}), 0)`,
+          client_count: sql<number>`COUNT(${tradelineAssistantSettings.client_id})`,
+        })
+        .from(tradelineAssistantSettings)
+        .groupBy(tradelineAssistantSettings.voice_id);
+      res.json({ usage: rows });
+    } catch (err: any) {
+      log.error("usage roll-up failed", { error: err?.message });
+      res.status(500).json({ error: "usage_failed" });
+    }
+  });
+
+  /* ─── GET /settings/clients — list clients + their settings ─── */
+  app.get(`${SETTINGS_BASE}/clients`, requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      const rows = await db
+        .select({
+          client_id: clients.id,
+          business_name: clients.business_name,
+          trade_type: clients.trade_type,
+          voice_id: tradelineAssistantSettings.voice_id,
+          greeting: tradelineAssistantSettings.greeting,
+          response_style: tradelineAssistantSettings.response_style,
+          monthly_minute_budget: tradelineAssistantSettings.monthly_minute_budget,
+          monthly_minute_used: tradelineAssistantSettings.monthly_minute_used,
+          auto_disable_on_cap: tradelineAssistantSettings.auto_disable_on_cap,
+          fallback_voice_id: tradelineAssistantSettings.fallback_voice_id,
+          updated_at: tradelineAssistantSettings.updated_at,
+        })
+        .from(clients)
+        .leftJoin(
+          tradelineAssistantSettings,
+          eq(tradelineAssistantSettings.client_id, clients.id),
+        )
+        .orderBy(asc(clients.business_name));
+      res.json({ clients: rows });
+    } catch (err: any) {
+      log.error("list client settings failed", { error: err?.message });
+      res.status(500).json({ error: "list_client_settings_failed" });
+    }
+  });
+
+  /* ─── PATCH /settings/:clientId — upsert per-client settings ─── */
+  app.patch(
+    `${SETTINGS_BASE}/:clientId`,
+    requireAdmin,
+    async (req: Request, res: Response) => {
+      const clientId = Number.parseInt(String(req.params.clientId), 10);
+      if (!Number.isFinite(clientId) || clientId <= 0) {
+        res.status(400).json({ error: "invalid_client_id" });
+        return;
+      }
+      const parsed = settingsBody.safeParse(req.body);
+      if (!parsed.success) {
+        res.status(400).json({ error: "invalid_body", details: parsed.error.format() });
+        return;
+      }
+      try {
+        const existing = await db
+          .select()
+          .from(tradelineAssistantSettings)
+          .where(eq(tradelineAssistantSettings.client_id, clientId))
+          .limit(1);
+
+        let row;
+        if (existing.length === 0) {
+          const [created] = await db
+            .insert(tradelineAssistantSettings)
+            .values({
+              client_id: clientId,
+              voice_id: parsed.data.voice_id ?? null,
+              greeting: parsed.data.greeting ?? null,
+              response_style: parsed.data.response_style ?? null,
+              monthly_minute_budget: parsed.data.monthly_minute_budget ?? null,
+              monthly_minute_used: parsed.data.monthly_minute_used ?? 0,
+              auto_disable_on_cap: parsed.data.auto_disable_on_cap ?? true,
+              fallback_voice_id: parsed.data.fallback_voice_id ?? null,
+            })
+            .returning();
+          row = created;
+        } else {
+          const patch: Record<string, unknown> = { updated_at: new Date() };
+          for (const key of Object.keys(parsed.data) as Array<keyof typeof parsed.data>) {
+            const v = parsed.data[key];
+            if (v !== undefined) patch[key] = v;
+          }
+          const [updated] = await db
+            .update(tradelineAssistantSettings)
+            .set(patch)
+            .where(eq(tradelineAssistantSettings.client_id, clientId))
+            .returning();
+          row = updated;
+        }
+
+        await storage.logAdminActivity({
+          actor_type: "admin",
+          actor_id: req.user?.id ?? null,
+          actor_name: (req.user as any)?.email ?? "admin",
+          action: "tradeline.assistant_settings_updated",
+          entity_type: "client",
+          entity_id: clientId,
+          summary: `Updated TradeLine settings (voice=${row.voice_id ?? "—"}, budget=${row.monthly_minute_budget ?? "∞"})`,
+          metadata: { changed: Object.keys(parsed.data) },
+        });
+        res.json({ settings: row });
+      } catch (err: any) {
+        log.error("upsert settings failed", { error: err?.message, clientId });
+        res.status(500).json({ error: "upsert_settings_failed" });
+      }
+    },
+  );
+}

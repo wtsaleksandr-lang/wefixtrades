@@ -116,6 +116,14 @@ export interface MemoryContext {
   interestedInBooking?: boolean;
 }
 
+/** A single user-curated knowledge base entry surfaced into the TradeLine prompt. */
+export interface TradeLineKnowledgeEntry {
+  kind: string;       // 'faq' | 'service' | 'policy' | 'pricing' | 'doc'
+  title: string;
+  content: string;    // markdown body
+  priority: number;
+}
+
 /** TradeLine-specific context for per-client voice/chat assistants. */
 export interface TradeLineContext {
   businessName: string;
@@ -125,6 +133,12 @@ export interface TradeLineContext {
   channels: TradelineConfig["channels"];
   booking: TradelineConfig["booking"];
   phoneRouting: TradelineConfig["phoneRouting"];
+  /** Client's custom greeting override (preferred over the templated first line). */
+  greeting?: string | null;
+  /** 'concise' | 'detailed' | 'friendly' — tweaks tone guidance. */
+  responseStyle?: string | null;
+  /** Active KB entries (priority desc) the AI receptionist references. */
+  knowledgeBase?: TradeLineKnowledgeEntry[];
 }
 /* ─── Portal types ─── */
 
@@ -750,6 +764,42 @@ You can check appointment availability and book appointments for customers. When
 3. Once they choose a time, confirm their name and contact details
 4. Create the booking using the createBooking function
 5. Confirm the booking details back to them`);
+  }
+
+  // Response-style hint (per-client override from tradeline_assistant_settings).
+  if (ctx.responseStyle) {
+    const styleHint = ctx.responseStyle === "concise"
+      ? "Keep every reply tight — one or two sentences. Skip preamble."
+      : ctx.responseStyle === "detailed"
+        ? "It's OK to give a fuller answer when the caller asks a real question, while still respecting the 1–3 sentence voice rule per turn."
+        : "Lean warm and friendly — use the caller's name once you have it, and acknowledge their situation before answering.";
+    parts.push(`\nRESPONSE STYLE (client override): ${styleHint}`);
+  }
+
+  // Custom greeting override.
+  if (ctx.greeting && ctx.greeting.trim()) {
+    parts.push(`\nCUSTOM GREETING (use as your opening line verbatim, then continue naturally):\n${ctx.greeting.trim()}`);
+  }
+
+  // Wave W-AW-1: user-controlled knowledge base. Active entries are pulled at
+  // call time and embedded here so the AI receptionist answers from the
+  // owner's curated FAQ / services / policies / pricing / docs instead of
+  // hallucinating. Ordered by priority desc by the caller.
+  if (ctx.knowledgeBase && ctx.knowledgeBase.length > 0) {
+    const kbLines: string[] = [
+      `\n=== BUSINESS KNOWLEDGE (curated by ${ctx.businessName}) ===`,
+      `Use these entries as your source of truth for anything about this business.`,
+      `If a caller asks something not covered here, say you'll have the team confirm — never invent details.`,
+      ``,
+    ];
+    for (const entry of ctx.knowledgeBase) {
+      // Cap individual entries so a runaway markdown doc can't blow the prompt budget.
+      const body = entry.content.length > 1500 ? entry.content.slice(0, 1500) + "…" : entry.content;
+      kbLines.push(`[${entry.kind.toUpperCase()}] ${entry.title}`);
+      kbLines.push(body);
+      kbLines.push("");
+    }
+    parts.push(kbLines.join("\n"));
   }
 
   parts.push(`
