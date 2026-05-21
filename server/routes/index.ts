@@ -89,6 +89,7 @@ import { registerPortalTradelineKnowledgeRoutes } from "./portalTradelineKnowled
 import { registerAdminAuditLogRoutes } from "./adminAuditLogRoutes";
 import { registerAdminMobilePreviewRoutes } from "./adminMobilePreviewRoutes";
 import { registerAdminAiActivityRoutes } from "./adminAiActivityRoutes";
+import { registerCalculatorAnalyticsRoutes } from "./calculatorAnalyticsRoutes";
 import { registerApiV1Routes } from "./apiV1";
 
 export async function registerRoutes(
@@ -185,6 +186,7 @@ export async function registerRoutes(
   registerAdminAuditLogRoutes(app);
   registerAdminMobilePreviewRoutes(app);
   registerAdminAiActivityRoutes(app);
+  registerCalculatorAnalyticsRoutes(app);
   registerApiV1Routes(app);
 
   return httpServer;

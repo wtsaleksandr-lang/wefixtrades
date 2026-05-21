@@ -58,6 +58,7 @@ import { processRoutingEngine } from "../engine/routingWorker";
 import { releaseStaleSlugs } from "../services/quotequickSlugLifecycle";
 import { processApiWebhookDeliveries } from "./apiWebhookDeliveryWorker";
 import { runBusinessOperatorJob } from "./businessOperatorWorker";
+import { runCalculatorAnalyticsRollup } from "./calculatorAnalyticsRollupWorker";
 
 const log = createLogger("Scheduler");
 
@@ -911,6 +912,17 @@ export function initScheduler() {
       tradelineRetryRunning = false;
     }
   });
+
+  // Wave W-BB-4 — calculator analytics daily rollup. 03:00 UTC every day.
+  // Rolls up the previous UTC day's raw events into per-(calculator,date)
+  // counts that back the portal dashboard. Idempotent — safe to re-run.
+  cron.schedule("0 3 * * *", async () => {
+    try {
+      await runJob("calculator_analytics_rollup", runCalculatorAnalyticsRollup);
+    } catch (err: any) {
+      log.error("calculator_analytics_rollup cron handler error", { error: err.message });
+    }
+  }, { timezone: "UTC" });
 
   // Wave W-AV-1 — Business Operator AI. Hourly at :15 past the hour.
   // ESCALATE-ONLY in v1; per-playbook auto-execute unlocks after 3

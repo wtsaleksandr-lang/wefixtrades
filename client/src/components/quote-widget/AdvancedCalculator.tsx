@@ -21,6 +21,7 @@ import {
 import { eff } from './designTokens';
 import { resolveWidgetTheme, type WidgetTheme } from './widgetThemes';
 import { useCountUp } from './useCountUp';
+import { useCalculatorAnalytics } from './useCalculatorAnalytics';
 // Wave W-AH-2 / W-AI-3a — canonical icon map lives in `client/src/data/quoteQuickIcons.ts`
 // so the admin trade editor's icon picker shares the exact same finite set.
 // Explicit named imports keep Vite's tree-shaker happy — DO NOT switch to
@@ -614,7 +615,23 @@ export default function AdvancedCalculator({
   const fontSizeBasePx = FONT_SIZE_PX[style.fontSize ?? 'medium'];
 
   const [answers, setAnswers] = useState<Record<string, Answer>>(() => initAnswers(fields));
-  const setAnswer = (name: string, value: Answer) => setAnswers((p) => ({ ...p, [name]: value }));
+
+  // Wave W-BB-4 — conversion analytics tracking. No-op when calculatorId is
+  // absent (preview / draft) so the wizard preview path is unaffected.
+  const analyticsCalcId =
+    typeof calculatorId === 'number'
+      ? calculatorId
+      : typeof calculatorId === 'string' && /^\d+$/.test(calculatorId)
+        ? Number(calculatorId)
+        : undefined;
+  const { trackFieldChange, trackSubmit } = useCalculatorAnalytics({
+    calculatorId: analyticsCalcId,
+  });
+
+  const setAnswer = (name: string, value: Answer) => {
+    setAnswers((p) => ({ ...p, [name]: value }));
+    trackFieldChange(name, value);
+  };
 
   // Result-panel call-to-action — button → inline lead form → thank-you.
   const [leadView, setLeadView] = useState<'cta' | 'form' | 'done'>('cta');
@@ -1179,7 +1196,14 @@ export default function AdvancedCalculator({
                       value={leadEmail} onChange={(e) => setLeadEmail(e.target.value)}
                       style={leadInputStyle} />
                     <button type="button" data-testid="advanced-cta-send"
-                      onClick={() => { if (leadReady) setLeadView('done'); }}
+                      onClick={() => {
+                        if (leadReady) {
+                          // W-BB-4 — fire conversion event before flipping
+                          // the panel so a fast unmount doesn't drop the beacon.
+                          trackSubmit();
+                          setLeadView('done');
+                        }
+                      }}
                       style={{
                         width: '100%', height: '44px', borderRadius: radiusInnerPx, border: 'none',
                         background: ctaBg, color: ctaFg, fontSize: '14px', fontWeight: 800,
