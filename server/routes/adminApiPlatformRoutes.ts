@@ -24,12 +24,14 @@ import {
   apiKeys,
   apiSubscriptions,
   apiUsageLogs,
+  apiWebhooks,
+  apiWebhookDeliveries,
   users,
   adminActivityLog,
 } from "@shared/schema";
 import { requireAdmin } from "../auth";
 import { createLogger } from "../lib/logger";
-import { and, count, desc, eq, gte, sql } from "drizzle-orm";
+import { and, count, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { API_TIERS, getApiTier } from "@shared/pricing/apiTiers";
 
 const log = createLogger("AdminApiPlatform");
@@ -163,6 +165,37 @@ export function registerAdminApiPlatformRoutes(app: Express): void {
         .groupBy(sql`date_trunc('day', ${apiUsageLogs.created_at})`)
         .orderBy(sql`date_trunc('day', ${apiUsageLogs.created_at})`);
 
+      // Wave AQ-3 — recent webhook deliveries across all of this user's
+      // subscriptions, newest first. Capped at 20. The dispatcher / worker
+      // populates these rows; the admin UI exposes a 'replay' action that
+      // rewinds a failed/dead row back to 'pending'.
+      const userWebhookIds = await db
+        .select({ id: apiWebhooks.id })
+        .from(apiWebhooks)
+        .where(eq(apiWebhooks.user_id, userId));
+      const webhookIds = userWebhookIds.map((r) => r.id);
+      const webhookDeliveries =
+        webhookIds.length === 0
+          ? []
+          : await db
+              .select({
+                id: apiWebhookDeliveries.id,
+                webhook_id: apiWebhookDeliveries.webhook_id,
+                event_id: apiWebhookDeliveries.event_id,
+                event_type: apiWebhookDeliveries.event_type,
+                status: apiWebhookDeliveries.status,
+                attempt_count: apiWebhookDeliveries.attempt_count,
+                next_attempt_at: apiWebhookDeliveries.next_attempt_at,
+                last_response_status: apiWebhookDeliveries.last_response_status,
+                last_error: apiWebhookDeliveries.last_error,
+                succeeded_at: apiWebhookDeliveries.succeeded_at,
+                created_at: apiWebhookDeliveries.created_at,
+              })
+              .from(apiWebhookDeliveries)
+              .where(inArray(apiWebhookDeliveries.webhook_id, webhookIds))
+              .orderBy(desc(apiWebhookDeliveries.created_at))
+              .limit(20);
+
       res.json({
         user: user
           ? { id: user.id, email: user.email, name: user.name, role: user.role }
@@ -171,12 +204,75 @@ export function registerAdminApiPlatformRoutes(app: Express): void {
         keys,
         recent_usage: usage,
         daily_calls: dailyRows.map((r) => ({ day: r.day, calls: Number(r.calls) })),
+        webhook_deliveries: webhookDeliveries,
       });
     } catch (err: any) {
       log.error("user detail failed", { error: err?.message, userId });
       res.status(500).json({ error: "user_detail_failed" });
     }
   });
+
+  /* ─── POST /webhook-deliveries/:id/replay (Wave AQ-3) ────────────────
+   * Resets a 'failed' or 'dead' delivery back to 'pending' with a fresh
+   * attempt ladder so the worker picks it up on the next tick. Used by
+   * the admin UI's "Replay" action on the Webhook deliveries tab.
+   *
+   * Idempotent — replaying an already-pending row is a no-op (we leave
+   * the existing next_attempt_at alone).
+   * ─────────────────────────────────────────────────────────────── */
+  app.post(
+    `${BASE}/webhook-deliveries/:deliveryId/replay`,
+    requireAdmin,
+    async (req: Request, res: Response) => {
+      const deliveryId = Number.parseInt(String(req.params.deliveryId), 10);
+      if (!Number.isFinite(deliveryId)) {
+        res.status(400).json({ error: "invalid_delivery_id" });
+        return;
+      }
+      try {
+        const [existing] = await db
+          .select()
+          .from(apiWebhookDeliveries)
+          .where(eq(apiWebhookDeliveries.id, deliveryId))
+          .limit(1);
+        if (!existing) {
+          res.status(404).json({ error: "delivery_not_found" });
+          return;
+        }
+        const [updated] = await db
+          .update(apiWebhookDeliveries)
+          .set({
+            status: "pending",
+            attempt_count: 0,
+            next_attempt_at: new Date(),
+            last_error: null,
+            last_response_status: null,
+            last_response_body: null,
+            succeeded_at: null,
+          })
+          .where(eq(apiWebhookDeliveries.id, deliveryId))
+          .returning();
+        await audit(
+          req,
+          "api_webhook_delivery.replayed",
+          "api_webhook_delivery",
+          null,
+          `Replayed webhook delivery ${deliveryId} (event ${existing.event_type})`,
+          {
+            delivery_id: deliveryId,
+            webhook_id: existing.webhook_id,
+            event_type: existing.event_type,
+            previous_status: existing.status,
+            previous_attempt_count: existing.attempt_count,
+          },
+        );
+        res.json({ ok: true, delivery: updated });
+      } catch (err: any) {
+        log.error("replay webhook delivery failed", { error: err?.message, deliveryId });
+        res.status(500).json({ error: "replay_failed" });
+      }
+    },
+  );
 
   /* ─── GET /keys ──────────────────────────────────────────────────── */
   app.get(`${BASE}/keys`, requireAdmin, async (req: Request, res: Response) => {

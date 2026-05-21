@@ -38,6 +38,8 @@ import {
   Trash2,
   KeyRound,
   AlertTriangle,
+  RotateCcw,
+  Webhook,
 } from "lucide-react";
 
 /* ─── Shared badges (kept local — index page has its own copy) ────────── */
@@ -114,6 +116,20 @@ interface UserDetailResponse {
     response_ms: number;
   }[];
   daily_calls: { day: string; calls: number }[];
+  /** Wave AQ-3 — last 20 webhook deliveries across the user's subscriptions. */
+  webhook_deliveries?: {
+    id: number;
+    webhook_id: string;
+    event_id: string;
+    event_type: string;
+    status: "pending" | "succeeded" | "failed" | "dead" | string;
+    attempt_count: number;
+    next_attempt_at: string | null;
+    last_response_status: number | null;
+    last_error: string | null;
+    succeeded_at: string | null;
+    created_at: string;
+  }[];
 }
 
 /* ─── Mini usage sparkline ────────────────────────────────────────────── */
@@ -287,6 +303,31 @@ export default function ApiPlatformUserDetailPage({ userId }: { userId: string }
   const keys = detail?.keys ?? [];
   const recent = detail?.recent_usage ?? [];
   const daily = detail?.daily_calls ?? [];
+  const webhookDeliveries = detail?.webhook_deliveries ?? [];
+
+  /* Wave AQ-3 — replay a failed/dead delivery. Server resets attempt
+   * count and rewinds status='pending' so the next worker tick picks
+   * the row up. */
+  const replayMutation = useMutation({
+    mutationFn: async (deliveryId: number) => {
+      const res = await apiRequest(
+        "POST",
+        `/api/admin/api-platform/webhook-deliveries/${deliveryId}/replay`,
+      );
+      return res.json();
+    },
+    onSuccess: () => {
+      invalidate();
+      toast({ title: "Delivery replayed", description: "Will fire on the next worker tick." });
+    },
+    onError: (err: any) => {
+      toast({
+        title: "Replay failed",
+        description: err?.message || "Try again",
+        variant: "destructive",
+      });
+    },
+  });
 
   const initials = useMemo(() => {
     const src = user?.name || user?.email || "";
@@ -587,6 +628,104 @@ export default function ApiPlatformUserDetailPage({ userId }: { userId: string }
                       <td className="px-4 py-2 text-right font-mono text-xs text-gray-600">{r.response_ms}ms</td>
                     </tr>
                   ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
+
+        {/* Webhook deliveries (Wave AQ-3) */}
+        <Card className="overflow-hidden">
+          <div className="px-5 py-4 border-b flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Webhook className="w-4 h-4 text-gray-400" />
+              <h2 className="text-sm font-medium uppercase tracking-wider text-gray-500">
+                Webhook deliveries
+              </h2>
+            </div>
+            <p className="text-xs text-gray-400">last {webhookDeliveries.length}</p>
+          </div>
+          {detailQuery.isLoading ? (
+            <div className="p-6 space-y-2">
+              {[...Array(4)].map((_, i) => (
+                <Skeleton key={i} className="h-8 w-full" />
+              ))}
+            </div>
+          ) : webhookDeliveries.length === 0 ? (
+            <div className="p-12 text-center text-sm text-gray-500">
+              <Webhook className="w-8 h-8 mx-auto mb-3 text-gray-300" />
+              No webhook deliveries yet.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-gray-50/50 text-xs font-medium uppercase tracking-wider text-gray-500">
+                    <th className="text-left px-4 py-2">Time</th>
+                    <th className="text-left px-4 py-2">Event</th>
+                    <th className="text-left px-4 py-2">Status</th>
+                    <th className="text-right px-4 py-2">HTTP</th>
+                    <th className="text-right px-4 py-2">Attempts</th>
+                    <th className="text-left px-4 py-2">Error</th>
+                    <th className="px-4 py-2" />
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {webhookDeliveries.map((d) => {
+                    const statusColor =
+                      d.status === "succeeded"
+                        ? "text-emerald-700 bg-emerald-50"
+                        : d.status === "failed"
+                        ? "text-amber-700 bg-amber-50"
+                        : d.status === "dead"
+                        ? "text-rose-700 bg-rose-50"
+                        : "text-gray-700 bg-gray-100";
+                    const httpColor =
+                      d.last_response_status == null
+                        ? "text-gray-400"
+                        : d.last_response_status >= 500
+                        ? "text-rose-600"
+                        : d.last_response_status >= 400
+                        ? "text-amber-600"
+                        : "text-emerald-600";
+                    const replayable = d.status === "failed" || d.status === "dead";
+                    return (
+                      <tr key={d.id} className="hover:bg-gray-50/50">
+                        <td className="px-4 py-2 text-xs text-gray-500 whitespace-nowrap">
+                          {new Date(d.created_at).toLocaleString()}
+                        </td>
+                        <td className="px-4 py-2 font-mono text-xs text-gray-700">{d.event_type}</td>
+                        <td className="px-4 py-2">
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${statusColor}`}
+                          >
+                            {d.status}
+                          </span>
+                        </td>
+                        <td className={`px-4 py-2 text-right font-mono text-xs ${httpColor}`}>
+                          {d.last_response_status ?? "—"}
+                        </td>
+                        <td className="px-4 py-2 text-right font-mono text-xs text-gray-600">
+                          {d.attempt_count}
+                        </td>
+                        <td className="px-4 py-2 text-xs text-gray-500 max-w-[260px] truncate">
+                          {d.last_error ?? "—"}
+                        </td>
+                        <td className="px-4 py-2 text-right">
+                          {replayable && (
+                            <button
+                              onClick={() => replayMutation.mutate(d.id)}
+                              disabled={replayMutation.isPending}
+                              className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800 disabled:opacity-50"
+                            >
+                              <RotateCcw className="w-3 h-3" />
+                              Replay
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

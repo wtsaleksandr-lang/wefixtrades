@@ -4,6 +4,7 @@ import { storage } from "../storage";
 import { captureIntakeEvent } from "../services/intakeService";
 import { buildHostedUrl } from "@shared/slugUtils";
 import { createLogger } from "../lib/logger";
+import { emitApiWebhookEvent } from "../services/apiWebhookDispatcher";
 
 const log = createLogger("Leads");
 
@@ -282,6 +283,33 @@ export function registerLeadRoutes(app: Express): void {
       enqueueLeadNotificationsAndFollowups(lead, parsed.data.calculator_id).catch(err => {
         log.error("Failed to enqueue lead notifications:", err.message);
       });
+
+      // Wave AQ-3 — emit a webhook event for any API-platform user who
+      // owns this calculator AND subscribes to `submission.created`. The
+      // dispatcher is a no-op when the calc has no user_id (anonymous
+      // portal calculators) or the user has no matching subscription.
+      storage.getCalculatorById(parsed.data.calculator_id)
+        .then((calc) => {
+          if (!calc || calc.user_id == null) return;
+          void emitApiWebhookEvent({
+            userId: calc.user_id,
+            type: "submission.created",
+            data: {
+              id: lead.id,
+              calculator_id: lead.calculator_id,
+              name: lead.name,
+              email: lead.email,
+              phone: lead.phone,
+              company: lead.company,
+              quote_amount: lead.quote_amount,
+              answers: lead.answers,
+              status: lead.status,
+              created_at: (lead as any).created_date,
+              source: "portal",
+            },
+          });
+        })
+        .catch((err) => log.warn("Webhook emit lookup failed", { error: err?.message }));
 
       captureIntakeEvent({
         sourceType:    'public_form',

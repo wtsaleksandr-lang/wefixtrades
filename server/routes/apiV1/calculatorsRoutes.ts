@@ -21,6 +21,7 @@ import {
 } from "../../services/calculatorService";
 import { getApiTier } from "@shared/pricing/apiTiers";
 import { createLogger } from "../../lib/logger";
+import { emitApiWebhookEvent } from "../../services/apiWebhookDispatcher";
 
 const log = createLogger("ApiV1.Calculators");
 
@@ -118,6 +119,11 @@ export function registerV1CalculatorsRoutes(router: Router): void {
         pricing_config: parsed.data.pricing_config,
         calculator_settings: parsed.data.calculator_settings,
       });
+      void emitApiWebhookEvent({
+        userId: apiUser.id,
+        type: "calculator.created",
+        data: toApiCalculator(calc),
+      });
       return ok(req, res, toApiCalculator(calc), 201);
     } catch (err: any) {
       log.error("create failed", { error: err?.message, userId: apiUser.id });
@@ -154,6 +160,11 @@ export function registerV1CalculatorsRoutes(router: Router): void {
     try {
       const updated = await updateCalculatorForUser(apiUser.id, id, parsed.data);
       if (!updated) return fail(req, res, 404, { code: "not_found", message: "Calculator not found." });
+      void emitApiWebhookEvent({
+        userId: apiUser.id,
+        type: "calculator.updated",
+        data: toApiCalculator(updated),
+      });
       return ok(req, res, toApiCalculator(updated));
     } catch (err: any) {
       log.error("update failed", { error: err?.message, userId: apiUser.id, id });
@@ -170,6 +181,16 @@ export function registerV1CalculatorsRoutes(router: Router): void {
     try {
       const archived = await archiveCalculatorForUser(apiUser.id, id);
       if (!archived) return fail(req, res, 404, { code: "not_found", message: "Calculator not found." });
+      void emitApiWebhookEvent({
+        userId: apiUser.id,
+        type: "calculator.archived",
+        data: { id: archived.id, status: "archived" },
+      });
+      void emitApiWebhookEvent({
+        userId: apiUser.id,
+        type: "calculator.deleted",
+        data: { id: archived.id, status: "archived" },
+      });
       return ok(req, res, { id: archived.id, status: "archived" });
     } catch (err: any) {
       log.error("delete failed", { error: err?.message, userId: apiUser.id, id });
@@ -186,6 +207,11 @@ export function registerV1CalculatorsRoutes(router: Router): void {
     try {
       const updated = await setCalculatorPaused(apiUser.id, id, true);
       if (!updated) return fail(req, res, 404, { code: "not_found", message: "Calculator not found." });
+      void emitApiWebhookEvent({
+        userId: apiUser.id,
+        type: "calculator.paused",
+        data: toApiCalculator(updated),
+      });
       return ok(req, res, toApiCalculator(updated));
     } catch (err: any) {
       log.error("pause failed", { error: err?.message, userId: apiUser.id, id });
@@ -202,6 +228,11 @@ export function registerV1CalculatorsRoutes(router: Router): void {
     try {
       const updated = await setCalculatorPaused(apiUser.id, id, false);
       if (!updated) return fail(req, res, 404, { code: "not_found", message: "Calculator not found." });
+      void emitApiWebhookEvent({
+        userId: apiUser.id,
+        type: "calculator.resumed",
+        data: toApiCalculator(updated),
+      });
       return ok(req, res, toApiCalculator(updated));
     } catch (err: any) {
       log.error("resume failed", { error: err?.message, userId: apiUser.id, id });

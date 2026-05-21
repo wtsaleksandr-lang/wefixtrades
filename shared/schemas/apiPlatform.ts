@@ -223,3 +223,60 @@ export const insertApiWebhookSchema = createInsertSchema(apiWebhooks).omit({
 });
 export type InsertApiWebhook = z.infer<typeof insertApiWebhookSchema>;
 export type ApiWebhook = typeof apiWebhooks.$inferSelect;
+
+/* ─── api_webhook_deliveries (Wave AQ-3) ────────────────────────────
+ * In-DB delivery queue for webhook events. The dispatcher enqueues
+ * one row per (webhook subscription × emitted event), the worker
+ * drains them every 30s. Retried up to 5 times with exponential
+ * backoff (1m, 5m, 30m, 2h, 12h) before being marked 'dead'.
+ *
+ * payload is the exact JSON body we POST to the subscriber — already
+ * shaped by the dispatcher at enqueue time, so a tier or pricing
+ * change between enqueue and delivery doesn't mutate the payload.
+ *
+ * status:
+ *   pending    — queued, eligible for next worker tick at next_attempt_at
+ *   succeeded  — HTTP 2xx, terminal
+ *   failed     — HTTP non-2xx or transport error, will be re-tried until
+ *                attempt_count reaches the retry-ladder length
+ *   dead       — exhausted retry ladder, terminal until admin replay
+ * ─────────────────────────────────────────────────────────────── */
+export const apiWebhookDeliveries = pgTable(
+  "api_webhook_deliveries",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    /** FK to api_webhooks.id (text). On webhook delete the deliveries cascade. */
+    webhook_id: text("webhook_id")
+      .notNull()
+      .references(() => apiWebhooks.id, { onDelete: "cascade" }),
+    /** Stable id surfaced in the payload — subscribers can dedup on this. */
+    event_id: text("event_id").notNull(),
+    event_type: text("event_type").notNull(),
+    payload: jsonb("payload").notNull(),
+    /** pending | succeeded | failed | dead */
+    status: text("status").notNull().default("pending"),
+    attempt_count: integer("attempt_count").notNull().default(0),
+    next_attempt_at: timestamp("next_attempt_at").notNull().defaultNow(),
+    last_response_status: integer("last_response_status"),
+    last_response_body: text("last_response_body"),
+    last_error: text("last_error"),
+    succeeded_at: timestamp("succeeded_at"),
+    created_at: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => ({
+    // Worker hot path. Partial index defined in migration 0024 (drizzle
+    // doesn't model the WHERE clause, but the unique key matches).
+    pendingDueIdx: index("idx_api_webhook_deliveries_pending_due").on(t.next_attempt_at),
+    webhookCreatedIdx: index("idx_api_webhook_deliveries_webhook_created").on(
+      t.webhook_id,
+      t.created_at,
+    ),
+  }),
+);
+
+export const insertApiWebhookDeliverySchema = createInsertSchema(apiWebhookDeliveries).omit({
+  id: true,
+  created_at: true,
+});
+export type InsertApiWebhookDelivery = z.infer<typeof insertApiWebhookDeliverySchema>;
+export type ApiWebhookDelivery = typeof apiWebhookDeliveries.$inferSelect;

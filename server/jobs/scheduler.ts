@@ -55,6 +55,7 @@ import { processProTrialExpiry } from "./trialProExpiryWorker";
 import { processTradelineProvisionRetry } from "./tradelineProvisionRetryWorker";
 import { processRoutingEngine } from "../engine/routingWorker";
 import { releaseStaleSlugs } from "../services/quotequickSlugLifecycle";
+import { processApiWebhookDeliveries } from "./apiWebhookDeliveryWorker";
 
 const log = createLogger("Scheduler");
 
@@ -857,6 +858,26 @@ export function initScheduler() {
       log.error("routing_engine error", { error: err.message });
     } finally {
       routingEngineRunning = false;
+    }
+  });
+
+  // Wave AQ-3 — API webhook delivery worker. Drains pending rows in
+  // api_webhook_deliveries every 30s. Overlap-guarded; the worker itself
+  // is idempotent at the row level (each row transitions
+  // pending→succeeded|failed|dead in a single write).
+  let apiWebhookDeliveryRunning = false;
+  cron.schedule("*/30 * * * * *", async () => {
+    if (apiWebhookDeliveryRunning) {
+      log.debug("api_webhook_delivery skipped — previous tick still running");
+      return;
+    }
+    apiWebhookDeliveryRunning = true;
+    try {
+      await processApiWebhookDeliveries();
+    } catch (err: any) {
+      log.error("api_webhook_delivery error", { error: err.message });
+    } finally {
+      apiWebhookDeliveryRunning = false;
     }
   });
 
