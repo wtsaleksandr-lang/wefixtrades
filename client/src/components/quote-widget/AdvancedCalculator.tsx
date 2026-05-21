@@ -469,6 +469,39 @@ function formatResult(
 }
 
 /**
+ * W-BB-3 — range-pricing display mode. Renders the headline as
+ * `$LOW – $HIGH` using ±band_pct around the computed value. Bounds round
+ * to the nearest $25 for cleaner numbers ($2,300 not $2,287.50). Currency
+ * format only; for non-currency calcs we fall back to the single value
+ * (a percent or count range adds no value).
+ */
+function formatResultRange(
+  v: number,
+  format: AdvCalc['format'],
+  bandPct: number,
+  numberFormat?: AdvNumberFormat,
+): string {
+  // Non-currency calcs: range mode is meaningless (ranges of % or count
+  // values don't communicate uncertainty in the same way). Fall through.
+  if (format !== 'currency') return formatResult(v, format, numberFormat);
+  // Clamp band to a sensible UI range.
+  const band = Math.max(5, Math.min(25, bandPct)) / 100;
+  const roundTo25 = (n: number) => Math.round(n / 25) * 25;
+  const low = Math.max(0, roundTo25(v * (1 - band)));
+  const high = Math.max(low + 25, roundTo25(v * (1 + band)));
+  const thousandsSep = numberFormat?.thousands ?? ',';
+  const decimalSep = numberFormat?.decimal ?? '.';
+  const currencyCode = (numberFormat?.currency ?? 'USD').toUpperCase();
+  const symbol = CURRENCY_SYMBOLS[currencyCode] ?? `${currencyCode} `;
+  // Whole-dollar formatting (no trailing `.00`) since bounds are $25-rounded.
+  const lowStr = symbol + formatNumber(low, 0, 0, thousandsSep, decimalSep);
+  const highStr = symbol + formatNumber(high, 0, 0, thousandsSep, decimalSep);
+  // U+2013 EN DASH with non-breaking spaces — matches the brief and keeps
+  // the range visually grouped on narrow widths.
+  return `${lowStr} – ${highStr}`;
+}
+
+/**
  * Wave R-pre W-LABELS — small de-emphasised header for grouped fields
  * (radio, multi-select, image_choice, slider). Per Alex's global rule,
  * prominent "above-the-input" titles aren't allowed. Group renderers
@@ -1015,7 +1048,18 @@ export default function AdvancedCalculator({
               wordBreak: 'break-word',
               overflowWrap: 'anywhere',
             }}>
-              {formatResult(animatedHeadline, resultCalc?.format || 'currency', advanced.numberFormat)}
+              {/* W-BB-3 — range-pricing display mode (Pro / Brand Studio gated).
+                  When `resultPanel.range_mode.enabled` is true the headline
+                  renders as `$LOW – $HIGH` (±band_pct, $25-rounded). Falls
+                  through to the legacy single-value format otherwise. */}
+              {bsResultPanel?.range_mode?.enabled
+                ? formatResultRange(
+                    animatedHeadline,
+                    resultCalc?.format || 'currency',
+                    bsResultPanel.range_mode.band_pct ?? 8,
+                    advanced.numberFormat,
+                  )
+                : formatResult(animatedHeadline, resultCalc?.format || 'currency', advanced.numberFormat)}
             </p>
             {/* Wave H4 — optional caption beneath the headline value. */}
             {resultCalc?.caption && resultCalc.caption.trim() !== '' && (

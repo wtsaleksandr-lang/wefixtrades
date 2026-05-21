@@ -1200,6 +1200,13 @@ function BrandStudioGroup({
   const rpBg = style.resultPanel?.bgOverride ?? '';
   const rpEmphasis: AdvResultEmphasis = style.resultPanel?.emphasis ?? 'normal';
   const rpBorder: AdvResultBorder = style.resultPanel?.border ?? 'subtle';
+  // W-BB-3 — range-pricing display mode.
+  const rpRangeEnabled: boolean = style.resultPanel?.range_mode?.enabled === true;
+  const rpRangeBand: number = (() => {
+    const raw = style.resultPanel?.range_mode?.band_pct;
+    if (typeof raw !== 'number' || !Number.isFinite(raw)) return 8;
+    return Math.max(5, Math.min(25, Math.round(raw)));
+  })();
   // W-AO-6d — Brand Studio Wave 2 animations bundle.
   const animStep: AdvStepTransition = style.animations?.step_transition ?? 'none';
   const animDuration: number = typeof style.animations?.duration_ms === 'number'
@@ -1496,6 +1503,64 @@ function BrandStudioGroup({
               ]}
               onChange={(v) => setResultPanel({ border: v })}
             />
+            {/* W-BB-3 — range-pricing display mode. A common trades-quoting
+                pattern: show `$2,300 – $2,700` instead of `$2,500.00` to
+                reduce buyer commitment anxiety. Bounds round to $25. */}
+            <label
+              className="qq-style-label"
+              style={{
+                marginTop: 12, display: 'flex', alignItems: 'center',
+                gap: 8, cursor: 'pointer',
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={rpRangeEnabled}
+                onChange={(e) => setResultPanel({
+                  range_mode: {
+                    enabled: e.target.checked,
+                    band_pct: rpRangeBand,
+                  },
+                })}
+                data-testid="style-bs-rp-range-enabled"
+                aria-label="Display result as a price range"
+              />
+              <span className="qq-style-label-text" style={{ margin: 0 }}>
+                Display as range
+              </span>
+            </label>
+            {rpRangeEnabled && (
+              <>
+                <label
+                  className="qq-style-label"
+                  htmlFor="qq-bs-rp-range-band"
+                  style={{ marginTop: 8 }}
+                >
+                  <span className="qq-style-label-text">
+                    Range band <span className="qq-style-label-meta">±{rpRangeBand}%</span>
+                  </span>
+                </label>
+                <input
+                  id="qq-bs-rp-range-band"
+                  type="range"
+                  min={5}
+                  max={25}
+                  step={1}
+                  value={rpRangeBand}
+                  onChange={(e) => setResultPanel({
+                    range_mode: {
+                      enabled: true,
+                      band_pct: Number(e.target.value),
+                    },
+                  })}
+                  className="qq-style-range"
+                  data-testid="style-bs-rp-range-band"
+                  aria-valuemin={5}
+                  aria-valuemax={25}
+                  aria-valuenow={rpRangeBand}
+                />
+              </>
+            )}
           </div>
 
           {/* 4. W-AO-6d — Animations (step transitions, Pro tier) ─────

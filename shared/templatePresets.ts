@@ -2453,6 +2453,10 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
         accentOverride: '#fb923c',
         emphasis: 'bold',
         border: 'accent-tinted',
+        // W-BB-3 — junk removal has high cost variability (load size, access,
+        // disposal). Range display ($2,300–$2,700) reduces buyer anxiety vs a
+        // false-precision single value.
+        range_mode: { enabled: true, band_pct: 8 },
       },
       animations: {
         step_transition: 'slide-fade',
@@ -2600,6 +2604,9 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
         accentOverride: '#dc2626',
         emphasis: 'bold',
         border: 'accent-tinted',
+        // W-BB-3 — mold remediation severity / containment / HVAC scope drives
+        // wide cost variance. Range display tracks the actual quote uncertainty.
+        range_mode: { enabled: true, band_pct: 8 },
       },
       animations: {
         step_transition: 'slide',
@@ -2809,6 +2816,17 @@ export type AdvResultEmphasis = 'subtle' | 'normal' | 'bold';
  *  midway between the hairline `'subtle'` and the full-strength `'accent'`. */
 export type AdvResultBorder = 'none' | 'subtle' | 'accent' | 'accent-tinted';
 
+/** W-BB-3 — range-pricing display mode. When `enabled`, the headline value
+ *  renders as `$LOW – $HIGH` (±band_pct, rounded to $25). Industry-standard
+ *  for trades quoting — lowers buyer commitment anxiety. Default off so
+ *  existing 44 templates render identically. */
+export interface AdvResultRangeMode {
+  /** When true, headline renders as a range; false / absent → single value. */
+  enabled: boolean;
+  /** Band percentage (5–25). Default 8 → $2500 becomes $2300–$2700. */
+  band_pct: number;
+}
+
 /** W-AO-6c — result-panel overrides. Every field optional; absent →
  *  the existing renderer defaults win. */
 export interface AdvResultPanel {
@@ -2820,6 +2838,8 @@ export interface AdvResultPanel {
   emphasis?: AdvResultEmphasis;
   /** Border treatment — `'subtle'` (default), `'none'`, `'accent'`. */
   border?: AdvResultBorder;
+  /** W-BB-3 — range-pricing display mode. Absent → single value (legacy). */
+  range_mode?: AdvResultRangeMode;
 }
 
 /** W-AO-6d — step transition kinds. `none` = instant (legacy behaviour). */
