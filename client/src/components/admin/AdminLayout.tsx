@@ -39,6 +39,7 @@ import {
   ClipboardList,
   ServerCog,
   Bell,
+  Plug,
 } from "lucide-react";
 import AdminCopilot, { type AdminPageContext } from "./AdminCopilot";
 import { useAuth } from "@/hooks/useAuth";
@@ -84,6 +85,8 @@ const PRODUCTS_ITEMS = [
   /* AI-3b — QuoteQuick template editor */
   { label: "QuoteQuick Templates", href: "/admin/quotequick/templates", icon: Sparkles },
   { label: "QuoteQuick Trades", href: "/admin/quotequick/trades", icon: Sparkles },
+  /* AJ-4 API platform admin */
+  { label: "API Platform", href: "/admin/api-platform", icon: Plug },
   { label: "TradeLine", href: "/admin/crm/tradeline-ops", icon: Phone },
   { label: "TradeLine Setups", href: "/admin/crm/tradeline-setups", icon: Phone },
   { label: "TradeLine Templates", href: "/admin/tradeline/templates", icon: Sparkles },
