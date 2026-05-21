@@ -995,6 +995,13 @@ export default function WizardShell({ embed = false }: Props) {
             .qq-editor-body {
               display: flex; align-items: stretch;
               flex: 1; min-height: 0;
+              /* Wave AB-1 — lock outer body to overflow:hidden so the two
+                 panes (.qq-editor-left, .qq-editor-right) own their own
+                 vertical scroll. Previously the outer body could also
+                 scroll, which competed with each pane's overflow-y:auto
+                 and caused the field list to fight the preview when
+                 either was overlong. */
+              overflow: hidden;
             }
             /* Wave M — collapse transition. We animate the right pane's
                width/opacity. The left pane is flex: 1 once collapsed, so
