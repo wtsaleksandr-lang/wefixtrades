@@ -18,13 +18,15 @@
  */
 
 import type { Express, Request, Response } from "express";
+import Stripe from "stripe";
 import { db } from "../db";
-import { apiKeys, apiSubscriptions, apiUsageLogs } from "@shared/schema";
+import { apiKeys, apiSubscriptions, apiUsageLogs, users } from "@shared/schema";
 import { requireClient } from "../auth";
 import { createLogger } from "../lib/logger";
 import { and, count, desc, eq, gte } from "drizzle-orm";
 import { generateApiKey, generateCuid } from "../lib/apiKeys";
 import { getApiTier, DEFAULT_API_TIER_ID } from "@shared/pricing/apiTiers";
+import { isEligibleForApiLoyaltyPricing } from "../lib/apiTierLoyalty";
 import { z } from "zod";
 
 const log = createLogger("PortalApiKeys");
@@ -34,6 +36,17 @@ const createKeyBody = z.object({
   name: z.string().min(1).max(120),
   expires_at: z.string().datetime().optional().nullable(),
 });
+
+const checkoutBody = z.object({
+  tier_id: z.string().min(1),
+  interval: z.enum(["monthly", "annual"]),
+});
+
+function getStripe(): Stripe | null {
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) return null;
+  return new Stripe(key, { apiVersion: "2025-01-27.acacia" as any });
+}
 
 /** Ensure a subscription row exists for this user — default free trial. */
 async function ensureSubscription(userId: number) {
@@ -270,6 +283,190 @@ export function registerPortalApiKeysRoutes(app: Express): void {
     } catch (err: any) {
       log.error("usage failed", { error: err?.message, userId });
       res.status(500).json({ error: "usage_failed" });
+    }
+  });
+
+  /* ─── POST /checkout — start a Stripe Checkout session ─────────────
+   * Body: { tier_id, interval }. Free tier can't be checked out.
+   * Returns 503 if Stripe isn't configured OR the price env-var for
+   * the requested (tier, interval) isn't populated — so the route
+   * never crashes the server just because Alex hasn't created the
+   * Stripe price yet.
+   * If the caller is QQ-paid AND requests Starter, the loyalty
+   * monthly price is swapped in.
+   * ─────────────────────────────────────────────────────────────── */
+  app.post(`${BASE}/checkout`, requireClient, async (req: Request, res: Response) => {
+    const userId = (req.user as Express.User).id;
+    const parsed = checkoutBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "invalid_body", details: parsed.error.format() });
+      return;
+    }
+    const tier = getApiTier(parsed.data.tier_id);
+    if (!tier) {
+      res.status(400).json({ error: "unknown_tier" });
+      return;
+    }
+    if (tier.id === "free") {
+      res.status(400).json({ error: "free_tier_not_billable" });
+      return;
+    }
+    try {
+      const stripe = getStripe();
+      if (!stripe) {
+        res.status(503).json({ error: "stripe_not_configured" });
+        return;
+      }
+
+      // Pick the price env-var. Loyalty swap only applies to Starter monthly.
+      let priceEnv =
+        parsed.data.interval === "annual"
+          ? tier.stripeAnnualPriceEnv
+          : tier.stripeMonthlyPriceEnv;
+
+      const loyalty =
+        tier.id === "starter" &&
+        parsed.data.interval === "monthly" &&
+        tier.stripeLoyaltyMonthlyPriceEnv &&
+        (await isEligibleForApiLoyaltyPricing(userId));
+      if (loyalty && tier.stripeLoyaltyMonthlyPriceEnv) {
+        priceEnv = tier.stripeLoyaltyMonthlyPriceEnv;
+      }
+
+      const priceId = priceEnv ? process.env[priceEnv] : undefined;
+      if (!priceEnv || !priceId) {
+        res.status(503).json({
+          error: "pricing_not_configured",
+          detail: `Stripe price for ${tier.id}/${parsed.data.interval} is not yet provisioned. Contact support.`,
+        });
+        return;
+      }
+
+      // Ensure the user has a subscription row so the webhook can update it.
+      await ensureSubscription(userId);
+
+      // Look up email for prefilling Checkout.
+      const [userRow] = await db
+        .select({ email: users.email })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+
+      const baseUrl =
+        process.env.APP_URL || `${req.protocol}://${req.get("host")}`;
+
+      const session = await stripe.checkout.sessions.create({
+        mode: "subscription",
+        line_items: [{ price: priceId, quantity: 1 }],
+        client_reference_id: String(userId),
+        customer_email: userRow?.email || undefined,
+        metadata: {
+          kind: "api_subscription",
+          user_id: String(userId),
+          tier_id: tier.id,
+          interval: parsed.data.interval,
+          loyalty: loyalty ? "1" : "0",
+        },
+        // Echo the same metadata onto the subscription itself so the
+        // webhook can identify api_subscription events without having
+        // to re-fetch the originating Checkout Session.
+        subscription_data: {
+          metadata: {
+            kind: "api_subscription",
+            user_id: String(userId),
+            tier_id: tier.id,
+            interval: parsed.data.interval,
+            loyalty: loyalty ? "1" : "0",
+          },
+        },
+        success_url: `${baseUrl}/portal/api-access?subscribed=1`,
+        cancel_url: `${baseUrl}/portal/api-access?cancelled=1`,
+        allow_promotion_codes: true,
+      });
+
+      res.json({ checkout_url: session.url });
+    } catch (err: any) {
+      log.error("checkout failed", { error: err?.message, userId });
+      res.status(500).json({ error: "checkout_failed" });
+    }
+  });
+
+  /* ─── POST /portal — Stripe Customer Portal session ────────────── */
+  app.post(`${BASE}/portal`, requireClient, async (req: Request, res: Response) => {
+    const userId = (req.user as Express.User).id;
+    try {
+      const stripe = getStripe();
+      if (!stripe) {
+        res.status(503).json({ error: "stripe_not_configured" });
+        return;
+      }
+      const sub = await ensureSubscription(userId);
+      if (!sub.stripe_customer_id) {
+        res.status(400).json({ error: "no_stripe_customer" });
+        return;
+      }
+      const baseUrl =
+        process.env.APP_URL || `${req.protocol}://${req.get("host")}`;
+      const portal = await stripe.billingPortal.sessions.create({
+        customer: sub.stripe_customer_id,
+        return_url: `${baseUrl}/portal/api-access`,
+      });
+      res.json({ portal_url: portal.url });
+    } catch (err: any) {
+      log.error("portal session failed", { error: err?.message, userId });
+      res.status(500).json({ error: "portal_failed" });
+    }
+  });
+
+  /* ─── POST /cancel — set cancel_at_period_end ───────────────────── */
+  app.post(`${BASE}/cancel`, requireClient, async (req: Request, res: Response) => {
+    const userId = (req.user as Express.User).id;
+    try {
+      const stripe = getStripe();
+      if (!stripe) {
+        res.status(503).json({ error: "stripe_not_configured" });
+        return;
+      }
+      const sub = await ensureSubscription(userId);
+      if (!sub.stripe_subscription_id) {
+        res.status(400).json({ error: "no_active_subscription" });
+        return;
+      }
+      const updated = await stripe.subscriptions.update(sub.stripe_subscription_id, {
+        cancel_at_period_end: true,
+      });
+      const updatedAny = updated as any;
+      res.json({
+        ok: true,
+        will_cancel_at: updatedAny.cancel_at ?? updatedAny.current_period_end ?? null,
+      });
+    } catch (err: any) {
+      log.error("cancel failed", { error: err?.message, userId });
+      res.status(500).json({ error: "cancel_failed" });
+    }
+  });
+
+  /* ─── POST /resume — un-set cancel_at_period_end ────────────────── */
+  app.post(`${BASE}/resume`, requireClient, async (req: Request, res: Response) => {
+    const userId = (req.user as Express.User).id;
+    try {
+      const stripe = getStripe();
+      if (!stripe) {
+        res.status(503).json({ error: "stripe_not_configured" });
+        return;
+      }
+      const sub = await ensureSubscription(userId);
+      if (!sub.stripe_subscription_id) {
+        res.status(400).json({ error: "no_active_subscription" });
+        return;
+      }
+      await stripe.subscriptions.update(sub.stripe_subscription_id, {
+        cancel_at_period_end: false,
+      });
+      res.json({ ok: true });
+    } catch (err: any) {
+      log.error("resume failed", { error: err?.message, userId });
+      res.status(500).json({ error: "resume_failed" });
     }
   });
 }

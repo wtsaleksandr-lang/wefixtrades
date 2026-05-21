@@ -12,7 +12,9 @@ import { eq } from "drizzle-orm";
 import { requireAdmin } from "../auth";
 import { storage } from "../storage";
 import { db } from "../db";
-import { widgetDeposits } from "@shared/schema";
+import { widgetDeposits, apiSubscriptions } from "@shared/schema";
+import { getApiTier } from "@shared/pricing/apiTiers";
+import { generateCuid } from "../lib/apiKeys";
 import { sendOnboardingEmail } from "../lib/onboardingEmail";
 import { sendPaymentReceipt } from "../lib/paymentReceiptEmail";
 import { sendAccountWelcome } from "../lib/accountWelcomeEmail";
@@ -175,15 +177,30 @@ export function registerStripeBillingRoutes(app: Express): void {
           // payments — handleInvoicePaid covers DB recording, this only
           // touches the dunning queue.
           await handleInvoiceSucceeded(event.data.object as Stripe.Invoice);
+          // Wave AJ-3: if this invoice belongs to an api_subscription,
+          // reset the quota usage at period boundary.
+          await maybeHandleApiInvoiceSucceeded(event.data.object as Stripe.Invoice, stripe);
           break;
 
         case "invoice.payment_failed":
           await handleInvoiceFailed(event.data.object as Stripe.Invoice, event.id);
+          await maybeHandleApiInvoiceFailed(event.data.object as Stripe.Invoice, stripe);
           break;
 
         case "customer.source.expiring":
           await handleCardExpiring(event.data.object as Stripe.Card | Stripe.Source, event.id);
           break;
+
+        case "customer.subscription.created": {
+          // Wave AJ-3: only the API platform listens for "created" —
+          // QQ + service subscriptions are still bootstrapped via
+          // checkout.session.completed.
+          const sub = event.data.object as Stripe.Subscription;
+          if (isApiSubscription(sub)) {
+            await handleApiSubscriptionUpserted(sub);
+          }
+          break;
+        }
 
         case "customer.subscription.updated":
           // Only acts on past_due → active transitions (recovery) and
@@ -193,10 +210,18 @@ export function registerStripeBillingRoutes(app: Express): void {
             event.data.object as Stripe.Subscription,
             event.data.previous_attributes as Partial<Stripe.Subscription> | undefined,
           );
+          // Wave AJ-3: keep api_subscriptions row in sync for tier
+          // changes made via the customer portal.
+          if (isApiSubscription(event.data.object as Stripe.Subscription)) {
+            await handleApiSubscriptionUpserted(event.data.object as Stripe.Subscription);
+          }
           break;
 
         case "customer.subscription.deleted":
           await handleSubscriptionDeleted(event.data.object as Stripe.Subscription, event.id);
+          if (isApiSubscription(event.data.object as Stripe.Subscription)) {
+            await handleApiSubscriptionDeleted(event.data.object as Stripe.Subscription);
+          }
           break;
 
         default:
@@ -986,4 +1011,195 @@ async function handleWidgetDepositCompleted(session: Stripe.Checkout.Session) {
   log.info(`[widget-deposit] Deposit #${updated.id} marked paid (session ${session.id})`);
 }
 
+/* ─── Wave AJ-3 — API Platform Subscription Handlers ─────────────────
+ * The API platform (wfx_live_* keys) carries its own subscriptions in
+ * `api_subscriptions`. We re-use this webhook endpoint (single Stripe
+ * signing secret) and discriminate by `subscription.metadata.kind ===
+ * 'api_subscription'`. The portal /checkout endpoint stamps this
+ * metadata onto both the Checkout Session and the resulting
+ * Subscription (subscription_data.metadata) so it survives portal-side
+ * tier swaps that never re-touch Checkout.
+ * ─────────────────────────────────────────────────────────────────── */
+
+function isApiSubscription(sub: Stripe.Subscription): boolean {
+  return sub.metadata?.kind === "api_subscription";
+}
+
+function apiTierFromSubscription(sub: Stripe.Subscription): string | null {
+  // Prefer subscription metadata (set at checkout); fall back to scanning
+  // env vars for a price-id match if metadata is missing (e.g. legacy row).
+  const fromMeta = sub.metadata?.tier_id;
+  if (fromMeta && getApiTier(fromMeta)) return fromMeta;
+
+  const priceId = sub.items?.data?.[0]?.price?.id;
+  if (!priceId) return null;
+
+  const tiers = ["starter", "pro", "business", "agency"];
+  for (const tierId of tiers) {
+    const tier = getApiTier(tierId);
+    if (!tier) continue;
+    const candidates: Array<string | undefined> = [
+      tier.stripeMonthlyPriceEnv ? process.env[tier.stripeMonthlyPriceEnv] : undefined,
+      tier.stripeAnnualPriceEnv ? process.env[tier.stripeAnnualPriceEnv] : undefined,
+      tier.stripeLoyaltyMonthlyPriceEnv
+        ? process.env[tier.stripeLoyaltyMonthlyPriceEnv]
+        : undefined,
+    ];
+    if (candidates.includes(priceId)) return tierId;
+  }
+  return null;
+}
+
+/** Map Stripe subscription status to our local status column. */
+function mapApiStatus(
+  status: Stripe.Subscription.Status,
+): "active" | "trial" | "past_due" | "cancelled" | "paused" {
+  switch (status) {
+    case "trialing":
+      return "trial";
+    case "active":
+      return "active";
+    case "past_due":
+    case "unpaid":
+      return "past_due";
+    case "canceled":
+    case "incomplete_expired":
+      return "cancelled";
+    case "paused":
+      return "paused";
+    default:
+      return "active";
+  }
+}
+
+async function handleApiSubscriptionUpserted(sub: Stripe.Subscription) {
+  const userIdRaw = sub.metadata?.user_id;
+  const userId = userIdRaw ? parseInt(userIdRaw, 10) : NaN;
+  if (!Number.isFinite(userId)) {
+    log.warn(`[api-webhook] subscription ${sub.id} has no user_id metadata — skipping`);
+    return;
+  }
+
+  const tierId = apiTierFromSubscription(sub);
+  if (!tierId) {
+    log.warn(`[api-webhook] subscription ${sub.id} — could not resolve tier (price ${sub.items?.data?.[0]?.price?.id ?? "unknown"})`);
+    return;
+  }
+  const tier = getApiTier(tierId)!;
+
+  const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer?.id ?? null;
+  // Stripe types: current_period_* live on the Subscription but the
+  // current SDK typing surfaces them only via the underlying API shape.
+  const subAny = sub as any;
+  const periodStart = new Date(subAny.current_period_start * 1000);
+  const periodEnd = new Date(subAny.current_period_end * 1000);
+  const status = mapApiStatus(sub.status);
+
+  const [existing] = await db
+    .select()
+    .from(apiSubscriptions)
+    .where(eq(apiSubscriptions.user_id, userId))
+    .limit(1);
+
+  if (existing) {
+    // Reset usage only if the period actually advanced (avoids zeroing
+    // out mid-period on a metadata-only update).
+    const periodAdvanced =
+      existing.current_period_end?.getTime?.() !== periodEnd.getTime();
+    await db
+      .update(apiSubscriptions)
+      .set({
+        tier: tier.id,
+        status,
+        stripe_subscription_id: sub.id,
+        stripe_customer_id: customerId ?? existing.stripe_customer_id,
+        current_period_start: periodStart,
+        current_period_end: periodEnd,
+        monthly_call_quota: tier.monthlyCallQuota,
+        monthly_calls_used: periodAdvanced ? 0 : existing.monthly_calls_used,
+        reset_at: periodEnd,
+        updated_at: new Date(),
+      })
+      .where(eq(apiSubscriptions.user_id, userId));
+    log.info(`[api-webhook] subscription ${sub.id} → user ${userId} tier=${tier.id} status=${status}${periodAdvanced ? " (period advanced, usage reset)" : ""}`);
+  } else {
+    await db.insert(apiSubscriptions).values({
+      id: generateCuid(),
+      user_id: userId,
+      tier: tier.id,
+      status,
+      stripe_subscription_id: sub.id,
+      stripe_customer_id: customerId,
+      current_period_start: periodStart,
+      current_period_end: periodEnd,
+      monthly_call_quota: tier.monthlyCallQuota,
+      monthly_calls_used: 0,
+      reset_at: periodEnd,
+    });
+    log.info(`[api-webhook] created api_subscriptions row for user ${userId} tier=${tier.id}`);
+  }
+}
+
+async function handleApiSubscriptionDeleted(sub: Stripe.Subscription) {
+  const userIdRaw = sub.metadata?.user_id;
+  const userId = userIdRaw ? parseInt(userIdRaw, 10) : NaN;
+  if (!Number.isFinite(userId)) return;
+  await db
+    .update(apiSubscriptions)
+    .set({ status: "cancelled", updated_at: new Date() })
+    .where(eq(apiSubscriptions.user_id, userId));
+  log.info(`[api-webhook] subscription ${sub.id} cancelled for user ${userId}`);
+}
+
+/**
+ * Invoice events don't carry our metadata, so we look up the
+ * subscription via Stripe to confirm it's an API subscription before
+ * touching our table.
+ */
+async function maybeHandleApiInvoiceSucceeded(invoice: Stripe.Invoice, stripe: Stripe) {
+  const subscriptionId =
+    typeof (invoice as any).subscription === "string"
+      ? (invoice as any).subscription
+      : (invoice as any).subscription?.id;
+  if (!subscriptionId) return;
+
+  let sub: Stripe.Subscription;
+  try {
+    sub = await stripe.subscriptions.retrieve(subscriptionId);
+  } catch (err: any) {
+    log.warn(`[api-webhook] invoice.payment_succeeded — sub ${subscriptionId} retrieve failed: ${err.message}`);
+    return;
+  }
+  if (!isApiSubscription(sub)) return;
+
+  // Re-use the upsert handler — it will detect the period advance and
+  // zero monthly_calls_used.
+  await handleApiSubscriptionUpserted(sub);
+}
+
+async function maybeHandleApiInvoiceFailed(invoice: Stripe.Invoice, stripe: Stripe) {
+  const subscriptionId =
+    typeof (invoice as any).subscription === "string"
+      ? (invoice as any).subscription
+      : (invoice as any).subscription?.id;
+  if (!subscriptionId) return;
+
+  let sub: Stripe.Subscription;
+  try {
+    sub = await stripe.subscriptions.retrieve(subscriptionId);
+  } catch (err: any) {
+    log.warn(`[api-webhook] invoice.payment_failed — sub ${subscriptionId} retrieve failed: ${err.message}`);
+    return;
+  }
+  if (!isApiSubscription(sub)) return;
+
+  const userIdRaw = sub.metadata?.user_id;
+  const userId = userIdRaw ? parseInt(userIdRaw, 10) : NaN;
+  if (!Number.isFinite(userId)) return;
+  await db
+    .update(apiSubscriptions)
+    .set({ status: "past_due", updated_at: new Date() })
+    .where(eq(apiSubscriptions.user_id, userId));
+  log.info(`[api-webhook] subscription ${sub.id} → past_due for user ${userId}`);
+}
 
