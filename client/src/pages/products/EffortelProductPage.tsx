@@ -247,7 +247,10 @@ function Hero({ cfg, hook, slug }: { cfg: ReturnType<typeof getProductBySlug> & 
   // the numbered cards below).
   if (slug === "tradeline") {
     return (
-      <section style={{ padding: "100px 24px 60px", position: "relative", overflow: "hidden" }}>
+      /* Wave AE — bottom padding tightened 60→30 (-50%) so the gap below
+         the phone mockup and above the reviews section reads as part of
+         the same flow rather than disconnected slabs. */
+      <section style={{ padding: "100px 24px 30px", position: "relative", overflow: "hidden" }}>
         <div style={{
           position: "absolute", inset: 0, pointerEvents: "none",
           background: "radial-gradient(ellipse 60% 50% at 50% 0%, rgba(13,60,252,0.10) 0%, transparent 60%)",
