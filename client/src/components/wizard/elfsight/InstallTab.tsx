@@ -250,6 +250,15 @@ export default function InstallTab({
           required.
         </p>
         <div className="qq-install-hosted-card">
+          {/* Wave AO-10 — Live badge sits at the top-right CORNER of the
+              hosted card (outside the URL input), as a floating pill. */}
+          <span
+            className="qq-install-hosted-corner-badge is-live"
+            data-testid="install-hosted-badge"
+            data-state="live"
+          >
+            Live
+          </span>
           {editingSlug ? (
             <div className="qq-install-hosted-edit-row" data-testid="install-hosted-edit-row">
               <div className="qq-install-hosted-edit-prefix">https://</div>
@@ -299,17 +308,9 @@ export default function InstallTab({
                 >
                   {hostedDisplay}
                 </div>
-                {/* Wave P — every save auto-publishes server-side, so the page
-                 *  goes live the moment the user lands on Install. Show a
-                 *  positive "live" confirmation instead of the old, misleading
-                 *  "Reserved — activates after publish" pill. */}
-                <span
-                  className="qq-install-hosted-badge is-live"
-                  data-testid="install-hosted-badge"
-                  data-state="live"
-                >
-                  Live
-                </span>
+                {/* Wave AO-10 — Live badge moved to top-right corner of the
+                 *  surrounding hosted card (see .qq-install-hosted-corner-badge
+                 *  above). No longer absolutely positioned inside the input. */}
                 <button
                   type="button"
                   onClick={() => { setDraftSlug(preferredSlug || autoDerived || ''); setEditingSlug(true); }}
@@ -606,13 +607,34 @@ export default function InstallTab({
           height: 1px; background: ${p.colors.borderLight}; margin: 2px 0;
         }
 
-        /* Hosted-link card — Wave O */
+        /* Hosted-link card — Wave O. Wave AO-10: position:relative so the
+           floating "Live" corner badge anchors to this container. */
         .qq-install-hosted-card {
+          position: relative;
           padding: 14px 16px;
           background: ${d.colors.canvas};
           border: 1px solid ${p.colors.borderLight};
           border-radius: 12px;
           display: flex; flex-direction: column; gap: 10px;
+        }
+        /* Wave AO-10 — Live pill floating at top-right corner of the
+           hosted card, OUTSIDE the URL input. */
+        .qq-install-hosted-corner-badge {
+          position: absolute;
+          top: 8px;
+          right: 10px;
+          font-size: 9.5px; font-weight: 700;
+          border-radius: 999px;
+          padding: 2px 8px;
+          line-height: 1.2;
+          letter-spacing: 0.02em;
+          white-space: nowrap;
+          z-index: 1;
+        }
+        .qq-install-hosted-corner-badge.is-live {
+          color: #097a4a;
+          background: rgba(34, 197, 94, 0.13);
+          border: 1px solid rgba(34, 197, 94, 0.35);
         }
         .qq-install-hosted-url-row {
           display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
@@ -628,35 +650,13 @@ export default function InstallTab({
           font-size: 13.5px; font-weight: 700;
           color: ${p.colors.heading};
           padding: 6px 10px;
-          padding-right: 90px;
+          /* Wave AO-10 — Live badge moved out of input; only need clearance
+             for the pencil-edit button at right. */
+          padding-right: 34px;
           background: #fff;
           border: 1px solid ${p.colors.border};
           border-radius: 7px;
           word-break: break-all;
-        }
-        .qq-install-hosted-badge {
-          flex-shrink: 0;
-          font-size: 9.5px; font-weight: 700;
-          color: ${p.colors.warning ?? '#a8741b'};
-          background: rgba(255, 176, 32, 0.14);
-          border: 1px solid rgba(255, 176, 32, 0.32);
-          border-radius: 999px;
-          padding: 1px 6px;
-          line-height: 1.2;
-          white-space: nowrap;
-        }
-        /* Wave P — every save auto-publishes; the badge is now a positive
-         * "Live" pill instead of the old "Reserved — activates after
-         * publish" warning pill. */
-        .qq-install-hosted-badge.is-live {
-          color: #097a4a;
-          background: rgba(34, 197, 94, 0.13);
-          border-color: rgba(34, 197, 94, 0.35);
-        }
-        .qq-install-hosted-url-wrap .qq-install-hosted-badge {
-          position: absolute;
-          top: 6px;
-          right: 32px;
         }
         /* Wave P-F — custom-slug edit row + live availability hint. */
         .qq-install-hosted-edit-trigger {
@@ -731,13 +731,15 @@ export default function InstallTab({
         .qq-install-hosted-actions {
           display: flex; gap: 8px; flex-wrap: wrap;
         }
+        /* Wave AO-10 — shorter CTAs (24px min-height, 4×10 padding, 11px). */
         .qq-install-hosted-copy,
         .qq-install-hosted-open {
           display: inline-flex; align-items: center; gap: 6px;
-          padding: 5px 11px; border-radius: 8px;
-          font-size: 11.5px; font-weight: 700;
+          padding: 4px 10px; border-radius: 8px;
+          font-size: 11px; font-weight: 700;
           cursor: pointer;
-          min-height: 28px;
+          min-height: 24px;
+          line-height: 1.2;
           transition: box-shadow 0.12s ease, transform 0.06s ease, background 0.12s ease;
           text-decoration: none;
         }
@@ -782,8 +784,11 @@ export default function InstallTab({
           background: ${d.colors.canvas};
           overflow: hidden;
         }
+        /* Wave AO-11 — extra bottom-right padding on the snippet text so
+           the absolutely-positioned Copy button never overlaps visible code. */
         .qq-install-snippet {
           margin: 0; padding: 12px 14px;
+          padding-bottom: 44px;
           font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
           font-size: 12px; line-height: 1.55;
           color: ${p.colors.body};
@@ -791,16 +796,26 @@ export default function InstallTab({
           background: transparent;
           max-height: 220px; overflow: auto;
         }
+        /* Wave AO-11 — Copy snippet button moved from top-right to
+           bottom-right corner so it sits cleanly out of the way of the
+           snippet content. Subtle by default; gains shadow on hover. */
         .qq-install-copy-btn {
-          position: absolute; top: 8px; right: 8px;
+          position: absolute; bottom: 8px; right: 8px;
           background: ${p.colors.accent}; color: #fff;
-          font-size: 11.5px; font-weight: 700;
-          border: none; border-radius: 6px; padding: 5px 10px;
-          cursor: pointer; box-shadow: ${p.shadows.button};
-          transition: box-shadow 0.12s ease, transform 0.06s ease;
-          min-height: 28px;
+          font-size: 11px; font-weight: 700;
+          border: none; border-radius: 6px; padding: 4px 10px;
+          cursor: pointer;
+          opacity: 0.92;
+          box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+          transition: opacity 0.12s ease, box-shadow 0.12s ease, transform 0.06s ease;
+          min-height: 24px;
+          line-height: 1.2;
         }
-        .qq-install-copy-btn:hover { box-shadow: ${p.shadows.buttonHover}; }
+        .qq-install-copy-btn:hover,
+        .qq-install-copy-btn:focus-visible {
+          opacity: 1;
+          box-shadow: ${p.shadows.buttonHover};
+        }
         .qq-install-copy-btn:active { transform: translateY(1px); }
 
         /* Wave O — platform guide cards (modal-based). 2-up grid that
