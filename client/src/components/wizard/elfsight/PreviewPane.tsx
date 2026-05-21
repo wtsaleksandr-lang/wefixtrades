@@ -459,12 +459,11 @@ export default function PreviewPane({
           >
             <QuoteWidget calculator={previewCalculatorData} isEmbed hideBrandBadge editableTitle />
           </HostedPageFrame>
-          {shellFields.length > 0 && onRemoveField && onAddField && (
+          {shellFields.length > 0 && onRemoveField && (
             <PreviewOverlay
               fields={shellFields}
               containerRef={overlayHostRef as React.RefObject<HTMLDivElement>}
               onRemoveField={onRemoveField}
-              onAddField={onAddField}
             />
           )}
           {shellFields.length === 0 && onAddField && (
@@ -539,12 +538,11 @@ export default function PreviewPane({
                 ) : (
                   <QuoteWidget calculator={previewCalculatorData} isEmbed hideBrandBadge editableTitle />
                 )}
-                {shellFields.length > 0 && onRemoveField && onAddField && (
+                {shellFields.length > 0 && onRemoveField && (
                   <PreviewOverlay
                     fields={shellFields}
                     containerRef={overlayHostRef as React.RefObject<HTMLDivElement>}
                     onRemoveField={onRemoveField}
-                    onAddField={onAddField}
                   />
                 )}
                 {shellFields.length === 0 && onAddField && (
@@ -634,12 +632,11 @@ export default function PreviewPane({
                 ) : (
                   <QuoteWidget calculator={previewCalculatorData} isEmbed hideBrandBadge editableTitle />
                 )}
-                {shellFields.length > 0 && onRemoveField && onAddField && (
+                {shellFields.length > 0 && onRemoveField && (
                   <PreviewOverlay
                     fields={shellFields}
                     containerRef={overlayHostRef as React.RefObject<HTMLDivElement>}
                     onRemoveField={onRemoveField}
-                    onAddField={onAddField}
                   />
                 )}
                 {shellFields.length === 0 && onAddField && (

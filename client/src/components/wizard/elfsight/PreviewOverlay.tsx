@@ -5,8 +5,12 @@
 // and, for each, draws:
 //   - a transparent click hit-target that sets selection ({kind:'field', id})
 //   - a small "−" remove icon on hover/tap (≥44×44 mobile tap target).
-// At the end of the field list it draws a "+ Add field" dashed slot tied to
-// the SAME AddFieldMenu (rendered as a portal — see item e).
+//
+// Wave AF-3 — removed the in-preview "+ Add field" dashed append slot. It
+// was overlapping the bottom bezel edge on desktop and clipping with the
+// border. The left-pane FieldsPanel still has a "+ Add field" button, and
+// the empty-state preview (rendered when shellFields.length === 0) still
+// shows an AddFieldMenu — so the append affordance isn't lost.
 //
 // Implementation notes:
 //  - We can't intersperse DOM inside AdvancedCalculator without forking that
@@ -20,14 +24,10 @@
 //  - Selection target nodes are also registered with SelectionProvider so a
 //    pane-side click can scroll the matching preview field into view.
 
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { useDroppable } from '@dnd-kit/core';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { platformTheme } from '@/theme/platformTheme';
 import type { TemplateField } from '@shared/templatePresets';
-import AddFieldMenu from './AddFieldMenu';
-import { DND_CONTAINERS } from './dnd';
 import { useSelection } from './selection';
-import type { PublicFieldType } from './types';
 
 const p = platformTheme;
 
@@ -43,8 +43,6 @@ interface Props {
   containerRef: React.RefObject<HTMLDivElement | null>;
   /** Callback when a user removes a field from the preview (− icon). */
   onRemoveField: (fieldId: string) => void;
-  /** Callback when the user picks a field type from the in-preview +Add menu. */
-  onAddField: (publicType: PublicFieldType) => void;
 }
 
 interface FieldBox {
@@ -55,21 +53,15 @@ interface FieldBox {
   height: number;
 }
 
-interface AppendBox {
-  left: number;
-  top: number;
-  width: number;
-}
-
 /** Read all rendered preview field nodes and map them 1:1 to shell fields. */
 function measureFields(
   container: HTMLElement,
   fields: TemplateField[],
-): { fieldBoxes: FieldBox[]; appendBox: AppendBox | null } {
+): { fieldBoxes: FieldBox[] } {
   const calc = container.querySelector<HTMLElement>(
     '[data-testid="advanced-calculator"]',
   );
-  if (!calc) return { fieldBoxes: [], appendBox: null };
+  if (!calc) return { fieldBoxes: [] };
   const fieldNodes = calc.querySelectorAll<HTMLElement>('[data-colspan]');
   const containerRect = container.getBoundingClientRect();
   const out: FieldBox[] = [];
@@ -87,36 +79,13 @@ function measureFields(
       height: r.height,
     });
   }
-  // Append slot — directly under the last rendered field node, full-width
-  // across the inputs grid container.
-  //
-  // Wave R-pre v2 — skip the append slot when the widget's body is in
-  // single-column layout (mobile preview OR narrow desktop). In that
-  // case the result panel stacks directly below the fields and the
-  // absolute-positioned slot lands on top of it. The user still has the
-  // left-pane '+ Add field' button to add fields on mobile.
-  let appendBox: AppendBox | null = null;
-  if (count > 0 && containerRect.width >= 560) {
-    const last = fieldNodes[count - 1];
-    const grid = last.parentElement;
-    if (grid) {
-      const gridRect = grid.getBoundingClientRect();
-      const lastRect = last.getBoundingClientRect();
-      appendBox = {
-        left: gridRect.left - containerRect.left,
-        top: lastRect.bottom - containerRect.top + 8,
-        width: gridRect.width,
-      };
-    }
-  }
-  return { fieldBoxes: out, appendBox };
+  return { fieldBoxes: out };
 }
 
 export default function PreviewOverlay({
-  fields, containerRef, onRemoveField, onAddField,
+  fields, containerRef, onRemoveField,
 }: Props) {
   const [boxes, setBoxes] = useState<FieldBox[]>([]);
-  const [appendBox, setAppendBox] = useState<AppendBox | null>(null);
   const rafRef = useRef<number | null>(null);
   const selfRef = useRef<HTMLDivElement | null>(null);
 
@@ -128,9 +97,8 @@ export default function PreviewOverlay({
     const container = containerRef.current ?? selfRef.current?.parentElement ?? null;
     if (!container) return;
     const update = () => {
-      const { fieldBoxes, appendBox } = measureFields(container, fields);
+      const { fieldBoxes } = measureFields(container, fields);
       setBoxes(fieldBoxes);
-      setAppendBox(appendBox);
     };
     update();
     // Re-measure on next frames in case the calculator's grid lays out
@@ -187,19 +155,6 @@ export default function PreviewOverlay({
           onRemove={() => onRemoveField(b.fieldId)}
         />
       ))}
-      {/* Wave R-pre v2 — the in-preview append slot was overlapping the
-       *  result panel on single-column layouts (mobile preview + narrow
-       *  desktop). The result panel is a sibling grid cell that on mobile
-       *  stacks BELOW the fields column; the absolute-positioned slot was
-       *  landing on top of it. The user already has the left-pane '+ Add
-       *  field' button for the same purpose, so we hide the in-preview
-       *  overlay slot on narrow widths via the CSS rule below. */}
-      {appendBox && (
-        <AppendSlot
-          box={appendBox}
-          onAddField={onAddField}
-        />
-      )}
 
       <style>{`
         .qq-preview-overlay {
@@ -274,32 +229,6 @@ export default function PreviewOverlay({
           font-size: 12px; font-weight: 800; line-height: 1;
           box-shadow: 0 1px 4px rgba(15,23,42,0.18);
         }
-        .qq-preview-append-slot {
-          position: absolute;
-          pointer-events: auto;
-          padding: 14px 12px;
-          background: rgba(13, 60, 252, 0.04);
-          border: 1.5px dashed ${p.colors.accent};
-          border-radius: 12px;
-          color: ${p.colors.accent};
-          display: flex; align-items: center; justify-content: center;
-          font-size: 12.5px; font-weight: 700;
-          min-height: 48px;
-          transition: background 0.12s ease;
-        }
-        .qq-preview-append-slot.is-drop-target {
-          background: rgba(13, 60, 252, 0.10);
-          border-style: solid;
-        }
-        /* Wave R-pre v2 — hide the in-preview append slot when the
-         * widget is rendering single-column (mobile + narrow desktop
-         * preview). On those layouts the result panel stacks directly
-         * below the fields, and the absolute-positioned append slot
-         * lands on top of it. The left-pane "+ Add field" button still
-         * works on mobile, so users don't lose the affordance. */
-        @media (max-width: 560px) {
-          .qq-preview-append-slot { display: none !important; }
-        }
       `}</style>
     </div>
   );
@@ -348,26 +277,3 @@ function FieldDecorator({ box, onRemove }: FieldDecoratorProps) {
   );
 }
 
-interface AppendSlotProps {
-  box: AppendBox;
-  onAddField: (publicType: PublicFieldType) => void;
-}
-
-function AppendSlot({ box, onAddField }: AppendSlotProps) {
-  // Drop target for the in-preview append slot. Also surfaces a click-pick
-  // AddFieldMenu in the same position so users get a tap-to-add path.
-  const { setNodeRef, isOver } = useDroppable({
-    id: DND_CONTAINERS.previewAppend,
-    data: { kind: 'preview-append' },
-  });
-  return (
-    <div
-      ref={setNodeRef}
-      className={`qq-preview-append-slot${isOver ? ' is-drop-target' : ''}`}
-      data-testid="preview-add-slot"
-      style={{ left: box.left, top: box.top, width: box.width }}
-    >
-      <AddFieldMenu onPick={onAddField} />
-    </div>
-  );
-}
