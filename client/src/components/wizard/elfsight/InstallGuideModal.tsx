@@ -11,7 +11,8 @@
 // notes. Copy + snippet uses the existing platformTheme tokens.
 
 import { useEffect, useState } from 'react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import * as DialogPrimitive from '@radix-ui/react-dialog';
+import { X } from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
 import { dashboardTheme } from '@/theme/dashboardTheme';
 
@@ -193,14 +194,35 @@ export default function InstallGuideModal({ activeId, onClose, snippet }: Props)
     } catch { /* clipboard is convenience */ }
   };
 
+  // Root cause of "Install tab freezes on any click" (May 2026):
+  //   The wizard root (.wizard-shell-modal) is z-index: 1000. Our previous
+  //   shadcn <Dialog> wrapper renders its overlay + content at z-index: 50
+  //   — so when a guide card was clicked, Radix opened the modal *behind*
+  //   the wizard (invisible to the user) and `react-remove-scroll` set
+  //   `pointer-events: none` on every body child outside the portal,
+  //   including the wizard. Result: the user saw no dialog and every
+  //   subsequent click on the wizard did nothing — i.e. "frozen".
+  //
+  // Fix: render the Radix primitives directly with explicit z-index above
+  //   the wizard shell (1300, matching the wizard's other internal
+  //   overlays in PreviewPane/TemplateGallery) so the dialog paints on
+  //   top and the click-shield is consistent with what the user sees.
   return (
-    <Dialog open={!!guide} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent
-        className="qq-install-guide-dialog"
-        data-testid="install-guide-modal"
-        data-platform={guide?.id ?? ''}
-      >
-        {guide && (
+    <DialogPrimitive.Root open={!!guide} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay
+          className="qq-install-guide-overlay"
+          data-testid="install-guide-modal-overlay"
+        />
+        <DialogPrimitive.Content
+          className="qq-install-guide-dialog"
+          data-testid="install-guide-modal"
+          data-platform={guide?.id ?? ''}
+        >
+          <DialogPrimitive.Title className="qq-install-guide-modal-sr-title">
+            {guide?.label ?? 'Install guide'}
+          </DialogPrimitive.Title>
+          {guide && (
           <div className="qq-install-guide-modal-body">
             <header className="qq-install-guide-modal-header">
               <span aria-hidden="true" className="qq-install-guide-modal-icon">{guide.icon}</span>
@@ -255,16 +277,17 @@ export default function InstallGuideModal({ activeId, onClose, snippet }: Props)
               </button>
             </footer>
           </div>
-        )}
-        <style>{`
-          .qq-install-guide-dialog {
-            max-width: 560px;
-            padding: 22px 22px 18px;
-            background: #fff;
-            border-radius: 14px;
-            border: 1px solid ${p.colors.borderLight};
-            box-shadow: 0 24px 70px rgba(15, 23, 42, 0.22);
-          }
+          )}
+          <DialogPrimitive.Close
+            className="qq-install-guide-modal-x"
+            aria-label="Close"
+            data-testid="install-guide-modal-x"
+          >
+            <X size={16} aria-hidden="true" />
+          </DialogPrimitive.Close>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+      <style>{`
           .qq-install-guide-modal-body {
             display: flex; flex-direction: column; gap: 14px;
           }
@@ -370,6 +393,77 @@ export default function InstallGuideModal({ activeId, onClose, snippet }: Props)
             min-height: 38px;
           }
           .qq-install-guide-modal-close:hover { background: ${d.colors.canvas}; }
+
+          /* Wave R-pre G — base positioning + z-index for the bespoke
+             Radix portal. Previously inherited from the shadcn DialogContent
+             wrapper, which set z-index: 50 — invisible behind the wizard
+             root (.wizard-shell-modal, z-index: 1000) and triggering the
+             "Install tab freezes on any click" bug because Radix's
+             react-remove-scroll then pointer-events:none'd the wizard while
+             the modal was open. Now rendered at z-index 1300, matching
+             AddFieldMenu / TemplateGallery overlays. */
+          .qq-install-guide-overlay {
+            position: fixed; inset: 0; z-index: 1300;
+            background: rgba(15, 23, 42, 0.55);
+            backdrop-filter: blur(2px);
+            -webkit-backdrop-filter: blur(2px);
+          }
+          .qq-install-guide-overlay[data-state="open"] {
+            animation: qq-install-guide-fade-in 160ms ease-out;
+          }
+          .qq-install-guide-dialog {
+            position: fixed;
+            left: 50%; top: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1301;
+            width: calc(100vw - 32px);
+            max-width: 560px;
+            max-height: calc(100vh - 32px);
+            overflow-y: auto;
+            padding: 22px 22px 18px;
+            background: #fff;
+            border-radius: 14px;
+            border: 1px solid ${p.colors.borderLight};
+            box-shadow: 0 24px 70px rgba(15, 23, 42, 0.22);
+          }
+          .qq-install-guide-dialog[data-state="open"] {
+            animation: qq-install-guide-pop-in 160ms ease-out;
+          }
+          @keyframes qq-install-guide-fade-in {
+            from { opacity: 0; }
+            to   { opacity: 1; }
+          }
+          @keyframes qq-install-guide-pop-in {
+            from { opacity: 0; transform: translate(-50%, -48%) scale(0.97); }
+            to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+          }
+          /* The Radix Title carries the dialog's aria label but is visually
+             redundant (we have a styled <h2> in the body). Hide it from
+             sighted users while keeping it in the a11y tree. */
+          .qq-install-guide-modal-sr-title {
+            position: absolute;
+            width: 1px; height: 1px;
+            padding: 0; margin: -1px;
+            overflow: hidden; clip: rect(0,0,0,0);
+            white-space: nowrap; border: 0;
+          }
+          .qq-install-guide-modal-x {
+            position: absolute;
+            top: 14px; right: 14px;
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 28px; height: 28px;
+            border-radius: 8px;
+            background: transparent;
+            border: 1px solid transparent;
+            color: ${p.colors.muted};
+            cursor: pointer;
+            transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+          }
+          .qq-install-guide-modal-x:hover {
+            background: ${d.colors.canvas};
+            color: ${p.colors.heading};
+            border-color: ${p.colors.border};
+          }
           @media (max-width: 600px) {
             .qq-install-guide-dialog {
               max-width: calc(100vw - 16px);
@@ -377,9 +471,9 @@ export default function InstallGuideModal({ activeId, onClose, snippet }: Props)
             }
             .qq-install-guide-modal-copy,
             .qq-install-guide-modal-close { min-height: 44px; font-size: 14px; }
+            .qq-install-guide-modal-x { width: 36px; height: 36px; }
           }
         `}</style>
-      </DialogContent>
-    </Dialog>
+    </DialogPrimitive.Root>
   );
 }
