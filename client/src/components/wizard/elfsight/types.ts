@@ -10,6 +10,8 @@
 import type {
   TemplateLayout, TemplateField, TemplateCalculation,
   AdvStyle, AdvFontFamily, AdvFieldStyle, AdvWidgetWidth,
+  AdvLogoPlacement, AdvLogoSize,
+  AdvHeadingWeight, AdvBodyWeight, AdvFontSize,
 } from '@shared/templatePresets';
 import { DEFAULT_ADV_STYLE } from '@shared/templatePresets';
 
@@ -77,16 +79,22 @@ export type {
   AdvFontFamily as ShellFontFamily,
   AdvFieldStyle as ShellFieldStyle,
   AdvWidgetWidth as ShellWidgetWidth,
+  AdvLogoPlacement as ShellLogoPlacement,
+  AdvLogoSize as ShellLogoSize,
+  AdvHeadingWeight as ShellHeadingWeight,
+  AdvBodyWeight as ShellBodyWeight,
+  AdvFontSize as ShellFontSize,
 };
 
 /**
  * Brand defaults exported through the shell scope.
  *
- * Wave AC-1 — `widgetWidthDesktop` / `widgetWidthMobile` stay undefined in
- * the defaults (the renderer falls back to the `widgetWidth` enum when not
- * set), so we mirror DEFAULT_ADV_STYLE's `Required<Omit<…>>` shape.
+ * Wave AC-1 / W-AO-6b — only the always-set tokens carry defaults; new
+ * optional tokens (per-viewport widths, the 5 extra colour tokens, logo
+ * placement/size, typography depth) are intentionally absent so unsaved
+ * calculators render identically to the pre-AO-6b build.
  */
-export const DEFAULT_SHELL_STYLE: Required<Omit<ShellStyle, 'widgetWidthDesktop' | 'widgetWidthMobile'>> = DEFAULT_ADV_STYLE;
+export const DEFAULT_SHELL_STYLE: typeof DEFAULT_ADV_STYLE = DEFAULT_ADV_STYLE;
 
 /**
  * Curated font families.

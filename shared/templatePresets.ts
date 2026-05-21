@@ -2554,6 +2554,15 @@ export type AdvFontFamily =
   | 'system' | 'inter' | 'manrope'
   | 'satoshi' | 'geist' | 'jakarta' | 'plex' | 'outfit' | 'sora';
 export type AdvWidgetWidth = 'narrow' | 'wide' | 'full';
+/** W-AO-6b — logo placement in the calculator header. */
+export type AdvLogoPlacement = 'top-left' | 'top-center' | 'top-right' | 'hidden';
+/** W-AO-6b — logo render size in pixels (small=24, medium=36, large=52). */
+export type AdvLogoSize = 'small' | 'medium' | 'large';
+/** W-AO-6b — heading & body font weights (segmented). */
+export type AdvHeadingWeight = 500 | 600 | 700 | 800;
+export type AdvBodyWeight = 400 | 500;
+/** W-AO-6b — base font size token. */
+export type AdvFontSize = 'small' | 'medium' | 'large';
 export interface AdvStyle {
   /** Accent / CTA colour. Overrides theme.accent. */
   accent?: string;
@@ -2563,6 +2572,16 @@ export interface AdvStyle {
   text?: string;
   /** Result-panel background. Overrides theme.result. */
   resultsBg?: string;
+  /** W-AO-6b — secondary CTA / accent-variant colour. */
+  secondary?: string;
+  /** W-AO-6b — card / panel surface colour (distinct from body background). */
+  surface?: string;
+  /** W-AO-6b — input + container border colour. */
+  border?: string;
+  /** W-AO-6b — positive-state colour (quote confirmed, etc). */
+  success?: string;
+  /** W-AO-6b — error / validation-failure colour. */
+  error?: string;
   fontFamily?: AdvFontFamily;
   fieldStyle?: AdvFieldStyle;
   /** Corner radius in pixels (0–24). */
@@ -2575,6 +2594,16 @@ export interface AdvStyle {
    */
   widgetWidthDesktop?: number;
   widgetWidthMobile?: number;
+  /** W-AO-6b — logo placement in the header (top-left / center / right / hidden). */
+  logoPlacement?: AdvLogoPlacement;
+  /** W-AO-6b — logo size (small=24px / medium=36px / large=52px). */
+  logoSize?: AdvLogoSize;
+  /** W-AO-6b — heading font weight (500 / 600 / 700 / 800). */
+  headingWeight?: AdvHeadingWeight;
+  /** W-AO-6b — body font weight (400 / 500). */
+  bodyWeight?: AdvBodyWeight;
+  /** W-AO-6b — base font size (small=14px / medium=16px / large=18px). */
+  fontSize?: AdvFontSize;
 }
 
 /**
@@ -2588,7 +2617,24 @@ export interface AdvStyle {
  * apply when the user explicitly picks one in the Style tab; otherwise the
  * renderer falls back to the existing `widgetWidth` enum.
  */
-export const DEFAULT_ADV_STYLE: Required<Omit<AdvStyle, 'widgetWidthDesktop' | 'widgetWidthMobile'>> = {
+/**
+ * Wave AC-1 — `widgetWidthDesktop` / `widgetWidthMobile` are intentionally
+ * absent from the defaults.
+ *
+ * W-AO-6b — `secondary`, `surface`, `border`, `success`, `error`,
+ * `logoPlacement`, `logoSize`, `headingWeight`, `bodyWeight` and `fontSize`
+ * are also intentionally absent. They are NEW optional tokens; when unset
+ * the renderer falls through to the legacy behaviour (`theme.surface`,
+ * `theme.border`, default 600/400 weights, 16px base). Adding them to the
+ * defaults would force every existing config to render with the new values.
+ */
+type AdvStyleOptionalOnly =
+  | 'widgetWidthDesktop' | 'widgetWidthMobile'
+  | 'secondary' | 'surface' | 'border' | 'success' | 'error'
+  | 'logoPlacement' | 'logoSize'
+  | 'headingWeight' | 'bodyWeight' | 'fontSize';
+
+export const DEFAULT_ADV_STYLE: Required<Omit<AdvStyle, AdvStyleOptionalOnly>> = {
   accent: '#0d3cfc',
   background: '#ffffff',
   text: '#0f172a',

@@ -20,7 +20,11 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { MousePointerClick, Square, Type, Receipt, type LucideIcon } from 'lucide-react';
+import {
+  MousePointerClick, Square, Type, Receipt,
+  Layers, Box, Frame, CheckCircle2, XCircle,
+  type LucideIcon,
+} from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
 import {
   DEFAULT_SHELL_STYLE,
@@ -29,15 +33,30 @@ import {
   type ShellFontFamily,
   type ShellFieldStyle,
   type ShellWidgetWidth,
+  type ShellLogoPlacement,
+  type ShellLogoSize,
+  type ShellHeadingWeight,
+  type ShellBodyWeight,
+  type ShellFontSize,
 } from './types';
 import FloatField from './FloatField';
 import InfoCue from './InfoCue';
+import { QUOTEQUICK_STYLE_PRESETS } from '@/data/quoteQuickStylePresets';
 
 const p = platformTheme;
 
 interface Props {
   style: ShellStyle;
   onChange: (next: ShellStyle) => void;
+  /**
+   * W-AO-6b — current logo data URL (or null). Plumbed in from WizardShell so
+   * the Style tab's Branding section can offer logo upload + placement
+   * controls without duplicating the file-reader plumbing already used by
+   * BuildTab's logo affordance.
+   */
+  logo?: string | null;
+  /** W-AO-6b — replace the logo (data URL) or clear (null). */
+  onLogoChange?: (next: string | null) => void;
 }
 
 const HEX_RE = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
@@ -82,7 +101,23 @@ function safeHex(raw: string): string | null {
   return null;
 }
 
-export default function StyleTab({ style, onChange }: Props) {
+// W-AO-6b — bytes ceiling for the Branding logo upload. Matches the existing
+// BuildTab limit so a logo set from either place rejects oversized files
+// consistently (data URL inflates ~33% on top of this).
+const LOGO_MAX_BYTES = 1024 * 1024;
+
+// W-AO-6b — sensible fallback colour tokens used by the new swatch row.
+// Mirror the conservative pan-theme defaults from widgetThemes.ts so the
+// Style tab UI matches what the renderer will produce when nothing is set.
+const TOKEN_FALLBACKS = {
+  secondary: '#64748b',
+  surface: '#ffffff',
+  border: '#e5e7eb',
+  success: '#16a34a',
+  error: '#dc2626',
+} as const;
+
+export default function StyleTab({ style, onChange, logo, onLogoChange }: Props) {
   /** Patch a single style field (skipping `undefined` so blanks fall through). */
   const patch = useCallback(
     (next: Partial<ShellStyle>) => onChange({ ...style, ...next }),
@@ -93,6 +128,13 @@ export default function StyleTab({ style, onChange }: Props) {
   const background = style.background ?? DEFAULT_SHELL_STYLE.background;
   const text = style.text ?? DEFAULT_SHELL_STYLE.text;
   const resultsBg = style.resultsBg ?? DEFAULT_SHELL_STYLE.resultsBg;
+  // W-AO-6b — extended colour tokens (5 new). All optional; show the fallback
+  // value as the swatch when the user hasn't picked one.
+  const secondary = style.secondary ?? TOKEN_FALLBACKS.secondary;
+  const surface = style.surface ?? TOKEN_FALLBACKS.surface;
+  const borderColour = style.border ?? TOKEN_FALLBACKS.border;
+  const success = style.success ?? TOKEN_FALLBACKS.success;
+  const errorColour = style.error ?? TOKEN_FALLBACKS.error;
   const fontFamily = style.fontFamily ?? DEFAULT_SHELL_STYLE.fontFamily;
   const fieldStyle = style.fieldStyle ?? DEFAULT_SHELL_STYLE.fieldStyle;
   const radius = style.radius ?? DEFAULT_SHELL_STYLE.radius;
@@ -101,6 +143,36 @@ export default function StyleTab({ style, onChange }: Props) {
   // label + the renderer falls back to the `widgetWidth` enum.
   const widgetWidthDesktop = style.widgetWidthDesktop;
   const widgetWidthMobile = style.widgetWidthMobile;
+  // W-AO-6b — Branding (logo) + typography depth selections.
+  const logoPlacement: ShellLogoPlacement = style.logoPlacement ?? 'top-center';
+  const logoSize: ShellLogoSize = style.logoSize ?? 'small';
+  const headingWeight: ShellHeadingWeight = style.headingWeight ?? 700;
+  const bodyWeight: ShellBodyWeight = style.bodyWeight ?? 400;
+  const fontSize: ShellFontSize = style.fontSize ?? 'medium';
+
+  const logoFileRef = useRef<HTMLInputElement | null>(null);
+  const onLogoFile = useCallback((file: File | null) => {
+    if (!onLogoChange) return;
+    if (!file) { onLogoChange(null); return; }
+    if (file.size > LOGO_MAX_BYTES) return; // silently skip — UI hint shown
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result;
+      if (typeof result === 'string') onLogoChange(result);
+    };
+    reader.readAsDataURL(file);
+  }, [onLogoChange]);
+
+  /** W-AO-6b — apply a full preset, overwriting every Style token. */
+  const applyPreset = useCallback((next: ShellStyle) => {
+    // Preserve per-viewport pixel widths (these are page-layout choices, not
+    // visual-design choices), but everything else gets replaced.
+    onChange({
+      ...next,
+      ...(style.widgetWidthDesktop !== undefined ? { widgetWidthDesktop: style.widgetWidthDesktop } : {}),
+      ...(style.widgetWidthMobile !== undefined ? { widgetWidthMobile: style.widgetWidthMobile } : {}),
+    });
+  }, [onChange, style.widgetWidthDesktop, style.widgetWidthMobile]);
 
   return (
     <section
@@ -111,13 +183,163 @@ export default function StyleTab({ style, onChange }: Props) {
       aria-label="Style"
       role="tabpanel"
     >
+      {/* ── Theme presets (W-AO-6b) ─────────────────────────────────
+       *
+       * One-click bundles that overwrite every Style token. Sits at the top
+       * of the panel because picking a preset is the fastest way to a
+       * polished look; per-field controls below let the user customise from
+       * the chosen baseline. */}
+      <fieldset className="qq-style-group" data-testid="style-group-theme">
+        <legend className="qq-style-legend">
+          Theme
+          <InfoCue
+            testid="style-section-theme"
+            text="One-click theme bundles. Picking one overwrites the colours, typography, shape and density below — customise after if you like."
+          />
+        </legend>
+        <div
+          className="qq-style-preset-cards"
+          role="listbox"
+          aria-label="Theme presets"
+          data-testid="style-theme-presets"
+        >
+          {QUOTEQUICK_STYLE_PRESETS.map((preset) => (
+            <button
+              key={preset.id}
+              type="button"
+              className="qq-style-preset-card"
+              data-testid={`style-theme-preset-${preset.id}`}
+              title={preset.description}
+              aria-label={`Apply ${preset.name} theme — ${preset.description}`}
+              onClick={() => applyPreset(preset.style)}
+            >
+              <div
+                className="qq-style-preset-card-swatch"
+                aria-hidden="true"
+                style={{
+                  background: preset.style.background ?? '#ffffff',
+                  borderColor: preset.style.border ?? '#e5e7eb',
+                }}
+              >
+                <span
+                  className="qq-style-preset-card-accent"
+                  style={{ background: preset.style.accent ?? '#0d3cfc' }}
+                />
+                <span
+                  className="qq-style-preset-card-text"
+                  style={{ color: preset.style.text ?? '#0f172a' }}
+                >
+                  Aa
+                </span>
+              </div>
+              <span className="qq-style-preset-card-name">{preset.name}</span>
+            </button>
+          ))}
+        </div>
+      </fieldset>
+
+      {/* ── Branding (W-AO-6b) ──────────────────────────────────────
+       *
+       * Logo upload + placement + size. The upload writes to `state.logo`
+       * (same wire as BuildTab's logo affordance) — the data URL is passed
+       * into AdvancedCalculator as `logoUrl`. Placement + size are persisted
+       * on the Style slot so they round-trip with the rest of the visual
+       * config. */}
+      {onLogoChange && (
+        <fieldset className="qq-style-group" data-testid="style-group-branding">
+          <legend className="qq-style-legend">
+            Branding
+            <InfoCue
+              testid="style-section-branding"
+              text="Upload your logo and choose where it sits in the calculator header. The default trade icon is hidden once you upload your own logo."
+            />
+          </legend>
+          <div className="qq-style-logo-row">
+            <button
+              type="button"
+              className="qq-style-logo-upload"
+              data-testid="style-logo-upload"
+              aria-label={logo ? 'Replace business logo' : 'Upload business logo'}
+              onClick={() => logoFileRef.current?.click()}
+            >
+              {logo ? (
+                <img src={logo} alt="" data-testid="style-logo-preview" />
+              ) : (
+                <span className="qq-style-logo-upload-plus" aria-hidden="true">＋</span>
+              )}
+            </button>
+            <input
+              ref={logoFileRef}
+              type="file"
+              accept="image/*"
+              aria-label="Upload business logo"
+              data-testid="style-logo-input"
+              style={{ position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap', border: 0 }}
+              onChange={(e) => {
+                const f = e.target.files?.[0] ?? null;
+                onLogoFile(f);
+                e.target.value = '';
+              }}
+            />
+            <div className="qq-style-logo-meta">
+              <div className="qq-style-logo-hint">
+                {logo ? 'Drag a file onto the box to replace, or click.' : 'Drop a PNG/SVG here, or click to choose.'}
+              </div>
+              {logo && (
+                <button
+                  type="button"
+                  className="qq-style-logo-clear"
+                  data-testid="style-logo-clear"
+                  onClick={() => onLogoChange(null)}
+                >Remove logo</button>
+              )}
+            </div>
+          </div>
+
+          <label className="qq-style-label" style={{ marginTop: 12 }}>
+            <span className="qq-style-label-text">Placement</span>
+          </label>
+          <SegmentedControl<ShellLogoPlacement>
+            name="logo-placement"
+            testid="style-segmented-logo-placement"
+            value={logoPlacement}
+            options={[
+              { value: 'top-left', label: 'Left' },
+              { value: 'top-center', label: 'Center' },
+              { value: 'top-right', label: 'Right' },
+              { value: 'hidden', label: 'Hidden' },
+            ]}
+            onChange={(v) => patch({ logoPlacement: v })}
+          />
+
+          <label className="qq-style-label" style={{ marginTop: 12 }}>
+            <span className="qq-style-label-text">Size</span>
+          </label>
+          <SegmentedControl<ShellLogoSize>
+            name="logo-size"
+            testid="style-segmented-logo-size"
+            value={logoSize}
+            options={[
+              { value: 'small', label: 'Small' },
+              { value: 'medium', label: 'Medium' },
+              { value: 'large', label: 'Large' },
+            ]}
+            onChange={(v) => patch({ logoSize: v })}
+          />
+        </fieldset>
+      )}
+
       {/* ── Colours ─────────────────────────────────────────────────
        *
        * Wave L S1 — single row of small clickable circles. Each circle is the
        * current swatch colour; click opens a popover with the native picker
        * + the hex text field. Wave L S2 — visible "Colors" heading dropped;
        * the swatch row is self-explanatory. The `<legend>` semantic stays for
-       * screen readers (hidden visually). */}
+       * screen readers (hidden visually).
+       *
+       * W-AO-6b — expanded from 4 → 9 swatches. The new tokens (Secondary /
+       * Surface / Border / Success / Error) all stay optional on the data
+       * model; this UI just lets the user set them when they want. */}
       <fieldset className="qq-style-group qq-style-group--colours" data-testid="style-group-colours">
         {/* W-AO-7 — restored a visible legend in the top-left with an
             adjacent InfoCue. The legend was sr-only because the swatch
@@ -163,6 +385,49 @@ export default function StyleTab({ style, onChange }: Props) {
             fallback={DEFAULT_SHELL_STYLE.resultsBg}
             onChange={(v) => patch({ resultsBg: v })}
           />
+          {/* W-AO-6b — five new tokens. Each swatch wires onto an OPTIONAL
+              field; the renderer falls back to the resolved theme value
+              when the user hasn't picked one. */}
+          <ColourSwatch
+            icon={Layers}
+            label="Secondary"
+            testid="style-input-secondary"
+            value={secondary}
+            fallback={TOKEN_FALLBACKS.secondary}
+            onChange={(v) => patch({ secondary: v })}
+          />
+          <ColourSwatch
+            icon={Box}
+            label="Surface"
+            testid="style-input-surface"
+            value={surface}
+            fallback={TOKEN_FALLBACKS.surface}
+            onChange={(v) => patch({ surface: v })}
+          />
+          <ColourSwatch
+            icon={Frame}
+            label="Border"
+            testid="style-input-border"
+            value={borderColour}
+            fallback={TOKEN_FALLBACKS.border}
+            onChange={(v) => patch({ border: v })}
+          />
+          <ColourSwatch
+            icon={CheckCircle2}
+            label="Success"
+            testid="style-input-success"
+            value={success}
+            fallback={TOKEN_FALLBACKS.success}
+            onChange={(v) => patch({ success: v })}
+          />
+          <ColourSwatch
+            icon={XCircle}
+            label="Error"
+            testid="style-input-error"
+            value={errorColour}
+            fallback={TOKEN_FALLBACKS.error}
+            onChange={(v) => patch({ error: v })}
+          />
         </div>
       </fieldset>
 
@@ -191,6 +456,54 @@ export default function StyleTab({ style, onChange }: Props) {
             ))}
           </select>
         </FloatField>
+
+        {/* W-AO-6b — typography depth. Heading weight, body weight, base
+            size. All flow into the renderer as CSS variables so the title
+            bar, breakdown rows + body text inherit cleanly. */}
+        <label className="qq-style-label" style={{ marginTop: 12 }}>
+          <span className="qq-style-label-text">Heading weight</span>
+        </label>
+        <SegmentedControl<ShellHeadingWeight>
+          name="heading-weight"
+          testid="style-segmented-heading-weight"
+          value={headingWeight}
+          options={[
+            { value: 500, label: '500' },
+            { value: 600, label: '600' },
+            { value: 700, label: '700' },
+            { value: 800, label: '800' },
+          ]}
+          onChange={(v) => patch({ headingWeight: v })}
+        />
+
+        <label className="qq-style-label" style={{ marginTop: 12 }}>
+          <span className="qq-style-label-text">Body weight</span>
+        </label>
+        <SegmentedControl<ShellBodyWeight>
+          name="body-weight"
+          testid="style-segmented-body-weight"
+          value={bodyWeight}
+          options={[
+            { value: 400, label: '400' },
+            { value: 500, label: '500' },
+          ]}
+          onChange={(v) => patch({ bodyWeight: v })}
+        />
+
+        <label className="qq-style-label" style={{ marginTop: 12 }}>
+          <span className="qq-style-label-text">Base size</span>
+        </label>
+        <SegmentedControl<ShellFontSize>
+          name="font-size"
+          testid="style-segmented-font-size"
+          value={fontSize}
+          options={[
+            { value: 'small', label: 'Small' },
+            { value: 'medium', label: 'Medium' },
+            { value: 'large', label: 'Large' },
+          ]}
+          onChange={(v) => patch({ fontSize: v })}
+        />
       </fieldset>
 
       {/* ── Shape ────────────────────────────────────────────────── */}
@@ -563,6 +876,100 @@ export default function StyleTab({ style, onChange }: Props) {
           color: ${p.colors.heading};
           box-shadow: 0 1px 2px rgba(15,23,42,0.08);
         }
+
+        /* ── W-AO-6b — theme preset cards ────────────────────────── */
+        .qq-style-preset-cards {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 8px;
+        }
+        @media (max-width: 480px) {
+          .qq-style-preset-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+        .qq-style-preset-card {
+          display: flex; flex-direction: column; align-items: stretch;
+          gap: 4px;
+          padding: 6px;
+          background: #fff;
+          border: 1px solid ${p.colors.borderLight};
+          border-radius: 10px;
+          cursor: pointer;
+          transition: border-color 0.12s ease, transform 0.06s ease, box-shadow 0.12s ease;
+          font: inherit;
+          text-align: center;
+        }
+        .qq-style-preset-card:hover {
+          border-color: ${p.colors.accent};
+          transform: translateY(-1px);
+          box-shadow: 0 4px 10px rgba(15,23,42,0.08);
+        }
+        .qq-style-preset-card-swatch {
+          position: relative;
+          height: 48px;
+          border-radius: 6px;
+          border: 1px solid transparent;
+          display: flex; align-items: center; justify-content: center;
+          overflow: hidden;
+        }
+        .qq-style-preset-card-accent {
+          position: absolute;
+          top: 4px; right: 4px;
+          width: 10px; height: 10px;
+          border-radius: 50%;
+        }
+        .qq-style-preset-card-text {
+          font-size: 16px;
+          font-weight: 700;
+          letter-spacing: -0.02em;
+        }
+        .qq-style-preset-card-name {
+          font-size: 11px;
+          font-weight: 600;
+          color: ${p.colors.heading};
+        }
+
+        /* ── W-AO-6b — Branding section ───────────────────────────── */
+        .qq-style-logo-row {
+          display: flex; align-items: center; gap: 12px;
+          position: relative;
+        }
+        .qq-style-logo-upload {
+          flex-shrink: 0;
+          width: 56px; height: 56px;
+          display: inline-flex; align-items: center; justify-content: center;
+          background: #fff; color: ${p.colors.muted};
+          border: 1px dashed ${p.colors.border};
+          border-radius: 10px;
+          cursor: pointer; padding: 0; overflow: hidden;
+          transition: border-color 0.12s ease, color 0.12s ease;
+        }
+        .qq-style-logo-upload:hover {
+          border-color: ${p.colors.accent};
+          color: ${p.colors.accent};
+        }
+        .qq-style-logo-upload img {
+          width: 100%; height: 100%; object-fit: contain;
+        }
+        .qq-style-logo-upload-plus {
+          font-size: 24px; line-height: 1; font-weight: 600;
+        }
+        .qq-style-logo-meta {
+          flex: 1; min-width: 0;
+          display: flex; flex-direction: column; gap: 4px;
+        }
+        .qq-style-logo-hint {
+          font-size: 11.5px;
+          color: ${p.colors.muted};
+        }
+        .qq-style-logo-clear {
+          align-self: flex-start;
+          font: inherit;
+          font-size: 11.5px; font-weight: 600;
+          color: ${p.colors.danger};
+          background: transparent; border: none; padding: 0; cursor: pointer;
+          text-decoration: underline;
+        }
+        .qq-style-logo-clear:hover { color: ${p.colors.heading}; }
       `}</style>
     </section>
   );
@@ -736,7 +1143,7 @@ function ColourSwatch({
 }
 
 /* ─── SegmentedControl ─── */
-function SegmentedControl<T extends string>({
+function SegmentedControl<T extends string | number>({
   name, value, options, onChange, testid,
 }: {
   name: string;
@@ -756,7 +1163,7 @@ function SegmentedControl<T extends string>({
         const checked = o.value === value;
         return (
           <button
-            key={o.value}
+            key={String(o.value)}
             type="button"
             role="radio"
             aria-checked={checked}
