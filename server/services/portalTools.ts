@@ -22,8 +22,9 @@
 
 import crypto from "crypto";
 import { db } from "../db";
-import { eq, desc } from "drizzle-orm";
-import { clients, bookflowInvoices } from "@shared/schema";
+import { eq, desc, and, inArray, sql } from "drizzle-orm";
+import { clients, bookflowInvoices, clientServices, supportTickets } from "@shared/schema";
+import { ALL_PRODUCTS } from "@shared/pricing";
 import {
   notificationPreferencesSchema,
   parseNotificationPreferences,
@@ -388,9 +389,425 @@ const DRAFT_INVOICE_ACTION: CopilotAction = {
   execute: executeDraftInvoice,
 };
 
+/* ═══════════════════════════════════════════════════════════════════════════
+ * AUTO-TIER ACTIONS (W-BA-1, Phase 3a)
+ *
+ * Per docs/phase-3-plan.md §3, admission to the `auto` tier requires ALL
+ * three of: (1) customer-satisfying, (2) within the product's allowed
+ * customization, (3) structurally cannot cause company financial loss.
+ *
+ * Admission is decided per action at BUILD time and recorded inline with
+ * each definition. The model never judges tiering at runtime. The agent
+ * loop in aiAgentLoop.ts will execute these without confirmation; lower-
+ * tier actions still short-circuit into the existing confirm flow.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ─── look_up_product_info (auto) ───────────────────────────────────────────
+ * Read-only documentation/FAQ lookup over WeFixTrades' own product catalog.
+ *   1. Customer-satisfying — answers "what does X cost / include?".
+ *   2. Within product customization — purely informational, no state change.
+ *   3. Cannot cause financial loss — reads static pricing constants only.
+ * ────────────────────────────────────────────────────────────────────────── */
+
+const LOOK_UP_PRODUCT_INFO_TOOL: ActionTool = {
+  name: "look_up_product_info",
+  description:
+    "Look up public information about one of WeFixTrades' products. " +
+    "Returns the product's tagline, tiers, prices, and headline features straight from the " +
+    "company's published catalog. Use this whenever the customer asks 'what does X cost', " +
+    "'what's in the Pro tier', 'is Y included' etc. Read-only — does not change any account data.",
+  input_schema: {
+    type: "object",
+    properties: {
+      product_id: {
+        type: "string",
+        description:
+          "Product identifier. Known ids include: sitelaunch, tradeline, quotequick, webcare, " +
+          "mapguard, reputationshield, socialsync, webfix, rankflow, adflow, contentflow.",
+      },
+    },
+    required: ["product_id"],
+  },
+};
+
+async function executeLookUpProductInfo(
+  action: PendingAction,
+  _confirmedByUserId: number,
+): Promise<ActionExecutionResult> {
+  const raw = typeof action.args.product_id === "string" ? action.args.product_id.trim().toLowerCase() : "";
+  if (!raw) throw new Error("A product_id is required.");
+
+  const product = ALL_PRODUCTS.find((p) => p.id.toLowerCase() === raw);
+  if (!product) {
+    const known = ALL_PRODUCTS.map((p) => p.id).join(", ");
+    return {
+      narrative: `No product matches "${raw}". Known products: ${known}.`,
+    };
+  }
+
+  const tierLines = product.tiers.map((t) => {
+    const price =
+      t.billingPeriod === "one-time"
+        ? `$${t.price.toLocaleString()} one-time`
+        : `$${t.price.toLocaleString()}/mo`;
+    const minutes = t.includedMins ? ` — ${t.includedMins} mins included` : "";
+    return `  • ${t.name}: ${price}${minutes}`;
+  });
+  const lines = [
+    `${product.name} — ${product.tagline}`,
+    "Tiers:",
+    ...tierLines,
+  ];
+  if (product.setup) lines.push(`Setup fee: $${product.setup.toLocaleString()}`);
+  if (product.overageRate) lines.push(`Overage: $${product.overageRate}/min beyond the tier minutes`);
+
+  return { narrative: lines.join("\n") };
+}
+
+const LOOK_UP_PRODUCT_INFO_ACTION: CopilotAction = {
+  name: "look_up_product_info",
+  surface: "portal",
+  riskTier: "auto",
+  tool: LOOK_UP_PRODUCT_INFO_TOOL,
+  execute: executeLookUpProductInfo,
+};
+
+/* ─── check_order_status (auto) ─────────────────────────────────────────────
+ * Read-only lookup of the authenticated portal user's OWN active services
+ * and most recent support tickets. Identity is verified by the portal session
+ * — the executor scopes every read to the caller's resolved client_id.
+ *   1. Customer-satisfying — answers "where are we at with my onboarding?".
+ *   2. Within product customization — read-only.
+ *   3. Cannot cause financial loss — read-only.
+ * ────────────────────────────────────────────────────────────────────────── */
+
+const CHECK_ORDER_STATUS_TOOL: ActionTool = {
+  name: "check_order_status",
+  description:
+    "Look up the customer's OWN active services and most recent support tickets. " +
+    "Returns one short summary per service (e.g. 'TradeLine — onboarding') and per recent ticket. " +
+    "Portal-only; identity is already verified by the signed-in session. Read-only.",
+  input_schema: {
+    type: "object",
+    properties: {},
+    required: [],
+  },
+};
+
+async function executeCheckOrderStatus(
+  action: PendingAction,
+  confirmedByUserId: number,
+): Promise<ActionExecutionResult> {
+  if (action.surface !== "portal") {
+    throw new Error("check_order_status is portal-only.");
+  }
+
+  const clientId = await resolveClientId(confirmedByUserId);
+  if (!clientId) {
+    return { narrative: "No services found — your account is not linked to a client record yet." };
+  }
+
+  const services = await db
+    .select({
+      service_id: clientServices.service_id,
+      status: clientServices.status,
+      enabled: clientServices.enabled,
+      started_at: clientServices.started_at,
+    })
+    .from(clientServices)
+    .where(eq(clientServices.client_id, clientId));
+
+  const tickets = await db
+    .select({
+      id: supportTickets.id,
+      subject: supportTickets.subject,
+      status: supportTickets.status,
+      created_at: supportTickets.created_at,
+    })
+    .from(supportTickets)
+    .where(eq(supportTickets.client_id, clientId))
+    .orderBy(desc(supportTickets.created_at))
+    .limit(3);
+
+  const serviceLines = services.length
+    ? services.map((s) => `  • ${s.service_id}: ${s.status}${s.enabled ? "" : " (disabled)"}`)
+    : ["  • (no services on this account)"];
+  const ticketLines = tickets.length
+    ? tickets.map((t) => `  • #${t.id} "${t.subject}" — ${t.status}`)
+    : ["  • (no recent tickets)"];
+
+  return {
+    narrative: ["Your services:", ...serviceLines, "Recent support tickets:", ...ticketLines].join("\n"),
+  };
+}
+
+const CHECK_ORDER_STATUS_ACTION: CopilotAction = {
+  name: "check_order_status",
+  surface: "portal",
+  riskTier: "auto",
+  tool: CHECK_ORDER_STATUS_TOOL,
+  execute: executeCheckOrderStatus,
+};
+
+/* ─── set_notification_preference (auto) ────────────────────────────────────
+ * Toggles the customer's OWN email/SMS notification opt-in/out flag. This is
+ * a strict subset of `update_notification_preference` (the existing low-tier
+ * action) — restricted to just the two channel keys (email, sms), no other
+ * categories. By limiting to the channel toggles only, the action is bounded
+ * tightly enough to admit as auto.
+ *   1. Customer-satisfying — toggles their own opt-in preference.
+ *   2. Within product customization — built-in account setting.
+ *   3. Cannot cause financial loss — toggling notifications has no $ effect.
+ * ────────────────────────────────────────────────────────────────────────── */
+
+const SET_NOTIFICATION_PREFERENCE_TOOL: ActionTool = {
+  name: "set_notification_preference",
+  description:
+    "Turn the customer's OWN email or SMS notification opt-in on or off. " +
+    "Portal-only; identity is already verified by the signed-in session. " +
+    "Only the 'email' and 'sms' channels can be toggled here — for other categories use " +
+    "update_notification_preference instead.",
+  input_schema: {
+    type: "object",
+    properties: {
+      channel: {
+        type: "string",
+        enum: ["email", "sms"],
+        description: "Which notification channel to toggle.",
+      },
+      enabled: {
+        type: "boolean",
+        description: "true to opt in, false to opt out.",
+      },
+    },
+    required: ["channel", "enabled"],
+  },
+};
+
+async function executeSetNotificationPreference(
+  action: PendingAction,
+  confirmedByUserId: number,
+): Promise<ActionExecutionResult> {
+  if (action.surface !== "portal") {
+    throw new Error("set_notification_preference is portal-only.");
+  }
+  const channel = action.args.channel;
+  const enabled = action.args.enabled;
+  if (channel !== "email" && channel !== "sms") {
+    throw new Error("channel must be 'email' or 'sms'.");
+  }
+  if (typeof enabled !== "boolean") {
+    throw new Error("enabled must be true or false.");
+  }
+
+  const clientId = await resolveClientId(confirmedByUserId);
+  if (!clientId) {
+    throw new Error("No client record is linked to your account.");
+  }
+
+  const [client] = await db
+    .select({ metadata: clients.metadata })
+    .from(clients)
+    .where(eq(clients.id, clientId))
+    .limit(1);
+  const current = parseNotificationPreferences(client?.metadata);
+
+  if (current.channels[channel] === enabled) {
+    return {
+      narrative: `No change — ${channel} notifications already ${enabled ? "on" : "off"}.`,
+    };
+  }
+
+  const next: NotificationPreferences = {
+    channels: { ...current.channels, [channel]: enabled },
+    categories: { ...current.categories },
+  };
+  const validated = notificationPreferencesSchema.safeParse(next);
+  if (!validated.success) throw new Error("Updated preferences failed validation.");
+
+  const prevMetadata = (client?.metadata ?? {}) as Record<string, unknown>;
+  await db
+    .update(clients)
+    .set({
+      metadata: { ...prevMetadata, notification_preferences: validated.data },
+      updated_at: new Date(),
+    })
+    .where(eq(clients.id, clientId));
+
+  await storage.logAdminActivity({
+    actor_type: "ai_agent",
+    actor_id: confirmedByUserId,
+    actor_name: "Portal Copilot",
+    action: "ai_tool.executed",
+    entity_type: "client",
+    entity_id: clientId,
+    summary: `Portal copilot (auto) turned ${channel} notifications ${enabled ? "on" : "off"}`,
+    metadata: {
+      tool_name: "set_notification_preference",
+      args: action.args,
+      session_id: action.session_id,
+      confirmed_by_user_id: confirmedByUserId,
+      risk_tier: "auto",
+    },
+  }).catch((err: Error) => log.error("logAdminActivity failed", { error: err.message }));
+
+  return { narrative: `Done — ${channel} notifications ${enabled ? "turned on" : "turned off"}.` };
+}
+
+const SET_NOTIFICATION_PREFERENCE_ACTION: CopilotAction = {
+  name: "set_notification_preference",
+  surface: "portal",
+  riskTier: "auto",
+  tool: SET_NOTIFICATION_PREFERENCE_TOOL,
+  execute: executeSetNotificationPreference,
+};
+
+/* ─── update_business_hours (auto) ──────────────────────────────────────────
+ * Writes to the customer's OWN TradeLine business-hours config. Structural
+ * change but bounded to the product's prebuilt customization surface — every
+ * TradeLine customer sets their own hours. The executor refuses any client_id
+ * other than the caller's, and refuses to touch anything outside
+ * client_services.metadata.tradelineConfig.businessHours.
+ *   1. Customer-satisfying — they want to set their hours of operation.
+ *   2. Within product customization — prebuilt knob, not a structural override.
+ *   3. Cannot cause financial loss — only affects when the assistant takes calls.
+ * ────────────────────────────────────────────────────────────────────────── */
+
+const TRADELINE_SERVICE_IDS = ["tradeline-starter", "tradeline-pro", "tradeline-elite"] as const;
+
+const HOURS_RE = /^([01]\d|2[0-3]):[0-5]\d$/; // HH:MM 24-hour
+const DAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
+type DayKey = (typeof DAY_KEYS)[number];
+
+interface DaySchedule { open: string; close: string; closed?: boolean }
+
+function parseSchedule(input: unknown): Record<DayKey, DaySchedule> {
+  if (!input || typeof input !== "object") {
+    throw new Error("schedule must be an object keyed by day (mon..sun).");
+  }
+  const out: Partial<Record<DayKey, DaySchedule>> = {};
+  for (const day of DAY_KEYS) {
+    const slot = (input as Record<string, unknown>)[day];
+    if (!slot || typeof slot !== "object") {
+      throw new Error(`schedule.${day} is required.`);
+    }
+    const s = slot as Record<string, unknown>;
+    const closed = s.closed === true;
+    const open = typeof s.open === "string" ? s.open : "";
+    const close = typeof s.close === "string" ? s.close : "";
+    if (!closed) {
+      if (!HOURS_RE.test(open) || !HOURS_RE.test(close)) {
+        throw new Error(`schedule.${day} open/close must be HH:MM (24-hour) or set closed: true.`);
+      }
+    }
+    out[day] = { open: open || "09:00", close: close || "17:00", closed };
+  }
+  return out as Record<DayKey, DaySchedule>;
+}
+
+const UPDATE_BUSINESS_HOURS_TOOL: ActionTool = {
+  name: "update_business_hours",
+  description:
+    "Update the customer's OWN TradeLine business hours (when the assistant takes calls). " +
+    "Portal-only; identity is already verified by the signed-in session. " +
+    "Provide a timezone IANA string (e.g. 'America/Toronto') and a 7-day schedule keyed by " +
+    "mon|tue|wed|thu|fri|sat|sun. Each day takes either { open: 'HH:MM', close: 'HH:MM' } " +
+    "(24-hour) or { closed: true }.",
+  input_schema: {
+    type: "object",
+    properties: {
+      timezone: {
+        type: "string",
+        description: "IANA timezone, e.g. 'America/Toronto'.",
+      },
+      schedule: {
+        type: "object",
+        description: "Map of day-of-week to { open, close } or { closed: true }.",
+      },
+    },
+    required: ["timezone", "schedule"],
+  },
+};
+
+async function executeUpdateBusinessHours(
+  action: PendingAction,
+  confirmedByUserId: number,
+): Promise<ActionExecutionResult> {
+  if (action.surface !== "portal") {
+    throw new Error("update_business_hours is portal-only.");
+  }
+
+  const timezone = typeof action.args.timezone === "string" ? action.args.timezone.trim() : "";
+  if (!timezone || timezone.length > 80 || !/^[A-Za-z]+\/[A-Za-z_]+/.test(timezone)) {
+    throw new Error("timezone must be an IANA name like 'America/Toronto'.");
+  }
+  const schedule = parseSchedule(action.args.schedule);
+
+  const clientId = await resolveClientId(confirmedByUserId);
+  if (!clientId) throw new Error("No client record is linked to your account.");
+
+  const patch = JSON.stringify({ businessHours: { timezone, schedule } });
+
+  // Scoped JSONB merge — only affects this client's tradeline rows, and only
+  // the businessHours subtree. Mirrors the pattern used by mobileApiRoutes.
+  const result = await db
+    .update(clientServices)
+    .set({
+      metadata: sql`jsonb_set(
+        COALESCE(${clientServices.metadata}, '{}'::jsonb),
+        '{tradelineConfig}',
+        COALESCE(${clientServices.metadata}->'tradelineConfig', '{}'::jsonb) || ${patch}::jsonb
+      )`,
+      updated_at: new Date(),
+    })
+    .where(
+      and(
+        eq(clientServices.client_id, clientId),
+        inArray(clientServices.service_id, TRADELINE_SERVICE_IDS as unknown as string[]),
+      ),
+    )
+    .returning({ id: clientServices.id });
+
+  if (result.length === 0) {
+    return { narrative: "No TradeLine service is active on your account — nothing to update." };
+  }
+
+  await storage.logAdminActivity({
+    actor_type: "ai_agent",
+    actor_id: confirmedByUserId,
+    actor_name: "Portal Copilot",
+    action: "ai_tool.executed",
+    entity_type: "client_service",
+    entity_id: result[0].id,
+    summary: `Portal copilot (auto) updated TradeLine business hours (${timezone})`,
+    metadata: {
+      tool_name: "update_business_hours",
+      args: action.args,
+      session_id: action.session_id,
+      confirmed_by_user_id: confirmedByUserId,
+      risk_tier: "auto",
+    },
+  }).catch((err: Error) => log.error("logAdminActivity failed", { error: err.message }));
+
+  return { narrative: `Done — TradeLine business hours updated for timezone ${timezone}.` };
+}
+
+const UPDATE_BUSINESS_HOURS_ACTION: CopilotAction = {
+  name: "update_business_hours",
+  surface: "portal",
+  riskTier: "auto",
+  tool: UPDATE_BUSINESS_HOURS_TOOL,
+  execute: executeUpdateBusinessHours,
+};
+
 /* ─── Register portal actions ─── */
 registerCopilotAction(UPDATE_NOTIFICATION_PREFERENCE_ACTION);
 registerCopilotAction(DRAFT_INVOICE_ACTION);
+// Auto-tier admissions (W-BA-1) — see admission rationale above each block.
+registerCopilotAction(LOOK_UP_PRODUCT_INFO_ACTION);
+registerCopilotAction(CHECK_ORDER_STATUS_ACTION);
+registerCopilotAction(SET_NOTIFICATION_PREFERENCE_ACTION);
+registerCopilotAction(UPDATE_BUSINESS_HOURS_ACTION);
 
 /** Anthropic tool definitions for the portal surface — handed to the model. */
 export const PORTAL_TOOLS: ActionTool[] = getCopilotActionsForSurface("portal").map((a) => a.tool);
