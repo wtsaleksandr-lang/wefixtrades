@@ -9,6 +9,7 @@ import { platformTheme as p } from '@/theme/platformTheme';
 import { dashboardTheme as d } from '@/theme/dashboardTheme';
 import { validateFormula, runCalculations, type FormulaContext } from '@shared/formulaEngine';
 import { WIDGET_THEME_LIST } from '@/components/quote-widget/widgetThemes';
+import CalcAssemblySpinner from '@/components/quote-widget/CalcAssemblySpinner';
 import { TEMPLATE_LAYOUTS, normalizeLayout, type TemplateLayout } from '@shared/templatePresets';
 import {
   Plus, Trash2, ChevronLeft, Hash, SlidersHorizontal, List, CircleDot,
@@ -337,7 +338,7 @@ export default function AdvancedBuilder({ advanced, onChange, onExitAdvanced }: 
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
           }}>
           {aiLoading
-            ? <><Loader2 className="animate-spin" style={{ width: 15, height: 15 }} /> {AI_STAGES[aiStage]}</>
+            ? <><CalcAssemblySpinner size={20} label={AI_STAGES[aiStage]} /> {AI_STAGES[aiStage]}</>
             : <><Sparkles style={{ width: 15, height: 15 }} /> {(fields.length || calcs.length) ? 'Regenerate' : 'Generate calculator'}</>}
         </button>
 
@@ -402,7 +403,7 @@ export default function AdvancedBuilder({ advanced, onChange, onExitAdvanced }: 
                 e.target.value = '';
               }} />
             {quoteBusy
-              ? <><Loader2 className="animate-spin" style={{ width: 15, height: 15 }} /> Reading your quote…</>
+              ? <><CalcAssemblySpinner size={20} label="Reading your quote" /> Reading your quote…</>
               : <><Upload style={{ width: 15, height: 15 }} /> Upload a quote image</>}
           </label>
         )}
