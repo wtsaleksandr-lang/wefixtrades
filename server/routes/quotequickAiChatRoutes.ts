@@ -33,6 +33,11 @@ import {
 import { QUOTEQUICK_AI_TOOLS, QUOTEQUICK_SYSTEM_PROMPT } from "../services/quotequickAiTools";
 import { validateFormula } from "@shared/formulaEngine";
 import { getEffectiveTemplates } from "../lib/applyQuoteQuickOverrides";
+import { db } from "../db";
+import { clients, clientServices, onboardingSubmissions } from "@shared/schema";
+import { eq, and, sql, desc } from "drizzle-orm";
+import { applyOnboardingToAIConfig } from "../services/onboardingMappers";
+import { renderOnboardingPatch } from "../services/promptBuilder";
 
 const log = createLogger("QuoteQuickAiChat");
 
@@ -72,6 +77,58 @@ function parseImage(input: string): { mediaType: "image/jpeg" | "image/png" | "i
 function sseWrite(res: Response, event: string, data: unknown): void {
   res.write(`event: ${event}\n`);
   res.write(`data: ${JSON.stringify(data)}\n\n`);
+}
+
+/**
+ * W-AZ-3: Load the most recent submitted onboarding for this user's QuoteQuick
+ * service and project it through the mapper registry. Returns "" when no patch
+ * is available; safe-fails on any DB error so the AI chat is never blocked by
+ * a missing onboarding row.
+ */
+async function loadQuoteQuickOnboardingBlock(userId: number): Promise<string> {
+  try {
+    const [client] = await db
+      .select({ id: clients.id })
+      .from(clients)
+      .where(eq(clients.user_id, userId))
+      .limit(1);
+    if (!client) return "";
+
+    const [sub] = await db
+      .select({
+        id: onboardingSubmissions.id,
+        client_service_id: onboardingSubmissions.client_service_id,
+        client_id: onboardingSubmissions.client_id,
+        template_id: onboardingSubmissions.template_id,
+        access_token: onboardingSubmissions.access_token,
+        status: onboardingSubmissions.status,
+        responses: onboardingSubmissions.responses,
+        sent_at: onboardingSubmissions.sent_at,
+        submitted_at: onboardingSubmissions.submitted_at,
+        approved_at: onboardingSubmissions.approved_at,
+        approved_by: onboardingSubmissions.approved_by,
+        actor_type: onboardingSubmissions.actor_type,
+        metadata: onboardingSubmissions.metadata,
+        created_at: onboardingSubmissions.created_at,
+        updated_at: onboardingSubmissions.updated_at,
+      })
+      .from(onboardingSubmissions)
+      .innerJoin(clientServices, eq(onboardingSubmissions.client_service_id, clientServices.id))
+      .where(and(
+        eq(onboardingSubmissions.client_id, client.id),
+        sql`${clientServices.service_id} LIKE 'quotequick%'`,
+        eq(onboardingSubmissions.status, "submitted"),
+      ))
+      .orderBy(desc(onboardingSubmissions.submitted_at))
+      .limit(1);
+    if (!sub) return "";
+
+    const patch = await applyOnboardingToAIConfig("quotequick", sub as any);
+    return renderOnboardingPatch(patch);
+  } catch (err) {
+    log.warn("QuoteQuick onboarding patch lookup failed", { error: (err as Error).message });
+    return "";
+  }
 }
 
 export function registerQuoteQuickAiChatRoutes(app: Express): void {
@@ -215,13 +272,17 @@ export function registerQuoteQuickAiChatRoutes(app: Express): void {
       templateCatalogue = "(unavailable)";
     }
 
+    // W-AZ-3: pull QuoteQuick onboarding answers into the AI prompt context.
+    const onboardingBlock = await loadQuoteQuickOnboardingBlock(userId);
+
     const systemBlocks = [
       {
         type: "text" as const,
         text:
           `${QUOTEQUICK_SYSTEM_PROMPT}\n\n` +
           `AVAILABLE TEMPLATES (id · name · category):\n${templateCatalogue}\n\n` +
-          `CURRENT EDITOR STATE (JSON):\n${JSON.stringify(shellState).slice(0, 6000)}`,
+          `CURRENT EDITOR STATE (JSON):\n${JSON.stringify(shellState).slice(0, 6000)}` +
+          (onboardingBlock ? `\n${onboardingBlock}` : ""),
         cache_control: { type: "ephemeral" as const },
       },
     ];

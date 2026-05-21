@@ -3,6 +3,7 @@ import type { TradelineConfig } from "@shared/schema";
 import { TRADELINE_DEMO_PROMPT } from "@shared/prompts/tradelineDemoPrompt";
 import { COPILOT_PROMPT_INSTRUCTION } from "@shared/copilotProtocol";
 import { buildConciergeAddendum } from "./portalConciergeTemplates";
+import type { AIConfigPatch } from "./onboardingMappers";
 
 /* ─── Types ─── */
 
@@ -222,6 +223,41 @@ Rules:
 - Still describe the services naturally in your text. The block is invisible to the user — they see tappable product cards rendered from it, so the cards complement your words, they don't replace them.
 - Never mention the block, the IDs, or "cards" in your spoken text.`;
 
+/* ─── Onboarding-mapper patch helper ─── */
+/**
+ * Render an AIConfigPatch (from server/services/onboardingMappers) as a block
+ * suitable for appending to a system prompt. Empty patches render to "".
+ * Shared by every product's prompt builder so onboarding answers consistently
+ * flow into AI context across the platform.
+ */
+export function renderOnboardingPatch(patch?: AIConfigPatch | null): string {
+  if (!patch) return "";
+  const parts: string[] = [];
+
+  if (patch.system_prompt_additions && patch.system_prompt_additions.trim()) {
+    parts.push(`\n=== CUSTOMER SETUP (from onboarding) ===\n${patch.system_prompt_additions.trim()}`);
+  }
+
+  if (patch.context_variables && Object.keys(patch.context_variables).length > 0) {
+    const lines: string[] = ["\n=== CUSTOMER CONTEXT VARIABLES ==="];
+    for (const [key, val] of Object.entries(patch.context_variables)) {
+      const display = Array.isArray(val) ? val.join(", ") : String(val);
+      lines.push(`- ${key}: ${display}`);
+    }
+    parts.push(lines.join("\n"));
+  }
+
+  if (patch.knowledge_base_entries && patch.knowledge_base_entries.length > 0) {
+    const lines: string[] = ["\n=== CUSTOMER-SPECIFIC KNOWLEDGE ==="];
+    for (const entry of patch.knowledge_base_entries) {
+      lines.push(`\n[${entry.kind}] ${entry.title}\n${entry.content}`);
+    }
+    parts.push(lines.join("\n"));
+  }
+
+  return parts.join("\n");
+}
+
 /* ─── Build the complete system prompt ─── */
 export function buildSystemPrompt(
   surface: ChatSurface,
@@ -230,6 +266,7 @@ export function buildSystemPrompt(
   pageContext?: PageContext,
   tradeLineContext?: TradeLineContext,
   portalContext?: PortalContext,
+  onboardingPatch?: AIConfigPatch | null,
 ): string {
   // Admin surface gets a focused prompt without marketing cruft
   if (surface === "admin" && pageContext) {
@@ -238,7 +275,7 @@ export function buildSystemPrompt(
 
   // TradeLine per-client voice/chat gets a focused prompt
   if (surface === "vapi" && tradeLineContext) {
-    return buildTradeLinePrompt(tradeLineContext);
+    return buildTradeLinePrompt(tradeLineContext, onboardingPatch);
   }
 
   // TradeLine PUBLIC DEMO on /products/tradeline — no per-client config,
@@ -704,10 +741,15 @@ If the requested draft requires a fact that is not in PAGE CONTEXT (e.g. specifi
 }
 
 /* ─── TradeLine per-client voice prompt builder ─── */
-function buildTradeLinePrompt(ctx: TradeLineContext): string {
+function buildTradeLinePrompt(ctx: TradeLineContext, onboardingPatch?: AIConfigPatch | null): string {
   const parts: string[] = [];
 
   parts.push(`You are the AI phone assistant for ${ctx.businessName}${ctx.tradeType ? `, a ${ctx.tradeType} business` : ""}${ctx.serviceArea ? ` serving ${ctx.serviceArea}` : ""}.`);
+
+  // W-AZ-3: append onboarding-derived patch so customer setup data reaches the
+  // voice prompt. Renders empty when no patch is supplied (preserves prior behavior).
+  const patchBlock = renderOnboardingPatch(onboardingPatch);
+  if (patchBlock) parts.push(patchBlock);
 
   parts.push(`
 VOICE RULES:
