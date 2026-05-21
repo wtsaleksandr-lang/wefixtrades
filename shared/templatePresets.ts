@@ -1458,9 +1458,13 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     result_calc: 'Estimated Project Cost',
   },
 
-  /* ── 22. Interior painting ── */
+  /* ── 22. Interior painting (Pro — granular prep + coats + height) ──
+     Wave Y added this as a more detailed variant of the original
+     `interior_painting` template (line 349). Renamed from `interior_painting`
+     → `interior_painting_pro` to resolve the duplicate-ID conflict caught by
+     the deep per-template Playwright spec (PR #372). */
   {
-    id: 'interior_painting', name: 'Interior Painting',
+    id: 'interior_painting_pro', name: 'Interior Painting (Pro)',
     description: 'Per-sqft interior paint quote with prep and ceiling-height modifiers.',
     category: 'Renovation', trades: ['painting', 'interior_painting'],
     layout: 'two-column', theme: 'light',
