@@ -77,3 +77,16 @@ client/src/pages/admin/MapguardOpsPage.tsx
 client/src/pages/admin/WebCareOpsPage.tsx
 # Wave R-pre: SMS/voice panel — Twilio composer + dial pad; copilot-fill not yet wired
 client/src/pages/admin/CommunicationsPage.tsx
+
+# ── Tonight's batch: API platform + QuoteQuick admin + waitlist ──
+# All admin-side oversight UIs or portal key-management pages — not customer-fillable forms.
+client/src/pages/portal/PortalApiAccessPage.tsx
+client/src/pages/admin/ApiPlatformPage.tsx
+client/src/pages/admin/ApiPlatformUserDetailPage.tsx
+client/src/pages/admin/AuditLogPage.tsx
+client/src/pages/admin/QuoteQuickTemplateDetailPage.tsx
+client/src/pages/admin/QuoteQuickTemplatesPage.tsx
+client/src/pages/admin/QuoteQuickTradeDetailPage.tsx
+client/src/pages/admin/QuoteQuickTradesPage.tsx
+client/src/pages/admin/WaitlistPage.tsx
+client/src/pages/portal/PortalBrandKitsPage.tsx
