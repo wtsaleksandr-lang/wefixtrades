@@ -1,4 +1,4 @@
-import { pgTable, text, varchar, serial, integer, timestamp, jsonb, boolean, uuid } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, serial, integer, timestamp, jsonb, boolean, uuid, numeric } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -206,6 +206,16 @@ export const suppliers = pgTable("suppliers", {
   // active | inactive
   is_active: boolean("is_active").notNull().default(true),
   metadata: jsonb("metadata"),
+  /* W-AM-3: external-marketplace (Fiverr / freelancer) metadata for
+     sourcing-list workflow. All optional / nullable so existing rows are
+     unaffected. `specialties` is a string[] of platform/skill tags such as
+     "WordPress", "Shopify", "malware-removal". `last_vetted_at` drives the
+     Verified / Stale / Unverified badge in SuppliersPage. */
+  specialties: jsonb("specialties").default(sql`'[]'::jsonb`),
+  avg_turnaround_days: integer("avg_turnaround_days"),
+  quality_rating: numeric("quality_rating", { precision: 2, scale: 1 }),
+  external_completed_jobs: integer("external_completed_jobs"),
+  last_vetted_at: timestamp("last_vetted_at"),
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
 });
