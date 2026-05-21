@@ -101,6 +101,7 @@ export async function generateTopics(
       system: systemPrompt,
       messages: [{ role: "user", content: userPrompt }],
       maxTokens: 2000,
+      surface: "socialsync",
     });
   } catch (err: any) {
     return { topics: [], errors: [`AI generation failed: ${err.message}`] };

@@ -40,6 +40,7 @@ import {
   ServerCog,
   Bell,
   Plug,
+  ShieldOff,
 } from "lucide-react";
 import AdminCopilot, { type AdminPageContext } from "./AdminCopilot";
 import { useAuth } from "@/hooks/useAuth";
@@ -122,6 +123,7 @@ const SYSTEM_ITEMS = [
   /* AI-3c audit log — general-purpose audit_log table reader. */
   { label: "Activity Audit", href: "/admin/audit-log", icon: FileText },
   { label: "AI Budget", href: "/admin/crm/ai-budget", icon: BrainCircuit },
+  { label: "AI Gates", href: "/admin/ai-gates", icon: ShieldOff },
 ];
 
 const SECONDARY_ITEMS = [

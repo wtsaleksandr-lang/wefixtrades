@@ -145,6 +145,7 @@ export async function processOnboardingSubmission(
         content: `Onboarding form responses (JSON):\n${JSON.stringify(responses, null, 2)}`,
       }],
       maxTokens: 800,
+      surface: "onboarding",
     });
     extracted = tryParseJSON(response);
   } catch (err: any) {

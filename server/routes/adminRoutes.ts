@@ -1,9 +1,16 @@
 import type { Express, Request, Response } from "express";
 import { requireAdmin } from "../auth";
 import { db } from "../db";
-import { aiUsageLogs, aiConversationArchive, chatMemory } from "@shared/schema";
+import { aiUsageLogs, aiConversationArchive, chatMemory, aiSystemGates } from "@shared/schema";
 import { desc, eq, sql, and, gte, lte, ilike, or } from "drizzle-orm";
 import { createLogger } from "../lib/logger";
+import {
+  listGates,
+  setKillSwitch,
+  setGlobalKillSwitch,
+  setMonthlyBudget,
+} from "../services/aiSystemGate";
+import { AI_SURFACE_LIST, AI_SURFACE_LABELS } from "../services/aiSurfaces";
 
 const log = createLogger("AdminRoutes");
 
@@ -259,6 +266,91 @@ export function registerAdminRoutes(app: Express): void {
       });
     } catch (err: any) {
       res.status(500).json({ error: "Failed to load topics" });
+    }
+  });
+
+  /* ─── W-AX-1: system-wide AI gate admin endpoints ───────────────── */
+
+  /** List every AI surface gate, with last-activity from ai_usage_logs. */
+  app.get("/api/admin/ai-gates", requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      const rows = await listGates();
+      // Join in last-activity timestamp for each surface
+      const activity = await db
+        .select({
+          surface: aiUsageLogs.surface,
+          last_at: sql<Date>`MAX(${aiUsageLogs.created_at})`,
+        })
+        .from(aiUsageLogs)
+        .groupBy(aiUsageLogs.surface);
+      const lastBy: Record<string, Date | null> = {};
+      for (const a of activity) lastBy[a.surface] = a.last_at;
+
+      const enriched = rows.map((r) => ({
+        ...r,
+        label: AI_SURFACE_LABELS[r.surface as keyof typeof AI_SURFACE_LABELS] || r.surface,
+        last_activity_at: lastBy[r.surface] || null,
+        budget_used_pct:
+          r.monthly_budget_cents && r.monthly_budget_cents > 0
+            ? Math.min(100, Math.round((r.monthly_spent_cents / r.monthly_budget_cents) * 100))
+            : null,
+      }));
+      // Keep display order stable per the registry
+      enriched.sort((a, b) => {
+        const ai = AI_SURFACE_LIST.indexOf(a.surface as any);
+        const bi = AI_SURFACE_LIST.indexOf(b.surface as any);
+        return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+      });
+      res.json({ gates: enriched });
+    } catch (err: any) {
+      log.error("ai-gates list failed", { error: err?.message });
+      res.status(500).json({ error: "Failed to load AI gates" });
+    }
+  });
+
+  /** Toggle the per-surface kill switch. Body: { on: boolean } */
+  app.post("/api/admin/ai-gates/:surface/toggle-kill", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const surface = String(req.params.surface || "");
+      if (!surface) return res.status(400).json({ error: "missing surface" });
+      const on = !!req.body?.on;
+      await setKillSwitch(surface, on);
+      res.json({ ok: true, surface, kill_switch_on: on });
+    } catch (err: any) {
+      log.error("toggle-kill failed", { error: err?.message });
+      res.status(500).json({ error: "Failed to toggle kill switch" });
+    }
+  });
+
+  /** Global master kill switch — sets every surface's kill_switch_on. */
+  app.post("/api/admin/ai-gates/global-kill", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const on = !!req.body?.on;
+      await setGlobalKillSwitch(on);
+      res.json({ ok: true, kill_switch_on: on });
+    } catch (err: any) {
+      log.error("global kill failed", { error: err?.message });
+      res.status(500).json({ error: "Failed to set global kill switch" });
+    }
+  });
+
+  /** Update monthly budget cap. Body: { monthly_budget_cents: number | null } */
+  app.patch("/api/admin/ai-gates/:surface/budget", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const surface = String(req.params.surface || "");
+      if (!surface) return res.status(400).json({ error: "missing surface" });
+      const raw = req.body?.monthly_budget_cents;
+      const cents =
+        raw === null || raw === ""
+          ? null
+          : Number.isFinite(Number(raw)) && Number(raw) >= 0
+            ? Math.round(Number(raw))
+            : null;
+      await setMonthlyBudget(surface, cents);
+      res.json({ ok: true, surface, monthly_budget_cents: cents });
+    } catch (err: any) {
+      log.error("budget update failed", { error: err?.message });
+      res.status(500).json({ error: "Failed to update budget" });
     }
   });
 }

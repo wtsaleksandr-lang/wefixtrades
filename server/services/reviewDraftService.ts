@@ -145,6 +145,7 @@ export async function generateReviewDraft(
       system: systemPrompt,
       messages: [{ role: "user", content: userMessage }],
       maxTokens: MAX_TOKENS,
+      surface: "reputation",
     });
 
     // Clean up: trim whitespace, strip quotes if AI wrapped the response

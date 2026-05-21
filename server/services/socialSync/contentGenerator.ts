@@ -159,6 +159,7 @@ export async function generatePostFromTopic(
       system: systemPrompt,
       messages: [{ role: "user", content: userPrompt }],
       maxTokens: 1500,
+      surface: "socialsync",
     });
     // Log cost (estimate ~500 input + ~400 output tokens per post)
     logAiContentCost(profile.client_id, 500, 400, `Post for ${platform}`).catch(() => {});

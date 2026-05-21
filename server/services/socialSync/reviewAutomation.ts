@@ -255,6 +255,7 @@ Respond with the reply text only. No quotes, no labels, no explanation.`;
       content: `Write a reply to this ${review.star_rating}-star Google review from ${review.reviewer_name || "a customer"}:\n\n${reviewSummary}`,
     }],
     maxTokens: 300,
+    surface: "socialsync",
   });
 
   return response.trim();

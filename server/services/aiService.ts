@@ -1,5 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { createLogger } from "../lib/logger";
+import { aiGateAllowed, recordAiSpend } from "./aiSystemGate";
+import { logUsage } from "./usageTracker";
+import { estimateCostMicroCents } from "./aiPricing";
 
 const log = createLogger("AIService");
 
@@ -126,6 +129,18 @@ export interface ChatOptions {
   /** Override the default model for this request */
   modelOverride?: string;
   /**
+   * W-AX-1: which AI surface this call belongs to. When set, the call is
+   * gated by `aiGateAllowed(surface)` and successful spend is recorded to
+   * `ai_system_gates.monthly_spent_cents`. Also auto-logs the call to
+   * `ai_usage_logs`. Surfaces must come from AI_SURFACES in aiSurfaces.ts.
+   * Omitting this parameter preserves legacy behavior (no gate, no log).
+   */
+  surface?: string;
+  /** Optional user_id for ai_usage_logs attribution. */
+  userId?: number;
+  /** Optional session_id for ai_usage_logs attribution. */
+  sessionId?: string;
+  /**
    * Optional image blocks to append to the LAST user message (multimodal).
    * Used by the mobile Ask tab to attach photos to a question. The text
    * content stays as-is; we wrap it into a content-array of
@@ -193,14 +208,26 @@ export function streamChat(opts: ChatOptions) {
 
 /* ─── Non-streaming chat with retry ─── */
 export async function chat(opts: ChatOptions): Promise<string> {
+  // W-AX-1: gate before doing any other work. Surface-less callers retain
+  // legacy behavior (ungated) so we don't break old call sites that have
+  // not yet been migrated.
+  if (opts.surface) {
+    const gate = await aiGateAllowed(opts.surface);
+    if (!gate.allowed) {
+      throw new Error(gate.reason || `AI surface "${opts.surface}" is paused.`);
+    }
+  }
+
   assertCircuitAllowsRequest();
   const client = getClient();
   let lastError: Error | null = null;
+  const model = opts.modelOverride || getModel();
+  const tStart = Date.now();
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
       const params: Parameters<typeof client.messages.create>[0] = {
-        model: opts.modelOverride || getModel(),
+        model,
         max_tokens: opts.maxTokens || DEFAULT_MAX_TOKENS,
         system: opts.system ? buildCachedSystem(opts.system) : (undefined as any),
         messages: mapMessages(opts.messages, opts.userImageBlocks) as any,
@@ -219,15 +246,67 @@ export async function chat(opts: ChatOptions): Promise<string> {
 
       const block = response.content[0];
       recordSuccess();
+
+      /* W-AX-1: when called with a surface, log to ai_usage_logs and
+       * accumulate spend onto ai_system_gates so the gate can cap. */
+      if (opts.surface) {
+        const inputTokens = usage?.input_tokens ?? 0;
+        const outputTokens = usage?.output_tokens ?? 0;
+        logUsage({
+          model,
+          surface: opts.surface as any,
+          provider: "anthropic",
+          channel: "chat",
+          userId: opts.userId,
+          sessionId: opts.sessionId,
+          inputTokens,
+          outputTokens,
+          latencyMs: Date.now() - tStart,
+          success: true,
+        }).catch(() => {});
+        const microCents = estimateCostMicroCents(model, inputTokens, outputTokens);
+        // micro-cents (× 1,000,000) → cents — divide by 10,000.
+        recordAiSpend(opts.surface, microCents / 10_000).catch(() => {});
+      }
+
       return block.type === "text" ? block.text : "";
     } catch (err: any) {
       lastError = err;
-      if (err?.status === 401 || err?.status === 400) throw err;
+      if (err?.status === 401 || err?.status === 400) {
+        if (opts.surface) {
+          logUsage({
+            model,
+            surface: opts.surface as any,
+            provider: "anthropic",
+            channel: "chat",
+            userId: opts.userId,
+            sessionId: opts.sessionId,
+            latencyMs: Date.now() - tStart,
+            success: false,
+            errorMessage: err?.message?.slice(0, 500),
+          }).catch(() => {});
+        }
+        throw err;
+      }
       recordFailure();
       if (attempt < MAX_RETRIES) {
         await sleep(RETRY_DELAY_MS * (attempt + 1));
       }
     }
+  }
+
+  if (opts.surface) {
+    logUsage({
+      model,
+      surface: opts.surface as any,
+      provider: "anthropic",
+      channel: "chat",
+      userId: opts.userId,
+      sessionId: opts.sessionId,
+      latencyMs: Date.now() - tStart,
+      success: false,
+      errorMessage: lastError?.message?.slice(0, 500),
+    }).catch(() => {});
   }
 
   throw lastError || new Error("Chat request failed after retries");

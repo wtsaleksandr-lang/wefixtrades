@@ -1068,3 +1068,27 @@ export const insertQuoteSnapshotSchema = createInsertSchema(quoteSnapshots).omit
 });
 export type InsertQuoteSnapshot = z.infer<typeof insertQuoteSnapshotSchema>;
 export type QuoteSnapshot = typeof quoteSnapshots.$inferSelect;
+
+/* ─── AI System Gates (W-AX-1) ───
+ * System-scoped equivalent of contentflow_settings — one row per AI surface
+ * across the whole product, each with its own kill switch + monthly budget
+ * cap. The aiSystemGate.ts service reads from this table on every gated AI
+ * call. See aiSurfaces.ts for the registry of valid surface names. */
+export const aiSystemGates = pgTable("ai_system_gates", {
+  surface: varchar("surface", { length: 40 }).primaryKey(),
+  kill_switch_on: boolean("kill_switch_on").notNull().default(false),
+  monthly_budget_cents: integer("monthly_budget_cents"),
+  monthly_spent_cents: integer("monthly_spent_cents").notNull().default(0),
+  monthly_reset_at: timestamp("monthly_reset_at").defaultNow(),
+  alert_threshold_pct: integer("alert_threshold_pct").notNull().default(80),
+  alerts_sent: jsonb("alerts_sent").notNull().default([]),
+  updated_at: timestamp("updated_at").defaultNow(),
+  created_at: timestamp("created_at").defaultNow(),
+});
+
+export const insertAiSystemGateSchema = createInsertSchema(aiSystemGates).omit({
+  created_at: true,
+  updated_at: true,
+});
+export type InsertAiSystemGate = z.infer<typeof insertAiSystemGateSchema>;
+export type AiSystemGate = typeof aiSystemGates.$inferSelect;

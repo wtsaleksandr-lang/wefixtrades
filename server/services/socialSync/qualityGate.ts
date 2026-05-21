@@ -271,6 +271,7 @@ Rate on a JSON object with these boolean fields:
 JSON only, no explanation.`,
       }],
       maxTokens: 200,
+      surface: "socialsync",
     });
 
     const parsed = JSON.parse(response.match(/\{[\s\S]*\}/)![0]);

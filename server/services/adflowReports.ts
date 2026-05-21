@@ -152,6 +152,7 @@ Reply with the paragraph only. No preamble.`;
       system: "You write short, plain-English marketing summaries for non-marketing readers.",
       messages: [{ role: "user", content: prompt }],
       maxTokens: 200,
+      surface: "adflow_reports",
     });
     return text.trim() || "Campaign data collected — see metrics below.";
   } catch {
