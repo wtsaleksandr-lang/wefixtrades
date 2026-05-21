@@ -493,12 +493,6 @@ function TemplateBrowseModal({ activeTemplateId, onClose, onApplyTemplate }: Mod
             scroll-x with a fade mask; the dropdown is more compact and
             doesn't require horizontal swiping to discover categories. */}
         <div className="qq-tg-modal-filter-row">
-          <label
-            htmlFor="qq-tg-modal-cat-select"
-            className="qq-tg-modal-filter-label"
-          >
-            Filter
-          </label>
           <select
             id="qq-tg-modal-cat-select"
             className="qq-tg-modal-cat-select"
@@ -623,12 +617,6 @@ function TemplateBrowseModal({ activeTemplateId, onClose, onApplyTemplate }: Mod
           display: flex; align-items: center; gap: 10px;
           padding: 10px 18px;
           border-bottom: 1px solid ${p.colors.borderLight};
-          flex-shrink: 0;
-        }
-        .qq-tg-modal-filter-label {
-          font-size: 11.5px; font-weight: 700;
-          color: ${p.colors.muted};
-          text-transform: uppercase; letter-spacing: 0.04em;
           flex-shrink: 0;
         }
         .qq-tg-modal-cat-select {
