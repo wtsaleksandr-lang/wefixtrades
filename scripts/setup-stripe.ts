@@ -10,11 +10,11 @@
  *   1. Verifies the STRIPE_SECRET_KEY actually works and reports the
  *      account, mode (live vs test), and country.
  *   2. Lists existing webhook endpoints. If none target our two
- *      handler paths (/api/stripe/webhook and
- *      /api/stripe-billing/webhook) it creates them, subscribed to
+ *      handler paths (/api/billing/webhook and
+ *      /api/stripe/connect/webhook) it creates them, subscribed to
  *      the events the routes actually listen for. The signing
- *      secrets are PRINTED ONCE at the end — copy them into Replit
- *      secrets as STRIPE_BILLING_WEBHOOK_SECRET / STRIPE_WEBHOOK_SECRET.
+ *      secrets are PRINTED ONCE at the end — copy them into Doppler
+ *      as STRIPE_BILLING_WEBHOOK_SECRET / STRIPE_CONNECT_WEBHOOK_SECRET.
  *   3. Verifies the four QuoteQuick price IDs in your env vars exist
  *      and are still active. Reports any that are missing or
  *      archived.

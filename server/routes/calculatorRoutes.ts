@@ -762,7 +762,12 @@ export function registerCalculatorRoutes(app: Express): void {
         return res.status(404).json({ error: "Calculator not found" });
       }
 
-      const priceId = process.env.STRIPE_PRICE_QQ_INSTALL;
+      // Wave AU-1 audit: there are two historical env-var names for the
+      // same $75 QQ install price. publicCheckoutRoutes.ts uses
+      // STRIPE_QUOTEQUICK_INSTALL_PRICE, this route formerly only checked
+      // STRIPE_PRICE_QQ_INSTALL. Accept either to avoid the case where
+      // Alex sets one in Doppler and the other route silently 400s.
+      const priceId = process.env.STRIPE_PRICE_QQ_INSTALL || process.env.STRIPE_QUOTEQUICK_INSTALL_PRICE;
       if (!priceId) {
         return res.status(400).json({ error: "Install price not configured. Contact support." });
       }
