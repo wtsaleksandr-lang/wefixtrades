@@ -32,6 +32,7 @@ import {
 } from "../services/quotequickAiBudget";
 import { QUOTEQUICK_AI_TOOLS, QUOTEQUICK_SYSTEM_PROMPT } from "../services/quotequickAiTools";
 import { validateFormula } from "@shared/formulaEngine";
+import { getEffectiveTemplates } from "../lib/applyQuoteQuickOverrides";
 
 const log = createLogger("QuoteQuickAiChat");
 
@@ -194,10 +195,33 @@ export function registerQuoteQuickAiChatRoutes(app: Express): void {
       { role: "user" as const, content: userBlocks.length === 1 ? message : userBlocks },
     ];
 
+    // Wave W-AI-2 — inject the live merged template catalogue so `apply_template`
+    // can reference admin-edited and admin-created templates by id. Pulled
+    // server-side via the merge helper (no HTTP loop). Accepts up to 60s
+    // staleness per the matching `Cache-Control` on the public endpoint —
+    // but here we read straight from the DB on every call (the AI chat is
+    // already a per-request flow, so the freshness cost is negligible and
+    // we get strictly up-to-date data).
+    let templateCatalogue: string;
+    try {
+      const merged = await getEffectiveTemplates();
+      templateCatalogue = merged
+        .map((t) => `- ${t.id} (${t.name} · ${t.category})`)
+        .join("\n");
+    } catch (catalogueErr) {
+      log.warn("template catalogue load failed; AI prompt will omit list", {
+        err: (catalogueErr as Error).message,
+      });
+      templateCatalogue = "(unavailable)";
+    }
+
     const systemBlocks = [
       {
         type: "text" as const,
-        text: `${QUOTEQUICK_SYSTEM_PROMPT}\n\nCURRENT EDITOR STATE (JSON):\n${JSON.stringify(shellState).slice(0, 6000)}`,
+        text:
+          `${QUOTEQUICK_SYSTEM_PROMPT}\n\n` +
+          `AVAILABLE TEMPLATES (id · name · category):\n${templateCatalogue}\n\n` +
+          `CURRENT EDITOR STATE (JSON):\n${JSON.stringify(shellState).slice(0, 6000)}`,
         cache_control: { type: "ephemeral" as const },
       },
     ];

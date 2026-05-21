@@ -36,4 +36,5 @@ export * from "./mobileDevices";
 export * from "./mobileCallRecords";
 export * from "./voicemails";
 export * from "./quotequickAiBudget";
+export * from "./quotequickAdminOverrides";
 export * from "./scheduling";
