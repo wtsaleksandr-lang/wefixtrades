@@ -1387,7 +1387,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
       { id: 'screens', name: 'Screens', label: 'Include window screens', type: 'toggle', on_value: 45 },
       { id: 'tracks', name: 'Tracks', label: 'Detail clean the tracks', type: 'toggle', on_value: 35 },
     ],
-    calculations: [calc('Estimated Quote', '[Number of windows] * (8 + [Stories]) * [Sides] + [Screens] + [Tracks]')],
+    calculations: [calc('Estimated Quote', '[Windows] * (8 + [Stories]) * [Sides] + [Screens] + [Tracks]')],
     result_calc: 'Estimated Quote',
   },
 
@@ -1676,7 +1676,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
       { id: 'condition', name: 'Condition', label: 'Current condition', type: 'radio',
         options: [opt('Light (regular cleaning)', 0), opt('Moderate (3-6 months neglect)', 30), opt('Heavy (over a year)', 75)] },
     ],
-    calculations: [calc('Estimated Quote', '[Detail Package] * [Vehicle Size] + [Add-ons] + [Condition]')],
+    calculations: [calc('Estimated Quote', '[Package] * [Vehicle Size] + [Extras] + [Condition]')],
     result_calc: 'Estimated Quote',
   },
 
@@ -1830,7 +1830,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
       { id: 'turnaround', name: 'Turnaround', label: 'Report turnaround', type: 'radio',
         options: [opt('Standard (48 hours)', 0), opt('Rush (next business day)', 95), opt('Same-day report', 180)] },
     ],
-    calculations: [calc('Estimated Quote', '[Home Size] * 0.18 * [Home Age] + [Add-on Tests] + [Report Turnaround]')],
+    calculations: [calc('Estimated Quote', '[Home Size] * 0.18 * [Home Age] + [Add-on Tests] + [Turnaround]')],
     result_calc: 'Estimated Quote',
   },
 
