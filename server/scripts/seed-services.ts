@@ -418,7 +418,7 @@ async function main() {
       name: "TradeLine Onboarding",
       steps: [
         { key: "phone_number", label: "Business phone number", type: "text", required: true },
-        { key: "business_hours", label: "Business hours", type: "text", required: true },
+        { key: "business_hours", label: "Business hours", type: "select", required: true },
         { key: "services", label: "Services you offer", type: "text", required: true },
         { key: "service_area", label: "Service area", type: "text", required: true },
         { key: "tone", label: "Communication tone", type: "select", required: true },
@@ -431,9 +431,9 @@ async function main() {
       name: "TradeLine Call Backup Onboarding",
       steps: [
         { key: "business_name", label: "Business name", type: "text", required: true },
-        { key: "trade_type", label: "Trade type", type: "text", required: true },
+        { key: "trade_type", label: "Trade type", type: "select", required: true },
         { key: "service_area", label: "Service area", type: "text", required: true },
-        { key: "business_hours", label: "Business hours", type: "text", required: true },
+        { key: "business_hours", label: "Business hours", type: "select", required: true },
         { key: "primary_phone", label: "Primary phone number", type: "text", required: true },
         { key: "forwarding_preference", label: "Forwarding preference (no-answer / immediate / after-hours only)", type: "select", required: true },
         { key: "ring_timeout", label: "Ring timeout (seconds before AI answers)", type: "text", required: false },
@@ -448,7 +448,7 @@ async function main() {
       name: "TradeLine Chat Onboarding",
       steps: [
         { key: "business_name", label: "Business name", type: "text", required: true },
-        { key: "trade_type", label: "Trade type", type: "text", required: true },
+        { key: "trade_type", label: "Trade type", type: "select", required: true },
         { key: "website_url", label: "Website URL", type: "text", required: true },
         { key: "website_access", label: "Can you provide website access for install?", type: "select", required: true },
         { key: "install_mode", label: "Preferred install mode (direct embed / hosted fallback)", type: "select", required: true },
@@ -464,9 +464,9 @@ async function main() {
       name: "TradeLine Complete Onboarding",
       steps: [
         { key: "business_name", label: "Business name", type: "text", required: true },
-        { key: "trade_type", label: "Trade type", type: "text", required: true },
+        { key: "trade_type", label: "Trade type", type: "select", required: true },
         { key: "service_area", label: "Service area", type: "text", required: true },
-        { key: "business_hours", label: "Business hours", type: "text", required: true },
+        { key: "business_hours", label: "Business hours", type: "select", required: true },
         { key: "primary_phone", label: "Primary phone number", type: "text", required: true },
         { key: "forwarding_preference", label: "Forwarding preference (no-answer / immediate / after-hours only)", type: "select", required: true },
         { key: "ring_timeout", label: "Ring timeout (seconds before AI answers)", type: "text", required: false },
@@ -485,7 +485,7 @@ async function main() {
     "quotequick": {
       name: "QuoteQuick Onboarding",
       steps: [
-        { key: "trade_type", label: "What trade/service do you offer?", type: "text", required: true },
+        { key: "trade_type", label: "What trade/service do you offer?", type: "select", required: true },
         { key: "pricing_model", label: "How do you charge? (hourly, per sqft, flat rate, packages, etc.)", type: "text", required: true },
         { key: "base_pricing", label: "Your typical rates or starting prices", type: "text", required: true },
         { key: "service_area", label: "Service area / cities covered", type: "text", required: true },
@@ -524,7 +524,7 @@ async function main() {
     "socialsync": {
       name: "SocialSync Onboarding",
       steps: [
-        { key: "trade_type", label: "Your trade / service type", type: "text", required: true },
+        { key: "trade_type", label: "Your trade / service type", type: "select", required: true },
         { key: "platforms", label: "Platforms to post on (Facebook, Instagram, LinkedIn)", type: "text", required: true },
         { key: "handle_urls", label: "Page URLs or handles for each platform (one per line)", type: "text", required: true },
         { key: "posting_frequency", label: "Posts per week (2 / 3 / 5 / daily)", type: "select", required: true },
@@ -550,7 +550,7 @@ async function main() {
         { key: "services", label: "Services to feature (one per line)", type: "text", required: true },
         { key: "service_area", label: "Service area", type: "text", required: true },
         { key: "contact_info", label: "Phone, email, address for the site", type: "text", required: true },
-        { key: "business_hours", label: "Business hours", type: "text", required: false },
+        { key: "business_hours", label: "Business hours", type: "select", required: false },
         { key: "style_preference", label: "Style preference (modern / classic / bold / minimal)", type: "select", required: true },
         { key: "brand_colors", label: "Brand colors (hex codes or description)", type: "text", required: false },
         { key: "logo", label: "Logo available", type: "checkbox", required: false },
@@ -626,7 +626,7 @@ async function main() {
       name: "AdFlow Starter Onboarding",
       steps: [
         { key: "business_name", label: "Business name", type: "text", required: true },
-        { key: "trade_type", label: "Trade / industry", type: "text", required: true },
+        { key: "trade_type", label: "Trade / industry", type: "select", required: true },
         { key: "main_offer", label: "Main service or offer to advertise", type: "text", required: true },
         { key: "service_areas", label: "Target service areas (cities / zip codes)", type: "text", required: true },
         { key: "monthly_ad_budget", label: "Monthly ad budget (USD)", type: "text", required: true },
@@ -642,7 +642,7 @@ async function main() {
       name: "AdFlow Growth Onboarding",
       steps: [
         { key: "business_name", label: "Business name", type: "text", required: true },
-        { key: "trade_type", label: "Trade / industry", type: "text", required: true },
+        { key: "trade_type", label: "Trade / industry", type: "select", required: true },
         { key: "main_offer", label: "Main service or offer to advertise", type: "text", required: true },
         { key: "secondary_offers", label: "Secondary offers for A/B testing", type: "text", required: false },
         { key: "service_areas", label: "Target service areas (cities / zip codes)", type: "text", required: true },
@@ -659,7 +659,7 @@ async function main() {
       name: "AdFlow Pro Onboarding",
       steps: [
         { key: "business_name", label: "Business name", type: "text", required: true },
-        { key: "trade_type", label: "Trade / industry", type: "text", required: true },
+        { key: "trade_type", label: "Trade / industry", type: "select", required: true },
         { key: "main_offer", label: "Main service or offer to advertise", type: "text", required: true },
         { key: "secondary_offers", label: "Secondary offers / campaigns", type: "text", required: false },
         { key: "service_areas", label: "Target service areas (cities / zip codes / radius)", type: "text", required: true },
@@ -679,12 +679,12 @@ async function main() {
       name: "SiteLaunch Template Onboarding",
       steps: [
         { key: "business_name", label: "Business name", type: "text", required: true },
-        { key: "trade_type", label: "Trade (we'll match you to a template)", type: "text", required: true },
+        { key: "trade_type", label: "Trade (we'll match you to a template)", type: "select", required: true },
         { key: "tagline", label: "Tagline / one-liner for hero section", type: "text", required: false },
         { key: "services", label: "Services to feature (comma-separated)", type: "text", required: true },
         { key: "service_area", label: "Service area", type: "text", required: true },
         { key: "contact_info", label: "Phone, email, address for the site", type: "text", required: true },
-        { key: "business_hours", label: "Business hours", type: "text", required: false },
+        { key: "business_hours", label: "Business hours", type: "select", required: false },
         { key: "brand_colors", label: "Brand colors (hex codes or description)", type: "text", required: false },
         { key: "logo", label: "Logo available", type: "checkbox", required: false },
         { key: "photos", label: "Business / work photos available", type: "checkbox", required: false },
