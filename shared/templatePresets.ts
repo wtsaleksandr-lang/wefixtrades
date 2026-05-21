@@ -169,6 +169,16 @@ export interface TemplateConfig {
   header: TemplateHeader;
   /** Optional result-panel customisation. */
   results?: TemplateResults;
+  /**
+   * W-AS-1 — optional template-level Style overrides.
+   *
+   * When a template ships with a `style` block, `toAdvancedConfig()` carries
+   * it through to the runtime `AdvancedConfigShape` so the rendered widget
+   * picks up the template's visual identity (accent, surface, typography,
+   * logo placement, etc.) instead of defaulting to the bare theme. Users can
+   * still override per-field via the Style tab after the template is loaded.
+   */
+  style?: AdvStyle;
 }
 
 /* Small helpers to keep the catalogue compact. */
@@ -2401,13 +2411,33 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     },
   },
 
-  /* ── 45. Junk Removal (sample — W-AH-1) ── */
+  /* ── 45. Junk Removal (sample — W-AH-1, styled — W-AS-1) ── */
   {
     id: 'junk_removal_quote', name: 'Junk Removal',
     description: 'Truck-load pricing with surcharges for stairs, distance, and same-day pickup.',
     category: 'Cleaning', trades: ['junk_removal'],
-    layout: 'single-column', theme: 'mint', defaultIcon: 'Trash2',
+    layout: 'single-column', theme: 'midnight', defaultIcon: 'Trash2',
     header: { title: 'Book a Junk Pickup in 60 Seconds', subtitle: 'We load, haul, and sweep up · Most items donated or recycled · Same-day pickup available', align: 'left' },
+    // W-AS-1 — Action / Truck / Bold-Industrial visual identity.
+    style: {
+      accent: '#fb923c',        // orange-400 bold action
+      secondary: '#facc15',     // yellow-400 high-energy
+      background: '#0f172a',    // slate-900 deep base
+      surface: '#1e293b',       // slate-800 card
+      border: '#334155',        // slate-700
+      text: '#f8fafc',          // slate-50
+      resultsBg: '#1e293b',
+      success: '#22c55e',
+      error: '#ef4444',
+      fontFamily: 'geist',
+      fieldStyle: 'filled',
+      radius: 6,
+      headingWeight: 800,
+      bodyWeight: 500,
+      fontSize: 'medium',
+      logoPlacement: 'top-left',
+      logoSize: 'medium',
+    },
     fields: [
       { id: 'load_size', name: 'Load Size', label: 'How much junk do you have?', type: 'select',
         options: [opt('1/4 truck', 120), opt('1/2 truck', 220), opt('3/4 truck', 320), opt('Full truck', 425)] },
@@ -2435,13 +2465,33 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     },
   },
 
-  /* ── 46. Window Replacement (sample — W-AH-1) ── */
+  /* ── 46. Window Replacement (sample — W-AH-1, styled — W-AS-1) ── */
   {
     id: 'window_replacement_quote', name: 'Window Replacement',
     description: 'Per-window pricing by type, frame material, and energy rating.',
     category: 'Home Improvement', trades: ['window_replacement'],
-    layout: 'two-column', theme: 'midnight', defaultIcon: 'RectangleHorizontal',
+    layout: 'two-column', theme: 'light', defaultIcon: 'RectangleHorizontal',
     header: { title: 'Get Your Window Replacement Quote', subtitle: 'ENERGY STAR-certified installers · Lifetime product warranty · Free in-home measurement', align: 'left' },
+    // W-AS-1 — Clean / Glass / Professional visual identity.
+    style: {
+      accent: '#4f46e5',        // indigo-600 trustworthy
+      secondary: '#6366f1',     // indigo-500
+      background: '#f8fafc',    // slate-50 very light
+      surface: '#ffffff',
+      border: '#e2e8f0',        // slate-200 hairline
+      text: '#0f172a',          // slate-900
+      resultsBg: '#ffffff',
+      success: '#16a34a',
+      error: '#dc2626',
+      fontFamily: 'jakarta',
+      fieldStyle: 'outline',
+      radius: 16,
+      headingWeight: 600,
+      bodyWeight: 400,
+      fontSize: 'medium',
+      logoPlacement: 'top-center',
+      logoSize: 'medium',
+    },
     fields: [
       { id: 'count', name: 'Count', label: 'Number of windows', type: 'number',
         min: 1, max: 30, step: 1, default_value: 8, unit: 'windows' },
@@ -2468,13 +2518,33 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     },
   },
 
-  /* ── 47. Mold Remediation (sample — W-AH-1) ── */
+  /* ── 47. Mold Remediation (sample — W-AH-1, styled — W-AS-1) ── */
   {
     id: 'mold_remediation_quote', name: 'Mold Remediation',
     description: 'Severity-tiered remediation with containment, HVAC, and post-test add-ons.',
     category: 'Emergency', trades: ['mold_remediation'],
     layout: 'two-column', theme: 'forest', defaultIcon: 'Biohazard',
     header: { title: 'Get Your Mold Remediation Estimate', subtitle: 'IICRC-certified · EPA-protocol removal · Insurance documentation provided', align: 'left' },
+    // W-AS-1 — Urgent / Warning / Trust visual identity.
+    style: {
+      accent: '#dc2626',        // red-600 urgency
+      secondary: '#f59e0b',     // amber-500 warning emphasis
+      background: '#fef3c7',    // amber-50 warm pale yellow
+      surface: '#fffbeb',       // amber-50 lighter card
+      border: '#fcd34d',        // amber-300
+      text: '#451a03',          // amber-950 deep brown
+      resultsBg: '#fffbeb',
+      success: '#16a34a',       // "you're safe now"
+      error: '#b91c1c',
+      fontFamily: 'plex',
+      fieldStyle: 'filled',
+      radius: 8,
+      headingWeight: 700,
+      bodyWeight: 400,
+      fontSize: 'medium',
+      logoPlacement: 'top-left',
+      logoSize: 'medium',
+    },
     fields: [
       { id: 'area', name: 'Area', label: 'Affected area (sqft)', type: 'slider',
         min: 10, max: 2000, step: 10, default_value: 80, unit: 'sqft' },
@@ -2697,6 +2767,10 @@ export function toAdvancedConfig(t: TemplateConfig): AdvancedConfigShape {
     header: t.header,
     ...(t.results ? { results: t.results } : {}),
     ...(t.defaultIcon ? { defaultIcon: t.defaultIcon } : {}),
+    // W-AS-1 — propagate template-level Style so the rendered widget picks
+    // up the template's visual identity (accent / surface / typography /
+    // logo placement) instead of falling back to the bare theme.
+    ...(t.style ? { style: t.style } : {}),
   };
 }
 
