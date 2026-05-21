@@ -154,6 +154,7 @@ export default function SiteChatWidget() {
             height: 56,
             borderRadius: 14,
             background: "linear-gradient(135deg, #0d3cfc 0%, #0b34d6 100%)",
+            color: "#FFFFFF",
             border: "none",
             cursor: "pointer",
             display: "flex",
