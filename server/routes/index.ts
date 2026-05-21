@@ -19,6 +19,7 @@ import { registerAdminCrmRoutes } from "./adminCrmRoutes";
 import { registerAdminClientCostsRoutes } from "./adminClientCostsRoutes";
 import { registerAdminToolRoutes } from "./adminToolRoutes";
 import { registerAiChannelSettingsRoutes } from "./aiChannelSettingsRoutes";
+import { registerAdminAiChannelGatesRoutes } from "./adminAiChannelGatesRoutes";
 import { registerInboundEmailRoutes } from "./inboundEmailRoutes";
 import { registerFounderNotifyRoutes } from "./founderNotifyRoutes";
 import { registerStripeBillingRoutes } from "./stripeBillingRoutes";
@@ -114,6 +115,7 @@ export async function registerRoutes(
   registerAdminClientCostsRoutes(app);
   registerAdminToolRoutes(app);
   registerAiChannelSettingsRoutes(app);
+  registerAdminAiChannelGatesRoutes(app);
   registerStripeBillingRoutes(app);
   registerWidgetDepositRoutes(app);
   registerBillingPortalRoute(app);

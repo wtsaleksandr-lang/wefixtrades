@@ -1003,6 +1003,24 @@ export const aiChannelSettings = pgTable("ai_channel_settings", {
 });
 export type AiChannelSettings = typeof aiChannelSettings.$inferSelect;
 
+/* ─── AI Channel Gates (per-channel runtime kill switches, W-BA-1) ─── */
+// One row per customer-facing channel ('email' | 'sms' | 'voice' | 'chat').
+// This is the runtime emergency safety net — distinct from the older
+// aiChannelSettings governance config. Default OFF: the founder explicitly
+// enables each channel when AI autonomy is ready. Channel handlers must
+// check aiChannelGateOn(channel) BEFORE invoking AI. See migration 0030.
+export const aiChannelGates = pgTable("ai_channel_gates", {
+  channel: text("channel").primaryKey(),
+  enabled: boolean("enabled").notNull().default(false),
+  emergency_disabled_by: integer("emergency_disabled_by"),
+  emergency_disabled_at: timestamp("emergency_disabled_at"),
+  notes: text("notes"),
+  updated_at: timestamp("updated_at").notNull().defaultNow(),
+  updated_by: integer("updated_by"),
+  created_at: timestamp("created_at").notNull().defaultNow(),
+});
+export type AiChannelGate = typeof aiChannelGates.$inferSelect;
+
 /* ─── Admin Notices — the founder's AI agenda (Phase 3e-ii) ─── */
 // A durable record of every AI escalation to the founder. Always written;
 // the founder's users.ai_contact_method decides whether an SMS / WhatsApp

@@ -36,6 +36,7 @@ import {
 import { logUsage } from "../services/usageTracker";
 import { getModel } from "../services/aiService";
 import { recordVoiceCostForClient } from "../services/clientCostBilling";
+import { aiChannelGateOn } from "../services/aiChannelGate";
 import { handleSalesCallEnded } from "../services/wftSalesLine";
 import {
   executeCheckAvailability,
@@ -312,6 +313,18 @@ export function registerVapiRoutes(app: Express): void {
       const vapiMessages: VapiTranscriptMessage[] = Array.isArray(messages)
         ? messages
         : [];
+
+      // W-BA-1: per-channel emergency kill switch. When the voice channel is
+      // gated OFF, route the caller to voicemail rather than the AI. Fails
+      // CLOSED — if we can't read the gate, we don't take the call with AI.
+      if (!(await aiChannelGateOn("voice"))) {
+        return res.json({
+          output: {
+            content: "Thanks for calling — our team is unavailable to take this call live. Please leave a brief message after the tone and we'll get back to you shortly.",
+            model: "channel-gate-off",
+          },
+        });
+      }
 
       // Check for cached TradeLine context from webhook resolution
       const tradeLineCtx = activeTradeLineCalls.get(convCallId);
