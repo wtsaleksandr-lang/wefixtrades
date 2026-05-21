@@ -591,7 +591,7 @@ export default function PreviewPane({
                 /* Wave AA — desktop preview bezel +22% taller (640 → 780) so
                    the widget gets vertical room to breathe and the canvas
                    feels intentionally desktop-sized rather than crammed. */
-                width: '100%', maxWidth: 820, maxHeight: 780, margin: '0 auto',
+                width: '100%', maxWidth: 880, maxHeight: 900, margin: '0 auto',
                 borderRadius: 16, overflow: 'hidden', background: '#fff',
                 border: `1px solid ${p.colors.borderLight}`,
                 display: 'flex', flexDirection: 'column',
