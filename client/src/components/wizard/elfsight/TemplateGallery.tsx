@@ -28,6 +28,11 @@ import {
 } from '@shared/templatePresets';
 import { resolveWidgetTheme } from '@/components/quote-widget/widgetThemes';
 import { getQuoteQuickIcon } from '@/data/quoteQuickIcons';
+import {
+  getCategoryStyle,
+  stripeShapeForLayout,
+  FEATURED_TEMPLATE_IDS,
+} from '@/lib/categoryStyles';
 
 /**
  * Wave W-AI-2 — admin-editable template catalogue.
@@ -106,20 +111,35 @@ interface MockupProps {
 }
 
 /**
- * Theme-aware abstract preview. W-AO-2 — every visual element now derives
- * from the template's own config so two cards never look identical unless
- * they share theme + category + field-count + calc-count:
- *   - Card with the template's theme surface background
- *   - Accent stripe across the top (theme accent)
- *   - Lucide `defaultIcon` rendered top-left in a soft accent-tinted chip
- *   - Up to 5 placeholder input bars (count clamps to actual field count)
- *   - Result panel on the bottom in the theme's result colour, with 1 line
- *     for single-calc templates and 2-3 lines for multi-calc breakdowns
- *   - A thin category-accent band along the bottom edge (orthogonal to
- *     theme — see `categoryAccent()`)
+ * Wave W-AP-1 — radically more distinct gallery cards. Each card now
+ * paints with a per-category palette + hero treatment + CTA shape from
+ * `lib/categoryStyles`, so two cards in different trade categories look
+ * like different products on the shelf — not just two wireframes that
+ * share a blue accent.
  *
- * Standalone (no dependency on H1 `PreviewPane`) so the gallery can render
- * 100+ cards without spinning up the live AdvancedCalculator per card.
+ * Anatomy (top → bottom):
+ *   1. HERO band (~55% of card height) painted in the category's heroBg.
+ *      The hero carries the category's signature treatment: dark-mode
+ *      panel for Automotive, diagonal-stripe for Construction, sparkle
+ *      dots for Cleaning, grid for Home Improvement, warning chevrons
+ *      for Emergency, leaf overlay for Outdoor, geometric squares for
+ *      Professional.
+ *   2. A prominent 40×40 Lucide icon chip centred in the hero, tinted
+ *      in the category accent. This is the visual anchor — much larger
+ *      than the 14px chip from W-AO-2.
+ *   3. An accent stripe whose width depends on the template's layout
+ *      (full / half / triple). Single-column gets a full bar; two-col
+ *      a half; multi-col three small ticks.
+ *   4. A "Featured" badge for the W-AP-1 sample templates + roof_repair.
+ *   5. Body section with bar placeholders (count = field count clamp 2-5).
+ *   6. Result line (1 prominent line, or 2-3 lines for multi-calc
+ *      breakdown templates).
+ *   7. A real CTA BUTTON ~70% wide, rendering the template's actual
+ *      `results.cta_label` ("Get Quote" fallback), in the category's
+ *      ctaShape (pill / rounded-sq / squared) and gradient.
+ *
+ * Standalone — no AdvancedCalculator dependency — so the gallery can
+ * render 47+ cards without spinning up live widgets.
  */
 function TemplateCardMockup({ accent, template }: MockupProps) {
   if (!template) {
@@ -135,79 +155,138 @@ function TemplateCardMockup({ accent, template }: MockupProps) {
   }
 
   const theme = resolveWidgetTheme(template.theme);
-  // W-AO-2 — vary bar count by ACTUAL fields, clamped to [2,5] so even
-  // 1-field templates still show some structure and 8-field ones don't
-  // overflow the 76px card height.
-  const fieldCount = Math.min(5, Math.max(2, template.fields.length));
+  const cat = getCategoryStyle(template.category);
+  // Vary bar count by ACTUAL fields, clamped to [2,4] for the W-AP-1
+  // taller-hero layout — 5 bars overflowed the new body section.
+  const fieldCount = Math.min(4, Math.max(2, template.fields.length));
   const bars = Array.from({ length: fieldCount });
-  // Visible calcs (excludes hidden / chained-only). Anything > 1 implies a
-  // multi-line breakdown in the result panel.
   const visibleCalcs = template.calculations.filter((c) => c.showInResults !== false);
-  const breakdownLines = Math.min(3, Math.max(1, visibleCalcs.length - 1));
+  const isBreakdown = visibleCalcs.length > 1;
+  const breakdownLines = Math.min(2, Math.max(1, visibleCalcs.length - 1));
   const breakdown = Array.from({ length: breakdownLines });
   const Icon = getQuoteQuickIcon(template.defaultIcon);
-  const catColor = categoryAccent(template.category);
+  const stripe = stripeShapeForLayout(template.layout);
+  const ctaLabel = template.results?.cta_label?.trim() || 'Get Quote';
+  const isFeatured = FEATURED_TEMPLATE_IDS.has(template.id);
 
+  // The hero treatment uses a CSS background-image overlay so the body
+  // composition (gradient, diagonal stripe, etc.) is keyed off the
+  // `data-hero` attribute. Defined in <style> below.
   return (
     <div
-      className="qq-tg-mockup qq-tg-mockup-themed"
-      style={{ background: theme.surface, borderColor: theme.border }}
+      className="qq-tg-mockup qq-tg-mockup-v2"
+      style={{ background: cat.bodyBg, borderColor: theme.border }}
       aria-hidden="true"
       data-theme-id={theme.id}
       data-category={template.category}
+      data-hero={cat.hero}
+      data-cta-shape={cat.ctaShape}
+      data-cat-id={cat.id}
     >
-      <div className="qq-tg-mockup-topline">
-        {Icon ? (
-          <div
-            className="qq-tg-mockup-iconchip"
-            style={{ background: `${theme.accent}22`, color: theme.accent }}
-          >
-            <Icon size={10} strokeWidth={2.25} />
+      {/* HERO band — coloured background with per-category overlay */}
+      <div
+        className="qq-tg-hero"
+        style={{ background: cat.heroBg }}
+      >
+        {/* Per-category visual treatment overlays (CSS in <style>) */}
+        <div
+          className="qq-tg-hero-treatment"
+          data-hero={cat.hero}
+          style={{
+            // CSS custom properties so the <style> block can reference
+            // category colours without needing :nth-child selectors.
+            ['--cat-accent' as string]: cat.heroAccent,
+          }}
+        />
+        {/* Accent stripe(s) by layout shape */}
+        {stripe === 'triple' ? (
+          <div className="qq-tg-stripe-triple">
+            <span style={{ background: cat.heroAccent }} />
+            <span style={{ background: cat.heroAccent, opacity: 0.7 }} />
+            <span style={{ background: cat.heroAccent, opacity: 0.45 }} />
           </div>
-        ) : null}
-        <div className="qq-tg-mockup-header" style={{ background: theme.accent }} />
-      </div>
-      <div className="qq-tg-mockup-body">
-        {bars.map((_, i) => (
+        ) : (
           <div
-            key={i}
-            className="qq-tg-mockup-row"
+            className="qq-tg-stripe-single"
             style={{
-              background: theme.border,
-              // Vary widths so the bar stack doesn't look like a barcode —
-              // 100% / 85% / 70% repeating with a 60% truncation on the last.
-              width: i === bars.length - 1
-                ? '55%'
-                : `${100 - (i % 3) * 12}%`,
+              background: cat.heroAccent,
+              width: stripe === 'half' ? '46%' : '74%',
             }}
           />
-        ))}
-        <div
-          className="qq-tg-mockup-result"
-          style={{ background: theme.result }}
-        >
+        )}
+        {/* Centred icon chip — the visual anchor */}
+        {Icon ? (
           <div
-            className="qq-tg-mockup-result-headline"
-            style={{ background: theme.resultText, opacity: 0.85 }}
-          />
-          {breakdown.map((_, i) => (
+            className="qq-tg-iconchip-lg"
+            style={{
+              background: cat.isDark
+                ? `${cat.heroAccent}33`
+                : `${cat.heroAccent}22`,
+              borderColor: cat.heroAccent,
+              color: cat.heroAccent,
+            }}
+          >
+            <Icon size={20} strokeWidth={2.25} />
+          </div>
+        ) : null}
+        {isFeatured ? (
+          <span className="qq-tg-featured-badge">Featured</span>
+        ) : null}
+      </div>
+
+      {/* BODY — placeholder bars + result line */}
+      <div className="qq-tg-body-v2">
+        <div className="qq-tg-bars">
+          {bars.map((_, i) => (
             <div
               key={i}
-              className="qq-tg-mockup-result-sub"
+              className="qq-tg-bar"
               style={{
-                background: theme.resultText,
-                opacity: 0.45 - i * 0.05,
-                width: `${75 - i * 10}%`,
+                background: cat.bodyRow,
+                width: i === bars.length - 1
+                  ? '52%'
+                  : `${100 - (i % 3) * 14}%`,
               }}
             />
           ))}
         </div>
+        {/* Result line — one prominent for single calc, multiple subdued
+            for breakdown templates */}
+        <div className="qq-tg-result-v2">
+          <div
+            className="qq-tg-result-head"
+            style={{ background: cat.heroBg }}
+          />
+          {isBreakdown
+            ? breakdown.map((_, i) => (
+                <div
+                  key={i}
+                  className="qq-tg-result-line"
+                  style={{
+                    background: cat.bodyRow,
+                    width: `${68 - i * 14}%`,
+                  }}
+                />
+              ))
+            : null}
+        </div>
+        {/* Real CTA button — sized ~72% width, centred, in category shape */}
+        <div
+          className="qq-tg-cta-v2"
+          data-cta-shape={cat.ctaShape}
+          style={{
+            background: `linear-gradient(135deg, ${cat.ctaFrom}, ${cat.ctaTo})`,
+            color: cat.ctaText,
+            boxShadow:
+              cat.id === 'emergency'
+                ? `0 2px 6px ${cat.ctaFrom}55`
+                : `0 1px 3px rgba(15,23,42,0.18)`,
+          }}
+        >
+          <span className="qq-tg-cta-label">{ctaLabel}</span>
+          <span className="qq-tg-cta-arrow" aria-hidden="true">→</span>
+        </div>
       </div>
-      <div
-        className="qq-tg-mockup-catband"
-        style={{ background: catColor }}
-        aria-hidden="true"
-      />
     </div>
   );
 }
@@ -437,12 +516,14 @@ export default function TemplateStrip({ activeTemplateId, onApplyTemplate }: Str
           overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
         }
 
-        /* Mini-mockup. */
+        /* Mini-mockup. W-AP-1 — bumped from 76 → 150 px so the hero band,
+         * centred 40px icon, bars, result, and full CTA all have room.
+         * Card body width stays the same (156 / 140 mobile). */
         .qq-tg-mockup {
-          width: 100%; height: 76px;
+          width: 100%; height: 150px;
           background: ${d.colors.canvas};
-          border-radius: 6px;
-          padding: 8px;
+          border-radius: 8px;
+          padding: 0;
           box-sizing: border-box;
           display: flex; flex-direction: column; gap: 4px;
           overflow: hidden;
@@ -519,6 +600,208 @@ export default function TemplateStrip({ activeTemplateId, onApplyTemplate }: Str
         }
         .qq-tg-mockup-result-sub {
           height: 3px; width: 75%; border-radius: 2px;
+        }
+
+        /* ─────────────────────────────────────────────────────────── */
+        /* W-AP-1 — V2 mockup with category palette + hero treatments.  */
+        /* ─────────────────────────────────────────────────────────── */
+        .qq-tg-mockup-v2 {
+          padding: 0;
+          gap: 0;
+          border: 1px solid;
+          display: flex;
+          flex-direction: column;
+        }
+        .qq-tg-hero {
+          position: relative;
+          height: 78px;
+          flex-shrink: 0;
+          overflow: hidden;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .qq-tg-hero-treatment {
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+        }
+        /* Hero treatments — pure CSS overlays painted via background image
+         * and gradient. Each is keyed off the data-hero attribute on the
+         * inner treatment div. */
+        .qq-tg-hero-treatment[data-hero="dark-mode"] {
+          background:
+            radial-gradient(circle at 75% 30%, var(--cat-accent) 0%, transparent 28%),
+            linear-gradient(135deg, transparent 60%, rgba(255,255,255,0.04) 100%);
+          opacity: 0.55;
+        }
+        .qq-tg-hero-treatment[data-hero="diagonal-stripe"] {
+          background:
+            repeating-linear-gradient(
+              -55deg,
+              transparent 0 14px,
+              var(--cat-accent) 14px 18px,
+              transparent 18px 32px
+            );
+          opacity: 0.25;
+        }
+        .qq-tg-hero-treatment[data-hero="sparkle"] {
+          background:
+            radial-gradient(circle at 18% 24%, var(--cat-accent) 0 2px, transparent 3px),
+            radial-gradient(circle at 78% 18%, var(--cat-accent) 0 1.5px, transparent 2.5px),
+            radial-gradient(circle at 60% 64%, var(--cat-accent) 0 1.5px, transparent 2.5px),
+            radial-gradient(circle at 30% 76%, var(--cat-accent) 0 2px, transparent 3px);
+          opacity: 0.55;
+        }
+        .qq-tg-hero-treatment[data-hero="grid-pattern"] {
+          background-image:
+            linear-gradient(var(--cat-accent) 1px, transparent 1px),
+            linear-gradient(90deg, var(--cat-accent) 1px, transparent 1px);
+          background-size: 14px 14px;
+          opacity: 0.16;
+        }
+        .qq-tg-hero-treatment[data-hero="chevrons"] {
+          background:
+            repeating-linear-gradient(
+              135deg,
+              transparent 0 8px,
+              var(--cat-accent) 8px 11px,
+              transparent 11px 20px
+            );
+          opacity: 0.35;
+        }
+        .qq-tg-hero-treatment[data-hero="leaf"] {
+          background:
+            radial-gradient(ellipse at 80% 110%, var(--cat-accent) 0%, transparent 40%),
+            radial-gradient(ellipse at 12% -10%, var(--cat-accent) 0%, transparent 38%);
+          opacity: 0.4;
+        }
+        .qq-tg-hero-treatment[data-hero="geometric"] {
+          background:
+            linear-gradient(135deg, var(--cat-accent) 0 12px, transparent 12px),
+            linear-gradient(135deg, transparent calc(100% - 18px), var(--cat-accent) calc(100% - 18px));
+          background-size: 100% 100%, 100% 100%;
+          background-repeat: no-repeat;
+          opacity: 0.2;
+        }
+
+        /* Accent stripe at top of hero — single or triple */
+        .qq-tg-stripe-single {
+          position: absolute;
+          top: 0; left: 0;
+          height: 4px;
+          border-radius: 0 0 2px 0;
+        }
+        .qq-tg-stripe-triple {
+          position: absolute;
+          top: 0; left: 0; right: 0;
+          height: 4px;
+          display: flex;
+          gap: 3px;
+          padding: 0 4px;
+        }
+        .qq-tg-stripe-triple span {
+          flex: 1;
+          height: 4px;
+          border-radius: 0 0 2px 2px;
+        }
+
+        /* Centred icon chip — the visual anchor */
+        .qq-tg-iconchip-lg {
+          position: relative;
+          width: 40px;
+          height: 40px;
+          border-radius: 10px;
+          border-width: 1.5px;
+          border-style: solid;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.18);
+          z-index: 1;
+        }
+        .qq-tg-iconchip-lg svg { display: block; }
+
+        /* Featured badge — top-right of hero */
+        .qq-tg-featured-badge {
+          position: absolute;
+          top: 6px; right: 6px;
+          font-size: 8.5px;
+          font-weight: 700;
+          letter-spacing: 0.04em;
+          text-transform: uppercase;
+          color: #1e293b;
+          background: #fbbf24;
+          padding: 2px 6px;
+          border-radius: 9999px;
+          line-height: 1;
+          z-index: 2;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.18);
+        }
+
+        /* BODY — bars + result + CTA */
+        .qq-tg-body-v2 {
+          flex: 1;
+          padding: 7px 8px 8px;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          min-height: 0;
+        }
+        .qq-tg-bars {
+          display: flex;
+          flex-direction: column;
+          gap: 3px;
+        }
+        .qq-tg-bar {
+          height: 3.5px;
+          border-radius: 2px;
+        }
+        .qq-tg-result-v2 {
+          margin-top: 2px;
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+        .qq-tg-result-head {
+          height: 5px;
+          width: 45%;
+          border-radius: 2px;
+          opacity: 0.9;
+        }
+        .qq-tg-result-line {
+          height: 3px;
+          border-radius: 2px;
+        }
+
+        /* CTA button — real button look, ~72% width, category shape */
+        .qq-tg-cta-v2 {
+          margin-top: auto;
+          width: 100%;
+          padding: 5px 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 4px;
+          font-size: 8.5px;
+          font-weight: 700;
+          letter-spacing: 0.01em;
+          line-height: 1;
+          overflow: hidden;
+          white-space: nowrap;
+        }
+        .qq-tg-cta-v2[data-cta-shape="pill"] { border-radius: 9999px; }
+        .qq-tg-cta-v2[data-cta-shape="rounded-sq"] { border-radius: 6px; }
+        .qq-tg-cta-v2[data-cta-shape="squared"] { border-radius: 2px; }
+        .qq-tg-cta-label {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          max-width: 100%;
+        }
+        .qq-tg-cta-arrow {
+          font-size: 9px;
+          flex-shrink: 0;
         }
 
         /* Mobile — slightly smaller cards. Wave L T2: the smaller browse-all
@@ -767,13 +1050,13 @@ function TemplateBrowseModal({ activeTemplateId, onClose, onApplyTemplate }: Mod
         }
         /* Wave R-pre W-CARDS — force equal card heights per row.
          * grid-auto-rows: 1fr above makes every row in the modal grid
-         * stretch to the tallest cell. W-AO-2 bumped min-height from
-         * 150 → 178 to make room for a 2-line description beneath the
-         * name without crowding the mockup. */
+         * stretch to the tallest cell. W-AP-1 bumped from 178 → 250 to
+         * make room for the new 150px mockup (vs 76px before) plus the
+         * 2-line description + name. */
         .qq-tg-modal-grid .qq-tg-card,
         .qq-tg-modal-grid .qq-tg-card--with-desc {
           height: 100%;
-          min-height: 178px;
+          min-height: 250px;
         }
         /* W-AO-2 — modal card body now hosts BOTH the name (centered,
          * bold) and a 2-line clamped description below (11px, muted).

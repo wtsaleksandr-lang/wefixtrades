@@ -29,17 +29,24 @@ function DefaultLogoIcon({
 }: { name: string; accent: string; radius: number | string }) {
   const Icon = getQuoteQuickIcon(name);
   if (!Icon) return null;
+  // Wave W-AP-1 — bumped from 28×28 with 10% tint + no border to 36×36
+  // with 18% accent tint, a 1.5px solid accent border, and a soft drop
+  // shadow. Alex couldn't see the AH-2 default trade icon in the live
+  // widget because the previous treatment was too subtle. The icon
+  // itself goes 16 → 20 to match.
   return (
     <div
       aria-hidden="true"
       style={{
-        width: 28, height: 28, borderRadius: radius,
-        background: `${accent}1a`,
+        width: 36, height: 36, borderRadius: radius,
+        background: `${accent}2e`,
+        border: `1.5px solid ${accent}`,
+        boxShadow: `0 2px 6px ${accent}33`,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         flexShrink: 0,
       }}
     >
-      <Icon size={16} color={accent} strokeWidth={2.25} />
+      <Icon size={20} color={accent} strokeWidth={2.25} />
     </div>
   );
 }
