@@ -46,6 +46,12 @@ interface Supplier {
   status: string;
   is_active: boolean;
   metadata: any;
+  /* W-AM-3: external-marketplace vetting metadata. */
+  specialties: string[] | null;
+  avg_turnaround_days: number | null;
+  quality_rating: string | number | null; // numeric returns as string
+  external_completed_jobs: number | null;
+  last_vetted_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -117,6 +123,15 @@ const TASK_STATUS_COLORS: Record<string, string> = {
   cancelled: "bg-gray-100 text-gray-500",
 };
 
+/* W-AM-3: canonical specialty tag suggestions for the multi-select pills.
+   Free-form additions are still allowed via the "add" input. */
+const SPECIALTY_SUGGESTIONS = [
+  "WordPress", "Shopify", "Wix", "Squarespace", "Webflow", "Elementor",
+  "WooCommerce", "CSS", "mobile-responsive", "speed-optimization",
+  "security", "malware-removal", "snippet-install", "analytics-install",
+  "pixel-install",
+];
+
 const EMPTY_FORM = {
   name: "",
   type: "freelancer",
@@ -133,7 +148,40 @@ const EMPTY_FORM = {
   cost_type: "per_task",
   notes: "",
   status: "active",
+  // W-AM-3 fields
+  specialties: [] as string[],
+  avg_turnaround_days: "",
+  quality_rating: "",
+  external_completed_jobs: "",
+  last_vetted_at: "", // YYYY-MM-DD; converted to ISO timestamp on submit
 };
+
+/* W-AM-3: derive vetting status from last_vetted_at timestamp.
+   - never vetted -> "unverified" (amber)
+   - vetted within 90 days -> "verified" (emerald)
+   - vetted > 90 days ago -> "stale" (gray) */
+function getVettingStatus(lastVettedAt: string | null): "verified" | "stale" | "unverified" {
+  if (!lastVettedAt) return "unverified";
+  const vetted = new Date(lastVettedAt).getTime();
+  if (!Number.isFinite(vetted)) return "unverified";
+  const ageDays = (Date.now() - vetted) / (1000 * 60 * 60 * 24);
+  return ageDays <= 90 ? "verified" : "stale";
+}
+
+function VettingBadge({ lastVettedAt }: { lastVettedAt: string | null }) {
+  const status = getVettingStatus(lastVettedAt);
+  const cls = {
+    verified: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    stale: "bg-gray-100 text-gray-600 border-gray-200",
+    unverified: "bg-amber-50 text-amber-700 border-amber-200",
+  }[status];
+  const label = { verified: "Verified", stale: "Stale", unverified: "Unverified" }[status];
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border ${cls}`}>
+      {label}
+    </span>
+  );
+}
 
 /* ─── Component ─── */
 
@@ -246,6 +294,12 @@ export default function SuppliersPage() {
       cost_type: supplier.cost_type || "per_task",
       notes: supplier.notes || "",
       status: supplier.status || (supplier.is_active ? "active" : "inactive"),
+      // W-AM-3
+      specialties: (supplier.specialties as string[]) || [],
+      avg_turnaround_days: supplier.avg_turnaround_days != null ? String(supplier.avg_turnaround_days) : "",
+      quality_rating: supplier.quality_rating != null ? String(supplier.quality_rating) : "",
+      external_completed_jobs: supplier.external_completed_jobs != null ? String(supplier.external_completed_jobs) : "",
+      last_vetted_at: supplier.last_vetted_at ? supplier.last_vetted_at.slice(0, 10) : "",
     });
     setShowForm(true);
   }
@@ -271,6 +325,12 @@ export default function SuppliersPage() {
       notes: form.notes || null,
       status: form.status,
       is_active: form.status === "active",
+      // W-AM-3
+      specialties: form.specialties,
+      avg_turnaround_days: form.avg_turnaround_days ? parseInt(form.avg_turnaround_days, 10) : null,
+      quality_rating: form.quality_rating ? form.quality_rating : null,
+      external_completed_jobs: form.external_completed_jobs ? parseInt(form.external_completed_jobs, 10) : null,
+      last_vetted_at: form.last_vetted_at ? new Date(form.last_vetted_at).toISOString() : null,
     };
 
     if (editingId) {
@@ -287,6 +347,18 @@ export default function SuppliersPage() {
         return { ...prev, supported_services: current.filter((s) => s !== serviceId) };
       }
       return { ...prev, supported_services: [...current, serviceId] };
+    });
+  }
+
+  function toggleSpecialty(tag: string) {
+    const t = tag.trim();
+    if (!t) return;
+    setForm((prev) => {
+      const current = prev.specialties;
+      if (current.includes(t)) {
+        return { ...prev, specialties: current.filter((s) => s !== t) };
+      }
+      return { ...prev, specialties: [...current, t] };
     });
   }
 
@@ -380,8 +452,11 @@ export default function SuppliersPage() {
                 <CardContent className="py-5">
                   <div className="flex items-start justify-between">
                     <div>
-                      <h2 className="text-xl font-semibold text-gray-900">{supplierDetail.name}</h2>
-                      <div className="flex items-center gap-2 mt-1.5">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h2 className="text-xl font-semibold text-gray-900">{supplierDetail.name}</h2>
+                        <VettingBadge lastVettedAt={supplierDetail.last_vetted_at} />
+                      </div>
+                      <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                         <SupplierTypeBadge type={supplierDetail.supplier_type} />
                         <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium capitalize ${TYPE_COLORS[supplierDetail.type] || "bg-gray-100 text-gray-600"}`}>
                           {supplierDetail.type.replace(/_/g, " ")}
@@ -391,6 +466,11 @@ export default function SuppliersPage() {
                         ) : (
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">Inactive</span>
                         )}
+                        {((supplierDetail.specialties as string[]) || []).map((tag) => (
+                          <span key={tag} className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-600">
+                            {tag}
+                          </span>
+                        ))}
                       </div>
                     </div>
                     <div className="flex gap-2">
@@ -546,6 +626,7 @@ export default function SuppliersPage() {
           services={services}
           onSubmit={handleSubmit}
           onToggleService={toggleService}
+          onToggleSpecialty={toggleSpecialty}
           isPending={createMutation.isPending || updateMutation.isPending}
         />
       </AdminLayout>
@@ -635,8 +716,25 @@ export default function SuppliersPage() {
                 suppliers.map((s) => (
                   <TableRow key={s.id} className="cursor-pointer hover:bg-gray-50" onClick={() => setDetailId(s.id)}>
                     <TableCell>
-                      <div className="font-medium text-sm text-gray-900">{s.name}</div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <div className="font-medium text-sm text-gray-900">{s.name}</div>
+                        <VettingBadge lastVettedAt={s.last_vetted_at} />
+                      </div>
                       <div className="text-xs text-gray-500">{s.contact_email || ""}</div>
+                      {((s.specialties as string[]) || []).length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {((s.specialties as string[]) || []).slice(0, 4).map((tag) => (
+                            <span key={tag} className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-600">
+                              {tag}
+                            </span>
+                          ))}
+                          {((s.specialties as string[]) || []).length > 4 && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-600">
+                              +{((s.specialties as string[]) || []).length - 4}
+                            </span>
+                          )}
+                        </div>
+                      )}
                       {/* Mobile: surface type inline below name since we hid the column */}
                       <div className="md:hidden mt-1 text-[11px] text-gray-500 capitalize">
                         {s.type.replace(/_/g, " ")} · {formatCost(s.cost_rate, s.cost_type)}
@@ -707,6 +805,7 @@ export default function SuppliersPage() {
         services={services}
         onSubmit={handleSubmit}
         onToggleService={toggleService}
+        onToggleSpecialty={toggleSpecialty}
         isPending={createMutation.isPending || updateMutation.isPending}
       />
     </AdminLayout>
@@ -737,6 +836,7 @@ function SupplierFormDialog({
   services,
   onSubmit,
   onToggleService,
+  onToggleSpecialty,
   isPending,
 }: {
   open: boolean;
@@ -747,9 +847,11 @@ function SupplierFormDialog({
   services: ServiceCatalogItem[];
   onSubmit: () => void;
   onToggleService: (serviceId: string) => void;
+  onToggleSpecialty: (tag: string) => void;
   isPending: boolean;
 }) {
   const activeServices = services.filter((s) => s.is_active);
+  const [specialtyDraft, setSpecialtyDraft] = useState("");
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -847,6 +949,133 @@ function SupplierFormDialog({
                 </SelectContent>
               </Select>
             </div>
+
+            {/* W-AM-3: external-marketplace vetting metadata */}
+            <div className="pt-2 border-t">
+              <div className="text-xs font-semibold text-gray-700 mb-2">Vetting (Fiverr / external marketplace)</div>
+              <div>
+                <label className="text-xs font-medium text-gray-600">Specialties</label>
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                  {SPECIALTY_SUGGESTIONS.map((tag) => {
+                    const selected = form.specialties.includes(tag);
+                    return (
+                      <button
+                        key={tag}
+                        type="button"
+                        onClick={() => onToggleSpecialty(tag)}
+                        className={`px-2 py-0.5 rounded-full text-xs font-medium border transition-colors ${
+                          selected
+                            ? "bg-[#0d3cfc]/10 text-[#0d3cfc] border-[#0d3cfc]/30"
+                            : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+                        }`}
+                      >
+                        {tag}
+                      </button>
+                    );
+                  })}
+                  {form.specialties
+                    .filter((t) => !SPECIALTY_SUGGESTIONS.includes(t))
+                    .map((tag) => (
+                      <button
+                        key={tag}
+                        type="button"
+                        onClick={() => onToggleSpecialty(tag)}
+                        className="px-2 py-0.5 rounded-full text-xs font-medium border bg-[#0d3cfc]/10 text-[#0d3cfc] border-[#0d3cfc]/30"
+                      >
+                        {tag} ×
+                      </button>
+                    ))}
+                </div>
+                <div className="flex gap-2 mt-2">
+                  <Input
+                    placeholder="Add custom specialty..."
+                    value={specialtyDraft}
+                    onChange={(e) => setSpecialtyDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        if (specialtyDraft.trim()) {
+                          onToggleSpecialty(specialtyDraft);
+                          setSpecialtyDraft("");
+                        }
+                      }
+                    }}
+                    className="h-8 text-sm"
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      if (specialtyDraft.trim()) {
+                        onToggleSpecialty(specialtyDraft);
+                        setSpecialtyDraft("");
+                      }
+                    }}
+                  >
+                    Add
+                  </Button>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3 mt-3">
+                <div>
+                  <label className="text-xs font-medium text-gray-600">Avg turnaround (days)</label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={form.avg_turnaround_days}
+                    onChange={(e) => setForm((f) => ({ ...f, avg_turnaround_days: e.target.value }))}
+                    placeholder="3"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-600">Quality rating (0-5)</label>
+                  <Input
+                    type="number"
+                    min="0"
+                    max="5"
+                    step="0.1"
+                    value={form.quality_rating}
+                    onChange={(e) => setForm((f) => ({ ...f, quality_rating: e.target.value }))}
+                    placeholder="4.9"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3 mt-3">
+                <div>
+                  <label className="text-xs font-medium text-gray-600">External completed jobs</label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={form.external_completed_jobs}
+                    onChange={(e) => setForm((f) => ({ ...f, external_completed_jobs: e.target.value }))}
+                    placeholder="500"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-600">Last vetted at</label>
+                  <div className="flex gap-1">
+                    <Input
+                      type="date"
+                      value={form.last_vetted_at}
+                      onChange={(e) => setForm((f) => ({ ...f, last_vetted_at: e.target.value }))}
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setForm((f) => ({ ...f, last_vetted_at: new Date().toISOString().slice(0, 10) }))}
+                      title="Set to today"
+                    >
+                      Today
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div>
               <label className="text-xs font-medium text-gray-600">Notes</label>
               <Textarea
