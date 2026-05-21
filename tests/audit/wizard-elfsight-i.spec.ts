@@ -170,9 +170,11 @@ test.describe('wizard I — Wave I editor UX (desktop)', () => {
     expect(onBody).toBe(true);
   });
 
-  test('(f) in-preview +Add slot is visible and per-field remove icons exist', async ({ page }) => {
+  test('(f) per-field remove icons exist on every preview decorator', async ({ page }) => {
+    // Wave AF-3 — in-preview '+ Add field' slot removed; left-pane FieldsPanel
+    // '+Add field' is now the sole add-affordance. Per-field remove icons
+    // remain part of the (f) Wave I contract and are still asserted here.
     await openWizard(page);
-    await expect(page.getByTestId('preview-add-slot')).toBeVisible();
     const decorators = page.locator('[data-testid^="preview-field-deco-"]');
     const n = await decorators.count();
     expect(n).toBeGreaterThan(0);
@@ -257,11 +259,9 @@ test.describe('wizard I — mobile parity 390×844', () => {
     void browserName;
   });
 
-  // Wave R-pre v2 follow-up — the in-preview +Add slot is intentionally
-  // hidden on narrow containers (single-column layout) because the slot
-  // overlapped the result panel below it. The left-pane "+ Add field"
-  // button still works on mobile; covered by mobile-add-trigger tests
-  // elsewhere. This test is therefore skipped.
+  // Wave AF-3 — in-preview '+ Add field' slot removed; left-pane FieldsPanel
+  // '+Add field' is now the sole add-affordance. Spec retained for
+  // archaeological context.
   test.skip('(b) drag-to-preview falls back to tap-to-add via the +Add slot on mobile', async ({ page }) => {
     await openWizard(page);
     // The mobile "tap-to-add" alternative for cross-section drag is the
@@ -326,9 +326,9 @@ test.describe('wizard I — mobile parity 390×844', () => {
     expect(w).toBeGreaterThanOrEqual(390 - 30);
   });
 
-  // Wave R-pre v2 follow-up — same reason as (b) above: in-preview +Add
-  // slot is hidden on narrow containers. The slot's mobile-tap-target
-  // assertion is moot when the slot doesn't render. Skipped.
+  // Wave AF-3 — in-preview '+ Add field' slot removed; left-pane FieldsPanel
+  // '+Add field' is now the sole add-affordance. Spec retained for
+  // archaeological context.
   test.skip('(f) preview +Add slot and remove icons meet ≥44px tap targets', async ({ page }) => {
     await openWizard(page);
     const slot = page.getByTestId('preview-add-slot');
