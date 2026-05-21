@@ -209,6 +209,8 @@ function MarketingFooter() {
             <FtLink href="/about">About Us</FtLink>
             <FtLink href="/contact">Contact Sales</FtLink>
             <FtLink href="/pricing">Pricing</FtLink>
+            {/* AJ-7 — API developer docs */}
+            <FtLink href="/docs/api">API Docs</FtLink>
             {!isAuthenticated && <FtLink href="/login">Login</FtLink>}
             {isAuthenticated && <FtLink href="/dashboard">Dashboard</FtLink>}
           </FooterColumn>

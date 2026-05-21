@@ -40,6 +40,8 @@ import DocsMapguard from "@/pages/marketing/docs/mapguard";
 import DocsReputationShield from "@/pages/marketing/docs/reputationshield";
 import DocsWebhooks from "@/pages/marketing/docs/webhooks";
 import DocsTroubleshooting from "@/pages/marketing/docs/troubleshooting";
+// AJ-7 — API developer docs
+import ApiDocsPage from "@/pages/marketing/ApiDocsPage";
 import SolutionsVisibility from "@/pages/marketing/solutions-visibility";
 import FreeAudit from "@/pages/marketing/FreeAudit";
 import MissedCallCalculator from "@/pages/marketing/missed-call-calculator";
@@ -329,6 +331,8 @@ function Router() {
       <Route path="/docs/reputationshield" component={DocsReputationShield} />
       <Route path="/docs/webhooks" component={DocsWebhooks} />
       <Route path="/docs/troubleshooting" component={DocsTroubleshooting} />
+      {/* AJ-7 API docs */}
+      <Route path="/docs/api">{() => <ApiDocsPage />}</Route>
       <Route path="/dev/primitives">{() => <RequirePortal><PrimitivesPage /></RequirePortal>}</Route>
       <Route path="/dev/canvas">{() => <RequirePortal><DemoCanvas /></RequirePortal>}</Route>
       <Route path="/tools/missed-call-calculator/:trade" component={MissedCallCalculatorTrade} />
