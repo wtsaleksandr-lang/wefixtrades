@@ -753,7 +753,11 @@ export default function AutomationDiagram() {
                     letterSpacing: "0.01em",
                     transition: "all 0.2s ease",
                     background: active ? "#0d3cfc" : "transparent",
-                    color: active ? "#0d1514" : "rgba(255,255,255,0.5)",
+                    /* Wave AE-3 — active pill was near-black (rgb(13,21,20))
+                     * on brand blue (#0d3cfc), ratio 2.71, well below WCAG
+                     * AA. White on the same blue is ~6.4, comfortably above
+                     * the threshold for both normal and large text. */
+                    color: active ? "#FFFFFF" : "rgba(255,255,255,0.5)",
                     boxShadow: "none",
                     whiteSpace: "nowrap",
                     flexShrink: 0,

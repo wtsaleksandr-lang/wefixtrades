@@ -73,16 +73,10 @@ export default function FAQSection() {
       style={{ maxWidth: 640, margin: '0 auto' }}
     >
       <div style={{ textAlign: 'center', marginBottom: 24 }}>
-        <div style={{
-          fontSize: 11,
-          fontWeight: 700,
-          color: mkt.accent,
-          letterSpacing: '0.12em',
-          textTransform: 'uppercase' as const,
-          marginBottom: 14,
-        }}>
-          FAQ
-        </div>
+        {/* Wave AE-3 — dropped the "FAQ" eyebrow pill above the H3 (same
+            pattern as ReviewsSection.tsx in Wave AE). The H3 alone names
+            the section and the accordion items underneath are self-
+            evidently FAQ-shaped; the pill repeated the same meaning. */}
         <h3
           id="faq-heading"
           style={{

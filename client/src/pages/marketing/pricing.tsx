@@ -434,9 +434,11 @@ export default function PricingPage() {
         <section style={{ background: mkt.sectionLight, padding: "96px 28px" }} data-testid="pricing-faq">
           <div style={{ maxWidth: 780, margin: "0 auto" }}>
             <div style={{ textAlign: "center", marginBottom: 52 }} data-reveal="fade-up">
-              <div style={{ fontSize: 11, fontWeight: 700, color: mkt.accent, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>
-                FAQ
-              </div>
+              {/* Wave AE-3 — dropped the "FAQ" eyebrow pill above the H2
+                 (same pattern as ReviewsSection.tsx in Wave AE). The H2
+                 alone serves as the section title and the surrounding
+                 accordion items are self-evidently FAQ-shaped, so the
+                 pill was a visual stutter without a useful cue. */}
               <h2 style={{ fontSize: "clamp(24px, 3vw, 36px)", fontWeight: 700, color: mkt.onDark, letterSpacing: "-0.025em", marginBottom: 12 }}>
                 Everything you need to know
               </h2>
