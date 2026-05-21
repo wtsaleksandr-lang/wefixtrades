@@ -155,6 +155,7 @@ import InvoicesPage from "@/pages/portal/InvoicesPage";
 import PaymentMethodsPage from "@/pages/portal/PaymentMethodsPage";
 import BookFlowSetupPage from "@/pages/portal/BookFlowSetupPage";
 import PortalCatalog from "@/pages/portal/PortalCatalog";
+import PortalApiAccessPage from "@/pages/portal/PortalApiAccessPage";
 
 /**
  * Root route. On a hosted-calculator subdomain ({slug}.your-quote.net) the
@@ -253,6 +254,8 @@ function Router() {
       <Route path="/portal/invoices">{() => <RequireClient><InvoicesPage /></RequireClient>}</Route>
       <Route path="/portal/payment-methods">{() => <RequireClient><PaymentMethodsPage /></RequireClient>}</Route>
       <Route path="/portal/bookflow-setup">{() => <RequireClient><BookFlowSetupPage /></RequireClient>}</Route>
+      {/* AJ-5 portal API access */}
+      <Route path="/portal/api-access">{() => <RequireClient><PortalApiAccessPage /></RequireClient>}</Route>
       <Route path="/portal/help">{() => <RequireClient><PortalHelp /></RequireClient>}</Route>
       <Route path="/portal/chat-history">{() => <RequireClient><PortalChatHistoryPage /></RequireClient>}</Route>
       <Route path="/portal/settings">{() => <RequireClient><PortalSettings /></RequireClient>}</Route>

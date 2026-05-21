@@ -18,6 +18,7 @@ import {
   MapPin,
   Plus,
   Sparkles,
+  Key,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useState } from "react";
@@ -109,6 +110,8 @@ function buildNavItems(active: Set<string>): NavItem[] {
     { label: "Booking page", href: "/portal/bookflow-setup", icon: Settings, indent: true },
     { label: "Invoices", href: "/portal/invoices", icon: Receipt },
     { label: "Billing", href: "/portal/billing", icon: CreditCard },
+    /* AJ-5 portal API access — developer portal entry for the public API platform */
+    { label: "API Access", href: "/portal/api-access", icon: Key },
     /* Q16: dedicated entry-point to the in-portal service catalog */
     { label: "Add Services", href: "/portal/catalog", icon: Plus },
     { label: "Help", href: "/portal/help", icon: HelpCircle },
