@@ -81,6 +81,8 @@ const CORE_ITEMS = [
    expands the per-product list. */
 const PRODUCTS_ITEMS = [
   { label: "QuoteQuick", href: "/admin/crm/quotequick", icon: Sparkles },
+  /* AI-3b — QuoteQuick template editor */
+  { label: "QuoteQuick Templates", href: "/admin/quotequick/templates", icon: Sparkles },
   { label: "QuoteQuick Trades", href: "/admin/quotequick/trades", icon: Sparkles },
   { label: "TradeLine", href: "/admin/crm/tradeline-ops", icon: Phone },
   { label: "TradeLine Setups", href: "/admin/crm/tradeline-setups", icon: Phone },
