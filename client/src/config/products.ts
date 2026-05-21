@@ -45,6 +45,14 @@ export interface ProductPage {
   seoDescription: string;
   category: ProductCategory;
   heroVisualType: HeroVisualVariant;
+  /**
+   * Wave W-AN-2 — when true, the product is rendered with a "Coming
+   * Soon" banner + waitlist form instead of normal CTAs and pricing
+   * buttons. Used for products blocked on platform approvals
+   * (SocialSync, ReputationShield, MapGuard) that can't ship at the
+   * 2026-07-15 launch. SEO indexing is unaffected.
+   */
+  comingSoon?: boolean;
   primaryCTA: { label: string; href: string };
   secondaryCTA?: { label: string; href: string };
   highlights: string[];
@@ -168,6 +176,8 @@ export const PRODUCT_PAGES: ProductPage[] = [
     seoDescription: "We manage your Google Maps presence for you. Profile optimization, weekly monitoring, issue fixing, and monthly reporting for trades businesses.",
     category: "growth",
     heroVisualType: "dashboard",
+    // W-AN-2 — blocked on GBP API verification + 60-day GBP account-age window.
+    comingSoon: true,
     primaryCTA: { label: "Get Started", href: "/Wizard" },
     secondaryCTA: { label: "See Pricing", href: "/pricing" },
     highlights: [
@@ -303,6 +313,8 @@ export const PRODUCT_PAGES: ProductPage[] = [
     seoDescription: "Stay active online without doing it yourself. We create and post content across Facebook, Instagram, and Google \u2014 so you stay visible and trusted.",
     category: "growth",
     heroVisualType: "social",
+    // W-AN-2 \u2014 blocked on Meta App Review.
+    comingSoon: true,
     primaryCTA: { label: "Start SocialSync", href: "/Wizard" },
     secondaryCTA: { label: "Try Free Demo", href: "/demos/socialsync" },
     highlights: [
@@ -348,6 +360,8 @@ export const PRODUCT_PAGES: ProductPage[] = [
     seoDescription: "Automated review requests, private feedback shield, AI responses, and Google posting. Built for plumbers, electricians, and trades businesses. From $79/mo.",
     category: "reputation",
     heroVisualType: "reviews",
+    // W-AN-2 \u2014 blocked on Meta App Review (for Facebook review pull/response).
+    comingSoon: true,
     primaryCTA: { label: "Start Getting Reviews \u2014 Free Trial", href: "/Wizard" },
     secondaryCTA: { label: "Try Free Demo", href: "/demos/reputationshield" },
     highlights: [

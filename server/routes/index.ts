@@ -4,6 +4,7 @@ import auditRouter from "../auditRoutes";
 
 import { registerAuthRoutes } from "./authRoutes";
 import { registerMarketingRoutes } from "./marketingRoutes";
+import { registerMarketingWaitlistRoutes } from "./marketingWaitlistRoutes";
 import { registerAiRoutes } from "./aiRoutes";
 import { registerCalculatorRoutes } from "./calculatorRoutes";
 import { registerLeadRoutes } from "./leadRoutes";
@@ -91,6 +92,7 @@ export async function registerRoutes(
 
   registerAuthRoutes(app);
   registerMarketingRoutes(app);
+  registerMarketingWaitlistRoutes(app);
   registerUnsubscribeRoutes(app);
   registerAiRoutes(app);
   registerCalculatorRoutes(app);

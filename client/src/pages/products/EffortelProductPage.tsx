@@ -16,7 +16,7 @@
 
 import { useState, useEffect, type ReactNode } from "react";
 import { Link } from "wouter";
-import { ArrowRight, Phone, MessageSquare, Calendar, Star, Clock, Sparkles, Check, ChevronDown } from "lucide-react";
+import { ArrowRight, Phone, MessageSquare, Calendar, Star, Clock, Sparkles, Check, ChevronDown, Rocket } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import CheckoutIntakeModal from "@/components/marketing/CheckoutIntakeModal";
 import { mkt } from "@/theme/tokens";
@@ -119,12 +119,26 @@ export default function EffortelProductPage({ slug }: { slug: string }) {
   const hook = HERO_HOOKS[slug];
 
   const isTradeLine = slug === "tradeline";
+  const isComingSoon = cfg.comingSoon === true;
+
+  // W-AN-2 — when the product is in "Coming Soon" mode, the primary CTA
+  // becomes "Join the waitlist" and scrolls to the waitlist form below
+  // pricing. The original primaryCTA.href is kept in the cfg for SEO /
+  // structured data but the user-visible action changes.
+  const effectiveCfg = isComingSoon
+    ? {
+        ...cfg,
+        primaryCTA: { label: "Join the waitlist", href: "#waitlist" },
+        secondaryCTA: undefined,
+      }
+    : cfg;
 
   return (
     <MarketingLayout hideSiteChat={isTradeLine}>
       <div style={{ background: mkt.bg, color: mkt.onDark, fontFamily: SANS }}>
 
-        <Hero cfg={cfg} hook={hook} slug={slug} />
+        {isComingSoon && <ComingSoonBanner />}
+        <Hero cfg={effectiveCfg} hook={hook} slug={slug} />
         <TrustStrip cfg={cfg} />
 
         {/* NUMBERED CARDS */}
@@ -155,14 +169,21 @@ export default function EffortelProductPage({ slug }: { slug: string }) {
         </section>
 
         <Testimonials items={PRODUCT_TESTIMONIALS[slug] ?? []} />
-        <Pricing pricing={cfg.pricingSection} primaryCta={cfg.primaryCTA} />
+        <Pricing
+          pricing={cfg.pricingSection}
+          primaryCta={effectiveCfg.primaryCTA}
+          comingSoon={isComingSoon}
+        />
+        {isComingSoon && (
+          <WaitlistForm productSlug={cfg.slug} productName={cfg.name} />
+        )}
         <Faq items={cfg.faq ?? []} />
-        <FinalCta cfg={cfg} />
+        <FinalCta cfg={effectiveCfg} />
         {/* TradeLine: sticky chat-input launcher replaces the standard
             sticky-mobile CTA + global SiteChatWidget. */}
         {isTradeLine
           ? <TradeLineDemoLauncher />
-          : <StickyMobileCta primaryCta={cfg.primaryCTA} productName={cfg.name} />}
+          : <StickyMobileCta primaryCta={effectiveCfg.primaryCTA} productName={cfg.name} />}
       </div>
     </MarketingLayout>
   );
@@ -218,7 +239,7 @@ function StickyMobileCta({ primaryCta, productName }: { primaryCta: { label: str
             5-min setup · No card
           </div>
         </div>
-        <Link href={primaryCta.href} style={{
+        <CtaLink href={primaryCta.href} style={{
           padding: "12px 16px", borderRadius: 10,
           background: mkt.accent, color: "#FFFFFF",
           fontFamily: MONO, fontSize: 12, fontWeight: 700,
@@ -227,7 +248,7 @@ function StickyMobileCta({ primaryCta, productName }: { primaryCta: { label: str
           display: "inline-flex", alignItems: "center", gap: 6,
         }}>
           {primaryCta.label} <ArrowRight size={13} />
-        </Link>
+        </CtaLink>
       </div>
       <style>{`
         @media (min-width: 768px) {
@@ -291,13 +312,13 @@ function Hero({ cfg, hook, slug }: { cfg: ReturnType<typeof getProductBySlug> & 
             </Reveal>
             <Reveal delay={0.16}>
               <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                <Link href={cfg.primaryCTA.href} className="wft-hover-border-white" style={ctaPrimary}>
+                <CtaLink href={cfg.primaryCTA.href} className="wft-hover-border-white" style={ctaPrimary}>
                   {cfg.primaryCTA.label} <ArrowRight size={16} />
-                </Link>
+                </CtaLink>
                 {cfg.secondaryCTA && (
-                  <Link href={cfg.secondaryCTA.href} style={ctaGhost}>
+                  <CtaLink href={cfg.secondaryCTA.href} style={ctaGhost}>
                     {cfg.secondaryCTA.label}
-                  </Link>
+                  </CtaLink>
                 )}
               </div>
             </Reveal>
@@ -372,13 +393,13 @@ function Hero({ cfg, hook, slug }: { cfg: ReturnType<typeof getProductBySlug> & 
         </Reveal>
         <Reveal delay={0.16}>
           <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-            <Link href={cfg.primaryCTA.href} className="wft-hover-border-white" style={ctaPrimary}>
+            <CtaLink href={cfg.primaryCTA.href} className="wft-hover-border-white" style={ctaPrimary}>
               {cfg.primaryCTA.label} <ArrowRight size={16} />
-            </Link>
+            </CtaLink>
             {cfg.secondaryCTA && (
-              <Link href={cfg.secondaryCTA.href} className="wft-hover-border-white" style={ctaGhost}>
+              <CtaLink href={cfg.secondaryCTA.href} className="wft-hover-border-white" style={ctaGhost}>
                 {cfg.secondaryCTA.label}
-              </Link>
+              </CtaLink>
             )}
           </div>
         </Reveal>
@@ -462,14 +483,18 @@ function HowItWorks({ steps }: { steps?: { title: string; desc: string }[] }) {
 /* ════════════════════════════════════════════════════════════════
    SECTION: PRICING
    ════════════════════════════════════════════════════════════════ */
-function Pricing({ pricing, primaryCta }: { pricing?: { plans: any[]; note?: string; checkoutEnabled?: boolean }; primaryCta: { label: string; href: string } }) {
+function Pricing({ pricing, primaryCta, comingSoon }: { pricing?: { plans: any[]; note?: string; checkoutEnabled?: boolean }; primaryCta: { label: string; href: string }; comingSoon?: boolean }) {
   // When checkoutEnabled, each tier card opens CheckoutIntakeModal
   // pre-loaded with that tier's SKU. `checkoutTier` = the open plan
   // (null = closed). Products without checkoutEnabled keep the
   // existing primaryCta link — zero behavior change.
+  //
+  // W-AN-2 — when `comingSoon` is true, all per-tier checkout buttons
+  // and primary-CTA links are replaced with a single "Notify me when
+  // available" link that scrolls to the waitlist form below.
   const [checkoutTier, setCheckoutTier] = useState<{ sku: string; name: string; price: string } | null>(null);
   if (!pricing?.plans?.length) return null;
-  const checkoutEnabled = !!pricing.checkoutEnabled;
+  const checkoutEnabled = !!pricing.checkoutEnabled && !comingSoon;
   return (
     <section id="pricing" style={{ padding: "80px 24px" }}>
       <div style={{ maxWidth: 1180, margin: "0 auto" }}>
@@ -528,7 +553,22 @@ function Pricing({ pricing, primaryCta }: { pricing?: { plans: any[]; note?: str
                     </li>
                   ))}
                 </ul>
-                {checkoutEnabled && p.sku ? (
+                {comingSoon ? (
+                  <a href="#waitlist" style={{
+                    display: "block", textAlign: "center",
+                    padding: "12px 14px", borderRadius: 10,
+                    background: mkt.ctaBg,
+                    color: mkt.ctaText,
+                    fontSize: 13, fontWeight: 500,
+                    textDecoration: "none",
+                    lineHeight: 1.25,
+                    whiteSpace: "normal",
+                    overflowWrap: "break-word",
+                    marginTop: "auto",
+                  }}>
+                    Notify me when available
+                  </a>
+                ) : checkoutEnabled && p.sku ? (
                   <button
                     type="button"
                     onClick={() => setCheckoutTier({ sku: p.sku, name: p.name, price: `${p.price}${p.period}` })}
@@ -757,11 +797,285 @@ function FinalCta({ cfg }: { cfg: ReturnType<typeof getProductBySlug> & {} }) {
         <p style={{ position: "relative", fontSize: 16, lineHeight: 1.55, color: mkt.onDarkMuted, marginBottom: 32 }}>
           Setup is fast. No card required. Cancel anytime.
         </p>
-        <Link href={cfg.primaryCTA.href} className="wft-hover-border-white" style={{ ...ctaPrimary, position: "relative", fontSize: 14, padding: "16px 32px" }}>
+        <CtaLink href={cfg.primaryCTA.href} className="wft-hover-border-white" style={{ ...ctaPrimary, position: "relative", fontSize: 14, padding: "16px 32px" }}>
           {cfg.primaryCTA.label} <ArrowRight size={18} />
-        </Link>
+        </CtaLink>
       </div>
     </section>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════
+   SECTION: COMING SOON BANNER (Wave W-AN-2)
+   Slim full-width banner that prepends the hero on products blocked
+   by platform approvals (SocialSync, ReputationShield, MapGuard).
+   Accent background, white text, ~40px tall. No close button — this
+   is a persistent state of the page, not a dismissable notice.
+   ════════════════════════════════════════════════════════════════ */
+function ComingSoonBanner() {
+  return (
+    <div
+      style={{
+        background: mkt.accent,
+        color: "#FFFFFF",
+        padding: "10px 20px",
+        textAlign: "center",
+        fontFamily: MONO,
+        fontSize: 12,
+        fontWeight: 600,
+        letterSpacing: "0.06em",
+        textTransform: "uppercase",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 8,
+        minHeight: 40,
+      }}
+    >
+      <Rocket size={14} style={{ flexShrink: 0 }} />
+      <span>Coming soon — get on the early-access waitlist</span>
+      <a
+        href="#waitlist"
+        style={{
+          color: "#FFFFFF",
+          textDecoration: "underline",
+          marginLeft: 8,
+          fontWeight: 700,
+        }}
+      >
+        Join now
+      </a>
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════
+   SECTION: WAITLIST FORM (Wave W-AN-2)
+   Rendered below the pricing section when cfg.comingSoon === true.
+   Posts to /api/marketing/waitlist. Friendly inline success state on
+   completion; no full-page redirect.
+   ════════════════════════════════════════════════════════════════ */
+function WaitlistForm({ productSlug, productName }: { productSlug: string; productName: string }) {
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [businessName, setBusinessName] = useState("");
+  const [status, setStatus] = useState<"idle" | "submitting" | "ok" | "error">("idle");
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!email.trim()) {
+      setStatus("error");
+      setErrorMsg("Email is required");
+      return;
+    }
+    setStatus("submitting");
+    setErrorMsg(null);
+    try {
+      const res = await fetch("/api/marketing/waitlist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          product_slug: productSlug,
+          email: email.trim(),
+          phone: phone.trim() || undefined,
+          business_name: businessName.trim() || undefined,
+          source: typeof document !== "undefined" ? document.referrer || undefined : undefined,
+        }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j?.error || "Submission failed");
+      }
+      setStatus("ok");
+    } catch (err: any) {
+      setStatus("error");
+      setErrorMsg(err?.message || "Could not save signup. Try again in a moment.");
+    }
+  }
+
+  const inputStyle: React.CSSProperties = {
+    width: "100%",
+    padding: "12px 14px",
+    borderRadius: 10,
+    background: mkt.bg,
+    border: `1px solid ${mkt.onDarkBorder}`,
+    color: mkt.onDark,
+    fontSize: 14,
+    fontFamily: SANS,
+    outline: "none",
+  };
+
+  return (
+    <section
+      id="waitlist"
+      style={{ padding: "20px 24px 80px", scrollMarginTop: 80 }}
+    >
+      <div
+        style={{
+          maxWidth: 640,
+          margin: "0 auto",
+          background: mkt.sectionLight,
+          border: `1px solid ${mkt.onDarkBorder}`,
+          borderRadius: 20,
+          padding: "36px 28px",
+        }}
+      >
+        <h2
+          style={{
+            fontSize: "clamp(24px, 3vw, 32px)",
+            fontWeight: 600,
+            letterSpacing: "-0.02em",
+            color: mkt.onDark,
+            marginBottom: 8,
+          }}
+        >
+          Get notified when {productName} launches
+        </h2>
+        <p
+          style={{
+            fontSize: 14,
+            lineHeight: 1.6,
+            color: mkt.onDarkMuted,
+            marginBottom: 24,
+          }}
+        >
+          Early-access slots go to waitlist signups first. We'll only email you when it's ready — no spam, no marketing.
+        </p>
+
+        {status === "ok" ? (
+          <div
+            style={{
+              padding: "20px 18px",
+              borderRadius: 12,
+              background: "rgba(13,60,252,0.10)",
+              border: `1px solid ${mkt.accent}`,
+              color: mkt.onDark,
+              fontSize: 14,
+              lineHeight: 1.55,
+            }}
+          >
+            <strong style={{ display: "block", marginBottom: 4 }}>You're on the list.</strong>
+            We'll reach out as soon as {productName} is available for early access.
+          </div>
+        ) : (
+          <form onSubmit={onSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div>
+              <label
+                htmlFor="waitlist-email"
+                style={{ display: "block", fontSize: 12, color: mkt.onDarkMuted, marginBottom: 6, fontFamily: MONO, letterSpacing: "0.04em" }}
+              >
+                Email <span style={{ color: mkt.accent }}>*</span>
+              </label>
+              <input
+                id="waitlist-email"
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@yourbusiness.com"
+                style={inputStyle}
+                autoComplete="email"
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="waitlist-business"
+                style={{ display: "block", fontSize: 12, color: mkt.onDarkMuted, marginBottom: 6, fontFamily: MONO, letterSpacing: "0.04em" }}
+              >
+                Business name <span style={{ opacity: 0.6 }}>(optional)</span>
+              </label>
+              <input
+                id="waitlist-business"
+                type="text"
+                value={businessName}
+                onChange={(e) => setBusinessName(e.target.value)}
+                placeholder="Acme Plumbing"
+                style={inputStyle}
+                autoComplete="organization"
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="waitlist-phone"
+                style={{ display: "block", fontSize: 12, color: mkt.onDarkMuted, marginBottom: 6, fontFamily: MONO, letterSpacing: "0.04em" }}
+              >
+                Phone <span style={{ opacity: 0.6 }}>(optional)</span>
+              </label>
+              <input
+                id="waitlist-phone"
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="(555) 555-5555"
+                style={inputStyle}
+                autoComplete="tel"
+              />
+            </div>
+
+            {status === "error" && errorMsg && (
+              <p style={{ fontSize: 13, color: "#F87171", margin: 0 }}>{errorMsg}</p>
+            )}
+
+            <button
+              type="submit"
+              disabled={status === "submitting"}
+              style={{
+                marginTop: 8,
+                padding: "14px 22px",
+                borderRadius: 10,
+                background: mkt.accent,
+                color: "#FFFFFF",
+                fontFamily: MONO,
+                fontSize: 13,
+                fontWeight: 700,
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+                border: "none",
+                cursor: status === "submitting" ? "wait" : "pointer",
+                opacity: status === "submitting" ? 0.7 : 1,
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+              }}
+            >
+              {status === "submitting" ? "Saving…" : "Join the waitlist"}
+              {status !== "submitting" && <ArrowRight size={14} />}
+            </button>
+          </form>
+        )}
+      </div>
+    </section>
+  );
+}
+
+/* ─── CtaLink — wouter Link for paths, plain <a> for #hash anchors.
+   Wouter's <Link> treats `#waitlist` as a route, breaking native scroll
+   behavior. This helper routes hash-only hrefs to <a> so browsers
+   smooth-scroll to the target id (used by W-AN-2 Coming Soon CTAs). */
+function CtaLink({
+  href,
+  children,
+  className,
+  style,
+}: {
+  href: string;
+  children: ReactNode;
+  className?: string;
+  style?: React.CSSProperties;
+}) {
+  if (href.startsWith("#")) {
+    return (
+      <a href={href} className={className} style={style}>
+        {children}
+      </a>
+    );
+  }
+  return (
+    <Link href={href} className={className} style={style}>
+      {children}
+    </Link>
   );
 }
 
