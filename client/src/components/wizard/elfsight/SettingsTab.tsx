@@ -34,6 +34,7 @@ import {
   type ShellWorkingDay,
 } from './types';
 import FloatField from './FloatField';
+import InfoCue from './InfoCue';
 
 const p = platformTheme;
 
@@ -161,7 +162,6 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
 
       {/* ── Lead notification email ─────────────────────────────── */}
       <fieldset className="qq-style-group" data-testid="settings-group-lead-email">
-        <legend className="qq-style-legend">Lead notification email</legend>
         <FloatField
           label="Lead notification email"
           htmlFor="qq-settings-leademail"
@@ -194,12 +194,15 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
 
       {/* ── Pricing model ───────────────────────────────────────── */}
       <fieldset className="qq-style-group" data-testid="settings-group-pricing">
-        <legend className="qq-style-legend">Pricing model</legend>
-        <p className="qq-style-sectionhint" data-testid="settings-pricing-hint">
-          The shape of your price. Saved alongside the calculator config — the
-          renderer's pricing engine will pick this up downstream.
-        </p>
-        <label className="qq-style-label">Mode</label>
+        <label className="qq-style-label">
+          <span className="qq-style-label-text">
+            Mode
+            <InfoCue
+              testid="settings-pricing"
+              text="The shape of your price. Saved alongside the calculator config — the renderer's pricing engine will pick this up downstream."
+            />
+          </span>
+        </label>
         <SegmentedControl<ShellPricingMode>
           name="pricing-mode"
           testid="settings-segmented-pricing"
@@ -286,13 +289,6 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
         data-testid="settings-group-deposit"
         data-stripe-connected={stripeConnected ? 'true' : 'false'}
       >
-        <legend className="qq-style-legend">Deposit</legend>
-        <p className="qq-style-sectionhint">
-          Optionally collect a deposit at booking time. Stripe Connect routes
-          the money to your account; WeFixTrades takes a small platform fee
-          per transaction.
-        </p>
-
         {!stripeConnected && (
           <p
             className="qq-settings-deposit-warning"
@@ -325,8 +321,12 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
             aria-label="Collect a deposit when customers book"
           />
           <span>
-            <span style={{ fontWeight: 700, fontSize: 13, color: p.colors.heading }}>
+            <span style={{ fontWeight: 700, fontSize: 13, color: p.colors.heading, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
               Collect a deposit when customers book
+              <InfoCue
+                testid="settings-deposit"
+                text="Optionally collect a deposit at booking time. Stripe Connect routes the money to your account; WeFixTrades takes a small platform fee per transaction."
+              />
             </span>
             <span style={{ display: 'block', fontSize: 12, color: p.colors.muted, marginTop: 2 }}>
               Adds a "Secure your slot" step after the quote. Money flows directly to your Stripe account.
@@ -435,13 +435,14 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
 
       {/* ── Number formatting ───────────────────────────────────── */}
       <fieldset className="qq-style-group" data-testid="settings-group-numberformat">
-        <legend className="qq-style-legend">Number formatting</legend>
-        <p className="qq-style-sectionhint" data-testid="settings-numberformat-hint">
-          How prices display in the calculator. Currency is a 3-letter ISO code
-          (USD / EUR / GBP / …).
-        </p>
         <div className="qq-style-grid">
-          <FloatField label="Thousands separator" htmlFor="qq-settings-thousands" variant="select">
+          <FloatField
+            label="Thousands separator"
+            htmlFor="qq-settings-thousands"
+            variant="select"
+            infoText="How prices display in the calculator. Currency is a 3-letter ISO code (USD / EUR / GBP / …)."
+            infoTestid="settings-numberformat"
+          >
             <select
               id="qq-settings-thousands"
               className="premium-input"
@@ -494,7 +495,6 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
 
       {/* ── Custom CTA label ────────────────────────────────────── */}
       <fieldset className="qq-style-group" data-testid="settings-group-cta">
-        <legend className="qq-style-legend">Custom CTA label</legend>
         <FloatField
           label="CTA label"
           htmlFor="qq-settings-cta-label"
@@ -518,11 +518,6 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
           subtle paragraph below the legend — same pattern Deposit/Brand
           adopted (commits 09c62328 + 0bc105e5). */}
       <fieldset className="qq-style-group" data-testid="settings-group-scheduling">
-        <legend className="qq-style-legend">Online booking</legend>
-        <p className="qq-style-sectionhint">
-          Lets customers book a time on your calendar after the quote step. Slots fill from your working hours minus existing bookings.
-        </p>
-
         <div className="qq-scheduling-toggle" data-testid="scheduling-toggle-row">
           <label className="qq-brand-badge-toggle">
             <input
@@ -533,7 +528,13 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
               aria-label="Enable online booking"
             />
             <span>
-              <span className="qq-brand-badge-title">Let customers book a time on your calendar</span>
+              <span className="qq-brand-badge-title">
+                Let customers book a time on your calendar
+                <InfoCue
+                  testid="settings-online-booking"
+                  text="Lets customers book a time on your calendar after the quote step. Slots fill from your working hours minus existing bookings."
+                />
+              </span>
               <span className="qq-brand-badge-sub">
                 The widget shows a 14-day picker after the price reveal. Slots are local to your working hours.
               </span>
@@ -633,12 +634,6 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
        *  link surfaced. The server-side gate (Wave Q-D) enforces this on
        *  save regardless of what the client sends. */}
       <fieldset className="qq-style-group" data-testid="settings-group-brand-badge">
-        <legend className="qq-style-legend">WeFixTrades brand badge</legend>
-        <p className="qq-style-sectionhint" data-testid="settings-brand-badge-hint">
-          Free plan calculators show a "QuoteQuick by WeFixTrades" badge on the
-          hosted page and any embedded widgets. Pro and Business plans remove
-          the badge.
-        </p>
         <div
           className="qq-brand-badge-row"
           data-testid="settings-brand-badge-row"
@@ -657,7 +652,13 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
               aria-label="Show WeFixTrades brand badge"
             />
             <span>
-              <span className="qq-brand-badge-title">Show WeFixTrades branding on the widget</span>
+              <span className="qq-brand-badge-title">
+                Show WeFixTrades branding on the widget
+                <InfoCue
+                  testid="settings-brand-badge"
+                  text='Free plan calculators show a "QuoteQuick by WeFixTrades" badge on the hosted page and any embedded widgets. Pro and Business plans remove the badge.'
+                />
+              </span>
               <span className="qq-brand-badge-sub">
                 {isPaidTier ? (
                   <>You're on the {planTier === 'business' ? 'Business' : 'Pro'} plan — toggle this off to hide the badge on the hosted page and embeds.</>
@@ -724,6 +725,12 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
           font-size: 12px; font-weight: 700;
           color: ${p.colors.heading};
           margin-bottom: 6px;
+        }
+        /* W-AF-2 — label-text wrapper so InfoCue sits inline with the
+         * label text instead of being pushed to the far right by
+         * justify-content: space-between on the parent label. */
+        .qq-style-label-text {
+          display: inline-flex; align-items: center; gap: 6px;
         }
         .qq-style-select {
           width: 100%; padding: 8px 10px;
@@ -818,7 +825,7 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
         }
         .qq-brand-badge-toggle.is-locked input[type="checkbox"] { opacity: 0.55; }
         .qq-brand-badge-title {
-          display: block;
+          display: inline-flex; align-items: center; gap: 6px;
           font-size: 12.5px; font-weight: 700;
           color: ${p.colors.heading};
         }
@@ -923,7 +930,6 @@ function TradeSection({
 
   return (
     <fieldset className="qq-style-group" data-testid="settings-group-trade">
-      <legend className="qq-style-legend">Trade</legend>
       <FloatField
         label="Filter trades by name (optional)"
         htmlFor="qq-settings-trade-search"

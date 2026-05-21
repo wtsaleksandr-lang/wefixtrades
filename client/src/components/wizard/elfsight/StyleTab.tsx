@@ -30,6 +30,7 @@ import {
   type ShellWidgetWidth,
 } from './types';
 import FloatField from './FloatField';
+import InfoCue from './InfoCue';
 
 const p = platformTheme;
 
@@ -169,12 +170,15 @@ export default function StyleTab({ style, onChange }: Props) {
 
       {/* ── Shape ────────────────────────────────────────────────── */}
       <fieldset className="qq-style-group" data-testid="style-group-shape">
-        <legend className="qq-style-legend">Shape</legend>
-        <p className="qq-style-sectionhint" data-testid="style-shape-hint">
-          Tune how inputs and cards look.
-        </p>
-
-        <label className="qq-style-label">Field style</label>
+        <label className="qq-style-label">
+          <span className="qq-style-label-text">
+            Field style
+            <InfoCue
+              testid="style-shape"
+              text="Tune how inputs and cards look."
+            />
+          </span>
+        </label>
         <SegmentedControl<ShellFieldStyle>
           name="field-style"
           testid="style-segmented-fieldstyle"
@@ -210,11 +214,15 @@ export default function StyleTab({ style, onChange }: Props) {
 
       {/* ── Layout ──────────────────────────────────────────────── */}
       <fieldset className="qq-style-group" data-testid="style-group-layout">
-        <legend className="qq-style-legend">Layout</legend>
-        <p className="qq-style-sectionhint" data-testid="style-layout-hint">
-          Choose how wide the widget renders on the page.
-        </p>
-        <label className="qq-style-label">Widget width</label>
+        <label className="qq-style-label">
+          <span className="qq-style-label-text">
+            Widget width
+            <InfoCue
+              testid="style-layout"
+              text="Choose how wide the widget renders on the page."
+            />
+          </span>
+        </label>
         <SegmentedControl<ShellWidgetWidth>
           name="widget-width"
           testid="style-segmented-width"
@@ -341,6 +349,12 @@ export default function StyleTab({ style, onChange }: Props) {
           font-size: 12px; font-weight: 700;
           color: ${p.colors.heading};
           margin-bottom: 6px;
+        }
+        /* W-AF-2 — label-text wrapper so InfoCue sits inline with the
+         * label text instead of being pushed to the far right by
+         * justify-content: space-between on the parent label. */
+        .qq-style-label-text {
+          display: inline-flex; align-items: center; gap: 6px;
         }
         .qq-style-value {
           font-size: 11.5px; font-weight: 600;
