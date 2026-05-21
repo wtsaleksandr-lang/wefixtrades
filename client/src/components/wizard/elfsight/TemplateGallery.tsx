@@ -27,6 +27,7 @@ import {
   TEMPLATE_PRESETS as STATIC_TEMPLATE_PRESETS, type TemplateConfig,
 } from '@shared/templatePresets';
 import { resolveWidgetTheme } from '@/components/quote-widget/widgetThemes';
+import { getQuoteQuickIcon } from '@/data/quoteQuickIcons';
 
 /**
  * Wave W-AI-2 — admin-editable template catalogue.
@@ -59,6 +60,29 @@ function deriveCategories(templates: TemplateConfig[]): string[] {
   return Array.from(set).sort();
 }
 
+/**
+ * W-AO-2 — secondary category-accent band painted along the bottom edge of
+ * the mockup. Works in tandem with the theme accent stripe at the top so
+ * two cards sharing the same theme (e.g. forest) but in different
+ * categories (e.g. Emergency vs Outdoor) still read as visually distinct.
+ *
+ * Unknown categories fall back to a neutral slate. The map is intentionally
+ * small (six families) — categorical hue distinction over precise mapping.
+ */
+function categoryAccent(category: string | undefined): string {
+  switch (category) {
+    case 'Cleaning': return '#14b8a6';            // teal
+    case 'Home Improvement': return '#3b82f6';    // blue
+    case 'Emergency': return '#f59e0b';           // amber
+    case 'Construction': return '#64748b';        // slate
+    case 'Automotive': return '#a855f7';          // purple
+    case 'Photography & Events': return '#ec4899'; // pink
+    case 'Outdoor': return '#84cc16';             // lime
+    case 'Services': return '#0ea5e9';            // sky
+    default: return '#94a3b8';                    // slate-400 fallback
+  }
+}
+
 const p = platformTheme;
 const d = dashboardTheme;
 
@@ -82,12 +106,17 @@ interface MockupProps {
 }
 
 /**
- * Theme-aware abstract preview. Renders:
+ * Theme-aware abstract preview. W-AO-2 — every visual element now derives
+ * from the template's own config so two cards never look identical unless
+ * they share theme + category + field-count + calc-count:
  *   - Card with the template's theme surface background
  *   - Accent stripe across the top (theme accent)
- *   - 2-3 placeholder input bars using border colour (count reflects actual fields)
- *   - A result panel on the bottom in the theme's result colour
- *   - A small CTA stripe in theme accent
+ *   - Lucide `defaultIcon` rendered top-left in a soft accent-tinted chip
+ *   - Up to 5 placeholder input bars (count clamps to actual field count)
+ *   - Result panel on the bottom in the theme's result colour, with 1 line
+ *     for single-calc templates and 2-3 lines for multi-calc breakdowns
+ *   - A thin category-accent band along the bottom edge (orthogonal to
+ *     theme — see `categoryAccent()`)
  *
  * Standalone (no dependency on H1 `PreviewPane`) so the gallery can render
  * 100+ cards without spinning up the live AdvancedCalculator per card.
@@ -106,8 +135,18 @@ function TemplateCardMockup({ accent, template }: MockupProps) {
   }
 
   const theme = resolveWidgetTheme(template.theme);
-  const fieldCount = Math.min(3, Math.max(2, template.fields.length));
+  // W-AO-2 — vary bar count by ACTUAL fields, clamped to [2,5] so even
+  // 1-field templates still show some structure and 8-field ones don't
+  // overflow the 76px card height.
+  const fieldCount = Math.min(5, Math.max(2, template.fields.length));
   const bars = Array.from({ length: fieldCount });
+  // Visible calcs (excludes hidden / chained-only). Anything > 1 implies a
+  // multi-line breakdown in the result panel.
+  const visibleCalcs = template.calculations.filter((c) => c.showInResults !== false);
+  const breakdownLines = Math.min(3, Math.max(1, visibleCalcs.length - 1));
+  const breakdown = Array.from({ length: breakdownLines });
+  const Icon = getQuoteQuickIcon(template.defaultIcon);
+  const catColor = categoryAccent(template.category);
 
   return (
     <div
@@ -115,8 +154,19 @@ function TemplateCardMockup({ accent, template }: MockupProps) {
       style={{ background: theme.surface, borderColor: theme.border }}
       aria-hidden="true"
       data-theme-id={theme.id}
+      data-category={template.category}
     >
-      <div className="qq-tg-mockup-header" style={{ background: theme.accent }} />
+      <div className="qq-tg-mockup-topline">
+        {Icon ? (
+          <div
+            className="qq-tg-mockup-iconchip"
+            style={{ background: `${theme.accent}22`, color: theme.accent }}
+          >
+            <Icon size={10} strokeWidth={2.25} />
+          </div>
+        ) : null}
+        <div className="qq-tg-mockup-header" style={{ background: theme.accent }} />
+      </div>
       <div className="qq-tg-mockup-body">
         {bars.map((_, i) => (
           <div
@@ -124,7 +174,11 @@ function TemplateCardMockup({ accent, template }: MockupProps) {
             className="qq-tg-mockup-row"
             style={{
               background: theme.border,
-              width: i === bars.length - 1 ? '60%' : '100%',
+              // Vary widths so the bar stack doesn't look like a barcode —
+              // 100% / 85% / 70% repeating with a 60% truncation on the last.
+              width: i === bars.length - 1
+                ? '55%'
+                : `${100 - (i % 3) * 12}%`,
             }}
           />
         ))}
@@ -136,12 +190,24 @@ function TemplateCardMockup({ accent, template }: MockupProps) {
             className="qq-tg-mockup-result-headline"
             style={{ background: theme.resultText, opacity: 0.85 }}
           />
-          <div
-            className="qq-tg-mockup-result-sub"
-            style={{ background: theme.resultText, opacity: 0.45 }}
-          />
+          {breakdown.map((_, i) => (
+            <div
+              key={i}
+              className="qq-tg-mockup-result-sub"
+              style={{
+                background: theme.resultText,
+                opacity: 0.45 - i * 0.05,
+                width: `${75 - i * 10}%`,
+              }}
+            />
+          ))}
         </div>
       </div>
+      <div
+        className="qq-tg-mockup-catband"
+        style={{ background: catColor }}
+        aria-hidden="true"
+      />
     </div>
   );
 }
@@ -405,15 +471,35 @@ export default function TemplateStrip({ activeTemplateId, onApplyTemplate }: Str
          * resolved theme: card surface as background, accent stripe at top,
          * border colour for placeholder rows, result-panel rectangle in the
          * theme's result colour with two tiny resultText-coloured bars
-         * (headline + sub). Makes themed cards (sunburst / royal / scarlet
-         * / earth / ocean / indigo) visually distinct in the gallery. */
+         * (headline + sub). W-AO-2 — adds a Lucide icon chip top-left, a
+         * variable-count bar stack (2-5 bars matching field count), 1-3
+         * breakdown lines in the result panel matching the template's calc
+         * count, and a thin category-accent band along the bottom edge so
+         * two cards on the same theme but different categories still read
+         * apart at a glance. */
         .qq-tg-mockup-themed {
           border: 1px solid transparent;
           padding: 5px;
           gap: 3px;
         }
+        .qq-tg-mockup-topline {
+          display: flex; align-items: center; gap: 4px;
+          flex-shrink: 0;
+        }
+        .qq-tg-mockup-iconchip {
+          width: 14px; height: 14px;
+          border-radius: 3px;
+          display: flex; align-items: center; justify-content: center;
+          flex-shrink: 0;
+        }
+        .qq-tg-mockup-iconchip svg { display: block; }
         .qq-tg-mockup-themed .qq-tg-mockup-header {
           width: 50%; height: 6px;
+        }
+        .qq-tg-mockup-catband {
+          position: absolute; left: 0; right: 0; bottom: 0;
+          height: 3px;
+          opacity: 0.85;
         }
         .qq-tg-mockup-body {
           display: flex; flex-direction: column; gap: 3px;
@@ -550,18 +636,24 @@ function TemplateBrowseModal({ activeTemplateId, onClose, onApplyTemplate }: Mod
           {visible.map((t) => {
             const accent = templateAccent(t.id);
             const isActive = t.id === activeTemplateId;
-            // Wave M — subtitle (trade tags) removed; name + mockup only.
+            // W-AO-2 — Wave M removed the subtitle entirely; reintroduce a
+            // subtle 11px description snippet so cards of the same theme
+            // are distinguishable by purpose, not just by name.
             return (
               <button
                 key={t.id}
                 type="button"
-                className={`qq-tg-card qq-tg-card--no-sub${isActive ? ' is-active' : ''}`}
+                className={`qq-tg-card qq-tg-card--with-desc${isActive ? ' is-active' : ''}`}
                 data-testid={`template-browse-card-${t.id}`}
                 onClick={() => onApplyTemplate(t)}
+                title={t.description}
               >
                 <TemplateCardMockup accent={accent} template={t} />
                 <div className="qq-tg-card-body">
                   <span className="qq-tg-card-name">{t.name}</span>
+                  {t.description ? (
+                    <span className="qq-tg-card-desc">{t.description}</span>
+                  ) : null}
                 </div>
               </button>
             );
@@ -675,40 +767,51 @@ function TemplateBrowseModal({ activeTemplateId, onClose, onApplyTemplate }: Mod
         }
         /* Wave R-pre W-CARDS — force equal card heights per row.
          * grid-auto-rows: 1fr above makes every row in the modal grid
-         * stretch to the tallest cell. The card itself is already a
-         * column flex container, so stretching is automatic. We also
-         * pin a min-height on the card so very short single-line
-         * titles still hit a consistent baseline when a row contains
-         * only short titles (no 2-line peer to stretch against). */
+         * stretch to the tallest cell. W-AO-2 bumped min-height from
+         * 150 → 178 to make room for a 2-line description beneath the
+         * name without crowding the mockup. */
         .qq-tg-modal-grid .qq-tg-card,
-        .qq-tg-modal-grid .qq-tg-card--no-sub {
+        .qq-tg-modal-grid .qq-tg-card--with-desc {
           height: 100%;
-          min-height: 150px;
+          min-height: 178px;
         }
-        /* Wave R-pre v2 — name-only cards inside the browse modal.
-         * Previous version (Wave Q-Hotfix) bumped title weight + size,
-         * but 1-line vs 2-line titles still rendered at the TOP of a
-         * fixed-height card body — making rows look misaligned. Now
-         * the body is a centered flex container with a stable 48px
-         * min-height so both 1-line and 2-line titles share the same
-         * row baseline. */
-        .qq-tg-card--no-sub .qq-tg-card-body {
-          min-height: 48px;
-          padding: 8px 6px 8px;
+        /* W-AO-2 — modal card body now hosts BOTH the name (centered,
+         * bold) and a 2-line clamped description below (11px, muted).
+         * Switched from center-aligned name to top-aligned stack so
+         * 1-line and 2-line titles still share a row baseline via the
+         * fixed body min-height. */
+        .qq-tg-card--with-desc .qq-tg-card-body {
+          min-height: 64px;
+          padding: 6px 6px 8px;
           display: flex;
+          flex-direction: column;
           align-items: center;
-          justify-content: center;
+          justify-content: flex-start;
+          gap: 2px;
           flex: 1 1 auto;
         }
-        .qq-tg-card--no-sub .qq-tg-card-name {
+        .qq-tg-card--with-desc .qq-tg-card-name {
           font-size: 13px;
           font-weight: 700;
           color: ${p.colors.heading};
           line-height: 1.3;
-          -webkit-line-clamp: 2;
+          -webkit-line-clamp: 1;
           white-space: normal;
           text-align: center;
           width: 100%;
+        }
+        .qq-tg-card-desc {
+          font-size: 11px;
+          font-weight: 500;
+          color: ${p.colors.muted};
+          line-height: 1.35;
+          text-align: center;
+          width: 100%;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
         }
         .qq-tg-modal-empty {
           grid-column: 1 / -1;
