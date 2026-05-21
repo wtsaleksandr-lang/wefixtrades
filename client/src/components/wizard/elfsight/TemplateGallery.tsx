@@ -19,13 +19,45 @@
 // touch swipe on phones. The Browse-all modal is full-screen on phones.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { X } from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
 import { dashboardTheme } from '@/theme/dashboardTheme';
 import {
-  TEMPLATE_PRESETS, getTemplateCategories, type TemplateConfig,
+  TEMPLATE_PRESETS as STATIC_TEMPLATE_PRESETS, type TemplateConfig,
 } from '@shared/templatePresets';
 import { resolveWidgetTheme } from '@/components/quote-widget/widgetThemes';
+
+/**
+ * Wave W-AI-2 — admin-editable template catalogue.
+ *
+ * The wizard fetches the merged (code default + admin override) template
+ * list from `/api/quotequick/templates` via TanStack Query. While the
+ * fetch is in flight (or on SSR / initial paint) we fall back to the
+ * static `TEMPLATE_PRESETS` import so the gallery is never blank.
+ */
+function useMergedTemplates(): TemplateConfig[] {
+  const { data } = useQuery<{ templates: TemplateConfig[] }>({
+    queryKey: ['quotequick', 'templates'],
+    queryFn: async () => {
+      const r = await fetch('/api/quotequick/templates');
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.json();
+    },
+    // Spec allows up to 60s staleness — cached endpoint matches.
+    staleTime: 60_000,
+    gcTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+  });
+  return data?.templates ?? STATIC_TEMPLATE_PRESETS;
+}
+
+/** Derive the unique categories from the merged template list (sorted). */
+function deriveCategories(templates: TemplateConfig[]): string[] {
+  const set = new Set<string>();
+  for (const t of templates) if (t.category) set.add(t.category);
+  return Array.from(set).sort();
+}
 
 const p = platformTheme;
 const d = dashboardTheme;
@@ -137,6 +169,7 @@ function templateAccent(id: string): string {
 export default function TemplateStrip({ activeTemplateId, onApplyTemplate }: StripProps) {
   const [open, setOpen] = useState(false);
   const scrollerRef = useRef<HTMLDivElement | null>(null);
+  const templates = useMergedTemplates();
 
   // Mouse-drag-to-scroll. Touch-swipe is native to overflow-x: auto on
   // mobile so we only special-case desktop pointer drag.
@@ -220,7 +253,7 @@ export default function TemplateStrip({ activeTemplateId, onApplyTemplate }: Str
           </div>
         </button>
 
-        {TEMPLATE_PRESETS.map((t) => {
+        {templates.map((t) => {
           const accent = templateAccent(t.id);
           const isActive = t.id === activeTemplateId;
           const tradeTags = (t.trades ?? []).slice(0, 2).join(', ');
@@ -426,7 +459,8 @@ interface ModalProps {
 }
 
 function TemplateBrowseModal({ activeTemplateId, onClose, onApplyTemplate }: ModalProps) {
-  const categories = useMemo(() => getTemplateCategories(), []);
+  const templates = useMergedTemplates();
+  const categories = useMemo(() => deriveCategories(templates), [templates]);
   const [activeCategory, setActiveCategory] = useState<string>('All');
   // Wave M — search field (case-insensitive substring on name). Combines
   // with the active category (AND logic).
@@ -435,11 +469,11 @@ function TemplateBrowseModal({ activeTemplateId, onClose, onApplyTemplate }: Mod
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
     const byCat = activeCategory === 'All'
-      ? TEMPLATE_PRESETS
-      : TEMPLATE_PRESETS.filter((t) => t.category === activeCategory);
+      ? templates
+      : templates.filter((t) => t.category === activeCategory);
     if (!q) return byCat;
     return byCat.filter((t) => t.name.toLowerCase().includes(q));
-  }, [activeCategory, search]);
+  }, [activeCategory, search, templates]);
 
   // ESC to close.
   useEffect(() => {
@@ -501,9 +535,9 @@ function TemplateBrowseModal({ activeTemplateId, onClose, onApplyTemplate }: Mod
             data-testid="template-browse-cat-select"
             aria-label="Filter templates by category"
           >
-            <option value="All">All categories ({TEMPLATE_PRESETS.length})</option>
+            <option value="All">All categories ({templates.length})</option>
             {categories.map((c) => {
-              const count = TEMPLATE_PRESETS.filter((t) => t.category === c).length;
+              const count = templates.filter((t) => t.category === c).length;
               return (
                 <option key={c} value={c}>
                   {c} ({count})
