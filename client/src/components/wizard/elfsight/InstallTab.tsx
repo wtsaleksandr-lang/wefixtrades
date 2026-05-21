@@ -291,34 +291,36 @@ export default function InstallTab({
             </div>
           ) : (
             <div className="qq-install-hosted-url-row">
-              <div
-                className="qq-install-hosted-url"
-                data-testid="install-hosted-url"
-                data-slug={derivedSlug}
-              >
-                {hostedDisplay}
+              <div className="qq-install-hosted-url-wrap">
+                <div
+                  className="qq-install-hosted-url"
+                  data-testid="install-hosted-url"
+                  data-slug={derivedSlug}
+                >
+                  {hostedDisplay}
+                </div>
+                {/* Wave P — every save auto-publishes server-side, so the page
+                 *  goes live the moment the user lands on Install. Show a
+                 *  positive "live" confirmation instead of the old, misleading
+                 *  "Reserved — activates after publish" pill. */}
+                <span
+                  className="qq-install-hosted-badge is-live"
+                  data-testid="install-hosted-badge"
+                  data-state="live"
+                >
+                  Live
+                </span>
+                <button
+                  type="button"
+                  onClick={() => { setDraftSlug(preferredSlug || autoDerived || ''); setEditingSlug(true); }}
+                  className="qq-install-hosted-edit-trigger"
+                  data-testid="install-hosted-slug-edit"
+                  aria-label="Customise slug"
+                  title="Use a custom slug"
+                >
+                  <Pencil size={11} aria-hidden="true" />
+                </button>
               </div>
-              {/* Wave P — every save auto-publishes server-side, so the page
-               *  goes live the moment the user lands on Install. Show a
-               *  positive "live" confirmation instead of the old, misleading
-               *  "Reserved — activates after publish" pill. */}
-              <span
-                className="qq-install-hosted-badge is-live"
-                data-testid="install-hosted-badge"
-                data-state="live"
-              >
-                Live
-              </span>
-              <button
-                type="button"
-                onClick={() => { setDraftSlug(preferredSlug || autoDerived || ''); setEditingSlug(true); }}
-                className="qq-install-hosted-edit-trigger"
-                data-testid="install-hosted-slug-edit"
-                aria-label="Customise slug"
-                title="Use a custom slug"
-              >
-                <Pencil size={12} aria-hidden="true" />
-              </button>
             </div>
           )}
 
@@ -588,11 +590,11 @@ export default function InstallTab({
         }
         .qq-install-h {
           font-size: 13px; font-weight: 700; color: ${p.colors.heading};
-          margin: 0 0 4px; letter-spacing: -0.005em;
+          margin: 0 0 1px; letter-spacing: -0.005em;
         }
         .qq-install-sub {
           font-size: 12px; color: ${p.colors.muted};
-          margin: 0 0 6px; line-height: 1.5;
+          margin: 0 0 8px; line-height: 1.4;
         }
         .qq-install-code-inline {
           font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -616,26 +618,31 @@ export default function InstallTab({
           display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
           min-width: 0;
         }
+        .qq-install-hosted-url-wrap {
+          position: relative;
+          flex: 1;
+          min-width: 0;
+        }
         .qq-install-hosted-url {
           font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
           font-size: 13.5px; font-weight: 700;
           color: ${p.colors.heading};
           padding: 6px 10px;
+          padding-right: 90px;
           background: #fff;
           border: 1px solid ${p.colors.border};
           border-radius: 7px;
           word-break: break-all;
-          flex: 1; min-width: 0;
         }
         .qq-install-hosted-badge {
           flex-shrink: 0;
-          font-size: 11px; font-weight: 700;
+          font-size: 9.5px; font-weight: 700;
           color: ${p.colors.warning ?? '#a8741b'};
           background: rgba(255, 176, 32, 0.14);
           border: 1px solid rgba(255, 176, 32, 0.32);
           border-radius: 999px;
-          padding: 3px 8px;
-          line-height: 1.3;
+          padding: 1px 6px;
+          line-height: 1.2;
           white-space: nowrap;
         }
         /* Wave P — every save auto-publishes; the badge is now a positive
@@ -646,15 +653,25 @@ export default function InstallTab({
           background: rgba(34, 197, 94, 0.13);
           border-color: rgba(34, 197, 94, 0.35);
         }
+        .qq-install-hosted-url-wrap .qq-install-hosted-badge {
+          position: absolute;
+          top: 6px;
+          right: 32px;
+        }
         /* Wave P-F — custom-slug edit row + live availability hint. */
         .qq-install-hosted-edit-trigger {
           display: inline-flex; align-items: center; justify-content: center;
-          width: 24px; height: 24px;
+          width: 20px; height: 20px;
           background: transparent; border: 1px solid ${p.colors.border};
           border-radius: 6px;
           color: ${p.colors.muted}; cursor: pointer;
-          margin-left: 4px;
+          margin-left: 0;
           flex-shrink: 0;
+        }
+        .qq-install-hosted-url-wrap .qq-install-hosted-edit-trigger {
+          position: absolute;
+          top: 4px;
+          right: 6px;
         }
         .qq-install-hosted-edit-trigger:hover {
           background: ${d.colors.canvas};
@@ -717,10 +734,10 @@ export default function InstallTab({
         .qq-install-hosted-copy,
         .qq-install-hosted-open {
           display: inline-flex; align-items: center; gap: 6px;
-          padding: 8px 14px; border-radius: 8px;
-          font-size: 12.5px; font-weight: 700;
+          padding: 5px 11px; border-radius: 8px;
+          font-size: 11.5px; font-weight: 700;
           cursor: pointer;
-          min-height: 36px;
+          min-height: 28px;
           transition: box-shadow 0.12s ease, transform 0.06s ease, background 0.12s ease;
           text-decoration: none;
         }
