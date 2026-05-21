@@ -31,6 +31,7 @@ import {
   type SupportedModel,
 } from "../services/quotequickAiBudget";
 import { QUOTEQUICK_AI_TOOLS, QUOTEQUICK_SYSTEM_PROMPT } from "../services/quotequickAiTools";
+import { validateFormula } from "@shared/formulaEngine";
 
 const log = createLogger("QuoteQuickAiChat");
 
@@ -281,6 +282,96 @@ export function registerQuoteQuickAiChatRoutes(app: Express): void {
       log.error("anthropic call failed", { error: err?.message, status: err?.status });
       sseWrite(res, "error", { message: String(err?.message ?? "ai_error"), status: err?.status });
       res.end();
+    }
+  });
+
+  /* ─── Wave AD-1 — formula help (POST) ───────────────────────────────────
+   * Plain-language → ONE formula expression, constrained to the fields and
+   * preceding calculations the caller passes in. Lives here (not aiRoutes)
+   * so it shares the QuoteQuick auth + the existing Anthropic shared client.
+   * Path is `/api/ai/formula-help` per the Wave AD spec (parallels the
+   * existing `/api/ai/generate-formula` legacy endpoint but is Anthropic-
+   * backed and field-aware via the request payload). */
+  const formulaHelpSchema = z.object({
+    prompt: z.string().min(2).max(600),
+    availableFields: z.array(z.string().min(1).max(120)).max(40).default([]),
+    precedingCalcs: z.array(z.string().min(1).max(120)).max(20).default([]),
+  });
+
+  app.post("/api/ai/formula-help", requireAuth, async (req: Request, res: Response) => {
+    const parsed = formulaHelpSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "invalid_request", details: parsed.error.format() });
+    }
+    const { prompt, availableFields, precedingCalcs } = parsed.data;
+
+    const cfg = validateConfig();
+    if (!cfg.valid) {
+      return res.status(503).json({ error: "ai_unavailable", reason: cfg.error });
+    }
+
+    const fieldList = availableFields.length
+      ? availableFields.map((n) => `- [${n}]`).join("\n")
+      : "(no fields defined yet)";
+    const calcList = precedingCalcs.length
+      ? precedingCalcs.map((n) => `- [${n}]`).join("\n")
+      : "(no earlier calculations)";
+
+    const system = `You write ONE pricing-calculator formula expression.
+
+Available fields (reference by exact name in [square brackets]):
+${fieldList}
+
+Earlier calculations you may also reference:
+${calcList}
+
+Formula syntax:
+- reference a field or earlier calculation by its exact name in [square brackets]
+- operators: + - * / ^ and parentheses
+- functions: SUM, MIN, MAX, ROUND, ROUNDUP, ROUNDDOWN, ABS, IF, AND, OR, NOT, CONTAINS
+- comparisons inside IF: = != < > <= >=
+
+Rules:
+- Use ONLY names that appear in the lists above. Never invent a field.
+- Return ONE formula expression — no explanation, no prose.
+- Respond as JSON: { "formula": "<the formula expression>" }`;
+
+    try {
+      const client = getSharedClient();
+      const completion = await client.messages.create({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 256,
+        system,
+        messages: [{ role: "user", content: prompt }],
+      });
+      // Pull the first text block.
+      const text = (completion.content || [])
+        .filter((b: any) => b?.type === "text")
+        .map((b: any) => b.text)
+        .join("")
+        .trim();
+      // Tolerate either bare JSON or JSON wrapped in prose.
+      let raw: any = null;
+      try { raw = JSON.parse(text); } catch {
+        const m = /\{[\s\S]*\}/.exec(text);
+        if (m) { try { raw = JSON.parse(m[0]); } catch {} }
+      }
+      const formula = typeof raw?.formula === "string" ? raw.formula.trim().slice(0, 600) : "";
+      if (!formula) {
+        return res.status(422).json({ error: "no_formula", message: "AI couldn't build a formula from that description." });
+      }
+      const check = validateFormula(formula);
+      if (!check.valid) {
+        return res.status(422).json({
+          error: "invalid_formula",
+          message: `AI produced an invalid formula (${check.error || "parse error"}).`,
+          formula,
+        });
+      }
+      return res.json({ formula });
+    } catch (err: any) {
+      log.error("formula-help failed", { error: err?.message, status: err?.status });
+      return res.status(500).json({ error: "ai_error", message: String(err?.message ?? "Failed to generate formula") });
     }
   });
 }
