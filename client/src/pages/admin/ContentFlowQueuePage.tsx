@@ -314,6 +314,15 @@ export default function ContentFlowQueuePage() {
 
   const drafts = data?.drafts ?? [];
 
+  /* W-AM-2: warn admin when video_script drafts exist while video generation
+   * is globally disabled (script/output mismatch — 3-5 min script vs 5-sec
+   * B-roll). Scripts will still appear in the queue but no video will auto-
+   * produce until VIDEO_GENERATION_ENABLED is flipped back on. */
+  const videoScriptCount = useMemo(
+    () => drafts.filter((d) => d.kind === "video_script").length,
+    [drafts],
+  );
+
   /* Header-filter option lists, derived from the loaded drafts. */
   const clientOptions = useMemo(
     () => uniqueSorted(drafts.map((d) => String(d.client_id))).map((id) => ({
@@ -473,6 +482,20 @@ export default function ContentFlowQueuePage() {
             </Button>
           </div>
         </div>
+
+        {/* W-AM-2: video script-without-video banner */}
+        {viewMode === "list" && videoScriptCount > 0 && (
+          <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-amber-900">
+            <Video className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-700" />
+            <div className="text-sm">
+              <span className="font-medium">Video generation is currently disabled.</span>{" "}
+              {videoScriptCount} script draft{videoScriptCount === 1 ? "" : "s"} will not auto-produce video
+              output until the script/output mismatch (3–5 min script vs 5-sec B-roll) is resolved and
+              <code className="mx-1 rounded bg-amber-100 px-1 text-[11px]">VIDEO_GENERATION_ENABLED</code>
+              is flipped back on.
+            </div>
+          </div>
+        )}
 
         {/* Bulk action bar */}
         {viewMode === "list" && selectedIds.size > 0 && (

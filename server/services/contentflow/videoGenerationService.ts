@@ -7,6 +7,11 @@
  *
  * Gated by:
  *   1. VIDEO_GENERATION_ENABLED=true env var (global kill switch)
+ *      Default is OFF. The current pipeline generates a 3–5 minute talking-head
+ *      script but only produces a 5-second B-roll clip via Luma/Runway, so the
+ *      output does not match the script. Until that mismatch is resolved we
+ *      keep this disabled; marketing copy and the customer-facing UI also hide
+ *      the video feature while this flag is false.
  *   2. client_service.metadata.video_generation_enabled (per-client toggle)
  *
  * Video generation failure must NEVER block the article/social pipeline.
@@ -45,7 +50,11 @@ export interface GenerateVideoOpts {
 /* ─── Gate check ──────────────────────────────────────────────────── */
 
 export function isVideoGenerationEnabled(): boolean {
-  return process.env.VIDEO_GENERATION_ENABLED === "true";
+  // Default OFF — script/output alignment is unresolved (3-5 min script vs
+  // 5-second B-roll). Must be opted in explicitly with VIDEO_GENERATION_ENABLED=true.
+  const raw = process.env.VIDEO_GENERATION_ENABLED;
+  if (raw === undefined || raw === null || raw === "") return false;
+  return raw.toLowerCase() === "true";
 }
 
 /* ─── R2 upload (reuse pattern from imageGenerationService) ───────── */

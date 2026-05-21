@@ -186,7 +186,9 @@ function VideoGenerationSection({ clientId }: { clientId: number }) {
               {!data.global_enabled && (
                 <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs text-amber-800">
                   Video generation is globally disabled (VIDEO_GENERATION_ENABLED is not true).
-                  Per-client toggle has no effect until the global flag is enabled.
+                  The 5-second B-roll output does not match the 3–5 minute script — feature is
+                  off until alignment is resolved. Per-client toggle has no effect until the
+                  global flag is enabled.
                 </div>
               )}
 
