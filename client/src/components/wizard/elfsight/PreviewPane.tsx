@@ -30,7 +30,6 @@ import { platformTheme } from '@/theme/platformTheme';
 import { useSelection } from './selection';
 import { DND_CONTAINERS } from './dnd';
 import PreviewOverlay from './PreviewOverlay';
-import PreviewComponentLabels from './PreviewComponentLabels';
 import AddFieldMenu from './AddFieldMenu';
 import type {
   PreviewDevice, ShellHeader, ShellResults, ShellStyle,
@@ -84,23 +83,6 @@ function decimalLiteral(sep: ShellNumberFormat['decimal']): '.' | ',' {
 const WIDGET_OFFSET_KEY = 'qq_widget_offset';
 interface WidgetOffset { x: number; y: number }
 
-/**
- * Wave AO-4 — editor-only "design mode" labels.
- *
- * Persists the user's preference to see component-name labels overlaid on
- * each meaningful preview region. Defaults to ON when no value is stored
- * (so users encounter labels on first open of the wizard editor). The live
- * widget never reads this key — it's a wizard-editor concept only.
- */
-const COMPONENT_LABELS_KEY = 'qq_editor_show_component_labels';
-function loadShowComponentLabels(): boolean {
-  try {
-    const raw = localStorage.getItem(COMPONENT_LABELS_KEY);
-    if (raw === '0' || raw === 'false') return false;
-    if (raw === '1' || raw === 'true') return true;
-  } catch {}
-  return true;
-}
 function loadWidgetOffset(device: PreviewDevice): WidgetOffset {
   try {
     const raw = localStorage.getItem(`${WIDGET_OFFSET_KEY}_${device}`);
@@ -205,19 +187,6 @@ export default function PreviewPane({
     setWidgetOffset({ x: 0, y: 0 });
     try { localStorage.removeItem(`${WIDGET_OFFSET_KEY}_${device}`); } catch {}
   }, [device]);
-
-  // Wave AO-4 — toggle component-name labels in the editor preview. The
-  // labels overlay each `[data-component-name]` element rendered by the
-  // calculator so users know how each region is named in the configuration.
-  // Live widget renderings never mount this overlay (see PreviewComponentLabels).
-  const [showComponentLabels, setShowComponentLabels] = useState<boolean>(() => loadShowComponentLabels());
-  const toggleComponentLabels = useCallback(() => {
-    setShowComponentLabels((prev) => {
-      const next = !prev;
-      try { localStorage.setItem(COMPONENT_LABELS_KEY, next ? '1' : '0'); } catch {}
-      return next;
-    });
-  }, []);
 
   const previewCalculatorData = useMemo<CalculatorData>(() => {
     const advanced = buildBlankPreviewConfig(layout, businessName);
@@ -608,16 +577,7 @@ export default function PreviewPane({
           {shellFields.length === 0 && onAddField && (
             <PreviewEmptyState onAddField={onAddField} />
           )}
-          {showComponentLabels && (
-            <PreviewComponentLabels
-              containerRef={overlayHostRef as React.RefObject<HTMLDivElement>}
-            />
-          )}
         </div>
-        <ComponentLabelsToggle
-          on={showComponentLabels}
-          onToggle={toggleComponentLabels}
-        />
         <style>{`
           .qq-preview-pane--hosted {
             /* No bezel, no chrome — let HostedPageFrame own the look. */
@@ -668,10 +628,6 @@ export default function PreviewPane({
           Reset position
         </button>
       )}
-      <ComponentLabelsToggle
-        on={showComponentLabels}
-        onToggle={toggleComponentLabels}
-      />
       <div
         className="qq-preview-stage"
         ref={stageRef}
@@ -726,11 +682,6 @@ export default function PreviewPane({
                 )}
                 {shellFields.length === 0 && onAddField && (
                   <PreviewEmptyState onAddField={onAddField} />
-                )}
-                {showComponentLabels && (
-                  <PreviewComponentLabels
-                    containerRef={overlayHostRef as React.RefObject<HTMLDivElement>}
-                  />
                 )}
                 {titleEditing && titleBox && onBusinessNameChange && (
                   <input
@@ -825,11 +776,6 @@ export default function PreviewPane({
                 )}
                 {shellFields.length === 0 && onAddField && (
                   <PreviewEmptyState onAddField={onAddField} />
-                )}
-                {showComponentLabels && (
-                  <PreviewComponentLabels
-                    containerRef={overlayHostRef as React.RefObject<HTMLDivElement>}
-                  />
                 )}
                 {titleEditing && titleBox && onBusinessNameChange && (
                   <input
@@ -970,57 +916,6 @@ export default function PreviewPane({
 
 // Re-export to satisfy non-type consumers in stable order — nothing external.
 export { DND_CONTAINERS };
-
-/* ─── Wave AO-4 — editor-only component-name labels toggle ──────────────
- * Small pill button anchored to the top-left of the preview pane. Toggles
- * the visibility of the `[data-component-name]` overlay (rendered by
- * <PreviewComponentLabels/>). State persists per-user via localStorage.
- * Never rendered outside the wizard editor — the live widget does not
- * import this component. */
-function ComponentLabelsToggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
-  return (
-    <button
-      type="button"
-      className="qq-preview-labels-toggle"
-      data-testid="preview-component-labels-toggle"
-      aria-pressed={on}
-      aria-label={on ? 'Hide element names' : 'Show element names'}
-      title={on ? 'Hide element names (editor only)' : 'Show element names (editor only)'}
-      onClick={onToggle}
-    >
-      <span aria-hidden="true" className="qq-preview-labels-toggle-dot" data-on={on ? '1' : '0'} />
-      {on ? 'Hide element names' : 'Show element names'}
-      <style>{`
-        .qq-preview-labels-toggle {
-          position: absolute;
-          top: 10px; left: 12px;
-          z-index: 5;
-          display: inline-flex; align-items: center; gap: 6px;
-          font: inherit; font-size: 11.5px; font-weight: 700;
-          padding: 5px 10px;
-          background: rgba(255,255,255,0.92);
-          color: #0f172a;
-          border: 1px solid rgba(15, 23, 42, 0.18);
-          border-radius: 999px;
-          cursor: pointer;
-          box-shadow: 0 4px 12px rgba(15,23,42,0.10);
-        }
-        .qq-preview-labels-toggle:hover {
-          background: #fff;
-        }
-        .qq-preview-labels-toggle-dot {
-          display: inline-block;
-          width: 8px; height: 8px; border-radius: 50%;
-          background: #cbd5e1;
-        }
-        .qq-preview-labels-toggle-dot[data-on="1"] {
-          background: #0d3cfc;
-          box-shadow: 0 0 0 3px rgba(13, 60, 252, 0.18);
-        }
-      `}</style>
-    </button>
-  );
-}
 
 /* ─── Wave L E1 — empty-state placeholder ──────────────────────────────
  * Rendered when there are zero fields in the preview. A large dashed
