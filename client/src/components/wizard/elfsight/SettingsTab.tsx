@@ -15,7 +15,7 @@
 // Layout mirrors StyleTab's `qq-style-*` classes so the visual rhythm of the
 // editor stays consistent across tabs.
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { platformTheme } from '@/theme/platformTheme';
 import { TRADES, CATEGORIES, type Trade } from '@/data/trades';
 import {
@@ -800,6 +800,109 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
           font-size: 11.5px; color: ${p.colors.muted};
           margin: 4px 0 0;
         }
+        /* Wave AO-8 — trade picker trigger + popup */
+        .qq-trade-trigger {
+          display: flex; align-items: center; justify-content: space-between;
+          width: 100%;
+          gap: 8px;
+          text-align: left;
+          cursor: pointer;
+        }
+        .qq-trade-trigger-label {
+          flex: 1 1 auto;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          color: ${p.colors.heading};
+        }
+        .qq-trade-trigger-caret {
+          flex: 0 0 auto;
+          color: ${p.colors.muted};
+          font-size: 12px;
+          line-height: 1;
+        }
+        .qq-trade-backdrop {
+          position: fixed; inset: 0;
+          background: rgba(15, 23, 42, 0.42);
+          z-index: 1000;
+          display: flex; align-items: center; justify-content: center;
+          padding: 16px;
+        }
+        .qq-trade-popup {
+          position: relative;
+          width: 100%; max-width: 420px;
+          /* 120px breathing room at top so the wizard's tab bar stays visible. */
+          max-height: min(70vh, calc(100vh - 120px));
+          background: #fff;
+          border: 1px solid ${p.colors.borderLight};
+          border-radius: 14px;
+          box-shadow: 0 18px 48px rgba(15, 23, 42, 0.24);
+          display: flex; flex-direction: column;
+          overflow: hidden;
+        }
+        .qq-trade-popup-head {
+          display: flex; align-items: center; gap: 8px;
+          padding: 10px 10px 10px 12px;
+          border-bottom: 1px solid ${p.colors.borderLight};
+          background: #fff;
+        }
+        .qq-trade-popup-search {
+          flex: 1 1 auto;
+          min-width: 0;
+        }
+        .qq-trade-popup-close {
+          flex: 0 0 auto;
+          width: 32px; height: 32px;
+          display: inline-flex; align-items: center; justify-content: center;
+          border: 1px solid ${p.colors.borderLight};
+          background: #fff;
+          border-radius: 8px;
+          cursor: pointer;
+          color: ${p.colors.body};
+        }
+        .qq-trade-popup-close:hover {
+          background: ${p.colors.surfaceRaised};
+          color: ${p.colors.heading};
+        }
+        .qq-trade-popup-body {
+          flex: 1 1 auto;
+          overflow-y: auto;
+          padding: 6px 6px 10px;
+          -webkit-overflow-scrolling: touch;
+        }
+        .qq-trade-popup-group {
+          padding: 6px 0;
+        }
+        .qq-trade-popup-grouplabel {
+          padding: 6px 10px 4px;
+          font-size: 10.5px; font-weight: 700;
+          color: ${p.colors.muted};
+          text-transform: uppercase; letter-spacing: 0.06em;
+        }
+        .qq-trade-popup-row {
+          display: block; width: 100%;
+          padding: 10px 12px;
+          font-size: 13px;
+          color: ${p.colors.body};
+          text-align: left;
+          background: transparent;
+          border: none;
+          border-radius: 8px;
+          cursor: pointer;
+        }
+        .qq-trade-popup-row:hover { background: ${p.colors.surfaceRaised}; }
+        .qq-trade-popup-row[aria-pressed="true"] {
+          background: ${p.colors.accentLighter};
+          color: ${p.colors.accentDark};
+          font-weight: 700;
+        }
+        @media (max-width: 480px) {
+          .qq-trade-backdrop {
+            align-items: flex-start;
+            padding: 120px 12px 12px;
+          }
+          .qq-trade-popup { max-width: 100%; }
+        }
         /* Wave Q-E — brand badge toggle */
         .qq-brand-badge-row {
           padding: 12px 14px;
@@ -884,32 +987,45 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
   );
 }
 
-/* ─── Trade picker — Wave X #13.
+/* ─── Trade picker — Wave X #13 → Wave AO-8.
  *
- * Was: a flat searchable list that, when the search query was empty,
- * called `TRADES.slice(0, 14)`. Since TRADES is ordered cleaning-first
- * (16 entries before reno starts), the panel silently looked like
- * "we only support cleaning trades" — a real bug.
+ * Was (X #13): a native <select> with <optgroup> per category. On mobile
+ * (390×844) the browser's native option sheet ballooned to nearly full
+ * viewport height, covered the wizard's top tab bar, and offered no
+ * close affordance — users on iOS Safari in particular had to scroll
+ * back up through 107 options or refresh the page.
  *
- * Now: a native <select> with <optgroup> per category (cleaning, reno,
- * driveway, mechanical, emergency, auto, outdoor, pro). All 131 trades
- * appear, the browser handles the dropdown affordance + native search,
- * and we keep a tiny "Search" input above for users who'd rather type
- * a label fragment and let it filter the visible options.
+ * Now (AO-8): a custom popup. A button shows the current selection and
+ * opens an in-flow popup with the 107 trades grouped by category. The
+ * popup is bounded (max-height: min(70vh, calc(100vh - 120px))), has a
+ * visible close (X) button at the top-right, dismisses on Esc, on
+ * backdrop click, and on selection. Focus moves into the search input
+ * when the popup opens. The 107 trades scroll inside the popup, not the
+ * viewport — so the wizard chrome stays visible.
+ *
+ * For Playwright / form semantics we keep a *hidden* native <select>
+ * (with the original `settings-input-trade-select` testid) mirroring
+ * the value, so existing audits that call `selectOption('house_cleaning')`
+ * still work without test churn.
  */
 function TradeSection({
   tradeId, onChange,
 }: { tradeId: string; onChange: (id: string) => void }) {
   const [query, setQuery] = useState('');
+  const [open, setOpen] = useState(false);
+  const popupRef = useRef<HTMLDivElement | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const closeBtnRef = useRef<HTMLButtonElement | null>(null);
 
   const current = useMemo(
     () => TRADES.find((t) => t.id === tradeId),
     [tradeId],
   );
 
-  // Group trades by category for the <optgroup>s. CATEGORIES defines
-  // the display order; the "custom" category is skipped here because
-  // it's a placeholder (My trade isn't listed) not an actual trade.
+  // Group trades by category. CATEGORIES defines the display order;
+  // the "custom" category is skipped here because it's a placeholder
+  // (My trade isn't listed) not an actual trade.
   const tradesByCategory = useMemo(() => {
     const q = query.trim().toLowerCase();
     const match = (t: Trade) => q === '' || t.label.toLowerCase().includes(q);
@@ -922,59 +1038,193 @@ function TradeSection({
       .filter((g) => g.trades.length > 0);
   }, [query]);
 
+  const closePopup = useCallback(() => {
+    setOpen(false);
+    // Return focus to the trigger so keyboard users don't lose place.
+    requestAnimationFrame(() => triggerRef.current?.focus());
+  }, []);
+
+  const selectTrade = useCallback((id: string) => {
+    onChange(id);
+    setOpen(false);
+    requestAnimationFrame(() => triggerRef.current?.focus());
+  }, [onChange]);
+
+  // Esc-to-close + simple focus trap inside the popup while open.
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        closePopup();
+        return;
+      }
+      if (e.key === 'Tab' && popupRef.current) {
+        const focusables = popupRef.current.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+        );
+        if (focusables.length === 0) return;
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+    document.addEventListener('keydown', onKeyDown, true);
+    return () => document.removeEventListener('keydown', onKeyDown, true);
+  }, [open, closePopup]);
+
+  // Move focus into the search input when the popup opens.
+  useEffect(() => {
+    if (open) {
+      requestAnimationFrame(() => searchInputRef.current?.focus());
+    } else {
+      // Reset query so re-opening starts from a clean state.
+      setQuery('');
+    }
+  }, [open]);
+
+  const triggerLabel = current ? current.label : 'Select a trade';
+
   return (
     <fieldset className="qq-style-group" data-testid="settings-group-trade">
-      <FloatField
-        label="Filter trades by name (optional)"
-        htmlFor="qq-settings-trade-search"
-        infoText="Which trade this calculator is for. Drives template suggestions and downstream copy. Pick from any of the 8 trade categories below."
-        infoTestid="settings-trade"
+      {/* Hidden native <select> — preserves Playwright `selectOption`
+          compatibility and gives us a real form control fallback. The
+          visible UI is the custom button + popup below. */}
+      <select
+        value={tradeId}
+        onChange={(e) => onChange(e.target.value)}
+        data-testid="settings-input-trade-select"
+        aria-hidden="true"
+        tabIndex={-1}
+        style={{
+          position: 'absolute',
+          width: 1,
+          height: 1,
+          padding: 0,
+          margin: -1,
+          overflow: 'hidden',
+          clip: 'rect(0,0,0,0)',
+          whiteSpace: 'nowrap',
+          border: 0,
+        }}
       >
-        <input
-          id="qq-settings-trade-search"
-          type="text"
-          className="premium-input"
-          placeholder=" "
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          data-testid="settings-input-trade-search"
-        />
+        <option value="">— Select a trade —</option>
+        {CATEGORIES.filter((c) => c.id !== 'custom').map((c) => (
+          <optgroup key={c.id} label={c.label}>
+            {TRADES.filter((t) => t.categoryId === c.id).map((t) => (
+              <option key={t.id} value={t.id} data-testid={`settings-trade-option-${t.id}`}>
+                {t.label}
+              </option>
+            ))}
+          </optgroup>
+        ))}
+      </select>
+
+      <FloatField label="Trade" htmlFor="qq-settings-trade-trigger">
+        <button
+          ref={triggerRef}
+          id="qq-settings-trade-trigger"
+          type="button"
+          className="premium-input qq-trade-trigger"
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          aria-label="Choose trade"
+          data-testid="settings-trade-trigger"
+          onClick={() => setOpen((v) => !v)}
+        >
+          <span className="qq-trade-trigger-label">{triggerLabel}</span>
+          <span className="qq-trade-trigger-caret" aria-hidden="true">▾</span>
+        </button>
       </FloatField>
 
-      <FloatField label="Trade" htmlFor="qq-settings-trade-select">
-        <select
-          id="qq-settings-trade-select"
-          className="premium-input"
-          value={tradeId}
-          onChange={(e) => onChange(e.target.value)}
-          data-testid="settings-input-trade-select"
-          aria-label="Choose trade"
+      {open && (
+        <div
+          className="qq-trade-backdrop"
+          data-testid="settings-trade-backdrop"
+          onClick={closePopup}
         >
-          {/* Empty placeholder option so the floating label can float */}
-          <option value="">— Select a trade —</option>
-          {tradesByCategory.map(({ category, trades }) => (
-            <optgroup key={category.id} label={category.label}>
-              {trades.map((t) => (
-                <option key={t.id} value={t.id} data-testid={`settings-trade-option-${t.id}`}>
-                  {t.label}
-                </option>
+          <div
+            ref={popupRef}
+            className="qq-trade-popup"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Choose a trade"
+            data-testid="settings-trade-popup"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="qq-trade-popup-head">
+              <input
+                ref={searchInputRef}
+                type="text"
+                className="premium-input qq-trade-popup-search"
+                placeholder="Filter trades by name…"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                data-testid="settings-input-trade-search"
+                aria-label="Filter trades by name"
+              />
+              <button
+                ref={closeBtnRef}
+                type="button"
+                className="qq-trade-popup-close"
+                aria-label="Close trade picker"
+                data-testid="settings-trade-close"
+                onClick={closePopup}
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+                  <path
+                    d="M3 3 L13 13 M13 3 L3 13"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </button>
+            </div>
+
+            <div className="qq-trade-popup-body">
+              {tradesByCategory.map(({ category, trades }) => (
+                <div key={category.id} className="qq-trade-popup-group">
+                  <div className="qq-trade-popup-grouplabel">{category.label}</div>
+                  {trades.map((t) => {
+                    const isCurrent = t.id === tradeId;
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        className="qq-trade-popup-row"
+                        aria-pressed={isCurrent}
+                        data-testid={`settings-trade-popup-option-${t.id}`}
+                        onClick={() => selectTrade(t.id)}
+                      >
+                        {t.label}
+                      </button>
+                    );
+                  })}
+                </div>
               ))}
-            </optgroup>
-          ))}
-        </select>
-      </FloatField>
+              {tradesByCategory.length === 0 && (
+                <p
+                  data-testid="settings-trade-empty"
+                  style={{ padding: '12px 4px', fontSize: 12, color: p.colors.muted, margin: 0 }}
+                >
+                  No matching trades.
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {current && (
         <p className="qq-trade-current" data-testid="settings-current-trade">
           Selected: <strong style={{ color: p.colors.heading }}>{current.label}</strong>
-        </p>
-      )}
-      {tradesByCategory.length === 0 && (
-        <p
-          data-testid="settings-trade-empty"
-          style={{ padding: '8px 0 0', fontSize: 12, color: p.colors.muted, margin: 0 }}
-        >
-          No matching trades.
         </p>
       )}
     </fieldset>
