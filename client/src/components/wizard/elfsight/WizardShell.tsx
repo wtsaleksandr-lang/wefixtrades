@@ -1145,8 +1145,14 @@ export default function WizardShell({ embed = false }: Props) {
               /* Wave AA — anchor widget to TOP of preview area (was centered
                  vertically). Combined with the +22% taller desktop frame,
                  this keeps the widget consistently positioned regardless of
-                 content height. */
-              position: sticky; top: 0;
+                 content height.
+
+                 Wave AB-2 — dropped position:sticky+top:0 here. The
+                 sticky+min-height:100% combination created a feedback loop
+                 with the right pane's overflow-y:auto — scrolling to the
+                 bottom caused the bezel to flicker as the sticky element
+                 fought to stay anchored. The pane is the sole child of the
+                 scrolling right column, so sticky was redundant. */
               display: flex; align-items: flex-start; justify-content: center;
               padding: 24px 20px; box-sizing: border-box; min-height: 100%;
               /* Wave AA — visible dotted-grid background. Subtle but clearly
