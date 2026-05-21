@@ -33,6 +33,7 @@ import { fail, ok } from "./envelope";
 import { getCalculatorForUser } from "../../services/calculatorService";
 import { runCalculations, type Calculation, type FormulaContext } from "@shared/formulaEngine";
 import { createLogger } from "../../lib/logger";
+import { emitApiWebhookEvent } from "../../services/apiWebhookDispatcher";
 
 const log = createLogger("ApiV1.Submissions");
 
@@ -240,6 +241,16 @@ export function registerV1SubmissionsRoutes(router: Router): void {
           status: "new",
         })
         .returning();
+
+      void emitApiWebhookEvent({
+        userId: apiUser.id,
+        type: "submission.created",
+        data: {
+          ...toApiSubmission(submission),
+          computed_quote: finalQuoteAmount,
+          breakdown: computed?.breakdown ?? null,
+        },
+      });
 
       return ok(req, res, {
         submission_id: submission.id,
