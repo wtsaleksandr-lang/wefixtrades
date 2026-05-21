@@ -8,8 +8,10 @@
  *  3. Header > Subtitle input renders a subtitle paragraph in the preview
  *     (and removing it removes the paragraph).
  *  4. Results > Heading input updates the result panel's heading.
- *  5. Selecting a calc in the headline dropdown promotes it to primary in
- *     the preview's result panel (it becomes the big number).
+ *  5. Toggling a calc's Result mode to "Primary" promotes it in the preview's
+ *     result panel (it becomes the big number). The build-tab dropdown that
+ *     used to live below Calculations was removed in W-AO-5 — the per-row
+ *     Primary/Secondary segmented control is now the only headline picker.
  *  6. Toggling "Show in results" off hides that calc from the preview's
  *     result panel.
  *  7. Toggling "Divider above" adds a visible divider in the preview.
@@ -114,32 +116,32 @@ test.describe('wizard H4 — Build > Header & Results + display controls', () =>
     });
   });
 
-  test('Headline dropdown promotes a calc to primary in the preview', async ({ page }) => {
+  test('Per-row Primary toggle promotes a calc to headline in the preview', async ({ page }) => {
+    // W-AO-5 — replaces the prior "Headline dropdown" test. The dropdown was
+    // removed from HeaderResultsPanel because it duplicated the per-row
+    // Primary/Secondary segmented control on each CalculationRow. The
+    // segmented control is now the canonical (and only) headline picker.
     await page.goto('/wizard', { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(1200);
 
     await expect(page.getByTestId('advanced-calculator')).toBeVisible({ timeout: 4000 });
 
     // Add a second calc with a distinctive name + value so we can confirm
-    // it becomes the headline once we pick it.
+    // it becomes the headline once we promote it.
     const newCalcId = await addCalcRow(page);
     const distinctName = `QA_Headline_${Date.now()}`;
     await page.getByTestId(`calc-row-input-name-${newCalcId}`).fill(distinctName);
     await page.getByTestId(`calc-row-formula-input-${newCalcId}`).fill('1234');
 
-    // Pick the new calc as the headline. The dropdown lists calcs by name.
-    const dd = page.getByTestId('select-headline-calc');
-    await dd.selectOption({ label: distinctName });
+    // Click the row's "Primary" segmented-control button.
+    const primaryBtn = page.getByTestId(`calc-row-resultmode-primary-${newCalcId}`);
+    await primaryBtn.click();
+    await expect(primaryBtn).toHaveAttribute('aria-checked', 'true', { timeout: 1500 });
 
     // The result panel's headline value reads "1,234" (formatted as currency
-    // → $1,234.00). Asserting on the digits is enough — and the heading
-    // ALSO falls back to the calc's name (we didn't override Results.heading).
+    // → $1,234.00). Asserting on the digits is enough.
     const result = page.getByTestId('advanced-result');
     await expect(result).toContainText('1,234', { timeout: 1500 });
-
-    // Cross-check: the calc-row's segmented control reflects 'primary'.
-    const primaryBtn = page.getByTestId(`calc-row-resultmode-primary-${newCalcId}`);
-    await expect(primaryBtn).toHaveAttribute('aria-checked', 'true', { timeout: 1500 });
   });
 
   test('"Show in results" toggle hides a calc from the preview', async ({ page }) => {

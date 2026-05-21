@@ -352,16 +352,13 @@ export default function WizardShell({ embed = false }: Props) {
     setState((s) => ({ ...s, settings: next }));
   }, []);
 
-  const setResultCalc = useCallback((calcId: string) => {
-    setState((s) => {
-      const nextCalcs = s.calculations.map((c) => {
-        if (c.id === calcId) return { ...c, resultMode: 'primary' as const };
-        if (c.resultMode === 'primary') return { ...c, resultMode: 'secondary' as const };
-        return c;
-      });
-      return { ...s, resultCalcId: calcId, calculations: nextCalcs };
-    });
-  }, []);
+  // W-AO-5 — `setResultCalc` was removed alongside the Build > Headline
+  // result dropdown that consumed it. The Primary/Secondary segmented
+  // control inside each CalculationRow already mutates
+  // `calculations[*].resultMode` via `setCalculations`, which is the only
+  // path PreviewPane actually reads for the explicit-primary headline.
+  // `state.resultCalcId` is still loaded from saved templates and read by
+  // PreviewPane for back-compat, but nothing in the editor mutates it.
 
   // ── Wave H7: apply a template preset (or "start blank"). Replaces the
   // structural slice of state (layout / fields / calculations / header /
@@ -670,8 +667,6 @@ export default function WizardShell({ embed = false }: Props) {
                       onHeaderChange={setHeader}
                       results={state.results ?? {}}
                       onResultsChange={setResults}
-                      resultCalcId={state.resultCalcId}
-                      onResultCalcChange={setResultCalc}
                       activeTemplateId={state.activeTemplateId}
                       onApplyTemplate={applyTemplate}
                     />
