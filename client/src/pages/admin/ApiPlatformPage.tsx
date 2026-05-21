@@ -352,7 +352,7 @@ export default function ApiPlatformPage() {
 
   const knownTierIds = tierCatalog.length
     ? tierCatalog.map((t) => t.id)
-    : ["free", "starter", "growth", "scale"];
+    : ["free", "starter", "pro", "business", "agency"];
 
   /* ── Render ─────────────────────────────────────────────────── */
 

@@ -19,6 +19,13 @@
 import type { Express, Request, Response } from "express";
 import { getEffectiveTemplate, getEffectiveTemplates, getEffectiveTrades, getCategories } from "../lib/applyQuoteQuickOverrides";
 import { createLogger } from "../lib/logger";
+import {
+  API_TIERS,
+  API_OVERAGE_RATE_PER_1K_CALLS,
+  API_OVERAGE_MAX_MULTIPLIER,
+  QQ_LOYALTY_STARTER_MONTHLY,
+  QQ_LOYALTY_DISCOUNT_PCT,
+} from "@shared/pricing/apiTiers";
 
 const log = createLogger("QuoteQuickPublic");
 
@@ -61,6 +68,40 @@ export function registerQuoteQuickPublicRoutes(app: Express) {
     } catch (err) {
       log.error("trades list failed", { err: (err as Error).message });
       return res.status(500).json({ error: "Failed to load trades" });
+    }
+  });
+
+  /* ─── API platform tiers (Wave AJ-3) ───────────────────────────────
+   * Public, unauthenticated — consumed by marketing/pricing pages.
+   * Stripe price env-var names are stripped before serialisation so
+   * we never leak environment shape to the public.
+   * ──────────────────────────────────────────────────────────────── */
+  app.get("/api/quotequick/api-tiers", async (_req: Request, res: Response) => {
+    try {
+      const tiers = API_TIERS.map(
+        ({
+          stripeMonthlyPriceEnv: _m,
+          stripeAnnualPriceEnv: _a,
+          stripeLoyaltyMonthlyPriceEnv: _l,
+          ...publicFields
+        }) => publicFields,
+      );
+      res.setHeader("Cache-Control", CACHE_HEADER);
+      return res.json({
+        tiers,
+        overage: {
+          rate_per_1k_calls: API_OVERAGE_RATE_PER_1K_CALLS,
+          max_multiplier: API_OVERAGE_MAX_MULTIPLIER,
+        },
+        loyalty: {
+          starter_monthly: QQ_LOYALTY_STARTER_MONTHLY,
+          discount_pct: QQ_LOYALTY_DISCOUNT_PCT,
+          eligibility: "Active QuoteQuick Pro or Business subscription",
+        },
+      });
+    } catch (err) {
+      log.error("api-tiers list failed", { err: (err as Error).message });
+      return res.status(500).json({ error: "Failed to load API tiers" });
     }
   });
 }
