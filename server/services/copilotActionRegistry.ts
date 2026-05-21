@@ -19,7 +19,7 @@
 
 import crypto from "crypto";
 
-export type ActionSurface = "admin" | "portal";
+export type ActionSurface = "admin" | "portal" | "customer-widget";
 
 /**
  * Risk tier governs how autonomous an action may be:

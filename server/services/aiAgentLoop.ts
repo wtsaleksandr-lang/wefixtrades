@@ -128,3 +128,42 @@ export function executorFromCopilotAction(
     return { ok: true, narrative: result.narrative };
   };
 }
+
+/**
+ * Build a ToolExecutor for an `auto`-tier customer-widget action.
+ *
+ * Unlike `executorFromCopilotAction`, this variant runs in an anonymous
+ * customer-facing context — there is no userId. Instead the caller supplies
+ * a `metadata` blob (calculator_id + customer identity) at executor-build
+ * time. That metadata is attached to every PendingAction the executor
+ * synthesises, so the action's executor can read calculator_id + email
+ * via action.metadata without ever trusting model-supplied input.
+ *
+ * Identity-binding is enforced INSIDE each customer-widget action (e.g.
+ * `requireEmail()` in customerWidgetTools.ts), not here.
+ */
+export function executorFromCustomerWidgetAction(
+  actionName: string,
+  metadata: Record<string, unknown>,
+): ToolExecutor {
+  return async (args, ctx) => {
+    const action = getCopilotAction("customer-widget", actionName);
+    if (!action) throw new Error(`Action "${actionName}" not registered for surface "customer-widget"`);
+    if (action.riskTier !== "auto") {
+      throw new Error(`Action "${actionName}" is tier "${action.riskTier}" — must be "auto" to run inside the loop.`);
+    }
+    const pending: PendingAction = {
+      call_id: crypto.randomUUID(),
+      surface: "customer-widget",
+      action_name: actionName,
+      args,
+      // Customer-widget context has no authenticated user; user_id is 0.
+      user_id: 0,
+      session_id: ctx.sessionId ?? `loop_${ctx.loopRunId}`,
+      expires: Date.now() + 5 * 60 * 1000,
+      metadata,
+    };
+    const result = await action.execute(pending, 0);
+    return { ok: true, narrative: result.narrative };
+  };
+}

@@ -11,6 +11,16 @@ import { validateFormula } from "@shared/formulaEngine";
 import { buildSystemPrompt, runChatCompletion } from "../aiChatEngine";
 import { createLogger } from "../lib/logger";
 import { aiChatRateLimiter } from "../services/rateLimiter";
+// W-BB-1 — customer-widget multi-step agent loop wiring.
+// Importing customerWidgetTools registers the 6 customer-widget actions
+// into the shared copilotActionRegistry at module load.
+import {
+  CUSTOMER_WIDGET_TOOLS,
+  CUSTOMER_WIDGET_ACTION_NAMES,
+  buildCustomerWidgetSystemPrompt,
+} from "../services/customerWidgetTools";
+import { runAgentLoop, executorFromCustomerWidgetAction } from "../services/aiAgentLoop";
+import { AI_SURFACES } from "../services/aiSurfaces";
 
 const log = createLogger("AIRoutes");
 
@@ -642,13 +652,29 @@ Return ONLY the JSON object.`;
         messages: z.array(chatMessageSchema).min(1).max(50),
         calculator_id: z.number().int().positive(),
         session_id: z.string().min(1),
+        // W-BB-1 — opt-in multi-step agent loop. When true, the chat is
+        // routed through `runAgentLoop` with the 6 customer-widget tools
+        // and progress steps are streamed back as SSE. Legacy single-call
+        // behaviour preserved when omitted/false.
+        useAgentLoop: z.boolean().optional(),
+        customer_email: z.string().email().optional(),
+        customer_phone: z.string().optional(),
+        customer_name: z.string().optional(),
       }).safeParse(req.body);
 
       if (!body.success) {
         return res.status(400).json({ error: "Invalid request", details: body.error.flatten() });
       }
 
-      const { messages, calculator_id, session_id } = body.data;
+      const {
+        messages,
+        calculator_id,
+        session_id,
+        useAgentLoop,
+        customer_email,
+        customer_phone,
+        customer_name,
+      } = body.data;
       const calculator = await storage.getCalculatorById(calculator_id);
       if (!calculator) {
         return res.status(404).json({ error: "Calculator not found" });
@@ -674,6 +700,125 @@ Return ONLY the JSON object.`;
         return res.status(403).json({ error: "AI Employee subscription is not active" });
       }
 
+      /* ─── W-BB-1: multi-step agent loop branch ───
+       * When the client opts in, route to `runAgentLoop` with the 6 customer
+       * widget tools. Steps stream back as SSE so the bubble can show
+       * "Checking schedule..." → "Confirming booking..." → final message.
+       * Cost is capped at 25¢/conversation (vs the loop default $1.00) since
+       * customers are anonymous and abuse risk is higher.
+       */
+      if (useAgentLoop) {
+        res.setHeader("Content-Type", "text/event-stream");
+        res.setHeader("Cache-Control", "no-cache");
+        res.setHeader("Connection", "keep-alive");
+        res.setHeader("X-Accel-Buffering", "no");
+
+        const widgetSystemPrompt = buildCustomerWidgetSystemPrompt({
+          businessName: calculator.business_name,
+          tradeType: calculator.trade_type,
+          customer_email,
+          customer_name,
+        });
+
+        const ctxMetadata = {
+          calculator_id,
+          customer_email,
+          customer_phone,
+          customer_name,
+        };
+        const toolExecutors: Record<string, import("../services/aiAgentLoop").ToolExecutor> = {};
+        for (const name of CUSTOMER_WIDGET_ACTION_NAMES) {
+          toolExecutors[name] = executorFromCustomerWidgetAction(name, ctxMetadata);
+        }
+
+        try {
+          const result = await runAgentLoop({
+            systemPrompt: widgetSystemPrompt,
+            conversationHistory: messages as any,
+            tools: CUSTOMER_WIDGET_TOOLS as any,
+            toolExecutors,
+            surface: AI_SURFACES.quotequick_widget_ai,
+            actionSurface: "customer-widget",
+            sessionId: session_id,
+            costCapCents: 25, // 25¢ per conversation
+            maxSteps: 8,
+            onStep: (step) => {
+              try {
+                res.write(`data: ${JSON.stringify({ step })}\n\n`);
+                if (step.type === "text" && step.payload?.text) {
+                  res.write(`data: ${JSON.stringify({ text: step.payload.text })}\n\n`);
+                }
+              } catch {
+                // Best-effort streaming — drop frame on write error.
+              }
+            },
+          });
+
+          // Cost-cap fallback: if the loop hit the 25¢ ceiling, escalate to
+          // a human teammate via the support_tickets table (one of the 6
+          // auto-tier tools, called server-side so we don't need a model
+          // round-trip).
+          if (result.status === "cost_cap_exceeded") {
+            res.write(`data: ${JSON.stringify({
+              text: "I'd love to keep helping — let me grab a human teammate. They'll follow up shortly.",
+            })}\n\n`);
+            try {
+              await toolExecutors.request_human_followup(
+                { reason: "Customer chat exceeded the per-conversation cost cap" },
+                {
+                  surface: AI_SURFACES.quotequick_widget_ai,
+                  sessionId: session_id,
+                  loopRunId: result.loopRunId,
+                  stepIndex: result.steps.length,
+                },
+              );
+            } catch (escErr) {
+              log.warn("Failed to escalate on cost cap:", { error: String(escErr) });
+            }
+          }
+
+          res.write(`data: ${JSON.stringify({
+            loop_status: result.status,
+            loop_run_id: result.loopRunId,
+            step_count: result.steps.length,
+            cost_cents: result.totalCostCents,
+          })}\n\n`);
+
+          // Persist conversation transcript.
+          try {
+            const existing = await storage.getAiConversationBySession(session_id);
+            const allMessages = [...messages, { role: "assistant", content: result.reply || "" }];
+            if (existing) {
+              await storage.updateAiConversation(existing.id, { messages_json: allMessages as any });
+            } else {
+              await storage.createAiConversation({
+                agent_type: "client_ai_employee",
+                account_id: calculator.id,
+                calculator_id: calculator.id,
+                session_id,
+                messages_json: allMessages as any,
+              });
+            }
+          } catch (err) {
+            log.warn("Failed to store agent loop conversation:", { error: String(err) });
+          }
+
+          res.write("data: [DONE]\n\n");
+          res.end();
+        } catch (err: any) {
+          log.error("Customer widget agent loop error:", err);
+          try {
+            res.write(`data: ${JSON.stringify({ error: "Something went wrong. Please try again." })}\n\n`);
+            res.write("data: [DONE]\n\n");
+            res.end();
+          } catch {
+            // headers already sent + connection broken — nothing more we can do.
+          }
+        }
+        return;
+      }
+
+      /* ─── Legacy single-call branch (backward compat) ─── */
       const trainingProfile = aiEmployee.training_profile || {};
       const systemPrompt = buildSystemPrompt("client_ai_employee", {
         businessName: calculator.business_name,
