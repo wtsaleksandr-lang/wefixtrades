@@ -193,16 +193,10 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
       </fieldset>
 
       {/* ── Pricing model ───────────────────────────────────────── */}
+      {/* W-AF-4 — "Mode" sub-label dropped. The Hourly/Fixed/Custom
+         segmented control is self-explanatory; the redundant label
+         (and its InfoCue) added noise without information. */}
       <fieldset className="qq-style-group" data-testid="settings-group-pricing">
-        <label className="qq-style-label">
-          <span className="qq-style-label-text">
-            Mode
-            <InfoCue
-              testid="settings-pricing"
-              text="The shape of your price. Saved alongside the calculator config — the renderer's pricing engine will pick this up downstream."
-            />
-          </span>
-        </label>
         <SegmentedControl<ShellPricingMode>
           name="pricing-mode"
           testid="settings-segmented-pricing"
