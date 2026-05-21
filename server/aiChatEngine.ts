@@ -41,7 +41,20 @@ export function buildSystemPrompt(agentType: AgentType, context?: {
   trainingProfile?: Record<string, any>;
   pricingConfig?: Record<string, any>;
   calculatorStatus?: string;
+  /** W-BB-3 — when the calculator is configured with `resultPanel.range_mode`
+   *  the AI must speak the price as a range ("$2,400-$2,800") rather than a
+   *  pinpoint number, so the chat response matches what the widget renders.
+   *  `band_pct` is the ±% band used for the spoken range. */
+  priceDisplayMode?: { mode: 'single' | 'range'; band_pct?: number };
 }): string {
+  // W-BB-3 — shared price-display guidance. When the calculator is in range
+  // mode, the AI must speak prices as a range so it matches what the widget
+  // renders ($2,400-$2,800 vs $2,500). Empty string when in single mode so
+  // the legacy prompt is unchanged.
+  const rangeGuidance = context?.priceDisplayMode?.mode === 'range'
+    ? `\n\nPRICE DISPLAY MODE: range (±${context.priceDisplayMode.band_pct ?? 8}%). Always quote estimates as a range like "$2,400-$2,800" rather than a single number. The calculator widget shows ranges to reduce buyer commitment anxiety — your replies must match.`
+    : '';
+
   if (agentType === "demo_ai_employee") {
     const category = context?.tradeCategory || "default";
     const preset = TRADE_PRESETS[category] || TRADE_PRESETS.default;
@@ -55,7 +68,7 @@ You help potential customers by:
 
 IMPORTANT: This is a DEMO. Always mention this is a sample experience when relevant.
 Keep responses concise (2-3 sentences max). Be helpful and conversational.
-Current trade category: ${category} (rate ~$${preset.rate}/${preset.unit})`;
+Current trade category: ${category} (rate ~$${preset.rate}/${preset.unit})${rangeGuidance}`;
   }
 
   if (agentType === "platform_support_ai") {
@@ -110,7 +123,7 @@ You can help customers by:
 - Booking appointments using the create_booking tool
 - Collecting contact information using the submit_lead tool
 
-Keep responses concise (2-4 sentences). Always be helpful and guide customers toward booking or getting a quote.`;
+Keep responses concise (2-4 sentences). Always be helpful and guide customers toward booking or getting a quote.${rangeGuidance}`;
   }
 
   return "You are a helpful assistant.";
