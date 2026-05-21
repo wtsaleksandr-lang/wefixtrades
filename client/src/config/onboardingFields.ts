@@ -38,6 +38,22 @@ const FIELD_CONFIG: Record<string, FieldEnrichment> = {
     helperText: "Where you operate.",
     example: "Melbourne metro, within 30km of CBD",
   },
+  trade_type: {
+    helperText: "Pick the trade that best describes your work.",
+    options: [
+      { value: "Plumbing", label: "Plumbing" },
+      { value: "Electrical", label: "Electrical" },
+      { value: "HVAC", label: "HVAC" },
+      { value: "Roofing", label: "Roofing" },
+      { value: "Painting", label: "Painting" },
+      { value: "Carpentry", label: "Carpentry" },
+      { value: "Landscaping", label: "Landscaping" },
+      { value: "Cleaning", label: "Cleaning" },
+      { value: "Pest Control", label: "Pest Control" },
+      { value: "General Handyman", label: "General Handyman" },
+      { value: "Other", label: "Other" },
+    ],
+  },
   contact_info: {
     placeholder: "e.g. 0412 345 678, info@business.com, 12 Main St",
     helperText: "Phone, email, and address for your website.",
@@ -86,8 +102,9 @@ const FIELD_CONFIG: Record<string, FieldEnrichment> = {
   website_access: {
     helperText: "If yes, we'll install it for you. If not, we'll give you a hosted version — no problem.",
     options: [
-      { value: "yes", label: "Yes, I can provide access" },
-      { value: "no", label: "No — give me a hosted page" },
+      { value: "yes-admin-login", label: "Yes, I have admin login" },
+      { value: "invite-access", label: "I'll grant access via invite" },
+      { value: "no-website", label: "No website yet" },
     ],
   },
   install_mode: {
@@ -106,16 +123,20 @@ const FIELD_CONFIG: Record<string, FieldEnrichment> = {
     ],
   },
   business_hours: {
-    placeholder: "e.g. Mon–Fri 7am–5pm, Sat 8am–12pm",
     helperText: "When are you available to take jobs?",
-    example: "Mon–Fri 7am–5pm, Sat 8am–12pm",
+    options: [
+      { value: "Mon-Fri 9-5", label: "Mon-Fri 9-5" },
+      { value: "Mon-Sat 8-6", label: "Mon-Sat 8-6" },
+      { value: "24/7 Emergency", label: "24/7 Emergency" },
+      { value: "Custom", label: "Custom" },
+    ],
   },
   tone: {
     helperText: "How should we communicate with your customers?",
     options: [
-      { value: "professional", label: "Professional" },
-      { value: "friendly", label: "Friendly" },
-      { value: "sales", label: "Sales-focused" },
+      { value: "Professional", label: "Professional" },
+      { value: "Friendly", label: "Friendly" },
+      { value: "Casual", label: "Casual" },
     ],
   },
   pricing_examples: {

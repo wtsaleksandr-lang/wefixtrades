@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CheckCircle2, Loader2, AlertCircle, ArrowRight, Settings2, Zap, AlertTriangle } from "lucide-react";
+import { getFieldConfig } from "@/config/onboardingFields";
 
 interface Step {
   key: string;
@@ -351,45 +352,101 @@ export default function OnboardingForm() {
         {/* Current step fields */}
         <form onSubmit={isLastStep ? handleSubmit : (e) => { e.preventDefault(); goNext(); }}>
           <Card className="p-5 space-y-5">
-            {currentGroup?.fields.map((step) => (
-              <div key={step.key}>
-                {step.type === "checkbox" ? (
-                  <label className="flex items-start gap-3 cursor-pointer min-h-[44px] py-1">
-                    <input
-                      type="checkbox"
-                      checked={!!responses[step.key]}
-                      onChange={(e) => setResponses({ ...responses, [step.key]: e.target.checked })}
-                      className="mt-0.5 w-4 h-4 rounded border-gray-300 text-[#0d3cfc] focus:ring-[#0d3cfc]"
-                    />
-                    <div>
-                      <span className="text-sm text-gray-700">
-                        {step.label}
-                        {step.required && <span className="text-red-400 ml-1">*</span>}
-                      </span>
-                      {FIELD_HINTS[step.key] && (
-                        <p className="text-xs text-gray-400 mt-0.5">{FIELD_HINTS[step.key]}</p>
-                      )}
+            {currentGroup?.fields.map((step) => {
+              const fieldConfig = getFieldConfig(step.key);
+              const hint = FIELD_HINTS[step.key] || fieldConfig.helperText;
+
+              // BC-1: checkbox → Yes/No two-button toggle (value still boolean).
+              if (step.type === "checkbox") {
+                const boolValue: boolean | null =
+                  responses[step.key] === true ? true
+                  : responses[step.key] === false ? false
+                  : null;
+                return (
+                  <div key={step.key}>
+                    <label className="text-xs font-medium text-gray-600 mb-1.5 block">
+                      {step.label}
+                      {step.required && <span className="text-red-400 ml-1">*</span>}
+                    </label>
+                    {hint && <p className="text-xs text-gray-400 mb-1.5">{hint}</p>}
+                    <div className="flex flex-wrap gap-2">
+                      {[
+                        { v: true, label: "Yes" },
+                        { v: false, label: "No" },
+                      ].map((opt) => {
+                        const selected = boolValue === opt.v;
+                        return (
+                          <button
+                            type="button"
+                            key={opt.label}
+                            onClick={() => setResponses({ ...responses, [step.key]: opt.v })}
+                            className={`px-4 py-2 text-sm rounded-lg border transition-colors min-h-[44px] ${
+                              selected
+                                ? "bg-[#0d3cfc] text-white border-[#0d3cfc]"
+                                : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
+                            } focus:outline-none focus:ring-2 focus:ring-[#0d3cfc]/20`}
+                          >
+                            {opt.label}
+                          </button>
+                        );
+                      })}
                     </div>
-                  </label>
-                ) : (
-                  <div>
+                  </div>
+                );
+              }
+
+              // BC-1: select with known options → button-group (pill/chip).
+              if (step.type === "select" && fieldConfig.options) {
+                return (
+                  <div key={step.key}>
                     <label className="text-xs font-medium text-gray-600 mb-1 block">
                       {step.label}
                       {step.required && <span className="text-red-400 ml-1">*</span>}
                       {!step.required && <span className="text-gray-400 ml-1">(optional)</span>}
                     </label>
-                    {FIELD_HINTS[step.key] && (
-                      <p className="text-xs text-gray-400 mb-1.5">{FIELD_HINTS[step.key]}</p>
-                    )}
-                    <Input
-                      value={responses[step.key] || ""}
-                      onChange={(e) => setResponses({ ...responses, [step.key]: e.target.value })}
-                      placeholder={step.required ? "Required" : "Optional"}
-                    />
+                    {hint && <p className="text-xs text-gray-400 mb-1.5">{hint}</p>}
+                    <div className="flex flex-wrap gap-2">
+                      {fieldConfig.options.map((opt) => {
+                        const selected = responses[step.key] === opt.value;
+                        return (
+                          <button
+                            type="button"
+                            key={opt.value}
+                            onClick={() => setResponses({ ...responses, [step.key]: opt.value })}
+                            className={`px-3.5 py-2 text-sm rounded-lg border transition-colors min-h-[44px] ${
+                              selected
+                                ? "bg-[#0d3cfc] text-white border-[#0d3cfc]"
+                                : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
+                            } focus:outline-none focus:ring-2 focus:ring-[#0d3cfc]/20`}
+                          >
+                            {opt.label}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                )}
-              </div>
-            ))}
+                );
+              }
+
+              // Fallback: text input (used for select fields without known options too).
+              return (
+                <div key={step.key}>
+                  <label className="text-xs font-medium text-gray-600 mb-1 block">
+                    {step.label}
+                    {step.required && <span className="text-red-400 ml-1">*</span>}
+                    {!step.required && <span className="text-gray-400 ml-1">(optional)</span>}
+                  </label>
+                  {hint && (
+                    <p className="text-xs text-gray-400 mb-1.5">{hint}</p>
+                  )}
+                  <Input
+                    value={responses[step.key] || ""}
+                    onChange={(e) => setResponses({ ...responses, [step.key]: e.target.value })}
+                    placeholder={step.required ? "Required" : "Optional"}
+                  />
+                </div>
+              );
+            })}
           </Card>
 
           {/* Navigation */}

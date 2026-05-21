@@ -496,22 +496,51 @@ function FieldRow({
   const config = getFieldConfig(step.key);
 
   if (step.type === "checkbox") {
+    // BC-1: render boolean fields as Yes/No two-button toggle for clickable feel.
+    // Value is still a boolean — onChange receives true/false.
+    const boolValue: boolean | null =
+      value === true ? true : value === false ? false : null;
     return (
-      <label className="flex items-start gap-3 cursor-pointer min-h-[44px] py-1">
-        <input
-          type="checkbox"
-          checked={!!value}
-          onChange={(e) => onChange(e.target.checked)}
-          className="mt-0.5 w-4 h-4 rounded border-gray-300 text-[#0d3cfc] focus:ring-[#0d3cfc]"
-        />
-        <div className="flex-1">
-          <span className="text-sm text-gray-700">
+      <div>
+        <div className="flex items-center gap-1.5 mb-1.5">
+          <label className="text-xs font-medium text-gray-600">
             {step.label}
             {step.required && <span className="text-red-400 ml-1">*</span>}
-          </span>
-          {config.helperText && <p className="text-xs text-gray-400 mt-0.5">{config.helperText}</p>}
+          </label>
+          {(config.example || config.helperText) && (
+            <button
+              type="button"
+              onClick={() => onHelp({ label: step.label, example: config.example, helperText: config.helperText })}
+              className="text-gray-300 hover:text-gray-500"
+            >
+              <HelpCircle className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
-      </label>
+        {config.helperText && <p className="text-xs text-gray-400 mb-1.5">{config.helperText}</p>}
+        <div className="flex flex-wrap gap-2">
+          {[
+            { v: true, label: "Yes" },
+            { v: false, label: "No" },
+          ].map((opt) => {
+            const selected = boolValue === opt.v;
+            return (
+              <button
+                type="button"
+                key={opt.label}
+                onClick={() => onChange(opt.v)}
+                className={`px-4 py-2 text-sm rounded-lg border transition-colors min-h-[40px] ${
+                  selected
+                    ? "bg-[#0d3cfc] text-white border-[#0d3cfc]"
+                    : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
+                } focus:outline-none focus:ring-2 focus:ring-[#0d3cfc]/20`}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
     );
   }
 
@@ -534,16 +563,26 @@ function FieldRow({
           )}
         </div>
         {config.helperText && <p className="text-xs text-gray-400 mb-1.5">{config.helperText}</p>}
-        <select
-          value={value || ""}
-          onChange={(e) => onChange(e.target.value)}
-          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#0d3cfc]/20 focus:border-[#0d3cfc] transition-colors"
-        >
-          <option value="">Select...</option>
-          {config.options.map((opt) => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
-          ))}
-        </select>
+        {/* BC-1: button-group (pill/chip) instead of native <select>. */}
+        <div className="flex flex-wrap gap-2">
+          {config.options.map((opt) => {
+            const selected = value === opt.value;
+            return (
+              <button
+                type="button"
+                key={opt.value}
+                onClick={() => onChange(opt.value)}
+                className={`px-3.5 py-2 text-sm rounded-lg border transition-colors min-h-[40px] ${
+                  selected
+                    ? "bg-[#0d3cfc] text-white border-[#0d3cfc]"
+                    : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
+                } focus:outline-none focus:ring-2 focus:ring-[#0d3cfc]/20`}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
     );
   }
