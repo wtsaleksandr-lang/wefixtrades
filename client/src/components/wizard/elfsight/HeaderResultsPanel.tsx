@@ -21,6 +21,7 @@ import type { TemplateCalculation } from '@shared/templatePresets';
 import type { ShellHeader, ShellResults } from './types';
 import { useSelection } from './selection';
 import FloatField from './FloatField';
+import InfoCue from './InfoCue';
 
 const p = platformTheme;
 
@@ -80,7 +81,13 @@ export default function HeaderResultsPanel({
         {...(headerSelected ? { 'data-selected-in-pane': '' } : {})}
         onClick={() => selection.select({ kind: 'header', id: '__header' })}
       >
-        <h3 className="qq-headres-title">Header</h3>
+        <h3 className="qq-headres-title">
+          Header
+          <InfoCue
+            testid="build-section-header"
+            text="The title bar visible above the form. Title falls back to your business name; subtitle is optional."
+          />
+        </h3>
       </header>
 
       <div className="qq-headres-grid">
@@ -127,7 +134,13 @@ export default function HeaderResultsPanel({
         {...(resultsSelected ? { 'data-selected-in-pane': '' } : {})}
         onClick={() => selection.select({ kind: 'results', id: '__results' })}
       >
-        <h3 className="qq-headres-title">Results</h3>
+        <h3 className="qq-headres-title">
+          Results
+          <InfoCue
+            testid="build-section-results"
+            text="The panel shown after the quote is calculated. Heading sits above the headline number; footnote is small print under it."
+          />
+        </h3>
       </header>
 
       <div className="qq-headres-grid">
