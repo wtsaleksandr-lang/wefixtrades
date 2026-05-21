@@ -33,7 +33,7 @@ import { apiRequest } from '@/lib/queryClient';
 import { platformTheme } from '@/theme/platformTheme';
 import { dashboardTheme } from '@/theme/dashboardTheme';
 import {
-  buildBlankPreviewConfig, getTemplatePreset,
+  buildBlankPreviewConfig, getTemplatePreset, deriveStyleFromCategory,
   type TemplateField, type TemplateCalculation, type TemplateConfig,
 } from '@shared/templatePresets';
 import AIBubble from './AIBubble';
@@ -395,9 +395,13 @@ export default function WizardShell({ embed = false }: Props) {
       // preset.style block is silently dropped on apply and the user only
       // sees the template's intended look AFTER save. Style fields the
       // template doesn't set fall through to the existing shell defaults.
-      const nextStyle = preset.style
-        ? { ...DEFAULT_SHELL_STYLE, ...(preset.style as typeof s.style) }
-        : s.style;
+      // W-BB-2 — when a template DOESN'T ship its own `style`, fall back
+      // to a category-derived `AdvStyle` so the 44 templates that aren't
+      // AS-1c-styled still pick up a distinct per-category visual identity
+      // (gradient bg, accent, result-panel emphasis, animations) in the
+      // wizard preview. Templates with explicit `style` keep it untouched.
+      const presetStyle = preset.style ?? deriveStyleFromCategory(preset);
+      const nextStyle = { ...DEFAULT_SHELL_STYLE, ...(presetStyle as typeof s.style) };
       return {
         ...s,
         activeTemplateId: preset.id,

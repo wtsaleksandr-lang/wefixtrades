@@ -2960,8 +2960,147 @@ export interface AdvancedConfigShape {
   numberFormat?: AdvNumberFormat;
 }
 
+/* ─── W-BB-2 — Per-category visual identity (derived at load time) ───
+ *
+ * The three AS-1c templates (junk_removal_quote, window_replacement_quote,
+ * mold_remediation_quote) ship explicit `style:` blocks and KEEP them — the
+ * derivation helper is only called as a fallback inside `toAdvancedConfig`
+ * when `template.style` is absent.
+ *
+ * Palette table mirrors the visual treatment specified by Wave AP-1
+ * (`client/src/lib/categoryStyles.ts`). It is duplicated here intentionally
+ * — `shared/` cannot import from `client/`, and keeping the table in
+ * `shared/` makes it the source of truth for the renderer; the client
+ * gallery palette stays in sync via the cross-checked entries.
+ */
+export type DerivedCategoryId =
+  | 'automotive' | 'construction' | 'cleaning' | 'home-improvement'
+  | 'emergency' | 'outdoor' | 'professional' | 'default';
+
+interface DerivedCategoryPalette {
+  bgFromHex: string;
+  bgToHex: string;
+  accent: string;
+  urgency: 'low' | 'medium' | 'high';
+  animationStyle: AdvStepTransition;
+  headingWeight: AdvHeadingWeight;
+  fontFamily: AdvFontFamily;
+}
+
+const DERIVED_CATEGORY_PALETTES: Record<DerivedCategoryId, DerivedCategoryPalette> = {
+  automotive: {
+    bgFromHex: '#0f172a', bgToHex: '#1e293b', accent: '#fb923c',
+    urgency: 'high', animationStyle: 'slide-fade',
+    headingWeight: 800, fontFamily: 'geist',
+  },
+  construction: {
+    bgFromHex: '#1c1917', bgToHex: '#292524', accent: '#f59e0b',
+    urgency: 'medium', animationStyle: 'slide',
+    headingWeight: 700, fontFamily: 'satoshi',
+  },
+  cleaning: {
+    bgFromHex: '#ecfdf5', bgToHex: '#d1fae5', accent: '#10b981',
+    urgency: 'low', animationStyle: 'fade',
+    headingWeight: 600, fontFamily: 'jakarta',
+  },
+  'home-improvement': {
+    bgFromHex: '#f0f9ff', bgToHex: '#dbeafe', accent: '#2563eb',
+    urgency: 'medium', animationStyle: 'fade',
+    headingWeight: 700, fontFamily: 'inter',
+  },
+  emergency: {
+    bgFromHex: '#fef3c7', bgToHex: '#fed7aa', accent: '#dc2626',
+    urgency: 'high', animationStyle: 'slide-fade',
+    headingWeight: 800, fontFamily: 'manrope',
+  },
+  outdoor: {
+    bgFromHex: '#f0fdf4', bgToHex: '#d1fae5', accent: '#16a34a',
+    urgency: 'low', animationStyle: 'slide',
+    headingWeight: 700, fontFamily: 'jakarta',
+  },
+  professional: {
+    bgFromHex: '#faf5ff', bgToHex: '#ede9fe', accent: '#7c3aed',
+    urgency: 'medium', animationStyle: 'fade',
+    headingWeight: 600, fontFamily: 'satoshi',
+  },
+  default: {
+    bgFromHex: '#f1f5f9', bgToHex: '#e2e8f0', accent: '#475569',
+    urgency: 'low', animationStyle: 'fade',
+    headingWeight: 600, fontFamily: 'system',
+  },
+};
+
+/** Collapse the wider `category` string set down to one of the 7 visual
+ *  families used by the live renderer. Mirrors the gallery's
+ *  `getCategoryStyle()` in `client/src/lib/categoryStyles.ts`. */
+export function resolveDerivedCategoryId(category: string | undefined): DerivedCategoryId {
+  if (!category) return 'default';
+  const c = category.toLowerCase();
+  if (c.includes('automotive') || c.includes('moving') || c.includes('mechanical')) return 'automotive';
+  if (c.includes('construction') || c.includes('driveway') || c.includes('renovation')) return 'construction';
+  if (c.includes('cleaning')) return 'cleaning';
+  if (c.includes('home improvement') || c.includes('hvac')) return 'home-improvement';
+  if (c.includes('emergency') || c.includes('restoration') || c.includes('repair')) return 'emergency';
+  if (c.includes('outdoor') || c.includes('renewable')) return 'outdoor';
+  if (c.includes('professional') || c.includes('photography') || c.includes('specialty')) return 'professional';
+  return 'default';
+}
+
+/** Fixed rotation so two templates within the same category don't read as
+ *  identical. Indexed by template position within its category. */
+const GRADIENT_DIRECTION_ROTATION: AdvBgGradientDirection[] = [
+  'to bottom right', 'to bottom', 'to bottom left', 'radial',
+];
+
+/** Compute a deterministic in-category index for a given template id —
+ *  by hashing the id into 0..N so a template always lands on the same
+ *  gradient direction across reloads. */
+function indexFromId(id: string): number {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) {
+    h = ((h << 5) - h + id.charCodeAt(i)) | 0;
+  }
+  return Math.abs(h);
+}
+
+/**
+ * W-BB-2 — derive a full `AdvStyle` from a template's `category` field.
+ *
+ * Called by `toAdvancedConfig` ONLY when the template doesn't carry its own
+ * `style` block, so the 3 AS-1c templates remain untouched.
+ *
+ * Per-category palette + per-template gradient direction variation, so the
+ * 44 derived templates feel distinctly different without hand-editing each
+ * one.
+ */
+export function deriveStyleFromCategory(t: Pick<TemplateConfig, 'id' | 'category'>): AdvStyle {
+  const palette = DERIVED_CATEGORY_PALETTES[resolveDerivedCategoryId(t.category)];
+  const direction =
+    GRADIENT_DIRECTION_ROTATION[indexFromId(t.id) % GRADIENT_DIRECTION_ROTATION.length];
+  return {
+    bgMode: 'gradient',
+    bgGradient: { from: palette.bgFromHex, to: palette.bgToHex, direction },
+    resultPanel: {
+      accentOverride: palette.accent,
+      emphasis: palette.urgency === 'high' ? 'bold' : 'normal',
+      border: palette.urgency === 'high' ? 'accent-tinted' : 'subtle',
+    },
+    animations: {
+      step_transition: palette.animationStyle,
+      duration_ms: 250,
+      reduced_motion_respect: true,
+    },
+    headingWeight: palette.headingWeight,
+    fontFamily: palette.fontFamily,
+  };
+}
+
 /** Produce a persistable `calculator_settings.advanced` object from a template. */
 export function toAdvancedConfig(t: TemplateConfig): AdvancedConfigShape {
+  // W-BB-2 — templates with their own `style` block (the 3 AS-1c samples)
+  // KEEP that block verbatim; everything else gets a category-derived style
+  // so the gallery isn't 44 identical-looking white cards.
+  const style = t.style ?? deriveStyleFromCategory(t);
   return {
     enabled: true,
     theme: t.theme,
@@ -2972,10 +3111,7 @@ export function toAdvancedConfig(t: TemplateConfig): AdvancedConfigShape {
     header: t.header,
     ...(t.results ? { results: t.results } : {}),
     ...(t.defaultIcon ? { defaultIcon: t.defaultIcon } : {}),
-    // W-AS-1 — propagate template-level Style so the rendered widget picks
-    // up the template's visual identity (accent / surface / typography /
-    // logo placement) instead of falling back to the bare theme.
-    ...(t.style ? { style: t.style } : {}),
+    style,
   };
 }
 

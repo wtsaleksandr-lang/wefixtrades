@@ -37,6 +37,19 @@ export type CtaShape =
   | 'rounded-sq'   // 6px radius — industrial / construction
   | 'squared';     // 2px radius — minimal professional
 
+/**
+ * W-BB-2 — urgency, animation, weight + font tokens used by
+ * `deriveStyleFromCategory` to produce a full `AdvStyle` for templates that
+ * don't ship with an explicit per-template style. Optional on the type so the
+ * existing `default` family doesn't have to set them (it falls back to its
+ * own subtle baseline inside `deriveStyleFromCategory`).
+ */
+export type CategoryUrgency = 'low' | 'medium' | 'high';
+export type CategoryAnimation = 'fade' | 'slide' | 'slide-fade';
+export type CategoryHeadingWeight = 600 | 700 | 800;
+export type CategoryFontFamily =
+  | 'system' | 'jakarta' | 'satoshi' | 'geist' | 'inter' | 'manrope';
+
 export interface CategoryStyle {
   id: CategoryStyleId;
   /** Hero background colour — fills the top ~55% of the mockup. */
@@ -58,6 +71,21 @@ export interface CategoryStyle {
   ctaShape: CtaShape;
   /** Whether the hero is on a dark base (icon needs light tinting). */
   isDark: boolean;
+  /* ─── W-BB-2 — derived-style tokens (live widget identity) ─── */
+  /** Gradient start colour for the widget body in the live renderer. */
+  bgFromHex?: string;
+  /** Gradient end colour for the widget body in the live renderer. */
+  bgToHex?: string;
+  /** Accent colour applied to the result panel. */
+  accent?: string;
+  /** Urgency tier — drives result-panel emphasis + border choice. */
+  urgency?: CategoryUrgency;
+  /** Step-transition animation style. */
+  animationStyle?: CategoryAnimation;
+  /** Heading font-weight (600 / 700 / 800). */
+  headingWeight?: CategoryHeadingWeight;
+  /** Font-family token consumed by the widget renderer. */
+  fontFamily?: CategoryFontFamily;
 }
 
 const STYLES: Record<CategoryStyleId, CategoryStyle> = {
@@ -73,6 +101,13 @@ const STYLES: Record<CategoryStyleId, CategoryStyle> = {
     hero: 'dark-mode',
     ctaShape: 'pill',
     isDark: true,
+    bgFromHex: '#0f172a',
+    bgToHex: '#1e293b',
+    accent: '#fb923c',
+    urgency: 'high',
+    animationStyle: 'slide-fade',
+    headingWeight: 800,
+    fontFamily: 'geist',
   },
   construction: {
     id: 'construction',
@@ -86,6 +121,13 @@ const STYLES: Record<CategoryStyleId, CategoryStyle> = {
     hero: 'diagonal-stripe',
     ctaShape: 'rounded-sq',
     isDark: true,
+    bgFromHex: '#1c1917',
+    bgToHex: '#292524',
+    accent: '#f59e0b',
+    urgency: 'medium',
+    animationStyle: 'slide',
+    headingWeight: 700,
+    fontFamily: 'satoshi',
   },
   cleaning: {
     id: 'cleaning',
@@ -99,6 +141,13 @@ const STYLES: Record<CategoryStyleId, CategoryStyle> = {
     hero: 'sparkle',
     ctaShape: 'pill',
     isDark: false,
+    bgFromHex: '#ecfdf5',
+    bgToHex: '#d1fae5',
+    accent: '#10b981',
+    urgency: 'low',
+    animationStyle: 'fade',
+    headingWeight: 600,
+    fontFamily: 'jakarta',
   },
   'home-improvement': {
     id: 'home-improvement',
@@ -112,6 +161,13 @@ const STYLES: Record<CategoryStyleId, CategoryStyle> = {
     hero: 'grid-pattern',
     ctaShape: 'pill',
     isDark: false,
+    bgFromHex: '#f0f9ff',
+    bgToHex: '#dbeafe',
+    accent: '#2563eb',
+    urgency: 'medium',
+    animationStyle: 'fade',
+    headingWeight: 700,
+    fontFamily: 'inter',
   },
   emergency: {
     id: 'emergency',
@@ -125,6 +181,13 @@ const STYLES: Record<CategoryStyleId, CategoryStyle> = {
     hero: 'chevrons',
     ctaShape: 'pill',
     isDark: true,
+    bgFromHex: '#fef3c7',
+    bgToHex: '#fed7aa',
+    accent: '#dc2626',
+    urgency: 'high',
+    animationStyle: 'slide-fade',
+    headingWeight: 800,
+    fontFamily: 'manrope',
   },
   outdoor: {
     id: 'outdoor',
@@ -138,6 +201,13 @@ const STYLES: Record<CategoryStyleId, CategoryStyle> = {
     hero: 'leaf',
     ctaShape: 'pill',
     isDark: true,
+    bgFromHex: '#f0fdf4',
+    bgToHex: '#d1fae5',
+    accent: '#16a34a',
+    urgency: 'low',
+    animationStyle: 'slide',
+    headingWeight: 700,
+    fontFamily: 'jakarta',
   },
   professional: {
     id: 'professional',
@@ -151,6 +221,13 @@ const STYLES: Record<CategoryStyleId, CategoryStyle> = {
     hero: 'geometric',
     ctaShape: 'squared',
     isDark: false,
+    bgFromHex: '#faf5ff',
+    bgToHex: '#ede9fe',
+    accent: '#7c3aed',
+    urgency: 'medium',
+    animationStyle: 'fade',
+    headingWeight: 600,
+    fontFamily: 'satoshi',
   },
   default: {
     id: 'default',
