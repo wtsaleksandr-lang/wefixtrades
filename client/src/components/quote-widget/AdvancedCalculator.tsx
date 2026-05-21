@@ -18,37 +18,16 @@ import {
 import { eff } from './designTokens';
 import { resolveWidgetTheme, type WidgetTheme } from './widgetThemes';
 import { useCountUp } from './useCountUp';
-// Wave W-AH-2 — explicit named imports so Vite tree-shakes the 1000+ lucide
-// icons down to just the ~35 we actually use as template default-logo icons.
-// Do NOT switch to `import * as LucideIcons from 'lucide-react'` — that pulls
-// the entire icon set into the bundle.
-import {
-  Bath, BatteryCharging, Biohazard, Bug, Building2, Camera, Car, ChefHat,
-  ClipboardCheck, Construction, DoorOpen, Droplet, Droplets, Fence, Flame,
-  Globe, Hammer, Home, KeyRound, Leaf, PackageOpen, PaintBucket, Paintbrush2,
-  RectangleHorizontal, Refrigerator, Sparkles, Sun, Thermometer, Trash2,
-  TreeDeciduous, Trees, Truck, Waves, Wrench, Zap,
-} from 'lucide-react';
-
-/**
- * Wave W-AH-2 — Lucide icon map for the widget header's default-logo fallback.
- * Templates declare a `defaultIcon` name in `shared/templatePresets.ts`; when
- * the merchant hasn't uploaded a logo, we render the matching icon tinted
- * with the template's accent. Listed explicitly (not `import *`) so tree-
- * shaking strips every icon we don't use.
- */
-const DEFAULT_LOGO_ICONS = {
-  Bath, BatteryCharging, Biohazard, Bug, Building2, Camera, Car, ChefHat,
-  ClipboardCheck, Construction, DoorOpen, Droplet, Droplets, Fence, Flame,
-  Globe, Hammer, Home, KeyRound, Leaf, PackageOpen, PaintBucket, Paintbrush2,
-  RectangleHorizontal, Refrigerator, Sparkles, Sun, Thermometer, Trash2,
-  TreeDeciduous, Trees, Truck, Waves, Wrench, Zap,
-} as const;
+// Wave W-AH-2 / W-AI-3a — canonical icon map lives in `client/src/data/quoteQuickIcons.ts`
+// so the admin trade editor's icon picker shares the exact same finite set.
+// Explicit named imports keep Vite's tree-shaker happy — DO NOT switch to
+// `import * as LucideIcons from 'lucide-react'` (pulls the full set into the bundle).
+import { getQuoteQuickIcon } from '@/data/quoteQuickIcons';
 
 function DefaultLogoIcon({
   name, accent, radius,
 }: { name: string; accent: string; radius: number | string }) {
-  const Icon = (DEFAULT_LOGO_ICONS as Record<string, typeof Truck | undefined>)[name];
+  const Icon = getQuoteQuickIcon(name);
   if (!Icon) return null;
   return (
     <div

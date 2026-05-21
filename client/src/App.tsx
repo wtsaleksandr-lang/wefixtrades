@@ -145,6 +145,8 @@ import TradelineTemplatesPage from "@/pages/admin/TradelineTemplatesPage";
 import TradelineLearningPage from "@/pages/admin/TradelineLearningPage";
 import MobilePreviewPage from "@/pages/admin/MobilePreview";
 import QuoteQuickPage from "@/pages/admin/QuoteQuickPage";
+import QuoteQuickTradesPage from "@/pages/admin/QuoteQuickTradesPage";
+import QuoteQuickTradeDetailPage from "@/pages/admin/QuoteQuickTradeDetailPage";
 import BookingPage from "@/pages/public/BookingPage";
 import PayInvoicePage from "@/pages/public/PayInvoicePage";
 import QuoteSnapshotPage from "@/pages/quote-snapshot";
@@ -192,6 +194,8 @@ function Router() {
       <Route path="/admin/tradeline/learning">{() => <RequirePortal><TradelineLearningPage /></RequirePortal>}</Route>
       <Route path="/admin/mobile-preview">{() => <RequirePortal><MobilePreviewPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/quotequick">{() => <RequirePortal><QuoteQuickPage /></RequirePortal>}</Route>
+      <Route path="/admin/quotequick/trades/:id">{(params) => <RequirePortal><QuoteQuickTradeDetailPage tradeId={params.id} /></RequirePortal>}</Route>
+      <Route path="/admin/quotequick/trades">{() => <RequirePortal><QuoteQuickTradesPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/support/:id">{() => <RequirePortal><SupportTicketDetailPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/support">{() => <RequirePortal><SupportInboxPage /></RequirePortal>}</Route>
       <Route path="/admin/notices">{() => <RequirePortal><AdminNoticesPage /></RequirePortal>}</Route>
