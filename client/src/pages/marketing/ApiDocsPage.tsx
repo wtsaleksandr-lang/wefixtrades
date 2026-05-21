@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
-import { Copy, Check, ChevronRight, Code, Key, Gauge, AlertCircle, Webhook, Tag, Package, FileText, LifeBuoy, Rocket, Terminal, BookOpen, ExternalLink } from "lucide-react";
+import { Copy, Check, ChevronRight, Code, Key, Gauge, AlertCircle, Webhook, Tag, Package, FileText, LifeBuoy, Rocket, Terminal, BookOpen, ExternalLink, type LucideIcon } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { usePageMeta } from "@/lib/usePageMeta";
 import { mkt, colors } from "@/theme/tokens";
@@ -30,7 +30,7 @@ const C = {
 interface NavSection {
   id: string;
   label: string;
-  icon: React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
+  icon: LucideIcon;
   subs?: { id: string; label: string }[];
 }
 
