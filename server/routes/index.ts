@@ -78,6 +78,8 @@ import { registerQuoteSnapshotRoutes } from "./quoteSnapshotRoutes";
 import { registerAdminQuoteQuickTemplatesRoutes } from "./adminQuoteQuickTemplatesRoutes";
 import { registerAdminQuoteQuickTradesRoutes } from "./adminQuoteQuickTradesRoutes";
 import { registerQuoteQuickPublicRoutes } from "./quotequickPublicRoutes";
+import { registerAdminApiPlatformRoutes } from "./adminApiPlatformRoutes";
+import { registerPortalApiKeysRoutes } from "./portalApiKeysRoutes";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -162,6 +164,8 @@ export async function registerRoutes(
   registerAdminQuoteQuickTemplatesRoutes(app);
   registerAdminQuoteQuickTradesRoutes(app);
   registerQuoteQuickPublicRoutes(app);
+  registerAdminApiPlatformRoutes(app);
+  registerPortalApiKeysRoutes(app);
 
   return httpServer;
 }
