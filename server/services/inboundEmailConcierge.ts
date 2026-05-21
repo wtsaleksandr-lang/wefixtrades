@@ -24,6 +24,7 @@
 
 import { streamChat, getModel } from "./aiService";
 import { getAiChannelSettings } from "./aiChannelSettings";
+import { aiChannelGateOn } from "./aiChannelGate";
 import { notifyFounder } from "./founderNotify";
 import { sendSupportEmail } from "../lib/supportEmail";
 import { sendAdminNewTicketAlert } from "../lib/supportTicketEmails";
@@ -282,8 +283,13 @@ export async function processInboundEmail(ticketId: number, isNewTicket: boolean
     }
 
     const channels = await getAiChannelSettings();
+    // W-BA-1: per-channel emergency kill switch must also be ON. Fails CLOSED
+    // — if we can't read the gate, we don't respond.
+    const channelGateOn = await aiChannelGateOn("email");
     const conciergeActive =
-      process.env.INBOUND_EMAIL_AI_ENABLED === "true" && channels.email_enabled;
+      process.env.INBOUND_EMAIL_AI_ENABLED === "true" &&
+      channels.email_enabled &&
+      channelGateOn;
 
     if (!conciergeActive) {
       // AI off — make sure a new inbound ticket still reaches the founder.

@@ -34,6 +34,7 @@ import {
   mintAccessToken,
   voiceConfigMissingKeys,
 } from "../lib/twilioVoiceAccessToken";
+import { aiChannelGateOn } from "../services/aiChannelGate";
 import { createLogger } from "../lib/logger";
 
 const log = createLogger("TwilioComms");
@@ -333,6 +334,17 @@ export function registerTwilioCommsRoutes(app: Express): void {
     const sid = req.body?.MessageSid ?? "";
     log.info("inbound SMS webhook", { from, sid, len: body.length });
     res.set("Content-Type", "text/xml");
+
+    // W-BA-1: per-channel emergency kill switch. When AI is OFF on SMS, reply
+    // with the team-will-follow-up auto-reply so the customer isn't ghosted.
+    // (The current TwiML body is a no-op — once SMS-AI is wired in, the AI
+    // branch belongs in the `gateOn` arm. Gate fails CLOSED.)
+    const gateOn = await aiChannelGateOn("sms");
+    if (!gateOn) {
+      return res.send(
+        `<Response><Message>Thanks — our team will follow up shortly.</Message></Response>`,
+      );
+    }
     res.send("<Response/>");
   });
 

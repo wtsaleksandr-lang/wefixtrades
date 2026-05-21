@@ -22,6 +22,7 @@ import { requireClient } from "../auth";
 import { chatRateLimiter } from "../services/rateLimiter";
 import { assistantSync } from "../services/assistant";
 import { selectTemplate } from "../services/tradelineTemplates";
+import { aiChannelGateOn } from "../services/aiChannelGate";
 import { createLogger } from "../lib/logger";
 
 const log = createLogger("Widget");
@@ -177,6 +178,20 @@ export function registerTradelineWidgetRoutes(app: Express) {
 
       const parsed = chatBody.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
+
+      // W-BA-1: per-channel emergency kill switch. When the chat channel is
+      // gated OFF, return the offline notice instead of invoking the AI.
+      if (!(await aiChannelGateOn("chat"))) {
+        const origin = req.headers.origin;
+        if (origin) {
+          res.set("Access-Control-Allow-Origin", origin);
+          res.set("Vary", "Origin");
+        }
+        return res.json({
+          reply: "AI is currently offline; we'll respond shortly.",
+          sessionId: parsed.data.sessionId || `widget-${parsed.data.siteKey}-offline`,
+        });
+      }
 
       const [row] = await db
         .select({

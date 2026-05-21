@@ -41,6 +41,7 @@ import {
   Bell,
   Plug,
   ShieldOff,
+  Radio,
 } from "lucide-react";
 import AdminCopilot, { type AdminPageContext } from "./AdminCopilot";
 import { useAuth } from "@/hooks/useAuth";
@@ -124,6 +125,8 @@ const SYSTEM_ITEMS = [
   { label: "Activity Audit", href: "/admin/audit-log", icon: FileText },
   { label: "AI Budget", href: "/admin/crm/ai-budget", icon: BrainCircuit },
   { label: "AI Gates", href: "/admin/ai-gates", icon: ShieldOff },
+  /* W-BA-1 — per-channel emergency kill switches (email/SMS/voice/chat). */
+  { label: "AI Channels", href: "/admin/ai-channels", icon: Radio },
   /* W-AV-1 — Business Operator AI escalations + trust ladder + kill switch. */
   { label: "AI Activity", href: "/admin/ai-activity", icon: BrainCircuit },
 ];
