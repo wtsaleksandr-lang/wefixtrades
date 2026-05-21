@@ -56,7 +56,10 @@ export type AdapterFailureReason =
    * platform's cooldown manager says we're rate-limited from a prior
    * request. The queue worker treats it specially: leave queued, do
    * NOT increment attempts, retry next tick. */
-  | "cooling_down";
+  | "cooling_down"
+  /* W-AX-2: recipient is on the unsubscribe list. Email adapter drops
+   * with audit; queue worker treats as terminal (no retry). */
+  | "recipient_unsubscribed";
 
 export type PublishResult =
   | { ok: true; externalId?: string | number; externalUrl?: string; raw?: Record<string, unknown> }
