@@ -2419,6 +2419,10 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     layout: 'single-column', theme: 'midnight', defaultIcon: 'Trash2',
     header: { title: 'Book a Junk Pickup in 60 Seconds', subtitle: 'We load, haul, and sweep up · Most items donated or recycled · Same-day pickup available', align: 'left' },
     // W-AS-1 — Action / Truck / Bold-Industrial visual identity.
+    // W-AS-1b — extended with AO-6c Brand Studio fields: bgGradient body,
+    // accent-tinted bold result panel. (Note: `animations` is not yet a
+    // schema field on AdvStyle — wave-as1c will add it; for now the
+    // identity comes from gradient + result-panel emphasis + accent border.)
     style: {
       accent: '#fb923c',        // orange-400 bold action
       secondary: '#facc15',     // yellow-400 high-energy
@@ -2437,6 +2441,16 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
       fontSize: 'medium',
       logoPlacement: 'top-left',
       logoSize: 'medium',
+      // W-AS-1b — AO-6c Brand Studio: dark industrial diagonal gradient
+      // body + bold orange-accented result panel.
+      bgMode: 'gradient',
+      bgGradient: { from: '#0f172a', to: '#1e293b', direction: 'linear-down' },
+      bgImageTint: 0,
+      resultPanel: {
+        accentOverride: '#fb923c',
+        emphasis: 'bold',
+        border: 'accent',
+      },
     },
     fields: [
       { id: 'load_size', name: 'Load Size', label: 'How much junk do you have?', type: 'select',
@@ -2473,6 +2487,8 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     layout: 'two-column', theme: 'light', defaultIcon: 'RectangleHorizontal',
     header: { title: 'Get Your Window Replacement Quote', subtitle: 'ENERGY STAR-certified installers · Lifetime product warranty · Free in-home measurement', align: 'left' },
     // W-AS-1 — Clean / Glass / Professional visual identity.
+    // W-AS-1b — extended with AO-6c Brand Studio fields: airy
+    // sky-to-lavender gradient body + subtle indigo result panel.
     style: {
       accent: '#4f46e5',        // indigo-600 trustworthy
       secondary: '#6366f1',     // indigo-500
@@ -2491,6 +2507,16 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
       fontSize: 'medium',
       logoPlacement: 'top-center',
       logoSize: 'medium',
+      // W-AS-1b — AO-6c Brand Studio: clean glass gradient body, normal
+      // indigo-accented result panel with hairline border.
+      bgMode: 'gradient',
+      bgGradient: { from: '#f8fafc', to: '#e0e7ff', direction: 'linear-down' },
+      bgImageTint: 0,
+      resultPanel: {
+        accentOverride: '#4f46e5',
+        emphasis: 'normal',
+        border: 'subtle',
+      },
     },
     fields: [
       { id: 'count', name: 'Count', label: 'Number of windows', type: 'number',
@@ -2526,6 +2552,8 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     layout: 'two-column', theme: 'forest', defaultIcon: 'Biohazard',
     header: { title: 'Get Your Mold Remediation Estimate', subtitle: 'IICRC-certified · EPA-protocol removal · Insurance documentation provided', align: 'left' },
     // W-AS-1 — Urgent / Warning / Trust visual identity.
+    // W-AS-1b — extended with AO-6c Brand Studio fields: warm amber-to-peach
+    // gradient body + bold red-accented result panel.
     style: {
       accent: '#dc2626',        // red-600 urgency
       secondary: '#f59e0b',     // amber-500 warning emphasis
@@ -2544,6 +2572,16 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
       fontSize: 'medium',
       logoPlacement: 'top-left',
       logoSize: 'medium',
+      // W-AS-1b — AO-6c Brand Studio: warm urgent amber→peach gradient
+      // body, bold red-accented result panel with accent border.
+      bgMode: 'gradient',
+      bgGradient: { from: '#fef3c7', to: '#fed7aa', direction: 'linear-down' },
+      bgImageTint: 0,
+      resultPanel: {
+        accentOverride: '#dc2626',
+        emphasis: 'bold',
+        border: 'accent',
+      },
     },
     fields: [
       { id: 'area', name: 'Area', label: 'Affected area (sqft)', type: 'slider',

@@ -387,6 +387,17 @@ export default function WizardShell({ embed = false }: Props) {
       const nextCalcs = preset.calculations.map((c) => ({ ...c }));
       // Find the headline calc id (if the preset names a specific one).
       const headlineCalc = nextCalcs.find((c) => c.name === preset.result_calc);
+      // W-AS-1b — when a template ships with a `style` block (W-AS-1 sample
+      // templates + every Brand Studio-styled future template), apply it to
+      // the shell state so the editor PreviewPane renders the template's
+      // visual identity (gradient bg, accent colour, result-panel emphasis,
+      // etc.) instead of falling back to the bare theme. Without this the
+      // preset.style block is silently dropped on apply and the user only
+      // sees the template's intended look AFTER save. Style fields the
+      // template doesn't set fall through to the existing shell defaults.
+      const nextStyle = preset.style
+        ? { ...DEFAULT_SHELL_STYLE, ...(preset.style as typeof s.style) }
+        : s.style;
       return {
         ...s,
         activeTemplateId: preset.id,
@@ -402,6 +413,7 @@ export default function WizardShell({ embed = false }: Props) {
           footnote: preset.results?.footnote,
         },
         resultCalcId: headlineCalc?.id,
+        style: nextStyle,
       };
     });
   }, []);
