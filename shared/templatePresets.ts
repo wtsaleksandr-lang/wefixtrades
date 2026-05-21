@@ -2604,7 +2604,90 @@ export interface AdvStyle {
   bodyWeight?: AdvBodyWeight;
   /** W-AO-6b — base font size (small=14px / medium=16px / large=18px). */
   fontSize?: AdvFontSize;
+
+  /* ─── W-AO-6c — Brand Studio Wave 1 (Pro tier) ───────────────────
+   *
+   * All Brand Studio fields are OPTIONAL and server-side tier-gated: a
+   * free-tier calculator's update is stripped of these keys before
+   * persistence (calculatorRoutes.ts). The renderer ALSO ignores them
+   * when `planTier !== 'pro'/'business'` — defense in depth.
+   */
+
+  /** Raw CSS injected inside a scoped `<style>` tag at the widget root.
+   *  Author-supplied; never executed as JS. Scoped via the unique
+   *  `.qq-widget-${calculatorId}` class so it doesn't escape into the
+   *  host page. */
+  customCss?: string;
+
+  /** Background mode for the widget body. Defaults to `'solid'` (uses
+   *  the existing `background` colour token). `'gradient'` reads
+   *  `bgGradient`; `'image'` reads `bgImageUrl` + `bgImageTint`. */
+  bgMode?: AdvBgMode;
+
+  /** Two-stop gradient + direction used when `bgMode === 'gradient'`. */
+  bgGradient?: AdvBgGradient;
+
+  /** Data URL (or remote URL) of the background image used when
+   *  `bgMode === 'image'`. Reuses the existing logo-upload pipeline. */
+  bgImageUrl?: string;
+
+  /** Tint overlay opacity for the image background, 0-50 (percent). The
+   *  overlay tint uses the calculator's `background` colour so the brand
+   *  shows through. */
+  bgImageTint?: number;
+
+  /** Result-panel overrides — colours / emphasis / border. Optional;
+   *  every sub-field falls through to the resolved theme default. */
+  resultPanel?: AdvResultPanel;
 }
+
+/** W-AO-6c — Brand Studio background mode. */
+export type AdvBgMode = 'solid' | 'gradient' | 'image';
+
+/** W-AO-6c — gradient direction shorthand consumed by the renderer. */
+export type AdvBgGradientDirection =
+  | 'linear-up' | 'linear-down' | 'linear-left' | 'linear-right' | 'radial';
+
+/** W-AO-6c — two-stop gradient + direction. */
+export interface AdvBgGradient {
+  from?: string;
+  to?: string;
+  direction?: AdvBgGradientDirection;
+}
+
+/** W-AO-6c — result-panel emphasis token. */
+export type AdvResultEmphasis = 'subtle' | 'normal' | 'bold';
+
+/** W-AO-6c — result-panel border treatment. */
+export type AdvResultBorder = 'none' | 'subtle' | 'accent';
+
+/** W-AO-6c — result-panel overrides. Every field optional; absent →
+ *  the existing renderer defaults win. */
+export interface AdvResultPanel {
+  /** Override accent colour for the headline value + dividers. */
+  accentOverride?: string;
+  /** Override the result-panel background (defaults to `resultsBg`). */
+  bgOverride?: string;
+  /** Headline value emphasis — `'normal'` (default), `'subtle'` or `'bold'`. */
+  emphasis?: AdvResultEmphasis;
+  /** Border treatment — `'subtle'` (default), `'none'`, `'accent'`. */
+  border?: AdvResultBorder;
+}
+
+/**
+ * W-AO-6c — list of Brand Studio fields used by the server-side tier
+ * gate to strip free-tier patches before persistence. Kept here (not in
+ * the route) so the shape stays the source of truth.
+ */
+export const BRAND_STUDIO_STYLE_KEYS = [
+  'customCss',
+  'bgMode',
+  'bgGradient',
+  'bgImageUrl',
+  'bgImageTint',
+  'resultPanel',
+] as const;
+export type BrandStudioStyleKey = (typeof BRAND_STUDIO_STYLE_KEYS)[number];
 
 /**
  * Brand defaults — Wave H5. Used by the StyleTab and by
@@ -2632,7 +2715,12 @@ type AdvStyleOptionalOnly =
   | 'widgetWidthDesktop' | 'widgetWidthMobile'
   | 'secondary' | 'surface' | 'border' | 'success' | 'error'
   | 'logoPlacement' | 'logoSize'
-  | 'headingWeight' | 'bodyWeight' | 'fontSize';
+  | 'headingWeight' | 'bodyWeight' | 'fontSize'
+  // W-AO-6c — Brand Studio fields. All Pro-tier only, all optional and
+  // intentionally absent from `DEFAULT_ADV_STYLE` so a fresh calculator
+  // renders identically to the pre-AO-6c build.
+  | 'customCss' | 'bgMode' | 'bgGradient' | 'bgImageUrl' | 'bgImageTint'
+  | 'resultPanel';
 
 export const DEFAULT_ADV_STYLE: Required<Omit<AdvStyle, AdvStyleOptionalOnly>> = {
   accent: '#0d3cfc',

@@ -15,6 +15,7 @@ import {
   normalizeLayout, type TemplateLayout,
   type AdvStyle, type AdvFontFamily, type AdvFieldStyle, type AdvWidgetWidth,
   type AdvLogoPlacement, type AdvLogoSize, type AdvFontSize,
+  type AdvBgGradientDirection, type AdvResultEmphasis, type AdvResultBorder,
 } from '@shared/templatePresets';
 import { eff } from './designTokens';
 import { resolveWidgetTheme, type WidgetTheme } from './widgetThemes';
@@ -234,6 +235,55 @@ interface Props {
    *  icon next to the calculator title so the user knows it's editable.
    *  Public hosted page + actual customer embeds default to false. */
   editableTitle?: boolean;
+  /**
+   * W-AO-6c — the calculator owner's plan tier. Drives Brand Studio
+   * gating: when `planTier` is not Pro / Business / Starter the renderer
+   * ignores every Brand Studio field (customCss, bgMode/bgGradient/
+   * bgImage*, resultPanel) regardless of what's persisted. Defense in
+   * depth alongside the server-side strip in `calculatorRoutes.ts`.
+   */
+  planTier?: string;
+  /**
+   * W-AO-6c — unique id used to scope injected `customCss` to this
+   * widget instance via a `.qq-widget-${id}` root class. Falls back to a
+   * random suffix when absent (preview path) so the scoping rule still
+   * fires deterministically per mount.
+   */
+  calculatorId?: string | number;
+}
+
+/** W-AO-6c — Brand Studio is unlocked on Pro / Business (Starter is the
+ *  legacy alias of Pro). Mirrors the matrix used by the server-side
+ *  strip + the Settings tab brand-badge gate. */
+function isBrandStudioTier(planTier: string | undefined): boolean {
+  const t = (planTier ?? 'free').toLowerCase();
+  return t === 'pro' || t === 'business' || t === 'starter';
+}
+
+/** W-AO-6c — clamp the image-tint percent to 0..50 so a malformed
+ *  persisted value can't reach the renderer as a runaway opacity. */
+function clampTint(pct: number | undefined): number {
+  if (typeof pct !== 'number' || !isFinite(pct)) return 0;
+  return Math.max(0, Math.min(50, Math.round(pct)));
+}
+
+/** W-AO-6c — translate `AdvBgGradientDirection` into a CSS background
+ *  declaration that uses the two stops. Falls back to a sensible default
+ *  when an unknown direction sneaks in from a stored config. */
+function gradientCss(
+  from: string,
+  to: string,
+  direction: AdvBgGradientDirection | undefined,
+): string {
+  const dir = direction ?? 'linear-down';
+  switch (dir) {
+    case 'linear-up':    return `linear-gradient(to top, ${from}, ${to})`;
+    case 'linear-down':  return `linear-gradient(to bottom, ${from}, ${to})`;
+    case 'linear-left':  return `linear-gradient(to left, ${from}, ${to})`;
+    case 'linear-right': return `linear-gradient(to right, ${from}, ${to})`;
+    case 'radial':       return `radial-gradient(circle at 50% 50%, ${from}, ${to})`;
+    default:             return `linear-gradient(to bottom, ${from}, ${to})`;
+  }
 }
 
 type Answer = number | string | boolean | string[];
@@ -369,7 +419,25 @@ const groupHeaderStyle = (c: WidgetTheme): React.CSSProperties => ({
   marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.04em',
 });
 
-export default function AdvancedCalculator({ businessName, logoUrl, advanced, accentColor, editableTitle = false }: Props) {
+export default function AdvancedCalculator({
+  businessName, logoUrl, advanced, accentColor, editableTitle = false,
+  planTier, calculatorId,
+}: Props) {
+  // W-AO-6c — Brand Studio gate. When the owner isn't on Pro+ we IGNORE
+  // every Brand Studio field even if it's somehow persisted on the row.
+  // The server-side strip in `calculatorRoutes.ts` is the primary gate;
+  // this is defense in depth so a leaked / direct-database value can't
+  // bypass the upsell.
+  const brandStudioUnlocked = isBrandStudioTier(planTier);
+  const bs = brandStudioUnlocked ? (advanced.style ?? {}) : {};
+  const bsCustomCss = brandStudioUnlocked && typeof bs.customCss === 'string'
+    ? bs.customCss : '';
+  const bsBgMode = brandStudioUnlocked ? bs.bgMode : undefined;
+  const bsBgGradient = brandStudioUnlocked ? bs.bgGradient : undefined;
+  const bsBgImageUrl = brandStudioUnlocked ? bs.bgImageUrl : undefined;
+  const bsBgImageTint = clampTint(brandStudioUnlocked ? bs.bgImageTint : undefined);
+  const bsResultPanel = brandStudioUnlocked ? bs.resultPanel : undefined;
+
   // Resolve the base theme, then compose the optional `advanced.style`
   // overrides on top. The Wave H5 style slot wins where it sets a value;
   // absent fields fall through to the resolved theme (which itself already
@@ -551,8 +619,54 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
     [],
   );
 
+  // W-AO-6c — unique class to scope user-supplied customCss to this widget
+  // instance (e.g. `.qq-widget-123 .qq-w-input { ... }`). Falls back to a
+  // random suffix so the scope is still deterministic in preview / embed
+  // contexts where the calculatorId prop isn't threaded.
+  const widgetClass = useMemo(
+    () => 'qq-widget-' + (calculatorId !== undefined ? String(calculatorId) : gridId),
+    [calculatorId, gridId],
+  );
+
+  // W-AO-6c — body background composition. `bgMode === 'gradient' | 'image'`
+  // overrides the resolved theme's body `bg`; absent / `solid` falls through
+  // to the legacy behaviour so pre-AO-6c calculators render unchanged.
+  let bodyBackground: string = c.bg;
+  if (brandStudioUnlocked && bsBgMode === 'gradient') {
+    const from = bsBgGradient?.from || c.bg;
+    const to = bsBgGradient?.to || c.surface;
+    bodyBackground = gradientCss(from, to, bsBgGradient?.direction);
+  } else if (brandStudioUnlocked && bsBgMode === 'image' && bsBgImageUrl) {
+    // Compose a linear-gradient tint overlay on top of the image so the
+    // brand colour bleeds through at the configured opacity (0..50 %).
+    const tintAlpha = bsBgImageTint / 100;
+    const tintColor = bsBgImageTint > 0
+      ? hexToRgba(c.bg, tintAlpha) : 'transparent';
+    bodyBackground =
+      `linear-gradient(${tintColor}, ${tintColor}), url("${bsBgImageUrl}") center / cover no-repeat`;
+  }
+
+  // W-AO-6c — result-panel overrides. Each field is optional and falls
+  // through to the existing renderer default when absent. We compute the
+  // tokens here so the JSX block below stays readable.
+  const rpAccent = bsResultPanel?.accentOverride ?? accent;
+  const rpBg = bsResultPanel?.bgOverride ?? c.result;
+  const rpEmphasis: AdvResultEmphasis = bsResultPanel?.emphasis ?? 'normal';
+  const rpBorderMode: AdvResultBorder = bsResultPanel?.border ?? 'subtle';
+  const rpHeadlineWeight = rpEmphasis === 'bold' ? 900
+    : rpEmphasis === 'subtle' ? 600 : 800;
+  // Emphasis also nudges the headline font size — 0.9x for subtle, 1.1x for
+  // bold. Renderer keeps the existing clamp() for normal so legacy widgets
+  // look identical.
+  const rpHeadlineFontSize = rpEmphasis === 'bold'
+    ? 'clamp(30px, 6.2vw, 38px)'
+    : rpEmphasis === 'subtle'
+      ? 'clamp(22px, 4.6vw, 28px)'
+      : 'clamp(26px, 5.5vw, 34px)';
+
   return (
     <div
+      className={widgetClass}
       data-testid="advanced-calculator"
       data-field-style={fieldStyle}
       data-widget-width={widgetWidth ?? 'legacy'}
@@ -562,6 +676,8 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
       data-qq-width-scope={gridId}
       data-logo-placement={logoPlacement ?? 'legacy'}
       data-logo-size={style.logoSize ?? 'legacy'}
+      data-brand-studio={brandStudioUnlocked ? 'true' : 'false'}
+      data-bg-mode={brandStudioUnlocked ? (bsBgMode ?? 'solid') : 'solid'}
       style={{
         background: c.surface, borderRadius: radiusOuterPx,
         border: `1px solid ${c.border}`, boxShadow: c.shadow,
@@ -721,7 +837,7 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
       <div className={gridId} data-layout={layout} data-testid="advanced-body"
         data-component-name="Body"
         data-component-type="body"
-        style={{ background: c.bg }}>
+        style={{ background: bodyBackground }}>
         {/* Inputs */}
         <div
           className={`${gridId}-fields`}
@@ -769,9 +885,20 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
             data-testid="advanced-result-panel"
             data-component-name="Results panel"
             data-component-type="results"
+            data-result-emphasis={rpEmphasis}
+            data-result-border={rpBorderMode}
             style={{
-              borderRadius: radiusResultPx, background: c.result,
-              border: resultTinted ? 'none' : `1px solid ${c.border}`, boxShadow: c.shadow,
+              borderRadius: radiusResultPx, background: rpBg,
+              // W-AO-6c — `border` token. `'none'` strips the border entirely;
+              // `'accent'` uses the (possibly overridden) accent at 1.5px so
+              // the panel reads as an emphasised CTA surface; `'subtle'`
+              // (default) preserves the existing tinted/light behaviour.
+              border: rpBorderMode === 'none'
+                ? 'none'
+                : rpBorderMode === 'accent'
+                  ? `1.5px solid ${rpAccent}`
+                  : resultTinted ? 'none' : `1px solid ${c.border}`,
+              boxShadow: c.shadow,
               padding: '20px',
               display: 'flex', flexDirection: 'column', gap: '10px',
               // Wave R-pre E — defensive against the reported "quoted amount
@@ -795,14 +922,15 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
             </p>
             <p data-testid="advanced-result" style={{
               position: 'relative', zIndex: 1,
-              // Wave R-pre E — tighten the upper-bound font-size and bump
-              // the line-height. The previous clamp(28-38, lineHeight 1.1)
-              // could collide with the breakdown rows below when the
-              // amount wrapped on narrow viewports. Wider line-height +
-              // wordBreak: break-word lets long currency values wrap
-              // cleanly instead of overlapping adjacent rows.
-              fontSize: 'clamp(26px, 5.5vw, 34px)',
-              fontWeight: 800, color: c.resultText,
+              // W-AO-6c — emphasis tokens drive font-size + weight overrides.
+              // Falls back to the legacy clamp(26-34) / weight 800 when the
+              // Brand Studio `resultPanel.emphasis` is unset or 'normal'.
+              fontSize: rpHeadlineFontSize,
+              fontWeight: rpHeadlineWeight,
+              // Accent override only affects the headline value colour when
+              // an accentOverride is explicitly set (otherwise resultText
+              // wins so the contrast logic stays correct on tinted panels).
+              color: bsResultPanel?.accentOverride ? rpAccent : c.resultText,
               margin: 0, paddingTop: 0,
               fontFamily: eff.fontMono,
               lineHeight: 1.18,
@@ -957,8 +1085,97 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
           </div>
         )}
       </div>
+      {/* W-AO-6c — Brand Studio custom CSS. Author-supplied text rendered
+       *  inside a <style> tag and scoped to this widget's unique
+       *  `.qq-widget-${id}` root class by prepending the scope selector
+       *  to each rule. The CSS is NEVER executed as JS — React renders
+       *  the content verbatim inside <style>, so the worst-case payload
+       *  is invalid CSS that the browser silently drops. Same pattern
+       *  Stripe / Linear use for tenant-supplied styling. */}
+      {bsCustomCss.trim() !== '' && (
+        <style data-testid="advanced-custom-css">
+          {scopeCustomCss(bsCustomCss, widgetClass)}
+        </style>
+      )}
     </div>
   );
+}
+
+/**
+ * W-AO-6c — prefix every CSS selector in `raw` with `.${scope}` so the
+ * user's customCss can only target nodes inside their own widget root.
+ *
+ * Implementation: split on `}`, take the selector half of each rule
+ * (text before the first `{`), prefix every comma-separated selector,
+ * skip `@media` / `@supports` / `@keyframes` blocks (we just leave the
+ * inner rules scoped instead — the outer at-rule passes through). This
+ * is intentionally simple — a full CSS parser is overkill for a single-
+ * tenant author input and the rendered output is still just text inside
+ * a <style> tag, so a malformed rule is dropped by the browser, never
+ * executed.
+ */
+function scopeCustomCss(raw: string, scope: string): string {
+  // Strip the wizard's most common copy-paste hazard (a wrapping <style>
+  // tag) so users who copy-paste a snippet don't blow up the renderer.
+  const clean = raw.replace(/<\/?style[^>]*>/gi, '');
+  // Walk rule by rule. We split on `}` to keep `@media (...) { ... }`
+  // groups intact at the outer level — the prefixer recurses into the
+  // inner body of those groups too.
+  const out: string[] = [];
+  let depth = 0;
+  let buf = '';
+  for (let i = 0; i < clean.length; i++) {
+    const ch = clean[i];
+    buf += ch;
+    if (ch === '{') depth++;
+    if (ch === '}') {
+      depth--;
+      if (depth === 0) {
+        out.push(prefixRuleBlock(buf, scope));
+        buf = '';
+      }
+    }
+  }
+  // Anything left over (trailing whitespace, half-finished rule) — drop.
+  return out.join('\n');
+}
+
+function prefixRuleBlock(block: string, scope: string): string {
+  const trimmed = block.trim();
+  if (trimmed === '' || trimmed === '}') return '';
+  // @media / @supports / @keyframes — recurse into the inner body and
+  // leave the outer at-rule alone (so `@media (max-width: …) { … }`
+  // continues to gate the inner rules).
+  if (trimmed.startsWith('@')) {
+    const openIdx = trimmed.indexOf('{');
+    if (openIdx === -1) return trimmed;
+    const head = trimmed.slice(0, openIdx + 1);
+    const inner = trimmed.slice(openIdx + 1, -1); // drop trailing `}`
+    // @keyframes — selectors inside are `from`/`to`/`<percent>%`; not
+    // selectors we should scope. Pass through.
+    if (/^@(keyframes|font-face|charset|import|namespace)/i.test(trimmed)) {
+      return trimmed;
+    }
+    return head + '\n' + scopeCustomCss(inner, scope) + '\n}';
+  }
+  const openIdx = trimmed.indexOf('{');
+  if (openIdx === -1) return '';
+  const selectorPart = trimmed.slice(0, openIdx).trim();
+  const declarationPart = trimmed.slice(openIdx); // includes the `{...}`
+  const prefixed = selectorPart
+    .split(',')
+    .map((sel) => {
+      const s = sel.trim();
+      if (s === '') return '';
+      // `:root` / `html` / `body` — meaningless inside a scoped widget;
+      // map them to the scope root so users still get the expected
+      // "style the widget" behaviour.
+      if (/^(:root|html|body)$/i.test(s)) return `.${scope}`;
+      return `.${scope} ${s}`;
+    })
+    .filter(Boolean)
+    .join(', ');
+  return prefixed + ' ' + declarationPart;
 }
 
 /* ─── One field ─── */

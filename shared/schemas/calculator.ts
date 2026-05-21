@@ -495,6 +495,15 @@ export const calculatorSettingsSchema = z.object({
       decimal: z.enum(['.', ',']).optional(),
       currency: z.string().optional(),
     }).optional(),
+    // Wave H5 / W-AO-6b / W-AO-6c — user-driven Style tab overrides. Mirrors
+    // the shared `AdvStyle` interface in `shared/templatePresets.ts`. Every
+    // field is optional and round-trips through the PUT update. The W-AO-6c
+    // Brand Studio fields (customCss, bgMode, bgGradient, bgImageUrl,
+    // bgImageTint, resultPanel) are server-side tier-gated in
+    // calculatorRoutes.ts — free-tier patches have them stripped before
+    // persistence. `.passthrough()` keeps forward-compat for future Style
+    // tokens without forcing a schema bump per wave.
+    style: z.object({}).passthrough().optional(),
   }).default({}),
 
   ai_employee: z.object({

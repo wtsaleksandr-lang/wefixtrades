@@ -279,13 +279,18 @@ export default function PreviewPane({
       business_name: businessName || 'Your Business',
       ...(logo ? { logo_url: logo } : {}),
       primary_color: p.colors.accent,
+      // W-AO-6c — preview always renders as Pro so every tier can SEE what
+      // Brand Studio looks like with their controls. The server-side strip
+      // (Wave Q-D pattern, extended in calculatorRoutes.ts) decides whether
+      // the persisted version actually keeps those fields.
+      plan_tier: 'pro',
       pricing_config: { pricingType: 'hourly', unitName: 'hour', rate: 75, baseFee: 50 },
       calculator_settings: {
         calculator_type: 'estimate_only',
         ui_template: { template_id: 'classic_single' },
         advanced: merged,
       },
-    };
+    } as CalculatorData;
   }, [businessName, logo, layout, fields, calculations, header, results, resultCalcId, style, settings]);
 
   // Droppable wrapper for item (b) — drag from AddFieldMenu onto the preview
