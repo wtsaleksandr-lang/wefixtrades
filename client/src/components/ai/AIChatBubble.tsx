@@ -11,13 +11,47 @@ interface AIChatBubbleProps {
   accentColor?: string;
   businessName?: string;
   theme?: any;
+  /**
+   * W-BB-1 — opt into multi-step agent loop. When true, the bubble POSTs
+   * with `useAgentLoop: true` and consumes SSE step events so the typing
+   * indicator can show "Checking schedule..." → "Confirming booking..."
+   * before the final reply lands. Default true; pass false to keep the
+   * legacy single-call behaviour.
+   */
+  useAgentLoop?: boolean;
+  /** Customer identity captured by the lead form earlier in the widget. */
+  customerEmail?: string;
+  customerPhone?: string;
+  customerName?: string;
 }
+
+/**
+ * Human-readable status labels for the agent-loop "AI is …" indicator.
+ * Keys match the auto-tier tool names in customerWidgetTools.ts.
+ */
+const TOOL_STATUS_LABELS: Record<string, string> = {
+  fetch_customer_quote_history: 'Checking your quote history',
+  propose_appointment_times: 'Finding available times',
+  book_appointment: 'Confirming your booking',
+  send_quote_confirmation_email: 'Sending your estimate',
+  request_human_followup: 'Looping in a human teammate',
+  update_my_quote_with_addons: 'Recalculating your quote',
+};
 
 function generateSessionId() {
   return 'sess_' + Math.random().toString(36).slice(2, 11) + '_' + Date.now();
 }
 
-export default function AIChatBubble({ calculatorId, accentColor = '#6366f1', businessName = 'AI Assistant', theme }: AIChatBubbleProps) {
+export default function AIChatBubble({
+  calculatorId,
+  accentColor = '#6366f1',
+  businessName = 'AI Assistant',
+  theme,
+  useAgentLoop = true,
+  customerEmail,
+  customerPhone,
+  customerName,
+}: AIChatBubbleProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -25,6 +59,8 @@ export default function AIChatBubble({ calculatorId, accentColor = '#6366f1', bu
   const [error, setError] = useState<string | null>(null);
   const [trialExpired, setTrialExpired] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  /** Current in-progress step label for the typing indicator tooltip. */
+  const [stepStatus, setStepStatus] = useState<string | null>(null);
   const sessionIdRef = useRef(generateSessionId());
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesAreaRef = useRef<HTMLDivElement>(null);
@@ -62,6 +98,7 @@ export default function AIChatBubble({ calculatorId, accentColor = '#6366f1', bu
     setMessages(nextMessages);
     setInput('');
     setIsLoading(true);
+    setStepStatus(null);
     setError(null);
 
     try {
@@ -72,10 +109,60 @@ export default function AIChatBubble({ calculatorId, accentColor = '#6366f1', bu
           messages: nextMessages,
           calculator_id: calculatorId,
           session_id: sessionIdRef.current,
+          useAgentLoop,
+          customer_email: customerEmail,
+          customer_phone: customerPhone,
+          customer_name: customerName,
         }),
       });
-      const data = await res.json();
 
+      // SSE branch (W-BB-1) — agent loop streams progress + final text.
+      const contentType = res.headers.get('content-type') || '';
+      if (useAgentLoop && contentType.includes('text/event-stream') && res.body) {
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let assistantText = '';
+        // Reserve one placeholder assistant message we keep updating.
+        setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const frames = buffer.split('\n\n');
+          buffer = frames.pop() || '';
+          for (const frame of frames) {
+            const line = frame.startsWith('data: ') ? frame.slice(6) : frame;
+            if (line === '[DONE]') continue;
+            try {
+              const evt = JSON.parse(line);
+              if (evt.error) {
+                setError(evt.error);
+              } else if (evt.text) {
+                assistantText += evt.text;
+                setMessages(prev => {
+                  const copy = [...prev];
+                  copy[copy.length - 1] = { role: 'assistant', content: assistantText };
+                  return copy;
+                });
+              } else if (evt.step) {
+                if (evt.step.type === 'tool_use') {
+                  const label = TOOL_STATUS_LABELS[evt.step.payload?.name] || 'Working on it';
+                  setStepStatus(label + '...');
+                } else if (evt.step.type === 'tool_result') {
+                  setStepStatus(null);
+                }
+              }
+            } catch {
+              // Ignore malformed frames — keep the stream alive.
+            }
+          }
+        }
+        return;
+      }
+
+      // Legacy JSON branch — single-call behavior.
+      const data = await res.json();
       if (!res.ok) {
         if (data.error === 'trial_expired') {
           setTrialExpired(true);
@@ -85,14 +172,14 @@ export default function AIChatBubble({ calculatorId, accentColor = '#6366f1', bu
         }
         return;
       }
-
       setMessages(prev => [...prev, { role: 'assistant', content: data.reply }]);
     } catch (err) {
       setError('Unable to connect. Please check your connection and try again.');
     } finally {
       setIsLoading(false);
+      setStepStatus(null);
     }
-  }, [input, isLoading, trialExpired, messages, calculatorId]);
+  }, [input, isLoading, trialExpired, messages, calculatorId, useAgentLoop, customerEmail, customerPhone, customerName]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -181,12 +268,21 @@ export default function AIChatBubble({ calculatorId, accentColor = '#6366f1', bu
             ))}
 
             {isLoading && (
-              <div style={{ display: 'flex', justifyContent: 'flex-start' }} data-testid="chat-typing-indicator">
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '4px' }} data-testid="chat-typing-indicator">
                 <div style={{ background: '#fff', padding: '10px 14px', borderRadius: '16px 16px 16px 4px', boxShadow: '0 1px 3px rgba(0,0,0,0.07)', display: 'flex', gap: '4px', alignItems: 'center' }}>
                   <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#bbb', animation: 'ai-dot-bounce 1.2s infinite 0s' }} />
                   <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#bbb', animation: 'ai-dot-bounce 1.2s infinite 0.2s' }} />
                   <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#bbb', animation: 'ai-dot-bounce 1.2s infinite 0.4s' }} />
                 </div>
+                {stepStatus && (
+                  <div
+                    style={{ fontSize: '11px', color: '#6b7280', padding: '2px 6px', fontStyle: 'italic' }}
+                    title={stepStatus}
+                    data-testid="chat-step-status"
+                  >
+                    {stepStatus}
+                  </div>
+                )}
               </div>
             )}
 

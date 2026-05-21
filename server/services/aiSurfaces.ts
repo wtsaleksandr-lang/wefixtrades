@@ -25,6 +25,7 @@ export const AI_SURFACES = {
   adflow_reports: "adflow_reports",
   sitelaunch: "sitelaunch",
   quotequick: "quotequick",
+  quotequick_widget_ai: "quotequick_widget_ai",
   business_operator: "business_operator",
 } as const;
 
@@ -48,6 +49,10 @@ export const DEFAULT_BUDGET_CENTS: Record<AiSurface, number | null> = {
   adflow_reports: 500,
   sitelaunch: 1000,
   quotequick: 5000,
+  // W-BB-1 — customer-facing widget chat (multi-step). Lower cap because
+  // abuse risk is higher with anonymous customers and per-conversation cap
+  // is already enforced inside the agent loop (25¢/run).
+  quotequick_widget_ai: 2000,
   business_operator: 5000,
 };
 
@@ -65,5 +70,6 @@ export const AI_SURFACE_LABELS: Record<AiSurface, string> = {
   adflow_reports: "AdFlow Reports",
   sitelaunch: "SiteLaunch",
   quotequick: "QuoteQuick",
+  quotequick_widget_ai: "QuoteQuick Customer Chat (Multi-Step)",
   business_operator: "Business Operator",
 };
