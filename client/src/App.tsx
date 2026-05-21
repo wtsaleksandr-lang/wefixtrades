@@ -114,6 +114,7 @@ import ReviewFunnel from "@/pages/ReviewFunnel";
 import ReviewQrLanding from "@/pages/ReviewQrLanding";
 import RequireClient from "@/components/auth/RequireClient";
 import PortalDashboard from "@/pages/portal/PortalDashboard";
+import PortalCalculatorAnalytics from "@/pages/portal/PortalCalculatorAnalytics";
 import PortalServices from "@/pages/portal/PortalServices";
 import PortalReviews from "@/pages/portal/PortalReviews";
 import PortalCompetitors from "@/pages/portal/PortalCompetitors";
@@ -294,6 +295,8 @@ function Router() {
       <Route path="/portal/help">{() => <RequireClient><PortalHelp /></RequireClient>}</Route>
       <Route path="/portal/chat-history">{() => <RequireClient><PortalChatHistoryPage /></RequireClient>}</Route>
       <Route path="/portal/settings">{() => <RequireClient><PortalSettings /></RequireClient>}</Route>
+      {/* Wave W-BB-4 — per-calculator conversion analytics dashboard */}
+      <Route path="/portal/calculators/:id/analytics">{() => <RequireClient><PortalCalculatorAnalytics /></RequireClient>}</Route>
       <Route path="/portal">{() => <RequireClient><PortalDashboard /></RequireClient>}</Route>
 
       <Route path="/compare/reputationshield-vs-nicejob" component={CompareNiceJob} />

@@ -429,6 +429,16 @@ function PortalDashboardInner() {
                   <span className="text-sm text-gray-600">{(qqData.calculator.total_leads ?? 0).toLocaleString()} leads</span>
                 </div>
               </div>
+              {/* Wave W-BB-4 — link to per-calculator conversion analytics */}
+              <div className="mt-3 pt-3 border-t border-gray-100">
+                <Link
+                  href={`/portal/calculators/${qqData.calculator.id}/analytics`}
+                  className="text-xs font-medium text-[#0d3cfc] hover:underline"
+                  data-testid="portal-calc-analytics-link"
+                >
+                  View analytics →
+                </Link>
+              </div>
             </div>
           )}
           {qqData && !qqData.calculator && (
