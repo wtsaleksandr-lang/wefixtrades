@@ -102,6 +102,7 @@ Categories:
           content: `Inbound message:\n"""\n${trimmed.slice(0, 1200)}\n"""`,
         },
       ],
+      surface: "inbound_classifier",
     });
 
     const json = respText.trim().match(/\{[\s\S]*\}/)?.[0];

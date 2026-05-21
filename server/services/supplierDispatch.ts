@@ -472,6 +472,7 @@ Keep it practical and actionable for a freelance web designer.`;
       system: "You are a creative director for trades business websites. Be concise and actionable.",
       messages: [{ role: "user", content: prompt }],
       maxTokens: 800,
+      surface: "supplier_dispatch",
     });
   } catch (err: any) {
     log.warn(`AI context generation failed for SiteLaunch brief: ${err.message}`);

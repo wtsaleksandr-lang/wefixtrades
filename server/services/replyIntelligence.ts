@@ -164,6 +164,7 @@ Write ONE specific, actionable sentence telling the sales rep exactly what to do
     system: "",
     messages: [{ role: "user", content: prompt }],
     maxTokens: 120,
+    surface: "reply_intelligence",
   });
 
   if (result.trim()) {

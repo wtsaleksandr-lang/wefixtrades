@@ -184,6 +184,7 @@ Return ONLY the JSON, no markdown fences or explanation.`;
     system: "You are a technical SEO specialist. Return only valid JSON.",
     messages: [{ role: "user", content: prompt }],
     maxTokens: 2000,
+    surface: "sitelaunch",
   });
 
   // Parse the AI output

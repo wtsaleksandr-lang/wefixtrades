@@ -94,6 +94,7 @@ import MapguardDashboard from "@/pages/admin/MapguardDashboard";
 import MapguardOpsPage from "@/pages/admin/MapguardOpsPage";
 import WebCareOpsPage from "@/pages/admin/WebCareOpsPage";
 import AiBudgetPage from "@/pages/admin/AiBudgetPage";
+import AdminAiGatesPage from "@/pages/admin/AdminAiGatesPage";
 import ReviewsPage from "@/pages/admin/ReviewsPage";
 import RankFlowOpsPage from "@/pages/admin/RankFlowOpsPage";
 import AdFlowOpsPage from "@/pages/admin/AdFlowOpsPage";
@@ -186,6 +187,7 @@ function Router() {
       <Route path="/" component={RootRoute} />
 
       <Route path="/admin/ai">{() => <RequirePortal><AiDashboard /></RequirePortal>}</Route>
+      <Route path="/admin/ai-gates">{() => <RequirePortal><AdminAiGatesPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/sales">{() => <RequirePortal><SalesPipelinePage /></RequirePortal>}</Route>
       <Route path="/admin/crm/socialsync">{() => <RequirePortal><SocialSyncOpsPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/contentflow">{() => <RequirePortal><ContentFlowQueuePage /></RequirePortal>}</Route>

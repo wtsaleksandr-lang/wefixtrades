@@ -134,6 +134,7 @@ Return ONLY valid JSON. No markdown, no explanation, no code fences.`;
       system: "",
       messages: [{ role: "user", content: prompt }],
       maxTokens: 700,
+      surface: "prospect_enrichment",
     });
 
     const parsed = JSON.parse(text) as Partial<AiResult>;

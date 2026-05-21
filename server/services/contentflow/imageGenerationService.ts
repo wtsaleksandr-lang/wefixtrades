@@ -25,6 +25,8 @@
 import crypto from "crypto";
 import { storage } from "../../storage";
 import { checkContentflowGate } from "./contentflowGate";
+import { aiGateAllowed, recordAiSpend } from "../aiSystemGate";
+import { generateImage as generateImageViaRotator } from "../ai/imageRotator";
 import type { ContentDraft } from "@shared/schema";
 import { readBrandProfile } from "./brandProfile";
 import { createLogger } from "../../lib/logger";
@@ -139,60 +141,44 @@ interface OpenAiImageResponse {
   error?: { message?: string; type?: string; code?: string };
 }
 
+/**
+ * W-AX-1: route image generation through the rotator (OpenAI → Replicate → Ideogram).
+ * The rotator handles auth, fallback, and 401/429/network failures. We
+ * preserve the original {ok,url,b64,revised_prompt} return shape so the
+ * rest of imageGenerationService is untouched.
+ *
+ * NOTE: the IMAGE_API_BASE_OVERRIDE dev mock path is still honored by the
+ * OpenAI provider inside imageRotator.ts via the same env var.
+ */
 async function callImageApi(prompt: string): Promise<{ ok: true; url?: string; b64?: string; revised_prompt?: string } | { ok: false; reason: GenerateForDraftResult["reason"]; message: string }> {
-  /* Accept either env-var name. `AI_INTEGRATIONS_OPENAI_API_KEY` is
-   * what the rest of this codebase already reads (Replit's default
-   * naming for the integration). `OPENAI_API_KEY` is the canonical
-   * name third-party docs reference. Falling back means operators
-   * don't have to duplicate the same secret under two names just
-   * to make ContentFlow image generation work. */
-  const apiKey = process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
-  /* No early short-circuit on missing apiKey — the dev mock accepts
-   * any auth, and a missing key in production is correctly surfaced
-   * as api_failed by the fetch (401). The orchestrator tolerates
-   * either path per the Sprint 11 hard requirement. */
-
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
-    const res = await fetch(`${getOpenAiApiBase()}/images/generations`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
-      },
-      body: JSON.stringify({
-        model: IMAGE_MODEL,
-        prompt,
-        size: IMAGE_SIZE,
-        quality: IMAGE_QUALITY,
-        n: 1,
-      }),
-      signal: controller.signal,
+    const outcome = await generateImageViaRotator({
+      prompt,
+      size: IMAGE_SIZE === "1024x1536" ? "1024x1792" : IMAGE_SIZE === "1536x1024" ? "1792x1024" : "1024x1024",
+      quality: IMAGE_QUALITY,
     });
-    clearTimeout(timeoutId);
 
-    const data = (await res.json().catch(() => ({}))) as OpenAiImageResponse;
-    if (!res.ok) {
-      const code = data.error?.code || "";
-      /* gpt-image-1 returns content_policy_violation for prompts the
-       * safety model rejects. Treat that as moderation_blocked so the
-       * caller can decide to skip rather than retry. */
-      if (code === "content_policy_violation" || data.error?.type === "image_generation_user_error") {
-        return { ok: false, reason: "moderation_blocked", message: data.error?.message || "Content policy violation" };
+    if (!outcome.ok) {
+      /* Detect the rotator's moderation_blocked equivalent — the OpenAI
+       * provider in imageRotator throws with a 400 status when the safety
+       * model rejects. The rotator records this as a ProviderFailure with
+       * reason "other" + the original message preserved. */
+      const lastTry = outcome.tried[outcome.tried.length - 1];
+      const msg = outcome.tried.map((t) => `${t.provider}:${t.reason}`).join(" | ");
+      if (lastTry?.message?.toLowerCase().includes("content policy") ||
+          lastTry?.message?.toLowerCase().includes("moderation")) {
+        return { ok: false, reason: "moderation_blocked", message: lastTry.message };
       }
-      return { ok: false, reason: "api_failed", message: data.error?.message || `HTTP ${res.status}` };
+      return { ok: false, reason: "api_failed", message: msg || "image rotator: all providers failed" };
     }
-    const item = data.data?.[0];
-    /* DALL-E 3 returns `url`; gpt-image-1 / gpt-image-1.5 return
-     * `b64_json` and have NO url response_format option. Accept
-     * whichever the model produced — the caller persists it to R2. */
-    if (!item?.url && !item?.b64_json) {
-      return { ok: false, reason: "api_failed", message: "image API returned neither url nor b64_json" };
-    }
-    return { ok: true, url: item.url, b64: item.b64_json, revised_prompt: item.revised_prompt };
+
+    const out = outcome.data;
+    /* Rotator normalizes to { url, model }. OpenAI providers may have
+     * placed b64_json into the url field (see imageRotator line 61) —
+     * we don't try to distinguish here; persistImageOnDraft will handle
+     * either as a Buffer-vs-URL upload. */
+    return { ok: true, url: out.url };
   } catch (err: any) {
-    clearTimeout(timeoutId);
     return { ok: false, reason: "api_failed", message: err?.message || String(err) };
   }
 }
@@ -358,6 +344,13 @@ export async function generateForDraft(draftId: number): Promise<GenerateForDraf
       return { ok: false, reason: "paused", message: gate.reason, prompt_used: finalPrompt };
     }
 
+    /* W-AX-1: system-level gate — surface-scoped kill switch + budget. */
+    const sysGate = await aiGateAllowed("contentflow");
+    if (!sysGate.allowed) {
+      log(`sys_gate_paused: ${sysGate.reason}`);
+      return { ok: false, reason: "paused", message: sysGate.reason, prompt_used: finalPrompt };
+    }
+
     /* Call image API. */
     const apiResult = await callImageApi(finalPrompt);
     if (!apiResult.ok) {
@@ -421,6 +414,8 @@ export async function generateForDraft(draftId: number): Promise<GenerateForDraf
     /* Record estimated image-gen cost toward the monthly spend cap.
      * gpt-image-1.5 @ medium 1024² ≈ $0.04 → 40,000 micro-USD. */
     storage.addDraftGenerationCost(draftId, 40_000).catch(() => {});
+    /* W-AX-1: also record toward the system-wide gate ($0.04 = 4 cents). */
+    recordAiSpend("contentflow", 4).catch(() => {});
 
     log(`success provider=${provider} url=${finalUrl.slice(0, 80)}`);
     return {

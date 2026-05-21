@@ -139,6 +139,7 @@ Write the Google Business Profile post body now. Output only the post body, no o
     messages: [{ role: "user", content: user }],
     maxTokens: 800,
     modelOverride: MODEL_DEFAULT,
+    surface: "mapguard",
   });
   const elapsedMs = Date.now() - t0;
 
@@ -214,6 +215,7 @@ Write the owner reply now.`;
     messages: [{ role: "user", content: user }],
     maxTokens: 400,
     modelOverride: MODEL_DEFAULT,
+    surface: "mapguard",
   });
 
   let reply = raw.trim().replace(/^["']|["']$/g, "");
