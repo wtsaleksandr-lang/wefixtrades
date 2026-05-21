@@ -153,6 +153,9 @@ import QuoteQuickTradesPage from "@/pages/admin/QuoteQuickTradesPage";
 import QuoteQuickTradeDetailPage from "@/pages/admin/QuoteQuickTradeDetailPage";
 import QuoteQuickTemplatesPage from "@/pages/admin/QuoteQuickTemplatesPage";
 import QuoteQuickTemplateDetailPage from "@/pages/admin/QuoteQuickTemplateDetailPage";
+/* AJ-4 API platform admin */
+import ApiPlatformPage from "@/pages/admin/ApiPlatformPage";
+import ApiPlatformUserDetailPage from "@/pages/admin/ApiPlatformUserDetailPage";
 import BookingPage from "@/pages/public/BookingPage";
 import PayInvoicePage from "@/pages/public/PayInvoicePage";
 import QuoteSnapshotPage from "@/pages/quote-snapshot";
@@ -208,6 +211,9 @@ function Router() {
       {/* AI-3b template editor routes */}
       <Route path="/admin/quotequick/templates/:id">{(params) => <RequirePortal><QuoteQuickTemplateDetailPage templateId={params.id} /></RequirePortal>}</Route>
       <Route path="/admin/quotequick/templates">{() => <RequirePortal><QuoteQuickTemplatesPage /></RequirePortal>}</Route>
+      {/* AJ-4 API platform admin */}
+      <Route path="/admin/api-platform/users/:userId">{(params) => <RequirePortal><ApiPlatformUserDetailPage userId={params.userId} /></RequirePortal>}</Route>
+      <Route path="/admin/api-platform">{() => <RequirePortal><ApiPlatformPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/support/:id">{() => <RequirePortal><SupportTicketDetailPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/support">{() => <RequirePortal><SupportInboxPage /></RequirePortal>}</Route>
       <Route path="/admin/notices">{() => <RequirePortal><AdminNoticesPage /></RequirePortal>}</Route>
