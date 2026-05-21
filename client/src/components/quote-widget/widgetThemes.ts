@@ -33,6 +33,12 @@ export interface WidgetTheme {
   resultMuted: string;
   /** Card shadow. */
   shadow: string;
+  /** W-AO-6b — secondary CTA / accent-variant. Falls back to a muted slate. */
+  secondary?: string;
+  /** W-AO-6b — positive-state colour (e.g. confirmation banners). */
+  success?: string;
+  /** W-AO-6b — error / validation colour. */
+  error?: string;
 }
 
 const SHADOW_LIGHT = '0 12px 40px rgba(15,23,42,0.08), 0 2px 8px rgba(15,23,42,0.04)';
@@ -147,6 +153,27 @@ export const WIDGET_THEMES: Record<string, WidgetTheme> = {
     shadow: SHADOW_LIGHT,
   },
 };
+
+/**
+ * W-AO-6b — pan-theme defaults for the new secondary/success/error tokens
+ * so renderers that consume them always have a value, even when the user
+ * hasn't picked one in the Style tab.
+ *
+ * These are deliberately conservative web-standard hues (Tailwind 500/600
+ * range) so they read well on both light + dark surfaces; the user can
+ * always override per-calculator via the Style tab.
+ */
+const TOKEN_DEFAULTS = {
+  secondary: '#64748b', // slate-500
+  success: '#16a34a',   // green-600
+  error: '#dc2626',     // red-600
+} as const;
+
+for (const t of Object.values(WIDGET_THEMES)) {
+  if (t.secondary === undefined) t.secondary = TOKEN_DEFAULTS.secondary;
+  if (t.success === undefined) t.success = TOKEN_DEFAULTS.success;
+  if (t.error === undefined) t.error = TOKEN_DEFAULTS.error;
+}
 
 export const WIDGET_THEME_LIST: WidgetTheme[] = Object.values(WIDGET_THEMES);
 

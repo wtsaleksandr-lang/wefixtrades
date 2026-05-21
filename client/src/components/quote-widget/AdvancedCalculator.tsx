@@ -14,6 +14,7 @@ import { runCalculations, type FormulaContext } from '@shared/formulaEngine';
 import {
   normalizeLayout, type TemplateLayout,
   type AdvStyle, type AdvFontFamily, type AdvFieldStyle, type AdvWidgetWidth,
+  type AdvLogoPlacement, type AdvLogoSize, type AdvFontSize,
 } from '@shared/templatePresets';
 import { eff } from './designTokens';
 import { resolveWidgetTheme, type WidgetTheme } from './widgetThemes';
@@ -78,6 +79,20 @@ const WIDTH_PX: Record<AdvWidgetWidth, string> = {
   full: '100%',
 };
 
+/** W-AO-6b — logo render size → pixel dimensions. */
+const LOGO_SIZE_PX: Record<AdvLogoSize, number> = {
+  small: 24,
+  medium: 36,
+  large: 52,
+};
+
+/** W-AO-6b — base font size token → pixel value (drives `--qq-font-size-base`). */
+const FONT_SIZE_PX: Record<AdvFontSize, number> = {
+  small: 14,
+  medium: 16,
+  large: 18,
+};
+
 /**
  * Helper to convert a hex colour to an rgba string with `alpha` so the
  * Style-tab accent can drive a sensible accent tint without the user
@@ -122,6 +137,14 @@ function applyStyleOverrides(base: WidgetTheme, style: AdvStyle | undefined): Wi
     next.resultText = isLight ? next.text : '#ffffff';
     next.resultMuted = isLight ? base.resultMuted : 'rgba(255,255,255,0.82)';
   }
+  // W-AO-6b — extra colour tokens. Each is back-compat-safe: when the user
+  // hasn't picked one the theme's existing value (or sensible fallback)
+  // wins, so pre-AO-6b calculators render unchanged.
+  if (style.surface) next.surface = style.surface;
+  if (style.border) next.border = style.border;
+  if (style.secondary) next.secondary = style.secondary;
+  if (style.success) next.success = style.success;
+  if (style.error) next.error = style.error;
   return next;
 }
 
@@ -403,6 +426,20 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
   const widgetWidthMobilePx = typeof style.widgetWidthMobile === 'number'
     ? clampMobile(style.widgetWidthMobile) : undefined;
 
+  // W-AO-6b — logo placement + size (Style tab "Branding" section).
+  // `hidden` placement suppresses the logo+default-icon entirely; absent
+  // value falls through to the legacy header-align behaviour.
+  const logoPlacement: AdvLogoPlacement | undefined = style.logoPlacement;
+  const logoHidden = logoPlacement === 'hidden';
+  const logoSizePx = LOGO_SIZE_PX[style.logoSize ?? 'small'];
+
+  // W-AO-6b — typography depth. Emitted as CSS variables so the title bar
+  // (h1 weight) + body (button + input weight) inherit cleanly. Falls back
+  // to the legacy hard-coded values when unset.
+  const headingWeight = style.headingWeight ?? 800; // legacy was 800 on the title
+  const bodyWeight = style.bodyWeight ?? 400;
+  const fontSizeBasePx = FONT_SIZE_PX[style.fontSize ?? 'medium'];
+
   const [answers, setAnswers] = useState<Record<string, Answer>>(() => initAnswers(fields));
   const setAnswer = (name: string, value: Answer) => setAnswers((p) => ({ ...p, [name]: value }));
 
@@ -523,10 +560,22 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
       data-widget-width-mobile={widgetWidthMobilePx ?? ''}
       data-style-radius={radiusSet ? radiusValue : 'legacy'}
       data-qq-width-scope={gridId}
+      data-logo-placement={logoPlacement ?? 'legacy'}
+      data-logo-size={style.logoSize ?? 'legacy'}
       style={{
         background: c.surface, borderRadius: radiusOuterPx,
         border: `1px solid ${c.border}`, boxShadow: c.shadow,
         overflow: 'hidden', fontFamily,
+        // W-AO-6b — Typography depth as CSS variables. `--qq-font-size-base`
+        // sets the inherit-able body size; titles + small captions can still
+        // pick their own values via the inline styles. fontWeight here drives
+        // the body inheritance — the title bar explicitly overrides with
+        // --qq-heading-weight where it counts.
+        ['--qq-heading-weight' as string]: String(headingWeight),
+        ['--qq-body-weight' as string]: String(bodyWeight),
+        ['--qq-font-size-base' as string]: `${fontSizeBasePx}px`,
+        fontWeight: bodyWeight,
+        fontSize: `${fontSizeBasePx}px`,
         ...(maxWidthStyle ? { maxWidth: maxWidthStyle } : null),
         margin: '0 auto', width: '100%',
       }}
@@ -534,10 +583,19 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
       {/* ── Title bar (its own separated bar) ── */}
       {(() => {
         const header = advanced.header || {};
-        const align = header.align || 'center';
+        // W-AO-6b — `logoPlacement` (when set) takes precedence over the
+        // legacy `header.align` for positioning the title row. `hidden`
+        // suppresses the logo+default-icon entirely while the title text
+        // still renders centered (matches the existing header.align
+        // behaviour for a calculator with no logo).
+        const align = logoPlacement === 'top-left' ? 'left'
+          : logoPlacement === 'top-right' ? 'right'
+          : logoPlacement === 'top-center' || logoPlacement === 'hidden' ? 'center'
+          : header.align || 'center';
         const justify = align === 'left' ? 'flex-start' : align === 'right' ? 'flex-end' : 'center';
         const title = (header.title || '').trim() || businessName || 'Get a Quote';
         const subtitle = (header.subtitle || '').trim();
+        const logoRadius = Math.min(Math.round(logoSizePx * 0.3), 12);
         return (
           <div
             data-component-name="Header"
@@ -545,8 +603,21 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
             style={{ padding: '18px 24px', borderBottom: `1px solid ${c.border}` }}
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: justify, gap: '10px' }}>
-              {logoUrl ? (
-                <img src={logoUrl} alt="" data-component-name="Logo" data-component-type="logo" style={{ width: 28, height: 28, borderRadius: eff.radiusMd, objectFit: 'contain' }} />
+              {/* W-AO-6b — `hidden` placement suppresses logo + default icon.
+                  When a user has uploaded a logo it ALWAYS wins over the
+                  template `defaultIcon` (per spec: "user's logo wins"). */}
+              {logoHidden ? null : logoUrl ? (
+                <img
+                  src={logoUrl}
+                  alt=""
+                  data-testid="advanced-logo"
+                  data-component-name="Logo"
+                  data-component-type="logo"
+                  style={{
+                    width: logoSizePx, height: logoSizePx,
+                    borderRadius: logoRadius, objectFit: 'contain',
+                  }}
+                />
               ) : advanced.defaultIcon ? (
                 <div data-component-name="Logo icon" data-component-type="logo">
                   <DefaultLogoIcon name={advanced.defaultIcon} accent={c.accent} radius={eff.radiusMd} />
@@ -556,7 +627,7 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
                 data-testid="advanced-title"
                 data-component-name="Title"
                 data-component-type="title"
-                style={{ fontSize: '17px', fontWeight: 800, color: c.text, margin: 0, letterSpacing: '-0.01em', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                style={{ fontSize: '17px', fontWeight: headingWeight, color: c.text, margin: 0, letterSpacing: '-0.01em', display: 'inline-flex', alignItems: 'center', gap: 6 }}
               >
                 {title}
                 {editableTitle && (
