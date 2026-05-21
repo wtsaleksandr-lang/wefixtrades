@@ -539,15 +539,23 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
         const title = (header.title || '').trim() || businessName || 'Get a Quote';
         const subtitle = (header.subtitle || '').trim();
         return (
-          <div style={{ padding: '18px 24px', borderBottom: `1px solid ${c.border}` }}>
+          <div
+            data-component-name="Header"
+            data-component-type="header"
+            style={{ padding: '18px 24px', borderBottom: `1px solid ${c.border}` }}
+          >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: justify, gap: '10px' }}>
               {logoUrl ? (
-                <img src={logoUrl} alt="" style={{ width: 28, height: 28, borderRadius: eff.radiusMd, objectFit: 'contain' }} />
+                <img src={logoUrl} alt="" data-component-name="Logo" data-component-type="logo" style={{ width: 28, height: 28, borderRadius: eff.radiusMd, objectFit: 'contain' }} />
               ) : advanced.defaultIcon ? (
-                <DefaultLogoIcon name={advanced.defaultIcon} accent={c.accent} radius={eff.radiusMd} />
+                <div data-component-name="Logo icon" data-component-type="logo">
+                  <DefaultLogoIcon name={advanced.defaultIcon} accent={c.accent} radius={eff.radiusMd} />
+                </div>
               ) : null}
               <p
                 data-testid="advanced-title"
+                data-component-name="Title"
+                data-component-type="title"
                 style={{ fontSize: '17px', fontWeight: 800, color: c.text, margin: 0, letterSpacing: '-0.01em', display: 'inline-flex', alignItems: 'center', gap: 6 }}
               >
                 {title}
@@ -580,6 +588,8 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
             {subtitle && (
               <p
                 data-testid="advanced-subtitle"
+                data-component-name="Subtitle"
+                data-component-type="subtitle"
                 style={{ fontSize: '13px', color: c.textBody, margin: '5px 0 0', textAlign: align, lineHeight: 1.5 }}
               >
                 {subtitle}
@@ -638,16 +648,28 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
         }
       `}</style>
       <div className={gridId} data-layout={layout} data-testid="advanced-body"
+        data-component-name="Body"
+        data-component-type="body"
         style={{ background: c.bg }}>
         {/* Inputs */}
-        <div className={`${gridId}-fields`}>
+        <div
+          className={`${gridId}-fields`}
+          data-component-name="Fields"
+          data-component-type="fields-section"
+        >
           {visibleFields.length === 0 && (
             <p style={{ fontSize: '14px', color: c.textBody, padding: '16px 0' }}>
               This calculator hasn't been set up yet.
             </p>
           )}
           {visibleFields.map((f) => (
-            <div key={f.id} data-colspan={f.colSpan === 1 ? '1' : '2'} style={{ minWidth: 0 }}>
+            <div
+              key={f.id}
+              data-colspan={f.colSpan === 1 ? '1' : '2'}
+              data-component-name={`Field: ${f.label || f.name || f.type}`}
+              data-component-type={`field-${f.type}`}
+              style={{ minWidth: 0 }}
+            >
               <FieldInput
                 field={f}
                 value={answers[f.name]}
@@ -674,6 +696,8 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
           <div
             className={`${gridId}-result`}
             data-testid="advanced-result-panel"
+            data-component-name="Results panel"
+            data-component-type="results"
             style={{
               borderRadius: radiusResultPx, background: c.result,
               border: resultTinted ? 'none' : `1px solid ${c.border}`, boxShadow: c.shadow,
@@ -779,6 +803,8 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
               <div style={{ marginTop: '14px' }}>
                 {leadView === 'cta' && (
                   <button type="button" data-testid="advanced-cta"
+                    data-component-name="CTA button"
+                    data-component-type="cta"
                     onClick={() => setLeadView('form')}
                     style={{
                       width: '100%', height: '46px', borderRadius: radiusInnerPx, border: 'none',
