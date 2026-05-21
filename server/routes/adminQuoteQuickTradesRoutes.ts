@@ -5,13 +5,15 @@
  * shape (see `adminQuoteQuickTemplatesRoutes.ts`).
  *
  * Endpoints (mounted under /api/admin/quotequick/):
- *   GET    /api/admin/quotequick/trades                  — list all (incl. archived) with merged values
- *   GET    /api/admin/quotequick/trades/:id              — one trade (codeDefault + overrides + merged)
- *   POST   /api/admin/quotequick/trades                  — create a NEW admin-authored trade
- *   PATCH  /api/admin/quotequick/trades/:id              — upsert override jsonb ({ label?, categoryId?, defaultIcon? })
- *   DELETE /api/admin/quotequick/trades/:id/overrides    — clear override (reset to code default)
- *   POST   /api/admin/quotequick/trades/:id/archive      — soft-delete
- *   POST   /api/admin/quotequick/trades/:id/unarchive    — restore
+ *   GET    /api/admin/quotequick/trades                       — list all (incl. archived) with merged values
+ *   GET    /api/admin/quotequick/trades/:id                   — one trade (codeDefault + overrides + merged)
+ *   POST   /api/admin/quotequick/trades                       — create a NEW admin-authored trade
+ *   PATCH  /api/admin/quotequick/trades/:id                   — upsert override jsonb ({ label?, categoryId?, defaultIcon? })
+ *   DELETE /api/admin/quotequick/trades/:id/overrides         — clear override (reset to code default)
+ *   DELETE /api/admin/quotequick/trades/:id/overrides/:field  — strip ONE field from override blob (Wave W-AQ-1)
+ *   DELETE /api/admin/quotequick/trades/:id/hard-delete       — permanent delete; only for user-created trades (Wave W-AQ-1)
+ *   POST   /api/admin/quotequick/trades/:id/archive           — soft-delete
+ *   POST   /api/admin/quotequick/trades/:id/unarchive         — restore
  */
 
 import type { Express, Request, Response } from "express";
@@ -42,6 +44,41 @@ const log = createLogger("AdminQuoteQuickTrades");
 
 function findCodeTrade(tradeId: string): Trade | null {
   return TRADES.find((t) => t.id === tradeId) ?? null;
+}
+
+/**
+ * Strip a single field from an override blob. Supports dotted paths
+ * (`foo.bar` removes the nested key, and prunes the parent object if
+ * it becomes empty). The original object is not mutated. Mirrors the
+ * helper in `adminQuoteQuickTemplatesRoutes.ts` — kept colocated for
+ * clarity; trade overrides are flat in practice but the helper supports
+ * nesting for symmetry.
+ */
+function stripField(
+  overrides: Record<string, unknown>,
+  field: string,
+): Record<string, unknown> {
+  const parts = field.split(".");
+  const copy = JSON.parse(JSON.stringify(overrides)) as Record<string, unknown>;
+  function recurse(obj: Record<string, unknown>, idx: number): boolean {
+    const key = parts[idx];
+    if (idx === parts.length - 1) {
+      if (key in obj) {
+        delete obj[key];
+        return true;
+      }
+      return false;
+    }
+    const child = obj[key];
+    if (!child || typeof child !== "object" || Array.isArray(child)) return false;
+    const removed = recurse(child as Record<string, unknown>, idx + 1);
+    if (removed && Object.keys(child as Record<string, unknown>).length === 0) {
+      delete obj[key];
+    }
+    return removed;
+  }
+  recurse(copy, 0);
+  return copy;
 }
 
 const tradePatch = z.object({
@@ -277,6 +314,127 @@ export function registerAdminQuoteQuickTradesRoutes(app: Express) {
       } catch (err) {
         log.error("delete-override failed", { err: (err as Error).message });
         return res.status(500).json({ error: "Failed to reset override" });
+      }
+    },
+  );
+
+  /* ─── DELETE per-field override (Wave W-AQ-1) ───
+   *
+   * Strips ONE field from the override jsonb without touching siblings.
+   * Supports dotted paths. If the override blob becomes empty after the
+   * strip, the entire row is deleted (for code-default-backed trades).
+   */
+  app.delete(
+    "/api/admin/quotequick/trades/:id/overrides/:field",
+    requireAdmin,
+    async (req: Request, res: Response) => {
+      try {
+        const tradeId = String(req.params.id);
+        const field = String(req.params.field);
+        if (!field) return res.status(400).json({ error: "field required" });
+
+        const existing = await getTradeOverride(tradeId);
+        if (!existing || !existing.overrides) {
+          return res.status(404).json({ error: "No override exists for this trade" });
+        }
+
+        const next = stripField(existing.overrides, field);
+        if (JSON.stringify(next) === JSON.stringify(existing.overrides)) {
+          return res.status(404).json({ error: `Field '${field}' not present on override` });
+        }
+
+        const codeDefault = findCodeTrade(tradeId);
+        const isUserCreated = !codeDefault && existing.overrides.is_user_created;
+        const meaningfulKeys = Object.keys(next).filter((k) => k !== "is_user_created" && k !== "id");
+
+        if (meaningfulKeys.length === 0 && !isUserCreated) {
+          await deleteTradeOverride(tradeId);
+
+          void writeAudit({
+            actorId: req.user?.id ?? null,
+            action: "reset",
+            entityType: "quotequick_trade",
+            entityId: tradeId,
+            before: existing.overrides,
+            after: null,
+            metadata: { field, reason: "per_field_reset_emptied_row" },
+            req,
+          });
+
+          return res.json({ ok: true, tradeId, field, cleared: true, effective: codeDefault });
+        }
+
+        const updated = await upsertTradeOverride(tradeId, next, req.user?.id ?? null);
+        const effective = codeDefault
+          ? applyOverrides<EffectiveTrade>(codeDefault as EffectiveTrade, updated.overrides)
+          : applyOverrides<EffectiveTrade>({ id: tradeId } as EffectiveTrade, updated.overrides);
+
+        void writeAudit({
+          actorId: req.user?.id ?? null,
+          action: "update",
+          entityType: "quotequick_trade",
+          entityId: tradeId,
+          before: existing.overrides,
+          after: updated.overrides,
+          metadata: { field, reason: "per_field_reset" },
+          req,
+        });
+
+        return res.json({ ok: true, tradeId, field, cleared: false, override: updated, effective });
+      } catch (err) {
+        log.error("delete-field failed", { err: (err as Error).message });
+        return res.status(500).json({ error: "Failed to reset field" });
+      }
+    },
+  );
+
+  /* ─── DELETE hard-delete (Wave W-AQ-1) ───
+   *
+   * Permanently removes a trade. ONLY allowed for user-created entries.
+   * Code-default trades must be archived (POST /archive) so the catalogue
+   * remains intact across deploys.
+   */
+  app.delete(
+    "/api/admin/quotequick/trades/:id/hard-delete",
+    requireAdmin,
+    async (req: Request, res: Response) => {
+      try {
+        const tradeId = String(req.params.id);
+        if (findCodeTrade(tradeId)) {
+          return res.status(409).json({
+            error: "cannot hard-delete code-default trade; archive instead",
+          });
+        }
+        const existing = await getTradeOverride(tradeId);
+        if (!existing) {
+          return res.status(404).json({ error: "Trade not found" });
+        }
+        if (!existing.overrides?.is_user_created) {
+          return res.status(409).json({
+            error: "cannot hard-delete code-default trade; archive instead",
+          });
+        }
+
+        const deleted = await deleteTradeOverride(tradeId);
+        if (!deleted) {
+          return res.status(404).json({ error: "Trade not found" });
+        }
+
+        void writeAudit({
+          actorId: req.user?.id ?? null,
+          action: "delete",
+          entityType: "quotequick_trade",
+          entityId: tradeId,
+          before: existing.overrides,
+          after: null,
+          metadata: { hard_delete: true },
+          req,
+        });
+
+        return res.json({ ok: true, tradeId, hard_deleted: true });
+      } catch (err) {
+        log.error("hard-delete failed", { err: (err as Error).message });
+        return res.status(500).json({ error: "Failed to delete trade" });
       }
     },
   );

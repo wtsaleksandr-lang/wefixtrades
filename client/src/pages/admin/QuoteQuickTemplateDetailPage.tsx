@@ -42,6 +42,17 @@ import {
   ChevronLeft, ChevronRight, ChevronDown, ChevronUp,
   Plus, Trash2, RotateCcw, Save, Archive, ArchiveRestore,
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import {
   TEMPLATE_LAYOUTS,
@@ -84,6 +95,8 @@ export default function QuoteQuickTemplateDetailPage({ templateId }: Props) {
   usePageTitle("QuoteQuick Template");
   const queryClient = useQueryClient();
   const [, navigate] = useLocation();
+  const { toast } = useToast();
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const detail = useQuery<DetailResponse>({
     queryKey: [`/api/admin/quotequick/templates/${templateId}`],
@@ -143,6 +156,26 @@ export default function QuoteQuickTemplateDetailPage({ templateId }: Props) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/quotequick/templates"] });
       queryClient.invalidateQueries({ queryKey: [`/api/admin/quotequick/templates/${templateId}`] });
+    },
+  });
+
+  // Wave W-AQ-1: hard-delete for user-created templates (no code default).
+  const hardDelete = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest(
+        "DELETE",
+        `/api/admin/quotequick/templates/${templateId}/hard-delete`,
+      );
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/quotequick/templates"] });
+      toast({ title: "Deleted", description: "Template permanently removed." });
+      navigate("/admin/quotequick/templates");
+    },
+    onError: (err: Error) => {
+      toast({ title: "Delete failed", description: err.message, variant: "destructive" });
+      setConfirmDelete(false);
     },
   });
 
@@ -274,6 +307,31 @@ export default function QuoteQuickTemplateDetailPage({ templateId }: Props) {
           </div>
         </div>
 
+        <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Permanently delete this template?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will hard-delete the admin-created template{" "}
+                <span className="font-mono">{templateId}</span>. The action cannot be undone.
+                Existing calculator instances that reference this template will continue to render
+                from their stored config, but the template will no longer appear in the gallery.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={hardDelete.isPending}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => hardDelete.mutate()}
+                disabled={hardDelete.isPending}
+                className="bg-red-600 hover:bg-red-700"
+                data-testid="confirm-delete-template"
+              >
+                {hardDelete.isPending ? "Deleting…" : "Delete permanently"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
         {/* Save bar */}
         <Card className="sticky bottom-3 p-3 flex items-center justify-between gap-2 shadow-md bg-white">
           <div className="text-xs text-gray-500">
@@ -293,6 +351,19 @@ export default function QuoteQuickTemplateDetailPage({ templateId }: Props) {
                 <><Archive className="w-3.5 h-3.5 mr-1" /> Archive</>
               )}
             </Button>
+            {d.is_user_created && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-red-600 hover:text-red-700"
+                onClick={() => setConfirmDelete(true)}
+                disabled={hardDelete.isPending}
+                title="Permanently delete this admin-created template"
+                data-testid="delete-template"
+              >
+                <Trash2 className="w-3.5 h-3.5 mr-1" /> Delete
+              </Button>
+            )}
             {d.codeDefault && (
               <Button
                 variant="outline"
