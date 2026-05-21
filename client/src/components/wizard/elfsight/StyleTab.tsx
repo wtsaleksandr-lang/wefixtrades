@@ -41,6 +41,33 @@ interface Props {
 const HEX_RE = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 
 /**
+ * Wave X #12 — preset palette in the ColourSwatch popover. Generic
+ * brand-friendly hex values spanning the colour wheel; each is a standard
+ * web hue (Tailwind-500/600 range) — colour values are uncopyrightable
+ * facts, applied through our own picker UI. The custom-hex input + native
+ * picker below the preset grid still cover arbitrary values, so power
+ * users aren't constrained to the preset list.
+ */
+const PRESET_COLOURS: ReadonlyArray<{ hex: string; name: string }> = [
+  { hex: '#dc2626', name: 'Red' },
+  { hex: '#f97316', name: 'Orange' },
+  { hex: '#f59e0b', name: 'Amber' },
+  { hex: '#fde047', name: 'Yellow' },
+  { hex: '#84cc16', name: 'Lime' },
+  { hex: '#10b981', name: 'Emerald' },
+  { hex: '#14b8a6', name: 'Teal' },
+  { hex: '#06b6d4', name: 'Cyan' },
+  { hex: '#0ea5e9', name: 'Sky' },
+  { hex: '#2563eb', name: 'Blue' },
+  { hex: '#4f46e5', name: 'Indigo' },
+  { hex: '#8b5cf6', name: 'Violet' },
+  { hex: '#d946ef', name: 'Fuchsia' },
+  { hex: '#ec4899', name: 'Pink' },
+  { hex: '#64748b', name: 'Slate' },
+  { hex: '#1f2937', name: 'Charcoal' },
+];
+
+/**
  * Normalise an arbitrary string to a hex colour. Bare 3- or 6-digit hex
  * (with or without `#`) is accepted; anything else is rejected so a
  * partially-typed value doesn't reset the colour to black.
@@ -337,6 +364,37 @@ export default function StyleTab({ style, onChange }: Props) {
         .qq-style-colour {
           display: flex; flex-direction: column; gap: 6px; min-width: 0;
         }
+        /* Wave X #12 — preset grid inside the colour-picker popover. 4-col
+           grid of 22px circular swatches. Active swatch (matches the current
+           value) gets a 2px accent ring. */
+        .qq-style-preset-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 8px;
+          margin: 8px 0 12px;
+        }
+        .qq-style-preset {
+          width: 22px; height: 22px; padding: 0;
+          border: 1px solid ${p.colors.borderLight};
+          border-radius: 50%;
+          cursor: pointer;
+          transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+          justify-self: center;
+        }
+        .qq-style-preset:hover {
+          transform: scale(1.12);
+          border-color: ${p.colors.heading};
+        }
+        .qq-style-preset.is-active {
+          box-shadow: 0 0 0 2px ${p.colors.accent};
+          border-color: ${p.colors.accent};
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-style-preset {
+          border-color: rgba(255,255,255,0.18);
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-style-preset:hover {
+          border-color: rgba(255,255,255,0.55);
+        }
         .qq-style-colour-row {
           display: flex; align-items: stretch; gap: 8px;
         }
@@ -489,6 +547,33 @@ function ColourSwatch({
           style={{ top: pos.top, left: pos.left }}
         >
           <div className="qq-style-swatch-popover-h">{label}</div>
+          {/* Wave X #12 — preset grid. 16 generic brand-friendly hex values
+              in a 4-column grid. Active swatch (matches current value) gets
+              a ring. The custom hex input + native picker stay below so any
+              arbitrary value is still settable. */}
+          <div
+            className="qq-style-preset-grid"
+            role="listbox"
+            aria-label={`${label} preset colours`}
+            data-testid={`${testid}-presets`}
+          >
+            {PRESET_COLOURS.map((p) => {
+              const isActive = expandedHex.toLowerCase() === p.hex.toLowerCase();
+              return (
+                <button
+                  key={p.hex}
+                  type="button"
+                  className={`qq-style-preset${isActive ? ' is-active' : ''}`}
+                  style={{ background: p.hex }}
+                  aria-label={p.name}
+                  aria-pressed={isActive}
+                  title={`${p.name} (${p.hex})`}
+                  data-testid={`${testid}-preset-${p.hex.slice(1)}`}
+                  onClick={() => onChange(p.hex)}
+                />
+              );
+            })}
+          </div>
           <div className="qq-style-colour-row">
             <input
               type="color"
