@@ -6,18 +6,22 @@
 //   - Header.subtitle  → state.header.subtitle
 //   - Results.heading  → state.results.heading
 //   - Results.footnote → state.results.footnote
-//   - Headline calc    → state.resultCalcId (also flips resultMode flags)
 //
 // Wave G's "no auto-subtitle" preview behaviour is preserved: a blank
 // subtitle stays blank and the preview header reads as a single line. Only a
-// non-empty subtitle renders. The headline dropdown lists each calc by name;
-// selecting one ALSO sets that calc's `resultMode` to 'primary' (and demotes
-// any other primaries) so the segmented control in CalculationRow stays in
-// sync with the renderer's explicit-primary path.
+// non-empty subtitle renders.
+//
+// W-AO-5 — the "Headline result" calc-picker dropdown that previously lived
+// at the bottom of this panel was removed. It duplicated the per-row
+// "Result mode: Primary / Secondary" segmented control inside each
+// CalculationRow, which is the canonical surface for choosing the headline
+// calculation (it sits next to the calc it controls, so it's more
+// discoverable). Both surfaces wrote to the same state via
+// WizardShell.setResultCalc, so removing the dropdown causes no behaviour
+// change — the per-row toggle continues to drive `calculations[*].resultMode`
+// and the preview reads it via the explicit-primary path in PreviewPane.
 
-import { useMemo } from 'react';
 import { platformTheme } from '@/theme/platformTheme';
-import type { TemplateCalculation } from '@shared/templatePresets';
 import type { ShellHeader, ShellResults } from './types';
 import { useSelection } from './selection';
 import FloatField from './FloatField';
@@ -30,33 +34,12 @@ interface Props {
   onHeaderChange: (next: ShellHeader) => void;
   results: ShellResults;
   onResultsChange: (next: ShellResults) => void;
-  calculations: TemplateCalculation[];
-  /** The currently-chosen headline calc id (undefined ⇒ auto). */
-  resultCalcId?: string;
-  /**
-   * Persist a new headline by calc id. Also promotes the picked calc's
-   * resultMode to 'primary' upstream (see WizardShell.setResultCalc).
-   */
-  onResultCalcChange: (calcId: string) => void;
 }
 
 export default function HeaderResultsPanel({
   header, onHeaderChange,
   results, onResultsChange,
-  calculations, resultCalcId, onResultCalcChange,
 }: Props) {
-  // Resolve the effective headline id used to populate the dropdown:
-  //   1. explicit resultCalcId if it still resolves to a calc
-  //   2. else the first calc with resultMode === 'primary'
-  //   3. else last calc (back-compat)
-  const effectiveHeadlineId = useMemo(() => {
-    if (resultCalcId && calculations.some((c) => c.id === resultCalcId)) return resultCalcId;
-    const explicitPrimary = calculations.find((c) => c.resultMode === 'primary');
-    if (explicitPrimary) return explicitPrimary.id;
-    if (calculations.length > 0) return calculations[calculations.length - 1].id;
-    return '';
-  }, [resultCalcId, calculations]);
-
   const updateHeader = (patch: Partial<ShellHeader>) => onHeaderChange({ ...header, ...patch });
   const updateResults = (patch: Partial<ShellResults>) => onResultsChange({ ...results, ...patch });
 
@@ -178,39 +161,10 @@ export default function HeaderResultsPanel({
         </FloatField>
       </div>
 
-      <div className="qq-headres-divider" />
-
-      {calculations.length === 0 ? (
-        <p className="qq-headres-empty" data-testid="headerresults-no-calcs">
-          Add a calculation above to pick a headline.
-        </p>
-      ) : (
-        /* Wave R-pre v2 — removed the duplicate "Headline result" span
-         * that Alex flagged. The FloatField's own label sits inside the
-         * <select> already; the InfoCue moves into the field's top-right
-         * via FloatField's new `infoText` prop. */
-        <FloatField
-          label="Headline result"
-          htmlFor="qq-headres-headline"
-          variant="select"
-          infoText="Pick which calculation drives the big number shown on the results panel."
-          infoTestid="headerresults-headline"
-        >
-          <select
-            id="qq-headres-headline"
-            className="premium-input"
-            value={effectiveHeadlineId}
-            onChange={(e) => onResultCalcChange(e.target.value)}
-            data-testid="select-headline-calc"
-          >
-            {calculations.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name || '(untitled calculation)'}
-              </option>
-            ))}
-          </select>
-        </FloatField>
-      )}
+      {/* W-AO-5 — the "Headline result" dropdown previously rendered here
+       * was removed. To pick which calculation is the big headline number,
+       * use the Primary / Secondary segmented control on each calculation
+       * row inside the Calculations section above. */}
 
       <style>{`
         .qq-headres-panel {

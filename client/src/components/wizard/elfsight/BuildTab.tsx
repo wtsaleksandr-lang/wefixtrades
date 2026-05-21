@@ -37,8 +37,6 @@ interface Props {
   onHeaderChange: (next: ShellHeader) => void;
   results: ShellResults;
   onResultsChange: (next: ShellResults) => void;
-  resultCalcId?: string;
-  onResultCalcChange: (calcId: string) => void;
   /** Wave H7. */
   activeTemplateId?: string;
   onApplyTemplate: (next: ApplyTemplatePayload) => void;
@@ -55,7 +53,6 @@ export default function BuildTab({
   calculations, onCalculationsChange,
   header, onHeaderChange,
   results, onResultsChange,
-  resultCalcId, onResultCalcChange,
   activeTemplateId, onApplyTemplate,
 }: Props) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -157,9 +154,6 @@ export default function BuildTab({
         onHeaderChange={onHeaderChange}
         results={results}
         onResultsChange={onResultsChange}
-        calculations={calculations}
-        resultCalcId={resultCalcId}
-        onResultCalcChange={onResultCalcChange}
       />
 
       <style>{`
