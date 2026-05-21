@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useRoute, Link } from "wouter";
+import { useRoute, useLocation, Link } from "wouter";
 import { ArrowLeft, Loader2, CheckCircle2, HelpCircle, X, RefreshCw, Settings2, AlertTriangle } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
 import type { PortalChatContext } from "@/components/portal/PortalChatWidget";
@@ -116,12 +116,21 @@ export default function PortalOnboarding() {
     return res.json();
   }
 
+  const [, setLocation] = useLocation();
+
   const submitMutation = useMutation({
     mutationFn: (formatted: Record<string, { value: any; completed_at: string }>) => saveToServer("submit", formatted),
-    onSuccess: () => {
+    onSuccess: (result: { next_url?: string | null } | undefined) => {
       queryClient.invalidateQueries({ queryKey: ["/api/portal/onboarding", submissionId] });
       queryClient.invalidateQueries({ queryKey: ["/api/portal/services"] });
       queryClient.invalidateQueries({ queryKey: ["/api/portal/overview"] });
+      /* Wave W-AZ-1 — ContentFlow quick-setup hands off to the deeper
+       * /portal/content-preferences wizard. The server returns next_url
+       * after mapping the four answers into the brand profile so the
+       * customer doesn't repeat themselves. */
+      if (result?.next_url) {
+        setLocation(result.next_url);
+      }
     },
   });
 
