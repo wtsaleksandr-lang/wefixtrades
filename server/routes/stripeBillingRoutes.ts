@@ -66,7 +66,7 @@ export function registerStripeBillingRoutes(app: Express): void {
       const service = await storage.getServiceById(service_id);
       if (!service) return res.status(404).json({ error: "Service not found" });
       if (!service.stripe_price_id) {
-        return res.status(400).json({ error: "Service has no Stripe Price. Run sync-stripe.ts first." });
+        return res.status(400).json({ error: "Service has no Stripe Price configured. Set stripe_price_id on the service catalog row, or run scripts/sync-api-platform-stripe-prices.ts for API platform tiers." });
       }
 
       // Look up client
@@ -244,6 +244,17 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   // ─── QuoteQuick direct checkout (calculator-linked) ───
   if (session.metadata?.source === 'quotequick_checkout') {
     await handleQuoteQuickCheckout(session);
+    return;
+  }
+
+  // ─── QuoteQuick one-time install ($75) — Wave AU-1 audit fix ───
+  // Previously the install checkout (server/routes/calculatorRoutes.ts) set
+  // source='quotequick_install' but no webhook handler matched, so Stripe
+  // captured the money silently with no DB trail. Now we record the event
+  // and update the calculator metadata so the dashboard can show "install
+  // paid".
+  if (session.metadata?.source === 'quotequick_install') {
+    await handleQuoteQuickInstall(session);
     return;
   }
 
@@ -961,6 +972,40 @@ async function handleQuoteQuickCheckout(session: Stripe.Checkout.Session) {
   }
 
   log.info(`[billing-webhook] QuoteQuick calculator ${calculatorId} upgraded to ${planTier}${wasPaused ? ' (reactivated)' : ''}`);
+}
+
+/* ─── QuoteQuick One-Time Install Handler (Wave AU-1) ─── */
+
+/**
+ * $75 one-time install service for QuoteQuick. The customer pays via the
+ * dashboard CTA → calculatorRoutes.ts creates the Checkout session with
+ * source='quotequick_install' + calculator_id metadata. This handler is
+ * the missing record-keeping step: track a payment_completed event so the
+ * install request shows up in the dashboard + Stripe receipt trail is
+ * paired with our own audit log. The actual install work is done manually
+ * by Alex (or assigned freelancer) outside this codebase.
+ */
+async function handleQuoteQuickInstall(session: Stripe.Checkout.Session) {
+  const calculatorId = parseInt(session.metadata?.calculator_id || "0");
+  if (!calculatorId) {
+    log.warn("[billing-webhook] quotequick_install missing calculator_id");
+    return;
+  }
+  const calculator = await storage.getCalculatorById(calculatorId);
+  if (!calculator) {
+    log.warn(`[billing-webhook] quotequick_install — calculator ${calculatorId} not found`);
+    return;
+  }
+  await storage.trackEvent({
+    calculator_id: calculatorId,
+    event_type: 'install_paid',
+    metadata: {
+      stripe_session_id: session.id,
+      amount_total: session.amount_total,
+      customer_email: session.customer_details?.email || null,
+    },
+  });
+  log.info(`[billing-webhook] QuoteQuick install paid for calculator ${calculatorId} (session ${session.id}, $${((session.amount_total ?? 0) / 100).toFixed(2)})`);
 }
 
 /* ─── Wave R-2 Widget Deposit Handler ─── */
