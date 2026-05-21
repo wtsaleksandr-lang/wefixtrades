@@ -327,11 +327,22 @@ function gradientCss(
 ): string {
   const dir = direction ?? 'linear-down';
   switch (dir) {
+    // Legacy AO-6c shorthand.
     case 'linear-up':    return `linear-gradient(to top, ${from}, ${to})`;
     case 'linear-down':  return `linear-gradient(to bottom, ${from}, ${to})`;
     case 'linear-left':  return `linear-gradient(to left, ${from}, ${to})`;
     case 'linear-right': return `linear-gradient(to right, ${from}, ${to})`;
     case 'radial':       return `radial-gradient(circle at 50% 50%, ${from}, ${to})`;
+    // W-AS-1c — CSS-standard linear-gradient direction tokens. Templates
+    // use these for diagonals (e.g. Junk Removal's `'to bottom right'`).
+    case 'to top':          return `linear-gradient(to top, ${from}, ${to})`;
+    case 'to top right':    return `linear-gradient(to top right, ${from}, ${to})`;
+    case 'to right':        return `linear-gradient(to right, ${from}, ${to})`;
+    case 'to bottom right': return `linear-gradient(to bottom right, ${from}, ${to})`;
+    case 'to bottom':       return `linear-gradient(to bottom, ${from}, ${to})`;
+    case 'to bottom left':  return `linear-gradient(to bottom left, ${from}, ${to})`;
+    case 'to left':         return `linear-gradient(to left, ${from}, ${to})`;
+    case 'to top left':     return `linear-gradient(to top left, ${from}, ${to})`;
     default:             return `linear-gradient(to bottom, ${from}, ${to})`;
   }
 }
@@ -954,11 +965,16 @@ export default function AdvancedCalculator({
               // `'accent'` uses the (possibly overridden) accent at 1.5px so
               // the panel reads as an emphasised CTA surface; `'subtle'`
               // (default) preserves the existing tinted/light behaviour.
+              // W-AS-1c — `'accent-tinted'` renders the accent at ~22 % opacity
+              // so the result panel reads as emphasised but not shouty —
+              // midway between the hairline `'subtle'` and full `'accent'`.
               border: rpBorderMode === 'none'
                 ? 'none'
                 : rpBorderMode === 'accent'
                   ? `1.5px solid ${rpAccent}`
-                  : resultTinted ? 'none' : `1px solid ${c.border}`,
+                  : rpBorderMode === 'accent-tinted'
+                    ? `1.5px solid ${hexToRgba(rpAccent, 0.22)}`
+                    : resultTinted ? 'none' : `1px solid ${c.border}`,
               boxShadow: c.shadow,
               padding: '20px',
               display: 'flex', flexDirection: 'column', gap: '10px',
