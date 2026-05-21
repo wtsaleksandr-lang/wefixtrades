@@ -25,6 +25,7 @@ import { dashboardTheme } from '@/theme/dashboardTheme';
 import {
   TEMPLATE_PRESETS, getTemplateCategories, type TemplateConfig,
 } from '@shared/templatePresets';
+import { resolveWidgetTheme } from '@/components/quote-widget/widgetThemes';
 
 const p = platformTheme;
 const d = dashboardTheme;
@@ -39,20 +40,76 @@ export type ApplyTemplatePayload = TemplateConfig | null;
 interface MockupProps {
   /** Accent stripe colour for the card top — keeps cards visually distinct. */
   accent: string;
+  /**
+   * Wave Z — when provided, the mockup resolves the template's actual theme
+   * and paints with theme colours (surface / result / accent). This makes
+   * cards visually distinct by theme rather than by a hashed accent only.
+   * Backwards-compatible: omitted → legacy 4-stripe behaviour.
+   */
+  template?: TemplateConfig;
 }
 
 /**
- * Tiny inline mockup — a header stripe + two faux input rows + a CTA bar.
+ * Theme-aware abstract preview. Renders:
+ *   - Card with the template's theme surface background
+ *   - Accent stripe across the top (theme accent)
+ *   - 2-3 placeholder input bars using border colour (count reflects actual fields)
+ *   - A result panel on the bottom in the theme's result colour
+ *   - A small CTA stripe in theme accent
+ *
  * Standalone (no dependency on H1 `PreviewPane`) so the gallery can render
  * 100+ cards without spinning up the live AdvancedCalculator per card.
  */
-function TemplateCardMockup({ accent }: MockupProps) {
+function TemplateCardMockup({ accent, template }: MockupProps) {
+  if (!template) {
+    // Legacy callers without template context — render the original stripes.
+    return (
+      <div className="qq-tg-mockup" aria-hidden="true">
+        <div className="qq-tg-mockup-header" style={{ background: accent }} />
+        <div className="qq-tg-mockup-row" />
+        <div className="qq-tg-mockup-row" style={{ width: '70%' }} />
+        <div className="qq-tg-mockup-cta" style={{ background: accent }} />
+      </div>
+    );
+  }
+
+  const theme = resolveWidgetTheme(template.theme);
+  const fieldCount = Math.min(3, Math.max(2, template.fields.length));
+  const bars = Array.from({ length: fieldCount });
+
   return (
-    <div className="qq-tg-mockup" aria-hidden="true">
-      <div className="qq-tg-mockup-header" style={{ background: accent }} />
-      <div className="qq-tg-mockup-row" />
-      <div className="qq-tg-mockup-row" style={{ width: '70%' }} />
-      <div className="qq-tg-mockup-cta" style={{ background: accent }} />
+    <div
+      className="qq-tg-mockup qq-tg-mockup-themed"
+      style={{ background: theme.surface, borderColor: theme.border }}
+      aria-hidden="true"
+      data-theme-id={theme.id}
+    >
+      <div className="qq-tg-mockup-header" style={{ background: theme.accent }} />
+      <div className="qq-tg-mockup-body">
+        {bars.map((_, i) => (
+          <div
+            key={i}
+            className="qq-tg-mockup-row"
+            style={{
+              background: theme.border,
+              width: i === bars.length - 1 ? '60%' : '100%',
+            }}
+          />
+        ))}
+        <div
+          className="qq-tg-mockup-result"
+          style={{ background: theme.result }}
+        >
+          <div
+            className="qq-tg-mockup-result-headline"
+            style={{ background: theme.resultText, opacity: 0.85 }}
+          />
+          <div
+            className="qq-tg-mockup-result-sub"
+            style={{ background: theme.resultText, opacity: 0.45 }}
+          />
+        </div>
+      </div>
     </div>
   );
 }
@@ -176,7 +233,7 @@ export default function TemplateStrip({ activeTemplateId, onApplyTemplate }: Str
               onClick={() => onApplyTemplate(t)}
               role="listitem"
             >
-              <TemplateCardMockup accent={accent} />
+              <TemplateCardMockup accent={accent} template={t} />
               <div className="qq-tg-card-body">
                 <span className="qq-tg-card-name">{t.name}</span>
                 <span className="qq-tg-card-tags">{tradeTags || t.category}</span>
@@ -311,6 +368,40 @@ export default function TemplateStrip({ activeTemplateId, onApplyTemplate }: Str
           line-height: 1;
         }
 
+        /* Wave Z — theme-aware mockup variant. Paints with the template's
+         * resolved theme: card surface as background, accent stripe at top,
+         * border colour for placeholder rows, result-panel rectangle in the
+         * theme's result colour with two tiny resultText-coloured bars
+         * (headline + sub). Makes themed cards (sunburst / royal / scarlet
+         * / earth / ocean / indigo) visually distinct in the gallery. */
+        .qq-tg-mockup-themed {
+          border: 1px solid transparent;
+          padding: 5px;
+          gap: 3px;
+        }
+        .qq-tg-mockup-themed .qq-tg-mockup-header {
+          width: 50%; height: 6px;
+        }
+        .qq-tg-mockup-body {
+          display: flex; flex-direction: column; gap: 3px;
+          flex: 1; min-height: 0;
+        }
+        .qq-tg-mockup-themed .qq-tg-mockup-body .qq-tg-mockup-row {
+          height: 4px;
+        }
+        .qq-tg-mockup-result {
+          margin-top: auto;
+          border-radius: 3px;
+          padding: 4px 5px;
+          display: flex; flex-direction: column; gap: 2px;
+        }
+        .qq-tg-mockup-result-headline {
+          height: 5px; width: 50%; border-radius: 2px;
+        }
+        .qq-tg-mockup-result-sub {
+          height: 3px; width: 75%; border-radius: 2px;
+        }
+
         /* Mobile — slightly smaller cards. Wave L T2: the smaller browse-all
          * still meets the 32px tap-target threshold (Apple HIG; not 44 in
          * this context because it's a tertiary navigation control, not a
@@ -440,7 +531,7 @@ function TemplateBrowseModal({ activeTemplateId, onClose, onApplyTemplate }: Mod
                 data-testid={`template-browse-card-${t.id}`}
                 onClick={() => onApplyTemplate(t)}
               >
-                <TemplateCardMockup accent={accent} />
+                <TemplateCardMockup accent={accent} template={t} />
                 <div className="qq-tg-card-body">
                   <span className="qq-tg-card-name">{t.name}</span>
                 </div>
