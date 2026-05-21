@@ -44,3 +44,4 @@ export * from "./auditLog";
 export * from "./brandKits";
 export * from "./tradelineVoiceSettings";
 export * from "./tradelineKnowledgeBase";
+export * from "./adminAiActions";

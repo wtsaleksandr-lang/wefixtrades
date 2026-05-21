@@ -86,6 +86,7 @@ import { registerAdminTradelineVoicesRoutes } from "./adminTradelineVoicesRoutes
 import { registerPortalTradelineKnowledgeRoutes } from "./portalTradelineKnowledgeRoutes";
 import { registerAdminAuditLogRoutes } from "./adminAuditLogRoutes";
 import { registerAdminMobilePreviewRoutes } from "./adminMobilePreviewRoutes";
+import { registerAdminAiActivityRoutes } from "./adminAiActivityRoutes";
 import { registerApiV1Routes } from "./apiV1";
 
 export async function registerRoutes(
@@ -179,6 +180,7 @@ export async function registerRoutes(
   registerPortalTradelineKnowledgeRoutes(app);
   registerAdminAuditLogRoutes(app);
   registerAdminMobilePreviewRoutes(app);
+  registerAdminAiActivityRoutes(app);
   registerApiV1Routes(app);
 
   return httpServer;
