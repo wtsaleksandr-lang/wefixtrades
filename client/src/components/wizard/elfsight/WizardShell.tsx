@@ -883,6 +883,14 @@ export default function WizardShell({ embed = false }: Props) {
               padding: 10px 16px; flex-shrink: 0;
               background: ${d.colors.panelHeader};
               border-bottom: 1px solid ${d.colors.borderLight};
+              /* Wave X #17 — sticky topbar.
+                 Was static; the brand wordmark, saved indicator, device
+                 toggle, help and close button now stay pinned at the
+                 top of the editor frame even when the left pane is
+                 scrolled. Stacks above the tabs bar (z:6 > z:5). */
+              position: sticky;
+              top: 0;
+              z-index: 6;
             }
             .qq-editor-brand {
               display: flex; align-items: center; gap: 7px; text-decoration: none;
@@ -926,7 +934,11 @@ export default function WizardShell({ embed = false }: Props) {
               overflow-x: auto;
               scrollbar-width: none;
               position: sticky;
-              top: 0;
+              /* Wave X #17 — tabs stick *under* the now-sticky topbar.
+                 The topbar's height is ~46px (10px padding + ~26px
+                 icon-button row). Tabs sit at that offset so both
+                 surfaces stay pinned and stacked. */
+              top: 46px;
               z-index: 5;
             }
             .qq-editor-tabs::-webkit-scrollbar { display: none; }
