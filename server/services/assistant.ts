@@ -13,6 +13,8 @@ import { getMemory, getMemoryByUserId, saveMemory, extractMemorySignals } from "
 import { getOrCreateThread, loadThreadMessages, appendTurn, appendMessage, derivePageContext } from "./threadService";
 import { logUsage } from "./usageTracker";
 import { evaluateAndArchive } from "./conversationArchiver";
+import { runAgentLoop, type AgentLoopResult, type ToolExecutor, type AgentLoopStep } from "./aiAgentLoop";
+import type { ActionSurface } from "./copilotActionRegistry";
 import { createLogger } from "../lib/logger";
 
 const log = createLogger("Assistant");
@@ -307,4 +309,61 @@ export async function assistantSync(req: AssistantRequest): Promise<AssistantSyn
     });
     throw err;
   }
+}
+
+/* ─── Agent loop entry (W-BA-0) ─── */
+
+/**
+ * Multi-step agent loop wrapper. Reuses buildContext so prompts + thread
+ * history land the same way the single-call path does, then hands off to
+ * runAgentLoop. Caller supplies `toolExecutors` (for auto-tier tools) +
+ * which action-registry surface to consult.
+ *
+ * The loop short-circuits on `low`/`draft` actions and returns a `pending`
+ * payload — the caller wires that into the existing storePendingAction()
+ * confirm-card flow, so the rest of the system is untouched.
+ *
+ * `onStep` is the SSE hook — every loop step (tool_use, tool_result, text,
+ * stop) fires it so the caller can stream it to the browser.
+ */
+export interface AssistantAgentLoopOptions {
+  toolExecutors: Record<string, ToolExecutor>;
+  actionSurface: ActionSurface;
+  onStep?: (step: AgentLoopStep) => void;
+  maxSteps?: number;
+  costCapCents?: number;
+}
+
+export async function assistantAgentLoop(
+  req: AssistantRequest,
+  opts: AssistantAgentLoopOptions,
+): Promise<AgentLoopResult> {
+  const { systemPrompt, chatMessages } = await buildContext(req);
+
+  const result = await runAgentLoop({
+    systemPrompt,
+    conversationHistory: chatMessages,
+    tools: (req.tools || []) as any,
+    toolExecutors: opts.toolExecutors,
+    surface: req.surface,
+    actionSurface: opts.actionSurface,
+    userId: req.userId,
+    sessionId: req.sessionId,
+    modelOverride: req.model,
+    maxTokensPerStep: req.maxTokens,
+    onStep: opts.onStep,
+    maxSteps: opts.maxSteps,
+    costCapCents: opts.costCapCents,
+  });
+
+  // Persist memory + archive when the loop produced a final text. Pending /
+  // gate / error outcomes skip persistence — the existing single-call confirm
+  // flow handles those (and persists on confirm).
+  if (result.status === "text" && result.reply) {
+    await createOnComplete(req, chatMessages)(result.reply).catch((err) =>
+      log.error("[assistant] agent-loop onComplete error:", { error: String(err) }),
+    );
+  }
+
+  return result;
 }
