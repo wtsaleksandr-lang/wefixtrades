@@ -1711,17 +1711,31 @@ export class DatabaseStorage implements IStorage {
     if (prevRow) {
       const { syncProductMetadata, syncProductPrice, monthlyToYearlyCents } = await import("./services/stripeProductSync");
       const stripeProductId = (updatedRow.stripe_product_id as string | null) ?? (prevRow.stripe_product_id as string | null);
+      // W-AU-2: detect a stripe_product_id swap so we can push the current
+      // name/description to the newly-linked Stripe Product even if those
+      // fields didn't change this publish.
+      const stripeProductIdChanged =
+        typeof updates.stripe_product_id === "string" &&
+        updates.stripe_product_id !== prevRow.stripe_product_id;
 
       if (stripeProductId) {
         const newName = (updates.name as string | undefined) ?? undefined;
         const newDescription = (updates.tagline as string | undefined) ?? (updates.description as string | undefined) ?? undefined;
         const nameChanged = typeof newName === "string" && newName !== prevRow.name;
         const descChanged = typeof newDescription === "string" && newDescription !== (prevRow.tagline ?? prevRow.description);
-        if (nameChanged || descChanged) {
+        if (nameChanged || descChanged || stripeProductIdChanged) {
+          // On a stripe_product_id swap, fall back to the LIVE row's name/description so
+          // the new Stripe Product reflects current copy even if this publish didn't touch them.
+          const pushName = nameChanged ? newName : stripeProductIdChanged ? (updatedRow.name as string | undefined) : undefined;
+          const pushDescription = descChanged
+            ? newDescription
+            : stripeProductIdChanged
+              ? ((updatedRow.tagline as string | undefined) ?? (updatedRow.description as string | undefined))
+              : undefined;
           await syncProductMetadata({
             stripeProductId,
-            newName: nameChanged ? newName : undefined,
-            newDescription: descChanged ? newDescription : undefined,
+            newName: pushName,
+            newDescription: pushDescription,
           });
         }
 
