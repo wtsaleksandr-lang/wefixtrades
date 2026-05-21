@@ -20,6 +20,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Bot, X, Send, Image as ImageIcon, Trash2, AlertTriangle, Loader2, Sparkles } from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
+import CalcAssemblySpinner from '@/components/quote-widget/CalcAssemblySpinner';
 import { applyAiToolCall, type AiToolCall } from './aiToolApplier';
 import type {
   ShellState, ShellHeader, ShellResults, ShellStyle, ShellSettings,
@@ -58,6 +59,12 @@ interface ChatMessage {
   /** Pending destructive tool calls awaiting explicit user confirmation. */
   pendingConfirms?: PendingConfirm[];
   imageThumb?: string;
+  /** Wave AR-1 — set on the assistant placeholder while we're still waiting
+   *  for the first stream event. Used to render the CalcAssemblySpinner with
+   *  a context-aware label ("Analyzing your screenshot…" when an image was
+   *  attached, "Building your calculator…" otherwise) instead of an empty
+   *  bubble. Cleared as soon as text or a tool_use arrives. */
+  pendingLabel?: string;
 }
 
 /** A destructive tool call (replace_template / apply_template) queued for
@@ -87,6 +94,11 @@ interface BudgetSnapshot {
 const HISTORY_KEY_PREFIX = 'qq_ai_chat_';
 const MAX_IMAGE_WIDTH = 1024;
 const JPEG_QUALITY = 0.78;
+/** Hard cap on the original upload — 10 MB. Server caps the resized payload
+ *  at ~2 MB, but rejecting huge originals up-front saves a slow base64
+ *  encode + an API round-trip. */
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+const ACCEPTED_UPLOAD_TYPES = new Set(['image/png', 'image/jpeg', 'image/jpg', 'image/webp']);
 
 function uid(): string {
   return `m_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
@@ -354,10 +366,21 @@ export default function AIBubble(props: AIBubbleProps) {
   /* ─── Compose helpers ─── */
 
   const onPickImage = useCallback(async (file: File) => {
+    // Wave AR-1 — validate up-front so the user gets an actionable error
+    // before we burn time on base64-encoding a 50 MB photo.
+    if (file.type && !ACCEPTED_UPLOAD_TYPES.has(file.type.toLowerCase())) {
+      setStreamErr('Use a PNG, JPG or WEBP image.');
+      return;
+    }
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setStreamErr('Image is too large — keep it under 10 MB.');
+      return;
+    }
     try {
       const raw = await fileToDataUrl(file);
       const resized = await resizeImage(raw);
       setPendingImage(resized);
+      setStreamErr(null);
     } catch (err: any) {
       setStreamErr(String(err?.message || err));
     }
@@ -375,7 +398,17 @@ export default function AIBubble(props: AIBubbleProps) {
       imageThumb: pendingImage ?? undefined,
     };
     const assistantId = uid();
-    const placeholder: ChatMessage = { id: assistantId, role: 'assistant', content: '', toolChips: [] };
+    // Wave AR-1 — choose a label up-front so we can render an inline
+    // CalcAssemblySpinner inside the empty placeholder. Image flow gets the
+    // multi-stage label; text-only chat gets "Thinking…".
+    const placeholderLabel = pendingImage ? 'Analyzing your screenshot…' : 'Thinking…';
+    const placeholder: ChatMessage = {
+      id: assistantId,
+      role: 'assistant',
+      content: '',
+      toolChips: [],
+      pendingLabel: placeholderLabel,
+    };
 
     // Build the history snapshot we'll send to the server BEFORE adding the
     // new user message (server signature expects history excluding the
@@ -403,7 +436,9 @@ export default function AIBubble(props: AIBubbleProps) {
         {
           onText: (delta) => {
             setMessages(prev => prev.map(m =>
-              m.id === assistantId ? { ...m, content: m.content + delta } : m
+              m.id === assistantId
+                ? { ...m, content: m.content + delta, pendingLabel: undefined }
+                : m
             ));
           },
           onToolUse: (call) => {
@@ -417,6 +452,7 @@ export default function AIBubble(props: AIBubbleProps) {
                 m.id === assistantId
                   ? {
                     ...m,
+                    pendingLabel: undefined,
                     pendingConfirms: [...(m.pendingConfirms ?? []), { key: confirmKey, call }],
                   }
                   : m
@@ -429,7 +465,11 @@ export default function AIBubble(props: AIBubbleProps) {
             }
             setMessages(prev => prev.map(m =>
               m.id === assistantId
-                ? { ...m, toolChips: [...(m.toolChips ?? []), describeTool(call)] }
+                ? {
+                  ...m,
+                  pendingLabel: undefined,
+                  toolChips: [...(m.toolChips ?? []), describeTool(call)],
+                }
                 : m
             ));
           },
@@ -456,8 +496,19 @@ export default function AIBubble(props: AIBubbleProps) {
     } finally {
       setSending(false);
       abortRef.current = null;
+      // Clear any lingering placeholder spinner — covers abort + error paths
+      // where neither onText nor onToolUse fired.
+      setMessages(prev => prev.map(m =>
+        m.id === assistantId && m.pendingLabel ? { ...m, pendingLabel: undefined } : m
+      ));
     }
   }, [input, sending, capExceeded, pendingImage, messages, state, props]);
+
+  /** Wave AR-1 — let the user bail out of a slow vision request. The
+   *  AbortController already exists; this just exposes a button. */
+  const onCancelSend = useCallback(() => {
+    abortRef.current?.abort();
+  }, []);
 
   const onReset = useCallback(() => {
     setMessages([]);
@@ -577,6 +628,15 @@ export default function AIBubble(props: AIBubbleProps) {
               <div key={m.id} className={`qq-ai-msg qq-ai-msg-${m.role}`} data-testid={`aibubble-msg-${m.role}`}>
                 {m.imageThumb && (
                   <img src={m.imageThumb} alt="" className="qq-ai-msg-thumb" data-testid="aibubble-msg-thumb" />
+                )}
+                {/* Wave AR-1 — inline "building calculator" indicator while we
+                    wait for the first stream event. Keeps the user informed
+                    during vision processing (3-10s typical). */}
+                {m.role === 'assistant' && m.pendingLabel && !m.content && (
+                  <div className="qq-ai-thinking" data-testid="aibubble-thinking">
+                    <CalcAssemblySpinner size={36} label={m.pendingLabel} />
+                    <span className="qq-ai-thinking-label">{m.pendingLabel}</span>
+                  </div>
                 )}
                 {m.content && <div className="qq-ai-msg-text">{m.content}</div>}
                 {m.toolChips && m.toolChips.length > 0 && (
@@ -711,16 +771,29 @@ export default function AIBubble(props: AIBubbleProps) {
                   data-testid="aibubble-input"
                   disabled={sending}
                 />
-                <button
-                  type="button"
-                  onClick={onSend}
-                  disabled={!input.trim() || sending}
-                  className="qq-ai-sendbtn"
-                  data-testid="aibubble-send"
-                  aria-label="Send"
-                >
-                  {sending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-                </button>
+                {sending ? (
+                  <button
+                    type="button"
+                    onClick={onCancelSend}
+                    className="qq-ai-sendbtn qq-ai-cancelbtn"
+                    data-testid="aibubble-cancel"
+                    aria-label="Cancel"
+                    title="Cancel"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={onSend}
+                    disabled={!input.trim()}
+                    className="qq-ai-sendbtn"
+                    data-testid="aibubble-send"
+                    aria-label="Send"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
               <div className="qq-ai-footer">
                 <button
@@ -823,6 +896,16 @@ export default function AIBubble(props: AIBubbleProps) {
           display: block; max-width: 180px; border-radius: 6px;
           margin-bottom: 6px;
         }
+        /* Wave AR-1 — inline "building calculator" indicator. */
+        .qq-ai-thinking {
+          display: flex; align-items: center; gap: 8px;
+          padding: 2px 0;
+        }
+        .qq-ai-thinking-label {
+          font-size: 12px; font-weight: 600; color: #475569;
+        }
+        [data-theme="dark"] .qq-ai-thinking-label { color: #cbd5e1; }
+
         .qq-ai-chips {
           display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px;
         }
@@ -925,6 +1008,10 @@ export default function AIBubble(props: AIBubbleProps) {
           display: inline-flex; align-items: center; justify-content: center;
         }
         .qq-ai-sendbtn:disabled { background: #cbd5e1; cursor: not-allowed; }
+        .qq-ai-cancelbtn { background: #e2e8f0; color: #0f172a; }
+        .qq-ai-cancelbtn:hover { background: #cbd5e1; }
+        [data-theme="dark"] .qq-ai-cancelbtn { background: #334155; color: #e2e8f0; }
+        [data-theme="dark"] .qq-ai-cancelbtn:hover { background: #475569; }
         .qq-ai-footer {
           display: flex; justify-content: flex-end; margin-top: 6px;
         }
