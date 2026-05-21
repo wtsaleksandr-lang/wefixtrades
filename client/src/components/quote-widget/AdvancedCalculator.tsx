@@ -354,6 +354,18 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
   const widgetWidth: AdvWidgetWidth | undefined = style.widgetWidth;
   const maxWidthStyle: string | undefined = widgetWidth ? WIDTH_PX[widgetWidth] : undefined;
 
+  // Wave AC-1 — per-viewport pixel overrides. When `widgetWidthDesktop` or
+  // `widgetWidthMobile` are set, they take precedence over the `widgetWidth`
+  // enum on the matching viewport via the scoped media-query block below.
+  // Values are clamped to safe ranges so an out-of-range stored value still
+  // renders sensibly (desktop 320–800, mobile 320–440).
+  const clampDesktop = (n: number) => Math.max(320, Math.min(800, Math.round(n)));
+  const clampMobile = (n: number) => Math.max(320, Math.min(440, Math.round(n)));
+  const widgetWidthDesktopPx = typeof style.widgetWidthDesktop === 'number'
+    ? clampDesktop(style.widgetWidthDesktop) : undefined;
+  const widgetWidthMobilePx = typeof style.widgetWidthMobile === 'number'
+    ? clampMobile(style.widgetWidthMobile) : undefined;
+
   const [answers, setAnswers] = useState<Record<string, Answer>>(() => initAnswers(fields));
   const setAnswer = (name: string, value: Answer) => setAnswers((p) => ({ ...p, [name]: value }));
 
@@ -470,7 +482,10 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
       data-testid="advanced-calculator"
       data-field-style={fieldStyle}
       data-widget-width={widgetWidth ?? 'legacy'}
+      data-widget-width-desktop={widgetWidthDesktopPx ?? ''}
+      data-widget-width-mobile={widgetWidthMobilePx ?? ''}
       data-style-radius={radiusSet ? radiusValue : 'legacy'}
+      data-qq-width-scope={gridId}
       style={{
         background: c.surface, borderRadius: radiusOuterPx,
         border: `1px solid ${c.border}`, boxShadow: c.shadow,
@@ -544,6 +559,12 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
             multi-column  — a 3-up auto-fit input grid, result spans full width.
           Tight gaps throughout — no wasted vertical space. */}
       <style>{`
+        /* Wave AC-1 — per-viewport pixel-width overrides, scoped to this
+           calculator instance via the unique gridId. Empty when the user
+           hasn't picked a pixel value — the widgetWidth enum (driving the
+           inline maxWidth) still applies as the fallback. */
+        ${widgetWidthMobilePx ? '@media (max-width: 559px) { [data-qq-width-scope="' + gridId + '"] { max-width: ' + widgetWidthMobilePx + 'px !important; } }' : ''}
+        ${widgetWidthDesktopPx ? '@media (min-width: 560px) { [data-qq-width-scope="' + gridId + '"] { max-width: ' + widgetWidthDesktopPx + 'px !important; } }' : ''}
         .${gridId} {
           display: grid;
           gap: 12px;

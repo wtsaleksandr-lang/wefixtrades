@@ -2039,6 +2039,13 @@ export interface AdvStyle {
   /** Corner radius in pixels (0–24). */
   radius?: number;
   widgetWidth?: AdvWidgetWidth;
+  /**
+   * Wave AC-1 — per-viewport pixel widths. Optional; when set, override
+   * the `widgetWidth` enum for the matching viewport. Clamped at the
+   * renderer to safe ranges (desktop 320–800, mobile 320–440).
+   */
+  widgetWidthDesktop?: number;
+  widgetWidthMobile?: number;
 }
 
 /**
@@ -2046,7 +2053,13 @@ export interface AdvStyle {
  * `buildBlankPreviewConfig` so the preview seeds with the user's brand instead
  * of the Elfsight default.
  */
-export const DEFAULT_ADV_STYLE: Required<AdvStyle> = {
+/**
+ * Wave AC-1 — `widgetWidthDesktop` / `widgetWidthMobile` are intentionally
+ * absent from the defaults. They're per-viewport pixel overrides that only
+ * apply when the user explicitly picks one in the Style tab; otherwise the
+ * renderer falls back to the existing `widgetWidth` enum.
+ */
+export const DEFAULT_ADV_STYLE: Required<Omit<AdvStyle, 'widgetWidthDesktop' | 'widgetWidthMobile'>> = {
   accent: '#0d3cfc',
   background: '#ffffff',
   text: '#0f172a',

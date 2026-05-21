@@ -95,6 +95,10 @@ export default function StyleTab({ style, onChange }: Props) {
   const fieldStyle = style.fieldStyle ?? DEFAULT_SHELL_STYLE.fieldStyle;
   const radius = style.radius ?? DEFAULT_SHELL_STYLE.radius;
   const widgetWidth = style.widgetWidth ?? DEFAULT_SHELL_STYLE.widgetWidth;
+  // Wave AC-1 — optional per-viewport pixel widths. Undefined → 'Auto'
+  // label + the renderer falls back to the `widgetWidth` enum.
+  const widgetWidthDesktop = style.widgetWidthDesktop;
+  const widgetWidthMobile = style.widgetWidthMobile;
 
   return (
     <section
@@ -225,6 +229,51 @@ export default function StyleTab({ style, onChange }: Props) {
             { value: 'full', label: 'Full' },
           ]}
           onChange={(v) => patch({ widgetWidth: v })}
+        />
+
+        {/* Wave AC-1 — per-viewport pixel overrides. Optional; when set
+         * they win over the enum on the matching viewport. Clamped to safe
+         * ranges (desktop 320–800, mobile 320–440). */}
+        <label className="qq-style-label" htmlFor="qq-style-width-desktop" style={{ marginTop: 12 }}>
+          Desktop width
+          <span className="qq-style-value" data-testid="style-width-desktop-value">
+            {widgetWidthDesktop !== undefined ? `${widgetWidthDesktop}px` : 'Auto'}
+          </span>
+        </label>
+        <input
+          id="qq-style-width-desktop"
+          type="range"
+          min={320}
+          max={800}
+          step={10}
+          value={widgetWidthDesktop ?? 560}
+          onChange={(e) => patch({ widgetWidthDesktop: Number(e.target.value) })}
+          className="qq-style-range"
+          data-testid="style-input-width-desktop"
+          aria-valuemin={320}
+          aria-valuemax={800}
+          aria-valuenow={widgetWidthDesktop ?? 560}
+        />
+
+        <label className="qq-style-label" htmlFor="qq-style-width-mobile" style={{ marginTop: 12 }}>
+          Mobile width
+          <span className="qq-style-value" data-testid="style-width-mobile-value">
+            {widgetWidthMobile !== undefined ? `${widgetWidthMobile}px` : 'Auto'}
+          </span>
+        </label>
+        <input
+          id="qq-style-width-mobile"
+          type="range"
+          min={320}
+          max={440}
+          step={5}
+          value={widgetWidthMobile ?? 380}
+          onChange={(e) => patch({ widgetWidthMobile: Number(e.target.value) })}
+          className="qq-style-range"
+          data-testid="style-input-width-mobile"
+          aria-valuemin={320}
+          aria-valuemax={440}
+          aria-valuenow={widgetWidthMobile ?? 380}
         />
       </fieldset>
 
