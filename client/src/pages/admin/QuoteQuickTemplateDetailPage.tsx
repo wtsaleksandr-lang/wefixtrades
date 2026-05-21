@@ -57,6 +57,7 @@ import { TRADES } from "@/data/trades";
 import { WIDGET_THEME_LIST } from "@/components/quote-widget/widgetThemes";
 import AdvancedCalculator from "@/components/quote-widget/AdvancedCalculator";
 import LucideIconPicker from "@/components/admin/LucideIconPicker";
+import { getQuoteQuickIcon } from "@/data/quoteQuickIcons";
 
 interface DetailResponse {
   templateId: string;
@@ -857,14 +858,48 @@ function ThemeTab({
 
       <Section title="Default icon">
         <Field label="Default Lucide icon (shown when no merchant logo)">
-          <LucideIconPicker
+          <DefaultIconPickerField
             value={draft.defaultIcon}
             onChange={(next) => patch("defaultIcon", next)}
-            compact
           />
         </Field>
       </Section>
     </div>
+  );
+}
+
+function DefaultIconPickerField({
+  value,
+  onChange,
+}: {
+  value: string | undefined;
+  onChange: (next: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const Icon = getQuoteQuickIcon(value);
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="flex items-center gap-3 rounded-md border border-gray-200 px-3 py-2 hover:border-indigo-300 hover:bg-indigo-50 transition"
+        data-testid="default-icon-picker-trigger"
+      >
+        <div className="w-8 h-8 rounded bg-indigo-50 flex items-center justify-center">
+          {Icon ? <Icon size={18} className="text-indigo-600" strokeWidth={2.25} /> : null}
+        </div>
+        <span className="text-sm text-gray-700">{value ?? "Choose an icon…"}</span>
+      </button>
+      <LucideIconPicker
+        open={open}
+        value={value}
+        onClose={() => setOpen(false)}
+        onSelect={(name) => {
+          onChange(name);
+          setOpen(false);
+        }}
+      />
+    </>
   );
 }
 
