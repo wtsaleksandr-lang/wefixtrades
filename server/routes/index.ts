@@ -83,6 +83,7 @@ import { registerAdminApiPlatformRoutes } from "./adminApiPlatformRoutes";
 import { registerPortalApiKeysRoutes } from "./portalApiKeysRoutes";
 import { registerPortalBrandKitsRoutes } from "./portalBrandKitsRoutes";
 import { registerAdminAuditLogRoutes } from "./adminAuditLogRoutes";
+import { registerAdminMobilePreviewRoutes } from "./adminMobilePreviewRoutes";
 import { registerApiV1Routes } from "./apiV1";
 
 export async function registerRoutes(
@@ -173,6 +174,7 @@ export async function registerRoutes(
   registerPortalApiKeysRoutes(app);
   registerPortalBrandKitsRoutes(app);
   registerAdminAuditLogRoutes(app);
+  registerAdminMobilePreviewRoutes(app);
   registerApiV1Routes(app);
 
   return httpServer;
