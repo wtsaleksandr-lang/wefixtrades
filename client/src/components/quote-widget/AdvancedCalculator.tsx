@@ -18,6 +18,52 @@ import {
 import { eff } from './designTokens';
 import { resolveWidgetTheme, type WidgetTheme } from './widgetThemes';
 import { useCountUp } from './useCountUp';
+// Wave W-AH-2 — explicit named imports so Vite tree-shakes the 1000+ lucide
+// icons down to just the ~35 we actually use as template default-logo icons.
+// Do NOT switch to `import * as LucideIcons from 'lucide-react'` — that pulls
+// the entire icon set into the bundle.
+import {
+  Bath, BatteryCharging, Biohazard, Bug, Building2, Camera, Car, ChefHat,
+  ClipboardCheck, Construction, DoorOpen, Droplet, Droplets, Fence, Flame,
+  Globe, Hammer, Home, KeyRound, Leaf, PackageOpen, PaintBucket, Paintbrush2,
+  RectangleHorizontal, Refrigerator, Sparkles, Sun, Thermometer, Trash2,
+  TreeDeciduous, Trees, Truck, Waves, Wrench, Zap,
+} from 'lucide-react';
+
+/**
+ * Wave W-AH-2 — Lucide icon map for the widget header's default-logo fallback.
+ * Templates declare a `defaultIcon` name in `shared/templatePresets.ts`; when
+ * the merchant hasn't uploaded a logo, we render the matching icon tinted
+ * with the template's accent. Listed explicitly (not `import *`) so tree-
+ * shaking strips every icon we don't use.
+ */
+const DEFAULT_LOGO_ICONS = {
+  Bath, BatteryCharging, Biohazard, Bug, Building2, Camera, Car, ChefHat,
+  ClipboardCheck, Construction, DoorOpen, Droplet, Droplets, Fence, Flame,
+  Globe, Hammer, Home, KeyRound, Leaf, PackageOpen, PaintBucket, Paintbrush2,
+  RectangleHorizontal, Refrigerator, Sparkles, Sun, Thermometer, Trash2,
+  TreeDeciduous, Trees, Truck, Waves, Wrench, Zap,
+} as const;
+
+function DefaultLogoIcon({
+  name, accent, radius,
+}: { name: string; accent: string; radius: number | string }) {
+  const Icon = (DEFAULT_LOGO_ICONS as Record<string, typeof Truck | undefined>)[name];
+  if (!Icon) return null;
+  return (
+    <div
+      aria-hidden="true"
+      style={{
+        width: 28, height: 28, borderRadius: radius,
+        background: `${accent}1a`,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        flexShrink: 0,
+      }}
+    >
+      <Icon size={16} color={accent} strokeWidth={2.25} />
+    </div>
+  );
+}
 
 /**
  * Wave H5 — Style tab integration.
@@ -147,6 +193,11 @@ export interface AdvancedConfig {
   header?: AdvHeader;
   results?: AdvResults;
   theme?: string;
+  /**
+   * Wave W-AH-2 — Lucide icon name shown in the header's logo slot when no
+   * user logo is uploaded. Template-provided default, optional & back-compat.
+   */
+  defaultIcon?: string;
   /**
    * Real layout: `single-column | two-column | multi-column`. Legacy values
    * (`single_page | two_column | multi_step`) are still accepted on read and
@@ -504,9 +555,11 @@ export default function AdvancedCalculator({ businessName, logoUrl, advanced, ac
         return (
           <div style={{ padding: '18px 24px', borderBottom: `1px solid ${c.border}` }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: justify, gap: '10px' }}>
-              {logoUrl && (
+              {logoUrl ? (
                 <img src={logoUrl} alt="" style={{ width: 28, height: 28, borderRadius: eff.radiusMd, objectFit: 'contain' }} />
-              )}
+              ) : advanced.defaultIcon ? (
+                <DefaultLogoIcon name={advanced.defaultIcon} accent={c.accent} radius={eff.radiusMd} />
+              ) : null}
               <p
                 data-testid="advanced-title"
                 style={{ fontSize: '17px', fontWeight: 800, color: c.text, margin: 0, letterSpacing: '-0.01em', display: 'inline-flex', alignItems: 'center', gap: 6 }}
