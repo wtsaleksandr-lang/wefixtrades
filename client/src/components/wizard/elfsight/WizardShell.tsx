@@ -994,6 +994,13 @@ export default function WizardShell({ embed = false }: Props) {
             .qq-editor-body {
               display: flex; align-items: stretch;
               flex: 1; min-height: 0;
+              /* Wave AB-1 — lock outer body to overflow:hidden so the two
+                 panes (.qq-editor-left, .qq-editor-right) own their own
+                 vertical scroll. Previously the outer body could also
+                 scroll, which competed with each pane's overflow-y:auto
+                 and caused the field list to fight the preview when
+                 either was overlong. */
+              overflow: hidden;
             }
             /* Wave M — collapse transition. We animate the right pane's
                width/opacity. The left pane is flex: 1 once collapsed, so
@@ -1137,8 +1144,14 @@ export default function WizardShell({ embed = false }: Props) {
               /* Wave AA — anchor widget to TOP of preview area (was centered
                  vertically). Combined with the +22% taller desktop frame,
                  this keeps the widget consistently positioned regardless of
-                 content height. */
-              position: sticky; top: 0;
+                 content height.
+
+                 Wave AB-2 — dropped position:sticky+top:0 here. The
+                 sticky+min-height:100% combination created a feedback loop
+                 with the right pane's overflow-y:auto — scrolling to the
+                 bottom caused the bezel to flicker as the sticky element
+                 fought to stay anchored. The pane is the sole child of the
+                 scrolling right column, so sticky was redundant. */
               display: flex; align-items: flex-start; justify-content: center;
               padding: 24px 20px; box-sizing: border-box; min-height: 100%;
               /* Wave AA — visible dotted-grid background. Subtle but clearly

@@ -79,8 +79,14 @@ export type {
   AdvWidgetWidth as ShellWidgetWidth,
 };
 
-/** The brand defaults exported through the shell scope. */
-export const DEFAULT_SHELL_STYLE: Required<ShellStyle> = DEFAULT_ADV_STYLE;
+/**
+ * Brand defaults exported through the shell scope.
+ *
+ * Wave AC-1 — `widgetWidthDesktop` / `widgetWidthMobile` stay undefined in
+ * the defaults (the renderer falls back to the `widgetWidth` enum when not
+ * set), so we mirror DEFAULT_ADV_STYLE's `Required<Omit<…>>` shape.
+ */
+export const DEFAULT_SHELL_STYLE: Required<Omit<ShellStyle, 'widgetWidthDesktop' | 'widgetWidthMobile'>> = DEFAULT_ADV_STYLE;
 
 /**
  * Curated font families.

@@ -243,19 +243,17 @@ function FieldDecorator({ box, onRemove }: FieldDecoratorProps) {
   const selection = useSelection();
   const isSel = selection.isSelected({ kind: 'field', id: box.fieldId });
   const registerSel = selection.registerNode({ kind: 'field', id: box.fieldId }, 'preview');
-  // Wave L E4 + B1 — the decorator is now POINTER-EVENTS:NONE at the wrapper
-  // level (see CSS below). Selection is delegated up to the bezel click
-  // handler in PreviewPane (which already bails out on real form controls).
-  // This is the root fix for sliders not dragging and additional-services
-  // checkboxes not toggling — the previous overlay was eating every click.
+
   return (
     <div
-      ref={registerSel}
+      ref={(el) => { registerSel(el); }}
       className={`qq-preview-field-deco${isSel ? ' is-selected' : ''}`}
       data-testid={`preview-field-deco-${box.fieldId}`}
       data-preview-field-id={box.fieldId}
       {...(isSel ? { 'data-selected-in-preview': '' } : {})}
-      style={{ left: box.left, top: box.top, width: box.width, height: box.height }}
+      style={{
+        left: box.left, top: box.top, width: box.width, height: box.height,
+      }}
     >
       {/* Invisible select-target for tests that still query for it. Does
        * NOT intercept pointer events — it's a marker, not a hit-button. */}
