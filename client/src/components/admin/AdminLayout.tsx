@@ -124,6 +124,8 @@ const SYSTEM_ITEMS = [
   { label: "Activity Audit", href: "/admin/audit-log", icon: FileText },
   { label: "AI Budget", href: "/admin/crm/ai-budget", icon: BrainCircuit },
   { label: "AI Gates", href: "/admin/ai-gates", icon: ShieldOff },
+  /* W-AV-1 — Business Operator AI escalations + trust ladder + kill switch. */
+  { label: "AI Activity", href: "/admin/ai-activity", icon: BrainCircuit },
 ];
 
 const SECONDARY_ITEMS = [

@@ -57,6 +57,7 @@ import { processTradelineProvisionRetry } from "./tradelineProvisionRetryWorker"
 import { processRoutingEngine } from "../engine/routingWorker";
 import { releaseStaleSlugs } from "../services/quotequickSlugLifecycle";
 import { processApiWebhookDeliveries } from "./apiWebhookDeliveryWorker";
+import { runBusinessOperatorJob } from "./businessOperatorWorker";
 
 const log = createLogger("Scheduler");
 
@@ -910,4 +911,24 @@ export function initScheduler() {
       tradelineRetryRunning = false;
     }
   });
+
+  // Wave W-AV-1 — Business Operator AI. Hourly at :15 past the hour.
+  // ESCALATE-ONLY in v1; per-playbook auto-execute unlocks after 3
+  // consecutive admin approvals on that playbook. Monthly $50 cap +
+  // ADMIN_AI_KILL_SWITCH env emergency stop are both checked inside.
+  let businessOperatorRunning = false;
+  cron.schedule("15 * * * *", async () => {
+    if (businessOperatorRunning) {
+      log.debug("business_operator skipped — previous tick still running");
+      return;
+    }
+    businessOperatorRunning = true;
+    try {
+      await runJob("business_operator", runBusinessOperatorJob);
+    } catch (err: any) {
+      log.error("business_operator cron handler error", { error: err.message });
+    } finally {
+      businessOperatorRunning = false;
+    }
+  }, { timezone: "UTC" });
 }
