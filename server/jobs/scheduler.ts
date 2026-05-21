@@ -52,6 +52,7 @@ import { processEmailQueue } from "../services/emailQueueService";
 import { processEmbedBrokenDetection } from "./embedBrokenDetector";
 import { processBillRetention } from "./tradelineBillRetentionWorker";
 import { processProTrialExpiry } from "./trialProExpiryWorker";
+import { processContentFlowReminders } from "./contentflowReminderWorker";
 import { processTradelineProvisionRetry } from "./tradelineProvisionRetryWorker";
 import { processRoutingEngine } from "../engine/routingWorker";
 import { releaseStaleSlugs } from "../services/quotequickSlugLifecycle";
@@ -880,6 +881,18 @@ export function initScheduler() {
       apiWebhookDeliveryRunning = false;
     }
   });
+
+  // ContentFlow setup reminder worker — hourly. Sends one "complete your
+  // brand profile" email 24h after checkout for tiers where the customer
+  // hasn't finished the deeper /portal/content-preferences wizard.
+  // Idempotent via client_services.metadata.contentflow_reminder_sent_at.
+  cron.schedule("23 * * * *", async () => {
+    try {
+      await runJob("contentflow_setup_reminder", processContentFlowReminders);
+    } catch (err: any) {
+      log.error("contentflow_setup_reminder cron handler error", { error: err.message });
+    }
+  }, { timezone: "UTC" });
 
   // TradeLine retry worker — retries failed assistant builds every 15 min.
   let tradelineRetryRunning = false;

@@ -716,6 +716,40 @@ async function main() {
         { key: "maintenance_window", label: "Preferred maintenance window", type: "select", required: false },
       ],
     },
+    /* ContentFlow — Sprint W-AZ-1 (post-checkout onboarding nudge).
+     *
+     * These templates are intentionally SHORT (vital fields only). They
+     * exist so the post-checkout email actually fires; the deeper 8-step
+     * setup happens at /portal/content-preferences. On submit the four
+     * answers are mapped through onboardingMapper → mergeBrandProfile so
+     * the customer doesn't repeat themselves in the wizard. */
+    "contentflow-creator": {
+      name: "ContentFlow Creator — Quick Setup",
+      steps: [
+        { key: "primary_website_url", label: "Primary website URL (we'll link content back here)", type: "text", required: true },
+        { key: "content_industries", label: "Industries / services you want content about (one per line; add Other: <topic> for anything specific)", type: "text", required: true },
+        { key: "voice_tone", label: "Voice / tone preference (Professional / Friendly / Authoritative / Casual)", type: "select", required: true },
+        { key: "ready_to_connect_socials", label: "Ready to connect your social media accounts now? (yes — open setup / no — remind me later)", type: "select", required: true },
+      ],
+    },
+    "contentflow-studio": {
+      name: "ContentFlow Studio — Quick Setup",
+      steps: [
+        { key: "primary_website_url", label: "Primary website URL (we'll link content back here)", type: "text", required: true },
+        { key: "content_industries", label: "Industries / services you want content about (one per line; add Other: <topic> for anything specific)", type: "text", required: true },
+        { key: "voice_tone", label: "Voice / tone preference (Professional / Friendly / Authoritative / Casual)", type: "select", required: true },
+        { key: "ready_to_connect_socials", label: "Ready to connect your social media accounts now? (yes — open setup / no — remind me later)", type: "select", required: true },
+      ],
+    },
+    "contentflow-agency": {
+      name: "ContentFlow Agency — Quick Setup",
+      steps: [
+        { key: "primary_website_url", label: "Primary website URL (we'll link content back here)", type: "text", required: true },
+        { key: "content_industries", label: "Industries / services you want content about (one per line; add Other: <topic> for anything specific)", type: "text", required: true },
+        { key: "voice_tone", label: "Voice / tone preference (Professional / Friendly / Authoritative / Casual)", type: "select", required: true },
+        { key: "ready_to_connect_socials", label: "Ready to connect your social media accounts now? (yes — open setup / no — remind me later)", type: "select", required: true },
+      ],
+    },
     "webcare-pro": {
       name: "WebCare Pro Onboarding",
       steps: [

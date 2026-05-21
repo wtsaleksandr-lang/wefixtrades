@@ -16,6 +16,12 @@ import {
   sanitizeBrandProfilePatch,
 } from "../services/contentflow/brandProfile";
 import {
+  mapContentFlowOnboardingToBrandProfile,
+  mergeContentFlowOnboarding,
+  shouldRouteToDeeperWizard,
+  extractPrimaryWebsiteUrl,
+} from "../services/contentflow/onboardingMapper";
+import {
   clientApproveDraft,
   clientRequestChanges,
   clientRejectDraft,
@@ -887,6 +893,7 @@ export function registerPortalRoutes(app: Express) {
           .where(eq(onboardingSubmissions.id, submissionId));
 
         // Map onboarding answers into TradeLine config if applicable
+        let nextUrl: string | null = null;
         if (submission.client_service_id) {
           try {
             const cs = await storage.getClientServiceById(submission.client_service_id);
@@ -910,12 +917,74 @@ export function registerPortalRoutes(app: Express) {
                 );
               });
             }
+
+            /* Wave W-AZ-1 — ContentFlow post-checkout onboarding hook.
+             *
+             * The four-question template gives us just enough to seed the
+             * brand profile so the customer doesn't repeat themselves on
+             * the deeper /portal/content-preferences wizard. We also
+             * persist the website URL to clients.contact_url if missing
+             * (canonical site link consumed by article generators) and
+             * route the customer either straight into the wizard or
+             * schedule a reminder for the 24h email worker. */
+            if (cs && cs.service_id.startsWith("contentflow")) {
+              try {
+                const patch = mapContentFlowOnboardingToBrandProfile(responses);
+                if (Object.keys(patch).length > 0) {
+                  const existingClient = await storage.getClientById(clientId);
+                  const existing = readBrandProfile(existingClient);
+                  /* Idempotent merge — don't clobber values the deeper
+                   * wizard already filled in if the customer happens to
+                   * have completed that first. */
+                  const merged = mergeContentFlowOnboarding(existing, patch);
+                  /* Diff against existing so we only push fields that
+                   * actually changed (mergeBrandProfile is safe either
+                   * way, but this keeps the audit trail tight). */
+                  const diff: Record<string, unknown> = {};
+                  for (const [k, v] of Object.entries(merged)) {
+                    if (JSON.stringify((existing as Record<string, unknown>)[k]) !== JSON.stringify(v)) {
+                      diff[k] = v;
+                    }
+                  }
+                  if (Object.keys(diff).length > 0) {
+                    await mergeBrandProfile(clientId, diff);
+                  }
+                }
+
+                const websiteUrl = extractPrimaryWebsiteUrl(responses);
+                if (websiteUrl) {
+                  const c = await storage.getClientById(clientId);
+                  if (c && !c.website_url) {
+                    await storage.updateClient(clientId, { website_url: websiteUrl } as any);
+                  }
+                }
+
+                /* Routing decision — yes routes to deeper wizard; no
+                 * stamps the client_service so the 24h reminder worker
+                 * can pick it up. */
+                if (shouldRouteToDeeperWizard(responses)) {
+                  nextUrl = "/portal/content-preferences?from=onboarding";
+                } else {
+                  const meta = (cs.metadata as Record<string, any>) || {};
+                  await storage.updateClientService(cs.id, {
+                    metadata: {
+                      ...meta,
+                      contentflow_reminder_due_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+                      contentflow_quick_setup_at: new Date().toISOString(),
+                    },
+                  } as any);
+                  nextUrl = "/portal/services";
+                }
+              } catch (err) {
+                log.warn("Portal onboarding: failed ContentFlow mapper hook:", { error: String(err) });
+              }
+            }
           } catch (err) {
             log.warn("Portal onboarding: failed to map TradeLine config:", { error: String(err) });
           }
         }
 
-        res.json({ ok: true, status: "submitted", mode: "submit" });
+        res.json({ ok: true, status: "submitted", mode: "submit", next_url: nextUrl });
       }
     } catch (err) {
       log.error("Portal onboarding PUT error:", { error: String(err) });
