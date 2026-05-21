@@ -65,12 +65,33 @@ export async function transcribeWithWhisper(
   }
 
   const file = await toFile(audioBuffer, filename);
-  const response = await getOpenAI().audio.transcriptions.create({
-    file,
-    model: "whisper-1",
-    // verbose_json gives us a `duration` field; default `json` does not.
-    response_format: "verbose_json",
-  });
+
+  // Retry transient failures (429 / 5xx / network) with exponential backoff.
+  // Whisper is a one-shot upload — a single retry is enough to absorb a
+  // mid-day rate-limit spike without making the caller wait too long.
+  const maxAttempts = 3;
+  let response: any;
+  let lastErr: any;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      response = await getOpenAI().audio.transcriptions.create({
+        file,
+        model: "whisper-1",
+        // verbose_json gives us a `duration` field; default `json` does not.
+        response_format: "verbose_json",
+      });
+      lastErr = null;
+      break;
+    } catch (err: any) {
+      lastErr = err;
+      const status = err?.status ?? err?.response?.status;
+      const retriable = status === 429 || (typeof status === "number" && status >= 500 && status < 600);
+      if (!retriable || attempt === maxAttempts) throw err;
+      // 500ms, 1500ms backoff
+      await new Promise((r) => setTimeout(r, 500 * Math.pow(3, attempt - 1)));
+    }
+  }
+  if (lastErr || !response) throw lastErr ?? new Error("Whisper transcription failed");
 
   // The SDK types `verbose_json` loosely; cast to read `duration`.
   const raw = response as unknown as { text: string; duration?: number };
