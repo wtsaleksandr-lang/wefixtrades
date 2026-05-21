@@ -374,21 +374,32 @@ function FieldDecorator({ box, onRemove }: FieldDecoratorProps) {
   const isSel = selection.isSelected({ kind: 'field', id: box.fieldId });
   const registerSel = selection.registerNode({ kind: 'field', id: box.fieldId }, 'preview');
 
-  // Wave AC-3 — drag-to-reorder mirroring FieldsPanel. The decorator wrapper
-  // is `pointer-events: none` so it doesn't eat clicks on real controls
-  // (sliders, dropdowns); the drag handle re-enables pointer events on
-  // itself only. The transform from useSortable is composed onto the
-  // absolute (left, top) — the decorator stays positioned over its measured
-  // field but visibly translates while dragging.
+  // Wave AC-3 fix — drag-to-reorder mirroring FieldsPanel. The decorator
+  // wrapper is `pointer-events: none` so it doesn't eat clicks on real
+  // controls (sliders, dropdowns); the drag handle re-enables pointer
+  // events on itself only.
+  //
+  // CRITICAL: dnd-kit's `{...listeners}` MUST be spread ONLY onto the small
+  // left-edge grip button, never onto the wrapper or any element that also
+  // contains the (−) remove button. We additionally pass the grip node to
+  // `setActivatorNodeRef` so dnd-kit treats THE GRIP (and only the grip) as
+  // the drag activator — this scopes keyboard activation and pointer-down
+  // capture so a click on the (−) button is never swallowed as a drag
+  // gesture. Without setActivatorNodeRef, dnd-kit can fall back to treating
+  // the wrapper (registered via `setNodeRef`) as the activator zone for
+  // some checks, which was masking remove-button clicks.
+  //
+  // The transform from useSortable is composed onto the absolute (left,
+  // top) — the decorator stays positioned over its measured field but
+  // visibly translates while dragging. We only emit `transform` /
+  // `transition` style entries when actually dragging or animating, so the
+  // idle wrapper has no transform-related style that could create a
+  // stacking context or trip Playwright's stability check.
   const {
-    attributes, listeners, setNodeRef, transform, transition, isDragging,
+    attributes, listeners, setNodeRef, setActivatorNodeRef,
+    transform, transition, isDragging,
   } = useSortable({ id: box.fieldId });
 
-  // Wave L E4 + B1 — the decorator is POINTER-EVENTS:NONE at the wrapper
-  // level (see CSS below). Selection is delegated up to the bezel click
-  // handler in PreviewPane (which already bails out on real form controls).
-  // This is the root fix for sliders not dragging and additional-services
-  // checkboxes not toggling — the previous overlay was eating every click.
   return (
     <div
       ref={(el) => { setNodeRef(el); registerSel(el); }}
@@ -398,9 +409,9 @@ function FieldDecorator({ box, onRemove }: FieldDecoratorProps) {
       {...(isSel ? { 'data-selected-in-preview': '' } : {})}
       style={{
         left: box.left, top: box.top, width: box.width, height: box.height,
-        transform: CSS.Transform.toString(transform),
-        transition,
-        zIndex: isDragging ? 3 : undefined,
+        ...(transform ? { transform: CSS.Transform.toString(transform) } : null),
+        ...(transition ? { transition } : null),
+        ...(isDragging ? { zIndex: 3 } : null),
       }}
     >
       {/* Invisible select-target for tests that still query for it. Does
@@ -413,12 +424,19 @@ function FieldDecorator({ box, onRemove }: FieldDecoratorProps) {
       {/* Wave AC-3 — drag handle pinned to the left edge of the field
        *  decorator. Pointer-events:auto on the handle itself so it can
        *  receive the drag-start gesture; the rest of the decorator stays
-       *  pass-through so the underlying field controls keep working. */}
+       *  pass-through so the underlying field controls (and the (−)
+       *  remove button, a sibling) keep working.
+       *
+       *  setActivatorNodeRef is what tells dnd-kit "this specific element
+       *  is the drag activator" — without it, dnd-kit can route activation
+       *  through the wrapper node and steal pointerdown events away from
+       *  sibling buttons positioned at the wrapper's edges. */}
       <button
         type="button"
         className="qq-preview-field-deco-drag"
         aria-label="Drag to reorder field"
         data-testid={`preview-field-drag-${box.fieldId}`}
+        ref={setActivatorNodeRef}
         {...attributes}
         {...listeners}
       >
