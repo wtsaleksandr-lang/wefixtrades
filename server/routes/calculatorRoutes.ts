@@ -5,6 +5,7 @@ import Stripe from "stripe";
 import { storage } from "../storage";
 import { validatePricingConfig } from "@shared/pricingConfig";
 import { calculatorSettingsSchema } from "@shared/schema";
+import { BRAND_STUDIO_STYLE_KEYS } from "@shared/templatePresets";
 import { slugify, isValidSlug, buildSubdomain, HOSTING_DOMAIN } from "@shared/slugUtils";
 import { touchCalculatorActivity } from "../services/quotequickSlugLifecycle";
 import { createLogger } from "../lib/logger";
@@ -392,31 +393,37 @@ export function registerCalculatorRoutes(app: Express): void {
             });
           }
         }
-        // W-AO-6c — Brand Studio tier gate. The Pro upsell ships three
-        // groups of `advanced.style.*` fields (custom CSS, image / gradient
-        // background, result-panel overrides). Free-tier calculators can
-        // PREVIEW them in the wizard (so users see what's behind the
-        // paywall) but the patch is stripped here before the deep merge,
-        // so the persisted row keeps its existing values. We return a
-        // `X-Brand-Studio-Stripped` response header listing the dropped
-        // groups so the UI can surface a toast.
+        // W-AO-6c + W-AO-6d — Brand Studio tier gate. The Pro upsell ships
+        // groups of `advanced.style.*` fields:
+        //   Wave 1 (6c): customCss, bgMode/bgGradient/bgImageUrl/bgImageTint,
+        //                resultPanel.
+        //   Wave 2 (6d): animations (step transition + duration + reduced-
+        //                motion respect).
+        // Free-tier calculators can PREVIEW them in the wizard (so users
+        // see what's behind the paywall) but the patch is stripped here
+        // before the deep merge, so the persisted row keeps its existing
+        // values. We return an `X-Brand-Studio-Stripped` response header
+        // listing the dropped groups so the UI can surface a toast.
+        // Source of truth for the key set: BRAND_STUDIO_STYLE_KEYS in
+        // shared/templatePresets.ts.
         const droppedBrandStudio: string[] = [];
         const incomingAdvanced = (updates.calculator_settings as any).advanced;
         if (incomingAdvanced && incomingAdvanced.style && !paidTier) {
           const incomingStyle = incomingAdvanced.style as Record<string, unknown>;
-          const { customCss, bgMode, bgGradient, bgImageUrl, bgImageTint, resultPanel, ...restStyle } = incomingStyle;
-          if (customCss !== undefined) droppedBrandStudio.push('customCss');
-          if (bgMode !== undefined) droppedBrandStudio.push('bgMode');
-          if (bgGradient !== undefined) droppedBrandStudio.push('bgGradient');
-          if (bgImageUrl !== undefined) droppedBrandStudio.push('bgImageUrl');
-          if (bgImageTint !== undefined) droppedBrandStudio.push('bgImageTint');
-          if (resultPanel !== undefined) droppedBrandStudio.push('resultPanel');
+          const restStyle: Record<string, unknown> = {};
+          for (const [k, v] of Object.entries(incomingStyle)) {
+            if ((BRAND_STUDIO_STYLE_KEYS as readonly string[]).includes(k)) {
+              if (v !== undefined) droppedBrandStudio.push(k);
+            } else {
+              restStyle[k] = v;
+            }
+          }
           if (droppedBrandStudio.length > 0) {
             (updates.calculator_settings as any).advanced = {
               ...incomingAdvanced,
               style: restStyle,
             };
-            log.info("W-AO-6c gate — stripped Brand Studio fields from free-tier calculator", {
+            log.info("W-AO-6c/6d gate — stripped Brand Studio fields from free-tier calculator", {
               calculator_id: calculator.id,
               dropped: droppedBrandStudio,
             });

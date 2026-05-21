@@ -16,6 +16,7 @@ import {
   type AdvStyle, type AdvFontFamily, type AdvFieldStyle, type AdvWidgetWidth,
   type AdvLogoPlacement, type AdvLogoSize, type AdvFontSize,
   type AdvBgGradientDirection, type AdvResultEmphasis, type AdvResultBorder,
+  type AdvStepTransition,
 } from '@shared/templatePresets';
 import { eff } from './designTokens';
 import { resolveWidgetTheme, type WidgetTheme } from './widgetThemes';
@@ -267,6 +268,55 @@ function clampTint(pct: number | undefined): number {
   return Math.max(0, Math.min(50, Math.round(pct)));
 }
 
+/** W-AO-6d — derive the per-panel mount transition CSS for the lead-form
+ *  step wizard. Pure CSS (no Framer Motion dep). Each panel mounts with
+ *  the entering keyframes; transitions back to instant when the kind is
+ *  'none' OR the user prefers reduced motion AND respect is on.
+ *
+ *  The browser handles `prefers-reduced-motion` automatically via the
+ *  media query inside the injected keyframes — we DON'T inline the
+ *  `matchMedia` check, because that would freeze the rendered value at
+ *  mount time. The media query route stays live as the OS preference
+ *  changes mid-session. */
+function stepTransitionCss(
+  scopeClass: string,
+  kind: AdvStepTransition,
+  durationMs: number,
+  respectReducedMotion: boolean,
+): string {
+  if (kind === 'none') return '';
+  const fade = `qq-step-fade-${scopeClass}`;
+  const slide = `qq-step-slide-${scopeClass}`;
+  const slideFade = `qq-step-slidefade-${scopeClass}`;
+  const dur = `${durationMs}ms`;
+
+  const keyframes = `
+    @keyframes ${fade} { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes ${slide} { from { transform: translateX(16px); } to { transform: translateX(0); } }
+    @keyframes ${slideFade} {
+      from { opacity: 0; transform: translateX(16px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+  `;
+
+  let rule = '';
+  if (kind === 'fade') {
+    rule = `.${scopeClass} [data-qq-step-enter] { animation: ${fade} ${dur} ease-out both; }`;
+  } else if (kind === 'slide') {
+    rule = `.${scopeClass} [data-qq-step-enter] { animation: ${slide} ${dur} ease-out both; }`;
+  } else if (kind === 'slide-fade') {
+    rule = `.${scopeClass} [data-qq-step-enter] { animation: ${slideFade} ${dur} ease-out both; }`;
+  }
+
+  const reduced = respectReducedMotion
+    ? `@media (prefers-reduced-motion: reduce) {
+         .${scopeClass} [data-qq-step-enter] { animation: none !important; }
+       }`
+    : '';
+
+  return `${keyframes}\n${rule}\n${reduced}`;
+}
+
 /** W-AO-6c — translate `AdvBgGradientDirection` into a CSS background
  *  declaration that uses the two stops. Falls back to a sensible default
  *  when an unknown direction sneaks in from a stored config. */
@@ -437,6 +487,17 @@ export default function AdvancedCalculator({
   const bsBgImageUrl = brandStudioUnlocked ? bs.bgImageUrl : undefined;
   const bsBgImageTint = clampTint(brandStudioUnlocked ? bs.bgImageTint : undefined);
   const bsResultPanel = brandStudioUnlocked ? bs.resultPanel : undefined;
+  // W-AO-6d — Brand Studio Wave 2 animations. Pro-gated (same matrix as
+  // Wave 1 fields). When absent, transitions render instantly — matches
+  // pre-AO-6d behaviour, so existing calculators are unchanged.
+  const bsAnimations = brandStudioUnlocked ? bs.animations : undefined;
+  const stepTransition: AdvStepTransition = bsAnimations?.step_transition ?? 'none';
+  const stepDurationMs = (() => {
+    const raw = typeof bsAnimations?.duration_ms === 'number' ? bsAnimations.duration_ms : 250;
+    if (!Number.isFinite(raw)) return 250;
+    return Math.max(100, Math.min(600, Math.round(raw)));
+  })();
+  const reducedMotionRespect = bsAnimations?.reduced_motion_respect !== false;
 
   // Resolve the base theme, then compose the optional `advanced.style`
   // overrides on top. The Wave H5 style slot wins where it sets a value;
@@ -999,7 +1060,13 @@ export default function AdvancedCalculator({
             </p>
 
             {showCta && (
-              <div style={{ marginTop: '14px' }}>
+              // W-AO-6d — `key` is the leadView so React unmounts the
+              // previous panel and remounts the new one on each step
+              // change. That re-fires the entering animation declared in
+              // the injected step-transition <style>. Pro-only; when
+              // stepTransition === 'none' the rule below is empty and
+              // the mount is instant (legacy behaviour).
+              <div style={{ marginTop: '14px' }} key={`leadview-${leadView}`} data-qq-step-enter>
                 {leadView === 'cta' && (
                   <button type="button" data-testid="advanced-cta"
                     data-component-name="CTA button"
@@ -1095,6 +1162,15 @@ export default function AdvancedCalculator({
       {bsCustomCss.trim() !== '' && (
         <style data-testid="advanced-custom-css">
           {scopeCustomCss(bsCustomCss, widgetClass)}
+        </style>
+      )}
+      {/* W-AO-6d — Brand Studio Wave 2 step-transition keyframes. Empty
+       *  when `stepTransition === 'none'` so the existing instant
+       *  behaviour is preserved. Scoped to the widget's unique
+       *  `.qq-widget-${id}` class so transitions never leak. */}
+      {stepTransition !== 'none' && (
+        <style data-testid="advanced-step-transitions">
+          {stepTransitionCss(widgetClass, stepTransition, stepDurationMs, reducedMotionRespect)}
         </style>
       )}
     </div>

@@ -19,6 +19,7 @@ import {
   Plus,
   Sparkles,
   Key,
+  Palette,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useState } from "react";
@@ -112,6 +113,10 @@ function buildNavItems(active: Set<string>): NavItem[] {
     { label: "Billing", href: "/portal/billing", icon: CreditCard },
     /* AJ-5 portal API access — developer portal entry for the public API platform */
     { label: "API Access", href: "/portal/api-access", icon: Key },
+    /* W-AO-6d — QuoteQuick Brand Kits (Pro $29 tier upsell). Always visible
+       in the sidebar; the page itself shows the Pro upsell when the user
+       doesn't have a Pro+ calculator. */
+    { label: "Brand Kits", href: "/portal/brand-kits", icon: Palette },
     /* Q16: dedicated entry-point to the in-portal service catalog */
     { label: "Add Services", href: "/portal/catalog", icon: Plus },
     { label: "Help", href: "/portal/help", icon: HelpCircle },

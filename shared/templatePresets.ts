@@ -2709,6 +2709,14 @@ export interface AdvStyle {
   /** Result-panel overrides — colours / emphasis / border. Optional;
    *  every sub-field falls through to the resolved theme default. */
   resultPanel?: AdvResultPanel;
+
+  /* ─── W-AO-6d — Brand Studio Wave 2 (Pro tier) ───────────────────
+   *
+   * Step / transition animations. Optional; server-side stripped for
+   * non-Pro tiers and renderer-side ignored when `planTier` isn't
+   * unlocked. Absent value → instant transition (pre-AO-6d behaviour).
+   */
+  animations?: AdvAnimations;
 }
 
 /** W-AO-6c — Brand Studio background mode. */
@@ -2744,10 +2752,25 @@ export interface AdvResultPanel {
   border?: AdvResultBorder;
 }
 
+/** W-AO-6d — step transition kinds. `none` = instant (legacy behaviour). */
+export type AdvStepTransition = 'none' | 'fade' | 'slide' | 'slide-fade';
+
+/** W-AO-6d — animations bundle. Every field optional; absent value →
+ *  legacy instant transition. */
+export interface AdvAnimations {
+  step_transition?: AdvStepTransition;
+  /** Transition duration in ms; clamped to 100..600 at render. */
+  duration_ms?: number;
+  /** When true (default), `prefers-reduced-motion: reduce` forces instant. */
+  reduced_motion_respect?: boolean;
+}
+
 /**
  * W-AO-6c — list of Brand Studio fields used by the server-side tier
  * gate to strip free-tier patches before persistence. Kept here (not in
  * the route) so the shape stays the source of truth.
+ *
+ * W-AO-6d — `animations` added (Brand Studio Wave 2 step-transition bundle).
  */
 export const BRAND_STUDIO_STYLE_KEYS = [
   'customCss',
@@ -2756,6 +2779,7 @@ export const BRAND_STUDIO_STYLE_KEYS = [
   'bgImageUrl',
   'bgImageTint',
   'resultPanel',
+  'animations',
 ] as const;
 export type BrandStudioStyleKey = (typeof BRAND_STUDIO_STYLE_KEYS)[number];
 
@@ -2790,7 +2814,10 @@ type AdvStyleOptionalOnly =
   // intentionally absent from `DEFAULT_ADV_STYLE` so a fresh calculator
   // renders identically to the pre-AO-6c build.
   | 'customCss' | 'bgMode' | 'bgGradient' | 'bgImageUrl' | 'bgImageTint'
-  | 'resultPanel';
+  | 'resultPanel'
+  // W-AO-6d — Brand Studio Wave 2 animations. Same rationale as 6c
+  // fields: Pro-only, optional, absent → instant transition (legacy).
+  | 'animations';
 
 export const DEFAULT_ADV_STYLE: Required<Omit<AdvStyle, AdvStyleOptionalOnly>> = {
   accent: '#0d3cfc',
