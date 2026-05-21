@@ -19,6 +19,10 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useDraggable } from '@dnd-kit/core';
+import {
+  Sliders, Hash, ChevronDown, CircleDot, Image as ImageIcon, Heading2,
+  type LucideIcon,
+} from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
 import { DND_CONTAINERS } from './dnd';
 import type { PublicFieldType } from './types';
@@ -34,17 +38,63 @@ interface Props {
 interface TypeMeta {
   id: PublicFieldType;
   label: string;
+  /** Short tagline still shown under the label. */
   hint: string;
-  icon: string;
+  /** 8-15 word plain-English description. */
+  description: string;
+  /** Optional "Recommended for…" badge shown on hover/focus. */
+  recommendedFor?: string;
+  Icon: LucideIcon;
 }
 
 const TYPES: ReadonlyArray<TypeMeta> = [
-  { id: 'slider', label: 'Slider', hint: 'Numeric range input', icon: '⇋' },
-  { id: 'number', label: 'Number', hint: 'Exact integer / decimal', icon: '#' },
-  { id: 'dropdown', label: 'Dropdown', hint: 'Pick one from a list', icon: '▾' },
-  { id: 'choice', label: 'Choice', hint: 'Radio-style options', icon: '◉' },
-  { id: 'imageChoice', label: 'Image choice', hint: 'Visual option cards', icon: '◧' },
-  { id: 'heading', label: 'Heading', hint: 'Section divider text', icon: 'T' },
+  {
+    id: 'slider',
+    label: 'Slider',
+    hint: 'Numeric range input',
+    description: 'Customer drags a slider. Best for ranges with a min and max.',
+    recommendedFor: 'area / square footage',
+    Icon: Sliders,
+  },
+  {
+    id: 'number',
+    label: 'Number',
+    hint: 'Exact integer / decimal',
+    description: 'Customer types an exact number. Multiplies their total in the quote.',
+    recommendedFor: 'quantity / count',
+    Icon: Hash,
+  },
+  {
+    id: 'dropdown',
+    label: 'Dropdown',
+    hint: 'Pick one from a list',
+    description: 'Customer picks one option from a list. Each option has its own price.',
+    recommendedFor: 'long option lists',
+    Icon: ChevronDown,
+  },
+  {
+    id: 'choice',
+    label: 'Choice',
+    hint: 'Radio-style options',
+    description: 'Customer picks one option shown as radio buttons. Each option sets a price.',
+    recommendedFor: 'short option lists',
+    Icon: CircleDot,
+  },
+  {
+    id: 'imageChoice',
+    label: 'Image choice',
+    hint: 'Visual option cards',
+    description: 'Customer picks one option from visual cards with images. Each adds its price.',
+    recommendedFor: 'visual products',
+    Icon: ImageIcon,
+  },
+  {
+    id: 'heading',
+    label: 'Heading',
+    hint: 'Section divider text',
+    description: 'Visual label that separates fields. Has no price impact.',
+    Icon: Heading2,
+  },
 ];
 
 const MOBILE_BREAKPOINT = 768;
@@ -133,11 +183,13 @@ export default function AddFieldMenu({ onPick, emphasis = false }: Props) {
   }, [open, isMobile]);
 
   // Compute desktop popover style — anchored below the trigger when there's
-  // room, above when there isn't. Clamped within the viewport.
+  // room, above when there isn't. Clamped within the viewport. The popover is
+  // a 2-column grid on desktop so each tile has room for icon + label +
+  // description, so it's wider than the original 260px dropdown.
   const desktopMenuStyle: React.CSSProperties | null = (() => {
     if (!anchor) return null;
-    const MENU_W = 260;
-    const MENU_H_EST = 320;
+    const MENU_W = Math.min(560, Math.max(360, anchor.viewportWidth - 24));
+    const MENU_H_EST = 360;
     const flipUp = anchor.bottom + MENU_H_EST > anchor.viewportHeight - 8;
     let left = anchor.left;
     if (left + MENU_W > anchor.viewportWidth - 8) {
@@ -148,6 +200,7 @@ export default function AddFieldMenu({ onPick, emphasis = false }: Props) {
       left,
       top: flipUp ? Math.max(8, anchor.top - 6 - MENU_H_EST) : anchor.bottom + 6,
       width: MENU_W,
+      maxHeight: `min(${MENU_H_EST}px, calc(100vh - 24px))`,
       zIndex: 1200,
     };
   })();
@@ -201,14 +254,17 @@ export default function AddFieldMenu({ onPick, emphasis = false }: Props) {
         className="qq-addfield-menu"
         style={desktopMenuStyle}
       >
-        {TYPES.map((t) => (
-          <DraggableMenuItem
-            key={t.id}
-            type={t}
-            variant="dropdown"
-            onPick={() => handlePick(t.id)}
-          />
-        ))}
+        <p className="qq-addfield-menu-title">Pick a field type</p>
+        <div className="qq-addfield-grid">
+          {TYPES.map((t) => (
+            <DraggableMenuItem
+              key={t.id}
+              type={t}
+              variant="dropdown"
+              onPick={() => handlePick(t.id)}
+            />
+          ))}
+        </div>
       </div>
     ) : null
   ) : null;
@@ -262,12 +318,14 @@ export default function AddFieldMenu({ onPick, emphasis = false }: Props) {
 
         /* Desktop popover (portaled into body, position:fixed) */
         .qq-addfield-menu {
-          padding: 6px;
-          background: #fff; border-radius: 10px;
+          padding: 12px;
+          background: #fff; border-radius: 12px;
           border: 1px solid ${p.colors.borderLight};
           box-shadow: ${p.shadows.lg};
-          display: flex; flex-direction: column; gap: 2px;
+          display: flex; flex-direction: column; gap: 8px;
+          overflow-y: auto;
           animation: qq-addfield-fade-in 140ms ease-out;
+          box-sizing: border-box;
         }
         @keyframes qq-addfield-fade-in {
           from { opacity: 0; transform: translateY(-4px); }
@@ -276,29 +334,87 @@ export default function AddFieldMenu({ onPick, emphasis = false }: Props) {
         @media (prefers-reduced-motion: reduce) {
           .qq-addfield-menu { animation: none; }
         }
+        .qq-addfield-menu-title {
+          margin: 0 2px 2px;
+          font-size: 11px; font-weight: 700;
+          letter-spacing: 0.04em; text-transform: uppercase;
+          color: ${p.colors.subtle};
+        }
+        /* 2-column grid on desktop, single column under 520px popover width */
+        .qq-addfield-grid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 8px;
+        }
+        @media (max-width: 520px) {
+          .qq-addfield-grid { grid-template-columns: minmax(0, 1fr); }
+        }
         .qq-addfield-item {
-          display: flex; align-items: center; gap: 10px;
-          padding: 8px 10px; border-radius: 7px;
+          position: relative;
+          display: flex; align-items: flex-start; gap: 12px;
+          padding: 12px; border-radius: 10px;
           font: inherit; cursor: pointer; text-align: left;
-          background: transparent; border: none; color: ${p.colors.body};
-          transition: background 0.1s ease;
+          background: #fff;
+          border: 1px solid ${p.colors.borderLight};
+          color: ${p.colors.body};
+          transition: background 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease, transform 0.12s ease;
           touch-action: none;
         }
-        .qq-addfield-item:hover { background: ${p.colors.surfaceRaised}; }
+        .qq-addfield-item:hover,
+        .qq-addfield-item:focus-visible {
+          background: ${p.colors.accentLighter};
+          border-color: ${p.colors.accent};
+          box-shadow: 0 1px 2px rgba(15,23,42,0.04);
+          outline: none;
+        }
         .qq-addfield-icon {
-          width: 26px; height: 26px; border-radius: 6px; flex-shrink: 0;
+          width: 36px; height: 36px; border-radius: 8px; flex-shrink: 0;
           background: ${p.colors.accentLighter}; color: ${p.colors.accent};
           display: inline-flex; align-items: center; justify-content: center;
-          font-size: 13px; font-weight: 700;
+          transition: background 0.12s ease, color 0.12s ease;
+        }
+        .qq-addfield-item:hover .qq-addfield-icon,
+        .qq-addfield-item:focus-visible .qq-addfield-icon {
+          background: ${p.colors.accent}; color: #fff;
         }
         .qq-addfield-text {
-          display: flex; flex-direction: column; gap: 1px; min-width: 0;
+          display: flex; flex-direction: column; gap: 2px; min-width: 0;
         }
         .qq-addfield-label {
-          font-size: 12.5px; font-weight: 700; color: ${p.colors.heading};
+          font-size: 13px; font-weight: 700; color: ${p.colors.heading};
+          line-height: 1.25;
         }
         .qq-addfield-hint {
           font-size: 11px; font-weight: 500; color: ${p.colors.subtle};
+          line-height: 1.25;
+        }
+        .qq-addfield-desc {
+          margin-top: 2px;
+          font-size: 11.5px; font-weight: 400; color: ${p.colors.body};
+          line-height: 1.35;
+        }
+        .qq-addfield-recommended {
+          position: absolute; top: 8px; right: 8px;
+          padding: 2px 6px;
+          font-size: 9.5px; font-weight: 700;
+          letter-spacing: 0.03em; text-transform: uppercase;
+          background: ${p.colors.accent}; color: #fff;
+          border-radius: 999px;
+          opacity: 0; transform: translateY(-2px);
+          transition: opacity 0.12s ease, transform 0.12s ease;
+          pointer-events: none;
+          white-space: nowrap;
+          max-width: calc(100% - 16px);
+          overflow: hidden; text-overflow: ellipsis;
+        }
+        .qq-addfield-item:hover .qq-addfield-recommended,
+        .qq-addfield-item:focus-visible .qq-addfield-recommended {
+          opacity: 1; transform: translateY(0);
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .qq-addfield-item,
+          .qq-addfield-icon,
+          .qq-addfield-recommended { transition: none; }
         }
 
         /* Mobile bottom sheet — full-width, anchored to viewport bottom. */
@@ -336,12 +452,17 @@ export default function AddFieldMenu({ onPick, emphasis = false }: Props) {
         }
         .qq-addfield-sheet .qq-addfield-item {
           padding: 12px 12px; border-radius: 10px; min-height: 48px;
+          border: 1px solid ${p.colors.borderLight};
         }
         .qq-addfield-sheet .qq-addfield-icon {
-          width: 32px; height: 32px; font-size: 15px;
+          width: 38px; height: 38px;
         }
         .qq-addfield-sheet .qq-addfield-label { font-size: 13.5px; }
         .qq-addfield-sheet .qq-addfield-hint { font-size: 11.5px; }
+        .qq-addfield-sheet .qq-addfield-desc { font-size: 12px; }
+        /* Mobile sheet: hide the "Recommended for…" pill — limited width and
+           a tap-driven UI means hover hints aren't useful there. */
+        .qq-addfield-sheet .qq-addfield-recommended { display: none; }
         .qq-addfield-sheet-cancel {
           margin-top: 6px; padding: 12px;
           font: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
@@ -385,6 +506,7 @@ function DraggableMenuItem({ type, variant, onPick }: DraggableMenuItemProps) {
     id: `addfield:${type.id}`,
     data: { source: DND_CONTAINERS.addFieldMenu, publicType: type.id },
   });
+  const { Icon } = type;
   // Spread @dnd-kit attributes (which include role='button'), then explicitly
   // re-assert role='menuitem' after for the parent's role='menu' a11y contract.
   return (
@@ -400,11 +522,19 @@ function DraggableMenuItem({ type, variant, onPick }: DraggableMenuItemProps) {
       {...listeners}
       role="menuitem"
     >
-      <span className="qq-addfield-icon" aria-hidden="true">{type.icon}</span>
+      <span className="qq-addfield-icon" aria-hidden="true">
+        <Icon size={20} strokeWidth={2} />
+      </span>
       <span className="qq-addfield-text">
         <span className="qq-addfield-label">{type.label}</span>
         <span className="qq-addfield-hint">{type.hint}</span>
+        <span className="qq-addfield-desc">{type.description}</span>
       </span>
+      {type.recommendedFor ? (
+        <span className="qq-addfield-recommended" aria-hidden="true">
+          Recommended for {type.recommendedFor}
+        </span>
+      ) : null}
     </button>
   );
 }
