@@ -10,6 +10,7 @@ import { db } from "../db";
 import { auditReports } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { shouldInjectTools, ADMIN_TOOLS } from "../services/adminTools";
+import { adminAgentTools } from "../services/adminAgentTools";
 import { storePendingAction, getCopilotAction, getCopilotActionsForSurface } from "../services/copilotActionRegistry";
 import { executorFromCopilotAction } from "../services/aiAgentLoop";
 import { createLogger } from "../lib/logger";
@@ -397,9 +398,14 @@ export function registerChatRoutes(app: Express): void {
         // Bind userId from authenticated session (not client-supplied) for admin
         parsed.assistantReq.userId = (req.user as Express.User).id;
 
-        // Inject tools + Sonnet when all four criteria are met
+        // Inject tools + Sonnet when all four criteria are met.
+        // BA-3: also expose the auto-tier admin agent-loop tools
+        // (`send_support_email_reply`, `notify_admin_of_ticket`) so the BA-0
+        // loop can call them without a human confirm click. We ADD them to
+        // the existing admin tool list rather than replacing it — the
+        // confirm-required tools remain available to the model.
         if (shouldInjectTools(parsed.assistantReq.pageContext)) {
-          parsed.assistantReq.tools = ADMIN_TOOLS;
+          parsed.assistantReq.tools = [...ADMIN_TOOLS, ...adminAgentTools];
           parsed.assistantReq.model = "claude-sonnet-4-6";
         }
       }
