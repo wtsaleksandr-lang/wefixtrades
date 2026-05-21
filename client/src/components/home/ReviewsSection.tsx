@@ -132,12 +132,10 @@ export default function ReviewsSection() {
     >
       <div style={{ maxWidth: 1100, margin: "0 auto" }}>
         <div className="text-center mb-3 sm:mb-5">
-          <div className="flex justify-center mb-2">
-            <span className="inline-flex items-center gap-2 text-xs font-semibold" style={{ color: mkt.onDarkMuted }}>
-              <span className="w-2 h-2 rounded-full" style={{ background: mkt.accent }} />
-              What customers say
-            </span>
-          </div>
+          {/* Wave AE — removed the duplicate eyebrow pill that repeated the
+             exact "What customers say" text in both the small label and the
+             H2. The H2 alone serves as the section title; the pill was a
+             visual stutter rather than a useful category cue. */}
           <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight leading-tight" style={{ color: mkt.onDark }}>
             What customers say
           </h2>
@@ -146,11 +144,26 @@ export default function ReviewsSection() {
         </div>
 
         <div
-          className="reviews-grid"
+          className="reviews-grid reviews-grid--scroll"
           style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+            /* Wave AE — horizontal scroller (was a vertical grid that grew
+               into a "long sheet" as more reviews landed). Each card snaps
+               to the start of the scroll port; cards keep a generous fixed
+               width so two are visible on desktop and the next peeks in. */
+            display: "flex",
+            flexDirection: "row",
             gap: "clamp(10px, 2vw, 16px)",
+            overflowX: "auto",
+            overflowY: "hidden",
+            scrollSnapType: "x mandatory",
+            WebkitOverflowScrolling: "touch",
+            paddingBottom: 6,
+            /* Negative side margins so the scroller can bleed into the
+               container padding on mobile and feel edge-aligned. */
+            marginLeft: "calc(clamp(12px, 3vw, 20px) * -1)",
+            marginRight: "calc(clamp(12px, 3vw, 20px) * -1)",
+            paddingLeft: "clamp(12px, 3vw, 20px)",
+            paddingRight: "clamp(12px, 3vw, 20px)",
           }}
         >
           {REVIEWS.map((r) => (
@@ -159,6 +172,10 @@ export default function ReviewsSection() {
               data-testid={`review-card-${r.name.replace(/\s+/g, "-").toLowerCase()}`}
               className="review-card"
               style={{
+                /* Fixed flex width — desktop sees ~3 cards at a time, mobile
+                   sees one with the next peeking past the right edge. */
+                flex: "0 0 clamp(280px, 78vw, 360px)",
+                scrollSnapAlign: "start",
                 borderRadius: "clamp(14px, 2vw, 20px)",
                 border: `1px solid ${mkt.cardBorder}`,
                 background: mkt.sectionLight,

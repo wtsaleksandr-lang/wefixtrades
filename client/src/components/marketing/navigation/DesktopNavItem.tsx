@@ -191,7 +191,10 @@ export function DesktopNavItem({
                 >
                   <div
                     className="mkt-menu-card-icon"
-                    style={{ color: mkt.accent }}
+                    /* Wave AE — match menu text colour (was mkt.accent blue,
+                       which clashed with the off-white menu copy and read
+                       inconsistently against the dark dropdown surface). */
+                    style={{ color: mkt.text }}
                     aria-hidden
                   >
                     <NavIcon icon={icon} size={26} strokeWidth={1.7} />
