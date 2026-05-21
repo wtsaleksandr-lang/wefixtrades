@@ -22,6 +22,10 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useDroppable } from '@dnd-kit/core';
+import {
+  SortableContext, useSortable, verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { platformTheme } from '@/theme/platformTheme';
 import type { TemplateField } from '@shared/templatePresets';
 import AddFieldMenu from './AddFieldMenu';
@@ -180,13 +184,25 @@ export default function PreviewOverlay({
       aria-hidden="false"
       data-testid="preview-overlay"
     >
-      {boxes.map((b) => (
-        <FieldDecorator
-          key={b.fieldId}
-          box={b}
-          onRemove={() => onRemoveField(b.fieldId)}
-        />
-      ))}
+      {/* Wave AC-3 — mount a SortableContext over the preview field
+       *  decorators using the SAME field-id list as FieldsPanel's sortable
+       *  context. The WizardShell-level DndContext routes by container id
+       *  (a drag whose `active.id` matches a field id triggers arrayMove
+       *  on `state.fields`), so adding `useSortable` to each decorator is
+       *  sufficient — both panels feed into the same shared state and the
+       *  preview updates as soon as the reorder lands. */}
+      <SortableContext
+        items={fields.map((f) => f.id)}
+        strategy={verticalListSortingStrategy}
+      >
+        {boxes.map((b) => (
+          <FieldDecorator
+            key={b.fieldId}
+            box={b}
+            onRemove={() => onRemoveField(b.fieldId)}
+          />
+        ))}
+      </SortableContext>
       {/* Wave R-pre v2 — the in-preview append slot was overlapping the
        *  result panel on single-column layouts (mobile preview + narrow
        *  desktop). The result panel is a sibling grid cell that on mobile
@@ -274,6 +290,49 @@ export default function PreviewOverlay({
           font-size: 12px; font-weight: 800; line-height: 1;
           box-shadow: 0 1px 4px rgba(15,23,42,0.18);
         }
+        /* Wave AC-3 — drag handle on the field decorator. Pinned to the
+         * left edge of each field's box (negative offset). Pointer-events
+         * are re-enabled on the handle only so the surrounding decorator
+         * still passes clicks through to underlying controls. Subtle by
+         * default; goes solid on hover/focus or while the field is
+         * selected — mirrors the (−) remove icon's pattern. */
+        .qq-preview-field-deco-drag {
+          position: absolute;
+          top: 50%; left: -22px;
+          transform: translateY(-50%);
+          width: 22px; height: 44px;
+          padding: 0; margin: 0;
+          background: transparent; border: 0;
+          display: inline-flex; align-items: center; justify-content: center;
+          cursor: grab;
+          opacity: 0.55;
+          transition: opacity 0.12s ease;
+          color: ${p.colors.muted};
+          font-size: 14px; line-height: 1;
+          pointer-events: auto;
+          touch-action: none;
+          z-index: 2;
+        }
+        .qq-preview-field-deco-drag:hover,
+        .qq-preview-field-deco-drag:focus-visible {
+          opacity: 1;
+          color: ${p.colors.accent};
+        }
+        .qq-preview-field-deco.is-selected .qq-preview-field-deco-drag {
+          opacity: 1;
+        }
+        .qq-preview-field-deco.is-dragging .qq-preview-field-deco-drag {
+          cursor: grabbing;
+        }
+        .qq-preview-field-deco.is-dragging {
+          opacity: 0.7;
+          /* Visible while dragging so the user can see the grab is active. */
+          background: rgba(13, 60, 252, 0.06);
+          border-color: ${p.colors.accent};
+        }
+        @media (pointer: coarse) {
+          .qq-preview-field-deco-drag { opacity: 1; }
+        }
         .qq-preview-append-slot {
           position: absolute;
           pointer-events: auto;
@@ -314,19 +373,35 @@ function FieldDecorator({ box, onRemove }: FieldDecoratorProps) {
   const selection = useSelection();
   const isSel = selection.isSelected({ kind: 'field', id: box.fieldId });
   const registerSel = selection.registerNode({ kind: 'field', id: box.fieldId }, 'preview');
-  // Wave L E4 + B1 — the decorator is now POINTER-EVENTS:NONE at the wrapper
+
+  // Wave AC-3 — drag-to-reorder mirroring FieldsPanel. The decorator wrapper
+  // is `pointer-events: none` so it doesn't eat clicks on real controls
+  // (sliders, dropdowns); the drag handle re-enables pointer events on
+  // itself only. The transform from useSortable is composed onto the
+  // absolute (left, top) — the decorator stays positioned over its measured
+  // field but visibly translates while dragging.
+  const {
+    attributes, listeners, setNodeRef, transform, transition, isDragging,
+  } = useSortable({ id: box.fieldId });
+
+  // Wave L E4 + B1 — the decorator is POINTER-EVENTS:NONE at the wrapper
   // level (see CSS below). Selection is delegated up to the bezel click
   // handler in PreviewPane (which already bails out on real form controls).
   // This is the root fix for sliders not dragging and additional-services
   // checkboxes not toggling — the previous overlay was eating every click.
   return (
     <div
-      ref={registerSel}
-      className={`qq-preview-field-deco${isSel ? ' is-selected' : ''}`}
+      ref={(el) => { setNodeRef(el); registerSel(el); }}
+      className={`qq-preview-field-deco${isSel ? ' is-selected' : ''}${isDragging ? ' is-dragging' : ''}`}
       data-testid={`preview-field-deco-${box.fieldId}`}
       data-preview-field-id={box.fieldId}
       {...(isSel ? { 'data-selected-in-preview': '' } : {})}
-      style={{ left: box.left, top: box.top, width: box.width, height: box.height }}
+      style={{
+        left: box.left, top: box.top, width: box.width, height: box.height,
+        transform: CSS.Transform.toString(transform),
+        transition,
+        zIndex: isDragging ? 3 : undefined,
+      }}
     >
       {/* Invisible select-target for tests that still query for it. Does
        * NOT intercept pointer events — it's a marker, not a hit-button. */}
@@ -335,6 +410,20 @@ function FieldDecorator({ box, onRemove }: FieldDecoratorProps) {
         data-testid={`preview-field-select-${box.fieldId}`}
         aria-hidden="true"
       />
+      {/* Wave AC-3 — drag handle pinned to the left edge of the field
+       *  decorator. Pointer-events:auto on the handle itself so it can
+       *  receive the drag-start gesture; the rest of the decorator stays
+       *  pass-through so the underlying field controls keep working. */}
+      <button
+        type="button"
+        className="qq-preview-field-deco-drag"
+        aria-label="Drag to reorder field"
+        data-testid={`preview-field-drag-${box.fieldId}`}
+        {...attributes}
+        {...listeners}
+      >
+        <span aria-hidden="true">⋮⋮</span>
+      </button>
       <button
         type="button"
         className="qq-preview-field-deco-remove"
