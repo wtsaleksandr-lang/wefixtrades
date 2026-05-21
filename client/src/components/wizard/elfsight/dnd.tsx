@@ -59,8 +59,6 @@ export const DND_CONTAINERS = {
   fieldOptions: (fieldId: string) => `qq-dnd-options-${fieldId}`,
   /** AddFieldMenu types (draggable, not sortable). */
   addFieldMenu: 'qq-dnd-add-field-menu',
-  /** Preview pane drop zone (one big drop = append). */
-  previewAppend: 'qq-dnd-preview-append',
   /** Per-field preview slot id for positional drop. id is field id. */
   previewFieldSlot: (fieldId: string) => `qq-dnd-preview-slot-${fieldId}`,
 } as const;

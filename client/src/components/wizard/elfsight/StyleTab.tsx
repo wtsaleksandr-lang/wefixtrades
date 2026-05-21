@@ -20,6 +20,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { MousePointerClick, Square, Type, Receipt, type LucideIcon } from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
 import {
   DEFAULT_SHELL_STYLE,
@@ -117,6 +118,7 @@ export default function StyleTab({ style, onChange }: Props) {
         <legend className="qq-style-legend qq-style-legend--sr-only">Colours</legend>
         <div className="qq-style-swatches" data-testid="style-swatches-row">
           <ColourSwatch
+            icon={MousePointerClick}
             label="Accent"
             testid="style-input-accent"
             value={accent}
@@ -124,6 +126,7 @@ export default function StyleTab({ style, onChange }: Props) {
             onChange={(v) => patch({ accent: v })}
           />
           <ColourSwatch
+            icon={Square}
             label="Background"
             testid="style-input-background"
             value={background}
@@ -131,6 +134,7 @@ export default function StyleTab({ style, onChange }: Props) {
             onChange={(v) => patch({ background: v })}
           />
           <ColourSwatch
+            icon={Type}
             label="Text"
             testid="style-input-text"
             value={text}
@@ -138,6 +142,7 @@ export default function StyleTab({ style, onChange }: Props) {
             onChange={(v) => patch({ text: v })}
           />
           <ColourSwatch
+            icon={Receipt}
             label="Results bg"
             testid="style-input-resultsbg"
             value={resultsBg}
@@ -300,6 +305,9 @@ export default function StyleTab({ style, onChange }: Props) {
           border: 2px solid #fff;
           box-shadow: 0 0 0 1px ${p.colors.border}, 0 1px 4px rgba(15,23,42,0.10);
           cursor: pointer; padding: 0;
+          /* W-AF-4 — centre the lucide element-icon inside the swatch
+             circle. The label still floats below via absolute positioning. */
+          display: flex; align-items: center; justify-content: center;
           transition: box-shadow 0.12s ease, transform 0.06s ease;
         }
         .qq-style-swatch-btn:hover {
@@ -480,13 +488,17 @@ export default function StyleTab({ style, onChange }: Props) {
  * affordance. Outside-click / Escape dismiss; positioned via
  * getBoundingClientRect of the trigger. */
 function ColourSwatch({
-  label, value, fallback, onChange, testid,
+  label, value, fallback, onChange, testid, icon: Icon,
 }: {
   label: string;
   value: string;
   fallback: string;
   onChange: (v: string) => void;
   testid: string;
+  /** W-AF-4 — optional element-type icon rendered centred in the swatch
+   *  circle so the row reads as "Accent / Background / Text / Results bg"
+   *  without relying on the tiny label alone. */
+  icon?: LucideIcon;
 }) {
   const swatchValue = safeHex(value) || safeHex(fallback) || '#000000';
   const triggerRef = useRef<HTMLButtonElement | null>(null);
@@ -551,6 +563,18 @@ function ColourSwatch({
         onClick={() => setOpen((v) => !v)}
         style={{ background: expandedHex }}
       >
+        {Icon && (
+          <Icon
+            size={14}
+            color="#fff"
+            strokeWidth={2.25}
+            aria-hidden="true"
+            style={{
+              filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.35))',
+              display: 'block',
+            }}
+          />
+        )}
         <span className="qq-style-swatch-label">{label}</span>
       </button>
       {open && pos && typeof document !== 'undefined' && createPortal(

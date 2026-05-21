@@ -434,7 +434,6 @@ export default function WizardShell({ embed = false }: Props) {
       if (
         overKind === 'preview-append'
         || overContainer === 'qq-dnd-preview-pane'
-        || overContainer === DND_CONTAINERS.previewAppend
       ) {
         const publicType = activeId.slice('addfield:'.length) as PublicFieldType;
         addField(publicType);
