@@ -2486,7 +2486,20 @@ export class DatabaseStorage implements IStorage {
     const [row] = await db.select().from(onboardingTemplates)
       .where(and(eq(onboardingTemplates.service_id, serviceId), eq(onboardingTemplates.is_active, true)))
       .limit(1);
-    return row;
+    if (row) return row;
+    // W-AZ-2: tier-level template missing → fall back to product-family template.
+    // Closes the MapGuard / ReputationShield / SocialSync gap where tier SKUs
+    // (e.g. `mapguard-basic`) had no row and silently no-op'd post-checkout.
+    // Family templates win nothing if a tier-specific row already exists (initial
+    // lookup short-circuits above).
+    const family = serviceId.replace(/-(basic|pro|premium|starter|standard|growth|business|agency|enterprise|creator|studio)$/i, '');
+    if (family !== serviceId) {
+      const [familyRow] = await db.select().from(onboardingTemplates)
+        .where(and(eq(onboardingTemplates.service_id, family), eq(onboardingTemplates.is_active, true)))
+        .limit(1);
+      return familyRow;
+    }
+    return undefined;
   }
 
   // ─── Service Catalog lookup ───
