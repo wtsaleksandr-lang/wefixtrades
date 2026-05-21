@@ -73,6 +73,31 @@ function decimalLiteral(sep: ShellNumberFormat['decimal']): '.' | ',' {
   return sep === 'comma' ? ',' : '.';
 }
 
+/**
+ * Wave AC-2 — drag widget within canvas.
+ *
+ * Persists an (x, y) translate offset of the bezel inside the dotted-grid
+ * canvas. Stored per-device so the desktop and mobile placements don't
+ * trample each other.
+ */
+const WIDGET_OFFSET_KEY = 'qq_widget_offset';
+interface WidgetOffset { x: number; y: number }
+function loadWidgetOffset(device: PreviewDevice): WidgetOffset {
+  try {
+    const raw = localStorage.getItem(`${WIDGET_OFFSET_KEY}_${device}`);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (
+        parsed && typeof parsed.x === 'number' && typeof parsed.y === 'number'
+        && Number.isFinite(parsed.x) && Number.isFinite(parsed.y)
+      ) {
+        return { x: parsed.x, y: parsed.y };
+      }
+    }
+  } catch {}
+  return { x: 0, y: 0 };
+}
+
 export default function PreviewPane({
   businessName, onBusinessNameChange, logo, layout, device, fields, calculations,
   header, results, resultCalcId, style, settings,
@@ -84,6 +109,83 @@ export default function PreviewPane({
   // per-field decorators. Placeholder seed fields (when `fields` is undefined)
   // are left alone since we can't reorder/remove them via the shell.
   const shellFields = fields ?? [];
+
+  // Wave AC-2 — drag entire widget within canvas. Offset is per-device,
+  // persisted to localStorage. Pointer events on the dotted canvas area
+  // initiate the drag; setPointerCapture keeps the drag continuous even if
+  // the cursor exits the pane. Movement is bounded to keep the bezel from
+  // escaping the canvas viewport.
+  const paneRef = useRef<HTMLDivElement | null>(null);
+  const stageRef = useRef<HTMLDivElement | null>(null);
+  const [widgetOffset, setWidgetOffset] = useState<WidgetOffset>(() => loadWidgetOffset(device));
+  // Reload offset when the user toggles device — placement is independent.
+  useEffect(() => {
+    setWidgetOffset(loadWidgetOffset(device));
+  }, [device]);
+  const dragStateRef = useRef<{
+    startX: number; startY: number; baseX: number; baseY: number; pointerId: number;
+  } | null>(null);
+  const onCanvasPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    // Only start drag when the user is pressing the canvas chrome itself
+    // (not the bezel or anything inside it). The bezel's onClick handler
+    // owns selection / inline-editing inside the widget.
+    const target = e.target as HTMLElement;
+    if (target.closest('[data-testid^="preview-bezel"]')) return;
+    if (target.closest('button, input, select, textarea, a, label, [role="slider"]')) return;
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
+    const pane = paneRef.current;
+    if (!pane) return;
+    pane.setPointerCapture(e.pointerId);
+    dragStateRef.current = {
+      startX: e.clientX, startY: e.clientY,
+      baseX: widgetOffset.x, baseY: widgetOffset.y,
+      pointerId: e.pointerId,
+    };
+    pane.dataset.dragging = '1';
+  }, [widgetOffset.x, widgetOffset.y]);
+  const onCanvasPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const st = dragStateRef.current;
+    if (!st || st.pointerId !== e.pointerId) return;
+    const pane = paneRef.current;
+    const stage = stageRef.current;
+    if (!pane || !stage) return;
+    const dx = e.clientX - st.startX;
+    const dy = e.clientY - st.startY;
+    // Bound so the bezel stays at least 80px visible on every edge of the
+    // pane viewport.
+    const paneRect = pane.getBoundingClientRect();
+    const stageRect = stage.getBoundingClientRect();
+    const VISIBLE_MIN = 80;
+    // Stage's natural (untranslated) position is stageRect - currentOffset.
+    const naturalLeft = stageRect.left - widgetOffset.x;
+    const naturalTop = stageRect.top - widgetOffset.y;
+    const minDx = paneRect.left + VISIBLE_MIN - (naturalLeft + stageRect.width);
+    const maxDx = paneRect.right - VISIBLE_MIN - naturalLeft;
+    const minDy = paneRect.top + VISIBLE_MIN - (naturalTop + stageRect.height);
+    const maxDy = paneRect.bottom - VISIBLE_MIN - naturalTop;
+    const nextX = Math.max(minDx, Math.min(maxDx, st.baseX + dx));
+    const nextY = Math.max(minDy, Math.min(maxDy, st.baseY + dy));
+    setWidgetOffset({ x: nextX, y: nextY });
+  }, [widgetOffset.x, widgetOffset.y]);
+  const onCanvasPointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const st = dragStateRef.current;
+    if (!st || st.pointerId !== e.pointerId) return;
+    const pane = paneRef.current;
+    if (pane) {
+      try { pane.releasePointerCapture(e.pointerId); } catch {}
+      delete pane.dataset.dragging;
+    }
+    dragStateRef.current = null;
+    // Persist on release. Skip when the offset hasn't actually moved (a
+    // single click on the canvas shouldn't clobber a remembered placement).
+    try {
+      localStorage.setItem(`${WIDGET_OFFSET_KEY}_${device}`, JSON.stringify(widgetOffset));
+    } catch {}
+  }, [device, widgetOffset]);
+  const resetWidgetOffset = useCallback(() => {
+    setWidgetOffset({ x: 0, y: 0 });
+    try { localStorage.removeItem(`${WIDGET_OFFSET_KEY}_${device}`); } catch {}
+  }, [device]);
 
   const previewCalculatorData = useMemo<CalculatorData>(() => {
     const advanced = buildBlankPreviewConfig(layout, businessName);
@@ -501,8 +603,35 @@ export default function PreviewPane({
   }
 
   return (
-    <div className="qq-preview-pane" data-testid="editor-preview-pane">
-      <div className="qq-preview-stage">
+    <div
+      className="qq-preview-pane"
+      data-testid="editor-preview-pane"
+      ref={paneRef}
+      onPointerDown={onCanvasPointerDown}
+      onPointerMove={onCanvasPointerMove}
+      onPointerUp={onCanvasPointerUp}
+      onPointerCancel={onCanvasPointerUp}
+    >
+      {(widgetOffset.x !== 0 || widgetOffset.y !== 0) && (
+        <button
+          type="button"
+          className="qq-preview-reset-pos"
+          data-testid="preview-reset-widget-position"
+          aria-label="Reset widget position"
+          onClick={resetWidgetOffset}
+        >
+          Reset position
+        </button>
+      )}
+      <div
+        className="qq-preview-stage"
+        ref={stageRef}
+        data-testid="preview-stage"
+        style={{
+          transform: `translate(${widgetOffset.x}px, ${widgetOffset.y}px)`,
+          transition: dragStateRef.current ? 'none' : 'transform 120ms ease-out',
+        }}
+      >
         <div
           className="widget-scope"
           style={{
@@ -700,6 +829,36 @@ export default function PreviewPane({
         .qq-bezel.is-drop-target {
           outline: 3px dashed ${p.colors.accent};
           outline-offset: -3px;
+        }
+        /* Wave AC-2 — canvas drag affordance. The pane is the pointer
+         * source; press-and-drag on the dotted area moves the bezel. The
+         * cursor cue helps users discover it. The bezel itself keeps its
+         * default cursor since its own interactions (click, inline edit,
+         * field decorators) are unchanged. */
+        .qq-preview-pane {
+          position: relative;
+          cursor: grab;
+        }
+        .qq-preview-pane[data-dragging="1"] { cursor: grabbing; }
+        .qq-preview-pane .qq-preview-stage { cursor: auto; }
+        .qq-preview-pane [data-testid^="preview-bezel"] { cursor: auto; }
+        .qq-preview-reset-pos {
+          position: absolute;
+          top: 10px; right: 12px;
+          z-index: 5;
+          font: inherit; font-size: 11.5px; font-weight: 700;
+          padding: 5px 10px;
+          background: rgba(255,255,255,0.92);
+          color: ${p.colors.heading};
+          border: 1px solid ${p.colors.border};
+          border-radius: 999px;
+          cursor: pointer;
+          box-shadow: 0 4px 12px rgba(15,23,42,0.10);
+        }
+        .qq-preview-reset-pos:hover {
+          background: #fff;
+          border-color: ${p.colors.accent};
+          color: ${p.colors.accent};
         }
         /* Wave L E5 — inline editor input for the preview header title. */
         .qq-preview-title-edit {
