@@ -121,6 +121,8 @@ import PortalBilling from "@/pages/portal/PortalBilling";
 import PortalSettings from "@/pages/portal/PortalSettings";
 import PortalOnboarding from "@/pages/portal/PortalOnboarding";
 import TradelineSetupPage from "@/pages/portal/TradelineSetup";
+import PortalTradelineKnowledgePage from "@/pages/portal/PortalTradelineKnowledgePage";
+import PortalTradelineVoicePage from "@/pages/portal/PortalTradelineVoicePage";
 import PortalEmailDomainSetup from "@/pages/portal/PortalEmailDomainSetup";
 import ChatWidgetInstallEntry from "@/pages/portal/ChatWidgetInstallEntry";
 import ChatWidgetInstallOnboarding from "@/pages/portal/ChatWidgetInstallOnboarding";
@@ -148,6 +150,7 @@ import TradeLineOpsPage from "@/pages/admin/TradeLineOpsPage";
 import TradelineSetupsPage from "@/pages/admin/TradelineSetupsPage";
 import TradelineTemplatesPage from "@/pages/admin/TradelineTemplatesPage";
 import TradelineLearningPage from "@/pages/admin/TradelineLearningPage";
+import TradelineVoicesPage from "@/pages/admin/TradelineVoicesPage";
 import MobilePreviewPage from "@/pages/admin/MobilePreview";
 import QuoteQuickPage from "@/pages/admin/QuoteQuickPage";
 import QuoteQuickTradesPage from "@/pages/admin/QuoteQuickTradesPage";
@@ -206,6 +209,7 @@ function Router() {
       <Route path="/admin/crm/tradeline-setups">{() => <RequirePortal><TradelineSetupsPage /></RequirePortal>}</Route>
       <Route path="/admin/tradeline/templates">{() => <RequirePortal><TradelineTemplatesPage /></RequirePortal>}</Route>
       <Route path="/admin/tradeline/learning">{() => <RequirePortal><TradelineLearningPage /></RequirePortal>}</Route>
+      <Route path="/admin/tradeline/voices">{() => <RequirePortal><TradelineVoicesPage /></RequirePortal>}</Route>
       <Route path="/admin/mobile-preview">{() => <RequirePortal><MobilePreviewPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/quotequick">{() => <RequirePortal><QuoteQuickPage /></RequirePortal>}</Route>
       <Route path="/admin/quotequick/trades/:id">{(params) => <RequirePortal><QuoteQuickTradeDetailPage tradeId={params.id} /></RequirePortal>}</Route>
@@ -249,6 +253,8 @@ function Router() {
 
       {/* Client portal */}
       <Route path="/portal/tradeline/setup">{() => <RequireClient><TradelineSetupPage /></RequireClient>}</Route>
+      <Route path="/portal/tradeline/knowledge">{() => <RequireClient><PortalTradelineKnowledgePage /></RequireClient>}</Route>
+      <Route path="/portal/tradeline/voice">{() => <RequireClient><PortalTradelineVoicePage /></RequireClient>}</Route>
       <Route path="/portal/tradeline/email-domain/setup">{() => <RequireClient><PortalEmailDomainSetup /></RequireClient>}</Route>
       <Route path="/portal/tradeline/chat-widget/install">{() => <RequireClient><ChatWidgetInstallEntry /></RequireClient>}</Route>
       <Route path="/portal/tradeline/chat-widget/install-onboarding">{() => <RequireClient><ChatWidgetInstallOnboarding /></RequireClient>}</Route>

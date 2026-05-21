@@ -42,3 +42,5 @@ export * from "./scheduling";
 export * from "./apiPlatform";
 export * from "./auditLog";
 export * from "./brandKits";
+export * from "./tradelineVoiceSettings";
+export * from "./tradelineKnowledgeBase";

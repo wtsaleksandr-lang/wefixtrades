@@ -352,6 +352,70 @@ export function buildTradeLineContext(resolved: ResolvedTradeLineClient): TradeL
   };
 }
 
+/**
+ * Wave W-AW-1 — async variant that augments the per-client TradeLine context
+ * with their active knowledge-base entries, custom greeting, and response
+ * style from `tradeline_assistant_settings`. Used by every conversation turn
+ * so the AI receptionist references the owner's curated FAQ / services /
+ * policies / pricing instead of hallucinating.
+ *
+ * Fail-soft: any DB error returns the base context untouched — calls never
+ * fail because of a KB read.
+ */
+export async function buildTradeLineContextWithKnowledge(
+  resolved: ResolvedTradeLineClient,
+): Promise<TradeLineContext> {
+  const base = buildTradeLineContext(resolved);
+  try {
+    const { db } = await import("../db");
+    const {
+      tradelineKnowledgeBase,
+      tradelineAssistantSettings,
+    } = await import("@shared/schema");
+    const { and, desc, eq } = await import("drizzle-orm");
+
+    const [kbRows, settingsRows] = await Promise.all([
+      db
+        .select({
+          kind: tradelineKnowledgeBase.kind,
+          title: tradelineKnowledgeBase.title,
+          content: tradelineKnowledgeBase.content,
+          priority: tradelineKnowledgeBase.priority,
+        })
+        .from(tradelineKnowledgeBase)
+        .where(
+          and(
+            eq(tradelineKnowledgeBase.client_id, resolved.client.id),
+            eq(tradelineKnowledgeBase.status, "active"),
+          ),
+        )
+        .orderBy(desc(tradelineKnowledgeBase.priority))
+        .limit(40),
+      db
+        .select({
+          greeting: tradelineAssistantSettings.greeting,
+          response_style: tradelineAssistantSettings.response_style,
+        })
+        .from(tradelineAssistantSettings)
+        .where(eq(tradelineAssistantSettings.client_id, resolved.client.id))
+        .limit(1),
+    ]);
+
+    return {
+      ...base,
+      knowledgeBase: kbRows,
+      greeting: settingsRows[0]?.greeting ?? null,
+      responseStyle: settingsRows[0]?.response_style ?? null,
+    };
+  } catch (err) {
+    log.warn("Failed to load TradeLine KB / settings — using base context", {
+      clientId: resolved.client.id,
+      error: (err as Error).message,
+    });
+    return base;
+  }
+}
+
 /* ─── TradeLine-aware conversation handler (with fallback) ─── */
 
 export async function handleTradeLineConversationTurn(messages: VapiTranscriptMessage[], callId: string, tradeLineCtx: TradeLineContext): Promise<string> {
