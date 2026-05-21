@@ -25,6 +25,10 @@ import { storage } from "../storage";
 import type { TradelineConfig, ClientService, Client, TradelineLeadData } from "@shared/schema";
 import { VAPI_BOOKING_FUNCTIONS } from "./bookingTools";
 import { createLogger } from "../lib/logger";
+import { db } from "../db";
+import { onboardingSubmissions } from "@shared/schema";
+import { eq, and, desc } from "drizzle-orm";
+import { applyOnboardingToAIConfig, type AIConfigPatch } from "./onboardingMappers";
 
 const log = createLogger("VapiService");
 
@@ -418,7 +422,37 @@ export async function buildTradeLineContextWithKnowledge(
 
 /* ─── TradeLine-aware conversation handler (with fallback) ─── */
 
-export async function handleTradeLineConversationTurn(messages: VapiTranscriptMessage[], callId: string, tradeLineCtx: TradeLineContext): Promise<string> {
+/**
+ * W-AZ-3: load the latest submitted onboarding for a TradeLine client_service
+ * and project it through the TradeLine onboarding mapper. Returns null when no
+ * submission exists or the mapper can't produce anything useful. Safe-fails on
+ * any error so a missing patch never blocks an active call.
+ */
+async function loadTradeLineOnboardingPatch(clientServiceId: number): Promise<AIConfigPatch | null> {
+  try {
+    const [sub] = await db
+      .select()
+      .from(onboardingSubmissions)
+      .where(and(
+        eq(onboardingSubmissions.client_service_id, clientServiceId),
+        eq(onboardingSubmissions.status, "submitted"),
+      ))
+      .orderBy(desc(onboardingSubmissions.submitted_at))
+      .limit(1);
+    if (!sub) return null;
+    return await applyOnboardingToAIConfig("tradeline", sub);
+  } catch (err) {
+    log.warn("Failed to load TradeLine onboarding patch", { clientServiceId, error: String(err) });
+    return null;
+  }
+}
+
+export async function handleTradeLineConversationTurn(
+  messages: VapiTranscriptMessage[],
+  callId: string,
+  tradeLineCtx: TradeLineContext,
+  clientServiceId?: number,
+): Promise<string> {
   const chatMessages = translateTranscript(messages);
   if (!chatMessages.length) {
     return tradeLineCtx.mode === "after_hours"
@@ -427,7 +461,18 @@ export async function handleTradeLineConversationTurn(messages: VapiTranscriptMe
   }
 
   try {
-    const systemPrompt = buildSystemPrompt("vapi", undefined, undefined, undefined, tradeLineCtx);
+    const onboardingPatch = clientServiceId
+      ? await loadTradeLineOnboardingPatch(clientServiceId)
+      : null;
+    const systemPrompt = buildSystemPrompt(
+      "vapi",
+      undefined,
+      undefined,
+      undefined,
+      tradeLineCtx,
+      undefined,
+      onboardingPatch,
+    );
     const req: AssistantRequest = { surface: "vapi", messages: chatMessages, sessionId: `vapi-${callId}`, maxTokens: 150, systemOverride: systemPrompt };
     const result = await assistantSync(req);
     return result.reply;

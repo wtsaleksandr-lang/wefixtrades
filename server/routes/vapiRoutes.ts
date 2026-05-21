@@ -125,6 +125,7 @@ export function registerVapiRoutes(app: Express): void {
                 messages,
                 callId,
                 await buildTradeLineContextWithKnowledge(tradeLineResolved),
+                tradeLineResolved.clientService.id,
               )
             : await handleConversationTurn(messages, callId);
 
@@ -348,6 +349,7 @@ export function registerVapiRoutes(app: Express): void {
             vapiMessages,
             convCallId,
             await buildTradeLineContextWithKnowledge(tradeLineCtx),
+            tradeLineCtx.clientService.id,
           )
         : await handleConversationTurn(vapiMessages, convCallId);
 
