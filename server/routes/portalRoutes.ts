@@ -4571,13 +4571,18 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
       if (!clientId) return;
 
       const { isVideoGenerationEnabledForClient, isVideoScriptsEnabled } = await import("../services/contentflow/videoContentService");
+      const { isVideoGenerationEnabled } = await import("../services/contentflow/videoGenerationService");
 
       const videoGenEnabled = await isVideoGenerationEnabledForClient(clientId);
       const scriptsEnabled = await isVideoScriptsEnabled(clientId);
+      // W-AM-2: surface the global kill switch so the portal can hide the
+      // entire Videos tab when video gen is off (script/output mismatch).
+      const globalEnabled = isVideoGenerationEnabled();
 
       res.json({
         video_generation_enabled: videoGenEnabled,
         video_scripts_enabled: scriptsEnabled,
+        global_enabled: globalEnabled,
       });
     } catch (err: any) {
       log.error("[portal/video-settings] error:", err?.message || err);

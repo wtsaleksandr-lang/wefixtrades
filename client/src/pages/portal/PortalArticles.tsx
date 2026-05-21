@@ -17,7 +17,7 @@
  *   published  = on WordPress (post URL shown when present)
  *   rejected   = decision recorded, no further action
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2, CheckCircle2, MessageSquareWarning, XCircle, FileText, ExternalLink, Clock, Share2, Instagram, Facebook, Globe, Mail, Calendar, Video } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
@@ -206,6 +206,27 @@ export default function PortalArticles() {
 
   const [activeTab, setActiveTab] = useState<"articles" | "social" | "videos">("articles");
 
+  /* W-AM-2: pull the global video gen flag here so we can hide the Videos
+   * tab entirely when VIDEO_GENERATION_ENABLED is false. While disabled the
+   * 5-sec B-roll output does not match the 3-5 min script, so the customer-
+   * facing surface stays hidden until script/output alignment is fixed. */
+  const { data: videoSettings } = useQuery<VideoSettings>({
+    queryKey: ["/api/portal/contentflow/video-settings"],
+    queryFn: async () => {
+      const res = await fetch("/api/portal/contentflow/video-settings", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load video settings");
+      return res.json();
+    },
+  });
+  const videoFeatureVisible = videoSettings?.global_enabled === true;
+
+  // If video tab was selected but flag is now off, fall back to articles.
+  useEffect(() => {
+    if (activeTab === "videos" && videoSettings && !videoFeatureVisible) {
+      setActiveTab("articles");
+    }
+  }, [activeTab, videoSettings, videoFeatureVisible]);
+
   /* Article tab filters (client-side). */
   const [articleSearch, setArticleSearch] = useState("");
   const [articleStatus, setArticleStatus] = useState<Set<string>>(new Set());
@@ -237,7 +258,9 @@ export default function PortalArticles() {
         <header className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">Content</h1>
           <p className="text-sm text-muted-foreground">
-            Review articles and see what social posts and videos are going out on your channels.
+            {videoFeatureVisible
+              ? "Review articles and see what social posts and videos are going out on your channels."
+              : "Review articles and see what social posts are going out on your channels."}
           </p>
         </header>
 
@@ -265,21 +288,23 @@ export default function PortalArticles() {
             <Share2 className="h-3.5 w-3.5 inline mr-1.5" />
             Social Posts
           </button>
-          <button
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === "videos"
-                ? "border-[#0d3cfc] text-[#0d3cfc]"
-                : "border-transparent text-muted-foreground hover:text-gray-700"
-            }`}
-            onClick={() => setActiveTab("videos")}
-          >
-            <Video className="h-3.5 w-3.5 inline mr-1.5" />
-            Videos
-          </button>
+          {videoFeatureVisible && (
+            <button
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === "videos"
+                  ? "border-[#0d3cfc] text-[#0d3cfc]"
+                  : "border-transparent text-muted-foreground hover:text-gray-700"
+              }`}
+              onClick={() => setActiveTab("videos")}
+            >
+              <Video className="h-3.5 w-3.5 inline mr-1.5" />
+              Videos
+            </button>
+          )}
         </div>
 
         {activeTab === "social" && <SocialPostsSection />}
-        {activeTab === "videos" && <VideoContentSection />}
+        {activeTab === "videos" && videoFeatureVisible && <VideoContentSection />}
 
         {activeTab === "articles" && <>
         {/* Summary chips */}
@@ -682,6 +707,9 @@ interface VideoItem {
 interface VideoSettings {
   video_generation_enabled: boolean;
   video_scripts_enabled: boolean;
+  // W-AM-2: global VIDEO_GENERATION_ENABLED env flag. When false the entire
+  // video feature is hidden — script/output mismatch is unresolved.
+  global_enabled?: boolean;
 }
 
 function VideoContentSection() {
