@@ -116,6 +116,8 @@ const SYSTEM_ITEMS = [
   { label: "Workers", href: "/admin/system/workers", icon: Server },
   { label: "Integrations", href: "/admin/system/integrations", icon: ServerCog },
   { label: "Audit Log", href: "/admin/crm/audit-log", icon: FileText },
+  /* AI-3c audit log — general-purpose audit_log table reader. */
+  { label: "Activity Audit", href: "/admin/audit-log", icon: FileText },
   { label: "AI Budget", href: "/admin/crm/ai-budget", icon: BrainCircuit },
 ];
 

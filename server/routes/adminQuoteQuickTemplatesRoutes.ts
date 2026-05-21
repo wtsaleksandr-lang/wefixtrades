@@ -29,6 +29,10 @@ import {
   setTemplateArchived,
   upsertTemplateOverride,
 } from "../lib/applyQuoteQuickOverrides";
+import { writeAudit } from "../lib/auditLog";
+import { db } from "../db";
+import { calculators } from "@shared/schema";
+import { sql, desc } from "drizzle-orm";
 import { createLogger } from "../lib/logger";
 
 const log = createLogger("AdminQuoteQuickTemplates");
@@ -152,6 +156,17 @@ export function registerAdminQuoteQuickTemplatesRoutes(app: Express) {
         const overrides = { ...parsed.data.template, is_user_created: true, id: templateId };
         const row = await upsertTemplateOverride(templateId, overrides, req.user?.id ?? null);
 
+        // Fire-and-forget audit write — record that this template was admin-created.
+        void writeAudit({
+          actorId: req.user?.id ?? null,
+          action: "create",
+          entityType: "quotequick_template",
+          entityId: templateId,
+          before: null,
+          after: row.overrides,
+          req,
+        });
+
         return res.status(201).json({
           templateId,
           override: row,
@@ -196,6 +211,18 @@ export function registerAdminQuoteQuickTemplatesRoutes(app: Express) {
         const effective = codeDefault
           ? applyOverrides(codeDefault, updated.overrides)
           : applyOverrides<TemplateConfig>({} as TemplateConfig, updated.overrides);
+
+        // Audit: before/after are the merged-override blob (pre vs post). Diff is computed by writeAudit.
+        void writeAudit({
+          actorId: req.user?.id ?? null,
+          action: "update",
+          entityType: "quotequick_template",
+          entityId: templateId,
+          before: existing?.overrides ?? {},
+          after: updated.overrides,
+          req,
+        });
+
         return res.json({ override: updated, effective });
       } catch (err) {
         log.error("patch failed", { err: (err as Error).message });
@@ -216,10 +243,22 @@ export function registerAdminQuoteQuickTemplatesRoutes(app: Express) {
           // User-created templates can't "reset" — there's no code default. Use archive instead.
           return res.status(404).json({ error: "No code default exists for this template — use /archive instead" });
         }
+        const prior = await getTemplateOverride(templateId);
         const existed = await deleteTemplateOverride(templateId);
         if (!existed) {
           return res.status(404).json({ error: "No override exists for this template" });
         }
+
+        void writeAudit({
+          actorId: req.user?.id ?? null,
+          action: "reset",
+          entityType: "quotequick_template",
+          entityId: templateId,
+          before: prior?.overrides ?? null,
+          after: null,
+          req,
+        });
+
         return res.json({ ok: true, templateId, effective: codeDefault });
       } catch (err) {
         log.error("delete-override failed", { err: (err as Error).message });
@@ -241,6 +280,17 @@ export function registerAdminQuoteQuickTemplatesRoutes(app: Express) {
           return res.status(404).json({ error: "Template not found" });
         }
         const row = await setTemplateArchived(templateId, true, req.user?.id ?? null);
+
+        void writeAudit({
+          actorId: req.user?.id ?? null,
+          action: "archive",
+          entityType: "quotequick_template",
+          entityId: templateId,
+          before: { archived: false },
+          after: { archived: true },
+          req,
+        });
+
         return res.json({ ok: true, templateId, archived: true, override: row });
       } catch (err) {
         log.error("archive failed", { err: (err as Error).message });
@@ -261,10 +311,63 @@ export function registerAdminQuoteQuickTemplatesRoutes(app: Express) {
           return res.status(404).json({ error: "Template not found" });
         }
         const row = await setTemplateArchived(templateId, false, req.user?.id ?? null);
+
+        void writeAudit({
+          actorId: req.user?.id ?? null,
+          action: "unarchive",
+          entityType: "quotequick_template",
+          entityId: templateId,
+          before: { archived: true },
+          after: { archived: false },
+          req,
+        });
+
         return res.json({ ok: true, templateId, archived: false, override: row });
       } catch (err) {
         log.error("unarchive failed", { err: (err as Error).message });
         return res.status(500).json({ error: "Failed to unarchive template" });
+      }
+    },
+  );
+
+  /* ─── GET usage analytics ───
+   *
+   * Wave W-AI-3c. The `template_id` for a deployed calculator lives at
+   * `calculator_settings.ui_template.template_id` (jsonb). We do a single
+   * filtered scan + LIMIT 5 sample. `live_count` is the total; `sample` is
+   * the 5 most recently created matches for the "View 5 recent" expandable
+   * on the template detail page.
+   */
+  app.get(
+    "/api/admin/quotequick/templates/:id/usage",
+    requireAdmin,
+    async (req: Request, res: Response) => {
+      try {
+        const templateId = String(req.params.id);
+        // Note: calculator_settings is `jsonb` so the `->>` operator returns text.
+        const whereClause = sql`${calculators.calculator_settings} -> 'ui_template' ->> 'template_id' = ${templateId}`;
+
+        const countRows = await db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(calculators)
+          .where(whereClause);
+        const live_count = Number(countRows[0]?.count ?? 0);
+
+        const sample = await db
+          .select({
+            id: calculators.id,
+            business_name: calculators.business_name,
+            created_at: calculators.created_at,
+          })
+          .from(calculators)
+          .where(whereClause)
+          .orderBy(desc(calculators.created_at))
+          .limit(5);
+
+        return res.json({ live_count, sample });
+      } catch (err) {
+        log.error("usage failed", { err: (err as Error).message });
+        return res.status(500).json({ error: "Failed to load usage analytics" });
       }
     },
   );
