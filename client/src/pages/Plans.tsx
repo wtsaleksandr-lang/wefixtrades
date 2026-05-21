@@ -649,7 +649,6 @@ export default function Plans() {
             <PlanAccordion q="How fast can I go live?" a="QuoteQuick Pro and TradeLine can be live within 30 minutes. MapGuard and ReputationShield typically go live in 2-5 business days. SiteLaunch custom builds take 5-7 days; SiteLaunch templates are usually 48-72 hours." />
             <PlanAccordion q='What counts as "setup" vs "monthly"?' a="Setup = one-time configuration/optimization work we do at the start (profile rebuild, initial SEO audit, widget install). Monthly = ongoing operation, monitoring, and maintenance." />
             <PlanAccordion q="What if I already have a website?" a="No problem. We can optimize it, add our widgets, and integrate your lead capture without rebuilding from scratch." />
-            {/* AdFlow ad spend FAQ removed — Sprint 1: AdFlow dropped */}
           </div>
         </section>}
       </div>

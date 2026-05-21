@@ -321,7 +321,6 @@ export const UPSELL_OPTIONS: UpsellOpportunity[] = [
     cross_sell_product: "WebFix",
     available_from_tier: ["starter", "growth", "pro"],
   },
-  /* paid_ads cross-sell removed — AdFlow dropped (Sprint 1) */
   {
     id: "reputation",
     label: "Review & Reputation Management",
