@@ -42,6 +42,7 @@ import InstallGuideModal, {
 } from './InstallGuideModal';
 import HostedPageSection from './HostedPageSection';
 import FloatField from './FloatField';
+import InfoCue from './InfoCue';
 
 const p = platformTheme;
 const d = dashboardTheme;
@@ -243,7 +244,13 @@ export default function InstallTab({
         className="qq-install-section qq-install-hosted"
         data-testid="install-section-hosted"
       >
-        <h3 className="qq-install-h">Hosted link — no install needed</h3>
+        <h3 className="qq-install-h">
+          Hosted link — no install needed
+          <InfoCue
+            testid="install-section-hosted"
+            text="A free subdomain that runs your calculator out of the box. Use it if you don't have a website yet, or while you're setting up the embed."
+          />
+        </h3>
         <p className="qq-install-sub">
           Every calculator gets a free hosted URL. Share it in emails, your
           Instagram bio, or your Google Business profile — no website
@@ -476,7 +483,13 @@ export default function InstallTab({
 
       {/* ── 3. Embed snippet ────────────────────────────────────────── */}
       <section className="qq-install-section" data-testid="install-section-embed">
-        <h3 className="qq-install-h">Embed snippet</h3>
+        <h3 className="qq-install-h">
+          Embed snippet
+          <InfoCue
+            testid="install-section-embed"
+            text="Drop this script tag wherever you want the calculator to appear on your own site. The widget loads asynchronously and inherits your page styles."
+          />
+        </h3>
         <p className="qq-install-sub">
           Paste this snippet on your site where you want the calculator to appear.
         </p>
@@ -516,6 +529,10 @@ export default function InstallTab({
           <div className="qq-install-doneforyou-copy">
             <h3 className="qq-install-doneforyou-h">
               Don't want to install it yourself? We'll do it for $75.
+              <InfoCue
+                testid="install-section-doneforyou"
+                text="Our team places the snippet on your website, configures the widget for your trade, and verifies leads flow into your inbox. Turnaround within 24 hours."
+              />
             </h3>
             <p className="qq-install-doneforyou-sub">
               We install QuoteQuick on your website, configure it for your trade,
@@ -549,7 +566,13 @@ export default function InstallTab({
        * a detailed numbered walkthrough + tips + common-mistake callouts.
        * Replaces the previous inline 3-line tab list. */}
       <section className="qq-install-section" data-testid="install-section-guides">
-        <h3 className="qq-install-h">Platform install guides</h3>
+        <h3 className="qq-install-h">
+          Platform install guides
+          <InfoCue
+            testid="install-section-guides"
+            text="Step-by-step walkthroughs for the most common site builders — pick yours for screenshots and copy-paste-ready instructions."
+          />
+        </h3>
         <p className="qq-install-sub">
           Pick your platform for a detailed step-by-step walkthrough.
         </p>
@@ -585,13 +608,18 @@ export default function InstallTab({
       <style>{`
         /* Wave AA — sector gaps tightened from 16 → 10 (and the sub-headline
            bottom-margin 10 → 6) so the Install tab reads as a cohesive panel
-           rather than a sequence of disconnected slabs. */
+           rather than a sequence of disconnected slabs.
+           W-AO-9 — further tightened 10 → 2px. The 1px .qq-install-divider
+           already gives a visual seam between sections. */
         .qq-install-tab {
-          display: flex; flex-direction: column; gap: 10px;
+          display: flex; flex-direction: column; gap: 2px;
         }
         .qq-install-h {
           font-size: 13px; font-weight: 700; color: ${p.colors.heading};
           margin: 0 0 1px; letter-spacing: -0.005em;
+          /* W-AO-7 — inline-flex so the InfoCue trigger sits to the
+           * immediate right of the heading text (top-left of the section). */
+          display: inline-flex; align-items: center; gap: 6px;
         }
         .qq-install-sub {
           font-size: 12px; color: ${p.colors.muted};
@@ -882,6 +910,10 @@ export default function InstallTab({
           color: ${p.colors.heading};
           letter-spacing: -0.005em;
           line-height: 1.3;
+          /* W-AO-7 — inline-flex so the InfoCue trigger sits adjacent to
+           * the heading text (top-left of the panel). */
+          display: inline-flex; align-items: center; gap: 6px;
+          flex-wrap: wrap;
         }
         .qq-install-doneforyou-sub {
           margin: 0;

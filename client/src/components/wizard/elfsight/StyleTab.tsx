@@ -119,7 +119,17 @@ export default function StyleTab({ style, onChange }: Props) {
        * the swatch row is self-explanatory. The `<legend>` semantic stays for
        * screen readers (hidden visually). */}
       <fieldset className="qq-style-group qq-style-group--colours" data-testid="style-group-colours">
-        <legend className="qq-style-legend qq-style-legend--sr-only">Colours</legend>
+        {/* W-AO-7 — restored a visible legend in the top-left with an
+            adjacent InfoCue. The legend was sr-only because the swatch
+            row reads as self-explanatory, but the help-cue placement
+            audit calls for a `?` next to every section title. */}
+        <legend className="qq-style-legend">
+          Colours
+          <InfoCue
+            testid="style-section-colours"
+            text="Click any swatch to change the calculator's accent, background, body text, or result-card colour."
+          />
+        </legend>
         <div className="qq-style-swatches" data-testid="style-swatches-row">
           <ColourSwatch
             icon={MousePointerClick}
@@ -161,7 +171,13 @@ export default function StyleTab({ style, onChange }: Props) {
        * Wave L S2 — visible "Typography" heading dropped; the font picker
        * speaks for itself. Legend kept for screen readers. */}
       <fieldset className="qq-style-group" data-testid="style-group-typography">
-        <legend className="qq-style-legend qq-style-legend--sr-only">Typography</legend>
+        <legend className="qq-style-legend">
+          Typography
+          <InfoCue
+            testid="style-section-typography"
+            text="Sets the font family the calculator renders in. We load each option from the host site so widget pages don't pull a new web font."
+          />
+        </legend>
         <FloatField label="Font family" htmlFor="qq-style-font" variant="select">
           <select
             id="qq-style-font"
@@ -179,6 +195,13 @@ export default function StyleTab({ style, onChange }: Props) {
 
       {/* ── Shape ────────────────────────────────────────────────── */}
       <fieldset className="qq-style-group" data-testid="style-group-shape">
+        <legend className="qq-style-legend">
+          Shape
+          <InfoCue
+            testid="style-section-shape"
+            text="Controls input style (filled vs outline) and how rounded corners are everywhere — cards, inputs, the CTA button."
+          />
+        </legend>
         <label className="qq-style-label">
           <span className="qq-style-label-text">
             Field style
@@ -223,6 +246,13 @@ export default function StyleTab({ style, onChange }: Props) {
 
       {/* ── Layout ──────────────────────────────────────────────── */}
       <fieldset className="qq-style-group" data-testid="style-group-layout">
+        <legend className="qq-style-legend">
+          Layout
+          <InfoCue
+            testid="style-section-layout"
+            text="How wide the calculator renders on desktop and mobile. Narrow / Wide / Full controls the breakpoint; the sliders below override with exact pixel values."
+          />
+        </legend>
         <label className="qq-style-label">
           <span className="qq-style-label-text">
             Widget width
@@ -291,8 +321,11 @@ export default function StyleTab({ style, onChange }: Props) {
       </fieldset>
 
       <style>{`
+        /* W-AO-9 — section gap tightened 18px → 2px. The 1px border on
+         * each .qq-style-group keeps the visual separation clear; the
+         * previous 18px gutter made the Style tab feel under-populated. */
         .qq-style-panel {
-          display: flex; flex-direction: column; gap: 18px;
+          display: flex; flex-direction: column; gap: 2px;
         }
         .qq-style-group {
           border: 1px solid ${p.colors.borderLight};
@@ -303,9 +336,15 @@ export default function StyleTab({ style, onChange }: Props) {
         }
         /* W-SETTINGS-STYLE — subtle all-caps section label, matches the
          * Build tab treatment landed by W-SECTIONS. Sits flush above the
-         * first input rather than reading as a bold heading. */
+         * first input rather than reading as a bold heading.
+         *
+         * W-AO-7 — inline-flex so the InfoCue trigger sits adjacent to
+         * the title text in the top-left of the fieldset (not pushed to
+         * the right by block-level rendering). */
         .qq-style-legend {
-          display: block;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
           font-size: 11.5px; font-weight: 600;
           color: ${p.colors.muted};
           text-transform: uppercase; letter-spacing: 0.04em;

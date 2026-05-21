@@ -14,6 +14,7 @@ import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { platformTheme } from '@/theme/platformTheme';
 import type { TemplateCalculation, TemplateField } from '@shared/templatePresets';
 import CalculationRow from './CalculationRow';
+import InfoCue from './InfoCue';
 
 const p = platformTheme;
 
@@ -84,7 +85,13 @@ export default function CalculationsPanel({ calculations, fields, onChange }: Pr
     >
       <header className="qq-calcs-header">
         <div>
-          <h3 className="qq-calcs-title">Calculations</h3>
+          <h3 className="qq-calcs-title">
+            Calculations
+            <InfoCue
+              testid="build-section-calcs"
+              text="Math that turns field values into a quote. Each calculation can reference any field above and any earlier calculation; the one you flag as 'primary' becomes the headline number."
+            />
+          </h3>
         </div>
         {!isEmpty && (
           <button
@@ -152,8 +159,11 @@ export default function CalculationsPanel({ calculations, fields, onChange }: Pr
         }
         .qq-calcs-title {
           /* W-SECTIONS — subtle all-caps label, per Alex's global rule
-           * "section titles smaller, more subtle, closer to inputs". */
+           * "section titles smaller, more subtle, closer to inputs".
+           * W-AO-7 — inline-flex so the InfoCue trigger sits to the
+           * immediate right of the title text (top-left of the section). */
           margin: 0;
+          display: inline-flex; align-items: center; gap: 6px;
           font-size: 11.5px; font-weight: 600;
           color: ${p.colors.muted};
           text-transform: uppercase; letter-spacing: 0.04em;

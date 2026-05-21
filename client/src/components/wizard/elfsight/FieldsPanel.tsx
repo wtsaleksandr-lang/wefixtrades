@@ -16,6 +16,7 @@ import { platformTheme } from '@/theme/platformTheme';
 import type { TemplateField, TemplateOption } from '@shared/templatePresets';
 import AddFieldMenu from './AddFieldMenu';
 import FieldRow from './FieldRow';
+import InfoCue from './InfoCue';
 import { PUBLIC_TO_FIELD_TYPE, type PublicFieldType } from './types';
 
 const p = platformTheme;
@@ -117,7 +118,13 @@ export default function FieldsPanel({ fields, onChange }: Props) {
     >
       <header className="qq-fields-header">
         <div>
-          <h3 className="qq-fields-title">Fields</h3>
+          <h3 className="qq-fields-title">
+            Fields
+            <InfoCue
+              testid="build-section-fields"
+              text="What customers see and interact with — sliders, dropdowns, image choices, headings, etc. Drag to reorder; each one feeds into your calculations below."
+            />
+          </h3>
         </div>
         {!isEmpty && <AddFieldMenu onPick={handleAdd} />}
       </header>
@@ -185,8 +192,11 @@ export default function FieldsPanel({ fields, onChange }: Props) {
         }
         .qq-fields-title {
           /* W-SECTIONS — subtle all-caps label, per Alex's global rule
-           * "section titles smaller, more subtle, closer to inputs". */
+           * "section titles smaller, more subtle, closer to inputs".
+           * W-AO-7 — inline-flex so the InfoCue trigger sits to the
+           * immediate right of the title text (top-left of the section). */
           margin: 0;
+          display: inline-flex; align-items: center; gap: 6px;
           font-size: 11.5px; font-weight: 600;
           color: ${p.colors.muted};
           text-transform: uppercase; letter-spacing: 0.04em;

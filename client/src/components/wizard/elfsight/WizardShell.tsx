@@ -64,6 +64,11 @@ const PANE_WIDTH_KEY = 'qq_editor_pane_width';
 const EDITOR_THEME_KEY = 'qq_editor_theme';
 // Wave M — fold/unfold preview pane. Persists across reloads.
 const PREVIEW_COLLAPSED_KEY = 'qq_preview_collapsed';
+// W-AO-1 — mobile sticky action bar extended-state. Collapsed = primary
+// CTA only (56px); extended = primary CTA + horizontally scrollable
+// secondary row (~140px). Persists across reloads so the user's stance
+// survives the wizard reopening.
+const ACTION_BAR_EXTENDED_KEY = 'qq_wizard_action_bar_extended';
 const PANE_WIDTH_MIN = 320;
 const PANE_WIDTH_MAX = 640;
 const PANE_WIDTH_DEFAULT = 420;
@@ -146,6 +151,15 @@ function loadPaneWidth(): number {
 function loadPreviewCollapsed(): boolean {
   try {
     return localStorage.getItem(PREVIEW_COLLAPSED_KEY) === '1';
+  } catch { return false; }
+}
+
+// W-AO-1 — bottom action-bar extended state. Defaults to collapsed (56px
+// primary-only) because most first-time mobile users only need the
+// primary Save CTA; secondary tools are surfaced via a chevron drag.
+function loadActionBarExtended(): boolean {
+  try {
+    return localStorage.getItem(ACTION_BAR_EXTENDED_KEY) === '1';
   } catch { return false; }
 }
 
@@ -246,6 +260,19 @@ export default function WizardShell({ embed = false }: Props) {
   }, [previewCollapsed]);
   const togglePreviewCollapsed = useCallback(() => {
     setPreviewCollapsed((v) => !v);
+  }, []);
+
+  // ── W-AO-1: mobile sticky action bar extended state ────────────────
+  const [actionBarExtended, setActionBarExtended] = useState<boolean>(
+    () => loadActionBarExtended(),
+  );
+  useEffect(() => {
+    try {
+      localStorage.setItem(ACTION_BAR_EXTENDED_KEY, actionBarExtended ? '1' : '0');
+    } catch {}
+  }, [actionBarExtended]);
+  const toggleActionBarExtended = useCallback(() => {
+    setActionBarExtended((v) => !v);
   }, []);
 
   const onResizeStart = useCallback((startX: number, startWidth: number) => {
@@ -744,6 +771,90 @@ export default function WizardShell({ embed = false }: Props) {
                   hostedFrame={activeTab === 'install'}
                 />
               </div>
+            </div>
+
+            {/* ── W-AO-1: mobile sticky bottom action bar.
+                 Fixed to the viewport bottom on `max-width: 768px`, hidden
+                 above that breakpoint (where the in-pane sticky Save
+                 footer already does the job). Collapsed: 56px primary
+                 CTA. Extended: chevron flip + a horizontally-scrollable
+                 row of secondary actions (theme, preview, help, close).
+                 State persists in localStorage via toggleActionBarExtended. */}
+            <div
+              className={`qq-mobile-actionbar${actionBarExtended ? ' is-extended' : ''}`}
+              data-testid="wizard-mobile-actionbar"
+              data-extended={actionBarExtended ? 'true' : 'false'}
+              role="toolbar"
+              aria-label="Wizard quick actions"
+            >
+              <button
+                type="button"
+                className="qq-mobile-actionbar-handle"
+                data-testid="wizard-mobile-actionbar-handle"
+                aria-label={actionBarExtended ? 'Collapse quick actions' : 'Expand quick actions'}
+                aria-expanded={actionBarExtended}
+                onClick={toggleActionBarExtended}
+              >
+                <span aria-hidden="true" className="qq-mobile-actionbar-chevron" />
+              </button>
+              <div className="qq-mobile-actionbar-primary">
+                <button
+                  type="button"
+                  className="qq-mobile-actionbar-cta"
+                  data-testid="wizard-mobile-actionbar-save"
+                  onClick={() => saveDraftMutation.mutate()}
+                  disabled={saveDraftMutation.isPending || !state.businessName.trim()}
+                >
+                  {saveDraftMutation.isPending ? 'Saving…' : (justSaved ? 'Saved ✓' : 'Save draft')}
+                </button>
+              </div>
+              {actionBarExtended && (
+                <div
+                  className="qq-mobile-actionbar-secondary"
+                  data-testid="wizard-mobile-actionbar-secondary"
+                >
+                  <button
+                    type="button"
+                    className="qq-mobile-actionbar-sbtn"
+                    onClick={togglePreviewCollapsed}
+                    data-testid="wizard-mobile-actionbar-preview"
+                  >
+                    {previewCollapsed ? 'Show preview' : 'Hide preview'}
+                  </button>
+                  <button
+                    type="button"
+                    className="qq-mobile-actionbar-sbtn"
+                    onClick={() => setEditorTheme(editorTheme === 'dark' ? 'light' : 'dark')}
+                    data-testid="wizard-mobile-actionbar-theme"
+                  >
+                    {editorTheme === 'dark' ? 'Light theme' : 'Dark theme'}
+                  </button>
+                  <button
+                    type="button"
+                    className="qq-mobile-actionbar-sbtn"
+                    onClick={() => setDevice(device === 'desktop' ? 'mobile' : 'desktop')}
+                    data-testid="wizard-mobile-actionbar-device"
+                  >
+                    {device === 'desktop' ? 'Mobile preview' : 'Desktop preview'}
+                  </button>
+                  <button
+                    type="button"
+                    className="qq-mobile-actionbar-sbtn"
+                    onClick={() => setShowHelp(true)}
+                    data-testid="wizard-mobile-actionbar-help"
+                  >
+                    Help
+                  </button>
+                  <button
+                    type="button"
+                    className="qq-mobile-actionbar-sbtn is-danger"
+                    onClick={handleClose}
+                    data-testid="wizard-mobile-actionbar-close"
+                  >
+                    Close
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Wave K — floating AI assistant. Lives inside the frame so it
@@ -1248,6 +1359,164 @@ export default function WizardShell({ embed = false }: Props) {
               .qq-editor-saved { font-size: 10.5px; padding: 2px 7px; }
               .qq-editor-device button { width: 28px; height: 22px; }
               .qq-editor-icon-btn { width: 24px; height: 24px; }
+            }
+
+            /* ── W-AO-1 — mobile sticky bottom action bar ──────────────
+             *
+             * Hidden by default; shown only at the mobile breakpoint via the
+             * @media block below. The bar is position:fixed to the bottom
+             * of the viewport so it survives in-pane scroll. Backdrop blur
+             * keeps the underlying content visible but de-emphasised. */
+            .qq-mobile-actionbar {
+              display: none;
+            }
+            @media (max-width: 768px) {
+              .qq-mobile-actionbar {
+                display: flex; flex-direction: column;
+                position: fixed; left: 0; right: 0; bottom: 0;
+                z-index: 60;
+                background: rgba(255, 255, 255, 0.92);
+                backdrop-filter: blur(10px);
+                -webkit-backdrop-filter: blur(10px);
+                border-top: 1px solid ${d.colors.borderLight};
+                box-shadow: 0 -6px 18px rgba(15,23,42,0.06);
+                padding: 8px 12px calc(8px + env(safe-area-inset-bottom, 0px));
+                gap: 8px;
+                transition: max-height 220ms cubic-bezier(0.22, 1, 0.36, 1);
+                max-height: 60vh;
+              }
+              .qq-mobile-actionbar-handle {
+                position: absolute; top: -10px; left: 50%;
+                transform: translateX(-50%);
+                width: 56px; height: 20px; padding: 0;
+                background: rgba(255,255,255,0.95);
+                border: 1px solid ${d.colors.borderLight};
+                border-radius: 999px;
+                box-shadow: 0 2px 6px rgba(15,23,42,0.08);
+                cursor: pointer;
+                display: inline-flex; align-items: center; justify-content: center;
+              }
+              .qq-mobile-actionbar-handle:focus-visible {
+                outline: none;
+                box-shadow: 0 0 0 3px ${p.colors.accentLighter};
+              }
+              .qq-mobile-actionbar-chevron {
+                width: 12px; height: 12px;
+                border-right: 2px solid ${p.colors.muted};
+                border-bottom: 2px solid ${p.colors.muted};
+                transform: rotate(-135deg) translate(-2px, -2px);
+                transition: transform 200ms ease;
+              }
+              .qq-mobile-actionbar.is-extended .qq-mobile-actionbar-chevron {
+                transform: rotate(45deg) translate(-2px, -2px);
+              }
+              .qq-mobile-actionbar-primary {
+                display: flex; align-items: stretch; gap: 8px; width: 100%;
+              }
+              .qq-mobile-actionbar-cta {
+                flex: 1;
+                min-height: 44px;
+                padding: 0 16px;
+                font-size: 14px; font-weight: 700;
+                background: ${p.colors.accent}; color: #fff;
+                border: none; border-radius: 10px;
+                cursor: pointer;
+                box-shadow: ${p.shadows.button};
+                transition: box-shadow 0.12s ease, background 0.12s ease;
+              }
+              .qq-mobile-actionbar-cta:hover:not(:disabled) {
+                box-shadow: ${p.shadows.buttonHover};
+              }
+              .qq-mobile-actionbar-cta:disabled {
+                opacity: 0.55; cursor: not-allowed;
+              }
+              .qq-mobile-actionbar-secondary {
+                display: flex; gap: 8px;
+                overflow-x: auto;
+                scroll-snap-type: x mandatory;
+                -webkit-overflow-scrolling: touch;
+                scrollbar-width: none;
+                padding: 2px 0 4px;
+              }
+              .qq-mobile-actionbar-secondary::-webkit-scrollbar { display: none; }
+              .qq-mobile-actionbar-sbtn {
+                scroll-snap-align: start;
+                flex: 0 0 auto;
+                min-height: 38px;
+                padding: 0 14px;
+                font-size: 12.5px; font-weight: 600;
+                background: #fff; color: ${p.colors.heading};
+                border: 1px solid ${p.colors.border};
+                border-radius: 999px;
+                cursor: pointer;
+                white-space: nowrap;
+                transition: background 0.12s ease, border-color 0.12s ease;
+              }
+              .qq-mobile-actionbar-sbtn:hover {
+                background: ${p.colors.accentLighter};
+                border-color: ${p.colors.accent};
+              }
+              .qq-mobile-actionbar-sbtn.is-danger {
+                color: ${p.colors.danger};
+                border-color: ${p.colors.danger};
+              }
+              .qq-mobile-actionbar-sbtn.is-danger:hover {
+                background: rgba(220, 38, 38, 0.08);
+              }
+              /* Dark editor theme — flip surface colors. */
+              .qq-editor-shell[data-theme="dark"] .qq-mobile-actionbar {
+                background: rgba(15, 23, 42, 0.92);
+                border-top-color: var(--qq-border);
+              }
+              .qq-editor-shell[data-theme="dark"] .qq-mobile-actionbar-handle {
+                background: rgba(15, 23, 42, 0.95);
+                border-color: var(--qq-border);
+              }
+              .qq-editor-shell[data-theme="dark"] .qq-mobile-actionbar-sbtn {
+                background: var(--qq-surface);
+                color: var(--qq-text);
+                border-color: var(--qq-border);
+              }
+              /* Leave room at the bottom of the editor frame so the fixed
+               * action bar doesn't cover the last few rows of the form.
+               * Extended adds extra clearance for the secondary row. */
+              .qq-editor-frame {
+                padding-bottom: 64px;
+              }
+              .qq-mobile-actionbar.is-extended ~ .qq-editor-frame,
+              .qq-editor-shell:has(.qq-mobile-actionbar.is-extended) .qq-editor-frame {
+                padding-bottom: 140px;
+              }
+              /* The in-pane sticky Save footer (.qq-editor-actions) is
+               * redundant once the fixed mobile action bar carries the
+               * primary CTA — hide it on mobile to avoid two save
+               * buttons fighting for attention. */
+              .qq-editor-actions {
+                display: none !important;
+              }
+              /* Wave X #17 sticky topbar already in place; tighten the
+               * mobile presentation with a backdrop blur so it reads as
+               * a true app-style sticky header rather than an opaque slab. */
+              .qq-editor-topbar {
+                background: rgba(255, 255, 255, 0.94);
+                backdrop-filter: blur(10px);
+                -webkit-backdrop-filter: blur(10px);
+              }
+              .qq-editor-tabs {
+                background: rgba(255, 255, 255, 0.94);
+                backdrop-filter: blur(10px);
+                -webkit-backdrop-filter: blur(10px);
+              }
+              .qq-editor-shell[data-theme="dark"] .qq-editor-topbar,
+              .qq-editor-shell[data-theme="dark"] .qq-editor-tabs {
+                background: rgba(15, 23, 42, 0.88);
+              }
+            }
+            @media (prefers-reduced-motion: reduce) {
+              .qq-mobile-actionbar,
+              .qq-mobile-actionbar-chevron {
+                transition: none !important;
+              }
             }
           `}</style>
         </div>

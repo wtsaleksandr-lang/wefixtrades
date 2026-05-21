@@ -164,10 +164,10 @@ export default function BuildTab({
 
       <style>{`
         .qq-build-tab {
-          /* Wave R-pre v2 — tightened section gap 14 → 10px and removed
-           * the divider's outer margin so the business-name component
-           * doesn't float in dead space above and below. */
-          display: flex; flex-direction: column; gap: 10px;
+          /* W-AO-9 — section gap tightened 10px → 2px so containers sit
+           * close (1–2px) per the wizard density audit. The hairline
+           * .qq-build-divider already gives a visual seam. */
+          display: flex; flex-direction: column; gap: 2px;
         }
         .qq-build-divider {
           height: 1px; background: ${p.colors.borderLight}; margin: 0;

@@ -162,6 +162,13 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
 
       {/* ── Lead notification email ─────────────────────────────── */}
       <fieldset className="qq-style-group" data-testid="settings-group-lead-email">
+        <legend className="qq-style-legend">
+          Lead notifications
+          <InfoCue
+            testid="settings-section-lead-email"
+            text="How you'll be notified when someone submits a quote. Only the recipient changes — message format is fixed."
+          />
+        </legend>
         <FloatField
           label="Lead notification email"
           htmlFor="qq-settings-leademail"
@@ -193,10 +200,18 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
       </fieldset>
 
       {/* ── Pricing model ───────────────────────────────────────── */}
-      {/* W-AF-4 — "Mode" sub-label dropped. The Hourly/Fixed/Custom
-         segmented control is self-explanatory; the redundant label
-         (and its InfoCue) added noise without information. */}
+      {/* W-AO-7 — restored section legend (top-left + InfoCue) per the
+         help-cue placement audit. The segmented control still speaks for
+         itself, but the legend gives the section a name screen readers
+         and skimming users can latch onto. */}
       <fieldset className="qq-style-group" data-testid="settings-group-pricing">
+        <legend className="qq-style-legend">
+          Pricing model
+          <InfoCue
+            testid="settings-section-pricing"
+            text="How quotes are priced. Hourly multiplies by hours; Fixed is a flat price; Custom lets you label the unit (per sqft, per door, per panel, etc.)."
+          />
+        </legend>
         <SegmentedControl<ShellPricingMode>
           name="pricing-mode"
           testid="settings-segmented-pricing"
@@ -283,6 +298,13 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
         data-testid="settings-group-deposit"
         data-stripe-connected={stripeConnected ? 'true' : 'false'}
       >
+        <legend className="qq-style-legend">
+          Deposit
+          <InfoCue
+            testid="settings-section-deposit"
+            text="Optionally collect a partial payment when customers book. Requires a connected Stripe account."
+          />
+        </legend>
         {!stripeConnected && (
           <p
             className="qq-settings-deposit-warning"
@@ -429,6 +451,13 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
 
       {/* ── Number formatting ───────────────────────────────────── */}
       <fieldset className="qq-style-group" data-testid="settings-group-numberformat">
+        <legend className="qq-style-legend">
+          Number formatting
+          <InfoCue
+            testid="settings-section-numberformat"
+            text="Controls how prices display in the calculator. Currency is a 3-letter ISO code (USD / EUR / GBP / …)."
+          />
+        </legend>
         <div className="qq-style-grid">
           <FloatField
             label="Thousands separator"
@@ -489,6 +518,13 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
 
       {/* ── Custom CTA label ────────────────────────────────────── */}
       <fieldset className="qq-style-group" data-testid="settings-group-cta">
+        <legend className="qq-style-legend">
+          Call to action
+          <InfoCue
+            testid="settings-section-cta"
+            text="The button text shown on the result panel after the quote is calculated."
+          />
+        </legend>
         <FloatField
           label="CTA label"
           htmlFor="qq-settings-cta-label"
@@ -508,10 +544,16 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
       </fieldset>
 
       {/* ── Online booking (Wave R-1) ───────────────────────────── */}
-      {/* W-R1 / W-SETTINGS-STYLE merge: section InfoCue replaced with a
-          subtle paragraph below the legend — same pattern Deposit/Brand
-          adopted (commits 09c62328 + 0bc105e5). */}
+      {/* W-AO-7 — restored top-left legend with InfoCue so the section
+          carries a discoverable title like the others. */}
       <fieldset className="qq-style-group" data-testid="settings-group-scheduling">
+        <legend className="qq-style-legend">
+          Online booking
+          <InfoCue
+            testid="settings-section-scheduling"
+            text="Let customers pick a time slot after the quote. Slots are built from your working hours minus existing bookings."
+          />
+        </legend>
         <div className="qq-scheduling-toggle" data-testid="scheduling-toggle-row">
           <label className="qq-brand-badge-toggle">
             <input
@@ -628,6 +670,13 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
        *  link surfaced. The server-side gate (Wave Q-D) enforces this on
        *  save regardless of what the client sends. */}
       <fieldset className="qq-style-group" data-testid="settings-group-brand-badge">
+        <legend className="qq-style-legend">
+          Branding
+          <InfoCue
+            testid="settings-section-brand"
+            text="Controls the WeFixTrades badge on the calculator. Free plan keeps it visible; Pro and Business plans can hide it."
+          />
+        </legend>
         <div
           className="qq-brand-badge-row"
           data-testid="settings-brand-badge-row"
@@ -678,8 +727,12 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
         /* Reuse the Style tab's spacing rhythm — see StyleTab.tsx for the
            canonical .qq-style-* class definitions. The few overrides below
            handle settings-only details (the row helper, the trade picker). */
+        /* W-AO-9 — container gap tightened 18px → 2px. The 1px hairline
+         * border around each .qq-style-group still provides a clear
+         * visual seam between sections; the bulky vertical air was making
+         * the wizard feel too spaced-out on both mobile and desktop. */
         .qq-settings-panel {
-          display: flex; flex-direction: column; gap: 18px;
+          display: flex; flex-direction: column; gap: 2px;
         }
         .qq-style-group {
           border: 1px solid ${p.colors.borderLight};
@@ -690,9 +743,16 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
         }
         /* W-SETTINGS-STYLE — subtle all-caps section label, matches the
          * Build tab treatment landed by W-SECTIONS. Sits flush above the
-         * first input rather than reading as a bold heading. */
+         * first input rather than reading as a bold heading.
+         *
+         * W-AO-7 — legend is now an inline-flex container so the InfoCue
+         * trigger (sibling element after the label text) lays out
+         * immediately to the right of the title text — top-left of the
+         * fieldset by virtue of being the first child. */
         .qq-style-legend {
-          display: block;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
           font-size: 11.5px; font-weight: 600;
           color: ${p.colors.muted};
           text-transform: uppercase; letter-spacing: 0.04em;
@@ -1093,6 +1153,13 @@ function TradeSection({
 
   return (
     <fieldset className="qq-style-group" data-testid="settings-group-trade">
+      <legend className="qq-style-legend">
+        Trade
+        <InfoCue
+          testid="settings-section-trade"
+          text="Which trade this calculator is for. Drives template suggestions and downstream copy."
+        />
+      </legend>
       {/* Hidden native <select> — preserves Playwright `selectOption`
           compatibility and gives us a real form control fallback. The
           visible UI is the custom button + popup below. */}
