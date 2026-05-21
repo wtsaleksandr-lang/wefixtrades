@@ -170,31 +170,24 @@ export default function CalculationRow({
 
       {expanded && (
         <div className="qq-calc-row-body" data-testid={`calc-row-body-${calc.id}`}>
-          <div className="qq-calc-grid-2">
-            <div>
-              <Label>Name</Label>
-              <input
-                type="text"
-                className="qq-calc-input"
-                value={calc.name}
-                onChange={(e) => update({ name: e.target.value })}
-                placeholder="e.g. Subtotal"
-                data-testid={`calc-row-input-name-${calc.id}`}
-              />
-            </div>
-            <div>
-              <Label>Format</Label>
-              <select
-                className="qq-calc-input"
-                value={calc.format}
-                onChange={(e) => update({ format: e.target.value as TemplateCalculation['format'] })}
-                data-testid={`calc-row-input-format-${calc.id}`}
-              >
-                <option value="number">Number</option>
-                <option value="currency">Currency</option>
-                <option value="percent">Percent</option>
-              </select>
-            </div>
+          {/* Wave X #1/#3 — Format selector hidden. The dropdown sat next
+              to Name and showed "Currency" as its selected value, which
+              read like a leftover prefilled string. Format defaults to
+              'currency' on new calcs (set at creation time), which is the
+              right answer for ~95% of calculator rows; the few percent /
+              count cases will be inferred from the formula in a follow-up.
+              The format field itself stays on the calc shape — only the
+              UI control is removed. */}
+          <div>
+            <Label>Name</Label>
+            <input
+              type="text"
+              className="qq-calc-input"
+              value={calc.name}
+              onChange={(e) => update({ name: e.target.value })}
+              placeholder="e.g. Subtotal"
+              data-testid={`calc-row-input-name-${calc.id}`}
+            />
           </div>
 
           <FormulaEditor

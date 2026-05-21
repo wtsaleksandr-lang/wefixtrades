@@ -17,7 +17,7 @@
 
 import { useCallback, useMemo, useState } from 'react';
 import { platformTheme } from '@/theme/platformTheme';
-import { TRADES, type Trade } from '@/data/trades';
+import { TRADES, CATEGORIES, type Trade } from '@/data/trades';
 import {
   DEFAULT_SHELL_NUMBER_FORMAT,
   DEFAULT_SHELL_SCHEDULING,
@@ -883,7 +883,19 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
   );
 }
 
-/* ─── Trade picker — searchable list ─── */
+/* ─── Trade picker — Wave X #13.
+ *
+ * Was: a flat searchable list that, when the search query was empty,
+ * called `TRADES.slice(0, 14)`. Since TRADES is ordered cleaning-first
+ * (16 entries before reno starts), the panel silently looked like
+ * "we only support cleaning trades" — a real bug.
+ *
+ * Now: a native <select> with <optgroup> per category (cleaning, reno,
+ * driveway, mechanical, emergency, auto, outdoor, pro). All 131 trades
+ * appear, the browser handles the dropdown affordance + native search,
+ * and we keep a tiny "Search" input above for users who'd rather type
+ * a label fragment and let it filter the visible options.
+ */
 function TradeSection({
   tradeId, onChange,
 }: { tradeId: string; onChange: (id: string) => void }) {
@@ -894,19 +906,28 @@ function TradeSection({
     [tradeId],
   );
 
-  const matches = useMemo<Trade[]>(() => {
+  // Group trades by category for the <optgroup>s. CATEGORIES defines
+  // the display order; the "custom" category is skipped here because
+  // it's a placeholder (My trade isn't listed) not an actual trade.
+  const tradesByCategory = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (q === '') return TRADES.slice(0, 14);
-    return TRADES.filter((t) => t.label.toLowerCase().includes(q)).slice(0, 30);
+    const match = (t: Trade) => q === '' || t.label.toLowerCase().includes(q);
+    return CATEGORIES
+      .filter((c) => c.id !== 'custom')
+      .map((c) => ({
+        category: c,
+        trades: TRADES.filter((t) => t.categoryId === c.id && match(t)),
+      }))
+      .filter((g) => g.trades.length > 0);
   }, [query]);
 
   return (
     <fieldset className="qq-style-group" data-testid="settings-group-trade">
       <legend className="qq-style-legend">Trade</legend>
       <FloatField
-        label="Search trades"
+        label="Filter trades by name (optional)"
         htmlFor="qq-settings-trade-search"
-        infoText="Which trade this calculator is for. Drives template suggestions and downstream copy. Search the list below."
+        infoText="Which trade this calculator is for. Drives template suggestions and downstream copy. Pick from any of the 8 trade categories below."
         infoTestid="settings-trade"
       >
         <input
@@ -919,37 +940,43 @@ function TradeSection({
           data-testid="settings-input-trade-search"
         />
       </FloatField>
-      <p className="qq-trade-current" data-testid="settings-current-trade">
-        Selected:{' '}
-        <strong style={{ color: p.colors.heading }}>
-          {current?.label ?? 'None'}
-        </strong>
-      </p>
-      <div className="qq-trade-results" role="listbox" aria-label="Trades">
-        {matches.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            className="qq-trade-row"
-            role="option"
-            aria-pressed={t.id === tradeId}
-            aria-selected={t.id === tradeId}
-            data-testid={`settings-trade-option-${t.id}`}
-            onClick={() => onChange(t.id)}
-          >
-            <span>{t.label}</span>
-            {t.id === tradeId && <span aria-hidden="true">✓</span>}
-          </button>
-        ))}
-        {matches.length === 0 && (
-          <p
-            data-testid="settings-trade-empty"
-            style={{ padding: '12px', fontSize: 12, color: p.colors.muted, margin: 0 }}
-          >
-            No matching trades.
-          </p>
-        )}
-      </div>
+
+      <FloatField label="Trade" htmlFor="qq-settings-trade-select">
+        <select
+          id="qq-settings-trade-select"
+          className="premium-input"
+          value={tradeId}
+          onChange={(e) => onChange(e.target.value)}
+          data-testid="settings-input-trade-select"
+          aria-label="Choose trade"
+        >
+          {/* Empty placeholder option so the floating label can float */}
+          <option value="">— Select a trade —</option>
+          {tradesByCategory.map(({ category, trades }) => (
+            <optgroup key={category.id} label={category.label}>
+              {trades.map((t) => (
+                <option key={t.id} value={t.id} data-testid={`settings-trade-option-${t.id}`}>
+                  {t.label}
+                </option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+      </FloatField>
+
+      {current && (
+        <p className="qq-trade-current" data-testid="settings-current-trade">
+          Selected: <strong style={{ color: p.colors.heading }}>{current.label}</strong>
+        </p>
+      )}
+      {tradesByCategory.length === 0 && (
+        <p
+          data-testid="settings-trade-empty"
+          style={{ padding: '8px 0 0', fontSize: 12, color: p.colors.muted, margin: 0 }}
+        >
+          No matching trades.
+        </p>
+      )}
     </fieldset>
   );
 }

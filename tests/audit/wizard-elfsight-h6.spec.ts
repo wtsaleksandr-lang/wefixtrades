@@ -61,17 +61,21 @@ test.describe('wizard H6 — Settings tab', () => {
   test('Trade picker — selecting a trade updates internal state', async ({ page }) => {
     await gotoSettingsTab(page);
 
-    // Pre-state: nothing selected. The readout shows "None".
-    await expect(page.getByTestId('settings-current-trade')).toContainText('None');
+    // Pre-state: nothing selected. Wave X #13 refactor: when no trade
+    // is selected the "Selected: ..." readout is omitted entirely (it
+    // only renders when `current` is truthy), so we assert the empty
+    // state by counting matching nodes.
+    await expect(page.getByTestId('settings-current-trade')).toHaveCount(0);
 
-    // Search for a known trade and click it. `house_cleaning` is in the
-    // trades catalogue and the first cleaning row.
-    await page.getByTestId('settings-input-trade-search').fill('house cleaning');
-    const row = page.getByTestId('settings-trade-option-house_cleaning');
-    await expect(row).toBeVisible({ timeout: 1500 });
-    await row.click();
+    // Wave X #13 — Trade picker is now a native <select> with
+    // <optgroup>s per category. The typed filter input still narrows
+    // which options the select renders (verified separately by
+    // settings-input-trade-search), but selection itself uses
+    // selectOption on the <select>, not click() on an <option>.
+    const select = page.getByTestId('settings-input-trade-select');
+    await select.selectOption('house_cleaning');
 
-    await expect(row).toHaveAttribute('aria-pressed', 'true');
+    await expect(select).toHaveValue('house_cleaning');
     await expect(page.getByTestId('settings-current-trade')).toContainText('House Cleaning');
   });
 
@@ -208,8 +212,8 @@ test.describe('wizard H6 — Settings tab', () => {
     await gotoSettingsTab(page);
 
     // Fill enough Settings values so the payload has something to assert.
-    await page.getByTestId('settings-input-trade-search').fill('house cleaning');
-    await page.getByTestId('settings-trade-option-house_cleaning').click();
+    // Wave X #13 — trade picker is a native <select>; use selectOption.
+    await page.getByTestId('settings-input-trade-select').selectOption('house_cleaning');
     await page.getByTestId('settings-input-lead-email').fill('qa@example.com');
     await page.getByTestId('settings-segmented-pricing-fixed').click();
     await page.getByTestId('settings-input-pricing-value').fill('350');
@@ -283,8 +287,8 @@ test.describe('wizard H6 — Settings tab', () => {
 
     // Pick the data-loss scenario: EUR currency, comma decimal, space
     // thousands — the exact combo that vanished pre-fix.
-    await page.getByTestId('settings-input-trade-search').fill('house cleaning');
-    await page.getByTestId('settings-trade-option-house_cleaning').click();
+    // Wave X #13 — trade picker is a native <select>; use selectOption.
+    await page.getByTestId('settings-input-trade-select').selectOption('house_cleaning');
     await page.getByTestId('settings-select-thousands').selectOption('space');
     await page.getByTestId('settings-select-decimal').selectOption('comma');
     await page.getByTestId('settings-input-currency').fill('EUR');
