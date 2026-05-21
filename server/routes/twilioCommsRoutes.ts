@@ -28,6 +28,7 @@ import {
   getTwilioFromNumber,
   isTwilioConfigured,
   normalizePhone,
+  verifyTwilioSignature,
 } from "../twilioClient";
 import {
   mintAccessToken,
@@ -321,6 +322,12 @@ export function registerTwilioCommsRoutes(app: Express): void {
    *   → Webhook → POST https://wefixtrades.com/api/twilio/sms-webhook
    */
   app.post("/api/twilio/sms-webhook", async (req: Request, res: Response) => {
+    // Verify Twilio signature to prevent forged inbound events.
+    if (!verifyTwilioSignature(req)) {
+      log.warn("sms-webhook signature verification failed");
+      res.set("Content-Type", "text/xml");
+      return res.status(403).send("<Response/>");
+    }
     const from = req.body?.From ?? "";
     const body = req.body?.Body ?? "";
     const sid = req.body?.MessageSid ?? "";
@@ -340,6 +347,14 @@ export function registerTwilioCommsRoutes(app: Express): void {
    * set TWILIO_APP_SID env var to that app's SID before voice works.
    */
   app.post("/api/twilio/voice-twiml", (req: Request, res: Response) => {
+    // Verify Twilio signature — without this, anyone who knows the URL
+    // can POST a `To` and coerce Alex's Twilio number into dialing it
+    // (toll-fraud risk).
+    if (!verifyTwilioSignature(req)) {
+      log.warn("voice-twiml signature verification failed");
+      res.set("Content-Type", "text/xml");
+      return res.status(403).send("<Response/>");
+    }
     const to = String(req.body?.To ?? "").trim();
     const fromNumber = getTwilioFromNumber();
     res.set("Content-Type", "text/xml");
@@ -351,9 +366,13 @@ export function registerTwilioCommsRoutes(app: Express): void {
       return;
     }
     // Basic outbound dial. callerId is Alex's Twilio number so the
-    // callee sees that, not the anonymous client identity.
+    // callee sees that, not the anonymous client identity. Escape both
+    // values defensively even though `fromNumber` is server-controlled.
+    const escape = (s: string) =>
+      s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+       .replace(/"/g, "&quot;").replace(/'/g, "&apos;");
     res.send(
-      `<Response><Dial callerId="${fromNumber}"><Number>${to}</Number></Dial></Response>`,
+      `<Response><Dial callerId="${escape(fromNumber)}"><Number>${escape(to)}</Number></Dial></Response>`,
     );
   });
 }
