@@ -18,6 +18,7 @@ export * from "./reputationFoundations";
 export * from "./reputationWidgetCompetitor";
 export * from "./serviceCosts";
 export * from "./salesLeads";
+export * from "./productWaitlist";
 export * from "./rankflow";
 export * from "./contentflow";
 export * from "./contentflowSettings";

@@ -79,6 +79,7 @@ import InboxPage from "@/pages/admin/InboxPage";
 import CommunicationsPage from "@/pages/admin/CommunicationsPage";
 import SystemAlertsPage from "@/pages/admin/SystemAlertsPage";
 import AdminAuditLogPage from "@/pages/admin/AdminAuditLogPage";
+import WaitlistPage from "@/pages/admin/WaitlistPage";
 /* AI-3c audit log */
 import AuditLogPage from "@/pages/admin/AuditLogPage";
 import AuditLeadsPage from "@/pages/admin/AuditLeadsPage";
@@ -217,6 +218,8 @@ function Router() {
       <Route path="/admin/crm/support/:id">{() => <RequirePortal><SupportTicketDetailPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/support">{() => <RequirePortal><SupportInboxPage /></RequirePortal>}</Route>
       <Route path="/admin/notices">{() => <RequirePortal><AdminNoticesPage /></RequirePortal>}</Route>
+      {/* W-AN-2 Coming Soon waitlist */}
+      <Route path="/admin/waitlist">{() => <RequirePortal><WaitlistPage /></RequirePortal>}</Route>
       <Route path="/admin/booking">{() => <RequirePortal><BookingCalendarPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/services">{() => <RequirePortal><ServicesPage /></RequirePortal>}</Route>
       <Route path="/admin/products/:id">{() => <RequirePortal><ProductDetailPage /></RequirePortal>}</Route>
