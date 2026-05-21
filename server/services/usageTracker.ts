@@ -35,6 +35,10 @@ export interface UsageLogParams {
   channel?: string;
   /** Extensible metadata for provider-specific fields (call_id, webhook_event, transcript_ref, etc.) */
   metadata?: Record<string, any>;
+  /** W-BA-0 — UUID linking every Anthropic call inside one agent-loop run. */
+  loopRunId?: string;
+  /** W-BA-0 — 0-based ordinal of the call within its loop run. */
+  stepIndex?: number;
 }
 
 export async function logUsage(params: UsageLogParams): Promise<void> {
@@ -58,6 +62,8 @@ export async function logUsage(params: UsageLogParams): Promise<void> {
       success: params.success,
       error_message: params.errorMessage || null,
       metadata: params.metadata || null,
+      loop_run_id: params.loopRunId || null,
+      step_index: params.stepIndex ?? null,
     });
   } catch (err) {
     // Never let logging failures break the chat flow

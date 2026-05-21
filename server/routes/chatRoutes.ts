@@ -1,6 +1,6 @@
 import type { Express, Request, Response } from "express";
 import crypto from "crypto";
-import { assistantStream, assistantSync, isReady, type AssistantRequest } from "../services/assistant";
+import { assistantStream, assistantSync, assistantAgentLoop, isReady, type AssistantRequest } from "../services/assistant";
 import type { ChatSurface, AuditContext, PortalContext } from "../services/promptBuilder";
 import { TRADELINE_DEMO_PROMPT } from "@shared/prompts/tradelineDemoPrompt";
 import { assemblePortalContext } from "../services/portalAssistantContext";
@@ -10,7 +10,8 @@ import { db } from "../db";
 import { auditReports } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { shouldInjectTools, ADMIN_TOOLS } from "../services/adminTools";
-import { storePendingAction, getCopilotAction } from "../services/copilotActionRegistry";
+import { storePendingAction, getCopilotAction, getCopilotActionsForSurface } from "../services/copilotActionRegistry";
+import { executorFromCopilotAction } from "../services/aiAgentLoop";
 import { createLogger } from "../lib/logger";
 
 const log = createLogger("Chat");
@@ -167,6 +168,95 @@ async function parseAssistantRequest(req: Request): Promise<
   };
 }
 
+/* ─── Write SSE stream from the multi-step agent loop (W-BA-0) ─── */
+async function writeAgentLoopStream(res: Response, req: AssistantRequest): Promise<void> {
+  let headersSent = false;
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+  headersSent = true;
+
+  try {
+    // Build executors map: any registered action with tier === "auto" gets an
+    // executor wrapper. low/draft tools are intentionally absent — the loop
+    // short-circuits on them and the existing storePendingAction() confirm
+    // flow takes over below.
+    const actionSurface = req.surface === "portal" ? "portal" : "admin";
+    const toolExecutors: Record<string, import("../services/aiAgentLoop").ToolExecutor> = {};
+    for (const action of getCopilotActionsForSurface(actionSurface)) {
+      if (action.riskTier === "auto") {
+        toolExecutors[action.name] = executorFromCopilotAction(action.name, actionSurface);
+      }
+    }
+
+    const result = await assistantAgentLoop(req, {
+      toolExecutors,
+      actionSurface,
+      onStep: (step) => {
+        // Stream each step to the client. The browser uses these to render
+        // "AI is reading state... AI is preparing reply..." in real time.
+        try {
+          res.write(`data: ${JSON.stringify({ step })}\n\n`);
+          if (step.type === "text" && step.payload?.text) {
+            res.write(`data: ${JSON.stringify({ text: step.payload.text })}\n\n`);
+          }
+        } catch {
+          // Best-effort streaming — drop the frame on write error
+        }
+      },
+    });
+
+    // Short-circuit case: a low/draft action — hand off to the existing
+    // confirm-card flow so this PR doesn't break backward compat.
+    if (result.status === "pending_confirmation" && result.pending && req.userId) {
+      const def = getCopilotAction(actionSurface, result.pending.action_name);
+      const summary = def?.summarize?.(result.pending.args, req.pageContext);
+      const display = summary
+        ? { title: summary.title, lines: summary.lines }
+        : {
+            title: String(result.pending.action_name).replace(/_/g, " "),
+            lines: Object.entries(result.pending.args).map(([k, v]) => `${k.replace(/_/g, " ")}: ${String(v)}`),
+          };
+
+      const callId = crypto.randomUUID();
+      storePendingAction({
+        call_id: callId,
+        surface: actionSurface,
+        action_name: result.pending.action_name,
+        args: result.pending.args,
+        user_id: req.userId,
+        session_id: req.sessionId,
+        expires: Date.now() + 5 * 60 * 1000,
+        metadata: summary?.metadata,
+      });
+
+      res.write(`data: ${JSON.stringify({ tool_call: { call_id: callId, tool_name: result.pending.action_name, display } })}\n\n`);
+    }
+
+    // Surface the terminal status + observability summary on the [DONE] frame
+    res.write(`data: ${JSON.stringify({
+      loop_status: result.status,
+      loop_run_id: result.loopRunId,
+      step_count: result.steps.length,
+      cost_cents: result.totalCostCents,
+    })}\n\n`);
+
+    res.write("data: [DONE]\n\n");
+    res.end();
+  } catch (err: any) {
+    log.error("[chat] Agent loop error:", err?.message);
+    if (headersSent) {
+      res.write(`data: ${JSON.stringify({ error: "Something went wrong. Please try again." })}\n\n`);
+      res.write("data: [DONE]\n\n");
+      res.end();
+    } else {
+      throw err;
+    }
+  }
+}
+
 /* ─── Write SSE stream to response ─── */
 async function writeStream(res: Response, req: AssistantRequest): Promise<void> {
   let headersSent = false;
@@ -314,7 +404,23 @@ export function registerChatRoutes(app: Express): void {
         }
       }
 
-      await writeStream(res, parsed.assistantReq);
+      // W-BA-0 — opt-in multi-step agent loop. Two ways to enable:
+      //   1. Client passes `useAgentLoop: true` on the request body.
+      //   2. Any tool in the scoped set is registered with riskTier === "auto"
+      //      (no auto-tier actions exist yet — BA-1 will add them — so this
+      //      branch is dormant on day one but ready when they land).
+      const explicitOptIn = req.body?.useAgentLoop === true;
+      const actionSurface = parsed.assistantReq.surface === "portal" ? "portal" : "admin";
+      const hasAutoTierTool = (parsed.assistantReq.tools || []).some((t: any) => {
+        const def = getCopilotAction(actionSurface, t?.name);
+        return def?.riskTier === "auto";
+      });
+
+      if ((explicitOptIn || hasAutoTierTool) && parsed.assistantReq.tools?.length) {
+        await writeAgentLoopStream(res, parsed.assistantReq);
+      } else {
+        await writeStream(res, parsed.assistantReq);
+      }
     } catch (err: any) {
       log.error("Error", { status: String(err?.status || ""), error: err?.message, detail: String(err?.error?.message || "") });
       if (!res.headersSent) {

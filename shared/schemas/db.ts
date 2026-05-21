@@ -668,6 +668,10 @@ export const aiUsageLogs = pgTable("ai_usage_logs", {
   success: boolean("success").notNull().default(true),
   error_message: text("error_message"),
   metadata: jsonb("metadata"),                             // extensible: call_id, transcript ref, webhook event type, etc.
+  /** W-BA-0 — UUID linking every Anthropic call inside one agent loop run. */
+  loop_run_id: text("loop_run_id"),
+  /** W-BA-0 — 0-based ordinal of the call within its loop run. */
+  step_index: integer("step_index"),
   created_at: timestamp("created_at").defaultNow(),
 });
 
