@@ -7,13 +7,15 @@
  * Phase 3 (W-AI-3).
  *
  * Endpoints (mounted under /api/admin/quotequick/):
- *   GET    /api/admin/quotequick/templates                  — list all (incl. archived) with merged values
- *   GET    /api/admin/quotequick/templates/:id              — one template (codeDefault + overrides + merged)
- *   POST   /api/admin/quotequick/templates                  — create a NEW admin-authored template (no code default)
- *   PATCH  /api/admin/quotequick/templates/:id              — upsert override jsonb (partial TemplateConfig fields)
- *   DELETE /api/admin/quotequick/templates/:id/overrides    — clear override (reset to code default)
- *   POST   /api/admin/quotequick/templates/:id/archive      — soft-delete (archived = true)
- *   POST   /api/admin/quotequick/templates/:id/unarchive    — restore (archived = false)
+ *   GET    /api/admin/quotequick/templates                       — list all (incl. archived) with merged values; supports ?trade=<id>
+ *   GET    /api/admin/quotequick/templates/:id                   — one template (codeDefault + overrides + merged)
+ *   POST   /api/admin/quotequick/templates                       — create a NEW admin-authored template (no code default)
+ *   PATCH  /api/admin/quotequick/templates/:id                   — upsert override jsonb (partial TemplateConfig fields)
+ *   DELETE /api/admin/quotequick/templates/:id/overrides         — clear override (reset to code default)
+ *   DELETE /api/admin/quotequick/templates/:id/overrides/:field  — strip ONE field from the override blob (Wave W-AQ-1)
+ *   DELETE /api/admin/quotequick/templates/:id/hard-delete       — permanent delete; only for user-created templates (Wave W-AQ-1)
+ *   POST   /api/admin/quotequick/templates/:id/archive           — soft-delete (archived = true)
+ *   POST   /api/admin/quotequick/templates/:id/unarchive         — restore (archived = false)
  */
 
 import type { Express, Request, Response } from "express";
@@ -41,10 +43,52 @@ function findCodeTemplate(templateId: string): TemplateConfig | null {
   return TEMPLATE_PRESETS.find((t) => t.id === templateId) ?? null;
 }
 
+/**
+ * Strip a single field from an override blob. Supports dotted paths
+ * (`header.title` removes the nested key, and prunes the parent object if
+ * it becomes empty). The original object is not mutated.
+ */
+function stripField(
+  overrides: Record<string, unknown>,
+  field: string,
+): Record<string, unknown> {
+  const parts = field.split(".");
+  // JSON-clone for safe in-place edits on the copy.
+  const copy = JSON.parse(JSON.stringify(overrides)) as Record<string, unknown>;
+  function recurse(obj: Record<string, unknown>, idx: number): boolean {
+    const key = parts[idx];
+    if (idx === parts.length - 1) {
+      if (key in obj) {
+        delete obj[key];
+        return true;
+      }
+      return false;
+    }
+    const child = obj[key];
+    if (!child || typeof child !== "object" || Array.isArray(child)) return false;
+    const removed = recurse(child as Record<string, unknown>, idx + 1);
+    // Prune empty parent containers so an override of `header.title` doesn't leave `header: {}`.
+    if (removed && Object.keys(child as Record<string, unknown>).length === 0) {
+      delete obj[key];
+    }
+    return removed;
+  }
+  recurse(copy, 0);
+  return copy;
+}
+
 export function registerAdminQuoteQuickTemplatesRoutes(app: Express) {
-  /* ─── GET list ─── */
-  app.get("/api/admin/quotequick/templates", requireAdmin, async (_req: Request, res: Response) => {
+  /* ─── GET list ───
+   *
+   * Wave W-AQ-1: supports `?trade=<id>` to filter templates whose
+   * effective `trades[]` contains the given trade id. Applied *after* the
+   * merge-with-overrides step so admin-edited trade lists are honoured.
+   */
+  app.get("/api/admin/quotequick/templates", requireAdmin, async (req: Request, res: Response) => {
     try {
+      const tradeFilter = typeof req.query.trade === "string" && req.query.trade.length > 0
+        ? req.query.trade
+        : null;
       const overrides = await listTemplateOverrides();
       const byId = new Map(overrides.map((o) => [o.templateId, o]));
       const out: Array<{
@@ -86,7 +130,11 @@ export function registerAdminQuoteQuickTemplatesRoutes(app: Express) {
         });
       }
 
-      return res.json({ templates: out });
+      const filtered = tradeFilter
+        ? out.filter((row) => Array.isArray(row.effective.trades) && row.effective.trades.includes(tradeFilter))
+        : out;
+
+      return res.json({ templates: filtered });
     } catch (err) {
       log.error("list failed", { err: (err as Error).message });
       return res.status(500).json({ error: "Failed to load templates" });
@@ -263,6 +311,140 @@ export function registerAdminQuoteQuickTemplatesRoutes(app: Express) {
       } catch (err) {
         log.error("delete-override failed", { err: (err as Error).message });
         return res.status(500).json({ error: "Failed to reset override" });
+      }
+    },
+  );
+
+  /* ─── DELETE per-field override (Wave W-AQ-1) ───
+   *
+   * Strips ONE field from the override jsonb without touching siblings.
+   * Supports dotted paths for nested fields (e.g. `header.title`). If the
+   * override blob becomes empty after the strip, the entire row is deleted
+   * so the template falls back cleanly to the code default.
+   */
+  app.delete(
+    "/api/admin/quotequick/templates/:id/overrides/:field",
+    requireAdmin,
+    async (req: Request, res: Response) => {
+      try {
+        const templateId = String(req.params.id);
+        const field = String(req.params.field);
+        if (!field) return res.status(400).json({ error: "field required" });
+
+        const existing = await getTemplateOverride(templateId);
+        if (!existing || !existing.overrides) {
+          return res.status(404).json({ error: "No override exists for this template" });
+        }
+
+        const next = stripField(existing.overrides, field);
+        if (JSON.stringify(next) === JSON.stringify(existing.overrides)) {
+          return res.status(404).json({ error: `Field '${field}' not present on override` });
+        }
+
+        const codeDefault = findCodeTemplate(templateId);
+        const isUserCreated = !codeDefault && existing.overrides.is_user_created;
+
+        // Determine "meaningful" remaining keys — housekeeping flags don't count.
+        const meaningfulKeys = Object.keys(next).filter((k) => k !== "is_user_created" && k !== "id");
+
+        if (meaningfulKeys.length === 0 && !isUserCreated) {
+          // Code-default-backed and nothing left to override — wipe the row.
+          await deleteTemplateOverride(templateId);
+
+          void writeAudit({
+            actorId: req.user?.id ?? null,
+            action: "reset",
+            entityType: "quotequick_template",
+            entityId: templateId,
+            before: existing.overrides,
+            after: null,
+            metadata: { field, reason: "per_field_reset_emptied_row" },
+            req,
+          });
+
+          return res.json({
+            ok: true,
+            templateId,
+            field,
+            cleared: true,
+            effective: codeDefault,
+          });
+        }
+
+        const updated = await upsertTemplateOverride(templateId, next, req.user?.id ?? null);
+        const effective = codeDefault
+          ? applyOverrides(codeDefault, updated.overrides)
+          : applyOverrides<TemplateConfig>({} as TemplateConfig, updated.overrides);
+
+        void writeAudit({
+          actorId: req.user?.id ?? null,
+          action: "update",
+          entityType: "quotequick_template",
+          entityId: templateId,
+          before: existing.overrides,
+          after: updated.overrides,
+          metadata: { field, reason: "per_field_reset" },
+          req,
+        });
+
+        return res.json({ ok: true, templateId, field, cleared: false, override: updated, effective });
+      } catch (err) {
+        log.error("delete-field failed", { err: (err as Error).message });
+        return res.status(500).json({ error: "Failed to reset field" });
+      }
+    },
+  );
+
+  /* ─── DELETE hard-delete (Wave W-AQ-1) ───
+   *
+   * Permanently removes a template. ONLY allowed for user-created entries
+   * (no code-default backing). Code-default templates must be archived
+   * (POST /archive) so the catalogue remains intact across deploys.
+   */
+  app.delete(
+    "/api/admin/quotequick/templates/:id/hard-delete",
+    requireAdmin,
+    async (req: Request, res: Response) => {
+      try {
+        const templateId = String(req.params.id);
+        if (findCodeTemplate(templateId)) {
+          return res.status(409).json({
+            error: "cannot hard-delete code-default template; archive instead",
+          });
+        }
+        const existing = await getTemplateOverride(templateId);
+        if (!existing) {
+          return res.status(404).json({ error: "Template not found" });
+        }
+        if (!existing.overrides?.is_user_created) {
+          // Edge case: an override row exists for a template id that no longer has a code
+          // default (e.g. a code preset removed in a later deploy). Refuse — admin should
+          // explicitly reset/archive first to make the intent clear.
+          return res.status(409).json({
+            error: "cannot hard-delete code-default template; archive instead",
+          });
+        }
+
+        const deleted = await deleteTemplateOverride(templateId);
+        if (!deleted) {
+          return res.status(404).json({ error: "Template not found" });
+        }
+
+        void writeAudit({
+          actorId: req.user?.id ?? null,
+          action: "delete",
+          entityType: "quotequick_template",
+          entityId: templateId,
+          before: existing.overrides,
+          after: null,
+          metadata: { hard_delete: true },
+          req,
+        });
+
+        return res.json({ ok: true, templateId, hard_deleted: true });
+      } catch (err) {
+        log.error("hard-delete failed", { err: (err as Error).message });
+        return res.status(500).json({ error: "Failed to delete template" });
       }
     },
   );

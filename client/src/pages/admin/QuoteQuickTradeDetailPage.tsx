@@ -31,6 +31,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   ChevronRight,
   Save,
   RotateCcw,
@@ -100,14 +110,18 @@ export default function QuoteQuickTradeDetailPage({ tradeId }: { tradeId: string
       }),
   });
 
+  // Wave W-AQ-1: filter server-side via ?trade=<id> instead of fetching every template + filtering client-side.
   const templates = useQuery<TemplateListResponse>({
-    queryKey: ["/api/admin/quotequick/templates"],
+    queryKey: ["/api/admin/quotequick/templates", { trade: tradeId }],
     queryFn: () =>
-      fetch("/api/admin/quotequick/templates", { credentials: "include" }).then((r) => r.json()),
+      fetch(`/api/admin/quotequick/templates?trade=${encodeURIComponent(tradeId)}`, {
+        credentials: "include",
+      }).then((r) => r.json()),
   });
 
   const [dirty, setDirty] = useState<Partial<Record<FieldKey, string>>>({});
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   // Reset dirty whenever a fresh load changes the underlying trade
   useEffect(() => {
@@ -184,34 +198,17 @@ export default function QuoteQuickTradeDetailPage({ tradeId }: { tradeId: string
   });
 
   /**
-   * Reset a single field. The backend doesn't expose a per-field DELETE; we
-   * achieve "drop just this one field" by PATCHing the full override blob
-   * minus the field. If after removal the override blob is empty AND there's
-   * a code default, we hit DELETE to clear the row entirely.
-   *
-   * NOTE: PATCH merges on top of existing overrides on the server side — so
-   * we can't "remove" a field with PATCH. The honest fallback: DELETE the
-   * whole override row, then re-apply every remaining override field via
-   * PATCH. Tiny payloads (≤3 fields), so this is cheap.
+   * Reset a single field. Wave W-AQ-1: backend now exposes a per-field DELETE
+   * (`DELETE /api/admin/quotequick/trades/:id/overrides/:field`) so we no
+   * longer need the DELETE-all + PATCH-remainder workaround.
    */
   const resetFieldMutation = useMutation({
     mutationFn: async (field: FieldKey) => {
-      if (!overrides || !codeDefault) {
-        throw new Error("Nothing to reset.");
-      }
-      const remaining: Record<string, unknown> = { ...overrides };
-      delete remaining[field];
-      // strip housekeeping flags so we don't try to "reapply" them
-      delete remaining.is_user_created;
-      delete remaining.id;
-
-      // Always clear server-side first.
-      await apiRequest("DELETE", `/api/admin/quotequick/trades/${tradeId}/overrides`);
-
-      // Reapply remaining overrides (if any).
-      if (Object.keys(remaining).length > 0) {
-        await apiRequest("PATCH", `/api/admin/quotequick/trades/${tradeId}`, remaining);
-      }
+      const res = await apiRequest(
+        "DELETE",
+        `/api/admin/quotequick/trades/${tradeId}/overrides/${encodeURIComponent(field)}`,
+      );
+      return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/admin/quotequick/trades/${tradeId}`] });
@@ -221,6 +218,26 @@ export default function QuoteQuickTradeDetailPage({ tradeId }: { tradeId: string
     },
     onError: (err: Error) => {
       toast({ title: "Reset failed", description: err.message, variant: "destructive" });
+    },
+  });
+
+  // Wave W-AQ-1: hard delete for user-created trades.
+  const hardDeleteMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest(
+        "DELETE",
+        `/api/admin/quotequick/trades/${tradeId}/hard-delete`,
+      );
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/quotequick/trades"] });
+      toast({ title: "Deleted", description: "Trade permanently removed." });
+      setLocation("/admin/quotequick/trades");
+    },
+    onError: (err: Error) => {
+      toast({ title: "Delete failed", description: err.message, variant: "destructive" });
+      setConfirmDelete(false);
     },
   });
 
@@ -246,12 +263,11 @@ export default function QuoteQuickTradeDetailPage({ tradeId }: { tradeId: string
     },
   });
 
-  const linkedTemplates = useMemo(() => {
-    if (!templates.data?.templates) return [];
-    return templates.data.templates.filter(
-      (t) => Array.isArray(t.effective.trades) && t.effective.trades.includes(tradeId),
-    );
-  }, [templates.data, tradeId]);
+  // Server pre-filters via ?trade=<id>, so this is just the response.
+  const linkedTemplates = useMemo(
+    () => templates.data?.templates ?? [],
+    [templates.data],
+  );
 
   const Icon = getQuoteQuickIcon(effectiveValue("defaultIcon"));
 
@@ -491,13 +507,8 @@ export default function QuoteQuickTradeDetailPage({ tradeId }: { tradeId: string
                     variant="outline"
                     size="sm"
                     className="text-red-600 hover:text-red-700"
-                    onClick={() =>
-                      toast({
-                        title: "Hard delete not yet wired",
-                        description:
-                          "Backend currently archives admin-only trades; permanent delete arrives in AI-3c.",
-                      })
-                    }
+                    onClick={() => setConfirmDelete(true)}
+                    disabled={hardDeleteMutation.isPending}
                     data-testid="delete-trade"
                   >
                     <Trash2 className="w-3.5 h-3.5 mr-1" />
@@ -560,6 +571,30 @@ export default function QuoteQuickTradeDetailPage({ tradeId }: { tradeId: string
           setIconPickerOpen(false);
         }}
       />
+
+      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Permanently delete this trade?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will hard-delete the admin-created trade <span className="font-mono">{tradeId}</span>.
+              The action cannot be undone. Templates that reference this trade will still hold the id in
+              their <span className="font-mono">trades[]</span> array — you may want to update them first.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={hardDeleteMutation.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => hardDeleteMutation.mutate()}
+              disabled={hardDeleteMutation.isPending}
+              className="bg-red-600 hover:bg-red-700"
+              data-testid="confirm-delete-trade"
+            >
+              {hardDeleteMutation.isPending ? "Deleting…" : "Delete permanently"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AdminLayout>
   );
 }
