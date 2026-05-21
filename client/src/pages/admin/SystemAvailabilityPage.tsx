@@ -14,6 +14,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import AdminLayout from "@/components/admin/AdminLayout";
+import BackButton from "@/components/ui/back-button";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
@@ -67,6 +68,7 @@ export default function SystemAvailabilityPage() {
   return (
     <AdminLayout>
       <div className="p-6 max-w-3xl mx-auto space-y-6">
+        <BackButton to="/admin/crm" label="Back to admin" />
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Brand availability</h1>
           <p className="text-sm text-gray-500 mt-1">

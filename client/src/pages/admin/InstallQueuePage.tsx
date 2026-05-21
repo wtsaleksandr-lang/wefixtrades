@@ -11,6 +11,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import AdminLayout from "@/components/admin/AdminLayout";
+import BackButton from "@/components/ui/back-button";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -83,6 +84,7 @@ export default function InstallQueuePage() {
   return (
     <AdminLayout>
       <div className="p-6 max-w-7xl mx-auto space-y-5">
+        <BackButton to="/admin/crm" label="Back to admin" />
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Chat widget install queue</h1>
           <p className="text-sm text-gray-600 mt-1">

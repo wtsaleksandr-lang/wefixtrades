@@ -12,6 +12,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useCopilotForm } from "@/context/CopilotFormContext";
 import PortalLayout from "@/components/portal/PortalLayout";
+import BackButton from "@/components/ui/back-button";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -147,6 +148,7 @@ export default function PortalEmailDomainSetup() {
   return (
     <PortalLayout>
       <div className="max-w-3xl mx-auto p-4 sm:p-6 space-y-6">
+        <BackButton to="/portal/settings" label="Back to settings" />
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Email sender domain</h1>
           <p className="text-sm text-gray-600 mt-1">
