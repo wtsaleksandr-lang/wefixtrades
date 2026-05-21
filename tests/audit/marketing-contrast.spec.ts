@@ -124,10 +124,21 @@ async function collectCtaSamples(page: Page): Promise<ContrastSample[]> {
         const text = (html.textContent || '').replace(/\s+/g, ' ').trim();
         if (!text) return;
         const cs = window.getComputedStyle(html);
-        // Walk up to find the first ancestor with a non-transparent bg.
+        // Walk up to find the first ancestor with a SUBSTANTIALLY-opaque bg.
+        // First-pass spec used `bg === 'rgba(0, 0, 0, 0)'` only, which
+        // stopped on subtle tints like rgba(255,255,255,0.02) (FAQ accordion
+        // background washes) and reported white-text-on-near-white false
+        // positives. Now: extract alpha and keep walking up while alpha is
+        // below 0.5 (effectively transparent — the visual bg is whatever's
+        // behind it).
+        const bgAlpha = (s: string): number => {
+          const m = s.match(/rgba?\(\s*\d+\s*,\s*\d+\s*,\s*\d+(?:\s*,\s*([\d.]+))?\s*\)/);
+          if (!m) return 1; // any unparseable colour assumed opaque
+          return m[1] !== undefined ? parseFloat(m[1]) : 1;
+        };
         let bg = cs.backgroundColor;
         let cur: HTMLElement | null = html;
-        while (cur && (bg === 'rgba(0, 0, 0, 0)' || bg === 'transparent' || !bg)) {
+        while (cur && bgAlpha(bg) < 0.5) {
           cur = cur.parentElement;
           if (!cur) break;
           bg = window.getComputedStyle(cur).backgroundColor;
