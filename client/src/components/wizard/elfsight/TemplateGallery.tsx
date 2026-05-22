@@ -26,13 +26,7 @@ import { dashboardTheme } from '@/theme/dashboardTheme';
 import {
   TEMPLATE_PRESETS as STATIC_TEMPLATE_PRESETS, type TemplateConfig,
 } from '@shared/templatePresets';
-import { resolveWidgetTheme } from '@/components/quote-widget/widgetThemes';
-import { getQuoteQuickIcon } from '@/data/quoteQuickIcons';
-import {
-  getCategoryStyle,
-  stripeShapeForLayout,
-  FEATURED_TEMPLATE_IDS,
-} from '@/lib/categoryStyles';
+import TemplateMockup from './TemplateMockup';
 
 /**
  * Wave W-AI-2 — admin-editable template catalogue.
@@ -71,231 +65,11 @@ function deriveCategories(templates: TemplateConfig[]): string[] {
  * per card), so the helper was deleted along with the JSX that
  * called it. */
 
-/**
- * W-AO-2 — secondary category-accent band painted along the bottom edge of
- * the mockup. Works in tandem with the theme accent stripe at the top so
- * two cards sharing the same theme (e.g. forest) but in different
- * categories (e.g. Emergency vs Outdoor) still read as visually distinct.
- *
- * Unknown categories fall back to a neutral slate. The map is intentionally
- * small (six families) — categorical hue distinction over precise mapping.
- */
-function categoryAccent(category: string | undefined): string {
-  switch (category) {
-    case 'Cleaning': return '#14b8a6';            // teal
-    case 'Home Improvement': return '#3b82f6';    // blue
-    case 'Emergency': return '#f59e0b';           // amber
-    case 'Construction': return '#64748b';        // slate
-    case 'Automotive': return '#a855f7';          // purple
-    case 'Photography & Events': return '#ec4899'; // pink
-    case 'Outdoor': return '#84cc16';             // lime
-    case 'Services': return '#0ea5e9';            // sky
-    default: return '#94a3b8';                    // slate-400 fallback
-  }
-}
-
 const p = platformTheme;
 const d = dashboardTheme;
 
 /** What WizardShell needs to know to apply a template — null = start blank. */
 export type ApplyTemplatePayload = TemplateConfig | null;
-
-/* ───────────────────────────────────────────────────────────── */
-/* Mini-mockup card preview — no external deps; pure CSS shapes. */
-/* ───────────────────────────────────────────────────────────── */
-
-interface MockupProps {
-  /** Accent stripe colour for the card top — keeps cards visually distinct. */
-  accent: string;
-  /**
-   * Wave Z — when provided, the mockup resolves the template's actual theme
-   * and paints with theme colours (surface / result / accent). This makes
-   * cards visually distinct by theme rather than by a hashed accent only.
-   * Backwards-compatible: omitted → legacy 4-stripe behaviour.
-   */
-  template?: TemplateConfig;
-}
-
-/**
- * Wave W-AP-1 — radically more distinct gallery cards. Each card now
- * paints with a per-category palette + hero treatment + CTA shape from
- * `lib/categoryStyles`, so two cards in different trade categories look
- * like different products on the shelf — not just two wireframes that
- * share a blue accent.
- *
- * Anatomy (top → bottom):
- *   1. HERO band (~55% of card height) painted in the category's heroBg.
- *      The hero carries the category's signature treatment: dark-mode
- *      panel for Automotive, diagonal-stripe for Construction, sparkle
- *      dots for Cleaning, grid for Home Improvement, warning chevrons
- *      for Emergency, leaf overlay for Outdoor, geometric squares for
- *      Professional.
- *   2. A prominent 40×40 Lucide icon chip centred in the hero, tinted
- *      in the category accent. This is the visual anchor — much larger
- *      than the 14px chip from W-AO-2.
- *   3. An accent stripe whose width depends on the template's layout
- *      (full / half / triple). Single-column gets a full bar; two-col
- *      a half; multi-col three small ticks.
- *   4. A "Featured" badge for the W-AP-1 sample templates + roof_repair.
- *   5. Body section with bar placeholders (count = field count clamp 2-5).
- *   6. Result line (1 prominent line, or 2-3 lines for multi-calc
- *      breakdown templates).
- *   7. A real CTA BUTTON ~70% wide, rendering the template's actual
- *      `results.cta_label` ("Get Quote" fallback), in the category's
- *      ctaShape (pill / rounded-sq / squared) and gradient.
- *
- * Standalone — no AdvancedCalculator dependency — so the gallery can
- * render 47+ cards without spinning up live widgets.
- */
-function TemplateCardMockup({ accent, template }: MockupProps) {
-  if (!template) {
-    // Legacy callers without template context — render the original stripes.
-    return (
-      <div className="qq-tg-mockup" aria-hidden="true">
-        <div className="qq-tg-mockup-header" style={{ background: accent }} />
-        <div className="qq-tg-mockup-row" />
-        <div className="qq-tg-mockup-row" style={{ width: '70%' }} />
-        <div className="qq-tg-mockup-cta" style={{ background: accent }} />
-      </div>
-    );
-  }
-
-  const theme = resolveWidgetTheme(template.theme);
-  const cat = getCategoryStyle(template.category);
-  // Vary bar count by ACTUAL fields, clamped to [2,4] for the W-AP-1
-  // taller-hero layout — 5 bars overflowed the new body section.
-  const fieldCount = Math.min(4, Math.max(2, template.fields.length));
-  const bars = Array.from({ length: fieldCount });
-  const visibleCalcs = template.calculations.filter((c) => c.showInResults !== false);
-  const isBreakdown = visibleCalcs.length > 1;
-  const breakdownLines = Math.min(2, Math.max(1, visibleCalcs.length - 1));
-  const breakdown = Array.from({ length: breakdownLines });
-  const Icon = getQuoteQuickIcon(template.defaultIcon);
-  const stripe = stripeShapeForLayout(template.layout);
-  const ctaLabel = template.results?.cta_label?.trim() || 'Get Quote';
-  const isFeatured = FEATURED_TEMPLATE_IDS.has(template.id);
-
-  // The hero treatment uses a CSS background-image overlay so the body
-  // composition (gradient, diagonal stripe, etc.) is keyed off the
-  // `data-hero` attribute. Defined in <style> below.
-  return (
-    <div
-      className="qq-tg-mockup qq-tg-mockup-v2"
-      style={{ background: cat.bodyBg, borderColor: theme.border }}
-      aria-hidden="true"
-      data-theme-id={theme.id}
-      data-category={template.category}
-      data-hero={cat.hero}
-      data-cta-shape={cat.ctaShape}
-      data-cat-id={cat.id}
-    >
-      {/* HERO band — coloured background with per-category overlay */}
-      <div
-        className="qq-tg-hero"
-        style={{ background: cat.heroBg }}
-      >
-        {/* Per-category visual treatment overlays (CSS in <style>) */}
-        <div
-          className="qq-tg-hero-treatment"
-          data-hero={cat.hero}
-          style={{
-            // CSS custom properties so the <style> block can reference
-            // category colours without needing :nth-child selectors.
-            ['--cat-accent' as string]: cat.heroAccent,
-          }}
-        />
-        {/* Accent stripe(s) by layout shape */}
-        {stripe === 'triple' ? (
-          <div className="qq-tg-stripe-triple">
-            <span style={{ background: cat.heroAccent }} />
-            <span style={{ background: cat.heroAccent, opacity: 0.7 }} />
-            <span style={{ background: cat.heroAccent, opacity: 0.45 }} />
-          </div>
-        ) : (
-          <div
-            className="qq-tg-stripe-single"
-            style={{
-              background: cat.heroAccent,
-              width: stripe === 'half' ? '46%' : '74%',
-            }}
-          />
-        )}
-        {/* Centred icon chip — the visual anchor */}
-        {Icon ? (
-          <div
-            className="qq-tg-iconchip-lg"
-            style={{
-              background: cat.isDark
-                ? `${cat.heroAccent}33`
-                : `${cat.heroAccent}22`,
-              borderColor: cat.heroAccent,
-              color: cat.heroAccent,
-            }}
-          >
-            <Icon size={20} strokeWidth={2.25} />
-          </div>
-        ) : null}
-        {isFeatured ? (
-          <span className="qq-tg-featured-badge">Featured</span>
-        ) : null}
-      </div>
-
-      {/* BODY — placeholder bars + result line */}
-      <div className="qq-tg-body-v2">
-        <div className="qq-tg-bars">
-          {bars.map((_, i) => (
-            <div
-              key={i}
-              className="qq-tg-bar"
-              style={{
-                background: cat.bodyRow,
-                width: i === bars.length - 1
-                  ? '52%'
-                  : `${100 - (i % 3) * 14}%`,
-              }}
-            />
-          ))}
-        </div>
-        {/* Result line — one prominent for single calc, multiple subdued
-            for breakdown templates */}
-        <div className="qq-tg-result-v2">
-          <div
-            className="qq-tg-result-head"
-            style={{ background: cat.heroBg }}
-          />
-          {isBreakdown
-            ? breakdown.map((_, i) => (
-                <div
-                  key={i}
-                  className="qq-tg-result-line"
-                  style={{
-                    background: cat.bodyRow,
-                    width: `${68 - i * 14}%`,
-                  }}
-                />
-              ))
-            : null}
-        </div>
-        {/* Real CTA button — sized ~72% width, centred, in category shape */}
-        <div
-          className="qq-tg-cta-v2"
-          data-cta-shape={cat.ctaShape}
-          style={{
-            background: `linear-gradient(135deg, ${cat.ctaFrom}, ${cat.ctaTo})`,
-            color: cat.ctaText,
-            boxShadow:
-              cat.id === 'emergency'
-                ? `0 2px 6px ${cat.ctaFrom}55`
-                : `0 1px 3px rgba(15,23,42,0.18)`,
-          }}
-        >
-          <span className="qq-tg-cta-label">{ctaLabel}</span>
-          <span className="qq-tg-cta-arrow" aria-hidden="true">→</span>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 /* ───────────────────────────────────────────────────────────── */
 /* TemplateStrip — horizontal scrolling row at the top of Build. */
@@ -306,15 +80,6 @@ interface StripProps {
   activeTemplateId?: string;
   /** Called with the picked template, or null for "Start blank". */
   onApplyTemplate: (next: ApplyTemplatePayload) => void;
-}
-
-/** Returns a stable hue for a given template id so cards look distinct. */
-function templateAccent(id: string): string {
-  // Hash id → hue [0, 360). Deterministic, no deps.
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
-  const hue = h % 360;
-  return `hsl(${hue}, 65%, 55%)`;
 }
 
 export default function TemplateStrip({ activeTemplateId, onApplyTemplate }: StripProps) {
@@ -404,7 +169,6 @@ export default function TemplateStrip({ activeTemplateId, onApplyTemplate }: Str
         </button>
 
         {templates.map((t) => {
-          const accent = templateAccent(t.id);
           const isActive = t.id === activeTemplateId;
           // P1 RE-FIX — the strip card's third title line (formerly
           // `formatTradeId(t.trades[0..2])`, e.g. "Auto Detailing" under
@@ -420,7 +184,9 @@ export default function TemplateStrip({ activeTemplateId, onApplyTemplate }: Str
               onClick={() => onApplyTemplate(t)}
               role="listitem"
             >
-              <TemplateCardMockup accent={accent} template={t} />
+              <div className="qq-tg-mockup">
+                <TemplateMockup template={t} />
+              </div>
               <div className="qq-tg-card-body">
                 <span className="qq-tg-card-name">{t.name}</span>
               </div>
@@ -545,279 +311,12 @@ export default function TemplateStrip({ activeTemplateId, onApplyTemplate }: Str
           overflow: hidden;
           position: relative;
         }
-        .qq-tg-mockup-header {
-          height: 8px; width: 60%; border-radius: 2px;
-        }
-        .qq-tg-mockup-row {
-          height: 5px; width: 100%; border-radius: 2px;
-          background: ${p.colors.borderLight};
-        }
-        .qq-tg-mockup-cta {
-          height: 10px; width: 40%; border-radius: 3px;
-          margin-top: auto;
-        }
         .qq-tg-mockup-blank {
           display: flex; align-items: center; justify-content: center;
         }
         .qq-tg-plus {
           font-size: 28px; font-weight: 300; color: ${p.colors.muted};
           line-height: 1;
-        }
-
-        /* Wave Z — theme-aware mockup variant. Paints with the template's
-         * resolved theme: card surface as background, accent stripe at top,
-         * border colour for placeholder rows, result-panel rectangle in the
-         * theme's result colour with two tiny resultText-coloured bars
-         * (headline + sub). W-AO-2 — adds a Lucide icon chip top-left, a
-         * variable-count bar stack (2-5 bars matching field count), 1-3
-         * breakdown lines in the result panel matching the template's calc
-         * count, and a thin category-accent band along the bottom edge so
-         * two cards on the same theme but different categories still read
-         * apart at a glance. */
-        .qq-tg-mockup-themed {
-          border: 1px solid transparent;
-          padding: 5px;
-          gap: 3px;
-        }
-        .qq-tg-mockup-topline {
-          display: flex; align-items: center; gap: 4px;
-          flex-shrink: 0;
-        }
-        .qq-tg-mockup-iconchip {
-          width: 14px; height: 14px;
-          border-radius: 3px;
-          display: flex; align-items: center; justify-content: center;
-          flex-shrink: 0;
-        }
-        .qq-tg-mockup-iconchip svg { display: block; }
-        .qq-tg-mockup-themed .qq-tg-mockup-header {
-          width: 50%; height: 6px;
-        }
-        .qq-tg-mockup-catband {
-          position: absolute; left: 0; right: 0; bottom: 0;
-          height: 3px;
-          opacity: 0.85;
-        }
-        .qq-tg-mockup-body {
-          display: flex; flex-direction: column; gap: 3px;
-          flex: 1; min-height: 0;
-        }
-        .qq-tg-mockup-themed .qq-tg-mockup-body .qq-tg-mockup-row {
-          height: 4px;
-        }
-        .qq-tg-mockup-result {
-          margin-top: auto;
-          border-radius: 3px;
-          padding: 4px 5px;
-          display: flex; flex-direction: column; gap: 2px;
-        }
-        .qq-tg-mockup-result-headline {
-          height: 5px; width: 50%; border-radius: 2px;
-        }
-        .qq-tg-mockup-result-sub {
-          height: 3px; width: 75%; border-radius: 2px;
-        }
-
-        /* ─────────────────────────────────────────────────────────── */
-        /* W-AP-1 — V2 mockup with category palette + hero treatments.  */
-        /* ─────────────────────────────────────────────────────────── */
-        .qq-tg-mockup-v2 {
-          padding: 0;
-          gap: 0;
-          border: 1px solid;
-          display: flex;
-          flex-direction: column;
-        }
-        .qq-tg-hero {
-          position: relative;
-          height: 78px;
-          flex-shrink: 0;
-          overflow: hidden;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-        .qq-tg-hero-treatment {
-          position: absolute;
-          inset: 0;
-          pointer-events: none;
-        }
-        /* Hero treatments — pure CSS overlays painted via background image
-         * and gradient. Each is keyed off the data-hero attribute on the
-         * inner treatment div. */
-        .qq-tg-hero-treatment[data-hero="dark-mode"] {
-          background:
-            radial-gradient(circle at 75% 30%, var(--cat-accent) 0%, transparent 28%),
-            linear-gradient(135deg, transparent 60%, rgba(255,255,255,0.04) 100%);
-          opacity: 0.55;
-        }
-        .qq-tg-hero-treatment[data-hero="diagonal-stripe"] {
-          background:
-            repeating-linear-gradient(
-              -55deg,
-              transparent 0 14px,
-              var(--cat-accent) 14px 18px,
-              transparent 18px 32px
-            );
-          opacity: 0.25;
-        }
-        .qq-tg-hero-treatment[data-hero="sparkle"] {
-          background:
-            radial-gradient(circle at 18% 24%, var(--cat-accent) 0 2px, transparent 3px),
-            radial-gradient(circle at 78% 18%, var(--cat-accent) 0 1.5px, transparent 2.5px),
-            radial-gradient(circle at 60% 64%, var(--cat-accent) 0 1.5px, transparent 2.5px),
-            radial-gradient(circle at 30% 76%, var(--cat-accent) 0 2px, transparent 3px);
-          opacity: 0.55;
-        }
-        .qq-tg-hero-treatment[data-hero="grid-pattern"] {
-          background-image:
-            linear-gradient(var(--cat-accent) 1px, transparent 1px),
-            linear-gradient(90deg, var(--cat-accent) 1px, transparent 1px);
-          background-size: 14px 14px;
-          opacity: 0.16;
-        }
-        .qq-tg-hero-treatment[data-hero="chevrons"] {
-          background:
-            repeating-linear-gradient(
-              135deg,
-              transparent 0 8px,
-              var(--cat-accent) 8px 11px,
-              transparent 11px 20px
-            );
-          opacity: 0.35;
-        }
-        .qq-tg-hero-treatment[data-hero="leaf"] {
-          background:
-            radial-gradient(ellipse at 80% 110%, var(--cat-accent) 0%, transparent 40%),
-            radial-gradient(ellipse at 12% -10%, var(--cat-accent) 0%, transparent 38%);
-          opacity: 0.4;
-        }
-        .qq-tg-hero-treatment[data-hero="geometric"] {
-          background:
-            linear-gradient(135deg, var(--cat-accent) 0 12px, transparent 12px),
-            linear-gradient(135deg, transparent calc(100% - 18px), var(--cat-accent) calc(100% - 18px));
-          background-size: 100% 100%, 100% 100%;
-          background-repeat: no-repeat;
-          opacity: 0.2;
-        }
-
-        /* Accent stripe at top of hero — single or triple */
-        .qq-tg-stripe-single {
-          position: absolute;
-          top: 0; left: 0;
-          height: 4px;
-          border-radius: 0 0 2px 0;
-        }
-        .qq-tg-stripe-triple {
-          position: absolute;
-          top: 0; left: 0; right: 0;
-          height: 4px;
-          display: flex;
-          gap: 3px;
-          padding: 0 4px;
-        }
-        .qq-tg-stripe-triple span {
-          flex: 1;
-          height: 4px;
-          border-radius: 0 0 2px 2px;
-        }
-
-        /* Centred icon chip — the visual anchor */
-        .qq-tg-iconchip-lg {
-          position: relative;
-          width: 40px;
-          height: 40px;
-          border-radius: 10px;
-          border-width: 1.5px;
-          border-style: solid;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-          box-shadow: 0 2px 6px rgba(0,0,0,0.18);
-          z-index: 1;
-        }
-        .qq-tg-iconchip-lg svg { display: block; }
-
-        /* Featured badge — top-right of hero */
-        .qq-tg-featured-badge {
-          position: absolute;
-          top: 6px; right: 6px;
-          font-size: 8.5px;
-          font-weight: 700;
-          letter-spacing: 0.04em;
-          text-transform: uppercase;
-          color: #1e293b;
-          background: #fbbf24;
-          padding: 2px 6px;
-          border-radius: 9999px;
-          line-height: 1;
-          z-index: 2;
-          box-shadow: 0 1px 3px rgba(0,0,0,0.18);
-        }
-
-        /* BODY — bars + result + CTA */
-        .qq-tg-body-v2 {
-          flex: 1;
-          padding: 7px 8px 8px;
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-          min-height: 0;
-        }
-        .qq-tg-bars {
-          display: flex;
-          flex-direction: column;
-          gap: 3px;
-        }
-        .qq-tg-bar {
-          height: 3.5px;
-          border-radius: 2px;
-        }
-        .qq-tg-result-v2 {
-          margin-top: 2px;
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
-        }
-        .qq-tg-result-head {
-          height: 5px;
-          width: 45%;
-          border-radius: 2px;
-          opacity: 0.9;
-        }
-        .qq-tg-result-line {
-          height: 3px;
-          border-radius: 2px;
-        }
-
-        /* CTA button — real button look, ~72% width, category shape */
-        .qq-tg-cta-v2 {
-          margin-top: auto;
-          width: 100%;
-          padding: 5px 8px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 4px;
-          font-size: 8.5px;
-          font-weight: 700;
-          letter-spacing: 0.01em;
-          line-height: 1;
-          overflow: hidden;
-          white-space: nowrap;
-        }
-        .qq-tg-cta-v2[data-cta-shape="pill"] { border-radius: 9999px; }
-        .qq-tg-cta-v2[data-cta-shape="rounded-sq"] { border-radius: 6px; }
-        .qq-tg-cta-v2[data-cta-shape="squared"] { border-radius: 2px; }
-        .qq-tg-cta-label {
-          overflow: hidden;
-          text-overflow: ellipsis;
-          max-width: 100%;
-        }
-        .qq-tg-cta-arrow {
-          font-size: 9px;
-          flex-shrink: 0;
         }
 
         /* Mobile — slightly smaller cards. Wave L T2: the smaller browse-all
@@ -935,7 +434,6 @@ function TemplateBrowseModal({ activeTemplateId, onClose, onApplyTemplate }: Mod
         </div>
         <div className="qq-tg-modal-grid" data-testid="template-browse-grid">
           {visible.map((t) => {
-            const accent = templateAccent(t.id);
             const isActive = t.id === activeTemplateId;
             // W-AO-2 — Wave M removed the subtitle entirely; reintroduce a
             // subtle 11px description snippet so cards of the same theme
@@ -949,7 +447,9 @@ function TemplateBrowseModal({ activeTemplateId, onClose, onApplyTemplate }: Mod
                 onClick={() => onApplyTemplate(t)}
                 title={t.description}
               >
-                <TemplateCardMockup accent={accent} template={t} />
+                <div className="qq-tg-mockup">
+                  <TemplateMockup template={t} />
+                </div>
                 <div className="qq-tg-card-body">
                   <span className="qq-tg-card-name">{t.name}</span>
                   {t.description ? (
