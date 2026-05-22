@@ -776,6 +776,512 @@
   color: var(--qq-muted) !important;
 }
 
+/* ────────────────────────────────────────────────────────────────────
+ * BH-4b — deferred Rule-3 deep sweep (from BH-4 PR #508)
+ *
+ * BH-4 fixed selected-state styles (Rule 4). The Rule-3 deep sweep that
+ * the wave deferred: every bare `background: #fff` / `'#fafbfc'` /
+ * `'#fafafa'` in the wizard editor that DOESN'T have a `data-theme="dark"`
+ * scoped override, so dark mode renders correctly without light squares
+ * sitting inside the dark shell.
+ *
+ * BD-3a covered the calc rows + chrome. BD-3e covered the Brand Studio
+ * sub-cards + Brand Kit picker. BG-7 covered the pricing-tier rows. This
+ * block picks up everything else flagged by the grep across `elfsight/`:
+ * AddFieldMenu option cards, the BuildTab logo-upload, the
+ * CalculationsPanel "+ Add calculation" button, the ComponentPicker
+ * (search + items + cancel footer), the FieldRow icon buttons and the
+ * width segmented control, the FormulaEditor input + insert popover +
+ * AI panel, the HostedPageSection brand presets + upload + colour
+ * controls, the InstallGuideModal dialog, the InstallTab inline code +
+ * hosted URL controls + select + open button + embed-mode radios +
+ * platform-guide cards, the MobileBottomSheet reset button, the
+ * RichTextField preview / panel / toolbar / menus / labels, the
+ * SettingsTab trade-picker popup + daychips, the StepContentPanel rows,
+ * the StyleTab preset cards + branding logo upload + Brand Kit picker
+ * inner rows + trust-badge rows + trust-badge icon buttons, the
+ * TemplateGallery search + category select, the WizardShell help card +
+ * mobile action-bar small buttons.
+ *
+ * Each rule scoped under .qq-editor-shell[data-theme="dark"] so the live
+ * customer widget (which carries its own per-template theme inside the
+ * preview pane) is unaffected — same Rule-3 boundary BD-3a/3e/BG-7 use.
+ *
+ * Intentional skips (Rule 3): the PreviewPane bezel / device frame /
+ * resize handles / zoom toolbar / preview-title-edit always read as the
+ * published widget canvas (theme is template-driven, not editor-driven);
+ * the CalculationRow toggle-swatch knob (white circle on the colored
+ * pill is the toggle affordance); the PreviewOverlay remove-glyph (red-
+ * on-white pill is a delete affordance on the canvas); the calc/field
+ * badge backgrounds (#E6F7F1 etc. — semantic icon tints); the AIBubble
+ * warn/capped/error chips (#fffbeb yellow alerts keep their semantic);
+ * the RichTextField error bar (#fff3f3 red alert); the TabPlaceholder
+ * input (dead-code fallback only used when no tab is implemented; the
+ * three real tabs are fully wired).
+ *
+ * Mobile coverage: every selector applies at all breakpoints — the
+ * editor shell carries the `data-theme` attribute up at the root, so
+ * mobile-only descendants (mobile actionbar, bottom-sheet footer)
+ * inherit the dark scope automatically.
+ *
+ * The block uses --qq-surface (#1E293B) and --qq-bg (#0F172A) from the
+ * existing BD-3a tokens at the top of the file so the palette stays
+ * consistent. Inputs and the like land on the slightly deeper #243149
+ * already established by the BD-3a calc-row block. */
+
+/* AddFieldMenu — option cards inside the popover/sheet. (.qq-addfield-menu
+ * + .qq-addfield-sheet already covered above; the items inside still
+ * carried a hardcoded #fff.) */
+.qq-editor-shell[data-theme="dark"] .qq-addfield-item {
+  background: #243149;
+  border-color: var(--qq-border);
+  color: var(--qq-text);
+}
+.qq-editor-shell[data-theme="dark"] .qq-addfield-item:hover,
+.qq-editor-shell[data-theme="dark"] .qq-addfield-item:focus-visible {
+  background: rgba(13, 60, 252, 0.18);
+  border-color: #0d3cfc;
+}
+.qq-editor-shell[data-theme="dark"] .qq-addfield-menu-title {
+  color: var(--qq-muted);
+}
+
+/* BuildTab — logo upload composite (always-visible upload + 18px clear). */
+.qq-editor-shell[data-theme="dark"] .qq-logo-upload {
+  background: var(--qq-surface);
+  border-color: var(--qq-border);
+  color: var(--qq-muted);
+}
+.qq-editor-shell[data-theme="dark"] .qq-logo-clear {
+  background: var(--qq-surface);
+  border-color: var(--qq-border);
+  color: var(--qq-muted);
+}
+
+/* CalculationsPanel — "+ Add calculation" dashed-border trigger. */
+.qq-editor-shell[data-theme="dark"] .qq-calcs-add {
+  background: #243149;
+  border-color: var(--qq-border);
+  color: var(--qq-text);
+}
+.qq-editor-shell[data-theme="dark"] .qq-calcs-add:hover {
+  background: rgba(13, 60, 252, 0.18);
+  border-color: #0d3cfc;
+  color: var(--qq-text);
+}
+.qq-editor-shell[data-theme="dark"] .qq-calcs-helptoken--calc {
+  /* Keep the semantic green token — but bump the bg/text contrast for
+   * the dark surface so it doesn't disappear. */
+  background: rgba(16, 185, 129, 0.18);
+  color: #6ee7b7;
+}
+
+/* ComponentPicker — the legacy field-picker dialog (still mounts on
+ * narrow breakpoints + as a fallback insert path). */
+.qq-editor-shell[data-theme="dark"] .qq-comppicker {
+  background: var(--qq-surface);
+  color: var(--qq-text);
+  border-color: var(--qq-border);
+}
+.qq-editor-shell[data-theme="dark"] .qq-comppicker-header,
+.qq-editor-shell[data-theme="dark"] .qq-comppicker-footer {
+  background: #1a2438;
+  border-color: var(--qq-border);
+}
+.qq-editor-shell[data-theme="dark"] .qq-comppicker-search-input {
+  background: #243149;
+  border-color: var(--qq-border);
+  color: var(--qq-text);
+}
+.qq-editor-shell[data-theme="dark"] .qq-comppicker-search-input::placeholder {
+  color: #64748B;
+}
+.qq-editor-shell[data-theme="dark"] .qq-comppicker-item {
+  background: #243149;
+  border-color: var(--qq-border);
+  color: var(--qq-text);
+}
+.qq-editor-shell[data-theme="dark"] .qq-comppicker-item:not(:disabled):hover,
+.qq-editor-shell[data-theme="dark"] .qq-comppicker-item:not(:disabled):focus-visible {
+  background: rgba(13, 60, 252, 0.18);
+  border-color: #0d3cfc;
+}
+.qq-editor-shell[data-theme="dark"] .qq-comppicker-item-label {
+  color: var(--qq-text);
+}
+.qq-editor-shell[data-theme="dark"] .qq-comppicker-item-hint,
+.qq-editor-shell[data-theme="dark"] .qq-comppicker-cat-header,
+.qq-editor-shell[data-theme="dark"] .qq-comppicker-empty {
+  color: var(--qq-muted);
+}
+.qq-editor-shell[data-theme="dark"] .qq-comppicker-cancel {
+  background: #243149;
+  border-color: var(--qq-border);
+  color: var(--qq-text);
+}
+
+/* FieldRow — width segmented control + icon buttons not yet in the
+ * BD-3a override block. (.qq-field-row + .qq-field-input already done.) */
+.qq-editor-shell[data-theme="dark"] .qq-field-row-iconbtn {
+  background: #243149;
+  border-color: var(--qq-border);
+  color: var(--qq-muted);
+}
+.qq-editor-shell[data-theme="dark"] .qq-field-row-iconbtn:hover:not(:disabled) {
+  color: var(--qq-text);
+}
+.qq-editor-shell[data-theme="dark"] .qq-field-width-segmented {
+  background: #1a2438;
+  border-color: var(--qq-border);
+}
+.qq-editor-shell[data-theme="dark"] .qq-field-width-btn {
+  color: var(--qq-muted);
+}
+.qq-editor-shell[data-theme="dark"] .qq-field-width-btn + .qq-field-width-btn {
+  border-left-color: var(--qq-border);
+}
+
+/* FormulaEditor — main input + insert popover + AI panel/result. */
+.qq-editor-shell[data-theme="dark"] .qq-formula-input,
+.qq-editor-shell[data-theme="dark"] .qq-formula-ai-input {
+  background: #243149;
+  border-color: var(--qq-border);
+  color: var(--qq-text);
+}
+.qq-editor-shell[data-theme="dark"] .qq-formula-insert-menu,
+.qq-editor-shell[data-theme="dark"] .qq-formula-ai-panel {
+  background: var(--qq-surface);
+  border-color: var(--qq-border);
+  color: var(--qq-text);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+}
+.qq-editor-shell[data-theme="dark"] .qq-formula-insert-item {
+  color: var(--qq-text);
+}
+.qq-editor-shell[data-theme="dark"] .qq-formula-insert-item:hover {
+  background: #243149;
+}
+.qq-editor-shell[data-theme="dark"] .qq-formula-insert-grouphdr,
+.qq-editor-shell[data-theme="dark"] .qq-formula-insert-empty,
+.qq-editor-shell[data-theme="dark"] .qq-formula-label {
+  color: var(--qq-muted);
+}
+.qq-editor-shell[data-theme="dark"] .qq-formula-preview {
+  background: #243149;
+  border-color: var(--qq-border);
+}
+.qq-editor-shell[data-theme="dark"] .qq-formula-ai-result {
+  background: #243149;
+  border-color: var(--qq-border);
+}
+.qq-editor-shell[data-theme="dark"] .qq-formula-ai-result-code {
+  background: #0f172a;
+  border-color: var(--qq-border);
+  color: var(--qq-text);
+}
+.qq-editor-shell[data-theme="dark"] .qq-formula-ai-result-lbl {
+  color: var(--qq-muted);
+}
+
+/* HostedPageSection — brand presets (background colour swatches) +
+ * upload/copy controls + small icon buttons. */
+.qq-editor-shell[data-theme="dark"] .qq-hosted-preset {
+  background: var(--qq-surface);
+  border-color: var(--qq-border);
+}
+.qq-editor-shell[data-theme="dark"] .qq-hosted-color-input,
+.qq-editor-shell[data-theme="dark"] .qq-hosted-color-text {
+  background: #243149;
+  border-color: var(--qq-border);
+  color: var(--qq-text);
+}
+.qq-editor-shell[data-theme="dark"] .qq-hosted-upload-btn,
+.qq-editor-shell[data-theme="dark"] .qq-hosted-icon-btn {
+  background: var(--qq-surface);
+  border-color: var(--qq-border);
+  color: var(--qq-muted);
+}
+.qq-editor-shell[data-theme="dark"] .qq-hosted-upload-btn:hover,
+.qq-editor-shell[data-theme="dark"] .qq-hosted-icon-btn:hover {
+  color: var(--qq-text);
+}
+.qq-editor-shell[data-theme="dark"] .qq-hosted-text-input {
+  background: #243149;
+  border-color: var(--qq-border);
+  color: var(--qq-text);
+}
+.qq-editor-shell[data-theme="dark"] .qq-hosted-preset-label,
+.qq-editor-shell[data-theme="dark"] .qq-hosted-mini-label,
+.qq-editor-shell[data-theme="dark"] .qq-hosted-switch-sub,
+.qq-editor-shell[data-theme="dark"] .qq-hosted-foot {
+  color: var(--qq-muted);
+}
+.qq-editor-shell[data-theme="dark"] .qq-hosted-switch-title {
+  color: var(--qq-text);
+}
+
+/* InstallGuideModal — platform-specific install instructions dialog. */
+.qq-editor-shell[data-theme="dark"] .qq-install-guide-dialog {
+  background: var(--qq-surface);
+  border-color: var(--qq-border);
+  color: var(--qq-text);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55);
+}
+
+/* InstallTab — inline code, hosted URL controls, select, "Open" CTA,
+ * embed-mode radio cards, and platform-guide cards. (The snippet block
+ * itself is intentionally dark-on-dark already — BD-3j Fix 2.) */
+.qq-editor-shell[data-theme="dark"] .qq-install-code-inline {
+  background: #243149;
+  border-color: var(--qq-border);
+  color: var(--qq-text);
+}
+.qq-editor-shell[data-theme="dark"] .qq-install-hosted-url,
+.qq-editor-shell[data-theme="dark"] .qq-install-hosted-edit-input {
+  background: #243149;
+  border-color: var(--qq-border);
+  color: var(--qq-text);
+}
+.qq-editor-shell[data-theme="dark"] .qq-install-hosted-edit-cancel {
+  background: var(--qq-surface);
+  border-color: var(--qq-border);
+  color: var(--qq-muted);
+}
+.qq-editor-shell[data-theme="dark"] .qq-install-select {
+  background: #243149;
+  border-color: var(--qq-border);
+  color: var(--qq-text);
+}
+.qq-editor-shell[data-theme="dark"] .qq-install-hosted-open {
+  background: var(--qq-surface);
+  border-color: var(--qq-border);
+  color: var(--qq-text);
+}
+.qq-editor-shell[data-theme="dark"] .qq-install-hosted-open:hover {
+  background: #243149;
+}
+.qq-editor-shell[data-theme="dark"] .qq-install-mode-opt,
+.qq-editor-shell[data-theme="dark"] .qq-install-guide-card {
+  background: var(--qq-surface);
+  border-color: var(--qq-border);
+  color: var(--qq-text);
+}
+.qq-editor-shell[data-theme="dark"] .qq-install-mode-opt[data-state="on"] {
+  border-color: #0d3cfc;
+  background: rgba(13, 60, 252, 0.16);
+  box-shadow: 0 0 0 1px #0d3cfc inset;
+}
+.qq-editor-shell[data-theme="dark"] .qq-install-mode-opt-hint {
+  color: var(--qq-muted);
+}
+
+/* MobileBottomSheet — reset CTA in the sheet footer. */
+.qq-editor-shell[data-theme="dark"] .qq-sheet-footer-reset {
+  background: var(--qq-surface);
+  border-color: var(--qq-border);
+  color: var(--qq-text);
+}
+.qq-editor-shell[data-theme="dark"] .qq-sheet-footer-reset:hover {
+  background: #243149;
+}
+
+/* RichTextField — preview row, floating label, full panel, toolbar,
+ * dropdown menus, colour-custom strip, panel label. Error bar (#fff3f3)
+ * intentionally skipped — semantic alert. */
+.qq-editor-shell[data-theme="dark"] .qq-rtf-preview {
+  background: #243149;
+  border-color: var(--qq-border);
+  color: var(--qq-text);
+}
+.qq-editor-shell[data-theme="dark"] .qq-rtf-placeholder {
+  color: var(--qq-muted);
+}
+.qq-editor-shell[data-theme="dark"] .qq-rtf-floating-label,
+.qq-editor-shell[data-theme="dark"] .qq-rtf-panel-label {
+  background: var(--qq-surface);
+  color: var(--qq-muted);
+}
+.qq-editor-shell[data-theme="dark"] .qq-rtf-panel {
+  background: var(--qq-surface);
+  border-color: #0d3cfc;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+}
+.qq-editor-shell[data-theme="dark"] .qq-rtf-toolbar {
+  background: #1a2438;
+  border-color: var(--qq-border);
+}
+.qq-editor-shell[data-theme="dark"] .qq-rtf-btn {
+  color: var(--qq-text);
+}
+.qq-editor-shell[data-theme="dark"] .qq-rtf-menu {
+  background: var(--qq-surface);
+  border-color: var(--qq-border);
+  color: var(--qq-text);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
+}
+.qq-editor-shell[data-theme="dark"] .qq-rtf-color-custom {
+  background: #243149;
+  border-color: var(--qq-border);
+}
+.qq-editor-shell[data-theme="dark"] .qq-rtf-editor {
+  color: var(--qq-text);
+}
+
+/* SettingsTab — trade picker popup + scheduling day chips + trade-row list. */
+.qq-editor-shell[data-theme="dark"] .qq-trade-results,
+.qq-editor-shell[data-theme="dark"] .qq-trade-popup {
+  background: var(--qq-surface);
+  border-color: var(--qq-border);
+  color: var(--qq-text);
+}
+.qq-editor-shell[data-theme="dark"] .qq-trade-popup-head {
+  background: var(--qq-surface);
+  border-color: var(--qq-border);
+}
+.qq-editor-shell[data-theme="dark"] .qq-trade-popup-close {
+  background: #243149;
+  border-color: var(--qq-border);
+  color: var(--qq-text);
+}
+.qq-editor-shell[data-theme="dark"] .qq-trade-popup-close:hover {
+  background: #1a2438;
+}
+.qq-editor-shell[data-theme="dark"] .qq-trade-popup-grouplabel,
+.qq-editor-shell[data-theme="dark"] .qq-trade-current {
+  color: var(--qq-muted);
+}
+.qq-editor-shell[data-theme="dark"] .qq-trade-popup-row,
+.qq-editor-shell[data-theme="dark"] .qq-trade-row,
+.qq-editor-shell[data-theme="dark"] .qq-trade-trigger-label {
+  color: var(--qq-text);
+}
+.qq-editor-shell[data-theme="dark"] .qq-trade-popup-row:hover,
+.qq-editor-shell[data-theme="dark"] .qq-trade-row:hover {
+  background: #243149;
+}
+.qq-editor-shell[data-theme="dark"] .qq-scheduling-daychip {
+  background: #243149;
+  border-color: var(--qq-border);
+  color: var(--qq-text);
+}
+.qq-editor-shell[data-theme="dark"] .qq-scheduling-daychip:hover {
+  border-color: #0d3cfc;
+}
+.qq-editor-shell[data-theme="dark"] .qq-brand-badge-row,
+.qq-editor-shell[data-theme="dark"] .qq-scheduling-toggle {
+  background: #243149;
+  border-color: var(--qq-border);
+}
+.qq-editor-shell[data-theme="dark"] .qq-brand-badge-title,
+.qq-editor-shell[data-theme="dark"] .qq-scheduling-sublabel {
+  color: var(--qq-text);
+}
+.qq-editor-shell[data-theme="dark"] .qq-brand-badge-sub {
+  color: var(--qq-muted);
+}
+
+/* StepContentPanel — Step N rows inside the Build tab. Rows are
+ * inline-styled with `background: '#fff'`; the parent has a className
+ * we can hook into, but the row's inline style wins without
+ * !important. */
+.qq-editor-shell[data-theme="dark"] .qq-step-content-row {
+  background: #243149 !important;
+  border-color: var(--qq-border) !important;
+  color: var(--qq-text);
+}
+
+/* StyleTab — preset theme cards, branding logo upload, Brand Kit picker
+ * inner rows (inline-styled), trust-badge rows + iconbtns. The
+ * .qq-bk-picker / .qq-bk-save containers already flipped via BD-3e; the
+ * children inside still carry inline-styled bare backgrounds. */
+.qq-editor-shell[data-theme="dark"] .qq-style-preset-card {
+  background: var(--qq-surface);
+  border-color: var(--qq-border);
+  color: var(--qq-text);
+}
+.qq-editor-shell[data-theme="dark"] .qq-style-preset-card:hover {
+  border-color: #0d3cfc;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
+}
+.qq-editor-shell[data-theme="dark"] .qq-style-preset-card-name {
+  color: var(--qq-text);
+}
+.qq-editor-shell[data-theme="dark"] .qq-style-logo-upload {
+  background: var(--qq-surface);
+  border-color: var(--qq-border);
+  color: var(--qq-muted);
+}
+.qq-editor-shell[data-theme="dark"] .qq-style-logo-hint {
+  color: var(--qq-muted);
+}
+/* Brand Kit picker rows are buttons inline-styled with `background:
+ * '#fff'`; their parent (.qq-bk-picker) is already dark via BD-3e. We
+ * target by data-testid so the !important rule stays narrowly scoped. */
+.qq-editor-shell[data-theme="dark"] [data-testid^="style-bk-pick-"] {
+  background: #243149 !important;
+  border-color: var(--qq-border) !important;
+  color: var(--qq-text);
+}
+.qq-editor-shell[data-theme="dark"] [data-testid="style-bk-save"],
+.qq-editor-shell[data-theme="dark"] [data-testid="style-bk-save-cancel"] {
+  background: var(--qq-surface) !important;
+  border-color: var(--qq-border) !important;
+  color: var(--qq-text) !important;
+}
+.qq-editor-shell[data-theme="dark"] [data-testid="style-bk-save-name"],
+.qq-editor-shell[data-theme="dark"] [data-testid="style-bk-save-desc"] {
+  background: #243149;
+  border-color: var(--qq-border);
+  color: var(--qq-text);
+}
+/* Trust-badge editor — row is inline-styled, icon buttons too. */
+.qq-editor-shell[data-theme="dark"] .qq-trust-badge-row {
+  background: #243149 !important;
+  border-color: var(--qq-border) !important;
+  color: var(--qq-text);
+}
+.qq-editor-shell[data-theme="dark"] [data-testid^="style-trust-badge-up-"],
+.qq-editor-shell[data-theme="dark"] [data-testid^="style-trust-badge-down-"],
+.qq-editor-shell[data-theme="dark"] [data-testid^="style-trust-badge-remove-"] {
+  background: var(--qq-surface) !important;
+  border-color: var(--qq-border) !important;
+}
+
+/* TemplateGallery — modal search input + category dropdown. (Cards,
+ * modal chrome, header already covered above.) */
+.qq-editor-shell[data-theme="dark"] .qq-tg-modal-search-input,
+.qq-editor-shell[data-theme="dark"] .qq-tg-modal-cat-select {
+  background: #243149;
+  border-color: var(--qq-border);
+  color: var(--qq-text);
+}
+.qq-editor-shell[data-theme="dark"] .qq-tg-modal-search-input::placeholder {
+  color: var(--qq-muted);
+}
+
+/* WizardShell — device-mode picker bezel, help-modal card, mobile
+ * action-bar secondary buttons. */
+.qq-editor-shell[data-theme="dark"] .qq-editor-device {
+  background: #243149;
+  border-color: var(--qq-border);
+}
+.qq-editor-shell[data-theme="dark"] .qq-editor-help-card {
+  background: var(--qq-surface);
+  border-color: var(--qq-border);
+  color: var(--qq-text);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55);
+}
+.qq-editor-shell[data-theme="dark"] .qq-mobile-actionbar-sbtn {
+  background: var(--qq-surface);
+  border-color: var(--qq-border);
+  color: var(--qq-text);
+}
+.qq-editor-shell[data-theme="dark"] .qq-mobile-actionbar-sbtn:hover {
+  background: rgba(13, 60, 252, 0.18);
+  border-color: #0d3cfc;
+}
+/* ──────────────────────────────────────────────────────────────────── */
+
 /* Wave J — preview pane background (item 6).
  *
  * BD-3a fix 2 — the dotted-grid on .qq-editor-right has been removed in
