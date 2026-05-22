@@ -163,10 +163,18 @@ export default function HeaderResultsPanel({
           cursor: pointer;
           transition: background 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
         }
+        /* P1 RE-FIX — Rule 4: selected section header is an OUTLINE, not a
+         * bright fill. The previous accentLighter background + 2px halo
+         * made the muted "HEADER" / "RESULTS" all-caps title nearly
+         * invisible on focus. Canonical pattern: 8% blue tint + 1px
+         * solid outline with negative offset, text colour untouched. */
         .qq-headres-select.is-selected {
-          background: ${p.colors.accentLighter};
+          background: rgba(13, 60, 252, 0.08);
           border-color: ${p.colors.accent};
-          box-shadow: 0 0 0 2px ${p.colors.accentLighter};
+          outline: 1px solid ${p.colors.accent};
+          outline-offset: -1px;
+          box-shadow: none;
+          color: inherit;
         }
         .qq-headres-title {
           /* W-SECTIONS — subtle all-caps label, per Alex's global rule. */
