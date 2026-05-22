@@ -87,6 +87,7 @@ import { registerPortalBrandKitsRoutes } from "./portalBrandKitsRoutes";
 import { registerAdminTradelineVoicesRoutes } from "./adminTradelineVoicesRoutes";
 import { registerPortalTradelineKnowledgeRoutes } from "./portalTradelineKnowledgeRoutes";
 import { registerAdminAuditLogRoutes } from "./adminAuditLogRoutes";
+import { registerAdminFileRetentionRoutes } from "./adminFileRetentionRoutes";
 import { registerAdminMobilePreviewRoutes } from "./adminMobilePreviewRoutes";
 import { registerAdminAiActivityRoutes } from "./adminAiActivityRoutes";
 import { registerCalculatorAnalyticsRoutes } from "./calculatorAnalyticsRoutes";
@@ -184,6 +185,7 @@ export async function registerRoutes(
   registerAdminTradelineVoicesRoutes(app);
   registerPortalTradelineKnowledgeRoutes(app);
   registerAdminAuditLogRoutes(app);
+  registerAdminFileRetentionRoutes(app);
   registerAdminMobilePreviewRoutes(app);
   registerAdminAiActivityRoutes(app);
   registerCalculatorAnalyticsRoutes(app);

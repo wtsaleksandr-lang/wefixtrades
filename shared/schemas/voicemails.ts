@@ -44,6 +44,8 @@ export const voicemails = pgTable(
     sentiment: varchar("sentiment", { length: 16 }),
     /** Set when the user marks the voicemail as heard. */
     acknowledged_at: timestamp("acknowledged_at"),
+    /** Soft-delete stamp from the shared-files retention sweep (BA-7). */
+    deleted_at: timestamp("deleted_at"),
     created_at: timestamp("created_at").notNull().defaultNow(),
   },
   (table) => ({
