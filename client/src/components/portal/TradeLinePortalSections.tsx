@@ -208,8 +208,8 @@ export function BusinessHoursCard({
         Outside these hours TradeLine answers as your after-hours assistant — captures the lead and texts you in the morning.
       </p>
 
-      <div className="space-y-3">
-        <label className="flex flex-col gap-1.5">
+      <div className="space-y-[2px]">
+        <label className="flex flex-col gap-1.5 pb-3 border-b border-gray-200 dark:border-gray-700">
           <span className="text-xs font-medium text-gray-700">Timezone</span>
           <select
             value={tz}
@@ -224,7 +224,7 @@ export function BusinessHoursCard({
           </select>
         </label>
 
-        <div className="space-y-2 mt-1">
+        <div className="space-y-2 pt-3">
           {DAYS.map(({ key, label }) => {
             const day = schedule[key];
             const closed = !day || day.closed;
@@ -262,22 +262,24 @@ export function BusinessHoursCard({
         </div>
 
         {dirty && (
-          <Button
-            onClick={() => saveMutation.mutate()}
-            disabled={saveMutation.isPending}
-            className="w-full mt-2"
-            size="sm"
-          >
-            {saveMutation.isPending ? (
-              <>
-                <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> Saving…
-              </>
-            ) : (
-              <>
-                <Save className="w-3.5 h-3.5 mr-1.5" /> Save business hours
-              </>
-            )}
-          </Button>
+          <div className="pt-3 mt-3 border-t border-gray-200 dark:border-gray-700">
+            <Button
+              onClick={() => saveMutation.mutate()}
+              disabled={saveMutation.isPending}
+              className="w-full"
+              size="sm"
+            >
+              {saveMutation.isPending ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> Saving…
+                </>
+              ) : (
+                <>
+                  <Save className="w-3.5 h-3.5 mr-1.5" /> Save business hours
+                </>
+              )}
+            </Button>
+          </div>
         )}
       </div>
     </div>
@@ -365,47 +367,53 @@ export function NotificationSettingsCard({
         Where TradeLine sends you call summaries, lead notifications, and after-hours captures.
       </p>
 
-      <div className="space-y-4">
-        <Recipients
-          label="SMS recipients"
-          icon={<MessageSquare size={14} className="text-gray-500" />}
-          values={sms}
-          draft={smsDraft}
-          setDraft={setSmsDraft}
-          onAdd={addSms}
-          onRemove={(v) => setSms(sms.filter((x) => x !== v))}
-          placeholder="+1 555 123 4567"
-          inputType="tel"
-        />
-        <Recipients
-          label="Email recipients"
-          icon={<Mail size={14} className="text-gray-500" />}
-          values={email}
-          draft={emailDraft}
-          setDraft={setEmailDraft}
-          onAdd={addEmail}
-          onRemove={(v) => setEmail(email.filter((x) => x !== v))}
-          placeholder="alerts@yourbusiness.com"
-          inputType="email"
-        />
+      <div>
+        <div className="pb-3 border-b border-gray-200 dark:border-gray-700">
+          <Recipients
+            label="SMS recipients"
+            icon={<MessageSquare size={14} className="text-gray-500" />}
+            values={sms}
+            draft={smsDraft}
+            setDraft={setSmsDraft}
+            onAdd={addSms}
+            onRemove={(v) => setSms(sms.filter((x) => x !== v))}
+            placeholder="+1 555 123 4567"
+            inputType="tel"
+          />
+        </div>
+        <div className="pt-3 pb-3 border-b border-gray-200 dark:border-gray-700">
+          <Recipients
+            label="Email recipients"
+            icon={<Mail size={14} className="text-gray-500" />}
+            values={email}
+            draft={emailDraft}
+            setDraft={setEmailDraft}
+            onAdd={addEmail}
+            onRemove={(v) => setEmail(email.filter((x) => x !== v))}
+            placeholder="alerts@yourbusiness.com"
+            inputType="email"
+          />
+        </div>
 
         {dirty && (
-          <Button
-            onClick={() => saveMutation.mutate()}
-            disabled={saveMutation.isPending}
-            className="w-full"
-            size="sm"
-          >
-            {saveMutation.isPending ? (
-              <>
-                <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> Saving…
-              </>
-            ) : (
-              <>
-                <Save className="w-3.5 h-3.5 mr-1.5" /> Save notifications
-              </>
-            )}
-          </Button>
+          <div className="pt-3">
+            <Button
+              onClick={() => saveMutation.mutate()}
+              disabled={saveMutation.isPending}
+              className="w-full"
+              size="sm"
+            >
+              {saveMutation.isPending ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> Saving…
+                </>
+              ) : (
+                <>
+                  <Save className="w-3.5 h-3.5 mr-1.5" /> Save notifications
+                </>
+              )}
+            </Button>
+          </div>
         )}
       </div>
     </div>
