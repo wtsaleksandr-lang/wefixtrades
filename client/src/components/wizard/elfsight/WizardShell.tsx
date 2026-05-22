@@ -1692,28 +1692,36 @@ export default function WizardShell({ embed = false }: Props) {
               width: 30px; height: 24px; border-radius: 6px; border: none;
               cursor: pointer; transition: background 0.15s ease;
             }
+            /* BH-2 / BH-5 — icon-btn at-rest contrast lifted (was muted /
+             * ~0.55, now heading / 0.85) so the Undo/Redo + tool icons
+             * remain readable on both light and dark chrome backgrounds.
+             * Icons inherit colour via currentColor — see the inline SVG
+             * style on each lucide-react icon in EditorTopBar.tsx. */
             .qq-editor-icon-btn {
               width: 28px; height: 28px; border-radius: 50%; cursor: pointer;
               border: 1px solid ${p.colors.border}; background: #fff;
-              color: ${p.colors.muted}; padding: 0;
+              color: ${p.colors.heading}; padding: 0;
+              opacity: 0.85;
               display: flex; align-items: center; justify-content: center;
-              transition: background 0.12s ease, color 0.12s ease;
+              transition: background 0.12s ease, color 0.12s ease, opacity 0.12s ease;
               flex-shrink: 0;
             }
             .qq-editor-icon-btn:hover:not(:disabled) {
               background: ${p.colors.surfaceRaised};
               color: ${p.colors.heading};
+              opacity: 1;
             }
-            /* BD-3a fix 1 / BH-2 — Undo/Redo share the icon-btn base but
-             * gain a brand-blue tint on hover and accept the standard 28px
-             * tap target. */
+            /* BD-3a fix 1 / BH-2 / BH-5 — Undo/Redo share the icon-btn base
+             * but gain a brand-blue tint on hover. At-rest opacity 0.85
+             * matches the rest of the chrome's tool icons. */
             .qq-editor-history-btn:hover:not(:disabled) {
               background: ${p.colors.accentLighter};
               color: ${p.colors.accent};
               border-color: ${p.colors.accent};
+              opacity: 1;
             }
             .qq-editor-history-btn:disabled {
-              opacity: 0.4;
+              opacity: 0.35;
               cursor: not-allowed;
             }
             /* ── BH-2 — inline tab strip ─────────────────────────────────
@@ -1740,7 +1748,17 @@ export default function WizardShell({ embed = false }: Props) {
               transition: color 0.12s ease, background 0.12s ease;
             }
             .qq-editor-tab:hover { color: ${p.colors.heading}; }
-            .qq-editor-tab.is-active { font-weight: 700; }
+            /* BH-5 — solid brand-blue active pill (Option A). The dark-mode
+             * stylesheet (index.css) forces every .qq-editor-tab color to
+             * var(--qq-text) !important, which previously masked the inline
+             * accent color and made the active label invisible against its
+             * own light-blue pill. We force white on the active pill here
+             * with !important so the label stays legible in either theme. */
+            .qq-editor-tab.is-active {
+              font-weight: 700;
+              color: #ffffff !important;
+              background: ${p.colors.accent} !important;
+            }
 
             /* BH-2 — preview fold/unfold reuses the icon-btn footprint. The
              * collapsed state takes on accent colour so the user can see

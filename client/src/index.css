@@ -582,6 +582,12 @@
 .qq-editor-shell[data-theme="dark"] .qq-field-row-label {
   color: var(--qq-text) !important;
 }
+/* BH-5 — active tab keeps white text on solid brand-blue in dark mode too.
+ * The rule above forces every .qq-editor-tab to --qq-text; we re-override
+ * the active pill so the label doesn't disappear against its own background. */
+.qq-editor-shell[data-theme="dark"] .qq-editor-tab.is-active {
+  color: #ffffff !important;
+}
 .qq-editor-shell[data-theme="dark"] .qq-info-cue {
   --info-bg: var(--qq-surface);
   --info-border: var(--qq-border);

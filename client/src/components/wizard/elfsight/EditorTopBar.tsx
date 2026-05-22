@@ -1,16 +1,19 @@
-// EditorTopBar — Elfsight-clone editor top bar (Wave H1 → BH-2).
+// EditorTopBar — Elfsight-clone editor top bar (Wave H1 → BH-2 → BH-5).
 //
-// BH-2 — collapsed the previously-stacked topbar + tabs bar into a single
-// ~44px row. Layout (left→right):
+// BH-5 — Undo/Redo moved to the right cluster, adjacent to the device
+// preset switcher, and the active-tab pill now uses solid brand blue with
+// white text (Option A) so the label stays legible in both editor themes.
 //
-//   brand · | · undo · redo · | · tabs · | · device · spacer · saved
+// Layout (left→right):
+//
+//   brand · | · tabs · spacer · saved · undo · redo · | · device · |
 //   · theme · help · fold · close
 //
 // Below 1024px the brand drops its wordmark (icon only) and the tab strip
 // scrolls horizontally inside a clipped flex region. Device / undo-redo /
 // save / theme / close stay visible at all widths >= 480px. The phone
 // breakpoint (<= 480px) still hides the device preset switcher (BH-1) since
-// the user editing on a phone IS on a phone.
+// the user editing on a phone IS on a phone — undo/redo collapse with it.
 //
 // Brand styling only — no Elfsight colours. Accent comes from platformTheme.
 // All testids stable: quotequick-close, preview-device-desktop, preview-device-mobile,
@@ -78,7 +81,50 @@ export default function EditorTopBar({
 
       <span className="qq-editor-divider" aria-hidden="true" />
 
-      {/* BD-3a fix 1 — Undo / Redo. Disabled until the stack has entries. */}
+      {/* BH-2 — tabs inline. Wraps in its own flex container that scrolls
+       *  horizontally on narrow widths so the rest of the bar stays
+       *  reachable; the surrounding chrome never scrolls. */}
+      <div
+        className="qq-editor-tabstrip"
+        role="tablist"
+        aria-label="Editor sections"
+        data-testid="editor-tabs"
+      >
+        {EDITOR_TABS.map(({ id, label }) => {
+          const isActive = id === activeTab;
+          return (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={isActive}
+              data-testid={`editor-tab-${id}`}
+              className={`qq-editor-tab${isActive ? ' is-active' : ''}`}
+              onClick={() => onTabChange(id)}
+              style={{
+                color: isActive ? '#ffffff' : p.colors.muted,
+                background: isActive ? p.colors.accent : 'transparent',
+              }}
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="qq-editor-spacer" aria-hidden="true" />
+
+      <span
+        className="qq-editor-saved"
+        data-testid="editor-saved-state"
+        style={{ opacity: justSaved ? 1 : 0 }}
+      >
+        ✓ Saved
+      </span>
+
+      {/* BH-5 — Undo / Redo. Moved here from the left of the chrome so the
+       *  history pair sits adjacent to the device preset switcher on the
+       *  right side. Disabled until the stack has entries. */}
       <div className="qq-editor-group" role="group" aria-label="History">
         <button
           type="button"
@@ -102,39 +148,6 @@ export default function EditorTopBar({
         >
           <Redo2 style={{ width: 14, height: 14 }} aria-hidden="true" />
         </button>
-      </div>
-
-      <span className="qq-editor-divider" aria-hidden="true" />
-
-      {/* BH-2 — tabs inline. Wraps in its own flex container that scrolls
-       *  horizontally on narrow widths so the rest of the bar stays
-       *  reachable; the surrounding chrome never scrolls. */}
-      <div
-        className="qq-editor-tabstrip"
-        role="tablist"
-        aria-label="Editor sections"
-        data-testid="editor-tabs"
-      >
-        {EDITOR_TABS.map(({ id, label }) => {
-          const isActive = id === activeTab;
-          return (
-            <button
-              key={id}
-              type="button"
-              role="tab"
-              aria-selected={isActive}
-              data-testid={`editor-tab-${id}`}
-              className={`qq-editor-tab${isActive ? ' is-active' : ''}`}
-              onClick={() => onTabChange(id)}
-              style={{
-                color: isActive ? p.colors.accent : p.colors.muted,
-                background: isActive ? p.colors.accentLighter : 'transparent',
-              }}
-            >
-              {label}
-            </button>
-          );
-        })}
       </div>
 
       <span className="qq-editor-divider" aria-hidden="true" />
@@ -168,15 +181,7 @@ export default function EditorTopBar({
         ))}
       </div>
 
-      <div className="qq-editor-spacer" aria-hidden="true" />
-
-      <span
-        className="qq-editor-saved"
-        data-testid="editor-saved-state"
-        style={{ opacity: justSaved ? 1 : 0 }}
-      >
-        ✓ Saved
-      </span>
+      <span className="qq-editor-divider" aria-hidden="true" />
 
       <div className="qq-editor-group" role="group" aria-label="Tools">
         <button
