@@ -78,16 +78,16 @@ export default function HeaderResultsPanel({
         {/* BD-3d Feature 1 — RichTextField replaces the plain input for the
             heading/footer/title/subtitle fields. Stores sanitized HTML;
             sanitizes on both write + read; supports B/I/U, font size,
-            color, emoji, inline image (≤2MB). NO custom-code button. */}
+            color, emoji, inline image (≤2MB). NO custom-code button.
+            P1 UX bug sweep — per-field InfoCue dropped (the section
+            header cue above already covers both Title and Subtitle).
+            One cue per section, matching BD-3e PR #474 Shape/Layout fix. */}
         <RichTextField
           label="Title"
           htmlFor="qq-headres-title"
           value={header.title ?? ''}
           onChange={(next) => updateHeader({ title: next })}
           placeholder="Click to add a title"
-          infoText="Sits at the top of your calculator. Leave blank to fall back to your business name."
-          infoTestid="headerresults-header"
-          infoRegion="header"
           testid="input-header-title"
         />
         <RichTextField
@@ -96,9 +96,6 @@ export default function HeaderResultsPanel({
           value={header.subtitle ?? ''}
           onChange={(next) => updateHeader({ subtitle: next })}
           placeholder="Click to add a subtitle"
-          infoText="Optional. Leave blank to hide the subtitle."
-          infoTestid="headerresults-subtitle"
-          infoRegion="header"
           testid="input-header-subtitle"
         />
       </div>
@@ -123,16 +120,16 @@ export default function HeaderResultsPanel({
       </header>
 
       <div className="qq-headres-grid">
-        {/* BD-3d Feature 1 — rich-text fields for the results pane. */}
+        {/* BD-3d Feature 1 — rich-text fields for the results pane.
+            P1 UX bug sweep — per-field InfoCue dropped (section header
+            cue above already covers Heading and Footnote). One cue per
+            section, matching BD-3e PR #474 Shape/Layout fix. */}
         <RichTextField
           label="Heading"
           htmlFor="qq-headres-heading"
           value={results.heading ?? ''}
           onChange={(next) => updateResults({ heading: next })}
           placeholder="Click to add a heading"
-          infoText="The text shown above the headline number (e.g. 'Estimated total')."
-          infoTestid="headerresults-heading"
-          infoRegion="result"
           testid="input-results-heading"
         />
         <RichTextField
@@ -141,9 +138,6 @@ export default function HeaderResultsPanel({
           value={results.footnote ?? ''}
           onChange={(next) => updateResults({ footnote: next })}
           placeholder="Click to add a footer"
-          infoText="Small print under the headline. Use for disclaimers or 'taxes not included'."
-          infoTestid="headerresults-footnote"
-          infoRegion="sticky-footer"
           testid="input-results-footnote"
         />
       </div>

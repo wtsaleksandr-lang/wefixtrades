@@ -66,6 +66,25 @@ function deriveCategories(templates: TemplateConfig[]): string[] {
 }
 
 /**
+ * P1 UX bug sweep — convert a snake_case identifier to a display label.
+ *
+ * `TemplateConfig.trades` is an array of trade IDs (e.g. `auto_detailing`,
+ * `mobile_car_detailing`). The strip card's tag line previously rendered
+ * these raw, leaking snake_case to the UI ("Car Towing" card showed
+ * `auto_detailing` as the third line). The full TRADES table in
+ * `@/data/trades` carries proper `label` strings, but that's ~200 rows;
+ * a tiny in-place transform is lighter than importing the whole table
+ * for a 2-tag preview. snake_case → Title Case covers every current
+ * trade id deterministically.
+ */
+function formatTradeId(id: string): string {
+  return id
+    .split('_')
+    .map((w) => (w.length === 0 ? '' : w[0].toUpperCase() + w.slice(1)))
+    .join(' ');
+}
+
+/**
  * W-AO-2 — secondary category-accent band painted along the bottom edge of
  * the mockup. Works in tandem with the theme accent stripe at the top so
  * two cards sharing the same theme (e.g. forest) but in different
@@ -401,7 +420,13 @@ export default function TemplateStrip({ activeTemplateId, onApplyTemplate }: Str
         {templates.map((t) => {
           const accent = templateAccent(t.id);
           const isActive = t.id === activeTemplateId;
-          const tradeTags = (t.trades ?? []).slice(0, 2).join(', ');
+          // P1 UX bug sweep — format trade IDs (snake_case) into display
+          // labels (Title Case) so the strip's tag line reads as a
+          // human-friendly trade name, not the raw schema slug.
+          const tradeTags = (t.trades ?? [])
+            .slice(0, 2)
+            .map(formatTradeId)
+            .join(', ');
           return (
             <button
               key={t.id}
