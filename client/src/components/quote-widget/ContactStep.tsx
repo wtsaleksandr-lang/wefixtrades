@@ -18,6 +18,84 @@ import { useState } from 'react';
 import type { CSSProperties } from 'react';
 import type { WidgetTheme } from './widgetThemes';
 
+/* ─── BD-2a-polish — Input field rules compliance ───
+ *
+ * Design-system rule (locked 2026-05-21):
+ *   1. Title INSIDE the input field (placeholder-as-label / floating label)
+ *   2. Help cue (?) anchored top-left of the component
+ *   3. No duplicated titles
+ *   4. Max 2px vertical gap between stacked input components
+ *   5. Button-choice fields: pills/chips flush at 1-2px gap
+ *
+ * `<FloatingLabelInput>` below is a tiny inline helper — placeholder doubles
+ * as the resting label, focus / value lifts it to a smaller label above the
+ * value. No external font; uses the theme's fontFamily prop. Inline styles
+ * keep parity with the rest of this file. */
+function FloatingLabelInput({
+  id, label, value, onChange, type = 'text', autoComplete, theme,
+  fontFamily, radiusPx = '10px', testId,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (next: string) => void;
+  type?: 'text' | 'email' | 'tel';
+  autoComplete?: string;
+  theme: WidgetTheme;
+  fontFamily?: string;
+  radiusPx?: string;
+  testId?: string;
+}) {
+  const [focused, setFocused] = useState(false);
+  const lifted = focused || value.length > 0;
+
+  const wrapperStyle: CSSProperties = {
+    position: 'relative', width: '100%',
+  };
+  const inputStyle: CSSProperties = {
+    width: '100%', height: 48, borderRadius: radiusPx,
+    border: `1px solid ${focused ? theme.accent : theme.border}`,
+    padding: '18px 12px 6px 12px',
+    fontSize: 14, color: theme.text, background: theme.surface,
+    fontFamily, outline: 'none', boxSizing: 'border-box',
+    transition: 'border-color 150ms ease-out',
+  };
+  const labelStyle: CSSProperties = {
+    position: 'absolute',
+    left: 12,
+    top: lifted ? 6 : 14,
+    fontSize: lifted ? 10 : 13,
+    color: lifted ? (focused ? theme.accent : theme.textMuted) : theme.textMuted,
+    pointerEvents: 'none',
+    transition: 'all 150ms ease-out',
+    fontFamily,
+    letterSpacing: lifted ? '0.04em' : 'normal',
+    textTransform: lifted ? 'uppercase' : 'none',
+    fontWeight: lifted ? 700 : 400,
+  };
+
+  return (
+    <div style={wrapperStyle}>
+      <input
+        id={id}
+        data-testid={testId}
+        type={type}
+        value={value}
+        autoComplete={autoComplete}
+        onChange={(e) => onChange(e.target.value)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        style={inputStyle}
+        // Placeholder intentionally a single space so the input is never
+        // "empty" for browser auto-styling but the floating label is the
+        // only visible label.
+        placeholder=" "
+      />
+      <label htmlFor={id} style={labelStyle}>{label}</label>
+    </div>
+  );
+}
+
 interface Props {
   /** Resolved widget theme — accent / borders / text colours. */
   theme: WidgetTheme;
@@ -122,13 +200,6 @@ export default function ContactStep({
     }
   }
 
-  const inputStyle: CSSProperties = {
-    width: '100%', height: 42, borderRadius: radiusPx,
-    border: `1px solid ${theme.border}`, padding: '0 12px',
-    fontSize: 14, color: theme.text, background: theme.surface,
-    fontFamily, outline: 'none', boxSizing: 'border-box',
-  };
-
   const primaryBtnStyle: CSSProperties = {
     width: '100%', height: 46, borderRadius: radiusPx, border: 'none',
     background: accent, color: '#ffffff',
@@ -176,106 +247,182 @@ export default function ContactStep({
       data-component-name="Contact step"
       data-component-type="contact-step"
       style={{
-        display: 'flex', flexDirection: 'column', gap: 12,
-        padding: 16, borderRadius: radiusPx,
+        position: 'relative',
+        display: 'flex', flexDirection: 'column', gap: 2,
+        padding: '16px 16px 14px 16px', borderRadius: radiusPx,
         background: theme.surface, border: `1px solid ${theme.border}`,
         fontFamily, color: theme.text, boxSizing: 'border-box',
       }}
     >
+      {/* BD-2a-polish — single help cue anchored top-left of the whole step,
+          covering all three fields (name / email / phone). One label, one
+          popover — no per-field duplication. */}
+      <ContactStepHelpCue theme={theme} fontFamily={fontFamily} />
+
       {quoteHeadline && (
         <p
           data-testid="contact-step-headline"
           style={{
             fontSize: 13, fontWeight: 700, color: theme.textMuted,
-            margin: 0, textTransform: 'uppercase', letterSpacing: '0.06em',
+            margin: '0 0 8px 0', paddingLeft: 28,
+            textTransform: 'uppercase', letterSpacing: '0.06em',
           }}
         >
           Your quote: <span style={{ color: accent }}>{quoteHeadline}</span>
         </p>
       )}
-      <p style={{ fontSize: 15, fontWeight: 800, margin: 0, lineHeight: 1.3 }}>
-        Where should we send it?
-      </p>
-      <input
-        data-testid="contact-step-name"
-        type="text"
-        placeholder="Your name"
+
+      <FloatingLabelInput
+        id="contact-step-name"
+        testId="contact-step-name"
+        label="Your name"
         value={name}
-        onChange={(e) => { setName(e.target.value); persist(e.target.value, email, phone); }}
+        onChange={(v) => { setName(v); persist(v, email, phone); }}
         autoComplete="name"
-        style={inputStyle}
+        theme={theme}
+        fontFamily={fontFamily}
+        radiusPx={radiusPx}
       />
-      <input
-        data-testid="contact-step-email"
+      <FloatingLabelInput
+        id="contact-step-email"
+        testId="contact-step-email"
+        label="Email address"
         type="email"
-        placeholder="Email address"
         value={email}
-        onChange={(e) => { setEmail(e.target.value); persist(name, e.target.value, phone); }}
+        onChange={(v) => { setEmail(v); persist(name, v, phone); }}
         autoComplete="email"
-        style={inputStyle}
+        theme={theme}
+        fontFamily={fontFamily}
+        radiusPx={radiusPx}
       />
-      <input
-        data-testid="contact-step-phone"
+      <FloatingLabelInput
+        id="contact-step-phone"
+        testId="contact-step-phone"
+        label="Phone (optional)"
         type="tel"
-        placeholder="Phone (optional)"
         value={phone}
-        onChange={(e) => { setPhone(e.target.value); persist(name, email, e.target.value); }}
+        onChange={(v) => { setPhone(v); persist(name, email, v); }}
         autoComplete="tel"
-        style={inputStyle}
+        theme={theme}
+        fontFamily={fontFamily}
+        radiusPx={radiusPx}
       />
 
-      {error && (
-        <p
-          data-testid="contact-step-error"
-          style={{ fontSize: 12, color: '#b91c1c', margin: 0 }}
-        >
-          {error}
-        </p>
-      )}
+      {/* CTA cluster — explicit 12px gap from the input cluster above, then
+          12px between buttons. Tight 2px gap is for STACKED INPUTS only;
+          actions reclaim the airy 8/12px scale per the design-system rule. */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 12 }}>
+        {error && (
+          <p
+            data-testid="contact-step-error"
+            style={{ fontSize: 12, color: '#b91c1c', margin: 0 }}
+          >
+            {error}
+          </p>
+        )}
 
-      <button
-        type="button"
-        data-testid="contact-step-email-cta"
-        onClick={() => submitLead('email')}
-        disabled={!ready || status === 'sending'}
-        style={{
-          ...primaryBtnStyle,
-          opacity: ready && status !== 'sending' ? 1 : 0.6,
-          cursor: ready && status !== 'sending' ? 'pointer' : 'not-allowed',
-        }}
-      >
-        {status === 'sending' ? 'Sending…' : 'Email me this quote'}
-        {status !== 'sending' && <span style={{ fontSize: 16 }}>→</span>}
-      </button>
-
-      {hardCtaAvailable && (
         <button
           type="button"
-          data-testid="contact-step-book-cta"
-          onClick={() => {
-            // The booking button captures the lead first (so we never lose the
-            // contact info even if the user bails on the calendar) and THEN
-            // opens the booking URL — handled inside `submitLead`.
-            if (bookingUrl || ownerEmail) submitLead('booking');
-          }}
+          data-testid="contact-step-email-cta"
+          onClick={() => submitLead('email')}
           disabled={!ready || status === 'sending'}
           style={{
-            ...secondaryBtnStyle,
-            opacity: ready && status !== 'sending' ? 1 : 0.55,
+            ...primaryBtnStyle,
+            opacity: ready && status !== 'sending' ? 1 : 0.6,
             cursor: ready && status !== 'sending' ? 'pointer' : 'not-allowed',
           }}
         >
-          {hardCtaLabel}
+          {status === 'sending' ? 'Sending…' : 'Email me this quote'}
+          {status !== 'sending' && <span style={{ fontSize: 16 }}>→</span>}
         </button>
-      )}
 
-      <p
+        {hardCtaAvailable && (
+          <button
+            type="button"
+            data-testid="contact-step-book-cta"
+            onClick={() => {
+              // The booking button captures the lead first (so we never lose the
+              // contact info even if the user bails on the calendar) and THEN
+              // opens the booking URL — handled inside `submitLead`.
+              if (bookingUrl || ownerEmail) submitLead('booking');
+            }}
+            disabled={!ready || status === 'sending'}
+            style={{
+              ...secondaryBtnStyle,
+              opacity: ready && status !== 'sending' ? 1 : 0.55,
+              cursor: ready && status !== 'sending' ? 'pointer' : 'not-allowed',
+            }}
+          >
+            {hardCtaLabel}
+          </button>
+        )}
+
+        <p
+          style={{
+            fontSize: 11, color: theme.textMuted, margin: 0, lineHeight: 1.5,
+          }}
+        >
+          We’ll only use your details to send this quote and follow up.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/* ─── BD-2a-polish — Help cue (top-left anchored) ───
+ *
+ * One popover for the whole contact step (not per field), per the
+ * design-system "help cue top-left of the component" rule. Hover or
+ * click-to-toggle on small screens. */
+function ContactStepHelpCue({
+  theme, fontFamily,
+}: { theme: WidgetTheme; fontFamily?: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div
+      style={{
+        position: 'absolute', top: 8, left: 8,
+        zIndex: 2,
+      }}
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+    >
+      <button
+        type="button"
+        aria-label="What do we do with this information?"
+        data-testid="contact-step-helpcue"
+        onClick={() => setOpen((v) => !v)}
         style={{
-          fontSize: 11, color: theme.textMuted, margin: 0, lineHeight: 1.5,
+          width: 18, height: 18, borderRadius: 999,
+          border: `1px solid ${theme.border}`,
+          background: theme.surface,
+          color: theme.textMuted,
+          fontSize: 11, fontWeight: 700, fontFamily,
+          lineHeight: '16px', textAlign: 'center',
+          padding: 0, cursor: 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}
-      >
-        We’ll only use your details to send this quote and follow up.
-      </p>
+      >?</button>
+      {open && (
+        <div
+          role="tooltip"
+          data-testid="contact-step-helpcue-popover"
+          style={{
+            position: 'absolute', top: 22, left: 0,
+            width: 240, padding: 10,
+            background: theme.surface,
+            border: `1px solid ${theme.border}`,
+            borderRadius: 8,
+            fontSize: 12, lineHeight: 1.5,
+            color: theme.text, fontFamily,
+            boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+          }}
+        >
+          We use these details only to send your quote and follow up.
+          Email is required; phone is optional and helps us reach you faster
+          for time-sensitive work.
+        </div>
+      )}
     </div>
   );
 }

@@ -45,6 +45,7 @@ import type {
   AdvResultEmphasis, AdvResultBorder,
   AdvStepTransition,
 } from '@shared/templatePresets';
+import { inferDerivedCategoryFromBgFrom } from '@shared/templatePresets';
 import FloatField from './FloatField';
 import InfoCue from './InfoCue';
 import { QUOTEQUICK_STYLE_PRESETS } from '@/data/quoteQuickStylePresets';
@@ -1560,10 +1561,43 @@ function BrandStudioGroup({
             {/* W-BB-3 — range-pricing display mode. A common trades-quoting
                 pattern: show `$2,300 – $2,700` instead of `$2,500.00` to
                 reduce buyer commitment anxiety. Bounds round to $25. */}
+            {/* BD-2a-polish — suggestion banner: show only when the
+                derived category is high-variance (Construction / Emergency /
+                Home Improvement) AND the toggle is currently OFF. Inferred
+                from `style.bgGradient.from` via `inferDerivedCategoryFromBgFrom`
+                so we don't need to plumb category through the shell props.
+                User-customised backgrounds infer 'default' and skip the
+                banner — they already know the look they want. */}
+            {(() => {
+              const derived = inferDerivedCategoryFromBgFrom(style.bgGradient?.from);
+              const highVariance =
+                derived === 'construction'
+                || derived === 'emergency'
+                || derived === 'home-improvement';
+              if (!highVariance || rpRangeEnabled) return null;
+              return (
+                <div
+                  data-testid="style-bs-rp-range-suggest"
+                  style={{
+                    marginTop: 10, marginBottom: 2,
+                    padding: 12,
+                    borderLeft: '4px solid #0d3cfc',
+                    background: '#eff6ff',
+                    borderRadius: 4,
+                    fontSize: 12, lineHeight: 1.5,
+                    color: '#1e3a8a',
+                  }}
+                >
+                  <span aria-hidden="true">💡 </span>
+                  High-variance work — most homeowners convert better when they
+                  see a price range. Consider enabling.
+                </div>
+              );
+            })()}
             <label
               className="qq-style-label"
               style={{
-                marginTop: 12, display: 'flex', alignItems: 'center',
+                marginTop: 2, display: 'flex', alignItems: 'center',
                 gap: 8, cursor: 'pointer',
               }}
             >

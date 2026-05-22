@@ -3118,6 +3118,51 @@ function indexFromId(id: string): number {
 }
 
 /**
+ * BD-2a-polish — reverse lookup: given a gradient `from` colour seen on a
+ * live shell style, infer the derived category id that produced it.
+ *
+ * Used by `StyleTab` to know whether to show the "consider enabling range
+ * mode" suggestion above the toggle, WITHOUT plumbing the template id /
+ * category through the wizard shell props. If the user has hand-tweaked the
+ * background colour, the lookup returns `'default'` and the banner stays
+ * hidden — which is exactly what we want (a customised style implies the
+ * user already knows the look they're after).
+ */
+export function inferDerivedCategoryFromBgFrom(
+  bgFrom: string | undefined,
+): DerivedCategoryId {
+  if (!bgFrom) return 'default';
+  const hex = bgFrom.trim().toLowerCase();
+  for (const [id, palette] of Object.entries(DERIVED_CATEGORY_PALETTES)) {
+    if (palette.bgFromHex.toLowerCase() === hex) {
+      return id as DerivedCategoryId;
+    }
+  }
+  return 'default';
+}
+
+/**
+ * BD-2a-polish — categories where range-pricing is the right default.
+ *
+ * High-variance trades: real cost moves with site conditions / scope (roofing,
+ * mold remediation, window replacement, HVAC installs, foundation work).
+ * Showing `$2,300 – $2,700` tracks the actual uncertainty and converts better
+ * than a false-precision single value.
+ *
+ * Everything NOT in this set defaults to a flat single price — commodity work
+ * like gutter cleaning ($149), drain unclog ($89), lawn mowing per visit, or
+ * professional services priced as flat fees. A range there reads as "they
+ * don't know what they're doing" and HURTS conversion.
+ *
+ * Owners can still flip the toggle per-template via Style tab → Brand Studio
+ * → Result panel → Display as range.
+ */
+export function shouldDefaultRangeMode(category: string | undefined): boolean {
+  const id = resolveDerivedCategoryId(category);
+  return id === 'construction' || id === 'emergency' || id === 'home-improvement';
+}
+
+/**
  * W-BB-2 — derive a full `AdvStyle` from a template's `category` field.
  *
  * Called by `toAdvancedConfig` ONLY when the template doesn't carry its own
@@ -3131,6 +3176,15 @@ export function deriveStyleFromCategory(t: Pick<TemplateConfig, 'id' | 'category
   const palette = DERIVED_CATEGORY_PALETTES[resolveDerivedCategoryId(t.category)];
   const direction =
     GRADIENT_DIRECTION_ROTATION[indexFromId(t.id) % GRADIENT_DIRECTION_ROTATION.length];
+  // BD-2a-polish — range-pricing default is OPT-IN by category.
+  // High-variance: Construction / Emergency / Home Improvement → on.
+  // Commodity / flat-fee: Cleaning / Outdoor / Professional / Automotive → off.
+  // The 2 AS-1c samples that already ship explicit `style:` blocks
+  // (junk_removal, mold_remediation) keep their own settings — they're explicit
+  // and `toAdvancedConfig` only calls this helper as a FALLBACK. Owners can
+  // flip per template via Style tab → Brand Studio → Result panel → Display
+  // as range.
+  const defaultRangeEnabled = shouldDefaultRangeMode(t.category);
   return {
     bgMode: 'gradient',
     bgGradient: { from: palette.bgFromHex, to: palette.bgToHex, direction },
@@ -3138,12 +3192,7 @@ export function deriveStyleFromCategory(t: Pick<TemplateConfig, 'id' | 'category
       accentOverride: palette.accent,
       emphasis: palette.urgency === 'high' ? 'bold' : 'normal',
       border: palette.urgency === 'high' ? 'accent-tinted' : 'subtle',
-      // BD-2a — range-pricing as default for every derived template. The 2
-      // AS-1c samples that already ship explicit `style:` blocks (junk_removal
-      // and mold_remediation) keep their own settings since `toAdvancedConfig`
-      // only calls this helper as a FALLBACK. Owners can opt out per template
-      // via Style tab → Brand Studio → Result panel → Range mode.
-      range_mode: { enabled: true, band_pct: 8 },
+      range_mode: { enabled: defaultRangeEnabled, band_pct: 8 },
     },
     animations: {
       step_transition: palette.animationStyle,
@@ -3161,10 +3210,12 @@ export function toAdvancedConfig(t: TemplateConfig): AdvancedConfigShape {
   // KEEP that block verbatim; everything else gets a category-derived style
   // so the gallery isn't 44 identical-looking white cards.
   //
-  // BD-2a — even when a template ships an explicit `style` block, we ensure
-  // range-pricing is enabled by default unless the block already says
-  // otherwise. The 2 AS-1c samples that already opt in keep their settings;
-  // the one (window_replacement) that didn't gets the default on.
+  // BD-2a-polish — for templates with an explicit `style:` that DOES NOT
+  // declare `range_mode`, the default now follows the same category-driven
+  // opt-in rule as the derived templates (high-variance categories get range
+  // mode on; commodity / flat-fee categories get it off). Templates that
+  // already set `range_mode` (junk_removal, mold_remediation) keep their
+  // explicit choice — explicit overrides always win.
   let style: AdvStyle;
   if (t.style) {
     style = { ...t.style };
@@ -3174,7 +3225,10 @@ export function toAdvancedConfig(t: TemplateConfig): AdvancedConfigShape {
         ...style,
         resultPanel: {
           ...existingPanel,
-          range_mode: { enabled: true, band_pct: 8 },
+          range_mode: {
+            enabled: shouldDefaultRangeMode(t.category),
+            band_pct: 8,
+          },
         },
       };
     }
