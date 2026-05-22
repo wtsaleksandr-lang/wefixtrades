@@ -191,8 +191,8 @@ export default function PortalSettings() {
 
             {/* Contact info (editable) */}
             <form onSubmit={handleSubmit}>
-              <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
-                <h2 className="text-sm font-semibold text-gray-900">Contact Information</h2>
+              <div className="bg-white rounded-xl border border-gray-200 p-5">
+                <h2 className="text-sm font-semibold text-gray-900 pb-3 mb-3 border-b border-gray-200 dark:border-gray-700">Contact Information</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className={labelClass}>Contact Name</label>
@@ -228,7 +228,7 @@ export default function PortalSettings() {
                     />
                   </div>
                 </div>
-                <div className="flex items-center gap-3 pt-2">
+                <div className="flex items-center gap-3 pt-3 mt-4 border-t border-gray-200 dark:border-gray-700">
                   <button
                     type="submit"
                     disabled={saveMutation.isPending}
@@ -252,8 +252,8 @@ export default function PortalSettings() {
             <LogoSection initialLogoUrl={data.logo_url} labelClass={labelClass} inputClass={inputClass} />
 
             {/* Pause All Automation */}
-            <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
-              <div className="flex items-center gap-2">
+            <div className="bg-white rounded-xl border border-gray-200 p-5">
+              <div className="flex items-center gap-2 pb-3 mb-3 border-b border-gray-200 dark:border-gray-700">
                 <AlertTriangle className="w-4 h-4 text-amber-500" />
                 <h2 className="text-sm font-semibold text-gray-900">Pause All Automation</h2>
               </div>
@@ -272,10 +272,12 @@ export default function PortalSettings() {
                 />
               </div>
               {allPaused && (
-                <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
-                  <p className="text-sm text-amber-800">
-                    All automated content creation and posting is paused. Your existing services remain active but no new content will be generated or published.
-                  </p>
+                <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
+                    <p className="text-sm text-amber-800">
+                      All automated content creation and posting is paused. Your existing services remain active but no new content will be generated or published.
+                    </p>
+                  </div>
                 </div>
               )}
             </div>
@@ -479,18 +481,18 @@ function BrandProfileSection({ inputClass, labelClass }: { inputClass: string; l
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
-      <div className="flex items-center gap-2">
+    <div className="bg-white rounded-xl border border-gray-200 p-5">
+      <div className="flex items-center gap-2 mb-2">
         <Palette className="w-4 h-4 text-[#0d3cfc]" />
         <h2 className="text-sm font-semibold text-gray-900">Brand Voice</h2>
       </div>
-      <p className="text-xs text-gray-500">
+      <p className="text-xs text-gray-500 pb-3 mb-3 border-b border-gray-200 dark:border-gray-700">
         Shape how AI generates content for your business. These preferences guide the tone, style, and focus of articles, social posts, and emails.
       </p>
 
-      <div className="space-y-4">
+      <div className="divide-y divide-gray-200 dark:divide-gray-700">
         {/* Tone selector */}
-        <div>
+        <div className="pb-3">
           <label className={labelClass}>Tone</label>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {TONE_OPTIONS.map((opt) => (
@@ -511,7 +513,7 @@ function BrandProfileSection({ inputClass, labelClass }: { inputClass: string; l
         </div>
 
         {/* Style keywords */}
-        <div>
+        <div className="py-3">
           <label className={labelClass}>Style Keywords</label>
           <p className="text-[10px] text-gray-400 mb-1">
             Words that describe your brand (e.g. "reliable", "family-owned", "modern"). Press Enter or comma to add.
@@ -526,7 +528,7 @@ function BrandProfileSection({ inputClass, labelClass }: { inputClass: string; l
         </div>
 
         {/* Avoid list */}
-        <div>
+        <div className="py-3">
           <label className={labelClass}>Avoid List</label>
           <p className="text-[10px] text-gray-400 mb-1">
             Words or phrases AI should never use in your content.
@@ -541,7 +543,7 @@ function BrandProfileSection({ inputClass, labelClass }: { inputClass: string; l
         </div>
 
         {/* Service focus */}
-        <div>
+        <div className="py-3">
           <label className={labelClass}>Service Focus</label>
           <p className="text-[10px] text-gray-400 mb-1">
             Comma-separated list of your primary services (e.g. "drain cleaning, water heater repair").
@@ -555,7 +557,7 @@ function BrandProfileSection({ inputClass, labelClass }: { inputClass: string; l
         </div>
 
         {/* Location cue */}
-        <div>
+        <div className="pt-3">
           <label className={labelClass}>Location Cue</label>
           <p className="text-[10px] text-gray-400 mb-1">
             Your service area for local SEO (e.g. "Hamilton, Ontario suburbs").
@@ -569,7 +571,7 @@ function BrandProfileSection({ inputClass, labelClass }: { inputClass: string; l
         </div>
       </div>
 
-      <div className="flex items-center gap-3 pt-2">
+      <div className="flex items-center gap-3 pt-3 mt-3 border-t border-gray-200 dark:border-gray-700">
         <button
           type="button"
           onClick={() => brandSaveMutation.mutate()}
@@ -638,12 +640,12 @@ function ChangePasswordSection({ inputClass, labelClass }: { inputClass: string;
 
   return (
     <form onSubmit={handlePwSubmit}>
-      <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
-        <div className="flex items-center gap-2">
+      <div className="bg-white rounded-xl border border-gray-200 p-5">
+        <div className="flex items-center gap-2 pb-3 mb-3 border-b border-gray-200 dark:border-gray-700">
           <KeyRound className="w-4 h-4 text-gray-400" />
           <h2 className="text-sm font-semibold text-gray-900">Change Password</h2>
         </div>
-        <div className="space-y-3">
+        <div className="space-y-[2px]">
           <div>
             <label className={labelClass}>Current Password</label>
             <input
@@ -680,7 +682,7 @@ function ChangePasswordSection({ inputClass, labelClass }: { inputClass: string;
             />
           </div>
         </div>
-        <div className="flex items-center gap-3 pt-2">
+        <div className="flex items-center gap-3 pt-3 mt-3 border-t border-gray-200 dark:border-gray-700">
           <button
             type="submit"
             disabled={pwMutation.isPending || !pw.current || !pw.new_password || !pw.confirm}
@@ -764,8 +766,8 @@ function NotificationPreferencesSection() {
   const noChannelOn = !draft.channels.email && !draft.channels.sms;
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-5">
-      <div className="flex items-center gap-2">
+    <div className="bg-white rounded-xl border border-gray-200 p-5">
+      <div className="flex items-center gap-2 pb-3 mb-4 border-b border-gray-200 dark:border-gray-700">
         <Bell className="w-4 h-4 text-gray-700" />
         <h2 className="text-sm font-semibold text-gray-900">Notifications</h2>
       </div>
@@ -799,7 +801,7 @@ function NotificationPreferencesSection() {
       </div>
 
       {/* Categories */}
-      <div className="border-t border-gray-100 pt-4">
+      <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
         <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">Categories</p>
         <div className="space-y-2">
           {NOTIFICATION_CATEGORY_KEYS.map((key) => {
@@ -826,7 +828,7 @@ function NotificationPreferencesSection() {
 
       {/* Save */}
       {dirty && (
-        <div className="flex items-center gap-3 pt-1 border-t border-gray-100">
+        <div className="flex items-center gap-3 pt-3 mt-4 border-t border-gray-200 dark:border-gray-700">
           <button
             type="button"
             onClick={() => saveMutation.mutate(draft)}
@@ -987,12 +989,12 @@ function LogoSection({
   const busy = saveLogo.isPending || uploadLogo.isPending;
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
-      <div className="flex items-center gap-2">
+    <div className="bg-white rounded-xl border border-gray-200 p-5">
+      <div className="flex items-center gap-2 mb-1">
         <ImageIcon className="w-4 h-4 text-gray-400" />
         <h2 className="text-sm font-semibold text-gray-900">Business Logo</h2>
       </div>
-      <p className="text-xs text-gray-500 -mt-2">
+      <p className="text-xs text-gray-500 pb-3 mb-3 border-b border-gray-200 dark:border-gray-700">
         Used on your portal sidebar and on invoices. Upload an image file, or paste a public URL.
       </p>
 
@@ -1011,9 +1013,9 @@ function LogoSection({
           </div>
         )}
 
-        <div className="flex-1 min-w-0 space-y-3">
+        <div className="flex-1 min-w-0 divide-y divide-gray-200 dark:divide-gray-700">
           {/* Path B — file upload */}
-          <div>
+          <div className="pb-3">
             <label className={labelClass}>Upload a file</label>
             <label
               className={`inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-gray-200 bg-white hover:border-[#0d3cfc]/40 cursor-pointer transition-colors ${
@@ -1040,7 +1042,7 @@ function LogoSection({
           </div>
 
           {/* Path A — paste URL */}
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit} className="pt-3">
             <label className={labelClass}>Or paste a logo URL</label>
             <div className="flex items-center gap-2">
               <input
