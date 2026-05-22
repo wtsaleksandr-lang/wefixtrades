@@ -128,6 +128,14 @@ export default function InfoCue({ text, label = 'More info', testid }: Props) {
         }}
         onClick={(e) => {
           e.preventDefault();
+          // BD-3d Feature 2 — broadcast a help-cue click so the AI chat
+          // bubble can surface a proactive nudge ("Need a hand?"). Dispatched
+          // even on the dismissing second click — the signal is "user is
+          // engaging with help affordances", which is exactly when the
+          // assistant should offer help.
+          if (typeof window !== 'undefined') {
+            try { window.dispatchEvent(new CustomEvent('quotequick:help-cue-clicked')); } catch { /* ignore */ }
+          }
           // Toggle the sticky branch. A second click with the popover open
           // dismisses; the first click pins it open.
           if (stickyRef.current) {

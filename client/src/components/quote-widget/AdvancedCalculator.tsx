@@ -40,6 +40,28 @@ import TrustBlockUnderCTA from './TrustBlockUnderCTA';
 // BD-2c — image-card radio + ZIP peer-anchor + AI chat visibility gate.
 import ImageRadioStep from './ImageRadioStep';
 import PeerAnchorLine from './PeerAnchorLine';
+// BD-3d Feature 1 — sanitize rich HTML before dangerouslySetInnerHTML on the
+// owner-configured heading/footer/title/subtitle copy. Defense-in-depth: the
+// wizard also sanitizes on write, so this is a second pass at render time.
+import { sanitizeRichHtml, richHtmlToPlainText } from '@/components/wizard/elfsight/richTextSanitize';
+
+/**
+ * BD-3d — owner-configured heading/footer/title/subtitle may be rich HTML
+ * (B/I/U, font-size, color, emoji, inline image). Plain strings (the
+ * overwhelming majority of historic configs) are returned untouched; any
+ * payload containing tags goes through the sanitizer and renders via
+ * dangerouslySetInnerHTML. The check is purely textual — anything with `<`
+ * is treated as candidate HTML.
+ */
+function richTextRenderProps(raw: string): { __html?: string; text?: string } {
+  if (!raw) return { text: '' };
+  if (raw.indexOf('<') < 0) return { text: raw };
+  const safe = sanitizeRichHtml(raw);
+  // If sanitization stripped everything to plain text (no tags survived),
+  // emit as text — keeps the DOM identical to the legacy path.
+  if (safe.indexOf('<') < 0) return { text: richHtmlToPlainText(safe) };
+  return { __html: safe };
+}
 
 function DefaultLogoIcon({
   name, accent, radius,
@@ -1305,7 +1327,13 @@ export default function AdvancedCalculator({
                   color={c.accent}
                   strokeWidth={2.25}
                 />
-                {title}
+                {/* BD-3d Feature 1 — title may carry sanitized rich HTML. */}
+                {(() => {
+                  const props = richTextRenderProps(title);
+                  return props.__html
+                    ? <span dangerouslySetInnerHTML={{ __html: props.__html }} />
+                    : <>{props.text}</>;
+                })()}
                 {editableTitle && (
                   <span
                     aria-hidden="true"
@@ -1332,16 +1360,31 @@ export default function AdvancedCalculator({
                 )}
               </p>
             </div>
-            {subtitle && (
-              <p
-                data-testid="advanced-subtitle"
-                data-component-name="Subtitle"
-                data-component-type="subtitle"
-                style={{ fontSize: '13px', color: c.textBody, margin: '5px 0 0', textAlign: align, lineHeight: 1.5 }}
-              >
-                {subtitle}
-              </p>
-            )}
+            {subtitle && (() => {
+              const props = richTextRenderProps(subtitle);
+              const baseStyle = { fontSize: '13px', color: c.textBody, margin: '5px 0 0', textAlign: align, lineHeight: 1.5 } as React.CSSProperties;
+              if (props.__html) {
+                return (
+                  <p
+                    data-testid="advanced-subtitle"
+                    data-component-name="Subtitle"
+                    data-component-type="subtitle"
+                    style={baseStyle}
+                    dangerouslySetInnerHTML={{ __html: props.__html }}
+                  />
+                );
+              }
+              return (
+                <p
+                  data-testid="advanced-subtitle"
+                  data-component-name="Subtitle"
+                  data-component-type="subtitle"
+                  style={baseStyle}
+                >
+                  {props.text}
+                </p>
+              );
+            })()}
           </div>
         );
       })()}
@@ -1573,17 +1616,19 @@ export default function AdvancedCalculator({
               minWidth: 0,
             }}
           >
-            <p
-              data-testid="advanced-result-heading"
-              style={{
-                position: 'relative', zIndex: 1,
+            {(() => {
+              const props = richTextRenderProps(resultHeading);
+              const baseStyle = {
+                position: 'relative' as const, zIndex: 1,
                 fontSize: '11px', fontWeight: 700, color: c.resultMuted,
-                textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0,
+                textTransform: 'uppercase' as const, letterSpacing: '0.06em', margin: 0,
                 lineHeight: 1.3,
-              }}
-            >
-              {resultHeading}
-            </p>
+              };
+              if (props.__html) {
+                return <p data-testid="advanced-result-heading" style={baseStyle} dangerouslySetInnerHTML={{ __html: props.__html }} />;
+              }
+              return <p data-testid="advanced-result-heading" style={baseStyle}>{props.text}</p>;
+            })()}
             {/* BD-2b — when Good/Better/Best tiers are enabled the headline
                 slot is REPLACED by the 3-card tier selector. The breakdown
                 rows below still show the base-tier components so the user
@@ -1707,11 +1752,14 @@ export default function AdvancedCalculator({
               </div>
             )}
 
-            <p style={{
-              fontSize: '11px', color: c.resultMuted, margin: '14px 0 0', lineHeight: 1.5,
-            }}>
-              {footnoteText}
-            </p>
+            {(() => {
+              const props = richTextRenderProps(footnoteText);
+              const baseStyle = { fontSize: '11px', color: c.resultMuted, margin: '14px 0 0', lineHeight: 1.5 };
+              if (props.__html) {
+                return <p style={baseStyle} dangerouslySetInnerHTML={{ __html: props.__html }} />;
+              }
+              return <p style={baseStyle}>{props.text}</p>;
+            })()}
 
             {showCta && !useStepper && (
               // W-AO-6d — `key` is the leadView so React unmounts the
