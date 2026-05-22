@@ -21,6 +21,7 @@ import ProductIndex from "@/pages/product/ProductIndex";
 import MarketingServices from "@/pages/marketing/services";
 import MarketingBundles from "@/pages/marketing/bundles";
 import MarketingTemplates from "@/pages/marketing/templates";
+import MarketingTemplateDetail from "@/pages/marketing/template-detail";
 import MarketingDemo from "@/pages/marketing/demo";
 import MarketingDocs from "@/pages/marketing/docs";
 import MarketingContact from "@/pages/marketing/contact";
@@ -346,6 +347,7 @@ function Router() {
       <Route path="/reset-password" component={ResetPasswordPage} />
       <Route path="/services" component={MarketingServices} />
       <Route path="/bundles">{() => <Redirect to="/pricing" />}</Route>
+      <Route path="/templates/:slug" component={MarketingTemplateDetail} />
       <Route path="/templates" component={MarketingTemplates} />
       <Route path="/resources" component={Resources} />
       <Route path="/design-showcase" component={DesignShowcase} />
