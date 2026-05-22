@@ -3175,6 +3175,104 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     },
   },
 
+  /* ── 46b. Carpet Cleaning Cost (Elfsight replica — template design v2)
+   *
+   * Pixel-to-pixel replica of Elfsight's "Carpet Cleaning Cost Calculator"
+   * with our adaptations: trust badges, sticky result shell, matchingTrades
+   * for the gallery hover modal, and PR #530's design-v2 helpers.
+   *
+   * Visual identity differs from the deep-emerald `cleaning` palette in
+   * `RESULT_CARD_BG` — the reference image uses a soft mint result panel
+   * (`#E8F5E9`) with a dark-green CTA (`#166534`). The cleaning category
+   * accent (`#047857`) still drives the slider fill so the brand link is
+   * preserved. Range mode is intentionally OFF (cleaning quotes are
+   * deterministic per-sqft × per-room).
+   *
+   * Two-column layout (3 input fields ≥ 3, per `recommendColumnLayout`);
+   * single-step flow (3 fields < 4, per `recommendStepperMode`). Result
+   * panel collapses below inputs at ≤768px (renderer-handled). */
+  {
+    id: 'carpet_cleaning_quote', name: 'Carpet Cleaning Cost',
+    description: 'Per-square-foot + per-room cleaning pricing with add-ons. Mint-green result panel, dark-green CTA. Inspired by Elfsight\'s Carpet Cleaning calc with our trust badges + sticky shell.',
+    category: 'Cleaning', trades: ['house_cleaning'],
+    matchingTrades: ['carpet-cleaning', 'residential-cleaning', 'commercial-cleaning', 'janitorial', 'general-cleaning'],
+    trustBadges: [
+      b('Licensed & Insured', 'lock'),
+      b('IICRC Certified', 'check-circle'),
+      b('Eco-Friendly Products', 'leaf'),
+      b('Satisfaction Guaranteed', 'star'),
+    ],
+    layout: 'two-column', theme: 'mint', defaultIcon: 'Sparkles',
+    categoryIcon: 'Sparkles',
+    header: {
+      title: 'Carpet Cleaning Cost Calculator',
+      subtitle: 'Per-room pricing · Eco-friendly products · IICRC-certified technicians',
+      align: 'left',
+    },
+    // Template design v2 — mint-green result panel matches the Elfsight
+    // reference image; deep-emerald `#047857` drives sliders + brand
+    // accents; dark-green `#166534` is the CTA / value-pill colour.
+    // Outer card stays white with 16px outer radius (TEMPLATE_CARD_STYLE).
+    style: {
+      accent: '#047857',        // emerald — slider fill, brand accent
+      secondary: '#A7F3D0',     // emerald-200 chips / ticks
+      background: '#f8fafc',    // slate-50 outer canvas
+      surface: '#ffffff',       // input card bg
+      border: 'rgba(0,0,0,0.06)', // TEMPLATE_CARD_STYLE.hairlineColor
+      text: '#0F172A',          // slate-900 input text
+      resultsBg: '#E8F5E9',     // pastel mint — matches reference (NOT deep emerald)
+      success: '#16a34a',
+      error: '#dc2626',
+      fontFamily: 'jakarta',
+      fieldStyle: 'outline',
+      radius: 12,               // TEMPLATE_CARD_STYLE.innerRadius
+      headingWeight: 700,
+      bodyWeight: 400,
+      fontSize: 'medium',
+      logoPlacement: 'top-left',
+      logoSize: 'medium',
+      bgMode: 'solid',
+      bgImageTint: 0,
+      resultPanel: {
+        accentOverride: '#166534', // dark green — CTA "Book Now" + value pill
+        emphasis: 'bold',
+        border: 'subtle',
+        // range_mode intentionally absent — cleaning quotes are deterministic.
+      },
+      animations: {
+        step_transition: 'fade',
+        duration_ms: 220,
+        reduced_motion_respect: true,
+      },
+    },
+    fields: [
+      { id: 'room_size', name: 'Room Size', label: 'Room Size (sq ft)', type: 'slider',
+        min: 100, max: 500, step: 10, default_value: 250, unit: 'sq ft' },
+      { id: 'rooms', name: 'Number of Rooms', label: 'Number of Rooms', type: 'slider',
+        min: 1, max: 10, step: 1, default_value: 1, unit: 'rooms' },
+      { id: 'extras', name: 'Additional Services', label: 'Additional Services', type: 'multi_select',
+        options: [
+          opt('Stain Removal', 25),
+          opt('Deodorizing', 15),
+          opt('Scotchgard Protection', 40),
+        ] },
+    ],
+    calculations: [
+      // Per the reference: Cost per Room = Room Size × $0.50.
+      // Total = Cost per Room × Rooms + Additional Services.
+      // With defaults (250 sq ft × 1 room) → Cost per Room = $125, Total = $125.
+      calc('Cost per Room', 'ROUND([Room Size] * 0.5, 2)'),
+      calc('Total Cost', '[Cost per Room] * [Number of Rooms] + [Additional Services]'),
+    ],
+    result_calc: 'Total Cost',
+    results: {
+      heading: 'Get Your Carpets Cleaned Now',
+      show_breakdown: true,
+      cta_label: 'Book Now',
+      footnote: 'Experience the best carpet cleaning service at a fair price. Book your appointment today and enjoy a cleaner home.',
+    },
+  },
+
   /* ── 47. Mold Remediation (sample — W-AH-1, styled — W-AS-1) ── */
   {
     id: 'mold_remediation_quote', name: 'Mold Remediation',
