@@ -1191,6 +1191,22 @@ export default function PreviewPane({
           }}
         >
           {device === 'mobile' ? (
+            // P2 UX fix — `qq-canvas-stage` wraps the bezel so the 8 resize
+            // handles can sit OUTSIDE the bezel's `overflow: clip` context.
+            // The bezel keeps `overflow: clip` (required for P0 sticky fix);
+            // handles are siblings of the bezel under this non-clipping
+            // stage, so they remain visible even when the widget is
+            // shrunk to its minimum size.
+            <div
+              className="qq-canvas-stage"
+              style={{
+                position: 'relative',
+                width: widgetSize ? widgetSize.w : DEVICE_PRESET_WIDTH.mobile,
+                maxWidth: widgetSize ? widgetSize.w : DEVICE_PRESET_WIDTH.mobile,
+                height: widgetSize ? widgetSize.h : undefined,
+                flexShrink: 0, margin: '0 auto',
+              }}
+            >
             <div
               ref={(el) => { setBezelRef(el); bezelScaleRef.current = el; bezelMeasureRef.current = el; }}
               data-testid="preview-bezel-mobile"
@@ -1202,11 +1218,10 @@ export default function PreviewPane({
                  * 375 px (DEVICE_PRESET_WIDTH.mobile) when there's no
                  * user-dragged resize override. Fit-to-canvas auto-zoom
                  * scales this to the available pane size. */
-                width: widgetSize ? widgetSize.w : DEVICE_PRESET_WIDTH.mobile,
-                maxWidth: widgetSize ? widgetSize.w : DEVICE_PRESET_WIDTH.mobile,
+                width: '100%',
+                maxWidth: '100%',
                 height: widgetSize ? widgetSize.h : undefined,
                 maxHeight: widgetSize ? widgetSize.h : 780,
-                flexShrink: 0, margin: '0 auto',
                 background: 'linear-gradient(160deg, #1e293b, #0f172a)',
                 borderRadius: 44, padding: '12px 10px', boxSizing: 'border-box',
                 // P0 sticky fix — `clip` not `hidden` so `position: sticky`
@@ -1271,9 +1286,22 @@ export default function PreviewPane({
                   <div ref={headerRegisterRef} data-selected-in-preview="" data-testid="preview-selected-header" style={{ display: 'none' }} />
                 )}
               </div>
-              {resizeHandles}
+            </div>
+            {resizeHandles}
             </div>
           ) : (
+            // P2 UX fix — non-clipping stage wraps the desktop/tablet bezel
+            // so the resize handles survive `overflow: clip` on the bezel.
+            <div
+              className="qq-canvas-stage"
+              style={{
+                position: 'relative',
+                width: widgetSize ? widgetSize.w : DEVICE_PRESET_WIDTH[device],
+                maxWidth: widgetSize ? widgetSize.w : DEVICE_PRESET_WIDTH[device],
+                height: widgetSize ? widgetSize.h : undefined,
+                margin: '0 auto',
+              }}
+            >
             <div
               ref={(el) => { setBezelRef(el); bezelMeasureRef.current = el; }}
               data-testid={`preview-bezel-${device}`}
@@ -1287,11 +1315,10 @@ export default function PreviewPane({
                  * pane width — without the preset the mockup was capped at
                  * 880 px which lost the responsive-breakpoint feel users
                  * expect from Figma / Webflow / Builder.io. */
-                width: widgetSize ? widgetSize.w : DEVICE_PRESET_WIDTH[device],
-                maxWidth: widgetSize ? widgetSize.w : DEVICE_PRESET_WIDTH[device],
+                width: '100%',
+                maxWidth: '100%',
                 height: widgetSize ? widgetSize.h : undefined,
                 maxHeight: widgetSize ? widgetSize.h : 900,
-                margin: '0 auto',
                 // P0 sticky fix — `clip` not `hidden` so `position: sticky`
                 // descendants inside the widget anchor to the page / iframe
                 // scroll container instead of being trapped by this bezel.
@@ -1378,7 +1405,8 @@ export default function PreviewPane({
                   <div ref={headerRegisterRef} data-selected-in-preview="" data-testid="preview-selected-header" style={{ display: 'none' }} />
                 )}
               </div>
-              {resizeHandles}
+            </div>
+            {resizeHandles}
             </div>
           )}
         </div>
@@ -1802,41 +1830,75 @@ function measureDropZones(
     '[data-testid="advanced-calculator"]',
   );
   if (!calc) return [];
-  const fieldNodes = calc.querySelectorAll<HTMLElement>('[data-colspan]');
+  // P2 UX fix — only consider field rows that sit inside the inputs grid
+  // (`[data-component-type="fields-section"]`), NOT every `[data-colspan]`
+  // descendant of the calculator. In `two-column` layouts the result panel
+  // is a sibling column of the fields grid; restricting the scope to the
+  // fields section ensures drop zones can never paint over the result
+  // column area.
+  const fieldsSection =
+    calc.querySelector<HTMLElement>('[data-component-type="fields-section"]') ?? calc;
+  const fieldNodes = fieldsSection.querySelectorAll<HTMLElement>('[data-colspan]');
   if (fieldNodes.length === 0) return [];
   const containerRect = container.getBoundingClientRect();
-  const out: DropZoneBox[] = [];
   const count = Math.min(fieldNodes.length, fieldCount);
-  // First drop zone — above the first field.
-  if (count > 0) {
-    const first = fieldNodes[0].getBoundingClientRect();
-    out.push({
-      index: 0,
-      top: first.top - containerRect.top - 12,
-      left: first.left - containerRect.left,
-      width: first.width,
-    });
-    // Between each adjacent pair.
-    for (let i = 1; i < count; i++) {
-      const prev = fieldNodes[i - 1].getBoundingClientRect();
-      const cur = fieldNodes[i].getBoundingClientRect();
-      const gapMid = (prev.bottom + cur.top) / 2;
-      out.push({
-        index: i,
-        top: gapMid - containerRect.top - 12,
-        left: cur.left - containerRect.left,
-        width: cur.width,
-      });
+  if (count === 0) return [];
+
+  // P2 UX fix — cluster fields into ROWS. Two half-width fields
+  // (`data-colspan="1"`) can sit side-by-side in the same grid row; emitting
+  // a drop zone between them places the "+" mid-row, which paints over the
+  // form columns instead of between rows. Group by `top` proximity (within
+  // a small tolerance) so we only emit zones BETWEEN rows, not WITHIN rows.
+  interface Row { top: number; bottom: number; left: number; right: number; firstIdx: number }
+  const ROW_TOL_PX = 6;
+  const rows: Row[] = [];
+  for (let i = 0; i < count; i++) {
+    const r = fieldNodes[i].getBoundingClientRect();
+    const last = rows[rows.length - 1];
+    if (last && Math.abs(r.top - last.top) <= ROW_TOL_PX) {
+      // Same row — extend bounds (don't bump firstIdx; first field defines
+      // the insertion index BEFORE this row).
+      last.bottom = Math.max(last.bottom, r.bottom);
+      last.left = Math.min(last.left, r.left);
+      last.right = Math.max(last.right, r.right);
+    } else {
+      rows.push({ top: r.top, bottom: r.bottom, left: r.left, right: r.right, firstIdx: i });
     }
-    // After the last field.
-    const last = fieldNodes[count - 1].getBoundingClientRect();
+  }
+
+  const out: DropZoneBox[] = [];
+  // Drop zone ABOVE the first row.
+  const first = rows[0];
+  out.push({
+    index: first.firstIdx,
+    top: first.top - containerRect.top - 12,
+    left: first.left - containerRect.left,
+    width: first.right - first.left,
+  });
+  // BETWEEN each pair of adjacent rows.
+  for (let i = 1; i < rows.length; i++) {
+    const prev = rows[i - 1];
+    const cur = rows[i];
+    const gapMid = (prev.bottom + cur.top) / 2;
+    // Drop zone spans the wider of the two adjacent rows so it reads as a
+    // full-row insertion point regardless of half/full-width columns.
+    const left = Math.min(prev.left, cur.left);
+    const right = Math.max(prev.right, cur.right);
     out.push({
-      index: count,
-      top: last.bottom - containerRect.top - 4,
-      left: last.left - containerRect.left,
-      width: last.width,
+      index: cur.firstIdx,
+      top: gapMid - containerRect.top - 12,
+      left: left - containerRect.left,
+      width: right - left,
     });
   }
+  // Drop zone AFTER the last row.
+  const last = rows[rows.length - 1];
+  out.push({
+    index: count,
+    top: last.bottom - containerRect.top - 4,
+    left: last.left - containerRect.left,
+    width: last.right - last.left,
+  });
   return out;
 }
 
