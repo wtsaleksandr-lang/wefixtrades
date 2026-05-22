@@ -102,8 +102,13 @@ export default function Calculator() {
   }
 
   const aiEmployee = calculator?.calculator_settings?.ai_employee;
+  // BD-2c-fix — previously `!isEmbed` excluded the bubble from the embedded
+  // calculator widget (the most common customer-facing path), so the AI chat
+  // was completely missing from QuickQuote embeds. Removed that gate. The
+  // bubble uses `position: fixed`, so on iframe embeds it anchors to the
+  // iframe viewport; the rescue-mode pill (see AIChatBubble.tsx) keeps it
+  // out of the way until the user asks for help.
   const showChatBubble =
-    !isEmbed &&
     aiEmployee?.enabled === true &&
     (aiEmployee?.subscription_status === 'trial' || aiEmployee?.subscription_status === 'active');
 
