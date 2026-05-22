@@ -42,6 +42,7 @@ import {
 } from '@shared/templatePresets';
 import AIBubble from './AIBubble';
 import EditorTopBar from './EditorTopBar';
+import MobileBottomSheet from './MobileBottomSheet';
 // BH-2 — EditorTabs is no longer rendered as a standalone bar; the tab
 // strip is rendered inline inside EditorTopBar so the top chrome lives on
 // a single horizontal row. The component file is preserved for any future
@@ -907,6 +908,61 @@ export default function WizardShell({ embed = false }: Props) {
     return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   }, []);
 
+  // BH-3 — track mobile breakpoint so the wizard switches between the
+  // desktop side-panel and the bottom-sheet layouts. Updates on resize /
+  // orientation change. SSR-safe: defaults to false so the initial paint
+  // matches the desktop layout (mobile hydration corrects on mount).
+  const [isMobile, setIsMobile] = useState<boolean>(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return false;
+    try { return window.matchMedia('(max-width: 768px)').matches; }
+    catch { return false; }
+  });
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mq = window.matchMedia('(max-width: 768px)');
+    const onChange = (ev: MediaQueryListEvent) => setIsMobile(ev.matches);
+    // Set initial post-mount in case SSR default was wrong.
+    setIsMobile(mq.matches);
+    if (mq.addEventListener) mq.addEventListener('change', onChange);
+    else mq.addListener(onChange);
+    return () => {
+      if (mq.removeEventListener) mq.removeEventListener('change', onChange);
+      else mq.removeListener(onChange);
+    };
+  }, []);
+
+  // BH-3 — Reset-to-default for the currently active tab. Style + Settings
+  // are the tabs with persistent customisations; Build / Install are
+  // structural. Reset wipes the relevant ShellState slice back to defaults.
+  const resetActiveTab = useCallback(() => {
+    setState((s) => {
+      if (activeTab === 'style') {
+        return { ...s, style: { ...DEFAULT_SHELL_STYLE } };
+      }
+      if (activeTab === 'settings') {
+        return {
+          ...s,
+          settings: {
+            ...(INITIAL_SHELL_STATE.settings ?? {}),
+            numberFormat: { ...DEFAULT_SHELL_NUMBER_FORMAT },
+          },
+        };
+      }
+      if (activeTab === 'build') {
+        const layout = s.layout;
+        return {
+          ...s,
+          fields: seedFields(layout),
+          calculations: seedCalculations(layout),
+          header: {},
+          results: {},
+          resultCalcId: undefined,
+        };
+      }
+      return s;
+    });
+  }, [activeTab, setState]);
+
   const handleClose = useCallback(() => {
     // Item (h): paint the exit transition, then navigate.
     if (!embed) setOpenPhase('leaving');
@@ -983,17 +1039,26 @@ export default function WizardShell({ embed = false }: Props) {
               onTogglePreview={togglePreviewCollapsed}
             />
 
+            {/* BH-3 — Tab body content. Same tree on desktop and mobile;
+                 just RELOCATED into the bottom sheet on phones (per the BH-3
+                 hard constraint "don't restructure"). On desktop it lives
+                 inside .qq-editor-left; on mobile we render it inside the
+                 <MobileBottomSheet/> instead, and the left pane is hidden
+                 via CSS so the canvas above takes the full viewport. */}
+            {(() => null)()}
             <div
-              className={`qq-editor-body${previewCollapsed ? ' is-preview-collapsed' : ''}`}
+              className={`qq-editor-body${previewCollapsed ? ' is-preview-collapsed' : ''}${isMobile ? ' is-mobile-sheet' : ''}`}
               data-preview-collapsed={previewCollapsed ? 'true' : 'false'}
+              data-mobile-sheet={isMobile ? 'true' : 'false'}
             >
               <div
                 className="qq-editor-left"
                 data-testid="editor-left-panel"
                 style={{ width: paneWidth }}
+                aria-hidden={isMobile || undefined}
               >
                 <div className="qq-editor-left-inner">
-                  {activeTab === 'build' ? (
+                  {!isMobile && (activeTab === 'build' ? (
                     <BuildTab
                       businessName={state.businessName}
                       onBusinessNameChange={setBusinessName}
@@ -1061,8 +1126,8 @@ export default function WizardShell({ embed = false }: Props) {
                       businessName={state.businessName}
                       onBusinessNameChange={setBusinessName}
                     />
-                  )}
-                  {activeTab === 'build' && (
+                  ))}
+                  {!isMobile && activeTab === 'build' && (
                     <div className="qq-editor-actions">
                       <button
                         type="button"
@@ -1153,6 +1218,83 @@ export default function WizardShell({ embed = false }: Props) {
                 />
               </div>
             </div>
+
+            {/* ── BH-3 — Mobile bottom sheet (≤768px only).
+                 Replaces the desktop left-pane on phones. Hosts the same
+                 tab content components (BuildTab / StyleTab / SettingsTab
+                 / InstallTab) but inside a slide-up sheet with search
+                 across tabs, in-sheet tab strip, sticky Reset/Done footer,
+                 and auto-collapse-on-scroll chrome. Industry pattern:
+                 Notion / Canva / Builder.io / Framer / Figma mobile. */}
+            {isMobile && (
+              <MobileBottomSheet
+                activeTab={activeTab}
+                onTabChange={setActiveTab}
+                onResetTab={resetActiveTab}
+                onDone={() => saveDraftMutation.mutate()}
+                isBusy={saveDraftMutation.isPending}
+              >
+                {activeTab === 'build' ? (
+                  <BuildTab
+                    businessName={state.businessName}
+                    onBusinessNameChange={setBusinessName}
+                    logo={state.logo ?? null}
+                    onLogoChange={setLogo}
+                    fields={state.fields}
+                    onFieldsChange={setFields}
+                    calculations={state.calculations}
+                    onCalculationsChange={setCalculations}
+                    header={state.header ?? {}}
+                    onHeaderChange={setHeader}
+                    results={state.results ?? {}}
+                    onResultsChange={setResults}
+                    activeTemplateId={state.activeTemplateId}
+                    onApplyTemplate={applyTemplate}
+                    steps={state.steps}
+                    onStepsChange={setSteps}
+                  />
+                ) : activeTab === 'style' ? (
+                  <StyleTab
+                    style={state.style ?? { ...DEFAULT_SHELL_STYLE }}
+                    onChange={setStyle}
+                    logo={state.logo ?? null}
+                    onLogoChange={setLogo}
+                    planTier={planTier}
+                    stepLayout={state.stepLayout}
+                    onStepLayoutChange={setStepLayout}
+                    tiered={state.tiered}
+                    onTieredChange={setTiered}
+                    templateCategory={
+                      state.activeTemplateId
+                        ? getTemplatePreset(state.activeTemplateId)?.category
+                        : undefined
+                    }
+                    trustBadges={state.trustBadges}
+                    onTrustBadgesChange={setTrustBadges}
+                  />
+                ) : activeTab === 'settings' ? (
+                  <SettingsTab
+                    settings={state.settings ?? {}}
+                    onChange={setSettings}
+                    planTier={planTier}
+                  />
+                ) : activeTab === 'install' ? (
+                  <InstallTab
+                    settings={state.settings ?? {}}
+                    onChange={setSettings}
+                    businessName={state.businessName}
+                    logoUrl={state.logo}
+                    style={state.style ?? { ...DEFAULT_SHELL_STYLE }}
+                  />
+                ) : (
+                  <TabPlaceholder
+                    tab={activeTab}
+                    businessName={state.businessName}
+                    onBusinessNameChange={setBusinessName}
+                  />
+                )}
+              </MobileBottomSheet>
+            )}
 
             {/* ── W-AO-1: mobile sticky bottom action bar.
                  Fixed to the viewport bottom on `max-width: 768px`, hidden
@@ -1854,6 +1996,58 @@ export default function WizardShell({ embed = false }: Props) {
               .qq-preview-pane {
                 position: static; padding: 12px 8px;
                 border-bottom: 1px solid ${p.colors.border};
+              }
+
+              /* ── BH-3 — mobile bottom-sheet layout overrides ──────────
+               * When the bottom sheet is active (.qq-editor-body.is-mobile-sheet)
+               * the left pane is REPLACED by the sheet, so we hide it entirely
+               * and let the canvas fill the area above the sheet. The W-AO-1
+               * action bar is also hidden because the sheet's sticky footer
+               * carries the primary CTA + Reset action (avoiding two save
+               * surfaces). The canvas pane needs bottom padding to keep the
+               * widget visible when the sheet is collapsed (56px) — and the
+               * scrollable preview still reaches all the way to just above
+               * the sheet handle. */
+              .qq-editor-body.is-mobile-sheet .qq-editor-left {
+                display: none !important;
+              }
+              .qq-editor-body.is-mobile-sheet {
+                /* Sheet is fixed-position — only the canvas stays in flow. */
+                flex-direction: column;
+              }
+              .qq-editor-body.is-mobile-sheet .qq-editor-right {
+                flex: 1 1 auto;
+                order: 0;
+                /* Reserve room for the collapsed sheet at the bottom (handle
+                 * + tab label + safe-area). The sheet z-index is 9998 so it
+                 * paints over this padding when half/full but the canvas
+                 * stays interactive whenever the sheet is collapsed. */
+                padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+                overflow-y: auto;
+              }
+              .qq-editor-body.is-mobile-sheet .qq-preview-pane {
+                /* Drop the bottom hairline — the sheet handle already
+                 * provides the visual separator. */
+                border-bottom: none;
+              }
+              /* W-AO-1 action bar is redundant once the sheet's sticky
+               * footer carries the primary CTA. Hide it whenever the sheet
+               * layout is active. */
+              .qq-editor-body.is-mobile-sheet ~ .qq-mobile-actionbar {
+                display: none !important;
+              }
+              /* AIBubble — ensure it floats above the sheet (z-index 9998).
+               * The bubble itself is z-index 1100 by default; bump above
+               * the sheet on mobile so the assistant remains reachable
+               * even when the sheet is in 'full' state. */
+              .qq-editor-body.is-mobile-sheet ~ .qq-ai-bubble,
+              .qq-editor-body.is-mobile-sheet ~ .qq-ai-panel {
+                z-index: 9999 !important;
+              }
+              /* Bottom-anchor the bubble above the collapsed sheet so it
+               * doesn't sit behind the handle. */
+              .qq-editor-body.is-mobile-sheet ~ .qq-ai-bubble {
+                bottom: calc(72px + env(safe-area-inset-bottom, 0px));
               }
               .qq-preview-stage { max-width: 100%; }
               .qq-preview-pane > .qq-preview-stage > .widget-scope { padding: 0 !important; }
