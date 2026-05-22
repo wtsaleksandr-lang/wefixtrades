@@ -45,7 +45,7 @@ const HL = '#0d3cfc';
 const DIM = '#cbd5e1';
 const DIM_DARK = '#475569';
 
-export default function WidgetSchema({ highlight, width = 240 }: Props) {
+export default function WidgetSchema({ highlight, width = 180 }: Props) {
   // Region fill helper — active region uses the brand blue at full opacity,
   // others fall back to a neutral grey at half opacity. The CSS variable
   // --qq-schema-dim is set per-theme below so dark mode picks #475569.
@@ -60,13 +60,21 @@ export default function WidgetSchema({ highlight, width = 240 }: Props) {
         .qq-info-cue-popover[data-theme="dark"] .qq-widget-schema { --qq-schema-dim: ${DIM_DARK}; }
         .qq-widget-schema svg { display: block; width: 100%; height: auto; }
         .qq-widget-schema-label {
-          margin-top: 6px;
+          margin-top: 4px;
           font-size: 11px;
           font-weight: 600;
           color: #0d3cfc;
           letter-spacing: 0.01em;
         }
         .qq-info-cue-popover[data-theme="dark"] .qq-widget-schema-label { color: #6b8afd; }
+        /* UX fix bundle (2026-05-22) — tighten the popover spacing around the
+           shrunken 180px schema so the diagram doesn't dwarf the helper text.
+           Overrides the BD-3h defaults in index.css with a slightly higher
+           specificity selector. */
+        .qq-info-cue-popover .qq-info-cue-schema-wrap {
+          margin: -2px 0 6px 0;
+          padding-bottom: 6px;
+        }
       `}</style>
       <svg
         viewBox="0 0 280 200"

@@ -31,6 +31,13 @@ interface Props {
   region?: WidgetRegion;
 }
 
+/** UX fix bundle (2026-05-22) — Alex flagged the popover was firing too
+ *  easily on casual mouse-overs. Industry standard is 300–400ms; we go with
+ *  350ms. Only the HOVER branch is delayed — focus and click remain instant
+ *  so keyboard users and explicit tappers don't notice the change. Touch
+ *  devices don't fire hover so they're unaffected. */
+const HOVER_OPEN_DELAY_MS = 350;
+
 export default function InfoCue({ text, label = 'More info', testid, region }: Props) {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
@@ -39,6 +46,16 @@ export default function InfoCue({ text, label = 'More info', testid, region }: P
   // (hover/focus). Sticky opens ignore mouseleave so the popover doesn't
   // vanish under the user the moment they move toward it.
   const stickyRef = useRef(false);
+  // Pending hover-open timer. Cleared if the cursor leaves before the
+  // 350ms threshold elapses.
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clearHoverTimer = useCallback(() => {
+    if (hoverTimerRef.current !== null) {
+      clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
+  }, []);
+  useEffect(() => () => clearHoverTimer(), [clearHoverTimer]);
   const [pos, setPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   const popoverId = useId();
   const tid = testid ? `info-cue-${testid}` : 'info-cue';
@@ -124,8 +141,19 @@ export default function InfoCue({ text, label = 'More info', testid, region }: P
         aria-expanded={open}
         aria-describedby={open ? popoverId : undefined}
         data-testid={tid}
-        onMouseEnter={() => { if (!open) setOpen(true); }}
+        onMouseEnter={() => {
+          if (open) return;
+          // UX fix bundle — defer the open by 350ms so the popover doesn't
+          // fire on casual mouse-overs. Cleared if the cursor leaves first.
+          clearHoverTimer();
+          hoverTimerRef.current = setTimeout(() => {
+            hoverTimerRef.current = null;
+            setOpen(true);
+          }, HOVER_OPEN_DELAY_MS);
+        }}
         onMouseLeave={(e) => {
+          // Always abort a pending hover-open — cursor is gone.
+          clearHoverTimer();
           if (stickyRef.current) return; // click-driven open ignores hover-out
           const rel = e.relatedTarget as Node | null;
           if (rel && popoverRef.current?.contains(rel)) return;
@@ -133,11 +161,14 @@ export default function InfoCue({ text, label = 'More info', testid, region }: P
         }}
         onFocus={() => setOpen(true)}
         onBlur={() => {
+          clearHoverTimer();
           if (stickyRef.current) return;
           setOpen(false);
         }}
         onClick={(e) => {
           e.preventDefault();
+          // Click is an explicit signal — bypass the hover delay entirely.
+          clearHoverTimer();
           // BD-3d Feature 2 — broadcast a help-cue click so the AI chat
           // bubble can surface a proactive nudge ("Need a hand?"). Dispatched
           // even on the dismissing second click — the signal is "user is

@@ -18,7 +18,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Bot, X, Send, Paperclip, Trash2, AlertTriangle, Sparkles } from 'lucide-react';
+import { Bot, X, Send, Paperclip, Trash2, AlertTriangle, Sparkles, Minus } from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
 import CalcAssemblySpinner from '@/components/quote-widget/CalcAssemblySpinner';
 import { applyAiToolCall, type AiToolCall } from './aiToolApplier';
@@ -290,6 +290,12 @@ export default function AIBubble(props: AIBubbleProps) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>(() => loadHistory(conversationId));
   const [input, setInput] = useState('');
+  /** UX fix bundle (2026-05-22) — wizard AIBubble was still using the original
+   *  ~36px single-line textarea even though BD-3c shipped expand-on-click on
+   *  the customer-facing bubble. Mirror the same pattern here so the wizard
+   *  user gets the same comfortable typing area. Default 64px → 120px on
+   *  focus; collapse back on blur when empty. */
+  const [inputFocused, setInputFocused] = useState(false);
   const [pendingImage, setPendingImage] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [streamErr, setStreamErr] = useState<string | null>(null);
@@ -736,6 +742,16 @@ export default function AIBubble(props: AIBubbleProps) {
             <button
               type="button"
               onClick={() => setOpen(false)}
+              className="qq-ai-panel-min"
+              aria-label="Minimize AI assistant"
+              title="Minimize"
+              data-testid="aibubble-minimize"
+            >
+              <Minus className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
               className="qq-ai-panel-close"
               aria-label="Close AI assistant"
               data-testid="aibubble-close"
@@ -932,8 +948,11 @@ export default function AIBubble(props: AIBubbleProps) {
                 />
                 <textarea
                   className="qq-ai-input"
+                  data-expanded={inputFocused || !!input ? 'true' : 'false'}
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
+                  onFocus={() => setInputFocused(true)}
+                  onBlur={() => setInputFocused(false)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault();
@@ -941,7 +960,7 @@ export default function AIBubble(props: AIBubbleProps) {
                     }
                   }}
                   placeholder="Ask the AI to build or change anything…"
-                  rows={1}
+                  rows={3}
                   data-testid="aibubble-input"
                   disabled={sending}
                 />
@@ -1037,11 +1056,13 @@ export default function AIBubble(props: AIBubbleProps) {
           border: 1px solid rgba(15, 23, 42, 0.08);
           padding: 3px 8px; border-radius: 999px;
         }
-        .qq-ai-panel-close {
+        .qq-ai-panel-close,
+        .qq-ai-panel-min {
           background: transparent; border: none; cursor: pointer;
           padding: 4px; border-radius: 6px; color: #475569;
         }
-        .qq-ai-panel-close:hover { background: rgba(15,23,42,0.06); color: #0f172a; }
+        .qq-ai-panel-close:hover,
+        .qq-ai-panel-min:hover { background: rgba(15,23,42,0.06); color: #0f172a; }
 
         .qq-ai-warn {
           display: flex; align-items: center; gap: 6px;
@@ -1281,9 +1302,17 @@ export default function AIBubble(props: AIBubbleProps) {
           padding: 7px 9px; border-radius: 8px;
           border: 1px solid rgba(15,23,42,0.12);
           background: #fff; color: #0f172a;
-          min-height: 32px; max-height: 120px;
+          /* UX fix bundle — wizard input matches BD-3c expand-on-focus
+             pattern. Default ≈ 64px (3 lines), expands to 120px (~6 lines)
+             on focus or when non-empty. Respects prefers-reduced-motion. */
+          height: 64px; max-height: 120px;
+          transition: height 180ms ease-out;
         }
+        .qq-ai-input[data-expanded="true"] { height: 120px; }
         .qq-ai-input:focus { outline: 2px solid rgba(13,60,252,0.35); outline-offset: 0; border-color: #0d3cfc; }
+        @media (prefers-reduced-motion: reduce) {
+          .qq-ai-input { transition: none; }
+        }
         .qq-ai-sendbtn {
           background: #0d3cfc; color: #fff; border: none; cursor: pointer;
           width: 32px; height: 32px; border-radius: 8px;
