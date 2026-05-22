@@ -621,7 +621,7 @@ const groupHeaderStyle = (c: WidgetTheme): React.CSSProperties => ({
  * indicator on iOS Safari + PWA installs.
  */
 function StickyActionBar({
-  theme, fontFamily, calculatorId, microSummary, children, trustBlock,
+  theme, fontFamily, calculatorId, microSummary, children, trustBlock, footerSlot,
 }: {
   theme: WidgetTheme;
   fontFamily: string;
@@ -637,6 +637,13 @@ function StickyActionBar({
    * state stays clean (micro-summary only). Pass `null` / omit to hide.
    */
   trustBlock?: React.ReactNode;
+  /**
+   * BD-3k — optional footer slot rendered at the very bottom of the
+   * expanded sticky bar (below the action row + trust block). Used for
+   * the "Powered by WeFixTrades" badge so it doesn't compete with the
+   * primary CTA. Folded micro-summary stays clean (slot is hidden).
+   */
+  footerSlot?: React.ReactNode;
 }) {
   const storageKey = calculatorId !== undefined
     ? `qq-foot-fold-${calculatorId}` : null;
@@ -752,8 +759,366 @@ function StickyActionBar({
               profile carries the relevant fields. Folded micro-summary stays
               clean. */}
           {trustBlock}
+          {/* BD-3k — optional footer slot ("Powered by WeFixTrades" badge).
+              Centred under the action buttons + trust block so it doesn't
+              compete with the primary CTA. */}
+          {footerSlot}
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * BD-3k — Deposit preview badge + Stripe-style card.
+ *
+ * Renders a small accent-tinted "lock" badge above the action buttons on
+ * the result step. Clicking opens an inline preview card with a fake
+ * credit-card form (visual only — every input is `disabled` and no
+ * payment processing happens). The badge has 8px padding, 1px accent
+ * border, and an accent-tinted background at ~10% opacity.
+ *
+ * Production deposit checkout is owned by a separate Stripe integration
+ * (this component does NOT call any Stripe API or open Stripe Checkout —
+ * the prompt explicitly carves that out as DON'T BUILD HERE territory).
+ */
+function DepositPreviewBadge({
+  amount, label, accent, theme, fontFamily, radiusPx, currencyFormatter,
+}: {
+  amount: number;
+  label: string;
+  accent: string;
+  theme: WidgetTheme;
+  fontFamily: string;
+  /** Border radius — accepts CSS length string (e.g. `'10px'`) or number (px). */
+  radiusPx: number | string;
+  currencyFormatter: (n: number) => string;
+}) {
+  const [open, setOpen] = useState(false);
+  const formattedAmount = currencyFormatter(amount);
+  // Accent-tinted background at ~10% opacity. Hex → rgba conversion is
+  // inline so we don't pull a new helper into the file.
+  const tintBg = hexToRgba(accent, 0.10);
+  return (
+    <div
+      data-testid="advanced-deposit-block"
+      data-component-name="Deposit preview"
+      style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}
+    >
+      <button
+        type="button"
+        data-testid="advanced-deposit-badge"
+        aria-expanded={open}
+        aria-controls="advanced-deposit-card"
+        onClick={() => setOpen((v) => !v)}
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 8,
+          padding: '8px 12px', borderRadius: radiusPx,
+          border: `1px solid ${accent}`, background: tintBg,
+          color: theme.textBody, fontFamily,
+          fontSize: 13, fontWeight: 600, cursor: 'pointer',
+          textAlign: 'left', lineHeight: 1.35,
+          alignSelf: 'flex-start',
+        }}
+      >
+        {/* lucide Lock icon — inline SVG to avoid touching the icon-map
+            import surface. 14px, accent-coloured. */}
+        <svg
+          aria-hidden="true"
+          width={14} height={14} viewBox="0 0 24 24" fill="none"
+          stroke={accent} strokeWidth={2.25}
+          strokeLinecap="round" strokeLinejoin="round"
+          style={{ flexShrink: 0 }}
+        >
+          <rect x="3" y="11" width="18" height="11" rx="2" />
+          <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+        </svg>
+        <span>
+          <span style={{ color: accent, fontWeight: 800 }}>{formattedAmount}</span>{' '}
+          {label} — fully refundable
+        </span>
+      </button>
+      {open && (
+        <div
+          id="advanced-deposit-card"
+          data-testid="advanced-deposit-card"
+          role="region"
+          aria-label="Deposit preview card"
+          style={{
+            borderRadius: radiusPx, background: theme.surface,
+            border: `1px solid ${theme.border}`,
+            padding: 14, display: 'flex', flexDirection: 'column', gap: 10,
+            boxShadow: '0 6px 18px rgba(0,0,0,0.06)',
+            fontFamily,
+          }}
+        >
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            fontSize: 13, color: theme.textBody, fontWeight: 700,
+          }}>
+            <span>Deposit · {formattedAmount}</span>
+            <button
+              type="button"
+              data-testid="advanced-deposit-card-close"
+              aria-label="Close deposit preview"
+              onClick={() => setOpen(false)}
+              style={{
+                background: 'transparent', border: 'none', color: theme.textMuted,
+                fontSize: 18, cursor: 'pointer', lineHeight: 1, padding: 0,
+              }}
+            >
+              ×
+            </button>
+          </div>
+          <input
+            type="text" disabled readOnly value="4242 4242 4242 4242"
+            data-testid="advanced-deposit-card-number"
+            aria-label="Card number (preview only — disabled)"
+            style={{
+              padding: '10px 12px', borderRadius: radiusPx,
+              border: `1px solid ${theme.border}`, background: theme.bg,
+              color: theme.textBody, fontFamily, fontSize: 13,
+              letterSpacing: '0.06em',
+            }}
+          />
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input
+              type="text" disabled readOnly value="12/34"
+              data-testid="advanced-deposit-card-exp"
+              aria-label="Expiry (preview only — disabled)"
+              style={{
+                flex: 1, padding: '10px 12px', borderRadius: radiusPx,
+                border: `1px solid ${theme.border}`, background: theme.bg,
+                color: theme.textBody, fontFamily, fontSize: 13,
+              }}
+            />
+            <input
+              type="text" disabled readOnly value="CVC"
+              data-testid="advanced-deposit-card-cvc"
+              aria-label="CVC (preview only — disabled)"
+              style={{
+                flex: 1, padding: '10px 12px', borderRadius: radiusPx,
+                border: `1px solid ${theme.border}`, background: theme.bg,
+                color: theme.textMuted, fontFamily, fontSize: 13,
+              }}
+            />
+          </div>
+          <p style={{ margin: 0, fontSize: 11, color: theme.textMuted, lineHeight: 1.5 }}>
+            This is a preview — your actual checkout uses Stripe. No money is
+            charged from this card form.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * BD-3k — Online-booking calendar preview.
+ *
+ * Renders a 3-day strip of available appointment slots beneath the price
+ * headline on the result step. Source is one of:
+ *
+ *   - `wefixtrades-default` → built-in mock slots; production wires to
+ *     BB-1's `book_appointment` customer tool. Tapping a slot highlights
+ *     it (purely visual in this preview surface).
+ *   - `cal.com-url` / `calendly-url` → tapping a slot opens the owner-
+ *     supplied scheduler URL in a new tab.
+ *
+ * The grid is 3 columns on desktop and collapses to 1 column on mobile
+ * via a CSS grid auto-fit. All slots are mock data — no real backend
+ * calendar is consulted.
+ */
+function BookingCalendarPreview({
+  source, url, accent, theme, fontFamily, radiusPx,
+}: {
+  source: 'wefixtrades-default' | 'cal.com-url' | 'calendly-url';
+  url: string;
+  accent: string;
+  theme: WidgetTheme;
+  fontFamily: string;
+  /** Border radius — accepts CSS length string (e.g. `'10px'`) or number (px). */
+  radiusPx: number | string;
+}) {
+  const [selected, setSelected] = useState<string | null>(null);
+  // Three calendar days starting "tomorrow". We compute days dynamically
+  // so the preview always shows upcoming dates (vs hard-coded stale dates
+  // in 2026-01). Mock slot times are realistic 9-5 windows with varying
+  // density per day.
+  const days = useMemo(() => {
+    const now = new Date();
+    const out: { id: string; dayLabel: string; dateLabel: string; slots: string[] }[] = [];
+    const slotLayouts = [
+      ['9:00 AM', '10:30 AM', '2:00 PM'],
+      ['9:00 AM', '11:00 AM', '3:30 PM'],
+      ['9:00 AM', '2:00 PM', '4:00 PM'],
+    ];
+    for (let i = 1; i <= 3; i++) {
+      const d = new Date(now.getTime() + i * 24 * 60 * 60 * 1000);
+      const dayLabel = d.toLocaleDateString(undefined, { weekday: 'short' });
+      const dateLabel = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+      out.push({
+        id: d.toISOString().slice(0, 10),
+        dayLabel, dateLabel,
+        slots: slotLayouts[(i - 1) % slotLayouts.length],
+      });
+    }
+    return out;
+  }, []);
+  const isExternal = source === 'cal.com-url' || source === 'calendly-url';
+
+  return (
+    <div
+      data-testid="advanced-booking-block"
+      data-component-name="Booking calendar"
+      data-booking-source={source}
+      style={{
+        marginTop: 16, paddingTop: 14,
+        borderTop: `1px solid ${theme.border}`,
+        display: 'flex', flexDirection: 'column', gap: 10,
+        fontFamily,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        {/* lucide Calendar icon (inline SVG, accent-coloured) */}
+        <svg
+          aria-hidden="true"
+          width={16} height={16} viewBox="0 0 24 24" fill="none"
+          stroke={accent} strokeWidth={2.25}
+          strokeLinecap="round" strokeLinejoin="round"
+        >
+          <rect x="3" y="4" width="18" height="18" rx="2" />
+          <path d="M16 2v4M8 2v4M3 10h18" />
+        </svg>
+        <span style={{
+          fontSize: 13, fontWeight: 700, color: theme.textBody,
+          letterSpacing: '0.01em',
+        }}>
+          Schedule your appointment
+        </span>
+      </div>
+      <div
+        data-testid="advanced-booking-grid"
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+          gap: 8,
+        }}
+      >
+        {days.map((day) => (
+          <div
+            key={day.id}
+            data-testid={`advanced-booking-day-${day.id}`}
+            style={{
+              borderRadius: radiusPx, background: theme.surface,
+              border: `1px solid ${theme.border}`,
+              padding: 10, display: 'flex', flexDirection: 'column', gap: 6,
+              minWidth: 0,
+            }}
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              <span style={{
+                fontSize: 11, fontWeight: 700, color: theme.textMuted,
+                textTransform: 'uppercase', letterSpacing: '0.06em',
+              }}>
+                {day.dayLabel}
+              </span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: theme.textBody }}>
+                {day.dateLabel}
+              </span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {day.slots.map((slot) => {
+                const slotKey = `${day.id}__${slot}`;
+                const isSelected = selected === slotKey;
+                return (
+                  <button
+                    key={slot}
+                    type="button"
+                    data-testid={`advanced-booking-slot-${day.id}-${slot.replace(/[: ]/g, '')}`}
+                    aria-pressed={isSelected}
+                    onClick={() => {
+                      // External scheduler — open the owner-supplied URL
+                      // in a new tab; nothing to "select" inside the widget.
+                      if (isExternal && url) {
+                        try {
+                          window.open(url, '_blank', 'noopener,noreferrer');
+                        } catch {
+                          /* popup blocked / non-browser env — ignore */
+                        }
+                        return;
+                      }
+                      setSelected(isSelected ? null : slotKey);
+                    }}
+                    style={{
+                      padding: '7px 10px', borderRadius: radiusPx,
+                      border: `1px solid ${isSelected ? accent : theme.border}`,
+                      background: isSelected ? hexToRgba(accent, 0.12) : 'transparent',
+                      color: isSelected ? accent : theme.textBody,
+                      fontFamily, fontSize: 12, fontWeight: 600,
+                      cursor: 'pointer', textAlign: 'left',
+                      transition: 'background 120ms ease-out, border-color 120ms ease-out',
+                    }}
+                  >
+                    {slot}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+      {isExternal && url && (
+        <p style={{ margin: 0, fontSize: 11, color: theme.textMuted, lineHeight: 1.5 }}>
+          Slots open your scheduler in a new tab.
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * BD-3k — "Powered by WeFixTrades" footer badge.
+ *
+ * Small text-only badge centred inside the sticky bottom action bar,
+ * directly beneath the action buttons / trust block. Renders a discreet
+ * 10px label that links to the WeFixTrades home page in a new tab.
+ * Free-tier widgets always show this badge (server-side strip prevents
+ * `branding.showPoweredBy = false` from being persisted); Pro+ tiers
+ * can opt out via the StyleTab toggle.
+ */
+function PoweredByWeFixTradesBadge({
+  theme, fontFamily,
+}: {
+  theme: WidgetTheme;
+  fontFamily: string;
+}) {
+  return (
+    <div
+      data-testid="advanced-powered-by"
+      data-component-name="Powered by WeFixTrades"
+      style={{
+        marginTop: 6,
+        display: 'flex', justifyContent: 'center', alignItems: 'center',
+        fontFamily,
+      }}
+    >
+      <a
+        href="https://wefixtrades.com"
+        target="_blank"
+        rel="noopener noreferrer"
+        data-testid="advanced-powered-by-link"
+        style={{
+          fontSize: 10, fontWeight: 600, color: theme.textMuted,
+          letterSpacing: '0.02em',
+          textDecoration: 'none',
+          padding: '2px 4px',
+          borderRadius: 4,
+        }}
+      >
+        Powered by{' '}
+        <span style={{ color: '#0d3cfc' }}>WeFixTrades</span>
+      </a>
     </div>
   );
 }
@@ -817,6 +1182,37 @@ export default function AdvancedCalculator({
     premiumPackEnabled && bsPremiumAnimations?.confetti !== false;
   const premiumCtaPulseOn =
     premiumPackEnabled && bsPremiumAnimations?.ctaPulse !== false;
+
+  // BD-3k — Inline preview surfaces (deposit / online booking / WeFixTrades
+  // branding badge). Deposit + Booking are NOT Pro-gated — they are
+  // owner-facing affordances available on every tier. Branding is gated
+  // server-side via BRAND_STUDIO_STYLE_KEYS so that free-tier patches that
+  // attempt to hide the badge are stripped before persistence; the
+  // renderer below also defensively forces the badge ON for non-Pro tiers.
+  const styleSlot = advanced.style ?? {};
+  const bsDeposit = styleSlot.deposit;
+  const depositEnabled = bsDeposit?.enabled === true;
+  const depositAmount = (() => {
+    const raw = bsDeposit?.amount;
+    if (typeof raw !== 'number' || !Number.isFinite(raw)) return 0;
+    return Math.max(1, Math.min(100000, Math.round(raw)));
+  })();
+  const depositLabelText = (typeof bsDeposit?.label === 'string' && bsDeposit.label.trim() !== '')
+    ? bsDeposit.label
+    : 'Deposit required to schedule';
+
+  const bsBooking = styleSlot.booking;
+  const bookingPreviewEnabled = bsBooking?.enabled === true;
+  const bookingPreviewSource = bsBooking?.source ?? 'wefixtrades-default';
+  const bookingPreviewUrl = (typeof bsBooking?.url === 'string' && bsBooking.url.trim() !== '')
+    ? bsBooking.url.trim() : '';
+
+  // Branding badge — free-tier always shows the badge regardless of
+  // stored value. Pro+ honours the persisted toggle.
+  const bsBranding = styleSlot.branding;
+  const showPoweredByBadge = brandStudioUnlocked
+    ? bsBranding?.showPoweredBy !== false
+    : true;
   const stepTransition: AdvStepTransition = bsAnimations?.step_transition ?? 'none';
   const stepDurationMs = (() => {
     const raw = typeof bsAnimations?.duration_ms === 'number' ? bsAnimations.duration_ms : 250;
@@ -1844,6 +2240,22 @@ export default function AdvancedCalculator({
               </div>
             )}
 
+            {/* ── BD-3k — Online-booking calendar preview ──
+                Renders a 3-day slot picker beneath the price/breakdown
+                block. Mock slots in `wefixtrades-default` mode; external
+                URL modes open Cal.com / Calendly in a new tab on click.
+                Hidden entirely when the StyleTab toggle is off. */}
+            {bookingPreviewEnabled && (
+              <BookingCalendarPreview
+                source={bookingPreviewSource}
+                url={bookingPreviewUrl}
+                accent={accent}
+                theme={c}
+                fontFamily={fontFamily}
+                radiusPx={radiusInnerPx}
+              />
+            )}
+
             {(() => {
               const props = richTextRenderProps(footnoteText);
               const baseStyle = { fontSize: '11px', color: c.resultMuted, margin: '14px 0 0', lineHeight: 1.5 };
@@ -1852,6 +2264,23 @@ export default function AdvancedCalculator({
               }
               return <p style={baseStyle}>{props.text}</p>;
             })()}
+
+            {/* ── BD-3k — Deposit preview badge + Stripe-style card ──
+                Sits above the action buttons (CTA) on the result step
+                so the owner / customer sees the deposit affordance
+                before they commit. Tap to expand a fake card form.
+                Hidden entirely when the StyleTab toggle is off. */}
+            {depositEnabled && depositAmount > 0 && (
+              <DepositPreviewBadge
+                amount={depositAmount}
+                label={depositLabelText}
+                accent={accent}
+                theme={c}
+                fontFamily={fontFamily}
+                radiusPx={radiusInnerPx}
+                currencyFormatter={(n) => formatResult(n, 'currency', advanced.numberFormat)}
+              />
+            )}
 
             {showCta && !useStepper && (
               // W-AO-6d — `key` is the leadView so React unmounts the
@@ -2006,6 +2435,12 @@ export default function AdvancedCalculator({
                 testid="trust-block-sticky"
               />
             }
+            // BD-3k — "Powered by WeFixTrades" badge. Default ON for free
+            // tier (locked via server-side strip + renderer fallback);
+            // Pro+ can opt out via StyleTab → Branding section.
+            footerSlot={showPoweredByBadge
+              ? <PoweredByWeFixTradesBadge theme={c} fontFamily={fontFamily} />
+              : null}
           >
             <StepperControls
               current={stepIdx}

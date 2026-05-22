@@ -2950,6 +2950,35 @@ export interface AdvStyle {
    * use `'rescue'` regardless of stored value (Pro-only toggle).
    */
   aiChatVisibility?: 'rescue' | 'always';
+
+  /**
+   * BD-3k — Deposit-required preview. Optional. When `enabled === true`
+   * the widget result step shows a small accent-tinted badge above the
+   * action buttons ("$X deposit required to schedule"); tapping the badge
+   * opens a Stripe-style preview card (visual only — NEVER charges money
+   * in preview; production deposit checkout is wired through an existing
+   * Stripe flow elsewhere). Absent → no badge, legacy behaviour.
+   */
+  deposit?: AdvDeposit;
+
+  /**
+   * BD-3k — Online-booking calendar preview. Optional. When `enabled === true`
+   * the widget renders a 3-day slot-picker beneath the price headline on the
+   * result step. `source: 'wefixtrades-default'` uses mock slots in-widget
+   * (delegates to BB-1's `book_appointment` customer tool when available);
+   * `'cal.com-url'` / `'calendly-url'` open the external scheduler. Absent →
+   * no calendar, legacy behaviour.
+   */
+  booking?: AdvBooking;
+
+  /**
+   * BD-3k — "Powered by WeFixTrades" footer badge. Optional. Absent →
+   * defaults to ON (badge shown). When `showPoweredBy === false` the
+   * badge is hidden. Free-tier calculators have this locked ON regardless
+   * of stored value (renderer-side defense + server-side strip via
+   * `BRAND_STUDIO_STYLE_KEYS`). Pro+ tiers can toggle freely.
+   */
+  branding?: AdvBranding;
 }
 
 /** W-AO-6c — Brand Studio background mode. */
@@ -3050,6 +3079,53 @@ export interface AdvPremiumAnimations {
 }
 
 /**
+ * BD-3k — Deposit preview. Owner enables a "deposit required to schedule"
+ * affordance in the widget result step. The amount + label are surfaced
+ * as a small accent-tinted badge above the action buttons; tapping the
+ * badge opens a Stripe-style preview card (read-only — production
+ * Stripe Checkout integration is owned elsewhere, this is the visual
+ * surface only).
+ */
+export interface AdvDeposit {
+  /** Master toggle — when false the badge is hidden entirely. */
+  enabled: boolean;
+  /** Deposit amount in USD (whole dollars; clamped 1..100000 at render). */
+  amount: number;
+  /** Override copy for the badge. Default: "Deposit required to schedule". */
+  label?: string;
+}
+
+/**
+ * BD-3k — Online-booking calendar preview. When enabled the widget shows
+ * a 3-day slot-picker beneath the result-step price headline. Three
+ * sources are supported:
+ *   - 'wefixtrades-default' — built-in mock slots; production wires to
+ *     BB-1's `book_appointment` customer tool when available.
+ *   - 'cal.com-url' / 'calendly-url' — owner-supplied external scheduler
+ *     URL opens in a new tab when a slot is tapped.
+ */
+export type AdvBookingSource = 'wefixtrades-default' | 'cal.com-url' | 'calendly-url';
+export interface AdvBooking {
+  /** Master toggle — when false the calendar block is hidden entirely. */
+  enabled: boolean;
+  /** Slot source. Defaults to the built-in mock when absent. */
+  source: AdvBookingSource;
+  /** External scheduler URL — required when source is cal.com / calendly. */
+  url?: string;
+}
+
+/**
+ * BD-3k — WeFixTrades branding badge in the sticky footer. Default is
+ * ON across all tiers; Pro+ can opt out via `showPoweredBy: false`. The
+ * server-side gate (BRAND_STUDIO_STYLE_KEYS) strips free-tier patches
+ * that try to disable the badge, locking it ON for the free tier.
+ */
+export interface AdvBranding {
+  /** When true (default) the footer badge is rendered. */
+  showPoweredBy: boolean;
+}
+
+/**
  * W-AO-6c — list of Brand Studio fields used by the server-side tier
  * gate to strip free-tier patches before persistence. Kept here (not in
  * the route) so the shape stays the source of truth.
@@ -3070,6 +3146,13 @@ export const BRAND_STUDIO_STYLE_KEYS = [
   // BD-3l — Premium Animations Pack (spring, count-up, stagger, CTA pulse,
   // 3D card flip, confetti). Free-tier patches stripped before save.
   'premiumAnimations',
+  // BD-3k — WeFixTrades branding-badge toggle. Free-tier patches that try
+  // to set `branding.showPoweredBy = false` are stripped here so the
+  // badge stays locked ON for the free tier. The deposit + booking
+  // preview features below are NOT Pro-gated — they're owner-facing
+  // surfaces that work for every tier (real-money flows are owned by
+  // separate Stripe / Cal.com integrations).
+  'branding',
 ] as const;
 export type BrandStudioStyleKey = (typeof BRAND_STUDIO_STYLE_KEYS)[number];
 
@@ -3113,7 +3196,12 @@ type AdvStyleOptionalOnly =
   | 'premiumAnimations'
   // BD-2c — AI chat visibility mode. Absent → renderer defaults to
   // 'rescue' (the new BD-0 behaviour). Pro tier can opt back to 'always'.
-  | 'aiChatVisibility';
+  | 'aiChatVisibility'
+  // BD-3k — Inline preview features. All three are opt-in (master toggle
+  // off by default) so absence keeps the widget rendering identically
+  // to pre-BD-3k builds. `branding` is server-side tier-gated;
+  // `deposit` + `booking` are available on every tier.
+  | 'deposit' | 'booking' | 'branding';
 
 export const DEFAULT_ADV_STYLE: Required<Omit<AdvStyle, AdvStyleOptionalOnly>> = {
   accent: '#0d3cfc',
