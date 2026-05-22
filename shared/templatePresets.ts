@@ -3576,13 +3576,38 @@ export interface AdvPremiumAnimations {
  * Stripe Checkout integration is owned elsewhere, this is the visual
  * surface only).
  */
+/**
+ * P2 UX — allowed deposit-badge icon names. Whitelisted set of 10
+ * lucide-react glyphs the wizard offers in its inline icon picker. The
+ * renderer maps each name back to its lucide component; unknown values
+ * fall through to the default `Lock` icon (back-compat with calculators
+ * saved before the picker shipped).
+ */
+export type AdvDepositIconName =
+  | 'Lock'
+  | 'Shield'
+  | 'ShieldCheck'
+  | 'Check'
+  | 'CheckCircle'
+  | 'Calendar'
+  | 'Clock'
+  | 'BadgeCheck'
+  | 'FileCheck'
+  | 'Award';
+
 export interface AdvDeposit {
   /** Master toggle — when false the badge is hidden entirely. */
   enabled: boolean;
-  /** Deposit amount in USD (whole dollars; clamped 1..100000 at render). */
+  /** Deposit amount (whole units of the business-level currency;
+   *  clamped 1..100000 at render). Currency is sourced from
+   *  `numberFormat.currency` (settings-level ISO 4217 code) — the
+   *  field is currency-agnostic at the schema layer. */
   amount: number;
   /** Override copy for the badge. Default: "Deposit required to schedule". */
   label?: string;
+  /** P2 UX — icon glyph rendered to the left of the badge text. Defaults
+   *  to `'Lock'` (the legacy hard-coded icon) when absent. */
+  iconName?: AdvDepositIconName;
 }
 
 /**

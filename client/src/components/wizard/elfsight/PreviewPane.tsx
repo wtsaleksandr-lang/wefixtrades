@@ -2035,7 +2035,10 @@ function PreviewEmptyState({ onAddField }: { onAddField: (publicType: PublicFiel
           top: 70px;
           display: flex; align-items: center; justify-content: center;
           padding: 24px;
-          background: rgba(255,255,255,0.92);
+          /* P2 UX — fully opaque so the empty-state CTA isn't competing
+             with a faded floating estimate / placeholder hint bleeding
+             through from the calculator underneath. */
+          background: #fff;
           pointer-events: none;
         }
         .qq-preview-empty-state-card {

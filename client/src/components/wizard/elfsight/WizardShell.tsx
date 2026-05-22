@@ -440,6 +440,21 @@ export default function WizardShell({ embed = false }: Props) {
   // and the wizard headline copy as well.
   const shellLang = (state.settings?.language ?? 'en');
 
+  // P2 UX — business-level currency symbol. Read from
+  // `settings.numberFormat.currency` (ISO 4217 code) and mapped to a
+  // glyph for use as a wizard label suffix (e.g. "Deposit amount ($)").
+  // Falls back to `$` when unset so legacy calculators don't change
+  // visually. Mirrors `CURRENCY_SYMBOLS` in `AdvancedCalculator.tsx`.
+  const currencySymbol = (() => {
+    const map: Record<string, string> = {
+      USD: '$', CAD: '$', AUD: '$', NZD: '$', SGD: '$', HKD: '$', MXN: '$',
+      EUR: '€', GBP: '£', JPY: '¥', CNY: '¥', CHF: 'CHF',
+      SEK: 'kr', NOK: 'kr', DKK: 'kr', PLN: 'zł', INR: '₹', BRL: 'R$', ZAR: 'R',
+    };
+    const code = (state.settings?.numberFormat?.currency ?? 'USD').toString().toUpperCase();
+    return map[code] ?? '$';
+  })();
+
   // ── Wave I (h): mount/unmount transition state ────────────────────────
   // The modal wrapper paints in `is-entering` → `is-open` for the open
   // animation, and is set to `is-leaving` for ~180ms (snappier on mobile)
@@ -1105,6 +1120,7 @@ export default function WizardShell({ embed = false }: Props) {
                          see the 4 defaults read-only; Pro+ can edit. */
                       trustBadges={state.trustBadges}
                       onTrustBadgesChange={setTrustBadges}
+                      currencySymbol={currencySymbol}
                     />
                   ) : activeTab === 'settings' ? (
                     <SettingsTab
@@ -1271,6 +1287,7 @@ export default function WizardShell({ embed = false }: Props) {
                     }
                     trustBadges={state.trustBadges}
                     onTrustBadgesChange={setTrustBadges}
+                    currencySymbol={currencySymbol}
                   />
                 ) : activeTab === 'settings' ? (
                   <SettingsTab
