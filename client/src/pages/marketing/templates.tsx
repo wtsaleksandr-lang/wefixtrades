@@ -326,7 +326,8 @@ export default function TemplatesPage() {
         {/* Template grid */}
         <div
           id="template-grid"
-          style={{ background: mkt.bg, padding: "56px 28px 96px" }}
+          className="templates-grid-section"
+          style={{ background: mkt.bg, padding: "56px 16px 96px" }}
         >
           <div style={{ maxWidth: 1160, margin: "0 auto" }}>
             <p
@@ -361,8 +362,10 @@ export default function TemplatesPage() {
                 className="templates-grid"
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "repeat(3, 1fr)",
-                  gap: 24,
+                  gridTemplateColumns:
+                    "repeat(auto-fill, minmax(140px, 1fr))",
+                  gap: 12,
+                  justifyContent: "center",
                 }}
               >
                 {filtered.map((template, i) => {
@@ -383,6 +386,10 @@ export default function TemplatesPage() {
                           "0 1px 3px rgba(0,0,0,0.06), 0 4px 18px rgba(0,0,0,0.06)",
                         display: "flex",
                         flexDirection: "column",
+                        width: "100%",
+                        maxWidth: 320,
+                        minWidth: 0,
+                        justifySelf: "center",
                       }}
                     >
                       <TemplateHero template={template} />
@@ -507,8 +514,14 @@ export default function TemplatesPage() {
           </div>
 
           <style>{`
-            @media(max-width:900px){.templates-grid{grid-template-columns:1fr 1fr!important;}}
-            @media(max-width:560px){.templates-grid{grid-template-columns:1fr!important;}}
+            /* Auto-fill grid scales naturally; widen padding + gap on larger viewports */
+            @media(min-width:640px){
+              .templates-grid-section{padding-left:28px!important;padding-right:28px!important;}
+              .templates-grid{gap:16px!important;}
+            }
+            @media(min-width:900px){
+              .templates-grid{gap:24px!important;grid-template-columns:repeat(auto-fill,minmax(220px,1fr))!important;}
+            }
           `}</style>
         </div>
 
