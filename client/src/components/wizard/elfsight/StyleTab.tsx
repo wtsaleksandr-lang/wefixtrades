@@ -3902,6 +3902,10 @@ function TrustBadgesGroup({
                 onChange={(next) => update(i, { label: next })}
                 testid={`style-trust-badge-label-${i}`}
                 compact
+                // P2 UX — trust-badge label sits inside a row of
+                // sibling badge rows; inline expansion pushes them down
+                // instead of overlaying.
+                expansionMode="inline"
               />
               <select
                 className="premium-input"
@@ -4080,6 +4084,10 @@ function ButtonCopyGroup({
                 placeholder={row.placeholder}
                 testid={row.testid}
                 compact
+                // P2 UX — 5 stacked button-copy rows; overlay variant
+                // covers the next row's label when one is being edited.
+                // Inline mode folds the editor down between rows.
+                expansionMode="inline"
               />
             </div>
           ))}

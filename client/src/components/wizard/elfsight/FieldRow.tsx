@@ -273,6 +273,10 @@ export default function FieldRow({
               onChange={(next) => update({ label: next })}
               placeholder="Click to add a heading"
               testid={`field-row-input-label-${field.id}`}
+              // P2 UX — push-down (not overlay) so the expanded editor
+              // doesn't cover the Width toggle / numeric / options rows
+              // that sit directly below this label inside the row body.
+              expansionMode="inline"
             />
           ) : (
             <FloatField label="Label" htmlFor={`field-row-input-label-${field.id}`}>
@@ -821,6 +825,10 @@ function SortableOptionRow({
           placeholder="Label"
           testid={`field-row-option-label-${fieldId}-${i}`}
           compact
+          // P2 UX — the overlay variant covered adjacent option-row
+          // labels; inline mode folds the editor down and pushes the
+          // next options below it instead.
+          expansionMode="inline"
         />
       </div>
       <input
@@ -882,6 +890,10 @@ function SortableOptionRow({
             onChange={(next) => onDescriptionChange(next)}
             placeholder="Optional description — shown beneath the label."
             testid={`field-row-option-description-${fieldId}-${i}`}
+            // P2 UX — same reasoning as the option label: this lives
+            // inside a dense per-option block, so the editor pushes the
+            // next options down rather than overlaying them.
+            expansionMode="inline"
           />
         </div>
       )}
