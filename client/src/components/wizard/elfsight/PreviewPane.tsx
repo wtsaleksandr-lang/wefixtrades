@@ -16,9 +16,20 @@
 //    selection rings + remove (−) icons, AND a "+ Add field" slot at the end
 //    of the inputs list. The slot is itself a droppable target and clicking
 //    it opens the AddFieldMenu (portaled, mobile bottom sheet).
+//
+// BD-3b — wizard drag-move + resize + zoom UX:
+//  - Visible drag handle bar on hover/selection (top-left grip icon + Move
+//    cursor). Grab anywhere along the top 28px of the bezel (excluding form
+//    inputs) starts the move. Snaps to a 24px grid (matches BD-3a canvas).
+//  - 8 resize handles (NW/N/NE/E/SE/S/SW/W) when the widget is selected. Min
+//    280×320, max = canvas width. Shift constrains aspect ratio.
+//  - Floating zoom pill in the bottom-right with +/–/100%/fit. Scroll-to-zoom
+//    with Ctrl/⌘ + wheel; Ctrl/⌘ +/-/0 keyboard shortcuts. Pinch on touch.
+//    25%–200% range. Zoom persists in sessionStorage by calculator id.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDroppable } from '@dnd-kit/core';
+import { GripVertical, ZoomIn, ZoomOut, Maximize2, Minimize2 } from 'lucide-react';
 import QuoteWidget from '@/components/quote-widget/QuoteWidget';
 import HostedPageFrame from '@/components/hosted-page/HostedPageFrame';
 import type { CalculatorData } from '@/components/quote-widget/types';
@@ -82,6 +93,10 @@ interface Props {
    *  preview matches the public hosted page. Defaults to false (bare
    *  widget, the long-standing behaviour). */
   hostedFrame?: boolean;
+  /** BD-3b — session id for zoom persistence. Threaded from WizardShell's
+   *  `activeTemplateId ?? 'draft'`. Zoom stays per-calculator without
+   *  bleeding into widget config (zoom is a per-user-session preference). */
+  sessionId?: string;
 }
 
 function thousandsLiteral(sep: ShellNumberFormat['thousands']): ',' | ' ' | '' {
@@ -97,9 +112,29 @@ function decimalLiteral(sep: ShellNumberFormat['decimal']): '.' | ',' {
  * Persists an (x, y) translate offset of the bezel inside the dotted-grid
  * canvas. Stored per-device so the desktop and mobile placements don't
  * trample each other.
+ *
+ * BD-3b — also persists a per-device size override + a per-session zoom
+ * level. Size is keyed the same way as offset (per-device). Zoom is keyed
+ * by sessionId (calculator id / 'draft') in sessionStorage so it stays
+ * scoped to the current tab + calculator without affecting peer widgets.
  */
 const WIDGET_OFFSET_KEY = 'qq_widget_offset';
+const WIDGET_SIZE_KEY = 'qq_widget_size';
+const WIDGET_ZOOM_KEY = 'qq_widget_zoom';
+const GRID_PX = 24; // matches BD-3a canvas grid
+
 interface WidgetOffset { x: number; y: number }
+interface WidgetSize { w: number; h: number }
+
+const MIN_W = 280;
+const MIN_H = 320;
+const ZOOM_MIN = 0.25;
+const ZOOM_MAX = 2.0;
+const ZOOM_STEP = 0.1;
+
+function snap(n: number, step = GRID_PX): number {
+  return Math.round(n / step) * step;
+}
 
 function loadWidgetOffset(device: PreviewDevice): WidgetOffset {
   try {
@@ -117,11 +152,43 @@ function loadWidgetOffset(device: PreviewDevice): WidgetOffset {
   return { x: 0, y: 0 };
 }
 
+function loadWidgetSize(device: PreviewDevice): WidgetSize | null {
+  try {
+    const raw = localStorage.getItem(`${WIDGET_SIZE_KEY}_${device}`);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (
+        parsed && typeof parsed.w === 'number' && typeof parsed.h === 'number'
+        && Number.isFinite(parsed.w) && Number.isFinite(parsed.h)
+        && parsed.w >= MIN_W && parsed.h >= MIN_H
+      ) {
+        return { w: parsed.w, h: parsed.h };
+      }
+    }
+  } catch {}
+  return null;
+}
+
+function loadZoom(sessionId: string): number {
+  try {
+    const raw = sessionStorage.getItem(`${WIDGET_ZOOM_KEY}_${sessionId}`);
+    if (raw) {
+      const n = Number(raw);
+      if (Number.isFinite(n) && n >= ZOOM_MIN && n <= ZOOM_MAX) return n;
+    }
+  } catch {}
+  return 1.0;
+}
+
+/** Resize handle directions. */
+type HandleDir = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w';
+
 export default function PreviewPane({
   businessName, onBusinessNameChange, logo, layout, device, fields, calculations,
   header, results, resultCalcId, style, settings, stepLayout, tiered, category,
   onRemoveField, onAddField,
   hostedFrame = false,
+  sessionId = 'draft',
 }: Props) {
   const selection = useSelection();
   // Track which field came from the live shell list — only those get the
@@ -130,81 +197,315 @@ export default function PreviewPane({
   const shellFields = fields ?? [];
 
   // Wave AC-2 — drag entire widget within canvas. Offset is per-device,
-  // persisted to localStorage. Pointer events on the dotted canvas area
-  // initiate the drag; setPointerCapture keeps the drag continuous even if
-  // the cursor exits the pane. Movement is bounded to keep the bezel from
-  // escaping the canvas viewport.
+  // persisted to localStorage. BD-3b — initiates via a top-bar drag handle
+  // on the bezel itself (not the surrounding canvas), so the gesture is
+  // discoverable. Form inputs inside the widget remain interactive.
   const paneRef = useRef<HTMLDivElement | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
   const [widgetOffset, setWidgetOffset] = useState<WidgetOffset>(() => loadWidgetOffset(device));
-  // Reload offset when the user toggles device — placement is independent.
+  // BD-3b — explicit widget size override (null = natural / bezel default).
+  const [widgetSize, setWidgetSize] = useState<WidgetSize | null>(() => loadWidgetSize(device));
+  // BD-3b — selection state for the bezel itself. True when the user has
+  // clicked the widget chrome (drag handle or empty space) — surfaces the
+  // resize handles. Cleared by clicking the canvas background.
+  const [widgetSelected, setWidgetSelected] = useState(false);
+  // BD-3b — zoom level (0.25 .. 2.0). Persisted to sessionStorage.
+  const [zoom, setZoom] = useState<number>(() => loadZoom(sessionId));
+
+  // Reload per-device state when the user toggles device — placement, size,
+  // and zoom (zoom is session-wide so it doesn't reset).
   useEffect(() => {
     setWidgetOffset(loadWidgetOffset(device));
+    setWidgetSize(loadWidgetSize(device));
   }, [device]);
+
+  // Persist zoom whenever it changes.
+  useEffect(() => {
+    try { sessionStorage.setItem(`${WIDGET_ZOOM_KEY}_${sessionId}`, String(zoom)); } catch {}
+  }, [zoom, sessionId]);
+
+  // ── Drag state ────────────────────────────────────────────────────────
   const dragStateRef = useRef<{
     startX: number; startY: number; baseX: number; baseY: number; pointerId: number;
   } | null>(null);
-  const onCanvasPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    // Only start drag when the user is pressing the canvas chrome itself
-    // (not the bezel or anything inside it). The bezel's onClick handler
-    // owns selection / inline-editing inside the widget.
+
+  /**
+   * BD-3b — start a widget drag from the top-bar handle. The handle covers
+   * the top 28px of the bezel; this fires for any pointer-down on that
+   * strip that isn't on a form control. Pointer capture is attached to the
+   * handle element so the drag survives the cursor leaving the canvas.
+   */
+  const onHandlePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    // Honour form-control rule: never start a drag from inside an input.
     const target = e.target as HTMLElement;
-    if (target.closest('[data-testid^="preview-bezel"]')) return;
-    if (target.closest('button, input, select, textarea, a, label, [role="slider"]')) return;
+    if (target.closest('input, select, textarea, button, label, a, [contenteditable]')) return;
     if (e.button !== 0 && e.pointerType === 'mouse') return;
-    const pane = paneRef.current;
-    if (!pane) return;
-    pane.setPointerCapture(e.pointerId);
+    e.preventDefault();
+    e.stopPropagation();
+    const handle = e.currentTarget;
+    handle.setPointerCapture(e.pointerId);
     dragStateRef.current = {
       startX: e.clientX, startY: e.clientY,
       baseX: widgetOffset.x, baseY: widgetOffset.y,
       pointerId: e.pointerId,
     };
-    pane.dataset.dragging = '1';
+    if (paneRef.current) paneRef.current.dataset.dragging = '1';
+    setWidgetSelected(true);
   }, [widgetOffset.x, widgetOffset.y]);
-  const onCanvasPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+
+  const onHandlePointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     const st = dragStateRef.current;
     if (!st || st.pointerId !== e.pointerId) return;
     const pane = paneRef.current;
     const stage = stageRef.current;
     if (!pane || !stage) return;
-    const dx = e.clientX - st.startX;
-    const dy = e.clientY - st.startY;
-    // Bound so the bezel stays at least 80px visible on every edge of the
-    // pane viewport.
+    // Coords need to be divided by the zoom factor — at scale(0.5) one CSS
+    // pixel of mouse movement equals 2 stage pixels, etc.
+    const dx = (e.clientX - st.startX) / zoom;
+    const dy = (e.clientY - st.startY) / zoom;
     const paneRect = pane.getBoundingClientRect();
     const stageRect = stage.getBoundingClientRect();
     const VISIBLE_MIN = 80;
-    // Stage's natural (untranslated) position is stageRect - currentOffset.
-    const naturalLeft = stageRect.left - widgetOffset.x;
-    const naturalTop = stageRect.top - widgetOffset.y;
-    const minDx = paneRect.left + VISIBLE_MIN - (naturalLeft + stageRect.width);
-    const maxDx = paneRect.right - VISIBLE_MIN - naturalLeft;
-    const minDy = paneRect.top + VISIBLE_MIN - (naturalTop + stageRect.height);
-    const maxDy = paneRect.bottom - VISIBLE_MIN - naturalTop;
-    const nextX = Math.max(minDx, Math.min(maxDx, st.baseX + dx));
-    const nextY = Math.max(minDy, Math.min(maxDy, st.baseY + dy));
-    setWidgetOffset({ x: nextX, y: nextY });
-  }, [widgetOffset.x, widgetOffset.y]);
-  const onCanvasPointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const naturalLeft = stageRect.left - widgetOffset.x * zoom;
+    const naturalTop = stageRect.top - widgetOffset.y * zoom;
+    const minDx = (paneRect.left + VISIBLE_MIN - (naturalLeft + stageRect.width)) / zoom;
+    const maxDx = (paneRect.right - VISIBLE_MIN - naturalLeft) / zoom;
+    const minDy = (paneRect.top + VISIBLE_MIN - (naturalTop + stageRect.height)) / zoom;
+    const maxDy = (paneRect.bottom - VISIBLE_MIN - naturalTop) / zoom;
+    const rawX = Math.max(minDx, Math.min(maxDx, st.baseX + dx));
+    const rawY = Math.max(minDy, Math.min(maxDy, st.baseY + dy));
+    // Snap to 24px grid (matches BD-3a square grid background).
+    setWidgetOffset({ x: snap(rawX), y: snap(rawY) });
+  }, [widgetOffset.x, widgetOffset.y, zoom]);
+
+  const onHandlePointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     const st = dragStateRef.current;
     if (!st || st.pointerId !== e.pointerId) return;
-    const pane = paneRef.current;
-    if (pane) {
-      try { pane.releasePointerCapture(e.pointerId); } catch {}
-      delete pane.dataset.dragging;
-    }
+    const handle = e.currentTarget;
+    try { handle.releasePointerCapture(e.pointerId); } catch {}
+    if (paneRef.current) delete paneRef.current.dataset.dragging;
     dragStateRef.current = null;
-    // Persist on release. Skip when the offset hasn't actually moved (a
-    // single click on the canvas shouldn't clobber a remembered placement).
     try {
       localStorage.setItem(`${WIDGET_OFFSET_KEY}_${device}`, JSON.stringify(widgetOffset));
     } catch {}
   }, [device, widgetOffset]);
+
   const resetWidgetOffset = useCallback(() => {
     setWidgetOffset({ x: 0, y: 0 });
-    try { localStorage.removeItem(`${WIDGET_OFFSET_KEY}_${device}`); } catch {}
+    setWidgetSize(null);
+    try {
+      localStorage.removeItem(`${WIDGET_OFFSET_KEY}_${device}`);
+      localStorage.removeItem(`${WIDGET_SIZE_KEY}_${device}`);
+    } catch {}
   }, [device]);
+
+  // ── Resize state ─────────────────────────────────────────────────────
+  const resizeStateRef = useRef<{
+    dir: HandleDir;
+    startX: number; startY: number;
+    baseW: number; baseH: number;
+    baseOffsetX: number; baseOffsetY: number;
+    aspect: number;
+    pointerId: number;
+  } | null>(null);
+
+  const beginResize = useCallback((dir: HandleDir) => (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
+    e.preventDefault();
+    e.stopPropagation();
+    const stage = stageRef.current;
+    const bezel = stage?.querySelector<HTMLElement>('[data-testid^="preview-bezel"]');
+    if (!bezel) return;
+    const rect = bezel.getBoundingClientRect();
+    const baseW = widgetSize?.w ?? rect.width / zoom;
+    const baseH = widgetSize?.h ?? rect.height / zoom;
+    const handle = e.currentTarget;
+    handle.setPointerCapture(e.pointerId);
+    resizeStateRef.current = {
+      dir,
+      startX: e.clientX, startY: e.clientY,
+      baseW, baseH,
+      baseOffsetX: widgetOffset.x, baseOffsetY: widgetOffset.y,
+      aspect: baseW / baseH,
+      pointerId: e.pointerId,
+    };
+    setWidgetSelected(true);
+  }, [widgetOffset.x, widgetOffset.y, widgetSize, zoom]);
+
+  const onResizePointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const st = resizeStateRef.current;
+    if (!st || st.pointerId !== e.pointerId) return;
+    const pane = paneRef.current;
+    if (!pane) return;
+    const dx = (e.clientX - st.startX) / zoom;
+    const dy = (e.clientY - st.startY) / zoom;
+    const paneRect = pane.getBoundingClientRect();
+    const maxW = paneRect.width / zoom;
+    let w = st.baseW;
+    let h = st.baseH;
+    let ox = st.baseOffsetX;
+    let oy = st.baseOffsetY;
+
+    // Each direction adjusts width/height (and possibly offset, for north/west
+    // anchors) independently.
+    if (st.dir.includes('e')) w = st.baseW + dx;
+    if (st.dir.includes('w')) { w = st.baseW - dx; ox = st.baseOffsetX + dx; }
+    if (st.dir.includes('s')) h = st.baseH + dy;
+    if (st.dir.includes('n')) { h = st.baseH - dy; oy = st.baseOffsetY + dy; }
+
+    // Shift = preserve aspect ratio (Photoshop-style).
+    if (e.shiftKey) {
+      const fromW = Math.abs(w - st.baseW) >= Math.abs(h - st.baseH);
+      if (fromW) {
+        const newH = w / st.aspect;
+        if (st.dir.includes('n')) oy = st.baseOffsetY + (h - newH);
+        h = newH;
+      } else {
+        const newW = h * st.aspect;
+        if (st.dir.includes('w')) ox = st.baseOffsetX + (w - newW);
+        w = newW;
+      }
+    }
+
+    // Clamp to min/max bounds.
+    w = Math.max(MIN_W, Math.min(maxW, w));
+    h = Math.max(MIN_H, h);
+
+    // Snap to grid for cleaner placement.
+    w = snap(w);
+    h = snap(h);
+    ox = snap(ox);
+    oy = snap(oy);
+
+    setWidgetSize({ w, h });
+    setWidgetOffset({ x: ox, y: oy });
+  }, [zoom]);
+
+  const onResizePointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const st = resizeStateRef.current;
+    if (!st || st.pointerId !== e.pointerId) return;
+    const handle = e.currentTarget;
+    try { handle.releasePointerCapture(e.pointerId); } catch {}
+    resizeStateRef.current = null;
+    try {
+      if (widgetSize) {
+        localStorage.setItem(`${WIDGET_SIZE_KEY}_${device}`, JSON.stringify(widgetSize));
+      }
+      localStorage.setItem(`${WIDGET_OFFSET_KEY}_${device}`, JSON.stringify(widgetOffset));
+    } catch {}
+  }, [device, widgetSize, widgetOffset]);
+
+  // ── Zoom controls ────────────────────────────────────────────────────
+  const clampZoom = useCallback((n: number) => {
+    return Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, Math.round(n * 100) / 100));
+  }, []);
+  const zoomIn = useCallback(() => setZoom((z) => clampZoom(z + ZOOM_STEP)), [clampZoom]);
+  const zoomOut = useCallback(() => setZoom((z) => clampZoom(z - ZOOM_STEP)), [clampZoom]);
+  const zoomReset = useCallback(() => setZoom(1.0), []);
+  const zoomFit = useCallback(() => {
+    const pane = paneRef.current;
+    const stage = stageRef.current;
+    if (!pane || !stage) { setZoom(1.0); return; }
+    // Reset zoom temporarily to measure natural size.
+    const wasZoom = zoom;
+    stage.style.transform = `translate(${widgetOffset.x}px, ${widgetOffset.y}px)`;
+    const stageRect = stage.getBoundingClientRect();
+    const paneRect = pane.getBoundingClientRect();
+    const naturalW = stageRect.width / wasZoom;
+    const naturalH = stageRect.height / wasZoom;
+    // Pad 48px breathing room on each side.
+    const fitW = (paneRect.width - 96) / naturalW;
+    const fitH = (paneRect.height - 96) / naturalH;
+    setZoom(clampZoom(Math.min(fitW, fitH)));
+  }, [zoom, widgetOffset.x, widgetOffset.y, clampZoom]);
+
+  // Ctrl/⌘ + wheel = zoom (anchored at cursor). Without modifier, scroll
+  // passes through to the pane. Pinch on Mac trackpads fires wheel with
+  // ctrlKey: true automatically.
+  useEffect(() => {
+    const pane = paneRef.current;
+    if (!pane) return;
+    const onWheel = (e: WheelEvent) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      e.preventDefault();
+      const delta = e.deltaY;
+      setZoom((z) => clampZoom(z - Math.sign(delta) * ZOOM_STEP));
+    };
+    pane.addEventListener('wheel', onWheel, { passive: false });
+    return () => pane.removeEventListener('wheel', onWheel);
+  }, [clampZoom]);
+
+  // Ctrl/⌘ +/-/0 keyboard shortcuts. Skip when typing in an input so we
+  // don't fight native browser zoom inside text fields.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as Element | null;
+      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) return;
+      if (target instanceof HTMLElement && target.isContentEditable) return;
+      const meta = e.ctrlKey || e.metaKey;
+      if (!meta) return;
+      // The pane needs to actually be visible for these to apply — guard by
+      // checking that the pane is in the DOM.
+      if (!paneRef.current) return;
+      if (e.key === '=' || e.key === '+') {
+        e.preventDefault();
+        zoomIn();
+      } else if (e.key === '-' || e.key === '_') {
+        e.preventDefault();
+        zoomOut();
+      } else if (e.key === '0') {
+        e.preventDefault();
+        zoomReset();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [zoomIn, zoomOut, zoomReset]);
+
+  // Pinch-to-zoom on touch devices. Tracks two-finger distance.
+  useEffect(() => {
+    const pane = paneRef.current;
+    if (!pane) return;
+    let pinchStartDist = 0;
+    let pinchStartZoom = 1;
+    const dist = (a: Touch, b: Touch) =>
+      Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        pinchStartDist = dist(e.touches[0], e.touches[1]);
+        pinchStartZoom = zoom;
+      }
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      if (e.touches.length !== 2 || pinchStartDist === 0) return;
+      e.preventDefault();
+      const d = dist(e.touches[0], e.touches[1]);
+      const ratio = d / pinchStartDist;
+      setZoom(clampZoom(pinchStartZoom * ratio));
+    };
+    const onTouchEnd = (e: TouchEvent) => {
+      if (e.touches.length < 2) pinchStartDist = 0;
+    };
+    pane.addEventListener('touchstart', onTouchStart, { passive: true });
+    pane.addEventListener('touchmove', onTouchMove, { passive: false });
+    pane.addEventListener('touchend', onTouchEnd, { passive: true });
+    return () => {
+      pane.removeEventListener('touchstart', onTouchStart);
+      pane.removeEventListener('touchmove', onTouchMove);
+      pane.removeEventListener('touchend', onTouchEnd);
+    };
+  }, [zoom, clampZoom]);
+
+  // Background click — deselect the widget so resize handles go away.
+  const onPaneBackgroundPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement;
+    if (target.closest('[data-testid^="preview-bezel"]')) return;
+    if (target.closest('.qq-widget-drag-handle')) return;
+    if (target.closest('.qq-widget-resize-handle')) return;
+    if (target.closest('.qq-zoom-toolbar')) return;
+    if (target.closest('.qq-preview-reset-pos')) return;
+    setWidgetSelected(false);
+  }, []);
 
   const previewCalculatorData = useMemo<CalculatorData>(() => {
     const advanced = buildBlankPreviewConfig(layout, businessName);
@@ -243,16 +544,9 @@ export default function PreviewPane({
         style: { ...(merged.style ?? {}), ...style },
       };
     }
-    // BD-2a — owner override for the multi-step renderer. Threads from the
-    // Style tab toggle through the preview into AdvancedCalculator's
-    // `stepLayout` prop. Absent → renderer's default ('stepper').
     if (stepLayout) {
       merged = { ...merged, stepLayout };
     }
-    // BD-2b — Good/Better/Best tier override + derived category + business
-    // profile. Threads from the StyleTab toggle / SettingsTab profile fields
-    // through the preview into AdvancedCalculator. Each slot is undefined-safe
-    // so a half-filled profile still renders cleanly.
     if (tiered) {
       merged = { ...merged, tiered };
     }
@@ -285,10 +579,6 @@ export default function PreviewPane({
       business_name: businessName || 'Your Business',
       ...(logo ? { logo_url: logo } : {}),
       primary_color: p.colors.accent,
-      // W-AO-6c — preview always renders as Pro so every tier can SEE what
-      // Brand Studio looks like with their controls. The server-side strip
-      // (Wave Q-D pattern, extended in calculatorRoutes.ts) decides whether
-      // the persisted version actually keeps those fields.
       plan_tier: 'pro',
       pricing_config: { pricingType: 'hourly', unitName: 'hour', rate: 75, baseFee: 50 },
       calculator_settings: {
@@ -326,27 +616,12 @@ export default function PreviewPane({
   // Header and results regions overlay over the AdvancedCalculator. They're
   // identified by data-testid="advanced-title" and the result-panel container.
   // We attach click handlers via event delegation on the bezel.
-  //
-  // Wave L E4 + B1 — also handles field-level selection now that the
-  // PreviewOverlay's per-field wrapper is pointer-events:none. The
-  // closest('input,…') bail-out keeps real controls (sliders, checkboxes,
-  // dropdowns) interactive. The field-level fallback walks up to the matching
-  // [data-colspan] node and looks up its index against the rendered field
-  // boxes from PreviewOverlay (via the data-preview-field-id attribute).
   const onBezelClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
     const controlMatch = target.closest(
       'input, select, button, textarea, label, a, [role="slider"], [role="radio"], [role="checkbox"], [role="option"]',
     );
 
-    // BD-3a fix 4 — Dropdown (`<select>`) clicks used to bail here, which
-    // meant clicking the dropdown on the canvas never updated the left-pane
-    // selection (every other field type did). We now resolve the parent
-    // [data-colspan] cell FIRST and set selection before letting the native
-    // dropdown open. Slider/checkbox/radio/etc. interactions still bypass
-    // selection because their click is meaningful inside the widget; the
-    // dropdown is the only case where the user genuinely wants to jump
-    // between left-pane row and on-canvas rendering.
     if (controlMatch) {
       const isDropdown = controlMatch.tagName === 'SELECT';
       if (isDropdown) {
@@ -361,9 +636,10 @@ export default function PreviewPane({
           }
         }
       }
-      // Let the native control open / focus normally.
       return;
     }
+    // Bezel chrome click also selects the widget so resize handles surface.
+    setWidgetSelected(true);
     // Results region — anywhere inside the result panel.
     const resultBlock = target.closest('[data-testid="advanced-result-panel"]')
       || target.closest('[data-testid="advanced-result"]')
@@ -376,14 +652,10 @@ export default function PreviewPane({
     const headerBlock = target.closest('[data-testid="advanced-title"]')?.closest('div');
     if (headerBlock) {
       selection.select({ kind: 'header', id: '__header' });
-      // Wave L E5 — clicking the title block ALSO opens the inline editor.
-      // The Build-tab business-name field stays the canonical source; this
-      // is just a second affordance for the same value.
       openTitleEditor();
       return;
     }
-    // Field region. Find the [data-colspan] cell and map its index to the
-    // matching shell field id.
+    // Field region.
     const fieldCell = target.closest('[data-colspan]') as HTMLElement | null;
     if (fieldCell && fieldCell.parentElement) {
       const cells = Array.from(fieldCell.parentElement.querySelectorAll<HTMLElement>('[data-colspan]'));
@@ -394,14 +666,7 @@ export default function PreviewPane({
     }
   };
 
-  // Wave L M1 — auto-zoom-out on mobile so the whole mockup fits without
-  // the user needing to scroll inside the bezel. We measure the natural
-  // height of the calculator inside the bezel and apply CSS transform:
-  // scale(...) clamped 0.6-1.0 on the mockup container.
-  //
-  // Critically: pinch-zoom must still work. We only set `transform` on the
-  // bezel container, NOT `touch-action: none` — native pinch on iOS/Android
-  // remains operational because no listeners block pointer events.
+  // Wave L M1 — auto-zoom-out on mobile so the whole mockup fits.
   const bezelScaleRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     if (device !== 'mobile') {
@@ -413,13 +678,10 @@ export default function PreviewPane({
     const calc = () => {
       const wrap = bezelScaleRef.current;
       if (!wrap) return;
-      // Available area is roughly the wrapping pane height; we read the
-      // closest qq-editor-right (or fallback to viewport innerHeight).
       const pane = wrap.closest('.qq-editor-right') as HTMLElement | null
         || wrap.parentElement;
       if (!pane) return;
-      const available = pane.clientHeight - 32; // breathing room
-      // Reset transform first so naturalHeight is measured correctly.
+      const available = pane.clientHeight - 32;
       wrap.style.transform = '';
       const natural = wrap.scrollHeight;
       if (natural <= 0 || available <= 0) return;
@@ -444,13 +706,6 @@ export default function PreviewPane({
   }, [device, fields, calculations]);
 
   // Wave L E5 — editable preview header title.
-  //
-  // State + box drives an absolutely-positioned <input> overlay that paints
-  // ON TOP of the static `<p data-testid="advanced-title">` rendered by
-  // AdvancedCalculator. Clicking the title (via bezel delegation) opens the
-  // editor; blur or Enter commits the value to `businessName` via the
-  // two-way bind. Empty values are allowed — the title gracefully falls
-  // back to the placeholder while editing.
   const [titleEditing, setTitleEditing] = useState(false);
   const [titleBox, setTitleBox] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
@@ -486,28 +741,14 @@ export default function PreviewPane({
     setTimeout(() => { titleInputRef.current?.focus(); titleInputRef.current?.select(); }, 0);
   }, [onBusinessNameChange, measureTitle]);
 
-  // Wave L E3 — swipe-to-delete on mobile. Listen for touchstart on the
-  // overlay host; if the user swipes > 80px horizontally (either direction)
-  // on a field cell, remove that field and show an undo toast.
-  //
-  // No new deps: pure pointer/touch events on the host element. The drag
-  // gesture from @dnd-kit is on the LEFT-PANE field rows (and the add-field
-  // menu), not here, so there's no conflict.
+  // Wave L E3 — swipe-to-delete on mobile.
   const [undo, setUndo] = useState<null | { field: TemplateField; index: number }>(null);
   const undoTimerRef = useRef<number | null>(null);
   const onUndo = useCallback(() => {
     if (!undo) return;
-    // Re-insert the field at its original position. We have to read the
-    // current fields list at click time so the splice respects any other
-    // changes that happened during the undo window.
     const u = undo;
     setUndo(null);
     if (undoTimerRef.current) { window.clearTimeout(undoTimerRef.current); undoTimerRef.current = null; }
-    // Re-insert via onAddField is not possible (it only appends). The parent
-    // doesn't expose a generic setFields, but the field deletion happened via
-    // the same `onRemoveField` path the shell uses. For the undo we use a
-    // direct DOM-bypass: we synthesise a `qq-undo-restore` custom event and
-    // let WizardShell listen for it via window.
     const ev = new CustomEvent('qq-undo-restore-field', {
       detail: { field: u.field, index: u.index },
     });
@@ -527,8 +768,6 @@ export default function PreviewPane({
       if (e.touches.length !== 1) return;
       const t = e.touches[0];
       const target = (e.target as HTMLElement);
-      // Don't start swipe-tracking on interactive controls — leaves native
-      // slider drag / button taps unaffected.
       if (target.closest('input, button, a, label, select, textarea, [role="slider"]')) return;
       const cell = target.closest('[data-colspan]') as HTMLElement | null;
       if (!cell || !cell.parentElement) return;
@@ -536,7 +775,6 @@ export default function PreviewPane({
       startX = t.clientX;
       startY = t.clientY;
       trackingId = t.identifier;
-      // Subtle visual cue: outline the cell while tracking.
       cell.dataset.swipeTracking = '1';
     };
     const onTouchMove = (e: TouchEvent) => {
@@ -545,13 +783,11 @@ export default function PreviewPane({
       if (!t) return;
       const dx = t.clientX - startX;
       const dy = t.clientY - startY;
-      // Cancel if mostly vertical — let scroll happen.
       if (Math.abs(dy) > Math.abs(dx)) {
         if (startCell) delete startCell.dataset.swipeTracking;
         startCell = null;
         return;
       }
-      // Visually pull the cell with the finger (capped at 100px).
       const offset = Math.max(-100, Math.min(100, dx));
       startCell.style.transform = `translateX(${offset}px)`;
       startCell.style.opacity = String(1 - Math.min(Math.abs(offset) / 160, 0.5));
@@ -573,16 +809,13 @@ export default function PreviewPane({
       const idx = cells.indexOf(startCell);
       if (Math.abs(dx) >= SWIPE_PX && idx >= 0 && idx < shellFields.length) {
         const field = shellFields[idx];
-        // Visual: slide out the rest of the way.
         startCell.style.transform = `translateX(${dx > 0 ? 400 : -400}px)`;
         startCell.style.opacity = '0';
         setUndo({ field, index: idx });
         if (undoTimerRef.current) window.clearTimeout(undoTimerRef.current);
         undoTimerRef.current = window.setTimeout(() => setUndo(null), 4000);
-        // Defer the actual removal so the slide-out paints.
         window.setTimeout(() => onRemoveField(field.id), 160);
       } else {
-        // Snap back.
         startCell.style.transform = '';
         startCell.style.opacity = '';
       }
@@ -602,14 +835,9 @@ export default function PreviewPane({
     };
   }, [shellFields, onRemoveField]);
 
-  // Wave R-pre C — when the Install tab previews the hosted page, skip
-  // the wizard's device-bezel chrome entirely. The HostedPageFrame already
-  // provides background + optional headline + centered widget card, so
-  // wrapping that in a phone shell / browser shell creates a 5-6 level
-  // nested-card pattern (Alex called this out as "very weird layered
-  // system"). On Install we render HostedPageFrame as the direct preview
-  // child; on Build/Style/Settings the bezel chrome stays so the user can
-  // still see the bare-widget shape inside a phone / desktop frame.
+  // Hosted-frame path — unchanged from before, drag/resize/zoom not applied
+  // because the hosted preview shows the full marketing page, not a single
+  // grabbable widget. The user is checking what the hosted page looks like.
   if (hostedFrame) {
     return (
       <div
@@ -642,7 +870,6 @@ export default function PreviewPane({
         </div>
         <style>{`
           .qq-preview-pane--hosted {
-            /* No bezel, no chrome — let HostedPageFrame own the look. */
             background: transparent;
             padding: 0;
             overflow: hidden;
@@ -653,9 +880,6 @@ export default function PreviewPane({
             flex: 1; min-height: 0;
             overflow: auto;
             position: relative;
-            /* Constrain to the canonical mobile width when device=mobile so
-               the user can confirm what a phone visitor sees, without the
-               heavy phone-shell graphic. */
           }
           .qq-preview-hosted-scroll[data-device="mobile"] > .qq-hosted-frame {
             max-width: 390px;
@@ -669,22 +893,58 @@ export default function PreviewPane({
     );
   }
 
+  // BD-3b — render the resize handles around the bezel. Eight handles total.
+  const HANDLE_DIRS: HandleDir[] = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
+  const resizeHandles = widgetSelected ? (
+    <>
+      {HANDLE_DIRS.map((dir) => (
+        <div
+          key={dir}
+          className={`qq-widget-resize-handle qq-widget-resize-handle--${dir}`}
+          data-testid={`preview-resize-handle-${dir}`}
+          onPointerDown={beginResize(dir)}
+          onPointerMove={onResizePointerMove}
+          onPointerUp={onResizePointerUp}
+          onPointerCancel={onResizePointerUp}
+          role="separator"
+          aria-label={`Resize ${dir.toUpperCase()}`}
+        />
+      ))}
+    </>
+  ) : null;
+
+  // BD-3b — top-bar drag handle. Sits absolutely positioned at the top of
+  // the bezel; visible on hover or when the widget is selected.
+  const dragHandle = (
+    <div
+      className={`qq-widget-drag-handle${widgetSelected ? ' is-selected' : ''}`}
+      data-testid="preview-drag-handle"
+      onPointerDown={onHandlePointerDown}
+      onPointerMove={onHandlePointerMove}
+      onPointerUp={onHandlePointerUp}
+      onPointerCancel={onHandlePointerUp}
+      role="button"
+      aria-label="Move widget"
+      tabIndex={0}
+    >
+      <GripVertical size={14} aria-hidden="true" />
+      <span className="qq-widget-drag-handle-label">Drag to move</span>
+    </div>
+  );
+
   return (
     <div
-      className="qq-preview-pane"
+      className={`qq-preview-pane${widgetSelected ? ' is-widget-selected' : ''}`}
       data-testid="editor-preview-pane"
       ref={paneRef}
-      onPointerDown={onCanvasPointerDown}
-      onPointerMove={onCanvasPointerMove}
-      onPointerUp={onCanvasPointerUp}
-      onPointerCancel={onCanvasPointerUp}
+      onPointerDown={onPaneBackgroundPointerDown}
     >
-      {(widgetOffset.x !== 0 || widgetOffset.y !== 0) && (
+      {(widgetOffset.x !== 0 || widgetOffset.y !== 0 || widgetSize) && (
         <button
           type="button"
           className="qq-preview-reset-pos"
           data-testid="preview-reset-widget-position"
-          aria-label="Reset widget position"
+          aria-label="Reset widget position and size"
           onClick={resetWidgetOffset}
         >
           Reset position
@@ -695,8 +955,9 @@ export default function PreviewPane({
         ref={stageRef}
         data-testid="preview-stage"
         style={{
-          transform: `translate(${widgetOffset.x}px, ${widgetOffset.y}px)`,
-          transition: dragStateRef.current ? 'none' : 'transform 120ms ease-out',
+          transform: `translate(${widgetOffset.x}px, ${widgetOffset.y}px) scale(${zoom})`,
+          transformOrigin: '0 0',
+          transition: dragStateRef.current || resizeStateRef.current ? 'none' : 'transform 120ms ease-out',
         }}
       >
         <div
@@ -710,17 +971,22 @@ export default function PreviewPane({
             <div
               ref={(el) => { setBezelRef(el); bezelScaleRef.current = el; }}
               data-testid="preview-bezel-mobile"
-              className={`qq-bezel qq-bezel--mobile${isOver ? ' is-drop-target' : ''}`}
+              className={`qq-bezel qq-bezel--mobile${isOver ? ' is-drop-target' : ''}${widgetSelected ? ' is-selected' : ''}`}
               onClick={onBezelClick}
               style={{
                 position: 'relative',
-                width: '100%', maxWidth: 390, maxHeight: 780, flexShrink: 0, margin: '0 auto',
+                width: widgetSize ? widgetSize.w : '100%',
+                maxWidth: widgetSize ? widgetSize.w : 390,
+                height: widgetSize ? widgetSize.h : undefined,
+                maxHeight: widgetSize ? widgetSize.h : 780,
+                flexShrink: 0, margin: '0 auto',
                 background: 'linear-gradient(160deg, #1e293b, #0f172a)',
                 borderRadius: 44, padding: '12px 10px', boxSizing: 'border-box',
                 overflow: 'hidden', display: 'flex', flexDirection: 'column',
                 boxShadow: '0 22px 48px rgba(15,23,42,0.30), inset 0 0 0 1px rgba(255,255,255,0.06)',
               }}
             >
+              {dragHandle}
               <div style={{ height: 5, width: 42, borderRadius: 3, background: 'rgba(255,255,255,0.22)', margin: '0 auto 9px', flexShrink: 0 }} />
               <div ref={overlayHostRef} style={{ borderRadius: 34, overflow: 'auto', background: '#fff', flex: 1, position: 'relative' }}>
                 {hostedFrame ? (
@@ -774,25 +1040,28 @@ export default function PreviewPane({
                   <div ref={headerRegisterRef} data-selected-in-preview="" data-testid="preview-selected-header" style={{ display: 'none' }} />
                 )}
               </div>
+              {resizeHandles}
             </div>
           ) : (
             <div
               ref={setBezelRef}
               data-testid="preview-bezel-desktop"
-              className={`qq-bezel qq-bezel--desktop${isOver ? ' is-drop-target' : ''}`}
+              className={`qq-bezel qq-bezel--desktop${isOver ? ' is-drop-target' : ''}${widgetSelected ? ' is-selected' : ''}`}
               onClick={onBezelClick}
               style={{
                 position: 'relative',
-                /* Wave AA — desktop preview bezel +22% taller (640 → 780) so
-                   the widget gets vertical room to breathe and the canvas
-                   feels intentionally desktop-sized rather than crammed. */
-                width: '100%', maxWidth: 880, maxHeight: 900, margin: '0 auto',
+                width: widgetSize ? widgetSize.w : '100%',
+                maxWidth: widgetSize ? widgetSize.w : 880,
+                height: widgetSize ? widgetSize.h : undefined,
+                maxHeight: widgetSize ? widgetSize.h : 900,
+                margin: '0 auto',
                 borderRadius: 16, overflow: 'hidden', background: '#fff',
                 border: `1px solid ${p.colors.borderLight}`,
                 display: 'flex', flexDirection: 'column',
                 boxShadow: '0 20px 48px rgba(15,23,42,0.16), 0 2px 8px rgba(15,23,42,0.06)',
               }}
             >
+              {dragHandle}
               <div
                 className="qq-bezel-chrome"
                 style={{
@@ -868,12 +1137,68 @@ export default function PreviewPane({
                   <div ref={headerRegisterRef} data-selected-in-preview="" data-testid="preview-selected-header" style={{ display: 'none' }} />
                 )}
               </div>
+              {resizeHandles}
             </div>
           )}
         </div>
       </div>
-      {/* Wave L E3 — swipe-to-delete undo toast. Fixed-position so it floats
-       * over the preview without disturbing layout; auto-dismisses after 4s. */}
+
+      {/* BD-3b — zoom toolbar (bottom-right floating pill). Buttons + label.
+       *  Doesn't enter the undo stack — zoom is a per-session preference. */}
+      <div className="qq-zoom-toolbar" data-testid="preview-zoom-toolbar" role="toolbar" aria-label="Zoom controls">
+        <button
+          type="button"
+          className="qq-zoom-btn"
+          onClick={zoomOut}
+          data-testid="preview-zoom-out"
+          aria-label="Zoom out"
+          disabled={zoom <= ZOOM_MIN + 0.001}
+        >
+          <ZoomOut size={14} aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          className="qq-zoom-label"
+          onClick={zoomReset}
+          data-testid="preview-zoom-reset"
+          aria-label="Reset zoom to 100%"
+          title="Reset zoom"
+        >
+          {Math.round(zoom * 100)}%
+        </button>
+        <button
+          type="button"
+          className="qq-zoom-btn"
+          onClick={zoomIn}
+          data-testid="preview-zoom-in"
+          aria-label="Zoom in"
+          disabled={zoom >= ZOOM_MAX - 0.001}
+        >
+          <ZoomIn size={14} aria-hidden="true" />
+        </button>
+        <span className="qq-zoom-sep" aria-hidden="true" />
+        <button
+          type="button"
+          className="qq-zoom-btn"
+          onClick={zoomFit}
+          data-testid="preview-zoom-fit"
+          aria-label="Fit to screen"
+          title="Fit to screen"
+        >
+          <Maximize2 size={14} aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          className="qq-zoom-btn"
+          onClick={zoomReset}
+          data-testid="preview-zoom-100"
+          aria-label="Actual size (100%)"
+          title="Actual size"
+        >
+          <Minimize2 size={14} aria-hidden="true" />
+        </button>
+      </div>
+
       {undo && (
         <div
           className="qq-preview-undo-toast"
@@ -895,18 +1220,136 @@ export default function PreviewPane({
           outline: 3px dashed ${p.colors.accent};
           outline-offset: -3px;
         }
-        /* Wave AC-2 — canvas drag affordance. The pane is the pointer
-         * source; press-and-drag on the dotted area moves the bezel. The
-         * cursor cue helps users discover it. The bezel itself keeps its
-         * default cursor since its own interactions (click, inline edit,
-         * field decorators) are unchanged. */
+        /* BD-3b — canvas no longer hosts the drag gesture. The grab cursor
+         * was the source of confusion (users couldn't find the handle).
+         * Cursor stays default; the bezel's drag handle bar carries the
+         * affordance. */
         .qq-preview-pane {
           position: relative;
-          cursor: grab;
+          cursor: default;
+          touch-action: pan-x pan-y;
         }
         .qq-preview-pane[data-dragging="1"] { cursor: grabbing; }
         .qq-preview-pane .qq-preview-stage { cursor: auto; }
         .qq-preview-pane [data-testid^="preview-bezel"] { cursor: auto; }
+
+        /* BD-3b — selected widget gets a subtle accent outline so the
+         * resize handles read as a coordinated tool. */
+        .qq-bezel.is-selected {
+          outline: 2px solid ${p.colors.accent};
+          outline-offset: 2px;
+        }
+
+        /* BD-3b — drag handle bar at the top of the widget. Always present
+         * but faded; full opacity on hover or when selected. Sits above
+         * everything inside the bezel via z-index. */
+        .qq-widget-drag-handle {
+          position: absolute;
+          top: 0; left: 0; right: 0;
+          height: 28px;
+          z-index: 8;
+          display: flex; align-items: center; gap: 5px;
+          padding: 0 10px;
+          background: linear-gradient(180deg, rgba(13,60,252,0.0), rgba(13,60,252,0.0));
+          color: #fff;
+          font-size: 11px; font-weight: 700; letter-spacing: 0.02em;
+          cursor: grab;
+          opacity: 0;
+          transition: opacity 0.12s ease, background 0.12s ease;
+          user-select: none;
+          touch-action: none;
+        }
+        .qq-bezel:hover .qq-widget-drag-handle,
+        .qq-widget-drag-handle.is-selected,
+        .qq-widget-drag-handle:focus-visible {
+          opacity: 1;
+          background: linear-gradient(180deg, rgba(13,60,252,0.85), rgba(13,60,252,0.55));
+        }
+        .qq-widget-drag-handle:active { cursor: grabbing; }
+        .qq-widget-drag-handle-label {
+          font-size: 11px;
+        }
+        /* Desktop bezel has a 9px-padding chrome row; the drag handle floats
+         * on top but the user can still click the macOS dots and URL bar
+         * because the handle only fires when the pointer presses outside
+         * those control elements (pointer-events still allow clicks on
+         * inputs/buttons because they sit behind opacity:0 only when not
+         * hovered, and we gate handle pointerdown on the target check). */
+
+        /* BD-3b — resize handles. Eight per selected widget, 12×12px hit
+         * area with an 8×8 visual square centred on the corner/edge. */
+        .qq-widget-resize-handle {
+          position: absolute;
+          width: 14px; height: 14px;
+          background: #fff;
+          border: 2px solid ${p.colors.accent};
+          border-radius: 3px;
+          z-index: 9;
+          touch-action: none;
+          box-shadow: 0 1px 3px rgba(15,23,42,0.22);
+        }
+        .qq-widget-resize-handle:hover {
+          background: ${p.colors.accentLighter};
+        }
+        .qq-widget-resize-handle--nw { top: -7px;    left: -7px;    cursor: nw-resize; }
+        .qq-widget-resize-handle--n  { top: -7px;    left: 50%;     transform: translateX(-50%); cursor: n-resize; }
+        .qq-widget-resize-handle--ne { top: -7px;    right: -7px;   cursor: ne-resize; }
+        .qq-widget-resize-handle--e  { top: 50%;     right: -7px;   transform: translateY(-50%); cursor: e-resize; }
+        .qq-widget-resize-handle--se { bottom: -7px; right: -7px;   cursor: se-resize; }
+        .qq-widget-resize-handle--s  { bottom: -7px; left: 50%;     transform: translateX(-50%); cursor: s-resize; }
+        .qq-widget-resize-handle--sw { bottom: -7px; left: -7px;    cursor: sw-resize; }
+        .qq-widget-resize-handle--w  { top: 50%;     left: -7px;    transform: translateY(-50%); cursor: w-resize; }
+
+        /* BD-3b — zoom toolbar pill, bottom-right of the canvas. Floats
+         * above the widget stage but doesn't move with the stage transform. */
+        .qq-zoom-toolbar {
+          position: absolute;
+          bottom: 14px; right: 14px;
+          z-index: 10;
+          display: inline-flex; align-items: center; gap: 2px;
+          padding: 4px 6px;
+          background: rgba(255,255,255,0.96);
+          border: 1px solid ${p.colors.border};
+          border-radius: 999px;
+          box-shadow: 0 6px 20px rgba(15,23,42,0.14);
+          backdrop-filter: blur(6px);
+          -webkit-backdrop-filter: blur(6px);
+        }
+        .qq-zoom-btn {
+          display: inline-flex; align-items: center; justify-content: center;
+          width: 28px; height: 28px;
+          background: transparent; border: none; border-radius: 999px;
+          color: ${p.colors.heading}; cursor: pointer;
+          padding: 0;
+          transition: background 0.12s ease, color 0.12s ease;
+        }
+        .qq-zoom-btn:hover:not(:disabled) {
+          background: ${p.colors.accentLighter};
+          color: ${p.colors.accent};
+        }
+        .qq-zoom-btn:disabled {
+          opacity: 0.4;
+          cursor: not-allowed;
+        }
+        .qq-zoom-label {
+          font: inherit; cursor: pointer;
+          font-size: 12px; font-weight: 700;
+          min-width: 44px; padding: 0 8px;
+          height: 28px;
+          background: transparent; border: none; border-radius: 999px;
+          color: ${p.colors.heading};
+          transition: background 0.12s ease;
+        }
+        .qq-zoom-label:hover {
+          background: ${p.colors.accentLighter};
+          color: ${p.colors.accent};
+        }
+        .qq-zoom-sep {
+          width: 1px; height: 18px;
+          background: ${p.colors.borderLight};
+          margin: 0 4px;
+        }
+
         .qq-preview-reset-pos {
           position: absolute;
           top: 10px; right: 12px;
@@ -971,6 +1414,18 @@ export default function PreviewPane({
           from { opacity: 0; transform: translate(-50%, 6px); }
           to   { opacity: 1; transform: translate(-50%, 0); }
         }
+        @media (prefers-reduced-motion: reduce) {
+          .qq-widget-drag-handle,
+          .qq-zoom-btn,
+          .qq-zoom-label,
+          .qq-preview-undo-toast {
+            transition: none !important;
+            animation: none !important;
+          }
+          .qq-preview-stage {
+            transition: none !important;
+          }
+        }
       `}</style>
     </div>
   );
@@ -1006,7 +1461,6 @@ function PreviewEmptyState({ onAddField }: { onAddField: (publicType: PublicFiel
         .qq-preview-empty-state {
           position: absolute;
           left: 0; right: 0; bottom: 0;
-          /* Sit below the title bar (~62px) so the heading is still visible. */
           top: 70px;
           display: flex; align-items: center; justify-content: center;
           padding: 24px;
