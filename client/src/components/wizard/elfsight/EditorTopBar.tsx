@@ -1,4 +1,11 @@
-// EditorTopBar — Elfsight-clone editor top bar (Wave H1 → BH-2 → BH-5).
+// EditorTopBar — Elfsight-clone editor top bar (Wave H1 → BH-2 → BH-5 →
+// P2 chrome-fixes 2026-05-22).
+//
+// P2 UX (2026-05-22) — Tabs relocated to a NEW BOTTOM navbar
+// (EditorBottomBar.tsx). The top bar no longer renders the tab strip;
+// at narrow widths the top chrome's tools used to crowd the tabs out of
+// view. Splitting into three zones (top / canvas / bottom) gives every
+// surface room to breathe.
 //
 // BH-5 — Undo/Redo moved to the right cluster, adjacent to the device
 // preset switcher, and the active-tab pill now uses solid brand blue with
@@ -6,25 +13,26 @@
 //
 // Layout (left→right):
 //
-//   brand · | · tabs · spacer · saved · undo · redo · | · device · |
-//   · theme · help · fold · close
+//   brand · | · spacer · saved · undo · redo · | · device · launcher ·
+//   | · theme · help · fold · close
 //
-// Below 1024px the brand drops its wordmark (icon only) and the tab strip
-// scrolls horizontally inside a clipped flex region. Device / undo-redo /
-// save / theme / close stay visible at all widths >= 480px. The phone
-// breakpoint (<= 480px) still hides the device preset switcher (BH-1) since
-// the user editing on a phone IS on a phone — undo/redo collapse with it.
+// Below 1024px the brand drops its wordmark (icon only). Device /
+// undo-redo / save / theme / close stay visible at all widths >= 480px.
+// The phone breakpoint (<= 480px) still hides the device preset switcher
+// (BH-1) since the user editing on a phone IS on a phone — undo/redo
+// collapse with it.
 //
 // Brand styling only — no Elfsight colours. Accent comes from platformTheme.
-// All testids stable: quotequick-close, preview-device-desktop, preview-device-mobile,
-// editor-tab-*, editor-fold-toggle, editor-theme-toggle, editor-undo, editor-redo.
+// All testids stable: quotequick-close, preview-device-desktop,
+// preview-device-mobile, editor-floating-launcher-toggle, editor-fold-toggle,
+// editor-theme-toggle, editor-undo, editor-redo.
 
 import {
-  HelpCircle, MessageSquare, Monitor, Moon, PanelRightClose, PanelRightOpen,
+  HelpCircle, Minimize2, Monitor, Moon, PanelRightClose, PanelRightOpen,
   Redo2, Smartphone, Sun, Tablet, Undo2, X,
 } from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
-import { EDITOR_TABS, type EditorTab, type EditorTheme, type PreviewDevice } from './types';
+import { type EditorTheme, type PreviewDevice } from './types';
 
 const p = platformTheme;
 
@@ -43,10 +51,6 @@ interface Props {
   canRedo?: boolean;
   onUndo?: () => void;
   onRedo?: () => void;
-  /** BH-2 — tab state, lifted in from WizardShell so the tabs sit on the
-   *  same row as the rest of the chrome. */
-  activeTab: EditorTab;
-  onTabChange: (tab: EditorTab) => void;
   /** BH-2 — preview fold/unfold (formerly on the standalone tab bar). */
   previewCollapsed?: boolean;
   onTogglePreview?: () => void;
@@ -63,7 +67,6 @@ export default function EditorTopBar({
   editorTheme, onEditorThemeChange,
   onHelp, onClose,
   canUndo = false, canRedo = false, onUndo, onRedo,
-  activeTab, onTabChange,
   previewCollapsed = false, onTogglePreview,
   floatingLauncherPreview = false, onToggleFloatingLauncherPreview,
 }: Props) {
@@ -88,36 +91,10 @@ export default function EditorTopBar({
 
       <span className="qq-editor-divider" aria-hidden="true" />
 
-      {/* BH-2 — tabs inline. Wraps in its own flex container that scrolls
-       *  horizontally on narrow widths so the rest of the bar stays
-       *  reachable; the surrounding chrome never scrolls. */}
-      <div
-        className="qq-editor-tabstrip"
-        role="tablist"
-        aria-label="Editor sections"
-        data-testid="editor-tabs"
-      >
-        {EDITOR_TABS.map(({ id, label }) => {
-          const isActive = id === activeTab;
-          return (
-            <button
-              key={id}
-              type="button"
-              role="tab"
-              aria-selected={isActive}
-              data-testid={`editor-tab-${id}`}
-              className={`qq-editor-tab${isActive ? ' is-active' : ''}`}
-              onClick={() => onTabChange(id)}
-              style={{
-                color: isActive ? '#ffffff' : p.colors.muted,
-                background: isActive ? p.colors.accent : 'transparent',
-              }}
-            >
-              {label}
-            </button>
-          );
-        })}
-      </div>
+      {/* P2 UX (2026-05-22) — tabs MOVED OUT of the top chrome and into
+       *  the new EditorBottomBar (rendered as a sticky-bottom strip in
+       *  WizardShell). The top bar previously hosted them inline which
+       *  crowded the device / launcher / save cluster at narrow widths. */}
 
       <div className="qq-editor-spacer" aria-hidden="true" />
 
@@ -218,9 +195,9 @@ export default function EditorTopBar({
           aria-label={floatingLauncherPreview
             ? 'Exit floating launcher preview'
             : 'Preview as floating launcher'}
-          title="Preview as floating launcher (closes the widget into a tiny bubble that visitors click to expand)"
+          title="Preview as floating launcher — see how visitors will see your calculator when minimized to a corner bubble"
         >
-          <MessageSquare style={{ width: 16, height: 16 }} aria-hidden="true" />
+          <Minimize2 style={{ width: 16, height: 16 }} aria-hidden="true" />
           <span className="qq-editor-launcher-toggle-label">Floating</span>
         </button>
       )}
