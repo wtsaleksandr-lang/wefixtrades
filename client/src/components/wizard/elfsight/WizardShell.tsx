@@ -54,6 +54,7 @@ import { SelectionProvider } from './selection';
 import { useEditorDndSensors, DND_CONTAINERS } from './dnd';
 import {
   INITIAL_SHELL_STATE, DEFAULT_SHELL_STYLE, DEFAULT_SHELL_NUMBER_FORMAT,
+  DEVICE_PRESET_STORAGE_KEY,
   type EditorTab, type EditorTheme, type PreviewDevice, type ShellState,
   type ShellHeader, type ShellResults, type ShellStyle,
   type ShellSettings, type ShellNumberFormat, type ShellPricing,
@@ -213,7 +214,24 @@ export default function WizardShell({ embed = false }: Props) {
   const [, navigate] = useLocation();
   const [state, setStateInner] = useState<ShellState>(() => loadShellState());
   const [activeTab, setActiveTab] = useState<EditorTab>('build');
-  const [device, setDevice] = useState<PreviewDevice>('desktop');
+  // BH-1 — device preset persisted in sessionStorage so the user's pick
+  // survives navigation between Build / Style / Settings / Install tabs but
+  // doesn't bleed across browser sessions (the wizard always opens on the
+  // default for a fresh session).
+  const [device, setDeviceInner] = useState<PreviewDevice>(() => {
+    if (typeof window === 'undefined') return 'desktop';
+    try {
+      const raw = window.sessionStorage.getItem(DEVICE_PRESET_STORAGE_KEY);
+      if (raw === 'desktop' || raw === 'tablet' || raw === 'mobile') return raw;
+    } catch { /* private mode — fall through */ }
+    return 'desktop';
+  });
+  const setDevice = useCallback((next: PreviewDevice) => {
+    setDeviceInner(next);
+    if (typeof window === 'undefined') return;
+    try { window.sessionStorage.setItem(DEVICE_PRESET_STORAGE_KEY, next); }
+    catch { /* private mode — ignore */ }
+  }, []);
   const [justSaved, setJustSaved] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
 
@@ -1193,10 +1211,17 @@ export default function WizardShell({ embed = false }: Props) {
                   <button
                     type="button"
                     className="qq-mobile-actionbar-sbtn"
-                    onClick={() => setDevice(device === 'desktop' ? 'mobile' : 'desktop')}
+                    /* BH-1 — cycle desktop → tablet → mobile → desktop. */
+                    onClick={() => setDevice(
+                      device === 'desktop' ? 'tablet'
+                        : device === 'tablet' ? 'mobile'
+                        : 'desktop',
+                    )}
                     data-testid="wizard-mobile-actionbar-device"
                   >
-                    {device === 'desktop' ? 'Mobile preview' : 'Desktop preview'}
+                    {device === 'desktop' ? 'Tablet preview'
+                      : device === 'tablet' ? 'Mobile preview'
+                      : 'Desktop preview'}
                   </button>
                   <button
                     type="button"
@@ -1868,6 +1893,13 @@ export default function WizardShell({ embed = false }: Props) {
               .qq-editor-saved { font-size: 10.5px; padding: 2px 7px; }
               .qq-editor-device button { width: 28px; height: 22px; }
               .qq-editor-icon-btn { width: 24px; height: 24px; }
+              /* BH-1 — device preset switcher is hidden on phone-sized
+               * wizard windows. A user editing on their phone doesn't
+               * need a device-preset switcher (they ARE on a phone). The
+               * mobile sticky action bar's device toggle still cycles
+               * through the three presets if the user wants to preview a
+               * tablet/desktop view. */
+              .qq-editor-device { display: none; }
             }
 
             /* ── W-AO-1 — mobile sticky bottom action bar ──────────────

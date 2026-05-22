@@ -658,10 +658,24 @@ function StickyActionBar({
 
   // Lazy init from localStorage so the first paint matches the persisted
   // preference (avoids a flash from default→stored). Guarded for SSR.
+  //
+  // BH-1 — mobile-default-fold (Drift / Intercom / Calendly pattern):
+  // when there's no saved preference AND the viewport is < 480 px wide,
+  // start FOLDED so the sticky action bar doesn't gobble half the screen
+  // on first visit. Saved preferences (from a returning customer or a
+  // user who explicitly toggled state) always win — we only override the
+  // implicit "no preference yet" default.
   const [folded, setFolded] = useState<boolean>(() => {
     if (!storageKey || typeof window === 'undefined') return false;
-    try { return window.localStorage.getItem(storageKey) === '1'; }
-    catch { return false; }
+    try {
+      const raw = window.localStorage.getItem(storageKey);
+      if (raw === '1') return true;
+      if (raw === '0') return false;
+      // No saved preference — fall through to viewport-derived default.
+    } catch { /* ignore — fall through */ }
+    try {
+      return typeof window.innerWidth === 'number' && window.innerWidth < 480;
+    } catch { return false; }
   });
 
   useEffect(() => {
