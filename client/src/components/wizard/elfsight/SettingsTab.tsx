@@ -568,6 +568,10 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
             infoTestid="settings-cta"
             infoRegion="sticky-footer"
             testid="settings-input-cta-label"
+            // P2 UX — Settings panel; the next fieldset (Online booking)
+            // sits directly below. Inline mode pushes it down rather than
+            // covering it while the CTA copy is being edited.
+            expansionMode="inline"
           />
         </div>
       </fieldset>

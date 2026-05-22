@@ -90,6 +90,10 @@ export default function StepContentPanel({ steps, onChange }: Props) {
               onChange={(next) => update(i, { description: next })}
               placeholder="Optional — describe this step in the widget."
               testid={`editor-step-content-description-${i}`}
+              // P2 UX — step descriptions are stacked one per step;
+              // inline expansion keeps later step rows visible instead
+              // of overlaying them while editing.
+              expansionMode="inline"
             />
           </div>
         ))}
