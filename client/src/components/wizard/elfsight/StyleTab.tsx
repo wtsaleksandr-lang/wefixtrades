@@ -547,7 +547,7 @@ export default function StyleTab({
           <div
             className="qq-bs-sub"
             data-testid="style-sub-branding-powered-by"
-            style={{ marginTop: 18 }}
+            style={{ marginTop: 12 }}
           >
             <p className="qq-bs-sub-title">
               <span className="qq-bs-sub-title-text">
