@@ -1,180 +1,509 @@
-import { useState, useEffect } from "react";
+// BG-1 — /templates marketing index.
+//
+// Refresh: replaces the deprecated 10-template marketing registry
+// (`@/config/templateConfig`) with the canonical 44-preset catalogue from
+// `@shared/templatePresets`. Visuals unified with QuoteQuick gold standard:
+// per-category palette (BB-2 deriveStyleFromCategory hero treatments),
+// 7-family filter chips, search, and a per-template SEO landing route at
+// `/templates/<slug>`.
+//
+// Cards link to `/templates/<slug>` (SEO landing page) for the primary CTA
+// and `/wizard?template=<slug>` for "Use this template". The deprecated
+// `/demo/:templateId` route is untouched (handled by a later wave).
+
+import { useState, useEffect, useMemo } from "react";
 import { Link } from "wouter";
-import { Calendar, Check, Play, ArrowRight } from "lucide-react";
+import { Search, ArrowRight, Sparkles } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
-import { TEMPLATES, TAG_STYLES } from "@/config/templateConfig";
 import { mkt } from "@/theme/tokens";
 import { V7Hero, V7PageShell } from "@/components/marketing/v7";
-import { MONO } from "@/components/effortel-blocks";
+import {
+  TEMPLATE_PRESETS,
+  type TemplateConfig,
+} from "@shared/templatePresets";
+import {
+  getCategoryStyle,
+  FEATURED_TEMPLATE_IDS,
+  type CategoryStyleId,
+} from "@/lib/categoryStyles";
+import { getQuoteQuickIcon } from "@/data/quoteQuickIcons";
 
+/* ─── Canonical 7-family filter chips (BB-2 palette families) ─── */
 
-const ALL_TAGS = ["All", "Single Page", "Multi-Step", "Package Cards", "Estimate + Book"];
+interface FilterFamily {
+  id: CategoryStyleId | "all";
+  label: string;
+}
 
-/* ─── Inline template preview ─────────────────────── */
-function TemplatePreview({ gradient, emoji, name, tag }: { gradient: string; emoji: string; name: string; tag: string }) {
-  const tagStyle = TAG_STYLES[tag] || { bg: "#F3F4F6", color: "#64748B" };
+const FILTER_FAMILIES: FilterFamily[] = [
+  { id: "all", label: "All" },
+  { id: "construction", label: "Construction" },
+  { id: "home-improvement", label: "Home Improvement" },
+  { id: "cleaning", label: "Cleaning" },
+  { id: "outdoor", label: "Outdoor" },
+  { id: "emergency", label: "Emergency" },
+  { id: "automotive", label: "Automotive" },
+  { id: "professional", label: "Professional" },
+];
+
+/** Resolve a preset's family id via the same logic the wizard gallery uses. */
+function familyOf(t: TemplateConfig): CategoryStyleId {
+  return getCategoryStyle(t.category).id;
+}
+
+/* ─── Template card preview — uses category palette + Lucide icon ─── */
+
+function TemplateHero({ template }: { template: TemplateConfig }) {
+  const cat = getCategoryStyle(template.category);
+  const Icon = getQuoteQuickIcon(template.defaultIcon);
+
   return (
-    <div style={{ background: gradient, height: 168, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, padding: "20px", position: "relative", overflow: "hidden" }}>
-      {/* Fake UI wireframe */}
-      <div style={{ width: "84%", background: "rgba(255,255,255,0.85)", borderRadius: 10, padding: "12px 14px", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-          <span style={{ fontSize: 18 }}>{emoji}</span>
-          <div>
-            <div style={{ height: 7, width: 100, background: "#94A3B8", borderRadius: 4, marginBottom: 4 }} />
-            <div style={{ height: 5, width: 70, background: "#CBD5E1", borderRadius: 4 }} />
-          </div>
+    <div
+      style={{
+        position: "relative",
+        height: 132,
+        background: cat.heroBg,
+        overflow: "hidden",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      {/* Subtle accent stripe across hero */}
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 3,
+          background: cat.heroAccent,
+        }}
+      />
+      {/* Icon chip — visual anchor */}
+      {Icon ? (
+        <div
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: 16,
+            background: cat.isDark
+              ? `${cat.heroAccent}33`
+              : `${cat.heroAccent}22`,
+            border: `1.5px solid ${cat.heroAccent}`,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: cat.heroAccent,
+          }}
+        >
+          <Icon size={26} strokeWidth={2.25} />
         </div>
-        <div style={{ height: 5, background: "#E2E8F0", borderRadius: 4, marginBottom: 6 }} />
-        <div style={{ height: 5, width: "80%", background: "#E2E8F0", borderRadius: 4, marginBottom: 10 }} />
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div style={{ height: 20, width: 70, background: mkt.accent, borderRadius: 5 }} />
-          <span style={{ fontSize: 11, fontWeight: 700, color: tagStyle.color, background: tagStyle.bg, padding: "2px 8px", borderRadius: 20 }}>{tag}</span>
-        </div>
-      </div>
+      ) : (
+        <div
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: 16,
+            background: cat.isDark
+              ? `${cat.heroAccent}33`
+              : `${cat.heroAccent}22`,
+            border: `1.5px solid ${cat.heroAccent}`,
+          }}
+        />
+      )}
+      {/* Featured badge */}
+      {FEATURED_TEMPLATE_IDS.has(template.id) ? (
+        <span
+          style={{
+            position: "absolute",
+            top: 10,
+            right: 10,
+            fontSize: 10,
+            fontWeight: 700,
+            letterSpacing: "0.06em",
+            textTransform: "uppercase",
+            padding: "3px 9px",
+            borderRadius: 20,
+            background: cat.ctaFrom,
+            color: cat.ctaText,
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 4,
+          }}
+        >
+          <Sparkles size={9} /> Featured
+        </span>
+      ) : null}
     </div>
   );
 }
 
+/* ─── Page ─── */
+
 export default function TemplatesPage() {
   useScrollReveal();
-  const [activeFilter, setActiveFilter] = useState("All");
+  const [activeFilter, setActiveFilter] = useState<CategoryStyleId | "all">(
+    "all",
+  );
+  const [search, setSearch] = useState("");
 
-  useEffect(() => { document.title = "Calculator Templates — QuoteQuick Pro"; }, []);
+  useEffect(() => {
+    document.title = `${TEMPLATE_PRESETS.length} Calculator Templates — QuoteQuick by WeFixTrades`;
+    const setMeta = (name: string, content: string) => {
+      let el = document.querySelector(`meta[name="${name}"]`);
+      if (!el) {
+        el = document.createElement("meta");
+        (el as HTMLMetaElement).name = name;
+        document.head.appendChild(el);
+      }
+      el.setAttribute("content", content);
+    };
+    setMeta(
+      "description",
+      `${TEMPLATE_PRESETS.length} ready-to-use calculator templates for trades. Pick one, drop in your pricing, and go live in minutes — instant quotes, no signup needed to preview.`,
+    );
+  }, []);
 
-  const filtered = activeFilter === "All" ? TEMPLATES : TEMPLATES.filter((t) => t.tag === activeFilter);
+  // Per-family counts (excluding "all")
+  const familyCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const t of TEMPLATE_PRESETS) {
+      const f = familyOf(t);
+      counts[f] = (counts[f] ?? 0) + 1;
+    }
+    return counts;
+  }, []);
+
+  // Filter + search
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return TEMPLATE_PRESETS.filter((t) => {
+      if (activeFilter !== "all" && familyOf(t) !== activeFilter) return false;
+      if (!q) return true;
+      return (
+        t.name.toLowerCase().includes(q) ||
+        t.description.toLowerCase().includes(q) ||
+        t.category.toLowerCase().includes(q)
+      );
+    });
+  }, [activeFilter, search]);
+
+  const totalCount = TEMPLATE_PRESETS.length;
 
   return (
     <MarketingLayout>
       <V7PageShell>
         <V7Hero
-          productName={`${TEMPLATES.length} Templates`}
-          eyebrow="Don't start from a blank page."
-          headline={<>{TEMPLATES.length} high-converting<br/><span style={{ color: mkt.accent }}>calculator templates.</span></>}
-          sub="Pick a template, enter your pricing, and go live in minutes. Every template includes a live demo you can try right now."
+          productName={`${totalCount} Templates`}
+          eyebrow={`${totalCount} ready-to-use calculator templates — pick one and customize`}
+          headline={
+            <>
+              {totalCount} high-converting
+              <br />
+              <span style={{ color: mkt.accent }}>
+                calculator templates.
+              </span>
+            </>
+          }
+          sub="Drop in your pricing and go live in minutes. Every template has its own preview page — try the live widget before you commit."
           ctas={[
-            { label: "Build Yours Free", href: "/Wizard" },
+            { label: "Build Yours Free", href: "/wizard" },
             { label: "Browse Templates ↓", href: "#template-grid" },
           ]}
         />
 
-        {/* Filter pills */}
-        <div style={{ background: mkt.bg, borderBottom: `1px solid ${mkt.onDarkBorder}`, position: "sticky", top: 72, zIndex: 20 }}>
-          <div style={{ maxWidth: 1160, margin: "0 auto", padding: "14px 28px", display: "flex", gap: 8, flexWrap: "wrap" as const, alignItems: "center" }}>
-            <span style={{ fontSize: 12, fontWeight: 700, color: mkt.onDarkMuted, marginRight: 4, textTransform: "uppercase", letterSpacing: "0.06em" }}>Filter:</span>
-            {ALL_TAGS.map((tag) => (
-              <button
-                key={tag}
-                onClick={() => setActiveFilter(tag)}
-                data-testid={`filter-${tag.toLowerCase().replace(/\s+/g, "-")}`}
+        {/* Filter + search strip */}
+        <div
+          style={{
+            background: mkt.bg,
+            borderBottom: `1px solid ${mkt.onDarkBorder}`,
+            position: "sticky",
+            top: 72,
+            zIndex: 20,
+          }}
+        >
+          <div
+            style={{
+              maxWidth: 1160,
+              margin: "0 auto",
+              padding: "14px 28px",
+              display: "flex",
+              gap: 12,
+              flexWrap: "wrap" as const,
+              alignItems: "center",
+            }}
+          >
+            {/* Search — top-left help cue */}
+            <div
+              style={{
+                position: "relative",
+                flex: "0 1 280px",
+                minWidth: 200,
+                marginRight: 8,
+              }}
+            >
+              <Search
+                size={14}
                 style={{
-                  padding: "6px 16px", borderRadius: 20,
-                  border: `1.5px solid ${activeFilter === tag ? mkt.accent : mkt.onDarkBorder}`,
-                  background: activeFilter === tag ? mkt.accent : "transparent",
-                  color: activeFilter === tag ? mkt.dark : mkt.onDarkMuted,
-                  fontSize: 13, fontWeight: 600, cursor: "pointer",
-                  transition: "all 0.15s ease",
+                  position: "absolute",
+                  left: 12,
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  color: mkt.onDarkMuted,
+                  pointerEvents: "none",
                 }}
-              >
-                {tag} {tag !== "All" && `(${TEMPLATES.filter((t) => t.tag === tag).length})`}
-              </button>
-            ))}
+              />
+              <input
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search templates…"
+                aria-label="Search calculator templates"
+                data-testid="templates-search-input"
+                style={{
+                  width: "100%",
+                  padding: "8px 12px 8px 34px",
+                  borderRadius: 10,
+                  border: `1.5px solid ${mkt.onDarkBorder}`,
+                  background: mkt.surfaceAlt,
+                  color: mkt.onDark,
+                  fontSize: 13,
+                  outline: "none",
+                  fontFamily: "inherit",
+                }}
+              />
+            </div>
+
+            <span
+              style={{
+                fontSize: 12,
+                fontWeight: 700,
+                color: mkt.onDarkMuted,
+                marginRight: 4,
+                textTransform: "uppercase",
+                letterSpacing: "0.06em",
+              }}
+            >
+              Filter:
+            </span>
+            {FILTER_FAMILIES.map((f) => {
+              const count =
+                f.id === "all" ? totalCount : (familyCounts[f.id] ?? 0);
+              if (f.id !== "all" && count === 0) return null;
+              const active = activeFilter === f.id;
+              return (
+                <button
+                  key={f.id}
+                  onClick={() => setActiveFilter(f.id)}
+                  data-testid={`filter-${f.id}`}
+                  style={{
+                    padding: "6px 14px",
+                    borderRadius: 20,
+                    border: `1.5px solid ${active ? mkt.accent : mkt.onDarkBorder}`,
+                    background: active ? mkt.accent : "transparent",
+                    color: active ? "#FFFFFF" : mkt.onDarkMuted,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    minHeight: 44,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    transition: "all 0.15s ease",
+                  }}
+                >
+                  {f.label}
+                  <span style={{ marginLeft: 6, opacity: 0.75, fontWeight: 500 }}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
         {/* Template grid */}
-        <div id="template-grid" style={{ background: mkt.bg, padding: "56px 28px 96px" }}>
+        <div
+          id="template-grid"
+          style={{ background: mkt.bg, padding: "56px 28px 96px" }}
+        >
           <div style={{ maxWidth: 1160, margin: "0 auto" }}>
-            <p style={{ fontSize: 14, color: mkt.onDarkMuted, marginBottom: 28 }}>
-              Showing <strong>{filtered.length}</strong> template{filtered.length !== 1 ? "s" : ""}
-              {activeFilter !== "All" ? ` in "${activeFilter}"` : ""}
+            <p
+              style={{
+                fontSize: 14,
+                color: mkt.onDarkMuted,
+                marginBottom: 28,
+              }}
+            >
+              Showing <strong>{filtered.length}</strong> of {totalCount} template
+              {filtered.length !== 1 ? "s" : ""}
+              {activeFilter !== "all"
+                ? ` in ${FILTER_FAMILIES.find((f) => f.id === activeFilter)?.label}`
+                : ""}
+              {search.trim() ? ` matching "${search.trim()}"` : ""}
             </p>
 
-            <div className="templates-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 24 }}>
-              {filtered.map((template, i) => {
-                const tagStyle = TAG_STYLES[template.tag] || { bg: "#F3F4F6", color: "#64748B" };
-                return (
-                  <div
-                    key={template.id}
-                    data-testid={`template-card-${template.id}`}
-                    data-reveal="fade-up"
-                    data-delay={String(((i % 3) + 1) * 100)}
-                    className="mkt-feature-card"
-                    style={{ background: mkt.sectionLight, borderRadius: 18, border: `1px solid ${mkt.onDarkBorder}`, overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.05)", display: "flex", flexDirection: "column" }}
-                  >
-                    {/* Visual preview */}
-                    <TemplatePreview gradient={template.previewGradient} emoji={template.emoji} name={template.name} tag={template.tag} />
+            {filtered.length === 0 ? (
+              <div
+                style={{
+                  padding: "48px 24px",
+                  borderRadius: 16,
+                  border: `1px dashed ${mkt.onDarkBorder}`,
+                  textAlign: "center",
+                  color: mkt.onDarkMuted,
+                }}
+              >
+                No templates match. Try a different category or clear search.
+              </div>
+            ) : (
+              <div
+                className="templates-grid"
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(3, 1fr)",
+                  gap: 24,
+                }}
+              >
+                {filtered.map((template, i) => {
+                  const cat = getCategoryStyle(template.category);
+                  return (
+                    <div
+                      key={template.id}
+                      data-testid={`template-card-${template.id}`}
+                      data-reveal="fade-up"
+                      data-delay={String(((i % 3) + 1) * 100)}
+                      className="mkt-feature-card"
+                      style={{
+                        background: mkt.sectionLight ?? mkt.surface,
+                        borderRadius: 18,
+                        border: `1px solid ${mkt.onDarkBorder}`,
+                        overflow: "hidden",
+                        boxShadow:
+                          "0 1px 3px rgba(0,0,0,0.06), 0 4px 18px rgba(0,0,0,0.06)",
+                        display: "flex",
+                        flexDirection: "column",
+                      }}
+                    >
+                      <TemplateHero template={template} />
 
-                    {/* Card content */}
-                    <div style={{ padding: "20px 22px 22px", flex: 1, display: "flex", flexDirection: "column" }}>
-                      {/* Header row */}
-                      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, marginBottom: 10 }}>
-                        <h3 style={{ fontSize: 16, fontWeight: 700, color: mkt.onDark, margin: 0, lineHeight: 1.3 }}>
-                          {template.emoji} {template.name}
-                        </h3>
-                        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
-                          <span style={{ flexShrink: 0, fontSize: 10, fontWeight: 700, letterSpacing: "0.04em", padding: "2px 10px", borderRadius: 20, background: tagStyle.bg, color: tagStyle.color, whiteSpace: "nowrap" as const }}>
-                            {template.tag}
+                      {/* Card content */}
+                      <div
+                        style={{
+                          padding: "18px 20px 20px",
+                          flex: 1,
+                          display: "flex",
+                          flexDirection: "column",
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "flex-start",
+                            justifyContent: "space-between",
+                            gap: 8,
+                            marginBottom: 8,
+                          }}
+                        >
+                          <h3
+                            style={{
+                              fontSize: 16,
+                              fontWeight: 700,
+                              color: mkt.onDark,
+                              margin: 0,
+                              lineHeight: 1.3,
+                            }}
+                          >
+                            {template.name}
+                          </h3>
+                          <span
+                            style={{
+                              flexShrink: 0,
+                              fontSize: 10,
+                              fontWeight: 700,
+                              letterSpacing: "0.04em",
+                              textTransform: "uppercase",
+                              padding: "3px 9px",
+                              borderRadius: 20,
+                              background: `${cat.heroAccent}1A`,
+                              color: cat.isDark ? cat.heroAccent : cat.ctaFrom,
+                              whiteSpace: "nowrap" as const,
+                              border: `1px solid ${cat.heroAccent}33`,
+                            }}
+                          >
+                            {template.category}
                           </span>
-                          {template.hasBooking && (
-                            <span style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10, fontWeight: 700, color: mkt.accent, background: "rgba(13,60,252,0.10)", padding: "2px 8px", borderRadius: 20 }}>
-                              <Calendar size={9} /> Book
-                            </span>
-                          )}
                         </div>
-                      </div>
 
-                      {/* Description */}
-                      <p style={{ fontSize: 13, color: mkt.onDarkMuted, lineHeight: 1.6, margin: "0 0 14px" }}>
-                        {template.description}
-                      </p>
-
-                      {/* Best for */}
-                      <div style={{ marginBottom: 12 }}>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: mkt.onDarkMuted, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 6 }}>Best for</div>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
-                          {template.bestFor.map((b) => (
-                            <span key={b} style={{ fontSize: 11, fontWeight: 600, color: mkt.onDarkMuted, background: mkt.bg, border: `1px solid ${mkt.border}`, padding: "2px 9px", borderRadius: 20 }}>
-                              {b}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Inputs used */}
-                      <div style={{ marginBottom: 18 }}>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: mkt.onDarkMuted, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 6 }}>Inputs used</div>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
-                          {template.inputsSummary.split(", ").map((inp) => (
-                            <span key={inp} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: mkt.onDarkMuted, background: mkt.bg, border: `1px solid ${mkt.border}`, padding: "2px 9px", borderRadius: 20 }}>
-                              <Check size={9} color={mkt.accent} strokeWidth={2.5} /> {inp}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* CTAs */}
-                      <div style={{ display: "flex", gap: 8, marginTop: "auto" }}>
-                        <Link
-                          href={`/demo/${template.id}`}
-                          data-testid={`demo-cta-${template.id}`}
-                          style={{ display: "inline-flex", alignItems: "center", gap: 6, flex: 1, justifyContent: "center", padding: "9px 0", borderRadius: 10, background: mkt.ctaBg, color: mkt.ctaText, fontSize: 13, fontWeight: 500, textDecoration: "none" }}
+                        <p
+                          style={{
+                            fontSize: 13,
+                            color: mkt.onDarkMuted,
+                            lineHeight: 1.55,
+                            margin: "0 0 16px",
+                            flex: 1,
+                          }}
                         >
-                          <Play size={11} fill="currentColor" /> Try live demo
-                        </Link>
-                        <Link
-                          href="/Wizard"
-                          data-testid={`use-cta-${template.id}`}
-                          style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "9px 14px", borderRadius: 10, background: "transparent", color: mkt.ctaSecondaryText, fontSize: 13, fontWeight: 500, textDecoration: "none", border: `1px solid ${mkt.ctaSecondaryBorder}` }}
+                          {template.description}
+                        </p>
+
+                        {/* CTAs */}
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: 8,
+                            marginTop: "auto",
+                          }}
                         >
-                          Use <ArrowRight size={11} />
-                        </Link>
+                          <Link
+                            href={`/templates/${template.id}`}
+                            data-testid={`preview-cta-${template.id}`}
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              gap: 6,
+                              flex: 1,
+                              padding: "10px 0",
+                              borderRadius: 10,
+                              background: mkt.ctaBg,
+                              color: mkt.ctaText,
+                              fontSize: 13,
+                              fontWeight: 600,
+                              textDecoration: "none",
+                              minHeight: 44,
+                            }}
+                          >
+                            Try this template
+                          </Link>
+                          <Link
+                            href={`/wizard?template=${template.id}`}
+                            data-testid={`use-cta-${template.id}`}
+                            aria-label={`Use ${template.name} template in the wizard`}
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 5,
+                              padding: "10px 14px",
+                              borderRadius: 10,
+                              background: "transparent",
+                              color: mkt.ctaSecondaryText,
+                              fontSize: 13,
+                              fontWeight: 600,
+                              textDecoration: "none",
+                              border: `1px solid ${mkt.ctaSecondaryBorder}`,
+                              minHeight: 44,
+                            }}
+                          >
+                            Use <ArrowRight size={11} />
+                          </Link>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           <style>{`
@@ -184,25 +513,82 @@ export default function TemplatesPage() {
         </div>
 
         {/* CTA band */}
-        <div style={{ background: `linear-gradient(135deg, ${mkt.accent} 0%, #0b34d6 100%)`, padding: "96px 28px", textAlign: "center" }}>
+        <div
+          style={{
+            background: `linear-gradient(135deg, ${mkt.accent} 0%, #0b34d6 100%)`,
+            padding: "96px 28px",
+            textAlign: "center",
+          }}
+        >
           <div style={{ maxWidth: 640, margin: "0 auto" }}>
-            <h2 style={{ fontSize: "clamp(26px, 3vw, 40px)", fontWeight: 800, color: "#FFFFFF", margin: "0 0 14px", letterSpacing: "-0.02em" }}>
+            <h2
+              style={{
+                fontSize: "clamp(26px, 3vw, 40px)",
+                fontWeight: 800,
+                color: "#FFFFFF",
+                margin: "0 0 14px",
+                letterSpacing: "-0.02em",
+              }}
+            >
               Not sure which template to use?
             </h2>
-            <p style={{ fontSize: 17, color: "rgba(255,255,255,0.72)", margin: "0 0 36px", lineHeight: 1.65 }}>
-              Our setup wizard recommends the best template for your trade, pricing model, and goals — then configures it for you.
+            <p
+              style={{
+                fontSize: 17,
+                color: "rgba(255,255,255,0.72)",
+                margin: "0 0 36px",
+                lineHeight: 1.65,
+              }}
+            >
+              Our setup wizard recommends the best template for your trade,
+              pricing model, and goals — then configures it for you.
             </p>
-            <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-              <Link href="/Wizard" style={{ display: "inline-block", padding: "14px 32px", borderRadius: 10, background: "#FFFFFF", color: mkt.accent, fontSize: 16, fontWeight: 800, textDecoration: "none" }}>
+            <div
+              style={{
+                display: "flex",
+                gap: 12,
+                justifyContent: "center",
+                flexWrap: "wrap",
+              }}
+            >
+              <Link
+                href="/wizard"
+                style={{
+                  display: "inline-block",
+                  padding: "14px 32px",
+                  borderRadius: 10,
+                  background: "#FFFFFF",
+                  color: mkt.accent,
+                  fontSize: 16,
+                  fontWeight: 800,
+                  textDecoration: "none",
+                  minHeight: 44,
+                }}
+              >
                 Get a Recommendation
               </Link>
-              <Link href="/pricing" style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "14px 24px", borderRadius: 10, background: "transparent", color: "#FFFFFF", fontSize: 15, fontWeight: 600, textDecoration: "none", border: "1.5px solid rgba(255,255,255,0.3)" }}>
+              <Link
+                href="/pricing"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "14px 24px",
+                  borderRadius: 10,
+                  background: "transparent",
+                  color: "#FFFFFF",
+                  fontSize: 15,
+                  fontWeight: 600,
+                  textDecoration: "none",
+                  border: "1.5px solid rgba(255,255,255,0.3)",
+                  minHeight: 44,
+                }}
+              >
                 View Pricing
               </Link>
             </div>
           </div>
         </div>
-
       </V7PageShell>
     </MarketingLayout>
   );
