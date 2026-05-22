@@ -393,19 +393,31 @@ export default function AddFieldMenu({ onPick, emphasis = false }: Props) {
           font-size: 11.5px; font-weight: 400; color: ${p.colors.body};
           line-height: 1.35;
         }
+        /* P2 UX fix (2026-05-22): badge was too dominant — it overlapped the
+         * card title + arrow when hover-revealed and read like a banner rather
+         * than a quiet recommendation. Shrunk to 9px uppercase, anchored to
+         * the TOP-LEFT corner (slight inset inside the card border, away from
+         * the icon-text title row), text trimmed to just "RECOMMENDED" (the
+         * longer "for {recommendedFor}" detail is the title attribute on the
+         * card and the .qq-addfield-hint copy already covers the use case),
+         * and the background opacity dropped to 0.85 so the badge reads as a
+         * subtle accent rather than a full-saturation slab.
+         *
+         * Layout note: top-left inset to (top: 6px, left: 6px) keeps it
+         * clear of the 36px icon (which starts at the item's 12px padding)
+         * because the badge is in absolute position and only ~52px wide. */
         .qq-addfield-recommended {
-          position: absolute; top: 8px; right: 8px;
+          position: absolute; top: 6px; left: 6px;
           padding: 2px 6px;
-          font-size: 9.5px; font-weight: 700;
-          letter-spacing: 0.03em; text-transform: uppercase;
-          background: ${p.colors.accent}; color: #fff;
+          font-size: 9px; font-weight: 700;
+          letter-spacing: 0.5px; text-transform: uppercase;
+          background: rgba(13, 60, 252, 0.85); color: #fff;
           border-radius: 999px;
           opacity: 0; transform: translateY(-2px);
           transition: opacity 0.12s ease, transform 0.12s ease;
           pointer-events: none;
           white-space: nowrap;
-          max-width: calc(100% - 16px);
-          overflow: hidden; text-overflow: ellipsis;
+          overflow: hidden;
         }
         .qq-addfield-item:hover .qq-addfield-recommended,
         .qq-addfield-item:focus-visible .qq-addfield-recommended {
@@ -518,6 +530,11 @@ function DraggableMenuItem({ type, variant, onPick }: DraggableMenuItemProps) {
       className="qq-addfield-item"
       onClick={onPick}
       style={{ opacity: isDragging ? 0.55 : 1 }}
+      /* P2 UX fix (2026-05-22): the longer "Recommended for {use case}"
+       * detail moves to a native title tooltip so hover users still get the
+       * recommendation context without the badge having to spell it out
+       * inline. The badge itself is now a short "RECOMMENDED" pill. */
+      title={type.recommendedFor ? `Recommended for ${type.recommendedFor}` : undefined}
       {...attributes}
       {...listeners}
       role="menuitem"
@@ -532,7 +549,7 @@ function DraggableMenuItem({ type, variant, onPick }: DraggableMenuItemProps) {
       </span>
       {type.recommendedFor ? (
         <span className="qq-addfield-recommended" aria-hidden="true">
-          Recommended for {type.recommendedFor}
+          Recommended
         </span>
       ) : null}
     </button>
