@@ -92,6 +92,7 @@ import { registerAdminFileRetentionRoutes } from "./adminFileRetentionRoutes";
 import { registerAdminMobilePreviewRoutes } from "./adminMobilePreviewRoutes";
 import { registerAdminAiActivityRoutes } from "./adminAiActivityRoutes";
 import { registerCalculatorAnalyticsRoutes } from "./calculatorAnalyticsRoutes";
+import { registerMapSnapshotRoutes } from "./mapSnapshotRoutes";
 import { registerApiV1Routes } from "./apiV1";
 
 export async function registerRoutes(
@@ -191,6 +192,7 @@ export async function registerRoutes(
   registerAdminMobilePreviewRoutes(app);
   registerAdminAiActivityRoutes(app);
   registerCalculatorAnalyticsRoutes(app);
+  registerMapSnapshotRoutes(app);
   registerApiV1Routes(app);
 
   return httpServer;
