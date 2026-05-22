@@ -1,0 +1,168 @@
+/*
+ * BD-3l — Premium Animations Pack stylesheet.
+ *
+ * Six "wow"-tier effects layered on top of the QuoteQuick widget when the
+ * owner is on the Pro tier and has the master toggle flipped on. Imported
+ * once at module load by PremiumAnimations.tsx; activation is gated by
+ * data attributes on the widget root, so a free-tier widget pays no cost
+ * (CSS rules don't match, no animations run).
+ *
+ * Activation gates:
+ *   [data-qq-premium="on"]         — master toggle on
+ *   [data-qq-premium-spring]       — sub-effect: spring physics
+ *   [data-qq-premium-stagger]      — sub-effect: stagger reveal
+ *   [data-qq-premium-ctapulse]     — sub-effect: CTA gradient pulse
+ *   [data-qq-premium-cardflip]     — sub-effect: 3D card flip
+ *
+ * All rules are scoped behind these gates so toggling any single effect
+ * off has zero impact on the others.
+ *
+ * GPU-only: transform + opacity. No layout-triggering properties.
+ *
+ * `prefers-reduced-motion: reduce` disables EVERY rule defensively — even
+ * though renderer-side gates also strip the data-attributes, the media
+ * query covers a user who flips their OS setting mid-session.
+ */
+
+/* ─── 1. Spring-physics easing tokens ─────────────────────────────────
+ *
+ * Approximation of a spring with mass=1, stiffness=180, damping=22 — the
+ * Linear-ish settle curve. Expressed as a cubic-bezier so existing
+ * `transition` declarations can pick it up without code changes. */
+[data-qq-premium="on"][data-qq-premium-spring="on"] {
+  --qq-spring-ease: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Apply the spring curve to the step-transition / lead-form-enter / CTA
+ * tap micro-animations that already exist further up the stack. */
+[data-qq-premium="on"][data-qq-premium-spring="on"] [data-qq-step-enter] {
+  animation-timing-function: var(--qq-spring-ease) !important;
+}
+[data-qq-premium="on"][data-qq-premium-spring="on"] [data-testid="advanced-cta"]:active,
+[data-qq-premium="on"][data-qq-premium-spring="on"] [data-testid="calculator-stepper-next"]:active {
+  transform: scale(0.97);
+  transition: transform 120ms var(--qq-spring-ease);
+}
+
+/* ─── 2. Number count-up — already implemented in useCountUp.ts.
+ *
+ * The hook handles the rAF animation. When the premium pack is on the
+ * AdvancedCalculator passes `durationMs = 800`. No CSS needed.
+ */
+
+/* ─── 3. Stagger reveal on step entry ─────────────────────────────────
+ *
+ * Children of `[data-qq-stagger-parent]` cascade in with a 40 ms delay.
+ * `--qq-i` is set per child (inline style: 0..7) and capped at 7 in the
+ * provider so a long list doesn't take 2 s to settle. */
+@keyframes qq-stagger-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+[data-qq-premium="on"][data-qq-premium-stagger="on"] [data-qq-stagger-parent] > * {
+  animation: qq-stagger-in 280ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  animation-delay: calc(var(--qq-i, 0) * 40ms);
+  will-change: opacity, transform;
+}
+
+/* ─── 4. CTA conic-gradient pulse ─────────────────────────────────────
+ *
+ * Slow rotating conic gradient on the primary CTA — feels alive without
+ * shouting. Uses the registered `--qq-angle` custom property so the
+ * gradient is interpolatable; falls back gracefully on browsers that
+ * lack `@property` (the gradient is static; rotation just doesn't run). */
+@property --qq-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+@keyframes qq-cta-rotate {
+  to { --qq-angle: 360deg; }
+}
+[data-qq-premium="on"][data-qq-premium-ctapulse="on"] [data-qq-cta-pulse] {
+  background-image: conic-gradient(
+    from var(--qq-angle, 0deg),
+    var(--qq-cta-base, #0d3cfc),
+    color-mix(in srgb, var(--qq-cta-base, #0d3cfc) 60%, white),
+    var(--qq-cta-base, #0d3cfc)
+  );
+  animation: qq-cta-rotate 2.5s linear infinite;
+  isolation: isolate;
+}
+/* Soft shimmer overlay sits above the gradient so the button text stays
+ * crisp and full-opacity (the gradient pulses underneath). */
+[data-qq-premium="on"][data-qq-premium-ctapulse="on"] [data-qq-cta-pulse]::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.18) 0%,
+    rgba(255, 255, 255, 0) 60%
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+[data-qq-premium="on"][data-qq-premium-ctapulse="on"] [data-qq-cta-pulse] > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ─── 5. 3D card flip on step change ──────────────────────────────────
+ *
+ * Stepper wraps each step content in `.qq-step-card`. Direction-aware
+ * exit (rotateY(-90deg) for forward / rotateY(90deg) for back) is set
+ * by the provider via `data-flip-dir`. */
+@keyframes qq-flip-in-forward {
+  0%   { transform: perspective(1200px) rotateY(90deg); opacity: 0; }
+  60%  { opacity: 1; }
+  100% { transform: perspective(1200px) rotateY(0deg); opacity: 1; }
+}
+@keyframes qq-flip-in-back {
+  0%   { transform: perspective(1200px) rotateY(-90deg); opacity: 0; }
+  60%  { opacity: 1; }
+  100% { transform: perspective(1200px) rotateY(0deg); opacity: 1; }
+}
+[data-qq-premium="on"][data-qq-premium-cardflip="on"] [data-qq-flip-card] {
+  transform-origin: center center;
+  will-change: transform, opacity;
+}
+[data-qq-premium="on"][data-qq-premium-cardflip="on"] [data-qq-flip-card][data-flip-dir="forward"] {
+  animation: qq-flip-in-forward 380ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+[data-qq-premium="on"][data-qq-premium-cardflip="on"] [data-qq-flip-card][data-flip-dir="back"] {
+  animation: qq-flip-in-back 380ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* ─── 6. Confetti canvas — positioning only. The particle physics lives
+ * in PremiumAnimations.tsx (ConfettiBurst). The canvas overlays the
+ * widget at z-index 39 (one below the sticky top region at 40). */
+.qq-confetti-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 39;
+}
+
+/* ─── prefers-reduced-motion override (defense in depth) ──────────────
+ *
+ * Even though the provider also strips the data-attributes when the OS
+ * setting is on, the media query catches the case where a user flips
+ * the setting mid-session without remounting the widget. */
+@media (prefers-reduced-motion: reduce) {
+  [data-qq-premium="on"] [data-qq-step-enter],
+  [data-qq-premium="on"] [data-qq-stagger-parent] > *,
+  [data-qq-premium="on"] [data-qq-flip-card],
+  [data-qq-premium="on"] [data-qq-cta-pulse] {
+    animation: none !important;
+    transform: none !important;
+    opacity: 1 !important;
+  }
+  [data-qq-premium="on"] [data-qq-cta-pulse] {
+    background-image: none !important;
+  }
+  .qq-confetti-canvas { display: none !important; }
+}

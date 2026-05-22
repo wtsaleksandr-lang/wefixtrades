@@ -154,12 +154,18 @@ interface StepperControlsProps {
   /** When the user is on the final step, hide the Next button — the final
    *  step renders its own primary CTA (Email me / Book consultation). */
   hideNextOnFinal?: boolean;
+  /**
+   * BD-3l — when true, the primary Next button carries `data-qq-cta-pulse`
+   * + `--qq-cta-base` so the Premium Animations Pack's conic-gradient
+   * rotation lights up. Default false — pulse is opt-in per widget.
+   */
+  ctaPulse?: boolean;
 }
 
 export function StepperControls({
   current, total, theme, radiusPx = '10px', fontFamily,
   nextLabel = 'Continue', canAdvance = true, onBack, onNext,
-  hideNextOnFinal = true,
+  hideNextOnFinal = true, ctaPulse = false,
 }: StepperControlsProps) {
   const isFirst = current === 0;
   const isLast = current === total - 1;
@@ -196,6 +202,9 @@ export function StepperControls({
           onClick={onNext}
           disabled={!canAdvance}
           data-testid="calculator-stepper-next"
+          // BD-3l — opt-in CTA gradient pulse. Attribute + CSS var are
+          // both safe when the Premium pack is off (rules don't match).
+          {...(ctaPulse ? { 'data-qq-cta-pulse': '' } : null)}
           style={{
             height: 40, padding: '0 18px', borderRadius: radiusPx,
             background: accent, color: '#ffffff', border: 'none',
@@ -203,6 +212,11 @@ export function StepperControls({
             cursor: canAdvance ? 'pointer' : 'not-allowed',
             opacity: canAdvance ? 1 : 0.5, letterSpacing: '0.01em',
             display: 'inline-flex', alignItems: 'center', gap: 6,
+            // BD-3l — relative positioning so the pulse shimmer
+            // ::after overlay anchors correctly. No visual change when
+            // pack is off.
+            position: 'relative',
+            ['--qq-cta-base' as string]: String(accent),
           }}
         >
           {nextLabel} <span style={{ fontSize: 15 }}>→</span>

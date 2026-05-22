@@ -23,6 +23,14 @@ import {
 import { eff } from './designTokens';
 import { resolveWidgetTheme, type WidgetTheme } from './widgetThemes';
 import { useCountUp } from './useCountUp';
+// BD-3l — Premium Animations Pack (Pro tier). Provider + leaf
+// components live in PremiumAnimations.tsx; CSS keyframes are loaded
+// transitively via that module. Free-tier widgets pay zero cost — the
+// CSS rules are gated behind `data-qq-premium="on"`.
+import {
+  FlipCard,
+  ConfettiBurst,
+} from './PremiumAnimations';
 import { useCalculatorAnalytics } from './useCalculatorAnalytics';
 // Wave W-AH-2 / W-AI-3a — canonical icon map lives in `client/src/data/quoteQuickIcons.ts`
 // so the admin trade editor's icon picker shares the exact same finite set.
@@ -783,6 +791,32 @@ export default function AdvancedCalculator({
   // Wave 1 fields). When absent, transitions render instantly — matches
   // pre-AO-6d behaviour, so existing calculators are unchanged.
   const bsAnimations = brandStudioUnlocked ? bs.animations : undefined;
+  // BD-3l — Premium Animations Pack. Pro-gated identically to the rest
+  // of Brand Studio. When the owner isn't on Pro the field is treated
+  // as absent so a stored config can't bypass the gate.
+  const bsPremiumAnimations = brandStudioUnlocked ? bs.premiumAnimations : undefined;
+  const premiumPackEnabled = bsPremiumAnimations?.enabled === true;
+  // BD-3l — flatten the resolved per-effect gates so the JSX below can
+  // attach the data-attrs without recomputing the booleans. Sub-toggles
+  // default to true when the master is on (the master is the opt-in;
+  // individual toggles are opt-OUT). The provider also computes these
+  // for its own consumers; mirrored here for the case where the
+  // attribute needs to live on the widget root for CSS scoping.
+  const premiumDataAttrs: Record<string, string> = premiumPackEnabled
+    ? {
+        'data-qq-premium': 'on',
+        'data-qq-premium-spring': bsPremiumAnimations?.spring !== false ? 'on' : 'off',
+        'data-qq-premium-countup': bsPremiumAnimations?.countUp !== false ? 'on' : 'off',
+        'data-qq-premium-stagger': bsPremiumAnimations?.staggerReveal !== false ? 'on' : 'off',
+        'data-qq-premium-ctapulse': bsPremiumAnimations?.ctaPulse !== false ? 'on' : 'off',
+        'data-qq-premium-cardflip': bsPremiumAnimations?.cardFlip !== false ? 'on' : 'off',
+        'data-qq-premium-confetti': bsPremiumAnimations?.confetti !== false ? 'on' : 'off',
+      }
+    : { 'data-qq-premium': 'off' };
+  const premiumConfettiOn =
+    premiumPackEnabled && bsPremiumAnimations?.confetti !== false;
+  const premiumCtaPulseOn =
+    premiumPackEnabled && bsPremiumAnimations?.ctaPulse !== false;
   const stepTransition: AdvStepTransition = bsAnimations?.step_transition ?? 'none';
   const stepDurationMs = (() => {
     const raw = typeof bsAnimations?.duration_ms === 'number' ? bsAnimations.duration_ms : 250;
@@ -983,7 +1017,14 @@ export default function AdvancedCalculator({
   // Wave AA — animated headline. Boots from 0 → headline on mount, then
   // smooth-transitions to each new value as sliders / selects change.
   // Respects prefers-reduced-motion (returns the target value verbatim).
-  const animatedHeadline = useCountUp(headline);
+  //
+  // BD-3l — when the Premium Animations Pack is on AND its `countUp`
+  // sub-effect is enabled, the boot animation runs over 800 ms (per
+  // spec) for a more deliberate result-reveal feel. The hook still
+  // boots from 0 → target so the rAF animation kicks in on first mount.
+  const useLongCountUp = premiumPackEnabled
+    && bsPremiumAnimations?.countUp !== false;
+  const animatedHeadline = useCountUp(headline, useLongCountUp ? 800 : 600);
   // BD-2b — effective quote value plumbed to ContactStep / micro-summary /
   // lead-form payload. When tiers are off, this is identical to the base
   // headline (back-compat). When tiers are on, it's the SELECTED tier's
@@ -1090,6 +1131,12 @@ export default function AdvancedCalculator({
   const useStepper = stepLayoutMode !== 'single' && dataSteps.length > 0;
   const totalSteps = useStepper ? dataSteps.length + 1 : 0;
   const [stepIdx, setStepIdx] = useState(0);
+  // BD-3l — track previous step index so the 3D card-flip animation
+  // knows whether the user advanced (forward) or returned (back). Set
+  // synchronously in the Back/Next handlers so the flip direction is
+  // ready by the time React re-renders the new step content. Defaults
+  // to `forward` for the initial mount and step-index resets.
+  const [flipDir, setFlipDir] = useState<'forward' | 'back'>('forward');
   // Clamp the active index whenever the step list shrinks (e.g. visibility
   // rules hid a field that was on its own step).
   useEffect(() => {
@@ -1227,6 +1274,13 @@ export default function AdvancedCalculator({
       data-logo-size={style.logoSize ?? 'legacy'}
       data-brand-studio={brandStudioUnlocked ? 'true' : 'false'}
       data-bg-mode={brandStudioUnlocked ? (bsBgMode ?? 'solid') : 'solid'}
+      // BD-3l — Premium Animations Pack data-attrs. Mirrored from the
+      // provider for the case where the provider isn't rendered (e.g.
+      // free-tier path); the CSS rules only match when the master is
+      // 'on' so a free-tier widget pays zero cost. The provider below
+      // re-applies these on its own wrapper so descendants always see
+      // the resolved gates regardless of where they sit.
+      {...premiumDataAttrs}
       style={{
         background: c.surface, borderRadius: radiusOuterPx,
         border: `1px solid ${c.border}`, boxShadow: c.shadow,
@@ -1236,6 +1290,12 @@ export default function AdvancedCalculator({
         // visually clips square-cornered children against the rounded card,
         // but unlike `hidden` it does NOT establish a scroll container.
         overflow: 'clip', fontFamily,
+        // BD-3l — `position: relative` so the ConfettiBurst's absolutely-
+        // positioned canvas anchors to the widget root rather than the
+        // page. `position: relative` does NOT establish a scroll
+        // container, so the BD-2a-sticky shells inside still anchor to
+        // the page / iframe scroll context.
+        position: 'relative',
         // W-AO-6b — Typography depth as CSS variables. `--qq-font-size-base`
         // sets the inherit-able body size; titles + small captions can still
         // pick their own values via the inline styles. fontWeight here drives
@@ -1476,42 +1536,61 @@ export default function AdvancedCalculator({
             per-step slice of `visibleFields`). When the stepper is off
             we render the full `visibleFields` list (legacy behaviour). */}
         {!isContactStep && (
-          <div
+          // BD-3l — Wrap the per-step fields in a FlipCard so the 3D flip
+          // animation plays on step change (Pro pack only — CSS rules
+          // are gated behind `data-qq-premium-cardflip="on"`). The
+          // existing `${gridId}-fields` className still drives the
+          // grid/column layout. `data-qq-stagger-parent` lets the
+          // children cascade-reveal when the stagger sub-effect is on.
+          <FlipCard
+            flipKey={`step-${stepIdx}`}
+            dir={flipDir}
             className={`${gridId}-fields`}
-            data-component-name="Fields"
-            data-component-type="fields-section"
-            data-qq-step-enter
+            style={{ minWidth: 0 }}
           >
-            {visibleFields.length === 0 && (
-              <p style={{ fontSize: '14px', color: c.textBody, padding: '16px 0' }}>
-                This calculator hasn't been set up yet.
-              </p>
-            )}
-            {renderedFields.map((f) => (
-              <div
-                key={f.id}
-                data-colspan={f.colSpan === 1 ? '1' : '2'}
-                data-component-name={`Field: ${f.label || f.name || f.type}`}
-                data-component-type={`field-${f.type}`}
-                style={{ minWidth: 0 }}
-              >
-                <FieldInput
-                  field={f}
-                  value={answers[f.name]}
-                  accent={accent}
-                  theme={c}
-                  radiusPx={radiusInnerPx}
-                  fieldStyle={fieldStyle}
-                  fontFamily={fontFamily}
-                  onChange={(v) => setAnswer(f.name, v)}
-                />
-              </div>
-            ))}
+            <div
+              data-component-name="Fields"
+              data-component-type="fields-section"
+              data-qq-step-enter
+              data-qq-stagger-parent
+            >
+              {visibleFields.length === 0 && (
+                <p style={{ fontSize: '14px', color: c.textBody, padding: '16px 0' }}>
+                  This calculator hasn't been set up yet.
+                </p>
+              )}
+              {renderedFields.map((f, idx) => (
+                <div
+                  key={f.id}
+                  data-colspan={f.colSpan === 1 ? '1' : '2'}
+                  data-component-name={`Field: ${f.label || f.name || f.type}`}
+                  data-component-type={`field-${f.type}`}
+                  style={{
+                    minWidth: 0,
+                    // BD-3l — per-child stagger index (capped at 7) read
+                    // by `.qq-stagger-in` keyframes. No-op when the pack
+                    // is off (CSS rule doesn't match).
+                    ['--qq-i' as string]: String(Math.min(idx, 7)),
+                  }}
+                >
+                  <FieldInput
+                    field={f}
+                    value={answers[f.name]}
+                    accent={accent}
+                    theme={c}
+                    radiusPx={radiusInnerPx}
+                    fieldStyle={fieldStyle}
+                    fontFamily={fontFamily}
+                    onChange={(v) => setAnswer(f.name, v)}
+                  />
+                </div>
+              ))}
+            </div>
             {/* BD-2a-sticky — Back / Next controls moved into the bottom
                 <StickyActionBar /> rendered as a sibling of the body grid.
                 The controls now sit at the bottom edge of the viewport so
                 a long step is still actionable without scrolling. */}
-          </div>
+          </FlipCard>
         )}
         {/* BD-2a — Contact step content. Replaces the inputs section on
             the final (contact) step. Sits in the same grid column the
@@ -1519,6 +1598,17 @@ export default function AdvancedCalculator({
             The result panel below stays visible so the user sees the
             quote alongside the contact form. */}
         {isContactStep && (
+          // BD-3l — Contact step also rides the 3D-flip animation when
+          // the Premium pack is on. flipKey is constant ('contact') so
+          // the card flips IN once when the user arrives at the final
+          // step; subsequent re-renders (e.g. typing in the form) don't
+          // restart the animation. The inner div keeps the existing
+          // step-enter hook + data attributes intact.
+          <FlipCard
+            flipKey="contact-step"
+            dir={flipDir}
+            style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}
+          >
           <div
             data-component-name="Contact step container"
             data-component-type="contact-step-container"
@@ -1572,6 +1662,7 @@ export default function AdvancedCalculator({
                 <StickyActionBar />. The final-step hard CTAs (Email me /
                 Book consultation) still live inside ContactStep above. */}
           </div>
+          </FlipCard>
         )}
 
         {/* Result panel — a separate rounded container.
@@ -1774,6 +1865,15 @@ export default function AdvancedCalculator({
                   <button type="button" data-testid="advanced-cta"
                     data-component-name="CTA button"
                     data-component-type="cta"
+                    // BD-3l — `data-qq-cta-pulse` plus `--qq-cta-base`
+                    // light up the conic-gradient rotation in
+                    // premiumAnimations.css. The attribute is harmless
+                    // when the pack is off (CSS rule doesn't match);
+                    // when the pulse is on it overrides background-image
+                    // with the conic gradient. Solid background colour
+                    // stays as the fallback for browsers without
+                    // `@property` support.
+                    {...(premiumCtaPulseOn ? { 'data-qq-cta-pulse': '' } : null)}
                     onClick={() => setLeadView('form')}
                     style={{
                       width: '100%', height: '46px', borderRadius: radiusInnerPx, border: 'none',
@@ -1781,6 +1881,13 @@ export default function AdvancedCalculator({
                       cursor: 'pointer', fontFamily, letterSpacing: '0.01em',
                       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
                       boxShadow: '0 6px 16px rgba(0,0,0,0.18)',
+                      // BD-3l — position relative so the pulse shimmer
+                      // ::after pseudo-element anchors correctly. No
+                      // visual change when the pack is off.
+                      position: 'relative',
+                      // CSS var consumed by the conic gradient. Falls
+                      // back to the accent colour when undefined.
+                      ['--qq-cta-base' as string]: String(ctaBg),
                     }}>
                     {ctaLabel} <span style={{ fontSize: '16px' }}>→</span>
                   </button>
@@ -1913,9 +2020,16 @@ export default function AdvancedCalculator({
                     ? `Continue with ${selectedTierLabel}`
                     : 'Continue'
               }
-              onBack={() => setStepIdx((i) => Math.max(0, i - 1))}
-              onNext={() => setStepIdx((i) => Math.min(stepperList.length - 1, i + 1))}
+              onBack={() => {
+                setFlipDir('back');
+                setStepIdx((i) => Math.max(0, i - 1));
+              }}
+              onNext={() => {
+                setFlipDir('forward');
+                setStepIdx((i) => Math.min(stepperList.length - 1, i + 1));
+              }}
               hideNextOnFinal
+              ctaPulse={premiumCtaPulseOn}
             />
           </StickyActionBar>
         );
@@ -1940,6 +2054,18 @@ export default function AdvancedCalculator({
         <style data-testid="advanced-step-transitions">
           {stepTransitionCss(widgetClass, stepTransition, stepDurationMs, reducedMotionRespect)}
         </style>
+      )}
+      {/* BD-3l — Premium Animations Pack: confetti burst on quote
+       *  completion. Fires once per session per calculator when the user
+       *  reaches the contact (final) step. The component handles the
+       *  sessionStorage gate + reduced-motion skip internally, so
+       *  mounting it here is safe even when the pack is off. */}
+      {premiumConfettiOn && (
+        <ConfettiBurst
+          trigger={useStepper && isContactStep ? 1 : 0}
+          accent={accent}
+          scopeKey={String(calculatorId ?? widgetClass)}
+        />
       )}
     </div>
   );
