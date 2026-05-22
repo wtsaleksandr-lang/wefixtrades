@@ -11,6 +11,15 @@ import { colors } from "@/theme/tokens";
 import { Search, CheckCircle2, PhoneOff, Calculator, ArrowRight, ChevronDown } from "lucide-react";
 import ReportView from "./ReportView";
 import AuditGate from "@/components/marketing/AuditGate";
+// BG-2: hero input promoted to the QuoteQuick gold standard. We reuse the
+// shared InfoCue (`?` icon + popover with WidgetSchema diagram) from the
+// widget editor so the help affordance matches PortalOnboarding. The input
+// itself is an inline floating-label adaptation of PortalOnboarding's
+// FloatingLabelInput — copied here because that export lives under
+// pages/portal/ and crosses a page-domain boundary; an inline copy keeps
+// the marketing surface self-contained and matches FreeAudit's inline-style
+// pattern (it doesn't use Tailwind utility classes like the portal file).
+import InfoCue from "@/components/wizard/elfsight/InfoCue";
 
 type Prediction = {
   place_id: string;
@@ -534,6 +543,52 @@ export default function FreeAudit() {
           border-color: #0d3cfc !important;
           box-shadow: 0 0 0 4px rgba(13,60,252,0.16) !important;
         }
+        /* BG-2: floating-label hero input — placeholder-shown drops the
+         * label down to mimic a normal placeholder; focus / non-empty
+         * raises and shrinks it. Mirrors PortalOnboarding.FloatingLabelInput
+         * (Tailwind peer pattern) but uses scoped CSS so this page keeps
+         * its inline-style discipline. */
+        .audit-hero-input__label {
+          position: absolute;
+          left: 42px;
+          pointer-events: none;
+          top: 6px;
+          font-size: 10px;
+          font-weight: 700;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          color: #0d3cfc;
+          background: #fff;
+          padding: 0 2px;
+          transition: top 0.15s ease, font-size 0.15s ease,
+                      color 0.15s ease, font-weight 0.15s ease,
+                      text-transform 0.15s ease, letter-spacing 0.15s ease;
+          z-index: 1;
+        }
+        .audit-hero-input__field:placeholder-shown + .audit-hero-input__label {
+          top: 50%;
+          transform: translateY(-50%);
+          font-size: 15px;
+          font-weight: 500;
+          color: rgba(0,0,0,0.42);
+          text-transform: none;
+          letter-spacing: normal;
+        }
+        .audit-hero-input__field:focus + .audit-hero-input__label {
+          top: 6px;
+          transform: none;
+          font-size: 10px;
+          font-weight: 700;
+          color: #0d3cfc;
+          text-transform: uppercase;
+          letter-spacing: 0.06em;
+        }
+        @media (prefers-color-scheme: dark) {
+          /* Help-cue popover handles its own dark variant via InfoCue's
+           * data-theme attribute. The floating label is on a white input
+           * surface in this page (marketing pages stay light), so no extra
+           * dark override is required for the label itself. */
+        }
         .audit-suggestion:hover {
           background: rgba(13,60,252,0.06) !important;
         }
@@ -666,58 +721,86 @@ export default function FreeAudit() {
                 overflow: "clip",
               }}
             >
-              {/* BE-2: help cue top-left per locked design rule 5 — single small
-                  hint above the input, no duplicated title (placeholder doubles
-                  as the field's prompt). */}
-              <div
-                style={{
-                  fontSize: 11,
-                  fontWeight: 600,
-                  letterSpacing: "0.04em",
-                  textTransform: "uppercase",
-                  color: "#0d3cfc",
-                  marginBottom: 8,
-                  paddingLeft: 2,
-                }}
-              >
-                Search your business
-              </div>
-              <div style={{ position: "relative" }}>
+              {/* BG-2: hero input upgraded to QuoteQuick gold standard.
+                  - Floating-label pattern (placeholder doubles as the title;
+                    no `Search your business` row above per design rule 5).
+                  - `?` help-cue top-left via the shared InfoCue (popover
+                    includes a WidgetSchema diagram highlighting the
+                    step-content region from BD-3h).
+                  - Error renders inside the field (red text below).
+                  The relative wrapper carries the floating-label peer styles
+                  via a scoped class so we don't need Tailwind on this page. */}
+              <div className="audit-hero-input" style={{ position: "relative", paddingLeft: 26 }}>
+                {/* Help cue — top-left, anchored above the floating label so
+                    it never overlaps the input chrome on mobile (44px tap
+                    target is preserved by the input itself). */}
+                <div
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    width: 22,
+                    height: 22,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    zIndex: 2,
+                  }}
+                >
+                  <InfoCue
+                    testid="audit-hero"
+                    label="Help: Search your business"
+                    region="step-content"
+                    text="Enter your business website. We'll scan it for SEO, speed, and conversion issues — free, in about 30 seconds."
+                  />
+                </div>
                 <Search
                   size={18}
                   strokeWidth={1.75}
                   style={{
                     position: "absolute",
-                    left: 14,
+                    left: 40,
                     top: "50%",
                     transform: "translateY(-50%)",
                     color: "rgba(0,0,0,0.35)",
                     pointerEvents: "none",
+                    zIndex: 1,
                   }}
                 />
                 <input
                   ref={inputRef}
+                  id="audit-hero-input"
                   data-testid="input-audit-search"
-                  className="audit-input"
+                  className="audit-input audit-hero-input__field"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   onFocus={() => { if (predictions.length > 0 || (searchDone && predictions.length === 0)) setDropdownOpen(true); }}
-                  placeholder="Type your business name + city…"
+                  // Floating label uses :placeholder-shown — needs a single
+                  // space so the label can collapse when the input is empty.
+                  placeholder=" "
                   aria-label="Search your business name and city"
                   style={{
                     width: "100%",
+                    minHeight: 46,
                     height: 46,
                     borderRadius: 14,
-                    border: "1px solid rgba(0,0,0,0.10)",
-                    padding: "0 14px 0 42px",
+                    border: `1px solid ${error ? "rgba(239,68,68,0.55)" : "rgba(0,0,0,0.10)"}`,
+                    padding: "16px 14px 6px 42px",
                     fontSize: 15,
                     fontWeight: 500,
                     outline: "none",
                     background: "#fff",
                     transition: "border-color 0.2s, box-shadow 0.2s",
                     color: "#111827",
+                    boxSizing: "border-box",
                   }}
                 />
+                <label
+                  htmlFor="audit-hero-input"
+                  className="audit-hero-input__label"
+                >
+                  Type your business name + city…
+                </label>
                 {loadingSearch && (
                   <div
                     style={{
@@ -734,6 +817,20 @@ export default function FreeAudit() {
                     }}
                   />
                 )}
+                {error && (
+                  <div
+                    data-testid="text-audit-error-inline"
+                    style={{
+                      marginTop: 2,
+                      fontSize: 12,
+                      color: "#B91C1C",
+                      fontWeight: 500,
+                      paddingLeft: 4,
+                    }}
+                  >
+                    {error}
+                  </div>
+                )}
               </div>
 
               {/* Autocomplete dropdown */}
@@ -746,7 +843,9 @@ export default function FreeAudit() {
                     left: 0,
                     right: 0,
                     top: "100%",
-                    marginTop: 4,
+                    // BG-2: tightened to 2px per design-system rule on
+                    // input-to-companion gap.
+                    marginTop: 2,
                     borderRadius: 14,
                     background: "#fff",
                     border: "1px solid rgba(0,0,0,0.10)",
@@ -833,23 +932,12 @@ export default function FreeAudit() {
                 </div>
               )}
 
-              {error && (
-                <div
-                  data-testid="text-audit-error"
-                  style={{
-                    marginTop: 12,
-                    padding: "10px 14px",
-                    borderRadius: 12,
-                    background: "rgba(239,68,68,0.06)",
-                    border: "1px solid rgba(239,68,68,0.14)",
-                    color: "#B91C1C",
-                    fontSize: 13,
-                    fontWeight: 500,
-                  }}
-                >
-                  {error}
-                </div>
-              )}
+              {/* BG-2: legacy outer error block removed — the inline error
+                  beneath the floating-label field now serves as the single
+                  validation surface (design rule: error renders inside the
+                  field). data-testid="text-audit-error-inline" is the
+                  replacement hook for any tests previously hitting the old
+                  outer "text-audit-error" id. */}
             </div>
           )}
 
