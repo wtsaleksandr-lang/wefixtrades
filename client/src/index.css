@@ -532,6 +532,17 @@
   border-color: #334155;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
 }
+/* BD-3h — wireframe schema appears ABOVE the helper text inside the
+ * popover. A thin separator divides the diagram from the prose. */
+.qq-info-cue-schema-wrap {
+  margin: -2px 0 8px 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #E5E7EB;
+}
+.qq-info-cue-popover[data-theme="dark"] .qq-info-cue-schema-wrap {
+  border-bottom-color: #334155;
+}
+.qq-info-cue-text { display: block; }
 
 /* Wave J — editor chrome theme variables (item 3). Default = light.
  * The toggle on EditorTopBar sets data-theme on the shell root. */

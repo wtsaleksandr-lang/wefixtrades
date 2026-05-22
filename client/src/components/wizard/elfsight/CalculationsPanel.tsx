@@ -89,6 +89,7 @@ export default function CalculationsPanel({ calculations, fields, onChange }: Pr
             Calculations
             <InfoCue
               testid="build-section-calcs"
+              region="result"
               text="Math that turns field values into a quote. Each calculation can reference any field above and any earlier calculation; the one you flag as 'primary' becomes the headline number."
             />
           </h3>

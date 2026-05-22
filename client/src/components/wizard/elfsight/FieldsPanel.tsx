@@ -122,6 +122,7 @@ export default function FieldsPanel({ fields, onChange }: Props) {
             Fields
             <InfoCue
               testid="build-section-fields"
+              region="step-content"
               text="What customers see and interact with — sliders, dropdowns, image choices, headings, etc. Drag to reorder; each one feeds into your calculations below."
             />
           </h3>

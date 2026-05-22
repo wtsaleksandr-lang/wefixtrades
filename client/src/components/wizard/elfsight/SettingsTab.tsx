@@ -216,6 +216,7 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
           Pricing model
           <InfoCue
             testid="settings-section-pricing"
+            region="result"
             text="How quotes are priced. Hourly multiplies by hours; Fixed is a flat price; Custom lets you label the unit (per sqft, per door, per panel, etc.)."
           />
         </legend>
@@ -309,6 +310,7 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
           Deposit
           <InfoCue
             testid="settings-section-deposit"
+            region="step-content"
             text="Optionally collect a partial payment when customers book. Requires a connected Stripe account."
           />
         </legend>
@@ -462,6 +464,7 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
           Number formatting
           <InfoCue
             testid="settings-section-numberformat"
+            region="result"
             text="Controls how prices display in the calculator. Currency is a 3-letter ISO code (USD / EUR / GBP / …)."
           />
         </legend>
@@ -529,6 +532,7 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
           Call to action
           <InfoCue
             testid="settings-section-cta"
+            region="sticky-footer"
             text="The button text shown on the result panel after the quote is calculated."
           />
         </legend>
@@ -558,6 +562,7 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
           Online booking
           <InfoCue
             testid="settings-section-scheduling"
+            region="step-content"
             text="Let customers pick a time slot after the quote. Slots are built from your working hours minus existing bookings."
           />
         </legend>
@@ -681,6 +686,7 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
           Branding
           <InfoCue
             testid="settings-section-brand"
+            region="trust-block"
             text="Controls the WeFixTrades badge on the calculator. Free plan keeps it visible; Pro and Business plans can hide it."
           />
         </legend>
@@ -706,6 +712,7 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
                 Show WeFixTrades branding on the widget
                 <InfoCue
                   testid="settings-brand-badge"
+                  region="trust-block"
                   text='Free plan calculators show a "QuoteQuick by WeFixTrades" badge on the hosted page and any embedded widgets. Pro and Business plans remove the badge.'
                 />
               </span>
@@ -1408,6 +1415,7 @@ function BusinessProfileSection({
         Business profile
         <InfoCue
           testid="settings-section-business-profile"
+          region="trust-strip"
           text="Drives inline trust signals on the widget: aggregate Google rating in the header strip, license # and insured-up-to below the CTA. Empty fields are hidden — no placeholder copy."
         />
       </legend>
