@@ -14,7 +14,7 @@
  * one-liner that resolves it. Trades-buyer brain: short, clear, scannable.
  */
 
-import { useState, useEffect, type ReactNode } from "react";
+import { useState, useEffect, useMemo, type ReactNode } from "react";
 import { Link } from "wouter";
 import { ArrowRight, Phone, MessageSquare, Calendar, Star, Clock, Sparkles, Check, ChevronDown, Rocket } from "lucide-react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
@@ -33,6 +33,14 @@ import { PRODUCT_TESTIMONIALS } from "@/config/product-testimonials";
 import TradeLineHeroPhone from "@/components/marketing/TradeLineHeroPhone";
 import TradeLineDemoLauncher from "@/components/marketing/TradeLineDemoLauncher";
 import NotFound from "@/pages/not-found";
+import QuoteWidget from "@/components/quote-widget/QuoteWidget";
+import type { CalculatorData } from "@/components/quote-widget/types";
+import {
+  getTemplatePreset,
+  toAdvancedConfig,
+  type BusinessProfile,
+} from "@shared/templatePresets";
+import MapMockup from "@/pages/products/mapguard/MapMockup";
 
 /* ─── Per-product hero hooks ───────────────────────────────────
    { eyebrow: pain point in one line; headline: solution; sub: how. }
@@ -140,6 +148,13 @@ export default function EffortelProductPage({ slug }: { slug: string }) {
         {isComingSoon && <ComingSoonBanner />}
         <Hero cfg={effectiveCfg} hook={hook} slug={slug} />
         <TrustStrip cfg={cfg} />
+
+        {/* BG-4 — live, in-page product demo (between trust strip + numbered
+            cards). The actual interactive widget for products that ship one
+            — visitors don't just read about it, they touch it. Skipped for
+            products without a real customer-facing widget. */}
+        {slug === "quickquotepro" && <QuickQuoteLandingLiveDemo />}
+        {slug === "mapguard" && <MapGuardLandingTeaser />}
 
         {/* NUMBERED CARDS */}
         <section style={{ padding: "20px 24px 80px" }}>
@@ -801,6 +816,347 @@ function FinalCta({ cfg }: { cfg: ReturnType<typeof getProductBySlug> & {} }) {
           {cfg.primaryCTA.label} <ArrowRight size={18} />
         </CtaLink>
       </div>
+    </section>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════
+   SECTION: BG-4 — QuickQuote Pro live widget mount
+   Mounts the real <AdvancedCalculator> (via QuoteWidget) on
+   /products/quickquotepro pre-loaded with the styled
+   `window_replacement_quote` preset — multi-step + range pricing +
+   BD-2a style + trust signals, all working for anonymous visitors.
+   Below: "Use the full tool →" CTA to /tools/quote-demo.
+   ════════════════════════════════════════════════════════════════ */
+const QQ_SAMPLE_BUSINESS_PROFILE: BusinessProfile = {
+  googleRating: 4.9,
+  googleReviewCount: 312,
+  yearsInBusiness: 14,
+  licenseNumber: "Sample - Demo Only",
+  insuredAmount: "Insured up to $2M",
+  serviceArea: "Phoenix Metro",
+};
+
+function buildQuickQuoteLandingCalculator(): CalculatorData {
+  // Wave BG-4 — mirrors BE-3's `/tools/quote-demo` mount pattern, but
+  // pre-loaded with the Window Replacement template. That preset ships
+  // explicit BD-2a style + range pricing + image-card radios — so the
+  // landing-page widget shows the full QuoteQuick gold-standard surface
+  // on first paint (multi-step + sticky shell + range pricing + trust
+  // signals) without auth context.
+  const preset = getTemplatePreset("window_replacement_quote");
+  if (!preset) {
+    return {
+      id: 0,
+      slug: "demo-window-replacement",
+      business_name: "Acme Window Pros",
+      pricing_config: null,
+    };
+  }
+  const advanced = {
+    ...toAdvancedConfig(preset),
+    businessProfile: QQ_SAMPLE_BUSINESS_PROFILE,
+  };
+  return {
+    id: 0,
+    slug: "demo-window-replacement",
+    business_name: "Acme Window Pros",
+    tagline: "ENERGY STAR certified · Lifetime product warranty",
+    primary_color: "#4f46e5",
+    // `advanced` config bypasses the legacy pricing-family flow — pass
+    // null pricing_config and let the AdvancedCalculator code-path run.
+    pricing_config: null,
+    calculator_settings: {
+      advanced,
+    },
+  };
+}
+
+function QuickQuoteLandingLiveDemo() {
+  const calculator = useMemo(() => buildQuickQuoteLandingCalculator(), []);
+  return (
+    <section style={{ padding: "20px 24px 60px" }}>
+      <div style={{ maxWidth: 720, margin: "0 auto" }}>
+        <p
+          style={{
+            fontSize: 11,
+            fontWeight: 700,
+            color: mkt.accent,
+            textAlign: "center",
+            letterSpacing: "0.12em",
+            textTransform: "uppercase",
+            margin: "0 0 10px",
+            fontFamily: MONO,
+          }}
+        >
+          Try the real calculator
+        </p>
+        <h2
+          style={{
+            fontSize: "clamp(24px, 3.5vw, 32px)",
+            fontWeight: 600,
+            color: mkt.onDark,
+            textAlign: "center",
+            letterSpacing: "-0.02em",
+            lineHeight: 1.15,
+            margin: "0 0 22px",
+          }}
+        >
+          This is what your customers will see
+        </h2>
+        <div style={{ marginBottom: 22 }}>
+          {/* Real widget — anonymous-visitor-safe (isEmbed=false matches
+              the BE-3 /tools/quote-demo mount). */}
+          <QuoteWidget calculator={calculator} isEmbed={false} />
+        </div>
+
+        {/* "Use the full tool →" CTA — points at the dedicated
+            /tools/quote-demo page (full BE-3 demo with FAQ + video). */}
+        <div style={{ textAlign: "center" }}>
+          <Link
+            href="/tools/quote-demo"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "11px 18px",
+              borderRadius: 10,
+              background: "transparent",
+              color: mkt.onDark,
+              border: `1px solid ${mkt.onDarkBorder}`,
+              fontSize: 13,
+              fontWeight: 600,
+              fontFamily: MONO,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              textDecoration: "none",
+            }}
+            data-testid="link-quickquote-full-demo"
+          >
+            Try it live <ArrowRight size={14} />
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════
+   SECTION: BG-4 — MapGuard landing teaser
+   Card-style mock showing sample heatmap + 3 audit cards. No live
+   crawl runs from here (that's reserved for /tools/map-snapshot
+   itself, which has the address-input flow). The teaser is a static
+   preview + CTA so visitors see the shape of the audit before they
+   commit to running one.
+   ════════════════════════════════════════════════════════════════ */
+const MAPGUARD_SAMPLE_FINDINGS: { tag: string; title: string; detail: string; severity: "high" | "med" | "low" }[] = [
+  {
+    tag: "Hours",
+    title: "Hours mismatch with website",
+    detail: "Google shows Sat closed — your site says open 9–2. Costing weekend bookings.",
+    severity: "high",
+  },
+  {
+    tag: "Photos",
+    title: "No exterior photos in 90 days",
+    detail: "Profiles with fresh photos rank higher and get 35% more direction requests.",
+    severity: "med",
+  },
+  {
+    tag: "Category",
+    title: "Secondary category missing",
+    detail: "Add 'Emergency plumber' as secondary — captures urgency searches.",
+    severity: "low",
+  },
+];
+
+function MapGuardLandingTeaser() {
+  return (
+    <section style={{ padding: "20px 24px 60px" }}>
+      <div style={{ maxWidth: 720, margin: "0 auto" }}>
+        <p
+          style={{
+            fontSize: 11,
+            fontWeight: 700,
+            color: mkt.accent,
+            textAlign: "center",
+            letterSpacing: "0.12em",
+            textTransform: "uppercase",
+            margin: "0 0 10px",
+            fontFamily: MONO,
+          }}
+        >
+          Try a sample audit
+        </p>
+        <h2
+          style={{
+            fontSize: "clamp(24px, 3.5vw, 32px)",
+            fontWeight: 600,
+            color: mkt.onDark,
+            textAlign: "center",
+            letterSpacing: "-0.02em",
+            lineHeight: 1.15,
+            margin: "0 0 22px",
+          }}
+        >
+          This is what we'd find on your profile
+        </h2>
+
+        {/* Card body */}
+        <div
+          style={{
+            background: mkt.sectionLight,
+            border: `1px solid var(--hairline)`,
+            borderRadius: 18,
+            padding: "24px",
+            display: "grid",
+            gridTemplateColumns: "minmax(0, 320px) minmax(0, 1fr)",
+            gap: 24,
+            alignItems: "start",
+            marginBottom: 22,
+          }}
+          className="bg4-mapguard-teaser"
+        >
+          {/* Heatmap mock */}
+          <div style={{ minWidth: 0 }}>
+            <p
+              style={{
+                fontSize: 11,
+                fontFamily: MONO,
+                color: mkt.onDarkFaint,
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+                margin: "0 0 10px",
+              }}
+            >
+              Local rank heatmap
+            </p>
+            <MapMockup />
+            <p
+              style={{
+                fontSize: 12,
+                color: mkt.onDarkMuted,
+                margin: "12px 0 0",
+                lineHeight: 1.5,
+              }}
+            >
+              Top-3 in 3 of 5 sample tiles · 2 tiles outside top-10
+            </p>
+          </div>
+
+          {/* Audit findings */}
+          <div style={{ minWidth: 0 }}>
+            <p
+              style={{
+                fontSize: 11,
+                fontFamily: MONO,
+                color: mkt.onDarkFaint,
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+                margin: "0 0 10px",
+              }}
+            >
+              Sample findings · 3 of 12
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {MAPGUARD_SAMPLE_FINDINGS.map((f) => (
+                <div
+                  key={f.title}
+                  style={{
+                    background: mkt.bg,
+                    border: `1px solid ${mkt.onDarkBorder}`,
+                    borderRadius: 12,
+                    padding: "12px 14px",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      marginBottom: 6,
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: 10,
+                        fontFamily: MONO,
+                        letterSpacing: "0.08em",
+                        textTransform: "uppercase",
+                        color: "#FFFFFF",
+                        background:
+                          f.severity === "high"
+                            ? "#dc2626"
+                            : f.severity === "med"
+                              ? "#d97706"
+                              : mkt.accent,
+                        padding: "3px 8px",
+                        borderRadius: 6,
+                        fontWeight: 700,
+                      }}
+                    >
+                      {f.tag}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 600,
+                        color: mkt.onDark,
+                        lineHeight: 1.3,
+                      }}
+                    >
+                      {f.title}
+                    </span>
+                  </div>
+                  <p
+                    style={{
+                      fontSize: 12,
+                      color: mkt.onDarkMuted,
+                      margin: 0,
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    {f.detail}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* CTA */}
+        <div style={{ textAlign: "center" }}>
+          <Link
+            href="/tools/map-snapshot"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "11px 18px",
+              borderRadius: 10,
+              background: mkt.accent,
+              color: "#FFFFFF",
+              border: "1px solid transparent",
+              fontSize: 13,
+              fontWeight: 600,
+              fontFamily: MONO,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              textDecoration: "none",
+            }}
+            data-testid="link-mapguard-full-snapshot"
+          >
+            Run the full audit <ArrowRight size={14} />
+          </Link>
+        </div>
+      </div>
+      <style>{`
+        @media (max-width: 640px) {
+          .bg4-mapguard-teaser {
+            grid-template-columns: 1fr !important;
+          }
+        }
+      `}</style>
     </section>
   );
 }
