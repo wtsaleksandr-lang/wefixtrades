@@ -65,24 +65,11 @@ function deriveCategories(templates: TemplateConfig[]): string[] {
   return Array.from(set).sort();
 }
 
-/**
- * P1 UX bug sweep — convert a snake_case identifier to a display label.
- *
- * `TemplateConfig.trades` is an array of trade IDs (e.g. `auto_detailing`,
- * `mobile_car_detailing`). The strip card's tag line previously rendered
- * these raw, leaking snake_case to the UI ("Car Towing" card showed
- * `auto_detailing` as the third line). The full TRADES table in
- * `@/data/trades` carries proper `label` strings, but that's ~200 rows;
- * a tiny in-place transform is lighter than importing the whole table
- * for a 2-tag preview. snake_case → Title Case covers every current
- * trade id deterministically.
- */
-function formatTradeId(id: string): string {
-  return id
-    .split('_')
-    .map((w) => (w.length === 0 ? '' : w[0].toUpperCase() + w.slice(1)))
-    .join(' ');
-}
+/* P1 RE-FIX — `formatTradeId` (snake_case → Title Case) was used to
+ * render the strip card's third title line ("Auto Detailing" under
+ * "Car Towing"). That third title is now removed entirely (one title
+ * per card), so the helper was deleted along with the JSX that
+ * called it. */
 
 /**
  * W-AO-2 — secondary category-accent band painted along the bottom edge of
@@ -413,20 +400,17 @@ export default function TemplateStrip({ activeTemplateId, onApplyTemplate }: Str
           </div>
           <div className="qq-tg-card-body">
             <span className="qq-tg-card-name">Start blank</span>
-            <span className="qq-tg-card-tags">Custom build</span>
           </div>
         </button>
 
         {templates.map((t) => {
           const accent = templateAccent(t.id);
           const isActive = t.id === activeTemplateId;
-          // P1 UX bug sweep — format trade IDs (snake_case) into display
-          // labels (Title Case) so the strip's tag line reads as a
-          // human-friendly trade name, not the raw schema slug.
-          const tradeTags = (t.trades ?? [])
-            .slice(0, 2)
-            .map(formatTradeId)
-            .join(', ');
+          // P1 RE-FIX — the strip card's third title line (formerly
+          // `formatTradeId(t.trades[0..2])`, e.g. "Auto Detailing" under
+          // "Car Towing") is dropped entirely. Each card now shows ONE
+          // title (the template name) on top of the mockup. The mockup's
+          // CTA button text is the template's own content and stays.
           return (
             <button
               key={t.id}
@@ -439,7 +423,6 @@ export default function TemplateStrip({ activeTemplateId, onApplyTemplate }: Str
               <TemplateCardMockup accent={accent} template={t} />
               <div className="qq-tg-card-body">
                 <span className="qq-tg-card-name">{t.name}</span>
-                <span className="qq-tg-card-tags">{tradeTags || t.category}</span>
               </div>
             </button>
           );
@@ -525,20 +508,19 @@ export default function TemplateStrip({ activeTemplateId, onApplyTemplate }: Str
           border-color: ${p.colors.accent};
           box-shadow: 0 0 0 2px ${p.colors.accentLighter};
         }
+        /* P1 RE-FIX — body is now single-line (template name only).
+         * min-height dropped (was 36px to accommodate the removed
+         * second/third tag line) so cards shrink vertically and more
+         * fit in the strip without scrolling. */
         .qq-tg-card-body {
-          display: flex; flex-direction: column; gap: 2px;
+          display: flex; flex-direction: column;
           padding: 2px 2px 4px;
-          min-height: 36px;
         }
         .qq-tg-card-name {
           font-size: 12px; font-weight: 700; color: ${p.colors.heading};
           line-height: 1.3;
           overflow: hidden; text-overflow: ellipsis;
           display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical;
-        }
-        .qq-tg-card-tags {
-          font-size: 10.5px; font-weight: 600; color: ${p.colors.muted};
-          overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
         }
 
         /* Mini-mockup. W-AP-1 — bumped from 76 → 150 px so the hero band,
