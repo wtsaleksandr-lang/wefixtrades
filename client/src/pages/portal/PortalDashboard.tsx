@@ -8,6 +8,9 @@ import { TASK_STATUS_STYLES, TASK_STATUS_LABELS, statusLabel } from "@/config/po
 import ModeToggle from "@/components/portal/ModeToggle";
 import { useAuth } from "@/hooks/useAuth";
 import { TradelineSetupBanner } from "./TradelineSetup/DashboardBanner";
+// BG-3: canonical elevation primitive — uses --shadow-card token + bg-card/border-card-border
+// so cards inherit the design-system soft-card shadow and respond to dark mode.
+import { Card } from "@/components/ui/card";
 
 /* Temporary in-page error surface so a render exception shows on the page
  * instead of blanking the React tree. Replace with the app's global error
@@ -215,7 +218,7 @@ function PortalDashboardInner() {
            to their user account. Show what the customer view looks like
            but empty + give them next-step links. */
         <div className="max-w-2xl mx-auto mt-8" data-testid="admin-no-client-empty">
-          <div className="bg-white border border-amber-200 rounded-xl p-6 space-y-4">
+          <Card className="border-amber-200 p-6 space-y-4">
             <div className="flex items-start gap-3">
               <div className="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center shrink-0">
                 <UserPlus className="w-5 h-5 text-amber-700" />
@@ -261,7 +264,7 @@ function PortalDashboardInner() {
             <p className="text-[11px] text-gray-400 border-t border-gray-100 pt-3">
               To preview a specific client's portal you'd need a client record whose <code className="px-1 py-0.5 rounded bg-gray-100 font-mono text-[10px]">user_id</code> column matches your admin user id.
             </p>
-          </div>
+          </Card>
         </div>
       )}
       {error && !isAdminWithoutClient && (
@@ -324,11 +327,10 @@ function PortalDashboardInner() {
           </div>
 
           {/* Q16: Add Services CTA — single entry-point to the in-portal service catalog */}
-          <Link
-            href="/portal/catalog"
-            className="flex items-center justify-between bg-white rounded-xl border border-gray-200 hover:border-[#0d3cfc]/40 hover:shadow-sm p-5 transition-all group"
-            data-testid="link-add-services"
-          >
+          <Link href="/portal/catalog" data-testid="link-add-services">
+            <Card
+              className="flex items-center justify-between hover:border-[#0d3cfc]/40 p-5 transition-all group cursor-pointer"
+            >
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-[#EEF3FF] flex items-center justify-center">
                 <Plus className="w-5 h-5 text-[#0d3cfc]" />
@@ -339,11 +341,12 @@ function PortalDashboardInner() {
               </div>
             </div>
             <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-[#0d3cfc] transition-colors" />
+            </Card>
           </Link>
 
           {/* Pending onboarding card — only shows if there are any forms to complete */}
           {pendingOnboarding?.submissions && pendingOnboarding.submissions.length > 0 && (
-            <div className="bg-white rounded-xl border border-amber-200 p-5">
+            <Card className="border-amber-200 p-5">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center">
@@ -387,12 +390,12 @@ function PortalDashboardInner() {
                   </Link>
                 ))}
               </div>
-            </div>
+            </Card>
           )}
 
           {/* QuoteQuick card */}
           {qqData?.calculator && (
-            <div className="bg-white rounded-xl border border-gray-200 p-5">
+            <Card className="p-5">
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center">
@@ -439,10 +442,10 @@ function PortalDashboardInner() {
                   View analytics →
                 </Link>
               </div>
-            </div>
+            </Card>
           )}
           {qqData && !qqData.calculator && (
-            <div className="bg-white rounded-xl border border-gray-200 border-dashed p-5">
+            <Card className="border-dashed p-5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-lg bg-gray-50 flex items-center justify-center">
@@ -460,7 +463,7 @@ function PortalDashboardInner() {
                   Set up QuoteQuick
                 </a>
               </div>
-            </div>
+            </Card>
           )}
 
           {/* TradeLine card */}
@@ -473,7 +476,7 @@ function PortalDashboardInner() {
               : { label: "Setting up", cls: "bg-gray-100 text-gray-600" };
 
             return (
-              <div className="bg-white rounded-xl border border-gray-200 p-5">
+              <Card className="p-5">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
@@ -531,12 +534,12 @@ function PortalDashboardInner() {
                     <p className="text-xs text-gray-400">No activity yet this month.</p>
                   )}
                 </div>
-              </div>
+              </Card>
             );
           })()}
           {/* SocialSync CTA */}
           {ssProfile && (ssProfile.exists === false || !ssProfile.niche) && (
-            <div className="bg-white rounded-xl border border-gray-200 p-5 flex items-center justify-between">
+            <Card className="p-5 flex items-center justify-between">
               <div>
                 <p className="text-sm font-semibold text-gray-900">Set up SocialSync</p>
                 <p className="text-xs text-gray-500 mt-0.5">We'll post content for your business automatically. Takes about 5 minutes.</p>
@@ -544,11 +547,11 @@ function PortalDashboardInner() {
               <Link href="/portal/socialsync-setup" className="shrink-0 px-4 py-2 rounded-lg text-xs font-medium text-white bg-[#0d3cfc] hover:bg-[#0b34d6]">
                 Get Started
               </Link>
-            </div>
+            </Card>
           )}
 
           {/* Recent activity */}
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <Card className="overflow-hidden">
             <div className="px-5 py-4 border-b border-gray-100">
               <h2 className="text-sm font-semibold text-gray-900">Recent Activity</h2>
             </div>
@@ -576,7 +579,7 @@ function PortalDashboardInner() {
                 ))}
               </ul>
             )}
-          </div>
+          </Card>
         </div>
       )}
     </PortalLayout>
@@ -601,7 +604,7 @@ function StatCard({
   href?: string;
 }) {
   const card = (
-    <div className="h-full bg-white rounded-xl border border-gray-200 p-4 hover:shadow-sm transition-shadow cursor-pointer">
+    <Card className="h-full p-4 cursor-pointer">
       <div className="flex items-center gap-3">
         <div className={`w-9 h-9 rounded-lg ${bgColor} flex items-center justify-center`}>
           <Icon className={`w-4 h-4 ${color}`} />
@@ -612,7 +615,7 @@ function StatCard({
           {subtitle && <p className="text-[10px] text-gray-400 -mt-0.5">{subtitle}</p>}
         </div>
       </div>
-    </div>
+    </Card>
   );
   if (href) return <Link href={href}>{card}</Link>;
   return card;
