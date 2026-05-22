@@ -201,13 +201,120 @@ interface Props {
   embed?: boolean;
 }
 
+// BD-3a fix 1 — undo/redo history stack depth. Capped to prevent memory bloat
+// when an owner edits a lot inside one session (each tweak pushes the prior
+// state). 50 entries handles a typical build session comfortably.
+const HISTORY_LIMIT = 50;
+
 export default function WizardShell({ embed = false }: Props) {
   const [, navigate] = useLocation();
-  const [state, setState] = useState<ShellState>(() => loadShellState());
+  const [state, setStateInner] = useState<ShellState>(() => loadShellState());
   const [activeTab, setActiveTab] = useState<EditorTab>('build');
   const [device, setDevice] = useState<PreviewDevice>('desktop');
   const [justSaved, setJustSaved] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+
+  // BD-3a fix 1 — undo / redo stacks of prior ShellState snapshots. We use
+  // refs so pushing to the stacks doesn't itself trigger a re-render; the
+  // `historyTick` counter is bumped after each push so EditorTopBar can read
+  // the up-to-date `canUndo` / `canRedo` flags via a stable selector.
+  const undoStackRef = useRef<ShellState[]>([]);
+  const redoStackRef = useRef<ShellState[]>([]);
+  // `isReplayingRef` guards setState() during undo/redo so the replay itself
+  // doesn't get pushed back onto the undo stack (which would make undo a no-op
+  // toggle between the two most recent states).
+  const isReplayingRef = useRef(false);
+  const [historyTick, setHistoryTick] = useState(0);
+
+  // Wrap setState so that every USER-INITIATED mutation pushes the previous
+  // snapshot onto the undo stack and clears the redo stack (the classic
+  // editor undo/redo semantics — new edit invalidates redo history).
+  const setState = useCallback<typeof setStateInner>((updater) => {
+    if (isReplayingRef.current) {
+      // Replay path — don't touch the history stacks.
+      setStateInner(updater);
+      return;
+    }
+    setStateInner((prev) => {
+      const next = typeof updater === 'function'
+        ? (updater as (s: ShellState) => ShellState)(prev)
+        : updater;
+      if (next !== prev) {
+        const stack = undoStackRef.current;
+        stack.push(prev);
+        if (stack.length > HISTORY_LIMIT) stack.shift();
+        redoStackRef.current = [];
+        // Defer the tick bump so React doesn't warn about setting state
+        // during render — undoStackRef.current was just mutated synchronously
+        // but historyTick is a plain useState.
+        queueMicrotask(() => setHistoryTick((t) => t + 1));
+      }
+      return next;
+    });
+  }, []);
+
+  const undo = useCallback(() => {
+    const stack = undoStackRef.current;
+    if (stack.length === 0) return;
+    const prev = stack.pop()!;
+    setStateInner((current) => {
+      redoStackRef.current.push(current);
+      if (redoStackRef.current.length > HISTORY_LIMIT) redoStackRef.current.shift();
+      return prev;
+    });
+    isReplayingRef.current = true;
+    queueMicrotask(() => {
+      isReplayingRef.current = false;
+      setHistoryTick((t) => t + 1);
+    });
+  }, []);
+
+  const redo = useCallback(() => {
+    const stack = redoStackRef.current;
+    if (stack.length === 0) return;
+    const next = stack.pop()!;
+    setStateInner((current) => {
+      undoStackRef.current.push(current);
+      if (undoStackRef.current.length > HISTORY_LIMIT) undoStackRef.current.shift();
+      return next;
+    });
+    isReplayingRef.current = true;
+    queueMicrotask(() => {
+      isReplayingRef.current = false;
+      setHistoryTick((t) => t + 1);
+    });
+  }, []);
+
+  const canUndo = undoStackRef.current.length > 0;
+  const canRedo = redoStackRef.current.length > 0;
+  // Suppress unused-var lint — `historyTick` exists purely to re-render when
+  // the ref-backed stacks change.
+  void historyTick;
+
+  // BD-3a fix 1 — keyboard shortcuts. Cmd/Ctrl+Z = undo, Cmd/Ctrl+Shift+Z
+  // (or Cmd/Ctrl+Y) = redo. We skip when the user is typing in a real text
+  // field so the browser's native input undo keeps working there.
+  useEffect(() => {
+    const onKey = (ev: KeyboardEvent) => {
+      const target = ev.target as Element | null;
+      const inEditableField = target instanceof HTMLInputElement
+        || target instanceof HTMLTextAreaElement
+        || (target instanceof HTMLElement && target.isContentEditable);
+      if (inEditableField) return;
+      const meta = ev.metaKey || ev.ctrlKey;
+      if (!meta) return;
+      const key = ev.key.toLowerCase();
+      if (key === 'z' && !ev.shiftKey) {
+        ev.preventDefault();
+        undo();
+      } else if ((key === 'z' && ev.shiftKey) || key === 'y') {
+        ev.preventDefault();
+        redo();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [undo, redo]);
 
   // Wave R-pre D — token-driven plan_tier load. When the wizard is opened
   // via `/wizard?token=...` (the post-publish dashboard link), fetch the
@@ -662,6 +769,10 @@ export default function WizardShell({ embed = false }: Props) {
               onEditorThemeChange={setEditorTheme}
               onHelp={() => setShowHelp(true)}
               onClose={handleClose}
+              canUndo={canUndo}
+              canRedo={canRedo}
+              onUndo={undo}
+              onRedo={redo}
             />
 
             <EditorTabs
@@ -1080,9 +1191,26 @@ export default function WizardShell({ embed = false }: Props) {
               display: flex; align-items: center; justify-content: center;
               transition: background 0.12s ease, color 0.12s ease;
             }
-            .qq-editor-icon-btn:hover {
+            .qq-editor-icon-btn:hover:not(:disabled) {
               background: ${p.colors.surfaceRaised};
               color: ${p.colors.heading};
+            }
+            /* BD-3a fix 1 — Undo/Redo icon button states. 32px touch target
+             * (was 26px) and an accent-blue tint on hover for affordance,
+             * dimmed when the corresponding stack is empty. */
+            .qq-editor-history-btn {
+              width: 32px;
+              height: 32px;
+              flex-shrink: 0;
+            }
+            .qq-editor-history-btn:hover:not(:disabled) {
+              background: ${p.colors.accentLighter};
+              color: ${p.colors.accent};
+              border-color: ${p.colors.accent};
+            }
+            .qq-editor-history-btn:disabled {
+              opacity: 0.4;
+              cursor: not-allowed;
             }
             /* Wave L N1 — keep the tab bar visible while the left-pane content
              * scrolls. The tabs are a child of .qq-editor-frame (siblings of
@@ -1316,15 +1444,21 @@ export default function WizardShell({ embed = false }: Props) {
                  scrolling right column, so sticky was redundant. */
               display: flex; align-items: flex-start; justify-content: center;
               padding: 24px 20px; box-sizing: border-box; min-height: 100%;
-              /* Wave AA — visible dotted-grid background. Subtle but clearly
-                 perceptible canvas texture; uses theme-aware color so dark
-                 editor mode gets matching dots. */
-              background-image: radial-gradient(circle, ${p.colors.border} 1.2px, transparent 1.2px);
-              background-size: 22px 22px;
+              /* BD-3a fix 2 — square 1px grid (was a dotted radial-gradient).
+                 Alex called out the day-mode grid as barely visible. Two
+                 perpendicular linear-gradients render a clean 24×24 square
+                 grid that's subtle but always perceptible on the light
+                 canvas. Dark mode flips to a faint white grid for parity. */
+              background-image:
+                linear-gradient(to right, rgba(15,23,42,0.08) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(15,23,42,0.08) 1px, transparent 1px);
+              background-size: 24px 24px;
               background-position: 0 0;
             }
             .qq-editor-shell[data-theme="dark"] .qq-preview-pane {
-              background-image: radial-gradient(circle, rgba(255,255,255,0.10) 1.2px, transparent 1.2px);
+              background-image:
+                linear-gradient(to right, rgba(255,255,255,0.06) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(255,255,255,0.06) 1px, transparent 1px);
             }
             .qq-preview-stage {
               width: 100%; max-width: 920px;
