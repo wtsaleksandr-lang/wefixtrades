@@ -29,7 +29,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useDroppable } from '@dnd-kit/core';
-import { GripVertical, ZoomIn, ZoomOut, Maximize2, Minimize2, Plus } from 'lucide-react';
+import { GripVertical, ZoomIn, ZoomOut, Maximize2, Minimize2, Plus, Crosshair } from 'lucide-react';
 import QuoteWidget from '@/components/quote-widget/QuoteWidget';
 import HostedPageFrame from '@/components/hosted-page/HostedPageFrame';
 import type { CalculatorData } from '@/components/quote-widget/types';
@@ -147,6 +147,14 @@ const MIN_H = 320;
 const ZOOM_MIN = 0.25;
 const ZOOM_MAX = 2.0;
 const ZOOM_STEP = 0.1;
+// Drag-bug fix — vertical reserve (in pane CSS pixels) kept clear above the
+// bezel so the 28-px drag handle never scrolls/clips above the canvas
+// viewport top. 32 leaves a 4-px breathing strip above the handle.
+const DRAG_HANDLE_TOP_RESERVE = 32;
+// Snap-back threshold — if the drag ends with less than this fraction of
+// the bezel still visible inside the pane, the widget snaps back to the
+// nearest in-bounds position. 0.2 = require at least 20% visible.
+const SNAP_BACK_MIN_VISIBLE_FRACTION = 0.2;
 
 function snap(n: number, step = GRID_PX): number {
   return Math.round(n / step) * step;
@@ -290,7 +298,20 @@ export default function PreviewPane({
     const naturalTop = stageRect.top - widgetOffset.y * zoom;
     const minDx = (paneRect.left + VISIBLE_MIN - (naturalLeft + stageRect.width)) / zoom;
     const maxDx = (paneRect.right - VISIBLE_MIN - naturalLeft) / zoom;
-    const minDy = (paneRect.top + VISIBLE_MIN - (naturalTop + stageRect.height)) / zoom;
+    // Drag-bug fix — instead of letting the user drag the widget all the way
+    // up until only `VISIBLE_MIN` of the bottom remains, clamp the upward
+    // drag so the bezel TOP (where the 28-px drag handle sits) stays at
+    // least DRAG_HANDLE_TOP_RESERVE px below the pane top. Otherwise the
+    // handle scrolls above the canvas viewport / `.qq-editor-right`
+    // overflow:clip boundary and the user can no longer grab it.
+    //
+    // We measure the actual bezel (not the stage) because the stage has
+    // padding above the bezel (widget-scope wrapper: padding 8px 8px 28px),
+    // so the bezel top is below the stage top by `padTop * zoom` pane px.
+    const bezel = bezelMeasureRef.current;
+    const bezelRect = bezel ? bezel.getBoundingClientRect() : stageRect;
+    const bezelTopOffset = (bezelRect.top - stageRect.top) / zoom; // stage-px above bezel
+    const minDy = (paneRect.top + DRAG_HANDLE_TOP_RESERVE - naturalTop) / zoom - bezelTopOffset;
     const maxDy = (paneRect.bottom - VISIBLE_MIN - naturalTop) / zoom;
     const rawX = Math.max(minDx, Math.min(maxDx, st.baseX + dx));
     const rawY = Math.max(minDy, Math.min(maxDy, st.baseY + dy));
@@ -305,10 +326,47 @@ export default function PreviewPane({
     try { handle.releasePointerCapture(e.pointerId); } catch {}
     if (paneRef.current) delete paneRef.current.dataset.dragging;
     dragStateRef.current = null;
+
+    // Drag-bug fix — snap-back. If the user releases with less than
+    // SNAP_BACK_MIN_VISIBLE_FRACTION (20 %) of the bezel still visible inside
+    // the pane (e.g. dragged most of the widget off the right edge or down
+    // off the bottom while the in-move clamp was loose around the bottom
+    // axis), pull it back to the nearest position where the bezel sits
+    // entirely within the pane (minus DRAG_HANDLE_TOP_RESERVE at the top).
+    const pane = paneRef.current;
+    const bezel = bezelMeasureRef.current;
+    let finalOffset = widgetOffset;
+    if (pane && bezel) {
+      const paneRect = pane.getBoundingClientRect();
+      const bezelRect = bezel.getBoundingClientRect();
+      const visW = Math.max(0, Math.min(bezelRect.right, paneRect.right) - Math.max(bezelRect.left, paneRect.left));
+      const visH = Math.max(0, Math.min(bezelRect.bottom, paneRect.bottom) - Math.max(bezelRect.top, paneRect.top));
+      const visibleFrac = (visW * visH) / Math.max(1, bezelRect.width * bezelRect.height);
+      if (visibleFrac < SNAP_BACK_MIN_VISIBLE_FRACTION) {
+        // Compute correction in pane CSS px, then translate to stage px.
+        let correctX = 0;
+        let correctY = 0;
+        if (bezelRect.right < paneRect.left + 80) correctX = (paneRect.left + 80) - bezelRect.right;
+        else if (bezelRect.left > paneRect.right - 80) correctX = (paneRect.right - 80) - bezelRect.left;
+        if (bezelRect.bottom < paneRect.top + DRAG_HANDLE_TOP_RESERVE + 80) {
+          correctY = (paneRect.top + DRAG_HANDLE_TOP_RESERVE + 80) - bezelRect.bottom;
+        } else if (bezelRect.top > paneRect.bottom - 80) {
+          correctY = (paneRect.bottom - 80) - bezelRect.top;
+        }
+        if (correctX !== 0 || correctY !== 0) {
+          finalOffset = {
+            x: snap(widgetOffset.x + correctX / zoom),
+            y: snap(widgetOffset.y + correctY / zoom),
+          };
+          setWidgetOffset(finalOffset);
+        }
+      }
+    }
+
     try {
-      localStorage.setItem(`${WIDGET_OFFSET_KEY}_${device}`, JSON.stringify(widgetOffset));
+      localStorage.setItem(`${WIDGET_OFFSET_KEY}_${device}`, JSON.stringify(finalOffset));
     } catch {}
-  }, [device, widgetOffset]);
+  }, [device, widgetOffset, zoom]);
 
   const resetWidgetOffset = useCallback(() => {
     setWidgetOffset({ x: 0, y: 0 });
@@ -316,6 +374,19 @@ export default function PreviewPane({
     try {
       localStorage.removeItem(`${WIDGET_OFFSET_KEY}_${device}`);
       localStorage.removeItem(`${WIDGET_SIZE_KEY}_${device}`);
+    } catch {}
+  }, [device]);
+
+  // Drag-bug fix — Recenter button. Restores widgetOffset to {0,0} so the
+  // bezel sits at its natural top-anchored position inside the pane, without
+  // touching widgetSize (so a user who manually resized the mockup keeps
+  // that size and only recovers position). This is the recovery escape
+  // hatch when the drag handle is unreachable or the user just wants the
+  // mockup back in view.
+  const recenterWidget = useCallback(() => {
+    setWidgetOffset({ x: 0, y: 0 });
+    try {
+      localStorage.removeItem(`${WIDGET_OFFSET_KEY}_${device}`);
     } catch {}
   }, [device]);
 
@@ -1370,6 +1441,20 @@ export default function PreviewPane({
         >
           <Minimize2 size={14} aria-hidden="true" />
         </button>
+        {/* Drag-bug fix — Recenter button. Recovery escape hatch when the
+         *  drag handle is unreachable or the widget is dragged out of view.
+         *  Sets widgetOffset back to {0,0} without resetting widgetSize. */}
+        <button
+          type="button"
+          className="qq-zoom-btn"
+          onClick={recenterWidget}
+          data-testid="preview-recenter-widget"
+          aria-label="Recenter widget"
+          title="Recenter widget"
+          disabled={widgetOffset.x === 0 && widgetOffset.y === 0}
+        >
+          <Crosshair size={14} aria-hidden="true" />
+        </button>
       </div>
 
       {undo && (
@@ -1415,19 +1500,25 @@ export default function PreviewPane({
 
         /* BD-3b — drag handle bar at the top of the widget. Always present
          * but faded; full opacity on hover or when selected. Sits above
-         * everything inside the bezel via z-index. */
+         * everything inside the bezel via z-index.
+         *
+         * Drag-bug fix — at-rest opacity bumped 0 -> 0.7 so the user can
+         * actually see the handle without hovering (the wizard canvas has
+         * multiple distracting surfaces, the previous "invisible until
+         * hover" was undiscoverable). Height bumped 28 -> 32 to expand the
+         * hit target and match the in-move clamp's DRAG_HANDLE_TOP_RESERVE. */
         .qq-widget-drag-handle {
           position: absolute;
           top: 0; left: 0; right: 0;
-          height: 28px;
+          height: 32px;
           z-index: 8;
           display: flex; align-items: center; gap: 5px;
           padding: 0 10px;
-          background: linear-gradient(180deg, rgba(13,60,252,0.0), rgba(13,60,252,0.0));
+          background: linear-gradient(180deg, rgba(13,60,252,0.55), rgba(13,60,252,0.30));
           color: #fff;
           font-size: 11px; font-weight: 700; letter-spacing: 0.02em;
           cursor: grab;
-          opacity: 0;
+          opacity: 0.7;
           transition: opacity 0.12s ease, background 0.12s ease;
           user-select: none;
           touch-action: none;
