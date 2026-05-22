@@ -745,6 +745,9 @@ export const assistantMessages = pgTable("assistant_messages", {
   // Shape: Array<{ assetId, mimeType, sizeBytes }>. Null when no images.
   // See migration 0005_assistant_message_attachments.sql.
   attachments: jsonb("attachments"),
+  // Soft-delete stamp from the shared-files retention sweep (BA-7,
+  // migration 0033). Only attachment-bearing rows are candidates.
+  deleted_at: timestamp("deleted_at"),
   created_at: timestamp("created_at").defaultNow(),
 }, (table) => [
   index("idx_assistant_messages_thread_created").on(table.thread_id, table.created_at),

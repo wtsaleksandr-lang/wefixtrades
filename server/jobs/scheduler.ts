@@ -59,6 +59,7 @@ import { releaseStaleSlugs } from "../services/quotequickSlugLifecycle";
 import { processApiWebhookDeliveries } from "./apiWebhookDeliveryWorker";
 import { runBusinessOperatorJob } from "./businessOperatorWorker";
 import { runCalculatorAnalyticsRollup } from "./calculatorAnalyticsRollupWorker";
+import { runSharedFilesRetentionSweep } from "./sharedFilesRetentionSweepWorker";
 
 const log = createLogger("Scheduler");
 
@@ -921,6 +922,19 @@ export function initScheduler() {
       await runJob("calculator_analytics_rollup", runCalculatorAnalyticsRollup);
     } catch (err: any) {
       log.error("calculator_analytics_rollup cron handler error", { error: err.message });
+    }
+  }, { timezone: "UTC" });
+
+  // Wave BA-7 — shared-files retention sweep. Daily at 04:15 UTC (quiet
+  // hours, off-minute). Soft-deletes customer-shared files older than
+  // 180 days that aren't pinned via retention_overrides. Idempotent —
+  // re-runs on the same day produce no further deletions because
+  // candidates exclude rows already carrying a deleted_at.
+  cron.schedule("15 4 * * *", async () => {
+    try {
+      await runJob("shared_files_retention_sweep", runSharedFilesRetentionSweep);
+    } catch (err: any) {
+      log.error("shared_files_retention_sweep cron handler error", { error: err.message });
     }
   }, { timezone: "UTC" });
 
