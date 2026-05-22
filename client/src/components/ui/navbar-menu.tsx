@@ -104,7 +104,13 @@ export const MenuItem = ({
   }, [isOpen, ctx]);
 
   return (
-    <div onMouseEnter={() => setActive(item)}>
+    // Only items with a dropdown should activate the nav menu state.
+    // Top-level direct links (Templates, Pricing) must NOT set `active`,
+    // otherwise the page-blur backdrop in <Menu> opens for them too —
+    // leaving the user with a blurred page and nothing to click. The
+    // backdrop is gated on `active` so gating the setter here is the
+    // simplest fix without threading a new prop.
+    <div onMouseEnter={() => (hasChildren ? setActive(item) : setActive(null))}>
       {hasChildren ? (
         <motion.button
           transition={{ duration: 0.3 }}
@@ -191,7 +197,16 @@ export const MenuItem = ({
                       >
                         <div
                           className="mkt-menu-card-icon"
-                          style={{ color: mkt.accent }}
+                          // Force all dropdown grid icons to render in a
+                          // single light color. The lucide icons inherit
+                          // stroke from currentColor, so setting `color`
+                          // here governs every icon (workflow, sparkles,
+                          // target, layers, etc.) uniformly. Previously
+                          // they used mkt.accent (#0d3cfc) which on the
+                          // dark dropdown surface made low-ink icons
+                          // (ContentFlow/AdFlow/BookFlow) look darker
+                          // than higher-ink icons.
+                          style={{ color: "rgba(255,255,255,0.92)" }}
                           aria-hidden
                         >
                           <NavIcon icon={icon} />
