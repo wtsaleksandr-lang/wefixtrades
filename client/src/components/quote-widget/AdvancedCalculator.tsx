@@ -45,6 +45,8 @@ import ContactStep from './ContactStep';
 import TierSelector from './TierSelector';
 import TrustStripHeader from './TrustStripHeader';
 import TrustBlockUnderCTA from './TrustBlockUnderCTA';
+// BF-9 — pre-curated trust-badge pill row (Licensed & Insured, BBB, etc.).
+import TrustBadgeRow from './TrustBadgeRow';
 // BD-2c — image-card radio + ZIP peer-anchor + AI chat visibility gate.
 import ImageRadioStep from './ImageRadioStep';
 import PeerAnchorLine from './PeerAnchorLine';
@@ -300,6 +302,12 @@ export interface AdvancedConfig {
    * `VITE_GOOGLE_PLACES_API_KEY` is missing (graceful degradation).
    */
   requireAddress?: boolean;
+  /**
+   * BF-9 — pre-curated trust badges shown as a pill row above the stepper.
+   * Pre-populated by `shared/templatePresets.ts` per category/trade; the
+   * owner can override via the Style tab.
+   */
+  trustBadges?: readonly import('@shared/templatePresets').TrustBadge[];
 }
 
 interface Props {
@@ -1901,6 +1909,14 @@ export default function AdvancedCalculator({
           all fields are empty, returns null (no placeholder copy). */}
       <TrustStripHeader
         profile={advanced.businessProfile}
+        theme={c}
+        fontFamily={fontFamily}
+      />
+      {/* BF-9 — pre-curated trust-badge pill row (Licensed & Insured, BBB,
+          OSHA, IICRC, ASE, etc.). Pre-populated per template; absent →
+          renders null. Wraps to multiple rows on narrow widths. */}
+      <TrustBadgeRow
+        badges={advanced.trustBadges}
         theme={c}
         fontFamily={fontFamily}
       />

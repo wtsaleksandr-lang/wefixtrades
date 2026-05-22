@@ -249,6 +249,34 @@ export interface TemplateConfig {
    * missing — no error, no broken UX.
    */
   requireAddress?: boolean;
+  /**
+   * BF-9 — pre-curated trust badges rendered as a pill row in the widget
+   * header (accent-tinted bg + accent-coloured icon + short label). Pre-set
+   * per category/trade so every template ships with industry-standard trust
+   * signals (Licensed & Insured, BBB Accredited, OSHA / IICRC / ASE certs,
+   * 24/7 Emergency, etc.). Owners override via the Style tab later.
+   */
+  trustBadges?: readonly TrustBadge[];
+}
+
+/**
+ * BF-9 — small lucide-react-backed trust badge. Used in `templatePresets`'s
+ * `trustBadges` array and surfaced verbatim through `AdvancedConfigShape`.
+ * `icon` accepts the lucide names enumerated below; the renderer maps to the
+ * concrete component (unknown values fall back to `BadgeCheck`).
+ */
+export interface TrustBadge {
+  /** Short pill label, e.g. "Licensed & Insured", "BBB Accredited". */
+  label: string;
+  /** Lucide icon family name (case-insensitive). */
+  icon:
+    | 'shield' | 'shield-check'
+    | 'check-circle' | 'check-circle-2'
+    | 'award' | 'lock' | 'star' | 'thumbs-up'
+    | 'badge-check' | 'verified'
+    | 'clipboard-check' | 'clock' | 'leaf' | 'file-badge';
+  /** Optional visual variant — reserved for future emphasis (default vs pro). */
+  variant?: 'default' | 'pro';
 }
 
 /* Small helpers to keep the catalogue compact. */
@@ -263,11 +291,334 @@ const calc = (
 ): TemplateCalculation =>
   ({ id: name.toLowerCase().replace(/[^a-z0-9]+/g, '_'), name, formula, format });
 
+/* BF-9 — per-trade trust-badge presets.
+ *
+ * Each entry is a 3-4 pill row that mirrors what a real business in that
+ * category would put on their site. Industry-specific certifications (BBB,
+ * IICRC, OSHA, ASE, EPA, NADCA) are used only where the trade actually
+ * carries them; everything else uses the generic "Licensed & Insured /
+ * Insured / Satisfaction Guaranteed / Locally Owned" set. Tuples are typed
+ * as `readonly TrustBadge[]` so the per-template usage stays compact (no
+ * inline annotation needed).
+ */
+const b = (label: string, icon: TrustBadge['icon']): TrustBadge => ({ label, icon });
+
+const BADGES = {
+  // ── Construction / heavy build ──
+  construction: [
+    b('Licensed & Insured', 'shield-check'),
+    b('BBB Accredited', 'badge-check'),
+    b('10-Year Warranty', 'award'),
+    b('OSHA Certified', 'verified'),
+  ],
+  roofing: [
+    b('Licensed & Insured', 'shield-check'),
+    b('BBB Accredited', 'badge-check'),
+    b('Manufacturer Certified', 'verified'),
+    b('Lifetime Warranty Available', 'award'),
+  ],
+  driveway_concrete: [
+    b('Licensed & Insured', 'shield-check'),
+    b('5-Year Workmanship Warranty', 'award'),
+    b('BBB Accredited', 'badge-check'),
+    b('Free Estimates', 'thumbs-up'),
+  ],
+  renovation: [
+    b('Licensed General Contractor', 'badge-check'),
+    b('Fully Insured', 'shield'),
+    b('Workmanship Warranty', 'award'),
+    b('References Available', 'star'),
+  ],
+
+  // ── Home Improvement ──
+  homeImprovement: [
+    b('Licensed & Insured', 'shield-check'),
+    b('BBB Accredited', 'badge-check'),
+    b('10-Year Warranty', 'award'),
+    b('EPA Lead-Safe Certified', 'verified'),
+  ],
+  hvac: [
+    b('Licensed & Insured', 'shield-check'),
+    b('NATE Certified Techs', 'badge-check'),
+    b('EPA 608 Certified', 'verified'),
+    b('Workmanship Guarantee', 'award'),
+  ],
+  plumbing: [
+    b('Licensed Master Plumber', 'badge-check'),
+    b('Fully Insured', 'shield'),
+    b('Workmanship Warranty', 'award'),
+    b('Upfront Pricing', 'check-circle'),
+  ],
+  electrical: [
+    b('Licensed Master Electrician', 'badge-check'),
+    b('Fully Insured & Bonded', 'shield-check'),
+    b('Code-Compliant Work', 'verified'),
+    b('Free Estimates', 'thumbs-up'),
+  ],
+  evCharger: [
+    b('Certified EV Installer', 'badge-check'),
+    b('Licensed & Insured', 'shield-check'),
+    b('Permit & Inspection Handled', 'clipboard-check'),
+    b('Manufacturer Authorized', 'verified'),
+  ],
+  windows: [
+    b('Licensed & Insured', 'shield-check'),
+    b('Manufacturer Certified', 'badge-check'),
+    b('Lifetime Warranty', 'award'),
+    b('ENERGY STAR Partner', 'verified'),
+  ],
+  painting: [
+    b('Licensed & Insured', 'shield-check'),
+    b('EPA Lead-Safe Certified', 'verified'),
+    b('Workmanship Warranty', 'award'),
+    b('Free Color Consult', 'thumbs-up'),
+  ],
+  solar: [
+    b('NABCEP Certified', 'badge-check'),
+    b('Licensed & Insured', 'shield-check'),
+    b('25-Year Production Warranty', 'award'),
+    b('Free Energy Audit', 'thumbs-up'),
+  ],
+
+  // ── Emergency / Restoration ──
+  emergency: [
+    b('24/7 Emergency Service', 'clock'),
+    b('IICRC Certified', 'badge-check'),
+    b('Insurance Approved', 'verified'),
+    b('Fully Insured', 'shield'),
+  ],
+  waterDamage: [
+    b('24/7 Emergency Response', 'clock'),
+    b('IICRC Certified', 'badge-check'),
+    b('Insurance Direct-Billing', 'verified'),
+    b('EPA Approved Process', 'shield-check'),
+  ],
+  moldRemediation: [
+    b('IICRC Certified', 'badge-check'),
+    b('EPA Approved Process', 'shield-check'),
+    b('Insurance Approved', 'verified'),
+    b('Workmanship Warranty', 'award'),
+  ],
+  emergencyHvac: [
+    b('24/7 Emergency Service', 'clock'),
+    b('NATE Certified Techs', 'badge-check'),
+    b('Same-Day Service', 'star'),
+    b('Licensed & Insured', 'shield-check'),
+  ],
+  locksmith: [
+    b('24/7 Mobile Service', 'clock'),
+    b('Licensed & Insured', 'shield-check'),
+    b('ALOA Certified', 'badge-check'),
+    b('Upfront Pricing', 'check-circle'),
+  ],
+
+  // ── Cleaning ──
+  cleaning: [
+    b('Eco-Friendly Products', 'leaf'),
+    b('Insured Workers', 'shield'),
+    b('Satisfaction Guaranteed', 'check-circle'),
+    b('Same-Day Service', 'star'),
+  ],
+  deepCleaning: [
+    b('Eco-Friendly Products', 'leaf'),
+    b('Background-Checked Pros', 'shield-check'),
+    b('Satisfaction Guaranteed', 'check-circle'),
+    b('100% Bonded & Insured', 'shield'),
+  ],
+  moveOut: [
+    b('Move-Out Guarantee', 'check-circle'),
+    b('Insured & Bonded', 'shield-check'),
+    b('Eco-Friendly Products', 'leaf'),
+    b('Same-Day Available', 'star'),
+  ],
+  officeCleaning: [
+    b('Commercial Insured', 'shield-check'),
+    b('Background-Checked Crews', 'badge-check'),
+    b('Green-Seal Products', 'leaf'),
+    b('Flexible Scheduling', 'check-circle'),
+  ],
+  windowCleaning: [
+    b('Insured Workers', 'shield-check'),
+    b('Eco-Friendly Solutions', 'leaf'),
+    b('Satisfaction Guaranteed', 'check-circle'),
+    b('Locally Owned', 'star'),
+  ],
+  gutterCleaning: [
+    b('Insured Workers', 'shield-check'),
+    b('Satisfaction Guaranteed', 'check-circle'),
+    b('Free Inspection', 'thumbs-up'),
+    b('Locally Owned', 'star'),
+  ],
+  pressureWashing: [
+    b('Insured Workers', 'shield-check'),
+    b('Eco-Friendly Detergents', 'leaf'),
+    b('Satisfaction Guaranteed', 'check-circle'),
+    b('Same-Day Service', 'star'),
+  ],
+  pestControl: [
+    b('Licensed Applicator', 'badge-check'),
+    b('EPA Registered Products', 'shield-check'),
+    b('Pet & Family Safe', 'leaf'),
+    b('Service Guarantee', 'check-circle'),
+  ],
+  chimneySweep: [
+    b('CSIA Certified', 'badge-check'),
+    b('Licensed & Insured', 'shield-check'),
+    b('Workmanship Guarantee', 'award'),
+    b('Same-Day Available', 'star'),
+  ],
+  junkRemoval: [
+    b('Licensed & Insured', 'shield-check'),
+    b('Eco-Friendly Disposal', 'leaf'),
+    b('Upfront Pricing', 'check-circle'),
+    b('Same-Day Available', 'star'),
+  ],
+
+  // ── Outdoor ──
+  outdoor: [
+    b('Licensed Landscaper', 'badge-check'),
+    b('Fully Insured', 'shield'),
+    b('Free Estimates', 'thumbs-up'),
+    b('Locally Owned', 'star'),
+  ],
+  treeService: [
+    b('ISA Certified Arborist', 'badge-check'),
+    b('Fully Insured', 'shield-check'),
+    b('Free Estimates', 'thumbs-up'),
+    b('Emergency Service', 'clock'),
+  ],
+  fence: [
+    b('Licensed & Insured', 'shield-check'),
+    b('Workmanship Warranty', 'award'),
+    b('Free Estimates', 'thumbs-up'),
+    b('Locally Owned', 'star'),
+  ],
+  deck: [
+    b('Licensed & Insured', 'shield-check'),
+    b('Workmanship Warranty', 'award'),
+    b('Permit Handled', 'clipboard-check'),
+    b('Free Design Consult', 'thumbs-up'),
+  ],
+  pool: [
+    b('Certified Pool Operator', 'badge-check'),
+    b('Licensed & Insured', 'shield-check'),
+    b('Satisfaction Guaranteed', 'check-circle'),
+    b('Locally Owned', 'star'),
+  ],
+  lawnCare: [
+    b('Licensed Landscaper', 'badge-check'),
+    b('Insured Crew', 'shield'),
+    b('Satisfaction Guaranteed', 'check-circle'),
+    b('Locally Owned', 'star'),
+  ],
+
+  // ── Automotive ──
+  automotive: [
+    b('ASE Certified', 'badge-check'),
+    b('Fully Insured', 'shield-check'),
+    b('Mobile Service', 'verified'),
+    b('Satisfaction Guaranteed', 'check-circle'),
+  ],
+  towing: [
+    b('Licensed & Insured', 'shield-check'),
+    b('24/7 Dispatch', 'clock'),
+    b('Flat-Rate Pricing', 'check-circle'),
+    b('AAA Approved', 'badge-check'),
+  ],
+  detailing: [
+    b('Mobile Service', 'verified'),
+    b('Eco-Friendly Products', 'leaf'),
+    b('Satisfaction Guaranteed', 'check-circle'),
+    b('5-Star Rated', 'star'),
+  ],
+
+  // ── Professional ──
+  webDesign: [
+    b('5-Star Rated', 'star'),
+    b('Portfolio Available', 'badge-check'),
+    b('100% Satisfaction', 'check-circle'),
+    b('Years of Experience', 'award'),
+  ],
+  photography: [
+    b('Licensed Professional', 'badge-check'),
+    b('Insured Equipment', 'shield-check'),
+    b('Portfolio Available', 'star'),
+    b('Satisfaction Guaranteed', 'check-circle'),
+  ],
+  moving: [
+    b('Licensed & Insured', 'shield-check'),
+    b('DOT Licensed', 'badge-check'),
+    b('Free Estimates', 'thumbs-up'),
+    b('BBB Accredited', 'verified'),
+  ],
+  homeInspection: [
+    b('InterNACHI Certified', 'badge-check'),
+    b('Licensed & Insured', 'shield-check'),
+    b('Same-Day Report', 'clipboard-check'),
+    b('Years of Experience', 'award'),
+  ],
+
+  // ── Repair Services ──
+  applianceRepair: [
+    b('Factory Trained Techs', 'badge-check'),
+    b('Licensed & Insured', 'shield-check'),
+    b('90-Day Parts Warranty', 'award'),
+    b('Same-Day Service', 'star'),
+  ],
+  garageDoor: [
+    b('Licensed & Insured', 'shield-check'),
+    b('IDA Certified', 'badge-check'),
+    b('Same-Day Service', 'star'),
+    b('Workmanship Warranty', 'award'),
+  ],
+
+  // ── Home Improvement (specific) ──
+  doors: [
+    b('Licensed & Insured', 'shield-check'),
+    b('Manufacturer Certified', 'badge-check'),
+    b('Workmanship Warranty', 'award'),
+    b('Free Estimates', 'thumbs-up'),
+  ],
+  siding: [
+    b('Licensed & Insured', 'shield-check'),
+    b('Manufacturer Certified', 'badge-check'),
+    b('Lifetime Warranty Available', 'award'),
+    b('Free Estimates', 'thumbs-up'),
+  ],
+  insulation: [
+    b('Licensed & Insured', 'shield-check'),
+    b('ENERGY STAR Partner', 'verified'),
+    b('Workmanship Warranty', 'award'),
+    b('Free Energy Audit', 'thumbs-up'),
+  ],
+  drywall: [
+    b('Licensed & Insured', 'shield-check'),
+    b('Workmanship Warranty', 'award'),
+    b('Free Estimates', 'thumbs-up'),
+    b('Locally Owned', 'star'),
+  ],
+  flooring: [
+    b('Licensed & Insured', 'shield-check'),
+    b('Manufacturer Certified', 'badge-check'),
+    b('Workmanship Warranty', 'award'),
+    b('Free Estimates', 'thumbs-up'),
+  ],
+
+  // Generic fallback
+  generic: [
+    b('Licensed & Insured', 'shield-check'),
+    b('Satisfaction Guaranteed', 'check-circle'),
+    b('Locally Owned', 'star'),
+    b('Free Estimates', 'thumbs-up'),
+  ],
+} as const satisfies Record<string, readonly TrustBadge[]>;
+
 export const TEMPLATE_PRESETS: TemplateConfig[] = [
   /* ── 1. Car towing ── */
   {
     id: 'car_towing', name: 'Car Towing', description: 'Distance-based tow pricing with add-on services.',
     category: 'Automotive', trades: ['auto_detailing'],
+    trustBadges: BADGES.towing,
     layout: 'single-column', theme: 'midnight', defaultIcon: 'Truck',
     header: { title: 'Dispatch a Tow Truck in 60 Seconds', subtitle: 'Licensed & insured · 24/7 response · Flat-rate per-mile pricing', align: 'left' },
     fields: [
@@ -299,6 +650,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
   {
     id: 'driveway_paving', name: 'Driveway Paving', description: 'Area-based driveway paving estimate.',
     category: 'Construction', trades: ['concrete_driveway', 'concrete_patio'],
+    trustBadges: BADGES.driveway_concrete,
     layout: 'single-column', theme: 'midnight', defaultIcon: 'Construction',
     header: { title: 'Get Your Driveway Paving Quote in 60 Seconds', subtitle: 'Licensed paving contractors · 10-year workmanship warranty · Free on-site survey', align: 'left' },
     fields: [
@@ -328,6 +680,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
   {
     id: 'property_cleaning', name: 'Property Cleaning', description: 'Room-based cleaning quote with extras.',
     category: 'Cleaning', trades: ['house_cleaning', 'office_cleaning', 'deep_cleaning'],
+    trustBadges: BADGES.cleaning,
     layout: 'two-column', theme: 'light', defaultIcon: 'Sparkles',
     header: { title: 'Get an Instant Cleaning Quote', subtitle: 'Bonded & insured cleaners · 4.9★ from 1,800+ jobs · 100% satisfaction re-clean guarantee', align: 'left' },
     fields: [
@@ -357,6 +710,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
   {
     id: 'energy_upgrade', name: 'Energy Upgrade', description: 'Home efficiency upgrade estimate.',
     category: 'Home Improvement', trades: ['hvac_services'],
+    trustBadges: BADGES.hvac,
     layout: 'multi-column', theme: 'midnight', defaultIcon: 'Leaf',
     header: { title: 'Cut Your Energy Bill — Get a Free Upgrade Quote', subtitle: 'BPI-certified · ENERGY STAR partner · Most homeowners save 20–30% on monthly bills', align: 'left' },
     fields: [
@@ -387,6 +741,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
   {
     id: 'landscaping', name: 'Landscaping', description: 'Garden landscaping & maintenance quote.',
     category: 'Outdoor', trades: ['landscaping', 'lawn_mowing', 'garden_maintenance', 'tree_trimming'],
+    trustBadges: BADGES.outdoor,
     layout: 'two-column', theme: 'forest', defaultIcon: 'Trees',
     header: { title: 'Design Your Dream Garden — Instant Quote', subtitle: 'Award-winning landscapers · Fully insured crews · Free design consultation', align: 'left' },
     fields: [
@@ -417,6 +772,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
   {
     id: 'gutter_cleaning', name: 'Gutter Cleaning', description: 'Length-based gutter cleaning quote.',
     category: 'Cleaning', trades: ['window_cleaning', 'pressure_washing'],
+    trustBadges: BADGES.gutterCleaning,
     layout: 'single-column', theme: 'forest', defaultIcon: 'Droplets',
     requireAddress: true,
     header: { title: 'Get Your Gutter Cleaning Quote in 60 Seconds', subtitle: 'Fully insured · OSHA-trained ladder crews · Free downspout flush included', align: 'left' },
@@ -448,6 +804,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
   {
     id: 'fence_installation', name: 'Fence Installation', description: 'Per-metre fencing install estimate.',
     category: 'Outdoor', trades: ['fence_installation', 'deck_building'],
+    trustBadges: BADGES.fence,
     layout: 'single-column', theme: 'forest', defaultIcon: 'Fence',
     header: { title: 'Get Your Fence Installation Quote in 60 Seconds', subtitle: 'Licensed fence contractors · 10-year structural warranty · Free property-line survey', align: 'left' },
     fields: [
@@ -478,6 +835,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
   {
     id: 'roof_repair', name: 'Roof Repair', description: 'Area + material roof repair estimate.',
     category: 'Construction', trades: ['roofing'],
+    trustBadges: BADGES.roofing,
     layout: 'two-column', theme: 'midnight', defaultIcon: 'Home',
     header: { title: 'Get Your Roof Repair Quote in 60 Seconds', subtitle: 'Licensed & insured roofers · 4.9★ from 1,200+ jobs · Free written estimate', align: 'left' },
     fields: [
@@ -509,6 +867,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
   {
     id: 'solar_panels', name: 'Solar Panels', description: 'Solar install cost from system size.',
     category: 'Home Improvement', trades: ['hvac_services'],
+    trustBadges: BADGES.solar,
     layout: 'multi-column', theme: 'light', defaultIcon: 'Sun',
     header: { title: 'Get Your Solar Install Quote — Plus Your Tax Credit', subtitle: 'NABCEP-certified installers · 25-year panel warranty · 30% federal tax credit eligible', align: 'left' },
     fields: [
@@ -539,6 +898,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
   {
     id: 'interior_painting', name: 'Interior Painting', description: 'Room + finish interior painting quote.',
     category: 'Home Improvement', trades: ['interior_painting', 'exterior_painting'],
+    trustBadges: BADGES.painting,
     layout: 'two-column', theme: 'mint', defaultIcon: 'PaintBucket',
     requireAddress: true,
     header: { title: 'Get an Instant Interior Painting Quote', subtitle: 'Licensed & insured · Sherwin-Williams certified · 2-year workmanship warranty', align: 'left' },
@@ -577,6 +937,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
   {
     id: 'house_renovation', name: 'House Renovation', description: 'Area + labour renovation estimate.',
     category: 'Construction', trades: ['general_renovation', 'kitchen_remodel', 'bathroom_remodel', 'flooring_installation'],
+    trustBadges: BADGES.renovation,
     layout: 'multi-column', theme: 'light', defaultIcon: 'Hammer',
     header: { title: 'Start Your Home Renovation — Free Itemised Estimate', subtitle: 'Licensed general contractor · Bonded crews · Transparent material + labor breakdown', align: 'left' },
     fields: [
@@ -637,6 +998,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     const base = {
       name: 'Wedding Photography', description: 'Premium wedding photography quote with album & travel options.',
       category: 'Photography & Events', trades: ['photographer'],
+      trustBadges: BADGES.photography,
       theme: 'light', fields, calculations, result_calc: 'Total Cost', header, results,
     };
     return [
@@ -671,6 +1033,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     const base = {
       name: 'House Renovation Pro', description: 'Premium whole-home renovation estimate with material & labour breakdown.',
       category: 'Construction', trades: ['general_contractor', 'handyman'],
+      trustBadges: BADGES.renovation,
       theme: 'forest', fields, calculations, result_calc: 'Total Renovation Cost', header, results,
     };
     return [
@@ -702,6 +1065,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     const base = {
       name: 'Carpet Cleaning Pro', description: 'Premium room-based carpet cleaning quote with optional treatments.',
       category: 'Cleaning', trades: ['house_cleaning'],
+      trustBadges: BADGES.generic,
       theme: 'mint', fields, calculations, result_calc: 'Total Cost', header, results,
     };
     return [
@@ -734,6 +1098,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     const base = {
       name: 'Roof Repair Pro', description: 'Premium roof repair estimate by area, material and job complexity.',
       category: 'Construction', trades: ['roofing'],
+      trustBadges: BADGES.roofing,
       theme: 'forest', fields, calculations, result_calc: 'Total Roof Repair Cost', header, results,
     };
     return [
@@ -768,6 +1133,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     const base = {
       name: 'Moving Cost Pro', description: 'Premium end-to-end moving quote with packing and add-on services.',
       category: 'Moving', trades: ['moving_services'],
+      trustBadges: BADGES.generic,
       theme: 'light', fields, calculations, result_calc: 'Total Moving Cost', header, results,
     };
     return [
@@ -817,6 +1183,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     const base = {
       name: 'HVAC Repair & Replace', description: 'Per-trade HVAC quote covering diagnostics, repairs and full system replacement.',
       category: 'HVAC & Mechanical', trades: ['hvac_repair', 'hvac_installation', 'furnace_replacement', 'emergency_hvac', 'hvac_services'],
+      trustBadges: BADGES.generic,
       theme: 'midnight', fields, calculations, result_calc: 'Estimated Total', header, results,
     };
     return [
@@ -853,6 +1220,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     const base = {
       name: 'Plumbing Services', description: 'Per-trade plumbing quote covering common repairs, installs and emergency calls.',
       category: 'HVAC & Mechanical', trades: ['plumbing_services', 'emergency_plumbing'],
+      trustBadges: BADGES.plumbing,
       theme: 'light', fields, calculations, result_calc: 'Estimated Total', header, results,
     };
     return [
@@ -890,6 +1258,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     const base = {
       name: 'Electrical Services', description: 'Per-trade electrical quote covering common installs, upgrades and emergencies.',
       category: 'HVAC & Mechanical', trades: ['electrical_services', 'emergency_electrical', 'ev_charger'],
+      trustBadges: BADGES.electrical,
       theme: 'midnight', fields, calculations, result_calc: 'Estimated Total', header, results,
     };
     return [
@@ -926,6 +1295,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     const base = {
       name: 'Appliance Repair', description: 'Per-appliance repair quote with severity-based pricing and same-day options.',
       category: 'Repair Services', trades: ['appliance_repair'],
+      trustBadges: BADGES.applianceRepair,
       theme: 'coral', fields, calculations, result_calc: 'Estimated Total', header, results,
     };
     return [
@@ -961,6 +1331,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     const base = {
       name: 'Drywall & Plaster', description: 'Square-foot drywall and plaster quote with finish-level pricing.',
       category: 'Construction', trades: ['drywall_plaster'],
+      trustBadges: BADGES.drywall,
       theme: 'mint', fields, calculations, result_calc: 'Estimated Total', header, results,
     };
     return [
@@ -998,6 +1369,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     const base = {
       name: 'Tile Installation', description: 'Tile install quote by area, type, pattern and location.',
       category: 'Construction', trades: ['tile_installation', 'flooring_installation'],
+      trustBadges: BADGES.flooring,
       theme: 'light', fields, calculations, result_calc: 'Estimated Total', header, results,
     };
     return [
@@ -1035,6 +1407,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     const base = {
       name: 'Window Replacement', description: 'Per-window replacement quote with glass packages and trim add-ons.',
       category: 'Home Improvement', trades: ['window_replacement'],
+      trustBadges: BADGES.windows,
       theme: 'light', fields, calculations, result_calc: 'Estimated Total', header, results,
     };
     return [
@@ -1072,6 +1445,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     const base = {
       name: 'Door Installation', description: 'Per-door install quote covering interior, exterior and patio doors.',
       category: 'Home Improvement', trades: ['door_installation'],
+      trustBadges: BADGES.doors,
       theme: 'mint', fields, calculations, result_calc: 'Estimated Total', header, results,
     };
     return [
@@ -1108,6 +1482,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     const base = {
       name: 'Siding Installation', description: 'Whole-home siding quote by area, material and number of stories.',
       category: 'Construction', trades: ['siding_installation'],
+      trustBadges: BADGES.siding,
       theme: 'forest', fields, calculations, result_calc: 'Estimated Total', header, results,
     };
     return [
@@ -1145,6 +1520,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     const base = {
       name: 'Deck Construction', description: 'Custom deck build quote by area, material, height and railing style.',
       category: 'Outdoor', trades: ['deck_construction', 'deck_building'],
+      trustBadges: BADGES.deck,
       theme: 'forest', fields, calculations, result_calc: 'Estimated Total', header, results,
     };
     return [
@@ -1181,6 +1557,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     const base = {
       name: 'Insulation Installation', description: 'Insulation quote by area, type and location with energy-audit add-on.',
       category: 'Home Improvement', trades: ['insulation_installation'],
+      trustBadges: BADGES.insulation,
       theme: 'mint', fields, calculations, result_calc: 'Estimated Total', header, results,
     };
     return [
@@ -1216,6 +1593,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     const base = {
       name: 'Pest Control', description: 'Per-pest treatment quote with home-size sizing and recurring plan options.',
       category: 'Specialty Services', trades: ['pest_control'],
+      trustBadges: BADGES.pestControl,
       theme: 'forest', fields, calculations, result_calc: 'Estimated Total', header, results,
     };
     return [
@@ -1254,6 +1632,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     const base = {
       name: 'Tree Service', description: 'Per-tree trimming, removal and stump-grinding quote with access-difficulty sizing.',
       category: 'Outdoor', trades: ['tree_trimming', 'tree_service'],
+      trustBadges: BADGES.treeService,
       theme: 'forest', fields, calculations, result_calc: 'Estimated Total', header, results,
     };
     return [
@@ -1289,6 +1668,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     const base = {
       name: 'Junk Removal', description: 'Junk pickup quote by load size, item category and access difficulty.',
       category: 'Specialty Services', trades: ['junk_removal'],
+      trustBadges: BADGES.junkRemoval,
       theme: 'coral', fields, calculations, result_calc: 'Estimated Total', header, results,
     };
     return [
@@ -1324,6 +1704,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     const base = {
       name: 'Pool Cleaning & Maintenance', description: 'Pool service quote by size, type and visit frequency.',
       category: 'Outdoor', trades: ['pool_cleaning', 'pool_service'],
+      trustBadges: BADGES.generic,
       theme: 'mint', fields, calculations, result_calc: 'Estimated Total', header, results,
     };
     return [
@@ -1359,6 +1740,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     const base = {
       name: 'Garage Door Service', description: 'Garage door repair and replacement quote with same-day options.',
       category: 'Repair Services', trades: ['garage_door'],
+      trustBadges: BADGES.generic,
       theme: 'midnight', fields, calculations, result_calc: 'Estimated Total', header, results,
     };
     return [
@@ -1397,6 +1779,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     const base = {
       name: 'Locksmith Services', description: 'Locksmith quote covering lockouts, re-keying and lock installs.',
       category: 'Specialty Services', trades: ['locksmith'],
+      trustBadges: BADGES.generic,
       theme: 'midnight', fields, calculations, result_calc: 'Estimated Total', header, results,
     };
     return [
@@ -1432,6 +1815,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     const base = {
       name: 'Chimney Sweep', description: 'Chimney sweep and inspection quote with cap and liner options.',
       category: 'Cleaning', trades: ['chimney_sweep'],
+      trustBadges: BADGES.chimneySweep,
       theme: 'coral', fields, calculations, result_calc: 'Estimated Total', header, results,
     };
     return [
@@ -1469,6 +1853,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     const base = {
       name: 'Water Damage Restoration', description: 'Restoration quote by affected area, water category and damage class.',
       category: 'Restoration', trades: ['water_damage', 'water_damage_restoration'],
+      trustBadges: BADGES.generic,
       theme: 'coral', fields, calculations, result_calc: 'Estimated Total', header, results,
     };
     return [
@@ -1505,6 +1890,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     const base = {
       name: 'Mold Remediation', description: 'Mold remediation quote by affected area, severity and location.',
       category: 'Restoration', trades: ['mold_remediation'],
+      trustBadges: BADGES.moldRemediation,
       theme: 'magenta', fields, calculations, result_calc: 'Estimated Total', header, results,
     };
     return [
@@ -1524,6 +1910,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'deep_home_cleaning', name: 'Deep Home Cleaning',
     description: 'Square-footage + room-count deep clean estimate with add-ons.',
     category: 'Cleaning', trades: ['deep_cleaning', 'house_cleaning'],
+    trustBadges: BADGES.deepCleaning,
     layout: 'two-column', theme: 'light', defaultIcon: 'Sparkles',
     header: { title: 'Book Your Top-to-Bottom Deep Clean', subtitle: 'Bonded & insured · Eco-friendly products · 24-hour re-clean guarantee', align: 'left' },
     fields: [
@@ -1559,6 +1946,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'move_out_cleaning', name: 'Move-Out Cleaning',
     description: 'Lease-handover clean priced by home size + urgency.',
     category: 'Cleaning', trades: ['move_in_out_cleaning', 'deep_cleaning'],
+    trustBadges: BADGES.moveOut,
     layout: 'single-column', theme: 'light', defaultIcon: 'PackageOpen',
     header: { title: 'Get Your Full Deposit Back — Instant Move-Out Quote', subtitle: 'Landlord-checklist clean · Bonded crews · Same-day availability', align: 'left' },
     fields: [
@@ -1591,6 +1979,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'office_cleaning', name: 'Office Cleaning',
     description: 'Recurring commercial cleaning by square footage + visit cadence.',
     category: 'Cleaning', trades: ['office_cleaning', 'commercial_cleaning'],
+    trustBadges: BADGES.officeCleaning,
     layout: 'two-column', theme: 'midnight', defaultIcon: 'Building2',
     header: { title: 'Get a Per-Visit Office Cleaning Quote', subtitle: 'Bonded janitorial crews · OSHA-compliant · Flexible scheduling around your business hours', align: 'left' },
     fields: [
@@ -1623,6 +2012,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'window_cleaning_quote', name: 'Window Cleaning',
     description: 'Per-window pricing with story-height and access modifiers.',
     category: 'Cleaning', trades: ['window_cleaning', 'pressure_washing'],
+    trustBadges: BADGES.windowCleaning,
     layout: 'single-column', theme: 'forest', defaultIcon: 'RectangleHorizontal',
     header: { title: 'Get a Streak-Free Window Cleaning Quote', subtitle: 'Fully insured · Pure-water poles · 100% streak-free guarantee', align: 'left' },
     fields: [
@@ -1656,6 +2046,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'kitchen_renovation', name: 'Kitchen Renovation',
     description: 'Full-kitchen remodel estimate by size, cabinet grade and finishes.',
     category: 'Renovation', trades: ['kitchen_remodel', 'general_renovation', 'general_contractor'],
+    trustBadges: BADGES.renovation,
     layout: 'two-column', theme: 'midnight', defaultIcon: 'ChefHat',
     header: { title: 'Design Your Dream Kitchen — Free Estimate', subtitle: 'NKBA-certified designers · Licensed contractors · 3D rendering with every consultation', align: 'left' },
     fields: [
@@ -1690,6 +2081,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'bathroom_renovation', name: 'Bathroom Renovation',
     description: 'Bathroom remodel pricing by fixture tier and tile coverage.',
     category: 'Renovation', trades: ['bathroom_remodel', 'general_renovation'],
+    trustBadges: BADGES.renovation,
     layout: 'two-column', theme: 'light', defaultIcon: 'Bath',
     header: { title: 'Get Your Bathroom Renovation Quote', subtitle: 'Licensed plumbers & tile pros · 5-year leak guarantee · Most baths done in 7–10 days', align: 'left' },
     fields: [
@@ -1722,6 +2114,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'basement_finishing', name: 'Basement Finishing',
     description: 'Per-sqft basement finish estimate with ceiling + scope modifiers.',
     category: 'Renovation', trades: ['basement_finishing', 'general_renovation'],
+    trustBadges: BADGES.renovation,
     layout: 'single-column', theme: 'midnight', defaultIcon: 'Wrench',
     header: { title: 'Turn Your Basement Into Living Space — Free Quote', subtitle: 'Licensed general contractor · Permit handling included · Adds avg. 70% ROI at resale', align: 'left' },
     fields: [
@@ -1757,6 +2150,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'interior_painting_pro', name: 'Interior Painting (Pro)',
     description: 'Per-sqft interior paint quote with prep and ceiling-height modifiers.',
     category: 'Renovation', trades: ['painting', 'interior_painting'],
+    trustBadges: BADGES.painting,
     layout: 'two-column', theme: 'light', defaultIcon: 'Paintbrush2',
     header: { title: 'Get a Professional Painting Quote', subtitle: 'Sherwin-Williams certified · Lead-safe certified · 3-year workmanship warranty', align: 'left' },
     fields: [
@@ -1792,6 +2186,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'hvac_installation', name: 'HVAC Installation',
     description: 'New HVAC system estimate by home size and equipment tier.',
     category: 'Mechanical', trades: ['hvac_services', 'hvac_installation'],
+    trustBadges: BADGES.hvac,
     layout: 'two-column', theme: 'midnight', defaultIcon: 'Thermometer',
     requireAddress: true,
     header: { title: 'Get Your HVAC Installation Quote', subtitle: 'NATE-certified technicians · 10-year parts & labor warranty · Same-week install available', align: 'left' },
@@ -1829,6 +2224,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'plumbing_service', name: 'Plumbing Service',
     description: 'Per-job plumbing estimate by service type + urgency.',
     category: 'Mechanical', trades: ['plumbing_services', 'emergency_plumbing'],
+    trustBadges: BADGES.plumbing,
     layout: 'single-column', theme: 'midnight', defaultIcon: 'Wrench',
     requireAddress: true,
     header: { title: 'Get an Upfront Plumbing Quote in 60 Seconds', subtitle: 'Licensed master plumbers · No hidden fees · Same-day & 24/7 emergency response', align: 'left' },
@@ -1866,6 +2262,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'electrical_work', name: 'Electrical Work',
     description: 'Per-job electrical estimate covering common residential scopes.',
     category: 'Mechanical', trades: ['electrical_services', 'emergency_electrical'],
+    trustBadges: BADGES.electrical,
     layout: 'single-column', theme: 'midnight', defaultIcon: 'Zap',
     requireAddress: true,
     header: { title: 'Get a Licensed Electrician Quote in 60 Seconds', subtitle: 'Licensed master electricians · Permits handled · 100% code-compliant guaranteed', align: 'left' },
@@ -1902,6 +2299,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'ev_charger_install', name: 'EV Charger Installation',
     description: 'Level-2 EV charger install with electrical-scope modifiers.',
     category: 'Mechanical', trades: ['ev_charger', 'electrical_services'],
+    trustBadges: BADGES.evCharger,
     layout: 'two-column', theme: 'forest', defaultIcon: 'BatteryCharging',
     header: { title: 'Charge at Home — EV Install Quote in 60 Seconds', subtitle: 'Tesla & ChargePoint certified · Licensed electricians · Most installs done same-day', align: 'left' },
     fields: [
@@ -1936,6 +2334,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'lawn_care_subscription', name: 'Lawn Care Subscription',
     description: 'Recurring lawn maintenance with visit-cadence pricing.',
     category: 'Outdoor', trades: ['lawn_mowing', 'landscaping', 'garden_maintenance'],
+    trustBadges: BADGES.lawnCare,
     layout: 'two-column', theme: 'forest', defaultIcon: 'Trees',
     header: { title: 'Get an Instant Lawn Care Quote', subtitle: 'Licensed & insured crews · Eco-friendly options · Cancel anytime with 30 days notice', align: 'left' },
     fields: [
@@ -1967,6 +2366,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'concrete_driveway_replacement', name: 'Concrete Driveway',
     description: 'New concrete driveway with finish + removal modifiers.',
     category: 'Driveway', trades: ['concrete_driveway', 'concrete_patio', 'concrete_slab'],
+    trustBadges: BADGES.driveway_concrete,
     layout: 'single-column', theme: 'midnight', defaultIcon: 'Construction',
     header: { title: 'Get Your New Concrete Driveway Quote', subtitle: 'ACI-certified concrete pros · 25-year structural warranty · Free on-site measurement', align: 'left' },
     fields: [
@@ -1998,6 +2398,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'tree_service', name: 'Tree Service',
     description: 'Trimming or removal estimate per tree with height + access modifiers.',
     category: 'Outdoor', trades: ['tree_service', 'tree_trimming'],
+    trustBadges: BADGES.treeService,
     layout: 'two-column', theme: 'forest', defaultIcon: 'TreeDeciduous',
     header: { title: 'Get a Certified Arborist Quote in 60 Seconds', subtitle: 'ISA-certified arborists · $2M liability insurance · 24/7 emergency storm response', align: 'left' },
     fields: [
@@ -2031,6 +2432,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'pressure_washing_quote', name: 'Pressure Washing',
     description: 'Per-sqft exterior surface clean with multi-surface support.',
     category: 'Cleaning', trades: ['pressure_washing', 'window_cleaning'],
+    trustBadges: BADGES.pressureWashing,
     layout: 'single-column', theme: 'forest', defaultIcon: 'Droplets',
     header: { title: 'Restore Your Curb Appeal — Free Wash Quote', subtitle: 'Soft-wash certified · Surface-safe pressure · Driveway, siding, deck, patio in one visit', align: 'left' },
     fields: [
@@ -2065,6 +2467,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'mobile_car_detail', name: 'Mobile Car Detailing',
     description: 'Per-vehicle detail with package tiers and add-on services.',
     category: 'Automotive', trades: ['mobile_car_detailing', 'auto_detailing'],
+    trustBadges: BADGES.detailing,
     layout: 'two-column', theme: 'midnight', defaultIcon: 'Car',
     header: { title: 'Book a Mobile Detail — We Come to You', subtitle: 'IDA-certified detailers · Eco-safe products · Fully self-contained — no water hookup needed', align: 'left' },
     fields: [
@@ -2097,6 +2500,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'locksmith_service', name: 'Locksmith Service',
     description: 'Per-service locksmith pricing with urgency modifier.',
     category: 'Emergency', trades: ['locksmith'],
+    trustBadges: BADGES.locksmith,
     layout: 'single-column', theme: 'midnight', defaultIcon: 'KeyRound',
     header: { title: 'Get a Locksmith on the Way — Upfront Quote', subtitle: 'Licensed · Bonded · Insured · 24/7 mobile response across the metro area', align: 'left' },
     fields: [
@@ -2128,6 +2532,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'water_damage_restoration', name: 'Water Damage Restoration',
     description: 'Emergency water-damage scoping by affected area and severity.',
     category: 'Emergency', trades: ['water_damage_restoration', 'water_damage'],
+    trustBadges: BADGES.waterDamage,
     layout: 'two-column', theme: 'magenta', defaultIcon: 'Droplet',
     header: { title: 'Get Emergency Water Damage Help — Free Estimate', subtitle: 'IICRC-certified technicians · 24/7 emergency dispatch · Direct insurance billing', align: 'left' },
     fields: [
@@ -2160,6 +2565,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'emergency_hvac', name: 'Emergency HVAC',
     description: 'After-hours HVAC repair with diagnostic + parts modifiers.',
     category: 'Emergency', trades: ['emergency_hvac', 'hvac_services'],
+    trustBadges: BADGES.emergencyHvac,
     layout: 'single-column', theme: 'midnight', defaultIcon: 'Flame',
     header: { title: 'Dispatch an HVAC Tech Now — Same-Day Service', subtitle: 'NATE-certified technicians · 24/7 emergency response · Diagnostic credit applied to repair', align: 'left' },
     fields: [
@@ -2194,6 +2600,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'web_design_quote', name: 'Web Design',
     description: 'Website design + build pricing by page count and feature scope.',
     category: 'Professional', trades: ['web_design'],
+    trustBadges: BADGES.webDesign,
     layout: 'two-column', theme: 'midnight', defaultIcon: 'Globe',
     header: { title: 'Get a Custom Website Quote in 60 Seconds', subtitle: '15+ years in business · 200+ launched sites · Free strategy call before you commit', align: 'left' },
     fields: [
@@ -2225,6 +2632,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'photography_package', name: 'Photography Package',
     description: 'Event or session photography quote by type, hours and deliverables.',
     category: 'Professional', trades: ['photography'],
+    trustBadges: BADGES.photography,
     layout: 'two-column', theme: 'magenta', defaultIcon: 'Camera',
     header: { title: 'Get a Photography Package Quote', subtitle: 'Published in 30+ magazines · 4.9★ from 400+ clients · 100% money-back if you hate the gallery', align: 'left' },
     fields: [
@@ -2256,6 +2664,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'moving_service', name: 'Moving Service',
     description: 'Local or long-distance moving quote by home size, distance and crew.',
     category: 'Professional', trades: ['moving_services'],
+    trustBadges: BADGES.moving,
     layout: 'single-column', theme: 'forest', defaultIcon: 'Truck',
     header: { title: 'Get a Door-to-Door Moving Quote in 60 Seconds', subtitle: 'Licensed & insured movers · Full-value protection available · 4.8★ from 2,500+ moves', align: 'left' },
     fields: [
@@ -2289,6 +2698,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'home_inspection_quote', name: 'Home Inspection',
     description: 'Pre-purchase home inspection by sqft, home age and add-on tests.',
     category: 'Professional', trades: ['home_inspection'],
+    trustBadges: BADGES.homeInspection,
     layout: 'two-column', theme: 'light', defaultIcon: 'ClipboardCheck',
     header: { title: 'Book an Independent Home Inspection', subtitle: 'InterNACHI-certified inspectors · 2,000+ homes inspected · Same-day report available', align: 'left' },
     fields: [
@@ -2323,6 +2733,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'solar_panel_install', name: 'Solar Panel Installation',
     description: 'Rooftop solar quote by system size, roof type and battery storage.',
     category: 'Renewable Energy', trades: ['solar_panel', 'solar_battery'],
+    trustBadges: BADGES.solar,
     layout: 'two-column', theme: 'forest', defaultIcon: 'Sun',
     header: { title: 'Go Solar — Free Install Quote + Tax Credit', subtitle: 'NABCEP-certified installers · 25-year production guarantee · 30% federal tax credit', align: 'left' },
     fields: [
@@ -2355,6 +2766,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'pool_service_quote', name: 'Pool Service',
     description: 'Recurring pool maintenance by pool size and visit cadence.',
     category: 'Outdoor', trades: ['pool_service', 'pool_cleaning'],
+    trustBadges: BADGES.pool,
     layout: 'single-column', theme: 'forest', defaultIcon: 'Waves',
     header: { title: 'Crystal-Clear Pool — Get a Service Quote', subtitle: 'CPO-certified pool techs · All chemicals & equipment included · Pre-pay season saves 10%', align: 'left' },
     fields: [
@@ -2386,6 +2798,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'pest_control_quote', name: 'Pest Control',
     description: 'Recurring pest control by home size and treatment scope.',
     category: 'Cleaning', trades: ['pest_control'],
+    trustBadges: BADGES.pestControl,
     layout: 'two-column', theme: 'light', defaultIcon: 'Bug',
     header: { title: 'Get a Family-Safe Pest Control Quote', subtitle: 'Licensed pest pros · Pet- and kid-safe products · Free re-treatment between visits', align: 'left' },
     fields: [
@@ -2418,6 +2831,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'roof_replacement', name: 'Roof Replacement',
     description: 'Full roof replacement by sqft, material and complexity.',
     category: 'Construction', trades: ['roofing'],
+    trustBadges: BADGES.roofing,
     layout: 'two-column', theme: 'midnight', defaultIcon: 'Home',
     requireAddress: true,
     header: { title: 'Get Your Roof Replacement Quote in 60 Seconds', subtitle: 'GAF Master Elite & Owens Corning certified · 50-year material warranty · Free drone roof survey', align: 'left' },
@@ -2457,6 +2871,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'garage_door_service', name: 'Garage Door Service',
     description: 'Install, repair or replace by door size and opener.',
     category: 'Mechanical', trades: ['garage_door'],
+    trustBadges: BADGES.garageDoor,
     layout: 'single-column', theme: 'forest', defaultIcon: 'DoorOpen',
     requireAddress: true,
     header: { title: 'Get Your Garage Door Quote in 60 Seconds', subtitle: 'IDEA-accredited technicians · Lifetime warranty on springs · Same-day service available', align: 'left' },
@@ -2496,6 +2911,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'appliance_repair', name: 'Appliance Repair',
     description: 'Per-appliance repair estimate with diagnostic + parts modifiers.',
     category: 'Mechanical', trades: ['appliance_repair'],
+    trustBadges: BADGES.applianceRepair,
     layout: 'single-column', theme: 'midnight', defaultIcon: 'Refrigerator',
     header: { title: 'Get an Appliance Repair Quote in 60 Seconds', subtitle: 'Factory-trained technicians · Flat-rate pricing · 90-day parts & labor warranty', align: 'left' },
     fields: [
@@ -2528,6 +2944,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'junk_removal_quote', name: 'Junk Removal',
     description: 'Truck-load pricing with surcharges for stairs, distance, and same-day pickup.',
     category: 'Cleaning', trades: ['junk_removal'],
+    trustBadges: BADGES.junkRemoval,
     layout: 'single-column', theme: 'midnight', defaultIcon: 'Trash2',
     requireAddress: true,
     header: { title: 'Book a Junk Pickup in 60 Seconds', subtitle: 'We load, haul, and sweep up · Most items donated or recycled · Same-day pickup available', align: 'left' },
@@ -2617,6 +3034,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'window_replacement_quote', name: 'Window Replacement',
     description: 'Per-window pricing by type, frame material, and energy rating.',
     category: 'Home Improvement', trades: ['window_replacement'],
+    trustBadges: BADGES.windows,
     layout: 'two-column', theme: 'light', defaultIcon: 'RectangleHorizontal',
     requireAddress: true,
     header: { title: 'Get Your Window Replacement Quote', subtitle: 'ENERGY STAR-certified installers · Lifetime product warranty · Free in-home measurement', align: 'left' },
@@ -2698,6 +3116,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'mold_remediation_quote', name: 'Mold Remediation',
     description: 'Severity-tiered remediation with containment, HVAC, and post-test add-ons.',
     category: 'Emergency', trades: ['mold_remediation'],
+    trustBadges: BADGES.moldRemediation,
     layout: 'two-column', theme: 'forest', defaultIcon: 'Biohazard',
     requireAddress: true,
     header: { title: 'Get Your Mold Remediation Estimate', subtitle: 'IICRC-certified · EPA-protocol removal · Insurance documentation provided', align: 'left' },
@@ -3463,6 +3882,10 @@ export interface AdvancedConfigShape {
   /** BD-2c — opt-in: render Google Places address autocomplete on the
    *  contact step. Absent / false → name + email + phone only (legacy). */
   requireAddress?: boolean;
+  /** BF-9 — pre-curated trust badges (lucide icon + short label). Carried
+   *  through verbatim by `toAdvancedConfig`; rendered as a pill row by the
+   *  widget header. Absent → no badge row. */
+  trustBadges?: readonly TrustBadge[];
 }
 
 /* ─── W-BB-2 — Per-category visual identity (derived at load time) ───
@@ -3492,39 +3915,45 @@ interface DerivedCategoryPalette {
   fontFamily: AdvFontFamily;
 }
 
+// BF-8 — palettes retoned for the live widget: desaturated, premium/business
+// vibe (Stripe / Linear / Notion grade). Each category still has its own
+// distinct hue family so the 7 buckets remain visually separable; only the
+// saturation/brightness was pulled back. The card-mockup palette in
+// `client/src/lib/categoryStyles.ts` (TemplateCardMockup) stays vivid for
+// thumbnail differentiation — these defaults only affect the rendered widget.
 const DERIVED_CATEGORY_PALETTES: Record<DerivedCategoryId, DerivedCategoryPalette> = {
   automotive: {
-    bgFromHex: '#0f172a', bgToHex: '#1e293b', accent: '#fb923c',
+    bgFromHex: '#0c111c', bgToHex: '#1a2030', accent: '#d97706',
     urgency: 'high', animationStyle: 'slide-fade',
     headingWeight: 800, fontFamily: 'geist',
   },
   construction: {
-    bgFromHex: '#1c1917', bgToHex: '#292524', accent: '#f59e0b',
+    bgFromHex: '#1a1715', bgToHex: '#2b2723', accent: '#b45309',
     urgency: 'medium', animationStyle: 'slide',
     headingWeight: 700, fontFamily: 'satoshi',
   },
   cleaning: {
-    bgFromHex: '#ecfdf5', bgToHex: '#d1fae5', accent: '#10b981',
+    bgFromHex: '#f6fbf9', bgToHex: '#e7f3ed', accent: '#0f766e',
     urgency: 'low', animationStyle: 'fade',
     headingWeight: 600, fontFamily: 'jakarta',
   },
   'home-improvement': {
-    bgFromHex: '#f0f9ff', bgToHex: '#dbeafe', accent: '#2563eb',
+    bgFromHex: '#f5f8fb', bgToHex: '#e2eaf5', accent: '#1d4ed8',
     urgency: 'medium', animationStyle: 'fade',
     headingWeight: 700, fontFamily: 'inter',
   },
   emergency: {
-    bgFromHex: '#fef3c7', bgToHex: '#fed7aa', accent: '#dc2626',
+    bgFromHex: '#fff7ed', bgToHex: '#ffedd5', accent: '#b91c1c',
     urgency: 'high', animationStyle: 'slide-fade',
     headingWeight: 800, fontFamily: 'manrope',
   },
   outdoor: {
-    bgFromHex: '#f0fdf4', bgToHex: '#d1fae5', accent: '#16a34a',
+    bgFromHex: '#f4f8f4', bgToHex: '#e0ebe0', accent: '#15803d',
     urgency: 'low', animationStyle: 'slide',
     headingWeight: 700, fontFamily: 'jakarta',
   },
   professional: {
-    bgFromHex: '#faf5ff', bgToHex: '#ede9fe', accent: '#7c3aed',
+    bgFromHex: '#f8f4fa', bgToHex: '#ebe3f0', accent: '#6d28d9',
     urgency: 'medium', animationStyle: 'fade',
     headingWeight: 600, fontFamily: 'satoshi',
   },
@@ -3705,6 +4134,10 @@ export function toAdvancedConfig(t: TemplateConfig): AdvancedConfigShape {
     ...(t.tiered ? { tiered: t.tiered } : {}),
     // BD-2c — carry the address-autocomplete opt-in through verbatim.
     ...(t.requireAddress ? { requireAddress: true } : {}),
+    // BF-9 — carry the pre-curated trust-badge row through verbatim.
+    ...(t.trustBadges && t.trustBadges.length > 0
+      ? { trustBadges: t.trustBadges }
+      : {}),
     style,
   };
 }
