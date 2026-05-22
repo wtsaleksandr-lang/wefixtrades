@@ -418,6 +418,25 @@ export function registerCalculatorRoutes(app: Express): void {
               restStyle[k] = v;
             }
           }
+          // BD-3m — floatingLauncher: `enabled` + `position` are free-tier
+          // allowed; `customIconUrl` + `label` are Pro-only. We strip the
+          // nested Pro sub-keys but keep the enclosing object so free-tier
+          // owners can still flip the embed shape.
+          if (
+            restStyle.floatingLauncher &&
+            typeof restStyle.floatingLauncher === 'object'
+          ) {
+            const fl = restStyle.floatingLauncher as Record<string, unknown>;
+            const flRest: Record<string, unknown> = {};
+            for (const [k, v] of Object.entries(fl)) {
+              if (k === 'customIconUrl' || k === 'label') {
+                if (v !== undefined) droppedBrandStudio.push(`floatingLauncher.${k}`);
+              } else {
+                flRest[k] = v;
+              }
+            }
+            restStyle.floatingLauncher = flRest;
+          }
           if (droppedBrandStudio.length > 0) {
             (updates.calculator_settings as any).advanced = {
               ...incomingAdvanced,

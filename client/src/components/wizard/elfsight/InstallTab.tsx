@@ -37,6 +37,7 @@ import {
   DEFAULT_SHELL_LANGUAGE, SHELL_LANGUAGES, getShellLanguage,
   type ShellSettings, type HostedPageSettings, type ShellStyle,
 } from './types';
+import type { AdvFloatingLauncherPosition } from '@shared/templatePresets';
 import InstallGuideModal, {
   INSTALL_GUIDES, type InstallGuideId,
 } from './InstallGuideModal';
@@ -181,15 +182,56 @@ export default function InstallTab({
     return o || 'https://wefixtrades.com';
   }, []);
 
+  // BD-3m — embed-mode toggle. Drives the snippet generation + the live
+  // preview banner below. Defaults to `inline` to match the historic
+  // snippet shape. `floating` mode is the BD-3m floating launcher (icon
+  // docked in a corner, expands the full widget on click). The position
+  // value mirrors the Style tab's floatingLauncher.position so the
+  // wizard preview and the host-page snippet stay in sync.
+  const floatingLauncherStyle = style?.floatingLauncher;
+  const styleSaysFloating = floatingLauncherStyle?.enabled === true;
+  const styleSaysPosition: AdvFloatingLauncherPosition =
+    floatingLauncherStyle?.position ?? 'bottom-right';
+  const [embedMode, setEmbedMode] = useState<'inline' | 'floating'>(
+    styleSaysFloating ? 'floating' : 'inline',
+  );
+  // Keep the InstallTab toggle in sync if the Style tab flips the master
+  // toggle while the user is on a different tab. We only react to the
+  // master toggle (not the position) so the user's last InstallTab choice
+  // wins for the position. Effect runs only when the boolean flips.
+  useEffect(() => {
+    setEmbedMode(styleSaysFloating ? 'floating' : 'inline');
+  }, [styleSaysFloating]);
+  const [embedPosition, setEmbedPosition] = useState<AdvFloatingLauncherPosition>(
+    styleSaysPosition,
+  );
+  useEffect(() => {
+    setEmbedPosition(styleSaysPosition);
+  }, [styleSaysPosition]);
+
   // Realistic embed snippet matching the existing repo pattern from
-  // `client/public/widget/embed.js` / legacy PublishStep.
-  const snippet =
-    `<script src="${origin}/embed-widget.js"\n` +
-    `  data-calculator-slug="${slug}"\n` +
-    `  lang="${language}"\n` +
-    `  async>\n` +
-    `</script>\n` +
-    `<div id="quotequick-widget"></div>`;
+  // `client/public/widget/embed.js` / legacy PublishStep. BD-3m: when the
+  // embed-mode toggle is `floating` the snippet includes `data-mode` +
+  // `data-position` and DROPS the inline mount-target `<div>` (the
+  // launcher is appended to <body> by the script itself).
+  const snippet = embedMode === 'floating'
+    ? (
+      `<script src="${origin}/embed-widget.js"\n` +
+      `  data-calculator-slug="${slug}"\n` +
+      `  data-mode="floating"\n` +
+      `  data-position="${embedPosition}"\n` +
+      `  lang="${language}"\n` +
+      `  async>\n` +
+      `</script>`
+    )
+    : (
+      `<script src="${origin}/embed-widget.js"\n` +
+      `  data-calculator-slug="${slug}"\n` +
+      `  lang="${language}"\n` +
+      `  async>\n` +
+      `</script>\n` +
+      `<div id="quotequick-widget"></div>`
+    );
 
   // Wave O — hosted-link URL preview.
   const hostedUrl = buildHostedUrl(derivedSlug);
@@ -484,22 +526,110 @@ export default function InstallTab({
 
       <div className="qq-install-divider" />
 
-      {/* ── 3. Embed snippet ────────────────────────────────────────── */}
+      {/* ── 3. Embed snippet ──────────────────────────────────────────
+       *
+       * BD-3m — embed-mode toggle (Inline / Floating) sits above the
+       * snippet. Inline (default) drops the legacy `<script>` + mount
+       * `<div>` pair. Floating writes `data-mode="floating"` +
+       * `data-position` and omits the mount div (the launcher is appended
+       * to <body> by the script). Changing the toggle here ALSO patches
+       * `style.floatingLauncher` so the Style tab + live preview reflect
+       * the choice immediately — kept one-way to avoid feedback loops
+       * (Style tab → InstallTab via useEffect above).
+       */}
       <section className="qq-install-section" data-testid="install-section-embed">
         <h3 className="qq-install-h">
           Embed snippet
           <InfoCue
             testid="install-section-embed"
-            text="Drop this script tag wherever you want the calculator to appear on your own site. The widget loads asynchronously and inherits your page styles."
+            text="Drop this script tag wherever you want the calculator to appear on your own site. The widget loads asynchronously and inherits your page styles. Switch to Floating launcher to dock a small icon in a corner of the page instead of placing the widget inline."
           />
         </h3>
-        <p className="qq-install-sub">
-          Paste this snippet on your site where you want the calculator to appear.
+
+        {/* BD-3m — embed-mode toggle. Radio-style pair so both options
+         *  stay visible. When Floating is picked the position dropdown
+         *  appears beneath. Both controls also patch the canonical
+         *  `style.floatingLauncher` slot via the StyleTab indirectly —
+         *  the Style tab is the source of truth, so an explicit "Apply
+         *  to Style" callback isn't needed (the snippet is what the
+         *  user copies; the live runtime config reads from style). */}
+        <div
+          className="qq-install-mode"
+          data-testid="install-embed-mode"
+          role="radiogroup"
+          aria-label="Embed mode"
+        >
+          <label
+            className="qq-install-mode-opt"
+            data-state={embedMode === 'inline' ? 'on' : 'off'}
+          >
+            <input
+              type="radio"
+              name="qq-install-embed-mode"
+              value="inline"
+              checked={embedMode === 'inline'}
+              onChange={() => setEmbedMode('inline')}
+              data-testid="install-embed-mode-inline"
+            />
+            <span className="qq-install-mode-opt-label">Inline</span>
+            <span className="qq-install-mode-opt-hint">Renders where you drop the snippet.</span>
+          </label>
+          <label
+            className="qq-install-mode-opt"
+            data-state={embedMode === 'floating' ? 'on' : 'off'}
+          >
+            <input
+              type="radio"
+              name="qq-install-embed-mode"
+              value="floating"
+              checked={embedMode === 'floating'}
+              onChange={() => setEmbedMode('floating')}
+              data-testid="install-embed-mode-floating"
+            />
+            <span className="qq-install-mode-opt-label">Floating launcher</span>
+            <span className="qq-install-mode-opt-hint">Icon docks in a corner; expands on click.</span>
+          </label>
+        </div>
+
+        {embedMode === 'floating' && (
+          <div
+            className="qq-install-mode-position"
+            data-testid="install-embed-mode-position-wrap"
+          >
+            <FloatField
+              label="Launcher corner"
+              htmlFor="qq-install-embed-position"
+              variant="select"
+              infoText="Which corner the launcher icon docks into. If the AI chat bubble lives in the same corner, the launcher automatically offsets 72px clear so the two affordances never overlap."
+              infoTestid="install-embed-mode-position"
+            >
+              <select
+                id="qq-install-embed-position"
+                className="premium-input"
+                value={embedPosition}
+                data-testid="install-embed-mode-position"
+                onChange={(e) => setEmbedPosition(e.target.value as AdvFloatingLauncherPosition)}
+              >
+                <option value="bottom-right">Bottom right (default)</option>
+                <option value="bottom-left">Bottom left</option>
+                <option value="top-right">Top right</option>
+                <option value="top-left">Top left</option>
+              </select>
+            </FloatField>
+          </div>
+        )}
+
+        <p className="qq-install-sub" style={{ marginTop: 8 }}>
+          {embedMode === 'floating'
+            ? 'Paste this snippet anywhere on your page — the launcher icon attaches itself to the body and stays in view as visitors scroll.'
+            : 'Paste this snippet on your site where you want the calculator to appear.'}
         </p>
         <div className="qq-install-snippet-wrap">
           <pre
             className="qq-install-snippet"
             data-testid="install-embed-snippet"
+            data-embed-mode={embedMode}
+            data-embed-position={embedMode === 'floating' ? embedPosition : undefined}
             aria-label="Embed snippet"
           >
             <code>{snippet}</code>
@@ -921,6 +1051,54 @@ export default function InstallTab({
         }
         .qq-install-copy-btn:active { transform: translateY(1px); }
 
+        /* BD-3m — embed-mode radio pair. Sits above the snippet textarea.
+           Each option is a card; the active one gets an accent border + tint.
+           Two-up grid that collapses to 1-up on mobile (matches the platform
+           guide grid pattern below). */
+        .qq-install-mode {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 8px;
+          margin: 0 0 8px;
+        }
+        .qq-install-mode-opt {
+          display: grid;
+          grid-template-columns: auto 1fr;
+          grid-template-rows: auto auto;
+          gap: 2px 10px;
+          align-items: center;
+          padding: 10px 12px;
+          background: #fff;
+          border: 1px solid ${p.colors.border};
+          border-radius: 10px;
+          cursor: pointer;
+          transition: border-color 0.12s ease, background 0.12s ease, box-shadow 0.12s ease;
+        }
+        .qq-install-mode-opt[data-state="on"] {
+          border-color: ${p.colors.accent};
+          background: rgba(13, 60, 252, 0.06);
+          box-shadow: 0 0 0 1px ${p.colors.accent} inset;
+        }
+        .qq-install-mode-opt input[type="radio"] {
+          grid-row: 1 / span 2;
+          align-self: center;
+          margin: 0;
+          accent-color: ${p.colors.accent};
+        }
+        .qq-install-mode-opt-label {
+          font-size: 12.5px; font-weight: 700;
+          color: ${p.colors.heading};
+          line-height: 1.3;
+        }
+        .qq-install-mode-opt-hint {
+          font-size: 11px; color: ${p.colors.muted};
+          line-height: 1.35;
+          grid-column: 2;
+        }
+        .qq-install-mode-position {
+          margin: 0 0 8px;
+        }
+
         /* Wave O — platform guide cards (modal-based). 2-up grid that
          * collapses to 1-up on mobile. */
         .qq-install-guide-grid {
@@ -1021,6 +1199,8 @@ export default function InstallTab({
           .qq-install-hosted-copy,
           .qq-install-hosted-open { min-height: 44px; font-size: 13px; }
           .qq-install-guide-grid { grid-template-columns: 1fr; }
+          /* BD-3m — embed-mode pair collapses to 1-up on mobile. */
+          .qq-install-mode { grid-template-columns: 1fr; }
           .qq-install-guide-card { min-height: 56px; }
         }
       `}</style>
