@@ -2,9 +2,11 @@ import { useState, useEffect, useCallback } from "react";
 import { useRoute } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { CheckCircle2, Loader2, AlertCircle, ArrowRight, Settings2, Zap, AlertTriangle } from "lucide-react";
 import { getFieldConfig } from "@/config/onboardingFields";
+// BD-2a-polish — reuse the floating-label + help-cue primitives from
+// PortalOnboarding so both onboarding surfaces follow the same input rules.
+import { FloatingLabelInput, FieldHelpCue, HelpModal } from "@/pages/portal/PortalOnboarding";
 
 interface Step {
   key: string;
@@ -175,6 +177,9 @@ export default function OnboardingForm() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
+  // BD-2a-polish — help-cue popover state; mirrors PortalOnboarding's
+  // HelpModal pattern so both onboarding surfaces feel identical.
+  const [helpField, setHelpField] = useState<{ label: string; example?: string; helperText?: string } | null>(null);
 
   // Load form data
   useEffect(() => {
@@ -349,12 +354,18 @@ export default function OnboardingForm() {
           </Card>
         )}
 
-        {/* Current step fields */}
+        {/* Current step fields — BD-2a-polish: floating-label inputs, help cue
+            top-left of each row, no duplicated titles, 2px stacked gap. */}
         <form onSubmit={isLastStep ? handleSubmit : (e) => { e.preventDefault(); goNext(); }}>
-          <Card className="p-5 space-y-5">
+          <Card className="p-5 space-y-[2px]">
             {currentGroup?.fields.map((step) => {
               const fieldConfig = getFieldConfig(step.key);
+              // Local helperText source — FIELD_HINTS wins over config so the
+              // public form's site-specific hints (e.g. "e.g. Plumber") still
+              // power the help popover, but the visible inline paragraph is
+              // gone per design-system rule 2/3.
               const hint = FIELD_HINTS[step.key] || fieldConfig.helperText;
+              const cueConfig = { example: fieldConfig.example, helperText: hint };
 
               // BC-1: checkbox → Yes/No two-button toggle (value still boolean).
               if (step.type === "checkbox") {
@@ -363,13 +374,10 @@ export default function OnboardingForm() {
                   : responses[step.key] === false ? false
                   : null;
                 return (
-                  <div key={step.key}>
-                    <label className="text-xs font-medium text-gray-600 mb-1.5 block">
-                      {step.label}
-                      {step.required && <span className="text-red-400 ml-1">*</span>}
-                    </label>
-                    {hint && <p className="text-xs text-gray-400 mb-1.5">{hint}</p>}
-                    <div className="flex flex-wrap gap-2">
+                  <div key={step.key} className="relative pl-6">
+                    <FieldHelpCue step={step} config={cueConfig} onHelp={setHelpField} />
+                    {/* Button-choice cluster (rule 5): pills flush at 1px. */}
+                    <div className="flex flex-wrap gap-1">
                       {[
                         { v: true, label: "Yes" },
                         { v: false, label: "No" },
@@ -385,6 +393,7 @@ export default function OnboardingForm() {
                                 ? "bg-[#0d3cfc] text-white border-[#0d3cfc]"
                                 : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
                             } focus:outline-none focus:ring-2 focus:ring-[#0d3cfc]/20`}
+                            aria-label={`${step.label}: ${opt.label}`}
                           >
                             {opt.label}
                           </button>
@@ -398,14 +407,9 @@ export default function OnboardingForm() {
               // BC-1: select with known options → button-group (pill/chip).
               if (step.type === "select" && fieldConfig.options) {
                 return (
-                  <div key={step.key}>
-                    <label className="text-xs font-medium text-gray-600 mb-1 block">
-                      {step.label}
-                      {step.required && <span className="text-red-400 ml-1">*</span>}
-                      {!step.required && <span className="text-gray-400 ml-1">(optional)</span>}
-                    </label>
-                    {hint && <p className="text-xs text-gray-400 mb-1.5">{hint}</p>}
-                    <div className="flex flex-wrap gap-2">
+                  <div key={step.key} className="relative pl-6">
+                    <FieldHelpCue step={step} config={cueConfig} onHelp={setHelpField} />
+                    <div className="flex flex-wrap gap-1">
                       {fieldConfig.options.map((opt) => {
                         const selected = responses[step.key] === opt.value;
                         return (
@@ -418,6 +422,7 @@ export default function OnboardingForm() {
                                 ? "bg-[#0d3cfc] text-white border-[#0d3cfc]"
                                 : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
                             } focus:outline-none focus:ring-2 focus:ring-[#0d3cfc]/20`}
+                            aria-label={`${step.label}: ${opt.label}`}
                           >
                             {opt.label}
                           </button>
@@ -428,21 +433,17 @@ export default function OnboardingForm() {
                 );
               }
 
-              // Fallback: text input (used for select fields without known options too).
+              // Fallback: text input — floating label, help cue, no duplicated title.
               return (
-                <div key={step.key}>
-                  <label className="text-xs font-medium text-gray-600 mb-1 block">
-                    {step.label}
-                    {step.required && <span className="text-red-400 ml-1">*</span>}
-                    {!step.required && <span className="text-gray-400 ml-1">(optional)</span>}
-                  </label>
-                  {hint && (
-                    <p className="text-xs text-gray-400 mb-1.5">{hint}</p>
-                  )}
-                  <Input
-                    value={responses[step.key] || ""}
-                    onChange={(e) => setResponses({ ...responses, [step.key]: e.target.value })}
-                    placeholder={step.required ? "Required" : "Optional"}
+                <div key={step.key} className="relative pl-6">
+                  <FieldHelpCue step={step} config={cueConfig} onHelp={setHelpField} />
+                  <FloatingLabelInput
+                    id={`onboarding-${step.key}`}
+                    label={step.label}
+                    value={responses[step.key]}
+                    onChange={(v) => setResponses({ ...responses, [step.key]: v })}
+                    required={step.required}
+                    placeholder={fieldConfig.placeholder}
                   />
                 </div>
               );
@@ -490,6 +491,8 @@ export default function OnboardingForm() {
           Powered by WeFixTrades
         </p>
       </div>
+      {/* BD-2a-polish — help-cue popover (same modal as PortalOnboarding). */}
+      {helpField && <HelpModal field={helpField} onClose={() => setHelpField(null)} />}
     </div>
   );
 }

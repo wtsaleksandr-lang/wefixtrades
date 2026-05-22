@@ -27,8 +27,8 @@ interface OnboardingData {
   approved_at: string | null;
 }
 
-/* ─── Help Modal ─── */
-function HelpModal({ field, onClose }: { field: { label: string; example?: string; helperText?: string }; onClose: () => void }) {
+/* ─── Help Modal ─── (exported for OnboardingForm.tsx re-use) */
+export function HelpModal({ field, onClose }: { field: { label: string; example?: string; helperText?: string }; onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" onClick={onClose}>
       <div className="bg-white rounded-xl border border-gray-200 shadow-lg max-w-sm w-full p-5" onClick={(e) => e.stopPropagation()}>
@@ -261,7 +261,7 @@ export default function PortalOnboarding() {
 
             <form onSubmit={handleSubmit}>
               {/* Required fields */}
-              <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-5">
+              <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-[2px]">
                 {requiredSteps.map((step) => (
                   <FieldRow
                     key={step.key}
@@ -279,7 +279,7 @@ export default function PortalOnboarding() {
                   <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-3 px-1">
                     Optional — fill in if you have this info
                   </p>
-                  <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-5">
+                  <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-[2px]">
                     {optionalSteps.map((step) => (
                       <FieldRow
                         key={step.key}
@@ -481,6 +481,93 @@ function PortalSetupProgress({
   );
 }
 
+/* ─── BD-2a-polish — Shared FieldRow primitives (input-rules compliant) ───
+ *
+ * Design-system rule (locked 2026-05-21):
+ *   1. Title INSIDE the input field — floating label, not <label> above.
+ *   2. Help cue (?) anchored TOP-LEFT of each FieldRow component.
+ *   3. No duplicated titles — single label, lives in the field.
+ *   4. Stacked input clusters use 2px vertical gap.
+ *   5. Button-choice fields: pills flush at 1-2px gap, selected #0d3cfc.
+ *
+ * These helpers are defined here and re-exported so OnboardingForm.tsx (the
+ * public-form sibling) can reuse them without a new shared file. */
+
+/** Top-left anchored `?` cue that opens the existing HelpModal. */
+export function FieldHelpCue({
+  step, config, onHelp,
+}: {
+  step: { label: string };
+  config: { example?: string; helperText?: string };
+  onHelp: (info: { label: string; example?: string; helperText?: string }) => void;
+}) {
+  if (!config.example && !config.helperText) return null;
+  return (
+    <button
+      type="button"
+      onClick={() => onHelp({ label: step.label, example: config.example, helperText: config.helperText })}
+      aria-label={`Help: ${step.label}`}
+      className="absolute top-1 left-1 z-10 p-1 rounded-full text-gray-300 hover:text-gray-600 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#0d3cfc]/20"
+    >
+      <HelpCircle className="w-3.5 h-3.5" />
+    </button>
+  );
+}
+
+/** Floating-label text input. Placeholder is a single space so the floating
+ *  label remains the only visible title — no duplicated <label> above. */
+export function FloatingLabelInput({
+  id, label, value, onChange, required, placeholder,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  required?: boolean;
+  placeholder?: string;
+}) {
+  return (
+    <div className="relative">
+      <input
+        id={id}
+        value={value || ""}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder=" "
+        aria-label={label}
+        className="peer w-full px-3 pt-5 pb-1.5 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#0d3cfc]/20 focus:border-[#0d3cfc] transition-colors"
+      />
+      <label
+        htmlFor={id}
+        className={
+          "absolute left-3 pointer-events-none transition-all duration-150 " +
+          "top-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-500 " +
+          "peer-placeholder-shown:top-2.5 peer-placeholder-shown:text-sm " +
+          "peer-placeholder-shown:font-normal peer-placeholder-shown:normal-case " +
+          "peer-placeholder-shown:tracking-normal peer-placeholder-shown:text-gray-400 " +
+          "peer-focus:top-1.5 peer-focus:text-[10px] peer-focus:font-semibold " +
+          "peer-focus:uppercase peer-focus:tracking-wider peer-focus:text-[#0d3cfc]"
+        }
+      >
+        {label}
+        {required && <span className="text-red-400 ml-1 normal-case">*</span>}
+        {!required && (
+          <span className="text-gray-400 ml-1 normal-case font-normal tracking-normal">(optional)</span>
+        )}
+      </label>
+      {/* Placeholder hint (config-driven). Only renders when the field is
+          empty AND unfocused, so it never collides with the floating label. */}
+      {placeholder && (
+        <span
+          aria-hidden="true"
+          className="absolute right-3 top-2.5 text-[11px] text-gray-300 peer-focus:hidden peer-[:not(:placeholder-shown)]:hidden pointer-events-none"
+        >
+          {placeholder}
+        </span>
+      )}
+    </div>
+  );
+}
+
 /* ─── Field Row Component ─── */
 function FieldRow({
   step,
@@ -501,24 +588,13 @@ function FieldRow({
     const boolValue: boolean | null =
       value === true ? true : value === false ? false : null;
     return (
-      <div>
-        <div className="flex items-center gap-1.5 mb-1.5">
-          <label className="text-xs font-medium text-gray-600">
-            {step.label}
-            {step.required && <span className="text-red-400 ml-1">*</span>}
-          </label>
-          {(config.example || config.helperText) && (
-            <button
-              type="button"
-              onClick={() => onHelp({ label: step.label, example: config.example, helperText: config.helperText })}
-              className="text-gray-300 hover:text-gray-500"
-            >
-              <HelpCircle className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </div>
-        {config.helperText && <p className="text-xs text-gray-400 mb-1.5">{config.helperText}</p>}
-        <div className="flex flex-wrap gap-2">
+      <div className="relative pl-6">
+        <FieldHelpCue step={step} config={config} onHelp={onHelp} />
+        {/* Button-choice cluster — the choice list IS the question; per
+            design-system rule 5, no separate label is rendered above. Question
+            text moves into the help-cue popover when the choices aren't
+            self-explanatory; for boolean it's "Yes / No" which IS. */}
+        <div className="flex flex-wrap gap-1">
           {[
             { v: true, label: "Yes" },
             { v: false, label: "No" },
@@ -534,6 +610,7 @@ function FieldRow({
                     ? "bg-[#0d3cfc] text-white border-[#0d3cfc]"
                     : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
                 } focus:outline-none focus:ring-2 focus:ring-[#0d3cfc]/20`}
+                aria-label={`${step.label}: ${opt.label}`}
               >
                 {opt.label}
               </button>
@@ -546,25 +623,11 @@ function FieldRow({
 
   if (step.type === "select" && config.options) {
     return (
-      <div>
-        <div className="flex items-center gap-1.5 mb-1">
-          <label className="text-xs font-medium text-gray-600">
-            {step.label}
-            {step.required && <span className="text-red-400 ml-1">*</span>}
-          </label>
-          {(config.example || config.helperText) && (
-            <button
-              type="button"
-              onClick={() => onHelp({ label: step.label, example: config.example, helperText: config.helperText })}
-              className="text-gray-300 hover:text-gray-500"
-            >
-              <HelpCircle className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </div>
-        {config.helperText && <p className="text-xs text-gray-400 mb-1.5">{config.helperText}</p>}
-        {/* BC-1: button-group (pill/chip) instead of native <select>. */}
-        <div className="flex flex-wrap gap-2">
+      <div className="relative pl-6">
+        <FieldHelpCue step={step} config={config} onHelp={onHelp} />
+        {/* BC-1: button-group (pill/chip) instead of native <select>.
+            BD-2a-polish: flush 1px gap per design-system rule 5. */}
+        <div className="flex flex-wrap gap-1">
           {config.options.map((opt) => {
             const selected = value === opt.value;
             return (
@@ -577,6 +640,7 @@ function FieldRow({
                     ? "bg-[#0d3cfc] text-white border-[#0d3cfc]"
                     : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
                 } focus:outline-none focus:ring-2 focus:ring-[#0d3cfc]/20`}
+                aria-label={`${step.label}: ${opt.label}`}
               >
                 {opt.label}
               </button>
@@ -587,31 +651,17 @@ function FieldRow({
     );
   }
 
-  // Default: text input
+  // Default: text input — floating label, help cue top-left, no duplicate title.
   return (
-    <div>
-      <div className="flex items-center gap-1.5 mb-1">
-        <label className="text-xs font-medium text-gray-600">
-          {step.label}
-          {step.required && <span className="text-red-400 ml-1">*</span>}
-          {!step.required && <span className="text-gray-400 ml-1">(optional)</span>}
-        </label>
-        {(config.example || config.helperText) && (
-          <button
-            type="button"
-            onClick={() => onHelp({ label: step.label, example: config.example, helperText: config.helperText })}
-            className="text-gray-300 hover:text-gray-500"
-          >
-            <HelpCircle className="w-3.5 h-3.5" />
-          </button>
-        )}
-      </div>
-      {config.helperText && <p className="text-xs text-gray-400 mb-1.5">{config.helperText}</p>}
-      <input
-        value={value || ""}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={config.placeholder || (step.required ? "Type your answer here" : "Optional — skip if you're not sure")}
-        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#0d3cfc]/20 focus:border-[#0d3cfc] transition-colors"
+    <div className="relative pl-6">
+      <FieldHelpCue step={step} config={config} onHelp={onHelp} />
+      <FloatingLabelInput
+        id={`field-${step.key}`}
+        label={step.label}
+        value={value}
+        onChange={onChange}
+        required={step.required}
+        placeholder={config.placeholder}
       />
     </div>
   );

@@ -97,10 +97,13 @@ export default function CalculatorStepper({
             />
           </div>
         ) : (
+          // BD-2a-polish — design-system rule: button-choice / step pip clusters
+          // sit flush at 1-2px. Was 6px; tightened to 2px so the dots read as
+          // a single step bar rather than a loose row of disconnected pips.
           <div
             data-testid="calculator-stepper-dots"
             style={{
-              flex: 1, display: 'flex', alignItems: 'center', gap: 6,
+              flex: 1, display: 'flex', alignItems: 'center', gap: 2,
               justifyContent: 'flex-end', minWidth: 0,
             }}
           >
