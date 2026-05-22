@@ -486,18 +486,22 @@ export default function TemplateStrip({ activeTemplateId, onApplyTemplate }: Str
           background: ${p.colors.border}; border-radius: 3px;
         }
 
+        /* P2 — card sized to 4:5 aspect (180×225 desktop). Mockup flex-fills
+         * the top ~80%; title sits at the BOTTOM, centered, 1-line ellipsis. */
         .qq-tg-card {
           flex: 0 0 auto;
-          width: 156px;
+          width: 180px;
+          aspect-ratio: 4 / 5;
           background: #fff;
           border: 1px solid ${p.colors.border};
           border-radius: 10px;
           padding: 8px;
-          display: flex; flex-direction: column; gap: 6px;
+          display: flex; flex-direction: column; gap: 4px;
           cursor: pointer;
           scroll-snap-align: start;
-          text-align: left;
+          text-align: center;
           font: inherit;
+          box-sizing: border-box;
           transition: border-color 0.12s ease, box-shadow 0.12s ease, transform 0.06s ease;
         }
         .qq-tg-card:hover {
@@ -508,26 +512,31 @@ export default function TemplateStrip({ activeTemplateId, onApplyTemplate }: Str
           border-color: ${p.colors.accent};
           box-shadow: 0 0 0 2px ${p.colors.accentLighter};
         }
-        /* P1 RE-FIX — body is now single-line (template name only).
-         * min-height dropped (was 36px to accommodate the removed
-         * second/third tag line) so cards shrink vertically and more
-         * fit in the strip without scrolling. */
+        /* P2 — body sits at card bottom, centered horizontally.
+         * Fixed-ish height keeps title row aligned across cards. */
         .qq-tg-card-body {
           display: flex; flex-direction: column;
-          padding: 2px 2px 4px;
+          align-items: center;
+          justify-content: center;
+          padding: 0 2px 2px;
+          flex-shrink: 0;
         }
         .qq-tg-card-name {
           font-size: 12px; font-weight: 700; color: ${p.colors.heading};
-          line-height: 1.3;
+          line-height: 1.25;
+          text-align: center;
+          width: 100%;
           overflow: hidden; text-overflow: ellipsis;
           display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical;
+          white-space: nowrap;
         }
 
-        /* Mini-mockup. W-AP-1 — bumped from 76 → 150 px so the hero band,
-         * centred 40px icon, bars, result, and full CTA all have room.
-         * Card body width stays the same (156 / 140 mobile). */
+        /* Mini-mockup. P2 — mockup now flex-fills the card top (~80%) so the
+         * outer card can drive the aspect ratio. Was a fixed 150px height. */
         .qq-tg-mockup {
-          width: 100%; height: 150px;
+          width: 100%;
+          flex: 1 1 auto;
+          min-height: 0;
           background: ${d.colors.canvas};
           border-radius: 8px;
           padding: 0;
@@ -816,7 +825,9 @@ export default function TemplateStrip({ activeTemplateId, onApplyTemplate }: Str
          * this context because it's a tertiary navigation control, not a
          * primary action). */
         @media (max-width: 768px) {
-          .qq-tg-card { width: 140px; min-height: 44px; }
+          /* P2 — mobile cards keep the 4:5 ratio (160 × 200). Card itself
+           * remains a 44px+ tap target; aspect-ratio keeps the height. */
+          .qq-tg-card { width: 160px; }
           .qq-tg-browse-all { min-height: 32px; padding: 4px 10px; font-size: 12px; }
         }
       `}</style>
