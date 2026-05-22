@@ -26,7 +26,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { useLocation } from 'wouter';
 import {
-  DndContext, type DragEndEvent, closestCenter, pointerWithin,
+  DndContext, type DragEndEvent, type DragOverEvent, type DragStartEvent,
+  closestCenter, pointerWithin,
 } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
 import { apiRequest } from '@/lib/queryClient';
@@ -586,9 +587,113 @@ export default function WizardShell({ embed = false }: Props) {
 
   // ── Wave I (a)+(b): cross-section DnD router ─────────────────────────
   const sensors = useEditorDndSensors();
-  const onDragEnd = useCallback((event: DragEndEvent) => {
+
+  /* BD-3g Item 1 — live drag-sync to preview.
+   *
+   * Previously the preview only repainted on drag-end. Now `onDragOver`
+   * applies the in-progress order to the live state immediately so the
+   * preview tracks the cursor; the snapshot taken on drag-start is the
+   * one that lands on the undo stack at drag-end (so undo restores the
+   * ORIGINAL pre-drag order, not whatever intermediate position the
+   * cursor was at when the mouse moved).
+   *
+   * Mechanics:
+   *  - `preDragStateRef` captures the state at drag-start. Used by
+   *    onDragEnd to push exactly one entry onto the undo stack (matching
+   *    the BD-3a semantics) and by onDragCancel to revert.
+   *  - `dragOverThrottleRef` carries an rAF id so onDragOver collapses
+   *    rapid pointer events into one paint per frame (Alex called out
+   *    ~50ms; rAF is ~16ms which is well below visible latency but
+   *    avoids React rendering on every mousemove).
+   *  - `setStateInner` is used inside the drag handlers so transient
+   *    intermediate states don't pollute the undo stack — only the
+   *    final dragEnd patch goes through `setState`.
+   */
+  const preDragStateRef = useRef<ShellState | null>(null);
+  const dragOverThrottleRef = useRef<number | null>(null);
+  const pendingDragOverRef = useRef<{ activeId: string; overId: string } | null>(null);
+
+  const applyReorder = useCallback((s: ShellState, activeId: string, overId: string): ShellState => {
+    if (activeId === overId) return s;
+    const fieldIds = s.fields.map((f) => f.id);
+    const fIdx = fieldIds.indexOf(activeId);
+    if (fIdx >= 0) {
+      const newIdx = fieldIds.indexOf(overId);
+      if (newIdx >= 0) return { ...s, fields: arrayMove(s.fields, fIdx, newIdx) };
+      return s;
+    }
+    const calcIds = s.calculations.map((c) => c.id);
+    const cIdx = calcIds.indexOf(activeId);
+    if (cIdx >= 0) {
+      const newIdx = calcIds.indexOf(overId);
+      if (newIdx >= 0) return { ...s, calculations: arrayMove(s.calculations, cIdx, newIdx) };
+      return s;
+    }
+    return s;
+  }, []);
+
+  const onDragStart = useCallback((event: DragStartEvent) => {
+    const activeId = String(event.active.id);
+    // Don't snapshot for cross-section adds from the AddFieldMenu — those
+    // already enter the undo stack via the normal `addField` path on drop.
+    if (activeId.startsWith('addfield:')) return;
+    setStateInner((s) => {
+      preDragStateRef.current = s;
+      return s;
+    });
+  }, []);
+
+  const flushDragOver = useCallback(() => {
+    dragOverThrottleRef.current = null;
+    const pending = pendingDragOverRef.current;
+    pendingDragOverRef.current = null;
+    if (!pending) return;
+    // Apply directly via setStateInner so the undo stack isn't touched
+    // — the live preview is transient until drag-end.
+    setStateInner((s) => applyReorder(s, pending.activeId, pending.overId));
+  }, [applyReorder]);
+
+  const onDragOver = useCallback((event: DragOverEvent) => {
     const { active, over } = event;
     if (!over) return;
+    const activeId = String(active.id);
+    if (activeId.startsWith('addfield:')) return;
+    const overId = String(over.id);
+    if (activeId === overId) return;
+    pendingDragOverRef.current = { activeId, overId };
+    if (dragOverThrottleRef.current != null) return;
+    dragOverThrottleRef.current = window.requestAnimationFrame(flushDragOver);
+  }, [flushDragOver]);
+
+  const onDragCancel = useCallback(() => {
+    // Cancel any queued rAF flush and revert to the pre-drag snapshot.
+    if (dragOverThrottleRef.current != null) {
+      cancelAnimationFrame(dragOverThrottleRef.current);
+      dragOverThrottleRef.current = null;
+    }
+    pendingDragOverRef.current = null;
+    const snapshot = preDragStateRef.current;
+    preDragStateRef.current = null;
+    if (snapshot) setStateInner(snapshot);
+  }, []);
+
+  const onDragEnd = useCallback((event: DragEndEvent) => {
+    // Drain any queued rAF first so the visible preview reflects the
+    // final over-target even if drop fires the same tick.
+    if (dragOverThrottleRef.current != null) {
+      cancelAnimationFrame(dragOverThrottleRef.current);
+      dragOverThrottleRef.current = null;
+      flushDragOver();
+    }
+    pendingDragOverRef.current = null;
+    const { active, over } = event;
+    const snapshot = preDragStateRef.current;
+    preDragStateRef.current = null;
+    if (!over) {
+      // Dropped outside any droppable — same semantics as cancel.
+      if (snapshot) setStateInner(snapshot);
+      return;
+    }
     const activeId = String(active.id);
     const overId = String(over.id);
 
@@ -606,32 +711,47 @@ export default function WizardShell({ embed = false }: Props) {
       return;
     }
 
-    // Same-id drops aren't reorders.
-    if (activeId === overId) return;
+    // Same-id = no-op, but make sure the (already-live) preview state is
+    // recorded onto the undo stack via setState() — otherwise the user
+    // can't undo a drag that visually reordered then snapped back.
+    if (activeId === overId) {
+      if (snapshot) {
+        setStateInner((current) => {
+          if (current === snapshot) return current;
+          // Push the pre-drag snapshot onto the undo stack and keep
+          // `current` (which already reflects the dragOver moves).
+          const stack = undoStackRef.current;
+          stack.push(snapshot);
+          if (stack.length > HISTORY_LIMIT) stack.shift();
+          redoStackRef.current = [];
+          queueMicrotask(() => setHistoryTick((t) => t + 1));
+          return current;
+        });
+      }
+      return;
+    }
 
-    // ── (a) Reorder Fields ─────────────────────────────────────────────
-    setState((s) => {
-      const fieldIds = s.fields.map((f) => f.id);
-      const calcIds = s.calculations.map((c) => c.id);
-      const fIdx = fieldIds.indexOf(activeId);
-      if (fIdx >= 0) {
-        const newIdx = fieldIds.indexOf(overId);
-        if (newIdx >= 0) {
-          return { ...s, fields: arrayMove(s.fields, fIdx, newIdx) };
+    // ── (a) Reorder Fields — commit the FINAL order into the undo stack
+    // by manually pushing the pre-drag snapshot, then applying the move
+    // via setStateInner (so the standard setState() doesn't push the
+    // intermediate dragOver state onto the stack).
+    setStateInner((current) => {
+      const next = applyReorder(current, activeId, overId);
+      if (snapshot && snapshot !== next) {
+        const stack = undoStackRef.current;
+        stack.push(snapshot);
+        if (stack.length > HISTORY_LIMIT) stack.shift();
+        redoStackRef.current = [];
+        queueMicrotask(() => setHistoryTick((t) => t + 1));
+        // Mirror setState()'s broadcast so the AIBubble rapid-edit
+        // counter still ticks for drag-driven reorders.
+        if (typeof window !== 'undefined') {
+          try { window.dispatchEvent(new CustomEvent('quotequick:wizard-patch')); } catch { /* ignore */ }
         }
-        return s;
       }
-      const cIdx = calcIds.indexOf(activeId);
-      if (cIdx >= 0) {
-        const newIdx = calcIds.indexOf(overId);
-        if (newIdx >= 0) {
-          return { ...s, calculations: arrayMove(s.calculations, cIdx, newIdx) };
-        }
-        return s;
-      }
-      return s;
+      return next;
     });
-  }, [addField]);
+  }, [addField, applyReorder, flushDragOver]);
 
   const saveDraftMutation = useMutation({
     mutationFn: async () => {
@@ -759,7 +879,10 @@ export default function WizardShell({ embed = false }: Props) {
       <DndContext
         sensors={sensors}
         collisionDetection={pointerWithin}
+        onDragStart={onDragStart}
+        onDragOver={onDragOver}
         onDragEnd={onDragEnd}
+        onDragCancel={onDragCancel}
       >
         <div
           className={`qq-editor-shell ${embed ? '' : 'wizard-shell-modal'}${modalPhaseClass}`}
@@ -1088,6 +1211,78 @@ export default function WizardShell({ embed = false }: Props) {
           </div>
 
           <style>{`
+            /* ── BD-3g Item 2 — fold/unfold panels ──────────────────
+             *
+             * useFoldablePanels (DOM enhancer) decorates every
+             * <fieldset.qq-style-group[data-testid]> inside the Style /
+             * Settings tabs with:
+             *  - a click-to-toggle legend (gets .qq-foldable-legend)
+             *  - a chevron <svg class="qq-foldable-chevron"> appended
+             *    to the legend's last child slot
+             *  - a data-panel-open="true|false" attribute on the
+             *    fieldset itself; the JS toggles max-height inline-style
+             *    to drive the 200ms ease-out animation.
+             *
+             * Animation: JS measures scrollHeight on each toggle and
+             * transitions max-height from current → target. We can't
+             * use grid-template-rows because <fieldset> doesn't lay out
+             * legends like normal grid children.
+             *
+             * Reduced motion: JS snaps without animation when the OS
+             * setting is active. We also disable the chevron transition
+             * via a @media block below.
+             *
+             * Multi-open: panels are independent — toggling one doesn't
+             * close peers (NOT an exclusive accordion, per BD-3g spec). */
+            .qq-foldable-legend {
+              cursor: pointer;
+              user-select: none;
+              transition: background 120ms ease;
+            }
+            .qq-foldable-legend:hover {
+              background: rgba(15, 23, 42, 0.03);
+            }
+            .qq-editor-shell[data-theme="dark"] .qq-foldable-legend:hover {
+              background: rgba(255, 255, 255, 0.04);
+            }
+            .qq-foldable-legend:focus-visible {
+              outline: 2px solid ${p.colors.accent};
+              outline-offset: -2px;
+            }
+            .qq-foldable-spacer {
+              flex: 1 1 auto;
+              min-width: 4px;
+            }
+            .qq-foldable-chevron {
+              flex-shrink: 0;
+              opacity: 0.7;
+              transition: transform 200ms ease-out;
+              transform-origin: center;
+            }
+            .qq-style-group[data-panel-open="false"] .qq-foldable-chevron {
+              transform: rotate(-90deg);
+            }
+            /* The fieldset itself animates max-height (set inline by JS).
+             * Overflow:hidden clips the body content cleanly when
+             * collapsed; the legend never gets clipped because its
+             * height defines the collapsed floor. */
+            .qq-style-group[data-foldable-enhanced="1"] {
+              overflow: hidden;
+              transition: max-height 200ms ease-out;
+            }
+            .qq-style-group[data-panel-open="false"] > legend.qq-style-legend {
+              /* When collapsed, drop the legend's bottom border so it
+               * reads as a single rounded pill rather than a header
+               * with a hanging hairline. */
+              border-bottom-color: transparent;
+            }
+            @media (prefers-reduced-motion: reduce) {
+              .qq-style-group[data-foldable-enhanced="1"],
+              .qq-foldable-chevron {
+                transition: none !important;
+              }
+            }
+
             .qq-editor-shell {
               background: ${d.colors.canvas};
               min-height: 100vh;

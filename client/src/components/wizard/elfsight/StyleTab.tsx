@@ -53,6 +53,7 @@ import {
 } from '@shared/templatePresets';
 import FloatField from './FloatField';
 import InfoCue from './InfoCue';
+import { useFoldablePanels } from './useFoldablePanels';
 import { QUOTEQUICK_STYLE_PRESETS } from '@/data/quoteQuickStylePresets';
 
 const p = platformTheme;
@@ -254,8 +255,16 @@ export default function StyleTab({
     });
   }, [onChange, style.widgetWidthDesktop, style.widgetWidthMobile]);
 
+  // BD-3g Item 2 — wire fold/unfold behavior onto every <fieldset.qq-style-group>
+  // under this panel. Per-panel state persists in sessionStorage keyed by
+  // `qq-wizard-panel-style-${panelId}` where panelId is the fieldset's
+  // data-testid (see useFoldablePanels for the storage prefix + defaults).
+  const stylePanelRef = useRef<HTMLElement | null>(null);
+  useFoldablePanels(stylePanelRef, 'style');
+
   return (
     <section
+      ref={stylePanelRef}
       className="qq-style-panel"
       // `editor-tabpanel-style` matches the convention asserted by the H1
       // generic-tab-switching test (`editor-tabpanel-<id>`).
@@ -2011,7 +2020,21 @@ function BrandStudioGroup({
                 { value: 'slide', label: 'Slide' },
                 { value: 'slide-fade', label: 'Slide + Fade' },
               ]}
-              onChange={(v) => setAnimations({ step_transition: v })}
+              onChange={(v) => {
+                setAnimations({ step_transition: v });
+                // BD-3g Item 3 — fire a one-shot preview of the chosen
+                // animation in the PreviewPane so the user sees what
+                // they're picking. Duration uses the current animDuration
+                // slider value; the preview replays once, then settles.
+                // PreviewPane listens via window.addEventListener.
+                if (typeof window !== 'undefined') {
+                  try {
+                    window.dispatchEvent(new CustomEvent('qq-preview:replay-animation', {
+                      detail: { animation: v, durationMs: animDuration },
+                    }));
+                  } catch { /* ignore */ }
+                }
+              }}
             />
             <label className="qq-style-label" htmlFor="qq-bs-anim-duration" style={{ marginTop: 12 }}>
               <span className="qq-style-label-text">
