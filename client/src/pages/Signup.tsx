@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import { useLocation } from "wouter";
 import { useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
@@ -18,13 +18,32 @@ export default function SignupPage() {
   const [, navigate] = useLocation();
   usePageTitle("Create Free Account");
 
+  /* BI-1 — anonymous AI demo handoff. When the visitor signs up after the
+   * /tools/build-with-ai/preview gate, the URL is shaped as
+   *   /signup?source=ai-demo&demo=<session_id>
+   * The server reads the session id, materialises a real calculator on the
+   * new account, and returns a `redirect` path the client should follow.
+   * Falls through to /portal if the session expired (graceful). */
+  const demoSessionId = useMemo(() => {
+    if (typeof window === "undefined") return "";
+    const params = new URLSearchParams(window.location.search);
+    return params.get("demo") || "";
+  }, []);
+
   const signup = useMutation({
     mutationFn: async () => {
       const res = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ email, password, name, businessName, phone: phone || undefined }),
+        body: JSON.stringify({
+          email,
+          password,
+          name,
+          businessName,
+          phone: phone || undefined,
+          demoSessionId: demoSessionId || undefined,
+        }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -32,7 +51,7 @@ export default function SignupPage() {
       }
       return res.json();
     },
-    onSuccess: (data: { user: { role?: string } }) => {
+    onSuccess: (data: { user: { role?: string }; redirect?: string | null }) => {
       queryClient.setQueryData(["auth", "me"], data.user);
       queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
 
@@ -48,7 +67,9 @@ export default function SignupPage() {
         }
       } catch { /* noop */ }
 
-      navigate("/portal");
+      // BI-1: prefer server-supplied redirect (lands the new user in the
+      // wizard editor with their freshly created AI calculator open).
+      navigate(data.redirect || "/portal");
     },
   });
 

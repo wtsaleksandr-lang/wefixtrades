@@ -167,6 +167,34 @@ export default function QuoteCalculatorDemo() {
             <span style={{ color: mkt.text }}>QuoteQuick Live Demo</span>
           </nav>
 
+          {/* BI-1 — link to anonymous AI demo. Sits above the headline so
+              visitors who landed here looking for a quick "AI builds it"
+              option see the cross-link before scrolling. */}
+          <Link
+            href="/tools/build-with-ai"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+              padding: "12px 16px",
+              marginBottom: "clamp(20px, 3vw, 28px)",
+              borderRadius: 12,
+              background: "rgba(13,60,252,0.08)",
+              border: "1px solid rgba(13,60,252,0.35)",
+              color: mkt.onDark,
+              textDecoration: "none",
+              fontSize: 13,
+              fontWeight: 600,
+              letterSpacing: "0.01em",
+            }}
+          >
+            <span style={{ color: mkt.onDark }}>
+              Or — let AI build your calculator from a photo of your invoice
+            </span>
+            <ArrowRight size={16} strokeWidth={2} color={mkt.accent} />
+          </Link>
+
           {/* ─── Headline ─── */}
           <div
             style={{

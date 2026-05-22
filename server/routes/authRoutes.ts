@@ -21,6 +21,9 @@ import {
   exchangeCodeForProfile,
   isGoogleSigninConfigured,
 } from "../lib/googleSignin";
+import { getDemoSession, markDemoSessionConsumed } from "./aiDemoRoutes";
+import { buildCalculatorFromDemoTemplate } from "@shared/aiDemoTemplate";
+import { slugify } from "@shared/slugUtils";
 
 const log = createLogger("Auth");
 
@@ -112,7 +115,7 @@ export function registerAuthRoutes(app: Express) {
         return res.status(429).json({ error: "Too many signup attempts. Please wait 15 minutes." });
       }
 
-      const { email, password, name, businessName, phone } = req.body;
+      const { email, password, name, businessName, phone, demoSessionId } = req.body;
 
       // Validate required fields
       if (!email || typeof email !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
@@ -179,11 +182,72 @@ export function registerAuthRoutes(app: Express) {
         log.warn("[signup] self-serve welcome email failed", { userId: user.id, error: err?.message }),
       );
 
+      /* ─── BI-1 — anonymous AI demo handoff ───
+       *
+       * If the visitor came from /tools/build-with-ai, their generated demo
+       * template is keyed by `demoSessionId` in the BI-1 in-memory store
+       * (24h TTL). On signup we materialise it as a real calculator on the
+       * brand-new account and return a `redirect` path the client uses to
+       * land directly in the wizard editor. Expired / invalid sessions
+       * just fall through silently — the client redirects to /portal.
+       *
+       * Failures here MUST NOT block signup — wrap in try/catch and log.
+       */
+      let demoRedirect: string | null = null;
+      if (demoSessionId && typeof demoSessionId === "string") {
+        try {
+          const demo = getDemoSession(demoSessionId);
+          if (demo) {
+            const bundle = buildCalculatorFromDemoTemplate(demo.template, businessName.trim());
+            const baseSlug = slugify(businessName) || `demo-${Date.now().toString(36)}`;
+            let slug = baseSlug;
+            let suffix = 0;
+            // Best-effort unique slug — bail out after 20 tries.
+            while ((await storage.getCalculatorBySlug(slug)) && suffix < 20) {
+              suffix += 1;
+              slug = `${baseSlug}-${suffix}`;
+            }
+            const editToken = randomBytes(24).toString("hex");
+            const tokenExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+            const newCalc = await storage.createCalculator({
+              user_id: user.id,
+              slug,
+              business_name: bundle.business_name,
+              trade_type: bundle.trade_type,
+              tagline: null,
+              logo_url: null,
+              owner_email: normalised,
+              pricing_config: bundle.pricing_config as any,
+              primary_color: bundle.primary_color,
+              calculator_settings: bundle.calculator_settings as any,
+              edit_token: editToken,
+              token_expires_at: tokenExpiresAt,
+            } as any);
+            markDemoSessionConsumed(demoSessionId);
+            demoRedirect = `/portal/calculators/${newCalc.id}/edit`;
+            log.info("[signup] demo handoff materialised calculator", {
+              userId: user.id,
+              calculatorId: newCalc.id,
+              demoSessionId,
+            });
+          }
+        } catch (handoffErr) {
+          // Don't break signup if the handoff fails — log and continue.
+          log.warn("[signup] demo handoff failed (non-fatal)", {
+            userId: user.id,
+            error: String(handoffErr),
+          });
+        }
+      }
+
       // Auto-login
       const sessionUser: Express.User = { id: user.id, email: user.email, role: user.role, name: user.name };
       req.logIn(sessionUser, (loginErr) => {
         if (loginErr) return next(loginErr);
-        return res.json({ user: { id: user.id, email: user.email, role: user.role, name: user.name } });
+        return res.json({
+          user: { id: user.id, email: user.email, role: user.role, name: user.name },
+          redirect: demoRedirect,
+        });
       });
     } catch (err) {
       log.error("Signup error", { error: String(err) });
