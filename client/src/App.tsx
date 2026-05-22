@@ -51,6 +51,8 @@ import MapSnapshot from "@/pages/marketing/MapSnapshot";
 import MapSnapshotByTrade from "@/pages/marketing/MapSnapshotByTrade";
 import MapSnapshotShared from "@/pages/marketing/MapSnapshotShared";
 import QuoteCalculatorDemo from "@/pages/marketing/quote-calculator-demo";
+import BuildWithAi from "@/pages/marketing/BuildWithAi";
+import BuildWithAiPreview from "@/pages/marketing/BuildWithAiPreview";
 import ToolsHub from "@/pages/marketing/tools-hub";
 import SharedAuditReport from "@/pages/marketing/SharedAuditReport";
 import CompareNiceJob from "@/pages/marketing/CompareNiceJob";
@@ -386,6 +388,9 @@ function Router() {
       <Route path="/tools/map-snapshot" component={MapSnapshot} />
       <Route path="/snapshot/:slug" component={MapSnapshotShared} />
       <Route path="/tools/quote-demo" component={QuoteCalculatorDemo} />
+      {/* BI-1 — anonymous AI calculator demo */}
+      <Route path="/tools/build-with-ai/preview" component={BuildWithAiPreview} />
+      <Route path="/tools/build-with-ai" component={BuildWithAi} />
       <Route path="/tools/free-audit" component={FreeAudit} />
       <Route path="/tools" component={ToolsHub} />
       {/* Legacy tool routes — redirect to canonical /tools/ URLs */}

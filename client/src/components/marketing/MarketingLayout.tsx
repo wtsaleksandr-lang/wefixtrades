@@ -220,6 +220,8 @@ function MarketingFooter() {
             <FtLink href="/tools/free-audit">Free Audit Tool</FtLink>
             <FtLink href="/tools/map-snapshot">Map Snapshot — Free GBP Audit</FtLink>
             <FtLink href="/tools/quote-demo">Quote Demo</FtLink>
+            {/* BI-1 — anonymous AI demo: upload an invoice, AI builds your calculator. */}
+            <FtLink href="/tools/build-with-ai">Build with AI — From a Photo</FtLink>
           </FooterColumn>
         </div>
       </div>

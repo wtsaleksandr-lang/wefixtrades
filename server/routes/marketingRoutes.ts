@@ -41,6 +41,8 @@ const MARKETING_ROUTES = [
   "/free-audit",
   "/tools", "/tools/free-audit", "/tools/missed-call-calculator", "/tools/quote-demo",
   "/tools/map-snapshot",
+  // BI-1 — anonymous AI demo upload page (priority 0.8 — same as other tool pages).
+  "/tools/build-with-ai",
   ...TRADE_SLUGS.map((s) => `/tools/missed-call-calculator/${s}`),
   ...MAP_SNAPSHOT_TRADE_SLUGS.map((s) => `/tools/map-snapshot/${s}`),
 ];
@@ -70,9 +72,19 @@ export function registerMarketingRoutes(app: Express): void {
 
   app.get("/sitemap.xml", (_req, res) => {
     const now = new Date().toISOString().split("T")[0];
+    // BI-1 — `/tools/build-with-ai` is pinned to 0.8 (per spec) even though
+    // it lives under `/tools/`. Other tools keep the 0.9 prominence.
     const urls = MARKETING_ROUTES.map(
       (r) =>
-        `  <url><loc>${BASE_URL}${r}</loc><lastmod>${now}</lastmod><changefreq>weekly</changefreq><priority>${r === "/" ? "1.0" : r.startsWith("/tools") ? "0.9" : "0.8"}</priority></url>`
+        `  <url><loc>${BASE_URL}${r}</loc><lastmod>${now}</lastmod><changefreq>weekly</changefreq><priority>${
+          r === "/"
+            ? "1.0"
+            : r === "/tools/build-with-ai"
+              ? "0.8"
+              : r.startsWith("/tools")
+                ? "0.9"
+                : "0.8"
+        }</priority></url>`
     ).join("\n");
     res.type("application/xml").send(
       `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>`
