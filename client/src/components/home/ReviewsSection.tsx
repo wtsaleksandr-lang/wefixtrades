@@ -127,7 +127,10 @@ export default function ReviewsSection() {
     <section
       data-testid="reviews-section"
       style={{
-        padding: "clamp(20px, 4vw, 32px) clamp(12px, 3vw, 20px) clamp(20px, 4vw, 28px)",
+        /* P2 UX — vertical padding trimmed ~40% (was ~32px top / 28px bottom
+         * via clamp(); now ~20px top / 16px bottom). Section above ends
+         * with its own padding so this can be tighter without crowding. */
+        padding: "clamp(12px, 2.5vw, 20px) clamp(12px, 3vw, 20px) clamp(10px, 2vw, 16px)",
       }}
     >
       <div style={{ maxWidth: 1100, margin: "0 auto" }}>
@@ -144,7 +147,7 @@ export default function ReviewsSection() {
         </div>
 
         <div
-          className="reviews-grid reviews-grid--scroll"
+          className="reviews-grid reviews-grid--scroll qq-fade-scroll-row"
           style={{
             /* Wave AE — horizontal scroller (was a vertical grid that grew
                into a "long sheet" as more reviews landed). Each card snaps
@@ -265,8 +268,13 @@ export default function ReviewsSection() {
               display: "inline-flex",
               alignItems: "center",
               justifyContent: "center",
+              /* P2 UX — outline-style button so it visually reads as a
+               * button (was unstyled text, hard to distinguish from the
+               * solid primary next to it). Height + radius match the
+               * primary CTA above; padding bumped slightly to compensate
+               * for the 1px border so the two CTAs align in height. */
               height: 48,
-              padding: "0 12px",
+              padding: "0 18px",
               fontSize: 15,
               fontWeight: 600,
               /* Wave AE-3 — brand blue (#0d3cfc) on the dark slate review
@@ -276,15 +284,26 @@ export default function ReviewsSection() {
                * link visually distinct from the cream primary CTA next to it. */
               color: mkt.onDark,
               textDecoration: "none",
-              transition: "opacity 0.15s ease",
+              background: "transparent",
+              border: "1px solid rgba(255, 255, 255, 0.18)",
+              borderRadius: 10,
+              transition: "border-color 0.15s ease, background 0.15s ease",
               flex: "1 1 0",
               minWidth: 0,
               whiteSpace: "nowrap",
               overflow: "hidden",
               textOverflow: "ellipsis",
             }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.opacity = "0.75"; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.opacity = "1"; }}
+            onMouseEnter={(e) => {
+              const el = e.currentTarget as HTMLElement;
+              el.style.borderColor = "rgba(255, 255, 255, 0.32)";
+              el.style.background = "rgba(255, 255, 255, 0.04)";
+            }}
+            onMouseLeave={(e) => {
+              const el = e.currentTarget as HTMLElement;
+              el.style.borderColor = "rgba(255, 255, 255, 0.18)";
+              el.style.background = "transparent";
+            }}
           >
             Read case studies →
           </Link>

@@ -2878,3 +2878,43 @@ select:focus {
   margin: 4px 0;
   background: var(--hairline);
 }
+
+/* ───────────────────────────────────────────────────────────────────
+ * P2 UX — shared utility for horizontal review/testimonial scrollers.
+ *
+ * Two effects combined into one class so any future horizontal scroll
+ * row (reviews, testimonials, logo strips) inherits the same polish:
+ *
+ *   1. Hide the native scrollbar across all browsers. Scrolling itself
+ *      still works via touch / wheel / keyboard — just no visible
+ *      gray rectangle below the cards.
+ *
+ *   2. Soft 32px fade-out mask on the left + right edges (industry
+ *      standard for horizontal scrollers; Apple, Stripe, Linear all
+ *      do this). Cards entering/leaving the viewport soften out
+ *      instead of hard-clipping at the container edges.
+ *
+ * Apply by adding `qq-fade-scroll-row` to the scroll container (the
+ * element that has `overflowX: auto`), not the inner cards.
+ * ─────────────────────────────────────────────────────────────────── */
+.qq-fade-scroll-row {
+  scrollbar-width: none;                /* Firefox */
+  -ms-overflow-style: none;             /* IE / legacy Edge */
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    black 32px,
+    black calc(100% - 32px),
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    black 32px,
+    black calc(100% - 32px),
+    transparent 100%
+  );
+}
+.qq-fade-scroll-row::-webkit-scrollbar {
+  display: none;                        /* Chrome / Safari / new Edge */
+}
