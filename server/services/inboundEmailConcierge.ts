@@ -25,6 +25,7 @@
 import { streamChat, getModel } from "./aiService";
 import { getAiChannelSettings } from "./aiChannelSettings";
 import { aiChannelGateOn } from "./aiChannelGate";
+import { aiGateAllowed } from "./aiSystemGate";
 import { notifyFounder } from "./founderNotify";
 import { sendSupportEmail } from "../lib/supportEmail";
 import { sendAdminNewTicketAlert } from "../lib/supportTicketEmails";
@@ -34,6 +35,12 @@ import { db } from "../db";
 import { eq } from "drizzle-orm";
 import { clients, type SupportTicket } from "@shared/schema";
 import { createLogger } from "../lib/logger";
+import { runAgentLoop, type AgentLoopResult } from "./aiAgentLoop";
+import { adminAgentTools } from "./adminAgentTools";
+import { getCopilotAction, type PendingAction } from "./copilotActionRegistry";
+import { writeAudit } from "../lib/auditLog";
+import { isEmailUnsubscribed } from "../lib/unsubscribeStorage";
+import crypto from "crypto";
 
 const log = createLogger("InboundConcierge");
 
@@ -253,6 +260,208 @@ async function triageAndAct(
   await escalate(ticket, triage.reason || "The AI was not sure how to handle this email.");
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+   W-BA-5: multi-step agent-loop path (Phase 3 step 3e).
+   Wires the inbound email path through the BA-0 multi-step loop with
+   the BA-3 / BA-4 auto-tier admin tools.  Gated by BA5_AGENT_LOOP_ENABLED.
+   ═══════════════════════════════════════════════════════════════════ */
+
+const AGENT_LOOP_MAX_STEPS = 6;       // tighter than BA-0 default of 8 — email is conversational, not investigative
+const AGENT_LOOP_COST_CAP_CENTS = 50; // $0.50/email — between BA-0 default $1 and BB-1 customer cap $0.25
+const REPLY_TOOL_NAME = "send_support_email_reply";
+
+/** Decide whether the multi-step loop should run. Default ON in non-prod, OFF
+ *  in prod, unless the env flag is set explicitly. */
+function agentLoopEnabled(): boolean {
+  const raw = process.env.BA5_AGENT_LOOP_ENABLED;
+  if (raw === "true") return true;
+  if (raw === "false") return false;
+  return process.env.NODE_ENV !== "production";
+}
+
+/** Build the system prompt for the multi-step loop. Mirrors the
+ *  identity-unverified, no-account-data guardrails of the legacy single-call
+ *  path, and tells the model which tools it has + when to use the reply tool
+ *  vs. let the founder handle it via the draft fallback. */
+function buildEmailSystemPrompt(args: {
+  ticket: SupportTicket;
+  senderEmail: string | null;
+  matched: boolean;
+}): string {
+  const { ticket, senderEmail, matched } = args;
+  return `You are the customer-support concierge for WeFixTrades, a company that sells digital marketing and automation services to trades businesses (plumbers, electricians, roofers, and similar). You are handling an inbound support EMAIL.
+
+The sender's identity is NOT verified — a From header can be forged. You may answer general and "how do I" support questions, but you must NEVER disclose account-specific data (invoices, balances, account status, personal details, which services someone has) and NEVER take or promise account-changing actions. If the email needs account-specific help, ask the customer to sign in to their portal at ${portalUrl()}, where their identity is confirmed.
+
+Context for this run:
+- Ticket #${ticket.id}: "${ticket.subject}"
+- Sender email: ${senderEmail ?? "(unknown)"}
+- Sender matched to a known client: ${matched ? "yes" : "no"}
+
+You have three tools available:
+- send_support_email_reply: send a customer-visible reply on this ticket. Use this when the email is a real support question you can answer well without account-specific data. Pass ticket_id=${ticket.id} and a plain-text body — no greeting or signature, the email shell adds both. Call at most once.
+- notify_admin_of_ticket: flag the ticket for the founder's attention. Use for refunds, complaints, lawsuits, contractual asks, or anything sensitive or account-changing. Pass ticket_id=${ticket.id} and a short reason. Internal only — does not contact the customer.
+- send_admin_sms: ignore this tool for email-channel work. Do not call it.
+
+If the email is obvious marketing / spam / automated noise, just say so in plain text and call no tool — the system will record it as ignored and not contact the customer. If you cannot decide, also call no tool and the founder will be looped in via the draft fallback.
+
+Be decisive, brief, and helpful. One tool call per turn. Never invent ticket IDs.`;
+}
+
+/** Detect whether the loop actually sent an email (i.e. invoked the reply
+ *  tool successfully). Scans the steps list for a non-error tool_result
+ *  whose tool was send_support_email_reply. */
+function loopSentReply(result: AgentLoopResult): boolean {
+  for (const step of result.steps) {
+    if (
+      step.type === "tool_result" &&
+      step.payload?.tool === REPLY_TOOL_NAME &&
+      !step.payload?.is_error
+    ) {
+      // The action either auto-sent OR downgraded to a draft — both come
+      // back as a non-error tool_result. Distinguish via the narrative.
+      const narrative = String((step.payload?.result as any)?.narrative ?? "");
+      if (narrative.startsWith("Sent ")) return true;
+    }
+  }
+  return false;
+}
+
+/** Build a ToolExecutor for an `auto`-tier admin action that uses a synthetic
+ *  PendingAction whose `user_id` is the matched sender's portal user. Mirrors
+ *  the shape of `executorFromCopilotAction()` from aiAgentLoop.ts but does
+ *  NOT enforce `ctx.userId` (we pass the user id at executor-build time,
+ *  outside the loop's context). */
+function buildAdminAutoExecutor(actionName: string, confirmedByUserId: number) {
+  return async (args: Record<string, unknown>, ctx: { loopRunId: string; sessionId?: string; stepIndex: number }) => {
+    const action = getCopilotAction("admin", actionName);
+    if (!action) throw new Error(`Action "${actionName}" not registered on the admin surface`);
+    if (action.riskTier !== "auto") {
+      throw new Error(`Action "${actionName}" is tier "${action.riskTier}" — must be "auto" to run inside the loop.`);
+    }
+    const pending: PendingAction = {
+      call_id: crypto.randomUUID(),
+      surface: "admin",
+      action_name: actionName,
+      args,
+      user_id: confirmedByUserId,
+      session_id: ctx.sessionId ?? `loop_${ctx.loopRunId}`,
+      expires: Date.now() + 5 * 60 * 1000,
+    };
+    const result = await action.execute(pending, confirmedByUserId);
+    return { ok: true, narrative: result.narrative };
+  };
+}
+
+/** Triage + act via the BA-0 multi-step loop (W-BA-5). */
+async function triageAndActViaLoop(args: {
+  ticket: SupportTicket;
+  thread: ThreadTurn[];
+  senderEmail: string | null;
+  matchedClientId: number | null;
+  matchedUserId: number | null;
+}): Promise<void> {
+  const { ticket, thread, senderEmail, matchedClientId, matchedUserId } = args;
+
+  // The admin actions (send_support_email_reply) write a ticket message with
+  // author_id = confirmedByUserId, which references users.id. Use the matched
+  // sender's portal user id when we have one; fall back to the legacy single-
+  // call path when we don't (legacy writes author_id = null, which is the
+  // pre-existing concierge contract for unverified senders).
+  if (matchedUserId == null) {
+    log.info(`[concierge] ticket #${ticket.id} — no matched user for loop path; using legacy single-call`);
+    await triageAndAct(ticket, thread, senderEmail);
+    return;
+  }
+
+  const sessionId = `inbound_email_${ticket.id}_${crypto.randomUUID().slice(0, 8)}`;
+  const conversationHistory = thread.map((t) => ({
+    role: (t.who === "Customer" ? "user" : "assistant") as "user" | "assistant",
+    content: t.text,
+  }));
+  // The loop expects the conversation to end on a `user` message. If the
+  // latest thread turn is from Support, append a brief synthetic prompt so
+  // the model has something to reason against.
+  if (
+    conversationHistory.length === 0 ||
+    conversationHistory[conversationHistory.length - 1].role !== "user"
+  ) {
+    conversationHistory.push({
+      role: "user",
+      content: "(awaiting the customer's next message — handle this thread)",
+    });
+  }
+
+  const toolExecutors: Record<string, ReturnType<typeof buildAdminAutoExecutor>> = {
+    send_support_email_reply: buildAdminAutoExecutor("send_support_email_reply", matchedUserId),
+    notify_admin_of_ticket: buildAdminAutoExecutor("notify_admin_of_ticket", matchedUserId),
+    send_admin_sms: buildAdminAutoExecutor("send_admin_sms", matchedUserId),
+  };
+
+  let result: AgentLoopResult;
+  try {
+    result = await runAgentLoop({
+      systemPrompt: buildEmailSystemPrompt({
+        ticket,
+        senderEmail,
+        matched: matchedClientId != null,
+      }),
+      conversationHistory,
+      tools: adminAgentTools as any,
+      toolExecutors,
+      surface: "portal",
+      actionSurface: "admin",
+      userId: matchedUserId,
+      clientId: matchedClientId ?? undefined,
+      sessionId,
+      maxSteps: AGENT_LOOP_MAX_STEPS,
+      costCapCents: AGENT_LOOP_COST_CAP_CENTS,
+    });
+  } catch (err: any) {
+    log.error(`[concierge] agent loop failed for ticket #${ticket.id}`, { error: String(err?.message ?? err) });
+    await escalate(ticket, "The AI hit an error running the multi-step loop and needs you to take a look.");
+    return;
+  }
+
+  if (loopSentReply(result)) {
+    log.info(`[concierge] ticket #${ticket.id} replied via agent loop`, {
+      steps: result.steps.length,
+      costCents: result.totalCostCents,
+      loopRunId: result.loopRunId,
+    });
+    return;
+  }
+
+  // Loop ended without sending — record a draft in audit_log so the admin
+  // sees it in the inbox, and do NOT send anything customer-facing.
+  await writeAudit({
+    actorId: String(matchedUserId),
+    actorType: "system",
+    action: "ai_drafted_inbound_reply",
+    entityType: "support_ticket",
+    entityId: String(ticket.id),
+    metadata: {
+      ticket_id: ticket.id,
+      client_id: ticket.client_id,
+      sender_email: senderEmail,
+      subject: ticket.subject,
+      loop_run_id: result.loopRunId,
+      loop_status: result.status,
+      total_cost_cents: result.totalCostCents,
+      step_count: result.steps.length,
+      reply_text: result.reply || null,
+      reason: result.errorMessage || `loop ended without calling ${REPLY_TOOL_NAME}`,
+      session_id: sessionId,
+    },
+  });
+
+  log.info(`[concierge] ticket #${ticket.id} drafted via agent loop (no reply sent)`, {
+    status: result.status,
+    costCents: result.totalCostCents,
+    loopRunId: result.loopRunId,
+  });
+}
+
 /* ─── Entry point ─── */
 
 /**
@@ -312,8 +521,56 @@ export async function processInboundEmail(ticketId: number, isNewTicket: boolean
       }));
     if (thread.length === 0) return;
 
+    // W-BA-5: when the multi-step loop is enabled, gate AX-1 (system-wide AI
+    // kill switch) + AX-2 (per-sender unsubscribe) BEFORE the loop is
+    // started, so a tripped gate or unsubscribed sender never reaches the
+    // model. AX-1 is also re-checked inside the loop between steps; this
+    // pre-check just fails fast.
+    const useAgentLoop = agentLoopEnabled();
+    if (useAgentLoop) {
+      const gate = await aiGateAllowed("portal").catch(() => ({ allowed: false, reason: "gate read failed" }));
+      if (!gate.allowed) {
+        log.info(`[concierge] ticket #${ticketId} — AX-1 system gate blocked (${gate.reason ?? "unknown"})`);
+        if (isNewTicket) await alertFounderPlain(ticket, senderEmail);
+        return;
+      }
+      if (senderEmail) {
+        const unsubscribed = await isEmailUnsubscribed(senderEmail).catch(() => false);
+        if (unsubscribed) {
+          log.info(`[concierge] ticket #${ticketId} — sender ${senderEmail} is unsubscribed; skipping AI reply`);
+          if (isNewTicket) await alertFounderPlain(ticket, senderEmail);
+          return;
+        }
+      }
+    }
+
+    // Resolve the matched portal user for the sender so the loop's tool
+    // executors have a real `confirmedByUserId` to write tickets / audit
+    // rows against. Best-effort — falls back to the legacy single-call path
+    // when no user match exists (see triageAndActViaLoop()).
+    let matchedClientId: number | null = ticket.client_id ?? null;
+    let matchedUserId: number | null = null;
     try {
-      await triageAndAct(ticket, thread, senderEmail);
+      const [c] = await db
+        .select({ user_id: clients.user_id })
+        .from(clients)
+        .where(eq(clients.id, ticket.client_id))
+        .limit(1);
+      matchedUserId = c?.user_id ?? null;
+    } catch { /* best-effort — falls back to legacy below */ }
+
+    try {
+      if (useAgentLoop) {
+        await triageAndActViaLoop({
+          ticket,
+          thread,
+          senderEmail,
+          matchedClientId,
+          matchedUserId,
+        });
+      } else {
+        await triageAndAct(ticket, thread, senderEmail);
+      }
     } catch (err) {
       log.error(`[concierge] triage failed for #${ticketId} — escalating`, { error: String(err) });
       await escalate(ticket, "The AI hit an error processing this email and needs you to take a look.");
