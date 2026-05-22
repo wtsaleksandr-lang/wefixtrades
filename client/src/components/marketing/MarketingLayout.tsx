@@ -218,7 +218,7 @@ function MarketingFooter() {
           {/* Tools — demos + free tools */}
           <FooterColumn title="Tools">
             <FtLink href="/tools/free-audit">Free Audit Tool</FtLink>
-            <FtLink href="/tools/missed-call-calculator">Missed Call Calculator</FtLink>
+            <FtLink href="/tools/map-snapshot">Map Snapshot — Free GBP Audit</FtLink>
             <FtLink href="/tools/quote-demo">Quote Demo</FtLink>
           </FooterColumn>
         </div>

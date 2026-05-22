@@ -19,6 +19,14 @@ const TRADE_SLUGS = [
   "remodeling", "carpet_cleaning",
 ];
 
+// BF-6 — MapGuard Snapshot per-trade landings. Distinct slug list from
+// missed-call-calculator (12 priority trades for the GBP audit tool).
+const MAP_SNAPSHOT_TRADE_SLUGS = [
+  "plumbing", "electrical", "hvac", "roofing", "landscaping", "painting",
+  "cleaning", "pest-control", "junk-removal", "locksmith", "garage-door",
+  "handyman",
+];
+
 const MARKETING_ROUTES = [
   "/", "/products", "/pricing", "/services", "/bundles",
   "/templates", "/demo", "/docs", "/contact", "/privacy", "/terms",
@@ -32,7 +40,9 @@ const MARKETING_ROUTES = [
   "/products/reputationshield",
   "/free-audit",
   "/tools", "/tools/free-audit", "/tools/missed-call-calculator", "/tools/quote-demo",
+  "/tools/map-snapshot",
   ...TRADE_SLUGS.map((s) => `/tools/missed-call-calculator/${s}`),
+  ...MAP_SNAPSHOT_TRADE_SLUGS.map((s) => `/tools/map-snapshot/${s}`),
 ];
 
 export function registerMarketingRoutes(app: Express): void {
