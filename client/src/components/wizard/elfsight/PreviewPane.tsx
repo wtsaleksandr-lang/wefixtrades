@@ -27,9 +27,9 @@
 //    with Ctrl/⌘ + wheel; Ctrl/⌘ +/-/0 keyboard shortcuts. Pinch on touch.
 //    25%–200% range. Zoom persists in sessionStorage by calculator id.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useDroppable } from '@dnd-kit/core';
-import { GripVertical, ZoomIn, ZoomOut, Maximize2, Minimize2 } from 'lucide-react';
+import { GripVertical, ZoomIn, ZoomOut, Maximize2, Minimize2, Plus } from 'lucide-react';
 import QuoteWidget from '@/components/quote-widget/QuoteWidget';
 import HostedPageFrame from '@/components/hosted-page/HostedPageFrame';
 import type { CalculatorData } from '@/components/quote-widget/types';
@@ -43,6 +43,7 @@ import { useSelection } from './selection';
 import { DND_CONTAINERS } from './dnd';
 import PreviewOverlay from './PreviewOverlay';
 import AddFieldMenu from './AddFieldMenu';
+import ComponentPicker, { type ComponentPickerAnchor } from './ComponentPicker';
 import type {
   PreviewDevice, ShellHeader, ShellResults, ShellStyle,
   ShellSettings, ShellNumberFormat, PublicFieldType,
@@ -87,8 +88,11 @@ interface Props {
   category?: string;
   /** Wave I (f): remove a field from inside the preview overlay. */
   onRemoveField?: (fieldId: string) => void;
-  /** Wave I (f): add a field via the in-preview +Add slot. */
-  onAddField?: (publicType: PublicFieldType) => void;
+  /** Wave I (f): add a field via the in-preview +Add slot.
+   *  BF-10 — accepts an optional insertion index so the ComponentPicker
+   *  can splice a new component at the chosen drop-zone position. When
+   *  undefined the field appends (legacy behaviour). */
+  onAddField?: (publicType: PublicFieldType, atIndex?: number) => void;
   /** Wave P — when true, wrap the QuoteWidget in HostedPageFrame so the
    *  preview matches the public hosted page. Defaults to false (bare
    *  widget, the long-standing behaviour). */
@@ -1051,6 +1055,17 @@ export default function PreviewPane({
                     onRemoveField={onRemoveField}
                   />
                 )}
+                {/* BF-10 — Elementor-style "+" drop zones between rendered
+                    field components. Only mount when onAddField is wired AND
+                    there's at least one field; the no-field case is handled
+                    by PreviewEmptyState below. */}
+                {shellFields.length > 0 && onAddField && (
+                  <DropZonesOverlay
+                    fields={shellFields}
+                    containerRef={overlayHostRef as React.RefObject<HTMLDivElement>}
+                    onAddField={onAddField}
+                  />
+                )}
                 {shellFields.length === 0 && onAddField && (
                   <PreviewEmptyState onAddField={onAddField} />
                 )}
@@ -1135,6 +1150,17 @@ export default function PreviewPane({
                     fields={shellFields}
                     containerRef={overlayHostRef as React.RefObject<HTMLDivElement>}
                     onRemoveField={onRemoveField}
+                  />
+                )}
+                {/* BF-10 — Elementor-style "+" drop zones between rendered
+                    field components. Only mount when onAddField is wired AND
+                    there's at least one field; the no-field case is handled
+                    by PreviewEmptyState below. */}
+                {shellFields.length > 0 && onAddField && (
+                  <DropZonesOverlay
+                    fields={shellFields}
+                    containerRef={overlayHostRef as React.RefObject<HTMLDivElement>}
+                    onAddField={onAddField}
                   />
                 )}
                 {shellFields.length === 0 && onAddField && (
@@ -1529,6 +1555,249 @@ export default function PreviewPane({
 
 // Re-export to satisfy non-type consumers in stable order — nothing external.
 export { DND_CONTAINERS };
+
+/* ─── BF-10 — Elementor-style drop zones overlay ───────────────────────
+ *
+ * Measures rendered preview field nodes (`[data-colspan]`) inside the
+ * AdvancedCalculator and renders a thin 24px-tall hoverable strip between
+ * each pair plus one before the first / after the last. On hover the strip
+ * fades up a 4px tinted blue bar and a centred 28×28 "+" button.
+ *
+ * Clicking the "+" opens the ComponentPicker anchored at the click point.
+ * The picker calls back with a PublicFieldType which we forward to
+ * onAddField(type, atIndex). atIndex = 0 inserts before the first existing
+ * field; atIndex = fields.length appends after the last.
+ *
+ * Implementation notes mirror PreviewOverlay's measurement strategy:
+ *  - Uses useLayoutEffect + ResizeObserver + MutationObserver to track
+ *    geometry as the calculator's grid lays out.
+ *  - Drop zones are pointer-events:auto only on their hit region (a
+ *    24px-tall strip); the visible bar is below them and doesn't capture
+ *    clicks unless the parent strip is hovered.
+ *  - Independent of PreviewOverlay so its existing decorator logic (BD-3a
+ *    selection rings, − remove icons) stays untouched. */
+interface DropZoneBox {
+  /** Insertion index — 0..fields.length. */
+  index: number;
+  /** Top of the gap between two fields (or before/after the list), in
+   *  container-relative coords. */
+  top: number;
+  /** Horizontal extent of the field row (so the strip matches the column
+   *  width on multi-column layouts). */
+  left: number;
+  width: number;
+}
+
+function measureDropZones(
+  container: HTMLElement,
+  fieldCount: number,
+): DropZoneBox[] {
+  const calc = container.querySelector<HTMLElement>(
+    '[data-testid="advanced-calculator"]',
+  );
+  if (!calc) return [];
+  const fieldNodes = calc.querySelectorAll<HTMLElement>('[data-colspan]');
+  if (fieldNodes.length === 0) return [];
+  const containerRect = container.getBoundingClientRect();
+  const out: DropZoneBox[] = [];
+  const count = Math.min(fieldNodes.length, fieldCount);
+  // First drop zone — above the first field.
+  if (count > 0) {
+    const first = fieldNodes[0].getBoundingClientRect();
+    out.push({
+      index: 0,
+      top: first.top - containerRect.top - 12,
+      left: first.left - containerRect.left,
+      width: first.width,
+    });
+    // Between each adjacent pair.
+    for (let i = 1; i < count; i++) {
+      const prev = fieldNodes[i - 1].getBoundingClientRect();
+      const cur = fieldNodes[i].getBoundingClientRect();
+      const gapMid = (prev.bottom + cur.top) / 2;
+      out.push({
+        index: i,
+        top: gapMid - containerRect.top - 12,
+        left: cur.left - containerRect.left,
+        width: cur.width,
+      });
+    }
+    // After the last field.
+    const last = fieldNodes[count - 1].getBoundingClientRect();
+    out.push({
+      index: count,
+      top: last.bottom - containerRect.top - 4,
+      left: last.left - containerRect.left,
+      width: last.width,
+    });
+  }
+  return out;
+}
+
+interface DropZonesOverlayProps {
+  fields: TemplateField[];
+  containerRef: React.RefObject<HTMLDivElement | null>;
+  onAddField: (publicType: PublicFieldType, atIndex?: number) => void;
+}
+
+function DropZonesOverlay({ fields, containerRef, onAddField }: DropZonesOverlayProps) {
+  const [zones, setZones] = useState<DropZoneBox[]>([]);
+  const rafRef = useRef<number | null>(null);
+  const selfRef = useRef<HTMLDivElement | null>(null);
+  const [pickerAnchor, setPickerAnchor] = useState<ComponentPickerAnchor | null>(null);
+  const [pickerIndex, setPickerIndex] = useState<number | null>(null);
+
+  useLayoutEffect(() => {
+    const container = containerRef.current ?? selfRef.current?.parentElement ?? null;
+    if (!container) return;
+    const update = () => {
+      const next = measureDropZones(container, fields.length);
+      setZones(next);
+    };
+    update();
+    const r1 = requestAnimationFrame(update);
+    const r2 = requestAnimationFrame(() => requestAnimationFrame(update));
+
+    const ro = new ResizeObserver(() => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      rafRef.current = requestAnimationFrame(update);
+    });
+    ro.observe(container);
+    const calcEl = container.querySelector('[data-testid="advanced-calculator"]');
+    if (calcEl) ro.observe(calcEl as Element);
+
+    const mo = new MutationObserver(() => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      rafRef.current = requestAnimationFrame(update);
+    });
+    mo.observe(container, { childList: true, subtree: true });
+
+    const onScroll = () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      rafRef.current = requestAnimationFrame(update);
+    };
+    container.addEventListener('scroll', onScroll, true);
+    window.addEventListener('resize', onScroll);
+    return () => {
+      cancelAnimationFrame(r1);
+      cancelAnimationFrame(r2);
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      ro.disconnect();
+      mo.disconnect();
+      container.removeEventListener('scroll', onScroll, true);
+      window.removeEventListener('resize', onScroll);
+    };
+  }, [fields.length, containerRef]);
+
+  const openPicker = useCallback((index: number, e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setPickerAnchor({ left: r.left + r.width / 2, top: r.top + r.height / 2 });
+    setPickerIndex(index);
+  }, []);
+
+  const closePicker = useCallback(() => {
+    setPickerAnchor(null);
+    setPickerIndex(null);
+  }, []);
+
+  const handlePick = useCallback((type: PublicFieldType) => {
+    if (pickerIndex == null) return;
+    onAddField(type, pickerIndex);
+  }, [pickerIndex, onAddField]);
+
+  return (
+    <div
+      ref={selfRef}
+      className="qq-preview-dropzones"
+      aria-hidden="false"
+      data-testid="preview-dropzones"
+    >
+      {zones.map((z) => (
+        <div
+          key={z.index}
+          className="qq-preview-dropzone"
+          data-testid={`preview-dropzone-${z.index}`}
+          data-dropzone-index={z.index}
+          style={{ left: z.left, top: z.top, width: z.width }}
+        >
+          <div className="qq-preview-dropzone-bar" aria-hidden="true" />
+          <button
+            type="button"
+            className="qq-preview-dropzone-plus"
+            aria-label={`Insert component at position ${z.index + 1}`}
+            data-testid={`preview-dropzone-plus-${z.index}`}
+            onClick={(e) => openPicker(z.index, e)}
+          >
+            <Plus size={16} aria-hidden="true" strokeWidth={2.5} />
+          </button>
+        </div>
+      ))}
+
+      {pickerAnchor && (
+        <ComponentPicker
+          anchor={pickerAnchor}
+          onPick={handlePick}
+          onClose={closePicker}
+        />
+      )}
+
+      <style>{`
+        .qq-preview-dropzones {
+          position: absolute; inset: 0;
+          pointer-events: none;
+        }
+        .qq-preview-dropzone {
+          position: absolute;
+          height: 24px;
+          pointer-events: auto;
+          display: flex; align-items: center; justify-content: center;
+          opacity: 0;
+          transition: opacity 0.12s ease;
+        }
+        .qq-preview-dropzone:hover,
+        .qq-preview-dropzone:focus-within {
+          opacity: 1;
+        }
+        .qq-preview-dropzone-bar {
+          position: absolute;
+          left: 0; right: 0;
+          top: 50%; transform: translateY(-50%);
+          height: 4px;
+          border-radius: 999px;
+          background: ${p.colors.accent};
+          opacity: 0.55;
+          pointer-events: none;
+        }
+        .qq-preview-dropzone-plus {
+          position: relative; z-index: 1;
+          width: 28px; height: 28px;
+          display: inline-flex; align-items: center; justify-content: center;
+          background: ${p.colors.accent};
+          color: #fff;
+          border: 2px solid #fff;
+          border-radius: 50%;
+          cursor: pointer;
+          padding: 0;
+          box-shadow: 0 2px 8px rgba(13,60,252,0.35);
+          transition: transform 0.12s ease, background 0.12s ease;
+        }
+        .qq-preview-dropzone-plus:hover,
+        .qq-preview-dropzone-plus:focus-visible {
+          transform: scale(1.08);
+          background: ${p.colors.accentDark};
+          outline: none;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .qq-preview-dropzone,
+          .qq-preview-dropzone-plus {
+            transition: none;
+          }
+        }
+      `}</style>
+    </div>
+  );
+}
 
 /* ─── Wave L E1 — empty-state placeholder ──────────────────────────────
  * Rendered when there are zero fields in the preview. A large dashed

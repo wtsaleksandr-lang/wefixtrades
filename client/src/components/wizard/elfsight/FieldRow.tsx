@@ -30,6 +30,7 @@ import { FIELD_TYPE_TO_PUBLIC } from './types';
 import { useEditorDndSensors, DND_CONTAINERS, DragHandleGlyph } from './dnd';
 import { useSelection } from './selection';
 import FloatField from './FloatField';
+import RichTextField from './RichTextField';
 
 const p = platformTheme;
 
@@ -233,18 +234,36 @@ export default function FieldRow({
       {expanded && (
         <div className="qq-field-row-body" data-testid={`field-row-body-${field.id}`}>
           {/* Wave L L1 — embedded floating labels. Each input title now sits
-           * inside the field, not as a separate label above it. */}
-          <FloatField label="Label" htmlFor={`field-row-input-label-${field.id}`}>
-            <input
-              id={`field-row-input-label-${field.id}`}
-              type="text"
-              className="premium-input qq-field-input"
-              placeholder=" "
+           * inside the field, not as a separate label above it.
+           *
+           * BF-11 — for `heading` fields the label is the entire section
+           * divider text shown to customers, so it gets the full rich-text
+           * editor (B/I/U, color, emoji, inline image). Other field types
+           * keep the plain input because their label renders inside a
+           * constrained `<label>` element where rich HTML can break layout
+           * (line-height, vertical alignment with the inline control). */}
+          {field.type === 'heading' ? (
+            <RichTextField
+              label="Label"
+              htmlFor={`field-row-input-label-${field.id}`}
               value={field.label}
-              onChange={(e) => update({ label: e.target.value })}
-              data-testid={`field-row-input-label-${field.id}`}
+              onChange={(next) => update({ label: next })}
+              placeholder="Click to add a heading"
+              testid={`field-row-input-label-${field.id}`}
             />
-          </FloatField>
+          ) : (
+            <FloatField label="Label" htmlFor={`field-row-input-label-${field.id}`}>
+              <input
+                id={`field-row-input-label-${field.id}`}
+                type="text"
+                className="premium-input qq-field-input"
+                placeholder=" "
+                value={field.label}
+                onChange={(e) => update({ label: e.target.value })}
+                data-testid={`field-row-input-label-${field.id}`}
+              />
+            </FloatField>
+          )}
 
           {/* Wave W-LAYOUT — Width toggle.
               field.colSpan === 1   → half (one of two grid columns)
