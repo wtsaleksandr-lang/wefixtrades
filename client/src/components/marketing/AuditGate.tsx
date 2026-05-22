@@ -2,7 +2,8 @@ import { useState } from "react";
 import { trackEvent } from "@/lib/trackEvent";
 import { Lock, Send, CheckCircle2, Loader2, Shield } from "lucide-react";
 
-const DARK = "#0d1514";
+// BE-2: ink upgraded to the locked QuoteQuick brand ink (#1E1E1E)
+const DARK = "#1E1E1E";
 const CYAN = "#0d3cfc";
 const WHITE = "#FFFFFF";
 const GREY = "#6B7280";
@@ -151,7 +152,9 @@ export default function AuditGate({
         padding: "28px 24px",
         margin: "20px 0",
         position: "relative",
-        overflow: "hidden",
+        // BE-2: `clip` (not `hidden`) so any future sticky descendants are not
+        // clamped by this card. See memory `project-overflow-clip-for-sticky`.
+        overflow: "clip",
       }}
     >
       {/* Accent top border */}
@@ -227,7 +230,8 @@ export default function AuditGate({
           )}
         </div>
 
-        {/* Optional fields - collapsed into a row */}
+        {/* Optional fields - collapsed into a row.
+            BE-2: bumped to 44px to meet the locked mobile touch-target floor. */}
         <div style={{ display: "flex", gap: 8 }}>
           <input
             type="text"
@@ -236,7 +240,7 @@ export default function AuditGate({
             placeholder="Name (optional)"
             style={{
               flex: 1,
-              height: 40,
+              height: 44,
               padding: "0 12px",
               borderRadius: 10,
               border: `1px solid ${BORDER}`,
@@ -254,7 +258,7 @@ export default function AuditGate({
             placeholder="Phone (optional)"
             style={{
               flex: 1,
-              height: 40,
+              height: 44,
               padding: "0 12px",
               borderRadius: 10,
               border: `1px solid ${BORDER}`,
@@ -276,7 +280,9 @@ export default function AuditGate({
             borderRadius: 12,
             border: "none",
             background: CYAN,
-            color: DARK,
+            // BE-2: white on brand-blue per locked QuoteQuick CTA pattern
+            // (dark-on-cyan failed AA contrast).
+            color: WHITE,
             fontSize: 15,
             fontWeight: 700,
             cursor: submitting ? "not-allowed" : "pointer",
