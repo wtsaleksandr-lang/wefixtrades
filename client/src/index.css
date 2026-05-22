@@ -1096,7 +1096,19 @@
 .qq-editor-shell[data-theme="dark"] .qq-rtf-placeholder {
   color: var(--qq-muted);
 }
-.qq-editor-shell[data-theme="dark"] .qq-rtf-floating-label,
+/* P1 UX bug sweep — floating label sits at top:-7px overlapping the
+ * input border. In light mode the label bg is #fff and matches the input
+ * (clean cutout). BH-4b set the dark-mode bg to --qq-surface (#1E293B),
+ * which is the OUTER pane bg, NOT the input bg (#243149) — so in dark
+ * mode the label rendered as a small lighter patch above each field
+ * (Alex flagged this as "white rectangles"). Match the input bg so the
+ * label cuts cleanly through the border line, with no patch leak.
+ * The expanded panel label keeps --qq-surface because the panel itself
+ * paints --qq-surface (see .qq-rtf-panel rule below). */
+.qq-editor-shell[data-theme="dark"] .qq-rtf-floating-label {
+  background: #243149;
+  color: var(--qq-muted);
+}
 .qq-editor-shell[data-theme="dark"] .qq-rtf-panel-label {
   background: var(--qq-surface);
   color: var(--qq-muted);
