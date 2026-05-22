@@ -180,7 +180,8 @@ function applyStyleOverrides(base: WidgetTheme, style: AdvStyle | undefined): Wi
   // wins, so pre-AO-6b calculators render unchanged.
   if (style.surface) next.surface = style.surface;
   if (style.border) next.border = style.border;
-  if (style.secondary) next.secondary = style.secondary;
+  // BD-3f Item 4 — `style.secondary` was unused at render time; the Style-tab
+  // picker has been removed. Field stays on the type for forward compat.
   if (style.success) next.success = style.success;
   if (style.error) next.error = style.error;
   return next;
