@@ -552,8 +552,21 @@ export default function WizardShell({ embed = false }: Props) {
   const removeField = useCallback((fieldId: string) => {
     setState((s) => ({ ...s, fields: s.fields.filter((f) => f.id !== fieldId) }));
   }, []);
-  const addField = useCallback((publicType: PublicFieldType) => {
-    setState((s) => ({ ...s, fields: [...s.fields, makeField(publicType)] }));
+  const addField = useCallback((publicType: PublicFieldType, atIndex?: number) => {
+    setState((s) => {
+      const next = [...s.fields];
+      const f = makeField(publicType);
+      // BF-10 — when atIndex is provided, splice in at that position so the
+      // ComponentPicker's drop-zone insertion lands where the user clicked.
+      // Out-of-range / undefined values fall back to append (legacy behaviour).
+      if (typeof atIndex === 'number' && Number.isFinite(atIndex)
+        && atIndex >= 0 && atIndex <= next.length) {
+        next.splice(atIndex, 0, f);
+      } else {
+        next.push(f);
+      }
+      return { ...s, fields: next };
+    });
   }, []);
 
   // ── Wave L E3: swipe-to-delete undo. PreviewPane dispatches a

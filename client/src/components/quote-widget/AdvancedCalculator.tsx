@@ -1586,7 +1586,12 @@ export default function AdvancedCalculator({
 
   // CTA — always high-contrast against the result panel (a solid accent
   // button on a white panel; a white button on a coloured panel).
+  // BF-11 — owners can now author the CTA label as rich text (B/I/U,
+  // color, emoji, inline image). Plain strings still work — richTextRenderProps
+  // returns { text } for non-HTML input so the legacy code path is preserved.
   const ctaLabel = results.cta_label === undefined ? 'Get My Quote' : results.cta_label;
+  const ctaProps = richTextRenderProps(ctaLabel);
+  const ctaLabelPlain = ctaProps.text ?? richHtmlToPlainText(ctaLabel);
   const showCta = ctaLabel.trim() !== '';
   const ctaBg = resultTinted ? '#ffffff' : accent;
   const ctaFg = resultTinted ? c.result : '#ffffff';
@@ -2318,7 +2323,10 @@ export default function AdvancedCalculator({
                       // back to the accent colour when undefined.
                       ['--qq-cta-base' as string]: String(ctaBg),
                     }}>
-                    {ctaLabel} <span style={{ fontSize: '16px' }}>→</span>
+                    {ctaProps.__html
+                      ? <span dangerouslySetInnerHTML={{ __html: ctaProps.__html }} />
+                      : ctaLabelPlain}
+                    {' '}<span style={{ fontSize: '16px' }}>→</span>
                   </button>
                 )}
 
@@ -2630,14 +2638,16 @@ function FieldInput({ field, value, accent, theme, onChange, radiusPx, fieldStyl
   };
 
   if (f.type === 'heading') {
-    return (
-      <p style={{
-        fontSize: '15px', fontWeight: 700, color: c.text, margin: '2px 0 0',
-        paddingBottom: '7px', borderBottom: `1px solid ${c.border}`,
-      }}>
-        {f.label}
-      </p>
-    );
+    // BF-11 — heading fields support rich text (B/I/U, color, emoji, inline
+    // image) just like header.title. Plain strings fall through unchanged.
+    const headingProps = richTextRenderProps(f.label || '');
+    const headingStyle = {
+      fontSize: '15px', fontWeight: 700, color: c.text, margin: '2px 0 0',
+      paddingBottom: '7px', borderBottom: `1px solid ${c.border}`,
+    } as const;
+    return headingProps.__html
+      ? <p style={headingStyle} dangerouslySetInnerHTML={{ __html: headingProps.__html }} />
+      : <p style={headingStyle}>{headingProps.text ?? ''}</p>;
   }
 
   // Stable id so the `<label>` associates with its control (a11y).

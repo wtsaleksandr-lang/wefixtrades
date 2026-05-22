@@ -36,6 +36,7 @@ import {
 import type { BusinessProfile } from '@shared/templatePresets';
 import FloatField from './FloatField';
 import InfoCue from './InfoCue';
+import RichTextField from './RichTextField';
 import { useFoldablePanels } from './useFoldablePanels';
 
 const p = platformTheme;
@@ -553,22 +554,21 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
           />
         </legend>
         <div className="qq-style-group-body">
-          <FloatField
+          {/* BF-11 — CTA label is now rich-text editable so owners can stamp
+              emoji, bold, color and inline images on the call-to-action
+              button. Backwards-compatible: a plain string still saves; the
+              renderer's sanitizer accepts both. */}
+          <RichTextField
             label="CTA label"
             htmlFor="qq-settings-cta-label"
+            value={ctaLabel}
+            onChange={(next) => patch({ ctaLabel: next })}
+            placeholder='Click to override (default: "Get My Quote")'
             infoText='Overrides the result-panel button text. Leave blank to keep the default ("Get My Quote").'
             infoTestid="settings-cta"
-          >
-            <input
-              id="qq-settings-cta-label"
-              type="text"
-              className="premium-input"
-              placeholder=" "
-              value={ctaLabel}
-              onChange={(e) => patch({ ctaLabel: e.target.value })}
-              data-testid="settings-input-cta-label"
-            />
-          </FloatField>
+            infoRegion="sticky-footer"
+            testid="settings-input-cta-label"
+          />
         </div>
       </fieldset>
 
