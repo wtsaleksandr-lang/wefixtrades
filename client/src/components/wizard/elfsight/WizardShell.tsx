@@ -1353,10 +1353,16 @@ export default function WizardShell({ embed = false }: Props) {
                 height: 100vh;
                 min-height: 100vh;
                 max-height: 100vh;
-                overflow: hidden;
+                /* P0 sticky fix — use clip (not hidden) so position:sticky
+                 * descendants inside the preview widget still anchor to the
+                 * preview pane's scroll context instead of being trapped
+                 * here. Same visual effect as hidden.
+                 * See memory/project_overflow_clip_for_sticky.md */
+                overflow: clip;
               }
               .wizard-shell-modal {
-                overflow: hidden !important;
+                /* P0 sticky fix — see comment above. */
+                overflow: clip !important;
               }
             }
             .wizard-shell-modal {
@@ -1397,7 +1403,10 @@ export default function WizardShell({ embed = false }: Props) {
               background: ${d.colors.panel};
               border-radius: 14px;
               box-shadow: ${d.shadows.panel};
-              overflow: hidden;
+              /* P0 sticky fix — use clip (not hidden) so sticky descendants
+               * in the preview widget bind to the preview pane's scroll
+               * context. See memory/project_overflow_clip_for_sticky.md */
+              overflow: clip;
               min-height: calc(100vh - ${d.layout.shellPad} - ${d.layout.shellPad});
               transition: opacity 200ms ease-out, transform 200ms ease-out;
               will-change: opacity, transform;
@@ -1581,13 +1590,15 @@ export default function WizardShell({ embed = false }: Props) {
             .qq-editor-body {
               display: flex; align-items: stretch;
               flex: 1; min-height: 0;
-              /* Wave AB-1 — lock outer body to overflow:hidden so the two
-                 panes (.qq-editor-left, .qq-editor-right) own their own
-                 vertical scroll. Previously the outer body could also
-                 scroll, which competed with each pane's overflow-y:auto
-                 and caused the field list to fight the preview when
-                 either was overlong. */
-              overflow: hidden;
+              /* Wave AB-1 — lock outer body so the two panes
+                 (.qq-editor-left, .qq-editor-right) own their own vertical
+                 scroll. Previously the outer body could also scroll, which
+                 competed with each pane's overflow-y:auto and caused the
+                 field list to fight the preview when either was overlong.
+                 P0 sticky fix — use clip (not hidden) so sticky descendants
+                 in the preview widget anchor to the preview pane's scroll
+                 context. See memory/project_overflow_clip_for_sticky.md */
+              overflow: clip;
             }
             /* Wave M — collapse transition. We animate the right pane's
                width/opacity. The left pane is flex: 1 once collapsed, so
@@ -1603,7 +1614,10 @@ export default function WizardShell({ embed = false }: Props) {
                           flex 320ms cubic-bezier(0.22, 1, 0.36, 1),
                           padding 320ms cubic-bezier(0.22, 1, 0.36, 1),
                           border 320ms cubic-bezier(0.22, 1, 0.36, 1);
-              overflow: hidden;
+              /* P0 sticky fix — use clip (not hidden) so sticky descendants
+               * in the preview widget anchor to this pane's scroll context.
+               * See memory/project_overflow_clip_for_sticky.md */
+              overflow: clip;
               will-change: width, opacity;
             }
             /* Wave R-pre F note — we intentionally do NOT transition the
@@ -1729,10 +1743,15 @@ export default function WizardShell({ embed = false }: Props) {
             }
             /* BD-3c Feature 1 — desktop: canvas/preview is STATIC. The
                left pane scrolls; the right pane is locked. Mobile keeps
-               the original overflow-y:auto (the body stacks vertically). */
+               the original overflow-y:auto (the body stacks vertically).
+               P0 sticky fix — use clip (not hidden) so the preview widget's
+               sticky descendants still bind to the page / iframe scroll
+               context. clip gives the same scroll-static visual without
+               establishing a scroll container that traps sticky.
+               See memory/project_overflow_clip_for_sticky.md */
             @media (min-width: 769px) {
               .qq-editor-right {
-                overflow: hidden;
+                overflow: clip;
               }
             }
             .qq-preview-pane {
