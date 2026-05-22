@@ -1811,21 +1811,76 @@ export default function WizardShell({ embed = false }: Props) {
               background: ${p.colors.accentLighter};
               border-color: ${p.colors.accentLighter};
             }
-            /* P2 UX — Floating launcher preview toggle. When active, the
-             * button takes on the brand-blue accent + a subtle blue ring
-             * so the wizard owner can see at a glance that the preview
-             * canvas is in lens mode. */
+            /* P1 UX (2026-05-22) — Floating launcher preview toggle.
+             *
+             * Was: a bare 14px circular icon button identical to every
+             * neighbour. Alex couldn't find it.
+             *
+             * Now: a pill-shaped toggle ("[ icon ] Floating"), brand-blue
+             * tinted at-rest, with a slow attention-pulse the first few
+             * seconds after mount so the eye catches it. Active state
+             * fills with accent + 3px ring. On <= 480px the label hides
+             * and the pill collapses to a 28x28 icon chip so the mobile
+             * chrome doesn't crowd.
+             *
+             * Width override: the base .qq-editor-icon-btn rule pins
+             * width:28px; we widen the launcher pill back out via auto. */
+            .qq-editor-launcher-toggle {
+              width: auto;
+              height: 28px;
+              padding: 0 10px 0 8px;
+              gap: 6px;
+              border-radius: 999px;
+              font-size: 12px;
+              font-weight: 700;
+              letter-spacing: 0.01em;
+              color: ${p.colors.accent};
+              background: ${p.colors.accentLighter};
+              border-color: ${p.colors.accentLighter};
+              opacity: 1;
+              animation: qq-launcher-toggle-pulse 2400ms ease-in-out 0s 3;
+            }
+            .qq-editor-launcher-toggle:hover:not(:disabled) {
+              background: rgba(13, 60, 252, 0.16);
+              color: ${p.colors.accent};
+              border-color: rgba(13, 60, 252, 0.30);
+              opacity: 1;
+            }
+            .qq-editor-launcher-toggle-label {
+              white-space: nowrap;
+              line-height: 1;
+            }
             .qq-editor-launcher-toggle.is-active {
               color: #fff;
               background: ${p.colors.accent};
               border-color: ${p.colors.accent};
               box-shadow: 0 0 0 3px rgba(13, 60, 252, 0.20);
               opacity: 1;
+              /* stop the pulse once active */
+              animation: none;
             }
             .qq-editor-launcher-toggle.is-active:hover:not(:disabled) {
               color: #fff;
               background: ${p.colors.accentDark};
               border-color: ${p.colors.accentDark};
+            }
+            @keyframes qq-launcher-toggle-pulse {
+              0%, 100% { box-shadow: 0 0 0 0 rgba(13, 60, 252, 0.0); }
+              50%      { box-shadow: 0 0 0 6px rgba(13, 60, 252, 0.18); }
+            }
+            @media (prefers-reduced-motion: reduce) {
+              .qq-editor-launcher-toggle { animation: none !important; }
+            }
+            /* Mobile: hide the "Floating" label so the pill collapses to
+             * a 28x28 icon-only chip — stays discoverable (brand-blue
+             * background still draws the eye) without crowding chrome. */
+            @media (max-width: 480px) {
+              .qq-editor-launcher-toggle {
+                width: 28px;
+                padding: 0;
+                gap: 0;
+              }
+              .qq-editor-launcher-toggle-label { display: none; }
             }
 
             .qq-editor-body {
