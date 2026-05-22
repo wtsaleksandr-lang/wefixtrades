@@ -15,29 +15,41 @@ export type AuthUser = {
 };
 
 /**
+ * Shape of `/api/auth/me` after the P1 admin-Preview-as-Pro patch.
+ * `adminProPreview` is only ever true for admins with the per-session
+ * flag flipped on — server enforces both conditions before returning
+ * true. Treat as read-only override; don't mutate client-side.
+ */
+type AuthMeResponse = {
+  user: AuthUser | null;
+  adminProPreview?: boolean;
+};
+
+/**
  * Lightweight auth hook.
  * Tries GET /api/auth/me — if the endpoint doesn't exist yet the user
  * is treated as unauthenticated (no error thrown, no redirect).
  */
 export function useAuth() {
-  const { data: user, isLoading } = useQuery<AuthUser | null>({
+  const { data, isLoading } = useQuery<AuthMeResponse>({
     queryKey: ["auth", "me"],
     queryFn: async () => {
       try {
         const res = await fetch("/api/auth/me", { credentials: "include" });
-        if (!res.ok) return null;
-        const json = await res.json();
-        return json?.user ?? null;
+        if (!res.ok) return { user: null };
+        const json = (await res.json()) as AuthMeResponse;
+        return { user: json?.user ?? null, adminProPreview: !!json?.adminProPreview };
       } catch {
-        return null;
+        return { user: null };
       }
     },
     staleTime: 5 * 60 * 1000,
     retry: false,
   });
 
+  const user = data?.user ?? null;
   return {
-    user: user ?? null,
+    user,
     isLoading,
     isAuthenticated: !!user,
     /**
@@ -48,5 +60,7 @@ export function useAuth() {
      * future `portal` role cannot silently inherit admin-console access.
      */
     isPortalUser: !!user && user.role === "admin",
+    /** P1 fix: admin Preview-as-Pro session override (admin-only). */
+    adminProPreview: !!data?.adminProPreview,
   };
 }

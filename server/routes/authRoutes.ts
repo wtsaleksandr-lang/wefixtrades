@@ -59,9 +59,17 @@ function isTestRateLimitBypass(req: Request): boolean {
 }
 
 export function registerAuthRoutes(app: Express) {
-  /** Current session user (or null) */
+  /** Current session user (or null).
+   *
+   * P1 fix: also surfaces `adminProPreview` (admin-only) so the client
+   * can render the "PREVIEW AS PRO" pill in the admin chrome and the
+   * Preview-as-Pro toggle reflects the saved session state on page
+   * reload. The flag is read directly from the express session —
+   * the same boolean POST /api/admin/me/preview-pro flips. */
   app.get("/api/auth/me", (req, res) => {
-    res.json({ user: req.user ?? null });
+    const sess = req.session as (typeof req.session & { admin_pro_preview?: boolean }) | undefined;
+    const adminProPreview = req.user?.role === "admin" && sess?.admin_pro_preview === true;
+    res.json({ user: req.user ?? null, adminProPreview });
   });
 
   /** Email/password login — with optional TOTP 2FA gate */

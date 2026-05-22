@@ -14,7 +14,7 @@ import { db } from "../db";
 import { clientEmailIdentities, clients } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { requireClient } from "../auth";
-import { clientHasProAccess } from "../lib/clientProAccess";
+import { clientHasProAccessForRequest } from "../lib/clientProAccess";
 import { verifyDomain, requiredRecordsForDomain } from "../lib/dnsVerify";
 import { createLogger } from "../lib/logger";
 
@@ -59,7 +59,7 @@ export function registerPortalEmailDomainRoutes(app: Express) {
       if (!client) return res.status(404).json({ error: "Client not found" });
 
       const identity = await getOrCreateIdentity(clientId, client.business_name);
-      const proAccess = await clientHasProAccess(clientId);
+      const proAccess = await clientHasProAccessForRequest(req, clientId);
 
       return res.json({
         proAccess,
@@ -88,7 +88,7 @@ export function registerPortalEmailDomainRoutes(app: Express) {
     try {
       const clientId = await withClientId(req, res);
       if (!clientId) return;
-      if (!(await clientHasProAccess(clientId))) {
+      if (!(await clientHasProAccessForRequest(req, clientId))) {
         return res.status(403).json({
           error: "Custom email domain is a Pro feature. Upgrade or start your 14-day Pro trial.",
           code: "pro_required",
@@ -135,7 +135,7 @@ export function registerPortalEmailDomainRoutes(app: Express) {
     try {
       const clientId = await withClientId(req, res);
       if (!clientId) return;
-      if (!(await clientHasProAccess(clientId))) {
+      if (!(await clientHasProAccessForRequest(req, clientId))) {
         return res.status(403).json({ error: "Custom email domain is a Pro feature.", code: "pro_required" });
       }
       const [identity] = await db

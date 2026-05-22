@@ -42,6 +42,7 @@ import {
   Plug,
   ShieldOff,
   Radio,
+  Eye,
 } from "lucide-react";
 import AdminCopilot, { type AdminPageContext } from "./AdminCopilot";
 import { useAuth } from "@/hooks/useAuth";
@@ -679,11 +680,43 @@ export default function AdminLayout({
   pageContext?: Omit<AdminPageContext, "route">;
 }) {
   const [location, navigate] = useLocation();
-  const { user } = useAuth();
+  const { user, adminProPreview } = useAuth();
+  const { toast } = useToast();
   const queryClient = useQueryClient();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [quickAdd, setQuickAdd] = useState<string | null>(null);
   const [copilotOpen, setCopilotOpen] = useState(false);
+
+  /* P1 fix: admin "Preview as Pro" session toggle.
+   *
+   * Flips a per-session boolean on the server (POST /api/admin/me/
+   * preview-pro) so every Pro-tier gate resolves to TRUE for this
+   * admin's session, regardless of any client's underlying subscription
+   * state. Used pre-launch so Alex (admin) can exercise Pro-only UX
+   * without paying for a Pro plan. Clears automatically on logout
+   * (req.logout destroys the session). */
+  const togglePreviewPro = useMutation({
+    mutationFn: async (enabled: boolean) => {
+      const res = await apiRequest("POST", "/api/admin/me/preview-pro", { enabled });
+      return res.json() as Promise<{ ok: true; enabled: boolean }>;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
+      toast({
+        title: data.enabled ? "Preview as Pro: ON" : "Preview as Pro: OFF",
+        description: data.enabled
+          ? "Pro-tier features now visible for this session."
+          : "Reverted to your real subscription tier.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Couldn't change Preview as Pro",
+        description: "Try again, or refresh the page.",
+        variant: "destructive",
+      });
+    },
+  });
 
   /* Real-time push: when any admin or AI agent writes to the audit
    * log, the server emits 'admin.activity.new'. We invalidate every
@@ -817,6 +850,22 @@ export default function AdminLayout({
                 SECONDARY_ITEMS.find((item) => isActive(location, item.href))?.label ??
                 "Admin"}
             </h1>
+            {/* P1 fix: visible "PREVIEW AS PRO" pill so an admin never
+             *  forgets they're seeing the override view. Only renders
+             *  when adminProPreview === true (server-validated). */}
+            {adminProPreview && (
+              <button
+                type="button"
+                onClick={() => togglePreviewPro.mutate(false)}
+                disabled={togglePreviewPro.isPending}
+                className="ml-3 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-100 border border-amber-300 text-amber-900 text-[10px] font-bold uppercase tracking-wider hover:bg-amber-200 transition-colors"
+                title="Click to turn off Preview as Pro"
+                data-testid="admin-preview-pro-pill"
+              >
+                <Eye className="w-3 h-3" />
+                Preview as Pro
+              </button>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <DropdownMenu>
@@ -866,6 +915,31 @@ export default function AdminLayout({
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate("/admin/crm/change-password")}>
                   <KeyRound className="w-4 h-4 mr-2 text-gray-500" /> Change Password
+                </DropdownMenuItem>
+                {/* P1 fix: admin "Preview as Pro" toggle. Stays in the
+                 *  account dropdown so it's discoverable next to Profile /
+                 *  Settings without taking up top-bar real estate. The
+                 *  pill in the page header (above) gives a persistent
+                 *  visual cue when ON. */}
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.preventDefault();
+                    togglePreviewPro.mutate(!adminProPreview);
+                  }}
+                  data-testid="admin-preview-pro-toggle"
+                >
+                  <Eye className="w-4 h-4 mr-2 text-gray-500" />
+                  <span className="flex-1">Preview as Pro</span>
+                  <span
+                    className={cn(
+                      "ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider",
+                      adminProPreview
+                        ? "bg-amber-100 text-amber-900"
+                        : "bg-gray-100 text-gray-500"
+                    )}
+                  >
+                    {adminProPreview ? "On" : "Off"}
+                  </span>
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={handleLogout} className="text-red-600">
                   <LogOut className="w-4 h-4 mr-2" /> Log Out

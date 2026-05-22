@@ -2847,7 +2847,18 @@ function BrandStudioGroup({
                 <input
                   type="checkbox"
                   checked={premiumEnabled}
-                  onChange={(e) => setPremiumPack({ enabled: e.target.checked })}
+                  onChange={(e) => {
+                    const next = e.target.checked;
+                    setPremiumPack({ enabled: next });
+                    /* P1 fix: also fire a replay event when the master
+                     * toggle flips so the user sees the whole pack
+                     * react in the preview canvas right away. */
+                    if (typeof window !== 'undefined') {
+                      window.dispatchEvent(new CustomEvent('qq-preview:replay-premium', {
+                        detail: { effect: 'enabled', enabled: next },
+                      }));
+                    }
+                  }}
                   data-testid="style-bs-premium-enabled"
                   aria-label="Enable Premium Animations Pack"
                 />
@@ -2880,7 +2891,24 @@ function BrandStudioGroup({
                       <input
                         type="checkbox"
                         checked={opt.value}
-                        onChange={(e) => setPremiumPack({ [opt.key]: e.target.checked } as Partial<AdvPremiumAnimations>)}
+                        onChange={(e) => {
+                          const next = e.target.checked;
+                          setPremiumPack({ [opt.key]: next } as Partial<AdvPremiumAnimations>);
+                          /* P1 fix: notify the live preview so the
+                           * just-toggled effect demos immediately.
+                           * PremiumAnimationsProvider listens on
+                           * 'qq-preview:replay-premium' and bumps an
+                           * inner key to remount its children — entrance
+                           * keyframes (stagger / flip / count-up) replay
+                           * from scratch; confetti session-fire gate is
+                           * cleared so the burst fires inside the
+                           * preview canvas. */
+                          if (typeof window !== 'undefined') {
+                            window.dispatchEvent(new CustomEvent('qq-preview:replay-premium', {
+                              detail: { effect: opt.key, enabled: next },
+                            }));
+                          }
+                        }}
                         data-testid={opt.testid}
                         aria-label={opt.label}
                       />

@@ -353,4 +353,36 @@ export function registerAdminRoutes(app: Express): void {
       res.status(500).json({ error: "Failed to update budget" });
     }
   });
+
+  /* ─── P1 fix: admin "Preview as Pro" session override ─────────────────
+   *
+   * Admin-only. Flips a per-session boolean (`admin_pro_preview`) that
+   * makes every Pro-tier gate resolve to TRUE for this admin's session,
+   * regardless of any underlying client's subscription state. Read by
+   * `clientHasProAccessForRequest(req, clientId)` in server/lib/
+   * clientProAccess.ts. The flag is read-only override — it never writes
+   * to billing, audit logs, or other users' records. Cleared on logout
+   * via req.logout (which destroys the session).
+   *
+   * GET returns the current state alongside `enabled` so the admin UI
+   * can render the "PREVIEW AS PRO" pill on page load. POST sets the
+   * state from `{enabled: boolean}`. */
+  app.get("/api/admin/me/preview-pro", requireAdmin, (req: Request, res: Response) => {
+    const sess = req.session as (typeof req.session & { admin_pro_preview?: boolean });
+    res.json({ enabled: sess.admin_pro_preview === true });
+  });
+
+  app.post("/api/admin/me/preview-pro", requireAdmin, (req: Request, res: Response) => {
+    const enabled = req.body?.enabled === true;
+    const sess = req.session as (typeof req.session & { admin_pro_preview?: boolean });
+    sess.admin_pro_preview = enabled;
+    req.session.save((err) => {
+      if (err) {
+        log.error("preview-pro toggle failed", { error: err.message });
+        return res.status(500).json({ error: "Failed to save session" });
+      }
+      log.info("admin preview-pro toggled", { userId: req.user?.id, enabled });
+      res.json({ ok: true, enabled });
+    });
+  });
 }

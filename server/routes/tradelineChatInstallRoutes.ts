@@ -21,7 +21,7 @@ import { db } from "../db";
 import { clients, tradelineChatInstallRequests, INSTALL_REQUEST_STATUSES, WEBSITE_PLATFORMS, ACCESS_METHODS } from "@shared/schema";
 import { and, desc, eq } from "drizzle-orm";
 import { requireClient, requireAdmin } from "../auth";
-import { clientHasProAccess } from "../lib/clientProAccess";
+import { clientHasProAccessForRequest } from "../lib/clientProAccess";
 import { createLogger } from "../lib/logger";
 
 const log = createLogger("ChatInstall");
@@ -48,7 +48,7 @@ export function registerTradelineChatInstallRoutes(app: Express) {
         const clientId = await clientIdFromUser(req, res);
         if (!clientId) return;
 
-        const isPro = await clientHasProAccess(clientId);
+        const isPro = await clientHasProAccessForRequest(req, clientId);
 
         if (isPro) {
           // Pro path: skip Stripe, create form-ready row directly
