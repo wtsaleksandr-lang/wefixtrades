@@ -1634,6 +1634,38 @@ export default function StyleTab({
           letter-spacing: 0.04em;
           color: ${p.colors.subtle};
         }
+        /* P2 UX fix (2026-05-22) — Button-copy section spacing. Each row is
+         * a label ABOVE input with a clear 8 px gap; adjacent rows are
+         * separated by 12 px. Label is 11 px uppercase semibold in the
+         * brand-blue accent so the 5 purposes (BACK / CONTINUE / SUBMIT /
+         * EMAIL QUOTE CTA / BOOK SLOT CTA) read distinctly. Exception to
+         * the global title-in-field rule; only this section uses
+         * label-above-input. */
+        .qq-button-copy-rows {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+        .qq-button-copy-row {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+        .qq-button-copy-label {
+          font-size: 11px;
+          font-weight: 600;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          color: #0d3cfc;
+          line-height: 1.2;
+          margin: 0;
+        }
+        /* Hide RichTextField's own floating label inside this section only —
+         * we render an external one above the input instead. The compact
+         * preview still works; just the inside-the-field label is suppressed. */
+        .qq-button-copy-row .qq-rtf-floating-label {
+          display: none;
+        }
         .qq-style-grid {
           display: grid; gap: 10px;
           grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1657,7 +1689,12 @@ export default function StyleTab({
         .qq-style-swatches--grid {
           display: grid;
           grid-template-columns: repeat(5, 1fr);
-          gap: 6px 4px;
+          /* P2 UX fix (2026-05-22): row gap was 6px which clipped row 1's
+           * absolute-positioned labels (top: 100% + margin-top: 4px ≈ 14-18px
+           * below the swatch button) behind row 2's circles. Bumped row gap
+           * to 16px so each label has clear breathing room before the next
+           * row of swatches. Column gap unchanged at 4px. */
+          gap: 16px 4px;
           padding-bottom: 22px;
           align-items: start;
           justify-items: center;
@@ -3982,56 +4019,42 @@ function ButtonCopyGroup({
             to Pro to customise each button.
           </p>
         )}
-        {/* P2 UX — 2 px row gap per input-field-rules; the per-field
-            floating label inside RichTextField already provides the
-            label-in-field affordance Alex asked for, so no stacked
-            label rows are added here. */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <RichTextField
-            label="Back"
-            htmlFor="style-button-copy-back"
-            value={current.back ?? ''}
-            onChange={(next) => setField('back', next)}
-            placeholder="← Back"
-            testid="style-button-copy-back"
-            compact
-          />
-          <RichTextField
-            label="Continue / Next"
-            htmlFor="style-button-copy-next"
-            value={current.next ?? ''}
-            onChange={(next) => setField('next', next)}
-            placeholder="Continue"
-            testid="style-button-copy-next"
-            compact
-          />
-          <RichTextField
-            label="Submit (final step)"
-            htmlFor="style-button-copy-submit"
-            value={current.submit ?? ''}
-            onChange={(next) => setField('submit', next)}
-            placeholder="See my quote"
-            testid="style-button-copy-submit"
-            compact
-          />
-          <RichTextField
-            label="Email quote CTA"
-            htmlFor="style-button-copy-email-quote"
-            value={current.emailQuote ?? ''}
-            onChange={(next) => setField('emailQuote', next)}
-            placeholder="Email me this quote"
-            testid="style-button-copy-email-quote"
-            compact
-          />
-          <RichTextField
-            label="Book slot CTA"
-            htmlFor="style-button-copy-book-slot"
-            value={current.bookSlot ?? ''}
-            onChange={(next) => setField('bookSlot', next)}
-            placeholder="Book a consultation"
-            testid="style-button-copy-book-slot"
-            compact
-          />
+        {/* P2 UX fix (2026-05-22): Button-copy is an EXCEPTION to the global
+            title-in-field input rule. With 5 different button purposes
+            (BACK / CONTINUE / SUBMIT / EMAIL QUOTE CTA / BOOK SLOT CTA),
+            inside-field labels made the section read as a crumpled stack of
+            similar inputs. Spec: 11 px uppercase semibold brand-blue (#0d3cfc)
+            label ABOVE each input, 8 px gap between label and input, 12 px
+            gap between adjacent rows. The floating label inside RichTextField
+            is hidden via the .qq-button-copy-rows scope so we don't render
+            two labels. */}
+        <div className="qq-button-copy-rows">
+          {([
+            { key: 'back',       label: 'BACK',           placeholder: '← Back',                testid: 'style-button-copy-back' },
+            { key: 'next',       label: 'CONTINUE',       placeholder: 'Continue',              testid: 'style-button-copy-next' },
+            { key: 'submit',     label: 'SUBMIT',         placeholder: 'See my quote',          testid: 'style-button-copy-submit' },
+            { key: 'emailQuote', label: 'EMAIL QUOTE CTA', placeholder: 'Email me this quote', testid: 'style-button-copy-email-quote' },
+            { key: 'bookSlot',   label: 'BOOK SLOT CTA',   placeholder: 'Book a consultation', testid: 'style-button-copy-book-slot' },
+          ] as Array<{ key: keyof AdvButtonCopy; label: string; placeholder: string; testid: string }>).map((row) => (
+            <div key={row.key} className="qq-button-copy-row">
+              <label
+                htmlFor={row.testid}
+                className="qq-button-copy-label"
+                data-testid={`${row.testid}-label`}
+              >
+                {row.label}
+              </label>
+              <RichTextField
+                label={row.label}
+                htmlFor={row.testid}
+                value={current[row.key] ?? ''}
+                onChange={(next) => setField(row.key, next)}
+                placeholder={row.placeholder}
+                testid={row.testid}
+                compact
+              />
+            </div>
+          ))}
         </div>
       </div>
     </fieldset>
