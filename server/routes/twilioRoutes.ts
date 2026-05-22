@@ -14,6 +14,12 @@ import { buildSystemPrompt, runChatCompletion } from "../aiChatEngine";
 import { getOpenAI } from "../openaiClient";
 import { formatWhatsAppBookingConfirmation } from "./twilioBookingHelper";
 import { createLogger } from "../lib/logger";
+import {
+  agentLoopEnabledBA6,
+  processInboundSmsViaLoop,
+} from "../services/inboundSmsConcierge";
+import { aiChannelGateOn } from "../services/aiChannelGate";
+import { aiGateAllowed } from "../services/aiSystemGate";
 
 const log = createLogger("Twilio");
 
@@ -160,6 +166,67 @@ export function registerTwilioRoutes(app: Express): void {
         const trialDays = (Date.now() - aiEmployee.trial_started_at) / (1000 * 60 * 60 * 24);
         if (trialDays > 14) {
           return twimlError(`Thanks for reaching out! We'll get back to you shortly. — ${calculator?.business_name || "Your service provider"}`);
+        }
+      }
+
+      // ── W-BA-6: route inbound SMS through the BA-0 multi-step loop ──
+      //
+      // SMS only (WhatsApp keeps the legacy single-call path for now). Gate
+      // checks fire BEFORE the loop so a tripped system gate or off channel
+      // never reaches the model — the loop's own gate is a defence-in-depth
+      // re-check between steps. STOP / opt-out is owned by Twilio at the
+      // carrier level + the existing `lead.ai_paused` short-circuit above.
+      //
+      // When the loop yields ownership (no portal-user match, loop threw, or
+      // the env flag is off) we fall through to the legacy runChatCompletion
+      // path so nothing regresses.
+      if (channel === "sms" && agentLoopEnabledBA6() && calculator) {
+        const systemGate = await aiGateAllowed("portal").catch(() => ({
+          allowed: false,
+          reason: "gate read failed",
+        }));
+        const channelGateSms = await aiChannelGateOn("sms").catch(() => false);
+        if (systemGate.allowed && channelGateSms) {
+          // Pull a short recent transcript for context. Cap at 10 turns to
+          // keep token cost predictable. Filter to this lead's thread only.
+          let thread: Array<{ role: "user" | "assistant"; content: string }> = [];
+          try {
+            const threads = await storage.getSmsThreads(lead.calculator_id);
+            const mine = threads.find((t) => t.lead?.id === lead.id);
+            if (mine) {
+              thread = mine.messages.slice(-10).map((m) => ({
+                role: (m.direction === "inbound" ? "user" : "assistant") as
+                  | "user"
+                  | "assistant",
+                content: m.body ?? "",
+              }));
+            }
+          } catch (err: any) {
+            log.warn("[BA-6] failed to load SMS thread history; proceeding with current message", {
+              leadId: lead.id,
+              error: err?.message,
+            });
+          }
+          const loopOutcome = await processInboundSmsViaLoop({
+            lead,
+            calculator,
+            senderPhone: cleanFrom,
+            body,
+            thread,
+          });
+          if (loopOutcome.handled) {
+            // The loop owned the reply (sent via tool, drafted, or recorded
+            // an error draft). Acknowledge Twilio with empty TwiML so we
+            // don't ALSO send a synchronous reply on this HTTP response.
+            res.set("Content-Type", "text/xml");
+            return res.send("<Response></Response>");
+          }
+          // Fall through to legacy path.
+        } else {
+          log.info("[BA-6] system or channel gate off — falling back to legacy SMS reply", {
+            systemAllowed: systemGate.allowed,
+            channelOn: channelGateSms,
+          });
         }
       }
 
