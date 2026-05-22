@@ -280,6 +280,14 @@ export interface TemplateConfig {
    * 24/7 Emergency, etc.). Owners override via the Style tab later.
    */
   trustBadges?: readonly TrustBadge[];
+  /**
+   * Template design v2 (Phase 1) — short list of trade slugs the template
+   * is a good fit for, surfaced as pill chips in the TemplateGallery hover
+   * modal under "Best for:". Distinct from `trades` (which drives
+   * `getRecommendedTemplate`) — `matchingTrades` is the human-facing
+   * marketing list. Optional & back-compat (absent on Phase 2 templates).
+   */
+  matchingTrades?: string[];
 }
 
 /**
@@ -3052,50 +3060,83 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     },
   },
 
-  /* ── 46. Window Replacement (sample — W-AH-1, styled — W-AS-1) ── */
+  /* ── 46. Window Replacement (sample — W-AH-1, styled — W-AS-1)
+   *
+   * Template design v2 (Phase 1) — REFERENCE implementation of the global
+   * rule. The result panel switches from white indigo-accent to the vivid
+   * `#0F4A52` teal palette (`homeImprovement` from `RESULT_CARD_BG`); the
+   * input column is grouped into THREE explicit steps so there is no
+   * empty space below the inputs; layout stays two-column with the result
+   * panel sticky on scroll (renderer behaviour). Other 46 templates keep
+   * their existing styling — Phase 2 rolls the rule across the catalogue. */
   {
     id: 'window_replacement_quote', name: 'Window Replacement',
-    description: 'Per-window pricing by type, frame material, and energy rating.',
+    description: 'Per-window pricing by type, frame material, and energy rating. Get an instant lifetime-warrantied quote in under 60 seconds.',
     category: 'Home Improvement', trades: ['window_replacement'],
+    matchingTrades: ['construction', 'carpentry', 'general-contractor', 'remodeler'],
     trustBadges: BADGES.windows,
     layout: 'two-column', theme: 'light', defaultIcon: 'RectangleHorizontal',
     requireAddress: true,
     header: { title: 'Get Your Window Replacement Quote', subtitle: 'ENERGY STAR-certified installers · Lifetime product warranty · Free in-home measurement', align: 'left' },
+    // Template design v2 — three explicit steps so the renderer's
+    // multi-step flow groups inputs by intent (sizing, materials, install).
+    // Each step has 2 fields, eliminating the empty space below the
+    // first-step number input in the previous single-page layout.
+    steps: [
+      {
+        id: 'sizing',
+        label: 'Windows & Type',
+        help: 'How many and what style',
+        fields: ['count', 'type'],
+      },
+      {
+        id: 'materials',
+        label: 'Additional Features',
+        help: 'Frame material & glass package',
+        fields: ['frame', 'glass'],
+      },
+      {
+        id: 'install',
+        label: 'Installation Complexity',
+        help: 'Professional install & removal',
+        fields: ['install', 'disposal'],
+      },
+    ],
     // W-AS-1 — Clean / Glass / Professional visual identity.
-    // W-AS-1b — extended with AO-6c Brand Studio fields: airy
-    // sky-to-lavender gradient body + subtle indigo result panel.
+    // Template design v2 (Phase 1) — result panel now uses the vivid teal
+    // `homeImprovement` palette from `RESULT_CARD_BG` (#0F4A52) with
+    // 12px rounded corners, white text, and ≥4.5:1 contrast on every
+    // body-on-bg pairing. Outer card stays white with the 16px outer
+    // radius from `TEMPLATE_CARD_STYLE`.
     style: {
-      accent: '#4f46e5',        // indigo-600 trustworthy
-      secondary: '#6366f1',     // indigo-500
-      background: '#f8fafc',    // slate-50 very light
-      surface: '#ffffff',
-      border: '#e2e8f0',        // slate-200 hairline
-      text: '#0f172a',          // slate-900
-      resultsBg: '#ffffff',
+      accent: '#0F4A52',        // teal-deep — matches result panel bg
+      secondary: '#5EEAD4',     // teal-200 accent (chips, ticks)
+      background: '#f8fafc',    // slate-50 outer canvas
+      surface: '#ffffff',       // input card bg
+      border: 'rgba(0,0,0,0.06)', // TEMPLATE_CARD_STYLE.hairlineColor
+      text: '#0f172a',          // slate-900 input text
+      resultsBg: '#0F4A52',     // vivid teal result panel
       success: '#16a34a',
       error: '#dc2626',
       fontFamily: 'jakarta',
       fieldStyle: 'outline',
-      radius: 16,
-      headingWeight: 600,
+      radius: 16,               // TEMPLATE_CARD_STYLE.outerRadius
+      headingWeight: 700,
       bodyWeight: 400,
       fontSize: 'medium',
       logoPlacement: 'top-center',
       logoSize: 'medium',
-      // W-AS-1b — AO-6c Brand Studio: clean glass gradient body, normal
-      // indigo-accented result panel with hairline border.
-      // W-AS-1c — direction normalised to CSS-standard `'to bottom'`;
-      // border stays `'subtle'` (already correct); animations bundle added
-      // with a calm 220ms fade.
-      bgMode: 'gradient',
-      bgGradient: { from: '#f8fafc', to: '#e0e7ff', direction: 'to bottom' },
+      // Outer canvas — soft slate; the inner result panel carries the
+      // vivid colour so the page never feels oppressive.
+      bgMode: 'solid',
       bgImageTint: 0,
       resultPanel: {
-        accentOverride: '#4f46e5',
-        emphasis: 'normal',
-        border: 'subtle',
+        accentOverride: '#5EEAD4',  // teal-200 for value pills + CTA
+        emphasis: 'bold',
+        border: 'accent',
       },
       animations: {
+        // Respects prefers-reduced-motion (renderer-handled).
         step_transition: 'fade',
         duration_ms: 220,
         reduced_motion_respect: true,
