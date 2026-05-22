@@ -1,7 +1,7 @@
 /**
- * Admin Copilot — Phase 3 auto-tier agent-loop tools (W-BA-3).
+ * Admin Copilot — Phase 3 auto-tier agent-loop tools (W-BA-3, W-BA-4).
  *
- * Two `auto`-tier actions registered on the `admin` surface for the BA-0
+ * Three `auto`-tier actions registered on the `admin` surface for the BA-0
  * multi-step agent loop. They execute without a human confirm click when
  * admission criteria pass and downgrade safely when they don't.
  *
@@ -31,13 +31,34 @@
  *    customer-visible side effect. Returns `tool_error` only if BOTH the
  *    activity-log write AND the Slack ping fail.
  *
+ * 3. `send_admin_sms`  (W-BA-4)
+ *    Sends a customer-visible SMS reply on an open support ticket through
+ *    Twilio (`sendSMS` in `server/twilioClient.ts`). The phone number is
+ *    looked up server-side from the customer's existing SMS thread on the
+ *    ticket's calculator — never accepted from the model. Auto-tier
+ *    ADMITTED only if ALL four are true:
+ *      a. The customer already has an existing SMS thread with this
+ *         business (>= 1 prior smsMessages row on the calculator with the
+ *         resolved lead) — this is not first-contact via SMS.
+ *      b. The `sms` channel gate is on (read from `ai_channel_gates`).
+ *      c. The client's AI cost band is `within` or `soft_cap`.
+ *      d. The reply body has no escalation keywords AND no PII tokens
+ *         (credit card / SSN / password / license number patterns).
+ *    Otherwise the action DOWNGRADES to a draft (`ai_drafted_admin_sms`
+ *    audit row carrying the payload). SMS cost is recorded to the
+ *    `client_variable_costs` ledger (kind=sms) via `recordSmsCostForClient`
+ *    on send. The body is capped at 320 chars (single Twilio segment of
+ *    GSM-7 + safety margin for the appended "— sent by … (AI-assisted)"
+ *    footer) to avoid silent double-segment billing.
+ *
  * The loop's per-step Anthropic call already records usage via
- * `usageTracker` (BA-2, PR #454) — there's no additional cost-tracking
- * call to make here.
+ * `usageTracker` (BA-2, PR #454) — there's no additional AI-cost call to
+ * make here. SMS sends DO require a separate variable-cost increment
+ * (`recordSmsCostForClient`), because Twilio costs are not in token
+ * accounting.
  *
  * Channel gates and budget bands fail CLOSED: if either throws or returns
- * a denial, `send_support_email_reply` downgrades to a draft rather than
- * sending.
+ * a denial, sends downgrade to a draft rather than going out.
  */
 
 import { storage } from "../storage";
@@ -46,6 +67,8 @@ import { sendTicketReplyEmail } from "../lib/supportTicketEmails";
 import { aiChannelGateOn } from "./aiChannelGate";
 import { getClientBudgetBand } from "./aiBudget";
 import { fireAlert } from "./alertService";
+import { sendSMS } from "../twilioClient";
+import { recordSmsCostForClient } from "./clientCostBilling";
 import {
   registerCopilotAction,
   type CopilotAction,
@@ -434,11 +457,352 @@ const NOTIFY_ADMIN_OF_TICKET_ACTION: CopilotAction = {
 };
 
 /* ═══════════════════════════════════════════════════════════════════
+   3. send_admin_sms  (auto-tier with draft fallback) — W-BA-4
+   ═══════════════════════════════════════════════════════════════════ */
+
+/** SMS-body PII patterns. Conservative — false positives just downgrade
+ *  to draft. Order matters only for readability. */
+const PII_PATTERNS: { name: string; re: RegExp }[] = [
+  // Credit card-ish 13–19 digit run (spaces / dashes allowed).
+  { name: "credit_card", re: /\b(?:\d[ -]*?){13,19}\b/ },
+  // US SSN.
+  { name: "ssn", re: /\b\d{3}-\d{2}-\d{4}\b/ },
+  // Password / license number callouts.
+  { name: "password_token", re: /\b(password|passwd|pwd)\s*[:=]/i },
+  { name: "license_number", re: /\b(license|licence|dl)\s*#?\s*[:=]?\s*[A-Z0-9-]{6,}\b/i },
+];
+
+/** Max total SMS body length (incl. footer) — one Twilio GSM-7 segment is
+ *  160 chars; concatenated segments are billed each. 320 = max two
+ *  segments. We disallow anything beyond that so a chatty model can't
+ *  silently 3× the per-send cost. */
+const SMS_MAX_TOTAL_CHARS = 320;
+
+function bodyContainsEscalation(body: string): boolean {
+  const lower = body.toLowerCase();
+  return ESCALATION_KEYWORDS.some((kw) => lower.includes(kw));
+}
+
+function detectPii(body: string): string[] {
+  return PII_PATTERNS.filter((p) => p.re.test(body)).map((p) => p.name);
+}
+
+function buildSmsFooter(businessName: string): string {
+  // Keep footer compact — every char counts toward the segment cap.
+  const safeName = businessName.trim().slice(0, 40) || "WeFixTrades";
+  return `\n— sent by ${safeName} (AI-assisted)`;
+}
+
+const SEND_ADMIN_SMS_TOOL: ActionTool = {
+  name: "send_admin_sms",
+  description:
+    "Send an AI-assisted SMS reply to a customer on an existing support ticket via Twilio. " +
+    "Use ONLY when the customer already has an established SMS thread with this business and " +
+    "the admin is asking you to reply via SMS specifically. The ticket_id MUST come from the " +
+    "ticket the admin is currently viewing — never invent an ID. The customer's phone number is " +
+    "resolved server-side from their existing SMS thread; do NOT pass a phone number. Write the " +
+    "full reply body in plain text. Do not add a signature; the SMS layer appends one. The total " +
+    "message (your body + footer) must stay under 320 characters. The SMS is sent only when " +
+    "admission checks pass (existing SMS thread, sms channel on, client within budget, no " +
+    "escalation keywords, no PII in body); otherwise it is saved as a draft for the admin to " +
+    "review. Do not call this tool more than once per turn.",
+  input_schema: {
+    type: "object",
+    properties: {
+      ticket_id: {
+        type: "number",
+        description: "Numeric database ID of the support ticket the SMS reply belongs to.",
+      },
+      body: {
+        type: "string",
+        description:
+          "The SMS reply body in plain text. Keep it short — under ~250 chars to leave room " +
+          "for the auto-appended footer.",
+      },
+    },
+    required: ["ticket_id", "body"],
+  },
+};
+
+interface SmsAdmissionContext {
+  hasThread: boolean;
+  smsGateOn: boolean;
+  budgetBand: "within" | "soft_cap" | "over";
+  escalation: boolean;
+  piiTokens: string[];
+}
+
+function smsAdmissionPassed(ctx: SmsAdmissionContext): boolean {
+  return (
+    ctx.hasThread &&
+    ctx.smsGateOn &&
+    (ctx.budgetBand === "within" || ctx.budgetBand === "soft_cap") &&
+    !ctx.escalation &&
+    ctx.piiTokens.length === 0
+  );
+}
+
+async function executeSendAdminSms(
+  action: PendingAction,
+  confirmedByUserId: number,
+): Promise<ActionExecutionResult> {
+  const { args } = action;
+  const ticketId = args.ticket_id;
+  const rawBody = typeof args.body === "string" ? args.body.trim() : "";
+
+  if (typeof ticketId !== "number" || !Number.isInteger(ticketId) || ticketId <= 0) {
+    throw new Error("Invalid ticket_id: must be a positive integer");
+  }
+  if (!rawBody) throw new Error("The SMS body is empty.");
+  // Pre-footer cap — the footer is short but we want to fail fast on
+  // very long bodies before doing any DB work.
+  if (rawBody.length > SMS_MAX_TOTAL_CHARS) {
+    throw new Error(
+      `The SMS body is too long (${rawBody.length} chars). Keep it under ${SMS_MAX_TOTAL_CHARS}.`,
+    );
+  }
+
+  const ticket = await storage.getSupportTicketById(ticketId);
+  if (!ticket) throw new Error(`Ticket #${ticketId} not found`);
+
+  // Resolve phone server-side from the customer's existing SMS thread on
+  // the ticket's calculator. NEVER trust a phone number from the model.
+  // Strategy: pick the most-recent thread on this calculator whose lead
+  // has a phone. If there is no such thread, we fail admission (no
+  // existing thread).
+  let resolvedPhone: string | null = null;
+  let hasThread = false;
+  try {
+    if (ticket.calculator_id != null) {
+      const threads = await storage.getSmsThreads(ticket.calculator_id);
+      // Pick the thread with the most-recent message timestamp whose lead
+      // has a usable phone number.
+      let bestTs = -1;
+      for (const t of threads) {
+        if (!t.lead?.phone) continue;
+        if (t.messages.length === 0) continue;
+        const lastTs = t.messages.reduce((acc, m) => {
+          const ts = m.created_at ? new Date(m.created_at).getTime() : 0;
+          return ts > acc ? ts : acc;
+        }, 0);
+        if (lastTs > bestTs) {
+          bestTs = lastTs;
+          resolvedPhone = t.lead.phone;
+        }
+      }
+      hasThread = resolvedPhone != null && bestTs > 0;
+    }
+  } catch (err: any) {
+    log.warn("getSmsThreads failed during admission check — failing closed", {
+      ticketId,
+      error: err?.message,
+    });
+    hasThread = false;
+    resolvedPhone = null;
+  }
+
+  // SMS channel gate — fail closed.
+  let smsGateOn = false;
+  try {
+    smsGateOn = await aiChannelGateOn("sms");
+  } catch (err: any) {
+    log.warn("aiChannelGateOn(sms) threw — failing closed", { error: err?.message });
+    smsGateOn = false;
+  }
+
+  // Per-client AI cost band — fail closed on error.
+  let budgetBand: "within" | "soft_cap" | "over" = "over";
+  try {
+    const info = await getClientBudgetBand(ticket.client_id);
+    budgetBand = info.band;
+  } catch (err: any) {
+    log.warn("getClientBudgetBand threw — failing closed", {
+      clientId: ticket.client_id,
+      error: err?.message,
+    });
+    budgetBand = "over";
+  }
+
+  // Content checks — escalation keywords + PII tokens in the body.
+  const escalation = bodyContainsEscalation(rawBody);
+  const piiTokens = detectPii(rawBody);
+
+  const ctx: SmsAdmissionContext = {
+    hasThread,
+    smsGateOn,
+    budgetBand,
+    escalation,
+    piiTokens,
+  };
+  const passes = smsAdmissionPassed(ctx);
+
+  // Need the client for the business name (footer) + audit metadata.
+  const client = await storage.getClientById(ticket.client_id);
+  if (!client) throw new Error(`Client #${ticket.client_id} not found`);
+
+  const footer = buildSmsFooter(client.business_name);
+  let bodyWithFooter = rawBody + footer;
+
+  // Hard cap — if footer pushes us past the limit, trim the body so the
+  // total stays under SMS_MAX_TOTAL_CHARS rather than silently double-billing.
+  if (bodyWithFooter.length > SMS_MAX_TOTAL_CHARS) {
+    const trimTo = SMS_MAX_TOTAL_CHARS - footer.length - 1; // -1 for ellipsis
+    const trimmed = rawBody.slice(0, Math.max(0, trimTo)).trimEnd();
+    bodyWithFooter = trimmed + "…" + footer;
+  }
+
+  /* ── Downgrade path: write a draft to audit_log ── */
+  if (!passes) {
+    const failedChecks: string[] = [];
+    if (!hasThread) failedChecks.push("no_sms_thread");
+    if (!smsGateOn) failedChecks.push("sms_gate_off");
+    if (budgetBand === "over") failedChecks.push("budget_over_cap");
+    if (escalation) failedChecks.push("escalation_keyword");
+    if (piiTokens.length > 0) failedChecks.push(`pii:${piiTokens.join(",")}`);
+
+    await writeAudit({
+      actorId: String(confirmedByUserId),
+      actorType: "admin",
+      action: "ai_drafted_admin_sms",
+      entityType: "support_ticket",
+      entityId: String(ticketId),
+      metadata: {
+        ticket_id: ticketId,
+        client_id: ticket.client_id,
+        business_name: client.business_name,
+        // Phone is intentionally omitted on draft when we couldn't
+        // resolve one — including it would leak nothing useful.
+        resolved_phone: resolvedPhone,
+        body: bodyWithFooter,
+        failed_checks: failedChecks,
+        admission_context: ctx,
+        session_id: action.session_id,
+      },
+    });
+
+    log.info("send_admin_sms downgraded to draft", {
+      ticketId,
+      failedChecks,
+    });
+
+    return {
+      narrative:
+        `I drafted an SMS reply for ticket #${ticketId} but didn't send it — ` +
+        `auto-send admission failed (${failedChecks.join(", ")}). ` +
+        `The draft is saved in the audit log for you to review and send manually.`,
+    };
+  }
+
+  /* ── Auto-send path ── */
+
+  // Defensive: passes guarantees resolvedPhone is non-null (hasThread
+  // requires it) but narrow the type for TypeScript.
+  if (!resolvedPhone) {
+    throw new Error(
+      "Phone resolution invariant violated — passed admission with no phone.",
+    );
+  }
+
+  // 1. Send the SMS via Twilio. sendSMS throws on Twilio credential gaps
+  //    or API failure; let those surface as a tool error so the loop
+  //    reports them rather than silently swallowing a failed send.
+  let twilioSid: string;
+  try {
+    twilioSid = await sendSMS(resolvedPhone, bodyWithFooter, "sms");
+  } catch (err: any) {
+    log.error("send_admin_sms Twilio send failed", {
+      ticketId,
+      error: err?.message,
+    });
+    throw new Error(`Couldn't send the SMS — ${err?.message ?? "Twilio error"}`);
+  }
+
+  // 2. Record the SMS cost on the per-client variable-cost ledger.
+  //    Treat anything over 160 chars as a 2-segment send (Twilio's
+  //    GSM-7 boundary). Best-effort — never block on metering failure.
+  const segments = bodyWithFooter.length > 160 ? 2 : 1;
+  try {
+    await recordSmsCostForClient({ clientId: ticket.client_id, segments });
+  } catch (err: any) {
+    log.warn("recordSmsCostForClient failed — non-fatal", {
+      clientId: ticket.client_id,
+      error: err?.message,
+    });
+  }
+
+  // 3. Add a ticket event so the audit trail picks up the SMS send.
+  try {
+    await storage.createTicketEvent({
+      ticket_id: ticketId,
+      actor_id: confirmedByUserId,
+      actor_type: "human",
+      action: "sms_sent",
+      summary: "AI Copilot sent SMS reply to customer (auto-tier)",
+    });
+  } catch (err: any) {
+    log.warn("createTicketEvent failed — non-fatal", {
+      ticketId,
+      error: err?.message,
+    });
+  }
+
+  // 4. Bump updated_at on the ticket so it surfaces in admin views.
+  try {
+    await storage.updateSupportTicket(ticketId, {});
+  } catch {
+    // Non-fatal — purely a freshness signal.
+  }
+
+  // 5. Record the send to audit_log.
+  await writeAudit({
+    actorId: String(confirmedByUserId),
+    actorType: "admin",
+    action: "ai_sent_admin_sms",
+    entityType: "support_ticket",
+    entityId: String(ticketId),
+    metadata: {
+      ticket_id: ticketId,
+      client_id: ticket.client_id,
+      business_name: client.business_name,
+      // Phone is recorded on send (audit need) but not echoed to chat.
+      resolved_phone: resolvedPhone,
+      body: bodyWithFooter,
+      segments,
+      twilio_sid: twilioSid,
+      admission_context: ctx,
+      session_id: action.session_id,
+    },
+  });
+
+  log.info("send_admin_sms sent", {
+    ticketId,
+    clientId: ticket.client_id,
+    segments,
+    sid: twilioSid,
+  });
+
+  return {
+    narrative:
+      `Sent an AI-assisted SMS on ticket #${ticketId} to ${client.business_name}'s customer ` +
+      `(${segments} segment${segments === 1 ? "" : "s"}, Twilio SID ${twilioSid}).`,
+  };
+}
+
+const SEND_ADMIN_SMS_ACTION: CopilotAction = {
+  name: "send_admin_sms",
+  surface: "admin",
+  riskTier: "auto",
+  tool: SEND_ADMIN_SMS_TOOL,
+  execute: executeSendAdminSms,
+};
+
+/* ═══════════════════════════════════════════════════════════════════
    Registration + public surface
    ═══════════════════════════════════════════════════════════════════ */
 
 registerCopilotAction(SEND_SUPPORT_EMAIL_REPLY_ACTION);
 registerCopilotAction(NOTIFY_ADMIN_OF_TICKET_ACTION);
+registerCopilotAction(SEND_ADMIN_SMS_ACTION);
 
 /** Anthropic tool definitions for the new auto-tier admin agent tools.
  *  Re-exported alongside `ADMIN_TOOLS` so the chat route can ADD (not
@@ -446,4 +810,5 @@ registerCopilotAction(NOTIFY_ADMIN_OF_TICKET_ACTION);
 export const adminAgentTools: ActionTool[] = [
   SEND_SUPPORT_EMAIL_REPLY_TOOL,
   NOTIFY_ADMIN_OF_TICKET_TOOL,
+  SEND_ADMIN_SMS_TOOL,
 ];
