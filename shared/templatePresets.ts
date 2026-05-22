@@ -131,6 +131,35 @@ export interface TemplateResults {
   cta_label?: string;
 }
 
+/* ─── Stepper (BD-2a — multi-step renderer) ─── */
+
+/**
+ * BD-2a — optional explicit step grouping for the multi-step renderer.
+ *
+ * When a template ships `steps: TemplateStep[]`, the renderer uses that
+ * grouping verbatim. When absent, the renderer auto-derives steps from the
+ * field list (base/required first, modifiers second, photos/notes third,
+ * final = contact capture).
+ *
+ * Research (BD-0): multi-step quote forms convert ~3x higher than single
+ * forms (13.85% vs 4.53%); up to 16.9x in interactive samples. Owners can
+ * still opt back to single-form via `Style tab → Step layout`.
+ *
+ * Every field references the existing `TemplateField.id` (or `name`). A
+ * field NOT mentioned by any step falls into the first step by default —
+ * the renderer never drops a field.
+ */
+export interface TemplateStep {
+  /** Stable id. */
+  id: string;
+  /** Short, scannable label rendered above the bar / next to the dot. */
+  label: string;
+  /** Optional helper line shown beneath the label on each step. */
+  help?: string;
+  /** Field ids included in this step. */
+  fields: string[];
+}
+
 /* ─── The canonical template config ─── */
 
 /**
@@ -159,6 +188,21 @@ export interface TemplateConfig {
    * templates looking polished out of the box. Optional & back-compat.
    */
   defaultIcon?: string;
+  /**
+   * BD-2a / BD-1 — optional per-template override for the small category icon
+   * rendered LEFT of the step title in the widget header (16–20px). Defaults
+   * to the icon resolved from `category` via `resolveCategoryIcon()` in
+   * `client/src/components/quote-widget/CategoryIcon.tsx`.
+   * Case-insensitive lucide icon name (e.g. `'Wrench'`, `'HardHat'`).
+   */
+  categoryIcon?: string;
+  /**
+   * BD-2a — optional explicit step grouping for the multi-step renderer.
+   * Absent → the renderer auto-derives steps (base/required → modifiers →
+   * photos/notes → contact). Present → the renderer uses these verbatim.
+   * Either way, the user can opt back to single-form via Style tab.
+   */
+  steps?: TemplateStep[];
   /** Input fields. */
   fields: TemplateField[];
   /** Calculations / formulas. */
@@ -2948,6 +2992,16 @@ export interface AdvancedConfigShape {
   theme: string;
   /** Wave W-AH-2 — Lucide icon name used in the header's logo slot fallback. */
   defaultIcon?: string;
+  /** BD-2a / BD-1 — small category icon rendered LEFT of the step title. */
+  categoryIcon?: string;
+  /** BD-2a — derived/explicit category bucket; drives the default category
+   *  icon and other category-derived defaults. */
+  category?: string;
+  /** BD-2a — optional explicit step grouping. Absent → auto-derived. */
+  steps?: TemplateStep[];
+  /** BD-2a — owner override: when explicitly `false`, the multi-step renderer
+   *  is disabled and the widget reverts to the legacy single-form layout. */
+  stepLayout?: 'stepper' | 'single';
   layout: TemplateLayout;
   fields: TemplateField[];
   calculations: TemplateCalculation[];
@@ -3084,6 +3138,12 @@ export function deriveStyleFromCategory(t: Pick<TemplateConfig, 'id' | 'category
       accentOverride: palette.accent,
       emphasis: palette.urgency === 'high' ? 'bold' : 'normal',
       border: palette.urgency === 'high' ? 'accent-tinted' : 'subtle',
+      // BD-2a — range-pricing as default for every derived template. The 2
+      // AS-1c samples that already ship explicit `style:` blocks (junk_removal
+      // and mold_remediation) keep their own settings since `toAdvancedConfig`
+      // only calls this helper as a FALLBACK. Owners can opt out per template
+      // via Style tab → Brand Studio → Result panel → Range mode.
+      range_mode: { enabled: true, band_pct: 8 },
     },
     animations: {
       step_transition: palette.animationStyle,
@@ -3100,7 +3160,27 @@ export function toAdvancedConfig(t: TemplateConfig): AdvancedConfigShape {
   // W-BB-2 — templates with their own `style` block (the 3 AS-1c samples)
   // KEEP that block verbatim; everything else gets a category-derived style
   // so the gallery isn't 44 identical-looking white cards.
-  const style = t.style ?? deriveStyleFromCategory(t);
+  //
+  // BD-2a — even when a template ships an explicit `style` block, we ensure
+  // range-pricing is enabled by default unless the block already says
+  // otherwise. The 2 AS-1c samples that already opt in keep their settings;
+  // the one (window_replacement) that didn't gets the default on.
+  let style: AdvStyle;
+  if (t.style) {
+    style = { ...t.style };
+    const existingPanel = t.style.resultPanel ?? {};
+    if (existingPanel.range_mode === undefined) {
+      style = {
+        ...style,
+        resultPanel: {
+          ...existingPanel,
+          range_mode: { enabled: true, band_pct: 8 },
+        },
+      };
+    }
+  } else {
+    style = deriveStyleFromCategory(t);
+  }
   return {
     enabled: true,
     theme: t.theme,
@@ -3109,8 +3189,11 @@ export function toAdvancedConfig(t: TemplateConfig): AdvancedConfigShape {
     calculations: t.calculations,
     result_calc: t.result_calc,
     header: t.header,
+    category: t.category,
     ...(t.results ? { results: t.results } : {}),
     ...(t.defaultIcon ? { defaultIcon: t.defaultIcon } : {}),
+    ...(t.categoryIcon ? { categoryIcon: t.categoryIcon } : {}),
+    ...(t.steps ? { steps: t.steps } : {}),
     style,
   };
 }

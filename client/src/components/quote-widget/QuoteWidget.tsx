@@ -198,6 +198,22 @@ export default function QuoteWidget({ calculator, isEmbed = false, hideBrandBadg
             // Studio fields entirely; Pro+ get the persisted overrides.
             planTier={(calculator as any).plan_tier ?? 'free'}
             calculatorId={calculator.id}
+            // BD-2a — thread booking URL + owner email from the calculator
+            // row so the final-step ContactStep's hard CTA ("Book a
+            // consultation") deep-links into the user's scheduler when
+            // configured. Both are optional — when neither exists the
+            // ContactStep hides the hard CTA and shows only the soft
+            // email-quote CTA.
+            bookingUrl={
+              (calculator as any).booking_url
+              ?? ((calculator as any).calculator_settings as any)?.scheduling?.booking_url
+              ?? undefined
+            }
+            ownerEmail={
+              (calculator as any).owner_email
+              ?? ((calculator as any).calculator_settings as any)?.lead_form?.delivery?.primary_email
+              ?? undefined
+            }
           />
         </div>
       ) : (

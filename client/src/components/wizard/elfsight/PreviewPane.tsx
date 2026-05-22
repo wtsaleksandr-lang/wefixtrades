@@ -56,6 +56,12 @@ interface Props {
   resultCalcId?: string;
   style?: ShellStyle;
   settings?: ShellSettings;
+  /**
+   * BD-2a — owner override for the multi-step renderer. Threads into the
+   * preview's `advanced.stepLayout` so the toggle in StyleTab takes effect
+   * live. Defaults to `'stepper'` when undefined.
+   */
+  stepLayout?: 'stepper' | 'single';
   /** Wave I (f): remove a field from inside the preview overlay. */
   onRemoveField?: (fieldId: string) => void;
   /** Wave I (f): add a field via the in-preview +Add slot. */
@@ -101,7 +107,7 @@ function loadWidgetOffset(device: PreviewDevice): WidgetOffset {
 
 export default function PreviewPane({
   businessName, onBusinessNameChange, logo, layout, device, fields, calculations,
-  header, results, resultCalcId, style, settings,
+  header, results, resultCalcId, style, settings, stepLayout,
   onRemoveField, onAddField,
   hostedFrame = false,
 }: Props) {
@@ -225,6 +231,12 @@ export default function PreviewPane({
         style: { ...(merged.style ?? {}), ...style },
       };
     }
+    // BD-2a — owner override for the multi-step renderer. Threads from the
+    // Style tab toggle through the preview into AdvancedCalculator's
+    // `stepLayout` prop. Absent → renderer's default ('stepper').
+    if (stepLayout) {
+      merged = { ...merged, stepLayout };
+    }
     {
       const nf = settings?.numberFormat ?? DEFAULT_SHELL_NUMBER_FORMAT;
       const numberFormat = {
@@ -260,7 +272,7 @@ export default function PreviewPane({
         advanced: merged,
       },
     } as CalculatorData;
-  }, [businessName, logo, layout, fields, calculations, header, results, resultCalcId, style, settings]);
+  }, [businessName, logo, layout, fields, calculations, header, results, resultCalcId, style, settings, stepLayout]);
 
   // Droppable wrapper for item (b) — drag from AddFieldMenu onto the preview
   // bezel. `data.kind: 'preview-append'` so WizardShell's onDragEnd appends.
