@@ -13,6 +13,7 @@
 import { useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { ChevronUp, ChevronDown, X, CornerUpLeft } from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
 import type { TemplateCalculation, TemplateField } from '@shared/templatePresets';
 import FormulaEditor from './FormulaEditor';
@@ -127,43 +128,51 @@ export default function CalculationRow({
         <div className="qq-calc-row-actions">
           <button
             type="button"
-            className="qq-calc-row-iconbtn"
+            className="qq-iconbtn qq-calc-row-iconbtn"
             onClick={onMoveUp}
             disabled={index === 0}
             aria-label="Move calculation up"
             data-testid={`calc-row-up-${calc.id}`}
-          >▲</button>
+          >
+            <ChevronUp aria-hidden="true" width={14} height={14} strokeWidth={2} />
+          </button>
           <button
             type="button"
-            className="qq-calc-row-iconbtn"
+            className="qq-iconbtn qq-calc-row-iconbtn"
             onClick={onMoveDown}
             disabled={index === total - 1}
             aria-label="Move calculation down"
             data-testid={`calc-row-down-${calc.id}`}
-          >▼</button>
+          >
+            <ChevronDown aria-hidden="true" width={14} height={14} strokeWidth={2} />
+          </button>
           {!confirmRemove ? (
             <button
               type="button"
-              className="qq-calc-row-iconbtn is-danger"
+              className="qq-iconbtn qq-calc-row-iconbtn is-danger"
               onClick={() => setConfirmRemove(true)}
               aria-label="Remove calculation"
               data-testid={`calc-row-remove-${calc.id}`}
-            >×</button>
+            >
+              <X aria-hidden="true" width={14} height={14} strokeWidth={2} />
+            </button>
           ) : (
             <span className="qq-calc-row-confirm">
               <button
                 type="button"
-                className="qq-calc-row-iconbtn is-danger-solid"
+                className="qq-iconbtn qq-calc-row-iconbtn is-danger-solid"
                 onClick={onRemove}
                 data-testid={`calc-row-remove-confirm-${calc.id}`}
               >Remove</button>
               <button
                 type="button"
-                className="qq-calc-row-iconbtn"
+                className="qq-iconbtn qq-calc-row-iconbtn"
                 onClick={() => setConfirmRemove(false)}
                 aria-label="Cancel remove"
                 data-testid={`calc-row-remove-cancel-${calc.id}`}
-              >↶</button>
+              >
+                <CornerUpLeft aria-hidden="true" width={14} height={14} strokeWidth={2} />
+              </button>
             </span>
           )}
         </div>
@@ -334,26 +343,17 @@ export default function CalculationRow({
         .qq-calc-row-actions {
           display: flex; align-items: center; gap: 4px; flex-shrink: 0;
         }
-        .qq-calc-row-iconbtn {
-          display: inline-flex; align-items: center; justify-content: center;
-          min-width: 26px; height: 26px; padding: 0 6px; border-radius: 6px;
-          font: inherit; font-size: 12px; font-weight: 700; cursor: pointer;
-          background: #fff; color: ${p.colors.muted};
-          border: 1px solid ${p.colors.borderLight};
-          transition: background 0.1s ease, color 0.1s ease, border-color 0.1s ease;
-        }
-        .qq-calc-row-iconbtn:hover:not(:disabled) {
-          background: ${p.colors.surfaceRaised}; color: ${p.colors.heading};
-          border-color: ${p.colors.border};
-        }
-        .qq-calc-row-iconbtn:disabled { opacity: 0.4; cursor: not-allowed; }
-        .qq-calc-row-iconbtn.is-danger:hover:not(:disabled) {
-          background: ${p.colors.dangerLight}; color: ${p.colors.danger};
-          border-color: ${p.colors.danger};
-        }
+        /* Premium-SaaS arrow buttons — see qq-iconbtn rules at bottom of
+         * this style block. The .qq-calc-row-iconbtn modifier is retained
+         * for backwards-compat (existing testids / DOM hooks) but the
+         * shared .qq-iconbtn class is the source of truth for the look. */
         .qq-calc-row-iconbtn.is-danger-solid {
           background: ${p.colors.danger}; color: #fff; border-color: ${p.colors.danger};
           padding: 0 10px; font-size: 11.5px;
+          width: auto; min-width: 24px;
+        }
+        .qq-calc-row-iconbtn.is-danger-solid:hover:not(:disabled) {
+          background: ${p.colors.danger}; color: #fff; border-color: ${p.colors.danger};
         }
         .qq-calc-row-confirm {
           display: inline-flex; align-items: center; gap: 4px;
@@ -436,6 +436,69 @@ export default function CalculationRow({
         }
         .qq-calc-toggle.is-on .qq-calc-toggle-swatch { background: ${p.colors.accent}; }
         .qq-calc-toggle.is-on .qq-calc-toggle-swatch::after { left: 14px; }
+
+        /* ── Premium-SaaS icon button (shared)
+         *
+         * Linear / Stripe / Vercel-style 24px square arrow buttons. Applied
+         * to every standalone chevron/×/undo button in the wizard's row
+         * action clusters (CalculationRow up/down/×, FieldRow up/down/×,
+         * FieldOptionRow option up/down/×). Replaces the old "Windows 98"
+         * look (filled #fff square with text glyphs ▲▼×).
+         *
+         * Defaults are tuned for the editor's dark chrome; the
+         * [data-theme="light"] overrides flip border tones for the light
+         * editor chrome. The :active state takes on the brand-blue accent
+         * (matches the rest of the wizard's interactive surfaces) and
+         * adds a subtle scale(0.96) for tactile feedback. */
+        .qq-iconbtn {
+          width: 24px;
+          height: 24px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          background: transparent;
+          border: 1px solid rgba(255,255,255,0.08);
+          border-radius: 6px;
+          color: ${p.colors.muted};
+          cursor: pointer;
+          padding: 0;
+          font: inherit;
+          transition: background 150ms ease, border-color 150ms ease, color 150ms ease, transform 80ms ease;
+        }
+        .qq-iconbtn:hover:not(:disabled) {
+          background: rgba(255,255,255,0.06);
+          border-color: rgba(255,255,255,0.16);
+          color: ${p.colors.heading};
+        }
+        .qq-iconbtn:active:not(:disabled) {
+          background: rgba(13,60,252,0.08);
+          border-color: #0d3cfc;
+          color: #0d3cfc;
+          transform: scale(0.96);
+        }
+        .qq-iconbtn:disabled {
+          opacity: 0.35;
+          cursor: not-allowed;
+        }
+        .qq-iconbtn.is-danger:hover:not(:disabled) {
+          background: ${p.colors.dangerLight};
+          color: ${p.colors.danger};
+          border-color: ${p.colors.danger};
+        }
+        /* Light-editor-theme variant: editor chrome on light theme reads
+         * better with dark-tinted borders rather than the white-on-white
+         * baseline. Targets both the [data-theme="light"] explicit attr and
+         * any ancestor that doesn't carry data-theme="dark". */
+        .qq-editor-shell[data-theme="light"] .qq-iconbtn,
+        :root:not([data-theme="dark"]) .qq-iconbtn {
+          border-color: rgba(0,0,0,0.08);
+        }
+        .qq-editor-shell[data-theme="light"] .qq-iconbtn:hover:not(:disabled),
+        :root:not([data-theme="dark"]) .qq-iconbtn:hover:not(:disabled) {
+          background: rgba(0,0,0,0.04);
+          border-color: rgba(0,0,0,0.16);
+        }
+        .qq-iconbtn svg { display: block; }
       `}</style>
     </div>
   );

@@ -113,6 +113,19 @@ interface Props {
    *  `activeTemplateId ?? 'draft'`. Zoom stays per-calculator without
    *  bleeding into widget config (zoom is a per-user-session preference). */
   sessionId?: string;
+  /** P2 UX — Floating launcher preview lens. When true, the canvas dims
+   *  and the widget collapses to a 56×56 bubble in the configured corner;
+   *  click bubble → expand back to the full widget; click outside →
+   *  collapse to bubble. */
+  floatingLauncherPreview?: boolean;
+  /** Whether the bubble is currently expanded into the full widget. */
+  floatingLauncherExpanded?: boolean;
+  /** Owner of the expanded state — WizardShell — toggles via clicks on the
+   *  bubble + canvas backdrop. */
+  onFloatingLauncherExpandedChange?: (next: boolean) => void;
+  /** Corner the floating launcher docks to (matches BD-3m style config).
+   *  Defaults to bottom-right when undefined. */
+  floatingLauncherPosition?: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left';
 }
 
 function thousandsLiteral(sep: ShellNumberFormat['thousands']): ',' | ' ' | '' {
@@ -213,6 +226,10 @@ export default function PreviewPane({
   onRemoveField, onAddField,
   hostedFrame = false,
   sessionId = 'draft',
+  floatingLauncherPreview = false,
+  floatingLauncherExpanded = false,
+  onFloatingLauncherExpandedChange,
+  floatingLauncherPosition = 'bottom-right',
 }: Props) {
   const selection = useSelection();
   // Track which field came from the live shell list — only those get the
@@ -1228,10 +1245,21 @@ export default function PreviewPane({
     </div>
   );
 
+  // P2 UX — Floating-launcher preview gating. The mode is a transient
+  // overlay lens; when it's active and the bubble is collapsed, the user
+  // sees a 56×56 chat circle in the corner over a dimmed canvas, and the
+  // underlying inline widget is hidden from pointer events (still rendered
+  // so dimensions / DOM remain stable). When expanded, the inline widget
+  // is interactive again and clicking the dim overlay collapses it back.
+  const flpActive = floatingLauncherPreview === true;
+  const flpCollapsed = flpActive && !floatingLauncherExpanded;
+
   return (
     <div
-      className={`qq-preview-pane${widgetSelected ? ' is-widget-selected' : ''}`}
+      className={`qq-preview-pane${widgetSelected ? ' is-widget-selected' : ''}${flpActive ? ' is-floating-launcher-preview' : ''}${flpCollapsed ? ' is-flp-collapsed' : ''}`}
       data-testid="editor-preview-pane"
+      data-floating-launcher-preview={flpActive ? 'true' : 'false'}
+      data-floating-launcher-expanded={floatingLauncherExpanded ? 'true' : 'false'}
       ref={paneRef}
       onPointerDown={onPaneBackgroundPointerDown}
     >
@@ -1574,6 +1602,59 @@ export default function PreviewPane({
           </button>
         </div>
       )}
+
+      {/* P2 UX — Floating launcher preview overlay.
+       *
+       * Mounted when floatingLauncherPreview is true. Renders two layers:
+       *
+       *  1. .qq-flp-dim — a translucent black backdrop that covers the
+       *     entire preview pane. Clicking it while the widget is expanded
+       *     collapses it back to the bubble. While collapsed, the dim
+       *     layer blocks pointer events to the underlying widget so the
+       *     user can't accidentally interact with it through the bubble.
+       *
+       *  2. .qq-flp-bubble — the 56x56 floating circle docked in the
+       *     configured corner (defaults to bottom-right, matches BD-3m).
+       *     Uses the brand accent + a MessageSquare icon. Click expands.
+       *     Carries a "Click to expand" tooltip on hover.
+       *
+       * Respects prefers-reduced-motion via the CSS at the bottom of this
+       * style block (transitions are killed). */}
+      {flpActive && (
+        <>
+          <div
+            className={`qq-flp-dim${flpCollapsed ? ' is-bubble' : ''}`}
+            data-testid="preview-flp-dim"
+            aria-hidden={flpCollapsed ? undefined : 'true'}
+            onClick={() => {
+              // Click on the dim collapses an expanded widget back to bubble.
+              if (floatingLauncherExpanded && onFloatingLauncherExpandedChange) {
+                onFloatingLauncherExpandedChange(false);
+              }
+            }}
+          />
+          {flpCollapsed && (
+            <button
+              type="button"
+              className={`qq-flp-bubble qq-flp-bubble-${floatingLauncherPosition}`}
+              data-testid="preview-flp-bubble"
+              data-position={floatingLauncherPosition}
+              aria-label="Expand calculator"
+              title="Click to expand"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onFloatingLauncherExpandedChange) onFloatingLauncherExpandedChange(true);
+              }}
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
+              <span className="qq-flp-bubble-tooltip" aria-hidden="true">Click to expand</span>
+            </button>
+          )}
+        </>
+      )}
+
       <style>{`
         .qq-bezel.is-drop-target {
           outline: 3px dashed ${p.colors.accent};
@@ -1591,6 +1672,128 @@ export default function PreviewPane({
         .qq-preview-pane[data-dragging="1"] { cursor: grabbing; }
         .qq-preview-pane .qq-preview-stage { cursor: auto; }
         .qq-preview-pane [data-testid^="preview-bezel"] { cursor: auto; }
+
+        /* ── P2 UX — Floating launcher preview lens ─────────────────────
+         *
+         * Active when WizardShell floatingLauncherPreview is on. The
+         * canvas dims via a fixed-positioned overlay; the inline widget
+         * collapses to a 56x56 bubble in the configured corner. Click the
+         * bubble to expand back to the widget; click the dim to collapse.
+         *
+         * Pointer model:
+         *  - flp-collapsed: the inline widget under the dim is hidden from
+         *    pointer events so accidental clicks pass through to the dim
+         *    (which is a no-op while collapsed — the bubble owns clicks).
+         *  - flp-expanded:  the widget is interactive; the dim sits below
+         *    it (z-index) and clicks on the dim collapse back to bubble.
+         *
+         * Reduced motion: transitions and the bubble nudge animation
+         * are killed via the at-media block at the bottom of this style
+         * sheet (same block that disables the canvas transitions). */
+        .qq-preview-pane.is-floating-launcher-preview .qq-preview-reset-pos {
+          /* Suppress the existing reset-position pill while in preview lens
+           * mode so the dim layer reads cleanly. */
+          display: none;
+        }
+        .qq-preview-pane.is-flp-collapsed .qq-preview-stage {
+          /* While the bubble is shown, the inline widget is purely decorative
+           * background — disable interaction so clicks fall through to the
+           * dim layer / bubble. */
+          pointer-events: none;
+        }
+        .qq-flp-dim {
+          position: absolute;
+          inset: 0;
+          background: rgba(0, 0, 0, 0.40);
+          z-index: 6;
+          /* Smooth fade-in / fade-out. */
+          opacity: 1;
+          transition: opacity 180ms ease-out;
+          cursor: pointer;
+        }
+        .qq-flp-dim.is-bubble {
+          /* While collapsed, the dim layer doesn't need to be clickable —
+           * the bubble carries the action. Still painted so the user sees
+           * the canvas is in preview lens mode. */
+          cursor: default;
+        }
+        .qq-flp-bubble {
+          position: absolute;
+          z-index: 7;
+          width: 56px; height: 56px;
+          border-radius: 50%;
+          background: ${p.colors.accent};
+          color: #fff;
+          border: none;
+          cursor: pointer;
+          display: inline-flex; align-items: center; justify-content: center;
+          box-shadow:
+            0 8px 24px rgba(13, 60, 252, 0.35),
+            0 2px 6px rgba(15, 23, 42, 0.18);
+          transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1),
+                      box-shadow 180ms ease-out;
+          animation: qq-flp-bubble-in 220ms cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        .qq-flp-bubble:hover {
+          transform: scale(1.05);
+          box-shadow:
+            0 10px 28px rgba(13, 60, 252, 0.45),
+            0 2px 8px rgba(15, 23, 42, 0.22);
+        }
+        .qq-flp-bubble:focus-visible {
+          outline: 3px solid rgba(13, 60, 252, 0.35);
+          outline-offset: 3px;
+        }
+        .qq-flp-bubble-bottom-right { bottom: 20px; right: 20px; }
+        .qq-flp-bubble-bottom-left  { bottom: 20px; left: 20px; }
+        .qq-flp-bubble-top-right    { top: 20px;    right: 20px; }
+        .qq-flp-bubble-top-left     { top: 20px;    left: 20px; }
+        .qq-flp-bubble-tooltip {
+          position: absolute;
+          right: calc(100% + 12px);
+          top: 50%;
+          transform: translateY(-50%);
+          padding: 6px 10px;
+          background: rgba(15, 23, 42, 0.92);
+          color: #fff;
+          border-radius: 6px;
+          font-size: 11.5px; font-weight: 600;
+          white-space: nowrap;
+          opacity: 0;
+          pointer-events: none;
+          transition: opacity 150ms ease-out;
+        }
+        .qq-flp-bubble:hover .qq-flp-bubble-tooltip,
+        .qq-flp-bubble:focus-visible .qq-flp-bubble-tooltip { opacity: 1; }
+        /* Left-side bubbles show the tooltip on the right instead. */
+        .qq-flp-bubble-bottom-left .qq-flp-bubble-tooltip,
+        .qq-flp-bubble-top-left .qq-flp-bubble-tooltip {
+          right: auto;
+          left: calc(100% + 12px);
+        }
+        @keyframes qq-flp-bubble-in {
+          from { transform: scale(0.6); opacity: 0; }
+          to   { transform: scale(1.0); opacity: 1; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .qq-flp-dim,
+          .qq-flp-bubble,
+          .qq-flp-bubble-tooltip {
+            transition: none !important;
+            animation: none !important;
+          }
+          .qq-flp-bubble:hover { transform: none; }
+        }
+        /* Mobile — slightly smaller bubble + tighter corner inset. */
+        @media (max-width: 480px) {
+          .qq-flp-bubble {
+            width: 48px; height: 48px;
+          }
+          .qq-flp-bubble-bottom-right { bottom: 14px; right: 14px; }
+          .qq-flp-bubble-bottom-left  { bottom: 14px; left: 14px; }
+          .qq-flp-bubble-top-right    { top: 14px;    right: 14px; }
+          .qq-flp-bubble-top-left     { top: 14px;    left: 14px; }
+        }
 
         /* BD-3b — selected widget gets a subtle accent outline so the
          * resize handles read as a coordinated tool. */

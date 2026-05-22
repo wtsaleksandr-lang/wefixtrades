@@ -24,6 +24,7 @@ import {
   SortableContext, useSortable, arrayMove, verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { ChevronUp, ChevronDown, X, CornerUpLeft } from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
 import type { TemplateField, TemplateOption } from '@shared/templatePresets';
 import { FIELD_TYPE_TO_PUBLIC } from './types';
@@ -203,43 +204,51 @@ export default function FieldRow({
         <div className="qq-field-row-actions">
           <button
             type="button"
-            className="qq-field-row-iconbtn"
+            className="qq-iconbtn qq-field-row-iconbtn"
             onClick={onMoveUp}
             disabled={index === 0}
             aria-label="Move up"
             data-testid={`field-row-up-${field.id}`}
-          >▲</button>
+          >
+            <ChevronUp aria-hidden="true" width={14} height={14} strokeWidth={2} />
+          </button>
           <button
             type="button"
-            className="qq-field-row-iconbtn"
+            className="qq-iconbtn qq-field-row-iconbtn"
             onClick={onMoveDown}
             disabled={index === total - 1}
             aria-label="Move down"
             data-testid={`field-row-down-${field.id}`}
-          >▼</button>
+          >
+            <ChevronDown aria-hidden="true" width={14} height={14} strokeWidth={2} />
+          </button>
           {!confirmRemove ? (
             <button
               type="button"
-              className="qq-field-row-iconbtn is-danger"
+              className="qq-iconbtn qq-field-row-iconbtn is-danger"
               onClick={() => setConfirmRemove(true)}
               aria-label="Remove field"
               data-testid={`field-row-remove-${field.id}`}
-            >×</button>
+            >
+              <X aria-hidden="true" width={14} height={14} strokeWidth={2} />
+            </button>
           ) : (
             <span className="qq-field-row-confirm">
               <button
                 type="button"
-                className="qq-field-row-iconbtn is-danger-solid"
+                className="qq-iconbtn qq-field-row-iconbtn is-danger-solid"
                 onClick={onRemove}
                 data-testid={`field-row-remove-confirm-${field.id}`}
               >Remove</button>
               <button
                 type="button"
-                className="qq-field-row-iconbtn"
+                className="qq-iconbtn qq-field-row-iconbtn"
                 onClick={() => setConfirmRemove(false)}
                 data-testid={`field-row-remove-cancel-${field.id}`}
                 aria-label="Cancel remove"
-              >↶</button>
+              >
+                <CornerUpLeft aria-hidden="true" width={14} height={14} strokeWidth={2} />
+              </button>
             </span>
           )}
         </div>
@@ -487,26 +496,18 @@ export default function FieldRow({
         .qq-field-row-actions {
           display: flex; align-items: center; gap: 4px; flex-shrink: 0;
         }
-        .qq-field-row-iconbtn {
-          display: inline-flex; align-items: center; justify-content: center;
-          min-width: 26px; height: 26px; padding: 0 6px; border-radius: 6px;
-          font: inherit; font-size: 12px; font-weight: 700; cursor: pointer;
-          background: #fff; color: ${p.colors.muted};
-          border: 1px solid ${p.colors.borderLight};
-          transition: background 0.1s ease, color 0.1s ease, border-color 0.1s ease;
-        }
-        .qq-field-row-iconbtn:hover:not(:disabled) {
-          background: ${p.colors.surfaceRaised}; color: ${p.colors.heading};
-          border-color: ${p.colors.border};
-        }
-        .qq-field-row-iconbtn:disabled { opacity: 0.4; cursor: not-allowed; }
-        .qq-field-row-iconbtn.is-danger:hover:not(:disabled) {
-          background: ${p.colors.dangerLight}; color: ${p.colors.danger};
-          border-color: ${p.colors.danger};
-        }
+        /* Premium-SaaS icon button (shared) — Linear / Stripe / Vercel
+         * aesthetic. See full rules at the bottom of this style block.
+         * The .qq-field-row-iconbtn modifier is retained for backwards-compat
+         * (existing testids / DOM hooks) but the shared .qq-iconbtn class is
+         * the source of truth for the look. */
         .qq-field-row-iconbtn.is-danger-solid {
           background: ${p.colors.danger}; color: #fff; border-color: ${p.colors.danger};
           padding: 0 10px; font-size: 11.5px;
+          width: auto; min-width: 24px;
+        }
+        .qq-field-row-iconbtn.is-danger-solid:hover:not(:disabled) {
+          background: ${p.colors.danger}; color: #fff; border-color: ${p.colors.danger};
         }
         .qq-field-row-confirm {
           display: inline-flex; align-items: center; gap: 4px;
@@ -524,8 +525,8 @@ export default function FieldRow({
           .qq-field-row-typename { display: none; }
           .qq-field-type-badge { width: 22px; height: 22px; font-size: 12px; }
           .qq-field-row-actions { gap: 2px; }
-          .qq-field-row-iconbtn { min-width: 22px; height: 22px; padding: 0 4px; font-size: 11px; }
-          .qq-field-row-iconbtn.is-danger-solid { padding: 0 8px; font-size: 10.5px; }
+          .qq-iconbtn.qq-field-row-iconbtn { width: 22px; height: 22px; min-width: 22px; }
+          .qq-field-row-iconbtn.is-danger-solid { padding: 0 8px; font-size: 10.5px; width: auto; }
         }
         .qq-field-row-body {
           padding: 4px 12px 14px; display: flex; flex-direction: column; gap: 8px;
@@ -641,6 +642,58 @@ export default function FieldRow({
           transition: background 0.1s ease;
         }
         .qq-field-add-option:hover { background: ${p.colors.accentLight}; }
+
+        /* ── Premium-SaaS icon button (shared)
+         *
+         * Mirror of the rules in CalculationRow's style block. Defined here
+         * too so the look applies even when only FieldRow is mounted (e.g.
+         * an option-only test render). When both mount, the rules collapse
+         * — they're identical. See CalculationRow.tsx for the rationale. */
+        .qq-iconbtn {
+          width: 24px;
+          height: 24px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          background: transparent;
+          border: 1px solid rgba(255,255,255,0.08);
+          border-radius: 6px;
+          color: ${p.colors.muted};
+          cursor: pointer;
+          padding: 0;
+          font: inherit;
+          transition: background 150ms ease, border-color 150ms ease, color 150ms ease, transform 80ms ease;
+        }
+        .qq-iconbtn:hover:not(:disabled) {
+          background: rgba(255,255,255,0.06);
+          border-color: rgba(255,255,255,0.16);
+          color: ${p.colors.heading};
+        }
+        .qq-iconbtn:active:not(:disabled) {
+          background: rgba(13,60,252,0.08);
+          border-color: #0d3cfc;
+          color: #0d3cfc;
+          transform: scale(0.96);
+        }
+        .qq-iconbtn:disabled {
+          opacity: 0.35;
+          cursor: not-allowed;
+        }
+        .qq-iconbtn.is-danger:hover:not(:disabled) {
+          background: ${p.colors.dangerLight};
+          color: ${p.colors.danger};
+          border-color: ${p.colors.danger};
+        }
+        .qq-editor-shell[data-theme="light"] .qq-iconbtn,
+        :root:not([data-theme="dark"]) .qq-iconbtn {
+          border-color: rgba(0,0,0,0.08);
+        }
+        .qq-editor-shell[data-theme="light"] .qq-iconbtn:hover:not(:disabled),
+        :root:not([data-theme="dark"]) .qq-iconbtn:hover:not(:disabled) {
+          background: rgba(0,0,0,0.04);
+          border-color: rgba(0,0,0,0.16);
+        }
+        .qq-iconbtn svg { display: block; }
       `}</style>
     </div>
   );
@@ -780,27 +833,33 @@ function SortableOptionRow({
       />
       <button
         type="button"
-        className="qq-field-row-iconbtn"
+        className="qq-iconbtn qq-field-row-iconbtn"
         onClick={onMoveUp}
         disabled={i === 0}
         aria-label="Move option up"
         data-testid={`field-row-option-up-${fieldId}-${i}`}
-      >▲</button>
+      >
+        <ChevronUp aria-hidden="true" width={14} height={14} strokeWidth={2} />
+      </button>
       <button
         type="button"
-        className="qq-field-row-iconbtn"
+        className="qq-iconbtn qq-field-row-iconbtn"
         onClick={onMoveDown}
         disabled={i === total - 1}
         aria-label="Move option down"
         data-testid={`field-row-option-down-${fieldId}-${i}`}
-      >▼</button>
+      >
+        <ChevronDown aria-hidden="true" width={14} height={14} strokeWidth={2} />
+      </button>
       <button
         type="button"
-        className="qq-field-row-iconbtn is-danger"
+        className="qq-iconbtn qq-field-row-iconbtn is-danger"
         onClick={onRemove}
         aria-label="Remove option"
         data-testid={`field-row-option-remove-${fieldId}-${i}`}
-      >×</button>
+      >
+        <X aria-hidden="true" width={14} height={14} strokeWidth={2} />
+      </button>
       {imageMode && uploadError && (
         <span
           className="qq-field-option-error"
