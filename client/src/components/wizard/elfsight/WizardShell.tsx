@@ -35,6 +35,7 @@ import { dashboardTheme } from '@/theme/dashboardTheme';
 import {
   buildBlankPreviewConfig, getTemplatePreset, deriveStyleFromCategory,
   type TemplateField, type TemplateCalculation, type TemplateConfig,
+  type TemplateTiered,
 } from '@shared/templatePresets';
 import AIBubble from './AIBubble';
 import EditorTopBar from './EditorTopBar';
@@ -355,6 +356,12 @@ export default function WizardShell({ embed = false }: Props) {
   /** BD-2a — owner-level override for the multi-step renderer. */
   const setStepLayout = useCallback((next: 'stepper' | 'single') => {
     setState((s) => ({ ...s, stepLayout: next }));
+  }, []);
+
+  // BD-2b — Good/Better/Best tier override. `undefined` clears the explicit
+  // value so the renderer falls back to the category-derived default.
+  const setTiered = useCallback((next: TemplateTiered | undefined) => {
+    setState((s) => ({ ...s, tiered: next }));
   }, []);
 
   // W-AO-5 — `setResultCalc` was removed alongside the Build > Headline
@@ -700,6 +707,18 @@ export default function WizardShell({ embed = false }: Props) {
                       planTier={planTier}
                       stepLayout={state.stepLayout}
                       onStepLayoutChange={setStepLayout}
+                      /* BD-2b — Pricing tiers (Good/Better/Best). The
+                         StyleTab section toggles tiered on/off and lets the
+                         owner edit per-tier multiplier / label / tagline.
+                         Category is sourced from the active template so the
+                         "recommended for this category" hint reads correctly. */
+                      tiered={state.tiered}
+                      onTieredChange={setTiered}
+                      templateCategory={
+                        state.activeTemplateId
+                          ? getTemplatePreset(state.activeTemplateId)?.category
+                          : undefined
+                      }
                     />
                   ) : activeTab === 'settings' ? (
                     <SettingsTab
@@ -784,6 +803,16 @@ export default function WizardShell({ embed = false }: Props) {
                   style={state.style}
                   settings={state.settings}
                   stepLayout={state.stepLayout}
+                  /* BD-2b — tiered + category drive Good/Better/Best
+                     pricing in the preview. Category is sourced from the
+                     active template preset (read-only — picking a template
+                     re-applies it); tiered comes from the StyleTab toggle. */
+                  tiered={state.tiered}
+                  category={
+                    state.activeTemplateId
+                      ? getTemplatePreset(state.activeTemplateId)?.category
+                      : undefined
+                  }
                   onRemoveField={removeField}
                   onAddField={addField}
                   /* Wave P — when the Install tab is active, render the

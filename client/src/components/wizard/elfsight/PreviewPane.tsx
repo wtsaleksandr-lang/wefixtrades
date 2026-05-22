@@ -25,6 +25,7 @@ import type { CalculatorData } from '@/components/quote-widget/types';
 import {
   buildBlankPreviewConfig,
   type TemplateLayout, type TemplateField, type TemplateCalculation,
+  type TemplateTiered,
 } from '@shared/templatePresets';
 import { platformTheme } from '@/theme/platformTheme';
 import { useSelection } from './selection';
@@ -62,6 +63,17 @@ interface Props {
    * live. Defaults to `'stepper'` when undefined.
    */
   stepLayout?: 'stepper' | 'single';
+  /**
+   * BD-2b — Good/Better/Best tier override. Threads into the preview's
+   * `advanced.tiered`; undefined → renderer's category-derived default.
+   */
+  tiered?: TemplateTiered;
+  /**
+   * BD-2b — derived template category — surfaced into the preview as
+   * `advanced.category`. The tier resolver reads this to pick the
+   * scope-spectrum default. Optional; pass-through.
+   */
+  category?: string;
   /** Wave I (f): remove a field from inside the preview overlay. */
   onRemoveField?: (fieldId: string) => void;
   /** Wave I (f): add a field via the in-preview +Add slot. */
@@ -107,7 +119,7 @@ function loadWidgetOffset(device: PreviewDevice): WidgetOffset {
 
 export default function PreviewPane({
   businessName, onBusinessNameChange, logo, layout, device, fields, calculations,
-  header, results, resultCalcId, style, settings, stepLayout,
+  header, results, resultCalcId, style, settings, stepLayout, tiered, category,
   onRemoveField, onAddField,
   hostedFrame = false,
 }: Props) {
@@ -237,6 +249,19 @@ export default function PreviewPane({
     if (stepLayout) {
       merged = { ...merged, stepLayout };
     }
+    // BD-2b — Good/Better/Best tier override + derived category + business
+    // profile. Threads from the StyleTab toggle / SettingsTab profile fields
+    // through the preview into AdvancedCalculator. Each slot is undefined-safe
+    // so a half-filled profile still renders cleanly.
+    if (tiered) {
+      merged = { ...merged, tiered };
+    }
+    if (category && category.trim() !== '') {
+      merged = { ...merged, category };
+    }
+    if (settings?.businessProfile) {
+      merged = { ...merged, businessProfile: settings.businessProfile };
+    }
     {
       const nf = settings?.numberFormat ?? DEFAULT_SHELL_NUMBER_FORMAT;
       const numberFormat = {
@@ -272,7 +297,7 @@ export default function PreviewPane({
         advanced: merged,
       },
     } as CalculatorData;
-  }, [businessName, logo, layout, fields, calculations, header, results, resultCalcId, style, settings, stepLayout]);
+  }, [businessName, logo, layout, fields, calculations, header, results, resultCalcId, style, settings, stepLayout, tiered, category]);
 
   // Droppable wrapper for item (b) — drag from AddFieldMenu onto the preview
   // bezel. `data.kind: 'preview-append'` so WizardShell's onDragEnd appends.
