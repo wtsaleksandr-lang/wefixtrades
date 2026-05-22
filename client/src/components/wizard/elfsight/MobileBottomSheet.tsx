@@ -337,11 +337,54 @@ export default function MobileBottomSheet({
             outline-offset: -4px;
             border-radius: 12px;
           }
+          /* P2 UX (2026-05-22) — Drag-handle breathing animation.
+           *
+           * The small 40×4 handle bar was easy to miss, especially on
+           * first open when the sheet is collapsed (BH-3). A subtle
+           * scale + opacity pulse every 2.4s draws the eye without
+           * being obnoxious; a small outer glow gives it depth so it
+           * stands out from the surrounding chrome.
+           *
+           * Cancellation rules:
+           *  - During active drag (.qq-sheet-handle:active .bar) the
+           *    animation pauses so the bar reads as "I am being
+           *    handled" instead of "I am still attracting attention".
+           *  - When the sheet is in the half/full snap state the
+           *    animation is suppressed entirely — the bar's job is
+           *    discoverability when collapsed; once the user is in,
+           *    further pulsing is noise.
+           *  - prefers-reduced-motion disables the animation
+           *    (kept-in-place at rest size + opacity). */
           .qq-sheet-handle-bar {
             display: block;
             width: 40px; height: 4px; border-radius: 999px;
             background: ${p.colors.border};
             margin-bottom: 2px;
+            opacity: 0.5;
+            transform-origin: center;
+            box-shadow: 0 0 8px rgba(13, 60, 252, 0.18);
+            animation: qq-handle-breathe 2.4s ease-in-out infinite;
+            will-change: transform, opacity;
+          }
+          @keyframes qq-handle-breathe {
+            0%, 100% { opacity: 0.5; transform: scaleX(1); }
+            50%      { opacity: 0.9; transform: scaleX(1.15); }
+          }
+          /* Pause pulse while the user is actively dragging the
+           * handle (pointer captured). */
+          .qq-sheet-handle:active .qq-sheet-handle-bar {
+            animation-play-state: paused;
+            opacity: 1;
+            transform: scaleX(1);
+          }
+          /* Once the sheet is open the bar doesn't need to attract
+           * attention any more. Lock to a neutral rest state. */
+          .qq-sheet--half .qq-sheet-handle-bar,
+          .qq-sheet--full .qq-sheet-handle-bar {
+            animation: none;
+            opacity: 0.55;
+            transform: scaleX(1);
+            box-shadow: none;
           }
           .qq-sheet-handle-label {
             font-size: 13px; font-weight: 700;
@@ -450,6 +493,15 @@ export default function MobileBottomSheet({
             animation: none !important;
             outline: 2px solid ${p.colors.accent};
             outline-offset: 2px;
+          }
+          /* P2 UX (2026-05-22) — kill the handle breathing pulse when
+           * the user prefers reduced motion. Handle stays at its
+           * resting opacity + scale + glow is dropped. */
+          .qq-sheet-handle-bar {
+            animation: none !important;
+            opacity: 0.55 !important;
+            transform: scaleX(1) !important;
+            box-shadow: none !important;
           }
         }
         /* Direct class-driven override (Web Animations API friendly) when

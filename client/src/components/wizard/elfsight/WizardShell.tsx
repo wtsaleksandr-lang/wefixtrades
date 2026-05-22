@@ -42,6 +42,7 @@ import {
 } from '@shared/templatePresets';
 import AIBubble from './AIBubble';
 import EditorTopBar from './EditorTopBar';
+import EditorBottomBar from './EditorBottomBar';
 import MobileBottomSheet from './MobileBottomSheet';
 // BH-2 — EditorTabs is no longer rendered as a standalone bar; the tab
 // strip is rendered inline inside EditorTopBar so the top chrome lives on
@@ -1108,10 +1109,9 @@ export default function WizardShell({ embed = false }: Props) {
               canRedo={canRedo}
               onUndo={undo}
               onRedo={redo}
-              /* BH-2 — tabs + preview fold are now part of the single-row
-                 top chrome (the separate tab bar was removed). */
-              activeTab={activeTab}
-              onTabChange={setActiveTab}
+              /* P2 UX (2026-05-22) — tabs relocated to EditorBottomBar
+                 (rendered below the editor body). Preview-fold stays in
+                 the top chrome. */
               previewCollapsed={previewCollapsed}
               onTogglePreview={togglePreviewCollapsed}
               floatingLauncherPreview={floatingLauncherPreview}
@@ -1304,6 +1304,16 @@ export default function WizardShell({ embed = false }: Props) {
                 />
               </div>
             </div>
+
+            {/* P2 UX (2026-05-22) — Wizard chrome BOTTOM navbar.
+                 Hosts the 4 editor tabs (Build / Style / Settings / Install)
+                 relocated from the previously-crowded top chrome. Sits at
+                 the bottom of the wizard frame, above the mobile bottom
+                 sheet (which has its own z-index 9998). */}
+            <EditorBottomBar
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
+            />
 
             {/* ── BH-3 — Mobile bottom sheet (≤768px only).
                  Replaces the desktop left-pane on phones. Hosts the same
