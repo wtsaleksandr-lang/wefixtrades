@@ -680,6 +680,50 @@ export default function WizardShell({ embed = false }: Props) {
     if (preset) applyTemplate(preset);
   }, [applyTemplate]);
 
+  // ── P1 fix — apply `?template=<id>` from the URL on first mount. ──────
+  // The marketing `/templates/:slug` page's "Use this template" CTA links
+  // to `/wizard?template=<template.id>`. Without this effect the wizard
+  // ignored the param and loaded whatever was in localStorage from the
+  // user's previous session (which felt like a random template).
+  //
+  // Behaviour:
+  //  - Runs once on mount (empty deps + a ref guard so React 18's strict-
+  //    mode double-invoke doesn't apply twice).
+  //  - Looks up the preset by id. If found, applies it via the existing
+  //    `applyTemplate` (which preserves the user's business name, settings,
+  //    pricing, and style.brand — only the structural slice is replaced).
+  //  - If the id is missing or unknown, we leave the existing state alone
+  //    and `console.warn` so future regressions surface in the console
+  //    instead of silently picking another template.
+  //  - Strips `?template=<id>` from the URL after applying so a page
+  //    refresh doesn't blow away the user's in-progress edits with the
+  //    template seed a second time. Other query params (e.g. `?embed=1`,
+  //    `?token=...`) are preserved.
+  const templateUrlAppliedRef = useRef(false);
+  useEffect(() => {
+    if (templateUrlAppliedRef.current) return;
+    templateUrlAppliedRef.current = true;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const requestedId = params.get('template');
+      if (!requestedId) return;
+      const preset = getTemplatePreset(requestedId);
+      if (preset) {
+        applyTemplate(preset);
+      } else {
+        console.warn(
+          `[wizard] /wizard?template=${requestedId} — no template preset matches that id; keeping current state.`,
+        );
+      }
+      // Strip the consumed param from the URL so a reload doesn't re-apply
+      // (which would discard any edits the user made after landing).
+      params.delete('template');
+      const qs = params.toString();
+      const nextUrl = `${window.location.pathname}${qs ? `?${qs}` : ''}${window.location.hash}`;
+      try { window.history.replaceState(null, '', nextUrl); } catch { /* ignore */ }
+    } catch { /* no window — SSR no-op */ }
+  }, [applyTemplate]);
+
   // ── Wave I (a)+(b): cross-section DnD router ─────────────────────────
   const sensors = useEditorDndSensors();
 
