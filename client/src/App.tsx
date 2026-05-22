@@ -46,6 +46,9 @@ import SolutionsVisibility from "@/pages/marketing/solutions-visibility";
 import FreeAudit from "@/pages/marketing/FreeAudit";
 import MissedCallCalculator from "@/pages/marketing/missed-call-calculator";
 import MissedCallCalculatorTrade from "@/pages/marketing/missed-call-calculator-trade";
+import MapSnapshot from "@/pages/marketing/MapSnapshot";
+import MapSnapshotByTrade from "@/pages/marketing/MapSnapshotByTrade";
+import MapSnapshotShared from "@/pages/marketing/MapSnapshotShared";
 import QuoteCalculatorDemo from "@/pages/marketing/quote-calculator-demo";
 import ToolsHub from "@/pages/marketing/tools-hub";
 import SharedAuditReport from "@/pages/marketing/SharedAuditReport";
@@ -376,6 +379,10 @@ function Router() {
       <Route path="/dev/canvas">{() => <RequirePortal><DemoCanvas /></RequirePortal>}</Route>
       <Route path="/tools/missed-call-calculator/:trade" component={MissedCallCalculatorTrade} />
       <Route path="/tools/missed-call-calculator" component={MissedCallCalculator} />
+      {/* BF-6 — MapGuard Snapshot, flagship free GBP rank-grid + audit tool */}
+      <Route path="/tools/map-snapshot/:tradeSlug" component={MapSnapshotByTrade} />
+      <Route path="/tools/map-snapshot" component={MapSnapshot} />
+      <Route path="/snapshot/:slug" component={MapSnapshotShared} />
       <Route path="/tools/quote-demo" component={QuoteCalculatorDemo} />
       <Route path="/tools/free-audit" component={FreeAudit} />
       <Route path="/tools" component={ToolsHub} />
