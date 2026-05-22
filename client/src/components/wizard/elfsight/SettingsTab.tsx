@@ -178,34 +178,36 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
             text="How you'll be notified when someone submits a quote. Only the recipient changes — message format is fixed."
           />
         </legend>
-        <FloatField
-          label="Lead notification email"
-          htmlFor="qq-settings-leademail"
-          infoText="Where customer leads are sent when someone hits the CTA. Single email; team forwarding is configured upstream."
-          infoTestid="settings-lead-email"
-        >
-          <input
-            id="qq-settings-leademail"
-            type="email"
-            className="premium-input"
-            placeholder=" "
-            value={leadEmail}
-            onChange={(e) => patch({ leadEmail: e.target.value })}
-            data-testid="settings-input-lead-email"
-            aria-invalid={
-              leadEmail.trim() !== '' && !EMAIL_RE.test(leadEmail.trim()) ? 'true' : 'false'
-            }
-          />
-        </FloatField>
-        {leadEmail.trim() !== '' && !EMAIL_RE.test(leadEmail.trim()) && (
-          <p
-            className="qq-settings-error"
-            data-testid="settings-lead-email-error"
-            style={{ fontSize: 11.5, color: p.colors.danger, margin: '6px 0 0' }}
+        <div className="qq-style-group-body">
+          <FloatField
+            label="Lead notification email"
+            htmlFor="qq-settings-leademail"
+            infoText="Where customer leads are sent when someone hits the CTA. Single email; team forwarding is configured upstream."
+            infoTestid="settings-lead-email"
           >
-            Enter a valid email address.
-          </p>
-        )}
+            <input
+              id="qq-settings-leademail"
+              type="email"
+              className="premium-input"
+              placeholder=" "
+              value={leadEmail}
+              onChange={(e) => patch({ leadEmail: e.target.value })}
+              data-testid="settings-input-lead-email"
+              aria-invalid={
+                leadEmail.trim() !== '' && !EMAIL_RE.test(leadEmail.trim()) ? 'true' : 'false'
+              }
+            />
+          </FloatField>
+          {leadEmail.trim() !== '' && !EMAIL_RE.test(leadEmail.trim()) && (
+            <p
+              className="qq-settings-error"
+              data-testid="settings-lead-email-error"
+              style={{ fontSize: 11.5, color: p.colors.danger, margin: '6px 0 0' }}
+            >
+              Enter a valid email address.
+            </p>
+          )}
+        </div>
       </fieldset>
 
       {/* ── BD-2b — Business profile (trust signals) ───────────────── */}
@@ -228,6 +230,7 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
             text="How quotes are priced. Hourly multiplies by hours; Fixed is a flat price; Custom lets you label the unit (per sqft, per door, per panel, etc.)."
           />
         </legend>
+        <div className="qq-style-group-body">
         <SegmentedControl<ShellPricingMode>
           name="pricing-mode"
           testid="settings-segmented-pricing"
@@ -306,6 +309,7 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
             </div>
           </div>
         )}
+        </div>
       </fieldset>
 
       {/* ── Deposit (Wave R-2) ──────────────────────────────────── */}
@@ -322,6 +326,7 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
             text="Optionally collect a partial payment when customers book. Requires a connected Stripe account."
           />
         </legend>
+        <div className="qq-style-group-body">
         {!stripeConnected && (
           <p
             className="qq-settings-deposit-warning"
@@ -464,6 +469,7 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
             </label>
           </div>
         )}
+        </div>
       </fieldset>
 
       {/* ── Number formatting ───────────────────────────────────── */}
@@ -476,6 +482,7 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
             text="Controls how prices display in the calculator. Currency is a 3-letter ISO code (USD / EUR / GBP / …)."
           />
         </legend>
+        <div className="qq-style-group-body">
         <div className="qq-style-grid">
           <FloatField
             label="Thousands separator"
@@ -532,6 +539,7 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
             />
           </FloatField>
         </div>
+        </div>
       </fieldset>
 
       {/* ── Custom CTA label ────────────────────────────────────── */}
@@ -544,22 +552,24 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
             text="The button text shown on the result panel after the quote is calculated."
           />
         </legend>
-        <FloatField
-          label="CTA label"
-          htmlFor="qq-settings-cta-label"
-          infoText='Overrides the result-panel button text. Leave blank to keep the default ("Get My Quote").'
-          infoTestid="settings-cta"
-        >
-          <input
-            id="qq-settings-cta-label"
-            type="text"
-            className="premium-input"
-            placeholder=" "
-            value={ctaLabel}
-            onChange={(e) => patch({ ctaLabel: e.target.value })}
-            data-testid="settings-input-cta-label"
-          />
-        </FloatField>
+        <div className="qq-style-group-body">
+          <FloatField
+            label="CTA label"
+            htmlFor="qq-settings-cta-label"
+            infoText='Overrides the result-panel button text. Leave blank to keep the default ("Get My Quote").'
+            infoTestid="settings-cta"
+          >
+            <input
+              id="qq-settings-cta-label"
+              type="text"
+              className="premium-input"
+              placeholder=" "
+              value={ctaLabel}
+              onChange={(e) => patch({ ctaLabel: e.target.value })}
+              data-testid="settings-input-cta-label"
+            />
+          </FloatField>
+        </div>
       </fieldset>
 
       {/* ── Online booking (Wave R-1) ───────────────────────────── */}
@@ -574,6 +584,7 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
             text="Let customers pick a time slot after the quote. Slots are built from your working hours minus existing bookings."
           />
         </legend>
+        <div className="qq-style-group-body">
         <div className="qq-scheduling-toggle" data-testid="scheduling-toggle-row">
           <label className="qq-brand-badge-toggle">
             <input
@@ -681,6 +692,7 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
             </div>
           </div>
         )}
+        </div>
       </fieldset>
 
       {/* Wave Q-E — Brand badge toggle. Free users see the toggle as
@@ -698,6 +710,7 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
             text="Controls the WeFixTrades badge on the calculator. Free plan keeps it visible; Pro and Business plans can hide it."
           />
         </legend>
+        <div className="qq-style-group-body">
         <div
           className="qq-brand-badge-row"
           data-testid="settings-brand-badge-row"
@@ -743,6 +756,7 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
             </span>
           </label>
         </div>
+        </div>
       </fieldset>
 
       <style>{`
@@ -756,30 +770,42 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
         .qq-settings-panel {
           display: flex; flex-direction: column; gap: 2px;
         }
+        /* BG-6 — Settings tab section-title-in-container pattern: title
+         * sits INSIDE the fieldset as a flush header row, hairline
+         * divider, then the body wrapper picks up the 12/14 px padding.
+         * Mirrors StyleTab's BD-3f pattern so the two tabs share visual
+         * rhythm. */
         .qq-style-group {
           border: 1px solid ${p.colors.borderLight};
           border-radius: 12px;
-          padding: 14px 14px 16px;
+          padding: 0;
           background: #fff;
           margin: 0;
         }
-        /* W-SETTINGS-STYLE — subtle all-caps section label, matches the
-         * Build tab treatment landed by W-SECTIONS. Sits flush above the
-         * first input rather than reading as a bold heading.
-         *
-         * W-AO-7 — legend is now an inline-flex container so the InfoCue
-         * trigger (sibling element after the label text) lays out
-         * immediately to the right of the title text — top-left of the
-         * fieldset by virtue of being the first child. */
+        /* BG-6 — header row sits flush at the top of the fieldset. The
+         * float-left opts out of the default legend positioning so the
+         * row spans the full fieldset width; the body wrapper below
+         * clears the float to keep content on its own row. */
         .qq-style-legend {
-          display: inline-flex;
+          display: flex;
           align-items: center;
           gap: 6px;
+          width: 100%;
+          box-sizing: border-box;
+          padding: 12px 14px;
           font-size: 11.5px; font-weight: 600;
           color: ${p.colors.muted};
           text-transform: uppercase; letter-spacing: 0.04em;
-          margin: 0 0 6px;
-          padding: 0;
+          margin: 0;
+          border-bottom: 1px solid ${p.colors.borderLight};
+          float: left;
+        }
+        /* BG-6 — body wrapper inside every group. Sits below the header
+         * divider with its own 12/14 px padding so titles never touch
+         * the content. */
+        .qq-style-group-body {
+          clear: both;
+          padding: 12px 14px 14px;
         }
         /* Section-level help that used to live in an InfoCue beside the
          * legend. Same muted styling, sits under the legend as a body
@@ -1182,6 +1208,7 @@ function TradeSection({
           text="Which trade this calculator is for. Drives template suggestions and downstream copy."
         />
       </legend>
+      <div className="qq-style-group-body">
       {/* Hidden native <select> — preserves Playwright `selectOption`
           compatibility and gives us a real form control fallback. The
           visible UI is the custom button + popup below. */}
@@ -1316,6 +1343,7 @@ function TradeSection({
           Selected: <strong style={{ color: p.colors.heading }}>{current.label}</strong>
         </p>
       )}
+      </div>
     </fieldset>
   );
 }
@@ -1427,6 +1455,7 @@ function BusinessProfileSection({
           text="Drives inline trust signals on the widget: aggregate Google rating in the header strip, license # and insured-up-to below the CTA. Empty fields are hidden — no placeholder copy."
         />
       </legend>
+      <div className="qq-style-group-body">
 
       <div className="qq-settings-row" data-testid="settings-bp-row-rating">
         <FloatField label="Google rating (0-5)" htmlFor="qq-settings-bp-rating">
@@ -1531,6 +1560,7 @@ function BusinessProfileSection({
         and below the CTA. Leave any field blank to hide that signal —
         nothing renders as a placeholder.
       </p>
+      </div>
     </fieldset>
   );
 }
