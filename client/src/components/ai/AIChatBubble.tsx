@@ -267,12 +267,57 @@ export default function AIChatBubble({
         background: '#fff',
       };
 
-  // BD-2c — when the visibility gate hasn't tripped yet, render nothing at
-  // all. The 200ms slide-up entrance respects `prefers-reduced-motion`
-  // (the keyframe is short enough that reduced-motion users effectively
-  // see the bubble pop in without distress; we additionally bypass the
-  // animation when the OS-level preference is set).
-  if (!revealed) return null;
+  // BD-2c-fix — when the rescue gate hasn't tripped yet, instead of
+  // rendering nothing (which left customers with no way to ask for help
+  // and broke "ai chat inside quickquote" entirely), render a small
+  // always-visible "Need help?" pill. Click reveals the full FAB + opens
+  // the panel. This preserves BD-2c's research-driven default (the big
+  // FAB doesn't auto-show) while guaranteeing an affordance at all times.
+  if (!revealed) {
+    const handlePillClick = () => {
+      setRevealed(true);
+      setIsOpen(true);
+    };
+    return (
+      <button
+        type="button"
+        onClick={handlePillClick}
+        data-testid="button-chat-help-pill"
+        aria-label="Open AI assistant"
+        style={{
+          position: 'fixed',
+          bottom: '20px',
+          right: '20px',
+          zIndex: 9998,
+          padding: '8px 14px',
+          borderRadius: '999px',
+          background: accentColor,
+          color: '#fff',
+          border: 'none',
+          cursor: 'pointer',
+          fontSize: '13px',
+          fontWeight: 600,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          boxShadow: '0 2px 10px rgba(0,0,0,0.18)',
+          opacity: 0.92,
+          transition: 'opacity 0.15s, transform 0.15s',
+        }}
+        onMouseEnter={e => {
+          (e.currentTarget as HTMLButtonElement).style.opacity = '1';
+          (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1.04)';
+        }}
+        onMouseLeave={e => {
+          (e.currentTarget as HTMLButtonElement).style.opacity = '0.92';
+          (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1)';
+        }}
+      >
+        <MessageCircle size={14} />
+        Need help?
+      </button>
+    );
+  }
 
   return (
     <>
