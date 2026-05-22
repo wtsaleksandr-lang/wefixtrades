@@ -24,7 +24,8 @@
     "test:crm:e2e": "npx playwright test tests/e2e/admin-crm/admin-crm.e2e.spec.ts",
     "test:crm:regression": "npx playwright test tests/e2e/admin-crm/admin-crm.regression.spec.ts",
     "seed:test-portal-client": "tsx scripts/seed-test-portal-client.ts",
-    "record:google-verification": "npx playwright test --config scripts/google-verification/playwright.config.ts"
+    "record:google-verification": "npx playwright test --config scripts/google-verification/playwright.config.ts",
+    "thumbnails": "tsx scripts/generate-template-thumbnails.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.95.1",
@@ -136,6 +137,7 @@
   "devDependencies": {
     "@axe-core/playwright": "^4.11.3",
     "@playwright/test": "^1.59.1",
+    "playwright": "^1.59.1",
     "@replit/vite-plugin-cartographer": "^0.4.4",
     "@replit/vite-plugin-dev-banner": "^0.1.1",
     "@replit/vite-plugin-runtime-error-modal": "^0.0.3",

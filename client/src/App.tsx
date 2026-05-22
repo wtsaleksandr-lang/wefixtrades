@@ -180,6 +180,23 @@ import BookFlowSetupPage from "@/pages/portal/BookFlowSetupPage";
 import PortalCatalog from "@/pages/portal/PortalCatalog";
 import PortalApiAccessPage from "@/pages/portal/PortalApiAccessPage";
 import PortalBrandKitsPage from "@/pages/portal/PortalBrandKitsPage";
+import InternalTemplateRender from "@/pages/InternalTemplateRender";
+
+/**
+ * Snapshot pipeline — Playwright-only render route.
+ *
+ * The `/internal/template-render/:templateId` page renders ONE template into
+ * a real `<AdvancedCalculator>` at a fixed viewport so Playwright can grab a
+ * PNG thumbnail (matches Elfsight's `<uuid>@2x.png` pattern). The route is
+ * mounted ONLY when:
+ *   - Vite is in dev mode (`import.meta.env.MODE === 'development'`), OR
+ *   - The build was opted in via `VITE_ENABLE_TEMPLATE_RENDER=true`.
+ *
+ * Production builds skip the route entirely so the page is not reachable.
+ */
+const ENABLE_TEMPLATE_RENDER_ROUTE =
+  import.meta.env.MODE === "development" ||
+  import.meta.env.VITE_ENABLE_TEMPLATE_RENDER === "true";
 
 /**
  * Root route. On a hosted-calculator subdomain ({slug}.your-quote.net) the
@@ -194,6 +211,11 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={RootRoute} />
+
+      {/* Snapshot pipeline (Playwright). Dev-only / opt-in via env. */}
+      {ENABLE_TEMPLATE_RENDER_ROUTE && (
+        <Route path="/internal/template-render/:templateId" component={InternalTemplateRender} />
+      )}
 
       <Route path="/admin/ai">{() => <RequirePortal><AiDashboard /></RequirePortal>}</Route>
       <Route path="/admin/ai-gates">{() => <RequirePortal><AdminAiGatesPage /></RequirePortal>}</Route>
