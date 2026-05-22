@@ -45,6 +45,7 @@ import type {
   AdvResultEmphasis, AdvResultBorder,
   AdvStepTransition,
   AdvPremiumAnimations,
+  AdvDeposit, AdvBooking, AdvBranding, AdvBookingSource,
   TemplateTiered, TemplateTier,
 } from '@shared/templatePresets';
 import {
@@ -204,6 +205,63 @@ export default function StyleTab({
   const headingWeight: ShellHeadingWeight = style.headingWeight ?? 700;
   const bodyWeight: ShellBodyWeight = style.bodyWeight ?? 400;
   const fontSize: ShellFontSize = style.fontSize ?? 'medium';
+
+  // BD-3k — Inline preview features (deposit / online-booking / "Powered
+  // by WeFixTrades" badge). All three are optional renders on the widget;
+  // when the corresponding `enabled` flag is false / absent the surface
+  // does not appear. Free-tier patches that flip `branding.showPoweredBy`
+  // off are stripped server-side (BRAND_STUDIO_STYLE_KEYS), so the badge
+  // stays locked on for free. Deposit + Booking aren't tier-gated — they
+  // are owner-facing affordances that work in every plan.
+  const deposit: AdvDeposit = style.deposit ?? { enabled: false, amount: 200 };
+  const depositEnabled = deposit.enabled === true;
+  const depositAmount = (() => {
+    const raw = deposit.amount;
+    if (typeof raw !== 'number' || !Number.isFinite(raw)) return 200;
+    return Math.max(1, Math.min(100000, Math.round(raw)));
+  })();
+  const depositLabel = typeof deposit.label === 'string' ? deposit.label : '';
+  const setDeposit = (next: Partial<AdvDeposit>) => {
+    patch({
+      deposit: {
+        enabled: depositEnabled,
+        amount: depositAmount,
+        ...(depositLabel ? { label: depositLabel } : null),
+        ...(style.deposit ?? {}),
+        ...next,
+      },
+    });
+  };
+
+  const booking: AdvBooking = style.booking ?? { enabled: false, source: 'wefixtrades-default' };
+  const bookingEnabled = booking.enabled === true;
+  const bookingSource: AdvBookingSource = booking.source ?? 'wefixtrades-default';
+  const bookingUrl = typeof booking.url === 'string' ? booking.url : '';
+  const setBooking = (next: Partial<AdvBooking>) => {
+    patch({
+      booking: {
+        enabled: bookingEnabled,
+        source: bookingSource,
+        ...(bookingUrl ? { url: bookingUrl } : null),
+        ...(style.booking ?? {}),
+        ...next,
+      },
+    });
+  };
+
+  // Branding badge — default ON when undefined. Free-tier locks it ON
+  // (server-side strip + renderer-side fallback in AdvancedCalculator).
+  const branding: AdvBranding = style.branding ?? { showPoweredBy: true };
+  const showPoweredBy = branding.showPoweredBy !== false;
+  // For free-tier users we display the toggle as disabled with a small
+  // "Pro" pill so they understand why they can't turn it off. Pro+ users
+  // see a normal interactive checkbox.
+  const brandingLocked = !isProTier;
+  const setBranding = (next: Partial<AdvBranding>) => {
+    patch({
+      branding: { showPoweredBy, ...(style.branding ?? {}), ...next },
+    });
+  };
 
   // BD-3f Item 5 — ghost preview state. `ghost` holds the current
   // Success / Error demo banner key; null means no ghost mounted. The
@@ -440,9 +498,225 @@ export default function StyleTab({
             ]}
             onChange={(v) => patch({ logoSize: v })}
           />
+
+          {/* ── BD-3k — "Powered by WeFixTrades" badge toggle ────────────
+            *
+            * Renders a small text-only badge inside the sticky bottom
+            * action bar's footer area. Default ON for free tier (locked);
+            * Pro+ can toggle freely. The renderer also applies a defensive
+            * fallback: free-tier widgets render the badge regardless of
+            * stored value (server-side strip via BRAND_STUDIO_STYLE_KEYS
+            * is the primary gate; the renderer's plan check is defense in
+            * depth). Section-title pattern per BD-3f; help cue points to
+            * the sticky-footer region via the WidgetSchema diagram.
+            */}
+          <div
+            className="qq-bs-sub"
+            data-testid="style-sub-branding-powered-by"
+            style={{ marginTop: 18 }}
+          >
+            <p className="qq-bs-sub-title">
+              <span className="qq-bs-sub-title-text">
+                WeFixTrades badge
+                {brandingLocked && (
+                  <span
+                    className="qq-bs-pill"
+                    aria-label="Pro plan feature"
+                    style={{ marginLeft: 6 }}
+                  >
+                    <Sparkles size={10} aria-hidden="true" /> Pro
+                  </span>
+                )}
+              </span>
+              <InfoCue
+                testid="style-branding-powered-by-info"
+                region="sticky-footer"
+                text="Shows a small 'Powered by WeFixTrades' link centred under the action buttons in the widget footer. Free-tier calculators have this on by default and can't disable it; Pro plans can switch it off for a fully white-labelled widget."
+              />
+            </p>
+            <p className="qq-bs-sub-hint">
+              {brandingLocked
+                ? "Free plan widgets always show a small 'Powered by WeFixTrades' badge in the footer. Upgrade to Pro to remove it."
+                : "Show the small 'Powered by WeFixTrades' badge in the widget footer. Turn off for a fully white-labelled widget."}
+            </p>
+            <label
+              className="qq-style-label"
+              style={{
+                marginTop: 4,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                cursor: brandingLocked ? 'not-allowed' : 'pointer',
+                opacity: brandingLocked ? 0.7 : 1,
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={brandingLocked ? true : showPoweredBy}
+                disabled={brandingLocked}
+                onChange={(e) => setBranding({ showPoweredBy: e.target.checked })}
+                data-testid="style-branding-powered-by"
+                aria-label="Show 'Powered by WeFixTrades' badge"
+              />
+              <span className="qq-style-label-text" style={{ margin: 0 }}>
+                Show "Powered by WeFixTrades" badge
+              </span>
+            </label>
+          </div>
           </div>
         </fieldset>
       )}
+
+      {/* ── BD-3k — Deposit preview ──────────────────────────────────
+        *
+        * Renders a small accent-tinted badge above the action buttons
+        * on the widget's result step ("$X deposit required to schedule").
+        * Tapping the badge opens a Stripe-style preview card (visual
+        * only — production checkout is wired elsewhere). Owner-facing
+        * surface; not Pro-gated. Schema region: 'result'. */}
+      <fieldset className="qq-style-group" data-testid="style-group-deposit">
+        <legend className="qq-style-legend">
+          Deposit
+          <InfoCue
+            testid="style-section-deposit"
+            region="result"
+            text="Show a 'Deposit required to schedule' badge above the action buttons on the result step. Tapping the badge opens a Stripe-style preview card so the owner can see what the customer experiences. The actual checkout flow is wired separately to Stripe — the preview never charges money."
+          />
+        </legend>
+        <div className="qq-style-group-body">
+          <label
+            className="qq-style-label"
+            style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
+          >
+            <input
+              type="checkbox"
+              checked={depositEnabled}
+              onChange={(e) => setDeposit({ enabled: e.target.checked })}
+              data-testid="style-deposit-enabled"
+              aria-label="Require deposit to schedule"
+            />
+            <span className="qq-style-label-text" style={{ margin: 0, fontWeight: 700 }}>
+              Require deposit to schedule
+            </span>
+          </label>
+
+          {depositEnabled && (
+            <div
+              style={{
+                marginTop: 10, paddingLeft: 12,
+                borderLeft: `2px solid ${p.colors.border}`,
+                display: 'flex', flexDirection: 'column', gap: 10,
+              }}
+              data-testid="style-deposit-sub-fields"
+            >
+              <FloatField label="Deposit amount (USD)" htmlFor="qq-style-deposit-amount">
+                <input
+                  id="qq-style-deposit-amount"
+                  type="number"
+                  className="premium-input"
+                  min={1}
+                  max={100000}
+                  step={1}
+                  inputMode="numeric"
+                  placeholder=" "
+                  value={depositAmount}
+                  data-testid="style-deposit-amount"
+                  onChange={(e) => {
+                    const raw = Number(e.target.value);
+                    if (!Number.isFinite(raw)) return;
+                    setDeposit({ amount: Math.max(1, Math.min(100000, Math.round(raw))) });
+                  }}
+                />
+              </FloatField>
+              <FloatField label="Badge label (optional)" htmlFor="qq-style-deposit-label">
+                <input
+                  id="qq-style-deposit-label"
+                  type="text"
+                  className="premium-input"
+                  maxLength={120}
+                  placeholder=" "
+                  value={depositLabel}
+                  data-testid="style-deposit-label"
+                  onChange={(e) => setDeposit({ label: e.target.value })}
+                />
+              </FloatField>
+            </div>
+          )}
+        </div>
+      </fieldset>
+
+      {/* ── BD-3k — Online-booking calendar ────────────────────────
+        *
+        * Renders a mock 3-day slot picker beneath the result-step
+        * price headline. Default source uses built-in mock slots
+        * (delegates to BB-1's `book_appointment` customer tool when
+        * available); `cal.com-url` / `calendly-url` open an external
+        * scheduler in a new tab. Schema region: 'result'. */}
+      <fieldset className="qq-style-group" data-testid="style-group-booking">
+        <legend className="qq-style-legend">
+          Online booking
+          <InfoCue
+            testid="style-section-booking"
+            region="result"
+            text="Adds a 3-day appointment slot picker beneath the price on the result step. Default uses built-in mock slots in the preview (production wires to your scheduler). You can also point it at a Cal.com or Calendly URL — tapping a slot then opens the external scheduler in a new tab."
+          />
+        </legend>
+        <div className="qq-style-group-body">
+          <label
+            className="qq-style-label"
+            style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
+          >
+            <input
+              type="checkbox"
+              checked={bookingEnabled}
+              onChange={(e) => setBooking({ enabled: e.target.checked })}
+              data-testid="style-booking-enabled"
+              aria-label="Show calendar in widget"
+            />
+            <span className="qq-style-label-text" style={{ margin: 0, fontWeight: 700 }}>
+              Show calendar in widget
+            </span>
+          </label>
+
+          {bookingEnabled && (
+            <div
+              style={{
+                marginTop: 10, paddingLeft: 12,
+                borderLeft: `2px solid ${p.colors.border}`,
+                display: 'flex', flexDirection: 'column', gap: 10,
+              }}
+              data-testid="style-booking-sub-fields"
+            >
+              <FloatField label="Calendar source" htmlFor="qq-style-booking-source" variant="select">
+                <select
+                  id="qq-style-booking-source"
+                  className="premium-input"
+                  value={bookingSource}
+                  data-testid="style-booking-source"
+                  onChange={(e) => setBooking({ source: e.target.value as AdvBookingSource })}
+                >
+                  <option value="wefixtrades-default">WeFixTrades default (built-in slots)</option>
+                  <option value="cal.com-url">Cal.com URL</option>
+                  <option value="calendly-url">Calendly URL</option>
+                </select>
+              </FloatField>
+              {(bookingSource === 'cal.com-url' || bookingSource === 'calendly-url') && (
+                <FloatField label="Scheduler URL" htmlFor="qq-style-booking-url">
+                  <input
+                    id="qq-style-booking-url"
+                    type="url"
+                    className="premium-input"
+                    placeholder=" "
+                    value={bookingUrl}
+                    data-testid="style-booking-url"
+                    onChange={(e) => setBooking({ url: e.target.value })}
+                  />
+                </FloatField>
+              )}
+            </div>
+          )}
+        </div>
+      </fieldset>
 
       {/* ── Colours ─────────────────────────────────────────────────
        *
