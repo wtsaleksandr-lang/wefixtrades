@@ -18,4 +18,5 @@ jobs:
       - run: npx tsc --noEmit
       - run: npm run check:copilot-forms
       - run: npm run check:migrations
+      - run: npm run check:database-url
       - run: npm run build

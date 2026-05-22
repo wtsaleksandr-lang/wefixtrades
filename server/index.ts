@@ -486,6 +486,21 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // BF-1b — pre-deploy DATABASE_URL sanity guard. Refuses to boot if
+  // NODE_ENV=production but DATABASE_URL host looks like a dev/preview/
+  // staging branch. This is the BF-1 credential-wipe signature; better to
+  // crash loud at boot than to apply migrations + serve traffic against the
+  // wrong database. Runs BEFORE bootstrapMigrations() so a misconfigured
+  // deploy never even touches the wrong DB's __bootstrap_migrations table.
+  try {
+    const { assertDatabaseUrlOk } = await import("./lib/checkDatabaseUrl");
+    if (!assertDatabaseUrlOk()) {
+      process.exit(1);
+    }
+  } catch (err: any) {
+    logger.warn("[boot] DATABASE_URL guard import failed", { error: err?.message });
+  }
+
   // Wave R-pre A — apply any pending hand-rolled SQL migrations BEFORE
   // any route is mounted. Without this, a republish of code that
   // references a new column (Wave P added updated_at + slug_release_warned_at
