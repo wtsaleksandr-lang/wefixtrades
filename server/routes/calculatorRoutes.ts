@@ -799,4 +799,58 @@ export function registerCalculatorRoutes(app: Express): void {
       res.status(500).json({ error: "Failed to create checkout" });
     }
   });
+
+  /* ─── BD-2c — Peer-anchor median endpoint ───────────────────────
+   *
+   * Returns the median `quote_amount` from prior leads on this calculator
+   * whose `answers.service_address` parses out a matching ZIP. The widget
+   * uses this for the "Most homeowners in [ZIP] pay around $X" line under
+   * the result-panel headline.
+   *
+   * Sample-size policy:
+   *  - `< 5` matching leads → return `{ sampleSize, median: undefined }`
+   *    and let the widget fall back to the template's base price.
+   *  - `>= 5` → return the median rounded to nearest $25.
+   *
+   * No PII echoed back — only the median + count. Best-effort; any error
+   * returns `{ sampleSize: 0 }` so the widget hides the line gracefully.
+   */
+  app.get("/api/calculator/peer-median", async (req, res) => {
+    try {
+      const calcId = Number(req.query.calculator_id);
+      const zipRaw = String(req.query.zip || '').trim();
+      if (!Number.isFinite(calcId) || calcId <= 0 || !zipRaw) {
+        return res.json({ sampleSize: 0 });
+      }
+      // Normalise ZIP for comparison (US: first 5 digits; CA / others: full
+      // string upper-cased and stripped of whitespace).
+      const zipUpper = zipRaw.toUpperCase().replace(/\s+/g, '');
+      const zipShort = /^[0-9]{5,}/.test(zipUpper) ? zipUpper.slice(0, 5) : zipUpper;
+
+      const leads = await storage.getLeadsByCalculatorId(calcId);
+      const amounts: number[] = [];
+      for (const lead of leads) {
+        const amt = lead.quote_amount;
+        if (typeof amt !== 'number' || !Number.isFinite(amt) || amt <= 0) continue;
+        const answers: any = lead.answers ?? {};
+        const addr = (answers?.service_address || answers?.address || answers?.zip || answers?.postal_code || '');
+        if (typeof addr !== 'string' || !addr) continue;
+        const norm = String(addr).toUpperCase().replace(/\s+/g, '');
+        if (norm.includes(zipShort)) amounts.push(amt);
+      }
+      if (amounts.length < 5) {
+        return res.json({ sampleSize: amounts.length });
+      }
+      amounts.sort((a, b) => a - b);
+      const mid = Math.floor(amounts.length / 2);
+      const raw = amounts.length % 2 === 0
+        ? (amounts[mid - 1] + amounts[mid]) / 2
+        : amounts[mid];
+      const median = Math.round(raw / 25) * 25;
+      return res.json({ sampleSize: amounts.length, median });
+    } catch (err: any) {
+      log.error("[peer-median] Error:", err?.message);
+      return res.json({ sampleSize: 0 });
+    }
+  });
 }

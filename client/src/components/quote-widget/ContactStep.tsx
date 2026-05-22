@@ -17,6 +17,7 @@
 import { useState } from 'react';
 import type { CSSProperties } from 'react';
 import type { WidgetTheme } from './widgetThemes';
+import AddressAutocompleteField, { type AddressSelection } from './AddressAutocompleteField';
 
 /* ─── BD-2a-polish — Input field rules compliance ───
  *
@@ -125,12 +126,26 @@ interface Props {
   /** Initial phone. */
   initialPhone?: string;
   /** Persist edits back to the parent so a back-button doesn't wipe them. */
-  onChange?: (next: { name: string; email: string; phone: string }) => void;
+  onChange?: (next: { name: string; email: string; phone: string; address?: string }) => void;
   /** Fired after a successful soft-CTA submit ("Email me"). */
   onEmailQuoteSent?: () => void;
   /** Fired after a successful hard-CTA submit ("Book consultation"). The
    *  parent should redirect to `bookingUrl` after the lead is captured. */
   onBookingRequested?: () => void;
+  /**
+   * BD-2c — when true, render the Google Places address autocomplete field
+   * above the name/email/phone block. Falls back to a plain text input when
+   * `VITE_GOOGLE_PLACES_API_KEY` is missing (graceful degradation).
+   * Set from `advanced.requireAddress` on the template.
+   */
+  requireAddress?: boolean;
+  /** BD-2c — initial address (resumes across stepper back/forward). */
+  initialAddress?: string;
+  /** BD-2c — business service area, used to restrict autocomplete countries. */
+  serviceArea?: string;
+  /** BD-2c — fired when the user picks a Places suggestion. Used by the
+   *  result-panel peer-anchor line (needs ZIP). */
+  onAddressSelected?: (selection: AddressSelection) => void;
 }
 
 type Status = 'idle' | 'sending' | 'sent' | 'error';
@@ -142,10 +157,15 @@ export default function ContactStep({
   bookingUrl, ownerEmail, answers, quoteAmount,
   initialName = '', initialEmail = '', initialPhone = '',
   onChange, onEmailQuoteSent, onBookingRequested,
+  requireAddress = false, initialAddress = '', serviceArea,
+  onAddressSelected,
 }: Props) {
   const [name, setName] = useState(initialName);
   const [email, setEmail] = useState(initialEmail);
   const [phone, setPhone] = useState(initialPhone);
+  // BD-2c — address state. Always declared (cost ~0 when requireAddress=false);
+  // simpler than gating the hook behind the flag.
+  const [address, setAddress] = useState(initialAddress);
   const [status, setStatus] = useState<Status>('idle');
   const [error, setError] = useState<string | null>(null);
 
@@ -154,8 +174,13 @@ export default function ContactStep({
   const emailOk = EMAIL_RE.test(email.trim());
   const ready = nameOk && emailOk;
 
-  function persist(nextName: string, nextEmail: string, nextPhone: string) {
-    if (onChange) onChange({ name: nextName, email: nextEmail, phone: nextPhone });
+  function persist(nextName: string, nextEmail: string, nextPhone: string, nextAddress?: string) {
+    if (onChange) {
+      onChange({
+        name: nextName, email: nextEmail, phone: nextPhone,
+        ...(requireAddress ? { address: nextAddress ?? address } : null),
+      });
+    }
   }
 
   async function submitLead(intent: 'email' | 'booking') {
@@ -174,7 +199,12 @@ export default function ContactStep({
             phone: phone.trim() || null,
             quote_amount: typeof quoteAmount === 'number' && Number.isFinite(quoteAmount)
               ? quoteAmount : null,
-            answers: answers ?? null,
+            // BD-2c — when address autocomplete is on, the formatted address
+            // rides along inside the `answers` blob (no schema change). The
+            // lead row already accepts arbitrary keys here.
+            answers: requireAddress && address.trim()
+              ? { ...(answers ?? {}), service_address: address.trim() }
+              : (answers ?? null),
           }),
         });
         if (!resp.ok) {
@@ -272,6 +302,26 @@ export default function ContactStep({
         </p>
       )}
 
+      {/* BD-2c — Google Places address autocomplete. Renders only when the
+          template opts in via `requireAddress`. Falls back to a plain text
+          input (same FloatingLabelInput pattern) when the API key is
+          missing — no broken UX. */}
+      {requireAddress && (
+        <AddressAutocompleteField
+          theme={theme}
+          fontFamily={fontFamily}
+          radiusPx={radiusPx}
+          value={address}
+          serviceArea={serviceArea}
+          onChange={(v) => { setAddress(v); persist(name, email, phone, v); }}
+          onSelect={(sel) => {
+            setAddress(sel.formatted);
+            persist(name, email, phone, sel.formatted);
+            if (onAddressSelected) onAddressSelected(sel);
+          }}
+          testId="contact-step-address"
+        />
+      )}
       <FloatingLabelInput
         id="contact-step-name"
         testId="contact-step-name"
@@ -391,7 +441,14 @@ function ContactStepHelpCue({
         type="button"
         aria-label="What do we do with this information?"
         data-testid="contact-step-helpcue"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          setOpen((v) => !v);
+          // BD-2c — explicit Help click also reveals the AI chat bubble
+          // when in 'rescue' visibility mode.
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('quotequick:help'));
+          }
+        }}
         style={{
           width: 18, height: 18, borderRadius: 999,
           border: `1px solid ${theme.border}`,

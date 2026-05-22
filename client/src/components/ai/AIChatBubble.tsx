@@ -23,6 +23,17 @@ interface AIChatBubbleProps {
   customerEmail?: string;
   customerPhone?: string;
   customerName?: string;
+  /**
+   * BD-2c — visibility mode.
+   *   - `'rescue'` (default): bubble stays hidden until the user has
+   *     advanced beyond step 2, idles for 30s on a single step, or clicks
+   *     a Help button anywhere in the widget. Once revealed, persists.
+   *   - `'always'`: legacy behaviour, bubble visible from page load.
+   *
+   * Free-tier calculators always use `'rescue'` regardless of the stored
+   * value (the caller — `calculator.tsx` — enforces the tier gate).
+   */
+  visibility?: 'rescue' | 'always';
 }
 
 /**
@@ -51,8 +62,52 @@ export default function AIChatBubble({
   customerEmail,
   customerPhone,
   customerName,
+  visibility = 'rescue',
 }: AIChatBubbleProps) {
   const [isOpen, setIsOpen] = useState(false);
+  /* BD-2c — visibility gate. `'always'` mode keeps the bubble visible from
+   * mount (legacy). `'rescue'` mode starts hidden and reveals once ANY of:
+   *   - widget reports `stepIndex >= 2` via the `quotequick:step` event
+   *   - the user has been idle on the current step for >= 30s
+   *   - any Help button anywhere in the widget dispatches `quotequick:help`
+   * Once revealed, persists for the rest of the session. */
+  const [revealed, setRevealed] = useState(visibility === 'always');
+  useEffect(() => {
+    if (visibility === 'always') { setRevealed(true); return; }
+    if (typeof window === 'undefined') return;
+
+    let idleTimer: number | undefined;
+    const startIdle = () => {
+      if (idleTimer !== undefined) window.clearTimeout(idleTimer);
+      idleTimer = window.setTimeout(() => setRevealed(true), 30_000);
+    };
+    startIdle();
+
+    const onStep = (e: Event) => {
+      const detail = (e as CustomEvent).detail || {};
+      // Restart the idle timer on each step change.
+      startIdle();
+      if (typeof detail.stepIndex === 'number' && detail.stepIndex >= 2) {
+        setRevealed(true);
+      }
+    };
+    const onHelp = () => setRevealed(true);
+    // Generic any-input movement resets the idle timer so we don't reveal
+    // while the user is actively typing or scrolling.
+    const onActivity = () => startIdle();
+
+    window.addEventListener('quotequick:step', onStep as EventListener);
+    window.addEventListener('quotequick:help', onHelp as EventListener);
+    window.addEventListener('keydown', onActivity);
+    window.addEventListener('pointerdown', onActivity);
+    return () => {
+      if (idleTimer !== undefined) window.clearTimeout(idleTimer);
+      window.removeEventListener('quotequick:step', onStep as EventListener);
+      window.removeEventListener('quotequick:help', onHelp as EventListener);
+      window.removeEventListener('keydown', onActivity);
+      window.removeEventListener('pointerdown', onActivity);
+    };
+  }, [visibility]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -211,6 +266,13 @@ export default function AIChatBubble({
         boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
         background: '#fff',
       };
+
+  // BD-2c — when the visibility gate hasn't tripped yet, render nothing at
+  // all. The 200ms slide-up entrance respects `prefers-reduced-motion`
+  // (the keyframe is short enough that reduced-motion users effectively
+  // see the bubble pop in without distress; we additionally bypass the
+  // animation when the OS-level preference is set).
+  if (!revealed) return null;
 
   return (
     <>
@@ -374,6 +436,10 @@ export default function AIChatBubble({
           boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
           color: '#fff',
           transition: 'transform 0.15s, box-shadow 0.15s',
+          // BD-2c — subtle slide-up entrance the first time the bubble
+          // reveals (rescue mode). `prefers-reduced-motion` zeros the
+          // animation via the @media rule in the <style> block below.
+          animation: 'qq-ai-bubble-rise 200ms ease-out both',
         }}
         data-testid="button-chat-bubble"
         aria-label={isOpen ? 'Close AI assistant' : 'Open AI assistant'}
@@ -391,6 +457,16 @@ export default function AIChatBubble({
         @keyframes spin {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
+        }
+        @keyframes qq-ai-bubble-rise {
+          from { transform: translateY(20px); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          @keyframes qq-ai-bubble-rise {
+            from { transform: none; opacity: 1; }
+            to { transform: none; opacity: 1; }
+          }
         }
       `}</style>
     </>

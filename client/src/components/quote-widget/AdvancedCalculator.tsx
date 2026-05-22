@@ -37,6 +37,9 @@ import ContactStep from './ContactStep';
 import TierSelector from './TierSelector';
 import TrustStripHeader from './TrustStripHeader';
 import TrustBlockUnderCTA from './TrustBlockUnderCTA';
+// BD-2c — image-card radio + ZIP peer-anchor + AI chat visibility gate.
+import ImageRadioStep from './ImageRadioStep';
+import PeerAnchorLine from './PeerAnchorLine';
 
 function DefaultLogoIcon({
   name, accent, radius,
@@ -260,6 +263,12 @@ export interface AdvancedConfig {
    * etc.). Absent → trust strip + trust block render `null`.
    */
   businessProfile?: import('@shared/templatePresets').BusinessProfile;
+  /**
+   * BD-2c — opt-in: render the Google Places address autocomplete field on
+   * the contact step. Falls back to a plain text input when the env var
+   * `VITE_GOOGLE_PLACES_API_KEY` is missing (graceful degradation).
+   */
+  requireAddress?: boolean;
 }
 
 interface Props {
@@ -852,6 +861,21 @@ export default function AdvancedCalculator({
   const [leadView, setLeadView] = useState<'cta' | 'form' | 'done'>('cta');
   const [leadName, setLeadName] = useState('');
   const [leadEmail, setLeadEmail] = useState('');
+  // BD-2c — captured ZIP from the address autocomplete (or a dedicated ZIP
+  // step field, if the template carries one). Drives the peer-anchor line.
+  const [capturedZip, setCapturedZip] = useState<string | null>(null);
+  // BD-2c — also try to infer a ZIP from any `answers` field whose name
+  // hints at "zip" / "postal" (templates that capture ZIP without Places).
+  const inferredZip = useMemo(() => {
+    if (capturedZip) return capturedZip;
+    for (const [k, v] of Object.entries(answers)) {
+      if (typeof v !== 'string') continue;
+      if (/zip|postal/i.test(k) && /^[0-9A-Za-z\- ]{3,10}$/.test(v.trim())) {
+        return v.trim();
+      }
+    }
+    return null;
+  }, [capturedZip, answers]);
 
   // BD-2b — Good/Better/Best tier selection. Resolved from the explicit
   // `advanced.tiered` slot if present, else derived from the category bucket
@@ -1048,6 +1072,15 @@ export default function AdvancedCalculator({
   useEffect(() => {
     if (useStepper && stepIdx >= totalSteps) setStepIdx(Math.max(0, totalSteps - 1));
   }, [useStepper, totalSteps, stepIdx]);
+  // BD-2c — broadcast the active step index so the page-level AIChatBubble
+  // can trip its "stuck-customer rescue" visibility gate at step >= 2.
+  // Safe in SSR-free contexts (the widget only runs in the browser).
+  useEffect(() => {
+    if (typeof window === 'undefined' || !useStepper) return;
+    window.dispatchEvent(new CustomEvent('quotequick:step', {
+      detail: { stepIndex: stepIdx, totalSteps },
+    }));
+  }, [useStepper, stepIdx, totalSteps]);
 
   const stepperList = useMemo(() => {
     if (!useStepper) return [];
@@ -1455,6 +1488,11 @@ export default function AdvancedCalculator({
               calculatorId={analyticsCalcId}
               bookingUrl={bookingUrl}
               ownerEmail={ownerEmail}
+              requireAddress={advanced.requireAddress === true}
+              serviceArea={advanced.businessProfile?.serviceArea}
+              onAddressSelected={(sel) => {
+                if (sel.postalCode) setCapturedZip(sel.postalCode);
+              }}
               quoteHeadline={(() => {
                 // BD-2b — when tiers are on, the contact-step headline echoes
                 // the selected tier name + price ("Standard — $2,500"). When
@@ -1478,6 +1516,10 @@ export default function AdvancedCalculator({
                 setLeadName(next.name);
                 setLeadEmail(next.email);
                 setContactPhone(next.phone);
+                // BD-2c — capture address typed manually (no Places suggestion
+                // was picked). This still lets the lead form ride along with
+                // the address; the peer-anchor needs ZIP, not formatted address,
+                // so we only set capturedZip via `onAddressSelected`.
               }}
               onEmailQuoteSent={() => { trackSubmit(); }}
               onBookingRequested={() => { trackSubmit(); }}
@@ -1615,6 +1657,17 @@ export default function AdvancedCalculator({
               </p>
             )}
 
+            {/* BD-2c — Peer-anchor ZIP line. Renders directly below the
+                headline (and caption, if present). Self-fetches; renders
+                null when no ZIP has been captured. */}
+            <PeerAnchorLine
+              calculatorId={analyticsCalcId}
+              zip={inferredZip}
+              baseQuote={typeof headline === 'number' ? headline : undefined}
+              theme={c}
+              fontFamily={fontFamily}
+              brandBlue={accent}
+            />
 
             {showBreakdown && breakdown.length > 0 && (
               <div style={{
@@ -2095,6 +2148,21 @@ function FieldInput({ field, value, accent, theme, onChange, radiusPx, fieldStyl
   }
 
   if (f.type === 'radio') {
+    // BD-2c — when ANY option carries `imageUrl`, switch to the image-card
+    // renderer. Text-only options keep the legacy stacked-pill layout.
+    const hasImageCards = (f.options || []).some((o: any) => !!o.imageUrl);
+    if (hasImageCards) {
+      return (
+        <ImageRadioStep
+          label={f.label}
+          options={(f.options || []) as any}
+          value={value as string}
+          onChange={onChange}
+          theme={c}
+          radiusPx={radiusPx}
+        />
+      );
+    }
     return (
       <div>
         <label style={groupHeaderStyle(c)}>{f.label}</label>

@@ -74,6 +74,15 @@ export interface TemplateOption {
   value: number;
   /** Wave W-R4 — optional image (data URL) for `image_choice` field cards. */
   image?: string;
+  /**
+   * BD-2c — optional remote image URL for image-card radio rendering. When
+   * any option in a `radio` field carries `imageUrl`, the renderer switches
+   * from the legacy text-radio layout to image cards (research: mobile-
+   * friendly card pickers vs text radios; faster scanning, no keyboard pop).
+   * Distinct from `image` (data URL, image_choice field type) — `imageUrl`
+   * is a CDN / stock URL that doesn't bloat the template payload.
+   */
+  imageUrl?: string;
 }
 
 export interface TemplateField {
@@ -231,11 +240,24 @@ export interface TemplateConfig {
    * an explicit value. Templates can opt in/out by declaring this slot.
    */
   tiered?: TemplateTiered;
+  /**
+   * BD-2c — opt-in flag: when true, the ContactStep renders a Google Places
+   * autocomplete address field above the name/email/phone block. Defaults
+   * to false (back-compat — existing 66+ templates unchanged). Templates
+   * for on-site service (roofing, HVAC, junk removal, etc.) should opt in.
+   * Falls back to a plain text input when `VITE_GOOGLE_PLACES_API_KEY` is
+   * missing — no error, no broken UX.
+   */
+  requireAddress?: boolean;
 }
 
 /* Small helpers to keep the catalogue compact. */
 const opt = (label: string, value: number): TemplateOption =>
   ({ id: label.toLowerCase().replace(/[^a-z0-9]+/g, '_'), label, value });
+/** BD-2c — `opt` + image-card URL. Switches the renderer (image-card grid
+ *  vs text radio) when the field is a `radio` type. */
+const optImg = (label: string, value: number, imageUrl: string): TemplateOption =>
+  ({ id: label.toLowerCase().replace(/[^a-z0-9]+/g, '_'), label, value, imageUrl });
 const calc = (
   name: string, formula: string, format: TemplateCalculation['format'] = 'currency',
 ): TemplateCalculation =>
@@ -396,12 +418,17 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'gutter_cleaning', name: 'Gutter Cleaning', description: 'Length-based gutter cleaning quote.',
     category: 'Cleaning', trades: ['window_cleaning', 'pressure_washing'],
     layout: 'single-column', theme: 'forest', defaultIcon: 'Droplets',
+    requireAddress: true,
     header: { title: 'Get Your Gutter Cleaning Quote in 60 Seconds', subtitle: 'Fully insured · OSHA-trained ladder crews · Free downspout flush included', align: 'left' },
     fields: [
       { id: 'length', name: 'Gutter Length', label: 'Total gutter length (feet)', type: 'slider',
         min: 1, max: 300, step: 1, default_value: 120, unit: 'feet' },
       { id: 'difficulty', name: 'Cleaning Difficulty', label: 'How tough is the access?', type: 'radio',
-        options: [opt('Easy', 0), opt('Moderate', 35), opt('Difficult', 80)] },
+        options: [
+          optImg('Easy', 0, 'https://source.unsplash.com/300x300/?single,story,house'),
+          optImg('Moderate', 35, 'https://source.unsplash.com/300x300/?two,story,house'),
+          optImg('Difficult', 80, 'https://source.unsplash.com/300x300/?tall,house'),
+        ] },
     ],
     calculations: [
       calc('Linear-foot Cleaning', '[Gutter Length] * 2'),
@@ -513,14 +540,22 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     id: 'interior_painting', name: 'Interior Painting', description: 'Room + finish interior painting quote.',
     category: 'Home Improvement', trades: ['interior_painting', 'exterior_painting'],
     layout: 'two-column', theme: 'mint', defaultIcon: 'PaintBucket',
+    requireAddress: true,
     header: { title: 'Get an Instant Interior Painting Quote', subtitle: 'Licensed & insured · Sherwin-Williams certified · 2-year workmanship warranty', align: 'left' },
     fields: [
       { id: 'wall_area', name: 'Wall Area', label: 'Wall area to paint (sqm)', type: 'slider',
         min: 10, max: 500, step: 5, default_value: 120, unit: 'sqm' },
       { id: 'rooms', name: 'Rooms', label: 'How many rooms?', type: 'number',
         min: 1, max: 20, step: 1, default_value: 3 },
-      { id: 'finish', name: 'Finish Quality', label: 'Paint finish quality', type: 'select',
-        options: [opt('Standard', 9), opt('Premium', 14), opt('Designer', 20)] },
+      // BD-2c — converted from `select` to `radio` with image cards. Finish
+      // quality is the highest-uncertainty answer; image cards anchor on
+      // visual finish (matte vs satin vs designer).
+      { id: 'finish', name: 'Finish Quality', label: 'Paint finish quality', type: 'radio',
+        options: [
+          optImg('Standard', 9, 'https://source.unsplash.com/300x300/?paint,wall,matte'),
+          optImg('Premium', 14, 'https://source.unsplash.com/300x300/?paint,wall,satin'),
+          optImg('Designer', 20, 'https://source.unsplash.com/300x300/?designer,room'),
+        ] },
       { id: 'ceilings', name: 'Ceilings', label: 'Include ceilings', type: 'toggle', on_value: 240 },
     ],
     calculations: [
@@ -1758,6 +1793,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     description: 'New HVAC system estimate by home size and equipment tier.',
     category: 'Mechanical', trades: ['hvac_services', 'hvac_installation'],
     layout: 'two-column', theme: 'midnight', defaultIcon: 'Thermometer',
+    requireAddress: true,
     header: { title: 'Get Your HVAC Installation Quote', subtitle: 'NATE-certified technicians · 10-year parts & labor warranty · Same-week install available', align: 'left' },
     fields: [
       { id: 'home_size', name: 'Home Size', label: 'Home size (sqft)', type: 'slider',
@@ -1765,7 +1801,11 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
       { id: 'system_type', name: 'System Type', label: 'Which system do you need?', type: 'select',
         options: [opt('Central AC only', 4500), opt('Furnace only', 4200), opt('Central AC + furnace', 7800), opt('Heat pump (all-in-one)', 9500), opt('Ductless mini-split', 5800)] },
       { id: 'efficiency', name: 'Efficiency Tier', label: 'Efficiency tier', type: 'radio',
-        options: [opt('Standard (14 SEER)', 1.0), opt('High-efficiency (18 SEER)', 1.25), opt('Top tier (20+ SEER)', 1.5)] },
+        options: [
+          optImg('Standard (14 SEER)', 1.0, 'https://source.unsplash.com/300x300/?ac,unit'),
+          optImg('High-efficiency (18 SEER)', 1.25, 'https://source.unsplash.com/300x300/?hvac,system'),
+          optImg('Top tier (20+ SEER)', 1.5, 'https://source.unsplash.com/300x300/?heatpump'),
+        ] },
       { id: 'extras', name: 'Add-ons', label: 'Comfort add-ons', type: 'multi_select',
         options: [opt('Smart thermostat', 380), opt('Whole-home humidifier', 750), opt('UV air purifier', 620), opt('Duct cleaning', 450)] },
     ],
@@ -1790,6 +1830,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     description: 'Per-job plumbing estimate by service type + urgency.',
     category: 'Mechanical', trades: ['plumbing_services', 'emergency_plumbing'],
     layout: 'single-column', theme: 'midnight', defaultIcon: 'Wrench',
+    requireAddress: true,
     header: { title: 'Get an Upfront Plumbing Quote in 60 Seconds', subtitle: 'Licensed master plumbers · No hidden fees · Same-day & 24/7 emergency response', align: 'left' },
     fields: [
       { id: 'service', name: 'Service', label: 'What plumbing work do you need?', type: 'select',
@@ -1797,7 +1838,11 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
       { id: 'units', name: 'Units', label: 'How many fixtures?', type: 'number',
         min: 1, max: 10, step: 1, default_value: 1 },
       { id: 'urgency', name: 'Urgency', label: 'How urgent is it?', type: 'radio',
-        options: [opt('Within a week', 0), opt('Within 24 hours', 75), opt('Emergency / same-day', 220)] },
+        options: [
+          optImg('Within a week', 0, 'https://source.unsplash.com/300x300/?calendar'),
+          optImg('Within 24 hours', 75, 'https://source.unsplash.com/300x300/?clock'),
+          optImg('Emergency / same-day', 220, 'https://source.unsplash.com/300x300/?emergency,plumber'),
+        ] },
       { id: 'extras', name: 'Extras', label: 'Add-ons', type: 'multi_select',
         options: [opt('Hauling away old fixture', 60), opt('Pressure test', 90), opt('Camera inspection', 140)] },
     ],
@@ -1822,6 +1867,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     description: 'Per-job electrical estimate covering common residential scopes.',
     category: 'Mechanical', trades: ['electrical_services', 'emergency_electrical'],
     layout: 'single-column', theme: 'midnight', defaultIcon: 'Zap',
+    requireAddress: true,
     header: { title: 'Get a Licensed Electrician Quote in 60 Seconds', subtitle: 'Licensed master electricians · Permits handled · 100% code-compliant guaranteed', align: 'left' },
     fields: [
       { id: 'job_type', name: 'Job Type', label: 'What electrical work do you need?', type: 'select',
@@ -1829,7 +1875,11 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
       { id: 'quantity', name: 'Quantity', label: 'How many?', type: 'number',
         min: 1, max: 20, step: 1, default_value: 2 },
       { id: 'access', name: 'Access', label: 'Wiring access difficulty', type: 'radio',
-        options: [opt('Easy (open wall / accessible)', 0), opt('Moderate', 45), opt('Difficult (finished wall, tight crawl)', 120)] },
+        options: [
+          optImg('Easy (open wall / accessible)', 0, 'https://source.unsplash.com/300x300/?wall,electrical'),
+          optImg('Moderate', 45, 'https://source.unsplash.com/300x300/?electrician,wiring'),
+          optImg('Difficult (finished wall, tight crawl)', 120, 'https://source.unsplash.com/300x300/?crawlspace'),
+        ] },
       { id: 'permit', name: 'Permit', label: 'Pull permits & arrange inspection', type: 'toggle', on_value: 220 },
     ],
     calculations: [
@@ -2369,6 +2419,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     description: 'Full roof replacement by sqft, material and complexity.',
     category: 'Construction', trades: ['roofing'],
     layout: 'two-column', theme: 'midnight', defaultIcon: 'Home',
+    requireAddress: true,
     header: { title: 'Get Your Roof Replacement Quote in 60 Seconds', subtitle: 'GAF Master Elite & Owens Corning certified · 50-year material warranty · Free drone roof survey', align: 'left' },
     fields: [
       { id: 'roof_size', name: 'Roof Size', label: 'Roof size (sqft)', type: 'slider',
@@ -2376,7 +2427,11 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
       { id: 'material', name: 'Material', label: 'Roofing material', type: 'select',
         options: [opt('3-tab shingle', 4.5), opt('Architectural shingle', 6.5), opt('Metal standing seam', 11), opt('Clay tile', 14), opt('Slate', 19)] },
       { id: 'complexity', name: 'Complexity', label: 'Roof complexity', type: 'radio',
-        options: [opt('Simple (gable / hip)', 1.0), opt('Moderate (dormers, multiple slopes)', 1.18), opt('Complex (turrets, valleys, intersections)', 1.4)] },
+        options: [
+          optImg('Simple (gable / hip)', 1.0, 'https://source.unsplash.com/300x300/?gable,roof'),
+          optImg('Moderate (dormers, multiple slopes)', 1.18, 'https://source.unsplash.com/300x300/?dormer,roof'),
+          optImg('Complex (turrets, valleys, intersections)', 1.4, 'https://source.unsplash.com/300x300/?victorian,roof'),
+        ] },
       { id: 'tear_off', name: 'Tear-Off', label: 'Tear off existing layers', type: 'radio',
         options: [opt('No (overlay)', 0), opt('One layer', 1200), opt('Two layers', 2200)] },
       { id: 'extras', name: 'Extras', label: 'Performance add-ons', type: 'multi_select',
@@ -2403,10 +2458,15 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     description: 'Install, repair or replace by door size and opener.',
     category: 'Mechanical', trades: ['garage_door'],
     layout: 'single-column', theme: 'forest', defaultIcon: 'DoorOpen',
+    requireAddress: true,
     header: { title: 'Get Your Garage Door Quote in 60 Seconds', subtitle: 'IDEA-accredited technicians · Lifetime warranty on springs · Same-day service available', align: 'left' },
     fields: [
       { id: 'service', name: 'Service', label: 'What do you need?', type: 'radio',
-        options: [opt('Repair only', 180), opt('New door install', 1400), opt('Door + opener replacement', 2200)] },
+        options: [
+          optImg('Repair only', 180, 'https://source.unsplash.com/300x300/?garage,repair'),
+          optImg('New door install', 1400, 'https://source.unsplash.com/300x300/?garage,door'),
+          optImg('Door + opener replacement', 2200, 'https://source.unsplash.com/300x300/?garage,opener'),
+        ] },
       { id: 'door_size', name: 'Door Size', label: 'Door size', type: 'select',
         options: [opt('Single (8-9 ft)', 1.0), opt('Double (16 ft)', 1.65), opt('Carriage / oversized', 2.1)] },
       { id: 'door_type', name: 'Door Style', label: 'Door style', type: 'select',
@@ -2469,6 +2529,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     description: 'Truck-load pricing with surcharges for stairs, distance, and same-day pickup.',
     category: 'Cleaning', trades: ['junk_removal'],
     layout: 'single-column', theme: 'midnight', defaultIcon: 'Trash2',
+    requireAddress: true,
     header: { title: 'Book a Junk Pickup in 60 Seconds', subtitle: 'We load, haul, and sweep up · Most items donated or recycled · Same-day pickup available', align: 'left' },
     // W-AS-1 — Action / Truck / Bold-Industrial visual identity.
     // W-AS-1b — extended with AO-6c Brand Studio fields: bgGradient body,
@@ -2517,8 +2578,16 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
       },
     },
     fields: [
-      { id: 'load_size', name: 'Load Size', label: 'How much junk do you have?', type: 'select',
-        options: [opt('1/4 truck', 120), opt('1/2 truck', 220), opt('3/4 truck', 320), opt('Full truck', 425)] },
+      // BD-2c — converted from `select` to `radio` with image cards. The
+      // load-size question is the highest-engagement scope choice for junk
+      // removal; image cards make truck-fill estimation intuitive.
+      { id: 'load_size', name: 'Load Size', label: 'How much junk do you have?', type: 'radio',
+        options: [
+          optImg('1/4 truck', 120, 'https://source.unsplash.com/300x300/?junk,box'),
+          optImg('1/2 truck', 220, 'https://source.unsplash.com/300x300/?garage,clutter'),
+          optImg('3/4 truck', 320, 'https://source.unsplash.com/300x300/?truck,loaded'),
+          optImg('Full truck', 425, 'https://source.unsplash.com/300x300/?dumptruck'),
+        ] },
       { id: 'mattresses', name: 'Mattresses', label: 'Mattresses', type: 'number',
         min: 0, max: 5, step: 1, default_value: 1, unit: 'item' },
       { id: 'appliances', name: 'Appliances', label: 'Appliances (fridge, washer, etc.)', type: 'number',
@@ -2549,6 +2618,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     description: 'Per-window pricing by type, frame material, and energy rating.',
     category: 'Home Improvement', trades: ['window_replacement'],
     layout: 'two-column', theme: 'light', defaultIcon: 'RectangleHorizontal',
+    requireAddress: true,
     header: { title: 'Get Your Window Replacement Quote', subtitle: 'ENERGY STAR-certified installers · Lifetime product warranty · Free in-home measurement', align: 'left' },
     // W-AS-1 — Clean / Glass / Professional visual identity.
     // W-AS-1b — extended with AO-6c Brand Studio fields: airy
@@ -2593,8 +2663,15 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     fields: [
       { id: 'count', name: 'Count', label: 'Number of windows', type: 'number',
         min: 1, max: 30, step: 1, default_value: 8, unit: 'windows' },
-      { id: 'type', name: 'Type', label: 'Window type', type: 'select',
-        options: [opt('Single hung', 250), opt('Double hung', 320), opt('Sliding', 290), opt('Picture', 410), opt('Bay', 780)] },
+      // BD-2c — converted from `select` to `radio` with image cards.
+      { id: 'type', name: 'Type', label: 'Window type', type: 'radio',
+        options: [
+          optImg('Single hung', 250, 'https://source.unsplash.com/300x300/?single,hung,window'),
+          optImg('Double hung', 320, 'https://source.unsplash.com/300x300/?double,hung,window'),
+          optImg('Sliding', 290, 'https://source.unsplash.com/300x300/?sliding,window'),
+          optImg('Picture', 410, 'https://source.unsplash.com/300x300/?picture,window'),
+          optImg('Bay', 780, 'https://source.unsplash.com/300x300/?bay,window'),
+        ] },
       { id: 'frame', name: 'Frame', label: 'Frame material', type: 'select',
         options: [opt('Vinyl', 0), opt('Fiberglass', 110), opt('Wood', 180), opt('Aluminum', 60)] },
       { id: 'glass', name: 'Glass', label: 'Glass package', type: 'select',
@@ -2622,6 +2699,7 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     description: 'Severity-tiered remediation with containment, HVAC, and post-test add-ons.',
     category: 'Emergency', trades: ['mold_remediation'],
     layout: 'two-column', theme: 'forest', defaultIcon: 'Biohazard',
+    requireAddress: true,
     header: { title: 'Get Your Mold Remediation Estimate', subtitle: 'IICRC-certified · EPA-protocol removal · Insurance documentation provided', align: 'left' },
     // W-AS-1 — Urgent / Warning / Trust visual identity.
     // W-AS-1b — extended with AO-6c Brand Studio fields: warm amber-to-peach
@@ -2669,8 +2747,15 @@ export const TEMPLATE_PRESETS: TemplateConfig[] = [
     fields: [
       { id: 'area', name: 'Area', label: 'Affected area (sqft)', type: 'slider',
         min: 10, max: 2000, step: 10, default_value: 80, unit: 'sqft' },
-      { id: 'severity', name: 'Severity', label: 'Mold severity', type: 'select',
-        options: [opt('Surface mold (visible only)', 8), opt('Moderate (subsurface, no structural)', 14), opt('Severe (structural damage)', 26)] },
+      // BD-2c — converted from `select` to `radio` with image cards. Severity
+      // is the highest-uncertainty answer for homeowners; visual reference
+      // shortens the decision.
+      { id: 'severity', name: 'Severity', label: 'Mold severity', type: 'radio',
+        options: [
+          optImg('Surface mold (visible only)', 8, 'https://source.unsplash.com/300x300/?mold,surface'),
+          optImg('Moderate (subsurface, no structural)', 14, 'https://source.unsplash.com/300x300/?mold,wall'),
+          optImg('Severe (structural damage)', 26, 'https://source.unsplash.com/300x300/?water,damage'),
+        ] },
       { id: 'mold_type', name: 'Mold Type', label: 'Mold type (if known)', type: 'select',
         options: [opt('Common (Cladosporium / Penicillium)', 0), opt('Aspergillus', 300), opt('Stachybotrys / Black mold', 850)] },
       { id: 'containment', name: 'Containment & negative-air setup required', label: 'Add containment & negative-air setup', type: 'toggle', on_value: 800 },
@@ -2838,6 +2923,22 @@ export interface AdvStyle {
    * unlocked. Absent value → instant transition (pre-AO-6d behaviour).
    */
   animations?: AdvAnimations;
+
+  /**
+   * BD-2c — AI chat bubble visibility mode. Research (BD-0): the always-
+   * visible bubble competes with the form; treating it as a "stuck-customer
+   * rescue" (revealed at step >= 2, after 30s idle, or on explicit Help
+   * click) improves both form completion AND chat engagement.
+   *
+   *  - `'rescue'` (default for Pro tier on new calculators) — hidden until
+   *    the user has progressed past the first step or shown signs of being
+   *    stuck. Once revealed, stays visible for the rest of the session.
+   *  - `'always'` — legacy behaviour. Bubble visible from page load.
+   *
+   * Absent → renderer defaults to `'rescue'`. Free-tier calculators always
+   * use `'rescue'` regardless of stored value (Pro-only toggle).
+   */
+  aiChatVisibility?: 'rescue' | 'always';
 }
 
 /** W-AO-6c — Brand Studio background mode. */
@@ -2922,6 +3023,9 @@ export const BRAND_STUDIO_STYLE_KEYS = [
   'bgImageTint',
   'resultPanel',
   'animations',
+  // BD-2c — AI chat visibility toggle (Pro-tier upsell). Free-tier
+  // calculators always render in 'rescue' mode regardless of stored value.
+  'aiChatVisibility',
 ] as const;
 export type BrandStudioStyleKey = (typeof BRAND_STUDIO_STYLE_KEYS)[number];
 
@@ -2959,7 +3063,10 @@ type AdvStyleOptionalOnly =
   | 'resultPanel'
   // W-AO-6d — Brand Studio Wave 2 animations. Same rationale as 6c
   // fields: Pro-only, optional, absent → instant transition (legacy).
-  | 'animations';
+  | 'animations'
+  // BD-2c — AI chat visibility mode. Absent → renderer defaults to
+  // 'rescue' (the new BD-0 behaviour). Pro tier can opt back to 'always'.
+  | 'aiChatVisibility';
 
 export const DEFAULT_ADV_STYLE: Required<Omit<AdvStyle, AdvStyleOptionalOnly>> = {
   accent: '#0d3cfc',
@@ -3144,6 +3251,9 @@ export interface AdvancedConfigShape {
   /** BD-2b — business profile (license #, Google rating, etc.). When absent
    *  or empty, the trust strip + trust block render `null`. */
   businessProfile?: BusinessProfile;
+  /** BD-2c — opt-in: render Google Places address autocomplete on the
+   *  contact step. Absent / false → name + email + phone only (legacy). */
+  requireAddress?: boolean;
 }
 
 /* ─── W-BB-2 — Per-category visual identity (derived at load time) ───
@@ -3384,6 +3494,8 @@ export function toAdvancedConfig(t: TemplateConfig): AdvancedConfigShape {
     // template ships one; otherwise leave it absent so the renderer's
     // category-driven default (`resolveTieredConfig`) takes over.
     ...(t.tiered ? { tiered: t.tiered } : {}),
+    // BD-2c — carry the address-autocomplete opt-in through verbatim.
+    ...(t.requireAddress ? { requireAddress: true } : {}),
     style,
   };
 }
