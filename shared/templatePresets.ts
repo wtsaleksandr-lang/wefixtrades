@@ -223,6 +223,14 @@ export interface TemplateConfig {
    * still override per-field via the Style tab after the template is loaded.
    */
   style?: AdvStyle;
+  /**
+   * BD-2b — optional Good/Better/Best 3-tier pricing config. When absent,
+   * `toAdvancedConfig()` does NOT default it — the renderer derives the
+   * effective tiered shape at runtime via `resolveTieredConfig()` so the
+   * scope-spectrum-category default kicks in for templates that don't ship
+   * an explicit value. Templates can opt in/out by declaring this slot.
+   */
+  tiered?: TemplateTiered;
 }
 
 /* Small helpers to keep the catalogue compact. */
@@ -2977,6 +2985,122 @@ export interface AdvNumberFormat {
 }
 
 /**
+ * BD-2b — Good/Better/Best 3-tier pricing.
+ *
+ * When `tiered.enabled === true`, the result step renders three tier cards
+ * (Essential / Standard / Premium by default) instead of a single headline
+ * value. Each tier price = `baseQuote * tier.multiplier`, rounded to the
+ * nearest $25. The middle tier is marked `mostPopular` and gets a small
+ * badge — anchors the choice toward the recommended price point.
+ *
+ * Research (BD-0): tiered presentation consistently outperforms single-price
+ * AND 4+-tier alternatives (Journal of Business Research; FieldPulse + Jobber
+ * recommend it specifically for trades). Auto-enabled for scope-spectrum
+ * categories (Construction / Home Improvement / Outdoor) via
+ * `shouldDefaultTiered()`; flat-fee categories (Cleaning / Professional /
+ * Automotive / Emergency) keep the single-price model.
+ */
+export interface TemplateTier {
+  /** Price multiplier — 1.0 = base quote. Three sensible defaults: 0.85 / 1.0 / 1.35. */
+  multiplier: number;
+  /** Short label shown above the price (e.g. "Essential", "Standard", "Premium"). */
+  label: string;
+  /** One-line description shown beneath the label. */
+  tagline: string;
+  /** When true, render a "Most Popular" badge above the card. Usually the middle tier. */
+  mostPopular?: boolean;
+}
+
+export interface TemplateTiered {
+  /** When true, the result step renders 3 tier cards instead of a single value. */
+  enabled: boolean;
+  /** Optional explicit tier shape. When absent, falls back to `DEFAULT_TIERS`. */
+  tiers?: TemplateTier[];
+}
+
+/** The default Essential / Standard / Premium shape applied when `tiered.enabled`
+ *  is on but no explicit `tiers[]` is provided. */
+export const DEFAULT_TIERS: ReadonlyArray<TemplateTier> = [
+  { multiplier: 0.85, label: 'Essential', tagline: 'Core scope, value pricing' },
+  { multiplier: 1.0,  label: 'Standard',  tagline: 'Recommended for most homes', mostPopular: true },
+  { multiplier: 1.35, label: 'Premium',   tagline: 'Top materials, extended warranty' },
+];
+
+/**
+ * BD-2b — scope-spectrum categories where Good/Better/Best is the right
+ * default. Material/scope spectrum exists (e.g. roof asphalt vs metal,
+ * vinyl windows vs wood-clad, basic patio vs travertine).
+ *
+ * Flat-fee / variance-not-scope categories opt out:
+ *   - Cleaning     — commodity per-visit pricing
+ *   - Professional — flat fees by service
+ *   - Automotive   — distance / type drives price, not material spectrum
+ *   - Emergency    — variance is severity/access, not scope
+ */
+export function shouldDefaultTiered(category: string | undefined): boolean {
+  const id = resolveDerivedCategoryId(category);
+  return id === 'construction' || id === 'home-improvement' || id === 'outdoor';
+}
+
+/**
+ * Resolve the effective tiered configuration for a runtime advanced config.
+ *
+ * Precedence:
+ *   1. Explicit `advanced.tiered` (owner toggled in StyleTab) wins verbatim.
+ *   2. Otherwise, derive from `advanced.category` via `shouldDefaultTiered()` —
+ *      scope-spectrum categories default to enabled, everything else stays
+ *      single-price.
+ *   3. Tiers default to `DEFAULT_TIERS` when enabled but no explicit list.
+ */
+export function resolveTieredConfig(
+  tiered: TemplateTiered | undefined,
+  category: string | undefined,
+): { enabled: boolean; tiers: TemplateTier[] } {
+  if (tiered && typeof tiered.enabled === 'boolean') {
+    const tiers = tiered.tiers && tiered.tiers.length > 0
+      ? tiered.tiers
+      : [...DEFAULT_TIERS];
+    return { enabled: tiered.enabled, tiers };
+  }
+  if (shouldDefaultTiered(category)) {
+    return { enabled: true, tiers: [...DEFAULT_TIERS] };
+  }
+  return { enabled: false, tiers: [...DEFAULT_TIERS] };
+}
+
+/**
+ * BD-2b — business profile fields (trust signals).
+ *
+ * Owned by the wizard owner's profile (NOT per-template), so a multi-template
+ * setup shares one license #, one Google rating, one BBB rating across every
+ * calculator. Surfaced inline via `TrustStripHeader` (above-the-fold rating +
+ * licensed/insured pills) and `TrustBlockUnderCTA` (license #, insured-up-to,
+ * tiny icon row).
+ *
+ * Every field optional — when the whole object is undefined OR empty, the
+ * trust strip / trust block render `null` (no placeholders).
+ *
+ * Research (BD-0): inline trust signals lift CVR 15-30%; CTA-adjacent trust
+ * placement beats footer by 40-60% (hashmeta).
+ */
+export interface BusinessProfile {
+  /** Aggregate Google rating (e.g. 4.8). Renders next to a star icon. */
+  googleRating?: number;
+  /** Total review count (e.g. 2134 → "2,134 Google reviews"). */
+  googleReviewCount?: number;
+  /** Years in business — drives the "15 years serving Phoenix" pill. */
+  yearsInBusiness?: number;
+  /** State license number — renders as "License #ABC12345" under the CTA. */
+  licenseNumber?: string;
+  /** Free-text insurance amount — e.g. "Insured up to $2M" or "Fully insured". */
+  insuredAmount?: string;
+  /** Optional service area — pairs with `yearsInBusiness` ("Serving Phoenix"). */
+  serviceArea?: string;
+  /** BBB rating letter grade (A+, A, B, etc.) when applicable. */
+  bbbRating?: string;
+}
+
+/**
  * The runtime `calculator_settings.advanced` shape — what the renderer and the
  * builder persist. Kept identical to the pre-refactor shape so no stored
  * calculator needs migration; only the catalogue module shape changed.
@@ -2986,6 +3110,8 @@ export interface AdvNumberFormat {
  * through to the resolved theme).
  * Wave H6 widens it again with the optional `numberFormat` slot — also
  * back-compatible (absent → pre-H6 en-US defaults).
+ * BD-2b widens it again with optional `tiered` + `businessProfile` — both
+ * additive opt-in and back-compatible.
  */
 export interface AdvancedConfigShape {
   enabled: true;
@@ -3012,6 +3138,12 @@ export interface AdvancedConfigShape {
   style?: AdvStyle;
   /** Wave H6 — user-driven Settings tab number-format overrides. */
   numberFormat?: AdvNumberFormat;
+  /** BD-2b — Good/Better/Best 3-tier pricing. Absent → derived from category
+   *  (scope-spectrum categories default-on; flat-fee default-off). */
+  tiered?: TemplateTiered;
+  /** BD-2b — business profile (license #, Google rating, etc.). When absent
+   *  or empty, the trust strip + trust block render `null`. */
+  businessProfile?: BusinessProfile;
 }
 
 /* ─── W-BB-2 — Per-category visual identity (derived at load time) ───
@@ -3248,6 +3380,10 @@ export function toAdvancedConfig(t: TemplateConfig): AdvancedConfigShape {
     ...(t.defaultIcon ? { defaultIcon: t.defaultIcon } : {}),
     ...(t.categoryIcon ? { categoryIcon: t.categoryIcon } : {}),
     ...(t.steps ? { steps: t.steps } : {}),
+    // BD-2b — carry an explicit `tiered` block through verbatim when the
+    // template ships one; otherwise leave it absent so the renderer's
+    // category-driven default (`resolveTieredConfig`) takes over.
+    ...(t.tiered ? { tiered: t.tiered } : {}),
     style,
   };
 }

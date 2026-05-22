@@ -44,8 +44,13 @@ import type {
   AdvBgMode, AdvBgGradientDirection,
   AdvResultEmphasis, AdvResultBorder,
   AdvStepTransition,
+  TemplateTiered, TemplateTier,
 } from '@shared/templatePresets';
-import { inferDerivedCategoryFromBgFrom } from '@shared/templatePresets';
+import {
+  inferDerivedCategoryFromBgFrom,
+  shouldDefaultTiered,
+  DEFAULT_TIERS,
+} from '@shared/templatePresets';
 import FloatField from './FloatField';
 import InfoCue from './InfoCue';
 import { QUOTEQUICK_STYLE_PRESETS } from '@/data/quoteQuickStylePresets';
@@ -81,6 +86,18 @@ interface Props {
   stepLayout?: 'stepper' | 'single';
   /** BD-2a — change the step-layout mode. */
   onStepLayoutChange?: (next: 'stepper' | 'single') => void;
+  /**
+   * BD-2b — Good/Better/Best 3-tier pricing override. When undefined, the
+   * renderer derives the effective tier state from the active template's
+   * category (scope-spectrum categories default-on). The StyleTab section
+   * shows the resolved state so the owner can flip it explicitly.
+   */
+  tiered?: TemplateTiered;
+  /** BD-2b — change the tiered config (toggle on/off; edit per-tier shape). */
+  onTieredChange?: (next: TemplateTiered | undefined) => void;
+  /** BD-2b — the active template's category — drives the default-on hint
+   *  + the resolved fallback when `tiered` is undefined. */
+  templateCategory?: string;
 }
 
 const HEX_RE = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
@@ -144,6 +161,7 @@ const TOKEN_FALLBACKS = {
 export default function StyleTab({
   style, onChange, logo, onLogoChange, planTier = 'free',
   stepLayout, onStepLayoutChange,
+  tiered, onTieredChange, templateCategory,
 }: Props) {
   // W-AO-6c — Brand Studio is a Pro / Business upsell. Free users see the
   // controls (preview-only) so they understand the value; the section
@@ -724,6 +742,26 @@ export default function StyleTab({
               convert at ~13.85% vs ~4.53% for single-page forms.
             </p>
           </div>
+        )}
+
+        {/* ── BD-2b — Pricing tiers subsection ──────────────────────
+         *
+         * Good/Better/Best 3-tier pricing toggle + per-tier editor.
+         * Auto-enabled for scope-spectrum categories (Construction, Home
+         * Improvement, Outdoor); off by default for flat-fee categories.
+         * Owners can flip explicitly.
+         *
+         * Research (BD-0): tiered presentation consistently outperforms
+         * single-price AND 4+-tier alternatives (FieldPulse / Jobber /
+         * Journal of Business Research). The middle "Most Popular" tier
+         * anchors choice.
+         */}
+        {onTieredChange && (
+          <PricingTiersSubsection
+            tiered={tiered}
+            onTieredChange={onTieredChange}
+            templateCategory={templateCategory}
+          />
         )}
       </fieldset>
 
@@ -2268,5 +2306,201 @@ function BrandKitGroup({
         </div>
       )}
     </fieldset>
+  );
+}
+
+/* ─── BD-2b — Pricing tiers subsection ──────────────────────────────
+ *
+ * Renders the Good/Better/Best toggle + per-tier editor. Pure-presentation;
+ * parent (StyleTab via WizardShell) owns the persisted `tiered` slot.
+ *
+ * Design-system compliance (per CLAUDE.md):
+ *   - Floating-label inputs (label inside the field)
+ *   - Max 2px vertical gap between stacked inputs
+ *   - Help cue (?) at the top of the section, not duplicated per field
+ *
+ * Inputs are plain native fields styled to match the rest of StyleTab's
+ * `.qq-style-input` look; the floating label is rendered with the same
+ * `.float-field` helper class used by FloatField. We inline the wrapper
+ * here rather than importing the wizard's <FloatField> so the
+ * `qq-style-*` rhythm stays consistent.
+ */
+function PricingTiersSubsection({
+  tiered, onTieredChange, templateCategory,
+}: {
+  tiered?: TemplateTiered;
+  onTieredChange: (next: TemplateTiered | undefined) => void;
+  templateCategory?: string;
+}) {
+  const categoryDefaultOn = shouldDefaultTiered(templateCategory);
+  // Resolved enabled state — explicit value wins, else the category default.
+  const enabled = typeof tiered?.enabled === 'boolean' ? tiered.enabled : categoryDefaultOn;
+  // Resolved tier list — explicit list wins, else the default 3.
+  const tiers: TemplateTier[] = tiered?.tiers && tiered.tiers.length > 0
+    ? tiered.tiers
+    : [...DEFAULT_TIERS];
+
+  const setEnabled = (next: boolean) => {
+    onTieredChange({ enabled: next, tiers });
+  };
+  const setTier = (idx: number, patch: Partial<TemplateTier>) => {
+    const nextTiers = tiers.map((t, i) => i === idx ? { ...t, ...patch } : t);
+    onTieredChange({ enabled, tiers: nextTiers });
+  };
+
+  return (
+    <div
+      data-testid="style-pricing-tiers"
+      style={{
+        marginTop: 16, paddingTop: 12,
+        borderTop: '1px solid var(--qq-style-divider, rgba(15,23,42,0.06))',
+      }}
+    >
+      <label className="qq-style-label">
+        <span className="qq-style-label-text">
+          Pricing tiers
+          <InfoCue
+            testid="style-pricing-tiers-info"
+            text="Good/Better/Best presentation outperforms single-price AND 4+-tier alternatives. Auto-enabled for scope-spectrum work (roofing, windows, HVAC, landscaping); off for flat-fee categories like cleaning."
+          />
+        </span>
+      </label>
+      <label
+        className="qq-style-label"
+        style={{
+          marginTop: 2, display: 'flex', alignItems: 'center',
+          gap: 8, cursor: 'pointer',
+        }}
+      >
+        <input
+          type="checkbox"
+          checked={enabled}
+          onChange={(e) => setEnabled(e.target.checked)}
+          data-testid="style-pricing-tiers-enabled"
+          aria-label="Show Good / Better / Best pricing tiers"
+        />
+        <span className="qq-style-label-text" style={{ margin: 0 }}>
+          Show Good / Better / Best tiers
+        </span>
+      </label>
+      <p
+        style={{
+          fontSize: 11, color: 'var(--qq-style-hint, #64748b)',
+          margin: '6px 0 8px', lineHeight: 1.4,
+        }}
+      >
+        {categoryDefaultOn
+          ? 'Recommended for this category — scope-spectrum work converts better with 3 price points.'
+          : 'Flat-fee category — single price is the safer default.'}
+      </p>
+
+      {enabled && (
+        <div
+          data-testid="style-pricing-tiers-editor"
+          style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 }}
+        >
+          {tiers.map((tier, idx) => (
+            <TierRow
+              key={idx}
+              idx={idx}
+              tier={tier}
+              onPatch={(patch) => setTier(idx, patch)}
+            />
+          ))}
+          <p
+            style={{
+              fontSize: 11, color: 'var(--qq-style-hint, #64748b)',
+              margin: '4px 0 0', lineHeight: 1.4,
+            }}
+          >
+            Each tier price = base quote × multiplier, rounded to $25.
+            Mark exactly one tier "Most Popular" so it anchors choice.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** BD-2b — single tier row (multiplier + label + tagline + popular toggle). */
+function TierRow({
+  idx, tier, onPatch,
+}: {
+  idx: number;
+  tier: TemplateTier;
+  onPatch: (patch: Partial<TemplateTier>) => void;
+}) {
+  const labelId = `qq-tier-${idx}-label`;
+  const multId = `qq-tier-${idx}-mult`;
+  const taglineId = `qq-tier-${idx}-tagline`;
+  return (
+    <div
+      data-testid={`style-pricing-tier-${idx}`}
+      style={{
+        display: 'flex', flexDirection: 'column', gap: 2,
+        padding: 8,
+        background: '#fafbfc',
+        borderRadius: 8,
+        border: `1px solid ${p.colors.borderLight}`,
+      }}
+    >
+      <div style={{ display: 'flex', gap: 2 }}>
+        <FloatField label="Tier name" htmlFor={labelId}>
+          <input
+            id={labelId}
+            data-testid={`style-pricing-tier-${idx}-label`}
+            className="premium-input"
+            placeholder=" "
+            value={tier.label}
+            onChange={(e) => onPatch({ label: e.target.value })}
+          />
+        </FloatField>
+        <FloatField label="Multiplier" htmlFor={multId}>
+          <input
+            id={multId}
+            data-testid={`style-pricing-tier-${idx}-multiplier`}
+            className="premium-input"
+            type="number"
+            step={0.05}
+            min={0.1}
+            max={5}
+            placeholder=" "
+            value={tier.multiplier}
+            onChange={(e) => {
+              const v = parseFloat(e.target.value);
+              if (Number.isFinite(v) && v > 0) onPatch({ multiplier: v });
+            }}
+          />
+        </FloatField>
+      </div>
+      <FloatField label="Tagline" htmlFor={taglineId}>
+        <input
+          id={taglineId}
+          data-testid={`style-pricing-tier-${idx}-tagline`}
+          className="premium-input"
+          placeholder=" "
+          value={tier.tagline}
+          onChange={(e) => onPatch({ tagline: e.target.value })}
+        />
+      </FloatField>
+      <label
+        className="qq-style-label"
+        style={{
+          marginTop: 2, display: 'flex', alignItems: 'center',
+          gap: 6, cursor: 'pointer',
+        }}
+      >
+        <input
+          type="checkbox"
+          checked={tier.mostPopular === true}
+          onChange={(e) => onPatch({ mostPopular: e.target.checked })}
+          data-testid={`style-pricing-tier-${idx}-popular`}
+          aria-label={`Mark ${tier.label} as Most Popular`}
+        />
+        <span className="qq-style-label-text" style={{ margin: 0 }}>
+          Most Popular
+        </span>
+      </label>
+    </div>
   );
 }

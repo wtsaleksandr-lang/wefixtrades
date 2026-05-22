@@ -12,6 +12,7 @@ import type {
   AdvStyle, AdvFontFamily, AdvFieldStyle, AdvWidgetWidth,
   AdvLogoPlacement, AdvLogoSize,
   AdvHeadingWeight, AdvBodyWeight, AdvFontSize,
+  TemplateTiered, BusinessProfile,
 } from '@shared/templatePresets';
 import { DEFAULT_ADV_STYLE } from '@shared/templatePresets';
 
@@ -241,6 +242,12 @@ export interface ShellSettings {
    * disable the Deposit fieldset when no Connect account exists.
    */
   stripeConnected?: boolean;
+  /**
+   * BD-2b — business profile fields driving the inline trust strip + trust
+   * block under the CTA. Optional everywhere; the renderer hides the trust
+   * UI entirely when the object is undefined OR every field is empty.
+   */
+  businessProfile?: BusinessProfile;
 }
 
 /**
@@ -563,6 +570,14 @@ export interface ShellState {
    * persists across template loads.
    */
   stepLayout?: 'stepper' | 'single';
+  /**
+   * BD-2b — Good/Better/Best 3-tier pricing override. When undefined, the
+   * renderer derives the effective shape from the template's category
+   * (scope-spectrum default-on; flat-fee default-off). When set, the explicit
+   * value wins. Stored at the shell level so the StyleTab toggle persists
+   * across template loads.
+   */
+  tiered?: TemplateTiered;
 }
 
 export const INITIAL_SHELL_STATE: ShellState = {

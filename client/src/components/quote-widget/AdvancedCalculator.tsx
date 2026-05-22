@@ -18,6 +18,7 @@ import {
   type AdvBgGradientDirection, type AdvResultEmphasis, type AdvResultBorder,
   type AdvStepTransition,
   type TemplateStep,
+  resolveTieredConfig,
 } from '@shared/templatePresets';
 import { eff } from './designTokens';
 import { resolveWidgetTheme, type WidgetTheme } from './widgetThemes';
@@ -32,6 +33,10 @@ import { getQuoteQuickIcon } from '@/data/quoteQuickIcons';
 import CategoryIcon from './CategoryIcon';
 import CalculatorStepper, { StepperControls } from './CalculatorStepper';
 import ContactStep from './ContactStep';
+// BD-2b — Good/Better/Best tier selector + inline trust signals.
+import TierSelector from './TierSelector';
+import TrustStripHeader from './TrustStripHeader';
+import TrustBlockUnderCTA from './TrustBlockUnderCTA';
 
 function DefaultLogoIcon({
   name, accent, radius,
@@ -245,6 +250,16 @@ export interface AdvancedConfig {
    * currency). Absent slot → pre-H6 en-US defaults.
    */
   numberFormat?: AdvNumberFormat;
+  /**
+   * BD-2b — Good/Better/Best tier config. Absent → derived from `category`
+   * via `resolveTieredConfig()` (scope-spectrum categories default-on).
+   */
+  tiered?: import('@shared/templatePresets').TemplateTiered;
+  /**
+   * BD-2b — business profile (license #, Google rating, insured amount,
+   * etc.). Absent → trust strip + trust block render `null`.
+   */
+  businessProfile?: import('@shared/templatePresets').BusinessProfile;
 }
 
 interface Props {
@@ -566,7 +581,7 @@ const groupHeaderStyle = (c: WidgetTheme): React.CSSProperties => ({
  * indicator on iOS Safari + PWA installs.
  */
 function StickyActionBar({
-  theme, fontFamily, calculatorId, microSummary, children,
+  theme, fontFamily, calculatorId, microSummary, children, trustBlock,
 }: {
   theme: WidgetTheme;
   fontFamily: string;
@@ -576,6 +591,12 @@ function StickyActionBar({
   microSummary: string;
   /** The full unfolded action buttons (rendered when expanded). */
   children: React.ReactNode;
+  /**
+   * BD-2b — optional trust block (license #, insured-up-to, icon row) rendered
+   * directly beneath the action buttons inside the EXPANDED state. Folded
+   * state stays clean (micro-summary only). Pass `null` / omit to hide.
+   */
+  trustBlock?: React.ReactNode;
 }) {
   const storageKey = calculatorId !== undefined
     ? `qq-foot-fold-${calculatorId}` : null;
@@ -661,29 +682,36 @@ function StickyActionBar({
           </span>
         </button>
       ) : (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{ flex: 1, minWidth: 0 }}>{children}</div>
-          <button
-            type="button"
-            data-testid="advanced-sticky-bottom-fold"
-            onClick={() => setFolded(true)}
-            aria-expanded="true"
-            aria-label="Hide actions"
-            style={{
-              flexShrink: 0,
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              width: 28, height: 28, borderRadius: 6,
-              background: 'transparent', border: 'none', cursor: 'pointer',
-              color: theme.textMuted,
-            }}
-          >
-            {/* chevron-down */}
-            <svg width={14} height={14} viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" strokeWidth={2.4}
-              strokeLinecap="round" strokeLinejoin="round">
-              <path d="M6 9l6 6 6-6" />
-            </svg>
-          </button>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>{children}</div>
+            <button
+              type="button"
+              data-testid="advanced-sticky-bottom-fold"
+              onClick={() => setFolded(true)}
+              aria-expanded="true"
+              aria-label="Hide actions"
+              style={{
+                flexShrink: 0,
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                width: 28, height: 28, borderRadius: 6,
+                background: 'transparent', border: 'none', cursor: 'pointer',
+                color: theme.textMuted,
+              }}
+            >
+              {/* chevron-down */}
+              <svg width={14} height={14} viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth={2.4}
+                strokeLinecap="round" strokeLinejoin="round">
+                <path d="M6 9l6 6 6-6" />
+              </svg>
+            </button>
+          </div>
+          {/* BD-2b — optional trust block (license #, insured-up-to, icon row)
+              renders only in the expanded state and only when the business
+              profile carries the relevant fields. Folded micro-summary stays
+              clean. */}
+          {trustBlock}
         </div>
       )}
     </div>
@@ -825,6 +853,31 @@ export default function AdvancedCalculator({
   const [leadName, setLeadName] = useState('');
   const [leadEmail, setLeadEmail] = useState('');
 
+  // BD-2b — Good/Better/Best tier selection. Resolved from the explicit
+  // `advanced.tiered` slot if present, else derived from the category bucket
+  // (scope-spectrum categories default-on; flat-fee default-off).
+  // `selectedTierIndex` defaults to the middle tier (Most Popular) when one
+  // is flagged, else to index 0.
+  const tieredConfig = useMemo(
+    () => resolveTieredConfig(advanced.tiered, advanced.category),
+    [advanced.tiered, advanced.category],
+  );
+  const defaultTierIndex = useMemo(() => {
+    if (!tieredConfig.enabled) return 0;
+    const popularIdx = tieredConfig.tiers.findIndex((t) => t.mostPopular === true);
+    return popularIdx >= 0 ? popularIdx : Math.floor(tieredConfig.tiers.length / 2);
+  }, [tieredConfig.enabled, tieredConfig.tiers]);
+  const [selectedTierIndex, setSelectedTierIndex] = useState<number>(defaultTierIndex);
+  // Keep the selected index in range when the tier list itself changes
+  // (template swap, owner edits the tier shape in StyleTab).
+  useEffect(() => {
+    setSelectedTierIndex((idx) => {
+      if (!tieredConfig.enabled) return 0;
+      if (idx < 0 || idx >= tieredConfig.tiers.length) return defaultTierIndex;
+      return idx;
+    });
+  }, [tieredConfig.enabled, tieredConfig.tiers, defaultTierIndex]);
+
   // Keep answers in sync when the field set changes — a template being
   // applied or fields edited in the builder. A field missing an answer (or
   // holding one no longer valid for its options, e.g. after switching
@@ -884,6 +937,21 @@ export default function AdvancedCalculator({
   // smooth-transitions to each new value as sliders / selects change.
   // Respects prefers-reduced-motion (returns the target value verbatim).
   const animatedHeadline = useCountUp(headline);
+  // BD-2b — effective quote value plumbed to ContactStep / micro-summary /
+  // lead-form payload. When tiers are off, this is identical to the base
+  // headline (back-compat). When tiers are on, it's the SELECTED tier's
+  // price (base × multiplier, rounded to $25 — same rounding TierSelector
+  // applies to each card so the values match exactly).
+  const effectiveQuoteValue = useMemo(() => {
+    if (!tieredConfig.enabled) return headline;
+    const tier = tieredConfig.tiers[selectedTierIndex] ?? tieredConfig.tiers[0];
+    if (!tier) return headline;
+    const raw = headline * tier.multiplier;
+    return Math.max(0, Math.round(raw / 25) * 25);
+  }, [tieredConfig.enabled, tieredConfig.tiers, selectedTierIndex, headline]);
+  const selectedTierLabel = tieredConfig.enabled
+    ? (tieredConfig.tiers[selectedTierIndex]?.label ?? tieredConfig.tiers[0]?.label ?? null)
+    : null;
   const results = advanced.results || {};
   const showBreakdown = results.show_breakdown !== false;
   const resultHeading = (results.heading || '').trim() || resultCalc?.name || 'Total';
@@ -1293,6 +1361,16 @@ export default function AdvancedCalculator({
           .${gridId}[data-layout="multi-column"] .${gridId}-fields > * { grid-column: auto; }
         }
       `}</style>
+      {/* BD-2b — trust strip. Renders BELOW the title bar and ABOVE the
+          stepper progress indicator. Shows aggregate Google rating +
+          Licensed/Insured pill + years-in-business pill when the business
+          profile carries those fields. When the profile is undefined or
+          all fields are empty, returns null (no placeholder copy). */}
+      <TrustStripHeader
+        profile={advanced.businessProfile}
+        theme={c}
+        fontFamily={fontFamily}
+      />
       {/* BD-2a — stepper progress indicator. Rendered when the multi-step
           renderer is active (default for every template; owner can opt to
           single-form via Style tab → Step layout). The indicator sits
@@ -1377,13 +1455,21 @@ export default function AdvancedCalculator({
               calculatorId={analyticsCalcId}
               bookingUrl={bookingUrl}
               ownerEmail={ownerEmail}
-              quoteHeadline={
-                bsResultPanel?.range_mode?.enabled
-                  ? formatResultRange(headline, resultCalc?.format || 'currency',
+              quoteHeadline={(() => {
+                // BD-2b — when tiers are on, the contact-step headline echoes
+                // the selected tier name + price ("Standard — $2,500"). When
+                // tiers are off, it falls back to the single computed value
+                // (legacy behaviour). Range mode still wraps the price when
+                // enabled.
+                const formatted = bsResultPanel?.range_mode?.enabled
+                  ? formatResultRange(effectiveQuoteValue, resultCalc?.format || 'currency',
                       bsResultPanel.range_mode.band_pct ?? 8, advanced.numberFormat)
-                  : formatResult(headline, resultCalc?.format || 'currency', advanced.numberFormat)
-              }
-              quoteAmount={typeof headline === 'number' ? headline : undefined}
+                  : formatResult(effectiveQuoteValue, resultCalc?.format || 'currency', advanced.numberFormat);
+                return selectedTierLabel
+                  ? `${selectedTierLabel} — ${formatted}`
+                  : formatted;
+              })()}
+              quoteAmount={typeof effectiveQuoteValue === 'number' ? effectiveQuoteValue : undefined}
               answers={answers as Record<string, unknown>}
               initialName={leadName}
               initialEmail={leadEmail}
@@ -1456,41 +1542,66 @@ export default function AdvancedCalculator({
             >
               {resultHeading}
             </p>
-            <p data-testid="advanced-result" style={{
-              position: 'relative', zIndex: 1,
-              // W-AO-6c — emphasis tokens drive font-size + weight overrides.
-              // Falls back to the legacy clamp(26-34) / weight 800 when the
-              // Brand Studio `resultPanel.emphasis` is unset or 'normal'.
-              fontSize: rpHeadlineFontSize,
-              fontWeight: rpHeadlineWeight,
-              // Accent override only affects the headline value colour when
-              // an accentOverride is explicitly set (otherwise resultText
-              // wins so the contrast logic stays correct on tinted panels).
-              color: bsResultPanel?.accentOverride ? rpAccent : c.resultText,
-              margin: 0, paddingTop: 0,
-              fontFamily: eff.fontMono,
-              lineHeight: 1.18,
-              letterSpacing: '-0.015em',
-              wordBreak: 'break-word',
-              overflowWrap: 'anywhere',
-            }}>
-              {/* W-BB-3 — range-pricing display mode.
-                  BD-2a — promoted from Pro/Brand-Studio-gated to a free-tier
-                  default. The category-derivation helper sets
-                  `range_mode.enabled = true` for every template that doesn't
-                  ship its own `style:` block; owners can opt out per
-                  template via Style tab → Brand Studio → Range mode. Falls
-                  through to the legacy single-value format when explicitly
-                  disabled OR when the resolved style carries no range_mode. */}
-              {effectiveRangeMode?.enabled
-                ? formatResultRange(
-                    animatedHeadline,
-                    resultCalc?.format || 'currency',
-                    effectiveRangeMode.band_pct ?? 8,
-                    advanced.numberFormat,
-                  )
-                : formatResult(animatedHeadline, resultCalc?.format || 'currency', advanced.numberFormat)}
-            </p>
+            {/* BD-2b — when Good/Better/Best tiers are enabled the headline
+                slot is REPLACED by the 3-card tier selector. The breakdown
+                rows below still show the base-tier components so the user
+                can see what's in each tier. When tiers are off, the legacy
+                single-value headline rendering is preserved verbatim. */}
+            {tieredConfig.enabled ? (
+              <TierSelector
+                tiers={tieredConfig.tiers}
+                baseQuote={animatedHeadline}
+                selectedIndex={selectedTierIndex}
+                onSelect={setSelectedTierIndex}
+                theme={c}
+                fontFamily={fontFamily}
+                radiusPx={radiusInnerPx}
+                formatPrice={(value) =>
+                  effectiveRangeMode?.enabled
+                    ? formatResultRange(
+                        value, resultCalc?.format || 'currency',
+                        effectiveRangeMode.band_pct ?? 8, advanced.numberFormat,
+                      )
+                    : formatResult(value, resultCalc?.format || 'currency', advanced.numberFormat)
+                }
+              />
+            ) : (
+              <p data-testid="advanced-result" style={{
+                position: 'relative', zIndex: 1,
+                // W-AO-6c — emphasis tokens drive font-size + weight overrides.
+                // Falls back to the legacy clamp(26-34) / weight 800 when the
+                // Brand Studio `resultPanel.emphasis` is unset or 'normal'.
+                fontSize: rpHeadlineFontSize,
+                fontWeight: rpHeadlineWeight,
+                // Accent override only affects the headline value colour when
+                // an accentOverride is explicitly set (otherwise resultText
+                // wins so the contrast logic stays correct on tinted panels).
+                color: bsResultPanel?.accentOverride ? rpAccent : c.resultText,
+                margin: 0, paddingTop: 0,
+                fontFamily: eff.fontMono,
+                lineHeight: 1.18,
+                letterSpacing: '-0.015em',
+                wordBreak: 'break-word',
+                overflowWrap: 'anywhere',
+              }}>
+                {/* W-BB-3 — range-pricing display mode.
+                    BD-2a — promoted from Pro/Brand-Studio-gated to a free-tier
+                    default. The category-derivation helper sets
+                    `range_mode.enabled = true` for every template that doesn't
+                    ship its own `style:` block; owners can opt out per
+                    template via Style tab → Brand Studio → Range mode. Falls
+                    through to the legacy single-value format when explicitly
+                    disabled OR when the resolved style carries no range_mode. */}
+                {effectiveRangeMode?.enabled
+                  ? formatResultRange(
+                      animatedHeadline,
+                      resultCalc?.format || 'currency',
+                      effectiveRangeMode.band_pct ?? 8,
+                      advanced.numberFormat,
+                    )
+                  : formatResult(animatedHeadline, resultCalc?.format || 'currency', advanced.numberFormat)}
+              </p>
+            )}
             {/* Wave H4 — optional caption beneath the headline value. */}
             {resultCalc?.caption && resultCalc.caption.trim() !== '' && (
               <p
@@ -1656,13 +1767,18 @@ export default function AdvancedCalculator({
           backed by `qq-foot-fold-${calculatorId}` in localStorage. */}
       {useStepper && (() => {
         const microSummary = (() => {
+          // BD-2b — micro-summary uses the EFFECTIVE quote value (tier-adjusted
+          // when tiers are on, legacy headline otherwise) so a folded sticky bar
+          // still shows the price the customer is committing to.
           const fmt = effectiveRangeMode?.enabled
             ? formatResultRange(
-                headline, resultCalc?.format || 'currency',
+                effectiveQuoteValue, resultCalc?.format || 'currency',
                 effectiveRangeMode.band_pct ?? 8, advanced.numberFormat,
               )
-            : formatResult(headline, resultCalc?.format || 'currency', advanced.numberFormat);
-          return `Est. ${fmt}`;
+            : formatResult(effectiveQuoteValue, resultCalc?.format || 'currency', advanced.numberFormat);
+          return selectedTierLabel
+            ? `Est. ${fmt} · ${selectedTierLabel}`
+            : `Est. ${fmt}`;
         })();
         return (
           <StickyActionBar
@@ -1670,6 +1786,17 @@ export default function AdvancedCalculator({
             fontFamily={fontFamily}
             calculatorId={calculatorId}
             microSummary={microSummary}
+            // BD-2b — inline trust signals beneath the action row (license #,
+            // insured-up-to, icon row). Renders null when the business
+            // profile is empty so the sticky bar stays compact.
+            trustBlock={
+              <TrustBlockUnderCTA
+                profile={advanced.businessProfile}
+                theme={c}
+                fontFamily={fontFamily}
+                testid="trust-block-sticky"
+              />
+            }
           >
             <StepperControls
               current={stepIdx}
@@ -1677,7 +1804,13 @@ export default function AdvancedCalculator({
               theme={c}
               radiusPx={radiusInnerPx}
               fontFamily={fontFamily}
-              nextLabel={stepIdx === dataSteps.length - 1 ? 'See my quote' : 'Continue'}
+              nextLabel={
+                stepIdx === dataSteps.length - 1
+                  ? 'See my quote'
+                  : selectedTierLabel
+                    ? `Continue with ${selectedTierLabel}`
+                    : 'Continue'
+              }
               onBack={() => setStepIdx((i) => Math.max(0, i - 1))}
               onNext={() => setStepIdx((i) => Math.min(stepperList.length - 1, i + 1))}
               hideNextOnFinal

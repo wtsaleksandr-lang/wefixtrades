@@ -33,6 +33,7 @@ import {
   type ShellBufferMinutes,
   type ShellWorkingDay,
 } from './types';
+import type { BusinessProfile } from '@shared/templatePresets';
 import FloatField from './FloatField';
 import InfoCue from './InfoCue';
 
@@ -198,6 +199,12 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
           </p>
         )}
       </fieldset>
+
+      {/* ── BD-2b — Business profile (trust signals) ───────────────── */}
+      <BusinessProfileSection
+        profile={settings.businessProfile}
+        onChange={(next) => patch({ businessProfile: next })}
+      />
 
       {/* ── Pricing model ───────────────────────────────────────── */}
       {/* W-AO-7 — restored section legend (top-left + InfoCue) per the
@@ -1342,4 +1349,172 @@ function numOrUndef(raw: string): number | undefined {
   if (raw.trim() === '') return undefined;
   const n = Number(raw);
   return Number.isFinite(n) ? n : undefined;
+}
+
+/* ─── BD-2b — Business profile section ───────────────────────────────
+ *
+ * Surfaces the inline-trust fields driving the widget's TrustStripHeader
+ * (above-the-fold Google rating + Licensed/Insured pill) and the
+ * TrustBlockUnderCTA (license #, insured-up-to, no-obligation microcopy).
+ *
+ * Every field is optional. The renderer hides the trust UI entirely when
+ * the whole object is undefined or all fields are empty — so a fresh
+ * wizard state still produces a clean widget.
+ *
+ * Layout follows the same `qq-style-group` fieldset rhythm + FloatField
+ * pattern as the other Settings sections, with `qq-settings-row` flex
+ * helpers to pair two short inputs side-by-side (rating + review count,
+ * years + service area).
+ */
+function BusinessProfileSection({
+  profile, onChange,
+}: {
+  profile?: BusinessProfile;
+  onChange: (next: BusinessProfile | undefined) => void;
+}) {
+  const p0 = profile ?? {};
+  const patch = (next: Partial<BusinessProfile>) => {
+    const merged: BusinessProfile = { ...p0, ...next };
+    // Strip empty strings + non-finite numbers so the renderer's
+    // "is any field populated?" check stays accurate.
+    const cleaned: BusinessProfile = {};
+    if (typeof merged.googleRating === 'number' && Number.isFinite(merged.googleRating) && merged.googleRating > 0) {
+      cleaned.googleRating = merged.googleRating;
+    }
+    if (typeof merged.googleReviewCount === 'number' && Number.isFinite(merged.googleReviewCount) && merged.googleReviewCount > 0) {
+      cleaned.googleReviewCount = merged.googleReviewCount;
+    }
+    if (typeof merged.yearsInBusiness === 'number' && Number.isFinite(merged.yearsInBusiness) && merged.yearsInBusiness > 0) {
+      cleaned.yearsInBusiness = merged.yearsInBusiness;
+    }
+    if (merged.licenseNumber && merged.licenseNumber.trim() !== '') {
+      cleaned.licenseNumber = merged.licenseNumber.trim();
+    }
+    if (merged.insuredAmount && merged.insuredAmount.trim() !== '') {
+      cleaned.insuredAmount = merged.insuredAmount.trim();
+    }
+    if (merged.serviceArea && merged.serviceArea.trim() !== '') {
+      cleaned.serviceArea = merged.serviceArea.trim();
+    }
+    if (merged.bbbRating && merged.bbbRating.trim() !== '') {
+      cleaned.bbbRating = merged.bbbRating.trim();
+    }
+    onChange(Object.keys(cleaned).length === 0 ? undefined : cleaned);
+  };
+
+  return (
+    <fieldset className="qq-style-group" data-testid="settings-group-business-profile">
+      <legend className="qq-style-legend">
+        Business profile
+        <InfoCue
+          testid="settings-section-business-profile"
+          text="Drives inline trust signals on the widget: aggregate Google rating in the header strip, license # and insured-up-to below the CTA. Empty fields are hidden — no placeholder copy."
+        />
+      </legend>
+
+      <div className="qq-settings-row" data-testid="settings-bp-row-rating">
+        <FloatField label="Google rating (0-5)" htmlFor="qq-settings-bp-rating">
+          <input
+            id="qq-settings-bp-rating"
+            type="number"
+            min={0}
+            max={5}
+            step={0.1}
+            className="premium-input"
+            placeholder=" "
+            value={typeof p0.googleRating === 'number' ? p0.googleRating : ''}
+            onChange={(e) => patch({ googleRating: numOrUndef(e.target.value) })}
+            data-testid="settings-input-bp-google-rating"
+          />
+        </FloatField>
+        <FloatField label="Review count" htmlFor="qq-settings-bp-reviews">
+          <input
+            id="qq-settings-bp-reviews"
+            type="number"
+            min={0}
+            step={1}
+            className="premium-input"
+            placeholder=" "
+            value={typeof p0.googleReviewCount === 'number' ? p0.googleReviewCount : ''}
+            onChange={(e) => patch({ googleReviewCount: numOrUndef(e.target.value) })}
+            data-testid="settings-input-bp-review-count"
+          />
+        </FloatField>
+      </div>
+
+      <FloatField label="License number" htmlFor="qq-settings-bp-license">
+        <input
+          id="qq-settings-bp-license"
+          type="text"
+          className="premium-input"
+          placeholder=" "
+          value={p0.licenseNumber ?? ''}
+          onChange={(e) => patch({ licenseNumber: e.target.value })}
+          data-testid="settings-input-bp-license"
+        />
+      </FloatField>
+
+      <FloatField label="Insured up to (e.g. $2M)" htmlFor="qq-settings-bp-insured">
+        <input
+          id="qq-settings-bp-insured"
+          type="text"
+          className="premium-input"
+          placeholder=" "
+          value={p0.insuredAmount ?? ''}
+          onChange={(e) => patch({ insuredAmount: e.target.value })}
+          data-testid="settings-input-bp-insured"
+        />
+      </FloatField>
+
+      <div className="qq-settings-row" data-testid="settings-bp-row-years">
+        <FloatField label="Years in business" htmlFor="qq-settings-bp-years">
+          <input
+            id="qq-settings-bp-years"
+            type="number"
+            min={0}
+            step={1}
+            className="premium-input"
+            placeholder=" "
+            value={typeof p0.yearsInBusiness === 'number' ? p0.yearsInBusiness : ''}
+            onChange={(e) => patch({ yearsInBusiness: numOrUndef(e.target.value) })}
+            data-testid="settings-input-bp-years"
+          />
+        </FloatField>
+        <FloatField label="Service area" htmlFor="qq-settings-bp-area">
+          <input
+            id="qq-settings-bp-area"
+            type="text"
+            className="premium-input"
+            placeholder=" "
+            value={p0.serviceArea ?? ''}
+            onChange={(e) => patch({ serviceArea: e.target.value })}
+            data-testid="settings-input-bp-area"
+          />
+        </FloatField>
+      </div>
+
+      <FloatField label="BBB rating (e.g. A+)" htmlFor="qq-settings-bp-bbb">
+        <input
+          id="qq-settings-bp-bbb"
+          type="text"
+          className="premium-input"
+          placeholder=" "
+          value={p0.bbbRating ?? ''}
+          onChange={(e) => patch({ bbbRating: e.target.value })}
+          data-testid="settings-input-bp-bbb"
+        />
+      </FloatField>
+
+      <p
+        style={{
+          fontSize: 11, color: p.colors.subtle, margin: '6px 0 0',
+          lineHeight: 1.4,
+        }}
+      >
+        These fields drive the inline trust signals at the top of the widget
+        and below the CTA. Leave any field blank to hide that signal —
+        nothing renders as a placeholder.
+      </p>
+    </fieldset>
+  );
 }
