@@ -556,6 +556,13 @@ export interface ShellState {
   /** Wave J — business logo (data URL or null). Persisted in shell state and
    *  surfaced into save-draft payload alongside business name. */
   logo?: string | null;
+  /**
+   * BD-2a — owner override for the multi-step renderer. `'stepper'` (default)
+   * renders the new step-by-step layout; `'single'` reverts to the legacy
+   * single-form layout. Stored at the shell level so the Style tab toggle
+   * persists across template loads.
+   */
+  stepLayout?: 'stepper' | 'single';
 }
 
 export const INITIAL_SHELL_STATE: ShellState = {

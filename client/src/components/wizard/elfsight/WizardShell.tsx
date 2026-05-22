@@ -352,6 +352,11 @@ export default function WizardShell({ embed = false }: Props) {
     setState((s) => ({ ...s, settings: next }));
   }, []);
 
+  /** BD-2a — owner-level override for the multi-step renderer. */
+  const setStepLayout = useCallback((next: 'stepper' | 'single') => {
+    setState((s) => ({ ...s, stepLayout: next }));
+  }, []);
+
   // W-AO-5 — `setResultCalc` was removed alongside the Build > Headline
   // result dropdown that consumed it. The Primary/Secondary segmented
   // control inside each CalculationRow already mutates
@@ -693,6 +698,8 @@ export default function WizardShell({ embed = false }: Props) {
                       logo={state.logo ?? null}
                       onLogoChange={setLogo}
                       planTier={planTier}
+                      stepLayout={state.stepLayout}
+                      onStepLayoutChange={setStepLayout}
                     />
                   ) : activeTab === 'settings' ? (
                     <SettingsTab
@@ -776,6 +783,7 @@ export default function WizardShell({ embed = false }: Props) {
                   resultCalcId={state.resultCalcId}
                   style={state.style}
                   settings={state.settings}
+                  stepLayout={state.stepLayout}
                   onRemoveField={removeField}
                   onAddField={addField}
                   /* Wave P — when the Install tab is active, render the

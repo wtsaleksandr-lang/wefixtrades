@@ -17,6 +17,7 @@ import {
   type AdvLogoPlacement, type AdvLogoSize, type AdvFontSize,
   type AdvBgGradientDirection, type AdvResultEmphasis, type AdvResultBorder,
   type AdvStepTransition,
+  type TemplateStep,
 } from '@shared/templatePresets';
 import { eff } from './designTokens';
 import { resolveWidgetTheme, type WidgetTheme } from './widgetThemes';
@@ -27,6 +28,10 @@ import { useCalculatorAnalytics } from './useCalculatorAnalytics';
 // Explicit named imports keep Vite's tree-shaker happy — DO NOT switch to
 // `import * as LucideIcons from 'lucide-react'` (pulls the full set into the bundle).
 import { getQuoteQuickIcon } from '@/data/quoteQuickIcons';
+// BD-2a — multi-step renderer, header category icon, final-step contact capture.
+import CategoryIcon from './CategoryIcon';
+import CalculatorStepper, { StepperControls } from './CalculatorStepper';
+import ContactStep from './ContactStep';
 
 function DefaultLogoIcon({
   name, accent, radius,
@@ -211,6 +216,20 @@ export interface AdvancedConfig {
    */
   defaultIcon?: string;
   /**
+   * BD-2a / BD-1 — small category icon name rendered LEFT of the step
+   * title (16–20px). Optional override; absent → derived from `category`.
+   */
+  categoryIcon?: string;
+  /** BD-2a — derived/explicit category bucket. Optional & back-compat. */
+  category?: string;
+  /** BD-2a — explicit step grouping for the multi-step renderer. */
+  steps?: TemplateStep[];
+  /**
+   * BD-2a — owner override: `'single'` reverts to the legacy single-form
+   * layout; default behaviour (absent or `'stepper'`) renders multi-step.
+   */
+  stepLayout?: 'stepper' | 'single';
+  /**
    * Real layout: `single-column | two-column | multi-column`. Legacy values
    * (`single_page | two_column | multi_step`) are still accepted on read and
    * coerced via `normalizeLayout()`.
@@ -252,6 +271,18 @@ interface Props {
    * fires deterministically per mount.
    */
   calculatorId?: string | number;
+  /**
+   * BD-2a — booking URL plumbed from the business profile (Calendly link,
+   * embedded scheduler URL, etc). Used by the final-step ContactStep's
+   * hard CTA ("Book a consultation"). When absent, the hard CTA falls back
+   * to a mailto: link via `ownerEmail` or hides entirely.
+   */
+  bookingUrl?: string;
+  /**
+   * BD-2a — owner email plumbed from the calculator row. Used as the
+   * mailto: fallback for the hard CTA when no `bookingUrl` is configured.
+   */
+  ownerEmail?: string;
 }
 
 /** W-AO-6c — Brand Studio is unlocked on Pro / Business (Starter is the
@@ -516,7 +547,7 @@ const groupHeaderStyle = (c: WidgetTheme): React.CSSProperties => ({
 
 export default function AdvancedCalculator({
   businessName, logoUrl, advanced, accentColor, editableTitle = false,
-  planTier, calculatorId,
+  planTier, calculatorId, bookingUrl, ownerEmail,
 }: Props) {
   // W-AO-6c — Brand Studio gate. When the owner isn't on Pro+ we IGNORE
   // every Brand Studio field even if it's somehow persisted on the row.
@@ -532,6 +563,17 @@ export default function AdvancedCalculator({
   const bsBgImageUrl = brandStudioUnlocked ? bs.bgImageUrl : undefined;
   const bsBgImageTint = clampTint(brandStudioUnlocked ? bs.bgImageTint : undefined);
   const bsResultPanel = brandStudioUnlocked ? bs.resultPanel : undefined;
+  /**
+   * BD-2a — range-pricing as default. The `range_mode` slot lives on
+   * `style.resultPanel` (alongside the rest of the result-panel overrides),
+   * but unlike the rest of Brand Studio it ISN'T Pro-gated — every template
+   * gets it on by default via `deriveStyleFromCategory` so the headline reads
+   * as `$LOW – $HIGH` out of the box. Owners opt out per template via Style
+   * tab → Brand Studio → Result panel → Range mode (the Brand Studio strip
+   * leaves the `range_mode` sub-key untouched even for free-tier patches).
+   */
+  const effectiveRangeMode = (advanced.style ?? {}).resultPanel?.range_mode
+    ?? bsResultPanel?.range_mode;
   // W-AO-6d — Brand Studio Wave 2 animations. Pro-gated (same matrix as
   // Wave 1 fields). When absent, transitions render instantly — matches
   // pre-AO-6d behaviour, so existing calculators are unchanged.
@@ -709,6 +751,122 @@ export default function AdvancedCalculator({
   );
   const visibleFields = fields.filter((f) => visibleIds.has(f.id));
 
+  /* ─── BD-2a — multi-step renderer ───────────────────────────────
+   *
+   * Goal: ship the biggest CVR lever from BD-0 research (3x conversion vs
+   * single-form, 13.85 % vs 4.53 %). The stepper is ON by default for every
+   * template; owners can opt back to single-form via Style tab → Step layout.
+   *
+   * Step list comes from one of two places:
+   *   1. Explicit `advanced.steps[]` declared on the template config (uses it
+   *      verbatim; any visible field NOT mentioned falls into the first step).
+   *   2. Auto-derived from the field list, grouped as: base/required first,
+   *      modifiers (selects / toggles / multi_select / image_choice) second,
+   *      photos / notes / text third, final = contact capture.
+   *
+   * The renderer never drops a field — every visible field lands in some
+   * step. The contact step is appended AFTER the user-defined / auto-derived
+   * data steps so the final step always shows the quote + ContactStep.
+   */
+  const stepLayoutMode: 'stepper' | 'single' = advanced.stepLayout ?? 'stepper';
+
+  const dataSteps: { id: string; label: string; help?: string; fieldIds: string[] }[] = useMemo(() => {
+    if (stepLayoutMode === 'single') return [];
+
+    // 1) Explicit steps declared on the template.
+    if (Array.isArray(advanced.steps) && advanced.steps.length > 0) {
+      const declared = advanced.steps.map((s) => ({
+        id: s.id, label: s.label, help: s.help,
+        fieldIds: Array.isArray(s.fields) ? s.fields : [],
+      }));
+      // Catch-all — any visible field not mentioned lands in step 0.
+      const mentioned = new Set<string>();
+      declared.forEach((s) => s.fieldIds.forEach((id) => mentioned.add(id)));
+      const orphans = visibleFields
+        .filter((f) => !mentioned.has(f.id) && !mentioned.has(f.name))
+        .map((f) => f.id);
+      if (orphans.length > 0 && declared[0]) {
+        declared[0] = { ...declared[0], fieldIds: [...declared[0].fieldIds, ...orphans] };
+      }
+      return declared;
+    }
+
+    // 2) Auto-derive — base/required → modifiers → photos/notes.
+    if (visibleFields.length <= 1) {
+      // Single field — no point chunking; the contact step still gets
+      // appended below.
+      return [{
+        id: 'main', label: 'Basics',
+        fieldIds: visibleFields.map((f) => f.id),
+      }];
+    }
+    const baseIds: string[] = [];
+    const modIds: string[] = [];
+    const notesIds: string[] = [];
+    for (const f of visibleFields) {
+      const isModifier =
+        f.type === 'select' || f.type === 'radio' || f.type === 'multi_select' ||
+        f.type === 'toggle' || f.type === 'image_choice';
+      const isNotes = f.type === 'text';
+      if (isNotes) notesIds.push(f.id);
+      else if (isModifier && (baseIds.length > 0)) modIds.push(f.id);
+      else baseIds.push(f.id);
+    }
+    const out: { id: string; label: string; help?: string; fieldIds: string[] }[] = [];
+    if (baseIds.length > 0) out.push({ id: 'basics', label: 'Basics', fieldIds: baseIds });
+    if (modIds.length > 0) out.push({ id: 'options', label: 'Options', fieldIds: modIds });
+    if (notesIds.length > 0) out.push({ id: 'details', label: 'Details', fieldIds: notesIds });
+    // Safety — if grouping wiped everything (every field a modifier), put
+    // them all in one step.
+    if (out.length === 0) {
+      out.push({ id: 'main', label: 'Basics', fieldIds: visibleFields.map((f) => f.id) });
+    }
+    return out;
+  }, [stepLayoutMode, advanced.steps, visibleFields]);
+
+  // Contact step is the FINAL step — appended after the data steps when the
+  // stepper is enabled. We treat it as a synthetic step (no field ids) so
+  // the field iteration logic stays untouched.
+  const useStepper = stepLayoutMode !== 'single' && dataSteps.length > 0;
+  const totalSteps = useStepper ? dataSteps.length + 1 : 0;
+  const [stepIdx, setStepIdx] = useState(0);
+  // Clamp the active index whenever the step list shrinks (e.g. visibility
+  // rules hid a field that was on its own step).
+  useEffect(() => {
+    if (useStepper && stepIdx >= totalSteps) setStepIdx(Math.max(0, totalSteps - 1));
+  }, [useStepper, totalSteps, stepIdx]);
+
+  const stepperList = useMemo(() => {
+    if (!useStepper) return [];
+    return [
+      ...dataSteps.map((s) => ({ id: s.id, label: s.label })),
+      { id: 'contact', label: 'Contact' },
+    ];
+  }, [useStepper, dataSteps]);
+
+  const isContactStep = useStepper && stepIdx === dataSteps.length;
+  // Field ids visible on the current data step. Empty when on contact step.
+  const currentStepFieldIds = useMemo(() => {
+    if (!useStepper) return null;
+    if (isContactStep) return new Set<string>();
+    const step = dataSteps[stepIdx];
+    return new Set(step ? step.fieldIds : []);
+  }, [useStepper, isContactStep, dataSteps, stepIdx]);
+
+  // Apply the per-step filter to the visible field list. When the stepper
+  // is off we render the legacy flat field list.
+  const renderedFields = useMemo(() => {
+    if (!useStepper || isContactStep || !currentStepFieldIds) return visibleFields;
+    return visibleFields.filter(
+      (f) => currentStepFieldIds.has(f.id) || currentStepFieldIds.has(f.name),
+    );
+  }, [useStepper, isContactStep, currentStepFieldIds, visibleFields]);
+
+  // BD-2a — persist user-typed contact data across stepper back/forward so
+  // a misclick doesn't wipe what they entered. Reuses leadName / leadEmail
+  // from the legacy result-panel form (state declared further up).
+  const [contactPhone, setContactPhone] = useState('');
+
   // A tinted result panel (coral / dark) drops its border and uses a
   // translucent divider; a white panel keeps the theme border.
   const resultTinted = c.result.toLowerCase() !== c.surface.toLowerCase();
@@ -867,6 +1025,19 @@ export default function AdvancedCalculator({
                 data-component-type="title"
                 style={{ fontSize: '17px', fontWeight: headingWeight, color: c.text, margin: 0, letterSpacing: '-0.01em', display: 'inline-flex', alignItems: 'center', gap: 6 }}
               >
+                {/* BD-2a / BD-1 — small category icon LEFT of the title text.
+                    Sized 16–20px per the research punch list; derived from
+                    `advanced.category` with optional per-template override via
+                    `advanced.categoryIcon`. Brand logo (above, 36×36) keeps
+                    its existing prominence — this is a complementary glyph,
+                    not a replacement. */}
+                <CategoryIcon
+                  category={advanced.category}
+                  override={advanced.categoryIcon}
+                  size={18}
+                  color={c.accent}
+                  strokeWidth={2.25}
+                />
                 {title}
                 {editableTitle && (
                   <span
@@ -956,42 +1127,134 @@ export default function AdvancedCalculator({
           .${gridId}[data-layout="multi-column"] .${gridId}-fields > * { grid-column: auto; }
         }
       `}</style>
+      {/* BD-2a — stepper progress indicator. Rendered when the multi-step
+          renderer is active (default for every template; owner can opt to
+          single-form via Style tab → Step layout). The indicator sits
+          ABOVE the body grid so it spans both columns of `two-column`
+          layouts without disturbing their internal alignment. */}
+      {useStepper && stepperList.length > 1 && (
+        <CalculatorStepper
+          steps={stepperList}
+          current={stepIdx}
+          theme={c}
+          variant="bar"
+        />
+      )}
       <div className={gridId} data-layout={layout} data-testid="advanced-body"
         data-component-name="Body"
         data-component-type="body"
+        data-step-index={useStepper ? stepIdx : 'single'}
+        data-step-mode={useStepper ? (isContactStep ? 'contact' : 'data') : 'single'}
         style={{ background: bodyBackground }}>
-        {/* Inputs */}
-        <div
-          className={`${gridId}-fields`}
-          data-component-name="Fields"
-          data-component-type="fields-section"
-        >
-          {visibleFields.length === 0 && (
-            <p style={{ fontSize: '14px', color: c.textBody, padding: '16px 0' }}>
-              This calculator hasn't been set up yet.
-            </p>
-          )}
-          {visibleFields.map((f) => (
-            <div
-              key={f.id}
-              data-colspan={f.colSpan === 1 ? '1' : '2'}
-              data-component-name={`Field: ${f.label || f.name || f.type}`}
-              data-component-type={`field-${f.type}`}
-              style={{ minWidth: 0 }}
-            >
-              <FieldInput
-                field={f}
-                value={answers[f.name]}
-                accent={accent}
+        {/* Inputs — when the stepper is on the contact step, the fields
+            section is replaced by the ContactStep (rendered further below
+            so it shares the same column as the result panel on two-column
+            layouts). On data steps we render `renderedFields` (the
+            per-step slice of `visibleFields`). When the stepper is off
+            we render the full `visibleFields` list (legacy behaviour). */}
+        {!isContactStep && (
+          <div
+            className={`${gridId}-fields`}
+            data-component-name="Fields"
+            data-component-type="fields-section"
+            data-qq-step-enter
+          >
+            {visibleFields.length === 0 && (
+              <p style={{ fontSize: '14px', color: c.textBody, padding: '16px 0' }}>
+                This calculator hasn't been set up yet.
+              </p>
+            )}
+            {renderedFields.map((f) => (
+              <div
+                key={f.id}
+                data-colspan={f.colSpan === 1 ? '1' : '2'}
+                data-component-name={`Field: ${f.label || f.name || f.type}`}
+                data-component-type={`field-${f.type}`}
+                style={{ minWidth: 0 }}
+              >
+                <FieldInput
+                  field={f}
+                  value={answers[f.name]}
+                  accent={accent}
+                  theme={c}
+                  radiusPx={radiusInnerPx}
+                  fieldStyle={fieldStyle}
+                  fontFamily={fontFamily}
+                  onChange={(v) => setAnswer(f.name, v)}
+                />
+              </div>
+            ))}
+            {/* BD-2a — stepper Next / Back controls. Hidden on the very
+                last data step's Next button (the contact step renders its
+                own primary CTAs); Back is always present from step >0. */}
+            {useStepper && (
+              <div style={{ gridColumn: 'span 2', marginTop: 6 }}>
+                <StepperControls
+                  current={stepIdx}
+                  total={stepperList.length}
+                  theme={c}
+                  radiusPx={radiusInnerPx}
+                  fontFamily={fontFamily}
+                  nextLabel={stepIdx === dataSteps.length - 1 ? 'See my quote' : 'Continue'}
+                  onBack={() => setStepIdx((i) => Math.max(0, i - 1))}
+                  onNext={() => setStepIdx((i) => Math.min(stepperList.length - 1, i + 1))}
+                />
+              </div>
+            )}
+          </div>
+        )}
+        {/* BD-2a — Contact step content. Replaces the inputs section on
+            the final (contact) step. Sits in the same grid column the
+            inputs occupied so two-column layouts keep their visual rhythm.
+            The result panel below stays visible so the user sees the
+            quote alongside the contact form. */}
+        {isContactStep && (
+          <div
+            data-component-name="Contact step container"
+            data-component-type="contact-step-container"
+            data-qq-step-enter
+            style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}
+          >
+            <ContactStep
+              theme={c}
+              fontFamily={fontFamily}
+              radiusPx={radiusInnerPx}
+              calculatorId={analyticsCalcId}
+              bookingUrl={bookingUrl}
+              ownerEmail={ownerEmail}
+              quoteHeadline={
+                bsResultPanel?.range_mode?.enabled
+                  ? formatResultRange(headline, resultCalc?.format || 'currency',
+                      bsResultPanel.range_mode.band_pct ?? 8, advanced.numberFormat)
+                  : formatResult(headline, resultCalc?.format || 'currency', advanced.numberFormat)
+              }
+              quoteAmount={typeof headline === 'number' ? headline : undefined}
+              answers={answers as Record<string, unknown>}
+              initialName={leadName}
+              initialEmail={leadEmail}
+              initialPhone={contactPhone}
+              onChange={(next) => {
+                setLeadName(next.name);
+                setLeadEmail(next.email);
+                setContactPhone(next.phone);
+              }}
+              onEmailQuoteSent={() => { trackSubmit(); }}
+              onBookingRequested={() => { trackSubmit(); }}
+            />
+            <div>
+              <StepperControls
+                current={stepIdx}
+                total={stepperList.length}
                 theme={c}
                 radiusPx={radiusInnerPx}
-                fieldStyle={fieldStyle}
                 fontFamily={fontFamily}
-                onChange={(v) => setAnswer(f.name, v)}
+                onBack={() => setStepIdx((i) => Math.max(0, i - 1))}
+                onNext={() => { /* unused on final step */ }}
+                hideNextOnFinal
               />
             </div>
-          ))}
-        </div>
+          </div>
+        )}
 
         {/* Result panel — a separate rounded container.
          *
@@ -1065,15 +1328,19 @@ export default function AdvancedCalculator({
               wordBreak: 'break-word',
               overflowWrap: 'anywhere',
             }}>
-              {/* W-BB-3 — range-pricing display mode (Pro / Brand Studio gated).
-                  When `resultPanel.range_mode.enabled` is true the headline
-                  renders as `$LOW – $HIGH` (±band_pct, $25-rounded). Falls
-                  through to the legacy single-value format otherwise. */}
-              {bsResultPanel?.range_mode?.enabled
+              {/* W-BB-3 — range-pricing display mode.
+                  BD-2a — promoted from Pro/Brand-Studio-gated to a free-tier
+                  default. The category-derivation helper sets
+                  `range_mode.enabled = true` for every template that doesn't
+                  ship its own `style:` block; owners can opt out per
+                  template via Style tab → Brand Studio → Range mode. Falls
+                  through to the legacy single-value format when explicitly
+                  disabled OR when the resolved style carries no range_mode. */}
+              {effectiveRangeMode?.enabled
                 ? formatResultRange(
                     animatedHeadline,
                     resultCalc?.format || 'currency',
-                    bsResultPanel.range_mode.band_pct ?? 8,
+                    effectiveRangeMode.band_pct ?? 8,
                     advanced.numberFormat,
                   )
                 : formatResult(animatedHeadline, resultCalc?.format || 'currency', advanced.numberFormat)}
@@ -1136,7 +1403,7 @@ export default function AdvancedCalculator({
               {footnoteText}
             </p>
 
-            {showCta && (
+            {showCta && !useStepper && (
               // W-AO-6d — `key` is the leadView so React unmounts the
               // previous panel and remounts the new one on each step
               // change. That re-fires the entering animation declared in

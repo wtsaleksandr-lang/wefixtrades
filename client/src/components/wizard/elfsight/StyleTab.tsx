@@ -72,6 +72,14 @@ interface Props {
    * calculatorRoutes.ts).
    */
   planTier?: string;
+  /**
+   * BD-2a — owner override for the multi-step renderer. `'stepper'`
+   * (default, undefined-treated-as-stepper) shows the new multi-step
+   * layout; `'single'` reverts to the legacy single-form layout.
+   */
+  stepLayout?: 'stepper' | 'single';
+  /** BD-2a — change the step-layout mode. */
+  onStepLayoutChange?: (next: 'stepper' | 'single') => void;
 }
 
 const HEX_RE = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
@@ -132,7 +140,10 @@ const TOKEN_FALLBACKS = {
   error: '#dc2626',
 } as const;
 
-export default function StyleTab({ style, onChange, logo, onLogoChange, planTier = 'free' }: Props) {
+export default function StyleTab({
+  style, onChange, logo, onLogoChange, planTier = 'free',
+  stepLayout, onStepLayoutChange,
+}: Props) {
   // W-AO-6c — Brand Studio is a Pro / Business upsell. Free users see the
   // controls (preview-only) so they understand the value; the section
   // header shows a Lock + Upgrade CTA and the server strips the fields
@@ -670,6 +681,49 @@ export default function StyleTab({ style, onChange, logo, onLogoChange, planTier
           aria-valuemax={440}
           aria-valuenow={widgetWidthMobile ?? 380}
         />
+
+        {/* ── BD-2a — Step layout subsection ───────────────────────
+         *
+         * Toggle between the multi-step renderer (default — ships the
+         * 3x-CVR lever from BD-0 research) and the legacy single-form
+         * layout. Owners on conservative templates can opt back; new
+         * templates get the stepper out of the box.
+         */}
+        {onStepLayoutChange && (
+          <div
+            data-testid="style-step-layout"
+            style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--qq-style-divider, rgba(15,23,42,0.06))' }}
+          >
+            <label className="qq-style-label">
+              <span className="qq-style-label-text">
+                Step layout
+                <InfoCue
+                  testid="style-step-layout-info"
+                  text="Multi-step (the default) renders one question per screen — ~3x higher quote completion in industry benchmarks. Single form keeps every field on one page."
+                />
+              </span>
+            </label>
+            <SegmentedControl<'stepper' | 'single'>
+              name="step-layout"
+              testid="style-segmented-step-layout"
+              value={stepLayout ?? 'stepper'}
+              options={[
+                { value: 'stepper', label: 'Multi-step' },
+                { value: 'single', label: 'Single form' },
+              ]}
+              onChange={(v) => onStepLayoutChange(v)}
+            />
+            <p
+              style={{
+                fontSize: 11, color: 'var(--qq-style-hint, #64748b)',
+                margin: '6px 0 0', lineHeight: 1.4,
+              }}
+            >
+              Recommended: Multi-step. Industry data shows multi-step quote forms
+              convert at ~13.85% vs ~4.53% for single-page forms.
+            </p>
+          </div>
+        )}
       </fieldset>
 
       {/* ── W-AO-6c — Brand Studio (Pro) ────────────────────────────
