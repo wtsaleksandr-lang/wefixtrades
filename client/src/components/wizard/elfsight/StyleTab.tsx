@@ -100,6 +100,9 @@ interface Props {
   templateCategory?: string;
 }
 
+/** BD-2c — discrete values for the AI chat visibility toggle (Pro-tier). */
+type AiChatVisibility = 'rescue' | 'always';
+
 const HEX_RE = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 
 /**
@@ -763,6 +766,61 @@ export default function StyleTab({
             templateCategory={templateCategory}
           />
         )}
+
+        {/* ── BD-2c — AI chat visibility subsection (Pro tier) ────────
+         *
+         * Toggle between the new "stuck-customer rescue" default (bubble
+         * stays hidden until the user has progressed past step 2, idles for
+         * 30s on a single step, or explicitly clicks Help) and the legacy
+         * "always visible" behaviour. Research (BD-0): always-visible
+         * bubbles compete with the form — treating AI as a rescue surface
+         * lifts both form completion AND chat engagement.
+         *
+         * Free-tier calculators always use 'rescue' (server-enforced via
+         * BRAND_STUDIO_STYLE_KEYS-style strip in calculatorRoutes).
+         */}
+        <div
+          data-testid="style-ai-chat-visibility"
+          style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--qq-style-divider, rgba(15,23,42,0.06))' }}
+        >
+          <label className="qq-style-label">
+            <span className="qq-style-label-text">
+              AI chat visibility
+              {!isProTier && (
+                <span style={{ marginLeft: 6, fontSize: 10, color: '#92400e', fontWeight: 700 }}>
+                  PRO
+                </span>
+              )}
+              <InfoCue
+                testid="style-ai-chat-visibility-info"
+                text="Stuck-customer rescue (default) keeps the AI bubble hidden until the user has progressed past step 2, idles for 30s, or clicks Help. Always visible matches the legacy behaviour."
+              />
+            </span>
+          </label>
+          <SegmentedControl<AiChatVisibility>
+            name="ai-chat-visibility"
+            testid="style-segmented-ai-chat-visibility"
+            value={(style.aiChatVisibility as AiChatVisibility) ?? 'rescue'}
+            options={[
+              { value: 'rescue', label: 'Stuck-customer rescue' },
+              { value: 'always', label: 'Always visible' },
+            ]}
+            onChange={(v) => {
+              if (!isProTier) return;
+              patch({ aiChatVisibility: v });
+            }}
+          />
+          <p
+            style={{
+              fontSize: 11, color: 'var(--qq-style-hint, #64748b)',
+              margin: '6px 0 0', lineHeight: 1.4,
+            }}
+          >
+            Recommended: Stuck-customer rescue. BD-0 research shows always-on
+            bubbles compete with the form — treating AI as a rescue surface
+            lifts both form completion AND chat engagement.
+          </p>
+        </div>
       </fieldset>
 
       {/* ── W-AO-6c — Brand Studio (Pro) ────────────────────────────

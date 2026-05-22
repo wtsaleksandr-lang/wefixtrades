@@ -107,6 +107,17 @@ export default function Calculator() {
     aiEmployee?.enabled === true &&
     (aiEmployee?.subscription_status === 'trial' || aiEmployee?.subscription_status === 'active');
 
+  // BD-2c — AI chat visibility mode. Free tier ALWAYS uses `'rescue'` (the
+  // new BD-0 stuck-customer-rescue default). Pro/Business can opt back to
+  // `'always'` via the Style tab toggle. Stored at `style.aiChatVisibility`.
+  const chatVisibilityRaw =
+    calculator?.calculator_settings?.advanced?.style?.aiChatVisibility;
+  const planTier = calculator?.plan_tier || 'free';
+  const isPaidTier =
+    planTier === 'pro' || planTier === 'business' || planTier === 'starter';
+  const chatVisibility: 'rescue' | 'always' =
+    isPaidTier && chatVisibilityRaw === 'always' ? 'always' : 'rescue';
+
   const accentColor =
     calculator?.calculator_settings?.appearance?.accent_color ||
     calculator?.primary_color ||
@@ -137,6 +148,7 @@ export default function Calculator() {
           accentColor={accentColor}
           businessName={calculator.business_name}
           theme={calculator.theme_overrides}
+          visibility={chatVisibility}
         />
       )}
     </>

@@ -37,7 +37,14 @@ export default function HelpTip({ text }: { text: string }) {
     <span ref={ref} style={{ position: 'relative', display: 'inline-flex', verticalAlign: 'middle', marginLeft: '4px' }}>
       <button
         type="button"
-        onClick={() => setOpen(o => !o)}
+        onClick={() => {
+          setOpen(o => !o);
+          // BD-2c — any explicit Help click reveals the AI chat bubble in
+          // 'rescue' visibility mode. Listener lives in AIChatBubble.tsx.
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('quotequick:help'));
+          }
+        }}
         aria-label="More info"
         style={{
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
