@@ -18,7 +18,7 @@
 // Mobile: same horizontal scroller. Drag-to-scroll on mouse, native
 // touch swipe on phones. The Browse-all modal is full-screen on phones.
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode, type MouseEvent as ReactMouseEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { X } from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
@@ -121,6 +121,229 @@ const d = dashboardTheme;
 
 /** What WizardShell needs to know to apply a template — null = start blank. */
 export type ApplyTemplatePayload = TemplateConfig | null;
+
+/* ───────────────────────────────────────────────────────────── */
+/* TemplateCardHover — wraps each card button, mounts a floating  */
+/* description tooltip on 350ms+ hover (desktop) or a slide-up    */
+/* bottom sheet on touch tap (mobile).                            */
+/* ───────────────────────────────────────────────────────────── */
+
+const HOVER_DELAY_MS = 350;
+
+/** Format a snake/kebab-case trade slug into a Title-Case label. */
+function formatTradeChip(slug: string): string {
+  return slug
+    .replace(/[-_]+/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/** Detect a coarse pointer (phones / tablets) — drives tap-vs-hover. */
+function useCoarsePointer(): boolean {
+  const [coarse, setCoarse] = useState<boolean>(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return false;
+    return window.matchMedia('(pointer: coarse)').matches;
+  });
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mq = window.matchMedia('(pointer: coarse)');
+    const onChange = (e: MediaQueryListEvent) => setCoarse(e.matches);
+    mq.addEventListener?.('change', onChange);
+    return () => mq.removeEventListener?.('change', onChange);
+  }, []);
+  return coarse;
+}
+
+interface TemplateCardHoverProps {
+  template: TemplateConfig;
+  className: string;
+  testId: string;
+  onClick: () => void;
+  /** Optional aria role override (e.g. `'listitem'` for the strip). */
+  role?: string;
+  children: ReactNode;
+}
+
+function TemplateCardHover({
+  template,
+  className,
+  testId,
+  onClick,
+  role,
+  children,
+}: TemplateCardHoverProps) {
+  const isCoarse = useCoarsePointer();
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+  const hoverTimer = useRef<number | null>(null);
+  const [open, setOpen] = useState(false);
+  // `position` describes where to anchor the floating tooltip relative to
+  // the card. Mobile uses 'sheet' (slide-up bottom sheet); desktop uses
+  // right/left/above depending on viewport room.
+  const [position, setPosition] = useState<'right' | 'left' | 'above' | 'sheet'>('right');
+
+  const description = template.description?.trim() || '';
+  const chips = template.matchingTrades ?? [];
+
+  const clearTimer = () => {
+    if (hoverTimer.current != null) {
+      window.clearTimeout(hoverTimer.current);
+      hoverTimer.current = null;
+    }
+  };
+
+  const computePosition = (): 'right' | 'left' | 'above' | 'sheet' => {
+    if (isCoarse) return 'sheet';
+    const el = buttonRef.current;
+    if (!el) return 'right';
+    const rect = el.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const TOOLTIP_W = 280;
+    const PAD = 12;
+    // Prefer right of the card.
+    if (rect.right + PAD + TOOLTIP_W <= vw) return 'right';
+    if (rect.left - PAD - TOOLTIP_W >= 0) return 'left';
+    if (rect.top >= 200) return 'above';
+    return 'right';
+  };
+
+  const openTooltip = () => {
+    setPosition(computePosition());
+    setOpen(true);
+  };
+
+  // Hover handlers (desktop / fine pointer). Touch devices skip these and
+  // toggle via the click handler below.
+  const onPointerEnter = () => {
+    if (isCoarse) return;
+    clearTimer();
+    hoverTimer.current = window.setTimeout(openTooltip, HOVER_DELAY_MS);
+  };
+  const onPointerLeave = () => {
+    if (isCoarse) return;
+    clearTimer();
+    setOpen(false);
+  };
+  const onFocus = () => {
+    if (isCoarse) return;
+    clearTimer();
+    hoverTimer.current = window.setTimeout(openTooltip, HOVER_DELAY_MS);
+  };
+  const onBlur = () => {
+    if (isCoarse) return;
+    clearTimer();
+    setOpen(false);
+  };
+
+  // Touch tap: first tap opens the bottom sheet; second tap applies.
+  // On fine pointers, click always applies (tooltip is purely informational).
+  const handleClick = (e: ReactMouseEvent<HTMLButtonElement>) => {
+    if (isCoarse && !open && (description || chips.length > 0)) {
+      e.preventDefault();
+      e.stopPropagation();
+      openTooltip();
+      return;
+    }
+    onClick();
+  };
+
+  // Escape closes; click outside (sheet) closes via backdrop handler.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open]);
+
+  useEffect(() => () => clearTimer(), []);
+
+  const hasTooltipContent = description.length > 0 || chips.length > 0;
+
+  return (
+    <div
+      ref={wrapperRef}
+      className="qq-tg-card-hover-wrap"
+      onMouseEnter={onPointerEnter}
+      onMouseLeave={onPointerLeave}
+    >
+      <button
+        ref={buttonRef}
+        type="button"
+        className={className}
+        data-testid={testId}
+        onClick={handleClick}
+        onFocus={onFocus}
+        onBlur={onBlur}
+        role={role}
+        aria-describedby={open ? `tpl-hover-${template.id}` : undefined}
+      >
+        {children}
+      </button>
+      {open && hasTooltipContent && position !== 'sheet' && (
+        <div
+          id={`tpl-hover-${template.id}`}
+          className={`qq-tg-hover-pop qq-tg-hover-pop--${position}`}
+          role="tooltip"
+          data-testid={`template-hover-${template.id}`}
+        >
+          <h4 className="qq-tg-hover-title">{template.name}</h4>
+          {description && (
+            <p className="qq-tg-hover-desc">{description}</p>
+          )}
+          {chips.length > 0 && (
+            <div className="qq-tg-hover-best">
+              <span className="qq-tg-hover-best-label">Best for:</span>
+              <div className="qq-tg-hover-chips">
+                {chips.map((c) => (
+                  <span key={c} className="qq-tg-hover-chip">{formatTradeChip(c)}</span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+      {open && hasTooltipContent && position === 'sheet' && (
+        <div
+          className="qq-tg-hover-sheet-backdrop"
+          onClick={(e) => { e.stopPropagation(); setOpen(false); }}
+          data-testid={`template-hover-sheet-${template.id}`}
+        >
+          <div
+            className="qq-tg-hover-sheet"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-label={`${template.name} details`}
+          >
+            <div className="qq-tg-hover-sheet-handle" aria-hidden="true" />
+            <h4 className="qq-tg-hover-title">{template.name}</h4>
+            {description && (
+              <p className="qq-tg-hover-desc">{description}</p>
+            )}
+            {chips.length > 0 && (
+              <div className="qq-tg-hover-best">
+                <span className="qq-tg-hover-best-label">Best for:</span>
+                <div className="qq-tg-hover-chips">
+                  {chips.map((c) => (
+                    <span key={c} className="qq-tg-hover-chip">{formatTradeChip(c)}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+            <button
+              type="button"
+              className="qq-tg-hover-sheet-apply"
+              onClick={() => { setOpen(false); onClick(); }}
+            >
+              Use this template
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 /* ───────────────────────────────────────────────────────────── */
 /* TemplateStrip — horizontal scrolling row at the top of Build. */
@@ -237,11 +460,11 @@ export default function TemplateStrip({ activeTemplateId, onApplyTemplate }: Str
           // title (the template name) on top of the mockup. The mockup's
           // CTA button text is the template's own content and stays.
           return (
-            <button
+            <TemplateCardHover
               key={t.id}
-              type="button"
+              template={t}
               className={`qq-tg-card${isActive ? ' is-active' : ''}`}
-              data-testid={`template-strip-card-${t.id}`}
+              testId={`template-strip-card-${t.id}`}
               onClick={() => onApplyTemplate(t)}
               role="listitem"
             >
@@ -251,7 +474,7 @@ export default function TemplateStrip({ activeTemplateId, onApplyTemplate }: Str
               <div className="qq-tg-card-body">
                 <span className="qq-tg-card-name">{t.name}</span>
               </div>
-            </button>
+            </TemplateCardHover>
           );
         })}
       </div>
@@ -390,6 +613,129 @@ export default function TemplateStrip({ activeTemplateId, onApplyTemplate }: Str
           .qq-tg-card { width: 160px; }
           .qq-tg-browse-all { min-height: 32px; padding: 4px 10px; font-size: 12px; }
         }
+
+        /* Template design v2 (Phase 1) — hover wrapper + floating tooltip
+         * + mobile bottom sheet. Global selectors so the same CSS applies
+         * inside both the strip and the modal grid. */
+        .qq-tg-card-hover-wrap {
+          position: relative;
+          display: inline-flex;
+        }
+        .qq-tg-modal-grid .qq-tg-card-hover-wrap {
+          display: flex; width: 100%;
+        }
+        .qq-tg-modal-grid .qq-tg-card-hover-wrap .qq-tg-card {
+          width: 100%;
+        }
+        .qq-tg-hover-pop {
+          position: absolute;
+          z-index: 1300;
+          width: 280px; max-width: 280px;
+          background: #fff;
+          border: 1px solid ${p.colors.borderLight};
+          border-radius: 12px;
+          box-shadow: ${p.shadows.xl};
+          padding: 14px 14px 12px;
+          display: flex; flex-direction: column; gap: 8px;
+          pointer-events: none;
+          animation: qq-tg-hover-fade-in 140ms ease-out;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .qq-tg-hover-pop { animation: none; }
+        }
+        @keyframes qq-tg-hover-fade-in {
+          from { opacity: 0; transform: translateY(2px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        .qq-tg-hover-pop--right {
+          left: calc(100% + 10px); top: 0;
+        }
+        .qq-tg-hover-pop--left {
+          right: calc(100% + 10px); top: 0;
+        }
+        .qq-tg-hover-pop--above {
+          bottom: calc(100% + 10px); left: 0;
+        }
+        .qq-tg-hover-title {
+          margin: 0;
+          font-size: 14px; font-weight: 800;
+          color: ${p.colors.heading};
+          line-height: 1.25;
+        }
+        .qq-tg-hover-desc {
+          margin: 0;
+          font-size: 12.5px; font-weight: 400;
+          color: ${p.colors.muted};
+          line-height: 1.45;
+        }
+        .qq-tg-hover-best {
+          display: flex; flex-direction: column; gap: 6px;
+          padding-top: 6px;
+          border-top: 1px solid ${p.colors.borderLight};
+        }
+        .qq-tg-hover-best-label {
+          font-size: 11px; font-weight: 700;
+          color: ${p.colors.heading};
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+        }
+        .qq-tg-hover-chips {
+          display: flex; flex-wrap: wrap; gap: 5px;
+        }
+        .qq-tg-hover-chip {
+          font-size: 11px; font-weight: 600;
+          color: ${p.colors.accent};
+          background: ${p.colors.accentLighter};
+          border-radius: 999px;
+          padding: 3px 9px;
+          white-space: nowrap;
+          line-height: 1.4;
+        }
+
+        /* Mobile / touch — slide-up bottom sheet replaces the floating pop. */
+        .qq-tg-hover-sheet-backdrop {
+          position: fixed; inset: 0; z-index: 1300;
+          background: rgba(15, 23, 42, 0.45);
+          display: flex; align-items: flex-end; justify-content: center;
+          animation: qq-tg-sheet-backdrop-in 160ms ease-out;
+        }
+        .qq-tg-hover-sheet {
+          width: 100%;
+          background: #fff;
+          border-top-left-radius: 16px; border-top-right-radius: 16px;
+          padding: 12px 16px 20px;
+          display: flex; flex-direction: column; gap: 10px;
+          box-shadow: 0 -8px 28px rgba(15, 23, 42, 0.2);
+          animation: qq-tg-sheet-slide-up 220ms cubic-bezier(0.2, 0.7, 0.2, 1);
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .qq-tg-hover-sheet-backdrop,
+          .qq-tg-hover-sheet { animation: none; }
+        }
+        @keyframes qq-tg-sheet-backdrop-in {
+          from { opacity: 0; } to { opacity: 1; }
+        }
+        @keyframes qq-tg-sheet-slide-up {
+          from { transform: translateY(100%); }
+          to   { transform: translateY(0); }
+        }
+        .qq-tg-hover-sheet-handle {
+          width: 36px; height: 4px; border-radius: 2px;
+          background: ${p.colors.border};
+          margin: 2px auto 6px;
+        }
+        .qq-tg-hover-sheet-apply {
+          margin-top: 6px;
+          font: inherit; font-size: 14px; font-weight: 700;
+          color: #fff;
+          background: ${p.colors.accent};
+          border: none; border-radius: 10px;
+          padding: 12px 14px; min-height: 44px;
+          cursor: pointer;
+        }
+        .qq-tg-hover-sheet-apply:hover {
+          filter: brightness(0.95);
+        }
       `}</style>
     </section>
   );
@@ -505,28 +851,24 @@ function TemplateBrowseModal({ activeTemplateId, onClose, onApplyTemplate }: Mod
         <div className="qq-tg-modal-grid" data-testid="template-browse-grid">
           {visible.map((t) => {
             const isActive = t.id === activeTemplateId;
-            // W-AO-2 — Wave M removed the subtitle entirely; reintroduce a
-            // subtle 11px description snippet so cards of the same theme
-            // are distinguishable by purpose, not just by name.
+            // Template design v2 (Phase 1) — subtitle removed from the card
+            // itself; the description now lives in the hover modal (see
+            // `<TemplateCardHover/>` below) along with a "Best for:" chip row.
             return (
-              <button
+              <TemplateCardHover
                 key={t.id}
-                type="button"
+                template={t}
                 className={`qq-tg-card qq-tg-card--with-desc${isActive ? ' is-active' : ''}`}
-                data-testid={`template-browse-card-${t.id}`}
+                testId={`template-browse-card-${t.id}`}
                 onClick={() => onApplyTemplate(t)}
-                title={t.description}
               >
                 <div className="qq-tg-mockup">
                   <TemplateThumbnail template={t} missing={pngMissing} onMissing={markMissing} />
                 </div>
                 <div className="qq-tg-card-body">
                   <span className="qq-tg-card-name">{t.name}</span>
-                  {t.description ? (
-                    <span className="qq-tg-card-desc">{t.description}</span>
-                  ) : null}
                 </div>
-              </button>
+              </TemplateCardHover>
             );
           })}
           {visible.length === 0 && (
