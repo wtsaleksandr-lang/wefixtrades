@@ -4,6 +4,7 @@ import { SlidersHorizontal, ChevronLeft, RotateCcw } from 'lucide-react';
 import { mkt, radius, shadows } from '@/theme/tokens';
 import { trackEvent } from '@/lib/trackEvent';
 import SliderField from '@/components/calculator/SliderField';
+import InfoCue from '@/components/wizard/elfsight/InfoCue';
 import type { TradePreset } from '@/data/missedCallTradePresets';
 
 const DARK_TRACK = 'rgba(255,255,255,0.08)';
@@ -24,22 +25,27 @@ export interface SliderValues {
 export type SliderStepKey = 'missedCalls' | 'closeRate' | 'avgJobValue' | null;
 
 /** Per-step copy shown above the single slider. Mirrors the QuoteWidget
- *  one-question-per-screen pattern (BD-2a). */
+ *  one-question-per-screen pattern (BD-2a). `cue` is BG-5 — a longer-form
+ *  help blurb surfaced via the top-left InfoCue affordance (BD-3h pattern). */
 export const SLIDER_STEP_META: Record<Exclude<SliderStepKey, null>, {
   title: string;
   helper: string;
+  cue: string;
 }> = {
   missedCalls: {
     title: 'How many calls do you miss per week?',
     helper: 'Include after-hours, weekends, and busy periods when no one picks up.',
+    cue: 'Estimated number of calls you miss per month. If unsure, use 10-30% of your total inbound.',
   },
   closeRate: {
     title: 'What’s your close rate on answered calls?',
     helper: 'Industry average for home services is 25–40%.',
+    cue: 'Percentage of calls that become customers when you DO answer. Most trades sit between 25%-45%.',
   },
   avgJobValue: {
     title: 'What’s your average job value?',
     helper: 'Typical revenue from a single completed job — materials + labor.',
+    cue: "Your typical job's total invoice value. For service trades (plumbing, electrical), often $200-$800. For renovations, $2k-$20k+.",
   },
 };
 
@@ -161,7 +167,23 @@ export default function CalculatorControls({
           letterSpacing: '-0.01em',
           lineHeight: 1.25,
           margin: '0 0 6px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 2,
         }}>
+          {/* BG-5 — per-slider help cue top-left. Renders the BD-3h
+              step-content widget wireframe + a longer helper blurb. The
+              span override neutralises the default `?` button's 6px
+              left-margin so the cue sits flush-left and the gap to the
+              title stays at the 2px ceiling. */}
+          <span style={{ display: 'inline-flex', marginLeft: -6 }}>
+            <InfoCue
+              testid={`mcc-slider-${step}`}
+              region="step-content"
+              text={meta.cue}
+              label={`More info about ${meta.title.toLowerCase()}`}
+            />
+          </span>
           {meta.title}
         </h3>
         <p style={{
