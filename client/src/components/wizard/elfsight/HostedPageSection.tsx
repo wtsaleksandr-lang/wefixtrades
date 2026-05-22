@@ -17,6 +17,7 @@ import { Upload, Trash2 } from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
 import { dashboardTheme } from '@/theme/dashboardTheme';
 import FloatField from './FloatField';
+import InfoCue from './InfoCue';
 import {
   DEFAULT_HOSTED_PAGE, HOSTED_BACKGROUND_PRESETS,
   smartDefaultHostedBackgroundId,
@@ -118,7 +119,14 @@ export default function HostedPageSection({
 
       {/* ── Background — preset gallery ─────────────────────────── */}
       <div className="qq-hosted-block">
-        <div className="qq-hosted-block-h">Background preset</div>
+        <div className="qq-hosted-block-h">
+          <InfoCue
+            testid="hosted-bg-preset"
+            region="background"
+            text="Pick a ready-made background for your hosted page. The widget sits on a card in the centre — backgrounds frame it rather than competing with it."
+          />
+          <span>Background preset</span>
+        </div>
         <div
           className="qq-hosted-preset-grid"
           data-testid="hosted-preset-grid"
@@ -145,7 +153,14 @@ export default function HostedPageSection({
 
       {/* ── Background — solid color ────────────────────────────── */}
       <div className="qq-hosted-block">
-        <div className="qq-hosted-block-h">Or pick a solid color</div>
+        <div className="qq-hosted-block-h">
+          <InfoCue
+            testid="hosted-bg-solid"
+            region="background"
+            text="Override the preset with a flat colour. Useful for matching a strict brand palette."
+          />
+          <span>Or pick a solid color</span>
+        </div>
         <div className="qq-hosted-solid-row">
           <input
             type="color"
@@ -179,7 +194,14 @@ export default function HostedPageSection({
 
       {/* ── Background — image upload ──────────────────────────── */}
       <div className="qq-hosted-block">
-        <div className="qq-hosted-block-h">Or upload a custom background image</div>
+        <div className="qq-hosted-block-h">
+          <InfoCue
+            testid="hosted-bg-image"
+            region="background"
+            text="Upload your own background image (PNG, JPG, WebP, up to 2 MB). Use the darken slider to keep the widget readable on busy photos."
+          />
+          <span>Or upload a custom background image</span>
+        </div>
         <div className="qq-hosted-upload-row">
           <button
             type="button"
@@ -252,7 +274,13 @@ export default function HostedPageSection({
 
       {/* ── Layout — centered card toggle ───────────────────────── */}
       <div className="qq-hosted-block">
-        <div className="qq-hosted-block-h">Layout</div>
+        <div className="qq-hosted-block-h">
+          <InfoCue
+            testid="hosted-layout"
+            text="Recommended: keep the widget on a centred card so it stays legible over busy backgrounds. Toggle off to let the widget float over the bare background."
+          />
+          <span>Layout</span>
+        </div>
         <label className="qq-hosted-switch-row" data-testid="hosted-card-toggle">
           <input
             type="checkbox"
@@ -336,7 +364,10 @@ export default function HostedPageSection({
           border-radius: 12px;
         }
         .qq-hosted-block { display: flex; flex-direction: column; gap: 8px; }
+        /* BH-4 rule 2 — block header carries an InfoCue (top-left) +
+         * label. Align them on the same baseline. */
         .qq-hosted-block-h {
+          display: flex; align-items: center; gap: 6px;
           font-size: 12px; font-weight: 700;
           color: ${p.colors.heading};
           letter-spacing: -0.005em;

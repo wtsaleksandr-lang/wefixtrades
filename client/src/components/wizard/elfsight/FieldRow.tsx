@@ -572,8 +572,13 @@ export default function FieldRow({
         .qq-field-width-btn:hover {
           background: ${p.colors.accentLighter};
         }
+        /* BH-4 rule 4 — selected/active = subtle outline + 4% blue tint,
+         * NEVER a bright fill that hides the text. Mirrors the daychip
+         * pattern in SettingsTab. */
         .qq-field-width-btn.is-active {
-          background: ${p.colors.accent}; color: #fff;
+          background: ${p.colors.accentLighter};
+          color: ${p.colors.accentDark};
+          box-shadow: inset 0 0 0 1px ${p.colors.accent};
         }
         .qq-field-options-list {
           display: flex; flex-direction: column; gap: 5px;
