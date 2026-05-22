@@ -258,12 +258,15 @@ export default function InstallTab({
         </p>
         <div className="qq-install-hosted-card">
           {/* Wave AO-10 — Live badge sits at the top-right CORNER of the
-              hosted card (outside the URL input), as a floating pill. */}
+              hosted card (outside the URL input), as a floating pill.
+              BD-3j: smaller (8.5px text, 1×6px padding) and tucked tighter
+              into the corner (top:4, right:6). */}
           <span
             className="qq-install-hosted-corner-badge is-live"
             data-testid="install-hosted-badge"
             data-state="live"
           >
+            <span className="qq-install-hosted-corner-dot" aria-hidden="true" />
             Live
           </span>
           {editingSlug ? (
@@ -519,8 +522,10 @@ export default function InstallTab({
        *
        * Sits between the embed snippet and the platform guides so users who
        * don't want to embed the snippet themselves see the CTA before
-       * digging into per-CMS instructions. Brand-blue panel, single CTA
-       * that opens CheckoutIntakeModal pre-loaded with the install SKU. */}
+       * digging into per-CMS instructions. Brand-blue panel.
+       * BD-3j: explainer copy stays here; the CTA button itself was moved
+       * out of this card into a sticky bottom-left action anchor (see the
+       * .qq-install-cta-anchor at the end of this tabpanel). */}
       <section
         className="qq-install-section qq-install-doneforyou"
         data-testid="install-section-doneforyou"
@@ -536,17 +541,11 @@ export default function InstallTab({
             </h3>
             <p className="qq-install-doneforyou-sub">
               We install QuoteQuick on your website, configure it for your trade,
-              and verify it's capturing leads — within 24 hours.
+              and verify it's capturing leads — within 24 hours. Use the{' '}
+              <strong>Have us install it</strong> button at the bottom of this
+              tab to start.
             </p>
           </div>
-          <button
-            type="button"
-            className="qq-install-doneforyou-cta"
-            onClick={() => setInstallCheckoutOpen(true)}
-            data-testid="install-doneforyou-cta"
-          >
-            Have us install it — $75
-          </button>
         </div>
       </section>
 
@@ -605,6 +604,22 @@ export default function InstallTab({
         snippet={snippet}
       />
 
+      {/* BD-3j Fix 3 — "Have us install it" CTA anchored at the bottom-left
+       *  corner of the Install tab as a sticky action. Sits inside the
+       *  scrollable left pane of the wizard editor; doesn't collide with
+       *  the canvas-side zoom toolbar from BD-3b (the canvas is a separate
+       *  right-pane container). */}
+      <div className="qq-install-cta-anchor" aria-hidden="false">
+        <button
+          type="button"
+          className="qq-install-doneforyou-cta"
+          onClick={() => setInstallCheckoutOpen(true)}
+          data-testid="install-doneforyou-cta"
+        >
+          Have us install it — $75
+        </button>
+      </div>
+
       <style>{`
         /* Wave AA — sector gaps tightened from 16 → 10 (and the sub-headline
            bottom-margin 10 → 6) so the Install tab reads as a cohesive panel
@@ -613,6 +628,28 @@ export default function InstallTab({
            already gives a visual seam between sections. */
         .qq-install-tab {
           display: flex; flex-direction: column; gap: 2px;
+          /* BD-3j Fix 3 — reserve space at the bottom so the sticky
+             "Have us install it" CTA never overlaps the last section. */
+          padding-bottom: 72px;
+          position: relative;
+        }
+        /* BD-3j Fix 3 — sticky CTA anchor at the bottom-LEFT of the
+           Install tab's scrollable area. Doesn't conflict with BD-3b's
+           zoom toolbar because that lives on the canvas (right pane) — the
+           Install tab is the left pane. */
+        .qq-install-cta-anchor {
+          position: sticky;
+          bottom: 12px;
+          left: 0;
+          margin-top: 12px;
+          display: flex;
+          justify-content: flex-start;
+          align-items: center;
+          z-index: 2;
+          pointer-events: none;
+        }
+        .qq-install-cta-anchor > .qq-install-doneforyou-cta {
+          pointer-events: auto;
         }
         .qq-install-h {
           font-size: 13px; font-weight: 700; color: ${p.colors.heading};
@@ -625,10 +662,14 @@ export default function InstallTab({
           font-size: 12px; color: ${p.colors.muted};
           margin: 0 0 8px; line-height: 1.4;
         }
+        /* BD-3j Fix 2 — inline code now has a visible border so it doesn't
+           blend with the near-white card surfaces around it. */
         .qq-install-code-inline {
           font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
           font-size: 11.5px; padding: 1px 5px; border-radius: 4px;
-          background: ${p.colors.surfaceRaised}; color: ${p.colors.body};
+          background: #fff;
+          color: ${p.colors.heading};
+          border: 1px solid ${p.colors.border};
         }
         .qq-install-section { display: flex; flex-direction: column; }
         .qq-install-divider {
@@ -636,33 +677,56 @@ export default function InstallTab({
         }
 
         /* Hosted-link card — Wave O. Wave AO-10: position:relative so the
-           floating "Live" corner badge anchors to this container. */
+           floating "Live" corner badge anchors to this container.
+           BD-3j Fix 2: switched from d.colors.canvas (#A2B6BF darker grey-
+           blue, which made muted text inside fail WCAG AA) to a near-white
+           cardMuted surface so all text/bg pairs hit ≥4.5:1. */
         .qq-install-hosted-card {
           position: relative;
           padding: 14px 16px;
-          background: ${d.colors.canvas};
-          border: 1px solid ${p.colors.borderLight};
+          background: ${d.colors.cardMuted};
+          border: 1px solid ${p.colors.border};
           border-radius: 12px;
           display: flex; flex-direction: column; gap: 10px;
         }
-        /* Wave AO-10 — Live pill floating at top-right corner of the
-           hosted card, OUTSIDE the URL input. */
+        /* BD-3j Fix 1 — Live pill floating at top-right corner of the
+           hosted card, OUTSIDE the URL input. Smaller text (8.5px), tighter
+           padding (1×6px), tucked into the corner (top:4, right:6). The dot
+           keeps the pulsing motion at a reduced scale. */
         .qq-install-hosted-corner-badge {
           position: absolute;
-          top: 8px;
-          right: 10px;
-          font-size: 9.5px; font-weight: 700;
+          top: 4px;
+          right: 6px;
+          display: inline-flex; align-items: center; gap: 4px;
+          font-size: 8.5px; font-weight: 700;
           border-radius: 999px;
-          padding: 2px 8px;
+          padding: 1px 6px;
           line-height: 1.2;
-          letter-spacing: 0.02em;
+          letter-spacing: 0.04em;
+          text-transform: uppercase;
           white-space: nowrap;
           z-index: 1;
         }
         .qq-install-hosted-corner-badge.is-live {
-          color: #097a4a;
-          background: rgba(34, 197, 94, 0.13);
-          border: 1px solid rgba(34, 197, 94, 0.35);
+          color: #066138;
+          background: rgba(34, 197, 94, 0.18);
+          border: 1px solid rgba(34, 197, 94, 0.45);
+        }
+        .qq-install-hosted-corner-dot {
+          display: inline-block;
+          width: 5px; height: 5px;
+          border-radius: 50%;
+          background: #16a34a;
+          box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.55);
+          animation: qq-install-live-pulse 1.8s ease-out infinite;
+        }
+        @keyframes qq-install-live-pulse {
+          0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.55); }
+          70% { box-shadow: 0 0 0 5px rgba(34, 197, 94, 0); }
+          100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .qq-install-hosted-corner-dot { animation: none; }
         }
         .qq-install-hosted-url-row {
           display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
@@ -741,15 +805,18 @@ export default function InstallTab({
           background: #fff; color: ${p.colors.muted};
           border: 1px solid ${p.colors.border};
         }
+        /* BD-3j Fix 2 — promoted from muted (#6B7280) to body (#374151) so
+           status text reads cleanly against the hosted card. Body on
+           cardMuted hits ~10:1 contrast (AA-large + AA-normal). */
         .qq-install-hosted-status {
           margin: 4px 0 0;
           font-size: 11.5px; line-height: 1.5;
-          color: ${p.colors.muted};
+          color: ${p.colors.body};
         }
-        .qq-install-hosted-status.is-checking { color: ${p.colors.muted}; font-style: italic; }
-        .qq-install-hosted-status.is-ok { color: #097a4a; font-weight: 600; }
-        .qq-install-hosted-status.is-warn { color: ${p.colors.warning ?? '#a8741b'}; }
-        .qq-install-hosted-status.is-muted { color: ${p.colors.muted}; }
+        .qq-install-hosted-status.is-checking { color: ${p.colors.body}; font-style: italic; }
+        .qq-install-hosted-status.is-ok { color: #066138; font-weight: 600; }
+        .qq-install-hosted-status.is-warn { color: #8a5a0e; font-weight: 600; }
+        .qq-install-hosted-status.is-muted { color: ${p.colors.body}; }
         .qq-install-hosted-status-link {
           background: transparent; border: none; padding: 0;
           color: ${p.colors.accent}; font: inherit; font-weight: 600;
@@ -789,9 +856,11 @@ export default function InstallTab({
           cursor: not-allowed;
           opacity: 0.65;
         }
+        /* BD-3j Fix 2 — was muted (#6B7280) which dropped to ~3:1 on the
+           old canvas bg. Body (#374151) on the new cardMuted bg is ~10:1. */
         .qq-install-hosted-foot {
           margin: 0;
-          font-size: 11.5px; color: ${p.colors.muted};
+          font-size: 11.5px; color: ${p.colors.body};
           line-height: 1.5;
         }
 
@@ -806,10 +875,16 @@ export default function InstallTab({
           font-size: 12px; color: ${p.colors.muted};
           margin: 8px 0 0;
         }
+        /* BD-3j Fix 2 — code-block contrast. Was canvas (#A2B6BF) bg with
+           body (#374151) text — ~5.5:1, technically AA but the code visually
+           merged with the surrounding canvas. Promoted to a proper dark
+           code block (#0f172a near-black bg, #f5f7fa light text) for
+           ~14:1 contrast and clear separation from the panel. */
         .qq-install-snippet-wrap {
           position: relative;
-          border: 1px solid ${p.colors.border}; border-radius: 10px;
-          background: ${d.colors.canvas};
+          border: 1px solid #1e293b;
+          border-radius: 10px;
+          background: #0f172a;
           overflow: hidden;
         }
         /* Wave AO-11 — extra bottom-right padding on the snippet text so
@@ -819,7 +894,7 @@ export default function InstallTab({
           padding-bottom: 44px;
           font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
           font-size: 12px; line-height: 1.55;
-          color: ${p.colors.body};
+          color: #f5f7fa;
           white-space: pre-wrap; word-break: break-all;
           background: transparent;
           max-height: 220px; overflow: auto;
@@ -892,12 +967,12 @@ export default function InstallTab({
           margin-top: 2px;
         }
 
-        /* Wave L I1 — done-for-you install panel. Brand-blue tinted card with
-         * a copy block on the left and a primary CTA on the right; stacks
-         * on mobile. */
+        /* Wave L I1 — done-for-you install panel. Brand-blue tinted card.
+         * BD-3j: CTA moved out of this card to a sticky bottom-left anchor;
+         * the card now holds only the explanatory copy and stacks naturally. */
         .qq-install-doneforyou-card {
-          display: flex; align-items: center; justify-content: space-between;
-          gap: 14px;
+          display: flex; flex-direction: column;
+          gap: 6px;
           padding: 14px 16px;
           border-radius: 12px;
           background: linear-gradient(135deg, rgba(13,60,252,0.10), rgba(13,60,252,0.04));
@@ -915,9 +990,11 @@ export default function InstallTab({
           display: inline-flex; align-items: center; gap: 6px;
           flex-wrap: wrap;
         }
+        /* BD-3j Fix 2 — was muted (#6B7280) on a brand-blue-tinted bg
+           which dropped to ~3.5:1. Body (#374151) lands ~7:1. */
         .qq-install-doneforyou-sub {
           margin: 0;
-          font-size: 12px; color: ${p.colors.muted};
+          font-size: 12px; color: ${p.colors.body};
           line-height: 1.55;
         }
         .qq-install-doneforyou-cta {
@@ -938,9 +1015,6 @@ export default function InstallTab({
           .qq-install-select { min-height: 44px; padding: 11px 12px; font-size: 14px; }
           .qq-install-copy-btn { min-height: 44px; padding: 0 16px; font-size: 13px; }
           .qq-install-snippet { font-size: 12.5px; }
-          .qq-install-doneforyou-card {
-            flex-direction: column; align-items: stretch;
-          }
           .qq-install-doneforyou-cta {
             min-height: 44px; font-size: 14px;
           }
