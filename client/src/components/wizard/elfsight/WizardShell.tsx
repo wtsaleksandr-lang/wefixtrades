@@ -42,7 +42,10 @@ import {
 } from '@shared/templatePresets';
 import AIBubble from './AIBubble';
 import EditorTopBar from './EditorTopBar';
-import EditorTabs from './EditorTabs';
+// BH-2 — EditorTabs is no longer rendered as a standalone bar; the tab
+// strip is rendered inline inside EditorTopBar so the top chrome lives on
+// a single horizontal row. The component file is preserved for any future
+// reuse but is intentionally not imported here.
 import TabPlaceholder from './TabPlaceholder';
 import BuildTab from './BuildTab';
 import PreviewPane from './PreviewPane';
@@ -972,11 +975,10 @@ export default function WizardShell({ embed = false }: Props) {
               canRedo={canRedo}
               onUndo={undo}
               onRedo={redo}
-            />
-
-            <EditorTabs
-              active={activeTab}
-              onChange={setActiveTab}
+              /* BH-2 — tabs + preview fold are now part of the single-row
+                 top chrome (the separate tab bar was removed). */
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
               previewCollapsed={previewCollapsed}
               onTogglePreview={togglePreviewCollapsed}
             />
@@ -1481,59 +1483,88 @@ export default function WizardShell({ embed = false }: Props) {
               .qq-editor-right { transition: none !important; }
               .qq-editor-fold { transition: none !important; }
             }
+            /* ── BH-2 — single-row top chrome ─────────────────────────────
+             *
+             * The previously-stacked topbar (~46px) + tab bar (~44px) are
+             * collapsed into one ~44px row. Inside, three functional groups
+             * (brand · history · tabs · device · tools/save) are separated
+             * by hairline dividers and arranged with a flex spacer between
+             * the tabs/device cluster and the right-side tools.
+             *
+             * Height target: 44–48px. Padding stays on the 8px scale; gaps
+             * within a functional group are 2–4px, between groups 8–10px.
+             *
+             * Sticky behaviour preserved (only one sticky surface now). */
             .qq-editor-topbar {
-              display: flex; align-items: center; gap: 10px;
-              padding: 10px 16px; flex-shrink: 0;
+              display: flex; align-items: center;
+              gap: 8px;
+              padding: 6px 12px; flex-shrink: 0;
+              min-height: 44px;
               background: ${d.colors.panelHeader};
               border-bottom: 1px solid ${d.colors.borderLight};
-              /* Wave X #17 — sticky topbar.
-                 Was static; the brand wordmark, saved indicator, device
-                 toggle, help and close button now stay pinned at the
-                 top of the editor frame even when the left pane is
-                 scrolled. Stacks above the tabs bar (z:6 > z:5). */
               position: sticky;
               top: 0;
               z-index: 6;
             }
             .qq-editor-brand {
-              display: flex; align-items: center; gap: 7px; text-decoration: none;
-              font-size: 13px; font-weight: 800; color: ${p.colors.heading}; flex-shrink: 0;
+              display: inline-flex; align-items: center; gap: 6px;
+              text-decoration: none;
+              font-size: 13px; font-weight: 800; color: ${p.colors.heading};
+              flex-shrink: 0;
+              min-height: 32px;
+              padding: 0 2px;
+            }
+            /* BH-2 — drop wordmark below 1024px so the tab strip + device
+               preset switcher get the horizontal real estate. Icon stays. */
+            @media (max-width: 1023px) {
+              .qq-editor-brand-label { display: none; }
             }
             .qq-editor-saved {
               font-size: 11px; font-weight: 600; color: ${p.colors.accentDark};
               background: ${p.colors.accentLighter}; padding: 3px 9px; border-radius: 999px;
               transition: opacity 0.3s ease; flex-shrink: 0;
             }
-            .qq-editor-spacer { flex: 1; min-width: 0; }
+            .qq-editor-spacer { flex: 1; min-width: 4px; }
+            /* BH-2 — hairline vertical divider between functional groups.
+               1px wide, ~22px tall, centred. Hidden when adjacent groups
+               collapse on narrow widths. */
+            .qq-editor-divider {
+              flex-shrink: 0;
+              width: 1px; height: 22px;
+              background: ${d.colors.borderLight};
+              margin: 0 2px;
+            }
+            /* BH-2 — tight group cluster (history, tools). 2px gap so two
+               icon buttons read as a single unit. */
+            .qq-editor-group {
+              display: inline-flex; align-items: center; gap: 2px;
+              flex-shrink: 0;
+            }
             .qq-editor-device {
-              display: flex; gap: 3px; padding: 3px; flex-shrink: 0;
-              border-radius: 9px; background: #fff;
+              display: flex; gap: 2px; padding: 2px; flex-shrink: 0;
+              border-radius: 8px; background: #fff;
               border: 1px solid ${p.colors.borderLight};
             }
             .qq-editor-device button {
               display: flex; align-items: center; justify-content: center;
-              width: 32px; height: 25px; border-radius: 7px; border: none;
+              width: 30px; height: 24px; border-radius: 6px; border: none;
               cursor: pointer; transition: background 0.15s ease;
             }
             .qq-editor-icon-btn {
-              width: 26px; height: 26px; border-radius: 50%; cursor: pointer;
+              width: 28px; height: 28px; border-radius: 50%; cursor: pointer;
               border: 1px solid ${p.colors.border}; background: #fff;
               color: ${p.colors.muted}; padding: 0;
               display: flex; align-items: center; justify-content: center;
               transition: background 0.12s ease, color 0.12s ease;
+              flex-shrink: 0;
             }
             .qq-editor-icon-btn:hover:not(:disabled) {
               background: ${p.colors.surfaceRaised};
               color: ${p.colors.heading};
             }
-            /* BD-3a fix 1 — Undo/Redo icon button states. 32px touch target
-             * (was 26px) and an accent-blue tint on hover for affordance,
-             * dimmed when the corresponding stack is empty. */
-            .qq-editor-history-btn {
-              width: 32px;
-              height: 32px;
-              flex-shrink: 0;
-            }
+            /* BD-3a fix 1 / BH-2 — Undo/Redo share the icon-btn base but
+             * gain a brand-blue tint on hover and accept the standard 28px
+             * tap target. */
             .qq-editor-history-btn:hover:not(:disabled) {
               background: ${p.colors.accentLighter};
               color: ${p.colors.accent};
@@ -1543,73 +1574,39 @@ export default function WizardShell({ embed = false }: Props) {
               opacity: 0.4;
               cursor: not-allowed;
             }
-            /* Wave L N1 — keep the tab bar visible while the left-pane content
-             * scrolls. The tabs are a child of .qq-editor-frame (siblings of
-             * .qq-editor-body), so sticky to the top of the frame; the topbar
-             * sits at 0..~46px so the tabs sit at the topbar's height. */
-            .qq-editor-tabs {
-              display: flex; flex-shrink: 0;
-              background: #fff;
-              border-bottom: 1px solid ${d.colors.borderLight};
+            /* ── BH-2 — inline tab strip ─────────────────────────────────
+             * Pill-style compact tabs. Overflow-x:auto inside its own flex
+             * region so the strip scrolls horizontally on narrow widths
+             * without forcing the whole topbar to scroll. min-width:0 lets
+             * the flex container shrink below its intrinsic content size. */
+            .qq-editor-tabstrip {
+              display: flex; align-items: center; gap: 2px;
+              min-width: 0;
+              flex: 0 1 auto;
               overflow-x: auto;
               scrollbar-width: none;
-              position: sticky;
-              /* Wave X #17 — tabs stick *under* the now-sticky topbar.
-                 The topbar's height is ~46px (10px padding + ~26px
-                 icon-button row). Tabs sit at that offset so both
-                 surfaces stay pinned and stacked. */
-              top: 46px;
-              z-index: 5;
+              padding: 0 2px;
             }
-            .qq-editor-tabs::-webkit-scrollbar { display: none; }
-            .qq-editor-tabs-inner {
-              display: flex; align-items: center; gap: 4px;
-              padding: 0 12px;
-              min-width: max-content;
-            }
+            .qq-editor-tabstrip::-webkit-scrollbar { display: none; }
             .qq-editor-tab {
-              font: inherit; background: none; border: none; cursor: pointer;
-              padding: 12px 16px;
+              font: inherit; background: transparent; border: none; cursor: pointer;
+              padding: 6px 12px;
+              min-height: 30px;
               font-size: 13px; font-weight: 600;
-              border-bottom: 2px solid transparent;
-              transition: color 0.12s ease, border-color 0.12s ease;
+              border-radius: 999px;
+              white-space: nowrap;
+              transition: color 0.12s ease, background 0.12s ease;
             }
             .qq-editor-tab:hover { color: ${p.colors.heading}; }
             .qq-editor-tab.is-active { font-weight: 700; }
 
-            /* Wave M — fold/unfold preview button, pushed to the far right
-               of the tab row so it sits on the same horizontal line as the
-               tabs but visibly separate. */
-            .qq-editor-fold {
-              margin-left: auto;
-              display: inline-flex; align-items: center; gap: 6px;
-              padding: 6px 10px;
-              min-height: 32px;
-              border: 1px solid transparent;
-              border-radius: 7px;
-              background: transparent;
-              color: ${p.colors.muted};
-              font: inherit; font-size: 12px; font-weight: 600;
-              cursor: pointer;
-              transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
-            }
-            .qq-editor-fold:hover {
-              color: ${p.colors.accent};
-              background: ${p.colors.accentLighter};
-              border-color: ${p.colors.accentLighter};
-            }
-            .qq-editor-fold:focus-visible {
-              outline: none;
-              border-color: ${p.colors.accent};
-              box-shadow: 0 0 0 2px ${p.colors.accentLighter};
-            }
+            /* BH-2 — preview fold/unfold reuses the icon-btn footprint. The
+             * collapsed state takes on accent colour so the user can see
+             * the preview is hidden at a glance. */
             .qq-editor-fold.is-collapsed {
               color: ${p.colors.accent};
               background: ${p.colors.accentLighter};
-            }
-            .qq-editor-fold-label {
-              font-weight: 600;
-              letter-spacing: 0.005em;
+              border-color: ${p.colors.accentLighter};
             }
 
             .qq-editor-body {
@@ -1667,11 +1664,12 @@ export default function WizardShell({ embed = false }: Props) {
               display: none !important;
             }
 
-            /* Wave AA — fold/unfold preview is mobile-only. On desktop
-               (>768px) the left-pane stretched to full width when the
-               preview was collapsed, which looked wrong since the split
-               view IS the desktop layout. Hide the fold button + neutralise
-               any persisted collapsed state on desktop. */
+            /* Wave AA / BH-2 — on desktop (>768px) the left-pane stretched
+               to full width when the preview was collapsed, which looked
+               wrong since the split view IS the desktop layout. Hide the
+               fold button (BH-2 has it inline in the unified top chrome —
+               still suppress it on desktop) + neutralise any persisted
+               collapsed state. */
             @media (min-width: 769px) {
               .qq-editor-fold { display: none !important; }
               .qq-editor-body.is-preview-collapsed .qq-editor-right {
@@ -1871,16 +1869,12 @@ export default function WizardShell({ embed = false }: Props) {
                 border-radius: 28px;
               }
               .qq-bezel--mobile > div:last-child { border-radius: 22px; }
-              .qq-editor-tab { padding: 10px 12px; font-size: 12.5px; }
-              /* Wave M — tap-target on mobile + collapse the stacked
-                 preview (mobile lays out vertically: preview on top, editor
-                 below — collapsing hides it entirely so the editor uses
-                 the full viewport height). */
-              .qq-editor-fold {
-                min-height: 44px;
-                padding: 8px 12px;
-                font-size: 13px;
-              }
+              .qq-editor-tab { padding: 6px 10px; font-size: 12.5px; }
+              /* Wave M / BH-2 — collapse the stacked preview (mobile lays
+                 out vertically: preview on top, editor below — collapsing
+                 hides it entirely so the editor uses the full viewport
+                 height). The fold control is the icon-btn in the unified
+                 top chrome (BH-2), so no separate sizing override here. */
               .qq-editor-body.is-preview-collapsed .qq-editor-right {
                 display: none;
                 height: 0 !important;
@@ -1889,10 +1883,18 @@ export default function WizardShell({ embed = false }: Props) {
               }
             }
             @media (max-width: 480px) {
-              .qq-editor-topbar { padding: 8px 10px; gap: 6px; }
+              /* BH-2 — tighten gaps + horizontal padding on phone widths
+                 so the brand icon, undo/redo, tabs and right-side tools
+                 still all fit on the single row. The mobile sticky bottom
+                 action bar carries the primary Save CTA and a chevron
+                 row for less-frequent secondary tools, so the topbar
+                 doesn't need to surface every action at this width. */
+              .qq-editor-topbar { padding: 4px 8px; gap: 4px; min-height: 40px; }
+              .qq-editor-divider { display: none; }
               .qq-editor-saved { font-size: 10.5px; padding: 2px 7px; }
               .qq-editor-device button { width: 28px; height: 22px; }
-              .qq-editor-icon-btn { width: 24px; height: 24px; }
+              /* Keep tap target >= 28px even at narrow widths. */
+              .qq-editor-icon-btn { width: 28px; height: 28px; }
               /* BH-1 — device preset switcher is hidden on phone-sized
                * wizard windows. A user editing on their phone doesn't
                * need a device-preset switcher (they ARE on a phone). The
@@ -2035,21 +2037,15 @@ export default function WizardShell({ embed = false }: Props) {
               .qq-editor-actions {
                 display: none !important;
               }
-              /* Wave X #17 sticky topbar already in place; tighten the
-               * mobile presentation with a backdrop blur so it reads as
-               * a true app-style sticky header rather than an opaque slab. */
+              /* Wave X #17 / BH-2 — sticky single-row topbar with backdrop
+               * blur so it reads as a true app-style sticky header rather
+               * than an opaque slab. */
               .qq-editor-topbar {
                 background: rgba(255, 255, 255, 0.94);
                 backdrop-filter: blur(10px);
                 -webkit-backdrop-filter: blur(10px);
               }
-              .qq-editor-tabs {
-                background: rgba(255, 255, 255, 0.94);
-                backdrop-filter: blur(10px);
-                -webkit-backdrop-filter: blur(10px);
-              }
-              .qq-editor-shell[data-theme="dark"] .qq-editor-topbar,
-              .qq-editor-shell[data-theme="dark"] .qq-editor-tabs {
+              .qq-editor-shell[data-theme="dark"] .qq-editor-topbar {
                 background: rgba(15, 23, 42, 0.88);
               }
             }
