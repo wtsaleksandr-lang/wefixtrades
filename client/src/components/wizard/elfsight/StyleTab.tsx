@@ -266,6 +266,7 @@ export default function StyleTab({
           Theme
           <InfoCue
             testid="style-section-theme"
+            region="background"
             text="One-click theme bundles. Picking one overwrites the colours, typography, shape and density below — customise after if you like."
           />
         </legend>
@@ -323,6 +324,7 @@ export default function StyleTab({
             Branding
             <InfoCue
               testid="style-section-branding"
+              region="header"
               text="Upload your logo and choose where it sits in the calculator header. The default trade icon is hidden once you upload your own logo."
             />
           </legend>
@@ -421,6 +423,7 @@ export default function StyleTab({
           Colours
           <InfoCue
             testid="style-section-colours"
+            region="background"
             text="Click any swatch to change the calculator's accent, background, body text, or result-card colour."
           />
         </legend>
@@ -512,6 +515,7 @@ export default function StyleTab({
           Typography
           <InfoCue
             testid="style-section-typography"
+            region="header"
             text="Sets the font family the calculator renders in. We load each option from the host site so widget pages don't pull a new web font."
           />
         </legend>
@@ -584,6 +588,7 @@ export default function StyleTab({
           Shape
           <InfoCue
             testid="style-section-shape"
+            region="step-content"
             text="Controls input style (filled vs outline) and how rounded corners are everywhere — cards, inputs, the CTA button."
           />
         </legend>
@@ -634,6 +639,7 @@ export default function StyleTab({
           Layout
           <InfoCue
             testid="style-section-layout"
+            region="background"
             text="How wide the calculator renders on desktop and mobile. Narrow / Wide / Full controls the breakpoint; the sliders below override with exact pixel values."
           />
         </legend>
@@ -718,6 +724,7 @@ export default function StyleTab({
                 Step layout
                 <InfoCue
                   testid="style-step-layout-info"
+                  region="step-content"
                   text="Multi-step (the default) renders one question per screen — ~3x higher quote completion in industry benchmarks. Single form keeps every field on one page."
                 />
               </span>
@@ -790,6 +797,7 @@ export default function StyleTab({
               )}
               <InfoCue
                 testid="style-ai-chat-visibility-info"
+                region="chat-bubble"
                 text="Stuck-customer rescue (default) keeps the AI bubble hidden until the user has progressed past step 2, idles for 30s, or clicks Help. Always visible matches the legacy behaviour."
               />
             </span>
@@ -1533,6 +1541,7 @@ function BrandStudioGroup({
               <span className="qq-bs-sub-title-text">Custom CSS</span>
               <InfoCue
                 testid="style-bs-customcss-info"
+                region="background"
                 text="Pro-tier custom CSS scoped to .qq-widget-<id> on your live calculator. Invalid CSS won't break the widget but won't be applied either — the runtime silently drops unparseable rules."
               />
             </p>
@@ -1559,6 +1568,7 @@ function BrandStudioGroup({
               <span className="qq-bs-sub-title-text">Background</span>
               <InfoCue
                 testid="style-bs-background-info"
+                region="background"
                 text="Override the widget body background. Solid uses the Colours-tab swatch; Gradient and Image are Pro-only and ship custom CSS to the live widget. Invalid CSS or unreachable image URLs are silently ignored at render time."
               />
             </p>
@@ -1690,6 +1700,7 @@ function BrandStudioGroup({
               <span className="qq-bs-sub-title-text">Result panel</span>
               <InfoCue
                 testid="style-bs-resultpanel-info"
+                region="result"
                 text="Controls how the final quote renders: a single price, a price range, or 3-tier Good/Better/Best cards (BD-2b). Range and tier modes can stack — the headline stays the base price, with a range band around it inside each tier card. Each override is optional; leave blank to inherit the Colours tab tokens."
               />
             </p>
@@ -1851,6 +1862,7 @@ function BrandStudioGroup({
               <span className="qq-bs-sub-title-text">Animations</span>
               <InfoCue
                 testid="style-bs-animations-info"
+                region="step-content"
                 text="Applies to step transitions (lead form, scheduling, deposit), button taps, and focus rings. Customers whose OS has prefers-reduced-motion enabled see the static UI instead — duration is the only knob, and 250 ms is the sweet spot. Setting Step transition to None disables all motion."
               />
             </p>
@@ -2516,6 +2528,7 @@ function PricingTiersSubsection({
           Pricing tiers
           <InfoCue
             testid="style-pricing-tiers-info"
+            region="tier-cards"
             text="Good/Better/Best presentation outperforms single-price AND 4+-tier alternatives. Auto-enabled for scope-spectrum work (roofing, windows, HVAC, landscaping); off for flat-fee categories like cleaning."
           />
         </span>

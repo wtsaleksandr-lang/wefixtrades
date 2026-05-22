@@ -68,6 +68,7 @@ export default function HeaderResultsPanel({
           Header
           <InfoCue
             testid="build-section-header"
+            region="header"
             text="The title bar visible above the form. Title falls back to your business name; subtitle is optional."
           />
         </h3>
@@ -86,6 +87,7 @@ export default function HeaderResultsPanel({
           placeholder="Click to add a title"
           infoText="Sits at the top of your calculator. Leave blank to fall back to your business name."
           infoTestid="headerresults-header"
+          infoRegion="header"
           testid="input-header-title"
         />
         <RichTextField
@@ -96,6 +98,7 @@ export default function HeaderResultsPanel({
           placeholder="Click to add a subtitle"
           infoText="Optional. Leave blank to hide the subtitle."
           infoTestid="headerresults-subtitle"
+          infoRegion="header"
           testid="input-header-subtitle"
         />
       </div>
@@ -113,6 +116,7 @@ export default function HeaderResultsPanel({
           Results
           <InfoCue
             testid="build-section-results"
+            region="result"
             text="The panel shown after the quote is calculated. Heading sits above the headline number; footnote is small print under it."
           />
         </h3>
@@ -128,6 +132,7 @@ export default function HeaderResultsPanel({
           placeholder="Click to add a heading"
           infoText="The text shown above the headline number (e.g. 'Estimated total')."
           infoTestid="headerresults-heading"
+          infoRegion="result"
           testid="input-results-heading"
         />
         <RichTextField
@@ -138,6 +143,7 @@ export default function HeaderResultsPanel({
           placeholder="Click to add a footer"
           infoText="Small print under the headline. Use for disclaimers or 'taxes not included'."
           infoTestid="headerresults-footnote"
+          infoRegion="sticky-footer"
           testid="input-results-footnote"
         />
       </div>
