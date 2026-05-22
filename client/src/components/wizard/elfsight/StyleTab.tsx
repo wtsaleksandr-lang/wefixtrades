@@ -45,7 +45,7 @@ import type {
   AdvResultEmphasis, AdvResultBorder,
   AdvStepTransition,
   AdvPremiumAnimations,
-  AdvDeposit, AdvBooking, AdvBranding, AdvBookingSource,
+  AdvDeposit, AdvDepositIconName, AdvBooking, AdvBranding, AdvBookingSource,
   AdvFloatingLauncher, AdvFloatingLauncherPosition,
   AdvButtonCopy,
   TemplateTiered, TemplateTier,
@@ -63,6 +63,9 @@ import {
   Shield, ShieldCheck, CheckCircle, Award,
   Star, ThumbsUp, BadgeCheck, Verified, ClipboardCheck, Clock,
   Leaf, FileBadge, Plus, X as XIcon, ChevronUp, ChevronDown,
+  /* P2 UX — deposit-badge icon picker glyphs (subset that wasn't already
+     pulled in by the trust-badge editor above). */
+  Check, Calendar, FileCheck,
 } from 'lucide-react';
 import { useFoldablePanels } from './useFoldablePanels';
 import { QUOTEQUICK_STYLE_PRESETS } from '@/data/quoteQuickStylePresets';
@@ -120,6 +123,14 @@ interface Props {
    */
   trustBadges?: readonly TrustBadge[];
   onTrustBadgesChange?: (next: TrustBadge[]) => void;
+  /**
+   * P2 UX — business-level currency symbol used to label currency-sensitive
+   * style fields (currently the deposit-amount input). Plumbed in from
+   * WizardShell where the ISO currency code lives in
+   * `settings.numberFormat.currency`. Defaults to `'$'` when absent so
+   * legacy calculators see no behaviour change.
+   */
+  currencySymbol?: string;
 }
 
 /** BD-2c — discrete values for the AI chat visibility toggle (Pro-tier). */
@@ -195,6 +206,23 @@ function getContrastingColor(hex: string): string {
 // consistently (data URL inflates ~33% on top of this).
 const LOGO_MAX_BYTES = 1024 * 1024;
 
+/* P2 UX — deposit-badge icon picker. 10 lucide glyphs whitelisted by
+ * `AdvDepositIconName`; the same map is mirrored in `AdvancedCalculator`
+ * so the renderer can resolve a saved name back to its component without
+ * cross-importing the wizard's icon list. */
+const DEPOSIT_ICON_OPTIONS: ReadonlyArray<{ name: AdvDepositIconName; Icon: LucideIcon; label: string }> = [
+  { name: 'Lock',        Icon: Lock,        label: 'Lock' },
+  { name: 'Shield',      Icon: Shield,      label: 'Shield' },
+  { name: 'ShieldCheck', Icon: ShieldCheck, label: 'Shield + check' },
+  { name: 'Check',       Icon: Check,       label: 'Check' },
+  { name: 'CheckCircle', Icon: CheckCircle, label: 'Check circle' },
+  { name: 'Calendar',    Icon: Calendar,    label: 'Calendar' },
+  { name: 'Clock',       Icon: Clock,       label: 'Clock' },
+  { name: 'BadgeCheck',  Icon: BadgeCheck,  label: 'Badge check' },
+  { name: 'FileCheck',   Icon: FileCheck,   label: 'File check' },
+  { name: 'Award',       Icon: Award,       label: 'Award' },
+];
+
 // W-AO-6b — sensible fallback colour tokens used by the new swatch row.
 // Mirror the conservative pan-theme defaults from widgetThemes.ts so the
 // Style tab UI matches what the renderer will produce when nothing is set.
@@ -211,6 +239,7 @@ export default function StyleTab({
   stepLayout, onStepLayoutChange,
   tiered, onTieredChange, templateCategory,
   trustBadges, onTrustBadgesChange,
+  currencySymbol = '$',
 }: Props) {
   // W-AO-6c — Brand Studio is a Pro / Business upsell. Free users see the
   // controls (preview-only) so they understand the value; the section
@@ -264,6 +293,14 @@ export default function StyleTab({
     return Math.max(1, Math.min(100000, Math.round(raw)));
   })();
   const depositLabel = typeof deposit.label === 'string' ? deposit.label : '';
+  /* P2 UX — deposit badge icon. Whitelisted glyph names; the renderer
+     defaults unknown values back to `'Lock'` so older calculators that
+     never picked an icon keep their existing badge. */
+  const depositIconName: AdvDepositIconName = (
+    DEPOSIT_ICON_OPTIONS.some((o) => o.name === deposit.iconName)
+      ? (deposit.iconName as AdvDepositIconName)
+      : 'Lock'
+  );
   const setDeposit = (next: Partial<AdvDeposit>) => {
     patch({
       deposit: {
@@ -685,7 +722,7 @@ export default function StyleTab({
               }}
               data-testid="style-deposit-sub-fields"
             >
-              <FloatField label="Deposit amount (USD)" htmlFor="qq-style-deposit-amount">
+              <FloatField label={`Deposit amount (${currencySymbol})`} htmlFor="qq-style-deposit-amount">
                 <input
                   id="qq-style-deposit-amount"
                   type="number"
@@ -716,6 +753,81 @@ export default function StyleTab({
                   onChange={(e) => setDeposit({ label: e.target.value })}
                 />
               </FloatField>
+              {/* P2 UX — deposit badge icon picker. 10 lucide glyphs the
+                  owner can pick from; selected one shows a brand-blue
+                  ring. Horizontal scroll on narrow widths so the row
+                  never wraps into a multi-line block. Default Lock
+                  preserves legacy badge appearance. */}
+              <div className="qq-deposit-icon-row" data-testid="style-deposit-icon-row">
+                <div
+                  className="qq-deposit-icon-row-label"
+                  id="style-deposit-icon-label"
+                >
+                  Badge icon
+                </div>
+                <div
+                  className="qq-deposit-icon-scroll"
+                  role="radiogroup"
+                  aria-labelledby="style-deposit-icon-label"
+                >
+                  {DEPOSIT_ICON_OPTIONS.map(({ name, Icon, label }) => {
+                    const selected = depositIconName === name;
+                    return (
+                      <button
+                        key={name}
+                        type="button"
+                        role="radio"
+                        aria-checked={selected}
+                        aria-label={label}
+                        title={label}
+                        data-testid={`style-deposit-icon-${name}`}
+                        className={`qq-deposit-icon-btn${selected ? ' is-selected' : ''}`}
+                        onClick={() => setDeposit({ iconName: name })}
+                      >
+                        <Icon size={16} aria-hidden="true" />
+                      </button>
+                    );
+                  })}
+                </div>
+                <style>{`
+                  .qq-deposit-icon-row {
+                    display: flex; flex-direction: column; gap: 4px;
+                  }
+                  .qq-deposit-icon-row-label {
+                    font-size: 11px; font-weight: 600;
+                    letter-spacing: 0.04em; text-transform: uppercase;
+                    color: ${p.colors.subtle};
+                  }
+                  .qq-deposit-icon-scroll {
+                    display: flex; gap: 6px;
+                    overflow-x: auto; padding: 2px 0 4px;
+                    scrollbar-width: thin;
+                  }
+                  .qq-deposit-icon-btn {
+                    flex: 0 0 auto;
+                    width: 32px; height: 32px;
+                    display: inline-flex; align-items: center; justify-content: center;
+                    background: #fff;
+                    border: 1px solid ${p.colors.borderLight};
+                    border-radius: 8px;
+                    color: ${p.colors.body};
+                    cursor: pointer;
+                    transition: border-color 0.12s ease, box-shadow 0.12s ease, color 0.12s ease;
+                  }
+                  .qq-deposit-icon-btn:hover {
+                    border-color: ${p.colors.border};
+                  }
+                  .qq-deposit-icon-btn.is-selected {
+                    border-color: ${p.colors.accent};
+                    color: ${p.colors.accent};
+                    box-shadow: 0 0 0 2px rgba(13, 60, 252, 0.18);
+                  }
+                  .qq-deposit-icon-btn:focus-visible {
+                    outline: 2px solid ${p.colors.accent};
+                    outline-offset: 1px;
+                  }
+                `}</style>
+              </div>
             </div>
           )}
         </div>
@@ -1513,6 +1625,15 @@ export default function StyleTab({
           padding: 0; margin: -1px; overflow: hidden;
           clip: rect(0,0,0,0); white-space: nowrap; border: 0;
         }
+        /* P2 UX — Button-copy section header is visually de-emphasised
+         * so the 5 stacked RichTextField inputs read as the primary
+         * content. 11 px / muted swatch matches the input-field-rules
+         * "minor section header" treatment Alex specced. */
+        .qq-style-legend--button-copy {
+          font-size: 11px;
+          letter-spacing: 0.04em;
+          color: ${p.colors.subtle};
+        }
         .qq-style-grid {
           display: grid; gap: 10px;
           grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2052,6 +2173,11 @@ export default function StyleTab({
         .qq-editor-shell[data-theme="dark"] .qq-style-legend {
           color: #cbd5e1;
           border-bottom-color: rgba(255,255,255,0.08);
+        }
+        /* P2 UX — Button-copy section header muted on dark mode so the
+         * 5 input rows read as the primary content (Alex spec). */
+        .qq-editor-shell[data-theme="dark"] .qq-style-legend--button-copy {
+          color: #94a3b8;
         }
         /* BD-2b — pricing-tier rows (inline background #fafbfc). */
         .qq-editor-shell[data-theme="dark"] [data-testid^="style-pricing-tier-"] {
@@ -3834,8 +3960,8 @@ function ButtonCopyGroup({
     else onChange(next);
   };
   return (
-    <fieldset className="qq-style-group" data-testid="style-group-button-copy">
-      <legend className="qq-style-legend">
+    <fieldset className="qq-style-group qq-style-group--button-copy" data-testid="style-group-button-copy">
+      <legend className="qq-style-legend qq-style-legend--button-copy">
         Button copy
         {!isProTier && (
           <span className="qq-bs-pill" aria-label="Pro plan feature">
@@ -3856,7 +3982,11 @@ function ButtonCopyGroup({
             to Pro to customise each button.
           </p>
         )}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {/* P2 UX — 2 px row gap per input-field-rules; the per-field
+            floating label inside RichTextField already provides the
+            label-in-field affordance Alex asked for, so no stacked
+            label rows are added here. */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <RichTextField
             label="Back"
             htmlFor="style-button-copy-back"

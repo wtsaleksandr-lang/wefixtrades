@@ -37,6 +37,17 @@ import { useCalculatorAnalytics } from './useCalculatorAnalytics';
 // Explicit named imports keep Vite's tree-shaker happy — DO NOT switch to
 // `import * as LucideIcons from 'lucide-react'` (pulls the full set into the bundle).
 import { getQuoteQuickIcon } from '@/data/quoteQuickIcons';
+/* P2 UX — deposit badge icon picker. Explicit named imports keep
+ * Vite's tree-shaker happy; the icons match `AdvDepositIconName` 1:1
+ * and the renderer falls back to `Lock` for unknown names. */
+import {
+  Lock as LucideLock, Shield as LucideShield, ShieldCheck as LucideShieldCheck,
+  Check as LucideCheck, CheckCircle as LucideCheckCircle,
+  Calendar as LucideCalendar, Clock as LucideClock,
+  BadgeCheck as LucideBadgeCheck, FileCheck as LucideFileCheck,
+  Award as LucideAward,
+  type LucideIcon,
+} from 'lucide-react';
 // BD-2a — multi-step renderer, header category icon, final-step contact capture.
 import CategoryIcon from './CategoryIcon';
 import CalculatorStepper, { StepperControls } from './CalculatorStepper';
@@ -507,6 +518,22 @@ function rulePasses(rule: { op: string; value: number }, controlValue: number): 
   }
 }
 
+/** P2 UX — deposit-badge icon name → lucide component. Mirrors the
+ *  whitelist in `shared/templatePresets.ts:AdvDepositIconName`. Unknown
+ *  / absent names fall back to `Lock` at the call site. */
+const DEPOSIT_ICON_COMPONENTS: Record<string, LucideIcon> = {
+  Lock: LucideLock,
+  Shield: LucideShield,
+  ShieldCheck: LucideShieldCheck,
+  Check: LucideCheck,
+  CheckCircle: LucideCheckCircle,
+  Calendar: LucideCalendar,
+  Clock: LucideClock,
+  BadgeCheck: LucideBadgeCheck,
+  FileCheck: LucideFileCheck,
+  Award: LucideAward,
+};
+
 /** Minimal ISO-4217 → symbol map. Codes outside the map render as the code
  *  itself (e.g. `INR 1,234`), which is still legible. */
 const CURRENCY_SYMBOLS: Record<string, string> = {
@@ -806,6 +833,7 @@ function StickyActionBar({
  */
 function DepositPreviewBadge({
   amount, label, accent, theme, fontFamily, radiusPx, currencyFormatter,
+  IconComponent,
 }: {
   amount: number;
   label: string;
@@ -815,6 +843,10 @@ function DepositPreviewBadge({
   /** Border radius — accepts CSS length string (e.g. `'10px'`) or number (px). */
   radiusPx: number | string;
   currencyFormatter: (n: number) => string;
+  /** P2 UX — owner-selected lucide icon. Defaults to `Lock` at the call
+   *  site so the badge keeps its legacy appearance when no icon was
+   *  saved. */
+  IconComponent: LucideIcon;
 }) {
   const [open, setOpen] = useState(false);
   const formattedAmount = currencyFormatter(amount);
@@ -843,18 +875,16 @@ function DepositPreviewBadge({
           alignSelf: 'flex-start',
         }}
       >
-        {/* lucide Lock icon — inline SVG to avoid touching the icon-map
-            import surface. 14px, accent-coloured. */}
-        <svg
+        {/* P2 UX — owner-selected lucide glyph. Defaults to Lock at the
+            call site so the legacy appearance is preserved when the
+            stored config has no `iconName`. 14 px, accent-coloured. */}
+        <IconComponent
           aria-hidden="true"
-          width={14} height={14} viewBox="0 0 24 24" fill="none"
-          stroke={accent} strokeWidth={2.25}
-          strokeLinecap="round" strokeLinejoin="round"
+          size={14}
+          color={accent}
+          strokeWidth={2.25}
           style={{ flexShrink: 0 }}
-        >
-          <rect x="3" y="11" width="18" height="11" rx="2" />
-          <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-        </svg>
+        />
         <span>
           <span style={{ color: accent, fontWeight: 800 }}>{formattedAmount}</span>{' '}
           {label} — fully refundable
@@ -1222,6 +1252,12 @@ export default function AdvancedCalculator({
   const depositLabelText = (typeof bsDeposit?.label === 'string' && bsDeposit.label.trim() !== '')
     ? bsDeposit.label
     : 'Deposit required to schedule';
+  /* P2 UX — deposit-badge icon resolution. Maps the saved name to a
+   * lucide component; unknown / absent → Lock (legacy default). */
+  const depositIconComponent: LucideIcon = (
+    (bsDeposit?.iconName && DEPOSIT_ICON_COMPONENTS[bsDeposit.iconName])
+      ?? LucideLock
+  );
 
   const bsBooking = styleSlot.booking;
   const bookingPreviewEnabled = bsBooking?.enabled === true;
@@ -2012,11 +2048,16 @@ export default function AdvancedCalculator({
               data-qq-step-enter
               data-qq-stagger-parent
             >
-              {visibleFields.length === 0 && (
-                <p style={{ fontSize: '14px', color: c.textBody, padding: '16px 0' }}>
-                  This calculator hasn't been set up yet.
-                </p>
-              )}
+              {/* P2 UX — empty-state cleanup. The wizard preview shows
+                  PreviewEmptyState (a dashed-container "Add your first field"
+                  CTA) on top of this canvas. The old "This calculator hasn't
+                  been set up yet" hint stacked underneath it and looked like
+                  a duplicate label. Suppressed: when there are zero visible
+                  fields the empty-state owner is PreviewEmptyState (or, on
+                  published widgets with zero fields, the calculator simply
+                  renders no body — which is the correct fallback because a
+                  published widget with no fields is a misconfiguration the
+                  owner should never have shipped). */}
               {/* BG-7 Item 4 — per-step rich-text description. Sanitized
                  on read (the wizard also sanitizes on write). Renders
                  above the field list so it reads as introductory copy
@@ -2161,7 +2202,7 @@ export default function AdvancedCalculator({
          * own margin which interacted poorly with the inline `lineHeight: 1.05`
          * on the amount — on mobile dark mode the labels were getting clipped.
          */}
-        {hasResult && (
+        {hasResult && visibleFields.length > 0 && (
           <div
             className={`${gridId}-result`}
             data-testid="advanced-result-panel"
@@ -2371,6 +2412,7 @@ export default function AdvancedCalculator({
                 fontFamily={fontFamily}
                 radiusPx={radiusInnerPx}
                 currencyFormatter={(n) => formatResult(n, 'currency', advanced.numberFormat)}
+                IconComponent={depositIconComponent}
               />
             )}
 
