@@ -143,7 +143,7 @@ function AuditStaticSections() {
           <h2 style={{
             fontSize: "clamp(18px, 2.5vw, 22px)",
             fontWeight: 700,
-            color: "#111827",
+            color: "#1E1E1E",
             lineHeight: 1.2,
             letterSpacing: "-0.01em",
             margin: "0 0 8px",
@@ -180,7 +180,7 @@ function AuditFaqSection() {
       <h2 style={{
         fontSize: "clamp(20px, 3vw, 26px)",
         fontWeight: 700,
-        color: "#111827",
+        color: "#1E1E1E",
         letterSpacing: "-0.02em",
         lineHeight: 1.15,
         margin: "0 0 16px",
@@ -197,7 +197,7 @@ function AuditFaqSection() {
               background: "rgba(255,255,255,0.78)",
               border: "1px solid rgba(0,0,0,0.08)",
               borderRadius: 12,
-              overflow: "hidden",
+              overflow: "clip",
             }}>
               <button
                 onClick={() => setOpenIdx(isOpen ? null : i)}
@@ -583,7 +583,7 @@ export default function FreeAudit() {
                 fontSize: reportReady ? "clamp(22px, 4vw, 28px)" : "clamp(30px, 5vw, 40px)",
                 fontWeight: 900,
                 letterSpacing: "-0.02em",
-                color: "#111827",
+                color: "#1E1E1E",
                 marginBottom: reportReady ? 8 : 12,
                 lineHeight: 1.05,
                 transition: "font-size 0.3s",
@@ -624,6 +624,30 @@ export default function FreeAudit() {
                 <span>Takes ~30 seconds</span>
               </div>
             )}
+            {/* BE-2: trust strip header \u2014 marketing-tool-appropriate trust line.
+                Mirrors the BD-2b pattern used inside the QuoteQuick widget.
+                Only renders pre-audit (hidden once busy/report). */}
+            {!reportReady && (
+              <div
+                style={{
+                  marginTop: 14,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "6px 12px",
+                  borderRadius: 999,
+                  background: "rgba(13,60,252,0.06)",
+                  border: "1px solid rgba(13,60,252,0.14)",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: "#1E1E1E",
+                  letterSpacing: "0.005em",
+                }}
+              >
+                <span style={{ color: "#22C55E" }}>{"\u2605\u2605\u2605\u2605\u2605"}</span>
+                <span style={{ opacity: 0.65 }}>Trusted by 2,400+ trade businesses</span>
+              </div>
+            )}
           </div>
 
           {!busy && (
@@ -639,8 +663,25 @@ export default function FreeAudit() {
                 margin: "0 auto",
                 width: "100%",
                 boxSizing: "border-box",
+                overflow: "clip",
               }}
             >
+              {/* BE-2: help cue top-left per locked design rule 5 — single small
+                  hint above the input, no duplicated title (placeholder doubles
+                  as the field's prompt). */}
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 600,
+                  letterSpacing: "0.04em",
+                  textTransform: "uppercase",
+                  color: "#0d3cfc",
+                  marginBottom: 8,
+                  paddingLeft: 2,
+                }}
+              >
+                Search your business
+              </div>
               <div style={{ position: "relative" }}>
                 <Search
                   size={18}
@@ -711,7 +752,7 @@ export default function FreeAudit() {
                     border: "1px solid rgba(0,0,0,0.10)",
                     boxShadow: "0 12px 40px rgba(0,0,0,0.12)",
                     zIndex: 50,
-                    overflow: "hidden",
+                    overflow: "clip",
                   }}
                 >
                   {predictions.length === 0 ? (
@@ -826,7 +867,7 @@ export default function FreeAudit() {
                 style={{
                   fontSize: 15,
                   fontWeight: 600,
-                  color: "#111827",
+                  color: "#1E1E1E",
                   marginBottom: 14,
                 }}
               >
@@ -935,7 +976,7 @@ export default function FreeAudit() {
             paddingTop: 24,
             borderTop: "1px solid rgba(0,0,0,0.07)",
           }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: "#111827", marginBottom: 10 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "#1E1E1E", marginBottom: 10 }}>
               Other free tools
             </div>
             {[
