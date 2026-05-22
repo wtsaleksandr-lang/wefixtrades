@@ -1182,10 +1182,11 @@ export default function PreviewPane({
   // BD-3b — top-bar drag handle. Sits absolutely positioned at the top of
   // the bezel; visible on hover or when the widget is selected.
   //
-  // P1 fix: subtler at-rest treatment — grip icon stays on the LEFT, the
-  // "Drag to move" label moves to the RIGHT edge with a flex spacer in
-  // between. Combined with the lower at-rest opacity + transparent-tinted
-  // background defined in the CSS, the bar is barely-there until hover.
+  // P2 UX: removed the trailing "Drag to move" text label — the recognisable
+  // grip glyph is a strong-enough affordance on its own. The label moves to
+  // a native `title` tooltip so power users can still confirm what the
+  // control does without it being a permanent visual feature. Icon centres
+  // in the 28-px bar; height stays at 28 to match DRAG_HANDLE_TOP_RESERVE.
   const dragHandle = (
     <div
       className={`qq-widget-drag-handle${widgetSelected ? ' is-selected' : ''}`}
@@ -1196,11 +1197,10 @@ export default function PreviewPane({
       onPointerCancel={onHandlePointerUp}
       role="button"
       aria-label="Move widget"
+      title="Drag to move"
       tabIndex={0}
     >
-      <GripVertical size={14} aria-hidden="true" />
-      <span className="qq-widget-drag-handle-spacer" aria-hidden="true" />
-      <span className="qq-widget-drag-handle-label">Drag to move</span>
+      <GripVertical size={16} aria-hidden="true" />
     </div>
   );
 
@@ -1950,30 +1950,24 @@ export default function PreviewPane({
          * but faded; full opacity on hover or when selected. Sits above
          * everything inside the bezel via z-index.
          *
-         * P1 fix — bar is now much subtler at-rest so it doesn't compete
-         * with the widget chrome for attention:
-         *   at-rest opacity   0.7 -> 0.35
-         *   hover opacity     1.0 -> 0.9
-         *   background        solid brand-blue gradient -> transparent
-         *                     (30 % tinted) at-rest, ~50 % on hover
-         *   label position    top-left -> top-right (grip stays left,
-         *                     a flex spacer pushes the label across)
-         *
-         * Height stays at 32 to match DRAG_HANDLE_TOP_RESERVE's in-move
-         * clamp. */
+         * P2 UX — text label removed; the grip glyph alone signals
+         * "draggable". Icon colour drives the at-rest/hover affordance
+         * (rgba(255,255,255,0.7) → 1.0). Background stays as the subtle
+         * brand-blue tint introduced by the P1 pass so the bar is still
+         * locatable on light surfaces. Height drops 32 → 28 per spec;
+         * DRAG_HANDLE_TOP_RESERVE clamp keeps the bar above the canvas. */
         .qq-widget-drag-handle {
           position: absolute;
           top: 0; left: 0; right: 0;
-          height: 32px;
+          height: 28px;
           z-index: 8;
-          display: flex; align-items: center; gap: 5px;
-          padding: 0 12px 0 10px;
+          display: flex; align-items: center; justify-content: center;
+          padding: 0 10px;
           background: rgba(13, 60, 252, 0.30);
-          color: #fff;
-          font-size: 11px; font-weight: 700; letter-spacing: 0.02em;
+          color: rgba(255, 255, 255, 0.7);
           cursor: grab;
           opacity: 0.35;
-          transition: opacity 0.12s ease, background 0.12s ease;
+          transition: opacity 0.12s ease, background 0.12s ease, color 0.12s ease;
           user-select: none;
           touch-action: none;
         }
@@ -1982,15 +1976,9 @@ export default function PreviewPane({
         .qq-widget-drag-handle:focus-visible {
           opacity: 0.9;
           background: rgba(13, 60, 252, 0.50);
+          color: rgba(255, 255, 255, 1.0);
         }
         .qq-widget-drag-handle:active { cursor: grabbing; }
-        .qq-widget-drag-handle-spacer {
-          flex: 1 1 auto;
-        }
-        .qq-widget-drag-handle-label {
-          font-size: 11px;
-          text-align: right;
-        }
         /* Desktop bezel has a 9px-padding chrome row; the drag handle floats
          * on top but the user can still click the macOS dots and URL bar
          * because the handle only fires when the pointer presses outside

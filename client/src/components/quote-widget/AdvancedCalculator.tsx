@@ -54,9 +54,11 @@ import CalculatorStepper, { StepperControls } from './CalculatorStepper';
 import ContactStep from './ContactStep';
 // BD-2b — Good/Better/Best tier selector + inline trust signals.
 import TierSelector from './TierSelector';
-import TrustStripHeader from './TrustStripHeader';
 import TrustBlockUnderCTA from './TrustBlockUnderCTA';
 // BF-9 — pre-curated trust-badge pill row (Licensed & Insured, BBB, etc.).
+// P2 UX — TrustBadgeRow is now the single trust strip; the old
+// TrustStripHeader was retired because both rendered overlapping content.
+// Business-profile fields (license #) are folded into TrustBadgeRow.
 import TrustBadgeRow from './TrustBadgeRow';
 // BD-2c — image-card radio + ZIP peer-anchor + AI chat visibility gate.
 import ImageRadioStep from './ImageRadioStep';
@@ -1993,21 +1995,17 @@ export default function AdvancedCalculator({
           .${gridId}[data-layout="multi-column"] .${gridId}-fields > * { grid-column: auto; }
         }
       `}</style>
-      {/* BD-2b — trust strip. Renders BELOW the title bar and ABOVE the
-          stepper progress indicator. Shows aggregate Google rating +
-          Licensed/Insured pill + years-in-business pill when the business
-          profile carries those fields. When the profile is undefined or
-          all fields are empty, returns null (no placeholder copy). */}
-      <TrustStripHeader
-        profile={advanced.businessProfile}
-        theme={c}
-        fontFamily={fontFamily}
-      />
-      {/* BF-9 — pre-curated trust-badge pill row (Licensed & Insured, BBB,
-          OSHA, IICRC, ASE, etc.). Pre-populated per template; absent →
-          renders null. Wraps to multiple rows on narrow widths. */}
+      {/* BF-9 / P2 UX — unified trust-badge row. Pre-populated per template
+          (Licensed & Insured, BBB, OSHA, IICRC, ASE, etc.) PLUS an
+          auto-synthesised "Licensed #XYZ" chip when the business profile
+          carries a license number. The old TrustStripHeader was retired
+          here because its content overlapped this row; license # is the
+          only signal not already covered by the per-template trustBadges
+          array, hence the synthesis. Wraps to multiple rows on narrow
+          widths; absent + no profile data → renders null. */}
       <TrustBadgeRow
         badges={advanced.trustBadges}
+        businessProfile={advanced.businessProfile}
         theme={c}
         fontFamily={fontFamily}
       />
