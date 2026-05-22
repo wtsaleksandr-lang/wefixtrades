@@ -204,7 +204,9 @@ export function MarketingNav() {
           style={{
             height: isMobile ? 66 : DESKTOP_CARD_HEIGHT,
             width: "100%",
-            marginTop: 4,
+            // P0 FIX — nav card flush to viewport top (was marginTop: 4 which
+            // left a visible 4px gap between the browser chrome and the card).
+            marginTop: 0,
             borderRadius: 12,
             background: "rgba(34,40,42,0.72)",
             backdropFilter: "blur(30px) saturate(1.2)",
