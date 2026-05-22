@@ -400,10 +400,35 @@ export default function PreviewPane({
     pointerId: number;
   } | null>(null);
 
+  // BH-1 — track whether the user has explicitly set zoom (via +/-/wheel/
+  // keyboard/pinch/100% button). When TRUE, the auto-fit ResizeObserver
+  // backs off so we don't fight the user. Clicking the Fit button (or
+  // switching device preset) clears the lock so auto-fit takes over again.
+  // Lives in a ref because it's a write-from-everywhere flag that must not
+  // trigger renders.
+  //
+  // P1 fix: declared up here (was below the resize callbacks) so the
+  // resize handles can flip the lock at drag-start. Without the flip,
+  // dragging a side-resize handle to narrow the widget triggered the
+  // auto-fit ResizeObserver below, which recomputed `zoom = min(paneW/
+  // mockupW, paneH/mockupH)` — as the user shrunk paneW, zoom INCREASED,
+  // making content look BIGGER (the opposite of what they wanted). With
+  // the lock flipped at `beginResize`, the observer skips its retick and
+  // the resize handle's own width/height setter wins. User has now defined
+  // their preferred widget size — auto-fit stays off until the Fit button
+  // is clicked or the device preset changes.
+  const userZoomLockedRef = useRef(false);
+
   const beginResize = useCallback((dir: HandleDir) => (e: React.PointerEvent<HTMLDivElement>) => {
     if (e.button !== 0 && e.pointerType === 'mouse') return;
     e.preventDefault();
     e.stopPropagation();
+    // P1 fix: lock auto-zoom BEFORE we mutate widgetSize. The
+    // ResizeObserver-driven fit-to-canvas (see useLayoutEffect below)
+    // checks this flag and skips when locked, so the resize gesture
+    // can shrink/grow the widget without auto-zoom fighting back. The
+    // lock stays on after onPointerUp — user has defined their size.
+    userZoomLockedRef.current = true;
     const stage = stageRef.current;
     const bezel = stage?.querySelector<HTMLElement>('[data-testid^="preview-bezel"]');
     if (!bezel) return;
@@ -491,13 +516,9 @@ export default function PreviewPane({
     return Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, Math.round(n * 100) / 100));
   }, []);
 
-  // BH-1 — track whether the user has explicitly set zoom (via +/-/wheel/
-  // keyboard/pinch/100% button). When TRUE, the auto-fit ResizeObserver
-  // backs off so we don't fight the user. Clicking the Fit button (or
-  // switching device preset) clears the lock so auto-fit takes over again.
-  // Lives in a ref because it's a write-from-everywhere flag that must not
-  // trigger renders.
-  const userZoomLockedRef = useRef(false);
+  // (userZoomLockedRef is declared above the resize callbacks now — P1 fix
+  // moved it up so beginResize can flip the auto-zoom lock before mutating
+  // widgetSize.)
   const setZoomManual = useCallback((updater: number | ((z: number) => number)) => {
     userZoomLockedRef.current = true;
     if (typeof updater === 'function') setZoom((z) => clampZoom(updater(z)));
@@ -828,6 +849,52 @@ export default function PreviewPane({
     };
   }, []);
 
+  /* P1 fix — Premium Animations live preview.
+   *
+   * BD-3l shipped the Premium Pack but only the BASIC animations
+   * segmented control had the BD-3g `qq-preview:replay-animation`
+   * wiring. When the owner flicks a Premium sub-toggle (spring,
+   * count-up, stagger, ctaPulse, cardFlip, confetti) the persisted
+   * value updates instantly but the entrance keyframes already
+   * finished — the preview looks dead.
+   *
+   * Fix: listen for the new `qq-preview:replay-premium` event
+   * StyleTab now dispatches on every Premium sub-toggle change. Bump
+   * `premiumReplayKey` so the QuoteWidget remounts (same trick the
+   * basic animations replay uses) and entrance keyframes / stagger /
+   * count-up / card-flip / spring transitions all play one full cycle.
+   * For the `confetti` sub-toggle, also clear any `qq-confetti-fired-*`
+   * sessionStorage keys first so ConfettiBurst's once-per-session gate
+   * doesn't swallow the preview burst. */
+  const [premiumReplayKey, setPremiumReplayKey] = useState(0);
+  useEffect(() => {
+    const onPremium = (e: Event) => {
+      const ev = e as CustomEvent<{ effect?: string; enabled?: boolean }>;
+      const effect = String(ev.detail?.effect ?? '');
+      // Confetti is gated by sessionStorage — clear all preview-scoped
+      // keys so the next mount fires fresh. Safe to clear broadly:
+      // these keys only exist for confetti-fire-once gating and are
+      // re-created on next render.
+      if (effect === 'confetti' || effect === 'enabled') {
+        try {
+          if (typeof window !== 'undefined' && window.sessionStorage) {
+            for (let i = window.sessionStorage.length - 1; i >= 0; i--) {
+              const k = window.sessionStorage.key(i);
+              if (k && k.startsWith('qq-confetti-fired-')) {
+                window.sessionStorage.removeItem(k);
+              }
+            }
+          }
+        } catch { /* private mode etc. — silent */ }
+      }
+      setPremiumReplayKey((k) => k + 1);
+    };
+    window.addEventListener('qq-preview:replay-premium', onPremium as EventListener);
+    return () => {
+      window.removeEventListener('qq-preview:replay-premium', onPremium as EventListener);
+    };
+  }, []);
+
   // Branch on prefers-reduced-motion: when set, the replay just briefly
   // outlines the container instead of running keyframes.
   const reduceMotionForReplay = useMemo(() => {
@@ -1097,6 +1164,11 @@ export default function PreviewPane({
 
   // BD-3b — top-bar drag handle. Sits absolutely positioned at the top of
   // the bezel; visible on hover or when the widget is selected.
+  //
+  // P1 fix: subtler at-rest treatment — grip icon stays on the LEFT, the
+  // "Drag to move" label moves to the RIGHT edge with a flex spacer in
+  // between. Combined with the lower at-rest opacity + transparent-tinted
+  // background defined in the CSS, the bar is barely-there until hover.
   const dragHandle = (
     <div
       className={`qq-widget-drag-handle${widgetSelected ? ' is-selected' : ''}`}
@@ -1110,6 +1182,7 @@ export default function PreviewPane({
       tabIndex={0}
     >
       <GripVertical size={14} aria-hidden="true" />
+      <span className="qq-widget-drag-handle-spacer" aria-hidden="true" />
       <span className="qq-widget-drag-handle-label">Drag to move</span>
     </div>
   );
@@ -1136,7 +1209,7 @@ export default function PreviewPane({
           compact
         >
           <QuoteWidget
-            key={`qq-preview-widget-${replayAnim?.key ?? 0}`}
+            key={`qq-preview-widget-${replayAnim?.key ?? 0}-${premiumReplayKey}`}
             calculator={previewCalculatorData}
             isEmbed
             hideBrandBadge
@@ -1530,23 +1603,29 @@ export default function PreviewPane({
          * but faded; full opacity on hover or when selected. Sits above
          * everything inside the bezel via z-index.
          *
-         * Drag-bug fix — at-rest opacity bumped 0 -> 0.7 so the user can
-         * actually see the handle without hovering (the wizard canvas has
-         * multiple distracting surfaces, the previous "invisible until
-         * hover" was undiscoverable). Height bumped 28 -> 32 to expand the
-         * hit target and match the in-move clamp's DRAG_HANDLE_TOP_RESERVE. */
+         * P1 fix — bar is now much subtler at-rest so it doesn't compete
+         * with the widget chrome for attention:
+         *   at-rest opacity   0.7 -> 0.35
+         *   hover opacity     1.0 -> 0.9
+         *   background        solid brand-blue gradient -> transparent
+         *                     (30 % tinted) at-rest, ~50 % on hover
+         *   label position    top-left -> top-right (grip stays left,
+         *                     a flex spacer pushes the label across)
+         *
+         * Height stays at 32 to match DRAG_HANDLE_TOP_RESERVE's in-move
+         * clamp. */
         .qq-widget-drag-handle {
           position: absolute;
           top: 0; left: 0; right: 0;
           height: 32px;
           z-index: 8;
           display: flex; align-items: center; gap: 5px;
-          padding: 0 10px;
-          background: linear-gradient(180deg, rgba(13,60,252,0.55), rgba(13,60,252,0.30));
+          padding: 0 12px 0 10px;
+          background: rgba(13, 60, 252, 0.30);
           color: #fff;
           font-size: 11px; font-weight: 700; letter-spacing: 0.02em;
           cursor: grab;
-          opacity: 0.7;
+          opacity: 0.35;
           transition: opacity 0.12s ease, background 0.12s ease;
           user-select: none;
           touch-action: none;
@@ -1554,12 +1633,16 @@ export default function PreviewPane({
         .qq-bezel:hover .qq-widget-drag-handle,
         .qq-widget-drag-handle.is-selected,
         .qq-widget-drag-handle:focus-visible {
-          opacity: 1;
-          background: linear-gradient(180deg, rgba(13,60,252,0.85), rgba(13,60,252,0.55));
+          opacity: 0.9;
+          background: rgba(13, 60, 252, 0.50);
         }
         .qq-widget-drag-handle:active { cursor: grabbing; }
+        .qq-widget-drag-handle-spacer {
+          flex: 1 1 auto;
+        }
         .qq-widget-drag-handle-label {
           font-size: 11px;
+          text-align: right;
         }
         /* Desktop bezel has a 9px-padding chrome row; the drag handle floats
          * on top but the user can still click the macOS dots and URL bar

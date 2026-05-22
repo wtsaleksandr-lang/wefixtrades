@@ -199,16 +199,23 @@ export function registerCalculatorRoutes(app: Express): void {
   // wizard's tier-aware UI bits (e.g. brand-badge toggle in Settings).
   // Token-authenticated; returns only the minimal fields the client
   // needs, no calculator_settings leak.
+  //
+  // P1 fix: an admin with the per-session `admin_pro_preview` flag on
+  // sees plan_tier === 'pro' so the wizard surfaces every Pro-only
+  // control. Override never persists — purely a session-scoped view.
   app.get("/api/calculators/me", async (req, res) => {
     try {
       const token = typeof req.query.token === 'string' ? req.query.token : '';
       if (!token) return res.status(400).json({ error: "Missing token" });
       const calc = await storage.getCalculatorByToken(token);
       if (!calc) return res.status(404).json({ error: "Calculator not found" });
+      const sess = req.session as (typeof req.session & { admin_pro_preview?: boolean }) | undefined;
+      const adminPreview = req.user?.role === "admin" && sess?.admin_pro_preview === true;
+      const planTier = adminPreview ? 'pro' : ((calc as any).plan_tier ?? 'free');
       res.json({
         id: calc.id,
         slug: calc.slug,
-        plan_tier: (calc as any).plan_tier ?? 'free',
+        plan_tier: planTier,
         business_name: calc.business_name,
       });
     } catch (err: any) {
