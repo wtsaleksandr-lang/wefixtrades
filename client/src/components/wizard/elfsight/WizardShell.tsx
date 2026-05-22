@@ -931,6 +931,10 @@ export default function WizardShell({ embed = false }: Props) {
                    * the preview matches what visitors at {slug}.your-quote
                    * .net actually see. */
                   hostedFrame={activeTab === 'install'}
+                  /* BD-3b — session id for zoom persistence. Uses the
+                   * active template id when present (per-calculator) and
+                   * falls back to 'draft' for unsaved calculators. */
+                  sessionId={state.activeTemplateId ?? 'draft'}
                 />
               </div>
             </div>
