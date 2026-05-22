@@ -20,7 +20,7 @@
 // editor-tab-*, editor-fold-toggle, editor-theme-toggle, editor-undo, editor-redo.
 
 import {
-  HelpCircle, Monitor, Moon, PanelRightClose, PanelRightOpen,
+  HelpCircle, MessageSquare, Monitor, Moon, PanelRightClose, PanelRightOpen,
   Redo2, Smartphone, Sun, Tablet, Undo2, X,
 } from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
@@ -50,6 +50,12 @@ interface Props {
   /** BH-2 — preview fold/unfold (formerly on the standalone tab bar). */
   previewCollapsed?: boolean;
   onTogglePreview?: () => void;
+  /** P2 UX — Floating launcher preview mode. When on, the canvas dims and
+   *  the widget shrinks to a 56×56 bubble in the bottom-right of the
+   *  preview pane (mimicking the BD-3m floating launcher visitors see).
+   *  Click bubble = expand; click outside = collapse back to bubble. */
+  floatingLauncherPreview?: boolean;
+  onToggleFloatingLauncherPreview?: () => void;
 }
 
 export default function EditorTopBar({
@@ -59,6 +65,7 @@ export default function EditorTopBar({
   canUndo = false, canRedo = false, onUndo, onRedo,
   activeTab, onTabChange,
   previewCollapsed = false, onTogglePreview,
+  floatingLauncherPreview = false, onToggleFloatingLauncherPreview,
 }: Props) {
   const nextTheme: EditorTheme = editorTheme === 'dark' ? 'light' : 'dark';
   const ThemeIcon = editorTheme === 'dark' ? Sun : Moon;
@@ -180,6 +187,25 @@ export default function EditorTopBar({
           </button>
         ))}
       </div>
+
+      {/* P2 UX — Floating launcher preview toggle. When on, the canvas
+       *  shows the BD-3m floating-launcher bubble instead of the inline
+       *  widget — lets wizard owners SEE what site visitors see. The
+       *  button highlights with a brand-blue ring when active. */}
+      {onToggleFloatingLauncherPreview && (
+        <button
+          type="button"
+          onClick={onToggleFloatingLauncherPreview}
+          className={`qq-editor-icon-btn qq-editor-launcher-toggle${floatingLauncherPreview ? ' is-active' : ''}`}
+          data-testid="editor-floating-launcher-toggle"
+          data-active={floatingLauncherPreview ? 'true' : 'false'}
+          aria-pressed={floatingLauncherPreview}
+          aria-label={floatingLauncherPreview ? 'Exit floating launcher preview' : 'Preview as floating launcher'}
+          title="Floating launcher"
+        >
+          <MessageSquare style={{ width: 14, height: 14 }} aria-hidden="true" />
+        </button>
+      )}
 
       <span className="qq-editor-divider" aria-hidden="true" />
 

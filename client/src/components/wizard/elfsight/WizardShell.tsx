@@ -401,6 +401,24 @@ export default function WizardShell({ embed = false }: Props) {
     setPreviewCollapsed((v) => !v);
   }, []);
 
+  // ── P2 UX: floating launcher preview mode ─────────────────────────
+  // Lets wizard owners SEE what visitors see — when on, the preview canvas
+  // dims and the widget collapses to a 56×56 bubble in the bottom-right
+  // (mimicking BD-3m's floating launcher). Click the bubble to expand
+  // back to the full widget; click outside the expanded widget to collapse
+  // back to the bubble. Toggle the top-chrome button to exit. NOT
+  // persisted across sessions — it's a transient preview lens.
+  const [floatingLauncherPreview, setFloatingLauncherPreview] = useState(false);
+  const [floatingLauncherExpanded, setFloatingLauncherExpanded] = useState(false);
+  const toggleFloatingLauncherPreview = useCallback(() => {
+    setFloatingLauncherPreview((v) => {
+      const next = !v;
+      // Always start in collapsed (bubble) state on entering preview mode.
+      if (next) setFloatingLauncherExpanded(false);
+      return next;
+    });
+  }, []);
+
   // ── W-AO-1: mobile sticky action bar extended state ────────────────
   const [actionBarExtended, setActionBarExtended] = useState<boolean>(
     () => loadActionBarExtended(),
@@ -1052,6 +1070,8 @@ export default function WizardShell({ embed = false }: Props) {
               onTabChange={setActiveTab}
               previewCollapsed={previewCollapsed}
               onTogglePreview={togglePreviewCollapsed}
+              floatingLauncherPreview={floatingLauncherPreview}
+              onToggleFloatingLauncherPreview={toggleFloatingLauncherPreview}
             />
 
             {/* BH-3 — Tab body content. Same tree on desktop and mobile;
@@ -1231,6 +1251,12 @@ export default function WizardShell({ embed = false }: Props) {
                    * active template id when present (per-calculator) and
                    * falls back to 'draft' for unsaved calculators. */
                   sessionId={state.activeTemplateId ?? 'draft'}
+                  /* P2 UX — Floating launcher preview lens (transient,
+                   * not persisted). Triggered by the top-chrome toggle. */
+                  floatingLauncherPreview={floatingLauncherPreview}
+                  floatingLauncherExpanded={floatingLauncherExpanded}
+                  onFloatingLauncherExpandedChange={setFloatingLauncherExpanded}
+                  floatingLauncherPosition={state.style?.floatingLauncher?.position}
                 />
               </div>
             </div>
@@ -1785,6 +1811,22 @@ export default function WizardShell({ embed = false }: Props) {
               background: ${p.colors.accentLighter};
               border-color: ${p.colors.accentLighter};
             }
+            /* P2 UX — Floating launcher preview toggle. When active, the
+             * button takes on the brand-blue accent + a subtle blue ring
+             * so the wizard owner can see at a glance that the preview
+             * canvas is in lens mode. */
+            .qq-editor-launcher-toggle.is-active {
+              color: #fff;
+              background: ${p.colors.accent};
+              border-color: ${p.colors.accent};
+              box-shadow: 0 0 0 3px rgba(13, 60, 252, 0.20);
+              opacity: 1;
+            }
+            .qq-editor-launcher-toggle.is-active:hover:not(:disabled) {
+              color: #fff;
+              background: ${p.colors.accentDark};
+              border-color: ${p.colors.accentDark};
+            }
 
             .qq-editor-body {
               display: flex; align-items: stretch;
@@ -1880,34 +1922,37 @@ export default function WizardShell({ embed = false }: Props) {
             }
             /* Wave I (d) — resize handle on the right edge of the left pane.
              *
-             * P2 UX fix (2026-05-22): the handle now lives ENTIRELY OUTSIDE the
-             * pane (between pane and canvas), so the native scrollbar on
-             * .qq-editor-left's overflow-y:auto sits cleanly on the inner edge
-             * (right side of the content area, inside the pane). The handle is
-             * a thin 4px vertical bar at rest, expanding to 6px on hover. The
-             * grip-dots span has been replaced with a flat bar — the .is-resizing
-             * class still recolors it, but the visual is just a subtle line.
+             * P2 UX fix v2 (2026-05-22): handle is barely visible at rest but
+             * discoverable — neutral gray-blue (rgba 0.18 light / 0.20 dark)
+             * 4px bar with a centered 3-dot grip glyph (0.5 opacity at rest,
+             * 1.0 on hover). On hover the bar widens to 6px and shifts to the
+             * brand-blue accent hint (rgba(13,60,252,0.45)). Active drag is
+             * solid #0d3cfc. Cursor: col-resize.
              *
-             * Cursor: col-resize (mobile ignores; touchpad pinch+drag still
-             * fires via touchmove handler in WizardShell).
+             * The 3-dot grip is rendered via a centered pseudo-element on the
+             * inner <span> (kept aria-hidden in WizardShell.tsx) — three 1.5px
+             * circles, 3px apart, stacked vertically, matching the handle bg
+             * tone. CSS-only, no extra DOM.
              *
-             * Tap target: even at 4px the absolute positioning lets us extend
-             * the hit area via padding (kept at 0) but the keyboard a11y path
-             * (focus + arrow keys) still works since the button receives focus. */
+             * Tap target: the absolute-positioned button extends to fill the
+             * 4px (6px on hover) width plus the pane-edge offset. The
+             * keyboard a11y path (focus + arrow keys) still works since the
+             * button receives focus. */
             .qq-editor-resize {
               position: absolute; top: 0; right: -4px; bottom: 0;
               width: 4px;
-              background: rgba(255, 255, 255, 0.04);
+              background: rgba(15, 23, 42, 0.18);
               border: 0; padding: 0; cursor: col-resize;
               z-index: 5;
               touch-action: none;
+              display: flex; align-items: center; justify-content: center;
               transition: background 0.12s ease, width 0.12s ease, right 0.12s ease;
             }
             .qq-editor-shell[data-theme="dark"] .qq-editor-resize {
-              background: rgba(255, 255, 255, 0.08);
+              background: rgba(255, 255, 255, 0.20);
             }
             .qq-editor-resize:hover {
-              background: rgba(13, 60, 252, 0.4);
+              background: rgba(13, 60, 252, 0.45);
               width: 6px;
               right: -5px;
             }
@@ -1916,12 +1961,30 @@ export default function WizardShell({ embed = false }: Props) {
               width: 6px;
               right: -5px;
             }
-            /* Grip-dots glyph removed — the thin bar IS the affordance now.
-             * Keep the span in the DOM (WizardShell.tsx renders <span aria-hidden/>)
-             * but make it invisible so the at-rest visual is purely the
-             * 4px coloured strip. */
+            /* 3-dot grip glyph — centered vertically on the handle. Three
+             * 1.5px circles spaced 3px apart, rendered via a single
+             * background-image gradient on the inner <span>. Color matches
+             * the handle's visual tone (a neutral muted-light dot on the
+             * gray-blue at-rest bar; bright white on hover/active for
+             * legibility against the brand-blue fill). */
             .qq-editor-resize > span {
-              display: none;
+              display: block;
+              width: 2px; height: 12px;
+              background-image: radial-gradient(circle, currentColor 0.75px, transparent 1px);
+              background-size: 2px 4px;
+              background-repeat: repeat-y;
+              background-position: center;
+              color: rgba(255, 255, 255, 0.7);
+              opacity: 0.5;
+              transition: opacity 0.12s ease, color 0.12s ease;
+            }
+            .qq-editor-shell[data-theme="dark"] .qq-editor-resize > span {
+              color: rgba(255, 255, 255, 0.85);
+            }
+            .qq-editor-resize:hover > span,
+            .qq-editor-resize.is-resizing > span {
+              opacity: 1;
+              color: #ffffff;
             }
             /* Wave L N2 — sticky bottom actions row.
              *
