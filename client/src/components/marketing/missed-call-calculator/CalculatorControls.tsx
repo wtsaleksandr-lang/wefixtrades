@@ -19,11 +19,41 @@ export interface SliderValues {
   avgJobValue: number;
 }
 
+/** Step keys for the multi-step slider flow. `null` = render all three at once
+ *  (legacy behaviour, retained for backward compat). */
+export type SliderStepKey = 'missedCalls' | 'closeRate' | 'avgJobValue' | null;
+
+/** Per-step copy shown above the single slider. Mirrors the QuoteWidget
+ *  one-question-per-screen pattern (BD-2a). */
+export const SLIDER_STEP_META: Record<Exclude<SliderStepKey, null>, {
+  title: string;
+  helper: string;
+}> = {
+  missedCalls: {
+    title: 'How many calls do you miss per week?',
+    helper: 'Include after-hours, weekends, and busy periods when no one picks up.',
+  },
+  closeRate: {
+    title: 'What’s your close rate on answered calls?',
+    helper: 'Industry average for home services is 25–40%.',
+  },
+  avgJobValue: {
+    title: 'What’s your average job value?',
+    helper: 'Typical revenue from a single completed job — materials + labor.',
+  },
+};
+
 interface CalculatorControlsProps {
   preset: TradePreset;
   values: SliderValues;
   onChange: (next: SliderValues) => void;
   onChangeTrade: () => void;
+  /** When set, render only the single slider for that step (BD-2a multi-step
+   *  flow). When null/undefined, render all three sliders (legacy). */
+  step?: SliderStepKey;
+  /** Hide the surrounding chrome (trade pill, change-trade button, footer).
+   *  Used by the multi-step shell which renders its own header/footer chrome. */
+  hideChrome?: boolean;
 }
 
 export default function CalculatorControls({
@@ -31,6 +61,8 @@ export default function CalculatorControls({
   values,
   onChange,
   onChangeTrade,
+  step = null,
+  hideChrome = false,
 }: CalculatorControlsProps) {
   const { sliderBounds } = preset;
 
@@ -48,6 +80,106 @@ export default function CalculatorControls({
     });
   }, [preset, onChange]);
 
+  /** Render a single slider keyed by step name. Extracted so the parent can
+   *  use this same component for either the legacy all-in-one card or the
+   *  new per-step shell. */
+  const renderSlider = (key: Exclude<SliderStepKey, null>) => {
+    if (key === 'missedCalls') {
+      return (
+        <SliderField
+          label="Missed calls per week"
+          tooltip="The number of inbound calls your business doesn't answer each week — including after-hours, weekends, and busy periods when no one picks up."
+          value={values.missedCallsPerWeek}
+          min={sliderBounds.missedCalls.min}
+          max={sliderBounds.missedCalls.max}
+          step={sliderBounds.missedCalls.step}
+          unitSuffix="calls"
+          onChange={v => onChange({ ...values, missedCallsPerWeek: v })}
+          accentColor={mkt.accent}
+          trackBg={DARK_TRACK}
+          labelColor={mkt.textMuted}
+          minMaxColor={mkt.textFaint}
+        />
+      );
+    }
+    if (key === 'closeRate') {
+      return (
+        <SliderField
+          label="Close rate"
+          tooltip="The percentage of answered calls that turn into a booked job. Industry average for home services is 25–40%."
+          value={values.closeRatePercent}
+          min={sliderBounds.closeRate.min}
+          max={sliderBounds.closeRate.max}
+          step={sliderBounds.closeRate.step}
+          unitSuffix=""
+          formatValue={fmtPct}
+          formatBound={fmtPct}
+          onChange={v => onChange({ ...values, closeRatePercent: v })}
+          accentColor={mkt.accent}
+          trackBg={DARK_TRACK}
+          labelColor={mkt.textMuted}
+          minMaxColor={mkt.textFaint}
+        />
+      );
+    }
+    return (
+      <SliderField
+        label="Average job value"
+        tooltip="The typical revenue from a single completed job, including materials and labor."
+        value={values.avgJobValue}
+        min={sliderBounds.avgJobValue.min}
+        max={sliderBounds.avgJobValue.max}
+        step={sliderBounds.avgJobValue.step}
+        unitSuffix=""
+        formatValue={fmtCurrency}
+        formatBound={fmtCurrencyBound}
+        showMinMaxLabels
+        onChange={v => onChange({ ...values, avgJobValue: v })}
+        accentColor={mkt.accent}
+        trackBg={DARK_TRACK}
+        labelColor={mkt.textMuted}
+        minMaxColor={mkt.textFaint}
+      />
+    );
+  };
+
+  // ── Multi-step mode: one slider per screen, no surrounding card chrome.
+  //    The parent shell owns the trade pill + sticky bottom action bar. ──
+  if (step !== null && hideChrome) {
+    const meta = SLIDER_STEP_META[step];
+    return (
+      <motion.div
+        key={`slider-step-${step}`}
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+      >
+        <h3 style={{
+          fontSize: 'clamp(18px, 3vw, 22px)',
+          fontWeight: 700,
+          color: mkt.onDark,
+          letterSpacing: '-0.01em',
+          lineHeight: 1.25,
+          margin: '0 0 6px',
+        }}>
+          {meta.title}
+        </h3>
+        <p style={{
+          fontSize: 13,
+          fontWeight: 500,
+          color: mkt.textMuted,
+          margin: '0 0 22px',
+          lineHeight: 1.5,
+        }}>
+          {meta.helper}
+        </p>
+        {renderSlider(step)}
+      </motion.div>
+    );
+  }
+
+  // ── Legacy mode: all three sliders + chrome (kept for any caller that
+  //    still wants the original single-card layout). ──
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
@@ -121,55 +253,9 @@ export default function CalculatorControls({
           Using typical <span style={{ color: mkt.accent }}>{preset.label.toLowerCase()}</span> business ranges
         </p>
 
-        <SliderField
-          label="Missed calls per week"
-          tooltip="The number of inbound calls your business doesn't answer each week — including after-hours, weekends, and busy periods when no one picks up."
-          value={values.missedCallsPerWeek}
-          min={sliderBounds.missedCalls.min}
-          max={sliderBounds.missedCalls.max}
-          step={sliderBounds.missedCalls.step}
-          unitSuffix="calls"
-          onChange={v => onChange({ ...values, missedCallsPerWeek: v })}
-          accentColor={mkt.accent}
-          trackBg={DARK_TRACK}
-          labelColor={mkt.textMuted}
-          minMaxColor={mkt.textFaint}
-        />
-
-        <SliderField
-          label="Close rate"
-          tooltip="The percentage of answered calls that turn into a booked job. Industry average for home services is 25–40%."
-          value={values.closeRatePercent}
-          min={sliderBounds.closeRate.min}
-          max={sliderBounds.closeRate.max}
-          step={sliderBounds.closeRate.step}
-          unitSuffix=""
-          formatValue={fmtPct}
-          formatBound={fmtPct}
-          onChange={v => onChange({ ...values, closeRatePercent: v })}
-          accentColor={mkt.accent}
-          trackBg={DARK_TRACK}
-          labelColor={mkt.textMuted}
-          minMaxColor={mkt.textFaint}
-        />
-
-        <SliderField
-          label="Average job value"
-          tooltip="The typical revenue from a single completed job, including materials and labor."
-          value={values.avgJobValue}
-          min={sliderBounds.avgJobValue.min}
-          max={sliderBounds.avgJobValue.max}
-          step={sliderBounds.avgJobValue.step}
-          unitSuffix=""
-          formatValue={fmtCurrency}
-          formatBound={fmtCurrencyBound}
-          showMinMaxLabels
-          onChange={v => onChange({ ...values, avgJobValue: v })}
-          accentColor={mkt.accent}
-          trackBg={DARK_TRACK}
-          labelColor={mkt.textMuted}
-          minMaxColor={mkt.textFaint}
-        />
+        {renderSlider('missedCalls')}
+        {renderSlider('closeRate')}
+        {renderSlider('avgJobValue')}
 
         {/* Footer: reset + assumption note */}
         <div style={{
