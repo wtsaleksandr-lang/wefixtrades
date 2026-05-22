@@ -1,21 +1,27 @@
-// EditorTopBar — Elfsight-clone editor top bar (Wave H1 → Wave J / BD-3a).
+// EditorTopBar — Elfsight-clone editor top bar (Wave H1 → BH-2).
 //
-// Layout (left→right):
-//   • Undo / Redo icon buttons (BD-3a fix 1)
-//   • QuoteQuick brand mark + "Saved" pill (when present)
-//   • spacer
-//   • desktop / mobile device toggle (reuses Wave G's compact sizing)
-//   • sun / moon  day-night toggle  (Wave J item 3)
-//   • ?  help
-//   • X  close (history.back fallback to /)
+// BH-2 — collapsed the previously-stacked topbar + tabs bar into a single
+// ~44px row. Layout (left→right):
+//
+//   brand · | · undo · redo · | · tabs · | · device · spacer · saved
+//   · theme · help · fold · close
+//
+// Below 1024px the brand drops its wordmark (icon only) and the tab strip
+// scrolls horizontally inside a clipped flex region. Device / undo-redo /
+// save / theme / close stay visible at all widths >= 480px. The phone
+// breakpoint (<= 480px) still hides the device preset switcher (BH-1) since
+// the user editing on a phone IS on a phone.
 //
 // Brand styling only — no Elfsight colours. Accent comes from platformTheme.
-// All testids stable: quotequick-close, preview-device-desktop, preview-device-mobile.
-// Wave J adds: editor-theme-toggle. BD-3a adds: editor-undo, editor-redo.
+// All testids stable: quotequick-close, preview-device-desktop, preview-device-mobile,
+// editor-tab-*, editor-fold-toggle, editor-theme-toggle, editor-undo, editor-redo.
 
-import { HelpCircle, Monitor, Moon, Redo2, Smartphone, Sun, Tablet, Undo2, X } from 'lucide-react';
+import {
+  HelpCircle, Monitor, Moon, PanelRightClose, PanelRightOpen,
+  Redo2, Smartphone, Sun, Tablet, Undo2, X,
+} from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
-import type { EditorTheme, PreviewDevice } from './types';
+import { EDITOR_TABS, type EditorTab, type EditorTheme, type PreviewDevice } from './types';
 
 const p = platformTheme;
 
@@ -34,6 +40,13 @@ interface Props {
   canRedo?: boolean;
   onUndo?: () => void;
   onRedo?: () => void;
+  /** BH-2 — tab state, lifted in from WizardShell so the tabs sit on the
+   *  same row as the rest of the chrome. */
+  activeTab: EditorTab;
+  onTabChange: (tab: EditorTab) => void;
+  /** BH-2 — preview fold/unfold (formerly on the standalone tab bar). */
+  previewCollapsed?: boolean;
+  onTogglePreview?: () => void;
 }
 
 export default function EditorTopBar({
@@ -41,9 +54,11 @@ export default function EditorTopBar({
   editorTheme, onEditorThemeChange,
   onHelp, onClose,
   canUndo = false, canRedo = false, onUndo, onRedo,
+  activeTab, onTabChange,
+  previewCollapsed = false, onTogglePreview,
 }: Props) {
   const nextTheme: EditorTheme = editorTheme === 'dark' ? 'light' : 'dark';
-  const Icon = editorTheme === 'dark' ? Sun : Moon;
+  const ThemeIcon = editorTheme === 'dark' ? Sun : Moon;
   // BD-3a fix 1 — Mac-style shortcut label is purely cosmetic; the keyboard
   // listener in WizardShell handles both ⌘ and Ctrl.
   const isMac = typeof navigator !== 'undefined'
@@ -51,30 +66,6 @@ export default function EditorTopBar({
   const modKey = isMac ? '⌘' : 'Ctrl';
   return (
     <div className="qq-editor-topbar" data-testid="editor-top-bar">
-      {/* BD-3a fix 1 — Undo / Redo. Disabled until the stack has entries. */}
-      <button
-        type="button"
-        onClick={() => onUndo && onUndo()}
-        disabled={!canUndo}
-        className="qq-editor-icon-btn qq-editor-history-btn"
-        data-testid="editor-undo"
-        aria-label="Undo"
-        title={`Undo (${modKey}Z)`}
-      >
-        <Undo2 style={{ width: 14, height: 14 }} aria-hidden="true" />
-      </button>
-      <button
-        type="button"
-        onClick={() => onRedo && onRedo()}
-        disabled={!canRedo}
-        className="qq-editor-icon-btn qq-editor-history-btn"
-        data-testid="editor-redo"
-        aria-label="Redo"
-        title={`Redo (${modKey}⇧Z)`}
-      >
-        <Redo2 style={{ width: 14, height: 14 }} aria-hidden="true" />
-      </button>
-
       <a href="/" className="qq-editor-brand" aria-label="WeFixTrades home">
         <img
           src="/favicon.svg"
@@ -82,25 +73,75 @@ export default function EditorTopBar({
           style={{ width: 16, height: 16 }}
           onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
         />
-        <span>QuoteQuick</span>
+        <span className="qq-editor-brand-label">QuoteQuick</span>
       </a>
 
-      <span
-        className="qq-editor-saved"
-        data-testid="editor-saved-state"
-        style={{ opacity: justSaved ? 1 : 0 }}
+      <span className="qq-editor-divider" aria-hidden="true" />
+
+      {/* BD-3a fix 1 — Undo / Redo. Disabled until the stack has entries. */}
+      <div className="qq-editor-group" role="group" aria-label="History">
+        <button
+          type="button"
+          onClick={() => onUndo && onUndo()}
+          disabled={!canUndo}
+          className="qq-editor-icon-btn qq-editor-history-btn"
+          data-testid="editor-undo"
+          aria-label="Undo"
+          title={`Undo (${modKey}Z)`}
+        >
+          <Undo2 style={{ width: 14, height: 14 }} aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          onClick={() => onRedo && onRedo()}
+          disabled={!canRedo}
+          className="qq-editor-icon-btn qq-editor-history-btn"
+          data-testid="editor-redo"
+          aria-label="Redo"
+          title={`Redo (${modKey}⇧Z)`}
+        >
+          <Redo2 style={{ width: 14, height: 14 }} aria-hidden="true" />
+        </button>
+      </div>
+
+      <span className="qq-editor-divider" aria-hidden="true" />
+
+      {/* BH-2 — tabs inline. Wraps in its own flex container that scrolls
+       *  horizontally on narrow widths so the rest of the bar stays
+       *  reachable; the surrounding chrome never scrolls. */}
+      <div
+        className="qq-editor-tabstrip"
+        role="tablist"
+        aria-label="Editor sections"
+        data-testid="editor-tabs"
       >
-        ✓ Saved
-      </span>
+        {EDITOR_TABS.map(({ id, label }) => {
+          const isActive = id === activeTab;
+          return (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={isActive}
+              data-testid={`editor-tab-${id}`}
+              className={`qq-editor-tab${isActive ? ' is-active' : ''}`}
+              onClick={() => onTabChange(id)}
+              style={{
+                color: isActive ? p.colors.accent : p.colors.muted,
+                background: isActive ? p.colors.accentLighter : 'transparent',
+              }}
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
 
-      <div className="qq-editor-spacer" aria-hidden="true" />
+      <span className="qq-editor-divider" aria-hidden="true" />
 
-      {/* BH-1 — device preset switcher. Three presets (1280 / 768 / 375)
-       *  match Figma / Webflow / Builder.io. Active preset gets a brand-blue
-       *  background. Persisted in sessionStorage in WizardShell. The whole
-       *  toggle is hidden on phone-sized wizard windows (≤480px) — see CSS
-       *  in WizardShell — since a user editing on their phone doesn't need a
-       *  device-preset switcher (they ARE on a phone). */}
+      {/* BH-1 — device preset switcher. Three presets (1280 / 768 / 375).
+       *  Hidden on phone-sized wizard windows (<= 480px) — a user editing
+       *  on their phone doesn't need a device-preset switcher. */}
       <div className="qq-editor-device" data-testid="editor-device-toggle">
         {([
           ['desktop', Monitor, 'Desktop'],
@@ -127,39 +168,70 @@ export default function EditorTopBar({
         ))}
       </div>
 
-      <button
-        type="button"
-        onClick={() => onEditorThemeChange(nextTheme)}
-        className="qq-editor-icon-btn"
-        data-testid="editor-theme-toggle"
-        data-theme-state={editorTheme}
-        aria-label={`Switch editor to ${nextTheme} mode`}
-        title={`Switch to ${nextTheme} mode`}
-      >
-        <Icon style={{ width: 14, height: 14 }} aria-hidden="true" />
-      </button>
+      <div className="qq-editor-spacer" aria-hidden="true" />
 
-      <button
-        type="button"
-        onClick={onHelp}
-        className="qq-editor-icon-btn"
-        data-testid="editor-help"
-        aria-label="Help"
-        title="Help"
+      <span
+        className="qq-editor-saved"
+        data-testid="editor-saved-state"
+        style={{ opacity: justSaved ? 1 : 0 }}
       >
-        <HelpCircle style={{ width: 14, height: 14 }} aria-hidden="true" />
-      </button>
+        ✓ Saved
+      </span>
 
-      <button
-        type="button"
-        onClick={onClose}
-        className="qq-editor-icon-btn"
-        data-testid="quotequick-close"
-        aria-label="Close QuoteQuick"
-        title="Close"
-      >
-        <X style={{ width: 14, height: 14 }} aria-hidden="true" />
-      </button>
+      <div className="qq-editor-group" role="group" aria-label="Tools">
+        <button
+          type="button"
+          onClick={() => onEditorThemeChange(nextTheme)}
+          className="qq-editor-icon-btn"
+          data-testid="editor-theme-toggle"
+          data-theme-state={editorTheme}
+          aria-label={`Switch editor to ${nextTheme} mode`}
+          title={`Switch to ${nextTheme} mode`}
+        >
+          <ThemeIcon style={{ width: 14, height: 14 }} aria-hidden="true" />
+        </button>
+
+        <button
+          type="button"
+          onClick={onHelp}
+          className="qq-editor-icon-btn"
+          data-testid="editor-help"
+          aria-label="Help"
+          title="Help"
+        >
+          <HelpCircle style={{ width: 14, height: 14 }} aria-hidden="true" />
+        </button>
+
+        {onTogglePreview && (
+          <button
+            type="button"
+            className={`qq-editor-icon-btn qq-editor-fold${previewCollapsed ? ' is-collapsed' : ''}`}
+            onClick={onTogglePreview}
+            data-testid="editor-fold-toggle"
+            data-collapsed={previewCollapsed ? 'true' : 'false'}
+            aria-pressed={previewCollapsed}
+            aria-label={previewCollapsed ? 'Show preview pane' : 'Hide preview pane'}
+            title={previewCollapsed ? 'Show preview' : 'Hide preview'}
+          >
+            {previewCollapsed ? (
+              <PanelRightOpen style={{ width: 14, height: 14 }} aria-hidden="true" />
+            ) : (
+              <PanelRightClose style={{ width: 14, height: 14 }} aria-hidden="true" />
+            )}
+          </button>
+        )}
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="qq-editor-icon-btn"
+          data-testid="quotequick-close"
+          aria-label="Close QuoteQuick"
+          title="Close"
+        >
+          <X style={{ width: 14, height: 14 }} aria-hidden="true" />
+        </button>
+      </div>
     </div>
   );
 }
