@@ -587,13 +587,12 @@ export default function StyleTab({
             text="Controls input style (filled vs outline) and how rounded corners are everywhere — cards, inputs, the CTA button."
           />
         </legend>
+        {/* BD-3e Fix 3 — duplicate `<InfoCue testid="style-shape">` removed.
+         * The section legend's cue already covers Field style. Matches the
+         * Typography section (legend-cue only, per-label cues omitted). */}
         <label className="qq-style-label">
           <span className="qq-style-label-text">
             Field style
-            <InfoCue
-              testid="style-shape"
-              text="Tune how inputs and cards look."
-            />
           </span>
         </label>
         <SegmentedControl<ShellFieldStyle>
@@ -638,13 +637,11 @@ export default function StyleTab({
             text="How wide the calculator renders on desktop and mobile. Narrow / Wide / Full controls the breakpoint; the sliders below override with exact pixel values."
           />
         </legend>
+        {/* BD-3e Fix 3 — duplicate `<InfoCue testid="style-layout">` removed.
+         * The section legend's cue already covers Widget width. */}
         <label className="qq-style-label">
           <span className="qq-style-label-text">
             Widget width
-            <InfoCue
-              testid="style-layout"
-              text="Choose how wide the widget renders on the page."
-            />
           </span>
         </label>
         <SegmentedControl<ShellWidgetWidth>
@@ -1256,7 +1253,11 @@ export default function StyleTab({
           font-size: 11.5px; font-weight: 600; letter-spacing: 0.04em;
           color: ${p.colors.muted}; text-transform: uppercase;
           margin: 0 0 8px;
+          /* BD-3e Fix 4 — inline-flex so the new InfoCue trigger sits to
+           * the right of the title text instead of stacking below. */
+          display: inline-flex; align-items: center; gap: 6px;
         }
+        .qq-bs-sub-title-text { display: inline-block; }
         .qq-bs-sub-hint {
           font-size: 11px; line-height: 1.5;
           color: ${p.colors.subtle};
@@ -1313,6 +1314,74 @@ export default function StyleTab({
           cursor: pointer; text-decoration: underline;
         }
         .qq-bs-locked { opacity: 0.55; pointer-events: none; }
+
+        /* BD-3e Fix 5 — dark-mode scoping for the BD-2b/2c-era wizard
+         * panel containers Alex called out on the screen-share. The Brand
+         * Studio sub-cards (Custom CSS, Background, Result panel,
+         * Animations), the custom-CSS textarea, the background-image
+         * thumbnail, and the pricing-tier rows all had hardcoded #fff /
+         * #fafbfc / #fafafa backgrounds that read as glaring white squares
+         * inside the dark-themed editor shell. We map them onto the same
+         * --qq-* CSS vars BD-3a established for the calc rows so the
+         * Style tab feels coherent end-to-end.
+         *
+         * Scoped to .qq-editor-shell[data-theme="dark"] so the live
+         * customer widget (which is also rendered in this file's preview
+         * branch) keeps its real per-theme colours. */
+        .qq-editor-shell[data-theme="dark"] .qq-style-group {
+          background: #0f172a;
+          border-color: rgba(255,255,255,0.08);
+          color: #f5f7fa;
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-bs-sub {
+          background: #1e293b;
+          border-color: rgba(255,255,255,0.08);
+          color: #f5f7fa;
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-bs-sub-title {
+          color: #cbd5e1;
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-bs-sub-hint {
+          color: #94a3b8;
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-bs-css {
+          background: #0f172a;
+          color: #e2e8f0;
+          border-color: rgba(255,255,255,0.12);
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-bs-bg-image-thumb {
+          background-color: rgba(255,255,255,0.06);
+          border-color: rgba(255,255,255,0.18);
+          color: #cbd5e1;
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-bs-bg-image-meta {
+          color: #cbd5e1;
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-style-legend {
+          color: #cbd5e1;
+        }
+        /* BD-2b — pricing-tier rows (inline background #fafbfc). */
+        .qq-editor-shell[data-theme="dark"] [data-testid^="style-pricing-tier-"] {
+          background: #1e293b !important;
+          border-color: rgba(255,255,255,0.08) !important;
+        }
+        /* BD-2a-polish — Brand Kit picker / save inline dialogs. */
+        .qq-editor-shell[data-theme="dark"] .qq-bk-picker,
+        .qq-editor-shell[data-theme="dark"] .qq-bk-save {
+          background: #1e293b !important;
+          border-color: rgba(255,255,255,0.08) !important;
+          color: #f5f7fa;
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-bs-upsell {
+          background: linear-gradient(135deg, rgba(13,60,252,0.18) 0%, #1e293b 100%);
+          border-color: rgba(13,60,252,0.45);
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-bs-upsell-title {
+          color: #f5f7fa;
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-bs-upsell-sub {
+          color: #cbd5e1;
+        }
       `}</style>
     </section>
   );
@@ -1459,7 +1528,14 @@ function BrandStudioGroup({
 
           {/* 1. Custom CSS */}
           <div className="qq-bs-sub" data-testid="style-bs-sub-customcss">
-            <p className="qq-bs-sub-title">Custom CSS</p>
+            {/* BD-3e Fix 4 — help cue added (was previously missing). */}
+            <p className="qq-bs-sub-title">
+              <span className="qq-bs-sub-title-text">Custom CSS</span>
+              <InfoCue
+                testid="style-bs-customcss-info"
+                text="Pro-tier custom CSS scoped to .qq-widget-<id> on your live calculator. Invalid CSS won't break the widget but won't be applied either — the runtime silently drops unparseable rules."
+              />
+            </p>
             <p className="qq-bs-sub-hint">
               Advanced. Inject custom CSS scoped to your widget. Pro plan required.
             </p>
@@ -1478,7 +1554,14 @@ function BrandStudioGroup({
 
           {/* 2. Background */}
           <div className="qq-bs-sub" data-testid="style-bs-sub-background">
-            <p className="qq-bs-sub-title">Background</p>
+            {/* BD-3e Fix 4 — help cue added (was previously missing). */}
+            <p className="qq-bs-sub-title">
+              <span className="qq-bs-sub-title-text">Background</span>
+              <InfoCue
+                testid="style-bs-background-info"
+                text="Override the widget body background. Solid uses the Colours-tab swatch; Gradient and Image are Pro-only and ship custom CSS to the live widget. Invalid CSS or unreachable image URLs are silently ignored at render time."
+              />
+            </p>
             <p className="qq-bs-sub-hint">
               Override the widget body background. Solid keeps the picker in Colours;
               Gradient and Image are Pro-only and render only on Pro plans.
@@ -1602,7 +1685,14 @@ function BrandStudioGroup({
 
           {/* 3. Result panel */}
           <div className="qq-bs-sub" data-testid="style-bs-sub-resultpanel">
-            <p className="qq-bs-sub-title">Result panel</p>
+            {/* BD-3e Fix 4 — help cue added (was previously missing). */}
+            <p className="qq-bs-sub-title">
+              <span className="qq-bs-sub-title-text">Result panel</span>
+              <InfoCue
+                testid="style-bs-resultpanel-info"
+                text="Controls how the final quote renders: a single price, a price range, or 3-tier Good/Better/Best cards (BD-2b). Range and tier modes can stack — the headline stays the base price, with a range band around it inside each tier card. Each override is optional; leave blank to inherit the Colours tab tokens."
+              />
+            </p>
             <p className="qq-bs-sub-hint">
               Override the result-card colours, headline weight, and border treatment.
               Each control is optional — leave blank to inherit the primary accent /
@@ -1756,7 +1846,14 @@ function BrandStudioGroup({
            * OS-level a11y setting always wins over the configured
            * value. */}
           <div className="qq-bs-sub" data-testid="style-bs-sub-animations">
-            <p className="qq-bs-sub-title">Animations</p>
+            {/* BD-3e Fix 4 — help cue added (was previously missing). */}
+            <p className="qq-bs-sub-title">
+              <span className="qq-bs-sub-title-text">Animations</span>
+              <InfoCue
+                testid="style-bs-animations-info"
+                text="Applies to step transitions (lead form, scheduling, deposit), button taps, and focus rings. Customers whose OS has prefers-reduced-motion enabled see the static UI instead — duration is the only knob, and 250 ms is the sweet spot. Setting Step transition to None disables all motion."
+              />
+            </p>
             <p className="qq-bs-sub-hint">
               Smooth the transition between calculator steps (lead form, scheduling, etc.).
               Subtle motion makes the widget feel premium. Honours OS-level reduced-motion

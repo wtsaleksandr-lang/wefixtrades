@@ -1368,16 +1368,26 @@ export default function PreviewPane({
           border-color: ${p.colors.accent};
           color: ${p.colors.accent};
         }
-        /* Wave L E5 — inline editor input for the preview header title. */
+        /* Wave L E5 — inline editor input for the preview header title.
+         *
+         * BD-3e Fix 1 — the title-edit input previously painted a solid
+         * white fill over the title text on click, which read as "this
+         * row just turned white" on every theme (and was completely wrong
+         * in dark mode). Now uses a translucent brand-blue tint with a 1px
+         * accent outline so the field reads as a subtle selected state in
+         * both light and dark themes, without erasing the live colour of
+         * the title text underneath. The 4 % accent tint matches the
+         * platform's standard selected-input affordance. */
         .qq-preview-title-edit {
           font-size: 17px; font-weight: 800;
           letter-spacing: -0.01em;
-          color: #0f172a;
-          background: #fff;
-          border: 2px solid ${p.colors.accent};
+          color: inherit;
+          background: rgba(13,60,252,0.04);
+          outline: 1px solid #0d3cfc;
+          outline-offset: 0;
+          border: 0;
           border-radius: 6px;
           padding: 0 6px;
-          outline: none;
           box-sizing: border-box;
           z-index: 3;
         }
