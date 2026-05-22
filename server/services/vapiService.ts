@@ -619,6 +619,89 @@ export async function processTradeLineCallPostHook(
     const client = await storage.getClientById(clientId);
     const businessName = client?.business_name || "Our team";
 
+    // ── W-BA-8: route the follow-up generation through the BA-0 multi-step
+    // agent loop when enabled. Mirrors BA-5 (email) / BA-6 (SMS). Pre-loop
+    // gates fire here so a tripped gate or over-cap client never reaches the
+    // model. When the loop owns the follow-up, we SKIP the legacy single-
+    // call notification dispatch below; otherwise we fall through to it. ──
+    const { agentLoopEnabledBA8, processVoiceFollowupViaLoop } = await import("./voiceFollowupConcierge");
+    if (client && agentLoopEnabledBA8()) {
+      const { aiGateAllowed } = await import("./aiSystemGate");
+      const { aiChannelGateOn } = await import("./aiChannelGate");
+      const { getClientVariableCosts } = await import("./clientVariableCosts");
+      const { classifyBand } = await import("./aiBudgetRouter");
+
+      const systemGate = await aiGateAllowed("portal").catch(() => ({
+        allowed: false,
+        reason: "gate read failed",
+      }));
+      const voiceGateOn = await aiChannelGateOn("voice").catch(() => false);
+
+      // Per-client cost band — over_cap means skip the loop entirely. Fail
+      // CLOSED on infra error (treat as over_cap) to satisfy the "fail
+      // closed on gate / budget infra errors" hard constraint.
+      let costBandOk = false;
+      try {
+        const vc = await getClientVariableCosts(clientId);
+        if (vc) {
+          const band = classifyBand(vc.ai_cost_cents_month, vc.default_budget_cents);
+          costBandOk = band !== "over_cap";
+        } else {
+          costBandOk = true; // no row yet → fresh client, band = default
+        }
+      } catch (err) {
+        log.warn("[BA-8] cost band read failed — failing closed", {
+          clientId,
+          error: (err as Error).message,
+        });
+        costBandOk = false;
+      }
+
+      // Voice follow-up opt-out signal — re-uses the existing TradeLine
+      // outboundSmsEnabled flag, which is the pre-existing knob for outbound
+      // caller contact. When false, the client has asked us NOT to contact
+      // callers automatically.
+      const outboundEnabled =
+        (config as any).notifications?.outboundSmsEnabled !== false;
+
+      if (systemGate.allowed && voiceGateOn && costBandOk && outboundEnabled) {
+        try {
+          const outcomeResult = await processVoiceFollowupViaLoop({
+            clientServiceId,
+            client,
+            // TradeLine calls aren't anchored to a calculator — the auto-
+            // opened support ticket is created without a calculator link.
+            calculatorId: null,
+            callLogId,
+            leadData,
+            report,
+            callerEmail: (leadData as any).caller_email ?? null,
+          });
+          if (outcomeResult.handled) {
+            log.info("[BA-8] voice follow-up handled by agent loop — skipping legacy dispatch", {
+              callLogId,
+              clientId,
+            });
+            return;
+          }
+          // handled === false → loop yielded ownership, fall through to legacy
+        } catch (err) {
+          log.error("[BA-8] processVoiceFollowupViaLoop threw — falling back to legacy", {
+            callLogId,
+            error: (err as Error).message,
+          });
+        }
+      } else {
+        log.info("[BA-8] gates / opt-out / band blocked — using legacy dispatch", {
+          callLogId,
+          systemAllowed: systemGate.allowed,
+          voiceGateOn,
+          costBandOk,
+          outboundEnabled,
+        });
+      }
+    }
+
     const { sendTradeLineCallNotifications } = await import("./tradelineNotifications");
     await sendTradeLineCallNotifications({
       clientServiceId,
