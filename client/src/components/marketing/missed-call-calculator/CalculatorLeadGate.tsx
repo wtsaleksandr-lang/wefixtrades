@@ -5,6 +5,86 @@ import { trackEvent } from '@/lib/trackEvent';
 import { Lock, Send, CheckCircle2, Loader2, Shield, ArrowRight } from 'lucide-react';
 import { mkt, colors, radius } from '@/theme/tokens';
 
+/** Dark-theme floating-label input — mirrors the FloatingLabelInput pattern
+ *  from `pages/portal/PortalOnboarding.tsx` (light theme), but rendered with
+ *  inline styles on the marketing dark palette. Title sits INSIDE the field
+ *  per design-system "Input / form field rules". No duplicated <label>
+ *  outside; help cue (when needed) sits top-left of the field. */
+function DarkFloatingLabel({
+  id, label, value, onChange, type = 'text', required, error, onFocus, onBlur,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  type?: string;
+  required?: boolean;
+  error?: boolean;
+  onFocus?: () => void;
+  onBlur?: () => void;
+}) {
+  const [focused, setFocused] = useState(false);
+  const floated = focused || value.length > 0;
+  const accent = error ? '#EF4444' : (focused ? mkt.accent : mkt.cardBorder);
+
+  return (
+    <div style={{ position: 'relative', width: '100%' }}>
+      <input
+        id={id}
+        type={type}
+        value={value}
+        required={required}
+        onChange={(e) => onChange(e.target.value)}
+        onFocus={() => { setFocused(true); onFocus?.(); }}
+        onBlur={() => { setFocused(false); onBlur?.(); }}
+        aria-label={label}
+        style={{
+          width: '100%',
+          height: 52,
+          padding: '20px 14px 6px',
+          borderRadius: radius.md,
+          border: `1px solid ${accent}`,
+          fontSize: 14,
+          outline: 'none',
+          fontFamily: 'inherit',
+          color: colors.effortel.n200,
+          background: 'rgba(255,255,255,0.04)',
+          boxSizing: 'border-box',
+          transition: 'border-color 0.2s',
+        }}
+      />
+      <label
+        htmlFor={id}
+        style={{
+          position: 'absolute',
+          left: 14,
+          pointerEvents: 'none',
+          transition: 'all 0.15s ease',
+          top: floated ? 7 : 16,
+          fontSize: floated ? 10 : 14,
+          fontWeight: floated ? 600 : 400,
+          letterSpacing: floated ? '0.04em' : 0,
+          textTransform: floated ? 'uppercase' : 'none',
+          color: floated ? (error ? '#EF4444' : (focused ? mkt.accent : mkt.textMuted)) : mkt.textFaint,
+        }}
+      >
+        {label}
+        {!required && (
+          <span style={{
+            marginLeft: 4,
+            fontWeight: 400,
+            textTransform: 'none',
+            letterSpacing: 0,
+            color: mkt.textFaint,
+          }}>
+            (optional)
+          </span>
+        )}
+      </label>
+    </div>
+  );
+}
+
 interface CalculatorLeadGateProps {
   trade: string;
   tradeName: string;
@@ -175,66 +255,35 @@ export default function CalculatorLeadGate({
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <label htmlFor="calc-email" className="sr-only">Email address</label>
-        <input
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        {/* BD-2a floating-label pattern — title inside field, max 2px gap
+            between stacked inputs per design-system rule. */}
+        <DarkFloatingLabel
           id="calc-email"
+          label="Email"
           type="email"
           value={email}
-          onChange={(e) => { setEmail(e.target.value); setError(''); }}
-          placeholder="your@email.com"
           required
-          style={{
-            width: '100%', height: 44, padding: '0 14px',
-            borderRadius: radius.md,
-            border: `1px solid ${error ? '#EF4444' : mkt.cardBorder}`,
-            fontSize: 14, outline: 'none', fontFamily: 'inherit',
-            color: colors.effortel.n200,
-            background: 'rgba(255,255,255,0.04)',
-            boxSizing: 'border-box',
-            transition: 'border-color 0.2s',
-          }}
-          onFocus={(e) => { if (!error) e.currentTarget.style.borderColor = mkt.accent; }}
-          onBlur={(e) => { if (!error) e.currentTarget.style.borderColor = mkt.cardBorder; }}
+          error={Boolean(error)}
+          onChange={(v) => { setEmail(v); setError(''); }}
         />
         {error && (
-          <div style={{ fontSize: 12, color: '#EF4444', marginTop: -4 }}>{error}</div>
+          <div style={{ fontSize: 12, color: '#EF4444', marginTop: 2, marginBottom: 2 }}>{error}</div>
         )}
 
-        <div style={{ display: 'flex', gap: 8 }}>
-          <label htmlFor="calc-name" className="sr-only">Name (optional)</label>
-          <input
+        <div style={{ display: 'flex', gap: 2, marginTop: 2 }}>
+          <DarkFloatingLabel
             id="calc-name"
-            type="text"
+            label="Name"
             value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Name (optional)"
-            style={{
-              flex: 1, height: 40, padding: '0 12px',
-              borderRadius: radius.md,
-              border: `1px solid ${mkt.cardBorder}`,
-              fontSize: 13, outline: 'none', fontFamily: 'inherit',
-              color: colors.effortel.n200,
-              background: 'rgba(255,255,255,0.04)',
-              boxSizing: 'border-box',
-            }}
+            onChange={setName}
           />
-          <label htmlFor="calc-phone" className="sr-only">Phone (optional)</label>
-          <input
+          <DarkFloatingLabel
             id="calc-phone"
+            label="Phone"
             type="tel"
             value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            placeholder="Phone (optional)"
-            style={{
-              flex: 1, height: 40, padding: '0 12px',
-              borderRadius: radius.md,
-              border: `1px solid ${mkt.cardBorder}`,
-              fontSize: 13, outline: 'none', fontFamily: 'inherit',
-              color: colors.effortel.n200,
-              background: 'rgba(255,255,255,0.04)',
-              boxSizing: 'border-box',
-            }}
+            onChange={setPhone}
           />
         </div>
 
@@ -250,6 +299,7 @@ export default function CalculatorLeadGate({
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
             transition: 'all 0.2s',
             opacity: submitting ? 0.7 : 1,
+            marginTop: 10,
           }}
           onMouseEnter={(e) => { if (!submitting) e.currentTarget.style.boxShadow = '0 4px 16px rgba(13,60,252,0.3)'; }}
           onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'none'; }}
