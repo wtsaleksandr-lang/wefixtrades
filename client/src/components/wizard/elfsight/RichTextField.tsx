@@ -22,6 +22,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Bold, Italic, Underline, Smile, Image as ImageIcon, Type, Palette, Check } from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
 import InfoCue from './InfoCue';
+import type { WidgetRegion } from './WidgetSchema';
 import { sanitizeRichHtml } from './richTextSanitize';
 
 const p = platformTheme;
@@ -36,6 +37,9 @@ interface Props {
   /** Top-right InfoCue popover copy. */
   infoText?: string;
   infoTestid?: string;
+  /** BD-3h — optional widget-region key forwarded into the InfoCue popover.
+   *  When set, the popover renders a wireframe with that region highlighted. */
+  infoRegion?: WidgetRegion;
   /** testid for the field's root (the collapsed preview). */
   testid?: string;
 }
@@ -65,7 +69,7 @@ const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 
 export default function RichTextField({
   label, htmlFor, value, onChange,
-  placeholder = '', infoText, infoTestid, testid,
+  placeholder = '', infoText, infoTestid, infoRegion, testid,
 }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
@@ -221,7 +225,7 @@ export default function RichTextField({
           <label htmlFor={htmlFor} className="qq-rtf-floating-label">{label}</label>
           {infoText && (
             <span className="qq-rtf-info">
-              <InfoCue testid={infoTestid ?? `${htmlFor}-info`} text={infoText} />
+              <InfoCue testid={infoTestid ?? `${htmlFor}-info`} text={infoText} region={infoRegion} />
             </span>
           )}
         </button>
@@ -389,7 +393,7 @@ export default function RichTextField({
             <span>{label}</span>
             {infoText && (
               <span className="qq-rtf-info qq-rtf-info--panel">
-                <InfoCue testid={infoTestid ?? `${htmlFor}-info`} text={infoText} />
+                <InfoCue testid={infoTestid ?? `${htmlFor}-info`} text={infoText} region={infoRegion} />
               </span>
             )}
           </div>

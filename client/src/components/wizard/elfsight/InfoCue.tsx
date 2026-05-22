@@ -15,6 +15,7 @@
 
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import WidgetSchema, { type WidgetRegion } from './WidgetSchema';
 
 interface Props {
   text: string;
@@ -22,9 +23,15 @@ interface Props {
   label?: string;
   /** Optional testid suffix — final testid is `info-cue-<testid>`. */
   testid?: string;
+  /**
+   * BD-3h — when set, the popover renders a small wireframe diagram of the
+   * calculator widget with the named region highlighted, ABOVE the helper
+   * text. Backwards compatible: cues without `region` render text-only.
+   */
+  region?: WidgetRegion;
 }
 
-export default function InfoCue({ text, label = 'More info', testid }: Props) {
+export default function InfoCue({ text, label = 'More info', testid, region }: Props) {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const popoverRef = useRef<HTMLDivElement | null>(null);
@@ -59,7 +66,10 @@ export default function InfoCue({ text, label = 'More info', testid }: Props) {
     const vw = typeof window !== 'undefined' ? window.innerWidth : 1024;
     const vh = typeof window !== 'undefined' ? window.innerHeight : 768;
     const popW = Math.min(280, vw - 32);
-    const popHEst = 100;
+    // BD-3h — popovers with a wireframe diagram are taller (~220px) than
+    // text-only ones (~100px). Bump the estimate when `region` is set so the
+    // auto-flip-above logic picks the right side of the trigger.
+    const popHEst = region ? 220 : 100;
     // Centre on the trigger horizontally, then clamp to viewport with 8px
     // margin.
     const desiredLeft = r.left + r.width / 2 - popW / 2;
@@ -68,7 +78,7 @@ export default function InfoCue({ text, label = 'More info', testid }: Props) {
     const fitsBelow = r.bottom + 6 + popHEst <= vh - 8;
     const top = fitsBelow ? r.bottom + 6 : Math.max(8, r.top - 6 - popHEst);
     setPos({ top, left });
-  }, []);
+  }, [region]);
 
   // Tap-outside / Escape dismiss.
   useEffect(() => {
@@ -163,7 +173,12 @@ export default function InfoCue({ text, label = 'More info', testid }: Props) {
             setOpen(false);
           }}
         >
-          {text}
+          {region ? (
+            <div className="qq-info-cue-schema-wrap" data-testid={`${tid}-schema`}>
+              <WidgetSchema highlight={region} />
+            </div>
+          ) : null}
+          <div className="qq-info-cue-text">{text}</div>
         </div>,
         document.body,
       )}
