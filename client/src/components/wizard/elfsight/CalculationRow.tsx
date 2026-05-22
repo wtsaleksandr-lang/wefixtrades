@@ -407,9 +407,12 @@ export default function CalculationRow({
         .qq-calc-seg-btn:hover:not(.is-active) {
           background: ${p.colors.surfaceRaised}; color: ${p.colors.heading};
         }
+        /* BH-4 rule 4 — selected/active = subtle outline + 4% blue tint,
+         * NEVER a bright fill that hides the text. */
         .qq-calc-seg-btn.is-active {
-          background: ${p.colors.accent}; color: #fff;
-          box-shadow: ${p.shadows.button};
+          background: ${p.colors.accentLighter};
+          color: ${p.colors.accentDark};
+          box-shadow: inset 0 0 0 1px ${p.colors.accent};
         }
         .qq-calc-toggle {
           display: inline-flex; align-items: center; gap: 8px;
