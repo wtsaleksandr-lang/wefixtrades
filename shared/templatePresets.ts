@@ -2925,6 +2925,17 @@ export interface AdvStyle {
   animations?: AdvAnimations;
 
   /**
+   * BD-3l — Premium Animations Pack (Pro tier). When `enabled === true`
+   * the widget runtime layers six high-craft effects (spring physics,
+   * count-up, stagger reveal, CTA gradient pulse, 3D card flip, confetti)
+   * on top of the base step-transition `animations` bundle above. Each
+   * sub-effect can be individually disabled while the master stays on.
+   * Server-side stripped for non-Pro tiers (BRAND_STUDIO_STYLE_KEYS).
+   * Renderer-side honours `prefers-reduced-motion` defensively.
+   */
+  premiumAnimations?: AdvPremiumAnimations;
+
+  /**
    * BD-2c — AI chat bubble visibility mode. Research (BD-0): the always-
    * visible bubble competes with the form; treating it as a "stuck-customer
    * rescue" (revealed at step >= 2, after 30s idle, or on explicit Help
@@ -3009,6 +3020,36 @@ export interface AdvAnimations {
 }
 
 /**
+ * BD-3l — Premium Animations Pack (Pro tier).
+ *
+ * A single master toggle (`enabled`) flips on six "wow"-tier animations
+ * that make the widget feel like Linear/Vercel-grade craft. Granular per-
+ * effect toggles let owners mix in/out individual effects — when a sub-
+ * toggle is `undefined` AND `enabled === true`, it defaults to `true`
+ * (i.e. the master switch turns the whole pack on). All effects respect
+ * `prefers-reduced-motion: reduce` (renderer-side, defense in depth).
+ *
+ * Pro-gated via `BRAND_STUDIO_STYLE_KEYS` — free-tier patches setting
+ * `premiumAnimations` are stripped before save.
+ */
+export interface AdvPremiumAnimations {
+  /** Master toggle — enables the whole pack. */
+  enabled: boolean;
+  /** Spring-physics transitions (replaces ease curves). Default on when `enabled`. */
+  spring?: boolean;
+  /** Number count-up on result reveal (extends pre-existing useCountUp). */
+  countUp?: boolean;
+  /** Stagger reveal on step entry — cascading 40 ms per child. */
+  staggerReveal?: boolean;
+  /** CTA conic-gradient pulse animation. */
+  ctaPulse?: boolean;
+  /** 3D card flip on step change. */
+  cardFlip?: boolean;
+  /** Subtle confetti burst on quote completion (final step). */
+  confetti?: boolean;
+}
+
+/**
  * W-AO-6c — list of Brand Studio fields used by the server-side tier
  * gate to strip free-tier patches before persistence. Kept here (not in
  * the route) so the shape stays the source of truth.
@@ -3026,6 +3067,9 @@ export const BRAND_STUDIO_STYLE_KEYS = [
   // BD-2c — AI chat visibility toggle (Pro-tier upsell). Free-tier
   // calculators always render in 'rescue' mode regardless of stored value.
   'aiChatVisibility',
+  // BD-3l — Premium Animations Pack (spring, count-up, stagger, CTA pulse,
+  // 3D card flip, confetti). Free-tier patches stripped before save.
+  'premiumAnimations',
 ] as const;
 export type BrandStudioStyleKey = (typeof BRAND_STUDIO_STYLE_KEYS)[number];
 
@@ -3064,6 +3108,9 @@ type AdvStyleOptionalOnly =
   // W-AO-6d — Brand Studio Wave 2 animations. Same rationale as 6c
   // fields: Pro-only, optional, absent → instant transition (legacy).
   | 'animations'
+  // BD-3l — Premium Animations Pack. Same rationale: Pro-only, optional,
+  // absent → no premium effects (legacy widget look).
+  | 'premiumAnimations'
   // BD-2c — AI chat visibility mode. Absent → renderer defaults to
   // 'rescue' (the new BD-0 behaviour). Pro tier can opt back to 'always'.
   | 'aiChatVisibility';

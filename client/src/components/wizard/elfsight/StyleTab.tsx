@@ -44,6 +44,7 @@ import type {
   AdvBgMode, AdvBgGradientDirection,
   AdvResultEmphasis, AdvResultBorder,
   AdvStepTransition,
+  AdvPremiumAnimations,
   TemplateTiered, TemplateTier,
 } from '@shared/templatePresets';
 import {
@@ -1616,6 +1617,28 @@ function BrandStudioGroup({
     });
   };
 
+  // BD-3l — Premium Animations Pack values + setter. Each sub-toggle
+  // defaults to `true` when the master is on (the master is the opt-in;
+  // sub-toggles are opt-OUT). When the master is off, sub-toggle values
+  // are read from storage but the resolved gates render as `false` at
+  // the widget runtime regardless.
+  const premiumPack: AdvPremiumAnimations = style.premiumAnimations ?? { enabled: false };
+  const premiumEnabled = premiumPack.enabled === true;
+  const premiumSpring = premiumPack.spring !== false;
+  const premiumCountUp = premiumPack.countUp !== false;
+  const premiumStagger = premiumPack.staggerReveal !== false;
+  const premiumCtaPulse = premiumPack.ctaPulse !== false;
+  const premiumCardFlip = premiumPack.cardFlip !== false;
+  const premiumConfetti = premiumPack.confetti !== false;
+  const setPremiumPack = (next: Partial<AdvPremiumAnimations>) => {
+    patch({
+      premiumAnimations: {
+        ...(style.premiumAnimations ?? { enabled: false }),
+        ...next,
+      },
+    });
+  };
+
   return (
     <fieldset
       className="qq-style-group qq-bs-group"
@@ -2070,6 +2093,95 @@ function BrandStudioGroup({
                 Respect prefers-reduced-motion
               </span>
             </label>
+
+            {/* ── BD-3l — Premium Animations Pack ──────────────────────
+              *
+              * Sits inside the existing Animations group so owners see
+              * the basic step-transitions controls FIRST, then the
+              * Premium Pack as an "upgrade your widget" affordance
+              * directly below. Master toggle + 6 sub-toggles. The
+              * master controls whether the pack runs at all; the sub-
+              * toggles let owners mix individual effects in/out.
+              *
+              * Tier gating: Brand Studio section is already Pro-only —
+              * this lives inside that fieldset, so free-tier users see
+              * the same upsell affordance that gates the rest of Brand
+              * Studio. Server-side strips `premiumAnimations` from
+              * free-tier patches via BRAND_STUDIO_STYLE_KEYS.
+              *
+              * Section-title pattern + InfoCue per BD-3f.
+              */}
+            <div
+              className="qq-bs-sub"
+              data-testid="style-bs-sub-premium-animations"
+              style={{ marginTop: 14 }}
+            >
+              <p className="qq-bs-sub-title">
+                <span className="qq-bs-sub-title-text">Premium Animations</span>
+                <InfoCue
+                  testid="style-bs-premium-animations-info"
+                  region="step-content"
+                  text="Six wow-tier animations — spring physics, number count-up on result, stagger reveal on step entry, pulsing CTA gradient, 3D card flip on step change, and a subtle confetti burst on quote completion. Master toggle turns the whole pack on; sub-toggles let you mix individual effects in or out. Customers whose OS has prefers-reduced-motion enabled see the static UI instead — every animation is disabled defensively."
+                />
+              </p>
+              <p className="qq-bs-sub-hint">
+                Premium "wow"-tier motion for your widget — spring physics, number
+                count-up, stagger reveal, CTA pulse, 3D card flip, and a tasteful
+                confetti burst on completion. Stays subtle. Honours reduced-motion.
+              </p>
+              <label
+                className="qq-style-label"
+                style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
+              >
+                <input
+                  type="checkbox"
+                  checked={premiumEnabled}
+                  onChange={(e) => setPremiumPack({ enabled: e.target.checked })}
+                  data-testid="style-bs-premium-enabled"
+                  aria-label="Enable Premium Animations Pack"
+                />
+                <span className="qq-style-label-text" style={{ margin: 0, fontWeight: 700 }}>
+                  Enable Premium Animations Pack
+                </span>
+              </label>
+              {premiumEnabled && (
+                <div
+                  style={{
+                    marginTop: 10, paddingLeft: 12,
+                    borderLeft: `2px solid ${p.colors.border}`,
+                    display: 'flex', flexDirection: 'column', gap: 6,
+                  }}
+                  data-testid="style-bs-premium-sub-toggles"
+                >
+                  {([
+                    { key: 'spring', label: 'Spring-physics transitions', testid: 'style-bs-premium-spring', value: premiumSpring },
+                    { key: 'countUp', label: 'Number count-up on result', testid: 'style-bs-premium-countup', value: premiumCountUp },
+                    { key: 'staggerReveal', label: 'Stagger reveal on step entry', testid: 'style-bs-premium-stagger', value: premiumStagger },
+                    { key: 'ctaPulse', label: 'CTA gradient pulse', testid: 'style-bs-premium-ctapulse', value: premiumCtaPulse },
+                    { key: 'cardFlip', label: '3D card flip on step change', testid: 'style-bs-premium-cardflip', value: premiumCardFlip },
+                    { key: 'confetti', label: 'Confetti on quote completion', testid: 'style-bs-premium-confetti', value: premiumConfetti },
+                  ] as const).map((opt) => (
+                    <label
+                      key={opt.key}
+                      className="qq-style-label"
+                      style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', margin: 0 }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={opt.value}
+                        onChange={(e) => setPremiumPack({ [opt.key]: e.target.checked } as Partial<AdvPremiumAnimations>)}
+                        data-testid={opt.testid}
+                        aria-label={opt.label}
+                      />
+                      <span className="qq-style-label-text" style={{ margin: 0 }}>
+                        {opt.label}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+            {/* ── /BD-3l ── */}
           </div>
         </div>
       )}
