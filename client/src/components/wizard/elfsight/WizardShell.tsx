@@ -1843,29 +1843,50 @@ export default function WizardShell({ embed = false }: Props) {
               display: flex; flex-direction: column; gap: 14px;
               min-height: 100%; box-sizing: border-box;
             }
-            /* Wave I (d) — resize handle on the right edge of the left pane. */
+            /* Wave I (d) — resize handle on the right edge of the left pane.
+             *
+             * P2 UX fix (2026-05-22): the handle now lives ENTIRELY OUTSIDE the
+             * pane (between pane and canvas), so the native scrollbar on
+             * .qq-editor-left's overflow-y:auto sits cleanly on the inner edge
+             * (right side of the content area, inside the pane). The handle is
+             * a thin 4px vertical bar at rest, expanding to 6px on hover. The
+             * grip-dots span has been replaced with a flat bar — the .is-resizing
+             * class still recolors it, but the visual is just a subtle line.
+             *
+             * Cursor: col-resize (mobile ignores; touchpad pinch+drag still
+             * fires via touchmove handler in WizardShell).
+             *
+             * Tap target: even at 4px the absolute positioning lets us extend
+             * the hit area via padding (kept at 0) but the keyboard a11y path
+             * (focus + arrow keys) still works since the button receives focus. */
             .qq-editor-resize {
-              position: absolute; top: 0; right: -3px; bottom: 0;
-              width: 6px;
-              background: transparent;
+              position: absolute; top: 0; right: -4px; bottom: 0;
+              width: 4px;
+              background: rgba(255, 255, 255, 0.04);
               border: 0; padding: 0; cursor: col-resize;
               z-index: 5;
               touch-action: none;
-              transition: background 0.12s ease;
+              transition: background 0.12s ease, width 0.12s ease, right 0.12s ease;
             }
-            .qq-editor-resize:hover,
+            .qq-editor-shell[data-theme="dark"] .qq-editor-resize {
+              background: rgba(255, 255, 255, 0.08);
+            }
+            .qq-editor-resize:hover {
+              background: rgba(13, 60, 252, 0.4);
+              width: 6px;
+              right: -5px;
+            }
             .qq-editor-resize.is-resizing {
-              background: ${p.colors.accentLighter};
+              background: #0d3cfc;
+              width: 6px;
+              right: -5px;
             }
+            /* Grip-dots glyph removed — the thin bar IS the affordance now.
+             * Keep the span in the DOM (WizardShell.tsx renders <span aria-hidden/>)
+             * but make it invisible so the at-rest visual is purely the
+             * 4px coloured strip. */
             .qq-editor-resize > span {
-              position: absolute; top: 50%; left: 50%;
-              transform: translate(-50%, -50%);
-              width: 2px; height: 30px; border-radius: 2px;
-              background: ${p.colors.borderLight};
-            }
-            .qq-editor-resize:hover > span,
-            .qq-editor-resize.is-resizing > span {
-              background: ${p.colors.accent};
+              display: none;
             }
             /* Wave L N2 — sticky bottom actions row.
              *
