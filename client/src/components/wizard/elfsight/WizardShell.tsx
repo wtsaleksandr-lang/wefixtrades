@@ -1076,6 +1076,22 @@ export default function WizardShell({ embed = false }: Props) {
               padding: ${d.layout.shellPad};
               box-sizing: border-box;
             }
+            /* BD-3c Feature 1 — desktop static canvas. Lock the shell
+               to viewport height and hide outer overflow so ONLY the
+               left pane scrolls (.qq-editor-left has overflow-y:auto
+               below). The preview/canvas pane stays static. Mobile
+               (≤768px) is untouched — keeps the stacked-scroll layout. */
+            @media (min-width: 769px) {
+              .qq-editor-shell {
+                height: 100vh;
+                min-height: 100vh;
+                max-height: 100vh;
+                overflow: hidden;
+              }
+              .wizard-shell-modal {
+                overflow: hidden !important;
+              }
+            }
             .wizard-shell-modal {
               position: fixed; inset: 0; z-index: 1000;
               background: rgba(15, 23, 42, 0.55);
@@ -1118,6 +1134,16 @@ export default function WizardShell({ embed = false }: Props) {
               min-height: calc(100vh - ${d.layout.shellPad} - ${d.layout.shellPad});
               transition: opacity 200ms ease-out, transform 200ms ease-out;
               will-change: opacity, transform;
+            }
+            /* BD-3c Feature 1 — on desktop, constrain frame to viewport so
+               its children own their own scroll (left pane scrolls, canvas
+               stays static). */
+            @media (min-width: 769px) {
+              .qq-editor-frame {
+                height: calc(100vh - ${d.layout.shellPad} - ${d.layout.shellPad});
+                max-height: calc(100vh - ${d.layout.shellPad} - ${d.layout.shellPad});
+                min-height: 0;
+              }
             }
             @media (max-width: 768px) {
               .wizard-shell-modal {
@@ -1433,6 +1459,14 @@ export default function WizardShell({ embed = false }: Props) {
             .qq-editor-right {
               flex: 1; min-width: 0;
               overflow-y: auto;
+            }
+            /* BD-3c Feature 1 — desktop: canvas/preview is STATIC. The
+               left pane scrolls; the right pane is locked. Mobile keeps
+               the original overflow-y:auto (the body stacks vertically). */
+            @media (min-width: 769px) {
+              .qq-editor-right {
+                overflow: hidden;
+              }
             }
             .qq-preview-pane {
               /* Wave AA — anchor widget to TOP of preview area (was centered
