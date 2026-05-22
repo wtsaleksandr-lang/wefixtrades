@@ -31,10 +31,12 @@
  *   - scrim:    9991 (mobile only)
  *   - chat bubble: 9998 (untouched)
  *
- * Animation: 240ms ease-out expand (`transform: scale + opacity`). The
- * collapsed launcher itself has no idle motion. Respects
- * `prefers-reduced-motion: reduce` — every transition collapses to 0 ms
- * defensively in CSS + the JS expand timer.
+ * Animation: 400ms two-phase fold/unfold (P1 UX 2026-05-22 — was 240ms
+ * single-phase). Phase 1 (200ms) shrinks/fades the outgoing surface
+ * toward the corner; Phase 2 (200ms) grows the incoming surface from
+ * the corner with a slight overshoot. Mobile drops to 300ms total.
+ * Respects `prefers-reduced-motion: reduce` — every transition
+ * collapses to 0 ms defensively in CSS + the JS phase timer.
  *
  * Persistence: open/closed state in `qq-launcher-state-${calculatorId}`
  * localStorage. Default closed. If the saved value is `'open'` on mount,
@@ -77,8 +79,16 @@ const PANEL_HEIGHT = 720;
 const LAUNCHER_SIZE_DESKTOP = 56;
 const LAUNCHER_SIZE_MOBILE = 48;
 
-/** BD-3m — animation duration; respects prefers-reduced-motion. */
-const ANIM_MS = 240;
+/** BD-3m — animation duration; respects prefers-reduced-motion.
+ *
+ * P1 UX (2026-05-22): bumped from 240ms single-phase opacity-flip to
+ * 400ms two-phase fold/unfold so the transformation is visibly smooth
+ * (Alex feedback — old animation read as a snap). Mobile drops to 300ms
+ * via the @media (max-width: 480px) keyframe overrides at the bottom of
+ * this file. Reduced-motion users skip the keyframes entirely. */
+const ANIM_MS = 400;
+const ANIM_MS_MOBILE = 300;
+const ANIM_PHASE_MS = ANIM_MS / 2;
 
 /** BD-3m — localStorage key prefix for the saved open/closed state. */
 const LAUNCHER_STATE_KEY_PREFIX = 'qq-launcher-state-';
@@ -185,6 +195,32 @@ export default function CalculatorLauncher({
     const raw = readStorage(stateKey);
     if (raw === 'open') setOpen(true);
   }, [stateKey]);
+
+  // P1 UX (2026-05-22) — Animation phase. Drives the two-phase
+  // fold/unfold so the panel + bubble are both visible during the
+  // transition (without it the panel would be `display: none` the
+  // instant `open` flips false and the unfold animation could not run).
+  //
+  //   'idle'      — settled state; panel visibility matches `open`.
+  //   'unfolding' — open just became true, bubble fades out → panel grows.
+  //   'folding'   — open just became false, panel shrinks → bubble pops.
+  //
+  // Phase resets to 'idle' after ANIM_MS (or ANIM_MS_MOBILE on small viewports).
+  type LauncherPhase = 'idle' | 'unfolding' | 'folding';
+  const [phase, setPhase] = useState<LauncherPhase>('idle');
+  const prevOpenRef = useRef(open);
+  useEffect(() => {
+    const prev = prevOpenRef.current;
+    if (prev === open) return;
+    prevOpenRef.current = open;
+    if (prefersReducedMotion()) return;
+    setPhase(open ? 'unfolding' : 'folding');
+    const dur = (typeof window !== 'undefined' && window.matchMedia
+      && (() => { try { return window.matchMedia('(max-width: 480px)').matches; } catch { return false; } })())
+      ? ANIM_MS_MOBILE : ANIM_MS;
+    const t = window.setTimeout(() => setPhase('idle'), dur + 30);
+    return () => window.clearTimeout(t);
+  }, [open]);
 
   // Persist on change (don't write on initial render to avoid clobbering).
   useEffect(() => {
@@ -323,19 +359,33 @@ export default function CalculatorLauncher({
 
   const iconColour = accent || BRAND_BLUE;
 
+  // P1 UX (2026-05-22) — Keep both the launcher button AND panel mounted
+  // during the cross-fade so the two-phase animation can play. When idle,
+  // visibility matches `open`. When folding (open → closed), both stay
+  // mounted; when unfolding (closed → open), both stay mounted. Pointer
+  // events on the launcher button are killed during phases so a phantom
+  // re-click can't trigger a re-toggle mid-animation.
+  const launcherButtonVisible = !open || phase === 'folding';
+  const panelMounted = open || phase === 'folding';
+  const phaseClass = phase === 'unfolding' ? ' is-unfolding'
+    : phase === 'folding' ? ' is-folding'
+    : '';
+
   const launcherButton = (
     <button
       type="button"
       data-testid="qq-launcher"
       data-position={position}
       data-collides={collides ? 'true' : 'false'}
+      data-phase={phase}
       aria-label={label}
       aria-expanded={open}
       aria-haspopup="dialog"
       onClick={toggle}
+      className={`qq-launcher-button${phaseClass}`}
       style={{
         ...launcherPos,
-        display: open ? 'none' : 'inline-flex',
+        display: launcherButtonVisible ? 'inline-flex' : 'none',
         alignItems: 'center',
         justifyContent: 'center',
         background: '#fff',
@@ -345,6 +395,9 @@ export default function CalculatorLauncher({
         padding: 0,
         boxShadow: '0 6px 18px rgba(15,23,42,0.18)',
         transition: reducedMotion ? 'none' : 'transform 120ms ease-out, box-shadow 120ms ease-out',
+        // Block clicks mid-animation so the user can't re-toggle into
+        // a half-flipped state.
+        pointerEvents: phase === 'idle' ? 'auto' : 'none',
       }}
       onMouseEnter={(e) => {
         if (reducedMotion) return;
@@ -404,25 +457,43 @@ export default function CalculatorLauncher({
         />
       )}
 
-      {/* Expanded panel — auto-fits the viewport. Mounts only when open
-       *  so the AdvancedCalculator doesn't pay any cost before first click.
-       *  When closed the launcher button alone is on the page. */}
+      {/* Expanded panel — auto-fits the viewport.
+       *
+       * P1 UX (2026-05-22): panel stays mounted during the `folding` phase
+       * so its shrink-toward-corner animation can play. When idle + closed
+       * the panel is `display:none` and the calculator isn't rendered, so
+       * the cost-on-open property still holds. */}
       <div
         role="dialog"
         aria-modal={isMobile ? 'true' : 'false'}
         aria-label={label}
         data-testid="qq-launcher-panel"
         data-state={open ? 'open' : 'closed'}
+        data-phase={phase}
+        className={`qq-launcher-panel${phaseClass}`}
         style={{
           ...panelPos,
-          display: open ? 'flex' : 'none',
+          display: panelMounted ? 'flex' : 'none',
           transformOrigin,
-          // BD-3m — expand animation. The collapsed state never mounts the
-          // calculator (mount-on-open above), so this transition only fires
-          // ONCE per open. Reduced-motion users get the instant-open path.
-          animation: open && !reducedMotion
-            ? `qq-launcher-expand ${ANIM_MS}ms ease-out`
-            : undefined,
+          // P1 UX (2026-05-22) — two-phase keyframe-driven animation.
+          //
+          // Unfolding (closed → open):
+          //   Phase 1 (0–200ms): launcher button shrinks + fades out.
+          //   Phase 2 (200–400ms): panel grows from the corner with a
+          //                        slight overshoot bounce.
+          //
+          // Folding (open → closed):
+          //   Phase 1 (0–200ms): panel shrinks toward the corner + fades.
+          //   Phase 2 (200–400ms): launcher button grows from 0.
+          //
+          // Mobile durations halved via @media (max-width: 480px) below.
+          animation: reducedMotion ? undefined : (
+            phase === 'unfolding'
+              ? `qq-launcher-panel-in ${ANIM_PHASE_MS}ms cubic-bezier(0.34, 1.56, 0.64, 1) ${ANIM_PHASE_MS}ms backwards`
+              : phase === 'folding'
+              ? `qq-launcher-panel-out ${ANIM_PHASE_MS}ms cubic-bezier(0.4, 0, 0.2, 1) forwards`
+              : undefined
+          ),
         }}
       >
         {/* Close button — top-right of the panel. z-indexed above the
@@ -458,18 +529,74 @@ export default function CalculatorLauncher({
         </div>
       </div>
 
-      {/* BD-3m — keyframes scoped via plain inline <style>. No new CSS
-       *  dependency; the rule is auto-deduped by the browser when this
-       *  component mounts more than once. Reduced-motion users skip the
-       *  animation entirely (the `animation` style above is undefined). */}
+      {/* BD-3m / P1 UX (2026-05-22) — keyframes scoped via plain inline
+       *  <style>. No new CSS dependency; the rule is auto-deduped by the
+       *  browser when this component mounts more than once.
+       *
+       *  Two-phase fold/unfold:
+       *    qq-launcher-panel-out  — open → closed, panel shrinks (Phase 1)
+       *    qq-launcher-panel-in   — closed → open, panel grows  (Phase 2)
+       *    qq-launcher-button-out — closed → open, button shrinks (Phase 1)
+       *    qq-launcher-button-in  — open → closed, button grows   (Phase 2)
+       *
+       *  Easing:
+       *    Panel out / Button out → cubic-bezier(0.4, 0, 0.2, 1) (smooth)
+       *    Panel in  / Button in  → cubic-bezier(0.34, 1.56, 0.64, 1)
+       *                              (slight overshoot bounce for visibility)
+       *
+       *  Reduced-motion users skip every keyframe (the `animation` styles
+       *  above resolve to undefined when reducedMotion is true; the @media
+       *  block at the bottom is defense-in-depth). */}
       <style>{`
-        @keyframes qq-launcher-expand {
-          0% { opacity: 0; transform: scale(0.92); }
+        @keyframes qq-launcher-panel-out {
+          0%   { opacity: 1;   transform: scale(1)   translate(0, 0); }
+          60%  { opacity: 0.6; transform: scale(0.4) translate(20%, 30%); }
+          100% { opacity: 0;   transform: scale(0)   translate(40%, 40%); }
+        }
+        @keyframes qq-launcher-panel-in {
+          0%   { opacity: 0;   transform: scale(0)   translate(40%, 40%); }
+          60%  { opacity: 0.8; transform: scale(0.6) translate(20%, 20%); }
+          100% { opacity: 1;   transform: scale(1)   translate(0, 0); }
+        }
+        @keyframes qq-launcher-button-out {
+          0%   { opacity: 1; transform: scale(1); }
+          100% { opacity: 0; transform: scale(0); }
+        }
+        @keyframes qq-launcher-button-in {
+          0%   { opacity: 0; transform: scale(0); }
+          60%  { opacity: 1; transform: scale(1.12); }
           100% { opacity: 1; transform: scale(1); }
+        }
+        /* Launcher button two-phase chain. */
+        .qq-launcher-button.is-unfolding {
+          animation: qq-launcher-button-out ${ANIM_PHASE_MS}ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+        .qq-launcher-button.is-folding {
+          animation: qq-launcher-button-in ${ANIM_PHASE_MS}ms cubic-bezier(0.34, 1.56, 0.64, 1) ${ANIM_PHASE_MS}ms backwards;
+        }
+        /* Mobile (≤ 480px): total animation drops from 400ms to 300ms
+         * (150 + 150 = 300). Each half is 150ms. */
+        @media (max-width: 480px) {
+          .qq-launcher-button.is-unfolding {
+            animation-duration: ${ANIM_MS_MOBILE / 2}ms;
+          }
+          .qq-launcher-button.is-folding {
+            animation-duration: ${ANIM_MS_MOBILE / 2}ms;
+            animation-delay: ${ANIM_MS_MOBILE / 2}ms;
+          }
+          .qq-launcher-panel.is-unfolding {
+            animation-duration: ${ANIM_MS_MOBILE / 2}ms !important;
+            animation-delay: ${ANIM_MS_MOBILE / 2}ms !important;
+          }
+          .qq-launcher-panel.is-folding {
+            animation-duration: ${ANIM_MS_MOBILE / 2}ms !important;
+          }
         }
         @media (prefers-reduced-motion: reduce) {
           [data-testid="qq-launcher"],
-          [data-testid="qq-launcher-panel"] {
+          [data-testid="qq-launcher-panel"],
+          .qq-launcher-button,
+          .qq-launcher-panel {
             animation: none !important;
             transition: none !important;
           }

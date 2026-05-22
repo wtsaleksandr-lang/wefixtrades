@@ -188,10 +188,25 @@ export default function EditorTopBar({
         ))}
       </div>
 
-      {/* P2 UX — Floating launcher preview toggle. When on, the canvas
-       *  shows the BD-3m floating-launcher bubble instead of the inline
-       *  widget — lets wizard owners SEE what site visitors see. The
-       *  button highlights with a brand-blue ring when active. */}
+      {/* P1 UX — Floating launcher preview toggle.
+       *
+       * Discoverability fix (P1, 2026-05-22): previously rendered as a
+       * bare 14px icon button that visually disappeared into the
+       * surrounding tool cluster. Alex reported he couldn't find it.
+       *
+       * Changes:
+       *  - Icon bumped to 16px and paired with a visible "Floating"
+       *    label on widths >= 1024px (desktop wizard chrome).
+       *  - Pill shape (not a circle) so it reads as a distinct toggle
+       *    instead of just another icon button.
+       *  - Tooltip explains WHAT floating launcher mode IS, not just
+       *    a one-word reminder.
+       *  - At-rest accent pulse (CSS) draws the eye on first paint.
+       *  - Always renders (no feature flag gating) so it can't be
+       *    accidentally hidden behind a config flip.
+       *  - On <= 480px the pill collapses to an icon-only chip
+       *    (label hidden via CSS) to avoid crowding the mobile chrome
+       *    while staying visible. */}
       {onToggleFloatingLauncherPreview && (
         <button
           type="button"
@@ -200,10 +215,13 @@ export default function EditorTopBar({
           data-testid="editor-floating-launcher-toggle"
           data-active={floatingLauncherPreview ? 'true' : 'false'}
           aria-pressed={floatingLauncherPreview}
-          aria-label={floatingLauncherPreview ? 'Exit floating launcher preview' : 'Preview as floating launcher'}
-          title="Floating launcher"
+          aria-label={floatingLauncherPreview
+            ? 'Exit floating launcher preview'
+            : 'Preview as floating launcher'}
+          title="Preview as floating launcher (closes the widget into a tiny bubble that visitors click to expand)"
         >
-          <MessageSquare style={{ width: 14, height: 14 }} aria-hidden="true" />
+          <MessageSquare style={{ width: 16, height: 16 }} aria-hidden="true" />
+          <span className="qq-editor-launcher-toggle-label">Floating</span>
         </button>
       )}
 

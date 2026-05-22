@@ -2,6 +2,7 @@ import { useState, useMemo, useRef } from "react";
 import { Link } from "wouter";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import QuoteWidget from "@/components/quote-widget/QuoteWidget";
+import CalculatorLauncher from "@/components/quote-widget/CalculatorLauncher";
 import { mkt, colors } from "@/theme/tokens";
 import { useFaqSchema } from "@/lib/useFaqSchema";
 import { usePageMeta } from "@/lib/usePageMeta";
@@ -15,7 +16,7 @@ import {
   type BusinessProfile,
 } from "@shared/templatePresets";
 import {
-  ArrowRight, Play, ChevronDown,
+  ArrowRight, Play, ChevronDown, MessageSquare, LayoutGrid,
 } from "lucide-react";
 
 /* ─── Page constants ─── */
@@ -105,6 +106,16 @@ export default function QuoteCalculatorDemo() {
   // so the page still looks intentional.
   const [videoFailed, setVideoFailed] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+
+  // P1 UX (2026-05-22) — "Try floating mode" toggle. Lets prospective
+  // customers see the embedded widget AND the BD-3m floating launcher
+  // experience without going through the wizard. Defaults to inline;
+  // clicking "Floating launcher" hides the embed and mounts a real
+  // CalculatorLauncher fixed-positioned in the bottom-right of the page
+  // viewport. The launcher's open/close + fold/unfold animation come
+  // from the component itself (same 400ms two-phase chain that ships in
+  // production for paying customers).
+  const [demoMode, setDemoMode] = useState<'inline' | 'floating'>('inline');
 
   return (
     <MarketingLayout>
@@ -321,12 +332,134 @@ export default function QuoteCalculatorDemo() {
             This is a real, working calculator — try it
           </p>
 
+          {/* P1 UX (2026-05-22) — "View inline | View as floating launcher"
+           *  toggle. Lets visitors see the floating-launcher mode in action
+           *  on this demo page without having to build a calculator first.
+           *
+           *  Inline mode (default): the embedded QuoteWidget renders below.
+           *  Floating mode: the embed is hidden and a CalculatorLauncher
+           *  is mounted fixed-positioned in the bottom-right of the page
+           *  viewport. The launcher uses the same 400ms two-phase fold/
+           *  unfold animation that ships in production. */}
+          <div
+            className="demo-mode-toggle"
+            role="group"
+            aria-label="Choose how the calculator is displayed"
+            data-testid="demo-mode-toggle"
+            style={{
+              display: "inline-flex",
+              alignSelf: "center",
+              margin: "0 auto 18px",
+              padding: 4,
+              borderRadius: 999,
+              background: "rgba(255,255,255,0.04)",
+              border: `1px solid ${mkt.onDarkBorder}`,
+              gap: 2,
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setDemoMode('inline')}
+              aria-pressed={demoMode === 'inline'}
+              data-testid="demo-mode-inline"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "8px 16px",
+                borderRadius: 999,
+                border: "none",
+                cursor: "pointer",
+                fontSize: 13,
+                fontWeight: 600,
+                background: demoMode === 'inline' ? mkt.accent : "transparent",
+                color: demoMode === 'inline' ? "#fff" : mkt.onDarkMuted,
+                transition: "background 0.18s ease, color 0.18s ease",
+              }}
+            >
+              <LayoutGrid size={14} aria-hidden="true" />
+              View inline
+            </button>
+            <button
+              type="button"
+              onClick={() => setDemoMode('floating')}
+              aria-pressed={demoMode === 'floating'}
+              data-testid="demo-mode-floating"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "8px 16px",
+                borderRadius: 999,
+                border: "none",
+                cursor: "pointer",
+                fontSize: 13,
+                fontWeight: 600,
+                background: demoMode === 'floating' ? mkt.accent : "transparent",
+                color: demoMode === 'floating' ? "#fff" : mkt.onDarkMuted,
+                transition: "background 0.18s ease, color 0.18s ease",
+              }}
+            >
+              <MessageSquare size={14} aria-hidden="true" />
+              View as floating launcher
+            </button>
+          </div>
+          {demoMode === 'floating' && (
+            <p
+              style={{
+                fontSize: 12.5,
+                color: mkt.onDarkMuted,
+                textAlign: "center",
+                margin: "-6px 0 14px",
+              }}
+              data-testid="demo-mode-floating-hint"
+            >
+              Look at the bottom-right of the page — click the bubble to expand.
+            </p>
+          )}
+
           {/* ─── Live Widget (real AdvancedCalculator instance) ─── */}
           <div style={{ maxWidth: 780, margin: "0 auto" }}>
-            <div style={{ marginBottom: "clamp(28px, 4vw, 40px)" }}>
-              <QuoteWidget calculator={demoCalculator} isEmbed={false} />
-            </div>
+            {demoMode === 'inline' && (
+              <div style={{ marginBottom: "clamp(28px, 4vw, 40px)" }}>
+                <QuoteWidget calculator={demoCalculator} isEmbed={false} />
+              </div>
+            )}
+            {demoMode === 'floating' && (
+              <div
+                style={{
+                  marginBottom: "clamp(28px, 4vw, 40px)",
+                  padding: "clamp(48px, 8vw, 80px) 24px",
+                  borderRadius: 16,
+                  border: `1px dashed ${mkt.onDarkBorder}`,
+                  background: "rgba(255,255,255,0.02)",
+                  textAlign: "center",
+                  color: mkt.onDarkMuted,
+                  fontSize: 14,
+                }}
+                data-testid="demo-floating-placeholder"
+              >
+                The calculator is now docked as a floating bubble in the
+                bottom-right corner of the page. Click it to expand.
+              </div>
+            )}
           </div>
+
+          {/* P1 UX (2026-05-22) — Floating launcher mount. Lives outside the
+           *  scrolling content so the bubble + expanded panel are fixed to
+           *  the viewport (the launcher itself uses position:fixed). Only
+           *  mounted when demoMode === 'floating' so it doesn't paint over
+           *  the inline preview. */}
+          {demoMode === 'floating' && (
+            <CalculatorLauncher
+              calculatorId="demo-junk-removal"
+              config={{ enabled: true, position: 'bottom-right' }}
+              proTierUnlocked={false}
+              accent={mkt.accent}
+            >
+              <QuoteWidget calculator={demoCalculator} isEmbed={false} />
+            </CalculatorLauncher>
+          )}
 
           {/* ─── CTA ─── */}
           <div style={{ maxWidth: 640, margin: "0 auto" }}>

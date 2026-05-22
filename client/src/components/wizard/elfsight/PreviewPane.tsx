@@ -1254,12 +1254,49 @@ export default function PreviewPane({
   const flpActive = floatingLauncherPreview === true;
   const flpCollapsed = flpActive && !floatingLauncherExpanded;
 
+  // P1 UX (2026-05-22) — Visible fold/unfold animation.
+  //
+  // Was: the inline widget instantly disappeared and the bubble popped in
+  // (or vice versa) with no transition; Alex described it as a "snap".
+  //
+  // Now: a 400ms two-phase animation. When flipping into floating mode:
+  //   Phase 1 (0–200ms):   widget panel scales down + translates toward
+  //                        the target corner + fades.
+  //   Phase 2 (200–400ms): bubble grows from 0 with a slight overshoot.
+  //
+  // Reverse on unfold. We track a transient "phase" state that lives only
+  // for the duration of the animation, then settles back to idle. Both
+  // keyframes respect prefers-reduced-motion (instant snap). On <= 480px
+  // viewports the duration shrinks to 300ms.
+  type FlpPhase = 'idle' | 'folding' | 'unfolding';
+  const [flpPhase, setFlpPhase] = useState<FlpPhase>('idle');
+  const flpPrevCollapsedRef = useRef(flpCollapsed);
+  useEffect(() => {
+    const prev = flpPrevCollapsedRef.current;
+    if (prev === flpCollapsed) return;
+    flpPrevCollapsedRef.current = flpCollapsed;
+    // Skip animation entirely when reduced-motion is on — the CSS @media
+    // block also kills the keyframes defensively.
+    if (typeof window !== 'undefined' && window.matchMedia) {
+      try {
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      } catch { /* ignore */ }
+    }
+    setFlpPhase(flpCollapsed ? 'folding' : 'unfolding');
+    const dur = (typeof window !== 'undefined' && window.matchMedia
+      && (() => { try { return window.matchMedia('(max-width: 480px)').matches; } catch { return false; } })())
+      ? 300 : 400;
+    const t = window.setTimeout(() => setFlpPhase('idle'), dur + 30);
+    return () => window.clearTimeout(t);
+  }, [flpCollapsed]);
+
   return (
     <div
-      className={`qq-preview-pane${widgetSelected ? ' is-widget-selected' : ''}${flpActive ? ' is-floating-launcher-preview' : ''}${flpCollapsed ? ' is-flp-collapsed' : ''}`}
+      className={`qq-preview-pane${widgetSelected ? ' is-widget-selected' : ''}${flpActive ? ' is-floating-launcher-preview' : ''}${flpCollapsed ? ' is-flp-collapsed' : ''}${flpPhase !== 'idle' ? ` is-flp-${flpPhase}` : ''}`}
       data-testid="editor-preview-pane"
       data-floating-launcher-preview={flpActive ? 'true' : 'false'}
       data-floating-launcher-expanded={floatingLauncherExpanded ? 'true' : 'false'}
+      data-flp-phase={flpPhase}
       ref={paneRef}
       onPointerDown={onPaneBackgroundPointerDown}
     >
@@ -1633,7 +1670,7 @@ export default function PreviewPane({
               }
             }}
           />
-          {flpCollapsed && (
+          {(flpCollapsed || flpPhase === 'unfolding') && (
             <button
               type="button"
               className={`qq-flp-bubble qq-flp-bubble-${floatingLauncherPosition}`}
@@ -1732,7 +1769,10 @@ export default function PreviewPane({
             0 2px 6px rgba(15, 23, 42, 0.18);
           transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1),
                       box-shadow 180ms ease-out;
-          animation: qq-flp-bubble-in 220ms cubic-bezier(0.22, 1, 0.36, 1);
+          /* P1 UX (2026-05-22) — entrance animation is now driven by the
+           * .is-flp-folding/.is-flp-unfolding rules below. Removed the
+           * default qq-flp-bubble-in so the idle bubble does not carry a
+           * pre-baked animation that would fight the fold/unfold chain. */
         }
         .qq-flp-bubble:hover {
           transform: scale(1.05);
@@ -1775,6 +1815,80 @@ export default function PreviewPane({
           from { transform: scale(0.6); opacity: 0; }
           to   { transform: scale(1.0); opacity: 1; }
         }
+        /* P1 UX (2026-05-22) — Two-phase fold/unfold animation.
+         *
+         * Phase 1 (0-200ms): widget panel shrinks toward the target corner
+         *   and fades out (qq-flp-fold-panel). 200ms cubic-bezier ease-in
+         *   so the early motion is gentle, late motion accelerates toward
+         *   the corner.
+         *
+         * Phase 2 (200-400ms): bubble grows from 0 with a slight overshoot
+         *   (qq-flp-fold-bubble-in). The bubble carries a 200ms delay so it
+         *   chains AFTER the panel finishes.
+         *
+         * On unfold the order reverses — bubble fades out + scales down
+         * during Phase 1, panel grows back from the bubble's corner during
+         * Phase 2. The keyframes mirror the fold pair.
+         *
+         * Mobile: animations shrink to 300ms (180 + 120) — see the
+         * @media (max-width: 480px) block. Reduced-motion users get instant
+         * snaps (no animation at all). */
+        @keyframes qq-flp-fold-panel-out {
+          0%   { transform: scale(1)   translate(0, 0);          opacity: 1; }
+          60%  { transform: scale(0.4) translate(20%, 30%);      opacity: 0.6; }
+          100% { transform: scale(0)   translate(40%, 40%);      opacity: 0; }
+        }
+        @keyframes qq-flp-fold-panel-in {
+          0%   { transform: scale(0)   translate(40%, 40%);      opacity: 0; }
+          60%  { transform: scale(0.6) translate(20%, 20%);      opacity: 0.8; }
+          100% { transform: scale(1)   translate(0, 0);          opacity: 1; }
+        }
+        @keyframes qq-flp-fold-bubble-in {
+          0%   { transform: scale(0);    opacity: 0; }
+          60%  { transform: scale(1.12); opacity: 1; }
+          100% { transform: scale(1);    opacity: 1; }
+        }
+        @keyframes qq-flp-fold-bubble-out {
+          0%   { transform: scale(1);    opacity: 1; }
+          100% { transform: scale(0);    opacity: 0; }
+        }
+        /* Folding (entering bubble mode): panel disappears in phase 1, then
+         * the bubble pops in during phase 2. The .qq-flp-bubble already
+         * carries qq-flp-bubble-in by default; override here so it picks
+         * up the chained 200ms delay. */
+        .qq-preview-pane.is-flp-folding .qq-preview-stage > .widget-scope {
+          animation: qq-flp-fold-panel-out 200ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+          transform-origin: bottom right;
+        }
+        .qq-preview-pane.is-flp-folding .qq-flp-bubble {
+          animation: qq-flp-fold-bubble-in 200ms cubic-bezier(0.34, 1.56, 0.64, 1) 200ms backwards;
+        }
+        /* Unfolding (exiting bubble mode): bubble shrinks + fades in phase 1,
+         * then the panel grows back from the corner during phase 2. */
+        .qq-preview-pane.is-flp-unfolding .qq-flp-bubble {
+          animation: qq-flp-fold-bubble-out 200ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+        .qq-preview-pane.is-flp-unfolding .qq-preview-stage > .widget-scope {
+          animation: qq-flp-fold-panel-in 200ms cubic-bezier(0.34, 1.56, 0.64, 1) 200ms backwards;
+          transform-origin: bottom right;
+        }
+        @media (max-width: 480px) {
+          /* Mobile: faster total duration (180 + 120 = 300ms). */
+          .qq-preview-pane.is-flp-folding .qq-preview-stage > .widget-scope {
+            animation-duration: 180ms;
+          }
+          .qq-preview-pane.is-flp-folding .qq-flp-bubble {
+            animation-duration: 120ms;
+            animation-delay: 180ms;
+          }
+          .qq-preview-pane.is-flp-unfolding .qq-flp-bubble {
+            animation-duration: 180ms;
+          }
+          .qq-preview-pane.is-flp-unfolding .qq-preview-stage > .widget-scope {
+            animation-duration: 120ms;
+            animation-delay: 180ms;
+          }
+        }
         @media (prefers-reduced-motion: reduce) {
           .qq-flp-dim,
           .qq-flp-bubble,
@@ -1783,6 +1897,12 @@ export default function PreviewPane({
             animation: none !important;
           }
           .qq-flp-bubble:hover { transform: none; }
+          .qq-preview-pane.is-flp-folding .qq-preview-stage > .widget-scope,
+          .qq-preview-pane.is-flp-folding .qq-flp-bubble,
+          .qq-preview-pane.is-flp-unfolding .qq-preview-stage > .widget-scope,
+          .qq-preview-pane.is-flp-unfolding .qq-flp-bubble {
+            animation: none !important;
+          }
         }
         /* Mobile — slightly smaller bubble + tighter corner inset. */
         @media (max-width: 480px) {
