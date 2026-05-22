@@ -60,6 +60,28 @@ const POSITION_KEY = 'qq-chat-position';
 const HISTORY_KEY_PREFIX = 'qq-chat-history-';
 const HISTORY_MAX = 50;
 
+// BD-3d Feature 2 — proactive (behavior-triggered) chat copy + cooldown
+// timings. Triggers: 30s idle on the wizard, 5+ wizard patches in 30s
+// without save, OR any HelpCue click. 3-minute cooldown between proactive
+// messages; dismissing a specific copy variant extends THAT variant's
+// cooldown to 10 minutes so the user isn't nagged with the same line.
+const PROACTIVE_LAST_KEY = 'qq-proactive-last-shown'; // ms timestamp
+const PROACTIVE_DISMISS_PREFIX = 'qq-proactive-dismiss-'; // + variant key
+const PROACTIVE_COOLDOWN_MS = 3 * 60 * 1000;
+const PROACTIVE_DISMISS_COOLDOWN_MS = 10 * 60 * 1000;
+const PROACTIVE_IDLE_MS = 30_000;
+const PROACTIVE_RAPID_WINDOW_MS = 30_000;
+const PROACTIVE_RAPID_THRESHOLD = 5;
+const PROACTIVE_VISIBLE_MS = 4_000;
+
+interface ProactiveCopy { key: string; text: string; }
+const PROACTIVE_VARIANTS: ProactiveCopy[] = [
+  { key: 'build-for-you', text: "Struggling to build a tool? Just text me what you need and I'll build it for you." },
+  { key: 'need-a-hand', text: 'Need a hand?' },
+  { key: 'formula', text: 'I can quickly create you a perfect calculation formula' },
+  { key: 'upload-invoice', text: "Upload an image of your regular service invoice/quote and I'll replicate this into a well-designed calculator formula" },
+];
+
 // BD-3c Feature 3 — defensive storage wrappers. localStorage throws in
 // privacy mode, when full, or under sandbox restrictions; swallow silently
 // so chat keeps working without persistence.
@@ -197,6 +219,146 @@ export default function AIChatBubble({
       window.removeEventListener('pointerdown', onActivity);
     };
   }, [visibility]);
+  // BD-3d Feature 2 — proactive toast above the pill. Holds the currently
+  // visible copy variant + a small notification badge flag. Both clear when
+  // the user opens the chat panel, dismisses the toast, or the auto-hide
+  // timer elapses. Independent from `revealed` so the toast also surfaces
+  // when the full FAB is visible.
+  const [proactiveCopy, setProactiveCopy] = useState<ProactiveCopy | null>(null);
+  const [proactiveBadge, setProactiveBadge] = useState(false);
+  const rapidEditTimestamps = useRef<number[]>([]);
+  const proactiveHideTimer = useRef<number | undefined>(undefined);
+
+  /**
+   * BD-3d Feature 2 — pick the next eligible proactive copy variant.
+   *
+   * Iterates the variant list in order; the first one whose per-variant
+   * dismissal cooldown has elapsed wins. Returns null when all variants are
+   * dismissed within the last 10 minutes (the user clearly doesn't want
+   * proactive nudges right now).
+   */
+  const pickProactiveVariant = useCallback((): ProactiveCopy | null => {
+    const now = Date.now();
+    for (const v of PROACTIVE_VARIANTS) {
+      const raw = readSession(`${PROACTIVE_DISMISS_PREFIX}${v.key}`);
+      if (!raw) return v;
+      const ts = Number(raw);
+      if (!Number.isFinite(ts) || now - ts > PROACTIVE_DISMISS_COOLDOWN_MS) return v;
+    }
+    return null;
+  }, []);
+
+  /**
+   * BD-3d Feature 2 — fire a proactive nudge.
+   *
+   * Respects the 3-minute global cooldown (sessionStorage). No-ops when the
+   * chat panel is open, when the bubble hasn't been revealed yet and we're
+   * still in pure-pill mode (the pill itself is the affordance — extra toast
+   * would be noisy), or when the user has dismissed every variant recently.
+   */
+  const fireProactive = useCallback(() => {
+    if (isOpen) return; // user is already chatting; no nudge needed
+    const lastRaw = readSession(PROACTIVE_LAST_KEY);
+    const last = lastRaw ? Number(lastRaw) : 0;
+    if (last && Date.now() - last < PROACTIVE_COOLDOWN_MS) return;
+    const variant = pickProactiveVariant();
+    if (!variant) return;
+    writeSession(PROACTIVE_LAST_KEY, String(Date.now()));
+    setProactiveCopy(variant);
+    setProactiveBadge(true);
+    if (proactiveHideTimer.current !== undefined) {
+      window.clearTimeout(proactiveHideTimer.current);
+    }
+    proactiveHideTimer.current = window.setTimeout(() => {
+      setProactiveCopy(null);
+      // Badge persists past the toast hide so the FAB carries a subtle
+      // unread dot until the user actually opens the chat.
+    }, PROACTIVE_VISIBLE_MS);
+  }, [isOpen, pickProactiveVariant]);
+
+  // BD-3d Feature 2 — install behavior-triggered listeners. Idle timer on
+  // wizard activity (mousemove / keydown / pointerdown / wizard-patch),
+  // rapid-edit counter on wizard patches, instant fire on help-cue clicks.
+  // Cleans up everything on unmount.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    let idleTimer: number | undefined;
+    const restartIdle = () => {
+      if (idleTimer !== undefined) window.clearTimeout(idleTimer);
+      idleTimer = window.setTimeout(fireProactive, PROACTIVE_IDLE_MS);
+    };
+    restartIdle();
+
+    const onActivity = () => { restartIdle(); };
+    const onPatch = () => {
+      // Rapid-edit detection: keep timestamps inside the rolling 30s window.
+      const now = Date.now();
+      const arr = rapidEditTimestamps.current;
+      arr.push(now);
+      while (arr.length && now - arr[0] > PROACTIVE_RAPID_WINDOW_MS) arr.shift();
+      if (arr.length >= PROACTIVE_RAPID_THRESHOLD) {
+        // Reset the window so we don't re-fire on the very next patch.
+        rapidEditTimestamps.current = [];
+        fireProactive();
+      }
+      restartIdle();
+    };
+    const onSave = () => { rapidEditTimestamps.current = []; };
+    const onHelpCue = () => { fireProactive(); };
+
+    window.addEventListener('mousemove', onActivity, { passive: true });
+    window.addEventListener('keydown', onActivity);
+    window.addEventListener('pointerdown', onActivity);
+    window.addEventListener('quotequick:wizard-patch', onPatch as EventListener);
+    window.addEventListener('quotequick:wizard-save', onSave as EventListener);
+    window.addEventListener('quotequick:help-cue-clicked', onHelpCue as EventListener);
+
+    return () => {
+      if (idleTimer !== undefined) window.clearTimeout(idleTimer);
+      if (proactiveHideTimer.current !== undefined) window.clearTimeout(proactiveHideTimer.current);
+      window.removeEventListener('mousemove', onActivity);
+      window.removeEventListener('keydown', onActivity);
+      window.removeEventListener('pointerdown', onActivity);
+      window.removeEventListener('quotequick:wizard-patch', onPatch as EventListener);
+      window.removeEventListener('quotequick:wizard-save', onSave as EventListener);
+      window.removeEventListener('quotequick:help-cue-clicked', onHelpCue as EventListener);
+    };
+  }, [fireProactive]);
+
+  // BD-3d Feature 2 — opening the panel clears the toast + badge. The user
+  // got the message (literally), so further nudges would be spam.
+  useEffect(() => {
+    if (!isOpen) return;
+    setProactiveCopy(null);
+    setProactiveBadge(false);
+    if (proactiveHideTimer.current !== undefined) {
+      window.clearTimeout(proactiveHideTimer.current);
+      proactiveHideTimer.current = undefined;
+    }
+  }, [isOpen]);
+
+  /** BD-3d Feature 2 — dismiss the current toast. Extends the per-variant
+   *  cooldown to 10 minutes so the same line doesn't reappear soon. */
+  const handleDismissProactive = useCallback(() => {
+    const variant = proactiveCopy;
+    if (variant) {
+      writeSession(`${PROACTIVE_DISMISS_PREFIX}${variant.key}`, String(Date.now()));
+    }
+    setProactiveCopy(null);
+    if (proactiveHideTimer.current !== undefined) {
+      window.clearTimeout(proactiveHideTimer.current);
+      proactiveHideTimer.current = undefined;
+    }
+  }, [proactiveCopy]);
+
+  /** BD-3d Feature 2 — tapping the toast opens the chat panel directly. */
+  const handleAcceptProactive = useCallback(() => {
+    setProactiveCopy(null);
+    setProactiveBadge(false);
+    setRevealed(true);
+    setIsOpen(true);
+  }, []);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -506,43 +668,69 @@ export default function AIChatBubble({
       setIsOpen(true);
     };
     return (
-      <button
-        type="button"
-        onClick={handlePillClick}
-        data-testid="button-chat-help-pill"
-        aria-label="Open AI assistant"
-        style={{
-          position: 'fixed',
-          bottom: '20px',
-          right: '20px',
-          zIndex: 9998,
-          padding: '8px 14px',
-          borderRadius: '999px',
-          background: accentColor,
-          color: '#fff',
-          border: 'none',
-          cursor: 'pointer',
-          fontSize: '13px',
-          fontWeight: 600,
-          display: 'flex',
-          alignItems: 'center',
-          gap: '6px',
-          boxShadow: '0 2px 10px rgba(0,0,0,0.18)',
-          opacity: 0.92,
-          transition: 'opacity 0.15s, transform 0.15s',
-        }}
-        onMouseEnter={e => {
-          (e.currentTarget as HTMLButtonElement).style.opacity = '1';
-          (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1.04)';
-        }}
-        onMouseLeave={e => {
-          (e.currentTarget as HTMLButtonElement).style.opacity = '0.92';
-          (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1)';
-        }}
-      >
-        <MessageCircle size={14} />
-        Need help?
-      </button>
+      <>
+        {/* BD-3d Feature 2 — proactive toast above the rescue-mode pill. */}
+        {proactiveCopy && (
+          <ProactiveToast
+            copy={proactiveCopy}
+            accentColor={accentColor}
+            anchorBottom={64}
+            onAccept={handleAcceptProactive}
+            onDismiss={handleDismissProactive}
+            reduceMotion={reduceMotionRef.current}
+          />
+        )}
+        <button
+          type="button"
+          onClick={handlePillClick}
+          data-testid="button-chat-help-pill"
+          aria-label="Open AI assistant"
+          style={{
+            position: 'fixed',
+            bottom: '20px',
+            right: '20px',
+            zIndex: 9998,
+            padding: '8px 14px',
+            borderRadius: '999px',
+            background: accentColor,
+            color: '#fff',
+            border: 'none',
+            cursor: 'pointer',
+            fontSize: '13px',
+            fontWeight: 600,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            boxShadow: '0 2px 10px rgba(0,0,0,0.18)',
+            opacity: 0.92,
+            transition: 'opacity 0.15s, transform 0.15s',
+          }}
+          onMouseEnter={e => {
+            (e.currentTarget as HTMLButtonElement).style.opacity = '1';
+            (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1.04)';
+          }}
+          onMouseLeave={e => {
+            (e.currentTarget as HTMLButtonElement).style.opacity = '0.92';
+            (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1)';
+          }}
+        >
+          <MessageCircle size={14} />
+          Need help?
+          {/* BD-3d Feature 2 — small unread dot when a proactive nudge
+              hasn't been acted on. */}
+          {proactiveBadge && (
+            <span
+              data-testid="chat-proactive-badge"
+              aria-label="New message"
+              style={{
+                width: 8, height: 8, borderRadius: '50%',
+                background: '#ef4444', display: 'inline-block',
+                marginLeft: 2,
+              }}
+            />
+          )}
+        </button>
+      </>
     );
   }
 
@@ -754,6 +942,19 @@ export default function AIChatBubble({
         </div>
       )}
 
+      {/* BD-3d Feature 2 — proactive toast above the FAB. Only rendered
+          when the panel is closed (the message goes away once they engage). */}
+      {!isOpen && proactiveCopy && (
+        <ProactiveToast
+          copy={proactiveCopy}
+          accentColor={accentColor}
+          anchorBottom={92}
+          onAccept={handleAcceptProactive}
+          onDismiss={handleDismissProactive}
+          reduceMotion={reduceMotionRef.current}
+        />
+      )}
+
       <button
         onClick={() => setIsOpen(prev => !prev)}
         style={{
@@ -784,6 +985,20 @@ export default function AIChatBubble({
         onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1)'; }}
       >
         {isOpen ? <X size={24} /> : <MessageCircle size={24} />}
+        {/* BD-3d Feature 2 — unread badge on the FAB. */}
+        {!isOpen && proactiveBadge && (
+          <span
+            data-testid="chat-proactive-badge"
+            aria-label="New message"
+            style={{
+              position: 'absolute',
+              top: 8, right: 8,
+              width: 10, height: 10, borderRadius: '50%',
+              background: '#ef4444',
+              border: '2px solid #fff',
+            }}
+          />
+        )}
       </button>
 
       <style>{`
@@ -799,13 +1014,100 @@ export default function AIChatBubble({
           from { transform: translateY(20px); opacity: 0; }
           to { transform: translateY(0); opacity: 1; }
         }
+        /* BD-3d Feature 2 — proactive toast entrance. Small slide-up + fade.
+           Disabled under prefers-reduced-motion (no bounce). */
+        @keyframes qq-ai-proactive-rise {
+          from { transform: translateY(8px); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
+        }
+        @keyframes qq-ai-bubble-bump {
+          0% { transform: scale(1); }
+          50% { transform: scale(1.06); }
+          100% { transform: scale(1); }
+        }
         @media (prefers-reduced-motion: reduce) {
           @keyframes qq-ai-bubble-rise {
             from { transform: none; opacity: 1; }
             to { transform: none; opacity: 1; }
           }
+          @keyframes qq-ai-proactive-rise {
+            from { transform: none; opacity: 1; }
+            to { transform: none; opacity: 1; }
+          }
+          @keyframes qq-ai-bubble-bump {
+            0%, 50%, 100% { transform: none; }
+          }
         }
       `}</style>
     </>
+  );
+}
+
+/**
+ * BD-3d Feature 2 — proactive toast bubble.
+ *
+ * Small white speech bubble that sits just above the rescue-mode pill or the
+ * full FAB. Tapping the body opens the chat panel directly; tapping the X
+ * dismisses + extends the per-variant cooldown to 10 minutes. Auto-hides
+ * after 4 seconds (parent owns the timer). prefers-reduced-motion skips the
+ * entrance animation.
+ */
+interface ProactiveToastProps {
+  copy: ProactiveCopy;
+  accentColor: string;
+  /** Distance from the bottom of the viewport for the toast's bottom edge. */
+  anchorBottom: number;
+  onAccept: () => void;
+  onDismiss: () => void;
+  reduceMotion: boolean;
+}
+
+function ProactiveToast({ copy, accentColor, anchorBottom, onAccept, onDismiss, reduceMotion }: ProactiveToastProps) {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      data-testid="chat-proactive-toast"
+      data-variant={copy.key}
+      style={{
+        position: 'fixed',
+        right: '24px',
+        bottom: `${anchorBottom}px`,
+        zIndex: 9998,
+        maxWidth: '260px',
+        background: '#fff',
+        color: '#1a1a1a',
+        borderRadius: '14px 14px 4px 14px',
+        boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
+        padding: '10px 30px 10px 14px',
+        fontSize: '13px',
+        lineHeight: 1.4,
+        borderLeft: `3px solid ${accentColor}`,
+        cursor: 'pointer',
+        animation: reduceMotion ? 'none' : 'qq-ai-proactive-rise 180ms ease-out both',
+      }}
+      onClick={onAccept}
+    >
+      {copy.text}
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); onDismiss(); }}
+        aria-label="Dismiss"
+        data-testid="chat-proactive-dismiss"
+        style={{
+          position: 'absolute',
+          top: '4px', right: '4px',
+          width: '22px', height: '22px',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'transparent',
+          border: 'none',
+          color: '#9ca3af',
+          cursor: 'pointer',
+          borderRadius: '50%',
+        }}
+      >
+        <X size={12} />
+      </button>
+    </div>
   );
 }

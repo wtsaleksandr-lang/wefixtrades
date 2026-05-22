@@ -248,6 +248,12 @@ export default function WizardShell({ embed = false }: Props) {
         // during render — undoStackRef.current was just mutated synchronously
         // but historyTick is a plain useState.
         queueMicrotask(() => setHistoryTick((t) => t + 1));
+        // BD-3d Feature 2 — broadcast every user-initiated patch so the AI
+        // chat bubble can detect "5+ rapid edits without saving" (rapid-edit
+        // signal → proactive nudge).
+        if (typeof window !== 'undefined') {
+          try { window.dispatchEvent(new CustomEvent('quotequick:wizard-patch')); } catch { /* ignore */ }
+        }
       }
       return next;
     });
@@ -707,6 +713,11 @@ export default function WizardShell({ embed = false }: Props) {
     onSuccess: () => {
       setJustSaved(true);
       setTimeout(() => setJustSaved(false), 1800);
+      // BD-3d Feature 2 — save resets the rapid-edit counter so the proactive
+      // chat doesn't nag users who are actively saving their work.
+      if (typeof window !== 'undefined') {
+        try { window.dispatchEvent(new CustomEvent('quotequick:wizard-save')); } catch { /* ignore */ }
+      }
     },
   });
 

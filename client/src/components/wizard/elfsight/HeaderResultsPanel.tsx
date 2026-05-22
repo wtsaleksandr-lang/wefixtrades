@@ -24,8 +24,8 @@
 import { platformTheme } from '@/theme/platformTheme';
 import type { ShellHeader, ShellResults } from './types';
 import { useSelection } from './selection';
-import FloatField from './FloatField';
 import InfoCue from './InfoCue';
+import RichTextField from './RichTextField';
 
 const p = platformTheme;
 
@@ -74,38 +74,30 @@ export default function HeaderResultsPanel({
       </header>
 
       <div className="qq-headres-grid">
-        <FloatField
+        {/* BD-3d Feature 1 — RichTextField replaces the plain input for the
+            heading/footer/title/subtitle fields. Stores sanitized HTML;
+            sanitizes on both write + read; supports B/I/U, font size,
+            color, emoji, inline image (≤2MB). NO custom-code button. */}
+        <RichTextField
           label="Title"
           htmlFor="qq-headres-title"
+          value={header.title ?? ''}
+          onChange={(next) => updateHeader({ title: next })}
+          placeholder="Click to add a title"
           infoText="Sits at the top of your calculator. Leave blank to fall back to your business name."
           infoTestid="headerresults-header"
-        >
-          <input
-            id="qq-headres-title"
-            type="text"
-            className="premium-input"
-            placeholder=" "
-            value={header.title ?? ''}
-            onChange={(e) => updateHeader({ title: e.target.value })}
-            data-testid="input-header-title"
-          />
-        </FloatField>
-        <FloatField
+          testid="input-header-title"
+        />
+        <RichTextField
           label="Subtitle"
           htmlFor="qq-headres-subtitle"
+          value={header.subtitle ?? ''}
+          onChange={(next) => updateHeader({ subtitle: next })}
+          placeholder="Click to add a subtitle"
           infoText="Optional. Leave blank to hide the subtitle."
           infoTestid="headerresults-subtitle"
-        >
-          <input
-            id="qq-headres-subtitle"
-            type="text"
-            className="premium-input"
-            placeholder=" "
-            value={header.subtitle ?? ''}
-            onChange={(e) => updateHeader({ subtitle: e.target.value })}
-            data-testid="input-header-subtitle"
-          />
-        </FloatField>
+          testid="input-header-subtitle"
+        />
       </div>
 
       <div className="qq-headres-divider" />
@@ -127,38 +119,27 @@ export default function HeaderResultsPanel({
       </header>
 
       <div className="qq-headres-grid">
-        <FloatField
+        {/* BD-3d Feature 1 — rich-text fields for the results pane. */}
+        <RichTextField
           label="Heading"
           htmlFor="qq-headres-heading"
+          value={results.heading ?? ''}
+          onChange={(next) => updateResults({ heading: next })}
+          placeholder="Click to add a heading"
           infoText="The text shown above the headline number (e.g. 'Estimated total')."
           infoTestid="headerresults-heading"
-        >
-          <input
-            id="qq-headres-heading"
-            type="text"
-            className="premium-input"
-            placeholder=" "
-            value={results.heading ?? ''}
-            onChange={(e) => updateResults({ heading: e.target.value })}
-            data-testid="input-results-heading"
-          />
-        </FloatField>
-        <FloatField
+          testid="input-results-heading"
+        />
+        <RichTextField
           label="Footer / footnote"
           htmlFor="qq-headres-footnote"
+          value={results.footnote ?? ''}
+          onChange={(next) => updateResults({ footnote: next })}
+          placeholder="Click to add a footer"
           infoText="Small print under the headline. Use for disclaimers or 'taxes not included'."
           infoTestid="headerresults-footnote"
-        >
-          <input
-            id="qq-headres-footnote"
-            type="text"
-            className="premium-input"
-            placeholder=" "
-            value={results.footnote ?? ''}
-            onChange={(e) => updateResults({ footnote: e.target.value })}
-            data-testid="input-results-footnote"
-          />
-        </FloatField>
+          testid="input-results-footnote"
+        />
       </div>
 
       {/* W-AO-5 — the "Headline result" dropdown previously rendered here
