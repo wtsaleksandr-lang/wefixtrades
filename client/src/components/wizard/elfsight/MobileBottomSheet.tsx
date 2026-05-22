@@ -1,4 +1,4 @@
-// MobileBottomSheet — Wave BH-3
+// MobileBottomSheet — Wave BH-3 (simplified by BH-3-fix).
 //
 // Mobile-only (≤768px) replacement for the desktop side-panel. On phones the
 // wizard config panel becomes a bottom sheet à la Notion / Canva / Builder.io
@@ -7,35 +7,36 @@
 //
 // Snap heights:
 //   - collapsed: ~56px (just the handle + active-tab label)
-//   - half:      60vh
+//   - half:      62vh
 //   - full:      88vh
 //
-// Features (per BH-3 spec):
+// BH-3-fix removed two over-engineered features from the original BH-3 ship:
+//   1. The in-sheet search bar — not enough features to justify it.
+//   2. The in-sheet tab strip — duplicate of the top chrome's tabs (BH-2).
+// The sheet now simply renders the active tab's panel body. Tab switching
+// happens UP TOP in the unified chrome; the sheet just reflects whatever
+// the parent passes as `children` for the current `activeTab`.
+//
+// Features retained:
 //   1. Sliding sheet with drag handle + tap/swipe to expand/collapse.
-//   2. Tab strip lives INSIDE the sheet (not at top of screen).
-//   3. Search input filters across every section / field-label substring.
-//   4. Sticky action footer (Reset / Done) honouring safe-area-inset-bottom.
-//   5. Auto-collapse: scrolling inside the sheet shrinks the search+tabs
-//      region to icon-only / sticky.
-//   6. Canvas above stays interactive and re-renders live (parent owns the
+//   2. Sticky action footer (Reset / Done) honouring safe-area-inset-bottom.
+//   3. Canvas above stays interactive and re-renders live (parent owns the
 //      live-preview pane).
-//   7. (skipped) Long-press tab context menu — deferred, complicates scope.
-//   8. (partial) Listens for `qq-wizard:focus-field` so PreviewPane taps
-//      can auto-open + switch tab. Section/field scroll is best-effort.
+//   4. Listens for `qq-wizard:focus-field` so PreviewPane taps can auto-open
+//      + switch tab. Section/field scroll is best-effort.
 //
 // Constraints:
 //   - Hidden above 768px via CSS — desktop side-panel stays the path.
 //   - GPU-accelerated `transform: translateY()`, 240ms ease-out.
 //   - prefers-reduced-motion → no transform animation, snap state changes.
 //   - Touch targets >= 44px.
-//   - No new deps; Web Animations API + native CSS transitions only.
+//   - No new deps; native CSS transitions only.
 //   - z-index 9998 (above canvas, below AIBubble).
 
 import {
-  createContext, useCallback, useContext, useEffect, useMemo, useRef,
-  useState, type ReactNode,
+  useCallback, useEffect, useMemo, useRef, useState, type ReactNode,
 } from 'react';
-import { RotateCcw, Search, X } from 'lucide-react';
+import { RotateCcw } from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
 import { dashboardTheme } from '@/theme/dashboardTheme';
 import { EDITOR_TABS, type EditorTab } from './types';
@@ -45,20 +46,6 @@ const d = dashboardTheme;
 
 export type SheetSnap = 'collapsed' | 'half' | 'full';
 
-// ── Search context ─────────────────────────────────────────────────────
-//
-// Children inside the sheet read `query` via this context so a global DOM
-// hook can hide fieldsets/labels that don't match. We keep the filter
-// logic in a sidecar effect (querySelector based) so the existing tab
-// components don't need to change shape — just RELOCATE them, not
-// restructure (per BH-3 hard constraint).
-
-interface SheetSearchCtx {
-  query: string;
-}
-const SheetSearchContext = createContext<SheetSearchCtx>({ query: '' });
-export function useSheetSearch() { return useContext(SheetSearchContext); }
-
 // ── Component ─────────────────────────────────────────────────────────
 
 interface Props {
@@ -66,7 +53,8 @@ interface Props {
   onTabChange: (tab: EditorTab) => void;
   onResetTab: () => void;
   onDone: () => void;
-  /** Slot containing the tab body components (BuildTab/StyleTab/etc.). */
+  /** Slot containing the active tab's body component (whichever Tab the
+   *  top-chrome tab nav has selected). */
   children: ReactNode;
   /** When true, the parent indicates Save is busy. */
   isBusy?: boolean;
@@ -95,8 +83,6 @@ export default function MobileBottomSheet({
   children, isBusy = false, initialSnap = 'collapsed',
 }: Props) {
   const [snap, setSnapInner] = useState<SheetSnap>(() => loadSnap(initialSnap));
-  const [query, setQuery] = useState('');
-  const [chromeCompact, setChromeCompact] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   const reduceMotion = useMemo(readPrefersReduced, []);
@@ -144,80 +130,10 @@ export default function MobileBottomSheet({
     try { (ev.target as HTMLElement).releasePointerCapture(ev.pointerId); } catch { /* ignore */ }
   }, []);
 
-  // ── Auto-collapse chrome on scroll inside content ─────────────────
+  // Scroll container ref kept so `qq-wizard:focus-field` can scroll into view.
   const contentRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const el = contentRef.current;
-    if (!el) return;
-    const onScroll = () => {
-      const shouldCompact = el.scrollTop > 24;
-      setChromeCompact((cur) => (cur === shouldCompact ? cur : shouldCompact));
-    };
-    el.addEventListener('scroll', onScroll, { passive: true });
-    return () => el.removeEventListener('scroll', onScroll);
-  }, []);
 
-  // Reset compact mode when snap changes back to collapsed.
-  useEffect(() => {
-    if (snap === 'collapsed') setChromeCompact(false);
-  }, [snap]);
-
-  // ── Search filtering — DOM-side ───────────────────────────────────
-  //
-  // We walk fieldsets inside the sheet content and toggle a `data-sheet-hidden`
-  // attribute. Field rows (label + label-like spans) are matched too. Keeping
-  // this DOM-side means the tab body components stay untouched (per BH-3 hard
-  // constraint "just RELOCATE them, don't restructure").
-  useEffect(() => {
-    const root = contentRef.current;
-    if (!root) return;
-    const q = query.trim().toLowerCase();
-    const fieldsets = root.querySelectorAll<HTMLFieldSetElement>('fieldset');
-    if (q === '') {
-      fieldsets.forEach((fs) => {
-        fs.removeAttribute('data-sheet-hidden');
-        fs.querySelectorAll<HTMLElement>('[data-sheet-row-hidden]').forEach((el) => {
-          el.removeAttribute('data-sheet-row-hidden');
-        });
-      });
-      return;
-    }
-    fieldsets.forEach((fs) => {
-      // Match against legend text first (section name).
-      const legend = fs.querySelector('legend');
-      const legendText = (legend?.textContent ?? '').toLowerCase();
-      const legendMatch = legendText.includes(q);
-
-      let anyRowMatch = false;
-      // Walk every label / field-label element inside the fieldset.
-      const labels = fs.querySelectorAll<HTMLElement>('label, .qq-style-row-label, [data-field-label]');
-      labels.forEach((lbl) => {
-        const text = (lbl.textContent ?? '').toLowerCase();
-        const matches = text.includes(q);
-        // Find the nearest "row" wrapper so we hide the whole control, not
-        // just the label text.
-        const row = (lbl.closest('.qq-style-row, .qq-style-field-row, .qq-style-sub-fields, .qq-field-row, .qq-setting-row')
-          ?? lbl.parentElement) as HTMLElement | null;
-        if (!row) return;
-        // Only the legend-match case shows everything inside; otherwise
-        // toggle per-row.
-        if (legendMatch || matches) {
-          row.removeAttribute('data-sheet-row-hidden');
-          if (matches) anyRowMatch = true;
-        } else {
-          row.setAttribute('data-sheet-row-hidden', 'true');
-        }
-      });
-
-      if (legendMatch || anyRowMatch) {
-        fs.removeAttribute('data-sheet-hidden');
-      } else {
-        fs.setAttribute('data-sheet-hidden', 'true');
-      }
-    });
-  }, [query, activeTab]);
-
-  // ── BH-3 #8 — `qq-wizard:focus-field` listener ────────────────────
+  // ── BH-3 — `qq-wizard:focus-field` listener ───────────────────────
   //
   // PreviewPane can dispatch `new CustomEvent('qq-wizard:focus-field', {
   //   detail: { tabId, sectionId, fieldId } })` and we'll:
@@ -269,10 +185,8 @@ export default function MobileBottomSheet({
     setSnap('collapsed');
   }, [setSnap]);
 
-  const searchContext = useMemo(() => ({ query }), [query]);
-
   return (
-    <SheetSearchContext.Provider value={searchContext}>
+    <>
       {/* Backdrop — only paints when sheet is expanded. */}
       {snap !== 'collapsed' && (
         <div
@@ -285,7 +199,7 @@ export default function MobileBottomSheet({
 
       <div
         ref={sheetRef}
-        className={`qq-sheet qq-sheet--${snap}${chromeCompact ? ' is-chrome-compact' : ''}${reduceMotion ? ' is-reduced-motion' : ''}`}
+        className={`qq-sheet qq-sheet--${snap}${reduceMotion ? ' is-reduced-motion' : ''}`}
         data-testid="wizard-bottom-sheet"
         data-snap={snap}
         role="dialog"
@@ -318,62 +232,7 @@ export default function MobileBottomSheet({
           )}
         </button>
 
-        {/* ── Search bar ─────────────────────────────────────────── */}
-        <div className="qq-sheet-search" data-testid="wizard-sheet-search">
-          <Search size={14} aria-hidden="true" className="qq-sheet-search-icon" />
-          <input
-            type="search"
-            className="qq-sheet-search-input"
-            placeholder="Search settings"
-            value={query}
-            onChange={(ev) => setQuery(ev.target.value)}
-            data-testid="wizard-sheet-search-input"
-            aria-label="Search settings across every tab"
-          />
-          {query && (
-            <button
-              type="button"
-              className="qq-sheet-search-clear"
-              onClick={() => setQuery('')}
-              data-testid="wizard-sheet-search-clear"
-              aria-label="Clear search"
-            >
-              <X size={12} aria-hidden="true" />
-            </button>
-          )}
-        </div>
-
-        {/* ── Tab strip ──────────────────────────────────────────── */}
-        <div
-          className="qq-sheet-tabstrip"
-          role="tablist"
-          aria-label="Editor sections"
-          data-testid="wizard-sheet-tabs"
-        >
-          {EDITOR_TABS.map(({ id, label }) => {
-            const isActive = id === activeTab;
-            return (
-              <button
-                key={id}
-                type="button"
-                role="tab"
-                aria-selected={isActive}
-                className={`qq-sheet-tab${isActive ? ' is-active' : ''}`}
-                data-testid={`wizard-sheet-tab-${id}`}
-                onClick={() => {
-                  onTabChange(id);
-                  // If sheet was collapsed and the user tapped a tab,
-                  // expand to half so they can see the panel.
-                  if (snap === 'collapsed') setSnap('half');
-                }}
-              >
-                {label}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* ── Scrollable content ─────────────────────────────────── */}
+        {/* ── Scrollable content (active tab's panel only) ───────── */}
         <div
           ref={contentRef}
           className="qq-sheet-content"
@@ -455,10 +314,7 @@ export default function MobileBottomSheet({
           .qq-sheet--full {
             height: 88vh;
           }
-          /* Hide search / tabs / content / footer in collapsed state —
-           * only the handle remains. */
-          .qq-sheet--collapsed .qq-sheet-search,
-          .qq-sheet--collapsed .qq-sheet-tabstrip,
+          /* Hide content / footer in collapsed state — only the handle remains. */
           .qq-sheet--collapsed .qq-sheet-content,
           .qq-sheet--collapsed .qq-sheet-footer {
             display: none;
@@ -501,92 +357,6 @@ export default function MobileBottomSheet({
             margin-left: 2px;
           }
 
-          /* ── Search bar ────────────────────────────────────────── */
-          .qq-sheet-search {
-            display: flex; align-items: center; gap: 6px;
-            margin: 4px 12px 6px;
-            padding: 0 10px;
-            background: ${p.colors.surfaceRaised};
-            border: 1px solid ${p.colors.borderLight};
-            border-radius: 10px;
-            min-height: 36px;
-            transition: max-height 200ms ease-out, opacity 180ms ease-out,
-                        margin 200ms ease-out;
-            overflow: hidden;
-            max-height: 44px;
-          }
-          .qq-sheet.is-chrome-compact .qq-sheet-search {
-            max-height: 0;
-            opacity: 0;
-            margin-top: 0;
-            margin-bottom: 0;
-            border-width: 0;
-            pointer-events: none;
-          }
-          .qq-sheet-search-icon {
-            flex-shrink: 0;
-            color: ${p.colors.muted};
-          }
-          .qq-sheet-search-input {
-            flex: 1; min-width: 0;
-            border: none; background: transparent;
-            font: inherit; font-size: 13.5px;
-            color: ${p.colors.heading};
-            padding: 6px 0;
-            outline: none;
-          }
-          .qq-sheet-search-input::-webkit-search-cancel-button { display: none; }
-          .qq-sheet-search-clear {
-            background: transparent; border: none; padding: 4px;
-            min-width: 28px; min-height: 28px;
-            display: inline-flex; align-items: center; justify-content: center;
-            color: ${p.colors.muted};
-            cursor: pointer;
-            border-radius: 999px;
-          }
-          .qq-sheet-search-clear:hover { color: ${p.colors.heading}; }
-
-          /* ── Tab strip ─────────────────────────────────────────── */
-          .qq-sheet-tabstrip {
-            display: flex; align-items: center; gap: 4px;
-            padding: 0 12px 8px;
-            overflow-x: auto;
-            scrollbar-width: none;
-            transition: padding 200ms ease-out, max-height 200ms ease-out;
-            max-height: 56px;
-          }
-          .qq-sheet-tabstrip::-webkit-scrollbar { display: none; }
-          .qq-sheet.is-chrome-compact .qq-sheet-tabstrip {
-            padding-top: 0; padding-bottom: 4px;
-          }
-          .qq-sheet-tab {
-            flex: 0 0 auto;
-            min-height: 44px;
-            padding: 6px 14px;
-            border: 1px solid ${p.colors.borderLight};
-            background: #fff;
-            color: ${p.colors.muted};
-            font: inherit; font-size: 13px; font-weight: 600;
-            border-radius: 999px;
-            cursor: pointer;
-            white-space: nowrap;
-            transition: background 0.12s ease, color 0.12s ease,
-                        border-color 0.12s ease;
-          }
-          .qq-sheet-tab:hover {
-            color: ${p.colors.heading};
-            background: ${p.colors.surfaceRaised};
-          }
-          .qq-sheet-tab.is-active {
-            background: ${p.colors.accent};
-            color: #fff;
-            border-color: ${p.colors.accent};
-          }
-          .qq-sheet-tab:focus-visible {
-            outline: 2px solid ${p.colors.accent};
-            outline-offset: 2px;
-          }
-
           /* ── Scrollable content ────────────────────────────────── */
           .qq-sheet-content {
             flex: 1; min-height: 0;
@@ -594,13 +364,6 @@ export default function MobileBottomSheet({
             -webkit-overflow-scrolling: touch;
             padding: 4px 12px 8px;
             scroll-behavior: smooth;
-          }
-          /* Search filter hides matched sections / rows. */
-          .qq-sheet-content fieldset[data-sheet-hidden="true"] {
-            display: none;
-          }
-          .qq-sheet-content [data-sheet-row-hidden="true"] {
-            display: none;
           }
           /* Section highlight after a focus-field event. */
           .qq-sheet-content [data-sheet-highlight="true"] {
@@ -665,18 +428,6 @@ export default function MobileBottomSheet({
             background: var(--qq-surface);
             border-top-color: var(--qq-border);
           }
-          .qq-editor-shell[data-theme="dark"] .qq-sheet-search {
-            background: rgba(255,255,255,0.04);
-            border-color: var(--qq-border);
-          }
-          .qq-editor-shell[data-theme="dark"] .qq-sheet-search-input {
-            color: var(--qq-text);
-          }
-          .qq-editor-shell[data-theme="dark"] .qq-sheet-tab {
-            background: var(--qq-surface);
-            border-color: var(--qq-border);
-            color: var(--qq-muted);
-          }
           .qq-editor-shell[data-theme="dark"] .qq-sheet-footer {
             background: var(--qq-surface);
             border-top-color: var(--qq-border);
@@ -690,7 +441,7 @@ export default function MobileBottomSheet({
 
         /* prefers-reduced-motion — instant snap, no transitions. */
         @media (prefers-reduced-motion: reduce) {
-          .qq-sheet, .qq-sheet-search, .qq-sheet-tabstrip, .qq-sheet-content {
+          .qq-sheet, .qq-sheet-content {
             transition: none !important;
             animation: none !important;
           }
@@ -707,6 +458,6 @@ export default function MobileBottomSheet({
           transition: none !important;
         }
       `}</style>
-    </SheetSearchContext.Provider>
+    </>
   );
 }
