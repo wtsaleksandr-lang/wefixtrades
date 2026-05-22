@@ -36,6 +36,7 @@ import {
 import type { BusinessProfile } from '@shared/templatePresets';
 import FloatField from './FloatField';
 import InfoCue from './InfoCue';
+import { useFoldablePanels } from './useFoldablePanels';
 
 const p = platformTheme;
 
@@ -150,8 +151,15 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
     [patch, deposit],
   );
 
+  // BD-3g Item 2 — wire fold/unfold onto every <fieldset.qq-style-group>
+  // in this panel. Persists per-panel state in sessionStorage keyed by
+  // `qq-wizard-panel-settings-${panelId}`.
+  const settingsPanelRef = useRef<HTMLElement | null>(null);
+  useFoldablePanels(settingsPanelRef, 'settings');
+
   return (
     <section
+      ref={settingsPanelRef}
       className="qq-settings-panel qq-style-panel"
       // `editor-tabpanel-settings` matches the H1 generic tab-switching test.
       data-testid="editor-tabpanel-settings"

@@ -102,3 +102,7 @@ client/src/pages/admin/AdminAiActivityPage.tsx
 
 # ── W-AX-1: System-wide AI gate dashboard (admin oversight UI, kill switches + budgets) ──
 client/src/pages/admin/AdminAiGatesPage.tsx
+
+# ── BA-1 + BB-4 follow-up: per-channel gate page + per-calculator analytics dashboard (admin/portal read-only) ──
+client/src/pages/admin/AdminAiChannelsPage.tsx
+client/src/pages/portal/PortalCalculatorAnalytics.tsx

@@ -596,6 +596,64 @@ export default function PreviewPane({
     data: { kind: 'preview-append' },
   });
 
+  /* BD-3g Item 3 — animation live preview.
+   *
+   * StyleTab's Brand Studio > Animations segmented control dispatches a
+   * `qq-preview:replay-animation` window CustomEvent every time the user
+   * clicks a value. We listen here and force a one-shot replay by
+   * toggling a class on the bezel + bumping a `replayKey` so the
+   * underlying QuoteWidget remounts (cleanest way to retrigger CSS
+   * keyframes that already finished). The class is removed after the
+   * configured duration so subsequent renders don't carry it. */
+  const [replayAnim, setReplayAnim] = useState<{
+    name: string;
+    key: number;
+    durationMs: number;
+  } | null>(null);
+  const replayTimerRef = useRef<number | null>(null);
+  useEffect(() => {
+    const onReplay = (e: Event) => {
+      const ev = e as CustomEvent<{ animation?: string; durationMs?: number }>;
+      const name = String(ev.detail?.animation ?? 'none');
+      // 'none' = no animation to replay; just briefly highlight the
+      // container so the user gets feedback that the click registered.
+      const durationMs = Math.max(120, Math.min(800, Number(ev.detail?.durationMs ?? 280)));
+      if (replayTimerRef.current != null) {
+        window.clearTimeout(replayTimerRef.current);
+      }
+      setReplayAnim((prev) => ({
+        name,
+        key: (prev?.key ?? 0) + 1,
+        durationMs,
+      }));
+      replayTimerRef.current = window.setTimeout(() => {
+        setReplayAnim(null);
+        replayTimerRef.current = null;
+      }, durationMs + 80); // small buffer so the class outlives the keyframe
+    };
+    window.addEventListener('qq-preview:replay-animation', onReplay as EventListener);
+    return () => {
+      window.removeEventListener('qq-preview:replay-animation', onReplay as EventListener);
+      if (replayTimerRef.current != null) window.clearTimeout(replayTimerRef.current);
+    };
+  }, []);
+
+  // Branch on prefers-reduced-motion: when set, the replay just briefly
+  // outlines the container instead of running keyframes.
+  const reduceMotionForReplay = useMemo(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return false;
+    try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; }
+  }, []);
+
+  const replayClass = replayAnim
+    ? (reduceMotionForReplay
+        ? ' qq-preview-anim-reduce'
+        : ` qq-preview-anim-${replayAnim.name}`)
+    : '';
+  const replayStyle: React.CSSProperties | undefined = replayAnim
+    ? ({ '--qq-preview-anim-duration': `${replayAnim.durationMs}ms` } as React.CSSProperties)
+    : undefined;
+
   // Results / header selection (item c) — clicking these regions selects them.
   // The decorators sit inside the bezel container, on top of the QuoteWidget.
   const resultsSel = selection.isSelected({ kind: 'results', id: '__results' });
@@ -835,63 +893,18 @@ export default function PreviewPane({
     };
   }, [shellFields, onRemoveField]);
 
-  // Hosted-frame path — unchanged from before, drag/resize/zoom not applied
-  // because the hosted preview shows the full marketing page, not a single
-  // grabbable widget. The user is checking what the hosted page looks like.
-  if (hostedFrame) {
-    return (
-      <div
-        className="qq-preview-pane qq-preview-pane--hosted"
-        data-testid="editor-preview-pane"
-      >
-        <div
-          className="qq-preview-hosted-scroll"
-          ref={overlayHostRef}
-          data-testid="preview-hosted-scroll"
-          data-device={device}
-        >
-          <HostedPageFrame
-            settings={settings?.hostedPage}
-            logoUrl={logo}
-            businessName={businessName}
-          >
-            <QuoteWidget calculator={previewCalculatorData} isEmbed hideBrandBadge editableTitle />
-          </HostedPageFrame>
-          {shellFields.length > 0 && onRemoveField && (
-            <PreviewOverlay
-              fields={shellFields}
-              containerRef={overlayHostRef as React.RefObject<HTMLDivElement>}
-              onRemoveField={onRemoveField}
-            />
-          )}
-          {shellFields.length === 0 && onAddField && (
-            <PreviewEmptyState onAddField={onAddField} />
-          )}
-        </div>
-        <style>{`
-          .qq-preview-pane--hosted {
-            background: transparent;
-            padding: 0;
-            overflow: hidden;
-            display: flex; flex-direction: column;
-            height: 100%;
-          }
-          .qq-preview-hosted-scroll {
-            flex: 1; min-height: 0;
-            overflow: auto;
-            position: relative;
-          }
-          .qq-preview-hosted-scroll[data-device="mobile"] > .qq-hosted-frame {
-            max-width: 390px;
-            margin: 0 auto;
-            box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
-            border-radius: 18px;
-            overflow: hidden;
-          }
-        `}</style>
-      </div>
-    );
-  }
+  // BD-3g Item 4 — regression fix: drag/resize handles MUST render on every
+  // tab including Install. BD-3b introduced an early-return here that bailed
+  // out of the bezel layout when `hostedFrame` is true (i.e. activeTab ===
+  // 'install') — handles never mounted and the widget became un-grabbable.
+  //
+  // Root cause: this early-return rendered a bezel-less "hosted-scroll"
+  // layout that excluded `dragHandle` + `resizeHandles`. Removed so the
+  // standard bezel layout below runs for every tab; the `hostedFrame` prop
+  // continues to gate whether the inner QuoteWidget is wrapped in
+  // <HostedPageFrame/> (lines below — bezel rendering paths still respect
+  // it), so the Install tab still shows the hosted-page chrome but inside
+  // the same draggable/resizable bezel as Style / Build / Settings.
 
   // BD-3b — render the resize handles around the bezel. Eight handles total.
   const HANDLE_DIRS: HandleDir[] = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
@@ -929,6 +942,47 @@ export default function PreviewPane({
     >
       <GripVertical size={14} aria-hidden="true" />
       <span className="qq-widget-drag-handle-label">Drag to move</span>
+    </div>
+  );
+
+  /* BD-3g Item 3 — render the QuoteWidget inside a stamping wrapper that
+   * carries the replay class + key. Bumping `replayAnim.key` forces a
+   * QuoteWidget remount, which re-runs any entrance keyframe declared in
+   * the renderer's CSS (the same animation the user is about to ship to
+   * customers). For 'none' we still bump the key so the user gets a
+   * visible "click registered" tick. For reduced-motion the wrapper
+   * picks up qq-preview-anim-reduce instead (a 1px accent outline). */
+  const renderPreviewWidget = (
+    <div
+      className={`qq-preview-anim-wrap${replayClass}`}
+      data-testid="preview-anim-wrap"
+      data-anim={replayAnim?.name ?? 'idle'}
+      style={replayStyle}
+    >
+      {hostedFrame ? (
+        <HostedPageFrame
+          settings={settings?.hostedPage}
+          logoUrl={logo}
+          businessName={businessName}
+          compact
+        >
+          <QuoteWidget
+            key={`qq-preview-widget-${replayAnim?.key ?? 0}`}
+            calculator={previewCalculatorData}
+            isEmbed
+            hideBrandBadge
+            editableTitle
+          />
+        </HostedPageFrame>
+      ) : (
+        <QuoteWidget
+          key={`qq-preview-widget-${replayAnim?.key ?? 0}`}
+          calculator={previewCalculatorData}
+          isEmbed
+          hideBrandBadge
+          editableTitle
+        />
+      )}
     </div>
   );
 
@@ -989,18 +1043,7 @@ export default function PreviewPane({
               {dragHandle}
               <div style={{ height: 5, width: 42, borderRadius: 3, background: 'rgba(255,255,255,0.22)', margin: '0 auto 9px', flexShrink: 0 }} />
               <div ref={overlayHostRef} style={{ borderRadius: 34, overflow: 'auto', background: '#fff', flex: 1, position: 'relative' }}>
-                {hostedFrame ? (
-                  <HostedPageFrame
-                    settings={settings?.hostedPage}
-                    logoUrl={logo}
-                    businessName={businessName}
-                    compact
-                  >
-                    <QuoteWidget calculator={previewCalculatorData} isEmbed hideBrandBadge editableTitle />
-                  </HostedPageFrame>
-                ) : (
-                  <QuoteWidget calculator={previewCalculatorData} isEmbed hideBrandBadge editableTitle />
-                )}
+                {renderPreviewWidget}
                 {shellFields.length > 0 && onRemoveField && (
                   <PreviewOverlay
                     fields={shellFields}
@@ -1086,18 +1129,7 @@ export default function PreviewPane({
                 </div>
               </div>
               <div ref={overlayHostRef} style={{ flex: 1, overflow: 'auto', position: 'relative' }}>
-                {hostedFrame ? (
-                  <HostedPageFrame
-                    settings={settings?.hostedPage}
-                    logoUrl={logo}
-                    businessName={businessName}
-                    compact
-                  >
-                    <QuoteWidget calculator={previewCalculatorData} isEmbed hideBrandBadge editableTitle />
-                  </HostedPageFrame>
-                ) : (
-                  <QuoteWidget calculator={previewCalculatorData} isEmbed hideBrandBadge editableTitle />
-                )}
+                {renderPreviewWidget}
                 {shellFields.length > 0 && onRemoveField && (
                   <PreviewOverlay
                     fields={shellFields}
@@ -1434,6 +1466,60 @@ export default function PreviewPane({
           }
           .qq-preview-stage {
             transition: none !important;
+          }
+        }
+
+        /* BD-3g Item 3 — animation live preview. The Brand Studio
+         * Animations segmented control fires a window event named
+         * qq-preview:replay-animation when the user picks a value.
+         * We force-remount the QuoteWidget via a keyed wrapper (see
+         * renderPreviewWidget) AND add the matching class below so a
+         * one-shot CSS keyframe plays. Duration is plumbed via the
+         * --qq-preview-anim-duration custom property so the slider's
+         * value is honored. Four animation names map to the four
+         * AdvStepTransition values (none, fade, slide, slide-fade);
+         * none deliberately has no keyframe — just the QuoteWidget
+         * remount provides the click-registered tick. Reduced motion
+         * gets a 1px accent outline pulse instead. */
+        .qq-preview-anim-wrap {
+          /* Lets the inner widget inherit the natural layout — no
+           * box (display:contents) means PreviewOverlay's
+           * absolute-positioned overlay still measures against the
+           * overlayHostRef, not this wrapper. */
+          display: contents;
+        }
+        @keyframes qq-preview-fade {
+          from { opacity: 0; }
+          to   { opacity: 1; }
+        }
+        @keyframes qq-preview-slide {
+          from { transform: translateX(16px); opacity: 0.6; }
+          to   { transform: translateX(0);    opacity: 1;   }
+        }
+        @keyframes qq-preview-slide-fade {
+          from { transform: translateY(8px); opacity: 0; }
+          to   { transform: translateY(0);   opacity: 1; }
+        }
+        @keyframes qq-preview-anim-reduce-pulse {
+          0%   { box-shadow: 0 0 0 0 ${p.colors.accent}; }
+          50%  { box-shadow: 0 0 0 1px ${p.colors.accent}; }
+          100% { box-shadow: 0 0 0 0 ${p.colors.accent}; }
+        }
+        .qq-preview-anim-wrap.qq-preview-anim-fade > * {
+          animation: qq-preview-fade var(--qq-preview-anim-duration, 280ms) ease-out;
+        }
+        .qq-preview-anim-wrap.qq-preview-anim-slide > * {
+          animation: qq-preview-slide var(--qq-preview-anim-duration, 280ms) ease-out;
+        }
+        .qq-preview-anim-wrap.qq-preview-anim-slide-fade > * {
+          animation: qq-preview-slide-fade var(--qq-preview-anim-duration, 280ms) ease-out;
+        }
+        .qq-preview-anim-wrap.qq-preview-anim-reduce > * {
+          animation: qq-preview-anim-reduce-pulse 360ms ease-out;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .qq-preview-anim-wrap > * {
+            animation: none !important;
           }
         }
       `}</style>
