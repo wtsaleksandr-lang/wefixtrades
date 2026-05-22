@@ -2979,6 +2979,19 @@ export interface AdvStyle {
    * `BRAND_STUDIO_STYLE_KEYS`). Pro+ tiers can toggle freely.
    */
   branding?: AdvBranding;
+
+  /**
+   * BD-3m — Floating-launcher embed mode. Optional. When `enabled === true`
+   * the embed script renders a 56×56 circular launcher icon in the chosen
+   * corner; clicking expands the full widget in a 480×720 panel. Absent /
+   * `enabled === false` → inline embed (legacy behaviour).
+   *
+   * `customIconUrl` + `label` are Pro-tier only and listed in
+   * `BRAND_STUDIO_STYLE_KEYS`; free-tier patches that set them are stripped
+   * server-side. `enabled` and `position` are available on every tier so
+   * any owner can opt into the floating embed shape.
+   */
+  floatingLauncher?: AdvFloatingLauncher;
 }
 
 /** W-AO-6c — Brand Studio background mode. */
@@ -3126,6 +3139,52 @@ export interface AdvBranding {
 }
 
 /**
+ * BD-3m — Floating-launcher corner positions. The four viewport corners
+ * the launcher icon can dock into. `'bottom-right'` matches the chat-bubble
+ * default so it's the most natural starting position.
+ */
+export type AdvFloatingLauncherPosition =
+  | 'bottom-right'
+  | 'bottom-left'
+  | 'top-right'
+  | 'top-left';
+
+/**
+ * BD-3m — Floating-launcher (collapsed icon → expanded widget) embed mode.
+ *
+ * When `enabled === true` the embed script renders a small launcher icon
+ * docked in the chosen corner instead of an inline widget. Clicking the
+ * icon expands the full AdvancedCalculator in a 480×720 panel (auto-fits
+ * the viewport; full-screen with backdrop scrim on ≤ 768px).
+ *
+ * - `enabled` + `position` are available on every tier (free-tier owners
+ *   can opt into the floating shape).
+ * - `customIconUrl` + `label` are Pro-tier only; listed in
+ *   `BRAND_STUDIO_STYLE_KEYS` so free-tier patches are stripped before
+ *   persistence. The renderer also ignores them when not Pro (defense in
+ *   depth, same pattern as the rest of Brand Studio).
+ *
+ * Collision with the AI chat bubble (`qq-chat-position` localStorage): when
+ * the launcher's corner matches the chat's resolved corner, the launcher
+ * offsets 72px horizontally (desktop) or vertically (mobile) so the two
+ * affordances never overlap. AIChatBubble.tsx is read-only from BD-3m — the
+ * collision math is one-way (chat is the older surface, launcher yields).
+ */
+export interface AdvFloatingLauncher {
+  /** Master toggle — when false (or absent) the embed renders inline. */
+  enabled?: boolean;
+  /** Viewport corner the launcher docks into. Defaults to `'bottom-right'`. */
+  position?: AdvFloatingLauncherPosition;
+  /** Pro-tier — replaces the default Calculator icon with an owner-uploaded
+   *  image (data URL; ≤ 1 MB enforced by the StyleTab uploader). */
+  customIconUrl?: string;
+  /** Pro-tier — replaces the screen-reader label with custom copy (e.g.
+   *  "Open quote calculator"). When absent the launcher reads "Open quote
+   *  calculator". */
+  label?: string;
+}
+
+/**
  * W-AO-6c — list of Brand Studio fields used by the server-side tier
  * gate to strip free-tier patches before persistence. Kept here (not in
  * the route) so the shape stays the source of truth.
@@ -3154,6 +3213,15 @@ export const BRAND_STUDIO_STYLE_KEYS = [
   // separate Stripe / Cal.com integrations).
   'branding',
 ] as const;
+/**
+ * BD-3m — Floating-launcher Pro-only NESTED keys. The enclosing
+ * `floatingLauncher` object is NOT in BRAND_STUDIO_STYLE_KEYS (free-tier
+ * owners can still flip `enabled` + `position`); only `customIconUrl`
+ * + `label` are Pro-gated. calculatorRoutes.ts strips these nested keys
+ * by name when the calculator's plan tier isn't Pro+.
+ */
+export const FLOATING_LAUNCHER_PRO_KEYS = ['customIconUrl', 'label'] as const;
+export type FloatingLauncherProKey = (typeof FLOATING_LAUNCHER_PRO_KEYS)[number];
 export type BrandStudioStyleKey = (typeof BRAND_STUDIO_STYLE_KEYS)[number];
 
 /**
@@ -3201,7 +3269,13 @@ type AdvStyleOptionalOnly =
   // off by default) so absence keeps the widget rendering identically
   // to pre-BD-3k builds. `branding` is server-side tier-gated;
   // `deposit` + `booking` are available on every tier.
-  | 'deposit' | 'booking' | 'branding';
+  | 'deposit' | 'booking' | 'branding'
+  // BD-3m — Floating launcher embed mode. `enabled` + `position` are
+  // free-tier allowed; `customIconUrl` + `label` are Pro-tier only
+  // (stripped from free-tier patches by calculatorRoutes.ts as
+  // `floatingLauncher.customIconUrl` / `floatingLauncher.label`). Absent
+  // → inline embed (legacy behaviour).
+  | 'floatingLauncher';
 
 export const DEFAULT_ADV_STYLE: Required<Omit<AdvStyle, AdvStyleOptionalOnly>> = {
   accent: '#0d3cfc',

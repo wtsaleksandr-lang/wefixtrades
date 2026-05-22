@@ -46,6 +46,7 @@ import type {
   AdvStepTransition,
   AdvPremiumAnimations,
   AdvDeposit, AdvBooking, AdvBranding, AdvBookingSource,
+  AdvFloatingLauncher, AdvFloatingLauncherPosition,
   TemplateTiered, TemplateTier,
 } from '@shared/templatePresets';
 import {
@@ -262,6 +263,39 @@ export default function StyleTab({
       branding: { showPoweredBy, ...(style.branding ?? {}), ...next },
     });
   };
+
+  // BD-3m — Floating launcher embed mode. `enabled` + `position` are
+  // free-tier allowed; `customIconUrl` + `label` are Pro-only (the server
+  // route strips them on save, see calculatorRoutes.ts). The StyleTab
+  // mirrors that gate visually — free-tier users see the icon-upload +
+  // label inputs disabled with a PRO pill.
+  const floatingLauncher: AdvFloatingLauncher = style.floatingLauncher ?? {};
+  const floatingEnabled = floatingLauncher.enabled === true;
+  const floatingPosition: AdvFloatingLauncherPosition = floatingLauncher.position ?? 'bottom-right';
+  const floatingCustomIconUrl = typeof floatingLauncher.customIconUrl === 'string'
+    ? floatingLauncher.customIconUrl : '';
+  const floatingLabel = typeof floatingLauncher.label === 'string' ? floatingLauncher.label : '';
+  const setFloatingLauncher = (next: Partial<AdvFloatingLauncher>) => {
+    patch({
+      floatingLauncher: {
+        ...(style.floatingLauncher ?? {}),
+        ...next,
+      },
+    });
+  };
+  const floatingIconFileRef = useRef<HTMLInputElement | null>(null);
+  const onFloatingIconFile = useCallback((file: File | null) => {
+    if (!isProTier) return;
+    if (!file) { setFloatingLauncher({ customIconUrl: undefined }); return; }
+    if (file.size > LOGO_MAX_BYTES) return; // silently skip — UI hint shown
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result;
+      if (typeof result === 'string') setFloatingLauncher({ customIconUrl: result });
+    };
+    reader.readAsDataURL(file);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isProTier, style.floatingLauncher]);
 
   // BD-3f Item 5 — ghost preview state. `ghost` holds the current
   // Success / Error demo banner key; null means no ghost mounted. The
@@ -1145,6 +1179,169 @@ export default function StyleTab({
             lifts both form completion AND chat engagement.
           </p>
         </div>
+        </div>
+      </fieldset>
+
+      {/* ── BD-3m — Floating launcher embed mode ───────────────────
+       *
+       * Section-title-in-container pattern + BD-3h help-cue with
+       * region="chat-bubble" (same region the AI chat visibility toggle
+       * uses — both controls live in the same neighbourhood of the
+       * rendered widget). Master toggle + position dropdown + Pro-tier
+       * custom icon + Pro-tier label.
+       *
+       * Tier gating: master + position are free-tier; the icon upload +
+       * label are Pro-only. Server-side strip handles the customIconUrl /
+       * label nested keys (calculatorRoutes.ts). The renderer also
+       * ignores the Pro fields when planTier is free (defense in depth,
+       * mirrored in CalculatorLauncher.tsx). */}
+      <fieldset className="qq-style-group" data-testid="style-group-floating-launcher">
+        <legend className="qq-style-legend">
+          Floating launcher
+          <InfoCue
+            testid="style-section-floating-launcher"
+            region="chat-bubble"
+            text="Shows a small circular calculator icon docked in a corner of the page. Clicking the icon expands the full widget into a panel. Use this when the widget shouldn't always be visible — it stays out of the way until the customer asks for it. Pro users can swap the icon for a custom image and change the screen-reader label."
+          />
+        </legend>
+        <div className="qq-style-group-body">
+          <label
+            className="qq-style-label"
+            style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
+          >
+            <input
+              type="checkbox"
+              checked={floatingEnabled}
+              onChange={(e) => setFloatingLauncher({ enabled: e.target.checked })}
+              data-testid="style-floating-launcher-enabled"
+              aria-label="Enable floating launcher embed"
+            />
+            <span className="qq-style-label-text" style={{ margin: 0, fontWeight: 700 }}>
+              Use floating launcher
+            </span>
+          </label>
+          <p
+            style={{
+              fontSize: 11, color: 'var(--qq-style-hint, #64748b)',
+              margin: '6px 0 0', lineHeight: 1.4,
+            }}
+          >
+            Recommended for sites where the widget doesn't fit a hero section. The
+            launcher icon docks in a corner; the panel expands on click.
+          </p>
+
+          {floatingEnabled && (
+            <div
+              style={{
+                marginTop: 10, paddingLeft: 12,
+                borderLeft: `2px solid ${p.colors.border}`,
+                display: 'flex', flexDirection: 'column', gap: 10,
+              }}
+              data-testid="style-floating-launcher-sub-fields"
+            >
+              <FloatField label="Corner" htmlFor="qq-style-floating-launcher-position" variant="select">
+                <select
+                  id="qq-style-floating-launcher-position"
+                  className="premium-input"
+                  value={floatingPosition}
+                  data-testid="style-floating-launcher-position"
+                  onChange={(e) => setFloatingLauncher({
+                    position: e.target.value as AdvFloatingLauncherPosition,
+                  })}
+                >
+                  <option value="bottom-right">Bottom right (default)</option>
+                  <option value="bottom-left">Bottom left</option>
+                  <option value="top-right">Top right</option>
+                  <option value="top-left">Top left</option>
+                </select>
+              </FloatField>
+
+              {/* Pro-tier — custom icon upload. Mirrors the Branding logo
+               *  pattern: 1 MB cap, data URL, silent rejection over the cap.
+               *  Free-tier owners see the field disabled with a PRO pill. */}
+              <FloatField
+                label="Custom icon (optional)"
+                htmlFor="qq-style-floating-launcher-icon"
+                infoText="Upload a 1 MB max image to replace the default calculator icon. PNG / SVG / JPEG; transparent backgrounds work best. Free tier uses the default brand-blue calculator icon."
+                infoTestid="style-floating-launcher-icon"
+              >
+                <input
+                  id="qq-style-floating-launcher-icon"
+                  ref={floatingIconFileRef}
+                  type="file"
+                  accept="image/png,image/svg+xml,image/jpeg,image/webp"
+                  className="premium-input"
+                  data-testid="style-floating-launcher-icon-file"
+                  disabled={!isProTier}
+                  onChange={(e) => onFloatingIconFile(e.target.files?.[0] ?? null)}
+                  aria-label="Upload custom launcher icon"
+                />
+              </FloatField>
+              {floatingCustomIconUrl && (
+                <div
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}
+                  data-testid="style-floating-launcher-icon-preview"
+                >
+                  <img
+                    src={floatingCustomIconUrl}
+                    alt=""
+                    width={36}
+                    height={36}
+                    style={{
+                      width: 36, height: 36, borderRadius: '50%',
+                      objectFit: 'cover', border: `1px solid ${p.colors.border}`,
+                      background: '#fff',
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setFloatingLauncher({ customIconUrl: undefined })}
+                    data-testid="style-floating-launcher-icon-clear"
+                    style={{
+                      background: 'transparent',
+                      border: `1px solid ${p.colors.border}`,
+                      borderRadius: 7,
+                      padding: '4px 10px',
+                      fontSize: 11,
+                      cursor: 'pointer',
+                      color: p.colors.body,
+                    }}
+                  >
+                    Clear
+                  </button>
+                </div>
+              )}
+              {!isProTier && (
+                <p
+                  style={{
+                    fontSize: 11, color: '#92400e',
+                    margin: 0, lineHeight: 1.4,
+                  }}
+                  data-testid="style-floating-launcher-icon-locked"
+                >
+                  <strong style={{ marginRight: 4 }}>PRO</strong>
+                  Custom icon + screen-reader label are part of the Pro plan.
+                </p>
+              )}
+
+              <FloatField
+                label="Screen-reader label (optional)"
+                htmlFor="qq-style-floating-launcher-label"
+              >
+                <input
+                  id="qq-style-floating-launcher-label"
+                  type="text"
+                  className="premium-input"
+                  maxLength={120}
+                  placeholder=" "
+                  value={floatingLabel}
+                  data-testid="style-floating-launcher-label"
+                  disabled={!isProTier}
+                  onChange={(e) => setFloatingLauncher({ label: e.target.value })}
+                />
+              </FloatField>
+            </div>
+          )}
         </div>
       </fieldset>
 
