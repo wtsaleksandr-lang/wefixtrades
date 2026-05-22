@@ -167,6 +167,29 @@ function safeHex(raw: string): string | null {
   return null;
 }
 
+/**
+ * Pick a high-contrast foreground (icon) colour for a given swatch
+ * background. Computes perceived luminance via the standard ITU-R BT.601
+ * weights; light backgrounds get a dark slate icon, dark / saturated
+ * backgrounds get pure white. Brand Studio lets owners pick any hex, so
+ * the icon must adapt — otherwise the lucide glyph vanishes against
+ * white / pale custom swatches (Background, Surface, light yellows etc.).
+ *
+ * Accepts 3- or 6-digit hex (with or without leading `#`). Returns white
+ * on any unparseable input so a partially-typed value can't break the UI.
+ */
+function getContrastingColor(hex: string): string {
+  if (!hex) return '#ffffff';
+  let v = hex.trim().replace(/^#/, '');
+  if (v.length === 3) v = v.split('').map((c) => c + c).join('');
+  if (!/^[0-9a-fA-F]{6}$/.test(v)) return '#ffffff';
+  const r = parseInt(v.slice(0, 2), 16);
+  const g = parseInt(v.slice(2, 4), 16);
+  const b = parseInt(v.slice(4, 6), 16);
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.6 ? '#0f172a' : '#ffffff';
+}
+
 // W-AO-6b — bytes ceiling for the Branding logo upload. Matches the existing
 // BuildTab limit so a logo set from either place rejects oversized files
 // consistently (data URL inflates ~33% on top of this).
@@ -2809,7 +2832,7 @@ function ColourSwatch({
         {Icon && (
           <Icon
             size={14}
-            color="#fff"
+            color={getContrastingColor(expandedHex)}
             strokeWidth={2.25}
             aria-hidden="true"
             style={{
