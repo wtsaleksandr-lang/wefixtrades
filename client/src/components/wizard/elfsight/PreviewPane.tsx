@@ -29,7 +29,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useDroppable } from '@dnd-kit/core';
-import { GripVertical, ZoomIn, ZoomOut, Maximize2, Minimize2, Plus, Crosshair } from 'lucide-react';
+import { GripVertical, ZoomIn, ZoomOut, Maximize2, Minimize2, Plus, Crosshair, Calculator } from 'lucide-react';
 import QuoteWidget from '@/components/quote-widget/QuoteWidget';
 import HostedPageFrame from '@/components/hosted-page/HostedPageFrame';
 import type { CalculatorData } from '@/components/quote-widget/types';
@@ -1683,9 +1683,7 @@ export default function PreviewPane({
                 if (onFloatingLauncherExpandedChange) onFloatingLauncherExpandedChange(true);
               }}
             >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-              </svg>
+              <Calculator size={26} strokeWidth={2.25} aria-hidden="true" />
               <span className="qq-flp-bubble-tooltip" aria-hidden="true">Click to expand</span>
             </button>
           )}
@@ -1741,7 +1739,11 @@ export default function PreviewPane({
         .qq-flp-dim {
           position: absolute;
           inset: 0;
-          background: rgba(0, 0, 0, 0.40);
+          /* P1 UX (2026-05-22) — subtler scrim so the widget fold animation
+           * is the visual star, not the dimmer. Was 0.40; lowered to 0.32
+           * (matches the 0.30–0.40 design-spec window for unobtrusive
+           * preview lenses). */
+          background: rgba(0, 0, 0, 0.32);
           z-index: 6;
           /* Smooth fade-in / fade-out. */
           opacity: 1;
@@ -1759,14 +1761,18 @@ export default function PreviewPane({
           z-index: 7;
           width: 56px; height: 56px;
           border-radius: 50%;
-          background: ${p.colors.accent};
-          color: #fff;
+          /* P1 UX (2026-05-22) — Match customer-facing CalculatorLauncher
+           * (PR #531): white circle with brand-blue Calculator icon. Reads
+           * as the same affordance the visitor will see in production. */
+          background: #fff;
+          color: ${p.colors.accent};
           border: none;
           cursor: pointer;
+          padding: 0;
           display: inline-flex; align-items: center; justify-content: center;
           box-shadow:
-            0 8px 24px rgba(13, 60, 252, 0.35),
-            0 2px 6px rgba(15, 23, 42, 0.18);
+            0 6px 18px rgba(15, 23, 42, 0.18),
+            0 2px 6px rgba(15, 23, 42, 0.10);
           transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1),
                       box-shadow 180ms ease-out;
           /* P1 UX (2026-05-22) — entrance animation is now driven by the
@@ -1777,8 +1783,8 @@ export default function PreviewPane({
         .qq-flp-bubble:hover {
           transform: scale(1.05);
           box-shadow:
-            0 10px 28px rgba(13, 60, 252, 0.45),
-            0 2px 8px rgba(15, 23, 42, 0.22);
+            0 10px 28px rgba(15, 23, 42, 0.22),
+            0 2px 8px rgba(15, 23, 42, 0.14);
         }
         .qq-flp-bubble:focus-visible {
           outline: 3px solid rgba(13, 60, 252, 0.35);
@@ -1870,6 +1876,24 @@ export default function PreviewPane({
         }
         .qq-preview-pane.is-flp-unfolding .qq-preview-stage > .widget-scope {
           animation: qq-flp-fold-panel-in 200ms cubic-bezier(0.34, 1.56, 0.64, 1) 200ms backwards;
+          transform-origin: bottom right;
+        }
+        /* P1 UX (2026-05-22) — Persistent collapsed state. After the fold
+         * animation finishes, the widget panel MUST stay hidden — otherwise
+         * the bubble + dim layer just sit on top of the still-visible widget
+         * and the "fold" looks like a brief flash followed by a static
+         * dimmed canvas (the bug Alex reported). This rule applies when the
+         * pane is collapsed AND no animation is in flight (data-flp-phase
+         * = "idle"). The forward-filling fold animation above holds the
+         * end-frame (scale 0, opacity 0) for the duration of the fold;
+         * this rule takes over once the phase resets to idle and keeps
+         * the panel hidden until the user unfolds again. The unfolding
+         * rule re-mounts the animation, which overrides this persistent
+         * state for the duration of phase 2. */
+        .qq-preview-pane.is-flp-collapsed[data-flp-phase="idle"] .qq-preview-stage > .widget-scope {
+          visibility: hidden;
+          opacity: 0;
+          transform: scale(0) translate(40%, 40%);
           transform-origin: bottom right;
         }
         @media (max-width: 480px) {
