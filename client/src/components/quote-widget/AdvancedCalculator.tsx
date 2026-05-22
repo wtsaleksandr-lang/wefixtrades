@@ -1221,6 +1221,29 @@ export default function AdvancedCalculator({
   const showPoweredByBadge = brandStudioUnlocked
     ? bsBranding?.showPoweredBy !== false
     : true;
+
+  /* BG-7 Item 6 — per-template button-copy overrides.
+   *
+   * Pro-tier only. Free-tier patches that set `style.buttonCopy` are
+   * stripped before persistence (`BRAND_STUDIO_STYLE_KEYS`); the
+   * renderer also defensively ignores the slot when Brand Studio isn't
+   * unlocked (defense in depth, same pattern as the rest of the Pro
+   * features above). Every field is sanitized on read — the wizard
+   * writer also sanitizes on write, so the value should already be
+   * safe, but we sanitize again here per the rule "sanitize on write
+   * AND on read". */
+  const sanitizedButtonCopy = (() => {
+    const raw = brandStudioUnlocked ? (styleSlot.buttonCopy ?? {}) : {};
+    const out: { back?: string; next?: string; submit?: string; emailQuote?: string; bookSlot?: string } = {};
+    const keys: Array<keyof typeof raw> = ['back', 'next', 'submit', 'emailQuote', 'bookSlot'];
+    for (const k of keys) {
+      const v = raw[k];
+      if (typeof v !== 'string') continue;
+      const cleaned = sanitizeRichHtml(v).trim();
+      if (cleaned !== '') out[k] = cleaned;
+    }
+    return out;
+  })();
   const stepTransition: AdvStepTransition = bsAnimations?.step_transition ?? 'none';
   const stepDurationMs = (() => {
     const raw = typeof bsAnimations?.duration_ms === 'number' ? bsAnimations.duration_ms : 250;
@@ -1475,13 +1498,16 @@ export default function AdvancedCalculator({
    */
   const stepLayoutMode: 'stepper' | 'single' = advanced.stepLayout ?? 'stepper';
 
-  const dataSteps: { id: string; label: string; help?: string; fieldIds: string[] }[] = useMemo(() => {
+  const dataSteps: { id: string; label: string; help?: string; description?: string; fieldIds: string[] }[] = useMemo(() => {
     if (stepLayoutMode === 'single') return [];
 
     // 1) Explicit steps declared on the template.
     if (Array.isArray(advanced.steps) && advanced.steps.length > 0) {
       const declared = advanced.steps.map((s) => ({
-        id: s.id, label: s.label, help: s.help,
+        // BG-7 Item 4 — `description` is the new owner-edited rich-text
+        // blurb beneath the step title. Optional; absent on legacy
+        // templates. Sanitized at render time below.
+        id: s.id, label: s.label, help: s.help, description: s.description,
         fieldIds: Array.isArray(s.fields) ? s.fields : [],
       }));
       // Catch-all — any visible field not mentioned lands in step 0.
@@ -1976,6 +2002,30 @@ export default function AdvancedCalculator({
                   This calculator hasn't been set up yet.
                 </p>
               )}
+              {/* BG-7 Item 4 — per-step rich-text description. Sanitized
+                 on read (the wizard also sanitizes on write). Renders
+                 above the field list so it reads as introductory copy
+                 for the step. Absent on legacy templates / steps
+                 without an owner-edited description. */}
+              {useStepper && !isContactStep && dataSteps[stepIdx]?.description && (() => {
+                const rp = richTextRenderProps(dataSteps[stepIdx].description as string);
+                const styleProps = {
+                  fontSize: 13,
+                  lineHeight: 1.5,
+                  color: c.textBody,
+                  margin: '0 0 12px 0',
+                } as const;
+                return rp.__html
+                  ? <div
+                      data-testid={`advanced-step-description-${stepIdx}`}
+                      style={styleProps}
+                      dangerouslySetInnerHTML={{ __html: rp.__html }}
+                    />
+                  : <p
+                      data-testid={`advanced-step-description-${stepIdx}`}
+                      style={styleProps}
+                    >{rp.text}</p>;
+              })()}
               {renderedFields.map((f, idx) => (
                 <div
                   key={f.id}
@@ -2074,6 +2124,12 @@ export default function AdvancedCalculator({
               }}
               onEmailQuoteSent={() => { trackSubmit(); }}
               onBookingRequested={() => { trackSubmit(); }}
+              /* BG-7 Item 6 — owner overrides for the contact-step
+                 hard/soft CTAs. Pro-tier only; the sanitized values fall
+                 through to undefined for free-tier widgets so the default
+                 copy stays. */
+              emailQuoteLabelHtml={sanitizedButtonCopy.emailQuote}
+              bookSlotLabelHtml={sanitizedButtonCopy.bookSlot}
             />
             {/* BD-2a-sticky — Back control moved into the bottom
                 <StickyActionBar />. The final-step hard CTAs (Email me /
@@ -2473,12 +2529,19 @@ export default function AdvancedCalculator({
               radiusPx={radiusInnerPx}
               fontFamily={fontFamily}
               nextLabel={
+                // BG-7 Item 6 — per-template overrides take precedence
+                // over the default copy. Sanitized HTML (sanitizer is
+                // applied on both write + read; the same value is
+                // exposed via `buttonCopyIsHtml` so the renderer can
+                // dangerouslySetInnerHTML it cleanly).
                 stepIdx === dataSteps.length - 1
-                  ? 'See my quote'
+                  ? (sanitizedButtonCopy.submit ?? 'See my quote')
                   : selectedTierLabel
-                    ? `Continue with ${selectedTierLabel}`
-                    : 'Continue'
+                    ? (sanitizedButtonCopy.next ?? `Continue with ${selectedTierLabel}`)
+                    : (sanitizedButtonCopy.next ?? 'Continue')
               }
+              backLabel={sanitizedButtonCopy.back}
+              buttonCopyIsHtml
               onBack={() => {
                 setFlipDir('back');
                 setStepIdx((i) => Math.max(0, i - 1));
@@ -2776,7 +2839,14 @@ function FieldInput({ field, value, accent, theme, onChange, radiusPx, fieldStyl
           onChange={(e) => onChange(e.target.value)}
           style={inputBase}
         >
-          {(f.options || []).map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+          {/* BG-7 Item 3 — option labels are now rich-text (sanitized
+           *  HTML). Native <option> elements can't render HTML, so we
+           *  fall back to a plain-text projection of the label here.
+           *  Every other option renderer below uses dangerouslySet-
+           *  InnerHTML through `richTextRenderProps`. */}
+          {(f.options || []).map((o) => (
+            <option key={o.id} value={o.id}>{richHtmlToPlainText(o.label)}</option>
+          ))}
         </select>
         <label htmlFor={inputId}>{f.label}</label>
       </div>
@@ -2819,7 +2889,13 @@ function FieldInput({ field, value, accent, theme, onChange, radiusPx, fieldStyl
                   width: '16px', height: '16px', borderRadius: '50%', flexShrink: 0,
                   border: sel ? `5px solid ${accent}` : `2px solid ${c.border}`, background: c.surface,
                 }} />
-                <span style={{ fontSize: '14px', color: c.text }}>{o.label}</span>
+                {/* BG-7 Item 3 — sanitized rich-text label. */}
+                {(() => {
+                  const rp = richTextRenderProps(o.label);
+                  return rp.__html
+                    ? <span style={{ fontSize: '14px', color: c.text }} dangerouslySetInnerHTML={{ __html: rp.__html }} />
+                    : <span style={{ fontSize: '14px', color: c.text }}>{rp.text}</span>;
+                })()}
               </button>
             );
           })}
@@ -2863,12 +2939,16 @@ function FieldInput({ field, value, accent, theme, onChange, radiusPx, fieldStyl
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
                   {o.image
-                    ? <img src={o.image} alt={o.label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ? <img src={o.image} alt={richHtmlToPlainText(o.label)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     : <span aria-hidden="true" style={{ fontSize: '28px', color: c.textMuted }}>🏠</span>}
                 </div>
-                <span style={{ fontSize: '13px', fontWeight: 600, color: c.text }}>
-                  {o.label}
-                </span>
+                {/* BG-7 Item 3 — sanitized rich-text label. */}
+                {(() => {
+                  const rp = richTextRenderProps(o.label);
+                  return rp.__html
+                    ? <span style={{ fontSize: '13px', fontWeight: 600, color: c.text }} dangerouslySetInnerHTML={{ __html: rp.__html }} />
+                    : <span style={{ fontSize: '13px', fontWeight: 600, color: c.text }}>{rp.text}</span>;
+                })()}
               </button>
             );
           })}
@@ -2902,7 +2982,22 @@ function FieldInput({ field, value, accent, theme, onChange, radiusPx, fieldStyl
                 background: sel ? accent : c.surface, border: sel ? 'none' : `2px solid ${c.border}`,
                 color: '#fff', fontSize: '12px', fontWeight: 700,
               }}>{sel ? '✓' : ''}</span>
-              <span style={{ fontSize: '14px', color: c.text }}>{o.label}</span>
+              {/* BG-7 Item 3 / 5 — sanitized rich-text label + optional
+                 *  description for multi_select (add-on items). */}
+              <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+                {(() => {
+                  const rp = richTextRenderProps(o.label);
+                  return rp.__html
+                    ? <span style={{ fontSize: '14px', color: c.text }} dangerouslySetInnerHTML={{ __html: rp.__html }} />
+                    : <span style={{ fontSize: '14px', color: c.text }}>{rp.text}</span>;
+                })()}
+                {(o as any).description && (() => {
+                  const rp = richTextRenderProps((o as any).description as string);
+                  return rp.__html
+                    ? <span style={{ fontSize: '12px', color: c.textMuted, lineHeight: 1.4 }} dangerouslySetInnerHTML={{ __html: rp.__html }} />
+                    : <span style={{ fontSize: '12px', color: c.textMuted, lineHeight: 1.4 }}>{rp.text}</span>;
+                })()}
+              </span>
             </button>
           );
         })}

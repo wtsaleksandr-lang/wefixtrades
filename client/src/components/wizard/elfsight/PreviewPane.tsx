@@ -81,6 +81,18 @@ interface Props {
    */
   tiered?: TemplateTiered;
   /**
+   * BG-7 Item 1 — owner-edited trust badge row. When undefined, the
+   * preview falls back to the template's seeded badges (rendered via
+   * the merged `advanced.trustBadges` slot). Forwarded from WizardShell.
+   */
+  trustBadges?: readonly import('@shared/templatePresets').TrustBadge[];
+  /**
+   * BG-7 Item 4 — owner-edited step content. Forwards into the preview
+   * as `advanced.steps` so per-step descriptions render live as the
+   * owner types them in the BuildTab StepContentPanel.
+   */
+  steps?: import('@shared/templatePresets').TemplateStep[];
+  /**
    * BD-2b — derived template category — surfaced into the preview as
    * `advanced.category`. The tier resolver reads this to pick the
    * scope-spectrum default. Optional; pass-through.
@@ -189,7 +201,7 @@ type HandleDir = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w';
 
 export default function PreviewPane({
   businessName, onBusinessNameChange, logo, layout, device, fields, calculations,
-  header, results, resultCalcId, style, settings, stepLayout, tiered, category,
+  header, results, resultCalcId, style, settings, stepLayout, tiered, trustBadges, steps, category,
   onRemoveField, onAddField,
   hostedFrame = false,
   sessionId = 'draft',
@@ -554,6 +566,17 @@ export default function PreviewPane({
     if (tiered) {
       merged = { ...merged, tiered };
     }
+    if (trustBadges) {
+      // BG-7 Item 1 — owner-edited trust badges win over the template
+      // seed. Empty array clears the row entirely (renderer hides it).
+      merged = { ...merged, trustBadges };
+    }
+    if (steps && steps.length > 0) {
+      // BG-7 Item 4 — owner-edited step content (descriptions). Wins
+      // over the template's seeded steps[] so descriptions render in
+      // the live preview as the owner types them.
+      merged = { ...merged, steps };
+    }
     if (category && category.trim() !== '') {
       merged = { ...merged, category };
     }
@@ -591,7 +614,7 @@ export default function PreviewPane({
         advanced: merged,
       },
     } as CalculatorData;
-  }, [businessName, logo, layout, fields, calculations, header, results, resultCalcId, style, settings, stepLayout, tiered, category]);
+  }, [businessName, logo, layout, fields, calculations, header, results, resultCalcId, style, settings, stepLayout, tiered, trustBadges, steps, category]);
 
   // Droppable wrapper for item (b) — drag from AddFieldMenu onto the preview
   // bezel. `data.kind: 'preview-append'` so WizardShell's onDragEnd appends.

@@ -147,6 +147,16 @@ interface StepperControlsProps {
   fontFamily?: string;
   /** Label for the primary advance button on non-final steps. */
   nextLabel?: string;
+  /**
+   * BG-7 Item 6 — optional override for the secondary Back button. When
+   * set, supersedes the default "← Back". Treated as sanitized HTML when
+   * `backLabelIsHtml` is true (set by AdvancedCalculator when reading the
+   * value from `style.buttonCopy.back`).
+   */
+  backLabel?: string;
+  /** BG-7 Item 6 — whether `backLabel` / `nextLabel` should be rendered as
+   *  sanitized HTML (true) vs plain text (false, default). */
+  buttonCopyIsHtml?: boolean;
   /** Disable the advance button (e.g. final step contact form not yet valid). */
   canAdvance?: boolean;
   onBack: () => void;
@@ -164,7 +174,8 @@ interface StepperControlsProps {
 
 export function StepperControls({
   current, total, theme, radiusPx = '10px', fontFamily,
-  nextLabel = 'Continue', canAdvance = true, onBack, onNext,
+  nextLabel = 'Continue', backLabel, buttonCopyIsHtml = false,
+  canAdvance = true, onBack, onNext,
   hideNextOnFinal = true, ctaPulse = false,
 }: StepperControlsProps) {
   const isFirst = current === 0;
@@ -193,8 +204,13 @@ export function StepperControls({
           cursor: isFirst ? 'not-allowed' : 'pointer',
           opacity: isFirst ? 0.4 : 1,
         }}
+        // BG-7 Item 6 — owner override (sanitized HTML); fall back to the
+        // default "← Back" when no override is set.
+        {...(backLabel && buttonCopyIsHtml
+          ? { dangerouslySetInnerHTML: { __html: backLabel } }
+          : null)}
       >
-        ← Back
+        {!(backLabel && buttonCopyIsHtml) && (backLabel || '← Back')}
       </button>
       {(!isLast || !hideNextOnFinal) && (
         <button
@@ -219,7 +235,11 @@ export function StepperControls({
             ['--qq-cta-base' as string]: String(accent),
           }}
         >
-          {nextLabel} <span style={{ fontSize: 15 }}>→</span>
+          {/* BG-7 Item 6 — sanitized HTML override OR plain-text label. */}
+          {buttonCopyIsHtml
+            ? <span dangerouslySetInnerHTML={{ __html: nextLabel }} />
+            : nextLabel}
+          {' '}<span style={{ fontSize: 15 }}>→</span>
         </button>
       )}
     </div>

@@ -42,6 +42,15 @@ interface Props {
   infoRegion?: WidgetRegion;
   /** testid for the field's root (the collapsed preview). */
   testid?: string;
+  /**
+   * BG-7 Item 3 / 5 / 6 — compact variant for dense rows (option labels,
+   * add-on labels, button-copy overrides). Roughly 50% the height of the
+   * standard editor: 28px preview / 140px panel (vs 40 / 240). Toolbar
+   * buttons shrink from 26px to 22px and the editor font drops from 14 →
+   * 13. Sanitizer + emoji picker + image upload are unchanged — the
+   * sanitizer is the single source of truth for what HTML is allowed.
+   */
+  compact?: boolean;
 }
 
 // 32 common, owner-friendly emojis. Hardcoded to avoid bundling an emoji set.
@@ -70,6 +79,7 @@ const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 export default function RichTextField({
   label, htmlFor, value, onChange,
   placeholder = '', infoText, infoTestid, infoRegion, testid,
+  compact = false,
 }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
@@ -203,8 +213,9 @@ export default function RichTextField({
   return (
     <div
       ref={rootRef}
-      className={`qq-rtf-root${expanded ? ' qq-rtf-expanded' : ''}`}
+      className={`qq-rtf-root${expanded ? ' qq-rtf-expanded' : ''}${compact ? ' qq-rtf-compact' : ''}`}
       data-testid={tid}
+      data-compact={compact ? 'true' : 'false'}
     >
       {!expanded && (
         <button
@@ -589,6 +600,40 @@ export default function RichTextField({
         }
         .qq-rtf-info--panel {
           position: static;
+        }
+
+        /* BG-7 — compact variant. Roughly half the height of the standard
+         * editor; used in dense rows (option labels, add-on labels,
+         * button-copy overrides). Toolbar + emoji set + sanitizer are
+         * unchanged — only the chrome is tightened. */
+        .qq-rtf-compact .qq-rtf-preview {
+          min-height: 28px;
+          padding: 5px 30px 5px 10px;
+        }
+        .qq-rtf-compact .qq-rtf-preview-text {
+          font-size: 12px;
+        }
+        .qq-rtf-compact .qq-rtf-floating-label {
+          top: -6px;
+          font-size: 9.5px;
+        }
+        .qq-rtf-compact .qq-rtf-panel {
+          height: 140px;
+        }
+        .qq-rtf-compact .qq-rtf-toolbar {
+          padding: 3px 4px;
+        }
+        .qq-rtf-compact .qq-rtf-btn {
+          width: 22px; height: 22px;
+        }
+        .qq-rtf-compact .qq-rtf-done {
+          padding: 3px 7px;
+          font-size: 11px;
+        }
+        .qq-rtf-compact .qq-rtf-editor {
+          padding: 6px 10px;
+          font-size: 13px;
+          line-height: 1.4;
         }
       `}</style>
     </div>

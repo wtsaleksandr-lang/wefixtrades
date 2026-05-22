@@ -44,7 +44,13 @@ interface Props {
   onMoveDown: () => void;
 }
 
-function optionIdFromLabel(label: string, fallback: string): string {
+// BG-7 Item 3 — `optionIdFromLabel` was the auto-id heuristic used when a
+// user typed into the option label `<input>`. Rich-text labels (compact
+// RichTextField) can carry HTML markup that doesn't map cleanly onto a
+// stable id, so we now keep the original id and let `newOption` mint a
+// fresh uid for new entries. Helper kept around as a comment-only
+// reference for the bisect history.
+function _optionIdFromLabel_unused(label: string, fallback: string): string {
   const base = label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
   return base || fallback;
 }
@@ -102,7 +108,15 @@ export default function FieldRow({
     zIndex: isDragging ? 2 : 'auto',
   };
 
-  const supportsOptions = field.type === 'select' || field.type === 'radio' || field.type === 'image_choice';
+  // BG-7 Item 5 — multi_select (the add-on items field type) now uses the
+  // same options editor as select / radio / image_choice so owners can
+  // edit add-on labels (rich-text) + add an optional description.
+  const supportsOptions = field.type === 'select' || field.type === 'radio'
+    || field.type === 'image_choice' || field.type === 'multi_select';
+  // BG-7 Item 5 — only the multi_select editor surfaces the "description"
+  // RichTextField (standard variant, full toolbar). Other option-bearing
+  // fields keep the compact label-only row to stay dense.
+  const supportsOptionDescription = field.type === 'multi_select';
   const supportsNumeric = field.type === 'slider' || field.type === 'number';
   const publicType = FIELD_TYPE_TO_PUBLIC[field.type] ?? field.type;
 
@@ -371,15 +385,23 @@ export default function FieldRow({
                         index={i}
                         total={(field.options || []).length}
                         imageMode={field.type === 'image_choice'}
+                        descriptionMode={supportsOptionDescription}
                         onLabelChange={(label) => {
-                          const wasAuto = o.id === optionIdFromLabel(o.label, o.id);
-                          updateOption(o.id, {
-                            label,
-                            ...(wasAuto ? { id: optionIdFromLabel(label, o.id) } : {}),
-                          });
+                          // BG-7 Item 3 — labels are now sanitized HTML
+                          // (compact RichTextField). The auto-id heuristic
+                          // (regenerate the option id from the label slug)
+                          // is dropped because rich-text labels can contain
+                          // HTML markup that doesn't map cleanly to an id.
+                          // Existing options keep their id; new options
+                          // generated via `newOption` already carry a
+                          // unique uid.
+                          updateOption(o.id, { label });
                         }}
                         onValueChange={(value) => updateOption(o.id, { value })}
                         onImageChange={(image) => updateOption(o.id, { image })}
+                        onDescriptionChange={(description) =>
+                          updateOption(o.id, { description })
+                        }
                         onMoveUp={() => moveOption(o.id, -1)}
                         onMoveDown={() => moveOption(o.id, 1)}
                         onRemove={() => removeOption(o.id)}
@@ -626,9 +648,18 @@ interface SortableOptionRowProps {
   total: number;
   /** Wave W-R4 — when true, render the per-option image upload column. */
   imageMode?: boolean;
+  /**
+   * BG-7 Item 5 — when true, render an additional standard-variant
+   * RichTextField for the per-option description. Only set for
+   * multi_select fields (the add-on items field type); the other option-
+   * bearing fields keep the dense label-only row.
+   */
+  descriptionMode?: boolean;
   onLabelChange: (label: string) => void;
   onValueChange: (value: number) => void;
   onImageChange?: (image: string | undefined) => void;
+  /** BG-7 Item 5 — propagate description edits when descriptionMode is on. */
+  onDescriptionChange?: (description: string) => void;
   onMoveUp: () => void;
   onMoveDown: () => void;
   onRemove: () => void;
@@ -637,8 +668,9 @@ interface SortableOptionRowProps {
 const OPTION_IMAGE_MAX_BYTES = 2 * 1024 * 1024; // 2 MB cap, same as logo upload.
 
 function SortableOptionRow({
-  fieldId, option: o, index: i, total, imageMode, onLabelChange, onValueChange,
-  onImageChange, onMoveUp, onMoveDown, onRemove,
+  fieldId, option: o, index: i, total, imageMode, descriptionMode,
+  onLabelChange, onValueChange,
+  onImageChange, onDescriptionChange, onMoveUp, onMoveDown, onRemove,
 }: SortableOptionRowProps) {
   const {
     attributes, listeners, setNodeRef, transform, transition, isDragging,
@@ -717,14 +749,22 @@ function SortableOptionRow({
           />
         </button>
       )}
-      <input
-        type="text"
-        className="qq-field-input qq-field-option-label"
-        value={o.label}
-        onChange={(e) => onLabelChange(e.target.value)}
-        placeholder="Label"
-        data-testid={`field-row-option-label-${fieldId}-${i}`}
-      />
+      {/* BG-7 Item 3 — option labels now flow through the compact
+       *  RichTextField so owners can apply inline B/I/U/size/color/emoji
+       *  formatting to each option (dropdown / radio / image_choice /
+       *  multi_select). The compact variant is roughly half the height
+       *  of the standard editor so the option row stays dense. */}
+      <div className="qq-field-option-label-rich">
+        <RichTextField
+          label="Label"
+          htmlFor={`field-row-option-label-${fieldId}-${i}`}
+          value={o.label}
+          onChange={(next) => onLabelChange(next)}
+          placeholder="Label"
+          testid={`field-row-option-label-${fieldId}-${i}`}
+          compact
+        />
+      </div>
       <input
         type="number"
         className="qq-field-input qq-field-option-value"
@@ -761,6 +801,25 @@ function SortableOptionRow({
           className="qq-field-option-error"
           data-testid={`field-row-option-image-error-${fieldId}-${i}`}
         >{uploadError}</span>
+      )}
+      {/* BG-7 Item 5 — per-option description (standard RichTextField).
+       *  Spans the whole row beneath the label / value / actions; absent
+       *  on non-multi_select fields. */}
+      {descriptionMode && onDescriptionChange && (
+        <div
+          className="qq-field-option-description"
+          style={{ gridColumn: '1 / -1', marginTop: 4 }}
+          data-testid={`field-row-option-description-wrap-${fieldId}-${i}`}
+        >
+          <RichTextField
+            label="Description (optional)"
+            htmlFor={`field-row-option-description-${fieldId}-${i}`}
+            value={o.description ?? ''}
+            onChange={(next) => onDescriptionChange(next)}
+            placeholder="Optional description — shown beneath the label."
+            testid={`field-row-option-description-${fieldId}-${i}`}
+          />
+        </div>
       )}
     </div>
   );
