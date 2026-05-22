@@ -122,6 +122,54 @@ export async function bootstrapMigrations(): Promise<void> {
         throw new Error(`Bootstrap migration failed: ${file}: ${err.message}`);
       }
     }
+
+    // BF-1 canary — emit a one-line summary of auth-critical table sizes at
+    // boot so any deploy that lands against the wrong database (or one whose
+    // user rows were wiped) is grep-able in deploy logs. NOT a guard — we
+    // never refuse to boot on a small users table, because that would brick
+    // a freshly-provisioned environment. The goal is signal: a boot-log line
+    // reading `users=0 admin_users=0` after a deploy is the smoking gun.
+    try {
+      const { rows: counts } = await client.query<{
+        users: string;
+        admin_users: string;
+        sessions: string;
+        database: string;
+      }>(`
+        SELECT
+          (SELECT COUNT(*)::text FROM users)                                 AS users,
+          (SELECT COUNT(*)::text FROM users WHERE role = 'admin')            AS admin_users,
+          (SELECT COUNT(*)::text FROM session WHERE expire > NOW())          AS sessions,
+          current_database()                                                 AS database
+      `);
+      const c = counts[0];
+      if (c) {
+        log.info("[boot-canary] auth table sizes", {
+          database: c.database,
+          users: Number(c.users),
+          admin_users: Number(c.admin_users),
+          active_sessions: Number(c.sessions),
+        });
+        // Loud warning if production has zero admin users — almost certainly
+        // a data-loss event or a DATABASE_URL pointing at the wrong DB.
+        if (process.env.NODE_ENV === "production" && Number(c.admin_users) === 0) {
+          log.error(
+            "[boot-canary] PRODUCTION users.role='admin' count is ZERO. " +
+              "Either the database was wiped, DATABASE_URL is pointing at a " +
+              "fresh DB, or the admin row was deleted. Investigate before " +
+              "treating this server as healthy.",
+            { database: c.database },
+          );
+        }
+      }
+    } catch (canaryErr: any) {
+      // Canary failure is non-fatal — these tables exist on every healthy
+      // deployment, but if they happen not to (e.g. a brand-new DB before
+      // migrations land somewhere downstream), don't block the boot.
+      log.warn("[boot-canary] failed to query auth-table sizes", {
+        error: canaryErr?.message,
+      });
+    }
   } finally {
     client.release();
   }
