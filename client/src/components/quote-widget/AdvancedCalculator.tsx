@@ -1794,6 +1794,15 @@ export default function AdvancedCalculator({
         fontSize: `${fontSizeBasePx}px`,
         ...(maxWidthStyle ? { maxWidth: maxWidthStyle } : null),
         margin: '0 auto', width: '100%',
+        // P2 UX fix (2026-05-22): when the wizard owner deletes every field,
+        // the widget mockup collapsed to a tiny height which let the "+ Add
+        // field" empty-state CTA collide with the BD-2a-sticky bottom action
+        // bar (Back / See my quote). Locked the root to a min-height that
+        // comfortably holds: sticky top (~96px) + step indicator + an empty
+        // state CTA in the middle + sticky bottom action bar — with vertical
+        // breathing room between each. 540px is the floor for both wizard
+        // preview and the live customer-facing widget (single component).
+        minHeight: '540px',
       }}
     >
       {/* ── BD-2a-sticky — Top sticky region ──

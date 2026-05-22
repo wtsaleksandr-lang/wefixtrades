@@ -393,25 +393,18 @@ export default function AddFieldMenu({ onPick, emphasis = false }: Props) {
           font-size: 11.5px; font-weight: 400; color: ${p.colors.body};
           line-height: 1.35;
         }
-        /* P2 UX fix (2026-05-22): badge was too dominant — it overlapped the
-         * card title + arrow when hover-revealed and read like a banner rather
-         * than a quiet recommendation. Shrunk to 9px uppercase, anchored to
-         * the TOP-LEFT corner (slight inset inside the card border, away from
-         * the icon-text title row), text trimmed to just "RECOMMENDED" (the
-         * longer "for {recommendedFor}" detail is the title attribute on the
-         * card and the .qq-addfield-hint copy already covers the use case),
-         * and the background opacity dropped to 0.85 so the badge reads as a
-         * subtle accent rather than a full-saturation slab.
-         *
-         * Layout note: top-left inset to (top: 6px, left: 6px) keeps it
-         * clear of the 36px icon (which starts at the item's 12px padding)
-         * because the badge is in absolute position and only ~52px wide. */
+        /* P2 UX fix (2026-05-22, wave 2): badge still felt too prominent in
+         * top-left and competed visually with the icon. Shrunk further to
+         * 8px / 0.3px letter-spacing / 1px 4px padding and moved to the
+         * TOP-RIGHT corner of each card so it reads as a quiet tag/chip rather
+         * than a label fighting the icon for attention. Background opacity
+         * dropped from 0.85 → 0.70 for additional subtlety. */
         .qq-addfield-recommended {
-          position: absolute; top: 6px; left: 6px;
-          padding: 2px 6px;
-          font-size: 9px; font-weight: 700;
-          letter-spacing: 0.5px; text-transform: uppercase;
-          background: rgba(13, 60, 252, 0.85); color: #fff;
+          position: absolute; top: 4px; right: 4px;
+          padding: 1px 4px;
+          font-size: 8px; font-weight: 700;
+          letter-spacing: 0.3px; text-transform: uppercase;
+          background: rgba(13, 60, 252, 0.70); color: #fff;
           border-radius: 999px;
           opacity: 0; transform: translateY(-2px);
           transition: opacity 0.12s ease, transform 0.12s ease;
