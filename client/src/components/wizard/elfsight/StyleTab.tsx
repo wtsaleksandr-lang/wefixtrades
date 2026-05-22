@@ -153,8 +153,8 @@ const LOGO_MAX_BYTES = 1024 * 1024;
 // W-AO-6b — sensible fallback colour tokens used by the new swatch row.
 // Mirror the conservative pan-theme defaults from widgetThemes.ts so the
 // Style tab UI matches what the renderer will produce when nothing is set.
+// BD-3f Item 4 — `secondary` removed (orphan field; never read).
 const TOKEN_FALLBACKS = {
-  secondary: '#64748b',
   surface: '#ffffff',
   border: '#e5e7eb',
   success: '#16a34a',
@@ -181,9 +181,9 @@ export default function StyleTab({
   const background = style.background ?? DEFAULT_SHELL_STYLE.background;
   const text = style.text ?? DEFAULT_SHELL_STYLE.text;
   const resultsBg = style.resultsBg ?? DEFAULT_SHELL_STYLE.resultsBg;
-  // W-AO-6b — extended colour tokens (5 new). All optional; show the fallback
+  // W-AO-6b — extended colour tokens (4 new — Secondary removed in BD-3f
+  // Item 4 as it was an orphan field). All optional; show the fallback
   // value as the swatch when the user hasn't picked one.
-  const secondary = style.secondary ?? TOKEN_FALLBACKS.secondary;
   const surface = style.surface ?? TOKEN_FALLBACKS.surface;
   const borderColour = style.border ?? TOKEN_FALLBACKS.border;
   const success = style.success ?? TOKEN_FALLBACKS.success;
@@ -202,6 +202,33 @@ export default function StyleTab({
   const headingWeight: ShellHeadingWeight = style.headingWeight ?? 700;
   const bodyWeight: ShellBodyWeight = style.bodyWeight ?? 400;
   const fontSize: ShellFontSize = style.fontSize ?? 'medium';
+
+  // BD-3f Item 5 — ghost preview state. `ghost` holds the current
+  // Success / Error demo banner key; null means no ghost mounted. The
+  // banner auto-dismisses after 6 s via the timer below, or immediately
+  // when the user clicks the × button (the GhostBanner handles its own
+  // unmount). Editor-only — never persisted, never reaches the exported
+  // widget.
+  const [ghost, setGhostRaw] = useState<'success' | 'error' | null>(null);
+  const ghostTimerRef = useRef<number | null>(null);
+  const setGhost = useCallback((kind: 'success' | 'error' | null) => {
+    if (ghostTimerRef.current !== null) {
+      window.clearTimeout(ghostTimerRef.current);
+      ghostTimerRef.current = null;
+    }
+    setGhostRaw(kind);
+    if (kind !== null) {
+      ghostTimerRef.current = window.setTimeout(() => {
+        setGhostRaw(null);
+        ghostTimerRef.current = null;
+      }, 6000);
+    }
+  }, []);
+  useEffect(() => () => {
+    if (ghostTimerRef.current !== null) {
+      window.clearTimeout(ghostTimerRef.current);
+    }
+  }, []);
 
   const logoFileRef = useRef<HTMLInputElement | null>(null);
   const onLogoFile = useCallback((file: File | null) => {
@@ -269,6 +296,7 @@ export default function StyleTab({
             text="One-click theme bundles. Picking one overwrites the colours, typography, shape and density below — customise after if you like."
           />
         </legend>
+        <div className="qq-style-group-body">
         <div
           className="qq-style-preset-cards"
           role="listbox"
@@ -308,6 +336,7 @@ export default function StyleTab({
             </button>
           ))}
         </div>
+        </div>
       </fieldset>
 
       {/* ── Branding (W-AO-6b) ──────────────────────────────────────
@@ -326,6 +355,7 @@ export default function StyleTab({
               text="Upload your logo and choose where it sits in the calculator header. The default trade icon is hidden once you upload your own logo."
             />
           </legend>
+          <div className="qq-style-group-body">
           <div className="qq-style-logo-row">
             <button
               type="button"
@@ -398,33 +428,37 @@ export default function StyleTab({
             ]}
             onChange={(v) => patch({ logoSize: v })}
           />
+          </div>
         </fieldset>
       )}
 
       {/* ── Colours ─────────────────────────────────────────────────
        *
-       * Wave L S1 — single row of small clickable circles. Each circle is the
-       * current swatch colour; click opens a popover with the native picker
-       * + the hex text field. Wave L S2 — visible "Colors" heading dropped;
-       * the swatch row is self-explanatory. The `<legend>` semantic stays for
-       * screen readers (hidden visually).
+       * BD-3f Item 2 — 5+4 grid layout (row 1 has 5 swatches, row 2 has 4)
+       * via `display: grid; grid-template-columns: repeat(5, 1fr)`. Pure
+       * CSS — the 9th item naturally falls onto the second row.
        *
-       * W-AO-6b — expanded from 4 → 9 swatches. The new tokens (Secondary /
-       * Surface / Border / Success / Error) all stay optional on the data
-       * model; this UI just lets the user set them when they want. */}
+       * BD-3f Item 4 — Secondary swatch REMOVED. The `style.secondary`
+       * slot was plumbed into the AdvancedCalculator's resolveTheme()
+       * but never read anywhere in the rendered widget, so the picker was
+       * misleading the owner. Removed pending an actual consumer in a
+       * future wave; the optional field stays on the type for forward
+       * compat. Decision documented in the BD-3f PR body.
+       *
+       * BD-3f Item 5 — Success / Error swatches mount a dismissable
+       * "ghost" demo toast onto the preview pane so the owner can SEE the
+       * colour they're picking in context. The ghost auto-dismisses after
+       * 6s; it's editor-only and never reaches the exported widget. */}
       <fieldset className="qq-style-group qq-style-group--colours" data-testid="style-group-colours">
-        {/* W-AO-7 — restored a visible legend in the top-left with an
-            adjacent InfoCue. The legend was sr-only because the swatch
-            row reads as self-explanatory, but the help-cue placement
-            audit calls for a `?` next to every section title. */}
         <legend className="qq-style-legend">
           Colours
           <InfoCue
             testid="style-section-colours"
-            text="Click any swatch to change the calculator's accent, background, body text, or result-card colour."
+            text="Click any swatch to change the calculator's accent, background, body text, or result-card colour. Success / Error briefly preview a demo toast on the canvas."
           />
         </legend>
-        <div className="qq-style-swatches" data-testid="style-swatches-row">
+        <div className="qq-style-group-body">
+        <div className="qq-style-swatches qq-style-swatches--grid" data-testid="style-swatches-row">
           <ColourSwatch
             icon={MousePointerClick}
             label="Accent"
@@ -442,6 +476,14 @@ export default function StyleTab({
             onChange={(v) => patch({ background: v })}
           />
           <ColourSwatch
+            icon={Box}
+            label="Surface"
+            testid="style-input-surface"
+            value={surface}
+            fallback={TOKEN_FALLBACKS.surface}
+            onChange={(v) => patch({ surface: v })}
+          />
+          <ColourSwatch
             icon={Type}
             label="Text"
             testid="style-input-text"
@@ -457,25 +499,10 @@ export default function StyleTab({
             fallback={DEFAULT_SHELL_STYLE.resultsBg}
             onChange={(v) => patch({ resultsBg: v })}
           />
-          {/* W-AO-6b — five new tokens. Each swatch wires onto an OPTIONAL
-              field; the renderer falls back to the resolved theme value
-              when the user hasn't picked one. */}
-          <ColourSwatch
-            icon={Layers}
-            label="Secondary"
-            testid="style-input-secondary"
-            value={secondary}
-            fallback={TOKEN_FALLBACKS.secondary}
-            onChange={(v) => patch({ secondary: v })}
-          />
-          <ColourSwatch
-            icon={Box}
-            label="Surface"
-            testid="style-input-surface"
-            value={surface}
-            fallback={TOKEN_FALLBACKS.surface}
-            onChange={(v) => patch({ surface: v })}
-          />
+          {/* Row 2 — secondary tokens. 4 items: Border, Success, Error,
+              and a placeholder slot (intentionally empty for now —
+              keeps the 5+4 grid balanced. Future colour tokens slot in
+              here without re-flowing the layout). */}
           <ColourSwatch
             icon={Frame}
             label="Border"
@@ -491,6 +518,7 @@ export default function StyleTab({
             value={success}
             fallback={TOKEN_FALLBACKS.success}
             onChange={(v) => patch({ success: v })}
+            onOpen={() => setGhost('success')}
           />
           <ColourSwatch
             icon={XCircle}
@@ -499,7 +527,9 @@ export default function StyleTab({
             value={errorColour}
             fallback={TOKEN_FALLBACKS.error}
             onChange={(v) => patch({ error: v })}
+            onOpen={() => setGhost('error')}
           />
+        </div>
         </div>
       </fieldset>
 
@@ -515,6 +545,7 @@ export default function StyleTab({
             text="Sets the font family the calculator renders in. We load each option from the host site so widget pages don't pull a new web font."
           />
         </legend>
+        <div className="qq-style-group-body">
         <FloatField label="Font family" htmlFor="qq-style-font" variant="select">
           <select
             id="qq-style-font"
@@ -576,6 +607,7 @@ export default function StyleTab({
           ]}
           onChange={(v) => patch({ fontSize: v })}
         />
+        </div>
       </fieldset>
 
       {/* ── Shape ────────────────────────────────────────────────── */}
@@ -587,6 +619,7 @@ export default function StyleTab({
             text="Controls input style (filled vs outline) and how rounded corners are everywhere — cards, inputs, the CTA button."
           />
         </legend>
+        <div className="qq-style-group-body">
         {/* BD-3e Fix 3 — duplicate `<InfoCue testid="style-shape">` removed.
          * The section legend's cue already covers Field style. Matches the
          * Typography section (legend-cue only, per-label cues omitted). */}
@@ -626,6 +659,7 @@ export default function StyleTab({
           aria-valuemax={24}
           aria-valuenow={radius}
         />
+        </div>
       </fieldset>
 
       {/* ── Layout ──────────────────────────────────────────────── */}
@@ -637,6 +671,7 @@ export default function StyleTab({
             text="How wide the calculator renders on desktop and mobile. Narrow / Wide / Full controls the breakpoint; the sliders below override with exact pixel values."
           />
         </legend>
+        <div className="qq-style-group-body">
         {/* BD-3e Fix 3 — duplicate `<InfoCue testid="style-layout">` removed.
          * The section legend's cue already covers Widget width. */}
         <label className="qq-style-label">
@@ -818,6 +853,7 @@ export default function StyleTab({
             lifts both form completion AND chat engagement.
           </p>
         </div>
+        </div>
       </fieldset>
 
       {/* ── W-AO-6c — Brand Studio (Pro) ────────────────────────────
@@ -834,6 +870,17 @@ export default function StyleTab({
         isProTier={isProTier}
       />
 
+      {/* BD-3f Item 5 — Success / Error ghost preview. Mounts a demo
+       *  toast onto the preview pane so the owner sees the colour they
+       *  just picked. Dismissable; auto-clears after 6 s. */}
+      {ghost && (
+        <GhostBanner
+          kind={ghost}
+          colour={ghost === 'success' ? success : errorColour}
+          onClose={() => setGhost(null)}
+        />
+      )}
+
       <style>{`
         /* W-AO-9 — section gap tightened 18px → 2px. The 1px border on
          * each .qq-style-group keeps the visual separation clear; the
@@ -841,29 +888,47 @@ export default function StyleTab({
         .qq-style-panel {
           display: flex; flex-direction: column; gap: 2px;
         }
+        /* BD-3f Item 1 — section title pattern: title sits INSIDE the
+         * container as a header row, separated from the body by a hairline
+         * divider. Pattern is uniform across every Style-tab section.
+         *
+         * The fieldset itself gets padding 0 so the legend's built-in
+         * horizontal padding does not collide with the body; the legend
+         * becomes a block-level header row with its own 12/14 px padding,
+         * then a 1px hairline divider, then the body inner
+         * (.qq-style-group-body) gets its own padding. */
         .qq-style-group {
           border: 1px solid ${p.colors.borderLight};
           border-radius: 12px;
-          padding: 14px 14px 16px;
+          padding: 0;
           background: #fff;
           margin: 0;
         }
-        /* W-SETTINGS-STYLE — subtle all-caps section label, matches the
-         * Build tab treatment landed by W-SECTIONS. Sits flush above the
-         * first input rather than reading as a bold heading.
-         *
-         * W-AO-7 — inline-flex so the InfoCue trigger sits adjacent to
-         * the title text in the top-left of the fieldset (not pushed to
-         * the right by block-level rendering). */
+        /* BD-3f Item 1 — header row sits flush at the top of the
+         * fieldset. display:block + width:100% is required because the
+         * legend tag is normally a special inline element that floats on
+         * the fieldset border. */
         .qq-style-legend {
-          display: inline-flex;
+          display: flex;
           align-items: center;
           gap: 6px;
+          width: 100%;
+          box-sizing: border-box;
+          padding: 12px 14px;
           font-size: 11.5px; font-weight: 600;
           color: ${p.colors.muted};
           text-transform: uppercase; letter-spacing: 0.04em;
-          margin: 0 0 6px;
-          padding: 0;
+          margin: 0;
+          border-bottom: 1px solid ${p.colors.borderLight};
+          float: left;
+        }
+        /* BD-3f Item 1 — body wrapper inside every group. Sits below the
+         * header divider with its own 12/14 px padding so titles never
+         * touch the content. Float clear is needed because the legend
+         * floats left to opt out of the default <legend> positioning. */
+        .qq-style-group-body {
+          clear: both;
+          padding: 12px 14px 14px;
         }
         /* Section-level help that used to live in an InfoCue beside the
          * legend. Same muted styling, sits under the legend as a body
@@ -891,10 +956,24 @@ export default function StyleTab({
         }
 
         /* Wave L S1 — single-row swatches. Extra bottom padding so the
-         * absolute-positioned label sits inside the fieldset. */
+         * absolute-positioned label sits inside the fieldset.
+         *
+         * BD-3f Item 2 — qq-style-swatches--grid variant lays the 9
+         * swatches out in a 5-column grid (row 1 = 5 picks, row 2 = the
+         * remaining 4). Item 5 — labels constrained to the swatch width
+         * via max-width plus ellipsis so they never overlap into
+         * adjacent swatches at narrow sidebar widths. */
         .qq-style-swatches {
           display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
           padding-bottom: 16px;
+        }
+        .qq-style-swatches--grid {
+          display: grid;
+          grid-template-columns: repeat(5, 1fr);
+          gap: 6px 4px;
+          padding-bottom: 22px;
+          align-items: start;
+          justify-items: center;
         }
         /* When the colours fieldset is the swatch-only variant, drop its
          * generous bottom padding since the swatches own the spacing. */
@@ -913,19 +992,28 @@ export default function StyleTab({
           transition: box-shadow 0.12s ease, transform 0.06s ease;
         }
         .qq-style-swatch-btn:hover {
-          box-shadow: 0 0 0 2px ${p.colors.accent}, 0 4px 10px rgba(15,23,42,0.16);
+          box-shadow: 0 0 0 2px var(--qq-accent, ${p.colors.accent}), 0 4px 10px rgba(15,23,42,0.16);
           transform: translateY(-1px);
         }
         .qq-style-swatch-btn[aria-expanded="true"] {
-          box-shadow: 0 0 0 2px ${p.colors.accent}, 0 6px 14px rgba(15,23,42,0.20);
+          box-shadow: 0 0 0 2px var(--qq-accent, ${p.colors.accent}), 0 6px 14px rgba(15,23,42,0.20);
         }
+        /* BD-3f Item 5 — smaller, clipped swatch labels (10px font, max
+         * 36px width matching the swatch, ellipsis on overflow). At the
+         * narrow editor sidebar width (~320px) the old labels overlapped
+         * into adjacent swatches; this fixes that. */
         .qq-style-swatch-label {
           position: absolute;
           top: 100%; left: 50%; transform: translateX(-50%);
           margin-top: 4px;
           font-size: 10px; font-weight: 600;
-          color: ${p.colors.muted}; white-space: nowrap;
+          color: ${p.colors.muted};
           letter-spacing: -0.01em;
+          max-width: 52px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          text-align: center;
         }
         .qq-style-swatches-spacer {
           flex: 1;
@@ -1053,7 +1141,15 @@ export default function StyleTab({
           box-shadow: 0 0 0 3px ${p.colors.accentLighter};
         }
 
-        /* SegmentedControl */
+        /* SegmentedControl
+         *
+         * BD-3f Item 3 — the active segment now picks up the live accent
+         * (--qq-accent, set as an inline style on .qq-editor-shell from
+         * style.accent). Falls back to the brand blue if no accent is set
+         * (i.e. opening the editor on a template that hasn't been
+         * customised). Acts as the wizard's "toggle button" surface — the
+         * Pro tier toggle, Brand Studio chevron, animation toggle, etc.
+         * all flow through this control. */
         .qq-style-seg {
           display: inline-flex;
           padding: 3px;
@@ -1073,9 +1169,25 @@ export default function StyleTab({
         }
         .qq-style-seg-btn:hover { color: ${p.colors.heading}; }
         .qq-style-seg-btn[aria-checked="true"] {
-          background: #fff;
-          color: ${p.colors.heading};
+          background: var(--qq-accent, ${p.colors.accent});
+          color: #fff;
           box-shadow: 0 1px 2px rgba(15,23,42,0.08);
+        }
+        /* BD-3f Item 3 — native checkboxes (Pricing tiers, Range mode,
+         * Animations reduced-motion) follow the accent too. The
+         * accent-color CSS property is the modern way to tint the native
+         * widget without losing OS a11y affordances. */
+        .qq-style-panel input[type="checkbox"] {
+          accent-color: var(--qq-accent, ${p.colors.accent});
+        }
+        /* BD-3f Item 3 — range sliders + Brand Studio chevron pick up the
+         * accent too. The chevron is the most visible "dropdown arrow"
+         * surface in the StyleTab so Alex's feedback maps directly. */
+        .qq-style-range {
+          accent-color: var(--qq-accent, ${p.colors.accent});
+        }
+        .qq-bs-chev {
+          color: var(--qq-accent, ${p.colors.muted}) !important;
         }
 
         /* ── W-AO-6b — theme preset cards ────────────────────────── */
@@ -1174,12 +1286,17 @@ export default function StyleTab({
 
         /* ── W-AO-6c — Brand Studio (Pro) ────────────────────────── */
         .qq-bs-group { position: relative; }
+        /* BD-3f Item 1 — header button fills the full legend row so the
+         * chevron lives at the far right and the title (with Lock + Pro
+         * pill) sits at the far left, matching the uniform section-title
+         * pattern. */
         .qq-bs-header {
           display: flex; align-items: center; justify-content: space-between;
           gap: 8px;
           width: 100%; padding: 0;
           background: transparent; border: none;
           cursor: pointer; font: inherit; text-align: left;
+          color: inherit;
         }
         .qq-bs-header-title {
           display: inline-flex; align-items: center; gap: 6px;
@@ -1243,19 +1360,27 @@ export default function StyleTab({
           cursor: pointer; text-decoration: none;
         }
         .qq-bs-upsell-cta:hover { filter: brightness(1.08); }
+        /* BD-3f Item 1 — Brand Studio sub-cards (Custom CSS, Background,
+         * Result panel, Animations) adopt the same title-into-container
+         * pattern: title is the card's flush-top header row with a
+         * hairline divider; the body keeps its own 12 px padding. */
         .qq-bs-sub {
           border: 1px solid ${p.colors.borderLight};
           border-radius: 10px;
-          padding: 12px 12px 14px;
+          padding: 0 12px 14px;
           background: #fff;
         }
         .qq-bs-sub-title {
           font-size: 11.5px; font-weight: 600; letter-spacing: 0.04em;
           color: ${p.colors.muted}; text-transform: uppercase;
-          margin: 0 0 8px;
+          /* Pull the header flush to the card edges, then add its own
+           * 12 px padding + a 1 px hairline below. */
+          margin: 0 -12px 12px -12px;
+          padding: 12px;
+          border-bottom: 1px solid ${p.colors.borderLight};
           /* BD-3e Fix 4 — inline-flex so the new InfoCue trigger sits to
            * the right of the title text instead of stacking below. */
-          display: inline-flex; align-items: center; gap: 6px;
+          display: flex; align-items: center; gap: 6px;
         }
         .qq-bs-sub-title-text { display: inline-block; }
         .qq-bs-sub-hint {
@@ -1340,6 +1465,7 @@ export default function StyleTab({
         }
         .qq-editor-shell[data-theme="dark"] .qq-bs-sub-title {
           color: #cbd5e1;
+          border-bottom-color: rgba(255,255,255,0.08);
         }
         .qq-editor-shell[data-theme="dark"] .qq-bs-sub-hint {
           color: #94a3b8;
@@ -1359,6 +1485,7 @@ export default function StyleTab({
         }
         .qq-editor-shell[data-theme="dark"] .qq-style-legend {
           color: #cbd5e1;
+          border-bottom-color: rgba(255,255,255,0.08);
         }
         /* BD-2b — pricing-tier rows (inline background #fafbfc). */
         .qq-editor-shell[data-theme="dark"] [data-testid^="style-pricing-tier-"] {
@@ -1478,7 +1605,7 @@ function BrandStudioGroup({
       data-testid="style-group-brand-studio"
       data-pro-tier={isProTier ? 'true' : 'false'}
     >
-      <legend className="qq-style-legend" style={{ width: '100%' }}>
+      <legend className="qq-style-legend">
         <button
           type="button"
           className="qq-bs-header"
@@ -1502,7 +1629,7 @@ function BrandStudioGroup({
       </legend>
 
       {open && (
-        <div className="qq-bs-body">
+        <div className="qq-style-group-body qq-bs-body">
           {!isProTier && (
             <div className="qq-bs-upsell" data-testid="style-bs-upsell">
               <span className="qq-bs-upsell-icon" aria-hidden="true">
@@ -1923,7 +2050,7 @@ function BrandStudioGroup({
  * affordance. Outside-click / Escape dismiss; positioned via
  * getBoundingClientRect of the trigger. */
 function ColourSwatch({
-  label, value, fallback, onChange, testid, icon: Icon,
+  label, value, fallback, onChange, testid, icon: Icon, onOpen,
 }: {
   label: string;
   value: string;
@@ -1934,6 +2061,9 @@ function ColourSwatch({
    *  circle so the row reads as "Accent / Background / Text / Results bg"
    *  without relying on the tiny label alone. */
   icon?: LucideIcon;
+  /** BD-3f Item 5 — fires when the popover is opened (used by Success /
+   *  Error swatches to mount a ghost demo banner on the preview pane). */
+  onOpen?: () => void;
 }) {
   const swatchValue = safeHex(value) || safeHex(fallback) || '#000000';
   const triggerRef = useRef<HTMLButtonElement | null>(null);
@@ -1995,7 +2125,13 @@ function ColourSwatch({
         aria-label={`Edit ${label} colour`}
         aria-expanded={open}
         title={`${label} (${value})`}
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          setOpen((v) => {
+            const next = !v;
+            if (next && onOpen) onOpen();
+            return next;
+          });
+        }}
         style={{ background: expandedHex }}
       >
         {Icon && (
@@ -2236,25 +2372,25 @@ function BrandKitGroup({
     return (
       <fieldset className="qq-style-group" data-testid="style-group-brand-kit" data-pro-tier="false">
         <legend className="qq-style-legend">
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            <Lock size={12} aria-hidden="true" />
-            Brand Kit
-            <span className="qq-bs-pill" aria-label="Pro plan feature">
-              <Sparkles size={10} aria-hidden="true" /> Pro
-            </span>
+          <Lock size={12} aria-hidden="true" />
+          Brand Kit
+          <span className="qq-bs-pill" aria-label="Pro plan feature">
+            <Sparkles size={10} aria-hidden="true" /> Pro
           </span>
         </legend>
-        <p className="qq-bs-sub-hint" style={{ margin: '6px 0 8px' }}>
-          Save your widget's look as a reusable Brand Kit and apply it across every
-          calculator you own. Upgrade to Pro ($29/mo) to unlock.
-        </p>
-        <a
-          href="/pricing/quotequick"
-          className="qq-bs-upsell-cta"
-          data-testid="style-bk-upgrade"
-        >
-          Upgrade to Pro →
-        </a>
+        <div className="qq-style-group-body">
+          <p className="qq-bs-sub-hint" style={{ margin: '6px 0 8px' }}>
+            Save your widget's look as a reusable Brand Kit and apply it across every
+            calculator you own. Upgrade to Pro ($29/mo) to unlock.
+          </p>
+          <a
+            href="/pricing/quotequick"
+            className="qq-bs-upsell-cta"
+            data-testid="style-bk-upgrade"
+          >
+            Upgrade to Pro →
+          </a>
+        </div>
       </fieldset>
     );
   }
@@ -2268,9 +2404,11 @@ function BrandKitGroup({
             <Sparkles size={10} aria-hidden="true" /> Pro
           </span>
         </legend>
-        <p className="qq-bs-sub-hint" style={{ margin: '6px 0 8px' }}>
-          Sign in to the portal to save reusable Brand Kits across your calculators.
-        </p>
+        <div className="qq-style-group-body">
+          <p className="qq-bs-sub-hint" style={{ margin: '6px 0 8px' }}>
+            Sign in to the portal to save reusable Brand Kits across your calculators.
+          </p>
+        </div>
       </fieldset>
     );
   }
@@ -2285,6 +2423,7 @@ function BrandKitGroup({
           <Sparkles size={10} aria-hidden="true" /> Pro
         </span>
       </legend>
+      <div className="qq-style-group-body">
 
       {isEmpty ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -2460,6 +2599,7 @@ function BrandKitGroup({
           </div>
         </div>
       )}
+      </div>
     </fieldset>
   );
 }
@@ -2657,5 +2797,101 @@ function TierRow({
         </span>
       </label>
     </div>
+  );
+}
+
+/* ─── BD-3f Item 5 — GhostBanner ────────────────────────────────────
+ *
+ * Editor-only demo toast that mounts onto the live preview pane when the
+ * owner clicks the Success / Error colour pickers. Purely visual; never
+ * saved, never reaches the exported widget. Auto-dismissed after 6 s by
+ * the parent (StyleTab) or immediately via the × button.
+ *
+ * Anchored via a portal that locates `.qq-preview-pane` and absolute-
+ * positions inside it at top-right. Falls back to a fixed-position
+ * top-right anchor on the document body if the preview pane isn't in the
+ * DOM (e.g. preview is collapsed). */
+function GhostBanner({
+  kind, colour, onClose,
+}: {
+  kind: 'success' | 'error';
+  colour: string;
+  onClose: () => void;
+}) {
+  const [host, setHost] = useState<Element | null>(null);
+
+  useLayoutEffect(() => {
+    // Find the preview pane each mount — it may not exist (preview
+    // collapsed) so fall back to document.body with fixed positioning.
+    if (typeof document === 'undefined') return;
+    const pane = document.querySelector('.qq-preview-pane');
+    setHost(pane ?? document.body);
+  }, []);
+
+  if (!host || typeof document === 'undefined') return null;
+  const isPane = host !== document.body;
+  const message = kind === 'success'
+    ? 'Quote saved successfully'
+    : 'Couldn’t save quote — try again';
+  const testid = kind === 'success' ? 'style-ghost-success' : 'style-ghost-error';
+
+  return createPortal(
+    <div
+      role="status"
+      aria-live="polite"
+      data-testid={testid}
+      style={{
+        position: isPane ? 'absolute' : 'fixed',
+        top: isPane ? 12 : 80,
+        right: 12,
+        zIndex: 9999,
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 10,
+        padding: '10px 12px',
+        borderRadius: 10,
+        background: colour,
+        color: '#fff',
+        fontSize: 13,
+        fontWeight: 600,
+        boxShadow: '0 8px 20px rgba(15,23,42,0.18)',
+        animation: 'qqGhostFade 220ms ease-out',
+        maxWidth: 320,
+      }}
+    >
+      <span aria-hidden="true">
+        {kind === 'success' ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
+      </span>
+      <span>{message}</span>
+      <button
+        type="button"
+        aria-label="Dismiss preview"
+        data-testid={`${testid}-close`}
+        onClick={onClose}
+        style={{
+          marginLeft: 4,
+          background: 'transparent',
+          border: 'none',
+          color: '#fff',
+          fontSize: 16,
+          lineHeight: 1,
+          cursor: 'pointer',
+          padding: 0,
+          opacity: 0.85,
+        }}
+      >
+        ×
+      </button>
+      <style>{`
+        @keyframes qqGhostFade {
+          from { opacity: 0; transform: translateY(-4px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          [data-testid="${testid}"] { animation: none !important; }
+        }
+      `}</style>
+    </div>,
+    host,
   );
 }

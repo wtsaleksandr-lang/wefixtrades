@@ -770,6 +770,13 @@ export default function WizardShell({ embed = false }: Props) {
           data-modal-phase={embed ? 'embed' : openPhase}
           data-theme={editorTheme}
           lang={shellLang}
+          /* BD-3f Item 3 — expose the user-selected accent as a CSS
+           * custom property so segmented controls, checkboxes, range
+           * sliders, and the Brand Studio chevron all live-update when
+           * the owner picks a new accent in the Style tab. */
+          style={state.style?.accent
+            ? ({ '--qq-accent': state.style.accent } as Record<string, string>)
+            : undefined}
         >
           <div className="qq-editor-frame">
             <EditorTopBar
