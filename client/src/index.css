@@ -1080,6 +1080,110 @@
 .qq-editor-shell[data-theme="dark"] .qq-install-mode-opt-hint {
   color: var(--qq-muted);
 }
+.qq-editor-shell[data-theme="dark"] .qq-install-mode-opt-label {
+  color: var(--qq-text);
+}
+
+/* P2 contrast sweep — InstallTab gaps left behind by BD-3j.
+ *
+ * Alex reported the Install tab left pane has barely-visible text in both
+ * day + night mode. Day-mode was fine on the card itself, but the hosted-
+ * card BG was hardcoded to d.colors.cardMuted (#F4F6F8 light grey) in the
+ * styled-jsx block, so in dark mode the card stayed light, and the inner
+ * heading text — which BD-3j already promoted to var(--qq-text) (white) —
+ * landed as white-on-light = invisible. Plus several inner classes still
+ * carry hardcoded body/muted/heading text from platformTheme that doesn't
+ * auto-flip. This block scopes every remaining dark-mode override so all
+ * text/bg pairs hit ≥4.5:1 WCAG AA. */
+.qq-editor-shell[data-theme="dark"] .qq-install-hosted-card,
+.qq-editor-shell[data-theme="dark"] .qq-install-doneforyou-card {
+  background: var(--qq-surface);
+  border-color: var(--qq-border);
+  color: var(--qq-text);
+}
+/* Done-for-you keeps a brand-blue-tinted feel in dark mode too. */
+.qq-editor-shell[data-theme="dark"] .qq-install-doneforyou-card {
+  background: linear-gradient(135deg, rgba(13,60,252,0.22), rgba(13,60,252,0.10));
+  border-color: rgba(13,60,252,0.45);
+}
+.qq-editor-shell[data-theme="dark"] .qq-install-doneforyou-h {
+  color: var(--qq-text);
+}
+.qq-editor-shell[data-theme="dark"] .qq-install-doneforyou-sub {
+  color: var(--qq-text);
+  opacity: 0.85;
+}
+.qq-editor-shell[data-theme="dark"] .qq-install-hosted-foot {
+  color: var(--qq-muted);
+}
+.qq-editor-shell[data-theme="dark"] .qq-install-hosted-edit-prefix,
+.qq-editor-shell[data-theme="dark"] .qq-install-hosted-edit-suffix {
+  color: var(--qq-muted);
+}
+.qq-editor-shell[data-theme="dark"] .qq-install-hosted-edit-trigger {
+  background: #243149;
+  border-color: var(--qq-border);
+  color: var(--qq-muted);
+}
+.qq-editor-shell[data-theme="dark"] .qq-install-hosted-edit-trigger:hover {
+  background: #1a2438;
+  color: var(--qq-text);
+  border-color: #0d3cfc;
+}
+/* Status text on the now-dark hosted card. Body/muted variants need to be
+ * lifted to text/muted tokens, the semantic ok/warn variants get brighter
+ * accents so they read against the dark surface (#6ee7b7 green and #fbbf24
+ * amber both hit ≥4.5:1 on #1E293B). */
+.qq-editor-shell[data-theme="dark"] .qq-install-hosted-status {
+  color: var(--qq-text);
+}
+.qq-editor-shell[data-theme="dark"] .qq-install-hosted-status.is-checking {
+  color: var(--qq-muted);
+}
+.qq-editor-shell[data-theme="dark"] .qq-install-hosted-status.is-muted {
+  color: var(--qq-muted);
+}
+.qq-editor-shell[data-theme="dark"] .qq-install-hosted-status.is-ok {
+  color: #6ee7b7;
+}
+.qq-editor-shell[data-theme="dark"] .qq-install-hosted-status.is-warn {
+  color: #fbbf24;
+}
+.qq-editor-shell[data-theme="dark"] .qq-install-hosted-status-link {
+  color: #93c5fd;
+}
+.qq-editor-shell[data-theme="dark"] .qq-install-hosted-status-link:hover {
+  color: #bfdbfe;
+}
+/* Live corner badge — the light green pill reads ok in dark too, but the
+ * #066138 text drops below AA on the rgba(34,197,94,0.18) bg once the
+ * card behind it goes dark. Brighten the text to #6ee7b7 for ~7:1. */
+.qq-editor-shell[data-theme="dark"] .qq-install-hosted-corner-badge.is-live {
+  color: #6ee7b7;
+  background: rgba(34, 197, 94, 0.18);
+  border-color: rgba(34, 197, 94, 0.55);
+}
+/* Platform guide cards — label + cta + icon bg. The cards themselves
+ * already flip via the existing .qq-install-guide-card rule above; the
+ * inner spans still carried hardcoded heading/accent text. */
+.qq-editor-shell[data-theme="dark"] .qq-install-guide-card-label {
+  color: var(--qq-text);
+}
+.qq-editor-shell[data-theme="dark"] .qq-install-guide-card-cta {
+  color: #93c5fd;
+}
+.qq-editor-shell[data-theme="dark"] .qq-install-guide-card-icon {
+  background: #243149;
+}
+.qq-editor-shell[data-theme="dark"] .qq-install-guide-card:hover {
+  border-color: #0d3cfc;
+  box-shadow: 0 2px 8px rgba(13, 60, 252, 0.32);
+}
+/* Section dividers — the hairline used borderLight (#E5E7EB) which is
+ * almost invisible on the dark page bg. */
+.qq-editor-shell[data-theme="dark"] .qq-install-divider {
+  background: var(--qq-border);
+}
 
 /* MobileBottomSheet — reset CTA in the sheet footer. */
 .qq-editor-shell[data-theme="dark"] .qq-sheet-footer-reset {
