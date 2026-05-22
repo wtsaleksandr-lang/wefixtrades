@@ -545,6 +545,151 @@ const groupHeaderStyle = (c: WidgetTheme): React.CSSProperties => ({
   marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.04em',
 });
 
+/**
+ * BD-2a-sticky — bottom-stuck action footer with a fold/unfold toggle.
+ *
+ * Renders the primary action buttons for the current step (Back / Next /
+ * Submit, or the contact step's hard CTAs). A chevron toggle in the top-
+ * right collapses the bar to a ~32px micro-summary strip showing the
+ * running quote estimate (`Est. $2,400 – $2,800`); tapping anywhere on the
+ * collapsed strip (or the chevron) restores the full bar.
+ *
+ * Persisted: fold state writes to `localStorage` under
+ * `qq-foot-fold-${calculatorId}` so a returning customer sees their
+ * preference. Default = unfolded.
+ *
+ * Motion: 200ms ease-out height transition; respects
+ * `prefers-reduced-motion` (instant snap, no animation).
+ *
+ * iOS safe area: bottom padding uses
+ * `max(12px, env(safe-area-inset-bottom))` so the bar clears the home
+ * indicator on iOS Safari + PWA installs.
+ */
+function StickyActionBar({
+  theme, fontFamily, calculatorId, microSummary, children,
+}: {
+  theme: WidgetTheme;
+  fontFamily: string;
+  /** Used to derive the localStorage key. When absent, fold state is in-memory only. */
+  calculatorId?: string | number;
+  /** Short running quote string (e.g. `Est. $2,400 – $2,800`) shown in folded state. */
+  microSummary: string;
+  /** The full unfolded action buttons (rendered when expanded). */
+  children: React.ReactNode;
+}) {
+  const storageKey = calculatorId !== undefined
+    ? `qq-foot-fold-${calculatorId}` : null;
+
+  // Lazy init from localStorage so the first paint matches the persisted
+  // preference (avoids a flash from default→stored). Guarded for SSR.
+  const [folded, setFolded] = useState<boolean>(() => {
+    if (!storageKey || typeof window === 'undefined') return false;
+    try { return window.localStorage.getItem(storageKey) === '1'; }
+    catch { return false; }
+  });
+
+  useEffect(() => {
+    if (!storageKey || typeof window === 'undefined') return;
+    try { window.localStorage.setItem(storageKey, folded ? '1' : '0'); }
+    catch { /* quota / private mode — ignore */ }
+  }, [folded, storageKey]);
+
+  // Reduced-motion handling — read at render-time so the OS preference is
+  // respected live (no stale mount-time snapshot).
+  const prefersReducedMotion =
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const transition = prefersReducedMotion
+    ? 'none'
+    : 'height 200ms ease-out, padding 200ms ease-out';
+
+  // The bar's height is driven by content (auto) when unfolded and a fixed
+  // 32px strip when folded. We animate via max-height — a fixed auto target
+  // wouldn't transition cleanly. Folded uses `height: 32px`; unfolded uses
+  // a generous max-height the content will never exceed.
+  return (
+    <div
+      data-testid="advanced-sticky-bottom"
+      data-component-name="Sticky bottom"
+      data-folded={folded ? 'true' : 'false'}
+      style={{
+        position: 'sticky', bottom: 0, zIndex: 40,
+        background: theme.surface,
+        borderTop: '1px solid rgba(0,0,0,0.06)',
+        // iOS safe area — clears the home indicator on Safari + PWA.
+        paddingBottom: 'max(12px, env(safe-area-inset-bottom))',
+        paddingTop: folded ? 0 : 12,
+        paddingLeft: 14, paddingRight: 14,
+        transition,
+        fontFamily,
+      }}
+    >
+      {folded ? (
+        /* Folded strip — clickable anywhere to unfold. */
+        <button
+          type="button"
+          data-testid="advanced-sticky-bottom-unfold"
+          onClick={() => setFolded(false)}
+          aria-expanded="false"
+          aria-label="Show actions"
+          style={{
+            width: '100%', height: 32,
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            background: 'transparent', border: 'none', cursor: 'pointer',
+            padding: 0, color: theme.text, fontFamily,
+          }}
+        >
+          <span style={{
+            fontSize: 12, fontWeight: 700, color: theme.textBody,
+            letterSpacing: '0.01em',
+          }}>
+            {microSummary}
+          </span>
+          <span aria-hidden="true" style={{
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            width: 24, height: 24, borderRadius: 6,
+            color: theme.textMuted,
+          }}>
+            {/* chevron-up */}
+            <svg width={14} height={14} viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth={2.4}
+              strokeLinecap="round" strokeLinejoin="round">
+              <path d="M6 15l6-6 6 6" />
+            </svg>
+          </span>
+        </button>
+      ) : (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>{children}</div>
+          <button
+            type="button"
+            data-testid="advanced-sticky-bottom-fold"
+            onClick={() => setFolded(true)}
+            aria-expanded="true"
+            aria-label="Hide actions"
+            style={{
+              flexShrink: 0,
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              width: 28, height: 28, borderRadius: 6,
+              background: 'transparent', border: 'none', cursor: 'pointer',
+              color: theme.textMuted,
+            }}
+          >
+            {/* chevron-down */}
+            <svg width={14} height={14} viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth={2.4}
+              strokeLinecap="round" strokeLinejoin="round">
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function AdvancedCalculator({
   businessName, logoUrl, advanced, accentColor, editableTitle = false,
   planTier, calculatorId, bookingUrl, ownerEmail,
@@ -961,7 +1106,12 @@ export default function AdvancedCalculator({
       style={{
         background: c.surface, borderRadius: radiusOuterPx,
         border: `1px solid ${c.border}`, boxShadow: c.shadow,
-        overflow: 'hidden', fontFamily,
+        // BD-2a-sticky — `overflow: clip` (not `hidden`) so children with
+        // `position: sticky` anchor to the page / iframe scroll container
+        // instead of being trapped inside the outer card. `clip` still
+        // visually clips square-cornered children against the rounded card,
+        // but unlike `hidden` it does NOT establish a scroll container.
+        overflow: 'clip', fontFamily,
         // W-AO-6b — Typography depth as CSS variables. `--qq-font-size-base`
         // sets the inherit-able body size; titles + small captions can still
         // pick their own values via the inline styles. fontWeight here drives
@@ -976,6 +1126,22 @@ export default function AdvancedCalculator({
         margin: '0 auto', width: '100%',
       }}
     >
+      {/* ── BD-2a-sticky — Top sticky region ──
+          Wraps the title bar + the stepper progress indicator in a single
+          sticky container so they move as one unit. Anchored to the nearest
+          scroll context (the page in inline-div embeds; the iframe top in
+          iframe embeds). `top: 0; z-index: 40` sits above in-widget controls
+          but well below the AI chat bubble (z-index 9998+). Background +
+          1px hairline read as a separated bar when content scrolls under. */}
+      <div
+        data-testid="advanced-sticky-top"
+        data-component-name="Sticky top"
+        style={{
+          position: 'sticky', top: 0, zIndex: 40,
+          background: c.surface,
+          borderBottom: '1px solid rgba(0,0,0,0.06)',
+        }}
+      >
       {/* ── Title bar (its own separated bar) ── */}
       {(() => {
         const header = advanced.header || {};
@@ -1140,6 +1306,8 @@ export default function AdvancedCalculator({
           variant="bar"
         />
       )}
+      </div>
+      {/* ── /BD-2a-sticky top region ── */}
       <div className={gridId} data-layout={layout} data-testid="advanced-body"
         data-component-name="Body"
         data-component-type="body"
@@ -1184,23 +1352,10 @@ export default function AdvancedCalculator({
                 />
               </div>
             ))}
-            {/* BD-2a — stepper Next / Back controls. Hidden on the very
-                last data step's Next button (the contact step renders its
-                own primary CTAs); Back is always present from step >0. */}
-            {useStepper && (
-              <div style={{ gridColumn: 'span 2', marginTop: 6 }}>
-                <StepperControls
-                  current={stepIdx}
-                  total={stepperList.length}
-                  theme={c}
-                  radiusPx={radiusInnerPx}
-                  fontFamily={fontFamily}
-                  nextLabel={stepIdx === dataSteps.length - 1 ? 'See my quote' : 'Continue'}
-                  onBack={() => setStepIdx((i) => Math.max(0, i - 1))}
-                  onNext={() => setStepIdx((i) => Math.min(stepperList.length - 1, i + 1))}
-                />
-              </div>
-            )}
+            {/* BD-2a-sticky — Back / Next controls moved into the bottom
+                <StickyActionBar /> rendered as a sibling of the body grid.
+                The controls now sit at the bottom edge of the viewport so
+                a long step is still actionable without scrolling. */}
           </div>
         )}
         {/* BD-2a — Contact step content. Replaces the inputs section on
@@ -1241,18 +1396,9 @@ export default function AdvancedCalculator({
               onEmailQuoteSent={() => { trackSubmit(); }}
               onBookingRequested={() => { trackSubmit(); }}
             />
-            <div>
-              <StepperControls
-                current={stepIdx}
-                total={stepperList.length}
-                theme={c}
-                radiusPx={radiusInnerPx}
-                fontFamily={fontFamily}
-                onBack={() => setStepIdx((i) => Math.max(0, i - 1))}
-                onNext={() => { /* unused on final step */ }}
-                hideNextOnFinal
-              />
-            </div>
+            {/* BD-2a-sticky — Back control moved into the bottom
+                <StickyActionBar />. The final-step hard CTAs (Email me /
+                Book consultation) still live inside ContactStep above. */}
           </div>
         )}
 
@@ -1503,6 +1649,42 @@ export default function AdvancedCalculator({
           </div>
         )}
       </div>
+      {/* ── BD-2a-sticky — bottom sticky action bar with fold/unfold ──
+          Sits as a sibling of the body grid so it's anchored to the bottom
+          of the widget's scroll context. Houses the per-step primary
+          actions (Back / Continue / See my quote) and a fold/unfold toggle
+          backed by `qq-foot-fold-${calculatorId}` in localStorage. */}
+      {useStepper && (() => {
+        const microSummary = (() => {
+          const fmt = effectiveRangeMode?.enabled
+            ? formatResultRange(
+                headline, resultCalc?.format || 'currency',
+                effectiveRangeMode.band_pct ?? 8, advanced.numberFormat,
+              )
+            : formatResult(headline, resultCalc?.format || 'currency', advanced.numberFormat);
+          return `Est. ${fmt}`;
+        })();
+        return (
+          <StickyActionBar
+            theme={c}
+            fontFamily={fontFamily}
+            calculatorId={calculatorId}
+            microSummary={microSummary}
+          >
+            <StepperControls
+              current={stepIdx}
+              total={stepperList.length}
+              theme={c}
+              radiusPx={radiusInnerPx}
+              fontFamily={fontFamily}
+              nextLabel={stepIdx === dataSteps.length - 1 ? 'See my quote' : 'Continue'}
+              onBack={() => setStepIdx((i) => Math.max(0, i - 1))}
+              onNext={() => setStepIdx((i) => Math.min(stepperList.length - 1, i + 1))}
+              hideNextOnFinal
+            />
+          </StickyActionBar>
+        );
+      })()}
       {/* W-AO-6c — Brand Studio custom CSS. Author-supplied text rendered
        *  inside a <style> tag and scoped to this widget's unique
        *  `.qq-widget-${id}` root class by prepending the scope selector
