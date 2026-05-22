@@ -74,6 +74,7 @@ import { registerMobileContactRoutes } from "./mobileContactRoutes";
 import { registerTwilioVoiceCallbackRoutes } from "./twilioVoiceCallbackRoutes";
 import { registerVoicemailRoutes } from "./voicemailRoutes";
 import { registerQuoteQuickAiChatRoutes } from "./quotequickAiChatRoutes";
+import { registerAiImageToTemplateRoutes } from "./aiImageToTemplateRoutes";
 import { registerAdminAiBudgetRoutes } from "./adminAiBudgetRoutes";
 import { registerTwilioCommsRoutes } from "./twilioCommsRoutes";
 import { registerWidgetSchedulingRoutes } from "./widgetSchedulingRoutes";
@@ -172,6 +173,7 @@ export async function registerRoutes(
   registerTwilioVoiceCallbackRoutes(app);
   registerVoicemailRoutes(app);
   registerQuoteQuickAiChatRoutes(app);
+  registerAiImageToTemplateRoutes(app);
   registerAdminAiBudgetRoutes(app);
   registerTwilioCommsRoutes(app);
   registerWidgetSchedulingRoutes(app);

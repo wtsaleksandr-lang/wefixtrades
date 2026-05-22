@@ -18,10 +18,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Bot, X, Send, Image as ImageIcon, Trash2, AlertTriangle, Loader2, Sparkles } from 'lucide-react';
+import { Bot, X, Send, Paperclip, Trash2, AlertTriangle, Sparkles } from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
 import CalcAssemblySpinner from '@/components/quote-widget/CalcAssemblySpinner';
 import { applyAiToolCall, type AiToolCall } from './aiToolApplier';
+import { imageTemplateToConfig, type ImageTemplate } from './imageTemplateToConfig';
 import type {
   ShellState, ShellHeader, ShellResults, ShellStyle, ShellSettings,
 } from './types';
@@ -65,6 +66,13 @@ interface ChatMessage {
    *  attached, "Building your calculator…" otherwise) instead of an empty
    *  bubble. Cleared as soon as text or a tool_use arrives. */
   pendingLabel?: string;
+  /** BF-5 — when true, render the 280×120 image-to-template progress card
+   *  instead of a plain message bubble. Set while the new wizard
+   *  /api/ai/wizard/image-to-template endpoint is running. */
+  buildingTemplate?: boolean;
+  /** BF-5 — when set, render an error retry CTA inline on the assistant
+   *  message bubble (image-to-template failure path). */
+  imageError?: string;
 }
 
 /** A destructive tool call (replace_template / apply_template) queued for
@@ -386,10 +394,139 @@ export default function AIBubble(props: AIBubbleProps) {
     }
   }, []);
 
+  /* ─── BF-5 — image-to-template: image with no text routes to the dedicated
+   *  vision endpoint. Returns a strict JSON template the wizard can drop in
+   *  via `replaceTemplate()` (which feeds the BD-3a undo stack). The chat
+   *  shows a 280×120 progress card during the call (3 sub-rows pulsing in
+   *  sequence) instead of a generic spinner.                                */
+  const onImageToTemplate = useCallback(async (imageDataUrl: string) => {
+    if (sending) return;
+    const userMsgId = uid();
+    const assistantId = uid();
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: userMsgId,
+        role: 'user',
+        content: 'Build a calculator from this image',
+        imageThumb: imageDataUrl,
+      },
+      {
+        id: assistantId,
+        role: 'assistant',
+        content: '',
+        buildingTemplate: true,
+      },
+    ]);
+    setPendingImage(null);
+    setSending(true);
+    setStreamErr(null);
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    try {
+      // Decode the data URL into a Blob → FormData. Multer needs the
+      // original mime type so it can apply the file-type filter.
+      const match = /^data:(image\/[a-z]+);base64,(.+)$/i.exec(imageDataUrl);
+      let blob: Blob;
+      if (match) {
+        const bin = atob(match[2]);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        blob = new Blob([bytes], { type: match[1] });
+      } else {
+        // Fallback: best-effort fetch (works for blob:/http: URLs too).
+        const res = await fetch(imageDataUrl);
+        blob = await res.blob();
+      }
+      const form = new FormData();
+      const ext = blob.type.includes('png') ? 'png' : blob.type.includes('webp') ? 'webp' : 'jpg';
+      form.append('image', blob, `quote.${ext}`);
+
+      const res = await fetch('/api/ai/wizard/image-to-template', {
+        method: 'POST',
+        body: form,
+        credentials: 'include',
+        signal: controller.signal,
+      });
+
+      if (!res.ok) {
+        let body: any = null;
+        try { body = await res.json(); } catch {}
+        const message =
+          body?.message ||
+          (res.status === 401 ? 'Sign in to use the AI assistant.' :
+           res.status === 429 ? 'You can only generate 5 templates per hour. Try again later.' :
+           res.status === 413 ? 'Image is too large — keep it under 5 MB.' :
+           'Sorry, I couldn’t read that image. Try a clearer photo or paste your details as text.');
+        setMessages((prev) => prev.map(m =>
+          m.id === assistantId
+            ? { ...m, buildingTemplate: false, content: '', imageError: message }
+            : m
+        ));
+        return;
+      }
+
+      const data = await res.json() as { template: ImageTemplate };
+      const cfg = imageTemplateToConfig(data.template);
+
+      // Apply directly via the existing `replaceTemplate` setter — same path
+      // the AI's `replace_template` tool uses, so it joins the undo stack.
+      try {
+        props.replaceTemplate(cfg);
+      } catch (err: any) {
+        setStreamErr(`apply failed: ${err?.message ?? err}`);
+      }
+
+      // Notify the rest of the shell (analytics, BD-3a undo banner, etc.).
+      try {
+        window.dispatchEvent(new CustomEvent('qq-wizard:template-generated', {
+          detail: { source: 'image', raw: data.template, config: cfg },
+        }));
+      } catch { /* best-effort */ }
+
+      const summary = `Built "${cfg.name}" with ${cfg.fields.length} field${cfg.fields.length === 1 ? '' : 's'} and ${cfg.calculations.length} calculation${cfg.calculations.length === 1 ? '' : 's'}.`;
+      setMessages((prev) => prev.map(m =>
+        m.id === assistantId
+          ? {
+              ...m,
+              buildingTemplate: false,
+              content: summary,
+              toolChips: [...(m.toolChips ?? []), 'Replaced template from image'],
+            }
+          : m
+      ));
+    } catch (err: any) {
+      if (err?.name === 'AbortError') {
+        setMessages((prev) => prev.map(m =>
+          m.id === assistantId ? { ...m, buildingTemplate: false, content: 'Cancelled.' } : m
+        ));
+      } else {
+        setMessages((prev) => prev.map(m =>
+          m.id === assistantId
+            ? { ...m, buildingTemplate: false, content: '', imageError: 'Sorry, I couldn’t read that image. Try a clearer photo or paste your details as text.' }
+            : m
+        ));
+      }
+    } finally {
+      setSending(false);
+      abortRef.current = null;
+    }
+  }, [sending, props]);
+
   const onSend = useCallback(async () => {
     const trimmed = input.trim();
-    if (!trimmed || sending) return;
+    if ((!trimmed && !pendingImage) || sending) return;
     if (capExceeded) return;
+
+    // BF-5 — image-only send → dedicated image-to-template endpoint.
+    if (!trimmed && pendingImage) {
+      const img = pendingImage;
+      setInput('');
+      await onImageToTemplate(img);
+      return;
+    }
 
     const userMsg: ChatMessage = {
       id: uid(),
@@ -502,7 +639,7 @@ export default function AIBubble(props: AIBubbleProps) {
         m.id === assistantId && m.pendingLabel ? { ...m, pendingLabel: undefined } : m
       ));
     }
-  }, [input, sending, capExceeded, pendingImage, messages, state, props]);
+  }, [input, sending, capExceeded, pendingImage, messages, state, props, onImageToTemplate]);
 
   /** Wave AR-1 — let the user bail out of a slow vision request. The
    *  AbortController already exists; this just exposes a button. */
@@ -619,8 +756,8 @@ export default function AIBubble(props: AIBubbleProps) {
               <div className="qq-ai-empty" data-testid="aibubble-empty">
                 <p style={{ margin: 0, fontWeight: 700 }}>Hi — I can build your calculator with you.</p>
                 <p style={{ margin: '6px 0 0', color: p.colors.muted }}>
-                  Ask me to add fields, change pricing, restyle, or paste a screenshot of a calculator
-                  you'd like me to replicate.
+                  Ask me to add fields, change pricing, or restyle. Or attach a photo of your regular
+                  quote / invoice — I'll replicate the pricing into a calculator for you.
                 </p>
               </div>
             )}
@@ -636,6 +773,43 @@ export default function AIBubble(props: AIBubbleProps) {
                   <div className="qq-ai-thinking" data-testid="aibubble-thinking">
                     <CalcAssemblySpinner size={36} label={m.pendingLabel} />
                     <span className="qq-ai-thinking-label">{m.pendingLabel}</span>
+                  </div>
+                )}
+                {/* BF-5 — image-to-template progress card. 280×120, three
+                    stacked sub-rows pulsing in sequence with the brand
+                    accent. Replaces the message bubble while the dedicated
+                    /api/ai/wizard/image-to-template call is running. */}
+                {m.role === 'assistant' && m.buildingTemplate && (
+                  <div className="qq-ai-build-card" data-testid="aibubble-build-card" role="status" aria-live="polite">
+                    <div className="qq-ai-build-glow" aria-hidden="true" />
+                    <div className="qq-ai-build-rows">
+                      <div className="qq-ai-build-row qq-ai-build-row-1">
+                        <span className="qq-ai-build-dot" />
+                        <span className="qq-ai-build-label">Reading image…</span>
+                      </div>
+                      <div className="qq-ai-build-row qq-ai-build-row-2">
+                        <span className="qq-ai-build-dot" />
+                        <span className="qq-ai-build-label">Extracting prices…</span>
+                      </div>
+                      <div className="qq-ai-build-row qq-ai-build-row-3">
+                        <span className="qq-ai-build-dot" />
+                        <span className="qq-ai-build-label">Applying to your calculator…</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {/* BF-5 — inline error + retry for image-to-template failures. */}
+                {m.role === 'assistant' && m.imageError && (
+                  <div className="qq-ai-build-err" data-testid="aibubble-build-error">
+                    <div className="qq-ai-build-err-text">{m.imageError}</div>
+                    <button
+                      type="button"
+                      className="qq-ai-build-retry"
+                      onClick={() => fileInputRef.current?.click()}
+                      data-testid="aibubble-build-retry"
+                    >
+                      Try again
+                    </button>
                   </div>
                 )}
                 {m.content && <div className="qq-ai-msg-text">{m.content}</div>}
@@ -742,7 +916,7 @@ export default function AIBubble(props: AIBubbleProps) {
                   data-testid="aibubble-upload"
                   disabled={sending}
                 >
-                  <ImageIcon className="w-3.5 h-3.5" />
+                  <Paperclip style={{ width: 20, height: 20 }} />
                 </button>
                 <input
                   ref={fileInputRef}
@@ -786,10 +960,11 @@ export default function AIBubble(props: AIBubbleProps) {
                   <button
                     type="button"
                     onClick={onSend}
-                    disabled={!input.trim()}
+                    disabled={!input.trim() && !pendingImage}
                     className="qq-ai-sendbtn"
                     data-testid="aibubble-send"
-                    aria-label="Send"
+                    aria-label={pendingImage && !input.trim() ? 'Build calculator from image' : 'Send'}
+                    title={pendingImage && !input.trim() ? 'Build calculator from image' : 'Send'}
                   >
                     <Send className="w-3.5 h-3.5" />
                   </button>
@@ -905,6 +1080,113 @@ export default function AIBubble(props: AIBubbleProps) {
           font-size: 12px; font-weight: 600; color: #475569;
         }
         [data-theme="dark"] .qq-ai-thinking-label { color: #cbd5e1; }
+
+        /* BF-5 — image-to-template progress card. 280×120 with a conic
+           accent glow + three sequential rows that fill in as the build
+           progresses (timing is cosmetic — real backend is 5-15s). */
+        .qq-ai-build-card {
+          position: relative;
+          width: 280px; max-width: 100%; height: 120px;
+          border-radius: 12px;
+          background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%);
+          border: 1px solid rgba(13, 60, 252, 0.18);
+          overflow: hidden;
+          padding: 14px 16px;
+          display: flex; align-items: center;
+        }
+        .qq-ai-build-glow {
+          position: absolute; inset: -40%;
+          background: conic-gradient(
+            from 0deg,
+            rgba(13, 60, 252, 0.0) 0deg,
+            rgba(13, 60, 252, 0.18) 80deg,
+            rgba(99, 102, 241, 0.0) 160deg,
+            rgba(13, 60, 252, 0.0) 360deg
+          );
+          filter: blur(8px);
+          animation: qq-ai-build-glow-spin 4s linear infinite;
+          pointer-events: none;
+        }
+        @keyframes qq-ai-build-glow-spin {
+          0%   { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+        .qq-ai-build-rows {
+          position: relative; z-index: 1;
+          display: flex; flex-direction: column; gap: 6px;
+          width: 100%;
+        }
+        .qq-ai-build-row {
+          display: flex; align-items: center; gap: 8px;
+          opacity: 0.45;
+          transition: opacity 220ms ease-out;
+        }
+        .qq-ai-build-dot {
+          width: 8px; height: 8px; border-radius: 999px;
+          background: rgba(13, 60, 252, 0.35);
+          flex-shrink: 0;
+          animation: qq-ai-build-pulse 1500ms ease-in-out infinite;
+        }
+        .qq-ai-build-label {
+          font-size: 12px; font-weight: 600; color: #334155;
+          line-height: 1.3;
+        }
+        /* Row 1: pulse 0–600ms (then continues subtly).
+           Row 2: pulse 600–1500ms.
+           Row 3: pulse 1500ms→. We can't tie to real backend latency, so
+           we run a 2.4s loop matching CalcAssemblySpinner's cadence. */
+        .qq-ai-build-row-1 { animation: qq-ai-build-row-active 2400ms ease-in-out infinite; animation-delay: 0ms; }
+        .qq-ai-build-row-2 { animation: qq-ai-build-row-active 2400ms ease-in-out infinite; animation-delay: 600ms; }
+        .qq-ai-build-row-3 { animation: qq-ai-build-row-active 2400ms ease-in-out infinite; animation-delay: 1500ms; }
+        @keyframes qq-ai-build-row-active {
+          0%   { opacity: 0.45; }
+          25%  { opacity: 1; }
+          50%  { opacity: 1; }
+          80%  { opacity: 0.6; }
+          100% { opacity: 0.45; }
+        }
+        @keyframes qq-ai-build-pulse {
+          0%, 100% { transform: scale(1); background: rgba(13, 60, 252, 0.35); }
+          50%      { transform: scale(1.35); background: rgba(13, 60, 252, 0.9); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .qq-ai-build-glow,
+          .qq-ai-build-row-1,
+          .qq-ai-build-row-2,
+          .qq-ai-build-row-3,
+          .qq-ai-build-dot {
+            animation: none !important;
+            opacity: 1 !important;
+            transform: none !important;
+          }
+        }
+        [data-theme="dark"] .qq-ai-build-card {
+          background: linear-gradient(135deg, #1e293b 0%, #1e1b4b 100%);
+          border-color: rgba(99, 102, 241, 0.35);
+        }
+        [data-theme="dark"] .qq-ai-build-label { color: #e2e8f0; }
+        [data-theme="dark"] .qq-ai-build-dot { background: rgba(129, 140, 248, 0.5); }
+        .qq-ai-build-err {
+          background: #fef2f2; border: 1px solid #fecaca;
+          color: #991b1b; border-radius: 10px;
+          padding: 10px 12px;
+          display: flex; flex-direction: column; gap: 8px;
+        }
+        .qq-ai-build-err-text { font-size: 12.5px; line-height: 1.4; }
+        .qq-ai-build-retry {
+          align-self: flex-start;
+          background: #fff; border: 1px solid #fecaca;
+          color: #991b1b; cursor: pointer;
+          font-size: 11.5px; font-weight: 600;
+          padding: 5px 12px; border-radius: 6px;
+        }
+        .qq-ai-build-retry:hover { background: #fef2f2; }
+        [data-theme="dark"] .qq-ai-build-err {
+          background: #450a0a; border-color: #7f1d1d; color: #fecaca;
+        }
+        [data-theme="dark"] .qq-ai-build-retry {
+          background: #1e293b; border-color: #7f1d1d; color: #fecaca;
+        }
 
         .qq-ai-chips {
           display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px;

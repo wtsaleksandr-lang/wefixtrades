@@ -118,6 +118,20 @@ export const voiceTranscribeRateLimiter = new RateLimiter(
 );
 
 /**
+ * BF-5 — Per-user cap on the image-to-template endpoint
+ * (POST /api/ai/wizard/image-to-template). Vision calls are
+ * substantially more expensive than text calls (≈3-6× input
+ * tokens once the image is encoded), and the wizard owner needs
+ * exactly a handful of attempts to dial in a calculator from an
+ * invoice screenshot — not dozens. 5 / hour / user is the spec.
+ */
+export const imageToTemplateRateLimiter = new RateLimiter(
+  defaultStore,
+  5,
+  60 * 60_000,
+);
+
+/**
  * Per-user-id dedupe for password-reset emails.
  *
  * Two clicks of "forgot password" within 60s should not mint two valid
