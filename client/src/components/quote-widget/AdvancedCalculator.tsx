@@ -1724,6 +1724,7 @@ export default function AdvancedCalculator({
         // instead of being trapped inside the outer card. `clip` still
         // visually clips square-cornered children against the rounded card,
         // but unlike `hidden` it does NOT establish a scroll container.
+        // MUST stay 'clip' not 'hidden' — see memory/project_overflow_clip_for_sticky.md
         overflow: 'clip', fontFamily,
         // BD-3l — `position: relative` so the ConfettiBurst's absolutely-
         // positioned canvas anchors to the widget root rather than the

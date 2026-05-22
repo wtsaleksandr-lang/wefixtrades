@@ -1063,7 +1063,11 @@ export default function PreviewPane({
                 flexShrink: 0, margin: '0 auto',
                 background: 'linear-gradient(160deg, #1e293b, #0f172a)',
                 borderRadius: 44, padding: '12px 10px', boxSizing: 'border-box',
-                overflow: 'hidden', display: 'flex', flexDirection: 'column',
+                // P0 sticky fix — `clip` not `hidden` so `position: sticky`
+                // descendants inside the widget anchor to the page / iframe
+                // scroll container instead of being trapped by this bezel.
+                // See memory/project_overflow_clip_for_sticky.md
+                overflow: 'clip', display: 'flex', flexDirection: 'column',
                 boxShadow: '0 22px 48px rgba(15,23,42,0.30), inset 0 0 0 1px rgba(255,255,255,0.06)',
               }}
             >
@@ -1136,7 +1140,11 @@ export default function PreviewPane({
                 height: widgetSize ? widgetSize.h : undefined,
                 maxHeight: widgetSize ? widgetSize.h : 900,
                 margin: '0 auto',
-                borderRadius: 16, overflow: 'hidden', background: '#fff',
+                // P0 sticky fix — `clip` not `hidden` so `position: sticky`
+                // descendants inside the widget anchor to the page / iframe
+                // scroll container instead of being trapped by this bezel.
+                // See memory/project_overflow_clip_for_sticky.md
+                borderRadius: 16, overflow: 'clip', background: '#fff',
                 border: `1px solid ${p.colors.borderLight}`,
                 display: 'flex', flexDirection: 'column',
                 boxShadow: '0 20px 48px rgba(15,23,42,0.16), 0 2px 8px rgba(15,23,42,0.06)',
