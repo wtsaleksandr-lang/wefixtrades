@@ -48,7 +48,7 @@ import type {
   PreviewDevice, ShellHeader, ShellResults, ShellStyle,
   ShellSettings, ShellNumberFormat, PublicFieldType,
 } from './types';
-import { DEFAULT_SHELL_NUMBER_FORMAT } from './types';
+import { DEFAULT_SHELL_NUMBER_FORMAT, DEVICE_PRESET_WIDTH } from './types';
 
 const p = platformTheme;
 
@@ -218,6 +218,10 @@ export default function PreviewPane({
   // discoverable. Form inputs inside the widget remain interactive.
   const paneRef = useRef<HTMLDivElement | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
+  // BH-1 — ref to the actual bezel element so fit-to-canvas can measure
+  // its natural (unscaled) size. Wired to whichever bezel branch renders
+  // (desktop / mobile) via a combined ref-callback.
+  const bezelMeasureRef = useRef<HTMLDivElement | null>(null);
   const [widgetOffset, setWidgetOffset] = useState<WidgetOffset>(() => loadWidgetOffset(device));
   // BD-3b — explicit widget size override (null = natural / bezel default).
   const [widgetSize, setWidgetSize] = useState<WidgetSize | null>(() => loadWidgetSize(device));
@@ -415,25 +419,62 @@ export default function PreviewPane({
   const clampZoom = useCallback((n: number) => {
     return Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, Math.round(n * 100) / 100));
   }, []);
-  const zoomIn = useCallback(() => setZoom((z) => clampZoom(z + ZOOM_STEP)), [clampZoom]);
-  const zoomOut = useCallback(() => setZoom((z) => clampZoom(z - ZOOM_STEP)), [clampZoom]);
-  const zoomReset = useCallback(() => setZoom(1.0), []);
-  const zoomFit = useCallback(() => {
+
+  // BH-1 — track whether the user has explicitly set zoom (via +/-/wheel/
+  // keyboard/pinch/100% button). When TRUE, the auto-fit ResizeObserver
+  // backs off so we don't fight the user. Clicking the Fit button (or
+  // switching device preset) clears the lock so auto-fit takes over again.
+  // Lives in a ref because it's a write-from-everywhere flag that must not
+  // trigger renders.
+  const userZoomLockedRef = useRef(false);
+  const setZoomManual = useCallback((updater: number | ((z: number) => number)) => {
+    userZoomLockedRef.current = true;
+    if (typeof updater === 'function') setZoom((z) => clampZoom(updater(z)));
+    else setZoom(clampZoom(updater));
+  }, [clampZoom]);
+
+  const zoomIn = useCallback(() => setZoomManual((z) => z + ZOOM_STEP), [setZoomManual]);
+  const zoomOut = useCallback(() => setZoomManual((z) => z - ZOOM_STEP), [setZoomManual]);
+  const zoomReset = useCallback(() => setZoomManual(1.0), [setZoomManual]);
+
+  /**
+   * BH-1 — compute the zoom that makes the entire bezel mockup fit visible
+   * in the pane without scroll. Reads the pane's clientWidth/clientHeight
+   * and the bezel's natural (unscaled) dimensions, then picks
+   *   min(paneW / mockupW, paneH / mockupH) * 0.95
+   * for a 5% breathing-room pad. Modelled on Figma / Webflow / Builder.io's
+   * "Fit content" behaviour. The Fit button calls this with
+   * `clearLock=true`; the ResizeObserver below calls it without clearing
+   * so user-set zoom is preserved.
+   */
+  const computeFitZoom = useCallback((): number | null => {
     const pane = paneRef.current;
-    const stage = stageRef.current;
-    if (!pane || !stage) { setZoom(1.0); return; }
-    // Reset zoom temporarily to measure natural size.
-    const wasZoom = zoom;
-    stage.style.transform = `translate(${widgetOffset.x}px, ${widgetOffset.y}px)`;
-    const stageRect = stage.getBoundingClientRect();
-    const paneRect = pane.getBoundingClientRect();
-    const naturalW = stageRect.width / wasZoom;
-    const naturalH = stageRect.height / wasZoom;
-    // Pad 48px breathing room on each side.
-    const fitW = (paneRect.width - 96) / naturalW;
-    const fitH = (paneRect.height - 96) / naturalH;
-    setZoom(clampZoom(Math.min(fitW, fitH)));
-  }, [zoom, widgetOffset.x, widgetOffset.y, clampZoom]);
+    const bezel = bezelMeasureRef.current;
+    if (!pane || !bezel) return null;
+    // Measure the natural (unscaled) dimensions of the bezel by dividing
+    // out the current zoom — getBoundingClientRect returns post-transform
+    // dimensions; clientWidth/clientHeight on the bezel itself sidesteps
+    // the parent's `scale()` because clientWidth ignores transforms.
+    const naturalW = bezel.clientWidth;
+    const naturalH = bezel.clientHeight;
+    if (naturalW <= 0 || naturalH <= 0) return null;
+    const paneW = pane.clientWidth;
+    const paneH = pane.clientHeight;
+    if (paneW <= 0 || paneH <= 0) return null;
+    // 5% padding on each axis (industry standard — Figma uses ~10%, Webflow
+    // ~5%, Builder.io ~5%).
+    const fit = Math.min(paneW / naturalW, paneH / naturalH) * 0.95;
+    return clampZoom(fit);
+  }, [clampZoom]);
+
+  // BH-1 — Fit button + device-preset switch + initial mount path. Resets
+  // the manual-zoom lock so subsequent container resizes can keep the
+  // mockup fitted.
+  const fitToCanvas = useCallback(() => {
+    userZoomLockedRef.current = false;
+    const next = computeFitZoom();
+    if (next != null) setZoom(next);
+  }, [computeFitZoom]);
 
   // Ctrl/⌘ + wheel = zoom (anchored at cursor). Without modifier, scroll
   // passes through to the pane. Pinch on Mac trackpads fires wheel with
@@ -445,11 +486,12 @@ export default function PreviewPane({
       if (!(e.ctrlKey || e.metaKey)) return;
       e.preventDefault();
       const delta = e.deltaY;
-      setZoom((z) => clampZoom(z - Math.sign(delta) * ZOOM_STEP));
+      // BH-1 — wheel-zoom counts as manual.
+      setZoomManual((z) => z - Math.sign(delta) * ZOOM_STEP);
     };
     pane.addEventListener('wheel', onWheel, { passive: false });
     return () => pane.removeEventListener('wheel', onWheel);
-  }, [clampZoom]);
+  }, [setZoomManual]);
 
   // Ctrl/⌘ +/-/0 keyboard shortcuts. Skip when typing in an input so we
   // don't fight native browser zoom inside text fields.
@@ -497,7 +539,8 @@ export default function PreviewPane({
       e.preventDefault();
       const d = dist(e.touches[0], e.touches[1]);
       const ratio = d / pinchStartDist;
-      setZoom(clampZoom(pinchStartZoom * ratio));
+      // BH-1 — pinch-zoom counts as manual.
+      setZoomManual(pinchStartZoom * ratio);
     };
     const onTouchEnd = (e: TouchEvent) => {
       if (e.touches.length < 2) pinchStartDist = 0;
@@ -510,7 +553,56 @@ export default function PreviewPane({
       pane.removeEventListener('touchmove', onTouchMove);
       pane.removeEventListener('touchend', onTouchEnd);
     };
-  }, [zoom, clampZoom]);
+  }, [zoom, setZoomManual]);
+
+  /* BH-1 — Fit-to-canvas auto-zoom (Figma / Webflow / Builder.io pattern).
+   *
+   * On first load AND whenever the pane container resizes, recompute the
+   * zoom that makes the entire mockup fit visible without scroll. The
+   * `userZoomLockedRef` guard ensures we don't fight a user who has
+   * manually zoomed in — only resizes + device-preset switches + explicit
+   * Fit-button clicks override their pick. Implementation uses the native
+   * ResizeObserver Web API — no new dependencies. Reduced-motion users
+   * get the same fit (no animated transition needed; CSS already disables
+   * the stage's transform-transition under prefers-reduced-motion).
+   */
+  useLayoutEffect(() => {
+    const pane = paneRef.current;
+    if (!pane) return;
+    // Initial fit — defer one frame so the bezel has laid out at the
+    // current device preset width.
+    let raf = requestAnimationFrame(() => {
+      const next = computeFitZoom();
+      if (next != null) setZoom(next);
+    });
+    const ro = new ResizeObserver(() => {
+      if (userZoomLockedRef.current) return;
+      // Coalesce multiple observer ticks into a single fit per frame.
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        const next = computeFitZoom();
+        if (next != null) setZoom(next);
+      });
+    });
+    ro.observe(pane);
+    if (bezelMeasureRef.current) ro.observe(bezelMeasureRef.current);
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+    };
+  // We want this to re-run whenever the device preset changes (so the
+  // observer reattaches to the freshly-mounted bezel) or the widgetSize
+  // override changes (resize handles dragged → natural size shifted).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [device, widgetSize, computeFitZoom]);
+
+  // BH-1 — On device-preset switch, clear the manual-zoom lock so the
+  // fresh preset gets auto-fitted regardless of the user's prior zoom.
+  // The ResizeObserver above handles the actual re-fit (the bezel's
+  // clientWidth changes on preset switch → observer ticks → fit fires).
+  useEffect(() => {
+    userZoomLockedRef.current = false;
+  }, [device]);
 
   // Background click — deselect the widget so resize handles go away.
   const onPaneBackgroundPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
@@ -752,43 +844,22 @@ export default function PreviewPane({
   };
 
   // Wave L M1 — auto-zoom-out on mobile so the whole mockup fits.
+  //
+  // BH-1 — superseded by the universal fit-to-canvas auto-zoom above. The
+  // previous implementation here applied a SECOND `transform: scale(…)`
+  // directly on the bezel element, which compounded with the stage-level
+  // BD-3b zoom and produced incorrect coordinate math for the drag-handle
+  // / resize-handle gestures. The bezelScaleRef is kept (still wired as a
+  // ref-callback for backwards compatibility) but the effect is a no-op —
+  // any leftover inline `transform: scale()` from a prior render is
+  // cleared on mount so the stage's zoom is the sole source of truth.
   const bezelScaleRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
-    if (device !== 'mobile') {
-      if (bezelScaleRef.current) {
-        bezelScaleRef.current.style.transform = '';
-      }
-      return;
+    if (bezelScaleRef.current) {
+      bezelScaleRef.current.style.transform = '';
+      bezelScaleRef.current.style.transformOrigin = '';
     }
-    const calc = () => {
-      const wrap = bezelScaleRef.current;
-      if (!wrap) return;
-      const pane = wrap.closest('.qq-editor-right') as HTMLElement | null
-        || wrap.parentElement;
-      if (!pane) return;
-      const available = pane.clientHeight - 32;
-      wrap.style.transform = '';
-      const natural = wrap.scrollHeight;
-      if (natural <= 0 || available <= 0) return;
-      let scale = available / natural;
-      if (scale >= 1) {
-        wrap.style.transform = '';
-        return;
-      }
-      scale = Math.max(0.6, Math.min(1, scale));
-      wrap.style.transformOrigin = 'top center';
-      wrap.style.transform = `scale(${scale.toFixed(3)})`;
-    };
-    const raf = requestAnimationFrame(calc);
-    const ro = new ResizeObserver(() => requestAnimationFrame(calc));
-    if (bezelScaleRef.current) ro.observe(bezelScaleRef.current);
-    window.addEventListener('resize', calc);
-    return () => {
-      cancelAnimationFrame(raf);
-      ro.disconnect();
-      window.removeEventListener('resize', calc);
-    };
-  }, [device, fields, calculations]);
+  }, [device]);
 
   // Wave L E5 — editable preview header title.
   const [titleEditing, setTitleEditing] = useState(false);
@@ -1050,14 +1121,18 @@ export default function PreviewPane({
         >
           {device === 'mobile' ? (
             <div
-              ref={(el) => { setBezelRef(el); bezelScaleRef.current = el; }}
+              ref={(el) => { setBezelRef(el); bezelScaleRef.current = el; bezelMeasureRef.current = el; }}
               data-testid="preview-bezel-mobile"
               className={`qq-bezel qq-bezel--mobile${isOver ? ' is-drop-target' : ''}${widgetSelected ? ' is-selected' : ''}`}
               onClick={onBezelClick}
               style={{
                 position: 'relative',
-                width: widgetSize ? widgetSize.w : '100%',
-                maxWidth: widgetSize ? widgetSize.w : 390,
+                /* BH-1 — device-preset switcher pins the mobile mockup to
+                 * 375 px (DEVICE_PRESET_WIDTH.mobile) when there's no
+                 * user-dragged resize override. Fit-to-canvas auto-zoom
+                 * scales this to the available pane size. */
+                width: widgetSize ? widgetSize.w : DEVICE_PRESET_WIDTH.mobile,
+                maxWidth: widgetSize ? widgetSize.w : DEVICE_PRESET_WIDTH.mobile,
                 height: widgetSize ? widgetSize.h : undefined,
                 maxHeight: widgetSize ? widgetSize.h : 780,
                 flexShrink: 0, margin: '0 auto',
@@ -1129,14 +1204,20 @@ export default function PreviewPane({
             </div>
           ) : (
             <div
-              ref={setBezelRef}
-              data-testid="preview-bezel-desktop"
+              ref={(el) => { setBezelRef(el); bezelMeasureRef.current = el; }}
+              data-testid={`preview-bezel-${device}`}
               className={`qq-bezel qq-bezel--desktop${isOver ? ' is-drop-target' : ''}${widgetSelected ? ' is-selected' : ''}`}
               onClick={onBezelClick}
               style={{
                 position: 'relative',
-                width: widgetSize ? widgetSize.w : '100%',
-                maxWidth: widgetSize ? widgetSize.w : 880,
+                /* BH-1 — device-preset switcher: desktop pins the mockup
+                 * to 1280 px and tablet to 768 px (DEVICE_PRESET_WIDTH).
+                 * Fit-to-canvas auto-zoom scales this to fit the available
+                 * pane width — without the preset the mockup was capped at
+                 * 880 px which lost the responsive-breakpoint feel users
+                 * expect from Figma / Webflow / Builder.io. */
+                width: widgetSize ? widgetSize.w : DEVICE_PRESET_WIDTH[device],
+                maxWidth: widgetSize ? widgetSize.w : DEVICE_PRESET_WIDTH[device],
                 height: widgetSize ? widgetSize.h : undefined,
                 maxHeight: widgetSize ? widgetSize.h : 900,
                 margin: '0 auto',
@@ -1266,13 +1347,16 @@ export default function PreviewPane({
           <ZoomIn size={14} aria-hidden="true" />
         </button>
         <span className="qq-zoom-sep" aria-hidden="true" />
+        {/* BH-1 — Fit button. Re-fits the mockup to the canvas and clears
+         *  the manual-zoom lock so subsequent resizes keep it fitted
+         *  (industry-standard Figma / Webflow / Builder.io behaviour). */}
         <button
           type="button"
           className="qq-zoom-btn"
-          onClick={zoomFit}
+          onClick={fitToCanvas}
           data-testid="preview-zoom-fit"
-          aria-label="Fit to screen"
-          title="Fit to screen"
+          aria-label="Fit to canvas"
+          title="Fit to canvas"
         >
           <Maximize2 size={14} aria-hidden="true" />
         </button>

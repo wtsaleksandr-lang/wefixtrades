@@ -13,7 +13,7 @@
 // All testids stable: quotequick-close, preview-device-desktop, preview-device-mobile.
 // Wave J adds: editor-theme-toggle. BD-3a adds: editor-undo, editor-redo.
 
-import { HelpCircle, Monitor, Moon, Redo2, Smartphone, Sun, Undo2, X } from 'lucide-react';
+import { HelpCircle, Monitor, Moon, Redo2, Smartphone, Sun, Tablet, Undo2, X } from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
 import type { EditorTheme, PreviewDevice } from './types';
 
@@ -95,16 +95,26 @@ export default function EditorTopBar({
 
       <div className="qq-editor-spacer" aria-hidden="true" />
 
+      {/* BH-1 — device preset switcher. Three presets (1280 / 768 / 375)
+       *  match Figma / Webflow / Builder.io. Active preset gets a brand-blue
+       *  background. Persisted in sessionStorage in WizardShell. The whole
+       *  toggle is hidden on phone-sized wizard windows (≤480px) — see CSS
+       *  in WizardShell — since a user editing on their phone doesn't need a
+       *  device-preset switcher (they ARE on a phone). */}
       <div className="qq-editor-device" data-testid="editor-device-toggle">
-        {([['desktop', Monitor], ['mobile', Smartphone]] as const).map(([mode, Icon]) => (
+        {([
+          ['desktop', Monitor, 'Desktop'],
+          ['tablet', Tablet, 'Tablet'],
+          ['mobile', Smartphone, 'Mobile'],
+        ] as const).map(([mode, Icon, label]) => (
           <button
             key={mode}
             type="button"
             data-testid={`preview-device-${mode}`}
             onClick={() => onDeviceChange(mode)}
-            aria-label={`${mode} preview`}
+            aria-label={`${label} preview`}
             aria-pressed={device === mode}
-            title={`${mode === 'desktop' ? 'Desktop' : 'Mobile'} preview`}
+            title={`${label} preview`}
             style={{ background: device === mode ? p.colors.accentLighter : 'transparent' }}
           >
             <Icon

@@ -25,7 +25,30 @@ export const EDITOR_TABS: ReadonlyArray<{ id: EditorTab; label: string }> = [
   { id: 'install', label: 'Install' },
 ];
 
-export type PreviewDevice = 'desktop' | 'mobile';
+/**
+ * BH-1 — wizard preview device preset. `tablet` was added alongside the
+ * device-preset switcher in EditorTopBar; the canvas wrapper fixes the widget
+ * preview width to 1280 / 768 / 375 px respectively. Persisted in
+ * sessionStorage under `qq-wizard-device-preset` so the user's pick survives
+ * tab navigation inside the editor.
+ */
+export type PreviewDevice = 'desktop' | 'tablet' | 'mobile';
+
+/** BH-1 — fixed widget-mockup width per device preset. The wizard canvas
+ *  wrapper renders the QuoteWidget at this width; fit-to-canvas auto-zoom
+ *  then scales it to the available pane size. Matches industry-standard
+ *  Figma / Webflow / Builder.io presets. */
+export const DEVICE_PRESET_WIDTH: Record<PreviewDevice, number> = {
+  desktop: 1280,
+  tablet: 768,
+  mobile: 375,
+};
+
+/** BH-1 — sessionStorage key for the device preset. Lives in sessionStorage
+ *  so the pick is per-tab (multiple browser tabs editing different
+ *  calculators don't collide) but survives the user navigating between
+ *  Build / Style / Settings / Install tabs. */
+export const DEVICE_PRESET_STORAGE_KEY = 'qq-wizard-device-preset';
 
 /**
  * The 6 public field-type slots in the Build > Fields > Add picker.
