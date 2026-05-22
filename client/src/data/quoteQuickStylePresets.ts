@@ -189,14 +189,21 @@ export const QUOTEQUICK_STYLE_PRESETS: ReadonlyArray<QuoteQuickStylePreset> = [
     },
   },
   {
+    // BD-3e Fix 2 — `resultsBg` was `#cffafe` (pastel cyan, starts with
+    // `c`). AdvancedCalculator.applyStyleOverrides flags only first-char
+    // `e`/`f` hexes as "light", so Coastal's resultsBg fell through to the
+    // dark branch and the headline price rendered white instead of the
+    // dark-green `text` token the thumbnail advertises. Nudging the
+    // resultsBg one step lighter (`#e3fafe`) keeps the soft-sky look while
+    // letting the existing light-detect pass so `resultText = text`.
     id: 'coastal',
     name: 'Coastal',
     description: 'Soft-sky surface, deep-teal accent, breezy feel.',
     style: {
       accent: '#0d9488',
       background: '#ecfeff',
-      text: '#0f3a3e',
-      resultsBg: '#cffafe',
+      text: '#0f5132',
+      resultsBg: '#e3fafe',
       secondary: '#0891b2',
       surface: '#ffffff',
       border: '#a5f3fc',
