@@ -35,7 +35,11 @@ export const SLIDER_STEP_META: Record<Exclude<SliderStepKey, null>, {
   missedCalls: {
     title: 'How many calls do you miss per week?',
     helper: 'Include after-hours, weekends, and busy periods when no one picks up.',
-    cue: 'Estimated number of calls you miss per month. If unsure, use 10-30% of your total inbound.',
+    // BG-7 Item 2 — reconciled with the slider label "Missed calls per week"
+    // (BG-5 originally said "per month" which contradicted the underlying
+    // multiplication math; changing the label would require also changing
+    // the math, so the cue copy was switched to match the label instead).
+    cue: 'Estimated number of calls you miss per week. If unsure, use 10-30% of your total inbound.',
   },
   closeRate: {
     title: 'What’s your close rate on answered calls?',

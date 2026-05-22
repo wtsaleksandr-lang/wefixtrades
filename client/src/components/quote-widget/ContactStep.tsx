@@ -146,6 +146,17 @@ interface Props {
   /** BD-2c — fired when the user picks a Places suggestion. Used by the
    *  result-panel peer-anchor line (needs ZIP). */
   onAddressSelected?: (selection: AddressSelection) => void;
+  /**
+   * BG-7 Item 6 — owner override for the soft-CTA "Email me this quote"
+   * button. Sanitized HTML; falls back to the default copy when absent /
+   * empty. AdvancedCalculator passes the sanitized value down — this
+   * component does NOT sanitize again (single source of truth, the value
+   * is already safe).
+   */
+  emailQuoteLabelHtml?: string;
+  /** BG-7 Item 6 — owner override for the hard-CTA "Book a consultation"
+   *  / "Email the team" button. Same shape as `emailQuoteLabelHtml`. */
+  bookSlotLabelHtml?: string;
 }
 
 type Status = 'idle' | 'sending' | 'sent' | 'error';
@@ -159,6 +170,7 @@ export default function ContactStep({
   onChange, onEmailQuoteSent, onBookingRequested,
   requireAddress = false, initialAddress = '', serviceArea,
   onAddressSelected,
+  emailQuoteLabelHtml, bookSlotLabelHtml,
 }: Props) {
   const [name, setName] = useState(initialName);
   const [email, setEmail] = useState(initialEmail);
@@ -382,7 +394,12 @@ export default function ContactStep({
             cursor: ready && status !== 'sending' ? 'pointer' : 'not-allowed',
           }}
         >
-          {status === 'sending' ? 'Sending…' : 'Email me this quote'}
+          {/* BG-7 Item 6 — owner override (sanitized HTML) or default copy. */}
+          {status === 'sending'
+            ? 'Sending…'
+            : emailQuoteLabelHtml
+              ? <span dangerouslySetInnerHTML={{ __html: emailQuoteLabelHtml }} />
+              : 'Email me this quote'}
           {status !== 'sending' && <span style={{ fontSize: 16 }}>→</span>}
         </button>
 
@@ -403,7 +420,10 @@ export default function ContactStep({
               cursor: ready && status !== 'sending' ? 'pointer' : 'not-allowed',
             }}
           >
-            {hardCtaLabel}
+            {/* BG-7 Item 6 — owner override (sanitized HTML) or default copy. */}
+            {bookSlotLabelHtml
+              ? <span dangerouslySetInnerHTML={{ __html: bookSlotLabelHtml }} />
+              : hardCtaLabel}
           </button>
         )}
 

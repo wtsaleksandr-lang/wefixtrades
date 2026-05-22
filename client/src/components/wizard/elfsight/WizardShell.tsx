@@ -37,6 +37,8 @@ import {
   buildBlankPreviewConfig, getTemplatePreset, deriveStyleFromCategory,
   type TemplateField, type TemplateCalculation, type TemplateConfig,
   type TemplateTiered,
+  type TrustBadge,
+  type TemplateStep,
 } from '@shared/templatePresets';
 import AIBubble from './AIBubble';
 import EditorTopBar from './EditorTopBar';
@@ -478,6 +480,21 @@ export default function WizardShell({ embed = false }: Props) {
     setState((s) => ({ ...s, tiered: next }));
   }, []);
 
+  // BG-7 Item 1 — trust badges (owner-edited). When the new array is empty
+  // the slot is cleared so the renderer falls back to the template seed
+  // (which is also what an unset value means at server-side persistence).
+  const setTrustBadges = useCallback((next: TrustBadge[]) => {
+    setState((s) => ({ ...s, trustBadges: next.length === 0 ? undefined : next }));
+  }, []);
+
+  // BG-7 Item 4 — owner-edited step content. Only mutates the steps[]
+  // array — fields and other top-level template state stay untouched.
+  // BuildTab's StepContentPanel only renders the editor when the array
+  // is non-empty, so callers always pass a populated list.
+  const setSteps = useCallback((next: TemplateStep[]) => {
+    setState((s) => ({ ...s, steps: next }));
+  }, []);
+
   // W-AO-5 — `setResultCalc` was removed alongside the Build > Headline
   // result dropdown that consumed it. The Primary/Secondary segmented
   // control inside each CalculationRow already mutates
@@ -544,6 +561,16 @@ export default function WizardShell({ embed = false }: Props) {
         },
         resultCalcId: headlineCalc?.id,
         style: nextStyle,
+        // BG-7 Item 1 — seed the trust-badge editor from the template's
+        // pre-curated set. Owners can then add/remove/edit via StyleTab.
+        // Undefined when the template ships no badges (renderer hides the
+        // row in that case anyway).
+        trustBadges: preset.trustBadges ? preset.trustBadges.map((b) => ({ ...b })) : undefined,
+        // BG-7 Item 4 — seed step content from the template's explicit
+        // `steps[]`. Undefined when the template lets the renderer
+        // auto-derive — owners must define steps before adding
+        // descriptions (panel hides itself for the auto-derive case).
+        steps: preset.steps ? preset.steps.map((s) => ({ ...s, fields: [...s.fields] })) : undefined,
       };
     });
   }, []);
@@ -962,6 +989,11 @@ export default function WizardShell({ embed = false }: Props) {
                       onResultsChange={setResults}
                       activeTemplateId={state.activeTemplateId}
                       onApplyTemplate={applyTemplate}
+                      /* BG-7 Item 4 — per-step rich-text descriptions.
+                         The StepContentPanel renders only when the active
+                         template ships explicit `steps[]`. */
+                      steps={state.steps}
+                      onStepsChange={setSteps}
                     />
                   ) : activeTab === 'style' ? (
                     <StyleTab
@@ -984,6 +1016,10 @@ export default function WizardShell({ embed = false }: Props) {
                           ? getTemplatePreset(state.activeTemplateId)?.category
                           : undefined
                       }
+                      /* BG-7 Item 1 — trust-badge editor. Free-tier users
+                         see the 4 defaults read-only; Pro+ can edit. */
+                      trustBadges={state.trustBadges}
+                      onTrustBadgesChange={setTrustBadges}
                     />
                   ) : activeTab === 'settings' ? (
                     <SettingsTab
@@ -1073,6 +1109,11 @@ export default function WizardShell({ embed = false }: Props) {
                      active template preset (read-only — picking a template
                      re-applies it); tiered comes from the StyleTab toggle. */
                   tiered={state.tiered}
+                  /* BG-7 Item 1 — owner-edited trust badges. Seeded from
+                     the template on apply; live edits flow through. */
+                  trustBadges={state.trustBadges}
+                  /* BG-7 Item 4 — owner-edited step descriptions. */
+                  steps={state.steps}
                   category={
                     state.activeTemplateId
                       ? getTemplatePreset(state.activeTemplateId)?.category

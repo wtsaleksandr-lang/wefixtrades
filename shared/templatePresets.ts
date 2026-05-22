@@ -70,8 +70,23 @@ export type FieldType =
 
 export interface TemplateOption {
   id: string;
+  /**
+   * Short user-facing label. BG-7 Item 3 / 5 — when edited via the wizard's
+   * compact `RichTextField`, the value is sanitized HTML (the renderer
+   * sanitizes again on read; see `richTextSanitize.ts`). Plain text from
+   * older templates / non-rich callers keeps working — the sanitizer treats
+   * anything without HTML markup as text.
+   */
   label: string;
   value: number;
+  /**
+   * BG-7 Item 5 — optional rich-text description shown beneath the label.
+   * Sanitized HTML. Currently surfaced by the wizard's multi_select / radio
+   * / select option editors (i.e. add-on items + option pickers) so owners
+   * can attach a short blurb under each option. Absent → no second line
+   * renders.
+   */
+  description?: string;
   /** Wave W-R4 — optional image (data URL) for `image_choice` field cards. */
   image?: string;
   /**
@@ -165,6 +180,14 @@ export interface TemplateStep {
   label: string;
   /** Optional helper line shown beneath the label on each step. */
   help?: string;
+  /**
+   * BG-7 Item 4 — optional rich-text description (sanitized HTML) shown
+   * beneath the step title in the rendered widget. Distinct from `help` —
+   * which is a short single-line subtitle — this is owner-editable
+   * long-form explanatory copy. Absent on existing templates; new edits
+   * write via the wizard's content editor.
+   */
+  description?: string;
   /** Field ids included in this step. */
   fields: string[];
 }
@@ -3411,6 +3434,41 @@ export interface AdvStyle {
    * any owner can opt into the floating embed shape.
    */
   floatingLauncher?: AdvFloatingLauncher;
+
+  /**
+   * BG-7 Item 6 — per-template button-copy overrides. Every field optional;
+   * unset values fall back to the renderer's default copy ("Back" /
+   * "Continue" / "See my quote" / "Email me this quote" / "Book a
+   * consultation"). All values are sanitized HTML (compact RichTextField).
+   *
+   * Pro-tier — listed in `BRAND_STUDIO_STYLE_KEYS` so free-tier patches
+   * are stripped before persistence; the renderer also falls back to
+   * defaults when planTier is free (defense in depth).
+   */
+  buttonCopy?: AdvButtonCopy;
+}
+
+/**
+ * BG-7 Item 6 — per-template button-copy override slot. All five fields
+ * are optional; an absent / empty value means "use the renderer default".
+ *
+ * Values are stored as sanitized HTML and sanitized again on read — same
+ * pattern as the other RichTextField-backed slots (header.title,
+ * results.heading, option.label, step.description).
+ */
+export interface AdvButtonCopy {
+  /** Override for the "← Back" stepper button. */
+  back?: string;
+  /** Override for the primary "Continue" / "Next" stepper button. */
+  next?: string;
+  /** Override for the final-step "See my quote" advance button. */
+  submit?: string;
+  /** Override for the contact step's primary soft CTA (default
+   *  "Email me this quote"). */
+  emailQuote?: string;
+  /** Override for the contact step's hard CTA (default "Book a
+   *  consultation"). */
+  bookSlot?: string;
 }
 
 /** W-AO-6c — Brand Studio background mode. */
@@ -3631,6 +3689,9 @@ export const BRAND_STUDIO_STYLE_KEYS = [
   // surfaces that work for every tier (real-money flows are owned by
   // separate Stripe / Cal.com integrations).
   'branding',
+  // BG-7 Item 6 — per-template button-copy overrides. Pro-tier upsell;
+  // free-tier patches stripped before persistence so default copy stays.
+  'buttonCopy',
 ] as const;
 /**
  * BD-3m — Floating-launcher Pro-only NESTED keys. The enclosing
@@ -3694,7 +3755,10 @@ type AdvStyleOptionalOnly =
   // (stripped from free-tier patches by calculatorRoutes.ts as
   // `floatingLauncher.customIconUrl` / `floatingLauncher.label`). Absent
   // → inline embed (legacy behaviour).
-  | 'floatingLauncher';
+  | 'floatingLauncher'
+  // BG-7 Item 6 — per-template button-copy overrides. Pro-tier only;
+  // absent → renderer default copy.
+  | 'buttonCopy';
 
 export const DEFAULT_ADV_STYLE: Required<Omit<AdvStyle, AdvStyleOptionalOnly>> = {
   accent: '#0d3cfc',

@@ -578,6 +578,19 @@ export interface ShellState {
    * across template loads.
    */
   tiered?: TemplateTiered;
+  /**
+   * BG-7 Item 1 — owner-edited trust badge row. When the user applies a
+   * template, the wizard seeds this from `template.trustBadges`. The
+   * StyleTab Trust Badges editor mutates this slot directly.
+   */
+  trustBadges?: readonly import('@shared/templatePresets').TrustBadge[];
+  /**
+   * BG-7 Item 4 — owner-edited per-step content. Seeded from the active
+   * template's `steps[]` (when present); owner edits flow through the
+   * BuildTab "Step content" panel and propagate to the preview via
+   * PreviewPane.
+   */
+  steps?: import('@shared/templatePresets').TemplateStep[];
 }
 
 export const INITIAL_SHELL_STATE: ShellState = {

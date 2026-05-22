@@ -11,10 +11,11 @@
 
 import { useCallback, useRef } from 'react';
 import { platformTheme } from '@/theme/platformTheme';
-import type { TemplateField, TemplateCalculation } from '@shared/templatePresets';
+import type { TemplateField, TemplateCalculation, TemplateStep } from '@shared/templatePresets';
 import FieldsPanel from './FieldsPanel';
 import CalculationsPanel from './CalculationsPanel';
 import HeaderResultsPanel from './HeaderResultsPanel';
+import StepContentPanel from './StepContentPanel';
 import TemplateStrip, { type ApplyTemplatePayload } from './TemplateGallery';
 import FloatField from './FloatField';
 import type { ShellHeader, ShellResults } from './types';
@@ -40,6 +41,13 @@ interface Props {
   /** Wave H7. */
   activeTemplateId?: string;
   onApplyTemplate: (next: ApplyTemplatePayload) => void;
+  /**
+   * BG-7 Item 4 — explicit `steps[]` from the active template (seeded
+   * into shell state on apply). When undefined, the renderer auto-
+   * derives steps and the step-content editor stays hidden.
+   */
+  steps?: TemplateStep[];
+  onStepsChange?: (next: TemplateStep[]) => void;
 }
 
 // Max raw bytes accepted by the logo upload before we reject (1 MB). The
@@ -54,6 +62,7 @@ export default function BuildTab({
   header, onHeaderChange,
   results, onResultsChange,
   activeTemplateId, onApplyTemplate,
+  steps, onStepsChange,
 }: Props) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -146,6 +155,15 @@ export default function BuildTab({
         fields={fields}
         onChange={onCalculationsChange}
       />
+
+      {/* BG-7 Item 4 — per-step rich-text descriptions. Renders only
+         when the active template ships explicit `steps[]`. */}
+      {onStepsChange && steps && steps.length > 0 && (
+        <>
+          <div className="qq-build-divider" />
+          <StepContentPanel steps={steps} onChange={onStepsChange} />
+        </>
+      )}
 
       <div className="qq-build-divider" />
 

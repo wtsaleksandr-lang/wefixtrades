@@ -47,7 +47,9 @@ import type {
   AdvPremiumAnimations,
   AdvDeposit, AdvBooking, AdvBranding, AdvBookingSource,
   AdvFloatingLauncher, AdvFloatingLauncherPosition,
+  AdvButtonCopy,
   TemplateTiered, TemplateTier,
+  TrustBadge,
 } from '@shared/templatePresets';
 import {
   inferDerivedCategoryFromBgFrom,
@@ -56,6 +58,12 @@ import {
 } from '@shared/templatePresets';
 import FloatField from './FloatField';
 import InfoCue from './InfoCue';
+import RichTextField from './RichTextField';
+import {
+  Shield, ShieldCheck, CheckCircle, Award,
+  Star, ThumbsUp, BadgeCheck, Verified, ClipboardCheck, Clock,
+  Leaf, FileBadge, Plus, X as XIcon, ChevronUp, ChevronDown,
+} from 'lucide-react';
 import { useFoldablePanels } from './useFoldablePanels';
 import { QUOTEQUICK_STYLE_PRESETS } from '@/data/quoteQuickStylePresets';
 
@@ -102,6 +110,16 @@ interface Props {
   /** BD-2b — the active template's category — drives the default-on hint
    *  + the resolved fallback when `tiered` is undefined. */
   templateCategory?: string;
+  /**
+   * BG-7 Item 1 — trust badges editor. Plumbed in from WizardShell as a
+   * sibling slot to `style`, mirroring how `logo` rides alongside
+   * `style.logoPlacement`. Free-tier viewers see the 4 defaults from the
+   * template seed (read-only); Pro-tier callers get edit/add/remove
+   * affordances. When `onTrustBadgesChange` is undefined the section is
+   * not rendered at all.
+   */
+  trustBadges?: readonly TrustBadge[];
+  onTrustBadgesChange?: (next: TrustBadge[]) => void;
 }
 
 /** BD-2c — discrete values for the AI chat visibility toggle (Pro-tier). */
@@ -169,6 +187,7 @@ export default function StyleTab({
   style, onChange, logo, onLogoChange, planTier = 'free',
   stepLayout, onStepLayoutChange,
   tiered, onTieredChange, templateCategory,
+  trustBadges, onTrustBadgesChange,
 }: Props) {
   // W-AO-6c — Brand Studio is a Pro / Business upsell. Free users see the
   // controls (preview-only) so they understand the value; the section
@@ -1344,6 +1363,41 @@ export default function StyleTab({
           )}
         </div>
       </fieldset>
+
+      {/* ── BG-7 Item 1 — Trust badge editor ────────────────────────
+       *
+       * BF-8+9 (PR #498) pre-loaded 4 trust badges per template into
+       * `templatePresets.ts` but never shipped the owner-facing editor.
+       * This section closes that loop: owners can re-order, edit, add
+       * or remove badges via the inline editor below.
+       *
+       * Tier gating: Pro-only edits (`BRAND_STUDIO_STYLE_KEYS` doesn't
+       * cover trustBadges directly because they live on
+       * AdvancedConfigShape rather than AdvStyle — the gating happens
+       * here in the UI; free-tier users see the 4 defaults from the
+       * template seed but every editor control is disabled). */}
+      <TrustBadgesGroup
+        badges={trustBadges}
+        onChange={onTrustBadgesChange}
+        isProTier={isProTier}
+      />
+
+      {/* ── BG-7 Item 6 — Button copy override ──────────────────────
+       *
+       * Per-template overrides for the 5 widget action buttons (Back,
+       * Continue, See my quote, Email me, Book a consultation). All
+       * five fields are optional — an empty value falls back to the
+       * renderer's default copy. Compact RichTextField inputs so the
+       * section stays dense.
+       *
+       * Tier gating: Pro-only — listed in BRAND_STUDIO_STYLE_KEYS so
+       * free-tier patches are stripped before persistence. Free-tier
+       * owners see disabled inputs + a small PRO pill. */}
+      <ButtonCopyGroup
+        buttonCopy={style.buttonCopy}
+        onChange={(next) => patch({ buttonCopy: next })}
+        isProTier={isProTier}
+      />
 
       {/* ── W-AO-6c — Brand Studio (Pro) ────────────────────────────
        *
@@ -3512,5 +3566,321 @@ function GhostBanner({
       `}</style>
     </div>,
     host,
+  );
+}
+
+/* ─── BG-7 Item 1 — Trust Badges editor ─────────────────────────────
+ *
+ * Section title matches BD-3f section-title-in-container pattern (legend
+ * sits flush at the top of the fieldset, body padded below the hairline
+ * divider). Help cue uses BD-3h region="trust-strip" so the WidgetSchema
+ * diagram highlights the trust-strip slot where the badges render.
+ *
+ * Pro-tier gating: free users see the 4 defaults from the template seed
+ * but every editor control is disabled; Pro users can add (up to 8),
+ * remove, reorder and re-icon. The cap exists because the renderer's
+ * pill row starts wrapping past ~6-7 badges on a 480px viewport.
+ */
+const TRUST_ICON_OPTIONS: ReadonlyArray<{ id: TrustBadge['icon']; label: string; Icon: LucideIcon }> = [
+  { id: 'shield', label: 'Shield', Icon: Shield },
+  { id: 'shield-check', label: 'Shield Check', Icon: ShieldCheck },
+  { id: 'check-circle', label: 'Check Circle', Icon: CheckCircle },
+  { id: 'check-circle-2', label: 'Check Circle 2', Icon: CheckCircle2 },
+  { id: 'award', label: 'Award', Icon: Award },
+  { id: 'lock', label: 'Lock', Icon: Lock },
+  { id: 'star', label: 'Star', Icon: Star },
+  { id: 'thumbs-up', label: 'Thumbs Up', Icon: ThumbsUp },
+  { id: 'badge-check', label: 'Badge Check', Icon: BadgeCheck },
+  { id: 'verified', label: 'Verified', Icon: Verified },
+  { id: 'clipboard-check', label: 'Clipboard Check', Icon: ClipboardCheck },
+  { id: 'clock', label: 'Clock', Icon: Clock },
+  { id: 'leaf', label: 'Leaf', Icon: Leaf },
+  { id: 'file-badge', label: 'File Badge', Icon: FileBadge },
+];
+
+const TRUST_BADGE_MAX = 8;
+
+function TrustBadgesGroup({
+  badges, onChange, isProTier,
+}: {
+  badges: readonly TrustBadge[] | undefined;
+  onChange?: (next: TrustBadge[]) => void;
+  isProTier: boolean;
+}) {
+  // No editor wired in by the parent → don't render the section at all
+  // (back-compat for portal pages that haven't plumbed it through yet).
+  if (!onChange) return null;
+
+  const list = badges ?? [];
+  const canEdit = isProTier;
+  const canAdd = canEdit && list.length < TRUST_BADGE_MAX;
+
+  const update = (idx: number, next: Partial<TrustBadge>) => {
+    if (!canEdit) return;
+    const arr = [...list];
+    arr[idx] = { ...arr[idx], ...next } as TrustBadge;
+    onChange(arr);
+  };
+  const add = () => {
+    if (!canAdd) return;
+    onChange([...list, { label: 'New badge', icon: 'shield-check' }]);
+  };
+  const remove = (idx: number) => {
+    if (!canEdit) return;
+    onChange(list.filter((_, i) => i !== idx));
+  };
+  const move = (idx: number, dir: -1 | 1) => {
+    if (!canEdit) return;
+    const j = idx + dir;
+    if (j < 0 || j >= list.length) return;
+    const arr = [...list];
+    [arr[idx], arr[j]] = [arr[j], arr[idx]];
+    onChange(arr);
+  };
+
+  return (
+    <fieldset className="qq-style-group" data-testid="style-group-trust-badges">
+      <legend className="qq-style-legend">
+        Trust badges
+        {!canEdit && (
+          <span className="qq-bs-pill" aria-label="Pro plan feature">
+            <Sparkles size={10} aria-hidden="true" /> Pro
+          </span>
+        )}
+        <InfoCue
+          testid="style-section-trust-badges"
+          region="trust-strip"
+          text="Small pill row rendered between the widget title and the first step. Each badge has a short label and a Lucide icon. Pre-populated per category — Pro users can edit, reorder, add (up to 8 total) or remove."
+        />
+      </legend>
+      <div className="qq-style-group-body">
+        {!canEdit && (
+          <p className="qq-bs-sub-hint" data-testid="style-trust-badges-pro-hint">
+            Free tier displays the 4 default badges seeded by the template.
+            Upgrade to Pro to add, edit, reorder or remove.
+          </p>
+        )}
+        <div
+          className="qq-trust-badge-list"
+          data-testid="style-trust-badge-list"
+          style={{ display: 'flex', flexDirection: 'column', gap: 6 }}
+        >
+          {list.map((badge, i) => (
+            <div
+              key={`${badge.label}-${i}`}
+              className="qq-trust-badge-row"
+              data-testid={`style-trust-badge-row-${i}`}
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'minmax(0, 1.6fr) minmax(0, 0.9fr) auto auto auto',
+                gap: 6,
+                alignItems: 'center',
+                padding: 6,
+                background: '#fff',
+                border: `1px solid ${platformTheme.colors.borderLight}`,
+                borderRadius: 8,
+              }}
+            >
+              <RichTextField
+                label="Label"
+                htmlFor={`style-trust-badge-label-${i}`}
+                value={badge.label}
+                onChange={(next) => update(i, { label: next })}
+                testid={`style-trust-badge-label-${i}`}
+                compact
+              />
+              <select
+                className="premium-input"
+                aria-label="Badge icon"
+                data-testid={`style-trust-badge-icon-${i}`}
+                value={badge.icon}
+                onChange={(e) => update(i, { icon: e.target.value as TrustBadge['icon'] })}
+                disabled={!canEdit}
+                style={{ fontSize: 12, padding: '5px 8px' }}
+              >
+                {TRUST_ICON_OPTIONS.map((o) => (
+                  <option key={o.id} value={o.id}>{o.label}</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                aria-label={`Move badge ${i + 1} up`}
+                data-testid={`style-trust-badge-up-${i}`}
+                onClick={() => move(i, -1)}
+                disabled={!canEdit || i === 0}
+                style={trustBadgeIconBtn(canEdit && i > 0)}
+              >
+                <ChevronUp size={13} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                aria-label={`Move badge ${i + 1} down`}
+                data-testid={`style-trust-badge-down-${i}`}
+                onClick={() => move(i, 1)}
+                disabled={!canEdit || i === list.length - 1}
+                style={trustBadgeIconBtn(canEdit && i < list.length - 1)}
+              >
+                <ChevronDown size={13} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                aria-label={`Remove badge ${i + 1}`}
+                data-testid={`style-trust-badge-remove-${i}`}
+                onClick={() => remove(i)}
+                disabled={!canEdit}
+                style={{
+                  ...trustBadgeIconBtn(canEdit),
+                  color: canEdit ? platformTheme.colors.danger : platformTheme.colors.muted,
+                }}
+              >
+                <XIcon size={13} aria-hidden="true" />
+              </button>
+            </div>
+          ))}
+        </div>
+        <button
+          type="button"
+          aria-label="Add trust badge"
+          data-testid="style-trust-badge-add"
+          onClick={add}
+          disabled={!canAdd}
+          style={{
+            marginTop: 10,
+            display: 'inline-flex', alignItems: 'center', gap: 4,
+            padding: '6px 10px',
+            font: 'inherit', fontSize: 11.5, fontWeight: 700,
+            color: canAdd ? platformTheme.colors.accent : platformTheme.colors.muted,
+            background: canAdd ? platformTheme.colors.accentLighter : 'transparent',
+            border: `1px dashed ${canAdd ? platformTheme.colors.accent : platformTheme.colors.borderLight}`,
+            borderRadius: 7,
+            cursor: canAdd ? 'pointer' : 'not-allowed',
+          }}
+        >
+          <Plus size={12} aria-hidden="true" />
+          Add badge {list.length > 0 ? `(${list.length}/${TRUST_BADGE_MAX})` : ''}
+        </button>
+      </div>
+    </fieldset>
+  );
+}
+
+function trustBadgeIconBtn(active: boolean): React.CSSProperties {
+  return {
+    width: 22, height: 22, padding: 0,
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+    background: '#fff',
+    border: `1px solid ${platformTheme.colors.borderLight}`,
+    borderRadius: 6,
+    color: platformTheme.colors.muted,
+    cursor: active ? 'pointer' : 'not-allowed',
+    opacity: active ? 1 : 0.4,
+  };
+}
+
+/* ─── BG-7 Item 6 — Button copy override ────────────────────────────
+ *
+ * Section-title-in-container pattern (BD-3f). 5 compact RichTextField
+ * inputs for each button — Back, Continue, See my quote, Email me,
+ * Book a consultation. Placeholders show the renderer defaults so an
+ * empty value clearly signals "fall through to default".
+ *
+ * Pro-tier — listed in `BRAND_STUDIO_STYLE_KEYS`; free-tier patches
+ * stripped before persistence. Free-tier owners see disabled-looking
+ * inputs with a small PRO pill in the section header.
+ */
+function ButtonCopyGroup({
+  buttonCopy, onChange, isProTier,
+}: {
+  buttonCopy: AdvButtonCopy | undefined;
+  onChange: (next: AdvButtonCopy | undefined) => void;
+  isProTier: boolean;
+}) {
+  const current = buttonCopy ?? {};
+  const setField = (key: keyof AdvButtonCopy, value: string) => {
+    if (!isProTier) return;
+    const trimmed = value.trim();
+    const next: AdvButtonCopy = { ...current };
+    if (trimmed.length === 0) {
+      delete next[key];
+    } else {
+      next[key] = value;
+    }
+    // If every override is now empty, clear the slot entirely so the
+    // server-side strip is a no-op (and we don't ship an empty object).
+    if (Object.keys(next).length === 0) onChange(undefined);
+    else onChange(next);
+  };
+  return (
+    <fieldset className="qq-style-group" data-testid="style-group-button-copy">
+      <legend className="qq-style-legend">
+        Button copy
+        {!isProTier && (
+          <span className="qq-bs-pill" aria-label="Pro plan feature">
+            <Sparkles size={10} aria-hidden="true" /> Pro
+          </span>
+        )}
+        <InfoCue
+          testid="style-section-button-copy"
+          region="sticky-footer"
+          text="Override the wording on the widget's action buttons. Each field is optional — an empty value falls back to the default copy. Pro tier."
+        />
+      </legend>
+      <div className="qq-style-group-body">
+        {!isProTier && (
+          <p className="qq-bs-sub-hint" data-testid="style-button-copy-pro-hint">
+            Free tier uses the default copy ("Back", "Continue", "See my
+            quote", "Email me this quote", "Book a consultation"). Upgrade
+            to Pro to customise each button.
+          </p>
+        )}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <RichTextField
+            label="Back"
+            htmlFor="style-button-copy-back"
+            value={current.back ?? ''}
+            onChange={(next) => setField('back', next)}
+            placeholder="← Back"
+            testid="style-button-copy-back"
+            compact
+          />
+          <RichTextField
+            label="Continue / Next"
+            htmlFor="style-button-copy-next"
+            value={current.next ?? ''}
+            onChange={(next) => setField('next', next)}
+            placeholder="Continue"
+            testid="style-button-copy-next"
+            compact
+          />
+          <RichTextField
+            label="Submit (final step)"
+            htmlFor="style-button-copy-submit"
+            value={current.submit ?? ''}
+            onChange={(next) => setField('submit', next)}
+            placeholder="See my quote"
+            testid="style-button-copy-submit"
+            compact
+          />
+          <RichTextField
+            label="Email quote CTA"
+            htmlFor="style-button-copy-email-quote"
+            value={current.emailQuote ?? ''}
+            onChange={(next) => setField('emailQuote', next)}
+            placeholder="Email me this quote"
+            testid="style-button-copy-email-quote"
+            compact
+          />
+          <RichTextField
+            label="Book slot CTA"
+            htmlFor="style-button-copy-book-slot"
+            value={current.bookSlot ?? ''}
+            onChange={(next) => setField('bookSlot', next)}
+            placeholder="Book a consultation"
+            testid="style-button-copy-book-slot"
+            compact
+          />
+        </div>
+      </div>
+    </fieldset>
   );
 }
