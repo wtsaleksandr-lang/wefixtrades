@@ -335,8 +335,33 @@ export default function PreviewPane({
   // boxes from PreviewOverlay (via the data-preview-field-id attribute).
   const onBezelClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
-    // If the user clicked a real input/button/control, let it run.
-    if (target.closest('input, select, button, textarea, label, a, [role="slider"], [role="radio"], [role="checkbox"], [role="option"]')) {
+    const controlMatch = target.closest(
+      'input, select, button, textarea, label, a, [role="slider"], [role="radio"], [role="checkbox"], [role="option"]',
+    );
+
+    // BD-3a fix 4 — Dropdown (`<select>`) clicks used to bail here, which
+    // meant clicking the dropdown on the canvas never updated the left-pane
+    // selection (every other field type did). We now resolve the parent
+    // [data-colspan] cell FIRST and set selection before letting the native
+    // dropdown open. Slider/checkbox/radio/etc. interactions still bypass
+    // selection because their click is meaningful inside the widget; the
+    // dropdown is the only case where the user genuinely wants to jump
+    // between left-pane row and on-canvas rendering.
+    if (controlMatch) {
+      const isDropdown = controlMatch.tagName === 'SELECT';
+      if (isDropdown) {
+        const fieldCell = controlMatch.closest('[data-colspan]') as HTMLElement | null;
+        if (fieldCell && fieldCell.parentElement) {
+          const cells = Array.from(
+            fieldCell.parentElement.querySelectorAll<HTMLElement>('[data-colspan]'),
+          );
+          const idx = cells.indexOf(fieldCell);
+          if (idx >= 0 && idx < shellFields.length) {
+            selection.select({ kind: 'field', id: shellFields[idx].id });
+          }
+        }
+      }
+      // Let the native control open / focus normally.
       return;
     }
     // Results region — anywhere inside the result panel.

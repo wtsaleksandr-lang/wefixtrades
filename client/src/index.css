@@ -596,6 +596,69 @@
   background: #243149;
   border-color: var(--qq-border);
 }
+/* BD-3a fix 3 — dark-mode contrast for the calculation row.
+ *
+ * Alex reported "the font color is dark and the background is dark — means I
+ * can barely see it." The calc row's background flips to #243149 (dark navy)
+ * in dark mode (above), but the calc name, format badge and inner display
+ * panel still used the platformTheme's light-mode text/surface tokens, so
+ * dark heading text landed on the dark navy row. We force every text
+ * surface inside .qq-calc-row to a high-contrast near-white in dark mode,
+ * and lift the inner display panel to the standard --qq-surface so the
+ * grouped controls read as a discrete elevated block. */
+.qq-editor-shell[data-theme="dark"] .qq-calc-row-name,
+.qq-editor-shell[data-theme="dark"] .qq-calc-row-format {
+  color: var(--qq-text) !important;
+}
+.qq-editor-shell[data-theme="dark"] .qq-calc-row-body {
+  border-top-color: var(--qq-border);
+}
+.qq-editor-shell[data-theme="dark"] .qq-calc-display {
+  background: var(--qq-surface);
+  border-color: var(--qq-border);
+  color: var(--qq-text);
+}
+.qq-editor-shell[data-theme="dark"] .qq-calc-input {
+  background: #243149;
+  border-color: var(--qq-border);
+  color: var(--qq-text);
+}
+.qq-editor-shell[data-theme="dark"] .qq-calc-input::placeholder {
+  color: #64748B;
+}
+.qq-editor-shell[data-theme="dark"] .qq-calc-toggle {
+  background: #243149;
+  border-color: var(--qq-border);
+  color: var(--qq-text);
+}
+.qq-editor-shell[data-theme="dark"] .qq-calc-row-iconbtn {
+  background: #243149;
+  border-color: var(--qq-border);
+  color: var(--qq-muted);
+}
+.qq-editor-shell[data-theme="dark"] .qq-calc-row-iconbtn:hover:not(:disabled) {
+  color: var(--qq-text);
+}
+/* The Result-mode segmented control + every Label inside the calc display
+ * also need to flip — Label is rendered inline-styled in CalculationRow.tsx
+ * with color: p.colors.heading, so it lands as black on the dark panel. */
+.qq-editor-shell[data-theme="dark"] .qq-calc-display .qq-calc-seg {
+  background: #1a2438;
+  border-color: var(--qq-border);
+}
+.qq-editor-shell[data-theme="dark"] .qq-calc-display .qq-calc-seg-btn {
+  color: var(--qq-muted);
+}
+.qq-editor-shell[data-theme="dark"] .qq-calc-display .qq-calc-seg-btn.is-active {
+  color: #fff;
+}
+/* Inline-styled Label spans inside the calc display body get a dark-mode
+ * override via a selector targeting their immediate parent. The Label
+ * component uses a span with no class, so we lean on .qq-calc-display-row
+ * > span (the Label is always the first child). */
+.qq-editor-shell[data-theme="dark"] .qq-calc-display-row > span:first-child {
+  color: var(--qq-text) !important;
+}
 .qq-editor-shell[data-theme="dark"] .premium-input,
 .qq-editor-shell[data-theme="dark"] .qq-style-hex,
 .qq-editor-shell[data-theme="dark"] .qq-style-select,
@@ -702,11 +765,14 @@
   color: var(--qq-muted) !important;
 }
 
-/* Wave J — dotted-grid background on the live preview pane (item 6).
- * The dot colour adapts to the editor theme via --qq-dot. */
+/* Wave J — preview pane background (item 6).
+ *
+ * BD-3a fix 2 — the dotted-grid on .qq-editor-right has been removed in
+ * favour of the square 1px grid drawn directly on .qq-preview-pane (defined
+ * inside WizardShell.tsx's style block). The outer pane stays flat so the
+ * two patterns don't overlap and compete for attention. */
 .qq-editor-right {
-  background-image: radial-gradient(circle, var(--qq-dot, rgba(15,23,42,0.10)) 1px, transparent 1px);
-  background-size: 16px 16px;
+  background-color: transparent;
 }
 .qq-editor-shell[data-theme="dark"] .qq-editor-right {
   background-color: #0F172A;
