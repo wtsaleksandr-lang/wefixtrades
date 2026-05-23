@@ -102,7 +102,7 @@ A SaaS platform for home service / trade businesses. It provides embeddable calc
 ## Entry Points
 - Frontend entry: `client/src/App.tsx`, `client/index.html`
 - Backend entry: `server/index.ts`
-- Main config files: `package.json`, `drizzle.config.ts`, `vite.config.ts`, `tailwind.config.ts`
+- Main config files: `package.json`, `drizzle.config.dev.ts`, `vite.config.ts`, `tailwind.config.ts`
 
 ## Important Files
 - `package.json` — scripts, dependencies
@@ -111,7 +111,7 @@ A SaaS platform for home service / trade businesses. It provides embeddable calc
 - `server/storage.ts` — database access layer (IStorage interface + implementation)
 - `shared/schema.ts` — Drizzle table definitions and shared types
 - `client/src/App.tsx` — frontend router and page map
-- `drizzle.config.ts` — DB migration config
+- `drizzle.config.dev.ts` — DB migration config (dev-only; renamed from `drizzle.config.ts` to hide from Replit's deploy auto-push detector)
 
 ## Core Features
 - Feature 1: Embeddable quote calculators (configurable fields, slug-based public URLs)
