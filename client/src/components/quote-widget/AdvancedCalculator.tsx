@@ -67,6 +67,12 @@ import PeerAnchorLine from './PeerAnchorLine';
 // owner-configured heading/footer/title/subtitle copy. Defense-in-depth: the
 // wizard also sanitizes on write, so this is a second pass at render time.
 import { sanitizeRichHtml, richHtmlToPlainText } from '@/components/wizard/elfsight/richTextSanitize';
+// CONTRAST-1 — runtime contrast guard. Every text/background pair that
+// reaches the renderer is funneled through `guardTextColor` so the widget
+// is self-healing against bright-on-bright Brand Studio picks. The
+// original user-saved tokens are NOT mutated — only the final rendered
+// colour is corrected. See `client/src/lib/contrastGuard.ts`.
+import { guardTextColor } from '@/lib/contrastGuard';
 
 /**
  * BD-3d — owner-configured heading/footer/title/subtitle may be rich HTML
@@ -1747,6 +1753,41 @@ export default function AdvancedCalculator({
       ? 'clamp(22px, 4.6vw, 28px)'
       : 'clamp(26px, 5.5vw, 34px)';
 
+  // ── CONTRAST-1 — runtime contrast guard ──
+  // Resolve every text/background pair the renderer is about to paint
+  // through `guardTextColor`. Each call returns the original token when the
+  // pair already passes WCAG (the common case — themes are pre-vetted),
+  // and an auto-corrected hex when the pair fails. Iteration cap + safe
+  // fallbacks live inside the guard; here we just thread results into a
+  // derived `cc` theme that the JSX consumes in place of `c`.
+  //
+  // 7 guarded pairs:
+  //   1. resultsText   — result-panel headline + breakdown values
+  //   2. resultsMuted  — result-panel secondary copy / heading caption
+  //   3. ctaText       — primary CTA button label
+  //   4. headingText   — title bar / step heading
+  //   5. labelText     — field labels, group captions, hint copy
+  //   6. badgeText     — trust badge chip copy (over the widget surface)
+  //   7. footerText    — sticky bottom bar micro-summary / fold chevron
+  //
+  // BD-2b TierSelector + BD-2a sticky-bar already receive the guarded
+  // theme via `theme={cc}` below, so their tier-card text / footer copy
+  // inherits the corrected tokens transparently.
+  const guardedHeadlineText = bsResultPanel?.accentOverride ? rpAccent : c.resultText;
+  const cc: WidgetTheme = {
+    ...c,
+    // Result panel pairs — both critical-pair sites + headline emphasis.
+    resultText: guardTextColor(guardedHeadlineText, rpBg, 'resultsText', { largeText: true }),
+    resultMuted: guardTextColor(c.resultMuted, rpBg, 'resultsMuted'),
+    // Heading + field labels render on the outer card surface.
+    text: guardTextColor(c.text, c.surface, 'headingText'),
+    textBody: guardTextColor(c.textBody, c.surface, 'labelText'),
+    textMuted: guardTextColor(c.textMuted, c.surface, 'labelMuted'),
+  };
+  // CTA pair — `ctaBg` was just computed above; we re-derive the foreground
+  // so a custom CTA background still produces readable label copy.
+  const ctaFgGuarded = guardTextColor(ctaFg, ctaBg, 'ctaText', { largeText: true });
+
   return (
     <div
       className={widgetClass}
@@ -1870,7 +1911,7 @@ export default function AdvancedCalculator({
                 data-testid="advanced-title"
                 data-component-name="Title"
                 data-component-type="title"
-                style={{ fontSize: '17px', fontWeight: headingWeight, color: c.text, margin: 0, letterSpacing: '-0.01em', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                style={{ fontSize: '17px', fontWeight: headingWeight, color: cc.text, margin: 0, letterSpacing: '-0.01em', display: 'inline-flex', alignItems: 'center', gap: 6 }}
               >
                 {/* BD-2a / BD-1 — small category icon LEFT of the title text.
                     Sized 16–20px per the research punch list; derived from
@@ -1900,7 +1941,7 @@ export default function AdvancedCalculator({
                     style={{
                       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                       width: 18, height: 18, borderRadius: 4,
-                      color: c.textBody,
+                      color: cc.textBody,
                       opacity: 0.55,
                       transition: 'opacity 0.12s ease',
                     }}
@@ -1920,7 +1961,7 @@ export default function AdvancedCalculator({
             </div>
             {subtitle && (() => {
               const props = richTextRenderProps(subtitle);
-              const baseStyle = { fontSize: '13px', color: c.textBody, margin: '5px 0 0', textAlign: align, lineHeight: 1.5 } as React.CSSProperties;
+              const baseStyle = { fontSize: '13px', color: cc.textBody, margin: '5px 0 0', textAlign: align, lineHeight: 1.5 } as React.CSSProperties;
               if (props.__html) {
                 return (
                   <p
@@ -2006,7 +2047,7 @@ export default function AdvancedCalculator({
       <TrustBadgeRow
         badges={advanced.trustBadges}
         businessProfile={advanced.businessProfile}
-        theme={c}
+        theme={cc}
         fontFamily={fontFamily}
       />
       {/* BD-2a — stepper progress indicator. Rendered when the multi-step
@@ -2018,7 +2059,7 @@ export default function AdvancedCalculator({
         <CalculatorStepper
           steps={stepperList}
           current={stepIdx}
-          theme={c}
+          theme={cc}
           variant="bar"
         />
       )}
@@ -2075,7 +2116,7 @@ export default function AdvancedCalculator({
                 const styleProps = {
                   fontSize: 13,
                   lineHeight: 1.5,
-                  color: c.textBody,
+                  color: cc.textBody,
                   margin: '0 0 12px 0',
                 } as const;
                 return rp.__html
@@ -2107,7 +2148,7 @@ export default function AdvancedCalculator({
                     field={f}
                     value={answers[f.name]}
                     accent={accent}
-                    theme={c}
+                    theme={cc}
                     radiusPx={radiusInnerPx}
                     fieldStyle={fieldStyle}
                     fontFamily={fontFamily}
@@ -2146,7 +2187,7 @@ export default function AdvancedCalculator({
             style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}
           >
             <ContactStep
-              theme={c}
+              theme={cc}
               fontFamily={fontFamily}
               radiusPx={radiusInnerPx}
               calculatorId={analyticsCalcId}
@@ -2248,7 +2289,7 @@ export default function AdvancedCalculator({
               const props = richTextRenderProps(resultHeading);
               const baseStyle = {
                 position: 'relative' as const, zIndex: 1,
-                fontSize: '11px', fontWeight: 700, color: c.resultMuted,
+                fontSize: '11px', fontWeight: 700, color: cc.resultMuted,
                 textTransform: 'uppercase' as const, letterSpacing: '0.06em', margin: 0,
                 lineHeight: 1.3,
               };
@@ -2268,7 +2309,7 @@ export default function AdvancedCalculator({
                 baseQuote={animatedHeadline}
                 selectedIndex={selectedTierIndex}
                 onSelect={setSelectedTierIndex}
-                theme={c}
+                theme={cc}
                 fontFamily={fontFamily}
                 radiusPx={radiusInnerPx}
                 formatPrice={(value) =>
@@ -2291,7 +2332,9 @@ export default function AdvancedCalculator({
                 // Accent override only affects the headline value colour when
                 // an accentOverride is explicitly set (otherwise resultText
                 // wins so the contrast logic stays correct on tinted panels).
-                color: bsResultPanel?.accentOverride ? rpAccent : c.resultText,
+                // CONTRAST-1 — `cc.resultText` is the guarded form, derived
+                // from the accent-override-aware token + runtime contrast check.
+                color: cc.resultText,
                 margin: 0, paddingTop: 0,
                 fontFamily: eff.fontMono,
                 lineHeight: 1.18,
@@ -2322,7 +2365,7 @@ export default function AdvancedCalculator({
               <p
                 data-testid="advanced-result-caption"
                 style={{
-                  fontSize: '12px', color: c.resultMuted, margin: '4px 0 0',
+                  fontSize: '12px', color: cc.resultMuted, margin: '4px 0 0',
                   lineHeight: 1.5,
                 }}
               >
@@ -2337,7 +2380,7 @@ export default function AdvancedCalculator({
               calculatorId={analyticsCalcId}
               zip={inferredZip}
               baseQuote={typeof headline === 'number' ? headline : undefined}
-              theme={c}
+              theme={cc}
               fontFamily={fontFamily}
               brandBlue={accent}
             />
@@ -2362,15 +2405,15 @@ export default function AdvancedCalculator({
                     }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
-                      <span style={{ color: c.resultMuted }}>{cl.name}</span>
-                      <span style={{ fontWeight: 700, color: c.resultText, fontFamily: eff.fontMono }}>
+                      <span style={{ color: cc.resultMuted }}>{cl.name}</span>
+                      <span style={{ fontWeight: 700, color: cc.resultText, fontFamily: eff.fontMono }}>
                         {formatResult(values[cl.name] ?? 0, cl.format, advanced.numberFormat)}
                       </span>
                     </div>
                     {cl.caption && cl.caption.trim() !== '' && (
                       <span
                         data-testid={`advanced-breakdown-caption-${cl.id}`}
-                        style={{ fontSize: '11px', color: c.resultMuted, lineHeight: 1.4 }}
+                        style={{ fontSize: '11px', color: cc.resultMuted, lineHeight: 1.4 }}
                       >
                         {cl.caption}
                       </span>
@@ -2390,7 +2433,7 @@ export default function AdvancedCalculator({
                 source={bookingPreviewSource}
                 url={bookingPreviewUrl}
                 accent={accent}
-                theme={c}
+                theme={cc}
                 fontFamily={fontFamily}
                 radiusPx={radiusInnerPx}
               />
@@ -2398,7 +2441,7 @@ export default function AdvancedCalculator({
 
             {(() => {
               const props = richTextRenderProps(footnoteText);
-              const baseStyle = { fontSize: '11px', color: c.resultMuted, margin: '14px 0 0', lineHeight: 1.5 };
+              const baseStyle = { fontSize: '11px', color: cc.resultMuted, margin: '14px 0 0', lineHeight: 1.5 };
               if (props.__html) {
                 return <p style={baseStyle} dangerouslySetInnerHTML={{ __html: props.__html }} />;
               }
@@ -2415,7 +2458,7 @@ export default function AdvancedCalculator({
                 amount={depositAmount}
                 label={depositLabelText}
                 accent={accent}
-                theme={c}
+                theme={cc}
                 fontFamily={fontFamily}
                 radiusPx={radiusInnerPx}
                 currencyFormatter={(n) => formatResult(n, 'currency', advanced.numberFormat)}
@@ -2447,7 +2490,7 @@ export default function AdvancedCalculator({
                     onClick={() => setLeadView('form')}
                     style={{
                       width: '100%', height: '46px', borderRadius: radiusInnerPx, border: 'none',
-                      background: ctaBg, color: ctaFg, fontSize: '14px', fontWeight: 800,
+                      background: ctaBg, color: ctaFgGuarded, fontSize: '14px', fontWeight: 800,
                       cursor: 'pointer', fontFamily, letterSpacing: '0.01em',
                       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
                       boxShadow: '0 6px 16px rgba(0,0,0,0.18)',
@@ -2485,7 +2528,7 @@ export default function AdvancedCalculator({
                         display: 'inline-flex', alignItems: 'center', gap: 6,
                         padding: '6px 10px', marginBottom: '4px',
                         background: 'transparent',
-                        color: c.resultMuted,
+                        color: cc.resultMuted,
                         border: 'none',
                         fontSize: '13px', fontWeight: 600,
                         cursor: 'pointer', fontFamily,
@@ -2512,7 +2555,7 @@ export default function AdvancedCalculator({
                       }}
                       style={{
                         width: '100%', height: '44px', borderRadius: radiusInnerPx, border: 'none',
-                        background: ctaBg, color: ctaFg, fontSize: '14px', fontWeight: 800,
+                        background: ctaBg, color: ctaFgGuarded, fontSize: '14px', fontWeight: 800,
                         cursor: leadReady ? 'pointer' : 'default', opacity: leadReady ? 1 : 0.6,
                         fontFamily,
                       }}>
@@ -2532,7 +2575,7 @@ export default function AdvancedCalculator({
                       background: ctaBg, color: ctaFg, fontSize: '12px', fontWeight: 800,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}>✓</span>
-                    <span style={{ fontSize: '13px', fontWeight: 600, color: c.resultText }}>
+                    <span style={{ fontSize: '13px', fontWeight: 600, color: cc.resultText }}>
                       Thanks — we’ll be in touch shortly.
                     </span>
                   </div>
@@ -2564,7 +2607,7 @@ export default function AdvancedCalculator({
         })();
         return (
           <StickyActionBar
-            theme={c}
+            theme={cc}
             fontFamily={fontFamily}
             calculatorId={calculatorId}
             microSummary={microSummary}
@@ -2574,7 +2617,7 @@ export default function AdvancedCalculator({
             trustBlock={
               <TrustBlockUnderCTA
                 profile={advanced.businessProfile}
-                theme={c}
+                theme={cc}
                 fontFamily={fontFamily}
                 testid="trust-block-sticky"
               />
@@ -2583,13 +2626,13 @@ export default function AdvancedCalculator({
             // tier (locked via server-side strip + renderer fallback);
             // Pro+ can opt out via StyleTab → Branding section.
             footerSlot={showPoweredByBadge
-              ? <PoweredByWeFixTradesBadge theme={c} fontFamily={fontFamily} />
+              ? <PoweredByWeFixTradesBadge theme={cc} fontFamily={fontFamily} />
               : null}
           >
             <StepperControls
               current={stepIdx}
               total={stepperList.length}
-              theme={c}
+              theme={cc}
               radiusPx={radiusInnerPx}
               fontFamily={fontFamily}
               nextLabel={

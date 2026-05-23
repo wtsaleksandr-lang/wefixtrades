@@ -39,6 +39,11 @@ import {
   type ReactNode,
 } from 'react';
 import type { AdvPremiumAnimations } from '@shared/templatePresets';
+// CONTRAST-1 — runtime contrast guard. Used by CountUpNumber when a caller
+// supplies both a text colour and a container background; the displayed
+// value is wrapped in a span with a contrast-guarded foreground so the
+// caller can't accidentally render an unreadable pair.
+import { ensureReadableText } from '@/lib/contrastGuard';
 import './premiumAnimations.css';
 
 /* ─── Reduced-motion hook ───────────────────────────────────────────── */
@@ -451,6 +456,17 @@ interface CountUpNumberProps {
   durationMs?: number;
   /** Formatter applied to the live value. */
   format?: (n: number) => string;
+  /**
+   * CONTRAST-1 — optional foreground colour. When both `color` and
+   * `containerBg` are supplied, the renderer wraps the value in a span
+   * with the colour funneled through `ensureReadableText` so an
+   * unreadable pair is auto-corrected before paint. When omitted, the
+   * component renders as a bare fragment (legacy behaviour) and the
+   * caller's parent colour applies.
+   */
+  color?: string;
+  /** CONTRAST-1 — the immediate container background; pairs with `color`. */
+  containerBg?: string;
 }
 
 /**
@@ -458,11 +474,18 @@ interface CountUpNumberProps {
  * `useCountUp`. The AdvancedCalculator's existing useCountUp call is
  * unchanged — this is for future use (e.g. result-step micro-summary).
  * Pure presentational; no premium gating here — the caller decides.
+ *
+ * CONTRAST-1 — when the caller supplies both `color` and `containerBg`,
+ * the displayed value is wrapped in a span with a contrast-guarded
+ * foreground so a Brand Studio bright-on-bright pick can't render
+ * unreadable. Pure behaviour — no warning UI; the value simply paints.
  */
 export function CountUpNumber({
   value,
   durationMs = 800,
   format,
+  color,
+  containerBg,
 }: CountUpNumberProps) {
   const [display, setDisplay] = useState<number>(0);
   const fromRef = useRef<number>(0);
@@ -490,7 +513,17 @@ export function CountUpNumber({
     return () => cancelAnimationFrame(raf);
   }, [value, durationMs]);
 
-  return <>{format ? format(display) : Math.round(display).toString()}</>;
+  const rendered = format ? format(display) : Math.round(display).toString();
+  // CONTRAST-1 — when the caller threads both `color` and `containerBg`,
+  // funnel the foreground through `ensureReadableText` so an unreadable
+  // pair (e.g. a Brand-Studio-picked bright-on-bright) is auto-corrected
+  // before the value is painted. Falls back to a bare fragment when the
+  // caller doesn't opt in — preserves the legacy `<>{...}</>` behaviour.
+  if (color && containerBg) {
+    const safeColor = ensureReadableText(color, containerBg);
+    return <span style={{ color: safeColor }}>{rendered}</span>;
+  }
+  return <>{rendered}</>;
 }
 
 /* ─── Pulse-CTA helper ─────────────────────────────────────────────
