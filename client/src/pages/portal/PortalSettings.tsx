@@ -5,6 +5,7 @@ import { Loader2, Check, RefreshCw, KeyRound, AlertTriangle, Palette, X, Plus, B
 import PortalLayout from "@/components/portal/PortalLayout";
 import { useCopilotForm } from "@/context/CopilotFormContext";
 import { Switch } from "@/components/ui/switch";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import {
@@ -152,8 +153,29 @@ export default function PortalSettings() {
         </div>
 
         {isLoading && (
-          <div className="flex items-center justify-center h-48">
-            <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+          <div className="space-y-6" data-testid="settings-skeleton">
+            <div className="bg-white rounded-xl border border-gray-200 p-5">
+              <Skeleton className="h-4 w-24 mb-3" />
+              <div className="grid grid-cols-2 gap-4">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i}>
+                    <Skeleton className="h-3 w-20 mb-1.5" />
+                    <Skeleton className="h-4 w-32" />
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="bg-white rounded-xl border border-gray-200 p-5">
+              <Skeleton className="h-4 w-40 mb-4" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i}>
+                    <Skeleton className="h-3 w-20 mb-1.5" />
+                    <Skeleton className="h-9 w-full" />
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         )}
 
@@ -199,6 +221,7 @@ export default function PortalSettings() {
                     <label className={labelClass}>Contact Name</label>
                     <input
                       className={inputClass}
+                      placeholder="John's Plumbing"
                       value={form.contact_name}
                       onChange={(e) => setForm({ ...form, contact_name: e.target.value })}
                     />
@@ -216,6 +239,7 @@ export default function PortalSettings() {
                     <label className={labelClass}>Phone</label>
                     <input
                       className={inputClass}
+                      placeholder="+1 555 0123"
                       value={form.contact_phone}
                       onChange={(e) => setForm({ ...form, contact_phone: e.target.value })}
                     />
@@ -224,6 +248,7 @@ export default function PortalSettings() {
                     <label className={labelClass}>Website</label>
                     <input
                       className={inputClass}
+                      placeholder="https://example.com"
                       value={form.website_url}
                       onChange={(e) => setForm({ ...form, website_url: e.target.value })}
                     />

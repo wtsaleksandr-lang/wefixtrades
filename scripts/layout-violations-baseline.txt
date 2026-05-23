@@ -251,10 +251,10 @@ client/src/pages/marketing/template-detail.tsx:278:28	rule-c	size={11}
 client/src/pages/marketing/templates.tsx:101:17	rule-c	size={26}
 client/src/pages/marketing/templates.tsx:136:21	rule-c	size={9}
 client/src/pages/marketing/templates.tsx:505:45	rule-c	size={11}
-client/src/pages/portal/PortalBilling.tsx:132:24	rule-c	square w-9 h-9
-client/src/pages/portal/PortalBilling.tsx:143:24	rule-c	square w-9 h-9
-client/src/pages/portal/PortalBilling.tsx:154:24	rule-c	square w-9 h-9
-client/src/pages/portal/PortalBrandKitsPage.tsx:136:23	rule-c	size={10}
+client/src/pages/portal/PortalBilling.tsx:155:24	rule-c	square w-9 h-9
+client/src/pages/portal/PortalBilling.tsx:166:24	rule-c	square w-9 h-9
+client/src/pages/portal/PortalBilling.tsx:177:24	rule-c	square w-9 h-9
+client/src/pages/portal/PortalBrandKitsPage.tsx:140:23	rule-c	size={10}
 client/src/pages/portal/PortalChatWidgetSetup.tsx:243:19	rule-c	square w-9 h-9
 client/src/pages/portal/PortalCompetitors.tsx:165:18	rule-c	square w-12 h-12
 client/src/pages/portal/PortalContentPreferences.tsx:322:16	rule-c	square w-12 h-12
@@ -262,22 +262,22 @@ client/src/pages/portal/PortalOnboarding.tsx:427:5	rule-b	<div> contains 3 cues
 client/src/pages/portal/PortalOnboarding.tsx:428:12	rule-c	square w-12 h-12
 client/src/pages/portal/PortalRankFlow.tsx:519:14	rule-c	square w-14 h-14
 client/src/pages/portal/PortalRankFlow.tsx:520:21	rule-c	square w-7 h-7
-client/src/pages/portal/PortalReviews.tsx:102:14	rule-c	square w-9 h-9
-client/src/pages/portal/PortalReviews.tsx:372:24	rule-c	square w-12 h-12
-client/src/pages/portal/PortalReviews.tsx:971:46	rule-c	square w-1.5 h-1.5
+client/src/pages/portal/PortalReviews.tsx:106:14	rule-c	square w-9 h-9
+client/src/pages/portal/PortalReviews.tsx:377:24	rule-c	square w-12 h-12
+client/src/pages/portal/PortalReviews.tsx:976:46	rule-c	square w-1.5 h-1.5
 client/src/pages/portal/PortalReviewsSetup.tsx:154:17	rule-c	square w-12 h-12
 client/src/pages/portal/PortalServiceDetail.tsx:682:24	rule-c	square w-9 h-9
-client/src/pages/portal/PortalServices.tsx:123:22	rule-c	square w-9 h-9
-client/src/pages/portal/PortalSettings.tsx:1007:13	rule-c	square w-16 h-16
-client/src/pages/portal/PortalSettings.tsx:1012:16	rule-c	square w-16 h-16
-client/src/pages/portal/PortalSocialSync.tsx:153:19	rule-c	square w-10 h-10
-client/src/pages/portal/PortalSocialSync.tsx:384:26	rule-c	square w-14 h-14
-client/src/pages/portal/PortalSocialSync.tsx:389:26	rule-c	square w-14 h-14
-client/src/pages/portal/PortalSocialSync.tsx:425:30	rule-c	square w-10 h-10
+client/src/pages/portal/PortalServices.tsx:135:22	rule-c	square w-9 h-9
+client/src/pages/portal/PortalSettings.tsx:1032:13	rule-c	square w-16 h-16
+client/src/pages/portal/PortalSettings.tsx:1037:16	rule-c	square w-16 h-16
+client/src/pages/portal/PortalSocialSync.tsx:163:19	rule-c	square w-10 h-10
+client/src/pages/portal/PortalSocialSync.tsx:394:26	rule-c	square w-14 h-14
+client/src/pages/portal/PortalSocialSync.tsx:399:26	rule-c	square w-14 h-14
+client/src/pages/portal/PortalSocialSync.tsx:435:30	rule-c	square w-10 h-10
 client/src/pages/portal/PortalWidget.tsx:148:17	rule-c	square w-12 h-12
 client/src/pages/portal/TradelineSetup/DashboardBanner.tsx:53:16	rule-c	square w-10 h-10
 client/src/pages/portal/TradelineSetup/OptionCPort.tsx:135:23	rule-c	square w-7 h-7
-client/src/pages/portal/TradelineSetup/index.tsx:74:16	rule-c	square w-12 h-12
+client/src/pages/portal/TradelineSetup/index.tsx:122:16	rule-c	square w-12 h-12
 client/src/pages/products/EffortelProductPage.tsx:183:75	rule-c	size={18}
 client/src/pages/products/EffortelProductPage.tsx:267:42	rule-c	size={13}
 client/src/pages/products/EffortelProductPage.tsx:695:34	rule-c	size={18}

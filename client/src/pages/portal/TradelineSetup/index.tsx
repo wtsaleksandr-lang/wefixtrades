@@ -16,7 +16,7 @@
  * here lives in PortalDashboard.
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import PortalLayout from "@/components/portal/PortalLayout";
@@ -33,10 +33,50 @@ interface SetupStateResponse {
   testMode?: boolean;
 }
 
+const DRAFT_KEY = "tradeline-setup-draft";
+
+interface DraftState {
+  forceShowChoice: boolean;
+}
+
 export default function TradelineSetupPage() {
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
   const [forceShowChoice, setForceShowChoice] = useState(false);
+  const [resumedFromDraft, setResumedFromDraft] = useState(false);
+
+  /* Item 29 — restore any in-progress wizard state from localStorage on mount.
+   * The bulk of wizard progress lives server-side; this only persists the
+   * client-only "force me back to the mode picker" toggle so a refresh in the
+   * middle of re-picking doesn't bounce the user back into a sub-screen. */
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(DRAFT_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved) as DraftState;
+        if (parsed.forceShowChoice) {
+          setForceShowChoice(true);
+          setResumedFromDraft(true);
+        }
+      }
+    } catch {
+      /* corrupted JSON — ignore */
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({ forceShowChoice }));
+    } catch {
+      /* storage full / disabled — ignore */
+    }
+  }, [forceShowChoice]);
+
+  const clearDraftAndStartOver = () => {
+    try { localStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
+    setForceShowChoice(false);
+    setResumedFromDraft(false);
+  };
 
   const { data, isLoading, error } = useQuery<SetupStateResponse>({
     queryKey: ["/api/portal/tradeline/setup"],
@@ -51,6 +91,8 @@ export default function TradelineSetupPage() {
       ),
     onSuccess: () => {
       setForceShowChoice(false);
+      setResumedFromDraft(false);
+      try { localStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
       queryClient.invalidateQueries({ queryKey: ["/api/portal/tradeline/setup"] });
     },
   });
@@ -58,6 +100,11 @@ export default function TradelineSetupPage() {
   const showChoice = !data?.setup.mode || forceShowChoice;
   const goToDashboard = () => setLocation("/portal");
   const backToOptions = () => setForceShowChoice(true);
+
+  /* Item 30 — visible step counter. The wizard has 3 macro steps:
+   *   1 = pick a mode, 2 = configure the picked mode, 3 = ready to go. */
+  const totalSteps = 3;
+  const currentStep = showChoice ? 1 : (data?.setup?.mode ? 2 : 1);
 
   return (
     <PortalLayout>
@@ -71,6 +118,7 @@ export default function TradelineSetupPage() {
 
         {/* Heading */}
         <div className="text-center space-y-2">
+          <span className="text-sm text-gray-500">Step {currentStep} of {totalSteps}</span>
           <div className="inline-flex items-center justify-center w-12 h-12 bg-indigo-100 rounded-full mb-1">
             <PhoneCall className="w-6 h-6 text-indigo-600" />
           </div>
@@ -81,6 +129,22 @@ export default function TradelineSetupPage() {
             Choose how customers reach your business. You can change this anytime.
           </p>
         </div>
+
+        {resumedFromDraft && (
+          <div
+            className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-xs text-blue-900 flex items-center justify-between gap-3"
+            data-testid="tradeline-resumed-banner"
+          >
+            <span>Resumed from your saved progress.</span>
+            <button
+              type="button"
+              onClick={clearDraftAndStartOver}
+              className="font-medium underline hover:text-blue-700"
+            >
+              Start over
+            </button>
+          </div>
+        )}
 
         {isLoading && (
           <div className="flex items-center justify-center py-12 text-gray-500">

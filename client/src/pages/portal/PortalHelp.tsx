@@ -7,6 +7,7 @@ import {
   HelpCircle, CreditCard, Wrench, ClipboardList, Calculator, ChevronRight,
 } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
+import BackButton from "@/components/ui/back-button";
 
 /* ─── FAQ Data ─── */
 const FAQS = [
@@ -150,8 +151,10 @@ function TicketSection() {
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
               placeholder="e.g. Question about my MapGuard service"
+              maxLength={80}
               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0d3cfc]/20 focus:border-[#0d3cfc]"
             />
+            <p className="text-xs text-gray-500 mt-1">{subject.length}/80</p>
           </div>
           <div>
             <label className="text-xs font-medium text-gray-600 mb-1 block">Category</label>
@@ -173,9 +176,10 @@ function TicketSection() {
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               placeholder="Describe what you need help with..."
-              rows={3}
+              rows={5}
               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0d3cfc]/20 focus:border-[#0d3cfc] resize-none"
             />
+            <p className="text-xs text-gray-500 mt-1">{message.length} characters</p>
           </div>
           <div className="flex items-center gap-3">
             <button
@@ -287,7 +291,8 @@ export default function PortalHelp() {
       <div className="max-w-3xl mx-auto space-y-6">
         {/* Header */}
         <div>
-          <h1 className="text-xl font-semibold text-gray-900">Help</h1>
+          <BackButton to="/portal" label="Back to dashboard" />
+          <h1 className="text-xl font-semibold text-gray-900 mt-1">Help</h1>
           <p className="text-sm text-gray-500 mt-0.5">Find answers or contact us.</p>
         </div>
 
