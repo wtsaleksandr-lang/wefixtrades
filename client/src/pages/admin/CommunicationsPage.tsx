@@ -85,6 +85,43 @@ interface ConfigResp {
   missing: { sms: string[]; voice: string[] };
 }
 
+/* COMMS-FEATURES — admin address book entry. Mirrors the shape returned by
+   /api/admin/contacts. The page joins on phone_e164 at render time so SMS
+   threads + call rows can show a name and a "linked to user/supplier" chip. */
+interface AdminContact {
+  id: string;
+  display_name: string;
+  phone_e164: string;
+  email: string | null;
+  notes: string | null;
+  linked_user_id: number | null;
+  linked_user_name: string | null;
+  linked_supplier_id: number | null;
+  linked_supplier_name: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface AdminClient { id: number; name: string | null; email: string | null; }
+interface AdminSupplier { id: number; name: string; type?: string; }
+
+/* Phone-normalization for the lookup map. Twilio gives us "+15551234567"
+   already, but inbound webhooks occasionally include formatted variants —
+   we strip non-digits and prepend "+" to whatever we can parse. */
+function toE164ish(p: string | null | undefined): string {
+  if (!p) return "";
+  const trimmed = String(p).trim();
+  if (!trimmed) return "";
+  if (trimmed.startsWith("+")) {
+    const digits = trimmed.slice(1).replace(/\D/g, "");
+    return digits ? `+${digits}` : "";
+  }
+  const digits = trimmed.replace(/\D/g, "");
+  if (!digits) return "";
+  if (digits.length === 10) return `+1${digits}`;
+  return `+${digits}`;
+}
+
 /* ─── helpers ────────────────────────────────────────────────────── */
 
 function formatPhone(p: string | null | undefined): string {
@@ -157,7 +194,7 @@ function groupThreads(messages: TwilioMessage[]) {
 export default function CommunicationsPage() {
   usePageTitle("Communications");
 
-  const [tab, setTab] = useState<"sms" | "phone">("sms");
+  const [tab, setTab] = useState<"sms" | "phone" | "contacts">("sms");
   const [activeContact, setActiveContact] = useState<string | null>(null);
   const [newMsgOpen, setNewMsgOpen] = useState(false);
 
@@ -170,6 +207,25 @@ export default function CommunicationsPage() {
       return res.json();
     },
   });
+
+  /* COMMS-FEATURES — shared contacts query so SMS + Phone can swap numbers
+     for names without each panel re-fetching the same list. */
+  const { data: contactsData } = useQuery<{ contacts: AdminContact[] }>({
+    queryKey: ["/api/admin/contacts"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/contacts?limit=200", { credentials: "include" });
+      if (!res.ok) throw new Error("contacts failed");
+      return res.json();
+    },
+  });
+
+  const contactsByPhone = useMemo(() => {
+    const map = new Map<string, AdminContact>();
+    for (const c of contactsData?.contacts ?? []) {
+      map.set(toE164ish(c.phone_e164), c);
+    }
+    return map;
+  }, [contactsData]);
 
   return (
     <AdminLayout pageContext={{ page: "communications" }}>
@@ -195,13 +251,16 @@ export default function CommunicationsPage() {
           />
         )}
 
-        <Tabs value={tab} onValueChange={(v) => setTab(v as "sms" | "phone")}>
+        <Tabs value={tab} onValueChange={(v) => setTab(v as "sms" | "phone" | "contacts")}>
           <TabsList>
             <TabsTrigger value="sms" className="gap-2">
               <MessageSquare className="w-4 h-4" /> SMS
             </TabsTrigger>
             <TabsTrigger value="phone" className="gap-2">
               <Phone className="w-4 h-4" /> Phone
+            </TabsTrigger>
+            <TabsTrigger value="contacts" className="gap-2" data-testid="tab-contacts">
+              <ContactIcon className="w-4 h-4" /> Contacts
             </TabsTrigger>
           </TabsList>
 
@@ -211,6 +270,7 @@ export default function CommunicationsPage() {
               activeContact={activeContact}
               onSelectContact={setActiveContact}
               onNewMessage={() => setNewMsgOpen(true)}
+              contactsByPhone={contactsByPhone}
             />
           </TabsContent>
 
@@ -219,7 +279,12 @@ export default function CommunicationsPage() {
               voiceReady={!!config?.voiceReady}
               voiceMissing={config?.missing.voice ?? []}
               fromNumber={config?.fromNumber ?? null}
+              contactsByPhone={contactsByPhone}
             />
+          </TabsContent>
+
+          <TabsContent value="contacts" className="mt-3">
+            <ContactsPanel />
           </TabsContent>
         </Tabs>
       </div>
@@ -243,11 +308,13 @@ function SmsPanel({
   activeContact,
   onSelectContact,
   onNewMessage,
+  contactsByPhone,
 }: {
   smsReady: boolean;
   activeContact: string | null;
   onSelectContact: (c: string | null) => void;
   onNewMessage: () => void;
+  contactsByPhone: Map<string, AdminContact>;
 }) {
   const { data, isLoading, refetch, isRefetching } = useQuery<{ messages: TwilioMessage[]; hasMore: boolean }>({
     queryKey: ["/api/admin/twilio/messages"],
@@ -323,6 +390,7 @@ function SmsPanel({
             <ul className="divide-y divide-gray-100">
               {threads.map((t) => {
                 const active = normalizeContact(t.contact) === normalizeContact(activeContact ?? "");
+                const c = contactsByPhone.get(toE164ish(t.contact));
                 return (
                   <li key={t.contact}>
                     <button
@@ -338,13 +406,19 @@ function SmsPanel({
                         <span className={cn(
                           "text-sm font-medium truncate",
                           active ? "text-[#0d3cfc]" : "text-gray-900"
-                        )}>
-                          {formatPhone(t.contact)}
+                        )} data-testid={`twilio-thread-name-${normalizeContact(t.contact)}`}>
+                          {c?.display_name ?? formatPhone(t.contact)}
                         </span>
                         <span className="text-[10px] text-gray-400 shrink-0">
                           {formatTimestamp(new Date(t.lastAt).toISOString())}
                         </span>
                       </div>
+                      {c && (
+                        <div className="flex items-center gap-1 mb-0.5">
+                          <span className="text-[10px] text-gray-400 truncate">{formatPhone(t.contact)}</span>
+                          <LinkChips contact={c} small />
+                        </div>
+                      )}
                       <p className="text-xs text-gray-500 truncate">
                         {t.lastDirection === "outbound" && <span className="text-gray-400">You: </span>}
                         {t.lastBody || <em className="opacity-60">(no body)</em>}
@@ -361,7 +435,11 @@ function SmsPanel({
       {/* RIGHT — thread view */}
       <Card className="flex flex-col overflow-hidden min-h-[60vh]">
         {activeContact ? (
-          <ThreadView contact={activeContact} />
+          <ThreadView
+            contact={activeContact}
+            contactRecord={contactsByPhone.get(toE164ish(activeContact)) ?? null}
+            onAfterDelete={() => onSelectContact(null)}
+          />
         ) : (
           <EmptyState
             icon={<MessageSquare className="w-10 h-10 text-gray-300" />}
@@ -376,10 +454,22 @@ function SmsPanel({
 
 /* ─── Thread view ────────────────────────────────────────────────── */
 
-function ThreadView({ contact }: { contact: string }) {
+function ThreadView({
+  contact,
+  contactRecord,
+  onAfterDelete,
+}: {
+  contact: string;
+  contactRecord: AdminContact | null;
+  onAfterDelete: () => void;
+}) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [draft, setDraft] = useState("");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [confirmThreadDelete, setConfirmThreadDelete] = useState(false);
+  const [saveContactOpen, setSaveContactOpen] = useState(false);
+  const [editContactOpen, setEditContactOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const { data, isLoading } = useQuery<{ messages: TwilioMessage[]; contact: string }>({
@@ -418,6 +508,40 @@ function ThreadView({ contact }: { contact: string }) {
     },
   });
 
+  const deleteMessageMutation = useMutation({
+    mutationFn: async (sid: string) => {
+      const res = await apiRequest("DELETE", `/api/admin/twilio/messages/${encodeURIComponent(sid)}`);
+      if (res.status === 204) return { ok: true };
+      try { return await res.json(); } catch { return { ok: true }; }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/twilio/messages"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/twilio/messages/thread", contact] });
+      toast({ title: "Message deleted" });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Delete failed", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const deleteThreadMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("DELETE", `/api/admin/twilio/conversations/${encodeURIComponent(contact)}`);
+      return res.json();
+    },
+    onSuccess: (resp: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/twilio/messages"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/twilio/messages/thread", contact] });
+      toast({ title: "Conversation deleted", description: `${resp?.deleted ?? 0} messages removed` });
+      setConfirmThreadDelete(false);
+      onAfterDelete();
+    },
+    onError: (err: Error) => {
+      toast({ title: "Delete failed", description: err.message, variant: "destructive" });
+      setConfirmThreadDelete(false);
+    },
+  });
+
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -428,10 +552,72 @@ function ThreadView({ contact }: { contact: string }) {
   return (
     <>
       {/* Header */}
-      <div className="px-4 py-2.5 border-b border-gray-100 flex items-center justify-between">
+      <div className="px-4 py-2.5 border-b border-gray-100 flex items-center justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-gray-900 truncate">{formatPhone(contact)}</p>
-          <p className="text-[11px] text-gray-400">{data?.messages?.length ?? 0} messages</p>
+          <p className="text-sm font-semibold text-gray-900 truncate" data-testid="thread-header-name">
+            {contactRecord?.display_name ?? formatPhone(contact)}
+          </p>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {contactRecord && (
+              <span className="text-[11px] text-gray-500">{formatPhone(contact)}</span>
+            )}
+            <span className="text-[11px] text-gray-400">·</span>
+            <span className="text-[11px] text-gray-400">{data?.messages?.length ?? 0} messages</span>
+            {contactRecord && <LinkChips contact={contactRecord} />}
+          </div>
+        </div>
+        <div className="relative shrink-0">
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-7 w-7 p-0"
+            onClick={() => setMenuOpen((v) => !v)}
+            aria-label="Thread actions"
+            data-testid="thread-kebab"
+          >
+            <MoreVertical className="w-4 h-4" />
+          </Button>
+          {menuOpen && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
+              <div
+                className="absolute right-0 top-8 z-20 min-w-[180px] rounded-lg border border-gray-200 bg-white shadow-lg py-1 text-sm"
+                role="menu"
+              >
+                {contactRecord ? (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="w-full text-left px-3 py-1.5 hover:bg-gray-50 flex items-center gap-2"
+                    onClick={() => { setMenuOpen(false); setEditContactOpen(true); }}
+                    data-testid="thread-menu-edit-contact"
+                  >
+                    <Pencil className="w-3.5 h-3.5 text-gray-500" /> Edit contact
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="w-full text-left px-3 py-1.5 hover:bg-gray-50 flex items-center gap-2"
+                    onClick={() => { setMenuOpen(false); setSaveContactOpen(true); }}
+                    data-testid="thread-menu-save-contact"
+                  >
+                    <Plus className="w-3.5 h-3.5 text-gray-500" /> Save as contact
+                  </button>
+                )}
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="w-full text-left px-3 py-1.5 hover:bg-red-50 text-red-700 flex items-center gap-2"
+                  onClick={() => { setMenuOpen(false); setConfirmThreadDelete(true); }}
+                  data-testid="thread-menu-delete-conversation"
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> Delete conversation
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -451,10 +637,41 @@ function ThreadView({ contact }: { contact: string }) {
           <p className="text-center text-xs text-gray-400 py-6">No messages in this thread yet.</p>
         ) : (
           (data?.messages ?? []).map((m) => (
-            <Bubble key={m.sid} message={m} />
+            <Bubble
+              key={m.sid}
+              message={m}
+              onDelete={() => {
+                if (window.confirm("Delete this message? This removes it from Twilio permanently.")) {
+                  deleteMessageMutation.mutate(m.sid);
+                }
+              }}
+            />
           ))
         )}
       </div>
+
+      <ConfirmDeleteDialog
+        open={confirmThreadDelete}
+        onClose={() => setConfirmThreadDelete(false)}
+        onConfirm={() => deleteThreadMutation.mutate()}
+        pending={deleteThreadMutation.isPending}
+        title="Delete this conversation?"
+        description={`This permanently removes every message between your Twilio number and ${formatPhone(contact)}. Cannot be undone.`}
+      />
+      <ContactFormDialog
+        open={saveContactOpen}
+        onClose={() => setSaveContactOpen(false)}
+        seedPhone={contact}
+        contact={null}
+        onSaved={() => setSaveContactOpen(false)}
+      />
+      <ContactFormDialog
+        open={editContactOpen}
+        onClose={() => setEditContactOpen(false)}
+        seedPhone={contact}
+        contact={contactRecord}
+        onSaved={() => setEditContactOpen(false)}
+      />
 
       {/* Composer — Enter sends */}
       <div className="border-t border-gray-100 p-3 bg-white">
@@ -485,10 +702,21 @@ function ThreadView({ contact }: { contact: string }) {
   );
 }
 
-function Bubble({ message }: { message: TwilioMessage }) {
+function Bubble({ message, onDelete }: { message: TwilioMessage; onDelete: () => void }) {
   const isMine = message.direction === "outbound";
   return (
-    <div className={cn("flex", isMine ? "justify-end" : "justify-start")}>
+    <div className={cn("flex group items-center gap-1.5", isMine ? "justify-end" : "justify-start")}>
+      {isMine && (
+        <button
+          type="button"
+          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50"
+          onClick={onDelete}
+          title="Delete this message"
+          data-testid={`twilio-bubble-delete-${message.sid}`}
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </button>
+      )}
       <div
         className={cn(
           "max-w-[78%] px-3.5 py-2 rounded-2xl text-sm whitespace-pre-wrap break-words",
@@ -509,6 +737,17 @@ function Bubble({ message }: { message: TwilioMessage }) {
           )}
         </div>
       </div>
+      {!isMine && (
+        <button
+          type="button"
+          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50"
+          onClick={onDelete}
+          title="Delete this message"
+          data-testid={`twilio-bubble-delete-${message.sid}`}
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </button>
+      )}
     </div>
   );
 }
