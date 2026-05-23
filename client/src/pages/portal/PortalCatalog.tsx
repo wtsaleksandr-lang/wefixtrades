@@ -280,7 +280,7 @@ export default function PortalCatalog() {
                     type="button"
                     onClick={() => handleAddBundle(b)}
                     disabled={pendingId !== null}
-                    className="w-full px-3 py-2 text-xs font-medium text-white bg-[#0d3cfc] rounded-lg hover:bg-[#0b34d6] transition-colors disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center gap-1"
+                    className="btn-primary-premium w-full px-3 py-2 text-xs font-medium rounded-lg disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center gap-1"
                     data-testid={`bundle-add-${b.id}`}
                   >
                     {pendingId === `bundle:${b.id}` ? (
@@ -361,7 +361,7 @@ export default function PortalCatalog() {
                     type="button"
                     onClick={() => handleAdd(svc)}
                     disabled={pendingId !== null}
-                    className="flex-1 px-3 py-2 text-xs font-medium text-white bg-[#0d3cfc] rounded-lg hover:bg-[#0b34d6] transition-colors disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center gap-1"
+                    className="btn-primary-premium flex-1 px-3 py-2 text-xs font-medium rounded-lg disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center gap-1"
                     data-testid={`catalog-add-${svc.id}`}
                   >
                     {pendingId === svc.id ? (

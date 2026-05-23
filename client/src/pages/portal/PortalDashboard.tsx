@@ -11,6 +11,8 @@ import { TradelineSetupBanner } from "./TradelineSetup/DashboardBanner";
 // BG-3: canonical elevation primitive — uses --shadow-card token + bg-card/border-card-border
 // so cards inherit the design-system soft-card shadow and respond to dark mode.
 import { Card } from "@/components/ui/card";
+// Premium polish — smooth-count animation on KPI numbers (respects reduced motion).
+import AnimatedNumber from "@/components/AnimatedNumber";
 // IA-1 (2026-05-22) — wizard minimize-to-floating-badge.
 import MinimizedWizardBadge from "@/components/wizard/MinimizedWizardBadge";
 
@@ -294,7 +296,11 @@ function PortalDashboardInner() {
           <div className="grid auto-rows-fr grid-cols-2 lg:grid-cols-4 gap-4">
             <StatCard
               label="Active Services"
-              value={data.active_services}
+              value={
+                data.active_services > 0
+                  ? <AnimatedNumber value={data.active_services} duration={800} />
+                  : 0
+              }
               icon={Wrench}
               color="text-[#0d3cfc]"
               bgColor="bg-[#EEF3FF]"
@@ -302,7 +308,11 @@ function PortalDashboardInner() {
             />
             <StatCard
               label="Setup Required"
-              value={data.pending_onboarding}
+              value={
+                data.pending_onboarding > 0
+                  ? <AnimatedNumber value={data.pending_onboarding} duration={800} />
+                  : 0
+              }
               subtitle="Forms to complete"
               icon={ClipboardList}
               color="text-amber-600"
@@ -311,7 +321,11 @@ function PortalDashboardInner() {
             />
             <StatCard
               label="Action Needed"
-              value={data.action_needed}
+              value={
+                data.action_needed > 0
+                  ? <AnimatedNumber value={data.action_needed} duration={800} />
+                  : 0
+              }
               subtitle="Waiting on you"
               icon={AlertCircle}
               color={data.action_needed > 0 ? "text-red-600" : "text-gray-400"}
@@ -320,7 +334,15 @@ function PortalDashboardInner() {
             />
             <StatCard
               label="Amount Due"
-              value={formatCents(data.outstanding_balance_cents)}
+              value={
+                data.outstanding_balance_cents > 0
+                  ? <AnimatedNumber
+                      value={data.outstanding_balance_cents}
+                      duration={800}
+                      format={formatCents}
+                    />
+                  : formatCents(0)
+              }
               icon={CreditCard}
               color="text-blue-600"
               bgColor="bg-blue-50"
@@ -424,7 +446,7 @@ function PortalDashboardInner() {
                 <Link
                   href={`/wizard?token=${qqData.calculator.edit_token}`}
                   data-testid="portal-qq-open-editor"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-[#0d3cfc] rounded-lg hover:bg-[#0b34d6] transition-colors"
+                  className="btn-primary-premium inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg"
                 >
                   Open editor <ChevronRight className="w-3 h-3" />
                 </Link>
@@ -609,7 +631,7 @@ function StatCard({
   href,
 }: {
   label: string;
-  value: string | number;
+  value: React.ReactNode;
   subtitle?: string;
   icon: React.ElementType;
   color: string;
