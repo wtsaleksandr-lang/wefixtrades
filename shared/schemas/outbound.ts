@@ -290,6 +290,77 @@ export type InsertSalesOpportunity = z.infer<typeof insertSalesOpportunitySchema
 export type SalesOpportunity = typeof salesOpportunities.$inferSelect;
 
 /* ═══════════════════════════════════════════════════
+   SEQUENCE TEMPLATES — multi-step cold-email copy
+
+   One template per campaign (or unattached, for reusable libraries).
+   Each template holds N steps (intro + followups). Subject lines are
+   stored as JSONB arrays so we can A/B per recipient at send time.
+
+   AI personalization (per-prospect first lines, offer angles) lives on
+   prospect_enrichment — Smartlead substitutes those as custom merge
+   fields. The `ai_personalize` flag on a template signals "this template
+   uses AI tokens" but the AI call itself is NOT yet wired (see
+   adminOutreachSequencesRoutes for the TODO).
+   ═══════════════════════════════════════════════════ */
+
+export const outreachSequences = pgTable("outreach_sequences", {
+  id: serial("id").primaryKey(),
+  campaign_id: integer("campaign_id").references(() => outboundCampaigns.id),
+
+  name: text("name").notNull(),
+  trade_filter: varchar("trade_filter", { length: 100 }),         // restrict to one trade (nullable = all)
+  region_filter: varchar("region_filter", { length: 200 }),       // free-text region selector
+
+  // Generation inputs — kept for audit + future regeneration
+  icp: text("icp"),
+  pain_point: text("pain_point"),
+  offer: text("offer"),
+  sender_persona: text("sender_persona"),
+  tone: varchar("tone", { length: 30 }).default("direct"),
+
+  // Whether this template uses per-recipient AI-generated tokens
+  // (ai_first_line, ai_offer_angle, etc. from prospect_enrichment).
+  // The Anthropic call to populate those is OUT OF SCOPE for this wave —
+  // see ai_personalize TODO in adminOutreachSequencesRoutes.ts.
+  ai_personalize: boolean("ai_personalize").notNull().default(false),
+
+  status: varchar("status", { length: 20 }).notNull().default("draft"),
+  // draft | active | archived
+
+  owner_id: integer("owner_id"),
+  metadata: jsonb("metadata"),
+  created_at: timestamp("created_at").defaultNow(),
+  updated_at: timestamp("updated_at").defaultNow(),
+}, (t) => ({
+  campaignIdx: index("outreach_sequences_campaign_idx").on(t.campaign_id),
+  statusIdx: index("outreach_sequences_status_idx").on(t.status),
+}));
+export const insertOutreachSequenceSchema = createInsertSchema(outreachSequences).omit({ id: true, created_at: true, updated_at: true });
+export type InsertOutreachSequence = z.infer<typeof insertOutreachSequenceSchema>;
+export type OutreachSequence = typeof outreachSequences.$inferSelect;
+
+export const outreachSequenceSteps = pgTable("outreach_sequence_steps", {
+  id: serial("id").primaryKey(),
+  sequence_id: integer("sequence_id").notNull()
+    .references(() => outreachSequences.id, { onDelete: "cascade" }),
+
+  order_index: integer("order_index").notNull(),                  // 1 = intro, 2-N = followups
+  delay_days: integer("delay_days").notNull().default(0),         // days after previous step
+
+  subject_template: text("subject_template").notNull(),           // plain text, {{token}} placeholders
+  body_template: text("body_template").notNull(),                 // plain text, {{token}} placeholders
+  ai_personalize: boolean("ai_personalize").notNull().default(false),
+
+  created_at: timestamp("created_at").defaultNow(),
+  updated_at: timestamp("updated_at").defaultNow(),
+}, (t) => ({
+  sequenceOrderIdx: uniqueIndex("outreach_sequence_steps_seq_order_idx").on(t.sequence_id, t.order_index),
+}));
+export const insertOutreachSequenceStepSchema = createInsertSchema(outreachSequenceSteps).omit({ id: true, created_at: true, updated_at: true });
+export type InsertOutreachSequenceStep = z.infer<typeof insertOutreachSequenceStepSchema>;
+export type OutreachSequenceStep = typeof outreachSequenceSteps.$inferSelect;
+
+/* ═══════════════════════════════════════════════════
    TASK 7 — Global Blacklist Tables
    Three separate tables for O(1) lookup by type.
    onConflictDoNothing used on insert to make upserts safe.

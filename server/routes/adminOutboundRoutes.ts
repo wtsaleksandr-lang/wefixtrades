@@ -40,6 +40,9 @@ import {
 import { assignTargetOffer, computePriorityScore } from "../services/prospectTargeting";
 import { classifyReplyFull } from "../services/replyIntelligence";
 import { createLogger } from "../lib/logger";
+import { z } from "zod";
+import { searchGoogleMaps, buildMapsQuery, OutscraperError, type OutscraperLead } from "../services/outscraperClient";
+import { outboundScrapeRateLimiter } from "../services/rateLimiter";
 
 const log = createLogger("AdminOutbound");
 
@@ -133,6 +136,34 @@ function mapCsvRow(row: Record<string, string>): Partial<InsertProspect> & { raw
     out.google_review_count = parseInt(String(out.google_review_count)) || null as any;
   }
   return { ...out, raw_data: row };
+}
+
+/* ─── Outscraper → CSV-row adapter ─── */
+// Convert a normalised Outscraper lead to the same `Record<string, string>`
+// shape mapCsvRow consumes, so the scrape endpoint can pipe results through
+// the SAME dedupe / blacklist / heuristics path as the CSV import. Keys
+// match the CSV_MAP entries above.
+function outscraperLeadToCsvRow(lead: OutscraperLead): Record<string, string> {
+  const row: Record<string, string> = {};
+  const set = (k: string, v: string | number | null | undefined) => {
+    if (v === null || v === undefined) return;
+    const s = typeof v === "string" ? v : String(v);
+    if (s.trim().length === 0) return;
+    row[k] = s;
+  };
+  set("name", lead.name);
+  set("phone", lead.phone);
+  set("email", lead.email);
+  set("site", lead.website);
+  set("full_address", lead.address);
+  set("city", lead.city);
+  set("state", lead.state);
+  set("country", lead.country);
+  set("place_id", lead.place_id);
+  set("rating", lead.rating);
+  set("reviews_count", lead.reviews_count);
+  set("category", lead.category);
+  return row;
 }
 
 /* ─── Route registration ─── */
@@ -352,6 +383,214 @@ export function registerAdminOutboundRoutes(app: Express): void {
       .where(eq(importBatches.id, batch.id));
 
     res.status(201).json({ batch_id: batch.id, imported, skipped_dupes: skippedDupes, failed });
+  });
+
+  /* ═══════════════════════════════════════════
+     Scrape — Outscraper Google Maps search
+     ═══════════════════════════════════════════ */
+
+  // POST /api/admin/outbound/scrape
+  // Body: { trade, city, state?, country?, limit? }
+  // Calls Outscraper Maps search, then funnels results through the SAME
+  // dedupe + blacklist + heuristics pipeline as the CSV import. Rate
+  // limited at 5 / hour / admin (see rateLimiter.ts).
+  const scrapeBodySchema = z.object({
+    trade: z.string().min(2).max(100),
+    city: z.string().min(2).max(100),
+    state: z.string().max(50).optional().nullable(),
+    country: z.string().max(50).optional().nullable().default("US"),
+    limit: z.number().int().min(1).max(500).optional().default(100),
+  });
+
+  app.post("/api/admin/outbound/scrape", requireAdmin, async (req: Request, res: Response) => {
+    const actor = actorMeta(req);
+
+    // Per-admin rate limit
+    const rateKey = `outbound-scrape:${actor.actor_id ?? req.ip ?? "anon"}`;
+    if (!(await outboundScrapeRateLimiter.check(rateKey))) {
+      return res.status(429).json({ error: "Scrape rate limit reached. Try again in an hour." });
+    }
+
+    const parsed = scrapeBodySchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Invalid input", details: parsed.error.flatten() });
+    }
+    const { trade, city, state, country, limit } = parsed.data;
+    const query = buildMapsQuery(trade, city, state, country);
+
+    // Create batch up-front so failures still leave an audit trail
+    const [batch] = await db.insert(importBatches).values({
+      source: "outscraper_api",
+      filename: query,
+      total_rows: 0,
+      status: "processing",
+      imported_by: actor.actor_id ?? null,
+      metadata: { trade, city, state: state ?? null, country: country ?? null, limit, query },
+    }).returning();
+
+    let leads: OutscraperLead[] = [];
+    try {
+      const result = await searchGoogleMaps({
+        query,
+        region: (country ?? "US").toUpperCase(),
+        limit,
+      });
+      leads = result.leads;
+    } catch (err: any) {
+      const status = err instanceof OutscraperError ? (err.status ?? 502) : 502;
+      await db.update(importBatches)
+        .set({ status: "failed", completed_at: new Date(), metadata: { error: err.message } })
+        .where(eq(importBatches.id, batch.id));
+      log.error("[outbound/scrape] outscraper error:", err.message);
+      return res.status(status).json({ error: `Outscraper request failed: ${err.message}` });
+    }
+
+    await db.update(importBatches)
+      .set({ total_rows: leads.length })
+      .where(eq(importBatches.id, batch.id));
+
+    let imported = 0;
+    let skippedDupes = 0;
+    let failed = 0;
+    const errors: string[] = [];
+
+    for (const lead of leads) {
+      try {
+        const csvRow = outscraperLeadToCsvRow(lead);
+        const mapped = mapCsvRow(csvRow);
+        if (!mapped.business_name) { failed++; continue; }
+
+        const domain = normaliseDomain(mapped.website_url as string | undefined);
+        const email = (mapped.primary_email as string | undefined) || null;
+        const phone = (mapped.primary_phone as string | undefined) || null;
+
+        // Fingerprint dedup
+        const fingerprint = generateFingerprint(
+          mapped.business_name as string,
+          mapped.city as string | undefined,
+          phone
+        );
+        const fpDupe = await db.select({ id: prospects.id })
+          .from(prospects)
+          .where(eq(prospects.dedupe_fingerprint, fingerprint))
+          .limit(1);
+        if (fpDupe.length > 0) {
+          skippedDupes++;
+          await db.insert(prospectEvents).values({
+            prospect_id: fpDupe[0].id,
+            event_type: "dedup_skipped",
+            actor_type: "system",
+            actor_name: "scrape",
+            summary: `Fingerprint duplicate skipped (batch ${batch.id})`,
+            metadata: { source: "outscraper_api", fingerprint, batch_id: batch.id },
+          });
+          continue;
+        }
+
+        // Fallback dedup
+        const dupeClauses: ReturnType<typeof eq>[] = [];
+        if (domain) dupeClauses.push(eq(prospects.website_domain, domain));
+        if (email)  dupeClauses.push(eq(prospects.primary_email, email));
+        if (phone)  dupeClauses.push(eq(prospects.primary_phone, phone));
+        if (dupeClauses.length > 0) {
+          const existing = await db.select({ id: prospects.id })
+            .from(prospects)
+            .where(or(...dupeClauses))
+            .limit(1);
+          if (existing.length > 0) { skippedDupes++; continue; }
+        }
+
+        // Global blacklist
+        const blacklisted = await checkBlacklist(domain, email, phone);
+        if (blacklisted.blocked) {
+          skippedDupes++;
+          continue;
+        }
+
+        const confidence = scoreContactConfidence(email, domain);
+
+        const [prospect] = await db.insert(prospects).values({
+          ...mapped,
+          website_domain: domain,
+          import_batch_id: batch.id,
+          source: "outscraper",
+          source_external_id: (mapped.google_place_id as string | null) ?? null,
+          dedupe_fingerprint: fingerprint,
+          contact_confidence: confidence,
+          status: "new",
+        } as InsertProspect).returning();
+
+        const h = runHeuristics({
+          businessName: prospect.business_name,
+          websiteUrl: prospect.website_url,
+          websiteDomain: prospect.website_domain,
+          tradeCategory: prospect.trade_category,
+          googleRating: prospect.google_rating,
+          googleReviewCount: prospect.google_review_count,
+          city: prospect.city,
+          state: prospect.state,
+          ownerName: prospect.owner_name,
+        });
+        const baseScore = computeBaseScore(h);
+
+        const targetOffer = assignTargetOffer({
+          has_website:           h.has_website,
+          website_quality_score: h.website_quality_score,
+          has_quote_tool:        h.has_quote_tool,
+          google_review_count:   prospect.google_review_count,
+          google_rating:         prospect.google_rating,
+          social_presence_score: h.social_presence_score,
+          primary_phone:         prospect.primary_phone,
+        });
+        const priorityScore = computePriorityScore({
+          has_website:           h.has_website,
+          website_quality_score: h.website_quality_score,
+          likely_owner_operator: h.likely_owner_operator,
+          quality_score:         baseScore,
+          contact_confidence:    confidence,
+          primary_phone:         prospect.primary_phone,
+          google_review_count:   prospect.google_review_count,
+          google_rating:         prospect.google_rating,
+        });
+
+        await db.update(prospects)
+          .set({ target_offer: targetOffer, priority_score: priorityScore, updated_at: new Date() })
+          .where(eq(prospects.id, prospect.id));
+
+        await db.insert(prospectEnrichment).values({
+          prospect_id: prospect.id,
+          ...h,
+          quality_score: baseScore,
+          enrichment_source: "heuristic",
+          enriched_at: new Date(),
+        });
+
+        await logEvent(prospect.id, "imported", actor,
+          `Scraped via Outscraper — "${query}" — confidence: ${confidence}`,
+          { batch_id: batch.id, confidence, fingerprint, source: "outscraper_api", place_id: lead.place_id }
+        );
+
+        imported++;
+      } catch (rowErr: any) {
+        log.error("[outbound/scrape] row failed:", rowErr.message);
+        failed++;
+        if (errors.length < 5) errors.push(rowErr.message);
+      }
+    }
+
+    await db.update(importBatches)
+      .set({ status: "completed", imported, skipped_dupes: skippedDupes, failed, completed_at: new Date() })
+      .where(eq(importBatches.id, batch.id));
+
+    res.status(201).json({
+      batchId: batch.id,
+      importedCount: imported,
+      dedupedCount: skippedDupes,
+      failed,
+      errors,
+      totalFetched: leads.length,
+      query,
+    });
   });
 
   // GET /api/admin/outbound/import/batches
