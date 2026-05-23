@@ -948,6 +948,29 @@ export default function AdminLayout({
   const [quickAdd, setQuickAdd] = useState<string | null>(null);
   const [copilotOpen, setCopilotOpen] = useState(false);
 
+  /* Mobile-only "Admin works best on desktop" banner. The admin surface
+   * is intentionally desktop-first (dense tables, multi-column forms,
+   * keyboard shortcuts). On phones it still works but feels cramped, so
+   * we warn explicitly. Dismissal persists for the current browser tab
+   * only (sessionStorage) — a fresh tab gets a fresh nudge. The banner
+   * itself is hidden at md and above via `md:hidden`. */
+  const [mobileBannerDismissed, setMobileBannerDismissed] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return window.sessionStorage.getItem("admin-mobile-banner-dismissed") === "1";
+    } catch {
+      return false;
+    }
+  });
+  const dismissMobileBanner = () => {
+    try {
+      window.sessionStorage.setItem("admin-mobile-banner-dismissed", "1");
+    } catch {
+      /* private mode / quota — non-fatal */
+    }
+    setMobileBannerDismissed(true);
+  };
+
   /* P1 fix: admin "Preview as Pro" session toggle.
    *
    * Flips a per-session boolean on the server (POST /api/admin/me/
@@ -1093,6 +1116,31 @@ export default function AdminLayout({
 
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {/* Mobile-only "best on desktop" guidance banner.
+         *  Renders under md (≤767px) only — desktop never sees it. Sits
+         *  above the chrome header so it's the first thing a mobile
+         *  user notices. Dismissible per-tab via sessionStorage. */}
+        {!mobileBannerDismissed && (
+          <div
+            data-theme="light"
+            className="md:hidden bg-yellow-50 border-b border-yellow-200 px-3 py-2 text-xs text-yellow-900 flex items-center justify-between shrink-0"
+            data-testid="admin-mobile-banner"
+            role="note"
+          >
+            <span className="leading-snug pr-2">
+              <strong>Admin works best on desktop.</strong> Mobile is supported but feature-limited.
+            </span>
+            <button
+              type="button"
+              onClick={dismissMobileBanner}
+              aria-label="Dismiss desktop-recommendation banner"
+              className="ml-2 shrink-0 text-yellow-900/60 hover:text-yellow-900 p-1 -mr-1"
+              data-testid="admin-mobile-banner-dismiss"
+            >
+              ✕
+            </button>
+          </div>
+        )}
         {/* Top bar */}
         <header className="flex items-center justify-between h-14 px-4 bg-white border-b border-gray-200 shrink-0">
           <div className="flex items-center">
