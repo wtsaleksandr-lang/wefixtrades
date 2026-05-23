@@ -85,7 +85,7 @@ function EngineMockup() {
 }
 
 const config: FeaturePageConfig = {
-  meta: { title: "Calculator Engine — QuoteQuick Pro | Build a Pricing Calculator for Any Trade" },
+  meta: { title: "Calculator Engine — QuoteQuick™ | Build a Pricing Calculator for Any Trade" },
   hero: {
     badge: "Calculator Engine",
     badgeColor: "#7C3AED",
@@ -97,7 +97,7 @@ const config: FeaturePageConfig = {
   demo: {
     label: "Formula Builder",
     title: "A pricing engine built for how trades actually work",
-    description: "Most quote tools force you into a fixed template. QuoteQuick Pro gives you 10 formula families — from simple hourly rates to complex area-based pricing with tiered ranges, addons, and conditional logic. Then AI validates your configuration before it goes live.",
+    description: "Most quote tools force you into a fixed template. QuoteQuick gives you 10 formula families — from simple hourly rates to complex area-based pricing with tiered ranges, addons, and conditional logic. Then AI validates your configuration before it goes live.",
     bullets: [
       "10 formula types: fixed, hourly, area, tiered, package, base+addon, and more",
       "Multiple pricing inputs per calculator (size, grade, extras, room count)",

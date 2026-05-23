@@ -20,6 +20,8 @@ import {
   Sparkles,
   Key,
   Palette,
+  Phone,
+  Calculator,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useState } from "react";
@@ -93,22 +95,27 @@ function buildNavItems(active: Set<string>): NavItem[] {
   const items: NavItem[] = [
     { label: "Overview", href: "/portal", icon: LayoutDashboard },
     { label: "Services", href: "/portal/services", icon: Wrench },
-    /* Service-gated tabs — only shown when the client has the matching subscription (Q17) */
-    { label: "Reviews", href: "/portal/reviews", icon: Star, requires: "reputationshield" },
+    /* Service-gated product tabs — only shown when the client has the matching
+       subscription (Q17). Labels use the canonical product brand name (premium
+       SaaS brand consistency) — customers see these brand names in billing,
+       catalog, and marketing surfaces. */
+    { label: "24/7 TradeLine", href: "/portal/tradeline/setup", icon: Phone, requires: "tradeline" },
+    { label: "QuoteQuick", href: "/dashboard", icon: Calculator, requires: "quotequick" },
+    { label: "ReputationShield", href: "/portal/reviews", icon: Star, requires: "reputationshield" },
     { label: "Review Widget", href: "/portal/reviews/widget", icon: Code, indent: true, requires: "reputationshield" },
-    { label: "Social Media", href: "/portal/socialsync", icon: Share2, requires: "socialsync" },
-    { label: "SEO", href: "/portal/rankflow", icon: TrendingUp, requires: "rankflow" },
-    /* "Content" (formerly "Articles") shows for every customer — the page renders empty states
+    { label: "SocialSync", href: "/portal/socialsync", icon: Share2, requires: "socialsync" },
+    { label: "RankFlow", href: "/portal/rankflow", icon: TrendingUp, requires: "rankflow" },
+    /* "ContentFlow" (formerly "Content"/"Articles") shows for every customer — the page renders empty states
        for customers without RankFlow/SocialSync content. Matches the always-visible pattern
        of "Today's jobs", "Invoices", "Billing", "Add Services". ContentFlow Phase B7. */
-    { label: "Content", href: "/portal/articles", icon: FileText },
+    { label: "ContentFlow", href: "/portal/articles", icon: FileText },
     { label: "Content Style", href: "/portal/content-preferences", icon: Sparkles, indent: true },
     { label: "MapGuard", href: "/portal/mapguard", icon: MapPin, requires: "mapguard" },
     /* BookFlow tabs are always visible — every customer has a job
        calendar and an invoice ledger, even if they're empty. The
        child pages render their own empty states. */
     { label: "Today's jobs", href: "/portal/dispatch", icon: Calendar },
-    { label: "Booking page", href: "/portal/bookflow-setup", icon: Settings, indent: true },
+    { label: "BookFlow Setup", href: "/portal/bookflow-setup", icon: Settings, indent: true },
     { label: "Invoices", href: "/portal/invoices", icon: Receipt },
     { label: "Billing", href: "/portal/billing", icon: CreditCard },
     /* AJ-5 portal API access — developer portal entry for the public API platform */

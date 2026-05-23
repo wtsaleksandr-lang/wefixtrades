@@ -35,7 +35,7 @@ const DEMO_CONFIGS: Record<
     ],
   },
   quotequick: {
-    title: "QuoteQuick Pro Demo",
+    title: "QuoteQuick Demo",
     desc: "Try an interactive quote calculator. See how homeowners get instant estimates on your website, boosting engagement and capturing qualified leads.",
     icon: "calculator",
     productSlug: "quotequick",

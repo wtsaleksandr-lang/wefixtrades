@@ -1299,12 +1299,12 @@ function SettingsSection({ token }: { token: string }) {
           <UpgradeGate
             currentPlan={data?.plan_tier || data?.calculator?.plan_tier || 'free'}
             feature="remove_branding"
-            featureLabel="Remove QuoteQuick Pro badge from your calculator"
+            featureLabel="Remove QuoteQuick badge from your calculator"
             compact
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ ...p.typography.bodySm, color: p.colors.muted }}>
-                Hide the QuoteQuick Pro powered-by badge
+                Hide the QuoteQuick powered-by badge
               </span>
               <span style={{ fontSize: 12, fontWeight: 600, color: p.colors.success }}>Enabled on your plan</span>
             </div>

@@ -121,7 +121,7 @@ Q: Is there a contract or lock-in?
 A: No contracts, no lock-in. Monthly plans cancel any time from the portal. Annual plans are charged once a year — cancel mid-year and you keep access until the period ends, but we don't pro-rate refunds.
 
 Q: Do you offer a trial or money-back guarantee?
-A: QuoteQuick Pro has a 14-day free trial with no credit card required. Every other paid recurring service (TradeLine, MapGuard, ReputationShield, SocialSync, RankFlow, WebCare) ships with a 30-day money-back guarantee — if it's not working, email support within 30 days of your first charge and we refund it in full. 
+A: QuoteQuick has a 14-day free trial with no credit card required. Every other paid recurring service (TradeLine, MapGuard, ReputationShield, SocialSync, RankFlow, WebCare) ships with a 30-day money-back guarantee — if it's not working, email support within 30 days of your first charge and we refund it in full.
 
 Q: What trades do you work with?
 A: All trades — plumbing, electrical, HVAC, roofing, painting, landscaping, cleaning, flooring, and more.

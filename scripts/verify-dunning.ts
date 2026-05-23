@@ -109,9 +109,9 @@ assert("Card-expiring subject", cardExp.subject === "Your card is about to expir
 assert("Card-expiring shows last4 + brand", cardExp.html.includes("4242") && cardExp.html.includes("Visa"));
 assert("Card-expiring shows formatted exp date", cardExp.html.includes("09/26"));
 
-const canceled = buildSubscriptionCanceledEmail({ ...sharedParams, serviceName: "QuoteQuick Pro" });
+const canceled = buildSubscriptionCanceledEmail({ ...sharedParams, serviceName: "QuoteQuick" });
 assert("Canceled subject", canceled.subject === "Your WeFixTrades subscription has been canceled");
-assert("Canceled mentions service name", canceled.html.includes("QuoteQuick Pro"));
+assert("Canceled mentions service name", canceled.html.includes("QuoteQuick"));
 
 /* ─── Test 3: schedule + cancel + send via stubbed db ─── */
 

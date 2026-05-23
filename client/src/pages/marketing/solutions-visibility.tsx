@@ -267,7 +267,7 @@ export default function SolutionsVisibility() {
         <div style={S.ctaSection} data-testid="section-solutions-cta">
           <h2 style={S.ctaTitle}>Ready to grow your visibility?</h2>
           <p style={S.ctaSub}>
-            Bundle visibility add-ons with QuoteQuick Pro or our 24/7 Assistants for the full growth stack.
+            Bundle visibility add-ons with QuoteQuick or our 24/7 Assistants for the full growth stack.
           </p>
           <Link
             href="/contact"

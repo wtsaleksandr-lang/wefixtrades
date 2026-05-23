@@ -64,8 +64,8 @@ import("../server/lib/transactionalShell").then(async ({ buildTransactionalEmail
   /* ─── 2. welcomeEmail.ts (service-activation, QuoteQuick example) ─── */
   const welcomeHtml = buildTransactionalEmail({
     recipientEmail: "owner@acmeplumbing.test",
-    subjectForTitle: "QuoteQuick Pro is live — welcome aboard",
-    eyebrow: "You're live · QuoteQuick Pro",
+    subjectForTitle: "QuoteQuick is live — welcome aboard",
+    eyebrow: "You're live · QuoteQuick",
     headline: "Your instant quote calculator is live",
     intro: `Hi Sam, customers visiting your website can now get real-time quotes and submit qualified leads straight to your inbox.`,
     bodyHtml: `
@@ -84,7 +84,7 @@ import("../server/lib/transactionalShell").then(async ({ buildTransactionalEmail
   previews.push({
     slug: "02-welcome-service-activation",
     source: "server/lib/welcomeEmail.ts",
-    subject: "QuoteQuick Pro is live — welcome aboard",
+    subject: "QuoteQuick is live — welcome aboard",
     html: welcomeHtml,
   });
 
@@ -117,7 +117,7 @@ import("../server/lib/transactionalShell").then(async ({ buildTransactionalEmail
 
   /* ─── 4. paymentReceiptEmail.ts ─── */
   const items = [
-    { service_name: "QuoteQuick Pro", amount_cents: 4900, billing_period: "monthly" },
+    { service_name: "QuoteQuick", amount_cents: 4900, billing_period: "monthly" },
     { service_name: "MapGuard Standard", amount_cents: 9900, billing_period: "monthly" },
   ];
   const totalCents = items.reduce((s, it) => s + it.amount_cents, 0);

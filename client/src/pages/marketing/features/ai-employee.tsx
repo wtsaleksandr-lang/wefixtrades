@@ -85,7 +85,7 @@ function AiMockup() {
 }
 
 const config: FeaturePageConfig = {
-  meta: { title: "AI Employee — QuoteQuick Pro | 24/7 Sales & Support Automation" },
+  meta: { title: "AI Employee — QuoteQuick™ | 24/7 Sales & Support Automation" },
   hero: {
     badge: "AI Employee System",
     badgeColor: "#7C3AED",

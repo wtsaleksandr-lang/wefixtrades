@@ -84,7 +84,7 @@ export const SITELAUNCH: ProductDef = {
         "Basic SEO",
         "Contact forms",
         "QuoteQuick embed",
-        "BONUS: 14-day free trial of TradeLine Starter + QuoteQuick Pro",
+        "BONUS: 14-day free trial of TradeLine Starter + QuoteQuick",
       ],
     },
   ],

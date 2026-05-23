@@ -18,7 +18,7 @@ type ActiveBundle = {
 
 export default function BundlesPage() {
   useEffect(() => {
-    document.title = "Bundles — QuoteQuick Pro + WeFixTrades";
+    document.title = "Bundles — QuoteQuick + WeFixTrades";
   }, []);
 
   const [openFaq, setOpenFaq] = useState<number | null>(null);

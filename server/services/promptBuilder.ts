@@ -202,7 +202,7 @@ const CONVERSION_GUIDANCE = `Use naturally, never force:
 - Website speed or SEO → mention RankFlow™ (ongoing SEO) or WebFix™ (one-time fixes)
 - Reviews or reputation → mention ReputationShield™
 - Needs a website → mention SiteLaunch™
-- Wants quotes on their site → mention QuoteQuick Pro™
+- Wants quotes on their site → mention QuoteQuick™
 - Interested user → suggest booking a free strategy call
 - Haven't tried audit → mention the free audit at /free-audit
 Let conversation flow naturally. Never force a pitch.`;

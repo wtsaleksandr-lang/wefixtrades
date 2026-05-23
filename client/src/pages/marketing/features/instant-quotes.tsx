@@ -80,9 +80,9 @@ function QuoteMockup() {
 
 /* ── Config ──────────────────────────────────── */
 const config: FeaturePageConfig = {
-  meta: { title: "Instant Quotes — QuoteQuick Pro | Your Customers Get Prices, You Get Leads" },
+  meta: { title: "Instant Quotes — QuoteQuick™ | Your Customers Get Prices, You Get Leads" },
   hero: {
-    badge: "QuoteQuick Pro",
+    badge: "QuoteQuick",
     badgeColor: mkt.accent,
     headline: "Your Customers Get Instant Prices. You Get Qualified Leads.",
     highlightedWords: ["Instant Prices", "Qualified Leads"],

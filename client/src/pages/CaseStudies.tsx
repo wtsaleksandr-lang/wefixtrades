@@ -103,14 +103,14 @@ const STUDIES: Study[] = [
   },
   {
     slug: "quotequickpro-hvac", trade: "HVAC", city: "Calgary, AB",
-    size: "5-tech installer", product: "QuoteQuick Pro", timeline: "Widget live in 30 min",
+    size: "5-tech installer", product: "QuoteQuick", timeline: "Widget live in 30 min",
     headline: "Self-serve quotes captured weekend AC enquiries on autopilot",
     outcomes: [
       { icon: FileText,   tint: "violet", label: "Quotes self-served", before: "0%",   after: "≈ 80%" },
       { icon: Clock,      tint: "indigo", label: "Phone quoting time", before: "4h/day", after: "≈ 30 min" },
       { icon: TrendingUp, tint: "green",  label: "Weekend leads",      before: "Lost", after: "≈ 3×" },
     ],
-    quote: "I was eating my evenings giving rough quotes over the phone. QuoteQuick Pro turned the website into a quoting machine — Saturday morning we wake up to three confirmed estimate requests.",
+    quote: "I was eating my evenings giving rough quotes over the phone. QuoteQuick turned the website into a quoting machine — Saturday morning we wake up to three confirmed estimate requests.",
     person: "Dan", role: "Operations Lead", business: "Foothills HVAC",
   },
   {

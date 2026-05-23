@@ -43,7 +43,7 @@ interface BaseEmailParams {
   portalUrl: string;          // signed-token CTA URL
   supportEmail: string;
   recipientEmail: string;
-  serviceName?: string;       // optional, e.g. "WeFixTrades QuoteQuick Pro"
+  serviceName?: string;       // optional, e.g. "WeFixTrades QuoteQuick"
 }
 
 interface CardExpiringParams extends BaseEmailParams {

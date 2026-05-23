@@ -170,7 +170,7 @@ function MarketingFooter() {
             toggleLabel="All Products"
             links={[
               { href: "/products/tradeline", label: "24/7 TradeLine™" },
-              { href: "/products/quickquotepro", label: "QuoteQuick Pro™" },
+              { href: "/products/quickquotepro", label: "QuoteQuick™" },
               { href: "/products/mapguard", label: "MapGuard™" },
               { href: "/products/reputationshield", label: "ReputationShield™" },
               { href: "/products/socialsync", label: "SocialSync™" },

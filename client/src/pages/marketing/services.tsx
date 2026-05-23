@@ -400,7 +400,7 @@ export default function ServicesPage() {
                     <option value="gmb">MapGuard (Google Maps)</option>
                     <option value="booking">Booking & Calendar Integration</option>
                     <option value="website">SiteLaunch (Website Build)</option>
-                    <option value="quickquote">QuoteQuick Pro (Calculator)</option>
+                    <option value="quickquote">QuoteQuick (Calculator)</option>
                     <option value="social">SocialSync (Social Media)</option>
                     <option value="reputation">ReputationShield (Reviews)</option>
                     <option value="bundle">Growth Bundle / Autopilot</option>

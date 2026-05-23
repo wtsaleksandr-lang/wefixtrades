@@ -194,7 +194,7 @@ export const FAQS = [
   },
   {
     q: "What's the 30-day money-back guarantee?",
-    a: "Every paid recurring service (TradeLine, MapGuard, ReputationShield, SocialSync, RankFlow, WebCare) comes with a 30-day money-back guarantee. Email us within 30 days of your first charge and we refund that charge in full — no forms, no phone call required. After 30 days you can still cancel any time, but past charges stay billed. QuoteQuick Pro ships with a 14-day free trial instead of the guarantee.",
+    a: "Every paid recurring service (TradeLine, MapGuard, ReputationShield, SocialSync, RankFlow, WebCare) comes with a 30-day money-back guarantee. Email us within 30 days of your first charge and we refund that charge in full — no forms, no phone call required. After 30 days you can still cancel any time, but past charges stay billed. QuoteQuick ships with a 14-day free trial instead of the guarantee.",
   },
   {
     q: "Do SMS follow-ups require Twilio?",

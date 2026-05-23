@@ -3,7 +3,7 @@ import DocsLayout, { Step, InfoBox, DocH2, DocH3, Checklist, Accordion } from "@
 import { mkt } from "@/theme/tokens";
 
 export default function DocsAi() {
-  useEffect(() => { document.title = "AI Employee — QuoteQuick Pro Docs"; }, []);
+  useEffect(() => { document.title = "AI Employee — QuoteQuick™ Docs"; }, []);
 
   return (
     <DocsLayout

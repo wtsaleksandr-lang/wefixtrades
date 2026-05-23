@@ -55,7 +55,7 @@ export const FEATURE_REQUIRES: Record<Feature, PlanTier> = {
 };
 
 export const FEATURE_LABELS: Record<Feature, string> = {
-  remove_branding:  "Remove QuoteQuick Pro branding",
+  remove_branding:  "Remove QuoteQuick branding",
   csv_export:       "CSV lead export",
   email_followups:  "Automated email follow-ups",
   booking_deposits: "Booking + Stripe deposits",

@@ -160,7 +160,7 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
     },
   ],
 
-  /* ─── 2. QuoteQuick Pro ─── */
+  /* ─── 2. QuoteQuick ─── */
   quickquotepro: [
     {
       number: "01",

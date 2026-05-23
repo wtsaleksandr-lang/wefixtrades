@@ -4,7 +4,7 @@ import { mkt } from "@/theme/tokens";
 import { HOSTING_DOMAIN } from "@shared/slugUtils";
 
 export default function DocsEmbed() {
-  useEffect(() => { document.title = "Embed Guide — QuoteQuick Pro Docs"; }, []);
+  useEffect(() => { document.title = "Embed Guide — QuoteQuick™ Docs"; }, []);
 
   return (
     <DocsLayout
