@@ -8,7 +8,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { ChevronLeft, MessageCircle, Loader2 } from "lucide-react";
+import { ChevronLeft, MessageCircle, MessageSquare, Loader2 } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { Card } from "@/components/ui/card";
 import { usePageTitle } from "@/hooks/usePageTitle";
@@ -72,6 +72,7 @@ export default function PortalChatHistoryPage() {
 
         {!isLoading && !error && messages.length === 0 && (
           <Card className="p-8 text-center text-sm text-gray-500" data-testid="chat-history-empty">
+            <MessageSquare className="w-8 h-8 text-gray-300 mx-auto mb-3" aria-hidden="true" />
             No conversation history yet. The chat assistant keeps a 7-day rolling thread — come back after a chat.
           </Card>
         )}
@@ -81,7 +82,8 @@ export default function PortalChatHistoryPage() {
             {messages.map((m, i) => (
               <div
                 key={i}
-                className={`flex flex-col gap-0.5 ${m.role === "user" ? "items-end" : "items-start"}`}
+                className={`flex flex-col gap-0.5 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-1 motion-safe:duration-200 ${m.role === "user" ? "items-end" : "items-start"}`}
+                style={{ animationDelay: `${Math.min(i, 20) * 30}ms`, animationFillMode: "both" }}
               >
                 <div
                   className={`max-w-[85%] rounded-lg px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap ${

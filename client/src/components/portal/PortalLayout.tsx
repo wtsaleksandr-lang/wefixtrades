@@ -239,7 +239,9 @@ export default function PortalLayout({
                     "flex items-center gap-3 rounded-lg text-sm transition-colors min-h-[44px]",
                     item.indent ? "pl-9 pr-3 py-2" : "px-3 py-2.5",
                     active
-                      ? "bg-[#EEF3FF] text-[#0d3cfc] font-medium"
+                      // Premium polish — whisper-light tint + 3px left-edge brand bar
+                      // (via ::before) so the active row reads as "pinned" not "filled".
+                      ? "relative bg-[#EEF3FF]/60 text-[#0d3cfc] font-medium before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:w-[3px] before:h-5 before:bg-[#0d3cfc] before:rounded-r-sm"
                       : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                   )}
                 >

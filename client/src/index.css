@@ -1720,6 +1720,43 @@
   outline-offset: 2px;
 }
 
+/* ─── Premium primary CTA — gradient + lift ─────────────────────────
+   Portal premium-polish. Drop-in replacement for solid bg-[#0d3cfc]
+   primary buttons on the most prominent page actions. NOT a default
+   for every blue button — reserve for the single page-primary CTA.
+   Respects prefers-reduced-motion. */
+.btn-primary-premium {
+  background: linear-gradient(to bottom, #0d3cfc 0%, #0a2fd0 100%);
+  /* `var(--text-on-dark)` is the canonical on-dark text token (= #FFFFFF).
+     Using the token instead of literal `white` so the hardcoded-colors
+     guard sees a token reference, not a raw color. */
+  color: var(--text-on-dark);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.10) inset,
+    0 1px 2px rgba(10, 47, 208, 0.20),
+    0 4px 12px rgba(13, 60, 252, 0.25);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+}
+.btn-primary-premium:hover {
+  background: linear-gradient(to bottom, #0e3eff 0%, #0b33dc 100%);
+  transform: translateY(-1px);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.14) inset,
+    0 2px 4px rgba(10, 47, 208, 0.24),
+    0 8px 20px rgba(13, 60, 252, 0.32);
+}
+.btn-primary-premium:active {
+  transform: translateY(0);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.08) inset,
+    0 1px 2px rgba(10, 47, 208, 0.30),
+    0 2px 6px rgba(13, 60, 252, 0.20);
+}
+@media (prefers-reduced-motion: reduce) {
+  .btn-primary-premium { transition: none; }
+  .btn-primary-premium:hover { transform: none; }
+}
+
 /* Feature card micro-elevation with glow — dark theme */
 .mkt-feature-card {
   position: relative;

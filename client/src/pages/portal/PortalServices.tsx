@@ -1,6 +1,6 @@
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, ArrowRight, Calculator, Eye, Users, ExternalLink, RefreshCw, Plus, MessageCircle } from "lucide-react";
+import { Loader2, ArrowRight, Calculator, Eye, Users, ExternalLink, RefreshCw, Plus, MessageCircle, PackageOpen } from "lucide-react";
 import { Link } from "wouter";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -121,6 +121,7 @@ export default function PortalServices() {
 
         {data && data.services.length === 0 && !qqData?.calculator && (
           <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
+            <PackageOpen className="w-8 h-8 text-gray-300 mx-auto mb-3" aria-hidden="true" />
             <p className="text-sm font-medium text-gray-700 mb-1">No services yet</p>
             <p className="text-xs text-gray-500 max-w-sm mx-auto">Once you pick a service from our catalog, you'll see it here with its setup form, tasks, and live status.</p>
           </div>
