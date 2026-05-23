@@ -1,0 +1,904 @@
+# CONTRAST-2 baseline — existing hardcoded color violations.
+# Each entry is tolerated by check-hardcoded-colors.mjs. To clear an
+# entry: refactor the file to use a theme token (or wrap in a
+# data-theme=... scope), then delete the matching line here and re-run
+# `npm run check:hardcoded-colors` to confirm.
+# Format: <file>:<line>:<col>\t<kind>\t<snippet>
+client/src/components/RecommendationCard.tsx:27:9	prop	background: "#fff"
+client/src/components/RecommendationCard.tsx:61:13	prop	background: "#fff"
+client/src/components/RecommendationCard.tsx:84:13	prop	color: "#fff"
+client/src/components/SiteChatWidget.tsx:157:13	prop	color: "#FFFFFF"
+client/src/components/SiteChatWidget.tsx:183:15	prop	color: "#fff"
+client/src/components/SiteChatWidget.tsx:228:11	prop	background: "#fff"
+client/src/components/SiteChatWidget.tsx:242:60	prop	color: "#fff"
+client/src/components/SiteChatWidget.tsx:302:23	prop	color: "#fff"
+client/src/components/SiteChatWidget.tsx:335:25	prop	background: "#fff"
+client/src/components/SiteChatWidget.tsx:371:13	prop	background: "#fff"
+client/src/components/SiteChatWidget.tsx:404:17	prop	color: "#fff"
+client/src/components/admin/AdminCopilot.tsx:617:51	tailwind	text-white
+client/src/components/admin/AdminCopilot.tsx:1209:52	tailwind	bg-white
+client/src/components/admin/AdminCopilot.tsx:1236:58	tailwind	text-white
+client/src/components/admin/AdminLayout.tsx:836:72	tailwind	bg-white
+client/src/components/admin/AdminLayout.tsx:902:36	tailwind	text-white
+client/src/components/admin/MapguardOpsTab.tsx:835:42	tailwind	bg-white
+client/src/components/admin/MapguardOpsTab.tsx:900:82	tailwind	text-white
+client/src/components/admin/MapguardOpsTab.tsx:1018:72	tailwind	text-white
+client/src/components/admin/RankFlowTab.tsx:261:56	tailwind	text-white
+client/src/components/admin/RankFlowTab.tsx:347:56	tailwind	text-white
+client/src/components/admin/RankFlowTab.tsx:392:101	tailwind	text-white
+client/src/components/admin/RankFlowTab.tsx:397:103	tailwind	text-white
+client/src/components/admin/RankFlowTab.tsx:402:101	tailwind	text-white
+client/src/components/admin/RankFlowTab.tsx:407:103	tailwind	text-white
+client/src/components/admin/RankFlowTab.tsx:413:107	tailwind	text-white
+client/src/components/admin/RankFlowTab.tsx:440:74	tailwind	text-white
+client/src/components/admin/RankFlowTab.tsx:456:74	tailwind	text-white
+client/src/components/admin/RankFlowTab.tsx:475:70	tailwind	text-white
+client/src/components/admin/RankFlowTab.tsx:490:74	tailwind	text-white
+client/src/components/admin/RankFlowTab.tsx:505:74	tailwind	text-white
+client/src/components/admin/RankFlowTab.tsx:586:93	tailwind	text-white
+client/src/components/admin/RankFlowTab.tsx:589:95	tailwind	text-white
+client/src/components/admin/RankFlowTab.tsx:592:93	tailwind	text-white
+client/src/components/admin/RankFlowTab.tsx:595:95	tailwind	text-white
+client/src/components/admin/RankFlowTab.tsx:598:97	tailwind	text-white
+client/src/components/admin/RankFlowTab.tsx:601:89	tailwind	text-white
+client/src/components/admin/RankFlowTab.tsx:604:93	tailwind	text-white
+client/src/components/admin/ServiceOps.tsx:74:49	tailwind	text-white
+client/src/components/admin/SocialSyncTab.tsx:1648:90	tailwind	text-white
+client/src/components/admin/TaskCard.tsx:278:92	tailwind	text-white
+client/src/components/ai/AIChatBubble.tsx:627:9	prop	background: '#fff'
+client/src/components/ai/AIChatBubble.tsx:642:9	prop	background: '#fff'
+client/src/components/ai/AIChatBubble.tsx:653:9	prop	background: '#fff'
+client/src/components/ai/AIChatBubble.tsx:696:13	prop	color: '#fff'
+client/src/components/ai/AIChatBubble.tsx:783:29	prop	color: '#fff'
+client/src/components/ai/AIChatBubble.tsx:793:215	prop	color: '#fff'
+client/src/components/ai/AIChatBubble.tsx:802:215	prop	color: '#fff'
+client/src/components/ai/AIChatBubble.tsx:845:31	prop	background: '#fff'
+client/src/components/ai/AIChatBubble.tsx:878:42	prop	background: '#fff'
+client/src/components/ai/AIChatBubble.tsx:928:19	prop	color: '#fff'
+client/src/components/ai/AIChatBubble.tsx:975:11	prop	color: '#fff'
+client/src/components/ai/AIChatBubble.tsx:1078:9	prop	background: '#fff'
+client/src/components/auth/GoogleSignInButton.tsx:28:9	prop	background: "#FFFFFF"
+client/src/components/booking/BookNowButton.tsx:162:50	tailwind	bg-white
+client/src/components/calculator/PricingConfigEditor.tsx:148:76	tailwind	bg-white
+client/src/components/calculator/SliderField.tsx:97:13	prop	color: '#fff'
+client/src/components/calculator/SliderField.tsx:166:11	prop	background: '#fff'
+client/src/components/contentflow/ContentFlowDraftDrawer.tsx:488:30	tailwind	bg-white
+client/src/components/dashboard/UpgradeGate.tsx:74:36	prop	color: "#FFFFFF"
+client/src/components/dashboard/UpgradeGate.tsx:97:11	prop	background: "#FFFFFF"
+client/src/components/dashboard/UpgradeGate.tsx:125:34	prop	color: "#FFFFFF"
+client/src/components/effortel-blocks/index.tsx:326:24	prop	color: "#fff"
+client/src/components/effortel-blocks/index.tsx:361:34	prop	color: "#fff"
+client/src/components/effortel-blocks/index.tsx:485:11	prop	background: "#fff"
+client/src/components/effortel-blocks/index.tsx:694:90	prop	color: "#fff"
+client/src/components/hosted-page/HostedPageFrame.tsx:199:11	prop	background: #fff
+client/src/components/hosted-page/WeFixTradesBadge.tsx:132:9	prop	color: '#fff'
+client/src/components/marketing/AnnouncementBanner.tsx:72:9	prop	color: "#FFFFFF"
+client/src/components/marketing/AnnouncementBanner.tsx:88:13	prop	color: "#FFFFFF"
+client/src/components/marketing/AuditGate.tsx:113:11	prop	background: WHITE
+client/src/components/marketing/AuditGate.tsx:148:9	prop	background: WHITE
+client/src/components/marketing/AuditGate.tsx:285:13	prop	color: WHITE
+client/src/components/marketing/BentoGrid.tsx:65:55	prop	color: "#fff"
+client/src/components/marketing/BentoGrid.tsx:90:56	prop	color: "#fff"
+client/src/components/marketing/BentoGrid.tsx:106:55	prop	color: "#fff"
+client/src/components/marketing/BentoGrid.tsx:111:55	prop	color: "#fff"
+client/src/components/marketing/BentoGrid.tsx:195:53	prop	color: "#fff"
+client/src/components/marketing/BentoGrid.tsx:219:53	prop	color: "#fff"
+client/src/components/marketing/BentoGrid.tsx:285:11	prop	color: "#fff"
+client/src/components/marketing/CheckoutIntakeModal.tsx:162:11	prop	background: "#fff"
+client/src/components/marketing/CheckoutIntakeModal.tsx:273:15	prop	color: "#fff"
+client/src/components/marketing/CheckoutIntakeModal.tsx:317:3	prop	background: "#fff"
+client/src/components/marketing/DocsLayout.tsx:74:85	prop	color: "#FFFFFF"
+client/src/components/marketing/FeatureCards.tsx:102:56	prop	color: "#fff"
+client/src/components/marketing/FeatureCards.tsx:137:55	prop	color: "#fff"
+client/src/components/marketing/FeatureCards.tsx:198:53	prop	color: "#fff"
+client/src/components/marketing/FeaturePage.tsx:217:36	prop	color: "#FFFFFF"
+client/src/components/marketing/FeaturePage.tsx:239:51	prop	color: "#FFFFFF"
+client/src/components/marketing/FeaturePage.tsx:251:48	prop	color: "#FFFFFF"
+client/src/components/marketing/FeaturePage.tsx:480:81	prop	color: "#FFFFFF"
+client/src/components/marketing/FeaturePage.tsx:493:19	prop	background: "#FFFFFF"
+client/src/components/marketing/FeaturePage.tsx:503:46	prop	color: "#FFFFFF"
+client/src/components/marketing/StickyStackCards.tsx:80:21	prop	background: "#fff"
+client/src/components/marketing/StickyStackCards.tsx:90:113	prop	color: "#fff"
+client/src/components/marketing/StickyStackCards.tsx:99:21	prop	background: "#fff"
+client/src/components/marketing/StickyStackCards.tsx:122:50	prop	background: "#fff"
+client/src/components/marketing/StickyStackCards.tsx:129:30	prop	background: "#fff"
+client/src/components/marketing/StickyStackCards.tsx:169:30	prop	background: "#fff"
+client/src/components/marketing/StickyStackCards.tsx:189:21	prop	background: "#fff"
+client/src/components/marketing/StickyStackCards.tsx:209:21	prop	background: "#fff"
+client/src/components/marketing/StickyStackCards.tsx:228:21	prop	background: "#fff"
+client/src/components/marketing/StickyStackCards.tsx:431:21	prop	background: "#fff"
+client/src/components/marketing/TradeLineDemoLauncher.tsx:427:56	prop	color: #fff
+client/src/components/marketing/TradeLineDemoLauncher.tsx:428:19	prop	color: #fff
+client/src/components/marketing/TradeLineDemoLauncher.tsx:483:60	prop	color: #fff
+client/src/components/marketing/TradeLineDemoLauncher.tsx:489:29	prop	background: #fff
+client/src/components/marketing/TradeLineDemoLauncher.tsx:489:47	prop	border-color: #fff
+client/src/components/marketing/TradeLineDemoLauncher.tsx:523:39	prop	color: #fff
+client/src/components/marketing/TradeLineDemoLauncher.tsx:552:3	prop	color: #fff
+client/src/components/marketing/TradeLineDemoLauncher.tsx:587:3	prop	color: #fff
+client/src/components/marketing/TradeLineHeroPhone.tsx:590:3	prop	color: #fff
+client/src/components/marketing/TradeLineHeroPhone.tsx:612:68	prop	color: #fff
+client/src/components/marketing/TradeLineHeroPhone.tsx:613:69	prop	color: #fff
+client/src/components/marketing/TradeLineHeroPhone.tsx:614:105	prop	color: #fff
+client/src/components/marketing/TradeLineHeroPhone.tsx:618:74	prop	color: #fff
+client/src/components/marketing/TradeLineHeroPhone.tsx:635:38	prop	color: #fff
+client/src/components/marketing/TradeLineHeroPhone.tsx:721:3	prop	color: #fff
+client/src/components/marketing/TradeLineHeroPhone.tsx:727:40	prop	color: #fff
+client/src/components/marketing/TradeLineHeroPhone.tsx:744:46	prop	background: #fff
+client/src/components/marketing/TradeLineHeroPhone.tsx:764:3	prop	color: #fff
+client/src/components/marketing/TradeLineHeroPhone.tsx:770:3	prop	color: #fff
+client/src/components/marketing/TradeLineHeroPhone.tsx:833:28	prop	color: #fff
+client/src/components/marketing/TradeLineHeroPhone.tsx:836:3	prop	background: #fff
+client/src/components/marketing/TradeLineHeroPhone.tsx:842:3	prop	background: #fff
+client/src/components/marketing/TradeLineHeroPhone.tsx:843:3	prop	color: #000
+client/src/components/marketing/TradeLineHeroPhone.tsx:871:3	prop	color: #fff
+client/src/components/marketing/TradeLineHeroPhone.tsx:898:38	prop	color: #fff
+client/src/components/marketing/globe/GlobeCard.tsx:39:11	prop	color: "#fff"
+client/src/components/marketing/map-snapshot/MapSnapshotShell.tsx:59:3	prop	background: "#fff"
+client/src/components/marketing/map-snapshot/MapSnapshotShell.tsx:195:81	tailwind	bg-white
+client/src/components/marketing/map-snapshot/MapSnapshotShell.tsx:204:13	prop	color: "#fff"
+client/src/components/marketing/map-snapshot/MapSnapshotShell.tsx:226:17	prop	background: "#fff"
+client/src/components/marketing/map-snapshot/MapSnapshotShell.tsx:575:9	prop	background: "#fff"
+client/src/components/marketing/map-snapshot/MapSnapshotShell.tsx:588:11	prop	background: "#fff"
+client/src/components/marketing/map-snapshot/MapSnapshotShell.tsx:652:17	prop	color: "#fff"
+client/src/components/marketing/map-snapshot/MapSnapshotShell.tsx:724:19	prop	color: "#fff"
+client/src/components/marketing/map-snapshot/MapSnapshotShell.tsx:737:19	prop	background: "#fff"
+client/src/components/marketing/map-snapshot/MapSnapshotShell.tsx:793:13	prop	background: "#fff"
+client/src/components/marketing/map-snapshot/MapSnapshotShell.tsx:809:15	prop	color: "#fff"
+client/src/components/marketing/missed-call-calculator/CalculatorLeadGate.tsx:296:53	prop	color: '#FFFFFF'
+client/src/components/marketing/missed-call-calculator/MissedCallCalculatorShell.tsx:530:25	prop	color: '#FFFFFF'
+client/src/components/marketing/showcase/AllInOneDiagram.tsx:237:38	prop	color: #fff
+client/src/components/marketing/showcase/BenefitsGrid.tsx:111:3	prop	color: #fff
+client/src/components/marketing/showcase/EfficientOnboarding.tsx:176:20	prop	color: #fff
+client/src/components/marketing/showcase/EfficientOnboarding.tsx:216:72	prop	color: #fff
+client/src/components/marketing/showcase/IntegrationsOrbit.tsx:155:3	prop	color: #fff
+client/src/components/marketing/showcase/MultiTieredSupport.tsx:148:73	prop	color: #fff
+client/src/components/marketing/showcase/MultiTieredSupport.tsx:186:54	prop	color: #fff
+client/src/components/marketing/showcase/MultiTieredSupport.tsx:218:53	prop	color: #fff
+client/src/components/marketing/showcase/MultiTieredSupport.tsx:238:64	prop	color: #fff
+client/src/components/marketing/showcase/MultiTieredSupport.tsx:254:3	prop	color: #fff
+client/src/components/marketing/showcase/PremiumStackOrbit.tsx:156:77	prop	color: #fff
+client/src/components/marketing/showcase/ProactiveStats.tsx:146:3	prop	color: #fff
+client/src/components/marketing/showcase/ProactiveStats.tsx:202:3	prop	color: #fff
+client/src/components/marketing/showcase/StackBuilder.tsx:122:3	prop	color: #fff
+client/src/components/marketing/showcase/StackBuilder.tsx:155:3	prop	color: #fff
+client/src/components/marketing/showcase/StackBuilder.tsx:159:3	prop	color: #fff
+client/src/components/marketing/showcase/StackBuilder.tsx:215:3	prop	color: #fff
+client/src/components/marketing/v7/index.tsx:30:27	prop	color: "#FFFFFF"
+client/src/components/portal/ApprovalGate.tsx:80:21	tailwind	bg-white
+client/src/components/portal/ApprovalGate.tsx:105:62	tailwind	text-white
+client/src/components/portal/ApprovalGate.tsx:141:60	tailwind	text-white
+client/src/components/portal/DeliverableViewer.tsx:57:85	tailwind	bg-white
+client/src/components/portal/PortalChatWidget.tsx:991:62	tailwind	text-white
+client/src/components/portal/PortalChatWidget.tsx:998:76	tailwind	bg-white
+client/src/components/portal/PortalChatWidget.tsx:1033:59	tailwind	bg-white
+client/src/components/portal/PortalChatWidget.tsx:1045:62	tailwind	text-white
+client/src/components/portal/PortalChatWidget.tsx:1053:76	tailwind	bg-white
+client/src/components/portal/PortalChatWidget.tsx:1105:61	tailwind	text-white
+client/src/components/portal/PortalChatWidget.tsx:1176:56	tailwind	text-white
+client/src/components/portal/PortalLayout.tsx:258:72	tailwind	bg-white
+client/src/components/portal/PortalLayout.tsx:295:36	tailwind	text-white
+client/src/components/portal/TaskTimeline.tsx:97:23	tailwind	bg-white
+client/src/components/portal/TaskTimeline.tsx:108:21	tailwind	bg-white
+client/src/components/portal/TradeLinePortalSections.tsx:205:21	tailwind	bg-white
+client/src/components/portal/TradeLinePortalSections.tsx:217:76	tailwind	bg-white
+client/src/components/portal/TradeLinePortalSections.tsx:364:21	tailwind	bg-white
+client/src/components/portal/TradeLinePortalSections.tsx:508:23	tailwind	bg-white
+client/src/components/portal/TradeLinePortalSections.tsx:518:21	tailwind	bg-white
+client/src/components/portal/UpsellCard.tsx:51:42	tailwind	bg-white
+client/src/components/product-demos/MapGuardDemo.tsx:67:17	prop	background: "#fff"
+client/src/components/product-demos/MapGuardDemo.tsx:76:135	prop	color: "#fff"
+client/src/components/product-demos/QuoteQuickDemo.tsx:119:102	prop	color: "#FFFFFF"
+client/src/components/product-demos/SiteLaunchDemo.tsx:112:136	prop	color: "#FFFFFF"
+client/src/components/product-demos/SocialSyncDemo.tsx:54:98	prop	color: "#fff"
+client/src/components/product-demos/TradeLineChatDemo.tsx:166:31	prop	color: "#FFFFFF"
+client/src/components/quote-widget/AdvancedCalculator.tsx:1689:5	prop	background: '#ffffff'
+client/src/components/quote-widget/AdvancedCalculator.tsx:2888:65	prop	background: '#fff'
+client/src/components/quote-widget/AdvancedCalculator.tsx:3047:17	prop	color: '#fff'
+client/src/components/quote-widget/CalculatorLauncher.tsx:316:5	prop	background: '#fff'
+client/src/components/quote-widget/CalculatorLauncher.tsx:391:9	prop	background: '#fff'
+client/src/components/quote-widget/CalculatorLauncher.tsx:516:13	prop	background: '#fff'
+client/src/components/quote-widget/CalculatorStepper.tsx:226:33	prop	color: '#ffffff'
+client/src/components/quote-widget/ContactStep.tsx:247:25	prop	color: '#ffffff'
+client/src/components/quote-widget/HelpTip.tsx:65:61	prop	color: '#fff'
+client/src/components/quote-widget/QuoteWidget.tsx:296:9	prop	background: '#fff'
+client/src/components/quote-widget/StepHelp.tsx:121:15	prop	background: '#fff'
+client/src/components/quote-widget/TierSelector.tsx:125:19	prop	color: '#ffffff'
+client/src/components/quote-widget/steps/BookNowInlineWidget.tsx:103:65	prop	background: '#fff'
+client/src/components/quote-widget/steps/BookNowInlineWidget.tsx:111:88	prop	background: '#fff'
+client/src/components/quote-widget/steps/BookNowInlineWidget.tsx:137:88	prop	background: '#fff'
+client/src/components/quote-widget/steps/ConfirmationStep.tsx:61:13	prop	background: '#fff'
+client/src/components/quote-widget/steps/ConfirmationStep.tsx:78:13	prop	background: '#fff'
+client/src/components/quote-widget/steps/ConfirmationStep.tsx:149:15	prop	color: '#fff'
+client/src/components/quote-widget/steps/PriceRevealStep.tsx:228:11	prop	background: '#fff'
+client/src/components/quote-widget/steps/PriceRevealStep.tsx:339:11	prop	background: '#fff'
+client/src/components/quote-widget/steps/PriceRevealStep.tsx:637:15	prop	background: '#fff'
+client/src/components/quote-widget/steps/PriceRevealStep.tsx:760:9	prop	background: '#fff'
+client/src/components/quote-widget/steps/SchedulingStep.tsx:406:25	prop	background: '#fff'
+client/src/components/shared/CopilotPromptCard.tsx:47:56	tailwind	text-white
+client/src/components/shared/CopilotPromptCard.tsx:68:87	tailwind	bg-white
+client/src/components/shared/CopilotPromptCard.tsx:75:54	tailwind	text-white
+client/src/components/wizard/elfsight/AddFieldMenu.tsx:297:11	prop	background: #fff
+client/src/components/wizard/elfsight/AddFieldMenu.tsx:308:43	prop	color: #fff
+client/src/components/wizard/elfsight/AddFieldMenu.tsx:315:11	prop	color: #fff
+client/src/components/wizard/elfsight/AddFieldMenu.tsx:322:11	prop	background: #fff
+client/src/components/wizard/elfsight/AddFieldMenu.tsx:357:11	prop	background: #fff
+client/src/components/wizard/elfsight/AddFieldMenu.tsx:378:43	prop	color: #fff
+client/src/components/wizard/elfsight/AddFieldMenu.tsx:407:48	prop	color: #fff
+client/src/components/wizard/elfsight/AddFieldMenu.tsx:434:11	prop	background: #fff
+client/src/components/wizard/elfsight/BuildTab.tsx:198:11	prop	background: #FFFFFF
+client/src/components/wizard/elfsight/BuildTab.tsx:215:11	prop	background: #fff
+client/src/components/wizard/elfsight/CalculationRow.tsx:286:11	prop	background: #fff
+client/src/components/wizard/elfsight/CalculationRow.tsx:351:43	prop	color: #fff
+client/src/components/wizard/elfsight/CalculationRow.tsx:356:43	prop	color: #fff
+client/src/components/wizard/elfsight/CalculationRow.tsx:371:11	prop	background: #fff
+client/src/components/wizard/elfsight/CalculationRow.tsx:396:11	prop	background: #fff
+client/src/components/wizard/elfsight/CalculationRow.tsx:420:11	prop	background: #fff
+client/src/components/wizard/elfsight/CalculationRow.tsx:434:11	prop	background: #fff
+client/src/components/wizard/elfsight/CalculationsPanel.tsx:192:11	prop	background: #fff
+client/src/components/wizard/elfsight/CalculationsPanel.tsx:204:43	prop	color: #fff
+client/src/components/wizard/elfsight/CalculationsPanel.tsx:211:11	prop	color: #fff
+client/src/components/wizard/elfsight/ComponentPicker.tsx:353:11	prop	background: #fff
+client/src/components/wizard/elfsight/ComponentPicker.tsx:400:11	prop	background: #fff
+client/src/components/wizard/elfsight/ComponentPicker.tsx:464:11	prop	background: #fff
+client/src/components/wizard/elfsight/ComponentPicker.tsx:487:43	prop	color: #fff
+client/src/components/wizard/elfsight/FieldRow.tsx:440:11	prop	background: #fff
+client/src/components/wizard/elfsight/FieldRow.tsx:509:43	prop	color: #fff
+client/src/components/wizard/elfsight/FieldRow.tsx:514:43	prop	color: #fff
+client/src/components/wizard/elfsight/FieldRow.tsx:542:11	prop	background: #fff
+client/src/components/wizard/elfsight/FieldRow.tsx:566:49	prop	background: #fff
+client/src/components/wizard/elfsight/FieldRow.tsx:622:44	prop	color: #fff
+client/src/components/wizard/elfsight/FieldsPanel.tsx:242:11	prop	color: #fff
+client/src/components/wizard/elfsight/FieldsPanel.tsx:261:44	prop	color: #fff
+client/src/components/wizard/elfsight/FormulaEditor.tsx:285:11	prop	background: #fff
+client/src/components/wizard/elfsight/FormulaEditor.tsx:517:11	prop	background: #fff
+client/src/components/wizard/elfsight/FormulaEditor.tsx:765:11	prop	background: #fff
+client/src/components/wizard/elfsight/FormulaEditor.tsx:779:36	prop	background: #fff
+client/src/components/wizard/elfsight/FormulaEditor.tsx:790:43	prop	color: #fff
+client/src/components/wizard/elfsight/FormulaEditor.tsx:812:11	prop	background: #fff
+client/src/components/wizard/elfsight/FormulaEditor.tsx:828:43	prop	color: #fff
+client/src/components/wizard/elfsight/HeaderResultsPanel.tsx:202:11	prop	background: #fff
+client/src/components/wizard/elfsight/HostedPageSection.tsx:381:11	prop	background: #fff
+client/src/components/wizard/elfsight/HostedPageSection.tsx:409:31	prop	background: #fff
+client/src/components/wizard/elfsight/HostedPageSection.tsx:418:11	prop	background: #fff
+client/src/components/wizard/elfsight/HostedPageSection.tsx:434:11	prop	background: #fff
+client/src/components/wizard/elfsight/HostedPageSection.tsx:459:11	prop	background: #fff
+client/src/components/wizard/elfsight/HostedPageSection.tsx:498:11	prop	background: #fff
+client/src/components/wizard/elfsight/InstallGuideModal.tsx:334:45	prop	color: #fff
+client/src/components/wizard/elfsight/InstallGuideModal.tsx:376:45	prop	color: #fff
+client/src/components/wizard/elfsight/InstallGuideModal.tsx:424:13	prop	background: #fff
+client/src/components/wizard/elfsight/InstallTab.tsx:800:11	prop	background: #fff
+client/src/components/wizard/elfsight/InstallTab.tsx:878:11	prop	background: #fff
+client/src/components/wizard/elfsight/InstallTab.tsx:916:11	prop	background: #fff
+client/src/components/wizard/elfsight/InstallTab.tsx:931:43	prop	color: #fff
+client/src/components/wizard/elfsight/InstallTab.tsx:935:11	prop	background: #fff
+client/src/components/wizard/elfsight/InstallTab.tsx:972:43	prop	color: #fff
+client/src/components/wizard/elfsight/InstallTab.tsx:979:11	prop	background: #fff
+client/src/components/wizard/elfsight/InstallTab.tsx:999:53	prop	background: #fff
+client/src/components/wizard/elfsight/InstallTab.tsx:1037:43	prop	color: #fff
+client/src/components/wizard/elfsight/InstallTab.tsx:1071:11	prop	background: #fff
+client/src/components/wizard/elfsight/InstallTab.tsx:1113:11	prop	background: #fff
+client/src/components/wizard/elfsight/InstallTab.tsx:1182:43	prop	color: #fff
+client/src/components/wizard/elfsight/MobileBottomSheet.tsx:434:13	prop	background: #fff
+client/src/components/wizard/elfsight/MobileBottomSheet.tsx:454:13	prop	color: #fff
+client/src/components/wizard/elfsight/PreviewOverlay.tsx:226:11	prop	background: #fff
+client/src/components/wizard/elfsight/PreviewPane.tsx:1375:86	prop	background: '#fff'
+client/src/components/wizard/elfsight/PreviewPane.tsx:1464:53	prop	background: '#fff'
+client/src/components/wizard/elfsight/PreviewPane.tsx:1486:21	prop	background: '#fff'
+client/src/components/wizard/elfsight/PreviewPane.tsx:1767:11	prop	background: #fff
+client/src/components/wizard/elfsight/PreviewPane.tsx:1804:11	prop	color: #fff
+client/src/components/wizard/elfsight/PreviewPane.tsx:1994:11	prop	background: #fff
+client/src/components/wizard/elfsight/PreviewPane.tsx:2077:11	prop	background: #fff
+client/src/components/wizard/elfsight/PreviewPane.tsx:2121:11	prop	color: #fff
+client/src/components/wizard/elfsight/PreviewPane.tsx:2463:11	prop	color: #fff
+client/src/components/wizard/elfsight/PreviewPane.tsx:2521:11	prop	background: #fff
+client/src/components/wizard/elfsight/PreviewPane.tsx:2528:11	prop	background: #fff
+client/src/components/wizard/elfsight/RichTextField.tsx:535:11	prop	background: #fff
+client/src/components/wizard/elfsight/RichTextField.tsx:564:11	prop	background: #fff
+client/src/components/wizard/elfsight/RichTextField.tsx:579:11	prop	background: #fff
+client/src/components/wizard/elfsight/RichTextField.tsx:614:11	prop	color: #fff
+client/src/components/wizard/elfsight/RichTextField.tsx:627:11	prop	background: #fff
+client/src/components/wizard/elfsight/RichTextField.tsx:664:11	prop	background: #fff
+client/src/components/wizard/elfsight/RichTextField.tsx:707:11	prop	background: #fff
+client/src/components/wizard/elfsight/SettingsTab.tsx:786:11	prop	background: #fff
+client/src/components/wizard/elfsight/SettingsTab.tsx:844:11	prop	background: #fff
+client/src/components/wizard/elfsight/SettingsTab.tsx:855:11	prop	background: #fff
+client/src/components/wizard/elfsight/SettingsTab.tsx:884:11	prop	background: #fff
+client/src/components/wizard/elfsight/SettingsTab.tsx:896:11	prop	background: #fff
+client/src/components/wizard/elfsight/SettingsTab.tsx:948:11	prop	background: #fff
+client/src/components/wizard/elfsight/SettingsTab.tsx:959:11	prop	background: #fff
+client/src/components/wizard/elfsight/SettingsTab.tsx:970:11	prop	background: #fff
+client/src/components/wizard/elfsight/SettingsTab.tsx:1080:11	prop	background: #fff
+client/src/components/wizard/elfsight/StepContentPanel.tsx:71:15	prop	background: '#fff'
+client/src/components/wizard/elfsight/StyleTab.tsx:810:21	prop	background: #fff
+client/src/components/wizard/elfsight/StyleTab.tsx:1447:23	prop	background: '#fff'
+client/src/components/wizard/elfsight/StyleTab.tsx:1582:11	prop	background: #fff
+client/src/components/wizard/elfsight/StyleTab.tsx:1750:11	prop	background: #fff
+client/src/components/wizard/elfsight/StyleTab.tsx:1789:11	prop	background: #fff
+client/src/components/wizard/elfsight/TabPlaceholder.tsx:53:51	prop	background: '#fff'
+client/src/components/wizard/elfsight/TemplateGallery.tsx:545:11	prop	background: #fff
+client/src/components/wizard/elfsight/TemplateGallery.tsx:634:11	prop	background: #fff
+client/src/components/wizard/elfsight/TemplateGallery.tsx:704:11	prop	background: #fff
+client/src/components/wizard/elfsight/TemplateGallery.tsx:730:11	prop	color: #fff
+client/src/components/wizard/elfsight/TemplateGallery.tsx:892:11	prop	background: #fff
+client/src/components/wizard/elfsight/TemplateGallery.tsx:926:11	prop	color: #fff
+client/src/components/wizard/elfsight/TemplateGallery.tsx:943:11	prop	background: #fff
+client/src/components/wizard/elfsight/TemplateGallery.tsx:965:11	prop	background: #fff
+client/src/components/wizard/legacy/AdvancedBuilder.tsx:316:62	prop	background: '#fff'
+client/src/components/wizard/legacy/AdvancedBuilder.tsx:336:42	prop	color: '#fff'
+client/src/components/wizard/legacy/AdvancedBuilder.tsx:349:13	prop	background: '#fff'
+client/src/components/wizard/legacy/AdvancedBuilder.tsx:395:59	prop	background: '#fff'
+client/src/components/wizard/legacy/AdvancedBuilder.tsx:416:62	prop	background: '#fff'
+client/src/components/wizard/legacy/AdvancedBuilder.tsx:443:48	prop	color: '#fff'
+client/src/components/wizard/legacy/AdvancedBuilder.tsx:451:64	prop	background: '#fff'
+client/src/components/wizard/legacy/AdvancedBuilder.tsx:487:59	prop	background: '#fff'
+client/src/components/wizard/legacy/AdvancedBuilder.tsx:521:59	prop	background: '#fff'
+client/src/components/wizard/legacy/AdvancedBuilder.tsx:674:59	prop	background: '#fff'
+client/src/components/wizard/legacy/AdvancedBuilder.tsx:831:58	prop	background: '#fff'
+client/src/components/wizard/legacy/AdvancedBuilder.tsx:878:68	prop	background: '#fff'
+client/src/components/wizard/legacy/AdvancedBuilder.tsx:1137:58	prop	background: '#fff'
+client/src/components/wizard/legacy/AdvancedBuilder.tsx:1262:48	prop	color: '#fff'
+client/src/components/wizard/legacy/AdvancedBuilder.tsx:1414:62	prop	background: '#fff'
+client/src/components/wizard/legacy/BuilderStep1.tsx:53:38	prop	color: '#fff'
+client/src/components/wizard/legacy/CustomTradeQuestionnaire.tsx:273:78	prop	color: '#FFFFFF'
+client/src/components/wizard/legacy/CustomTradeQuestionnaire.tsx:317:111	prop	color: '#FFFFFF'
+client/src/components/wizard/legacy/CustomTradeQuestionnaire.tsx:799:21	prop	color: '#FFFFFF'
+client/src/components/wizard/legacy/CustomTradeQuestionnaire.tsx:879:11	prop	background: '#FFFFFF'
+client/src/components/wizard/legacy/DesignStudio.tsx:188:66	prop	color: '#FFFFFF'
+client/src/components/wizard/legacy/DesignStudio.tsx:389:11	prop	background: 'white'
+client/src/components/wizard/legacy/DesignStudio.tsx:540:33	prop	background: 'white'
+client/src/components/wizard/legacy/DesignStudio.tsx:587:69	prop	color: '#fff'
+client/src/components/wizard/legacy/DesignStudio.tsx:1243:78	prop	color: '#fff'
+client/src/components/wizard/legacy/DesignStudio.tsx:1256:80	prop	color: '#fff'
+client/src/components/wizard/legacy/DesignStudio.tsx:1268:70	prop	color: '#fff'
+client/src/components/wizard/legacy/DesignStudio.tsx:1457:50	prop	color: '#fff'
+client/src/components/wizard/legacy/DesignStudio.tsx:1689:29	prop	background: 'white'
+client/src/components/wizard/legacy/DesignStudio.tsx:1815:50	prop	color: 'white'
+client/src/components/wizard/legacy/DesignStudio.tsx:1904:21	prop	background: 'white'
+client/src/components/wizard/legacy/DesignStudio.tsx:1969:21	prop	background: 'white'
+client/src/components/wizard/legacy/LeadFormStep.tsx:149:61	prop	background: 'white'
+client/src/components/wizard/legacy/LeadFormStep.tsx:286:19	prop	background: 'white'
+client/src/components/wizard/legacy/LeadFormStep.tsx:359:46	prop	color: 'white'
+client/src/components/wizard/legacy/LeadFormStep.tsx:429:23	prop	background: 'white'
+client/src/components/wizard/legacy/LeadFormStep.tsx:463:77	prop	background: 'white'
+client/src/components/wizard/legacy/LeadFormStep.tsx:515:70	prop	background: 'white'
+client/src/components/wizard/legacy/LeadFormStep.tsx:572:73	prop	background: 'white'
+client/src/components/wizard/legacy/LeadFormStep.tsx:593:77	prop	background: 'white'
+client/src/components/wizard/legacy/LeadFormStep.tsx:721:75	prop	background: 'white'
+client/src/components/wizard/legacy/LeadFormStep.tsx:734:75	prop	background: 'white'
+client/src/components/wizard/legacy/LeadFormStep.tsx:777:66	prop	background: 'white'
+client/src/components/wizard/legacy/LeadFormStep.tsx:786:66	prop	background: 'white'
+client/src/components/wizard/legacy/LeadFormStep.tsx:813:46	prop	color: 'white'
+client/src/components/wizard/legacy/LeadFormStep.tsx:847:11	prop	background: 'white'
+client/src/components/wizard/legacy/LeadFormStep.tsx:869:48	prop	color: 'white'
+client/src/components/wizard/legacy/PricingBuildStep.tsx:443:63	prop	color: '#fff'
+client/src/components/wizard/legacy/PricingBuildStep.tsx:453:55	prop	background: '#fff'
+client/src/components/wizard/legacy/PricingBuildStep.tsx:463:44	prop	color: '#fff'
+client/src/components/wizard/legacy/PricingBuildStep.tsx:517:50	prop	background: '#fff'
+client/src/components/wizard/legacy/PricingBuildStep.tsx:645:54	prop	background: '#fff'
+client/src/components/wizard/legacy/PricingBuildStep.tsx:657:59	prop	background: '#fff'
+client/src/components/wizard/legacy/PricingIntakeStage2.tsx:484:63	prop	background: '#FFFFFF'
+client/src/components/wizard/legacy/PublishStep.tsx:228:60	prop	color: 'white'
+client/src/components/wizard/legacy/PublishStep.tsx:303:13	prop	color: 'white'
+client/src/components/wizard/legacy/PublishStep.tsx:337:46	prop	color: 'white'
+client/src/components/wizard/legacy/PublishStep.tsx:468:47	prop	color: 'white'
+client/src/components/wizard/legacy/PublishStep.tsx:515:42	prop	color: '#fff'
+client/src/components/wizard/legacy/PublishStep.tsx:796:11	prop	background: 'white'
+client/src/components/wizard/legacy/PublishStep.tsx:991:13	prop	background: 'white'
+client/src/components/wizard/legacy/PublishStep.tsx:1013:13	prop	background: 'white'
+client/src/components/wizard/legacy/PublishStep.tsx:1121:46	prop	color: '#fff'
+client/src/components/wizard/legacy/PublishStep.tsx:1139:11	prop	background: '#fff'
+client/src/components/wizard/legacy/PublishStep.tsx:1185:44	prop	color: '#fff'
+client/src/components/wizard/legacy/PublishStep.tsx:1274:9	prop	background: 'white'
+client/src/components/wizard/legacy/PublishStep.tsx:1290:60	prop	color: 'white'
+client/src/components/wizard/legacy/PublishStep.tsx:1293:73	prop	color: 'white'
+client/src/components/wizard/legacy/PublishStep.tsx:1299:13	prop	color: 'white'
+client/src/components/wizard/legacy/PublishStep.tsx:1363:42	prop	color: 'white'
+client/src/components/wizard/legacy/PublishStep.tsx:1452:9	prop	background: 'white'
+client/src/components/wizard/legacy/PublishStep.tsx:1471:60	prop	color: 'white'
+client/src/components/wizard/legacy/PublishStep.tsx:1519:42	prop	color: 'white'
+client/src/components/wizard/legacy/PublishStep.tsx:1569:19	prop	background: 'white'
+client/src/components/wizard/legacy/PublishStep.tsx:1690:56	prop	color: 'white'
+client/src/components/wizard/legacy/PublishStep.tsx:1794:27	prop	background: 'white'
+client/src/components/wizard/legacy/TemplatePickerStep.tsx:37:64	prop	background: '#fff'
+client/src/components/wizard/legacy/TemplatePickerStep.tsx:94:50	prop	color: '#fff'
+client/src/components/wizard/legacy/TemplatePickerStep.tsx:184:53	prop	background: '#fff'
+client/src/components/wizard/legacy/TemplatePickerStep.tsx:213:60	prop	color: '#fff'
+client/src/components/wizard/legacy/TestGateStep.tsx:582:13	prop	background: 'white'
+client/src/components/wizard/legacy/TestGateStep.tsx:787:15	prop	background: 'white'
+client/src/components/wizard/legacy/TestGateStep.tsx:835:99	prop	background: 'white'
+client/src/components/wizard/legacy/TestGateStep.tsx:918:76	prop	color: 'white'
+client/src/components/wizard/legacy/TestGateStep.tsx:990:13	prop	color: 'white'
+client/src/components/wizard/legacy/TestGateStep.tsx:1002:15	prop	color: 'white'
+client/src/components/wizard/legacy/TestGateStep.tsx:1026:15	prop	color: 'white'
+client/src/components/wizard/legacy/WizardCard.tsx:1090:19	prop	background: '#fff'
+client/src/components/wizard/legacy/WizardCard.tsx:1156:72	prop	color: 'white'
+client/src/components/wizard/legacy/WizardCard.tsx:1271:58	prop	color: '#FFFFFF'
+client/src/components/wizard/legacy/WizardCard.tsx:1313:137	prop	background: 'white'
+client/src/components/wizard/legacy/WizardCard.tsx:1319:124	prop	background: 'white'
+client/src/components/wizard/legacy/WizardCard.tsx:1380:50	prop	color: '#FFFFFF'
+client/src/components/wizard/legacy/WizardCard.tsx:1394:59	prop	color: '#FFFFFF'
+client/src/components/wizard/legacy/WizardCard.tsx:1403:81	prop	background: '#FFFFFF'
+client/src/components/wizard/legacy/WizardCard.tsx:1488:72	prop	color: 'white'
+client/src/components/wizard/legacy/WizardCard.tsx:1518:119	prop	background: '#FFFFFF'
+client/src/components/wizard/legacy/WizardCard.tsx:1543:65	prop	background: '#FFFFFF'
+client/src/components/wizard/legacy/WizardCard.tsx:1569:65	prop	background: '#FFFFFF'
+client/src/components/wizard/legacy/WizardCard.tsx:1580:63	prop	background: '#FFFFFF'
+client/src/components/wizard/legacy/WizardCard.tsx:1780:48	prop	color: 'white'
+client/src/components/wizard/legacy/WizardCard.tsx:1844:69	prop	background: '#fff'
+client/src/components/wizard/legacy/WizardCard.tsx:1854:59	prop	background: '#fff'
+client/src/components/wizard/legacy/WizardCard.tsx:1871:23	prop	background: '#fff'
+client/src/components/wizard/legacy/WizardCard.tsx:1931:31	prop	background: #fff
+client/src/components/wizard/legacy/WizardCard.tsx:1956:97	prop	color: #fff
+client/src/components/wizard/legacy/WizardCard.tsx:1958:95	prop	color: #fff
+client/src/components/wizard/legacy/WizardCard.tsx:1968:49	prop	background: #fff
+client/src/components/wizard/legacy/WizardCard.tsx:1974:49	prop	background: #fff
+client/src/components/wizard/legacy/WizardCard.tsx:2225:51	prop	background: 'white'
+client/src/components/wizard/legacy/WizardCard.tsx:2232:67	prop	color: 'white'
+client/src/components/wizard/legacy/WizardCard.tsx:2324:89	prop	background: '#fff'
+client/src/components/wizard/legacy/WizardCard.tsx:2332:31	prop	color: '#fff'
+client/src/components/wizard/legacy/WizardCard.tsx:2409:58	prop	color: 'white'
+client/src/components/wizard/legacy/WizardCard.tsx:2539:7	prop	background: '#FFFFFF'
+client/src/components/wizard/legacy/WizardCard.tsx:2684:11	prop	background: '#FFFFFF'
+client/src/components/wizard/legacy/WizardCard.tsx:2708:53	prop	background: '#FFFFFF'
+client/src/components/wizard/legacy/WizardCard.tsx:2817:53	prop	background: '#FFFFFF'
+client/src/components/wizard/legacy/WizardCard.tsx:2920:11	prop	background: '#FFFFFF'
+client/src/config/product-mockups.tsx:220:26	prop	color: "#000"
+client/src/config/product-mockups.tsx:651:26	prop	color: "#000"
+client/src/config/product-mockups.tsx:837:26	prop	color: "#000"
+client/src/index.css:294:3	prop	background: #FFFFFF
+client/src/index.css:308:3	prop	background: #FFFFFF
+client/src/index.css:518:3	prop	background: #ffffff
+client/src/index.css:789:35	prop	background: #fff
+client/src/index.css:1306:24	prop	background: '#fff'
+client/src/index.css:1730:3	prop	border-color: #FFFFFF
+client/src/index.css:1748:3	prop	border-color: #FFFFFF
+client/src/index.css:1864:3	prop	color: #FFFFFF
+client/src/index.css:1867:3	prop	color: #FFFFFF
+client/src/index.css:2360:3	prop	border-color: #FFFFFF
+client/src/index.css:2438:3	prop	border-color: #FFFFFF
+client/src/index.css:2610:5	prop	background: white
+client/src/index.css:2747:3	prop	border-color: #FFFFFF
+client/src/index.css:2758:3	prop	border-color: #FFFFFF
+client/src/index.css:2853:3	prop	border-color: #FFFFFF
+client/src/index.css:2966:3	prop	color: #FFFFFF
+client/src/pages/Blog.tsx:662:43	prop	color: "#FFFFFF"
+client/src/pages/CheckoutCancelled.tsx:75:17	prop	color: "#FFFFFF"
+client/src/pages/CheckoutSuccess.tsx:254:19	prop	color: "#FFFFFF"
+client/src/pages/CheckoutSuccess.tsx:277:19	prop	color: "#FFFFFF"
+client/src/pages/Plans.tsx:171:15	prop	color: "#FFFFFF"
+client/src/pages/Plans.tsx:223:11	prop	color: "#FFFFFF"
+client/src/pages/PricingUnified.tsx:1017:11	prop	color: "#FFFFFF"
+client/src/pages/PricingUnified.tsx:1643:59	prop	color: "#FFFFFF"
+client/src/pages/ReviewFunnel.tsx:166:45	prop	color: "#fff"
+client/src/pages/ReviewFunnel.tsx:186:7	prop	background: "#fff"
+client/src/pages/ReviewFunnel.tsx:246:38	prop	color: "#FFFFFF"
+client/src/pages/ReviewFunnel.tsx:286:38	prop	color: "#fff"
+client/src/pages/ReviewQrLanding.tsx:59:11	prop	background: "#fff"
+client/src/pages/admin/AdFlowOpsPage.tsx:273:29	tailwind	bg-white
+client/src/pages/admin/AdminAuditLogPage.tsx:182:25	tailwind	bg-white
+client/src/pages/admin/AdminAuditLogPage.tsx:263:27	tailwind	bg-white
+client/src/pages/admin/AdminAuditLogPage.tsx:269:27	tailwind	bg-white
+client/src/pages/admin/ApiPlatformUserDetailPage.tsx:386:66	tailwind	text-white
+client/src/pages/admin/BookingCalendarPage.tsx:82:89	tailwind	bg-white
+client/src/pages/admin/ClientDetailPage.tsx:1945:54	tailwind	text-white
+client/src/pages/admin/ClientDetailPage.tsx:1972:52	tailwind	text-white
+client/src/pages/admin/ClientDetailPage.tsx:2195:89	tailwind	text-white
+client/src/pages/admin/ClientDetailPage.tsx:2210:89	tailwind	text-white
+client/src/pages/admin/ClientsPage.tsx:236:40	tailwind	text-white
+client/src/pages/admin/ClientsPage.tsx:244:75	tailwind	text-white
+client/src/pages/admin/ClientsPage.tsx:251:72	tailwind	text-white
+client/src/pages/admin/ClientsPage.tsx:258:71	tailwind	text-white
+client/src/pages/admin/ClientsPage.tsx:265:72	tailwind	text-white
+client/src/pages/admin/CommunicationsPage.tsx:451:52	tailwind	bg-white
+client/src/pages/admin/CrmOverview.tsx:89:51	tailwind	text-white
+client/src/pages/admin/CrmOverview.tsx:242:76	tailwind	text-white
+client/src/pages/admin/CrmOverview.tsx:279:36	tailwind	text-white
+client/src/pages/admin/CrmOverview.tsx:338:49	tailwind	text-white
+client/src/pages/admin/CrmOverview.tsx:413:93	tailwind	text-white
+client/src/pages/admin/IntegrationHealthPage.tsx:189:27	tailwind	bg-white
+client/src/pages/admin/IntegrationHealthPage.tsx:204:33	tailwind	bg-white
+client/src/pages/admin/MapguardDashboard.tsx:127:36	tailwind	text-white
+client/src/pages/admin/MapguardOpsPage.tsx:84:38	tailwind	text-white
+client/src/pages/admin/MobilePreview/PhoneFrame.tsx:38:85	tailwind	bg-black
+client/src/pages/admin/MobilePreview/PhoneFrame.tsx:69:86	tailwind	bg-black
+client/src/pages/admin/MobilePreview/PhoneFrame.tsx:83:67	tailwind	bg-white
+client/src/pages/admin/MobilePreview/PreviewScreens.tsx:43:22	tailwind	bg-white
+client/src/pages/admin/MobilePreview/PreviewScreens.tsx:88:79	tailwind	bg-white
+client/src/pages/admin/MobilePreview/PreviewScreens.tsx:97:79	tailwind	bg-white
+client/src/pages/admin/MobilePreview/PreviewScreens.tsx:277:33	tailwind	bg-white
+client/src/pages/admin/MobilePreview/PreviewScreens.tsx:489:63	tailwind	bg-white
+client/src/pages/admin/ProductDetailPage.tsx:441:70	tailwind	text-white
+client/src/pages/admin/ProductDetailPage.tsx:510:90	tailwind	bg-white
+client/src/pages/admin/ProductDetailPage.tsx:521:90	tailwind	bg-white
+client/src/pages/admin/ProductDetailPage.tsx:604:54	tailwind	bg-white
+client/src/pages/admin/ProductDetailPage.tsx:614:54	tailwind	bg-white
+client/src/pages/admin/ProductDetailPage.tsx:664:94	tailwind	bg-white
+client/src/pages/admin/ProductDetailPage.tsx:1049:70	tailwind	bg-white
+client/src/pages/admin/ProductDetailPage.tsx:1161:82	tailwind	bg-white
+client/src/pages/admin/ProfilePage.tsx:104:32	tailwind	text-white
+client/src/pages/admin/ReviewsPage.tsx:105:36	tailwind	text-white
+client/src/pages/admin/ReviewsPage.tsx:501:70	tailwind	text-white
+client/src/pages/admin/ReviewsPage.tsx:831:82	tailwind	text-white
+client/src/pages/admin/ServiceOpsPage.tsx:248:46	tailwind	bg-white
+client/src/pages/admin/ServiceOpsPage.tsx:332:56	tailwind	text-white
+client/src/pages/admin/ServiceOpsPage.tsx:481:46	tailwind	bg-white
+client/src/pages/admin/ServiceOpsPage.tsx:540:56	tailwind	text-white
+client/src/pages/admin/SettingsPage.tsx:447:27	tailwind	bg-white
+client/src/pages/admin/SupportInboxPage.tsx:196:76	tailwind	bg-white
+client/src/pages/admin/SupportInboxPage.tsx:205:76	tailwind	bg-white
+client/src/pages/admin/SupportInboxPage.tsx:214:25	tailwind	bg-white
+client/src/pages/admin/SupportTicketDetailPage.tsx:203:31	tailwind	bg-white
+client/src/pages/admin/SupportTicketDetailPage.tsx:217:31	tailwind	bg-white
+client/src/pages/admin/SupportTicketDetailPage.tsx:322:58	tailwind	text-white
+client/src/pages/admin/SupportTicketDetailPage.tsx:346:31	tailwind	bg-white
+client/src/pages/admin/SupportTicketDetailPage.tsx:357:93	tailwind	bg-white
+client/src/pages/admin/SupportTicketDetailPage.tsx:371:95	tailwind	bg-white
+client/src/pages/admin/SupportTicketDetailPage.tsx:384:95	tailwind	bg-white
+client/src/pages/admin/SupportTicketDetailPage.tsx:397:95	tailwind	bg-white
+client/src/pages/admin/SupportTicketDetailPage.tsx:410:31	tailwind	bg-white
+client/src/pages/admin/SystemAvailabilityPage.tsx:137:88	tailwind	bg-white
+client/src/pages/admin/SystemJobsPage.tsx:114:39	tailwind	bg-white
+client/src/pages/admin/SystemJobsPage.tsx:212:95	tailwind	bg-white
+client/src/pages/admin/SystemJobsPage.tsx:223:29	tailwind	bg-white
+client/src/pages/admin/SystemJobsPage.tsx:230:29	tailwind	bg-white
+client/src/pages/admin/SystemJobsPage.tsx:237:29	tailwind	bg-white
+client/src/pages/admin/SystemJobsPage.tsx:251:29	tailwind	bg-white
+client/src/pages/admin/SystemJobsPage.tsx:269:25	tailwind	bg-white
+client/src/pages/admin/SystemJobsPage.tsx:276:79	tailwind	bg-white
+client/src/pages/admin/SystemJobsPage.tsx:289:79	tailwind	bg-white
+client/src/pages/admin/SystemJobsPage.tsx:303:79	tailwind	bg-white
+client/src/pages/admin/SystemJobsPage.tsx:312:79	tailwind	bg-white
+client/src/pages/admin/SystemJobsPage.tsx:327:25	tailwind	bg-white
+client/src/pages/admin/SystemJobsPage.tsx:410:79	tailwind	bg-white
+client/src/pages/admin/SystemJobsPage.tsx:420:79	tailwind	bg-white
+client/src/pages/admin/SystemWorkersPage.tsx:337:95	tailwind	bg-white
+client/src/pages/admin/SystemWorkersPage.tsx:348:29	tailwind	bg-white
+client/src/pages/admin/SystemWorkersPage.tsx:355:29	tailwind	bg-white
+client/src/pages/admin/SystemWorkersPage.tsx:362:29	tailwind	bg-white
+client/src/pages/admin/SystemWorkersPage.tsx:369:29	tailwind	bg-white
+client/src/pages/admin/TradeLineOpsPage.tsx:48:562	tailwind	bg-white
+client/src/pages/admin/TradelineLearningPage.tsx:247:55	tailwind	bg-white
+client/src/pages/admin/WaitlistPage.tsx:124:76	tailwind	text-white
+client/src/pages/admin/WebCareOpsPage.tsx:101:38	tailwind	text-white
+client/src/pages/admin/outbound/CampaignsPage.tsx:204:21	tailwind	bg-white
+client/src/pages/admin/outbound/CampaignsPage.tsx:343:31	tailwind	bg-white
+client/src/pages/admin/outbound/CampaignsPage.tsx:345:31	tailwind	bg-white
+client/src/pages/admin/outbound/CampaignsPage.tsx:354:31	tailwind	bg-white
+client/src/pages/admin/outbound/PipelinePage.tsx:155:21	tailwind	bg-white
+client/src/pages/admin/outbound/PipelinePage.tsx:248:27	tailwind	bg-white
+client/src/pages/admin/outbound/PipelinePage.tsx:252:27	tailwind	bg-white
+client/src/pages/admin/outbound/ProspectsPage.tsx:325:43	tailwind	bg-white
+client/src/pages/admin/outbound/ProspectsPage.tsx:333:36	tailwind	bg-white
+client/src/pages/admin/outbound/ProspectsPage.tsx:356:25	tailwind	bg-white
+client/src/pages/calculator.tsx:92:89	tailwind	text-white
+client/src/pages/dashboard.tsx:132:40	prop	color: '#fff'
+client/src/pages/dashboard.tsx:289:17	prop	background: '#fff'
+client/src/pages/dashboard.tsx:300:46	prop	color: '#fff'
+client/src/pages/dashboard.tsx:507:42	prop	color: '#fff'
+client/src/pages/dashboard.tsx:570:11	prop	background: '#fff'
+client/src/pages/dashboard.tsx:1243:63	prop	background: '#fff'
+client/src/pages/dashboard.tsx:1292:46	prop	color: '#fff'
+client/src/pages/dashboard.tsx:1317:46	prop	color: '#fff'
+client/src/pages/dashboard.tsx:1372:11	prop	background: '#fff'
+client/src/pages/dashboard.tsx:1758:53	prop	background: '#fff'
+client/src/pages/dashboard.tsx:1833:42	prop	color: '#fff'
+client/src/pages/dashboard.tsx:1979:55	prop	color: '#fff'
+client/src/pages/dashboard.tsx:1980:57	prop	color: '#fff'
+client/src/pages/dashboard.tsx:1985:75	prop	color: '#fff'
+client/src/pages/demos/ReputationShieldDemo.tsx:17:11	prop	background: "#000"
+client/src/pages/demos/ReputationShieldDemo.tsx:28:13	prop	background: "#000"
+client/src/pages/demos/ReputationShieldDemo.tsx:50:13	prop	background: "#fff"
+client/src/pages/demos/ReputationShieldDemo.tsx:551:31	prop	color: "#fff"
+client/src/pages/demos/ReputationShieldDemo.tsx:640:31	prop	color: "#fff"
+client/src/pages/demos/ReputationShieldDemo.tsx:681:31	prop	color: "#fff"
+client/src/pages/demos/ReputationShieldDemo.tsx:688:72	prop	color: "#fff"
+client/src/pages/demos/ReputationShieldDemo.tsx:750:31	prop	color: "#fff"
+client/src/pages/demos/ReputationShieldDemo.tsx:770:31	prop	background: "#fff"
+client/src/pages/demos/SocialSyncDemo.tsx:114:15	prop	color: "#fff"
+client/src/pages/demos/SocialSyncDemo.tsx:293:13	prop	color: "#FFFFFF"
+client/src/pages/edit-calculator.tsx:57:37	tailwind	bg-white
+client/src/pages/edit-calculator.tsx:574:102	tailwind	bg-white
+client/src/pages/leads.tsx:24:37	tailwind	bg-white
+client/src/pages/leads.tsx:30:25	tailwind	bg-white
+client/src/pages/leads.tsx:48:21	tailwind	bg-white
+client/src/pages/leads.tsx:192:90	tailwind	bg-white
+client/src/pages/marketing/ApiDocsPage.tsx:191:9	prop	color: "#fff"
+client/src/pages/marketing/ApiDocsPage.tsx:280:15	prop	color: "#fff"
+client/src/pages/marketing/ApiDocsPage.tsx:698:11	prop	background: "#fff"
+client/src/pages/marketing/ApiDocsPage.tsx:743:9	prop	background: "#fff"
+client/src/pages/marketing/ApiDocsPage.tsx:1456:15	prop	color: "#fff"
+client/src/pages/marketing/CompareNiceJob.tsx:204:55	prop	color: "#FFFFFF"
+client/src/pages/marketing/ComparisonPage.tsx:86:19	prop	color: "#FFFFFF"
+client/src/pages/marketing/ComparisonPage.tsx:270:17	prop	color: "#FFFFFF"
+client/src/pages/marketing/ComparisonPage.tsx:465:19	prop	color: "#FFFFFF"
+client/src/pages/marketing/FreeAudit.tsx:561:11	prop	background: #fff
+client/src/pages/marketing/FreeAudit.tsx:792:21	prop	background: "#fff"
+client/src/pages/marketing/FreeAudit.tsx:850:21	prop	background: "#fff"
+client/src/pages/marketing/FreeAudit.tsx:947:17	prop	background: "#fff"
+client/src/pages/marketing/FreeAuditReport.module.css:22:3	prop	background: #fff
+client/src/pages/marketing/FreeAuditReport.module.css:61:3	prop	background: #fff
+client/src/pages/marketing/FreeAuditReport.module.css:80:3	prop	color: #fff
+client/src/pages/marketing/FreeAuditReport.module.css:132:3	prop	color: #fff
+client/src/pages/marketing/FreeAuditReport.module.css:185:48	prop	color: #fff
+client/src/pages/marketing/FreeAuditReport.module.css:212:3	prop	background: #fff
+client/src/pages/marketing/FreeAuditReport.module.css:273:3	prop	background: #fff
+client/src/pages/marketing/FreeAuditReport.module.css:473:3	prop	color: #fff
+client/src/pages/marketing/FreeAuditReport.module.css:488:3	prop	color: #fff
+client/src/pages/marketing/FreeAuditReport.module.css:506:3	prop	background: #fff
+client/src/pages/marketing/FreeAuditReport.module.css:554:3	prop	background: #fff
+client/src/pages/marketing/FreeAuditReport.module.css:595:3	prop	color: #fff
+client/src/pages/marketing/FreeAuditReport.module.css:647:3	prop	background: #fff
+client/src/pages/marketing/FreeAuditReport.module.css:660:3	prop	background: #fff
+client/src/pages/marketing/FreeAuditReport.module.css:737:3	prop	background: #fff
+client/src/pages/marketing/FreeAuditReport.module.css:752:3	prop	background: #fff
+client/src/pages/marketing/FreeAuditReport.module.css:826:3	prop	color: #fff
+client/src/pages/marketing/FreeAuditReport.module.css:841:3	prop	background: #fff
+client/src/pages/marketing/FreeAuditReport.module.css:864:55	prop	color: #fff
+client/src/pages/marketing/FreeAuditReport.module.css:882:20	prop	color: #fff
+client/src/pages/marketing/MapSnapshotByTrade.tsx:120:19	prop	background: "#fff"
+client/src/pages/marketing/ReportView.tsx:252:42	prop	color: '#fff'
+client/src/pages/marketing/ReportView.tsx:265:204	prop	color: '#fff'
+client/src/pages/marketing/ReportView.tsx:266:221	prop	color: '#fff'
+client/src/pages/marketing/ReportView.tsx:267:204	prop	color: '#fff'
+client/src/pages/marketing/ReportView.tsx:998:5	prop	background: WHITE
+client/src/pages/marketing/ReportView.tsx:1067:75	prop	background:WHITE
+client/src/pages/marketing/ReportView.tsx:1110:62	prop	color: WHITE
+client/src/pages/marketing/ReportView.tsx:1115:34	prop	color: WHITE
+client/src/pages/marketing/ReportView.tsx:1125:27	prop	background: WHITE
+client/src/pages/marketing/ReportView.tsx:1168:29	prop	background: WHITE
+client/src/pages/marketing/ReportView.tsx:1214:58	prop	color: WHITE
+client/src/pages/marketing/ReportView.tsx:1219:30	prop	color: WHITE
+client/src/pages/marketing/ReportView.tsx:1293:23	prop	background: WHITE
+client/src/pages/marketing/ReportView.tsx:1434:136	prop	color: WHITE
+client/src/pages/marketing/ReportView.tsx:1496:62	prop	color: WHITE
+client/src/pages/marketing/ReportView.tsx:1517:121	prop	background: WHITE
+client/src/pages/marketing/ReportView.tsx:1538:23	prop	background: WHITE
+client/src/pages/marketing/ReportView.tsx:1561:136	prop	color: WHITE
+client/src/pages/marketing/ReportView.tsx:1614:68	prop	background: WHITE
+client/src/pages/marketing/ReportView.tsx:1697:25	prop	background: WHITE
+client/src/pages/marketing/ReportView.tsx:1865:104	prop	color: WHITE
+client/src/pages/marketing/ReportView.tsx:1927:71	prop	background: WHITE
+client/src/pages/marketing/ReportView.tsx:1947:63	prop	color: WHITE
+client/src/pages/marketing/ReportView.tsx:1970:46	prop	background: WHITE
+client/src/pages/marketing/ReportView.tsx:2051:62	prop	color: WHITE
+client/src/pages/marketing/ReportView.tsx:2143:69	prop	background: WHITE
+client/src/pages/marketing/ReportView.tsx:2267:59	prop	color: WHITE
+client/src/pages/marketing/ReportView.tsx:2302:46	prop	background: WHITE
+client/src/pages/marketing/ReportView.tsx:2328:54	prop	color: WHITE
+client/src/pages/marketing/ReportView.tsx:2357:39	prop	background:WHITE
+client/src/pages/marketing/ReportView.tsx:2363:58	prop	color:WHITE
+client/src/pages/marketing/ReportView.tsx:2383:25	prop	background:WHITE
+client/src/pages/marketing/ReportView.tsx:2399:50	prop	background: WHITE
+client/src/pages/marketing/ReportView.tsx:2435:236	prop	background: WHITE
+client/src/pages/marketing/ReportView.tsx:2438:168	prop	color: WHITE
+client/src/pages/marketing/ReportView.tsx:2509:123	prop	color: WHITE
+client/src/pages/marketing/ReportView.tsx:2541:238	prop	background: WHITE
+client/src/pages/marketing/ReportView.tsx:2543:165	prop	color: WHITE
+client/src/pages/marketing/ReportView.tsx:2544:62	prop	color: WHITE
+client/src/pages/marketing/ReportView.tsx:2608:238	prop	background: WHITE
+client/src/pages/marketing/ReportView.tsx:2610:169	prop	color: WHITE
+client/src/pages/marketing/ReportView.tsx:2611:62	prop	color: WHITE
+client/src/pages/marketing/ReportView.tsx:2655:238	prop	background: WHITE
+client/src/pages/marketing/ReportView.tsx:2657:166	prop	color: WHITE
+client/src/pages/marketing/ReportView.tsx:2658:62	prop	color: WHITE
+client/src/pages/marketing/ReportView.tsx:2716:236	prop	background: WHITE
+client/src/pages/marketing/ReportView.tsx:2719:175	prop	color: WHITE
+client/src/pages/marketing/ReportView.tsx:2720:62	prop	color: WHITE
+client/src/pages/marketing/ReportView.tsx:2819:9	prop	background: WHITE
+client/src/pages/marketing/ReportView.tsx:2858:159	prop	background: WHITE
+client/src/pages/marketing/ReportView.tsx:2860:163	prop	color: WHITE
+client/src/pages/marketing/ReportView.tsx:2861:60	prop	color: WHITE
+client/src/pages/marketing/SharedAuditReport.tsx:98:129	prop	color: "#FFFFFF"
+client/src/pages/marketing/SharedAuditReport.tsx:135:122	prop	color: "#FFFFFF"
+client/src/pages/marketing/SharedAuditReport.tsx:400:118	prop	color: "#FFFFFF"
+client/src/pages/marketing/bundles.tsx:269:65	prop	color: "#FFFFFF"
+client/src/pages/marketing/bundles.tsx:299:65	prop	color: "#FFFFFF"
+client/src/pages/marketing/contact.tsx:288:23	prop	color: "#FFFFFF"
+client/src/pages/marketing/demo-template.tsx:121:98	prop	color: "#FFFFFF"
+client/src/pages/marketing/demo-template.tsx:186:56	prop	color: "#FFFFFF"
+client/src/pages/marketing/demo-template.tsx:221:84	prop	background: "#FFFFFF"
+client/src/pages/marketing/demo-template.tsx:246:109	prop	color: "#FFFFFF"
+client/src/pages/marketing/demo-template.tsx:306:56	prop	color: "#FFFFFF"
+client/src/pages/marketing/demo-template.tsx:416:99	prop	color: "#FFFFFF"
+client/src/pages/marketing/demo-template.tsx:509:119	prop	color: "#FFFFFF"
+client/src/pages/marketing/demo-template.tsx:517:127	prop	color: "#FFFFFF"
+client/src/pages/marketing/demo-template.tsx:527:138	prop	background: "#FFFFFF"
+client/src/pages/marketing/demo.tsx:533:63	prop	color: "#FFFFFF"
+client/src/pages/marketing/features/ai-employee.tsx:31:56	prop	color: "#FFFFFF"
+client/src/pages/marketing/features/ai-employee.tsx:58:13	prop	color: "#FFFFFF"
+client/src/pages/marketing/features/booking.tsx:91:147	prop	color: "#FFFFFF"
+client/src/pages/marketing/features/calculator-engine.tsx:51:84	prop	background: "#FFFFFF"
+client/src/pages/marketing/features/instant-quotes.tsx:69:144	prop	color: "#FFFFFF"
+client/src/pages/marketing/features/sms.tsx:30:57	prop	color: "#FFFFFF"
+client/src/pages/marketing/features/sms.tsx:32:66	prop	color: "#FFF"
+client/src/pages/marketing/home.tsx:395:32	prop	color: #FFFFFF
+client/src/pages/marketing/pricing.tsx:201:34	prop	color: "#FFFFFF"
+client/src/pages/marketing/pricing.tsx:228:93	prop	color: "#FFFFFF"
+client/src/pages/marketing/pricing.tsx:252:21	prop	background: "#FFFFFF"
+client/src/pages/marketing/pricing.tsx:259:58	prop	color: "#FFFFFF"
+client/src/pages/marketing/pricing.tsx:475:81	prop	color: "#FFFFFF"
+client/src/pages/marketing/pricing.tsx:486:91	prop	background: "#FFFFFF"
+client/src/pages/marketing/pricing.tsx:494:147	prop	color: "#FFFFFF"
+client/src/pages/marketing/product.tsx:81:54	prop	color: "#FFFFFF"
+client/src/pages/marketing/product.tsx:85:143	prop	color: "#FFFFFF"
+client/src/pages/marketing/product.tsx:110:56	prop	color: "#FFFFFF"
+client/src/pages/marketing/product.tsx:130:13	prop	color: "#FFFFFF"
+client/src/pages/marketing/product.tsx:411:19	prop	color: "#FFFFFF"
+client/src/pages/marketing/product.tsx:451:21	prop	color: "#FFFFFF"
+client/src/pages/marketing/product.tsx:475:64	prop	color: "#FFF"
+client/src/pages/marketing/product.tsx:508:66	prop	color: "#FFF"
+client/src/pages/marketing/product.tsx:753:79	prop	color: "#FFFFFF"
+client/src/pages/marketing/product.tsx:775:46	prop	color: "#FFFFFF"
+client/src/pages/marketing/quote-calculator-demo.tsx:259:17	prop	background: "#000"
+client/src/pages/marketing/quotequick-pricing.tsx:230:39	prop	color: "#FFFFFF"
+client/src/pages/marketing/template-detail.tsx:296:19	prop	color: "#FFFFFF"
+client/src/pages/marketing/template-detail.tsx:362:17	prop	background: "#FFFFFF"
+client/src/pages/marketing/template-detail.tsx:399:17	prop	color: "#FFFFFF"
+client/src/pages/marketing/template-detail.tsx:426:17	prop	background: "#FFFFFF"
+client/src/pages/marketing/templates.tsx:541:17	prop	color: "#FFFFFF"
+client/src/pages/marketing/templates.tsx:573:19	prop	background: "#FFFFFF"
+client/src/pages/marketing/templates.tsx:592:19	prop	color: "#FFFFFF"
+client/src/pages/portal/BookFlowSetupPage.tsx:645:60	tailwind	text-white
+client/src/pages/portal/DispatchPage.tsx:215:17	prop	background: "#fff"
+client/src/pages/portal/InvoicesPage.tsx:130:13	prop	color: "#fff"
+client/src/pages/portal/InvoicesPage.tsx:218:15	prop	color: "#fff"
+client/src/pages/portal/InvoicesPage.tsx:239:17	prop	background: "#fff"
+client/src/pages/portal/InvoicesPage.tsx:537:13	prop	color: "#fff"
+client/src/pages/portal/InvoicesPage.tsx:580:3	prop	background: "#fff"
+client/src/pages/portal/InvoicesPage.tsx:605:3	prop	background: "#fff"
+client/src/pages/portal/PaymentMethodsPage.tsx:168:29	tailwind	bg-white
+client/src/pages/portal/PaymentMethodsPage.tsx:192:29	tailwind	bg-white
+client/src/pages/portal/PaymentMethodsPage.tsx:293:60	tailwind	text-white
+client/src/pages/portal/PortalApiAccessPage.tsx:771:23	tailwind	bg-white
+client/src/pages/portal/PortalApiAccessPage.tsx:826:23	tailwind	bg-white
+client/src/pages/portal/PortalApiAccessPage.tsx:906:23	tailwind	bg-white
+client/src/pages/portal/PortalApiAccessPage.tsx:930:23	tailwind	bg-white
+client/src/pages/portal/PortalArticles.tsx:811:73	tailwind	bg-white
+client/src/pages/portal/PortalBilling.tsx:120:123	tailwind	bg-white
+client/src/pages/portal/PortalBilling.tsx:130:31	tailwind	bg-white
+client/src/pages/portal/PortalBilling.tsx:141:31	tailwind	bg-white
+client/src/pages/portal/PortalBilling.tsx:152:31	tailwind	bg-white
+client/src/pages/portal/PortalBilling.tsx:187:29	tailwind	bg-white
+client/src/pages/portal/PortalBrandKitsPage.tsx:169:40	prop	color: "#fff"
+client/src/pages/portal/PortalBrandKitsPage.tsx:212:72	prop	background: "#fff"
+client/src/pages/portal/PortalCalculatorAnalytics.tsx:69:9	prop	background: '#fff'
+client/src/pages/portal/PortalCalculatorAnalytics.tsx:242:17	prop	background: '#fff'
+client/src/pages/portal/PortalCalculatorAnalytics.tsx:257:17	prop	background: '#fff'
+client/src/pages/portal/PortalCatalog.tsx:214:27	tailwind	bg-white
+client/src/pages/portal/PortalCatalog.tsx:220:27	tailwind	bg-white
+client/src/pages/portal/PortalCatalog.tsx:242:38	tailwind	bg-white
+client/src/pages/portal/PortalCatalog.tsx:283:69	tailwind	text-white
+client/src/pages/portal/PortalCatalog.tsx:310:35	tailwind	bg-white
+client/src/pages/portal/PortalCatalog.tsx:364:69	tailwind	text-white
+client/src/pages/portal/PortalChatWidgetSetup.tsx:322:5	prop	color: "#fff"
+client/src/pages/portal/PortalDashboard.tsx:273:121	tailwind	bg-white
+client/src/pages/portal/PortalDashboard.tsx:420:95	tailwind	text-white
+client/src/pages/portal/PortalDashboard.tsx:498:103	tailwind	text-white
+client/src/pages/portal/PortalDashboard.tsx:547:114	tailwind	text-white
+client/src/pages/portal/PortalEmailDomainSetup.tsx:327:36	tailwind	bg-white
+client/src/pages/portal/PortalEmailDomainSetup.tsx:334:36	tailwind	bg-white
+client/src/pages/portal/PortalHelp.tsx:45:21	tailwind	bg-white
+client/src/pages/portal/PortalHelp.tsx:139:23	tailwind	bg-white
+client/src/pages/portal/PortalHelp.tsx:184:56	tailwind	text-white
+client/src/pages/portal/PortalHelp.tsx:204:25	tailwind	bg-white
+client/src/pages/portal/PortalMapguard.tsx:147:36	tailwind	text-white
+client/src/pages/portal/PortalMapguard.tsx:158:21	tailwind	bg-white
+client/src/pages/portal/PortalMapguard.tsx:204:43	tailwind	text-white
+client/src/pages/portal/PortalMapguard.tsx:228:89	tailwind	text-white
+client/src/pages/portal/PortalMapguard.tsx:272:40	tailwind	text-white
+client/src/pages/portal/PortalMapguard.tsx:521:79	tailwind	bg-white
+client/src/pages/portal/PortalMapguard.tsx:620:38	tailwind	text-white
+client/src/pages/portal/PortalMapguard.tsx:984:38	tailwind	text-white
+client/src/pages/portal/PortalOnboarding.tsx:34:23	tailwind	bg-white
+client/src/pages/portal/PortalOnboarding.tsx:224:123	tailwind	bg-white
+client/src/pages/portal/PortalOnboarding.tsx:264:31	tailwind	bg-white
+client/src/pages/portal/PortalOnboarding.tsx:282:35	tailwind	bg-white
+client/src/pages/portal/PortalOnboarding.tsx:302:74	tailwind	bg-white
+client/src/pages/portal/PortalOnboarding.tsx:315:67	tailwind	text-white
+client/src/pages/portal/PortalOnboarding.tsx:427:21	tailwind	bg-white
+client/src/pages/portal/PortalRankFlow.tsx:126:25	tailwind	bg-white
+client/src/pages/portal/PortalRankFlow.tsx:182:25	tailwind	bg-white
+client/src/pages/portal/PortalRankFlow.tsx:194:27	tailwind	bg-white
+client/src/pages/portal/PortalRankFlow.tsx:228:27	tailwind	bg-white
+client/src/pages/portal/PortalRankFlow.tsx:258:27	tailwind	bg-white
+client/src/pages/portal/PortalRankFlow.tsx:281:27	tailwind	bg-white
+client/src/pages/portal/PortalRankFlow.tsx:301:27	tailwind	bg-white
+client/src/pages/portal/PortalRankFlow.tsx:365:23	tailwind	bg-white
+client/src/pages/portal/PortalRankFlow.tsx:383:23	tailwind	bg-white
+client/src/pages/portal/PortalRankFlow.tsx:401:70	tailwind	text-white
+client/src/pages/portal/PortalRankFlow.tsx:413:21	tailwind	bg-white
+client/src/pages/portal/PortalRankFlow.tsx:422:65	tailwind	text-white
+client/src/pages/portal/PortalRankFlow.tsx:440:28	tailwind	bg-white
+client/src/pages/portal/PortalRankFlow.tsx:540:27	tailwind	bg-white
+client/src/pages/portal/PortalRankFlow.tsx:544:75	tailwind	text-white
+client/src/pages/portal/PortalRankFlow.tsx:550:27	tailwind	bg-white
+client/src/pages/portal/PortalRankFlow.tsx:564:77	tailwind	text-white
+client/src/pages/portal/PortalRankFlow.tsx:571:27	tailwind	bg-white
+client/src/pages/portal/PortalRankFlow.tsx:588:77	tailwind	text-white
+client/src/pages/portal/PortalReviews.tsx:103:36	tailwind	text-white
+client/src/pages/portal/PortalReviews.tsx:491:75	tailwind	bg-white
+client/src/pages/portal/PortalReviews.tsx:503:75	tailwind	bg-white
+client/src/pages/portal/PortalReviews.tsx:596:74	tailwind	text-white
+client/src/pages/portal/PortalReviews.tsx:620:72	tailwind	text-white
+client/src/pages/portal/PortalReviews.tsx:887:33	tailwind	bg-white
+client/src/pages/portal/PortalServiceDetail.tsx:330:21	tailwind	bg-white
+client/src/pages/portal/PortalServiceDetail.tsx:635:123	tailwind	bg-white
+client/src/pages/portal/PortalServiceDetail.tsx:644:29	tailwind	bg-white
+client/src/pages/portal/PortalServiceDetail.tsx:679:48	tailwind	text-white
+client/src/pages/portal/PortalServiceDetail.tsx:705:33	tailwind	bg-white
+client/src/pages/portal/PortalServiceDetail.tsx:746:35	tailwind	bg-white
+client/src/pages/portal/PortalServiceDetail.tsx:781:35	tailwind	bg-white
+client/src/pages/portal/PortalServiceDetail.tsx:824:72	tailwind	text-white
+client/src/pages/portal/PortalServiceDetail.tsx:847:31	tailwind	bg-white
+client/src/pages/portal/PortalServiceDetail.tsx:929:31	tailwind	bg-white
+client/src/pages/portal/PortalServiceDetail.tsx:1017:31	tailwind	bg-white
+client/src/pages/portal/PortalServiceDetail.tsx:1032:39	tailwind	bg-white
+client/src/pages/portal/PortalServiceDetail.tsx:1041:39	tailwind	bg-white
+client/src/pages/portal/PortalServiceDetail.tsx:1050:39	tailwind	bg-white
+client/src/pages/portal/PortalServiceDetail.tsx:1059:39	tailwind	bg-white
+client/src/pages/portal/PortalServiceDetail.tsx:1070:39	tailwind	bg-white
+client/src/pages/portal/PortalServiceDetail.tsx:1112:31	tailwind	bg-white
+client/src/pages/portal/PortalServiceDetail.tsx:1164:31	tailwind	bg-white
+client/src/pages/portal/PortalServiceDetail.tsx:1223:31	tailwind	bg-white
+client/src/pages/portal/PortalServiceDetail.tsx:1234:31	tailwind	bg-white
+client/src/pages/portal/PortalServiceDetail.tsx:1247:31	tailwind	bg-white
+client/src/pages/portal/PortalServices.tsx:78:97	tailwind	bg-white
+client/src/pages/portal/PortalServices.tsx:87:97	tailwind	text-white
+client/src/pages/portal/PortalServices.tsx:104:123	tailwind	bg-white
+client/src/pages/portal/PortalServices.tsx:111:27	tailwind	bg-white
+client/src/pages/portal/PortalServices.tsx:119:27	tailwind	bg-white
+client/src/pages/portal/PortalServices.tsx:180:35	tailwind	bg-white
+client/src/pages/portal/PortalSettings.tsx:162:123	tailwind	bg-white
+client/src/pages/portal/PortalSettings.tsx:171:29	tailwind	bg-white
+client/src/pages/portal/PortalSettings.tsx:194:31	tailwind	bg-white
+client/src/pages/portal/PortalSettings.tsx:235:62	tailwind	text-white
+client/src/pages/portal/PortalSettings.tsx:255:29	tailwind	bg-white
+client/src/pages/portal/PortalSettings.tsx:471:23	tailwind	bg-white
+client/src/pages/portal/PortalSettings.tsx:484:21	tailwind	bg-white
+client/src/pages/portal/PortalSettings.tsx:579:52	tailwind	text-white
+client/src/pages/portal/PortalSettings.tsx:643:23	tailwind	bg-white
+client/src/pages/portal/PortalSettings.tsx:689:54	tailwind	text-white
+client/src/pages/portal/PortalSettings.tsx:753:23	tailwind	bg-white
+client/src/pages/portal/PortalSettings.tsx:769:21	tailwind	bg-white
+client/src/pages/portal/PortalSettings.tsx:836:54	tailwind	text-white
+client/src/pages/portal/PortalSettings.tsx:992:21	tailwind	bg-white
+client/src/pages/portal/PortalSettings.tsx:1060:58	tailwind	text-white
+client/src/pages/portal/PortalSocialSync.tsx:293:46	tailwind	bg-white
+client/src/pages/portal/PortalSocialSync.tsx:318:72	tailwind	text-white
+client/src/pages/portal/PortalSocialSync.tsx:339:72	tailwind	text-white
+client/src/pages/portal/PortalSocialSync.tsx:454:27	tailwind	bg-white
+client/src/pages/portal/PortalTicketDetail.tsx:150:27	tailwind	bg-white
+client/src/pages/portal/PortalTicketDetail.tsx:158:29	tailwind	bg-white
+client/src/pages/portal/PortalTicketDetail.tsx:175:29	tailwind	bg-white
+client/src/pages/portal/PortalTicketDetail.tsx:227:70	tailwind	text-white
+client/src/pages/portal/PortalWidget.tsx:193:71	tailwind	bg-white
+client/src/pages/portal/PortalWidget.tsx:309:73	tailwind	bg-white
+client/src/pages/portal/PortalWidget.tsx:324:73	tailwind	bg-white
+client/src/pages/portal/TradelineSetup/BellDeviceSettings.tsx:68:88	tailwind	text-white
+client/src/pages/portal/TradelineSetup/OptionANewNumber.tsx:77:64	tailwind	bg-white
+client/src/pages/portal/TradelineSetup/OptionANewNumber.tsx:97:65	tailwind	text-white
+client/src/pages/portal/TradelineSetup/OptionBForward.tsx:142:59	tailwind	bg-white
+client/src/pages/portal/TradelineSetup/OptionCPort.tsx:344:57	tailwind	bg-white
+client/src/pages/portal/TradelineSetup/OptionCPort.tsx:367:57	tailwind	bg-white
+client/src/pages/portal/TradelineSetup/SignaturePad.tsx:104:82	tailwind	bg-white
+client/src/pages/products/EffortelProductPage.tsx:259:35	prop	color: "#FFFFFF"
+client/src/pages/products/EffortelProductPage.tsx:470:45	prop	color: "#FFFFFF"
+client/src/pages/products/EffortelProductPage.tsx:641:11	prop	border-color: #FFFFFF
+client/src/pages/products/EffortelProductPage.tsx:783:11	prop	border-color: #FFFFFF
+client/src/pages/products/EffortelProductPage.tsx:1086:25	prop	color: "#FFFFFF"
+client/src/pages/products/EffortelProductPage.tsx:1138:15	prop	color: "#FFFFFF"
+client/src/pages/products/EffortelProductPage.tsx:1176:9	prop	color: "#FFFFFF"
+client/src/pages/products/EffortelProductPage.tsx:1196:11	prop	color: "#FFFFFF"
+client/src/pages/products/EffortelProductPage.tsx:1384:17	prop	color: "#FFFFFF"
+client/src/pages/products/EffortelProductPage.tsx:1445:27	prop	color: "#FFFFFF"
+client/src/pages/public/BookingPage.tsx:272:21	prop	background: "#FFFFFF"
+client/src/pages/public/BookingPage.tsx:402:83	prop	color: "#FFFFFF"
+client/src/pages/public/BookingPage.tsx:426:27	prop	background: "#FFFFFF"
+client/src/pages/public/BookingPage.tsx:479:117	prop	background: "#FFFFFF"
+client/src/pages/public/BookingPage.tsx:523:3	prop	background: "#FFFFFF"
+client/src/pages/public/PayInvoicePage.tsx:535:3	prop	background: "#fff"
+client/src/pages/public/PayInvoicePage.tsx:562:3	prop	color: "#fff"
+client/src/pages/public/PayInvoicePage.tsx:590:3	prop	color: "#fff"
+client/src/pages/public/PayInvoicePage.tsx:605:3	prop	background: "#fff"
+client/src/pages/quote-snapshot.tsx:224:97	prop	background: '#fff'
+client/src/pages/quote-snapshot.tsx:241:11	prop	background: '#fff'
