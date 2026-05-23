@@ -70,6 +70,7 @@ import {
 import { useFoldablePanels } from './useFoldablePanels';
 import { QUOTEQUICK_STYLE_PRESETS } from '@/data/quoteQuickStylePresets';
 import { getContrastRatio, ensureReadableText } from '@/lib/contrastGuard';
+import { useLayoutGuard } from '@/lib/layoutGuard';
 
 const p = platformTheme;
 
@@ -448,6 +449,11 @@ export default function StyleTab({
   // data-testid (see useFoldablePanels for the storage prefix + defaults).
   const stylePanelRef = useRef<HTMLElement | null>(null);
   useFoldablePanels(stylePanelRef, 'style');
+  // LAYOUT-1 — dev-only overlap/crumple detector on the Style panel.
+  // The Style panel is a vertical stack of <fieldset.qq-style-group>
+  // sections; `data-section` keeps the gap threshold loose (24px) so
+  // visual section spacing doesn't trip the runaway-gap warning.
+  useLayoutGuard(stylePanelRef, { maxGapPx: 24, label: 'editor-tabpanel-style' });
 
   return (
     <section
@@ -457,6 +463,7 @@ export default function StyleTab({
       // `editor-tabpanel-style` matches the convention asserted by the H1
       // generic-tab-switching test (`editor-tabpanel-<id>`).
       data-testid="editor-tabpanel-style"
+      data-section
       aria-label="Style"
       role="tabpanel"
     >

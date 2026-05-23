@@ -39,6 +39,7 @@ import {
 import { RotateCcw } from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
 import { dashboardTheme } from '@/theme/dashboardTheme';
+import { useLayoutGuard } from '@/lib/layoutGuard';
 import { EDITOR_TABS, type EditorTab } from './types';
 
 const p = platformTheme;
@@ -132,6 +133,10 @@ export default function MobileBottomSheet({
 
   // Scroll container ref kept so `qq-wizard:focus-field` can scroll into view.
   const contentRef = useRef<HTMLDivElement>(null);
+  // LAYOUT-1 — dev-only overlap/crumple detector on the sheet's scrollable
+  // content area. Children here are whichever tab panel is mounted, so the
+  // checks apply to that panel's top-level children too.
+  useLayoutGuard(contentRef, { maxGapPx: 24, label: 'wizard-sheet-content' });
 
   // ── BH-3 — `qq-wizard:focus-field` listener ───────────────────────
   //

@@ -38,6 +38,7 @@ import FloatField from './FloatField';
 import InfoCue from './InfoCue';
 import RichTextField from './RichTextField';
 import { useFoldablePanels } from './useFoldablePanels';
+import { useLayoutGuard } from '@/lib/layoutGuard';
 
 const p = platformTheme;
 
@@ -157,6 +158,9 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
   // `qq-wizard-panel-settings-${panelId}`.
   const settingsPanelRef = useRef<HTMLElement | null>(null);
   useFoldablePanels(settingsPanelRef, 'settings');
+  // LAYOUT-1 — dev-only overlap/crumple detector. Settings is also a
+  // section-level stack of fieldsets so we use the loose 24px gap.
+  useLayoutGuard(settingsPanelRef, { maxGapPx: 24, label: 'editor-tabpanel-settings' });
 
   return (
     <section
@@ -165,6 +169,7 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
       className="qq-settings-panel qq-style-panel"
       // `editor-tabpanel-settings` matches the H1 generic tab-switching test.
       data-testid="editor-tabpanel-settings"
+      data-section
       aria-label="Settings"
       role="tabpanel"
     >

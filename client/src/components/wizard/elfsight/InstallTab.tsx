@@ -27,7 +27,8 @@
 // `translations` map keyed by ISO code; supply translated strings for the
 // AdvancedCalculator's hardcoded labels and the wizard headline copy.
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useLayoutGuard } from '@/lib/layoutGuard';
 import { Check, ExternalLink, Pencil, X } from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
 import { dashboardTheme } from '@/theme/dashboardTheme';
@@ -268,11 +269,19 @@ export default function InstallTab({
 
   const currentLang = getShellLanguage(language);
 
+  // LAYOUT-1 — dev-only overlap/crumple detector on the Install panel.
+  // Vertical stack of <section.qq-install-section> blocks; section-level
+  // 24px gap threshold matches the rest of the editor tabs.
+  const installPanelRef = useRef<HTMLDivElement | null>(null);
+  useLayoutGuard(installPanelRef, { maxGapPx: 24, label: 'editor-tabpanel-install' });
+
   return (
     <div
+      ref={installPanelRef}
       data-theme="light"
       className="qq-editor-tabpanel qq-install-tab"
       data-testid="editor-tabpanel-install"
+      data-section
       role="tabpanel"
     >
       {/* ── 1. Hosted link — Wave O ─────────────────────────────────
