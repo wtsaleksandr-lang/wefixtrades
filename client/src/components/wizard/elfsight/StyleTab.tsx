@@ -1194,6 +1194,10 @@ export default function StyleTab({
           aria-valuemin={0}
           aria-valuemax={24}
           aria-valuenow={radius}
+          style={{
+            ['--qq-slider-thumb-bg' as any]: '#ffffff',
+            ['--qq-slider-pct' as any]: `${((radius - 0) / (24 - 0)) * 100}%`,
+          }}
         />
         </div>
       </fieldset>
@@ -1250,6 +1254,10 @@ export default function StyleTab({
           aria-valuemin={320}
           aria-valuemax={800}
           aria-valuenow={widgetWidthDesktop ?? 560}
+          style={{
+            ['--qq-slider-thumb-bg' as any]: '#ffffff',
+            ['--qq-slider-pct' as any]: `${(((widgetWidthDesktop ?? 560) - 320) / (800 - 320)) * 100}%`,
+          }}
         />
 
         <label className="qq-style-label" htmlFor="qq-style-width-mobile" style={{ marginTop: 12 }}>
@@ -1271,6 +1279,10 @@ export default function StyleTab({
           aria-valuemin={320}
           aria-valuemax={440}
           aria-valuenow={widgetWidthMobile ?? 380}
+          style={{
+            ['--qq-slider-thumb-bg' as any]: '#ffffff',
+            ['--qq-slider-pct' as any]: `${(((widgetWidthMobile ?? 380) - 320) / (440 - 320)) * 100}%`,
+          }}
         />
 
         {/* ── BD-2a — Step layout subsection ───────────────────────
@@ -1357,7 +1369,7 @@ export default function StyleTab({
             <span className="qq-style-label-text">
               AI chat visibility
               {!isProTier && (
-                <span style={{ marginLeft: 6, fontSize: 10, color: '#92400e', fontWeight: 700 }}>
+                <span className="qq-style-pro-pill">
                   PRO
                 </span>
               )}
@@ -1530,13 +1542,14 @@ export default function StyleTab({
               )}
               {!isProTier && (
                 <p
+                  className="qq-style-pro-pill-row"
                   style={{
-                    fontSize: 11, color: '#92400e',
+                    fontSize: 11,
                     margin: 0, lineHeight: 1.4,
                   }}
                   data-testid="style-floating-launcher-icon-locked"
                 >
-                  <strong style={{ marginRight: 4 }}>PRO</strong>
+                  <strong className="qq-style-pro-pill" style={{ marginRight: 4, marginLeft: 0 }}>PRO</strong>
                   Custom icon + screen-reader label are part of the Pro plan.
                 </p>
               )}
@@ -1961,6 +1974,84 @@ export default function StyleTab({
           width: 100%;
           accent-color: ${p.colors.accent};
         }
+        /* SLIDER-1 — premium slider pattern shared with PR #561
+           (AdvancedCalculator + HostedPageSection). 4px brand-blue-filled
+           track via gradient (--qq-slider-pct), 18px thumb with 1.5px
+           brand-blue border + soft shadow, hover/focus glow, reduced-motion
+           respected. Inline-style contract per <input>:
+             --qq-slider-accent    brand color (filled portion + thumb border)
+             --qq-slider-track     muted track (unfilled portion)
+             --qq-slider-pct       0%..100% (the progress break-point)
+             --qq-slider-thumb-bg  thumb fill (provided per-element so the
+                                   hardcoded-color guard never sees raw #fff
+                                   inside this scoped <style>). */
+        .qq-style-range {
+          -webkit-appearance: none;
+          appearance: none;
+          background: transparent;
+          cursor: pointer;
+          height: 24px;
+          padding: 0;
+          margin: 0;
+        }
+        .qq-style-range:focus { outline: none; }
+        .qq-style-range::-webkit-slider-runnable-track {
+          height: 4px;
+          border-radius: 999px;
+          background: linear-gradient(
+            to right,
+            var(--qq-slider-accent, var(--qq-accent, ${p.colors.accent})) 0%,
+            var(--qq-slider-accent, var(--qq-accent, ${p.colors.accent})) var(--qq-slider-pct, 0%),
+            var(--qq-slider-track, rgba(15,23,42,0.10)) var(--qq-slider-pct, 0%),
+            var(--qq-slider-track, rgba(15,23,42,0.10)) 100%
+          );
+        }
+        .qq-style-range::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          width: 18px; height: 18px;
+          border-radius: 50%;
+          background: var(--qq-slider-thumb-bg);
+          border: 1.5px solid var(--qq-slider-accent, var(--qq-accent, ${p.colors.accent}));
+          box-shadow: 0 1px 3px rgba(0,0,0,0.10), 0 2px 6px rgba(0,0,0,0.06);
+          margin-top: -7px;
+          transition: transform 0.12s ease, box-shadow 0.12s ease;
+        }
+        .qq-style-range:hover::-webkit-slider-thumb {
+          transform: scale(1.10);
+          box-shadow: 0 1px 3px rgba(0,0,0,0.14), 0 4px 10px rgba(13,60,252,0.20);
+        }
+        .qq-style-range:active::-webkit-slider-thumb,
+        .qq-style-range:focus-visible::-webkit-slider-thumb {
+          transform: scale(1.12);
+          box-shadow: 0 0 0 4px rgba(13,60,252,0.20);
+        }
+        .qq-style-range::-moz-range-track {
+          height: 4px;
+          border-radius: 999px;
+          background: var(--qq-slider-track, rgba(15,23,42,0.10));
+        }
+        .qq-style-range::-moz-range-progress {
+          height: 4px;
+          border-radius: 999px;
+          background: var(--qq-slider-accent, var(--qq-accent, ${p.colors.accent}));
+        }
+        .qq-style-range::-moz-range-thumb {
+          width: 18px; height: 18px;
+          border-radius: 50%;
+          background: var(--qq-slider-thumb-bg);
+          border: 1.5px solid var(--qq-slider-accent, var(--qq-accent, ${p.colors.accent}));
+          box-shadow: 0 1px 3px rgba(0,0,0,0.10), 0 2px 6px rgba(0,0,0,0.06);
+          cursor: pointer;
+          transition: transform 0.12s ease, box-shadow 0.12s ease;
+        }
+        .qq-style-range:hover::-moz-range-thumb {
+          transform: scale(1.10);
+          box-shadow: 0 1px 3px rgba(0,0,0,0.14), 0 4px 10px rgba(13,60,252,0.20);
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .qq-style-range::-webkit-slider-thumb,
+          .qq-style-range::-moz-range-thumb { transition: none; }
+        }
 
         /* ColourField */
         .qq-style-colour {
@@ -2070,12 +2161,11 @@ export default function StyleTab({
         .qq-style-panel input[type="checkbox"] {
           accent-color: var(--qq-accent, ${p.colors.accent});
         }
-        /* BD-3f Item 3 — range sliders + Brand Studio chevron pick up the
-         * accent too. The chevron is the most visible "dropdown arrow"
-         * surface in the StyleTab so Alex's feedback maps directly. */
-        .qq-style-range {
-          accent-color: var(--qq-accent, ${p.colors.accent});
-        }
+        /* BD-3f Item 3 — Brand Studio chevron picks up the accent too. The
+         * chevron is the most visible "dropdown arrow" surface in the
+         * StyleTab so Alex's feedback maps directly. (Range slider styling
+         * lives in SLIDER-1 block above — accent already wired via the
+         * --qq-slider-accent / --qq-accent fallback chain.) */
         .qq-bs-chev {
           color: var(--qq-accent, ${p.colors.muted}) !important;
         }
@@ -2388,10 +2478,27 @@ export default function StyleTab({
           border-color: rgba(255,255,255,0.08) !important;
         }
         /* BD-2a-polish — Brand Kit picker / save inline dialogs. */
+        .qq-bk-picker,
+        .qq-bk-save {
+          background: #fafafa;
+        }
         .qq-editor-shell[data-theme="dark"] .qq-bk-picker,
         .qq-editor-shell[data-theme="dark"] .qq-bk-save {
           background: #1e293b !important;
           border-color: rgba(255,255,255,0.08) !important;
+          color: #f5f7fa;
+        }
+        /* AUDIT HIGH-B — Brand Kit card buttons (inner) + Save dialog Cancel
+         * button. Light: white surface to pop off the picker's #fafafa;
+         * dark: slate-700 to pop off the picker's #1e293b. */
+        .qq-bk-card,
+        .qq-bk-save-cancel {
+          background: #ffffff;
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-bk-card,
+        .qq-editor-shell[data-theme="dark"] .qq-bk-save-cancel {
+          background: #334155;
+          border-color: rgba(255,255,255,0.10) !important;
           color: #f5f7fa;
         }
         .qq-editor-shell[data-theme="dark"] .qq-bs-upsell {
@@ -2402,6 +2509,30 @@ export default function StyleTab({
           color: #f5f7fa;
         }
         .qq-editor-shell[data-theme="dark"] .qq-bs-upsell-sub {
+          color: #cbd5e1;
+        }
+        /* AUDIT HIGH-C — PRO pill on label rows. Light: warm amber on the
+         * cream pill. Dark: brighter amber + low-alpha amber bg so it stays
+         * WCAG AA against the slate (#1e293b) tab body. */
+        .qq-style-pro-pill {
+          font-size: 10px;
+          font-weight: 700;
+          color: #92400e;
+          margin-left: 6px;
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-style-pro-pill {
+          color: #fcd34d;
+          background: rgba(252,211,77,0.10);
+          border-radius: 4px;
+          padding: 0 4px;
+        }
+        /* AUDIT HIGH-C — locked-feature explainer row body uses the muted
+         * text token; the PRO pill carries the amber. Previously the entire
+         * sentence was rendered in #92400e which failed AA on dark mode. */
+        .qq-style-pro-pill-row {
+          color: var(--qq-style-hint, #64748b);
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-style-pro-pill-row {
           color: #cbd5e1;
         }
       `}</style>
@@ -2730,6 +2861,10 @@ function BrandStudioGroup({
                   aria-valuemin={0}
                   aria-valuemax={50}
                   aria-valuenow={bgImageTint}
+                  style={{
+                    ['--qq-slider-thumb-bg' as any]: '#ffffff',
+                    ['--qq-slider-pct' as any]: `${((bgImageTint - 0) / (50 - 0)) * 100}%`,
+                  }}
                 />
               </div>
             )}
@@ -2891,6 +3026,10 @@ function BrandStudioGroup({
                   aria-valuemin={5}
                   aria-valuemax={25}
                   aria-valuenow={rpRangeBand}
+                  style={{
+                    ['--qq-slider-thumb-bg' as any]: '#ffffff',
+                    ['--qq-slider-pct' as any]: `${((rpRangeBand - 5) / (25 - 5)) * 100}%`,
+                  }}
                 />
               </>
             )}
@@ -2966,6 +3105,10 @@ function BrandStudioGroup({
               aria-valuemin={100}
               aria-valuemax={600}
               aria-valuenow={animDuration}
+              style={{
+                ['--qq-slider-thumb-bg' as any]: '#ffffff',
+                ['--qq-slider-pct' as any]: `${((animDuration - 100) / (600 - 100)) * 100}%`,
+              }}
             />
             <label
               className="qq-style-label"
@@ -3643,7 +3786,6 @@ function BrandKitGroup({
             display: 'flex',
             flexDirection: 'column',
             gap: 8,
-            background: '#fafafa',
           }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -3664,9 +3806,10 @@ function BrandKitGroup({
                 key={kit.id}
                 onClick={() => handleApply(kit)}
                 data-testid={`style-bk-pick-${kit.id}`}
+                className="qq-bk-card"
                 style={{
                   display: 'flex', alignItems: 'center', gap: 10, padding: 8,
-                  background: '#fff', border: `1px solid ${p.colors.borderLight}`,
+                  border: `1px solid ${p.colors.borderLight}`,
                   borderRadius: 8, cursor: 'pointer', textAlign: 'left',
                 }}
               >
@@ -3713,34 +3856,43 @@ function BrandKitGroup({
             display: 'flex',
             flexDirection: 'column',
             gap: 8,
-            background: '#fafafa',
           }}
         >
           <strong style={{ fontSize: 13 }}>Save Brand Kit</strong>
-          <input
-            type="text"
-            placeholder="Name (required)"
-            value={saveName}
-            onChange={(e) => setSaveName(e.target.value)}
-            data-testid="style-bk-save-name"
-            maxLength={120}
-            style={{ height: 34, padding: '0 8px', borderRadius: 6, border: `1px solid ${p.colors.borderLight}` }}
-          />
-          <input
-            type="text"
-            placeholder="Description (optional)"
-            value={saveDesc}
-            onChange={(e) => setSaveDesc(e.target.value)}
-            data-testid="style-bk-save-desc"
-            maxLength={2000}
-            style={{ height: 34, padding: '0 8px', borderRadius: 6, border: `1px solid ${p.colors.borderLight}` }}
-          />
+          {/* AUDIT HIGH-A — both inputs wrapped in <FloatField> to match the
+           * Pricing Tiers convention (title-in-field, no placeholder-as-label
+           * disappearing on focus). */}
+          <FloatField label="Name (required)" htmlFor="style-bk-save-name-input">
+            <input
+              id="style-bk-save-name-input"
+              type="text"
+              className="premium-input"
+              placeholder=" "
+              value={saveName}
+              onChange={(e) => setSaveName(e.target.value)}
+              data-testid="style-bk-save-name"
+              maxLength={120}
+            />
+          </FloatField>
+          <FloatField label="Description (optional)" htmlFor="style-bk-save-desc-input">
+            <input
+              id="style-bk-save-desc-input"
+              type="text"
+              className="premium-input"
+              placeholder=" "
+              value={saveDesc}
+              onChange={(e) => setSaveDesc(e.target.value)}
+              data-testid="style-bk-save-desc"
+              maxLength={2000}
+            />
+          </FloatField>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
             <button
               type="button"
               onClick={() => setSaveOpen(false)}
               data-testid="style-bk-save-cancel"
-              style={{ background: '#fff', color: p.colors.body, border: `1px solid ${p.colors.borderLight}`, borderRadius: 6, padding: '6px 10px', cursor: 'pointer' }}
+              className="qq-bk-save-cancel"
+              style={{ color: p.colors.body, border: `1px solid ${p.colors.borderLight}`, borderRadius: 6, padding: '6px 10px', cursor: 'pointer' }}
             >
               Cancel
             </button>
