@@ -1785,7 +1785,12 @@ export default function StyleTab({
         }
         .qq-style-swatch-popover {
           position: fixed;
-          z-index: 2000;
+          /* CRITICAL FIX — was z-index: 2000, covered by the mobile bottom
+           * sheet (z 9998, BH-3) so tapping a swatch on mobile opened the
+           * popover INVISIBLY behind the sheet. The popover is already
+           * portaled to document.body so it has no z-stacking ancestor —
+           * bumped above the sheet to render correctly on mobile. */
+          z-index: 10000;
           width: 240px;
           padding: 12px;
           background: #fff;

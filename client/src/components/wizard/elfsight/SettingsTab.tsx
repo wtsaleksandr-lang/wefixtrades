@@ -879,14 +879,38 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
           border-radius: 7px;
           transition: background 0.12s ease, color 0.12s ease;
         }
-        .qq-style-seg-btn:hover { color: ${p.colors.heading}; }
-        .qq-style-seg-btn[aria-checked="true"] {
-          background: #fff;
+        .qq-style-seg-btn:hover:not([aria-checked="true"]) {
           color: ${p.colors.heading};
-          box-shadow: 0 1px 2px rgba(15,23,42,0.08);
+          background: rgba(13, 60, 252, 0.04);
+        }
+        /* CRITICAL FIX — Rule 4 / BH-4: SettingsTab segmented active state was
+         * a near-white pill on a white card, making the active option invisible
+         * against the surrounding fieldset. Canonical pattern: subtle 10% accent
+         * tint + 1.5px accent outline + accent-dark text. Matches CalculationRow
+         * .qq-calc-seg-btn.is-active. */
+        .qq-style-seg-btn[aria-checked="true"] {
+          background: ${p.colors.accentLighter};
+          color: ${p.colors.accentDark};
+          box-shadow: inset 0 0 0 1.5px ${p.colors.accent};
         }
         .qq-settings-row {
           margin-top: 12px;
+        }
+        /* CRITICAL FIX — Business profile rows: each contains two FloatFields
+         * (rating/reviews, years/area). They were stacking because the row
+         * helper only set margin. Two-column grid on desktop (>= 720px),
+         * single column on phone — matches qq-style-grid breakpoint. */
+        .qq-settings-row[data-testid="settings-bp-row-rating"],
+        .qq-settings-row[data-testid="settings-bp-row-years"] {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 10px;
+        }
+        @media (max-width: 480px) {
+          .qq-settings-row[data-testid="settings-bp-row-rating"],
+          .qq-settings-row[data-testid="settings-bp-row-years"] {
+            grid-template-columns: 1fr;
+          }
         }
         .qq-trade-results {
           margin-top: 8px;
@@ -936,7 +960,12 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
         .qq-trade-backdrop {
           position: fixed; inset: 0;
           background: rgba(15, 23, 42, 0.42);
-          z-index: 1000;
+          /* CRITICAL FIX — was z-index: 1000, sat UNDER the AIBubble
+           * (z 1100 desktop, 9999 when mobile-sheet is active) so the
+           * assistant chip overlapped and blocked the trade picker.
+           * Bumped to 10000 so the modal floats above the bubble AND
+           * the mobile bottom sheet (z 9998) in every layout. */
+          z-index: 10000;
           display: flex; align-items: center; justify-content: center;
           padding: 16px;
         }
