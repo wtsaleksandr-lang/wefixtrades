@@ -227,7 +227,7 @@ export default function BundlesPage() {
 
   return (
     <MarketingLayout>
-      <div data-testid="bundles-page">
+      <div data-theme="light" data-testid="bundles-page">
         <div style={s.pageHeader}>
           <h1 style={s.pageHeaderH1}>Get the Full System</h1>
           <p style={s.pageHeaderSub}>Combine software + done-for-you services for maximum results.</p>

@@ -129,7 +129,7 @@ function FlowMapHero() {
   const maxH = Math.max(svcH, outH);
 
   return (
-    <div data-testid="flow-map-hero" style={{ position: "relative", maxWidth: 1000, margin: "0 auto" }}>
+    <div data-theme="light" data-testid="flow-map-hero" style={{ position: "relative", maxWidth: 1000, margin: "0 auto" }}>
       {/* Hidden for now — re-enable by removing display:"none" */}
       <div className="flow-map-desktop" style={{
         display: "none", alignItems: "center", justifyContent: "center", gap: 0, minHeight: maxH,

@@ -103,7 +103,7 @@ export function OptionBForward({ setup, onBack, onDone }: Props) {
   if (setup.forwarding_verified_at) {
     const method = setup.forwarding_verified_method;
     return (
-      <div className="space-y-5">
+      <div data-theme="light" className="space-y-5">
         <BackLink onBack={onBack} />
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-6 text-center space-y-2">
           <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />

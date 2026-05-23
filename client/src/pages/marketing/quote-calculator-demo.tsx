@@ -143,7 +143,7 @@ export default function QuoteCalculatorDemo() {
         }
       `}</style>
 
-      <section
+      <section data-theme="light"
         style={{
           background: mkt.bg,
           minHeight: "100vh",

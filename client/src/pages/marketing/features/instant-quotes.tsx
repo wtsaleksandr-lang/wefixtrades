@@ -5,7 +5,7 @@ import { mkt, colors, shadows } from "@/theme/tokens";
 /* ── Mockup ──────────────────────────────────── */
 function QuoteMockup() {
   return (
-    <div
+    <div data-theme="light"
       style={{
         background: mkt.bg,
         border: `1px solid ${mkt.onDarkBorder}`,

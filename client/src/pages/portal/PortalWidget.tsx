@@ -158,7 +158,7 @@ export default function PortalWidget() {
 
   return (
     <PortalLayout>
-      <div className="max-w-5xl mx-auto space-y-6">
+      <div data-theme="light" className="max-w-5xl mx-auto space-y-6">
         <BackToReviews />
         {/* Header */}
         <div>

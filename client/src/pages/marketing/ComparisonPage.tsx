@@ -34,7 +34,7 @@ function CellValue({ value }: { value: boolean | string }) {
 function ComparisonTable({ data }: { data: ComparisonData }) {
   const colCount = data.competitors.length + 2; // feature + us + competitors
   return (
-    <div
+    <div data-theme="light"
       style={{
         background: mkt.sectionLight,
         border: `1px solid ${mkt.onDarkBorder}`,
@@ -198,7 +198,7 @@ export default function ComparisonPage() {
 
   return (
     <MarketingLayout>
-      <div style={{ overflowX: "hidden" }}>
+      <div data-theme="dark" style={{ overflowX: "hidden" }}>
 
         {/* ═══════════════════════════════════
             HERO

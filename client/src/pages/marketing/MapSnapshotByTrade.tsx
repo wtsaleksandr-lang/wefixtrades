@@ -61,7 +61,7 @@ export default function MapSnapshotByTrade() {
 
   return (
     <MarketingLayout>
-      <div style={{ padding: "48px 16px 80px", background: "#fafafa", minHeight: "60vh" }}>
+      <div data-theme="light" style={{ padding: "48px 16px 80px", background: "#fafafa", minHeight: "60vh" }}>
         <div style={{ maxWidth: 720, margin: "0 auto", marginBottom: 24 }}>
           <h1
             style={{

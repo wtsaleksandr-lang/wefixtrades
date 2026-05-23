@@ -13,7 +13,7 @@ function SmsMockup() {
   ];
 
   return (
-    <div
+    <div data-theme="light"
       style={{
         background: "#F1F5F9",
         borderRadius: 20,

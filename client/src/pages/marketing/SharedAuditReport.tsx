@@ -92,7 +92,7 @@ export default function SharedAuditReport() {
 
   if (loading) return <div style={{ padding: 40, textAlign: "center", fontFamily: "Inter, system-ui", color: "#6B7280" }}>Loading report...</div>;
   if (error || !data) return (
-    <div style={{ padding: 40, textAlign: "center", fontFamily: "Inter, system-ui" }}>
+    <div data-theme="light" style={{ padding: 40, textAlign: "center", fontFamily: "Inter, system-ui" }}>
       <h2 style={{ color: "#EF4444" }}>Report not found</h2>
       <p style={{ color: "#6B7280", marginTop: 8 }}>{error || "This report may have been removed."}</p>
       <a href="/tools/free-audit" style={{ display: "inline-block", marginTop: 16, padding: "12px 24px", background: "#0d3cfc", color: "#FFFFFF", borderRadius: 10, fontWeight: 700, textDecoration: "none" }}>Get your own free audit &rarr;</a>
@@ -126,7 +126,7 @@ export default function SharedAuditReport() {
   const arcLength = (overall / 100) * circumference;
 
   return (
-    <div style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
+    <div data-theme="light" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
       {/* Sticky header — read-only shared view */}
       <div className={s.stickyHeader}>
         <div className={s.stickyLogo}>We<span>Fix</span>Trades</div>

@@ -213,7 +213,7 @@ export default function QuoteSnapshotPage() {
   }
 
   return (
-    <div style={pageBgStyle} data-testid="quote-snapshot-page">
+    <div data-theme="light" style={pageBgStyle} data-testid="quote-snapshot-page">
       <div style={{ maxWidth: 640, margin: '0 auto', padding: '40px 20px 20px', fontFamily: eff.font, color: eff.text }}>
         {/* Header — calculator branding */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 24 }}>

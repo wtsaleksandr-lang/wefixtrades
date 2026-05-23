@@ -773,7 +773,7 @@ function VideoContentSection() {
   const scripts = videos.filter((v) => v.kind === "video_script");
 
   return (
-    <div className="space-y-4">
+    <div data-theme="light" className="space-y-4">
       {/* Info banner */}
       <Card className="p-4 bg-blue-50 border-blue-200">
         <div className="flex items-start gap-3">

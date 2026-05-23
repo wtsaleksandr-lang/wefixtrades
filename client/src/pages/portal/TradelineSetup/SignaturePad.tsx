@@ -100,7 +100,7 @@ export const SignaturePad = forwardRef<SignaturePadHandle, Props>(function Signa
   }));
 
   return (
-    <div className={className}>
+    <div data-theme="light" className={className}>
       <div className="relative rounded-lg border-2 border-dashed border-gray-300 bg-white overflow-hidden">
         <canvas
           ref={canvasRef}
