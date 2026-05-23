@@ -2152,47 +2152,47 @@ export default function WizardShell({ embed = false }: Props) {
              * keyboard a11y path (focus + arrow keys) still works since the
              * button receives focus. */
             .qq-editor-resize {
-              position: absolute; top: 0; right: -4px; bottom: 0;
-              width: 4px;
-              background: rgba(15, 23, 42, 0.18);
+              position: absolute; top: 0; right: -6px; bottom: 0;
+              width: 6px;
+              background: rgba(15, 23, 42, 0.22);
               border: 0; padding: 0; cursor: col-resize;
               z-index: 5;
               touch-action: none;
               display: flex; align-items: center; justify-content: center;
-              transition: background 0.12s ease, width 0.12s ease, right 0.12s ease;
+              box-shadow: inset 1px 0 0 rgba(15, 23, 42, 0.08);
+              transition: background 0.12s ease, width 0.12s ease, right 0.12s ease, box-shadow 0.12s ease;
             }
             .qq-editor-shell[data-theme="dark"] .qq-editor-resize {
-              background: rgba(255, 255, 255, 0.20);
+              background: rgba(255, 255, 255, 0.28);
+              box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.05);
             }
             .qq-editor-resize:hover {
               background: rgba(13, 60, 252, 0.45);
-              width: 6px;
-              right: -5px;
+              width: 8px;
+              right: -7px;
             }
             .qq-editor-resize.is-resizing {
               background: #0d3cfc;
-              width: 6px;
-              right: -5px;
+              width: 8px;
+              right: -7px;
             }
-            /* 3-dot grip glyph — centered vertically on the handle. Three
-             * 1.5px circles spaced 3px apart, rendered via a single
-             * background-image gradient on the inner <span>. Color matches
-             * the handle's visual tone (a neutral muted-light dot on the
-             * gray-blue at-rest bar; bright white on hover/active for
-             * legibility against the brand-blue fill). */
+            /* Vertical grip rail — centered on the handle. A taller (32px)
+             * thin (3px) vertical pill gives the resize handle clear edge
+             * presence: the user immediately reads "grabbable rail" without
+             * the bar being visually aggressive. Opacity 0.75 at rest, full
+             * on hover/drag. Color: muted-light tone at rest, white when
+             * hovering / actively dragging against the brand-blue fill. */
             .qq-editor-resize > span {
               display: block;
-              width: 2px; height: 12px;
-              background-image: radial-gradient(circle, currentColor 0.75px, transparent 1px);
-              background-size: 2px 4px;
-              background-repeat: repeat-y;
-              background-position: center;
-              color: rgba(255, 255, 255, 0.7);
-              opacity: 0.5;
+              width: 3px; height: 32px;
+              border-radius: 999px;
+              background: currentColor;
+              color: rgba(255, 255, 255, 0.85);
+              opacity: 0.75;
               transition: opacity 0.12s ease, color 0.12s ease;
             }
             .qq-editor-shell[data-theme="dark"] .qq-editor-resize > span {
-              color: rgba(255, 255, 255, 0.85);
+              color: rgba(255, 255, 255, 0.92);
             }
             .qq-editor-resize:hover > span,
             .qq-editor-resize.is-resizing > span {

@@ -69,8 +69,8 @@ client/src/components/product-demos/SiteLaunchDemo.tsx:112:136	prop	color: "#FFF
 client/src/components/product-demos/SocialSyncDemo.tsx:54:98	prop	color: "#fff"
 client/src/components/product-demos/TradeLineChatDemo.tsx:166:31	prop	color: "#FFFFFF"
 client/src/components/quote-widget/AdvancedCalculator.tsx:1695:5	prop	background: '#ffffff'
-client/src/components/quote-widget/AdvancedCalculator.tsx:2931:65	prop	background: '#fff'
-client/src/components/quote-widget/AdvancedCalculator.tsx:3090:17	prop	color: '#fff'
+client/src/components/quote-widget/AdvancedCalculator.tsx:3024:65	prop	background: '#fff'
+client/src/components/quote-widget/AdvancedCalculator.tsx:3183:17	prop	color: '#fff'
 client/src/components/quote-widget/CalculatorLauncher.tsx:316:5	prop	background: '#fff'
 client/src/components/quote-widget/CalculatorLauncher.tsx:391:9	prop	background: '#fff'
 client/src/components/quote-widget/CalculatorLauncher.tsx:516:13	prop	background: '#fff'

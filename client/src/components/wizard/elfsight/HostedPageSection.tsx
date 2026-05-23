@@ -239,6 +239,15 @@ export default function HostedPageSection({
                   })}
                   data-testid="hosted-image-overlay"
                   aria-label="Darken overlay percentage"
+                  className="qq-w-slider"
+                  style={{
+                    width: '100%',
+                    accentColor: p.colors.accent,
+                    ['--qq-slider-accent' as any]: p.colors.accent,
+                    ['--qq-slider-track' as any]: 'rgba(15, 23, 42, 0.10)',
+                    ['--qq-slider-thumb-bg' as any]: '#ffffff',
+                    ['--qq-slider-pct' as any]: `${Math.round(((bg.overlay ?? 0.18)) * 100) / 70 * 100}%`,
+                  }}
                 />
               </div>
               <button
@@ -508,6 +517,69 @@ export default function HostedPageSection({
           .qq-hosted-upload-btn { min-height: 44px; font-size: 13px; }
           .qq-hosted-text-input { min-height: 44px; font-size: 14px; }
           .qq-hosted-icon-btn { width: 44px; height: 44px; }
+        }
+        /* Premium slider — mirrors AdvancedCalculator's .qq-w-slider so the
+           overlay-darken range input renders with the same Apple/Stripe-style
+           thin track + filled progress + soft thumb. Kept here (rather than
+           imported from a shared CSS file) to minimise plumbing — only one
+           slider lives in this section, so the rule footprint is small. */
+        .qq-w-slider {
+          -webkit-appearance: none; appearance: none;
+          width: 100%; background: transparent; cursor: pointer;
+          height: 24px; padding: 0; margin: 0;
+        }
+        .qq-w-slider:focus { outline: none; }
+        .qq-w-slider::-webkit-slider-runnable-track {
+          height: 4px; border-radius: 999px;
+          background: linear-gradient(
+            to right,
+            var(--qq-slider-accent) 0%,
+            var(--qq-slider-accent) var(--qq-slider-pct, 0%),
+            var(--qq-slider-track) var(--qq-slider-pct, 0%),
+            var(--qq-slider-track) 100%
+          );
+        }
+        .qq-w-slider::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          width: 18px; height: 18px; border-radius: 50%;
+          background: var(--qq-slider-thumb-bg);
+          border: 1.5px solid var(--qq-slider-accent);
+          box-shadow: 0 1px 3px rgba(0,0,0,0.10), 0 2px 6px rgba(0,0,0,0.06);
+          margin-top: -7px;
+          transition: transform 0.12s ease, box-shadow 0.12s ease;
+        }
+        .qq-w-slider:hover::-webkit-slider-thumb {
+          transform: scale(1.10);
+          box-shadow: 0 1px 3px rgba(0,0,0,0.14), 0 4px 10px rgba(13,60,252,0.20);
+        }
+        .qq-w-slider:active::-webkit-slider-thumb,
+        .qq-w-slider:focus-visible::-webkit-slider-thumb {
+          transform: scale(1.12);
+          box-shadow: 0 0 0 4px rgba(13,60,252,0.20);
+        }
+        .qq-w-slider::-moz-range-track {
+          height: 4px; border-radius: 999px;
+          background: var(--qq-slider-track);
+        }
+        .qq-w-slider::-moz-range-progress {
+          height: 4px; border-radius: 999px;
+          background: var(--qq-slider-accent);
+        }
+        .qq-w-slider::-moz-range-thumb {
+          width: 18px; height: 18px; border-radius: 50%;
+          background: var(--qq-slider-thumb-bg);
+          border: 1.5px solid var(--qq-slider-accent);
+          box-shadow: 0 1px 3px rgba(0,0,0,0.10), 0 2px 6px rgba(0,0,0,0.06);
+          cursor: pointer;
+          transition: transform 0.12s ease, box-shadow 0.12s ease;
+        }
+        .qq-w-slider:hover::-moz-range-thumb {
+          transform: scale(1.10);
+          box-shadow: 0 1px 3px rgba(0,0,0,0.14), 0 4px 10px rgba(13,60,252,0.20);
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .qq-w-slider::-webkit-slider-thumb,
+          .qq-w-slider::-moz-range-thumb { transition: none; }
         }
       `}</style>
     </section>
