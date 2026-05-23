@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Users, Wrench, ClipboardList, Truck, CreditCard, TrendingUp, AlertTriangle, CheckCircle, RefreshCw, ShieldCheck, RotateCcw, Clock } from "lucide-react";
+import { Users, Wrench, ClipboardList, Truck, CreditCard, TrendingUp, AlertTriangle, CheckCircle, RefreshCw, ShieldCheck, RotateCcw, Clock, Calculator, ArrowRight } from "lucide-react";
 import { Link } from "wouter";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { adminStatusColor, ALERT_SEVERITY } from "@/config/adminLabels";
@@ -431,6 +431,96 @@ function QaQueueWidget() {
   );
 }
 
+/* ─── Products section — IA-1 deferral completion (2026-05-22)
+   Surfaces top-of-funnel product cards on the admin overview so operators
+   can jump straight into product-scoped admin pages. Currently scoped to
+   QuoteQuick (the only live SaaS product); future products slot in next
+   to it as additional <ProductCard /> entries inside the same grid. ─── */
+interface QQOverviewResponse {
+  calculators: { id: number; status: string; total_leads: number }[];
+}
+interface QQTrendResponse {
+  trend: { date: string; count: number }[];
+  total: number;
+}
+
+function QuoteQuickProductCard() {
+  const { data: overviewData, isLoading: overviewLoading } = useQuery<QQOverviewResponse>({
+    queryKey: ["/api/admin/crm/quotequick/overview"],
+    queryFn: () => apiRequest("GET", "/api/admin/crm/quotequick/overview").then((r) => r.json()),
+    staleTime: 60_000,
+  });
+
+  const { data: trendData, isLoading: trendLoading } = useQuery<QQTrendResponse>({
+    queryKey: ["/api/admin/crm/quotequick/trends"],
+    queryFn: () => apiRequest("GET", "/api/admin/crm/quotequick/trends").then((r) => r.json()),
+    staleTime: 60_000,
+  });
+
+  const isLoading = overviewLoading || trendLoading;
+
+  // Active calculators = live deployments only (paused/draft excluded — those
+  // can't take leads). Matches the metric admins see on the QuoteQuick page.
+  const activeCalculators = (overviewData?.calculators ?? []).filter(
+    (c) => c.status === "live",
+  ).length;
+
+  // Leads this month = sum of daily counts from the trend endpoint, filtered
+  // to dates within the current calendar month (local time).
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const leadsThisMonth = (trendData?.trend ?? []).reduce((acc, d) => {
+    const dt = new Date(d.date);
+    return dt >= monthStart ? acc + d.count : acc;
+  }, 0);
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-sm font-semibold text-gray-900">Products</h3>
+        <p className="text-[11px] text-gray-400">Jump into product-scoped admin tools</p>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <Link href="/admin/crm/quotequick" className="block">
+          <Card className="h-full p-4 transition-all duration-150 cursor-pointer hover:border-gray-300 hover:shadow-md active:scale-[0.98]">
+            <div className="flex items-start gap-3">
+              <div data-theme="dark" className="w-10 h-10 rounded-lg flex items-center justify-center bg-[#0d3cfc] shrink-0">
+                <Calculator className="w-5 h-5 text-white" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-semibold text-gray-900">QuoteQuick</p>
+                  <span className="inline-flex items-center text-[11px] font-medium text-[#0d3cfc] shrink-0">
+                    Manage calculators
+                    <ArrowRight className="w-3 h-3 ml-0.5" />
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Embeddable quote calculators across all clients
+                </p>
+                <div className="mt-2 min-h-[20px]">
+                  {isLoading ? (
+                    <Skeleton className="h-3 w-48" />
+                  ) : (
+                    <p className="text-xs text-gray-600">
+                      <span className="font-semibold text-gray-900">{activeCalculators}</span> active
+                      {activeCalculators === 1 ? " calculator" : " calculators"}
+                      <span className="text-gray-300 mx-1.5">·</span>
+                      <span className="font-semibold text-gray-900">{leadsThisMonth}</span>{" "}
+                      lead{leadsThisMonth === 1 ? "" : "s"} this month
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </Card>
+        </Link>
+        {/* Future product cards slot in here (one per product). */}
+      </div>
+    </div>
+  );
+}
+
 export default function CrmOverview() {
   usePageTitle("Overview");
   const { data, isLoading } = useQuery<Overview>({
@@ -479,6 +569,9 @@ export default function CrmOverview() {
             </>
           )}
         </div>
+
+        {/* Products section — IA-1 deferral (2026-05-22) */}
+        <QuoteQuickProductCard />
 
         {/* Ops Intelligence Widget */}
         <div className="grid grid-cols-1 gap-4">
