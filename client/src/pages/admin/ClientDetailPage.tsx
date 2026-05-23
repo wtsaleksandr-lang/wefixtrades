@@ -21,9 +21,13 @@ import {
 } from "@/components/ui/select";
 import {
 
-  ArrowLeft, Mail, Phone, Globe, MapPin, Plus, ChevronDown, ChevronUp, Pencil, RefreshCw, CreditCard, Copy, ExternalLink, ClipboardCheck, UserPlus, ShieldCheck, Calculator, Eye,
+  ArrowLeft, Mail, Phone, Globe, MapPin, Plus, ChevronDown, ChevronUp, Pencil, RefreshCw, CreditCard, Copy, ExternalLink, ClipboardCheck, UserPlus, ShieldCheck, Calculator, Eye, UserCheck,
   PhoneCall, PhoneIncoming, PhoneMissed, PhoneOff, Loader2, Save, AlertCircle, CheckCircle2, HelpCircle,
 } from "lucide-react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -500,6 +504,28 @@ export default function ClientDetailPage() {
     onError: (err: Error) => { toast({ title: "Failed to add note", description: err.message, variant: "destructive" }); },
   });
 
+  // "View as customer" impersonation — opens a confirm dialog, then
+  // POSTs /api/admin/impersonate/:userId. On success we clear the
+  // React-Query cache (so portal-keyed queries don't leak admin data)
+  // and hard-navigate to /portal so the impersonation middleware
+  // picks up on the next request.
+  const [impersonateConfirm, setImpersonateConfirm] = useState(false);
+  const impersonate = useMutation({
+    mutationFn: async (userId: number) => {
+      const res = await apiRequest("POST", `/api/admin/impersonate/${userId}`, {
+        reason: `View as customer from /admin/crm/clients/${clientId}`,
+      });
+      return res.json();
+    },
+    onSuccess: (data: { redirect?: string }) => {
+      queryClient.clear();
+      window.location.assign(data.redirect || "/portal");
+    },
+    onError: (err: Error) => {
+      toast({ title: "Couldn't start impersonation", description: err.message, variant: "destructive" });
+    },
+  });
+
   // Add service dialog
   const [showAddService, setShowAddService] = useState(false);
   const [newServiceId, setNewServiceId] = useState("");
@@ -717,6 +743,21 @@ export default function ClientDetailPage() {
                 >
                   <UserPlus className="w-3 h-3 mr-1" />
                   {createPortalAccess.isPending ? "Creating..." : "Create Portal Access"}
+                </Button>
+              )}
+              {/* "View as customer" — only meaningful for clients with
+                  a linked portal user. Opens an AlertDialog confirm
+                  because the action ends the admin's current session
+                  cleanly via the banner. */}
+              {client.user_id && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs"
+                  onClick={() => setImpersonateConfirm(true)}
+                  disabled={impersonate.isPending}
+                >
+                  <UserCheck className="w-3 h-3 mr-1" /> View as customer
                 </Button>
               )}
               <Button variant="outline" size="sm" className="h-8 text-xs" onClick={openEdit}>
@@ -1398,6 +1439,35 @@ export default function ClientDetailPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* "View as customer" confirm. Lives at component root so it
+            renders above the AdminLayout chrome. */}
+        <AlertDialog open={impersonateConfirm} onOpenChange={setImpersonateConfirm}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                Open the portal as {client.business_name}?
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                Every action will be logged and visible to them as if they did it. This will end your current
+                admin session and restore it when you click <strong>Stop</strong> in the banner at the top of
+                the page. Auto-expires after 60 minutes.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={impersonate.isPending}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                className="btn-primary-premium"
+                disabled={impersonate.isPending || !client.user_id}
+                onClick={() => {
+                  if (client.user_id) impersonate.mutate(client.user_id);
+                }}
+              >
+                {impersonate.isPending ? "Starting…" : "View as customer"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </AdminLayout>
   );

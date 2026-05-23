@@ -60,6 +60,21 @@ export const passwordResetTokens = pgTable("password_reset_tokens", {
   created_at: timestamp("created_at").defaultNow(),
 });
 
+/* ─── Admin impersonation audit (0039) ───
+ * Every "view as customer" session is logged here. Active sessions have
+ * ended_at IS NULL; the session middleware enforces a 60-minute cap from
+ * started_at. Used by the banner + the cross-cutting audit log reader. */
+export const adminImpersonations = pgTable("admin_impersonations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  admin_user_id: integer("admin_user_id").notNull().references(() => users.id),
+  target_user_id: integer("target_user_id").notNull().references(() => users.id),
+  started_at: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+  ended_at: timestamp("ended_at", { withTimezone: true }),
+  admin_ip: text("admin_ip"),
+  reason: text("reason"),
+});
+export type AdminImpersonation = typeof adminImpersonations.$inferSelect;
+
 /* ─── Calculators ─── */
 export const calculators = pgTable("calculators", {
   id: serial("id").primaryKey(),

@@ -35,7 +35,7 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 import { initScheduler } from "./jobs/scheduler";
 import { pool } from "./db";
-import { setupPassport } from "./auth";
+import { setupPassport, impersonationMiddleware } from "./auth";
 import { createLogger } from "./lib/logger";
 
 const logger = createLogger("Server");
@@ -431,6 +431,12 @@ app.use(sessionMiddleware);
 setupPassport();
 app.use(passport.initialize());
 app.use(passport.session());
+/* Impersonation middleware runs after passport.session so req.user is
+ * already populated with the admin's identity. When the admin is in an
+ * active "view as customer" session, this swaps req.user to the target
+ * and sets req.adminImpersonating. Hard cap + auto-expiry both live
+ * inside the middleware itself. */
+app.use(impersonationMiddleware);
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
