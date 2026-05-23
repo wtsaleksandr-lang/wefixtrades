@@ -69,6 +69,7 @@ import {
 } from 'lucide-react';
 import { useFoldablePanels } from './useFoldablePanels';
 import { QUOTEQUICK_STYLE_PRESETS } from '@/data/quoteQuickStylePresets';
+import { getContrastRatio, ensureReadableText } from '@/lib/contrastGuard';
 
 const p = platformTheme;
 
@@ -203,71 +204,17 @@ function getContrastingColor(hex: string): string {
 
 /* ─── CONTRAST-3 — Brand Studio contrast validators ─────────────────────
  *
- * Local shim of the WCAG contrast math used by CONTRAST-1's runtime guard
- * (client/src/lib/contrastGuard.ts). Kept inline so this wave can ship
- * before CONTRAST-1 merges; when it does we can drop these helpers and
- * re-import from `@/lib/contrastGuard`. Same algorithm (sRGB-linearised
- * relative luminance per WCAG 2.1) so the picker-time check, the runtime
- * auto-correction and any future a11y audit all produce identical ratios.
+ * Uses the canonical WCAG contrast math from CONTRAST-1's runtime guard
+ * (`@/lib/contrastGuard`) — `getContrastRatio` for the live ratio and
+ * `ensureReadableText` for the suggested-colour swatch. Single source of
+ * truth: the picker-time check, the renderer's auto-correction and any
+ * future a11y audit all produce identical ratios.
  *
  * Threshold: 4.5:1 (WCAG AA normal text). The renderer's auto-correction
  * is the safety net — this layer is informational so the owner sees the
  * problem at pick time and can opt to fix it (or override).
  */
 const CONTRAST_AA_NORMAL = 4.5;
-
-function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
-  const safe = safeHex(hex);
-  if (!safe) return null;
-  let v = safe.slice(1);
-  if (v.length === 3) v = v.split('').map((c) => c + c).join('');
-  return {
-    r: parseInt(v.slice(0, 2), 16),
-    g: parseInt(v.slice(2, 4), 16),
-    b: parseInt(v.slice(4, 6), 16),
-  };
-}
-
-function relativeLuminance(hex: string): number {
-  const rgb = hexToRgb(hex);
-  if (!rgb) return 0;
-  const ch = (c: number) => {
-    const v = c / 255;
-    return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
-  };
-  return 0.2126 * ch(rgb.r) + 0.7152 * ch(rgb.g) + 0.0722 * ch(rgb.b);
-}
-
-function contrastRatio(fg: string, bg: string): number {
-  const l1 = relativeLuminance(fg);
-  const l2 = relativeLuminance(bg);
-  const [a, b] = l1 > l2 ? [l1, l2] : [l2, l1];
-  return (a + 0.05) / (b + 0.05);
-}
-
-/**
- * Nearest readable variant of `pickedFg` against `bg`. Walks the picked
- * colour toward white or black (whichever direction yields contrast first)
- * in 5% lightness steps until the ratio crosses AA, preserving the chosen
- * hue. Mirrors `ensureReadableText` from CONTRAST-1's contrastGuard.
- */
-function suggestReadableColour(pickedFg: string, bg: string): string {
-  if (contrastRatio(pickedFg, bg) >= CONTRAST_AA_NORMAL) return pickedFg;
-  const rgb = hexToRgb(pickedFg);
-  if (!rgb) return getContrastingColor(bg);
-  // Pick direction: which extreme yields a passing pair against bg?
-  const bgLum = relativeLuminance(bg);
-  // If bg is dark, push fg lighter; if bg is light, push darker.
-  const goLighter = bgLum < 0.5;
-  for (let step = 0.05; step <= 1.0; step += 0.05) {
-    const mix = (c: number) => Math.round(goLighter ? c + (255 - c) * step : c * (1 - step));
-    const r = mix(rgb.r), g = mix(rgb.g), b = mix(rgb.b);
-    const hex = '#' + [r, g, b].map((n) => n.toString(16).padStart(2, '0')).join('');
-    if (contrastRatio(hex, bg) >= CONTRAST_AA_NORMAL) return hex;
-  }
-  // Fallback: high-contrast black/white that getContrastingColor would pick.
-  return getContrastingColor(bg);
-}
 
 // W-AO-6b — bytes ceiling for the Branding logo upload. Matches the existing
 // BuildTab limit so a logo set from either place rejects oversized files
@@ -3195,16 +3142,16 @@ function ColourSwatch({
    * direction we walk the suggestion (we adjust THIS swatch, leaving the
    * paired colour alone). */
   const pairHex = pairColour ? (safeHex(pairColour) || pairColour) : null;
-  const ratio = pairHex ? contrastRatio(expandedHex, pairHex) : null;
+  const ratio = pairHex ? getContrastRatio(expandedHex, pairHex) : null;
   const passes = ratio == null ? true : ratio >= CONTRAST_AA_NORMAL;
   const suggested = (!passes && pairHex)
     ? (pairRole === 'fg'
-        ? suggestReadableColour(expandedHex, pairHex)
+        ? ensureReadableText(expandedHex, pairHex)
         // When this swatch is the bg, walk the bg until the paired fg reads.
-        // suggestReadableColour treats arg1 as the colour-being-adjusted, so
+        // ensureReadableText treats arg1 as the colour-being-adjusted, so
         // we still call it with `expandedHex` first — the direction logic
         // inside picks lighter/darker relative to the paired colour.
-        : suggestReadableColour(expandedHex, pairHex))
+        : ensureReadableText(expandedHex, pairHex))
     : null;
 
   useLayoutEffect(() => {
