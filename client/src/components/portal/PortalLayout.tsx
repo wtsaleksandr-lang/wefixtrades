@@ -137,10 +137,14 @@ function isActive(location: string, href: string): boolean {
 export default function PortalLayout({
   children,
   chatContext,
+  breadcrumb,
 }: {
   children: React.ReactNode;
   /** Optional page-specific context for the global assistant (e.g. onboarding form fields) */
   chatContext?: PortalChatContext;
+  /** Optional breadcrumb slot rendered in the top bar instead of the static nav-item label.
+   *  Pages that want a deeper trail (e.g. "Services › Connect Calendar") pass a fragment here. */
+  breadcrumb?: React.ReactNode;
 }) {
   const [location, navigate] = useLocation();
   const { user } = useAuth();
@@ -267,8 +271,8 @@ export default function PortalLayout({
             >
               <Menu className="w-5 h-5" aria-hidden="true" />
             </Button>
-            <h1 className="text-sm font-medium text-gray-700">
-              {NAV_ITEMS.find((item) => isActive(location, item.href))?.label ?? "Portal"}
+            <h1 className="text-sm font-medium text-gray-700 flex items-center gap-1.5">
+              {breadcrumb ?? (NAV_ITEMS.find((item) => isActive(location, item.href))?.label ?? "Portal")}
             </h1>
           </div>
           <div className="flex items-center gap-2">

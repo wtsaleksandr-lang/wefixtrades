@@ -22,6 +22,10 @@ import { usePageTitle } from "@/hooks/usePageTitle";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction,
+} from "@/components/ui/alert-dialog";
 
 interface BrandKitRow {
   id: string;
@@ -44,6 +48,7 @@ export default function PortalBrandKitsPage() {
   const [editName, setEditName] = useState("");
   const [editDesc, setEditDesc] = useState("");
   const [busy, setBusy] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     setState("loading");
@@ -103,7 +108,6 @@ export default function PortalBrandKitsPage() {
   }, [editingId, editName, editDesc, refresh]);
 
   const deleteKit = useCallback(async (id: string) => {
-    if (!window.confirm("Delete this Brand Kit? This can't be undone.")) return;
     setBusy(true);
     try {
       const res = await fetch(`/api/portal/brand-kits/${id}`, {
@@ -293,7 +297,7 @@ export default function PortalBrandKitsPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => void deleteKit(kit.id)}
+                          onClick={() => setDeleteConfirmId(kit.id)}
                           disabled={busy}
                           data-testid={`brand-kit-delete-${kit.id}`}
                           style={{ color: "#b91c1c" }}
@@ -309,6 +313,35 @@ export default function PortalBrandKitsPage() {
           </ul>
         )}
       </div>
+      <AlertDialog
+        open={deleteConfirmId !== null}
+        onOpenChange={(open) => !open && setDeleteConfirmId(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this Brand Kit?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This can't be undone. The kit will no longer be available to apply to your calculators.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (deleteConfirmId) {
+                  const id = deleteConfirmId;
+                  setDeleteConfirmId(null);
+                  void deleteKit(id);
+                }
+              }}
+              disabled={busy}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </PortalLayout>
   );
 }

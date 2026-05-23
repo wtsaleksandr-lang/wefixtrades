@@ -30,13 +30,13 @@ client/src/pages/marketing/templates.tsx:541:17	prop	color: "#FFFFFF"
 client/src/pages/marketing/templates.tsx:573:19	prop	background: "#FFFFFF"
 client/src/pages/marketing/templates.tsx:592:19	prop	color: "#FFFFFF"
 client/src/pages/portal/BookFlowSetupPage.tsx:645:60	tailwind	text-white
-client/src/pages/portal/DispatchPage.tsx:215:17	prop	background: "#fff"
+client/src/pages/portal/DispatchPage.tsx:236:17	prop	background: "#fff"
 client/src/pages/portal/PaymentMethodsPage.tsx:168:29	tailwind	bg-white
 client/src/pages/portal/PaymentMethodsPage.tsx:192:29	tailwind	bg-white
 client/src/pages/portal/PaymentMethodsPage.tsx:293:60	tailwind	text-white
 client/src/pages/portal/PortalArticles.tsx:811:73	tailwind	bg-white
-client/src/pages/portal/PortalBrandKitsPage.tsx:169:40	prop	color: "#fff"
-client/src/pages/portal/PortalBrandKitsPage.tsx:212:72	prop	background: "#fff"
+client/src/pages/portal/PortalBrandKitsPage.tsx:173:40	prop	color: "#fff"
+client/src/pages/portal/PortalBrandKitsPage.tsx:216:72	prop	background: "#fff"
 client/src/pages/portal/PortalCalculatorAnalytics.tsx:69:9	prop	background: '#fff'
 client/src/pages/portal/PortalCalculatorAnalytics.tsx:242:17	prop	background: '#fff'
 client/src/pages/portal/PortalCalculatorAnalytics.tsx:257:17	prop	background: '#fff'

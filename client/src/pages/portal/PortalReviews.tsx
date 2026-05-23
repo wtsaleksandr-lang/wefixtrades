@@ -22,6 +22,10 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction,
+} from "@/components/ui/alert-dialog";
 
 interface ReviewItem {
   id: number;
@@ -156,6 +160,7 @@ export default function PortalReviews() {
   const [changesNoteId, setChangesNoteId] = useState<number | null>(null);
   const [changesNote, setChangesNote] = useState("");
   const [showPendingReplies, setShowPendingReplies] = useState(true);
+  const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
 
   // Config / tier
   const { data: config } = useQuery<ConfigData>({
@@ -704,7 +709,7 @@ export default function PortalReviews() {
                     size="sm"
                     variant="outline"
                     className="h-8 text-xs text-gray-500"
-                    onClick={() => { if (confirm("Disconnect Google? You won't be able to post responses directly until you reconnect.")) googleDisconnectMutation.mutate(); }}
+                    onClick={() => setShowDisconnectConfirm(true)}
                   >
                     Disconnect
                   </Button>
@@ -1073,6 +1078,25 @@ export default function PortalReviews() {
           )}
         </div>
       </div>
+      <AlertDialog open={showDisconnectConfirm} onOpenChange={setShowDisconnectConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Disconnect Google?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You won't be able to post review responses directly until you reconnect.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => { setShowDisconnectConfirm(false); googleDisconnectMutation.mutate(); }}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Disconnect
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </PortalLayout>
   );
 }

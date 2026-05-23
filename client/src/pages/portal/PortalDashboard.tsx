@@ -11,6 +11,7 @@ import { TradelineSetupBanner } from "./TradelineSetup/DashboardBanner";
 // BG-3: canonical elevation primitive — uses --shadow-card token + bg-card/border-card-border
 // so cards inherit the design-system soft-card shadow and respond to dark mode.
 import { Card } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 // IA-1 (2026-05-22) — wizard minimize-to-floating-badge.
 import MinimizedWizardBadge from "@/components/wizard/MinimizedWizardBadge";
 
@@ -24,10 +25,25 @@ class PortalErrorBoundary extends Component<{ children: ReactNode }, { error: Er
   render() {
     if (this.state.error) {
       return (
-        <div data-theme="light" style={{ padding: 20, fontFamily: "ui-monospace, monospace", fontSize: 12, color: "#7f1d1d", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, margin: 20, whiteSpace: "pre-wrap", overflow: "auto" }}>
-          <strong>Portal render error</strong>{"\n\n"}
-          {this.state.error.message}{"\n\n"}
-          {this.state.error.stack}
+        <div data-theme="light" className="max-w-md mx-auto mt-12 bg-white border border-gray-200 rounded-xl p-6 text-center">
+          <AlertCircle className="w-8 h-8 text-amber-500 mx-auto mb-3" aria-hidden="true" />
+          <p className="text-sm font-semibold text-gray-900 mb-1">Something went wrong</p>
+          <p className="text-xs text-gray-500 mb-4">Refresh the page — if it keeps happening, contact support and we'll look into it.</p>
+          <div className="flex items-center justify-center gap-2">
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-[#0d3cfc] rounded-lg hover:bg-[#0b34d6] transition-colors"
+            >
+              <RefreshCw className="w-3 h-3" /> Refresh
+            </button>
+            <Link
+              href="/portal/help"
+              className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-[#0d3cfc] border border-[#0d3cfc]/40 rounded-lg hover:bg-[#EEF3FF] transition-colors"
+            >
+              Help
+            </Link>
+          </div>
         </div>
       );
     }
@@ -211,8 +227,24 @@ function PortalDashboardInner() {
   return (
     <PortalLayout>
       {isLoading && (
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+        <div className="max-w-5xl mx-auto space-y-6" data-testid="dashboard-skeleton">
+          <div>
+            <Skeleton className="h-6 w-48 mb-2" />
+            <Skeleton className="h-4 w-32" />
+          </div>
+          <div className="grid auto-rows-fr grid-cols-2 lg:grid-cols-4 gap-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Card key={i} className="h-full p-4">
+                <div className="flex items-center gap-3">
+                  <Skeleton className="w-8 h-8 rounded-lg" />
+                  <div className="flex-1">
+                    <Skeleton className="h-3 w-20 mb-1.5" />
+                    <Skeleton className="h-5 w-14" />
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
         </div>
       )}
       {error && isAdminWithoutClient && (
@@ -568,7 +600,10 @@ function PortalDashboardInner() {
             {!data.recent_activity || data.recent_activity.length === 0 ? (
               <div className="px-5 py-8 text-center">
                 <p className="text-sm font-medium text-gray-700 mb-1">Nothing happening yet</p>
-                <p className="text-xs text-gray-500 max-w-sm mx-auto">Once your services go live, task updates, call logs, and new leads will land here in real time.</p>
+                <p className="text-xs text-gray-500 max-w-sm mx-auto mb-3">Once your services go live, task updates, call logs, and new leads will land here in real time.</p>
+                <Link href="/portal/services" className="text-sm text-[#0d3cfc] hover:underline">
+                  View your services →
+                </Link>
               </div>
             ) : (
               <ul className="divide-y divide-gray-50">

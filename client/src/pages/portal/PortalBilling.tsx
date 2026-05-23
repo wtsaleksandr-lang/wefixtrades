@@ -5,6 +5,7 @@ import { Loader2, CreditCard, Clock, CheckCircle, RefreshCw, ExternalLink } from
 import { Link } from "wouter";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { PAYMENT_STATUS_LABELS, PAYMENT_STATUS_STYLES, statusLabel } from "@/config/portalLabels";
 
 interface PaymentRow {
@@ -109,8 +110,30 @@ export default function PortalBilling() {
         )}
 
         {isLoading && (
-          <div className="flex items-center justify-center h-48">
-            <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+          <div className="space-y-6" data-testid="billing-skeleton">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 auto-rows-fr">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="bg-white rounded-xl border border-gray-200 p-4">
+                  <div className="flex items-center gap-3">
+                    <Skeleton className="w-8 h-8 rounded-lg" />
+                    <div className="flex-1">
+                      <Skeleton className="h-3 w-20 mb-1.5" />
+                      <Skeleton className="h-5 w-16" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+              <div className="px-5 py-4 border-b border-gray-100">
+                <Skeleton className="h-4 w-32" />
+              </div>
+              <div className="p-5 space-y-3">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <Skeleton key={i} className="h-8 w-full" />
+                ))}
+              </div>
+            </div>
           </div>
         )}
 
@@ -176,8 +199,16 @@ export default function PortalBilling() {
                 <div>
                   <p className="text-sm font-medium text-amber-800">You have unpaid invoices</p>
                   <p className="text-xs text-amber-600 mt-0.5 leading-relaxed">
-                    To arrange payment, please <Link href="/portal/help" className="underline font-medium hover:text-amber-800">contact us via the Help page</Link> or
-                    reply to the invoice email you received. We accept bank transfer and card payments.
+                    Pay them directly in your Stripe billing portal —{" "}
+                    <button
+                      type="button"
+                      onClick={openBillingPortal}
+                      disabled={portalLoading}
+                      className="underline font-medium hover:text-amber-800 disabled:opacity-60"
+                    >
+                      open the billing portal
+                    </button>
+                    . We accept bank transfer and card payments.
                   </p>
                 </div>
               </div>
@@ -194,7 +225,41 @@ export default function PortalBilling() {
                   <p className="text-xs text-gray-500 max-w-sm mx-auto">Once your first service is active, every invoice and payment will show up here.</p>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
+                <>
+                {/* Mobile-friendly stacked cards — appears < md */}
+                <div className="md:hidden divide-y divide-gray-50">
+                  {data.payments.map((p) => {
+                    const isUnpaid = p.status === "pending" || p.status === "failed";
+                    return (
+                      <div key={p.id} className="p-4 space-y-1.5">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-gray-900 truncate">{p.service_name || "Invoice"}</p>
+                            <p className="text-xs text-gray-500 truncate">{p.description || "Invoice"}</p>
+                          </div>
+                          <p className="text-sm font-semibold text-gray-900 whitespace-nowrap">{formatCents(p.amount_cents)}</p>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${PAYMENT_STATUS_STYLES[p.status] || "bg-gray-100 text-gray-600"}`}>
+                            {statusLabel(PAYMENT_STATUS_LABELS, p.status)}
+                          </span>
+                          <span className="text-xs text-gray-400">{formatDate(p.created_at)}</span>
+                        </div>
+                        {isUnpaid && (
+                          <button
+                            type="button"
+                            onClick={openBillingPortal}
+                            disabled={portalLoading}
+                            className="inline-flex items-center gap-1 text-xs font-medium text-[#0d3cfc] hover:text-[#0b34d6] disabled:opacity-50 pt-1"
+                          >
+                            Pay now <ExternalLink className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="hidden md:block overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="text-left text-xs text-gray-500 border-b border-gray-100">
@@ -244,6 +309,7 @@ export default function PortalBilling() {
                     </tbody>
                   </table>
                 </div>
+                </>
               )}
             </div>
           </>

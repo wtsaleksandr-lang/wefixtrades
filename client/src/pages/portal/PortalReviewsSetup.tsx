@@ -160,6 +160,12 @@ export default function PortalReviewsSetup() {
   }
 
   const googleConnected = !!google?.connected && !google?.needsReconnect;
+  const totalSteps = 3;
+  const completedSteps =
+    (googleConnected ? 1 : 0) +
+    (saveSettings.isSuccess ? 1 : 0) +
+    (qr?.qrUrl ? 1 : 0);
+  const currentStep = Math.min(totalSteps, completedSteps + 1);
 
   return (
     <PortalLayout>
@@ -171,11 +177,16 @@ export default function PortalReviewsSetup() {
           <ChevronLeft className="w-3.5 h-3.5" /> Back to Reviews
         </Link>
 
-        <div>
-          <h1 className="text-lg font-semibold text-gray-900">Set up ReputationShield</h1>
-          <p className="text-sm text-gray-500">
-            Three quick steps and your reviews start growing on autopilot.
-          </p>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h1 className="text-lg font-semibold text-gray-900">Set up ReputationShield</h1>
+            <p className="text-sm text-gray-500">
+              Three quick steps and your reviews start growing on autopilot.
+            </p>
+          </div>
+          <span className="text-sm text-gray-500 shrink-0">
+            Step {currentStep}/{totalSteps}
+          </span>
         </div>
 
         {/* ─ Step 1: Connect Google ─ */}

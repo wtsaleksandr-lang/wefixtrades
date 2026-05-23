@@ -106,8 +106,13 @@ export default function PortalSocialSync() {
       if (!res.ok) throw new Error("action failed");
       queryClient.invalidateQueries({ queryKey: ["/api/portal/socialsync/pending"] });
       queryClient.invalidateQueries({ queryKey: ["/api/portal/socialsync"] });
-    } catch (err) {
+    } catch (err: any) {
       console.error("Action failed:", err);
+      toast({
+        title: path === "approve" ? "Couldn't approve post" : "Couldn't reject post",
+        variant: "destructive",
+        description: err?.message ?? "Please try again in a moment.",
+      });
     } finally {
       setActionPostId(null);
     }
@@ -127,8 +132,13 @@ export default function PortalSocialSync() {
       setEditingPostId(null);
       setEditText("");
       queryClient.invalidateQueries({ queryKey: ["/api/portal/socialsync/pending"] });
-    } catch (err) {
+    } catch (err: any) {
       console.error("Edit failed:", err);
+      toast({
+        title: "Couldn't save edit",
+        variant: "destructive",
+        description: err?.message ?? "Please try again in a moment.",
+      });
     } finally {
       setActionPostId(null);
     }

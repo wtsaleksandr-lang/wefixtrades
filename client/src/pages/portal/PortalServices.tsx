@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Loader2, ArrowRight, Calculator, Eye, Users, ExternalLink, RefreshCw, Plus, MessageCircle } from "lucide-react";
 import { Link } from "wouter";
 import PortalLayout from "@/components/portal/PortalLayout";
+import { Skeleton } from "@/components/ui/skeleton";
 import { SERVICE_STATUS_LABELS, SERVICE_STATUS_STYLES, ONBOARDING_STATUS_LABELS, statusLabel } from "@/config/portalLabels";
 
 interface ServiceRow {
@@ -80,21 +81,32 @@ export default function PortalServices() {
                 Contact your team
               </button>
             </Link>
-            {/* External CTA to /plans — same intake modal we wired in
-                wave 1, so existing customers can self-serve adding a
-                bundle without an admin in the loop. */}
-            <a href="/plans" target="_blank" rel="noreferrer">
+            {/* Same-tab route to the in-portal catalog so customers stay
+                authenticated and we keep the analytics funnel coherent. */}
+            <Link href="/portal/catalog">
               <button className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-white bg-[#0d3cfc] rounded-lg hover:bg-[#0b34d6] transition-colors min-h-[36px]">
                 <Plus className="w-3.5 h-3.5" />
                 Add a service
               </button>
-            </a>
+            </Link>
           </div>
         </div>
 
         {isLoading && (
-          <div className="flex items-center justify-center h-48">
-            <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+          <div className="grid gap-4 sm:grid-cols-2" data-testid="services-skeleton">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="bg-white rounded-xl border border-gray-200 p-5">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="space-y-1.5">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-3 w-16" />
+                  </div>
+                  <Skeleton className="h-5 w-14 rounded-full" />
+                </div>
+                <Skeleton className="h-3 w-full mb-2" />
+                <Skeleton className="h-1.5 w-full rounded-full" />
+              </div>
+            ))}
           </div>
         )}
 
@@ -177,7 +189,7 @@ export default function PortalServices() {
 
               return (
                 <Link key={svc.id} href={`/portal/services/${svc.id}`}>
-                  <div className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-sm hover:border-gray-300 transition-all cursor-pointer">
+                  <div className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-sm hover:border-gray-300 active:scale-[0.99] transition-all cursor-pointer">
                     {/* Header */}
                     <div className="flex items-start justify-between mb-3">
                       <div>

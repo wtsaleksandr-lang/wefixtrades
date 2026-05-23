@@ -14,7 +14,15 @@ import { Card } from "@/components/ui/card";
 import { usePageTitle } from "@/hooks/usePageTitle";
 
 interface HistoryResponse {
-  messages: Array<{ role: "user" | "assistant"; content: string }>;
+  messages: Array<{ role: "user" | "assistant"; content: string; created_at?: string }>;
+}
+
+function formatTime(d: string): string {
+  try {
+    return new Date(d).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  } catch {
+    return "";
+  }
 }
 
 export default function PortalChatHistoryPage() {
@@ -73,7 +81,7 @@ export default function PortalChatHistoryPage() {
             {messages.map((m, i) => (
               <div
                 key={i}
-                className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
+                className={`flex flex-col gap-0.5 ${m.role === "user" ? "items-end" : "items-start"}`}
               >
                 <div
                   className={`max-w-[85%] rounded-lg px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap ${
@@ -84,6 +92,11 @@ export default function PortalChatHistoryPage() {
                 >
                   {m.content}
                 </div>
+                {m.created_at && (
+                  <span className="text-xs text-gray-400">
+                    {m.role === "user" ? "You" : "Assistant"} · {formatTime(m.created_at)}
+                  </span>
+                )}
               </div>
             ))}
           </div>

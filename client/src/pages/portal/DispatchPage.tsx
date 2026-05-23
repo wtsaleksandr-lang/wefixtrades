@@ -10,6 +10,8 @@ import { useState, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { Phone, MapPin, CheckCircle, ChevronLeft, ChevronRight, Calendar, ArrowLeft } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { ToastAction } from "@/components/ui/toast";
 
 interface Appointment {
   id: number;
@@ -60,6 +62,7 @@ function mapsUrl(address: string): string {
 export default function DispatchPage() {
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().slice(0, 10));
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const { data: appointments = [], isLoading } = useQuery<Appointment[]>({
     queryKey: ["/api/portal/bookflow/dispatch", selectedDate],
@@ -70,13 +73,13 @@ export default function DispatchPage() {
     },
   });
 
-  const markComplete = useMutation({
-    mutationFn: async (id: number) => {
+  const setStatus = useMutation({
+    mutationFn: async ({ id, status }: { id: number; status: string }) => {
       const res = await fetch(`/api/portal/bookflow/appointments/${id}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ status: "completed" }),
+        body: JSON.stringify({ status }),
       });
       if (!res.ok) throw new Error("Failed");
       return res.json();
@@ -85,6 +88,23 @@ export default function DispatchPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/portal/bookflow/dispatch", selectedDate] });
     },
   });
+
+  const handleMarkComplete = (apt: Appointment) => {
+    const prevStatus = apt.status;
+    setStatus.mutate({ id: apt.id, status: "completed" });
+    toast({
+      title: "Marked complete · Undo",
+      duration: 5000,
+      action: (
+        <ToastAction
+          altText="Undo"
+          onClick={() => setStatus.mutate({ id: apt.id, status: prevStatus })}
+        >
+          Undo
+        </ToastAction>
+      ),
+    });
+  };
 
   const shiftDate = useCallback((days: number) => {
     const d = new Date(selectedDate + "T12:00:00");
@@ -111,7 +131,7 @@ export default function DispatchPage() {
       </Link>
 
       {/* Header */}
-      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px", color: "#111" }}>
+      <h1 className="text-gray-900" style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px" }}>
         Dispatch
       </h1>
       <p style={{ fontSize: 13, color: "#6b7280", margin: "0 0 16px" }}>
@@ -139,7 +159,7 @@ export default function DispatchPage() {
         </button>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <Calendar size={14} style={{ color: "#6b7280" }} />
-          <span style={{ fontSize: 14, fontWeight: 600, color: "#111" }}>
+          <span className="text-gray-900" style={{ fontSize: 14, fontWeight: 600 }}>
             {formatDateLabel(selectedDate)}
           </span>
           <input
@@ -157,7 +177,8 @@ export default function DispatchPage() {
           />
           <label
             htmlFor="dispatch-date"
-            style={{ fontSize: 12, color: "#3b82f6", cursor: "pointer", fontWeight: 500 }}
+            className="text-[#0d3cfc]"
+            style={{ fontSize: 12, cursor: "pointer", fontWeight: 500 }}
             onClick={() => {
               const el = document.getElementById("dispatch-date") as HTMLInputElement;
               el?.showPicker?.();
@@ -221,7 +242,7 @@ export default function DispatchPage() {
             >
               {/* Time + status */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                <span style={{ fontSize: 15, fontWeight: 700, color: "#111" }}>
+                <span className="text-gray-900" style={{ fontSize: 15, fontWeight: 700 }}>
                   {formatTime(apt.start_time)} - {formatTime(apt.end_time)}
                 </span>
                 <span style={{
@@ -279,8 +300,8 @@ export default function DispatchPage() {
                 {/* Mark Complete */}
                 {!isComplete && apt.status !== "cancelled" && (
                   <button
-                    onClick={() => markComplete.mutate(apt.id)}
-                    disabled={markComplete.isPending}
+                    onClick={() => handleMarkComplete(apt)}
+                    disabled={setStatus.isPending}
                     style={{
                       ...actionBtnStyle,
                       background: "#f0fdf4",

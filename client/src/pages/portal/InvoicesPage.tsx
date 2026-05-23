@@ -12,6 +12,8 @@ import {
   Plus, Send, Eye, DollarSign, FileText,
   ChevronDown, X, Settings,
 } from "lucide-react";
+import PortalLayout from "@/components/portal/PortalLayout";
+import { useToast } from "@/hooks/use-toast";
 
 interface Invoice {
   id: number;
@@ -64,6 +66,7 @@ export default function InvoicesPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [statusFilter, setStatusFilter] = useState("");
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const { data: invoices = [], isLoading } = useQuery<Invoice[]>({
     queryKey: ["/api/portal/bookflow/invoices", statusFilter],
@@ -115,20 +118,20 @@ export default function InvoicesPage() {
     .reduce((sum, i) => sum + i.total_cents, 0);
 
   return (
+    <PortalLayout>
     <div data-theme="light" style={{ maxWidth: 640, margin: "0 auto", padding: "16px" }}>
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, color: "#111", margin: 0 }}>Invoices</h1>
+        <h1 className="text-gray-900" style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Invoices</h1>
         <button
           onClick={() => setShowCreate(true)}
+          className="bg-[#0d3cfc] text-white"
           style={{
             display: "inline-flex",
             alignItems: "center",
             gap: 5,
             fontSize: 13,
             fontWeight: 600,
-            color: "#fff",
-            background: "#111",
             border: "none",
             borderRadius: 8,
             padding: "8px 14px",
@@ -212,11 +215,10 @@ export default function InvoicesPage() {
           </p>
           <button
             onClick={() => setShowCreate(true)}
+            className="bg-[#0d3cfc] text-white"
             style={{
               fontSize: 13,
               fontWeight: 600,
-              color: "#fff",
-              background: "#111",
               border: "none",
               borderRadius: 8,
               padding: "8px 16px",
@@ -225,6 +227,15 @@ export default function InvoicesPage() {
           >
             Create Invoice
           </button>
+          <div style={{ marginTop: 10 }}>
+            <Link
+              href="/portal/help"
+              className="text-[#0d3cfc] hover:underline"
+              style={{ fontSize: 12, fontWeight: 500, textDecoration: "none" }}
+            >
+              How invoices work →
+            </Link>
+          </div>
         </div>
       )}
 
@@ -291,7 +302,7 @@ export default function InvoicesPage() {
                     onClick={() => {
                       const url = `${window.location.origin}/pay/${inv.pay_link_token}`;
                       navigator.clipboard.writeText(url);
-                      alert("Pay link copied!");
+                      toast({ title: "Pay link copied" });
                     }}
                     style={actionBtn}
                   >
@@ -323,6 +334,7 @@ export default function InvoicesPage() {
         />
       )}
     </div>
+    </PortalLayout>
   );
 }
 
@@ -363,6 +375,18 @@ function CreateInvoiceModal({ onClose, onCreated }: { onClose: () => void; onCre
 
   const subtotal = lineItems.reduce((s, li) => s + li.quantity * li.unit_price_cents, 0);
 
+  const anyFieldDirty =
+    !!customerName.trim() ||
+    !!customerEmail.trim() ||
+    !!customerPhone.trim() ||
+    !!notes.trim() ||
+    lineItems.some((li) => !!li.description.trim() || li.unit_price_cents > 0);
+
+  function handleBackdropClick() {
+    if (anyFieldDirty && !confirm("Discard unsaved changes?")) return;
+    onClose();
+  }
+
   async function handleCreate() {
     if (!customerName.trim()) return setError("Customer name required");
     if (lineItems.some((li) => !li.description.trim())) return setError("All items need a description");
@@ -402,7 +426,7 @@ function CreateInvoiceModal({ onClose, onCreated }: { onClose: () => void; onCre
   }
 
   return (
-    <div data-theme="light" style={overlayStyle} onClick={onClose}>
+    <div data-theme="light" style={overlayStyle} onClick={handleBackdropClick}>
       <div style={modalStyle} onClick={(e) => e.stopPropagation()}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
           <h2 style={{ fontSize: 18, fontWeight: 700, color: "#111", margin: 0 }}>New Invoice</h2>
@@ -530,12 +554,12 @@ function CreateInvoiceModal({ onClose, onCreated }: { onClose: () => void; onCre
         <button
           onClick={handleCreate}
           disabled={saving}
+          className="text-white"
           style={{
             width: "100%",
             fontSize: 14,
             fontWeight: 600,
-            color: "#fff",
-            background: saving ? "#6b7280" : "#111",
+            background: saving ? "#6b7280" : "#0d3cfc",
             border: "none",
             borderRadius: 8,
             padding: "12px",
