@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback, lazy, Suspense } from "react";
 import { MapPin, Globe, Search, Trophy, Megaphone, Clock, MessageCircle, Wrench, FileX, BarChart3, Users, ClipboardList, Info, ChevronRight, ZoomIn, ZoomOut, X, Minus, Plus, TrendingUp, ArrowUp, Check } from "lucide-react";
 import { SERVICES, getServicesForIssues } from '@shared/services';
 import AuditGate from "@/components/marketing/AuditGate";
@@ -8,6 +8,16 @@ import CheckoutIntakeModal from "@/components/marketing/CheckoutIntakeModal";
 import AnimatedNumber from "@/components/marketing/AnimatedNumber";
 import BeforeAfterSlider from "@/components/marketing/BeforeAfterSlider";
 import MapSnapshotShell from "@/components/marketing/map-snapshot/MapSnapshotShell";
+
+// ─── Free-Audit tab tools (lazy — each loads only when its tab opens) ───
+// These five tools are themselves backed by per-tool API endpoints under
+// /api/audit/*. Lazy-mounting keeps the audit landing fast and avoids
+// firing 5 extra backend calls when the visitor opens the report.
+const SeoChecklistTab = lazy(() => import("@/components/marketing/audit-tabs/SeoChecklistTab"));
+const SiteSpeedComparisonTab = lazy(() => import("@/components/marketing/audit-tabs/SiteSpeedComparisonTab"));
+const NapConsistencyTab = lazy(() => import("@/components/marketing/audit-tabs/NapConsistencyTab"));
+const MarketSizerTab = lazy(() => import("@/components/marketing/audit-tabs/MarketSizerTab"));
+const TrustInspectorTab = lazy(() => import("@/components/marketing/audit-tabs/TrustInspectorTab"));
 import { trackEvent } from "@/lib/trackEvent";
 import { useToast } from "@/hooks/use-toast";
 
@@ -459,8 +469,26 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
   // adjacent to the rest of their Maps health data. Lazy-rendered (only mounts
   // MapSnapshotShell when the tab is opened) so the audit page doesn't fire a
   // second backend call unless the visitor actually asks for it.
-  const [activeTab, setActiveTab] = useState<'maps' | 'rank' | 'website' | 'plan'>('maps');
+  // Tab order: Maps → Rank Grid → SEO Checklist → Site Speed → Website
+  // → NAP → Market Sizer → Trust → Action Plan. Per-tab content lazy-mounts
+  // so each tool's API call only fires when its tab is opened.
+  type TabKey = 'maps' | 'rank' | 'seo' | 'speed' | 'website' | 'nap' | 'market' | 'trust' | 'plan';
+  const [activeTab, setActiveTab] = useState<TabKey>('maps');
   const [rankGridVisited, setRankGridVisited] = useState(false);
+  // Track which lazy tabs have been opened so we don't re-mount on switch.
+  const [visitedLazyTabs, setVisitedLazyTabs] = useState<Set<TabKey>>(() => new Set());
+  function openTab(tab: TabKey) {
+    setActiveTab(tab);
+    if (tab === 'rank') setRankGridVisited(true);
+    if (tab === 'seo' || tab === 'speed' || tab === 'nap' || tab === 'market' || tab === 'trust') {
+      setVisitedLazyTabs((prev) => {
+        if (prev.has(tab)) return prev;
+        const next = new Set(prev);
+        next.add(tab);
+        return next;
+      });
+    }
+  }
   const [selected, setSelected] = useState<string[]>([]);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const toggleService = (id: string) =>
@@ -1168,19 +1196,44 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
   return (
     <div data-theme="light" style={{ fontFamily: 'Inter, system-ui, sans-serif', width: '100%', maxWidth: window.innerWidth >= 1024 ? 960 : 780, margin: '0 auto', padding: isTiny ? '0 10px 80px' : isMobile ? '0 16px 80px' : '0 16px 48px', boxSizing: 'border-box', position: 'relative', transform: reportZoom !== 100 ? `scale(${reportZoom / 100})` : undefined, transformOrigin: 'top center' }}>
 
-      {/* TAB BAR — only shown when unlocked */}
+      {/* TAB BAR — only shown when unlocked. 9 peer tabs; horizontal scroll
+          on narrow screens so the bar never breaks. Each tab is one click;
+          per-tab content is lazy-mounted (see openTab + lazy-import block). */}
       {unlocked && <div style={{ display:'flex', justifyContent:'center', background:WHITE, padding:'12px 16px', position:'sticky', top:0, zIndex:20, width:'100%', borderBottom: '1px solid rgba(0,0,0,0.06)', borderRadius: '0 0 16px 16px' }}>
-        <div style={{ display:'inline-flex', background:'#F3F4F6', borderRadius:28, padding:4, gap:2 }}>
-          {(['maps','rank','website','plan'] as const).map(tab => (
-            <button key={tab} data-testid={`tab-${tab}`} onClick={() => { setActiveTab(tab); if (tab === 'rank') setRankGridVisited(true); }} {...hoverProps(`tab-${tab}`)} style={{
-              padding:'8px 18px', fontSize:13, fontWeight: activeTab===tab ? 600 : 500,
+        <div
+          data-testid="audit-tab-bar"
+          style={{
+            display:'inline-flex',
+            background:'#F3F4F6',
+            borderRadius:28,
+            padding:4,
+            gap:2,
+            maxWidth:'100%',
+            overflowX:'auto',
+            scrollbarWidth:'none',
+            msOverflowStyle:'none',
+          } as React.CSSProperties}
+        >
+          <style>{`[data-testid="audit-tab-bar"]::-webkit-scrollbar { display: none; }`}</style>
+          {(['maps','rank','seo','speed','website','nap','market','trust','plan'] as const).map(tab => (
+            <button key={tab} data-testid={`tab-${tab}`} onClick={() => openTab(tab)} {...hoverProps(`tab-${tab}`)} style={{
+              padding:'8px 14px', fontSize:13, fontWeight: activeTab===tab ? 600 : 500,
               color: activeTab===tab ? DARK : hovered===`tab-${tab}` ? '#4B5563' : '#9CA3AF',
               border:'none', borderRadius:20, cursor:'pointer', whiteSpace:'nowrap',
               background: activeTab===tab ? WHITE : hovered===`tab-${tab}` ? 'rgba(255,255,255,0.5)' : 'transparent',
               boxShadow: activeTab===tab ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
               display:'flex', alignItems:'center', gap:6, transition:'all 0.15s ease', letterSpacing:'0.01em',
+              flexShrink: 0,
             }}>
-              {tab==='maps' ? 'Google Maps' : tab==='rank' ? 'Rank Grid' : tab==='website' ? 'Website' : 'Action Plan'}
+              {tab==='maps' ? 'Google Maps'
+                : tab==='rank' ? 'Rank Grid'
+                : tab==='seo' ? 'SEO Checklist'
+                : tab==='speed' ? 'Site Speed'
+                : tab==='website' ? 'Website'
+                : tab==='nap' ? 'NAP'
+                : tab==='market' ? 'Market'
+                : tab==='trust' ? 'Trust'
+                : 'Action Plan'}
             </button>
           ))}
         </div>
@@ -1411,6 +1464,37 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
             autoSubmit={!!business?.name}
           />
         </div>
+      )}
+
+      {/* ─── Five new lazy-mounted tab tools ─────────────────────────────
+          Each renders only when its tab is open AND has been visited at
+          least once (visitedLazyTabs Set). Suspense fallback uses the
+          tool's own skeleton via AuditTabFrame state="loading".
+      */}
+      {unlocked && activeTab === 'seo' && visitedLazyTabs.has('seo') && (
+        <Suspense fallback={null}>
+          <SeoChecklistTab reportId={reportId} />
+        </Suspense>
+      )}
+      {unlocked && activeTab === 'speed' && visitedLazyTabs.has('speed') && (
+        <Suspense fallback={null}>
+          <SiteSpeedComparisonTab reportId={reportId} />
+        </Suspense>
+      )}
+      {unlocked && activeTab === 'nap' && visitedLazyTabs.has('nap') && (
+        <Suspense fallback={null}>
+          <NapConsistencyTab reportId={reportId} />
+        </Suspense>
+      )}
+      {unlocked && activeTab === 'market' && visitedLazyTabs.has('market') && (
+        <Suspense fallback={null}>
+          <MarketSizerTab reportId={reportId} />
+        </Suspense>
+      )}
+      {unlocked && activeTab === 'trust' && visitedLazyTabs.has('trust') && (
+        <Suspense fallback={null}>
+          <TrustInspectorTab reportId={reportId} />
+        </Suspense>
       )}
 
       {/* SECTION 1 — COVER */}
