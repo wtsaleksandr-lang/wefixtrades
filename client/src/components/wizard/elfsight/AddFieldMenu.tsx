@@ -270,7 +270,7 @@ export default function AddFieldMenu({ onPick, emphasis = false }: Props) {
   ) : null;
 
   return (
-    <div className="qq-addfield-root" data-testid="add-field-root">
+    <div data-theme="light" className="qq-addfield-root" data-testid="add-field-root">
       <button
         ref={triggerRef}
         type="button"

@@ -270,6 +270,7 @@ export default function InstallTab({
 
   return (
     <div
+      data-theme="light"
       className="qq-editor-tabpanel qq-install-tab"
       data-testid="editor-tabpanel-install"
       role="tabpanel"

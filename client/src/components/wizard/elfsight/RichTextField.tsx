@@ -475,6 +475,7 @@ export default function RichTextField({
   return (
     <div
       ref={rootRef}
+      data-theme="light"
       className={`qq-rtf-root${expanded ? ' qq-rtf-expanded' : ''}${compact ? ' qq-rtf-compact' : ''}${isInline ? ' qq-rtf-inline' : ''}`}
       data-testid={tid}
       data-compact={compact ? 'true' : 'false'}

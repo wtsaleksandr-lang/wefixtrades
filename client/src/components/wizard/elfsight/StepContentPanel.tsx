@@ -45,6 +45,7 @@ export default function StepContentPanel({ steps, onChange }: Props) {
 
   return (
     <section
+      data-theme="light"
       className="qq-step-content-panel"
       data-testid="editor-step-content-panel"
       aria-label="Step content"

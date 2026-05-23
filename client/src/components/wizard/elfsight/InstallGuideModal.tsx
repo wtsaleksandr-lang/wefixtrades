@@ -215,6 +215,7 @@ export default function InstallGuideModal({ activeId, onClose, snippet }: Props)
           data-testid="install-guide-modal-overlay"
         />
         <DialogPrimitive.Content
+          data-theme="light"
           className="qq-install-guide-dialog"
           data-testid="install-guide-modal"
           data-platform={guide?.id ?? ''}

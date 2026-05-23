@@ -53,6 +53,7 @@ export default function HeaderResultsPanel({
 
   return (
     <section
+      data-theme="light"
       className="qq-headres-panel"
       data-testid="editor-headerresults-panel"
       aria-label="Header and results"

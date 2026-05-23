@@ -106,6 +106,7 @@ export default function HostedPageSection({
 
   return (
     <section
+      data-theme="light"
       className="qq-install-section qq-hosted-section"
       data-testid="install-section-hosted-page"
     >

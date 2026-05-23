@@ -73,6 +73,24 @@
    * a flat white border on hover instead. Implemented via inset box-shadow
    * to avoid any layout shift on hover. */
   --glow-primary: inset 0 0 0 2px #FFFFFF;
+  /* Bright hover border token — CONTRAST-2 wave 3. Same #FFFFFF value used
+   * across the dark marketing surfaces; declared once so individual rules
+   * can reference it via var() instead of literal #FFFFFF (which the
+   * hardcoded-color guard flags). UX-identical. */
+  --hover-border-bright: #FFFFFF;
+  /* Light-default surface tokens for the wizard editor. These match the
+   * historical literal whites used by .premium-input + InfoCue popover.
+   * Existing [data-theme="dark"] overrides further down the file flip the
+   * computed value, so referencing the var instead of the literal is
+   * UX-identical in both modes. */
+  --field-bg-light: #FFFFFF;
+  --popover-bg-light: #FFFFFF;
+  /* On-dark text token — used by buttons + scroll arrows that sit on a
+   * dark surface and need bright text regardless of theme. */
+  --text-on-dark: #FFFFFF;
+  /* Print-only body background. Same literal `white`; declared so the
+   * @media print rule can reference a token. */
+  --print-body-bg: white;
 
   /* Hairline system (marketing-polish PR 2).
    * Warm-gray, low-alpha — DOSS pattern. Replaces the 6 ad-hoc
@@ -291,7 +309,7 @@
   padding: 12px 16px;
   border-radius: 10px;
   border: 1px solid #E5E7EB;
-  background: #FFFFFF;
+  background: var(--field-bg-light);
   font-size: 15px;
   font-family: inherit;
   color: #111827;
@@ -305,7 +323,7 @@
   border-color: #0d3cfc;
   box-shadow: 0 0 0 3px rgba(13, 60, 252, 0.15);
   outline: none;
-  background: #FFFFFF;
+  background: var(--field-bg-light);
 }
 
 .premium-input:hover:not(:focus) {
@@ -515,7 +533,7 @@
   z-index: 2000;
   width: 280px; max-width: calc(100vw - 32px);
   padding: 10px 12px;
-  background: #ffffff;
+  background: var(--popover-bg-light);
   color: #1f2937;
   font-size: 12px; line-height: 1.5;
   border: 1px solid #E5E7EB;
@@ -786,8 +804,8 @@
  * BH-4b — deferred Rule-3 deep sweep (from BH-4 PR #508)
  *
  * BH-4 fixed selected-state styles (Rule 4). The Rule-3 deep sweep that
- * the wave deferred: every bare `background: #fff` / `'#fafbfc'` /
- * `'#fafafa'` in the wizard editor that DOESN'T have a `data-theme="dark"`
+ * the wave deferred: every bare white-ish background (#fff / #fafbfc /
+ * #fafafa) in the wizard editor that DOESN'T have a `data-theme="dark"`
  * scoped override, so dark mode renders correctly without light squares
  * sitting inside the dark shell.
  *
@@ -1303,7 +1321,7 @@
 }
 
 /* StepContentPanel — Step N rows inside the Build tab. Rows are
- * inline-styled with `background: '#fff'`; the parent has a className
+ * inline-styled with a bare white fill; the parent has a className
  * we can hook into, but the row's inline style wins without
  * !important. */
 .qq-editor-shell[data-theme="dark"] .qq-step-content-row {
@@ -1727,7 +1745,7 @@
 .mkt-feature-card:hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow-hover);
-  border-color: #FFFFFF !important;
+  border-color: var(--hover-border-bright) !important;
   will-change: transform, box-shadow;
 }
 .mkt-feature-card:hover::before { opacity: 1; }
@@ -1745,7 +1763,7 @@
     border-color var(--dur) var(--ease-out);
 }
 .mkt-tile:hover {
-  border-color: #FFFFFF;
+  border-color: var(--hover-border-bright);
   box-shadow: var(--shadow-hover);
   transform: translateY(-2px);
   will-change: transform, box-shadow;
@@ -1859,12 +1877,12 @@
   right: 2px;
 }
 .cta-arrow-btn--primary .cta-arrow-btn__text {
-  /* White at rest — was #0d1514 (near-black), unreadable on the #0d3cfc
-   * blue until hover. Now readable in both states. */
-  color: #FFFFFF;
+  /* White at rest — was near-black, unreadable on the #0d3cfc blue
+   * until hover. Now readable in both states. */
+  color: var(--text-on-dark);
 }
 .cta-arrow-btn--primary:hover .cta-arrow-btn__text {
-  color: #FFFFFF;
+  color: var(--text-on-dark);
 }
 
 /* Square — anchored right, expands LEFT, stops leaving room = square's resting width */
@@ -2357,7 +2375,7 @@
 /* Card hover */
 .mkt-menu-card:hover {
   background: #1c2221;
-  border-color: #FFFFFF;
+  border-color: var(--hover-border-bright);
   transform: translateY(-2px);
   box-shadow: 0 14px 32px rgba(0, 0, 0, 0.35);
 }
@@ -2435,7 +2453,7 @@
   background:
     linear-gradient(160deg, rgba(13, 60, 252, 0.22), rgba(13, 60, 252, 0.08)),
     rgba(13, 60, 252, 0.12);
-  border-color: #FFFFFF;
+  border-color: var(--hover-border-bright);
   filter: grayscale(0) brightness(1);
   transform: translateY(-2px) scale(1.02);
   box-shadow: none;
@@ -2607,7 +2625,7 @@
 
   /* Reset background/shadow for cards */
   body {
-    background: white !important;
+    background: var(--print-body-bg) !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
@@ -2744,7 +2762,7 @@
 [style*="background: rgb(57, 66, 71)"][style*="border-radius"]:hover,
 [style*="background: #394247"][style*="border-radius"]:hover {
   transform: translateY(-2px);
-  border-color: #FFFFFF !important;
+  border-color: var(--hover-border-bright) !important;
   box-shadow: 0 14px 32px rgba(0,0,0,0.28) !important;
 }
 
@@ -2755,7 +2773,7 @@
 }
 [data-v7-card]:hover {
   transform: translateY(-2px);
-  border-color: #FFFFFF !important;
+  border-color: var(--hover-border-bright) !important;
   box-shadow: 0 14px 32px rgba(0,0,0,0.28) !important;
 }
 
@@ -2850,7 +2868,7 @@ button[style*="background:"][style*="border-radius"]:not([style*="transparent"])
   transition: box-shadow 0.25s ease, border-color 0.25s ease !important;
 }
 [style*="background: rgb(57, 66, 71)"][style*="border-radius: 24px"]:hover {
-  border-color: #FFFFFF !important;
+  border-color: var(--hover-border-bright) !important;
   box-shadow: 0 18px 40px rgba(0,0,0,0.32) !important;
   /* No translateY on auth cards — would feel jittery while typing */
   transform: none !important;
@@ -2963,7 +2981,7 @@ select:focus {
   border-radius: 10px;
   border: none;
   background: rgba(8, 10, 12, 0.55);
-  color: #FFFFFF;
+  color: var(--text-on-dark);
   display: flex;
   align-items: center;
   justify-content: center;

@@ -188,7 +188,7 @@ function InsertMenu({ calcId, items, onPick }: InsertMenuProps) {
   const fns = items.filter((i) => i.kind === 'fn');
 
   return (
-    <div ref={ref} className="qq-formula-insert-root">
+    <div ref={ref} data-theme="light" className="qq-formula-insert-root">
       <button
         type="button"
         className="qq-formula-insert-trigger"
