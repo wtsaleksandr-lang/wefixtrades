@@ -159,7 +159,7 @@ test.describe("Console Error Sweep", () => {
 
     const publicPages = [
       "/", "/pricing", "/products", "/services", "/contact", "/login",
-      "/tools", "/tools/free-audit", "/tools/missed-call-calculator",
+      "/tools/free-audit", "/products/quickquotepro/demo",
       "/docs", "/about", "/features/instant-quotes",
     ];
 

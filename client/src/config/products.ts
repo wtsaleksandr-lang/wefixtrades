@@ -131,7 +131,7 @@ export const PRODUCT_PAGES: ProductPage[] = [
     category: "core",
     heroVisualType: "calculator",
     primaryCTA: { label: "Start Free \u2014 14 Days, No Card", href: "/Wizard" },
-    secondaryCTA: { label: "Try a Live Demo", href: "/tools/quote-demo" },
+    secondaryCTA: { label: "Try a Live Demo", href: "/products/quickquotepro/demo" },
     highlights: [
       "Customers get instant prices, 24/7 \u2014 even when you\u2019re on a job site.",
       "Every quote becomes a lead \u2014 name, email, phone captured automatically.",

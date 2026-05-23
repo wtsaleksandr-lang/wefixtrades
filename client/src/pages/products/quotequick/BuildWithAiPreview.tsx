@@ -1,13 +1,16 @@
 /**
  * BI-1 — Anonymous AI calculator demo: preview + signup gate.
  *
- * Route: /tools/build-with-ai/preview?session=<id>
+ * Route: /products/quickquotepro/build-with-ai/preview?session=<id>
+ * (tools-consolidation: relocated from /tools/build-with-ai/preview;
+ * legacy path 301s to this route).
  *
  * The page tries three sources for the generated template, in order:
  *   1. sessionStorage (set by BuildWithAi.tsx) — instant render on the
  *      navigation that just succeeded.
  *   2. /api/ai/demo/session/:id — covers hard refreshes and inbound links.
- *   3. Bail to /tools/build-with-ai if both miss (expired or invalid).
+ *   3. Bail to /products/quickquotepro/build-with-ai if both miss (expired
+ *      or invalid).
  *
  * The template is converted into an `AdvancedConfigShape` via the shared
  * `buildCalculatorFromDemoTemplate()` helper and rendered through
@@ -54,7 +57,7 @@ export default function BuildWithAiPreview() {
     title: "Your AI-Generated Calculator — Preview | WeFixTrades",
     description:
       "Preview the calculator AI just built from your invoice. Sign up free to save and customize it.",
-    canonicalPath: "/tools/build-with-ai/preview",
+    canonicalPath: "/products/quickquotepro/build-with-ai/preview",
   });
 
   const [, navigate] = useLocation();
@@ -73,7 +76,7 @@ export default function BuildWithAiPreview() {
   // If we don't have it from storage, fetch from server.
   useEffect(() => {
     if (!sessionId) {
-      navigate("/tools/build-with-ai");
+      navigate("/products/quickquotepro/build-with-ai");
       return;
     }
     if (state) return;
@@ -205,7 +208,7 @@ export default function BuildWithAiPreview() {
             >
               <div style={{ marginBottom: 16, color: mkt.onDark }}>{loadError}</div>
               <Link
-                href="/tools/build-with-ai"
+                href="/products/quickquotepro/build-with-ai"
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
@@ -274,7 +277,7 @@ export default function BuildWithAiPreview() {
                   <ArrowRight size={16} strokeWidth={2} />
                 </a>
                 <Link
-                  href="/tools/build-with-ai"
+                  href="/products/quickquotepro/build-with-ai"
                   style={{
                     display: "inline-flex",
                     alignItems: "center",

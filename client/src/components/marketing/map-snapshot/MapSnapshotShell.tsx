@@ -518,11 +518,19 @@ export function MapSnapshotShell({
   initialBusinessName,
   initialResult,
   readOnly,
+  autoSubmit,
 }: {
   trade?: string;
   initialBusinessName?: string;
   initialResult?: SnapshotResult;
   readOnly?: boolean;
+  /**
+   * When the shell is mounted inside the Free Audit "Rank Grid" tab the
+   * business has already been resolved upstream — auto-run the snapshot
+   * on first paint instead of forcing the visitor to re-type the name.
+   * Only fires once per mount and only when initialBusinessName is set.
+   */
+  autoSubmit?: boolean;
 }) {
   const [state, setState] = useState<"intake" | "loading" | "results">(
     initialResult ? "results" : "intake",
@@ -534,6 +542,7 @@ export function MapSnapshotShell({
   const [result, setResult] = useState<SnapshotResult | null>(initialResult || null);
   const [error, setError] = useState<string | null>(null);
   const resultRef = useRef<HTMLDivElement>(null);
+  const autoSubmitFired = useRef(false);
 
   useEffect(() => {
     if (state === "results" && resultRef.current) {
@@ -570,6 +579,23 @@ export function MapSnapshotShell({
       setState("intake");
     }
   };
+
+  // Auto-run when invoked from the Free Audit "Rank Grid" tab — the
+  // upstream form has already resolved the business + city so we shouldn't
+  // make the visitor re-type. Fires exactly once per mount.
+  useEffect(() => {
+    if (
+      autoSubmit &&
+      !autoSubmitFired.current &&
+      initialBusinessName &&
+      keywords.length > 0 &&
+      state === "intake"
+    ) {
+      autoSubmitFired.current = true;
+      submit();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoSubmit, initialBusinessName, keywords.length]);
 
   return (
     <div

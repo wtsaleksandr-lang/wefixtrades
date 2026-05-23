@@ -166,7 +166,7 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       number: "01",
       title: "Instant On-Site Quotes",
       description: "Customers get accurate prices on your website 24/7 — even when you're on a job site. Every quote becomes a captured lead.",
-      cta: { label: "Try Demo", href: "/tools/quote-demo" },
+      cta: { label: "Try Demo", href: "/products/quickquotepro/demo" },
       mockup: (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr", gap: 32, maxWidth: 880, width: "100%", alignItems: "center" }} className="effortel-grid-2">
           <div style={{ display: "grid", gridTemplateRows: "1fr 1fr 1fr", gap: 12 }}>

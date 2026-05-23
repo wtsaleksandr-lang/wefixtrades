@@ -52,21 +52,26 @@ If you'd like help fixing it, our team handles everything — no learning curve,
   {
     step: "day2_cross_tool",
     offsetDays: 2,
-    subject: (ctx) => `You're losing more than just rankings`,
+    subject: (ctx) => `Open your audit's Rank Grid for ${ctx.businessName}`,
+    // Tools-consolidation (2026-05-23): the standalone Missed Call Calculator
+    // was retired. This nudge now points back at the audit's new Rank Grid
+    // tab — the highest-signal follow-up surface for a visitor who already
+    // ran one audit, since it shows where they actually rank across a 5×5
+    // map grid around their business.
     body: (ctx) => {
       return `Hi there,
 
-Your audit for ${ctx.businessName} flagged ${ctx.topIssues.length} issue${ctx.topIssues.length !== 1 ? "s" : ""}. But there's another problem most ${ctx.trade} businesses don't realize:
+Your audit for ${ctx.businessName} flagged ${ctx.topIssues.length} issue${ctx.topIssues.length !== 1 ? "s" : ""}. There's one tab in your report that most folks miss on the first read:
 
-Missed calls.
+The Rank Grid.
 
-Every call that goes unanswered is a potential job walking out the door. And it adds up fast — especially during busy hours and weekends.
+It shows where your business actually ranks for your top searches across a 5×5 map grid centered on your address. Most ${ctx.trade} businesses are top-3 in one or two spots and invisible everywhere else — the grid makes it obvious where the gaps are.
 
-We built a free calculator that shows you exactly how much missed calls are costing your business:
+Open your report and click the "Rank Grid" tab:
 
-{{calculator_link}}
+{{report_link}}
 
-Takes 30 seconds. You might be surprised.
+Takes 30 seconds.
 
 — The WeFixTrades Team`;
     },
@@ -129,7 +134,10 @@ export async function enqueueAuditFollowupSequence(ctx: AuditFollowupContext): P
   const reportLink = ctx.auditReportId
     ? `${baseUrl}/audit/report/${ctx.auditReportId}`
     : "";
-  const calculatorLink = `${baseUrl}/tools/missed-call-calculator`;
+  // Tools-consolidation: legacy `{{calculator_link}}` token kept (replaced
+  // with empty string for any historical templates that still reference it)
+  // since the Missed Call Calculator page no longer exists.
+  const calculatorLink = "";
 
   const jobs: InsertAuditFollowupEmail[] = SEQUENCE.map((step) => {
     const runAt = new Date(now + step.offsetDays * 24 * 60 * 60 * 1000);

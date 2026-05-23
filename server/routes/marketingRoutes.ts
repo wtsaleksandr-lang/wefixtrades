@@ -10,23 +10,11 @@ const log = createLogger("Marketing");
 
 const BASE_URL = "https://wefixtrades.com";
 
-const TRADE_SLUGS = [
-  "plumbing", "hvac", "electrical", "roofing", "landscaping",
-  "house_cleaning", "pest_control", "painting", "flooring",
-  "window_cleaning", "junk_removal", "garage_door", "appliance_repair",
-  "locksmith", "handyman", "tree_service", "pressure_washing",
-  "pool_service", "concrete", "fencing", "siding", "gutter_services",
-  "remodeling", "carpet_cleaning",
-];
-
-// BF-6 — MapGuard Snapshot per-trade landings. Distinct slug list from
-// missed-call-calculator (12 priority trades for the GBP audit tool).
-const MAP_SNAPSHOT_TRADE_SLUGS = [
-  "plumbing", "electrical", "hvac", "roofing", "landscaping", "painting",
-  "cleaning", "pest-control", "junk-removal", "locksmith", "garage-door",
-  "handyman",
-];
-
+// Tools-consolidation (2026-05-23): the /tools/* surface collapsed to a
+// single Free Audit (the audit hosts the GBP rank-grid in a Rank Grid tab).
+// Quote Demo + Build-with-AI relocated under the QuoteQuick product family.
+// Missed Call Calculator deleted entirely. Per-trade landing pages removed
+// from the sitemap with the calculator/snapshot pages.
 const MARKETING_ROUTES = [
   "/", "/products", "/pricing", "/services", "/bundles",
   "/templates", "/demo", "/docs", "/contact", "/privacy", "/terms",
@@ -38,13 +26,10 @@ const MARKETING_ROUTES = [
   "/products/mapguard", "/products/rankflow",
   "/products/webcare", "/products/sitelaunch", "/products/socialsync",
   "/products/reputationshield",
-  "/free-audit",
-  "/tools", "/tools/free-audit", "/tools/missed-call-calculator", "/tools/quote-demo",
-  "/tools/map-snapshot",
+  "/tools/free-audit",
   // BI-1 — anonymous AI demo upload page (priority 0.8 — same as other tool pages).
-  "/tools/build-with-ai",
-  ...TRADE_SLUGS.map((s) => `/tools/missed-call-calculator/${s}`),
-  ...MAP_SNAPSHOT_TRADE_SLUGS.map((s) => `/tools/map-snapshot/${s}`),
+  "/products/quickquotepro/demo",
+  "/products/quickquotepro/build-with-ai",
 ];
 
 export function registerMarketingRoutes(app: Express): void {
@@ -72,16 +57,16 @@ export function registerMarketingRoutes(app: Express): void {
 
   app.get("/sitemap.xml", (_req, res) => {
     const now = new Date().toISOString().split("T")[0];
-    // BI-1 — `/tools/build-with-ai` is pinned to 0.8 (per spec) even though
-    // it lives under `/tools/`. Other tools keep the 0.9 prominence.
+    // BI-1 — Build-with-AI is pinned to 0.8 (per spec). Free Audit keeps
+    // the 0.9 prominence as the surviving /tools/ surface.
     const urls = MARKETING_ROUTES.map(
       (r) =>
         `  <url><loc>${BASE_URL}${r}</loc><lastmod>${now}</lastmod><changefreq>weekly</changefreq><priority>${
           r === "/"
             ? "1.0"
-            : r === "/tools/build-with-ai"
+            : r === "/products/quickquotepro/build-with-ai"
               ? "0.8"
-              : r.startsWith("/tools")
+              : r === "/tools/free-audit"
                 ? "0.9"
                 : "0.8"
         }</priority></url>`

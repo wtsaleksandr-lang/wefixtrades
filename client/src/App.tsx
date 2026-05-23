@@ -46,15 +46,13 @@ import DocsTroubleshooting from "@/pages/marketing/docs/troubleshooting";
 import ApiDocsPage from "@/pages/marketing/ApiDocsPage";
 import SolutionsVisibility from "@/pages/marketing/solutions-visibility";
 import FreeAudit from "@/pages/marketing/FreeAudit";
-import MissedCallCalculator from "@/pages/marketing/missed-call-calculator";
-import MissedCallCalculatorTrade from "@/pages/marketing/missed-call-calculator-trade";
-import MapSnapshot from "@/pages/marketing/MapSnapshot";
-import MapSnapshotByTrade from "@/pages/marketing/MapSnapshotByTrade";
-import MapSnapshotShared from "@/pages/marketing/MapSnapshotShared";
-import QuoteCalculatorDemo from "@/pages/marketing/quote-calculator-demo";
-import BuildWithAi from "@/pages/marketing/BuildWithAi";
-import BuildWithAiPreview from "@/pages/marketing/BuildWithAiPreview";
-import ToolsHub from "@/pages/marketing/tools-hub";
+// Tools-consolidation: Missed Call Calculator deleted entirely; MapSnapshot
+// folded into FreeAudit "Rank Grid" tab; tools-hub deleted; Quote Demo +
+// Build-with-AI relocated under the QuoteQuick product family. Legacy
+// /tools/* paths 301 to the surviving surfaces below.
+import QuoteCalculatorDemo from "@/pages/products/quotequick/demo";
+import BuildWithAi from "@/pages/products/quotequick/BuildWithAi";
+import BuildWithAiPreview from "@/pages/products/quotequick/BuildWithAiPreview";
 import SharedAuditReport from "@/pages/marketing/SharedAuditReport";
 import CompareNiceJob from "@/pages/marketing/CompareNiceJob";
 import ComparisonPage from "@/pages/marketing/ComparisonPage";
@@ -426,21 +424,28 @@ function Router() {
       <Route path="/docs/api">{() => <ApiDocsPage />}</Route>
       <Route path="/dev/primitives">{() => <RequirePortal><PrimitivesPage /></RequirePortal>}</Route>
       <Route path="/dev/canvas">{() => <RequirePortal><DemoCanvas /></RequirePortal>}</Route>
-      <Route path="/tools/missed-call-calculator/:trade" component={MissedCallCalculatorTrade} />
-      <Route path="/tools/missed-call-calculator" component={MissedCallCalculator} />
-      {/* BF-6 — MapGuard Snapshot, flagship free GBP rank-grid + audit tool */}
-      <Route path="/tools/map-snapshot/:tradeSlug" component={MapSnapshotByTrade} />
-      <Route path="/tools/map-snapshot" component={MapSnapshot} />
-      <Route path="/snapshot/:slug" component={MapSnapshotShared} />
-      <Route path="/tools/quote-demo" component={QuoteCalculatorDemo} />
-      {/* BI-1 — anonymous AI calculator demo */}
-      <Route path="/tools/build-with-ai/preview" component={BuildWithAiPreview} />
-      <Route path="/tools/build-with-ai" component={BuildWithAi} />
+      {/* Tools-consolidation (2026-05-23) — the marketing /tools/* surface
+          consolidated to a single Free Audit page. Live routes: */}
       <Route path="/tools/free-audit" component={FreeAudit} />
-      <Route path="/tools" component={ToolsHub} />
-      {/* Legacy tool routes — redirect to canonical /tools/ URLs */}
-      <Route path="/missed-call-calculator">{() => <Redirect to="/tools/missed-call-calculator" />}</Route>
-      <Route path="/quote-demo">{() => <Redirect to="/tools/quote-demo" />}</Route>
+      {/* Quote Demo + Build-with-AI relocated under QuoteQuick */}
+      <Route path="/products/quickquotepro/demo" component={QuoteCalculatorDemo} />
+      <Route path="/products/quickquotepro/build-with-ai/preview" component={BuildWithAiPreview} />
+      <Route path="/products/quickquotepro/build-with-ai" component={BuildWithAi} />
+      {/* Deprecated /tools/* routes — all 301 to the Free Audit so existing
+          inbound links + SEO equity flow to the surviving surface. The
+          MapSnapshot grid lives inside the Free Audit's "Rank Grid" tab. */}
+      <Route path="/tools/missed-call-calculator/:trade">{() => <Redirect to="/tools/free-audit" />}</Route>
+      <Route path="/tools/missed-call-calculator">{() => <Redirect to="/tools/free-audit" />}</Route>
+      <Route path="/tools/map-snapshot/:tradeSlug">{() => <Redirect to="/tools/free-audit" />}</Route>
+      <Route path="/tools/map-snapshot">{() => <Redirect to="/tools/free-audit" />}</Route>
+      <Route path="/snapshot/:slug">{() => <Redirect to="/tools/free-audit" />}</Route>
+      <Route path="/tools/quote-demo">{() => <Redirect to="/products/quickquotepro/demo" />}</Route>
+      <Route path="/tools/build-with-ai/preview">{() => <Redirect to="/products/quickquotepro/build-with-ai/preview" />}</Route>
+      <Route path="/tools/build-with-ai">{() => <Redirect to="/products/quickquotepro/build-with-ai" />}</Route>
+      <Route path="/tools">{() => <Redirect to="/tools/free-audit" />}</Route>
+      {/* Legacy bare routes — redirect to canonical destinations */}
+      <Route path="/missed-call-calculator">{() => <Redirect to="/tools/free-audit" />}</Route>
+      <Route path="/quote-demo">{() => <Redirect to="/products/quickquotepro/demo" />}</Route>
       <Route path="/free-audit">{() => <Redirect to="/tools/free-audit" />}</Route>
       <Route path="/onboarding/:token" component={OnboardingForm} />
       <Route path="/review/qr/:widgetToken" component={ReviewQrLanding} />

@@ -91,14 +91,14 @@ export const NAV_LINKS: NavItem[] = [
       { label: "For General Contractors", href: "/solutions/for-general-contractors", description: "Organize leads & follow-ups.", icon: "building2" },
     ],
   },
+  // Tools-consolidation: the marketing nav "Tools" dropdown collapsed into a
+  // single top-level "Free Audit" link pointing at the surviving surface.
+  // The audit now hosts the GBP rank-grid (Rank Grid tab) and the related
+  // ROI helpers (Missed Call Calculator deleted; Quote Demo + Build-with-AI
+  // moved under /products/quickquotepro/).
   {
-    label: "Tools",
-    href: "/tools/missed-call-calculator",
-    children: [
-      { label: "Missed Call Calculator", href: "/tools/missed-call-calculator", description: "See revenue lost to missed calls.", icon: "calculator" },
-      { label: "Quote Calculator Demo", href: "/tools/quote-demo", description: "Try instant quote generation.", icon: "zap" },
-      { label: "Free Website Audit", href: "/tools/free-audit", description: "Google Maps & speed audit.", icon: "search" },
-    ],
+    label: "Free Audit",
+    href: "/tools/free-audit",
   },
   { label: "Templates", href: "/templates" },
   { label: "Pricing", href: "/pricing" },

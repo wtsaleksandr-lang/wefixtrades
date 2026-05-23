@@ -93,11 +93,14 @@ test.describe("Product Pages", () => {
 });
 
 test.describe("Tool Pages", () => {
+  // Tools-consolidation (2026-05-23) — /tools/* collapsed to a single
+  // Free Audit page. Quote Demo + Build-with-AI relocated under the
+  // QuoteQuick product family. All other /tools/* URLs 301 → Free Audit
+  // (covered in the Legacy Redirects block below).
   const pages = [
-    "/tools",
     "/tools/free-audit",
-    "/tools/missed-call-calculator",
-    "/tools/quote-demo",
+    "/products/quickquotepro/demo",
+    "/products/quickquotepro/build-with-ai",
   ];
 
   for (const path of pages) {
@@ -191,8 +194,29 @@ test.describe("Legacy Redirects", () => {
     await smokeCheck(page, "/products/quickquote", { expectRedirect: "/products/quickquotepro" });
   });
 
-  test("/missed-call-calculator redirects to /tools/", async ({ page }) => {
-    await smokeCheck(page, "/missed-call-calculator", { expectRedirect: "/tools/missed-call-calculator" });
+  test("/missed-call-calculator redirects to /tools/free-audit", async ({ page }) => {
+    await smokeCheck(page, "/missed-call-calculator", { expectRedirect: "/tools/free-audit" });
+  });
+
+  // Tools-consolidation redirects — /tools/* → surviving surfaces.
+  test("/tools redirects to /tools/free-audit", async ({ page }) => {
+    await smokeCheck(page, "/tools", { expectRedirect: "/tools/free-audit" });
+  });
+
+  test("/tools/missed-call-calculator redirects to /tools/free-audit", async ({ page }) => {
+    await smokeCheck(page, "/tools/missed-call-calculator", { expectRedirect: "/tools/free-audit" });
+  });
+
+  test("/tools/map-snapshot redirects to /tools/free-audit", async ({ page }) => {
+    await smokeCheck(page, "/tools/map-snapshot", { expectRedirect: "/tools/free-audit" });
+  });
+
+  test("/tools/quote-demo redirects to /products/quickquotepro/demo", async ({ page }) => {
+    await smokeCheck(page, "/tools/quote-demo", { expectRedirect: "/products/quickquotepro/demo" });
+  });
+
+  test("/tools/build-with-ai redirects to /products/quickquotepro/build-with-ai", async ({ page }) => {
+    await smokeCheck(page, "/tools/build-with-ai", { expectRedirect: "/products/quickquotepro/build-with-ai" });
   });
 });
 

@@ -8,7 +8,7 @@ import { useBreadcrumbSchema } from "@/lib/useBreadcrumbSchema";
 import TrustStrip from "@/components/marketing/TrustStrip";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { colors } from "@/theme/tokens";
-import { Search, CheckCircle2, PhoneOff, Calculator, ArrowRight, ChevronDown } from "lucide-react";
+import { Search, CheckCircle2, Calculator, ArrowRight, ChevronDown } from "lucide-react";
 import ReportView from "./ReportView";
 import AuditGate from "@/components/marketing/AuditGate";
 // BG-2: hero input promoted to the QuoteQuick gold standard. We reuse the
@@ -269,8 +269,7 @@ export default function FreeAudit() {
 
   const auditBreadcrumbs = useMemo(() => [
     { name: "Home", url: `${AUDIT_BASE}/` },
-    { name: "Free Tools", url: `${AUDIT_BASE}/tools` },
-    { name: "Google Business Audit", url: `${AUDIT_BASE}/tools/free-audit` },
+    { name: "Free Audit", url: `${AUDIT_BASE}/tools/free-audit` },
   ], []);
   useBreadcrumbSchema(auditBreadcrumbs);
   const isMobile = useIsMobile();
@@ -651,9 +650,7 @@ export default function FreeAudit() {
           <nav aria-label="breadcrumb" style={{ fontSize: 13, color: "#6b7280", marginBottom: 16 }}>
             <Link href="/" style={{ color: "#6b7280", textDecoration: "none" }}>Home</Link>
             <span style={{ margin: "0 6px" }}>/</span>
-            <Link href="/tools" style={{ color: "#6b7280", textDecoration: "none" }}>Free Tools</Link>
-            <span style={{ margin: "0 6px" }}>/</span>
-            <span style={{ color: "#111827" }}>Google Business Audit</span>
+            <span style={{ color: "#111827" }}>Free Audit</span>
           </nav>
 
           {/* ─── Header + Search (always visible) ─── */}
@@ -1108,7 +1105,11 @@ export default function FreeAudit() {
             </>
           )}
 
-          {/* ─── Other Free Tools ─── */}
+          {/* ─── Try QuoteQuick callout ───
+              Tools-consolidation: the old "Other free tools" block linked at
+              missed-call (deleted) and quote-demo (relocated under products).
+              Replaced with a single nudge to the relocated quote demo so the
+              cross-sell stays alive without the deprecated surfaces. */}
           <div style={{
             maxWidth: 480,
             margin: "0 auto",
@@ -1117,55 +1118,33 @@ export default function FreeAudit() {
             borderTop: "1px solid rgba(0,0,0,0.07)",
           }}>
             <div style={{ fontSize: 14, fontWeight: 700, color: "#1E1E1E", marginBottom: 10 }}>
-              Other free tools
+              Try the QuoteQuick demo
             </div>
-            {[
-              {
-                href: "/tools/missed-call-calculator",
-                icon: PhoneOff,
-                iconColor: "#EF4444",
-                iconBg: "rgba(239,68,68,0.08)",
-                title: "Missed Call Revenue Calculator",
-                desc: "See how much unanswered calls are costing you",
-              },
-              {
-                href: "/tools/quote-demo",
-                icon: Calculator,
-                iconColor: "#0d3cfc",
-                iconBg: "rgba(13,60,252,0.08)",
-                title: "Instant Quote Demo",
-                desc: "Let customers get prices on your website",
-              },
-            ].map((item) => {
-              const Icon = item.icon;
-              return (
-                <Link key={item.href} href={item.href} style={{ textDecoration: "none", display: "block", marginBottom: 8 }}>
-                  <div style={{
-                    display: "flex", alignItems: "center", gap: 12,
-                    padding: "12px 14px", borderRadius: 14,
-                    border: "1px solid rgba(0,0,0,0.07)",
-                    background: "rgba(255,255,255,0.6)",
-                    cursor: "pointer", transition: "border-color 0.15s, background 0.15s",
-                  }}
-                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(0,0,0,0.13)"; e.currentTarget.style.background = "rgba(255,255,255,0.85)"; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(0,0,0,0.07)"; e.currentTarget.style.background = "rgba(255,255,255,0.6)"; }}
-                  >
-                    <div style={{
-                      width: 36, height: 36, borderRadius: 10,
-                      background: item.iconBg,
-                      display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-                    }}>
-                      <Icon size={16} color={item.iconColor} strokeWidth={1.8} />
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 650, color: "#111827" }}>{item.title}</div>
-                      <div style={{ fontSize: 12, color: "rgba(0,0,0,0.45)" }}>{item.desc}</div>
-                    </div>
-                    <ArrowRight size={14} color="rgba(0,0,0,0.25)" style={{ flexShrink: 0 }} />
-                  </div>
-                </Link>
-              );
-            })}
+            <Link href="/products/quickquotepro/demo" style={{ textDecoration: "none", display: "block", marginBottom: 8 }}>
+              <div style={{
+                display: "flex", alignItems: "center", gap: 12,
+                padding: "12px 14px", borderRadius: 14,
+                border: "1px solid rgba(0,0,0,0.07)",
+                background: "rgba(255,255,255,0.6)",
+                cursor: "pointer", transition: "border-color 0.15s, background 0.15s",
+              }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(0,0,0,0.13)"; e.currentTarget.style.background = "rgba(255,255,255,0.85)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(0,0,0,0.07)"; e.currentTarget.style.background = "rgba(255,255,255,0.6)"; }}
+              >
+                <div style={{
+                  width: 36, height: 36, borderRadius: 10,
+                  background: "rgba(13,60,252,0.08)",
+                  display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                }}>
+                  <Calculator size={16} color="#0d3cfc" strokeWidth={1.8} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 650, color: "#111827" }}>Instant Quote Demo</div>
+                  <div style={{ fontSize: 12, color: "rgba(0,0,0,0.45)" }}>Let customers get prices on your website</div>
+                </div>
+                <ArrowRight size={14} color="rgba(0,0,0,0.25)" style={{ flexShrink: 0 }} />
+              </div>
+            </Link>
           </div>
 
         </div>

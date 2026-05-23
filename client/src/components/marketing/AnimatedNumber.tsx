@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import { formatCurrencyFull } from '@/lib/missedCallCalculator';
 
 interface AnimatedNumberProps {
   value: number;
@@ -7,9 +6,19 @@ interface AnimatedNumberProps {
   duration?: number;
 }
 
+/** Format as full USD with commas: $1,234 */
+function formatCurrencyFull(value: number): string {
+  return `$${Math.round(value).toLocaleString()}`;
+}
+
 /**
  * Smoothly animates between number values using requestAnimationFrame.
  * Renders as formatted USD currency. Respects prefers-reduced-motion.
+ *
+ * Relocated from `components/marketing/missed-call-calculator/AnimatedNumber.tsx`
+ * during the tools-consolidation cleanup (Missed Call Calculator removed; this
+ * lives at the marketing root because ReportView still uses it for the
+ * friendly-hero revenue count-up).
  */
 export default function AnimatedNumber({ value, duration = 500 }: AnimatedNumberProps) {
   const [display, setDisplay] = useState(value);
