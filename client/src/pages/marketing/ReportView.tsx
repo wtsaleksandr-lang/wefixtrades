@@ -5,8 +5,9 @@ import AuditGate from "@/components/marketing/AuditGate";
 import InfoTooltip from "@/components/marketing/InfoTooltip";
 import NextStepSuggestions from "@/components/marketing/NextStepSuggestions";
 import CheckoutIntakeModal from "@/components/marketing/CheckoutIntakeModal";
-import AnimatedNumber from "@/components/marketing/missed-call-calculator/AnimatedNumber";
+import AnimatedNumber from "@/components/marketing/AnimatedNumber";
 import BeforeAfterSlider from "@/components/marketing/BeforeAfterSlider";
+import MapSnapshotShell from "@/components/marketing/map-snapshot/MapSnapshotShell";
 import { trackEvent } from "@/lib/trackEvent";
 import { useToast } from "@/hooks/use-toast";
 
@@ -453,7 +454,13 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
   onUnlock?: () => void;
 }) {
   const [copiedLink, setCopiedLink] = useState(false);
-  const [activeTab, setActiveTab] = useState<'maps' | 'website' | 'plan'>('maps');
+  // BF-6 → tools-consolidation: "Rank Grid" tab merged from /tools/map-snapshot.
+  // Lives between Google Maps and Website so visitors see the 5×5 GBP rank-grid
+  // adjacent to the rest of their Maps health data. Lazy-rendered (only mounts
+  // MapSnapshotShell when the tab is opened) so the audit page doesn't fire a
+  // second backend call unless the visitor actually asks for it.
+  const [activeTab, setActiveTab] = useState<'maps' | 'rank' | 'website' | 'plan'>('maps');
+  const [rankGridVisited, setRankGridVisited] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const toggleService = (id: string) =>
@@ -1164,8 +1171,8 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
       {/* TAB BAR — only shown when unlocked */}
       {unlocked && <div style={{ display:'flex', justifyContent:'center', background:WHITE, padding:'12px 16px', position:'sticky', top:0, zIndex:20, width:'100%', borderBottom: '1px solid rgba(0,0,0,0.06)', borderRadius: '0 0 16px 16px' }}>
         <div style={{ display:'inline-flex', background:'#F3F4F6', borderRadius:28, padding:4, gap:2 }}>
-          {(['maps','website','plan'] as const).map(tab => (
-            <button key={tab} data-testid={`tab-${tab}`} onClick={() => setActiveTab(tab)} {...hoverProps(`tab-${tab}`)} style={{
+          {(['maps','rank','website','plan'] as const).map(tab => (
+            <button key={tab} data-testid={`tab-${tab}`} onClick={() => { setActiveTab(tab); if (tab === 'rank') setRankGridVisited(true); }} {...hoverProps(`tab-${tab}`)} style={{
               padding:'8px 18px', fontSize:13, fontWeight: activeTab===tab ? 600 : 500,
               color: activeTab===tab ? DARK : hovered===`tab-${tab}` ? '#4B5563' : '#9CA3AF',
               border:'none', borderRadius:20, cursor:'pointer', whiteSpace:'nowrap',
@@ -1173,7 +1180,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
               boxShadow: activeTab===tab ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
               display:'flex', alignItems:'center', gap:6, transition:'all 0.15s ease', letterSpacing:'0.01em',
             }}>
-              {tab==='maps' ? 'Google Maps' : tab==='website' ? 'Website' : 'Action Plan'}
+              {tab==='maps' ? 'Google Maps' : tab==='rank' ? 'Rank Grid' : tab==='website' ? 'Website' : 'Action Plan'}
             </button>
           ))}
         </div>
@@ -1386,6 +1393,25 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
       )}
 
       {/* ═══ UNLOCKED STATE: Full report ═══ */}
+
+      {/* ═══ RANK GRID TAB ═══
+          Merged from the standalone /tools/map-snapshot page during the
+          tools-consolidation cleanup. Mounts MapSnapshotShell only after
+          the visitor opens the tab — keeps the audit landing fast and
+          avoids spending a backend call (Outscraper grid sampler) unless
+          the visitor actually asks for the grid.
+          The shell receives the upstream-resolved business name + trade
+          and auto-submits on first paint, so the visitor doesn't re-type
+          information already collected by the audit. */}
+      {unlocked && activeTab === 'rank' && rankGridVisited && (
+        <div data-print-hide style={{ marginBottom: 12 }}>
+          <MapSnapshotShell
+            trade={(report?.trade || '').toLowerCase() || undefined}
+            initialBusinessName={business?.name || ''}
+            autoSubmit={!!business?.name}
+          />
+        </div>
+      )}
 
       {/* SECTION 1 — COVER */}
       {unlocked && activeTab === 'maps' && <div style={{ background: DARK, borderRadius: r16, padding: 20, marginBottom: 10, position: 'relative', overflow: 'hidden' }}>
@@ -2646,26 +2672,9 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
         priceLabel={`$${totalPrice}/mo`}
       />
 
-      {/* Secondary CTA — cross-tool */}
-      {unlocked && (
-        <div data-print-hide style={{ textAlign: 'center', marginBottom: 10 }}>
-          <a
-            href="/tools/missed-call-calculator"
-            onClick={() => trackEvent("audit_secondary_cta_clicked", { target: "/tools/missed-call-calculator" })}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 8,
-              padding: '12px 24px', borderRadius: 12,
-              border: `1px solid ${BORDER}`, background: WHITE,
-              color: GREY, fontSize: 14, fontWeight: 600,
-              textDecoration: 'none', transition: 'border-color 0.2s, color 0.2s',
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.borderColor = CYAN; e.currentTarget.style.color = DARK; }}
-            onMouseLeave={(e) => { e.currentTarget.style.borderColor = BORDER; e.currentTarget.style.color = GREY; }}
-          >
-            See how much missed calls are costing you →
-          </a>
-        </div>
-      )}
+      {/* Secondary CTA — tools-consolidation removed the missed-call funnel
+          (page deleted). Cross-tool suggestions below cover any remaining
+          discovery. */}
 
       {/* Cross-tool suggestions — only when unlocked */}
       {unlocked && (

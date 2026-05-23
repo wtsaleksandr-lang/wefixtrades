@@ -845,7 +845,7 @@ function FinalCta({ cfg }: { cfg: ReturnType<typeof getProductBySlug> & {} }) {
    /products/quickquotepro pre-loaded with the styled
    `window_replacement_quote` preset — multi-step + range pricing +
    BD-2a style + trust signals, all working for anonymous visitors.
-   Below: "Use the full tool →" CTA to /tools/quote-demo.
+   Below: "Try it live →" CTA to /products/quickquotepro/demo.
    ════════════════════════════════════════════════════════════════ */
 const QQ_SAMPLE_BUSINESS_PROFILE: BusinessProfile = {
   googleRating: 4.9,
@@ -857,7 +857,7 @@ const QQ_SAMPLE_BUSINESS_PROFILE: BusinessProfile = {
 };
 
 function buildQuickQuoteLandingCalculator(): CalculatorData {
-  // Wave BG-4 — mirrors BE-3's `/tools/quote-demo` mount pattern, but
+  // Wave BG-4 — mirrors the `/products/quickquotepro/demo` mount pattern, but
   // pre-loaded with the Window Replacement template. That preset ships
   // explicit BD-2a style + range pricing + image-card radios — so the
   // landing-page widget shows the full QuoteQuick gold-standard surface
@@ -925,15 +925,16 @@ function QuickQuoteLandingLiveDemo() {
         </h2>
         <div style={{ marginBottom: 22 }}>
           {/* Real widget — anonymous-visitor-safe (isEmbed=false matches
-              the BE-3 /tools/quote-demo mount). */}
+              the /products/quickquotepro/demo mount). */}
           <QuoteWidget calculator={calculator} isEmbed={false} />
         </div>
 
-        {/* "Use the full tool →" CTA — points at the dedicated
-            /tools/quote-demo page (full BE-3 demo with FAQ + video). */}
+        {/* "Try it live →" CTA — points at the dedicated demo page now
+            living under the QuoteQuick product family (full BE-3 demo
+            with FAQ + video). */}
         <div style={{ textAlign: "center" }}>
           <Link
-            href="/tools/quote-demo"
+            href="/products/quickquotepro/demo"
             style={{
               display: "inline-flex",
               alignItems: "center",
@@ -963,7 +964,7 @@ function QuickQuoteLandingLiveDemo() {
 /* ════════════════════════════════════════════════════════════════
    SECTION: BG-4 — MapGuard landing teaser
    Card-style mock showing sample heatmap + 3 audit cards. No live
-   crawl runs from here (that's reserved for /tools/map-snapshot
+   crawl runs from here (that's reserved for the Free Audit's "Rank Grid" tab
    itself, which has the address-input flow). The teaser is a static
    preview + CTA so visitors see the shape of the audit before they
    commit to running one.
@@ -1146,7 +1147,7 @@ function MapGuardLandingTeaser() {
         {/* CTA */}
         <div style={{ textAlign: "center" }}>
           <Link
-            href="/tools/map-snapshot"
+            href="/tools/free-audit"
             style={{
               display: "inline-flex",
               alignItems: "center",

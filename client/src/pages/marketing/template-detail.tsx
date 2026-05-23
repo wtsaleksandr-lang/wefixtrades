@@ -2,7 +2,7 @@
 //
 // One SEO landing page per canonical preset. Renders the actual QuoteQuick
 // widget (QuoteWidget → AdvancedCalculator) pre-loaded with the template
-// via the same `toAdvancedConfig` bridge the wizard + /tools/quote-demo
+// via the same `toAdvancedConfig` bridge the wizard + /products/quickquotepro/demo
 // use, so visitors can poke the live calculator before going to /wizard.
 //
 // Includes:

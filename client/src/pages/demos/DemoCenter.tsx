@@ -41,7 +41,7 @@ const DEMOS: DemoCardData[] = [
   {
     title: "QuoteQuick",
     desc: "An interactive calculator that lets homeowners price their job in seconds — right on your site.",
-    href: "/tools/quote-demo",
+    href: "/products/quickquotepro/demo",
     icon: Calculator,
     interactive: true,
     benefit: "3× more booked jobs",

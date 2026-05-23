@@ -215,13 +215,15 @@ function MarketingFooter() {
             {isAuthenticated && <FtLink href="/dashboard">Dashboard</FtLink>}
           </FooterColumn>
 
-          {/* Tools — demos + free tools */}
+          {/* Tools — demos + free tools.
+              Tools-consolidation: missed-call deleted, MapSnapshot folded
+              into the Free Audit "Rank Grid" tab, Quote Demo + Build-with-AI
+              relocated under the QuoteQuick product family. */}
           <FooterColumn title="Tools">
-            <FtLink href="/tools/free-audit">Free Audit Tool</FtLink>
-            <FtLink href="/tools/map-snapshot">Map Snapshot — Free GBP Audit</FtLink>
-            <FtLink href="/tools/quote-demo">Quote Demo</FtLink>
+            <FtLink href="/tools/free-audit">Free Audit</FtLink>
+            <FtLink href="/products/quickquotepro/demo">QuoteQuick Demo</FtLink>
             {/* BI-1 — anonymous AI demo: upload an invoice, AI builds your calculator. */}
-            <FtLink href="/tools/build-with-ai">Build with AI — From a Photo</FtLink>
+            <FtLink href="/products/quickquotepro/build-with-ai">Build with AI — From a Photo</FtLink>
           </FooterColumn>
         </div>
       </div>

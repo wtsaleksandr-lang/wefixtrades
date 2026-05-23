@@ -1,6 +1,6 @@
 import { Link } from "wouter";
 import { trackEvent } from "@/lib/trackEvent";
-import { ArrowRight, Search, Calculator, PhoneOff, BarChart3 } from "lucide-react";
+import { ArrowRight, Search, Calculator, BarChart3 } from "lucide-react";
 
 type ToolContext = "audit" | "calculator" | "demo" | "mapguard";
 type Theme = "light" | "dark" | "widget";
@@ -26,65 +26,35 @@ function getSuggestions(
   _trade?: string,
   _estimatedLoss?: number,
 ): Suggestion[] {
+  // Tools-consolidation: Missed Call Calculator deleted; MapSnapshot folded
+  // into the Free Audit "Rank Grid" tab; Quote Demo + Build-with-AI
+  // relocated under /products/quickquotepro/. Cross-tool nudges below
+  // route to the surviving surfaces.
   switch (context) {
     case "audit":
       return [
         {
-          title: "See how much missed calls cost you",
-          description: "Calculate your lost revenue from unanswered calls",
-          href: "/tools/missed-call-calculator",
-          icon: PhoneOff,
-        },
-        {
           title: "Try instant quotes on your website",
           description: "Give customers prices in seconds and capture every lead",
-          href: "/tools/quote-demo",
+          href: "/products/quickquotepro/demo",
           icon: Calculator,
         },
       ];
     case "calculator":
-      return [
-        {
-          title: "Get a full business audit",
-          description: "See your Google Maps health, website speed, and competitor analysis",
-          href: "/tools/free-audit",
-          icon: BarChart3,
-        },
-        {
-          title: "Let customers get instant quotes",
-          description: "Try the live quote calculator demo for your trade",
-          href: "/tools/quote-demo",
-          icon: Calculator,
-        },
-      ];
     case "demo":
-      return [
-        {
-          title: "Check your Google visibility",
-          description: "Free audit of your Google Maps profile and website",
-          href: "/tools/free-audit",
-          icon: Search,
-        },
-        {
-          title: "Calculate your missed call cost",
-          description: "See how much unanswered calls are costing your business",
-          href: "/tools/missed-call-calculator",
-          icon: PhoneOff,
-        },
-      ];
     case "mapguard":
       return [
         {
-          title: "Get your full detailed audit",
-          description: "Deep analysis of your Google presence, website, and competitors",
+          title: "Get a full business audit",
+          description: "See your Google Maps health, website speed, rank grid, and competitor analysis",
           href: "/tools/free-audit",
           icon: BarChart3,
         },
         {
-          title: "Calculate lost revenue from missed calls",
-          description: "See what unanswered calls are costing your business",
-          href: "/tools/missed-call-calculator",
-          icon: PhoneOff,
+          title: "Try instant quotes on your website",
+          description: "Live quote calculator demo for your trade",
+          href: "/products/quickquotepro/demo",
+          icon: Calculator,
         },
       ];
     default:

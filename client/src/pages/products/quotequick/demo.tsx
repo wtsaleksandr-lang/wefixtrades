@@ -85,14 +85,16 @@ export default function QuoteCalculatorDemo() {
     title: "See QuoteQuick in Action — Live Demo | WeFixTrades",
     description:
       "The actual QuoteQuick calculator your customers will use. No signup needed — try the real widget with sample junk-removal pricing.",
-    canonicalPath: "/tools/quote-demo",
+    // Tools-consolidation: relocated from /tools/quote-demo to live under
+    // the QuoteQuick product family. Old route 301s to this one.
+    canonicalPath: "/products/quickquotepro/demo",
   });
 
   const breadcrumbs = useMemo(
     () => [
       { name: "Home", url: `${BASE}/` },
-      { name: "Free Tools", url: `${BASE}/tools` },
-      { name: "QuoteQuick Live Demo", url: `${BASE}/tools/quote-demo` },
+      { name: "QuoteQuick", url: `${BASE}/products/quickquotepro` },
+      { name: "Live Demo", url: `${BASE}/products/quickquotepro/demo` },
     ],
     [],
   );
@@ -169,20 +171,20 @@ export default function QuoteCalculatorDemo() {
             </Link>
             <span style={{ margin: "0 6px" }}>/</span>
             <Link
-              href="/tools"
+              href="/products/quickquotepro"
               style={{ color: mkt.onDarkMuted, textDecoration: "none" }}
             >
-              Free Tools
+              QuoteQuick
             </Link>
             <span style={{ margin: "0 6px" }}>/</span>
-            <span style={{ color: mkt.text }}>QuoteQuick Live Demo</span>
+            <span style={{ color: mkt.text }}>Live Demo</span>
           </nav>
 
           {/* BI-1 — link to anonymous AI demo. Sits above the headline so
               visitors who landed here looking for a quick "AI builds it"
               option see the cross-link before scrolling. */}
           <Link
-            href="/tools/build-with-ai"
+            href="/products/quickquotepro/build-with-ai"
             style={{
               display: "flex",
               alignItems: "center",

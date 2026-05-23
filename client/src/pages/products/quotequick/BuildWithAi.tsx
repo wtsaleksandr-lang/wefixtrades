@@ -1,18 +1,22 @@
 /**
  * BI-1 — Anonymous AI calculator demo: upload page.
  *
- * Routes:
- *   /tools/build-with-ai           → this page (upload)
- *   /tools/build-with-ai/preview   → BuildWithAiPreview.tsx (renders the
- *                                    generated calculator + signup gate)
+ * Routes (tools-consolidation: relocated under the QuoteQuick product
+ * family because the demo generates a QuoteQuick calculator):
+ *   /products/quickquotepro/build-with-ai           → this page (upload)
+ *   /products/quickquotepro/build-with-ai/preview   → BuildWithAiPreview.tsx
+ *                                                     (renders the generated
+ *                                                     calculator + signup gate)
+ *
+ * Legacy /tools/build-with-ai* paths 301 to the new locations.
  *
  * Flow:
  *   1. Visitor drops or picks one quote/invoice image (PNG/JPG/WEBP, ≤3 MB).
  *   2. We POST it to /api/ai/demo/image-to-template-anonymous.
  *   3. On success we get back { template, demoSessionId }; we stash the
  *      template in sessionStorage (so a hard refresh on the preview page
- *      doesn't lose it) and navigate to /tools/build-with-ai/preview with
- *      the session id in the query string.
+ *      doesn't lose it) and navigate to the preview route with the
+ *      session id in the query string.
  *
  * Rate limit lives SERVER-side (1 / IP / 24h) — there's no client-side
  * gate beyond optimistic-disable while the upload is in flight.
@@ -57,14 +61,14 @@ export default function BuildWithAi() {
     title: "Build a Calculator from a Photo — Free AI Demo | WeFixTrades",
     description:
       "Upload a photo of any quote or invoice and watch AI build a working quote calculator in seconds. Free, no signup, no credit card.",
-    canonicalPath: "/tools/build-with-ai",
+    canonicalPath: "/products/quickquotepro/build-with-ai",
   });
 
   const breadcrumbs = useMemo(
     () => [
       { name: "Home", url: `${BASE}/` },
-      { name: "Free Tools", url: `${BASE}/tools` },
-      { name: "Build with AI", url: `${BASE}/tools/build-with-ai` },
+      { name: "QuoteQuick", url: `${BASE}/products/quickquotepro` },
+      { name: "Build with AI", url: `${BASE}/products/quickquotepro/build-with-ai` },
     ],
     [],
   );
@@ -136,7 +140,7 @@ export default function BuildWithAi() {
       } catch {
         /* private mode / disabled — preview page will GET from server */
       }
-      navigate(`/tools/build-with-ai/preview?session=${encodeURIComponent(body.demoSessionId)}`);
+      navigate(`/products/quickquotepro/build-with-ai/preview?session=${encodeURIComponent(body.demoSessionId)}`);
     } catch (err: any) {
       setError(err?.message || "Network error. Try again in a moment.");
       setSubmitting(false);
