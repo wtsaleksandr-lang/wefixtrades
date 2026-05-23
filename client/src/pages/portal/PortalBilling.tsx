@@ -1,7 +1,7 @@
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, CreditCard, Clock, CheckCircle, RefreshCw, ExternalLink } from "lucide-react";
+import { Loader2, CreditCard, Clock, CheckCircle, RefreshCw, ExternalLink, FileText } from "lucide-react";
 import { Link } from "wouter";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { Button } from "@/components/ui/button";
@@ -92,7 +92,7 @@ export default function PortalBilling() {
           <Button
             onClick={openBillingPortal}
             disabled={portalLoading}
-            className="bg-[#0d3cfc] hover:bg-[#0b34d6]"
+            className="btn-primary-premium"
           >
             {portalLoading ? (
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -190,6 +190,7 @@ export default function PortalBilling() {
               </div>
               {data.payments.length === 0 ? (
                 <div className="px-5 py-8 text-center">
+                  <FileText className="w-8 h-8 text-gray-300 mx-auto mb-3" aria-hidden="true" />
                   <p className="text-sm font-medium text-gray-700 mb-1">No invoices yet</p>
                   <p className="text-xs text-gray-500 max-w-sm mx-auto">Once your first service is active, every invoice and payment will show up here.</p>
                 </div>
