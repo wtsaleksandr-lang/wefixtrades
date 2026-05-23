@@ -14,6 +14,8 @@ import {
   DollarSign,
   Sparkles,
   Wrench,
+  Hammer,
+  Rocket,
   TrendingUp,
   Share2,
   Target,
@@ -122,15 +124,21 @@ const PRODUCTS_ITEMS: NavItem[] = [
   { label: "MapGuard", href: "/admin/crm/mapguard", icon: Shield },
   { label: "WebCare", href: "/admin/crm/webcare/ops", icon: ShieldCheck },
   { label: "RankFlow", href: "/admin/crm/rankflow", icon: TrendingUp },
-  { label: "Reviews", href: "/admin/crm/reviews", icon: Star },
+  { label: "ReputationShield", href: "/admin/crm/reviews", icon: Star },
   { label: "SocialSync", href: "/admin/crm/socialsync", icon: Share2 },
   { label: "ContentFlow", href: "/admin/crm/contentflow", icon: Layers },
   { label: "AdFlow", href: "/admin/crm/adflow", icon: Zap },
+  /* 2026-05-23: SiteLaunch + WebFix — only reachable today via the
+   * Services catalogue editor pages. No dedicated CRM ops surface yet,
+   * so the parent row points at the catalog editor per PR #569's
+   * "parent path = most useful entry point" convention. */
+  { label: "SiteLaunch", href: "/admin/products/sitelaunch", icon: Rocket },
+  { label: "WebFix", href: "/admin/products/webfix", icon: Hammer },
 ];
 
 /* Cross-product admin tooling — not a customer product itself. */
 const OPERATIONS_ITEMS: NavItem[] = [
-  { label: "Booking", href: "/admin/booking", icon: CalendarDays },
+  { label: "BookFlow", href: "/admin/booking", icon: CalendarDays },
   { label: "Mobile Preview", href: "/admin/mobile-preview", icon: Phone },
 ];
 
