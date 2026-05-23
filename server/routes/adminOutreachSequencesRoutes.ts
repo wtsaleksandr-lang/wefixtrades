@@ -264,7 +264,7 @@ export function registerAdminOutreachSequencesRoutes(app: Express): void {
   /* ─── Update step ─── */
   app.patch("/api/admin/outbound/sequences/:id/steps/:stepId", requireAdmin, async (req: Request, res: Response) => {
     const id = parseInt(String(req.params.id), 10);
-    const stepId = parseInt(req.params.stepId, 10);
+    const stepId = parseInt(String(req.params.stepId), 10);
     if (Number.isNaN(id) || Number.isNaN(stepId)) {
       return res.status(400).json({ error: "Invalid id" });
     }
@@ -292,7 +292,7 @@ export function registerAdminOutreachSequencesRoutes(app: Express): void {
   /* ─── Delete step ─── */
   app.delete("/api/admin/outbound/sequences/:id/steps/:stepId", requireAdmin, async (req: Request, res: Response) => {
     const id = parseInt(String(req.params.id), 10);
-    const stepId = parseInt(req.params.stepId, 10);
+    const stepId = parseInt(String(req.params.stepId), 10);
     if (Number.isNaN(id) || Number.isNaN(stepId)) {
       return res.status(400).json({ error: "Invalid id" });
     }
