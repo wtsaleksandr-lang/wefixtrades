@@ -12,6 +12,11 @@
   --grey: #6B7280;
   --grey-bg: #F9FAFB;
   --border: #E5E7EB;
+  /* CONTRAST-2: theme-aware surface/ink-inverse for light-mode marketing report.
+     Same visual value (white) but routed through a token so dark-mode overrides
+     can flip the source without touching every rule. */
+  --surface: #ffffff;
+  --ink-inv: #ffffff;
 }
 
 /* ═══ STICKY HEADER ═══ */
@@ -19,7 +24,7 @@
   position: sticky;
   top: 0;
   z-index: 50;
-  background: #fff;
+  background: var(--surface);
   border-bottom: 1px solid var(--border);
   box-shadow: 0 2px 12px rgba(0,0,0,0.06);
   padding: 12px 16px;
@@ -58,7 +63,7 @@
 .stickyInput:focus {
   border-color: var(--cyan);
   box-shadow: 0 0 0 3px rgba(13,60,252,0.15);
-  background: #fff;
+  background: var(--surface);
 }
 
 /* ═══ REPORT PAGE ═══ */
@@ -77,7 +82,7 @@
   background: var(--dark);
   border-radius: 16px;
   padding: 24px;
-  color: #fff;
+  color: var(--ink-inv);
   position: relative;
   overflow: hidden;
   box-shadow: 0 2px 12px rgba(0,0,0,0.08);
@@ -129,7 +134,7 @@
 .heroName {
   font-size: 24px;
   font-weight: 900;
-  color: #fff;
+  color: var(--ink-inv);
   line-height: 1.1;
 }
 .heroMeta {
@@ -182,7 +187,7 @@
   align-items: center;
   justify-content: center;
 }
-.scoreNum { font-size: 32px; font-weight: 900; color: #fff; line-height: 1; }
+.scoreNum { font-size: 32px; font-weight: 900; color: var(--ink-inv); line-height: 1; }
 @media (min-width: 768px) { .scoreNum { font-size: 40px; } }
 .scoreDenom { font-size: 12px; color: rgba(255,255,255,0.5); font-weight: 700; }
 .gradeBadge {
@@ -209,7 +214,7 @@
 
 /* ═══ C2 — SCORE BREAKDOWN ═══ */
 .sectionCard {
-  background: #fff;
+  background: var(--surface);
   border-radius: 16px;
   border: 1px solid var(--border);
   padding: 20px;
@@ -270,7 +275,7 @@
 .issueCard {
   border-radius: 16px;
   border: 1px solid var(--border);
-  background: #fff;
+  background: var(--surface);
   overflow: hidden;
   box-shadow: 0 2px 12px rgba(0,0,0,0.08);
   margin-bottom: 14px;
@@ -470,7 +475,7 @@
   border-radius: 16px;
   padding: 32px 24px;
   text-align: center;
-  color: #fff;
+  color: var(--ink-inv);
   margin-top: 16px;
   box-shadow: 0 2px 12px rgba(0,0,0,0.08);
 }
@@ -485,7 +490,7 @@
 .revenueAmount {
   font-size: 40px;
   font-weight: 900;
-  color: #fff;
+  color: var(--ink-inv);
   line-height: 1.1;
 }
 @media (min-width: 768px) { .revenueAmount { font-size: 56px; } }
@@ -503,7 +508,7 @@
 .quickWinCard {
   border-radius: 16px;
   border: 2px solid var(--green);
-  background: #fff;
+  background: var(--surface);
   padding: 20px;
   margin-top: 16px;
   box-shadow: 0 2px 12px rgba(0,0,0,0.08);
@@ -551,7 +556,7 @@
   border-radius: 16px;
   padding: 16px;
   border: 1px solid var(--border);
-  background: #fff;
+  background: var(--surface);
 }
 .speedScoreNum { font-size: 36px; font-weight: 900; line-height: 1; }
 .speedScoreDen { font-size: 14px; font-weight: 700; color: var(--grey); }
@@ -592,7 +597,7 @@
   left: 50%;
   transform: translateX(-50%);
   background: var(--dark);
-  color: #fff;
+  color: var(--ink-inv);
   padding: 8px 12px;
   border-radius: 8px;
   font-size: 12px;
@@ -644,7 +649,7 @@
   padding: 10px 12px;
   border-radius: 10px;
   border: 1px solid var(--border);
-  background: #fff;
+  background: var(--surface);
   cursor: pointer;
   font-size: 13px;
   font-weight: 600;
@@ -657,7 +662,7 @@
 
 /* ═══ LOADING STATE ═══ */
 .loadingCard {
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 16px;
   padding: 24px;
@@ -734,7 +739,7 @@
   font-size: 15px;
   font-weight: 500;
   outline: none;
-  background: #fff;
+  background: var(--surface);
   color: var(--dark);
   transition: border-color 0.2s, box-shadow 0.2s;
   font-family: Inter, system-ui, sans-serif;
@@ -749,7 +754,7 @@
   top: 100%;
   margin-top: 4px;
   border-radius: 14px;
-  background: #fff;
+  background: var(--surface);
   border: 1px solid rgba(0,0,0,0.10);
   box-shadow: 0 12px 40px rgba(0,0,0,0.12);
   z-index: 50;
@@ -823,13 +828,13 @@
   height: 18px;
   border-radius: 50%;
   background: var(--red);
-  color: #fff;
+  color: var(--ink-inv);
   font-size: 10px;
   font-weight: 800;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 2px solid #fff;
+  border: 2px solid var(--ink-inv);
 }
 .chatWindow {
   position: fixed;
@@ -838,7 +843,7 @@
   width: 340px;
   height: 440px;
   border-radius: 16px;
-  background: #fff;
+  background: var(--surface);
   box-shadow: 0 8px 32px rgba(0,0,0,0.15);
   z-index: 60;
   display: flex;
@@ -861,7 +866,7 @@
   flex-shrink: 0;
 }
 .chatHeaderInfo { flex: 1; }
-.chatHeaderTitle { font-size: 14px; font-weight: 800; color: #fff; }
+.chatHeaderTitle { font-size: 14px; font-weight: 800; color: var(--ink-inv); }
 .chatHeaderSub { font-size: 11px; color: rgba(255,255,255,0.5); display: flex; align-items: center; gap: 4px; }
 .chatOnline {
   width: 6px;
@@ -879,7 +884,7 @@
   font-size: 18px;
   line-height: 1;
 }
-.chatClose:hover { color: #fff; }
+.chatClose:hover { color: var(--ink-inv); }
 .chatMessages {
   flex: 1;
   overflow-y: auto;

@@ -215,7 +215,7 @@ export default function PublishStep({ result, publishData, testPassed, leadFormV
   }, [domainStatus, result, publishData, onPublishDataChange]);
 
   return (
-    <div className="animate-fade-in-up">
+    <div data-theme="light" className="animate-fade-in-up">
       <div style={{ textAlign: 'center', marginBottom: '20px' }}>
         {isPublished && (
           <div className="animate-checkmark" style={{

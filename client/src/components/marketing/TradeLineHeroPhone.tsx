@@ -413,7 +413,7 @@ export default function TradeLineHeroPhone() {
   const togglePause = () => setPaused((p) => !p);
 
   return (
-    <div className="tlhp-wrap">
+    <div data-theme="dark" className="tlhp-wrap">
       <style>{TLHP_CSS}</style>
 
       <div

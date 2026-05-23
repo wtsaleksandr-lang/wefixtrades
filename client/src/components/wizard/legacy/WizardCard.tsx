@@ -1009,7 +1009,7 @@ export default function WizardCard({ embed = false }: { embed?: boolean }) {
 
   return (
     <>
-      <div className={`wizard-shell ${embed ? '' : 'wizard-shell-modal'}`} role={embed ? undefined : 'dialog'} aria-modal={embed ? undefined : true} aria-label="QuoteQuick builder">
+      <div data-theme="light" className={`wizard-shell ${embed ? '' : 'wizard-shell-modal'}`} role={embed ? undefined : 'dialog'} aria-modal={embed ? undefined : true} aria-label="QuoteQuick builder">
       <WizardNav current={visualStep(step)} onHelp={() => setShowHelp(true)} justSaved={justSaved}
         onNavigate={(v) => setStep(VISUAL_TO_INTERNAL[v - 1])}
         onClose={embed ? undefined : closeWizard}
