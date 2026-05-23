@@ -28,6 +28,7 @@ import { useCopilotForm } from "@/context/CopilotFormContext";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useToast } from "@/hooks/use-toast";
 import { FirstVisitTooltip } from "@/components/portal/FirstVisitTooltip";
+import { getServiceIcon } from "@/config/serviceIcons";
 import type { Tier } from "@shared/tiers";
 
 interface CatalogService {
@@ -199,8 +200,21 @@ export default function PortalCatalog() {
           className="block w-full"
           anchor={
             <div>
-              <h1 className="text-xl font-semibold text-gray-900">Add Services</h1>
-              <p className="text-sm text-gray-500 mt-0.5">
+              {/* Brand image header — theme-aware (light + dark variants).
+                  Replaces the personalized business-name header per Alex's
+                  feedback: customers already know whose portal they're in;
+                  the brand mark anchors the catalog page visually. */}
+              <img
+                src="/brand/logo-full-light.svg"
+                alt="WeFixTrades"
+                className="h-8 dark:hidden"
+              />
+              <img
+                src="/brand/logo-full-dark.svg"
+                alt="WeFixTrades"
+                className="h-8 hidden dark:block"
+              />
+              <p className="text-sm text-gray-500 mt-2">
                 Expand your subscription. Click any service to add it to your account or learn more.
               </p>
             </div>
@@ -263,7 +277,7 @@ export default function PortalCatalog() {
                       <p className="text-xs text-gray-500 mt-0.5">{b.tagline}</p>
                     </div>
                     {b.badge && (
-                      <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[#EEF3FF] text-brand-blue">
+                      <span className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-[#EEF3FF] text-brand-blue">
                         {b.badge}
                       </span>
                     )}
@@ -315,18 +329,28 @@ export default function PortalCatalog() {
 
         {services.length > 0 && (
           <div className="grid auto-rows-fr grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" data-testid="catalog-grid">
-            {services.map((svc) => (
+            {services.map((svc) => {
+              const ServiceIcon = getServiceIcon(svc.id);
+              return (
               <div
                 key={svc.id}
-                className="h-full bg-white rounded-xl border border-gray-200 p-5 flex flex-col gap-3 hover:shadow-sm transition-shadow"
+                className="relative h-full bg-white rounded-xl border border-gray-200 p-5 flex flex-col gap-3 hover:shadow-sm transition-shadow"
                 data-testid={`catalog-card-${svc.id}`}
               >
-                <div className="flex items-start justify-between gap-2">
+                {/* Per-product Lucide icon top-right — sourced from the
+                    centralized SERVICE_ICONS map so admin nav, portal, and
+                    catalog all show the same icon per product. */}
+                <ServiceIcon
+                  className="absolute top-3 right-3 w-5 h-5 text-gray-400"
+                  aria-hidden="true"
+                  data-testid={`catalog-icon-${svc.id}`}
+                />
+                <div className="flex items-start justify-between gap-2 pr-8">
                   <div>
                     <h3 className="text-sm font-semibold text-gray-900">{svc.name}</h3>
                     <p className="text-xs text-gray-500 mt-0.5">{svc.tagline}</p>
                   </div>
-                  <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${CATEGORY_STYLES[svc.category] ?? "bg-gray-50 text-gray-600"}`}>
+                  <span className={`text-[10px] font-medium px-2 py-0.5 rounded-md ${CATEGORY_STYLES[svc.category] ?? "bg-gray-50 text-gray-600"}`}>
                     {svc.category}
                   </span>
                 </div>
@@ -392,7 +416,8 @@ export default function PortalCatalog() {
                   </a>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
