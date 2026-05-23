@@ -27,11 +27,15 @@ import { slugify } from "@shared/slugUtils";
 
 const log = createLogger("Auth");
 
-/** Role → post-login landing path. Mirrors the frontend completeLogin(). */
+/** Role → post-login landing path. Mirrors client/src/lib/authRedirect.ts. */
 function landingPathForRole(role: string | undefined): string {
   if (role === "admin" || role === "portal") return "/admin/crm";
   if (role === "client") return "/portal";
-  return "/dashboard";
+  // IA-1 (2026-05-22): unknown role used to land on /dashboard, the
+  // standalone QuoteQuick calculator dashboard, which made the
+  // structurally-wrong landing target the default for any new/edge
+  // role. Default to /portal — admin's gated by RequirePortal already.
+  return "/portal";
 }
 
 function getClientIp(req: Request): string {

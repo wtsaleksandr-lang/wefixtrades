@@ -418,11 +418,11 @@ client/src/pages/admin/ClientsPage.tsx:251:72	tailwind	text-white
 client/src/pages/admin/ClientsPage.tsx:258:71	tailwind	text-white
 client/src/pages/admin/ClientsPage.tsx:265:72	tailwind	text-white
 client/src/pages/admin/CommunicationsPage.tsx:451:52	tailwind	bg-white
-client/src/pages/admin/CrmOverview.tsx:89:51	tailwind	text-white
-client/src/pages/admin/CrmOverview.tsx:242:76	tailwind	text-white
-client/src/pages/admin/CrmOverview.tsx:279:36	tailwind	text-white
-client/src/pages/admin/CrmOverview.tsx:338:49	tailwind	text-white
-client/src/pages/admin/CrmOverview.tsx:413:93	tailwind	text-white
+client/src/pages/admin/CrmOverview.tsx:91:51	tailwind	text-white
+client/src/pages/admin/CrmOverview.tsx:244:76	tailwind	text-white
+client/src/pages/admin/CrmOverview.tsx:281:36	tailwind	text-white
+client/src/pages/admin/CrmOverview.tsx:340:49	tailwind	text-white
+client/src/pages/admin/CrmOverview.tsx:415:93	tailwind	text-white
 client/src/pages/admin/IntegrationHealthPage.tsx:189:27	tailwind	bg-white
 client/src/pages/admin/IntegrationHealthPage.tsx:204:33	tailwind	bg-white
 client/src/pages/admin/MapguardDashboard.tsx:127:36	tailwind	text-white
@@ -499,20 +499,20 @@ client/src/pages/admin/outbound/ProspectsPage.tsx:325:43	tailwind	bg-white
 client/src/pages/admin/outbound/ProspectsPage.tsx:333:36	tailwind	bg-white
 client/src/pages/admin/outbound/ProspectsPage.tsx:356:25	tailwind	bg-white
 client/src/pages/calculator.tsx:92:89	tailwind	text-white
-client/src/pages/dashboard.tsx:132:40	prop	color: '#fff'
-client/src/pages/dashboard.tsx:289:17	prop	background: '#fff'
-client/src/pages/dashboard.tsx:300:46	prop	color: '#fff'
-client/src/pages/dashboard.tsx:507:42	prop	color: '#fff'
-client/src/pages/dashboard.tsx:570:11	prop	background: '#fff'
-client/src/pages/dashboard.tsx:1243:63	prop	background: '#fff'
-client/src/pages/dashboard.tsx:1292:46	prop	color: '#fff'
-client/src/pages/dashboard.tsx:1317:46	prop	color: '#fff'
-client/src/pages/dashboard.tsx:1372:11	prop	background: '#fff'
-client/src/pages/dashboard.tsx:1758:53	prop	background: '#fff'
-client/src/pages/dashboard.tsx:1833:42	prop	color: '#fff'
-client/src/pages/dashboard.tsx:1979:55	prop	color: '#fff'
-client/src/pages/dashboard.tsx:1980:57	prop	color: '#fff'
-client/src/pages/dashboard.tsx:1985:75	prop	color: '#fff'
+client/src/pages/dashboard.tsx:163:40	prop	color: '#fff'
+client/src/pages/dashboard.tsx:320:17	prop	background: '#fff'
+client/src/pages/dashboard.tsx:331:46	prop	color: '#fff'
+client/src/pages/dashboard.tsx:538:42	prop	color: '#fff'
+client/src/pages/dashboard.tsx:601:11	prop	background: '#fff'
+client/src/pages/dashboard.tsx:1274:63	prop	background: '#fff'
+client/src/pages/dashboard.tsx:1323:46	prop	color: '#fff'
+client/src/pages/dashboard.tsx:1348:46	prop	color: '#fff'
+client/src/pages/dashboard.tsx:1403:11	prop	background: '#fff'
+client/src/pages/dashboard.tsx:1789:53	prop	background: '#fff'
+client/src/pages/dashboard.tsx:1864:42	prop	color: '#fff'
+client/src/pages/dashboard.tsx:2010:55	prop	color: '#fff'
+client/src/pages/dashboard.tsx:2011:57	prop	color: '#fff'
+client/src/pages/dashboard.tsx:2016:75	prop	color: '#fff'
 client/src/pages/demos/ReputationShieldDemo.tsx:17:11	prop	background: "#000"
 client/src/pages/demos/ReputationShieldDemo.tsx:28:13	prop	background: "#000"
 client/src/pages/demos/ReputationShieldDemo.tsx:50:13	prop	background: "#fff"
@@ -627,10 +627,10 @@ client/src/pages/portal/PortalCatalog.tsx:283:69	tailwind	text-white
 client/src/pages/portal/PortalCatalog.tsx:310:35	tailwind	bg-white
 client/src/pages/portal/PortalCatalog.tsx:364:69	tailwind	text-white
 client/src/pages/portal/PortalChatWidgetSetup.tsx:322:5	prop	color: "#fff"
-client/src/pages/portal/PortalDashboard.tsx:273:121	tailwind	bg-white
-client/src/pages/portal/PortalDashboard.tsx:420:95	tailwind	text-white
-client/src/pages/portal/PortalDashboard.tsx:498:103	tailwind	text-white
-client/src/pages/portal/PortalDashboard.tsx:547:114	tailwind	text-white
+client/src/pages/portal/PortalDashboard.tsx:275:121	tailwind	bg-white
+client/src/pages/portal/PortalDashboard.tsx:427:95	tailwind	text-white
+client/src/pages/portal/PortalDashboard.tsx:508:103	tailwind	text-white
+client/src/pages/portal/PortalDashboard.tsx:557:114	tailwind	text-white
 client/src/pages/portal/PortalEmailDomainSetup.tsx:327:36	tailwind	bg-white
 client/src/pages/portal/PortalEmailDomainSetup.tsx:334:36	tailwind	bg-white
 client/src/pages/portal/PortalHelp.tsx:45:21	tailwind	bg-white

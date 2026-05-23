@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { getSessionId } from "@/lib/chatHelpers";
+import { landingPathForRole } from "@/lib/authRedirect";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { V7PageShell } from "@/components/marketing/v7";
 import { mkt } from "@/theme/tokens";
@@ -69,7 +70,8 @@ export default function SignupPage() {
 
       // BI-1: prefer server-supplied redirect (lands the new user in the
       // wizard editor with their freshly created AI calculator open).
-      navigate(data.redirect || "/portal");
+      // IA-1: otherwise role-based via shared helper.
+      navigate(data.redirect || landingPathForRole(data.user?.role));
     },
   });
 

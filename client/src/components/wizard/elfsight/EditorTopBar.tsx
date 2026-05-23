@@ -46,6 +46,11 @@ interface Props {
   onEditorThemeChange: (t: EditorTheme) => void;
   onHelp: () => void;
   onClose: () => void;
+  /** IA-1 (2026-05-22) — minimize the WHOLE wizard back to the
+   *  dashboard the user came from. A floating "QQ" badge appears on
+   *  that dashboard so they can resume editing in one click. If absent
+   *  the minimize button isn't rendered (e.g. embed mode). */
+  onMinimize?: () => void;
   /** BD-3a fix 1 — Undo/Redo wired to a draft-config history stack. */
   canUndo?: boolean;
   canRedo?: boolean;
@@ -65,7 +70,7 @@ interface Props {
 export default function EditorTopBar({
   justSaved, device, onDeviceChange,
   editorTheme, onEditorThemeChange,
-  onHelp, onClose,
+  onHelp, onClose, onMinimize,
   canUndo = false, canRedo = false, onUndo, onRedo,
   previewCollapsed = false, onTogglePreview,
   floatingLauncherPreview = false, onToggleFloatingLauncherPreview,
@@ -244,6 +249,25 @@ export default function EditorTopBar({
             ) : (
               <PanelRightClose style={{ width: 14, height: 14 }} aria-hidden="true" />
             )}
+          </button>
+        )}
+
+        {/* IA-1 (2026-05-22) — minimize the whole wizard back to the
+         *  user's dashboard. Distinct from the "Floating" launcher
+         *  preview toggle above (that one previews how visitors see
+         *  the widget; this one collapses the wizard itself). On the
+         *  destination dashboard a floating "QQ" badge appears so the
+         *  user can resume editing in one click. */}
+        {onMinimize && (
+          <button
+            type="button"
+            onClick={onMinimize}
+            className="qq-editor-icon-btn"
+            data-testid="quotequick-minimize"
+            aria-label="Minimize wizard to dashboard"
+            title="Minimize to dashboard"
+          >
+            <Minimize2 style={{ width: 14, height: 14 }} aria-hidden="true" />
           </button>
         )}
 
