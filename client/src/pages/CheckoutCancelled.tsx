@@ -27,7 +27,7 @@ export default function CheckoutCancelled() {
             justifyContent: "center",
             marginBottom: 20,
           }}>
-            <X size={28} color={mkt.onDarkMuted} strokeWidth={2} />
+            <X size={24} color={mkt.onDarkMuted} strokeWidth={2} />
           </div>
 
           <h1 style={{

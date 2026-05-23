@@ -51,7 +51,7 @@ export default function AllInOneDiagram() {
           {/* CENTER: gear node = customer's business */}
           <div className="aio-node" aria-label="Your business">
             <div className="aio-node-ring" />
-            <Settings size={18} strokeWidth={1.6} />
+            <Settings size={20} strokeWidth={1.6} />
             <div className="aio-node-cap">YOUR BUSINESS</div>
           </div>
 
@@ -76,11 +76,11 @@ export default function AllInOneDiagram() {
           {/* BOTTOM dashboard dock = WeFixTrades console */}
           <div className="aio-dash">
             <div className="aio-dash-tabs">
-              <span className="aio-dash-tab"><LayoutDashboard size={11} /></span>
-              <span className="aio-dash-tab"><MessageSquare size={11} /></span>
-              <span className="aio-dash-tab"><BarChart3 size={11} /></span>
-              <span className="aio-dash-tab"><Bell size={11} /></span>
-              <span className="aio-dash-tab"><User size={11} /></span>
+              <span className="aio-dash-tab"><LayoutDashboard size={12} /></span>
+              <span className="aio-dash-tab"><MessageSquare size={12} /></span>
+              <span className="aio-dash-tab"><BarChart3 size={12} /></span>
+              <span className="aio-dash-tab"><Bell size={12} /></span>
+              <span className="aio-dash-tab"><User size={12} /></span>
             </div>
             <div className="aio-dash-head">
               <span className="aio-dash-name">WeFixTrades</span>

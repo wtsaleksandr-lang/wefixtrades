@@ -59,7 +59,7 @@ export default function ReputationShieldDemo() {
                 <span style={{ fontSize: 13, fontWeight: 600, color: mkt.onDark }}>{r.who}</span>
               </div>
               <div style={{ display: "flex", gap: 1 }}>
-                {[1, 2, 3, 4, 5].map((i) => <Star key={i} size={10} fill={i <= r.stars ? "#F59E0B" : "transparent"} stroke="#F59E0B" strokeWidth={1.5} />)}
+                {[1, 2, 3, 4, 5].map((i) => <Star key={i} size={12} fill={i <= r.stars ? "#F59E0B" : "transparent"} stroke="#F59E0B" strokeWidth={1.5} />)}
               </div>
             </div>
             <p style={{ fontSize: 12, lineHeight: 1.5, color: mkt.onDarkMuted, marginBottom: 10 }}>"{r.text}"</p>

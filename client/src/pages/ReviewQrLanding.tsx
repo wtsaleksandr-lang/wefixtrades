@@ -83,7 +83,7 @@ export default function ReviewQrLanding() {
                 margin: "0 auto 16px",
               }}
             >
-              <AlertCircle size={26} style={{ color: "#EF4444" }} />
+              <AlertCircle size={24} style={{ color: "#EF4444" }} />
             </div>
             <h2 style={{ fontSize: 18, fontWeight: 700, margin: "0 0 8px", color: "#1a1a2e" }}>
               This review link isn't working
@@ -104,7 +104,7 @@ export default function ReviewQrLanding() {
                 margin: "0 auto 16px",
               }}
             >
-              <Star size={26} style={{ color: "#0d3cfc", fill: "#0d3cfc" }} />
+              <Star size={24} style={{ color: "#0d3cfc", fill: "#0d3cfc" }} />
             </div>
             <h2 style={{ fontSize: 18, fontWeight: 700, margin: "0 0 8px", color: "#1a1a2e" }}>
               Just a moment…

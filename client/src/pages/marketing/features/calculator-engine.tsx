@@ -26,7 +26,7 @@ function EngineMockup() {
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20, paddingBottom: 16, borderBottom: `1px solid ${mkt.borderLight}` }}>
         <div style={{ width: 36, height: 36, borderRadius: 10, background: "#F5F3FF", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <Settings2 size={18} color={"#7C3AED"} />
+          <Settings2 size={20} color={"#7C3AED"} />
         </div>
         <div>
           <div style={{ fontSize: 13, fontWeight: 700, color: mkt.text }}>Pricing Formula Builder</div>

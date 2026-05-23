@@ -131,7 +131,7 @@ export default function AuditGate({
             margin: "0 auto 16px",
           }}
         >
-          <CheckCircle2 size={28} color="#22C55E" />
+          <CheckCircle2 size={24} color="#22C55E" />
         </div>
         <div style={{ fontSize: 18, fontWeight: 700, color: DARK, marginBottom: 6 }}>
           Your full report is ready.

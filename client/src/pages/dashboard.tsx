@@ -355,7 +355,7 @@ function OverviewSection({ token, onNavigate }: { token: string; onNavigate: (s:
               fontSize: 11, fontWeight: 700, color: '#D97706', textDecoration: 'none',
               background: '#FFFBEB', border: '1px solid #FDE68A', padding: '3px 10px', borderRadius: 20,
             }}>
-              <Clock size={9} /> {trialDaysLeft} day{trialDaysLeft !== 1 ? 's' : ''} left in trial
+              <Clock size={12} /> {trialDaysLeft} day{trialDaysLeft !== 1 ? 's' : ''} left in trial
             </span>
           )}
           {currentPlan === 'free' && !isTrialExpired && trialDaysLeft > 7 && (
@@ -365,7 +365,7 @@ function OverviewSection({ token, onNavigate }: { token: string; onNavigate: (s:
               background: '#EEF3FF', border: '1px solid #A7F3D0', padding: '3px 10px', borderRadius: 20,
               cursor: 'pointer',
             }}>
-              <Sparkles size={9} /> Upgrade — from $29/mo
+              <Sparkles size={12} /> Upgrade — from $29/mo
             </button>
           )}
         </div>

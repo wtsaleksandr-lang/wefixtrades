@@ -138,7 +138,7 @@ export default function WorkflowDemo({ expanded = false }: { expanded?: boolean 
                     flexShrink: 0,
                   }}
                 >
-                  <Icon size={18} color={isActive ? mkt.buttonText : C.muted} strokeWidth={1.5} />
+                  <Icon size={20} color={isActive ? mkt.buttonText : C.muted} strokeWidth={1.5} />
                 </div>
                 <div>
                   <div

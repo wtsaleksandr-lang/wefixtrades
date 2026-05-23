@@ -572,7 +572,7 @@ function FilterBar({ categories, active, onToggle, onClear }: {
           cursor: "pointer",
         }}
       >
-        <Search size={15} />
+        <Search size={16} />
       </button>
     </div>
   );

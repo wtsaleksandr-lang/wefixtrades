@@ -228,7 +228,7 @@ export default function CalculatorControls({
           borderRadius: 100,
           padding: '5px 14px',
         }}>
-          <SlidersHorizontal size={13} color={mkt.accent} strokeWidth={2} />
+          <SlidersHorizontal size={14} color={mkt.accent} strokeWidth={2} />
           <span style={{ fontSize: 13, fontWeight: 600, color: mkt.accent }}>
             {preset.label}
           </span>
@@ -336,7 +336,7 @@ export default function CalculatorControls({
                 e.currentTarget.style.borderColor = mkt.border;
               }}
             >
-              <RotateCcw size={11} />
+              <RotateCcw size={12} />
               Reset
             </motion.button>
           )}

@@ -47,7 +47,7 @@ function FAQItem({ q, a }: { q: string; a: string }) {
         }}
       >
         <span style={{ fontSize: 15, fontWeight: 600, color: mkt.onDark, lineHeight: 1.4 }}>{q}</span>
-        <ChevronDown size={17} color={mkt.onDarkMuted} style={{ flexShrink: 0, transform: open ? "rotate(180deg)" : "none", transition: "transform 0.22s ease" }} />
+        <ChevronDown size={16} color={mkt.onDarkMuted} style={{ flexShrink: 0, transform: open ? "rotate(180deg)" : "none", transition: "transform 0.22s ease" }} />
       </button>
       {open && (
         <div style={{ padding: "0 22px 18px", background: mkt.sectionLight }}>
@@ -227,7 +227,7 @@ export default function PricingPage() {
                 className="mkt-btn-ghost"
                 style={{ padding: "13px 24px", borderRadius: 14, background: "transparent", color: "#FFFFFF", fontSize: 15, fontWeight: 600, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 8, border: "1.5px solid rgba(255,255,255,0.28)" }}
               >
-                <Play size={13} fill="currentColor" /> View Demo
+                <Play size={14} fill="currentColor" /> View Demo
               </Link>
             </div>
 
@@ -420,7 +420,7 @@ export default function PricingPage() {
                           data-testid={`pricing-learn-more-${product.id}`}
                           style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 13, fontWeight: 700, color: mkt.accent, textDecoration: "none", marginTop: 16 }}
                         >
-                          Learn more <ArrowRight size={13} />
+                          Learn more <ArrowRight size={14} />
                         </Link>
                       </div>
                     );
@@ -493,7 +493,7 @@ export default function PricingPage() {
                 className="mkt-btn-ghost"
                 style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "15px 28px", borderRadius: 14, background: "transparent", color: "#FFFFFF", fontSize: 15, fontWeight: 600, textDecoration: "none", border: "1.5px solid rgba(255,255,255,0.38)" }}
               >
-                <Play size={13} fill="currentColor" /> View Demo
+                <Play size={14} fill="currentColor" /> View Demo
               </Link>
             </div>
           </div>

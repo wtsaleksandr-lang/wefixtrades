@@ -98,7 +98,7 @@ function TemplateHero({ template }: { template: TemplateConfig }) {
             color: cat.heroAccent,
           }}
         >
-          <Icon size={26} strokeWidth={2.25} />
+          <Icon size={24} strokeWidth={2.25} />
         </div>
       ) : (
         <div
@@ -133,7 +133,7 @@ function TemplateHero({ template }: { template: TemplateConfig }) {
             gap: 4,
           }}
         >
-          <Sparkles size={9} /> Featured
+          <Sparkles size={12} /> Featured
         </span>
       ) : null}
     </div>
@@ -502,7 +502,7 @@ export default function TemplatesPage() {
                               minHeight: 44,
                             }}
                           >
-                            Use <ArrowRight size={11} />
+                            Use <ArrowRight size={12} />
                           </Link>
                         </div>
                       </div>

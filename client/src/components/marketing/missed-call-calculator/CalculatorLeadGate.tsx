@@ -187,7 +187,7 @@ export default function CalculatorLeadGate({
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           margin: '0 auto 16px',
         }}>
-          <CheckCircle2 size={28} color="#22C55E" />
+          <CheckCircle2 size={24} color="#22C55E" />
         </div>
         <div style={{ fontSize: 18, fontWeight: 700, color: colors.effortel.n200, marginBottom: 6 }}>
           Your full report is ready.

@@ -76,7 +76,7 @@ export default function MapGuardDemo() {
                 transition={{ duration: 0.4 }}
                 style={{ width: 18, height: 18, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}
               >
-                {fixed ? <Check size={11} strokeWidth={3} /> : <AlertTriangle size={11} strokeWidth={2.5} />}
+                {fixed ? <Check size={12} strokeWidth={3} /> : <AlertTriangle size={12} strokeWidth={2.5} />}
               </motion.div>
             </motion.div>
           );

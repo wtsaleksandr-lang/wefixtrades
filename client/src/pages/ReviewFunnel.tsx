@@ -133,7 +133,7 @@ export default function ReviewFunnel() {
   if (pageState === "error") {
     return (
       <Wrapper>
-        <AlertCircle size={40} style={{ color: "#EF4444", marginBottom: 16 }} />
+        <AlertCircle size={32} style={{ color: "#EF4444", marginBottom: 16 }} />
         <h2 style={{ fontSize: 18, fontWeight: 600, margin: "0 0 8px" }}>Link not found</h2>
         <p style={{ color: "#666", fontSize: 14 }}>This review link is no longer valid or has expired.</p>
       </Wrapper>
@@ -143,7 +143,7 @@ export default function ReviewFunnel() {
   if (pageState === "already_done") {
     return (
       <Wrapper>
-        <CheckCircle2 size={40} style={{ color: "#22C55E", marginBottom: 16 }} />
+        <CheckCircle2 size={32} style={{ color: "#22C55E", marginBottom: 16 }} />
         <h2 style={{ fontSize: 18, fontWeight: 600, margin: "0 0 8px" }}>Thank you!</h2>
         <p style={{ color: "#666", fontSize: 14 }}>You've already submitted your feedback. We appreciate it.</p>
       </Wrapper>
@@ -165,7 +165,7 @@ export default function ReviewFunnel() {
             disabled={submitting}
             style={{ background: "#22C55E", color: "#fff", padding: "14px 28px", fontSize: 14, fontWeight: 600, borderRadius: 10, border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}
           >
-            <Star size={18} /> Great experience!
+            <Star size={20} /> Great experience!
           </Button>
           <Button
             onClick={() => handleSentiment("negative")}
@@ -173,7 +173,7 @@ export default function ReviewFunnel() {
             variant="outline"
             style={{ padding: "14px 28px", fontSize: 14, fontWeight: 600, borderRadius: 10, display: "flex", alignItems: "center", gap: 8 }}
           >
-            <MessageSquare size={18} /> I had an issue
+            <MessageSquare size={20} /> I had an issue
           </Button>
         </div>
       </Wrapper>
@@ -190,7 +190,7 @@ export default function ReviewFunnel() {
     };
     return (
       <Wrapper>
-        <CheckCircle2 size={40} style={{ color: "#22C55E", marginBottom: 16 }} />
+        <CheckCircle2 size={32} style={{ color: "#22C55E", marginBottom: 16 }} />
         <h2 style={{ fontSize: 20, fontWeight: 700, margin: "0 0 8px", color: "#1a1a2e" }}>
           Great to hear!
         </h2>
@@ -228,7 +228,7 @@ export default function ReviewFunnel() {
   if (pageState === "positive") {
     return (
       <Wrapper>
-        <CheckCircle2 size={40} style={{ color: "#22C55E", marginBottom: 16 }} />
+        <CheckCircle2 size={32} style={{ color: "#22C55E", marginBottom: 16 }} />
         <h2 style={{ fontSize: 20, fontWeight: 700, margin: "0 0 8px", color: "#1a1a2e" }}>
           Thank you!
         </h2>

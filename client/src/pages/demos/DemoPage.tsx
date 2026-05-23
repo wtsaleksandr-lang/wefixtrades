@@ -266,7 +266,7 @@ export default function DemoPage() {
                     }}
                   >
                     Book a Free Demo Call
-                    <ArrowRight size={15} />
+                    <ArrowRight size={16} />
                   </a>
                   <span style={{ fontSize: 12, color: mkt.onDarkFaint }}>
                     No commitment. 15 minutes. See it live.

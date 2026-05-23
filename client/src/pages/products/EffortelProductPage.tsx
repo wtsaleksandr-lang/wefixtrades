@@ -180,7 +180,7 @@ export default function EffortelProductPage({ slug }: { slug: string }) {
               const icons = [Phone, Sparkles, Clock, Star, Calendar, MessageSquare];
               const colors = ["cyan", "lavender", "mint", "pink"] as const;
               const Icon = icons[i % icons.length];
-              return <BadgePill key={o.title} label={o.title} icon={<Icon size={18} />} iconBg={colors[i % colors.length]} />;
+              return <BadgePill key={o.title} label={o.title} icon={<Icon size={20} />} iconBg={colors[i % colors.length]} />;
             })}
           </div>
         </section>
@@ -264,7 +264,7 @@ function StickyMobileCta({ primaryCta, productName }: { primaryCta: { label: str
           textDecoration: "none", whiteSpace: "nowrap",
           display: "inline-flex", alignItems: "center", gap: 6,
         }}>
-          {primaryCta.label} <ArrowRight size={13} />
+          {primaryCta.label} <ArrowRight size={14} />
         </CtaLink>
       </div>
       <style>{`
@@ -692,7 +692,7 @@ function Faq({ items }: { items: { q: string; a: string }[] }) {
                 >
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
                     <span style={{ fontSize: 15, fontWeight: 600, letterSpacing: "-0.01em" }}>{item.q}</span>
-                    <ChevronDown size={18} color={mkt.accent} style={{ transition: "transform 0.2s ease", transform: open ? "rotate(180deg)" : "rotate(0)", flexShrink: 0 }} />
+                    <ChevronDown size={20} color={mkt.accent} style={{ transition: "transform 0.2s ease", transform: open ? "rotate(180deg)" : "rotate(0)", flexShrink: 0 }} />
                   </div>
                   {open && (
                     <p style={{ fontSize: 14, lineHeight: 1.6, color: mkt.onDarkMuted, marginTop: 12, paddingTop: 12, borderTop: `1px solid ${mkt.onDarkBorder}` }}>
@@ -831,7 +831,7 @@ function FinalCta({ cfg }: { cfg: ReturnType<typeof getProductBySlug> & {} }) {
           Setup is fast. No card required. Cancel anytime.
         </p>
         <CtaLink href={cfg.primaryCTA.href} className="wft-hover-border-white" style={{ ...ctaPrimary, position: "relative", fontSize: 14, padding: "16px 32px" }}>
-          {cfg.primaryCTA.label} <ArrowRight size={18} />
+          {cfg.primaryCTA.label} <ArrowRight size={20} />
         </CtaLink>
       </div>
     </section>

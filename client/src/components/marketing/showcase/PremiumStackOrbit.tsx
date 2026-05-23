@@ -45,7 +45,7 @@ export default function PremiumStackOrbit() {
           <div className="psorbit-center">
             <div className="psorbit-center-ring" />
             <div className="psorbit-center-tile">
-              <Wrench size={22} strokeWidth={1.6} />
+              <Wrench size={24} strokeWidth={1.6} />
             </div>
           </div>
 

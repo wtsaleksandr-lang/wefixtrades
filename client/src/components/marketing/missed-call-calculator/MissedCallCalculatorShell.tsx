@@ -269,7 +269,7 @@ export default function MissedCallCalculatorShell({ initialTradeId }: ShellProps
                 background: mkt.accentTint,
                 color: mkt.onDark, fontSize: 11, fontWeight: 600,
               }}>
-                <BadgeCheck size={11} aria-hidden="true" color={mkt.accent} />
+                <BadgeCheck size={12} aria-hidden="true" color={mkt.accent} />
                 Industry-average data
               </span>
               <span style={{
@@ -300,7 +300,7 @@ export default function MissedCallCalculatorShell({ initialTradeId }: ShellProps
                 padding: '5px 12px',
                 minWidth: 0,
               }}>
-                <SlidersHorizontal size={13} color={mkt.accent} strokeWidth={2} />
+                <SlidersHorizontal size={14} color={mkt.accent} strokeWidth={2} />
                 <span style={{
                   fontSize: 13, fontWeight: 600, color: mkt.accent,
                   whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',

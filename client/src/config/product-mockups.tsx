@@ -60,9 +60,9 @@ function ChatPreviewCenter() {
       <div style={{ fontSize: 11, fontFamily: MONO, color: TILE.white.muted, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 }}>
         Inbox
       </div>
-      <RowMini icon={<Phone size={11} />} label="Sarah K." sub="Burst pipe — booked" />
-      <RowMini icon={<MessageSquare size={11} />} label="Mike R." sub="AC quote sent" />
-      <RowMini icon={<Calendar size={11} />} label="Diana L." sub="Follow-up done" />
+      <RowMini icon={<Phone size={12} />} label="Sarah K." sub="Burst pipe — booked" />
+      <RowMini icon={<MessageSquare size={12} />} label="Mike R." sub="AC quote sent" />
+      <RowMini icon={<Calendar size={12} />} label="Diana L." sub="Follow-up done" />
     </div>
   );
 }

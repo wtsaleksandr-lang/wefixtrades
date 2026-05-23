@@ -1036,7 +1036,7 @@ export default function FreeAudit() {
                       }}
                     >
                       {done ? (
-                        <CheckCircle2 size={15} />
+                        <CheckCircle2 size={16} />
                       ) : active ? (
                         <div
                           style={{

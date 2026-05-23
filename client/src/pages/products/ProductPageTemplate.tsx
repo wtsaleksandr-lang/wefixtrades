@@ -52,7 +52,7 @@ export default function ProductPageTemplate({ product }: { product: ProductConfi
 
           <div style={{ maxWidth: 720, margin: "0 auto", position: "relative" }}>
             <div style={{ display: "flex", justifyContent: "center", marginBottom: 24 }}>
-              <IconBadge name={product.icon} size={28} />
+              <IconBadge name={product.icon} size={24} />
             </div>
 
             <h1
@@ -166,7 +166,7 @@ export default function ProductPageTemplate({ product }: { product: ProductConfi
                     border: `1px solid ${mkt.border}`,
                   }}
                 >
-                  <Check size={18} color={mkt.accent} strokeWidth={2.5} style={{ flexShrink: 0, marginTop: 2 }} />
+                  <Check size={20} color={mkt.accent} strokeWidth={2.5} style={{ flexShrink: 0, marginTop: 2 }} />
                   <span>{b}</span>
                 </li>
               ))}
@@ -247,7 +247,7 @@ export default function ProductPageTemplate({ product }: { product: ProductConfi
                             marginBottom: 10,
                           }}
                         >
-                          <Check size={15} color={mkt.accent} strokeWidth={2.5} style={{ flexShrink: 0, marginTop: 3 }} />
+                          <Check size={16} color={mkt.accent} strokeWidth={2.5} style={{ flexShrink: 0, marginTop: 3 }} />
                           <span>{f}</span>
                         </li>
                       ))}
@@ -348,7 +348,7 @@ export default function ProductPageTemplate({ product }: { product: ProductConfi
                   border: `1.5px solid ${mkt.onDarkBorder}`,
                 }}
               >
-                {product.secondaryCtaLabel} <ArrowRight size={15} />
+                {product.secondaryCtaLabel} <ArrowRight size={16} />
               </Link>
             </div>
           </div>

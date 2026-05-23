@@ -51,7 +51,7 @@ export default function MultiTieredSupport() {
           {/* User list panel */}
           <div className="mts-list">
             <div className="mts-search">
-              <Search size={11} />
+              <Search size={12} />
               <span>SEARCH USERS</span>
             </div>
             {AVATARS.slice(1).map((a) => (

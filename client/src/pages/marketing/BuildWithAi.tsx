@@ -224,9 +224,9 @@ export default function BuildWithAi() {
             }}
           >
             {[
-              { icon: <Sparkles size={13} strokeWidth={2} />, label: "Free" },
-              { icon: <Clock size={13} strokeWidth={2} />, label: "60 seconds" },
-              { icon: <ShieldCheck size={13} strokeWidth={2} />, label: "No credit card" },
+              { icon: <Sparkles size={14} strokeWidth={2} />, label: "Free" },
+              { icon: <Clock size={14} strokeWidth={2} />, label: "60 seconds" },
+              { icon: <ShieldCheck size={14} strokeWidth={2} />, label: "No credit card" },
             ].map((pill) => (
               <span
                 key={pill.label}
@@ -302,7 +302,7 @@ export default function BuildWithAi() {
                 style={{ display: "none" }}
                 onChange={(e) => handlePicked(e.target.files?.[0] || null)}
               />
-              <UploadCloud size={36} strokeWidth={1.5} color={mkt.accent} />
+              <UploadCloud size={32} strokeWidth={1.5} color={mkt.accent} />
               <div>
                 <div style={{ fontSize: 16, fontWeight: 600, color: mkt.onDark }}>
                   {file ? file.name : "Drop your invoice or quote here"}

@@ -50,7 +50,7 @@ export default function AdFlowDemo() {
             </AnimatePresence>
             {loop.step > 0 && (
               <span style={{ fontSize: 11, fontFamily: "'DM Mono', monospace", fontWeight: 600, color: "#10B981", display: "inline-flex", alignItems: "center", gap: 4 }}>
-                <TrendingDown size={11} />
+                <TrendingDown size={12} />
                 −{Math.round(((WEEKS[0].cpl - cur.cpl) / WEEKS[0].cpl) * 100)}%
               </span>
             )}

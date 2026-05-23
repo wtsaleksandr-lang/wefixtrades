@@ -156,7 +156,7 @@ function ChargingMockup() {
               display: "flex", alignItems: "center", justifyContent: "center",
               boxShadow: "0 4px 16px rgba(16,185,129,0.4)",
             }}>
-              <PhoneCall size={18} color="white" strokeWidth={1.5} />
+              <PhoneCall size={20} color="white" strokeWidth={1.5} />
             </div>
           </div>
           <div style={{ textAlign: "center" }}>
@@ -477,7 +477,7 @@ export default function CapabilitiesShowcase() {
                       display: "flex", alignItems: "center", justifyContent: "center",
                       flexShrink: 0, position: "relative", zIndex: 1,
                     }}>
-                      <Icon size={17} color="#22282a" strokeWidth={2} />
+                      <Icon size={16} color="#22282a" strokeWidth={2} />
                     </div>
                     {/* label */}
                     <span style={{
@@ -593,7 +593,7 @@ export default function CapabilitiesShowcase() {
                       display: "flex", alignItems: "center", justifyContent: "center",
                       flexShrink: 0, position: "relative", zIndex: 1,
                     }}>
-                      <Icon size={17} color="#22282a" strokeWidth={2} />
+                      <Icon size={16} color="#22282a" strokeWidth={2} />
                     </div>
                     <span style={{
                       position: "relative", zIndex: 2,

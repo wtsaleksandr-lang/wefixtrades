@@ -137,7 +137,7 @@ export function Checklist({ items }: { items: string[] }) {
     <ul style={{ listStyle: "none", padding: 0, margin: "12px 0", display: "flex", flexDirection: "column", gap: 8 }}>
       {items.map((item) => (
         <li key={item} style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: 14, color: C.body, lineHeight: 1.55 }}>
-          <Check size={15} color={C.sage} strokeWidth={1.5} style={{ flexShrink: 0, marginTop: 1 }} />
+          <Check size={16} color={C.sage} strokeWidth={1.5} style={{ flexShrink: 0, marginTop: 1 }} />
           {item}
         </li>
       ))}
@@ -193,7 +193,7 @@ export default function DocsLayout({ activeSlug, title, description, children }:
           >
             <div style={{ padding: "0 20px 16px", borderBottom: `1px solid ${C.borderLight}`, marginBottom: 16 }}>
               <Link href="/docs" style={{ display: "flex", alignItems: "center", gap: 7, color: C.muted, fontSize: 13, fontWeight: 600, textDecoration: "none" }}>
-                <ArrowLeft size={13} strokeWidth={1.5} /> Back to Docs
+                <ArrowLeft size={14} strokeWidth={1.5} /> Back to Docs
               </Link>
             </div>
             <DocsSidebar activeSlug={activeSlug} onNavigate={() => {}} />
@@ -204,7 +204,7 @@ export default function DocsLayout({ activeSlug, title, description, children }:
             {/* Page header */}
             <div style={{ marginBottom: 40 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, fontSize: 12, color: C.muted, fontWeight: 500 }}>
-                <BookOpen size={13} color={C.muted} strokeWidth={1.5} />
+                <BookOpen size={14} color={C.muted} strokeWidth={1.5} />
                 <span>QuoteQuick Pro Docs</span>
                 <ChevronRight size={12} color={C.muted} strokeWidth={1.5} />
                 <span style={{ color: C.sage, fontWeight: 600 }}>{title}</span>
@@ -266,7 +266,7 @@ function DocsSidebar({ activeSlug, onNavigate }: { activeSlug: string; onNavigat
               transition: "all 0.15s ease",
             }}
           >
-            <Icon size={15} color={active ? C.sage : C.muted} strokeWidth={1.5} />
+            <Icon size={16} color={active ? C.sage : C.muted} strokeWidth={1.5} />
             <span style={{ fontSize: 14, fontWeight: active ? 600 : 400, color: active ? C.sage : C.body }}>
               {label}
             </span>

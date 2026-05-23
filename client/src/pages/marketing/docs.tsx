@@ -140,7 +140,7 @@ export default function DocsPage() {
               </Reveal>
               <Reveal delay={0.10}>
                 <div style={{ position: "relative" }}>
-                  <Search size={17} color="rgba(213,225,231,0.6)" style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", zIndex: 1 }} />
+                  <Search size={16} color="rgba(213,225,231,0.6)" style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", zIndex: 1 }} />
                   <input
                     data-testid="docs-search"
                     type="text"
@@ -193,7 +193,7 @@ export default function DocsPage() {
                     className="mkt-feature-card"
                   >
                     <div style={{ width: 44, height: 44, borderRadius: 10, background: tile.bg, color: tile.ink, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                      <Icon size={21} />
+                      <Icon size={20} />
                     </div>
                     <div>
                       <div style={{ fontSize: 14, fontWeight: 700, color: mkt.onDark, marginBottom: 2 }}>{label}</div>
@@ -277,7 +277,7 @@ export default function DocsPage() {
                         color: tile.ink,
                         display: "flex", alignItems: "center", justifyContent: "center",
                       }}>
-                        <Icon size={23} strokeWidth={1.7} />
+                        <Icon size={24} strokeWidth={1.7} />
                       </div>
                       <h3 style={{
                         position: "relative", flex: 1, minWidth: 0,
