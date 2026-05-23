@@ -7,6 +7,7 @@ import { ArrowRight, Bot, User, Send, Calendar, ChevronLeft, Check, Zap, X } fro
 import { TEMPLATES, calculateEstimate, getTemplate } from "@/config/templateConfig";
 import type { TemplateConfig } from "@/config/templateConfig";
 import { mkt, colors, shadows } from "@/theme/tokens";
+import { buildWizardHrefForMarketingTemplate } from "@/lib/marketingTemplateMap";
 
 
 /* ─── Slider input ────────────────────────────────── */
@@ -523,7 +524,7 @@ export default function DemoTemplatePage() {
                   Live in under 10 minutes. No credit card required. Includes 14-day AI trial.
                 </p>
                 <Link
-                  href="/Wizard"
+                  href={buildWizardHrefForMarketingTemplate(effectiveTemplate.id)}
                   data-testid="demo-build-cta"
                   style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "12px 0", borderRadius: 10, background: "#FFFFFF", color: mkt.accent, fontWeight: 800, fontSize: 14, textDecoration: "none" }}
                 >
