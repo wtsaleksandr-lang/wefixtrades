@@ -297,6 +297,32 @@ export default function FreeAudit() {
   const [websiteQualityCheckScore, setWebsiteQualityCheckScore] = useState<number>(0);
 
   const lastTradeRef = useRef<string>('');
+  const [prefillTrade, setPrefillTrade] = useState<string | null>(null);
+
+  // Read ?prefill=<trade> from the URL on mount and seed lastTradeRef so
+  // the first audit run uses it as the tradeOverride. The audit form has
+  // no explicit trade-selection step (trade is auto-detected from the
+  // selected business), so we just plumb the override through — no UI
+  // step to skip. The query string is tolerant: missing / empty values
+  // are ignored. Validation against TRADE_PRESETS would require an
+  // import we'd rather avoid here; the server-side audit pipeline already
+  // ignores unknown trades. `source` is also captured for analytics
+  // attribution.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const prefill = (params.get('prefill') || '').trim().toLowerCase();
+      const source = (params.get('source') || '').trim();
+      if (prefill && /^[a-z0-9_-]{2,40}$/.test(prefill)) {
+        lastTradeRef.current = prefill;
+        setPrefillTrade(prefill);
+        try { trackEvent('audit_prefill_applied', { trade: prefill, source: source || null }); } catch { /* swallow analytics errors */ }
+      }
+    } catch {
+      /* swallow URL parsing errors */
+    }
+  }, []);
 
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -703,6 +729,32 @@ export default function FreeAudit() {
                 <span style={{ opacity: 0.65 }}>Trusted by 2,400+ trade businesses</span>
               </div>
             )}
+            {/* Prefill confirmation chip \u2014 shown when the user arrived via
+                the Missed Call Calculator \u2192 audit funnel. Lets them confirm
+                the trade was carried over so they know the next click is
+                one step ahead of a cold-start audit. */}
+            {!reportReady && prefillTrade && (
+              <div
+                data-testid="audit-prefill-chip"
+                style={{
+                  marginTop: 10,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "4px 10px",
+                  borderRadius: 999,
+                  background: "rgba(34,197,94,0.08)",
+                  border: "1px solid rgba(34,197,94,0.22)",
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: "#166534",
+                  letterSpacing: "0.01em",
+                }}
+              >
+                <CheckCircle2 size={12} strokeWidth={2.2} />
+                <span>Trade pre-selected: {prefillTrade.replace(/[-_]/g, " ")}</span>
+              </div>
+            )}
           </div>
 
           {!busy && (
@@ -884,7 +936,7 @@ export default function FreeAudit() {
                           key={p.place_id}
                           data-testid={`button-place-${p.place_id}`}
                           className="audit-suggestion"
-                          onClick={() => runAudit(p)}
+                          onClick={() => runAudit(p, lastTradeRef.current || undefined)}
                           style={{
                             width: "100%",
                             textAlign: "left",

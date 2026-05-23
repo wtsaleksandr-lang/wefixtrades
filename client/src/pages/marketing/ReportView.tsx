@@ -1,12 +1,110 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import { MapPin, Globe, Search, Trophy, Megaphone, Clock, MessageCircle, Wrench, FileX, BarChart3, Users, ClipboardList, Info, ChevronRight, ZoomIn, ZoomOut, X, Minus, Plus } from "lucide-react";
+import { MapPin, Globe, Search, Trophy, Megaphone, Clock, MessageCircle, Wrench, FileX, BarChart3, Users, ClipboardList, Info, ChevronRight, ZoomIn, ZoomOut, X, Minus, Plus, TrendingUp, ArrowUp, Check } from "lucide-react";
 import { SERVICES, getServicesForIssues } from '@shared/services';
 import AuditGate from "@/components/marketing/AuditGate";
 import InfoTooltip from "@/components/marketing/InfoTooltip";
 import NextStepSuggestions from "@/components/marketing/NextStepSuggestions";
 import CheckoutIntakeModal from "@/components/marketing/CheckoutIntakeModal";
+import AnimatedNumber from "@/components/marketing/missed-call-calculator/AnimatedNumber";
+import BeforeAfterSlider from "@/components/marketing/BeforeAfterSlider";
 import { trackEvent } from "@/lib/trackEvent";
 import { useToast } from "@/hooks/use-toast";
+
+/**
+ * Trade → noun phrasing for the friendly hero summary.
+ * Falls back to the generic "customer calls" when an unknown trade arrives.
+ * Keys mirror the slugs surfaced by /api/audit/* (lowercased, hyphenated).
+ */
+const TRADE_CALL_NOUN: Record<string, string> = {
+  plumbing: 'plumbing calls',
+  plumber: 'plumbing calls',
+  hvac: 'service calls',
+  electrical: 'electrical calls',
+  electrician: 'electrical calls',
+  roofing: 'roof inspections',
+  roofer: 'roof inspections',
+  cleaning: 'cleaning jobs',
+  'house-cleaning': 'cleaning jobs',
+  landscaping: 'landscaping jobs',
+  landscaper: 'landscaping jobs',
+  painting: 'painting jobs',
+  painter: 'painting jobs',
+  flooring: 'flooring jobs',
+  carpentry: 'carpentry jobs',
+  remodeling: 'remodeling jobs',
+  handyman: 'handyman jobs',
+  pestcontrol: 'service calls',
+  'pest-control': 'service calls',
+  pool: 'pool service calls',
+  pools: 'pool service calls',
+  locksmith: 'locksmith calls',
+  appliance: 'appliance service calls',
+  garagedoor: 'garage door calls',
+  'garage-door': 'garage door calls',
+  fencing: 'fencing jobs',
+  concrete: 'concrete jobs',
+  pavers: 'paver jobs',
+  excavation: 'excavation jobs',
+  septic: 'septic service calls',
+  solar: 'solar consultations',
+  windows: 'window jobs',
+  siding: 'siding jobs',
+  gutter: 'gutter jobs',
+  chimney: 'chimney service calls',
+};
+
+/** Default average ticket when the trade isn't in the table. $250 is the
+ * conservative cross-trade floor used elsewhere in the platform. */
+const DEFAULT_AVG_TICKET = 250;
+
+/** Trade → mid-range job value used for the friendly-hero revenue math. */
+const TRADE_AVG_TICKET: Record<string, number> = {
+  plumbing: 450,
+  plumber: 450,
+  hvac: 800,
+  electrical: 500,
+  electrician: 500,
+  roofing: 12000,
+  roofer: 12000,
+  cleaning: 220,
+  'house-cleaning': 220,
+  landscaping: 600,
+  landscaper: 600,
+  painting: 1800,
+  painter: 1800,
+  flooring: 2500,
+  carpentry: 900,
+  remodeling: 8000,
+  handyman: 300,
+  pestcontrol: 220,
+  'pest-control': 220,
+  pool: 250,
+  pools: 250,
+  locksmith: 180,
+  appliance: 280,
+  garagedoor: 380,
+  'garage-door': 380,
+  fencing: 2200,
+  concrete: 3500,
+  pavers: 5000,
+  excavation: 4500,
+  septic: 600,
+  solar: 16000,
+  windows: 3500,
+  siding: 8000,
+  gutter: 1100,
+  chimney: 600,
+};
+
+function tradeKey(trade?: string | null): string {
+  return (trade || '').toString().toLowerCase().replace(/[^a-z0-9-]/g, '');
+}
+function callNounForTrade(trade?: string | null): string {
+  return TRADE_CALL_NOUN[tradeKey(trade)] || 'customer calls';
+}
+function avgTicketForTrade(trade?: string | null): number {
+  return TRADE_AVG_TICKET[tradeKey(trade)] || DEFAULT_AVG_TICKET;
+}
 
 /**
  * Map an audit `@shared/services` id to the purchasable service_catalog
@@ -1081,6 +1179,108 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
         </div>
       </div>}
 
+      {/* ═══ FRIENDLY HERO SUMMARY — plain English on every tab ═══
+          Visible on Maps / Website / Plan when unlocked. Reuses the
+          existing missed-jobs estimate (loss.* / demandGaps[0]) and the
+          businessRank computed above. Trade → noun phrasing keeps it
+          conversational ("roof inspections" for roofers etc.); revenue
+          uses the per-trade mid-ticket from TRADE_AVG_TICKET (default
+          $250). AnimatedNumber count-up respects prefers-reduced-motion.
+      */}
+      {unlocked && (() => {
+        const missedJobsMonthly =
+          report?.demandGaps?.[0]?.estimatedMissedLeadsPerMonth ||
+          Math.round(((loss.low || 0) + (loss.high || 0)) / 2 / avgTicketForTrade(report?.trade)) ||
+          0;
+        const avgTicket = avgTicketForTrade(report?.trade);
+        const lostRevenueMonthly =
+          loss.low || loss.high
+            ? Math.round(((loss.low || 0) + (loss.high || 0)) / 2)
+            : missedJobsMonthly * avgTicket;
+        const noun = callNounForTrade(report?.trade);
+        const rankLine =
+          totalInMarket > 1
+            ? `You rank #${businessRank} of ${totalInMarket} in your area.`
+            : `Here's where you stand in your area.`;
+        const showRevenue = lostRevenueMonthly > 0 && businessRank > 3;
+
+        // City fallback for the second-line phrasing.
+        const movingLine =
+          businessRank > 3
+            ? `Moving to the top 3 would mean roughly ${missedJobsMonthly > 0 ? missedJobsMonthly : '5–15'} more ${noun} per month`
+            : `You're already in the top 3 — small wins could push you to #1`;
+
+        return (
+          <div
+            data-testid="friendly-hero-summary"
+            style={{
+              background: 'var(--qq-accent-tint, rgba(13,60,252,0.06))',
+              border: '1px solid rgba(13,60,252,0.22)',
+              borderRadius: 20,
+              padding: 'clamp(16px, 3vw, 22px) clamp(18px, 3.5vw, 24px)',
+              marginTop: 12,
+              marginBottom: 10,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8,
+            }}
+          >
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: '0.06em',
+                textTransform: 'uppercase',
+                color: CYAN,
+              }}
+            >
+              <TrendingUp size={12} strokeWidth={2.2} />
+              The bottom line
+            </div>
+            <div
+              style={{
+                fontSize: 'clamp(17px, 3.2vw, 22px)',
+                fontWeight: 700,
+                color: DARK,
+                lineHeight: 1.35,
+                letterSpacing: '-0.01em',
+              }}
+            >
+              <span style={{ fontWeight: 800 }}>{rankLine}</span>{' '}
+              <span style={{ color: '#374151', fontWeight: 600 }}>
+                {movingLine}
+                {showRevenue ? (
+                  <>
+                    {' — about '}
+                    <span style={{ color: CYAN, fontWeight: 800 }}>
+                      <AnimatedNumber value={lostRevenueMonthly} />
+                      /mo
+                    </span>
+                    {' in lost revenue.'}
+                  </>
+                ) : (
+                  '.'
+                )}
+              </span>
+            </div>
+            <div
+              style={{
+                fontSize: 12,
+                color: GREY,
+                lineHeight: 1.5,
+              }}
+            >
+              Estimate based on your local search demand and a {' '}
+              {showRevenue ? `$${avgTicket.toLocaleString()} average job value` : 'mid-range job value'}{' '}
+              for {report?.trade ? `${report.trade}` : 'your trade'}. Actual results vary by market.
+            </div>
+          </div>
+        );
+      })()}
+
       {/* ═══ LOCKED STATE: Partial results + gate ═══ */}
       {!unlocked && (
         <>
@@ -1288,9 +1488,22 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
         )}
       </div>}
 
-      {/* SECTION 2b — COMPETITOR ANALYSIS */}
+      {/* SECTION 2b — COMPETITOR ANALYSIS (Maps grid)
+          Now shows: (a) pulsing user "pin" on the You row when not top-3,
+          (b) per-competitor "+N" delta arrows showing positions the user
+          could gain by passing them, (c) checkmark on the You row when
+          already top-3. All animations respect prefers-reduced-motion. */}
       {activeTab === 'maps' && competitors.length > 0 && (
         <div style={{ background: WHITE, borderRadius: 16, border: `1px solid ${BORDER}`, padding: 24, marginBottom: 10 }}>
+          <style>{`
+            @keyframes userPinPulse {
+              0%, 100% { box-shadow: 0 0 0 0 rgba(13,60,252,0.45); }
+              50% { box-shadow: 0 0 0 6px rgba(13,60,252,0); }
+            }
+            @media (prefers-reduced-motion: reduce) {
+              .user-pin-pulse { animation: none !important; }
+            }
+          `}</style>
           {/* Header */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
             <div>
@@ -1318,11 +1531,16 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
             <div style={{ fontSize: 11, color: GREY, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12, fontWeight: 600 }}>Local competitors</div>
             {rankedCompetitors.slice(0, 5).map((comp: any, i: number) => {
               const isThreats = (comp.reviewsCount || 0) > businessReviews || (comp.rating || 0) > businessRating;
+              // Competitor's display rank (matches existing logic below).
+              const compRank = i + (businessRank <= i + 1 ? 2 : 1);
+              // How many positions the user gains by passing this competitor.
+              // Only meaningful when the competitor outranks the user.
+              const positionsToGain = compRank < businessRank ? businessRank - compRank : 0;
               return (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: i < rankedCompetitors.slice(0, 5).length - 1 ? `1px solid ${BORDER}` : 'none' }}>
                   {/* Rank number */}
                   <div style={{ width: 20, fontSize: 11, color: GREY, fontWeight: 600, flexShrink: 0, textAlign: 'center' }}>
-                    #{i + (businessRank <= i + 1 ? 2 : 1)}
+                    #{compRank}
                   </div>
                   {/* Photo or avatar */}
                   <div style={{ width: 36, height: 36, borderRadius: 8, overflow: 'hidden', flexShrink: 0, background: '#F3F4F6' }}>
@@ -1340,6 +1558,23 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                       <span style={{ fontSize: 11, color: GREY }}>{comp.rating} · {(comp.reviewsCount || 0).toLocaleString()} reviews</span>
                     </div>
                   </div>
+                  {/* Delta arrow — show "+N" positions to gain. Outline
+                      style (no bright fill) per design Rule 4. */}
+                  {positionsToGain > 0 && (
+                    <div
+                      title={`Pass this competitor to gain ${positionsToGain} ${positionsToGain === 1 ? 'position' : 'positions'}`}
+                      style={{
+                        fontSize: 10, fontWeight: 700,
+                        padding: '3px 7px', borderRadius: 16, flexShrink: 0,
+                        background: 'transparent',
+                        color: GREEN,
+                        border: `1px solid ${GREEN}`,
+                        display: 'inline-flex', alignItems: 'center', gap: 2,
+                      }}
+                    >
+                      <ArrowUp size={12} strokeWidth={2.4} />+{positionsToGain}
+                    </div>
+                  )}
                   {/* Threat or opportunity badge */}
                   <div style={{ fontSize: 10, fontWeight: 600, padding: '3px 8px', borderRadius: 20, flexShrink: 0, background: isThreats ? '#FEF2F2' : '#F0FFF4', color: isThreats ? RED : GREEN, border: `1px solid ${isThreats ? '#FECACA' : '#BBF7D0'}` }}>
                     {isThreats ? '⚠ Threat' : '✓ Beatable'}
@@ -1349,8 +1584,20 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
             })}
           </div>
 
-          {/* "You" row to show position */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: CYAN + '11', borderRadius: 10, border: `1px solid ${CYAN}44`, marginBottom: 16 }}>
+          {/* "You" row to show position — pulses when not yet top-3 to
+              draw the eye like a live "you-are-here" pin on a map. */}
+          <div
+            className={businessRank > 3 ? 'user-pin-pulse' : undefined}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              padding: '10px 12px',
+              background: CYAN + '11',
+              borderRadius: 10,
+              border: `1px solid ${CYAN}44`,
+              marginBottom: 16,
+              animation: businessRank > 3 ? 'userPinPulse 2.4s ease-in-out infinite' : undefined,
+            }}
+          >
             <div style={{ width: 20, fontSize: 11, color: CYAN, fontWeight: 700, textAlign: 'center' }}>#{businessRank}</div>
             <div style={{ width: 36, height: 36, borderRadius: 8, overflow: 'hidden', flexShrink: 0, background: CYAN + '22' }}>
               {business?.businessPhotoUrl ? (
@@ -1366,7 +1613,26 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                 <span style={{ fontSize: 11, color: GREY }}>{businessRating} · {businessReviews.toLocaleString()} reviews</span>
               </div>
             </div>
-            <div style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20, background: CYAN + '22', color: CYAN, border: `1px solid ${CYAN}`, flexShrink: 0 }}>You</div>
+            {/* When top-3 already: outline checkmark pill (no bright fill,
+                Rule 4). Otherwise the "You" pill. */}
+            {businessRank <= 3 ? (
+              <div
+                title="You're already in the top 3 in your area"
+                style={{
+                  fontSize: 10, fontWeight: 700,
+                  padding: '3px 8px', borderRadius: 20,
+                  background: 'transparent',
+                  color: GREEN,
+                  border: `1px solid ${GREEN}`,
+                  flexShrink: 0,
+                  display: 'inline-flex', alignItems: 'center', gap: 3,
+                }}
+              >
+                <Check size={12} strokeWidth={2.6} />Top 3
+              </div>
+            ) : (
+              <div style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20, background: CYAN + '22', color: CYAN, border: `1px solid ${CYAN}`, flexShrink: 0 }}>You</div>
+            )}
           </div>
 
           {/* Threats vs opportunities summary */}
@@ -1647,43 +1913,98 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                     </span>
                     <span style={{ fontSize: 16, color: GREY, fontWeight: 400 }}>/100</span>
                   </div>
-                  <div style={{ fontSize: 11, color: '#4B5563', marginBottom: 6 }}>
-                    Tap a metric to see how to fix it
-                  </div>
-                  {[
-                    { key: 'fcp', label: 'FCP', tip: 'How fast the first content appears on screen', val: data?.fcp, unit: 's', good: 2.5, ok: 4 },
-                    { key: 'lcp', label: 'LCP', tip: 'How fast the main content loads — Google uses this for rankings', val: data?.lcp, unit: 's', good: 2.5, ok: 4 },
-                    { key: 'tbt', label: 'TBT', tip: 'How long your site freezes before users can interact', val: data?.tbt, unit: 'ms', good: 200, ok: 600 },
-                    { key: 'cls', label: 'CLS', tip: 'How much elements jump around while loading', val: data?.cls, unit: '', good: 0.1, ok: 0.25 },
-                  ].map(m => {
-                    const isGood = (m.val || 0) <= m.good;
-                    const isOk = (m.val || 0) <= m.ok;
-                    const statusC = isGood ? GREEN : isOk ? AMBER : RED;
-                    const statusT = isGood ? 'Good' : isOk ? 'Needs work' : 'Critical';
-                    return (
-                      <div key={m.key} onClick={() => setMetricModal(m.key)}
-                        role="button" tabIndex={0}
-                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setMetricModal(m.key); } }}
-                        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 4px', marginTop: 0, borderTop: `1px solid ${BORDER}`, cursor: 'pointer', borderRadius: 4, transition: 'background 0.12s ease' }}
-                        onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(0,0,0,0.035)')}
-                        onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-                      >
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <span style={{ fontSize: 12, fontWeight: 600, color: DARK }}>{m.label}</span>
-                            <Tooltip text={m.tip} />
+
+                  {/* Plain-English score interpretation — surfaced FIRST,
+                      above the FCP/LCP/CLS/TBT detail rows. Mirrors the
+                      tone of the overall-score modal copy but scoped to
+                      the speed score so non-experts get an answer before
+                      they hit the technical acronyms. */}
+                  {data?.score != null && (
+                    <p
+                      data-testid="speed-plain-english"
+                      style={{
+                        fontSize: 13,
+                        color: GREY,
+                        lineHeight: 1.6,
+                        margin: '8px 0 12px',
+                      }}
+                    >
+                      {data.score >= 75
+                        ? 'Your website is fast — visitors won’t bounce because of loading. Keep monitoring.'
+                        : data.score >= 50
+                        ? `A score of ${data.score}/100 means visitors are waiting longer than they should. About 1 in 4 will leave before the page loads.`
+                        : `A score of ${data.score}/100 is critical. Most visitors leave before your site loads — and Google ranks slow sites lower in local search.`}
+                    </p>
+                  )}
+
+                  {/* Lighthouse detail rows — wrapped in a <details>
+                      disclosure (collapsed by default). The summary line
+                      is the only thing visible until the user opts in to
+                      the acronym soup. Respects keyboard + screenreader
+                      semantics natively. */}
+                  <details
+                    data-testid="lighthouse-details"
+                    style={{
+                      borderTop: `1px solid ${BORDER}`,
+                      paddingTop: 8,
+                      marginTop: 4,
+                    }}
+                  >
+                    <summary
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        cursor: 'pointer',
+                        fontSize: 12,
+                        fontWeight: 600,
+                        color: '#4B5563',
+                        padding: '6px 4px',
+                        listStyle: 'none',
+                        userSelect: 'none',
+                      }}
+                    >
+                      <ChevronRight size={14} color={GREY} style={{ flexShrink: 0 }} />
+                      Show technical details (FCP, LCP, CLS, TBT)
+                    </summary>
+                    <div style={{ fontSize: 11, color: '#4B5563', margin: '6px 4px 0' }}>
+                      Tap a metric to see how to fix it
+                    </div>
+                    {[
+                      { key: 'fcp', label: 'FCP', tip: 'How fast the first content appears on screen', val: data?.fcp, unit: 's', good: 2.5, ok: 4 },
+                      { key: 'lcp', label: 'LCP', tip: 'How fast the main content loads — Google uses this for rankings', val: data?.lcp, unit: 's', good: 2.5, ok: 4 },
+                      { key: 'tbt', label: 'TBT', tip: 'How long your site freezes before users can interact', val: data?.tbt, unit: 'ms', good: 200, ok: 600 },
+                      { key: 'cls', label: 'CLS', tip: 'How much elements jump around while loading', val: data?.cls, unit: '', good: 0.1, ok: 0.25 },
+                    ].map(m => {
+                      const isGood = (m.val || 0) <= m.good;
+                      const isOk = (m.val || 0) <= m.ok;
+                      const statusC = isGood ? GREEN : isOk ? AMBER : RED;
+                      const statusT = isGood ? 'Good' : isOk ? 'Needs work' : 'Critical';
+                      return (
+                        <div key={m.key} onClick={() => setMetricModal(m.key)}
+                          role="button" tabIndex={0}
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setMetricModal(m.key); } }}
+                          style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 4px', marginTop: 0, borderTop: `1px solid ${BORDER}`, cursor: 'pointer', borderRadius: 4, transition: 'background 0.12s ease' }}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(0,0,0,0.035)')}
+                          onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                        >
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <span style={{ fontSize: 12, fontWeight: 600, color: DARK }}>{m.label}</span>
+                              <Tooltip text={m.tip} />
+                            </div>
+                            <div style={{ fontSize: 12, color: GREY, marginTop: 1 }}>{m.val != null ? `${m.val}${m.unit}` : '—'}</div>
                           </div>
-                          <div style={{ fontSize: 12, color: GREY, marginTop: 1 }}>{m.val != null ? `${m.val}${m.unit}` : '—'}</div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                            {m.val != null && (
+                              <span style={{ padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600, background: statusC + '20', color: statusC }}>{statusT}</span>
+                            )}
+                            <ChevronRight size={14} color={GREY} style={{ opacity: 0.3 }} />
+                          </div>
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                          {m.val != null && (
-                            <span style={{ padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600, background: statusC + '20', color: statusC }}>{statusT}</span>
-                          )}
-                          <ChevronRight size={14} color={GREY} style={{ opacity: 0.3 }} />
-                        </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </details>
                 </>
               );
             })()}
@@ -1699,6 +2020,41 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
           </div>
         )}
       </>)}
+
+      {/* SECTION — BEFORE / AFTER WEBSITE PREVIEW (Website tab hero visual)
+          Uses the live screenshot for both layers and applies a CSS filter
+          + green tint to the "after" side to simulate a polished projection
+          (we don't have real "after" images at audit time). Lets visitors
+          *see* the upside instead of just reading about it. */}
+      {unlocked && activeTab === 'website' && (() => {
+        const screenshot = liveWebsiteScreenshot || report?.websiteScreenshot;
+        if (!screenshot) return null;
+        const screenshotSrc = screenshot.startsWith('data:')
+          ? screenshot
+          : `data:image/jpeg;base64,${screenshot}`;
+        return (
+          <div style={card({ marginBottom: 10 })}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+              <span style={{ fontSize: 17, fontWeight: 700, color: DARK }}>See the upside</span>
+              <Info className="breakdown-info-icon" size={14} color={GREY} style={{ flexShrink: 0, opacity: 0.35, animation: 'infoNudge 3s ease-in-out infinite' }} />
+            </div>
+            <div style={{ fontSize: 12, color: GREY, marginBottom: 12 }}>
+              Drag the divider to see how your site could look with our WebCare fixes
+            </div>
+            <BeforeAfterSlider
+              beforeSrc={screenshotSrc}
+              afterSrc={screenshotSrc}
+              beforeAlt={`${business?.name || 'Business'} website today`}
+              afterAlt={`${business?.name || 'Business'} website projection`}
+              beforeLabel="Today"
+              afterLabel="With WebCare"
+              afterFilter="contrast(1.06) saturate(1.18) brightness(1.02)"
+              afterOverlayColor="rgba(34,197,94,0.10)"
+              caption="Projection — actual results vary by site. The “after” is a stylized preview, not a guarantee."
+            />
+          </div>
+        );
+      })()}
 
       {/* SECTION — WEBSITE VISUAL ANALYSIS (screenshot + AI findings) */}
       {unlocked && activeTab === 'website' && (() => {

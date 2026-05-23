@@ -419,6 +419,7 @@ export default function MissedCallCalculatorShell({ initialTradeId }: ShellProps
                     avgJobValue: sliderValues.avgJobValue,
                   }}
                   tradeName={selectedPreset.label}
+                  tradeId={selectedPreset.id}
                   unlocked={unlocked}
                 />
 
