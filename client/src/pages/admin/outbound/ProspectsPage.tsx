@@ -15,12 +15,13 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import {
   CheckCircle, XCircle, AlertTriangle, Globe, Phone, Mail,
-  Star, Upload, Brain, RefreshCw, ChevronDown, FileText, Zap, HelpCircle,
+  Star, Upload, Brain, RefreshCw, ChevronDown, FileText, Zap, HelpCircle, Search,
 } from "lucide-react";
 import {
   Tooltip, TooltipContent, TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { TemplatePreview } from "@/components/outbound/TemplatePreview";
+import { useCopilotForm } from "@/context/CopilotFormContext";
 
 /* ─── Types ─── */
 interface ProspectEnrichment {
@@ -89,6 +90,152 @@ function ScoreBadge({ score }: { score: number | null }) {
   if (score === null) return <span className="text-xs text-gray-400">—</span>;
   const color = score >= 70 ? "text-green-600" : score >= 45 ? "text-amber-600" : "text-red-500";
   return <span className={`text-sm font-bold ${color}`}>{score}</span>;
+}
+
+/* ─── Scrape Leads Dialog (Outscraper Google-Maps search) ─── */
+function ScrapeLeadsDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [form, setForm] = useState({
+    trade: "",
+    city: "",
+    state: "",
+    country: "US",
+    limit: 100,
+  });
+
+  useCopilotForm({
+    formLabel: "Scrape leads (Outscraper)",
+    fields: [
+      { key: "trade", label: "Trade (e.g. plumber, electrician)" },
+      { key: "city", label: "City" },
+      { key: "state", label: "State or province (optional)" },
+      { key: "country", label: "Country code (US, CA, GB, ...)" },
+      { key: "limit", label: "Lead limit (1-500)" },
+    ],
+    values: form as unknown as Record<string, unknown>,
+    onApply: (fills) => {
+      setForm((prev) => {
+        const next = { ...prev };
+        for (const f of fills) {
+          if (f.field_key === "limit") {
+            const n = parseInt(f.value, 10);
+            if (Number.isFinite(n)) next.limit = Math.max(1, Math.min(500, n));
+            continue;
+          }
+          if (f.field_key in next) (next as any)[f.field_key] = f.value;
+        }
+        return next;
+      });
+    },
+    enabled: open,
+  });
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/admin/outbound/scrape", {
+        trade: form.trade.trim(),
+        city: form.city.trim(),
+        state: form.state.trim() || null,
+        country: form.country.trim() || "US",
+        limit: form.limit,
+      });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/outbound/prospects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/outbound/overview"] });
+      toast({
+        title: "Scrape complete",
+        description: `${data.importedCount ?? 0} imported, ${data.dedupedCount ?? 0} deduped, ${data.failed ?? 0} failed`,
+      });
+      onClose();
+    },
+    onError: (err: any) => {
+      toast({ title: "Scrape failed", description: err.message, variant: "destructive" });
+    },
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="sm:max-w-md" data-theme="light">
+        <DialogHeader><DialogTitle>Scrape leads via Outscraper</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <div className="flex items-center gap-1">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <HelpCircle className="w-3 h-3 text-gray-400" />
+                </TooltipTrigger>
+                <TooltipContent className="max-w-[260px] text-xs">
+                  The trade keyword used in the Google Maps search (e.g. "plumber in Toronto, ON, CA").
+                </TooltipContent>
+              </Tooltip>
+              <label className="text-xs font-medium text-gray-700">Trade</label>
+            </div>
+            <Input value={form.trade} onChange={(e) => setForm((f) => ({ ...f, trade: e.target.value }))} placeholder="plumber" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-gray-700">City</label>
+              <Input value={form.city} onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))} placeholder="Toronto" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-gray-700">State / Province</label>
+              <Input value={form.state} onChange={(e) => setForm((f) => ({ ...f, state: e.target.value }))} placeholder="ON" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-gray-700">Country</label>
+              <Select value={form.country} onValueChange={(v) => setForm((f) => ({ ...f, country: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="US">United States</SelectItem>
+                  <SelectItem value="CA">Canada</SelectItem>
+                  <SelectItem value="GB">United Kingdom</SelectItem>
+                  <SelectItem value="AU">Australia</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <div className="flex items-center gap-1">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <HelpCircle className="w-3 h-3 text-gray-400" />
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-[260px] text-xs">
+                    Max leads to fetch. Outscraper credits are consumed per lead — keep small for testing.
+                  </TooltipContent>
+                </Tooltip>
+                <label className="text-xs font-medium text-gray-700">Limit</label>
+              </div>
+              <Input
+                type="number"
+                min={1}
+                max={500}
+                value={form.limit}
+                onChange={(e) => setForm((f) => ({ ...f, limit: Math.max(1, Math.min(500, parseInt(e.target.value, 10) || 100)) }))}
+              />
+            </div>
+          </div>
+          <p className="text-[11px] text-gray-500">
+            Rate limited to 5 scrapes per hour per admin. Results are deduped, blacklisted prospects skipped, and heuristics run automatically.
+          </p>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button
+            onClick={() => mutation.mutate()}
+            disabled={!form.trade.trim() || !form.city.trim() || mutation.isPending}
+            className="bg-[#0d3cfc] hover:bg-[#0b34d6]"
+          >
+            {mutation.isPending ? "Scraping..." : "Scrape"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 /* ─── CSV Upload Dialog ─── */
@@ -240,6 +387,7 @@ export default function ProspectsPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [csvOpen, setCsvOpen] = useState(false);
+  const [scrapeOpen, setScrapeOpen] = useState(false);
   const [reviewProspect, setReviewProspect] = useState<Prospect | null>(null);
   const [templateRow, setTemplateRow] = useState<{ prospect: Prospect; enrichment: ProspectEnrichment | null } | null>(null);
   const [selected, setSelected] = useState<number[]>([]);
@@ -306,6 +454,10 @@ export default function ProspectsPage() {
                 {enrichBatch.isPending ? "Enriching..." : `AI Enrich (${selected.length})`}
               </Button>
             )}
+            <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setScrapeOpen(true)}>
+              <Search className="w-3.5 h-3.5" />
+              Scrape Leads
+            </Button>
             <Button size="sm" className="bg-[#0d3cfc] hover:bg-[#0b34d6] gap-1.5" onClick={() => setCsvOpen(true)}>
               <Upload className="w-3.5 h-3.5" />
               Import CSV
@@ -497,6 +649,7 @@ export default function ProspectsPage() {
         </div>
       </div>
 
+      <ScrapeLeadsDialog open={scrapeOpen} onClose={() => setScrapeOpen(false)} />
       <CsvUploadDialog open={csvOpen} onClose={() => setCsvOpen(false)} />
       <ReviewDialog prospect={reviewProspect} open={!!reviewProspect} onClose={() => setReviewProspect(null)} />
       <TemplatePreview

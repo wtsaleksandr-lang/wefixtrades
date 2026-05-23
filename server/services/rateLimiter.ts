@@ -160,3 +160,16 @@ export const magicLinkDedupeLimiter = new RateLimiter(
   1,
   60_000,
 );
+
+/**
+ * Per-admin cap on the outbound scrape endpoint
+ * (POST /api/admin/outbound/scrape). Each scrape costs real Outscraper
+ * credits (~$0.005-0.05 per lead, plan-dependent) and a botched query
+ * can burn through hundreds of credits in seconds. 5 / hour / admin
+ * gives plenty of headroom for legitimate use while bounding accidents.
+ */
+export const outboundScrapeRateLimiter = new RateLimiter(
+  defaultStore,
+  5,
+  60 * 60_000,
+);

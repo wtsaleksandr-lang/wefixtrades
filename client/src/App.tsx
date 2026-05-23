@@ -112,6 +112,7 @@ import ChangePasswordPage from "@/pages/admin/ChangePasswordPage";
 import ProspectsPage from "@/pages/admin/outbound/ProspectsPage";
 import CampaignsPage from "@/pages/admin/outbound/CampaignsPage";
 import PipelinePage from "@/pages/admin/outbound/PipelinePage";
+import SequencesPage from "@/pages/admin/outbound/SequencesPage";
 import SocialSyncOpsPage from "@/pages/admin/SocialSyncOpsPage";
 import ContentFlowQueuePage from "@/pages/admin/ContentFlowQueuePage";
 import SalesPipelinePage from "@/pages/admin/SalesPipelinePage";
@@ -283,6 +284,7 @@ function Router() {
       {/* Outbound lead management */}
       <Route path="/admin/outbound/prospects">{() => <RequirePortal><ProspectsPage /></RequirePortal>}</Route>
       <Route path="/admin/outbound/campaigns">{() => <RequirePortal><CampaignsPage /></RequirePortal>}</Route>
+      <Route path="/admin/outbound/sequences">{() => <RequirePortal><SequencesPage /></RequirePortal>}</Route>
       <Route path="/admin/outbound/pipeline">{() => <RequirePortal><PipelinePage /></RequirePortal>}</Route>
       <Route path="/admin/outbound">{() => <Redirect to="/admin/outbound/prospects" />}</Route>
 
