@@ -8,10 +8,10 @@
 
 import { useState, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Link } from "wouter";
-import { Phone, MapPin, CheckCircle, ChevronLeft, ChevronRight, Calendar, ArrowLeft } from "lucide-react";
+import { Phone, MapPin, CheckCircle, ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ToastAction } from "@/components/ui/toast";
+import PortalLayout from "@/components/portal/PortalLayout";
 
 interface Appointment {
   id: number;
@@ -116,21 +116,12 @@ export default function DispatchPage() {
   const completedCount = appointments.filter((a) => a.status === "completed").length;
 
   return (
+    <PortalLayout breadcrumb="Today's jobs" compact>
     <div data-theme="light" style={{ maxWidth: 600, margin: "0 auto", padding: "16px" }}>
-      {/* Back to portal — DispatchPage is intentionally outside the
-          PortalLayout (mobile-first for tradespeople in the field),
-          so we provide a single inline link rather than the full
-          sidebar nav. */}
-      <Link href="/portal">
-        <a style={{
-          display: "inline-flex", alignItems: "center", gap: 4,
-          fontSize: 12, color: "#6b7280", textDecoration: "none", marginBottom: 12,
-        }}>
-          <ArrowLeft size={12} /> Back to portal
-        </a>
-      </Link>
-
-      {/* Header */}
+      {/* Header — Dispatch is mobile-first for tradespeople in the field.
+          PortalLayout's compact mode drops outer chrome on small screens so
+          this surface still feels like a stripped-down field app, while
+          desktop users get the full sidebar nav. */}
       <h1 className="text-gray-900" style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px" }}>
         Dispatch
       </h1>
@@ -328,6 +319,7 @@ export default function DispatchPage() {
         })}
       </div>
     </div>
+    </PortalLayout>
   );
 }
 

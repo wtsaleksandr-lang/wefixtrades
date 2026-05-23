@@ -118,7 +118,7 @@ export default function InvoicesPage() {
     .reduce((sum, i) => sum + i.total_cents, 0);
 
   return (
-    <PortalLayout>
+    <PortalLayout breadcrumb="Invoices">
     <div data-theme="light" style={{ maxWidth: 640, margin: "0 auto", padding: "16px" }}>
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
