@@ -957,6 +957,15 @@ export const bookflowInvoices = pgTable("bookflow_invoices", {
   notes: text("notes"),
   pay_link_token: text("pay_link_token").unique(),
   metadata: jsonb("metadata"),
+  // 0042 — invoice template + currency (label-only) + issue_date + linked contact.
+  currency: text("currency").notNull().default("USD"),
+  issue_date: timestamp("issue_date", { mode: "date" }),
+  template_slug: text("template_slug"),
+  // contact_id is a UUID FK to contacts(id) — surfaced as text() so this file
+  // can stay free of the contacts import (drizzle treats text() and uuid()
+  // identically at the column level for FK purposes; the migration installs
+  // the actual UUID + ON DELETE SET NULL constraint).
+  contact_id: text("contact_id"),
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
 });
@@ -966,6 +975,41 @@ export const insertBookflowInvoiceSchema = createInsertSchema(bookflowInvoices).
 });
 export type InsertBookflowInvoice = z.infer<typeof insertBookflowInvoiceSchema>;
 export type BookflowInvoice = typeof bookflowInvoices.$inferSelect;
+
+/* ─── Invoice Templates (0042) ──────────────────────────────────────────
+ *
+ * Holds builtin (client_id IS NULL) + per-client custom invoice templates.
+ * Phase A ships 3 builtins seeded by the migration:
+ *   classic-minimal | modern-bold | trade-service
+ *
+ * Phase B adds 7 more builtins plus the "Save as template" flow that
+ * inserts client_id IS NOT NULL rows when a tradesperson promotes one of
+ * their invoices into a reusable template.
+ *
+ * layout_config is data-driven: { accent, headerStyle, tableStyle, ... }.
+ * Renderers consume the object so adding a Phase-B builtin is mostly JSON,
+ * not new TSX files.
+ * ─────────────────────────────────────────────────────────────────── */
+export const invoiceTemplates = pgTable("invoice_templates", {
+  // UUID stored as text() to keep this file free of the uuid() import dance —
+  // the migration creates the column as UUID + gen_random_uuid().
+  id: text("id").primaryKey(),
+  // NULL for builtins (shared across all clients); NOT NULL for custom rows
+  // owned by one client.
+  client_id: integer("client_id"),
+  // "builtin" | "custom"
+  kind: text("kind").notNull(),
+  name: text("name").notNull(),
+  slug: text("slug").notNull(),
+  layout_config: jsonb("layout_config").notNull().default({}),
+  created_at: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updated_at: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+export type InvoiceTemplate = typeof invoiceTemplates.$inferSelect;
+export const insertInvoiceTemplateSchema = createInsertSchema(invoiceTemplates).omit({
+  id: true, created_at: true, updated_at: true,
+});
+export type InsertInvoiceTemplate = z.infer<typeof insertInvoiceTemplateSchema>;
 
 /* ─── System Alerts ─── */
 export const systemAlerts = pgTable("system_alerts", {

@@ -5,12 +5,12 @@
  * Create invoices, send them to customers, track payment status.
  */
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import {
   Plus, Send, Eye, DollarSign, FileText,
-  ChevronDown, X, Settings,
+  ChevronDown, X, Settings, Search,
 } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { useToast } from "@/hooks/use-toast";
@@ -62,19 +62,32 @@ function statusBadge(status: string): { bg: string; text: string; label: string 
   }
 }
 
+type DateRange = "all" | "30d" | "90d";
+type SortKey = "newest" | "oldest" | "amount_desc" | "amount_asc";
+
 export default function InvoicesPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [statusFilter, setStatusFilter] = useState("");
+  const [search, setSearch] = useState("");
+  const [range, setRange] = useState<DateRange>("all");
+  const [sort, setSort] = useState<SortKey>("newest");
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
+  const queryString = useMemo(() => {
+    const p = new URLSearchParams();
+    if (statusFilter) p.set("status", statusFilter);
+    if (search.trim()) p.set("q", search.trim());
+    if (range !== "all") p.set("range", range);
+    if (sort !== "newest") p.set("sort", sort);
+    const qs = p.toString();
+    return qs ? `?${qs}` : "";
+  }, [statusFilter, search, range, sort]);
+
   const { data: invoices = [], isLoading } = useQuery<Invoice[]>({
-    queryKey: ["/api/portal/bookflow/invoices", statusFilter],
+    queryKey: ["/api/portal/bookflow/invoices", statusFilter, search, range, sort],
     queryFn: async () => {
-      const url = statusFilter
-        ? `/api/portal/bookflow/invoices?status=${statusFilter}`
-        : `/api/portal/bookflow/invoices`;
-      const res = await fetch(url, { credentials: "include" });
+      const res = await fetch(`/api/portal/bookflow/invoices${queryString}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to load");
       return res.json();
     },
@@ -119,7 +132,9 @@ export default function InvoicesPage() {
 
   return (
     <PortalLayout breadcrumb="Invoices">
-    <div data-theme="light" style={{ maxWidth: 640, margin: "0 auto", padding: "16px" }}>
+    {/* Width + horizontal gutters are owned by PortalLayout (PR #600 canonical
+        pattern). We only keep a small vertical rhythm here. */}
+    <div data-theme="light">
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
         <h1 className="text-gray-900" style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Invoices</h1>
@@ -166,6 +181,56 @@ export default function InvoicesPage() {
           <Settings size={12} />
           Payment Methods
         </Link>
+      </div>
+
+      {/* Search + range + sort.
+       *
+       *  Search filters by customer name OR invoice number. Range collapses
+       *  to a query param the server applies as a created_at cutoff. */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}>
+        <div style={{ position: "relative", flex: "1 1 220px", minWidth: 220 }}>
+          <Search size={14} style={{ position: "absolute", left: 10, top: 12, color: "#9ca3af", pointerEvents: "none" }} />
+          <input
+            type="text"
+            placeholder="Search customer or #"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{
+              width: "100%",
+              height: 36,
+              borderRadius: 8,
+              border: "1px solid #e5e7eb",
+              padding: "0 12px 0 32px",
+              fontSize: 13,
+              color: "#111",
+              outline: "none",
+              boxSizing: "border-box",
+              background: "var(--field-bg-light)",
+            }}
+            aria-label="Search invoices"
+          />
+        </div>
+        <select
+          value={range}
+          onChange={(e) => setRange(e.target.value as DateRange)}
+          aria-label="Filter by date range"
+          style={{ height: 36, borderRadius: 8, border: "1px solid #e5e7eb", padding: "0 10px", fontSize: 13, background: "var(--field-bg-light)", color: "#111" }}
+        >
+          <option value="all">All time</option>
+          <option value="30d">Last 30 days</option>
+          <option value="90d">Last 90 days</option>
+        </select>
+        <select
+          value={sort}
+          onChange={(e) => setSort(e.target.value as SortKey)}
+          aria-label="Sort invoices"
+          style={{ height: 36, borderRadius: 8, border: "1px solid #e5e7eb", padding: "0 10px", fontSize: 13, background: "var(--field-bg-light)", color: "#111" }}
+        >
+          <option value="newest">Newest first</option>
+          <option value="oldest">Oldest first</option>
+          <option value="amount_desc">Amount: high → low</option>
+          <option value="amount_asc">Amount: low → high</option>
+        </select>
       </div>
 
       {/* Status filter */}
@@ -255,9 +320,13 @@ export default function InvoicesPage() {
             >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                 <div>
-                  <span style={{ fontSize: 14, fontWeight: 600, color: "#111" }}>
+                  <Link
+                    href={`/portal/invoices/${inv.id}`}
+                    className="text-brand-blue hover:underline"
+                    style={{ fontSize: 14, fontWeight: 600, textDecoration: "none" }}
+                  >
                     {inv.invoice_number}
-                  </span>
+                  </Link>
                   <span style={{ fontSize: 13, color: "#6b7280", marginLeft: 8 }}>
                     {inv.customer_name}
                   </span>

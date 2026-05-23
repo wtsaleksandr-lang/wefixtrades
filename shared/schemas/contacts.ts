@@ -31,6 +31,13 @@ export const contacts = pgTable(
       () => suppliers.id,
       { onDelete: "set null" },
     ),
+    // 0042 — billing address fields used by Invoice Phase A. Set when a
+    // contact is linked to an invoice so the invoice header auto-fills.
+    billing_street: text("billing_street"),
+    billing_city: text("billing_city"),
+    billing_region: text("billing_region"),
+    billing_postal: text("billing_postal"),
+    billing_country: text("billing_country").default("US"),
     created_at: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updated_at: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
