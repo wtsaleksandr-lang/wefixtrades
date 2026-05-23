@@ -1,7 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useQuery } from "@tanstack/react-query";
-import { Wrench, ClipboardList, AlertCircle, CreditCard, Loader2, Calculator, Eye, Users, ExternalLink, RefreshCw, PhoneCall, Clock, ChevronRight, Plus, UserPlus } from "lucide-react";
+import { Wrench, ClipboardList, AlertCircle, CreditCard, ExternalLink, RefreshCw, PhoneCall, Clock, ChevronRight, Plus, UserPlus, Sparkles, LifeBuoy } from "lucide-react";
 import { Link } from "wouter";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { TASK_STATUS_STYLES, TASK_STATUS_LABELS, statusLabel } from "@/config/portalLabels";
@@ -119,6 +119,31 @@ function formatCents(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
 }
 
+function formatDollarsRound(cents: number): string {
+  return `$${Math.round(cents / 100).toLocaleString()}`;
+}
+
+function daysUntil(dateStr: string | null | undefined): number | null {
+  if (!dateStr) return null;
+  const t = new Date(dateStr).getTime();
+  if (isNaN(t)) return null;
+  const ms = t - Date.now();
+  const days = Math.ceil(ms / 86_400_000);
+  return days >= 0 ? days : null;
+}
+
+interface DashboardBillingSlice {
+  summary: {
+    total_pending_cents: number;
+    next_due_at: string | null;
+    next_due_amount_cents: number | null;
+  };
+}
+
+interface TicketsSlice {
+  tickets: { id: number; status: string }[];
+}
+
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
   if (isNaN(diff)) return "";
@@ -226,6 +251,31 @@ function PortalDashboardInner() {
     enabled: !!tradeLineService,
   });
 
+  // Hero strip: billing + tickets slices. Defensive — if a sub-query fails,
+  // the hero just renders without that field rather than breaking the page.
+  const { data: billingSlice } = useQuery<DashboardBillingSlice>({
+    queryKey: ["/api/portal/billing"],
+    queryFn: async () => {
+      const res = await fetch("/api/portal/billing", { credentials: "include" });
+      if (!res.ok) return { summary: { total_pending_cents: 0, next_due_at: null, next_due_amount_cents: null } };
+      return res.json();
+    },
+  });
+  const { data: ticketsSlice } = useQuery<TicketsSlice>({
+    queryKey: ["/api/portal/tickets"],
+    queryFn: async () => {
+      const res = await fetch("/api/portal/tickets", { credentials: "include" });
+      if (!res.ok) return { tickets: [] };
+      return res.json();
+    },
+  });
+  const openTickets = (ticketsSlice?.tickets ?? []).filter(
+    (t) => t.status !== "resolved" && t.status !== "closed",
+  ).length;
+  const leadsThisMonth = qqData?.calculator?.total_leads ?? 0;
+  const nextBillingDays = daysUntil(billingSlice?.summary.next_due_at);
+  const nextBillCents = billingSlice?.summary.next_due_amount_cents ?? null;
+
   return (
     <PortalLayout>
       {isLoading && (
@@ -311,7 +361,34 @@ function PortalDashboardInner() {
           </button>
         </div>
       )}
-      {data && (
+      {data && data.active_services === 0 && (
+        /* New-customer welcome flow — zero active services. Replaces
+           StatCards + Recent Activity with a focused first-action prompt. */
+        <div className="max-w-3xl mx-auto" data-testid="dashboard-new-customer-welcome">
+          <Card data-theme="light" className="p-8 text-center">
+            <Sparkles className="mx-auto text-gray-300 mb-4" size={32} aria-hidden="true" />
+            <h2 className="text-xl font-bold text-gray-900 mb-2">Welcome to WeFixTrades</h2>
+            <p className="text-gray-600 mb-6 max-w-md mx-auto">
+              Pick your first service to get started. We'll guide you through setup and connect everything for you.
+            </p>
+            <Link
+              href="/portal/catalog"
+              data-testid="dashboard-welcome-browse"
+              className="btn-primary-premium inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg"
+            >
+              Browse services
+            </Link>
+            <Link
+              href="/tools/free-audit"
+              className="block mt-3 text-sm text-gray-500 hover:underline"
+              data-testid="dashboard-welcome-free-audit"
+            >
+              Or run a free audit first →
+            </Link>
+          </Card>
+        </div>
+      )}
+      {data && data.active_services > 0 && (
         <div className="max-w-5xl mx-auto space-y-6">
           {/* Header */}
           <div>
@@ -320,6 +397,45 @@ function PortalDashboardInner() {
             </h1>
             <p className="text-sm text-gray-500 mt-0.5">{data.business_name}</p>
           </div>
+
+          {/* Hero KPI strip — premium brand-tinted summary panel above
+             the existing 4 StatCards. Surfaces leads this month, next
+             billing, and open tickets in one glance. */}
+          <Card
+            data-testid="dashboard-hero-kpi"
+            className="mb-4 bg-gradient-to-br from-[#0d3cfc] to-[#0a2fd0] text-white border-0"
+          >
+            <div className="p-6">
+              <div className="text-xs uppercase tracking-wider opacity-75 mb-2">This month</div>
+              <div className="text-3xl font-bold mb-3">
+                <AnimatedNumber value={leadsThisMonth} duration={1000} /> lead{leadsThisMonth === 1 ? "" : "s"}
+                {nextBillingDays != null && nextBillCents != null && (
+                  <span className="text-sm font-normal opacity-80">
+                    {" · "}{formatDollarsRound(nextBillCents)} due in {nextBillingDays}d
+                  </span>
+                )}
+              </div>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <Link
+                  href="/portal/services"
+                  className="text-sm text-white/90 hover:text-white hover:underline"
+                  data-testid="dashboard-hero-services-link"
+                >
+                  View your services →
+                </Link>
+                {openTickets > 0 && (
+                  <Link
+                    href="/portal/help"
+                    className="text-sm text-white/90 hover:text-white hover:underline inline-flex items-center gap-1"
+                    data-testid="dashboard-hero-tickets-link"
+                  >
+                    <LifeBuoy className="w-3.5 h-3.5" />
+                    {openTickets} open ticket{openTickets === 1 ? "" : "s"}
+                  </Link>
+                )}
+              </div>
+            </div>
+          </Card>
 
           {/* Tradeline setup banner — hidden once setup is complete */}
           <TradelineSetupBanner />
@@ -449,86 +565,9 @@ function PortalDashboardInner() {
             </Card>
           )}
 
-          {/* QuoteQuick card — IA-1 (2026-05-22):
-             *
-             * Primary CTA now opens the WIZARD EDITOR (not the standalone
-             * /dashboard). Per the IA fix, the standalone QuoteQuick
-             * dashboard is no longer a navigation target from /portal —
-             * the editor is. The dashboard remains reachable via token
-             * deep-links (e.g. lead-notification emails). */}
-          {qqData?.calculator && (
-            <Card className="p-5">
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center">
-                    <Calculator className="w-5 h-5 text-indigo-600" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-semibold text-gray-900">QuoteQuick Pro</h3>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium capitalize ${
-                        qqData.calculator.status === "live" ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-600"
-                      }`}>
-                        {qqData.calculator.status === "live" ? "Live" : "Draft"}
-                      </span>
-                      <span className="text-[10px] text-gray-400 capitalize">{qqData.calculator.plan_tier} plan</span>
-                    </div>
-                  </div>
-                </div>
-                <Link
-                  href={`/wizard?token=${qqData.calculator.edit_token}`}
-                  data-testid="portal-qq-open-editor"
-                  className="btn-primary-premium inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg"
-                >
-                  Open editor <ChevronRight className="w-3 h-3" />
-                </Link>
-              </div>
-              <div className="grid grid-cols-2 gap-4 mt-4 pt-3 border-t border-gray-100">
-                <div className="flex items-center gap-2">
-                  <Eye className="w-3.5 h-3.5 text-gray-400" />
-                  <span className="text-sm text-gray-600">{(qqData.calculator.total_views ?? 0).toLocaleString()} views</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Users className="w-3.5 h-3.5 text-gray-400" />
-                  <span className="text-sm text-gray-600">{(qqData.calculator.total_leads ?? 0).toLocaleString()} leads</span>
-                </div>
-              </div>
-              {/* Wave W-BB-4 — link to per-calculator conversion analytics */}
-              <div className="mt-3 pt-3 border-t border-gray-100">
-                <Link
-                  href={`/portal/calculators/${qqData.calculator.id}/analytics`}
-                  className="text-xs font-medium text-[#0d3cfc] hover:underline"
-                  data-testid="portal-calc-analytics-link"
-                >
-                  View analytics →
-                </Link>
-              </div>
-            </Card>
-          )}
-          {qqData && !qqData.calculator && (
-            <Card className="border-dashed p-5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center">
-                    <Calculator className="w-5 h-5 text-gray-400" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-700">QuoteQuick Pro</h3>
-                    <p className="text-xs text-gray-400 mt-0.5">Instant quote calculator for your website</p>
-                  </div>
-                </div>
-                {/* IA-1 — zero-calculator empty state. Lands in the wizard
-                 *  with no template so they pick one. */}
-                <Link
-                  href="/wizard"
-                  data-testid="portal-qq-create-first"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#0d3cfc] border border-[#0d3cfc] rounded-lg hover:bg-[#EEF3FF] transition-colors"
-                >
-                  Create your first calculator
-                </Link>
-              </div>
-            </Card>
-          )}
+          {/* QuoteQuick card removed from dashboard — canonical home is
+             /portal/services. The generic "Add Services" CTA above + the
+             services page itself cover discovery now. Per Alex: dedupe. */}
 
           {/* TradeLine card */}
           {tradeLineService && tlData?.config && (() => {

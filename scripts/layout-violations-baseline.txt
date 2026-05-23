@@ -131,9 +131,9 @@ client/src/pages/marketing/DesignShowcase.tsx:129:52	rule-c	size={720}
 client/src/pages/marketing/DesignShowcase.tsx:133:52	rule-c	size={720}
 client/src/pages/marketing/DesignShowcase.tsx:137:57	rule-c	size={720}
 client/src/pages/marketing/DesignShowcase.tsx:141:53	rule-c	size={1080}
-client/src/pages/portal/PortalBilling.tsx:155:24	rule-c	square w-9 h-9
-client/src/pages/portal/PortalBilling.tsx:166:24	rule-c	square w-9 h-9
-client/src/pages/portal/PortalBilling.tsx:177:24	rule-c	square w-9 h-9
+client/src/pages/portal/PortalBilling.tsx:158:24	rule-c	square w-9 h-9
+client/src/pages/portal/PortalBilling.tsx:169:24	rule-c	square w-9 h-9
+client/src/pages/portal/PortalBilling.tsx:180:24	rule-c	square w-9 h-9
 client/src/pages/portal/PortalBrandKitsPage.tsx:140:23	rule-c	size={10}
 client/src/pages/portal/PortalChatWidgetSetup.tsx:243:19	rule-c	square w-9 h-9
 client/src/pages/portal/PortalCompetitors.tsx:165:18	rule-c	square w-12 h-12

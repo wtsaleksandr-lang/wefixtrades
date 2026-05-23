@@ -57,6 +57,9 @@ export default function PortalBilling() {
   });
 
   const hasPending = data && data.summary.total_pending_cents > 0;
+  const unpaidCount = data
+    ? data.payments.filter((p) => p.status === "pending" || p.status === "failed").length
+    : 0;
   const [portalLoading, setPortalLoading] = useState(false);
   const [portalError, setPortalError] = useState<string | null>(null);
 
@@ -192,25 +195,46 @@ export default function PortalBilling() {
               </div>
             </div>
 
-            {/* Payment guidance for unpaid invoices */}
+            {/* Payment guidance for unpaid invoices — direct-pay CTA opens
+               the Stripe billing portal in a new tab. The fallback "contact
+               us" link is for edge cases (no payment method on file, etc.). */}
             {hasPending && (
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
-                <CreditCard className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
-                <div>
-                  <p className="text-sm font-medium text-amber-800">You have unpaid invoices</p>
-                  <p className="text-xs text-amber-600 mt-0.5 leading-relaxed">
-                    Pay them directly in your Stripe billing portal —{" "}
-                    <button
-                      type="button"
-                      onClick={openBillingPortal}
-                      disabled={portalLoading}
-                      className="underline font-medium hover:text-amber-800 disabled:opacity-60"
-                    >
-                      open the billing portal
-                    </button>
-                    . We accept bank transfer and card payments.
-                  </p>
+              <div
+                className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+                data-testid="billing-unpaid-banner"
+              >
+                <div className="flex items-start gap-3">
+                  <CreditCard className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-amber-800">
+                      {unpaidCount > 0
+                        ? `You have ${unpaidCount} unpaid invoice${unpaidCount === 1 ? "" : "s"}`
+                        : "You have unpaid invoices"}
+                    </p>
+                    <p className="text-xs text-amber-600 mt-0.5 leading-relaxed">
+                      Pay in your Stripe billing portal — we accept bank transfer and card.{" "}
+                      <Link href="/portal/help" className="underline hover:text-amber-800">
+                        Or contact us
+                      </Link>
+                      .
+                    </p>
+                  </div>
                 </div>
+                <Button
+                  onClick={openBillingPortal}
+                  disabled={portalLoading}
+                  className="btn-primary-premium shrink-0"
+                  data-testid="billing-pay-unpaid-cta"
+                >
+                  {portalLoading ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <ExternalLink className="w-4 h-4 mr-2" />
+                  )}
+                  {unpaidCount > 0
+                    ? `Pay ${unpaidCount} unpaid invoice${unpaidCount === 1 ? "" : "s"}`
+                    : "Pay now"}
+                </Button>
               </div>
             )}
 
