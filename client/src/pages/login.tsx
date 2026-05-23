@@ -4,6 +4,7 @@ import { useMutation } from "@tanstack/react-query";
 import { Eye, EyeOff } from "lucide-react";
 import { queryClient } from "@/lib/queryClient";
 import { getSessionId } from "@/lib/chatHelpers";
+import { landingPathForRole } from "@/lib/authRedirect";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { V7PageShell } from "@/components/marketing/v7";
 import { mkt } from "@/theme/tokens";
@@ -72,14 +73,10 @@ export default function LoginPage() {
       }
     } catch { /* noop */ }
 
-    const role = data.user?.role;
-    if (role === "admin") {
-      navigate("/admin/crm");
-    } else if (role === "client") {
-      navigate("/portal");
-    } else {
-      navigate("/dashboard");
-    }
+    // IA-1: role-based landing via shared helper (server mirror at
+    // server/routes/authRoutes.ts → landingPathForRole). Default for
+    // unknown roles is /portal, not the standalone QuoteQuick dashboard.
+    navigate(landingPathForRole(data.user?.role));
   }
 
   /* ─── Token-link auto-login ────────────────────────────────────
