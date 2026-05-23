@@ -145,8 +145,8 @@ function getPrimaryAction(status: string): { label: string; nextStatus: string }
 }
 
 const ACTION_STYLES: Record<string, string> = {
-  "Make Ready": "bg-[#0d3cfc] hover:bg-[#0b34d6] text-white",
-  "Start":      "bg-[#0d3cfc] hover:bg-[#0b34d6] text-white",
+  "Make Ready": "bg-brand-blue hover:bg-brand-blue-600 text-white",
+  "Start":      "bg-brand-blue hover:bg-brand-blue-600 text-white",
   "Done":       "bg-emerald-600 hover:bg-emerald-700 text-white",
   "Follow Up":  "bg-amber-500 hover:bg-amber-600 text-white",
   "Approve":    "bg-purple-600 hover:bg-purple-700 text-white",
@@ -176,7 +176,7 @@ export function MapguardTaskCard({
             <button
               type="button"
               onClick={() => onOpenDetail?.(task)}
-              className="text-sm font-medium text-gray-900 hover:text-[#0d3cfc] cursor-pointer line-clamp-2 text-left"
+              className="text-sm font-medium text-gray-900 hover:text-brand-blue cursor-pointer line-clamp-2 text-left"
             >
               {task.title}
             </button>

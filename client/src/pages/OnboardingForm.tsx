@@ -118,7 +118,7 @@ function SetupProgress({ token }: { token: string }) {
           {failed ? (
             <AlertTriangle className="w-6 h-6 text-amber-500" />
           ) : (
-            <Settings2 className={`w-6 h-6 text-[#0d3cfc] ${!allDone ? "animate-spin" : ""}`} style={{ animationDuration: "3s" }} />
+            <Settings2 className={`w-6 h-6 text-brand-blue ${!allDone ? "animate-spin" : ""}`} style={{ animationDuration: "3s" }} />
           )}
         </div>
 
@@ -133,7 +133,7 @@ function SetupProgress({ token }: { token: string }) {
           {steps.map((s, i) => (
             <div key={i} className="flex items-center gap-3">
               {s.done ? (
-                <CheckCircle2 className="w-4 h-4 text-[#0d3cfc] flex-shrink-0" />
+                <CheckCircle2 className="w-4 h-4 text-brand-blue flex-shrink-0" />
               ) : failed ? (
                 <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0" />
               ) : (
@@ -156,7 +156,7 @@ function SetupProgress({ token }: { token: string }) {
 
         {allDone && (
           <div className="bg-[#EEF3FF] rounded-lg p-3 mt-2">
-            <p className="text-sm text-[#0d3cfc] font-medium flex items-center justify-center gap-1.5">
+            <p className="text-sm text-brand-blue font-medium flex items-center justify-center gap-1.5">
               <Zap className="w-3.5 h-3.5" /> Setup complete — you can close this page
             </p>
           </div>
@@ -318,7 +318,7 @@ export default function OnboardingForm() {
               <path d="M12 7 H4 V20 H17 V12.5" stroke="#1E1E1E" strokeWidth={2.3} strokeLinecap="round" strokeLinejoin="round" />
               <path d="M8 13 11.5 16.5 21 5" stroke="#0d3cfc" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-            <span className="text-sm font-bold text-gray-900">We<span className="text-[#0d3cfc]">Fix</span>Trades</span>
+            <span className="text-sm font-bold text-gray-900">We<span className="text-brand-blue">Fix</span>Trades</span>
           </div>
           <p className="text-sm text-gray-500">
             We'll set everything up for you based on your answers.
@@ -332,7 +332,7 @@ export default function OnboardingForm() {
               <div
                 key={i}
                 className={`h-1.5 flex-1 rounded-full transition-colors ${
-                  i <= currentStep ? "bg-[#0d3cfc]" : "bg-gray-200"
+                  i <= currentStep ? "bg-brand-blue" : "bg-gray-200"
                 }`}
               />
             ))}
@@ -390,9 +390,9 @@ export default function OnboardingForm() {
                             onClick={() => setResponses({ ...responses, [step.key]: opt.v })}
                             className={`px-4 py-2 text-sm rounded-lg border transition-colors min-h-[44px] ${
                               selected
-                                ? "bg-[#0d3cfc] text-white border-[#0d3cfc]"
+                                ? "bg-brand-blue text-white border-brand-blue"
                                 : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
-                            } focus:outline-none focus:ring-2 focus:ring-[#0d3cfc]/20`}
+                            } focus:outline-none focus:ring-2 focus:ring-brand-blue/20`}
                             aria-label={`${step.label}: ${opt.label}`}
                           >
                             {opt.label}
@@ -419,9 +419,9 @@ export default function OnboardingForm() {
                             onClick={() => setResponses({ ...responses, [step.key]: opt.value })}
                             className={`px-3.5 py-2 text-sm rounded-lg border transition-colors min-h-[44px] ${
                               selected
-                                ? "bg-[#0d3cfc] text-white border-[#0d3cfc]"
+                                ? "bg-brand-blue text-white border-brand-blue"
                                 : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
-                            } focus:outline-none focus:ring-2 focus:ring-[#0d3cfc]/20`}
+                            } focus:outline-none focus:ring-2 focus:ring-brand-blue/20`}
                             aria-label={`${step.label}: ${opt.label}`}
                           >
                             {opt.label}
@@ -466,7 +466,7 @@ export default function OnboardingForm() {
               <Button
                 type="submit"
                 disabled={submitting}
-                className="flex-1 bg-[#0d3cfc] hover:bg-[#0b34d6] min-h-[44px]"
+                className="flex-1 bg-brand-blue hover:bg-brand-blue-600 min-h-[44px]"
               >
                 {submitting ? (
                   <span className="flex items-center gap-2">
@@ -479,7 +479,7 @@ export default function OnboardingForm() {
             ) : (
               <Button
                 type="submit"
-                className="flex-1 bg-[#0d3cfc] hover:bg-[#0b34d6] min-h-[44px]"
+                className="flex-1 bg-brand-blue hover:bg-brand-blue-600 min-h-[44px]"
               >
                 Continue <ArrowRight className="w-4 h-4 ml-1" />
               </Button>

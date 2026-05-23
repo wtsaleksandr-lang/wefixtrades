@@ -32,7 +32,7 @@ export default function CopilotPromptCard({
 
   return (
     <div
-      className="border border-[#0d3cfc]/30 bg-[#EEF3FF] rounded-lg p-3 space-y-2.5"
+      className="border border-brand-blue/30 bg-[#EEF3FF] rounded-lg p-3 space-y-2.5"
       data-testid="copilot-prompt-card"
       data-theme="light"
     >
@@ -45,7 +45,7 @@ export default function CopilotPromptCard({
             type="button"
             disabled={disabled}
             onClick={() => onRespond(opt.value)}
-            className="px-3 py-1.5 text-xs font-medium text-white bg-[#0d3cfc] rounded-lg hover:bg-[#0a31d6] disabled:opacity-50 transition-colors"
+            className="px-3 py-1.5 text-xs font-medium text-white bg-brand-blue rounded-lg hover:bg-brand-blue-600 disabled:opacity-50 transition-colors"
             data-testid={`copilot-prompt-option-${i}`}
           >
             {opt.label}
@@ -66,14 +66,14 @@ export default function CopilotPromptCard({
             }}
             disabled={disabled}
             placeholder="Or type your own reply…"
-            className="flex-1 text-xs px-2.5 py-1.5 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#0d3cfc]/20 focus:border-[#0d3cfc] disabled:opacity-50"
+            className="flex-1 text-xs px-2.5 py-1.5 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue disabled:opacity-50"
             data-testid="copilot-prompt-custom-input"
           />
           <button
             type="button"
             onClick={submitCustom}
             disabled={disabled || !custom.trim()}
-            className="p-1.5 rounded-lg bg-[#0d3cfc] text-white hover:bg-[#0a31d6] disabled:opacity-40 transition-colors"
+            className="p-1.5 rounded-lg bg-brand-blue text-white hover:bg-brand-blue-600 disabled:opacity-40 transition-colors"
             aria-label="Send custom reply"
           >
             <Send className="w-3.5 h-3.5" aria-hidden="true" />

@@ -333,7 +333,7 @@ export default function SocialSyncOpsPage() {
         <Button
           size="sm"
           variant="outline"
-          className="border-[#0d3cfc] text-[#0d3cfc] hover:bg-[#EEF3FF]"
+          className="border-brand-blue text-brand-blue hover:bg-[#EEF3FF]"
           onClick={() => {
             if (window.confirm("Generate posts for ALL due autopilot clients now? This runs AI generation and may incur cost.")) {
               generateAllDue.mutate();

@@ -52,7 +52,7 @@ export default function PortalChatHistoryPage() {
 
         <div className="flex items-center justify-between">
           <h1 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-            <MessageCircle className="w-4 h-4 text-[#0d3cfc]" />
+            <MessageCircle className="w-4 h-4 text-brand-blue" />
             Your chat history
           </h1>
           <span className="text-[10px] text-gray-400 uppercase tracking-wide">7-day rolling</span>
@@ -88,7 +88,7 @@ export default function PortalChatHistoryPage() {
                 <div
                   className={`max-w-[85%] rounded-lg px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap ${
                     m.role === "user"
-                      ? "bg-[#0d3cfc] text-white"
+                      ? "bg-brand-blue text-white"
                       : "bg-gray-100 text-gray-800"
                   }`}
                 >

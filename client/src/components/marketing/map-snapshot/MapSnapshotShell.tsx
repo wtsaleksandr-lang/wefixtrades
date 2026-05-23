@@ -91,7 +91,7 @@ function FloatingLabelInput({
         placeholder=" "
         aria-label={label}
         aria-describedby={ariaDescribedBy}
-        className="peer w-full px-3 pt-5 pb-1.5 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#0d3cfc]/20 focus:border-[#0d3cfc] transition-colors"
+        className="peer w-full px-3 pt-5 pb-1.5 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition-colors"
       />
       <label
         htmlFor={id}
@@ -102,7 +102,7 @@ function FloatingLabelInput({
           "peer-placeholder-shown:font-normal peer-placeholder-shown:normal-case " +
           "peer-placeholder-shown:tracking-normal peer-placeholder-shown:text-gray-400 " +
           "peer-focus:top-1.5 peer-focus:text-[10px] peer-focus:font-semibold " +
-          "peer-focus:uppercase peer-focus:tracking-wider peer-focus:text-[#0d3cfc]"
+          "peer-focus:uppercase peer-focus:tracking-wider peer-focus:text-brand-blue"
         }
       >
         {label}
@@ -196,7 +196,7 @@ function KeywordChips({
           }}
           placeholder="e.g. emergency plumber"
           aria-label="Add keyword"
-          className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#0d3cfc]/20 focus:border-[#0d3cfc]"
+          className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue"
           style={{ flex: 1 }}
         />
         <button

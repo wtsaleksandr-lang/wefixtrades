@@ -275,7 +275,7 @@ export default function MapguardOpsTab({ clientId }: { clientId: number }) {
               </div>
               <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
                 <div
-                  className={`h-full rounded-full transition-all ${summary.execution.at_limit ? "bg-amber-500" : "bg-[#0d3cfc]"}`}
+                  className={`h-full rounded-full transition-all ${summary.execution.at_limit ? "bg-amber-500" : "bg-brand-blue"}`}
                   style={{ width: `${Math.min(100, (summary.execution.used / summary.execution.limit) * 100)}%` }}
                 />
               </div>
@@ -315,10 +315,10 @@ export default function MapguardOpsTab({ clientId }: { clientId: number }) {
 
           {/* Next recommended */}
           {summary.next_recommended && (
-            <div className="mt-3 flex items-start gap-2 px-3 py-2 rounded-lg bg-[#EEF3FF] border border-[#0d3cfc]/10">
-              <ArrowRight className="w-3.5 h-3.5 text-[#0d3cfc] mt-0.5 shrink-0" />
+            <div className="mt-3 flex items-start gap-2 px-3 py-2 rounded-lg bg-[#EEF3FF] border border-brand-blue/10">
+              <ArrowRight className="w-3.5 h-3.5 text-brand-blue mt-0.5 shrink-0" />
               <div className="min-w-0">
-                <p className="text-xs font-medium text-[#0d3cfc]">Next: {summary.next_recommended.title}</p>
+                <p className="text-xs font-medium text-brand-blue">Next: {summary.next_recommended.title}</p>
                 {summary.next_recommended.next_step_hint && (
                   <p className="text-[11px] text-gray-500 mt-0.5 line-clamp-2">{summary.next_recommended.next_step_hint}</p>
                 )}
@@ -530,7 +530,7 @@ function CreateTaskDialog({
           <Button
             onClick={() => create.mutate()}
             disabled={!form.title.trim() || create.isPending}
-            className="bg-[#0d3cfc] hover:bg-[#0b34d6]"
+            className="bg-brand-blue hover:bg-brand-blue-600"
           >
             {create.isPending ? "Creating..." : "Create Task"}
           </Button>
@@ -598,7 +598,7 @@ function GenerateFromAuditDialog({
           <Button
             onClick={() => generate.mutate()}
             disabled={!auditId.trim() || generate.isPending}
-            className="bg-[#0d3cfc] hover:bg-[#0b34d6]"
+            className="bg-brand-blue hover:bg-brand-blue-600"
           >
             {generate.isPending ? "Generating..." : "Generate Tasks"}
           </Button>
@@ -756,10 +756,10 @@ function TaskDetailDialog({
 
           {/* Next step hint */}
           {t.next_step_hint && (
-            <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-[#EEF3FF] border border-[#0d3cfc]/10">
-              <ArrowRight className="w-3.5 h-3.5 text-[#0d3cfc] mt-0.5 shrink-0" />
+            <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-[#EEF3FF] border border-brand-blue/10">
+              <ArrowRight className="w-3.5 h-3.5 text-brand-blue mt-0.5 shrink-0" />
               <div>
-                <p className="text-xs font-medium text-[#0d3cfc]">Next Step</p>
+                <p className="text-xs font-medium text-brand-blue">Next Step</p>
                 <p className="text-xs text-gray-600 mt-0.5">{t.next_step_hint}</p>
               </div>
             </div>
@@ -947,7 +947,7 @@ function TaskDetailDialog({
                   </div>
                   <Button
                     size="sm"
-                    className="h-7 text-xs bg-[#0d3cfc] hover:bg-[#0b34d6]"
+                    className="h-7 text-xs bg-brand-blue hover:bg-brand-blue-600"
                     disabled={!assignForm.assigned_to.trim() || assignTask.isPending}
                     onClick={() => assignTask.mutate()}
                   >
@@ -992,7 +992,7 @@ function TaskDetailDialog({
                   </div>
                   <Button
                     size="sm"
-                    className="h-7 text-xs bg-[#0d3cfc] hover:bg-[#0b34d6]"
+                    className="h-7 text-xs bg-brand-blue hover:bg-brand-blue-600"
                     disabled={!resultForm.summary.trim() || submitResult.isPending}
                     onClick={() => submitResult.mutate()}
                   >
@@ -1039,7 +1039,7 @@ function TaskDetailDialog({
                   </Select>
                   <Button
                     size="sm"
-                    className="h-8 text-xs bg-[#0d3cfc] hover:bg-[#0b34d6]"
+                    className="h-8 text-xs bg-brand-blue hover:bg-brand-blue-600"
                     disabled={!newStatus || changeStatus.isPending}
                     onClick={() => changeStatus.mutate(undefined)}
                   >
@@ -1140,7 +1140,7 @@ function SupplierFeedback({ task, clientId }: { task: MapguardTaskItem; clientId
       </div>
       <div className="flex items-center gap-2">
         <Input className="h-7 text-xs flex-1" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Optional note..." />
-        <Button size="sm" className="h-7 text-xs bg-[#0d3cfc] hover:bg-[#0b34d6]" disabled={rating === 0 || submit.isPending} onClick={() => submit.mutate()}>
+        <Button size="sm" className="h-7 text-xs bg-brand-blue hover:bg-brand-blue-600" disabled={rating === 0 || submit.isPending} onClick={() => submit.mutate()}>
           Save
         </Button>
       </div>

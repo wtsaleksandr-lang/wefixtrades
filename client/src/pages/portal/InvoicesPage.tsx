@@ -125,7 +125,7 @@ export default function InvoicesPage() {
         <h1 className="text-gray-900" style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Invoices</h1>
         <button
           onClick={() => setShowCreate(true)}
-          className="bg-[#0d3cfc] text-white"
+          className="bg-brand-blue text-white"
           style={{
             display: "inline-flex",
             alignItems: "center",
@@ -215,7 +215,7 @@ export default function InvoicesPage() {
           </p>
           <button
             onClick={() => setShowCreate(true)}
-            className="bg-[#0d3cfc] text-white"
+            className="bg-brand-blue text-white"
             style={{
               fontSize: 13,
               fontWeight: 600,
@@ -230,7 +230,7 @@ export default function InvoicesPage() {
           <div style={{ marginTop: 10 }}>
             <Link
               href="/portal/help"
-              className="text-[#0d3cfc] hover:underline"
+              className="text-brand-blue hover:underline"
               style={{ fontSize: 12, fontWeight: 500, textDecoration: "none" }}
             >
               How invoices work →

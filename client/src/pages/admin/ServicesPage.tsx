@@ -143,10 +143,10 @@ export default function ServicesPage() {
               <Link
                 key={svc.id}
                 href={`/admin/products/${svc.id}`}
-                className="block focus:outline-none focus:ring-2 focus:ring-[#0d3cfc]/30 rounded-xl h-full"
+                className="block focus:outline-none focus:ring-2 focus:ring-brand-blue/30 rounded-xl h-full"
                 data-testid={`product-card-${svc.id}`}
               >
-              <Card className="h-full p-4 hover:border-[#0d3cfc]/40 hover:shadow-sm transition-all cursor-pointer">
+              <Card className="h-full p-4 hover:border-brand-blue/40 hover:shadow-sm transition-all cursor-pointer">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">

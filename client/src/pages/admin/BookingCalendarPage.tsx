@@ -60,7 +60,7 @@ function ConnectDialog({ open, onClose }: { open: boolean; onClose: () => void }
         {platform === "calendly" && <div><label className="text-xs font-medium text-gray-600 mb-1 block">Access Token *</label><Input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} /></div>}
         {platform === "manual" && <div><label className="text-xs font-medium text-gray-600 mb-1 block">Booking URL *</label><Input type="url" value={bookingUrl} onChange={(e) => setBookingUrl(e.target.value)} /></div>}
       </div>}
-      {platform && <DialogFooter><Button variant="outline" onClick={onClose}>Cancel</Button><Button onClick={connect} disabled={connecting} className="bg-[#0d3cfc] hover:bg-[#0b34d6]">{connecting ? <><Loader2 className="w-4 h-4 animate-spin mr-1" />Connecting...</> : "Connect"}</Button></DialogFooter>}
+      {platform && <DialogFooter><Button variant="outline" onClick={onClose}>Cancel</Button><Button onClick={connect} disabled={connecting} className="bg-brand-blue hover:bg-brand-blue-600">{connecting ? <><Loader2 className="w-4 h-4 animate-spin mr-1" />Connecting...</> : "Connect"}</Button></DialogFooter>}
     </DialogContent></Dialog>
   );
 }
@@ -86,7 +86,7 @@ function HoursEditor() {
             {h.enabled ? <div className="flex items-center gap-2"><Input type="time" value={h.start} onChange={(e) => setHours((p) => p.map((x, j) => j === i ? { ...x, start: e.target.value } : x))} className="w-32 h-9 text-sm" /><span className="text-gray-400 text-sm">to</span><Input type="time" value={h.end} onChange={(e) => setHours((p) => p.map((x, j) => j === i ? { ...x, end: e.target.value } : x))} className="w-32 h-9 text-sm" /></div> : <span className="text-sm text-gray-400 italic">Closed</span>}
           </div>))}
       </div>
-      <Button onClick={() => save.mutate()} disabled={save.isPending} className="bg-[#0d3cfc] hover:bg-[#0b34d6]">{save.isPending ? "Saving..." : "Save Working Hours"}</Button>
+      <Button onClick={() => save.mutate()} disabled={save.isPending} className="bg-brand-blue hover:bg-brand-blue-600">{save.isPending ? "Saving..." : "Save Working Hours"}</Button>
     </div>
   );
 }
@@ -109,7 +109,7 @@ export default function BookingCalendarPage() {
         <Tabs defaultValue="connections" className="space-y-4">
           <TabsList className="grid w-full grid-cols-3"><TabsTrigger value="connections">Connections</TabsTrigger><TabsTrigger value="hours">Working Hours</TabsTrigger><TabsTrigger value="bookings">Bookings</TabsTrigger></TabsList>
           <TabsContent value="connections" className="space-y-4">
-            <div className="flex items-center justify-between"><h2 className="text-base font-semibold text-gray-900">Calendar Connections</h2><Button size="sm" onClick={() => setConnectOpen(true)} className="bg-[#0d3cfc] hover:bg-[#0b34d6] gap-1.5"><Plus className="w-3.5 h-3.5" />Connect</Button></div>
+            <div className="flex items-center justify-between"><h2 className="text-base font-semibold text-gray-900">Calendar Connections</h2><Button size="sm" onClick={() => setConnectOpen(true)} className="bg-brand-blue hover:bg-brand-blue-600 gap-1.5"><Plus className="w-3.5 h-3.5" />Connect</Button></div>
             {cl ? <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => (
               <div key={i} className="flex items-center justify-between p-4 rounded-xl border border-gray-200 bg-white">
                 <div className="flex items-center gap-3">

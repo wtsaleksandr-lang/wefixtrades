@@ -355,7 +355,7 @@ function SmsPanel({
             </Button>
             <Button
               size="sm"
-              className="h-7 px-2 gap-1 bg-[#0d3cfc] hover:bg-[#0b34d6]"
+              className="h-7 px-2 gap-1 bg-brand-blue hover:bg-brand-blue-600"
               onClick={onNewMessage}
               disabled={!smsReady}
             >
@@ -405,7 +405,7 @@ function SmsPanel({
                       <div className="flex items-center justify-between gap-2 mb-0.5">
                         <span className={cn(
                           "text-sm font-medium truncate",
-                          active ? "text-[#0d3cfc]" : "text-gray-900"
+                          active ? "text-brand-blue" : "text-gray-900"
                         )} data-testid={`twilio-thread-name-${normalizeContact(t.contact)}`}>
                           {c?.display_name ?? formatPhone(t.contact)}
                         </span>
@@ -682,14 +682,14 @@ function ThreadView({
             onKeyDown={onKeyDown}
             placeholder="Type a message…"
             rows={1}
-            className="flex-1 resize-none rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0d3cfc]/20 focus:border-[#0d3cfc]/60 min-h-[40px] max-h-[120px]"
+            className="flex-1 resize-none rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue/60 min-h-[40px] max-h-[120px]"
             data-testid="twilio-composer-input"
           />
           <Button
             type="button"
             onClick={() => sendMutation.mutate()}
             disabled={!draft.trim() || sendMutation.isPending}
-            className="bg-[#0d3cfc] hover:bg-[#0b34d6] h-10 gap-1"
+            className="bg-brand-blue hover:bg-brand-blue-600 h-10 gap-1"
             data-testid="twilio-composer-send"
           >
             <Send className="w-4 h-4" />
@@ -721,7 +721,7 @@ function Bubble({ message, onDelete }: { message: TwilioMessage; onDelete: () =>
         className={cn(
           "max-w-[78%] px-3.5 py-2 rounded-2xl text-sm whitespace-pre-wrap break-words",
           isMine
-            ? "bg-[#0d3cfc] text-white rounded-br-sm"
+            ? "bg-brand-blue text-white rounded-br-sm"
             : "bg-white text-gray-900 border border-gray-200 rounded-bl-sm"
         )}
         data-testid={`twilio-bubble-${message.direction}`}
@@ -834,7 +834,7 @@ function NewMessageDialog({
           <Button
             onClick={() => mutation.mutate()}
             disabled={!isValidPhone || !body.trim() || mutation.isPending}
-            className="bg-[#0d3cfc] hover:bg-[#0b34d6]"
+            className="bg-brand-blue hover:bg-brand-blue-600"
             data-testid="twilio-new-send"
           >
             {mutation.isPending ? "Sending…" : "Send"}
@@ -1106,7 +1106,7 @@ function PhonePanel({
       {/* Dialer */}
       <Card className="p-5 flex flex-col" data-testid="twilio-dialer-panel">
         <div className="flex items-center gap-2 mb-1">
-          <PhoneCall className="w-4 h-4 text-[#0d3cfc]" />
+          <PhoneCall className="w-4 h-4 text-brand-blue" />
           <h3 className="text-sm font-semibold text-gray-900">Dialer</h3>
           {dialerState === "ready" && (
             <span className="ml-auto inline-flex items-center gap-1 text-[10px] text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-full">
@@ -1413,7 +1413,7 @@ function LinkChips({ contact, small = false }: { contact: AdminContact; small?: 
         <a
           href={`/admin/crm/clients/${contact.linked_user_id}`}
           className={cn(
-            "inline-flex items-center gap-1 rounded-full border border-[#0d3cfc]/30 bg-[#0d3cfc]/5 text-[#0d3cfc] hover:bg-[#0d3cfc]/10",
+            "inline-flex items-center gap-1 rounded-full border border-brand-blue/30 bg-brand-blue/5 text-brand-blue hover:bg-brand-blue/10",
             size,
           )}
           title="View user profile"
@@ -1543,13 +1543,13 @@ function ContactsPanel() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search…"
-              className="h-7 pl-7 pr-2 text-xs rounded-md border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#0d3cfc]/20 focus:border-[#0d3cfc]/60"
+              className="h-7 pl-7 pr-2 text-xs rounded-md border border-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue/60"
               data-testid="contacts-search"
             />
           </div>
           <Button
             size="sm"
-            className="h-7 px-2 gap-1 bg-[#0d3cfc] hover:bg-[#0b34d6]"
+            className="h-7 px-2 gap-1 bg-brand-blue hover:bg-brand-blue-600"
             onClick={() => setCreating(true)}
             data-testid="contacts-add-button"
           >
@@ -1816,7 +1816,7 @@ function ContactFormDialog({
           <Button
             onClick={() => mutation.mutate()}
             disabled={!canSubmit || mutation.isPending}
-            className="bg-[#0d3cfc] hover:bg-[#0b34d6]"
+            className="bg-brand-blue hover:bg-brand-blue-600"
             data-testid="contact-form-save"
           >
             {mutation.isPending ? "Saving…" : isEdit ? "Save changes" : "Save contact"}
@@ -1879,7 +1879,7 @@ function LinkPicker({
           className={cn(
             "inline-flex items-center gap-1 rounded-full border text-[11px] px-2 py-0.5",
             kind === "user"
-              ? "border-[#0d3cfc]/30 bg-[#0d3cfc]/5 text-[#0d3cfc]"
+              ? "border-brand-blue/30 bg-brand-blue/5 text-brand-blue"
               : "border-purple-300 bg-purple-50 text-purple-700",
           )}
         >
@@ -1912,7 +1912,7 @@ function LinkPicker({
             onFocus={() => setOpen(true)}
             onBlur={() => setTimeout(() => setOpen(false), 150)}
             placeholder={`Search ${label.toLowerCase()}s…`}
-            className="w-full h-8 pl-7 pr-2 text-xs rounded-md border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#0d3cfc]/20 focus:border-[#0d3cfc]/60"
+            className="w-full h-8 pl-7 pr-2 text-xs rounded-md border border-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue/60"
             data-testid={`link-picker-input-${kind}`}
           />
         </div>

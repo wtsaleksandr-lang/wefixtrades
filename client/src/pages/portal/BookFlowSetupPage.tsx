@@ -309,7 +309,7 @@ export default function BookFlowSetupPage() {
 
   const labelClass = "block text-xs font-medium text-gray-600 mb-1";
   const inputClass =
-    "w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#0d3cfc]/20 focus:border-[#0d3cfc] transition-colors";
+    "w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition-colors";
   const cardClass = "bg-white rounded-xl border border-gray-200 p-5";
 
   return (
@@ -318,7 +318,7 @@ export default function BookFlowSetupPage() {
         <div>
           <Link href="/portal/dispatch">
             <a
-              className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-[#0d3cfc] transition-colors mb-2"
+              className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-brand-blue transition-colors mb-2"
               data-testid="link-back-to-dispatch"
             >
               <ChevronLeft className="w-3.5 h-3.5" />
@@ -356,7 +356,7 @@ export default function BookFlowSetupPage() {
                     className="sr-only peer"
                     data-testid="toggle-bookflow-active"
                   />
-                  <div className="w-9 h-5 bg-gray-200 peer-focus:ring-2 peer-focus:ring-[#0d3cfc]/20 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#0d3cfc]"></div>
+                  <div className="w-9 h-5 bg-gray-200 peer-focus:ring-2 peer-focus:ring-brand-blue/20 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-brand-blue"></div>
                 </label>
               </div>
 
@@ -366,7 +366,7 @@ export default function BookFlowSetupPage() {
                   <button
                     type="button"
                     onClick={copyUrl}
-                    className="inline-flex items-center gap-1 text-[11px] text-gray-500 hover:text-[#0d3cfc]"
+                    className="inline-flex items-center gap-1 text-[11px] text-gray-500 hover:text-brand-blue"
                   >
                     <Copy className="w-3 h-3" />
                     {copied ? "Copied" : "Copy"}
@@ -375,7 +375,7 @@ export default function BookFlowSetupPage() {
                     href={bookingUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-[11px] text-gray-500 hover:text-[#0d3cfc]"
+                    className="inline-flex items-center gap-1 text-[11px] text-gray-500 hover:text-brand-blue"
                   >
                     <ExternalLink className="w-3 h-3" />
                     Open
@@ -466,7 +466,7 @@ export default function BookFlowSetupPage() {
                         className="sr-only peer"
                         data-testid={`toggle-day-${d.key}`}
                       />
-                      <div className="w-9 h-5 bg-gray-200 peer-focus:ring-2 peer-focus:ring-[#0d3cfc]/20 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#0d3cfc]"></div>
+                      <div className="w-9 h-5 bg-gray-200 peer-focus:ring-2 peer-focus:ring-brand-blue/20 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-brand-blue"></div>
                     </label>
                     <span className="text-xs font-medium text-gray-700 w-20 shrink-0">{d.label}</span>
                     <input
@@ -535,7 +535,7 @@ export default function BookFlowSetupPage() {
                     className="sr-only peer"
                     data-testid="toggle-auto-confirm"
                   />
-                  <div className="w-9 h-5 bg-gray-200 peer-focus:ring-2 peer-focus:ring-[#0d3cfc]/20 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#0d3cfc]"></div>
+                  <div className="w-9 h-5 bg-gray-200 peer-focus:ring-2 peer-focus:ring-brand-blue/20 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-brand-blue"></div>
                 </label>
               </div>
             </div>
@@ -547,7 +547,7 @@ export default function BookFlowSetupPage() {
                 <button
                   type="button"
                   onClick={addService}
-                  className="inline-flex items-center gap-1 text-xs font-medium text-[#0d3cfc] hover:text-[#0b34d6]"
+                  className="inline-flex items-center gap-1 text-xs font-medium text-brand-blue hover:text-brand-blue-600"
                   data-testid="button-add-service"
                 >
                   <Plus className="w-3.5 h-3.5" />
@@ -642,7 +642,7 @@ export default function BookFlowSetupPage() {
               <button
                 type="submit"
                 disabled={saveMutation.isPending}
-                className="px-5 py-2.5 text-sm font-medium text-white bg-[#0d3cfc] rounded-lg hover:bg-[#0b34d6] transition-colors disabled:opacity-60"
+                className="px-5 py-2.5 text-sm font-medium text-white bg-brand-blue rounded-lg hover:bg-brand-blue-600 transition-colors disabled:opacity-60"
                 data-testid="button-save-setup"
               >
                 {saveMutation.isPending ? "Saving..." : "Save Booking Page"}

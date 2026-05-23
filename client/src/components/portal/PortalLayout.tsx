@@ -185,7 +185,7 @@ export default function PortalLayout({
         straight to the page body. */}
     <a
       href="#main-content"
-      className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:px-3 focus:py-1.5 focus:rounded-md focus:bg-[#0d3cfc] focus:text-white focus:text-sm focus:font-medium focus:shadow-lg"
+      className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:px-3 focus:py-1.5 focus:rounded-md focus:bg-brand-blue focus:text-white focus:text-sm focus:font-medium focus:shadow-lg"
     >
       Skip to main content
     </a>
@@ -221,7 +221,7 @@ export default function PortalLayout({
             </svg>
             <div className="leading-tight">
               <span className="text-sm font-bold text-gray-900">
-                We<span className="text-[#0d3cfc]">Fix</span>Trades
+                We<span className="text-brand-blue">Fix</span>Trades
               </span>
               <span className="text-[10px] text-gray-400 block -mt-0.5">Client Portal</span>
             </div>
@@ -251,11 +251,11 @@ export default function PortalLayout({
                     active
                       // Premium polish — whisper-light tint + 3px left-edge brand bar
                       // (via ::before) so the active row reads as "pinned" not "filled".
-                      ? "relative bg-[#EEF3FF]/60 text-[#0d3cfc] font-medium before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:w-[3px] before:h-5 before:bg-[#0d3cfc] before:rounded-r-sm"
+                      ? "relative bg-[#EEF3FF]/60 text-brand-blue font-medium before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:w-[3px] before:h-5 before:bg-brand-blue before:rounded-r-sm"
                       : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                   )}
                 >
-                  <item.icon className={cn("w-4 h-4 shrink-0", active ? "text-[#0d3cfc]" : "text-gray-400")} />
+                  <item.icon className={cn("w-4 h-4 shrink-0", active ? "text-brand-blue" : "text-gray-400")} />
                   {item.label}
                 </Link>
               );
@@ -296,7 +296,7 @@ export default function PortalLayout({
               className={cn(
                 "inline-flex items-center gap-1.5 h-9 px-3 rounded-lg text-sm font-medium transition-colors",
                 copilotOpen
-                  ? "bg-[#0d3cfc]/10 text-[#0d3cfc]"
+                  ? "bg-brand-blue/10 text-brand-blue"
                   : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
               )}
               title="AI Copilot — your assistant"
@@ -308,7 +308,7 @@ export default function PortalLayout({
             </button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="w-8 h-8 min-w-[44px] min-h-[44px] rounded-full bg-[#0d3cfc] flex items-center justify-center hover:ring-2 hover:ring-[#0d3cfc]/20 transition-shadow">
+                <button className="w-8 h-8 min-w-[44px] min-h-[44px] rounded-full bg-brand-blue flex items-center justify-center hover:ring-2 hover:ring-brand-blue/20 transition-shadow">
                   <span className="text-white text-[10px] font-bold">{initials}</span>
                 </button>
               </DropdownMenuTrigger>

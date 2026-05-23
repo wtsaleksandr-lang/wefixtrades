@@ -168,7 +168,7 @@ export default function DispatchPage() {
           />
           <label
             htmlFor="dispatch-date"
-            className="text-[#0d3cfc]"
+            className="text-brand-blue"
             style={{ fontSize: 12, cursor: "pointer", fontWeight: 500 }}
             onClick={() => {
               const el = document.getElementById("dispatch-date") as HTMLInputElement;

@@ -280,9 +280,9 @@ function NavParentItem({
   const parentClass = cn(
     "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors min-h-[40px] flex-1",
     directActive
-      ? "bg-[#EEF3FF] text-[#0d3cfc] font-medium border border-[#0d3cfc]/30"
+      ? "bg-[#EEF3FF] text-brand-blue font-medium border border-brand-blue/30"
       : hasActiveChild
-        ? "text-gray-800 font-medium border-l-2 border-[#0d3cfc] pl-[10px]"
+        ? "text-gray-800 font-medium border-l-2 border-brand-blue pl-[10px]"
         : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 border border-transparent"
   );
 
@@ -293,7 +293,7 @@ function NavParentItem({
           <item.icon
             className={cn(
               "w-4 h-4 shrink-0",
-              directActive || hasActiveChild ? "text-[#0d3cfc]" : "text-gray-400"
+              directActive || hasActiveChild ? "text-brand-blue" : "text-gray-400"
             )}
           />
           <span className="flex-1">{item.label}</span>
@@ -328,14 +328,14 @@ function NavParentItem({
                 className={cn(
                   "flex items-center gap-3 px-3 py-1.5 rounded-lg text-[13px] transition-colors min-h-[34px]",
                   active
-                    ? "bg-[#EEF3FF] text-[#0d3cfc] font-medium border border-[#0d3cfc]/30"
+                    ? "bg-[#EEF3FF] text-brand-blue font-medium border border-brand-blue/30"
                     : "text-gray-500 hover:bg-gray-50 hover:text-gray-800 border border-transparent"
                 )}
               >
                 <child.icon
                   className={cn(
                     "w-3.5 h-3.5 shrink-0",
-                    active ? "text-[#0d3cfc]" : "text-gray-400"
+                    active ? "text-brand-blue" : "text-gray-400"
                   )}
                 />
                 <span className="flex-1">{child.label}</span>
@@ -409,7 +409,7 @@ function NavGroup({
             className={cn(
               "flex-1 flex items-center justify-between gap-1.5 px-3 py-2 text-xs font-semibold uppercase tracking-wide rounded-lg cursor-pointer transition-colors text-left",
               headerActive
-                ? "bg-[#EEF3FF] text-[#0d3cfc]"
+                ? "bg-[#EEF3FF] text-brand-blue"
                 : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
             )}
             title={`Open ${label} catalogue`}
@@ -470,11 +470,11 @@ function NavGroup({
                 className={cn(
                   "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors min-h-[40px]",
                   active
-                    ? "bg-[#EEF3FF] text-[#0d3cfc] font-medium border border-[#0d3cfc]/30"
+                    ? "bg-[#EEF3FF] text-brand-blue font-medium border border-brand-blue/30"
                     : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 border border-transparent"
                 )}
               >
-                <item.icon className={cn("w-4 h-4 shrink-0", active ? "text-[#0d3cfc]" : "text-gray-400")} />
+                <item.icon className={cn("w-4 h-4 shrink-0", active ? "text-brand-blue" : "text-gray-400")} />
                 <span className="flex-1">{item.label}</span>
                 {badgeCount > 0 && (
                   <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold bg-red-500 text-white">
@@ -547,11 +547,11 @@ function SidebarNav({
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors min-h-[44px]",
                 active
-                  ? "bg-[#EEF3FF] text-[#0d3cfc] font-medium border border-[#0d3cfc]/30"
+                  ? "bg-[#EEF3FF] text-brand-blue font-medium border border-brand-blue/30"
                   : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 border border-transparent"
               )}
             >
-              <item.icon className={cn("w-4 h-4 shrink-0", active ? "text-[#0d3cfc]" : "text-gray-400")} />
+              <item.icon className={cn("w-4 h-4 shrink-0", active ? "text-brand-blue" : "text-gray-400")} />
               <span className="flex-1">{item.label}</span>
               {badgeCount > 0 && (
                 <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold bg-red-500 text-white">
@@ -581,7 +581,7 @@ function SidebarNav({
             const className = cn(
               "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors min-h-[40px]",
               active
-                ? "bg-[#EEF3FF] text-[#0d3cfc] font-medium"
+                ? "bg-[#EEF3FF] text-brand-blue font-medium"
                 : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
             );
             // Q20: View-as-customer opens portal in NEW TAB so the admin's
@@ -605,7 +605,7 @@ function SidebarNav({
                   className={className}
                   data-testid="view-as-customer"
                 >
-                  <item.icon className={cn("w-4 h-4 shrink-0", active ? "text-[#0d3cfc]" : "text-gray-400")} />
+                  <item.icon className={cn("w-4 h-4 shrink-0", active ? "text-brand-blue" : "text-gray-400")} />
                   {item.label}
                 </a>
               );
@@ -618,7 +618,7 @@ function SidebarNav({
                 style={rowStyle}
                 className={className}
               >
-                <item.icon className={cn("w-4 h-4 shrink-0", active ? "text-[#0d3cfc]" : "text-gray-400")} />
+                <item.icon className={cn("w-4 h-4 shrink-0", active ? "text-brand-blue" : "text-gray-400")} />
                 {item.label}
               </Link>
             );
@@ -696,7 +696,7 @@ function QuickAddClientDialog({ open, onClose }: { open: boolean; onClose: () =>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={() => mutation.mutate(form)} disabled={!form.business_name || mutation.isPending} className="bg-[#0d3cfc] hover:bg-[#0b34d6]">
+          <Button onClick={() => mutation.mutate(form)} disabled={!form.business_name || mutation.isPending} className="bg-brand-blue hover:bg-brand-blue-600">
             {mutation.isPending ? "Creating..." : "Create"}
           </Button>
         </DialogFooter>
@@ -820,7 +820,7 @@ function QuickAddTaskDialog({ open, onClose }: { open: boolean; onClose: () => v
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={() => mutation.mutate()} disabled={!form.client_id || !form.title || mutation.isPending} className="bg-[#0d3cfc] hover:bg-[#0b34d6]">
+          <Button onClick={() => mutation.mutate()} disabled={!form.client_id || !form.title || mutation.isPending} className="bg-brand-blue hover:bg-brand-blue-600">
             {mutation.isPending ? "Creating..." : "Create"}
           </Button>
         </DialogFooter>
@@ -922,7 +922,7 @@ function QuickAddPaymentDialog({ open, onClose }: { open: boolean; onClose: () =
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={() => mutation.mutate()} disabled={!form.client_id || !form.amount || mutation.isPending} className="bg-[#0d3cfc] hover:bg-[#0b34d6]">
+          <Button onClick={() => mutation.mutate()} disabled={!form.client_id || !form.amount || mutation.isPending} className="bg-brand-blue hover:bg-brand-blue-600">
             {mutation.isPending ? "Creating..." : "Create"}
           </Button>
         </DialogFooter>
@@ -1053,7 +1053,7 @@ export default function AdminLayout({
     {/* Skip-to-content — visible only when keyboard-focused. */}
     <a
       href="#main-content"
-      className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:px-3 focus:py-1.5 focus:rounded-md focus:bg-[#0d3cfc] focus:text-white focus:text-sm focus:font-medium focus:shadow-lg"
+      className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:px-3 focus:py-1.5 focus:rounded-md focus:bg-brand-blue focus:text-white focus:text-sm focus:font-medium focus:shadow-lg"
     >
       Skip to main content
     </a>
@@ -1086,7 +1086,7 @@ export default function AdminLayout({
               <path d="M8 13 11.5 16.5 21 5" stroke="#0d3cfc" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
             </svg>
             <div className="leading-tight">
-              <span className="text-sm font-bold text-gray-900">We<span className="text-[#0d3cfc]">Fix</span>Trades</span>
+              <span className="text-sm font-bold text-gray-900">We<span className="text-brand-blue">Fix</span>Trades</span>
               <span className="text-[10px] text-gray-400 block -mt-0.5">Admin</span>
             </div>
           </Link>
@@ -1179,7 +1179,7 @@ export default function AdminLayout({
           <div className="flex items-center gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button size="sm" className="bg-[#0d3cfc] hover:bg-[#0b34d6] h-8 px-3 gap-1.5">
+                <Button size="sm" className="bg-brand-blue hover:bg-brand-blue-600 h-8 px-3 gap-1.5">
                   <Plus className="w-3.5 h-3.5" />
                   <span className="hidden sm:inline text-xs">Quick Add</span>
                 </Button>
@@ -1199,7 +1199,7 @@ export default function AdminLayout({
             <Button
               variant="ghost"
               size="icon"
-              className={`h-8 w-8 ${copilotOpen ? "bg-[#0d3cfc]/10 text-[#0d3cfc]" : "text-gray-500"}`}
+              className={`h-8 w-8 ${copilotOpen ? "bg-brand-blue/10 text-brand-blue" : "text-gray-500"}`}
               onClick={() => setCopilotOpen(!copilotOpen)}
               title="AI Copilot"
             >
@@ -1207,7 +1207,7 @@ export default function AdminLayout({
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="w-7 h-7 rounded-full bg-[#0d3cfc] flex items-center justify-center hover:ring-2 hover:ring-[#0d3cfc]/20 transition-shadow">
+                <button className="w-7 h-7 rounded-full bg-brand-blue flex items-center justify-center hover:ring-2 hover:ring-brand-blue/20 transition-shadow">
                   <span className="text-white text-[10px] font-bold">{initials}</span>
                 </button>
               </DropdownMenuTrigger>

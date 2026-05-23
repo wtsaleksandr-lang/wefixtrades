@@ -288,7 +288,7 @@ export default function MapguardDashboard() {
       ) : metrics && (
         <>
           <div className="grid auto-rows-fr grid-cols-2 md:grid-cols-5 gap-3">
-            <StatCard label="Active Clients" value={metrics.total_clients} icon={Users} color="bg-[#0d3cfc]" />
+            <StatCard label="Active Clients" value={metrics.total_clients} icon={Users} color="bg-brand-blue" />
             <StatCard label="At Risk" value={metrics.at_risk + metrics.significant_drops} icon={AlertTriangle} color={metrics.at_risk > 0 ? "bg-red-500" : "bg-gray-400"} />
             <StatCard label="Improved" value={metrics.improved} icon={TrendingUp} color={metrics.improved > 0 ? "bg-emerald-500" : "bg-gray-400"} />
             <StatCard
@@ -314,13 +314,13 @@ export default function MapguardDashboard() {
               label="GBP Posts (30d)"
               value={metrics.posts_published_30d}
               icon={Zap}
-              color={metrics.posts_published_30d > 0 ? "bg-[#0d3cfc]" : "bg-gray-400"}
+              color={metrics.posts_published_30d > 0 ? "bg-brand-blue" : "bg-gray-400"}
             />
             <StatCard
               label="Replies (30d)"
               value={metrics.reviews_replied_30d}
               icon={CheckCircle}
-              color={metrics.reviews_replied_30d > 0 ? "bg-[#0d3cfc]" : "bg-gray-400"}
+              color={metrics.reviews_replied_30d > 0 ? "bg-brand-blue" : "bg-gray-400"}
             />
           </div>
         </>
@@ -398,7 +398,7 @@ export default function MapguardDashboard() {
                   <TableRow key={c.client_id} className="hover:bg-gray-50">
                     <TableCell>
                       <Link href={`/admin/crm/clients/${c.client_id}`}>
-                        <span className="text-sm font-medium text-gray-900 hover:text-[#0d3cfc] cursor-pointer">{c.business_name}</span>
+                        <span className="text-sm font-medium text-gray-900 hover:text-brand-blue cursor-pointer">{c.business_name}</span>
                       </Link>
                       {c.trade_type && <p className="text-[11px] text-gray-400 capitalize">{c.trade_type}</p>}
                     </TableCell>
@@ -449,7 +449,7 @@ export default function MapguardDashboard() {
                     </TableCell>
                     <TableCell className="text-right">
                       <Link href={`/admin/crm/clients/${c.client_id}`}>
-                        <Button variant="ghost" size="sm" className="h-7 text-xs text-gray-500 hover:text-[#0d3cfc]">
+                        <Button variant="ghost" size="sm" className="h-7 text-xs text-gray-500 hover:text-brand-blue">
                           <ArrowRight className="w-3 h-3" />
                         </Button>
                       </Link>

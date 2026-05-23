@@ -275,7 +275,7 @@ export default function PortalBilling() {
                             type="button"
                             onClick={openBillingPortal}
                             disabled={portalLoading}
-                            className="inline-flex items-center gap-1 text-xs font-medium text-[#0d3cfc] hover:text-[#0b34d6] disabled:opacity-50 pt-1"
+                            className="inline-flex items-center gap-1 text-xs font-medium text-brand-blue hover:text-brand-blue-600 disabled:opacity-50 pt-1"
                           >
                             Pay now <ExternalLink className="w-3 h-3" />
                           </button>
@@ -322,7 +322,7 @@ export default function PortalBilling() {
                                   type="button"
                                   onClick={openBillingPortal}
                                   disabled={portalLoading}
-                                  className="inline-flex items-center gap-1 text-xs font-medium text-[#0d3cfc] hover:text-[#0b34d6] disabled:opacity-50"
+                                  className="inline-flex items-center gap-1 text-xs font-medium text-brand-blue hover:text-brand-blue-600 disabled:opacity-50"
                                 >
                                   Pay now <ExternalLink className="w-3 h-3" />
                                 </button>

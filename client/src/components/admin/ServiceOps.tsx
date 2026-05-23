@@ -71,7 +71,7 @@ export function ServiceOpsCard({
         {action && status !== "done" && (
           <button
             onClick={action.onClick}
-            className="mt-2 text-xs font-medium text-white bg-[#0d3cfc] hover:bg-[#0b34d6] px-3 py-1.5 rounded-md transition-colors"
+            className="mt-2 text-xs font-medium text-white bg-brand-blue hover:bg-brand-blue-600 px-3 py-1.5 rounded-md transition-colors"
           >
             {action.label}
           </button>

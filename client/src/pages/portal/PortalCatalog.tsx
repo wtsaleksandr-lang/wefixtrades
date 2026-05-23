@@ -241,7 +241,7 @@ export default function PortalCatalog() {
                   key={b.id}
                   className={`h-full bg-white rounded-xl border p-5 flex flex-col gap-3 hover:shadow-sm transition-shadow ${
                     b.highlighted
-                      ? "border-[#0d3cfc]/40 ring-1 ring-[#0d3cfc]/20"
+                      ? "border-brand-blue/40 ring-1 ring-brand-blue/20"
                       : "border-gray-200"
                   }`}
                   data-testid={`bundle-card-${b.id}`}
@@ -252,7 +252,7 @@ export default function PortalCatalog() {
                       <p className="text-xs text-gray-500 mt-0.5">{b.tagline}</p>
                     </div>
                     {b.badge && (
-                      <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[#EEF3FF] text-[#0d3cfc]">
+                      <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[#EEF3FF] text-brand-blue">
                         {b.badge}
                       </span>
                     )}
@@ -267,7 +267,7 @@ export default function PortalCatalog() {
                     ))}
                   </ul>
 
-                  <div className="text-sm font-semibold text-[#0d3cfc]">
+                  <div className="text-sm font-semibold text-brand-blue">
                     ${b.price}{b.billingPeriod === "monthly" ? "/mo" : " one-time"}
                     {b.savings > 0 && (
                       <span className="ml-2 text-[11px] font-normal text-emerald-600">
@@ -332,7 +332,7 @@ export default function PortalCatalog() {
                           key={t.id}
                           className={`flex items-center gap-2 px-2.5 py-1.5 rounded-md border text-xs cursor-pointer transition-colors ${
                             checked
-                              ? "border-[#0d3cfc] bg-[#EEF3FF]"
+                              ? "border-brand-blue bg-[#EEF3FF]"
                               : "border-gray-200 bg-white hover:border-gray-300"
                           }`}
                           data-testid={`catalog-tier-${svc.id}-${t.id}`}
@@ -343,17 +343,17 @@ export default function PortalCatalog() {
                             value={t.id}
                             checked={checked}
                             onChange={() => setSelectedTier((s) => ({ ...s, [svc.id]: t.id }))}
-                            className="h-3.5 w-3.5 accent-[#0d3cfc]"
+                            className="h-3.5 w-3.5 accent-brand-blue"
                           />
                           <span className="font-medium text-gray-800 flex-1">{t.name}</span>
                           {t.highlighted && <Star className="w-3 h-3 text-amber-500 fill-amber-500" />}
-                          <span className="font-semibold text-[#0d3cfc]">{tierPriceLabel(t)}</span>
+                          <span className="font-semibold text-brand-blue">{tierPriceLabel(t)}</span>
                         </label>
                       );
                     })}
                   </div>
                 ) : (
-                  <div className="text-sm font-semibold text-[#0d3cfc]">{svc.priceLabel}</div>
+                  <div className="text-sm font-semibold text-brand-blue">{svc.priceLabel}</div>
                 )}
 
                 <div className="flex items-center gap-2 pt-1">
@@ -374,7 +374,7 @@ export default function PortalCatalog() {
                     href={productPageUrl(svc.id)}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="px-3 py-2 text-xs font-medium text-[#0d3cfc] border border-[#0d3cfc]/30 rounded-lg hover:bg-[#EEF3FF] transition-colors inline-flex items-center justify-center gap-1"
+                    className="px-3 py-2 text-xs font-medium text-brand-blue border border-brand-blue/30 rounded-lg hover:bg-[#EEF3FF] transition-colors inline-flex items-center justify-center gap-1"
                     data-testid={`catalog-readmore-${svc.id}`}
                   >
                     Learn more <ExternalLink className="w-3 h-3" />

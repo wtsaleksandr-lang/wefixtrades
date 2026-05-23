@@ -87,7 +87,7 @@ function BookingFlow({ clientId, customerName = "", customerEmail = "", customer
       </div>
       <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
         {days.map((d) => { const active = d === selectedDate; const dd = new Date(d + "T00:00:00"); return (
-          <button key={d} type="button" onClick={() => setSelectedDate(d)} className={`flex flex-col items-center min-w-[56px] px-3 py-2.5 rounded-xl border text-sm font-medium transition-all shrink-0 ${active ? "border-[#0d3cfc] bg-[#EEF3FF] text-[#0d3cfc] shadow-sm" : "border-gray-200 bg-white text-gray-700 hover:border-gray-300 hover:bg-gray-50"}`}>
+          <button key={d} type="button" onClick={() => setSelectedDate(d)} className={`flex flex-col items-center min-w-[56px] px-3 py-2.5 rounded-xl border text-sm font-medium transition-all shrink-0 ${active ? "border-brand-blue bg-[#EEF3FF] text-brand-blue shadow-sm" : "border-gray-200 bg-white text-gray-700 hover:border-gray-300 hover:bg-gray-50"}`}>
             <span className="text-[10px] uppercase tracking-wider opacity-70">{dd.toLocaleDateString("en-US", { weekday: "short" })}</span>
             <span className="text-base font-bold">{dd.getDate()}</span>
           </button>); })}
@@ -96,9 +96,9 @@ function BookingFlow({ clientId, customerName = "", customerEmail = "", customer
         <label className="text-sm font-medium text-gray-700 flex items-center gap-1.5 mb-2"><Clock className="w-4 h-4" />Available times</label>
         {loadingSlots ? <div className="flex items-center gap-2 py-6 justify-center text-sm text-gray-500"><Loader2 className="w-4 h-4 animate-spin" />Loading...</div>
         : slots.length === 0 ? <p className="text-sm text-gray-500 py-4 text-center">No slots available. Try another day.</p>
-        : <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">{slots.map((s) => { const a = selectedTime === s; return <button key={s} type="button" onClick={() => setSelectedTime(s)} className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition-all ${a ? "border-[#0d3cfc] bg-[#EEF3FF] text-[#0d3cfc] shadow-sm" : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"}`}>{formatTime(s)}</button>; })}</div>}
+        : <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">{slots.map((s) => { const a = selectedTime === s; return <button key={s} type="button" onClick={() => setSelectedTime(s)} className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition-all ${a ? "border-brand-blue bg-[#EEF3FF] text-brand-blue shadow-sm" : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"}`}>{formatTime(s)}</button>; })}</div>}
       </div>)}
-      {selectedTime && <button type="button" onClick={() => setStep("form")} className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-[#0d3cfc] text-white font-semibold text-sm hover:bg-[#0b34d6]">Continue<ChevronRight className="w-4 h-4" /></button>}
+      {selectedTime && <button type="button" onClick={() => setStep("form")} className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-brand-blue text-white font-semibold text-sm hover:bg-brand-blue-600">Continue<ChevronRight className="w-4 h-4" /></button>}
     </div>
   );
 
@@ -108,15 +108,15 @@ function BookingFlow({ clientId, customerName = "", customerEmail = "", customer
         <button type="button" onClick={() => setStep("date")} className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"><ChevronLeft className="w-4 h-4" />Back</button>
         {onClose && <button onClick={onClose} className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>}
       </div>
-      <div className="text-center py-1"><p className="text-sm font-medium text-[#0d3cfc]">{formatDate(selectedDate)} at {formatTime(selectedTime)}</p></div>
+      <div className="text-center py-1"><p className="text-sm font-medium text-brand-blue">{formatDate(selectedDate)} at {formatTime(selectedTime)}</p></div>
       <div className="flex flex-col gap-3">
-        <div><label className="text-xs font-medium text-gray-600 mb-1 block">Name *</label><input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" className="w-full h-11 px-3 rounded-lg border border-gray-200 text-sm text-gray-900 outline-none focus:border-[#0d3cfc] focus:ring-2 focus:ring-[#0d3cfc]/10" /></div>
-        <div><label className="text-xs font-medium text-gray-600 mb-1 block">Phone *</label><input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone number" className="w-full h-11 px-3 rounded-lg border border-gray-200 text-sm text-gray-900 outline-none focus:border-[#0d3cfc] focus:ring-2 focus:ring-[#0d3cfc]/10" /></div>
-        <div><label className="text-xs font-medium text-gray-600 mb-1 block">Email (optional)</label><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" className="w-full h-11 px-3 rounded-lg border border-gray-200 text-sm text-gray-900 outline-none focus:border-[#0d3cfc] focus:ring-2 focus:ring-[#0d3cfc]/10" /></div>
-        <div><label className="text-xs font-medium text-gray-600 mb-1 block">Notes (optional)</label><textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Anything we should know?" rows={2} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-900 outline-none focus:border-[#0d3cfc] focus:ring-2 focus:ring-[#0d3cfc]/10 resize-none" /></div>
+        <div><label className="text-xs font-medium text-gray-600 mb-1 block">Name *</label><input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" className="w-full h-11 px-3 rounded-lg border border-gray-200 text-sm text-gray-900 outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/10" /></div>
+        <div><label className="text-xs font-medium text-gray-600 mb-1 block">Phone *</label><input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone number" className="w-full h-11 px-3 rounded-lg border border-gray-200 text-sm text-gray-900 outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/10" /></div>
+        <div><label className="text-xs font-medium text-gray-600 mb-1 block">Email (optional)</label><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" className="w-full h-11 px-3 rounded-lg border border-gray-200 text-sm text-gray-900 outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/10" /></div>
+        <div><label className="text-xs font-medium text-gray-600 mb-1 block">Notes (optional)</label><textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Anything we should know?" rows={2} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-900 outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/10 resize-none" /></div>
       </div>
       {error && <p className="text-sm text-red-600">{error}</p>}
-      <button type="button" onClick={handleSubmit} disabled={!name.trim() || !phone.trim() || submitting} className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-[#0d3cfc] text-white font-semibold text-sm hover:bg-[#0b34d6] disabled:opacity-50 disabled:cursor-not-allowed">
+      <button type="button" onClick={handleSubmit} disabled={!name.trim() || !phone.trim() || submitting} className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-brand-blue text-white font-semibold text-sm hover:bg-brand-blue-600 disabled:opacity-50 disabled:cursor-not-allowed">
         {submitting ? <><Loader2 className="w-4 h-4 animate-spin" />Booking...</> : <><CalendarDays className="w-4 h-4" />Confirm Booking</>}
       </button>
     </div>
@@ -152,7 +152,7 @@ export default function BookNowButton({ clientId, label = "Book Now", variant = 
   if (!configChecked) return null;
   if (inline) return <BookingFlow clientId={clientId} customerName={customerName} customerEmail={customerEmail} customerPhone={customerPhone} quoteAmount={quoteAmount} onBooked={onBooked} />;
 
-  const vs: Record<string, string> = { primary: "bg-[#0d3cfc] text-white hover:bg-[#0b34d6] border-transparent shadow-sm", outline: "bg-white text-[#0d3cfc] hover:bg-[#EEF3FF] border-[#0d3cfc]", ghost: "bg-transparent text-[#0d3cfc] hover:bg-[#EEF3FF] border-transparent" };
+  const vs: Record<string, string> = { primary: "bg-brand-blue text-white hover:bg-brand-blue-600 border-transparent shadow-sm", outline: "bg-white text-brand-blue hover:bg-[#EEF3FF] border-brand-blue", ghost: "bg-transparent text-brand-blue hover:bg-[#EEF3FF] border-transparent" };
 
   return (<>
     <button type="button" onClick={() => setModalOpen(true)} className={`inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border text-sm font-semibold transition-all ${vs[variant]} ${className}`}><CalendarDays className="w-4 h-4" />{label}</button>

@@ -135,7 +135,7 @@ export default function WaitlistPage() {
                               {notified ? (
                                 <Badge variant="secondary" className="text-[10px]">Notified</Badge>
                               ) : (
-                                <Badge className="text-[10px] bg-[#0d3cfc] text-white">Pending</Badge>
+                                <Badge className="text-[10px] bg-brand-blue text-white">Pending</Badge>
                               )}
                             </div>
                             {r.business_name && (

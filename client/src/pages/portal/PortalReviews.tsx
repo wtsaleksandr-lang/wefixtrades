@@ -380,7 +380,7 @@ export default function PortalReviews() {
             Protect and grow your online reputation with automated review requests,
             monitoring, and AI-powered response drafting.
           </p>
-          <Button className="bg-[#0d3cfc] hover:bg-[#0b34d6]" onClick={() => window.open("/products/reputationshield", "_blank")}>
+          <Button className="bg-brand-blue hover:bg-brand-blue-600" onClick={() => window.open("/products/reputationshield", "_blank")}>
             Learn More
           </Button>
         </div>
@@ -410,7 +410,7 @@ export default function PortalReviews() {
             <div className="flex items-center gap-2">
               <h2 className="text-lg font-semibold text-gray-900">Your Reviews</h2>
               {config?.tierLabel && (
-                <Badge variant="secondary" className="text-[10px] bg-[#EEF3FF] text-[#0d3cfc]">
+                <Badge variant="secondary" className="text-[10px] bg-[#EEF3FF] text-brand-blue">
                   {config.tierLabel}
                 </Badge>
               )}
@@ -490,7 +490,7 @@ export default function PortalReviews() {
                   <p className="text-xs text-gray-400">Automatically send gentle reminders if customers haven't responded</p>
                 </div>
                 <button
-                  className={`relative w-10 h-6 rounded-full transition-colors ${settings.reminders_enabled ? "bg-[#0d3cfc]" : "bg-gray-300"}`}
+                  className={`relative w-10 h-6 rounded-full transition-colors ${settings.reminders_enabled ? "bg-brand-blue" : "bg-gray-300"}`}
                   onClick={() => settingsMutation.mutate({ reminders_enabled: !settings.reminders_enabled })}
                 >
                   <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${settings.reminders_enabled ? "left-[18px]" : "left-0.5"}`} />
@@ -502,7 +502,7 @@ export default function PortalReviews() {
                   <p className="text-xs text-gray-400">Get notified when a 1 or 2 star review is detected</p>
                 </div>
                 <button
-                  className={`relative w-10 h-6 rounded-full transition-colors ${settings.low_rating_alerts ? "bg-[#0d3cfc]" : "bg-gray-300"}`}
+                  className={`relative w-10 h-6 rounded-full transition-colors ${settings.low_rating_alerts ? "bg-brand-blue" : "bg-gray-300"}`}
                   onClick={() => settingsMutation.mutate({ low_rating_alerts: !settings.low_rating_alerts })}
                 >
                   <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${settings.low_rating_alerts ? "left-[18px]" : "left-0.5"}`} />
@@ -530,7 +530,7 @@ export default function PortalReviews() {
               checked={!isAutoReplyPaused}
               onCheckedChange={(checked) => autoReplyPauseMutation.mutate(!checked)}
               disabled={autoReplyPauseMutation.isPending || automationStatus?.all_automation_paused}
-              className="data-[state=checked]:bg-[#0d3cfc]"
+              className="data-[state=checked]:bg-brand-blue"
             />
           </div>
           {isAutoReplyPaused && (
@@ -622,7 +622,7 @@ export default function PortalReviews() {
                         <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
                           <Button
                             size="sm"
-                            className="bg-[#0d3cfc] hover:bg-[#0b34d6] text-white text-xs"
+                            className="bg-brand-blue hover:bg-brand-blue-600 text-white text-xs"
                             disabled={isBusy}
                             onClick={() => replyActionMutation.mutate({ id: reply.id, action: "approve" })}
                           >
@@ -697,7 +697,7 @@ export default function PortalReviews() {
                 {!googleStatus.connected || googleStatus.needsReconnect ? (
                   <Button
                     size="sm"
-                    className="h-8 text-xs bg-[#0d3cfc] hover:bg-[#0b34d6]"
+                    className="h-8 text-xs bg-brand-blue hover:bg-brand-blue-600"
                     disabled={googleConnectMutation.isPending}
                     onClick={() => googleConnectMutation.mutate()}
                   >
@@ -815,7 +815,7 @@ export default function PortalReviews() {
             {!showRequestForm ? (
               <div>
                 <p className="text-xs text-gray-500 mb-3">Send a review request to a specific customer by email or text.</p>
-                <Button size="sm" className="bg-[#0d3cfc] hover:bg-[#0b34d6]" onClick={() => setShowRequestForm(true)}>
+                <Button size="sm" className="bg-brand-blue hover:bg-brand-blue-600" onClick={() => setShowRequestForm(true)}>
                   <Send className="w-3.5 h-3.5 mr-1" /> Send Review Request
                 </Button>
               </div>
@@ -858,7 +858,7 @@ export default function PortalReviews() {
                 <div className="flex gap-2">
                   <Button
                     size="sm"
-                    className="bg-[#0d3cfc] hover:bg-[#0b34d6]"
+                    className="bg-brand-blue hover:bg-brand-blue-600"
                     disabled={!requestForm.customer_name.trim() || (!requestForm.customer_email && !requestForm.customer_phone) || requestMutation.isPending}
                     onClick={() => requestMutation.mutate(requestForm)}
                   >

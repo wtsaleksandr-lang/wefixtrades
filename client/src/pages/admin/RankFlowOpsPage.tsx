@@ -171,7 +171,7 @@ export default function RankFlowOpsPage() {
           onClick={() => setFilter(f.key)}
           className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
             filter === f.key
-              ? "bg-[#0d3cfc] text-white"
+              ? "bg-brand-blue text-white"
               : "bg-gray-100 text-gray-600 hover:bg-gray-200"
           }`}
         >
@@ -249,7 +249,7 @@ function ClientCard({ client: c }: { client: ClientRow }) {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 mb-1">
             <Link href={`/admin/crm/clients/${c.client_id}`}>
-              <span className="text-sm font-medium text-gray-900 hover:text-[#0d3cfc] cursor-pointer">
+              <span className="text-sm font-medium text-gray-900 hover:text-brand-blue cursor-pointer">
                 {c.niche || "Client"} — {c.location || "Unknown"}
               </span>
             </Link>
@@ -294,7 +294,7 @@ function ClientCard({ client: c }: { client: ClientRow }) {
 
         {/* Right: Quick link */}
         <Link href={`/admin/crm/clients/${c.client_id}`}>
-          <span className="p-1.5 rounded hover:bg-gray-100 cursor-pointer text-gray-400 hover:text-[#0d3cfc]">
+          <span className="p-1.5 rounded hover:bg-gray-100 cursor-pointer text-gray-400 hover:text-brand-blue">
             <ChevronRight className="w-4 h-4" />
           </span>
         </Link>
