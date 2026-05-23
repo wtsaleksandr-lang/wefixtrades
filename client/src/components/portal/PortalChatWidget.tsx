@@ -731,20 +731,20 @@ export default function PortalChatWidget({
         onPointerDown={handleResizeDown}
         onPointerMove={handleResizeMove}
         onPointerUp={handleResizeUp}
-        className="group absolute inset-y-0 left-0 w-2 cursor-ew-resize z-10 hidden sm:flex items-center justify-center hover:bg-[#0d3cfc]/10 transition-colors"
+        className="group absolute inset-y-0 left-0 w-2 cursor-ew-resize z-10 hidden sm:flex items-center justify-center hover:bg-brand-blue/10 transition-colors"
         style={{ touchAction: "none" }}
         title="Drag to resize"
         data-testid="chat-resize-handle"
         aria-label="Resize AI Copilot panel"
       >
         {/* Always-visible grip so the resize affordance is discoverable. */}
-        <div className="h-8 w-1 rounded-full bg-gray-300 group-hover:bg-[#0d3cfc] transition-colors" />
+        <div className="h-8 w-1 rounded-full bg-gray-300 group-hover:bg-brand-blue transition-colors" />
       </div>
 
       {/* Header */}
       <div className="flex items-center justify-between h-14 px-4 border-b border-gray-100 shrink-0">
         <div className="flex items-center gap-2">
-          <Sparkles className="w-4 h-4 text-[#0d3cfc]" aria-hidden="true" />
+          <Sparkles className="w-4 h-4 text-brand-blue" aria-hidden="true" />
           <span className="text-sm font-semibold text-gray-900">AI Copilot</span>
           {isOnboarding && (
             <span className="text-[10px] text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded">setup</span>
@@ -797,7 +797,7 @@ export default function PortalChatWidget({
             step="0.05"
             value={panelOpacity}
             onChange={(e) => setPanelOpacity(parseFloat(e.target.value))}
-            className="w-full accent-[#0d3cfc]"
+            className="w-full accent-brand-blue"
             aria-label="Panel transparency"
             data-testid="slider-chat-opacity"
           />
@@ -815,7 +815,7 @@ export default function PortalChatWidget({
             <button
               type="button"
               onClick={() => setHistoryView(false)}
-              className="inline-flex items-center gap-1 text-xs font-medium text-[#0d3cfc] hover:text-[#0a31d6]"
+              className="inline-flex items-center gap-1 text-xs font-medium text-brand-blue hover:text-brand-blue-600"
               data-testid="button-history-return"
             >
               <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" /> Return to chat
@@ -841,7 +841,7 @@ export default function PortalChatWidget({
             {historyMessages.map((m, i) => (
               <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
                 <div className={`max-w-[85%] rounded-lg px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap ${
-                  m.role === "user" ? "bg-[#0d3cfc] text-white" : "bg-gray-100 text-gray-800"
+                  m.role === "user" ? "bg-brand-blue text-white" : "bg-gray-100 text-gray-800"
                 }`}>
                   {m.content}
                 </div>
@@ -894,7 +894,7 @@ export default function PortalChatWidget({
             {messages.map((m, i) => (
               <div key={i} className={`flex flex-col ${m.role === "user" ? "items-end" : "items-start"}`}>
                 <div className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
-                  m.role === "user" ? "bg-[#0d3cfc] text-white" : "bg-gray-100 text-gray-700"
+                  m.role === "user" ? "bg-brand-blue text-white" : "bg-gray-100 text-gray-700"
                 }`}>
                   {m.content
                     ? m.content
@@ -930,7 +930,7 @@ export default function PortalChatWidget({
                           }
                         }}
                         title={a.hint}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-[#0d3cfc] bg-white border border-[#0d3cfc]/30 rounded-full hover:bg-[#EEF3FF] hover:border-[#0d3cfc]/60 transition-colors"
+                        className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-brand-blue bg-white border border-brand-blue/30 rounded-full hover:bg-[#EEF3FF] hover:border-brand-blue/60 transition-colors"
                         data-testid={`chat-action-${i}-${j}`}
                       >
                         {a.label}
@@ -944,9 +944,9 @@ export default function PortalChatWidget({
 
             {/* Escalation draft card */}
             {escalationDraft && !ticketCreated && (
-              <div className="border border-[#0d3cfc]/30 bg-[#EEF3FF] rounded-lg p-3 space-y-2">
+              <div className="border border-brand-blue/30 bg-[#EEF3FF] rounded-lg p-3 space-y-2">
                 <div className="flex items-center gap-1.5">
-                  <ClipboardList className="w-3.5 h-3.5 text-[#0d3cfc]" />
+                  <ClipboardList className="w-3.5 h-3.5 text-brand-blue" />
                   <p className="text-xs font-medium text-gray-900">Support Ticket Draft</p>
                 </div>
                 <p className="text-[10px] text-gray-500">Review and edit. No ticket until you confirm.</p>
@@ -958,7 +958,7 @@ export default function PortalChatWidget({
                       <input
                         value={draftSubject}
                         onChange={(e) => setDraftSubject(e.target.value)}
-                        className="w-full mt-0.5 px-2 py-1 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-[#0d3cfc]/30 bg-white"
+                        className="w-full mt-0.5 px-2 py-1 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-brand-blue/30 bg-white"
                       />
                     </div>
                     <div>
@@ -966,7 +966,7 @@ export default function PortalChatWidget({
                       <select
                         value={draftCategory}
                         onChange={(e) => setDraftCategory(e.target.value)}
-                        className="w-full mt-0.5 px-2 py-1 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-[#0d3cfc]/30 bg-white"
+                        className="w-full mt-0.5 px-2 py-1 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-brand-blue/30 bg-white"
                       >
                         {CATEGORIES.map((c) => (
                           <option key={c.value} value={c.value}>{c.label}</option>
@@ -980,7 +980,7 @@ export default function PortalChatWidget({
                       value={draftDescription}
                       onChange={(e) => setDraftDescription(e.target.value)}
                       rows={2}
-                      className="w-full mt-0.5 px-2 py-1 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-[#0d3cfc]/30 bg-white resize-none"
+                      className="w-full mt-0.5 px-2 py-1 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-brand-blue/30 bg-white resize-none"
                     />
                   </div>
                 </div>
@@ -989,7 +989,7 @@ export default function PortalChatWidget({
                   <button
                     onClick={submitEscalationTicket}
                     disabled={!draftSubject.trim() || !draftDescription.trim() || submittingTicket}
-                    className="px-3 py-1 text-xs font-medium text-white bg-[#0d3cfc] rounded hover:bg-[#0a31d6] disabled:opacity-60 transition-colors"
+                    className="px-3 py-1 text-xs font-medium text-white bg-brand-blue rounded hover:bg-brand-blue-600 disabled:opacity-60 transition-colors"
                   >
                     {submittingTicket ? "Creating..." : "Create Ticket"}
                   </button>
@@ -1019,9 +1019,9 @@ export default function PortalChatWidget({
 
             {/* Q23: form-fill proposal card */}
             {pendingProposal && pendingProposal.length > 0 && (
-              <div className="border border-[#0d3cfc]/30 bg-[#EEF3FF] rounded-lg p-3 space-y-2" data-testid="form-fill-proposal">
+              <div className="border border-brand-blue/30 bg-[#EEF3FF] rounded-lg p-3 space-y-2" data-testid="form-fill-proposal">
                 <div className="flex items-center gap-1.5">
-                  <Wand2 className="w-3.5 h-3.5 text-[#0d3cfc]" />
+                  <Wand2 className="w-3.5 h-3.5 text-brand-blue" />
                   <p className="text-xs font-medium text-gray-900">
                     Suggested fill ({pendingProposal.length} field{pendingProposal.length === 1 ? "" : "s"})
                   </p>
@@ -1043,7 +1043,7 @@ export default function PortalChatWidget({
                   <button
                     onClick={applyProposal}
                     disabled={applyingProposal}
-                    className="px-3 py-1 text-xs font-medium text-white bg-[#0d3cfc] rounded hover:bg-[#0a31d6] disabled:opacity-60 transition-colors"
+                    className="px-3 py-1 text-xs font-medium text-white bg-brand-blue rounded hover:bg-brand-blue-600 disabled:opacity-60 transition-colors"
                     data-testid="button-apply-fill"
                   >
                     {applyingProposal ? "Applying..." : "Apply"}
@@ -1103,7 +1103,7 @@ export default function PortalChatWidget({
                     </button>
                     <button
                       onClick={confirmToolCall}
-                      className="flex-1 text-xs font-medium text-white bg-[#0d3cfc] hover:bg-[#0a31d6] py-1.5 rounded transition-colors"
+                      className="flex-1 text-xs font-medium text-white bg-brand-blue hover:bg-brand-blue-600 py-1.5 rounded transition-colors"
                       data-testid="button-tool-confirm"
                     >
                       Confirm
@@ -1164,7 +1164,7 @@ export default function PortalChatWidget({
                       : "Type or paste a screenshot..."
                 }
                 disabled={!!pendingToolCall}
-                className="flex-1 text-sm px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0d3cfc]/20 focus:border-[#0d3cfc] disabled:bg-gray-50"
+                className="flex-1 text-sm px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue disabled:bg-gray-50"
               />
               <button
                 onClick={() => send()}
@@ -1174,7 +1174,7 @@ export default function PortalChatWidget({
                   attachments.some((a) => a.status === "pending") ||
                   (!input.trim() && !attachments.some((a) => a.status === "uploaded"))
                 }
-                className="p-2 rounded-lg bg-[#0d3cfc] text-white hover:bg-[#0a31d6] disabled:opacity-40 transition-colors"
+                className="p-2 rounded-lg bg-brand-blue text-white hover:bg-brand-blue-600 disabled:opacity-40 transition-colors"
                 aria-label="Send message"
               >
                 <Send className="w-4 h-4" aria-hidden="true" />

@@ -243,7 +243,7 @@ export default function AiBudgetPage() {
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div className="min-w-0">
             <h1 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
-              <BrainCircuit className="w-5 h-5 text-[#0d3cfc]" />
+              <BrainCircuit className="w-5 h-5 text-brand-blue" />
               AI Budget
             </h1>
             <p className="text-sm text-gray-500">
@@ -273,7 +273,7 @@ export default function AiBudgetPage() {
         {/* Global row */}
         <Card className="p-4" data-testid="aibudget-card-global">
           <div className="flex items-center gap-2 mb-3">
-            <DollarSign className="w-4 h-4 text-[#0d3cfc]" />
+            <DollarSign className="w-4 h-4 text-brand-blue" />
             <h2 className="text-sm font-semibold text-gray-900">Global default</h2>
             <Badge variant="outline" className="text-[10px]">applies when no tier override is set</Badge>
           </div>
@@ -294,7 +294,7 @@ export default function AiBudgetPage() {
         {/* Per-tier overrides */}
         <Card className="p-4" data-testid="aibudget-card-tiers">
           <div className="flex items-center gap-2 mb-3">
-            <ImageIcon className="w-4 h-4 text-[#0d3cfc]" />
+            <ImageIcon className="w-4 h-4 text-brand-blue" />
             <h2 className="text-sm font-semibold text-gray-900">Per-tier overrides</h2>
             <Badge variant="outline" className="text-[10px]">applied when a user's plan_tier matches</Badge>
           </div>
@@ -311,7 +311,7 @@ export default function AiBudgetPage() {
                     <div className="flex items-center gap-2 mb-2">
                       <h3 className="text-sm font-medium text-gray-800">{label}</h3>
                       {isOverride ? (
-                        <Badge className="bg-[#0d3cfc]/10 text-[#0d3cfc] hover:bg-[#0d3cfc]/10 text-[10px]">
+                        <Badge className="bg-brand-blue/10 text-brand-blue hover:bg-brand-blue/10 text-[10px]">
                           custom override
                         </Badge>
                       ) : (

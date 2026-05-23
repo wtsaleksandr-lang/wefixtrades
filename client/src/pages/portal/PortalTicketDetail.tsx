@@ -187,7 +187,7 @@ export default function PortalTicketDetail() {
                       <div className={`max-w-[85%] space-y-1`}>
                         <div className={`rounded-lg px-3.5 py-2.5 text-sm whitespace-pre-wrap ${
                           isCustomer
-                            ? "bg-[#0d3cfc] text-white"
+                            ? "bg-brand-blue text-white"
                             : m.author_type === "system"
                             ? "bg-gray-50 text-gray-500 italic"
                             : "bg-gray-100 text-gray-700"
@@ -219,12 +219,12 @@ export default function PortalTicketDetail() {
                       }}
                       placeholder="Type your reply..."
                       rows={2}
-                      className="flex-1 text-sm px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0d3cfc]/20 focus:border-[#0d3cfc] resize-none"
+                      className="flex-1 text-sm px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue resize-none"
                     />
                     <button
                       onClick={() => sendReply.mutate()}
                       disabled={!reply.trim() || sendReply.isPending}
-                      className="px-4 py-2.5 rounded-lg bg-[#0d3cfc] text-white hover:bg-[#0b34d6] disabled:opacity-40 transition-colors self-end text-xs font-medium"
+                      className="px-4 py-2.5 rounded-lg bg-brand-blue text-white hover:bg-brand-blue-600 disabled:opacity-40 transition-colors self-end text-xs font-medium"
                     >
                       {sendReply.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Send"}
                     </button>

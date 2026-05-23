@@ -180,7 +180,7 @@ export default function AuditLeadsPage() {
                     </TableCell>
                     <TableCell>
                       <div className="text-sm text-gray-700">{r.name || "-"}</div>
-                      <a href={`mailto:${r.email}`} className="text-xs text-[#0d3cfc] hover:underline">{r.email}</a>
+                      <a href={`mailto:${r.email}`} className="text-xs text-brand-blue hover:underline">{r.email}</a>
                       {r.phone && <div className="text-xs text-gray-500">{r.phone}</div>}
                     </TableCell>
                     <TableCell className="hidden md:table-cell">

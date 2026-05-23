@@ -126,7 +126,7 @@ function uptimeTone(percent: number | null): "good" | "warn" | "bad" | "neutral"
 
 function planBadge(tier: "basic" | "pro" | "unknown") {
   if (tier === "pro") {
-    return <Badge className="bg-[#0d3cfc]/10 text-[#0d3cfc] hover:bg-[#0d3cfc]/10">Pro</Badge>;
+    return <Badge className="bg-brand-blue/10 text-brand-blue hover:bg-brand-blue/10">Pro</Badge>;
   }
   if (tier === "basic") {
     return <Badge variant="outline" className="text-gray-700">Basic</Badge>;
@@ -349,7 +349,7 @@ export default function WebCareOpsPage() {
                     <TableCell>
                       <a
                         href={`/admin/crm/clients/${r.client_id}`}
-                        className="font-medium text-gray-900 hover:text-[#0d3cfc] hover:underline"
+                        className="font-medium text-gray-900 hover:text-brand-blue hover:underline"
                       >
                         {r.business_name}
                       </a>

@@ -488,7 +488,7 @@ export default function PortalApiAccessPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Key className="w-4 h-4 text-[#0d3cfc]" /> Your new API key
+              <Key className="w-4 h-4 text-brand-blue" /> Your new API key
             </DialogTitle>
             <DialogDescription>
               {plaintextReveal?.label && <span className="font-medium">{plaintextReveal.label} — </span>}
@@ -622,7 +622,7 @@ function PricingView({
           onClick={() => setInterval("monthly")}
           className={cn(
             "px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
-            interval === "monthly" ? "bg-[#0d3cfc] text-white" : "bg-white border border-gray-200 text-gray-700",
+            interval === "monthly" ? "bg-brand-blue text-white" : "bg-white border border-gray-200 text-gray-700",
           )}
           data-testid="toggle-monthly"
         >
@@ -632,7 +632,7 @@ function PricingView({
           onClick={() => setInterval("annual")}
           className={cn(
             "px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-2",
-            interval === "annual" ? "bg-[#0d3cfc] text-white" : "bg-white border border-gray-200 text-gray-700",
+            interval === "annual" ? "bg-brand-blue text-white" : "bg-white border border-gray-200 text-gray-700",
           )}
           data-testid="toggle-annual"
         >
@@ -645,8 +645,8 @@ function PricingView({
 
       {/* Loyalty callout */}
       {loyaltyEligible && (
-        <div className="bg-[#EEF3FF] border border-[#0d3cfc]/20 rounded-xl p-4 flex items-start gap-3" data-testid="loyalty-callout">
-          <Sparkles className="w-5 h-5 text-[#0d3cfc] shrink-0 mt-0.5" />
+        <div className="bg-[#EEF3FF] border border-brand-blue/20 rounded-xl p-4 flex items-start gap-3" data-testid="loyalty-callout">
+          <Sparkles className="w-5 h-5 text-brand-blue shrink-0 mt-0.5" />
           <div className="text-sm">
             <p className="font-medium text-gray-900">Existing QuoteQuick subscriber?</p>
             <p className="text-gray-600 mt-0.5">
@@ -669,12 +669,12 @@ function PricingView({
               key={t.id}
               className={cn(
                 "bg-white rounded-xl border p-5 flex flex-col gap-3 relative",
-                t.recommended ? "border-[#0d3cfc] ring-2 ring-[#0d3cfc]/20" : "border-gray-200",
+                t.recommended ? "border-brand-blue ring-2 ring-brand-blue/20" : "border-gray-200",
               )}
               data-testid={`tier-card-${t.id}`}
             >
               {t.recommended && (
-                <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#0d3cfc] text-white">
+                <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-brand-blue text-white">
                   Recommended
                 </span>
               )}
@@ -771,7 +771,7 @@ function SubscribedView({
       <div className="bg-white rounded-xl border border-gray-200 p-5" data-testid="subscription-card">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">
-            <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-[#EEF3FF] text-[#0d3cfc] text-xs font-semibold uppercase tracking-wide">
+            <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-[#EEF3FF] text-brand-blue text-xs font-semibold uppercase tracking-wide">
               {tierName}
             </span>
             <span className={cn(

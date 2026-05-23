@@ -634,7 +634,7 @@ export default function ClientDetailPage() {
       <AdminLayout>
         <div className="max-w-5xl mx-auto text-center py-20">
           <p className="text-gray-500">Client not found.</p>
-          <Link href="/admin/crm/clients"><span className="text-sm text-[#0d3cfc]">Back to clients</span></Link>
+          <Link href="/admin/crm/clients"><span className="text-sm text-brand-blue">Back to clients</span></Link>
         </div>
       </AdminLayout>
     );
@@ -906,7 +906,7 @@ export default function ClientDetailPage() {
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="h-7 px-2 text-xs text-[#0d3cfc] hover:bg-[#EEF3FF]"
+                                  className="h-7 px-2 text-xs text-brand-blue hover:bg-[#EEF3FF]"
                                   onClick={() => startCheckout.mutate({ serviceId: s.service_id })}
                                   disabled={startCheckout.isPending}
                                 >
@@ -917,7 +917,7 @@ export default function ClientDetailPage() {
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="h-7 px-2 text-xs text-gray-500 hover:text-[#0d3cfc]"
+                                  className="h-7 px-2 text-xs text-gray-500 hover:text-brand-blue"
                                   onClick={() => generateTasks.mutate(s.id)}
                                   disabled={generateTasks.isPending}
                                 >
@@ -964,7 +964,7 @@ export default function ClientDetailPage() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-7 px-2 text-xs text-[#0d3cfc] hover:bg-[#EEF3FF]"
+                            className="h-7 px-2 text-xs text-brand-blue hover:bg-[#EEF3FF]"
                             onClick={() => startCheckout.mutate({ serviceId: s.service_id })}
                             disabled={startCheckout.isPending}
                           >
@@ -975,7 +975,7 @@ export default function ClientDetailPage() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-7 px-2 text-xs text-gray-500 hover:text-[#0d3cfc]"
+                            className="h-7 px-2 text-xs text-gray-500 hover:text-brand-blue"
                             onClick={() => generateTasks.mutate(s.id)}
                             disabled={generateTasks.isPending}
                           >
@@ -1035,7 +1035,7 @@ export default function ClientDetailPage() {
                           <Globe className="w-3 h-3" /> View Live
                         </a>
                         <a href={calc.edit_url} target="_blank" rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-xs text-[#0d3cfc] hover:underline">
+                          className="inline-flex items-center gap-1 text-xs text-brand-blue hover:underline">
                           <Pencil className="w-3 h-3" /> Edit
                         </a>
                         <button
@@ -1081,7 +1081,7 @@ export default function ClientDetailPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-7 px-2 text-xs text-gray-500 hover:text-[#0d3cfc]"
+                          className="h-7 px-2 text-xs text-gray-500 hover:text-brand-blue"
                           onClick={async () => {
                             const url = `${window.location.origin}/onboarding/${ob.access_token}`;
                             navigator.clipboard.writeText(url);
@@ -1098,7 +1098,7 @@ export default function ClientDetailPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-7 px-2 text-xs text-gray-500 hover:text-[#0d3cfc]"
+                          className="h-7 px-2 text-xs text-gray-500 hover:text-brand-blue"
                           onClick={() => window.open(`/onboarding/${ob.access_token}`, "_blank")}
                         >
                           <ExternalLink className="w-3 h-3 mr-1" /> Open
@@ -1131,7 +1131,7 @@ export default function ClientDetailPage() {
                 <div className="flex items-center gap-2 mb-2 px-0.5">
                   <span className="text-xs font-medium text-gray-500">{done}/{total} complete</span>
                   <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden max-w-[120px]">
-                    <div className="h-full bg-[#0d3cfc] rounded-full transition-all" style={{ width: `${total > 0 ? (done / total) * 100 : 0}%` }} />
+                    <div className="h-full bg-brand-blue rounded-full transition-all" style={{ width: `${total > 0 ? (done / total) * 100 : 0}%` }} />
                   </div>
                 </div>
               );
@@ -1265,7 +1265,7 @@ export default function ClientDetailPage() {
                   size="sm"
                   onClick={() => addNote.mutate()}
                   disabled={!noteText.trim() || addNote.isPending}
-                  className="bg-[#0d3cfc] hover:bg-[#0b34d6]"
+                  className="bg-brand-blue hover:bg-brand-blue-600"
                 >
                   {addNote.isPending ? "Saving..." : "Add Note"}
                 </Button>
@@ -1323,7 +1323,7 @@ export default function ClientDetailPage() {
               <Button
                 onClick={() => addService.mutate()}
                 disabled={!newServiceId || addService.isPending}
-                className="bg-[#0d3cfc] hover:bg-[#0b34d6]"
+                className="bg-brand-blue hover:bg-brand-blue-600"
               >
                 {addService.isPending ? "Adding..." : "Add"}
               </Button>
@@ -1382,7 +1382,7 @@ export default function ClientDetailPage() {
               <Button
                 onClick={() => saveClient.mutate(editForm)}
                 disabled={!editForm.business_name || saveClient.isPending}
-                className="bg-[#0d3cfc] hover:bg-[#0b34d6]"
+                className="bg-brand-blue hover:bg-brand-blue-600"
               >
                 {saveClient.isPending ? "Saving..." : "Save"}
               </Button>
@@ -1433,7 +1433,7 @@ export default function ClientDetailPage() {
               </p>
             </div>
             <DialogFooter>
-              <Button onClick={() => setPortalResult(null)} className="bg-[#0d3cfc] hover:bg-[#0b34d6]">
+              <Button onClick={() => setPortalResult(null)} className="bg-brand-blue hover:bg-brand-blue-600">
                 Done
               </Button>
             </DialogFooter>
@@ -1950,7 +1950,7 @@ function ReputationOpsPanel({ clientId }: { clientId: number }) {
       {/* Header row */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2 flex-wrap">
-          <Badge variant="secondary" className="text-xs bg-[#EEF3FF] text-[#0d3cfc]">
+          <Badge variant="secondary" className="text-xs bg-[#EEF3FF] text-brand-blue">
             {data.tier ? data.tier.charAt(0).toUpperCase() + data.tier.slice(1) : "—"} Plan
           </Badge>
           <Badge variant="secondary" className={`text-xs ${data.serviceStatus === "active" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
@@ -2039,7 +2039,7 @@ function ReputationOpsPanel({ clientId }: { clientId: number }) {
             <div className="flex gap-2 mt-2">
               <button
                 onClick={() => copyToClipboard(`<script src="${origin}/widget/embed.js" data-wft-widget="${t.widgetEnabled.type || "carousel"}" data-wft-token="${t.widgetToken.value}"></script>`, "Widget embed code")}
-                className="text-[11px] font-medium text-white bg-[#0d3cfc] hover:bg-[#0b34d6] px-2.5 py-1 rounded-md transition-colors"
+                className="text-[11px] font-medium text-white bg-brand-blue hover:bg-brand-blue-600 px-2.5 py-1 rounded-md transition-colors"
               >
                 Copy Embed Code
               </button>
@@ -2203,7 +2203,7 @@ function RebuildAssistantButton({ clientServiceId, queryKey }: { clientServiceId
     <button
       onClick={() => rebuild.mutate()}
       disabled={rebuild.isPending}
-      className="mt-1.5 inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium text-white bg-[#0d3cfc] rounded-md hover:bg-[#0b34d6] disabled:opacity-60 transition-colors"
+      className="mt-1.5 inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium text-white bg-brand-blue rounded-md hover:bg-brand-blue-600 disabled:opacity-60 transition-colors"
     >
       {rebuild.isPending ? (
         <><Loader2 className="w-3 h-3 animate-spin" /> Rebuilding...</>
@@ -2813,7 +2813,7 @@ function TradeLineAdminPanel({ clientServiceId, serviceName }: { clientServiceId
               <div className="flex gap-2 pt-1">
                 <Button
                   size="sm"
-                  className="h-7 text-xs bg-[#0d3cfc] hover:bg-[#0b34d6]"
+                  className="h-7 text-xs bg-brand-blue hover:bg-brand-blue-600"
                   onClick={() => saveConfig.mutate()}
                   disabled={saveConfig.isPending}
                 >

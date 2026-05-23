@@ -824,7 +824,7 @@ export default function ReviewsPage() {
                   <Button
                     size="sm"
                     variant={isLowRating && !hasPublicResponse && !hasDraft ? "default" : "outline"}
-                    className={`h-7 text-xs ${isLowRating && !hasPublicResponse && !hasDraft ? "bg-[#0d3cfc] hover:bg-[#0b34d6]" : ""}`}
+                    className={`h-7 text-xs ${isLowRating && !hasPublicResponse && !hasDraft ? "bg-brand-blue hover:bg-brand-blue-600" : ""}`}
                     disabled={draftMutation.isPending}
                     onClick={() => draftMutation.mutate({ reviewId: selected.id, tone: draftTone })}
                   >
@@ -867,7 +867,7 @@ export default function ReviewsPage() {
                       {draftEdited && (
                         <Button
                           size="sm"
-                          className="h-7 text-xs bg-[#0d3cfc] hover:bg-[#0b34d6]"
+                          className="h-7 text-xs bg-brand-blue hover:bg-brand-blue-600"
                           disabled={saveDraftMutation.isPending}
                           onClick={() => saveDraftMutation.mutate({ id: selected.id, draft: draftText })}
                         >

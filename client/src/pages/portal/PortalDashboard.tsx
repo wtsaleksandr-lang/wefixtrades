@@ -35,13 +35,13 @@ class PortalErrorBoundary extends Component<{ children: ReactNode }, { error: Er
             <button
               type="button"
               onClick={() => window.location.reload()}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-[#0d3cfc] rounded-lg hover:bg-[#0b34d6] transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-brand-blue rounded-lg hover:bg-brand-blue-600 transition-colors"
             >
               <RefreshCw className="w-3 h-3" /> Refresh
             </button>
             <Link
               href="/portal/help"
-              className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-[#0d3cfc] border border-[#0d3cfc]/40 rounded-lg hover:bg-[#EEF3FF] transition-colors"
+              className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-brand-blue border border-brand-blue/40 rounded-lg hover:bg-[#EEF3FF] transition-colors"
             >
               Help
             </Link>
@@ -324,25 +324,25 @@ function PortalDashboardInner() {
               <div className="space-y-2">
                 <Link
                   href="/admin/crm/clients"
-                  className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg border border-gray-200 hover:border-[#0d3cfc]/40 hover:bg-[#EEF3FF]/50 transition-colors group"
+                  className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg border border-gray-200 hover:border-brand-blue/40 hover:bg-[#EEF3FF]/50 transition-colors group"
                   data-testid="empty-state-clients-link"
                 >
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-gray-900">Open the clients list</p>
                     <p className="text-xs text-gray-500">Pick a real client → their portal will populate with their data</p>
                   </div>
-                  <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-[#0d3cfc] shrink-0" />
+                  <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-brand-blue shrink-0" />
                 </Link>
                 <Link
                   href="/admin/crm"
-                  className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg border border-gray-200 hover:border-[#0d3cfc]/40 hover:bg-[#EEF3FF]/50 transition-colors group"
+                  className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg border border-gray-200 hover:border-brand-blue/40 hover:bg-[#EEF3FF]/50 transition-colors group"
                   data-testid="empty-state-admin-link"
                 >
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-gray-900">Return to the admin dashboard</p>
                     <p className="text-xs text-gray-500">Exit preview mode and go back to /admin/crm</p>
                   </div>
-                  <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-[#0d3cfc] shrink-0" />
+                  <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-brand-blue shrink-0" />
                 </Link>
               </div>
             </div>
@@ -403,7 +403,7 @@ function PortalDashboardInner() {
              billing, and open tickets in one glance. */}
           <Card
             data-testid="dashboard-hero-kpi"
-            className="mb-4 bg-gradient-to-br from-[#0d3cfc] to-[#0a2fd0] text-white border-0"
+            className="mb-4 bg-gradient-to-br from-brand-blue to-brand-blue-600 text-white border-0"
           >
             <div className="p-6">
               <div className="text-xs uppercase tracking-wider opacity-75 mb-2">This month</div>
@@ -450,7 +450,7 @@ function PortalDashboardInner() {
                   : 0
               }
               icon={Wrench}
-              color="text-[#0d3cfc]"
+              color="text-brand-blue"
               bgColor="bg-[#EEF3FF]"
               href="/portal/services"
             />
@@ -501,18 +501,18 @@ function PortalDashboardInner() {
           {/* Q16: Add Services CTA — single entry-point to the in-portal service catalog */}
           <Link href="/portal/catalog" data-testid="link-add-services">
             <Card
-              className="flex items-center justify-between hover:border-[#0d3cfc]/40 p-5 transition-all group cursor-pointer"
+              className="flex items-center justify-between hover:border-brand-blue/40 p-5 transition-all group cursor-pointer"
             >
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-[#EEF3FF] flex items-center justify-center">
-                <Plus className="w-5 h-5 text-[#0d3cfc]" />
+                <Plus className="w-5 h-5 text-brand-blue" />
               </div>
               <div>
                 <h3 className="text-sm font-semibold text-gray-900">Add Services</h3>
                 <p className="text-xs text-gray-500 mt-0.5">Browse available services and add them to your subscription.</p>
               </div>
             </div>
-            <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-[#0d3cfc] transition-colors" />
+            <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-brand-blue transition-colors" />
             </Card>
           </Link>
 
@@ -598,7 +598,7 @@ function PortalDashboardInner() {
                     </div>
                   </div>
                   <Link href={`/portal/services/${tradeLineService.id}`}>
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-[#0d3cfc] rounded-lg hover:bg-[#0b34d6] transition-colors">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-brand-blue rounded-lg hover:bg-brand-blue-600 transition-colors">
                       Details <ExternalLink className="w-3 h-3" />
                     </span>
                   </Link>
@@ -647,7 +647,7 @@ function PortalDashboardInner() {
                 <p className="text-sm font-semibold text-gray-900">Set up SocialSync</p>
                 <p className="text-xs text-gray-500 mt-0.5">We'll post content for your business automatically. Takes about 5 minutes.</p>
               </div>
-              <Link href="/portal/socialsync-setup" className="shrink-0 px-4 py-2 rounded-lg text-xs font-medium text-white bg-[#0d3cfc] hover:bg-[#0b34d6]">
+              <Link href="/portal/socialsync-setup" className="shrink-0 px-4 py-2 rounded-lg text-xs font-medium text-white bg-brand-blue hover:bg-brand-blue-600">
                 Get Started
               </Link>
             </Card>
@@ -662,7 +662,7 @@ function PortalDashboardInner() {
               <div className="px-5 py-8 text-center">
                 <p className="text-sm font-medium text-gray-700 mb-1">Nothing happening yet</p>
                 <p className="text-xs text-gray-500 max-w-sm mx-auto mb-3">Once your services go live, task updates, call logs, and new leads will land here in real time.</p>
-                <Link href="/portal/services" className="text-sm text-[#0d3cfc] hover:underline">
+                <Link href="/portal/services" className="text-sm text-brand-blue hover:underline">
                   View your services →
                 </Link>
               </div>

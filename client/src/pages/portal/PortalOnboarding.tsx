@@ -312,7 +312,7 @@ export default function PortalOnboarding() {
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="flex-1 px-4 py-3 text-sm font-medium text-white bg-[#0d3cfc] rounded-lg hover:bg-[#0b34d6] transition-colors disabled:opacity-60"
+                  className="flex-1 px-4 py-3 text-sm font-medium text-white bg-brand-blue rounded-lg hover:bg-brand-blue-600 transition-colors disabled:opacity-60"
                 >
                   {submitMutation.isPending ? (
                     <span className="flex items-center justify-center gap-2">
@@ -431,7 +431,7 @@ function PortalSetupProgress({
         ) : needsFollowup ? (
           <AlertTriangle className="w-6 h-6 text-amber-500" />
         ) : (
-          <Settings2 className={`w-6 h-6 text-[#0d3cfc] ${!allDone && isTradeLine ? "animate-spin" : ""}`} style={{ animationDuration: "3s" }} />
+          <Settings2 className={`w-6 h-6 text-brand-blue ${!allDone && isTradeLine ? "animate-spin" : ""}`} style={{ animationDuration: "3s" }} />
         )}
       </div>
       <h1 className="text-lg font-semibold text-gray-900">{headline}</h1>
@@ -441,7 +441,7 @@ function PortalSetupProgress({
         {steps.map((s, i) => (
           <div key={i} className="flex items-center gap-3">
             {s.done ? (
-              <CheckCircle2 className="w-4 h-4 text-[#0d3cfc] flex-shrink-0" />
+              <CheckCircle2 className="w-4 h-4 text-brand-blue flex-shrink-0" />
             ) : failed ? (
               <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0" />
             ) : isTradeLine ? (
@@ -472,7 +472,7 @@ function PortalSetupProgress({
 
       {(allDone || failed || (!isTradeLine && !needsFollowup)) && (
         <Link href="/portal/services">
-          <button className="px-4 py-2 text-sm font-medium text-[#0d3cfc] bg-[#EEF3FF] rounded-lg hover:bg-[#e0efe8] transition-colors">
+          <button className="px-4 py-2 text-sm font-medium text-brand-blue bg-[#EEF3FF] rounded-lg hover:bg-[#e0efe8] transition-colors">
             Back to Services
           </button>
         </Link>
@@ -507,7 +507,7 @@ export function FieldHelpCue({
       type="button"
       onClick={() => onHelp({ label: step.label, example: config.example, helperText: config.helperText })}
       aria-label={`Help: ${step.label}`}
-      className="absolute top-1 left-1 z-10 p-1 rounded-full text-gray-300 hover:text-gray-600 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#0d3cfc]/20"
+      className="absolute top-1 left-1 z-10 p-1 rounded-full text-gray-300 hover:text-gray-600 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-blue/20"
     >
       <HelpCircle className="w-3.5 h-3.5" />
     </button>
@@ -534,7 +534,7 @@ export function FloatingLabelInput({
         onChange={(e) => onChange(e.target.value)}
         placeholder=" "
         aria-label={label}
-        className="peer w-full px-3 pt-5 pb-1.5 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#0d3cfc]/20 focus:border-[#0d3cfc] transition-colors"
+        className="peer w-full px-3 pt-5 pb-1.5 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition-colors"
       />
       <label
         htmlFor={id}
@@ -545,7 +545,7 @@ export function FloatingLabelInput({
           "peer-placeholder-shown:font-normal peer-placeholder-shown:normal-case " +
           "peer-placeholder-shown:tracking-normal peer-placeholder-shown:text-gray-400 " +
           "peer-focus:top-1.5 peer-focus:text-[10px] peer-focus:font-semibold " +
-          "peer-focus:uppercase peer-focus:tracking-wider peer-focus:text-[#0d3cfc]"
+          "peer-focus:uppercase peer-focus:tracking-wider peer-focus:text-brand-blue"
         }
       >
         {label}
@@ -607,9 +607,9 @@ function FieldRow({
                 onClick={() => onChange(opt.v)}
                 className={`px-4 py-2 text-sm rounded-lg border transition-colors min-h-[40px] ${
                   selected
-                    ? "bg-[#0d3cfc] text-white border-[#0d3cfc]"
+                    ? "bg-brand-blue text-white border-brand-blue"
                     : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
-                } focus:outline-none focus:ring-2 focus:ring-[#0d3cfc]/20`}
+                } focus:outline-none focus:ring-2 focus:ring-brand-blue/20`}
                 aria-label={`${step.label}: ${opt.label}`}
               >
                 {opt.label}
@@ -637,9 +637,9 @@ function FieldRow({
                 onClick={() => onChange(opt.value)}
                 className={`px-3.5 py-2 text-sm rounded-lg border transition-colors min-h-[40px] ${
                   selected
-                    ? "bg-[#0d3cfc] text-white border-[#0d3cfc]"
+                    ? "bg-brand-blue text-white border-brand-blue"
                     : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
-                } focus:outline-none focus:ring-2 focus:ring-[#0d3cfc]/20`}
+                } focus:outline-none focus:ring-2 focus:ring-brand-blue/20`}
                 aria-label={`${step.label}: ${opt.label}`}
               >
                 {opt.label}

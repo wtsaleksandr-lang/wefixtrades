@@ -162,7 +162,7 @@ export default function PortalSettings() {
 
   const labelClass = "block text-xs font-medium text-gray-600 mb-1";
   const inputClass =
-    "w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#0d3cfc]/20 focus:border-[#0d3cfc] transition-colors";
+    "w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition-colors";
 
   // Q23b: opt this page into the chat-driven form-fill flow. The assistant
   // can propose values for these contact-info fields; on Apply they patch
@@ -317,7 +317,7 @@ export default function PortalSettings() {
                     <button
                       type="submit"
                       disabled={saveMutation.isPending}
-                      className="px-4 py-2 text-sm font-medium text-white bg-[#0d3cfc] rounded-lg hover:bg-[#0b34d6] transition-colors disabled:opacity-60"
+                      className="px-4 py-2 text-sm font-medium text-white bg-brand-blue rounded-lg hover:bg-brand-blue-600 transition-colors disabled:opacity-60"
                     >
                       {saveMutation.isPending ? "Saving..." : "Save Changes"}
                     </button>
@@ -578,7 +578,7 @@ function BrandProfileSection({ inputClass, labelClass }: { inputClass: string; l
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-5">
       <div className="flex items-center gap-2 mb-2">
-        <Palette className="w-4 h-4 text-[#0d3cfc]" />
+        <Palette className="w-4 h-4 text-brand-blue" />
         <h2 className="text-sm font-semibold text-gray-900">Brand Voice</h2>
       </div>
       <p className="text-xs text-gray-500 pb-3 mb-3 border-b border-gray-200 dark:border-gray-700">
@@ -597,8 +597,8 @@ function BrandProfileSection({ inputClass, labelClass }: { inputClass: string; l
                 onClick={() => setBrandForm({ ...brandForm, tone: opt.value })}
                 className={`px-3 py-2 text-xs font-medium rounded-lg border transition-colors ${
                   brandForm.tone === opt.value
-                    ? "bg-[#0d3cfc] text-white border-[#0d3cfc]"
-                    : "bg-white text-gray-700 border-gray-200 hover:border-[#0d3cfc]/40"
+                    ? "bg-brand-blue text-white border-brand-blue"
+                    : "bg-white text-gray-700 border-gray-200 hover:border-brand-blue/40"
                 }`}
               >
                 {opt.label}
@@ -671,7 +671,7 @@ function BrandProfileSection({ inputClass, labelClass }: { inputClass: string; l
           type="button"
           onClick={() => brandSaveMutation.mutate()}
           disabled={brandSaveMutation.isPending}
-          className="px-4 py-2 text-sm font-medium text-white bg-[#0d3cfc] rounded-lg hover:bg-[#0b34d6] transition-colors disabled:opacity-60"
+          className="px-4 py-2 text-sm font-medium text-white bg-brand-blue rounded-lg hover:bg-brand-blue-600 transition-colors disabled:opacity-60"
         >
           {brandSaveMutation.isPending ? "Saving..." : "Save Brand Profile"}
         </button>
@@ -781,7 +781,7 @@ function ChangePasswordSection({ inputClass, labelClass }: { inputClass: string;
           <button
             type="submit"
             disabled={pwMutation.isPending || !pw.current || !pw.new_password || !pw.confirm}
-            className="px-4 py-2 text-sm font-medium text-white bg-[#0d3cfc] rounded-lg hover:bg-[#0b34d6] transition-colors disabled:opacity-60"
+            className="px-4 py-2 text-sm font-medium text-white bg-brand-blue rounded-lg hover:bg-brand-blue-600 transition-colors disabled:opacity-60"
           >
             {pwMutation.isPending ? "Updating..." : "Update Password"}
           </button>
@@ -968,7 +968,7 @@ function TwoFactorSection() {
                 maxLength={6}
                 value={enrollCode}
                 onChange={(e) => setEnrollCode(e.target.value.replace(/\D/g, ""))}
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#0d3cfc]/20 focus:border-[#0d3cfc]"
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue"
                 placeholder="123456"
                 data-testid="input-enroll-code"
               />
@@ -1005,7 +1005,7 @@ function TwoFactorSection() {
                 autoComplete="current-password"
                 value={disablePassword}
                 onChange={(e) => setDisablePassword(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#0d3cfc]/20 focus:border-[#0d3cfc]"
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue"
                 data-testid="input-disable-password"
               />
             </div>
@@ -1017,7 +1017,7 @@ function TwoFactorSection() {
                 maxLength={6}
                 value={disableCode}
                 onChange={(e) => setDisableCode(e.target.value.replace(/\D/g, ""))}
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#0d3cfc]/20 focus:border-[#0d3cfc]"
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue"
                 placeholder="123456"
                 data-testid="input-disable-code"
               />
@@ -1356,7 +1356,7 @@ function NotificationPreferencesSection() {
             type="button"
             onClick={() => saveMutation.mutate(draft)}
             disabled={saveMutation.isPending}
-            className="px-4 py-2 text-sm font-medium text-white bg-[#0d3cfc] rounded-lg hover:bg-[#0b34d6] transition-colors disabled:opacity-60"
+            className="px-4 py-2 text-sm font-medium text-white bg-brand-blue rounded-lg hover:bg-brand-blue-600 transition-colors disabled:opacity-60"
           >
             {saveMutation.isPending ? "Saving…" : "Save preferences"}
           </button>
@@ -1541,7 +1541,7 @@ function LogoSection({
           <div className="pb-3">
             <label className={labelClass}>Upload a file</label>
             <label
-              className={`inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-gray-200 bg-white hover:border-[#0d3cfc]/40 cursor-pointer transition-colors ${
+              className={`inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-gray-200 bg-white hover:border-brand-blue/40 cursor-pointer transition-colors ${
                 busy ? "opacity-60 pointer-events-none" : ""
               }`}
               data-testid="label-logo-upload"
@@ -1580,7 +1580,7 @@ function LogoSection({
               <button
                 type="submit"
                 disabled={busy}
-                className="px-4 py-2 text-sm font-medium text-white bg-[#0d3cfc] rounded-lg hover:bg-[#0b34d6] transition-colors disabled:opacity-60 shrink-0"
+                className="px-4 py-2 text-sm font-medium text-white bg-brand-blue rounded-lg hover:bg-brand-blue-600 transition-colors disabled:opacity-60 shrink-0"
                 data-testid="button-save-logo"
               >
                 {saveLogo.isPending ? "Saving..." : "Save"}

@@ -243,10 +243,10 @@ function SiteLaunchTemplateForm({ cs }: { cs: ClientService }) {
 
   return (
     <div className="max-w-3xl space-y-5">
-      <Card className="p-5 bg-[#EEF3FF] border-[#0d3cfc]/20">
+      <Card className="p-5 bg-[#EEF3FF] border-brand-blue/20">
         <div className="flex items-start gap-3">
-          <div className="w-8 h-8 rounded-lg bg-white border border-[#0d3cfc]/20 flex items-center justify-center flex-shrink-0">
-            <Layout className="w-4 h-4 text-[#0d3cfc]" />
+          <div className="w-8 h-8 rounded-lg bg-white border border-brand-blue/20 flex items-center justify-center flex-shrink-0">
+            <Layout className="w-4 h-4 text-brand-blue" />
           </div>
           <div>
             <h2 className="text-sm font-semibold text-gray-900 mb-1">SiteLaunch Template</h2>
@@ -269,13 +269,13 @@ function SiteLaunchTemplateForm({ cs }: { cs: ClientService }) {
                 onClick={() => setTemplateId(t.id)}
                 className={`text-left px-4 py-3 rounded-lg border transition-colors ${
                   templateId === t.id
-                    ? "border-[#0d3cfc] bg-[#EEF3FF]"
+                    ? "border-brand-blue bg-[#EEF3FF]"
                     : "border-gray-200 hover:border-gray-300 bg-white"
                 }`}
               >
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-sm font-semibold text-gray-900">{t.name}</span>
-                  {templateId === t.id && <CheckCircle2 className="w-4 h-4 text-[#0d3cfc]" />}
+                  {templateId === t.id && <CheckCircle2 className="w-4 h-4 text-brand-blue" />}
                 </div>
                 <p className="text-xs text-gray-500">Best for: {t.best_for}</p>
               </button>
@@ -329,7 +329,7 @@ function SiteLaunchTemplateForm({ cs }: { cs: ClientService }) {
           <Button
             onClick={() => mutation.mutate()}
             disabled={mutation.isPending}
-            className="bg-[#0d3cfc] hover:bg-[#0b34d6] text-white"
+            className="bg-brand-blue hover:bg-brand-blue-600 text-white"
           >
             {mutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
             Save template config
@@ -537,7 +537,7 @@ function AdFlowMetricsForm({ cs }: { cs: ClientService }) {
           <Button
             onClick={() => saveMutation.mutate()}
             disabled={saveMutation.isPending}
-            className="bg-[#0d3cfc] hover:bg-[#0b34d6] text-white"
+            className="bg-brand-blue hover:bg-brand-blue-600 text-white"
           >
             {saveMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
             Save Metrics

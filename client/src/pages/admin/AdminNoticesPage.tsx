@@ -82,7 +82,7 @@ export default function AdminNoticesPage() {
              *  can tune the escalation thresholds when the queue is empty. */}
             <Link
               href="/admin/ai-gates"
-              className="inline-block text-sm text-[#0d3cfc] hover:underline"
+              className="inline-block text-sm text-brand-blue hover:underline"
               data-testid="ai-agenda-configure-thresholds-link"
             >
               Configure escalation thresholds →
@@ -94,7 +94,7 @@ export default function AdminNoticesPage() {
               const link = entityLink(n);
               const unread = n.status === "unread";
               return (
-                <Card key={n.id} className={`p-4 ${unread ? "border-l-2 border-l-[#0d3cfc]" : ""}`}>
+                <Card key={n.id} className={`p-4 ${unread ? "border-l-2 border-l-brand-blue" : ""}`}>
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-gray-900">{n.title}</p>
@@ -103,7 +103,7 @@ export default function AdminNoticesPage() {
                       </p>
                     </div>
                     {unread && (
-                      <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-[#0d3cfc]">
+                      <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-brand-blue">
                         New
                       </span>
                     )}

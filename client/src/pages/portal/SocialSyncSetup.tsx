@@ -186,7 +186,7 @@ export default function SocialSyncSetup() {
         <div className="flex items-center gap-1">
           {STEPS.map((s, i) => (
             <div key={s} className="flex items-center gap-1 flex-1">
-              <div className={`h-1.5 flex-1 rounded-full ${i <= step ? "bg-[#0d3cfc]" : "bg-gray-200"}`} />
+              <div className={`h-1.5 flex-1 rounded-full ${i <= step ? "bg-brand-blue" : "bg-gray-200"}`} />
             </div>
           ))}
         </div>
@@ -256,7 +256,7 @@ export default function SocialSyncSetup() {
                     const label = p === "google_business" ? "Google Business" : p.charAt(0).toUpperCase() + p.slice(1);
                     return (
                       <button key={p} type="button"
-                        className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${selected ? "bg-[#0d3cfc] text-white border-[#0d3cfc]" : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"}`}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${selected ? "bg-brand-blue text-white border-brand-blue" : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"}`}
                         onClick={() => setForm({
                           ...form,
                           platform_preferences: selected
@@ -327,7 +327,7 @@ export default function SocialSyncSetup() {
               </div>
 
               <div className="p-3 bg-[#EEF3FF] rounded-lg text-xs text-gray-700 space-y-1">
-                <p className="font-medium text-[#0d3cfc]">What happens next:</p>
+                <p className="font-medium text-brand-blue">What happens next:</p>
                 <p>• AI will generate content tailored to your {form.niche} business in {form.location}</p>
                 <p>• Posts will be scheduled and published automatically to your connected platforms</p>
                 <p>• Every post is quality-checked for tone, relevance, and repetition before going live</p>
@@ -344,11 +344,11 @@ export default function SocialSyncSetup() {
           </Button>
 
           {step < STEPS.length - 1 ? (
-            <Button size="sm" className="bg-[#0d3cfc] hover:bg-[#0b34d6]" onClick={() => setStep(step + 1)} disabled={!canProceed()}>
+            <Button size="sm" className="bg-brand-blue hover:bg-brand-blue-600" onClick={() => setStep(step + 1)} disabled={!canProceed()}>
               Next <ArrowRight className="w-4 h-4 ml-1" />
             </Button>
           ) : (
-            <Button size="sm" className="bg-[#0d3cfc] hover:bg-[#0b34d6]" onClick={() => saveProfile.mutate()} disabled={saveProfile.isPending}>
+            <Button size="sm" className="bg-brand-blue hover:bg-brand-blue-600" onClick={() => saveProfile.mutate()} disabled={saveProfile.isPending}>
               {saveProfile.isPending ? "Saving..." : isEditing ? "Save Changes" : "Complete Setup"}
             </Button>
           )}
