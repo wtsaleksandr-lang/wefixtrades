@@ -57,6 +57,34 @@ export function makeField(publicType: PublicFieldType): TemplateField {
       return { id, name: 'Visual', label: 'Visual choice', type: 'image_choice', options: defaultOptions() };
     case 'heading':
       return { id, name: 'Section', label: 'Section heading', type: 'heading' };
+    // COMPONENTS-1 — Wave U-F1 factories. Each one ships sensible defaults
+    // so the field looks valid in the preview the instant it's dropped in,
+    // before the owner customizes it.
+    case 'text':
+      return {
+        id, name: 'Text', label: 'Your answer', type: 'text',
+        placeholder: 'Type here…', validation: 'none',
+      };
+    case 'multiSelect':
+      return {
+        id, name: 'Add-ons', label: 'Pick any that apply', type: 'multi_select',
+        options: defaultOptions(),
+      };
+    case 'paragraph':
+      return {
+        id, name: 'Paragraph', label: 'Paragraph', type: 'paragraph',
+        content: 'Edit this paragraph to give customers context — pricing notes, what is included, how the quote works.',
+      };
+    case 'divider':
+      return {
+        id, name: 'Divider', label: 'Divider', type: 'divider',
+        dividerThickness: 1, dividerTone: 'subtle',
+      };
+    case 'image':
+      return {
+        id, name: 'Image', label: 'Image', type: 'image',
+        imageUrl: '', imageCaption: '',
+      };
   }
 }
 

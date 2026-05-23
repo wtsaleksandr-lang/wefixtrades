@@ -67,9 +67,15 @@ const ENGINE_TO_PUBLIC: Record<FieldType, PublicFieldType | null> = {
   radio: 'choice',
   image_choice: 'imageChoice',
   heading: 'heading',
-  multi_select: 'dropdown', // closest public equivalent
+  // COMPONENTS-1 — multi_select and text now have first-class public types
+  // (Wave U-F1), so the AI tool applier can hydrate them directly via
+  // makeField rather than degrading to dropdown / null.
+  multi_select: 'multiSelect',
   toggle: null,
-  text: null,
+  text: 'text',
+  paragraph: 'paragraph',
+  divider: 'divider',
+  image: 'image',
 };
 
 function uid(prefix: string): string {
