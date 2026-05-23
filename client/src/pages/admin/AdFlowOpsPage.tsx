@@ -4,6 +4,7 @@ import { Link } from "wouter";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { AdminProductPageShell, type ProductStats } from "@/components/admin/AdminProductPageShell";
 import { Card } from "@/components/ui/card";
+import { StatCard, StatCardGrid } from "@/components/shared/StatCard";
 import { Button } from "@/components/ui/button";
 import { Loader2, AlertTriangle, CheckCircle2, ChevronRight, Eye, RotateCcw, X, Pause, Play } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -201,24 +202,18 @@ export default function AdFlowOpsPage() {
       </p>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-3 gap-4 auto-rows-fr">
-        <Card className="p-4">
-          <p className="text-xs text-gray-500">Active Services</p>
-          <p className="text-2xl font-bold text-gray-900">{services?.length ?? 0}</p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-xs text-gray-500">Metrics Entered</p>
-          <p className="text-2xl font-bold text-emerald-600">
-            {(services || []).filter((s) => s.has_current_metrics).length}
-          </p>
-        </Card>
-        <Card className={`p-4 ${missingCount > 0 ? "border-amber-200 bg-amber-50" : ""}`}>
-          <p className="text-xs text-gray-500">Missing Metrics</p>
-          <p className={`text-2xl font-bold ${missingCount > 0 ? "text-amber-600" : "text-gray-900"}`}>
-            {missingCount}
-          </p>
-        </Card>
-      </div>
+      <StatCardGrid className="md:grid-cols-3 mb-0">
+        <StatCard label="Active Services" value={services?.length ?? 0} />
+        <StatCard
+          label="Metrics Entered"
+          value={<span className="text-emerald-600">{(services || []).filter((s) => s.has_current_metrics).length}</span>}
+        />
+        <StatCard
+          label="Missing Metrics"
+          value={<span className={missingCount > 0 ? "text-amber-600" : ""}>{missingCount}</span>}
+          tone={missingCount > 0 ? "warn" : "default"}
+        />
+      </StatCardGrid>
 
       {/* Missing metrics warning */}
       {missingCount > 0 && (

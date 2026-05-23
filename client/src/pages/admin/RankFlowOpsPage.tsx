@@ -5,6 +5,7 @@ import { Link } from "wouter";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { AdminProductPageShell, type ProductStats } from "@/components/admin/AdminProductPageShell";
 import { Card } from "@/components/ui/card";
+import { StatCard, StatCardGrid } from "@/components/shared/StatCard";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import {
@@ -190,15 +191,15 @@ export default function RankFlowOpsPage() {
     <div className="space-y-5">
       {/* ─── Summary Metrics ─── */}
       {s && (
-        <div className="grid auto-rows-fr grid-cols-3 sm:grid-cols-7 gap-2">
-          <StatCard icon={Users} label="Active" value={s.active_clients} />
-          <StatCard icon={AlertTriangle} label="Blocked" value={s.blocked} warn={s.blocked > 0} hint="Clients missing website or profile info — cannot start work" />
-          <StatCard icon={DollarSign} label="Over Budget" value={s.over_budget} warn={s.over_budget > 0} hint="Delivery cost exceeds 35% of plan price" />
-          <StatCard icon={XCircle} label="Rejected" value={s.rejected_tasks} warn={s.rejected_tasks > 0} hint="Tasks that failed QA and need rework" />
-          <StatCard icon={TrendingDown} label="No Movement" value={s.no_movement} warn={s.no_movement > 0} hint="Clients with 0 keywords improved — rankings not changing" />
-          <StatCard icon={ShieldCheck} label="In QA" value={s.in_qa} />
-          <StatCard icon={Package} label="Open Batches" value={s.open_batches} />
-        </div>
+        <StatCardGrid className="md:grid-cols-4 lg:grid-cols-7 mb-0">
+          <StatCard hint={<Users className="w-3.5 h-3.5 text-gray-400" />} label="Active" value={s.active_clients} />
+          <StatCard hint={<AlertTriangle className="w-3.5 h-3.5 text-amber-500" />} label="Blocked" value={s.blocked} tone={s.blocked > 0 ? "warn" : "default"} />
+          <StatCard hint={<DollarSign className="w-3.5 h-3.5 text-amber-500" />} label="Over Budget" value={s.over_budget} tone={s.over_budget > 0 ? "warn" : "default"} />
+          <StatCard hint={<XCircle className="w-3.5 h-3.5 text-amber-500" />} label="Rejected" value={s.rejected_tasks} tone={s.rejected_tasks > 0 ? "warn" : "default"} />
+          <StatCard hint={<TrendingDown className="w-3.5 h-3.5 text-amber-500" />} label="No Movement" value={s.no_movement} tone={s.no_movement > 0 ? "warn" : "default"} />
+          <StatCard hint={<ShieldCheck className="w-3.5 h-3.5 text-gray-400" />} label="In QA" value={s.in_qa} />
+          <StatCard hint={<Package className="w-3.5 h-3.5 text-gray-400" />} label="Open Batches" value={s.open_batches} />
+        </StatCardGrid>
       )}
 
       {/* ─── Client List ─── */}
@@ -243,7 +244,7 @@ function ClientCard({ client: c }: { client: ClientRow }) {
   const marginColor = c.margin_percent >= 70 ? "text-emerald-600" : c.margin_percent >= 50 ? "text-amber-600" : "text-red-600";
 
   return (
-    <Card className="p-3.5">
+    <Card className="p-4">
       <div className="flex items-start justify-between gap-3">
         {/* Left: Identity + Status */}
         <div className="min-w-0 flex-1">
@@ -303,13 +304,3 @@ function ClientCard({ client: c }: { client: ClientRow }) {
   );
 }
 
-/* ─── Stat Card ─── */
-function StatCard({ icon: Icon, label, value, warn, hint }: { icon: any; label: string; value: number; warn?: boolean; hint?: string }) {
-  return (
-    <Card className={`h-full p-2.5 text-center ${warn ? "ring-1 ring-amber-200 bg-amber-50/30" : ""}`} title={hint}>
-      <Icon className={`w-3.5 h-3.5 mx-auto mb-1 ${warn ? "text-amber-500" : "text-gray-400"}`} />
-      <p className={`text-lg font-semibold ${warn ? "text-amber-700" : "text-gray-900"}`}>{value}</p>
-      <p className="text-[10px] text-gray-500">{label}</p>
-    </Card>
-  );
-}

@@ -193,7 +193,7 @@ export default function PortalServices() {
         )}
 
         {data && data.services.length > 0 && (
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-2 auto-rows-fr">
             {data.services.map((svc) => {
               const progress = svc.tasks_total > 0 ? Math.round((svc.tasks_delivered / svc.tasks_total) * 100) : 0;
               const showOnboarding = svc.onboarding_status && svc.onboarding_status !== "approved";

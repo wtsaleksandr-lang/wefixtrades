@@ -162,7 +162,7 @@ export default function PortalRankFlow() {
       )}
 
       {/* ─── Pause Article Generation Toggle ─── */}
-        <div className="bg-white rounded-xl border border-gray-200 px-5 py-4">
+        <div className="bg-white rounded-xl border border-gray-200 p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               {isArticleGenPaused ? (
@@ -218,7 +218,7 @@ export default function PortalRankFlow() {
         />
 
         {/* ─── Progress Bar ─── */}
-        <div className="bg-white rounded-xl border border-gray-200 px-5 py-4">
+        <div className="bg-white rounded-xl border border-gray-200 p-4">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-medium text-gray-600">Monthly Progress</span>
             <span className="text-xs text-gray-400">{m.progressPct}% complete</span>
@@ -417,7 +417,7 @@ function SearchConsoleCard() {
   // Already connected to Search Console
   if (scStatus.searchConsoleConnected) {
     return (
-      <div className="bg-white rounded-xl border border-gray-200 px-5 py-4">
+      <div className="bg-white rounded-xl border border-gray-200 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <ShieldCheck className="w-5 h-5 text-emerald-500" />
@@ -435,7 +435,7 @@ function SearchConsoleCard() {
   // Google connected but Search Console not accessible (might need to verify site)
   if (scStatus.googleConnected && !scStatus.searchConsoleConnected) {
     return (
-      <div className="bg-white rounded-xl border border-gray-200 px-5 py-4">
+      <div className="bg-white rounded-xl border border-gray-200 p-4">
         <div className="flex items-center gap-3 mb-3">
           <Link className="w-5 h-5 text-amber-500" />
           <div>
@@ -465,7 +465,7 @@ function SearchConsoleCard() {
 
   // Not connected at all
   return (
-    <div className="bg-white rounded-xl border border-gray-200 px-5 py-4">
+    <div className="bg-white rounded-xl border border-gray-200 p-4">
       <div className="flex items-center gap-3 mb-3">
         <Globe className="w-5 h-5 text-gray-400" />
         <div>
@@ -492,7 +492,7 @@ function MetricCard({ icon: Icon, label, value, color }: { icon: any; label: str
     indigo: "text-indigo-500",
   };
   return (
-    <div className="h-full bg-white rounded-xl border border-gray-200 px-4 py-3 text-center">
+    <div className="h-full bg-white rounded-xl border border-gray-200 p-4 text-center">
       <Icon className={`w-4 h-4 mx-auto mb-1.5 ${colors[color] || "text-gray-400"}`} />
       <p className="text-xl font-semibold text-gray-900">{value}</p>
       <p className="text-[10px] text-gray-500 mt-0.5">{label}</p>

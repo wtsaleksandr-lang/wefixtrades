@@ -6,6 +6,7 @@ import { AdminProductPageShell, type ProductStats } from "@/components/admin/Adm
 import AppetizeEmbed from "@/components/admin/AppetizeEmbed";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { StatCard, StatCardGrid } from "@/components/shared/StatCard";
 import { Loader2, AlertTriangle, Phone, RefreshCw, XCircle, ChevronDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -46,8 +47,18 @@ function FleetTab() {
   const disableMutation = useMutation({ mutationFn: async (csId: number) => { const res = await apiRequest("POST", `/api/admin/crm/tradeline/${csId}/disable`); return res.json(); }, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/tradeline/fleet"] }); toast({ title: "Service disabled" }); }, onError: (err: Error) => { toast({ title: "Disable failed", description: err.message, variant: "destructive" }); } });
   const failedItems = fleet?.filter(r => r.assistantStatus==="failed"||r.failedCalls24h>0) ?? [];
   const activeItems = fleet?.filter(r => r.assistantStatus!=="failed"&&r.failedCalls24h===0) ?? [];
+  const totalServices = fleet?.length ?? 0;
+  const activeCount = activeItems.length;
+  const failedCount = failedItems.length;
+  const disabledCount = fleet?.filter(r => r.assistantStatus === "disabled").length ?? 0;
   return (
     <div data-theme="light" className="space-y-4">
+      <StatCardGrid className="md:grid-cols-4 mb-0">
+        <StatCard label="Total services" value={<span className="font-mono">{totalServices}</span>} />
+        <StatCard label="Active" value={<span className="font-mono">{activeCount}</span>} tone="success" />
+        <StatCard label="Failed" value={<span className="font-mono">{failedCount}</span>} tone={failedCount > 0 ? "warn" : "default"} />
+        <StatCard label="Disabled" value={<span className="font-mono">{disabledCount}</span>} />
+      </StatCardGrid>
       <div className="flex items-center justify-end gap-2 text-sm text-gray-500"><Phone className="w-4 h-4"/><span>{fleet?.length??0} services</span></div>
       {isLoading&&<div className="flex items-center justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-gray-400"/></div>}
       {failedItems.length>0&&(<Card className="border-red-200 bg-red-50/50 p-4"><div className="flex items-center gap-2 mb-3"><AlertTriangle className="w-4 h-4 text-red-600"/><h2 className="text-sm font-semibold text-red-800">Attention Required ({failedItems.length})</h2></div><div className="space-y-2">{failedItems.map(row=>(<div key={row.clientServiceId} className="flex items-center justify-between bg-white border border-red-100 rounded-lg px-4 py-3"><div className="flex items-center gap-3"><span className="font-medium text-sm text-gray-900">{row.businessName}</span><AssistantStatusBadge status={row.assistantStatus}/>{row.failedCalls24h>0&&<span className="text-xs text-red-600 font-medium">{row.failedCalls24h} failed call{row.failedCalls24h>1?"s":""} (24h)</span>}</div><div className="flex items-center gap-2"><Button variant="outline" size="sm" onClick={()=>rebuildMutation.mutate(row.clientServiceId)} disabled={rebuildMutation.isPending}><RefreshCw className="w-3.5 h-3.5 mr-1"/>Rebuild</Button><Button variant="destructive" size="sm" onClick={()=>disableMutation.mutate(row.clientServiceId)} disabled={disableMutation.isPending}><XCircle className="w-3.5 h-3.5 mr-1"/>Disable</Button></div></div>))}</div></Card>)}

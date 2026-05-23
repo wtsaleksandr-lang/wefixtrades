@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { StatCard, StatCardGrid } from "@/components/shared/StatCard";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   Activity,
@@ -79,42 +80,6 @@ function formatRel(iso: string | null): string {
   if (ms < 86_400_000) return `${Math.floor(ms / 3_600_000)}h ago`;
   if (ms < 7 * 86_400_000) return `${Math.floor(ms / 86_400_000)}d ago`;
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
-}
-
-function StatCard({
-  label,
-  value,
-  hint,
-  tone = "neutral",
-  icon: Icon,
-}: {
-  label: string;
-  value: React.ReactNode;
-  hint?: string;
-  tone?: "neutral" | "good" | "warn" | "bad";
-  icon?: React.ElementType;
-}) {
-  const accent =
-    tone === "good" ? "bg-emerald-500" :
-    tone === "warn" ? "bg-amber-500" :
-    tone === "bad" ? "bg-red-500" :
-    "bg-gray-500";
-  return (
-    <Card data-theme="light" className="p-4">
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{label}</p>
-          <p className="text-2xl font-semibold text-gray-900 mt-1">{value}</p>
-          {hint && <p className="text-xs text-gray-500 mt-1">{hint}</p>}
-        </div>
-        {Icon && (
-          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${accent}`}>
-            <Icon className="w-4 h-4 text-white" />
-          </div>
-        )}
-      </div>
-    </Card>
-  );
 }
 
 function uptimeTone(percent: number | null): "good" | "warn" | "bad" | "neutral" {
@@ -275,35 +240,32 @@ export default function WebCareOpsPage() {
 
       {/* Summary tiles */}
       {data && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <StatCardGrid className="md:grid-cols-4 mb-0">
           <StatCard
             label="Active clients"
             value={data.total_active}
-            icon={CheckCircle2}
-            tone="good"
+            hint={<CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />}
+            tone="success"
           />
           <StatCard
             label="Failing uptime (24h)"
             value={data.failing_uptime_24h}
-            hint="last check was DOWN"
-            icon={AlertTriangle}
-            tone={data.failing_uptime_24h > 0 ? "bad" : "good"}
+            hint={<AlertTriangle className="w-3.5 h-3.5 text-red-600" />}
+            tone={data.failing_uptime_24h > 0 ? "danger" : "success"}
           />
           <StatCard
             label="Overdue plugin updates"
             value={data.overdue_plugin_updates}
-            hint="no run in 40 days"
-            icon={Wrench}
-            tone={data.overdue_plugin_updates > 0 ? "warn" : "good"}
+            hint={<Wrench className="w-3.5 h-3.5 text-amber-600" />}
+            tone={data.overdue_plugin_updates > 0 ? "warn" : "success"}
           />
           <StatCard
             label="Overdue health checks"
             value={data.overdue_health_checks}
-            hint="no run in 40 days"
-            icon={Activity}
-            tone={data.overdue_health_checks > 0 ? "warn" : "good"}
+            hint={<Activity className="w-3.5 h-3.5 text-amber-600" />}
+            tone={data.overdue_health_checks > 0 ? "warn" : "success"}
           />
-        </div>
+        </StatCardGrid>
       )}
 
       {/* Per-client table */}
