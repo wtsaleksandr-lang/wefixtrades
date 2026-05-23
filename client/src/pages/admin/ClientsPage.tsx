@@ -278,7 +278,7 @@ export default function ClientsPage() {
       totalClients: data?.total,
       activeFilters: statusFilter !== "all" ? statusFilter : undefined,
     }}>
-      <div className="max-w-6xl mx-auto space-y-4">
+      <div className="space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="min-w-0">

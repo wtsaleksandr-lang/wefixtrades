@@ -109,7 +109,7 @@ export default function BillingPage() {
         due_at: p.due_at,
       })),
     }}>
-      <div className="max-w-5xl mx-auto space-y-4">
+      <div className="space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between gap-3">
           <div>

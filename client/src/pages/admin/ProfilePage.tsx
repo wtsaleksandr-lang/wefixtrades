@@ -87,7 +87,7 @@ export default function ProfilePage() {
 
   return (
     <AdminLayout pageContext={{ page: "profile" }}>
-      <div data-theme="light" className="max-w-2xl mx-auto space-y-4">
+      <div data-theme="light" className="max-w-2xl space-y-4">
         <Link
           href="/admin/crm"
           className="inline-flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700"

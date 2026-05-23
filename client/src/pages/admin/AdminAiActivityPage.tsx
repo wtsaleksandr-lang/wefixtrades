@@ -180,7 +180,7 @@ export default function AdminAiActivityPage() {
 
   return (
     <AdminLayout>
-      <div className="p-6 space-y-6" data-testid="page-admin-ai-activity">
+      <div className="space-y-6" data-testid="page-admin-ai-activity">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-semibold">AI Activity</h1>

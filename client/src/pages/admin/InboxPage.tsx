@@ -102,7 +102,7 @@ export default function InboxPage() {
       }, {} as Record<string, number>),
       topTasks: (tasks ?? []).slice(0, 10).map(t => ({ id: t.id, title: t.title, status: t.status, priority: t.priority, client_name: t.client_name, waiting_on: t.waiting_on, handled_by: t.handled_by, automation_status: t.automation_status, next_action: t.next_action })),
     }}>
-      <div className="max-w-3xl mx-auto space-y-4">
+      <div className="space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">

@@ -67,7 +67,7 @@ export default function SystemAvailabilityPage() {
 
   return (
     <AdminLayout>
-      <div className="p-6 max-w-3xl mx-auto space-y-6">
+      <div className="space-y-6">
         <BackButton to="/admin/crm" label="Back to admin" />
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Brand availability</h1>

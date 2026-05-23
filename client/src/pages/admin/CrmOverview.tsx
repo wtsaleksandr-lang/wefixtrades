@@ -543,7 +543,7 @@ export default function CrmOverview() {
       ).length,
       blockedCount: data?.recentTasks?.filter((t) => t.status === "blocked").length,
     }}>
-      <div className="max-w-6xl mx-auto space-y-6">
+      <div className="space-y-6">
         <div>
           <h2 className="text-lg font-semibold text-gray-900">Operations Overview</h2>
           <p className="text-sm text-gray-500 mt-0.5">Your business at a glance</p>

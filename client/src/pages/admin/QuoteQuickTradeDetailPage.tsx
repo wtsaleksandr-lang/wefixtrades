@@ -273,7 +273,7 @@ export default function QuoteQuickTradeDetailPage({ tradeId }: { tradeId: string
 
   return (
     <AdminLayout>
-      <div className="p-6 max-w-4xl mx-auto space-y-5">
+      <div className="space-y-5">
         {/* Breadcrumb */}
         <nav className="flex items-center gap-1.5 text-xs text-gray-500" data-testid="breadcrumb">
           <Link href="/admin/crm" className="hover:text-gray-700">
