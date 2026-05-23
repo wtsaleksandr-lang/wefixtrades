@@ -39,6 +39,7 @@ import InfoCue from './InfoCue';
 import RichTextField from './RichTextField';
 import { useFoldablePanels } from './useFoldablePanels';
 import { useLayoutGuard } from '@/lib/layoutGuard';
+import { HelpCueRow } from '@/components/primitives';
 
 const p = platformTheme;
 
@@ -179,10 +180,20 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
       {/* ── Lead notification email ─────────────────────────────── */}
       <fieldset className="qq-style-group" data-testid="settings-group-lead-email">
         <legend className="qq-style-legend">
-          Lead notifications
-          <InfoCue
-            testid="settings-section-lead-email"
-            text="How you'll be notified when someone submits a quote. Only the recipient changes — message format is fixed."
+          {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. Title
+              text rendered inside the cue slot so it inherits the legend's
+              uppercase/muted typography rather than HelpCueRow's defaults. */}
+          <HelpCueRow
+            className="!mb-0"
+            cue={
+              <>
+                <InfoCue
+                  testid="settings-section-lead-email"
+                  text="How you'll be notified when someone submits a quote. Only the recipient changes — message format is fixed."
+                />
+                <span style={{ marginLeft: 6 }}>Lead notifications</span>
+              </>
+            }
           />
         </legend>
         <div className="qq-style-group-body">
@@ -230,11 +241,19 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
          and skimming users can latch onto. */}
       <fieldset className="qq-style-group" data-testid="settings-group-pricing">
         <legend className="qq-style-legend">
-          Pricing model
-          <InfoCue
-            testid="settings-section-pricing"
-            region="result"
-            text="How quotes are priced. Hourly multiplies by hours; Fixed is a flat price; Custom lets you label the unit (per sqft, per door, per panel, etc.)."
+          {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
+          <HelpCueRow
+            className="!mb-0"
+            cue={
+              <>
+                <InfoCue
+                  testid="settings-section-pricing"
+                  region="result"
+                  text="How quotes are priced. Hourly multiplies by hours; Fixed is a flat price; Custom lets you label the unit (per sqft, per door, per panel, etc.)."
+                />
+                <span style={{ marginLeft: 6 }}>Pricing model</span>
+              </>
+            }
           />
         </legend>
         <div className="qq-style-group-body">
@@ -326,11 +345,19 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
         data-stripe-connected={stripeConnected ? 'true' : 'false'}
       >
         <legend className="qq-style-legend">
-          Deposit
-          <InfoCue
-            testid="settings-section-deposit"
-            region="step-content"
-            text="Optionally collect a partial payment when customers book. Requires a connected Stripe account."
+          {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
+          <HelpCueRow
+            className="!mb-0"
+            cue={
+              <>
+                <InfoCue
+                  testid="settings-section-deposit"
+                  region="step-content"
+                  text="Optionally collect a partial payment when customers book. Requires a connected Stripe account."
+                />
+                <span style={{ marginLeft: 6 }}>Deposit</span>
+              </>
+            }
           />
         </legend>
         <div className="qq-style-group-body">
@@ -482,11 +509,19 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
       {/* ── Number formatting ───────────────────────────────────── */}
       <fieldset className="qq-style-group" data-testid="settings-group-numberformat">
         <legend className="qq-style-legend">
-          Number formatting
-          <InfoCue
-            testid="settings-section-numberformat"
-            region="result"
-            text="Controls how prices display in the calculator. Currency is a 3-letter ISO code (USD / EUR / GBP / …)."
+          {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
+          <HelpCueRow
+            className="!mb-0"
+            cue={
+              <>
+                <InfoCue
+                  testid="settings-section-numberformat"
+                  region="result"
+                  text="Controls how prices display in the calculator. Currency is a 3-letter ISO code (USD / EUR / GBP / …)."
+                />
+                <span style={{ marginLeft: 6 }}>Number formatting</span>
+              </>
+            }
           />
         </legend>
         <div className="qq-style-group-body">
@@ -552,11 +587,19 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
       {/* ── Custom CTA label ────────────────────────────────────── */}
       <fieldset className="qq-style-group" data-testid="settings-group-cta">
         <legend className="qq-style-legend">
-          Call to action
-          <InfoCue
-            testid="settings-section-cta"
-            region="sticky-footer"
-            text="The button text shown on the result panel after the quote is calculated."
+          {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
+          <HelpCueRow
+            className="!mb-0"
+            cue={
+              <>
+                <InfoCue
+                  testid="settings-section-cta"
+                  region="sticky-footer"
+                  text="The button text shown on the result panel after the quote is calculated."
+                />
+                <span style={{ marginLeft: 6 }}>Call to action</span>
+              </>
+            }
           />
         </legend>
         <div className="qq-style-group-body">
@@ -587,11 +630,19 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
           carries a discoverable title like the others. */}
       <fieldset className="qq-style-group" data-testid="settings-group-scheduling">
         <legend className="qq-style-legend">
-          Online booking
-          <InfoCue
-            testid="settings-section-scheduling"
-            region="step-content"
-            text="Let customers pick a time slot after the quote. Slots are built from your working hours minus existing bookings."
+          {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
+          <HelpCueRow
+            className="!mb-0"
+            cue={
+              <>
+                <InfoCue
+                  testid="settings-section-scheduling"
+                  region="step-content"
+                  text="Let customers pick a time slot after the quote. Slots are built from your working hours minus existing bookings."
+                />
+                <span style={{ marginLeft: 6 }}>Online booking</span>
+              </>
+            }
           />
         </legend>
         <div className="qq-style-group-body">
@@ -713,11 +764,19 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
        *  save regardless of what the client sends. */}
       <fieldset className="qq-style-group" data-testid="settings-group-brand-badge">
         <legend className="qq-style-legend">
-          Branding
-          <InfoCue
-            testid="settings-section-brand"
-            region="trust-block"
-            text="Controls the WeFixTrades badge on the calculator. Free plan keeps it visible; Pro and Business plans can hide it."
+          {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
+          <HelpCueRow
+            className="!mb-0"
+            cue={
+              <>
+                <InfoCue
+                  testid="settings-section-brand"
+                  region="trust-block"
+                  text="Controls the WeFixTrades badge on the calculator. Free plan keeps it visible; Pro and Business plans can hide it."
+                />
+                <span style={{ marginLeft: 6 }}>Branding</span>
+              </>
+            }
           />
         </legend>
         <div className="qq-style-group-body">
@@ -1241,10 +1300,18 @@ function TradeSection({
   return (
     <fieldset className="qq-style-group" data-testid="settings-group-trade">
       <legend className="qq-style-legend">
-        Trade
-        <InfoCue
-          testid="settings-section-trade"
-          text="Which trade this calculator is for. Drives template suggestions and downstream copy."
+        {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
+        <HelpCueRow
+          className="!mb-0"
+          cue={
+            <>
+              <InfoCue
+                testid="settings-section-trade"
+                text="Which trade this calculator is for. Drives template suggestions and downstream copy."
+              />
+              <span style={{ marginLeft: 6 }}>Trade</span>
+            </>
+          }
         />
       </legend>
       <div className="qq-style-group-body">
@@ -1487,11 +1554,19 @@ function BusinessProfileSection({
   return (
     <fieldset className="qq-style-group" data-testid="settings-group-business-profile">
       <legend className="qq-style-legend">
-        Business profile
-        <InfoCue
-          testid="settings-section-business-profile"
-          region="trust-strip"
-          text="Drives inline trust signals on the widget: aggregate Google rating in the header strip, license # and insured-up-to below the CTA. Empty fields are hidden — no placeholder copy."
+        {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
+        <HelpCueRow
+          className="!mb-0"
+          cue={
+            <>
+              <InfoCue
+                testid="settings-section-business-profile"
+                region="trust-strip"
+                text="Drives inline trust signals on the widget: aggregate Google rating in the header strip, license # and insured-up-to below the CTA. Empty fields are hidden — no placeholder copy."
+              />
+              <span style={{ marginLeft: 6 }}>Business profile</span>
+            </>
+          }
         />
       </legend>
       <div className="qq-style-group-body">

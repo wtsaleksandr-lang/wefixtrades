@@ -72,6 +72,7 @@ import { useFoldablePanels } from './useFoldablePanels';
 import { QUOTEQUICK_STYLE_PRESETS } from '@/data/quoteQuickStylePresets';
 import { getContrastRatio, ensureReadableText } from '@/lib/contrastGuard';
 import { useLayoutGuard } from '@/lib/layoutGuard';
+import { HelpCueRow } from '@/components/primitives';
 
 const p = platformTheme;
 
@@ -495,11 +496,19 @@ export default function StyleTab({
        * the chosen baseline. */}
       <fieldset className="qq-style-group" data-testid="style-group-theme">
         <legend className="qq-style-legend">
-          Theme
-          <InfoCue
-            testid="style-section-theme"
-            region="background"
-            text="One-click theme bundles. Picking one overwrites the colours, typography, shape and density below — customise after if you like."
+          {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
+          <HelpCueRow
+            className="!mb-0"
+            cue={
+              <>
+                <InfoCue
+                  testid="style-section-theme"
+                  region="background"
+                  text="One-click theme bundles. Picking one overwrites the colours, typography, shape and density below — customise after if you like."
+                />
+                <span style={{ marginLeft: 6 }}>Theme</span>
+              </>
+            }
           />
         </legend>
         <div className="qq-style-group-body">
@@ -555,11 +564,19 @@ export default function StyleTab({
       {onLogoChange && (
         <fieldset className="qq-style-group" data-testid="style-group-branding">
           <legend className="qq-style-legend">
-            Branding
-            <InfoCue
-              testid="style-section-branding"
-              region="header"
-              text="Upload your logo and choose where it sits in the calculator header. The default trade icon is hidden once you upload your own logo."
+            {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
+            <HelpCueRow
+              className="!mb-0"
+              cue={
+                <>
+                  <InfoCue
+                    testid="style-section-branding"
+                    region="header"
+                    text="Upload your logo and choose where it sits in the calculator header. The default trade icon is hidden once you upload your own logo."
+                  />
+                  <span style={{ marginLeft: 6 }}>Branding</span>
+                </>
+              }
             />
           </legend>
           <div className="qq-style-group-body">
@@ -713,11 +730,19 @@ export default function StyleTab({
         * surface; not Pro-gated. Schema region: 'result'. */}
       <fieldset className="qq-style-group" data-testid="style-group-deposit">
         <legend className="qq-style-legend">
-          Deposit
-          <InfoCue
-            testid="style-section-deposit"
-            region="result"
-            text="Show a 'Deposit required to schedule' badge above the action buttons on the result step. Tapping the badge opens a Stripe-style preview card so the owner can see what the customer experiences. The actual checkout flow is wired separately to Stripe — the preview never charges money."
+          {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
+          <HelpCueRow
+            className="!mb-0"
+            cue={
+              <>
+                <InfoCue
+                  testid="style-section-deposit"
+                  region="result"
+                  text="Show a 'Deposit required to schedule' badge above the action buttons on the result step. Tapping the badge opens a Stripe-style preview card so the owner can see what the customer experiences. The actual checkout flow is wired separately to Stripe — the preview never charges money."
+                />
+                <span style={{ marginLeft: 6 }}>Deposit</span>
+              </>
+            }
           />
         </legend>
         <div className="qq-style-group-body">
@@ -866,11 +891,19 @@ export default function StyleTab({
         * scheduler in a new tab. Schema region: 'result'. */}
       <fieldset className="qq-style-group" data-testid="style-group-booking">
         <legend className="qq-style-legend">
-          Online booking
-          <InfoCue
-            testid="style-section-booking"
-            region="result"
-            text="Adds a 3-day appointment slot picker beneath the price on the result step. Default uses built-in mock slots in the preview (production wires to your scheduler). You can also point it at a Cal.com or Calendly URL — tapping a slot then opens the external scheduler in a new tab."
+          {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
+          <HelpCueRow
+            className="!mb-0"
+            cue={
+              <>
+                <InfoCue
+                  testid="style-section-booking"
+                  region="result"
+                  text="Adds a 3-day appointment slot picker beneath the price on the result step. Default uses built-in mock slots in the preview (production wires to your scheduler). You can also point it at a Cal.com or Calendly URL — tapping a slot then opens the external scheduler in a new tab."
+                />
+                <span style={{ marginLeft: 6 }}>Online booking</span>
+              </>
+            }
           />
         </legend>
         <div className="qq-style-group-body">
@@ -953,11 +986,19 @@ export default function StyleTab({
        * 6s; it's editor-only and never reaches the exported widget. */}
       <fieldset className="qq-style-group qq-style-group--colours" data-testid="style-group-colours">
         <legend className="qq-style-legend">
-          Colours
-          <InfoCue
-            testid="style-section-colours"
-            region="background"
-            text="Click any swatch to change the calculator's accent, background, body text, or result-card colour. Success / Error briefly preview a demo toast on the canvas."
+          {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
+          <HelpCueRow
+            className="!mb-0"
+            cue={
+              <>
+                <InfoCue
+                  testid="style-section-colours"
+                  region="background"
+                  text="Click any swatch to change the calculator's accent, background, body text, or result-card colour. Success / Error briefly preview a demo toast on the canvas."
+                />
+                <span style={{ marginLeft: 6 }}>Colours</span>
+              </>
+            }
           />
         </legend>
         <div className="qq-style-group-body">
@@ -1068,11 +1109,19 @@ export default function StyleTab({
        * speaks for itself. Legend kept for screen readers. */}
       <fieldset className="qq-style-group" data-testid="style-group-typography">
         <legend className="qq-style-legend">
-          Typography
-          <InfoCue
-            testid="style-section-typography"
-            region="header"
-            text="Sets the font family the calculator renders in. We load each option from the host site so widget pages don't pull a new web font."
+          {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
+          <HelpCueRow
+            className="!mb-0"
+            cue={
+              <>
+                <InfoCue
+                  testid="style-section-typography"
+                  region="header"
+                  text="Sets the font family the calculator renders in. We load each option from the host site so widget pages don't pull a new web font."
+                />
+                <span style={{ marginLeft: 6 }}>Typography</span>
+              </>
+            }
           />
         </legend>
         <div className="qq-style-group-body">
@@ -1148,11 +1197,19 @@ export default function StyleTab({
       {/* ── Shape ────────────────────────────────────────────────── */}
       <fieldset className="qq-style-group" data-testid="style-group-shape">
         <legend className="qq-style-legend">
-          Shape
-          <InfoCue
-            testid="style-section-shape"
-            region="step-content"
-            text="Controls input style (filled vs outline) and how rounded corners are everywhere — cards, inputs, the CTA button."
+          {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
+          <HelpCueRow
+            className="!mb-0"
+            cue={
+              <>
+                <InfoCue
+                  testid="style-section-shape"
+                  region="step-content"
+                  text="Controls input style (filled vs outline) and how rounded corners are everywhere — cards, inputs, the CTA button."
+                />
+                <span style={{ marginLeft: 6 }}>Shape</span>
+              </>
+            }
           />
         </legend>
         <div className="qq-style-group-body">
@@ -1205,11 +1262,19 @@ export default function StyleTab({
       {/* ── Layout ──────────────────────────────────────────────── */}
       <fieldset className="qq-style-group" data-testid="style-group-layout">
         <legend className="qq-style-legend">
-          Layout
-          <InfoCue
-            testid="style-section-layout"
-            region="background"
-            text="How wide the calculator renders on desktop and mobile. Narrow / Wide / Full controls the breakpoint; the sliders below override with exact pixel values."
+          {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
+          <HelpCueRow
+            className="!mb-0"
+            cue={
+              <>
+                <InfoCue
+                  testid="style-section-layout"
+                  region="background"
+                  text="How wide the calculator renders on desktop and mobile. Narrow / Wide / Full controls the breakpoint; the sliders below override with exact pixel values."
+                />
+                <span style={{ marginLeft: 6 }}>Layout</span>
+              </>
+            }
           />
         </legend>
         <div className="qq-style-group-body">
@@ -1422,11 +1487,19 @@ export default function StyleTab({
        * mirrored in CalculatorLauncher.tsx). */}
       <fieldset className="qq-style-group" data-testid="style-group-floating-launcher">
         <legend className="qq-style-legend">
-          Floating launcher
-          <InfoCue
-            testid="style-section-floating-launcher"
-            region="chat-bubble"
-            text="Shows a small circular calculator icon docked in a corner of the page. Clicking the icon expands the full widget into a panel. Use this when the widget shouldn't always be visible — it stays out of the way until the customer asks for it. Pro users can swap the icon for a custom image and change the screen-reader label."
+          {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
+          <HelpCueRow
+            className="!mb-0"
+            cue={
+              <>
+                <InfoCue
+                  testid="style-section-floating-launcher"
+                  region="chat-bubble"
+                  text="Shows a small circular calculator icon docked in a corner of the page. Clicking the icon expands the full widget into a panel. Use this when the widget shouldn't always be visible — it stays out of the way until the customer asks for it. Pro users can swap the icon for a custom image and change the screen-reader label."
+                />
+                <span style={{ marginLeft: 6 }}>Floating launcher</span>
+              </>
+            }
           />
         </legend>
         <div className="qq-style-group-body">
@@ -4336,16 +4409,26 @@ function TrustBadgesGroup({
   return (
     <fieldset className="qq-style-group" data-testid="style-group-trust-badges">
       <legend className="qq-style-legend">
-        Trust badges
-        {!canEdit && (
-          <span className="qq-bs-pill" aria-label="Pro plan feature">
-            <Sparkles size={10} aria-hidden="true" /> Pro
-          </span>
-        )}
-        <InfoCue
-          testid="style-section-trust-badges"
-          region="trust-strip"
-          text="Small pill row rendered between the widget title and the first step. Each badge has a short label and a Lucide icon. Pre-populated per category — Pro users can edit, reorder, add (up to 8 total) or remove."
+        {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. Pro pill
+            moves into the actions slot so it sits on the right while the
+            cue+title pair stays on the left per the rule. */}
+        <HelpCueRow
+          className="!mb-0"
+          cue={
+            <>
+              <InfoCue
+                testid="style-section-trust-badges"
+                region="trust-strip"
+                text="Small pill row rendered between the widget title and the first step. Each badge has a short label and a Lucide icon. Pre-populated per category — Pro users can edit, reorder, add (up to 8 total) or remove."
+              />
+              <span style={{ marginLeft: 6 }}>Trust badges</span>
+            </>
+          }
+          actions={!canEdit ? (
+            <span className="qq-bs-pill" aria-label="Pro plan feature">
+              <Sparkles size={10} aria-hidden="true" /> Pro
+            </span>
+          ) : undefined}
         />
       </legend>
       <div className="qq-style-group-body">
@@ -4515,16 +4598,25 @@ function ButtonCopyGroup({
   return (
     <fieldset className="qq-style-group qq-style-group--button-copy" data-testid="style-group-button-copy">
       <legend className="qq-style-legend qq-style-legend--button-copy">
-        Button copy
-        {!isProTier && (
-          <span className="qq-bs-pill" aria-label="Pro plan feature">
-            <Sparkles size={10} aria-hidden="true" /> Pro
-          </span>
-        )}
-        <InfoCue
-          testid="style-section-button-copy"
-          region="sticky-footer"
-          text="Override the wording on the widget's action buttons. Each field is optional — an empty value falls back to the default copy. Pro tier."
+        {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. Pro pill
+            moves into the actions slot. */}
+        <HelpCueRow
+          className="!mb-0"
+          cue={
+            <>
+              <InfoCue
+                testid="style-section-button-copy"
+                region="sticky-footer"
+                text="Override the wording on the widget's action buttons. Each field is optional — an empty value falls back to the default copy. Pro tier."
+              />
+              <span style={{ marginLeft: 6 }}>Button copy</span>
+            </>
+          }
+          actions={!isProTier ? (
+            <span className="qq-bs-pill" aria-label="Pro plan feature">
+              <Sparkles size={10} aria-hidden="true" /> Pro
+            </span>
+          ) : undefined}
         />
       </legend>
       <div className="qq-style-group-body">
