@@ -96,30 +96,49 @@ export function FirstVisitTooltip({
         // data-theme="dark" scopes the bright-on-dark hint surface as an
         // intentional dark-mode island. Keeps the project's hardcoded-color
         // guard happy while preserving the high-contrast tooltip look.
+        //
+        // Layout sizing notes (PR: notice card sizing + layout):
+        //   - width clamped via `w-[17rem] max-w-[calc(100vw-2rem)]` so the
+        //     tooltip is a consistent, compact 272px on desktop and never
+        //     overflows the viewport on phones (375px - 32px gutter = 343px).
+        //   - tighter, professional padding (px-3.5 py-3) keeps the card
+        //     small but lets the body breathe.
+        //   - title + body wrap with `text-wrap: balance` so multi-line
+        //     copy splits evenly instead of orphan-tailing the last word.
         <div
           data-theme="dark"
           role="tooltip"
           data-testid={`first-visit-tooltip-${storageKey}`}
           className={[
-            "absolute z-30 max-w-xs",
-            "bg-slate-900 text-white text-sm rounded-lg shadow-lg",
-            "px-3 py-2.5",
+            "absolute z-30 w-[17rem] max-w-[calc(100vw-2rem)]",
+            "bg-slate-900 text-white rounded-lg shadow-lg",
+            "px-3.5 py-3",
             positionClass,
             // Animations only when reduced-motion is NOT set.
             "motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-top-1 motion-safe:duration-200",
           ].join(" ")}
         >
-          <div className="flex items-start gap-2">
-            <div className="flex-1 min-w-0">
+          <div className="flex items-start gap-2.5">
+            <div className="flex-1 min-w-0 space-y-1">
               {title && (
-                <p className="font-semibold mb-1 text-white">{title}</p>
+                <p
+                  className="text-sm font-semibold leading-snug text-white"
+                  style={{ textWrap: "balance" }}
+                >
+                  {title}
+                </p>
               )}
-              <p className="text-slate-100">{children}</p>
+              <p
+                className="text-xs leading-relaxed text-slate-200"
+                style={{ textWrap: "pretty" }}
+              >
+                {children}
+              </p>
             </div>
             <button
               type="button"
               onClick={dismiss}
-              className="text-slate-300 hover:text-white p-0.5 -mr-0.5 -mt-0.5 rounded transition-colors"
+              className="flex-shrink-0 text-slate-400 hover:text-white p-1 -m-1 rounded transition-colors"
               aria-label="Dismiss tip"
               data-testid={`first-visit-tooltip-dismiss-${storageKey}`}
             >
