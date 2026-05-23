@@ -46,6 +46,7 @@ import HostedPageSection from './HostedPageSection';
 import FloatField from './FloatField';
 import InfoCue from './InfoCue';
 import { StyledSelect } from './StyledSelect';
+import { HelpCueRow } from '@/components/primitives';
 
 const p = platformTheme;
 const d = dashboardTheme;
@@ -298,10 +299,18 @@ export default function InstallTab({
         data-testid="install-section-hosted"
       >
         <h3 className="qq-install-h">
-          Hosted link — no install needed
-          <InfoCue
-            testid="install-section-hosted"
-            text="A free subdomain that runs your calculator out of the box. Use it if you don't have a website yet, or while you're setting up the embed."
+          {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
+          <HelpCueRow
+            className="!mb-0"
+            cue={
+              <>
+                <InfoCue
+                  testid="install-section-hosted"
+                  text="A free subdomain that runs your calculator out of the box. Use it if you don't have a website yet, or while you're setting up the embed."
+                />
+                <span style={{ marginLeft: 6 }}>Hosted link — no install needed</span>
+              </>
+            }
           />
         </h3>
         <p className="qq-install-sub">
@@ -550,10 +559,18 @@ export default function InstallTab({
        */}
       <section className="qq-install-section" data-testid="install-section-embed">
         <h3 className="qq-install-h">
-          Embed snippet
-          <InfoCue
-            testid="install-section-embed"
-            text="Drop this script tag wherever you want the calculator to appear on your own site. The widget loads asynchronously and inherits your page styles. Switch to Floating launcher to dock a small icon in a corner of the page instead of placing the widget inline."
+          {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
+          <HelpCueRow
+            className="!mb-0"
+            cue={
+              <>
+                <InfoCue
+                  testid="install-section-embed"
+                  text="Drop this script tag wherever you want the calculator to appear on your own site. The widget loads asynchronously and inherits your page styles. Switch to Floating launcher to dock a small icon in a corner of the page instead of placing the widget inline."
+                />
+                <span style={{ marginLeft: 6 }}>Embed snippet</span>
+              </>
+            }
           />
         </h3>
 
@@ -678,10 +695,18 @@ export default function InstallTab({
         <div className="qq-install-doneforyou-card">
           <div className="qq-install-doneforyou-copy">
             <h3 className="qq-install-doneforyou-h">
-              Don't want to install it yourself? We'll do it for $75.
-              <InfoCue
-                testid="install-section-doneforyou"
-                text="Our team places the snippet on your website, configures the widget for your trade, and verifies leads flow into your inbox. Turnaround within 24 hours."
+              {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
+              <HelpCueRow
+                className="!mb-0"
+                cue={
+                  <>
+                    <InfoCue
+                      testid="install-section-doneforyou"
+                      text="Our team places the snippet on your website, configures the widget for your trade, and verifies leads flow into your inbox. Turnaround within 24 hours."
+                    />
+                    <span style={{ marginLeft: 6 }}>Don't want to install it yourself? We'll do it for $75.</span>
+                  </>
+                }
               />
             </h3>
             <p className="qq-install-doneforyou-sub">
@@ -711,10 +736,18 @@ export default function InstallTab({
        * Replaces the previous inline 3-line tab list. */}
       <section className="qq-install-section" data-testid="install-section-guides">
         <h3 className="qq-install-h">
-          Platform install guides
-          <InfoCue
-            testid="install-section-guides"
-            text="Step-by-step walkthroughs for the most common site builders — pick yours for screenshots and copy-paste-ready instructions."
+          {/* Rule 5 — help cue anchored top-left via <HelpCueRow>. */}
+          <HelpCueRow
+            className="!mb-0"
+            cue={
+              <>
+                <InfoCue
+                  testid="install-section-guides"
+                  text="Step-by-step walkthroughs for the most common site builders — pick yours for screenshots and copy-paste-ready instructions."
+                />
+                <span style={{ marginLeft: 6 }}>Platform install guides</span>
+              </>
+            }
           />
         </h3>
         <p className="qq-install-sub">
