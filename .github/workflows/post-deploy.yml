@@ -1,0 +1,79 @@
+name: Post-Deploy Verify
+
+# Deploy Safety Wave 2 — runs the post-deploy verifier against prod.
+#
+# Two triggers:
+#   1. workflow_dispatch — manual, after Alex hits "Deploy" on Replit
+#   2. schedule (every 15 min) — catches deploys that bypass the manual
+#      trigger and surfaces silent prod regressions within ~15 min.
+#
+# Why not repository_dispatch from Replit: Replit autoscale doesn't natively
+# fire repository_dispatch on deploy completion. The boot-time self-ping in
+# scripts/start-prod.sh + this scheduled job together cover the gap until a
+# webhook integration exists.
+
+on:
+  workflow_dispatch:
+    inputs:
+      deploy_url:
+        description: "Base URL to verify"
+        required: false
+        default: "https://wefixtrades.com"
+  schedule:
+    # Every 15 minutes. Healthz is cached server-side for 15s, so this is
+    # cheap; one Stripe + one Twilio API call per check.
+    - cron: "*/15 * * * *"
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+      - name: Install deps (skip postinstall)
+        run: npm ci --ignore-scripts
+      - name: Install Playwright browsers (chromium only)
+        run: npx playwright install --with-deps chromium
+      - name: Post-deploy verify
+        env:
+          DEPLOY_URL: ${{ github.event.inputs.deploy_url || 'https://wefixtrades.com' }}
+        run: node scripts/post-deploy-verify.mjs
+      - name: Open issue on failure
+        if: failure() && github.event_name == 'schedule'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = `Post-deploy verify failed at ${new Date().toISOString()}`;
+            const body = [
+              `Scheduled post-deploy verify against \`${process.env.DEPLOY_URL || 'https://wefixtrades.com'}\` failed.`,
+              ``,
+              `Workflow run: ${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`,
+              ``,
+              `First triage step: hit \`/api/healthz\` and look for the \`status: down\` sub-check.`,
+            ].join("\n");
+            // Avoid issue spam: search for an open identical-title issue from the last hour.
+            const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+            const { data: existing } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: "open",
+              labels: "post-deploy-verify-failed",
+              since,
+            });
+            if (existing.length > 0) {
+              core.info(`Existing open alert issue #${existing[0].number} — not opening another`);
+              return;
+            }
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body,
+              labels: ["post-deploy-verify-failed"],
+            });
+        env:
+          DEPLOY_URL: ${{ github.event.inputs.deploy_url || 'https://wefixtrades.com' }}

@@ -35,7 +35,10 @@
     "seed:test-portal-client": "tsx scripts/seed-test-portal-client.ts",
     "record:google-verification": "npx playwright test --config scripts/google-verification/playwright.config.ts",
     "thumbnails": "tsx scripts/generate-template-thumbnails.ts",
-    "previews:free-tools": "tsx scripts/generate-free-tool-previews.ts"
+    "previews:free-tools": "tsx scripts/generate-free-tool-previews.ts",
+    "healthz:check": "node -e \"fetch(process.env.HEALTHZ_URL||'http://127.0.0.1:5000/api/healthz').then(r=>r.json().then(b=>{console.log(JSON.stringify(b,null,2));process.exit(b.status==='ok'?0:1)}))\"",
+    "smoke:critical": "playwright test --config=smoke.config.ts",
+    "post-deploy:verify": "node scripts/post-deploy-verify.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.95.1",
