@@ -6,7 +6,7 @@
 client/src/components/RecommendationCard.tsx:70:35	rule-c	size={11}
 client/src/components/RecommendationCard.tsx:91:17	rule-c	size={11}
 client/src/components/admin/AdminCopilot.tsx:1313:13	rule-c	square w-9 h-9
-client/src/components/admin/AdminLayout.tsx:1143:25	rule-c	square w-7 h-7
+client/src/components/admin/AdminLayout.tsx:1161:25	rule-c	square w-7 h-7
 client/src/components/admin/LucideIconPicker.tsx:119:29	rule-c	size={18}
 client/src/components/admin/MapguardTaskCard.tsx:189:17	rule-c	square w-7 h-7
 client/src/components/admin/ServiceOps.tsx:47:12	rule-c	square w-7 h-7

@@ -154,16 +154,31 @@ const SYSTEM_ITEMS: NavItem[] = [
   { label: "Audit Log", href: "/admin/crm/audit-log", icon: FileText },
   /* AI-3c audit log — general-purpose audit_log table reader. */
   { label: "Activity Audit", href: "/admin/audit-log", icon: FileText },
-  { label: "AI Budget", href: "/admin/crm/ai-budget", icon: BrainCircuit },
-  { label: "AI Gates", href: "/admin/ai-gates", icon: ShieldOff },
-  /* W-BA-1 — per-channel emergency kill switches (email/SMS/voice/chat). */
-  { label: "AI Channels", href: "/admin/ai-channels", icon: Radio },
-  /* W-AV-1 — Business Operator AI escalations + trust ladder + kill switch. */
-  { label: "AI Activity", href: "/admin/ai-activity", icon: BrainCircuit },
+];
+
+/* 2026-05-23: AI consolidation — every AI admin surface lives under a
+ * single "AI Dashboard" parent (the comprehensive overview at /admin/ai),
+ * with the per-surface admin tools nested as children. Mirrors the
+ * PR #569 parent-child pattern (QuoteQuick / TradeLine). Order:
+ * most-used first — Activity → Gates → Channels → Chat History → Budget. */
+const AI_ITEMS: NavItem[] = [
+  {
+    label: "AI Dashboard",
+    href: "/admin/ai",
+    icon: BrainCircuit,
+    children: [
+      /* W-AV-1 — Business Operator AI escalations + trust ladder + kill switch. */
+      { label: "AI Activity", href: "/admin/ai-activity", icon: BrainCircuit },
+      { label: "AI Gates", href: "/admin/ai-gates", icon: ShieldOff },
+      /* W-BA-1 — per-channel emergency kill switches (email/SMS/voice/chat). */
+      { label: "AI Channels", href: "/admin/ai-channels", icon: Radio },
+      { label: "Chat History", href: "/admin/chat-history", icon: FileText },
+      { label: "AI Budget", href: "/admin/crm/ai-budget", icon: BrainCircuit },
+    ],
+  },
 ];
 
 const SECONDARY_ITEMS = [
-  { label: "AI Dashboard", href: "/admin/ai", icon: BrainCircuit },
   /* Q20: relabelled from "Client Portal" + handled below as a special
      view-as-customer link (audits the entry, opens in new tab). */
   { label: "View as Customer", href: "/portal", icon: ExternalLink, isViewAsCustomer: true as const },
@@ -178,6 +193,8 @@ const NAV_ITEMS: NavItem[] = [
   ...PRODUCTS_ITEMS.flatMap((p) => p.children ?? []).map((c) => ({ ...c })),
   ...OPERATIONS_ITEMS,
   ...FINANCE_ITEMS,
+  ...AI_ITEMS,
+  ...AI_ITEMS.flatMap((p) => p.children ?? []).map((c) => ({ ...c })),
   ...SYSTEM_ITEMS,
 ];
 
@@ -549,6 +566,7 @@ function SidebarNav({
       <NavGroup label="Operations" items={OPERATIONS_ITEMS} location={location} onNavigate={onNavigate} defaultOpen={true} />
       <NavGroup label="Finance" items={FINANCE_ITEMS} location={location} onNavigate={onNavigate} defaultOpen={true} />
       <NavGroup label="Outbound" items={OUTBOUND_ITEMS} location={location} onNavigate={onNavigate} defaultOpen={false} />
+      <NavGroup label="AI" items={AI_ITEMS} location={location} onNavigate={onNavigate} defaultOpen={false} expandedMap={expandedMap} setExpandedMap={setExpandedMap} />
       <NavGroup label="System" items={SYSTEM_ITEMS} location={location} onNavigate={onNavigate} defaultOpen={false} />
 
       {/* Other */}
