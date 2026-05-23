@@ -8,6 +8,8 @@ import { useFaqSchema } from "@/lib/useFaqSchema";
 import { Search, PhoneMissed, Calculator, ChevronRight, ChevronDown } from "lucide-react";
 import { mkt } from "@/theme/tokens";
 
+// Primary product tools — front-and-center. The audit is the hero card
+// (it's the highest-intent entry point and the best top-of-funnel asset).
 const TOOLS = [
   {
     href: "/tools/free-audit",
@@ -18,20 +20,24 @@ const TOOLS = [
     tag: "Most popular",
   },
   {
-    href: "/tools/missed-call-calculator",
-    icon: PhoneMissed,
-    title: "Missed Call Revenue Calculator",
-    description:
-      "Calculate how much revenue your trade business loses from missed calls every month — and how to recover it.",
-    tag: null,
-  },
-  {
     href: "/tools/quote-demo",
     icon: Calculator,
     title: "Instant Quote Demo",
     description:
       "Try our live quote calculator widget. See how instant quoting can convert more website visitors into booked jobs.",
     tag: null,
+  },
+];
+
+// ROI helpers — secondary tools that warm visitors up for the audit.
+// Demoted below the main grid to keep the audit as the primary CTA.
+const ROI_HELPERS = [
+  {
+    href: "/tools/missed-call-calculator",
+    icon: PhoneMissed,
+    title: "Missed Call Revenue Calculator",
+    description:
+      "Calculate what you're losing to missed calls — then run a free audit to see how to fix it.",
   },
 ];
 
@@ -103,31 +109,36 @@ export default function ToolsHub() {
         }}
       >
 
-        {/* Tool Cards */}
+        {/* Primary product cards. The first card (audit) is hero-sized
+            via grid-column: 1 / -1 so it spans the full row on every
+            breakpoint. Secondary tools share the row below. */}
         <div
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
             gap: "clamp(16px, 3vw, 20px)",
-            marginBottom: "clamp(48px, 8vw, 80px)",
+            marginBottom: "clamp(32px, 6vw, 56px)",
           }}
         >
           {TOOLS.map((tool, i) => {
             const isHovered = hoveredCard === i;
+            const isHero = i === 0;
             return (
-              <Link key={tool.href} href={tool.href} style={{ textDecoration: "none" }}>
+              <Link key={tool.href} href={tool.href} style={{ textDecoration: "none", ...(isHero ? { gridColumn: "1 / -1" } : {}) }}>
                 <div
                   onMouseEnter={() => setHoveredCard(i)}
                   onMouseLeave={() => setHoveredCard(null)}
                   style={{
                     border: `1px solid ${isHovered ? mkt.accent : mkt.border}`,
                     borderRadius: 16,
-                    padding: "clamp(22px, 3vw, 28px)",
+                    padding: isHero
+                      ? "clamp(28px, 4vw, 36px)"
+                      : "clamp(22px, 3vw, 28px)",
                     background: isHovered ? mkt.surfaceAlt : mkt.surface,
                     height: "100%",
                     display: "flex",
                     flexDirection: "column",
-                    gap: 16,
+                    gap: isHero ? 18 : 16,
                     transition: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
                     cursor: "pointer",
                     boxShadow: isHovered
@@ -160,8 +171,8 @@ export default function ToolsHub() {
 
                   <div
                     style={{
-                      width: 44,
-                      height: 44,
+                      width: isHero ? 56 : 44,
+                      height: isHero ? 56 : 44,
                       borderRadius: 12,
                       background: mkt.accentTint,
                       display: "flex",
@@ -171,14 +182,27 @@ export default function ToolsHub() {
                       ...(isHovered ? { background: mkt.accentGlow } : {}),
                     }}
                   >
-                    <tool.icon size={20} color={mkt.accent} />
+                    <tool.icon size={isHero ? 24 : 20} color={mkt.accent} />
                   </div>
 
-                  <h2 style={{ fontSize: "clamp(17px, 2.5vw, 19px)", fontWeight: 700, color: mkt.onDark, margin: 0 }}>
+                  <h2 style={{
+                    fontSize: isHero ? "clamp(22px, 3.2vw, 28px)" : "clamp(17px, 2.5vw, 19px)",
+                    fontWeight: 700,
+                    color: mkt.onDark,
+                    margin: 0,
+                    letterSpacing: isHero ? "-0.015em" : undefined,
+                  }}>
                     {tool.title}
                   </h2>
 
-                  <p style={{ fontSize: 14, color: mkt.onDarkMuted, lineHeight: 1.6, margin: 0, flex: 1 }}>
+                  <p style={{
+                    fontSize: isHero ? "clamp(14px, 1.8vw, 16px)" : 14,
+                    color: mkt.onDarkMuted,
+                    lineHeight: 1.6,
+                    margin: 0,
+                    flex: 1,
+                    maxWidth: isHero ? "60ch" : undefined,
+                  }}>
                     {tool.description}
                   </p>
 
@@ -187,7 +211,7 @@ export default function ToolsHub() {
                       display: "flex",
                       alignItems: "center",
                       gap: 4,
-                      fontSize: 14,
+                      fontSize: isHero ? 15 : 14,
                       fontWeight: 600,
                       color: mkt.accent,
                       transition: "gap 0.2s",
@@ -201,6 +225,107 @@ export default function ToolsHub() {
             );
           })}
         </div>
+
+        {/* ROI helpers — secondary tools that warm visitors up for the
+            audit. Smaller cards, muted styling, framed as a precursor
+            to the main product. */}
+        {ROI_HELPERS.length > 0 && (
+          <div style={{ marginBottom: "clamp(48px, 8vw, 80px)" }}>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                color: mkt.onDarkMuted,
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+                marginBottom: 12,
+              }}
+            >
+              ROI helpers
+            </div>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
+                gap: "clamp(12px, 2vw, 16px)",
+              }}
+            >
+              {ROI_HELPERS.map((tool, j) => {
+                const idx = TOOLS.length + j;
+                const isHovered = hoveredCard === idx;
+                return (
+                  <Link key={tool.href} href={tool.href} style={{ textDecoration: "none" }}>
+                    <div
+                      onMouseEnter={() => setHoveredCard(idx)}
+                      onMouseLeave={() => setHoveredCard(null)}
+                      style={{
+                        border: `1px solid ${isHovered ? mkt.accent : mkt.border}`,
+                        borderRadius: 14,
+                        padding: "clamp(16px, 2.5vw, 20px)",
+                        background: isHovered ? mkt.surfaceAlt : mkt.surface,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 14,
+                        transition: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
+                        cursor: "pointer",
+                        boxShadow: isHovered
+                          ? `0 4px 16px rgba(0,0,0,0.18)`
+                          : "0 1px 3px rgba(0,0,0,0.08)",
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: 38,
+                          height: 38,
+                          borderRadius: 10,
+                          background: mkt.accentTint,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          flexShrink: 0,
+                        }}
+                      >
+                        <tool.icon size={16} color={mkt.accent} />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <h3
+                          style={{
+                            fontSize: 14,
+                            fontWeight: 700,
+                            color: mkt.onDark,
+                            margin: 0,
+                            marginBottom: 2,
+                          }}
+                        >
+                          {tool.title}
+                        </h3>
+                        <p
+                          style={{
+                            fontSize: 12,
+                            color: mkt.onDarkMuted,
+                            lineHeight: 1.5,
+                            margin: 0,
+                          }}
+                        >
+                          {tool.description}
+                        </p>
+                      </div>
+                      <ChevronRight
+                        size={16}
+                        color={mkt.accent}
+                        style={{
+                          flexShrink: 0,
+                          transition: "transform 0.2s",
+                          transform: isHovered ? "translateX(2px)" : "none",
+                        }}
+                      />
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* FAQ */}
         <div style={{ maxWidth: 640, margin: "0 auto" }}>

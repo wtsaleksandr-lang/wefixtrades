@@ -161,6 +161,65 @@ export default function MissedCallCalculatorTrade() {
           {/* Calculator — auto-selects this trade */}
           <MissedCallCalculatorShell initialTradeId={tradeId} />
 
+          {/* Audit funnel CTA — primary action. Prefills the FreeAudit
+              with this page's trade so visitors keep their momentum
+              across tools. Mirrors the same `?prefill=…&source=…`
+              pattern used by ResultsPanel. */}
+          <Link
+            href={`/tools/free-audit?prefill=${encodeURIComponent(tradeId)}&source=missed-calls-calculator-trade`}
+            style={{ textDecoration: 'none', display: 'block', marginTop: 24 }}
+          >
+            <div
+              role="link"
+              tabIndex={0}
+              style={{
+                background: mkt.accent,
+                borderRadius: 14,
+                padding: '18px 22px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 14,
+                cursor: 'pointer',
+                border: '2px solid transparent',
+                transition: 'border-color 0.25s, box-shadow 0.25s',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = 'rgba(0,0,0,0.3)';
+                e.currentTarget.style.boxShadow = '0 12px 36px rgba(0,0,0,0.18)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = 'transparent';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
+            >
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{
+                  fontSize: 'clamp(15px, 2.4vw, 17px)',
+                  fontWeight: 700,
+                  color: '#0d1514',
+                  lineHeight: 1.25,
+                  marginBottom: 3,
+                }}>
+                  Run your full {label.toLowerCase()} audit
+                </div>
+                <div style={{
+                  fontSize: 13,
+                  color: 'rgba(13,21,20,0.65)',
+                  fontWeight: 500,
+                }}>
+                  See exactly why customers can't find you — and how to fix it
+                </div>
+              </div>
+              <div data-theme="dark" style={{
+                width: 42, height: 42, background: '#0d1514', borderRadius: 10,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                flexShrink: 0, color: 'white',
+              }}>
+                <Search size={20} strokeWidth={2.2} />
+              </div>
+            </div>
+          </Link>
+
           {/* Internal links */}
           <div style={{
             marginTop: 'clamp(32px, 6vw, 48px)',

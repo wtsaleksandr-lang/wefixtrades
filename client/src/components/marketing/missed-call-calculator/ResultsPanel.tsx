@@ -35,10 +35,12 @@ function usePrefersReducedMotion(): boolean {
 interface ResultsPanelProps {
   inputs: CalcInputs;
   tradeName: string;
+  /** Trade preset slug — used to prefill the FreeAudit funnel CTA. */
+  tradeId?: string;
   unlocked?: boolean;
 }
 
-export default function ResultsPanel({ inputs, tradeName, unlocked = false }: ResultsPanelProps) {
+export default function ResultsPanel({ inputs, tradeName, tradeId, unlocked = false }: ResultsPanelProps) {
   const range = useMemo(() => calculateRange(inputs), [inputs]);
   const [showScenario, setShowScenario] = useState(false);
   const [showMethodology, setShowMethodology] = useState(false);
@@ -400,30 +402,55 @@ export default function ResultsPanel({ inputs, tradeName, unlocked = false }: Re
               </div>
             </Link>
 
-            {/* Secondary: Cross-tool CTA */}
-            <Link href="/tools/free-audit" style={{ textDecoration: 'none', display: 'block' }}>
+            {/* Cross-tool audit funnel — primary action card. Prefills
+                the FreeAudit trade selection via `?prefill=<slug>` so the
+                user lands one step ahead. `source` is captured for
+                attribution in audit analytics. */}
+            <Link
+              href={`/tools/free-audit${tradeId ? `?prefill=${encodeURIComponent(tradeId)}&source=missed-calls-calculator` : '?source=missed-calls-calculator'}`}
+              style={{ textDecoration: 'none', display: 'block' }}
+            >
               <div
                 role="link"
                 tabIndex={0}
-                onClick={() => trackEvent("calculator_secondary_cta_clicked", { target: "/tools/free-audit" })}
+                onClick={() => trackEvent("calculator_audit_funnel_clicked", { target: "/tools/free-audit", trade: tradeId })}
                 style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                  padding: '12px 20px', borderRadius: radius.lg,
-                  border: `1px solid ${mkt.border}`, background: 'transparent',
-                  cursor: 'pointer', transition: 'border-color 0.2s, background 0.2s',
-                  fontSize: 14, fontWeight: 600, color: mkt.textMuted,
+                  background: mkt.accent,
+                  borderRadius: radius.lg,
+                  padding: '18px 24px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  cursor: 'pointer',
+                  border: '2px solid transparent',
+                  transition: 'border-color 0.25s, box-shadow 0.25s',
                 }}
                 onMouseEnter={e => {
-                  e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)';
-                  e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
+                  e.currentTarget.style.borderColor = 'rgba(0,0,0,0.3)';
+                  e.currentTarget.style.boxShadow = '0 16px 48px rgba(0,0,0,0.15)';
                 }}
                 onMouseLeave={e => {
-                  e.currentTarget.style.borderColor = mkt.border;
-                  e.currentTarget.style.background = 'transparent';
+                  e.currentTarget.style.borderColor = 'transparent';
+                  e.currentTarget.style.boxShadow = 'none';
                 }}
               >
-                <Search size={14} />
-                Get a full business audit
+                <div style={{ flex: 1 }}>
+                  <div style={{
+                    fontSize: 'clamp(15px, 2.5vw, 18px)', fontWeight: 700,
+                    color: '#0d1514', lineHeight: 1.2, marginBottom: 3,
+                  }}>
+                    Run your full audit
+                  </div>
+                  <div style={{ fontSize: 13, color: 'rgba(13,21,20,0.65)', fontWeight: 500 }}>
+                    See exactly why customers can't find you — and how to fix it
+                  </div>
+                </div>
+                <div data-theme="dark" style={{
+                  width: 44, height: 44, background: '#0d1514', borderRadius: 10,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                  color: 'white',
+                }}>
+                  <Search size={20} strokeWidth={2.2} />
+                </div>
               </div>
             </Link>
 
