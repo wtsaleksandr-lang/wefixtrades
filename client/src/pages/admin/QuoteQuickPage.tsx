@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import AdminLayout from "@/components/admin/AdminLayout";
+import { AdminProductPageShell, type ProductStats } from "@/components/admin/AdminProductPageShell";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -19,6 +20,11 @@ import {
   Bell,
   BellOff,
 } from "lucide-react";
+
+/** service_catalog.id this admin page operates on. Used by the
+ *  <AdminProductPageShell> wrapper to fetch /api/admin/products/:id +
+ *  per-product stats and to drive the active/hidden toggles. */
+const PRODUCT_ID = "quotequick";
 
 interface QQCalculator {
   id: number;
@@ -144,6 +150,10 @@ function LeadTrendSparkline({ data }: { data: { date: string; count: number }[] 
   );
 }
 
+interface ProductRecord {
+  live: { id: string; name: string; is_active: boolean; hidden: boolean } | null;
+}
+
 export default function QuoteQuickPage() {
   usePageTitle("QuoteQuick");
 
@@ -153,6 +163,74 @@ export default function QuoteQuickPage() {
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  /* ── AdminProductPageShell wiring ─────────────────────────────────
+     The shell fetches the product record (is_active + hidden) and the
+     KPI stats. Toggle mutations are optimistic — the local cache flips
+     immediately and reverts on error.
+  ────────────────────────────────────────────────────────────────── */
+  const productKey = ["/api/admin/products", PRODUCT_ID] as const;
+  const { data: productData } = useQuery<ProductRecord>({
+    queryKey: productKey,
+    queryFn: () => apiRequest("GET", `/api/admin/products/${PRODUCT_ID}`).then((r) => r.json()),
+  });
+  const live = productData?.live ?? null;
+
+  const statsKey = ["/api/admin/products", PRODUCT_ID, "stats"] as const;
+  const { data: productStats } = useQuery<ProductStats>({
+    queryKey: statsKey,
+    queryFn: () => apiRequest("GET", `/api/admin/products/${PRODUCT_ID}/stats`).then((r) => r.json()),
+  });
+
+  const activeToggle = useMutation({
+    mutationFn: async (next: boolean) => {
+      const res = await apiRequest("PATCH", `/api/admin/products/${PRODUCT_ID}/status`, { is_active: next });
+      return res.json();
+    },
+    onMutate: async (next: boolean) => {
+      await queryClient.cancelQueries({ queryKey: productKey });
+      const prev = queryClient.getQueryData<ProductRecord>(productKey);
+      if (prev?.live) {
+        queryClient.setQueryData<ProductRecord>(productKey, { live: { ...prev.live, is_active: next } });
+      }
+      return { prev };
+    },
+    onError: (_err, _next, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(productKey, ctx.prev);
+      toast({ title: "Could not update status", description: "Try again", variant: "destructive" });
+    },
+    onSuccess: (_data, next) => {
+      toast({ title: next ? "Product activated" : "Product deactivated" });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: productKey });
+    },
+  });
+
+  const hiddenToggle = useMutation({
+    mutationFn: async (next: boolean) => {
+      const res = await apiRequest("PATCH", `/api/admin/products/${PRODUCT_ID}/visibility`, { hidden: next });
+      return res.json();
+    },
+    onMutate: async (next: boolean) => {
+      await queryClient.cancelQueries({ queryKey: productKey });
+      const prev = queryClient.getQueryData<ProductRecord>(productKey);
+      if (prev?.live) {
+        queryClient.setQueryData<ProductRecord>(productKey, { live: { ...prev.live, hidden: next } });
+      }
+      return { prev };
+    },
+    onError: (_err, _next, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(productKey, ctx.prev);
+      toast({ title: "Could not update visibility", description: "Try again", variant: "destructive" });
+    },
+    onSuccess: (_data, next) => {
+      toast({ title: next ? "Hidden from public catalog" : "Visible in public catalog" });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: productKey });
+    },
+  });
 
   const { data, isLoading } = useQuery<{ calculators: QQCalculator[] }>({
     queryKey: ["/api/admin/crm/quotequick/overview"],
@@ -272,17 +350,14 @@ export default function QuoteQuickPage() {
     );
   }
 
-  return (
-    <AdminLayout pageContext={{ page: "QuoteQuick" }}>
-      <div className="space-y-6">
-        {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">QuoteQuick</h1>
-          <p className="text-sm text-gray-500 mt-1">All calculator instances across the platform</p>
-        </div>
-
-        {/* Summary Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 auto-rows-fr">
+  /* The legacy QuoteQuick body — KPI cards, trend, table — is preserved
+     verbatim and rendered as the shell's single "Overview" tab. Subsequent
+     waves will split this into sub-tabs once we have parity across the
+     remaining 8 per-product pages. */
+  const overviewBody = (
+    <div className="space-y-6" data-testid="quotequick-overview-body">
+      {/* Summary Cards (product-instance KPIs — separate from the shell's MRR/subs strip above) */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 auto-rows-fr">
           <Card className="p-4">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
@@ -362,17 +437,6 @@ export default function QuoteQuickPage() {
             <p className="text-xs font-medium uppercase tracking-wider text-gray-500 mb-4">Plan mix</p>
             <PlanMixBar tiers={tierMix} />
           </Card>
-        </div>
-
-        {/* Search */}
-        <div className="relative max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <Input
-            placeholder="Search by name, email, trade, slug..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
         </div>
 
         {/* Table */}
@@ -490,7 +554,40 @@ export default function QuoteQuickPage() {
             </div>
           )}
         </Card>
-      </div>
+    </div>
+  );
+
+  const filtersBar = (
+    <div className="relative max-w-sm" data-testid="quotequick-search">
+      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+      <Input
+        placeholder="Search by name, email, trade, slug..."
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        className="pl-9"
+      />
+    </div>
+  );
+
+  return (
+    <AdminLayout pageContext={{ page: "QuoteQuick" }}>
+      <AdminProductPageShell
+        productId={PRODUCT_ID}
+        productName="QuoteQuick"
+        isActive={live?.is_active ?? true}
+        hidden={live?.hidden ?? false}
+        stats={productStats ?? null}
+        filtersBar={filtersBar}
+        tabs={[
+          {
+            id: "overview",
+            label: "Overview",
+            render: () => overviewBody,
+          },
+        ]}
+        onToggleActive={(next) => activeToggle.mutate(next)}
+        onToggleHidden={(next) => hiddenToggle.mutate(next)}
+      />
     </AdminLayout>
   );
 }

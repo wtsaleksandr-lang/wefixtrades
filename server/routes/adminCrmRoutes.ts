@@ -140,6 +140,80 @@ export function registerAdminCrmRoutes(app: Express): void {
     }
   });
 
+  // PATCH /api/admin/products/:id/status — flip is_active on/off.
+  // Admin-side flag only; bypasses the draft/publish flow because it's a
+  // visibility lever rather than a customer-facing copy change. Stripe IDs
+  // are untouched. Existing subscribers continue to be served when is_active
+  // becomes false — this only blocks new checkout for the SKU.
+  app.patch("/api/admin/products/:id/status", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const svcId = String(req.params.id);
+      if (typeof req.body?.is_active !== "boolean") {
+        return res.status(400).json({ error: "is_active (boolean) required" });
+      }
+      const updated = await storage.updateServiceCatalog(svcId, { is_active: req.body.is_active });
+      if (!updated) return res.status(404).json({ error: "Product not found" });
+      const u = req.user as any;
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: u?.id,
+        actor_name: u?.name || u?.email,
+        action: req.body.is_active ? "product.status_activated" : "product.status_deactivated",
+        entity_type: "service_catalog",
+        entity_id: null,
+        summary: `${req.body.is_active ? "Activated" : "Deactivated"} "${updated.name}"`,
+        metadata: { service_id: svcId, is_active: req.body.is_active },
+      });
+      res.json({ id: updated.id, is_active: updated.is_active, updated_at: updated.updated_at });
+    } catch (err: any) {
+      log.error("[products status PATCH] Error:", err.message);
+      res.status(500).json({ error: "Failed to update status" });
+    }
+  });
+
+  // PATCH /api/admin/products/:id/visibility — flip hidden on/off.
+  // Hides the product from /products list + /pricing while leaving existing
+  // subscriptions served and deep links to /products/<slug> functional.
+  app.patch("/api/admin/products/:id/visibility", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const svcId = String(req.params.id);
+      if (typeof req.body?.hidden !== "boolean") {
+        return res.status(400).json({ error: "hidden (boolean) required" });
+      }
+      const updated = await storage.updateServiceCatalog(svcId, { hidden: req.body.hidden } as any);
+      if (!updated) return res.status(404).json({ error: "Product not found" });
+      const u = req.user as any;
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: u?.id,
+        actor_name: u?.name || u?.email,
+        action: req.body.hidden ? "product.hidden" : "product.unhidden",
+        entity_type: "service_catalog",
+        entity_id: null,
+        summary: `${req.body.hidden ? "Hid" : "Unhid"} "${updated.name}" from public catalog`,
+        metadata: { service_id: svcId, hidden: req.body.hidden },
+      });
+      res.json({ id: updated.id, hidden: (updated as any).hidden, updated_at: updated.updated_at });
+    } catch (err: any) {
+      log.error("[products visibility PATCH] Error:", err.message);
+      res.status(500).json({ error: "Failed to update visibility" });
+    }
+  });
+
+  // GET /api/admin/products/:id/stats — per-product KPIs for the shell strip.
+  app.get("/api/admin/products/:id/stats", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const svcId = String(req.params.id);
+      const live = await storage.getServiceById(svcId);
+      if (!live) return res.status(404).json({ error: "Product not found" });
+      const stats = await storage.getProductStats(svcId);
+      res.json(stats);
+    } catch (err: any) {
+      log.error("[products stats GET] Error:", err.message);
+      res.status(500).json({ error: "Failed to load product stats" });
+    }
+  });
+
   // POST /api/admin/products/:id/draft — create or update a draft for this product
   app.post("/api/admin/products/:id/draft", requireAdmin, async (req: Request, res: Response) => {
     try {

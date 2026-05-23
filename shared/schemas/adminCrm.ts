@@ -16,6 +16,10 @@ export const serviceCatalog = pgTable("service_catalog", {
   delivery_pattern: varchar("delivery_pattern", { length: 20 }).notNull().default("one_time"),
   // one_time | recurring | always_on
   is_active: boolean("is_active").notNull().default(true),
+  // 0038: visibility flag independent of is_active. hidden=true removes the
+  // product from /products list + /pricing, but existing subs remain served
+  // and any deep link to /products/<slug> still resolves.
+  hidden: boolean("hidden").notNull().default(false),
   stripe_product_id: text("stripe_product_id"),
   stripe_price_id: text("stripe_price_id"),              // monthly or one-time price
   stripe_yearly_price_id: text("stripe_yearly_price_id"), // yearly price (monthly services only)
