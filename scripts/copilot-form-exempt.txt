@@ -49,6 +49,7 @@ client/src/pages/admin/outbound/PipelinePage.tsx
 
 # ── Admin: deliberately excluded — password / credential form ──
 client/src/pages/admin/ChangePasswordPage.tsx
+client/src/pages/admin/SeoIntegrationsPage.tsx
 
 # ── Portal: dashboards / lists / read-only views ──
 client/src/pages/portal/ChatWidgetInstallEntry.tsx
