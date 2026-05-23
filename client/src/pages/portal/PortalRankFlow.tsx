@@ -7,9 +7,31 @@ import {
 } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
 import UpsellCard from "@/components/portal/UpsellCard";
+import {
+  PortalProductPageShell,
+  type PortalPlanTier,
+  type ProductPortalStats,
+} from "@/components/portal/PortalProductPageShell";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+
+/** Map raw plan_tier string from API → shell's PortalPlanTier vocab. */
+function mapPlanTier(raw: string | undefined): PortalPlanTier {
+  switch ((raw || "").toLowerCase()) {
+    case "pro":
+      return "pro";
+    case "business":
+      return "business";
+    case "enterprise":
+      return "enterprise";
+    case "starter":
+    case "free":
+      return "free";
+    default:
+      return null;
+  }
+}
 
 /* ─── Types ─── */
 interface RankFlowData {
@@ -106,27 +128,40 @@ export default function PortalRankFlow() {
   const m = data.metrics!;
   const r = data.ranking;
   const idx = data.indexing;
-  const tier = (data.plan_tier || "starter").charAt(0).toUpperCase() + (data.plan_tier || "starter").slice(1);
+  const planTier = mapPlanTier(data.plan_tier);
 
-  return (
-    <PortalLayout>
-      {/* Portal RankFlow is light-theme locked — see CONTRAST-2. */}
-      <div
-        data-theme="light"
-        className="max-w-3xl mx-auto space-y-5 pb-8"
-      >
+  const stats: ProductPortalStats = {
+    primary: {
+      label: "Keywords tracked",
+      value: r?.keywordsTracked ?? 0,
+      hint: "Search terms RankFlow monitors for your business",
+    },
+    secondary: {
+      label: "Page 1 (Top 10)",
+      value: r?.keywordsTop10 ?? 0,
+      hint: "Keywords ranking on the first page of Google",
+    },
+    tertiary: {
+      label: "Pages created",
+      value: m.pagesCreated,
+      hint: "SEO pages built for your site this month",
+    },
+    quaternary: {
+      label: "Progress",
+      value: m.progressPct,
+      suffix: "%",
+      hint: "Monthly task completion",
+    },
+  };
 
-        {/* ─── Header ─── */}
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <TrendingUp className="w-5 h-5 text-[#0d3cfc]" />
-            <h1 className="text-lg font-semibold text-gray-900">RankFlow SEO Report</h1>
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-50 text-emerald-700 capitalize">{tier}</span>
-          </div>
-          <p className="text-sm text-gray-600">{data.statusLine}</p>
-        </div>
+  // Portal RankFlow is light-theme locked — see CONTRAST-2.
+  const overviewBody = (
+    <div data-theme="light" className="max-w-3xl mx-auto space-y-5 pb-8">
+      {data.statusLine && (
+        <p className="text-sm text-gray-600">{data.statusLine}</p>
+      )}
 
-        {/* ─── Pause Article Generation Toggle ─── */}
+      {/* ─── Pause Article Generation Toggle ─── */}
         <div className="bg-white rounded-xl border border-gray-200 px-5 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -300,23 +335,39 @@ export default function PortalRankFlow() {
           </div>
         )}
 
-        {/* ─── What's Next ─── */}
-        {data.nextUp && data.nextUp.length > 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-100">
-              <h2 className="text-sm font-semibold text-gray-900">Coming Up Next</h2>
-            </div>
-            <ul className="divide-y divide-gray-50">
-              {data.nextUp.map((item, i) => (
-                <li key={i} className="px-5 py-3 flex items-center gap-3">
-                  <ArrowRight className="w-4 h-4 text-[#0d3cfc] shrink-0" />
-                  <p className="text-sm text-gray-700">{item}</p>
-                </li>
-              ))}
-            </ul>
+      {/* ─── What's Next ─── */}
+      {data.nextUp && data.nextUp.length > 0 && (
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-100">
+            <h2 className="text-sm font-semibold text-gray-900">Coming Up Next</h2>
           </div>
-        )}
+          <ul className="divide-y divide-gray-50">
+            {data.nextUp.map((item, i) => (
+              <li key={i} className="px-5 py-3 flex items-center gap-3">
+                <ArrowRight className="w-4 h-4 text-[#0d3cfc] shrink-0" />
+                <p className="text-sm text-gray-700">{item}</p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
 
+  return (
+    <PortalLayout>
+      {/* Portal RankFlow is light-theme locked — see CONTRAST-2. */}
+      <div data-theme="light" className="max-w-3xl mx-auto pb-8">
+        <PortalProductPageShell
+          productId="rankflow"
+          productName="RankFlow SEO Report"
+          planTier={planTier}
+          upgradeCtaHref="/portal/billing"
+          stats={stats}
+          tabs={[
+            { id: "overview", label: "Overview", render: () => overviewBody },
+          ]}
+        />
       </div>
     </PortalLayout>
   );
