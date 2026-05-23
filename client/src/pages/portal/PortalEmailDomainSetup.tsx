@@ -317,7 +317,7 @@ function DnsRecordRow({ record }: { record: DnsRecord }) {
     } catch {}
   }
   return (
-    <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-2">
+    <div data-theme="light" className="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-2">
       <div className="flex items-center gap-2">
         <Badge variant="outline" className="text-[10px]">{record.type}</Badge>
         <span className="text-xs text-gray-600">{record.purpose}</span>

@@ -130,7 +130,7 @@ export default function QuoteQuickPricing() {
 
   return (
     <MarketingLayout>
-      <V7PageShell>
+      <V7PageShell data-theme="light">
         <V7Hero
           productName="QuoteQuick Pricing"
           eyebrow="One booked job pays for your entire month."

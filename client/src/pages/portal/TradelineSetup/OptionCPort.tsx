@@ -107,7 +107,7 @@ function BillUploadStep({ setup, onBack }: { setup: TradelinePhoneSetup; onBack:
   }
 
   return (
-    <div className="space-y-5">
+    <div data-theme="light" className="space-y-5">
       <BackLink onBack={onBack} />
 
       <div>

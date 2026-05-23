@@ -25,7 +25,7 @@ interface Props {
 export function BellDeviceSettings({ weFixTradesNumber, onContinueToVerify, onUseUnconditional }: Props) {
   const [tab, setTab] = useState<"ios" | "android">("ios");
   return (
-    <div className="space-y-4">
+    <div data-theme="light" className="space-y-4">
       <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
         <p className="font-semibold mb-1">Bell needs device settings, not a code</p>
         <p className="text-xs">

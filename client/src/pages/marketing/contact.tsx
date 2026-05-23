@@ -56,7 +56,7 @@ export default function ContactPage() {
 
   return (
     <MarketingLayout>
-      <V7PageShell>
+      <V7PageShell data-theme="light">
         <V7Hero
           productName="Contact"
           headline={<>Talk to our team.</>}

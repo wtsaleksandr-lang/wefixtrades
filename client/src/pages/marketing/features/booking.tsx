@@ -9,7 +9,7 @@ function BookingMockup() {
   const selected = 17;
 
   return (
-    <div
+    <div data-theme="light"
       style={{
         background: mkt.bg,
         border: `1px solid ${mkt.onDarkBorder}`,

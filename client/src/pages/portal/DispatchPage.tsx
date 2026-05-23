@@ -116,7 +116,7 @@ export default function DispatchPage() {
   const completedCount = appointments.filter((a) => a.status === "completed").length;
 
   return (
-    <div style={{ maxWidth: 600, margin: "0 auto", padding: "16px" }}>
+    <div data-theme="light" style={{ maxWidth: 600, margin: "0 auto", padding: "16px" }}>
       {/* Back to portal — DispatchPage is intentionally outside the
           PortalLayout (mobile-first for tradespeople in the field),
           so we provide a single inline link rather than the full

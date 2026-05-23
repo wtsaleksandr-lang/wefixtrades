@@ -54,7 +54,7 @@ export function OptionANewNumber({ setup, onBack, onDone }: Props) {
     const checklist = buildChecklist(setup.assigned_number);
     const allChecked = checklist.every((c) => checkedKeys.has(c.key));
     return (
-      <div className="space-y-5">
+      <div data-theme="light" className="space-y-5">
         <BackLink onBack={onBack} />
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-5 text-center space-y-2">
           <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />

@@ -132,7 +132,7 @@ export default function PortalChatWidgetSetup() {
   if (state.isLoading) {
     return (
       <PortalLayout>
-        <div className="max-w-3xl mx-auto p-6 space-y-4">
+        <div data-theme="light" className="max-w-3xl mx-auto p-6 space-y-4">
           <Skeleton className="h-8 w-48" />
           <Skeleton className="h-64" />
         </div>

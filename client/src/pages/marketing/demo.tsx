@@ -489,7 +489,7 @@ export default function DemoPage() {
 
   return (
     <MarketingLayout>
-      <div data-testid="demo-page">
+      <div data-theme="light" data-testid="demo-page">
 
         {/* ═══ HERO — minimal, animation retained ═══ */}
         <section style={{

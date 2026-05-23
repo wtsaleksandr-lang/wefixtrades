@@ -44,7 +44,7 @@ export default function CompareNiceJob() {
 
   return (
     <MarketingLayout>
-      <div style={{ maxWidth: 880, margin: "0 auto", padding: "60px 20px 80px" }}>
+      <div data-theme="light" style={{ maxWidth: 880, margin: "0 auto", padding: "60px 20px 80px" }}>
         {/* Hero */}
         <div style={{ textAlign: "center", marginBottom: 48 }}>
           <p style={{ fontSize: 13, fontWeight: 600, color: "#0d3cfc", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 12 }}>

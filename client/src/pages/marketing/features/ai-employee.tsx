@@ -12,7 +12,7 @@ function AiMockup() {
   ];
 
   return (
-    <div
+    <div data-theme="dark"
       style={{
         background: mkt.dark,
         borderRadius: 20,
