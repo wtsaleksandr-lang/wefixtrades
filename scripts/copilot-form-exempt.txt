@@ -106,3 +106,7 @@ client/src/pages/admin/AdminAiGatesPage.tsx
 # ── BA-1 + BB-4 follow-up: per-channel gate page + per-calculator analytics dashboard (admin/portal read-only) ──
 client/src/pages/admin/AdminAiChannelsPage.tsx
 client/src/pages/portal/PortalCalculatorAnalytics.tsx
+
+# ── Free Tools foundation wave — index is a read-only card grid. ──
+# (SchemaGenerator.tsx is NOT exempt — it wires useCopilotForm for address/price fields.)
+client/src/pages/portal/FreeTools/index.tsx
