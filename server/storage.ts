@@ -200,6 +200,19 @@ export interface WebCareOpsRow {
   last_downtime_alert_at: string | null;
 }
 
+/* Q-shell: per-product KPI rollup returned by getProductStats(). Drives the
+   4-card KPI strip on <AdminProductPageShell>. Aggregations come from
+   client_services rows filtered by service_id. churn_rate_30d is
+   cancellations / (active + cancellations) over the last 30 days. */
+export interface ProductStats {
+  mrr_cents: number;
+  active_subs: number;
+  paused_subs: number;
+  cancelled_30d: number;
+  new_subs_30d: number;
+  churn_rate_30d: number;
+}
+
 export interface IStorage {
   createCalculator(data: InsertCalculator): Promise<Calculator>;
   getCalculatorById(id: number): Promise<Calculator | undefined>;
@@ -319,6 +332,8 @@ export interface IStorage {
   getServiceById(serviceId: string): Promise<ServiceCatalogRow | undefined>;
   updateServiceCatalog(id: string, updates: Partial<InsertServiceCatalog>): Promise<ServiceCatalogRow | undefined>;
   listServicesWithClientCounts(): Promise<(ServiceCatalogRow & { active_client_count: number })[]>;
+  /* Q-shell: per-product KPI rollup for <AdminProductPageShell>. */
+  getProductStats(serviceId: string): Promise<ProductStats>;
 
   // Product drafts (Q28)
   getLatestProductDraft(serviceId: string): Promise<ProductDraft | undefined>;
@@ -1608,6 +1623,7 @@ export class DatabaseStorage implements IStorage {
       billing_period: serviceCatalog.billing_period,
       delivery_pattern: serviceCatalog.delivery_pattern,
       is_active: serviceCatalog.is_active,
+      hidden: serviceCatalog.hidden,
       stripe_product_id: serviceCatalog.stripe_product_id,
       stripe_price_id: serviceCatalog.stripe_price_id,
       stripe_yearly_price_id: serviceCatalog.stripe_yearly_price_id,
@@ -1623,6 +1639,34 @@ export class DatabaseStorage implements IStorage {
     .groupBy(serviceCatalog.id)
     .orderBy(serviceCatalog.sort_order);
     return rows as any;
+  }
+
+  /* Q-shell: per-product KPI rollup. Aggregated from client_services where
+     service_id matches. enabled=false rows are excluded from MRR / active
+     counts so admins toggling a single subscription off don't inflate
+     paused. churn_rate_30d denominator is active + cancelled_30d to avoid
+     division-by-zero and produce a meaningful "of customers who could have
+     churned, this many did" ratio. */
+  async getProductStats(serviceId: string): Promise<ProductStats> {
+    const result = await db.execute(sql`
+      SELECT
+        COALESCE(SUM(price_cents) FILTER (WHERE status != 'cancelled' AND enabled), 0) AS mrr_cents,
+        COUNT(*) FILTER (WHERE status = 'active' AND enabled) AS active_subs,
+        COUNT(*) FILTER (WHERE status = 'paused' AND enabled) AS paused_subs,
+        COUNT(*) FILTER (WHERE cancelled_at IS NOT NULL AND cancelled_at > NOW() - INTERVAL '30 days') AS cancelled_30d,
+        COUNT(*) FILTER (WHERE started_at IS NOT NULL AND started_at > NOW() - INTERVAL '30 days') AS new_subs_30d
+      FROM client_services
+      WHERE service_id = ${serviceId}
+    `);
+    const row: any = (result as any).rows?.[0] ?? {};
+    const mrr_cents = Number(row.mrr_cents ?? 0);
+    const active_subs = Number(row.active_subs ?? 0);
+    const paused_subs = Number(row.paused_subs ?? 0);
+    const cancelled_30d = Number(row.cancelled_30d ?? 0);
+    const new_subs_30d = Number(row.new_subs_30d ?? 0);
+    const denom = active_subs + cancelled_30d;
+    const churn_rate_30d = denom > 0 ? cancelled_30d / denom : 0;
+    return { mrr_cents, active_subs, paused_subs, cancelled_30d, new_subs_30d, churn_rate_30d };
   }
 
   // ─── Product Drafts (Q28) ───

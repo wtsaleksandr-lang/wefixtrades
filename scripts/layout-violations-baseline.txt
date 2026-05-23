@@ -98,9 +98,9 @@ client/src/components/wizard/elfsight/TemplateMockup.tsx:188:17	rule-c	size={11}
 client/src/config/product-mockups.tsx:63:29	rule-c	size={11}
 client/src/config/product-mockups.tsx:64:37	rule-c	size={11}
 client/src/config/product-mockups.tsx:65:32	rule-c	size={11}
-client/src/pages/Blog.tsx:235:19	rule-c	size={120}
-client/src/pages/Blog.tsx:353:17	rule-c	size={84}
-client/src/pages/Blog.tsx:581:17	rule-c	size={15}
+client/src/pages/Blog.tsx:236:19	rule-c	size={120}
+client/src/pages/Blog.tsx:354:17	rule-c	size={84}
+client/src/pages/Blog.tsx:575:17	rule-c	size={15}
 client/src/pages/CaseStudies.tsx:489:24	rule-c	size={48}
 client/src/pages/CaseStudies.tsx:499:19	rule-c	size={56}
 client/src/pages/CaseStudies.tsx:529:21	rule-c	size={10}
@@ -160,8 +160,8 @@ client/src/pages/admin/MapguardDashboard.tsx:126:14	rule-c	square w-9 h-9
 client/src/pages/admin/MapguardDashboard.tsx:307:21	rule-c	square w-10 h-10
 client/src/pages/admin/ProductDetailPage.tsx:596:33	rule-c	square w-2.5 h-2.5
 client/src/pages/admin/ProfilePage.tsx:103:18	rule-c	square w-14 h-14
-client/src/pages/admin/QuoteQuickPage.tsx:73:32	rule-c	square w-28 h-28
-client/src/pages/admin/QuoteQuickPage.tsx:106:19	rule-c	square w-2 h-2
+client/src/pages/admin/QuoteQuickPage.tsx:79:32	rule-c	square w-28 h-28
+client/src/pages/admin/QuoteQuickPage.tsx:112:19	rule-c	square w-2 h-2
 client/src/pages/admin/QuoteQuickTemplateDetailPage.tsx:960:25	rule-c	size={18}
 client/src/pages/admin/QuoteQuickTemplatesPage.tsx:242:22	rule-c	square w-2.5 h-2.5
 client/src/pages/admin/QuoteQuickTradeDetailPage.tsx:316:17	rule-c	square w-16 h-16
@@ -278,10 +278,10 @@ client/src/pages/portal/PortalWidget.tsx:148:17	rule-c	square w-12 h-12
 client/src/pages/portal/TradelineSetup/DashboardBanner.tsx:53:16	rule-c	square w-10 h-10
 client/src/pages/portal/TradelineSetup/OptionCPort.tsx:135:23	rule-c	square w-7 h-7
 client/src/pages/portal/TradelineSetup/index.tsx:74:16	rule-c	square w-12 h-12
-client/src/pages/products/EffortelProductPage.tsx:182:75	rule-c	size={18}
-client/src/pages/products/EffortelProductPage.tsx:266:42	rule-c	size={13}
-client/src/pages/products/EffortelProductPage.tsx:694:34	rule-c	size={18}
-client/src/pages/products/EffortelProductPage.tsx:817:46	rule-c	size={18}
+client/src/pages/products/EffortelProductPage.tsx:183:75	rule-c	size={18}
+client/src/pages/products/EffortelProductPage.tsx:267:42	rule-c	size={13}
+client/src/pages/products/EffortelProductPage.tsx:695:34	rule-c	size={18}
+client/src/pages/products/EffortelProductPage.tsx:834:46	rule-c	size={18}
 client/src/pages/products/ProductPageTemplate.tsx:55:46	rule-c	size={28}
 client/src/pages/products/ProductPageTemplate.tsx:169:26	rule-c	size={18}
 client/src/pages/products/ProductPageTemplate.tsx:250:34	rule-c	size={15}
