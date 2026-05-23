@@ -81,10 +81,11 @@ const CATEGORIES: ReadonlyArray<CategoryDef> = [
     id: 'inputs',
     label: 'Inputs',
     entries: [
-      { id: 'text', label: 'Text field', hint: 'Single-line text input', Icon: TypeIcon, disabled: true },
+      // COMPONENTS-1 — text + multi-select went live (publicType wired).
+      { id: 'text', label: 'Text field', hint: 'Single-line text input', Icon: TypeIcon, publicType: 'text' },
       { id: 'number', label: 'Number', hint: 'Exact integer / decimal', Icon: Hash, publicType: 'number' },
       { id: 'dropdown', label: 'Dropdown', hint: 'Pick one from a list', Icon: ChevronDown, publicType: 'dropdown' },
-      { id: 'multi-select', label: 'Multi-select', hint: 'Pick several from a list', Icon: Layers, disabled: true },
+      { id: 'multi-select', label: 'Multi-select', hint: 'Pick several from a list', Icon: Layers, publicType: 'multiSelect' },
       { id: 'file', label: 'File upload', hint: 'Image / document attach', Icon: FileText, disabled: true },
       { id: 'slider', label: 'Slider', hint: 'Numeric range input', Icon: Sliders, publicType: 'slider' },
       { id: 'choice', label: 'Choice', hint: 'Radio-style options', Icon: CircleDot, publicType: 'choice' },
@@ -96,9 +97,10 @@ const CATEGORIES: ReadonlyArray<CategoryDef> = [
     label: 'Display',
     entries: [
       { id: 'heading', label: 'Heading', hint: 'Section divider text', Icon: Heading2, publicType: 'heading' },
-      { id: 'paragraph', label: 'Paragraph', hint: 'Block of body copy', Icon: FileText, disabled: true },
-      { id: 'divider', label: 'Divider', hint: 'Horizontal rule', Icon: Minus, disabled: true },
-      { id: 'image', label: 'Image', hint: 'Inline image', Icon: ImageIcon, disabled: true },
+      // COMPONENTS-1 — paragraph / divider / image went live.
+      { id: 'paragraph', label: 'Paragraph', hint: 'Block of body copy', Icon: FileText, publicType: 'paragraph' },
+      { id: 'divider', label: 'Divider', hint: 'Horizontal rule', Icon: Minus, publicType: 'divider' },
+      { id: 'image', label: 'Image', hint: 'Inline image', Icon: ImageIcon, publicType: 'image' },
       { id: 'video', label: 'Video embed', hint: 'YouTube / Vimeo', Icon: VideoIcon, disabled: true },
     ],
   },

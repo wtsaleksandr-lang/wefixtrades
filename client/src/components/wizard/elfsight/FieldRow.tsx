@@ -71,6 +71,10 @@ const TYPE_ICON: Record<TemplateField['type'], string> = {
   multi_select: '☷',
   toggle: '◐',
   text: 'A',
+  // COMPONENTS-1 — Wave U-F1 display types.
+  paragraph: '¶',
+  divider: '—',
+  image: '◫',
 };
 
 const TYPE_LABEL: Record<TemplateField['type'], string> = {
@@ -83,6 +87,9 @@ const TYPE_LABEL: Record<TemplateField['type'], string> = {
   multi_select: 'Multi-select',
   toggle: 'Toggle',
   text: 'Text',
+  paragraph: 'Paragraph',
+  divider: 'Divider',
+  image: 'Image',
 };
 
 export default function FieldRow({
@@ -119,6 +126,17 @@ export default function FieldRow({
   // fields keep the compact label-only row to stay dense.
   const supportsOptionDescription = field.type === 'multi_select';
   const supportsNumeric = field.type === 'slider' || field.type === 'number';
+  // COMPONENTS-1 — Wave U-F1 — type-specific flags for the new field types.
+  const isTextInput = field.type === 'text';
+  const isParagraph = field.type === 'paragraph';
+  const isDivider = field.type === 'divider';
+  const isImage = field.type === 'image';
+  // COMPONENTS-1 — display-only field types (heading / paragraph / divider
+  // / image) don't read the customer-facing `label` the same way an input
+  // does — heading uses it as the rendered title, paragraph stores body in
+  // `content`, divider/image don't render the label at all. Suppress the
+  // Width toggle for display-only types since they always span full row.
+  const showsWidthToggle = !isDivider && !isImage && !isParagraph;
   const publicType = FIELD_TYPE_TO_PUBLIC[field.type] ?? field.type;
 
   const update = (patch: Partial<TemplateField>) => onChange({ ...field, ...patch });
@@ -302,6 +320,7 @@ export default function FieldRow({
               MultiQuestionStep data-question-width="half") and the
               admin preview pane both honor this. Mobile (<=360px /
               <=480px) always collapses to one column regardless. */}
+          {showsWidthToggle && (
           <div className="qq-field-width" data-testid={`field-row-width-${field.id}`}>
             <span className="qq-field-width-label">Width</span>
             <div className="qq-field-width-segmented" role="group" aria-label="Field width">
@@ -325,6 +344,7 @@ export default function FieldRow({
               </button>
             </div>
           </div>
+          )}
 
           {supportsNumeric && (
             <>
@@ -375,6 +395,212 @@ export default function FieldRow({
                 />
               </FloatField>
             </>
+          )}
+
+          {/* COMPONENTS-1 — text input property editor. Placeholder, max
+              length, validation hook. Required flag toggles via a small
+              segmented chip alongside the placeholder. */}
+          {isTextInput && (
+            <>
+              <FloatField label="Placeholder" htmlFor={`field-row-input-placeholder-${field.id}`}>
+                <input
+                  id={`field-row-input-placeholder-${field.id}`}
+                  type="text"
+                  className="premium-input qq-field-input"
+                  placeholder=" "
+                  value={field.placeholder ?? ''}
+                  onChange={(e) => update({ placeholder: e.target.value })}
+                  data-testid={`field-row-input-placeholder-${field.id}`}
+                />
+              </FloatField>
+              <div className="qq-field-grid-3">
+                <FloatField label="Max length" htmlFor={`field-row-input-maxlength-${field.id}`}>
+                  <input
+                    id={`field-row-input-maxlength-${field.id}`}
+                    type="number"
+                    className="premium-input qq-field-input"
+                    placeholder=" "
+                    value={field.maxLength ?? ''}
+                    onChange={(e) => {
+                      const v = e.target.value.trim();
+                      update({ maxLength: v === '' ? undefined : Math.max(1, Number(v) || 0) });
+                    }}
+                    data-testid={`field-row-input-maxlength-${field.id}`}
+                  />
+                </FloatField>
+                <FloatField label="Validation" htmlFor={`field-row-input-validation-${field.id}`}>
+                  <select
+                    id={`field-row-input-validation-${field.id}`}
+                    className="premium-input qq-field-input"
+                    value={field.validation ?? 'none'}
+                    onChange={(e) => update({ validation: e.target.value as TemplateField['validation'] })}
+                    data-testid={`field-row-input-validation-${field.id}`}
+                  >
+                    <option value="none">No check</option>
+                    <option value="email">Email</option>
+                    <option value="phone">Phone</option>
+                    <option value="url">URL</option>
+                  </select>
+                </FloatField>
+                <div className="qq-field-required-cluster">
+                  <span className="qq-field-width-label">Required</span>
+                  <div className="qq-field-width-segmented" role="group" aria-label="Required">
+                    <button
+                      type="button"
+                      className={`qq-field-width-btn${field.required ? ' is-active' : ''}`}
+                      aria-pressed={!!field.required}
+                      onClick={() => update({ required: true })}
+                      data-testid={`field-row-input-required-yes-${field.id}`}
+                    >Yes</button>
+                    <button
+                      type="button"
+                      className={`qq-field-width-btn${!field.required ? ' is-active' : ''}`}
+                      aria-pressed={!field.required}
+                      onClick={() => update({ required: undefined })}
+                      data-testid={`field-row-input-required-no-${field.id}`}
+                    >No</button>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* COMPONENTS-1 — paragraph body editor. The `label` from the
+              parent input above is the wizard-side "row name"; this
+              textarea drives `content`, the customer-facing copy. */}
+          {isParagraph && (
+            <FloatField label="Body copy" htmlFor={`field-row-input-content-${field.id}`}>
+              <textarea
+                id={`field-row-input-content-${field.id}`}
+                className="premium-input qq-field-input qq-field-textarea"
+                placeholder=" "
+                rows={4}
+                value={field.content ?? ''}
+                onChange={(e) => update({ content: e.target.value })}
+                data-testid={`field-row-input-content-${field.id}`}
+              />
+            </FloatField>
+          )}
+
+          {/* COMPONENTS-1 — divider styling controls. Two segmented
+              controls — thickness (1 / 2 px) and tone (subtle / accent /
+              brand). Pure visual settings; no value persisted at runtime. */}
+          {isDivider && (
+            <div className="qq-field-grid-3">
+              <div className="qq-field-required-cluster">
+                <span className="qq-field-width-label">Thickness</span>
+                <div className="qq-field-width-segmented" role="group" aria-label="Divider thickness">
+                  <button
+                    type="button"
+                    className={`qq-field-width-btn${(field.dividerThickness ?? 1) === 1 ? ' is-active' : ''}`}
+                    aria-pressed={(field.dividerThickness ?? 1) === 1}
+                    onClick={() => update({ dividerThickness: 1 })}
+                    data-testid={`field-row-divider-thickness-1-${field.id}`}
+                  >1px</button>
+                  <button
+                    type="button"
+                    className={`qq-field-width-btn${field.dividerThickness === 2 ? ' is-active' : ''}`}
+                    aria-pressed={field.dividerThickness === 2}
+                    onClick={() => update({ dividerThickness: 2 })}
+                    data-testid={`field-row-divider-thickness-2-${field.id}`}
+                  >2px</button>
+                </div>
+              </div>
+              <div className="qq-field-required-cluster" style={{ gridColumn: '2 / 4' }}>
+                <span className="qq-field-width-label">Tone</span>
+                <div className="qq-field-width-segmented" role="group" aria-label="Divider tone">
+                  {(['subtle', 'accent', 'brand'] as const).map((tone) => (
+                    <button
+                      key={tone}
+                      type="button"
+                      className={`qq-field-width-btn${(field.dividerTone ?? 'subtle') === tone ? ' is-active' : ''}`}
+                      aria-pressed={(field.dividerTone ?? 'subtle') === tone}
+                      onClick={() => update({ dividerTone: tone })}
+                      data-testid={`field-row-divider-tone-${tone}-${field.id}`}
+                    >{tone.charAt(0).toUpperCase() + tone.slice(1)}</button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* COMPONENTS-1 — image source + caption. v1 = URL only; upload
+              pipeline is a follow-up. Owner pastes a hosted URL, optionally
+              adds a caption rendered as muted small text under the image. */}
+          {isImage && (
+            <>
+              <FloatField label="Image URL" htmlFor={`field-row-input-imageurl-${field.id}`}>
+                <input
+                  id={`field-row-input-imageurl-${field.id}`}
+                  type="url"
+                  inputMode="url"
+                  className="premium-input qq-field-input"
+                  placeholder=" "
+                  value={field.imageUrl ?? ''}
+                  onChange={(e) => update({ imageUrl: e.target.value })}
+                  data-testid={`field-row-input-imageurl-${field.id}`}
+                />
+              </FloatField>
+              <FloatField label="Caption (optional)" htmlFor={`field-row-input-imagecaption-${field.id}`}>
+                <input
+                  id={`field-row-input-imagecaption-${field.id}`}
+                  type="text"
+                  className="premium-input qq-field-input"
+                  placeholder=" "
+                  value={field.imageCaption ?? ''}
+                  onChange={(e) => update({ imageCaption: e.target.value })}
+                  data-testid={`field-row-input-imagecaption-${field.id}`}
+                />
+              </FloatField>
+              <FloatField label="Alt text (a11y)" htmlFor={`field-row-input-imagealt-${field.id}`}>
+                <input
+                  id={`field-row-input-imagealt-${field.id}`}
+                  type="text"
+                  className="premium-input qq-field-input"
+                  placeholder=" "
+                  value={field.imageAlt ?? ''}
+                  onChange={(e) => update({ imageAlt: e.target.value })}
+                  data-testid={`field-row-input-imagealt-${field.id}`}
+                />
+              </FloatField>
+            </>
+          )}
+
+          {/* COMPONENTS-1 — multi_select selection-count guardrails. Pure
+              numeric min / max; the renderer locks further selections once
+              max is hit. Lives above the existing options editor so the
+              two related controls cluster. */}
+          {field.type === 'multi_select' && (
+            <div className="qq-field-grid-3">
+              <FloatField label="Min selections" htmlFor={`field-row-input-minselect-${field.id}`}>
+                <input
+                  id={`field-row-input-minselect-${field.id}`}
+                  type="number"
+                  className="premium-input qq-field-input"
+                  placeholder=" "
+                  value={field.minSelect ?? ''}
+                  onChange={(e) => {
+                    const v = e.target.value.trim();
+                    update({ minSelect: v === '' ? undefined : Math.max(0, Number(v) || 0) });
+                  }}
+                  data-testid={`field-row-input-minselect-${field.id}`}
+                />
+              </FloatField>
+              <FloatField label="Max selections" htmlFor={`field-row-input-maxselect-${field.id}`}>
+                <input
+                  id={`field-row-input-maxselect-${field.id}`}
+                  type="number"
+                  className="premium-input qq-field-input"
+                  placeholder=" "
+                  value={field.maxSelect ?? ''}
+                  onChange={(e) => {
+                    const v = e.target.value.trim();
+                    update({ maxSelect: v === '' ? undefined : Math.max(1, Number(v) || 0) });
+                  }}
+                  data-testid={`field-row-input-maxselect-${field.id}`}
+                />
+              </FloatField>
+            </div>
           )}
 
           {supportsOptions && (
@@ -647,6 +873,23 @@ export default function FieldRow({
           transition: background 0.1s ease;
         }
         .qq-field-add-option:hover { background: ${p.colors.accentLight}; }
+        /* COMPONENTS-1 — paragraph body textarea. Same input chrome as the
+         * other premium-input rows, just taller + no fixed height. */
+        .qq-field-textarea {
+          height: auto; min-height: 72px;
+          padding: 8px 10px; line-height: 1.45;
+          font-family: inherit;
+          resize: vertical;
+        }
+        /* COMPONENTS-1 — required/thickness/tone cluster.
+         *   Vertical stack: label on top (top-left, per DESIGN-SYSTEM
+         *   Rule 5), segmented buttons below. Sits inside qq-field-grid-3
+         *   so 3 clusters tile across at the same width as the numeric
+         *   min/max/step trio. */
+        .qq-field-required-cluster {
+          display: flex; flex-direction: column; gap: 4px;
+          min-width: 0;
+        }
 
         /* ── Premium-SaaS icon button (shared)
          *

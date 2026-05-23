@@ -224,7 +224,10 @@ interface AdvField {
   id: string;
   name: string;
   label: string;
-  type: 'number' | 'slider' | 'select' | 'radio' | 'multi_select' | 'toggle' | 'text' | 'image_choice' | 'heading';
+  type: 'number' | 'slider' | 'select' | 'radio' | 'multi_select' | 'toggle' | 'text' | 'image_choice' | 'heading'
+    // COMPONENTS-1 — Wave U-F1. Display-only types (paragraph / divider /
+    // image) carry no answer; the renderer emits inline JSX for them.
+    | 'paragraph' | 'divider' | 'image';
   help?: string;
   required?: boolean;
   default_value?: number;
@@ -237,6 +240,20 @@ interface AdvField {
   visible_when?: { field: string; op: string; value: number };
   /** Optional grid column span (1 = half width, 2 = full width). */
   colSpan?: 1 | 2;
+  // COMPONENTS-1 — see `TemplateField` in shared/templatePresets.ts for full
+  // docs. These are echoed onto AdvField so the runtime renderer can read
+  // them straight off the persisted config without an intermediate cast.
+  placeholder?: string;
+  maxLength?: number;
+  validation?: 'none' | 'email' | 'phone' | 'url';
+  minSelect?: number;
+  maxSelect?: number;
+  content?: string;
+  dividerThickness?: 1 | 2;
+  dividerTone?: 'subtle' | 'accent' | 'brand';
+  imageUrl?: string;
+  imageCaption?: string;
+  imageAlt?: string;
 }
 interface AdvCalc {
   id: string; name: string; formula: string;
@@ -470,6 +487,10 @@ function defaultAnswer(f: AdvField): Answer {
   if (f.type === 'toggle') return false;
   if (f.type === 'multi_select') return [];
   if (f.type === 'select' || f.type === 'radio' || f.type === 'image_choice') return f.options?.[0]?.id ?? '';
+  // COMPONENTS-1 — display-only fields (paragraph / divider / image) and
+  // the heading field render JSX with no persisted customer value. An
+  // empty string is the safest neutral so downstream consumers (formula
+  // engine, breakdown serialisation) treat them as a no-op.
   return '';
 }
 
@@ -491,7 +512,12 @@ function initAnswers(fields: AdvField[]): Record<string, Answer> {
 /** The numeric/array value a single field contributes to a formula context. */
 function rawFieldValue(f: AdvField, answers: Record<string, Answer>): FormulaContext[string] {
   const v = answers[f.name];
-  if (f.type === 'heading') return 0;
+  // COMPONENTS-1 — display-only field types (heading + new
+  // paragraph/divider/image) contribute nothing to the formula context.
+  // Text inputs flow through as their string value (formula engine
+  // already coerces strings to 0 when summed).
+  if (f.type === 'heading' || f.type === 'paragraph'
+      || f.type === 'divider' || f.type === 'image') return 0;
   if (f.type === 'number' || f.type === 'slider') return Number(v) || 0;
   if (f.type === 'text') return String(v ?? '');
   if (f.type === 'toggle') return v ? (f.on_value ?? 1) : 0;
@@ -2916,6 +2942,88 @@ function FieldInput({ field, value, accent, theme, onChange, radiusPx, fieldStyl
       : <p style={headingStyle}>{headingProps.text ?? ''}</p>;
   }
 
+  // COMPONENTS-1 — display-only branches. None of these persist an answer;
+  // they're owner-curated content blocks that flow between input fields.
+  if (f.type === 'paragraph') {
+    const body = f.content ?? '';
+    return (
+      <p
+        data-testid={`adv-paragraph-${f.id}`}
+        style={{
+          margin: 0, fontSize: '14px', lineHeight: 1.55, color: c.text,
+          fontFamily, whiteSpace: 'pre-wrap',
+        }}
+      >{body}</p>
+    );
+  }
+
+  if (f.type === 'divider') {
+    const thickness = f.dividerThickness === 2 ? 2 : 1;
+    const tone = f.dividerTone ?? 'subtle';
+    const color = tone === 'accent' ? accent
+      : tone === 'brand' ? '#0d3cfc'
+      : c.border;
+    return (
+      <hr
+        data-testid={`adv-divider-${f.id}`}
+        data-tone={tone}
+        aria-hidden="true"
+        style={{
+          margin: '12px 0', border: 0,
+          borderTop: `${thickness}px solid ${color}`,
+        }}
+      />
+    );
+  }
+
+  if (f.type === 'image') {
+    const url = (f.imageUrl ?? '').trim();
+    const caption = f.imageCaption ?? '';
+    const alt = f.imageAlt ?? f.label ?? '';
+    if (!url) {
+      // Empty placeholder so wizard owners can SEE the slot they added
+      // before pasting a URL. Customers shouldn't usually hit this — the
+      // widget's renderer only fires after the owner publishes.
+      return (
+        <div
+          data-testid={`adv-image-placeholder-${f.id}`}
+          style={{
+            display: 'flex', flexDirection: 'column', alignItems: 'center',
+            justifyContent: 'center', gap: 4,
+            padding: '24px 12px',
+            border: `1px dashed ${c.border}`, borderRadius: radiusPx,
+            color: c.textMuted, fontSize: '12px', fontFamily,
+          }}
+        >
+          <span aria-hidden="true" style={{ fontSize: '22px' }}>🖼</span>
+          <span>Add an image URL in the field settings.</span>
+        </div>
+      );
+    }
+    return (
+      <figure
+        data-testid={`adv-image-${f.id}`}
+        style={{ margin: 0, display: 'flex', flexDirection: 'column', gap: 6 }}
+      >
+        <img
+          src={url}
+          alt={alt}
+          loading="lazy"
+          style={{
+            display: 'block', maxWidth: '100%', height: 'auto',
+            borderRadius: radiusPx,
+          }}
+        />
+        {caption ? (
+          <figcaption style={{
+            fontSize: '12px', color: c.textMuted, lineHeight: 1.45,
+            fontFamily,
+          }}>{caption}</figcaption>
+        ) : null}
+      </figure>
+    );
+  }
+
   // Stable id so the `<label>` associates with its control (a11y).
   const inputId = `adv-field-${f.id || f.name?.replace(/[^a-z0-9]+/gi, '_') || 'x'}`;
 
@@ -2940,16 +3048,27 @@ function FieldInput({ field, value, accent, theme, onChange, radiusPx, fieldStyl
   }
 
   if (f.type === 'text') {
+    // COMPONENTS-1 — placeholder + maxLength + soft validation hint
+    // (HTML5 type="email" / "tel" / "url" picks the right mobile keyboard
+    // without forcing strict pattern enforcement). Title-in-field float
+    // label is preserved.
+    const htmlType = f.validation === 'email' ? 'email'
+      : f.validation === 'phone' ? 'tel'
+      : f.validation === 'url' ? 'url'
+      : 'text';
     return (
       <div className="qq-w-float" style={floatVars}>
         <input
           id={inputId}
           className="qq-w-input"
-          type="text"
+          type={htmlType}
           value={value as string}
-          placeholder=" "
+          placeholder={f.placeholder ? f.placeholder : ' '}
+          maxLength={typeof f.maxLength === 'number' && f.maxLength > 0 ? f.maxLength : undefined}
+          required={f.required ? true : undefined}
           onChange={(e) => onChange(e.target.value)}
           style={inputBase}
+          data-validation={f.validation ?? 'none'}
         />
         <label htmlFor={inputId}>{f.label}</label>
       </div>
@@ -3160,18 +3279,49 @@ function FieldInput({ field, value, accent, theme, onChange, radiusPx, fieldStyl
 
   // multi_select
   const ids = Array.isArray(value) ? value : [];
+  // COMPONENTS-1 — min/max selection count guardrails. The renderer locks
+  // further selections once `maxSelect` is hit (already-selected chips
+  // remain togglable so customers can deselect to free a slot). The hint
+  // line under the group label communicates the bounds; the formula engine
+  // is unaffected (each picked option still contributes its `value`).
+  const minSelect = typeof f.minSelect === 'number' && f.minSelect > 0 ? f.minSelect : 0;
+  const maxSelect = typeof f.maxSelect === 'number' && f.maxSelect > 0 ? f.maxSelect : undefined;
+  const atCap = maxSelect !== undefined && ids.length >= maxSelect;
+  let hint = '';
+  if (minSelect && maxSelect) hint = `Pick ${minSelect}–${maxSelect}`;
+  else if (minSelect) hint = `Pick at least ${minSelect}`;
+  else if (maxSelect) hint = `Pick up to ${maxSelect}`;
   return (
     <div>
       <label style={groupHeaderStyle(c)}>{f.label}</label>
+      {hint && (
+        <p
+          data-testid={`adv-multiselect-hint-${f.id}`}
+          style={{
+            margin: '0 0 6px', fontSize: '11.5px', color: c.textMuted,
+            fontFamily,
+          }}
+        >{hint}</p>
+      )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
         {(f.options || []).map((o) => {
           const sel = ids.includes(o.id);
+          const locked = !sel && atCap;
           return (
             <button key={o.id} type="button"
-              onClick={() => onChange(sel ? ids.filter((x) => x !== o.id) : [...ids, o.id])}
+              onClick={() => {
+                if (sel) onChange(ids.filter((x) => x !== o.id));
+                else if (!atCap) onChange([...ids, o.id]);
+              }}
+              aria-pressed={sel}
+              aria-disabled={locked || undefined}
+              disabled={locked}
+              data-testid={`adv-multiselect-option-${f.id}-${o.id}`}
               style={{
                 display: 'flex', alignItems: 'center', gap: '10px', textAlign: 'left',
-                padding: '11px 13px', borderRadius: radiusPx, cursor: 'pointer',
+                padding: '11px 13px', borderRadius: radiusPx,
+                cursor: locked ? 'not-allowed' : 'pointer',
+                opacity: locked ? 0.55 : 1,
                 border: 'none',
                 background: sel ? c.accentTint : (isOutline ? 'transparent' : c.surface),
                 boxShadow: sel ? `0 0 0 1.5px ${accent}`

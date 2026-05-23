@@ -66,7 +66,12 @@ export function normalizeLayout(value: unknown): TemplateLayout {
 
 export type FieldType =
   | 'number' | 'slider' | 'select' | 'radio'
-  | 'multi_select' | 'toggle' | 'text' | 'image_choice' | 'heading';
+  | 'multi_select' | 'toggle' | 'text' | 'image_choice' | 'heading'
+  // COMPONENTS-1 — Wave U-F1. Display-only types (paragraph / divider /
+  // image) persist no answer but render JSX inline alongside inputs. `text`
+  // is also surfaced in the picker now (single-line input, was always in
+  // the enum but unsurfaced in the new editor).
+  | 'paragraph' | 'divider' | 'image';
 
 export interface TemplateOption {
   id: string;
@@ -113,6 +118,48 @@ export interface TemplateField {
    * collapses to a single column regardless.
    */
   colSpan?: 1 | 2;
+  /**
+   * COMPONENTS-1 — `text` field constraints. `placeholder` is the in-field
+   * placeholder string; `maxLength` clamps customer input; `validation`
+   * applies a soft hint regex on blur (`email` / `phone` / `url` / `none`).
+   * All optional; absent → unconstrained free text.
+   */
+  placeholder?: string;
+  maxLength?: number;
+  validation?: 'none' | 'email' | 'phone' | 'url';
+  /**
+   * COMPONENTS-1 — `multi_select` selection-count guardrails. `minSelect`
+   * is the minimum number of options a customer must pick (defaults to 0);
+   * `maxSelect` caps the upper bound (undefined → unlimited). The renderer
+   * disables further toggles once `maxSelect` is reached.
+   */
+  minSelect?: number;
+  maxSelect?: number;
+  /**
+   * COMPONENTS-1 — `paragraph` body copy. The display-only paragraph field
+   * uses `label` for the wizard-side "name this paragraph" hint, and this
+   * `content` slot for the customer-facing rendered text. Keeping them
+   * separate lets the Build > Fields list show a meaningful row label even
+   * when the body is multi-line.
+   */
+  content?: string;
+  /**
+   * COMPONENTS-1 — `divider` styling. Thickness in px (1 default, 2 thicker
+   * accent stroke); tone picks between subtle border (`subtle`), the widget
+   * accent color (`accent`), or the brand colour (`brand`). All optional.
+   */
+  dividerThickness?: 1 | 2;
+  dividerTone?: 'subtle' | 'accent' | 'brand';
+  /**
+   * COMPONENTS-1 — `image` field source + caption. `imageUrl` is the
+   * absolute URL of the inline image; `imageCaption` renders beneath as
+   * muted small text. `imageAlt` is the a11y alt; if absent the renderer
+   * falls back to the field `label`. URL-only for v1 — file upload
+   * pipeline is a follow-up.
+   */
+  imageUrl?: string;
+  imageCaption?: string;
+  imageAlt?: string;
 }
 
 export interface TemplateCalculation {

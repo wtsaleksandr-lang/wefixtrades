@@ -59,7 +59,15 @@ export const DEVICE_PRESET_STORAGE_KEY = 'qq-wizard-device-preset';
  * `PUBLIC_TO_FIELD_TYPE` / `FIELD_TYPE_TO_PUBLIC` below.
  */
 export type PublicFieldType =
-  | 'slider' | 'number' | 'dropdown' | 'choice' | 'imageChoice' | 'heading';
+  | 'slider' | 'number' | 'dropdown' | 'choice' | 'imageChoice' | 'heading'
+  // COMPONENTS-1 — Wave U-F1. Five new picker entries:
+  //  - `text`        → canonical 'text' (single-line input)
+  //  - `multiSelect` → canonical 'multi_select' (pick-many w/ price-per)
+  //  - `paragraph`   → display-only body copy
+  //  - `divider`     → display-only horizontal rule
+  //  - `image`       → display-only inline image
+  | 'text' | 'multiSelect'
+  | 'paragraph' | 'divider' | 'image';
 
 export const PUBLIC_TO_FIELD_TYPE: Record<PublicFieldType, TemplateField['type']> = {
   slider: 'slider',
@@ -68,6 +76,11 @@ export const PUBLIC_TO_FIELD_TYPE: Record<PublicFieldType, TemplateField['type']
   choice: 'radio',
   imageChoice: 'image_choice',
   heading: 'heading',
+  text: 'text',
+  multiSelect: 'multi_select',
+  paragraph: 'paragraph',
+  divider: 'divider',
+  image: 'image',
 };
 
 export const FIELD_TYPE_TO_PUBLIC: Partial<Record<TemplateField['type'], PublicFieldType>> = {
@@ -77,6 +90,11 @@ export const FIELD_TYPE_TO_PUBLIC: Partial<Record<TemplateField['type'], PublicF
   radio: 'choice',
   image_choice: 'imageChoice',
   heading: 'heading',
+  text: 'text',
+  multi_select: 'multiSelect',
+  paragraph: 'paragraph',
+  divider: 'divider',
+  image: 'image',
 };
 
 /** Header overrides — Wave H4. Both optional; blank values fall back to
