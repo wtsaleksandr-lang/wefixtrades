@@ -22,5 +22,13 @@ jobs:
       - name: Layout rules guard
         run: npm run check:layout-rules
       - run: npm run check:migrations
+      - name: Migration SQL destructive-op guard
+        run: npm run check:migration-safety
+      - name: Forbid schema-push command in any deploy path
+        run: npm run check:no-db-push-in-prod
+      - name: Drizzle schema-drift check
+        run: npm run check:schema-drift
+        env:
+          DATABASE_URL: postgresql://stub:stub@localhost:5432/stub
       - run: npm run check:database-url
       - run: npm run build
