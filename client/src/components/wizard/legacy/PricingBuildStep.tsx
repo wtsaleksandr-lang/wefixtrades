@@ -72,6 +72,7 @@ function ListRow({
   return (
     <button
       type="button"
+      data-theme="light"
       data-testid={testId}
       onClick={onClick}
       disabled={!interactive}

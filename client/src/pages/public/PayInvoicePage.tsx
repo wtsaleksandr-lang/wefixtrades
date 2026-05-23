@@ -63,7 +63,7 @@ function CopyButton({ text, label }: { text: string; label?: string }) {
   }
 
   return (
-    <button onClick={handleCopy} style={copyBtnStyle}>
+    <button data-theme="light" onClick={handleCopy} style={copyBtnStyle}>
       {copied ? "Copied!" : label || "Copy"}
     </button>
   );

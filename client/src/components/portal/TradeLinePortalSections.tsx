@@ -82,6 +82,7 @@ export function TradeLineStatusBanner({
 
   return (
     <div
+      data-theme="light"
       role="status"
       style={{
         display: "flex",

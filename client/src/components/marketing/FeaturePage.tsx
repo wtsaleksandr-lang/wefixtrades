@@ -88,6 +88,7 @@ function FAQItem({ q, a }: FAQ) {
   const [open, setOpen] = useState(false);
   return (
     <div
+      data-theme="dark"
       style={{
         border: `1px solid ${C.border}`,
         borderRadius: 12,

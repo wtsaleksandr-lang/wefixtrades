@@ -61,7 +61,7 @@ export default function TradeLineDemoLauncher() {
   }, [open]);
 
   return (
-    <div className={`tldl ${open ? "tldl-open" : ""}`} role="region" aria-label="Try the TradeLine demo">
+    <div data-theme="dark" className={`tldl ${open ? "tldl-open" : ""}`} role="region" aria-label="Try the TradeLine demo">
       <style>{LAUNCHER_CSS}</style>
 
       {/* Collapsible panel — header + body. Bar lives outside this so it

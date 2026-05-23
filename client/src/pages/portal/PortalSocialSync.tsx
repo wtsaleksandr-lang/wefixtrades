@@ -137,7 +137,7 @@ export default function PortalSocialSync() {
   if (isLoading) {
     return (
       <PortalLayout>
-        <div className="max-w-3xl mx-auto space-y-4 p-4">
+        <div data-theme="light" className="max-w-3xl mx-auto space-y-4 p-4">
           <Skeleton className="h-8 w-64" />
           <Skeleton className="h-32 w-full" />
           <Skeleton className="h-48 w-full" />

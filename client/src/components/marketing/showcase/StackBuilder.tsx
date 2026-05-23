@@ -17,7 +17,7 @@ const PRODUCTS = [
 
 export default function StackBuilder() {
   return (
-    <div className="sb-wrap">
+    <div data-theme="dark" className="sb-wrap">
       <style>{CSS}</style>
       <div className="sb-stage">
         {/* Card 1 — sparkline + big metric (top-left) */}

@@ -151,7 +151,7 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
 
   return (
     <MarketingLayout>
-      <div style={{ background: mkt.bg }}>
+      <div data-theme="dark" style={{ background: mkt.bg }}>
         {/* Hero / Intro */}
         <div
           style={{

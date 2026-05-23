@@ -115,7 +115,7 @@ export default function InvoicesPage() {
     .reduce((sum, i) => sum + i.total_cents, 0);
 
   return (
-    <div style={{ maxWidth: 640, margin: "0 auto", padding: "16px" }}>
+    <div data-theme="light" style={{ maxWidth: 640, margin: "0 auto", padding: "16px" }}>
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
         <h1 style={{ fontSize: 22, fontWeight: 700, color: "#111", margin: 0 }}>Invoices</h1>
@@ -402,7 +402,7 @@ function CreateInvoiceModal({ onClose, onCreated }: { onClose: () => void; onCre
   }
 
   return (
-    <div style={overlayStyle} onClick={onClose}>
+    <div data-theme="light" style={overlayStyle} onClick={onClose}>
       <div style={modalStyle} onClick={(e) => e.stopPropagation()}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
           <h2 style={{ fontSize: 18, fontWeight: 700, color: "#111", margin: 0 }}>New Invoice</h2>
@@ -577,7 +577,7 @@ const overlayStyle: React.CSSProperties = {
 };
 
 const modalStyle: React.CSSProperties = {
-  background: "#fff",
+  background: "var(--popover-bg-light)",
   borderRadius: 14,
   padding: "20px",
   maxWidth: 500,
@@ -602,7 +602,7 @@ const inputStyle: React.CSSProperties = {
   padding: "0 12px",
   fontSize: 14,
   color: "#111",
-  background: "#fff",
+  background: "var(--field-bg-light)",
   outline: "none",
   boxSizing: "border-box",
 };

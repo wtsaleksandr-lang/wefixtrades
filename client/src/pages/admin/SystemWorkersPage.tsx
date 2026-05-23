@@ -115,7 +115,7 @@ function WorkerHistory({ jobName }: { jobName: string }) {
 
   if (isLoading) {
     return (
-      <div className="py-4 text-center">
+      <div data-theme="light" className="py-4 text-center">
         <Loader2 className="w-4 h-4 animate-spin text-gray-400 mx-auto" />
       </div>
     );

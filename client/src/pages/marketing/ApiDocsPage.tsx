@@ -100,7 +100,7 @@ export default function ApiDocsPage() {
 
   return (
     <MarketingLayout>
-      <div data-testid="api-docs-page" style={{ background: C.bg }}>
+      <div data-theme="dark" data-testid="api-docs-page" style={{ background: C.bg }}>
         {/* Page header */}
         <ApiHeader />
 

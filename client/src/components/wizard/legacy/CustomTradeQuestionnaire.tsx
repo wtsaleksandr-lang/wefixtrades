@@ -100,6 +100,7 @@ export default function CustomTradeQuestionnaire({ data, onChange, calculatorSet
 
   return (
     <div
+      data-theme="light"
       className="animate-expand"
       style={{
         border: `1.5px dashed ${p.colors.border}`,

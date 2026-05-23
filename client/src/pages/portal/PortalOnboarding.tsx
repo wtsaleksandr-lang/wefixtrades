@@ -30,7 +30,7 @@ interface OnboardingData {
 /* ─── Help Modal ─── (exported for OnboardingForm.tsx re-use) */
 export function HelpModal({ field, onClose }: { field: { label: string; example?: string; helperText?: string }; onClose: () => void }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" onClick={onClose}>
+    <div data-theme="light" className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" onClick={onClose}>
       <div className="bg-white rounded-xl border border-gray-200 shadow-lg max-w-sm w-full p-5" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between mb-3">
           <h3 className="text-sm font-semibold text-gray-900">{field.label}</h3>
@@ -207,7 +207,7 @@ export default function PortalOnboarding() {
 
   return (
     <PortalLayout chatContext={chatContext}>
-      <div className="max-w-2xl mx-auto space-y-6 pb-20">
+      <div data-theme="light" className="max-w-2xl mx-auto space-y-6 pb-20">
         <Link href="/portal/services" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors">
           <ArrowLeft className="w-3.5 h-3.5" /> Back to Services
         </Link>
@@ -424,7 +424,7 @@ function PortalSetupProgress({
           : "Our team typically reviews within 24 hours.";
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
+    <div data-theme="light" className="bg-white rounded-xl border border-gray-200 p-8 text-center">
       <div className="w-12 h-12 rounded-full bg-[#EEF3FF] flex items-center justify-center mx-auto mb-5">
         {failed ? (
           <AlertTriangle className="w-6 h-6 text-amber-500" />

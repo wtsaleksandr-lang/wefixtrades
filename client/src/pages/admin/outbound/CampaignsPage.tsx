@@ -96,7 +96,7 @@ function NewCampaignDialog({ open, onClose }: { open: boolean; onClose: () => vo
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent data-theme="light" className="sm:max-w-lg">
         <DialogHeader><DialogTitle>New Campaign</DialogTitle></DialogHeader>
         <div className="space-y-3">
           <div>
