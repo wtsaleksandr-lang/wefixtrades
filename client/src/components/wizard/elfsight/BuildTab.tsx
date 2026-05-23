@@ -11,6 +11,7 @@
 
 import { useCallback, useRef } from 'react';
 import { platformTheme } from '@/theme/platformTheme';
+import { useLayoutGuard } from '@/lib/layoutGuard';
 import type { TemplateField, TemplateCalculation, TemplateStep } from '@shared/templatePresets';
 import FieldsPanel from './FieldsPanel';
 import CalculationsPanel from './CalculationsPanel';
@@ -65,6 +66,11 @@ export default function BuildTab({
   steps, onStepsChange,
 }: Props) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  // LAYOUT-1 — dev-only overlap/crumple detector on the Build panel.
+  // Tight maxGapPx because the Build column is a vertical stack of
+  // input clusters; runaway gaps here indicate a missed spacing token.
+  const buildPanelRef = useRef<HTMLDivElement | null>(null);
+  useLayoutGuard(buildPanelRef, { maxGapPx: 24, label: 'editor-tabpanel-build' });
 
   const onLogoFile = useCallback((file: File | null) => {
     if (!file) { onLogoChange(null); return; }
@@ -79,9 +85,11 @@ export default function BuildTab({
 
   return (
     <div
+      ref={buildPanelRef}
       data-theme="light"
       className="qq-editor-tabpanel qq-build-tab"
       data-testid="editor-tabpanel-build"
+      data-section
       role="tabpanel"
     >
       {/* H7 — horizontal template scroller, single-row, at the top. */}
