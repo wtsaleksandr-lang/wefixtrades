@@ -26,6 +26,7 @@ const WAVE_BY_TAB: Record<EditorTab, string> = {
 export default function TabPlaceholder({ tab, businessName, onBusinessNameChange }: Props) {
   return (
     <div
+      data-theme="light"
       className="qq-editor-tabpanel"
       data-testid={`editor-tabpanel-${tab}`}
       role="tabpanel"

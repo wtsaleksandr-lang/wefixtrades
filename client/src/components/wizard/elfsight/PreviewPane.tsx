@@ -1292,6 +1292,7 @@ export default function PreviewPane({
 
   return (
     <div
+      data-theme="light"
       className={`qq-preview-pane${widgetSelected ? ' is-widget-selected' : ''}${flpActive ? ' is-floating-launcher-preview' : ''}${flpCollapsed ? ' is-flp-collapsed' : ''}${flpPhase !== 'idle' ? ` is-flp-${flpPhase}` : ''}`}
       data-testid="editor-preview-pane"
       data-floating-launcher-preview={flpActive ? 'true' : 'false'}

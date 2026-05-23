@@ -79,6 +79,7 @@ export default function CalculationRow({
   return (
     <div
       ref={(el) => { setNodeRef(el); registerSel(el); }}
+      data-theme="light"
       style={dragStyle}
       className={`qq-calc-row${expanded ? ' is-expanded' : ''}${isSel ? ' is-selected' : ''}`}
       data-testid={`calc-row-${calc.id}`}

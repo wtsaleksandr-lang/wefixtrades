@@ -155,6 +155,7 @@ export default function FieldRow({
   return (
     <div
       ref={(el) => { setNodeRef(el); registerSel(el); }}
+      data-theme="light"
       style={dragStyle}
       className={`qq-field-row${expanded ? ' is-expanded' : ''}${isSel ? ' is-selected' : ''}`}
       data-testid={`field-row-${field.id}`}

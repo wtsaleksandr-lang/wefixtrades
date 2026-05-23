@@ -264,6 +264,7 @@ function TemplateCardHover({
   return (
     <div
       ref={wrapperRef}
+      data-theme="light"
       className="qq-tg-card-hover-wrap"
       onMouseEnter={onPointerEnter}
       onMouseLeave={onPointerLeave}

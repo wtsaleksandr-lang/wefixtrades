@@ -144,6 +144,7 @@ export default function PreviewOverlay({
   return (
     <div
       ref={selfRef}
+      data-theme="light"
       className="qq-preview-overlay"
       aria-hidden="false"
       data-testid="preview-overlay"

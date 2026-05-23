@@ -161,6 +161,7 @@ export default function SettingsTab({ settings, onChange, planTier = 'free' }: P
   return (
     <section
       ref={settingsPanelRef}
+      data-theme="light"
       className="qq-settings-panel qq-style-panel"
       // `editor-tabpanel-settings` matches the H1 generic tab-switching test.
       data-testid="editor-tabpanel-settings"

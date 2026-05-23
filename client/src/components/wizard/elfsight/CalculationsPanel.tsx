@@ -79,6 +79,7 @@ export default function CalculationsPanel({ calculations, fields, onChange }: Pr
 
   return (
     <section
+      data-theme="light"
       className="qq-calcs-panel"
       data-testid="editor-calculations-panel"
       aria-label="Calculator calculations"

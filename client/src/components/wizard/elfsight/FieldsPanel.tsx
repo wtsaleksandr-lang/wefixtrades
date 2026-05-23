@@ -112,6 +112,7 @@ export default function FieldsPanel({ fields, onChange }: Props) {
 
   return (
     <section
+      data-theme="light"
       className="qq-fields-panel"
       data-testid="editor-fields-panel"
       aria-label="Calculator fields"

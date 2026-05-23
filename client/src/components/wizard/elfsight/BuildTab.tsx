@@ -79,6 +79,7 @@ export default function BuildTab({
 
   return (
     <div
+      data-theme="light"
       className="qq-editor-tabpanel qq-build-tab"
       data-testid="editor-tabpanel-build"
       role="tabpanel"

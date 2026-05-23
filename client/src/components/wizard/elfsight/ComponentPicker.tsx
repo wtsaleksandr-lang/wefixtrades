@@ -244,6 +244,7 @@ export default function ComponentPicker({ anchor, onPick, onClose }: Props) {
   const body = (
     <div
       ref={rootRef}
+      data-theme="light"
       className={`qq-comppicker${isMobile ? ' is-mobile' : ' is-desktop'}`}
       data-testid="component-picker"
       role="dialog"

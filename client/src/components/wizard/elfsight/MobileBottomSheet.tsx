@@ -199,6 +199,7 @@ export default function MobileBottomSheet({
 
       <div
         ref={sheetRef}
+        data-theme="light"
         className={`qq-sheet qq-sheet--${snap}${reduceMotion ? ' is-reduced-motion' : ''}`}
         data-testid="wizard-bottom-sheet"
         data-snap={snap}

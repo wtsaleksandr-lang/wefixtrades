@@ -452,6 +452,7 @@ export default function StyleTab({
   return (
     <section
       ref={stylePanelRef}
+      data-theme="light"
       className="qq-style-panel"
       // `editor-tabpanel-style` matches the convention asserted by the H1
       // generic-tab-switching test (`editor-tabpanel-<id>`).
