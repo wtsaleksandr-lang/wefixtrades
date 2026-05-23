@@ -103,19 +103,33 @@ export default function BuildTab({
       <section className="qq-build-section" data-testid="editor-business-section">
         {/* Wave J item 5 — composite logo + business-name field. */}
         <div className="qq-business-composite" data-testid="editor-business-composite">
-          <button
-            type="button"
-            className="qq-logo-upload"
-            data-testid="editor-logo-upload"
-            aria-label={logo ? 'Replace business logo' : 'Upload business logo'}
-            onClick={() => fileInputRef.current?.click()}
-          >
-            {logo ? (
-              <img src={logo} alt="" data-testid="editor-logo-preview" />
-            ) : (
-              <span className="qq-logo-upload-plus" aria-hidden="true">＋</span>
+          {/* AUDIT-LOW — wrap the logo-upload square so the clear pill can
+           * anchor via right/top relative to the 48px square itself,
+           * not a hardcoded left: 38px that drifts at smaller breakpoints. */}
+          <div className="qq-logo-slot">
+            <button
+              type="button"
+              className="qq-logo-upload"
+              data-testid="editor-logo-upload"
+              aria-label={logo ? 'Replace business logo' : 'Upload business logo'}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {logo ? (
+                <img src={logo} alt="" data-testid="editor-logo-preview" />
+              ) : (
+                <span className="qq-logo-upload-plus" aria-hidden="true">＋</span>
+              )}
+            </button>
+            {logo && (
+              <button
+                type="button"
+                className="qq-logo-clear"
+                data-testid="editor-logo-clear"
+                aria-label="Remove business logo"
+                onClick={() => onLogoChange(null)}
+              >×</button>
             )}
-          </button>
+          </div>
           <input
             ref={fileInputRef}
             type="file"
@@ -141,15 +155,6 @@ export default function BuildTab({
               data-testid="input-business-name"
             />
           </FloatField>
-          {logo && (
-            <button
-              type="button"
-              className="qq-logo-clear"
-              data-testid="editor-logo-clear"
-              aria-label="Remove business logo"
-              onClick={() => onLogoChange(null)}
-            >×</button>
-          )}
         </div>
       </section>
 
@@ -195,16 +200,26 @@ export default function BuildTab({
         }
         /* Wave J item 5 — logo + name composite. */
         .qq-business-composite {
-          display: flex; align-items: stretch; gap: 10px; position: relative;
+          display: flex; align-items: stretch; gap: 10px;
         }
         .qq-business-namewrap {
           flex: 1; min-width: 0;
+        }
+        /* AUDIT-LOW — positioning context for .qq-logo-clear so the
+         * clear pill anchors to the 48px upload square via right/top,
+         * not a hardcoded "left: 38px" that drifts on responsive shrink. */
+        .qq-logo-slot {
+          position: relative; flex-shrink: 0;
+          width: 48px; height: 48px;
         }
         .qq-logo-upload {
           flex-shrink: 0;
           width: 48px; min-width: 48px; height: 48px;
           display: inline-flex; align-items: center; justify-content: center;
-          background: #FFFFFF; color: ${p.colors.muted};
+          /* AUDIT-MEDIUM — was hardcoded #FFFFFF. Token resolves to white
+           * in light theme + dark surface (#1E293B) under the
+           * .qq-editor-shell[data-theme="dark"] scope (see index.css). */
+          background: var(--qq-surface, #FFFFFF); color: ${p.colors.muted};
           border: 1px dashed ${p.colors.border}; border-radius: 10px;
           cursor: pointer; padding: 0; overflow: hidden;
           transition: border-color 0.12s ease, color 0.12s ease;
@@ -219,9 +234,11 @@ export default function BuildTab({
           font-size: 22px; line-height: 1; font-weight: 600;
         }
         .qq-logo-clear {
-          position: absolute; top: -6px; left: 38px;
+          position: absolute; top: -8px; right: -8px;
           width: 18px; height: 18px;
-          background: #fff; border: 1px solid ${p.colors.border};
+          /* AUDIT-MEDIUM — was hardcoded #fff. Same rationale as
+           * .qq-logo-upload above; dark override paints --qq-surface. */
+          background: var(--qq-surface, #FFFFFF); border: 1px solid ${p.colors.border};
           border-radius: 50%; cursor: pointer; padding: 0;
           font-size: 12px; line-height: 1; color: ${p.colors.muted};
         }
