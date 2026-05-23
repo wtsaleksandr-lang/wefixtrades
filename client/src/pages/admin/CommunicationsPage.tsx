@@ -41,6 +41,15 @@ import {
   RefreshCw,
   Check,
   X,
+  Trash2,
+  Pencil,
+  Link2,
+  Users,
+  Building2,
+  Search,
+  MoreVertical,
+  ExternalLink,
+  Contact as ContactIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
