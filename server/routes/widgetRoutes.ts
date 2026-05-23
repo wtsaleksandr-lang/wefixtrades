@@ -123,6 +123,59 @@ export function registerWidgetRoutes(app: Express): void {
     res.setHeader("Cache-Control", "public, max-age=3600");
     res.send(EMBED_SCRIPT);
   });
+
+  /**
+   * GET /widget/preview
+   * Minimal HTML page that hosts the real embed script, intended to be
+   * loaded inside an <iframe> from the portal's widget settings page so
+   * customers see exactly how the widget will look on their site.
+   *
+   * Query params:
+   *   token=<widgetToken>   (required)
+   *   type=badge|carousel   (default: carousel)
+   *   bg=light|dark         (default: light) — wraps preview body color
+   */
+  app.get("/widget/preview", (req: Request, res: Response) => {
+    const token = String(req.query.token || "");
+    const type = req.query.type === "badge" ? "badge" : "carousel";
+    const bg = req.query.bg === "dark" ? "#0f172a" : "#f8fafc";
+    if (!token || token.length < 16) {
+      res.status(400).send("Invalid token");
+      return;
+    }
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.setHeader("Cache-Control", "no-store");
+    res.setHeader("X-Frame-Options", "SAMEORIGIN");
+    // CSP: allow same-origin script + connect for the widget data fetch.
+    res.setHeader(
+      "Content-Security-Policy",
+      "default-src 'self'; script-src 'self'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data:;",
+    );
+    res.send(`<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Widget preview</title>
+<style>
+  html,body { margin:0; padding:0; background:${bg}; }
+  body { padding:16px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; }
+  .wft-preview-empty { font-size:13px; color:#64748b; padding:12px; border:1px dashed #cbd5e1; border-radius:8px; background:#fff; }
+</style>
+</head>
+<body>
+<div id="wft-preview-fallback" class="wft-preview-empty">Loading your widget preview...</div>
+<script src="/widget/embed.js" data-wft-widget="${type}" data-wft-token="${encodeURIComponent(token)}"></script>
+<script>
+  // Remove the loading fallback once the widget mounts (or after 4s).
+  setTimeout(function () {
+    var el = document.getElementById("wft-preview-fallback");
+    if (el) el.remove();
+  }, 1500);
+</script>
+</body>
+</html>`);
+  });
 }
 
 /* ─── Embed Script (self-contained, no React) ─── */

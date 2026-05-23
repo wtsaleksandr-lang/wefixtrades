@@ -154,7 +154,7 @@ client/src/pages/portal/PortalSocialSync.tsx:167:19	rule-c	square w-10 h-10
 client/src/pages/portal/PortalSocialSync.tsx:387:26	rule-c	square w-14 h-14
 client/src/pages/portal/PortalSocialSync.tsx:392:26	rule-c	square w-14 h-14
 client/src/pages/portal/PortalSocialSync.tsx:428:30	rule-c	square w-10 h-10
-client/src/pages/portal/PortalWidget.tsx:148:17	rule-c	square w-12 h-12
+client/src/pages/portal/PortalWidget.tsx:459:17	rule-c	square w-12 h-12
 client/src/pages/portal/TradelineSetup/DashboardBanner.tsx:53:16	rule-c	square w-10 h-10
 client/src/pages/portal/TradelineSetup/OptionCPort.tsx:135:23	rule-c	square w-7 h-7
 client/src/pages/portal/TradelineSetup/index.tsx:129:20	rule-c	square w-12 h-12
