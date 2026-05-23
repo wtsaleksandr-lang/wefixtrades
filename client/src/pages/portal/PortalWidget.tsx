@@ -8,7 +8,14 @@ import { Badge } from "@/components/ui/badge";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Code, Copy, CheckCircle2, Lock, Loader2, Star, ExternalLink, ChevronLeft } from "lucide-react";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Code, Copy, CheckCircle2, Lock, Loader2, Star, ExternalLink, ChevronLeft,
+  Info, Smartphone, Tablet, Monitor, BookOpen, AlertCircle,
+} from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useCopilotForm } from "@/context/CopilotFormContext";
@@ -41,16 +48,318 @@ interface WidgetData {
     show_reviewer_name: boolean;
     show_date: boolean;
   };
+  /** All review platforms the widget supports pulling from. */
+  sources?: string[];
+  /** Sources the client has actually connected. */
+  connectedSources?: string[];
   embedCode?: {
     badge: string;
     carousel: string | null;
   };
 }
 
+type WidgetType = "badge" | "carousel";
+type Viewport = "mobile" | "tablet" | "desktop";
+
+const VIEWPORT_WIDTHS: Record<Viewport, number> = {
+  mobile: 375,
+  tablet: 768,
+  desktop: 1024,
+};
+
+/* Friendly labels for the sources badge. */
+const SOURCE_LABELS: Record<string, string> = {
+  google: "Google Business Profile",
+  facebook: "Facebook / Meta",
+  yelp: "Yelp",
+  trustpilot: "Trustpilot",
+};
+
+function formatSourcesLabel(connected: string[] | undefined): string {
+  if (!connected || connected.length === 0) return "No sources connected yet";
+  if (connected.length === 1) return SOURCE_LABELS[connected[0]] ?? connected[0];
+  if (connected.length === 2) {
+    return `${SOURCE_LABELS[connected[0]]} + ${SOURCE_LABELS[connected[1]]}`;
+  }
+  return `${connected.length} connected sources`;
+}
+
+/* ─── Live widget preview pane ─────────────────────────────────────
+ * Renders an iframe pointed at the real /widget/preview HTML route on
+ * our origin. The iframe loads the same embed.js the customer pastes
+ * onto their site, so what they see here is byte-for-byte what their
+ * site visitors will see. Width is constrained to the selected
+ * viewport so customers can preview mobile/tablet/desktop. */
+interface WidgetPreviewProps {
+  token: string;
+  type: WidgetType;
+  /** Bumped on settings change so we force an iframe reload to reflect
+   * new min_rating / max_reviews / show_* toggles. */
+  reloadKey: number;
+}
+
+function WidgetPreview({ token, type, reloadKey }: WidgetPreviewProps) {
+  const [viewport, setViewport] = useState<Viewport>("desktop");
+  const widthPx = VIEWPORT_WIDTHS[viewport];
+  const src = `/widget/preview?token=${encodeURIComponent(token)}&type=${type}&v=${reloadKey}`;
+
+  return (
+    <Card className="p-4 space-y-3" data-testid="widget-preview-card">
+      {/* Help cue — top-left, per design system Rule 4. */}
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Live preview</p>
+          <p className="text-xs text-gray-400 mt-0.5">
+            What visitors to your site will actually see — pulls your real reviews
+          </p>
+        </div>
+        <div
+          className="inline-flex items-center gap-0.5 p-0.5 bg-gray-100 rounded-md"
+          role="group"
+          aria-label="Preview viewport size"
+        >
+          <button
+            type="button"
+            onClick={() => setViewport("mobile")}
+            aria-pressed={viewport === "mobile"}
+            className={`px-2 h-7 rounded text-xs inline-flex items-center gap-1 transition-colors ${
+              viewport === "mobile"
+                ? "bg-white text-gray-900 shadow-sm border border-gray-200"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+            data-testid="viewport-mobile"
+          >
+            <Smartphone className="w-3.5 h-3.5" /> 375
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewport("tablet")}
+            aria-pressed={viewport === "tablet"}
+            className={`px-2 h-7 rounded text-xs inline-flex items-center gap-1 transition-colors ${
+              viewport === "tablet"
+                ? "bg-white text-gray-900 shadow-sm border border-gray-200"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+            data-testid="viewport-tablet"
+          >
+            <Tablet className="w-3.5 h-3.5" /> 768
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewport("desktop")}
+            aria-pressed={viewport === "desktop"}
+            className={`px-2 h-7 rounded text-xs inline-flex items-center gap-1 transition-colors ${
+              viewport === "desktop"
+                ? "bg-white text-gray-900 shadow-sm border border-gray-200"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+            data-testid="viewport-desktop"
+          >
+            <Monitor className="w-3.5 h-3.5" /> 1024
+          </button>
+        </div>
+      </div>
+
+      {/* Preview frame — centered, bordered, scrollable on narrow parents. */}
+      <div className="bg-gray-50 border border-gray-200 rounded-lg overflow-auto p-3 flex justify-center">
+        <iframe
+          key={`${type}-${reloadKey}-${viewport}`}
+          src={src}
+          title="Review widget preview"
+          width={widthPx}
+          height={type === "badge" ? 140 : 280}
+          className="bg-background border border-gray-200 rounded shrink-0"
+          style={{ maxWidth: "100%" }}
+          sandbox="allow-scripts allow-same-origin"
+          data-testid="widget-preview-iframe"
+        />
+      </div>
+    </Card>
+  );
+}
+
+/* ─── Install instructions modal ─────────────────────────────────── */
+const INSTALL_PLATFORMS = [
+  { id: "wordpress", label: "WordPress" },
+  { id: "wix", label: "Wix" },
+  { id: "squarespace", label: "Squarespace" },
+  { id: "shopify", label: "Shopify" },
+  { id: "html", label: "Plain HTML" },
+] as const;
+
+type InstallPlatformId = (typeof INSTALL_PLATFORMS)[number]["id"];
+
+interface InstallModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  snippet: string;
+  sourcesLabel: string;
+  hasConnectedSource: boolean;
+}
+
+function InstallModal({ open, onOpenChange, snippet, sourcesLabel, hasConnectedSource }: InstallModalProps) {
+  const { toast } = useToast();
+  const [platform, setPlatform] = useState<InstallPlatformId>("wordpress");
+
+  function copySnippet() {
+    navigator.clipboard.writeText(snippet);
+    toast({ title: "Embed code copied" });
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        className="max-w-2xl max-h-[90vh] overflow-y-auto"
+        data-testid="install-instructions-modal"
+      >
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <BookOpen className="w-5 h-5 text-brand-blue" />
+            How to install the review widget
+          </DialogTitle>
+          <DialogDescription>
+            Pick your website platform below — we'll show the exact steps.
+          </DialogDescription>
+        </DialogHeader>
+
+        {/* What it does + where reviews come from. */}
+        <div className="space-y-2 text-sm text-gray-700">
+          <p>
+            The widget shows your best reviews on your website, so visitors trust you before
+            they call. It updates automatically whenever a new review comes in.
+          </p>
+          <div className="flex items-start gap-2 p-3 rounded-md bg-gray-50 border border-gray-200">
+            <Info className="w-4 h-4 text-gray-500 mt-0.5 shrink-0" />
+            <div className="text-xs text-gray-600">
+              <span className="font-medium text-gray-800">Reviews are pulled from:</span>{" "}
+              {sourcesLabel}.
+              {!hasConnectedSource && (
+                <>
+                  {" "}
+                  <Link
+                    href="/portal/reviews"
+                    className="text-brand-blue hover:underline"
+                  >
+                    Connect a review source
+                  </Link>{" "}
+                  so the widget has something to display.
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Platform tabs. */}
+        <Tabs value={platform} onValueChange={(v) => setPlatform(v as InstallPlatformId)}>
+          <TabsList className="grid grid-cols-5 w-full h-auto">
+            {INSTALL_PLATFORMS.map((p) => (
+              <TabsTrigger key={p.id} value={p.id} className="text-xs h-8" data-testid={`install-tab-${p.id}`}>
+                {p.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+
+          <TabsContent value="wordpress" className="space-y-3 mt-3">
+            <ol className="text-sm text-gray-700 space-y-2 list-decimal list-inside">
+              <li>In your WordPress admin, open <span className="font-medium">Appearance → Theme File Editor</span> (or install a code-snippet plugin like WPCode).</li>
+              <li>Open <code className="px-1 py-0.5 bg-gray-100 rounded text-xs">footer.php</code> and paste the snippet below just before the closing <code className="px-1 py-0.5 bg-gray-100 rounded text-xs">&lt;/body&gt;</code> tag.</li>
+              <li>Click <span className="font-medium">Update File</span>. Refresh your site to confirm the widget appears.</li>
+            </ol>
+          </TabsContent>
+
+          <TabsContent value="wix" className="space-y-3 mt-3">
+            <ol className="text-sm text-gray-700 space-y-2 list-decimal list-inside">
+              <li>Open your Wix dashboard and go to <span className="font-medium">Settings → Custom Code</span>.</li>
+              <li>Click <span className="font-medium">+ Add Custom Code</span>, paste the snippet below, and choose <span className="font-medium">Body — end</span> as the placement.</li>
+              <li>Apply to <span className="font-medium">All pages</span> (or just the pages you want), then click <span className="font-medium">Apply</span>.</li>
+            </ol>
+          </TabsContent>
+
+          <TabsContent value="squarespace" className="space-y-3 mt-3">
+            <ol className="text-sm text-gray-700 space-y-2 list-decimal list-inside">
+              <li>Open <span className="font-medium">Settings → Advanced → Code Injection</span>.</li>
+              <li>Paste the snippet below into the <span className="font-medium">Footer</span> field.</li>
+              <li>Click <span className="font-medium">Save</span> and reload your site.</li>
+            </ol>
+            <p className="text-xs text-gray-500">Code injection requires a Business plan or higher on Squarespace.</p>
+          </TabsContent>
+
+          <TabsContent value="shopify" className="space-y-3 mt-3">
+            <ol className="text-sm text-gray-700 space-y-2 list-decimal list-inside">
+              <li>Open <span className="font-medium">Online Store → Themes</span> and click <span className="font-medium">Edit code</span> on your current theme.</li>
+              <li>Open <code className="px-1 py-0.5 bg-gray-100 rounded text-xs">theme.liquid</code> and paste the snippet just before the closing <code className="px-1 py-0.5 bg-gray-100 rounded text-xs">&lt;/body&gt;</code> tag.</li>
+              <li>Click <span className="font-medium">Save</span>.</li>
+            </ol>
+          </TabsContent>
+
+          <TabsContent value="html" className="space-y-3 mt-3">
+            <ol className="text-sm text-gray-700 space-y-2 list-decimal list-inside">
+              <li>Open the HTML file (or template) for the page where you want the widget to appear.</li>
+              <li>Paste the snippet below where you want the widget to render. It will appear right at that spot.</li>
+              <li>Save and re-upload to your web host.</li>
+            </ol>
+          </TabsContent>
+        </Tabs>
+
+        {/* The snippet itself, syntax-styled. */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Your snippet</p>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs"
+              onClick={copySnippet}
+              data-testid="install-modal-copy"
+            >
+              <Copy className="w-3 h-3 mr-1" /> Copy
+            </Button>
+          </div>
+          <pre className="bg-gray-900 text-gray-100 rounded-md p-3 text-xs font-mono overflow-x-auto whitespace-pre-wrap break-all">
+            <code>{snippet}</code>
+          </pre>
+        </div>
+
+        {/* FAQ. */}
+        <div className="space-y-2 pt-2 border-t border-gray-100">
+          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Common questions</p>
+          <details className="text-sm text-gray-700">
+            <summary className="cursor-pointer font-medium text-gray-800">Will it slow my site down?</summary>
+            <p className="mt-1 text-xs text-gray-600">
+              No. The widget script loads asynchronously and the review data is cached for 5
+              minutes, so it doesn't block page rendering.
+            </p>
+          </details>
+          <details className="text-sm text-gray-700">
+            <summary className="cursor-pointer font-medium text-gray-800">Can I customize how it looks?</summary>
+            <p className="mt-1 text-xs text-gray-600">
+              You control which reviews show (minimum rating, max count, name + date toggles)
+              from the Widget Settings panel on this page. Layout is fixed to keep the widget
+              tidy on any site.
+            </p>
+          </details>
+          <details className="text-sm text-gray-700">
+            <summary className="cursor-pointer font-medium text-gray-800">What if I disable the widget?</summary>
+            <p className="mt-1 text-xs text-gray-600">
+              The snippet stays on your site but stops rendering — no broken layout, no error
+              messages for visitors.
+            </p>
+          </details>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function PortalWidget() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [copied, setCopied] = useState<string | null>(null);
+  /* Modal state + which snippet to show in the install instructions. */
+  const [installModalSnippet, setInstallModalSnippet] = useState<string | null>(null);
+  /* Bumped on every settings save so the preview iframe reloads and
+     reflects the new min_rating / max_reviews / show_* values. */
+  const [previewReloadKey, setPreviewReloadKey] = useState(0);
 
   const { data, isLoading } = useQuery<WidgetData>({
     queryKey: ["/api/portal/reputation/widget"],
@@ -69,6 +378,8 @@ export default function PortalWidget() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/portal/reputation/widget"] });
       toast({ title: "Widget settings saved" });
+      // Force the live preview iframe to reload with the new settings.
+      setPreviewReloadKey((k) => k + 1);
     },
   });
 
@@ -155,6 +466,10 @@ export default function PortalWidget() {
 
   const settings = data.settings!;
   const embedCode = data.embedCode!;
+  const widgetToken = data.widgetToken!;
+  const connectedSources = data.connectedSources ?? [];
+  const hasConnectedSource = connectedSources.length > 0;
+  const sourcesLabel = formatSourcesLabel(connectedSources);
 
   return (
     <PortalLayout>
@@ -171,9 +486,33 @@ export default function PortalWidget() {
           <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">How it works</p>
           <ol className="text-sm text-gray-700 space-y-2 list-decimal list-inside">
             <li>Copy the embed code below</li>
-            <li>Paste it into your website where you want reviews to appear</li>
+            <li>Paste it into your website where you want reviews to appear (need exact steps? click <span className="font-medium">How to install</span>)</li>
             <li>Your best reviews show up automatically and stay up to date</li>
           </ol>
+        </Card>
+
+        {/* Source clarity — tells the customer which review platforms feed
+            the widget, and nudges them to connect a source if none yet. */}
+        <Card className="p-4">
+          <div className="flex items-start gap-2">
+            {hasConnectedSource ? (
+              <Info className="w-4 h-4 text-gray-500 mt-0.5 shrink-0" />
+            ) : (
+              <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+            )}
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Pulls from</p>
+              <p className="text-sm text-gray-800 mt-0.5" data-testid="widget-sources-label">{sourcesLabel}</p>
+              {!hasConnectedSource && (
+                <p className="text-xs text-gray-500 mt-1">
+                  Connect Google or another platform so your widget has reviews to show.{" "}
+                  <Link href="/portal/reviews" className="text-brand-blue hover:underline" data-testid="connect-source-link">
+                    Connect a source
+                  </Link>
+                </p>
+              )}
+            </div>
+          </div>
         </Card>
 
         {/* Widget toggle */}
@@ -204,21 +543,36 @@ export default function PortalWidget() {
             </div>
             <Badge variant="secondary" className="text-[10px] bg-green-50 text-green-700">Available</Badge>
           </div>
-          <div className="bg-gray-50 rounded-lg p-3 font-mono text-xs text-gray-600 break-all select-all">
-            {embedCode.badge}
+
+          <WidgetPreview token={widgetToken} type="badge" reloadKey={previewReloadKey} />
+
+          <pre className="bg-gray-900 text-gray-100 rounded-lg p-3 text-xs font-mono overflow-x-auto whitespace-pre-wrap break-all">
+            <code>{embedCode.badge}</code>
+          </pre>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8"
+              onClick={() => copyCode(embedCode.badge, "badge")}
+              data-testid="copy-badge"
+            >
+              {copied === "badge" ? (
+                <><CheckCircle2 className="w-3.5 h-3.5 mr-1 text-green-600" /> Copied</>
+              ) : (
+                <><Copy className="w-3.5 h-3.5 mr-1" /> Copy Badge Code</>
+              )}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8"
+              onClick={() => setInstallModalSnippet(embedCode.badge)}
+              data-testid="install-badge"
+            >
+              <BookOpen className="w-3.5 h-3.5 mr-1" /> How to install
+            </Button>
           </div>
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-8"
-            onClick={() => copyCode(embedCode.badge, "badge")}
-          >
-            {copied === "badge" ? (
-              <><CheckCircle2 className="w-3.5 h-3.5 mr-1 text-green-600" /> Copied</>
-            ) : (
-              <><Copy className="w-3.5 h-3.5 mr-1" /> Copy Badge Code</>
-            )}
-          </Button>
         </Card>
 
         {/* Carousel Widget */}
@@ -238,21 +592,35 @@ export default function PortalWidget() {
           </div>
           {data.carouselAccess && embedCode.carousel ? (
             <>
-              <div className="bg-gray-50 rounded-lg p-3 font-mono text-xs text-gray-600 break-all select-all">
-                {embedCode.carousel}
+              <WidgetPreview token={widgetToken} type="carousel" reloadKey={previewReloadKey} />
+
+              <pre className="bg-gray-900 text-gray-100 rounded-lg p-3 text-xs font-mono overflow-x-auto whitespace-pre-wrap break-all">
+                <code>{embedCode.carousel}</code>
+              </pre>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8"
+                  onClick={() => copyCode(embedCode.carousel!, "carousel")}
+                  data-testid="copy-carousel"
+                >
+                  {copied === "carousel" ? (
+                    <><CheckCircle2 className="w-3.5 h-3.5 mr-1 text-green-600" /> Copied</>
+                  ) : (
+                    <><Copy className="w-3.5 h-3.5 mr-1" /> Copy Carousel Code</>
+                  )}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8"
+                  onClick={() => setInstallModalSnippet(embedCode.carousel!)}
+                  data-testid="install-carousel"
+                >
+                  <BookOpen className="w-3.5 h-3.5 mr-1" /> How to install
+                </Button>
               </div>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-8"
-                onClick={() => copyCode(embedCode.carousel!, "carousel")}
-              >
-                {copied === "carousel" ? (
-                  <><CheckCircle2 className="w-3.5 h-3.5 mr-1 text-green-600" /> Copied</>
-                ) : (
-                  <><Copy className="w-3.5 h-3.5 mr-1" /> Copy Carousel Code</>
-                )}
-              </Button>
             </>
           ) : (
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 flex items-center gap-2 text-sm text-gray-500">
@@ -327,6 +695,18 @@ export default function PortalWidget() {
           </div>
         </Card>
       </div>
+
+      {/* Install instructions modal — opens when the user clicks the
+          "How to install" button on either widget card. */}
+      <InstallModal
+        open={installModalSnippet !== null}
+        onOpenChange={(open) => {
+          if (!open) setInstallModalSnippet(null);
+        }}
+        snippet={installModalSnippet ?? ""}
+        sourcesLabel={sourcesLabel}
+        hasConnectedSource={hasConnectedSource}
+      />
     </PortalLayout>
   );
 }

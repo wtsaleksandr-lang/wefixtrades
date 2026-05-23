@@ -3368,7 +3368,7 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
       const clientId = await withClientId(req, res);
       if (!clientId) return;
 
-      const { extractTier, canAccessFeature, mergeWidgetSettings } = await import("@shared/reputationConfig");
+      const { extractTier, canAccessFeature, mergeWidgetSettings, mergePlatformConnections } = await import("@shared/reputationConfig");
       const { storage } = await import("../storage");
 
       // Check feature access
@@ -3389,6 +3389,19 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
       // Load widget settings
       const ws = mergeWidgetSettings(svc?.metadata?.reputation_settings?.widget);
 
+      /* Build the "connected sources" list so the portal can tell the
+         customer which platforms the widget will pull from. Google is
+         resolved via clients.google_place_id; Facebook via
+         clients.facebook_page_url; Yelp + Trustpilot live on the
+         reputation settings.platforms object. */
+      const client = await storage.getClientById(clientId);
+      const platforms = mergePlatformConnections(svc?.metadata?.reputation_settings?.platforms);
+      const connectedSources: string[] = [];
+      if (client?.google_place_id) connectedSources.push("google");
+      if (client?.facebook_page_url) connectedSources.push("facebook");
+      if (platforms.yelp_url) connectedSources.push("yelp");
+      if (platforms.trustpilot_domain) connectedSources.push("trustpilot");
+
       // Build base URL for embed code
       const origin = req.headers.origin || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : `${req.protocol}://${req.get("host")}`);
 
@@ -3398,6 +3411,8 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
         badgeAccess,
         carouselAccess,
         settings: ws,
+        sources: ["google", "facebook", "yelp", "trustpilot"],
+        connectedSources,
         embedCode: {
           badge: `<script src="${origin}/widget/embed.js" data-wft-widget="badge" data-wft-token="${widgetToken}"></script>`,
           carousel: carouselAccess
