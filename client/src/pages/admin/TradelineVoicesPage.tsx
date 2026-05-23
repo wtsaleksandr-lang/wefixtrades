@@ -34,6 +34,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Plus, Play, Archive, Pencil, Save, X, Mic2 } from "lucide-react";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 interface Voice {
   id: string;
@@ -93,6 +94,8 @@ export default function TradelineVoicesPage() {
 
   const [editing, setEditing] = useState<Voice | null>(null);
   const [creating, setCreating] = useState(false);
+  /** Voice pending archival — drives the shared <ConfirmDialog>. */
+  const [pendingArchive, setPendingArchive] = useState<Voice | null>(null);
 
   const saveVoice = useMutation({
     mutationFn: async (data: Partial<Voice> & { id?: string }) => {
@@ -206,7 +209,7 @@ export default function TradelineVoicesPage() {
                     <Pencil className="w-3 h-3 mr-1" /> Edit
                   </Button>
                   {v.status === "active" && (
-                    <Button size="sm" variant="ghost" onClick={() => { if (window.confirm(`Archive "${v.display_name}"? Clients using it fall back to the default voice.`)) archiveVoice.mutate(v.id); }}>
+                    <Button size="sm" variant="ghost" onClick={() => setPendingArchive(v)}>
                       <Archive className="w-3 h-3 mr-1" /> Archive
                     </Button>
                   )}
@@ -301,6 +304,23 @@ export default function TradelineVoicesPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Shared archive-voice confirmation. */}
+        <ConfirmDialog
+          open={pendingArchive !== null}
+          onOpenChange={(o) => { if (!o) setPendingArchive(null); }}
+          title={pendingArchive ? `Archive "${pendingArchive.display_name}"?` : "Archive voice?"}
+          description="Clients currently using this voice will fall back to the default voice."
+          confirmLabel="Archive"
+          destructive
+          pending={archiveVoice.isPending}
+          onConfirm={() => {
+            if (pendingArchive) {
+              archiveVoice.mutate(pendingArchive.id);
+              setPendingArchive(null);
+            }
+          }}
+        />
       </div>
     </AdminLayout>
   );

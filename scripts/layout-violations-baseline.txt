@@ -4,7 +4,7 @@
 # here and re-run `npm run check:layout-rules` to confirm.
 # Format: <file>:<line>:<col>\t<kind>\t<snippet>
 client/src/components/admin/AdminCopilot.tsx:1313:13	rule-c	square w-9 h-9
-client/src/components/admin/AdminLayout.tsx:1162:25	rule-c	square w-7 h-7
+client/src/components/admin/AdminLayout.tsx:1210:25	rule-c	square w-7 h-7
 client/src/components/admin/MapguardTaskCard.tsx:189:17	rule-c	square w-7 h-7
 client/src/components/admin/ServiceOps.tsx:47:12	rule-c	square w-7 h-7
 client/src/components/admin/TaskCard.tsx:411:14	rule-c	square w-10 h-10
@@ -64,8 +64,8 @@ client/src/pages/ReviewFunnel.tsx:301:21	rule-c	size={40}
 client/src/pages/admin/ApiPlatformPage.tsx:172:19	rule-c	square w-2 h-2
 client/src/pages/admin/ApiPlatformUserDetailPage.tsx:376:25	rule-c	square w-12 h-12
 client/src/pages/admin/ApiPlatformUserDetailPage.tsx:386:20	rule-c	square w-12 h-12
-client/src/pages/admin/BookingCalendarPage.tsx:52:16	rule-c	square w-10 h-10
-client/src/pages/admin/BookingCalendarPage.tsx:123:24	rule-c	square w-10 h-10
+client/src/pages/admin/BookingCalendarPage.tsx:53:16	rule-c	square w-10 h-10
+client/src/pages/admin/BookingCalendarPage.tsx:126:24	rule-c	square w-10 h-10
 client/src/pages/admin/ClientDetailPage.tsx:652:7	rule-b	<div> contains 2 cues
 client/src/pages/admin/CommunicationsPage.tsx:1113:21	rule-c	square w-1.5 h-1.5
 client/src/pages/admin/CommunicationsPage.tsx:1118:21	rule-c	square w-1.5 h-1.5
