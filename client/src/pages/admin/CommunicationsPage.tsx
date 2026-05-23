@@ -41,6 +41,15 @@ import {
   RefreshCw,
   Check,
   X,
+  Trash2,
+  Pencil,
+  Link2,
+  Users,
+  Building2,
+  Search,
+  MoreVertical,
+  ExternalLink,
+  Contact as ContactIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -74,6 +83,43 @@ interface ConfigResp {
   voiceReady: boolean;
   fromNumber: string | null;
   missing: { sms: string[]; voice: string[] };
+}
+
+/* COMMS-FEATURES — admin address book entry. Mirrors the shape returned by
+   /api/admin/contacts. The page joins on phone_e164 at render time so SMS
+   threads + call rows can show a name and a "linked to user/supplier" chip. */
+interface AdminContact {
+  id: string;
+  display_name: string;
+  phone_e164: string;
+  email: string | null;
+  notes: string | null;
+  linked_user_id: number | null;
+  linked_user_name: string | null;
+  linked_supplier_id: number | null;
+  linked_supplier_name: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface AdminClient { id: number; name: string | null; email: string | null; }
+interface AdminSupplier { id: number; name: string; type?: string; }
+
+/* Phone-normalization for the lookup map. Twilio gives us "+15551234567"
+   already, but inbound webhooks occasionally include formatted variants —
+   we strip non-digits and prepend "+" to whatever we can parse. */
+function toE164ish(p: string | null | undefined): string {
+  if (!p) return "";
+  const trimmed = String(p).trim();
+  if (!trimmed) return "";
+  if (trimmed.startsWith("+")) {
+    const digits = trimmed.slice(1).replace(/\D/g, "");
+    return digits ? `+${digits}` : "";
+  }
+  const digits = trimmed.replace(/\D/g, "");
+  if (!digits) return "";
+  if (digits.length === 10) return `+1${digits}`;
+  return `+${digits}`;
 }
 
 /* ─── helpers ────────────────────────────────────────────────────── */
@@ -148,7 +194,7 @@ function groupThreads(messages: TwilioMessage[]) {
 export default function CommunicationsPage() {
   usePageTitle("Communications");
 
-  const [tab, setTab] = useState<"sms" | "phone">("sms");
+  const [tab, setTab] = useState<"sms" | "phone" | "contacts">("sms");
   const [activeContact, setActiveContact] = useState<string | null>(null);
   const [newMsgOpen, setNewMsgOpen] = useState(false);
 
@@ -161,6 +207,25 @@ export default function CommunicationsPage() {
       return res.json();
     },
   });
+
+  /* COMMS-FEATURES — shared contacts query so SMS + Phone can swap numbers
+     for names without each panel re-fetching the same list. */
+  const { data: contactsData } = useQuery<{ contacts: AdminContact[] }>({
+    queryKey: ["/api/admin/contacts"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/contacts?limit=200", { credentials: "include" });
+      if (!res.ok) throw new Error("contacts failed");
+      return res.json();
+    },
+  });
+
+  const contactsByPhone = useMemo(() => {
+    const map = new Map<string, AdminContact>();
+    for (const c of contactsData?.contacts ?? []) {
+      map.set(toE164ish(c.phone_e164), c);
+    }
+    return map;
+  }, [contactsData]);
 
   return (
     <AdminLayout pageContext={{ page: "communications" }}>
@@ -186,13 +251,16 @@ export default function CommunicationsPage() {
           />
         )}
 
-        <Tabs value={tab} onValueChange={(v) => setTab(v as "sms" | "phone")}>
+        <Tabs value={tab} onValueChange={(v) => setTab(v as "sms" | "phone" | "contacts")}>
           <TabsList>
             <TabsTrigger value="sms" className="gap-2">
               <MessageSquare className="w-4 h-4" /> SMS
             </TabsTrigger>
             <TabsTrigger value="phone" className="gap-2">
               <Phone className="w-4 h-4" /> Phone
+            </TabsTrigger>
+            <TabsTrigger value="contacts" className="gap-2" data-testid="tab-contacts">
+              <ContactIcon className="w-4 h-4" /> Contacts
             </TabsTrigger>
           </TabsList>
 
@@ -202,6 +270,7 @@ export default function CommunicationsPage() {
               activeContact={activeContact}
               onSelectContact={setActiveContact}
               onNewMessage={() => setNewMsgOpen(true)}
+              contactsByPhone={contactsByPhone}
             />
           </TabsContent>
 
@@ -210,7 +279,12 @@ export default function CommunicationsPage() {
               voiceReady={!!config?.voiceReady}
               voiceMissing={config?.missing.voice ?? []}
               fromNumber={config?.fromNumber ?? null}
+              contactsByPhone={contactsByPhone}
             />
+          </TabsContent>
+
+          <TabsContent value="contacts" className="mt-3">
+            <ContactsPanel />
           </TabsContent>
         </Tabs>
       </div>
@@ -234,11 +308,13 @@ function SmsPanel({
   activeContact,
   onSelectContact,
   onNewMessage,
+  contactsByPhone,
 }: {
   smsReady: boolean;
   activeContact: string | null;
   onSelectContact: (c: string | null) => void;
   onNewMessage: () => void;
+  contactsByPhone: Map<string, AdminContact>;
 }) {
   const { data, isLoading, refetch, isRefetching } = useQuery<{ messages: TwilioMessage[]; hasMore: boolean }>({
     queryKey: ["/api/admin/twilio/messages"],
@@ -314,6 +390,7 @@ function SmsPanel({
             <ul className="divide-y divide-gray-100">
               {threads.map((t) => {
                 const active = normalizeContact(t.contact) === normalizeContact(activeContact ?? "");
+                const c = contactsByPhone.get(toE164ish(t.contact));
                 return (
                   <li key={t.contact}>
                     <button
@@ -329,13 +406,19 @@ function SmsPanel({
                         <span className={cn(
                           "text-sm font-medium truncate",
                           active ? "text-[#0d3cfc]" : "text-gray-900"
-                        )}>
-                          {formatPhone(t.contact)}
+                        )} data-testid={`twilio-thread-name-${normalizeContact(t.contact)}`}>
+                          {c?.display_name ?? formatPhone(t.contact)}
                         </span>
                         <span className="text-[10px] text-gray-400 shrink-0">
                           {formatTimestamp(new Date(t.lastAt).toISOString())}
                         </span>
                       </div>
+                      {c && (
+                        <div className="flex items-center gap-1 mb-0.5">
+                          <span className="text-[10px] text-gray-400 truncate">{formatPhone(t.contact)}</span>
+                          <LinkChips contact={c} small />
+                        </div>
+                      )}
                       <p className="text-xs text-gray-500 truncate">
                         {t.lastDirection === "outbound" && <span className="text-gray-400">You: </span>}
                         {t.lastBody || <em className="opacity-60">(no body)</em>}
@@ -352,7 +435,11 @@ function SmsPanel({
       {/* RIGHT — thread view */}
       <Card className="flex flex-col overflow-hidden min-h-[60vh]">
         {activeContact ? (
-          <ThreadView contact={activeContact} />
+          <ThreadView
+            contact={activeContact}
+            contactRecord={contactsByPhone.get(toE164ish(activeContact)) ?? null}
+            onAfterDelete={() => onSelectContact(null)}
+          />
         ) : (
           <EmptyState
             icon={<MessageSquare className="w-8 h-8 text-gray-300" />}
@@ -367,10 +454,22 @@ function SmsPanel({
 
 /* ─── Thread view ────────────────────────────────────────────────── */
 
-function ThreadView({ contact }: { contact: string }) {
+function ThreadView({
+  contact,
+  contactRecord,
+  onAfterDelete,
+}: {
+  contact: string;
+  contactRecord: AdminContact | null;
+  onAfterDelete: () => void;
+}) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [draft, setDraft] = useState("");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [confirmThreadDelete, setConfirmThreadDelete] = useState(false);
+  const [saveContactOpen, setSaveContactOpen] = useState(false);
+  const [editContactOpen, setEditContactOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const { data, isLoading } = useQuery<{ messages: TwilioMessage[]; contact: string }>({
@@ -409,6 +508,40 @@ function ThreadView({ contact }: { contact: string }) {
     },
   });
 
+  const deleteMessageMutation = useMutation({
+    mutationFn: async (sid: string) => {
+      const res = await apiRequest("DELETE", `/api/admin/twilio/messages/${encodeURIComponent(sid)}`);
+      if (res.status === 204) return { ok: true };
+      try { return await res.json(); } catch { return { ok: true }; }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/twilio/messages"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/twilio/messages/thread", contact] });
+      toast({ title: "Message deleted" });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Delete failed", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const deleteThreadMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("DELETE", `/api/admin/twilio/conversations/${encodeURIComponent(contact)}`);
+      return res.json();
+    },
+    onSuccess: (resp: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/twilio/messages"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/twilio/messages/thread", contact] });
+      toast({ title: "Conversation deleted", description: `${resp?.deleted ?? 0} messages removed` });
+      setConfirmThreadDelete(false);
+      onAfterDelete();
+    },
+    onError: (err: Error) => {
+      toast({ title: "Delete failed", description: err.message, variant: "destructive" });
+      setConfirmThreadDelete(false);
+    },
+  });
+
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -419,10 +552,72 @@ function ThreadView({ contact }: { contact: string }) {
   return (
     <>
       {/* Header */}
-      <div className="px-4 py-2.5 border-b border-gray-100 flex items-center justify-between">
+      <div className="px-4 py-2.5 border-b border-gray-100 flex items-center justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-gray-900 truncate">{formatPhone(contact)}</p>
-          <p className="text-[11px] text-gray-400">{data?.messages?.length ?? 0} messages</p>
+          <p className="text-sm font-semibold text-gray-900 truncate" data-testid="thread-header-name">
+            {contactRecord?.display_name ?? formatPhone(contact)}
+          </p>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {contactRecord && (
+              <span className="text-[11px] text-gray-500">{formatPhone(contact)}</span>
+            )}
+            <span className="text-[11px] text-gray-400">·</span>
+            <span className="text-[11px] text-gray-400">{data?.messages?.length ?? 0} messages</span>
+            {contactRecord && <LinkChips contact={contactRecord} />}
+          </div>
+        </div>
+        <div className="relative shrink-0">
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-8 w-8 p-0"
+            onClick={() => setMenuOpen((v) => !v)}
+            aria-label="Thread actions"
+            data-testid="thread-kebab"
+          >
+            <MoreVertical className="w-4 h-4" />
+          </Button>
+          {menuOpen && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
+              <div
+                className="absolute right-0 top-8 z-20 min-w-[180px] rounded-lg border border-gray-200 bg-white shadow-lg py-1 text-sm"
+                role="menu"
+              >
+                {contactRecord ? (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="w-full text-left px-3 py-1.5 hover:bg-gray-50 flex items-center gap-2"
+                    onClick={() => { setMenuOpen(false); setEditContactOpen(true); }}
+                    data-testid="thread-menu-edit-contact"
+                  >
+                    <Pencil className="w-3.5 h-3.5 text-gray-500" /> Edit contact
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="w-full text-left px-3 py-1.5 hover:bg-gray-50 flex items-center gap-2"
+                    onClick={() => { setMenuOpen(false); setSaveContactOpen(true); }}
+                    data-testid="thread-menu-save-contact"
+                  >
+                    <Plus className="w-3.5 h-3.5 text-gray-500" /> Save as contact
+                  </button>
+                )}
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="w-full text-left px-3 py-1.5 hover:bg-red-50 text-red-700 flex items-center gap-2"
+                  onClick={() => { setMenuOpen(false); setConfirmThreadDelete(true); }}
+                  data-testid="thread-menu-delete-conversation"
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> Delete conversation
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -442,10 +637,41 @@ function ThreadView({ contact }: { contact: string }) {
           <p className="text-center text-xs text-gray-400 py-6">No messages in this thread yet.</p>
         ) : (
           (data?.messages ?? []).map((m) => (
-            <Bubble key={m.sid} message={m} />
+            <Bubble
+              key={m.sid}
+              message={m}
+              onDelete={() => {
+                if (window.confirm("Delete this message? This removes it from Twilio permanently.")) {
+                  deleteMessageMutation.mutate(m.sid);
+                }
+              }}
+            />
           ))
         )}
       </div>
+
+      <ConfirmDeleteDialog
+        open={confirmThreadDelete}
+        onClose={() => setConfirmThreadDelete(false)}
+        onConfirm={() => deleteThreadMutation.mutate()}
+        pending={deleteThreadMutation.isPending}
+        title="Delete this conversation?"
+        description={`This permanently removes every message between your Twilio number and ${formatPhone(contact)}. Cannot be undone.`}
+      />
+      <ContactFormDialog
+        open={saveContactOpen}
+        onClose={() => setSaveContactOpen(false)}
+        seedPhone={contact}
+        contact={null}
+        onSaved={() => setSaveContactOpen(false)}
+      />
+      <ContactFormDialog
+        open={editContactOpen}
+        onClose={() => setEditContactOpen(false)}
+        seedPhone={contact}
+        contact={contactRecord}
+        onSaved={() => setEditContactOpen(false)}
+      />
 
       {/* Composer — Enter sends */}
       <div className="border-t border-gray-100 p-3 bg-white">
@@ -476,10 +702,21 @@ function ThreadView({ contact }: { contact: string }) {
   );
 }
 
-function Bubble({ message }: { message: TwilioMessage }) {
+function Bubble({ message, onDelete }: { message: TwilioMessage; onDelete: () => void }) {
   const isMine = message.direction === "outbound";
   return (
-    <div className={cn("flex", isMine ? "justify-end" : "justify-start")}>
+    <div className={cn("flex group items-center gap-1.5", isMine ? "justify-end" : "justify-start")}>
+      {isMine && (
+        <button
+          type="button"
+          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50"
+          onClick={onDelete}
+          title="Delete this message"
+          data-testid={`twilio-bubble-delete-${message.sid}`}
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </button>
+      )}
       <div
         className={cn(
           "max-w-[78%] px-3.5 py-2 rounded-2xl text-sm whitespace-pre-wrap break-words",
@@ -500,6 +737,17 @@ function Bubble({ message }: { message: TwilioMessage }) {
           )}
         </div>
       </div>
+      {!isMine && (
+        <button
+          type="button"
+          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50"
+          onClick={onDelete}
+          title="Delete this message"
+          data-testid={`twilio-bubble-delete-${message.sid}`}
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </button>
+      )}
     </div>
   );
 }
@@ -618,13 +866,33 @@ function PhonePanel({
   voiceReady,
   voiceMissing,
   fromNumber,
+  contactsByPhone,
 }: {
   voiceReady: boolean;
   voiceMissing: string[];
   fromNumber: string | null;
+  contactsByPhone: Map<string, AdminContact>;
 }) {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [dialNumber, setDialNumber] = useState("");
+  const [confirmDeleteCallSid, setConfirmDeleteCallSid] = useState<string | null>(null);
+
+  const deleteCallMutation = useMutation({
+    mutationFn: async (sid: string) => {
+      const res = await apiRequest("DELETE", `/api/admin/twilio/calls/${encodeURIComponent(sid)}`);
+      if (res.status === 204) return { ok: true };
+      try { return await res.json(); } catch { return { ok: true }; }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/twilio/calls"] });
+      toast({ title: "Call deleted" });
+      setConfirmDeleteCallSid(null);
+    },
+    onError: (err: Error) => {
+      toast({ title: "Delete failed", description: err.message, variant: "destructive" });
+    },
+  });
 
   // Voice SDK plumbing
   const deviceRef = useRef<Device | null>(null);
@@ -1022,25 +1290,40 @@ function PhonePanel({
               message="Inbound and outbound calls on your Twilio number will appear here."
             />
           ) : (
-            <ul className="divide-y divide-gray-100">
+            <ul className="divide-y divide-gray-100" data-testid="twilio-calls-list">
               {callsData!.calls.map((c) => {
                 const isInbound = (c.direction ?? "").startsWith("inbound");
                 const other = isInbound ? c.from : c.to;
                 const Icon = isInbound ? PhoneIncoming : PhoneOutgoing;
+                const contact = other ? contactsByPhone.get(toE164ish(other)) : undefined;
                 return (
-                  <li key={c.sid} className="px-3 py-2.5">
+                  <li key={c.sid} className="px-3 py-2.5 group" data-testid={`twilio-call-row-${c.sid}`}>
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2 min-w-0">
                         <Icon className={cn("w-3.5 h-3.5 shrink-0", isInbound ? "text-blue-500" : "text-gray-400")} />
                         <span className="text-sm font-medium text-gray-900 truncate">
-                          {formatPhone(other)}
+                          {contact?.display_name ?? formatPhone(other)}
                         </span>
                       </div>
-                      <span className="text-[10px] text-gray-400 shrink-0">
-                        {formatTimestamp(c.start_time)}
-                      </span>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="text-[10px] text-gray-400">
+                          {formatTimestamp(c.start_time)}
+                        </span>
+                        <button
+                          type="button"
+                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50"
+                          onClick={() => setConfirmDeleteCallSid(c.sid)}
+                          title="Delete this call record"
+                          data-testid={`twilio-call-delete-${c.sid}`}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 mt-0.5 ml-5.5 pl-1">
+                    <div className="flex items-center gap-2 mt-0.5 ml-5.5 pl-1 flex-wrap">
+                      {contact && (
+                        <span className="text-[10px] text-gray-400">{formatPhone(other)}</span>
+                      )}
                       <span className={cn(
                         "text-[10px] px-1.5 py-0.5 rounded-full",
                         c.status === "completed" ? "bg-green-50 text-green-700"
@@ -1054,6 +1337,7 @@ function PhonePanel({
                           {Math.floor(c.duration_sec / 60)}m {c.duration_sec % 60}s
                         </span>
                       )}
+                      {contact && <LinkChips contact={contact} small />}
                     </div>
                   </li>
                 );
@@ -1062,6 +1346,15 @@ function PhonePanel({
           )}
         </div>
       </Card>
+
+      <ConfirmDeleteDialog
+        open={confirmDeleteCallSid != null}
+        onClose={() => setConfirmDeleteCallSid(null)}
+        onConfirm={() => confirmDeleteCallSid && deleteCallMutation.mutate(confirmDeleteCallSid)}
+        pending={deleteCallMutation.isPending}
+        title="Delete this call record?"
+        description="This permanently removes the call entry from Twilio. Cannot be undone."
+      />
     </div>
   );
 }
@@ -1102,5 +1395,556 @@ function ConfigBanner({
         </div>
       </div>
     </Card>
+  );
+}
+
+/* ─── COMMS-FEATURES — Link chips + Confirm dialog ───────────────── */
+
+/**
+ * Renders "user · Name" / "supplier · Name" pills. Each pill is a link
+ * to the matching profile page so admins can jump directly to the
+ * client or supplier record from a conversation or call row.
+ */
+function LinkChips({ contact, small = false }: { contact: AdminContact; small?: boolean }) {
+  const size = small ? "text-[9px] px-1.5 py-[1px]" : "text-[10px] px-2 py-0.5";
+  return (
+    <>
+      {contact.linked_user_id != null && (
+        <a
+          href={`/admin/crm/clients/${contact.linked_user_id}`}
+          className={cn(
+            "inline-flex items-center gap-1 rounded-full border border-[#0d3cfc]/30 bg-[#0d3cfc]/5 text-[#0d3cfc] hover:bg-[#0d3cfc]/10",
+            size,
+          )}
+          title="View user profile"
+          data-testid={`link-chip-user-${contact.id}`}
+        >
+          <Users className="w-3 h-3" />
+          <span className="truncate max-w-[8rem]">{contact.linked_user_name ?? "user"}</span>
+          <ExternalLink className="w-3 h-3 opacity-60" />
+        </a>
+      )}
+      {contact.linked_supplier_id != null && (
+        <a
+          href={`/admin/suppliers/${contact.linked_supplier_id}`}
+          className={cn(
+            "inline-flex items-center gap-1 rounded-full border border-purple-300 bg-purple-50 text-purple-700 hover:bg-purple-100",
+            size,
+          )}
+          title="View supplier profile"
+          data-testid={`link-chip-supplier-${contact.id}`}
+        >
+          <Building2 className="w-3 h-3" />
+          <span className="truncate max-w-[8rem]">{contact.linked_supplier_name ?? "supplier"}</span>
+          <ExternalLink className="w-3 h-3 opacity-60" />
+        </a>
+      )}
+    </>
+  );
+}
+
+/** Shared confirm modal — Enter confirms (focused Delete button),
+ * Esc closes (Dialog default). Outline + tinted background per
+ * DESIGN-SYSTEM rule 4 — the Cancel pill uses the variant="outline"
+ * treatment; the Delete button is conventional destructive red. */
+function ConfirmDeleteDialog({
+  open,
+  onClose,
+  onConfirm,
+  pending,
+  title,
+  description,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  pending: boolean;
+  title: string;
+  description: string;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="sm:max-w-md" data-testid="confirm-delete-dialog">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-gray-600">{description}</p>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={pending}>Cancel</Button>
+          <Button
+            onClick={onConfirm}
+            disabled={pending}
+            className="bg-red-600 hover:bg-red-700"
+            autoFocus
+            data-testid="confirm-delete-confirm"
+          >
+            {pending ? "Deleting…" : "Delete"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ─── COMMS-FEATURES — Contacts panel ────────────────────────────── */
+
+function ContactsPanel() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [search, setSearch] = useState("");
+  const [editing, setEditing] = useState<AdminContact | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<AdminContact | null>(null);
+
+  const { data, isLoading } = useQuery<{ contacts: AdminContact[] }>({
+    queryKey: ["/api/admin/contacts", search],
+    queryFn: async () => {
+      const url = `/api/admin/contacts?limit=200${search ? `&search=${encodeURIComponent(search)}` : ""}`;
+      const res = await fetch(url, { credentials: "include" });
+      if (!res.ok) throw new Error("contacts failed");
+      return res.json();
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("DELETE", `/api/admin/contacts/${encodeURIComponent(id)}`);
+      if (res.status === 204) return { ok: true };
+      try { return await res.json(); } catch { return { ok: true }; }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/contacts"] });
+      toast({ title: "Contact deleted" });
+      setConfirmDelete(null);
+    },
+    onError: (err: Error) => {
+      toast({ title: "Delete failed", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const rows = data?.contacts ?? [];
+
+  return (
+    <Card className="flex flex-col overflow-hidden min-h-[60vh]">
+      {/* Section header — help cue top-left per DESIGN-SYSTEM rule 5,
+          action button top-right per existing tab conventions. */}
+      <div className="px-3 py-2.5 border-b border-gray-100 flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Contacts</span>
+          <p className="text-[11px] text-gray-400 mt-0.5">
+            Saved numbers with optional link to a client or supplier.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search…"
+              className="h-7 pl-7 pr-2 text-xs rounded-md border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#0d3cfc]/20 focus:border-[#0d3cfc]/60"
+              data-testid="contacts-search"
+            />
+          </div>
+          <Button
+            size="sm"
+            className="h-7 px-2 gap-1 bg-[#0d3cfc] hover:bg-[#0b34d6]"
+            onClick={() => setCreating(true)}
+            data-testid="contacts-add-button"
+          >
+            <Plus className="w-3.5 h-3.5" /> Add contact
+          </Button>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto" data-testid="contacts-list">
+        {isLoading ? (
+          <div className="p-3 space-y-2">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Skeleton key={i} className="h-12 w-full" />
+            ))}
+          </div>
+        ) : rows.length === 0 ? (
+          <EmptyState
+            icon={<ContactIcon className="w-8 h-8 text-gray-300" />}
+            title={search ? "No matching contacts" : "No contacts yet"}
+            message={search ? "Try a different search." : "Add contacts to give phone numbers a name."}
+          />
+        ) : (
+          <ul className="divide-y divide-gray-100">
+            {rows.map((c) => (
+              <li
+                key={c.id}
+                className="px-3 py-2.5 flex items-center justify-between gap-2"
+                data-testid={`contact-row-${c.id}`}
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-medium text-gray-900 truncate">{c.display_name}</span>
+                    <LinkChips contact={c} small />
+                  </div>
+                  <div className="text-[11px] text-gray-500 mt-0.5 flex items-center gap-2 flex-wrap">
+                    <span>{formatPhone(c.phone_e164)}</span>
+                    {c.email && <span className="truncate">· {c.email}</span>}
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 w-8 p-0"
+                    onClick={() => setEditing(c)}
+                    title="Edit contact"
+                    data-testid={`contact-edit-${c.id}`}
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 w-8 p-0 text-gray-400 hover:text-red-600 hover:bg-red-50"
+                    onClick={() => setConfirmDelete(c)}
+                    title="Delete contact"
+                    data-testid={`contact-delete-${c.id}`}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <ContactFormDialog
+        open={creating}
+        onClose={() => setCreating(false)}
+        contact={null}
+        seedPhone={null}
+        onSaved={() => setCreating(false)}
+      />
+      <ContactFormDialog
+        open={editing != null}
+        onClose={() => setEditing(null)}
+        contact={editing}
+        seedPhone={null}
+        onSaved={() => setEditing(null)}
+      />
+      <ConfirmDeleteDialog
+        open={confirmDelete != null}
+        onClose={() => setConfirmDelete(null)}
+        onConfirm={() => confirmDelete && deleteMutation.mutate(confirmDelete.id)}
+        pending={deleteMutation.isPending}
+        title="Delete this contact?"
+        description={`This removes ${confirmDelete?.display_name ?? "the contact"} from the address book. Linked profile records are not affected.`}
+      />
+    </Card>
+  );
+}
+
+/* ─── COMMS-FEATURES — Contact create/edit form dialog ───────────── */
+
+const E164_REGEX = /^\+[1-9]\d{6,14}$/;
+
+function ContactFormDialog({
+  open,
+  onClose,
+  contact,
+  seedPhone,
+  onSaved,
+}: {
+  open: boolean;
+  onClose: () => void;
+  contact: AdminContact | null;
+  seedPhone: string | null;
+  onSaved: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const [displayName, setDisplayName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [notes, setNotes] = useState("");
+  const [linkedUserId, setLinkedUserId] = useState<number | null>(null);
+  const [linkedUserName, setLinkedUserName] = useState<string | null>(null);
+  const [linkedSupplierId, setLinkedSupplierId] = useState<number | null>(null);
+  const [linkedSupplierName, setLinkedSupplierName] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    if (contact) {
+      setDisplayName(contact.display_name);
+      setPhone(contact.phone_e164);
+      setEmail(contact.email ?? "");
+      setNotes(contact.notes ?? "");
+      setLinkedUserId(contact.linked_user_id);
+      setLinkedUserName(contact.linked_user_name);
+      setLinkedSupplierId(contact.linked_supplier_id);
+      setLinkedSupplierName(contact.linked_supplier_name);
+    } else {
+      setDisplayName("");
+      setPhone(seedPhone ?? "");
+      setEmail("");
+      setNotes("");
+      setLinkedUserId(null);
+      setLinkedUserName(null);
+      setLinkedSupplierId(null);
+      setLinkedSupplierName(null);
+    }
+  }, [open, contact, seedPhone]);
+
+  const isEdit = contact != null;
+  const phoneValid = E164_REGEX.test(phone);
+  const canSubmit = displayName.trim().length > 0 && phoneValid;
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      const body = {
+        display_name: displayName.trim(),
+        phone_e164: phone.trim(),
+        email: email.trim() || null,
+        notes: notes.trim() || null,
+        linked_user_id: linkedUserId,
+        linked_supplier_id: linkedSupplierId,
+      };
+      const res = isEdit
+        ? await apiRequest("PATCH", `/api/admin/contacts/${encodeURIComponent(contact!.id)}`, body)
+        : await apiRequest("POST", "/api/admin/contacts", body);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/contacts"] });
+      toast({ title: isEdit ? "Contact updated" : "Contact saved" });
+      onSaved();
+    },
+    onError: (err: Error) => {
+      toast({ title: "Save failed", description: err.message, variant: "destructive" });
+    },
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="sm:max-w-md" data-testid="contact-form-dialog">
+        <DialogHeader>
+          <DialogTitle>{isEdit ? "Edit contact" : "Add contact"}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <FloatField
+            label="Display name"
+            htmlFor="contact-display-name"
+            infoText="How this contact appears in conversations and call logs."
+          >
+            <input
+              id="contact-display-name"
+              className="premium-input"
+              placeholder=" "
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              data-testid="contact-form-name"
+            />
+          </FloatField>
+
+          <FloatField
+            label="Phone (E.164, e.g. +15551234567)"
+            htmlFor="contact-phone"
+            infoText="Use the full international format. Required."
+          >
+            <input
+              id="contact-phone"
+              className="premium-input"
+              placeholder=" "
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              data-testid="contact-form-phone"
+            />
+          </FloatField>
+          {phone && !phoneValid && (
+            <p className="text-[11px] text-red-600 -mt-2 ml-1">Must start with + and use 7–15 digits.</p>
+          )}
+
+          <FloatField
+            label="Email (optional)"
+            htmlFor="contact-email"
+            infoText="Optional email address for reference."
+          >
+            <input
+              id="contact-email"
+              className="premium-input"
+              placeholder=" "
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              data-testid="contact-form-email"
+            />
+          </FloatField>
+
+          <FloatField
+            label="Notes (optional)"
+            htmlFor="contact-notes"
+            infoText="Anything else you want to remember about this contact."
+          >
+            <textarea
+              id="contact-notes"
+              className="premium-input min-h-[60px] resize-none"
+              placeholder=" "
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              data-testid="contact-form-notes"
+            />
+          </FloatField>
+
+          <div className="space-y-2">
+            <p className="text-[11px] font-medium text-gray-600 uppercase tracking-wide">Link to profile (optional)</p>
+            <LinkPicker
+              kind="user"
+              currentId={linkedUserId}
+              currentName={linkedUserName}
+              onChange={(id, name) => { setLinkedUserId(id); setLinkedUserName(name); }}
+            />
+            <LinkPicker
+              kind="supplier"
+              currentId={linkedSupplierId}
+              currentName={linkedSupplierName}
+              onChange={(id, name) => { setLinkedSupplierId(id); setLinkedSupplierName(name); }}
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={mutation.isPending}>Cancel</Button>
+          <Button
+            onClick={() => mutation.mutate()}
+            disabled={!canSubmit || mutation.isPending}
+            className="bg-[#0d3cfc] hover:bg-[#0b34d6]"
+            data-testid="contact-form-save"
+          >
+            {mutation.isPending ? "Saving…" : isEdit ? "Save changes" : "Save contact"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ─── COMMS-FEATURES — User / supplier picker ────────────────────── */
+
+/**
+ * Inline searchable picker. When `currentId` is set, renders the
+ * currently-linked entity as a chip with an X to clear. Otherwise
+ * renders an input that triggers a dropdown of search results.
+ */
+function LinkPicker({
+  kind,
+  currentId,
+  currentName,
+  onChange,
+}: {
+  kind: "user" | "supplier";
+  currentId: number | null;
+  currentName: string | null;
+  onChange: (id: number | null, name: string | null) => void;
+}) {
+  const [q, setQ] = useState("");
+  const [open, setOpen] = useState(false);
+
+  const { data } = useQuery<AdminClient[] | AdminSupplier[]>({
+    queryKey: [`link-picker-${kind}`, q],
+    enabled: open && currentId == null,
+    queryFn: async () => {
+      if (kind === "user") {
+        const url = `/api/admin/crm/clients?limit=20${q ? `&search=${encodeURIComponent(q)}` : ""}`;
+        const res = await fetch(url, { credentials: "include" });
+        if (!res.ok) throw new Error("clients failed");
+        const json = await res.json();
+        return (json.data ?? []) as AdminClient[];
+      }
+      const res = await fetch(`/api/admin/suppliers`, { credentials: "include" });
+      if (!res.ok) throw new Error("suppliers failed");
+      const rows = (await res.json()) as AdminSupplier[];
+      if (!q) return rows.slice(0, 20);
+      const needle = q.toLowerCase();
+      return rows.filter((s) => (s.name ?? "").toLowerCase().includes(needle)).slice(0, 20);
+    },
+  });
+
+  const Icon = kind === "user" ? Users : Building2;
+  const label = kind === "user" ? "User" : "Supplier";
+
+  if (currentId != null) {
+    return (
+      <div className="flex items-center gap-2">
+        <span className="text-[11px] text-gray-500 w-16 shrink-0">{label}:</span>
+        <span
+          className={cn(
+            "inline-flex items-center gap-1 rounded-full border text-[11px] px-2 py-0.5",
+            kind === "user"
+              ? "border-[#0d3cfc]/30 bg-[#0d3cfc]/5 text-[#0d3cfc]"
+              : "border-purple-300 bg-purple-50 text-purple-700",
+          )}
+        >
+          <Icon className="w-3 h-3" />
+          <span className="truncate max-w-[10rem]">{currentName ?? `#${currentId}`}</span>
+          <button
+            type="button"
+            onClick={() => onChange(null, null)}
+            className="ml-0.5 hover:opacity-70"
+            title="Unlink"
+            data-testid={`link-picker-clear-${kind}`}
+          >
+            <X className="w-3 h-3" />
+          </button>
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative">
+      <div className="flex items-center gap-2">
+        <span className="text-[11px] text-gray-500 w-16 shrink-0">{label}:</span>
+        <div className="relative flex-1">
+          <Link2 className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+          <input
+            type="text"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            onFocus={() => setOpen(true)}
+            onBlur={() => setTimeout(() => setOpen(false), 150)}
+            placeholder={`Search ${label.toLowerCase()}s…`}
+            className="w-full h-8 pl-7 pr-2 text-xs rounded-md border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#0d3cfc]/20 focus:border-[#0d3cfc]/60"
+            data-testid={`link-picker-input-${kind}`}
+          />
+        </div>
+      </div>
+      {open && (data?.length ?? 0) > 0 && (
+        <ul
+          className="absolute z-30 left-[4.25rem] right-0 mt-1 max-h-44 overflow-y-auto rounded-md border border-gray-200 bg-white shadow-lg py-1 text-xs"
+          data-testid={`link-picker-results-${kind}`}
+        >
+          {(data ?? []).map((item) => {
+            const id = (item as any).id as number;
+            const name = (item as any).name as string | null;
+            return (
+              <li key={id}>
+                <button
+                  type="button"
+                  className="w-full text-left px-2.5 py-1.5 hover:bg-gray-50 flex items-center gap-1.5"
+                  onMouseDown={() => {
+                    onChange(id, name ?? `#${id}`);
+                    setQ("");
+                    setOpen(false);
+                  }}
+                  data-testid={`link-picker-option-${kind}-${id}`}
+                >
+                  <Icon className="w-3 h-3 text-gray-400" />
+                  <span className="truncate">{name ?? `#${id}`}</span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
   );
 }

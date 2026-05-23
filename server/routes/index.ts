@@ -78,6 +78,7 @@ import { registerAiImageToTemplateRoutes } from "./aiImageToTemplateRoutes";
 import { registerAiDemoRoutes } from "./aiDemoRoutes";
 import { registerAdminAiBudgetRoutes } from "./adminAiBudgetRoutes";
 import { registerTwilioCommsRoutes } from "./twilioCommsRoutes";
+import { registerAdminContactsRoutes } from "./adminContactsRoutes";
 import { registerWidgetSchedulingRoutes } from "./widgetSchedulingRoutes";
 import { registerQuoteSnapshotRoutes } from "./quoteSnapshotRoutes";
 import { registerAdminQuoteQuickTemplatesRoutes } from "./adminQuoteQuickTemplatesRoutes";
@@ -179,6 +180,7 @@ export async function registerRoutes(
   registerAiDemoRoutes(app);
   registerAdminAiBudgetRoutes(app);
   registerTwilioCommsRoutes(app);
+  registerAdminContactsRoutes(app);
   registerWidgetSchedulingRoutes(app);
   registerQuoteSnapshotRoutes(app);
   registerAdminQuoteQuickTemplatesRoutes(app);
