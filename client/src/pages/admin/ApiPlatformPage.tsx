@@ -395,7 +395,7 @@ export default function ApiPlatformPage() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 auto-rows-fr">
           <Card className="p-4">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center">
+              <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
                 <UsersIcon className="w-4 h-4 text-blue-600" />
               </div>
               <div>
@@ -408,7 +408,7 @@ export default function ApiPlatformPage() {
           </Card>
           <Card className="p-4">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-purple-50 flex items-center justify-center">
+              <div className="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center">
                 <Activity className="w-4 h-4 text-purple-600" />
               </div>
               <div>
@@ -423,7 +423,7 @@ export default function ApiPlatformPage() {
           </Card>
           <Card className="p-4">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center">
+              <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center">
                 <DollarSign className="w-4 h-4 text-emerald-600" />
               </div>
               <div>
@@ -436,7 +436,7 @@ export default function ApiPlatformPage() {
           </Card>
           <Card className="p-4">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-amber-50 flex items-center justify-center">
+              <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center">
                 <KeyRound className="w-4 h-4 text-amber-600" />
               </div>
               <div>

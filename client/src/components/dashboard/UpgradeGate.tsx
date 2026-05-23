@@ -41,7 +41,7 @@ export default function UpgradeGate({ currentPlan, feature, featureLabel, childr
             padding: "2px 9px", borderRadius: 20, whiteSpace: "nowrap",
           }}
         >
-          <Lock size={8} /> {requiredPlan}
+          <Lock size={12} /> {requiredPlan}
         </Link>
       </div>
     );
@@ -75,7 +75,7 @@ export default function UpgradeGate({ currentPlan, feature, featureLabel, childr
             fontSize: 12, fontWeight: 700, textDecoration: "none",
           }}
         >
-          Upgrade <ArrowRight size={11} />
+          Upgrade <ArrowRight size={12} />
         </Link>
       </div>
     );
@@ -97,14 +97,14 @@ export default function UpgradeGate({ currentPlan, feature, featureLabel, childr
           background: "#FFFFFF", border: "1px solid #E2E8F0",
           display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
         }}>
-          <Lock size={17} color="#94A3B8" />
+          <Lock size={16} color="#94A3B8" />
         </div>
         <div>
           <div style={{ fontSize: 14, fontWeight: 700, color: "#0F172A", marginBottom: 3 }}>
             {featureLabel}
           </div>
           <div style={{ fontSize: 12, color: "#64748B", display: "flex", alignItems: "center", gap: 6 }}>
-            <Sparkles size={11} />
+            <Sparkles size={12} />
             Requires{" "}
             <span style={{
               fontWeight: 700, padding: "1px 7px", borderRadius: 12,
@@ -127,7 +127,7 @@ export default function UpgradeGate({ currentPlan, feature, featureLabel, childr
           whiteSpace: "nowrap", flexShrink: 0,
         }}
       >
-        Upgrade to {requiredPlan} <ArrowRight size={13} />
+        Upgrade to {requiredPlan} <ArrowRight size={12} />
       </Link>
     </div>
   );
@@ -144,9 +144,9 @@ export function PlanBadge({ plan }: { plan: string }) {
       background: styles.bg, color: styles.color, border: `1px solid ${styles.border}`,
       textTransform: "uppercase",
     }}>
-      {plan === "free" && <Lock size={9} />}
-      {plan === "pro" && <Sparkles size={9} />}
-      {plan === "elite" && <Sparkles size={9} />}
+      {plan === "free" && <Lock size={12} />}
+      {plan === "pro" && <Sparkles size={12} />}
+      {plan === "elite" && <Sparkles size={12} />}
       {(plan || "free").toUpperCase()}
     </span>
   );

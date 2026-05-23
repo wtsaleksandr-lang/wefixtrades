@@ -101,7 +101,7 @@ function StatCard({ label, value, icon: Icon, color }: {
           <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{label}</p>
           <p className="text-2xl font-semibold text-gray-900 mt-1">{value}</p>
         </div>
-        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${color}`}>
+        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${color}`}>
           <Icon className="w-4 h-4 text-white" />
         </div>
       </div>

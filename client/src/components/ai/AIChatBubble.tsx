@@ -787,7 +787,7 @@ export default function AIChatBubble({
                   userSelect: 'none',
                 }}
               >
-                <GripHorizontal size={18} />
+                <GripHorizontal size={20} />
               </div>
             )}
             <div>
@@ -806,7 +806,7 @@ export default function AIChatBubble({
                 aria-label="Clear conversation"
                 title="Clear conversation"
               >
-                <Trash2 size={13} />
+                <Trash2 size={12} />
               </button>
               <button
                 onClick={() => setIsOpen(false)}
@@ -943,7 +943,7 @@ export default function AIChatBubble({
                 data-testid="button-chat-send"
                 aria-label="Send message"
               >
-                {isLoading ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Send size={15} />}
+                {isLoading ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Send size={16} />}
               </button>
             </div>
             <div style={{ textAlign: 'center', marginTop: '6px', fontSize: '11px', color: '#9ca3af' }} data-testid="text-powered-by">

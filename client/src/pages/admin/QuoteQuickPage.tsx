@@ -285,7 +285,7 @@ export default function QuoteQuickPage() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 auto-rows-fr">
           <Card className="p-4">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center">
+              <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
                 <Calculator className="w-4 h-4 text-blue-600" />
               </div>
               <div>
@@ -296,7 +296,7 @@ export default function QuoteQuickPage() {
           </Card>
           <Card className="p-4">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-green-50 flex items-center justify-center">
+              <div className="w-8 h-8 rounded-lg bg-green-50 flex items-center justify-center">
                 <Eye className="w-4 h-4 text-green-600" />
               </div>
               <div>
@@ -307,7 +307,7 @@ export default function QuoteQuickPage() {
           </Card>
           <Card className="p-4">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-purple-50 flex items-center justify-center">
+              <div className="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center">
                 <Users className="w-4 h-4 text-purple-600" />
               </div>
               <div>
@@ -318,7 +318,7 @@ export default function QuoteQuickPage() {
           </Card>
           <Card className="p-4">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center">
+              <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center">
                 <Calculator className="w-4 h-4 text-emerald-600" />
               </div>
               <div>

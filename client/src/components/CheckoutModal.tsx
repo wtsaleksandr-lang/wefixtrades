@@ -181,7 +181,7 @@ export default function CheckoutModal({ open, onClose, title, items, bundleId, b
             onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.1)"; e.currentTarget.style.color = mkt.onDark; }}
             onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; e.currentTarget.style.color = mkt.textMuted; }}
           >
-            <X size={18} />
+            <X size={20} />
           </button>
         </div>
 
@@ -202,7 +202,7 @@ export default function CheckoutModal({ open, onClose, title, items, bundleId, b
             {items.map(item => (
               <div key={item.serviceId} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: mkt.text }}>
-                  <Check size={13} color={mkt.accent} strokeWidth={2.5} />
+                  <Check size={12} color={mkt.accent} strokeWidth={2.5} />
                   {item.label}
                 </div>
                 <span style={{ fontSize: 12, color: mkt.textMuted }}>

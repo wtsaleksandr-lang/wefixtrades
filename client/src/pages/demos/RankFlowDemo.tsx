@@ -222,7 +222,7 @@ function EmailGate({ onSubmit }: { onSubmit: () => void }) {
           margin: "0 auto 16px",
         }}
       >
-        <Lock size={22} color={mkt.accent} />
+        <Lock size={24} color={mkt.accent} />
       </div>
       <h3 style={{ fontSize: 20, fontWeight: 700, color: mkt.text, marginBottom: 8, letterSpacing: "-0.02em" }}>
         Get the full SEO report
@@ -407,7 +407,7 @@ export default function RankFlowDemo() {
                 marginBottom: 20,
               }}
             >
-              <Search size={13} color={mkt.accent} />
+              <Search size={12} color={mkt.accent} />
               <span style={{ fontSize: 12, fontWeight: 700, color: mkt.accent, letterSpacing: "0.04em" }}>
                 INSTANT SEO ANALYSIS
               </span>
@@ -563,7 +563,7 @@ export default function RankFlowDemo() {
                     animation: "scanPulse 2s ease infinite",
                   }}
                 >
-                  <Search size={28} color={mkt.accent} />
+                  <Search size={24} color={mkt.accent} />
                 </div>
 
                 <h3 style={{ fontSize: 18, fontWeight: 700, color: mkt.text, marginBottom: 8 }}>
@@ -686,7 +686,7 @@ export default function RankFlowDemo() {
                     gap: 8,
                   }}
                 >
-                  <Gauge size={18} color={mkt.accent} />
+                  <Gauge size={20} color={mkt.accent} />
                   Performance Scores
                 </h3>
                 <div
@@ -709,7 +709,7 @@ export default function RankFlowDemo() {
                     </div>
                     {result.mobile?.fcp !== null && (
                       <MetricRow
-                        icon={<Zap size={15} />}
+                        icon={<Zap size={16} />}
                         label="First Contentful Paint"
                         value={String(result.mobile?.fcp ?? result.desktop?.fcp ?? "--")}
                         unit="s"
@@ -718,7 +718,7 @@ export default function RankFlowDemo() {
                     )}
                     {result.mobile?.lcp !== null && (
                       <MetricRow
-                        icon={<Clock size={15} />}
+                        icon={<Clock size={16} />}
                         label="Largest Contentful Paint"
                         value={String(result.mobile?.lcp ?? result.desktop?.lcp ?? "--")}
                         unit="s"
@@ -727,7 +727,7 @@ export default function RankFlowDemo() {
                     )}
                     {result.mobile?.tbt !== null && (
                       <MetricRow
-                        icon={<Smartphone size={15} />}
+                        icon={<Smartphone size={16} />}
                         label="Total Blocking Time"
                         value={String(result.mobile?.tbt ?? result.desktop?.tbt ?? "--")}
                         unit="ms"
@@ -736,7 +736,7 @@ export default function RankFlowDemo() {
                     )}
                     {result.mobile?.cls !== null && (
                       <MetricRow
-                        icon={<Monitor size={15} />}
+                        icon={<Monitor size={16} />}
                         label="Cumulative Layout Shift"
                         value={String((result.mobile?.cls ?? result.desktop?.cls ?? 0).toFixed(3))}
                         unit=""
@@ -768,7 +768,7 @@ export default function RankFlowDemo() {
                     gap: 8,
                   }}
                 >
-                  <AlertTriangle size={18} color="#F7B430" />
+                  <AlertTriangle size={20} color="#F7B430" />
                   Top Issues Found
                 </h3>
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -825,7 +825,7 @@ export default function RankFlowDemo() {
                       gap: 8,
                     }}
                   >
-                    <TrendingUp size={18} color="#10B981" />
+                    <TrendingUp size={20} color="#10B981" />
                     Recommended Fixes
                   </h3>
                   <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>

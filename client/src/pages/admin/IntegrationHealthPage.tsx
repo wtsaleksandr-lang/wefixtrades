@@ -226,7 +226,7 @@ function ProbeRow({ row }: { row: ProbeResult }) {
   return (
     <div className="flex items-center gap-3 px-4 py-3">
       <span
-        className={`w-9 h-9 rounded-full ${meta.bg} ${meta.ink} ring-1 ${meta.ring} flex items-center justify-center flex-shrink-0`}
+        className={`w-8 h-8 rounded-full ${meta.bg} ${meta.ink} ring-1 ${meta.ring} flex items-center justify-center flex-shrink-0`}
       >
         <Icon className="w-4 h-4" />
       </span>
