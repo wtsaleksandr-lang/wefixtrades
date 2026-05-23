@@ -59,6 +59,7 @@ import {
 import FloatField from './FloatField';
 import InfoCue from './InfoCue';
 import RichTextField from './RichTextField';
+import { StyledSelect } from './StyledSelect';
 import {
   Shield, ShieldCheck, CheckCircle, Award,
   Star, ThumbsUp, BadgeCheck, Verified, ClipboardCheck, Clock,
@@ -898,18 +899,22 @@ export default function StyleTab({
               }}
               data-testid="style-booking-sub-fields"
             >
+              {/* CONFIG-NATIVE-SELECT-1 — was a native <select>; migrated to
+                  StyledSelect so the OS sheet stops covering the wizard on
+                  mobile. */}
               <FloatField label="Calendar source" htmlFor="qq-style-booking-source" variant="select">
-                <select
-                  id="qq-style-booking-source"
-                  className="premium-input"
+                <StyledSelect
                   value={bookingSource}
-                  data-testid="style-booking-source"
-                  onChange={(e) => setBooking({ source: e.target.value as AdvBookingSource })}
-                >
-                  <option value="wefixtrades-default">WeFixTrades default (built-in slots)</option>
-                  <option value="cal.com-url">Cal.com URL</option>
-                  <option value="calendly-url">Calendly URL</option>
-                </select>
+                  onChange={(next) => setBooking({ source: next as AdvBookingSource })}
+                  options={[
+                    { value: 'wefixtrades-default', label: 'WeFixTrades default (built-in slots)' },
+                    { value: 'cal.com-url', label: 'Cal.com URL' },
+                    { value: 'calendly-url', label: 'Calendly URL' },
+                  ]}
+                  title="Calendar source"
+                  ariaLabel="Calendar source"
+                  testId="style-booking-source"
+                />
               </FloatField>
               {(bookingSource === 'cal.com-url' || bookingSource === 'calendly-url') && (
                 <FloatField label="Scheduler URL" htmlFor="qq-style-booking-url">
@@ -1071,18 +1076,23 @@ export default function StyleTab({
           />
         </legend>
         <div className="qq-style-group-body">
+        {/* CONFIG-NATIVE-SELECT-1 — was a native <select> over the 9-entry
+            FONT_FAMILY_LABELS map; migrated to StyledSelect so the OS sheet
+            stops covering the wizard's typography section on mobile. The
+            list is small enough that we suppress the auto-search. */}
         <FloatField label="Font family" htmlFor="qq-style-font" variant="select">
-          <select
-            id="qq-style-font"
-            className="premium-input"
+          <StyledSelect
             value={fontFamily}
-            onChange={(e) => patch({ fontFamily: e.target.value as ShellFontFamily })}
-            data-testid="style-select-font"
-          >
-            {(Object.keys(FONT_FAMILY_LABELS) as ShellFontFamily[]).map((k) => (
-              <option key={k} value={k}>{FONT_FAMILY_LABELS[k]}</option>
-            ))}
-          </select>
+            onChange={(next) => patch({ fontFamily: next as ShellFontFamily })}
+            options={(Object.keys(FONT_FAMILY_LABELS) as ShellFontFamily[]).map((k) => ({
+              value: k,
+              label: FONT_FAMILY_LABELS[k],
+            }))}
+            title="Font family"
+            ariaLabel="Font family"
+            searchable={false}
+            testId="style-select-font"
+          />
         </FloatField>
 
         {/* W-AO-6b — typography depth. Heading weight, body weight, base
@@ -1442,21 +1452,25 @@ export default function StyleTab({
               }}
               data-testid="style-floating-launcher-sub-fields"
             >
+              {/* CONFIG-NATIVE-SELECT-1 — was a native <select>; migrated to
+                  StyledSelect so the OS sheet stops covering the wizard's
+                  floating-launcher section on mobile. */}
               <FloatField label="Corner" htmlFor="qq-style-floating-launcher-position" variant="select">
-                <select
-                  id="qq-style-floating-launcher-position"
-                  className="premium-input"
+                <StyledSelect
                   value={floatingPosition}
-                  data-testid="style-floating-launcher-position"
-                  onChange={(e) => setFloatingLauncher({
-                    position: e.target.value as AdvFloatingLauncherPosition,
+                  onChange={(next) => setFloatingLauncher({
+                    position: next as AdvFloatingLauncherPosition,
                   })}
-                >
-                  <option value="bottom-right">Bottom right (default)</option>
-                  <option value="bottom-left">Bottom left</option>
-                  <option value="top-right">Top right</option>
-                  <option value="top-left">Top left</option>
-                </select>
+                  options={[
+                    { value: 'bottom-right', label: 'Bottom right (default)' },
+                    { value: 'bottom-left', label: 'Bottom left' },
+                    { value: 'top-right', label: 'Top right' },
+                    { value: 'top-left', label: 'Top left' },
+                  ]}
+                  title="Launcher corner"
+                  ariaLabel="Launcher corner"
+                  testId="style-floating-launcher-position"
+                />
               </FloatField>
 
               {/* Pro-tier — custom icon upload. Mirrors the Branding logo
@@ -4165,19 +4179,22 @@ function TrustBadgesGroup({
                 // instead of overlaying.
                 expansionMode="inline"
               />
-              <select
-                className="premium-input"
-                aria-label="Badge icon"
-                data-testid={`style-trust-badge-icon-${i}`}
+              {/* CONFIG-NATIVE-SELECT-1 — was a native <select>; up to 8 of
+                  these render simultaneously on a single Trust badges panel,
+                  so the OS-sheet-covers-wizard bug was amplified here. */}
+              <StyledSelect
                 value={badge.icon}
-                onChange={(e) => update(i, { icon: e.target.value as TrustBadge['icon'] })}
+                onChange={(next) => update(i, { icon: next as TrustBadge['icon'] })}
+                options={TRUST_ICON_OPTIONS.map((o) => ({
+                  value: o.id,
+                  label: o.label,
+                  icon: <o.Icon size={14} aria-hidden="true" />,
+                }))}
+                title="Badge icon"
+                ariaLabel={`Badge icon for row ${i + 1}`}
                 disabled={!canEdit}
-                style={{ fontSize: 12, padding: '5px 8px' }}
-              >
-                {TRUST_ICON_OPTIONS.map((o) => (
-                  <option key={o.id} value={o.id}>{o.label}</option>
-                ))}
-              </select>
+                testId={`style-trust-badge-icon-${i}`}
+              />
               <button
                 type="button"
                 aria-label={`Move badge ${i + 1} up`}

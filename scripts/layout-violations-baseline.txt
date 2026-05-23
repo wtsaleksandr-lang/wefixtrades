@@ -111,25 +111,25 @@ client/src/components/ui/sidebar.tsx:269:7	rule-c	square w-7 h-7
 client/src/components/wizard/elfsight/AIBubble.tsx:790:42	rule-c	size={36}
 client/src/components/wizard/elfsight/HeaderResultsPanel.tsx:55:5	rule-b	<section> contains 2 cues
 client/src/components/wizard/elfsight/HostedPageSection.tsx:108:5	rule-b	<section> contains 4 cues
-client/src/components/wizard/elfsight/InstallTab.tsx:215:57	rule-b	<div> contains 4 cues
-client/src/components/wizard/elfsight/InstallTab.tsx:375:27	rule-c	size={11}
-client/src/components/wizard/elfsight/InstallTab.tsx:462:29	rule-c	size={13}
+client/src/components/wizard/elfsight/InstallTab.tsx:217:57	rule-b	<div> contains 4 cues
+client/src/components/wizard/elfsight/InstallTab.tsx:385:27	rule-c	size={11}
+client/src/components/wizard/elfsight/InstallTab.tsx:472:29	rule-c	size={13}
 client/src/components/wizard/elfsight/PreviewPane.tsx:1687:27	rule-c	size={26}
 client/src/components/wizard/elfsight/RichTextField.tsx:266:5	rule-b	<div> contains 2 cues
 client/src/components/wizard/elfsight/RichTextField.tsx:402:24	rule-c	size={13}
 client/src/components/wizard/elfsight/RichTextField.tsx:457:24	rule-c	size={13}
-client/src/components/wizard/elfsight/SettingsTab.tsx:155:49	rule-b	<fieldset> contains 12 cues
-client/src/components/wizard/elfsight/StyleTab.tsx:445:58	rule-b	<fieldset> contains 22 cues
-client/src/components/wizard/elfsight/StyleTab.tsx:656:31	rule-c	size={10}
-client/src/components/wizard/elfsight/StyleTab.tsx:2516:25	rule-c	size={10}
-client/src/components/wizard/elfsight/StyleTab.tsx:3515:23	rule-c	size={10}
-client/src/components/wizard/elfsight/StyleTab.tsx:3541:23	rule-c	size={10}
-client/src/components/wizard/elfsight/StyleTab.tsx:3560:21	rule-c	size={10}
-client/src/components/wizard/elfsight/StyleTab.tsx:4112:23	rule-c	size={10}
-client/src/components/wizard/elfsight/StyleTab.tsx:4182:28	rule-c	size={13}
-client/src/components/wizard/elfsight/StyleTab.tsx:4192:30	rule-c	size={13}
-client/src/components/wizard/elfsight/StyleTab.tsx:4205:24	rule-c	size={13}
-client/src/components/wizard/elfsight/StyleTab.tsx:4288:23	rule-c	size={10}
+client/src/components/wizard/elfsight/SettingsTab.tsx:156:49	rule-b	<fieldset> contains 12 cues
+client/src/components/wizard/elfsight/StyleTab.tsx:447:58	rule-b	<fieldset> contains 22 cues
+client/src/components/wizard/elfsight/StyleTab.tsx:664:31	rule-c	size={10}
+client/src/components/wizard/elfsight/StyleTab.tsx:2537:25	rule-c	size={10}
+client/src/components/wizard/elfsight/StyleTab.tsx:3536:23	rule-c	size={10}
+client/src/components/wizard/elfsight/StyleTab.tsx:3562:23	rule-c	size={10}
+client/src/components/wizard/elfsight/StyleTab.tsx:3581:21	rule-c	size={10}
+client/src/components/wizard/elfsight/StyleTab.tsx:4133:23	rule-c	size={10}
+client/src/components/wizard/elfsight/StyleTab.tsx:4206:28	rule-c	size={13}
+client/src/components/wizard/elfsight/StyleTab.tsx:4216:30	rule-c	size={13}
+client/src/components/wizard/elfsight/StyleTab.tsx:4229:24	rule-c	size={13}
+client/src/components/wizard/elfsight/StyleTab.tsx:4312:23	rule-c	size={10}
 client/src/components/wizard/elfsight/TemplateGallery.tsx:812:16	rule-c	size={18}
 client/src/components/wizard/elfsight/TemplateMockup.tsx:188:17	rule-c	size={11}
 client/src/config/product-mockups.tsx:63:29	rule-c	size={11}
@@ -321,11 +321,11 @@ client/src/pages/marketing/contact.tsx:91:28	rule-c	size={18}
 client/src/pages/marketing/contact.tsx:119:27	rule-c	size={18}
 client/src/pages/marketing/contact.tsx:148:28	rule-c	size={18}
 client/src/pages/marketing/contact.tsx:168:38	rule-c	size={18}
-client/src/pages/marketing/demo-template.tsx:249:17	rule-c	size={13}
-client/src/pages/marketing/demo-template.tsx:392:28	rule-c	size={15}
-client/src/pages/marketing/demo-template.tsx:426:30	rule-c	size={15}
-client/src/pages/marketing/demo-template.tsx:445:35	rule-c	size={13}
-client/src/pages/marketing/demo-template.tsx:459:28	rule-c	size={13}
+client/src/pages/marketing/demo-template.tsx:250:17	rule-c	size={13}
+client/src/pages/marketing/demo-template.tsx:393:28	rule-c	size={15}
+client/src/pages/marketing/demo-template.tsx:427:30	rule-c	size={15}
+client/src/pages/marketing/demo-template.tsx:446:35	rule-c	size={13}
+client/src/pages/marketing/demo-template.tsx:460:28	rule-c	size={13}
 client/src/pages/marketing/demo.tsx:94:25	rule-c	size={13}
 client/src/pages/marketing/demo.tsx:109:26	rule-c	size={13}
 client/src/pages/marketing/demo.tsx:133:20	rule-c	size={13}
