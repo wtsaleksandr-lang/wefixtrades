@@ -45,6 +45,7 @@ import InstallGuideModal, {
 import HostedPageSection from './HostedPageSection';
 import FloatField from './FloatField';
 import InfoCue from './InfoCue';
+import { StyledSelect } from './StyledSelect';
 
 const p = platformTheme;
 const d = dashboardTheme;
@@ -613,18 +614,22 @@ export default function InstallTab({
               infoText="Which corner the launcher icon docks into. If the AI chat bubble lives in the same corner, the launcher automatically offsets 72px clear so the two affordances never overlap."
               infoTestid="install-embed-mode-position"
             >
-              <select
-                id="qq-install-embed-position"
-                className="premium-input"
+              {/* CONFIG-NATIVE-SELECT-1 — was a native <select>; migrated to
+                  StyledSelect so the OS sheet stops covering the wizard's
+                  install panel on mobile. */}
+              <StyledSelect
                 value={embedPosition}
-                data-testid="install-embed-mode-position"
-                onChange={(e) => setEmbedPosition(e.target.value as AdvFloatingLauncherPosition)}
-              >
-                <option value="bottom-right">Bottom right (default)</option>
-                <option value="bottom-left">Bottom left</option>
-                <option value="top-right">Top right</option>
-                <option value="top-left">Top left</option>
-              </select>
+                onChange={(next) => setEmbedPosition(next as AdvFloatingLauncherPosition)}
+                options={[
+                  { value: 'bottom-right', label: 'Bottom right (default)' },
+                  { value: 'bottom-left', label: 'Bottom left' },
+                  { value: 'top-right', label: 'Top right' },
+                  { value: 'top-left', label: 'Top left' },
+                ]}
+                title="Launcher corner"
+                ariaLabel="Launcher corner"
+                testId="install-embed-mode-position"
+              />
             </FloatField>
           </div>
         )}
