@@ -290,7 +290,7 @@ function EditSequenceDialog({ sequence, open, onClose }: { sequence: Sequence | 
             {sequence.name}
             {sequence.ai_personalize && (
               <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border border-purple-300 text-purple-700">
-                <Sparkles className="w-2.5 h-2.5" />
+                <Sparkles className="w-3 h-3" />
                 AI: enabled
               </span>
             )}

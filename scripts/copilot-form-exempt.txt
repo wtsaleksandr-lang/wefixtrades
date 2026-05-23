@@ -46,7 +46,6 @@ client/src/pages/admin/TradelineSetupsPage.tsx
 client/src/pages/admin/TradelineTemplatesPage.tsx
 client/src/pages/admin/outbound/CampaignsPage.tsx
 client/src/pages/admin/outbound/PipelinePage.tsx
-client/src/pages/admin/outbound/ProspectsPage.tsx
 
 # ── Admin: deliberately excluded — password / credential form ──
 client/src/pages/admin/ChangePasswordPage.tsx
