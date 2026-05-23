@@ -11,6 +11,7 @@
     "check": "tsc",
     "check:copilot-forms": "node scripts/check-copilot-forms.mjs",
     "check:hardcoded-colors": "node scripts/check-hardcoded-colors.mjs",
+    "check:layout-rules": "node scripts/check-layout-rules.mjs",
     "check:migrations": "node scripts/check-migrations-safe.mjs",
     "check:database-url": "node scripts/check-database-url.mjs",
     "smoke:quick": "tsx script/smoke.ts",
