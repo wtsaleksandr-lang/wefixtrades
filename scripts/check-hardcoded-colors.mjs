@@ -194,6 +194,13 @@ function scanFile(absPath) {
   const lines = src.split(/\r?\n/);
   const isCss = absPath.endsWith(".css");
   const violations = [];
+  // `lines` is produced via /\r?\n/ split, so the per-line content excludes
+  // the line terminator. When reconstructing absolute character offsets into
+  // `src` (for isInsideJsxThemeScope) we must add the actual terminator
+  // length: 2 bytes on CRLF files, 1 on LF. Detecting once per file is fine
+  // because mixed endings are rare and would only undershoot by ≤1 byte,
+  // which the heuristic tolerates.
+  const eolLen = src.includes("\r\n") ? 2 : 1;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -213,7 +220,7 @@ function scanFile(absPath) {
         ? isInsideCssThemeBlock(lines, i, col + 1)
         : isInsideJsxThemeScope(
             src,
-            lines.slice(0, i).reduce((a, l) => a + l.length + 1, 0) + col,
+            lines.slice(0, i).reduce((a, l) => a + l.length + eolLen, 0) + col,
           );
       if (!guarded) {
         violations.push({
@@ -245,7 +252,7 @@ function scanFile(absPath) {
         if (!looksLikeClass) continue;
         const guarded = isInsideJsxThemeScope(
           src,
-          lines.slice(0, i).reduce((a, l) => a + l.length + 1, 0) + col,
+          lines.slice(0, i).reduce((a, l) => a + l.length + eolLen, 0) + col,
         );
         if (!guarded) {
           violations.push({
