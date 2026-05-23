@@ -27,7 +27,8 @@
     "test:crm:regression": "npx playwright test tests/e2e/admin-crm/admin-crm.regression.spec.ts",
     "seed:test-portal-client": "tsx scripts/seed-test-portal-client.ts",
     "record:google-verification": "npx playwright test --config scripts/google-verification/playwright.config.ts",
-    "thumbnails": "tsx scripts/generate-template-thumbnails.ts"
+    "thumbnails": "tsx scripts/generate-template-thumbnails.ts",
+    "previews:free-tools": "tsx scripts/generate-free-tool-previews.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.95.1",
