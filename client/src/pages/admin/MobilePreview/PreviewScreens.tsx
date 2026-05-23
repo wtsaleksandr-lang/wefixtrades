@@ -10,7 +10,7 @@
  * page. Mocked state — no real backend calls.
  */
 
-import { type ReactNode, useState } from "react";
+import React, { type ReactNode, useState } from "react";
 
 /* ─── Shared primitives (tiny re-implementations of mobile primitives) ─── */
 
@@ -72,9 +72,7 @@ export function LoginScreen({ onSignIn }: { onSignIn: () => void }) {
   return (
     <ScreenContainer>
       <Section>
-        <div className="w-12 h-12 rounded-xl bg-indigo-100 flex items-center justify-center mb-1">
-          <Caption>WFT</Caption>
-        </div>
+        <img src="/brand/icon.svg" alt="WeFixTrades" className="w-8 h-8 mb-1" />
         <H1>Welcome back</H1>
         <Body muted>Sign in with your WeFixTrades credentials.</Body>
       </Section>
@@ -301,6 +299,10 @@ export function CallsScreen({ state }: { state?: ActivityState<PreviewCall> }) {
   const usingSample = !isLoading && !isError && realItems.length === 0;
   const items = usingSample ? SAMPLE_CALLS : realItems;
 
+  const [dialerOpen, setDialerOpen] = useState(false);
+  const [dialerInput, setDialerInput] = useState("");
+  const dialerKeys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"];
+
   return (
     <ScreenContainer>
       <Section>
@@ -334,11 +336,62 @@ export function CallsScreen({ state }: { state?: ActivityState<PreviewCall> }) {
                       </div>
                       <CallStatusBadge status={c.status} direction={c.direction} />
                     </div>
+                    <div className="mt-3 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => { /* mocked tap-to-call */ }}
+                        className="text-[12px] font-semibold border border-indigo-600 text-indigo-600 bg-white rounded-md px-3 py-1.5 active:opacity-80 transition-opacity"
+                      >
+                        <span aria-hidden>📞</span> Call back
+                      </button>
+                    </div>
                   </Card>
                 );
               })}
             </div>
           </>
+        )}
+      </Section>
+      <Section>
+        <Button variant="outline" onClick={() => setDialerOpen((v) => !v)}>
+          {dialerOpen ? "Close dialer" : "+ New call"}
+        </Button>
+        {dialerOpen && (
+          <Card>
+            <Caption>Dialer</Caption>
+            <div className="mt-1.5 mb-3 text-[20px] font-semibold text-gray-900 min-h-[28px]" data-testid="dialer-input">
+              {dialerInput || <span className="text-gray-400">Enter a number</span>}
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {dialerKeys.map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => setDialerInput((s) => s + k)}
+                  className="h-12 rounded-md border border-gray-200 bg-white text-[18px] font-semibold text-gray-900 active:opacity-80 transition-opacity"
+                >
+                  {k}
+                </button>
+              ))}
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setDialerInput("")}
+                className="h-12 rounded-md border border-gray-200 bg-white text-[14px] font-semibold text-gray-700 active:opacity-80 transition-opacity"
+              >
+                Clear
+              </button>
+              <button
+                type="button"
+                onClick={() => { /* mocked place-call */ }}
+                disabled={!dialerInput}
+                className="h-12 rounded-md bg-indigo-600 text-white text-[14px] font-semibold disabled:opacity-40 active:opacity-80 transition-opacity"
+              >
+                <span aria-hidden>📞</span> Call
+              </button>
+            </div>
+          </Card>
         )}
       </Section>
     </ScreenContainer>
@@ -351,6 +404,8 @@ export function MessagesScreen({ state }: { state?: ActivityState<PreviewMessage
   const realItems = state?.items ?? [];
   const usingSample = !isLoading && !isError && realItems.length === 0;
   const items = usingSample ? SAMPLE_MESSAGES : realItems;
+
+  const [draft, setDraft] = useState("");
 
   return (
     <ScreenContainer>
@@ -392,6 +447,26 @@ export function MessagesScreen({ state }: { state?: ActivityState<PreviewMessage
             </div>
           </>
         )}
+      </Section>
+      <Section>
+        <div className="flex items-end gap-2">
+          <input
+            type="text"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder="Type a reply…"
+            aria-label="Message compose"
+            className="flex-1 h-12 px-3 rounded-[10px] border border-gray-200 bg-white text-[16px] text-gray-900 focus:outline-none focus:border-indigo-500"
+          />
+          <button
+            type="button"
+            onClick={() => { /* mocked send */ setDraft(""); }}
+            disabled={!draft.trim()}
+            className="h-12 px-4 rounded-[10px] bg-indigo-600 text-white text-[14px] font-semibold disabled:opacity-40 active:opacity-80 transition-opacity"
+          >
+            Send
+          </button>
+        </div>
       </Section>
     </ScreenContainer>
   );
@@ -453,8 +528,13 @@ export function SettingsScreen({ onSignOut }: { onSignOut: () => void }) {
       </Section>
       <Section>
         <Card>
-          <H2>Demo User</H2>
-          <Body muted>you@wefixtrades.com</Body>
+          <div className="flex items-center gap-3 mb-2">
+            <img src="/brand/icon.svg" alt="WeFixTrades" className="w-8 h-8" />
+            <div className="min-w-0">
+              <H2>Demo User</H2>
+              <Body muted>you@wefixtrades.com</Body>
+            </div>
+          </div>
           <div className="mt-2">
             <Caption>Business</Caption>
             <Body>Demo Plumbing & Drains</Body>
@@ -473,15 +553,193 @@ export function SettingsScreen({ onSignOut }: { onSignOut: () => void }) {
   );
 }
 
+/* ─── Ask (AI assistant) screen ─── */
+
+const ASK_SUGGESTIONS = [
+  "Summarize last call",
+  "Draft a follow-up",
+  "Find unpaid jobs",
+];
+
+interface AskMessageStub {
+  id: number;
+  role: "user" | "assistant";
+  text: string;
+}
+
+const ASK_MESSAGES: AskMessageStub[] = [
+  { id: 1, role: "user", text: "What did Sarah at 647-555-0118 call about earlier?" },
+  {
+    id: 2,
+    role: "assistant",
+    text: "Sarah called at 11:48am about an emergency drain unclog. She's in M5V 2H1 and asked about weekend availability — you replied confirming same-day service.",
+  },
+];
+
+export function AskScreen() {
+  const [draft, setDraft] = useState("");
+  return (
+    <ScreenContainer>
+      <Section>
+        <div className="flex items-center gap-3">
+          <img src="/brand/icon.svg" alt="WeFixTrades" className="w-8 h-8" />
+          <div className="min-w-0">
+            <Caption>Assistant</Caption>
+            <H1>Ask</H1>
+          </div>
+        </div>
+        <Body muted>Same context as your WeFixTrades dashboard. Mocked here.</Body>
+      </Section>
+      <Section>
+        <Caption>Try</Caption>
+        <div className="flex flex-wrap gap-2">
+          {ASK_SUGGESTIONS.map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => setDraft(s)}
+              className="text-[13px] font-medium border border-gray-200 bg-white text-gray-900 rounded-full px-3 py-1.5 active:opacity-80 transition-opacity"
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      </Section>
+      <Section>
+        <div className="space-y-2">
+          {ASK_MESSAGES.map((m) => {
+            const isUser = m.role === "user";
+            return (
+              <div key={m.id} className={`flex ${isUser ? "justify-end" : "justify-start"} gap-2 items-start`}>
+                {!isUser && (
+                  <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center shrink-0" aria-hidden>
+                    <span className="text-[14px]">✨</span>
+                  </div>
+                )}
+                <div
+                  className={`max-w-[80%] px-3 py-2 rounded-2xl ${
+                    isUser
+                      ? "bg-indigo-600 text-white rounded-br-sm"
+                      : "bg-white border border-gray-200 text-gray-900 rounded-bl-sm"
+                  }`}
+                >
+                  <p className="text-[15px] leading-[22px]">{m.text}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </Section>
+      <Section>
+        <div className="flex items-end gap-2">
+          <button
+            type="button"
+            onClick={() => { /* mocked attach */ }}
+            aria-label="Attach photo"
+            className="w-8 h-8 rounded-full border border-gray-200 bg-white text-[14px] active:opacity-80 transition-opacity"
+          >
+            📷
+          </button>
+          <input
+            type="text"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder="Ask about a customer, a job, an estimate…"
+            aria-label="Ask the assistant"
+            className="flex-1 h-11 px-3 rounded-full border border-gray-200 bg-white text-[15px] text-gray-900 focus:outline-none focus:border-indigo-500"
+          />
+          <button
+            type="button"
+            onClick={() => { /* mocked mic */ }}
+            aria-label="Record voice note"
+            className="w-8 h-8 rounded-full border border-gray-200 bg-white text-[14px] active:opacity-80 transition-opacity"
+          >
+            🎤
+          </button>
+        </div>
+      </Section>
+    </ScreenContainer>
+  );
+}
+
+/* ─── Voicemail screen ─── */
+
+interface VoicemailStub {
+  id: number;
+  caller: string;
+  duration: string;
+  preview: string;
+}
+
+const SAMPLE_VOICEMAILS: VoicemailStub[] = [
+  {
+    id: 1,
+    caller: "Sarah · Plumbing lead",
+    duration: "0m 42s",
+    preview: "Hi, my kitchen sink is backing up and I need someone today if possible…",
+  },
+  {
+    id: 2,
+    caller: "Marcus · ETA question",
+    duration: "0m 18s",
+    preview: "Just checking the ETA for the Tuesday job — any earlier slot opened up?",
+  },
+  {
+    id: 3,
+    caller: "Unknown · 555-0188",
+    duration: "1m 05s",
+    preview: "Hi, I got your number from a neighbour. Wondering if you do hot-water tank installs…",
+  },
+];
+
+export function VoicemailScreen() {
+  return (
+    <ScreenContainer>
+      <Section>
+        <Caption>Inbox</Caption>
+        <H1>Voicemail</H1>
+        <Body muted>Customers who left a message while you were busy.</Body>
+      </Section>
+      <Section>
+        <div className="space-y-3">
+          {SAMPLE_VOICEMAILS.map((vm) => (
+            <Card key={vm.id}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <H2>{vm.caller}</H2>
+                  <Body muted>{vm.duration}</Body>
+                  <div className="mt-1.5">
+                    <Body>{vm.preview}</Body>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { /* mocked playback */ }}
+                  aria-label="Play voicemail"
+                  className="w-8 h-8 rounded-full bg-indigo-600 text-white text-[14px] flex items-center justify-center shrink-0 active:opacity-80 transition-opacity"
+                >
+                  ▶
+                </button>
+              </div>
+            </Card>
+          ))}
+        </div>
+      </Section>
+    </ScreenContainer>
+  );
+}
+
 /* ─── Bottom tab bar ─── */
 
-export type TabKey = "calls" | "messages" | "duty" | "settings";
+export type TabKey = "calls" | "ask" | "voicemail" | "messages" | "duty" | "settings";
 
 const TABS: Array<{ key: TabKey; label: string; glyph: string }> = [
   { key: "calls", label: "Calls", glyph: "📞" },
+  { key: "ask", label: "Ask", glyph: "✨" },
+  { key: "voicemail", label: "Voicemail", glyph: "📨" },
   { key: "messages", label: "Messages", glyph: "💬" },
-  { key: "duty", label: "Duty", glyph: "⚡" },
-  { key: "settings", label: "Settings", glyph: "⚙️" },
+  { key: "duty", label: "Duty", glyph: "🟢" },
+  { key: "settings", label: "Settings", glyph: "⚙" },
 ];
 
 export function TabBar({ active, onChange }: { active: TabKey; onChange: (k: TabKey) => void }) {
@@ -493,10 +751,14 @@ export function TabBar({ active, onChange }: { active: TabKey; onChange: (k: Tab
           <button
             key={t.key}
             onClick={() => onChange(t.key)}
-            className={`flex-1 flex flex-col items-center justify-center gap-0.5 ${isActive ? "text-indigo-600" : "text-gray-500"}`}
+            className={`flex-1 flex flex-col items-center justify-center gap-0.5 ${
+              isActive
+                ? "text-indigo-600 bg-indigo-50"
+                : "text-gray-500"
+            }`}
           >
-            <span className="text-[20px] leading-[22px]">{t.glyph}</span>
-            <span className="text-[11px] font-semibold">{t.label}</span>
+            <span className="text-[18px] leading-[20px]">{t.glyph}</span>
+            <span className="text-[10px] font-semibold">{t.label}</span>
           </button>
         );
       })}

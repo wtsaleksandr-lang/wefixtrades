@@ -21,13 +21,15 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import AdminLayout from "@/components/admin/AdminLayout";
-import { Smartphone, Monitor, RotateCcw, RefreshCw } from "lucide-react";
+import { Monitor, RotateCcw, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PhoneFrame } from "./PhoneFrame";
 import {
   LoginScreen,
   CallsScreen,
+  AskScreen,
+  VoicemailScreen,
   MessagesScreen,
   DutyScreen,
   SettingsScreen,
@@ -83,6 +85,8 @@ export default function MobilePreviewPage() {
     };
     const tabScreen =
       activeTab === "calls" ? <CallsScreen state={callsState} /> :
+      activeTab === "ask" ? <AskScreen /> :
+      activeTab === "voicemail" ? <VoicemailScreen /> :
       activeTab === "messages" ? <MessagesScreen state={messagesState} /> :
       activeTab === "duty" ? <DutyScreen currentMode={dutyMode} onSelect={setDutyMode} /> :
       <SettingsScreen onSignOut={() => setAuth("anonymous")} />;
@@ -106,7 +110,7 @@ export default function MobilePreviewPage() {
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-              <Smartphone className="w-6 h-6 text-indigo-600" />
+              <img src="/brand/icon.svg" alt="WeFixTrades" className="w-6 h-6" />
               Mobile App Preview
             </h1>
             <p className="text-sm text-gray-600 mt-0.5">
@@ -184,8 +188,13 @@ export default function MobilePreviewPage() {
           <h3 className="text-sm font-semibold text-gray-900 mb-2">What this preview covers</h3>
           <ul className="text-xs text-gray-600 space-y-1 list-disc list-inside">
             <li>Login → tab navigator transition (click "Sign in")</li>
+            <li>Six-tab parity with the softphone RN app: Calls, Ask, Voicemail, Messages, Duty, Settings</li>
             <li>Duty mode toggle with all three states (available / on_the_job / after_hours)</li>
             <li>Calls + Messages tabs show the 5 most recent rows from <code>mobile_call_records</code> and <code>sms_messages</code> (auto-refresh every 30s, manual refresh button)</li>
+            <li>Calls tab includes per-row "Call back" buttons and a "+ New call" dialer launcher with number pad</li>
+            <li>Messages tab includes a bottom compose bar (input + Send)</li>
+            <li>Ask tab shows assistant header, suggestion chips, sample thread, and a composer with mic/camera glyphs</li>
+            <li>Voicemail tab lists callers with duration + transcript preview + play button</li>
             <li>Settings → sign-out flow (returns to login)</li>
             <li>iPhone Dynamic Island + home indicator, Android punch-hole + nav bar</li>
           </ul>
@@ -193,6 +202,9 @@ export default function MobilePreviewPage() {
           <ul className="text-xs text-gray-600 space-y-1 list-disc list-inside">
             <li>No real auth — clicking "Sign in" jumps straight to the tabs</li>
             <li>Duty toggle is local state — doesn't hit <code>/api/mobile/duty</code></li>
+            <li>Ask thread, suggestion chips, and the mic/camera glyphs are static — no AI calls, no recording, no upload</li>
+            <li>Voicemail rows are static — no audio playback</li>
+            <li>Dialer keypad + "Call back" + SMS Send buttons are stubbed — no Twilio calls or SMS go out</li>
             <li>Profile data is hardcoded (Demo User / Demo Plumbing &amp; Drains)</li>
             <li>If the DB has no calls/SMS yet, Calls + Messages fall back to clearly-marked sample rows</li>
           </ul>
