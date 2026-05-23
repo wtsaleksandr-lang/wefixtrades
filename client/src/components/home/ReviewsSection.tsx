@@ -1,6 +1,7 @@
 import { Link } from "wouter";
 import { Star } from "lucide-react";
 import { mkt } from "@/theme/tokens";
+import { HorizontalCarousel } from "@/components/marketing/HorizontalCarousel";
 
 /**
  * Customer testimonials. Wave L H3 — stripped all "pilot program" / "early
@@ -134,32 +135,29 @@ export default function ReviewsSection() {
       }}
     >
       <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-        <div className="text-center mb-3 sm:mb-5">
-          {/* Wave AE — removed the duplicate eyebrow pill that repeated the
-             exact "What customers say" text in both the small label and the
-             H2. The H2 alone serves as the section title; the pill was a
-             visual stutter rather than a useful category cue. */}
-          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight leading-tight" style={{ color: mkt.onDark }}>
-            What customers say
-          </h2>
-          {/* Wave L H3 — subtitle removed. The section title alone is enough;
-           * the old pilot-program subtitle implied we were new/unproven. */}
-        </div>
-
-        <div
-          className="reviews-grid reviews-grid--scroll qq-fade-scroll-row"
-          style={{
+        {/* Carousel header bar — heading on the left, prev/next arrows on
+         * the right (same arrows used on the blog page + per-product
+         * Reviews row). The row keeps its scroll-snap + edge-bleed
+         * margins via HorizontalCarousel's rowStyle prop so the visual
+         * doesn't regress vs. the pre-carousel layout. */}
+        <HorizontalCarousel
+          arrowTheme="dark"
+          rowClassName="reviews-grid reviews-grid--scroll"
+          data-testid="reviews-carousel"
+          heading={
+            <h2
+              className="text-3xl sm:text-4xl font-extrabold tracking-tight leading-tight"
+              style={{ color: mkt.onDark, margin: 0 }}
+            >
+              What customers say
+            </h2>
+          }
+          rowStyle={{
             /* Wave AE — horizontal scroller (was a vertical grid that grew
                into a "long sheet" as more reviews landed). Each card snaps
                to the start of the scroll port; cards keep a generous fixed
                width so two are visible on desktop and the next peeks in. */
-            display: "flex",
-            flexDirection: "row",
             gap: "clamp(10px, 2vw, 16px)",
-            overflowX: "auto",
-            overflowY: "hidden",
-            scrollSnapType: "x mandatory",
-            WebkitOverflowScrolling: "touch",
             paddingBottom: 6,
             /* Negative side margins so the scroller can bleed into the
                container padding on mobile and feel edge-aligned. */
@@ -221,7 +219,7 @@ export default function ReviewsSection() {
               </p>
             </div>
           ))}
-        </div>
+        </HorizontalCarousel>
 
         {/* Wave L H3 — CTA row. Wave G mobile-fit pattern: flex:1 + min-w:0 +
          * shrink labels so both CTAs sit on a single line on small screens. */}
