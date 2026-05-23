@@ -184,6 +184,9 @@ import PortalApiAccessPage from "@/pages/portal/PortalApiAccessPage";
 import PortalBrandKitsPage from "@/pages/portal/PortalBrandKitsPage";
 import FreeToolsIndex from "@/pages/portal/FreeTools";
 import SchemaGenerator from "@/pages/portal/FreeTools/SchemaGenerator";
+import FaqWidget from "@/pages/portal/FreeTools/FaqWidget";
+import HoursWidget from "@/pages/portal/FreeTools/HoursWidget";
+import TrustBadges from "@/pages/portal/FreeTools/TrustBadges";
 import InternalTemplateRender from "@/pages/InternalTemplateRender";
 
 /**
@@ -327,6 +330,9 @@ function Router() {
       <Route path="/portal/brand-kits">{() => <RequireClient><PortalBrandKitsPage /></RequireClient>}</Route>
       {/* Free Tools — foundation wave (index + Schema Generator) */}
       <Route path="/portal/free-tools/schema">{() => <RequireClient><SchemaGenerator /></RequireClient>}</Route>
+      <Route path="/portal/free-tools/faq">{() => <RequireClient><FaqWidget /></RequireClient>}</Route>
+      <Route path="/portal/free-tools/hours">{() => <RequireClient><HoursWidget /></RequireClient>}</Route>
+      <Route path="/portal/free-tools/trust-badges">{() => <RequireClient><TrustBadges /></RequireClient>}</Route>
       <Route path="/portal/free-tools">{() => <RequireClient><FreeToolsIndex /></RequireClient>}</Route>
       <Route path="/portal/help">{() => <RequireClient><PortalHelp /></RequireClient>}</Route>
       <Route path="/portal/chat-history">{() => <RequireClient><PortalChatHistoryPage /></RequireClient>}</Route>

@@ -42,6 +42,8 @@ import { registerAdminOutboundRoutes } from "./adminOutboundRoutes";
 import { registerAdminOutreachSequencesRoutes } from "./adminOutreachSequencesRoutes";
 import { registerReviewPublicRoutes } from "./reviewPublicRoutes";
 import { registerWidgetRoutes } from "./widgetRoutes";
+import { registerWidgetFreetoolsRoutes } from "./widgetFreetoolsRoutes";
+import { registerPortalFreetoolsRoutes } from "./portalFreetoolsRoutes";
 import { registerMapguardRoutes } from "./mapguardRoutes";
 import { registerSocialSyncRoutes } from "./socialSyncRoutes";
 import { registerReputationRoutes } from "./reputationRoutes";
@@ -153,6 +155,8 @@ export async function registerRoutes(
   registerMediaRoute(app);
   registerReviewPublicRoutes(app);
   registerWidgetRoutes(app);
+  registerWidgetFreetoolsRoutes(app);
+  registerPortalFreetoolsRoutes(app);
   registerRankFlowRoutes(app);
   registerContentFlowRoutes(app);
   registerEmailChartsRoute(app);

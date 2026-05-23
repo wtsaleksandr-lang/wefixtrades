@@ -114,12 +114,41 @@ export const clients = pgTable("clients", {
   // passes and emails the trade.
   trial_pro_expires_at: timestamp("trial_pro_expires_at", { withTimezone: true }),
   trial_pro_features_enabled: boolean("trial_pro_features_enabled").notNull().default(false),
+  // Free-tools batch 1 — per-client business hours + holiday overrides used by
+  // the Hours widget and surfaced read-only via /api/widget/:token/hours.
+  // business_hours: { tz, mon:{open,opens,closes}, ... sun:{...} }
+  // special_hours: array of { date:"YYYY-MM-DD", closed?:true, opens?, closes? }
+  business_hours: jsonb("business_hours"),
+  special_hours: jsonb("special_hours"),
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
 });
 export const insertClientSchema = createInsertSchema(clients).omit({ id: true, created_at: true, updated_at: true });
 export type InsertClient = z.infer<typeof insertClientSchema>;
 export type Client = typeof clients.$inferSelect;
+
+/* ─── Free-tools batch 1: FAQ + Trust Badges ─── */
+export const clientFaqItems = pgTable("client_faq_items", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  client_id: integer("client_id").notNull().references(() => clients.id, { onDelete: "cascade" }),
+  position: integer("position").notNull().default(0),
+  question: text("question").notNull(),
+  answer: text("answer").notNull(),
+  published: boolean("published").notNull().default(true),
+  created_at: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updated_at: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+export type ClientFaqItem = typeof clientFaqItems.$inferSelect;
+export const insertClientFaqItemSchema = createInsertSchema(clientFaqItems).omit({ id: true, created_at: true, updated_at: true });
+export type InsertClientFaqItem = z.infer<typeof insertClientFaqItemSchema>;
+
+export const clientTrustBadges = pgTable("client_trust_badges", {
+  client_id: integer("client_id").primaryKey().references(() => clients.id, { onDelete: "cascade" }),
+  // array of { slug, label, proofUrl?, valueText? }
+  badges: jsonb("badges").notNull().default(sql`'[]'::jsonb`),
+  updated_at: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+export type ClientTrustBadges = typeof clientTrustBadges.$inferSelect;
 
 /* ─── Client Services ─── */
 export const clientServices = pgTable("client_services", {

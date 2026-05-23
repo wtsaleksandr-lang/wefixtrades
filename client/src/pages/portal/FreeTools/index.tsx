@@ -53,7 +53,8 @@ const TOOLS: Tool[] = [
     description:
       "Embed a styled accordion of Q&As with SEO schema baked in.",
     icon: HelpCircle,
-    status: "coming-soon",
+    status: "available",
+    href: "/portal/free-tools/faq",
   },
   {
     slug: "hours",
@@ -61,7 +62,8 @@ const TOOLS: Tool[] = [
     description:
       "Drop-in business hours panel — auto-shows open/closed status.",
     icon: Clock,
-    status: "coming-soon",
+    status: "available",
+    href: "/portal/free-tools/hours",
   },
   {
     slug: "trust-badges",
@@ -69,7 +71,8 @@ const TOOLS: Tool[] = [
     description:
       "Licensed, insured, BBB-style badges that build instant credibility.",
     icon: ShieldCheck,
-    status: "coming-soon",
+    status: "available",
+    href: "/portal/free-tools/trust-badges",
   },
   {
     slug: "service-area-map",

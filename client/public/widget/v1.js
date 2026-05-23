@@ -9,10 +9,11 @@
 (function () {
   "use strict";
 
-  if (window.__wefixtradesWidgetLoaded) return;
-  window.__wefixtradesWidgetLoaded = true;
-
-  // Find the loader script tag and read data-site-key
+  // Find the loader script tag(s). We may be called multiple times when the
+  // host page embeds the v1 loader for several different tools — once for
+  // the TradeLine chat, again for a FAQ widget, etc. Each invocation now
+  // dispatches on the script tag's data-tool attribute. The chat-only
+  // singleton guard runs INSIDE the chat branch below.
   var scripts = document.getElementsByTagName("script");
   var thisScript = null;
   for (var i = scripts.length - 1; i >= 0; i--) {
@@ -26,14 +27,43 @@
   var siteKey = thisScript.getAttribute("data-site-key");
   if (!siteKey || !/^[a-f0-9]{32}$/.test(siteKey)) return;
 
-  // Resolve API origin from the script src
-  var apiBase;
+  // Resolve the origin once (used by both dispatch + chat branches).
+  var __apiBase;
   try {
-    var u = new URL(thisScript.src);
-    apiBase = u.protocol + "//" + u.host;
+    var __u = new URL(thisScript.src);
+    __apiBase = __u.protocol + "//" + __u.host;
   } catch (e) {
-    apiBase = "";
+    __apiBase = "";
   }
+
+  // ── Free-tools dispatcher ────────────────────────────────────────────
+  // If data-tool is one of the free-tool widgets, load the matching
+  // sub-script (faq.js / hours.js / badges.js) and bail. The sub-script
+  // self-locates the script tag via document.currentScript and renders.
+  var __tool = (thisScript.getAttribute("data-tool") || "").toLowerCase();
+  if (__tool === "faq" || __tool === "hours" || __tool === "badges") {
+    // Stash context so the sub-script can find it without re-parsing.
+    var __ctxKey = "__WFT_WIDGET_CTX_" + __tool;
+    window[__ctxKey] = window[__ctxKey] || [];
+    window[__ctxKey].push({
+      siteKey: siteKey,
+      target: thisScript.getAttribute("data-target") || null,
+      script: thisScript,
+      apiBase: __apiBase,
+    });
+    var __sub = document.createElement("script");
+    __sub.src = __apiBase + "/widget/" + __tool + ".js";
+    __sub.async = true;
+    document.head.appendChild(__sub);
+    return;
+  }
+
+  // ── TradeLine chat (default / backward-compat) ───────────────────────
+  if (window.__wefixtradesWidgetLoaded) return;
+  window.__wefixtradesWidgetLoaded = true;
+
+  // Reuse the API base resolved above for the chat-specific fetch calls.
+  var apiBase = __apiBase;
 
   function ready(fn) {
     if (document.readyState === "loading") {
