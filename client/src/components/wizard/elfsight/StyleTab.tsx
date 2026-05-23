@@ -1939,6 +1939,31 @@ export default function StyleTab({
           background: rgba(220,38,38,0.12);
           border-color: rgba(220,38,38,0.40);
         }
+        /* AUDIT M4 — range-pricing suggestion banner. Was inline-styled with
+         * hardcoded #0d3cfc / #eff6ff / #1e3a8a. Extracted to a class with a
+         * dark-mode override so it reads correctly in both editor themes. */
+        .qq-style-suggest-banner {
+          display: flex; align-items: flex-start; gap: 8px;
+          margin-top: 10px; margin-bottom: 2px;
+          padding: 12px;
+          border-left: 4px solid ${p.colors.accent};
+          background: ${p.colors.accentLighter};
+          border-radius: 4px;
+          font-size: 12px; line-height: 1.5;
+          color: ${p.colors.accentDark};
+        }
+        .qq-style-suggest-banner-icon {
+          flex-shrink: 0; margin-top: 2px;
+          color: ${p.colors.accent};
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-style-suggest-banner {
+          background: rgba(13,60,252,0.16);
+          color: #c7d2fe;
+          border-left-color: #93c5fd;
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-style-suggest-banner-icon {
+          color: #93c5fd;
+        }
         .qq-editor-shell[data-theme="dark"] .qq-style-contrast-dismiss {
           color: #fecaca;
         }
@@ -2051,6 +2076,15 @@ export default function StyleTab({
         @media (prefers-reduced-motion: reduce) {
           .qq-style-range::-webkit-slider-thumb,
           .qq-style-range::-moz-range-thumb { transition: none; }
+          /* AUDIT L7 — preset-card + swatch-btn hover use translateY(-1px).
+           * Honour the user's OS preference and skip the lift. */
+          .qq-style-preset-card,
+          .qq-style-preset-card:hover,
+          .qq-style-swatch-btn,
+          .qq-style-swatch-btn:hover {
+            transition: none;
+            transform: none;
+          }
         }
 
         /* ColourField */
@@ -2438,6 +2472,26 @@ export default function StyleTab({
           border-color: rgba(255,255,255,0.08);
           color: #f5f7fa;
         }
+        /* AUDIT M2 — these surfaces previously had bare light-theme #fff
+         * backgrounds and no dark-mode pair, so they painted bright-white
+         * on the dark editor shell. Each one mirrors the .qq-style-group
+         * dark surface family above so the whole Style tab reads coherent
+         * in dark mode. (Was raised by the PR #543 audit; fixed inline
+         * here rather than threading a --qq-surface token through every
+         * call-site to keep the edit surgical.) */
+        .qq-editor-shell[data-theme="dark"] .qq-style-select,
+        .qq-editor-shell[data-theme="dark"] .qq-style-hex,
+        .qq-editor-shell[data-theme="dark"] .qq-style-preset-card,
+        .qq-editor-shell[data-theme="dark"] .qq-style-logo-upload {
+          background: #1e293b;
+          border-color: rgba(255,255,255,0.10);
+          color: #f5f7fa;
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-deposit-icon-btn {
+          background: #1e293b;
+          border-color: rgba(255,255,255,0.10);
+          color: #f5f7fa;
+        }
         .qq-editor-shell[data-theme="dark"] .qq-bs-sub {
           background: #1e293b;
           border-color: rgba(255,255,255,0.08);
@@ -2721,7 +2775,7 @@ function BrandStudioGroup({
               spellCheck={false}
               placeholder="/* Scoped to your widget. Example:
 .qq-w-input { border-radius: 16px; }
-.qq-bs-result { text-shadow: 0 1px 2px rgba(0,0,0,0.08); } */"
+.qq-w-slider { accent-color: #0d3cfc; } */"
               value={customCss}
               onChange={(e) => patch({ customCss: e.target.value })}
               aria-label="Custom CSS"
@@ -2957,20 +3011,16 @@ function BrandStudioGroup({
               if (!highVariance || rpRangeEnabled) return null;
               return (
                 <div
+                  className="qq-style-suggest-banner"
                   data-testid="style-bs-rp-range-suggest"
-                  style={{
-                    marginTop: 10, marginBottom: 2,
-                    padding: 12,
-                    borderLeft: '4px solid #0d3cfc',
-                    background: '#eff6ff',
-                    borderRadius: 4,
-                    fontSize: 12, lineHeight: 1.5,
-                    color: '#1e3a8a',
-                  }}
                 >
-                  <span aria-hidden="true">💡 </span>
-                  High-variance work — most homeowners convert better when they
-                  see a price range. Consider enabling.
+                  {/* AUDIT M11 — was emoji prefix (💡). Lucide Sparkles for
+                   * consistency with the rest of the editor's iconography. */}
+                  <Sparkles className="qq-style-suggest-banner-icon" size={14} aria-hidden="true" />
+                  <span>
+                    High-variance work — most homeowners convert better when they
+                    see a price range. Consider enabling.
+                  </span>
                 </div>
               );
             })()}
@@ -3767,7 +3817,9 @@ function BrandKitGroup({
         </div>
       )}
 
-      {errorMsg && <p className="qq-bs-sub-hint" style={{ color: '#b91c1c', marginTop: 6 }}>{errorMsg}</p>}
+      {/* AUDIT M5 — was hardcoded #b91c1c. Theme-aware danger token so the
+       *  error message keeps readable contrast in both editor themes. */}
+      {errorMsg && <p className="qq-bs-sub-hint" style={{ color: p.colors.danger, marginTop: 6 }}>{errorMsg}</p>}
 
       {/* Picker modal — simple inline card list. Avoids the portal stack
        *  the ColourSwatch uses; this is a lightweight inline dropdown
@@ -4145,6 +4197,11 @@ function GhostBanner({
     ? 'Quote saved successfully'
     : 'Couldn’t save quote — try again';
   const testid = kind === 'success' ? 'style-ghost-success' : 'style-ghost-error';
+  /* AUDIT L2 — was hardcoded #fff text on the toast + dismiss button. Owners
+   * can pick any Success/Error swatch (incl. pale yellows), so derive the
+   * foreground from the picked background via the same luminance util the
+   * swatch icons use. Keeps the toast legible on every owner-picked colour. */
+  const fg = getContrastingColor(colour);
 
   return createPortal(
     <div
@@ -4162,7 +4219,7 @@ function GhostBanner({
         padding: '10px 12px',
         borderRadius: 10,
         background: colour,
-        color: '#fff',
+        color: fg,
         fontSize: 13,
         fontWeight: 600,
         boxShadow: '0 8px 20px rgba(15,23,42,0.18)',
@@ -4183,7 +4240,7 @@ function GhostBanner({
           marginLeft: 4,
           background: 'transparent',
           border: 'none',
-          color: '#fff',
+          color: fg,
           fontSize: 16,
           lineHeight: 1,
           cursor: 'pointer',

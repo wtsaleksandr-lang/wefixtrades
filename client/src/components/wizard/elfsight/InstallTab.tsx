@@ -962,6 +962,17 @@ export default function InstallTab({
         .qq-install-hosted-status.is-ok { color: #066138; font-weight: 600; }
         .qq-install-hosted-status.is-warn { color: #8a5a0e; font-weight: 600; }
         .qq-install-hosted-status.is-muted { color: ${p.colors.body}; }
+        /* AUDIT L5 — was light-theme-only status colors (dark green #066138 +
+         * amber #8a5a0e). Add dark-mode pairs so the status reads cleanly on
+         * the slate hosted card surface. Light values stay AA against the
+         * existing white surface; dark values are the Tailwind-emerald-300 /
+         * amber-300 family for contrast on slate-800. */
+        .qq-editor-shell[data-theme="dark"] .qq-install-hosted-status.is-ok {
+          color: #6ee7b7;
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-install-hosted-status.is-warn {
+          color: #fcd34d;
+        }
         .qq-install-hosted-status-link {
           background: transparent; border: none; padding: 0;
           color: ${p.colors.accent}; font: inherit; font-weight: 600;
