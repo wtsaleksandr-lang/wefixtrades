@@ -65,7 +65,7 @@ export default function PortalServices() {
 
   return (
     <PortalLayout>
-      <div className="max-w-5xl mx-auto space-y-6">
+      <div data-theme="light" className="max-w-5xl mx-auto space-y-6">
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div className="min-w-0">
             <h1 className="text-xl font-semibold text-gray-900">Your Services</h1>

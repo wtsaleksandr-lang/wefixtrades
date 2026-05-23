@@ -61,7 +61,7 @@ const SEVERITY_STYLES: Record<string, { badge: string; dot: string }> = {
 function SeverityBadge({ severity }: { severity: string }) {
   const s = SEVERITY_STYLES[severity] ?? SEVERITY_STYLES.low;
   return (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide ${s.badge}`}>
+    <span data-theme="light" className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide ${s.badge}`}>
       <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`} />
       {severity}
     </span>

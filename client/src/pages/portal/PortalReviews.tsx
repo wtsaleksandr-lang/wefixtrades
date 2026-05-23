@@ -85,7 +85,7 @@ function formatDate(d: string | null): string {
 
 function RatingStars({ rating }: { rating: number }) {
   return (
-    <div className="flex items-center gap-0.5">
+    <div data-theme="light" className="flex items-center gap-0.5">
       {[1, 2, 3, 4, 5].map((s) => (
         <Star key={s} className={`w-3.5 h-3.5 ${s <= rating ? "fill-amber-400 text-amber-400" : "text-gray-200"}`} />
       ))}

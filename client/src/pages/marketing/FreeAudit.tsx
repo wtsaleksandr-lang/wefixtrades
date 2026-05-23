@@ -140,7 +140,7 @@ const AUDIT_FAQ_ITEMS = [
 
 function AuditStaticSections() {
   return (
-    <div style={{
+    <div data-theme="light" style={{
       maxWidth: 480,
       margin: "0 auto",
       marginTop: 48,

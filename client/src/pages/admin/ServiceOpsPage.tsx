@@ -54,7 +54,7 @@ export default function ServiceOpsPage() {
   if (!csid) {
     return (
       <AdminLayout>
-        <div className="p-6">
+        <div data-theme="light" className="p-6">
           <h1 className="text-xl font-semibold text-gray-900 mb-4">Service Ops</h1>
           <Card className="p-8 max-w-xl">
             <p className="text-sm text-gray-600">

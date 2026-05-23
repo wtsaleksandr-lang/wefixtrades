@@ -24,7 +24,7 @@ class PortalErrorBoundary extends Component<{ children: ReactNode }, { error: Er
   render() {
     if (this.state.error) {
       return (
-        <div style={{ padding: 20, fontFamily: "ui-monospace, monospace", fontSize: 12, color: "#7f1d1d", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, margin: 20, whiteSpace: "pre-wrap", overflow: "auto" }}>
+        <div data-theme="light" style={{ padding: 20, fontFamily: "ui-monospace, monospace", fontSize: 12, color: "#7f1d1d", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, margin: 20, whiteSpace: "pre-wrap", overflow: "auto" }}>
           <strong>Portal render error</strong>{"\n\n"}
           {this.state.error.message}{"\n\n"}
           {this.state.error.stack}

@@ -31,7 +31,7 @@ export function Mockup({ layout, blank }: { layout: TemplateLayout; blank?: bool
   );
   if (blank) {
     return (
-      <div style={{
+      <div data-theme="light" style={{
         height: 96, borderRadius: d.radius.control, border: `1.5px dashed ${p.colors.borderHover}`,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         color: p.colors.subtle, fontSize: 26, fontWeight: 300, background: '#fff',

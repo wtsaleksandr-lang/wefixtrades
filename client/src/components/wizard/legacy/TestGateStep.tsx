@@ -389,7 +389,7 @@ export default function TestGateStep({
   const tierImproved = tuneBanner && (tier === 'strong' || tier === 'close');
 
   return (
-    <div className="animate-fade-in-up">
+    <div data-theme="light" className="animate-fade-in-up">
       <div style={{ marginBottom: '24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
           <div style={{

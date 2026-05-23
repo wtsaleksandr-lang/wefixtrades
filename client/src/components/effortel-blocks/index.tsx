@@ -55,7 +55,7 @@ export function NumberedCard({
   align?: "center" | "left";
 }) {
   return (
-    <div data-component="numbered-card" style={{
+    <div data-theme="dark" data-component="numbered-card" style={{
       position: "relative",
       background: mkt.sectionLight,
       borderRadius: 28,

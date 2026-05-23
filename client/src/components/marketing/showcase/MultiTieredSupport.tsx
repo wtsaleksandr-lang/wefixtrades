@@ -25,7 +25,7 @@ export default function MultiTieredSupport() {
   const customer = AVATARS[2];
 
   return (
-    <div className="mts-wrap">
+    <div data-theme="dark" className="mts-wrap">
       <style>{CSS}</style>
       <div className="mts-card">
         {/* LEFT — copy */}

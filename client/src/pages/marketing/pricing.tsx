@@ -30,7 +30,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 function FAQItem({ q, a }: { q: string; a: string }) {
   const [open, setOpen] = useState(false);
   return (
-    <div style={{ border: `1px solid ${mkt.onDarkBorder}`, borderRadius: 12, overflow: "hidden" }}>
+    <div data-theme="dark" style={{ border: `1px solid ${mkt.onDarkBorder}`, borderRadius: 12, overflow: "hidden" }}>
       <button
         onClick={() => setOpen((o) => !o)}
         style={{

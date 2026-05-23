@@ -717,6 +717,7 @@ export default function PortalChatWidget({
 
   return (
     <div
+      data-theme="light"
       className="fixed inset-y-0 right-0 z-50 w-full sm:w-auto flex flex-col border-l border-gray-200 shadow-xl"
       style={{
         // Mobile: ignore inline width (Tailwind w-full wins). Desktop: use saved panelWidth.

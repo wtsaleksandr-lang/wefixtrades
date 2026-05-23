@@ -139,7 +139,7 @@ export default function SiteChatWidget() {
   }
 
   return (
-    <>
+    <div data-theme="light" style={{ display: "contents" }}>
       {/* Floating chat button */}
       {!open && (
         <button
@@ -464,6 +464,6 @@ export default function SiteChatWidget() {
         }
         yearly={false}
       />
-    </>
+    </div>
   );
 }

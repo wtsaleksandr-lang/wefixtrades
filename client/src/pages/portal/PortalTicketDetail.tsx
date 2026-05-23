@@ -127,7 +127,7 @@ export default function PortalTicketDetail() {
   if (!ticketId) {
     return (
       <PortalLayout>
-        <div className="text-center py-12 text-gray-500 text-sm">Invalid ticket.</div>
+        <div data-theme="light" className="text-center py-12 text-gray-500 text-sm">Invalid ticket.</div>
       </PortalLayout>
     );
   }

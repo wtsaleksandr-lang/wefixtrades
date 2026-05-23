@@ -14,7 +14,7 @@ const dotGrid: React.CSSProperties = {
 /* ── icon container ───────────────────────────────────────────────────── */
 function IconBox({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{
+    <div data-theme="dark" style={{
       width: 36, height: 36,
       background: "rgba(0,212,168,0.12)",
       border: "1px solid rgba(0,212,168,0.2)",

@@ -124,7 +124,7 @@ export default function ReviewFunnel() {
 
   if (pageState === "loading") {
     return (
-      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh", background: "#f5f5f5" }}>
+      <div data-theme="light" style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh", background: "#f5f5f5" }}>
         <Loader2 className="animate-spin" size={32} style={{ color: "#0d3cfc" }} />
       </div>
     );

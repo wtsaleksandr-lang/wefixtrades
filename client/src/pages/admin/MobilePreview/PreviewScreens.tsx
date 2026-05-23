@@ -40,7 +40,7 @@ function Body({ children, muted = false }: { children: ReactNode; muted?: boolea
 
 function Card({ children, selected = false }: { children: ReactNode; selected?: boolean }) {
   return (
-    <div className={`bg-white rounded-xl border p-4 ${selected ? "border-indigo-500 border-2" : "border-gray-200"}`}>{children}</div>
+    <div data-theme="light" className={`bg-white rounded-xl border p-4 ${selected ? "border-indigo-500 border-2" : "border-gray-200"}`}>{children}</div>
   );
 }
 
