@@ -130,7 +130,8 @@ export default function DesignStudio({ settings, onChange }: DesignStudioProps) 
   const currentTemplate = getTemplateById(selectedTemplateId);
 
   return (
-    <div className="animate-fade-in-up">
+    // Legacy wizard DesignStudio is light-theme locked — see CONTRAST-2.
+    <div data-theme="light" className="animate-fade-in-up">
       <div data-testid="design-studio-remark" style={{
         padding: '12px 16px', borderRadius: p.radius.md,
         background: '#F0FDF4', border: '1px solid #BBF7D0',

@@ -144,7 +144,8 @@ export default function PortalSettings() {
 
   return (
     <PortalLayout>
-      <div className="max-w-2xl mx-auto space-y-6">
+      {/* PortalSettings is light-theme locked — see CONTRAST-2. */}
+      <div data-theme="light" className="max-w-2xl mx-auto space-y-6">
         <div>
           <h1 className="text-xl font-semibold text-gray-900">Settings</h1>
           <p className="text-sm text-gray-500 mt-0.5">Manage your contact information.</p>

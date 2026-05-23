@@ -60,8 +60,9 @@ interface DeepSection {
 }
 
 function EstimateMockup() {
+  // CONTRAST-2 — product page renders inside the marketing dark hero.
   return (
-    <div style={{ background: mkt.bg, border: `1px solid ${mkt.border}`, borderRadius: 20, padding: 28, boxShadow: shadows.md, maxWidth: 380 }}>
+    <div data-theme="dark" style={{ background: mkt.bg, border: `1px solid ${mkt.border}`, borderRadius: 20, padding: 28, boxShadow: shadows.md, maxWidth: 380 }}>
       <div style={{ fontSize: 12, fontWeight: 700, color: mkt.textMuted, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 20 }}>
         Bathroom Renovation Quote
       </div>

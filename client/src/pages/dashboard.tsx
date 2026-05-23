@@ -47,7 +47,8 @@ export default function Dashboard() {
   // Allow access via token OR session auth
   if (!token && !authLoading && !isAuthenticated) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: p.colors.pageBg }}>
+      // Dashboard is light-theme locked — see CONTRAST-2.
+      <div data-theme="light" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: p.colors.pageBg }}>
         <div style={{ textAlign: 'center', padding: '40px' }}>
           <AlertCircle style={{ width: 48, height: 48, color: p.colors.muted, margin: '0 auto 16px' }} />
           <h2 style={{ ...p.typography.h2, marginBottom: 8 }}>Access required</h2>

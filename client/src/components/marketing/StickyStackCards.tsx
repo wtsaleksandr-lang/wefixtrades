@@ -72,7 +72,8 @@ function CustomerPortalMockup() {
     : s === "scheduled" ? { label: "Scheduled", bg: "#dbeafe", color: "#2563eb" }
     : { label: "Drafting", bg: "#fef3c7", color: "#d97706" };
   return (
-    <div style={{ padding: 28, height: "100%", display: "flex", flexDirection: "column", gap: 12 }}>
+    // CONTRAST-2 — StickyStackCards renders white cards by design.
+    <div data-theme="light" style={{ padding: 28, height: "100%", display: "flex", flexDirection: "column", gap: 12 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
         <div style={{ fontSize: 13, fontWeight: 700, color: TEXT }}>SocialSync · This Week</div>
         <div style={{ fontSize: 11, background: "#dbeafe", color: "#2563eb", borderRadius: 6, padding: "3px 10px", fontWeight: 600 }}>4 / wk</div>

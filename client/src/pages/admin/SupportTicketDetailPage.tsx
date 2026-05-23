@@ -176,14 +176,16 @@ export default function SupportTicketDetailPage() {
   if (!ticketId) {
     return (
       <AdminLayout pageContext={{ page: "support" }}>
-        <div className="text-center py-12 text-gray-500 text-sm">Invalid ticket.</div>
+        {/* CONTRAST-2 — admin pages are light-theme locked. */}
+        <div data-theme="light" className="text-center py-12 text-gray-500 text-sm">Invalid ticket.</div>
       </AdminLayout>
     );
   }
 
   return (
     <AdminLayout pageContext={{ page: "support" }}>
-      <div className="max-w-5xl mx-auto">
+      {/* CONTRAST-2 — admin pages are light-theme locked. */}
+      <div data-theme="light" className="max-w-5xl mx-auto">
         {/* Back link */}
         <Link href="/admin/crm/support" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors mb-4">
           <ArrowLeft className="w-3.5 h-3.5" /> Back to Tickets

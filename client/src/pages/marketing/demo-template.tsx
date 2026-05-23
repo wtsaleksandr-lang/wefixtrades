@@ -12,8 +12,9 @@ import { mkt, colors, shadows } from "@/theme/tokens";
 /* ─── Slider input ────────────────────────────────── */
 function SliderInput({ input, value, onChange }: { input: TemplateConfig["inputs"][0]; value: number; onChange: (v: number) => void }) {
   const pct = ((value - (input.min ?? 0)) / ((input.max ?? 100) - (input.min ?? 0))) * 100;
+  // CONTRAST-2 — demo-template renders inside the marketing dark hero.
   return (
-    <div style={{ marginBottom: 20 }}>
+    <div data-theme="dark" style={{ marginBottom: 20 }}>
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
         <label style={{ fontSize: 13, fontWeight: 600, color: mkt.onDarkMuted }}>{input.label}</label>
         <span style={{ fontSize: 14, fontWeight: 800, color: mkt.accent }}>{value} <span style={{ fontSize: 12, fontWeight: 400, color: mkt.onDarkMuted }}>{input.unit}</span></span>

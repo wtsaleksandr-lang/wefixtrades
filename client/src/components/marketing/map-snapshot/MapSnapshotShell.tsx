@@ -12,6 +12,10 @@
  *
  * No new dependencies — pure SVG over Google Static Maps URLs (string only,
  * no API call) so we don't pull in leaflet/mapbox.
+ *
+ * CONTRAST-2 — this whole component is light-theme locked (white card on
+ * marketing background). Each top-level JSX root carries data-theme="light"
+ * so the lint exempts the intentional #fff / #000 / white literals inside.
  */
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -78,7 +82,7 @@ function FloatingLabelInput({
   ariaDescribedBy?: string;
 }) {
   return (
-    <div style={{ position: "relative" }}>
+    <div data-theme="light" style={{ position: "relative" }}>
       <input
         id={id}
         type={type}

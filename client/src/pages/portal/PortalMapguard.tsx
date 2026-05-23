@@ -117,8 +117,9 @@ function Delta({ value, suffix, invert }: { value: number | null; suffix?: strin
   if (value === null || value === 0) return null;
   const positive = invert ? value < 0 : value > 0;
   const Icon = positive ? TrendingUp : TrendingDown;
+  // CONTRAST-2 — PortalMapguard is light-theme locked (portal UI).
   return (
-    <span className={`inline-flex items-center gap-0.5 text-xs font-medium ${positive ? "text-emerald-600" : "text-red-500"}`}>
+    <span data-theme="light" className={`inline-flex items-center gap-0.5 text-xs font-medium ${positive ? "text-emerald-600" : "text-red-500"}`}>
       <Icon className="w-3 h-3" />
       {value > 0 ? "+" : ""}{typeof value === "number" ? (Number.isInteger(value) ? value : value.toFixed(1)) : value}{suffix || ""}
     </span>
