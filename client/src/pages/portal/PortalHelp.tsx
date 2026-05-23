@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
 import BackButton from "@/components/ui/back-button";
+import { FirstVisitTooltip } from "@/components/portal/FirstVisitTooltip";
 
 /* ─── FAQ Data ─── */
 const FAQS = [
@@ -182,13 +183,22 @@ function TicketSection() {
             <p className="text-xs text-gray-500 mt-1">{message.length} characters</p>
           </div>
           <div className="flex items-center gap-3">
-            <button
-              type="submit"
-              disabled={!subject.trim() || !message.trim() || createTicket.isPending}
-              className="px-4 py-2 text-sm font-medium text-white bg-brand-blue rounded-lg hover:bg-brand-blue-600 disabled:opacity-60 transition-colors"
+            <FirstVisitTooltip
+              storageKey="portal-help-submit-ticket"
+              title="We're quick to respond"
+              position="top"
+              anchor={
+                <button
+                  type="submit"
+                  disabled={!subject.trim() || !message.trim() || createTicket.isPending}
+                  className="px-4 py-2 text-sm font-medium text-white bg-brand-blue rounded-lg hover:bg-brand-blue-600 disabled:opacity-60 transition-colors"
+                >
+                  {createTicket.isPending ? "Submitting..." : "Submit Ticket"}
+                </button>
+              }
             >
-              {createTicket.isPending ? "Submitting..." : "Submit Ticket"}
-            </button>
+              We typically reply within a few business hours. You'll see all replies right here.
+            </FirstVisitTooltip>
             {success && (
               <span className="flex items-center gap-1 text-xs text-emerald-600">
                 <CheckCircle2 className="w-3.5 h-3.5" /> Ticket submitted

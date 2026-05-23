@@ -23,6 +23,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { HelpCueRow } from "@/components/primitives/HelpCueRow";
 import InfoCue from "@/components/wizard/elfsight/InfoCue";
+import { FirstVisitTooltip } from "@/components/portal/FirstVisitTooltip";
+import { resetFirstVisits } from "@/hooks/useFirstVisit";
 import {
   NOTIFICATION_CATEGORY_KEYS,
   NOTIFICATION_CATEGORY_LABELS,
@@ -243,7 +245,16 @@ export default function PortalSettings() {
                 <TabsTrigger value="account" data-testid="tab-trigger-account">Account</TabsTrigger>
                 <TabsTrigger value="notifications" data-testid="tab-trigger-notifications">Notifications</TabsTrigger>
                 <TabsTrigger value="ai" data-testid="tab-trigger-ai">AI</TabsTrigger>
-                <TabsTrigger value="security" data-testid="tab-trigger-security">Security</TabsTrigger>
+                <FirstVisitTooltip
+                  storageKey="portal-settings-security-tab"
+                  title="Enable 2FA in under a minute"
+                  position="bottom"
+                  anchor={
+                    <TabsTrigger value="security" data-testid="tab-trigger-security">Security</TabsTrigger>
+                  }
+                >
+                  Add 2FA in under a minute — strongly recommended for accounts handling customer data.
+                </FirstVisitTooltip>
               </TabsList>
             </div>
 
@@ -338,6 +349,11 @@ export default function PortalSettings() {
 
               {/* Brand Voice (AI tone lives in the AI tab; brand identity in Account) */}
               <BrandProfileSection inputClass={inputClass} labelClass={labelClass} />
+
+              {/* Reset onboarding tips — clears localStorage flags so the
+                  light progressive-disclosure tooltips re-appear on each
+                  page. Useful for customers who want a refresher tour. */}
+              <ResetOnboardingTipsCard />
             </TabsContent>
 
             {/* ─── Notifications ─── */}
@@ -389,6 +405,43 @@ export default function PortalSettings() {
         )}
       </div>
     </PortalLayout>
+  );
+}
+
+/* ─── Reset Onboarding Tips Section ─── */
+
+function ResetOnboardingTipsCard() {
+  const { toast } = useToast();
+  const [resetting, setResetting] = useState(false);
+
+  const handleReset = () => {
+    setResetting(true);
+    resetFirstVisits();
+    toast({
+      title: "Onboarding tips reset",
+      description: "First-visit hints will show again as you navigate the portal.",
+    });
+    // Tiny stall so the button feedback registers visually.
+    setTimeout(() => setResetting(false), 600);
+  };
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-5">
+      <h2 className="text-sm font-semibold text-gray-900 mb-1">Onboarding tips</h2>
+      <p className="text-xs text-gray-500 mb-3">
+        Show the first-visit hints across the portal again — useful if you want a refresher or are training a teammate.
+      </p>
+      <Button
+        type="button"
+        variant="outline"
+        onClick={handleReset}
+        disabled={resetting}
+        data-testid="reset-onboarding-tips"
+        className="text-xs"
+      >
+        {resetting ? "Resetting…" : "Reset onboarding tips"}
+      </Button>
+    </div>
   );
 }
 

@@ -20,6 +20,7 @@ import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import PortalLayout from "@/components/portal/PortalLayout";
+import { FirstVisitTooltip } from "@/components/portal/FirstVisitTooltip";
 import { ChoiceCard } from "./ChoiceCard";
 import { OptionANewNumber } from "./OptionANewNumber";
 import { OptionBForward } from "./OptionBForward";
@@ -117,18 +118,28 @@ export default function TradelineSetupPage() {
         )}
 
         {/* Heading */}
-        <div className="text-center space-y-2">
-          <span className="text-sm text-gray-500">Step {currentStep} of {totalSteps}</span>
-          <div className="inline-flex items-center justify-center w-12 h-12 bg-indigo-100 rounded-full mb-1">
-            <PhoneCall className="w-6 h-6 text-indigo-600" />
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">
-            Set up your AI tradeline
-          </h1>
-          <p className="text-sm sm:text-base text-gray-600 max-w-md mx-auto">
-            Choose how customers reach your business. You can change this anytime.
-          </p>
-        </div>
+        <FirstVisitTooltip
+          storageKey="portal-tradeline-setup-heading"
+          title="Progress is saved automatically"
+          position="bottom"
+          className="block w-full"
+          anchor={
+            <div className="text-center space-y-2">
+              <span className="text-sm text-gray-500">Step {currentStep} of {totalSteps}</span>
+              <div className="inline-flex items-center justify-center w-12 h-12 bg-indigo-100 rounded-full mb-1">
+                <PhoneCall className="w-6 h-6 text-indigo-600" />
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">
+                Set up your AI tradeline
+              </h1>
+              <p className="text-sm sm:text-base text-gray-600 max-w-md mx-auto">
+                Choose how customers reach your business. You can change this anytime.
+              </p>
+            </div>
+          }
+        >
+          This wizard sets up your AI receptionist. We save your progress as you go — refresh or come back anytime.
+        </FirstVisitTooltip>
 
         {resumedFromDraft && (
           <div

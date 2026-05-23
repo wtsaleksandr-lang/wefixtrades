@@ -7,6 +7,7 @@ import PortalLayout from "@/components/portal/PortalLayout";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PAYMENT_STATUS_LABELS, PAYMENT_STATUS_STYLES, statusLabel } from "@/config/portalLabels";
+import { FirstVisitTooltip } from "@/components/portal/FirstVisitTooltip";
 
 interface PaymentRow {
   id: number;
@@ -220,21 +221,30 @@ export default function PortalBilling() {
                     </p>
                   </div>
                 </div>
-                <Button
-                  onClick={openBillingPortal}
-                  disabled={portalLoading}
-                  className="btn-primary-premium shrink-0"
-                  data-testid="billing-pay-unpaid-cta"
+                <FirstVisitTooltip
+                  storageKey="portal-billing-pay-unpaid"
+                  title="Pay directly via Stripe"
+                  position="top"
+                  anchor={
+                    <Button
+                      onClick={openBillingPortal}
+                      disabled={portalLoading}
+                      className="btn-primary-premium shrink-0"
+                      data-testid="billing-pay-unpaid-cta"
+                    >
+                      {portalLoading ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <ExternalLink className="w-4 h-4 mr-2" />
+                      )}
+                      {unpaidCount > 0
+                        ? `Pay ${unpaidCount} unpaid invoice${unpaidCount === 1 ? "" : "s"}`
+                        : "Pay now"}
+                    </Button>
+                  }
                 >
-                  {portalLoading ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  ) : (
-                    <ExternalLink className="w-4 h-4 mr-2" />
-                  )}
-                  {unpaidCount > 0
-                    ? `Pay ${unpaidCount} unpaid invoice${unpaidCount === 1 ? "" : "s"}`
-                    : "Pay now"}
-                </Button>
+                  Click to pay your open invoices through Stripe — no support ticket needed.
+                </FirstVisitTooltip>
               </div>
             )}
 

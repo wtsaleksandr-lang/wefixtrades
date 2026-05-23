@@ -27,6 +27,7 @@ import PortalLayout from "@/components/portal/PortalLayout";
 import { useCopilotForm } from "@/context/CopilotFormContext";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useToast } from "@/hooks/use-toast";
+import { FirstVisitTooltip } from "@/components/portal/FirstVisitTooltip";
 import type { Tier } from "@shared/tiers";
 
 interface CatalogService {
@@ -191,12 +192,22 @@ export default function PortalCatalog() {
   return (
     <PortalLayout>
       <div data-theme="light" className="max-w-5xl mx-auto space-y-6">
-        <div>
-          <h1 className="text-xl font-semibold text-gray-900">Add Services</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            Expand your subscription. Click any service to add it to your account or learn more.
-          </p>
-        </div>
+        <FirstVisitTooltip
+          storageKey="portal-catalog-header"
+          title="Pick what matches your goal"
+          position="bottom"
+          className="block w-full"
+          anchor={
+            <div>
+              <h1 className="text-xl font-semibold text-gray-900">Add Services</h1>
+              <p className="text-sm text-gray-500 mt-0.5">
+                Expand your subscription. Click any service to add it to your account or learn more.
+              </p>
+            </div>
+          }
+        >
+          Each card below is a product you can add. We'll guide you through setup right after purchase.
+        </FirstVisitTooltip>
 
         {checkoutResult === "cancelled" && (
           <div className="bg-amber-50 text-amber-800 border border-amber-200 rounded-xl p-4 text-sm" data-testid="banner-checkout-cancelled">
