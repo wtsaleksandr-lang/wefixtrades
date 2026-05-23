@@ -1,4 +1,10 @@
 // QuoteQuick calculator owner dashboard — overview, leads, analytics, settings, bookings.
+//
+// IA-1 (2026-05-22): no longer the post-login landing target. Requires a
+// `?token=` for access (published-calculator email / publish-flow handoff).
+// Authenticated users without a token are redirected to their proper home
+// (admins → /admin/crm, clients → /portal). Login itself routes by role
+// via `landingPathForRole` (see client/src/lib/authRedirect.ts).
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useLocation } from 'wouter';
@@ -7,6 +13,7 @@ import { trackEvent } from '@/lib/trackEvent';
 import { platformTheme } from '@/theme/platformTheme';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { landingPathForRole } from '@/lib/authRedirect';
 import {
   LayoutDashboard, DollarSign, Users, BarChart3, Settings,
   ExternalLink, Copy, Search, Download, Trash2, RefreshCw,
@@ -42,9 +49,22 @@ export default function Dashboard() {
   const [supportOpen, setSupportOpen] = useState(false);
   const token = getToken();
   const [, setLocation] = useLocation();
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { isAuthenticated, isLoading: authLoading, user } = useAuth();
 
-  // Allow access via token OR session auth
+  // IA-1 (2026-05-22) — authenticated user with no token: this is NOT
+  // their proper home. Bounce to the role-appropriate dashboard so the
+  // standalone QuoteQuick dashboard is never the post-login landing.
+  // Token-based access (published-calculator email handoff, wizard's
+  // publish flow) is preserved.
+  useEffect(() => {
+    if (!token && !authLoading && isAuthenticated) {
+      setLocation(landingPathForRole(user?.role));
+    }
+  }, [token, authLoading, isAuthenticated, user?.role, setLocation]);
+
+  // No token + not authenticated → invite the user to sign in. (Was the
+  // only branch before IA-1; still the right fallback when they have
+  // neither a token nor a session.)
   if (!token && !authLoading && !isAuthenticated) {
     return (
       // Dashboard is light-theme locked — see CONTRAST-2.
@@ -55,6 +75,17 @@ export default function Dashboard() {
           <p style={{ ...p.typography.body, color: p.colors.muted, marginBottom: 16 }}>Sign in or use the link from your calculator creation to access the dashboard.</p>
           <a href="/login" style={{ color: p.colors.accent, fontSize: 14, textDecoration: "none" }}>Go to login</a>
         </div>
+      </div>
+    );
+  }
+
+  // IA-1: authenticated-no-token case is being redirected by the effect
+  // above — render a brief placeholder while the navigation resolves so
+  // we don't flash the QuoteQuick chrome.
+  if (!token && isAuthenticated) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: p.colors.pageBg }}>
+        <p style={{ ...p.typography.body, color: p.colors.muted }}>Redirecting…</p>
       </div>
     );
   }

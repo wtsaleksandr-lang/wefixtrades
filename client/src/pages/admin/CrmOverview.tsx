@@ -9,6 +9,8 @@ import { Users, Wrench, ClipboardList, Truck, CreditCard, TrendingUp, AlertTrian
 import { Link } from "wouter";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { adminStatusColor, ALERT_SEVERITY } from "@/config/adminLabels";
+// IA-1 (2026-05-22) — wizard minimize-to-floating-badge.
+import MinimizedWizardBadge from "@/components/wizard/MinimizedWizardBadge";
 
 interface Overview {
   totalClients: number;
@@ -552,6 +554,9 @@ export default function CrmOverview() {
           </Card>
         </div>
       </div>
+      {/* IA-1 — floating "resume editing" badge. Renders only when a
+         minimized-wizard session exists in sessionStorage. */}
+      <MinimizedWizardBadge />
     </AdminLayout>
   );
 }

@@ -356,6 +356,32 @@ export default function WizardShell({ embed = false }: Props) {
   // visitors default to 'free'. No leak: the endpoint returns only id,
   // slug, plan_tier, business_name.
   const [planTier, setPlanTier] = useState<string>('free');
+  // IA-1 (2026-05-22) — minimal calculator identity captured from
+  // /api/calculators/me. Used by the minimize-to-dashboard handler to
+  // build a resumable session for the floating badge.
+  const [calcIdentity, setCalcIdentity] = useState<{ id: number | null; businessName: string | null }>({
+    id: null, businessName: null,
+  });
+
+  // IA-1 — capture where the user came from BEFORE the wizard mounts
+  // replaces history. We use this to land them back on the same
+  // dashboard when they click Minimize. Document.referrer is the
+  // truth-source here; we only persist /admin/* or /portal/* paths.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (embed) return;
+    try {
+      // If a return path is ALREADY stashed, leave it — the user may
+      // have refreshed mid-wizard and we want the original origin.
+      if (sessionStorage.getItem('qq-wizard-came-from')) return;
+      const ref = document.referrer;
+      if (!ref || !ref.startsWith(window.location.origin)) return;
+      const refPath = new URL(ref).pathname;
+      if (refPath.startsWith('/admin') || refPath.startsWith('/portal')) {
+        sessionStorage.setItem('qq-wizard-came-from', refPath);
+      }
+    } catch { /* sessionStorage blocked / bad URL — silently skip */ }
+  }, [embed]);
   useEffect(() => {
     try {
       const params = new URLSearchParams(window.location.search);
@@ -367,9 +393,17 @@ export default function WizardShell({ embed = false }: Props) {
           const r = await fetch(`/api/calculators/me?token=${encodeURIComponent(token)}`);
           if (!r.ok) return;
           const data = await r.json();
-          if (!cancelled && typeof data?.plan_tier === 'string') {
+          if (cancelled) return;
+          if (typeof data?.plan_tier === 'string') {
             setPlanTier(data.plan_tier);
           }
+          // Capture minimal identity for the minimize handler — id +
+          // business_name only. /api/calculators/me already restricts
+          // its response to these fields, so no PII leak.
+          setCalcIdentity({
+            id: typeof data?.id === 'number' ? data.id : null,
+            businessName: typeof data?.business_name === 'string' ? data.business_name : null,
+          });
         } catch { /* silent — plan_tier stays 'free' */ }
       })();
       return () => { cancelled = true; };
@@ -1062,6 +1096,65 @@ export default function WizardShell({ embed = false }: Props) {
     }, exitMs);
   }, [navigate, embed, reduceMotion]);
 
+  // IA-1 (2026-05-22) — minimize the wizard back to whichever
+  // dashboard the user came from, with a floating "QQ" badge on that
+  // dashboard for one-click resume. We:
+  //   1. Stash {calculatorId, returnPath, businessName, token,
+  //      savedAt} in sessionStorage so the badge can render and the
+  //      resume link can rebuild /wizard?token=<token>.
+  //   2. Pick returnPath from sessionStorage's "qq-wizard-came-from"
+  //      (set on entry), then document.referrer, then role-based
+  //      default (/portal vs /admin/crm) via useAuth.
+  //   3. Use the same leave-phase animation as handleClose so the
+  //      wizard fades out cleanly (reduce-motion respected).
+  // Per-session only — closing the tab clears sessionStorage.
+  const handleMinimize = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    if (embed) return; // No minimize in embed mode — there's no host dashboard.
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const token = params.get('token') || '';
+      // Resolve return path: explicit hint > referrer > role default.
+      let returnPath = '';
+      try {
+        returnPath = sessionStorage.getItem('qq-wizard-came-from') || '';
+      } catch { /* sessionStorage blocked */ }
+      if (!returnPath) {
+        const ref = document.referrer;
+        if (ref && ref.startsWith(window.location.origin)) {
+          const refPath = new URL(ref).pathname;
+          if (refPath.startsWith('/admin') || refPath.startsWith('/portal')) {
+            returnPath = refPath;
+          }
+        }
+      }
+      // Final fallback — /portal is the safe non-admin default and
+      // matches landingPathForRole's "unknown role" branch.
+      if (!returnPath) returnPath = '/portal';
+
+      const payload = {
+        calculatorId: calcIdentity.id,
+        businessName: calcIdentity.businessName,
+        token,
+        returnPath,
+        savedAt: Date.now(),
+      };
+      try {
+        sessionStorage.setItem('qq-wizard-minimized-from', JSON.stringify(payload));
+      } catch { /* sessionStorage blocked — badge won't show but minimize still navigates */ }
+
+      setOpenPhase('leaving');
+      const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
+      const exitMs = reduceMotion ? 0 : (isMobile ? 150 : 180);
+      setTimeout(() => {
+        navigate(returnPath);
+      }, exitMs);
+    } catch {
+      // Any failure → fall back to a plain close (history-back / home).
+      handleClose();
+    }
+  }, [navigate, embed, reduceMotion, calcIdentity, handleClose]);
+
   const modalPhaseClass = embed
     ? ''
     : openPhase === 'entering'
@@ -1106,6 +1199,9 @@ export default function WizardShell({ embed = false }: Props) {
               onEditorThemeChange={setEditorTheme}
               onHelp={() => setShowHelp(true)}
               onClose={handleClose}
+              /* IA-1 — minimize to dashboard. Not surfaced in embed mode
+               *  (no host dashboard to return to). */
+              onMinimize={embed ? undefined : handleMinimize}
               canUndo={canUndo}
               canRedo={canRedo}
               onUndo={undo}

@@ -11,6 +11,8 @@ import { TradelineSetupBanner } from "./TradelineSetup/DashboardBanner";
 // BG-3: canonical elevation primitive — uses --shadow-card token + bg-card/border-card-border
 // so cards inherit the design-system soft-card shadow and respond to dark mode.
 import { Card } from "@/components/ui/card";
+// IA-1 (2026-05-22) — wizard minimize-to-floating-badge.
+import MinimizedWizardBadge from "@/components/wizard/MinimizedWizardBadge";
 
 /* Temporary in-page error surface so a render exception shows on the page
  * instead of blanking the React tree. Replace with the app's global error
@@ -393,7 +395,13 @@ function PortalDashboardInner() {
             </Card>
           )}
 
-          {/* QuoteQuick card */}
+          {/* QuoteQuick card — IA-1 (2026-05-22):
+             *
+             * Primary CTA now opens the WIZARD EDITOR (not the standalone
+             * /dashboard). Per the IA fix, the standalone QuoteQuick
+             * dashboard is no longer a navigation target from /portal —
+             * the editor is. The dashboard remains reachable via token
+             * deep-links (e.g. lead-notification emails). */}
           {qqData?.calculator && (
             <Card className="p-5">
               <div className="flex items-start justify-between">
@@ -413,14 +421,13 @@ function PortalDashboardInner() {
                     </div>
                   </div>
                 </div>
-                <a
-                  href={`/dashboard?token=${qqData.calculator.edit_token}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <Link
+                  href={`/wizard?token=${qqData.calculator.edit_token}`}
+                  data-testid="portal-qq-open-editor"
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-[#0d3cfc] rounded-lg hover:bg-[#0b34d6] transition-colors"
                 >
-                  Open Dashboard <ExternalLink className="w-3 h-3" />
-                </a>
+                  Open editor <ChevronRight className="w-3 h-3" />
+                </Link>
               </div>
               <div className="grid grid-cols-2 gap-4 mt-4 pt-3 border-t border-gray-100">
                 <div className="flex items-center gap-2">
@@ -456,12 +463,15 @@ function PortalDashboardInner() {
                     <p className="text-xs text-gray-400 mt-0.5">Instant quote calculator for your website</p>
                   </div>
                 </div>
-                <a
+                {/* IA-1 — zero-calculator empty state. Lands in the wizard
+                 *  with no template so they pick one. */}
+                <Link
                   href="/wizard"
+                  data-testid="portal-qq-create-first"
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#0d3cfc] border border-[#0d3cfc] rounded-lg hover:bg-[#EEF3FF] transition-colors"
                 >
-                  Set up QuoteQuick
-                </a>
+                  Create your first calculator
+                </Link>
               </div>
             </Card>
           )}
@@ -582,6 +592,9 @@ function PortalDashboardInner() {
           </Card>
         </div>
       )}
+      {/* IA-1 — floating "resume editing" badge. Renders only when a
+         minimized-wizard session exists in sessionStorage. */}
+      <MinimizedWizardBadge />
     </PortalLayout>
   );
 }

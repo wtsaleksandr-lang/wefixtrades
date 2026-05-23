@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { getSessionId } from "@/lib/chatHelpers";
+import { landingPathForRole } from "@/lib/authRedirect";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { V7PageShell } from "@/components/marketing/v7";
 import { mkt } from "@/theme/tokens";
@@ -79,7 +80,9 @@ export default function SignupBusinessNamePage() {
           }).catch(() => {});
         }
       } catch { /* noop */ }
-      navigate("/portal");
+      // IA-1: role-based via shared helper (Google signups are role=client
+      // today, but if that ever changes we want one consistent landing path).
+      navigate(landingPathForRole(data.user?.role));
     },
   });
 
