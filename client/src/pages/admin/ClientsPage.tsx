@@ -23,13 +23,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Search, Download } from "lucide-react";
+import { Plus, Search, Download, Tag as TagIcon, Archive, UserCheck } from "lucide-react";
 import { csvDownload, todayIso } from "@/lib/csvDownload";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface Client {
   id: number;
+  user_id: number | null;
   business_name: string;
   contact_name: string | null;
   contact_email: string | null;
@@ -69,6 +74,17 @@ export default function ClientsPage() {
    *  bulk action completes) so we never act on stale selections. */
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkRunning, setBulkRunning] = useState(false);
+  /** Bulk-tag dialog state. When `tagDialog` is true the user is
+   *  typing a tag value; submit POSTs /api/admin/crm/clients/bulk-tag
+   *  with the current selection. */
+  const [tagDialog, setTagDialog] = useState(false);
+  const [tagValue, setTagValue] = useState("");
+  /** Bulk-archive confirm. Archive is terminal (sets status=archived
+   *  and removes the row from default views) so we surface an
+   *  AlertDialog rather than firing immediately. */
+  const [archiveDialog, setArchiveDialog] = useState(false);
+  /** Per-row impersonation confirm. */
+  const [impersonateTarget, setImpersonateTarget] = useState<Client | null>(null);
   const [form, setForm] = useState({
     business_name: "",
     contact_name: "",
@@ -137,6 +153,105 @@ export default function ClientsPage() {
     queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/clients"] });
     queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/overview"] });
   };
+
+  /* ─── Bulk endpoints (server-side) ───
+   *
+   * The Activate/Pause/Mark-churned buttons above use the per-row
+   * PATCH endpoint in parallel — fine for status flips. Tag, Archive
+   * and Export need a single server-side action (tag idempotency,
+   * archive audit grouping, server-rendered CSV) so they POST to the
+   * new bulk endpoints in adminCrmRoutes.ts. */
+  const submitBulkTag = async () => {
+    const ids = Array.from(selectedIds);
+    const tag = tagValue.trim();
+    if (ids.length === 0 || !tag || bulkRunning) return;
+    setBulkRunning(true);
+    try {
+      const res = await apiRequest("POST", "/api/admin/crm/clients/bulk-tag", { ids, tag });
+      const body = await res.json();
+      toast({ title: `Tagged ${body.ok} client${body.ok === 1 ? "" : "s"}`, description: body.failed ? `${body.failed} failed` : undefined });
+      setTagDialog(false);
+      setTagValue("");
+      setSelectedIds(new Set());
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/clients"] });
+    } catch (err) {
+      toast({ title: "Bulk tag failed", description: (err as Error).message, variant: "destructive" });
+    } finally {
+      setBulkRunning(false);
+    }
+  };
+
+  const submitBulkArchive = async () => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0 || bulkRunning) return;
+    setBulkRunning(true);
+    try {
+      const res = await apiRequest("POST", "/api/admin/crm/clients/bulk-archive", { ids });
+      const body = await res.json();
+      toast({ title: `Archived ${body.ok} client${body.ok === 1 ? "" : "s"}`, description: body.failed ? `${body.failed} failed` : undefined });
+      setArchiveDialog(false);
+      setSelectedIds(new Set());
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/clients"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/overview"] });
+    } catch (err) {
+      toast({ title: "Bulk archive failed", description: (err as Error).message, variant: "destructive" });
+    } finally {
+      setBulkRunning(false);
+    }
+  };
+
+  /** Bulk CSV export. POSTs the explicit id list to the server so the
+   *  download reflects exactly the user's selection — no row drift. */
+  const submitBulkExport = async () => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0 || bulkRunning) return;
+    setBulkRunning(true);
+    try {
+      const res = await fetch("/api/admin/crm/clients/export", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `clients-${todayIso()}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast({ title: `Exported ${ids.length} client${ids.length === 1 ? "" : "s"}` });
+    } catch (err) {
+      toast({ title: "Export failed", description: (err as Error).message, variant: "destructive" });
+    } finally {
+      setBulkRunning(false);
+    }
+  };
+
+  /** Start an impersonation for a single client's linked user. We pass
+   *  the user_id (not the client_id) because impersonation operates on
+   *  the auth-user identity, not the CRM record. After success we
+   *  navigate to the redirect URL the server returns (typically /portal)
+   *  and force a reload so the impersonation middleware applies on the
+   *  next request. */
+  const impersonate = useMutation({
+    mutationFn: async (userId: number) => {
+      const res = await apiRequest("POST", `/api/admin/impersonate/${userId}`, { reason: "View as customer from /admin/crm/clients" });
+      return res.json();
+    },
+    onSuccess: (data: { redirect?: string }) => {
+      toast({ title: "Impersonation started" });
+      queryClient.clear();
+      const redirect = data.redirect || "/portal";
+      window.location.assign(redirect);
+    },
+    onError: (err: Error) => {
+      toast({ title: "Couldn't start impersonation", description: err.message, variant: "destructive" });
+    },
+  });
 
   /* Reset the selection whenever filters change so the toolbar's
    * count never reflects rows that aren't visible. */
@@ -259,6 +374,31 @@ export default function ClientsPage() {
               >
                 Mark churned
               </button>
+              {/* New bulk actions — tag / export / archive. Tag opens
+                  a dialog so the user can name the tag. Export streams
+                  a server-rendered CSV. Archive opens an AlertDialog
+                  confirm because the action is terminal. */}
+              <button
+                onClick={() => { setTagValue(""); setTagDialog(true); }}
+                disabled={bulkRunning}
+                className="px-3 py-1.5 text-xs font-medium bg-white/10 text-white rounded-md hover:bg-white/15 disabled:opacity-50 transition-colors inline-flex items-center gap-1"
+              >
+                <TagIcon className="w-3 h-3" /> Tag
+              </button>
+              <button
+                onClick={submitBulkExport}
+                disabled={bulkRunning}
+                className="px-3 py-1.5 text-xs font-medium bg-white/10 text-white rounded-md hover:bg-white/15 disabled:opacity-50 transition-colors inline-flex items-center gap-1"
+              >
+                <Download className="w-3 h-3" /> Export CSV
+              </button>
+              <button
+                onClick={() => setArchiveDialog(true)}
+                disabled={bulkRunning}
+                className="px-3 py-1.5 text-xs font-medium bg-white/10 text-white rounded-md hover:bg-white/15 disabled:opacity-50 transition-colors inline-flex items-center gap-1"
+              >
+                <Archive className="w-3 h-3" /> Archive
+              </button>
               <button
                 onClick={() => setSelectedIds(new Set())}
                 disabled={bulkRunning}
@@ -289,6 +429,7 @@ export default function ClientsPage() {
                 <TableHead className="hidden lg:table-cell">Trade</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="hidden md:table-cell">Source</TableHead>
+                <TableHead className="w-[120px] text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -301,11 +442,12 @@ export default function ClientsPage() {
                     <TableCell className="hidden lg:table-cell"><Skeleton className="h-4 w-20" /></TableCell>
                     <TableCell><Skeleton className="h-5 w-16" /></TableCell>
                     <TableCell className="hidden md:table-cell"><Skeleton className="h-4 w-16" /></TableCell>
+                    <TableCell><Skeleton className="h-7 w-24" /></TableCell>
                   </TableRow>
                 ))
               ) : data?.data.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                  <TableCell colSpan={7} className="text-center py-8 text-gray-500">
                     {search ? (
                       "No clients match your search."
                     ) : (
@@ -345,6 +487,24 @@ export default function ClientsPage() {
                     </TableCell>
                     <TableCell className="hidden md:table-cell">
                       <span className="text-xs text-gray-500 capitalize">{client.source || "-"}</span>
+                    </TableCell>
+                    <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                      {/* "View as customer" — only shown when the client
+                          row has a linked portal user (user_id != null).
+                          Disabled rows without a linked user. */}
+                      {client.user_id ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={() => setImpersonateTarget(client)}
+                          disabled={impersonate.isPending}
+                        >
+                          <UserCheck className="w-3 h-3 mr-1" /> View as
+                        </Button>
+                      ) : (
+                        <span className="text-[11px] text-gray-400" title="No linked portal user">—</span>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))
@@ -410,6 +570,86 @@ export default function ClientsPage() {
             </form>
           </DialogContent>
         </Dialog>
+
+        {/* Bulk-tag dialog */}
+        <Dialog open={tagDialog} onOpenChange={setTagDialog}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Tag {selectedIds.size} client{selectedIds.size === 1 ? "" : "s"}</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={(e) => { e.preventDefault(); submitBulkTag(); }}>
+              <label className="text-xs font-medium text-gray-600 block mb-1">Tag name</label>
+              <Input
+                value={tagValue}
+                onChange={(e) => setTagValue(e.target.value)}
+                placeholder="e.g. priority, q3-launch"
+                autoFocus
+                maxLength={64}
+              />
+              <p className="text-xs text-gray-500 mt-2">
+                Created on the fly if it doesn't exist. Existing tags on each client are preserved.
+              </p>
+              <DialogFooter className="mt-4">
+                <Button variant="outline" type="button" onClick={() => setTagDialog(false)}>Cancel</Button>
+                <Button type="submit" disabled={!tagValue.trim() || bulkRunning} className="btn-primary-premium">
+                  {bulkRunning ? "Applying…" : "Apply tag"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Bulk-archive confirm */}
+        <AlertDialog open={archiveDialog} onOpenChange={setArchiveDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Archive {selectedIds.size} client{selectedIds.size === 1 ? "" : "s"}?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Archived clients are hidden from the default Clients view. They can be restored by an admin
+                directly editing the status. No data is deleted.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={bulkRunning}>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={submitBulkArchive} disabled={bulkRunning}>
+                {bulkRunning ? "Archiving…" : "Archive"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* "View as customer" per-row confirm */}
+        <AlertDialog
+          open={impersonateTarget !== null}
+          onOpenChange={(open) => { if (!open) setImpersonateTarget(null); }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                Open the portal as {impersonateTarget?.business_name}?
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                Every action will be logged and visible to them as if they did it. This will end your current
+                admin session and restore it when you click <strong>Stop</strong> in the banner at the top of
+                the page. Auto-expires after 60 minutes.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={impersonate.isPending}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                className="btn-primary-premium"
+                disabled={impersonate.isPending}
+                onClick={() => {
+                  if (impersonateTarget?.user_id) {
+                    impersonate.mutate(impersonateTarget.user_id);
+                  }
+                }}
+              >
+                {impersonate.isPending ? "Starting…" : "View as customer"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </AdminLayout>
   );

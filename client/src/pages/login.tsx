@@ -10,6 +10,7 @@ import { V7PageShell } from "@/components/marketing/v7";
 import { mkt } from "@/theme/tokens";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import GoogleSignInButton from "@/components/auth/GoogleSignInButton";
+import { AuthCard } from "@/components/auth/AuthCard";
 
 /** Friendly copy for the ?google_error= codes the OAuth callback may return. */
 const GOOGLE_ERROR_COPY: Record<string, string> = {
@@ -296,39 +297,8 @@ export default function LoginPage() {
   /* ─── Render ──────────────────────────────────────────────────── */
 
   return (
-    <MarketingLayout>
-      <V7PageShell>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            minHeight: "70vh",
-            padding: "40px 16px",
-          }}
-        >
-          <div
-            style={{
-              width: "100%",
-              maxWidth: 420,
-              background: "rgba(21, 26, 33, 0.7)",
-              border: `1px solid ${mkt.onDarkBorder}`,
-              borderRadius: 16,
-              padding: "32px 28px",
-            }}
-          >
-            <h1
-              style={{
-                fontSize: 26,
-                fontWeight: 700,
-                color: mkt.onDark,
-                marginBottom: 24,
-                letterSpacing: "-0.02em",
-              }}
-            >
-              {requires2fa ? "Two-factor verification" : "Sign in"}
-            </h1>
-
+    <AuthCard title={requires2fa ? "Two-factor verification" : "Sign in"} testId="auth-card-login">
+      <>
             {/* Tabs — hidden during 2FA step since the user is past
                 that decision. */}
             {!requires2fa && (
@@ -590,9 +560,7 @@ export default function LoginPage() {
                 <GoogleSignInButton mode="login" />
               </>
             )}
-          </div>
-        </div>
-      </V7PageShell>
-    </MarketingLayout>
+      </>
+    </AuthCard>
   );
 }

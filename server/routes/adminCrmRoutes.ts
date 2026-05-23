@@ -4207,4 +4207,183 @@ export function registerAdminCrmRoutes(app: Express): void {
       res.status(500).json({ error: "Failed to run test call" });
     }
   });
+
+  /* ═══════════════════════════════════════════
+     Bulk actions on clients
+     ─────────────────────────────────────────
+     Power-user admin tooling: select N rows on /admin/crm/clients and
+     run a single mutation against all of them. Each endpoint validates
+     the id list, then loops through the same per-row helper that the
+     existing per-row endpoints already use (status updates, metadata
+     writes). Loop-and-collect rather than a single UPDATE WHERE id IN
+     so each row gets its own audit_log entry — bulk actions are
+     auditable per-client just like single mutations.
+
+     Authorization: requireAdmin only. Never reachable while
+     impersonating because impersonation flips role away from 'admin'.
+     ═══════════════════════════════════════════ */
+
+  const bulkIdsSchema = z.object({
+    ids: z.array(z.number().int().positive()).min(1).max(500),
+  });
+
+  /** Apply a tag to every selected client. Tags live in
+   *  clients.metadata.tags as a string[]. Idempotent (no duplicates). */
+  app.post("/api/admin/crm/clients/bulk-tag", requireAdmin, async (req: Request, res: Response) => {
+    const parsed = bulkIdsSchema.extend({ tag: z.string().trim().min(1).max(64) }).safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
+    const { ids, tag } = parsed.data;
+    const results = await Promise.allSettled(
+      ids.map(async (id) => {
+        const client = await storage.getClientById(id);
+        if (!client) return { id, ok: false };
+        const meta = (client.metadata as Record<string, unknown> | null) ?? {};
+        const existingTags = Array.isArray((meta as { tags?: unknown }).tags)
+          ? ((meta as { tags?: unknown }).tags as string[]).filter((t) => typeof t === "string")
+          : [];
+        if (existingTags.includes(tag)) return { id, ok: true };
+        const nextTags = [...existingTags, tag];
+        await storage.updateClient(id, { metadata: { ...meta, tags: nextTags } });
+        await storage.logAdminActivity({
+          actor_type: "human",
+          actor_id: (req.user as any)?.id,
+          actor_name: (req.user as any)?.name || (req.user as any)?.email,
+          action: "client.bulk_tag",
+          entity_type: "client",
+          entity_id: id,
+          summary: `Tagged client #${id} with "${tag}"`,
+          metadata: { tag, bulk: true },
+        });
+        return { id, ok: true };
+      }),
+    );
+    const ok = results.filter((r) => r.status === "fulfilled" && (r.value as { ok: boolean }).ok).length;
+    const failed = results.length - ok;
+    res.json({ ok, failed, total: ids.length });
+  });
+
+  /** Bulk pause. Reuses storage.updateClient with status='paused'. No
+   *  confirm required client-side — paused is reversible per-row. */
+  app.post("/api/admin/crm/clients/bulk-pause", requireAdmin, async (req: Request, res: Response) => {
+    const parsed = bulkIdsSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
+    const { ids } = parsed.data;
+    const results = await Promise.allSettled(
+      ids.map(async (id) => {
+        const client = await storage.updateClient(id, { status: "paused" });
+        if (!client) return { id, ok: false };
+        await storage.logAdminActivity({
+          actor_type: "human",
+          actor_id: (req.user as any)?.id,
+          actor_name: (req.user as any)?.name || (req.user as any)?.email,
+          action: "client.bulk_pause",
+          entity_type: "client",
+          entity_id: id,
+          summary: `Paused client "${client.business_name}"`,
+          metadata: { bulk: true },
+        });
+        return { id, ok: true };
+      }),
+    );
+    const ok = results.filter((r) => r.status === "fulfilled" && (r.value as { ok: boolean }).ok).length;
+    const failed = results.length - ok;
+    res.json({ ok, failed, total: ids.length });
+  });
+
+  /** Bulk archive — terminal, but reversible by direct DB edit. We
+   *  set status='archived' (separate from 'churned' which has a
+   *  customer-relationship semantic). Client-side requires an explicit
+   *  confirm modal. */
+  app.post("/api/admin/crm/clients/bulk-archive", requireAdmin, async (req: Request, res: Response) => {
+    const parsed = bulkIdsSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
+    const { ids } = parsed.data;
+    const results = await Promise.allSettled(
+      ids.map(async (id) => {
+        const client = await storage.updateClient(id, { status: "archived" });
+        if (!client) return { id, ok: false };
+        await storage.logAdminActivity({
+          actor_type: "human",
+          actor_id: (req.user as any)?.id,
+          actor_name: (req.user as any)?.name || (req.user as any)?.email,
+          action: "client.bulk_archive",
+          entity_type: "client",
+          entity_id: id,
+          summary: `Archived client "${client.business_name}"`,
+          metadata: { bulk: true },
+        });
+        return { id, ok: true };
+      }),
+    );
+    const ok = results.filter((r) => r.status === "fulfilled" && (r.value as { ok: boolean }).ok).length;
+    const failed = results.length - ok;
+    res.json({ ok, failed, total: ids.length });
+  });
+
+  /** Bulk CSV export. Server-rendered (vs. the client-side csvDownload
+   *  helper already on the page) so the row set is exactly what the
+   *  admin selected — including rows from pages they haven't loaded
+   *  yet, once we add server-side pagination. Body shape:
+   *    { ids: number[] }            — explicit list (preferred)
+   *  Returns text/csv with a download-friendly filename. */
+  app.post("/api/admin/crm/clients/export", requireAdmin, async (req: Request, res: Response) => {
+    const parsed = z.object({ ids: z.array(z.number().int().positive()).min(1).max(5000) }).safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
+    const { ids } = parsed.data;
+    try {
+      const rows = await Promise.all(ids.map((id) => storage.getClientById(id)));
+      const present = rows.filter((r): r is NonNullable<typeof r> => Boolean(r));
+      const header = [
+        "id",
+        "business_name",
+        "contact_name",
+        "contact_email",
+        "contact_phone",
+        "trade_type",
+        "status",
+        "source",
+        "created_at",
+      ];
+      const escape = (v: unknown) => {
+        if (v === null || v === undefined) return "";
+        const s = String(v).replace(/"/g, '""');
+        return /[,\n"]/.test(s) ? `"${s}"` : s;
+      };
+      const csv = [
+        header.join(","),
+        ...present.map((c) =>
+          [
+            c.id,
+            c.business_name,
+            c.contact_name,
+            c.contact_email,
+            c.contact_phone,
+            c.trade_type,
+            c.status,
+            c.source,
+            c.created_at?.toISOString?.() ?? c.created_at,
+          ]
+            .map(escape)
+            .join(","),
+        ),
+      ].join("\n");
+      const filename = `clients-export-${new Date().toISOString().slice(0, 10)}.csv`;
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: (req.user as any)?.id,
+        actor_name: (req.user as any)?.name || (req.user as any)?.email,
+        action: "client.bulk_export",
+        entity_type: "client",
+        entity_id: 0,
+        summary: `Exported ${present.length} client row${present.length === 1 ? "" : "s"} to CSV`,
+        metadata: { count: present.length },
+      });
+      res.send(csv);
+    } catch (err: any) {
+      log.error("[bulk-export] failed", { error: err.message });
+      res.status(500).json({ error: "Failed to export CSV" });
+    }
+  });
 }

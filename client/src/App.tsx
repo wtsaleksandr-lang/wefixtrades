@@ -4,6 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { CopilotFormProvider } from "@/context/CopilotFormContext";
+import { ImpersonateBanner } from "@/components/admin/ImpersonateBanner";
 import NotFound from "@/pages/not-found";
 import Wizard from "@/pages/wizard";
 import WizardLegacy from "@/pages/wizard-legacy";
@@ -453,6 +454,10 @@ function App() {
       <TooltipProvider>
         <CopilotFormProvider>
           <Toaster />
+          {/* Global impersonation banner — only renders when an admin
+              has an active "view as customer" session. Sticky top-0
+              so it appears above every route's chrome. */}
+          <ImpersonateBanner />
           <Router />
         </CopilotFormProvider>
       </TooltipProvider>
