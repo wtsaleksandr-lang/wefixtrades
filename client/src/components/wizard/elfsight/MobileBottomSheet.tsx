@@ -210,7 +210,16 @@ export default function MobileBottomSheet({
         data-snap={snap}
         role="dialog"
         aria-label="Wizard configuration"
-        aria-modal={snap === 'full' ? 'true' : 'false'}
+        /* AUDIT-MEDIUM — was toggled 'true' (full) / 'false' (half),
+         * which some screen readers don't honour gracefully on a
+         * single dialog node. Both half + full render the backdrop
+         * (snap !== 'collapsed') and intercept page interaction, so
+         * both are modal contexts. Collapsed is a 56px peek bar with
+         * no backdrop, but the dialog node remains in the tree —
+         * keep aria-modal stable as 'true' since role="dialog" is
+         * always set; expansion state is signalled via aria-expanded
+         * on the handle button. */
+        aria-modal="true"
       >
         {/* ── Drag handle ────────────────────────────────────────── */}
         <button
@@ -437,7 +446,12 @@ export default function MobileBottomSheet({
           .qq-sheet-footer-reset {
             display: inline-flex; align-items: center; gap: 6px;
             min-height: 44px; padding: 0 14px;
-            background: #fff;
+            /* AUDIT-LOW — was hardcoded #fff. Token resolves to white
+             * in light theme + dark surface (#1E293B) in dark theme.
+             * Pairs with the existing dark override below + the
+             * .qq-editor-shell[data-theme="dark"] .qq-sheet-footer-reset
+             * rule in client/src/index.css (lines 1206-1213). */
+            background: var(--qq-surface, #fff);
             border: 1px solid ${p.colors.border};
             border-radius: 10px;
             font: inherit; font-size: 13px; font-weight: 600;
