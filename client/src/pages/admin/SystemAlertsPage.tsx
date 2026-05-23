@@ -134,6 +134,14 @@ export default function SystemAlertsPage() {
             >
               {showAcknowledged ? "Hide Acked" : "Show Acked"}
             </Button>
+            {(severityFilter !== "all" || categoryFilter !== "all" || showAcknowledged) && (
+              <button
+                onClick={() => { setSeverityFilter("all"); setCategoryFilter("all"); setShowAcknowledged(false); }}
+                className="text-xs text-gray-500 hover:text-gray-700 underline"
+              >
+                Clear filters
+              </button>
+            )}
           </div>
         </div>
 

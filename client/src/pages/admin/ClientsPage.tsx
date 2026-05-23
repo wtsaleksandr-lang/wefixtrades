@@ -306,7 +306,11 @@ export default function ClientsPage() {
               ) : data?.data.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center py-8 text-gray-500">
-                    {search ? "No clients match your search." : "No clients yet. Click \"Add Client\" to create your first one."}
+                    {search ? (
+                      "No clients match your search."
+                    ) : (
+                      <>No clients yet. <button type="button" onClick={() => setShowAdd(true)} className="underline text-[var(--brand-blue,#0d3cfc)]">Add Client</button> to create your first one.</>
+                    )}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -355,53 +359,55 @@ export default function ClientsPage() {
             <DialogHeader>
               <DialogTitle>Add Client</DialogTitle>
             </DialogHeader>
-            <div className="space-y-3">
-              <div>
-                <label className="text-xs font-medium text-gray-600">Business Name *</label>
-                <Input value={form.business_name} onChange={(e) => setForm({ ...form, business_name: e.target.value })} />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
+            <form onSubmit={(e) => { e.preventDefault(); createMutation.mutate(form); }}>
+              <div className="space-y-3">
                 <div>
-                  <label className="text-xs font-medium text-gray-600">Contact Name</label>
-                  <Input value={form.contact_name} onChange={(e) => setForm({ ...form, contact_name: e.target.value })} />
+                  <label className="text-xs font-medium text-gray-600">Business Name *</label>
+                  <Input value={form.business_name} onChange={(e) => setForm({ ...form, business_name: e.target.value })} />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-medium text-gray-600">Contact Name</label>
+                    <Input value={form.contact_name} onChange={(e) => setForm({ ...form, contact_name: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-600">Phone</label>
+                    <Input value={form.contact_phone} onChange={(e) => setForm({ ...form, contact_phone: e.target.value })} />
+                  </div>
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-gray-600">Phone</label>
-                  <Input value={form.contact_phone} onChange={(e) => setForm({ ...form, contact_phone: e.target.value })} />
+                  <label className="text-xs font-medium text-gray-600">Email</label>
+                  <Input value={form.contact_email} onChange={(e) => setForm({ ...form, contact_email: e.target.value })} />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-medium text-gray-600">Trade Type</label>
+                    <Input value={form.trade_type} onChange={(e) => setForm({ ...form, trade_type: e.target.value })} placeholder="e.g. plumber" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-600">Status</label>
+                    <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="lead">Lead</SelectItem>
+                        <SelectItem value="onboarding">Onboarding</SelectItem>
+                        <SelectItem value="active">Active</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
-              <div>
-                <label className="text-xs font-medium text-gray-600">Email</label>
-                <Input value={form.contact_email} onChange={(e) => setForm({ ...form, contact_email: e.target.value })} />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-medium text-gray-600">Trade Type</label>
-                  <Input value={form.trade_type} onChange={(e) => setForm({ ...form, trade_type: e.target.value })} placeholder="e.g. plumber" />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-gray-600">Status</label>
-                  <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="lead">Lead</SelectItem>
-                      <SelectItem value="onboarding">Onboarding</SelectItem>
-                      <SelectItem value="active">Active</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowAdd(false)}>Cancel</Button>
-              <Button
-                onClick={() => createMutation.mutate(form)}
-                disabled={!form.business_name || createMutation.isPending}
-                className="bg-[#0d3cfc] hover:bg-[#0b34d6]"
-              >
-                {createMutation.isPending ? "Creating..." : "Create"}
-              </Button>
-            </DialogFooter>
+              <DialogFooter className="mt-4">
+                <Button variant="outline" type="button" onClick={() => setShowAdd(false)}>Cancel</Button>
+                <Button
+                  type="submit"
+                  disabled={!form.business_name || createMutation.isPending}
+                  className="bg-[#0d3cfc] hover:bg-[#0b34d6]"
+                >
+                  {createMutation.isPending ? "Creating..." : "Create"}
+                </Button>
+              </DialogFooter>
+            </form>
           </DialogContent>
         </Dialog>
       </div>

@@ -396,11 +396,20 @@ export function TaskStatusSelect({
 }
 
 /* ─── Empty States ─── */
-export function InboxEmptyState() {
+export function InboxEmptyState({ statusFilter }: { statusFilter?: string } = {}) {
+  const titleByFilter: Record<string, string> = {
+    open: "No open tasks",
+    blocked: "No blocked tasks",
+    in_progress: "No tasks in progress",
+    delivered: "No delivered tasks",
+    cancelled: "No cancelled tasks",
+    all: "No tasks need attention",
+  };
+  const title = (statusFilter && titleByFilter[statusFilter]) || "No tasks need attention";
   return (
     <Card className="p-10 text-center">
       <Inbox className="w-10 h-10 text-gray-200 mx-auto mb-3" />
-      <p className="text-sm font-medium text-gray-700">No tasks need attention</p>
+      <p className="text-sm font-medium text-gray-700">{title}</p>
       <p className="text-xs text-gray-400 mt-1">New tasks will appear here when services are assigned to clients.</p>
     </Card>
   );

@@ -111,7 +111,19 @@ export default function InstallQueuePage() {
         </div>
 
         {query.isLoading ? (
-          <Skeleton className="h-96" />
+          <Card className="overflow-hidden">
+            <table className="w-full text-sm">
+              <tbody>
+                {Array.from({ length: 5 }).map((_, r) => (
+                  <tr key={r} className="border-t border-gray-100">
+                    {Array.from({ length: 6 }).map((_, c) => (
+                      <td key={c} className="px-4 py-3"><Skeleton className="h-4 w-full" /></td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Card>
         ) : (
           <Card className="overflow-hidden">
             <table className="w-full text-sm">

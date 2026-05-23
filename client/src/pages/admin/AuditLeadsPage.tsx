@@ -19,7 +19,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ClipboardList, RotateCw, Download } from "lucide-react";
+import { ClipboardList, RotateCw, Download, HelpCircle } from "lucide-react";
 import { csvDownload, todayIso } from "@/lib/csvDownload";
 
 interface AuditSubmission {
@@ -113,6 +113,7 @@ export default function AuditLeadsPage() {
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div className="min-w-0">
             <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+              <span title="Emails captured by the free website-audit tool — your highest-intent inbound prospects." className="inline-flex"><HelpCircle className="w-3 h-3 text-gray-400 cursor-help" /></span>
               <ClipboardList className="w-5 h-5" />
               Audit Leads
             </h2>

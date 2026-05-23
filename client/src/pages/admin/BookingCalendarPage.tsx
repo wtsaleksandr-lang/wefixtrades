@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface CalendarConnection { id: number; platform: string; status: string; last_synced_at: string | null; slot_duration_minutes: number; buffer_minutes: number; booking_url?: string; metadata?: Record<string, any> | null; }
@@ -106,7 +107,15 @@ export default function BookingCalendarPage() {
           <TabsList className="grid w-full grid-cols-3"><TabsTrigger value="connections">Connections</TabsTrigger><TabsTrigger value="hours">Working Hours</TabsTrigger><TabsTrigger value="bookings">Bookings</TabsTrigger></TabsList>
           <TabsContent value="connections" className="space-y-4">
             <div className="flex items-center justify-between"><h2 className="text-base font-semibold text-gray-900">Calendar Connections</h2><Button size="sm" onClick={() => setConnectOpen(true)} className="bg-[#0d3cfc] hover:bg-[#0b34d6] gap-1.5"><Plus className="w-3.5 h-3.5" />Connect</Button></div>
-            {cl ? <div className="flex justify-center py-12"><Loader2 className="w-5 h-5 animate-spin text-gray-400" /></div>
+            {cl ? <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="flex items-center justify-between p-4 rounded-xl border border-gray-200 bg-white">
+                <div className="flex items-center gap-3">
+                  <Skeleton className="w-8 h-8 rounded-lg" />
+                  <div className="space-y-1.5"><Skeleton className="h-4 w-32" /><Skeleton className="h-3 w-20" /></div>
+                </div>
+                <Skeleton className="h-6 w-24" />
+              </div>
+            ))}</div>
             : !conns?.length ? <div className="rounded-xl border-2 border-dashed border-gray-200 p-8 text-center"><CalendarDays className="w-8 h-8 text-gray-300 mx-auto mb-3" /><p className="text-sm font-medium text-gray-600">No calendars connected</p></div>
             : <div className="space-y-3">{conns.map((c) => (
               <div key={c.id} className="flex items-center justify-between p-4 rounded-xl border border-gray-200 bg-white">
@@ -123,7 +132,7 @@ export default function BookingCalendarPage() {
                   <div className="flex gap-1">
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-blue-600" onClick={() => testM.mutate(c.id)}>{testM.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}</Button>
                     {c.booking_url && <Button variant="ghost" size="icon" className="h-8 w-8" asChild><a href={c.booking_url} target="_blank" rel="noopener noreferrer"><ExternalLink className="w-4 h-4" /></a></Button>}
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-red-600" onClick={() => { if (confirm("Disconnect?")) delM.mutate(c.id); }}><Trash2 className="w-4 h-4" /></Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-red-600" onClick={() => { if (window.confirm(`Disconnect ${PL[c.platform] || c.platform}? Customers won't be able to book until you reconnect.`)) delM.mutate(c.id); }}><Trash2 className="w-4 h-4" /></Button>
                   </div>
                 </div>
               </div>))}</div>}

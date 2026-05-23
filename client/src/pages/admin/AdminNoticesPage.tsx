@@ -1,10 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import AdminLayout from "@/components/admin/AdminLayout";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { apiRequest } from "@/lib/queryClient";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { useToast } from "@/hooks/use-toast";
+import { HelpCircle } from "lucide-react";
 
 /**
  * AI Agenda (Phase 3e-ii-a) — the founder's feed of AI escalations. The AI
@@ -32,6 +35,7 @@ function entityLink(n: Notice): string | null {
 export default function AdminNoticesPage() {
   usePageTitle("AI Agenda");
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const { data, isLoading } = useQuery<{ notices: Notice[]; unread_count: number }>({
     queryKey: ["/api/admin/notices"],
@@ -43,6 +47,11 @@ export default function AdminNoticesPage() {
       return res.json();
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/admin/notices"] }),
+    onError: (err: any) => toast({
+      title: "Couldn't update notice",
+      description: err?.message ?? "Try again",
+      variant: "destructive",
+    }),
   });
 
   const notices = data?.notices ?? [];
@@ -51,14 +60,19 @@ export default function AdminNoticesPage() {
     <AdminLayout>
       <div className="max-w-3xl mx-auto p-4 sm:p-6">
         <div className="mb-5">
-          <h1 className="text-xl font-semibold text-gray-900">AI Agenda</h1>
+          <div className="flex items-center gap-2">
+            <span title="The AI posts here when it isn't sure about something and wants your input." className="inline-flex"><HelpCircle className="w-3 h-3 text-gray-400 cursor-help" /></span>
+            <h1 className="text-xl font-semibold text-gray-900">AI Agenda</h1>
+          </div>
           <p className="text-sm text-gray-500 mt-0.5">
             Escalations from the AI — things it wasn't sure about and wants your call on.
           </p>
         </div>
 
         {isLoading ? (
-          <p className="text-sm text-gray-500">Loading…</p>
+          <>{Array.from({ length: 3 }).map((_, i) => (
+            <Card key={i} className="mb-2"><CardContent className="p-4"><Skeleton className="h-20" /></CardContent></Card>
+          ))}</>
         ) : notices.length === 0 ? (
           <Card className="p-8 text-center text-sm text-gray-500">
             Nothing needs your attention. The AI posts here when it's unsure about something.

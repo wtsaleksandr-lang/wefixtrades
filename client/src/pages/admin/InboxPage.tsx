@@ -138,7 +138,7 @@ export default function InboxPage() {
             ))}
           </div>
         ) : tasks?.length === 0 ? (
-          <InboxEmptyState />
+          <InboxEmptyState statusFilter={statusFilter} />
         ) : (
           <div className="space-y-5">
             {sections.filter((s) => s.show).map((section) => (

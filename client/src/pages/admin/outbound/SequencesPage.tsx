@@ -313,7 +313,7 @@ function EditSequenceDialog({ sequence, open, onClose }: { sequence: Sequence | 
                         Step {s.order_index}
                         {s.order_index > 1 && <span className="text-gray-400 font-normal"> · +{s.delay_days}d</span>}
                       </span>
-                      <Button size="sm" variant="ghost" className="h-6 px-2 text-xs text-red-600" onClick={() => deleteStep.mutate(s.id)} disabled={deleteStep.isPending}>
+                      <Button size="sm" variant="ghost" className="h-6 px-2 text-xs text-red-600" onClick={() => { if (window.confirm("Delete this step? This cannot be undone.")) deleteStep.mutate(s.id); }} disabled={deleteStep.isPending} aria-label="Delete step">
                         <Trash2 className="w-3 h-3" />
                       </Button>
                     </div>
@@ -518,7 +518,7 @@ export default function SequencesPage() {
                             Archive
                           </Button>
                         ) : (
-                          <Button size="sm" variant="outline" className="h-7 text-xs gap-1 text-red-600" onClick={() => remove.mutate(s.id)} disabled={remove.isPending}>
+                          <Button size="sm" variant="outline" className="h-7 text-xs gap-1 text-red-600" onClick={() => { if (window.confirm(`Permanently delete "${s.name}"? This cannot be undone.`)) remove.mutate(s.id); }} disabled={remove.isPending}>
                             <Trash2 className="w-3 h-3" />
                           </Button>
                         )}

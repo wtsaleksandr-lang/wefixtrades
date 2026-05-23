@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useCopilotForm } from "@/context/CopilotFormContext";
-import { Loader2, Save, Shield, ShieldCheck, ShieldOff, ChevronLeft } from "lucide-react";
+import { Loader2, Save, Shield, ShieldCheck, ShieldOff, ChevronLeft, HelpCircle } from "lucide-react";
 import { Link } from "wouter";
 
 interface UserSettings {
@@ -138,7 +138,10 @@ export default function SettingsPage() {
         >
           <ChevronLeft className="w-3.5 h-3.5" /> Back to admin
         </Link>
-        <h2 className="text-lg font-semibold text-gray-900">Account Settings</h2>
+        <div className="flex items-center gap-2">
+          <span title="Manage your business information, password, and two-factor authentication." className="inline-flex"><HelpCircle className="w-3 h-3 text-gray-400 cursor-help" /></span>
+          <h2 className="text-lg font-semibold text-gray-900">Account Settings</h2>
+        </div>
 
         {/* Business Info */}
         <Card className="p-5 space-y-4">
@@ -396,7 +399,10 @@ function TwoFactorSection() {
               variant="destructive"
               size="sm"
               disabled={disableMutation.isPending || !disablePassword || disableCode.length !== 6}
-              onClick={() => disableMutation.mutate()}
+              onClick={() => {
+                if (!window.confirm("Disable two-factor authentication? Your account will be less secure.")) return;
+                disableMutation.mutate();
+              }}
             >
               {disableMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Confirm Disable
