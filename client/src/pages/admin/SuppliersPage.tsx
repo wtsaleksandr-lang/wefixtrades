@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
@@ -705,7 +706,16 @@ export default function SuppliersPage() {
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-8 text-gray-400">Loading...</TableCell></TableRow>
+                Array.from({ length: 5 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                    <TableCell className="hidden md:table-cell"><Skeleton className="h-4 w-24" /></TableCell>
+                    <TableCell className="hidden lg:table-cell"><Skeleton className="h-4 w-28" /></TableCell>
+                    <TableCell className="hidden md:table-cell"><Skeleton className="h-4 w-16" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-16" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-12" /></TableCell>
+                  </TableRow>
+                ))
               ) : suppliers.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center py-8 text-gray-500">
@@ -773,15 +783,20 @@ export default function SuppliersPage() {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                        <Button variant="ghost" size="sm" onClick={() => openEditForm(s)} className="h-8 w-8 p-0">
+                        <Button variant="ghost" size="sm" onClick={() => openEditForm(s)} className="h-8 w-8 p-0" aria-label={`Edit ${s.name}`}>
                           <Pencil className="w-3.5 h-3.5 text-gray-500" />
                         </Button>
                         {s.is_active && (
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => deleteMutation.mutate(s.id)}
+                            onClick={() => {
+                              if (window.confirm(`Deactivate supplier "${s.name}"? Active tasks stay assigned.`)) {
+                                deleteMutation.mutate(s.id);
+                              }
+                            }}
                             className="h-8 w-8 p-0"
+                            aria-label={`Deactivate ${s.name}`}
                           >
                             <Trash2 className="w-3.5 h-3.5 text-red-400" />
                           </Button>

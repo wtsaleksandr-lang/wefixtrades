@@ -11,6 +11,7 @@ import { Link } from "wouter";
 import { ChevronLeft, MessageSquare, Loader2 } from "lucide-react";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { Card } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { usePageTitle } from "@/hooks/usePageTitle";
 
 interface HistoryResponse {
@@ -71,8 +72,9 @@ export default function AdminChatHistoryPage() {
         )}
 
         {isLoading && (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+          <div className="space-y-3" data-testid="copilot-history-skeleton">
+            <div className="flex justify-start"><Skeleton className="h-16 w-2/3 rounded-lg" /></div>
+            <div className="flex justify-end"><Skeleton className="h-16 w-2/3 rounded-lg" /></div>
           </div>
         )}
 

@@ -10,7 +10,7 @@ client/src/components/admin/AdminLayout.tsx:1162:25	rule-c	square w-7 h-7
 client/src/components/admin/LucideIconPicker.tsx:119:29	rule-c	size={18}
 client/src/components/admin/MapguardTaskCard.tsx:189:17	rule-c	square w-7 h-7
 client/src/components/admin/ServiceOps.tsx:47:12	rule-c	square w-7 h-7
-client/src/components/admin/TaskCard.tsx:402:14	rule-c	square w-10 h-10
+client/src/components/admin/TaskCard.tsx:411:14	rule-c	square w-10 h-10
 client/src/components/booking/BookNowButton.tsx:127:12	rule-c	square w-12 h-12
 client/src/components/home/TrustStrip.tsx:88:19	rule-c	square w-1.5 h-1.5
 client/src/components/marketing/AuditGate.tsx:134:25	rule-c	size={28}
@@ -135,8 +135,8 @@ client/src/pages/admin/AiDashboard.tsx:726:247	rule-c	size={18}
 client/src/pages/admin/ApiPlatformPage.tsx:172:19	rule-c	square w-2 h-2
 client/src/pages/admin/ApiPlatformUserDetailPage.tsx:376:25	rule-c	square w-12 h-12
 client/src/pages/admin/ApiPlatformUserDetailPage.tsx:386:20	rule-c	square w-12 h-12
-client/src/pages/admin/BookingCalendarPage.tsx:51:16	rule-c	square w-10 h-10
-client/src/pages/admin/BookingCalendarPage.tsx:114:24	rule-c	square w-10 h-10
+client/src/pages/admin/BookingCalendarPage.tsx:52:16	rule-c	square w-10 h-10
+client/src/pages/admin/BookingCalendarPage.tsx:123:24	rule-c	square w-10 h-10
 client/src/pages/admin/ClientDetailPage.tsx:652:7	rule-b	<div> contains 2 cues
 client/src/pages/admin/CommunicationsPage.tsx:1113:21	rule-c	square w-1.5 h-1.5
 client/src/pages/admin/CommunicationsPage.tsx:1118:21	rule-c	square w-1.5 h-1.5
@@ -159,7 +159,7 @@ client/src/pages/admin/InboxPage.tsx:130:61	rule-c	square w-2.5 h-2.5
 client/src/pages/admin/MapguardDashboard.tsx:126:14	rule-c	square w-9 h-9
 client/src/pages/admin/MapguardDashboard.tsx:307:21	rule-c	square w-10 h-10
 client/src/pages/admin/ProductDetailPage.tsx:596:33	rule-c	square w-2.5 h-2.5
-client/src/pages/admin/ProfilePage.tsx:103:18	rule-c	square w-14 h-14
+client/src/pages/admin/ProfilePage.tsx:106:18	rule-c	square w-14 h-14
 client/src/pages/admin/QuoteQuickPage.tsx:79:32	rule-c	square w-28 h-28
 client/src/pages/admin/QuoteQuickPage.tsx:112:19	rule-c	square w-2 h-2
 client/src/pages/admin/QuoteQuickTemplateDetailPage.tsx:960:25	rule-c	size={18}
@@ -175,7 +175,7 @@ client/src/pages/admin/QuoteQuickTradesPage.tsx:351:32	rule-c	size={18}
 client/src/pages/admin/ReviewsPage.tsx:376:7	rule-b	<div> contains 3 cues
 client/src/pages/admin/ReviewsPage.tsx:616:31	rule-c	square w-2 h-2
 client/src/pages/admin/SupportTicketDetailPage.tsx:251:39	rule-c	square w-2.5 h-2.5
-client/src/pages/admin/SystemAlertsPage.tsx:148:26	rule-c	square w-10 h-10
+client/src/pages/admin/SystemAlertsPage.tsx:156:26	rule-c	square w-10 h-10
 client/src/pages/admin/SystemWorkersPage.tsx:196:16	rule-c	square w-2.5 h-2.5
 client/src/pages/admin/TradeLineOpsPage.tsx:26:71	rule-c	square w-10 h-10
 client/src/pages/admin/TradeLineOpsPage.tsx:48:3340	rule-c	square w-10 h-10

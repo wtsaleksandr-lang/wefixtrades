@@ -206,7 +206,7 @@ export default function TradelineVoicesPage() {
                     <Pencil className="w-3 h-3 mr-1" /> Edit
                   </Button>
                   {v.status === "active" && (
-                    <Button size="sm" variant="ghost" onClick={() => archiveVoice.mutate(v.id)}>
+                    <Button size="sm" variant="ghost" onClick={() => { if (window.confirm(`Archive "${v.display_name}"? Clients using it fall back to the default voice.`)) archiveVoice.mutate(v.id); }}>
                       <Archive className="w-3 h-3 mr-1" /> Archive
                     </Button>
                   )}

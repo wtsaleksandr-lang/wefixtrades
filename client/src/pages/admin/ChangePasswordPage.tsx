@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Lock, AlertCircle, ChevronLeft } from "lucide-react";
+import { Loader2, Lock, AlertCircle, ChevronLeft, HelpCircle } from "lucide-react";
 import { Link } from "wouter";
 
 export default function ChangePasswordPage() {
@@ -74,7 +74,10 @@ export default function ChangePasswordPage() {
         >
           <ChevronLeft className="w-3.5 h-3.5" /> Back to profile
         </Link>
-        <h2 className="text-lg font-semibold text-gray-900">Change Password</h2>
+        <div className="flex items-center gap-2">
+          <span title="Use at least 8 characters. You'll need your current password to confirm the change." className="inline-flex"><HelpCircle className="w-3 h-3 text-gray-400 cursor-help" /></span>
+          <h2 className="text-lg font-semibold text-gray-900">Change Password</h2>
+        </div>
 
         <Card className="p-5">
           <form onSubmit={handleSubmit} className="space-y-4">

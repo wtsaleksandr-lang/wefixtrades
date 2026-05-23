@@ -10,7 +10,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useCopilotForm } from "@/context/CopilotFormContext";
-import { Loader2, Save, AlertCircle, ChevronLeft } from "lucide-react";
+import { Loader2, Save, AlertCircle, ChevronLeft, HelpCircle } from "lucide-react";
 import { Link } from "wouter";
 
 export default function ProfilePage() {
@@ -95,7 +95,10 @@ export default function ProfilePage() {
         >
           <ChevronLeft className="w-3.5 h-3.5" /> Back to admin
         </Link>
-        <h2 className="text-lg font-semibold text-gray-900">Profile</h2>
+        <div className="flex items-center gap-2">
+          <span title="Your account name and email — used for sign-in and customer-facing communications." className="inline-flex"><HelpCircle className="w-3 h-3 text-gray-400 cursor-help" /></span>
+          <h2 className="text-lg font-semibold text-gray-900">Profile</h2>
+        </div>
 
         {/* Avatar + display info */}
         <Card className="p-5 space-y-4">

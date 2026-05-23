@@ -15,6 +15,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { apiRequest } from "@/lib/queryClient";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { useToast } from "@/hooks/use-toast";
+import { HelpCircle } from "lucide-react";
 
 interface WaitlistRow {
   id: string;
@@ -43,6 +45,7 @@ interface WaitlistResponse {
 export default function WaitlistPage() {
   usePageTitle("Product Waitlist");
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const { data, isLoading } = useQuery<WaitlistResponse>({
     queryKey: ["/api/admin/marketing/waitlist"],
@@ -53,7 +56,15 @@ export default function WaitlistPage() {
       const res = await apiRequest("POST", `/api/admin/marketing/waitlist/${id}/notify`);
       return res.json();
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/admin/marketing/waitlist"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/marketing/waitlist"] });
+      toast({ title: "Marked as notified" });
+    },
+    onError: (err: any) => toast({
+      title: "Couldn't mark as notified",
+      description: err?.message ?? "Try again",
+      variant: "destructive",
+    }),
   });
 
   const grouped = useMemo(() => {
@@ -74,7 +85,10 @@ export default function WaitlistPage() {
       <div data-theme="light" className="max-w-4xl mx-auto p-4 sm:p-6">
         <BackButton to="/admin/crm" label="Back to admin" className="mb-3" />
         <div className="mb-5">
-          <h1 className="text-xl font-semibold text-gray-900">Product Waitlist</h1>
+          <div className="flex items-center gap-2">
+            <span title="Early-access signups for products in Coming Soon mode. Mark a row as notified once you've reached out." className="inline-flex"><HelpCircle className="w-3 h-3 text-gray-400 cursor-help" /></span>
+            <h1 className="text-xl font-semibold text-gray-900">Product Waitlist</h1>
+          </div>
           <p className="text-sm text-gray-500 mt-0.5">
             Early-access signups for products in Coming Soon mode. Mark a row as notified once you've reached out.
           </p>
