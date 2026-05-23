@@ -96,6 +96,7 @@ const TOOLS: Tool[] = [
     icon: PhoneCall,
     status: "available",
     href: "/portal/free-tools/callback",
+    previewImage: "/free-tools/previews/callback.png",
   },
   {
     slug: "review-link",
@@ -105,6 +106,7 @@ const TOOLS: Tool[] = [
     icon: Star,
     status: "available",
     href: "/portal/free-tools/review-link",
+    previewImage: "/free-tools/previews/review-link.png",
   },
 ];
 

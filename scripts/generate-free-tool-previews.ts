@@ -140,6 +140,64 @@ const TOOLS: ToolPreview[] = [
         </div>
       </div>`,
   },
+  {
+    // Mirrors the customer-facing /r/{slug} landing page with the 5-star
+    // picker in a hover-active state (4 stars filled) and business header.
+    slug: "review-link",
+    renderHTML: () => `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: white; padding: 32px 24px; max-width: 480px; margin: 0 auto; text-align: center; border-radius: 12px; box-shadow: 0 4px 24px rgba(0,0,0,0.08);">
+      <div style="width: 56px; height: 56px; border-radius: 12px; background: linear-gradient(135deg, #0d3cfc, #0a2fd0); margin: 0 auto 16px; display: flex; align-items: center; justify-content: center; color: white; font-weight: 800; font-size: 24px;">JP</div>
+      <h2 style="margin: 0 0 6px; font-size: 20px; font-weight: 700; color: #0f172a;">How was your experience with Joe's Plumbing?</h2>
+      <p style="margin: 0 0 24px; color: #64748b; font-size: 14px;">Your feedback helps us improve.</p>
+      <div style="display: flex; gap: 8px; justify-content: center; margin-bottom: 8px;">
+        ${[1, 2, 3, 4, 5].map((_, i) => `<button style="width: 48px; height: 48px; border: 2px solid ${i < 4 ? "#f59e0b" : "#e5e7eb"}; background: ${i < 4 ? "#fef3c7" : "white"}; border-radius: 8px; font-size: 24px; color: ${i < 4 ? "#f59e0b" : "#9ca3af"}; cursor: pointer;">★</button>`).join("")}
+      </div>
+      <p style="margin: 16px 0 0; color: #94a3b8; font-size: 11px;">Powered by <strong>WeFixTrades</strong></p>
+    </div>`,
+  },
+  {
+    // Mirrors the printable business card with QR code. Placeholder QR
+    // pattern (not scannable) — just a visual stand-in for the preview.
+    slug: "qr-card",
+    renderHTML: () => `<div style="background: #f1f5f9; padding: 40px;">
+      <div style="width: 336px; height: 192px; background: white; border-radius: 8px; padding: 18px; box-shadow: 0 4px 12px rgba(0,0,0,0.10); display: flex; gap: 16px; box-sizing: border-box;">
+        <div style="flex: 1; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+          <div style="font-size: 16px; font-weight: 700; margin-bottom: 4px; color: #0f172a;">Joe's Plumbing</div>
+          <div style="font-size: 11px; color: #64748b; margin-bottom: 12px;">Trusted since 1998</div>
+          <div style="font-size: 13px; font-weight: 600; margin-bottom: 4px; color: #0f172a;">Rate your experience</div>
+          <div style="font-size: 10px; color: #64748b;">Scan the QR code to leave a quick review on Google.</div>
+          <div style="font-size: 9px; color: #94a3b8; margin-top: 18px;">wefixtrades.com</div>
+        </div>
+        <div style="flex-shrink: 0; width: 110px; height: 110px; background: linear-gradient(45deg, #0f172a 25%, white 25%, white 50%, #0f172a 50%, #0f172a 75%, white 75%); background-size: 12px 12px; border-radius: 4px; display: flex; align-items: center; justify-content: center;">
+          <div style="background: white; padding: 4px; font-size: 10px; color: #0f172a; font-weight: 700; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">QR</div>
+        </div>
+      </div>
+    </div>`,
+  },
+  {
+    // Mirrors the inline-mode callback form widget with realistic urgent
+    // plumbing sample data pre-filled.
+    slug: "callback",
+    renderHTML: () => `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: white; padding: 24px; max-width: 380px; border-radius: 10px; border: 1px solid #e5e7eb; box-shadow: 0 2px 12px rgba(0,0,0,0.06); box-sizing: border-box;">
+      <h3 style="margin: 0 0 6px; font-size: 17px; font-weight: 700; color: #0f172a;">Request a callback</h3>
+      <p style="margin: 0 0 16px; color: #64748b; font-size: 13px;">We'll get back to you within a few hours.</p>
+      <div style="margin-bottom: 10px;">
+        <input type="text" value="Sarah Chen" style="width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px; color: #0f172a;" />
+      </div>
+      <div style="margin-bottom: 10px;">
+        <input type="text" value="+1 (555) 123-4567" style="width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px; color: #0f172a;" />
+      </div>
+      <div style="margin-bottom: 10px;">
+        <textarea style="width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px; min-height: 56px; resize: none; color: #0f172a; font-family: inherit;">Burst pipe under kitchen sink — water shut off. Need ASAP.</textarea>
+      </div>
+      <div style="margin-bottom: 14px;">
+        <select style="width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px; background: white; color: #0f172a;">
+          <option>Best time: Right now (urgent)</option>
+        </select>
+      </div>
+      <button style="width: 100%; padding: 11px 0; background: linear-gradient(to bottom, #0d3cfc, #0a2fd0); color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; box-shadow: 0 1px 0 rgba(255,255,255,0.10) inset, 0 4px 12px rgba(13,60,252,0.25);">Send request</button>
+      <p style="margin: 12px 0 0; color: #94a3b8; font-size: 10px; text-align: center;">Powered by <strong>WeFixTrades</strong></p>
+    </div>`,
+  },
 ];
 
 async function main() {
