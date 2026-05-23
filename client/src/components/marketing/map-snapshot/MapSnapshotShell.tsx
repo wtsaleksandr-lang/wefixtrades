@@ -19,10 +19,70 @@
  */
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, MapPin, Compass } from "lucide-react";
+import RankGridHelpModal from "@/components/marketing/RankGridHelpModal";
 
 const BRAND_PRIMARY = "#0d3cfc";
 const BRAND_INK = "#1E1E1E";
+
+/* ─── Rank-tier color system (calm, muted — not neon) ───
+ * Each tier maps a rank range to a soft background, dark-enough text for
+ * AA contrast on that background, and a ring color for hover. Kept here as
+ * a single source of truth so the legend, cells, and insight callouts agree.
+ */
+type RankTier = {
+  key: "top3" | "top10" | "top20" | "beyond";
+  label: string;
+  blurb: string;
+  bg: string;
+  text: string;
+  ring: string;
+  dot: string;
+};
+const RANK_TIERS: RankTier[] = [
+  {
+    key: "top3",
+    label: "Top 3",
+    blurb: "Nearly every searcher sees you",
+    bg: "#ecfdf5",
+    text: "#047857",
+    ring: "#10b981",
+    dot: "#10b981",
+  },
+  {
+    key: "top10",
+    label: "Top 10",
+    blurb: "Most searchers see you",
+    bg: "#eff6ff",
+    text: "#1d4ed8",
+    ring: "#3b82f6",
+    dot: "#3b82f6",
+  },
+  {
+    key: "top20",
+    label: "Top 20",
+    blurb: "Some searchers see you",
+    bg: "#fffbeb",
+    text: "#b45309",
+    ring: "#f59e0b",
+    dot: "#f59e0b",
+  },
+  {
+    key: "beyond",
+    label: "Beyond 20",
+    blurb: "Those searchers go to competitors",
+    bg: "#fef2f2",
+    text: "#b91c1c",
+    ring: "#ef4444",
+    dot: "#ef4444",
+  },
+];
+const tierForRank = (r: number): RankTier => {
+  if (r <= 3) return RANK_TIERS[0];
+  if (r <= 10) return RANK_TIERS[1];
+  if (r <= 20) return RANK_TIERS[2];
+  return RANK_TIERS[3];
+};
 
 export type HeatmapCell = {
   row: number;
@@ -318,120 +378,400 @@ function LoadingPulse({ keyword }: { keyword?: string }) {
   );
 }
 
-/* ─── Heatmap SVG over static map URL ─── */
-function HeatmapView({ result }: { result: SnapshotResult }) {
+/* ─── Premium rank-grid view ───
+ * Effortel-style polish: generous whitespace, soft rounded corners on the
+ * card AND on every cell, calm tier colors, cascade reveal animation
+ * (motion-safe), hover ring, center MapPin marker, compass axis hints,
+ * legend with tier blurbs, and best/worst/average insight callouts.
+ *
+ * Light-theme locked — the whole subtree sits under data-theme="light"
+ * (carried by the outermost wrapper in MapSnapshotShell). All raw color
+ * literals here are intentional palette tokens, not theme bypasses.
+ */
+function HeatmapView({ result, trade }: { result: SnapshotResult; trade?: string }) {
   const cells = result.heatmap;
   const grid = 5;
-  const size = 320;
-  const cellSize = size / grid;
+  // Compute summary stats once. Distances are already in km from the API;
+  // we present miles for North-American visitors (the audit copy is US-/EU-
+  // friendly but mph + ZIPs read more familiar than km outside Europe).
+  const kmToMi = (km: number) => km * 0.621371;
+  const stats = useMemo(() => {
+    const total = cells.length;
+    let top3 = 0;
+    let top10 = 0; // top-10 inclusive of top-3
+    let top20 = 0; // top-20 inclusive of top-10
+    let best = cells[0];
+    let worst = cells[0];
+    let rankSum = 0;
+    for (const c of cells) {
+      if (c.rank <= 3) top3++;
+      if (c.rank <= 10) top10++;
+      if (c.rank <= 20) top20++;
+      if (!best || c.rank < best.rank) best = c;
+      if (!worst || c.rank > worst.rank) worst = c;
+      rankSum += Math.min(c.rank, 21);
+    }
+    const beyond = total - top20;
+    const avg = total > 0 ? rankSum / total : 0;
+    // Top-3 strict, then top-10 minus top-3, etc. for "exactly in this tier".
+    const exTop3 = top3;
+    const exTop10 = top10 - top3;
+    const exTop20 = top20 - top10;
+    const pct = (n: number) => (total ? Math.round((n / total) * 100) : 0);
+    return {
+      total,
+      avg,
+      best,
+      worst,
+      tiers: {
+        top3: { count: exTop3, pct: pct(exTop3) },
+        top10: { count: exTop10, pct: pct(exTop10) },
+        top20: { count: exTop20, pct: pct(exTop20) },
+        beyond: { count: beyond, pct: pct(beyond) },
+      },
+    };
+  }, [cells]);
 
-  const colorForRank = (r: number) => {
-    if (r <= 3) return "#16a34a"; // green
-    if (r <= 7) return "#65a30d"; // lime
-    if (r <= 12) return "#facc15"; // amber
-    if (r <= 18) return "#f97316"; // orange
-    return "#dc2626"; // red
+  const directionFromCenter = (row: number, col: number): string => {
+    // 5×5 grid → center is (2, 2). Map row/col delta to a compass direction.
+    const dr = row - 2;
+    const dc = col - 2;
+    if (dr === 0 && dc === 0) return "right at your address";
+    const ns = dr < 0 ? "north" : dr > 0 ? "south" : "";
+    const ew = dc < 0 ? "west" : dc > 0 ? "east" : "";
+    return `${ns}${ew}`.trim() || "nearby";
+  };
+
+  const describeCell = (c: HeatmapCell): string => {
+    const miles = kmToMi(c.distanceKm);
+    const dir = directionFromCenter(c.row, c.col);
+    const milesLabel = miles < 0.15 ? "right here" : `${miles.toFixed(1)} mi ${dir}`;
+    return `Rank #${c.rank >= 21 ? "20+" : c.rank} · ${milesLabel}`;
   };
 
   return (
-    <div style={{ position: "relative", maxWidth: size, margin: "0 auto" }}>
+    <div style={{ display: "grid", gap: 20 }}>
+      {/* Plain-English summary */}
+      <div
+        role="region"
+        aria-label="Rank grid summary"
+        style={{
+          background: "#f8fafc",
+          border: "1px solid #e2e8f0",
+          borderRadius: 14,
+          padding: "14px 16px",
+          display: "grid",
+          gap: 4,
+        }}
+      >
+        <div style={{ fontSize: 12, color: "#64748b", fontWeight: 600, letterSpacing: "0.04em", textTransform: "uppercase" }}>
+          Average rank in your area
+        </div>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+          <div style={{ fontSize: 32, fontWeight: 700, color: BRAND_INK, lineHeight: 1 }}>
+            {stats.avg ? stats.avg.toFixed(1) : "—"}
+          </div>
+          <div style={{ fontSize: 12, color: "#64748b" }}>
+            across <strong style={{ color: BRAND_INK }}>{stats.total}</strong> sampled spots
+          </div>
+        </div>
+        <p style={{ fontSize: 13, color: "#475569", margin: "6px 0 0", lineHeight: 1.55 }}>
+          Out of {stats.total} spots around your service area, you're top-3 in{" "}
+          <strong style={{ color: RANK_TIERS[0].text }}>{stats.tiers.top3.count}</strong> ({stats.tiers.top3.pct}%),
+          top-10 in <strong style={{ color: RANK_TIERS[1].text }}>{stats.tiers.top10.count + stats.tiers.top3.count}</strong>{" "}
+          ({stats.tiers.top10.pct + stats.tiers.top3.pct}%), and not ranking
+          in <strong style={{ color: RANK_TIERS[3].text }}>{stats.tiers.beyond.count}</strong>{" "}
+          ({stats.tiers.beyond.pct}%). That last group represents customers your competitors are reaching but you're not.
+        </p>
+      </div>
+
+      {/* Grid card with compass axes */}
       <div
         style={{
           position: "relative",
-          width: size,
-          height: size,
-          background: "#e5e7eb",
-          borderRadius: 12,
-          overflow: "hidden",
-          boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
+          background: "#fff",
+          border: "1px solid #eef2f7",
+          borderRadius: 20,
+          padding: "28px 24px 24px",
+          boxShadow:
+            "0 1px 2px rgba(13,60,252,0.04), 0 8px 24px rgba(15,23,42,0.06)",
         }}
-        aria-label={`Rank heatmap for ${result.businessName}`}
+        aria-label={`Rank grid for ${result.businessName}${trade ? ` (${trade})` : ""}`}
       >
-        {/* Map background — Static Maps URL via tile pattern. We don't make
-            an API call from the client; we just render an approximate tile
-            background so the SVG overlay looks anchored. */}
+        {/* North label */}
         <div
           aria-hidden="true"
           style={{
             position: "absolute",
-            inset: 0,
-            background:
-              "linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 50%, #f8fafc 100%)",
-            backgroundSize: "32px 32px",
-            backgroundImage:
-              "linear-gradient(#cbd5e1 1px, transparent 1px), linear-gradient(90deg, #cbd5e1 1px, transparent 1px)",
+            top: 8,
+            left: "50%",
+            transform: "translateX(-50%)",
+            fontSize: 10,
+            fontWeight: 700,
+            letterSpacing: "0.12em",
+            color: "#94a3b8",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 4,
           }}
-        />
-        <svg
-          width={size}
-          height={size}
-          viewBox={`0 0 ${size} ${size}`}
-          style={{ position: "absolute", inset: 0 }}
-          role="img"
-          aria-label="Rank grid"
+        >
+          <Compass size={12} aria-hidden="true" /> N
+        </div>
+        {/* South */}
+        <div
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            bottom: 8,
+            left: "50%",
+            transform: "translateX(-50%)",
+            fontSize: 10,
+            fontWeight: 700,
+            letterSpacing: "0.12em",
+            color: "#94a3b8",
+          }}
+        >
+          S
+        </div>
+        {/* West */}
+        <div
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            top: "50%",
+            left: 8,
+            transform: "translateY(-50%)",
+            fontSize: 10,
+            fontWeight: 700,
+            letterSpacing: "0.12em",
+            color: "#94a3b8",
+          }}
+        >
+          W
+        </div>
+        {/* East */}
+        <div
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            top: "50%",
+            right: 8,
+            transform: "translateY(-50%)",
+            fontSize: 10,
+            fontWeight: 700,
+            letterSpacing: "0.12em",
+            color: "#94a3b8",
+          }}
+        >
+          E
+        </div>
+
+        <div
+          role="grid"
+          aria-label="Rank cells"
+          style={{
+            display: "grid",
+            gridTemplateColumns: `repeat(${grid}, minmax(0, 1fr))`,
+            gap: 8,
+            maxWidth: 380,
+            margin: "0 auto",
+          }}
         >
           {cells.map((c) => {
-            const cx = c.col * cellSize + cellSize / 2;
-            const cy = c.row * cellSize + cellSize / 2;
-            const fill = colorForRank(c.rank);
+            const tier = tierForRank(c.rank);
             const label = c.rank >= 21 ? "20+" : String(c.rank);
+            const isCenter = c.row === 2 && c.col === 2;
+            // Cascade index: top-left → bottom-right. Cap delay so a full
+            // 25-cell sweep finishes inside 750ms even at 30ms/cell.
+            const cascadeIdx = c.row * grid + c.col;
+            const delayMs = Math.min(cascadeIdx * 30, 720);
             return (
-              <g key={`${c.row}-${c.col}`}>
-                <circle
-                  cx={cx}
-                  cy={cy}
-                  r={cellSize * 0.36}
-                  fill={fill}
-                  fillOpacity={0.85}
-                  stroke="#fff"
-                  strokeWidth={2}
-                />
-                <text
-                  x={cx}
-                  y={cy + 4}
-                  textAnchor="middle"
-                  fontSize={12}
-                  fontWeight={700}
-                  fill="#fff"
+              <div
+                key={`${c.row}-${c.col}`}
+                role="gridcell"
+                aria-label={describeCell(c)}
+                title={describeCell(c)}
+                data-testid={`rank-cell-${c.row}-${c.col}`}
+                className="motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-top-1 duration-300"
+                style={{
+                  position: "relative",
+                  aspectRatio: "1 / 1",
+                  borderRadius: 12,
+                  background: tier.bg,
+                  border: `1px solid ${tier.ring}33`,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 2,
+                  cursor: "default",
+                  transition:
+                    "transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease",
+                  animationDelay: `${delayMs}ms`,
+                  animationFillMode: "both",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = "scale(1.03)";
+                  e.currentTarget.style.boxShadow = `0 0 0 2px ${tier.ring}55, 0 6px 14px rgba(15,23,42,0.08)`;
+                  e.currentTarget.style.borderColor = `${tier.ring}99`;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = "scale(1)";
+                  e.currentTarget.style.boxShadow = "none";
+                  e.currentTarget.style.borderColor = `${tier.ring}33`;
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: 18,
+                    fontWeight: 600,
+                    color: tier.text,
+                    lineHeight: 1,
+                  }}
                 >
                   {label}
-                </text>
-              </g>
+                </span>
+                {isCenter ? (
+                  <span
+                    aria-label="Your address"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 2,
+                      fontSize: 10,
+                      fontWeight: 600,
+                      color: BRAND_PRIMARY,
+                    }}
+                  >
+                    <MapPin size={12} aria-hidden="true" /> you
+                  </span>
+                ) : (
+                  <span
+                    style={{
+                      fontSize: 10,
+                      color: "#94a3b8",
+                      fontVariantNumeric: "tabular-nums",
+                    }}
+                  >
+                    {kmToMi(c.distanceKm).toFixed(1)} mi
+                  </span>
+                )}
+              </div>
             );
           })}
-          {/* Center pin */}
-          <circle
-            cx={size / 2}
-            cy={size / 2}
-            r={6}
-            fill={BRAND_PRIMARY}
-            stroke="#fff"
-            strokeWidth={2}
-          />
-        </svg>
+        </div>
       </div>
+
+      {/* Legend */}
       <div
+        role="region"
+        aria-label="Rank tier legend"
         style={{
-          display: "flex",
-          gap: 12,
-          justifyContent: "center",
-          marginTop: 12,
-          fontSize: 11,
-          color: "#6b7280",
-          flexWrap: "wrap",
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+          gap: 8,
         }}
       >
-        {[
-          { c: "#16a34a", l: "Top 3" },
-          { c: "#facc15", l: "4–12" },
-          { c: "#f97316", l: "13–18" },
-          { c: "#dc2626", l: "19–20+" },
-        ].map((x) => (
-          <span key={x.l} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-            <span style={{ width: 10, height: 10, borderRadius: 999, background: x.c, display: "inline-block" }} />
-            {x.l}
-          </span>
+        {RANK_TIERS.map((t) => (
+          <div
+            key={t.key}
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              gap: 8,
+              padding: "10px 12px",
+              background: t.bg,
+              borderRadius: 12,
+              border: `1px solid ${t.ring}33`,
+            }}
+          >
+            <span
+              aria-hidden="true"
+              style={{
+                width: 10,
+                height: 10,
+                borderRadius: 999,
+                background: t.dot,
+                marginTop: 4,
+                flexShrink: 0,
+              }}
+            />
+            <div style={{ display: "grid", gap: 2 }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: t.text }}>{t.label}</span>
+              <span style={{ fontSize: 11, color: "#64748b", lineHeight: 1.4 }}>{t.blurb}</span>
+            </div>
+          </div>
         ))}
+      </div>
+
+      {/* Insight callouts: best, worst, opportunity */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+          gap: 10,
+        }}
+      >
+        {stats.best && (
+          <div
+            style={{
+              padding: "12px 14px",
+              border: "1px solid #d1fae5",
+              background: "#ecfdf5",
+              borderRadius: 12,
+            }}
+          >
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "#047857" }}>
+              Best cell
+            </div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: BRAND_INK, marginTop: 4 }}>
+              Rank #{stats.best.rank}
+            </div>
+            <div style={{ fontSize: 11, color: "#475569", marginTop: 2 }}>
+              {kmToMi(stats.best.distanceKm).toFixed(1)} mi{" "}
+              {directionFromCenter(stats.best.row, stats.best.col)}
+            </div>
+          </div>
+        )}
+        {stats.worst && (
+          <div
+            style={{
+              padding: "12px 14px",
+              border: "1px solid #fee2e2",
+              background: "#fef2f2",
+              borderRadius: 12,
+            }}
+          >
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "#b91c1c" }}>
+              Biggest opportunity
+            </div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: BRAND_INK, marginTop: 4 }}>
+              Rank #{stats.worst.rank >= 21 ? "20+" : stats.worst.rank}
+            </div>
+            <div style={{ fontSize: 11, color: "#475569", marginTop: 2 }}>
+              {kmToMi(stats.worst.distanceKm).toFixed(1)} mi{" "}
+              {directionFromCenter(stats.worst.row, stats.worst.col)}
+            </div>
+          </div>
+        )}
+        <div
+          style={{
+            padding: "12px 14px",
+            border: "1px solid #e0e7ff",
+            background: "#eef2ff",
+            borderRadius: 12,
+          }}
+        >
+          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: BRAND_PRIMARY }}>
+            Quick win
+          </div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: BRAND_INK, marginTop: 4, lineHeight: 1.4 }}>
+            Earn reviews from customers near the red cells
+          </div>
+          <div style={{ fontSize: 11, color: "#475569", marginTop: 2 }}>
+            Each local review nudges those areas up.
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -710,32 +1050,51 @@ export function MapSnapshotShell({
           <div ref={resultRef} role="region" aria-label="Snapshot results">
             <div
               style={{
-                marginBottom: 14,
-                paddingBottom: 12,
+                marginBottom: 18,
+                paddingBottom: 14,
                 borderBottom: "1px solid #f1f5f9",
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 10,
               }}
             >
-              <h2
-                style={{
-                  fontSize: 20,
-                  fontWeight: 700,
-                  color: BRAND_INK,
-                  marginBottom: 4,
-                  marginTop: 0,
-                }}
-              >
-                {result.businessName}
-              </h2>
-              {result.address && (
-                <div style={{ fontSize: 12, color: "#6b7280" }}>{result.address}</div>
-              )}
-              <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>
-                Ranking for: <strong>{result.keywords.join(", ")}</strong>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <h2
+                    style={{
+                      fontSize: 20,
+                      fontWeight: 700,
+                      color: BRAND_INK,
+                      marginBottom: 0,
+                      marginTop: 0,
+                    }}
+                  >
+                    Rank Grid · {result.businessName}
+                  </h2>
+                  <RankGridHelpModal trade={trade} slug={result.slug} />
+                </div>
+                {result.address && (
+                  <div style={{ fontSize: 12, color: "#6b7280", marginTop: 4 }}>
+                    {result.address}
+                  </div>
+                )}
+                <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>
+                  Ranking for: <strong>{result.keywords.join(", ")}</strong>
+                </div>
               </div>
             </div>
 
-            <HeatmapView result={result} />
-            <AuditScorecard audit={result.audit} slug={result.slug} />
+            <HeatmapView result={result} trade={trade} />
+            <div style={{ marginTop: 24 }}>
+              <AuditScorecard audit={result.audit} slug={result.slug} />
+            </div>
 
             <div
               style={{
