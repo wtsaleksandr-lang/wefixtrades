@@ -1,13 +1,18 @@
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import AdminLayout from "@/components/admin/AdminLayout";
+import { AdminProductPageShell, type ProductStats } from "@/components/admin/AdminProductPageShell";
 import { Card } from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 import {
   Users, AlertTriangle, DollarSign, XCircle, TrendingDown, ShieldCheck,
-  Package, ExternalLink, ChevronRight,
+  Package, ChevronRight,
 } from "lucide-react";
+
+const PRODUCT_ID = "rankflow";
 
 /* ─── Types ─── */
 interface OpsOverview {
@@ -44,6 +49,10 @@ interface ClientRow {
   open_batches: number;
 }
 
+interface ProductRecord {
+  live: { id: string; name: string; is_active: boolean; hidden: boolean } | null;
+}
+
 type FilterKey = "all" | "blocked" | "over_budget" | "at_risk" | "no_movement" | "needs_review" | "pro";
 
 const FILTERS: { key: FilterKey; label: string }[] = [
@@ -70,6 +79,73 @@ export default function RankFlowOpsPage() {
   usePageTitle("RankFlow");
   const [filter, setFilter] = useState<FilterKey>("all");
 
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  /* AdminProductPageShell wiring — see QuoteQuickPage pilot (PR #578). */
+  const productKey = ["/api/admin/products", PRODUCT_ID] as const;
+  const { data: productData } = useQuery<ProductRecord>({
+    queryKey: productKey,
+    queryFn: () => apiRequest("GET", `/api/admin/products/${PRODUCT_ID}`).then((r) => r.json()),
+  });
+  const live = productData?.live ?? null;
+
+  const statsKey = ["/api/admin/products", PRODUCT_ID, "stats"] as const;
+  const { data: productStats } = useQuery<ProductStats>({
+    queryKey: statsKey,
+    queryFn: () => apiRequest("GET", `/api/admin/products/${PRODUCT_ID}/stats`).then((r) => r.json()),
+  });
+
+  const activeToggle = useMutation({
+    mutationFn: async (next: boolean) => {
+      const res = await apiRequest("PATCH", `/api/admin/products/${PRODUCT_ID}/status`, { is_active: next });
+      return res.json();
+    },
+    onMutate: async (next: boolean) => {
+      await queryClient.cancelQueries({ queryKey: productKey });
+      const prev = queryClient.getQueryData<ProductRecord>(productKey);
+      if (prev?.live) {
+        queryClient.setQueryData<ProductRecord>(productKey, { live: { ...prev.live, is_active: next } });
+      }
+      return { prev };
+    },
+    onError: (_err, _next, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(productKey, ctx.prev);
+      toast({ title: "Could not update status", description: "Try again", variant: "destructive" });
+    },
+    onSuccess: (_data, next) => {
+      toast({ title: next ? "Product activated" : "Product deactivated" });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: productKey });
+    },
+  });
+
+  const hiddenToggle = useMutation({
+    mutationFn: async (next: boolean) => {
+      const res = await apiRequest("PATCH", `/api/admin/products/${PRODUCT_ID}/visibility`, { hidden: next });
+      return res.json();
+    },
+    onMutate: async (next: boolean) => {
+      await queryClient.cancelQueries({ queryKey: productKey });
+      const prev = queryClient.getQueryData<ProductRecord>(productKey);
+      if (prev?.live) {
+        queryClient.setQueryData<ProductRecord>(productKey, { live: { ...prev.live, hidden: next } });
+      }
+      return { prev };
+    },
+    onError: (_err, _next, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(productKey, ctx.prev);
+      toast({ title: "Could not update visibility", description: "Try again", variant: "destructive" });
+    },
+    onSuccess: (_data, next) => {
+      toast({ title: next ? "Hidden from public catalog" : "Visible in public catalog" });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: productKey });
+    },
+  });
+
   const { data, isLoading } = useQuery<OpsOverview>({
     queryKey: ["/api/rankflow/ops/overview"],
     queryFn: async () => {
@@ -87,60 +163,76 @@ export default function RankFlowOpsPage() {
 
   const s = data?.summary;
 
+  const filtersBar = (
+    <div className="flex gap-1.5 flex-wrap">
+      {FILTERS.map(f => (
+        <button
+          key={f.key}
+          onClick={() => setFilter(f.key)}
+          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            filter === f.key
+              ? "bg-[#0d3cfc] text-white"
+              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+          }`}
+        >
+          {f.label}
+          {f.key !== "all" && f.key !== "pro" && s && (s as any)[f.key === "at_risk" ? "rejected_tasks" : f.key === "needs_review" ? "in_qa" : f.key] > 0 && (
+            <span className="ml-1 text-[10px] opacity-70">
+              {(s as any)[f.key === "at_risk" ? "rejected_tasks" : f.key === "needs_review" ? "in_qa" : f.key]}
+            </span>
+          )}
+        </button>
+      ))}
+    </div>
+  );
+
+  const overviewBody = (
+    <div className="space-y-5">
+      {/* ─── Summary Metrics ─── */}
+      {s && (
+        <div className="grid auto-rows-fr grid-cols-3 sm:grid-cols-7 gap-2">
+          <StatCard icon={Users} label="Active" value={s.active_clients} />
+          <StatCard icon={AlertTriangle} label="Blocked" value={s.blocked} warn={s.blocked > 0} hint="Clients missing website or profile info — cannot start work" />
+          <StatCard icon={DollarSign} label="Over Budget" value={s.over_budget} warn={s.over_budget > 0} hint="Delivery cost exceeds 35% of plan price" />
+          <StatCard icon={XCircle} label="Rejected" value={s.rejected_tasks} warn={s.rejected_tasks > 0} hint="Tasks that failed QA and need rework" />
+          <StatCard icon={TrendingDown} label="No Movement" value={s.no_movement} warn={s.no_movement > 0} hint="Clients with 0 keywords improved — rankings not changing" />
+          <StatCard icon={ShieldCheck} label="In QA" value={s.in_qa} />
+          <StatCard icon={Package} label="Open Batches" value={s.open_batches} />
+        </div>
+      )}
+
+      {/* ─── Client List ─── */}
+      {isLoading ? (
+        <Card className="p-8 text-center text-sm text-gray-400">Loading...</Card>
+      ) : filtered.length === 0 ? (
+        <Card className="p-8 text-center text-sm text-gray-400">No clients match this filter.</Card>
+      ) : (
+        <div className="space-y-2">
+          {filtered.map(c => <ClientCard key={c.client_id} client={c} />)}
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <AdminLayout>
-      <div className="max-w-6xl mx-auto space-y-5">
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900">RankFlow Operations</h2>
-          <p className="text-sm text-gray-500 mt-0.5">Cross-client service health and task status</p>
-        </div>
-
-        {/* ─── Summary Metrics ─── */}
-        {s && (
-          <div className="grid auto-rows-fr grid-cols-3 sm:grid-cols-7 gap-2">
-            <StatCard icon={Users} label="Active" value={s.active_clients} />
-            <StatCard icon={AlertTriangle} label="Blocked" value={s.blocked} warn={s.blocked > 0} hint="Clients missing website or profile info — cannot start work" />
-            <StatCard icon={DollarSign} label="Over Budget" value={s.over_budget} warn={s.over_budget > 0} hint="Delivery cost exceeds 35% of plan price" />
-            <StatCard icon={XCircle} label="Rejected" value={s.rejected_tasks} warn={s.rejected_tasks > 0} hint="Tasks that failed QA and need rework" />
-            <StatCard icon={TrendingDown} label="No Movement" value={s.no_movement} warn={s.no_movement > 0} hint="Clients with 0 keywords improved — rankings not changing" />
-            <StatCard icon={ShieldCheck} label="In QA" value={s.in_qa} />
-            <StatCard icon={Package} label="Open Batches" value={s.open_batches} />
-          </div>
-        )}
-
-        {/* ─── Filters ─── */}
-        <div className="flex gap-1.5 flex-wrap">
-          {FILTERS.map(f => (
-            <button
-              key={f.key}
-              onClick={() => setFilter(f.key)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                filter === f.key
-                  ? "bg-[#0d3cfc] text-white"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-              }`}
-            >
-              {f.label}
-              {f.key !== "all" && f.key !== "pro" && s && (s as any)[f.key === "at_risk" ? "rejected_tasks" : f.key === "needs_review" ? "in_qa" : f.key] > 0 && (
-                <span className="ml-1 text-[10px] opacity-70">
-                  {(s as any)[f.key === "at_risk" ? "rejected_tasks" : f.key === "needs_review" ? "in_qa" : f.key]}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
-
-        {/* ─── Client List ─── */}
-        {isLoading ? (
-          <Card className="p-8 text-center text-sm text-gray-400">Loading...</Card>
-        ) : filtered.length === 0 ? (
-          <Card className="p-8 text-center text-sm text-gray-400">No clients match this filter.</Card>
-        ) : (
-          <div className="space-y-2">
-            {filtered.map(c => <ClientCard key={c.client_id} client={c} />)}
-          </div>
-        )}
-      </div>
+      <AdminProductPageShell
+        productId={PRODUCT_ID}
+        productName="RankFlow"
+        isActive={live?.is_active ?? true}
+        hidden={live?.hidden ?? false}
+        stats={productStats ?? null}
+        filtersBar={filtersBar}
+        tabs={[
+          {
+            id: "overview",
+            label: "Overview",
+            render: () => overviewBody,
+          },
+        ]}
+        onToggleActive={(next) => activeToggle.mutate(next)}
+        onToggleHidden={(next) => hiddenToggle.mutate(next)}
+      />
     </AdminLayout>
   );
 }

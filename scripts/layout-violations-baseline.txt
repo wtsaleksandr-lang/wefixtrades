@@ -141,23 +141,23 @@ client/src/pages/admin/ClientDetailPage.tsx:652:7	rule-b	<div> contains 2 cues
 client/src/pages/admin/CommunicationsPage.tsx:1113:21	rule-c	square w-1.5 h-1.5
 client/src/pages/admin/CommunicationsPage.tsx:1118:21	rule-c	square w-1.5 h-1.5
 client/src/pages/admin/CommunicationsPage.tsx:1221:23	rule-c	square w-2 h-2
-client/src/pages/admin/ContentFlowQueuePage.tsx:940:33	rule-c	square w-1.5 h-1.5
-client/src/pages/admin/ContentFlowQueuePage.tsx:946:33	rule-c	square w-1.5 h-1.5
-client/src/pages/admin/ContentFlowQueuePage.tsx:952:33	rule-c	square w-1.5 h-1.5
-client/src/pages/admin/ContentFlowQueuePage.tsx:958:33	rule-c	square w-1.5 h-1.5
-client/src/pages/admin/ContentFlowQueuePage.tsx:976:59	rule-c	square w-2 h-2
-client/src/pages/admin/ContentFlowQueuePage.tsx:977:59	rule-c	square w-2 h-2
-client/src/pages/admin/ContentFlowQueuePage.tsx:978:59	rule-c	square w-2 h-2
-client/src/pages/admin/ContentFlowQueuePage.tsx:979:59	rule-c	square w-2 h-2
-client/src/pages/admin/ContentFlowQueuePage.tsx:1008:25	rule-c	square w-2 h-2
+client/src/pages/admin/ContentFlowQueuePage.tsx:986:33	rule-c	square w-1.5 h-1.5
+client/src/pages/admin/ContentFlowQueuePage.tsx:992:33	rule-c	square w-1.5 h-1.5
+client/src/pages/admin/ContentFlowQueuePage.tsx:998:33	rule-c	square w-1.5 h-1.5
+client/src/pages/admin/ContentFlowQueuePage.tsx:1004:33	rule-c	square w-1.5 h-1.5
+client/src/pages/admin/ContentFlowQueuePage.tsx:1022:59	rule-c	square w-2 h-2
+client/src/pages/admin/ContentFlowQueuePage.tsx:1023:59	rule-c	square w-2 h-2
+client/src/pages/admin/ContentFlowQueuePage.tsx:1024:59	rule-c	square w-2 h-2
+client/src/pages/admin/ContentFlowQueuePage.tsx:1025:59	rule-c	square w-2 h-2
+client/src/pages/admin/ContentFlowQueuePage.tsx:1054:25	rule-c	square w-2 h-2
 client/src/pages/admin/CrmOverview.tsx:65:13	rule-c	square w-1.5 h-1.5
 client/src/pages/admin/CrmOverview.tsx:280:14	rule-c	square w-9 h-9
 client/src/pages/admin/CrmOverview.tsx:396:36	rule-c	square w-2.5 h-2.5
 client/src/pages/admin/CrmOverview.tsx:487:38	rule-c	square w-10 h-10
 client/src/pages/admin/InboxPage.tsx:129:61	rule-c	square w-2.5 h-2.5
 client/src/pages/admin/InboxPage.tsx:130:61	rule-c	square w-2.5 h-2.5
-client/src/pages/admin/MapguardDashboard.tsx:126:14	rule-c	square w-9 h-9
-client/src/pages/admin/MapguardDashboard.tsx:307:21	rule-c	square w-10 h-10
+client/src/pages/admin/MapguardDashboard.tsx:137:14	rule-c	square w-9 h-9
+client/src/pages/admin/MapguardDashboard.tsx:369:19	rule-c	square w-10 h-10
 client/src/pages/admin/ProductDetailPage.tsx:596:33	rule-c	square w-2.5 h-2.5
 client/src/pages/admin/ProfilePage.tsx:103:18	rule-c	square w-14 h-14
 client/src/pages/admin/QuoteQuickPage.tsx:79:32	rule-c	square w-28 h-28
@@ -172,13 +172,13 @@ client/src/pages/admin/QuoteQuickTradesPage.tsx:225:9	rule-c	square w-10 h-10
 client/src/pages/admin/QuoteQuickTradesPage.tsx:231:22	rule-c	size={18}
 client/src/pages/admin/QuoteQuickTradesPage.tsx:345:19	rule-c	square w-10 h-10
 client/src/pages/admin/QuoteQuickTradesPage.tsx:351:32	rule-c	size={18}
-client/src/pages/admin/ReviewsPage.tsx:376:7	rule-b	<div> contains 3 cues
-client/src/pages/admin/ReviewsPage.tsx:616:31	rule-c	square w-2 h-2
+client/src/pages/admin/ReviewsPage.tsx:484:5	rule-b	<div> contains 3 cues
+client/src/pages/admin/ReviewsPage.tsx:669:29	rule-c	square w-2 h-2
 client/src/pages/admin/SupportTicketDetailPage.tsx:251:39	rule-c	square w-2.5 h-2.5
 client/src/pages/admin/SystemAlertsPage.tsx:148:26	rule-c	square w-10 h-10
 client/src/pages/admin/SystemWorkersPage.tsx:196:16	rule-c	square w-2.5 h-2.5
-client/src/pages/admin/TradeLineOpsPage.tsx:26:71	rule-c	square w-10 h-10
-client/src/pages/admin/TradeLineOpsPage.tsx:48:3340	rule-c	square w-10 h-10
+client/src/pages/admin/TradeLineOpsPage.tsx:33:71	rule-c	square w-10 h-10
+client/src/pages/admin/TradeLineOpsPage.tsx:55:90	rule-c	square w-10 h-10
 client/src/pages/admin/TradelineLearningPage.tsx:278:32	rule-c	square w-2.5 h-2.5
 client/src/pages/calculator.tsx:87:20	rule-c	square w-10 h-10
 client/src/pages/dashboard.tsx:358:22	rule-c	size={9}

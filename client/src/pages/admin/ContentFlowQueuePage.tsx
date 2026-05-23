@@ -7,12 +7,17 @@
  *
  * Filtering is client-side over the most recent 200 drafts so search and
  * every header filter are instant.
+ *
+ * Wrapped with <AdminProductPageShell> (PR #578 pilot pattern). View
+ * modes (list / calendar / settings) become shell tabs; the search input
+ * + bulk-action bar lift into the shell's filtersBar.
  */
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import AdminLayout from "@/components/admin/AdminLayout";
+import { AdminProductPageShell, type ProductStats } from "@/components/admin/AdminProductPageShell";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -25,7 +30,7 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
-  RefreshCw, Inbox, Loader2, Calendar, ChevronLeft, ChevronRight, LayoutList, Settings,
+  RefreshCw, Inbox, Loader2, ChevronLeft, ChevronRight,
   Search, ArrowDownUp, Facebook, Instagram, Globe, Mail, Linkedin, Youtube, Pin,
   FileText, Share2, TrendingUp, MessageSquare, Video,
 } from "lucide-react";
@@ -38,6 +43,8 @@ import {
 import ContentFlowDraftDrawer from "@/components/contentflow/ContentFlowDraftDrawer";
 import ContentFlowSettingsPanel from "@/components/contentflow/ContentFlowSettingsPanel";
 import { HeaderFilterDropdown } from "@/components/datatable/HeaderFilterDropdown";
+
+const PRODUCT_ID = "contentflow";
 
 interface ContentDraftRow {
   id: number;
@@ -65,6 +72,10 @@ interface QueueResponse {
 interface ClientLite {
   id: number;
   business_name: string | null;
+}
+
+interface ProductRecord {
+  live: { id: string; name: string; is_active: boolean; hidden: boolean } | null;
 }
 
 const STATUS_OPTIONS = [
@@ -240,8 +251,6 @@ export default function ContentFlowQueuePage() {
   const qc = useQueryClient();
   const { toast } = useToast();
 
-  const [viewMode, setViewMode] = useState<"list" | "calendar" | "settings">("list");
-
   /* Filters — applied client-side over the loaded set. */
   const [search, setSearch] = useState("");
   const [clientFilter, setClientFilter] = useState<Set<string>>(new Set());
@@ -254,6 +263,70 @@ export default function ContentFlowQueuePage() {
   const [drawerDraftId, setDrawerDraftId] = useState<number | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+
+  /* AdminProductPageShell wiring — see QuoteQuickPage pilot (PR #578). */
+  const productKey = ["/api/admin/products", PRODUCT_ID] as const;
+  const { data: productData } = useQuery<ProductRecord>({
+    queryKey: productKey,
+    queryFn: () => apiRequest("GET", `/api/admin/products/${PRODUCT_ID}`).then((r) => r.json()),
+  });
+  const live = productData?.live ?? null;
+
+  const statsKey = ["/api/admin/products", PRODUCT_ID, "stats"] as const;
+  const { data: productStats } = useQuery<ProductStats>({
+    queryKey: statsKey,
+    queryFn: () => apiRequest("GET", `/api/admin/products/${PRODUCT_ID}/stats`).then((r) => r.json()),
+  });
+
+  const activeToggle = useMutation({
+    mutationFn: async (next: boolean) => {
+      const res = await apiRequest("PATCH", `/api/admin/products/${PRODUCT_ID}/status`, { is_active: next });
+      return res.json();
+    },
+    onMutate: async (next: boolean) => {
+      await qc.cancelQueries({ queryKey: productKey });
+      const prev = qc.getQueryData<ProductRecord>(productKey);
+      if (prev?.live) {
+        qc.setQueryData<ProductRecord>(productKey, { live: { ...prev.live, is_active: next } });
+      }
+      return { prev };
+    },
+    onError: (_err, _next, ctx) => {
+      if (ctx?.prev) qc.setQueryData(productKey, ctx.prev);
+      toast({ title: "Could not update status", description: "Try again", variant: "destructive" });
+    },
+    onSuccess: (_data, next) => {
+      toast({ title: next ? "Product activated" : "Product deactivated" });
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: productKey });
+    },
+  });
+
+  const hiddenToggle = useMutation({
+    mutationFn: async (next: boolean) => {
+      const res = await apiRequest("PATCH", `/api/admin/products/${PRODUCT_ID}/visibility`, { hidden: next });
+      return res.json();
+    },
+    onMutate: async (next: boolean) => {
+      await qc.cancelQueries({ queryKey: productKey });
+      const prev = qc.getQueryData<ProductRecord>(productKey);
+      if (prev?.live) {
+        qc.setQueryData<ProductRecord>(productKey, { live: { ...prev.live, hidden: next } });
+      }
+      return { prev };
+    },
+    onError: (_err, _next, ctx) => {
+      if (ctx?.prev) qc.setQueryData(productKey, ctx.prev);
+      toast({ title: "Could not update visibility", description: "Try again", variant: "destructive" });
+    },
+    onSuccess: (_data, next) => {
+      toast({ title: next ? "Hidden from public catalog" : "Visible in public catalog" });
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: productKey });
+    },
+  });
 
   const bulkQueueMutation = useMutation({
     mutationFn: async () => {
@@ -414,77 +487,66 @@ export default function ContentFlowQueuePage() {
     setDrawerOpen(true);
   };
 
-  return (
-    <AdminLayout>
-      <div className="space-y-4">
-        {/* Header */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">ContentFlow</h1>
-            <p className="text-sm text-muted-foreground">
-              Review and act on AI-generated drafts before they publish.
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            {viewMode === "list" && (
-              <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search posts or clients…"
-                  className="h-8 w-44 pl-8 text-sm sm:w-56"
-                  data-testid="contentflow-search"
-                />
-              </div>
-            )}
-            <div className="flex overflow-hidden rounded-lg border">
-              <button
-                onClick={() => setViewMode("list")}
-                className={`px-3 py-1.5 text-xs font-medium ${
-                  viewMode === "list" ? "bg-gray-900 text-white" : "bg-white text-gray-600 hover:bg-gray-50"
-                }`}
-              >
-                <LayoutList className="mr-1 inline h-3.5 w-3.5" />
-                List
-              </button>
-              <button
-                onClick={() => setViewMode("calendar")}
-                className={`px-3 py-1.5 text-xs font-medium ${
-                  viewMode === "calendar" ? "bg-gray-900 text-white" : "bg-white text-gray-600 hover:bg-gray-50"
-                }`}
-              >
-                <Calendar className="mr-1 inline h-3.5 w-3.5" />
-                Calendar
-              </button>
-              <button
-                onClick={() => setViewMode("settings")}
-                className={`px-3 py-1.5 text-xs font-medium ${
-                  viewMode === "settings" ? "bg-gray-900 text-white" : "bg-white text-gray-600 hover:bg-gray-50"
-                }`}
-              >
-                <Settings className="mr-1 inline h-3.5 w-3.5" />
-                Settings
-              </button>
-            </div>
+  /* The search + bulk-action + refresh row lift into the shell's
+   * filtersBar so layout stays consistent with the other product pages. */
+  const filtersBar = (
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <div className="relative">
+        <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search posts or clients…"
+          className="h-8 w-44 pl-8 text-sm sm:w-56"
+          data-testid="contentflow-search"
+        />
+      </div>
+      <div className="flex items-center gap-2">
+        {selectedIds.size > 0 && (
+          <div className="flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5">
+            <span className="text-xs font-medium text-indigo-900">
+              {selectedIds.size} selected
+            </span>
             <Button
-              variant="outline"
               size="sm"
-              onClick={() => {
-                qc.invalidateQueries({ queryKey: ["/api/admin/contentflow/queue"] });
-                refetch();
-              }}
-              disabled={isFetching}
-              data-testid="contentflow-refresh"
+              onClick={() => bulkQueueMutation.mutate()}
+              disabled={bulkQueueMutation.isPending}
+              className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700"
+              data-testid="bulk-queue-publish-btn"
             >
-              <RefreshCw className={`mr-1 h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
-              Refresh
+              {bulkQueueMutation.isPending && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+              Queue for Publish
             </Button>
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              className="text-xs text-indigo-700 hover:underline"
+            >
+              Clear
+            </button>
           </div>
-        </div>
+        )}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            qc.invalidateQueries({ queryKey: ["/api/admin/contentflow/queue"] });
+            refetch();
+          }}
+          disabled={isFetching}
+          data-testid="contentflow-refresh"
+        >
+          <RefreshCw className={`mr-1 h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
+          Refresh
+        </Button>
+      </div>
+    </div>
+  );
 
+  function ListView() {
+    return (
+      <div className="space-y-4">
         {/* W-AM-2: video script-without-video banner */}
-        {viewMode === "list" && videoScriptCount > 0 && (
+        {videoScriptCount > 0 && (
           <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-amber-900">
             <Video className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-700" />
             <div className="text-sm">
@@ -497,252 +559,236 @@ export default function ContentFlowQueuePage() {
           </div>
         )}
 
-        {/* Bulk action bar */}
-        {viewMode === "list" && selectedIds.size > 0 && (
-          <div className="flex items-center gap-3 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2">
-            <span className="text-sm font-medium text-indigo-900">
-              {selectedIds.size} selected
-            </span>
-            <Button
-              size="sm"
-              onClick={() => bulkQueueMutation.mutate()}
-              disabled={bulkQueueMutation.isPending}
-              className="bg-indigo-600 hover:bg-indigo-700"
-              data-testid="bulk-queue-publish-btn"
-            >
-              {bulkQueueMutation.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
-              Queue for Publish
-            </Button>
-            <button
-              onClick={() => setSelectedIds(new Set())}
-              className="ml-auto text-xs text-indigo-700 hover:underline"
-            >
-              Clear selection
-            </button>
-          </div>
-        )}
-
-        {/* Settings View */}
-        {viewMode === "settings" && <ContentFlowSettingsPanel />}
-
-        {/* Calendar View */}
-        {viewMode === "calendar" && (
-          <ContentCalendarView drafts={filtered} isLoading={isLoading} onSelectDraft={openDrawer} />
-        )}
-
-        {/* List View */}
-        {viewMode === "list" && (
-          <Card className="overflow-hidden">
-            <TooltipProvider>
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className={`w-8 ${TD_DIVIDER}`}>
-                        <Checkbox
-                          checked={allVisibleSelected ? true : someVisibleSelected ? "indeterminate" : false}
-                          onCheckedChange={toggleSelectAll}
-                          disabled={selectableVisible.length === 0}
-                          aria-label="Select all"
-                        />
-                      </TableHead>
-                      <TableHead className={`w-16 ${TD_DIVIDER}`}>ID</TableHead>
-                      <TableHead className={`min-w-[160px] ${TD_DIVIDER}`}>
-                        <HeaderFilterDropdown
-                          label="Client"
-                          searchable
-                          options={clientOptions}
-                          selected={clientFilter}
-                          onChange={setClientFilter}
-                        />
-                      </TableHead>
-                      <TableHead className={TD_DIVIDER}>
-                        <HeaderFilterDropdown
-                          label="Source"
-                          options={surfaceOptions}
-                          selected={surfaceFilter}
-                          onChange={setSurfaceFilter}
-                        />
-                      </TableHead>
-                      <TableHead className={TD_DIVIDER}>
-                        <HeaderFilterDropdown
-                          label="Kind"
-                          options={kindOptions}
-                          selected={kindFilter}
-                          onChange={setKindFilter}
-                        />
-                      </TableHead>
-                      <TableHead className={TD_DIVIDER}>
-                        <HeaderFilterDropdown
-                          label="Status"
-                          options={statusOptions}
-                          selected={statusFilter}
-                          onChange={setStatusFilter}
-                        />
-                      </TableHead>
-                      <TableHead className={`w-28 ${TD_DIVIDER}`}>Publish</TableHead>
-                      <TableHead className={`w-24 ${TD_DIVIDER}`}>Quality</TableHead>
-                      <TableHead className="w-36">
-                        <CreatedHeader
-                          sortDir={sortDir}
-                          onSort={setSortDir}
-                          dateRange={dateRange}
-                          onDateRange={setDateRange}
-                        />
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {isLoading && (
-                      <>
-                        {[0, 1, 2, 3].map((i) => (
-                          <TableRow key={`s-${i}`}>
-                            {Array.from({ length: 9 }).map((_, j) => (
-                              <TableCell key={j} className={j < 8 ? TD_DIVIDER : ""}>
-                                <Skeleton className="h-4 w-full" />
-                              </TableCell>
-                            ))}
-                          </TableRow>
-                        ))}
-                      </>
-                    )}
-
-                    {isError && !isLoading && (
-                      <TableRow>
-                        <TableCell colSpan={9}>
-                          <div className="py-8 text-center text-sm text-red-700">
-                            Failed to load queue: {(error as any)?.message || "unknown error"}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    )}
-
-                    {!isLoading && !isError && filtered.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={9}>
-                          <div className="flex flex-col items-center gap-2 py-12 text-sm text-muted-foreground">
-                            <Inbox className="h-8 w-8 opacity-50" />
-                            <div>
-                              {drafts.length === 0
-                                ? "No drafts yet."
-                                : "No drafts match the current filters."}
-                            </div>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    )}
-
-                    {!isLoading && filtered.map((d) => {
-                      const queueBadge = deriveQueueBadge(d);
-                      const selectable = canSelect(d);
-                      const src = metaFor(SOURCE_META, d.surface);
-                      const kind = metaFor(KIND_META, d.kind);
-                      const plat = d.target_platform ? metaFor(PLATFORM_META, d.target_platform) : null;
-                      return (
-                        <TableRow
-                          key={d.id}
-                          className="cursor-pointer hover:bg-muted/50"
-                          onClick={() => openDrawer(d.id)}
-                          data-testid={`contentflow-row-${d.id}`}
-                        >
-                          <TableCell className={TD_DIVIDER} onClick={(e) => e.stopPropagation()}>
-                            {selectable && (
-                              <Checkbox
-                                checked={selectedIds.has(d.id)}
-                                onCheckedChange={() => toggleSelected(d.id)}
-                                aria-label={`Select draft ${d.id}`}
-                                data-testid={`select-row-${d.id}`}
-                              />
-                            )}
-                          </TableCell>
-                          <TableCell className={`font-mono text-xs ${TD_DIVIDER}`}>#{d.id}</TableCell>
-                          <TableCell className={TD_DIVIDER}>
-                            <div className="text-sm font-medium">
-                              {clientNameById.get(d.client_id) || `Client #${d.client_id}`}
-                            </div>
-                            {d.title && (
-                              <div className="line-clamp-1 max-w-[260px] text-xs text-muted-foreground">
-                                {d.title}
-                              </div>
-                            )}
-                          </TableCell>
-                          <TableCell className={TD_DIVIDER}>
-                            <div className="flex items-center gap-1.5">
-                              <IconTip icon={src.icon} label={src.label} />
-                              <span className="text-xs">{src.label}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell className={TD_DIVIDER}>
-                            <div className="flex items-center gap-1.5">
-                              <IconTip icon={kind.icon} label={kind.label} />
-                              <span className="text-xs">{kind.label}</span>
-                              {plat && <IconTip icon={plat.icon} label={plat.label} />}
-                            </div>
-                          </TableCell>
-                          <TableCell className={TD_DIVIDER}>
-                            <Badge
-                              variant="outline"
-                              className={CONTENT_DRAFT_STATUS_STYLES[d.status] || "bg-gray-100 text-gray-600"}
-                            >
-                              {statusLabel(CONTENT_DRAFT_STATUS_LABELS, d.status)}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className={TD_DIVIDER}>
-                            {queueBadge ? (
-                              <Badge variant="outline" className={`text-xs ${queueBadge.className}`}>
-                                {queueBadge.label}
-                              </Badge>
-                            ) : (
-                              <span className="text-xs text-muted-foreground">—</span>
-                            )}
-                          </TableCell>
-                          <TableCell className={TD_DIVIDER}>
-                            {typeof d.quality_score === "number" ? (
-                              <span
-                                className={`font-mono text-xs ${
-                                  d.quality_score >= 70
-                                    ? "text-emerald-700"
-                                    : d.quality_score >= 40
-                                    ? "text-amber-700"
-                                    : "text-red-700"
-                                }`}
-                              >
-                                {d.quality_score}
-                              </span>
-                            ) : (
-                              <span className="text-xs text-muted-foreground">—</span>
-                            )}
-                          </TableCell>
-                          <TableCell
-                            className="text-xs text-muted-foreground"
-                            title={new Date(d.created_at).toLocaleString()}
-                          >
-                            {formatRelative(d.created_at)}
-                          </TableCell>
+        <Card className="overflow-hidden">
+          <TooltipProvider>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className={`w-8 ${TD_DIVIDER}`}>
+                      <Checkbox
+                        checked={allVisibleSelected ? true : someVisibleSelected ? "indeterminate" : false}
+                        onCheckedChange={toggleSelectAll}
+                        disabled={selectableVisible.length === 0}
+                        aria-label="Select all"
+                      />
+                    </TableHead>
+                    <TableHead className={`w-16 ${TD_DIVIDER}`}>ID</TableHead>
+                    <TableHead className={`min-w-[160px] ${TD_DIVIDER}`}>
+                      <HeaderFilterDropdown
+                        label="Client"
+                        searchable
+                        options={clientOptions}
+                        selected={clientFilter}
+                        onChange={setClientFilter}
+                      />
+                    </TableHead>
+                    <TableHead className={TD_DIVIDER}>
+                      <HeaderFilterDropdown
+                        label="Source"
+                        options={surfaceOptions}
+                        selected={surfaceFilter}
+                        onChange={setSurfaceFilter}
+                      />
+                    </TableHead>
+                    <TableHead className={TD_DIVIDER}>
+                      <HeaderFilterDropdown
+                        label="Kind"
+                        options={kindOptions}
+                        selected={kindFilter}
+                        onChange={setKindFilter}
+                      />
+                    </TableHead>
+                    <TableHead className={TD_DIVIDER}>
+                      <HeaderFilterDropdown
+                        label="Status"
+                        options={statusOptions}
+                        selected={statusFilter}
+                        onChange={setStatusFilter}
+                      />
+                    </TableHead>
+                    <TableHead className={`w-28 ${TD_DIVIDER}`}>Publish</TableHead>
+                    <TableHead className={`w-24 ${TD_DIVIDER}`}>Quality</TableHead>
+                    <TableHead className="w-36">
+                      <CreatedHeader
+                        sortDir={sortDir}
+                        onSort={setSortDir}
+                        dateRange={dateRange}
+                        onDateRange={setDateRange}
+                      />
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {isLoading && (
+                    <>
+                      {[0, 1, 2, 3].map((i) => (
+                        <TableRow key={`s-${i}`}>
+                          {Array.from({ length: 9 }).map((_, j) => (
+                            <TableCell key={j} className={j < 8 ? TD_DIVIDER : ""}>
+                              <Skeleton className="h-4 w-full" />
+                            </TableCell>
+                          ))}
                         </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-            </TooltipProvider>
-
-            {!isLoading && (
-              <div className="flex items-center justify-between border-t px-3 py-2 text-xs text-muted-foreground">
-                <span>
-                  {filtered.length} {filtered.length === 1 ? "draft" : "drafts"}
-                  {activeFilterCount > 0 && drafts.length !== filtered.length && (
-                    <span className="text-muted-foreground/70"> of {drafts.length}</span>
+                      ))}
+                    </>
                   )}
-                </span>
-                {drafts.length >= 200 && (
-                  <span className="italic">showing the 200 most recent drafts</span>
+
+                  {isError && !isLoading && (
+                    <TableRow>
+                      <TableCell colSpan={9}>
+                        <div className="py-8 text-center text-sm text-red-700">
+                          Failed to load queue: {(error as any)?.message || "unknown error"}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+
+                  {!isLoading && !isError && filtered.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={9}>
+                        <div className="flex flex-col items-center gap-2 py-12 text-sm text-muted-foreground">
+                          <Inbox className="h-8 w-8 opacity-50" />
+                          <div>
+                            {drafts.length === 0
+                              ? "No drafts yet."
+                              : "No drafts match the current filters."}
+                          </div>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+
+                  {!isLoading && filtered.map((d) => {
+                    const queueBadge = deriveQueueBadge(d);
+                    const selectable = canSelect(d);
+                    const src = metaFor(SOURCE_META, d.surface);
+                    const kind = metaFor(KIND_META, d.kind);
+                    const plat = d.target_platform ? metaFor(PLATFORM_META, d.target_platform) : null;
+                    return (
+                      <TableRow
+                        key={d.id}
+                        className="cursor-pointer hover:bg-muted/50"
+                        onClick={() => openDrawer(d.id)}
+                        data-testid={`contentflow-row-${d.id}`}
+                      >
+                        <TableCell className={TD_DIVIDER} onClick={(e) => e.stopPropagation()}>
+                          {selectable && (
+                            <Checkbox
+                              checked={selectedIds.has(d.id)}
+                              onCheckedChange={() => toggleSelected(d.id)}
+                              aria-label={`Select draft ${d.id}`}
+                              data-testid={`select-row-${d.id}`}
+                            />
+                          )}
+                        </TableCell>
+                        <TableCell className={`font-mono text-xs ${TD_DIVIDER}`}>#{d.id}</TableCell>
+                        <TableCell className={TD_DIVIDER}>
+                          <div className="text-sm font-medium">
+                            {clientNameById.get(d.client_id) || `Client #${d.client_id}`}
+                          </div>
+                          {d.title && (
+                            <div className="line-clamp-1 max-w-[260px] text-xs text-muted-foreground">
+                              {d.title}
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell className={TD_DIVIDER}>
+                          <div className="flex items-center gap-1.5">
+                            <IconTip icon={src.icon} label={src.label} />
+                            <span className="text-xs">{src.label}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className={TD_DIVIDER}>
+                          <div className="flex items-center gap-1.5">
+                            <IconTip icon={kind.icon} label={kind.label} />
+                            <span className="text-xs">{kind.label}</span>
+                            {plat && <IconTip icon={plat.icon} label={plat.label} />}
+                          </div>
+                        </TableCell>
+                        <TableCell className={TD_DIVIDER}>
+                          <Badge
+                            variant="outline"
+                            className={CONTENT_DRAFT_STATUS_STYLES[d.status] || "bg-gray-100 text-gray-600"}
+                          >
+                            {statusLabel(CONTENT_DRAFT_STATUS_LABELS, d.status)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className={TD_DIVIDER}>
+                          {queueBadge ? (
+                            <Badge variant="outline" className={`text-xs ${queueBadge.className}`}>
+                              {queueBadge.label}
+                            </Badge>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell className={TD_DIVIDER}>
+                          {typeof d.quality_score === "number" ? (
+                            <span
+                              className={`font-mono text-xs ${
+                                d.quality_score >= 70
+                                  ? "text-emerald-700"
+                                  : d.quality_score >= 40
+                                  ? "text-amber-700"
+                                  : "text-red-700"
+                              }`}
+                            >
+                              {d.quality_score}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell
+                          className="text-xs text-muted-foreground"
+                          title={new Date(d.created_at).toLocaleString()}
+                        >
+                          {formatRelative(d.created_at)}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </TooltipProvider>
+
+          {!isLoading && (
+            <div className="flex items-center justify-between border-t px-3 py-2 text-xs text-muted-foreground">
+              <span>
+                {filtered.length} {filtered.length === 1 ? "draft" : "drafts"}
+                {activeFilterCount > 0 && drafts.length !== filtered.length && (
+                  <span className="text-muted-foreground/70"> of {drafts.length}</span>
                 )}
-              </div>
-            )}
-          </Card>
-        )}
+              </span>
+              {drafts.length >= 200 && (
+                <span className="italic">showing the 200 most recent drafts</span>
+              )}
+            </div>
+          )}
+        </Card>
       </div>
+    );
+  }
+
+  return (
+    <AdminLayout>
+      <AdminProductPageShell
+        productId={PRODUCT_ID}
+        productName="ContentFlow"
+        isActive={live?.is_active ?? true}
+        hidden={live?.hidden ?? false}
+        stats={productStats ?? null}
+        filtersBar={filtersBar}
+        tabs={[
+          { id: "list", label: "List", render: () => <ListView /> },
+          { id: "calendar", label: "Calendar", render: () => <ContentCalendarView drafts={filtered} isLoading={isLoading} onSelectDraft={openDrawer} /> },
+          { id: "settings", label: "Settings", render: () => <ContentFlowSettingsPanel /> },
+        ]}
+        onToggleActive={(next) => activeToggle.mutate(next)}
+        onToggleHidden={(next) => hiddenToggle.mutate(next)}
+      />
 
       <ContentFlowDraftDrawer
         draftId={drawerDraftId}
