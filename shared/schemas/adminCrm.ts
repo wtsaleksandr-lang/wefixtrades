@@ -120,6 +120,11 @@ export const clients = pgTable("clients", {
   // special_hours: array of { date:"YYYY-MM-DD", closed?:true, opens?, closes? }
   business_hours: jsonb("business_hours"),
   special_hours: jsonb("special_hours"),
+  // 0042 — invoice template preference + accent. New invoices auto-apply
+  // these unless the user overrides them per-invoice. Accent flows through
+  // to both the live React preview and the PDFKit renderer.
+  default_invoice_template_slug: text("default_invoice_template_slug").default("classic-minimal"),
+  invoice_accent_color: text("invoice_accent_color").default("#0d3cfc"),
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
 });

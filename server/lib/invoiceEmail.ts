@@ -23,6 +23,13 @@ interface InvoiceEmailParams {
   dueDate: Date | null;
   notes: string | null;
   payUrl: string;
+  /** Optional override for the email subject. Defaults to
+   *  `Invoice {n} from {businessName}`. */
+  subjectOverride?: string;
+  /** Optional override for the friendly intro line above the invoice body. */
+  introOverride?: string;
+  /** Optional PDF attachment (Phase A — attached on every send). */
+  pdfAttachment?: { filename: string; buffer: Buffer };
 }
 
 function formatCents(cents: number): string {
@@ -115,11 +122,16 @@ export async function sendInvoiceEmail(params: InvoiceEmailParams): Promise<void
     </p>
   `;
 
+  const introLine =
+    params.introOverride && params.introOverride.trim().length > 0
+      ? params.introOverride
+      : `Hi ${params.customerName}, here's your invoice from ${params.businessName}.`;
+
   const html = buildTransactionalEmail({
     recipientEmail: params.recipientEmail,
     subjectForTitle: `Invoice ${params.invoiceNumber}`,
     headline: `Invoice ${params.invoiceNumber}`,
-    intro: `Hi ${params.customerName}, here's your invoice from ${params.businessName}.`,
+    intro: introLine,
     bodyHtml,
     cta: {
       label: `Pay ${formatCents(params.totalCents)}`,
@@ -139,7 +151,7 @@ export async function sendInvoiceEmail(params: InvoiceEmailParams): Promise<void
 
   const plain = buildPlainText({
     headline: `Invoice ${params.invoiceNumber}`,
-    intro: `Hi ${params.customerName}, here's your invoice from ${params.businessName}.`,
+    intro: introLine,
     bodyText: bodyLines.join("\n"),
     ctaLabel: `Pay ${formatCents(params.totalCents)}`,
     ctaUrl: params.payUrl,
@@ -147,16 +159,33 @@ export async function sendInvoiceEmail(params: InvoiceEmailParams): Promise<void
   });
 
   const fromAddr = getFromAddress();
+  const subject =
+    params.subjectOverride && params.subjectOverride.trim().length > 0
+      ? params.subjectOverride
+      : `Invoice ${params.invoiceNumber} from ${params.businessName}`;
+
+  const attachments = params.pdfAttachment
+    ? [{
+        filename: params.pdfAttachment.filename,
+        content: params.pdfAttachment.buffer,
+        contentType: "application/pdf",
+      }]
+    : undefined;
 
   try {
     await transporter.sendMail({
       from: fromAddr,
       to: params.recipientEmail,
-      subject: `Invoice ${params.invoiceNumber} from ${params.businessName}`,
+      subject,
       html,
       text: plain,
+      ...(attachments ? { attachments } : {}),
     });
-    log.info("Invoice email sent", { to: params.recipientEmail, invoice: params.invoiceNumber });
+    log.info("Invoice email sent", {
+      to: params.recipientEmail,
+      invoice: params.invoiceNumber,
+      pdf: params.pdfAttachment ? "attached" : "none",
+    });
   } catch (err: any) {
     log.error("Failed to send invoice email", { error: err.message, to: params.recipientEmail });
     throw err;

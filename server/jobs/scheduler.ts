@@ -60,6 +60,7 @@ import { processApiWebhookDeliveries } from "./apiWebhookDeliveryWorker";
 import { runBusinessOperatorJob } from "./businessOperatorWorker";
 import { runCalculatorAnalyticsRollup } from "./calculatorAnalyticsRollupWorker";
 import { runSharedFilesRetentionSweep } from "./sharedFilesRetentionSweepWorker";
+import { processInvoiceOverdue } from "./invoiceOverdueWorker";
 
 const log = createLogger("Scheduler");
 
@@ -935,6 +936,16 @@ export function initScheduler() {
       await runJob("shared_files_retention_sweep", runSharedFilesRetentionSweep);
     } catch (err: any) {
       log.error("shared_files_retention_sweep cron handler error", { error: err.message });
+    }
+  }, { timezone: "UTC" });
+
+  // Invoice overdue flip — daily at 02:30 UTC. Marks any sent/viewed
+  // invoices whose due_date has elapsed as 'overdue'. Idempotent.
+  cron.schedule("30 2 * * *", async () => {
+    try {
+      await runJob("invoice_overdue_flip", processInvoiceOverdue);
+    } catch (err: any) {
+      log.error("invoice_overdue_flip cron handler error", { error: err.message });
     }
   }, { timezone: "UTC" });
 

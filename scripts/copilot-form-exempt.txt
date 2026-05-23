@@ -110,3 +110,10 @@ client/src/pages/portal/PortalCalculatorAnalytics.tsx
 # ── Free Tools foundation wave — index is a read-only card grid. ──
 # (SchemaGenerator.tsx is NOT exempt — it wires useCopilotForm for address/price fields.)
 client/src/pages/portal/FreeTools/index.tsx
+
+# ── Invoice Phase A: read-only PDF preview renderers (props in, JSX out — no
+#    user-fillable inputs live on these. The editable form lives in
+#    InvoiceDetailPage.tsx, which DOES wire useCopilotForm). ──
+client/src/pages/portal/invoice-templates/ClassicMinimal.tsx
+client/src/pages/portal/invoice-templates/ModernBold.tsx
+client/src/pages/portal/invoice-templates/TradeService.tsx

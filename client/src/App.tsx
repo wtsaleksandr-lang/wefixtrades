@@ -177,6 +177,7 @@ import PayInvoicePage from "@/pages/public/PayInvoicePage";
 import QuoteSnapshotPage from "@/pages/quote-snapshot";
 import DispatchPage from "@/pages/portal/DispatchPage";
 import InvoicesPage from "@/pages/portal/InvoicesPage";
+import InvoiceDetailPage from "@/pages/portal/InvoiceDetailPage";
 import PaymentMethodsPage from "@/pages/portal/PaymentMethodsPage";
 import BookFlowSetupPage from "@/pages/portal/BookFlowSetupPage";
 import PortalCatalog from "@/pages/portal/PortalCatalog";
@@ -324,6 +325,7 @@ function Router() {
       <Route path="/portal/socialsync">{() => <RequireClient><PortalSocialSync /></RequireClient>}</Route>
       <Route path="/portal/reputation">{() => <Redirect to="/portal/reviews" />}</Route>
       <Route path="/portal/dispatch">{() => <RequireClient><DispatchPage /></RequireClient>}</Route>
+      <Route path="/portal/invoices/:id">{() => <RequireClient><InvoiceDetailPage /></RequireClient>}</Route>
       <Route path="/portal/invoices">{() => <RequireClient><InvoicesPage /></RequireClient>}</Route>
       <Route path="/portal/payment-methods">{() => <RequireClient><PaymentMethodsPage /></RequireClient>}</Route>
       <Route path="/portal/bookflow-setup">{() => <RequireClient><BookFlowSetupPage /></RequireClient>}</Route>

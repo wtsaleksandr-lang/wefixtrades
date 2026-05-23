@@ -30,6 +30,8 @@ import {
   calculators,
 } from "@shared/schema";
 import { sendInvoiceEmail } from "../lib/invoiceEmail";
+import { renderInvoicePdf, BUILTIN_TEMPLATE_SLUGS, type InvoicePdfData } from "../lib/invoiceTemplates";
+import { contacts } from "@shared/schemas/contacts";
 import { createLogger } from "../lib/logger";
 import {
   getBookFlowSettingsBySlug,
@@ -91,6 +93,9 @@ const lineItemSchema = z.object({
   unit_price_cents: z.number().int().min(0),
 });
 
+const CURRENCY_VALUES = ["USD", "CAD", "EUR", "GBP", "AUD"] as const;
+const TEMPLATE_SLUGS_ZOD = z.enum(["classic-minimal", "modern-bold", "trade-service"]);
+
 const createInvoiceBody = z.object({
   appointment_id: z.number().int().optional(),
   customer_name: z.string().min(1),
@@ -99,7 +104,13 @@ const createInvoiceBody = z.object({
   line_items: z.array(lineItemSchema).min(1),
   tax_cents: z.number().int().min(0).optional().default(0),
   due_date: z.string().optional(), // ISO string
+  issue_date: z.string().optional(), // ISO string (defaults to today)
+  invoice_number: z.string().min(1).optional(), // user override; else auto
   notes: z.string().optional(),
+  currency: z.enum(CURRENCY_VALUES).optional(),
+  template_slug: TEMPLATE_SLUGS_ZOD.optional(),
+  contact_id: z.string().uuid().optional(),
+  metadata: z.record(z.unknown()).optional(),
 });
 
 const updateInvoiceBody = z.object({
@@ -109,9 +120,29 @@ const updateInvoiceBody = z.object({
   line_items: z.array(lineItemSchema).min(1).optional(),
   tax_cents: z.number().int().min(0).optional(),
   due_date: z.string().optional(),
+  issue_date: z.string().optional(),
+  invoice_number: z.string().min(1).optional(),
   notes: z.string().optional(),
   status: z.enum(["draft", "sent", "viewed", "paid", "overdue", "cancelled"]).optional(),
-  payment_method: z.enum(["stripe", "cash", "check", "other"]).optional(),
+  payment_method: z.enum(["stripe", "cash", "check", "etransfer", "other"]).optional(),
+  currency: z.enum(CURRENCY_VALUES).optional(),
+  template_slug: TEMPLATE_SLUGS_ZOD.optional(),
+  contact_id: z.string().uuid().nullable().optional(),
+  metadata: z.record(z.unknown()).optional(),
+});
+
+const sendInvoiceBody = z.object({
+  /** Optional override — defaults to the invoice's stored customer_email. */
+  to_email: z.string().email().optional(),
+  subject: z.string().max(200).optional(),
+  body: z.string().max(2000).optional(),
+});
+
+const markPaidBody = z.object({
+  payment_method: z.enum(["cash", "check", "etransfer", "other"]),
+  paid_at: z.string().optional(),
+  reference: z.string().max(120).optional(),
+  notes: z.string().max(500).optional(),
 });
 
 const checkoutBody = z.object({
@@ -197,8 +228,20 @@ export function registerBookflowRoutes(app: Express): void {
       );
       const tax_cents = data.tax_cents ?? 0;
       const total_cents = subtotal_cents + tax_cents;
-      const invoice_number = await nextInvoiceNumber(clientId);
+      const invoice_number = data.invoice_number || await nextInvoiceNumber(clientId);
       const pay_link_token = crypto.randomBytes(16).toString("hex");
+
+      // Apply account-level defaults for template + currency when the create
+      // payload doesn't specify them.
+      const [clientPrefs] = await db
+        .select({
+          template_slug: clients.default_invoice_template_slug,
+        })
+        .from(clients)
+        .where(eq(clients.id, clientId))
+        .limit(1);
+
+      const issue_date = data.issue_date ? new Date(data.issue_date) : new Date();
 
       const [invoice] = await db.insert(bookflowInvoices).values({
         client_id: clientId,
@@ -212,9 +255,14 @@ export function registerBookflowRoutes(app: Express): void {
         total_cents,
         invoice_number,
         pay_link_token,
+        issue_date,
         due_date: data.due_date ? new Date(data.due_date) : null,
         notes: data.notes,
         status: "draft",
+        currency: data.currency || "USD",
+        template_slug: data.template_slug || clientPrefs?.template_slug || "classic-minimal",
+        contact_id: data.contact_id || null,
+        metadata: data.metadata as any,
       }).returning();
 
       log.info("Invoice created", { invoiceId: String(invoice.id), invoiceNumber: invoice_number });
@@ -225,27 +273,116 @@ export function registerBookflowRoutes(app: Express): void {
     }
   });
 
-  /** GET /api/portal/bookflow/invoices — list invoices */
+  /** GET /api/portal/bookflow/invoices — list invoices.
+   *
+   *  Query params:
+   *    status            — exact match (draft|sent|viewed|paid|overdue|cancelled)
+   *    q                 — substring against customer_name / invoice_number
+   *    range             — 30d | 90d | all (default all)
+   *    sort              — newest | oldest | amount_desc | amount_asc
+   */
   app.get("/api/portal/bookflow/invoices", requireClient, async (req: Request, res: Response) => {
     try {
       const clientId = await withClientId(req, res);
       if (!clientId) return;
 
       const status = req.query.status as string | undefined;
+      const q = (req.query.q as string | undefined)?.trim();
+      const range = (req.query.range as string | undefined) || "all";
+      const sort = (req.query.sort as string | undefined) || "newest";
+
       const conditions = [eq(bookflowInvoices.client_id, clientId)];
       if (status) conditions.push(eq(bookflowInvoices.status, status));
+
+      if (q && q.length > 0) {
+        const like = `%${q}%`;
+        conditions.push(
+          // Drizzle's `or` over two ilike checks against customer_name or invoice_number.
+          sql`(${bookflowInvoices.customer_name} ILIKE ${like} OR COALESCE(${bookflowInvoices.invoice_number}, '') ILIKE ${like})`,
+        );
+      }
+
+      if (range === "30d" || range === "90d") {
+        const days = range === "30d" ? 30 : 90;
+        const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+        conditions.push(gte(bookflowInvoices.created_at, cutoff));
+      }
+
+      const orderBy = (() => {
+        switch (sort) {
+          case "oldest": return bookflowInvoices.created_at;
+          case "amount_desc": return desc(bookflowInvoices.total_cents);
+          case "amount_asc": return bookflowInvoices.total_cents;
+          case "newest":
+          default: return desc(bookflowInvoices.created_at);
+        }
+      })();
 
       const invoices = await db
         .select()
         .from(bookflowInvoices)
         .where(and(...conditions))
-        .orderBy(desc(bookflowInvoices.created_at))
-        .limit(100);
+        .orderBy(orderBy)
+        .limit(200);
 
       res.json(invoices);
     } catch (err: any) {
       log.error("Failed to list invoices", { error: err.message });
       res.status(500).json({ error: "Failed to list invoices" });
+    }
+  });
+
+  /** GET /api/portal/bookflow/invoices/:id — single invoice for detail view */
+  app.get("/api/portal/bookflow/invoices/:id", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const invoiceId = parseInt(String(req.params.id));
+      if (isNaN(invoiceId)) return res.status(400).json({ error: "Invalid invoice ID" });
+
+      const [invoice] = await db
+        .select()
+        .from(bookflowInvoices)
+        .where(and(eq(bookflowInvoices.id, invoiceId), eq(bookflowInvoices.client_id, clientId)))
+        .limit(1);
+
+      if (!invoice) return res.status(404).json({ error: "Invoice not found" });
+
+      // Hydrate the linked contact (billing address auto-fill).
+      let linkedContact: any = null;
+      if (invoice.contact_id) {
+        const [c] = await db
+          .select()
+          .from(contacts)
+          .where(eq(contacts.id, invoice.contact_id))
+          .limit(1);
+        linkedContact = c || null;
+      }
+
+      // Account branding for the live preview pane.
+      const [client] = await db
+        .select({
+          business_name: clients.business_name,
+          contact_email: clients.contact_email,
+          contact_phone: clients.contact_phone,
+          website_url: clients.website_url,
+          logo_url: clients.logo_url,
+          accent_color: clients.invoice_accent_color,
+          default_template: clients.default_invoice_template_slug,
+        })
+        .from(clients)
+        .where(eq(clients.id, clientId))
+        .limit(1);
+
+      res.json({
+        invoice,
+        contact: linkedContact,
+        client,
+      });
+    } catch (err: any) {
+      log.error("Failed to load invoice", { error: err.message });
+      res.status(500).json({ error: "Failed to load invoice" });
     }
   });
 
@@ -265,15 +402,37 @@ export function registerBookflowRoutes(app: Express): void {
 
       const { data } = parsed;
 
-      // Recalculate totals if line items changed
+      // Recalculate totals if line items changed.
       const updates: Record<string, any> = { ...data, updated_at: new Date() };
       if (data.line_items) {
         updates.subtotal_cents = data.line_items.reduce(
           (sum, li) => sum + li.quantity * li.unit_price_cents, 0
         );
-        updates.total_cents = updates.subtotal_cents + (data.tax_cents ?? 0);
+        // If tax wasn't sent on the PATCH, reuse the stored value so total
+        // stays accurate.
+        if (data.tax_cents === undefined) {
+          const [existing] = await db
+            .select({ tax_cents: bookflowInvoices.tax_cents })
+            .from(bookflowInvoices)
+            .where(and(eq(bookflowInvoices.id, invoiceId), eq(bookflowInvoices.client_id, clientId)))
+            .limit(1);
+          updates.tax_cents = existing?.tax_cents ?? 0;
+        }
+        updates.total_cents = updates.subtotal_cents + (updates.tax_cents ?? 0);
+      } else if (data.tax_cents !== undefined) {
+        // Tax-only update — recompute total against existing subtotal.
+        const [existing] = await db
+          .select({ subtotal_cents: bookflowInvoices.subtotal_cents })
+          .from(bookflowInvoices)
+          .where(and(eq(bookflowInvoices.id, invoiceId), eq(bookflowInvoices.client_id, clientId)))
+          .limit(1);
+        if (existing) {
+          updates.total_cents = existing.subtotal_cents + data.tax_cents;
+        }
       }
+
       if (data.due_date) updates.due_date = new Date(data.due_date);
+      if (data.issue_date) updates.issue_date = new Date(data.issue_date);
       if (data.status === "paid") updates.paid_at = new Date();
 
       const [updated] = await db
@@ -290,7 +449,11 @@ export function registerBookflowRoutes(app: Express): void {
     }
   });
 
-  /** POST /api/portal/bookflow/invoices/:id/send — send invoice email */
+  /** POST /api/portal/bookflow/invoices/:id/send — send invoice email.
+   *
+   *  Body (all optional): { to_email, subject, body }.
+   *  Generates the PDF using the invoice's template_slug and attaches it.
+   */
   app.post("/api/portal/bookflow/invoices/:id/send", requireClient, async (req: Request, res: Response) => {
     try {
       const clientId = await withClientId(req, res);
@@ -299,6 +462,11 @@ export function registerBookflowRoutes(app: Express): void {
       const invoiceId = parseInt(String(req.params.id));
       if (isNaN(invoiceId)) return res.status(400).json({ error: "Invalid invoice ID" });
 
+      const parsedBody = sendInvoiceBody.safeParse(req.body || {});
+      if (!parsedBody.success) {
+        return res.status(400).json({ error: "Invalid input", details: parsedBody.error.flatten() });
+      }
+
       const [invoice] = await db
         .select()
         .from(bookflowInvoices)
@@ -306,23 +474,102 @@ export function registerBookflowRoutes(app: Express): void {
         .limit(1);
 
       if (!invoice) return res.status(404).json({ error: "Invoice not found" });
-      if (!invoice.customer_email) return res.status(400).json({ error: "Customer email required to send" });
 
-      // Get business name from client record
+      const recipientEmail = parsedBody.data.to_email || invoice.customer_email;
+      if (!recipientEmail) return res.status(400).json({ error: "Customer email required to send" });
+
       const [client] = await db
-        .select({ business_name: clients.business_name })
+        .select({
+          business_name: clients.business_name,
+          contact_email: clients.contact_email,
+          contact_phone: clients.contact_phone,
+          website_url: clients.website_url,
+          logo_url: clients.logo_url,
+          accent_color: clients.invoice_accent_color,
+        })
         .from(clients)
         .where(eq(clients.id, clientId))
         .limit(1);
 
       const businessName = client?.business_name || "Your Service Provider";
-
       const protocol = req.headers["x-forwarded-proto"] || "https";
       const host = req.headers.host;
       const payUrl = `${protocol}://${host}/pay/${invoice.pay_link_token}`;
 
+      // Per-invoice accent override (stored in metadata) wins over account.
+      const meta = (invoice.metadata as Record<string, any>) || {};
+      const accentColor =
+        (typeof meta.accent_color === "string" && /^#[0-9A-Fa-f]{6}$/.test(meta.accent_color))
+          ? meta.accent_color
+          : client?.accent_color || "#0d3cfc";
+
+      let pdfAttachment: { filename: string; buffer: Buffer } | undefined;
+      try {
+        const pdfData: InvoicePdfData = {
+          invoice_number: invoice.invoice_number || "INV-000",
+          status: invoice.status || "draft",
+          issue_date: invoice.issue_date || invoice.created_at || null,
+          due_date: invoice.due_date,
+          currency: invoice.currency || "USD",
+          line_items: invoice.line_items as Array<{ description: string; quantity: number; unit_price_cents: number }>,
+          subtotal_cents: invoice.subtotal_cents,
+          tax_cents: invoice.tax_cents ?? 0,
+          total_cents: invoice.total_cents,
+          notes: invoice.notes,
+          customer_name: invoice.customer_name,
+          customer_email: invoice.customer_email,
+          customer_phone: invoice.customer_phone,
+          billing_street: null,
+          billing_city: null,
+          billing_region: null,
+          billing_postal: null,
+          billing_country: null,
+          business_name: businessName,
+          business_email: client?.contact_email || null,
+          business_phone: client?.contact_phone || null,
+          business_website: client?.website_url || null,
+          logo_url: client?.logo_url || null,
+          accent_color: accentColor,
+          pay_url: payUrl,
+        };
+
+        // Pull contact billing fields when an invoice is linked.
+        if (invoice.contact_id) {
+          const [linkedContact] = await db
+            .select({
+              billing_street: contacts.billing_street,
+              billing_city: contacts.billing_city,
+              billing_region: contacts.billing_region,
+              billing_postal: contacts.billing_postal,
+              billing_country: contacts.billing_country,
+            })
+            .from(contacts)
+            .where(eq(contacts.id, invoice.contact_id))
+            .limit(1);
+          if (linkedContact) {
+            pdfData.billing_street = linkedContact.billing_street;
+            pdfData.billing_city = linkedContact.billing_city;
+            pdfData.billing_region = linkedContact.billing_region;
+            pdfData.billing_postal = linkedContact.billing_postal;
+            pdfData.billing_country = linkedContact.billing_country;
+          }
+        }
+
+        const buf = await renderInvoicePdf(invoice.template_slug, pdfData);
+        pdfAttachment = {
+          filename: `invoice-${invoice.invoice_number || invoice.id}.pdf`,
+          buffer: buf,
+        };
+      } catch (pdfErr: any) {
+        // PDF generation failure must not block the email — log and continue.
+        log.warn("PDF generation failed, sending email without attachment", {
+          invoiceId: String(invoiceId),
+          error: pdfErr.message,
+        });
+      }
+
       await sendInvoiceEmail({
-        recipientEmail: invoice.customer_email,
+        recipientEmail,
         customerName: invoice.customer_name,
         businessName,
         invoiceNumber: invoice.invoice_number || "INV-000",
@@ -333,19 +580,72 @@ export function registerBookflowRoutes(app: Express): void {
         dueDate: invoice.due_date,
         notes: invoice.notes,
         payUrl,
+        subjectOverride: parsedBody.data.subject,
+        introOverride: parsedBody.data.body,
+        pdfAttachment,
       });
 
-      // Mark as sent
       await db
         .update(bookflowInvoices)
         .set({ status: "sent", updated_at: new Date() })
         .where(eq(bookflowInvoices.id, invoiceId));
 
-      log.info("Invoice sent", { invoiceId: String(invoiceId) });
-      res.json({ success: true });
+      log.info("Invoice sent", { invoiceId: String(invoiceId), pdf: pdfAttachment ? "yes" : "no" });
+      res.json({ success: true, pdf_attached: !!pdfAttachment });
     } catch (err: any) {
       log.error("Failed to send invoice", { error: err.message });
       res.status(500).json({ error: "Failed to send invoice" });
+    }
+  });
+
+  /** POST /api/portal/bookflow/invoices/:id/mark-paid — manual payment recording */
+  app.post("/api/portal/bookflow/invoices/:id/mark-paid", requireClient, async (req: Request, res: Response) => {
+    try {
+      const clientId = await withClientId(req, res);
+      if (!clientId) return;
+
+      const invoiceId = parseInt(String(req.params.id));
+      if (isNaN(invoiceId)) return res.status(400).json({ error: "Invalid invoice ID" });
+
+      const parsed = markPaidBody.safeParse(req.body || {});
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid input", details: parsed.error.flatten() });
+      }
+
+      const [existing] = await db
+        .select({ metadata: bookflowInvoices.metadata })
+        .from(bookflowInvoices)
+        .where(and(eq(bookflowInvoices.id, invoiceId), eq(bookflowInvoices.client_id, clientId)))
+        .limit(1);
+      if (!existing) return res.status(404).json({ error: "Invoice not found" });
+
+      const existingMeta = (existing.metadata as Record<string, any>) || {};
+      const newMeta = {
+        ...existingMeta,
+        payment_reference: parsed.data.reference || existingMeta.payment_reference,
+        payment_notes: parsed.data.notes || existingMeta.payment_notes,
+      };
+
+      const [updated] = await db
+        .update(bookflowInvoices)
+        .set({
+          status: "paid",
+          payment_method: parsed.data.payment_method,
+          paid_at: parsed.data.paid_at ? new Date(parsed.data.paid_at) : new Date(),
+          metadata: newMeta,
+          updated_at: new Date(),
+        })
+        .where(and(eq(bookflowInvoices.id, invoiceId), eq(bookflowInvoices.client_id, clientId)))
+        .returning();
+
+      log.info("Invoice marked paid manually", {
+        invoiceId: String(invoiceId),
+        method: parsed.data.payment_method,
+      });
+      res.json(updated);
+    } catch (err: any) {
+      log.error("Failed to mark invoice paid", { error: err.message });
+      res.status(500).json({ error: "Failed to mark invoice paid" });
     }
   });
 
