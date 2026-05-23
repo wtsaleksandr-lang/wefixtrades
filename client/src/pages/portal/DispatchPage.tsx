@@ -135,7 +135,7 @@ export default function DispatchPage() {
           style={navBtnStyle}
           aria-label="Previous day"
         >
-          <ChevronLeft size={18} />
+          <ChevronLeft size={20} />
         </button>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <Calendar size={14} style={{ color: "#6b7280" }} />
@@ -171,7 +171,7 @@ export default function DispatchPage() {
           style={navBtnStyle}
           aria-label="Next day"
         >
-          <ChevronRight size={18} />
+          <ChevronRight size={20} />
         </button>
       </div>
 

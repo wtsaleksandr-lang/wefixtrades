@@ -82,19 +82,43 @@ const CORE_ITEMS = [
 /* ─── Collapsible groups ─── */
 /* Q27: dropped the standalone "Services" child — the group HEADER now
    clicks through to /admin/crm/services (the catalog) and the chevron
-   expands the per-product list. */
-const PRODUCTS_ITEMS = [
-  { label: "QuoteQuick", href: "/admin/crm/quotequick", icon: Sparkles },
-  /* AI-3b — QuoteQuick template editor */
-  { label: "QuoteQuick Templates", href: "/admin/quotequick/templates", icon: Sparkles },
-  { label: "QuoteQuick Trades", href: "/admin/quotequick/trades", icon: Sparkles },
-  /* AJ-4 API platform admin */
-  { label: "API Platform", href: "/admin/api-platform", icon: Plug },
-  { label: "TradeLine", href: "/admin/crm/tradeline-ops", icon: Phone },
-  { label: "TradeLine Setups", href: "/admin/crm/tradeline-setups", icon: Phone },
-  { label: "TradeLine Templates", href: "/admin/tradeline/templates", icon: Sparkles },
-  { label: "Mobile Preview", href: "/admin/mobile-preview", icon: Phone },
-  { label: "Booking", href: "/admin/booking", icon: CalendarDays },
+   expands the per-product list.
+   2026-05-22: Products consolidation — each "real" customer-facing
+   product is ONE row. Admin sub-pages (templates, trades, setups) nest
+   under their parent product and only render when that parent is
+   expanded. Cross-product admin tools (Mobile Preview, Booking) moved
+   to OPERATIONS_ITEMS. API Platform hidden from nav (route preserved
+   in App.tsx — it's developer tooling, not a customer product). */
+type NavChild = { label: string; href: string; icon: typeof Sparkles };
+type NavItem = {
+  label: string;
+  href: string;
+  icon: typeof Sparkles;
+  countKey?: "support" | "alerts";
+  /** Nested admin sub-pages of this parent product. Rendered as
+   *  indented rows below the parent only when the parent is expanded. */
+  children?: NavChild[];
+};
+
+const PRODUCTS_ITEMS: NavItem[] = [
+  {
+    label: "QuoteQuick",
+    href: "/admin/crm/quotequick",
+    icon: Sparkles,
+    children: [
+      { label: "Templates", href: "/admin/quotequick/templates", icon: Sparkles },
+      { label: "Trades", href: "/admin/quotequick/trades", icon: Sparkles },
+    ],
+  },
+  {
+    label: "TradeLine",
+    href: "/admin/crm/tradeline-ops",
+    icon: Phone,
+    children: [
+      { label: "Setups", href: "/admin/crm/tradeline-setups", icon: Phone },
+      { label: "Templates", href: "/admin/tradeline/templates", icon: Sparkles },
+    ],
+  },
   { label: "MapGuard", href: "/admin/crm/mapguard", icon: Shield },
   { label: "WebCare", href: "/admin/crm/webcare/ops", icon: ShieldCheck },
   { label: "RankFlow", href: "/admin/crm/rankflow", icon: TrendingUp },
@@ -104,20 +128,26 @@ const PRODUCTS_ITEMS = [
   { label: "AdFlow", href: "/admin/crm/adflow", icon: Zap },
 ];
 
-const FINANCE_ITEMS = [
+/* Cross-product admin tooling — not a customer product itself. */
+const OPERATIONS_ITEMS: NavItem[] = [
+  { label: "Booking", href: "/admin/booking", icon: CalendarDays },
+  { label: "Mobile Preview", href: "/admin/mobile-preview", icon: Phone },
+];
+
+const FINANCE_ITEMS: NavItem[] = [
   { label: "Billing", href: "/admin/crm/billing", icon: CreditCard },
   { label: "Suppliers", href: "/admin/crm/suppliers", icon: Factory },
   { label: "Sales", href: "/admin/crm/sales", icon: Target },
   { label: "Audit Leads", href: "/admin/crm/audit-leads", icon: ClipboardList },
 ];
 
-const OUTBOUND_ITEMS = [
+const OUTBOUND_ITEMS: NavItem[] = [
   { label: "Prospects", href: "/admin/outbound/prospects", icon: Users },
   { label: "Campaigns", href: "/admin/outbound/campaigns", icon: Megaphone },
   { label: "Pipeline", href: "/admin/outbound/pipeline", icon: CreditCard },
 ];
 
-const SYSTEM_ITEMS = [
+const SYSTEM_ITEMS: NavItem[] = [
   { label: "Job Logs", href: "/admin/system/jobs", icon: Activity },
   { label: "Workers", href: "/admin/system/workers", icon: Server },
   { label: "Integrations", href: "/admin/system/integrations", icon: ServerCog },
@@ -139,12 +169,153 @@ const SECONDARY_ITEMS = [
   { label: "View as Customer", href: "/portal", icon: ExternalLink, isViewAsCustomer: true as const },
 ];
 
-/* Unified list for page title detection and other lookups */
-const NAV_ITEMS = [...CORE_ITEMS, ...PRODUCTS_ITEMS, ...FINANCE_ITEMS, ...SYSTEM_ITEMS];
+/* Unified list for page title detection. Includes parent products,
+ * their children, plus operations / finance / system rows so the page
+ * title resolves for every routable destination. */
+const NAV_ITEMS: NavItem[] = [
+  ...CORE_ITEMS as NavItem[],
+  ...PRODUCTS_ITEMS,
+  ...PRODUCTS_ITEMS.flatMap((p) => p.children ?? []).map((c) => ({ ...c })),
+  ...OPERATIONS_ITEMS,
+  ...FINANCE_ITEMS,
+  ...SYSTEM_ITEMS,
+];
+
+/* localStorage key for parent-expansion state. */
+const NAV_EXPANDED_KEY = "admin-nav-expanded";
+function readExpanded(): Record<string, boolean> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(NAV_EXPANDED_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+function writeExpanded(state: Record<string, boolean>) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(NAV_EXPANDED_KEY, JSON.stringify(state));
+  } catch {
+    /* quota / disabled — non-fatal */
+  }
+}
 
 function isActive(location: string, href: string): boolean {
   if (href === "/admin/crm") return location === "/admin/crm";
   return location.startsWith(href);
+}
+
+/* ─── Parent-with-children row ───
+ * Renders a parent product link that can be expanded to reveal indented
+ * child sub-page rows. Expansion state persists per-parent in
+ * localStorage so the layout survives a page reload.
+ *
+ * Visual rules (per DESIGN-SYSTEM.md):
+ *  - Active child = strong highlight (brand-blue outline + 4-6% tinted bg).
+ *  - Parent with active child = subtle indicator (left bar + slightly
+ *    darker label) but NOT a bright fill.
+ *  - Direct hit on the parent's own href = full strong highlight.
+ *  - prefers-reduced-motion disables the chevron rotation transition.
+ */
+function NavParentItem({
+  item,
+  location,
+  onNavigate,
+  expandedMap,
+  setExpandedMap,
+}: {
+  item: NavItem;
+  location: string;
+  onNavigate: () => void;
+  expandedMap: Record<string, boolean>;
+  setExpandedMap: (next: Record<string, boolean>) => void;
+}) {
+  const directActive = isActive(location, item.href);
+  const hasActiveChild =
+    item.children?.some((c) => isActive(location, c.href)) ?? false;
+  // Default: open if a child is active. Otherwise honour stored choice.
+  const storedKey = item.href;
+  const stored = expandedMap[storedKey];
+  const open = stored ?? hasActiveChild;
+
+  const toggle = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const next = { ...expandedMap, [storedKey]: !open };
+    setExpandedMap(next);
+    writeExpanded(next);
+  };
+
+  const parentClass = cn(
+    "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors min-h-[40px] flex-1",
+    directActive
+      ? "bg-[#EEF3FF] text-[#0d3cfc] font-medium border border-[#0d3cfc]/30"
+      : hasActiveChild
+        ? "text-gray-800 font-medium border-l-2 border-[#0d3cfc] pl-[10px]"
+        : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 border border-transparent"
+  );
+
+  return (
+    <div>
+      <div className="flex items-center gap-0.5">
+        <Link href={item.href} onClick={onNavigate} className={parentClass}>
+          <item.icon
+            className={cn(
+              "w-4 h-4 shrink-0",
+              directActive || hasActiveChild ? "text-[#0d3cfc]" : "text-gray-400"
+            )}
+          />
+          <span className="flex-1">{item.label}</span>
+        </Link>
+        {item.children && item.children.length > 0 && (
+          <button
+            type="button"
+            onClick={toggle}
+            aria-label={open ? `Collapse ${item.label}` : `Expand ${item.label}`}
+            aria-expanded={open}
+            className="p-1.5 rounded hover:bg-gray-100 shrink-0"
+            data-testid={`nav-expand-${item.label.toLowerCase()}`}
+          >
+            <ChevronDown
+              className={cn(
+                "w-3.5 h-3.5 text-gray-500 motion-safe:transition-transform",
+                open && "rotate-180"
+              )}
+            />
+          </button>
+        )}
+      </div>
+      {open && item.children && item.children.length > 0 && (
+        <div className="ml-4 mt-0.5 mb-1 space-y-0.5 border-l border-gray-100 pl-2">
+          {item.children.map((child) => {
+            const active = isActive(location, child.href);
+            return (
+              <Link
+                key={child.href}
+                href={child.href}
+                onClick={onNavigate}
+                className={cn(
+                  "flex items-center gap-3 px-3 py-1.5 rounded-lg text-[13px] transition-colors min-h-[34px]",
+                  active
+                    ? "bg-[#EEF3FF] text-[#0d3cfc] font-medium border border-[#0d3cfc]/30"
+                    : "text-gray-500 hover:bg-gray-50 hover:text-gray-800 border border-transparent"
+                )}
+              >
+                <child.icon
+                  className={cn(
+                    "w-3.5 h-3.5 shrink-0",
+                    active ? "text-[#0d3cfc]" : "text-gray-400"
+                  )}
+                />
+                <span className="flex-1">{child.label}</span>
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
 }
 
 /* ─── Collapsible nav group ─── */
@@ -157,9 +328,11 @@ function NavGroup({
   onNavigate,
   defaultOpen,
   headerHref,
+  expandedMap,
+  setExpandedMap,
 }: {
   label: string;
-  items: typeof CORE_ITEMS;
+  items: NavItem[];
   location: string;
   supportUnresolved?: number;
   alertCount?: number;
@@ -169,10 +342,16 @@ function NavGroup({
    *  The chevron still expands/collapses children. When unset, clicking anywhere on
    *  the header just toggles expansion (legacy behavior). */
   headerHref?: string;
+  expandedMap?: Record<string, boolean>;
+  setExpandedMap?: (next: Record<string, boolean>) => void;
 }) {
   const [, navigate] = useLocation();
   const headerActive = headerHref ? isActive(location, headerHref) : false;
-  const hasActiveChild = items.some((item) => isActive(location, item.href));
+  const hasActiveChild = items.some(
+    (item) =>
+      isActive(location, item.href) ||
+      (item.children?.some((c) => isActive(location, c.href)) ?? false)
+  );
   const [open, setOpen] = useState(defaultOpen || hasActiveChild || headerActive);
 
   // Auto-open when navigating into the group
@@ -227,14 +406,28 @@ function NavGroup({
           className="p-1.5 mx-1 rounded hover:bg-gray-100 shrink-0"
           data-testid={`navgroup-toggle-${label.toLowerCase()}`}
         >
-          <ChevronDown className={cn("w-3.5 h-3.5 text-gray-500 transition-transform", open && "rotate-180")} />
+          <ChevronDown className={cn("w-3.5 h-3.5 text-gray-500 motion-safe:transition-transform", open && "rotate-180")} />
         </button>
       </div>
       {open && (
         <div className="space-y-0.5">
           {items.map((item) => {
+            // Parent-with-children rows use the dedicated component so
+            // the nested sub-pages render indented + persisted.
+            if (item.children && item.children.length > 0 && expandedMap && setExpandedMap) {
+              return (
+                <NavParentItem
+                  key={item.href}
+                  item={item}
+                  location={location}
+                  onNavigate={onNavigate}
+                  expandedMap={expandedMap}
+                  setExpandedMap={setExpandedMap}
+                />
+              );
+            }
             const active = isActive(location, item.href);
-            const countKey = (item as any).countKey;
+            const countKey = item.countKey;
             const badgeCount = countKey === "support" ? (supportUnresolved ?? 0) : countKey === "alerts" ? (alertCount ?? 0) : 0;
             return (
               <Link
@@ -244,8 +437,8 @@ function NavGroup({
                 className={cn(
                   "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors min-h-[40px]",
                   active
-                    ? "bg-[#EEF3FF] text-[#0d3cfc] font-medium"
-                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                    ? "bg-[#EEF3FF] text-[#0d3cfc] font-medium border border-[#0d3cfc]/30"
+                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 border border-transparent"
                 )}
               >
                 <item.icon className={cn("w-4 h-4 shrink-0", active ? "text-[#0d3cfc]" : "text-gray-400")} />
@@ -276,6 +469,10 @@ function SidebarNav({
   alertCount: number;
   onNavigate: () => void;
 }) {
+  // Per-parent expansion state, persisted in localStorage so the
+  // layout survives page reloads. Default: hydrate from storage.
+  const [expandedMap, setExpandedMap] = useState<Record<string, boolean>>(() => readExpanded());
+
   return (
     <nav className="flex-1 overflow-y-auto py-3 px-2">
       {/* Core — always expanded */}
@@ -292,8 +489,8 @@ function SidebarNav({
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors min-h-[44px]",
                 active
-                  ? "bg-[#EEF3FF] text-[#0d3cfc] font-medium"
-                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                  ? "bg-[#EEF3FF] text-[#0d3cfc] font-medium border border-[#0d3cfc]/30"
+                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 border border-transparent"
               )}
             >
               <item.icon className={cn("w-4 h-4 shrink-0", active ? "text-[#0d3cfc]" : "text-gray-400")} />
@@ -308,7 +505,8 @@ function SidebarNav({
         })}
       </div>
 
-      <NavGroup label="Products" items={PRODUCTS_ITEMS} location={location} onNavigate={onNavigate} defaultOpen={true} headerHref="/admin/crm/services" />
+      <NavGroup label="Products" items={PRODUCTS_ITEMS} location={location} onNavigate={onNavigate} defaultOpen={true} headerHref="/admin/crm/services" expandedMap={expandedMap} setExpandedMap={setExpandedMap} />
+      <NavGroup label="Operations" items={OPERATIONS_ITEMS} location={location} onNavigate={onNavigate} defaultOpen={true} />
       <NavGroup label="Finance" items={FINANCE_ITEMS} location={location} onNavigate={onNavigate} defaultOpen={true} />
       <NavGroup label="Outbound" items={OUTBOUND_ITEMS} location={location} onNavigate={onNavigate} defaultOpen={false} />
       <NavGroup label="System" items={SYSTEM_ITEMS} location={location} onNavigate={onNavigate} defaultOpen={false} />

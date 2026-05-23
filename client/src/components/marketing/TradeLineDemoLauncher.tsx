@@ -75,7 +75,7 @@ export default function TradeLineDemoLauncher() {
               onClick={() => setTab("chat")}
               data-testid="tldl-tab-chat"
             >
-              <MessageSquare size={13} /> Chat
+              <MessageSquare size={12} /> Chat
             </button>
             <button
               type="button"
@@ -83,7 +83,7 @@ export default function TradeLineDemoLauncher() {
               onClick={() => setTab("voice")}
               data-testid="tldl-tab-voice"
             >
-              <Phone size={13} /> Voice
+              <Phone size={12} /> Voice
             </button>
           </div>
           <button
@@ -139,7 +139,7 @@ export default function TradeLineDemoLauncher() {
             }
           }}
         >
-          <Mic size={15} />
+          <Mic size={16} />
         </span>
         <span
           className="tldl-bar-icon tldl-bar-icon-send"
@@ -158,7 +158,7 @@ export default function TradeLineDemoLauncher() {
             }
           }}
         >
-          <Send size={15} />
+          <Send size={16} />
         </span>
       </div>
     </div>
@@ -329,10 +329,10 @@ function VoiceBody() {
         }}
       >
         {isConnecting
-          ? <Loader2 size={26} className="tldl-spin" />
+          ? <Loader2 size={24} className="tldl-spin" />
           : isInCall
-            ? <PhoneOff size={26} />
-            : <Mic size={26} />}
+            ? <PhoneOff size={24} />
+            : <Mic size={24} />}
       </button>
 
       <div className="tldl-voice-status">
@@ -352,7 +352,7 @@ function VoiceBody() {
           className="tldl-voice-end"
           onClick={() => vapi.stop()}
         >
-          <PhoneOff size={13} /> End call
+          <PhoneOff size={12} /> End call
         </button>
       )}
       {!isInCall && !canStart && !isConnecting && !isError && (

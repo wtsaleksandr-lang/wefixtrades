@@ -245,7 +245,7 @@ function SiteLaunchTemplateForm({ cs }: { cs: ClientService }) {
     <div className="max-w-3xl space-y-5">
       <Card className="p-5 bg-[#EEF3FF] border-[#0d3cfc]/20">
         <div className="flex items-start gap-3">
-          <div className="w-9 h-9 rounded-lg bg-white border border-[#0d3cfc]/20 flex items-center justify-center flex-shrink-0">
+          <div className="w-8 h-8 rounded-lg bg-white border border-[#0d3cfc]/20 flex items-center justify-center flex-shrink-0">
             <Layout className="w-4 h-4 text-[#0d3cfc]" />
           </div>
           <div>
@@ -478,7 +478,7 @@ function AdFlowMetricsForm({ cs }: { cs: ClientService }) {
     <div className="max-w-3xl space-y-5">
       <Card className="p-5 bg-blue-50 border-blue-200">
         <div className="flex items-start gap-3">
-          <div className="w-9 h-9 rounded-lg bg-white border border-blue-200 flex items-center justify-center flex-shrink-0">
+          <div className="w-8 h-8 rounded-lg bg-white border border-blue-200 flex items-center justify-center flex-shrink-0">
             <BarChart3 className="w-4 h-4 text-blue-600" />
           </div>
           <div>

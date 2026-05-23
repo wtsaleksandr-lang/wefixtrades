@@ -124,7 +124,7 @@ function ProductCard({ p, i }: { p: ProductItem; i: number }) {
             opacity: hover ? 0.78 : 1,
             transition: "transform 320ms cubic-bezier(0.22,1,0.36,1), opacity 240ms ease",
           }}>
-            <Icon size={18} strokeWidth={1.7} />
+            <Icon size={20} strokeWidth={1.7} />
           </div>
           <h3 style={{
             position: "relative", flex: 1, minWidth: 0,

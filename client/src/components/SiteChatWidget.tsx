@@ -267,7 +267,7 @@ export default function SiteChatWidget() {
               onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "#fff"; }}
               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.5)"; }}
             >
-              <X size={18} />
+              <X size={20} />
             </button>
           </div>
 

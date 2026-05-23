@@ -188,7 +188,7 @@ export default function AuditChatWidget(props: AuditChatWidgetProps) {
               </div>
             </div>
             <button className={s.chatClose} onClick={() => setOpen(false)} aria-label="Close chat">
-              <X size={18} />
+              <X size={20} />
             </button>
           </div>
 
@@ -216,7 +216,7 @@ export default function AuditChatWidget(props: AuditChatWidgetProps) {
               disabled={streaming}
             />
             <button className={s.chatSend} onClick={handleSend} disabled={streaming} aria-label="Send">
-              <Send size={18} />
+              <Send size={20} />
             </button>
           </div>
         </div>

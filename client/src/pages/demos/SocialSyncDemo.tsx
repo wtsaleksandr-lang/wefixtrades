@@ -124,7 +124,7 @@ function PostCard({ post, index, bizName }: { post: GeneratedPost; index: number
               {bizName}
             </div>
             <div style={{ fontSize: 11, color: mkt.textMuted, display: "flex", alignItems: "center", gap: 4 }}>
-              <PlatformIcon platform={post.platform} size={11} />
+              <PlatformIcon platform={post.platform} size={12} />
               {config.label}
             </div>
           </div>
@@ -167,22 +167,22 @@ function PostCard({ post, index, bizName }: { post: GeneratedPost; index: number
       >
         {post.platform === "instagram" ? (
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            <Heart size={18} color={mkt.textMuted} />
-            <MessageCircle size={18} color={mkt.textMuted} />
-            <Send size={18} color={mkt.textMuted} />
+            <Heart size={20} color={mkt.textMuted} />
+            <MessageCircle size={20} color={mkt.textMuted} />
+            <Send size={20} color={mkt.textMuted} />
             <div style={{ flex: 1 }} />
-            <Bookmark size={18} color={mkt.textMuted} />
+            <Bookmark size={20} color={mkt.textMuted} />
           </div>
         ) : (
           <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 5, color: mkt.textMuted, fontSize: 13 }}>
-              <ThumbsUp size={15} /> Like
+              <ThumbsUp size={16} /> Like
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 5, color: mkt.textMuted, fontSize: 13 }}>
-              <MessageCircle size={15} /> Comment
+              <MessageCircle size={16} /> Comment
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 5, color: mkt.textMuted, fontSize: 13 }}>
-              <Share2 size={15} /> Share
+              <Share2 size={16} /> Share
             </div>
           </div>
         )}
@@ -248,7 +248,7 @@ function EmailGate({ onSubmit }: { onSubmit: (email: string) => void }) {
           margin: "0 auto 16px",
         }}
       >
-        <Lock size={22} color={mkt.accent} />
+        <Lock size={24} color={mkt.accent} />
       </div>
       <h3
         style={{
@@ -466,7 +466,7 @@ export default function SocialSyncDemo() {
                 marginBottom: 20,
               }}
             >
-              <Sparkles size={13} color={mkt.accent} />
+              <Sparkles size={12} color={mkt.accent} />
               <span style={{ fontSize: 12, fontWeight: 700, color: mkt.accent, letterSpacing: "0.04em" }}>
                 AI-POWERED DEMO
               </span>

@@ -346,7 +346,7 @@ function SmsPanel({
             <Button
               size="sm"
               variant="ghost"
-              className="h-7 w-7 p-0"
+              className="h-8 w-8 p-0"
               onClick={() => refetch()}
               title="Refresh"
               disabled={isRefetching}
@@ -442,7 +442,7 @@ function SmsPanel({
           />
         ) : (
           <EmptyState
-            icon={<MessageSquare className="w-10 h-10 text-gray-300" />}
+            icon={<MessageSquare className="w-8 h-8 text-gray-300" />}
             title="Pick a conversation"
             message="Select a thread on the left or start a new message."
           />
@@ -571,7 +571,7 @@ function ThreadView({
             type="button"
             size="sm"
             variant="ghost"
-            className="h-7 w-7 p-0"
+            className="h-8 w-8 p-0"
             onClick={() => setMenuOpen((v) => !v)}
             aria-label="Thread actions"
             data-testid="thread-kebab"
@@ -1135,7 +1135,7 @@ function PhonePanel({
               }
             />
             <div className="mt-5 p-4 rounded-lg border border-dashed border-gray-200 text-center" data-testid="twilio-dialer-empty">
-              <Phone className="w-7 h-7 text-gray-300 mx-auto" />
+              <Phone className="w-8 h-8 text-gray-300 mx-auto" />
               <p className="text-sm font-medium text-gray-600 mt-2">Voice not configured</p>
               <p className="text-xs text-gray-400 mt-1 max-w-xs mx-auto">
                 Set the env vars above in Doppler and reload to enable browser-based calling.
@@ -1593,7 +1593,7 @@ function ContactsPanel() {
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="h-7 w-7 p-0"
+                    className="h-8 w-8 p-0"
                     onClick={() => setEditing(c)}
                     title="Edit contact"
                     data-testid={`contact-edit-${c.id}`}
@@ -1603,7 +1603,7 @@ function ContactsPanel() {
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="h-7 w-7 p-0 text-gray-400 hover:text-red-600 hover:bg-red-50"
+                    className="h-8 w-8 p-0 text-gray-400 hover:text-red-600 hover:bg-red-50"
                     onClick={() => setConfirmDelete(c)}
                     title="Delete contact"
                     data-testid={`contact-delete-${c.id}`}

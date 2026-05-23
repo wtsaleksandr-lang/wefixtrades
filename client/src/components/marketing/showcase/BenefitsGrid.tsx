@@ -21,32 +21,32 @@ interface Benefit {
 
 const BENEFITS: Benefit[] = [
   {
-    icon: <PhoneIncoming size={18} strokeWidth={1.8} />,
+    icon: <PhoneIncoming size={20} strokeWidth={1.8} />,
     title: "Capture Every Lead",
     desc: "AI answers calls and chats day and night so no opportunity slips past voicemail.",
   },
   {
-    icon: <UserPlus size={18} strokeWidth={1.8} />,
+    icon: <UserPlus size={20} strokeWidth={1.8} />,
     title: "Expand Reach",
     desc: "Show up first on Google Maps and local search across every neighbourhood you serve.",
   },
   {
-    icon: <RefreshCw size={18} strokeWidth={1.8} />,
+    icon: <RefreshCw size={20} strokeWidth={1.8} />,
     title: "Retain Customers",
     desc: "Automated follow-ups and review replies keep past customers coming back instead of churning.",
   },
   {
-    icon: <HandCoins size={18} strokeWidth={1.8} />,
+    icon: <HandCoins size={20} strokeWidth={1.8} />,
     title: "Expand Profits",
     desc: "Instant quoting and upsell prompts unlock revenue you'd otherwise leave on the table.",
   },
   {
-    icon: <Zap size={18} strokeWidth={1.8} />,
+    icon: <Zap size={20} strokeWidth={1.8} />,
     title: "Maximize Efficiency",
     desc: "Replace phone tag and manual scheduling with self-serve booking that fills your calendar.",
   },
   {
-    icon: <ShieldCheck size={18} strokeWidth={1.8} />,
+    icon: <ShieldCheck size={20} strokeWidth={1.8} />,
     title: "Secure Reliability",
     desc: "Monitored uptime, security checks, and patching keep your site safe 24/7.",
   },

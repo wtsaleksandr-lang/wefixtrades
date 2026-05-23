@@ -261,7 +261,7 @@ export default function AdminAuditLogPage() {
           </div>
         ) : rows.length === 0 ? (
           <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-            <FileText className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+            <FileText className="w-8 h-8 text-gray-300 mx-auto mb-3" />
             <p className="text-sm font-medium text-gray-700">No activity matches these filters</p>
             <p className="text-xs text-gray-500 mt-1">Try widening the date range or clearing search terms.</p>
           </div>
@@ -346,20 +346,20 @@ function ActivityRowItem({ row }: { row: ActivityRow }) {
 function ActorIcon({ type }: { type: string }) {
   if (type === "ai_agent") {
     return (
-      <span className="w-7 h-7 rounded-full bg-violet-100 text-violet-700 flex items-center justify-center flex-shrink-0">
+      <span className="w-8 h-8 rounded-full bg-violet-100 text-violet-700 flex items-center justify-center flex-shrink-0">
         <Bot className="w-3.5 h-3.5" />
       </span>
     );
   }
   if (type === "system") {
     return (
-      <span className="w-7 h-7 rounded-full bg-gray-100 text-gray-600 flex items-center justify-center flex-shrink-0">
+      <span className="w-8 h-8 rounded-full bg-gray-100 text-gray-600 flex items-center justify-center flex-shrink-0">
         <Cpu className="w-3.5 h-3.5" />
       </span>
     );
   }
   return (
-    <span className="w-7 h-7 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center flex-shrink-0">
+    <span className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center flex-shrink-0">
       <User className="w-3.5 h-3.5" />
     </span>
   );

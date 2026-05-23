@@ -222,7 +222,7 @@ function PortalDashboardInner() {
         <div className="max-w-2xl mx-auto mt-8" data-testid="admin-no-client-empty">
           <Card className="border-amber-200 p-6 space-y-4">
             <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center shrink-0">
+              <div className="w-8 h-8 rounded-full bg-amber-50 flex items-center justify-center shrink-0">
                 <UserPlus className="w-5 h-5 text-amber-700" />
               </div>
               <div>
@@ -334,7 +334,7 @@ function PortalDashboardInner() {
               className="flex items-center justify-between hover:border-[#0d3cfc]/40 p-5 transition-all group cursor-pointer"
             >
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-[#EEF3FF] flex items-center justify-center">
+              <div className="w-8 h-8 rounded-lg bg-[#EEF3FF] flex items-center justify-center">
                 <Plus className="w-5 h-5 text-[#0d3cfc]" />
               </div>
               <div>
@@ -351,7 +351,7 @@ function PortalDashboardInner() {
             <Card className="border-amber-200 p-5">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center">
                     <ClipboardList className="w-5 h-5 text-amber-600" />
                   </div>
                   <div>
@@ -406,7 +406,7 @@ function PortalDashboardInner() {
             <Card className="p-5">
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center">
                     <Calculator className="w-5 h-5 text-indigo-600" />
                   </div>
                   <div>
@@ -455,7 +455,7 @@ function PortalDashboardInner() {
             <Card className="border-dashed p-5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-gray-50 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center">
                     <Calculator className="w-5 h-5 text-gray-400" />
                   </div>
                   <div>
@@ -489,7 +489,7 @@ function PortalDashboardInner() {
               <Card className="p-5">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
                       <PhoneCall className="w-5 h-5 text-blue-600" />
                     </div>
                     <div>
@@ -619,7 +619,7 @@ function StatCard({
   const card = (
     <Card className="h-full p-4 cursor-pointer">
       <div className="flex items-center gap-3">
-        <div className={`w-9 h-9 rounded-lg ${bgColor} flex items-center justify-center`}>
+        <div className={`w-8 h-8 rounded-lg ${bgColor} flex items-center justify-center`}>
           <Icon className={`w-4 h-4 ${color}`} />
         </div>
         <div>
