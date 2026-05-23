@@ -110,7 +110,11 @@ export default function PortalRankFlow() {
 
   return (
     <PortalLayout>
-      <div className="max-w-3xl mx-auto space-y-5 pb-8">
+      {/* Portal RankFlow is light-theme locked — see CONTRAST-2. */}
+      <div
+        data-theme="light"
+        className="max-w-3xl mx-auto space-y-5 pb-8"
+      >
 
         {/* ─── Header ─── */}
         <div>
