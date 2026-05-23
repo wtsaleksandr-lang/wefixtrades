@@ -16,6 +16,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import AnimatedNumber from "@/components/AnimatedNumber";
 // IA-1 (2026-05-22) — wizard minimize-to-floating-badge.
 import MinimizedWizardBadge from "@/components/wizard/MinimizedWizardBadge";
+// First-visit progressive-disclosure tooltip — one-time hint per browser/profile.
+import { FirstVisitTooltip } from "@/components/portal/FirstVisitTooltip";
 
 /* Temporary in-page error surface so a render exception shows on the page
  * instead of blanking the React tree. Replace with the app's global error
@@ -400,42 +402,54 @@ function PortalDashboardInner() {
 
           {/* Hero KPI strip — premium brand-tinted summary panel above
              the existing 4 StatCards. Surfaces leads this month, next
-             billing, and open tickets in one glance. */}
-          <Card
-            data-testid="dashboard-hero-kpi"
-            className="mb-4 bg-gradient-to-br from-brand-blue to-brand-blue-600 text-white border-0"
+             billing, and open tickets in one glance.
+             Wrapped in <FirstVisitTooltip> to give new customers a one-time
+             "what is this?" hint anchored to the hero card. */}
+          <FirstVisitTooltip
+            storageKey="portal-dashboard-hero"
+            title="Your dashboard at a glance"
+            position="bottom"
+            className="block w-full"
+            anchor={
+              <Card
+                data-testid="dashboard-hero-kpi"
+                className="mb-4 bg-gradient-to-br from-brand-blue to-brand-blue-600 text-white border-0"
+              >
+                <div className="p-6">
+                  <div className="text-xs uppercase tracking-wider opacity-75 mb-2">This month</div>
+                  <div className="text-3xl font-bold mb-3">
+                    <AnimatedNumber value={leadsThisMonth} duration={1000} /> lead{leadsThisMonth === 1 ? "" : "s"}
+                    {nextBillingDays != null && nextBillCents != null && (
+                      <span className="text-sm font-normal opacity-80">
+                        {" · "}{formatDollarsRound(nextBillCents)} due in {nextBillingDays}d
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <Link
+                      href="/portal/services"
+                      className="text-sm text-white/90 hover:text-white hover:underline"
+                      data-testid="dashboard-hero-services-link"
+                    >
+                      View your services →
+                    </Link>
+                    {openTickets > 0 && (
+                      <Link
+                        href="/portal/help"
+                        className="text-sm text-white/90 hover:text-white hover:underline inline-flex items-center gap-1"
+                        data-testid="dashboard-hero-tickets-link"
+                      >
+                        <LifeBuoy className="w-3.5 h-3.5" />
+                        {openTickets} open ticket{openTickets === 1 ? "" : "s"}
+                      </Link>
+                    )}
+                  </div>
+                </div>
+              </Card>
+            }
           >
-            <div className="p-6">
-              <div className="text-xs uppercase tracking-wider opacity-75 mb-2">This month</div>
-              <div className="text-3xl font-bold mb-3">
-                <AnimatedNumber value={leadsThisMonth} duration={1000} /> lead{leadsThisMonth === 1 ? "" : "s"}
-                {nextBillingDays != null && nextBillCents != null && (
-                  <span className="text-sm font-normal opacity-80">
-                    {" · "}{formatDollarsRound(nextBillCents)} due in {nextBillingDays}d
-                  </span>
-                )}
-              </div>
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                <Link
-                  href="/portal/services"
-                  className="text-sm text-white/90 hover:text-white hover:underline"
-                  data-testid="dashboard-hero-services-link"
-                >
-                  View your services →
-                </Link>
-                {openTickets > 0 && (
-                  <Link
-                    href="/portal/help"
-                    className="text-sm text-white/90 hover:text-white hover:underline inline-flex items-center gap-1"
-                    data-testid="dashboard-hero-tickets-link"
-                  >
-                    <LifeBuoy className="w-3.5 h-3.5" />
-                    {openTickets} open ticket{openTickets === 1 ? "" : "s"}
-                  </Link>
-                )}
-              </div>
-            </div>
-          </Card>
+            Lead counts, billing, and open tickets all live here. Refreshes every minute.
+          </FirstVisitTooltip>
 
           {/* Tradeline setup banner — hidden once setup is complete */}
           <TradelineSetupBanner />

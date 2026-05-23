@@ -5,6 +5,7 @@ import { Link } from "wouter";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SERVICE_STATUS_LABELS, SERVICE_STATUS_STYLES, ONBOARDING_STATUS_LABELS, statusLabel } from "@/config/portalLabels";
+import { FirstVisitTooltip } from "@/components/portal/FirstVisitTooltip";
 
 interface ServiceRow {
   id: number;
@@ -68,10 +69,19 @@ export default function PortalServices() {
     <PortalLayout>
       <div data-theme="light" className="max-w-5xl mx-auto space-y-6">
         <div className="flex items-start justify-between gap-3 flex-wrap">
-          <div className="min-w-0">
-            <h1 className="text-xl font-semibold text-gray-900">Your Services</h1>
-            <p className="text-sm text-gray-500 mt-0.5">All active and past services for your account.</p>
-          </div>
+          <FirstVisitTooltip
+            storageKey="portal-services-header"
+            title="Your active products"
+            position="bottom"
+            anchor={
+              <div className="min-w-0">
+                <h1 className="text-xl font-semibold text-gray-900">Your Services</h1>
+                <p className="text-sm text-gray-500 mt-0.5">All active and past services for your account.</p>
+              </div>
+            }
+          >
+            Each card below is one of your active products. Click any card to manage settings, run setup, or see analytics.
+          </FirstVisitTooltip>
           <div className="flex items-center gap-2 flex-shrink-0">
             {/* Direct line to support — replaces the dead-end of staring
                 at a read-only list with no obvious next step. */}
