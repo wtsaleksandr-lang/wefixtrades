@@ -26,12 +26,12 @@ set -euo pipefail
 
 # Layer-C guard for PR fix/replit-disable-drizzle-push-prompt:
 # Refuse to boot production if `drizzle.config.ts` has reappeared at the repo
-# root. Replit's deploy pipeline auto-detects that exact filename and runs
-# `drizzle-kit push` against prod, which is the source of the destructive-
-# migration approval prompt Alex sees on redeploy. Production applies SQL via
-# server/lib/bootstrapMigrations.ts at boot — drizzle-kit push must never run
-# against the production database. See scripts/check-no-prod-drizzle-config.mjs
-# for the full rationale.
+# root. Replit's deploy pipeline auto-detects that exact filename and runs the
+# Drizzle Kit schema-sync flow against prod, which is the source of the
+# destructive-migration approval prompt Alex sees on redeploy. Production
+# applies SQL via server/lib/bootstrapMigrations.ts at boot — the dev schema
+# sync command must never run against the production database. See
+# scripts/check-no-prod-drizzle-config.mjs for the full rationale.
 #
 # This guard runs BEFORE the Doppler wrapper resolution so a misconfigured
 # repo fails fast and visibly in the deploy log.
@@ -39,11 +39,34 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 if [ -f "${REPO_ROOT}/drizzle.config.ts" ]; then
   echo "[start-prod] FATAL: drizzle.config.ts found at repo root." >&2
-  echo "[start-prod] Replit will auto-run drizzle-kit push against production." >&2
+  echo "[start-prod] Replit will auto-run Drizzle Kit schema sync against production." >&2
   echo "[start-prod] Rename to drizzle.config.dev.ts before redeploying." >&2
   exit 1
 fi
 echo "[start-prod] guard OK — no drizzle.config.ts at repo root (Replit auto-push disabled)." >&2
+
+# Layer-D guard (PR fix/replit-drizzle-push-nuke-from-deps):
+# At runtime in production, drizzle-kit MUST NOT exist in node_modules. If it
+# does, something (Replit's auto-install, a stale build cache, or a mis-classified
+# dependency) has put the binary on the deploy machine, which is exactly what
+# Replit's database integration uses to auto-run schema sync. The project
+# applies SQL via server/lib/bootstrapMigrations.ts at boot — drizzle-kit is a
+# strict devDependency. If it leaked into prod, fail fast and visibly so the
+# regression is caught in deploy logs rather than after a destructive sync.
+#
+# This guard runs ONLY when NODE_ENV=production (Replit deploys set this) so
+# `bash ./scripts/start-prod.sh --check` keeps working in local dev where
+# drizzle-kit is legitimately present.
+if [ "${NODE_ENV:-}" = "production" ]; then
+  if [ -d "${REPO_ROOT}/node_modules/drizzle-kit" ]; then
+    echo "[start-prod] FATAL: node_modules/drizzle-kit exists in a production environment." >&2
+    echo "[start-prod] drizzle-kit is a devDependency and must NEVER be installed on the deploy machine." >&2
+    echo "[start-prod] Replit's database integration discovers this binary and runs schema-sync prompts on Publish." >&2
+    echo "[start-prod] Investigate the deploy install path — production should run with devDependencies pruned." >&2
+    exit 1
+  fi
+  echo "[start-prod] guard OK — drizzle-kit binary absent from production node_modules." >&2
+fi
 
 MODE_DOPPLER_CLI="doppler-cli"
 MODE_DOPPLER_HTTP="doppler-http-bootstrap-only"

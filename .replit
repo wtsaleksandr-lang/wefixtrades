@@ -82,8 +82,16 @@ task = "shell.exec"
 args = "npm run dev"
 waitForPort = 5000
 
+# NOTE: `javascript_database:1.0.0` was deliberately REMOVED from the
+# integrations list. That integration causes Replit's deploy pipeline to
+# auto-run schema-sync (Drizzle Kit) against the production database on every
+# Publish, which surfaces the destructive-migration approval prompt Alex sees.
+# The project applies SQL via server/lib/bootstrapMigrations.ts at boot, not
+# via the dev-only schema-sync flow, so the integration is unnecessary AND
+# unsafe. Do NOT re-add it without first ripping `bootstrapMigrations()` out
+# of server/index.ts and consciously moving prod schema management onto Replit.
 [agent]
-integrations = ["javascript_openai_ai_integrations:2.0.0", "javascript_database:1.0.0", "javascript_auth_all_persistance:1.0.0", "javascript_stripe:1.0.0"]
+integrations = ["javascript_openai_ai_integrations:2.0.0", "javascript_auth_all_persistance:1.0.0", "javascript_stripe:1.0.0"]
 expertMode = true
 
 [userenv]
