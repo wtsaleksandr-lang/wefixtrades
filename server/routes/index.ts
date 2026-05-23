@@ -104,6 +104,11 @@ import { registerAdminMobilePreviewRoutes } from "./adminMobilePreviewRoutes";
 import { registerAdminAiActivityRoutes } from "./adminAiActivityRoutes";
 import { registerCalculatorAnalyticsRoutes } from "./calculatorAnalyticsRoutes";
 import { registerMapSnapshotRoutes } from "./mapSnapshotRoutes";
+import { registerAuditSeoChecklistRoutes } from "./auditSeoChecklistRoutes";
+import { registerAuditSiteSpeedComparisonRoutes } from "./auditSiteSpeedComparisonRoutes";
+import { registerAuditNapConsistencyRoutes } from "./auditNapConsistencyRoutes";
+import { registerAuditMarketSizerRoutes } from "./auditMarketSizerRoutes";
+import { registerAuditTrustInspectorRoutes } from "./auditTrustInspectorRoutes";
 import { registerApiV1Routes } from "./apiV1";
 
 export async function registerRoutes(
@@ -215,6 +220,13 @@ export async function registerRoutes(
   registerAdminAiActivityRoutes(app);
   registerCalculatorAnalyticsRoutes(app);
   registerMapSnapshotRoutes(app);
+  // Free Audit — five new tab tools (#617 follow-on). Each is its own
+  // GET /api/audit/<tool>?reportId=<id> endpoint, rate-limited at 5/min/IP.
+  registerAuditSeoChecklistRoutes(app);
+  registerAuditSiteSpeedComparisonRoutes(app);
+  registerAuditNapConsistencyRoutes(app);
+  registerAuditMarketSizerRoutes(app);
+  registerAuditTrustInspectorRoutes(app);
   registerApiV1Routes(app);
 
   return httpServer;
