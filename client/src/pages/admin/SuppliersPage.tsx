@@ -17,6 +17,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   Plus, ArrowLeft, Mail, Globe, ShoppingBag, Hand,
   Clock, CheckCircle2, ListTodo, Pencil, Trash2, Download,
@@ -195,6 +196,8 @@ export default function SuppliersPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [detailId, setDetailId] = useState<number | null>(null);
   const [form, setForm] = useState({ ...EMPTY_FORM });
+  /** Supplier pending deactivation — drives the shared <ConfirmDialog>. */
+  const [pendingDeactivate, setPendingDeactivate] = useState<Supplier | null>(null);
 
   // ─── Queries ───
 
@@ -790,11 +793,7 @@ export default function SuppliersPage() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => {
-                              if (window.confirm(`Deactivate supplier "${s.name}"? Active tasks stay assigned.`)) {
-                                deleteMutation.mutate(s.id);
-                              }
-                            }}
+                            onClick={() => setPendingDeactivate(s)}
                             className="h-8 w-8 p-0"
                             aria-label={`Deactivate ${s.name}`}
                           >
@@ -822,6 +821,23 @@ export default function SuppliersPage() {
         onToggleService={toggleService}
         onToggleSpecialty={toggleSpecialty}
         isPending={createMutation.isPending || updateMutation.isPending}
+      />
+
+      {/* Shared deactivate-supplier confirmation. */}
+      <ConfirmDialog
+        open={pendingDeactivate !== null}
+        onOpenChange={(o) => { if (!o) setPendingDeactivate(null); }}
+        title={pendingDeactivate ? `Deactivate "${pendingDeactivate.name}"?` : "Deactivate supplier?"}
+        description="Active tasks stay assigned to this supplier — they just won't be picked for any new work."
+        confirmLabel="Deactivate"
+        destructive
+        pending={deleteMutation.isPending}
+        onConfirm={() => {
+          if (pendingDeactivate) {
+            deleteMutation.mutate(pendingDeactivate.id);
+            setPendingDeactivate(null);
+          }
+        }}
       />
     </AdminLayout>
   );

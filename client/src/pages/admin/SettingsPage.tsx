@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useCopilotForm } from "@/context/CopilotFormContext";
 import { Loader2, Save, Shield, ShieldCheck, ShieldOff, ChevronLeft, HelpCircle } from "lucide-react";
 import { Link } from "wouter";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 interface UserSettings {
   businessName: string;
@@ -272,6 +273,8 @@ function TwoFactorSection() {
   const [disablePassword, setDisablePassword] = useState("");
   const [disableCode, setDisableCode] = useState("");
   const [showDisable, setShowDisable] = useState(false);
+  /** Drives the shared <ConfirmDialog> for 2FA-disable confirmation. */
+  const [confirmDisable2fa, setConfirmDisable2fa] = useState(false);
 
   const { data: statusData, isLoading: statusLoading } = useQuery<{ enabled: boolean }>({
     queryKey: ["/api/user/2fa/status"],
@@ -399,10 +402,7 @@ function TwoFactorSection() {
               variant="destructive"
               size="sm"
               disabled={disableMutation.isPending || !disablePassword || disableCode.length !== 6}
-              onClick={() => {
-                if (!window.confirm("Disable two-factor authentication? Your account will be less secure.")) return;
-                disableMutation.mutate();
-              }}
+              onClick={() => setConfirmDisable2fa(true)}
             >
               {disableMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Confirm Disable
@@ -508,6 +508,21 @@ function TwoFactorSection() {
           </div>
         </div>
       )}
+
+      {/* Shared 2FA-disable confirmation. */}
+      <ConfirmDialog
+        open={confirmDisable2fa}
+        onOpenChange={setConfirmDisable2fa}
+        title="Disable two-factor authentication?"
+        description="Your account will be less secure — anyone with your password alone can sign in."
+        confirmLabel="Disable 2FA"
+        destructive
+        pending={disableMutation.isPending}
+        onConfirm={() => {
+          setConfirmDisable2fa(false);
+          disableMutation.mutate();
+        }}
+      />
     </Card>
   );
 }

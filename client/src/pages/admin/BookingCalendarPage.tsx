@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 interface CalendarConnection { id: number; platform: string; status: string; last_synced_at: string | null; slot_duration_minutes: number; buffer_minutes: number; booking_url?: string; metadata?: Record<string, any> | null; }
 interface WorkingHours { day: string; enabled: boolean; start: string; end: string; }
@@ -93,6 +94,8 @@ function HoursEditor() {
 export default function BookingCalendarPage() {
   usePageTitle("Booking Calendar");
   const qc = useQueryClient(); const { toast } = useToast(); const [connectOpen, setConnectOpen] = useState(false);
+  /** Connection pending disconnection — drives the shared <ConfirmDialog>. */
+  const [pendingDisconnect, setPendingDisconnect] = useState<CalendarConnection | null>(null);
   const { data: conns, isLoading: cl } = useQuery<CalendarConnection[]>({ queryKey: ["/api/admin/booking/connections"], queryFn: async () => { const r = await apiRequest("GET", "/api/admin/booking/connections"); const d = await r.json(); return d.connections; } });
   const { data: bk, isLoading: bl } = useQuery<{ data: BookingRow[]; total: number }>({ queryKey: ["/api/admin/booking/recent"] });
   const testM = useMutation({ mutationFn: async (id: number) => { const r = await apiRequest("POST", `/api/admin/booking/connections/${id}/test`); return r.json(); }, onSuccess: (d: any) => { toast({ title: "Works", description: `${d.slots?.length || 0} slots` }); }, onError: () => { toast({ title: "Test failed", variant: "destructive" }); } });
@@ -132,7 +135,7 @@ export default function BookingCalendarPage() {
                   <div className="flex gap-1">
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-blue-600" onClick={() => testM.mutate(c.id)}>{testM.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}</Button>
                     {c.booking_url && <Button variant="ghost" size="icon" className="h-8 w-8" asChild><a href={c.booking_url} target="_blank" rel="noopener noreferrer"><ExternalLink className="w-4 h-4" /></a></Button>}
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-red-600" onClick={() => { if (window.confirm(`Disconnect ${PL[c.platform] || c.platform}? Customers won't be able to book until you reconnect.`)) delM.mutate(c.id); }}><Trash2 className="w-4 h-4" /></Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-red-600" onClick={() => setPendingDisconnect(c)}><Trash2 className="w-4 h-4" /></Button>
                   </div>
                 </div>
               </div>))}</div>}
@@ -151,6 +154,22 @@ export default function BookingCalendarPage() {
         </Tabs>
       </div>
       <ConnectDialog open={connectOpen} onClose={() => setConnectOpen(false)} />
+      {/* Shared disconnect-calendar confirmation. */}
+      <ConfirmDialog
+        open={pendingDisconnect !== null}
+        onOpenChange={(o) => { if (!o) setPendingDisconnect(null); }}
+        title={pendingDisconnect ? `Disconnect ${PL[pendingDisconnect.platform] || pendingDisconnect.platform}?` : "Disconnect calendar?"}
+        description="Customers won't be able to book until you reconnect this calendar."
+        confirmLabel="Disconnect"
+        destructive
+        pending={delM.isPending}
+        onConfirm={() => {
+          if (pendingDisconnect) {
+            delM.mutate(pendingDisconnect.id);
+            setPendingDisconnect(null);
+          }
+        }}
+      />
     </AdminLayout>
   );
 }

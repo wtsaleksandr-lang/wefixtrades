@@ -74,8 +74,19 @@ export default function AdminNoticesPage() {
             <Card key={i} className="mb-2"><CardContent className="p-4"><Skeleton className="h-20" /></CardContent></Card>
           ))}</>
         ) : notices.length === 0 ? (
-          <Card className="p-8 text-center text-sm text-gray-500">
-            Nothing needs your attention. The AI posts here when it's unsure about something.
+          <Card className="p-8 text-center">
+            <p className="text-sm text-gray-500 mb-3">
+              Nothing needs your attention. The AI posts here when it's unsure about something.
+            </p>
+            {/* Discoverability nudge — link to the gates page so the admin
+             *  can tune the escalation thresholds when the queue is empty. */}
+            <Link
+              href="/admin/ai-gates"
+              className="inline-block text-sm text-[#0d3cfc] hover:underline"
+              data-testid="ai-agenda-configure-thresholds-link"
+            >
+              Configure escalation thresholds →
+            </Link>
           </Card>
         ) : (
           <div className="space-y-3">

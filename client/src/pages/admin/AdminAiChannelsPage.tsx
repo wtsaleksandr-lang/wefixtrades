@@ -14,7 +14,7 @@
  * when AI autonomy is ready to go live on that channel.
  */
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { usePageTitle } from "@/hooks/usePageTitle";
@@ -34,6 +34,7 @@ import {
 import { AlertTriangle, Loader2, ShieldOff, Mail, MessageSquare, Phone, Radio } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 interface GateRow {
   channel: string;
@@ -101,6 +102,9 @@ export default function AdminAiChannelsPage() {
     [data],
   );
 
+  /** Drives the shared <ConfirmDialog> for the "disable all" emergency. */
+  const [confirmEmergency, setConfirmEmergency] = useState(false);
+
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -114,11 +118,7 @@ export default function AdminAiChannelsPage() {
           </div>
           <Button
             variant="destructive"
-            onClick={() => {
-              if (window.confirm("Disable AI on EVERY channel right now? Customers will get the safe fallback (auto-reply / voicemail / offline notice).")) {
-                emergency.mutate();
-              }
-            }}
+            onClick={() => setConfirmEmergency(true)}
             disabled={emergency.isPending || allOff}
             data-testid="ai-channels-emergency-disable"
           >
@@ -227,6 +227,21 @@ export default function AdminAiChannelsPage() {
           </div>
         </Card>
       </div>
+
+      {/* Shared emergency-disable confirmation. */}
+      <ConfirmDialog
+        open={confirmEmergency}
+        onOpenChange={setConfirmEmergency}
+        title="Disable AI on every channel?"
+        description="Customers will immediately get the safe fallback (auto-reply for email/SMS, voicemail for voice, offline notice for chat) until you re-enable each channel manually."
+        confirmLabel="Disable all"
+        destructive
+        pending={emergency.isPending}
+        onConfirm={() => {
+          setConfirmEmergency(false);
+          emergency.mutate();
+        }}
+      />
     </AdminLayout>
   );
 }
