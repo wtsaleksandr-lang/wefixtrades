@@ -4,7 +4,7 @@ import { usePageTitle } from "@/hooks/usePageTitle";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { CalendarDays, Link as LinkIcon, Loader2, Plus, Trash2, RefreshCw, ExternalLink, ChevronDown } from "lucide-react";
+import { CalendarDays, Link as LinkIcon, Loader2, Plus, Trash2, RefreshCw, ExternalLink, ChevronDown, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -101,13 +101,13 @@ export default function BookingCalendarPage() {
   return (
     <AdminLayout pageContext={{ page: "booking" }}>
       <div className="max-w-4xl space-y-6">
-        <div><h1 className="text-xl font-bold text-gray-900">Booking Calendar</h1><p className="text-sm text-gray-500 mt-0.5">Manage calendars, hours, and bookings</p></div>
+        <div><h1 className="text-xl font-bold text-gray-900">Booking Calendar</h1><p className="text-sm text-gray-500 mt-0.5">Manage calendars, hours, and bookings</p></div><div className="flex items-start gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg text-sm"><Info className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" /><p className="text-blue-800">Manage your business's calendar connections and booking hours. Customers see their own booking flow when they accept a quote &mdash; this is admin configuration, not a customer preview.</p></div>
         <Tabs defaultValue="connections" className="space-y-4">
           <TabsList className="grid w-full grid-cols-3"><TabsTrigger value="connections">Connections</TabsTrigger><TabsTrigger value="hours">Working Hours</TabsTrigger><TabsTrigger value="bookings">Bookings</TabsTrigger></TabsList>
           <TabsContent value="connections" className="space-y-4">
             <div className="flex items-center justify-between"><h2 className="text-base font-semibold text-gray-900">Calendar Connections</h2><Button size="sm" onClick={() => setConnectOpen(true)} className="bg-[#0d3cfc] hover:bg-[#0b34d6] gap-1.5"><Plus className="w-3.5 h-3.5" />Connect</Button></div>
             {cl ? <div className="flex justify-center py-12"><Loader2 className="w-5 h-5 animate-spin text-gray-400" /></div>
-            : !conns?.length ? <div className="rounded-xl border-2 border-dashed border-gray-200 p-8 text-center"><CalendarDays className="w-8 h-8 text-gray-300 mx-auto mb-3" /><p className="text-sm font-medium text-gray-600">No calendars connected</p><Button size="sm" onClick={() => setConnectOpen(true)} className="mt-4 bg-[#0d3cfc] hover:bg-[#0b34d6]"><Plus className="w-3.5 h-3.5 mr-1" />Connect</Button></div>
+            : !conns?.length ? <div className="rounded-xl border-2 border-dashed border-gray-200 p-8 text-center"><CalendarDays className="w-8 h-8 text-gray-300 mx-auto mb-3" /><p className="text-sm font-medium text-gray-600">No calendars connected</p></div>
             : <div className="space-y-3">{conns.map((c) => (
               <div key={c.id} className="flex items-center justify-between p-4 rounded-xl border border-gray-200 bg-white">
                 <div className="flex items-center gap-3">
