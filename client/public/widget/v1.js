@@ -41,7 +41,7 @@
   // sub-script (faq.js / hours.js / badges.js) and bail. The sub-script
   // self-locates the script tag via document.currentScript and renders.
   var __tool = (thisScript.getAttribute("data-tool") || "").toLowerCase();
-  if (__tool === "faq" || __tool === "hours" || __tool === "badges") {
+  if (__tool === "faq" || __tool === "hours" || __tool === "badges" || __tool === "callback") {
     // Stash context so the sub-script can find it without re-parsing.
     var __ctxKey = "__WFT_WIDGET_CTX_" + __tool;
     window[__ctxKey] = window[__ctxKey] || [];

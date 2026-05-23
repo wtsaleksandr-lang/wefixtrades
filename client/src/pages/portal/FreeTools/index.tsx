@@ -86,17 +86,19 @@ const TOOLS: Tool[] = [
     slug: "callback",
     title: "Callback Request",
     description:
-      "One-tap callback button — captures lead even when you're on the truck.",
+      "One-tap callback form + inbox — captures leads even when you're on the truck.",
     icon: PhoneCall,
-    status: "coming-soon",
+    status: "available",
+    href: "/portal/free-tools/callback",
   },
   {
     slug: "review-link",
-    title: "Review Link Generator",
+    title: "Review Link + QR Card",
     description:
-      "Short, branded link that sends customers straight to your Google review form.",
+      "Star-rating gate at /r/{your-slug} routes happy customers to Google; private feedback for the rest. Printable QR card included.",
     icon: Star,
-    status: "coming-soon",
+    status: "available",
+    href: "/portal/free-tools/review-link",
   },
 ];
 

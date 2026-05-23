@@ -16,15 +16,36 @@
 
 import type { Express, Request, Response } from "express";
 import { db } from "../db";
-import { eq, and, asc, sql } from "drizzle-orm";
-import { clients, clientServices, clientFaqItems, clientTrustBadges } from "@shared/schemas/adminCrm";
+import { eq, and, asc, sql, gte } from "drizzle-orm";
+import { z } from "zod";
+import {
+  clients,
+  clientServices,
+  clientFaqItems,
+  clientTrustBadges,
+  callbackWidgetConfigs,
+  callbackRequests,
+} from "@shared/schemas/adminCrm";
 import { createLogger } from "../lib/logger";
+import { RateLimiter, MemoryRateLimitStore } from "../services/rateLimiter";
 
 const log = createLogger("WidgetFreetools");
 
 const CACHE_TTL_LONG_MS = 5 * 60 * 1000;
 const CACHE_TTL_SHORT_MS = 60 * 1000;
 const FREE_TIER_FAQ_CAP = 10;
+const FREE_TIER_CALLBACK_CAP_PER_MONTH = 25;
+
+// Anti-spam for callback widget — 3 submissions per token+IP per hour.
+const callbackStore = new MemoryRateLimitStore();
+const callbackLimiter = new RateLimiter(callbackStore, 3, 60 * 60_000);
+
+function getClientIp(req: Request): string {
+  const fwd = req.headers["x-forwarded-for"];
+  if (typeof fwd === "string" && fwd.length) return fwd.split(",")[0].trim();
+  if (Array.isArray(fwd) && fwd[0]) return String(fwd[0]).split(",")[0].trim();
+  return req.ip || req.socket.remoteAddress || "unknown";
+}
 
 interface CacheEntry { data: any; expires: number }
 const cache = new Map<string, CacheEntry>();
@@ -46,7 +67,7 @@ function cacheSet(key: string, data: any, ttl: number): void {
   }
 }
 
-export function invalidateFreetoolsCache(clientId: number, tool: "faq" | "hours" | "badges"): void {
+export function invalidateFreetoolsCache(clientId: number, tool: "faq" | "hours" | "badges" | "callback"): void {
   // Cache key includes token, not client id — wipe all entries for safety.
   // Cheaper to drop the whole namespace prefix than to keep token↔client map.
   for (const k of cache.keys()) {
@@ -224,12 +245,126 @@ export function registerWidgetFreetoolsRoutes(app: Express): void {
     }
   });
 
+  // ─── Callback widget config ──────────────────────────────────────────
+  app.get("/api/widget/:token/callback-config", async (req: Request, res: Response) => {
+    setPublicHeaders(res, 300);
+    try {
+      const token = String(req.params.token || "");
+      const cacheKey = `${token}:callback`;
+      const cached = cacheGet(cacheKey);
+      if (cached) return res.json(cached);
+
+      const client = await resolveClientByToken(token);
+      if (!client) return res.status(404).json({ error: "Widget not found" });
+
+      const [cfg] = await db
+        .select()
+        .from(callbackWidgetConfigs)
+        .where(eq(callbackWidgetConfigs.client_id, client.id))
+        .limit(1);
+
+      const poweredBy = !(await hasActivePaidSubscription(client.id));
+      const data = {
+        businessName: client.business_name,
+        enabled: cfg?.enabled ?? true,
+        heading: cfg?.heading ?? "Request a callback",
+        ctaLabel: cfg?.cta_label ?? "Send request",
+        fields: cfg?.fields_json ?? { name: true, phone: true, message: true, best_time: true },
+        poweredBy,
+      };
+      cacheSet(cacheKey, data, CACHE_TTL_LONG_MS);
+      res.json(data);
+    } catch (err: any) {
+      log.error("[widget/callback-config] error", { error: err?.message });
+      res.status(500).json({ error: "Failed to load callback config" });
+    }
+  });
+
+  // ─── Callback widget submission ──────────────────────────────────────
+  const callbackSubmitBody = z.object({
+    name: z.string().min(1).max(200),
+    phone: z.string().min(3).max(40),
+    message: z.string().max(2000).optional(),
+    best_time: z.string().max(200).optional(),
+    source_url: z.string().max(500).optional(),
+    // Honeypot — invisible field. Bots fill it, humans don't.
+    hp: z.string().max(500).optional(),
+  });
+
+  app.options("/api/widget/:token/callback", (_req: Request, res: Response) => {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    res.status(204).end();
+  });
+
+  app.post("/api/widget/:token/callback", async (req: Request, res: Response) => {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    try {
+      const token = String(req.params.token || "");
+      const ip = getClientIp(req);
+      if (!(await callbackLimiter.check(`cb:${token}:${ip}`))) {
+        return res.status(429).json({ error: "Too many submissions, please wait." });
+      }
+
+      const parsed = callbackSubmitBody.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ error: "Invalid input" });
+
+      // Honeypot — silently accept then drop. Bots get a 200 so they don't
+      // retry, but nothing hits the inbox.
+      if (parsed.data.hp && parsed.data.hp.trim().length > 0) {
+        log.warn("callback honeypot filled", { token: token.slice(0, 8) });
+        return res.json({ ok: true });
+      }
+
+      const client = await resolveClientByToken(token);
+      if (!client) return res.status(404).json({ error: "Widget not found" });
+
+      // Free-tier monthly cap.
+      const monthStart = new Date();
+      monthStart.setUTCDate(1);
+      monthStart.setUTCHours(0, 0, 0, 0);
+      const [countRow] = await db
+        .select({ c: sql<number>`count(*)::int` })
+        .from(callbackRequests)
+        .where(
+          and(
+            eq(callbackRequests.client_id, client.id),
+            gte(callbackRequests.created_at, monthStart),
+          ),
+        );
+      if ((countRow?.c ?? 0) >= FREE_TIER_CALLBACK_CAP_PER_MONTH) {
+        return res.status(429).json({
+          error: "This widget has reached its free-tier monthly limit. Upgrade for unlimited callbacks.",
+          code: "free_tier_cap",
+          cap: FREE_TIER_CALLBACK_CAP_PER_MONTH,
+        });
+      }
+
+      await db.insert(callbackRequests).values({
+        client_id: client.id,
+        name: parsed.data.name,
+        phone: parsed.data.phone,
+        message: parsed.data.message ?? null,
+        best_time: parsed.data.best_time ?? null,
+        source_url: parsed.data.source_url ?? null,
+        visitor_ip: ip,
+        status: "new",
+      });
+
+      res.json({ ok: true });
+    } catch (err: any) {
+      log.error("[widget/callback] error", { error: err?.message });
+      res.status(500).json({ error: "Failed to submit callback request" });
+    }
+  });
+
   // ─── Preview shell ───────────────────────────────────────────────────
   // GET /widget/preview/:tool?token=...   — minimal HTML page that loads
   // the real widget script, intended to be iframed by the portal editor.
   app.get("/widget/preview/:tool", (req: Request, res: Response) => {
     const tool = String(req.params.tool || "");
-    if (!["faq", "hours", "badges"].includes(tool)) {
+    if (!["faq", "hours", "badges", "callback"].includes(tool)) {
       return res.status(400).send("Unknown tool");
     }
     const token = String(req.query.token || "");
