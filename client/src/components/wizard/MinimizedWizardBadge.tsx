@@ -32,6 +32,10 @@ interface MinimizedState {
   token: string;
   returnPath: string;
   savedAt: number;
+  /** Template slug carried into the wizard via `/wizard?template=<slug>`.
+   *  Used as a fallback resume target when neither token nor calculatorId
+   *  is present (i.e. template flow that hasn't saved yet). */
+  template?: string | null;
 }
 
 const STORAGE_KEY = 'qq-wizard-minimized-from';
@@ -43,8 +47,15 @@ function readState(): MinimizedState | null {
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== 'object') return null;
-    // Require at least a token — without it we can't resume.
-    if (typeof parsed.token !== 'string' || !parsed.token) return null;
+    // IA-1-fix (2026-05-23) — allow EITHER a non-empty token (edit-existing
+    // flow) OR a numeric calculatorId (new-calculator-from-template flow)
+    // OR a non-empty template slug. The template entry path has no token
+    // until the first save, but should still allow the minimize → resume
+    // round trip.
+    const hasToken = typeof parsed.token === 'string' && parsed.token;
+    const hasCalcId = typeof parsed.calculatorId === 'number' && parsed.calculatorId;
+    const hasTemplate = typeof parsed.template === 'string' && parsed.template;
+    if (!hasToken && !hasCalcId && !hasTemplate) return null;
     return parsed as MinimizedState;
   } catch {
     return null;
@@ -90,7 +101,17 @@ export default function MinimizedWizardBadge() {
       sessionStorage.removeItem(STORAGE_KEY);
       window.dispatchEvent(new Event('qq-wizard-minimized-change'));
     } catch { /* sessionStorage blocked — fall through to navigate */ }
-    navigate(`/wizard?token=${encodeURIComponent(state.token)}`);
+    // IA-1-fix (2026-05-23) — broaden resume URL to support template flow.
+    // Priority: token (edit-existing) > id (new-from-template, post-save) >
+    // template (new-from-template, pre-save) > plain /wizard.
+    const resumeUrl = state.token
+      ? `/wizard?token=${encodeURIComponent(state.token)}`
+      : state.calculatorId
+        ? `/wizard?id=${state.calculatorId}`
+        : state.template
+          ? `/wizard?template=${encodeURIComponent(state.template)}`
+          : '/wizard';
+    navigate(resumeUrl);
   };
 
   return (

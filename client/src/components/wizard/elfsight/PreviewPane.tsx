@@ -2011,6 +2011,33 @@ export default function PreviewPane({
         .qq-widget-resize-handle--sw { bottom: -7px; left: -7px;    cursor: sw-resize; }
         .qq-widget-resize-handle--w  { top: 50%;     left: -7px;    transform: translateY(-50%); cursor: w-resize; }
 
+        /* BD-3b-fix (2026-05-23) — bigger resize handles on coarse
+         * pointers (phones / tablets) so fingers can grab them
+         * reliably. 24×24 hit area with 3px border, z-index bumped
+         * above the drag-handle bar. Centred-edge handles preserve
+         * their translate() so the visual square stays on the edge. */
+        @media (max-width: 768px) and (pointer: coarse) {
+          .qq-widget-resize-handle {
+            width: 24px;
+            height: 24px;
+            border-width: 3px;
+            z-index: 11;
+          }
+          .qq-widget-resize-handle--nw { top: -12px; left: -12px; }
+          .qq-widget-resize-handle--n  { top: -12px; left: 50%; }
+          .qq-widget-resize-handle--ne { top: -12px; right: -12px; }
+          .qq-widget-resize-handle--e  { top: 50%; right: -12px; }
+          .qq-widget-resize-handle--se { bottom: -12px; right: -12px; }
+          .qq-widget-resize-handle--s  { bottom: -12px; left: 50%; }
+          .qq-widget-resize-handle--sw { bottom: -12px; left: -12px; }
+          .qq-widget-resize-handle--w  { top: 50%; left: -12px; }
+
+          /* Match drag-handle bar to >=44px tap target standard. */
+          .qq-widget-drag-handle {
+            height: 44px;
+          }
+        }
+
         /* BD-3b — zoom toolbar pill, bottom-right of the canvas. Floats
          * above the widget stage but doesn't move with the stage transform. */
         .qq-zoom-toolbar {
