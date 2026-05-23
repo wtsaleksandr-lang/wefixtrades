@@ -3037,6 +3037,19 @@ select:focus {
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
   transform: translateY(1px);
 }
+/* Lingering "just-clicked" highlight — JS toggles this class for ~300ms
+ * after a click so the user gets visible confirmation the press
+ * registered (CSS :active only paints while the pointer is held).
+ * Subtle grey wash, NOT a bright fill (DESIGN-SYSTEM Rule 4). The base
+ * .cs-arrow transition handles the fade in/out. */
+.cs-arrow.cs-arrow--just-clicked:not(.cs-arrow--disabled) {
+  background: rgba(156, 163, 175, 0.22);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.10);
+}
+.cs-arrow[data-theme="light"].cs-arrow--just-clicked:not(.cs-arrow--disabled) {
+  background: rgba(156, 163, 175, 0.28);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.10);
+}
 .cs-arrow.cs-arrow--disabled {
   background: rgba(255, 255, 255, 0.04);
   cursor: default;

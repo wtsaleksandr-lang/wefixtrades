@@ -203,27 +203,17 @@ export const HorizontalCarousel = forwardRef<
       style={style}
       data-testid={testId}
     >
-      {(heading || showArrows) && (
+      {heading && (
         <div
           style={{
             display: "flex",
             alignItems: "center",
-            justifyContent: heading ? "space-between" : "flex-end",
+            justifyContent: "flex-start",
             gap: 16,
             marginBottom: 18,
           }}
         >
-          {heading ?? <span aria-hidden />}
-          {showArrows && (
-            <CarouselArrowGroup
-              theme={arrowTheme}
-              onPrev={() => scrollByCard("prev")}
-              onNext={() => scrollByCard("next")}
-              canPrev={canPrev}
-              canNext={canNext}
-              data-testid={testId ? `${testId}-arrows` : undefined}
-            />
-          )}
+          {heading}
         </div>
       )}
       <div
@@ -250,6 +240,24 @@ export const HorizontalCarousel = forwardRef<
       >
         {children}
       </div>
+      {showArrows && (
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            marginTop: 18,
+          }}
+        >
+          <CarouselArrowGroup
+            theme={arrowTheme}
+            onPrev={() => scrollByCard("prev")}
+            onNext={() => scrollByCard("next")}
+            canPrev={canPrev}
+            canNext={canNext}
+            data-testid={testId ? `${testId}-arrows` : undefined}
+          />
+        </div>
+      )}
     </section>
   );
 });
