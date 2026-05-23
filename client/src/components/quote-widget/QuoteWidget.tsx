@@ -28,7 +28,7 @@ class WidgetErrorBoundary extends Component<{ children: ReactNode; businessName?
   render() {
     if (this.state.error) {
       return (
-        <div style={{
+        <div data-theme="light" style={{
           maxWidth: '576px', margin: '0 auto', padding: '40px 24px',
           textAlign: 'center', fontFamily: eff.font,
         }}>

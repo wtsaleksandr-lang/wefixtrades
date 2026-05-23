@@ -76,7 +76,7 @@ function FloatingLabelInput({
   };
 
   return (
-    <div style={wrapperStyle}>
+    <div data-theme="light" style={wrapperStyle}>
       <input
         id={id}
         data-testid={testId}

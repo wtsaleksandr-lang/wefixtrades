@@ -105,6 +105,7 @@ function DefaultLogoIcon({
   return (
     <div
       aria-hidden="true"
+      data-theme="light"
       style={{
         width: 36, height: 36, borderRadius: radius,
         background: `${accent}2e`,

@@ -54,7 +54,7 @@ const BENEFITS: Benefit[] = [
 
 export default function BenefitsGrid() {
   return (
-    <div className="bg-wrap">
+    <div data-theme="dark" className="bg-wrap">
       <style>{CSS}</style>
       <div className="bg-grid">
         {BENEFITS.map((b) => (

@@ -44,6 +44,7 @@ function PlatformIcon({ platform, size = 16 }: { platform: string; size?: number
 function SkeletonCard({ delay }: { delay: number }) {
   return (
     <div
+      data-theme="dark"
       style={{
         background: mkt.surface,
         border: `1px solid ${mkt.border}`,

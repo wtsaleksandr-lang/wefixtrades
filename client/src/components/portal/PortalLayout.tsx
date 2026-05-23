@@ -167,6 +167,7 @@ export default function PortalLayout({
 
   return (
     <OnboardingProvider>
+    <div data-theme="light" style={{ display: "contents" }}>
     {/* Skip-to-content — visible only when keyboard-focused. Lets
         screen-reader / keyboard users bypass the sidebar nav and jump
         straight to the page body. */}
@@ -346,6 +347,7 @@ export default function PortalLayout({
         open={copilotOpen}
         onClose={() => setCopilotOpen(false)}
       />
+    </div>
     </div>
     </OnboardingProvider>
   );

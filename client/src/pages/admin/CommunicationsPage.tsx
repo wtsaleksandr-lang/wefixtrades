@@ -164,7 +164,7 @@ export default function CommunicationsPage() {
 
   return (
     <AdminLayout pageContext={{ page: "communications" }}>
-      <div className="max-w-7xl mx-auto space-y-4">
+      <div data-theme="light" className="max-w-7xl mx-auto space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div className="min-w-0">

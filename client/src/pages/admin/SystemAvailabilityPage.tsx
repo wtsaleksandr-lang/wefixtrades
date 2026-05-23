@@ -58,7 +58,7 @@ export default function SystemAvailabilityPage() {
   if (isLoading || !data) {
     return (
       <AdminLayout>
-        <div className="flex items-center justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
+        <div data-theme="light" className="flex items-center justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
       </AdminLayout>
     );
   }

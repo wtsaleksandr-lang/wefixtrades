@@ -62,6 +62,7 @@ export default function TradeLineChatDemo() {
       ref={ref}
       role="img"
       aria-label="Animated demo: a customer texts about a burst pipe, the AI quotes the job and books a technician within 41 minutes."
+      data-theme="light"
       onMouseEnter={() => setHovering(true)}
       onMouseLeave={() => setHovering(false)}
       style={{ position: "relative", width: "100%", maxWidth: 420, margin: "0 auto" }}

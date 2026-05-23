@@ -127,7 +127,7 @@ const RESOURCE_TABS = [
 
 function ResourceTabStrip({ active }: { active: string }) {
   return (
-    <div style={{
+    <div data-theme="dark" style={{
       display: "inline-flex", gap: 2, padding: 4,
       background: "rgba(20,24,27,0.55)",
       border: "1px solid rgba(255,255,255,0.06)",

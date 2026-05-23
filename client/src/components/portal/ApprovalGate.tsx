@@ -77,7 +77,7 @@ export default function ApprovalGate({ task, serviceQueryKey }: ApprovalGateProp
   const isPending = approveMutation.isPending || revisionMutation.isPending;
 
   return (
-    <div className="bg-white rounded-xl border border-amber-200 overflow-hidden">
+    <div data-theme="light" className="bg-white rounded-xl border border-amber-200 overflow-hidden">
       <div className="px-5 py-4 border-b border-amber-100 bg-amber-50/50">
         <div className="flex items-center gap-2">
           <AlertCircle className="w-4 h-4 text-amber-600" />

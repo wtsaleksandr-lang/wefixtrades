@@ -34,7 +34,7 @@ export default function HelpTip({ text }: { text: string }) {
   }, [open, close]);
 
   return (
-    <span ref={ref} style={{ position: 'relative', display: 'inline-flex', verticalAlign: 'middle', marginLeft: '4px' }}>
+    <span ref={ref} data-theme="light" style={{ position: 'relative', display: 'inline-flex', verticalAlign: 'middle', marginLeft: '4px' }}>
       <button
         type="button"
         onClick={() => {

@@ -82,7 +82,7 @@ export default function PriceRevealStep({ step, accentColor }: PriceRevealStepPr
   }, []);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+    <div data-theme="light" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       {step.title && <h3 style={stepTitleStyle}>{step.title}</h3>}
 
       {!estimate && (

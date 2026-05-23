@@ -212,7 +212,7 @@ export default function MissedCallCalculatorShell({ initialTradeId }: ShellProps
   const microSummaryText = `Est. ${formatCurrencyFull(microSummaryRange.conservative.lostPerYear)} – ${formatCurrencyFull(microSummaryRange.high.lostPerYear)}/yr`;
 
   return (
-    <div style={{ maxWidth: 640, margin: '0 auto' }}>
+    <div data-theme="light" style={{ maxWidth: 640, margin: '0 auto' }}>
       {/* ═══ Outer shell card — overflow: clip (NOT hidden) so sticky children
             anchor to the page scroll context, not this card. See
             project-overflow-clip-for-sticky memory. ═══ */}

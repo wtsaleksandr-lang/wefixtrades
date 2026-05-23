@@ -62,6 +62,7 @@ export default function TierSelector({
       data-testid="tier-selector"
       data-component-name="Tier selector"
       data-component-type="tier-selector"
+      data-theme="light"
       style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',

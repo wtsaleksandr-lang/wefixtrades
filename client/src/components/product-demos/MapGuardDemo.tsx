@@ -28,6 +28,7 @@ export default function MapGuardDemo() {
       onMouseLeave={loop.onMouseLeave}
       ariaLabel="Animated demo: an interactive map detects issues with a Google Business Profile and resolves them one by one."
       maxWidth={400}
+      data-theme="light"
     >
       <DemoHeader
         icon={<MapPin size={16} />}

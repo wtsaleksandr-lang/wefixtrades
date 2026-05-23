@@ -409,7 +409,7 @@ function DraftBlock({
   }
 
   return (
-    <div className="mt-1.5 rounded-md border border-[#0d3cfc]/20 bg-[#EEF3FF] overflow-hidden text-xs">
+    <div data-theme="light" className="mt-1.5 rounded-md border border-[#0d3cfc]/20 bg-[#EEF3FF] overflow-hidden text-xs">
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-1.5 bg-[#DEE7FF] border-b border-[#0d3cfc]/15">
         <span className="font-semibold text-[#0d3cfc] uppercase tracking-wide text-[10px]">

@@ -73,7 +73,7 @@ export default function CheckoutSuccess() {
 
   return (
     <MarketingLayout>
-      <div style={{ minHeight: "60vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "48px 24px" }}>
+      <div data-theme="dark" style={{ minHeight: "60vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "48px 24px" }}>
         <div style={{ maxWidth: 540, width: "100%" }}>
 
           {/* Success icon */}

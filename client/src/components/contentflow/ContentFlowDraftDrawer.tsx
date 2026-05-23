@@ -330,6 +330,7 @@ export default function ContentFlowDraftDrawer({ draftId, open, onOpenChange }: 
     >
       <SheetContent
         side="right"
+        data-theme="light"
         className="w-full sm:max-w-xl md:max-w-2xl overflow-y-auto"
       >
         <SheetHeader>

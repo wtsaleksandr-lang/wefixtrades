@@ -104,7 +104,7 @@ function MoveStageDlg({
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent data-theme="light" className="sm:max-w-md">
         <DialogHeader><DialogTitle>Move Pipeline Stage</DialogTitle></DialogHeader>
         <div className="space-y-3">
           <div>

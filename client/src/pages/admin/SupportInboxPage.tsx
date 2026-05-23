@@ -140,7 +140,7 @@ export default function SupportInboxPage() {
 
   return (
     <AdminLayout pageContext={{ page: "support" }}>
-      <div className="space-y-4">
+      <div data-theme="light" className="space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>

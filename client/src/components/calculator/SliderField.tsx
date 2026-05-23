@@ -73,7 +73,7 @@ export default function SliderField({
   const b = parseInt(accentColor.slice(5, 7), 16) || 199;
 
   return (
-    <div data-testid={`slider-field-${label.toLowerCase().replace(/\s+/g, '-')}`} style={{ marginBottom: '16px' }}>
+    <div data-theme="light" data-testid={`slider-field-${label.toLowerCase().replace(/\s+/g, '-')}`} style={{ marginBottom: '16px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
         <span style={{ fontSize: '13px', fontWeight: 600, color: labelColor || '#64748B', display: 'inline-flex', alignItems: 'center' }}>
           {label}

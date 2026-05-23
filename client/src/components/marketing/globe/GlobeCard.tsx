@@ -12,6 +12,7 @@ export default function GlobeCard({ stat, label, visible, style, className }: Gl
   return (
     <div
       className={`globe-card ${className || ""}`}
+      data-theme="dark"
       style={{
         position: "absolute",
         pointerEvents: "none",

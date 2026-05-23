@@ -34,6 +34,7 @@ export default function CopilotPromptCard({
     <div
       className="border border-[#0d3cfc]/30 bg-[#EEF3FF] rounded-lg p-3 space-y-2.5"
       data-testid="copilot-prompt-card"
+      data-theme="light"
     >
       <p className="text-xs text-gray-800 leading-relaxed whitespace-pre-wrap">{request.prompt}</p>
 

@@ -136,6 +136,7 @@ function InfoIconTrigger({ onClick }: { onClick: () => void }) {
       onClick={(e) => { e.stopPropagation(); onClick(); }}
       aria-label="Learn more about this service"
       className="info-icon-trigger"
+      data-theme="dark"
       style={{
         display: "inline-flex",
         alignItems: "center",

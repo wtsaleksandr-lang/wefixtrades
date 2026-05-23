@@ -28,6 +28,7 @@ export default function SocialSyncDemo() {
       onMouseLeave={loop.onMouseLeave}
       ariaLabel="Animated demo: posts appear in a content calendar and broadcast to multiple social channels at once."
       maxWidth={420}
+      data-theme="dark"
     >
       <DemoHeader icon={<Calendar size={16} />} title="SocialSync" subtitle="this week · 4 posts" status="Live" />
       <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 8 }}>

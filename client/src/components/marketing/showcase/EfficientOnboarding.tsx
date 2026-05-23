@@ -34,7 +34,7 @@ export default function EfficientOnboarding() {
   const railFill = 50;
 
   return (
-    <div className="eo-wrap">
+    <div data-theme="dark" className="eo-wrap">
       <style>{CSS}</style>
       <div className="eo-card">
         {/* LEFT — stage strip */}

@@ -45,6 +45,7 @@ export default function ReviewQrLanding() {
 
   return (
     <div
+      data-theme="light"
       style={{
         display: "flex",
         justifyContent: "center",

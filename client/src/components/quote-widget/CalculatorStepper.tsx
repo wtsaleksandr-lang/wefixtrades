@@ -61,6 +61,7 @@ export default function CalculatorStepper({
       data-component-type="stepper"
       data-current-step={safeCurrent + 1}
       data-total-steps={totalSteps}
+      data-theme="light"
       style={{
         display: 'flex', flexDirection: 'column', gap: 6,
         padding: '10px 16px 0', width: '100%', boxSizing: 'border-box',

@@ -61,7 +61,7 @@ export default function StepHelp({ help }: StepHelpProps) {
   }, [open, close]);
 
   return (
-    <div style={{ position: 'relative', display: 'inline-flex' }}>
+    <div data-theme="light" style={{ position: 'relative', display: 'inline-flex' }}>
       {/* Trigger */}
       <button
         ref={triggerRef}

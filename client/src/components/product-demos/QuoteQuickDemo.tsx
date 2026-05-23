@@ -30,6 +30,7 @@ export default function QuoteQuickDemo() {
       onMouseLeave={loop.onMouseLeave}
       ariaLabel="Animated demo: a customer selects their trade and job size, the price calculates in real time, and the lead is captured."
       maxWidth={400}
+      data-theme="light"
     >
       <DemoHeader
         icon={<Calculator size={16} />}

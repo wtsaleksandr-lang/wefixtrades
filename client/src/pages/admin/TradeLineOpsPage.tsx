@@ -40,7 +40,7 @@ export default function TradeLineOpsPage() {
   const failedItems = fleet?.filter(r => r.assistantStatus==="failed"||r.failedCalls24h>0) ?? [];
   const activeItems = fleet?.filter(r => r.assistantStatus!=="failed"&&r.failedCalls24h===0) ?? [];
   return (
-    <AdminLayout><div className="p-6 max-w-7xl mx-auto space-y-6">
+    <AdminLayout><div data-theme="light" className="p-6 max-w-7xl mx-auto space-y-6">
       <div className="flex items-center justify-between"><div><h1 className="text-2xl font-bold text-gray-900">TradeLine Ops</h1><p className="text-sm text-gray-500 mt-1">Fleet-level overview of all TradeLine services.</p></div><div className="flex items-center gap-2 text-sm text-gray-500"><Phone className="w-4 h-4"/><span>{fleet?.length??0} services</span></div></div>
       <div className="flex gap-1 bg-gray-100 rounded-lg p-1 w-fit"><button type="button" onClick={()=>setActiveTab("fleet")} className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${activeTab==="fleet"?"bg-white text-gray-900 shadow-sm":"text-gray-500 hover:text-gray-700"}`}>Fleet</button><button type="button" onClick={()=>setActiveTab("calls")} className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${activeTab==="calls"?"bg-white text-gray-900 shadow-sm":"text-gray-500 hover:text-gray-700"}`}>Calls</button><button type="button" onClick={()=>setActiveTab("appPreview")} className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${activeTab==="appPreview"?"bg-white text-gray-900 shadow-sm":"text-gray-500 hover:text-gray-700"}`}>App Preview</button></div>
       {activeTab==="calls"&&<CallsTab/>}

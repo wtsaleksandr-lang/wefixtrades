@@ -45,7 +45,7 @@ function ConnectDialog({ open, onClose }: { open: boolean; onClose: () => void }
     } catch (e: any) { toast({ title: "Failed", description: e.message, variant: "destructive" }); } finally { setConnecting(false); }
   };
   return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}><DialogContent className="sm:max-w-md"><DialogHeader><DialogTitle>Connect Calendar</DialogTitle></DialogHeader>
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}><DialogContent data-theme="light" className="sm:max-w-md"><DialogHeader><DialogTitle>Connect Calendar</DialogTitle></DialogHeader>
       {!platform ? <div className="grid gap-3 py-2">{(["google", "calcom", "calendly", "manual"] as const).map((p) => (
         <button key={p} onClick={() => setPlatform(p)} className="flex items-center gap-3 p-4 rounded-xl border border-gray-200 hover:border-gray-300 hover:bg-gray-50/50 text-left">
           <div className={`w-10 h-10 rounded-lg flex items-center justify-center border ${PC[p]}`}>{p === "manual" ? <LinkIcon className="w-5 h-5" /> : <CalendarDays className="w-5 h-5" />}</div>

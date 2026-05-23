@@ -30,7 +30,7 @@ const TILES: OrbitTile[] = [
 
 export default function PremiumStackOrbit() {
   return (
-    <div className="psorbit-wrap">
+    <div data-theme="dark" className="psorbit-wrap">
       <style>{CSS}</style>
       <div className="psorbit-card">
         {/* LEFT — orbit */}

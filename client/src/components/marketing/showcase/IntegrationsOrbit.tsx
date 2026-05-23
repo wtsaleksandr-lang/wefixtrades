@@ -38,7 +38,7 @@ const TILES: OrbitTile[] = [
 
 export default function IntegrationsOrbit() {
   return (
-    <div className="iorbit-wrap">
+    <div data-theme="dark" className="iorbit-wrap">
       <style>{CSS}</style>
       <div className="iorbit-stage">
         {/* Concentric rings */}

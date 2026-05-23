@@ -28,7 +28,7 @@ function DarkFloatingLabel({
   const accent = error ? '#EF4444' : (focused ? mkt.accent : mkt.cardBorder);
 
   return (
-    <div style={{ position: 'relative', width: '100%' }}>
+    <div data-theme="light" style={{ position: 'relative', width: '100%' }}>
       <input
         id={id}
         type={type}

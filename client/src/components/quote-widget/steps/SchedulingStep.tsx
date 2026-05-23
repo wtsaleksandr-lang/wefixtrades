@@ -297,7 +297,7 @@ export default function SchedulingStep({ step }: SchedulingStepProps) {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }} data-testid="scheduling-step-root">
+    <div data-theme="light" style={{ display: 'flex', flexDirection: 'column', gap: 18 }} data-testid="scheduling-step-root">
       <div>
         <h3 style={stepTitleStyle}>
           {step.title || 'Pick a time'}

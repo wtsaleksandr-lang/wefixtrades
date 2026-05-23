@@ -67,6 +67,7 @@ export default function AnnouncementBanner() {
     <div
       role="region"
       aria-label="Site announcement"
+      data-theme="dark"
       style={{
         background: mkt.accent,
         color: "#FFFFFF",

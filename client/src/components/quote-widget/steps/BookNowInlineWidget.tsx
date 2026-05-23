@@ -93,7 +93,7 @@ export default function BookNowInlineWidget({ calculatorId, quoteAmount }: BookN
   const onBlur = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => { e.currentTarget.style.borderColor = eff.buttonBorder; e.currentTarget.style.boxShadow = 'none'; };
 
   if (step === 'idle') return (
-    <button type="button" onClick={() => setStep('date')} style={{ ...primaryButtonStyle, background: 'transparent', color: eff.buttonBg, border: `2px solid ${eff.buttonBg}`, gap: '10px' }} onMouseEnter={(e) => { e.currentTarget.style.background = eff.bgSecondary; }} onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
+    <button type="button" data-theme="light" onClick={() => setStep('date')} style={{ ...primaryButtonStyle, background: 'transparent', color: eff.buttonBg, border: `2px solid ${eff.buttonBg}`, gap: '10px' }} onMouseEnter={(e) => { e.currentTarget.style.background = eff.bgSecondary; }} onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
       <CalendarDays style={{ width: 16, height: 16 }} />Book an Appointment
     </button>
   );

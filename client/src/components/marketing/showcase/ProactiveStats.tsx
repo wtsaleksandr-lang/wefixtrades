@@ -9,7 +9,7 @@ import { MONO } from "@/components/effortel-blocks";
 
 export default function ProactiveStats() {
   return (
-    <div className="ps-wrap">
+    <div data-theme="dark" className="ps-wrap">
       <style>{CSS}</style>
       <div className="ps-card">
         {/* LEFT — stat composition */}

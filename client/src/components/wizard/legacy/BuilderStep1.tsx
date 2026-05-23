@@ -47,7 +47,7 @@ interface Props {
 
 function sectionHead(title: string, sub: string, n: number) {
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 9, marginBottom: 12 }}>
+    <div data-theme="light" style={{ display: 'flex', alignItems: 'flex-start', gap: 9, marginBottom: 12 }}>
       <span style={{
         flexShrink: 0, width: 21, height: 21, borderRadius: '50%',
         background: p.colors.accent, color: '#fff', fontSize: 11.5, fontWeight: 800,

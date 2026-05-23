@@ -144,7 +144,7 @@ export default function AdminAuditLogPage() {
 
   return (
     <AdminLayout>
-      <div className="max-w-6xl mx-auto space-y-4">
+      <div data-theme="light" className="max-w-6xl mx-auto space-y-4">
         {/* Header */}
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div className="min-w-0">

@@ -24,7 +24,7 @@ function KindBadge({ kind }: { kind: string }) {
     image: "bg-indigo-50 text-indigo-700",
   };
   return (
-    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium capitalize ${styles[kind] || "bg-gray-100 text-gray-600"}`}>
+    <span data-theme="light" className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium capitalize ${styles[kind] || "bg-gray-100 text-gray-600"}`}>
       {kind}
     </span>
   );

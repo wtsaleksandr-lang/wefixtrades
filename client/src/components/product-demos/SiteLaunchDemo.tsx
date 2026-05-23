@@ -23,6 +23,7 @@ export default function SiteLaunchDemo() {
       onMouseLeave={loop.onMouseLeave}
       ariaLabel="Animated demo: a wireframe morphing into a fully styled, ranked, and launched website."
       maxWidth={420}
+      data-theme="light"
     >
       <DemoHeader icon={<Globe size={16} />} title="SiteLaunch" subtitle={s >= 4 ? "your-trade.com" : "Building site…"} status={s >= 4 ? "Live" : `Day ${s + 2}`} />
       <div style={{ padding: 18, display: "flex", flexDirection: "column", gap: 12 }}>

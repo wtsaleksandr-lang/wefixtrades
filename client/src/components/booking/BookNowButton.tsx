@@ -123,7 +123,7 @@ function BookingFlow({ clientId, customerName = "", customerEmail = "", customer
   );
 
   return (
-    <div className="flex flex-col items-center gap-4 py-4">
+    <div data-theme="light" className="flex flex-col items-center gap-4 py-4">
       <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center"><Check className="w-6 h-6 text-emerald-600" /></div>
       <div className="text-center">
         <h3 className="text-lg font-semibold text-gray-900">Booking Confirmed</h3>

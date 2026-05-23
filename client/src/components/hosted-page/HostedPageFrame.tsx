@@ -105,6 +105,7 @@ export default function HostedPageFrame({
       data-bg-kind={resolved.background?.kind ?? 'preset'}
       data-show-card={resolved.showCard !== false ? 'true' : 'false'}
       data-dark={dark ? 'true' : 'false'}
+      data-theme="light"
       style={wrapperStyle}
     >
       <div className="qq-hosted-inner">
