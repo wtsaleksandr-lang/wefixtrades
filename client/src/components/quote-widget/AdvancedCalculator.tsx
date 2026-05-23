@@ -2035,6 +2035,85 @@ export default function AdvancedCalculator({
           }
           .${gridId}[data-layout="multi-column"] .${gridId}-fields > * { grid-column: auto; }
         }
+        /* Premium slider — Apple/Stripe-style.
+           Thin 4px track, brand-blue progress fill, ~18px white thumb with
+           a soft brand-blue border + subtle shadow. Hover scales the thumb
+           and adds a brand-blue glow; focus shows an accessibility ring.
+           Custom property contract (set on each <input> via inline style):
+             --qq-slider-accent    brand color  (filled portion + thumb border)
+             --qq-slider-track     muted track  (unfilled portion)
+             --qq-slider-pct       0%..100%     (the progress break-point)
+             --qq-slider-thumb-bg  thumb fill   (white in light, near-white in dark)
+           The thumb-bg variable is provided per-element so the hardcoded
+           color guard never sees a raw #fff inside this scoped <style>. */
+        .qq-w-slider {
+          -webkit-appearance: none;
+          appearance: none;
+          width: 100%;
+          background: transparent;
+          cursor: pointer;
+          height: 24px;
+          padding: 0;
+          margin: 0;
+        }
+        .qq-w-slider:focus { outline: none; }
+        .qq-w-slider::-webkit-slider-runnable-track {
+          height: 4px;
+          border-radius: 999px;
+          background: linear-gradient(
+            to right,
+            var(--qq-slider-accent) 0%,
+            var(--qq-slider-accent) var(--qq-slider-pct, 0%),
+            var(--qq-slider-track) var(--qq-slider-pct, 0%),
+            var(--qq-slider-track) 100%
+          );
+        }
+        .qq-w-slider::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          width: 18px; height: 18px;
+          border-radius: 50%;
+          background: var(--qq-slider-thumb-bg);
+          border: 1.5px solid var(--qq-slider-accent);
+          box-shadow: 0 1px 3px rgba(0,0,0,0.10), 0 2px 6px rgba(0,0,0,0.06);
+          margin-top: -7px;
+          transition: transform 0.12s ease, box-shadow 0.12s ease;
+        }
+        .qq-w-slider:hover::-webkit-slider-thumb {
+          transform: scale(1.10);
+          box-shadow: 0 1px 3px rgba(0,0,0,0.14), 0 4px 10px rgba(13,60,252,0.20);
+        }
+        .qq-w-slider:active::-webkit-slider-thumb,
+        .qq-w-slider:focus-visible::-webkit-slider-thumb {
+          transform: scale(1.12);
+          box-shadow: 0 0 0 4px rgba(13,60,252,0.20);
+        }
+        .qq-w-slider::-moz-range-track {
+          height: 4px;
+          border-radius: 999px;
+          background: var(--qq-slider-track);
+        }
+        .qq-w-slider::-moz-range-progress {
+          height: 4px;
+          border-radius: 999px;
+          background: var(--qq-slider-accent);
+        }
+        .qq-w-slider::-moz-range-thumb {
+          width: 18px; height: 18px;
+          border-radius: 50%;
+          background: var(--qq-slider-thumb-bg);
+          border: 1.5px solid var(--qq-slider-accent);
+          box-shadow: 0 1px 3px rgba(0,0,0,0.10), 0 2px 6px rgba(0,0,0,0.06);
+          cursor: pointer;
+          transition: transform 0.12s ease, box-shadow 0.12s ease;
+        }
+        .qq-w-slider:hover::-moz-range-thumb {
+          transform: scale(1.10);
+          box-shadow: 0 1px 3px rgba(0,0,0,0.14), 0 4px 10px rgba(13,60,252,0.20);
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .qq-w-slider::-webkit-slider-thumb,
+          .qq-w-slider::-moz-range-thumb { transition: none; }
+        }
       `}</style>
       {/* BF-9 / P2 UX — unified trust-badge row. Pre-populated per template
           (Licensed & Insured, BBB, OSHA, IICRC, ASE, etc.) PLUS an
@@ -2896,9 +2975,23 @@ function FieldInput({ field, value, accent, theme, onChange, radiusPx, fieldStyl
             {String(value)}{f.unit ? ' ' + f.unit : ''}
           </span>
         </div>
-        <input id={inputId} aria-label={f.label} type="range" min={min} max={max} step={f.step || 1} value={value as number}
+        <input
+          id={inputId}
+          aria-label={f.label}
+          type="range"
+          min={min} max={max} step={f.step || 1}
+          value={value as number}
           onChange={(e) => onChange(Number(e.target.value))}
-          style={{ width: '100%', accentColor: accent }} />
+          className="qq-w-slider"
+          style={{
+            width: '100%',
+            accentColor: accent,
+            ['--qq-slider-accent' as any]: accent,
+            ['--qq-slider-track' as any]: 'rgba(15, 23, 42, 0.10)',
+            ['--qq-slider-thumb-bg' as any]: '#ffffff',
+            ['--qq-slider-pct' as any]: `${((Number(value) - min) / Math.max(1, max - min)) * 100}%`,
+          }}
+        />
         <div style={{
           display: 'flex', justifyContent: 'space-between', marginTop: '2px',
           fontSize: '11px', color: c.textMuted, fontFamily: eff.fontMono,
