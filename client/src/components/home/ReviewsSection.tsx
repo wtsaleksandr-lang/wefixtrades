@@ -146,7 +146,7 @@ export default function ReviewsSection() {
           data-testid="reviews-carousel"
           heading={
             <h2
-              className="text-3xl sm:text-4xl font-extrabold tracking-tight leading-tight"
+              className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight leading-tight whitespace-nowrap"
               style={{ color: mkt.onDark, margin: 0 }}
             >
               What customers say

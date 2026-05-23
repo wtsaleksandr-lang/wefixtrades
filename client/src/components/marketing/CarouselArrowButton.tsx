@@ -22,7 +22,7 @@
  */
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import type { CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 
 type ArrowDirection = "prev" | "next";
 type ArrowTheme = "light" | "dark";
@@ -49,15 +49,35 @@ export function CarouselArrowButton({
 }: CarouselArrowButtonProps) {
   const Icon = direction === "prev" ? ChevronLeft : ChevronRight;
   const ariaLabel = label ?? (direction === "prev" ? "Previous" : "Next");
+
+  /* "Just clicked" highlight — adds a lingering grey wash for ~300ms after
+   * release so the user gets visible confirmation the click registered
+   * (CSS :active only paints while the pointer is held). */
+  const [justClicked, setJustClicked] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
+  const handleClick = () => {
+    setJustClicked(true);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => setJustClicked(false), 300);
+    onClick();
+  };
+
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={handleClick}
       disabled={disabled}
       aria-label={ariaLabel}
       data-theme={theme}
       data-testid={testId}
-      className={`cs-arrow${disabled ? " cs-arrow--disabled" : ""}`}
+      className={`cs-arrow${disabled ? " cs-arrow--disabled" : ""}${
+        justClicked && !disabled ? " cs-arrow--just-clicked" : ""
+      }`}
     >
       <Icon size={16} strokeWidth={2} aria-hidden />
     </button>

@@ -742,12 +742,13 @@ function Testimonials({ items }: { items: { quote: string; author: string; trade
             <Reveal>
               <h2
                 style={{
-                  fontSize: "clamp(32px, 4vw, 48px)",
+                  fontSize: "clamp(28px, 4vw, 48px)",
                   fontWeight: 500,
                   lineHeight: 1.05,
                   letterSpacing: "-0.025em",
                   color: mkt.onDark,
                   margin: 0,
+                  whiteSpace: "nowrap",
                 }}
               >
                 Reviews
