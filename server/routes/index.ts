@@ -110,6 +110,7 @@ import { registerAuditNapConsistencyRoutes } from "./auditNapConsistencyRoutes";
 import { registerAuditMarketSizerRoutes } from "./auditMarketSizerRoutes";
 import { registerAuditTrustInspectorRoutes } from "./auditTrustInspectorRoutes";
 import { registerApiV1Routes } from "./apiV1";
+import { registerAdminSeoIntegrationsRoutes } from "./adminSeoIntegrationsRoutes";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -228,6 +229,7 @@ export async function registerRoutes(
   registerAuditMarketSizerRoutes(app);
   registerAuditTrustInspectorRoutes(app);
   registerApiV1Routes(app);
+  registerAdminSeoIntegrationsRoutes(app);
 
   return httpServer;
 }

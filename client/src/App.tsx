@@ -91,6 +91,7 @@ import AuditLeadsPage from "@/pages/admin/AuditLeadsPage";
 import AdminChatHistoryPage from "@/pages/admin/AdminChatHistoryPage";
 import PortalChatHistoryPage from "@/pages/portal/PortalChatHistoryPage";
 import IntegrationHealthPage from "@/pages/admin/IntegrationHealthPage";
+import SeoIntegrationsPage from "@/pages/admin/SeoIntegrationsPage";
 import BillingPage from "@/pages/admin/BillingPage";
 import ServicesPage from "@/pages/admin/ServicesPage";
 import ProductDetailPage from "@/pages/admin/ProductDetailPage";
@@ -245,6 +246,7 @@ function Router() {
       <Route path="/admin/crm/audit-leads">{() => <RequirePortal><AuditLeadsPage /></RequirePortal>}</Route>
       <Route path="/admin/chat-history">{() => <RequirePortal><AdminChatHistoryPage /></RequirePortal>}</Route>
       <Route path="/admin/system/integrations">{() => <RequirePortal><IntegrationHealthPage /></RequirePortal>}</Route>
+      <Route path="/admin/integrations/google">{() => <RequirePortal><SeoIntegrationsPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/billing">{() => <RequirePortal><BillingPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/suppliers">{() => <RequirePortal><SuppliersPage /></RequirePortal>}</Route>
       <Route path="/admin/crm/rankflow">{() => <RequirePortal><RankFlowOpsPage /></RequirePortal>}</Route>
