@@ -187,6 +187,9 @@ import SchemaGenerator from "@/pages/portal/FreeTools/SchemaGenerator";
 import FaqWidget from "@/pages/portal/FreeTools/FaqWidget";
 import HoursWidget from "@/pages/portal/FreeTools/HoursWidget";
 import TrustBadges from "@/pages/portal/FreeTools/TrustBadges";
+import ReviewLink from "@/pages/portal/FreeTools/ReviewLink";
+import CallbackForm from "@/pages/portal/FreeTools/CallbackForm";
+import ReviewSlugLanding from "@/pages/ReviewSlugLanding";
 import InternalTemplateRender from "@/pages/InternalTemplateRender";
 
 /**
@@ -333,6 +336,8 @@ function Router() {
       <Route path="/portal/free-tools/faq">{() => <RequireClient><FaqWidget /></RequireClient>}</Route>
       <Route path="/portal/free-tools/hours">{() => <RequireClient><HoursWidget /></RequireClient>}</Route>
       <Route path="/portal/free-tools/trust-badges">{() => <RequireClient><TrustBadges /></RequireClient>}</Route>
+      <Route path="/portal/free-tools/review-link">{() => <RequireClient><ReviewLink /></RequireClient>}</Route>
+      <Route path="/portal/free-tools/callback">{() => <RequireClient><CallbackForm /></RequireClient>}</Route>
       <Route path="/portal/free-tools">{() => <RequireClient><FreeToolsIndex /></RequireClient>}</Route>
       <Route path="/portal/help">{() => <RequireClient><PortalHelp /></RequireClient>}</Route>
       <Route path="/portal/chat-history">{() => <RequireClient><PortalChatHistoryPage /></RequireClient>}</Route>
@@ -436,6 +441,8 @@ function Router() {
       <Route path="/onboarding/:token" component={OnboardingForm} />
       <Route path="/review/qr/:widgetToken" component={ReviewQrLanding} />
       <Route path="/review/:token" component={ReviewFunnel} />
+      {/* Free-tools batch 2 — public review-funnel landing page (/r/:slug). */}
+      <Route path="/r/:slug" component={ReviewSlugLanding} />
       <Route path="/audit/report/:id" component={SharedAuditReport} />
       <Route path="/book/:slug" component={BookingPage} />
       <Route path="/pay/:token" component={PayInvoicePage} />

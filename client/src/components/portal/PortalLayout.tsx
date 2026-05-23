@@ -21,6 +21,7 @@ import {
   Key,
   Palette,
   Phone,
+  PhoneCall,
   Calculator,
   Gift,
   FileCode2,
@@ -133,6 +134,8 @@ function buildNavItems(active: Set<string>): NavItem[] {
        existing nested-section pattern (e.g. ContentFlow → Content Style). */
     { label: "Free Tools", href: "/portal/free-tools", icon: Gift },
     { label: "Schema Generator", href: "/portal/free-tools/schema", icon: FileCode2, indent: true },
+    { label: "Review Link", href: "/portal/free-tools/review-link", icon: Star, indent: true },
+    { label: "Callback Form", href: "/portal/free-tools/callback", icon: PhoneCall, indent: true },
     { label: "Help", href: "/portal/help", icon: HelpCircle },
     { label: "Settings", href: "/portal/settings", icon: Settings },
   ];

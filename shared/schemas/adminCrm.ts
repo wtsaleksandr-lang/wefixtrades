@@ -150,6 +150,66 @@ export const clientTrustBadges = pgTable("client_trust_badges", {
 });
 export type ClientTrustBadges = typeof clientTrustBadges.$inferSelect;
 
+/* ─── Free-tools batch 2: Review-link funnel + Callback widget ─── */
+
+// Per-client config for the public /r/:slug star-rating gate. ≥threshold
+// routes to one of (google|facebook|yelp); below threshold captures private
+// feedback. Slug is globally unique (the public URL).
+export const reviewLinkConfigs = pgTable("review_link_configs", {
+  client_id: integer("client_id").primaryKey().references(() => clients.id, { onDelete: "cascade" }),
+  slug: text("slug").notNull().unique(),
+  google_url: text("google_url"),
+  facebook_url: text("facebook_url"),
+  yelp_url: text("yelp_url"),
+  threshold: integer("threshold").notNull().default(4),
+  heading: text("heading"),
+  created_at: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updated_at: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+export type ReviewLinkConfig = typeof reviewLinkConfigs.$inferSelect;
+
+// Each visit + each rating click + each feedback submission gets one row.
+// `rating` null = landing event. `routed_to` null = landing (no star yet).
+export const reviewFunnelEvents = pgTable("review_funnel_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  client_id: integer("client_id").notNull().references(() => clients.id, { onDelete: "cascade" }),
+  slug: text("slug").notNull(),
+  rating: integer("rating"),
+  routed_to: text("routed_to"),
+  feedback: text("feedback"),
+  visitor_ip: text("visitor_ip"),
+  user_agent: text("user_agent"),
+  created_at: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+export type ReviewFunnelEvent = typeof reviewFunnelEvents.$inferSelect;
+
+// Per-client config for the embeddable callback-request form.
+export const callbackWidgetConfigs = pgTable("callback_widget_configs", {
+  client_id: integer("client_id").primaryKey().references(() => clients.id, { onDelete: "cascade" }),
+  enabled: boolean("enabled").notNull().default(true),
+  heading: text("heading").default("Request a callback"),
+  cta_label: text("cta_label").default("Send request"),
+  // { name:bool, phone:bool, message:bool, best_time:bool }
+  fields_json: jsonb("fields_json").notNull().default(sql`'{"name":true,"phone":true,"message":true,"best_time":true}'::jsonb`),
+  updated_at: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+export type CallbackWidgetConfig = typeof callbackWidgetConfigs.$inferSelect;
+
+// One row per callback submission. status drives the inbox triage UI.
+export const callbackRequests = pgTable("callback_requests", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  client_id: integer("client_id").notNull().references(() => clients.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  phone: text("phone").notNull(),
+  message: text("message"),
+  best_time: text("best_time"),
+  source_url: text("source_url"),
+  visitor_ip: text("visitor_ip"),
+  status: text("status").notNull().default("new"),
+  created_at: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+export type CallbackRequest = typeof callbackRequests.$inferSelect;
+
 /* ─── Client Services ─── */
 export const clientServices = pgTable("client_services", {
   id: serial("id").primaryKey(),
