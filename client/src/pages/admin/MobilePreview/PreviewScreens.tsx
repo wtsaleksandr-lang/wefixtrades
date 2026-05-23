@@ -72,7 +72,7 @@ export function LoginScreen({ onSignIn }: { onSignIn: () => void }) {
   return (
     <ScreenContainer>
       <Section>
-        <img src="/brand/icon.svg" alt="WeFixTrades" className="w-12 h-12 mb-1" />
+        <img src="/brand/icon.svg" alt="WeFixTrades" className="w-8 h-8 mb-1" />
         <H1>Welcome back</H1>
         <Body muted>Sign in with your WeFixTrades credentials.</Body>
       </Section>
@@ -529,7 +529,7 @@ export function SettingsScreen({ onSignOut }: { onSignOut: () => void }) {
       <Section>
         <Card>
           <div className="flex items-center gap-3 mb-2">
-            <img src="/brand/icon.svg" alt="WeFixTrades" className="w-12 h-12" />
+            <img src="/brand/icon.svg" alt="WeFixTrades" className="w-8 h-8" />
             <div className="min-w-0">
               <H2>Demo User</H2>
               <Body muted>you@wefixtrades.com</Body>
@@ -582,7 +582,7 @@ export function AskScreen() {
     <ScreenContainer>
       <Section>
         <div className="flex items-center gap-3">
-          <img src="/brand/icon.svg" alt="WeFixTrades" className="w-12 h-12" />
+          <img src="/brand/icon.svg" alt="WeFixTrades" className="w-8 h-8" />
           <div className="min-w-0">
             <Caption>Assistant</Caption>
             <H1>Ask</H1>
@@ -636,7 +636,7 @@ export function AskScreen() {
             type="button"
             onClick={() => { /* mocked attach */ }}
             aria-label="Attach photo"
-            className="w-11 h-11 rounded-full border border-gray-200 bg-white text-[18px] active:opacity-80 transition-opacity"
+            className="w-8 h-8 rounded-full border border-gray-200 bg-white text-[14px] active:opacity-80 transition-opacity"
           >
             📷
           </button>
@@ -652,7 +652,7 @@ export function AskScreen() {
             type="button"
             onClick={() => { /* mocked mic */ }}
             aria-label="Record voice note"
-            className="w-11 h-11 rounded-full border border-gray-200 bg-white text-[18px] active:opacity-80 transition-opacity"
+            className="w-8 h-8 rounded-full border border-gray-200 bg-white text-[14px] active:opacity-80 transition-opacity"
           >
             🎤
           </button>
@@ -716,7 +716,7 @@ export function VoicemailScreen() {
                   type="button"
                   onClick={() => { /* mocked playback */ }}
                   aria-label="Play voicemail"
-                  className="w-10 h-10 rounded-full bg-indigo-600 text-white text-[16px] flex items-center justify-center shrink-0 active:opacity-80 transition-opacity"
+                  className="w-8 h-8 rounded-full bg-indigo-600 text-white text-[14px] flex items-center justify-center shrink-0 active:opacity-80 transition-opacity"
                 >
                   ▶
                 </button>
