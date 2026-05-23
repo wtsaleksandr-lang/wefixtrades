@@ -66,7 +66,7 @@ function SmsMockup() {
 }
 
 const config: FeaturePageConfig = {
-  meta: { title: "SMS & WhatsApp — QuoteQuick Pro | Automated Lead Follow-Ups That Win Jobs" },
+  meta: { title: "SMS & WhatsApp — QuoteQuick™ | Automated Lead Follow-Ups That Win Jobs" },
   hero: {
     badge: "SMS & WhatsApp Automation",
     badgeColor: "#DB2777",
@@ -98,7 +98,7 @@ const config: FeaturePageConfig = {
     {
       icon: MessageSquare,
       title: "Two-Way AI Replies",
-      body: "Unlike broadcast SMS tools, QuoteQuick Pro's AI responds to replies — answering questions, providing estimates, and booking jobs.",
+      body: "Unlike broadcast SMS tools, QuoteQuick's AI responds to replies — answering questions, providing estimates, and booking jobs.",
       color: "#7C3AED", bg: "#F5F3FF",
     },
     {
@@ -121,7 +121,7 @@ const config: FeaturePageConfig = {
   ],
   faqs: [
     { q: "Do I need my own Twilio account?", a: "Yes — Twilio is the underlying carrier for SMS and WhatsApp. You'll need a free Twilio account and a registered Twilio phone number. We walk you through setup in under 10 minutes." },
-    { q: "Can customers opt out?", a: "Yes. Customers can reply STOP at any time. QuoteQuick Pro automatically processes opt-outs and suppresses that contact from future messages." },
+    { q: "Can customers opt out?", a: "Yes. Customers can reply STOP at any time. QuoteQuick automatically processes opt-outs and suppresses that contact from future messages." },
     { q: "How does AI rate limiting work?", a: "The AI sends a maximum of 3 messages per lead per day and 50 messages per business per day. This prevents your number from being flagged as spam by carriers." },
     { q: "Can I include a discount code in follow-ups?", a: "Yes. You can attach a promo code to your final 'last-call' follow-up. The discount is validated and applied automatically when the lead uses the code in your calculator." },
     { q: "What is Take Over mode?", a: "Take Over pauses the AI on a specific conversation and lets you reply manually. The customer sees no difference — the messages come from the same number. You can hand back to AI at any time." },

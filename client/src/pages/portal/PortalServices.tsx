@@ -146,7 +146,7 @@ export default function PortalServices() {
                   <Calculator className="w-4 h-4 text-indigo-600" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-semibold text-gray-900">QuoteQuick Pro</h3>
+                  <h3 className="text-sm font-semibold text-gray-900">QuoteQuick</h3>
                   <div className="flex items-center gap-2 mt-0.5">
                     <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium capitalize ${
                       qqData.calculator.status === "live" ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-600"

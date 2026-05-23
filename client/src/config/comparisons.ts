@@ -97,17 +97,17 @@ export const COMPARISON_DATA: ComparisonData[] = [
   },
 
   /* ──────────────────────────────────────────
-     2. QuoteQuick Pro
+     2. QuoteQuick
      ────────────────────────────────────────── */
   {
     slug: "quotequick",
-    productName: "QuoteQuick Pro",
-    heroTitle: "QuoteQuick Pro vs the Alternatives",
+    productName: "QuoteQuick",
+    heroTitle: "QuoteQuick vs the Alternatives",
     heroSubtitle:
       "Instant, AI-powered quote calculators that turn website visitors into leads. See how we compare to manual quoting tools.",
-    seoTitle: "QuoteQuick Pro vs Jobber, ServiceTitan, Housecall Pro | WeFixTrades",
+    seoTitle: "QuoteQuick vs Jobber, ServiceTitan, Housecall Pro | WeFixTrades",
     seoDescription:
-      "Compare QuoteQuick Pro to Jobber, ServiceTitan, and Housecall Pro. AI-powered instant quotes, embeddable widget, no manual work.",
+      "Compare QuoteQuick to Jobber, ServiceTitan, and Housecall Pro. AI-powered instant quotes, embeddable widget, no manual work.",
     // Wave Q — three-tier ladder. Free forever, paid plans start at $29/mo (Pro).
     weFixTradesPrice: "Free + from $29/mo",
     competitors: [

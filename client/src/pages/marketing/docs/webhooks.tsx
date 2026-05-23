@@ -3,7 +3,7 @@ import DocsLayout, { Step, CodeBlock, InfoBox, DocH2, DocH3, Checklist, Accordio
 import { mkt } from "@/theme/tokens";
 
 export default function DocsWebhooks() {
-  useEffect(() => { document.title = "Webhooks — QuoteQuick Pro Docs"; }, []);
+  useEffect(() => { document.title = "Webhooks — QuoteQuick™ Docs"; }, []);
 
   return (
     <DocsLayout
@@ -18,7 +18,7 @@ export default function DocsWebhooks() {
 
       <DocH2>What Are Webhooks?</DocH2>
       <p style={{ fontSize: 15, color: mkt.onDarkMuted, lineHeight: 1.7, marginBottom: 12 }}>
-        A webhook is an automatic HTTP POST request sent from QuoteQuick Pro to a URL you specify — every time a specific event happens (e.g. a new lead, a booking confirmed). This lets you connect to any other system: your CRM, a Google Sheet via Zapier, a Slack channel, or your own backend.
+        A webhook is an automatic HTTP POST request sent from QuoteQuick to a URL you specify — every time a specific event happens (e.g. a new lead, a booking confirmed). This lets you connect to any other system: your CRM, a Google Sheet via Zapier, a Slack channel, or your own backend.
       </p>
 
       <DocH2>Setting Up a Webhook</DocH2>

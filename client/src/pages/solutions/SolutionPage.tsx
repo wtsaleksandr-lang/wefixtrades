@@ -43,7 +43,7 @@ const SOLUTIONS: SolutionConfig[] = [
     recommendedStack: [
       { name: "TradeLine\u2122 Complete", icon: "layers", desc: "AI handles calls, chats & DMs 24/7.", href: "/products/tradeline-complete" },
       { name: "MapGuard\u2122", icon: "map", desc: "Rank #1 for local plumbing searches.", href: "/products/mapguard" },
-      { name: "QuoteQuick Pro\u2122", icon: "calculator", desc: "Instant drain / pipe repair estimates.", href: "/products/quotequick" },
+      { name: "QuoteQuick\u2122", icon: "calculator", desc: "Instant drain / pipe repair estimates.", href: "/products/quotequick" },
       { name: "ReputationShield\u2122", icon: "shield", desc: "Auto-request 5-star reviews after every job.", href: "/products/reputationshield" },
     ],
     outcomes: [
@@ -69,7 +69,7 @@ const SOLUTIONS: SolutionConfig[] = [
     ],
     recommendedStack: [
       { name: "AI CallLine\u2122", icon: "phone", desc: "Never miss an emergency HVAC call again.", href: "/products/ai-callline" },
-      { name: "QuoteQuick Pro\u2122", icon: "calculator", desc: "Instant AC / furnace install estimates.", href: "/products/quotequick" },
+      { name: "QuoteQuick\u2122", icon: "calculator", desc: "Instant AC / furnace install estimates.", href: "/products/quotequick" },
       { name: "MapGuard\u2122", icon: "map", desc: "Outrank franchise competitors locally.", href: "/products/mapguard" },
       { name: "RankFlow\u2122", icon: "rocket", desc: "Rank higher = more organic leads.", href: "/products/rankflow" },
     ],
@@ -96,7 +96,7 @@ const SOLUTIONS: SolutionConfig[] = [
     ],
     recommendedStack: [
       { name: "TradeLine\u2122 Complete", icon: "layers", desc: "AI chat + voice + DMs for every channel.", href: "/products/tradeline-complete" },
-      { name: "QuoteQuick Pro\u2122", icon: "calculator", desc: "Instant panel / EV charger estimates.", href: "/products/quotequick" },
+      { name: "QuoteQuick\u2122", icon: "calculator", desc: "Instant panel / EV charger estimates.", href: "/products/quotequick" },
       { name: "SiteLaunch\u2122", icon: "layout", desc: "Modern site that converts visitors.", href: "/products/sitelaunch" },
       { name: "ReputationShield\u2122", icon: "shield", desc: "Build trust with automated review requests.", href: "/products/reputationshield" },
     ],
@@ -149,7 +149,7 @@ const SOLUTIONS: SolutionConfig[] = [
       "Website doesn't capture leads",
     ],
     recommendedStack: [
-      { name: "QuoteQuick Pro\u2122", icon: "calculator", desc: "Instant cleaning estimates by sq ft.", href: "/products/quotequick" },
+      { name: "QuoteQuick\u2122", icon: "calculator", desc: "Instant cleaning estimates by sq ft.", href: "/products/quotequick" },
       { name: "AI ChatLine\u2122", icon: "message", desc: "Chat widget that books jobs automatically.", href: "/products/ai-chatline" },
       { name: "ReputationShield\u2122", icon: "shield", desc: "Build trust with automated 5-star reviews.", href: "/products/reputationshield" },
       { name: "SocialSync\u2122", icon: "share", desc: "Before/after posts on autopilot.", href: "/products/socialsync" },
@@ -176,7 +176,7 @@ const SOLUTIONS: SolutionConfig[] = [
       "Hard to stay top-of-mind off-season",
     ],
     recommendedStack: [
-      { name: "QuoteQuick Pro™", icon: "calculator", desc: "Instant lawn-care + landscaping estimates by sq ft.", href: "/products/quickquotepro" },
+      { name: "QuoteQuick™", icon: "calculator", desc: "Instant lawn-care + landscaping estimates by sq ft.", href: "/products/quickquotepro" },
       { name: "TradeLine™", icon: "phone", desc: "AI answers seasonal call surges 24/7.", href: "/products/tradeline" },
       { name: "SocialSync™", icon: "share", desc: "Before/after photos posted weekly on autopilot.", href: "/products/socialsync" },
       { name: "ReputationShield™", icon: "shield", desc: "Auto-request reviews after every cut.", href: "/products/reputationshield" },
@@ -204,7 +204,7 @@ const SOLUTIONS: SolutionConfig[] = [
     ],
     recommendedStack: [
       { name: "TradeLine™", icon: "phone", desc: "Instant pickup for emergency pest calls 24/7.", href: "/products/tradeline" },
-      { name: "QuoteQuick Pro™", icon: "calculator", desc: "Per-room pricing + recurring service tiers.", href: "/products/quickquotepro" },
+      { name: "QuoteQuick™", icon: "calculator", desc: "Per-room pricing + recurring service tiers.", href: "/products/quickquotepro" },
       { name: "BookFlow™", icon: "layers", desc: "Recurring contract reminders, automated.", href: "/products/bookflow" },
       { name: "ReputationShield™", icon: "shield", desc: "Before/after-treatment review requests.", href: "/products/reputationshield" },
     ],
@@ -231,7 +231,7 @@ const SOLUTIONS: SolutionConfig[] = [
     ],
     recommendedStack: [
       { name: "TradeLine™", icon: "phone", desc: "AI answers + dispatches emergencies 24/7.", href: "/products/tradeline" },
-      { name: "QuoteQuick Pro™", icon: "calculator", desc: "Tiered pricing for spring / opener / panel jobs.", href: "/products/quickquotepro" },
+      { name: "QuoteQuick™", icon: "calculator", desc: "Tiered pricing for spring / opener / panel jobs.", href: "/products/quickquotepro" },
       { name: "MapGuard™", icon: "map", desc: "Outrank franchise garage-door brands locally.", href: "/products/mapguard" },
       { name: "RankFlow™", icon: "rocket", desc: "Climb 'garage door near me' rankings.", href: "/products/rankflow" },
     ],
@@ -259,7 +259,7 @@ const SOLUTIONS: SolutionConfig[] = [
     recommendedStack: [
       { name: "TradeLine™", icon: "phone", desc: "Sub-30s pickup on every emergency call.", href: "/products/tradeline" },
       { name: "MapGuard™", icon: "map", desc: "Stay top-3 in Google Maps locksmith search.", href: "/products/mapguard" },
-      { name: "QuoteQuick Pro™", icon: "calculator", desc: "Quick estimates for lockout / rekey / install.", href: "/products/quickquotepro" },
+      { name: "QuoteQuick™", icon: "calculator", desc: "Quick estimates for lockout / rekey / install.", href: "/products/quickquotepro" },
       { name: "ReputationShield™", icon: "shield", desc: "Stack 5-star reviews to outshine scammer brands.", href: "/products/reputationshield" },
     ],
     outcomes: [
@@ -284,7 +284,7 @@ const SOLUTIONS: SolutionConfig[] = [
       "Slow follow-up = lost to the next painter",
     ],
     recommendedStack: [
-      { name: "QuoteQuick Pro™", icon: "calculator", desc: "Instant ballpark estimates by room / sq ft.", href: "/products/quickquotepro" },
+      { name: "QuoteQuick™", icon: "calculator", desc: "Instant ballpark estimates by room / sq ft.", href: "/products/quickquotepro" },
       { name: "SiteLaunch™", icon: "layout", desc: "Portfolio-first website that converts.", href: "/products/sitelaunch" },
       { name: "SocialSync™", icon: "share", desc: "Before/after photos auto-posted weekly.", href: "/products/socialsync" },
       { name: "ReputationShield™", icon: "shield", desc: "Auto-request reviews the day after final coat.", href: "/products/reputationshield" },
@@ -312,7 +312,7 @@ const SOLUTIONS: SolutionConfig[] = [
     ],
     recommendedStack: [
       { name: "SiteLaunch™", icon: "layout", desc: "Premium portfolio site live in 5–7 days.", href: "/products/sitelaunch" },
-      { name: "QuoteQuick Pro™", icon: "calculator", desc: "Tiered quoting for kitchens, baths, additions.", href: "/products/quickquotepro" },
+      { name: "QuoteQuick™", icon: "calculator", desc: "Tiered quoting for kitchens, baths, additions.", href: "/products/quickquotepro" },
       { name: "ContentFlow™", icon: "sparkles", desc: "Authority articles drafted monthly.", href: "/products/contentflow" },
       { name: "ReputationShield™", icon: "shield", desc: "Stack reviews that justify the price tag.", href: "/products/reputationshield" },
     ],
@@ -340,7 +340,7 @@ const SOLUTIONS: SolutionConfig[] = [
     recommendedStack: [
       { name: "TradeLine™", icon: "phone", desc: "All inbound channels in one inbox + AI triage.", href: "/products/tradeline" },
       { name: "BookFlow™", icon: "layers", desc: "Schedule consults + recurring project check-ins.", href: "/products/bookflow" },
-      { name: "QuoteQuick Pro™", icon: "calculator", desc: "Tiered ballpark quoting for custom jobs.", href: "/products/quickquotepro" },
+      { name: "QuoteQuick™", icon: "calculator", desc: "Tiered ballpark quoting for custom jobs.", href: "/products/quickquotepro" },
       { name: "RankFlow™", icon: "rocket", desc: "Stay visible against single-trade competitors.", href: "/products/rankflow" },
     ],
     outcomes: [

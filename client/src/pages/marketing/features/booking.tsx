@@ -97,7 +97,7 @@ function BookingMockup() {
 }
 
 const config: FeaturePageConfig = {
-  meta: { title: "Booking + Deposits — QuoteQuick Pro | No-Show Prevention Built In" },
+  meta: { title: "Booking + Deposits — QuoteQuick™ | No-Show Prevention Built In" },
   hero: {
     badge: "Booking Engine",
     badgeColor: colors.accent.blue,
@@ -151,7 +151,7 @@ const config: FeaturePageConfig = {
     { num: "03", title: "Deposit Collected", body: "Stripe processes the deposit immediately. Funds go directly to your connected bank account, minus Stripe's standard fee." },
   ],
   faqs: [
-    { q: "How does Stripe Connect work?", a: "You connect your Stripe account (free) to QuoteQuick Pro. Deposits are charged directly by your business — we never hold your funds. Stripe's standard processing fee (1.7–2.9% + 30¢) applies." },
+    { q: "How does Stripe Connect work?", a: "You connect your Stripe account (free) to QuoteQuick. Deposits are charged directly by your business — we never hold your funds. Stripe's standard processing fee (1.7–2.9% + 30¢) applies." },
     { q: "Can customers cancel their booking?", a: "Cancellation is handled by you. You can configure a cancellation policy in your dashboard — full refund, partial refund, or no-refund windows — and it's shown to customers before they pay." },
     { q: "What if a slot gets double-booked?", a: "It can't. The moment a booking is confirmed, that slot is locked system-wide. A customer trying to book the same slot will see it as unavailable." },
     { q: "Do I need Stripe already?", a: "No. If you don't have a Stripe account, we'll walk you through creating one during setup. It takes around 5 minutes and requires standard business verification." },

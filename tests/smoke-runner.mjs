@@ -127,7 +127,7 @@ async function main() {
     ["/", "Homepage"],
     ["/products", "Products Index"],
     ["/products/tradeline", "TradeLine"],
-    ["/products/quickquotepro", "QuoteQuick Pro"],
+    ["/products/quickquotepro", "QuoteQuick"],
     ["/products/mapguard", "MapGuard"],
     ["/products/reputationshield", "ReputationShield"],
     ["/products/socialsync", "SocialSync"],

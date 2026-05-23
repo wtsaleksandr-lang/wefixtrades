@@ -321,7 +321,7 @@ function Router() {
       <Route path="/portal/bookflow-setup">{() => <RequireClient><BookFlowSetupPage /></RequireClient>}</Route>
       {/* AJ-5 portal API access */}
       <Route path="/portal/api-access">{() => <RequireClient><PortalApiAccessPage /></RequireClient>}</Route>
-      {/* W-AO-6d — Brand Kits portal page (QuoteQuick Pro $29 upsell) */}
+      {/* W-AO-6d — Brand Kits portal page (QuoteQuick $29 upsell) */}
       <Route path="/portal/brand-kits">{() => <RequireClient><PortalBrandKitsPage /></RequireClient>}</Route>
       <Route path="/portal/help">{() => <RequireClient><PortalHelp /></RequireClient>}</Route>
       <Route path="/portal/chat-history">{() => <RequireClient><PortalChatHistoryPage /></RequireClient>}</Route>

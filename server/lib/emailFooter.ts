@@ -125,7 +125,7 @@ interface FooterOpts {
 /** 3 flagship products surfaced in the footer. Everything else lives at /products. */
 const FLAGSHIP_PRODUCTS: Array<{ name: string; href: string }> = [
   { name: "TradeLine", href: "/products/tradeline" },
-  { name: "QuoteQuick Pro", href: "/products/quickquotepro" },
+  { name: "QuoteQuick", href: "/products/quickquotepro" },
   { name: "MapGuard", href: "/products/mapguard" },
 ];
 

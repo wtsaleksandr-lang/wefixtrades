@@ -156,7 +156,7 @@ export const SERVICES: Service[] = [
     name: SITELAUNCH.name,
     tagline: SITELAUNCH.tagline,
     description:
-      "A fast, mobile-first, SEO-ready website designed to convert visitors into leads. 5–7 pages with mobile optimization, speed optimization, basic SEO, contact forms, and QuoteQuick embed. Includes 14-day free trial of TradeLine Starter + QuoteQuick Pro.",
+      "A fast, mobile-first, SEO-ready website designed to convert visitors into leads. 5–7 pages with mobile optimization, speed optimization, basic SEO, contact forms, and QuoteQuick embed. Includes 14-day free trial of TradeLine Starter + QuoteQuick.",
     price: SITELAUNCH.tiers[0].price,
     priceLabel: `${formatPrice(SITELAUNCH.tiers[0].price)} one-time`,
     billingPeriod: "one-time",

@@ -205,7 +205,7 @@ export default function DocsLayout({ activeSlug, title, description, children }:
             <div style={{ marginBottom: 40 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, fontSize: 12, color: C.muted, fontWeight: 500 }}>
                 <BookOpen size={14} color={C.muted} strokeWidth={1.5} />
-                <span>QuoteQuick Pro Docs</span>
+                <span>QuoteQuick Docs</span>
                 <ChevronRight size={12} color={C.muted} strokeWidth={1.5} />
                 <span style={{ color: C.sage, fontWeight: 600 }}>{title}</span>
               </div>

@@ -46,7 +46,7 @@ const PILLARS: Pillar[] = [
     accent: "#fee09f",
     TabIcon: Calculator,
     ContentIcon: Zap,
-    title: "QuoteQuick Pro™",
+    title: "QuoteQuick™",
     pitch:
       "Customers get an instant price the moment they reach out. The lead lands on your phone automatically — with a follow-up sent if they don't respond.",
   },

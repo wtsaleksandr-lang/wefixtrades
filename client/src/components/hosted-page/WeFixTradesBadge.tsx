@@ -3,9 +3,9 @@
 // Two-variant brand badge shown on both the hosted page and embedded
 // QuoteWidget so we get free advertising in exchange for the free tier.
 //
-// Naming: QuoteQuick is the FREE product (shows the badge);
-// QuoteQuick Pro is the PAID product (hides the badge via
-// appearance.show_powered_by = false). The badge text is therefore
+// Naming: the product is "QuoteQuick" across all tiers (Free/Pro/Business).
+// The Free tier shows the badge; Pro+ tiers hide it via
+// appearance.show_powered_by = false. The badge text is therefore
 // "QuoteQuick by WeFixTrades" — never "Pro".
 //
 // Variants:

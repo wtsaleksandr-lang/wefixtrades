@@ -92,7 +92,7 @@ export default function TermsPage() {
                   services, including but not limited to:
                 </p>
                 <ul style={{ paddingLeft: 20, marginTop: 8 }}>
-                  <li><strong>QuoteQuick Pro</strong> — instant-quote calculator software</li>
+                  <li><strong>QuoteQuick</strong> — instant-quote calculator software</li>
                   <li><strong>24/7 TradeLine</strong> — AI voice and chat assistant for your business</li>
                   <li><strong>MapGuard</strong> — Google Business Profile management</li>
                   <li><strong>ReputationShield</strong> — review request and response automation</li>
@@ -138,7 +138,7 @@ export default function TermsPage() {
 
               <Section title="5. Free trials, money-back guarantee, and refunds">
                 <p>
-                  <strong>QuoteQuick Pro</strong> offers a 14-day free trial with no
+                  <strong>QuoteQuick</strong> offers a 14-day free trial with no
                   credit card required. If you don't upgrade before day 14, your
                   calculator is paused (not deleted); all data is preserved and can be
                   reactivated by purchasing a plan.
@@ -272,7 +272,7 @@ export default function TermsPage() {
               <Section title="11. Intellectual property">
                 <p>
                   The Service, including all software, designs, trademarks, logos, and
-                  product names (including "WeFixTrades", "QuoteQuick Pro", "TradeLine",
+                  product names (including "WeFixTrades", "QuoteQuick", "TradeLine",
                   "MapGuard", "ReputationShield", "RankFlow", "SocialSync",
                   "WebCare", "SiteLaunch", "WebFix"), is owned by MR Holdings &amp; Trade LLC and
                   protected by applicable intellectual property laws. We grant you a

@@ -33,7 +33,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 /* Services defined in the business but not yet in the DB catalog */
 const CORE_SERVICES = [
   { id: "tradeline", name: "24/7 TradeLine™", category: "leads", description: "Chat + Voice + DMs — the full lead engine. Every inbound channel covered." },
-  { id: "quotequick", name: "QuoteQuick Pro™", category: "leads", description: "Instant quote calculator for trades websites. Captures leads with real pricing." },
+  { id: "quotequick", name: "QuoteQuick™", category: "leads", description: "Instant quote calculator for trades websites. Captures leads with real pricing." },
   { id: "mapguard-setup", name: "MapSetup™", category: "visibility", description: "One-time Google Business Profile optimization sprint." },
   { id: "mapguard-ongoing", name: "MapGuard™ Ongoing", category: "visibility", description: "Monthly Google Maps maintenance and growth." },
   { id: "reputationshield", name: "ReputationShield™", category: "reputation", description: "Review generation, response templates, and reputation monitoring." },
