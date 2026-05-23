@@ -1,11 +1,12 @@
 // EditorTopBar — Elfsight-clone editor top bar (Wave H1 → BH-2 → BH-5 →
-// P2 chrome-fixes 2026-05-22).
+// P2 chrome-fixes 2026-05-22 → tabs-back-to-top 2026-05-22).
 //
-// P2 UX (2026-05-22) — Tabs relocated to a NEW BOTTOM navbar
-// (EditorBottomBar.tsx). The top bar no longer renders the tab strip;
-// at narrow widths the top chrome's tools used to crowd the tabs out of
-// view. Splitting into three zones (top / canvas / bottom) gives every
-// surface room to breathe.
+// 2026-05-22 (revert of PR #535) — Tabs RELOCATED back into the top chrome.
+// PR #535 had moved them to a new EditorBottomBar; the "they don't fit"
+// complaint that motivated that move is solved here by tightening the tab
+// pill sizing (10-11px font / 6px vertical padding / 12px horizontal /
+// font-weight 500) and keeping the horizontal-scroll fallback from PR #504.
+// The bottom navbar component (EditorBottomBar.tsx) was deleted.
 //
 // BH-5 — Undo/Redo moved to the right cluster, adjacent to the device
 // preset switcher, and the active-tab pill now uses solid brand blue with
@@ -13,26 +14,28 @@
 //
 // Layout (left→right):
 //
-//   brand · | · spacer · saved · undo · redo · | · device · launcher ·
-//   | · theme · help · fold · close
+//   brand · | · undo · redo · tabs (scrollable) · spacer · saved ·
+//   | · device · launcher · | · theme · help · fold · close
 //
 // Below 1024px the brand drops its wordmark (icon only). Device /
 // undo-redo / save / theme / close stay visible at all widths >= 480px.
 // The phone breakpoint (<= 480px) still hides the device preset switcher
 // (BH-1) since the user editing on a phone IS on a phone — undo/redo
-// collapse with it.
+// collapse with it. Tabs themselves remain horizontal-scrollable on phone
+// (the BH-3 mobile bottom sheet is for property panels, not tabs).
 //
 // Brand styling only — no Elfsight colours. Accent comes from platformTheme.
 // All testids stable: quotequick-close, preview-device-desktop,
 // preview-device-mobile, editor-floating-launcher-toggle, editor-fold-toggle,
-// editor-theme-toggle, editor-undo, editor-redo.
+// editor-theme-toggle, editor-undo, editor-redo, editor-tabs,
+// editor-tab-build, editor-tab-style, editor-tab-settings, editor-tab-install.
 
 import {
   HelpCircle, Minimize2, Monitor, Moon, PanelRightClose, PanelRightOpen,
   Redo2, Smartphone, Sun, Tablet, Undo2, X,
 } from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
-import { type EditorTheme, type PreviewDevice } from './types';
+import { EDITOR_TABS, type EditorTab, type EditorTheme, type PreviewDevice } from './types';
 
 const p = platformTheme;
 
@@ -60,6 +63,9 @@ interface Props {
    *  Click bubble = expand; click outside = collapse back to bubble. */
   floatingLauncherPreview?: boolean;
   onToggleFloatingLauncherPreview?: () => void;
+  /** Revert of PR #535 — wizard tab strip lives in the top chrome again. */
+  activeTab: EditorTab;
+  onTabChange: (tab: EditorTab) => void;
 }
 
 export default function EditorTopBar({
@@ -69,6 +75,7 @@ export default function EditorTopBar({
   canUndo = false, canRedo = false, onUndo, onRedo,
   previewCollapsed = false, onTogglePreview,
   floatingLauncherPreview = false, onToggleFloatingLauncherPreview,
+  activeTab, onTabChange,
 }: Props) {
   const nextTheme: EditorTheme = editorTheme === 'dark' ? 'light' : 'dark';
   const ThemeIcon = editorTheme === 'dark' ? Sun : Moon;
@@ -91,24 +98,9 @@ export default function EditorTopBar({
 
       <span className="qq-editor-divider" aria-hidden="true" />
 
-      {/* P2 UX (2026-05-22) — tabs MOVED OUT of the top chrome and into
-       *  the new EditorBottomBar (rendered as a sticky-bottom strip in
-       *  WizardShell). The top bar previously hosted them inline which
-       *  crowded the device / launcher / save cluster at narrow widths. */}
-
-      <div className="qq-editor-spacer" aria-hidden="true" />
-
-      <span
-        className="qq-editor-saved"
-        data-testid="editor-saved-state"
-        style={{ opacity: justSaved ? 1 : 0 }}
-      >
-        ✓ Saved
-      </span>
-
-      {/* BH-5 — Undo / Redo. Moved here from the left of the chrome so the
-       *  history pair sits adjacent to the device preset switcher on the
-       *  right side. Disabled until the stack has entries. */}
+      {/* BH-5 — Undo / Redo. Sits adjacent to the brand on the left so the
+       *  history pair anchors the tab strip on the right of it. Disabled
+       *  until the stack has entries. */}
       <div className="qq-editor-group" role="group" aria-label="History">
         <button
           type="button"
@@ -133,6 +125,50 @@ export default function EditorTopBar({
           <Redo2 style={{ width: 14, height: 14 }} aria-hidden="true" />
         </button>
       </div>
+
+      {/* Revert of PR #535 — wizard tab strip (Build · Style · Settings ·
+       *  Install) lives in the top chrome again. Tighter sizing (10-11px
+       *  font, 6px vertical / 12px horizontal padding, font-weight 500)
+       *  plus the BH-2 horizontal-scroll fallback keeps the row usable at
+       *  every width. Active pill keeps PR #515's brand-blue bg + white
+       *  text. Stable testids preserved. */}
+      <div
+        className="qq-editor-tabstrip"
+        role="tablist"
+        aria-label="Editor sections"
+        data-testid="editor-tabs"
+      >
+        {EDITOR_TABS.map(({ id, label }) => {
+          const isActive = id === activeTab;
+          return (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={isActive}
+              data-testid={`editor-tab-${id}`}
+              className={`qq-editor-tab${isActive ? ' is-active' : ''}`}
+              onClick={() => onTabChange(id)}
+              style={{
+                color: isActive ? '#ffffff' : p.colors.muted,
+                background: isActive ? p.colors.accent : 'transparent',
+              }}
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="qq-editor-spacer" aria-hidden="true" />
+
+      <span
+        className="qq-editor-saved"
+        data-testid="editor-saved-state"
+        style={{ opacity: justSaved ? 1 : 0 }}
+      >
+        ✓ Saved
+      </span>
 
       <span className="qq-editor-divider" aria-hidden="true" />
 
@@ -165,25 +201,23 @@ export default function EditorTopBar({
         ))}
       </div>
 
-      {/* P1 UX — Floating launcher preview toggle.
+      {/* P1 UX — "Preview as bubble" toggle (renamed 2026-05-22 from the
+       * earlier "Floating" label). Previews the widget the way a visitor
+       * sees it when it's collapsed to a corner bubble on the host site —
+       * NOT the same thing as the in-flight IA-1 "Minimize wizard" button
+       * (which minimises the whole wizard chrome). The rename
+       * disambiguates the two icons so future IA-1 wave doesn't read as a
+       * duplicate.
        *
-       * Discoverability fix (P1, 2026-05-22): previously rendered as a
-       * bare 14px icon button that visually disappeared into the
-       * surrounding tool cluster. Alex reported he couldn't find it.
-       *
-       * Changes:
-       *  - Icon bumped to 16px and paired with a visible "Floating"
-       *    label on widths >= 1024px (desktop wizard chrome).
-       *  - Pill shape (not a circle) so it reads as a distinct toggle
-       *    instead of just another icon button.
-       *  - Tooltip explains WHAT floating launcher mode IS, not just
-       *    a one-word reminder.
+       * Discoverability fix retained from the earlier P1 pass:
+       *  - 16px icon paired with a visible label on widths >= 1024px.
+       *  - Pill shape, not a circle, so it reads as a distinct toggle.
+       *  - Tooltip explains what bubble preview MEANS, not just a
+       *    one-word reminder.
        *  - At-rest accent pulse (CSS) draws the eye on first paint.
-       *  - Always renders (no feature flag gating) so it can't be
-       *    accidentally hidden behind a config flip.
-       *  - On <= 480px the pill collapses to an icon-only chip
-       *    (label hidden via CSS) to avoid crowding the mobile chrome
-       *    while staying visible. */}
+       *  - Always renders so it can't be hidden behind a config flip.
+       *  - On <= 480px the pill collapses to icon-only (label hidden via
+       *    CSS) so the mobile chrome doesn't crowd. */}
       {onToggleFloatingLauncherPreview && (
         <button
           type="button"
@@ -193,12 +227,12 @@ export default function EditorTopBar({
           data-active={floatingLauncherPreview ? 'true' : 'false'}
           aria-pressed={floatingLauncherPreview}
           aria-label={floatingLauncherPreview
-            ? 'Exit floating launcher preview'
-            : 'Preview as floating launcher'}
-          title="Preview as floating launcher — see how visitors will see your calculator when minimized to a corner bubble"
+            ? 'Exit bubble preview'
+            : 'Preview as bubble'}
+          title="Preview the widget as a floating bubble on a customer's website"
         >
           <Minimize2 style={{ width: 16, height: 16 }} aria-hidden="true" />
-          <span className="qq-editor-launcher-toggle-label">Floating</span>
+          <span className="qq-editor-launcher-toggle-label">Preview as bubble</span>
         </button>
       )}
 
