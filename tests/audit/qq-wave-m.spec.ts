@@ -45,7 +45,10 @@ async function openWizard(page: Page) {
 
 async function openBrowseModal(page: Page) {
   await openWizard(page);
-  await page.getByTestId('template-browse-all').click();
+  // BD-2a-sticky — sticky-shell can intercept clicks on browse-all.
+  const browseAll = page.getByTestId('template-browse-all');
+  await browseAll.scrollIntoViewIfNeeded();
+  await browseAll.click({ force: true });
   await expect(page.getByTestId('template-browse-modal')).toBeVisible({ timeout: 1500 });
 }
 

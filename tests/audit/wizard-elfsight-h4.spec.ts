@@ -21,6 +21,28 @@
  */
 import { test, expect, type Page } from '@playwright/test';
 
+/**
+ * BD-3d migrated several header/results fields from plain `<input>` to
+ * RichTextField (contenteditable). The test-id stays on the field root
+ * (a button when collapsed); the editable surface is at
+ * `[data-testid="${root}-editor"]`. Helper opens the editor and writes
+ * the given plain text via the contenteditable host so the parent's
+ * `onChange(sanitizedHtml)` fires.
+ */
+async function fillRichText(page: Page, rootTestId: string, text: string) {
+  const root = page.getByTestId(rootTestId);
+  await root.click();
+  const editor = page.getByTestId(`${rootTestId}-editor`);
+  await editor.waitFor({ state: 'visible', timeout: 2000 });
+  await editor.evaluate((el, value) => {
+    (el as HTMLElement).innerHTML = '';
+    (el as HTMLElement).textContent = value;
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  }, text);
+  // Blur commits the value (RichTextField's onBlur → commit → onChange).
+  await editor.evaluate((el) => (el as HTMLElement).blur());
+}
+
 async function clearShellState(page: Page) {
   await page.addInitScript(() => {
     try {
@@ -78,7 +100,8 @@ test.describe('wizard H4 — Build > Header & Results + display controls', () =>
     await expect(page.getByTestId('advanced-calculator')).toBeVisible({ timeout: 4000 });
 
     const distinctTitle = `QA_Title_${Date.now()}`;
-    await page.getByTestId('input-header-title').fill(distinctTitle);
+    // BD-3d — input-header-title is now a RichTextField, not a plain <input>.
+    await fillRichText(page, 'input-header-title', distinctTitle);
 
     await expect(page.getByTestId('advanced-title')).toHaveText(distinctTitle, { timeout: 1500 });
   });
@@ -91,13 +114,14 @@ test.describe('wizard H4 — Build > Header & Results + display controls', () =>
     await expect(page.getByTestId('advanced-subtitle')).toHaveCount(0);
 
     const distinctSub = `QA_Sub_${Date.now()}`;
-    await page.getByTestId('input-header-subtitle').fill(distinctSub);
+    // BD-3d — input-header-subtitle is now a RichTextField.
+    await fillRichText(page, 'input-header-subtitle', distinctSub);
 
     const sub = page.getByTestId('advanced-subtitle');
     await expect(sub).toHaveText(distinctSub, { timeout: 1500 });
 
-    // Clearing the input removes the subtitle paragraph.
-    await page.getByTestId('input-header-subtitle').fill('');
+    // Clearing the editor removes the subtitle paragraph.
+    await fillRichText(page, 'input-header-subtitle', '');
     await expect(page.getByTestId('advanced-subtitle')).toHaveCount(0, { timeout: 1500 });
   });
 
@@ -108,7 +132,8 @@ test.describe('wizard H4 — Build > Header & Results + display controls', () =>
     await expect(page.getByTestId('advanced-result-heading')).toBeVisible({ timeout: 2000 });
 
     const distinctHeading = `QA_Heading_${Date.now()}`;
-    await page.getByTestId('input-results-heading').fill(distinctHeading);
+    // BD-3d — input-results-heading is now a RichTextField.
+    await fillRichText(page, 'input-results-heading', distinctHeading);
 
     // The heading is uppercased via CSS but `text` reflects the raw input.
     await expect(page.getByTestId('advanced-result-heading')).toHaveText(distinctHeading, {

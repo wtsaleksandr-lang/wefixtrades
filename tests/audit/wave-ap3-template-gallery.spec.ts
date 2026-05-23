@@ -47,7 +47,10 @@ async function openWizardAndBrowseAll(page: Page) {
   await page.goto('/wizard', { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(1400);
   await expect(page.getByTestId('quotequick-editor-shell')).toBeVisible();
-  await page.getByTestId('template-browse-all').click();
+  // BD-2a-sticky — sticky-shell can intercept clicks on browse-all.
+  const browseAll = page.getByTestId('template-browse-all');
+  await browseAll.scrollIntoViewIfNeeded();
+  await browseAll.click({ force: true });
   const modal = page.getByTestId('template-browse-modal');
   await expect(modal).toBeVisible({ timeout: 3000 });
   // Let layout + entrance animations settle.

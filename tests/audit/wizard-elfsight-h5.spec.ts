@@ -147,9 +147,11 @@ test.describe('wizard H5 — Style tab', () => {
     const calc = page.getByTestId('advanced-calculator');
     await expect(calc).toBeVisible({ timeout: 3000 });
 
-    // Drive the font select to Manrope. The dropdown value is the curated
-    // enum key (`manrope`); the renderer maps it to a `"Manrope", ...` stack.
-    await page.getByTestId('style-select-font').selectOption('manrope');
+    // Drive the font select to Manrope. CONFIG-NATIVE-SELECT-1 migrated the
+    // native <select> to a StyledSelect popup (PR #562): trigger opens a
+    // custom listbox; option buttons carry `${testId}-option-${value}` ids.
+    await page.getByTestId('style-select-font').click();
+    await page.getByTestId('style-select-font-option-manrope').click();
 
     // The calculator root's computed font-family must include Manrope.
     // Manrope is loaded via the index.html Google Fonts link — without

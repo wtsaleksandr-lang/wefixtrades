@@ -24,6 +24,24 @@
 import { test, expect, type Page } from '@playwright/test';
 import { calculatorSettingsSchema } from '../../shared/schemas/calculator';
 
+/**
+ * BD-3d migrated `settings-input-cta-label` from plain `<input>` to
+ * RichTextField (contenteditable). Test-id stays on the field root; the
+ * editable surface is at `[data-testid="${root}-editor"]`.
+ */
+async function fillRichText(page: Page, rootTestId: string, text: string) {
+  const root = page.getByTestId(rootTestId);
+  await root.click();
+  const editor = page.getByTestId(`${rootTestId}-editor`);
+  await editor.waitFor({ state: 'visible', timeout: 2000 });
+  await editor.evaluate((el, value) => {
+    (el as HTMLElement).innerHTML = '';
+    (el as HTMLElement).textContent = value;
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  }, text);
+  await editor.evaluate((el) => (el as HTMLElement).blur());
+}
+
 async function clearShellState(page: Page) {
   await page.addInitScript(() => {
     try {
@@ -176,7 +194,8 @@ test.describe('wizard H6 — Settings tab', () => {
     await expect(cta).toContainText('Get My Quote');
 
     const distinct = `QA_CTA_${Date.now()}`;
-    await page.getByTestId('settings-input-cta-label').fill(distinct);
+    // BD-3d — settings-input-cta-label is now a RichTextField.
+    await fillRichText(page, 'settings-input-cta-label', distinct);
 
     await expect(cta).toContainText(distinct, { timeout: 1500 });
   });
@@ -218,7 +237,8 @@ test.describe('wizard H6 — Settings tab', () => {
     await page.getByTestId('settings-segmented-pricing-fixed').click();
     await page.getByTestId('settings-input-pricing-value').fill('350');
     await page.getByTestId('settings-input-currency').fill('EUR');
-    await page.getByTestId('settings-input-cta-label').fill('Book Now');
+    // BD-3d — settings-input-cta-label is now a RichTextField.
+    await fillRichText(page, 'settings-input-cta-label', 'Book Now');
 
     // Business name is required for the Save-draft button to enable.
     await page.getByTestId('editor-tab-build').click();
@@ -292,7 +312,8 @@ test.describe('wizard H6 — Settings tab', () => {
     await page.getByTestId('settings-select-thousands').selectOption('space');
     await page.getByTestId('settings-select-decimal').selectOption('comma');
     await page.getByTestId('settings-input-currency').fill('EUR');
-    await page.getByTestId('settings-input-cta-label').fill('Reserver');
+    // BD-3d — settings-input-cta-label is now a RichTextField.
+    await fillRichText(page, 'settings-input-cta-label', 'Reserver');
 
     await page.getByTestId('editor-tab-build').click();
     await page.getByTestId('input-business-name').fill('QA H6 Roundtrip');

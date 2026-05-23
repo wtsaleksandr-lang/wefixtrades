@@ -76,7 +76,10 @@ test.describe('Wave R-pre v2 — desktop 1440', () => {
 
   test('Browse-all modal — close button, card title alignment, dropdown', async ({ page }) => {
     await openWizard(page);
-    await page.getByTestId('template-browse-all').click();
+    // BD-2a-sticky — sticky-shell can intercept clicks on browse-all.
+    const browseAll = page.getByTestId('template-browse-all');
+    await browseAll.scrollIntoViewIfNeeded();
+    await browseAll.click({ force: true });
     await expect(page.getByTestId('template-browse-modal')).toBeVisible({ timeout: 2000 });
     await page.waitForTimeout(500);
     await shoot(page, 'v2-browse-all-desktop');
@@ -147,7 +150,10 @@ test.describe('Wave R-pre v2 — mobile 390x844', () => {
 
   test('Browse-all modal mobile', async ({ page }) => {
     await openWizard(page);
-    await page.getByTestId('template-browse-all').click();
+    // BD-2a-sticky — sticky-shell can intercept clicks on browse-all.
+    const browseAll = page.getByTestId('template-browse-all');
+    await browseAll.scrollIntoViewIfNeeded();
+    await browseAll.click({ force: true });
     await expect(page.getByTestId('template-browse-modal')).toBeVisible({ timeout: 2000 });
     await page.waitForTimeout(500);
     await shoot(page, 'v2-browse-all-mobile');
