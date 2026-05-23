@@ -46,7 +46,7 @@ import {
 } from "lucide-react";
 import AdminCopilot, { type AdminPageContext } from "./AdminCopilot";
 import { useAuth } from "@/hooks/useAuth";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -206,6 +206,15 @@ function isActive(location: string, href: string): boolean {
   return location.startsWith(href);
 }
 
+/* Subtle theme-aware hairline divider between top-level nav rows.
+ * Light: rgba(15,23,42,0.06); dark consumers can override via the
+ * --qq-nav-divider CSS variable on a parent. Applied only to rows
+ * that are NOT the last in their section so section breaks read as
+ * group boundaries, not just another divider. */
+const NAV_ROW_DIVIDER_STYLE: React.CSSProperties = {
+  borderBottom: "1px solid var(--qq-nav-divider, rgba(15, 23, 42, 0.06))",
+};
+
 /* ─── Parent-with-children row ───
  * Renders a parent product link that can be expanded to reveal indented
  * child sub-page rows. Expansion state persists per-parent in
@@ -224,12 +233,15 @@ function NavParentItem({
   onNavigate,
   expandedMap,
   setExpandedMap,
+  showDivider,
 }: {
   item: NavItem;
   location: string;
   onNavigate: () => void;
   expandedMap: Record<string, boolean>;
   setExpandedMap: (next: Record<string, boolean>) => void;
+  /** Render a subtle bottom hairline. False on the last row of a section. */
+  showDivider?: boolean;
 }) {
   const directActive = isActive(location, item.href);
   const hasActiveChild =
@@ -257,7 +269,7 @@ function NavParentItem({
   );
 
   return (
-    <div>
+    <div style={showDivider ? NAV_ROW_DIVIDER_STYLE : undefined}>
       <div className="flex items-center gap-0.5">
         <Link href={item.href} onClick={onNavigate} className={parentClass}>
           <item.icon
@@ -411,7 +423,8 @@ function NavGroup({
       </div>
       {open && (
         <div className="space-y-0.5">
-          {items.map((item) => {
+          {items.map((item, idx) => {
+            const isLastInSection = idx === items.length - 1;
             // Parent-with-children rows use the dedicated component so
             // the nested sub-pages render indented + persisted.
             if (item.children && item.children.length > 0 && expandedMap && setExpandedMap) {
@@ -423,6 +436,7 @@ function NavGroup({
                   onNavigate={onNavigate}
                   expandedMap={expandedMap}
                   setExpandedMap={setExpandedMap}
+                  showDivider={!isLastInSection}
                 />
               );
             }
@@ -434,6 +448,7 @@ function NavGroup({
                 key={item.href}
                 href={item.href}
                 onClick={onNavigate}
+                style={!isLastInSection ? NAV_ROW_DIVIDER_STYLE : undefined}
                 className={cn(
                   "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors min-h-[40px]",
                   active
@@ -473,19 +488,44 @@ function SidebarNav({
   // layout survives page reloads. Default: hydrate from storage.
   const [expandedMap, setExpandedMap] = useState<Record<string, boolean>>(() => readExpanded());
 
+  /* Persist + restore the sidebar's scroll position across route
+   * changes. Each admin page mounts its own <AdminLayout>, so the
+   * <nav> here re-mounts on every navigation and naturally scrolls
+   * back to top. We stash scrollTop in sessionStorage on every scroll
+   * and restore it synchronously in useLayoutEffect on mount, so the
+   * user never sees a flash to zero. */
+  const navRef = useRef<HTMLElement>(null);
+  useLayoutEffect(() => {
+    const saved = sessionStorage.getItem("admin-nav-scroll-top");
+    if (saved && navRef.current) {
+      navRef.current.scrollTop = Number(saved) || 0;
+    }
+  }, []);
+  useEffect(() => {
+    const el = navRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      sessionStorage.setItem("admin-nav-scroll-top", String(el.scrollTop));
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, []);
+
   return (
-    <nav className="flex-1 overflow-y-auto py-3 px-2">
+    <nav ref={navRef} className="flex-1 overflow-y-auto py-3 px-2">
       {/* Core — always expanded */}
       <div className="space-y-0.5">
-        {CORE_ITEMS.map((item) => {
+        {CORE_ITEMS.map((item, idx) => {
           const active = isActive(location, item.href);
           const countKey = (item as any).countKey;
           const badgeCount = countKey === "support" ? supportUnresolved : countKey === "alerts" ? alertCount : 0;
+          const isLastInSection = idx === CORE_ITEMS.length - 1;
           return (
             <Link
               key={item.href}
               href={item.href}
               onClick={onNavigate}
+              style={!isLastInSection ? NAV_ROW_DIVIDER_STYLE : undefined}
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors min-h-[44px]",
                 active
@@ -514,9 +554,11 @@ function SidebarNav({
       {/* Other */}
       <div className="mt-4 pt-2 border-t border-gray-100">
         <div className="space-y-0.5">
-          {SECONDARY_ITEMS.map((item) => {
+          {SECONDARY_ITEMS.map((item, idx) => {
             const active = isActive(location, item.href);
             const isPreview = (item as any).isViewAsCustomer;
+            const isLastInSection = idx === SECONDARY_ITEMS.length - 1;
+            const rowStyle = !isLastInSection ? NAV_ROW_DIVIDER_STYLE : undefined;
             const className = cn(
               "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors min-h-[40px]",
               active
@@ -540,6 +582,7 @@ function SidebarNav({
                     }).catch(() => { /* fire-and-forget */ });
                     onNavigate();
                   }}
+                  style={rowStyle}
                   className={className}
                   data-testid="view-as-customer"
                 >
@@ -553,6 +596,7 @@ function SidebarNav({
                 key={item.href}
                 href={item.href}
                 onClick={onNavigate}
+                style={rowStyle}
                 className={className}
               >
                 <item.icon className={cn("w-4 h-4 shrink-0", active ? "text-[#0d3cfc]" : "text-gray-400")} />
