@@ -120,8 +120,9 @@ const cardStyle: React.CSSProperties = {
 const inputCls = 'premium-input';
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
+  // Legacy wizard is light-theme locked — see CONTRAST-2.
   return (
-    <span style={{
+    <span data-theme="light" style={{
       fontSize: 11, fontWeight: 700, color: p.colors.subtle,
       letterSpacing: '0.08em', textTransform: 'uppercase',
     }}>{children}</span>

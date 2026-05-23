@@ -96,8 +96,9 @@ const STATUS_ICON: Record<string, typeof CheckCircle2> = {
 
 /* ─── Expanded row ─── */
 function ExpandedRow({ log }: { log: JobLog }) {
+  // SystemJobsPage is light-theme locked (admin UI) — see CONTRAST-2.
   return (
-    <tr>
+    <tr data-theme="light">
       <td colSpan={6} className="px-4 py-3 bg-gray-50 border-b">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
           {log.error_message && (

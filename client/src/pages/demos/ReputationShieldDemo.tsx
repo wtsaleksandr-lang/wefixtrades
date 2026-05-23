@@ -6,8 +6,11 @@ import { mkt } from "@/theme/tokens";
 
 /* ─── Phone mockup ─── */
 function PhoneMockup({ children, label }: { children: React.ReactNode; label: string }) {
+  // CONTRAST-2 — phone bezel is dark-theme; page above renders inside a
+  // light marketing layout. Mark this subtree so the lint exempts the
+  // hardcoded #000 / #fff literals throughout the file.
   return (
-    <div style={{ textAlign: "center" }}>
+    <div data-theme="dark" style={{ textAlign: "center" }}>
       <div
         style={{
           width: 280,

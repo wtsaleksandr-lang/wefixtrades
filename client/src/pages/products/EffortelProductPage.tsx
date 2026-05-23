@@ -143,7 +143,8 @@ export default function EffortelProductPage({ slug }: { slug: string }) {
 
   return (
     <MarketingLayout hideSiteChat={isTradeLine}>
-      <div style={{ background: mkt.bg, color: mkt.onDark, fontFamily: SANS }}>
+      {/* CONTRAST-2 — EffortelProductPage is a marketing dark-hero page. */}
+      <div data-theme="dark" style={{ background: mkt.bg, color: mkt.onDark, fontFamily: SANS }}>
 
         {isComingSoon && <ComingSoonBanner />}
         <Hero cfg={effectiveCfg} hook={hook} slug={slug} />

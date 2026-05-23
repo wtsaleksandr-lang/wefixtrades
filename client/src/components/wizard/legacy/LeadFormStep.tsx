@@ -138,8 +138,9 @@ function newCustomField(): CustomField {
 
 /** Compact pill toggle used by custom-field rows. */
 function MiniToggle({ on, onClick, testId }: { on: boolean; onClick: () => void; testId?: string }) {
+  // Legacy wizard is light-theme locked — see CONTRAST-2.
   return (
-    <button data-testid={testId} onClick={onClick} type="button" style={{
+    <button data-theme="light" data-testid={testId} onClick={onClick} type="button" style={{
       width: '36px', height: '20px', borderRadius: '10px', border: 'none',
       background: on ? p.colors.accent : '#D1D5DB',
       cursor: 'pointer', position: 'relative', flexShrink: 0,

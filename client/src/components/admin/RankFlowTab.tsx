@@ -253,7 +253,8 @@ export default function RankFlowTab({ clientId }: { clientId: number }) {
   // No profile state
   if (!profile) {
     return (
-      <div className="space-y-4">
+      // Admin RankFlowTab is light-theme locked — see CONTRAST-2.
+      <div data-theme="light" className="space-y-4">
         <Card className="p-6 text-center">
           <p className="text-sm text-gray-500 mb-3">No RankFlow profile for this client yet.</p>
           <Button
@@ -273,7 +274,8 @@ export default function RankFlowTab({ clientId }: { clientId: number }) {
   }
 
   return (
-    <div className="space-y-4">
+    // Admin RankFlowTab is light-theme locked — see CONTRAST-2.
+    <div data-theme="light" className="space-y-4">
 
       {/* ─── Guidance Banner ─── */}
       <div className={`px-4 py-2.5 rounded-lg border text-sm font-medium ${BANNER_STYLES[guidance.variant]}`}>

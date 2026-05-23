@@ -1,6 +1,16 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { MessageCircle, X, Send, Loader2, GripHorizontal, Trash2 } from 'lucide-react';
 
+/**
+ * CONTRAST-2 — AIChatBubble is light-theme locked.
+ *
+ * The chat panel renders over a white surface with a brand-accent header,
+ * so `#fff` and `#000` inside the style objects below are intentional for
+ * that single theme. The pill-mode and panel-mode root JSX elements both
+ * carry data-theme="light", which scopes the hardcoded-color lint
+ * exemption to this whole module.
+ */
+
 interface Message {
   role: 'user' | 'assistant';
   content: string;
@@ -683,6 +693,7 @@ export default function AIChatBubble({
         <button
           type="button"
           onClick={handlePillClick}
+          data-theme="light"
           data-testid="button-chat-help-pill"
           aria-label="Open AI assistant"
           style={{
@@ -737,7 +748,7 @@ export default function AIChatBubble({
   return (
     <>
       {isOpen && (
-        <div ref={panelRef} style={panelStyle} data-testid="ai-chat-panel">
+        <div ref={panelRef} data-theme="light" style={panelStyle} data-testid="ai-chat-panel">
           <div
             style={{
               background: accentColor,
