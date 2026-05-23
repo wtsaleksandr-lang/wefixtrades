@@ -74,7 +74,7 @@ export default function Calculator() {
 
   if (isLoading) {
     return (
-      <div className={isEmbed ? 'flex items-center justify-center py-16' : 'min-h-screen flex items-center justify-center bg-slate-50'}>
+      <div data-theme="light" className={isEmbed ? 'flex items-center justify-center py-16' : 'min-h-screen flex items-center justify-center bg-slate-50'}>
         <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
       </div>
     );

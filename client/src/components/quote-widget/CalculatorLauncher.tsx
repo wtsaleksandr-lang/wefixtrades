@@ -313,7 +313,7 @@ export default function CalculatorLauncher({
   const panelPos: Record<string, string | number> = {
     position: 'fixed',
     zIndex: 9991,
-    background: '#fff',
+    background: 'var(--popover-bg-light)',
     borderRadius: isMobile ? 0 : 16,
     boxShadow: '0 24px 64px rgba(0,0,0,0.18)',
     overflow: 'hidden',
@@ -378,6 +378,7 @@ export default function CalculatorLauncher({
       data-position={position}
       data-collides={collides ? 'true' : 'false'}
       data-phase={phase}
+      data-theme="light"
       aria-label={label}
       aria-expanded={open}
       aria-haspopup="dialog"

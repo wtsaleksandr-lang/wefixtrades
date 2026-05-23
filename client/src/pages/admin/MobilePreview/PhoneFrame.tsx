@@ -27,6 +27,7 @@ export function PhoneFrame({ variant, children }: FrameProps) {
 function IPhoneFrame({ children }: { children: ReactNode }) {
   return (
     <div
+      data-theme="dark"
       className="relative bg-gray-900 rounded-[44px] shadow-2xl p-3"
       style={{ width: IPHONE_WIDTH, height: IPHONE_HEIGHT }}
     >

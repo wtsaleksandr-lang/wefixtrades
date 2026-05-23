@@ -83,6 +83,7 @@ export default function WeFixTradesBadge({
         style={style}
         data-testid="wefixtrades-badge-header"
         data-context={context}
+        data-theme="light"
         aria-label="QuoteQuick by WeFixTrades"
         onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.opacity = '1'; }}
         onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.opacity = '0.78'; }}

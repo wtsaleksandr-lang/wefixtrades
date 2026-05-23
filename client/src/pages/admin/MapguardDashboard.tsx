@@ -102,7 +102,7 @@ function DeltaBadge({ value, suffix, invert }: { value: number | null; suffix?: 
   const positive = invert ? value < 0 : value > 0;
   const Icon = positive ? TrendingUp : TrendingDown;
   return (
-    <span className={`inline-flex items-center gap-0.5 text-[11px] font-medium ${positive ? "text-emerald-600" : "text-red-600"}`}>
+    <span data-theme="light" className={`inline-flex items-center gap-0.5 text-[11px] font-medium ${positive ? "text-emerald-600" : "text-red-600"}`}>
       <Icon className="w-3 h-3" />
       {value > 0 ? "+" : ""}{value}{suffix || ""}
     </span>

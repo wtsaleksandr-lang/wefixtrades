@@ -40,6 +40,7 @@ function TogglePill({
   return (
     <div
       data-testid={`toggle-${left.value}-${right.value}`}
+      data-theme="dark"
       style={{
         display: "inline-flex",
         borderRadius: 999,

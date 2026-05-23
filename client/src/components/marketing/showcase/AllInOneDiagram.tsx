@@ -14,7 +14,7 @@ import {
 
 export default function AllInOneDiagram() {
   return (
-    <div className="aio-wrap">
+    <div data-theme="dark" className="aio-wrap">
       <style>{CSS}</style>
       <div className="aio-stage">
         <div className="aio-eyebrow">All-in-one</div>

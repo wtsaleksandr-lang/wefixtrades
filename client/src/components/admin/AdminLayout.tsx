@@ -181,7 +181,7 @@ function NavGroup({
   }, [hasActiveChild, headerActive]);
 
   return (
-    <div className="mt-3">
+    <div data-theme="light" className="mt-3">
       <div className="w-full flex items-center mb-0.5 group">
         {headerHref ? (
           /* Q27 (final): title is a real button that programmatically

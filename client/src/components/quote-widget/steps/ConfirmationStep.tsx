@@ -22,7 +22,7 @@ export default function ConfirmationStep({ step, accentColor }: ConfirmationStep
   const bookingData = state.booking.data;
 
   return (
-    <div style={{ textAlign: 'center', padding: '8px 0' }}>
+    <div data-theme="light" style={{ textAlign: 'center', padding: '8px 0' }}>
       <div style={{
         width: '48px',
         height: '48px',

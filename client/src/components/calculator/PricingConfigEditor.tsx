@@ -48,7 +48,7 @@ function MoneyField({ label, hint, value, onChange, testId, step }: {
   onChange: (v: number) => void; testId: string; step?: string;
 }) {
   return (
-    <div>
+    <div data-theme="light">
       <Label className="text-xs font-semibold text-slate-500">{label}</Label>
       {hint && <p className="text-xs text-slate-400 mt-0.5 mb-1">{hint}</p>}
       <div className="relative w-40 mt-1">

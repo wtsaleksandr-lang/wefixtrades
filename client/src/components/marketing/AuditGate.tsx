@@ -109,6 +109,7 @@ export default function AuditGate({
   if (submitted) {
     return (
       <div
+        data-theme="light"
         style={{
           background: WHITE,
           borderRadius: 16,

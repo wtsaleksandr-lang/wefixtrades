@@ -18,6 +18,7 @@ export default function GoogleSignInButton({ mode }: GoogleSignInButtonProps) {
     <a
       href={`/api/auth/google/start?mode=${mode}`}
       data-testid="button-google-signin"
+      data-theme="light"
       style={{
         display: "flex",
         alignItems: "center",

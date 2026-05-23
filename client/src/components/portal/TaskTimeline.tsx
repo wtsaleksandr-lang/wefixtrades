@@ -94,7 +94,7 @@ interface TaskTimelineProps {
 export default function TaskTimeline({ tasks, onTaskAction }: TaskTimelineProps) {
   if (!tasks || tasks.length === 0) {
     return (
-      <div className="bg-white rounded-xl border border-gray-200 p-6 text-center">
+      <div data-theme="light" className="bg-white rounded-xl border border-gray-200 p-6 text-center">
         <p className="text-sm text-gray-400">
           We're setting things up. Your progress tracker will appear shortly.
         </p>

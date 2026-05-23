@@ -222,7 +222,7 @@ export default function MapguardOpsTab({ clientId }: { clientId: number }) {
   const opState = summary ? getOperationalState(summary) : null;
 
   return (
-    <div className="space-y-3">
+    <div data-theme="light" className="space-y-3">
       {/* ─── Operational Summary ─── */}
       {summary && summary.total > 0 && (
         <Card className="p-4">

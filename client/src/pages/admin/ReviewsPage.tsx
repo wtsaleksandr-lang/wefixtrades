@@ -62,7 +62,7 @@ type DraftTone = "auto" | "positive" | "negative" | "neutral";
 
 function RatingStars({ rating }: { rating: number }) {
   return (
-    <div className="flex items-center gap-0.5">
+    <div data-theme="light" className="flex items-center gap-0.5">
       {[1, 2, 3, 4, 5].map((s) => (
         <Star
           key={s}

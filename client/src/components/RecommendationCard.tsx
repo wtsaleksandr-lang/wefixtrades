@@ -21,6 +21,7 @@ export function RecommendationCard({ service, onAddToPackage }: RecommendationCa
 
   return (
     <div
+      data-theme="light"
       style={{
         border: "1px solid #E5E7EB",
         borderRadius: 12,

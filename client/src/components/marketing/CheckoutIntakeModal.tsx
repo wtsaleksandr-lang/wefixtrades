@@ -140,6 +140,7 @@ export default function CheckoutIntakeModal({
       role="dialog"
       aria-modal="true"
       aria-label="Start checkout"
+      data-theme="light"
       onClick={onClose}
       style={{
         position: "fixed",

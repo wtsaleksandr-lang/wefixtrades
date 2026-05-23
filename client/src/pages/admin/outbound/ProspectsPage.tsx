@@ -79,7 +79,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 function StatusBadge({ status }: { status: string }) {
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium ${STATUS_COLORS[status] ?? "bg-gray-100 text-gray-600"}`}>
+    <span data-theme="light" className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium ${STATUS_COLORS[status] ?? "bg-gray-100 text-gray-600"}`}>
       {status.replace("_", " ")}
     </span>
   );

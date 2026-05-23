@@ -71,7 +71,7 @@ export default function WaitlistPage() {
 
   return (
     <AdminLayout>
-      <div className="max-w-4xl mx-auto p-4 sm:p-6">
+      <div data-theme="light" className="max-w-4xl mx-auto p-4 sm:p-6">
         <BackButton to="/admin/crm" label="Back to admin" className="mb-3" />
         <div className="mb-5">
           <h1 className="text-xl font-semibold text-gray-900">Product Waitlist</h1>

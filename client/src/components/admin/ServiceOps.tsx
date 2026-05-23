@@ -43,7 +43,7 @@ export function ServiceOpsCard({
   const Icon = cfg.icon;
 
   return (
-    <div className={`flex gap-3 p-3 rounded-lg border ${status === "blocked" ? "border-red-200 bg-red-50/30" : "border-gray-100 bg-white"}`}>
+    <div data-theme="light" className={`flex gap-3 p-3 rounded-lg border ${status === "blocked" ? "border-red-200 bg-red-50/30" : "border-gray-100 bg-white"}`}>
       <div className={`w-7 h-7 rounded-full ${cfg.bgColor} flex items-center justify-center shrink-0 mt-0.5`}>
         <Icon className={`w-3.5 h-3.5 ${cfg.color} ${status === "active" ? "animate-spin" : ""}`} />
       </div>

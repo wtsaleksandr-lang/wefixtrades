@@ -7,8 +7,8 @@ client/src/components/AuditChatWidget.tsx:191:18	rule-c	size={18}
 client/src/components/AuditChatWidget.tsx:219:21	rule-c	size={18}
 client/src/components/CheckoutModal.tsx:184:16	rule-c	size={18}
 client/src/components/CheckoutModal.tsx:205:26	rule-c	size={13}
-client/src/components/RecommendationCard.tsx:69:35	rule-c	size={11}
-client/src/components/RecommendationCard.tsx:90:17	rule-c	size={11}
+client/src/components/RecommendationCard.tsx:70:35	rule-c	size={11}
+client/src/components/RecommendationCard.tsx:91:17	rule-c	size={11}
 client/src/components/SiteChatWidget.tsx:270:18	rule-c	size={18}
 client/src/components/admin/AdminCopilot.tsx:1313:13	rule-c	square w-9 h-9
 client/src/components/admin/AdminLayout.tsx:901:25	rule-c	square w-7 h-7
@@ -29,15 +29,15 @@ client/src/components/dashboard/UpgradeGate.tsx:147:33	rule-c	size={9}
 client/src/components/dashboard/UpgradeGate.tsx:148:36	rule-c	size={9}
 client/src/components/dashboard/UpgradeGate.tsx:149:38	rule-c	size={9}
 client/src/components/home/TrustStrip.tsx:88:19	rule-c	square w-1.5 h-1.5
-client/src/components/marketing/AuditGate.tsx:133:25	rule-c	size={28}
+client/src/components/marketing/AuditGate.tsx:134:25	rule-c	size={28}
 client/src/components/marketing/CapabilitiesShowcase.tsx:159:26	rule-c	size={18}
 client/src/components/marketing/CapabilitiesShowcase.tsx:480:29	rule-c	size={17}
 client/src/components/marketing/CapabilitiesShowcase.tsx:596:29	rule-c	size={17}
-client/src/components/marketing/CheckoutIntakeModal.tsx:189:14	rule-c	size={18}
-client/src/components/marketing/DocsLayout.tsx:139:18	rule-c	size={15}
-client/src/components/marketing/DocsLayout.tsx:195:28	rule-c	size={13}
-client/src/components/marketing/DocsLayout.tsx:206:27	rule-c	size={13}
-client/src/components/marketing/DocsLayout.tsx:268:19	rule-c	size={15}
+client/src/components/marketing/CheckoutIntakeModal.tsx:190:14	rule-c	size={18}
+client/src/components/marketing/DocsLayout.tsx:140:18	rule-c	size={15}
+client/src/components/marketing/DocsLayout.tsx:196:28	rule-c	size={13}
+client/src/components/marketing/DocsLayout.tsx:207:27	rule-c	size={13}
+client/src/components/marketing/DocsLayout.tsx:269:19	rule-c	size={15}
 client/src/components/marketing/FeatureCards.tsx:110:13	rule-c	<svg width={52} height={52}>
 client/src/components/marketing/HeroProductPreview.tsx:212:23	rule-c	size={15}
 client/src/components/marketing/TradeLineDemoLauncher.tsx:78:30	rule-c	size={13}
@@ -86,13 +86,13 @@ client/src/components/portal/TaskTimeline.tsx:26:14	rule-c	square w-7 h-7
 client/src/components/portal/TaskTimeline.tsx:33:14	rule-c	square w-7 h-7
 client/src/components/portal/TaskTimeline.tsx:39:14	rule-c	square w-7 h-7
 client/src/components/portal/TaskTimeline.tsx:155:38	rule-c	square w-2.5 h-2.5
-client/src/components/portal/UpsellCard.tsx:51:12	rule-c	square w-9 h-9
+client/src/components/portal/UpsellCard.tsx:52:12	rule-c	square w-9 h-9
 client/src/components/product-demos/AdFlowDemo.tsx:53:31	rule-c	size={11}
-client/src/components/product-demos/MapGuardDemo.tsx:78:33	rule-c	size={11}
-client/src/components/product-demos/MapGuardDemo.tsx:78:79	rule-c	size={11}
+client/src/components/product-demos/MapGuardDemo.tsx:79:33	rule-c	size={11}
+client/src/components/product-demos/MapGuardDemo.tsx:79:79	rule-c	size={11}
 client/src/components/product-demos/ReputationShieldDemo.tsx:62:59	rule-c	size={10}
-client/src/components/product-demos/TradeLineChatDemo.tsx:144:24	rule-c	size={11}
-client/src/components/product-demos/TradeLineChatDemo.tsx:144:71	rule-c	size={11}
+client/src/components/product-demos/TradeLineChatDemo.tsx:145:24	rule-c	size={11}
+client/src/components/product-demos/TradeLineChatDemo.tsx:145:71	rule-c	size={11}
 client/src/components/quote-widget/TrustBlockUnderCTA.tsx:94:17	rule-c	size={13}
 client/src/components/quote-widget/TrustBlockUnderCTA.tsx:95:15	rule-c	size={13}
 client/src/components/quote-widget/TrustBlockUnderCTA.tsx:96:25	rule-c	size={13}
@@ -150,15 +150,15 @@ client/src/pages/OnboardingForm.tsx:117:14	rule-c	square w-12 h-12
 client/src/pages/OnboardingForm.tsx:295:24	rule-c	square w-10 h-10
 client/src/pages/OnboardingForm.tsx:312:5	rule-b	<div> contains 3 cues
 client/src/pages/OnboardingForm.tsx:317:13	rule-c	<svg width={28} height={28}>
-client/src/pages/PricingUnified.tsx:257:22	rule-c	size={15}
-client/src/pages/PricingUnified.tsx:297:23	rule-c	size={13}
-client/src/pages/PricingUnified.tsx:413:14	rule-c	size={15}
-client/src/pages/PricingUnified.tsx:583:20	rule-c	size={15}
-client/src/pages/PricingUnified.tsx:611:32	rule-c	size={11}
-client/src/pages/PricingUnified.tsx:852:32	rule-c	size={11}
-client/src/pages/PricingUnified.tsx:871:32	rule-c	size={11}
-client/src/pages/PricingUnified.tsx:1328:43	rule-c	size={11}
-client/src/pages/PricingUnified.tsx:1577:27	rule-c	size={13}
+client/src/pages/PricingUnified.tsx:258:22	rule-c	size={15}
+client/src/pages/PricingUnified.tsx:298:23	rule-c	size={13}
+client/src/pages/PricingUnified.tsx:414:14	rule-c	size={15}
+client/src/pages/PricingUnified.tsx:584:20	rule-c	size={15}
+client/src/pages/PricingUnified.tsx:612:32	rule-c	size={11}
+client/src/pages/PricingUnified.tsx:853:32	rule-c	size={11}
+client/src/pages/PricingUnified.tsx:872:32	rule-c	size={11}
+client/src/pages/PricingUnified.tsx:1329:43	rule-c	size={11}
+client/src/pages/PricingUnified.tsx:1578:27	rule-c	size={13}
 client/src/pages/Resources.tsx:127:19	rule-c	size={18}
 client/src/pages/ReviewFunnel.tsx:136:22	rule-c	size={40}
 client/src/pages/ReviewFunnel.tsx:146:23	rule-c	size={40}
@@ -167,8 +167,8 @@ client/src/pages/ReviewFunnel.tsx:176:28	rule-c	size={18}
 client/src/pages/ReviewFunnel.tsx:193:23	rule-c	size={40}
 client/src/pages/ReviewFunnel.tsx:231:23	rule-c	size={40}
 client/src/pages/ReviewFunnel.tsx:301:21	rule-c	size={40}
-client/src/pages/ReviewQrLanding.tsx:85:28	rule-c	size={26}
-client/src/pages/ReviewQrLanding.tsx:106:21	rule-c	size={26}
+client/src/pages/ReviewQrLanding.tsx:86:28	rule-c	size={26}
+client/src/pages/ReviewQrLanding.tsx:107:21	rule-c	size={26}
 client/src/pages/admin/AdminAuditLogPage.tsx:264:23	rule-c	square w-10 h-10
 client/src/pages/admin/AdminAuditLogPage.tsx:349:13	rule-c	square w-7 h-7
 client/src/pages/admin/AdminAuditLogPage.tsx:356:13	rule-c	square w-7 h-7
@@ -261,16 +261,16 @@ client/src/pages/demos/RankFlowDemo.tsx:771:34	rule-c	size={18}
 client/src/pages/demos/RankFlowDemo.tsx:828:33	rule-c	size={18}
 client/src/pages/demos/ReputationShieldDemo.tsx:212:15	rule-c	size={22}
 client/src/pages/demos/ReputationShieldDemo.tsx:383:23	rule-c	size={13}
-client/src/pages/demos/SocialSyncDemo.tsx:126:54	rule-c	size={11}
-client/src/pages/demos/SocialSyncDemo.tsx:169:20	rule-c	size={18}
-client/src/pages/demos/SocialSyncDemo.tsx:170:28	rule-c	size={18}
-client/src/pages/demos/SocialSyncDemo.tsx:171:19	rule-c	size={18}
-client/src/pages/demos/SocialSyncDemo.tsx:173:23	rule-c	size={18}
-client/src/pages/demos/SocialSyncDemo.tsx:178:25	rule-c	size={15}
-client/src/pages/demos/SocialSyncDemo.tsx:181:30	rule-c	size={15}
-client/src/pages/demos/SocialSyncDemo.tsx:184:23	rule-c	size={15}
-client/src/pages/demos/SocialSyncDemo.tsx:250:15	rule-c	size={22}
-client/src/pages/demos/SocialSyncDemo.tsx:468:25	rule-c	size={13}
+client/src/pages/demos/SocialSyncDemo.tsx:127:54	rule-c	size={11}
+client/src/pages/demos/SocialSyncDemo.tsx:170:20	rule-c	size={18}
+client/src/pages/demos/SocialSyncDemo.tsx:171:28	rule-c	size={18}
+client/src/pages/demos/SocialSyncDemo.tsx:172:19	rule-c	size={18}
+client/src/pages/demos/SocialSyncDemo.tsx:174:23	rule-c	size={18}
+client/src/pages/demos/SocialSyncDemo.tsx:179:25	rule-c	size={15}
+client/src/pages/demos/SocialSyncDemo.tsx:182:30	rule-c	size={15}
+client/src/pages/demos/SocialSyncDemo.tsx:185:23	rule-c	size={15}
+client/src/pages/demos/SocialSyncDemo.tsx:251:15	rule-c	size={22}
+client/src/pages/demos/SocialSyncDemo.tsx:469:25	rule-c	size={13}
 client/src/pages/edit-calculator.tsx:419:14	rule-c	square w-16 h-16
 client/src/pages/edit-calculator.tsx:420:26	rule-c	square w-7 h-7
 client/src/pages/edit-calculator.tsx:433:14	rule-c	square w-16 h-16

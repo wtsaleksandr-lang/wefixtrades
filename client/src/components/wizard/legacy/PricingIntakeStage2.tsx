@@ -49,6 +49,7 @@ export default function PricingIntakeStage2({ stage1, data, onChange }: PricingI
   return (
     <div
       className="animate-fade-in-up"
+      data-theme="light"
       style={{
         border: `1.5px dashed ${p.colors.border}`,
         borderRadius: p.radius.lg,

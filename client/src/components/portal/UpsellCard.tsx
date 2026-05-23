@@ -47,6 +47,7 @@ export default function UpsellCard({
       href="/portal/catalog"
       className="flex items-start gap-3 bg-gradient-to-r from-[#EEF3FF] to-white border border-[#0d3cfc]/20 rounded-xl p-4 hover:shadow-sm transition-all group"
       data-testid={`upsell-${recommendPrefix}`}
+      data-theme="light"
     >
       <div className="w-9 h-9 rounded-lg bg-white border border-[#0d3cfc]/20 flex items-center justify-center shrink-0">
         <Sparkles className="w-4 h-4 text-[#0d3cfc]" />

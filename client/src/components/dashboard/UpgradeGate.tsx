@@ -23,7 +23,7 @@ export default function UpgradeGate({ currentPlan, feature, featureLabel, childr
   /* ── Inline pill variant (for toggle rows) ── */
   if (inline) {
     return (
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <div data-theme="light" style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <div style={{
           width: 40, height: 22, borderRadius: 11,
           background: "#F1F5F9", position: "relative", opacity: 0.4, cursor: "not-allowed",

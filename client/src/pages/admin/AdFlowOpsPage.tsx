@@ -37,7 +37,7 @@ function TierBadge({ tier }: { tier: string }) {
     pro: "bg-purple-50 text-purple-700",
   };
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium capitalize ${styles[tier] || "bg-gray-100 text-gray-600"}`}>
+    <span data-theme="light" className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium capitalize ${styles[tier] || "bg-gray-100 text-gray-600"}`}>
       {tier}
     </span>
   );

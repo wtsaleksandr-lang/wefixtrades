@@ -47,6 +47,7 @@ export function CodeBlock({ code, lang = "html" }: { code: string; lang?: string
   return (
     <div
       data-testid="code-block"
+      data-theme="dark"
       style={{ background: C.codeBase, borderRadius: 12, overflow: "hidden", margin: "16px 0", fontSize: 13 }}
     >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 16px", background: C.codeHeader, borderBottom: "1px solid rgba(255,255,255,0.06)" }}>

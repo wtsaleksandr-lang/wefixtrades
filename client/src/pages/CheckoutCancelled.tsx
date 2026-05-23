@@ -12,7 +12,7 @@ export default function CheckoutCancelled() {
 
   return (
     <MarketingLayout>
-      <div style={{ minHeight: "60vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "48px 24px" }}>
+      <div data-theme="dark" style={{ minHeight: "60vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "48px 24px" }}>
         <div style={{ maxWidth: 480, textAlign: "center" }}>
 
           {/* Icon */}

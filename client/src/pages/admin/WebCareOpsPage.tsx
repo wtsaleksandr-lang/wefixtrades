@@ -89,7 +89,7 @@ function StatCard({
     tone === "bad" ? "bg-red-500" :
     "bg-gray-500";
   return (
-    <Card className="p-4">
+    <Card data-theme="light" className="p-4">
       <div className="flex items-start justify-between">
         <div>
           <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{label}</p>

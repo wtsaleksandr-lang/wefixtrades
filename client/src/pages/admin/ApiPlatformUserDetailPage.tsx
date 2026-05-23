@@ -71,7 +71,7 @@ const KEY_STATUS_BADGE: Record<string, { label: string; bg: string; text: string
 
 function Badge({ config }: { config: { label: string; bg: string; text: string } }) {
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${config.bg} ${config.text}`}>
+    <span data-theme="light" className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${config.bg} ${config.text}`}>
       {config.label}
     </span>
   );
