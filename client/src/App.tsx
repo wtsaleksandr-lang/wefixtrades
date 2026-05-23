@@ -189,6 +189,7 @@ import HoursWidget from "@/pages/portal/FreeTools/HoursWidget";
 import TrustBadges from "@/pages/portal/FreeTools/TrustBadges";
 import ReviewLink from "@/pages/portal/FreeTools/ReviewLink";
 import CallbackForm from "@/pages/portal/FreeTools/CallbackForm";
+import ServiceAreaMap from "@/pages/portal/FreeTools/ServiceAreaMap";
 import ReviewSlugLanding from "@/pages/ReviewSlugLanding";
 import InternalTemplateRender from "@/pages/InternalTemplateRender";
 
@@ -338,6 +339,7 @@ function Router() {
       <Route path="/portal/free-tools/trust-badges">{() => <RequireClient><TrustBadges /></RequireClient>}</Route>
       <Route path="/portal/free-tools/review-link">{() => <RequireClient><ReviewLink /></RequireClient>}</Route>
       <Route path="/portal/free-tools/callback">{() => <RequireClient><CallbackForm /></RequireClient>}</Route>
+      <Route path="/portal/free-tools/service-area">{() => <RequireClient><ServiceAreaMap /></RequireClient>}</Route>
       <Route path="/portal/free-tools">{() => <RequireClient><FreeToolsIndex /></RequireClient>}</Route>
       <Route path="/portal/help">{() => <RequireClient><PortalHelp /></RequireClient>}</Route>
       <Route path="/portal/chat-history">{() => <RequireClient><PortalChatHistoryPage /></RequireClient>}</Route>

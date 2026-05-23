@@ -86,7 +86,9 @@ const TOOLS: Tool[] = [
     description:
       "Embed a styled map of the postal codes you cover — no Google account needed.",
     icon: MapPin,
-    status: "coming-soon",
+    status: "available",
+    href: "/portal/free-tools/service-area",
+    previewImage: "/free-tools/previews/service-area.png",
   },
   {
     slug: "callback",

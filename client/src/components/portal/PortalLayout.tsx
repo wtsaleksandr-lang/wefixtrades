@@ -136,6 +136,7 @@ function buildNavItems(active: Set<string>): NavItem[] {
     { label: "Schema Generator", href: "/portal/free-tools/schema", icon: FileCode2, indent: true },
     { label: "Review Link", href: "/portal/free-tools/review-link", icon: Star, indent: true },
     { label: "Callback Form", href: "/portal/free-tools/callback", icon: PhoneCall, indent: true },
+    { label: "Service Area Map", href: "/portal/free-tools/service-area", icon: MapPin, indent: true },
     { label: "Help", href: "/portal/help", icon: HelpCircle },
     { label: "Settings", href: "/portal/settings", icon: Settings },
   ];

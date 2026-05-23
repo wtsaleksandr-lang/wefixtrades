@@ -210,6 +210,34 @@ export const callbackRequests = pgTable("callback_requests", {
 });
 export type CallbackRequest = typeof callbackRequests.$inferSelect;
 
+/* ─── Free-tools batch 3: Service-Area Map ───
+ * One row per client; PNG cache is on disk under data/service-area-cache/.
+ * cache_key = sha256 of all rendering inputs — when it changes we write a
+ * NEW file and never overwrite, so served responses stay immutable.
+ */
+export const serviceAreaMapConfigs = pgTable("service_area_map_configs", {
+  client_id: integer("client_id").primaryKey().references(() => clients.id, { onDelete: "cascade" }),
+  enabled: boolean("enabled").notNull().default(false),
+  address_line: text("address_line").notNull(),
+  address_city: text("address_city"),
+  address_region: text("address_region"),
+  address_postal: text("address_postal"),
+  address_country: text("address_country").default("US"),
+  center_lat: numeric("center_lat", { precision: 10, scale: 7 }),
+  center_lng: numeric("center_lng", { precision: 10, scale: 7 }),
+  radius_value: integer("radius_value").notNull().default(25),
+  radius_unit: text("radius_unit").notNull().default("miles"),
+  map_style: text("map_style").notNull().default("roadmap"),
+  pin_color: text("pin_color").notNull().default("#0d3cfc"),
+  circle_color: text("circle_color").notNull().default("#0d3cfc"),
+  circle_opacity: numeric("circle_opacity", { precision: 3, scale: 2 }).notNull().default("0.20"),
+  cache_key: text("cache_key"),
+  cache_path: text("cache_path"),
+  cached_at: timestamp("cached_at", { withTimezone: true }),
+  updated_at: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+export type ServiceAreaMapConfig = typeof serviceAreaMapConfigs.$inferSelect;
+
 /* ─── Client Services ─── */
 export const clientServices = pgTable("client_services", {
   id: serial("id").primaryKey(),
