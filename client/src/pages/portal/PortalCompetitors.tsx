@@ -160,7 +160,7 @@ export default function PortalCompetitors() {
   if (!data?.hasAccess) {
     return (
       <PortalLayout>
-        <div className="max-w-3xl mx-auto px-4 py-12">
+        <div className="max-w-3xl py-6">
           <Card className="p-8 text-center">
             <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-blue-50 flex items-center justify-center">
               <Lock className="w-6 h-6 text-blue-600" />
@@ -185,7 +185,7 @@ export default function PortalCompetitors() {
 
   return (
     <PortalLayout>
-      <div className="max-w-6xl mx-auto px-4 py-8">
+      <div className="space-y-6">
         <BackButton to="/portal/reviews" label="Back to Reviews" className="mb-3" />
         {/* Header */}
         <div className="flex items-start justify-between mb-8">

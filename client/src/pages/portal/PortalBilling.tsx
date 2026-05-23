@@ -88,7 +88,7 @@ export default function PortalBilling() {
 
   return (
     <PortalLayout>
-      <div data-theme="light" className="max-w-5xl mx-auto space-y-6">
+      <div data-theme="light" className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-xl font-semibold text-gray-900">Billing</h1>

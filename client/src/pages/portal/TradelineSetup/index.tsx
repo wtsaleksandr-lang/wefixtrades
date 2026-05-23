@@ -109,7 +109,7 @@ export default function TradelineSetupPage() {
 
   return (
     <PortalLayout>
-      <div className="max-w-3xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+      <div className="max-w-3xl space-y-6">
         {/* Test mode banner — server tells us if TRADELINE_SETUP_TEST_MODE=true */}
         {data?.testMode && (
           <div className="rounded-lg border border-fuchsia-300 bg-fuchsia-50 px-4 py-2 text-xs text-fuchsia-900">

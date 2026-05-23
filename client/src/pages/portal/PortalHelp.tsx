@@ -298,7 +298,7 @@ export default function PortalHelp() {
   usePageTitle("Help");
   return (
     <PortalLayout chatContext={{ surface: "help" }}>
-      <div className="max-w-3xl mx-auto space-y-6">
+      <div className="max-w-3xl space-y-6">
         {/* Header */}
         <div>
           <BackButton to="/portal" label="Back to dashboard" />

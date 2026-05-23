@@ -351,17 +351,42 @@ export default function PortalLayout({
           </div>
         )}
 
-        {/* Page content — in compact mode, drop padding on mobile so field
-            surfaces (Dispatch) can render full-bleed; padding returns at lg. */}
+        {/* Page content.
+         *
+         * Canonical portal container shape (single source of truth — pages
+         * must NOT add their own max-w / mx-auto / px-*):
+         *   - flex-1 min-w-0 lets <main> shrink correctly inside the flex
+         *     parent so wide tables never push the page past the viewport
+         *   - overflow-y-auto for vertical scroll
+         *   - overflow-x-hidden contains accidental child overflow inside
+         *     the portal chrome (the page never grows a horizontal scrollbar
+         *     at the document level)
+         *
+         * Inner wrapper centres + caps the content:
+         *   - max-w-screen-2xl (1536px) — generous for tables, narrow
+         *     enough that lines don't stretch uncomfortably on ultrawides
+         *   - mx-auto w-full to centre when shorter than the cap
+         *   - px-4 sm:px-6 lg:px-8 + py-6 — consistent gutters & rhythm
+         *
+         * Compact mode (PR #590, used by /portal/dispatch): drops the
+         * horizontal gutter on mobile so the dispatch surface reads
+         * full-bleed as a "field-worker mobile app". Desktop keeps the
+         * canonical gutters so the page sits inside the same shell as
+         * every other portal page.
+         */}
         <main
           id="main-content"
-          className={cn(
-            "flex-1 overflow-y-auto",
-            compact ? "p-0 lg:p-6" : "p-4 md:p-6"
-          )}
+          className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden"
           tabIndex={-1}
         >
-          {children}
+          <div
+            className={cn(
+              "max-w-screen-2xl mx-auto w-full py-6",
+              compact ? "px-0 lg:px-8" : "px-4 sm:px-6 lg:px-8"
+            )}
+          >
+            {children}
+          </div>
         </main>
       </div>
 

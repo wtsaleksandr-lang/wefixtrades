@@ -174,7 +174,7 @@ export default function SocialSyncSetup() {
 
   return (
     <PortalLayout>
-      <div className="max-w-xl mx-auto p-4 space-y-5">
+      <div className="max-w-xl space-y-5">
         <BackButton to="/portal/socialsync" label="Back to Social Media" />
         {/* Header */}
         <div>

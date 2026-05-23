@@ -41,7 +41,7 @@ export default function PortalChatHistoryPage() {
 
   return (
     <PortalLayout>
-      <div className="max-w-3xl mx-auto space-y-4">
+      <div className="max-w-3xl space-y-4">
         <Link
           href="/portal"
           className="inline-flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700"

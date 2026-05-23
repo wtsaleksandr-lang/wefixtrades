@@ -141,10 +141,10 @@ export default function PortalWidget() {
   if (!data?.active) {
     return (
       <PortalLayout>
-        <div className="max-w-5xl mx-auto space-y-4">
+        <div className="space-y-4">
           <BackToReviews />
         </div>
-        <div className="max-w-5xl mx-auto py-12 text-center space-y-4">
+        <div className="py-12 text-center space-y-4">
           <Code className="w-12 h-12 text-gray-300 mx-auto" />
           <h2 className="text-lg font-semibold text-gray-900">Review Widget</h2>
           <p className="text-sm text-gray-500">Display your best reviews on your website. Available with ReputationShield.</p>
@@ -158,7 +158,7 @@ export default function PortalWidget() {
 
   return (
     <PortalLayout>
-      <div data-theme="light" className="max-w-5xl mx-auto space-y-6">
+      <div data-theme="light" className="space-y-6">
         <BackToReviews />
         {/* Header */}
         <div>

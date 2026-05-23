@@ -156,7 +156,7 @@ export default function PortalRankFlow() {
 
   // Portal RankFlow is light-theme locked — see CONTRAST-2.
   const overviewBody = (
-    <div data-theme="light" className="max-w-3xl mx-auto space-y-5 pb-8">
+    <div data-theme="light" className="max-w-3xl space-y-5">
       {data.statusLine && (
         <p className="text-sm text-gray-600">{data.statusLine}</p>
       )}
@@ -357,7 +357,7 @@ export default function PortalRankFlow() {
   return (
     <PortalLayout>
       {/* Portal RankFlow is light-theme locked — see CONTRAST-2. */}
-      <div data-theme="light" className="max-w-3xl mx-auto pb-8">
+      <div data-theme="light">
         <PortalProductPageShell
           productId="rankflow"
           productName="RankFlow SEO Report"
