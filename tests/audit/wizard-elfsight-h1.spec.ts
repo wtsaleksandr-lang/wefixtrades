@@ -96,15 +96,18 @@ test.describe('wizard H1 — Elfsight-clone editor shell', () => {
   test.describe('mobile 390x844 — tabs scroll, preview stacks', () => {
     test.use({ viewport: { width: 390, height: 844 } });
 
-    test('tabs fit/scroll without horizontal page overflow, preview stacks below', async ({ page }) => {
+    test('tabs fit on phone (W-MT-1 second-row), preview canvas takes the body, left panel hidden by bottom-sheet (BH-3)', async ({ page }) => {
       await page.goto('/wizard', { waitUntil: 'domcontentloaded' });
       await page.waitForTimeout(1200);
 
       const tabs = page.getByTestId('editor-tabs');
       await expect(tabs).toBeVisible();
 
-      // The tabs row itself must not push the page wider than the viewport
-      // — i.e. its right edge sits within 390px (allow 1px rounding).
+      // W-MT-1 (PR #604) — at ≤480px the tab strip wraps to its own
+      // second row INSIDE the topbar (`flex: 0 0 100%`) so all 4 tabs
+      // (Build / Style / Settings / Install) are visible without
+      // horizontal scrolling. Verify the strip is on its own row and
+      // its right edge fits within 390px.
       const tabsBox = await tabs.boundingBox();
       expect(tabsBox).not.toBeNull();
       expect(tabsBox!.x + tabsBox!.width).toBeLessThanOrEqual(390 + 1);
@@ -115,15 +118,26 @@ test.describe('wizard H1 — Elfsight-clone editor shell', () => {
       );
       expect(bodyOverflow).toBe(true);
 
-      // Preview pane stacks above editor on mobile (order:0 vs order:1).
+      // BH-3 (PR #505) — at the mobile breakpoint (≤768px) the editor
+      // body switches to a bottom-sheet layout. The left panel is
+      // hidden via `display:none` (its property editors live inside
+      // the MobileBottomSheet instead). The right pane (preview canvas)
+      // takes the visible body above the sheet.
       const preview = page.getByTestId('editor-right-pane');
-      const editor = page.getByTestId('editor-left-panel');
+      await expect(preview).toBeVisible();
       const previewBox = await preview.boundingBox();
-      const editorBox = await editor.boundingBox();
       expect(previewBox).not.toBeNull();
-      expect(editorBox).not.toBeNull();
-      // Preview's top edge sits ABOVE (or at) the editor's top edge.
-      expect(previewBox!.y).toBeLessThanOrEqual(editorBox!.y + 1);
+      expect(previewBox!.width).toBeGreaterThan(0);
+
+      const leftDisplay = await page
+        .getByTestId('editor-left-panel')
+        .evaluate((el) => window.getComputedStyle(el as HTMLElement).display);
+      expect(leftDisplay).toBe('none');
+
+      // Mobile bottom-sheet is mounted (sanity — the chrome that
+      // replaces the inline left panel exists).
+      const body = page.locator('.qq-editor-body');
+      await expect(body).toHaveAttribute('data-mobile-sheet', 'true');
     });
   });
 

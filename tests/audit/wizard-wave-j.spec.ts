@@ -157,20 +157,29 @@ test.describe('wizard J — Wave J UI refinement (desktop)', () => {
     expect(box.x).toBeLessThan(ibox.x);
   });
 
-  test('(7) preview pane has a dotted-grid radial-gradient background', async ({ page }) => {
+  test('(7) preview pane has a square 1px grid background (BD-3a fix 2)', async ({ page }) => {
     await openWizard(page);
-    const right = page.getByTestId('editor-right-pane');
-    await expect(right).toBeVisible();
-    const cs = await right.evaluate((el) => {
+    // BD-3a fix 2 — the grid moved from the outer right-pane (dotted
+    // radial-gradient, 16×16) to the inner preview pane (two
+    // perpendicular linear-gradients drawing a 24×24 1px square grid).
+    // Alex called out the day-mode dot pattern as barely visible; the
+    // square 1px grid is subtle but always perceptible on the light
+    // canvas. Outer `.qq-editor-right` is now `background: transparent`
+    // and carries no pattern of its own.
+    const pane = page.getByTestId('editor-preview-pane');
+    await expect(pane).toBeVisible();
+    const cs = await pane.evaluate((el) => {
       const s = getComputedStyle(el);
       return { bg: s.backgroundImage, size: s.backgroundSize };
     });
-    // The dot pattern uses `radial-gradient(circle, ...)` — the old leftover
-    // pre-Wave-J gradient was also a radial-gradient but with a percentage
-    // ellipse, so asserting just "radial-gradient" was a false-positive guard.
-    expect(cs.bg.toLowerCase()).toContain('radial-gradient(circle,');
-    // Dot spacing is 16px × 16px.
-    expect(cs.size.replace(/\s+/g, ' ').trim()).toMatch(/^16px 16px$/);
+    // Two linear-gradients (one per axis) compose the square grid.
+    const bg = cs.bg.toLowerCase();
+    const linearCount = (bg.match(/linear-gradient/g) ?? []).length;
+    expect(linearCount).toBeGreaterThanOrEqual(2);
+    // Square grid spacing is 24px × 24px. Computed `background-size` may
+    // serialise as either `24px 24px, 24px 24px` (per layer) or `24px 24px`.
+    const sizeNorm = cs.size.replace(/\s+/g, ' ').trim();
+    expect(sizeNorm).toMatch(/^24px 24px(?:, 24px 24px)?$/);
   });
 });
 
@@ -235,15 +244,21 @@ test.describe('wizard J — Wave J UI refinement (mobile 390×844)', () => {
     expect(box.height).toBeGreaterThanOrEqual(44);
   });
 
-  test('(7) preview pane dotted-grid background renders on mobile', async ({ page }) => {
+  test('(7) preview pane square 1px grid background renders on mobile (BD-3a fix 2)', async ({ page }) => {
     await openWizard(page);
-    const right = page.getByTestId('editor-right-pane');
-    await expect(right).toBeVisible();
-    const cs = await right.evaluate((el) => {
+    // Same contract as desktop — square 1px grid (BD-3a fix 2) lives on
+    // the inner `.qq-preview-pane`, not the outer right pane. See the
+    // desktop variant of this test for the full rationale.
+    const pane = page.getByTestId('editor-preview-pane');
+    await expect(pane).toBeVisible();
+    const cs = await pane.evaluate((el) => {
       const s = getComputedStyle(el);
       return { bg: s.backgroundImage, size: s.backgroundSize };
     });
-    expect(cs.bg.toLowerCase()).toContain('radial-gradient(circle,');
-    expect(cs.size.replace(/\s+/g, ' ').trim()).toMatch(/^16px 16px$/);
+    const bg = cs.bg.toLowerCase();
+    const linearCount = (bg.match(/linear-gradient/g) ?? []).length;
+    expect(linearCount).toBeGreaterThanOrEqual(2);
+    const sizeNorm = cs.size.replace(/\s+/g, ' ').trim();
+    expect(sizeNorm).toMatch(/^24px 24px(?:, 24px 24px)?$/);
   });
 });
