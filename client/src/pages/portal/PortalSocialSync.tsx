@@ -1,10 +1,14 @@
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Share2, CheckCircle, Clock, Calendar, ImageIcon, Settings, X, ThumbsUp, ThumbsDown, Edit3, Loader2, PauseCircle, PlayCircle } from "lucide-react";
+import { Share2, CheckCircle, Clock, ImageIcon, Settings, X, ThumbsUp, ThumbsDown, Edit3, Loader2, PauseCircle, PlayCircle } from "lucide-react";
 import { Link } from "wouter";
 import PortalLayout from "@/components/portal/PortalLayout";
 import UpsellCard from "@/components/portal/UpsellCard";
+import {
+  PortalProductPageShell,
+  type ProductPortalStats,
+} from "@/components/portal/PortalProductPageShell";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -174,22 +178,45 @@ export default function PortalSocialSync() {
   const s = data.summary;
   const msg = STATUS_MESSAGES[data.status] || STATUS_MESSAGES.active;
 
-  return (
-    <PortalLayout>
-      <div className="max-w-3xl mx-auto space-y-5 p-4">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-lg font-bold text-gray-900">Your Social Media</h1>
-            <p className="text-sm text-gray-500">Powered by SocialSync</p>
-          </div>
-          <Link href="/portal/socialsync-setup">
-            <Button variant="ghost" size="sm" className="text-xs text-gray-500">
-              <Settings className="w-3.5 h-3.5 mr-1" /> Edit Settings
-            </Button>
-          </Link>
-        </div>
+  const stats: ProductPortalStats = {
+    primary: {
+      label: "Posts this month",
+      value: s.posts_this_month,
+      hint: "Posts scheduled or published in the current month",
+    },
+    secondary: {
+      label: "Total published",
+      value: s.total_published,
+      hint: "All-time published posts across connected platforms",
+    },
+    tertiary: {
+      label: "Connected platforms",
+      value: s.active_platforms,
+      hint: "Social platforms currently connected to SocialSync",
+    },
+    quaternary: {
+      label: "Next post",
+      value: data.next_scheduled
+        ? `${data.next_scheduled.platform} - ${data.next_scheduled.scheduled_for}`
+        : s.posting_frequency,
+      hint: data.next_scheduled
+        ? "Next scheduled post platform and time"
+        : "Configured posting cadence",
+    },
+  };
 
+  const filtersBar = (
+    <div className="flex items-center justify-end">
+      <Link href="/portal/socialsync-setup">
+        <Button variant="ghost" size="sm" className="text-xs text-gray-500">
+          <Settings className="w-3.5 h-3.5 mr-1" /> Edit Settings
+        </Button>
+      </Link>
+    </div>
+  );
+
+  const overviewBody = (
+    <div className="space-y-5">
         {/* Pause Auto-Posting Toggle */}
         <Card className="p-4">
           <div className="flex items-center justify-between">
@@ -222,45 +249,11 @@ export default function PortalSocialSync() {
           )}
         </Card>
 
-        {/* Status banner */}
-        <Card className={`p-5 ${data.status === "active" ? "bg-[#EEF3FF] border-[#0d3cfc]/10" : "bg-gray-50"}`}>
-          <div className="flex items-start gap-3">
-            {data.status === "active" ? (
-              <CheckCircle className="w-5 h-5 text-[#0d3cfc] mt-0.5 flex-shrink-0" />
-            ) : (
-              <Clock className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" />
-            )}
-            <div>
-              <p className={`text-sm font-semibold ${data.status === "active" ? "text-[#0d3cfc]" : "text-gray-700"}`}>{msg.headline}</p>
-              <p className="text-xs text-gray-500 mt-0.5">{msg.sub}</p>
-            </div>
-          </div>
-        </Card>
-
-        {/* Key Metrics */}
-        <div className="grid auto-rows-fr grid-cols-2 md:grid-cols-4 gap-3">
-          <MetricCard label="Posts This Month" value={`${s.posts_this_month}`} />
-          <MetricCard label="Total Published" value={`${s.total_published}`} />
-          <MetricCard label="Active Platforms" value={`${s.active_platforms}`} />
-          <MetricCard label="Frequency" value={s.posting_frequency} />
-        </div>
-
         {/* Q16 upsell — pair SocialSync with ReputationShield (more social activity → more reviews to manage) */}
         <UpsellCard
           recommendPrefix="reputationshield"
           pitch="Add ReputationShield to capture and respond to reviews from customers SocialSync brings in."
         />
-
-        {/* Next Scheduled */}
-        {data.next_scheduled && (
-          <Card className="p-4 flex items-center gap-3">
-            <Calendar className="w-4 h-4 text-[#0d3cfc]" />
-            <div>
-              <p className="text-xs text-gray-500">Next scheduled post</p>
-              <p className="text-sm font-medium text-gray-800">{data.next_scheduled.platform} — {data.next_scheduled.scheduled_for}</p>
-            </div>
-          </Card>
-        )}
 
         {/* Connected Platforms */}
         <Card className="p-5">
@@ -456,6 +449,38 @@ export default function PortalSocialSync() {
             Content is generated and published automatically by SocialSync. Posts are quality-checked before going live.
           </p>
         )}
+    </div>
+  );
+
+  return (
+    <PortalLayout>
+      <div className="max-w-3xl mx-auto p-4">
+        <PortalProductPageShell
+          productId="socialsync"
+          productName="Your Social Media"
+          planTier={null}
+          upgradeCtaHref="/portal/billing"
+          stats={stats}
+          filtersBar={filtersBar}
+          setupBanner={
+            <Card className={`p-5 ${data.status === "active" ? "bg-[#EEF3FF] border-[#0d3cfc]/10" : "bg-gray-50"}`}>
+              <div className="flex items-start gap-3">
+                {data.status === "active" ? (
+                  <CheckCircle className="w-5 h-5 text-[#0d3cfc] mt-0.5 flex-shrink-0" />
+                ) : (
+                  <Clock className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" />
+                )}
+                <div>
+                  <p className={`text-sm font-semibold ${data.status === "active" ? "text-[#0d3cfc]" : "text-gray-700"}`}>{msg.headline}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">{msg.sub}</p>
+                </div>
+              </div>
+            </Card>
+          }
+          tabs={[
+            { id: "overview", label: "Overview", render: () => overviewBody },
+          ]}
+        />
       </div>
 
       {/* Post Detail Modal */}
@@ -506,11 +531,3 @@ export default function PortalSocialSync() {
   );
 }
 
-function MetricCard({ label, value }: { label: string; value: string }) {
-  return (
-    <Card className="h-full p-4 text-center">
-      <p className="text-2xl font-bold text-gray-900">{value}</p>
-      <p className="text-xs text-gray-500">{label}</p>
-    </Card>
-  );
-}
