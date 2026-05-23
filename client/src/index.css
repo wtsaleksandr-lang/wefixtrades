@@ -2989,10 +2989,53 @@ select:focus {
   transition: background 200ms ease, color 200ms ease, opacity 200ms ease;
 }
 .cs-arrow:hover { background: rgba(8, 10, 12, 0.75); }
+/* Press state — gives the arrow visible "depressed" feedback when clicked.
+ * Used on both the original Blog/CaseStudies arrow group and the new shared
+ * <CarouselArrowButton> component (which adds .cs-arrow to its root).
+ * CSS-native :active is snappier than a JS pressed state, and the inset
+ * shadow + 1px translate combo reads as a physical button push without
+ * disrupting hit-target geometry. */
+.cs-arrow:active:not(.cs-arrow--disabled) {
+  background: rgba(0, 0, 0, 0.85);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
+  transform: translateY(1px);
+}
 .cs-arrow.cs-arrow--disabled {
   background: rgba(255, 255, 255, 0.04);
   cursor: default;
   color: rgba(255, 255, 255, 0.40);
+}
+/* Light-theme variant for arrow groups sitting on light section backgrounds
+ * (the "Stay Ahead" panel on the blog, the Trustpilot-style review row on
+ * product pages, etc). Press shadow flipped to a softer inset. */
+.cs-arrow-group[data-theme="light"] {
+  background: rgba(15, 20, 24, 0.06);
+  border-color: rgba(15, 20, 24, 0.14);
+}
+.cs-arrow[data-theme="light"] {
+  background: rgba(255, 255, 255, 0.85);
+  color: #0F1418;
+}
+.cs-arrow[data-theme="light"]:hover {
+  background: rgba(255, 255, 255, 1);
+}
+.cs-arrow[data-theme="light"]:active:not(.cs-arrow--disabled) {
+  background: rgba(230, 234, 238, 1);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.18);
+  transform: translateY(1px);
+}
+.cs-arrow[data-theme="light"].cs-arrow--disabled {
+  background: rgba(15, 20, 24, 0.04);
+  color: rgba(15, 20, 24, 0.30);
+}
+.cs-arrow-divider[data-theme="light"] {
+  background: rgba(15, 20, 24, 0.14);
+}
+@media (prefers-reduced-motion: reduce) {
+  .cs-arrow:active:not(.cs-arrow--disabled),
+  .cs-arrow[data-theme="light"]:active:not(.cs-arrow--disabled) {
+    transform: none;
+  }
 }
 .cs-arrow-divider {
   width: 1px;

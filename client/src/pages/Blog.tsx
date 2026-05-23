@@ -13,6 +13,7 @@ import { Keyboard, Navigation } from "swiper/modules";
 import type { Swiper as SwiperClass } from "swiper";
 import "swiper/css";
 import "swiper/css/navigation";
+import { CarouselArrowGroup } from "@/components/marketing/CarouselArrowButton";
 
 /* ════════════════════════════════════════════════════════════════
    Effortel-style blog page:
@@ -452,30 +453,23 @@ function FeaturedSwiper({ posts, onOpen }: {
         {/* Arrow nav — aligned to the left edge of the centered active
             card. With centeredSlides + 808px slide width, the active
             card's left edge sits at calc(50% - 404px) from the swiper
-            container's left; we mirror that with paddingLeft. */}
+            container's left; we mirror that with paddingLeft.
+            Uses the shared CarouselArrowGroup so the press state +
+            visual styling stay in sync with every other review/
+            testimonial carousel across the site. */}
         <div style={{
           display: "flex", justifyContent: "flex-start", marginTop: 18,
           paddingLeft: "max(0px, calc(50% - 404px))",
         }}>
-          <div className="cs-arrow-group">
-            <button
-              onClick={() => swiperInst?.slidePrev()}
-              disabled={!canPrev}
-              aria-label="Previous post"
-              className={`cs-arrow${!canPrev ? " cs-arrow--disabled" : ""}`}
-            >
-              <ArrowLeft size={16} strokeWidth={2} />
-            </button>
-            <span className="cs-arrow-divider" aria-hidden />
-            <button
-              onClick={() => swiperInst?.slideNext()}
-              disabled={!canNext}
-              aria-label="Next post"
-              className={`cs-arrow${!canNext ? " cs-arrow--disabled" : ""}`}
-            >
-              <ArrowRight size={16} strokeWidth={2} />
-            </button>
-          </div>
+          <CarouselArrowGroup
+            onPrev={() => swiperInst?.slidePrev()}
+            onNext={() => swiperInst?.slideNext()}
+            canPrev={canPrev}
+            canNext={canNext}
+            prevLabel="Previous post"
+            nextLabel="Next post"
+            data-testid="blog-featured-arrows"
+          />
         </div>
       </div>
 

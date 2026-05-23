@@ -32,6 +32,7 @@ import { PRODUCT_MOCKUPS, type ProductMockupSection } from "@/config/product-moc
 import { PRODUCT_TESTIMONIALS } from "@/config/product-testimonials";
 import TradeLineHeroPhone from "@/components/marketing/TradeLineHeroPhone";
 import TradeLineDemoLauncher from "@/components/marketing/TradeLineDemoLauncher";
+import { HorizontalCarousel } from "@/components/marketing/HorizontalCarousel";
 import NotFound from "@/pages/not-found";
 import QuoteWidget from "@/components/quote-widget/QuoteWidget";
 import type { CalculatorData } from "@/components/quote-widget/types";
@@ -728,34 +729,50 @@ function Testimonials({ items }: { items: { quote: string; author: string; trade
   return (
     <section style={{ padding: "80px 24px" }}>
       <div style={{ maxWidth: 1180, margin: "0 auto" }}>
-        <Reveal>
-          <div style={{ textAlign: "center", marginBottom: 40 }}>
-            <h2 style={{ fontSize: "clamp(32px, 4vw, 48px)", fontWeight: 500, lineHeight: 1.05, letterSpacing: "-0.025em", color: mkt.onDark, margin: 0 }}>
-              Reviews
-            </h2>
-          </div>
-        </Reveal>
-        {/* Trustpilot-style review cards — no avatars, no platform badges
-         * (just the source-name text under the reviewer). 7 cards per
-         * product page. auto-fit grid wraps responsively from 1→4 cols. */}
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-          gap: 16,
-          maxWidth: 1180,
-          margin: "0 auto",
-        }}>
+        {/* Trustpilot-style review cards — now wrapped in HorizontalCarousel
+         * so the row is touch-drag / mouse-drag / wheel scrollable with
+         * prev/next arrow controls (same arrows used on the blog page).
+         * Heading sits to the left of the arrow group in the carousel
+         * header bar; cards keep their fixed width + snap-align so they
+         * peek/snap consistently across desktop and mobile. */}
+        <HorizontalCarousel
+          arrowTheme="dark"
+          data-testid="product-reviews-carousel"
+          heading={
+            <Reveal>
+              <h2
+                style={{
+                  fontSize: "clamp(32px, 4vw, 48px)",
+                  fontWeight: 500,
+                  lineHeight: 1.05,
+                  letterSpacing: "-0.025em",
+                  color: mkt.onDark,
+                  margin: 0,
+                }}
+              >
+                Reviews
+              </h2>
+            </Reveal>
+          }
+          rowStyle={{ gap: 16, paddingBottom: 8 }}
+        >
           {items.slice(0, 7).map((t, i) => (
             <Reveal key={t.quote} delay={i * 0.04}>
-              <div className="review-card" style={{
-                padding: "22px 22px",
-                borderRadius: 14,
-                background: mkt.sectionLight,
-                border: `1px solid var(--hairline)`,
-                height: "100%",
-                display: "flex", flexDirection: "column", gap: 14,
-                transition: "transform 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease",
-              }}>
+              <div
+                className="review-card"
+                style={{
+                  flex: "0 0 clamp(280px, 70vw, 340px)",
+                  scrollSnapAlign: "start",
+                  padding: "22px 22px",
+                  borderRadius: 14,
+                  background: mkt.sectionLight,
+                  border: `1px solid var(--hairline)`,
+                  height: "100%",
+                  minHeight: 240,
+                  display: "flex", flexDirection: "column", gap: 14,
+                  transition: "transform 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease",
+                }}
+              >
                 <div style={{ display: "flex", gap: 2, color: "#F59E0B" }}>
                   {[1, 2, 3, 4, 5].map((n) => (
                     <Star key={n} size={14} fill="#F59E0B" stroke="#F59E0B" />
@@ -776,7 +793,7 @@ function Testimonials({ items }: { items: { quote: string; author: string; trade
               </div>
             </Reveal>
           ))}
-        </div>
+        </HorizontalCarousel>
       </div>
       <style>{`
         .review-card:hover {
