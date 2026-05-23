@@ -1120,6 +1120,10 @@ export default function WizardShell({ embed = false }: Props) {
     try {
       const params = new URLSearchParams(window.location.search);
       const token = params.get('token') || '';
+      // IA-1-fix (2026-05-23) — also capture template + id so the badge
+      // can resume into either flow (template entry pre-save / id post-save).
+      const template = params.get('template') || '';
+      const idParam = params.get('id') || '';
       // Resolve return path: explicit hint > referrer > role default.
       let returnPath = '';
       try {
@@ -1138,10 +1142,14 @@ export default function WizardShell({ embed = false }: Props) {
       // matches landingPathForRole's "unknown role" branch.
       if (!returnPath) returnPath = '/portal';
 
+      // Prefer URL ?id= over calcIdentity.id when the wizard hasn't
+      // materialised an in-memory record yet (template flow pre-save).
+      const calcIdNum = calcIdentity.id ?? (idParam ? Number(idParam) : null);
       const payload = {
-        calculatorId: calcIdentity.id,
+        calculatorId: Number.isFinite(calcIdNum as number) ? calcIdNum : null,
         businessName: calcIdentity.businessName,
         token,
+        template: template || null,
         returnPath,
         savedAt: Date.now(),
       };
@@ -2350,12 +2358,22 @@ export default function WizardShell({ embed = false }: Props) {
               .qq-editor-body.is-mobile-sheet .qq-editor-right {
                 flex: 1 1 auto;
                 order: 0;
-                /* Reserve room for the collapsed sheet at the bottom (handle
-                 * + tab label + safe-area). The sheet z-index is 9998 so it
-                 * paints over this padding when half/full but the canvas
-                 * stays interactive whenever the sheet is collapsed. */
-                padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+                /* W-CP-1 (2026-05-23) — iOS Safari requires a concrete
+                 * height for overflow-y:auto to enable touch-pan. Without
+                 * this the canvas refuses finger scroll. Compute as:
+                 *   100dvh
+                 *   - topbar (~40px; may grow to ~48px when W-MT-1 wraps
+                 *     the tab strip to a second row but the wrapping
+                 *     happens INSIDE the topbar, not below it, so the
+                 *     visible chrome height is still bounded ~40-72px —
+                 *     err generous via a px-stable 40px baseline)
+                 *   - collapsed sheet handle (~56px)
+                 *   - safe-area-inset-bottom */
+                height: calc(100dvh - 40px - 56px - env(safe-area-inset-bottom, 0px));
+                max-height: calc(100dvh - 40px - 56px - env(safe-area-inset-bottom, 0px));
+                padding-bottom: 12px;
                 overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
               }
               .qq-editor-body.is-mobile-sheet .qq-preview-pane {
                 /* Drop the bottom hairline — the sheet handle already
@@ -2428,6 +2446,31 @@ export default function WizardShell({ embed = false }: Props) {
                * through the three presets if the user wants to preview a
                * tablet/desktop view. */
               .qq-editor-device { display: none; }
+            }
+            @media (max-width: 480px) {
+              /* W-MT-1 (2026-05-23) — promote the wizard tab strip to its
+                 own row below the top chrome so all 4 tabs (Build /
+                 Style / Settings / Install) are visible without
+                 horizontal scrolling on phone widths. */
+              .qq-editor-topbar { flex-wrap: wrap; row-gap: 4px; }
+              .qq-editor-tabstrip {
+                order: 99;
+                flex: 0 0 100%;
+                overflow-x: visible;
+                justify-content: space-between;
+                padding: 4px 0 2px;
+                border-top: 1px solid var(--qq-border, rgba(15,23,42,0.08));
+                margin: 4px -8px 0;
+                padding-left: 8px;
+                padding-right: 8px;
+              }
+              .qq-editor-tab {
+                flex: 1;
+                padding: 8px 4px;
+                font-size: 12px;
+                text-align: center;
+                min-height: 36px;
+              }
             }
 
             /* ── W-AO-1 — mobile sticky bottom action bar ──────────────

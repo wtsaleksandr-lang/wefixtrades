@@ -36,7 +36,7 @@
 import {
   useCallback, useEffect, useMemo, useRef, useState, type ReactNode,
 } from 'react';
-import { RotateCcw } from 'lucide-react';
+import { ChevronUp, RotateCcw } from 'lucide-react';
 import { platformTheme } from '@/theme/platformTheme';
 import { dashboardTheme } from '@/theme/dashboardTheme';
 import { useLayoutGuard } from '@/lib/layoutGuard';
@@ -59,7 +59,10 @@ interface Props {
   children: ReactNode;
   /** When true, the parent indicates Save is busy. */
   isBusy?: boolean;
-  /** Optional initial snap state (defaults to 'collapsed'). */
+  /** Optional initial snap state (defaults to 'half' — BH-3-defaults
+   *  fix 2026-05-23 — first-time visitors land in the half state so the
+   *  config controls + footer CTA are immediately visible. The stored
+   *  preference in localStorage still wins for return visitors). */
   initialSnap?: SheetSnap;
 }
 
@@ -81,7 +84,7 @@ function loadSnap(initial: SheetSnap): SheetSnap {
 
 export default function MobileBottomSheet({
   activeTab, onTabChange, onResetTab, onDone,
-  children, isBusy = false, initialSnap = 'collapsed',
+  children, isBusy = false, initialSnap = 'half',
 }: Props) {
   const [snap, setSnapInner] = useState<SheetSnap>(() => loadSnap(initialSnap));
   const [showResetConfirm, setShowResetConfirm] = useState(false);
@@ -242,7 +245,13 @@ export default function MobileBottomSheet({
           {snap === 'collapsed' && (
             <span className="qq-sheet-handle-label">
               {activeTabLabel}
-              <span className="qq-sheet-handle-caret" aria-hidden="true" />
+              {/* BH-3-defaults (2026-05-23) — render an explicit
+               * ChevronUp inside the caret span so the collapsed
+               * affordance reads as "tap to open" instead of an empty
+               * gap. */}
+              <span className="qq-sheet-handle-caret" aria-hidden="true">
+                <ChevronUp size={14} aria-hidden="true" />
+              </span>
             </span>
           )}
         </button>
@@ -372,25 +381,32 @@ export default function MobileBottomSheet({
            *    (kept-in-place at rest size + opacity). */
           .qq-sheet-handle-bar {
             display: block;
-            width: 40px; height: 4px; border-radius: 999px;
-            background: ${p.colors.border};
+            /* BH-3-defaults (2026-05-23) — bolder bar + brand-tint
+             * background so the affordance reads even when the sheet
+             * is collapsed at the foot of a busy canvas. */
+            width: 48px; height: 5px; border-radius: 999px;
+            background: var(--qq-accent-lighter, rgba(13, 60, 252, 0.14));
             margin-bottom: 2px;
-            opacity: 0.5;
+            opacity: 0.6;
             transform-origin: center;
             box-shadow: 0 0 8px rgba(13, 60, 252, 0.18);
-            animation: qq-handle-breathe 2.4s ease-in-out infinite;
             will-change: transform, opacity;
           }
-          @keyframes qq-handle-breathe {
-            0%, 100% { opacity: 0.5; transform: scaleX(1); }
-            50%      { opacity: 0.9; transform: scaleX(1.15); }
+          /* Pulse only when collapsed — once open the bar has done its
+           * discoverability job. */
+          .qq-sheet--collapsed .qq-sheet-handle-bar {
+            animation: qq-sheet-handle-pulse 2.4s ease-in-out infinite;
+          }
+          @keyframes qq-sheet-handle-pulse {
+            0%, 100% { opacity: 0.6; transform: scaleY(1); }
+            50%      { opacity: 1;   transform: scaleY(1.2); }
           }
           /* Pause pulse while the user is actively dragging the
            * handle (pointer captured). */
           .qq-sheet-handle:active .qq-sheet-handle-bar {
             animation-play-state: paused;
             opacity: 1;
-            transform: scaleX(1);
+            transform: scaleY(1);
           }
           /* Once the sheet is open the bar doesn't need to attract
            * attention any more. Lock to a neutral rest state. */
@@ -398,8 +414,14 @@ export default function MobileBottomSheet({
           .qq-sheet--full .qq-sheet-handle-bar {
             animation: none;
             opacity: 0.55;
-            transform: scaleX(1);
+            transform: scaleY(1);
             box-shadow: none;
+          }
+          @media (prefers-reduced-motion: reduce) {
+            .qq-sheet--collapsed .qq-sheet-handle-bar {
+              animation: none;
+              opacity: 1;
+            }
           }
           .qq-sheet-handle-label {
             font-size: 13px; font-weight: 700;
@@ -407,12 +429,14 @@ export default function MobileBottomSheet({
             display: inline-flex; align-items: center; gap: 4px;
           }
           .qq-sheet-handle-caret {
-            display: inline-block;
-            width: 0; height: 0;
-            border-left: 4px solid transparent;
-            border-right: 4px solid transparent;
-            border-bottom: 5px solid ${p.colors.muted};
+            /* BH-3-defaults (2026-05-23) — caret span now hosts a real
+             * Lucide ChevronUp icon instead of a CSS border triangle. */
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
             margin-left: 2px;
+            color: ${p.colors.muted};
+            line-height: 0;
           }
 
           /* ── Scrollable content ────────────────────────────────── */
