@@ -27,6 +27,7 @@ client/src/pages/admin/IntegrationHealthPage.tsx
 client/src/pages/admin/MapguardDashboard.tsx
 client/src/pages/admin/MobilePreview/PhoneFrame.tsx
 client/src/pages/admin/MobilePreview/PreviewScreens.tsx
+client/src/pages/admin/MobilePreview/__tests__/PreviewScreens.test.tsx
 client/src/pages/admin/MobilePreview/index.tsx
 client/src/pages/admin/QuoteQuickPage.tsx
 client/src/pages/admin/RankFlowOpsPage.tsx
