@@ -247,6 +247,110 @@ export function registerTwilioCommsRoutes(app: Express): void {
   });
 
   /**
+   * DELETE /api/admin/twilio/messages/:sid
+   *
+   * Delete a single message via Twilio's REST API. Idempotent — a 404
+   * from Twilio (already-gone) is treated as success. Twilio's SDK
+   * exposes this as `client.messages(sid).remove()`.
+   */
+  app.delete("/api/admin/twilio/messages/:sid", requireAdmin, async (req: Request, res: Response) => {
+    const sid = String(req.params.sid ?? "").trim();
+    if (!sid) return res.status(400).json({ error: "missing_sid" });
+    if (!isTwilioConfigured()) {
+      return res.status(503).json({ error: "twilio_not_configured" });
+    }
+    try {
+      const client = getTwilioClient();
+      await client.messages(sid).remove();
+      log.info("admin message deleted", { sid });
+      return res.status(204).send();
+    } catch (err: any) {
+      const status = err?.status ?? err?.code;
+      if (status === 404 || status === 20404 || /not found/i.test(err?.message ?? "")) {
+        return res.status(204).send();
+      }
+      log.error("message delete failed", { sid, message: err?.message });
+      return res.status(500).json({ error: "twilio_delete_failed", message: err?.message ?? "Unknown error" });
+    }
+  });
+
+  /**
+   * DELETE /api/admin/twilio/conversations/:phone
+   *
+   * Delete every message between Alex's Twilio number and the given
+   * contact phone. Twilio has no bulk-delete endpoint, so we list
+   * messages on both sides of the thread and remove them one by one.
+   * Returns `{ deleted: N }`.
+   */
+  app.delete("/api/admin/twilio/conversations/:phone", requireAdmin, async (req: Request, res: Response) => {
+    const contact = String(req.params.phone ?? "").trim();
+    if (!contact) return res.status(400).json({ error: "missing_phone" });
+    const fromNumber = getTwilioFromNumber();
+    if (!isTwilioConfigured() || !fromNumber) {
+      return res.status(503).json({ error: "twilio_not_configured" });
+    }
+    try {
+      const client = getTwilioClient();
+      const [aSide, bSide] = await Promise.all([
+        client.messages.list({ to: fromNumber, from: contact, limit: 500 }),
+        client.messages.list({ from: fromNumber, to: contact, limit: 500 }),
+      ]);
+      const seen = new Set<string>();
+      const sids: string[] = [];
+      for (const m of [...aSide, ...bSide]) {
+        if (seen.has(m.sid)) continue;
+        seen.add(m.sid);
+        sids.push(m.sid);
+      }
+      let deleted = 0;
+      for (const sid of sids) {
+        try {
+          await client.messages(sid).remove();
+          deleted += 1;
+        } catch (err: any) {
+          const status = err?.status ?? err?.code;
+          if (status === 404 || status === 20404) {
+            deleted += 1;
+            continue;
+          }
+          log.warn("conversation delete: per-message remove failed", { sid, message: err?.message });
+        }
+      }
+      log.info("admin conversation deleted", { contact, deleted, attempted: sids.length });
+      return res.json({ deleted });
+    } catch (err: any) {
+      log.error("conversation delete failed", { contact, message: err?.message });
+      return res.status(500).json({ error: "twilio_delete_failed", message: err?.message ?? "Unknown error" });
+    }
+  });
+
+  /**
+   * DELETE /api/admin/twilio/calls/:sid
+   *
+   * Delete a single call record via Twilio's REST API. Idempotent.
+   */
+  app.delete("/api/admin/twilio/calls/:sid", requireAdmin, async (req: Request, res: Response) => {
+    const sid = String(req.params.sid ?? "").trim();
+    if (!sid) return res.status(400).json({ error: "missing_sid" });
+    if (!isTwilioConfigured()) {
+      return res.status(503).json({ error: "twilio_not_configured" });
+    }
+    try {
+      const client = getTwilioClient();
+      await client.calls(sid).remove();
+      log.info("admin call deleted", { sid });
+      return res.status(204).send();
+    } catch (err: any) {
+      const status = err?.status ?? err?.code;
+      if (status === 404 || status === 20404 || /not found/i.test(err?.message ?? "")) {
+        return res.status(204).send();
+      }
+      log.error("call delete failed", { sid, message: err?.message });
+      return res.status(500).json({ error: "twilio_delete_failed", message: err?.message ?? "Unknown error" });
+    }
+  });
+
+  /**
    * GET /api/admin/twilio/calls
    *
    * Recent call records for the account. Used by the dialer panel's
