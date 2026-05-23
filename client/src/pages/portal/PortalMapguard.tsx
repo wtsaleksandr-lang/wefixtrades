@@ -144,7 +144,7 @@ function MetricCard({ icon: Icon, label, value, delta, deltaSuffix, deltaInvert,
           <p className="text-2xl font-semibold text-gray-900 mt-1">{value}</p>
           {delta !== undefined && delta !== null && <div className="mt-1"><Delta value={delta} suffix={deltaSuffix} invert={deltaInvert} /></div>}
         </div>
-        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${accent}`}>
+        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${accent}`}>
           <Icon className="w-4 h-4 text-white" />
         </div>
       </div>
@@ -201,7 +201,7 @@ function SetupCompletionUpsellBanner({
   return (
     <Card className="p-6 border-emerald-200 bg-gradient-to-br from-emerald-50 to-white">
       <div className="flex items-start gap-4">
-        <div className="w-10 h-10 rounded-xl bg-[#2D6A4F] flex items-center justify-center flex-shrink-0">
+        <div className="w-8 h-8 rounded-xl bg-[#2D6A4F] flex items-center justify-center flex-shrink-0">
           <CheckCircle className="w-5 h-5 text-white" />
         </div>
         <div className="flex-1 min-w-0">
@@ -269,7 +269,7 @@ export default function PortalMapguard() {
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#0d3cfc] flex items-center justify-center">
+          <div className="w-8 h-8 rounded-xl bg-[#0d3cfc] flex items-center justify-center">
             <Shield className="w-5 h-5 text-white" />
           </div>
           <div>
@@ -302,7 +302,7 @@ export default function PortalMapguard() {
 
         {data && !data.active && !data.setup_completed_upsell?.should_show && (
           <Card className="p-8 text-center">
-            <Shield className="w-10 h-10 text-gray-200 mx-auto mb-3" />
+            <Shield className="w-8 h-8 text-gray-200 mx-auto mb-3" />
             <p className="text-sm font-medium text-gray-700">MapGuard is not active on your account</p>
             <p className="text-xs text-gray-400 mt-1">Contact us to get started with Google Maps optimization.</p>
           </Card>
@@ -617,7 +617,7 @@ function ActivityItem({ icon: Icon, color, title, description }: {
 }) {
   return (
     <div className="flex items-start gap-3">
-      <div className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 ${color}`}>
+      <div className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 ${color}`}>
         <Icon className="w-3.5 h-3.5 text-white" />
       </div>
       <div>
@@ -981,7 +981,7 @@ function GbpConnectBanner() {
   return (
     <Card className="p-5 border-blue-200 bg-blue-50/50">
       <div className="flex items-start gap-3">
-        <div className="w-9 h-9 rounded-lg bg-[#008BBE] flex items-center justify-center shrink-0">
+        <div className="w-8 h-8 rounded-lg bg-[#008BBE] flex items-center justify-center shrink-0">
           <MapPin className="w-4 h-4 text-white" />
         </div>
         <div className="flex-1 min-w-0">
@@ -1081,7 +1081,7 @@ function UpgradePlanButton() {
 function FirstScanRunningCard() {
   return (
     <Card className="p-8 text-center bg-emerald-50/40 border-emerald-200">
-      <Shield className="w-10 h-10 text-emerald-600 mx-auto mb-3" />
+      <Shield className="w-8 h-8 text-emerald-600 mx-auto mb-3" />
       <p className="text-sm font-semibold text-gray-900">First scan is running</p>
       <p className="text-xs text-gray-600 mt-2 max-w-md mx-auto">
         We're collecting your baseline visibility data right now. Your full dashboard

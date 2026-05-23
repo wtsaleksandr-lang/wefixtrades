@@ -16,27 +16,27 @@ function StatusIcon({ status }: { status: string }) {
   switch (status) {
     case "delivered":
       return (
-        <div className="w-7 h-7 rounded-full bg-emerald-100 flex items-center justify-center ring-2 ring-white">
+        <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center ring-2 ring-white">
           <Check className="w-3.5 h-3.5 text-emerald-600" />
         </div>
       );
     case "in_progress":
     case "submitted":
       return (
-        <div className="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center ring-2 ring-white">
+        <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center ring-2 ring-white">
           <Clock className="w-3.5 h-3.5 text-indigo-600" />
         </div>
       );
     case "waiting":
     case "blocked":
       return (
-        <div className="w-7 h-7 rounded-full bg-amber-100 flex items-center justify-center ring-2 ring-white">
+        <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center ring-2 ring-white">
           <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
         </div>
       );
     default:
       return (
-        <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center ring-2 ring-white">
+        <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center ring-2 ring-white">
           <Circle className="w-3.5 h-3.5 text-gray-400" />
         </div>
       );
@@ -152,7 +152,7 @@ export default function TaskTimeline({ tasks, onTaskAction }: TaskTimelineProps)
                       )}
                       {deliverableCount > 0 && (
                         <span className="inline-flex items-center gap-0.5 text-[10px] text-gray-400">
-                          <Paperclip className="w-2.5 h-2.5" />
+                          <Paperclip className="w-3 h-3" />
                           {deliverableCount} {deliverableCount === 1 ? "file" : "files"}
                         </span>
                       )}

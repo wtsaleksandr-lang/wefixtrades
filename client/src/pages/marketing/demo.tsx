@@ -91,7 +91,7 @@ function ChatPanel() {
                   fontSize: 14, lineHeight: 1.55,
                 }}>{msg.content}</div>
                 <div style={{ width: 28, height: 28, borderRadius: "50%", background: mkt.sectionLighter, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                  <User size={13} color={mkt.onDarkMuted} />
+                  <User size={12} color={mkt.onDarkMuted} />
                 </div>
               </div>
             );
@@ -106,7 +106,7 @@ function ChatPanel() {
               {(cleanText.trim() || recs.length === 0) && (
                 <div style={{ display: "flex", justifyContent: "flex-start", gap: 8, alignItems: "flex-end" }}>
                   <div style={{ width: 28, height: 28, borderRadius: "50%", background: mkt.accent, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                    <Bot size={13} color={mkt.buttonText} />
+                    <Bot size={12} color={mkt.buttonText} />
                   </div>
                   <div style={{
                     maxWidth: "78%", padding: "11px 15px",
@@ -130,7 +130,7 @@ function ChatPanel() {
         {sendMutation.isPending && (
           <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
             <div style={{ width: 28, height: 28, borderRadius: "50%", background: mkt.accent, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <Bot size={13} color={mkt.buttonText} />
+              <Bot size={12} color={mkt.buttonText} />
             </div>
             <div style={{ padding: "12px 18px", borderRadius: "16px 16px 16px 4px", background: mkt.sectionLight, border: `1px solid ${mkt.onDarkBorder}`, display: "flex", gap: 5, alignItems: "center" }}>
               {[0, 1, 2].map(i => (
@@ -166,7 +166,7 @@ function ChatPanel() {
             display: "flex", alignItems: "center", gap: 6, fontSize: 14, fontWeight: 600,
           }}
         >
-          <Send size={15} />
+          <Send size={16} />
         </button>
       </div>
     </div>
@@ -264,11 +264,11 @@ function VoicePanel() {
         }}
       >
         {isConnecting ? (
-          <Loader2 size={28} color={mkt.buttonText} strokeWidth={1.5} style={{ animation: "spin 1s linear infinite" }} />
+          <Loader2 size={24} color={mkt.buttonText} strokeWidth={1.5} style={{ animation: "spin 1s linear infinite" }} />
         ) : isInCall ? (
-          <PhoneOff size={28} color="#FFFFFF" strokeWidth={1.5} />
+          <PhoneOff size={24} color="#FFFFFF" strokeWidth={1.5} />
         ) : (
-          <Mic size={28} color={micHover && canStart ? mkt.accent : canStart ? mkt.buttonText : mkt.onDarkMuted} strokeWidth={1.5} style={{ transition: "color 0.2s ease" }} />
+          <Mic size={24} color={micHover && canStart ? mkt.accent : canStart ? mkt.buttonText : mkt.onDarkMuted} strokeWidth={1.5} style={{ transition: "color 0.2s ease" }} />
         )}
       </button>
       <style>{`
@@ -314,7 +314,7 @@ function VoicePanel() {
             display: "inline-flex", alignItems: "center", gap: 6,
           }}
         >
-          <PhoneOff size={13} /> End Call
+          <PhoneOff size={12} /> End Call
         </button>
       )}
 
@@ -401,7 +401,7 @@ function FAQItem({ q, a }: { q: string; a: string }) {
         }}
       >
         <span style={{ fontSize: 15, fontWeight: 600, color: mkt.onDark, lineHeight: 1.4 }}>{q}</span>
-        <ChevronDown size={18} color={mkt.onDarkMuted} style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform 0.2s ease", flexShrink: 0 }} />
+        <ChevronDown size={20} color={mkt.onDarkMuted} style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform 0.2s ease", flexShrink: 0 }} />
       </button>
       <div style={{ maxHeight: open ? 300 : 0, overflow: "hidden", transition: "max-height 0.25s ease" }}>
         <div style={{ padding: "0 22px 18px", fontSize: 14, color: mkt.onDarkMuted, lineHeight: 1.6 }}>{a}</div>

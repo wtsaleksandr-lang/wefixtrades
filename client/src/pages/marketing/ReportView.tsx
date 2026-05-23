@@ -256,15 +256,15 @@ function ScreenshotLightbox({ src, alt, onClose }: { src: string; alt: string; o
         }}
         aria-label="Close"
       >
-        <X size={22} />
+        <X size={24} />
       </button>
       {/* Toolbar */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', paddingRight: 72, flexShrink: 0, background: 'rgba(0,0,0,0.5)' }}>
         <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', fontWeight: 500 }}>{Math.round(scale * 100)}%</div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={() => setScale(s => clampScale(s / 1.3))} style={{ width: 36, height: 36, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.08)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ZoomOut size={18} /></button>
+          <button onClick={() => setScale(s => clampScale(s / 1.3))} style={{ width: 36, height: 36, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.08)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ZoomOut size={16} /></button>
           <button onClick={() => { setScale(1); setTranslate({ x: 0, y: 0 }); }} style={{ padding: '0 12px', height: 36, borderRadius: 18, border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.08)', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>Reset</button>
-          <button onClick={() => setScale(s => clampScale(s * 1.3))} style={{ width: 36, height: 36, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.08)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ZoomIn size={18} /></button>
+          <button onClick={() => setScale(s => clampScale(s * 1.3))} style={{ width: 36, height: 36, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.08)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ZoomIn size={16} /></button>
         </div>
       </div>
       {/* Image area */}
@@ -986,12 +986,12 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
   };
 
   const scoreRows = [
-    { key: 'googleMaps', icon: <MapPin size={18} color="#0d3cfc" />, label: 'Google Maps Profile', score: scores.googleMaps?.score || 0, max: 25, note: 'How complete and trusted your Google profile is' },
-    { key: 'websiteQuality', icon: <Globe size={18} color="#0d3cfc" />, label: 'Website Quality', score: liveWebsiteScore ?? scores.websiteQuality?.score ?? 0, max: 20, note: websiteScoreNote },
-    { key: 'searchVisibility', icon: <Search size={18} color="#0d3cfc" />, label: 'Search Visibility', score: scores.searchVisibility?.score || 0, max: 20, note: 'How easily customers find you on Google' },
-    { key: 'competitorPosition', icon: <Trophy size={18} color="#0d3cfc" />, label: 'Competitor Position', score: scores.competitorPositioning?.score || 0, max: 15, note: 'How you compare to local competitors' },
-    { key: 'adOpportunity', icon: <Megaphone size={18} color="#0d3cfc" />, label: 'Ad Opportunity', score: scores.adOpportunity?.score || 0, max: 10, note: 'Whether Google Ads would help you get more calls' },
-    { key: 'demandCoverage', icon: <Clock size={18} color="#0d3cfc" />, label: 'Demand Coverage', score: scores.demandCoverage?.score || 0, max: 10, note: "Whether you show up during evenings, weekends, and emergencies" },
+    { key: 'googleMaps', icon: <MapPin size={20} color="#0d3cfc" />, label: 'Google Maps Profile', score: scores.googleMaps?.score || 0, max: 25, note: 'How complete and trusted your Google profile is' },
+    { key: 'websiteQuality', icon: <Globe size={20} color="#0d3cfc" />, label: 'Website Quality', score: liveWebsiteScore ?? scores.websiteQuality?.score ?? 0, max: 20, note: websiteScoreNote },
+    { key: 'searchVisibility', icon: <Search size={20} color="#0d3cfc" />, label: 'Search Visibility', score: scores.searchVisibility?.score || 0, max: 20, note: 'How easily customers find you on Google' },
+    { key: 'competitorPosition', icon: <Trophy size={20} color="#0d3cfc" />, label: 'Competitor Position', score: scores.competitorPositioning?.score || 0, max: 15, note: 'How you compare to local competitors' },
+    { key: 'adOpportunity', icon: <Megaphone size={20} color="#0d3cfc" />, label: 'Ad Opportunity', score: scores.adOpportunity?.score || 0, max: 10, note: 'Whether Google Ads would help you get more calls' },
+    { key: 'demandCoverage', icon: <Clock size={20} color="#0d3cfc" />, label: 'Demand Coverage', score: scores.demandCoverage?.score || 0, max: 10, note: "Whether you show up during evenings, weekends, and emergencies" },
   ];
 
   const card = (extra?: any) => ({
@@ -1268,7 +1268,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                 </span>
                 <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: DARK, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
                   {row.label}
-                  <Info className="breakdown-info-icon" size={13} color={GREY} style={{ flexShrink: 0, opacity: 0.35, animation: 'infoNudge 3s ease-in-out infinite' }} />
+                  <Info className="breakdown-info-icon" size={12} color={GREY} style={{ flexShrink: 0, opacity: 0.35, animation: 'infoNudge 3s ease-in-out infinite' }} />
                 </span>
                 <div style={{ width: 80, flexShrink: 0, height: 8, borderRadius: 4, background: '#E5E7EB', overflow: 'hidden' }}>
                   <div style={{ width: `${(row.score / row.max) * 100}%`, height: '100%', background: scoreColor(row.score, row.max), borderRadius: 4 }}/>
@@ -1511,7 +1511,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
             </div>
             {/* Formula info icon */}
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, cursor: 'pointer', position: 'relative' }} onClick={() => setRevenueTooltip(t => !t)}>
-              <Info size={13} color="rgba(255,255,255,0.35)" />
+              <Info size={12} color="rgba(255,255,255,0.35)" />
               <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>How we calculate this</span>
               {revenueTooltip && (
                 <div style={{ position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)', width: 280, background: WHITE, color: DARK, fontSize: 12, lineHeight: 1.55, padding: '12px 14px', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.25)', zIndex: 50, textAlign: 'left' }}>
@@ -1785,7 +1785,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
                       letterSpacing: '0.04em', whiteSpace: 'nowrap',
                       display: 'flex', alignItems: 'center', gap: 4,
                     }}>
-                      <ZoomIn size={10} /> Tap to zoom
+                      <ZoomIn size={12} /> Tap to zoom
                     </div>
                   </>
                 ) : (
@@ -1860,7 +1860,7 @@ export default function ReportView({ report, business, reportId, liveSpeedData, 
               <span key={col.key} style={{ width: col.w, fontSize: 10, color: GREY, textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, textAlign: 'right', flexShrink: 0, position: 'relative', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: 2 }}
                 onClick={() => setKwColTooltip(prev => prev === col.key ? null : col.key)}>
                 {col.label}
-                <Info size={9} color={GREY} style={{ opacity: 0.4, flexShrink: 0 }} />
+                <Info size={12} color={GREY} style={{ opacity: 0.4, flexShrink: 0 }} />
                 {kwColTooltip === col.key && (
                   <div style={{ position: 'absolute', top: 20, right: 0, width: 200, background: DARK, color: WHITE, fontSize: 11, lineHeight: 1.5, padding: '10px 12px', borderRadius: 8, boxShadow: '0 6px 20px rgba(0,0,0,0.25)', zIndex: 30, textAlign: 'left', textTransform: 'none', letterSpacing: 'normal', fontWeight: 400 }}>
                     {col.tip}

@@ -114,12 +114,12 @@ export default function SharedAuditReport() {
   const maxVol = Math.max(...keywords.map((k: any) => k.monthlySearches || 0), 1);
 
   const SCORE_CATEGORIES = [
-    { key: "googleMaps", label: "Google Maps", desc: "How complete and trusted your Google profile is", icon: <MapPin size={18} /> },
-    { key: "websiteQuality", label: "Website", desc: "How fast and professional your website is", icon: <Globe size={18} /> },
-    { key: "searchVisibility", label: "Search Visibility", desc: "How easily customers find you on Google", icon: <Search size={18} /> },
-    { key: "competitorPosition", label: "Competitor Position", desc: "How you compare to local competitors", icon: <Trophy size={18} /> },
-    { key: "adOpportunity", label: "Ad Opportunity", desc: "The paid search market available in your area", icon: <Megaphone size={18} /> },
-    { key: "demandCoverage", label: "Demand Coverage", desc: "Whether you're visible when customers search", icon: <Clock size={18} /> },
+    { key: "googleMaps", label: "Google Maps", desc: "How complete and trusted your Google profile is", icon: <MapPin size={20} /> },
+    { key: "websiteQuality", label: "Website", desc: "How fast and professional your website is", icon: <Globe size={20} /> },
+    { key: "searchVisibility", label: "Search Visibility", desc: "How easily customers find you on Google", icon: <Search size={20} /> },
+    { key: "competitorPosition", label: "Competitor Position", desc: "How you compare to local competitors", icon: <Trophy size={20} /> },
+    { key: "adOpportunity", label: "Ad Opportunity", desc: "The paid search market available in your area", icon: <Megaphone size={20} /> },
+    { key: "demandCoverage", label: "Demand Coverage", desc: "Whether you're visible when customers search", icon: <Clock size={20} /> },
   ];
 
   const circumference = 2 * Math.PI * 48;

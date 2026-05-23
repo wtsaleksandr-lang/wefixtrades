@@ -270,7 +270,7 @@ function SmsPanel({
             <Button
               size="sm"
               variant="ghost"
-              className="h-7 w-7 p-0"
+              className="h-8 w-8 p-0"
               onClick={() => refetch()}
               title="Refresh"
               disabled={isRefetching}
@@ -355,7 +355,7 @@ function SmsPanel({
           <ThreadView contact={activeContact} />
         ) : (
           <EmptyState
-            icon={<MessageSquare className="w-10 h-10 text-gray-300" />}
+            icon={<MessageSquare className="w-8 h-8 text-gray-300" />}
             title="Pick a conversation"
             message="Select a thread on the left or start a new message."
           />
@@ -867,7 +867,7 @@ function PhonePanel({
               }
             />
             <div className="mt-5 p-4 rounded-lg border border-dashed border-gray-200 text-center" data-testid="twilio-dialer-empty">
-              <Phone className="w-7 h-7 text-gray-300 mx-auto" />
+              <Phone className="w-8 h-8 text-gray-300 mx-auto" />
               <p className="text-sm font-medium text-gray-600 mt-2">Voice not configured</p>
               <p className="text-xs text-gray-400 mt-1 max-w-xs mx-auto">
                 Set the env vars above in Doppler and reload to enable browser-based calling.

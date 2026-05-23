@@ -384,9 +384,9 @@ export function MarketingNav() {
                     }}
                   >
                     {menuOpen ? (
-                      <X size={22} strokeWidth={1.5} />
+                      <X size={24} strokeWidth={1.5} />
                     ) : (
-                      <MenuIcon size={22} strokeWidth={1.5} />
+                      <MenuIcon size={24} strokeWidth={1.5} />
                     )}
                   </div>
                 </button>

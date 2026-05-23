@@ -80,7 +80,7 @@ function StatCard({
           {hint && <p className="text-xs text-gray-500 mt-1">{hint}</p>}
         </div>
         {Icon && (
-          <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${accent}`}>
+          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${accent}`}>
             <Icon className="w-4 h-4 text-white" />
           </div>
         )}
