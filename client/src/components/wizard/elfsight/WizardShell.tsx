@@ -717,14 +717,18 @@ export default function WizardShell({ embed = false }: Props) {
   }, [applyTemplate]);
 
   // ── P1 fix — apply `?template=<id>` from the URL on first mount. ──────
-  // The marketing `/templates/:slug` page's "Use this template" CTA links
-  // to `/wizard?template=<template.id>`. Without this effect the wizard
+  // The marketing `/templates/:slug` page's "Use this template" CTA, the
+  // `/templates` index "Use" CTA, and the `/demo/:id` "Start Free" CTA all
+  // link to `/wizard?template=<preset.id>`. Without this effect the wizard
   // ignored the param and loaded whatever was in localStorage from the
   // user's previous session (which felt like a random template).
   //
   // Behaviour:
   //  - Runs once on mount (empty deps + a ref guard so React 18's strict-
   //    mode double-invoke doesn't apply twice).
+  //  - Skipped when `?token=` is present: a saved draft is being loaded
+  //    via the token flow above, and the saved draft wins so the user's
+  //    existing work isn't clobbered by a marketing-link preset.
   //  - Looks up the preset by id. If found, applies it via the existing
   //    `applyTemplate` (which preserves the user's business name, settings,
   //    pricing, and style.brand — only the structural slice is replaced).
@@ -741,6 +745,8 @@ export default function WizardShell({ embed = false }: Props) {
     templateUrlAppliedRef.current = true;
     try {
       const params = new URLSearchParams(window.location.search);
+      // Saved draft via token wins — don't overwrite with a marketing preset.
+      if (params.get('token')) return;
       const requestedId = params.get('template');
       if (!requestedId) return;
       const preset = getTemplatePreset(requestedId);
