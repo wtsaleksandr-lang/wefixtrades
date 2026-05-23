@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { StatCardGrid } from "@/components/shared/StatCard";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -483,7 +484,7 @@ export default function ReviewsPage() {
   const overviewBody = (
     <div className="space-y-4">
       {/* Stats */}
-      <div className="grid auto-rows-fr grid-cols-2 md:grid-cols-5 gap-3">
+      <StatCardGrid className="md:grid-cols-5 lg:grid-cols-5 mb-0">
         <StatCard label="Total Reviews" value={stats?.total ?? "—"} icon={Star} color="bg-blue-500" />
         <StatCard label="Avg Rating" value={stats ? `${stats.averageRating}★` : "—"} icon={TrendingUp} color="bg-emerald-500" />
         <HelpCue text="Reviews detected by monitoring that haven't been acknowledged by admin yet.">
@@ -495,7 +496,7 @@ export default function ReviewsPage() {
         <HelpCue text="1-2 star reviews without a public response. These need attention first.">
           <StatCard label="Low Rating" value={lowRating} icon={AlertTriangle} color="bg-red-500" />
         </HelpCue>
-      </div>
+      </StatCardGrid>
 
       {/* Rating distribution bar */}
       {stats && stats.total > 0 && (

@@ -357,9 +357,9 @@ export default function SocialSyncOpsPage() {
 
         {/* Clustered metric cards */}
         {metrics && (
-          <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-3 auto-rows-fr">
             {/* Critical health — far left, red accent */}
-            <Card className="border-red-200 p-3">
+            <Card className="border-red-200 p-4 h-full">
               <div className="mb-2 flex items-center gap-1.5">
                 <ShieldAlert className="h-4 w-4 text-red-600" />
                 <h2 className="text-xs font-semibold uppercase tracking-wide text-red-700">System Alerts</h2>
@@ -373,7 +373,7 @@ export default function SocialSyncOpsPage() {
             </Card>
 
             {/* Integration cluster */}
-            <Card className="p-3">
+            <Card className="p-4 h-full">
               <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Active API Links</h2>
               <div className="grid grid-cols-3 gap-2">
                 <ApiLinkStat icon={<Facebook className="h-4 w-4 text-blue-600" />} label="Facebook" value={metrics.fb_connected} filterKey="fb_connected" activeFilter={filter} onClick={applyFilter} />
@@ -383,7 +383,7 @@ export default function SocialSyncOpsPage() {
             </Card>
 
             {/* Business cluster — far right */}
-            <Card className="p-3">
+            <Card className="p-4 h-full">
               <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Business</h2>
               <div className="grid grid-cols-3 gap-2">
                 <BizStat label="Revenue/mo" value={profitData ? `$${profitData.totals.revenue}` : "—"} tone="emerald" />

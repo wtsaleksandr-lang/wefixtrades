@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { StatCard, StatCardGrid } from "@/components/shared/StatCard";
 import {
   Calculator,
   Search,
@@ -357,52 +358,28 @@ export default function QuoteQuickPage() {
   const overviewBody = (
     <div className="space-y-6" data-testid="quotequick-overview-body">
       {/* Summary Cards (product-instance KPIs — separate from the shell's MRR/subs strip above) */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 auto-rows-fr">
-          <Card className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
-                <Calculator className="w-4 h-4 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold font-mono text-gray-900">{calculators.length}</p>
-                <p className="text-xs text-gray-500">Total calculators</p>
-              </div>
-            </div>
-          </Card>
-          <Card className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-green-50 flex items-center justify-center">
-                <Eye className="w-4 h-4 text-green-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold font-mono text-gray-900">{totalLive}</p>
-                <p className="text-xs text-gray-500">Live</p>
-              </div>
-            </div>
-          </Card>
-          <Card className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center">
-                <Users className="w-4 h-4 text-purple-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold font-mono text-gray-900">{totalLeads.toLocaleString()}</p>
-                <p className="text-xs text-gray-500">Total leads</p>
-              </div>
-            </div>
-          </Card>
-          <Card className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center">
-                <Calculator className="w-4 h-4 text-emerald-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold font-mono text-gray-900">{paidCount}</p>
-                <p className="text-xs text-gray-500">Paid plans</p>
-              </div>
-            </div>
-          </Card>
-        </div>
+      <StatCardGrid className="md:grid-cols-4 mb-0">
+        <StatCard
+          label="Total calculators"
+          value={<span className="font-mono">{calculators.length}</span>}
+          hint={<Calculator className="w-3.5 h-3.5 text-blue-600" />}
+        />
+        <StatCard
+          label="Live"
+          value={<span className="font-mono">{totalLive}</span>}
+          hint={<Eye className="w-3.5 h-3.5 text-green-600" />}
+        />
+        <StatCard
+          label="Total leads"
+          value={<span className="font-mono">{totalLeads.toLocaleString()}</span>}
+          hint={<Users className="w-3.5 h-3.5 text-purple-600" />}
+        />
+        <StatCard
+          label="Paid plans"
+          value={<span className="font-mono">{paidCount}</span>}
+          hint={<Calculator className="w-3.5 h-3.5 text-emerald-600" />}
+        />
+      </StatCardGrid>
 
         {/* Lead trend */}
         <Card className="p-5">

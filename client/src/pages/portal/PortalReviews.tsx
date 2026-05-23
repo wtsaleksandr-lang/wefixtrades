@@ -800,7 +800,7 @@ export default function PortalReviews() {
         ) : null}
 
         {/* Request a Review + QR Code */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 auto-rows-fr">
           {/* Manual Request */}
           <Card className="p-4">
             <div className="flex items-center justify-between mb-3">

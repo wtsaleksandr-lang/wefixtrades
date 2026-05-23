@@ -19,6 +19,7 @@ import { AdminProductPageShell, type ProductStats } from "@/components/admin/Adm
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { StatCardGrid } from "@/components/shared/StatCard";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -280,14 +281,14 @@ export default function MapguardDashboard() {
     <div className="space-y-5">
       {/* Stat Cards (portfolio-instance health — separate from the shell's MRR/subs strip above) */}
       {isLoading ? (
-        <div className="grid auto-rows-fr grid-cols-2 md:grid-cols-5 gap-3">
+        <StatCardGrid className="md:grid-cols-5 mb-0">
           {[1, 2, 3, 4, 5].map((i) => (
             <Card key={i} className="h-full p-4"><Skeleton className="h-14 w-full" /></Card>
           ))}
-        </div>
+        </StatCardGrid>
       ) : metrics && (
         <>
-          <div className="grid auto-rows-fr grid-cols-2 md:grid-cols-5 gap-3">
+          <StatCardGrid className="md:grid-cols-5 mb-0">
             <StatCard label="Active Clients" value={metrics.total_clients} icon={Users} color="bg-brand-blue" />
             <StatCard label="At Risk" value={metrics.at_risk + metrics.significant_drops} icon={AlertTriangle} color={metrics.at_risk > 0 ? "bg-red-500" : "bg-gray-400"} />
             <StatCard label="Improved" value={metrics.improved} icon={TrendingUp} color={metrics.improved > 0 ? "bg-emerald-500" : "bg-gray-400"} />
@@ -298,12 +299,12 @@ export default function MapguardDashboard() {
               color="bg-blue-500"
             />
             <StatCard label="Upgrade Opps" value={metrics.upgrade_opportunities} icon={TrendingUp} color={metrics.upgrade_opportunities > 0 ? "bg-amber-500" : "bg-gray-400"} />
-          </div>
+          </StatCardGrid>
 
           {/* Automation-delivery proof row. MRR is shown by the shell's KPI
               strip above; the 30d counters show whether the post + review
               automation is actually firing for paying customers. */}
-          <div className="grid auto-rows-fr grid-cols-2 md:grid-cols-3 gap-3 mt-3">
+          <StatCardGrid className="md:grid-cols-3 mb-0 mt-3">
             <StatCard
               label="Tier Mix"
               value={`${metrics.basic_count}B · ${metrics.pro_count}P`}
@@ -322,7 +323,7 @@ export default function MapguardDashboard() {
               icon={CheckCircle}
               color={metrics.reviews_replied_30d > 0 ? "bg-brand-blue" : "bg-gray-400"}
             />
-          </div>
+          </StatCardGrid>
         </>
       )}
 
