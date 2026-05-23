@@ -85,7 +85,10 @@ export const adminAiActions = pgTable(
     dedupIdx: uniqueIndex("admin_ai_actions_dedup_idx")
       .on(t.playbook, t.signal_id)
       .where(sql`${t.status} = 'pending'`),
-    statusIdx: index("admin_ai_actions_status_idx").on(t.status, t.created_at),
+    // Direction must match migrations/0028_admin_ai_actions.sql:
+    //   CREATE INDEX admin_ai_actions_status_idx ON admin_ai_actions (status, created_at DESC).
+    // Without `.desc()` drizzle-kit push would propose drop + recreate.
+    statusIdx: index("admin_ai_actions_status_idx").on(t.status, t.created_at.desc()),
   }),
 );
 

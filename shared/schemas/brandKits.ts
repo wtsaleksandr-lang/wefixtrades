@@ -33,7 +33,10 @@ export const brandKits = pgTable(
     updated_at: timestamp("updated_at").defaultNow().notNull(),
   },
   (t) => ({
-    userIdx: index("brand_kits_user_idx").on(t.user_id, t.created_at),
+    // Direction must match migrations/0025_brand_kits.sql:
+    //   CREATE INDEX brand_kits_user_idx ON brand_kits (user_id, created_at DESC).
+    // Without `.desc()` drizzle-kit push would propose drop + recreate.
+    userIdx: index("brand_kits_user_idx").on(t.user_id, t.created_at.desc()),
   }),
 );
 

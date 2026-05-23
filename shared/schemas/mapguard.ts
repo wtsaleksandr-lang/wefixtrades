@@ -1,4 +1,5 @@
-import { pgTable, text, varchar, serial, integer, timestamp, jsonb, boolean, uuid } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, serial, integer, timestamp, jsonb, boolean, uuid, doublePrecision, index } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { clients, clientServices } from "./adminCrm";
@@ -111,3 +112,41 @@ export const insertMapguardTaskActivitySchema = createInsertSchema(mapguardTaskA
 });
 export type InsertMapguardTaskActivity = z.infer<typeof insertMapguardTaskActivitySchema>;
 export type MapguardTaskActivity = typeof mapguardTaskActivity.$inferSelect;
+
+/* ═══════════════════════════════════════════
+   map_snapshots — Wave BF-6
+   ═══════════════════════════════════════════
+   Publicly shareable GBP rank-grid + audit
+   snapshots from the free /tools/map-snapshot
+   page. Currently consumed via raw SQL in
+   server/routes/mapSnapshotRoutes.ts, but the
+   Drizzle definition MUST exist here so
+   drizzle-kit push sees the table and does not
+   propose DROP TABLE / DROP INDEX against it
+   in production. Schema must match
+   migrations/0034_map_snapshots.sql exactly.
+   ═══════════════════════════════════════════ */
+export const mapSnapshots = pgTable(
+  "map_snapshots",
+  {
+    id: serial("id").primaryKey(),
+    slug: varchar("slug", { length: 32 }).notNull().unique(),
+    business_name: varchar("business_name", { length: 200 }).notNull(),
+    business_address: varchar("business_address", { length: 400 }),
+    location_lat: doublePrecision("location_lat").notNull(),
+    location_lng: doublePrecision("location_lng").notNull(),
+    keywords_json: jsonb("keywords_json").notNull().default(sql`'[]'::jsonb`),
+    heatmap_json: jsonb("heatmap_json").notNull().default(sql`'[]'::jsonb`),
+    audit_json: jsonb("audit_json").notNull().default(sql`'[]'::jsonb`),
+    source: varchar("source", { length: 16 }).notNull().default("mock"),
+    created_at: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    // Names + directions must match migrations/0034_map_snapshots.sql:
+    //   CREATE INDEX idx_map_snapshots_slug    ON map_snapshots(slug);
+    //   CREATE INDEX idx_map_snapshots_created ON map_snapshots(created_at DESC);
+    slugIdx: index("idx_map_snapshots_slug").on(t.slug),
+    createdIdx: index("idx_map_snapshots_created").on(t.created_at.desc()),
+  }),
+);
+export type MapSnapshot = typeof mapSnapshots.$inferSelect;
