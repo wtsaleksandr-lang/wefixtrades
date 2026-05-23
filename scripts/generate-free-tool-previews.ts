@@ -198,6 +198,39 @@ const TOOLS: ToolPreview[] = [
       <p style="margin: 12px 0 0; color: #94a3b8; font-size: 10px; text-align: center;">Powered by <strong>WeFixTrades</strong></p>
     </div>`,
   },
+  {
+    // Service-Area Map mockup — stylised SVG hint of what the rendered
+    // Google Static Map embed looks like (centre pin + service-radius
+    // circle). We can't ship a real Google PNG in source control (API key
+    // would leak + tile licence) so this is a tasteful schematic.
+    slug: "service-area",
+    renderHTML: () => `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 16px; background: #ffffff; border-radius: 10px; border: 1px solid #e5e7eb; width: 460px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+          <h2 style="margin: 0; font-size: 15px; font-weight: 600; color: #0f172a;">Service area — 25 mi radius</h2>
+          <span style="font-size: 10px; padding: 2px 7px; background: #eef3ff; color: #0d3cfc; border-radius: 999px; font-weight: 600;">LIVE</span>
+        </div>
+        <div style="position: relative; width: 100%; height: 260px; border-radius: 8px; overflow: hidden; background: linear-gradient(180deg, #e8efe8 0%, #d6e6d8 100%);">
+          <svg viewBox="0 0 460 260" xmlns="http://www.w3.org/2000/svg" style="position: absolute; inset: 0; width: 100%; height: 100%;">
+            <g stroke="#b8c5b8" stroke-width="1" fill="none" opacity="0.55">
+              <path d="M 0 60 Q 120 50 230 90 T 460 80" />
+              <path d="M 0 130 Q 150 145 280 120 T 460 150" />
+              <path d="M 0 200 Q 100 180 240 210 T 460 195" />
+              <path d="M 90 0 L 110 260" />
+              <path d="M 220 0 L 240 260" />
+              <path d="M 360 0 L 340 260" />
+            </g>
+            <circle cx="230" cy="130" r="92" fill="#0d3cfc" fill-opacity="0.18" stroke="#0d3cfc" stroke-width="2" />
+            <g transform="translate(230 130)">
+              <circle r="11" fill="#0d3cfc" />
+              <circle r="4" fill="#ffffff" />
+              <path d="M -9 -4 L 0 -18 L 9 -4 Z" fill="#0d3cfc" />
+            </g>
+          </svg>
+        </div>
+        <p style="margin: 10px 0 0; font-size: 11px; color: #64748b;">Static image, immutable cache — fast on every device.</p>
+      </div>`,
+  },
 ];
 
 async function main() {
