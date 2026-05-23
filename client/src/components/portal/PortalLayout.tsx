@@ -138,6 +138,7 @@ export default function PortalLayout({
   children,
   chatContext,
   breadcrumb,
+  compact = false,
 }: {
   children: React.ReactNode;
   /** Optional page-specific context for the global assistant (e.g. onboarding form fields) */
@@ -145,6 +146,13 @@ export default function PortalLayout({
   /** Optional breadcrumb slot rendered in the top bar instead of the static nav-item label.
    *  Pages that want a deeper trail (e.g. "Services › Connect Calendar") pass a fragment here. */
   breadcrumb?: React.ReactNode;
+  /**
+   * Compact mode — hides the sidebar on mobile and removes content padding
+   * so the page surface reads as a "field-worker mobile app" (large tap
+   * targets, single-column content, minimal chrome). On desktop, the
+   * sidebar still renders normally. Used by /portal/dispatch.
+   */
+  compact?: boolean;
 }) {
   const [location, navigate] = useLocation();
   const { user } = useAuth();
@@ -194,7 +202,9 @@ export default function PortalLayout({
         />
       )}
 
-      {/* Sidebar */}
+      {/* Sidebar — full chrome on desktop. In compact mode the sidebar
+          still mounts so a field worker can tap menu and slide it in for
+          navigation; it just doesn't occupy layout space on small screens. */}
       <aside
         className={cn(
           "fixed inset-y-0 left-0 z-40 flex w-56 flex-col bg-white border-r border-gray-200 transition-transform lg:static lg:translate-x-0",
@@ -341,8 +351,16 @@ export default function PortalLayout({
           </div>
         )}
 
-        {/* Page content */}
-        <main id="main-content" className="flex-1 overflow-y-auto p-4 md:p-6" tabIndex={-1}>
+        {/* Page content — in compact mode, drop padding on mobile so field
+            surfaces (Dispatch) can render full-bleed; padding returns at lg. */}
+        <main
+          id="main-content"
+          className={cn(
+            "flex-1 overflow-y-auto",
+            compact ? "p-0 lg:p-6" : "p-4 md:p-6"
+          )}
+          tabIndex={-1}
+        >
           {children}
         </main>
       </div>
