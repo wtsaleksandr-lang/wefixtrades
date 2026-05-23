@@ -201,6 +201,74 @@ function getContrastingColor(hex: string): string {
   return luminance > 0.6 ? '#0f172a' : '#ffffff';
 }
 
+/* ─── CONTRAST-3 — Brand Studio contrast validators ─────────────────────
+ *
+ * Local shim of the WCAG contrast math used by CONTRAST-1's runtime guard
+ * (client/src/lib/contrastGuard.ts). Kept inline so this wave can ship
+ * before CONTRAST-1 merges; when it does we can drop these helpers and
+ * re-import from `@/lib/contrastGuard`. Same algorithm (sRGB-linearised
+ * relative luminance per WCAG 2.1) so the picker-time check, the runtime
+ * auto-correction and any future a11y audit all produce identical ratios.
+ *
+ * Threshold: 4.5:1 (WCAG AA normal text). The renderer's auto-correction
+ * is the safety net — this layer is informational so the owner sees the
+ * problem at pick time and can opt to fix it (or override).
+ */
+const CONTRAST_AA_NORMAL = 4.5;
+
+function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+  const safe = safeHex(hex);
+  if (!safe) return null;
+  let v = safe.slice(1);
+  if (v.length === 3) v = v.split('').map((c) => c + c).join('');
+  return {
+    r: parseInt(v.slice(0, 2), 16),
+    g: parseInt(v.slice(2, 4), 16),
+    b: parseInt(v.slice(4, 6), 16),
+  };
+}
+
+function relativeLuminance(hex: string): number {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return 0;
+  const ch = (c: number) => {
+    const v = c / 255;
+    return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+  };
+  return 0.2126 * ch(rgb.r) + 0.7152 * ch(rgb.g) + 0.0722 * ch(rgb.b);
+}
+
+function contrastRatio(fg: string, bg: string): number {
+  const l1 = relativeLuminance(fg);
+  const l2 = relativeLuminance(bg);
+  const [a, b] = l1 > l2 ? [l1, l2] : [l2, l1];
+  return (a + 0.05) / (b + 0.05);
+}
+
+/**
+ * Nearest readable variant of `pickedFg` against `bg`. Walks the picked
+ * colour toward white or black (whichever direction yields contrast first)
+ * in 5% lightness steps until the ratio crosses AA, preserving the chosen
+ * hue. Mirrors `ensureReadableText` from CONTRAST-1's contrastGuard.
+ */
+function suggestReadableColour(pickedFg: string, bg: string): string {
+  if (contrastRatio(pickedFg, bg) >= CONTRAST_AA_NORMAL) return pickedFg;
+  const rgb = hexToRgb(pickedFg);
+  if (!rgb) return getContrastingColor(bg);
+  // Pick direction: which extreme yields a passing pair against bg?
+  const bgLum = relativeLuminance(bg);
+  // If bg is dark, push fg lighter; if bg is light, push darker.
+  const goLighter = bgLum < 0.5;
+  for (let step = 0.05; step <= 1.0; step += 0.05) {
+    const mix = (c: number) => Math.round(goLighter ? c + (255 - c) * step : c * (1 - step));
+    const r = mix(rgb.r), g = mix(rgb.g), b = mix(rgb.b);
+    const hex = '#' + [r, g, b].map((n) => n.toString(16).padStart(2, '0')).join('');
+    if (contrastRatio(hex, bg) >= CONTRAST_AA_NORMAL) return hex;
+  }
+  // Fallback: high-contrast black/white that getContrastingColor would pick.
+  return getContrastingColor(bg);
+}
+
 // W-AO-6b — bytes ceiling for the Branding logo upload. Matches the existing
 // BuildTab limit so a logo set from either place rejects oversized files
 // consistently (data URL inflates ~33% on top of this).
@@ -934,6 +1002,11 @@ export default function StyleTab({
         </legend>
         <div className="qq-style-group-body">
         <div className="qq-style-swatches qq-style-swatches--grid" data-testid="style-swatches-row">
+          {/* CONTRAST-3 — every readable-by-design swatch declares its
+              expected pair so the popover surfaces a live ratio + a
+              suggested-colour swatch when AA fails. The runtime guard
+              (CONTRAST-1) still auto-corrects on render so this layer is
+              informational, never blocking. */}
           <ColourSwatch
             icon={MousePointerClick}
             label="Accent"
@@ -941,6 +1014,9 @@ export default function StyleTab({
             value={accent}
             fallback={DEFAULT_SHELL_STYLE.accent}
             onChange={(v) => patch({ accent: v })}
+            pairColour={getContrastingColor(accent)}
+            pairLabel="CTA text"
+            pairRole="bg"
           />
           <ColourSwatch
             icon={Square}
@@ -949,6 +1025,9 @@ export default function StyleTab({
             value={background}
             fallback={DEFAULT_SHELL_STYLE.background}
             onChange={(v) => patch({ background: v })}
+            pairColour={text}
+            pairLabel="body text"
+            pairRole="bg"
           />
           <ColourSwatch
             icon={Box}
@@ -957,6 +1036,9 @@ export default function StyleTab({
             value={surface}
             fallback={TOKEN_FALLBACKS.surface}
             onChange={(v) => patch({ surface: v })}
+            pairColour={text}
+            pairLabel="body text"
+            pairRole="bg"
           />
           <ColourSwatch
             icon={Type}
@@ -965,6 +1047,9 @@ export default function StyleTab({
             value={text}
             fallback={DEFAULT_SHELL_STYLE.text}
             onChange={(v) => patch({ text: v })}
+            pairColour={surface}
+            pairLabel="surface"
+            pairRole="fg"
           />
           <ColourSwatch
             icon={Receipt}
@@ -973,6 +1058,9 @@ export default function StyleTab({
             value={resultsBg}
             fallback={DEFAULT_SHELL_STYLE.resultsBg}
             onChange={(v) => patch({ resultsBg: v })}
+            pairColour={text}
+            pairLabel="result text"
+            pairRole="bg"
           />
           {/* Row 2 — secondary tokens. 4 items: Border, Success, Error,
               and a placeholder slot (intentionally empty for now —
@@ -994,6 +1082,9 @@ export default function StyleTab({
             fallback={TOKEN_FALLBACKS.success}
             onChange={(v) => patch({ success: v })}
             onOpen={() => setGhost('success')}
+            pairColour="#ffffff"
+            pairLabel="badge text"
+            pairRole="bg"
           />
           <ColourSwatch
             icon={XCircle}
@@ -1003,6 +1094,9 @@ export default function StyleTab({
             fallback={TOKEN_FALLBACKS.error}
             onChange={(v) => patch({ error: v })}
             onOpen={() => setGhost('error')}
+            pairColour="#ffffff"
+            pairLabel="badge text"
+            pairRole="bg"
           />
         </div>
         </div>
@@ -1766,6 +1860,104 @@ export default function StyleTab({
         .qq-editor-shell[data-theme="dark"] .qq-style-swatch-popover-h {
           color: var(--qq-text);
         }
+        /* CONTRAST-3 — live contrast indicator + warning UI inside the
+         * picker popover. The ratio row sits just under the label; the
+         * warning sits between it and the preset grid when the pair
+         * fails AA. Monospace ratio for legibility; pass=green text,
+         * fail=red text. Reduced-motion respected for the suggested-
+         * colour click feedback. */
+        .qq-style-contrast-row {
+          display: flex; align-items: center; justify-content: space-between;
+          gap: 8px;
+          padding: 4px 2px 2px;
+          font-size: 11px;
+          font-weight: 600;
+        }
+        .qq-style-contrast-label {
+          color: ${p.colors.muted};
+          letter-spacing: -0.01em;
+        }
+        .qq-style-contrast-ratio {
+          font-family: 'SF Mono', Menlo, Consolas, monospace;
+          font-size: 11px;
+          font-weight: 700;
+        }
+        .qq-style-contrast-row.is-pass .qq-style-contrast-ratio {
+          color: #16a34a;
+        }
+        .qq-style-contrast-row.is-fail .qq-style-contrast-ratio {
+          color: #dc2626;
+        }
+        .qq-style-contrast-warn {
+          display: flex; align-items: center; gap: 6px;
+          padding: 6px 8px;
+          font-size: 11px; font-weight: 500;
+          color: #991b1b;
+          background: #fef2f2;
+          border: 1px solid #fecaca;
+          border-radius: 6px;
+        }
+        .qq-style-contrast-warn-icon {
+          display: inline-flex; align-items: center; justify-content: center;
+          flex-shrink: 0;
+          width: 14px; height: 14px;
+          font-size: 10px; font-weight: 800;
+          color: #fff;
+          background: #dc2626;
+          border-radius: 50%;
+          line-height: 1;
+        }
+        .qq-style-contrast-warn-text {
+          flex: 1; min-width: 0;
+          line-height: 1.3;
+        }
+        .qq-style-contrast-suggest {
+          flex-shrink: 0;
+          width: 18px; height: 18px;
+          padding: 0;
+          border: none;
+          border-radius: 4px;
+          box-shadow: 0 0 0 1px rgba(15,23,42,0.20), 0 0 0 2px #fff;
+          cursor: pointer;
+          transition: transform 0.12s ease, box-shadow 0.12s ease;
+        }
+        .qq-style-contrast-suggest:hover {
+          transform: scale(1.10);
+          box-shadow: 0 0 0 1px rgba(15,23,42,0.30), 0 0 0 2px #fff;
+        }
+        .qq-style-contrast-dismiss {
+          flex-shrink: 0;
+          width: 16px; height: 16px;
+          padding: 0;
+          font-size: 13px; line-height: 1;
+          color: #991b1b;
+          background: transparent;
+          border: none;
+          border-radius: 4px;
+          cursor: pointer;
+        }
+        .qq-style-contrast-dismiss:hover {
+          background: rgba(220,38,38,0.10);
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .qq-style-contrast-suggest {
+            transition: none;
+          }
+          .qq-style-contrast-suggest:hover {
+            transform: none;
+          }
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-style-contrast-warn {
+          color: #fecaca;
+          background: rgba(220,38,38,0.12);
+          border-color: rgba(220,38,38,0.40);
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-style-contrast-dismiss {
+          color: #fecaca;
+        }
+        .qq-editor-shell[data-theme="dark"] .qq-style-contrast-label {
+          color: rgba(255,255,255,0.65);
+        }
         .qq-style-label {
           display: flex; align-items: center; justify-content: space-between;
           font-size: 12px; font-weight: 700;
@@ -2468,6 +2660,9 @@ function BrandStudioGroup({
                     value={gradFrom}
                     fallback="#0d3cfc"
                     onChange={(v) => setGradient({ from: v })}
+                    pairColour={style.text ?? DEFAULT_SHELL_STYLE.text}
+                    pairLabel="body text"
+                    pairRole="bg"
                   />
                   <ColourSwatch
                     icon={Layers}
@@ -2476,6 +2671,9 @@ function BrandStudioGroup({
                     value={gradTo}
                     fallback="#ffffff"
                     onChange={(v) => setGradient({ to: v })}
+                    pairColour={style.text ?? DEFAULT_SHELL_STYLE.text}
+                    pairLabel="body text"
+                    pairRole="bg"
                   />
                 </div>
                 <label className="qq-style-label" style={{ marginTop: 4 }}>
@@ -2587,6 +2785,9 @@ function BrandStudioGroup({
                 value={rpAccent || (style.accent ?? '#0d3cfc')}
                 fallback={style.accent ?? '#0d3cfc'}
                 onChange={(v) => setResultPanel({ accentOverride: v })}
+                pairColour={getContrastingColor(rpAccent || (style.accent ?? '#0d3cfc'))}
+                pairLabel="CTA text"
+                pairRole="bg"
               />
               <ColourSwatch
                 icon={Receipt}
@@ -2595,6 +2796,9 @@ function BrandStudioGroup({
                 value={rpBg || (style.resultsBg ?? '#ffffff')}
                 fallback={style.resultsBg ?? '#ffffff'}
                 onChange={(v) => setResultPanel({ bgOverride: v })}
+                pairColour={style.text ?? DEFAULT_SHELL_STYLE.text}
+                pairLabel="result text"
+                pairRole="bg"
               />
             </div>
             <label className="qq-style-label" style={{ marginTop: 12 }}>
@@ -2937,6 +3141,7 @@ function BrandStudioGroup({
  * getBoundingClientRect of the trigger. */
 function ColourSwatch({
   label, value, fallback, onChange, testid, icon: Icon, onOpen,
+  pairColour, pairLabel, pairRole,
 }: {
   label: string;
   value: string;
@@ -2950,15 +3155,57 @@ function ColourSwatch({
   /** BD-3f Item 5 — fires when the popover is opened (used by Success /
    *  Error swatches to mount a ghost demo banner on the preview pane). */
   onOpen?: () => void;
+  /** CONTRAST-3 — the colour this swatch pairs against for readability.
+   *  When provided, the popover shows the live WCAG contrast ratio + an
+   *  inline warning with a clickable suggested-colour swatch if the pair
+   *  fails AA (4.5:1). When undefined the picker stays unchanged
+   *  (used for decorative swatches like `border`). */
+  pairColour?: string;
+  /** CONTRAST-3 — human-readable label for the paired colour (e.g.
+   *  "body text", "card background"). Surfaced in the inline warning so
+   *  the owner knows WHY this picker has a contrast requirement. */
+  pairLabel?: string;
+  /** CONTRAST-3 — which side of the pair this swatch represents. `'fg'`
+   *  = this swatch is the foreground; `'bg'` = this swatch is the
+   *  background. Drives the suggested-colour direction (which colour we
+   *  walk toward readability). Defaults to `'bg'` so accent / surface
+   *  swatches behave correctly without the call-site spelling it out. */
+  pairRole?: 'fg' | 'bg';
 }) {
   const swatchValue = safeHex(value) || safeHex(fallback) || '#000000';
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const popoverRef = useRef<HTMLDivElement | null>(null);
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  /** CONTRAST-3 — dismissed-warning flag. Once the owner clicks the small
+   *  × on the inline warning we hide it for this open session so they can
+   *  save the original colour. Re-opening the popover resets the flag —
+   *  the warning is informational, not blocking. */
+  const [warningDismissed, setWarningDismissed] = useState(false);
+  useEffect(() => {
+    if (!open) setWarningDismissed(false);
+  }, [open]);
   const expandedHex = swatchValue.length === 4
     ? '#' + swatchValue.slice(1).split('').map((c) => c + c).join('')
     : swatchValue;
+
+  /* CONTRAST-3 — live contrast ratio + suggested-colour computation.
+   * Only meaningful when `pairColour` is supplied. `pairRole` decides
+   * which side of the pair this picker represents — that controls the
+   * direction we walk the suggestion (we adjust THIS swatch, leaving the
+   * paired colour alone). */
+  const pairHex = pairColour ? (safeHex(pairColour) || pairColour) : null;
+  const ratio = pairHex ? contrastRatio(expandedHex, pairHex) : null;
+  const passes = ratio == null ? true : ratio >= CONTRAST_AA_NORMAL;
+  const suggested = (!passes && pairHex)
+    ? (pairRole === 'fg'
+        ? suggestReadableColour(expandedHex, pairHex)
+        // When this swatch is the bg, walk the bg until the paired fg reads.
+        // suggestReadableColour treats arg1 as the colour-being-adjusted, so
+        // we still call it with `expandedHex` first — the direction logic
+        // inside picks lighter/darker relative to the paired colour.
+        : suggestReadableColour(expandedHex, pairHex))
+    : null;
 
   useLayoutEffect(() => {
     if (!open) return;
@@ -3046,6 +3293,57 @@ function ColourSwatch({
               in a 4-column grid. Active swatch (matches current value) gets
               a ring. The custom hex input + native picker stay below so any
               arbitrary value is still settable. */}
+          {/* CONTRAST-3 — live readability indicator + pair-aware warning.
+              Pinned just under the popover heading so the owner sees the
+              ratio update in real time as they click presets / type a hex.
+              Render only when this swatch has a defined pair (decorative
+              tokens like `border` skip the block entirely). */}
+          {pairHex && ratio != null && (
+            <div
+              className={`qq-style-contrast-row${passes ? ' is-pass' : ' is-fail'}`}
+              data-testid={`${testid}-contrast`}
+              aria-live="polite"
+            >
+              <span className="qq-style-contrast-label">
+                Contrast{pairLabel ? <> vs {pairLabel}</> : null}
+              </span>
+              <span
+                className="qq-style-contrast-ratio"
+                data-testid={`${testid}-contrast-ratio`}
+              >
+                {ratio.toFixed(1)}:1 {passes ? '✓' : '✗'}
+              </span>
+            </div>
+          )}
+          {pairHex && !passes && !warningDismissed && suggested && (
+            <div
+              className="qq-style-contrast-warn"
+              role="status"
+              data-testid={`${testid}-contrast-warn`}
+            >
+              <span className="qq-style-contrast-warn-icon" aria-hidden="true">!</span>
+              <span className="qq-style-contrast-warn-text">
+                Text won&rsquo;t be readable on this background. Suggested:
+              </span>
+              <button
+                type="button"
+                className="qq-style-contrast-suggest"
+                style={{ background: suggested }}
+                aria-label={`Apply suggested colour ${suggested}`}
+                title={`Apply ${suggested}`}
+                data-testid={`${testid}-contrast-suggest`}
+                onClick={() => onChange(suggested)}
+              />
+              <button
+                type="button"
+                className="qq-style-contrast-dismiss"
+                aria-label="Dismiss contrast warning"
+                title="Dismiss"
+                data-testid={`${testid}-contrast-dismiss`}
+                onClick={() => setWarningDismissed(true)}
+              >×</button>
+            </div>
+          )}
           <div
             className="qq-style-preset-grid"
             role="listbox"
