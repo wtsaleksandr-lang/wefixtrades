@@ -1421,7 +1421,7 @@ function LinkChips({ contact, small = false }: { contact: AdminContact; small?: 
         >
           <Users className="w-3 h-3" />
           <span className="truncate max-w-[8rem]">{contact.linked_user_name ?? "user"}</span>
-          <ExternalLink className="w-2.5 h-2.5 opacity-60" />
+          <ExternalLink className="w-3 h-3 opacity-60" />
         </a>
       )}
       {contact.linked_supplier_id != null && (
@@ -1436,7 +1436,7 @@ function LinkChips({ contact, small = false }: { contact: AdminContact; small?: 
         >
           <Building2 className="w-3 h-3" />
           <span className="truncate max-w-[8rem]">{contact.linked_supplier_name ?? "supplier"}</span>
-          <ExternalLink className="w-2.5 h-2.5 opacity-60" />
+          <ExternalLink className="w-3 h-3 opacity-60" />
         </a>
       )}
     </>

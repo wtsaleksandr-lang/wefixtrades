@@ -186,12 +186,15 @@ client/src/pages/admin/ApiPlatformUserDetailPage.tsx:386:20	rule-c	square w-12 h
 client/src/pages/admin/BookingCalendarPage.tsx:51:16	rule-c	square w-10 h-10
 client/src/pages/admin/BookingCalendarPage.tsx:114:24	rule-c	square w-10 h-10
 client/src/pages/admin/ClientDetailPage.tsx:652:7	rule-b	<div> contains 2 cues
-client/src/pages/admin/CommunicationsPage.tsx:273:15	rule-c	square w-7 h-7
-client/src/pages/admin/CommunicationsPage.tsx:358:34	rule-c	square w-10 h-10
-client/src/pages/admin/CommunicationsPage.tsx:845:21	rule-c	square w-1.5 h-1.5
-client/src/pages/admin/CommunicationsPage.tsx:850:21	rule-c	square w-1.5 h-1.5
-client/src/pages/admin/CommunicationsPage.tsx:870:22	rule-c	square w-7 h-7
-client/src/pages/admin/CommunicationsPage.tsx:953:23	rule-c	square w-2 h-2
+client/src/pages/admin/CommunicationsPage.tsx:349:15	rule-c	square w-7 h-7
+client/src/pages/admin/CommunicationsPage.tsx:445:34	rule-c	square w-10 h-10
+client/src/pages/admin/CommunicationsPage.tsx:574:13	rule-c	square w-7 h-7
+client/src/pages/admin/CommunicationsPage.tsx:1113:21	rule-c	square w-1.5 h-1.5
+client/src/pages/admin/CommunicationsPage.tsx:1118:21	rule-c	square w-1.5 h-1.5
+client/src/pages/admin/CommunicationsPage.tsx:1138:22	rule-c	square w-7 h-7
+client/src/pages/admin/CommunicationsPage.tsx:1221:23	rule-c	square w-2 h-2
+client/src/pages/admin/CommunicationsPage.tsx:1596:21	rule-c	square w-7 h-7
+client/src/pages/admin/CommunicationsPage.tsx:1606:21	rule-c	square w-7 h-7
 client/src/pages/admin/ContentFlowQueuePage.tsx:940:33	rule-c	square w-1.5 h-1.5
 client/src/pages/admin/ContentFlowQueuePage.tsx:946:33	rule-c	square w-1.5 h-1.5
 client/src/pages/admin/ContentFlowQueuePage.tsx:952:33	rule-c	square w-1.5 h-1.5
