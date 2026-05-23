@@ -59,7 +59,14 @@ export default function LoginPage() {
   usePageTitle("Sign In");
 
   function completeLogin(data: { user: { role?: string } }) {
-    queryClient.setQueryData(["auth", "me"], data.user);
+    // BUG-FIX (2026-05-23): previously stored `data.user` directly, but
+    // useAuth() expects shape `{ user, adminProPreview? }` (see
+    // client/src/hooks/useAuth.ts AuthMeResponse). Storing the raw user
+    // made the cache value's `.user` field undefined, so RequirePortal /
+    // RequireClient on the destination route briefly saw the session as
+    // unauthenticated and bounced the user back to /login before the
+    // refetch could land. Wrap to match the /api/auth/me response shape.
+    queryClient.setQueryData(["auth", "me"], { user: data.user, adminProPreview: false });
     queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
 
     try {
