@@ -318,7 +318,7 @@ export default function PortalContentPreferences() {
   if (done) {
     return (
       <PortalLayout>
-        <div className="max-w-xl mx-auto py-12 text-center">
+        <div className="max-w-xl text-center">
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100">
             <Check className="h-6 w-6 text-emerald-600" />
           </div>
@@ -340,7 +340,7 @@ export default function PortalContentPreferences() {
 
   return (
     <PortalLayout>
-      <div className="max-w-xl mx-auto py-6">
+      <div className="max-w-xl">
         <div className="flex items-center gap-2 mb-1">
           <Sparkles className="h-4 w-4 text-indigo-500" />
           <h1 className="text-lg font-semibold">Content style</h1>

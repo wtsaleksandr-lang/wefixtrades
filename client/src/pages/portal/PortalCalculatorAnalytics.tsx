@@ -181,7 +181,7 @@ export default function PortalCalculatorAnalytics() {
 
   return (
     <PortalLayout>
-      <div data-theme="light" style={{ maxWidth: 1100, margin: '0 auto', padding: '24px 20px' }}>
+      <div data-theme="light">
         <h1 style={{ fontSize: 24, fontWeight: 700, color: '#111827', marginBottom: 4 }}>
           Calculator Analytics
         </h1>

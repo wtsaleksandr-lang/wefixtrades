@@ -151,7 +151,7 @@ export default function PortalSocialSync() {
   if (isLoading) {
     return (
       <PortalLayout>
-        <div data-theme="light" className="max-w-3xl mx-auto space-y-4 p-4">
+        <div data-theme="light" className="max-w-3xl space-y-4">
           <Skeleton className="h-8 w-64" />
           <Skeleton className="h-32 w-full" />
           <Skeleton className="h-48 w-full" />
@@ -163,7 +163,7 @@ export default function PortalSocialSync() {
   if (!data) {
     return (
       <PortalLayout>
-        <div className="max-w-3xl mx-auto p-4 text-center py-16">
+        <div className="max-w-3xl text-center py-16">
           <Share2 className="w-10 h-10 text-gray-300 mx-auto mb-3" />
           <p className="text-gray-500 font-medium">You haven't set up SocialSync yet</p>
           <p className="text-sm text-gray-400 mt-1 mb-4">Tell us about your business and we'll start creating content for you.</p>
@@ -454,7 +454,7 @@ export default function PortalSocialSync() {
 
   return (
     <PortalLayout>
-      <div className="max-w-3xl mx-auto p-4">
+      <div>
         <PortalProductPageShell
           productId="socialsync"
           productName="Your Social Media"

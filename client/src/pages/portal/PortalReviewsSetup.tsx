@@ -150,7 +150,7 @@ export default function PortalReviewsSetup() {
   if (!config?.active) {
     return (
       <PortalLayout>
-        <div className="max-w-3xl mx-auto py-12 text-center space-y-3">
+        <div className="max-w-3xl py-12 text-center space-y-3">
           <Star className="w-12 h-12 text-gray-300 mx-auto" />
           <h2 className="text-lg font-semibold text-gray-900">ReputationShield setup</h2>
           <p className="text-sm text-gray-500">ReputationShield isn't active on your account yet.</p>
@@ -169,7 +169,7 @@ export default function PortalReviewsSetup() {
 
   return (
     <PortalLayout>
-      <div className="max-w-3xl mx-auto space-y-5">
+      <div className="max-w-3xl space-y-5">
         <Link
           href="/portal/reviews"
           className="inline-flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700"

@@ -14,7 +14,7 @@ export default function PortalTradelineVoicePage() {
   usePageTitle("Tradeline Voice");
   return (
     <PortalLayout>
-      <div className="max-w-3xl mx-auto p-4 sm:p-6 lg:p-8">
+      <div className="max-w-3xl">
         <VoicePicker />
       </div>
     </PortalLayout>

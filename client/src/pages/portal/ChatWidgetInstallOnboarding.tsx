@@ -113,7 +113,7 @@ export default function ChatWidgetInstallOnboarding() {
   if (!id) {
     return (
       <PortalLayout>
-        <div className="max-w-3xl mx-auto p-6 text-sm text-rose-700">No install request id in URL.</div>
+        <div className="max-w-3xl text-sm text-rose-700">No install request id in URL.</div>
       </PortalLayout>
     );
   }
@@ -121,7 +121,7 @@ export default function ChatWidgetInstallOnboarding() {
   if (detail.isLoading) {
     return (
       <PortalLayout>
-        <div className="max-w-3xl mx-auto p-6 space-y-4">
+        <div className="max-w-3xl space-y-4">
           <Skeleton className="h-8 w-48" />
           <Skeleton className="h-96" />
         </div>
@@ -132,7 +132,7 @@ export default function ChatWidgetInstallOnboarding() {
   if (!detail.data) {
     return (
       <PortalLayout>
-        <div className="max-w-3xl mx-auto p-6 text-sm text-rose-700">Couldn't load the install request.</div>
+        <div className="max-w-3xl text-sm text-rose-700">Couldn't load the install request.</div>
       </PortalLayout>
     );
   }
@@ -140,7 +140,7 @@ export default function ChatWidgetInstallOnboarding() {
   if (detail.data.status === "form_submitted" || detail.data.status === "in_progress" || detail.data.status === "completed") {
     return (
       <PortalLayout>
-        <div className="max-w-2xl mx-auto p-6 space-y-4">
+        <div className="max-w-2xl space-y-4">
           <Card className="p-5 border-emerald-200 bg-emerald-50">
             <div className="flex items-start gap-2">
               <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
@@ -160,7 +160,7 @@ export default function ChatWidgetInstallOnboarding() {
 
   return (
     <PortalLayout>
-      <div className="max-w-3xl mx-auto p-4 sm:p-6 space-y-5">
+      <div className="max-w-3xl space-y-5">
         <BackButton to="/portal/tradeline/chat-widget/install" label="Back" />
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Tell us about your site</h1>

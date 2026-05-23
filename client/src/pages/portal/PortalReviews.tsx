@@ -373,7 +373,7 @@ export default function PortalReviews() {
   if (config && !config.active) {
     return (
       <PortalLayout>
-        <div className="max-w-5xl mx-auto py-12 text-center space-y-4">
+        <div className="py-12 text-center space-y-4">
           <ShieldCheck className="w-12 h-12 text-gray-300 mx-auto" />
           <h2 className="text-lg font-semibold text-gray-900">ReputationShield</h2>
           <p className="text-sm text-gray-500 max-w-md mx-auto">
@@ -391,7 +391,7 @@ export default function PortalReviews() {
   if (overviewError) {
     return (
       <PortalLayout>
-        <div className="max-w-5xl mx-auto py-12 text-center">
+        <div className="py-12 text-center">
           <p className="text-red-600 mb-3">Failed to load reputation data.</p>
           <Button variant="outline" size="sm" onClick={() => refetchOverview()}>
             <RefreshCw className="w-4 h-4 mr-1" /> Retry
@@ -403,7 +403,7 @@ export default function PortalReviews() {
 
   return (
     <PortalLayout>
-      <div className="max-w-5xl mx-auto space-y-6">
+      <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>

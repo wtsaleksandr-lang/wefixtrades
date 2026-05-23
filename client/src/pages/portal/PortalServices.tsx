@@ -67,7 +67,7 @@ export default function PortalServices() {
 
   return (
     <PortalLayout>
-      <div data-theme="light" className="max-w-5xl mx-auto space-y-6">
+      <div data-theme="light" className="space-y-6">
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <FirstVisitTooltip
             storageKey="portal-services-header"

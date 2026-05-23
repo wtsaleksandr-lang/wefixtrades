@@ -281,7 +281,7 @@ function PortalDashboardInner() {
   return (
     <PortalLayout>
       {isLoading && (
-        <div className="max-w-5xl mx-auto space-y-6" data-testid="dashboard-skeleton">
+        <div className="space-y-6" data-testid="dashboard-skeleton">
           <div>
             <Skeleton className="h-6 w-48 mb-2" />
             <Skeleton className="h-4 w-32" />
@@ -305,7 +305,7 @@ function PortalDashboardInner() {
         /* Q20a: admin previewing the portal with no client record linked
            to their user account. Show what the customer view looks like
            but empty + give them next-step links. */
-        <div className="max-w-2xl mx-auto mt-8" data-testid="admin-no-client-empty">
+        <div className="max-w-2xl mt-8" data-testid="admin-no-client-empty">
           <Card className="border-amber-200 p-6 space-y-4">
             <div className="flex items-start gap-3">
               <div className="w-8 h-8 rounded-full bg-amber-50 flex items-center justify-center shrink-0">
@@ -366,7 +366,7 @@ function PortalDashboardInner() {
       {data && data.active_services === 0 && (
         /* New-customer welcome flow — zero active services. Replaces
            StatCards + Recent Activity with a focused first-action prompt. */
-        <div className="max-w-3xl mx-auto" data-testid="dashboard-new-customer-welcome">
+        <div className="max-w-3xl" data-testid="dashboard-new-customer-welcome">
           <Card data-theme="light" className="p-8 text-center">
             <Sparkles className="mx-auto text-gray-300 mb-4" size={32} aria-hidden="true" />
             <h2 className="text-xl font-bold text-gray-900 mb-2">Welcome to WeFixTrades</h2>
@@ -391,7 +391,7 @@ function PortalDashboardInner() {
         </div>
       )}
       {data && data.active_services > 0 && (
-        <div className="max-w-5xl mx-auto space-y-6">
+        <div className="space-y-6">
           {/* Header */}
           <div>
             <h1 className="text-xl font-semibold text-gray-900">
