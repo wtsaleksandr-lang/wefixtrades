@@ -111,12 +111,17 @@ import { registerAuditMarketSizerRoutes } from "./auditMarketSizerRoutes";
 import { registerAuditTrustInspectorRoutes } from "./auditTrustInspectorRoutes";
 import { registerApiV1Routes } from "./apiV1";
 import { registerAdminSeoIntegrationsRoutes } from "./adminSeoIntegrationsRoutes";
+import { registerHealthzRoute } from "./healthz";
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
   app.use("/api/audit", auditRouter);
+
+  // Deploy Safety Wave 2 — deep healthz endpoint. Public (no auth) so
+  // external monitoring + the post-deploy verifier can hit it.
+  registerHealthzRoute(app);
 
   registerAuthRoutes(app);
   registerMarketingRoutes(app);
