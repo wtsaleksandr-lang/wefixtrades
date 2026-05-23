@@ -1,13 +1,28 @@
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState, useEffect, useCallback } from "react";
-import { Loader2, Check, RefreshCw, KeyRound, AlertTriangle, Palette, X, Plus, Bell, Mail, MessageSquare, Image as ImageIcon } from "lucide-react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { useLocation } from "wouter";
+import { Loader2, Check, RefreshCw, KeyRound, AlertTriangle, Palette, X, Bell, Mail, MessageSquare, Image as ImageIcon, ShieldCheck, Smartphone } from "lucide-react";
 import PortalLayout from "@/components/portal/PortalLayout";
 import { useCopilotForm } from "@/context/CopilotFormContext";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { HelpCueRow } from "@/components/primitives/HelpCueRow";
+import InfoCue from "@/components/wizard/elfsight/InfoCue";
 import {
   NOTIFICATION_CATEGORY_KEYS,
   NOTIFICATION_CATEGORY_LABELS,
@@ -26,11 +41,43 @@ interface SettingsData {
   account_email: string | null;
 }
 
+type TabKey = "account" | "notifications" | "ai" | "security";
+const VALID_TABS: TabKey[] = ["account", "notifications", "ai", "security"];
+
+function parseTabFromHash(): TabKey {
+  if (typeof window === "undefined") return "account";
+  // wouter's useLocation doesn't include query/hash. Read directly.
+  const search = window.location.search || "";
+  const params = new URLSearchParams(search);
+  const t = params.get("tab");
+  if (t && VALID_TABS.includes(t as TabKey)) return t as TabKey;
+  return "account";
+}
+
 export default function PortalSettings() {
   usePageTitle("Settings");
   const queryClient = useQueryClient();
   const [saved, setSaved] = useState(false);
   const { toast } = useToast();
+  const [, navigate] = useLocation();
+  const [activeTab, setActiveTab] = useState<TabKey>(() => parseTabFromHash());
+
+  // Keep the URL ?tab=... param in sync so direct links work and refresh
+  // preserves the selected tab. Uses replaceState so we don't pollute
+  // browser history with every tab click.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("tab") === activeTab) return;
+    if (activeTab === "account") {
+      params.delete("tab");
+    } else {
+      params.set("tab", activeTab);
+    }
+    const qs = params.toString();
+    const next = `${window.location.pathname}${qs ? `?${qs}` : ""}`;
+    window.history.replaceState(null, "", next);
+  }, [activeTab]);
 
   const { data, isLoading, error, refetch } = useQuery<SettingsData>({
     queryKey: ["/api/portal/settings"],
@@ -149,7 +196,7 @@ export default function PortalSettings() {
       <div data-theme="light" className="max-w-2xl mx-auto space-y-6">
         <div>
           <h1 className="text-xl font-semibold text-gray-900">Settings</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Manage your contact information.</p>
+          <p className="text-sm text-gray-500 mt-0.5">Manage your account, notifications, AI behaviour, and security.</p>
         </div>
 
         {isLoading && (
@@ -189,134 +236,156 @@ export default function PortalSettings() {
         )}
 
         {data && (
-          <>
-            {/* Account info (read-only) */}
-            <div className="bg-white rounded-xl border border-gray-200 p-5">
-              <h2 className="text-sm font-semibold text-gray-900 mb-3">Account</h2>
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <p className="text-xs text-gray-500">Business Name</p>
-                  <p className="text-gray-900 font-medium">{data.business_name}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">Login Email</p>
-                  <p className="text-gray-900">{data.account_email || "-"}</p>
-                  <p className="text-[10px] text-gray-400 mt-0.5">Used to sign in — contact us to change</p>
-                </div>
-                {data.trade_type && (
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)}>
+            {/* Mobile: horizontal scroll if tabs overflow. */}
+            <div className="overflow-x-auto -mx-1 px-1">
+              <TabsList className="w-full sm:w-auto">
+                <TabsTrigger value="account" data-testid="tab-trigger-account">Account</TabsTrigger>
+                <TabsTrigger value="notifications" data-testid="tab-trigger-notifications">Notifications</TabsTrigger>
+                <TabsTrigger value="ai" data-testid="tab-trigger-ai">AI</TabsTrigger>
+                <TabsTrigger value="security" data-testid="tab-trigger-security">Security</TabsTrigger>
+              </TabsList>
+            </div>
+
+            {/* ─── Account ─── */}
+            <TabsContent value="account" className="space-y-6">
+              {/* Account info (read-only) */}
+              <div className="bg-white rounded-xl border border-gray-200 p-5">
+                <h2 className="text-sm font-semibold text-gray-900 mb-3">Account</h2>
+                <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <p className="text-xs text-gray-500">Trade</p>
-                    <p className="text-gray-900 capitalize">{data.trade_type}</p>
+                    <p className="text-xs text-gray-500">Business Name</p>
+                    <p className="text-gray-900 font-medium">{data.business_name}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Login Email</p>
+                    <p className="text-gray-900">{data.account_email || "-"}</p>
+                    <p className="text-[10px] text-gray-400 mt-0.5">Used to sign in — contact us to change</p>
+                  </div>
+                  {data.trade_type && (
+                    <div>
+                      <p className="text-xs text-gray-500">Trade</p>
+                      <p className="text-gray-900 capitalize">{data.trade_type}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Contact info (editable) */}
+              <form onSubmit={handleSubmit}>
+                <div className="bg-white rounded-xl border border-gray-200 p-5">
+                  <h2 className="text-sm font-semibold text-gray-900 pb-3 mb-3 border-b border-gray-200 dark:border-gray-700">Contact Information</h2>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className={labelClass}>Contact Name</label>
+                      <input
+                        className={inputClass}
+                        placeholder="John's Plumbing"
+                        value={form.contact_name}
+                        onChange={(e) => setForm({ ...form, contact_name: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className={labelClass}>Contact Email</label>
+                      <input
+                        type="email"
+                        className={inputClass}
+                        value={form.contact_email}
+                        onChange={(e) => setForm({ ...form, contact_email: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className={labelClass}>Phone</label>
+                      <input
+                        className={inputClass}
+                        placeholder="+1 555 0123"
+                        value={form.contact_phone}
+                        onChange={(e) => setForm({ ...form, contact_phone: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className={labelClass}>Website</label>
+                      <input
+                        className={inputClass}
+                        placeholder="https://example.com"
+                        value={form.website_url}
+                        onChange={(e) => setForm({ ...form, website_url: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 pt-3 mt-4 border-t border-gray-200 dark:border-gray-700">
+                    <button
+                      type="submit"
+                      disabled={saveMutation.isPending}
+                      className="px-4 py-2 text-sm font-medium text-white bg-[#0d3cfc] rounded-lg hover:bg-[#0b34d6] transition-colors disabled:opacity-60"
+                    >
+                      {saveMutation.isPending ? "Saving..." : "Save Changes"}
+                    </button>
+                    {saved && (
+                      <span className="flex items-center gap-1 text-xs text-emerald-600">
+                        <Check className="w-3.5 h-3.5" /> Saved
+                      </span>
+                    )}
+                    {saveMutation.error && (
+                      <span className="text-xs text-red-600">Failed to save. Try again.</span>
+                    )}
+                  </div>
+                </div>
+              </form>
+
+              {/* Business Logo (Q15) */}
+              <LogoSection initialLogoUrl={data.logo_url} labelClass={labelClass} inputClass={inputClass} />
+
+              {/* Brand Voice (AI tone lives in the AI tab; brand identity in Account) */}
+              <BrandProfileSection inputClass={inputClass} labelClass={labelClass} />
+            </TabsContent>
+
+            {/* ─── Notifications ─── */}
+            <TabsContent value="notifications" className="space-y-6">
+              <NotificationPreferencesSection />
+            </TabsContent>
+
+            {/* ─── AI ─── */}
+            <TabsContent value="ai" className="space-y-6">
+              {/* Pause All Automation (kill-switch for every AI-driven service) */}
+              <div className="bg-white rounded-xl border border-gray-200 p-5">
+                <div className="flex items-center gap-2 pb-3 mb-3 border-b border-gray-200 dark:border-gray-700">
+                  <AlertTriangle className="w-4 h-4 text-amber-500" />
+                  <h2 className="text-sm font-semibold text-gray-900">Pause All Automation</h2>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex-1 pr-4">
+                    <p className="text-sm text-gray-700">Emergency stop for all automated services</p>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      Pauses SocialSync posting, ReputationShield auto-replies, and RankFlow article generation.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={allPaused}
+                    onCheckedChange={(checked) => pauseAllMutation.mutate(checked)}
+                    disabled={pauseAllMutation.isPending}
+                    className="data-[state=checked]:bg-amber-500"
+                  />
+                </div>
+                {allPaused && (
+                  <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
+                      <p className="text-sm text-amber-800">
+                        All automated content creation and posting is paused. Your existing services remain active but no new content will be generated or published.
+                      </p>
+                    </div>
                   </div>
                 )}
               </div>
-            </div>
+            </TabsContent>
 
-            {/* Contact info (editable) */}
-            <form onSubmit={handleSubmit}>
-              <div className="bg-white rounded-xl border border-gray-200 p-5">
-                <h2 className="text-sm font-semibold text-gray-900 pb-3 mb-3 border-b border-gray-200 dark:border-gray-700">Contact Information</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className={labelClass}>Contact Name</label>
-                    <input
-                      className={inputClass}
-                      placeholder="John's Plumbing"
-                      value={form.contact_name}
-                      onChange={(e) => setForm({ ...form, contact_name: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <label className={labelClass}>Contact Email</label>
-                    <input
-                      type="email"
-                      className={inputClass}
-                      value={form.contact_email}
-                      onChange={(e) => setForm({ ...form, contact_email: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <label className={labelClass}>Phone</label>
-                    <input
-                      className={inputClass}
-                      placeholder="+1 555 0123"
-                      value={form.contact_phone}
-                      onChange={(e) => setForm({ ...form, contact_phone: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <label className={labelClass}>Website</label>
-                    <input
-                      className={inputClass}
-                      placeholder="https://example.com"
-                      value={form.website_url}
-                      onChange={(e) => setForm({ ...form, website_url: e.target.value })}
-                    />
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 pt-3 mt-4 border-t border-gray-200 dark:border-gray-700">
-                  <button
-                    type="submit"
-                    disabled={saveMutation.isPending}
-                    className="px-4 py-2 text-sm font-medium text-white bg-[#0d3cfc] rounded-lg hover:bg-[#0b34d6] transition-colors disabled:opacity-60"
-                  >
-                    {saveMutation.isPending ? "Saving..." : "Save Changes"}
-                  </button>
-                  {saved && (
-                    <span className="flex items-center gap-1 text-xs text-emerald-600">
-                      <Check className="w-3.5 h-3.5" /> Saved
-                    </span>
-                  )}
-                  {saveMutation.error && (
-                    <span className="text-xs text-red-600">Failed to save. Try again.</span>
-                  )}
-                </div>
-              </div>
-            </form>
-
-            {/* Business Logo (Q15) */}
-            <LogoSection initialLogoUrl={data.logo_url} labelClass={labelClass} inputClass={inputClass} />
-
-            {/* Pause All Automation */}
-            <div className="bg-white rounded-xl border border-gray-200 p-5">
-              <div className="flex items-center gap-2 pb-3 mb-3 border-b border-gray-200 dark:border-gray-700">
-                <AlertTriangle className="w-4 h-4 text-amber-500" />
-                <h2 className="text-sm font-semibold text-gray-900">Pause All Automation</h2>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex-1 pr-4">
-                  <p className="text-sm text-gray-700">Emergency stop for all automated services</p>
-                  <p className="text-xs text-gray-400 mt-0.5">
-                    Pauses SocialSync posting, ReputationShield auto-replies, and RankFlow article generation.
-                  </p>
-                </div>
-                <Switch
-                  checked={allPaused}
-                  onCheckedChange={(checked) => pauseAllMutation.mutate(checked)}
-                  disabled={pauseAllMutation.isPending}
-                  className="data-[state=checked]:bg-amber-500"
-                />
-              </div>
-              {allPaused && (
-                <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-                  <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
-                    <p className="text-sm text-amber-800">
-                      All automated content creation and posting is paused. Your existing services remain active but no new content will be generated or published.
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Notification Preferences */}
-            <NotificationPreferencesSection />
-
-            {/* Brand Voice */}
-            <BrandProfileSection inputClass={inputClass} labelClass={labelClass} />
-
-            {/* Change Password */}
-            <ChangePasswordSection inputClass={inputClass} labelClass={labelClass} />
-          </>
+            {/* ─── Security ─── */}
+            <TabsContent value="security" className="space-y-3">
+              <TwoFactorSection />
+              <ActiveSessionsSection />
+              <ChangePasswordSection inputClass={inputClass} labelClass={labelClass} />
+            </TabsContent>
+          </Tabs>
         )}
       </div>
     </PortalLayout>
@@ -667,11 +736,11 @@ function ChangePasswordSection({ inputClass, labelClass }: { inputClass: string;
   return (
     <form onSubmit={handlePwSubmit}>
       <div className="bg-white rounded-xl border border-gray-200 p-5">
-        <div className="flex items-center gap-2 pb-3 mb-3 border-b border-gray-200 dark:border-gray-700">
-          <KeyRound className="w-4 h-4 text-gray-400" />
-          <h2 className="text-sm font-semibold text-gray-900">Change Password</h2>
-        </div>
-        <div className="space-y-[2px]">
+        <HelpCueRow
+          cue={<InfoCue text="Set a strong, unique password — at least 8 characters." testid="security-password" />}
+          title="Change Password"
+        />
+        <div className="space-y-[2px] pt-2 border-t border-gray-200 dark:border-gray-700">
           <div>
             <label className={labelClass}>Current Password</label>
             <input
@@ -728,6 +797,434 @@ function ChangePasswordSection({ inputClass, labelClass }: { inputClass: string;
       </div>
     </form>
   );
+}
+
+/* ─── Two-factor authentication section (Security tab) ─── */
+
+interface TfaStatus {
+  enabled: boolean;
+  method: string | null;
+}
+
+function TwoFactorSection() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const { data: status } = useQuery<TfaStatus>({
+    queryKey: ["/api/portal/security/tfa-status"],
+    queryFn: async () => {
+      const res = await fetch("/api/portal/security/tfa-status", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load 2FA status");
+      return res.json();
+    },
+  });
+
+  const [enrollOpen, setEnrollOpen] = useState(false);
+  const [disableOpen, setDisableOpen] = useState(false);
+
+  // Enable flow state
+  const [enrollSecret, setEnrollSecret] = useState<string | null>(null);
+  const [enrollOtpUrl, setEnrollOtpUrl] = useState<string | null>(null);
+  const [enrollCode, setEnrollCode] = useState("");
+  const [enrollError, setEnrollError] = useState("");
+
+  // Disable flow state
+  const [disablePassword, setDisablePassword] = useState("");
+  const [disableCode, setDisableCode] = useState("");
+  const [disableError, setDisableError] = useState("");
+
+  // POST /api/user/2fa/setup → returns { secret, otpauthUrl }
+  const startEnable = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/user/2fa/setup", { method: "POST", credentials: "include" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to start 2FA setup");
+      return data as { secret: string; otpauthUrl: string };
+    },
+    onSuccess: (data) => {
+      setEnrollSecret(data.secret);
+      setEnrollOtpUrl(data.otpauthUrl);
+      setEnrollError("");
+      setEnrollCode("");
+      setEnrollOpen(true);
+    },
+    onError: (err: Error) => {
+      toast({ title: "Couldn't start 2FA setup", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const confirmEnable = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/user/2fa/verify-setup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ code: enrollCode.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to verify code");
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/portal/security/tfa-status"] });
+      setEnrollOpen(false);
+      setEnrollSecret(null);
+      setEnrollOtpUrl(null);
+      setEnrollCode("");
+      toast({ title: "Two-factor authentication enabled" });
+    },
+    onError: (err: Error) => {
+      setEnrollError(err.message);
+    },
+  });
+
+  const disable = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/user/2fa/disable", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ password: disablePassword, code: disableCode.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to disable 2FA");
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/portal/security/tfa-status"] });
+      setDisableOpen(false);
+      setDisablePassword("");
+      setDisableCode("");
+      toast({ title: "Two-factor authentication disabled" });
+    },
+    onError: (err: Error) => {
+      setDisableError(err.message);
+    },
+  });
+
+  const enabled = !!status?.enabled;
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-5">
+      <HelpCueRow
+        cue={<InfoCue text="Adds a second authentication step using a TOTP app (1Password, Authy, Google Authenticator)." testid="security-tfa" />}
+        title="Two-factor authentication"
+      />
+      <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+        {enabled ? (
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-start gap-2 min-w-0">
+              <ShieldCheck className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-sm text-gray-800">Enabled · Authenticator app</p>
+                <p className="text-xs text-gray-500 mt-0.5">Use your TOTP app to sign in.</p>
+              </div>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => { setDisableError(""); setDisableOpen(true); }} data-testid="button-disable-2fa">
+              Disable 2FA
+            </Button>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm text-gray-600">Add a TOTP code on top of your password.</p>
+            <button
+              type="button"
+              onClick={() => startEnable.mutate()}
+              disabled={startEnable.isPending}
+              className="btn-primary-premium px-4 py-2 text-sm font-medium rounded-lg disabled:opacity-60"
+              data-testid="button-enable-2fa"
+            >
+              {startEnable.isPending ? "Starting…" : "Enable 2FA"}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Enable dialog — show QR / secret + ask for first code */}
+      <AlertDialog open={enrollOpen} onOpenChange={setEnrollOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Enable two-factor authentication</AlertDialogTitle>
+            <AlertDialogDescription>
+              Scan this setup link with your authenticator app, then enter the 6-digit code it shows.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-3">
+            {enrollOtpUrl && (
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs break-all font-mono text-gray-700">
+                {enrollOtpUrl}
+              </div>
+            )}
+            {enrollSecret && (
+              <div className="text-xs text-gray-600">
+                Manual entry secret: <span className="font-mono text-gray-900">{enrollSecret}</span>
+              </div>
+            )}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">6-digit code</label>
+              <input
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={6}
+                value={enrollCode}
+                onChange={(e) => setEnrollCode(e.target.value.replace(/\D/g, ""))}
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#0d3cfc]/20 focus:border-[#0d3cfc]"
+                placeholder="123456"
+                data-testid="input-enroll-code"
+              />
+            </div>
+            {enrollError && <p className="text-xs text-red-600">{enrollError}</p>}
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); confirmEnable.mutate(); }}
+              disabled={confirmEnable.isPending || enrollCode.length !== 6}
+              data-testid="button-confirm-enable-2fa"
+            >
+              {confirmEnable.isPending ? "Verifying…" : "Confirm"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Disable dialog */}
+      <AlertDialog open={disableOpen} onOpenChange={setDisableOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Disable 2FA?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Your account will be less secure. Enter your password and a current 2FA code to confirm.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Current password</label>
+              <input
+                type="password"
+                autoComplete="current-password"
+                value={disablePassword}
+                onChange={(e) => setDisablePassword(e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#0d3cfc]/20 focus:border-[#0d3cfc]"
+                data-testid="input-disable-password"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">6-digit code</label>
+              <input
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={6}
+                value={disableCode}
+                onChange={(e) => setDisableCode(e.target.value.replace(/\D/g, ""))}
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#0d3cfc]/20 focus:border-[#0d3cfc]"
+                placeholder="123456"
+                data-testid="input-disable-code"
+              />
+            </div>
+            {disableError && <p className="text-xs text-red-600">{disableError}</p>}
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); disable.mutate(); }}
+              disabled={disable.isPending || !disablePassword || disableCode.length !== 6}
+              data-testid="button-confirm-disable-2fa"
+            >
+              {disable.isPending ? "Disabling…" : "Disable 2FA"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
+/* ─── Active sessions section (Security tab) ─── */
+
+interface PortalSession {
+  id: string;
+  is_current: boolean;
+  user_agent_summary: string;
+  ip_city: string | null;
+  last_active_at: string;
+}
+
+function ActiveSessionsSection() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [confirmRevokeId, setConfirmRevokeId] = useState<string | null>(null);
+  const [confirmRevokeOthers, setConfirmRevokeOthers] = useState(false);
+
+  const { data, isLoading } = useQuery<{ sessions: PortalSession[]; current_sid: string }>({
+    queryKey: ["/api/portal/security/sessions"],
+    queryFn: async () => {
+      const res = await fetch("/api/portal/security/sessions", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load sessions");
+      return res.json();
+    },
+  });
+
+  const revokeOne = useMutation({
+    mutationFn: async (sid: string) => {
+      const res = await fetch(`/api/portal/security/sessions/${encodeURIComponent(sid)}/revoke`, {
+        method: "POST",
+        credentials: "include",
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || "Failed to revoke session");
+      return body;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/portal/security/sessions"] });
+      setConfirmRevokeId(null);
+      toast({ title: "Session revoked" });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Couldn't revoke session", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const revokeOthers = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/portal/security/sessions/revoke-others", {
+        method: "POST",
+        credentials: "include",
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || "Failed to revoke other devices");
+      return body as { ok: boolean; revoked: number };
+    },
+    onSuccess: (body) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/portal/security/sessions"] });
+      setConfirmRevokeOthers(false);
+      toast({ title: `Signed out ${body.revoked} other device${body.revoked === 1 ? "" : "s"}` });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Couldn't sign out other devices", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const sessions = data?.sessions ?? [];
+  const otherCount = useMemo(() => sessions.filter((s) => !s.is_current).length, [sessions]);
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-5">
+      <HelpCueRow
+        cue={<InfoCue text="Devices currently signed in to your account. Revoke any you don't recognise." testid="security-sessions" />}
+        title="Active sessions"
+        actions={
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setConfirmRevokeOthers(true)}
+            disabled={otherCount === 0 || revokeOthers.isPending}
+            data-testid="button-revoke-others"
+          >
+            Log out other devices
+          </Button>
+        }
+      />
+      <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-4">
+            <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+          </div>
+        ) : sessions.length === 0 ? (
+          <p className="text-xs text-gray-500 py-3">No active sessions found.</p>
+        ) : (
+          <ul className="divide-y divide-gray-200 dark:divide-gray-700" data-testid="sessions-list">
+            {sessions.map((s) => (
+              <li key={s.id} className="py-2 flex items-center justify-between gap-3">
+                <div className="flex items-start gap-2 min-w-0">
+                  <Smartphone className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-gray-800 truncate">
+                      {s.is_current && (
+                        <span className="inline-block mr-2 px-1.5 py-0.5 text-[10px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 rounded">
+                          This device
+                        </span>
+                      )}
+                      {s.user_agent_summary}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {s.ip_city ? `${s.ip_city} · ` : ""}expires {formatRelative(s.last_active_at)}
+                    </p>
+                  </div>
+                </div>
+                {!s.is_current && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setConfirmRevokeId(s.id)}
+                    aria-label={`Revoke session ${s.user_agent_summary}`}
+                    data-testid={`button-revoke-session-${s.id}`}
+                  >
+                    Revoke
+                  </Button>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {/* Confirm revoke-others */}
+      <AlertDialog open={confirmRevokeOthers} onOpenChange={setConfirmRevokeOthers}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Log out other devices?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This signs you out everywhere except this device. {otherCount} other session{otherCount === 1 ? "" : "s"} will end immediately.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); revokeOthers.mutate(); }}
+              disabled={revokeOthers.isPending}
+              data-testid="button-confirm-revoke-others"
+            >
+              {revokeOthers.isPending ? "Signing out…" : "Sign out others"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirm single revoke */}
+      <AlertDialog open={!!confirmRevokeId} onOpenChange={(open) => !open && setConfirmRevokeId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Revoke this session?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Sign out that device immediately?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); if (confirmRevokeId) revokeOne.mutate(confirmRevokeId); }}
+              disabled={revokeOne.isPending}
+              data-testid="button-confirm-revoke-session"
+            >
+              {revokeOne.isPending ? "Revoking…" : "Revoke"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
+/** Tiny formatter so we don't need to add date-fns. */
+function formatRelative(iso: string): string {
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "unknown";
+    return d.toLocaleString();
+  } catch {
+    return "unknown";
+  }
 }
 
 /* ─── Notification Preferences ──────────────────────────────────────

@@ -33,6 +33,7 @@ import { registerPublicCheckoutRoutes } from "./publicCheckoutRoutes";
 import { registerIntegrationHealthRoutes } from "./integrationHealthRoutes";
 import { registerPortalRoutes } from "./portalRoutes";
 import { registerPortalEmailDomainRoutes } from "./portalEmailDomainRoutes";
+import { registerPortalSecurityRoutes } from "./portalSecurityRoutes";
 import { registerAdminSupportRoutes } from "./adminSupportRoutes";
 import { registerMissedCallLeadRoutes } from "./missedCallLeadRoutes";
 import { registerDemoLeadRoutes } from "./demoLeadRoutes";
@@ -136,6 +137,7 @@ export async function registerRoutes(
   registerIntegrationHealthRoutes(app);
   registerPortalRoutes(app);
   registerPortalEmailDomainRoutes(app);
+  registerPortalSecurityRoutes(app);
   registerAdminSupportRoutes(app);
   registerMissedCallLeadRoutes(app);
   registerDemoLeadRoutes(app);
