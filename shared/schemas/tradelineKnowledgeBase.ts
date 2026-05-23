@@ -40,10 +40,14 @@ export const tradelineKnowledgeBase = pgTable(
     updated_at: timestamp("updated_at").defaultNow().notNull(),
   },
   (t) => ({
+    // Direction must match migrations/0027_tradeline_voice_settings.sql:
+    //   CREATE INDEX tradeline_kb_client_idx
+    //     ON tradeline_knowledge_base (client_id, status, priority DESC).
+    // Without `.desc()` drizzle-kit push would propose drop + recreate.
     clientIdx: index("tradeline_kb_client_idx").on(
       t.client_id,
       t.status,
-      t.priority,
+      t.priority.desc(),
     ),
   }),
 );
