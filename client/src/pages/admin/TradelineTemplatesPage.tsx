@@ -99,7 +99,7 @@ export default function TradelineTemplatesPage() {
 
   return (
     <AdminLayout>
-      <div className="p-6 max-w-7xl mx-auto space-y-5">
+      <div className="space-y-5">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">TradeLine Templates</h1>

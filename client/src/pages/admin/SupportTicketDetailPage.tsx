@@ -185,7 +185,7 @@ export default function SupportTicketDetailPage() {
   return (
     <AdminLayout pageContext={{ page: "support" }}>
       {/* CONTRAST-2 — admin pages are light-theme locked. */}
-      <div data-theme="light" className="max-w-5xl mx-auto">
+      <div data-theme="light">
         {/* Back link */}
         <Link href="/admin/crm/support" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors mb-4">
           <ArrowLeft className="w-3.5 h-3.5" /> Back to Tickets

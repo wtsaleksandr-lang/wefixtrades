@@ -442,7 +442,7 @@ export default function SuppliersPage() {
   if (detailId !== null) {
     return (
       <AdminLayout pageContext={{ page: "suppliers" }}>
-        <div className="max-w-5xl mx-auto space-y-4">
+        <div className="space-y-4">
           <Button variant="ghost" size="sm" onClick={() => setDetailId(null)} className="gap-1 text-gray-600">
             <ArrowLeft className="w-4 h-4" /> Back to Suppliers
           </Button>
@@ -648,7 +648,7 @@ export default function SuppliersPage() {
       activeSupplierCount: activeSuppliers.length,
       supplierNames: activeSuppliers.map((s) => s.name),
     }}>
-      <div className="max-w-6xl mx-auto space-y-4">
+      <div className="space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="min-w-0">

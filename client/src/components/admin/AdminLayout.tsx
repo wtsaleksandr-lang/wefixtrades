@@ -1258,9 +1258,31 @@ export default function AdminLayout({
           </div>
         </header>
 
-        {/* Page content */}
-        <main id="main-content" className="flex-1 overflow-y-auto p-4 md:p-6" tabIndex={-1}>
-          {children}
+        {/* Page content.
+         *
+         * Canonical admin container shape (single source of truth — pages
+         * must NOT add their own max-w / mx-auto / px-*):
+         *   - flex-1 min-w-0 lets <main> shrink correctly inside the flex
+         *     parent so wide tables never push the page past the viewport
+         *   - overflow-y-auto for vertical scroll
+         *   - overflow-x-hidden contains accidental child overflow inside
+         *     the admin chrome (the page never grows a horizontal scrollbar
+         *     at the document level)
+         *
+         * Inner wrapper centres + caps the content:
+         *   - max-w-screen-2xl (1536px) — generous for tables, narrow
+         *     enough that lines don't stretch uncomfortably on ultrawides
+         *   - mx-auto w-full to centre when shorter than the cap
+         *   - px-4 sm:px-6 lg:px-8 + py-6 — consistent gutters & rhythm
+         */}
+        <main
+          id="main-content"
+          className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden"
+          tabIndex={-1}
+        >
+          <div className="max-w-screen-2xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6">
+            {children}
+          </div>
         </main>
       </div>
 

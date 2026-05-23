@@ -88,7 +88,7 @@ export default function SystemAlertsPage() {
 
   return (
     <AdminLayout>
-      <div className="max-w-4xl mx-auto space-y-4">
+      <div className="space-y-4">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
             <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">

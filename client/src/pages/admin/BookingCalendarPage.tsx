@@ -104,7 +104,7 @@ export default function BookingCalendarPage() {
 
   return (
     <AdminLayout pageContext={{ page: "booking" }}>
-      <div className="max-w-4xl space-y-6">
+      <div className="space-y-6">
         <div><h1 className="text-xl font-bold text-gray-900">Booking Calendar</h1><p className="text-sm text-gray-500 mt-0.5">Manage calendars, hours, and bookings</p></div><div className="flex items-start gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg text-sm"><Info className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" /><p className="text-blue-800">Manage your business's calendar connections and booking hours. Customers see their own booking flow when they accept a quote &mdash; this is admin configuration, not a customer preview.</p></div>
         <Tabs defaultValue="connections" className="space-y-4">
           <TabsList className="grid w-full grid-cols-3"><TabsTrigger value="connections">Connections</TabsTrigger><TabsTrigger value="hours">Working Hours</TabsTrigger><TabsTrigger value="bookings">Bookings</TabsTrigger></TabsList>

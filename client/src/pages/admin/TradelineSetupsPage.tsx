@@ -107,7 +107,7 @@ export default function TradelineSetupsPage() {
 
   return (
     <AdminLayout>
-      <div className="max-w-7xl mx-auto p-4 sm:p-6 space-y-6">
+      <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>

@@ -92,7 +92,7 @@ export default function TradelineLearningPage() {
 
   return (
     <AdminLayout>
-      <div data-theme="light" className="p-6 max-w-7xl mx-auto space-y-6">
+      <div data-theme="light" className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Learning pipeline</h1>
           <p className="text-sm text-gray-600 mt-1 max-w-2xl">

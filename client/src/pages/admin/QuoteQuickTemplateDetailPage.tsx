@@ -192,14 +192,14 @@ export default function QuoteQuickTemplateDetailPage({ templateId }: Props) {
   if (detail.isLoading || !draft) {
     return (
       <AdminLayout>
-        <div className="p-6 max-w-7xl mx-auto"><Skeleton className="h-96" /></div>
+        <div><Skeleton className="h-96" /></div>
       </AdminLayout>
     );
   }
   if (detail.isError || !detail.data) {
     return (
       <AdminLayout>
-        <div className="p-6 max-w-7xl mx-auto text-sm text-red-600">
+        <div className="text-sm text-red-600">
           Failed to load template.{" "}
           <Button variant="ghost" size="sm" onClick={() => navigate("/admin/quotequick/templates")}>Back to list</Button>
         </div>
@@ -211,7 +211,7 @@ export default function QuoteQuickTemplateDetailPage({ templateId }: Props) {
 
   return (
     <AdminLayout>
-      <div className="p-6 max-w-7xl mx-auto space-y-4">
+      <div className="space-y-4">
         {/* Breadcrumb */}
         <div className="text-xs text-gray-500 flex items-center gap-1 flex-wrap">
           <Link href="/admin/crm"><a className="hover:underline">Admin</a></Link>

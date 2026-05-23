@@ -108,7 +108,7 @@ export default function AuditLeadsPage() {
 
   return (
     <AdminLayout pageContext={{ page: "audit-leads" }}>
-      <div className="max-w-6xl mx-auto space-y-4">
+      <div className="space-y-4">
         {/* Header */}
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div className="min-w-0">

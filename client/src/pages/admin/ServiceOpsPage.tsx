@@ -54,7 +54,7 @@ export default function ServiceOpsPage() {
   if (!csid) {
     return (
       <AdminLayout>
-        <div data-theme="light" className="p-6">
+        <div data-theme="light">
           <h1 className="text-xl font-semibold text-gray-900 mb-4">Service Ops</h1>
           <Card className="p-8 max-w-xl">
             <p className="text-sm text-gray-600">
@@ -82,7 +82,7 @@ function ServiceOpsInner({ csid }: { csid: number }) {
 
   return (
     <AdminLayout>
-      <div className="p-6">
+      <div>
         <div className="mb-4">
           <Link href={data ? `/admin/crm/${data.client_id}` : "/admin/crm"}>
             <Button variant="ghost" size="sm" className="text-xs text-gray-500">

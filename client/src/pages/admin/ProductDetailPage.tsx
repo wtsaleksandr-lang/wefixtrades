@@ -350,7 +350,7 @@ export default function ProductDetailPage() {
       }}
     >
       {/* CONTRAST-2 — admin pages are light-theme locked. */}
-      <div data-theme="light" className="max-w-2xl mx-auto space-y-5">
+      <div data-theme="light" className="max-w-2xl space-y-5">
         <button
           onClick={() => navigate("/admin/crm/services")}
           className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700"

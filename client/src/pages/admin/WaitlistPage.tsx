@@ -82,7 +82,7 @@ export default function WaitlistPage() {
 
   return (
     <AdminLayout>
-      <div data-theme="light" className="max-w-4xl mx-auto p-4 sm:p-6">
+      <div data-theme="light">
         <BackButton to="/admin/crm" label="Back to admin" className="mb-3" />
         <div className="mb-5">
           <div className="flex items-center gap-2">
