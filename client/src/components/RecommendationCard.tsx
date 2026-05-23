@@ -67,7 +67,7 @@ export function RecommendationCard({ service, onAddToPackage }: RecommendationCa
             cursor: "pointer",
           }}
         >
-          See details <ArrowRight size={11} />
+          See details <ArrowRight size={12} />
         </Link>
         <button
           type="button"
@@ -88,7 +88,7 @@ export function RecommendationCard({ service, onAddToPackage }: RecommendationCa
             cursor: "pointer",
           }}
         >
-          <Plus size={11} /> Add to package
+          <Plus size={12} /> Add to package
         </button>
       </div>
     </div>

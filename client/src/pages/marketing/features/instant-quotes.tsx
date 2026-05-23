@@ -19,7 +19,7 @@ function QuoteMockup() {
       {/* Form header */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 22, paddingBottom: 16, borderBottom: `1px solid ${mkt.borderLight}` }}>
         <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(13,60,252,0.10)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <Zap size={18} color={mkt.accent} />
+          <Zap size={20} color={mkt.accent} />
         </div>
         <div>
           <div style={{ fontSize: 13, fontWeight: 700, color: mkt.text }}>Get an Instant Quote</div>

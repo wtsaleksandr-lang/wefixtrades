@@ -209,7 +209,7 @@ function EmailGate({ businessName, onSubmit }: { businessName: string; onSubmit:
           margin: "0 auto 16px",
         }}
       >
-        <Lock size={22} color={mkt.accent} />
+        <Lock size={24} color={mkt.accent} />
       </div>
       <h3 style={{ fontSize: 20, fontWeight: 700, color: mkt.text, marginBottom: 8, letterSpacing: "-0.02em" }}>
         Set up review requests for your business
@@ -380,7 +380,7 @@ export default function ReputationShieldDemo() {
                 marginBottom: 20,
               }}
             >
-              <Shield size={13} color="#10B981" />
+              <Shield size={14} color="#10B981" />
               <span style={{ fontSize: 12, fontWeight: 700, color: "#10B981", letterSpacing: "0.04em" }}>
                 VISUAL DEMO
               </span>

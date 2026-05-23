@@ -91,9 +91,9 @@ export default function TrustBlockUnderCTA({
         )}
       </div>
       <div style={iconRowStyle} aria-hidden="true">
-        <Shield size={13} />
-        <Lock size={13} />
-        <ClipboardCheck size={13} />
+        <Shield size={14} />
+        <Lock size={14} />
+        <ClipboardCheck size={14} />
         <span style={{ marginLeft: 2, fontSize: 11, color: theme.textMuted }}>
           No-obligation estimate
         </span>

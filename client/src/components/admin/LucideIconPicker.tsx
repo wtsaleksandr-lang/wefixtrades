@@ -116,7 +116,7 @@ export default function LucideIconPicker({
                       className="w-8 h-8 rounded flex items-center justify-center"
                       style={{ background: `${accent}1a` }}
                     >
-                      <Icon size={18} color={accent} strokeWidth={2.25} />
+                      <Icon size={20} color={accent} strokeWidth={2.25} />
                     </div>
                     <div className="text-[10px] text-gray-600 mt-1 truncate w-full text-center">
                       {name}

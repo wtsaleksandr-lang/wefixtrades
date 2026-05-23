@@ -25,7 +25,7 @@ function AiMockup() {
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18, paddingBottom: 16, borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
         <div style={{ width: 38, height: 38, borderRadius: 10, background: "rgba(13,60,252,0.10)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <Bot size={18} color={mkt.accent} strokeWidth={1.5} />
+          <Bot size={20} color={mkt.accent} strokeWidth={1.5} />
         </div>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: "#FFFFFF" }}>AI Employee</div>
@@ -46,7 +46,7 @@ function AiMockup() {
         <div key={i} style={{ display: "flex", justifyContent: m.user ? "flex-end" : "flex-start", marginBottom: 10 }}>
           {!m.user && (
             <div style={{ width: 22, height: 22, borderRadius: 6, background: "rgba(13,60,252,0.10)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginRight: 6, marginTop: 2 }}>
-              <Bot size={11} color={mkt.accent} strokeWidth={1.5} />
+              <Bot size={12} color={mkt.accent} strokeWidth={1.5} />
             </div>
           )}
           <div style={{
@@ -65,7 +65,7 @@ function AiMockup() {
 
       {/* Escalation hint */}
       <div style={{ marginTop: 14, background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.25)", borderRadius: 10, padding: "9px 12px", display: "flex", alignItems: "center", gap: 8 }}>
-        <PhoneCall size={13} color="#F59E0B" strokeWidth={1.5} style={{ flexShrink: 0 }} />
+        <PhoneCall size={14} color="#F59E0B" strokeWidth={1.5} style={{ flexShrink: 0 }} />
         <span style={{ fontSize: 11.5, color: "rgba(255,255,255,0.6)", lineHeight: 1.4 }}>
           AI will escalate to <strong style={{ color: "rgba(255,255,255,0.8)" }}>you</strong> if the customer requests a human
         </span>
@@ -77,7 +77,7 @@ function AiMockup() {
           Type a message…
         </div>
         <div style={{ width: 34, height: 34, borderRadius: 10, background: mkt.accent, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer" }}>
-          <Bot size={15} color="#FFFFFF" strokeWidth={1.5} />
+          <Bot size={16} color="#FFFFFF" strokeWidth={1.5} />
         </div>
       </div>
     </div>

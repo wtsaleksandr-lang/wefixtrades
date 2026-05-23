@@ -97,7 +97,7 @@ export default function TrustStripHeader({ profile, theme, fontFamily }: Props) 
             fontWeight: 700,
           }}
         >
-          <Star size={13} aria-hidden="true" fill="#f59e0b" stroke="#f59e0b" />
+          <Star size={14} aria-hidden="true" fill="#f59e0b" stroke="#f59e0b" />
           <span>{rating!.toFixed(1)}</span>
           {reviewCount !== null && (
             <span style={{ fontWeight: 500, color: theme.textMuted }}>
@@ -108,7 +108,7 @@ export default function TrustStripHeader({ profile, theme, fontFamily }: Props) 
       )}
       {hasLicensed && (
         <span data-testid="trust-strip-licensed" style={pillStyle}>
-          <BadgeCheck size={11} aria-hidden="true" />
+          <BadgeCheck size={12} aria-hidden="true" />
           Licensed & Insured
         </span>
       )}

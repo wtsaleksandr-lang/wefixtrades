@@ -75,7 +75,7 @@ export default function AiDashboard() {
     return (
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: c.bg }}>
         <div style={{ textAlign: "center", padding: 40 }}>
-          <AlertCircle size={48} style={{ color: c.muted, marginBottom: 16 }} />
+          <AlertCircle size={32} style={{ color: c.muted, marginBottom: 16 }} />
           <h2 style={{ fontSize: 20, fontWeight: 700, color: c.text, marginBottom: 8 }}>Admin access required</h2>
           <p style={{ fontSize: 14, color: c.muted, marginBottom: 16 }}>Sign in with an admin account to access this dashboard.</p>
           <a href="/login" style={{ color: c.accent, fontSize: 14 }}>Go to login</a>
@@ -721,9 +721,9 @@ function Pagination({ page, total, limit, onChange }: { page: number; total: num
   if (totalPages <= 1) return null;
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, marginTop: 16 }}>
-      <button onClick={() => onChange(page - 1)} disabled={page <= 1} style={{ background: "none", border: "none", cursor: page <= 1 ? "default" : "pointer", color: page <= 1 ? c.borderLight : c.accent }}><ChevronLeft size={18} /></button>
+      <button onClick={() => onChange(page - 1)} disabled={page <= 1} style={{ background: "none", border: "none", cursor: page <= 1 ? "default" : "pointer", color: page <= 1 ? c.borderLight : c.accent }}><ChevronLeft size={20} /></button>
       <span style={{ fontSize: 13, color: c.muted }}>Page {page} of {totalPages} ({total} total)</span>
-      <button onClick={() => onChange(page + 1)} disabled={page >= totalPages} style={{ background: "none", border: "none", cursor: page >= totalPages ? "default" : "pointer", color: page >= totalPages ? c.borderLight : c.accent }}><ChevronRight size={18} /></button>
+      <button onClick={() => onChange(page + 1)} disabled={page >= totalPages} style={{ background: "none", border: "none", cursor: page >= totalPages ? "default" : "pointer", color: page >= totalPages ? c.borderLight : c.accent }}><ChevronRight size={20} /></button>
     </div>
   );
 }

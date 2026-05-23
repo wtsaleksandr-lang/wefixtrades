@@ -88,7 +88,7 @@ export default function ContactPage() {
                     justifyContent: "center",
                     flexShrink: 0,
                   }}>
-                    <Phone size={18} color={mkt.accent} />
+                    <Phone size={20} color={mkt.accent} />
                   </div>
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 600, color: mkt.onDarkMuted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>AI-answered line — 24/7</div>
@@ -116,7 +116,7 @@ export default function ContactPage() {
                     justifyContent: "center",
                     flexShrink: 0,
                   }}>
-                    <Mail size={18} color={mkt.accent} />
+                    <Mail size={20} color={mkt.accent} />
                   </div>
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 600, color: mkt.onDarkMuted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Email</div>
@@ -145,7 +145,7 @@ export default function ContactPage() {
                     justifyContent: "center",
                     flexShrink: 0,
                   }}>
-                    <Clock size={18} color={mkt.accent} />
+                    <Clock size={20} color={mkt.accent} />
                   </div>
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 600, color: mkt.onDarkMuted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Response Time</div>
@@ -165,7 +165,7 @@ export default function ContactPage() {
                     justifyContent: "center",
                     flexShrink: 0,
                   }}>
-                    <LayoutDashboard size={18} color={mkt.accent} />
+                    <LayoutDashboard size={20} color={mkt.accent} />
                   </div>
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 600, color: mkt.onDarkMuted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Urgent Support</div>

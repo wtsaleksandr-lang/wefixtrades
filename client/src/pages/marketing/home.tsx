@@ -911,7 +911,7 @@ export default function HomePage() {
               marginBottom: 16,
             }}
           >
-            <Star size={11} strokeWidth={2.5} /> Free for trade businesses
+            <Star size={12} strokeWidth={2.5} /> Free for trade businesses
           </div>
           <h2
             style={{

@@ -526,7 +526,7 @@ function TestimonialCard({ study }: { study: Study }) {
             letterSpacing: "0.06em",
             display: "inline-flex", alignItems: "center", gap: 4,
           }}>
-            <MapPin size={10} /> {study.city}
+            <MapPin size={12} /> {study.city}
           </div>
         </div>
       </div>
@@ -811,7 +811,7 @@ export default function CaseStudiesPage() {
                 fontSize: 15, fontWeight: 700, textDecoration: "none",
               }}
             >
-              Run a free audit <ArrowRight size={15} />
+              Run a free audit <ArrowRight size={16} />
             </Link>
             <Link
               href="/contact"

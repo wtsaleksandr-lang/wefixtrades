@@ -255,7 +255,7 @@ function ServiceInfoModal({ info, onClose }: { info: ServiceInfo; onClose: () =>
         <ul style={{ listStyle: "none", padding: 0, margin: "0 0 16px", display: "flex", flexDirection: "column", gap: 10 }}>
           {info.bullets.map((b) => (
             <li key={b} style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: 14, color: TEXT_STRONG, lineHeight: 1.5 }}>
-              <Check size={15} color={WARM_GREEN} strokeWidth={2.5} style={{ flexShrink: 0, marginTop: 2 }} />
+              <Check size={16} color={WARM_GREEN} strokeWidth={2.5} style={{ flexShrink: 0, marginTop: 2 }} />
               <span>{b}</span>
             </li>
           ))}
@@ -295,7 +295,7 @@ function ServiceInfoModal({ info, onClose }: { info: ServiceInfo; onClose: () =>
           }}
         >
           See it in action
-          <ArrowRight size={13} />
+          <ArrowRight size={14} />
         </Link>
       </div>
     </div>
@@ -411,7 +411,7 @@ function BillingToggle({ yearly, onChange }: { yearly: boolean; onChange: (y: bo
 function CheckItem({ children }: { children: React.ReactNode }) {
   return (
     <li style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: 14, color: TEXT_STRONG, lineHeight: 1.5 }}>
-      <Check size={15} color={WARM_GREEN} strokeWidth={2.5} style={{ flexShrink: 0, marginTop: 3 }} />
+      <Check size={16} color={WARM_GREEN} strokeWidth={2.5} style={{ flexShrink: 0, marginTop: 3 }} />
       <span>{children}</span>
     </li>
   );
@@ -581,7 +581,7 @@ function BundleCard({ bundle, yearly, ctaLabel, onCheckout, onServiceInfo }: { b
       <ul style={FEATURES_STYLE}>
         {bundle.includes.map((item) => (
           <li key={item.tierId} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, color: TEXT_STRONG, lineHeight: 1.5 }}>
-            <Check size={15} color={WARM_GREEN} strokeWidth={2.5} style={{ flexShrink: 0 }} />
+            <Check size={16} color={WARM_GREEN} strokeWidth={2.5} style={{ flexShrink: 0 }} />
             <span style={{ flex: 1 }}>{item.label}</span>
             {onServiceInfo && SERVICE_INFO[item.productId] && (
               <InfoIconTrigger onClick={() => onServiceInfo(item.productId)} />
@@ -609,7 +609,7 @@ function BundleCard({ bundle, yearly, ctaLabel, onCheckout, onServiceInfo }: { b
                   <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 2 }}>
                     {tier.features.map((f) => (
                       <li key={f} style={{ fontSize: 12, color: mkt.textMuted, display: "flex", alignItems: "center", gap: 6 }}>
-                        <Check size={11} color={WARM_GREEN} strokeWidth={2.5} />
+                        <Check size={12} color={WARM_GREEN} strokeWidth={2.5} />
                         {f}
                       </li>
                     ))}
@@ -850,7 +850,7 @@ function ServiceCard({ product, yearly, onCheckout, onInfo, bestFor }: { product
                   <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 3 }}>
                     {tier.features.map((f) => (
                       <li key={f} style={{ fontSize: 12, color: mkt.textMuted, display: "flex", alignItems: "center", gap: 6 }}>
-                        <Check size={11} color={WARM_GREEN} strokeWidth={2.5} />
+                        <Check size={12} color={WARM_GREEN} strokeWidth={2.5} />
                         {f}
                       </li>
                     ))}
@@ -869,7 +869,7 @@ function ServiceCard({ product, yearly, onCheckout, onInfo, bestFor }: { product
                   <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 3 }}>
                     {setupTier.features.map(f => (
                       <li key={f} style={{ fontSize: 12, color: mkt.textMuted, display: "flex", alignItems: "center", gap: 6 }}>
-                        <Check size={11} color={WARM_GREEN} strokeWidth={2.5} />
+                        <Check size={12} color={WARM_GREEN} strokeWidth={2.5} />
                         {f}
                       </li>
                     ))}
@@ -1326,7 +1326,7 @@ function SystemBuilder({ yearly, onCheckout }: {
                     display: "flex", alignItems: "center", justifyContent: "center",
                     transition: "all 0.15s ease",
                   }}>
-                    {isSelected && <Check size={11} color={mkt.dark} strokeWidth={3} />}
+                    {isSelected && <Check size={12} color={mkt.dark} strokeWidth={3} />}
                   </div>
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontSize: 13, fontWeight: 600, color: isSelected ? mkt.onDark : mkt.textMuted, lineHeight: 1.2 }}>
@@ -1575,7 +1575,7 @@ function DecisionButton({ label, targetId }: { label: string; targetId: string }
                       textAlign: "center", lineHeight: 1.25,
                     }}
                   >
-                    <Icon size={13} strokeWidth={isActive ? 2.2 : 1.8} className="pricing-tab-icon" style={{ flexShrink: 0 }} />
+                    <Icon size={14} strokeWidth={isActive ? 2.2 : 1.8} className="pricing-tab-icon" style={{ flexShrink: 0 }} />
                     {group.label}
                   </button>
                 );

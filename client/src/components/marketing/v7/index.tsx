@@ -256,7 +256,7 @@ export function V7FinalCta({ title, sub = "Setup is fast. No card required. Canc
           {sub}
         </p>
         <Link href={primaryCta.href} className="wft-hover-border-white" style={{ ...ctaPrimary, position: "relative", fontSize: 14, padding: "16px 32px" }}>
-          {primaryCta.label} <ArrowRight size={18} />
+          {primaryCta.label} <ArrowRight size={20} />
         </Link>
       </div>
     </section>

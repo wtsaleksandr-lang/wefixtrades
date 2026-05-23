@@ -70,7 +70,7 @@ export default function StackBuilder() {
         {/* Card 4 — best-performing products (right) */}
         <div className="sb-card sb-card-best">
           <div className="sb-add-slot">
-            <Plus size={11} strokeWidth={2} />
+            <Plus size={12} strokeWidth={2} />
             <span>ADD</span>
           </div>
           <div className="sb-best-head">

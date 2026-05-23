@@ -197,7 +197,7 @@ export function DesktopNavItem({
                     style={{ color: mkt.text }}
                     aria-hidden
                   >
-                    <NavIcon icon={icon} size={26} strokeWidth={1.7} />
+                    <NavIcon icon={icon} size={24} strokeWidth={1.7} />
                   </div>
                   <div style={{ minWidth: 0 }}>
                     <div

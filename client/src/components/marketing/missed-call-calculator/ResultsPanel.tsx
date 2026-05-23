@@ -184,8 +184,8 @@ export default function ResultsPanel({ inputs, tradeName, tradeId, unlocked = fa
         >
           {/* Locked preview rows */}
           {[
-            { label: 'Monthly breakdown', icon: <Calendar size={13} /> },
-            { label: 'Missed jobs per month', icon: <Briefcase size={13} /> },
+            { label: 'Monthly breakdown', icon: <Calendar size={14} /> },
+            { label: 'Missed jobs per month', icon: <Briefcase size={14} /> },
           ].map((row) => (
             <div key={row.label} style={{
               display: 'flex', alignItems: 'center', gap: 10,
@@ -320,7 +320,7 @@ export default function ResultsPanel({ inputs, tradeName, tradeId, unlocked = fa
                 fontWeight: 600, textAlign: 'left',
               }}
             >
-              <Info size={13} style={{ flexShrink: 0 }} />
+              <Info size={14} style={{ flexShrink: 0 }} />
               <span style={{ flex: 1 }}>How this is estimated</span>
               <ChevronDown size={12} style={{
                 flexShrink: 0,

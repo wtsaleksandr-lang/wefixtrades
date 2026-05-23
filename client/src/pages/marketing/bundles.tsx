@@ -339,9 +339,9 @@ export default function BundlesPage() {
                 >
                   <span style={s.faqQuestionText}>{faq.q}</span>
                   {openFaq === i ? (
-                    <ChevronUp size={18} color="#6B7280" strokeWidth={1.5} />
+                    <ChevronUp size={20} color="#6B7280" strokeWidth={1.5} />
                   ) : (
-                    <ChevronDown size={18} color="#6B7280" strokeWidth={1.5} />
+                    <ChevronDown size={20} color="#6B7280" strokeWidth={1.5} />
                   )}
                 </button>
                 {openFaq === i && (

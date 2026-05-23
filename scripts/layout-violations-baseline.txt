@@ -3,64 +3,20 @@
 # refactor the file so the rule passes, then delete the matching line
 # here and re-run `npm run check:layout-rules` to confirm.
 # Format: <file>:<line>:<col>\t<kind>\t<snippet>
-client/src/components/RecommendationCard.tsx:70:35	rule-c	size={11}
-client/src/components/RecommendationCard.tsx:91:17	rule-c	size={11}
 client/src/components/admin/AdminCopilot.tsx:1313:13	rule-c	square w-9 h-9
 client/src/components/admin/AdminLayout.tsx:1162:25	rule-c	square w-7 h-7
-client/src/components/admin/LucideIconPicker.tsx:119:29	rule-c	size={18}
 client/src/components/admin/MapguardTaskCard.tsx:189:17	rule-c	square w-7 h-7
 client/src/components/admin/ServiceOps.tsx:47:12	rule-c	square w-7 h-7
 client/src/components/admin/TaskCard.tsx:411:14	rule-c	square w-10 h-10
 client/src/components/booking/BookNowButton.tsx:127:12	rule-c	square w-12 h-12
 client/src/components/home/TrustStrip.tsx:88:19	rule-c	square w-1.5 h-1.5
-client/src/components/marketing/AuditGate.tsx:134:25	rule-c	size={28}
-client/src/components/marketing/CapabilitiesShowcase.tsx:159:26	rule-c	size={18}
-client/src/components/marketing/CapabilitiesShowcase.tsx:480:29	rule-c	size={17}
-client/src/components/marketing/CapabilitiesShowcase.tsx:596:29	rule-c	size={17}
-client/src/components/marketing/CheckoutIntakeModal.tsx:190:14	rule-c	size={18}
-client/src/components/marketing/DocsLayout.tsx:140:18	rule-c	size={15}
-client/src/components/marketing/DocsLayout.tsx:196:28	rule-c	size={13}
-client/src/components/marketing/DocsLayout.tsx:207:27	rule-c	size={13}
-client/src/components/marketing/DocsLayout.tsx:269:19	rule-c	size={15}
 client/src/components/marketing/FeatureCards.tsx:110:13	rule-c	<svg width={52} height={52}>
-client/src/components/marketing/HeroProductPreview.tsx:212:23	rule-c	size={15}
 client/src/components/marketing/TradelineAgentGrid.tsx:140:9	rule-c	square w-10 h-10
-client/src/components/marketing/WorkflowDemo.tsx:141:25	rule-c	size={18}
-client/src/components/marketing/missed-call-calculator/CalculatorControls.tsx:231:30	rule-c	size={13}
-client/src/components/marketing/missed-call-calculator/CalculatorControls.tsx:339:26	rule-c	size={11}
-client/src/components/marketing/missed-call-calculator/CalculatorLeadGate.tsx:190:25	rule-c	size={28}
-client/src/components/marketing/missed-call-calculator/MissedCallCalculatorShell.tsx:272:29	rule-c	size={11}
-client/src/components/marketing/missed-call-calculator/MissedCallCalculatorShell.tsx:303:36	rule-c	size={13}
-client/src/components/marketing/missed-call-calculator/ResultsPanel.tsx:187:59	rule-c	size={13}
-client/src/components/marketing/missed-call-calculator/ResultsPanel.tsx:188:64	rule-c	size={13}
-client/src/components/marketing/missed-call-calculator/ResultsPanel.tsx:323:21	rule-c	size={13}
-client/src/components/marketing/navigation/DesktopNavItem.tsx:200:42	rule-c	size={26}
-client/src/components/marketing/showcase/AllInOneDiagram.tsx:54:23	rule-c	size={18}
-client/src/components/marketing/showcase/AllInOneDiagram.tsx:79:63	rule-c	size={11}
-client/src/components/marketing/showcase/AllInOneDiagram.tsx:80:61	rule-c	size={11}
-client/src/components/marketing/showcase/AllInOneDiagram.tsx:81:57	rule-c	size={11}
-client/src/components/marketing/showcase/AllInOneDiagram.tsx:82:52	rule-c	size={11}
-client/src/components/marketing/showcase/AllInOneDiagram.tsx:83:52	rule-c	size={11}
 client/src/components/marketing/showcase/MultiTieredSupport.tsx:44:28	rule-c	size={36}
-client/src/components/marketing/showcase/MultiTieredSupport.tsx:54:23	rule-c	size={11}
 client/src/components/marketing/showcase/MultiTieredSupport.tsx:59:31	rule-c	size={28}
 client/src/components/marketing/showcase/MultiTieredSupport.tsx:71:36	rule-c	size={26}
-client/src/components/marketing/showcase/PremiumStackOrbit.tsx:48:23	rule-c	size={22}
-client/src/components/marketing/showcase/StackBuilder.tsx:73:19	rule-c	size={11}
-client/src/components/marketing/v7/index.tsx:259:42	rule-c	size={18}
 client/src/components/portal/ModeToggle.tsx:67:23	rule-c	square w-1.5 h-1.5
 client/src/components/portal/UpsellCard.tsx:52:12	rule-c	square w-9 h-9
-client/src/components/product-demos/AdFlowDemo.tsx:53:31	rule-c	size={11}
-client/src/components/product-demos/MapGuardDemo.tsx:79:33	rule-c	size={11}
-client/src/components/product-demos/MapGuardDemo.tsx:79:79	rule-c	size={11}
-client/src/components/product-demos/ReputationShieldDemo.tsx:62:59	rule-c	size={10}
-client/src/components/product-demos/TradeLineChatDemo.tsx:145:24	rule-c	size={11}
-client/src/components/product-demos/TradeLineChatDemo.tsx:145:71	rule-c	size={11}
-client/src/components/quote-widget/TrustBlockUnderCTA.tsx:94:17	rule-c	size={13}
-client/src/components/quote-widget/TrustBlockUnderCTA.tsx:95:15	rule-c	size={13}
-client/src/components/quote-widget/TrustBlockUnderCTA.tsx:96:25	rule-c	size={13}
-client/src/components/quote-widget/TrustStripHeader.tsx:100:17	rule-c	size={13}
-client/src/components/quote-widget/TrustStripHeader.tsx:111:23	rule-c	size={11}
 client/src/components/ui/breadcrumb.tsx:98:5	rule-c	square w-9 h-9
 client/src/components/ui/chart.tsx:303:19	rule-c	square w-2 h-2
 client/src/components/ui/context-menu.tsx:128:17	rule-c	square w-2 h-2
@@ -95,43 +51,16 @@ client/src/components/wizard/elfsight/StyleTab.tsx:4381:24	rule-c	size={13}
 client/src/components/wizard/elfsight/StyleTab.tsx:4464:23	rule-c	size={10}
 client/src/components/wizard/elfsight/TemplateGallery.tsx:812:16	rule-c	size={18}
 client/src/components/wizard/elfsight/TemplateMockup.tsx:188:17	rule-c	size={11}
-client/src/config/product-mockups.tsx:63:29	rule-c	size={11}
-client/src/config/product-mockups.tsx:64:37	rule-c	size={11}
-client/src/config/product-mockups.tsx:65:32	rule-c	size={11}
 client/src/pages/Blog.tsx:236:19	rule-c	size={120}
 client/src/pages/Blog.tsx:354:17	rule-c	size={84}
-client/src/pages/Blog.tsx:575:17	rule-c	size={15}
 client/src/pages/CaseStudies.tsx:489:24	rule-c	size={48}
 client/src/pages/CaseStudies.tsx:499:19	rule-c	size={56}
-client/src/pages/CaseStudies.tsx:529:21	rule-c	size={10}
 client/src/pages/CaseStudies.tsx:635:22	rule-c	size={80}
-client/src/pages/CaseStudies.tsx:814:44	rule-c	size={15}
-client/src/pages/CheckoutCancelled.tsx:30:16	rule-c	size={28}
 client/src/pages/OnboardingForm.tsx:117:14	rule-c	square w-12 h-12
 client/src/pages/OnboardingForm.tsx:295:24	rule-c	square w-10 h-10
 client/src/pages/OnboardingForm.tsx:312:5	rule-b	<div> contains 3 cues
 client/src/pages/OnboardingForm.tsx:317:13	rule-c	<svg width={28} height={28}>
-client/src/pages/PricingUnified.tsx:258:22	rule-c	size={15}
-client/src/pages/PricingUnified.tsx:298:23	rule-c	size={13}
-client/src/pages/PricingUnified.tsx:414:14	rule-c	size={15}
-client/src/pages/PricingUnified.tsx:584:20	rule-c	size={15}
-client/src/pages/PricingUnified.tsx:612:32	rule-c	size={11}
-client/src/pages/PricingUnified.tsx:853:32	rule-c	size={11}
-client/src/pages/PricingUnified.tsx:872:32	rule-c	size={11}
-client/src/pages/PricingUnified.tsx:1329:43	rule-c	size={11}
-client/src/pages/PricingUnified.tsx:1578:27	rule-c	size={13}
-client/src/pages/ReviewFunnel.tsx:136:22	rule-c	size={40}
-client/src/pages/ReviewFunnel.tsx:146:23	rule-c	size={40}
-client/src/pages/ReviewFunnel.tsx:168:19	rule-c	size={18}
-client/src/pages/ReviewFunnel.tsx:176:28	rule-c	size={18}
-client/src/pages/ReviewFunnel.tsx:193:23	rule-c	size={40}
-client/src/pages/ReviewFunnel.tsx:231:23	rule-c	size={40}
 client/src/pages/ReviewFunnel.tsx:301:21	rule-c	size={40}
-client/src/pages/ReviewQrLanding.tsx:86:28	rule-c	size={26}
-client/src/pages/ReviewQrLanding.tsx:107:21	rule-c	size={26}
-client/src/pages/admin/AiDashboard.tsx:78:24	rule-c	size={48}
-client/src/pages/admin/AiDashboard.tsx:724:219	rule-c	size={18}
-client/src/pages/admin/AiDashboard.tsx:726:247	rule-c	size={18}
 client/src/pages/admin/ApiPlatformPage.tsx:172:19	rule-c	square w-2 h-2
 client/src/pages/admin/ApiPlatformUserDetailPage.tsx:376:25	rule-c	square w-12 h-12
 client/src/pages/admin/ApiPlatformUserDetailPage.tsx:386:20	rule-c	square w-12 h-12
@@ -181,14 +110,8 @@ client/src/pages/admin/TradeLineOpsPage.tsx:33:71	rule-c	square w-10 h-10
 client/src/pages/admin/TradeLineOpsPage.tsx:55:90	rule-c	square w-10 h-10
 client/src/pages/admin/TradelineLearningPage.tsx:278:32	rule-c	square w-2.5 h-2.5
 client/src/pages/calculator.tsx:87:20	rule-c	square w-10 h-10
-client/src/pages/dashboard.tsx:358:22	rule-c	size={9}
-client/src/pages/dashboard.tsx:368:25	rule-c	size={9}
-client/src/pages/demos/DemoCenter.tsx:195:21	rule-c	size={22}
-client/src/pages/demos/DemoPage.tsx:269:33	rule-c	size={15}
 client/src/pages/demos/RankFlowDemo.tsx:700:72	rule-c	size={90}
 client/src/pages/demos/RankFlowDemo.tsx:701:74	rule-c	size={90}
-client/src/pages/demos/ReputationShieldDemo.tsx:212:15	rule-c	size={22}
-client/src/pages/demos/ReputationShieldDemo.tsx:383:23	rule-c	size={13}
 client/src/pages/edit-calculator.tsx:419:14	rule-c	square w-16 h-16
 client/src/pages/edit-calculator.tsx:420:26	rule-c	square w-7 h-7
 client/src/pages/edit-calculator.tsx:433:14	rule-c	square w-16 h-16
@@ -203,54 +126,11 @@ client/src/pages/leads.tsx:118:14	rule-c	square w-16 h-16
 client/src/pages/leads.tsx:119:26	rule-c	square w-7 h-7
 client/src/pages/leads.tsx:167:20	rule-c	square w-16 h-16
 client/src/pages/leads.tsx:168:28	rule-c	square w-7 h-7
-client/src/pages/marketing/BuildWithAi.tsx:227:33	rule-c	size={13}
-client/src/pages/marketing/BuildWithAi.tsx:228:30	rule-c	size={13}
-client/src/pages/marketing/BuildWithAi.tsx:229:36	rule-c	size={13}
-client/src/pages/marketing/BuildWithAi.tsx:305:28	rule-c	size={36}
-client/src/pages/marketing/ComparisonPage.tsx:15:23	rule-c	size={18}
 client/src/pages/marketing/DesignShowcase.tsx:125:50	rule-c	size={720}
 client/src/pages/marketing/DesignShowcase.tsx:129:52	rule-c	size={720}
 client/src/pages/marketing/DesignShowcase.tsx:133:52	rule-c	size={720}
 client/src/pages/marketing/DesignShowcase.tsx:137:57	rule-c	size={720}
 client/src/pages/marketing/DesignShowcase.tsx:141:53	rule-c	size={1080}
-client/src/pages/marketing/FreeAudit.tsx:1039:39	rule-c	size={15}
-client/src/pages/marketing/bundles.tsx:342:32	rule-c	size={18}
-client/src/pages/marketing/bundles.tsx:344:34	rule-c	size={18}
-client/src/pages/marketing/contact.tsx:91:28	rule-c	size={18}
-client/src/pages/marketing/contact.tsx:119:27	rule-c	size={18}
-client/src/pages/marketing/contact.tsx:148:28	rule-c	size={18}
-client/src/pages/marketing/contact.tsx:168:38	rule-c	size={18}
-client/src/pages/marketing/demo-template.tsx:250:17	rule-c	size={13}
-client/src/pages/marketing/demo-template.tsx:393:28	rule-c	size={15}
-client/src/pages/marketing/demo-template.tsx:427:30	rule-c	size={15}
-client/src/pages/marketing/demo-template.tsx:446:35	rule-c	size={13}
-client/src/pages/marketing/demo-template.tsx:460:28	rule-c	size={13}
-client/src/pages/marketing/docs.tsx:143:27	rule-c	size={17}
-client/src/pages/marketing/docs.tsx:196:29	rule-c	size={21}
-client/src/pages/marketing/docs.tsx:280:31	rule-c	size={23}
-client/src/pages/marketing/features/ai-employee.tsx:28:16	rule-c	size={18}
-client/src/pages/marketing/features/ai-employee.tsx:49:20	rule-c	size={11}
-client/src/pages/marketing/features/ai-employee.tsx:68:20	rule-c	size={13}
-client/src/pages/marketing/features/ai-employee.tsx:80:16	rule-c	size={15}
-client/src/pages/marketing/features/calculator-engine.tsx:29:22	rule-c	size={18}
-client/src/pages/marketing/features/instant-quotes.tsx:22:16	rule-c	size={18}
-client/src/pages/marketing/home.tsx:914:19	rule-c	size={11}
-client/src/pages/marketing/pricing.tsx:50:22	rule-c	size={17}
-client/src/pages/marketing/pricing.tsx:230:23	rule-c	size={13}
-client/src/pages/marketing/pricing.tsx:423:50	rule-c	size={13}
-client/src/pages/marketing/pricing.tsx:496:23	rule-c	size={13}
-client/src/pages/marketing/product.tsx:108:16	rule-c	size={17}
-client/src/pages/marketing/product.tsx:143:23	rule-c	size={15}
-client/src/pages/marketing/product.tsx:457:25	rule-c	size={13}
-client/src/pages/marketing/product.tsx:507:28	rule-c	size={13}
-client/src/pages/marketing/product.tsx:719:39	rule-c	size={15}
-client/src/pages/marketing/quote-calculator-demo.tsx:303:27	rule-c	size={28}
-client/src/pages/marketing/quote-calculator-demo.tsx:531:37	rule-c	size={18}
-client/src/pages/marketing/template-detail.tsx:205:25	rule-c	size={26}
-client/src/pages/marketing/template-detail.tsx:278:28	rule-c	size={11}
-client/src/pages/marketing/templates.tsx:101:17	rule-c	size={26}
-client/src/pages/marketing/templates.tsx:136:21	rule-c	size={9}
-client/src/pages/marketing/templates.tsx:505:45	rule-c	size={11}
 client/src/pages/portal/PortalBilling.tsx:155:24	rule-c	square w-9 h-9
 client/src/pages/portal/PortalBilling.tsx:166:24	rule-c	square w-9 h-9
 client/src/pages/portal/PortalBilling.tsx:177:24	rule-c	square w-9 h-9
@@ -278,13 +158,3 @@ client/src/pages/portal/PortalWidget.tsx:148:17	rule-c	square w-12 h-12
 client/src/pages/portal/TradelineSetup/DashboardBanner.tsx:53:16	rule-c	square w-10 h-10
 client/src/pages/portal/TradelineSetup/OptionCPort.tsx:135:23	rule-c	square w-7 h-7
 client/src/pages/portal/TradelineSetup/index.tsx:122:16	rule-c	square w-12 h-12
-client/src/pages/products/EffortelProductPage.tsx:183:75	rule-c	size={18}
-client/src/pages/products/EffortelProductPage.tsx:267:42	rule-c	size={13}
-client/src/pages/products/EffortelProductPage.tsx:695:34	rule-c	size={18}
-client/src/pages/products/EffortelProductPage.tsx:834:46	rule-c	size={18}
-client/src/pages/products/ProductPageTemplate.tsx:55:46	rule-c	size={28}
-client/src/pages/products/ProductPageTemplate.tsx:169:26	rule-c	size={18}
-client/src/pages/products/ProductPageTemplate.tsx:250:34	rule-c	size={15}
-client/src/pages/products/ProductPageTemplate.tsx:351:57	rule-c	size={15}
-client/src/pages/solutions/SolutionPage.tsx:512:54	rule-c	size={22}
-client/src/pages/solutions/SolutionPage.tsx:521:46	rule-c	size={13}

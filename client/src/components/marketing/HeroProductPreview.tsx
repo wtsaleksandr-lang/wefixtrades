@@ -209,7 +209,7 @@ export default function HeroProductPreview() {
                   flexShrink: 0,
                 }}
               >
-                <Icon size={15} />
+                <Icon size={16} />
               </span>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.92)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>

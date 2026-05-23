@@ -12,7 +12,7 @@ function CellValue({ value }: { value: boolean | string }) {
   if (value === true) {
     return (
       <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
-        <CheckCircle2 size={18} color="#34D399" strokeWidth={2} />
+        <CheckCircle2 size={20} color="#34D399" strokeWidth={2} />
       </span>
     );
   }

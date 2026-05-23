@@ -202,7 +202,7 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
                     flexShrink: 0,
                   }}
                 >
-                  <Icon size={26} strokeWidth={2.25} />
+                  <Icon size={24} strokeWidth={2.25} />
                 </div>
               ) : null}
               <span
@@ -275,7 +275,7 @@ function TemplateDetailInner({ template }: { template: TemplateConfig }) {
                       borderRadius: 20,
                     }}
                   >
-                    <Check size={11} color={mkt.accent} strokeWidth={2.5} />
+                    <Check size={12} color={mkt.accent} strokeWidth={2.5} />
                     {vp}
                   </span>
                 ))}

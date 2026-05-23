@@ -509,7 +509,7 @@ export default function SolutionPage() {
                     }}
                   >
                     <div style={{ marginBottom: 16 }}>
-                      <IconBadge name={product.icon} size={22} />
+                      <IconBadge name={product.icon} size={24} />
                     </div>
                     <h3 style={{ fontSize: 17, fontWeight: 700, color: mkt.onDark, marginBottom: 10, lineHeight: 1.3 }}>
                       {product.name}
@@ -518,7 +518,7 @@ export default function SolutionPage() {
                       {product.desc}
                     </p>
                     <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 13, fontWeight: 700, color: mkt.accent, marginTop: 16 }}>
-                      Learn more <ArrowRight size={13} />
+                      Learn more <ArrowRight size={14} />
                     </span>
                   </div>
                 </Link>

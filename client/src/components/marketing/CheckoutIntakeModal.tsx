@@ -187,7 +187,7 @@ export default function CheckoutIntakeModal({
             justifyContent: "center",
           }}
         >
-          <X size={18} />
+          <X size={20} />
         </button>
 
         <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: "#0F1418", letterSpacing: "-0.01em" }}>

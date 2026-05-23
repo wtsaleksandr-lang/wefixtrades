@@ -105,7 +105,7 @@ function AiMockup() {
     <div style={{ background: mkt.dark, borderRadius: 20, padding: 24, maxWidth: 380, boxShadow: shadows.xl }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20, paddingBottom: 16, borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
         <div style={{ width: 36, height: 36, borderRadius: 10, background: mkt.accent, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <Bot size={17} color="#FFFFFF" strokeWidth={1.5} />
+          <Bot size={16} color="#FFFFFF" strokeWidth={1.5} />
         </div>
         <div>
           <div style={{ fontSize: 13, fontWeight: 700, color: "#FFFFFF" }}>AI Employee</div>
@@ -140,7 +140,7 @@ function AiMockup() {
           Type a message…
         </div>
         <div style={{ width: 34, height: 34, borderRadius: 10, background: mkt.accent, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-          <ArrowRight size={15} color="#FFFFFF" strokeWidth={1.5} />
+          <ArrowRight size={16} color="#FFFFFF" strokeWidth={1.5} />
         </div>
       </div>
     </div>
@@ -454,7 +454,7 @@ export default function ProductPage() {
                     border: "1.5px solid rgba(255,255,255,0.28)",
                   }}
                 >
-                  <Play size={13} fill="currentColor" />
+                  <Play size={14} fill="currentColor" />
                   View Demo
                 </Link>
               </div>
@@ -504,7 +504,7 @@ export default function ProductPage() {
                 <div style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.09)", borderRadius: 14, padding: "14px 18px" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
                     <div style={{ width: 26, height: 26, borderRadius: 10, background: mkt.accent, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <Bot size={13} color="#FFF" strokeWidth={1.5} />
+                      <Bot size={14} color="#FFF" strokeWidth={1.5} />
                     </div>
                     <div style={{ fontSize: 11, fontWeight: 700, color: "#FFF" }}>AI Employee <span style={{ color: mkt.success }}>●</span></div>
                   </div>
@@ -716,7 +716,7 @@ export default function ProductPage() {
                     href={ctaHref}
                     style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 24, fontSize: 15, fontWeight: 700, color: ctaColor, textDecoration: "none" }}
                   >
-                    {cta} <ArrowRight size={15} strokeWidth={1.5} />
+                    {cta} <ArrowRight size={16} strokeWidth={1.5} />
                   </Link>
                 </div>
 

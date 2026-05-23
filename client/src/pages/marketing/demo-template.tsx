@@ -247,7 +247,7 @@ function AiPanel({ trade, onClose }: { trade: string; onClose: () => void }) {
           disabled={sendMutation.isPending || !input.trim()}
           style={{ padding: "7px 12px", borderRadius: 8, background: input.trim() ? mkt.accent : "#D1D5DB", color: "#FFFFFF", border: "none", cursor: "pointer" }}
         >
-          <Send size={13} />
+          <Send size={14} />
         </button>
       </div>
     </div>
@@ -390,7 +390,7 @@ export default function DemoTemplatePage() {
                   {/* Live estimate result */}
                   <div style={{ background: "rgba(13,60,252,0.10)", border: `1px solid #A7F3D0`, borderRadius: 14, padding: "20px 24px", marginTop: 8 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                      <Zap size={15} color={mkt.accent} />
+                      <Zap size={16} color={mkt.accent} />
                       <span style={{ fontSize: 11, fontWeight: 700, color: mkt.accent, textTransform: "uppercase", letterSpacing: "0.08em" }}>Your Estimate</span>
                     </div>
                     <div style={{ fontSize: "clamp(28px, 4vw, 40px)", fontWeight: 800, color: mkt.onDark, lineHeight: 1, marginBottom: 4 }}>
@@ -424,7 +424,7 @@ export default function DemoTemplatePage() {
                     </form>
                   ) : (
                     <div style={{ marginTop: 18, background: "#DCFCE7", border: "1px solid #86EFAC", borderRadius: 10, padding: "14px 18px", fontSize: 14, color: "#166534", fontWeight: 600 }}>
-                      <Check size={15} style={{ marginRight: 6, display: "inline" }} />
+                      <Check size={16} style={{ marginRight: 6, display: "inline" }} />
                       Quote emailed! (demo) — In a real calculator, leads appear in your dashboard instantly.
                     </div>
                   )}
@@ -443,7 +443,7 @@ export default function DemoTemplatePage() {
                           display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
                         }}
                       >
-                        <Calendar size={13} /> {showBooking ? "Hide" : "Book a time"}
+                        <Calendar size={14} /> {showBooking ? "Hide" : "Book a time"}
                       </button>
                     )}
                     <button
@@ -457,7 +457,7 @@ export default function DemoTemplatePage() {
                         display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
                       }}
                     >
-                      <Bot size={13} /> {showAi ? "Hide AI" : "Ask AI"}
+                      <Bot size={14} /> {showAi ? "Hide AI" : "Ask AI"}
                     </button>
                   </div>
                 </div>

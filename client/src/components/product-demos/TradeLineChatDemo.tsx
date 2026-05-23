@@ -142,7 +142,7 @@ function ChatBubble({ who, text }: { who: "us" | "them"; text: string }) {
         background: isUs ? mkt.accent : "rgba(255,255,255,0.08)",
         display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
       }}>
-        {isUs ? <Phone size={11} color={mkt.dark} /> : <MessageSquare size={11} color={mkt.onDarkMuted} />}
+        {isUs ? <Phone size={12} color={mkt.dark} /> : <MessageSquare size={12} color={mkt.onDarkMuted} />}
       </div>
       <div style={{
         maxWidth: "78%",

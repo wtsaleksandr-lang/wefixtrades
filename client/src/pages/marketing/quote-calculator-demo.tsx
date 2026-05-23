@@ -300,7 +300,7 @@ export default function QuoteCalculatorDemo() {
                       justifyContent: "center",
                     }}
                   >
-                    <Play size={28} color="rgba(255,255,255,0.85)" strokeWidth={2} />
+                    <Play size={24} color="rgba(255,255,255,0.85)" strokeWidth={2} />
                   </div>
                 </div>
               )}
@@ -528,7 +528,7 @@ export default function QuoteCalculatorDemo() {
                           justifyContent: "center",
                         }}
                       >
-                        <ArrowRight size={18} color="white" strokeWidth={2.2} />
+                        <ArrowRight size={20} color="white" strokeWidth={2.2} />
                       </div>
                     ))}
                   </div>
