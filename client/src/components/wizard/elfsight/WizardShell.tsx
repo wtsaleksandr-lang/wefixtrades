@@ -42,7 +42,8 @@ import {
 } from '@shared/templatePresets';
 import AIBubble from './AIBubble';
 import EditorTopBar from './EditorTopBar';
-import EditorBottomBar from './EditorBottomBar';
+// 2026-05-22 (revert of PR #535) — EditorBottomBar was deleted; the tab
+// strip lives back in the top chrome again. See EditorTopBar.tsx.
 import MobileBottomSheet from './MobileBottomSheet';
 // BH-2 — EditorTabs is no longer rendered as a standalone bar; the tab
 // strip is rendered inline inside EditorTopBar so the top chrome lives on
@@ -1109,9 +1110,11 @@ export default function WizardShell({ embed = false }: Props) {
               canRedo={canRedo}
               onUndo={undo}
               onRedo={redo}
-              /* P2 UX (2026-05-22) — tabs relocated to EditorBottomBar
-                 (rendered below the editor body). Preview-fold stays in
-                 the top chrome. */
+              /* 2026-05-22 (revert of PR #535) — tabs back in the top
+                 chrome. EditorBottomBar removed. Preview-fold also stays
+                 here. */
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
               previewCollapsed={previewCollapsed}
               onTogglePreview={togglePreviewCollapsed}
               floatingLauncherPreview={floatingLauncherPreview}
@@ -1305,15 +1308,10 @@ export default function WizardShell({ embed = false }: Props) {
               </div>
             </div>
 
-            {/* P2 UX (2026-05-22) — Wizard chrome BOTTOM navbar.
-                 Hosts the 4 editor tabs (Build / Style / Settings / Install)
-                 relocated from the previously-crowded top chrome. Sits at
-                 the bottom of the wizard frame, above the mobile bottom
-                 sheet (which has its own z-index 9998). */}
-            <EditorBottomBar
-              activeTab={activeTab}
-              onTabChange={setActiveTab}
-            />
+            {/* 2026-05-22 (revert of PR #535) — the EditorBottomBar that
+                 hosted the wizard tab strip was deleted; tabs are back in
+                 the top chrome. The mobile bottom sheet (BH-3) below is for
+                 property panels, not tabs, and remains. */}
 
             {/* ── BH-3 — Mobile bottom sheet (≤768px only).
                  Replaces the desktop left-pane on phones. Hosts the same
@@ -1835,11 +1833,15 @@ export default function WizardShell({ embed = false }: Props) {
               padding: 0 2px;
             }
             .qq-editor-tabstrip::-webkit-scrollbar { display: none; }
+            /* Revert of PR #535 (2026-05-22) — tighter pill sizing so the
+             * tab strip fits comfortably in the single-row top chrome.
+             * 11px font / 6px vertical / 12px horizontal padding / weight 500
+             * (active pill bumps to 600 + #fff/brand-blue from PR #515). */
             .qq-editor-tab {
               font: inherit; background: transparent; border: none; cursor: pointer;
               padding: 6px 12px;
-              min-height: 30px;
-              font-size: 13px; font-weight: 600;
+              min-height: 28px;
+              font-size: 11px; font-weight: 500;
               border-radius: 999px;
               white-space: nowrap;
               transition: color 0.12s ease, background 0.12s ease;
@@ -1852,7 +1854,7 @@ export default function WizardShell({ embed = false }: Props) {
              * own light-blue pill. We force white on the active pill here
              * with !important so the label stays legible in either theme. */
             .qq-editor-tab.is-active {
-              font-weight: 700;
+              font-weight: 600;
               color: #ffffff !important;
               background: ${p.colors.accent} !important;
             }
