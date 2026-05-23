@@ -182,6 +182,8 @@ import BookFlowSetupPage from "@/pages/portal/BookFlowSetupPage";
 import PortalCatalog from "@/pages/portal/PortalCatalog";
 import PortalApiAccessPage from "@/pages/portal/PortalApiAccessPage";
 import PortalBrandKitsPage from "@/pages/portal/PortalBrandKitsPage";
+import FreeToolsIndex from "@/pages/portal/FreeTools";
+import SchemaGenerator from "@/pages/portal/FreeTools/SchemaGenerator";
 import InternalTemplateRender from "@/pages/InternalTemplateRender";
 
 /**
@@ -323,6 +325,9 @@ function Router() {
       <Route path="/portal/api-access">{() => <RequireClient><PortalApiAccessPage /></RequireClient>}</Route>
       {/* W-AO-6d — Brand Kits portal page (QuoteQuick $29 upsell) */}
       <Route path="/portal/brand-kits">{() => <RequireClient><PortalBrandKitsPage /></RequireClient>}</Route>
+      {/* Free Tools — foundation wave (index + Schema Generator) */}
+      <Route path="/portal/free-tools/schema">{() => <RequireClient><SchemaGenerator /></RequireClient>}</Route>
+      <Route path="/portal/free-tools">{() => <RequireClient><FreeToolsIndex /></RequireClient>}</Route>
       <Route path="/portal/help">{() => <RequireClient><PortalHelp /></RequireClient>}</Route>
       <Route path="/portal/chat-history">{() => <RequireClient><PortalChatHistoryPage /></RequireClient>}</Route>
       <Route path="/portal/settings">{() => <RequireClient><PortalSettings /></RequireClient>}</Route>

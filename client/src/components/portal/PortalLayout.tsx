@@ -22,6 +22,8 @@ import {
   Palette,
   Phone,
   Calculator,
+  Gift,
+  FileCode2,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useState } from "react";
@@ -126,6 +128,11 @@ function buildNavItems(active: Set<string>): NavItem[] {
     { label: "Brand Kits", href: "/portal/brand-kits", icon: Palette },
     /* Q16: dedicated entry-point to the in-portal service catalog */
     { label: "Add Services", href: "/portal/catalog", icon: Plus },
+    /* Free Tools — foundation wave (Local Business Schema generator + future
+       widgets). Top-level entry routes to the index; sub-items mirror the
+       existing nested-section pattern (e.g. ContentFlow → Content Style). */
+    { label: "Free Tools", href: "/portal/free-tools", icon: Gift },
+    { label: "Schema Generator", href: "/portal/free-tools/schema", icon: FileCode2, indent: true },
     { label: "Help", href: "/portal/help", icon: HelpCircle },
     { label: "Settings", href: "/portal/settings", icon: Settings },
   ];
@@ -252,6 +259,13 @@ export default function PortalLayout({
                   key={item.href}
                   href={item.href}
                   onClick={() => setMobileOpen(false)}
+                  data-testid={
+                    item.href === "/portal/free-tools"
+                      ? "nav-free-tools"
+                      : item.href === "/portal/free-tools/schema"
+                      ? "nav-free-tools-schema"
+                      : undefined
+                  }
                   className={cn(
                     "flex items-center gap-3 rounded-lg text-sm transition-colors min-h-[44px]",
                     item.indent ? "pl-9 pr-3 py-2" : "px-3 py-2.5",
