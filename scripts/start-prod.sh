@@ -24,6 +24,27 @@
 
 set -euo pipefail
 
+# Layer-C guard for PR fix/replit-disable-drizzle-push-prompt:
+# Refuse to boot production if `drizzle.config.ts` has reappeared at the repo
+# root. Replit's deploy pipeline auto-detects that exact filename and runs
+# `drizzle-kit push` against prod, which is the source of the destructive-
+# migration approval prompt Alex sees on redeploy. Production applies SQL via
+# server/lib/bootstrapMigrations.ts at boot — drizzle-kit push must never run
+# against the production database. See scripts/check-no-prod-drizzle-config.mjs
+# for the full rationale.
+#
+# This guard runs BEFORE the Doppler wrapper resolution so a misconfigured
+# repo fails fast and visibly in the deploy log.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+if [ -f "${REPO_ROOT}/drizzle.config.ts" ]; then
+  echo "[start-prod] FATAL: drizzle.config.ts found at repo root." >&2
+  echo "[start-prod] Replit will auto-run drizzle-kit push against production." >&2
+  echo "[start-prod] Rename to drizzle.config.dev.ts before redeploying." >&2
+  exit 1
+fi
+echo "[start-prod] guard OK — no drizzle.config.ts at repo root (Replit auto-push disabled)." >&2
+
 MODE_DOPPLER_CLI="doppler-cli"
 MODE_DOPPLER_HTTP="doppler-http-bootstrap-only"
 MODE_PLAIN="env-only"
