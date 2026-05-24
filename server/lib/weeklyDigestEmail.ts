@@ -23,6 +23,7 @@
 import { getEmailTransporter, getFromAddress } from "./emailTransport";
 import { buildTransactionalEmail, buildPlainText } from "./transactionalShell";
 import { isEmailUnsubscribed } from "./unsubscribeStorage";
+import { respectPreferences } from "./notificationPreferences";
 import { createLogger } from "./logger";
 
 const log = createLogger("weekly-digest-email");
@@ -47,12 +48,19 @@ export interface WeeklyDigestData {
   highlight?: string;
   /** Deep link to the portal overview page. */
   portalUrl: string;
+  /** Owning client id — used for the belt-and-braces preferences check. */
+  clientId?: number;
 }
 
 export async function sendWeeklyDigestEmail(data: WeeklyDigestData): Promise<boolean> {
   const transporter = getEmailTransporter();
   if (!transporter) {
     log.warn("SMTP not configured — weekly digest NOT sent", { to: data.to });
+    return false;
+  }
+
+  if (data.clientId != null && !(await respectPreferences(data.clientId, "email", "weekly_digest"))) {
+    log.info("client disabled weekly digest — skipping", { to: data.to, clientId: data.clientId });
     return false;
   }
 

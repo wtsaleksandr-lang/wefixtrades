@@ -16,6 +16,7 @@ import { clients, clientPayments } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
 import { getEmailTransporter, getFromAddress } from "./emailTransport";
 import { buildLegalFooter, buildEmailHeader, buildChatBubble } from "./emailFooter";
+import { respectPreferences } from "./notificationPreferences";
 import { createLogger } from "./logger";
 
 const log = createLogger("PaymentFailedEmail");
@@ -95,6 +96,11 @@ export async function sendPaymentFailedEmail(params: SendParams): Promise<boolea
   const [client] = await db.select().from(clients).where(eq(clients.id, params.clientId)).limit(1);
   if (!client?.contact_email) {
     log.warn(`[payment-failed] Client #${params.clientId} has no email — skipping`);
+    return false;
+  }
+
+  if (!(await respectPreferences(params.clientId, "email", "billing"))) {
+    log.info(`[payment-failed] Skipped — client #${params.clientId} disabled billing email`);
     return false;
   }
 

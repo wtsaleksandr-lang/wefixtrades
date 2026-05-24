@@ -34,6 +34,7 @@ import {
 import { buildBillingPortalUrl } from "../lib/billingPortalToken";
 import { getEmailTransporter, getFromAddress } from "../lib/emailTransport";
 import { isEmailUnsubscribed } from "../lib/unsubscribeStorage";
+import { respectPreferences } from "../lib/notificationPreferences";
 import { createLogger } from "../lib/logger";
 
 const log = createLogger("DunningService");
@@ -337,6 +338,11 @@ export async function sendDunningRow(row: BillingDunningEvent): Promise<{
   if (await isEmailUnsubscribed(client.contact_email)) {
     await markRow(row.id, "skipped", "recipient_unsubscribed");
     return { outcome: "skipped", reason: "recipient_unsubscribed" };
+  }
+
+  if (clientId != null && !(await respectPreferences(clientId, "email", "billing"))) {
+    await markRow(row.id, "skipped", "notification_preferences");
+    return { outcome: "skipped", reason: "notification_preferences" };
   }
 
   // 24h resend guard

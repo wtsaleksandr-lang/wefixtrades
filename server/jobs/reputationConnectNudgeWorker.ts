@@ -121,6 +121,7 @@ export async function processReputationConnectNudges(): Promise<NudgeSummary> {
         businessName: row.businessName || "your business",
         nudgeNumber,
         connectGoogleUrl: `${baseUrl}/portal/reviews/setup`,
+        clientId: row.clientId,
       });
 
       // Stamp the nudge state (jsonb-merge, same pattern as kickoff).

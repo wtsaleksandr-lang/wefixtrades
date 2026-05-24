@@ -14,6 +14,7 @@ import { clients, clientServices, serviceCatalog, clientPayments } from "@shared
 import { eq, and } from "drizzle-orm";
 import { getEmailTransporter, getFromAddress } from "./emailTransport";
 import { buildTransactionalEmail, buildPlainText } from "./transactionalShell";
+import { respectPreferences } from "./notificationPreferences";
 import type Stripe from "stripe";
 import { createLogger } from "./logger";
 
@@ -103,6 +104,11 @@ export async function sendPaymentReceipt(
   const [client] = await db.select().from(clients).where(eq(clients.id, clientId)).limit(1);
   if (!client?.contact_email) {
     log.warn(`[payment-receipt] Client #${clientId} has no email — skipping`);
+    return false;
+  }
+
+  if (!(await respectPreferences(clientId, "email", "billing"))) {
+    log.info(`[payment-receipt] Skipped — client #${clientId} disabled billing email`);
     return false;
   }
 

@@ -13,6 +13,7 @@
 import { getEmailTransporter, getFromAddress } from "./emailTransport";
 import { buildTransactionalEmail, buildPlainText } from "./transactionalShell";
 import { isEmailUnsubscribed } from "./unsubscribeStorage";
+import { respectPreferences } from "./notificationPreferences";
 import { createLogger } from "./logger";
 
 const log = createLogger("pro-trial-ended-email");
@@ -47,6 +48,7 @@ function buildHtml(recipientEmail: string, data: ProTrialEndedData): string {
 export async function sendProTrialEndedEmail(
   recipientEmail: string,
   data: ProTrialEndedData,
+  clientId?: number,
 ): Promise<boolean> {
   try {
     const transporter = getEmailTransporter();
@@ -56,6 +58,10 @@ export async function sendProTrialEndedEmail(
     }
     if (!recipientEmail) {
       log.warn("No recipient email — skipping pro trial ended email");
+      return false;
+    }
+    if (clientId != null && !(await respectPreferences(clientId, "email", "billing"))) {
+      log.info(`Skipped pro trial ended email — client #${clientId} disabled billing email`);
       return false;
     }
     const unsubscribed = await isEmailUnsubscribed(recipientEmail);

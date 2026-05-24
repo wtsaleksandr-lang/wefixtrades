@@ -21,6 +21,8 @@ export interface ReputationConnectNudgeData {
   /** URL that initiates Google Business Profile OAuth / the setup wizard. */
   connectGoogleUrl: string;
   supportEmail?: string;
+  /** Owning client id — gated against service_updates preference at drain. */
+  clientId?: number;
 }
 
 export async function sendReputationConnectNudge(data: ReputationConnectNudgeData): Promise<void> {
@@ -78,8 +80,10 @@ export async function sendReputationConnectNudge(data: ReputationConnectNudgeDat
 
   try {
     await queueEmail(data.toEmail, subject, html, text, {
-      category: "reputationshield-connect-nudge",
+      category: "service_updates",
+      kind: "reputationshield-connect-nudge",
       nudgeNumber: data.nudgeNumber,
+      clientId: data.clientId,
     });
     log.info(`Connect-nudge #${data.nudgeNumber} queued for ${data.toEmail}`);
   } catch (err: any) {
