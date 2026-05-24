@@ -87,8 +87,11 @@
       display: 'block',
     });
 
-    // Auto-resize via postMessage from the embedded widget
+    // Auto-resize via postMessage from the embedded widget.
+    // Audit 2026-05-24 P0 #3 — verify source is the iframe we mounted, not
+    // an arbitrary window on the host page spoofing the message shape.
     window.addEventListener('message', function (e) {
+      if (e.source !== iframe.contentWindow) return;
       if (e.data && e.data.type === 'quotequick-resize' && e.data.slug === slug) {
         iframe.style.height = e.data.height + 'px';
       }
@@ -457,8 +460,11 @@
     display: 'block',
   });
 
-  // Auto-resize
+  // Auto-resize.
+  // Audit 2026-05-24 P0 #3 — verify source is the iframe we mounted, not
+  // an arbitrary window on the host page spoofing the message shape.
   window.addEventListener('message', function (e) {
+    if (e.source !== popupIframe.contentWindow) return;
     if (e.data && e.data.type === 'quotequick-resize' && e.data.slug === slug) {
       popupIframe.style.height = Math.min(e.data.height, window.innerHeight * 0.85) + 'px';
     }
