@@ -1,0 +1,290 @@
+name: Post-Deploy Watchdog
+
+# Deploy Safety Wave 4 — auto-rollback on healthz degradation.
+#
+# Triggers immediately after a commit lands on `main` (which is what causes
+# Replit to auto-deploy prod). Waits 60s for the swap, then polls
+# /api/healthz on prod for up to 10 minutes. If the deploy fails to stabilise,
+# we:
+#   1. Open a GitHub issue with the failing probe and the captured healthz body.
+#   2. Open an "emergency revert" PR that resets main to the previous-good SHA
+#      (the parent of the just-deployed commit, except for merge commits where
+#      we use the first parent — main's prior tip).
+#   3. Mark the workflow as failed so it shows up in the deploys dashboard.
+#
+# Replit has no programmatic rollback API, so the revert PR is the rollback
+# mechanism: when Alex merges it, Replit auto-deploys the older code. We
+# deliberately do NOT auto-merge — this is the one place where human approval
+# matters (a false positive merging itself would be worse than a flaky probe).
+#
+# Constraints honoured:
+#   - No `npm install` — the monitor script only uses node built-ins.
+#   - No external action dependencies beyond actions/checkout + github-script.
+#   - Concurrency-grouped so two rapid pushes don't open duplicate PRs.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      deploy_url:
+        description: "Base URL to watch"
+        required: false
+        default: "https://wefixtrades.com"
+
+concurrency:
+  # Serialize per-branch so a rapid second push waits for the first watchdog
+  # run instead of racing against it (which would risk two revert PRs).
+  group: post-deploy-watchdog-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write       # to create the revert branch
+  pull-requests: write  # to open the revert PR
+  issues: write         # to file the rollback issue
+
+jobs:
+  watch:
+    name: watch
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      DEPLOY_URL: ${{ github.event.inputs.deploy_url || 'https://wefixtrades.com' }}
+      DEPLOYED_SHA: ${{ github.sha }}
+
+    outputs:
+      verdict: ${{ steps.monitor.outputs.verdict }}
+      reason: ${{ steps.monitor.outputs.reason }}
+      failed_check: ${{ steps.monitor.outputs.failed_check }}
+      failed_status: ${{ steps.monitor.outputs.failed_status }}
+      previous_sha: ${{ steps.prev.outputs.previous_sha }}
+      previous_sha_short: ${{ steps.prev.outputs.previous_sha_short }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2  # need HEAD~1 to compute the previous-good SHA
+
+      - name: Resolve previous-good SHA
+        id: prev
+        # For a regular commit, parent #1 is the prior tip of main. For a merge
+        # commit (squash-merges land as one commit so this doesn't usually fire,
+        # but defend anyway), parent #1 is still the previous main tip — parent
+        # #2 is the merged feature branch. Either way, ^1 is correct.
+        run: |
+          PREV=$(git rev-parse "${DEPLOYED_SHA}^1")
+          echo "previous_sha=${PREV}" >> "$GITHUB_OUTPUT"
+          echo "previous_sha_short=${PREV:0:7}" >> "$GITHUB_OUTPUT"
+          echo "deployed=${DEPLOYED_SHA:0:7}  previous=${PREV:0:7}"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          # No npm cache: the monitor uses node built-ins, no install needed.
+
+      - name: Watch /api/healthz for degradation
+        id: monitor
+        # Pure node, zero deps. Exit 0 = healthy, 1 = degraded/down (trigger
+        # rollback), 2 = monitor crash (no rollback — fix the workflow).
+        run: node scripts/deploy/rollback-monitor.mjs
+        env:
+          DEPLOY_URL: ${{ env.DEPLOY_URL }}
+          LAST_BODY_PATH: ${{ runner.temp }}/watchdog-last-body.json
+        continue-on-error: true
+
+      - name: Read captured healthz body
+        id: body
+        if: always()
+        run: |
+          BODY_PATH="${{ runner.temp }}/watchdog-last-body.json"
+          if [ -f "$BODY_PATH" ]; then
+            {
+              echo 'body<<HEALTHZ_EOF'
+              cat "$BODY_PATH"
+              echo 'HEALTHZ_EOF'
+            } >> "$GITHUB_OUTPUT"
+          else
+            echo 'body=(no body captured — monitor never received a JSON response)' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload captured healthz body
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: watchdog-healthz-body
+          path: ${{ runner.temp }}/watchdog-last-body.json
+          retention-days: 30
+          if-no-files-found: ignore
+
+      - name: Open rollback issue
+        if: steps.monitor.outputs.verdict == 'fail'
+        uses: actions/github-script@v7
+        env:
+          DEPLOYED_SHA: ${{ env.DEPLOYED_SHA }}
+          PREVIOUS_SHA: ${{ steps.prev.outputs.previous_sha }}
+          REASON: ${{ steps.monitor.outputs.reason }}
+          FAILED_CHECK: ${{ steps.monitor.outputs.failed_check }}
+          FAILED_STATUS: ${{ steps.monitor.outputs.failed_status }}
+          HEALTHZ_BODY: ${{ steps.body.outputs.body }}
+          TARGET_URL: ${{ env.DEPLOY_URL }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const deployed = process.env.DEPLOYED_SHA;
+            const previous = process.env.PREVIOUS_SHA;
+            const reason = process.env.REASON;
+            const failedCheck = process.env.FAILED_CHECK;
+            const failedStatus = process.env.FAILED_STATUS;
+            const body = process.env.HEALTHZ_BODY;
+            const url = process.env.TARGET_URL;
+            const run = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
+
+            const title = `Post-deploy watchdog FAILED — ${deployed.substring(0,7)} (${failedCheck || 'unknown'})`;
+            const issueBody = [
+              `**Deployed commit:** \`${deployed.substring(0,7)}\` (\`${deployed}\`)`,
+              `**Previous good:** \`${previous.substring(0,7)}\` (\`${previous}\`)`,
+              `**Target URL:** ${url}`,
+              `**Workflow run:** ${run}`,
+              ``,
+              `## Verdict`,
+              `- **Reason:** ${reason}`,
+              `- **Failed check:** \`${failedCheck || '(none)'}\``,
+              `- **Failed status:** \`${failedStatus || '(none)'}\``,
+              ``,
+              `## Last healthz body`,
+              '```json',
+              body,
+              '```',
+              ``,
+              `## What happens next`,
+              `An emergency rollback PR has been opened reverting \`main\` to \`${previous.substring(0,7)}\`.`,
+              `See [docs/operations/auto-rollback-playbook.md](../blob/main/docs/operations/auto-rollback-playbook.md) for the response procedure.`,
+            ].join('\n');
+
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body: issueBody,
+              labels: ['post-deploy-watchdog-failed', 'rollback'],
+            });
+
+      - name: Ping Sentry (best-effort)
+        if: steps.monitor.outputs.verdict == 'fail' && env.SENTRY_DSN != ''
+        env:
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+        run: |
+          # Sentry minidump endpoint accepts a JSON event with a Sentry auth header.
+          # Best-effort only — failures here must not block the rollback PR step.
+          curl -sS -X POST "https://sentry.io/api/0/projects/" \
+            -H "Authorization: DSN ${SENTRY_DSN}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "message": "Post-deploy watchdog failed for '"${DEPLOYED_SHA:0:7}"'",
+              "level": "error",
+              "tags": {"source": "post-deploy-watchdog", "sha": "'"${DEPLOYED_SHA:0:7}"'"}
+            }' || echo "Sentry ping failed (non-fatal)"
+
+      - name: Open emergency rollback PR
+        if: steps.monitor.outputs.verdict == 'fail'
+        uses: actions/github-script@v7
+        env:
+          DEPLOYED_SHA: ${{ env.DEPLOYED_SHA }}
+          PREVIOUS_SHA: ${{ steps.prev.outputs.previous_sha }}
+          REASON: ${{ steps.monitor.outputs.reason }}
+          FAILED_CHECK: ${{ steps.monitor.outputs.failed_check }}
+          HEALTHZ_BODY: ${{ steps.body.outputs.body }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { execSync } = require('node:child_process');
+            const deployed = process.env.DEPLOYED_SHA;
+            const previous = process.env.PREVIOUS_SHA;
+            const failedCheck = process.env.FAILED_CHECK;
+            const reason = process.env.REASON;
+            const body = process.env.HEALTHZ_BODY;
+            const run = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
+
+            // Create the revert branch by resetting it to the previous-good SHA.
+            // This makes the diff "remove everything in `deployed` that isn't
+            // in `previous`" — i.e. a literal revert of the bad commit.
+            const branch = `auto-rollback/from-${deployed.substring(0,7)}-to-${previous.substring(0,7)}`;
+            try {
+              execSync(`git push --force origin ${previous}:refs/heads/${branch}`, { stdio: 'inherit' });
+            } catch (err) {
+              core.setFailed(`Failed to push revert branch: ${err.message}`);
+              return;
+            }
+
+            const title = `REVERT: emergency auto-rollback after healthz failure`;
+            const prBody = [
+              `Automated rollback opened by [post-deploy-watchdog](${run}).`,
+              ``,
+              `Resets \`main\` to \`${previous.substring(0,7)}\` (the commit prior to \`${deployed.substring(0,7)}\`).`,
+              ``,
+              `## Why`,
+              `Prod \`/api/healthz\` failed the post-deploy stability window:`,
+              `- **Reason:** ${reason}`,
+              `- **Failed check:** \`${failedCheck || '(none)'}\``,
+              ``,
+              `## Last healthz body`,
+              '```json',
+              body,
+              '```',
+              ``,
+              `## Action required from a human`,
+              `1. Review whether the failing check is a real regression in \`${deployed.substring(0,7)}\` or a transient vendor issue.`,
+              `2. If real: **merge this PR**. Replit will auto-deploy the older code from \`main\`.`,
+              `3. If transient: **close this PR**, mark the linked rollback issue resolved, and consider widening the watchdog thresholds.`,
+              ``,
+              `See [docs/operations/auto-rollback-playbook.md](../blob/main/docs/operations/auto-rollback-playbook.md).`,
+              ``,
+              `**Do not auto-merge. This PR is intentionally human-gated.**`,
+            ].join('\n');
+
+            let pr;
+            try {
+              const created = await github.rest.pulls.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                head: branch,
+                base: 'main',
+                body: prBody,
+                draft: false,
+              });
+              pr = created.data;
+            } catch (err) {
+              core.setFailed(`Failed to open revert PR: ${err.message}`);
+              return;
+            }
+
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+              labels: ['rollback', 'urgent', 'do-not-auto-merge'],
+            });
+
+            // Best-effort request review from the repo owner. If the username
+            // isn't a collaborator (or doesn't exist), the API throws — we
+            // swallow that so the PR still gets opened.
+            try {
+              await github.rest.pulls.requestReviewers({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pr.number,
+                reviewers: [context.repo.owner],
+              });
+            } catch (err) {
+              core.info(`Could not request review from ${context.repo.owner}: ${err.message}`);
+            }
+
+            core.notice(`Opened rollback PR #${pr.number}: ${pr.html_url}`);
+
+      - name: Mark workflow as failed
+        if: steps.monitor.outputs.verdict == 'fail'
+        run: |
+          echo "::error::Post-deploy watchdog failed: ${{ steps.monitor.outputs.reason }}"
+          exit 1
