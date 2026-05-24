@@ -70,6 +70,7 @@ import {
   runReviewMonitorTick as runGbpReviewMonitorTick,
   runHoursSyncTick as runGbpHoursSyncTick,
 } from "../cron/gbpAutomation";
+import { runVapiRecordingMirrorTick } from "../cron/vapiRecordingMirror";
 
 const log = createLogger("Scheduler");
 
@@ -1114,6 +1115,27 @@ export function initScheduler() {
       log.error("learning_candidate_sweep cron handler error", { error: err.message });
     } finally {
       learningSweepRunning = false;
+    }
+  }, { timezone: "UTC" });
+
+  // Vapi recording mirror — every 2h at :47 UTC. Streams Vapi-hosted
+  // call recordings into Replit Object Storage before Vapi's ~30-day
+  // expiry 404s the admin UI <audio> player. Idempotent via the
+  // mirrored_at NULL filter on tradeline_call_log. Overlap-guarded;
+  // per-tick cap (100 rows) bounds memory.
+  let vapiRecordingMirrorRunning = false;
+  cron.schedule("47 */2 * * *", async () => {
+    if (vapiRecordingMirrorRunning) {
+      log.debug("vapi_recording_mirror skipped — previous tick still running");
+      return;
+    }
+    vapiRecordingMirrorRunning = true;
+    try {
+      await runJob("vapi_recording_mirror", runVapiRecordingMirrorTick);
+    } catch (err: any) {
+      log.error("vapi_recording_mirror cron handler error", { error: err.message });
+    } finally {
+      vapiRecordingMirrorRunning = false;
     }
   }, { timezone: "UTC" });
 }

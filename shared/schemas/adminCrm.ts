@@ -954,6 +954,12 @@ export const tradelineCallLog = pgTable("tradeline_call_log", {
   summary: text("summary"),
   transcript_json: jsonb("transcript_json"),
   recording_url: text("recording_url"),
+  // Vapi-hosted recordings expire ~30 days after the call. The
+  // vapiRecordingMirror cron streams the recording into Replit Object
+  // Storage and stamps these two columns. Object key format:
+  //   'vapi-recordings/<client_id>/<call_id>.mp3'
+  mirrored_object_key: text("mirrored_object_key"),
+  mirrored_at: timestamp("mirrored_at", { withTimezone: true }),
   created_at: timestamp("created_at").defaultNow(),
 });
 export const insertTradelineCallLogSchema = createInsertSchema(tradelineCallLog).omit({ id: true, created_at: true });
