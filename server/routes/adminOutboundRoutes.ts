@@ -43,6 +43,32 @@ import { createLogger } from "../lib/logger";
 import { z } from "zod";
 import { searchGoogleMaps, buildMapsQuery, OutscraperError, type OutscraperLead } from "../services/outscraperClient";
 import { outboundScrapeRateLimiter } from "../services/rateLimiter";
+import { timingSafeEqual } from "crypto";
+
+/**
+ * Constant-time string compare for shared-secret webhook auth.
+ *
+ * The webhook receiver below previously did `provided !== secret` with
+ * JS string equality, which short-circuits on the first byte mismatch
+ * and leaks timing. With enough requests, an attacker could recover
+ * `OUTREACH_WEBHOOK_SECRET` byte-by-byte. This wrapper compares fixed-
+ * length buffers via `crypto.timingSafeEqual`. Length mismatch is
+ * rejected up front (length itself can leak, but the secret is the
+ * same length on every request, so the only thing length-comparison
+ * leaks is whether the *attacker's guess* is the right length —
+ * negligible). Returns false on any unparseable input.
+ */
+function safeEqual(provided: string | string[] | undefined, expected: string): boolean {
+  if (typeof provided !== "string") return false;
+  const a = Buffer.from(provided);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length) return false;
+  try {
+    return timingSafeEqual(a, b);
+  } catch {
+    return false;
+  }
+}
 
 const log = createLogger("AdminOutbound");
 
@@ -1179,7 +1205,8 @@ export function registerAdminOutboundRoutes(app: Express): void {
       return res.status(503).json({ error: "Webhook not configured" });
     }
     const provided = req.headers["x-webhook-secret"] || req.headers["x-api-key"];
-    if (provided !== secret) {
+    // Constant-time compare — see safeEqual() above for rationale.
+    if (!safeEqual(provided, secret)) {
       return res.status(401).json({ error: "Unauthorized" });
     }
 
