@@ -21,6 +21,7 @@ import AuditGate from "@/components/marketing/AuditGate";
 // the marketing surface self-contained and matches FreeAudit's inline-style
 // pattern (it doesn't use Tailwind utility classes like the portal file).
 import InfoCue from "@/components/wizard/elfsight/InfoCue";
+import { OptimizedImage } from "@/components/ui/Picture";
 
 type Prediction = {
   place_id: string;
@@ -958,10 +959,13 @@ export default function FreeAudit() {
                           }}
                         >
                           {p.photoUrl ? (
-                            <img
+                            <OptimizedImage
                               src={p.photoUrl}
                               alt=""
+                              width={36}
+                              height={36}
                               style={{ width: 36, height: 36, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
+                              loading="lazy"
                             />
                           ) : (
                             <div style={{

@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Link } from "wouter";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { PageMeta } from "@/components/seo/PageMeta";
+import { OptimizedImage } from "@/components/ui/Picture";
 import { V7Hero, V7PageShell } from "@/components/marketing/v7";
 import { mkt } from "@/theme/tokens";
 import mapguardIcon from "@assets/mapguard-icon_1772080241423.webp";
@@ -246,7 +247,14 @@ export default function SolutionsVisibility() {
               <div key={svc.id} style={S.card} data-testid={`card-solution-${svc.id}`}>
                 <div style={S.cardHeader}>
                   <div style={S.iconWrap}>
-                    <img src={svc.icon} alt={svc.title} style={S.icon} loading="lazy" />
+                    <OptimizedImage
+                      src={svc.icon}
+                      alt={svc.title}
+                      width={48}
+                      height={48}
+                      style={S.icon}
+                      loading="lazy"
+                    />
                   </div>
                   <div style={S.titleGroup}>
                     <h2 style={S.title}>{svc.title}</h2>

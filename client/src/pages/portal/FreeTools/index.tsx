@@ -11,6 +11,7 @@ import {
 import PortalLayout from "@/components/portal/PortalLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { OptimizedImage } from "@/components/ui/Picture";
 import { cn } from "@/lib/utils";
 import { usePageTitle } from "@/hooks/usePageTitle";
 
@@ -138,9 +139,11 @@ export default function FreeToolsIndex() {
               >
                 <CardContent className="p-5 flex flex-col h-full">
                   {tool.previewImage ? (
-                    <img
+                    <OptimizedImage
                       src={tool.previewImage}
                       alt={`${tool.title} preview`}
+                      width={400}
+                      height={250}
                       className="w-full aspect-[16/10] object-cover rounded-md border border-gray-200 mb-3 bg-gray-50"
                       loading="lazy"
                       data-testid={`free-tool-preview-${tool.slug}`}
