@@ -1,0 +1,1026 @@
+[
+  {
+    "route": "products-quickquotepro",
+    "viewport": "desktop",
+    "url": "https://wefixtrades.com/products/quickquotepro",
+    "durationMs": 7551,
+    "scrollHeight": 8571,
+    "consoleErrors": [
+      "The Content Security Policy directive 'upgrade-insecure-requests' is ignored when delivered in a report-only policy.",
+      "Access to XMLHttpRequest at 'https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,600,700,800,900&display=swap' from origin 'https://wefixtrades.com' has been blocked by CORS policy: The 'Access-Control-Allow-Origin' header has a value 'https://api.fontshare.com' that is not equal to the supplied origin.",
+      "Failed to load resource: net::ERR_FAILED",
+      "Failed to load resource: the server responded with a status of 404 ()"
+    ],
+    "failedRequests": [
+      {
+        "url": "https://cdn.jsdelivr.net/npm/geist-font@1.3.1/dist/geist-sans/style.css",
+        "failure": "net::ERR_BLOCKED_BY_ORB"
+      },
+      {
+        "url": "https://www.google-analytics.com/g/collect?v=2&tid=G-BQMFDMMWJ1&gtm=45je65k1v9253383999za200zd9253383999&_p=1779639506462&gcd=13l3l3l3l1l1&npa=0&dma=0&are=1&cid=822527109.1779639507&frm=0&pscdl=noapi&rcb=16&sr=1440x900&uaa=x86&uab=64&uafvl=HeadlessChrome%3B147.0.7727.15%7CNot.A%252FBrand%3B8.0.0.0%7CChromium%3B147.0.7727.15&uam=&uamb=0&uap=Windows&uapv=10.0.0&uaw=0&ul=en-us&_s=1&tag_exp=0~115938466~115938468&sid=1779639506&sct=1&seg=0&dl=https%3A%2F%2Fwefixtrades.com%2Fproducts%2Fquickquotepro&dt=WeFixTrades%20%E2%80%94%20Quote%20calculators%20%2B%20AI%20receptionist%20for%20trades&en=page_view&_fv=1&_nsi=1&_ss=1&_ee=1&ep.anonymize_ip=true&tfd=3231",
+        "failure": "net::ERR_ABORTED"
+      },
+      {
+        "url": "https://source.unsplash.com/300x300/?sliding,window",
+        "failure": "net::ERR_BLOCKED_BY_ORB"
+      },
+      {
+        "url": "https://source.unsplash.com/300x300/?bay,window",
+        "failure": "net::ERR_BLOCKED_BY_ORB"
+      },
+      {
+        "url": "https://source.unsplash.com/300x300/?picture,window",
+        "failure": "net::ERR_BLOCKED_BY_ORB"
+      },
+      {
+        "url": "https://source.unsplash.com/300x300/?single,hung,window",
+        "failure": "net::ERR_BLOCKED_BY_ORB"
+      },
+      {
+        "url": "https://source.unsplash.com/300x300/?double,hung,window",
+        "failure": "net::ERR_BLOCKED_BY_ORB"
+      },
+      {
+        "url": "https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,600,700,800,900&display=swap",
+        "failure": "net::ERR_FAILED"
+      }
+    ],
+    "axe": {
+      "total": 4,
+      "bySeverity": {
+        "critical": 0,
+        "serious": 2,
+        "moderate": 2,
+        "minor": 0,
+        "unknown": 0
+      },
+      "rules": [
+        {
+          "id": "aria-progressbar-name",
+          "impact": "serious",
+          "nodes": 1
+        },
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "nodes": 11
+        },
+        {
+          "id": "landmark-unique",
+          "impact": "moderate",
+          "nodes": 1
+        },
+        {
+          "id": "region",
+          "impact": "moderate",
+          "nodes": 1
+        }
+      ]
+    },
+    "screenshot": "docs/operations/visual-audit-screenshots-batch2/products-quickquotepro-desktop.png"
+  },
+  {
+    "route": "products-quickquotepro",
+    "viewport": "mobile",
+    "url": "https://wefixtrades.com/products/quickquotepro",
+    "durationMs": 5677,
+    "scrollHeight": 11421,
+    "consoleErrors": [
+      "The Content Security Policy directive 'upgrade-insecure-requests' is ignored when delivered in a report-only policy.",
+      "Access to XMLHttpRequest at 'https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,600,700,800,900&display=swap' from origin 'https://wefixtrades.com' has been blocked by CORS policy: The 'Access-Control-Allow-Origin' header has a value 'https://api.fontshare.com' that is not equal to the supplied origin.",
+      "Failed to load resource: net::ERR_FAILED",
+      "Failed to load resource: the server responded with a status of 404 ()"
+    ],
+    "failedRequests": [
+      {
+        "url": "https://cdn.jsdelivr.net/npm/geist-font@1.3.1/dist/geist-sans/style.css",
+        "failure": "net::ERR_BLOCKED_BY_ORB"
+      },
+      {
+        "url": "https://www.google-analytics.com/g/collect?v=2&tid=G-BQMFDMMWJ1&gtm=45je65k1v9253383999za200zd9253383999&_p=1779639511641&gcd=13l3l3l3l1l1&npa=0&dma=0&are=1&cid=1857596037.1779639512&frm=0&pscdl=noapi&rcb=10&sr=375x812&uaa=arm&uab=64&uafvl=HeadlessChrome%3B147.0.7727.15%7CNot.A%252FBrand%3B8.0.0.0%7CChromium%3B147.0.7727.15&uam=&uamb=0&uap=iOS&uapv=17.0&uaw=0&ul=en-us&_s=1&tag_exp=0~115616985~115938466~115938469~118128922~118694324&sid=1779639511&sct=1&seg=0&dl=https%3A%2F%2Fwefixtrades.com%2Fproducts%2Fquickquotepro&dt=WeFixTrades%20%E2%80%94%20Quote%20calculators%20%2B%20AI%20receptionist%20for%20trades&en=page_view&_fv=1&_nsi=1&_ss=1&_ee=1&ep.anonymize_ip=true&tfd=799",
+        "failure": "net::ERR_ABORTED"
+      },
+      {
+        "url": "https://source.unsplash.com/300x300/?sliding,window",
+        "failure": "net::ERR_BLOCKED_BY_ORB"
+      },
+      {
+        "url": "https://source.unsplash.com/300x300/?double,hung,window",
+        "failure": "net::ERR_BLOCKED_BY_ORB"
+      },
+      {
+        "url": "https://source.unsplash.com/300x300/?single,hung,window",
+        "failure": "net::ERR_BLOCKED_BY_ORB"
+      },
+      {
+        "url": "https://source.unsplash.com/300x300/?bay,window",
+        "failure": "net::ERR_BLOCKED_BY_ORB"
+      },
+      {
+        "url": "https://source.unsplash.com/300x300/?picture,window",
+        "failure": "net::ERR_BLOCKED_BY_ORB"
+      },
+      {
+        "url": "https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,600,700,800,900&display=swap",
+        "failure": "net::ERR_FAILED"
+      }
+    ],
+    "axe": {
+      "total": 5,
+      "bySeverity": {
+        "critical": 0,
+        "serious": 4,
+        "moderate": 1,
+        "minor": 0,
+        "unknown": 0
+      },
+      "rules": [
+        {
+          "id": "aria-hidden-focus",
+          "impact": "serious",
+          "nodes": 1
+        },
+        {
+          "id": "aria-progressbar-name",
+          "impact": "serious",
+          "nodes": 1
+        },
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "nodes": 11
+        },
+        {
+          "id": "region",
+          "impact": "moderate",
+          "nodes": 1
+        },
+        {
+          "id": "scrollable-region-focusable",
+          "impact": "serious",
+          "nodes": 1
+        }
+      ]
+    },
+    "screenshot": "docs/operations/visual-audit-screenshots-batch2/products-quickquotepro-mobile.png"
+  },
+  {
+    "route": "products-mapguard",
+    "viewport": "desktop",
+    "url": "https://wefixtrades.com/products/mapguard",
+    "durationMs": 4708,
+    "scrollHeight": 8072,
+    "consoleErrors": [
+      "The Content Security Policy directive 'upgrade-insecure-requests' is ignored when delivered in a report-only policy.",
+      "Access to XMLHttpRequest at 'https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,600,700,800,900&display=swap' from origin 'https://wefixtrades.com' has been blocked by CORS policy: The 'Access-Control-Allow-Origin' header has a value 'https://api.fontshare.com' that is not equal to the supplied origin.",
+      "Failed to load resource: net::ERR_FAILED",
+      "Failed to load resource: the server responded with a status of 404 ()"
+    ],
+    "failedRequests": [
+      {
+        "url": "https://cdn.jsdelivr.net/npm/geist-font@1.3.1/dist/geist-sans/style.css",
+        "failure": "net::ERR_BLOCKED_BY_ORB"
+      },
+      {
+        "url": "https://www.google-analytics.com/g/collect?v=2&tid=G-BQMFDMMWJ1&gtm=45je65k1h1v9253383999za200zd9253383999&_p=1779639517314&gcd=13l3l3l3l1l1&npa=0&dma=0&are=1&cid=1248574951.1779639518&frm=0&pscdl=noapi&rcb=14&sr=1440x900&uaa=x86&uab=64&uafvl=HeadlessChrome%3B147.0.7727.15%7CNot.A%252FBrand%3B8.0.0.0%7CChromium%3B147.0.7727.15&uam=&uamb=0&uap=Windows&uapv=10.0.0&uaw=0&ul=en-us&_s=1&tag_exp=0~115616986~115938466~115938468~119061279&sid=1779639517&sct=1&seg=0&dl=https%3A%2F%2Fwefixtrades.com%2Fproducts%2Fmapguard&dt=WeFixTrades%20%E2%80%94%20Quote%20calculators%20%2B%20AI%20receptionist%20for%20trades&en=page_view&_fv=1&_nsi=1&_ss=1&_ee=1&ep.anonymize_ip=true&tfd=776",
+        "failure": "net::ERR_ABORTED"
+      },
+      {
+        "url": "https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,600,700,800,900&display=swap",
+        "failure": "net::ERR_FAILED"
+      }
+    ],
+    "axe": {
+      "total": 3,
+      "bySeverity": {
+        "critical": 0,
+        "serious": 1,
+        "moderate": 2,
+        "minor": 0,
+        "unknown": 0
+      },
+      "rules": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "nodes": 7
+        },
+        {
+          "id": "landmark-unique",
+          "impact": "moderate",
+          "nodes": 1
+        },
+        {
+          "id": "region",
+          "impact": "moderate",
+          "nodes": 1
+        }
+      ]
+    },
+    "screenshot": "docs/operations/visual-audit-screenshots-batch2/products-mapguard-desktop.png"
+  },
+  {
+    "route": "products-mapguard",
+    "viewport": "mobile",
+    "url": "https://wefixtrades.com/products/mapguard",
+    "durationMs": 5024,
+    "scrollHeight": 10604,
+    "consoleErrors": [
+      "The Content Security Policy directive 'upgrade-insecure-requests' is ignored when delivered in a report-only policy.",
+      "Access to XMLHttpRequest at 'https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,600,700,800,900&display=swap' from origin 'https://wefixtrades.com' has been blocked by CORS policy: The 'Access-Control-Allow-Origin' header has a value 'https://api.fontshare.com' that is not equal to the supplied origin.",
+      "Failed to load resource: net::ERR_FAILED",
+      "Failed to load resource: the server responded with a status of 404 ()"
+    ],
+    "failedRequests": [
+      {
+        "url": "https://cdn.jsdelivr.net/npm/geist-font@1.3.1/dist/geist-sans/style.css",
+        "failure": "net::ERR_BLOCKED_BY_ORB"
+      },
+      {
+        "url": "https://www.google-analytics.com/g/collect?v=2&tid=G-BQMFDMMWJ1&gtm=45je65k1v9253383999za200zd9253383999&_p=1779639522078&gcd=13l3l3l3l1l1&npa=0&dma=0&are=1&cid=1277776210.1779639522&frm=0&pscdl=noapi&rcb=6&sr=375x812&uaa=arm&uab=64&uafvl=HeadlessChrome%3B147.0.7727.15%7CNot.A%252FBrand%3B8.0.0.0%7CChromium%3B147.0.7727.15&uam=&uamb=0&uap=iOS&uapv=17.0&uaw=0&ul=en-us&_s=1&tag_exp=0~115616985~115938465~115938469~118694324&sid=1779639522&sct=1&seg=0&dl=https%3A%2F%2Fwefixtrades.com%2Fproducts%2Fmapguard&dt=WeFixTrades%20%E2%80%94%20Quote%20calculators%20%2B%20AI%20receptionist%20for%20trades&en=page_view&_fv=1&_nsi=1&_ss=1&_ee=1&ep.anonymize_ip=true&tfd=836",
+        "failure": "net::ERR_ABORTED"
+      },
+      {
+        "url": "https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,600,700,800,900&display=swap",
+        "failure": "net::ERR_FAILED"
+      }
+    ],
+    "axe": {
+      "total": 4,
+      "bySeverity": {
+        "critical": 0,
+        "serious": 3,
+        "moderate": 1,
+        "minor": 0,
+        "unknown": 0
+      },
+      "rules": [
+        {
+          "id": "aria-hidden-focus",
+          "impact": "serious",
+          "nodes": 1
+        },
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "nodes": 8
+        },
+        {
+          "id": "region",
+          "impact": "moderate",
+          "nodes": 1
+        },
+        {
+          "id": "scrollable-region-focusable",
+          "impact": "serious",
+          "nodes": 1
+        }
+      ]
+    },
+    "screenshot": "docs/operations/visual-audit-screenshots-batch2/products-mapguard-mobile.png"
+  },
+  {
+    "route": "products-rankflow",
+    "viewport": "desktop",
+    "url": "https://wefixtrades.com/products/rankflow",
+    "durationMs": 5099,
+    "scrollHeight": 7012,
+    "consoleErrors": [
+      "The Content Security Policy directive 'upgrade-insecure-requests' is ignored when delivered in a report-only policy.",
+      "Access to XMLHttpRequest at 'https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,600,700,800,900&display=swap' from origin 'https://wefixtrades.com' has been blocked by CORS policy: The 'Access-Control-Allow-Origin' header has a value 'https://api.fontshare.com' that is not equal to the supplied origin.",
+      "Failed to load resource: net::ERR_FAILED",
+      "Failed to load resource: the server responded with a status of 404 ()"
+    ],
+    "failedRequests": [
+      {
+        "url": "https://cdn.jsdelivr.net/npm/geist-font@1.3.1/dist/geist-sans/style.css",
+        "failure": "net::ERR_BLOCKED_BY_ORB"
+      },
+      {
+        "url": "https://www.google-analytics.com/g/collect?v=2&tid=G-BQMFDMMWJ1&gtm=45je65k1v9253383999za200zd9253383999&_p=1779639527103&gcd=13l3l3l3l1l1&npa=0&dma=0&are=1&cid=833687751.1779639527&frm=0&pscdl=noapi&rcb=6&sr=1440x900&uaa=x86&uab=64&uafvl=HeadlessChrome%3B147.0.7727.15%7CNot.A%252FBrand%3B8.0.0.0%7CChromium%3B147.0.7727.15&uam=&uamb=0&uap=Windows&uapv=10.0.0&uaw=0&ul=en-us&_s=1&tag_exp=0~115616985~115938466~115938468&sid=1779639527&sct=1&seg=0&dl=https%3A%2F%2Fwefixtrades.com%2Fproducts%2Frankflow&dt=WeFixTrades%20%E2%80%94%20Quote%20calculators%20%2B%20AI%20receptionist%20for%20trades&en=page_view&_fv=1&_nsi=1&_ss=1&_ee=1&ep.anonymize_ip=true&tfd=811",
+        "failure": "net::ERR_ABORTED"
+      },
+      {
+        "url": "https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,600,700,800,900&display=swap",
+        "failure": "net::ERR_FAILED"
+      }
+    ],
+    "axe": {
+      "total": 4,
+      "bySeverity": {
+        "critical": 0,
+        "serious": 1,
+        "moderate": 3,
+        "minor": 0,
+        "unknown": 0
+      },
+      "rules": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "nodes": 1
+        },
+        {
+          "id": "heading-order",
+          "impact": "moderate",
+          "nodes": 1
+        },
+        {
+          "id": "landmark-unique",
+          "impact": "moderate",
+          "nodes": 1
+        },
+        {
+          "id": "region",
+          "impact": "moderate",
+          "nodes": 1
+        }
+      ]
+    },
+    "screenshot": "docs/operations/visual-audit-screenshots-batch2/products-rankflow-desktop.png"
+  },
+  {
+    "route": "products-rankflow",
+    "viewport": "mobile",
+    "url": "https://wefixtrades.com/products/rankflow",
+    "durationMs": 5121,
+    "scrollHeight": 9146,
+    "consoleErrors": [
+      "The Content Security Policy directive 'upgrade-insecure-requests' is ignored when delivered in a report-only policy.",
+      "Access to XMLHttpRequest at 'https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,600,700,800,900&display=swap' from origin 'https://wefixtrades.com' has been blocked by CORS policy: The 'Access-Control-Allow-Origin' header has a value 'https://api.fontshare.com' that is not equal to the supplied origin.",
+      "Failed to load resource: net::ERR_FAILED",
+      "Failed to load resource: the server responded with a status of 404 ()"
+    ],
+    "failedRequests": [
+      {
+        "url": "https://cdn.jsdelivr.net/npm/geist-font@1.3.1/dist/geist-sans/style.css",
+        "failure": "net::ERR_BLOCKED_BY_ORB"
+      },
+      {
+        "url": "https://www.google-analytics.com/g/collect?v=2&tid=G-BQMFDMMWJ1&gtm=45je65k1v9253383999za200zd9253383999&_p=1779639532262&gcd=13l3l3l3l1l1&npa=0&dma=0&are=1&cid=1060293452.1779639533&frm=0&pscdl=noapi&rcb=1&sr=375x812&uaa=arm&uab=64&uafvl=HeadlessChrome%3B147.0.7727.15%7CNot.A%252FBrand%3B8.0.0.0%7CChromium%3B147.0.7727.15&uam=&uamb=0&uap=iOS&uapv=17.0&uaw=0&ul=en-us&_s=1&tag_exp=0~115938466~115938468&sid=1779639532&sct=1&seg=0&dl=https%3A%2F%2Fwefixtrades.com%2Fproducts%2Frankflow&dt=WeFixTrades%20%E2%80%94%20Quote%20calculators%20%2B%20AI%20receptionist%20for%20trades&en=page_view&_fv=1&_nsi=1&_ss=1&_ee=1&ep.anonymize_ip=true&tfd=845",
+        "failure": "net::ERR_ABORTED"
+      },
+      {
+        "url": "https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,600,700,800,900&display=swap",
+        "failure": "net::ERR_FAILED"
+      }
+    ],
+    "axe": {
+      "total": 5,
+      "bySeverity": {
+        "critical": 0,
+        "serious": 3,
+        "moderate": 2,
+        "minor": 0,
+        "unknown": 0
+      },
+      "rules": [
+        {
+          "id": "aria-hidden-focus",
+          "impact": "serious",
+          "nodes": 1
+        },
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "nodes": 1
+        },
+        {
+          "id": "heading-order",
+          "impact": "moderate",
+          "nodes": 1
+        },
+        {
+          "id": "region",
+          "impact": "moderate",
+          "nodes": 1
+        },
+        {
+          "id": "scrollable-region-focusable",
+          "impact": "serious",
+          "nodes": 1
+        }
+      ]
+    },
+    "screenshot": "docs/operations/visual-audit-screenshots-batch2/products-rankflow-mobile.png"
+  },
+  {
+    "route": "products-webcare",
+    "viewport": "desktop",
+    "url": "https://wefixtrades.com/products/webcare",
+    "durationMs": 10515,
+    "scrollHeight": 7081,
+    "consoleErrors": [
+      "The Content Security Policy directive 'upgrade-insecure-requests' is ignored when delivered in a report-only policy.",
+      "Access to XMLHttpRequest at 'https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,600,700,800,900&display=swap' from origin 'https://wefixtrades.com' has been blocked by CORS policy: The 'Access-Control-Allow-Origin' header has a value 'https://api.fontshare.com' that is not equal to the supplied origin.",
+      "Failed to load resource: net::ERR_FAILED",
+      "Failed to load resource: the server responded with a status of 404 ()"
+    ],
+    "failedRequests": [
+      {
+        "url": "https://cdn.jsdelivr.net/npm/geist-font@1.3.1/dist/geist-sans/style.css",
+        "failure": "net::ERR_BLOCKED_BY_ORB"
+      },
+      {
+        "url": "https://www.google-analytics.com/g/collect?v=2&tid=G-BQMFDMMWJ1&gtm=45je65k1v9253383999za200zd9253383999&_p=1779639537939&gcd=13l3l3l3l1l1&npa=0&dma=0&are=1&cid=1374987560.1779639538&frm=0&pscdl=noapi&rcb=17&sr=1440x900&uaa=x86&uab=64&uafvl=HeadlessChrome%3B147.0.7727.15%7CNot.A%252FBrand%3B8.0.0.0%7CChromium%3B147.0.7727.15&uam=&uamb=0&uap=Windows&uapv=10.0.0&uaw=0&ul=en-us&_s=1&tag_exp=0~115938466~115938468&sid=1779639538&sct=1&seg=0&dl=https%3A%2F%2Fwefixtrades.com%2Fproducts%2Fwebcare&dt=WeFixTrades%20%E2%80%94%20Quote%20calculators%20%2B%20AI%20receptionist%20for%20trades&en=page_view&_fv=1&_nsi=1&_ss=1&_ee=1&ep.anonymize_ip=true&tfd=1347",
+        "failure": "net::ERR_ABORTED"
+      },
+      {
+        "url": "https://www.google-analytics.com/g/collect?v=2&tid=G-BQMFDMMWJ1&gtm=45je65k1v9253383999za200zd9253383999&_p=1779639537939&gcd=13l3l3l3l1l1&npa=0&dma=0&_eu=AEAAAAQ&ae=a&are=1&cid=1374987560.1779639538&frm=0&pscdl=noapi&rcb=17&sr=1440x900&uaa=x86&uab=64&uafvl=HeadlessChrome%3B147.0.7727.15%7CNot.A%252FBrand%3B8.0.0.0%7CChromium%3B147.0.7727.15&uam=&uamb=0&uap=Windows&uapv=10.0.0&uaw=0&ul=en-us&_s=2&tag_exp=0~115938466~115938468&sid=1779639538&sct=1&seg=0&dl=https%3A%2F%2Fwefixtrades.com%2Fproducts%2Fwebcare&dt=WeFixTrades%20%E2%80%94%20Quote%20calculators%20%2B%20AI%20receptionist%20for%20trades&en=scroll&ep.anonymize_ip=true&epn.percent_scrolled=90&_et=8&tfd=6365",
+        "failure": "net::ERR_ABORTED"
+      },
+      {
+        "url": "https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,600,700,800,900&display=swap",
+        "failure": "net::ERR_FAILED"
+      }
+    ],
+    "axe": {
+      "total": 4,
+      "bySeverity": {
+        "critical": 0,
+        "serious": 1,
+        "moderate": 3,
+        "minor": 0,
+        "unknown": 0
+      },
+      "rules": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "nodes": 2
+        },
+        {
+          "id": "heading-order",
+          "impact": "moderate",
+          "nodes": 1
+        },
+        {
+          "id": "landmark-unique",
+          "impact": "moderate",
+          "nodes": 1
+        },
+        {
+          "id": "region",
+          "impact": "moderate",
+          "nodes": 1
+        }
+      ]
+    },
+    "screenshot": "docs/operations/visual-audit-screenshots-batch2/products-webcare-desktop.png"
+  },
+  {
+    "route": "products-webcare",
+    "viewport": "mobile",
+    "url": "https://wefixtrades.com/products/webcare",
+    "durationMs": 5309,
+    "scrollHeight": 8966,
+    "consoleErrors": [
+      "The Content Security Policy directive 'upgrade-insecure-requests' is ignored when delivered in a report-only policy.",
+      "Access to XMLHttpRequest at 'https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,600,700,800,900&display=swap' from origin 'https://wefixtrades.com' has been blocked by CORS policy: The 'Access-Control-Allow-Origin' header has a value 'https://api.fontshare.com' that is not equal to the supplied origin.",
+      "Failed to load resource: net::ERR_FAILED",
+      "Failed to load resource: the server responded with a status of 404 ()"
+    ],
+    "failedRequests": [
+      {
+        "url": "https://cdn.jsdelivr.net/npm/geist-font@1.3.1/dist/geist-sans/style.css",
+        "failure": "net::ERR_BLOCKED_BY_ORB"
+      },
+      {
+        "url": "https://www.google-analytics.com/g/collect?v=2&tid=G-BQMFDMMWJ1&gtm=45je65k1v9253383999za200zd9253383999&_p=1779639548004&gcd=13l3l3l3l1l1&npa=0&dma=0&are=1&cid=946741276.1779639548&frm=0&pscdl=noapi&rcb=15&sr=375x812&uaa=arm&uab=64&uafvl=HeadlessChrome%3B147.0.7727.15%7CNot.A%252FBrand%3B8.0.0.0%7CChromium%3B147.0.7727.15&uam=&uamb=0&uap=iOS&uapv=17.0&uaw=0&ul=en-us&_s=1&tag_exp=0~115938466~115938468&sid=1779639548&sct=1&seg=0&dl=https%3A%2F%2Fwefixtrades.com%2Fproducts%2Fwebcare&dt=WeFixTrades%20%E2%80%94%20Quote%20calculators%20%2B%20AI%20receptionist%20for%20trades&en=page_view&_fv=1&_nsi=1&_ss=1&_ee=1&ep.anonymize_ip=true&tfd=879",
+        "failure": "net::ERR_ABORTED"
+      },
+      {
+        "url": "https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,600,700,800,900&display=swap",
+        "failure": "net::ERR_FAILED"
+      }
+    ],
+    "axe": {
+      "total": 5,
+      "bySeverity": {
+        "critical": 0,
+        "serious": 3,
+        "moderate": 2,
+        "minor": 0,
+        "unknown": 0
+      },
+      "rules": [
+        {
+          "id": "aria-hidden-focus",
+          "impact": "serious",
+          "nodes": 1
+        },
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "nodes": 2
+        },
+        {
+          "id": "heading-order",
+          "impact": "moderate",
+          "nodes": 1
+        },
+        {
+          "id": "region",
+          "impact": "moderate",
+          "nodes": 1
+        },
+        {
+          "id": "scrollable-region-focusable",
+          "impact": "serious",
+          "nodes": 1
+        }
+      ]
+    },
+    "screenshot": "docs/operations/visual-audit-screenshots-batch2/products-webcare-mobile.png"
+  },
+  {
+    "route": "products-sitelaunch",
+    "viewport": "desktop",
+    "url": "https://wefixtrades.com/products/sitelaunch",
+    "durationMs": 5171,
+    "scrollHeight": 7060,
+    "consoleErrors": [
+      "The Content Security Policy directive 'upgrade-insecure-requests' is ignored when delivered in a report-only policy.",
+      "Access to XMLHttpRequest at 'https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,600,700,800,900&display=swap' from origin 'https://wefixtrades.com' has been blocked by CORS policy: The 'Access-Control-Allow-Origin' header has a value 'https://api.fontshare.com' that is not equal to the supplied origin.",
+      "Failed to load resource: net::ERR_FAILED",
+      "Failed to load resource: the server responded with a status of 404 ()"
+    ],
+    "failedRequests": [
+      {
+        "url": "https://cdn.jsdelivr.net/npm/geist-font@1.3.1/dist/geist-sans/style.css",
+        "failure": "net::ERR_BLOCKED_BY_ORB"
+      },
+      {
+        "url": "https://www.google-analytics.com/g/collect?v=2&tid=G-BQMFDMMWJ1&gtm=45je65k1v9253383999za200zd9253383999&_p=1779639553325&gcd=13l3l3l3l1l1&npa=0&dma=0&are=1&cid=412144838.1779639554&frm=0&pscdl=noapi&rcb=8&sr=1440x900&uaa=x86&uab=64&uafvl=HeadlessChrome%3B147.0.7727.15%7CNot.A%252FBrand%3B8.0.0.0%7CChromium%3B147.0.7727.15&uam=&uamb=0&uap=Windows&uapv=10.0.0&uaw=0&ul=en-us&_s=1&tag_exp=0~115938465~115938469&sid=1779639553&sct=1&seg=0&dl=https%3A%2F%2Fwefixtrades.com%2Fproducts%2Fsitelaunch&dt=WeFixTrades%20%E2%80%94%20Quote%20calculators%20%2B%20AI%20receptionist%20for%20trades&en=page_view&_fv=1&_nsi=1&_ss=1&_ee=1&ep.anonymize_ip=true&tfd=865",
+        "failure": "net::ERR_ABORTED"
+      },
+      {
+        "url": "https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,600,700,800,900&display=swap",
+        "failure": "net::ERR_FAILED"
+      }
+    ],
+    "axe": {
+      "total": 4,
+      "bySeverity": {
+        "critical": 0,
+        "serious": 1,
+        "moderate": 3,
+        "minor": 0,
+        "unknown": 0
+      },
+      "rules": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "nodes": 2
+        },
+        {
+          "id": "heading-order",
+          "impact": "moderate",
+          "nodes": 1
+        },
+        {
+          "id": "landmark-unique",
+          "impact": "moderate",
+          "nodes": 1
+        },
+        {
+          "id": "region",
+          "impact": "moderate",
+          "nodes": 1
+        }
+      ]
+    },
+    "screenshot": "docs/operations/visual-audit-screenshots-batch2/products-sitelaunch-desktop.png"
+  },
+  {
+    "route": "products-sitelaunch",
+    "viewport": "mobile",
+    "url": "https://wefixtrades.com/products/sitelaunch",
+    "durationMs": 4863,
+    "scrollHeight": 8511,
+    "consoleErrors": [
+      "The Content Security Policy directive 'upgrade-insecure-requests' is ignored when delivered in a report-only policy.",
+      "Access to XMLHttpRequest at 'https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,600,700,800,900&display=swap' from origin 'https://wefixtrades.com' has been blocked by CORS policy: The 'Access-Control-Allow-Origin' header has a value 'https://api.fontshare.com' that is not equal to the supplied origin.",
+      "Failed to load resource: net::ERR_FAILED",
+      "Failed to load resource: the server responded with a status of 404 ()"
+    ],
+    "failedRequests": [
+      {
+        "url": "https://cdn.jsdelivr.net/npm/geist-font@1.3.1/dist/geist-sans/style.css",
+        "failure": "net::ERR_BLOCKED_BY_ORB"
+      },
+      {
+        "url": "https://www.google-analytics.com/g/collect?v=2&tid=G-BQMFDMMWJ1&gtm=45je65k1h1v9253383999za200zd9253383999&_p=1779639558465&gcd=13l3l3l3l1l1&npa=0&dma=0&are=1&cid=1098582278.1779639559&frm=0&pscdl=noapi&rcb=19&sr=375x812&uaa=arm&uab=64&uafvl=HeadlessChrome%3B147.0.7727.15%7CNot.A%252FBrand%3B8.0.0.0%7CChromium%3B147.0.7727.15&uam=&uamb=0&uap=iOS&uapv=17.0&uaw=0&ul=en-us&_s=1&tag_exp=0~115938466~115938469~118694324&sid=1779639558&sct=1&seg=0&dl=https%3A%2F%2Fwefixtrades.com%2Fproducts%2Fsitelaunch&dt=WeFixTrades%20%E2%80%94%20Quote%20calculators%20%2B%20AI%20receptionist%20for%20trades&en=page_view&_fv=1&_nsi=1&_ss=1&_ee=1&ep.anonymize_ip=true&tfd=819",
+        "failure": "net::ERR_ABORTED"
+      },
+      {
+        "url": "https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,600,700,800,900&display=swap",
+        "failure": "net::ERR_FAILED"
+      }
+    ],
+    "axe": {
+      "total": 5,
+      "bySeverity": {
+        "critical": 0,
+        "serious": 3,
+        "moderate": 2,
+        "minor": 0,
+        "unknown": 0
+      },
+      "rules": [
+        {
+          "id": "aria-hidden-focus",
+          "impact": "serious",
+          "nodes": 1
+        },
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "nodes": 2
+        },
+        {
+          "id": "heading-order",
+          "impact": "moderate",
+          "nodes": 1
+        },
+        {
+          "id": "region",
+          "impact": "moderate",
+          "nodes": 1
+        },
+        {
+          "id": "scrollable-region-focusable",
+          "impact": "serious",
+          "nodes": 1
+        }
+      ]
+    },
+    "screenshot": "docs/operations/visual-audit-screenshots-batch2/products-sitelaunch-mobile.png"
+  },
+  {
+    "route": "products-socialsync",
+    "viewport": "desktop",
+    "url": "https://wefixtrades.com/products/socialsync",
+    "durationMs": 5433,
+    "scrollHeight": 7652,
+    "consoleErrors": [
+      "The Content Security Policy directive 'upgrade-insecure-requests' is ignored when delivered in a report-only policy.",
+      "Access to XMLHttpRequest at 'https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,600,700,800,900&display=swap' from origin 'https://wefixtrades.com' has been blocked by CORS policy: The 'Access-Control-Allow-Origin' header has a value 'https://api.fontshare.com' that is not equal to the supplied origin.",
+      "Failed to load resource: net::ERR_FAILED",
+      "Failed to load resource: the server responded with a status of 404 ()"
+    ],
+    "failedRequests": [
+      {
+        "url": "https://cdn.jsdelivr.net/npm/geist-font@1.3.1/dist/geist-sans/style.css",
+        "failure": "net::ERR_BLOCKED_BY_ORB"
+      },
+      {
+        "url": "https://www.google-analytics.com/g/collect?v=2&tid=G-BQMFDMMWJ1&gtm=45je65k1h1v9253383999za200zd9253383999&_p=1779639563345&gcd=13l3l3l3l1l1&npa=0&dma=0&are=1&cid=1711551854.1779639564&frm=0&pscdl=noapi&rcb=8&sr=1440x900&uaa=x86&uab=64&uafvl=HeadlessChrome%3B147.0.7727.15%7CNot.A%252FBrand%3B8.0.0.0%7CChromium%3B147.0.7727.15&uam=&uamb=0&uap=Windows&uapv=10.0.0&uaw=0&ul=en-us&_s=1&tag_exp=0~115938466~115938469~119034492&sid=1779639563&sct=1&seg=0&dl=https%3A%2F%2Fwefixtrades.com%2Fproducts%2Fsocialsync&dt=WeFixTrades%20%E2%80%94%20Quote%20calculators%20%2B%20AI%20receptionist%20for%20trades&en=page_view&_fv=1&_nsi=1&_ss=1&_ee=1&ep.anonymize_ip=true&tfd=792",
+        "failure": "net::ERR_ABORTED"
+      },
+      {
+        "url": "https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,600,700,800,900&display=swap",
+        "failure": "net::ERR_FAILED"
+      }
+    ],
+    "axe": {
+      "total": 4,
+      "bySeverity": {
+        "critical": 0,
+        "serious": 1,
+        "moderate": 3,
+        "minor": 0,
+        "unknown": 0
+      },
+      "rules": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "nodes": 4
+        },
+        {
+          "id": "heading-order",
+          "impact": "moderate",
+          "nodes": 1
+        },
+        {
+          "id": "landmark-unique",
+          "impact": "moderate",
+          "nodes": 1
+        },
+        {
+          "id": "region",
+          "impact": "moderate",
+          "nodes": 1
+        }
+      ]
+    },
+    "screenshot": "docs/operations/visual-audit-screenshots-batch2/products-socialsync-desktop.png"
+  },
+  {
+    "route": "products-socialsync",
+    "viewport": "mobile",
+    "url": "https://wefixtrades.com/products/socialsync",
+    "durationMs": 4731,
+    "scrollHeight": 9697,
+    "consoleErrors": [
+      "The Content Security Policy directive 'upgrade-insecure-requests' is ignored when delivered in a report-only policy.",
+      "Access to XMLHttpRequest at 'https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,600,700,800,900&display=swap' from origin 'https://wefixtrades.com' has been blocked by CORS policy: The 'Access-Control-Allow-Origin' header has a value 'https://api.fontshare.com' that is not equal to the supplied origin.",
+      "Failed to load resource: net::ERR_FAILED",
+      "Failed to load resource: the server responded with a status of 404 ()"
+    ],
+    "failedRequests": [
+      {
+        "url": "https://cdn.jsdelivr.net/npm/geist-font@1.3.1/dist/geist-sans/style.css",
+        "failure": "net::ERR_BLOCKED_BY_ORB"
+      },
+      {
+        "url": "https://www.google-analytics.com/g/collect?v=2&tid=G-BQMFDMMWJ1&gtm=45je65k1v9253383999za200zd9253383999&_p=1779639568815&gcd=13l3l3l3l1l1&npa=0&dma=0&are=1&cid=1339414462.1779639569&frm=0&pscdl=noapi&rcb=19&sr=375x812&uaa=arm&uab=64&uafvl=HeadlessChrome%3B147.0.7727.15%7CNot.A%252FBrand%3B8.0.0.0%7CChromium%3B147.0.7727.15&uam=&uamb=0&uap=iOS&uapv=17.0&uaw=0&ul=en-us&_s=1&tag_exp=0~115616985~115938465~115938468~118689381&sid=1779639569&sct=1&seg=0&dl=https%3A%2F%2Fwefixtrades.com%2Fproducts%2Fsocialsync&dt=WeFixTrades%20%E2%80%94%20Quote%20calculators%20%2B%20AI%20receptionist%20for%20trades&en=page_view&_fv=1&_nsi=1&_ss=1&_ee=1&ep.anonymize_ip=true&tfd=815",
+        "failure": "net::ERR_ABORTED"
+      },
+      {
+        "url": "https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,600,700,800,900&display=swap",
+        "failure": "net::ERR_FAILED"
+      }
+    ],
+    "axe": {
+      "total": 5,
+      "bySeverity": {
+        "critical": 0,
+        "serious": 3,
+        "moderate": 2,
+        "minor": 0,
+        "unknown": 0
+      },
+      "rules": [
+        {
+          "id": "aria-hidden-focus",
+          "impact": "serious",
+          "nodes": 1
+        },
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "nodes": 5
+        },
+        {
+          "id": "heading-order",
+          "impact": "moderate",
+          "nodes": 1
+        },
+        {
+          "id": "region",
+          "impact": "moderate",
+          "nodes": 1
+        },
+        {
+          "id": "scrollable-region-focusable",
+          "impact": "serious",
+          "nodes": 1
+        }
+      ]
+    },
+    "screenshot": "docs/operations/visual-audit-screenshots-batch2/products-socialsync-mobile.png"
+  },
+  {
+    "route": "products-reputationshield",
+    "viewport": "desktop",
+    "url": "https://wefixtrades.com/products/reputationshield",
+    "durationMs": 5092,
+    "scrollHeight": 7910,
+    "consoleErrors": [
+      "The Content Security Policy directive 'upgrade-insecure-requests' is ignored when delivered in a report-only policy.",
+      "Access to XMLHttpRequest at 'https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,600,700,800,900&display=swap' from origin 'https://wefixtrades.com' has been blocked by CORS policy: The 'Access-Control-Allow-Origin' header has a value 'https://api.fontshare.com' that is not equal to the supplied origin.",
+      "Failed to load resource: net::ERR_FAILED",
+      "Failed to load resource: the server responded with a status of 404 ()"
+    ],
+    "failedRequests": [
+      {
+        "url": "https://cdn.jsdelivr.net/npm/geist-font@1.3.1/dist/geist-sans/style.css",
+        "failure": "net::ERR_BLOCKED_BY_ORB"
+      },
+      {
+        "url": "https://www.google-analytics.com/g/collect?v=2&tid=G-BQMFDMMWJ1&gtm=45je65k1h1v9253383999za200zd9253383999&_p=1779639573591&gcd=13l3l3l3l1l1&npa=0&dma=0&are=1&cid=1984933670.1779639574&frm=0&pscdl=noapi&rcb=15&sr=1440x900&uaa=x86&uab=64&uafvl=HeadlessChrome%3B147.0.7727.15%7CNot.A%252FBrand%3B8.0.0.0%7CChromium%3B147.0.7727.15&uam=&uamb=0&uap=Windows&uapv=10.0.0&uaw=0&ul=en-us&_s=1&tag_exp=0~115938465~115938469&sid=1779639573&sct=1&seg=0&dl=https%3A%2F%2Fwefixtrades.com%2Fproducts%2Freputationshield&dt=WeFixTrades%20%E2%80%94%20Quote%20calculators%20%2B%20AI%20receptionist%20for%20trades&en=page_view&_fv=1&_nsi=1&_ss=1&_ee=1&ep.anonymize_ip=true&tfd=829",
+        "failure": "net::ERR_ABORTED"
+      },
+      {
+        "url": "https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,600,700,800,900&display=swap",
+        "failure": "net::ERR_FAILED"
+      }
+    ],
+    "axe": {
+      "total": 4,
+      "bySeverity": {
+        "critical": 0,
+        "serious": 1,
+        "moderate": 3,
+        "minor": 0,
+        "unknown": 0
+      },
+      "rules": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "nodes": 4
+        },
+        {
+          "id": "heading-order",
+          "impact": "moderate",
+          "nodes": 1
+        },
+        {
+          "id": "landmark-unique",
+          "impact": "moderate",
+          "nodes": 1
+        },
+        {
+          "id": "region",
+          "impact": "moderate",
+          "nodes": 1
+        }
+      ]
+    },
+    "screenshot": "docs/operations/visual-audit-screenshots-batch2/products-reputationshield-desktop.png"
+  },
+  {
+    "route": "products-reputationshield",
+    "viewport": "mobile",
+    "url": "https://wefixtrades.com/products/reputationshield",
+    "durationMs": 4794,
+    "scrollHeight": 10224,
+    "consoleErrors": [
+      "The Content Security Policy directive 'upgrade-insecure-requests' is ignored when delivered in a report-only policy.",
+      "Access to XMLHttpRequest at 'https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,600,700,800,900&display=swap' from origin 'https://wefixtrades.com' has been blocked by CORS policy: The 'Access-Control-Allow-Origin' header has a value 'https://api.fontshare.com' that is not equal to the supplied origin.",
+      "Failed to load resource: net::ERR_FAILED",
+      "Failed to load resource: the server responded with a status of 404 ()"
+    ],
+    "failedRequests": [
+      {
+        "url": "https://cdn.jsdelivr.net/npm/geist-font@1.3.1/dist/geist-sans/style.css",
+        "failure": "net::ERR_BLOCKED_BY_ORB"
+      },
+      {
+        "url": "https://www.google-analytics.com/g/collect?v=2&tid=G-BQMFDMMWJ1&gtm=45je65l0h2v9253383999za200zd9253383999&_p=1779639578698&gcd=13l3l3l3l1l1&npa=0&dma=0&are=1&cid=1772108579.1779639579&frm=0&pscdl=noapi&rcb=8&sr=375x812&uaa=arm&uab=64&uafvl=HeadlessChrome%3B147.0.7727.15%7CNot.A%252FBrand%3B8.0.0.0%7CChromium%3B147.0.7727.15&uam=&uamb=0&uap=iOS&uapv=17.0&uaw=0&ul=en-us&_s=1&tag_exp=0~115616985~115938466~115938469~118128923&sid=1779639578&sct=1&seg=0&dl=https%3A%2F%2Fwefixtrades.com%2Fproducts%2Freputationshield&dt=WeFixTrades%20%E2%80%94%20Quote%20calculators%20%2B%20AI%20receptionist%20for%20trades&en=page_view&_fv=1&_nsi=1&_ss=1&_ee=1&ep.anonymize_ip=true&tfd=822",
+        "failure": "net::ERR_ABORTED"
+      },
+      {
+        "url": "https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,600,700,800,900&display=swap",
+        "failure": "net::ERR_FAILED"
+      }
+    ],
+    "axe": {
+      "total": 5,
+      "bySeverity": {
+        "critical": 0,
+        "serious": 3,
+        "moderate": 2,
+        "minor": 0,
+        "unknown": 0
+      },
+      "rules": [
+        {
+          "id": "aria-hidden-focus",
+          "impact": "serious",
+          "nodes": 1
+        },
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "nodes": 5
+        },
+        {
+          "id": "heading-order",
+          "impact": "moderate",
+          "nodes": 1
+        },
+        {
+          "id": "region",
+          "impact": "moderate",
+          "nodes": 1
+        },
+        {
+          "id": "scrollable-region-focusable",
+          "impact": "serious",
+          "nodes": 1
+        }
+      ]
+    },
+    "screenshot": "docs/operations/visual-audit-screenshots-batch2/products-reputationshield-mobile.png"
+  },
+  {
+    "route": "services",
+    "viewport": "desktop",
+    "url": "https://wefixtrades.com/services",
+    "durationMs": 4432,
+    "scrollHeight": 3219,
+    "consoleErrors": [
+      "The Content Security Policy directive 'upgrade-insecure-requests' is ignored when delivered in a report-only policy.",
+      "Access to XMLHttpRequest at 'https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,600,700,800,900&display=swap' from origin 'https://wefixtrades.com' has been blocked by CORS policy: The 'Access-Control-Allow-Origin' header has a value 'https://api.fontshare.com' that is not equal to the supplied origin.",
+      "Failed to load resource: net::ERR_FAILED",
+      "Failed to load resource: the server responded with a status of 404 ()"
+    ],
+    "failedRequests": [
+      {
+        "url": "https://cdn.jsdelivr.net/npm/geist-font@1.3.1/dist/geist-sans/style.css",
+        "failure": "net::ERR_BLOCKED_BY_ORB"
+      },
+      {
+        "url": "https://www.google-analytics.com/g/collect?v=2&tid=G-BQMFDMMWJ1&gtm=45je65k1h1v9253383999za200zd9253383999&_p=1779639583610&gcd=13l3l3l3l1l1&npa=0&dma=0&are=1&cid=209522640.1779639584&frm=0&pscdl=noapi&rcb=4&sr=1440x900&uaa=x86&uab=64&uafvl=HeadlessChrome%3B147.0.7727.15%7CNot.A%252FBrand%3B8.0.0.0%7CChromium%3B147.0.7727.15&uam=&uamb=0&uap=Windows&uapv=10.0.0&uaw=0&ul=en-us&_s=1&tag_exp=0~115616986~115938465~115938469~118689382&sid=1779639583&sct=1&seg=0&dl=https%3A%2F%2Fwefixtrades.com%2Fservices&dt=WeFixTrades%20%E2%80%94%20Quote%20calculators%20%2B%20AI%20receptionist%20for%20trades&en=page_view&_fv=1&_nsi=1&_ss=1&_ee=1&ep.anonymize_ip=true&tfd=967",
+        "failure": "net::ERR_ABORTED"
+      },
+      {
+        "url": "https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,600,700,800,900&display=swap",
+        "failure": "net::ERR_FAILED"
+      }
+    ],
+    "axe": {
+      "total": 4,
+      "bySeverity": {
+        "critical": 0,
+        "serious": 1,
+        "moderate": 3,
+        "minor": 0,
+        "unknown": 0
+      },
+      "rules": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "nodes": 13
+        },
+        {
+          "id": "heading-order",
+          "impact": "moderate",
+          "nodes": 1
+        },
+        {
+          "id": "landmark-unique",
+          "impact": "moderate",
+          "nodes": 1
+        },
+        {
+          "id": "region",
+          "impact": "moderate",
+          "nodes": 1
+        }
+      ]
+    },
+    "screenshot": "docs/operations/visual-audit-screenshots-batch2/services-desktop.png"
+  },
+  {
+    "route": "services",
+    "viewport": "mobile",
+    "url": "https://wefixtrades.com/services",
+    "durationMs": 4363,
+    "scrollHeight": 5755,
+    "consoleErrors": [
+      "The Content Security Policy directive 'upgrade-insecure-requests' is ignored when delivered in a report-only policy.",
+      "Access to XMLHttpRequest at 'https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,600,700,800,900&display=swap' from origin 'https://wefixtrades.com' has been blocked by CORS policy: The 'Access-Control-Allow-Origin' header has a value 'https://api.fontshare.com' that is not equal to the supplied origin.",
+      "Failed to load resource: net::ERR_FAILED",
+      "Failed to load resource: the server responded with a status of 404 ()"
+    ],
+    "failedRequests": [
+      {
+        "url": "https://cdn.jsdelivr.net/npm/geist-font@1.3.1/dist/geist-sans/style.css",
+        "failure": "net::ERR_BLOCKED_BY_ORB"
+      },
+      {
+        "url": "https://www.google-analytics.com/g/collect?v=2&tid=G-BQMFDMMWJ1&gtm=45je65l0h2v9253383999za200zd9253383999&_p=1779639588096&gcd=13l3l3l3l1l1&npa=0&dma=0&are=1&cid=241521261.1779639588&frm=0&pscdl=noapi&rcb=15&sr=375x812&uaa=arm&uab=64&uafvl=HeadlessChrome%3B147.0.7727.15%7CNot.A%252FBrand%3B8.0.0.0%7CChromium%3B147.0.7727.15&uam=&uamb=0&uap=iOS&uapv=17.0&uaw=0&ul=en-us&_s=1&tag_exp=0~115938465~115938468~118689382&sid=1779639588&sct=1&seg=0&dl=https%3A%2F%2Fwefixtrades.com%2Fservices&dt=WeFixTrades%20%E2%80%94%20Quote%20calculators%20%2B%20AI%20receptionist%20for%20trades&en=page_view&_fv=1&_nsi=1&_ss=1&_ee=1&ep.anonymize_ip=true&tfd=920",
+        "failure": "net::ERR_ABORTED"
+      },
+      {
+        "url": "https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,600,700,800,900&display=swap",
+        "failure": "net::ERR_FAILED"
+      }
+    ],
+    "axe": {
+      "total": 3,
+      "bySeverity": {
+        "critical": 0,
+        "serious": 1,
+        "moderate": 2,
+        "minor": 0,
+        "unknown": 0
+      },
+      "rules": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "nodes": 13
+        },
+        {
+          "id": "heading-order",
+          "impact": "moderate",
+          "nodes": 1
+        },
+        {
+          "id": "region",
+          "impact": "moderate",
+          "nodes": 1
+        }
+      ]
+    },
+    "screenshot": "docs/operations/visual-audit-screenshots-batch2/services-mobile.png"
+  }
+]
