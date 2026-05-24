@@ -2202,15 +2202,6 @@
   animation: mktFlowPulse 7s ease-in-out infinite;
 }
 
-/* Blinking caret for TypingReplace */
-@keyframes mktCaretBlink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
-}
-.mkt-cursor {
-  animation: mktCaretBlink 620ms step-end infinite;
-}
-
 /* Trust strip card shine on count-up */
 @keyframes wftCardShine {
   0% { transform: translateX(-120%); }

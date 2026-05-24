@@ -47,7 +47,6 @@ const WRITE_BASELINE = process.argv.includes("--write-baseline");
 // brand lockups, third-party icons, or animation/effect components where
 // the size is intrinsic to the visual design.
 const ALLOWLIST = new Set([
-  "client/src/components/marketing/AnimatedLogo.tsx",
   "client/src/components/primitives/Logo.tsx",
   "client/src/components/quote-widget/PremiumAnimations.tsx",
 ]);
