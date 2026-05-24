@@ -15,6 +15,12 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useCopilotForm } from "@/context/CopilotFormContext";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import {
+  FieldGroupHeader,
+  FieldHelpCue,
+  TitleInField,
+  TitleInFieldSelect,
+} from "./_shared";
 
 /**
  * Service-Area Map widget — free-tools batch 3.
@@ -23,7 +29,8 @@ import { usePageTitle } from "@/hooks/usePageTitle";
  * geocodes once, calls Google Static Maps API once per unique config, caches
  * the resulting PNG, and serves it from /free-tool/service-area/:token.png.
  *
- * The embed is a single <img> tag — fast, JS-free, immutable cache.
+ * DS compliance (PR #692 audit): title-in-field + top-left help cue + 2px
+ * input-cluster gaps + single .btn-primary-premium (Save & regenerate).
  */
 
 interface ServiceAreaConfig {
@@ -54,12 +61,11 @@ interface ConfigResponse {
   apiKeyConfigured: boolean;
 }
 
-const labelClass = "block text-xs font-medium text-gray-600 mb-1";
-const inputClass =
-  "w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition-colors";
-
 const DEFAULT_PIN = "#0d3cfc";
 const DEFAULT_CIRCLE = "#0d3cfc";
+
+const colorInputClass =
+  "w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition-colors";
 
 export default function ServiceAreaMap() {
   usePageTitle("Service Area Map");
@@ -261,12 +267,15 @@ export default function ServiceAreaMap() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Editor */}
-          <div className="lg:col-span-2 space-y-4">
+          <div className="lg:col-span-2 space-y-3">
             <Card>
-              <CardContent className="p-5 space-y-4">
-                <h2 className="text-sm font-semibold text-gray-900">Map settings</h2>
+              <CardContent className="p-5 space-y-3">
+                <FieldGroupHeader
+                  title="Map settings"
+                  help="The address you enter is geocoded once and the resulting map image is cached. Saving regenerates the image."
+                />
 
-                <label className="flex items-center gap-2">
+                <label className="flex items-center gap-2 pl-5">
                   <input
                     type="checkbox"
                     checked={enabled}
@@ -276,152 +285,133 @@ export default function ServiceAreaMap() {
                   <span className="text-sm text-gray-700">Map is enabled (visible on your site)</span>
                 </label>
 
-                <div>
-                  <label className={labelClass} htmlFor="sa-address">Business street address</label>
-                  <input
+                <div className="space-y-0.5">
+                  <TitleInField
                     id="sa-address"
-                    className={inputClass}
+                    label="Business street address"
                     value={addressLine}
-                    onChange={(e) => setAddressLine(e.target.value)}
+                    onChange={setAddressLine}
                     placeholder="120 Main St"
+                    required
+                    help="The address Google should centre the map on. Used once for geocoding — not displayed to visitors."
                   />
-                </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div>
-                    <label className={labelClass} htmlFor="sa-city">City</label>
-                    <input
-                      id="sa-city"
-                      className={inputClass}
-                      value={city}
-                      onChange={(e) => setCity(e.target.value)}
-                    />
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-0.5">
+                    <TitleInField id="sa-city" label="City" value={city} onChange={setCity} />
+                    <TitleInField id="sa-region" label="State / region" value={region} onChange={setRegion} />
+                    <TitleInField id="sa-postal" label="ZIP / postal" value={postal} onChange={setPostal} />
                   </div>
-                  <div>
-                    <label className={labelClass} htmlFor="sa-region">State / region</label>
-                    <input
-                      id="sa-region"
-                      className={inputClass}
-                      value={region}
-                      onChange={(e) => setRegion(e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <label className={labelClass} htmlFor="sa-postal">ZIP / postal</label>
-                    <input
-                      id="sa-postal"
-                      className={inputClass}
-                      value={postal}
-                      onChange={(e) => setPostal(e.target.value)}
-                    />
-                  </div>
-                </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div>
-                    <label className={labelClass} htmlFor="sa-country">Country code</label>
-                    <input
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-0.5">
+                    <TitleInField
                       id="sa-country"
-                      className={inputClass}
+                      label="Country code"
                       value={country}
-                      onChange={(e) => setCountry(e.target.value.toUpperCase().slice(0, 2))}
+                      onChange={(v) => setCountry(v.toUpperCase().slice(0, 2))}
                       maxLength={2}
+                      help="ISO 3166-1 alpha-2, e.g. US or CA."
                     />
-                  </div>
-                  <div>
-                    <label className={labelClass} htmlFor="sa-radius">Service radius</label>
-                    <input
+                    <TitleInField
                       id="sa-radius"
+                      label="Service radius"
                       type="number"
                       min={1}
                       max={500}
-                      className={inputClass}
-                      value={radius}
-                      onChange={(e) => setRadius(Math.max(1, Math.min(500, parseInt(e.target.value, 10) || 1)))}
+                      value={String(radius)}
+                      onChange={(v) => setRadius(Math.max(1, Math.min(500, parseInt(v, 10) || 1)))}
+                      help="How far from the centre point should the circle reach."
                     />
-                  </div>
-                  <div>
-                    <label className={labelClass} htmlFor="sa-unit">Unit</label>
-                    <select
+                    <TitleInFieldSelect
                       id="sa-unit"
-                      className={inputClass}
+                      label="Unit"
                       value={unit}
-                      onChange={(e) => setUnit(e.target.value as "miles" | "km")}
+                      onChange={(v) => setUnit(v as "miles" | "km")}
                     >
                       <option value="miles">miles</option>
                       <option value="km">km</option>
-                    </select>
+                    </TitleInFieldSelect>
                   </div>
-                </div>
 
-                <div>
-                  <label className={labelClass} htmlFor="sa-style">Map style</label>
-                  <select
+                  <TitleInFieldSelect
                     id="sa-style"
-                    className={inputClass}
+                    label="Map style"
                     value={mapStyle}
-                    onChange={(e) => setMapStyle(e.target.value as "roadmap" | "satellite" | "terrain" | "hybrid")}
+                    onChange={(v) => setMapStyle(v as "roadmap" | "satellite" | "terrain" | "hybrid")}
+                    help="Roadmap is the standard street map. Satellite/hybrid show aerial imagery."
                   >
                     <option value="roadmap">Roadmap (standard streets)</option>
                     <option value="satellite">Satellite</option>
                     <option value="terrain">Terrain</option>
                     <option value="hybrid">Hybrid (satellite + labels)</option>
-                  </select>
-                </div>
+                  </TitleInFieldSelect>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className={labelClass} htmlFor="sa-pin">Pin colour</label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        id="sa-pin"
-                        type="color"
-                        className="h-9 w-12 rounded border border-gray-200 cursor-pointer"
-                        value={pinColor}
-                        onChange={(e) => setPinColor(e.target.value)}
-                      />
-                      <input
-                        type="text"
-                        className={inputClass}
-                        value={pinColor}
-                        onChange={(e) => setPinColor(e.target.value)}
-                      />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-0.5">
+                    <div className="relative pl-5">
+                      <span className="absolute top-1 left-0">
+                        <FieldHelpCue label="Pin colour" help="Colour of the centre marker pin." />
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 w-16 shrink-0">Pin</span>
+                        <input
+                          id="sa-pin"
+                          type="color"
+                          aria-label="Pin colour"
+                          className="h-9 w-12 rounded border border-gray-200 cursor-pointer"
+                          value={pinColor}
+                          onChange={(e) => setPinColor(e.target.value)}
+                        />
+                        <input
+                          type="text"
+                          aria-label="Pin colour hex"
+                          className={colorInputClass}
+                          value={pinColor}
+                          onChange={(e) => setPinColor(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    <div className="relative pl-5">
+                      <span className="absolute top-1 left-0">
+                        <FieldHelpCue label="Circle colour" help="Colour of the service-area circle fill + border." />
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 w-16 shrink-0">Circle</span>
+                        <input
+                          id="sa-circle"
+                          type="color"
+                          aria-label="Circle colour"
+                          className="h-9 w-12 rounded border border-gray-200 cursor-pointer"
+                          value={circleColor}
+                          onChange={(e) => setCircleColor(e.target.value)}
+                        />
+                        <input
+                          type="text"
+                          aria-label="Circle colour hex"
+                          className={colorInputClass}
+                          value={circleColor}
+                          onChange={(e) => setCircleColor(e.target.value)}
+                        />
+                      </div>
                     </div>
                   </div>
-                  <div>
-                    <label className={labelClass} htmlFor="sa-circle">Circle colour</label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        id="sa-circle"
-                        type="color"
-                        className="h-9 w-12 rounded border border-gray-200 cursor-pointer"
-                        value={circleColor}
-                        onChange={(e) => setCircleColor(e.target.value)}
-                      />
-                      <input
-                        type="text"
-                        className={inputClass}
-                        value={circleColor}
-                        onChange={(e) => setCircleColor(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                </div>
 
-                <div>
-                  <label className={labelClass} htmlFor="sa-opacity">
-                    Circle fill opacity: {(circleOpacity * 100).toFixed(0)}%
-                  </label>
-                  <input
-                    id="sa-opacity"
-                    type="range"
-                    min={0.05}
-                    max={0.5}
-                    step={0.05}
-                    className="w-full"
-                    value={circleOpacity}
-                    onChange={(e) => setCircleOpacity(parseFloat(e.target.value))}
-                  />
+                  <div className="relative pl-5">
+                    <span className="absolute top-1 left-0">
+                      <FieldHelpCue label="Circle fill opacity" help="How transparent the service-area circle is. Lower = less visual weight." />
+                    </span>
+                    <label htmlFor="sa-opacity" className="block text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-1">
+                      Circle fill opacity: {(circleOpacity * 100).toFixed(0)}%
+                    </label>
+                    <input
+                      id="sa-opacity"
+                      type="range"
+                      min={0.05}
+                      max={0.5}
+                      step={0.05}
+                      className="w-full"
+                      value={circleOpacity}
+                      onChange={(e) => setCircleOpacity(parseFloat(e.target.value))}
+                    />
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -437,6 +427,7 @@ export default function ServiceAreaMap() {
                 <RefreshCw className="w-4 h-4 mr-1.5" />
                 {regenMut.isPending ? "Regenerating…" : "Force regenerate"}
               </Button>
+              {/* DS rule 4 — single .btn-primary-premium per page. */}
               <Button
                 type="button"
                 onClick={() => saveMut.mutate()}
@@ -451,10 +442,13 @@ export default function ServiceAreaMap() {
           </div>
 
           {/* Preview + snippet */}
-          <div className="lg:col-span-1 space-y-4">
+          <div className="lg:col-span-1 space-y-3">
             <Card>
               <CardContent className="p-5 space-y-3">
-                <h2 className="text-sm font-semibold text-gray-900">Live preview</h2>
+                <FieldGroupHeader
+                  title="Live preview"
+                  help="The cached map image — exactly what visitors will see embedded on your site."
+                />
                 {isLoading ? (
                   <p className="text-xs text-gray-500">Loading…</p>
                 ) : widgetToken ? (
@@ -480,18 +474,22 @@ export default function ServiceAreaMap() {
 
             <Card>
               <CardContent className="p-5 space-y-3">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-sm font-semibold text-gray-900">Embed snippet</h2>
-                  <Button
-                    type="button"
-                    onClick={handleCopy}
-                    className="btn-primary-premium"
-                    disabled={!widgetToken}
-                    data-testid="service-area-copy-snippet"
-                  >
-                    {copied ? <><Check className="w-4 h-4 mr-1.5" />Copied</> : <><Copy className="w-4 h-4 mr-1.5" />Copy</>}
-                  </Button>
-                </div>
+                <FieldGroupHeader
+                  title="Embed snippet"
+                  help="A plain <img> tag — works on every CMS, no JavaScript required."
+                  right={
+                    <Button
+                      type="button"
+                      onClick={handleCopy}
+                      variant="outline"
+                      size="sm"
+                      disabled={!widgetToken}
+                      data-testid="service-area-copy-snippet"
+                    >
+                      {copied ? <><Check className="w-4 h-4 mr-1.5" />Copied</> : <><Copy className="w-4 h-4 mr-1.5" />Copy</>}
+                    </Button>
+                  }
+                />
                 <pre className="text-xs bg-slate-50 text-gray-800 p-3 rounded-md overflow-x-auto border border-gray-200">
                   <code>{snippet}</code>
                 </pre>

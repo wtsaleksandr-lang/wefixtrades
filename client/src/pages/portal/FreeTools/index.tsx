@@ -161,7 +161,11 @@ export default function FreeToolsIndex() {
                     {tool.description}
                   </p>
                   {available && tool.href ? (
-                    <Button asChild className="btn-primary-premium self-start">
+                    /* DS rule 4 — one .btn-primary-premium per page. Index has
+                       7 tool cards, so per-card CTAs use the plain outline
+                       variant; the premium accent is reserved for the
+                       primary action on each individual tool page. */
+                    <Button asChild variant="outline" size="sm" className="self-start">
                       <Link href={tool.href}>Open</Link>
                     </Button>
                   ) : (

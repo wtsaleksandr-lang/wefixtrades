@@ -16,10 +16,19 @@ import { useToast } from "@/hooks/use-toast";
 import { useCopilotForm } from "@/context/CopilotFormContext";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { cn } from "@/lib/utils";
+import {
+  FieldGroupHeader,
+  FieldHelpCue,
+  TitleInField,
+  TitleInFieldSelect,
+} from "./_shared";
 
 /**
  * Callback Form widget portal page — free-tools batch 2.
  * Edit widget config + view / triage incoming callback requests.
+ *
+ * DS compliance (PR #692 audit): title-in-field + top-left help cue + 2px
+ * input-cluster gaps + single .btn-primary-premium (Save settings).
  */
 
 interface CallbackFields {
@@ -48,10 +57,6 @@ interface CallbackLead {
 }
 
 type Mode = "inline" | "popup";
-
-const labelClass = "block text-xs font-medium text-gray-600 mb-1";
-const inputClass =
-  "w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition-colors";
 
 export default function CallbackForm() {
   usePageTitle("Callback Form Widget");
@@ -203,12 +208,15 @@ export default function CallbackForm() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Editor */}
-          <div className="lg:col-span-2 space-y-4">
+          <div className="lg:col-span-2 space-y-3">
             <Card>
-              <CardContent className="p-5 space-y-4">
-                <h2 className="text-sm font-semibold text-gray-900">Widget settings</h2>
+              <CardContent className="p-5 space-y-3">
+                <FieldGroupHeader
+                  title="Widget settings"
+                  help="Edit how the callback form looks and which optional fields it asks for. Phone is always required — it's the lead."
+                />
 
-                <label className="flex items-center gap-2">
+                <label className="flex items-center gap-2 pl-5">
                   <input
                     type="checkbox"
                     checked={enabled}
@@ -218,29 +226,29 @@ export default function CallbackForm() {
                   <span className="text-sm text-gray-700">Widget is enabled</span>
                 </label>
 
-                <div>
-                  <label className={labelClass} htmlFor="cb-heading">Heading</label>
-                  <input
+                <div className="space-y-0.5">
+                  <TitleInField
                     id="cb-heading"
-                    className={inputClass}
+                    label="Heading"
                     value={heading}
-                    onChange={(e) => setHeading(e.target.value)}
+                    onChange={setHeading}
+                    help="The bold heading shown above the form on your site."
                   />
-                </div>
-
-                <div>
-                  <label className={labelClass} htmlFor="cb-cta">Submit button label</label>
-                  <input
+                  <TitleInField
                     id="cb-cta"
-                    className={inputClass}
+                    label="Submit button label"
                     value={ctaLabel}
-                    onChange={(e) => setCtaLabel(e.target.value)}
+                    onChange={setCtaLabel}
+                    help="Text on the submit button — keep it short and action-y."
                   />
                 </div>
 
-                <div>
-                  <div className={labelClass}>Fields to show</div>
-                  <div className="space-y-1.5">
+                <div className="relative pl-5">
+                  <span className="absolute top-1 left-0">
+                    <FieldHelpCue label="Fields to show" help="Choose which optional fields the form asks for. Phone is always required." />
+                  </span>
+                  <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-1">Fields to show</div>
+                  <div className="space-y-0.5">
                     {(["name", "best_time", "message"] as Array<keyof CallbackFields>).map((key) => (
                       <label key={key} className="flex items-center gap-2 text-xs text-gray-700">
                         <input
@@ -259,6 +267,7 @@ export default function CallbackForm() {
             </Card>
 
             <div className="flex justify-end">
+              {/* DS rule 4 — single .btn-primary-premium per page: Save. */}
               <Button
                 type="button"
                 onClick={() => saveMut.mutate()}
@@ -274,20 +283,23 @@ export default function CallbackForm() {
             {/* Lead inbox */}
             <Card>
               <CardContent className="p-5 space-y-3">
-                <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <h2 className="text-sm font-semibold text-gray-900">Incoming callbacks</h2>
-                  <select
-                    aria-label="Filter by status"
-                    className="text-xs border border-gray-200 rounded-md px-2 py-1"
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value as "" | "new" | "contacted" | "spam")}
-                  >
-                    <option value="new">New</option>
-                    <option value="contacted">Contacted</option>
-                    <option value="spam">Spam</option>
-                    <option value="">All</option>
-                  </select>
-                </div>
+                <FieldGroupHeader
+                  title="Incoming callbacks"
+                  help="Triage callbacks by status. Mark contacted once you've returned the call; spam removes obvious junk from the active view."
+                  right={
+                    <select
+                      aria-label="Filter by status"
+                      className="text-xs border border-gray-200 rounded-md px-2 py-1"
+                      value={statusFilter}
+                      onChange={(e) => setStatusFilter(e.target.value as "" | "new" | "contacted" | "spam")}
+                    >
+                      <option value="new">New</option>
+                      <option value="contacted">Contacted</option>
+                      <option value="spam">Spam</option>
+                      <option value="">All</option>
+                    </select>
+                  }
+                />
                 {leadsQuery.isLoading ? (
                   <p className="text-xs text-gray-500">Loading…</p>
                 ) : !leadsQuery.data?.items.length ? (
@@ -362,22 +374,23 @@ export default function CallbackForm() {
           </div>
 
           {/* Preview + snippet */}
-          <div className="lg:col-span-1 space-y-4">
+          <div className="lg:col-span-1 space-y-3">
             <Card>
               <CardContent className="p-5 space-y-3">
-                <h2 className="text-sm font-semibold text-gray-900">Live preview</h2>
-                <div>
-                  <label className={labelClass} htmlFor="cb-mode">Display mode</label>
-                  <select
-                    id="cb-mode"
-                    className={inputClass}
-                    value={mode}
-                    onChange={(e) => setMode(e.target.value as Mode)}
-                  >
-                    <option value="inline">Inline (rendered where you paste)</option>
-                    <option value="popup">Popup launcher (bottom-right)</option>
-                  </select>
-                </div>
+                <FieldGroupHeader
+                  title="Live preview"
+                  help="Real render of the chosen display mode. Inline = rendered where the snippet is pasted, Popup = bottom-right launcher."
+                />
+                <TitleInFieldSelect
+                  id="cb-mode"
+                  label="Display mode"
+                  value={mode}
+                  onChange={(v) => setMode(v as Mode)}
+                  help="Inline drops the form into the page; Popup floats a launcher button in the bottom-right corner."
+                >
+                  <option value="inline">Inline (rendered where you paste)</option>
+                  <option value="popup">Popup launcher (bottom-right)</option>
+                </TitleInFieldSelect>
                 {widgetToken && (
                   <iframe
                     key={previewKey}
@@ -391,18 +404,22 @@ export default function CallbackForm() {
 
             <Card>
               <CardContent className="p-5 space-y-3">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-sm font-semibold text-gray-900">Embed snippet</h2>
-                  <Button
-                    type="button"
-                    onClick={handleCopy}
-                    className="btn-primary-premium"
-                    disabled={!widgetToken}
-                    data-testid="callback-copy-snippet"
-                  >
-                    {copied ? <><Check className="w-4 h-4 mr-1.5" />Copied</> : <><Copy className="w-4 h-4 mr-1.5" />Copy</>}
-                  </Button>
-                </div>
+                <FieldGroupHeader
+                  title="Embed snippet"
+                  help="Paste this once anywhere in your site to drop in the callback form."
+                  right={
+                    <Button
+                      type="button"
+                      onClick={handleCopy}
+                      variant="outline"
+                      size="sm"
+                      disabled={!widgetToken}
+                      data-testid="callback-copy-snippet"
+                    >
+                      {copied ? <><Check className="w-4 h-4 mr-1.5" />Copied</> : <><Copy className="w-4 h-4 mr-1.5" />Copy</>}
+                    </Button>
+                  }
+                />
                 <pre className="text-xs bg-slate-50 text-gray-800 p-3 rounded-md overflow-x-auto border border-gray-200">
                   <code>{snippet}</code>
                 </pre>

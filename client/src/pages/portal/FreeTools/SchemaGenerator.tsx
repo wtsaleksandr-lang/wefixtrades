@@ -18,6 +18,11 @@ import { useToast } from "@/hooks/use-toast";
 import { useCopilotForm } from "@/context/CopilotFormContext";
 import { cn } from "@/lib/utils";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import {
+  FieldGroupHeader,
+  TitleInField,
+  TitleInFieldSelect,
+} from "./_shared";
 
 /**
  * Local Business Schema Generator — first live Free Tool.
@@ -25,11 +30,10 @@ import { usePageTitle } from "@/hooks/usePageTitle";
  * Stateless v1: pulls business name / contact / website from the existing
  * /api/portal/settings endpoint and lets the customer fill in everything
  * else (address, hours, price range, extra social URLs) inline. Nothing
- * persists — regenerate on every visit from current profile data. A
- * future wave can add a `client_schema_overrides` column if customers
- * ask for sticky preferences.
+ * persists — regenerate on every visit from current profile data.
  *
- * Pure client-side generation — NO backend changes required.
+ * DS compliance (PR #692 audit): title-in-field + top-left help cue + 2px
+ * input-cluster gaps + single .btn-primary-premium (Copy snippet).
  */
 
 interface SettingsData {
@@ -76,8 +80,7 @@ const DEFAULT_HOURS: HoursMap = {
 const PRICE_RANGES = ["$", "$$", "$$$", "$$$$"] as const;
 type PriceRange = (typeof PRICE_RANGES)[number];
 
-const labelClass = "block text-xs font-medium text-gray-600 mb-1";
-const inputClass =
+const timeInputClass =
   "w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition-colors";
 
 function buildSchema(opts: {
@@ -322,98 +325,68 @@ export default function SchemaGenerator() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Configuration column */}
-          <div className="lg:col-span-1 space-y-4">
+          <div className="lg:col-span-1 space-y-3">
             <Card>
-              <CardContent className="p-5 space-y-4">
-                <h2 className="text-sm font-semibold text-gray-900">
-                  Business address
-                </h2>
-                <div>
-                  <label className={labelClass} htmlFor="schema-street">
-                    Street address
-                  </label>
-                  <input
+              <CardContent className="p-5 space-y-3">
+                <FieldGroupHeader
+                  title="Business address"
+                  help="Drop in the postal address Google should associate with your business. Leave any line blank if you don't have it."
+                />
+                {/* DS rule 4 — 2px gap between stacked inputs. */}
+                <div className="space-y-0.5">
+                  <TitleInField
                     id="schema-street"
-                    className={inputClass}
+                    label="Street address"
                     value={streetAddress}
-                    onChange={(e) => setStreetAddress(e.target.value)}
+                    onChange={setStreetAddress}
                     placeholder="123 Main St"
+                    help="The street line of your business address."
                   />
-                </div>
-                <div>
-                  <label className={labelClass} htmlFor="schema-city">
-                    City
-                  </label>
-                  <input
+                  <TitleInField
                     id="schema-city"
-                    className={inputClass}
+                    label="City"
                     value={addressLocality}
-                    onChange={(e) => setAddressLocality(e.target.value)}
+                    onChange={setAddressLocality}
                     placeholder="Toronto"
                   />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className={labelClass} htmlFor="schema-region">
-                      Region
-                    </label>
-                    <input
+                  <div className="grid grid-cols-2 gap-0.5">
+                    <TitleInField
                       id="schema-region"
-                      className={inputClass}
+                      label="Region"
                       value={addressRegion}
-                      onChange={(e) => setAddressRegion(e.target.value)}
+                      onChange={setAddressRegion}
                       placeholder="ON"
+                      help="Province / state abbreviation."
                     />
-                  </div>
-                  <div>
-                    <label className={labelClass} htmlFor="schema-postal">
-                      Postal code
-                    </label>
-                    <input
+                    <TitleInField
                       id="schema-postal"
-                      className={inputClass}
+                      label="Postal code"
                       value={postalCode}
-                      onChange={(e) => setPostalCode(e.target.value)}
+                      onChange={setPostalCode}
                       placeholder="M5V 1A1"
                     />
                   </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className={labelClass} htmlFor="schema-country">
-                      Country
-                    </label>
-                    <input
+                  <div className="grid grid-cols-2 gap-0.5">
+                    <TitleInField
                       id="schema-country"
-                      className={inputClass}
+                      label="Country"
                       value={addressCountry}
-                      onChange={(e) =>
-                        setAddressCountry(
-                          e.target.value.toUpperCase().slice(0, 2)
-                        )
-                      }
+                      onChange={(v) => setAddressCountry(v.toUpperCase().slice(0, 2))}
                       placeholder="CA"
                       maxLength={2}
+                      help="ISO 3166-1 alpha-2 code, e.g. CA, US, GB."
                     />
-                  </div>
-                  <div>
-                    <label className={labelClass} htmlFor="schema-price">
-                      Price range
-                    </label>
-                    <select
+                    <TitleInFieldSelect
                       id="schema-price"
-                      className={inputClass}
+                      label="Price range"
                       value={priceRange}
-                      onChange={(e) =>
-                        setPriceRange(e.target.value as PriceRange)
-                      }
+                      onChange={(v) => setPriceRange(v as PriceRange)}
+                      help="$ = budget, $$$$ = high-end. Used in Google rich results."
                     >
                       {PRICE_RANGES.map((p) => (
-                        <option key={p} value={p}>
-                          {p}
-                        </option>
+                        <option key={p} value={p}>{p}</option>
                       ))}
-                    </select>
+                    </TitleInFieldSelect>
                   </div>
                 </div>
               </CardContent>
@@ -421,10 +394,11 @@ export default function SchemaGenerator() {
 
             <Card>
               <CardContent className="p-5 space-y-3">
-                <h2 className="text-sm font-semibold text-gray-900">
-                  Opening hours
-                </h2>
-                <div className="space-y-2">
+                <FieldGroupHeader
+                  title="Opening hours"
+                  help="Tick the days you're open. Leave a day unchecked to mark it closed in the schema."
+                />
+                <div className="space-y-0.5">
                   {DAYS.map((d) => (
                     <div key={d} className="flex items-center gap-2">
                       <label className="flex items-center gap-2 w-28 text-xs text-gray-700">
@@ -443,6 +417,7 @@ export default function SchemaGenerator() {
                       </label>
                       <input
                         type="time"
+                        aria-label={`${d} opens`}
                         disabled={!hours[d].open}
                         value={hours[d].opens}
                         onChange={(e) =>
@@ -451,10 +426,11 @@ export default function SchemaGenerator() {
                             [d]: { ...hours[d], opens: e.target.value },
                           })
                         }
-                        className={cn(inputClass, "flex-1 disabled:opacity-50")}
+                        className={cn(timeInputClass, "flex-1 disabled:opacity-50")}
                       />
                       <input
                         type="time"
+                        aria-label={`${d} closes`}
                         disabled={!hours[d].open}
                         value={hours[d].closes}
                         onChange={(e) =>
@@ -463,7 +439,7 @@ export default function SchemaGenerator() {
                             [d]: { ...hours[d], closes: e.target.value },
                           })
                         }
-                        className={cn(inputClass, "flex-1 disabled:opacity-50")}
+                        className={cn(timeInputClass, "flex-1 disabled:opacity-50")}
                       />
                     </div>
                   ))}
@@ -473,38 +449,39 @@ export default function SchemaGenerator() {
 
             <Card>
               <CardContent className="p-5 space-y-3">
-                <h2 className="text-sm font-semibold text-gray-900">
-                  Social profiles (sameAs)
-                </h2>
-                <p className="text-xs text-gray-600">
-                  Add any social or directory URLs that represent your
-                  business (Facebook, Google Business, Yelp, etc.).
-                </p>
-                <div className="flex gap-2">
-                  <input
-                    className={inputClass}
-                    value={newSocialUrl}
-                    onChange={(e) => setNewSocialUrl(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        addSocial();
-                      }
-                    }}
-                    placeholder="https://facebook.com/yourbusiness"
-                  />
+                <FieldGroupHeader
+                  title="Social profiles (sameAs)"
+                  help="Add Facebook, Google Business, Yelp, etc. — anywhere else your business has an official profile."
+                />
+                <div className="flex gap-1.5 items-start">
+                  <div className="flex-1">
+                    <TitleInField
+                      id="schema-social-new"
+                      label="Profile URL"
+                      value={newSocialUrl}
+                      onChange={setNewSocialUrl}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          addSocial();
+                        }
+                      }}
+                      placeholder="https://facebook.com/yourbusiness"
+                    />
+                  </div>
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
                     onClick={addSocial}
                     aria-label="Add social URL"
+                    className="mt-1"
                   >
                     <Plus className="w-4 h-4" />
                   </Button>
                 </div>
                 {sameAs.length > 0 && (
-                  <ul className="space-y-1.5">
+                  <ul className="space-y-0.5">
                     {sameAs.map((url) => (
                       <li
                         key={url}
@@ -530,32 +507,35 @@ export default function SchemaGenerator() {
           </div>
 
           {/* Preview + actions */}
-          <div className="lg:col-span-2 space-y-4">
+          <div className="lg:col-span-2 space-y-3">
             <Card>
               <CardContent className="p-5 space-y-3">
-                <div className="flex items-center justify-between gap-3">
-                  <h2 className="text-sm font-semibold text-gray-900">
-                    Your snippet
-                  </h2>
-                  <Button
-                    type="button"
-                    onClick={handleCopy}
-                    className="btn-primary-premium"
-                    data-testid="copy-schema-snippet"
-                  >
-                    {copied ? (
-                      <>
-                        <Check className="w-4 h-4 mr-1.5" />
-                        Copied
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-4 h-4 mr-1.5" />
-                        Copy snippet
-                      </>
-                    )}
-                  </Button>
-                </div>
+                <FieldGroupHeader
+                  title="Your snippet"
+                  help="The JSON-LD block to paste into your site's <head>. Updates live as you edit the fields on the left."
+                  right={
+                    /* DS rule 4 — single .btn-primary-premium per page: this
+                       is the primary action (copy the generated snippet). */
+                    <Button
+                      type="button"
+                      onClick={handleCopy}
+                      className="btn-primary-premium"
+                      data-testid="copy-schema-snippet"
+                    >
+                      {copied ? (
+                        <>
+                          <Check className="w-4 h-4 mr-1.5" />
+                          Copied
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-4 h-4 mr-1.5" />
+                          Copy snippet
+                        </>
+                      )}
+                    </Button>
+                  }
+                />
                 <pre
                   className="text-xs bg-slate-50 text-gray-800 p-3 rounded-md overflow-x-auto border border-gray-200 max-h-[480px]"
                   data-testid="schema-snippet"
