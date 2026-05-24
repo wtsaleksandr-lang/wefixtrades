@@ -12,7 +12,7 @@
  * /admin/crm/audit-log.
  */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { usePageTitle } from "@/hooks/usePageTitle";
@@ -21,12 +21,13 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
-import {
   Bot, User, Cpu, Search, RotateCw, ChevronDown, Download, FileText,
 } from "lucide-react";
 import { csvDownload, todayIso } from "@/lib/csvDownload";
+import ListSearchAndFilters from "@/components/admin/ListSearchAndFilters";
+import { useListUrlState } from "@/components/admin/useListUrlState";
+
+const AUDIT_LOG_FILTER_KEYS = ["actor", "entity"];
 
 interface ActivityRow {
   id: number;
@@ -60,14 +61,23 @@ const PAGE_SIZE = 50;
 export default function AdminAuditLogPage() {
   usePageTitle("Audit Log");
 
-  /* ─── Filters ─── */
-  const [actorType, setActorType] = useState("all");
-  const [entityType, setEntityType] = useState("all");
+  /* ─── Filters ───
+   *  q + actor + entity persist to URL via the shared hook.
+   *  actionLike + date range stay local (rarely shareable). */
+  const { search: q, filters: chipFilters, setSearch: setQ, setFilters: setChipFilters } =
+    useListUrlState(AUDIT_LOG_FILTER_KEYS);
+  const actorType = chipFilters.actor?.[0] ?? "all";
+  const entityType = chipFilters.entity?.[0] ?? "all";
   const [actionLike, setActionLike] = useState("");
-  const [q, setQ] = useState("");
   const [since, setSince] = useState("");      // YYYY-MM-DD
   const [until, setUntil] = useState("");
   const [pages, setPages] = useState<number[]>([0]); // cursor stack for pagination
+
+  /* Reset pagination whenever any filter changes — the cursor we have
+   * would be stale against the new filter set. */
+  useEffect(() => {
+    setPages([0]);
+  }, [actorType, entityType, actionLike, q, since, until]);
 
   /* The server uses keyset cursors, so each "page" we've visited is
    * just an `id < cursor` boundary. pages[0] = 0 means "no cursor". */
@@ -112,13 +122,6 @@ export default function AdminAuditLogPage() {
   };
   const goPrev = () => {
     if (pages.length > 1) setPages(pages.slice(0, -1));
-  };
-
-  /* When any filter changes, reset to page 1 — otherwise the cursor
-   * we have is stale relative to the new filter set. */
-  const resetFilters = (mutator: () => void) => {
-    mutator();
-    setPages([0]);
   };
 
   /* ─── CSV export — current page only ─── */
@@ -178,60 +181,60 @@ export default function AdminAuditLogPage() {
           </div>
         </div>
 
-        {/* Filters */}
-        <div className="bg-white rounded-xl border border-gray-200 p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          <Select value={actorType} onValueChange={(v) => resetFilters(() => setActorType(v))}>
-            <SelectTrigger>
-              <SelectValue placeholder="Actor type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All actors</SelectItem>
-              <SelectItem value="human">Human</SelectItem>
-              <SelectItem value="ai_agent">AI agent</SelectItem>
-              <SelectItem value="system">System</SelectItem>
-            </SelectContent>
-          </Select>
+        {/* Unified search + chip filters. Action-contains and date
+            range live in a secondary row since they're rare. */}
+        <ListSearchAndFilters
+          search={q}
+          onSearchChange={setQ}
+          searchPlaceholder="Search summary or actor…"
+          activeFilters={chipFilters}
+          onFiltersChange={(next) => {
+            // Trim multi-selections for single-select actor/entity groups.
+            const trimmed = { ...next };
+            for (const key of ["actor", "entity"]) {
+              const vals = trimmed[key];
+              if (vals && vals.length > 1) trimmed[key] = [vals[vals.length - 1]];
+            }
+            setChipFilters(trimmed);
+          }}
+          filterGroups={[
+            {
+              id: "actor",
+              label: "Actor",
+              multi: false,
+              options: [
+                { value: "human", label: "Human" },
+                { value: "ai_agent", label: "AI agent" },
+                { value: "system", label: "System" },
+              ],
+            },
+            {
+              id: "entity",
+              label: "Entity",
+              multi: false,
+              options: ENTITY_TYPES.map((t) => ({ value: t, label: t })),
+            },
+          ]}
+        />
 
-          <Select value={entityType} onValueChange={(v) => resetFilters(() => setEntityType(v))}>
-            <SelectTrigger>
-              <SelectValue placeholder="Entity type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All entities</SelectItem>
-              {ENTITY_TYPES.map((t) => (
-                <SelectItem key={t} value={t}>{t}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
+        {/* Secondary controls: action-contains substring + date range. */}
+        <div className="bg-white rounded-xl border border-gray-200 p-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
             <Input
               type="text"
               placeholder="Action contains…"
               value={actionLike}
-              onChange={(e) => resetFilters(() => setActionLike(e.target.value))}
+              onChange={(e) => setActionLike(e.target.value)}
               className="pl-8 h-9"
             />
           </div>
-
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-            <Input
-              type="text"
-              placeholder="Search summary or actor…"
-              value={q}
-              onChange={(e) => resetFilters(() => setQ(e.target.value))}
-              className="pl-8 h-9"
-            />
-          </div>
-
           <label className="flex flex-col gap-1">
             <span className="text-[11px] font-medium text-gray-600">From</span>
             <Input
               type="date"
               value={since}
-              onChange={(e) => resetFilters(() => setSince(e.target.value))}
+              onChange={(e) => setSince(e.target.value)}
               className="h-9"
             />
           </label>
@@ -240,7 +243,7 @@ export default function AdminAuditLogPage() {
             <Input
               type="date"
               value={until}
-              onChange={(e) => resetFilters(() => setUntil(e.target.value))}
+              onChange={(e) => setUntil(e.target.value)}
               className="h-9"
             />
           </label>

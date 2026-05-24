@@ -1,8 +1,10 @@
 import { usePageTitle } from "@/hooks/usePageTitle";
-import { useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import AdminLayout from "@/components/admin/AdminLayout";
+import ListSearchAndFilters from "@/components/admin/ListSearchAndFilters";
+import { useListUrlState } from "@/components/admin/useListUrlState";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,7 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Search, Download, Tag as TagIcon, Archive, UserCheck } from "lucide-react";
+import { Plus, Download, Tag as TagIcon, Archive, UserCheck } from "lucide-react";
 import { csvDownload, todayIso } from "@/lib/csvDownload";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -66,8 +68,20 @@ export default function ClientsPage() {
   const queryClient = useQueryClient();
   const [, navigate] = useLocation();
   const { toast } = useToast();
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  /* URL-persisted search + filter chips. `status` drives the existing
+   * server-side query (single-select). `source` is a client-side
+   * overlay applied on the fetched page. */
+  const { search: urlSearch, filters: urlFilters, setSearch: setUrlSearch, setFilters: setUrlFilters } =
+    useListUrlState(["status", "source"]);
+  const search = urlSearch;
+  const setSearch = setUrlSearch;
+  const statusFilter = urlFilters.status?.[0] ?? "all";
+  const setStatusFilter = (v: string) => {
+    const next = { ...urlFilters };
+    if (v === "all") delete next.status;
+    else next.status = [v];
+    setUrlFilters(next);
+  };
   const [showAdd, setShowAdd] = useState(false);
   /** Set of selected client ids — drives the bulk-action toolbar.
    *  Cleared whenever the underlying list refetches (filters change /
@@ -259,7 +273,26 @@ export default function ClientsPage() {
     setSelectedIds(new Set());
   }, [search, statusFilter]);
 
-  const allVisibleIds = (data?.data ?? []).map((c) => c.id);
+  // Client-side overlay filter on top of server response (currently:
+  // `source` chip group). Server already narrows by search + status.
+  const sourceFilter = urlFilters.source ?? [];
+  const visibleRows = useMemo(() => {
+    const rows = data?.data ?? [];
+    if (sourceFilter.length === 0) return rows;
+    return rows.filter((c) => sourceFilter.includes(c.source ?? "unknown"));
+  }, [data?.data, sourceFilter]);
+
+  // Build a count map for source chips off the raw page rows.
+  const sourceCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const c of data?.data ?? []) {
+      const s = c.source ?? "unknown";
+      counts[s] = (counts[s] ?? 0) + 1;
+    }
+    return counts;
+  }, [data?.data]);
+
+  const allVisibleIds = visibleRows.map((c) => c.id);
   const allSelected = allVisibleIds.length > 0 && allVisibleIds.every((id) => selectedIds.has(id));
   const toggleAll = () => {
     if (allSelected) setSelectedIds(new Set());
@@ -318,31 +351,46 @@ export default function ClientsPage() {
           </div>
         </div>
 
-        {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <Input
-              placeholder="Search by name, email..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full sm:w-[140px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All statuses</SelectItem>
-              <SelectItem value="lead">Lead</SelectItem>
-              <SelectItem value="onboarding">Onboarding</SelectItem>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="paused">Paused</SelectItem>
-              <SelectItem value="churned">Churned</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        {/* Unified search + filter chips. Status drives the server query;
+            Source filters the in-memory page. URL-persisted. */}
+        <ListSearchAndFilters
+          search={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Search by name, email, phone…"
+          activeFilters={urlFilters}
+          onFiltersChange={(next) => {
+            // Status is single-select on the server; trim any extras.
+            const trimmed = { ...next };
+            if (trimmed.status && trimmed.status.length > 1) {
+              trimmed.status = [trimmed.status[trimmed.status.length - 1]];
+            }
+            setUrlFilters(trimmed);
+          }}
+          filterGroups={[
+            {
+              id: "status",
+              label: "Status",
+              multi: false,
+              options: [
+                { value: "lead", label: "Lead" },
+                { value: "onboarding", label: "Onboarding" },
+                { value: "active", label: "Active" },
+                { value: "paused", label: "Paused" },
+                { value: "churned", label: "Churned" },
+              ],
+            },
+            {
+              id: "source",
+              label: "Source",
+              options: Object.entries(sourceCounts).map(([value, count]) => ({
+                value,
+                label: value.charAt(0).toUpperCase() + value.slice(1),
+                count,
+              })),
+            },
+          ]}
+        />
+
 
         {/* Bulk-action toolbar — only renders when at least one row
             is selected. Shadows when the user scrolls so it stays
@@ -445,18 +493,18 @@ export default function ClientsPage() {
                     <TableCell><Skeleton className="h-7 w-24" /></TableCell>
                   </TableRow>
                 ))
-              ) : data?.data.length === 0 ? (
+              ) : visibleRows.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center py-8 text-gray-500">
-                    {search ? (
-                      "No clients match your search."
+                    {search || sourceFilter.length > 0 || statusFilter !== "all" ? (
+                      "No clients match your search or filters."
                     ) : (
                       <>No clients yet. <button type="button" onClick={() => setShowAdd(true)} className="underline text-[var(--brand-blue,#0d3cfc)]">Add Client</button> to create your first one.</>
                     )}
                   </TableCell>
                 </TableRow>
               ) : (
-                data?.data.map((client) => (
+                visibleRows.map((client) => (
                   /* Entire row is a clickable surface that navigates to the
                    * client's profile. Checkbox + Actions cells stop
                    * propagation so toggling/impersonating doesn't trigger

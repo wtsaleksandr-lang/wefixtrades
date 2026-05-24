@@ -1,9 +1,12 @@
 import { usePageTitle } from "@/hooks/usePageTitle";
-import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import AdminLayout from "@/components/admin/AdminLayout";
-import { Loader2, Search, ChevronRight, MessageSquare } from "lucide-react";
+import { Loader2, ChevronRight, MessageSquare } from "lucide-react";
+import ListSearchAndFilters from "@/components/admin/ListSearchAndFilters";
+import { useListUrlState } from "@/components/admin/useListUrlState";
+
+const SUPPORT_FILTER_KEYS = ["status", "priority", "category"];
 
 /* ─── Types ─── */
 interface TicketRow {
@@ -107,10 +110,19 @@ function timeAgo(d: string | null): string {
 /* ─── Main Page ─── */
 export default function SupportInboxPage() {
   usePageTitle("Support");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [priorityFilter, setPriorityFilter] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("");
-  const [search, setSearch] = useState("");
+  /* URL-persisted state. The status tabs above the search row still
+   * exist for at-a-glance counts and remain the canonical status
+   * driver; setting status from the chips keeps them in sync. */
+  const { search, filters, setSearch, setFilters } = useListUrlState(SUPPORT_FILTER_KEYS);
+  const statusFilter = filters.status?.[0] ?? "";
+  const priorityFilter = filters.priority?.[0] ?? "";
+  const categoryFilter = filters.category?.[0] ?? "";
+  const setStatusFilter = (v: string) => {
+    const next = { ...filters };
+    if (!v) delete next.status;
+    else next.status = [v];
+    setFilters(next);
+  };
 
   const { data: counts } = useQuery<TicketCounts>({
     queryKey: ["/api/admin/crm/support/tickets/counts"],
@@ -179,36 +191,44 @@ export default function SupportInboxPage() {
           })}
         </div>
 
-        {/* Filters row */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="relative flex-1 min-w-[200px] max-w-xs">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search tickets..."
-              className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue bg-white"
-            />
-          </div>
-          <select
-            value={priorityFilter}
-            onChange={(e) => setPriorityFilter(e.target.value)}
-            className="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue"
-          >
-            {PRIORITY_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
-          <select
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
-            className="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue"
-          >
-            {CATEGORY_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
-        </div>
+        {/* Unified search + chip filters. Priority + category are
+            single-select chips; they sync with the server query via
+            the URL-persisted filter map. */}
+        <ListSearchAndFilters
+          search={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Search tickets by subject, body, client…"
+          activeFilters={filters}
+          onFiltersChange={(next) => {
+            // Trim multi-selections for single-select groups.
+            const trimmed = { ...next };
+            for (const key of ["priority", "category"]) {
+              const vals = trimmed[key];
+              if (vals && vals.length > 1) trimmed[key] = [vals[vals.length - 1]];
+            }
+            setFilters(trimmed);
+          }}
+          filterGroups={[
+            {
+              id: "priority",
+              label: "Priority",
+              multi: false,
+              options: PRIORITY_OPTIONS.filter((o) => o.value !== "").map((o) => ({
+                value: o.value,
+                label: o.label,
+              })),
+            },
+            {
+              id: "category",
+              label: "Category",
+              multi: false,
+              options: CATEGORY_OPTIONS.filter((o) => o.value !== "").map((o) => ({
+                value: o.value,
+                label: o.label,
+              })),
+            },
+          ]}
+        />
 
         {/* Ticket list */}
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
