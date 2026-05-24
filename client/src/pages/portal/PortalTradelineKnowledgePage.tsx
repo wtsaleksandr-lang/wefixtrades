@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Tabs,
   TabsContent,
@@ -38,6 +39,8 @@ import {
   Eye,
   BookOpen,
   X,
+  AlertCircle,
+  RotateCw,
 } from "lucide-react";
 
 type Kind = "faq" | "service" | "policy" | "pricing" | "doc";
@@ -77,6 +80,9 @@ export default function PortalTradelineKnowledgePage() {
     queryKey: ["/api/portal/tradeline/knowledge"],
     queryFn: () => api("/api/portal/tradeline/knowledge"),
   });
+  const isLoading = entriesQ.isLoading;
+  const isError = entriesQ.isError;
+  const totalEntries = entriesQ.data?.entries?.length ?? 0;
 
   const saveMut = useMutation({
     mutationFn: async (data: Partial<Entry> & { id?: string }) => {
@@ -174,6 +180,88 @@ export default function PortalTradelineKnowledgePage() {
           </div>
         </div>
 
+        {/* Help cue — top-left, muted, per design-system rule. */}
+        <p className="text-xs text-gray-500">
+          Tip: organize by kind (FAQ, Service, Policy…) and raise priority on entries the AI should quote verbatim.
+        </p>
+
+        {/* Loading — skeleton grid that matches the live layout so the
+            page doesn't reflow when data lands. */}
+        {isLoading && (
+          <div className="space-y-4" aria-busy="true" aria-label="Loading knowledge entries">
+            <div className="flex gap-2">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Skeleton key={i} className="h-9 w-24 rounded-md" />
+              ))}
+            </div>
+            <div className="space-y-2 mt-4">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Card key={i} className="p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 space-y-2">
+                      <Skeleton className="h-4 w-48" />
+                      <Skeleton className="h-3 w-full" />
+                      <Skeleton className="h-3 w-3/4" />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <Skeleton className="h-8 w-8" />
+                      <Skeleton className="h-8 w-8" />
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Error — clear message + retry. */}
+        {isError && !isLoading && (
+          <Card className="p-6 bg-red-50 border-red-200">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-red-800">Couldn't load your knowledge base</p>
+                <p className="text-xs text-red-700 mt-1">
+                  {(entriesQ.error as Error | null)?.message ?? "The server didn't respond as expected."}
+                </p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="mt-3"
+                  onClick={() => entriesQ.refetch()}
+                  disabled={entriesQ.isFetching}
+                  data-testid="button-retry-kb"
+                >
+                  <RotateCw className={`w-3.5 h-3.5 mr-1.5 ${entriesQ.isFetching ? "animate-spin" : ""}`} />
+                  Retry
+                </Button>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {/* Empty — surfaced once, before the tab UI, when nothing has been
+            created yet. Per-kind empty states still show inside each tab. */}
+        {!isLoading && !isError && totalEntries === 0 && (
+          <Card className="p-10 text-center">
+            <BookOpen className="w-8 h-8 text-gray-300 mx-auto mb-3" />
+            <p className="text-sm font-medium text-gray-700">No knowledge entries yet</p>
+            <p className="text-xs text-gray-500 mt-1 mb-4">
+              Add your first entry — FAQs, services, or pricing notes the AI should know about your business.
+            </p>
+            <Button
+              onClick={() => {
+                setCreating(true);
+                setEditing({ id: "", kind: activeKind, title: "", content: "", priority: 0, status: "active" });
+              }}
+              data-testid="button-empty-add-entry"
+            >
+              <Plus className="w-4 h-4 mr-1" /> Add your first entry
+            </Button>
+          </Card>
+        )}
+
+        {!isLoading && !isError && totalEntries > 0 && (
         <Tabs value={activeKind} onValueChange={(v) => setActiveKind(v as Kind)}>
           <TabsList>
             {(Object.keys(KIND_LABEL) as Kind[]).map((k) => (
@@ -226,6 +314,7 @@ export default function PortalTradelineKnowledgePage() {
             </TabsContent>
           ))}
         </Tabs>
+        )}
 
         {/* Edit / Create dialog */}
         <Dialog open={!!editing} onOpenChange={(open) => { if (!open) { setEditing(null); setCreating(false); } }}>
