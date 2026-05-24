@@ -135,6 +135,23 @@ function buildCachedSystem(text: string) {
   return [{ type: "text" as const, text, cache_control: { type: "ephemeral" as const } } as any];
 }
 
+/**
+ * Add cache_control: ephemeral to the LAST tool definition in the array.
+ * Anthropic caches every block up through (and including) the last block
+ * carrying a cache_control marker — so marking just the trailing tool
+ * caches the entire tool schema. Saves ~15-25% input tokens on multi-turn
+ * loops where the tools array is large and unchanged across steps.
+ *
+ * Returns a NEW array (does not mutate the caller's tool list).
+ */
+function withCachedTools(tools: Anthropic.Tool[] | undefined): any[] | undefined {
+  if (!tools?.length) return tools as any;
+  const out = tools.slice() as any[];
+  const last = out[out.length - 1];
+  out[out.length - 1] = { ...last, cache_control: { type: "ephemeral" as const } };
+  return out;
+}
+
 export function extractToolUses(content: Array<{ type: string; [k: string]: any }>) {
   const out: Array<{ id: string; name: string; input: Record<string, unknown> }> = [];
   for (const block of content) {
@@ -234,7 +251,7 @@ export async function runAgentLoopCore(
         max_tokens: maxTokens,
         system: buildCachedSystem(input.systemPrompt),
         messages: conversation,
-        tools: input.tools as any,
+        tools: withCachedTools(input.tools) as any,
       });
       deps.recordCircuitSuccess();
     } catch (err: any) {

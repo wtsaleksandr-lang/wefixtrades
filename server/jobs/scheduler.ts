@@ -63,6 +63,7 @@ import { runSharedFilesRetentionSweep } from "./sharedFilesRetentionSweepWorker"
 import { processInvoiceOverdue } from "./invoiceOverdueWorker";
 import { runBingIndexingTick } from "../cron/seoIndexing";
 import { runDailyDigest } from "../cron/dailyDigest";
+import { runAiBudgetAlerts } from "../cron/aiBudgetAlerts";
 import {
   runDailyPostTick as runGbpDailyPostTick,
   runReviewMonitorTick as runGbpReviewMonitorTick,
@@ -1070,6 +1071,27 @@ export function initScheduler() {
       log.error("gbp_hours_sync cron handler error", { error: err.message });
     } finally {
       gbpHoursSyncRunning = false;
+    }
+  }, { timezone: "UTC" });
+
+  // W-AX-3 — AI budget threshold alerts. Every 2 hours at minute :19
+  // (off-minute, off-hour to avoid pile-up). Reads ai_system_gates rows
+  // with alert_threshold_pct set, fires a Sentry + system_alerts row at
+  // each crossed tier (50% / 80% / 100%) that isn't yet in alerts_sent.
+  // Overlap-guarded; per-tier dedupe is persisted on the row.
+  let aiBudgetAlertsRunning = false;
+  cron.schedule("19 */2 * * *", async () => {
+    if (aiBudgetAlertsRunning) {
+      log.debug("ai_budget_alerts skipped — previous tick still running");
+      return;
+    }
+    aiBudgetAlertsRunning = true;
+    try {
+      await runJob("ai_budget_alerts", runAiBudgetAlerts);
+    } catch (err: any) {
+      log.error("ai_budget_alerts cron handler error", { error: err.message });
+    } finally {
+      aiBudgetAlertsRunning = false;
     }
   }, { timezone: "UTC" });
 }

@@ -2,7 +2,10 @@ import Anthropic from "@anthropic-ai/sdk";
 import { createLogger } from "../lib/logger";
 import { aiGateAllowed, recordAiSpend } from "./aiSystemGate";
 import { logUsage } from "./usageTracker";
-import { estimateCostMicroCents } from "./aiPricing";
+import { estimateCostMicroCents, rateForModel } from "./aiPricing";
+import { db } from "../db";
+import { aiSystemGates } from "@shared/schema";
+import { eq } from "drizzle-orm";
 
 const log = createLogger("AIService");
 
@@ -192,6 +195,73 @@ function buildCachedSystem(systemText: string): any {
   return [{ type: "text", text: systemText, cache_control: { type: "ephemeral" } } as any];
 }
 
+/* ─── Pre-flight budget estimate (W-AX-3) ───
+ *
+ * Generalises the QuoteQuick pre-flight pattern (see
+ * services/quotequickAiBudget.ts > estimateCallCost) to every surface that
+ * passes `opts.surface` into chat(). The existing aiGateAllowed() check is
+ * post-hoc: it stops the next call AFTER monthly_spent_cents has already
+ * met the cap. That means the call that crosses the cap still runs — and
+ * with Sonnet/Opus runs costing 100-1000× a Haiku call, the overshoot can
+ * be material.
+ *
+ * The pre-flight check projects this call's cost from the (system +
+ * messages) input token estimate and compares (monthly_spent + projected)
+ * against monthly_budget. If it would cross, we gate-deny BEFORE the API
+ * call. The post-hoc cap in aiSystemGate stays as a safety net for the
+ * case where our estimate undershoots actual usage.
+ *
+ * Fail-open: any DB / pricing error here ALLOWS the call to proceed. The
+ * post-hoc cap will still catch genuine over-budget overruns on the next
+ * call. Better to let one call through than break every gated surface
+ * because the gates table read failed.
+ */
+
+/** Coarse heuristic: 1 token ≈ 4 chars for English-ish prose. Skews
+ *  conservative (slightly over-counts) so we under-issue rather than
+ *  over-spend. Matches the rule-of-thumb used in quotequickAiBudget. */
+function estimateInputTokens(systemText: string, messages: ChatMessage[]): number {
+  let chars = systemText.length;
+  for (const m of messages) chars += m.content.length;
+  // Add a small fixed overhead per message for role markers + structural JSON.
+  return Math.ceil(chars / 4) + messages.length * 4;
+}
+
+/** Project this call's cost in cents from the input-token estimate and a
+ *  default-output budget. Uses the canonical rateForModel() so per-1k
+ *  rates stay in sync with the post-hoc accounting. */
+function estimateCallCostCents(model: string, inputTokens: number, maxOutputTokens: number): number {
+  // Assume the model produces ~30% of its max output as a typical fill —
+  // conservative without being absurd. (For maxTokens=600 this gives ~180
+  // output tokens of projected cost.)
+  const projectedOutputTokens = Math.ceil(maxOutputTokens * 0.30);
+  const microCents = estimateCostMicroCents(model, inputTokens, projectedOutputTokens);
+  return microCents / 10_000;
+}
+
+/** Read one row from ai_system_gates for the surface. Returns null on
+ *  miss / error so the caller can fail-open. */
+async function readGateBudget(surface: string): Promise<{ spent: number; cap: number | null } | null> {
+  try {
+    const [row] = await db
+      .select({
+        monthly_spent_cents: aiSystemGates.monthly_spent_cents,
+        monthly_budget_cents: aiSystemGates.monthly_budget_cents,
+      })
+      .from(aiSystemGates)
+      .where(eq(aiSystemGates.surface, surface))
+      .limit(1);
+    if (!row) return null;
+    return {
+      spent: row.monthly_spent_cents ?? 0,
+      cap: row.monthly_budget_cents ?? null,
+    };
+  } catch (err: any) {
+    log.warn("pre-flight gate read failed — fail-open", { surface, error: err?.message });
+    return null;
+  }
+}
+
 /* ─── Streaming chat (returns Anthropic stream, caller handles events) ─── */
 export function streamChat(opts: ChatOptions) {
   assertCircuitAllowsRequest();
@@ -223,6 +293,53 @@ export async function chat(opts: ChatOptions): Promise<string> {
   let lastError: Error | null = null;
   const model = opts.modelOverride || getModel();
   const tStart = Date.now();
+
+  /* W-AX-3: pre-flight budget projection. Runs only for surface-gated
+   * calls. Estimates this call's cost from the input-token heuristic and
+   * compares (monthly_spent + projected) against monthly_budget. If we'd
+   * cross the cap, deny BEFORE making the API call. The existing post-hoc
+   * cap in aiSystemGate stays as the safety net for estimate misses. */
+  if (opts.surface) {
+    const budget = await readGateBudget(opts.surface);
+    if (budget && budget.cap != null) {
+      const inputTokens = estimateInputTokens(opts.system, opts.messages);
+      const projectedCents = estimateCallCostCents(
+        model,
+        inputTokens,
+        opts.maxTokens || DEFAULT_MAX_TOKENS,
+      );
+      if (budget.spent + projectedCents > budget.cap) {
+        const rate = rateForModel(model);
+        log.warn("pre-flight budget gate denied", {
+          surface: opts.surface,
+          model,
+          spent_cents: budget.spent,
+          cap_cents: budget.cap,
+          projected_cents: Number(projectedCents.toFixed(4)),
+          input_tokens_est: inputTokens,
+          input_rate_per_1m: rate.input,
+        });
+        if (opts.surface) {
+          logUsage({
+            model,
+            surface: opts.surface as any,
+            provider: "anthropic",
+            channel: "chat",
+            userId: opts.userId,
+            sessionId: opts.sessionId,
+            latencyMs: 0,
+            success: false,
+            errorMessage: "pre_flight_budget_exceeded",
+          }).catch(() => {});
+        }
+        throw new Error(
+          `AI surface "${opts.surface}" would exceed its monthly budget on this call ` +
+          `(projected $${(projectedCents / 100).toFixed(4)} on top of $${(budget.spent / 100).toFixed(2)} ` +
+          `against a $${(budget.cap / 100).toFixed(2)} cap). Try again next month or raise the cap.`
+        );
+      }
+    }
+  }
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
