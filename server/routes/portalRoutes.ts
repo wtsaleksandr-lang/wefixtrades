@@ -56,7 +56,6 @@ import {
   socialsyncPosts,
   socialsyncPublishQueue,
   contentDrafts,
-  getTradeLineReadiness,
   mapOnboardingToTradeLineConfig,
   advanceSetupStage,
   parseNotificationPreferences,
@@ -93,6 +92,8 @@ import { saveFile, deleteFile } from "../services/fileStorage";
 import { registerPortalQuotequickRoutes } from "./portal/quotequick";
 import { registerPortalReputationRoutes } from "./portal/reputation";
 import { registerPortalBillingRoutes } from "./portal/billing";
+import { registerPortalServicesRoutes } from "./portal/services";
+import { registerPortalTradelineRoutes } from "./portal/tradeline";
 
 const log = createLogger("Portal");
 
@@ -132,6 +133,8 @@ export function registerPortalRoutes(app: Express) {
   registerPortalQuotequickRoutes(app);
   registerPortalReputationRoutes(app);
   registerPortalBillingRoutes(app);
+  registerPortalServicesRoutes(app);
+  registerPortalTradelineRoutes(app);
 
   /**
    * GET /api/portal/overview
@@ -202,203 +205,6 @@ export function registerPortalRoutes(app: Express) {
     } catch (err) {
       log.error("Portal overview error:", { error: String(err) });
       res.status(500).json({ error: "Failed to load overview" });
-    }
-  });
-
-  /**
-   * GET /api/portal/services
-   * List all services for the authenticated client.
-   */
-  app.get("/api/portal/services", requireClient, async (req: Request, res: Response) => {
-    try {
-      const clientId = await withClientId(req, res);
-      if (!clientId) return;
-
-      // Get client services joined with catalog
-      const services = await db
-        .select({
-          id: clientServices.id,
-          service_id: clientServices.service_id,
-          service_name: serviceCatalog.name,
-          category: serviceCatalog.category,
-          status: clientServices.status,
-          billing_period: clientServices.billing_period,
-          started_at: clientServices.started_at,
-          created_at: clientServices.created_at,
-        })
-        .from(clientServices)
-        .leftJoin(serviceCatalog, eq(clientServices.service_id, serviceCatalog.id))
-        .where(eq(clientServices.client_id, clientId))
-        .orderBy(desc(clientServices.created_at));
-
-      // For each service, get task counts + onboarding status
-      const enriched = await Promise.all(
-        services.map(async (svc) => {
-          const [taskCounts] = await db
-            .select({
-              total: sql<number>`count(*)::int`,
-              delivered: sql<number>`count(*) filter (where ${fulfillmentTasks.status} = 'delivered')::int`,
-            })
-            .from(fulfillmentTasks)
-            .where(eq(fulfillmentTasks.client_service_id, svc.id));
-
-          const [onboarding] = await db
-            .select({
-              id: onboardingSubmissions.id,
-              status: onboardingSubmissions.status,
-              responses: onboardingSubmissions.responses,
-            })
-            .from(onboardingSubmissions)
-            .where(eq(onboardingSubmissions.client_service_id, svc.id))
-            .limit(1);
-
-          // Check if draft responses exist
-          const hasResponses = onboarding?.responses != null
-            && typeof onboarding.responses === "object"
-            && Object.keys(onboarding.responses as Record<string, unknown>).length > 0;
-
-          return {
-            ...svc,
-            tasks_total: taskCounts?.total ?? 0,
-            tasks_delivered: taskCounts?.delivered ?? 0,
-            onboarding_id: onboarding?.id ?? null,
-            onboarding_status: onboarding?.status ?? null,
-            onboarding_has_responses: hasResponses,
-          };
-        })
-      );
-
-      res.json({ services: enriched });
-    } catch (err) {
-      log.error("Portal services error:", { error: String(err) });
-      res.status(500).json({ error: "Failed to load services" });
-    }
-  });
-
-  /**
-   * GET /api/portal/services/:id
-   * Single service detail with tasks, onboarding status, and payments.
-   */
-  app.get("/api/portal/services/:id", requireClient, async (req: Request, res: Response) => {
-    try {
-      const clientId = await withClientId(req, res);
-      if (!clientId) return;
-
-      const serviceId = parseInt(req.params.id as string);
-      if (isNaN(serviceId)) return res.status(400).json({ error: "Invalid service id" });
-
-      // Get service (scoped to client)
-      const [service] = await db
-        .select({
-          id: clientServices.id,
-          service_id: clientServices.service_id,
-          service_name: serviceCatalog.name,
-          category: serviceCatalog.category,
-          status: clientServices.status,
-          billing_period: clientServices.billing_period,
-          price_cents: clientServices.price_cents,
-          started_at: clientServices.started_at,
-          completed_at: clientServices.completed_at,
-          created_at: clientServices.created_at,
-        })
-        .from(clientServices)
-        .leftJoin(serviceCatalog, eq(clientServices.service_id, serviceCatalog.id))
-        .where(and(eq(clientServices.id, serviceId), eq(clientServices.client_id, clientId)))
-        .limit(1);
-
-      if (!service) return res.status(404).json({ error: "Service not found" });
-
-      // For AdFlow services, attach latest_report from metadata
-      let adflowMetrics: Record<string, any> | null = null;
-      if (service.service_id.startsWith("adflow")) {
-        const [csRow] = await db
-          .select({ metadata: clientServices.metadata })
-          .from(clientServices)
-          .where(eq(clientServices.id, serviceId))
-          .limit(1);
-        const meta = (csRow?.metadata as Record<string, any>) || {};
-        adflowMetrics = meta.latest_report || null;
-      }
-
-      // Tasks — client-safe fields only. `metadata` is selected here only so
-      // we can extract the WebFix post-fix before/after report (stored in
-      // task metadata, not as a real deliverable URL); it is NOT returned
-      // to the client — see safeTasks below, which strips it.
-      const tasks = await db
-        .select({
-          id: fulfillmentTasks.id,
-          title: fulfillmentTasks.title,
-          status: fulfillmentTasks.status,
-          waiting_on: fulfillmentTasks.waiting_on,
-          due_at: fulfillmentTasks.due_at,
-          completed_at: fulfillmentTasks.completed_at,
-          sort_order: fulfillmentTasks.sort_order,
-          deliverables: fulfillmentTasks.deliverables,
-          metadata: fulfillmentTasks.metadata,
-        })
-        .from(fulfillmentTasks)
-        .where(eq(fulfillmentTasks.client_service_id, serviceId))
-        .orderBy(fulfillmentTasks.sort_order);
-
-      // WebFix: surface the post-fix before/after audit report. It is
-      // stored in fulfillmentTask.metadata.post_audit (the deliverable row
-      // has an empty url), so without this it never reaches the portal.
-      let webfixAudit: Record<string, any> | null = null;
-      if (service.service_id.startsWith("webfix")) {
-        for (const t of tasks) {
-          const m = (t.metadata as Record<string, any>) || {};
-          if (m.post_audit) webfixAudit = m.post_audit;
-        }
-      }
-
-      // Filter waiting_on: only show if "client", otherwise null. Drop the
-      // internal `metadata` field — never exposed to the client.
-      const safeTasks = tasks.map(({ metadata: _internal, ...t }) => ({
-        ...t,
-        waiting_on: t.waiting_on === "client" ? "client" : null,
-      }));
-
-      // Onboarding submission status
-      const [onboarding] = await db
-        .select({
-          id: onboardingSubmissions.id,
-          status: onboardingSubmissions.status,
-          submitted_at: onboardingSubmissions.submitted_at,
-          approved_at: onboardingSubmissions.approved_at,
-        })
-        .from(onboardingSubmissions)
-        .where(eq(onboardingSubmissions.client_service_id, serviceId))
-        .limit(1);
-
-      // Payments for this service
-      const payments = await db
-        .select({
-          id: clientPayments.id,
-          type: clientPayments.type,
-          amount_cents: clientPayments.amount_cents,
-          status: clientPayments.status,
-          description: clientPayments.description,
-          period_start: clientPayments.period_start,
-          period_end: clientPayments.period_end,
-          due_at: clientPayments.due_at,
-          paid_at: clientPayments.paid_at,
-          created_at: clientPayments.created_at,
-        })
-        .from(clientPayments)
-        .where(eq(clientPayments.client_service_id, serviceId))
-        .orderBy(desc(clientPayments.created_at));
-
-      res.json({
-        service,
-        tasks: safeTasks,
-        onboarding: onboarding ?? null,
-        payments,
-        ...(adflowMetrics ? { adflow_metrics: adflowMetrics } : {}),
-        ...(webfixAudit ? { webfix_audit: webfixAudit } : {}),
-      });
-    } catch (err) {
-      log.error("Portal service detail error:", { error: String(err) });
-      res.status(500).json({ error: "Failed to load service detail" });
     }
   });
 
@@ -1113,33 +919,6 @@ export function registerPortalRoutes(app: Express) {
     }
   });
 
-  /* ═══════════════════════════════════════════
-     TradeLine
-     ═══════════════════════════════════════════ */
-
-  /** Verify a TradeLine client_service belongs to the authenticated client. */
-  async function verifyTradeLineOwnership(
-    req: Request,
-    res: Response,
-    clientServiceId: number,
-  ): Promise<{ clientId: number; clientServiceId: number } | null> {
-    const clientId = await withClientId(req, res);
-    if (!clientId) return null;
-
-    const [cs] = await db
-      .select({ id: clientServices.id, client_id: clientServices.client_id, service_id: clientServices.service_id })
-      .from(clientServices)
-      .where(and(eq(clientServices.id, clientServiceId), eq(clientServices.client_id, clientId)))
-      .limit(1);
-
-    if (!cs || !cs.service_id.startsWith("tradeline")) {
-      res.status(404).json({ error: "TradeLine service not found" });
-      return null;
-    }
-
-    return { clientId, clientServiceId: cs.id };
-  }
-
   /**
    * POST /api/portal/tickets/:id/messages
    * Add a customer reply to an existing ticket.
@@ -1844,157 +1623,6 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
     } catch (err: any) {
       log.error("[portal-ai/confirm] Execution error:", { error: err.message });
       return res.status(500).json({ error: err.message || "Tool execution failed" });
-    }
-  });
-
-  /**
-   * GET /api/portal/tradeline/:clientServiceId
-   * Returns TradeLine config, latest usage, and recent calls.
-   */
-  app.get("/api/portal/tradeline/:clientServiceId", requireClient, async (req: Request, res: Response) => {
-    try {
-      const csId = parseInt(req.params.clientServiceId as string);
-      if (isNaN(csId)) return res.status(400).json({ error: "Invalid service id" });
-
-      const ownership = await verifyTradeLineOwnership(req, res, csId);
-      if (!ownership) return;
-
-      const [config, usage, calls] = await Promise.all([
-        storage.getTradeLineConfig(csId),
-        storage.getTradeLineUsage(csId),
-        storage.listTradeLineCalls(csId, 10),
-      ]);
-
-      res.json({
-        config: config ?? null,
-        usage: usage ?? null,
-        recentCalls: calls,
-        setupStage: config?.setupStage ?? "not_started",
-        readiness: config ? getTradeLineReadiness(config) : null,
-        assistantStatus: config?.assistant?.status ?? "not_built",
-      });
-    } catch (err) {
-      log.error("Portal tradeline GET error:", { error: String(err) });
-      res.status(500).json({ error: "Failed to load TradeLine data" });
-    }
-  });
-
-  /**
-   * POST /api/portal/tradeline/:clientServiceId/mode
-   * Switch TradeLine mode (available / on_the_job / after_hours).
-   */
-  app.post("/api/portal/tradeline/:clientServiceId/mode", requireClient, async (req: Request, res: Response) => {
-    try {
-      const csId = parseInt(req.params.clientServiceId as string);
-      if (isNaN(csId)) return res.status(400).json({ error: "Invalid service id" });
-
-      const ownership = await verifyTradeLineOwnership(req, res, csId);
-      if (!ownership) return;
-
-      const { newMode } = req.body;
-      const validModes = ["available", "on_the_job", "after_hours"];
-      if (!newMode || !validModes.includes(newMode)) {
-        return res.status(400).json({ error: "newMode must be one of: available, on_the_job, after_hours" });
-      }
-
-      const modeLog = await storage.setTradeLineMode(csId, newMode, "client", "Manual switch by client");
-      const config = await storage.getTradeLineConfig(csId);
-
-      res.json({ config, modeLog });
-    } catch (err) {
-      log.error("Portal tradeline mode error:", { error: String(err) });
-      res.status(500).json({ error: "Failed to update mode" });
-    }
-  });
-
-  /**
-   * POST /api/portal/tradeline/:clientServiceId/settings
-   * Client-facing config update for voice, personality, and widget style.
-   * Only allows updating curated fields — not raw config.
-   */
-  app.post("/api/portal/tradeline/:clientServiceId/settings", requireClient, async (req: Request, res: Response) => {
-    try {
-      const csId = parseInt(req.params.clientServiceId as string);
-      if (isNaN(csId)) return res.status(400).json({ error: "Invalid service id" });
-
-      const ownership = await verifyTradeLineOwnership(req, res, csId);
-      if (!ownership) return;
-
-      const { voice, personality, widgetStyle, businessHours, notifications } = req.body;
-      const update: Record<string, any> = {};
-
-      if (voice && typeof voice === "object") update.voice = voice;
-      if (personality && typeof personality === "object") update.personality = personality;
-      if (widgetStyle && typeof widgetStyle === "object") update.widgetStyle = widgetStyle;
-      if (businessHours && typeof businessHours === "object") update.businessHours = businessHours;
-      if (notifications && typeof notifications === "object") update.notifications = notifications;
-
-      if (Object.keys(update).length === 0) {
-        return res.status(400).json({ error: "No valid settings provided" });
-      }
-
-      const config = await storage.updateTradeLineConfig(csId, update);
-      res.json({ config });
-    } catch (err) {
-      log.error("Portal tradeline settings error:", { error: String(err) });
-      res.status(500).json({ error: "Failed to update settings" });
-    }
-  });
-
-  /**
-   * GET /api/portal/tradeline/:clientServiceId/calls
-   * Paginated call log list.
-   */
-  app.get("/api/portal/tradeline/:clientServiceId/calls", requireClient, async (req: Request, res: Response) => {
-    try {
-      const csId = parseInt(req.params.clientServiceId as string);
-      if (isNaN(csId)) return res.status(400).json({ error: "Invalid service id" });
-
-      const ownership = await verifyTradeLineOwnership(req, res, csId);
-      if (!ownership) return;
-
-      const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 25));
-      const calls = await storage.listTradeLineCalls(csId, limit);
-
-      res.json({ calls });
-    } catch (err) {
-      log.error("Portal tradeline calls error:", { error: String(err) });
-      res.status(500).json({ error: "Failed to load call log" });
-    }
-  });
-
-  /**
-   * GET /api/portal/tradeline/:clientServiceId/widget-config
-   * Minimal config payload for future widget embed / hosted fallback.
-   */
-  app.get("/api/portal/tradeline/:clientServiceId/widget-config", requireClient, async (req: Request, res: Response) => {
-    try {
-      const csId = parseInt(req.params.clientServiceId as string);
-      if (isNaN(csId)) return res.status(400).json({ error: "Invalid service id" });
-
-      const ownership = await verifyTradeLineOwnership(req, res, csId);
-      if (!ownership) return;
-
-      const config = await storage.getTradeLineConfig(csId);
-      if (!config) return res.status(404).json({ error: "TradeLine not configured" });
-
-      // Get business name from client record
-      const [client] = await db
-        .select({ business_name: clients.business_name })
-        .from(clients)
-        .where(eq(clients.id, ownership.clientId))
-        .limit(1);
-
-      res.json({
-        channels: config.channels,
-        embedMode: config.website.embedMode,
-        hostedUrl: config.website.hostedUrl || null,
-        businessName: client?.business_name ?? null,
-        mode: config.currentMode,
-      });
-    } catch (err) {
-      log.error("Portal tradeline widget-config error:", { error: String(err) });
-      res.status(500).json({ error: "Failed to load widget config" });
     }
   });
 
@@ -3785,59 +3413,6 @@ Respond with ONLY valid JSON, no markdown fences, no explanation.`,
     } catch (err: any) {
       log.error("[portal/task-revision] Error:", { error: err.message });
       res.status(500).json({ error: "Failed to request revision" });
-    }
-  });
-
-  /* ═══════════════════════════════════════════
-     WebCare Uptime History
-     ═══════════════════════════════════════════ */
-
-  /**
-   * GET /api/portal/services/:id/uptime
-   * Returns uptime history from the client_service metadata for WebCare services.
-   */
-  app.get("/api/portal/services/:id/uptime", requireClient, async (req: Request, res: Response) => {
-    try {
-      const clientId = await withClientId(req, res);
-      if (!clientId) return;
-
-      const serviceId = parseInt(req.params.id as string);
-      if (isNaN(serviceId)) return res.status(400).json({ error: "Invalid service id" });
-
-      // Verify service belongs to this client and is a WebCare service
-      const [svc] = await db
-        .select({
-          id: clientServices.id,
-          service_id: clientServices.service_id,
-          metadata: clientServices.metadata,
-        })
-        .from(clientServices)
-        .where(and(eq(clientServices.id, serviceId), eq(clientServices.client_id, clientId)))
-        .limit(1);
-
-      if (!svc) return res.status(404).json({ error: "Service not found" });
-      if (!svc.service_id.startsWith("webcare")) {
-        return res.status(400).json({ error: "Uptime history is only available for WebCare services" });
-      }
-
-      const meta = (svc.metadata as Record<string, any>) || {};
-      const history = Array.isArray(meta.uptime_history) ? meta.uptime_history : [];
-
-      // Calculate uptime percentage over the available history
-      const totalChecks = history.length;
-      const upChecks = history.filter((e: any) => e.status === "up").length;
-      const uptimePercent = totalChecks > 0 ? Math.round((upChecks / totalChecks) * 10000) / 100 : 100;
-
-      res.json({
-        uptime_percent: uptimePercent,
-        total_checks: totalChecks,
-        up_checks: upChecks,
-        down_checks: totalChecks - upChecks,
-        history,
-      });
-    } catch (err: any) {
-      log.error("[portal/uptime] Error:", { error: err.message });
-      res.status(500).json({ error: "Failed to load uptime history" });
     }
   });
 
