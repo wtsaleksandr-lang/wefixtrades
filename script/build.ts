@@ -35,10 +35,10 @@ const allowlist = [
 
 /**
  * SEO Wave E — per-route prerender step. Runs after the Vite client
- * build so the rendered dist/public is ready to serve, and before
- * the esbuild server bundle so a prerender failure aborts the whole
- * build (we'd rather catch a busted SEO step here than ship a build
- * where every URL is a duplicate-of-/ to Bing/LLM crawlers).
+ * build so the rendered dist/public is ready to serve. Non-fatal:
+ * if Playwright/Chromium is unavailable in the build environment
+ * (missing libglib-2.0.so.0 etc.) we warn and continue rather than
+ * aborting the whole deployment.
  *
  * Skip with SKIP_PRERENDER=1 for quick iteration on the server side.
  */
@@ -48,16 +48,23 @@ async function prerenderRoutes(): Promise<void> {
     return;
   }
   console.log("prerendering routes for Bing/LLM crawlers...");
-  await new Promise<void>((resolve, reject) => {
+  await new Promise<void>((resolve) => {
     const child = spawn(
       process.execPath,
       ["scripts/seo/prerender-routes.mjs"],
       { stdio: "inherit" },
     );
-    child.on("error", reject);
+    child.on("error", (err) => {
+      console.warn(`[build] prerender spawn error (non-fatal): ${err.message}`);
+      resolve();
+    });
     child.on("exit", (code) => {
-      if (code === 0) resolve();
-      else reject(new Error(`prerender exited with code ${code}`));
+      if (code === 0) {
+        resolve();
+      } else {
+        console.warn(`[build] prerender exited with code ${code} — skipping (non-fatal). Set SKIP_PRERENDER=1 to suppress this warning.`);
+        resolve();
+      }
     });
   });
 }
