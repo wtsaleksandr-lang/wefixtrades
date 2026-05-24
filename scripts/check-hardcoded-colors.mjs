@@ -37,7 +37,6 @@ const WRITE_BASELINE = process.argv.includes("--write-baseline");
 // Only add files here when you're SURE they don't need theme-aware colors.
 // Brand assets, visual effects, contrast fallback library, and tests.
 const ALLOWLIST = new Set([
-  "client/src/components/marketing/AnimatedLogo.tsx",
   "client/src/components/quote-widget/PremiumAnimations.tsx",
   "client/src/lib/contrastGuard.ts",
 ]);

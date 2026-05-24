@@ -8,10 +8,8 @@ client/src/components/admin/AdminLayout.tsx:1218:25	rule-c	square w-7 h-7
 client/src/components/admin/MapguardTaskCard.tsx:189:17	rule-c	square w-7 h-7
 client/src/components/admin/ServiceOps.tsx:47:12	rule-c	square w-7 h-7
 client/src/components/admin/TaskCard.tsx:442:14	rule-c	square w-10 h-10
-client/src/components/booking/BookNowButton.tsx:127:12	rule-c	square w-12 h-12
 client/src/components/home/TrustStrip.tsx:88:19	rule-c	square w-1.5 h-1.5
 client/src/components/marketing/FeatureCards.tsx:110:13	rule-c	<svg width={52} height={52}>
-client/src/components/marketing/TradelineAgentGrid.tsx:140:9	rule-c	square w-10 h-10
 client/src/components/marketing/showcase/MultiTieredSupport.tsx:44:28	rule-c	size={36}
 client/src/components/marketing/showcase/MultiTieredSupport.tsx:59:31	rule-c	size={28}
 client/src/components/marketing/showcase/MultiTieredSupport.tsx:71:36	rule-c	size={26}
