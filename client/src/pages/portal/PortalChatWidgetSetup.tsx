@@ -23,7 +23,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Copy, Check, ExternalLink, Wrench, Power } from "lucide-react";
+import { Copy, Check, ExternalLink, Wrench, Power, Eye } from "lucide-react";
+import {
+  TRADELINE_WIDGET_STYLES,
+  type TradelineWidgetStyle,
+} from "@/components/tradeline/widgetStyles";
+import WidgetStylePreviewModal from "@/components/tradeline/WidgetStylePreviewModal";
 
 interface WidgetSite {
   id: number;
@@ -58,6 +63,10 @@ export default function PortalChatWidgetSetup() {
 
   const [draft, setDraft] = useState<Partial<WidgetSite>>({});
   const [copied, setCopied] = useState(false);
+  /* Currently-previewed style preset (null = modal closed). The picker only
+   * persists the accent color today — the rest of the preset is purely a
+   * visual companion shown in the preview surface. */
+  const [previewStyle, setPreviewStyle] = useState<TradelineWidgetStyle | null>(null);
 
   useEffect(() => {
     if (state.data?.site && Object.keys(draft).length === 0) {
@@ -288,6 +297,75 @@ export default function PortalChatWidgetSetup() {
             </Button>
           </div>
         </Card>
+
+        <Card className="p-5 space-y-3">
+          <div>
+            <h2 className="font-semibold text-gray-900">Style presets</h2>
+            <p className="text-xs text-gray-600 mt-0.5">
+              Pick a curated look. Preview shows the live chat widget rendered with
+              the preset and sample business data. Applying a preset updates your
+              accent color — fine-tune anything else in the Customization card above.
+            </p>
+          </div>
+          <ul className="divide-y divide-gray-200 border border-gray-200 rounded-lg overflow-hidden">
+            {TRADELINE_WIDGET_STYLES.map((preset) => {
+              const selected =
+                ((draft.accent_color as string) || DEFAULT_ACCENT).toLowerCase() ===
+                preset.accentColor.toLowerCase();
+              return (
+                <li
+                  key={preset.id}
+                  className="flex items-center gap-3 px-4 py-3 bg-white"
+                >
+                  <span
+                    aria-hidden
+                    className="w-8 h-8 rounded-md border border-gray-200 flex-shrink-0"
+                    style={{ background: preset.accentColor }}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold text-gray-900 truncate">
+                        {preset.name}
+                      </p>
+                      {selected && (
+                        <Badge
+                          variant="outline"
+                          className="bg-emerald-50 border-emerald-200 text-emerald-800 text-[10px] px-1.5 py-0"
+                        >
+                          Current
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-600 truncate">{preset.description}</p>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setPreviewStyle(preset)}
+                    aria-label={`Preview ${preset.name} style`}
+                  >
+                    <Eye className="w-3.5 h-3.5 mr-1.5" />
+                    Preview
+                  </Button>
+                </li>
+              );
+            })}
+          </ul>
+        </Card>
+
+        {previewStyle && (
+          <WidgetStylePreviewModal
+            style={previewStyle}
+            open
+            onClose={() => setPreviewStyle(null)}
+            onApply={(s) => {
+              setDraft((d) => ({ ...d, accent_color: s.accentColor }));
+              patch.mutate({ accent_color: s.accentColor });
+              setPreviewStyle(null);
+            }}
+          />
+        )}
 
         <Card className="p-5">
           <h2 className="font-semibold text-gray-900 mb-2">Live preview</h2>

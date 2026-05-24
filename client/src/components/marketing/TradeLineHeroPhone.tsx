@@ -135,7 +135,18 @@ const T = {
  * further interaction. Spec: ~10s. */
 const MANUAL_PAUSE_MS = 10_000;
 
-export default function TradeLineHeroPhone() {
+interface TradeLineHeroPhoneProps {
+  /**
+   * Optional inline overrides for the `--tlhp-*` CSS custom properties
+   * defined on `.tlhp-wrap`. Used by the portal widget-style preview modal
+   * to live-retheme the phone without prop-plumbing every token. Inline
+   * styles win over the stylesheet rule for the same custom property, so
+   * any subset of vars can be passed here to re-skin the phone.
+   */
+  styleOverrides?: React.CSSProperties;
+}
+
+export default function TradeLineHeroPhone({ styleOverrides }: TradeLineHeroPhoneProps = {}) {
   const phoneRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   // Chat
@@ -547,7 +558,7 @@ export default function TradeLineHeroPhone() {
   };
 
   return (
-    <div data-theme="dark" className="tlhp-wrap">
+    <div data-theme="dark" className="tlhp-wrap" style={styleOverrides}>
       <style>{TLHP_CSS}</style>
 
       <div
