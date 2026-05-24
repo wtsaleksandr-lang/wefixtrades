@@ -21,11 +21,11 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&family=Syne:wght@700;800&family=DM+Mono:wght@400;500&family=Outfit:wght@300;400;500;600;700&family=Bebas+Neue&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Playfair+Display:wght@700;800;900&family=IBM+Plex+Sans:wght@400;500;600;700&family=Sora:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <!-- Wave L S3 — Geist Sans from cdn.jsdelivr (the Vercel font). Loaded
-         lazily; the FONT_FAMILY_STACKS map falls back to system-ui if it
-         fails to resolve. -->
-    <link href="https://cdn.jsdelivr.net/npm/geist-font@1.3.1/dist/geist-sans/style.css" rel="stylesheet">
-    <link href="https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,600,700,800,900&display=swap" rel="stylesheet">
+    <!-- Self-hosted Satoshi + Geist. @font-face declarations live in
+         client/src/index.css. Preload the most-critical weight (Satoshi 400
+         body text) so the first paint is hinted; remaining weights load
+         lazily via the stylesheet @font-face rules. -->
+    <link rel="preload" href="/fonts/satoshi-400.woff2" as="font" type="font/woff2" crossorigin>
   </head>
   <body>
     <div id="root"></div>

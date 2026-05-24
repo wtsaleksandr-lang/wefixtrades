@@ -2,6 +2,73 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Self-hosted Satoshi + Geist (was previously loaded from fontshare + jsdelivr,
+   which produced 3 site-wide console errors: fontshare CORS-blocked from
+   third-party CDN load context, jsdelivr Geist URL was ORB-blocked by Chrome
+   and the path was 404). Files live in /client/public/fonts and are served
+   same-origin. font-display: swap keeps FOUT, never FOIT. */
+@font-face {
+  font-family: "Satoshi";
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: url("/fonts/satoshi-300.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Satoshi";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/satoshi-400.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Satoshi";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/satoshi-500.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Satoshi";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/satoshi-700.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Satoshi";
+  font-style: normal;
+  font-weight: 900;
+  font-display: swap;
+  src: url("/fonts/satoshi-900.woff2") format("woff2");
+}
+/* Satoshi Variable alias — some surfaces request "Satoshi Variable" directly.
+   Browsers will pick the nearest static weight from the family above. */
+@font-face {
+  font-family: "Satoshi Variable";
+  font-style: normal;
+  font-weight: 300 900;
+  font-display: swap;
+  src: url("/fonts/satoshi-400.woff2") format("woff2");
+}
+/* Geist Sans — single variable file covers 100-900. */
+@font-face {
+  font-family: "Geist";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/fonts/geist-variable.woff2") format("woff2-variations"),
+       url("/fonts/geist-variable.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Geist Sans";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/fonts/geist-variable.woff2") format("woff2-variations"),
+       url("/fonts/geist-variable.woff2") format("woff2");
+}
+
 :root {
   --button-outline: rgba(0,0,0, .10);
   --badge-outline: rgba(0,0,0, .05);
