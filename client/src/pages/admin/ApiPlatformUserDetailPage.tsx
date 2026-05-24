@@ -47,8 +47,8 @@ import {
 const TIER_BADGE: Record<string, { label: string; bg: string; text: string }> = {
   free:    { label: "Dev",      bg: "bg-gray-100",   text: "text-gray-600" },
   starter: { label: "Starter",  bg: "bg-blue-50",    text: "text-blue-700" },
-  growth:  { label: "Growth",   bg: "bg-purple-50",  text: "text-purple-700" },
-  pro:     { label: "Pro",      bg: "bg-purple-50",  text: "text-purple-700" },
+  growth:  { label: "Growth",   bg: "bg-brand-blue-50",  text: "text-brand-blue-700" },
+  pro:     { label: "Pro",      bg: "bg-brand-blue-50",  text: "text-brand-blue-700" },
   scale:   { label: "Scale",    bg: "bg-amber-50",   text: "text-amber-700" },
   business:{ label: "Business", bg: "bg-amber-50",   text: "text-amber-700" },
   agency:  { label: "Agency",   bg: "bg-slate-100",  text: "text-slate-700" },

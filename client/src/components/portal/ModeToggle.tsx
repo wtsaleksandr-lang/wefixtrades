@@ -5,7 +5,7 @@ import { Loader2 } from "lucide-react";
 const MODES = [
   { value: "available", label: "Available", desc: "AI answers when you miss a call", color: "bg-emerald-500" },
   { value: "on_the_job", label: "On the Job", desc: "AI handles all calls and messages", color: "bg-amber-500" },
-  { value: "after_hours", label: "After Hours", desc: "AI takes messages until next business day", color: "bg-indigo-500" },
+  { value: "after_hours", label: "After Hours", desc: "AI takes messages until next business day", color: "bg-brand-blue-500" },
 ] as const;
 
 type Mode = (typeof MODES)[number]["value"];

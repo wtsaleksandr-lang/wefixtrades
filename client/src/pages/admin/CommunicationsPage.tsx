@@ -1428,7 +1428,7 @@ function LinkChips({ contact, small = false }: { contact: AdminContact; small?: 
         <a
           href={`/admin/suppliers/${contact.linked_supplier_id}`}
           className={cn(
-            "inline-flex items-center gap-1 rounded-full border border-purple-300 bg-purple-50 text-purple-700 hover:bg-purple-100",
+            "inline-flex items-center gap-1 rounded-full border border-brand-blue-300 bg-brand-blue-50 text-brand-blue-700 hover:bg-brand-blue-100",
             size,
           )}
           title="View supplier profile"
@@ -1880,7 +1880,7 @@ function LinkPicker({
             "inline-flex items-center gap-1 rounded-full border text-[11px] px-2 py-0.5",
             kind === "user"
               ? "border-brand-blue/30 bg-brand-blue/5 text-brand-blue"
-              : "border-purple-300 bg-purple-50 text-purple-700",
+              : "border-brand-blue-300 bg-brand-blue-50 text-brand-blue-700",
           )}
         >
           <Icon className="w-3 h-3" />

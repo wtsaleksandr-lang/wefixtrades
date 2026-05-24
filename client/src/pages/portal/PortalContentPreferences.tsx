@@ -342,7 +342,7 @@ export default function PortalContentPreferences() {
     <PortalLayout>
       <div className="max-w-xl">
         <div className="flex items-center gap-2 mb-1">
-          <Sparkles className="h-4 w-4 text-indigo-500" />
+          <Sparkles className="h-4 w-4 text-brand-blue-500" />
           <h1 className="text-lg font-semibold">Content style</h1>
         </div>
         <p className="text-sm text-muted-foreground mb-4">
@@ -353,7 +353,7 @@ export default function PortalContentPreferences() {
         <div className="mb-5">
           <div className="h-1.5 w-full rounded-full bg-gray-100 overflow-hidden">
             <div
-              className="h-full bg-indigo-500 transition-all"
+              className="h-full bg-brand-blue-500 transition-all"
               style={{ width: `${((stepIdx + 1) / STEPS.length) * 100}%` }}
             />
           </div>
@@ -377,7 +377,7 @@ export default function PortalContentPreferences() {
                     onClick={() => setSingle(o.value)}
                     className={`text-left rounded-lg border p-3 transition-colors ${
                       selected
-                        ? "border-indigo-500 bg-indigo-50 ring-1 ring-indigo-500"
+                        ? "border-brand-blue-500 bg-brand-blue-50 ring-1 ring-brand-blue-500"
                         : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
                     }`}
                   >
@@ -400,7 +400,7 @@ export default function PortalContentPreferences() {
                     onClick={() => toggleMulti(o.value)}
                     className={`rounded-full border px-3 py-1.5 text-sm transition-colors ${
                       selected
-                        ? "border-indigo-500 bg-indigo-500 text-white"
+                        ? "border-brand-blue-500 bg-brand-blue-500 text-white"
                         : "border-gray-200 text-gray-700 hover:border-gray-300 hover:bg-gray-50"
                     }`}
                   >

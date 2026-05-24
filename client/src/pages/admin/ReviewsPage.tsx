@@ -488,7 +488,7 @@ export default function ReviewsPage() {
         <StatCard label="Total Reviews" value={stats?.total ?? "—"} icon={Star} color="bg-blue-500" />
         <StatCard label="Avg Rating" value={stats ? `${stats.averageRating}★` : "—"} icon={TrendingUp} color="bg-emerald-500" />
         <HelpCue text="Reviews detected by monitoring that haven't been acknowledged by admin yet.">
-          <StatCard label="New / Unseen" value={stats?.newCount ?? "—"} icon={Eye} color="bg-violet-500" />
+          <StatCard label="New / Unseen" value={stats?.newCount ?? "—"} icon={Eye} color="bg-brand-blue-500" />
         </HelpCue>
         <HelpCue text="Public reviews without an owner response. Responding improves trust and SEO.">
           <StatCard label="No Response" value={noResponse} icon={MessageSquare} color="bg-amber-500" />

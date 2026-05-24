@@ -372,7 +372,7 @@ export default function QuoteQuickPage() {
         <StatCard
           label="Total leads"
           value={<span className="font-mono">{totalLeads.toLocaleString()}</span>}
-          hint={<Users className="w-3.5 h-3.5 text-purple-600" />}
+          hint={<Users className="w-3.5 h-3.5 text-brand-blue-600" />}
         />
         <StatCard
           label="Paid plans"

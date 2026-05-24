@@ -45,7 +45,7 @@ function TierBadge({ tier }: { tier: string }) {
   const styles: Record<string, string> = {
     starter: "bg-blue-50 text-blue-700",
     growth: "bg-emerald-50 text-emerald-700",
-    pro: "bg-purple-50 text-purple-700",
+    pro: "bg-brand-blue-50 text-brand-blue-700",
   };
   return (
     <span data-theme="light" className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium capitalize ${styles[tier] || "bg-gray-100 text-gray-600"}`}>

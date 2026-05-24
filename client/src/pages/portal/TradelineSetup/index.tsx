@@ -112,7 +112,7 @@ export default function TradelineSetupPage() {
       <div className="max-w-3xl space-y-6">
         {/* Test mode banner — server tells us if TRADELINE_SETUP_TEST_MODE=true */}
         {data?.testMode && (
-          <div className="rounded-lg border border-fuchsia-300 bg-fuchsia-50 px-4 py-2 text-xs text-fuchsia-900">
+          <div className="rounded-lg border border-brand-blue-300 bg-brand-blue-50 px-4 py-2 text-xs text-brand-blue-900">
             <span className="font-semibold uppercase tracking-wide">Test mode</span> · Twilio calls are mocked. Provisioning returns +15005550006; carriers map by last digit: 1→Verizon, 2→Rogers, 3→Bell, else→T-Mobile.
           </div>
         )}
@@ -126,8 +126,8 @@ export default function TradelineSetupPage() {
           anchor={
             <div className="text-center space-y-2">
               <span className="text-sm text-gray-500">Step {currentStep} of {totalSteps}</span>
-              <div className="inline-flex items-center justify-center w-12 h-12 bg-indigo-100 rounded-full mb-1">
-                <PhoneCall className="w-6 h-6 text-indigo-600" />
+              <div className="inline-flex items-center justify-center w-12 h-12 bg-brand-blue-100 rounded-full mb-1">
+                <PhoneCall className="w-6 h-6 text-brand-blue-600" />
               </div>
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">
                 Set up your AI tradeline
@@ -199,14 +199,14 @@ export default function TradelineSetupPage() {
           <button
             type="button"
             onClick={() => setLocation("/portal/tradeline/voice")}
-            className="text-sm text-indigo-600 hover:text-indigo-700 underline-offset-2 hover:underline"
+            className="text-sm text-brand-blue-600 hover:text-brand-blue-700 underline-offset-2 hover:underline"
           >
             Choose your AI voice →
           </button>
           <button
             type="button"
             onClick={() => setLocation("/portal/tradeline/knowledge")}
-            className="text-sm text-indigo-600 hover:text-indigo-700 underline-offset-2 hover:underline"
+            className="text-sm text-brand-blue-600 hover:text-brand-blue-700 underline-offset-2 hover:underline"
           >
             Edit knowledge base →
           </button>

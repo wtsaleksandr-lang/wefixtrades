@@ -88,7 +88,7 @@ export function VoicePicker({ onSaved }: Props) {
     <div className="space-y-4">
       <div>
         <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-          <Mic2 className="w-5 h-5 text-indigo-600" /> Pick your AI voice
+          <Mic2 className="w-5 h-5 text-brand-blue-600" /> Pick your AI voice
         </h2>
         <p className="text-sm text-gray-600 mt-1">
           Choose the voice your customers hear when the AI receptionist answers your calls.
@@ -101,7 +101,7 @@ export function VoicePicker({ onSaved }: Props) {
           return (
             <Card
               key={v.id}
-              className={`p-3 cursor-pointer transition ${selected ? "ring-2 ring-indigo-500 bg-indigo-50/50" : "hover:bg-gray-50"}`}
+              className={`p-3 cursor-pointer transition ${selected ? "ring-2 ring-brand-blue-500 bg-brand-blue-50/50" : "hover:bg-gray-50"}`}
               onClick={() => setSelectedId(v.id)}
               data-testid={`voice-card-${v.id}`}
             >
@@ -109,7 +109,7 @@ export function VoicePicker({ onSaved }: Props) {
                 <div>
                   <div className="font-medium text-gray-900 flex items-center gap-2">
                     {v.display_name}
-                    {selected && <Check className="w-4 h-4 text-indigo-600" />}
+                    {selected && <Check className="w-4 h-4 text-brand-blue-600" />}
                   </div>
                   {v.description && <div className="text-xs text-gray-600 mt-1">{v.description}</div>}
                   <div className="flex flex-wrap gap-1 mt-2">

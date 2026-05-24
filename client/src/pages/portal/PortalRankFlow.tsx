@@ -520,7 +520,7 @@ function MetricCard({ icon: Icon, label, value, color }: { icon: any; label: str
     emerald: "text-emerald-500",
     blue: "text-blue-500",
     amber: "text-amber-500",
-    indigo: "text-indigo-500",
+    indigo: "text-brand-blue-500",
   };
   return (
     <div className="h-full bg-white rounded-xl border border-gray-200 p-4 text-center">

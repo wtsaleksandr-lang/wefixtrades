@@ -32,7 +32,7 @@ interface Lead {
 const STAGES = [
   { key: "new", label: "New", color: "bg-gray-100 text-gray-700" },
   { key: "contacted", label: "Contacted", color: "bg-blue-50 text-blue-700" },
-  { key: "replied", label: "Replied", color: "bg-indigo-50 text-indigo-700" },
+  { key: "replied", label: "Replied", color: "bg-brand-blue-50 text-brand-blue-700" },
   { key: "demo_booked", label: "Demo", color: "bg-amber-50 text-amber-700" },
   { key: "closed_won", label: "Won", color: "bg-emerald-50 text-emerald-700" },
   { key: "closed_lost", label: "Lost", color: "bg-gray-100 text-gray-500" },

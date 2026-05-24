@@ -112,9 +112,9 @@ function getBatchNextStep(batch: VendorBatch): string {
 const STATUS_COLORS: Record<string, string> = {
   pending: "bg-gray-100 text-gray-700",
   assigned: "bg-blue-50 text-blue-700",
-  in_progress: "bg-indigo-50 text-indigo-700",
+  in_progress: "bg-brand-blue-50 text-brand-blue-700",
   submitted: "bg-amber-50 text-amber-700",
-  qa_review: "bg-purple-50 text-purple-700",
+  qa_review: "bg-brand-blue-50 text-brand-blue-700",
   approved: "bg-emerald-50 text-emerald-700",
   rejected: "bg-red-50 text-red-700",
   done: "bg-emerald-50 text-emerald-700",
@@ -396,7 +396,7 @@ export default function RankFlowTab({ clientId }: { clientId: number }) {
                       </Button>
                     )}
                     {b.status === "assigned" && (
-                      <Button size="sm" className="h-7 px-2 text-xs bg-indigo-600 hover:bg-indigo-700 text-white" onClick={() => batchAction.mutate({ batchId: b.id, action: "start" })}>
+                      <Button size="sm" className="h-7 px-2 text-xs bg-brand-blue-600 hover:bg-brand-blue-700 text-white" onClick={() => batchAction.mutate({ batchId: b.id, action: "start" })}>
                         Start
                       </Button>
                     )}
@@ -406,7 +406,7 @@ export default function RankFlowTab({ clientId }: { clientId: number }) {
                       </Button>
                     )}
                     {b.status === "submitted" && (
-                      <Button size="sm" className="h-7 px-2 text-xs bg-purple-600 hover:bg-purple-700 text-white" onClick={() => batchAction.mutate({ batchId: b.id, action: "qa" })}>
+                      <Button size="sm" className="h-7 px-2 text-xs bg-brand-blue-600 hover:bg-brand-blue-700 text-white" onClick={() => batchAction.mutate({ batchId: b.id, action: "qa" })}>
                         Run QA
                       </Button>
                     )}
@@ -588,13 +588,13 @@ function RankFlowTaskCard({
               <Button size="sm" className="h-7 px-2 text-xs bg-brand-blue hover:bg-brand-blue-600 text-white" onClick={() => onAssign(t)}>Assign</Button>
             )}
             {t.status === "assigned" && (
-              <Button size="sm" className="h-7 px-2 text-xs bg-indigo-600 hover:bg-indigo-700 text-white" onClick={() => onAction(t.id, "start")}>Start</Button>
+              <Button size="sm" className="h-7 px-2 text-xs bg-brand-blue-600 hover:bg-brand-blue-700 text-white" onClick={() => onAction(t.id, "start")}>Start</Button>
             )}
             {t.status === "in_progress" && (
               <Button size="sm" className="h-7 px-2 text-xs bg-amber-500 hover:bg-amber-600 text-white" onClick={() => onSubmit(t)}>Submit</Button>
             )}
             {t.status === "submitted" && (
-              <Button size="sm" className="h-7 px-2 text-xs bg-purple-600 hover:bg-purple-700 text-white" onClick={() => onAction(t.id, "qa")}>Run QA</Button>
+              <Button size="sm" className="h-7 px-2 text-xs bg-brand-blue-600 hover:bg-brand-blue-700 text-white" onClick={() => onAction(t.id, "qa")}>Run QA</Button>
             )}
             {t.status === "qa_review" && t.qa_status === "passed" && (
               <Button size="sm" className="h-7 px-2 text-xs bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => onAction(t.id, "approve")}>Approve</Button>

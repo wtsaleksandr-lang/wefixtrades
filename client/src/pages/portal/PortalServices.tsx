@@ -24,7 +24,7 @@ interface ServiceRow {
 }
 
 const CATEGORY_STYLES: Record<string, string> = {
-  leads: "bg-purple-50 text-purple-700",
+  leads: "bg-brand-blue-50 text-brand-blue-700",
   visibility: "bg-sky-50 text-sky-700",
   reputation: "bg-orange-50 text-orange-700",
   website: "bg-teal-50 text-teal-700",
@@ -142,8 +142,8 @@ export default function PortalServices() {
           <div className="bg-white rounded-xl border border-gray-200 p-5">
             <div className="flex items-start justify-between mb-3">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-indigo-50 flex items-center justify-center">
-                  <Calculator className="w-4 h-4 text-indigo-600" />
+                <div className="w-9 h-9 rounded-lg bg-brand-blue-50 flex items-center justify-center">
+                  <Calculator className="w-4 h-4 text-brand-blue-600" />
                 </div>
                 <div>
                   <h3 className="text-sm font-semibold text-gray-900">QuoteQuick</h3>
@@ -160,7 +160,7 @@ export default function PortalServices() {
                   </div>
                 </div>
               </div>
-              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium capitalize bg-purple-50 text-purple-700">leads</span>
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium capitalize bg-brand-blue-50 text-brand-blue-700">leads</span>
             </div>
             <div className="flex items-center gap-4 mb-3 text-xs text-gray-500">
               <span className="flex items-center gap-1"><Eye className="w-3 h-3" /> {qqData.calculator.total_views.toLocaleString()} views</span>

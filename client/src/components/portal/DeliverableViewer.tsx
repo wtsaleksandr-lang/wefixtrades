@@ -17,11 +17,11 @@ function isImageUrl(url: string): boolean {
 
 function KindBadge({ kind }: { kind: string }) {
   const styles: Record<string, string> = {
-    mockup: "bg-purple-50 text-purple-700",
+    mockup: "bg-brand-blue-50 text-brand-blue-700",
     report: "bg-blue-50 text-blue-700",
     screenshot: "bg-teal-50 text-teal-700",
     document: "bg-gray-100 text-gray-600",
-    image: "bg-indigo-50 text-indigo-700",
+    image: "bg-brand-blue-50 text-brand-blue-700",
   };
   return (
     <span data-theme="light" className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium capitalize ${styles[kind] || "bg-gray-100 text-gray-600"}`}>
@@ -32,7 +32,7 @@ function KindBadge({ kind }: { kind: string }) {
 
 function FileIcon({ url, kind }: { url: string; kind: string }) {
   if (isImageUrl(url) || kind === "mockup" || kind === "screenshot" || kind === "image") {
-    return <Image className="w-4 h-4 text-indigo-500" />;
+    return <Image className="w-4 h-4 text-brand-blue-500" />;
   }
   if (kind === "report" || kind === "document") {
     return <FileText className="w-4 h-4 text-blue-500" />;

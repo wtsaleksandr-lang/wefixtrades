@@ -113,7 +113,7 @@ export function OptionANewNumber({ setup, onBack, onDone }: Props) {
                           setCopiedKey(item.key);
                           setTimeout(() => setCopiedKey((k) => (k === item.key ? null : k)), 1800);
                         }}
-                        className="text-xs text-indigo-600 hover:text-indigo-700 inline-flex items-center gap-1 mt-0.5 flex-shrink-0"
+                        className="text-xs text-brand-blue-600 hover:text-brand-blue-700 inline-flex items-center gap-1 mt-0.5 flex-shrink-0"
                       >
                         <Copy className="w-3 h-3" />
                         {copiedKey === item.key ? "Copied!" : "Copy"}
@@ -191,7 +191,7 @@ export function OptionANewNumber({ setup, onBack, onDone }: Props) {
                 onClick={() => setCountryCode(c)}
                 className={
                   countryCode === c
-                    ? "rounded-lg border-2 border-indigo-500 bg-indigo-50 p-3 text-sm font-medium text-indigo-900"
+                    ? "rounded-lg border-2 border-brand-blue-500 bg-brand-blue-50 p-3 text-sm font-medium text-brand-blue-900"
                     : "rounded-lg border border-gray-200 bg-white p-3 text-sm text-gray-700 hover:border-gray-300"
                 }
               >
@@ -266,14 +266,14 @@ function TypeOption({ selected, onClick, title, subtitle }: {
       onClick={onClick}
       className={
         selected
-          ? "rounded-lg border-2 border-indigo-500 bg-indigo-50 p-3 text-left"
+          ? "rounded-lg border-2 border-brand-blue-500 bg-brand-blue-50 p-3 text-left"
           : "rounded-lg border border-gray-200 bg-white p-3 text-left hover:border-gray-300"
       }
     >
-      <p className={selected ? "text-sm font-semibold text-indigo-900" : "text-sm font-semibold text-gray-900"}>
+      <p className={selected ? "text-sm font-semibold text-brand-blue-900" : "text-sm font-semibold text-gray-900"}>
         {title}
       </p>
-      <p className={selected ? "text-xs text-indigo-700" : "text-xs text-gray-500"}>
+      <p className={selected ? "text-xs text-brand-blue-700" : "text-xs text-gray-500"}>
         {subtitle}
       </p>
     </button>

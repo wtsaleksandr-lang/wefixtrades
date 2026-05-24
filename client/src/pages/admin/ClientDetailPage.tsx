@@ -1142,7 +1142,7 @@ export default function ClientDetailPage() {
                 <div className="p-4 border-b border-gray-100">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <Calculator className="w-4 h-4 text-indigo-500" />
+                      <Calculator className="w-4 h-4 text-brand-blue-500" />
                       <h3 className="text-sm font-semibold text-gray-900">QuoteQuick Calculators</h3>
                     </div>
                     {qqData.profitability && (
@@ -2060,7 +2060,7 @@ function VariableCostPanel({ clientId }: { clientId: number }) {
                   <XAxis dataKey="month" tick={{ fontSize: 11 }} />
                   <YAxis tick={{ fontSize: 11 }} />
                   <RTooltip />
-                  <Bar dataKey="AI" stackId="cost" fill="#6366F1" />
+                  <Bar dataKey="AI" stackId="cost" fill="#0d3cfc" />
                   <Bar dataKey="SMS" stackId="cost" fill="#22D3EE" />
                   <Bar dataKey="Voice" stackId="cost" fill="#F59E0B" />
                   <Bar dataKey="Revenue" fill="#22C55E" />

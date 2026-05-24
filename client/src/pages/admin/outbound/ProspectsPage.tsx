@@ -72,8 +72,8 @@ const STATUS_COLORS: Record<string, string> = {
   approved: "bg-green-100 text-green-700",
   rejected: "bg-red-100 text-red-600",
   blacklisted: "bg-red-200 text-red-800",
-  campaign_queued: "bg-purple-100 text-purple-700",
-  in_outreach: "bg-indigo-100 text-indigo-700",
+  campaign_queued: "bg-brand-blue-100 text-brand-blue-700",
+  in_outreach: "bg-brand-blue-100 text-brand-blue-700",
   replied: "bg-amber-100 text-amber-700",
   lost: "bg-gray-200 text-gray-600",
 };
@@ -471,7 +471,7 @@ export default function ProspectsPage() {
             { label: "New", value: overview?.new, color: "text-gray-700" },
             { label: "Enriched", value: overview?.enriched, color: "text-blue-600" },
             { label: "Approved", value: overview?.approved, color: "text-green-600" },
-            { label: "In Outreach", value: overview?.in_outreach, color: "text-indigo-600" },
+            { label: "In Outreach", value: overview?.in_outreach, color: "text-brand-blue-600" },
             { label: "Replied", value: overview?.replied, color: "text-amber-600" },
           ].map((s) => (
             <div key={s.label} className="bg-white rounded-lg border border-gray-200 p-3">

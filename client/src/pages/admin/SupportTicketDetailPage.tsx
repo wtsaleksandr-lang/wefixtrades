@@ -67,7 +67,7 @@ const CATEGORIES = [
 
 const STATUS_STYLES: Record<string, string> = {
   open: "bg-amber-50 text-amber-700",
-  in_progress: "bg-indigo-50 text-indigo-700",
+  in_progress: "bg-brand-blue-50 text-brand-blue-700",
   waiting_on_customer: "bg-blue-50 text-blue-700",
   resolved: "bg-emerald-50 text-emerald-700",
   closed: "bg-gray-100 text-gray-500",
@@ -208,9 +208,9 @@ export default function SupportTicketDetailPage() {
                   #{ticket.id} &middot; {ticket.client_name || `Client #${ticket.client_id}`} &middot; {ticket.source === "ai_escalation" ? "AI escalation" : "Manual"} &middot; Created {formatDate(ticket.created_at)}
                 </p>
                 {ticket.ai_summary && (
-                  <div className="mt-3 p-3 bg-violet-50 border border-violet-100 rounded-lg">
-                    <p className="text-[10px] font-medium uppercase tracking-wider text-violet-500 mb-1">AI Summary</p>
-                    <p className="text-xs text-violet-700">{ticket.ai_summary}</p>
+                  <div className="mt-3 p-3 bg-brand-blue-50 border border-brand-blue-100 rounded-lg">
+                    <p className="text-[10px] font-medium uppercase tracking-wider text-brand-blue-500 mb-1">AI Summary</p>
+                    <p className="text-xs text-brand-blue-700">{ticket.ai_summary}</p>
                   </div>
                 )}
               </div>

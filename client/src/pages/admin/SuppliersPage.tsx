@@ -93,7 +93,7 @@ const SUPPLIER_TYPE_ICON: Record<string, typeof Mail> = {
 
 const SUPPLIER_TYPE_COLORS: Record<string, string> = {
   email: "bg-blue-50 text-blue-700 border-blue-200",
-  api: "bg-violet-50 text-violet-700 border-violet-200",
+  api: "bg-brand-blue-50 text-brand-blue-700 border-brand-blue-200",
   fiverr: "bg-green-50 text-green-700 border-green-200",
   manual: "bg-amber-50 text-amber-700 border-amber-200",
 };
@@ -101,7 +101,7 @@ const SUPPLIER_TYPE_COLORS: Record<string, string> = {
 const TYPE_COLORS: Record<string, string> = {
   fiverr: "bg-green-50 text-green-700",
   freelancer: "bg-blue-50 text-blue-700",
-  white_label: "bg-purple-50 text-purple-700",
+  white_label: "bg-brand-blue-50 text-brand-blue-700",
   automation: "bg-cyan-50 text-cyan-700",
   internal: "bg-gray-100 text-gray-700",
 };
@@ -119,7 +119,7 @@ const TASK_STATUS_COLORS: Record<string, string> = {
   in_progress: "bg-yellow-50 text-yellow-700",
   waiting: "bg-orange-50 text-orange-700",
   blocked: "bg-red-50 text-red-700",
-  qa_review: "bg-indigo-50 text-indigo-700",
+  qa_review: "bg-brand-blue-50 text-brand-blue-700",
   revision_required: "bg-pink-50 text-pink-700",
   delivered: "bg-emerald-50 text-emerald-700",
   cancelled: "bg-gray-100 text-gray-500",

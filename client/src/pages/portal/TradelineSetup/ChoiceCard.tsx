@@ -133,7 +133,7 @@ export function ChoiceCard({ onContinue, isContinuing = false }: ChoiceCardProps
               className={cn(
                 "rounded-xl border bg-white transition-colors",
                 isOpen
-                  ? "border-indigo-500 ring-2 ring-indigo-100"
+                  ? "border-brand-blue-500 ring-2 ring-brand-blue-100"
                   : "border-gray-200 hover:border-gray-300",
               )}
             >
@@ -146,7 +146,7 @@ export function ChoiceCard({ onContinue, isContinuing = false }: ChoiceCardProps
                   <div
                     className={cn(
                       "p-2 rounded-lg flex-shrink-0",
-                      isOpen ? "bg-indigo-100 text-indigo-700" : "bg-gray-100 text-gray-600",
+                      isOpen ? "bg-brand-blue-100 text-brand-blue-700" : "bg-gray-100 text-gray-600",
                     )}
                   >
                     <opt.icon className="w-5 h-5" />

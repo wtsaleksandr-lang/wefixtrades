@@ -241,7 +241,7 @@ function TriggerOpsRunButton({ small }: { small?: boolean }) {
   return (
     <button
       onClick={handleRun}
-      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand-blue text-white text-xs font-medium rounded-lg hover:bg-[#235c43] transition-colors"
+      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand-blue text-white text-xs font-medium rounded-lg hover:bg-brand-blue-700 transition-colors"
     >
       <RefreshCw className="w-3 h-3" />
       Run Ops Analysis
@@ -336,14 +336,14 @@ function QaQueueWidget() {
     <Card className="h-full p-0 overflow-hidden">
       <div className="flex items-center justify-between px-4 pt-4 pb-2 border-b border-gray-100">
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-md bg-purple-600 flex items-center justify-center">
+          <div className="w-6 h-6 rounded-md bg-brand-blue-600 flex items-center justify-center">
             <ShieldCheck className="w-3.5 h-3.5 text-white" />
           </div>
           <div>
             <h3 className="text-sm font-semibold text-gray-900">
               QA Queue
               {count > 0 && (
-                <span className="ml-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-purple-100 text-purple-700 text-[10px] font-bold">
+                <span className="ml-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-brand-blue-100 text-brand-blue-700 text-[10px] font-bold">
                   {count}
                 </span>
               )}
@@ -563,7 +563,7 @@ export default function CrmOverview() {
               <StatCard label="Clients" value={data?.totalClients ?? 0} icon={Users} href="/admin/crm/clients" color="bg-brand-blue" />
               <StatCard label="Active Services" value={data?.activeServices ?? 0} icon={Wrench} href="/admin/crm/services" color="bg-blue-500" />
               <StatCard label="Onboarding" value={data?.pendingOnboarding ?? 0} icon={ClipboardList} href="/admin/crm/inbox" color="bg-amber-500" />
-              <StatCard label="Open Tasks" value={data?.openFulfillment ?? 0} icon={Truck} href="/admin/crm/inbox" color="bg-purple-500" />
+              <StatCard label="Open Tasks" value={data?.openFulfillment ?? 0} icon={Truck} href="/admin/crm/inbox" color="bg-brand-blue-500" />
               <StatCard label="Unpaid" value={formatCurrency(data?.unpaidAmount ?? 0)} icon={CreditCard} href="/admin/crm/billing" color="bg-red-500" />
               <StatCard label="Revenue (Mo)" value={formatCurrency(data?.monthlyRevenue ?? 0)} icon={TrendingUp} href="/admin/crm/billing" color="bg-emerald-500" />
             </>

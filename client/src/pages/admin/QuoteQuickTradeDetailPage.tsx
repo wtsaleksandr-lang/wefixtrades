@@ -92,7 +92,7 @@ interface TemplateListResponse {
   templates: TemplateListItem[];
 }
 
-const ACCENT = "#4f46e5";
+const ACCENT = "#0d3cfc";
 type FieldKey = "label" | "categoryId" | "defaultIcon";
 
 export default function QuoteQuickTradeDetailPage({ tradeId }: { tradeId: string }) {
@@ -349,7 +349,7 @@ export default function QuoteQuickTradeDetailPage({ tradeId }: { tradeId: string
                   {detail.data.is_user_created && (
                     <Badge
                       variant="outline"
-                      className="bg-indigo-50 border-indigo-200 text-indigo-800 text-[10px]"
+                      className="bg-brand-blue-50 border-brand-blue-200 text-brand-blue-800 text-[10px]"
                     >
                       Admin-only
                     </Badge>
@@ -535,7 +535,7 @@ export default function QuoteQuickTradeDetailPage({ tradeId }: { tradeId: string
                     <li key={t.templateId}>
                       <Link
                         href={`/admin/quotequick/templates/${t.templateId}`}
-                        className="flex items-center gap-2 text-sm text-indigo-700 hover:text-indigo-900 hover:underline"
+                        className="flex items-center gap-2 text-sm text-brand-blue-700 hover:text-brand-blue-900 hover:underline"
                       >
                         <FileText className="w-3.5 h-3.5" />
                         {t.effective.name}
@@ -635,7 +635,7 @@ function FieldRow({
             type="button"
             onClick={onReset}
             disabled={resetPending}
-            className="text-[11px] text-indigo-600 hover:text-indigo-800 disabled:opacity-50"
+            className="text-[11px] text-brand-blue-600 hover:text-brand-blue-800 disabled:opacity-50"
             data-testid={`reset-${label.toLowerCase()}`}
           >
             {resetPending ? "Resetting…" : "Reset this field"}

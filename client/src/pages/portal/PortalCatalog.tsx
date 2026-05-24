@@ -76,7 +76,7 @@ function tierPriceLabel(t: Tier): string {
 }
 
 const CATEGORY_STYLES: Record<CatalogService["category"], string> = {
-  leads: "bg-purple-50 text-purple-700",
+  leads: "bg-brand-blue-50 text-brand-blue-700",
   visibility: "bg-sky-50 text-sky-700",
   reputation: "bg-orange-50 text-orange-700",
   website: "bg-teal-50 text-teal-700",

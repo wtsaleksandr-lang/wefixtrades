@@ -349,7 +349,7 @@ function ActivityRowItem({ row }: { row: ActivityRow }) {
 function ActorIcon({ type }: { type: string }) {
   if (type === "ai_agent") {
     return (
-      <span className="w-8 h-8 rounded-full bg-violet-100 text-violet-700 flex items-center justify-center flex-shrink-0">
+      <span className="w-8 h-8 rounded-full bg-brand-blue-100 text-brand-blue-700 flex items-center justify-center flex-shrink-0">
         <Bot className="w-3.5 h-3.5" />
       </span>
     );

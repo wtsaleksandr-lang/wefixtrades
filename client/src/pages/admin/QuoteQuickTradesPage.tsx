@@ -69,7 +69,7 @@ interface ListResponse {
 
 type FilterChip = "all" | "edited" | "archived";
 
-const ACCENT = "#4f46e5";
+const ACCENT = "#0d3cfc";
 
 export default function QuoteQuickTradesPage() {
   usePageTitle("QuoteQuick Trades");
@@ -218,7 +218,7 @@ function TradeCard({
   const Icon = getQuoteQuickIcon(trade.effective.defaultIcon);
   return (
     <Card
-      className="p-4 cursor-pointer hover:border-indigo-300 transition-colors flex items-start gap-3"
+      className="p-4 cursor-pointer hover:border-brand-blue-300 transition-colors flex items-start gap-3"
       onClick={onClick}
       data-testid={`trade-card-${trade.tradeId}`}
     >
@@ -248,7 +248,7 @@ function TradeCard({
               </Badge>
             )}
             {trade.is_user_created && (
-              <Badge variant="outline" className="bg-indigo-50 border-indigo-200 text-indigo-800 text-[10px]">
+              <Badge variant="outline" className="bg-brand-blue-50 border-brand-blue-200 text-brand-blue-800 text-[10px]">
                 Admin-only
               </Badge>
             )}

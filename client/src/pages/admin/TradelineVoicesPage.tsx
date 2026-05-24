@@ -190,7 +190,7 @@ export default function TradelineVoicesPage() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
-              <Mic2 className="w-6 h-6 text-indigo-600" /> TradeLine Voices
+              <Mic2 className="w-6 h-6 text-brand-blue-600" /> TradeLine Voices
             </h1>
             <p className="text-sm text-gray-600 mt-1">
               Manage the ElevenLabs voice catalog, monthly minute budgets, and per-client overrides.
@@ -226,7 +226,7 @@ export default function TradelineVoicesPage() {
                     {voice?.display_name ?? row.voice_id ?? "Unassigned"}
                   </div>
                   <div className="flex-1 h-2 bg-gray-100 rounded overflow-hidden">
-                    <div className="h-2 bg-indigo-500" style={{ width: `${pct}%` }} />
+                    <div className="h-2 bg-brand-blue-500" style={{ width: `${pct}%` }} />
                   </div>
                   <div className="w-32 text-right text-xs text-gray-600">
                     {Number(row.minutes_used).toLocaleString()} min · {row.client_count} client{Number(row.client_count) !== 1 ? "s" : ""}
@@ -287,7 +287,7 @@ export default function TradelineVoicesPage() {
                     variant="outline"
                     onClick={() => handlePreview(v.id)}
                     disabled={loadingId === v.id}
-                    className="text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+                    className="text-brand-blue-600 border-brand-blue-200 hover:bg-brand-blue-50"
                     aria-label={playingId === v.id ? `Stop preview of ${v.display_name}` : `Play preview of ${v.display_name}`}
                     data-testid={`button-preview-voice-${v.id}`}
                   >

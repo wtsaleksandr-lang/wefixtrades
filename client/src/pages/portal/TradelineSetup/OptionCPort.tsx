@@ -230,7 +230,7 @@ function LoaSignStep({ setup, onBack }: { setup: TradelinePhoneSetup; onBack: ()
           type="text"
           value={signerName}
           onChange={(e) => setSignerName(e.target.value)}
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 focus:outline-none"
+          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-blue-500 focus:ring-2 focus:ring-brand-blue-100 focus:outline-none"
           autoComplete="name"
         />
       </div>
@@ -407,7 +407,7 @@ function Field({ label, value, onChange, autoComplete }: {
         value={value}
         onChange={(e) => onChange(e.target.value)}
         autoComplete={autoComplete}
-        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 focus:outline-none"
+        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-blue-500 focus:ring-2 focus:ring-brand-blue-100 focus:outline-none"
       />
     </div>
   );
