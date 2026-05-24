@@ -57,6 +57,14 @@ export const users = pgTable("users", {
   // through pg-node so the service casts to number on read.
   ai_spend_usd: numeric("ai_spend_usd", { precision: 10, scale: 4 }).notNull().default("0"),
   ai_images_used: integer("ai_images_used").notNull().default(0),
+  // Account-lockout state (migration 0052). `failed_login_attempts` is a
+  // running counter incremented on every wrong-password attempt across
+  // /api/auth/login, /api/auth/token-login and /api/auth/checkout-login,
+  // reset to 0 on first successful auth. `locked_until` is set 15 minutes
+  // ahead once the counter hits 5; login routes 423 while it's in the
+  // future. NULL = not locked.
+  failed_login_attempts: integer("failed_login_attempts").notNull().default(0),
+  locked_until: timestamp("locked_until", { withTimezone: true }),
   created_at: timestamp("created_at").defaultNow(),
 });
 
