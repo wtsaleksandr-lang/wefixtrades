@@ -355,10 +355,14 @@ function BingAutomationCard() {
  * GA's reporting pipeline is hours behind real-time anyway so polling
  * faster than that doesn't buy anything.
  *
- * When `configured === false` (no GA4_MEASUREMENT_ID in env) the card
- * shows a setup hint. When the Data API endpoint 503s (service account
- * not in Doppler yet) the card shows that explicitly and still surfaces
- * the "Open GA4" jump link so the operator can navigate manually.
+ * The card does NOT depend on the operator OAuth grant or on
+ * GA4_MEASUREMENT_ID being set — the service account
+ * (wefixtrades@acx-audiobooks.iam.gserviceaccount.com) has Editor on
+ * property 537753613 (hardcoded backend-side), so the Data API call is
+ * fired unconditionally. Measurement ID is shown when present but only
+ * cosmetic. When the Data API endpoint 503s (service-account key not in
+ * Doppler yet) the card surfaces that inline and still shows the
+ * "Open GA4" jump link so the operator can navigate manually.
  */
 interface Ga4SummaryResponse {
   propertyId: string;
@@ -370,13 +374,7 @@ interface Ga4SummaryResponse {
   generatedAt: string;
 }
 
-function Ga4Card({
-  configured,
-  measurementId,
-}: {
-  configured: boolean;
-  measurementId: string | null;
-}) {
+function Ga4Card({ measurementId }: { measurementId: string | null }) {
   const summary = useQuery<Ga4SummaryResponse>({
     queryKey: ["/api/admin/seo/ga4/summary"],
     queryFn: async () => {
@@ -387,20 +385,23 @@ function Ga4Card({
       }
       return res.json();
     },
-    enabled: configured,
     refetchInterval: 5 * 60_000,
     retry: 1,
   });
 
-  const propertyLabel = measurementId ? `wefixtrades-prd (${measurementId})` : "wefixtrades-prd";
-  const connected = configured && summary.isSuccess;
+  const propertyId = summary.data?.propertyId ?? "537753613";
+  const propertyLabel = measurementId
+    ? `service account · property ${propertyId} · ${measurementId}`
+    : `service account · property ${propertyId}`;
+  const connected = summary.isSuccess;
 
   return (
     <Card className="border border-slate-200">
       <CardContent className="p-4 space-y-2">
         <HelpCue>
           Last 7 days, served by the GA4 Data API via the WeFixTrades service account.
-          GA's pipeline is hours behind real-time — numbers settle within a day.
+          No operator sign-in required. GA's pipeline is hours behind real-time —
+          numbers settle within a day.
         </HelpCue>
         <div className="flex items-start gap-3">
           <TrendingUp className="w-8 h-8 text-orange-600 flex-shrink-0" />
@@ -410,24 +411,24 @@ function Ga4Card({
               Track sessions, conversions, and quote-widget engagement.
             </p>
             {connected ? (
-              <p className="text-xs text-emerald-700 mt-1 flex items-center gap-1">
-                <CheckCircle2 className="w-3 h-3" /> Connected — {propertyLabel}
+              <p
+                className="text-xs text-emerald-700 mt-1 flex items-center gap-1"
+                data-testid="ga4-sa-badge"
+              >
+                <CheckCircle2 className="w-3 h-3" /> Connected via {propertyLabel}
               </p>
-            ) : configured ? (
-              <p className="text-xs text-amber-700 mt-1 flex items-center gap-1">
-                <AlertCircle className="w-3 h-3" /> Measurement ID set, live summary unavailable
-              </p>
+            ) : summary.isLoading ? (
+              <p className="text-xs text-slate-500 mt-1">Loading live summary…</p>
             ) : (
-              <p className="text-xs text-slate-500 mt-1">
-                Add <code className="font-mono">GA4_MEASUREMENT_ID</code> to Doppler to enable.
+              <p className="text-xs text-amber-700 mt-1 flex items-center gap-1">
+                <AlertCircle className="w-3 h-3" /> Service-account live summary unavailable
               </p>
             )}
           </div>
         </div>
 
         {/* Live metrics */}
-        {configured && (
-          <div className="grid grid-cols-3 gap-2 text-sm pt-1">
+        <div className="grid grid-cols-3 gap-2 text-sm pt-1">
             <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
               <div className="text-xs text-slate-500">Sessions (7d)</div>
               <div className="font-semibold text-slate-900" data-testid="ga4-sessions-7d">
@@ -458,8 +459,7 @@ function Ga4Card({
                     : summary.data?.newUsers7d.toLocaleString() ?? "0"}
               </div>
             </div>
-          </div>
-        )}
+        </div>
 
         {/* Top pages */}
         {connected && (summary.data?.topPages?.length ?? 0) > 0 && (
@@ -476,8 +476,8 @@ function Ga4Card({
           </div>
         )}
 
-        {/* Inline error surface — only when there's a config gap */}
-        {configured && summary.isError && (
+        {/* Inline error surface — only when the Data API call failed */}
+        {summary.isError && (
           <p className="text-xs text-amber-700">
             {summary.error instanceof Error ? summary.error.message : "GA4 summary unavailable"}
           </p>
@@ -488,7 +488,11 @@ function Ga4Card({
             size="sm"
             variant="outline"
             onClick={() =>
-              window.open("https://analytics.google.com", "_blank", "noopener,noreferrer")
+              window.open(
+                `https://analytics.google.com/analytics/web/#/p${propertyId}/reports/intelligenthome`,
+                "_blank",
+                "noopener,noreferrer",
+              )
             }
             data-testid="open-ga4"
           >
@@ -499,7 +503,7 @@ function Ga4Card({
             variant="outline"
             onClick={() =>
               window.open(
-                "https://analytics.google.com/analytics/web/#/p537753613/admin/streams/table/",
+                `https://analytics.google.com/analytics/web/#/p${propertyId}/admin/streams/table/`,
                 "_blank",
                 "noopener,noreferrer",
               )
@@ -786,8 +790,8 @@ export default function SeoIntegrationsPage() {
             </CardContent>
           </Card>
 
-          {/* GA4 */}
-          <Ga4Card configured={Boolean(data?.ga4.configured)} measurementId={data?.ga4.measurement_id ?? null} />
+          {/* GA4 — live data via service account, no OAuth/measurement-id gate */}
+          <Ga4Card measurementId={data?.ga4.measurement_id ?? null} />
 
           {/* GBP */}
           <Card className="border border-slate-200">
