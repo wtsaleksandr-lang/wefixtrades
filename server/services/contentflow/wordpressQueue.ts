@@ -394,15 +394,15 @@ export async function processQueue(): Promise<ProcessQueueSummary> {
 
   /* 1. Stale-lock recovery for all 9 channels. */
   const recoveryFns: Array<[string, () => Promise<number>]> = [
-    ["wp", () => storage.recoverStaleWordpressClaims({ now, staleLockMs: STALE_LOCK_MS })],
-    ["gbp", () => storage.recoverStaleGbpClaims({ now, staleLockMs: STALE_LOCK_MS })],
-    ["facebook", () => storage.recoverStaleFacebookClaims({ now, staleLockMs: STALE_LOCK_MS })],
-    ["instagram", () => storage.recoverStaleInstagramClaims({ now, staleLockMs: STALE_LOCK_MS })],
-    ["gbp_post", () => storage.recoverStaleGbpPostClaims({ now, staleLockMs: STALE_LOCK_MS })],
-    ["email", () => storage.recoverStaleEmailClaims({ now, staleLockMs: STALE_LOCK_MS })],
-    ["linkedin", () => storage.recoverStaleLinkedinClaims({ now, staleLockMs: STALE_LOCK_MS })],
-    ["pinterest", () => storage.recoverStalePinterestClaims({ now, staleLockMs: STALE_LOCK_MS })],
-    ["youtube", () => storage.recoverStaleYoutubeClaims({ now, staleLockMs: STALE_LOCK_MS })],
+    ["wp", () => storage.recoverStaleClaims("wordpress", { now, staleLockMs: STALE_LOCK_MS })],
+    ["gbp", () => storage.recoverStaleClaims("gbp", { now, staleLockMs: STALE_LOCK_MS })],
+    ["facebook", () => storage.recoverStaleClaims("facebook", { now, staleLockMs: STALE_LOCK_MS })],
+    ["instagram", () => storage.recoverStaleClaims("instagram", { now, staleLockMs: STALE_LOCK_MS })],
+    ["gbp_post", () => storage.recoverStaleClaims("gbp_post", { now, staleLockMs: STALE_LOCK_MS })],
+    ["email", () => storage.recoverStaleClaims("email", { now, staleLockMs: STALE_LOCK_MS })],
+    ["linkedin", () => storage.recoverStaleClaims("linkedin", { now, staleLockMs: STALE_LOCK_MS })],
+    ["pinterest", () => storage.recoverStaleClaims("pinterest", { now, staleLockMs: STALE_LOCK_MS })],
+    ["youtube", () => storage.recoverStaleClaims("youtube", { now, staleLockMs: STALE_LOCK_MS })],
   ];
   for (const [tag, fn] of recoveryFns) {
     try {
@@ -533,7 +533,7 @@ async function drainWordpressQueue(summary: ProcessQueueSummary): Promise<void> 
     let claimed: ContentDraft | null;
     const t0 = Date.now();
     try {
-      claimed = await storage.claimNextWordpressJob(WORKER_ID, { now: new Date(), staleLockMs: STALE_LOCK_MS });
+      claimed = await storage.claimNextJob("wordpress", WORKER_ID, { now: new Date(), staleLockMs: STALE_LOCK_MS });
     } catch (err: any) {
       summary.errors.push(`wp claim failed: ${err?.message || err}`);
       break;
@@ -689,7 +689,7 @@ async function drainWordpressQueue(summary: ProcessQueueSummary): Promise<void> 
 
 /**
  * Sprint 9: GBP review-reply queue drain. Same shape as the WP drain
- * but uses claimNextGbpJob, the gbp adapter, and metadata.gbp.* keys.
+ * but uses claimNextJob("gbp"), the gbp adapter, and metadata.gbp.* keys.
  * Implemented inline (not generalised) so the WP path stays unchanged
  * — keeping the surgical scope the user specified.
  */
@@ -699,7 +699,7 @@ async function drainGbpQueue(summary: ProcessQueueSummary): Promise<void> {
     let claimed: ContentDraft | null;
     const t0 = Date.now();
     try {
-      claimed = await storage.claimNextGbpJob(WORKER_ID, { now: new Date(), staleLockMs: STALE_LOCK_MS });
+      claimed = await storage.claimNextJob("gbp", WORKER_ID, { now: new Date(), staleLockMs: STALE_LOCK_MS });
     } catch (err: any) {
       summary.errors.push(`gbp claim failed: ${err?.message || err}`);
       break;
@@ -786,20 +786,12 @@ type SocialChannel = "facebook" | "instagram" | "gbp_post" | "email" | "linkedin
 
 async function drainSocialChannel(summary: ProcessQueueSummary, channel: SocialChannel): Promise<void> {
   const m = summary.channels?.[channel] ?? emptyChannelMetrics();
-  const claimFn =
-    channel === "facebook" ? storage.claimNextFacebookJob.bind(storage)
-    : channel === "instagram" ? storage.claimNextInstagramJob.bind(storage)
-    : channel === "gbp_post" ? storage.claimNextGbpPostJob.bind(storage)
-    : channel === "linkedin" ? storage.claimNextLinkedinJob.bind(storage)
-    : channel === "pinterest" ? storage.claimNextPinterestJob.bind(storage)
-    : channel === "youtube" ? storage.claimNextYoutubeJob.bind(storage)
-    : storage.claimNextEmailJob.bind(storage);
 
   for (let i = 0; i < BATCH_SIZE; i++) {
     let claimed: ContentDraft | null;
     const t0 = Date.now();
     try {
-      claimed = await claimFn(WORKER_ID, { now: new Date(), staleLockMs: STALE_LOCK_MS });
+      claimed = await storage.claimNextJob(channel, WORKER_ID, { now: new Date(), staleLockMs: STALE_LOCK_MS });
     } catch (err: any) {
       summary.errors.push(`${channel} claim failed: ${err?.message || err}`);
       break;
