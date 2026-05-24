@@ -3,6 +3,7 @@ import { Link } from "wouter";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { PageMeta } from "@/components/seo/PageMeta";
 import { trackEvent } from "@/lib/trackEvent";
+import { ga4Event } from "@/lib/ga4";
 import { useFaqSchema } from "@/lib/useFaqSchema";
 import { useBreadcrumbSchema } from "@/lib/useBreadcrumbSchema";
 import TrustStrip from "@/components/marketing/TrustStrip";
@@ -448,6 +449,12 @@ export default function FreeAudit() {
       if (rep.reportId) setReportId(rep.reportId);
       setFromCache(rep.fromCache === true);
       trackEvent("audit_generated", { businessName: rep.report_json?.business?.name, score: rep.report_json?.scores?.total });
+      // GA4 funnel — audit form finished, report rendered. No PII (no name/email).
+      ga4Event("audit_completed", {
+        score: rep.report_json?.scores?.total ?? null,
+        from_cache: rep.fromCache === true ? 1 : 0,
+        report_id: rep.reportId ?? null,
+      });
       // Check if this report was previously unlocked
       if (rep.reportId) {
         try {

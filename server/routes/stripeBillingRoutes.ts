@@ -38,6 +38,7 @@ import { sendAdflowOnboardingEmail } from "../lib/adflowOnboardingEmail";
 import { buildLoginToken, storeCheckoutLoginToken } from "../lib/loginToken";
 import { kickoffMapguardService } from "../services/mapguardTaskEngine";
 import { kickoffReputationShieldService } from "../services/reputation/reputationShieldKickoff";
+import { sendGA4Event, clientIdFromStableId } from "../lib/analytics/ga4Server";
 
 const log = createLogger("StripeBilling");
 
@@ -164,9 +165,35 @@ export function registerStripeBillingRoutes(app: Express): void {
 
     try {
       switch (event.type) {
-        case "checkout.session.completed":
-          await handleCheckoutCompleted(event.data.object as Stripe.Checkout.Session);
+        case "checkout.session.completed": {
+          const session = event.data.object as Stripe.Checkout.Session;
+          await handleCheckoutCompleted(session);
+          // ─── GA4 (server) — purchase_completed ───
+          // Fire-and-forget. No-ops outside production / without
+          // GA4_MEASUREMENT_PROTOCOL_API_SECRET. client_id is derived
+          // deterministically from the Stripe customer id so the same
+          // customer's purchases roll up to one "user" in GA reports.
+          // No PII in params — only amounts, currency, source label.
+          try {
+            const stripeCustomerId =
+              typeof session.customer === "string"
+                ? session.customer
+                : session.customer?.id ?? session.id;
+            void sendGA4Event({
+              clientId: clientIdFromStableId(stripeCustomerId || session.id),
+              name: "purchase_completed",
+              params: {
+                transaction_id: session.id,
+                value: typeof session.amount_total === "number" ? session.amount_total / 100 : 0,
+                currency: (session.currency || "usd").toUpperCase(),
+                source: session.metadata?.source ?? "unknown",
+              },
+            });
+          } catch {
+            // sendGA4Event is internally safe; this catch is belt-and-suspenders.
+          }
           break;
+        }
 
         case "invoice.paid":
           await handleInvoicePaid(event.data.object as Stripe.Invoice);

@@ -51,6 +51,17 @@ import { upsertToken } from "../lib/seo/oauthTokenStore";
 import { createPropertyAndStream, listProperties as listGa4Properties } from "../lib/seo/ga4Client";
 import { generateListingDraft, isApiAvailable as gbpIsApiAvailable } from "../lib/seo/gbpClient";
 import { isCloudflareConfigured } from "../lib/seo/cloudflareDns";
+import {
+  getSessionsAndPageviews,
+  getTopPages,
+  isGa4DataApiConfigured,
+} from "../lib/analytics/ga4DataClient";
+
+// Production GA4 property id — single hardcoded constant. There's exactly
+// one prod property (537753613 / "WeFixTrades Production") for the
+// foreseeable future; if a second property is ever needed, this becomes
+// an env var.
+const GA4_PROD_PROPERTY_ID = "537753613";
 
 const log = createLogger("AdminSeoIntegrations");
 
@@ -270,6 +281,48 @@ export function registerAdminSeoIntegrationsRoutes(app: Express): void {
       res.status(500).json({ error: "ga4_setup_failed", message: err instanceof Error ? err.message : "unknown" });
     }
   });
+
+  // ─── GA4 live summary (Data API, service-account auth) ───
+  // Powers the admin SEO Integrations GA4 card with last-7-day numbers
+  // plus top pages. Service-account auth means no per-operator OAuth
+  // dance; as long as GOOGLE_APPLICATION_CREDENTIALS_JSON is in Doppler
+  // the card always renders live data.
+  app.get(
+    "/api/admin/seo/ga4/summary",
+    requireAdmin,
+    async (_req: Request, res: Response) => {
+      if (!isGa4DataApiConfigured()) {
+        return res.status(503).json({
+          error: "ga4_data_api_unconfigured",
+          message:
+            "GOOGLE_APPLICATION_CREDENTIALS_JSON is not set in Doppler — GA4 live summary unavailable.",
+        });
+      }
+      try {
+        const [agg, topPages] = await Promise.all([
+          getSessionsAndPageviews({ propertyId: GA4_PROD_PROPERTY_ID, daysBack: 7 }),
+          getTopPages({ propertyId: GA4_PROD_PROPERTY_ID, daysBack: 7, limit: 5 }),
+        ]);
+        res.json({
+          propertyId: GA4_PROD_PROPERTY_ID,
+          measurement_id: process.env.GA4_MEASUREMENT_ID ?? null,
+          sessions7d: agg.sessions,
+          pageviews7d: agg.pageviews,
+          newUsers7d: agg.newUsers,
+          topPages,
+          generatedAt: new Date().toISOString(),
+        });
+      } catch (err) {
+        log.warn("GA4 Data API summary failed", {
+          err: err instanceof Error ? err.message : String(err),
+        });
+        res.status(502).json({
+          error: "ga4_summary_failed",
+          message: err instanceof Error ? err.message : "unknown",
+        });
+      }
+    },
+  );
 
   app.get("/api/admin/integrations/ga4/properties", requireAdmin, async (_req: Request, res: Response) => {
     try {
