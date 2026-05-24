@@ -517,7 +517,7 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
         center={<div style={{ background: TILE.white.bg, color: TILE.white.ink, borderRadius: 14, padding: 18, minWidth: 200, fontFamily: SANS, boxShadow: "0 16px 40px rgba(0,0,0,0.4)" }}>
           <div style={{ fontSize: 11, fontFamily: MONO, color: TILE.white.muted, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Live</div>
           <div style={{ fontSize: 18, fontWeight: 700, color: TILE.white.ink }}>your-trade.com</div>
-          <div style={{ fontSize: 11, color: "#10B981", marginTop: 4 }}>● 99.99% uptime</div>
+          <div style={{ fontSize: 11, color: "#10B981", marginTop: 4 }}>● Monitored 24/7</div>
         </div>}
         logos={[
           { label: "S", color: "#635BFF", angle: 200, ring: 2 },
@@ -539,7 +539,7 @@ export const PRODUCT_MOCKUPS: Record<string, ProductMockupSection[]> = {
       mockup: (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr", gap: 32, maxWidth: 880, width: "100%", alignItems: "center" }} className="effortel-grid-2">
           <div style={{ display: "grid", gridTemplateRows: "1fr 1fr 1fr", gap: 12 }}>
-            <StatTile value="99.99%" label="30-day uptime" color="mint" size="sm" icon={<ShieldCheck size={14} />} />
+            <StatTile value="24/7" label="Monitoring" color="mint" size="sm" icon={<ShieldCheck size={14} />} />
             <StatTile value="2,880" label="Checks / month" color="cyanSoft" size="sm" icon={<Clock size={14} />} />
             <StatTile value="< 30s" label="Alert latency" color="lavender" size="sm" icon={<Zap size={14} />} />
           </div>
