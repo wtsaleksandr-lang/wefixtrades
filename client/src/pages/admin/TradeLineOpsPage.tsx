@@ -41,7 +41,31 @@ function FleetTab() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: fleet, isLoading } = useQuery<FleetRow[]>({ queryKey: ["/api/admin/crm/tradeline/fleet"], queryFn: async () => { const res = await fetch("/api/admin/crm/tradeline/fleet", { credentials: "include" }); if (!res.ok) throw new Error("Failed"); return res.json(); } });
-  const rebuildMutation = useMutation({ mutationFn: async (csId: number) => { const res = await apiRequest("POST", `/api/admin/crm/tradeline/${csId}/build-assistant`); return res.json(); }, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/tradeline/fleet"] }); toast({ title: "Rebuild triggered" }); }, onError: (err: Error) => { toast({ title: "Rebuild failed", description: err.message, variant: "destructive" }); } });
+  const rebuildMutation = useMutation({
+    mutationFn: async (csId: number) => {
+      // fetch directly so we can read the structured error envelope from the server.
+      const res = await fetch(`/api/admin/crm/tradeline/${csId}/build-assistant`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+        credentials: "include",
+      });
+      const body = await res.json().catch(() => ({} as any));
+      if (!res.ok) {
+        const err = body?.error;
+        const message = typeof err === "string" ? err : err?.message || `Rebuild failed (HTTP ${res.status})`;
+        const e = new Error(message) as Error & { code?: string; hint?: string };
+        if (err && typeof err === "object") { e.code = err.code; e.hint = err.hint; }
+        throw e;
+      }
+      return body;
+    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/tradeline/fleet"] }); toast({ title: "Rebuild triggered" }); },
+    onError: (err: any) => {
+      const description = [err?.message, err?.hint].filter(Boolean).join(" — ");
+      toast({ title: "Rebuild failed", description, variant: "destructive" });
+    },
+  });
   /* Per-client disable toggle (existing behavior preserved per audit). The
    * product-level is_active / hidden toggles live in the shell header. */
   const disableMutation = useMutation({ mutationFn: async (csId: number) => { const res = await apiRequest("POST", `/api/admin/crm/tradeline/${csId}/disable`); return res.json(); }, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/tradeline/fleet"] }); toast({ title: "Service disabled" }); }, onError: (err: Error) => { toast({ title: "Disable failed", description: err.message, variant: "destructive" }); } });

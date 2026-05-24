@@ -2456,12 +2456,32 @@ function RebuildAssistantButton({ clientServiceId, queryKey }: { clientServiceId
 
   const rebuild = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", `/api/admin/crm/tradeline/${clientServiceId}/build-assistant`, {});
+      // Use fetch directly so we can read the structured error envelope.
+      // (apiRequest auto-throws on !res.ok before we can parse the body.)
+      const res = await fetch(`/api/admin/crm/tradeline/${clientServiceId}/build-assistant`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+        credentials: "include",
+      });
+      const body = await res.json().catch(() => ({} as any));
       if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || "Rebuild failed");
+        // Structured envelope: { error: { code, message, hint, field } }
+        // Fall back to legacy string-error shape if the server didn't upgrade yet.
+        const err = body?.error;
+        const message = typeof err === "string"
+          ? err
+          : err?.message || `Rebuild failed (HTTP ${res.status})`;
+        const e = new Error(message) as Error & { code?: string; hint?: string; field?: string; status?: number };
+        if (err && typeof err === "object") {
+          e.code = err.code;
+          e.hint = err.hint;
+          e.field = err.field;
+        }
+        e.status = res.status;
+        throw e;
       }
-      return res.json();
+      return body;
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: [queryKey] });
@@ -2472,7 +2492,18 @@ function RebuildAssistantButton({ clientServiceId, queryKey }: { clientServiceId
     },
     onError: (err: any) => {
       queryClient.invalidateQueries({ queryKey: [queryKey] });
-      toast({ title: "Rebuild failed", description: err.message });
+      // Compose a clear, actionable description: <message>. <hint?>
+      const description = [err?.message, err?.hint].filter(Boolean).join(" — ");
+      const title = err?.code === "CONFIG_MISSING"
+        ? "Configure TradeLine first"
+        : err?.code === "VAPI_NOT_CONFIGURED"
+          ? "Voice service not configured"
+          : err?.code === "VAPI_UNREACHABLE"
+            ? "Voice provider unreachable"
+            : err?.code === "PREREQUISITE_MISSING"
+              ? "Onboarding incomplete"
+              : "Rebuild failed";
+      toast({ title, description, variant: "destructive" });
     },
   });
 

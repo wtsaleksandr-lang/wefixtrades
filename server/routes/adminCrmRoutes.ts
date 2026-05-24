@@ -2652,25 +2652,90 @@ export function registerAdminCrmRoutes(app: Express): void {
   /**
    * POST /api/admin/crm/tradeline/:clientServiceId/build-assistant
    * Manually trigger assistant build + Vapi push for a TradeLine service.
+   *
+   * Returns a structured error envelope on failure so the UI can surface a
+   * specific, actionable message rather than a generic "Rebuild failed":
+   *   { error: { code, message, hint?, field? } }
    */
   app.post("/api/admin/crm/tradeline/:clientServiceId/build-assistant", requireAdmin, async (req: Request, res: Response) => {
+    const rawCsId = String(req.params.clientServiceId);
+    const csId = parseInt(rawCsId);
+
+    const sendError = async (
+      status: number,
+      code: string,
+      message: string,
+      opts: { hint?: string; field?: string; cause?: unknown } = {},
+    ) => {
+      // Sentry capture for any 5xx — these are unexpected, admin needs visibility.
+      if (status >= 500) {
+        try {
+          const Sentry = await import("@sentry/node");
+          Sentry.captureException(opts.cause ?? new Error(message), {
+            tags: { route: "admin.tradeline.build-assistant", code, client_service_id: rawCsId },
+            extra: { hint: opts.hint, field: opts.field },
+          });
+        } catch { /* Sentry optional */ }
+      }
+      return res.status(status).json({ error: { code, message, hint: opts.hint, field: opts.field } });
+    };
+
     try {
-      const csId = parseInt(String(req.params.clientServiceId) as string);
-      if (isNaN(csId)) return res.status(400).json({ error: "Invalid service id" });
+      if (isNaN(csId)) {
+        return sendError(400, "INVALID_SERVICE_ID", "Invalid service id in URL.", {
+          hint: "Reload the page and try again.",
+        });
+      }
 
       const cs = await storage.getClientServiceById(csId);
       if (!cs || !cs.service_id.startsWith("tradeline")) {
-        return res.status(404).json({ error: "TradeLine service not found" });
+        return sendError(404, "SERVICE_NOT_FOUND", "TradeLine service not found.", {
+          hint: "This client may not have a TradeLine subscription yet. Activate the service first.",
+        });
+      }
+
+      const config = await storage.getTradeLineConfig(csId);
+      if (!config) {
+        return sendError(400, "CONFIG_MISSING", "TradeLine config row is missing.", {
+          hint: "Open the TradeLine config tab and save once to initialize the assistant configuration.",
+          field: "tradeline_config",
+        });
       }
 
       const { provisionTradeLineAssistant } = await import("../services/vapiService");
       const result = await provisionTradeLineAssistant(csId);
 
       if (result.error) {
-        return res.status(422).json({
-          error: result.error,
-          skipped: false,
-          assistantId: null,
+        const msg = String(result.error);
+        // Classify the inner error so the UI can show a precise reason.
+        if (/VAPI_API_KEY|Voice service is not configured/i.test(msg)) {
+          return sendError(503, "VAPI_NOT_CONFIGURED", "Voice provider (Vapi) is not configured on the server.", {
+            hint: "Add VAPI_API_KEY to the production Doppler config, then retry.",
+            cause: result.error,
+          });
+        }
+        if (/Voice service temporarily unavailable/i.test(msg)) {
+          return sendError(502, "VAPI_UNREACHABLE", "Voice provider is temporarily unreachable.", {
+            hint: "Vapi may be having an incident. Wait a minute and try again.",
+            cause: result.error,
+          });
+        }
+        if (/Vapi assistant (creation|update) failed/i.test(msg)) {
+          return sendError(502, "VAPI_REJECTED", `Vapi rejected the assistant payload: ${msg}`, {
+            hint: "Check the assistant definition (voice preset, language). See server logs for the full Vapi response.",
+            cause: result.error,
+          });
+        }
+        if (/onboarding|business_name|trade_type|not found/i.test(msg)) {
+          return sendError(400, "PREREQUISITE_MISSING", msg, {
+            hint: "Make sure the client has completed onboarding (business name, trade type, service area) before rebuilding.",
+            cause: result.error,
+          });
+        }
+        // Unknown — surface to admin + capture.
+        return sendError(500, "BUILD_FAILED", msg, {
+          hint: "See server logs for the full stack. The error was captured to Sentry.",
+          cause: result.error,
         });
       }
 
@@ -2682,8 +2747,11 @@ export function registerAdminCrmRoutes(app: Express): void {
         inputHash: result.definition?.inputHash,
       });
     } catch (err: any) {
-      log.error("[admin-crm] TradeLine build-assistant error:", err.message);
-      res.status(500).json({ error: err.message || "Failed to build assistant" });
+      log.error("[admin-crm] TradeLine build-assistant unexpected error:", err.message, err.stack);
+      return sendError(500, "UNEXPECTED", err.message || "Failed to build assistant.", {
+        hint: "Unexpected server error. Captured to Sentry — admin will investigate.",
+        cause: err,
+      });
     }
   });
 
