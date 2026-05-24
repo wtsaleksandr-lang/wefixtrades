@@ -98,7 +98,9 @@
   --secondary: 220 14% 95%;
   --secondary-foreground: 220 14% 15%;
   --muted: 220 14% 96%;
-  --muted-foreground: 220 9% 46%;
+  /* a11y: bumped from 220 9% 46% — only 4.14–4.42:1 on tinted muted/secondary/accent
+   * surfaces (below WCAG AA 4.5:1). 38% lifts every surface to ≥ 5.56:1. */
+  --muted-foreground: 220 9% 38%;
   --accent: 222 100% 95%;
   --accent-foreground: 222 100% 40%;
   --destructive: 0 84% 60%;
@@ -213,7 +215,10 @@
   --secondary: 217 33% 17%;
   --secondary-foreground: 210 20% 98%;
   --muted: 217 33% 17%;
-  --muted-foreground: 215 20% 65%;
+  /* a11y: bumped from 215 20% 65% — passed on the base dark bg but only
+   * 5.77:1 on the darkest muted surface; 72% raises every dark surface
+   * to ≥ 6.7:1 with comfortable AA headroom. */
+  --muted-foreground: 215 20% 72%;
   --accent: 217 33% 17%;
   --accent-foreground: 210 20% 98%;
   --destructive: 0 63% 31%;

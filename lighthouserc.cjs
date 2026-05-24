@@ -8,7 +8,7 @@
  *   /                         — homepage
  *   /products                 — products index
  *   /pricing                  — pricing
- *   /free-audit               — lead magnet
+ *   /tools/free-audit         — lead magnet (canonical; /free-audit 301s here)
  *   /products/tradeline       — Tradeline product page
  *   /products/quickquotepro   — QuickQuote Pro product page
  *
@@ -30,7 +30,9 @@ const ROUTES = [
   '/',
   '/products',
   '/pricing',
-  '/free-audit',
+  // Canonical path — matches sitemap.xml. `/free-audit` 301-redirects here,
+  // and auditing the redirect target avoids a flaky +1 navigation cost.
+  '/tools/free-audit',
   '/products/tradeline',
   '/products/quickquotepro',
 ];
