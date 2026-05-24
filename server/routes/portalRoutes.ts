@@ -1904,6 +1904,8 @@ Rules for proposing fills:
 Answer ONLY "YES" or "NO". Nothing else.`,
             messages: [{ role: "user" as const, content: reply }],
             maxTokens: 5,
+            // audit/ai 2026-05-24: binary classification → inbound_classifier.
+            surface: "inbound_classifier",
           });
           hasEscalationOffer = classification.trim().toUpperCase().startsWith("YES");
         } catch (err) {
@@ -1929,6 +1931,11 @@ Given the conversation below, create a JSON object with these fields:
 Respond with ONLY valid JSON, no markdown fences, no explanation.`,
               messages: [{ role: "user" as const, content: conversationSummary }],
               maxTokens: 300,
+              // audit/ai 2026-05-24: support-ticket extraction is the
+              // same "categorize a piece of text" pattern as the rest
+              // of inbound_classifier (conversationArchiver, TradeLine
+              // lead extraction).
+              surface: "inbound_classifier",
             });
 
             // Parse JSON from AI response — handle potential markdown fences

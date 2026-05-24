@@ -163,6 +163,9 @@ Return a JSON object matching this exact schema:
       system: OPS_SYSTEM_PROMPT,
       messages: [{ role: "user", content: userMessage }],
       maxTokens: 800,
+      // audit/ai 2026-05-24: gate + log under the ops_engine surface
+      // (lazy-created in ai_system_gates via ensureGateRow).
+      surface: "ops_engine",
     });
 
     // Parse and validate — hard fail if structure is wrong

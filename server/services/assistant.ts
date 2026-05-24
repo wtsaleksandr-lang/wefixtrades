@@ -8,6 +8,7 @@
  */
 
 import { streamChat, chat, validateConfig, getModel, type ChatMessage, type ChatOptions } from "./aiService";
+import { AI_SURFACES, type AiSurface } from "./aiSurfaces";
 import { buildSystemPrompt, type ChatSurface, type AuditContext, type MemoryContext, type PageContext, type PortalContext } from "./promptBuilder";
 import { getMemory, getMemoryByUserId, saveMemory, extractMemorySignals } from "./chatMemory";
 import { getOrCreateThread, loadThreadMessages, appendTurn, appendMessage, derivePageContext } from "./threadService";
@@ -80,6 +81,25 @@ export interface AssistantSyncResult {
 export function isReady(): { ready: boolean; error?: string } {
   const config = validateConfig();
   return { ready: config.valid, error: config.error };
+}
+
+/**
+ * Map the assistant's `ChatSurface` (transport-flavored: website/audit/
+ * portal/tradeline_demo/vapi/dashboard/admin) onto an AiSurface from
+ * aiSurfaces.ts so chat() can gate + record spend on the system-wide
+ * registry. Without this, assistantSync bypasses ai_system_gates.
+ */
+function chatSurfaceToAiSurface(surface: ChatSurface): AiSurface {
+  switch (surface) {
+    case "audit":          return AI_SURFACES.wft_audit;
+    case "vapi":           return AI_SURFACES.tradeline_voice;
+    case "tradeline_demo": return AI_SURFACES.tradeline_voice;
+    case "admin":          return AI_SURFACES.business_operator;
+    case "portal":         return AI_SURFACES.business_operator;
+    case "dashboard":      return AI_SURFACES.business_operator;
+    case "website":        return AI_SURFACES.business_operator;
+    default:               return AI_SURFACES.business_operator;
+  }
 }
 
 /* ─── Build context (shared between stream and sync) ─── */
@@ -274,6 +294,12 @@ export async function assistantSync(req: AssistantRequest): Promise<AssistantSyn
       system: systemPrompt,
       messages: chatMessages,
       maxTokens: req.maxTokens,
+      // audit/ai 2026-05-24: wire surface so chat() runs aiGateAllowed,
+      // writes ai_usage_logs, and bumps ai_system_gates.monthly_spent_cents.
+      // ChatSurface (transport label) → AiSurface (system gate registry).
+      surface: chatSurfaceToAiSurface(req.surface),
+      userId: req.userId,
+      sessionId: req.sessionId,
       userImageBlocks: req.userAttachments?.length
         ? req.userAttachments.map((a) => ({ mediaType: a.mimeType, data: a.data }))
         : undefined,

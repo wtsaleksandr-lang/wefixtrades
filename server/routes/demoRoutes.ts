@@ -79,6 +79,8 @@ Requirements:
         system: systemPrompt,
         messages: [{ role: "user", content: userPrompt }],
         maxTokens: 1200,
+        // audit/ai 2026-05-24: socialsync demo — anonymous public route.
+        surface: "demo",
       });
 
       // Parse JSON from response — handle potential markdown wrapping
@@ -231,6 +233,8 @@ Provide exactly 3 issues (ordered high to low severity) and exactly 4 recommenda
           system: "You are an SEO expert. Return only valid JSON.",
           messages: [{ role: "user", content: seoPrompt }],
           maxTokens: 1000,
+          // audit/ai 2026-05-24: rankflow demo — anonymous public route.
+          surface: "demo",
         });
         const jsonMatch = raw.match(/\{[\s\S]*\}/);
         if (jsonMatch) {

@@ -27,6 +27,14 @@ export const AI_SURFACES = {
   quotequick: "quotequick",
   quotequick_widget_ai: "quotequick_widget_ai",
   business_operator: "business_operator",
+  // 2026-05-24 — added to close the surface-gate gap on the remaining
+  // ungated chat() callers identified by the AI infrastructure audit.
+  // Gate rows lazy-create on first call via ensureGateRow().
+  wft_audit: "wft_audit",
+  wft_sales: "wft_sales",
+  tradeline_voice: "tradeline_voice",
+  ops_engine: "ops_engine",
+  demo: "demo",
 } as const;
 
 export type AiSurface = (typeof AI_SURFACES)[keyof typeof AI_SURFACES];
@@ -54,6 +62,11 @@ export const DEFAULT_BUDGET_CENTS: Record<AiSurface, number | null> = {
   // is already enforced inside the agent loop (25¢/run).
   quotequick_widget_ai: 2000,
   business_operator: 5000,
+  wft_audit: 2000,
+  wft_sales: 500,
+  tradeline_voice: 2000,
+  ops_engine: 500,
+  demo: 500,
 };
 
 /** Human-readable display label used in the admin gates dashboard. */
@@ -72,4 +85,9 @@ export const AI_SURFACE_LABELS: Record<AiSurface, string> = {
   quotequick: "QuoteQuick",
   quotequick_widget_ai: "QuoteQuick Customer Chat (Multi-Step)",
   business_operator: "Business Operator",
+  wft_audit: "WeFix Audit Narrative",
+  wft_sales: "WeFix Sales Line",
+  tradeline_voice: "TradeLine Voice",
+  ops_engine: "Ops Engine Summary",
+  demo: "Public Demos",
 };

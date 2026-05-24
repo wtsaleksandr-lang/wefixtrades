@@ -2607,6 +2607,9 @@ ${JSON.stringify(auditData, null, 2)}`;
           messages: [{ role: "user", content: userPrompt }],
           maxTokens: 4096,
           modelOverride: "claude-sonnet-4-5",
+          // audit/ai 2026-05-24: audit narrative generation — gate
+          // under wft_audit (same surface as webfixAuditService).
+          surface: "wft_audit",
         });
         if (!raw) {
           log.error("[audit] narrative generation returned empty");
