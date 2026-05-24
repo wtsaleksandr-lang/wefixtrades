@@ -821,6 +821,56 @@ export function registerAdminCrmRoutes(app: Express): void {
   });
 
   /**
+   * DELETE /api/admin/crm/clients/:clientId/services/:serviceId
+   * Unassign a service from a client. `serviceId` is the client_services.id
+   * (the per-client row), not the catalog service slug — matches every other
+   * client-services endpoint in this file.
+   *
+   * Hard delete. Many product tables reference client_services.id without
+   * ON DELETE CASCADE (mapguard posts, contentflow drafts, tradeline configs,
+   * fulfillment tasks, etc.) so if any dependent rows exist we return 409
+   * with a hint to disable the service instead.
+   */
+  app.delete("/api/admin/crm/clients/:clientId/services/:serviceId", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(String(req.params.clientId) as string);
+      const clientServiceId = parseInt(String(req.params.serviceId) as string);
+      if (!Number.isFinite(clientId) || !Number.isFinite(clientServiceId)) {
+        return res.status(400).json({ error: "Invalid id" });
+      }
+
+      const existing = await storage.getClientServiceById(clientServiceId);
+      if (!existing) return res.status(404).json({ error: "Client service not found" });
+      if (existing.client_id !== clientId) {
+        return res.status(404).json({ error: "Client service not found on this client" });
+      }
+
+      const removed = await storage.deleteClientService(clientServiceId);
+      await storage.logAdminActivity({
+        actor_type: "human",
+        actor_id: (req.user as any)?.id,
+        actor_name: (req.user as any)?.name || (req.user as any)?.email,
+        action: "client_service.deleted",
+        entity_type: "client_service",
+        entity_id: clientServiceId,
+        summary: `Removed service "${existing.service_id}" from client #${clientId}`,
+        metadata: { service_id: existing.service_id, status: existing.status },
+      });
+      res.json({ ok: true, client_service: removed });
+    } catch (err: any) {
+      // Postgres FK violation — typical Drizzle/pg error code is "23503".
+      const code = err?.code || err?.cause?.code;
+      if (code === "23503") {
+        return res.status(409).json({
+          error: "Service has linked records and cannot be removed. Disable it instead or clear its tasks/data first.",
+        });
+      }
+      log.error("[admin-crm] Delete client service error:", err?.message || err);
+      res.status(500).json({ error: "Failed to remove service" });
+    }
+  });
+
+  /**
    * GET /api/admin/crm/client-services/:id
    * Fetch a single client_service (used by the Service Ops admin page).
    */

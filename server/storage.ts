@@ -347,6 +347,7 @@ export interface IStorage {
   listSubscribersForService(serviceId: string): Promise<Array<ClientService & { client_name: string; contact_email: string | null }>>;
   createClientService(data: InsertClientService): Promise<ClientService>;
   updateClientService(id: number, updates: Partial<InsertClientService>): Promise<ClientService | undefined>;
+  deleteClientService(id: number): Promise<ClientService | undefined>;
   getActiveServiceCount(): Promise<number>;
 
   // WebCare admin oversight — read-only per-client roll-up of WebCare state
@@ -2052,6 +2053,18 @@ export class DatabaseStorage implements IStorage {
     if (row?.status === "active" && row?.enabled === true) {
       await fireMapguardKickoffIfActive(row.id);
     }
+    return row;
+  }
+
+  /**
+   * Hard-delete a client_service row. Many tables (mapguardPosts, contentflow,
+   * tradeline configs, fulfillment tasks, etc.) reference this row via
+   * client_service_id without ON DELETE CASCADE, so the underlying DB will
+   * raise a foreign-key error if any dependent rows exist. The caller is
+   * expected to translate that into a 409 with a useful message.
+   */
+  async deleteClientService(id: number): Promise<ClientService | undefined> {
+    const [row] = await db.delete(clientServices).where(eq(clientServices.id, id)).returning();
     return row;
   }
 

@@ -22,7 +22,7 @@ import {
 import {
 
   ArrowLeft, Mail, Phone, Globe, MapPin, Plus, ChevronDown, ChevronUp, Pencil, RefreshCw, CreditCard, Copy, ExternalLink, ClipboardCheck, UserPlus, ShieldCheck, Calculator, Eye, UserCheck,
-  PhoneCall, PhoneIncoming, PhoneMissed, PhoneOff, Loader2, Save, AlertCircle, CheckCircle2, HelpCircle,
+  PhoneCall, PhoneIncoming, PhoneMissed, PhoneOff, Loader2, Save, AlertCircle, CheckCircle2, HelpCircle, Trash2,
 } from "lucide-react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -108,6 +108,25 @@ interface ServiceCatalogItem {
 
 /* ─── Helpers ─── */
 import { adminStatusColor } from "@/config/adminLabels";
+import type { QueryClient } from "@tanstack/react-query";
+
+/**
+ * Invalidate every product-ops listing that derives from client_services so
+ * pages like AdFlow / MapGuard / WebCare / RankFlow / SocialSync / ContentFlow
+ * reflect a just-added or just-removed assignment without a manual refresh.
+ *
+ * Each product Ops page uses its own query key (see *OpsPage.tsx) — adding a
+ * new ops page? Add its key here so assignments stay reactive everywhere.
+ */
+function invalidateProductOpsQueries(qc: QueryClient) {
+  qc.invalidateQueries({ queryKey: ["/api/admin/crm/adflow/services"] });
+  qc.invalidateQueries({ queryKey: ["/api/admin/crm/webcare/ops"] });
+  qc.invalidateQueries({ queryKey: ["/api/mapguard/ops/health"] });
+  qc.invalidateQueries({ queryKey: ["/api/rankflow/ops/overview"] });
+  qc.invalidateQueries({ queryKey: ["/api/socialsync/ops/overview"] });
+  qc.invalidateQueries({ queryKey: ["/api/socialsync/ops/profitability"] });
+  qc.invalidateQueries({ queryKey: ["/api/admin/contentflow/queue"] });
+}
 
 function StatusBadge({ status }: { status: string }) {
   return (
@@ -592,9 +611,45 @@ export default function ClientDetailPage() {
       queryClient.invalidateQueries({ queryKey: [`/api/admin/crm/clients/${clientId}`] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/overview"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/fulfillment"] });
+      /* Refresh every product-ops page that lists client subscribers — so
+       * when an admin assigns an AdFlow/MapGuard/etc. service from this
+       * dialog the corresponding ops page reflects it without a manual
+       * refresh. Each product Ops page uses its own key; we invalidate
+       * the union here so this stays correct as new products are added. */
+      invalidateProductOpsQueries(queryClient);
       toast({ title: "Service provisioned", description: `${data.tasksCreated} tasks created` });
     },
     onError: (err: Error) => { toast({ title: "Failed to provision service", description: err.message, variant: "destructive" }); },
+  });
+
+  /* Delete (unassign) a service from this client. Confirmed via AlertDialog
+   * because it's a destructive cross-cutting action — removing a service may
+   * affect billing, fulfillment tasks, and product ops pages. The server
+   * does a hard delete and will return 409 if dependent rows exist (the
+   * toast surfaces that message verbatim). */
+  const [deleteServiceTarget, setDeleteServiceTarget] = useState<{ id: number; name: string } | null>(null);
+  const deleteClientService = useMutation({
+    mutationFn: async (clientServiceId: number) => {
+      const res = await apiRequest(
+        "DELETE",
+        `/api/admin/crm/clients/${clientId}/services/${clientServiceId}`,
+      );
+      return res.json();
+    },
+    onSuccess: () => {
+      setDeleteServiceTarget(null);
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/crm/clients/${clientId}/services`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/crm/clients/${clientId}/fulfillment`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/crm/clients/${clientId}/payments`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/crm/clients/${clientId}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/overview"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/crm/fulfillment"] });
+      invalidateProductOpsQueries(queryClient);
+      toast({ title: "Service removed" });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Couldn't remove service", description: err.message, variant: "destructive" });
+    },
   });
 
   // Generate monthly tasks for recurring services
@@ -991,6 +1046,21 @@ export default function ClientDetailPage() {
                                   <RefreshCw className="w-3 h-3 mr-1" /> Generate
                                 </Button>
                               )}
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 px-2 text-xs text-gray-400 hover:text-red-600 hover:bg-red-50"
+                                    onClick={() => setDeleteServiceTarget({ id: s.id, name: s.service_name || s.service_id })}
+                                    disabled={deleteClientService.isPending}
+                                    aria-label={`Remove ${s.service_name || s.service_id}`}
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Remove service</TooltipContent>
+                              </Tooltip>
                             </div>
                           </TableCell>
                           <TableCell className="text-right">
@@ -1049,6 +1119,16 @@ export default function ClientDetailPage() {
                             <RefreshCw className="w-3 h-3 mr-1" /> Generate Monthly Tasks
                           </Button>
                         )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs text-gray-400 hover:text-red-600 hover:bg-red-50 ml-auto"
+                          onClick={() => setDeleteServiceTarget({ id: s.id, name: s.service_name || s.service_id })}
+                          disabled={deleteClientService.isPending}
+                          aria-label={`Remove ${s.service_name || s.service_id}`}
+                        >
+                          <Trash2 className="w-3 h-3 mr-1" /> Remove
+                        </Button>
                       </div>
                     </div>
                   ))
@@ -1629,6 +1709,38 @@ export default function ClientDetailPage() {
                 }}
               >
                 {impersonate.isPending ? "Starting…" : "View as customer"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Remove service confirm — destructive, affects billing & ops pages. */}
+        <AlertDialog
+          open={deleteServiceTarget !== null}
+          onOpenChange={(open) => { if (!open) setDeleteServiceTarget(null); }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                Remove {deleteServiceTarget?.name} from {client.business_name}?
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                The service will be unassigned from this client and will no longer
+                appear on the matching product ops page. If the service has linked
+                records (tasks, posts, drafts) the action will be blocked — disable
+                it instead.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deleteClientService.isPending}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-red-600 hover:bg-red-700 text-white"
+                disabled={deleteClientService.isPending}
+                onClick={() => {
+                  if (deleteServiceTarget) deleteClientService.mutate(deleteServiceTarget.id);
+                }}
+              >
+                {deleteClientService.isPending ? "Removing…" : "Remove"}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
