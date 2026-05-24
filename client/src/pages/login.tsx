@@ -10,6 +10,8 @@ import { V7PageShell } from "@/components/marketing/v7";
 import { mkt } from "@/theme/tokens";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import GoogleSignInButton from "@/components/auth/GoogleSignInButton";
+import MicrosoftSignInButton from "@/components/auth/MicrosoftSignInButton";
+import FacebookSignInButton from "@/components/auth/FacebookSignInButton";
 import { AuthCard } from "@/components/auth/AuthCard";
 
 /** Friendly copy for the ?google_error= codes the OAuth callback may return. */
@@ -564,7 +566,11 @@ export default function LoginPage() {
                   <span style={{ fontSize: 11, color: mkt.onDarkMuted, letterSpacing: "0.08em" }}>OR</span>
                   <div style={{ flex: 1, height: 1, background: mkt.onDarkBorder }} />
                 </div>
-                <GoogleSignInButton mode="login" />
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  <GoogleSignInButton mode="login" />
+                  <MicrosoftSignInButton mode="login" />
+                  <FacebookSignInButton mode="login" />
+                </div>
               </>
             )}
       </>

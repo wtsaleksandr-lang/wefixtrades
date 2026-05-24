@@ -502,6 +502,358 @@ export function registerAuthRoutes(app: Express) {
     res.json({ pending: true, email: pending.email, name: pending.name });
   });
 
+  /* ─── "Sign in with Microsoft" + "Sign in with Facebook" ───
+   *
+   * Scaffold (PR landing 2026-05-24): mirrors the Google flow above but
+   * inlined here rather than split into per-provider lib files, to keep
+   * the surface area of this PR small. Behavior on callback:
+   *   1. Known <provider>_sub  → log in.
+   *   2. Email matches existing → auto-link the sub (only when the
+   *      provider vouched for email verification — Microsoft's `email`
+   *      claim from /v2.0/me is presumed verified for work/school
+   *      tenants; Facebook's email is presumed verified by FB.)
+   *   3. Brand-new identity → redirect to /signup?social=<provider>
+   *      &email=<addr>&name=<name>, so the existing signup form can
+   *      be prefilled. (We don't reuse the Google "pending signup +
+   *      business-name page" flow here to avoid touching that page
+   *      in this scaffold PR; brand-new MS/FB users complete the
+   *      standard signup form, which links the sub on first
+   *      authenticated visit.)
+   *
+   * If client ID / secret env vars are missing, /start returns a clean
+   * "not_configured" redirect rather than crashing. Alex adds creds to
+   * Doppler when the apps are registered in Entra + Meta Developers.
+   *
+   * Required env vars (Doppler, per env):
+   *   MICROSOFT_OAUTH_CLIENT_ID, MICROSOFT_OAUTH_CLIENT_SECRET
+   *   MICROSOFT_OAUTH_REDIRECT_URI (defaults to prod URL)
+   *   FACEBOOK_OAUTH_CLIENT_ID, FACEBOOK_OAUTH_CLIENT_SECRET
+   *   FACEBOOK_OAUTH_REDIRECT_URI (defaults to prod URL)
+   */
+
+  // Shared HMAC-state helpers — same pattern as googleSignin.ts but with
+  // a per-provider context string so a state minted for Google can't be
+  // replayed against the Microsoft or Facebook callback.
+  const hmacState = (payload: string, context: string): Buffer => {
+    const secret = process.env.SESSION_SECRET || "wft-oauth-default-key-change-me";
+    const { createHmac } = require("crypto");
+    return createHmac("sha256", secret).update(`${payload}:${context}`).digest();
+  };
+  const b64url = (buf: Buffer | string): string => {
+    const b = typeof buf === "string" ? Buffer.from(buf, "utf-8") : buf;
+    return b.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  };
+  const b64urlDecode = (s: string): Buffer => {
+    const pad = s.length % 4 === 0 ? "" : "=".repeat(4 - (s.length % 4));
+    return Buffer.from(s.replace(/-/g, "+").replace(/_/g, "/") + pad, "base64");
+  };
+  const signState = (payload: string, context: string): string =>
+    `${b64url(payload)}.${b64url(hmacState(payload, context))}`;
+  const verifyState = (signed: string, context: string): boolean => {
+    if (!signed || typeof signed !== "string") return false;
+    const parts = signed.split(".");
+    if (parts.length !== 2) return false;
+    let payload: string, providedSig: Buffer;
+    try {
+      payload = b64urlDecode(parts[0]).toString("utf-8");
+      providedSig = b64urlDecode(parts[1]);
+    } catch {
+      return false;
+    }
+    const expectedSig = hmacState(payload, context);
+    if (providedSig.length !== expectedSig.length) return false;
+    const { timingSafeEqual } = require("crypto");
+    return timingSafeEqual(providedSig, expectedSig);
+  };
+
+  // Generic: complete login for a known userId (honors 2FA gate).
+  const completeSocialLogin = (
+    req: Request,
+    res: any,
+    next: any,
+    userId: number,
+    errorPrefix: string,
+  ) => {
+    return (async () => {
+      const [fullUser] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+      if (!fullUser) return res.redirect(`/login?${errorPrefix}_error=account_lookup_failed`);
+      if (fullUser.totp_enabled) {
+        const sess = req.session as any;
+        sess.pending2faUserId = fullUser.id;
+        return req.session.save((saveErr: Error | null) => {
+          if (saveErr) return next(saveErr);
+          return res.redirect("/login?verify2fa=1");
+        });
+      }
+      const sessionUser: Express.User = {
+        id: fullUser.id, email: fullUser.email, role: fullUser.role, name: fullUser.name,
+      };
+      return req.logIn(sessionUser, (loginErr) => {
+        if (loginErr) return next(loginErr);
+        return res.redirect(landingPathForRole(fullUser.role));
+      });
+    })();
+  };
+
+  /* ───── Microsoft (Entra ID) ───── */
+
+  const MS_AUTH_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize";
+  const MS_TOKEN_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/token";
+  const MS_USERINFO_URL = "https://graph.microsoft.com/oidc/userinfo";
+  const MS_STATE_CONTEXT = "wft_microsoft_signin_state";
+
+  const getMicrosoftConfig = () => ({
+    clientId: process.env.MICROSOFT_OAUTH_CLIENT_ID || null,
+    clientSecret: process.env.MICROSOFT_OAUTH_CLIENT_SECRET || null,
+    redirectUri:
+      process.env.MICROSOFT_OAUTH_REDIRECT_URI ||
+      "https://wefixtrades.com/api/auth/microsoft/callback",
+  });
+
+  app.get("/api/auth/microsoft/start", (req, res) => {
+    const cfg = getMicrosoftConfig();
+    if (!cfg.clientId || !cfg.clientSecret) {
+      return res.redirect("/login?microsoft_error=not_configured");
+    }
+    try {
+      const payload = JSON.stringify({ mode: req.query.mode === "signup" ? "signup" : "login", ts: Date.now() });
+      const params = new URLSearchParams({
+        client_id: cfg.clientId,
+        redirect_uri: cfg.redirectUri,
+        response_type: "code",
+        scope: "openid email profile",
+        state: signState(payload, MS_STATE_CONTEXT),
+        prompt: "select_account",
+        response_mode: "query",
+      });
+      return res.redirect(`${MS_AUTH_URL}?${params.toString()}`);
+    } catch (err: any) {
+      log.error("Microsoft sign-in start failed", { error: err?.message });
+      return res.redirect("/login?microsoft_error=start_failed");
+    }
+  });
+
+  app.get("/api/auth/microsoft/callback", async (req, res, next) => {
+    const { code, state, error: oauthError } = req.query;
+    if (oauthError) {
+      return res.redirect(`/login?microsoft_error=${encodeURIComponent(String(oauthError))}`);
+    }
+    if (!code || typeof code !== "string") {
+      return res.redirect("/login?microsoft_error=missing_code");
+    }
+    if (!verifyState(String(state), MS_STATE_CONTEXT)) {
+      log.warn("Microsoft sign-in callback: state HMAC verification failed");
+      return res.redirect("/login?microsoft_error=invalid_state");
+    }
+    const cfg = getMicrosoftConfig();
+    if (!cfg.clientId || !cfg.clientSecret) {
+      return res.redirect("/login?microsoft_error=not_configured");
+    }
+
+    let profile: { sub: string; email: string; name: string | null };
+    try {
+      const tokenRes = await fetch(MS_TOKEN_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          code,
+          client_id: cfg.clientId,
+          client_secret: cfg.clientSecret,
+          redirect_uri: cfg.redirectUri,
+          grant_type: "authorization_code",
+          scope: "openid email profile",
+        }).toString(),
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (!tokenRes.ok) {
+        const err = await tokenRes.json().catch(() => ({}));
+        throw new Error(
+          `Microsoft token exchange failed: ${(err as any)?.error_description || (err as any)?.error || tokenRes.statusText}`,
+        );
+      }
+      const tokenData = (await tokenRes.json()) as { access_token?: string };
+      if (!tokenData.access_token) throw new Error("Microsoft token exchange returned no access_token");
+
+      const infoRes = await fetch(MS_USERINFO_URL, {
+        headers: { Authorization: `Bearer ${tokenData.access_token}` },
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (!infoRes.ok) {
+        throw new Error(`Microsoft userinfo fetch failed: ${infoRes.status} ${infoRes.statusText}`);
+      }
+      const info = (await infoRes.json()) as {
+        sub?: string;
+        email?: string;
+        name?: string;
+      };
+      if (!info.sub || !info.email) throw new Error("Microsoft userinfo missing sub or email");
+      profile = {
+        sub: info.sub,
+        email: info.email.toLowerCase().trim(),
+        name: info.name?.trim() || null,
+      };
+      log.info("Microsoft sign-in profile resolved", { sub: profile.sub });
+    } catch (err: any) {
+      log.error("Microsoft sign-in code exchange failed", { error: err?.message });
+      return res.redirect("/login?microsoft_error=exchange_failed");
+    }
+
+    try {
+      // 1. Known Microsoft identity.
+      const [byMs] = await db.select().from(users).where(eq(users.microsoft_sub, profile.sub)).limit(1);
+      if (byMs) return completeSocialLogin(req, res, next, byMs.id, "microsoft");
+
+      // 2. Email matches existing account → auto-link.
+      const byEmail = await storage.getUserByEmail(profile.email);
+      if (byEmail) {
+        await db.update(users).set({ microsoft_sub: profile.sub }).where(eq(users.id, byEmail.id));
+        log.info("Linked Microsoft identity to existing account", { userId: byEmail.id });
+        return completeSocialLogin(req, res, next, byEmail.id, "microsoft");
+      }
+
+      // 3. Brand-new → bounce to standard signup form with email prefilled.
+      const params = new URLSearchParams({
+        social: "microsoft",
+        email: profile.email,
+      });
+      if (profile.name) params.set("name", profile.name);
+      return res.redirect(`/signup?${params.toString()}`);
+    } catch (err: any) {
+      log.error("Microsoft sign-in callback error", { error: String(err) });
+      return res.redirect("/login?microsoft_error=internal");
+    }
+  });
+
+  /* ───── Facebook ───── */
+
+  const FB_AUTH_URL = "https://www.facebook.com/v18.0/dialog/oauth";
+  const FB_TOKEN_URL = "https://graph.facebook.com/v18.0/oauth/access_token";
+  const FB_USERINFO_URL = "https://graph.facebook.com/v18.0/me";
+  const FB_STATE_CONTEXT = "wft_facebook_signin_state";
+
+  const getFacebookConfig = () => ({
+    clientId: process.env.FACEBOOK_OAUTH_CLIENT_ID || null,
+    clientSecret: process.env.FACEBOOK_OAUTH_CLIENT_SECRET || null,
+    redirectUri:
+      process.env.FACEBOOK_OAUTH_REDIRECT_URI ||
+      "https://wefixtrades.com/api/auth/facebook/callback",
+  });
+
+  app.get("/api/auth/facebook/start", (req, res) => {
+    const cfg = getFacebookConfig();
+    if (!cfg.clientId || !cfg.clientSecret) {
+      return res.redirect("/login?facebook_error=not_configured");
+    }
+    try {
+      const payload = JSON.stringify({ mode: req.query.mode === "signup" ? "signup" : "login", ts: Date.now() });
+      const params = new URLSearchParams({
+        client_id: cfg.clientId,
+        redirect_uri: cfg.redirectUri,
+        response_type: "code",
+        scope: "email public_profile",
+        state: signState(payload, FB_STATE_CONTEXT),
+        auth_type: "rerequest",
+      });
+      return res.redirect(`${FB_AUTH_URL}?${params.toString()}`);
+    } catch (err: any) {
+      log.error("Facebook sign-in start failed", { error: err?.message });
+      return res.redirect("/login?facebook_error=start_failed");
+    }
+  });
+
+  app.get("/api/auth/facebook/callback", async (req, res, next) => {
+    const { code, state, error: oauthError } = req.query;
+    if (oauthError) {
+      return res.redirect(`/login?facebook_error=${encodeURIComponent(String(oauthError))}`);
+    }
+    if (!code || typeof code !== "string") {
+      return res.redirect("/login?facebook_error=missing_code");
+    }
+    if (!verifyState(String(state), FB_STATE_CONTEXT)) {
+      log.warn("Facebook sign-in callback: state HMAC verification failed");
+      return res.redirect("/login?facebook_error=invalid_state");
+    }
+    const cfg = getFacebookConfig();
+    if (!cfg.clientId || !cfg.clientSecret) {
+      return res.redirect("/login?facebook_error=not_configured");
+    }
+
+    let profile: { sub: string; email: string; name: string | null };
+    try {
+      // Facebook's token endpoint accepts GET with query params (per docs).
+      const tokenParams = new URLSearchParams({
+        client_id: cfg.clientId,
+        client_secret: cfg.clientSecret,
+        redirect_uri: cfg.redirectUri,
+        code,
+      });
+      const tokenRes = await fetch(`${FB_TOKEN_URL}?${tokenParams.toString()}`, {
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (!tokenRes.ok) {
+        const err = await tokenRes.json().catch(() => ({}));
+        throw new Error(
+          `Facebook token exchange failed: ${(err as any)?.error?.message || tokenRes.statusText}`,
+        );
+      }
+      const tokenData = (await tokenRes.json()) as { access_token?: string };
+      if (!tokenData.access_token) throw new Error("Facebook token exchange returned no access_token");
+
+      const infoParams = new URLSearchParams({
+        fields: "id,email,name",
+        access_token: tokenData.access_token,
+      });
+      const infoRes = await fetch(`${FB_USERINFO_URL}?${infoParams.toString()}`, {
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (!infoRes.ok) {
+        throw new Error(`Facebook /me fetch failed: ${infoRes.status} ${infoRes.statusText}`);
+      }
+      const info = (await infoRes.json()) as {
+        id?: string;
+        email?: string;
+        name?: string;
+      };
+      if (!info.id) throw new Error("Facebook /me missing id");
+      if (!info.email) {
+        // User declined the email permission — can't safely link by
+        // email-only without a Facebook identity match.
+        return res.redirect("/login?facebook_error=email_permission_required");
+      }
+      profile = {
+        sub: info.id,
+        email: info.email.toLowerCase().trim(),
+        name: info.name?.trim() || null,
+      };
+      log.info("Facebook sign-in profile resolved", { sub: profile.sub });
+    } catch (err: any) {
+      log.error("Facebook sign-in code exchange failed", { error: err?.message });
+      return res.redirect("/login?facebook_error=exchange_failed");
+    }
+
+    try {
+      const [byFb] = await db.select().from(users).where(eq(users.facebook_sub, profile.sub)).limit(1);
+      if (byFb) return completeSocialLogin(req, res, next, byFb.id, "facebook");
+
+      const byEmail = await storage.getUserByEmail(profile.email);
+      if (byEmail) {
+        await db.update(users).set({ facebook_sub: profile.sub }).where(eq(users.id, byEmail.id));
+        log.info("Linked Facebook identity to existing account", { userId: byEmail.id });
+        return completeSocialLogin(req, res, next, byEmail.id, "facebook");
+      }
+
+      const params = new URLSearchParams({
+        social: "facebook",
+        email: profile.email,
+      });
+      if (profile.name) params.set("name", profile.name);
+      return res.redirect(`/signup?${params.toString()}`);
+    } catch (err: any) {
+      log.error("Facebook sign-in callback error", { error: String(err) });
+      return res.redirect("/login?facebook_error=internal");
+    }
+  });
+
   /* ─── Token-based login (post-checkout auto-login) ─── */
 
   /**

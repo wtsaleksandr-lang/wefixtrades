@@ -34,6 +34,19 @@ export const users = pgTable("users", {
    * standard forgot-password flow.
    */
   google_sub: text("google_sub").unique(),
+  /**
+   * Microsoft (Entra ID) account subject ID — the stable `sub` (or `oid`)
+   * claim from Microsoft's OpenID token. Set when a user signs in via
+   * "Sign in with Microsoft". Same semantics as `google_sub`. See
+   * migration 0045_social_login_subs.sql.
+   */
+  microsoft_sub: text("microsoft_sub").unique(),
+  /**
+   * Facebook account ID — the stable `id` field from the Facebook Graph
+   * `/me` endpoint. Set when a user signs in via "Sign in with Facebook".
+   * Same semantics as `google_sub`. See migration 0045_social_login_subs.sql.
+   */
+  facebook_sub: text("facebook_sub").unique(),
   // Phase 3e-ii: how the AI escalates to this user. "dashboard" = an agenda
   // notice only; "sms" / "whatsapp" also ping ai_contact_phone via Twilio.
   ai_contact_method: varchar("ai_contact_method", { length: 20 }).notNull().default("dashboard"),
