@@ -22,7 +22,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRoute, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, ChevronLeft, Check, AlertTriangle, FileEdit, History, Plus, Trash2, ArrowUp, ArrowDown, Star, Factory, X, Users, Ban, DollarSign, Pencil, ExternalLink } from "lucide-react";
+import { Loader2, ChevronLeft, Check, AlertTriangle, FileEdit, History, Plus, Trash2, ArrowUp, ArrowDown, Star, Factory, X, Users, Ban, DollarSign, Pencil, ExternalLink, Settings } from "lucide-react";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { useCopilotForm } from "@/context/CopilotFormContext";
 import { Card } from "@/components/ui/card";
@@ -35,6 +35,8 @@ import { useAuth } from "@/hooks/useAuth";
 import type { Tier } from "@shared/tiers";
 import type { AutomationConfig } from "@shared/automationConfig";
 import { emptyAutomationConfig } from "@shared/automationConfig";
+import type { EngineConfig } from "@shared/engineConfig";
+import { emptyEngineConfig } from "@shared/engineConfig";
 
 interface ServiceCatalogRow {
   id: string;
@@ -51,6 +53,7 @@ interface ServiceCatalogRow {
   stripe_price_id: string | null;
   stripe_yearly_price_id: string | null;
   automation_config: AutomationConfig | null;
+  engine_config: EngineConfig | null;
 }
 
 interface DraftApprover {
@@ -936,6 +939,15 @@ export default function ProductDetailPage() {
               </Field>
             </Card>
 
+            {/* 0047 — Engine config (operational toggles). Saves immediately;
+                NOT part of the draft → publish flow because these levers are
+                internal-only and need to take effect right away. */}
+            <EngineConfigCard
+              serviceId={live.id}
+              serviceName={live.name}
+              initial={live.engine_config ?? null}
+            />
+
             <Card className="p-5">
               <div className="flex items-center gap-2 pt-1">
                 <Button
@@ -1628,6 +1640,139 @@ function SubscribersPanel({ serviceId, serviceName }: { serviceId: string; servi
           </ul>
         </details>
       )}
+    </Card>
+  );
+}
+
+/* ── EngineConfigCard ──────────────────────────────────────────────
+ * Per-product operational toggles (delivery, AI auto-handle, visibility
+ * scope, fulfillment SLA). Saves immediately to
+ * PATCH /api/admin/services/:id/engine-config — no draft flow, because
+ * these are admin levers, not customer-visible copy.
+ */
+function EngineConfigCard({
+  serviceId,
+  serviceName,
+  initial,
+}: {
+  serviceId: string;
+  serviceName: string;
+  initial: EngineConfig | null;
+}) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const base = useMemo<EngineConfig>(() => ({ ...emptyEngineConfig(), ...(initial ?? {}) }), [initial]);
+  const [form, setForm] = useState<EngineConfig>(base);
+  useEffect(() => { setForm(base); }, [base]);
+
+  const dirty = JSON.stringify(form) !== JSON.stringify(base);
+
+  const save = useMutation({
+    mutationFn: async () => {
+      // Strip the .adflow sub-key here — the AdFlowOpsPage owns that surface
+      // so we don't accidentally clobber it from this generic card.
+      const { adflow: _adflow, ...payload } = form;
+      const res = await fetch(`/api/admin/services/${serviceId}/engine-config`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Failed to save engine config");
+      return json;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/products/${serviceId}`] });
+      toast({ title: "Engine config saved", description: `Operational toggles for "${serviceName}" updated.` });
+    },
+    onError: (err: Error) => toast({ title: "Couldn't save engine config", description: err.message, variant: "destructive" }),
+  });
+
+  return (
+    <Card className="p-5 space-y-4" data-testid="engine-config-card">
+      <div className="flex items-center gap-2">
+        <Settings className="w-4 h-4 text-brand-blue" />
+        <h2 className="text-sm font-semibold text-gray-900">Engine config</h2>
+      </div>
+      <p className="text-[11px] text-gray-500 -mt-2">
+        Internal operational toggles. Changes save immediately and bypass the draft → publish flow.
+      </p>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <Field label="Delivery enabled">
+          <label className="inline-flex items-center gap-2 h-9 text-xs text-gray-700">
+            <input
+              type="checkbox"
+              checked={form.delivery_enabled ?? true}
+              onChange={(e) => setForm({ ...form, delivery_enabled: e.target.checked })}
+              className="h-4 w-4"
+              data-testid="engine-delivery-enabled"
+            />
+            Fulfillment + delivery jobs run for this product
+          </label>
+        </Field>
+        <Field label="Auto-handle inbound">
+          <label className="inline-flex items-center gap-2 h-9 text-xs text-gray-700">
+            <input
+              type="checkbox"
+              checked={form.auto_handle_inbound ?? false}
+              onChange={(e) => setForm({ ...form, auto_handle_inbound: e.target.checked })}
+              className="h-4 w-4"
+              data-testid="engine-auto-handle"
+            />
+            AI takes inbound automatically (no human triage)
+          </label>
+        </Field>
+      </div>
+
+      <Field label="Visibility scope">
+        <div className="flex flex-wrap items-center gap-3 pt-1" data-testid="engine-visibility-scope">
+          {(["internal", "customer_facing", "both"] as const).map((opt) => (
+            <label key={opt} className="inline-flex items-center gap-1.5 text-xs text-gray-700 cursor-pointer">
+              <input
+                type="radio"
+                name={`visibility-scope-${serviceId}`}
+                value={opt}
+                checked={(form.visibility_scope ?? "both") === opt}
+                onChange={() => setForm({ ...form, visibility_scope: opt })}
+                className="h-3.5 w-3.5"
+                data-testid={`engine-visibility-${opt}`}
+              />
+              {opt === "internal" ? "Internal only" : opt === "customer_facing" ? "Customer-facing" : "Both"}
+            </label>
+          ))}
+        </div>
+      </Field>
+
+      <Field label="Default fulfillment SLA (hours, 1-720)">
+        <Input
+          type="number"
+          min={1}
+          max={720}
+          value={form.default_fulfillment_sla_hours ?? 48}
+          onChange={(e) => {
+            const n = Number(e.target.value);
+            if (!Number.isFinite(n)) return;
+            setForm({ ...form, default_fulfillment_sla_hours: Math.max(1, Math.min(720, Math.round(n))) });
+          }}
+          className="max-w-[180px] tabular-nums"
+          data-testid="engine-sla-hours"
+        />
+      </Field>
+
+      <div className="flex items-center gap-2 pt-1">
+        <Button
+          onClick={() => save.mutate()}
+          disabled={!dirty || save.isPending}
+          className="bg-brand-blue hover:bg-brand-blue-600"
+          data-testid="engine-save-button"
+        >
+          {save.isPending ? "Saving..." : "Save engine config"}
+        </Button>
+        {!dirty && <span className="text-xs text-gray-400">No changes</span>}
+        {dirty && <span className="text-xs text-gray-500">Unsaved changes</span>}
+      </div>
     </Card>
   );
 }

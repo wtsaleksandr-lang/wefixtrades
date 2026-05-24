@@ -39,6 +39,12 @@ export const serviceCatalog = pgTable("service_catalog", {
      by automationConfigSchema in shared/automationConfig.ts. Free-form jsonb
      so new keys can be added without migration. */
   automation_config: jsonb("automation_config"),
+  /* 0047: per-product engine config — operational toggles (delivery on/off,
+     AI auto-handle, visibility scope, fulfillment SLA) plus product-namespaced
+     extras (e.g. .adflow.spend_cap_per_client_per_week_cents). Shape validated
+     by engineConfigSchema in shared/engineConfig.ts. Written directly via
+     PATCH /api/admin/services/:id/engine-config — no draft flow. */
+  engine_config: jsonb("engine_config"),
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
 });
