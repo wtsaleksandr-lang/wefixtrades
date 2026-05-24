@@ -1,6 +1,5 @@
 import type { Express, Request } from "express";
 import { randomBytes } from "crypto";
-import passport from "passport";
 import { requireAuth, requireAdmin, hashPassword, verifyPassword } from "../auth";
 import { db } from "../db";
 import { eq, and, gt } from "drizzle-orm";
@@ -62,6 +61,117 @@ function isTestRateLimitBypass(req: Request): boolean {
   return req.headers["x-test-bypass-rate-limit"] === "1";
 }
 
+/* ─── Account lockout (migration 0052) ───
+ *
+ * Five wrong passwords inside a 15-minute window locks the account for
+ * 15 minutes. Counter lives on the users row so it survives across
+ * /api/auth/login, /api/auth/token-login and /api/auth/checkout-login.
+ *
+ * Routes call:
+ *   * checkAccountLockout(userId)  — before any password / token check;
+ *     returns { locked: true, minutesLeft } if locked_until is in the future.
+ *   * recordFailedLogin(userId)    — on wrong password; bumps the counter
+ *     and, on hitting LOCKOUT_THRESHOLD, sets locked_until = NOW + 15min.
+ *   * resetFailedLogins(userId)    — on successful auth.
+ */
+const LOCKOUT_THRESHOLD = 5;
+const LOCKOUT_WINDOW_MINUTES = 15;
+
+async function checkAccountLockout(
+  userId: number,
+): Promise<{ locked: boolean; minutesLeft: number }> {
+  try {
+    const [u] = await db
+      .select({ locked_until: users.locked_until })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+    if (!u || !u.locked_until) return { locked: false, minutesLeft: 0 };
+    const lockedUntil = u.locked_until instanceof Date ? u.locked_until : new Date(u.locked_until as unknown as string);
+    const ms = lockedUntil.getTime() - Date.now();
+    if (ms <= 0) return { locked: false, minutesLeft: 0 };
+    return { locked: true, minutesLeft: Math.max(1, Math.ceil(ms / 60_000)) };
+  } catch (e) {
+    log.error("checkAccountLockout failed", { userId, error: String(e) });
+    // Fail open on DB error — better than locking everyone out on an
+    // outage. The rate limiter still gates raw brute-force.
+    return { locked: false, minutesLeft: 0 };
+  }
+}
+
+async function recordFailedLogin(userId: number): Promise<void> {
+  try {
+    const [u] = await db
+      .select({ failed_login_attempts: users.failed_login_attempts })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+    const next = (u?.failed_login_attempts ?? 0) + 1;
+    if (next >= LOCKOUT_THRESHOLD) {
+      const lockUntil = new Date(Date.now() + LOCKOUT_WINDOW_MINUTES * 60_000);
+      await db
+        .update(users)
+        .set({ failed_login_attempts: next, locked_until: lockUntil })
+        .where(eq(users.id, userId));
+      log.warn("Account locked after repeated failures", { userId, attempts: next });
+    } else {
+      await db
+        .update(users)
+        .set({ failed_login_attempts: next })
+        .where(eq(users.id, userId));
+    }
+  } catch (e) {
+    log.error("recordFailedLogin failed", { userId, error: String(e) });
+  }
+}
+
+async function resetFailedLogins(userId: number): Promise<void> {
+  try {
+    await db
+      .update(users)
+      .set({ failed_login_attempts: 0, locked_until: null })
+      .where(eq(users.id, userId));
+  } catch (e) {
+    log.error("resetFailedLogins failed", { userId, error: String(e) });
+  }
+}
+
+/**
+ * 2FA parity helper. Mirrors the inline TOTP gate used by
+ * /api/auth/login + the Google/Microsoft/Facebook OAuth callbacks so
+ * token-login and checkout-login can't be used to bypass a second factor
+ * the user chose to enable. Returns true if a 2FA challenge was emitted
+ * (in which case the caller MUST NOT proceed with req.logIn). Returns
+ * false if 2FA is not enabled — caller proceeds normally.
+ */
+async function enforceTwoFactor(
+  req: Request,
+  res: any,
+  next: any,
+  userId: number,
+): Promise<boolean> {
+  try {
+    const [fullUser] = await db
+      .select({ totp_enabled: users.totp_enabled })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+    if (!fullUser?.totp_enabled) return false;
+    const sess = req.session as any;
+    sess.pending2faUserId = userId;
+    await new Promise<void>((resolve, reject) => {
+      req.session.save((saveErr: Error | null) => (saveErr ? reject(saveErr) : resolve()));
+    });
+    res.json({ requires2fa: true });
+    return true;
+  } catch (e) {
+    log.error("enforceTwoFactor failed", { userId, error: String(e) });
+    // Fail closed — if we can't verify 2FA state, refuse to grant a session.
+    res.status(500).json({ error: "Login failed (2FA check)" });
+    return true;
+  }
+}
+
 export function registerAuthRoutes(app: Express) {
   /** Current session user (or null).
    *
@@ -76,42 +186,61 @@ export function registerAuthRoutes(app: Express) {
     res.json({ user: req.user ?? null, adminProPreview });
   });
 
-  /** Email/password login — with optional TOTP 2FA gate */
+  /** Email/password login — with account lockout + optional TOTP 2FA gate */
   app.post("/api/auth/login", async (req, res, next) => {
     const ip = getClientIp(req);
     if (!isTestRateLimitBypass(req) && !(await authRateLimiter.check(`login:${ip}`))) {
       return res.status(429).json({ error: "Too many login attempts. Please wait 15 minutes." });
     }
-    passport.authenticate(
-      "local",
-      async (err: Error | null, user: Express.User | false, info: { message: string } | undefined) => {
-        if (err) return next(err);
-        if (!user) {
-          return res.status(401).json({ error: info?.message || "Invalid credentials" });
-        }
 
-        // Check if 2FA is enabled for this user
-        try {
-          const [fullUser] = await db.select().from(users).where(eq(users.id, user.id)).limit(1);
-          if (fullUser?.totp_enabled) {
-            // Store pending 2FA user ID in session (do NOT log them in yet)
-            const sess = req.session as any;
-            sess.pending2faUserId = user.id;
-            return req.session.save((saveErr: Error | null) => {
-              if (saveErr) return next(saveErr);
-              return res.json({ requires2fa: true });
-            });
-          }
-        } catch (e) {
-          log.error("Error checking 2FA status during login", { error: String(e) });
-        }
+    const { email, password } = req.body ?? {};
+    if (!email || typeof email !== "string" || !password || typeof password !== "string") {
+      return res.status(400).json({ error: "Email and password are required" });
+    }
 
-        req.logIn(user, (loginErr) => {
-          if (loginErr) return next(loginErr);
-          return res.json({ user: { id: user.id, email: user.email, role: user.role, name: user.name } });
+    try {
+      const normalised = email.toLowerCase().trim();
+      const dbUser = await storage.getUserByEmail(normalised);
+
+      // No such user → generic 401; we can't lock what we don't know,
+      // and the rate limiter still gates raw enumeration / brute force.
+      if (!dbUser) {
+        return res.status(401).json({ error: "Invalid email or password" });
+      }
+
+      // Account-lockout pre-check (migration 0052).
+      const lock = await checkAccountLockout(dbUser.id);
+      if (lock.locked) {
+        return res.status(423).json({
+          error: `Account locked, try again in ${lock.minutesLeft} minute${lock.minutesLeft === 1 ? "" : "s"}`,
         });
       }
-    )(req, res, next);
+
+      if (!verifyPassword(password, dbUser.password_hash)) {
+        await recordFailedLogin(dbUser.id);
+        return res.status(401).json({ error: "Invalid email or password" });
+      }
+
+      // Password OK — reset counter BEFORE issuing the session so a
+      // partially-completed 2FA challenge still counts as successful auth.
+      await resetFailedLogins(dbUser.id);
+
+      // 2FA gate — same logic the social-login callbacks use.
+      if (await enforceTwoFactor(req, res, next, dbUser.id)) return;
+
+      const sessionUser: Express.User = {
+        id: dbUser.id, email: dbUser.email, role: dbUser.role, name: dbUser.name,
+      };
+      req.logIn(sessionUser, (loginErr) => {
+        if (loginErr) return next(loginErr);
+        return res.json({
+          user: { id: sessionUser.id, email: sessionUser.email, role: sessionUser.role, name: sessionUser.name },
+        });
+      });
+    } catch (err) {
+      log.error("Login error", { error: String(err) });
+      return next(err);
+    }
   });
 
   /* ─── Self-serve signup ─── */
@@ -650,7 +779,7 @@ export function registerAuthRoutes(app: Express) {
       return res.redirect("/login?microsoft_error=not_configured");
     }
 
-    let profile: { sub: string; email: string; name: string | null };
+    let profile: { sub: string; email: string; email_verified: boolean; name: string | null };
     try {
       const tokenRes = await fetch(MS_TOKEN_URL, {
         method: "POST",
@@ -671,7 +800,7 @@ export function registerAuthRoutes(app: Express) {
           `Microsoft token exchange failed: ${(err as any)?.error_description || (err as any)?.error || tokenRes.statusText}`,
         );
       }
-      const tokenData = (await tokenRes.json()) as { access_token?: string };
+      const tokenData = (await tokenRes.json()) as { access_token?: string; id_token?: string };
       if (!tokenData.access_token) throw new Error("Microsoft token exchange returned no access_token");
 
       const infoRes = await fetch(MS_USERINFO_URL, {
@@ -687,12 +816,46 @@ export function registerAuthRoutes(app: Express) {
         name?: string;
       };
       if (!info.sub || !info.email) throw new Error("Microsoft userinfo missing sub or email");
+
+      // P1 fix: Microsoft Graph /oidc/userinfo does NOT include
+      // `email_verified`. We extract it from the id_token's claims —
+      // the token came directly from Microsoft's HTTPS token endpoint
+      // (TLS is the trust anchor for the auth-code flow), so a payload
+      // decode without signature verification is acceptable here
+      // (matches what googleSignin.ts does with the userinfo response).
+      //
+      // Microsoft sets `xms_edov: true` (email domain owner verified)
+      // for cloud-issued tokens whose tenant proves the email — that's
+      // the canonical "is this email actually theirs" signal. Standard
+      // `email_verified` is also honored as a fallback.
+      let emailVerified = false;
+      if (tokenData.id_token) {
+        try {
+          const parts = tokenData.id_token.split(".");
+          if (parts.length >= 2) {
+            const payloadStr = Buffer.from(
+              parts[1].replace(/-/g, "+").replace(/_/g, "/") +
+                "=".repeat((4 - (parts[1].length % 4)) % 4),
+              "base64",
+            ).toString("utf-8");
+            const claims = JSON.parse(payloadStr) as {
+              email_verified?: boolean;
+              xms_edov?: boolean;
+            };
+            emailVerified = claims.email_verified === true || claims.xms_edov === true;
+          }
+        } catch (e) {
+          log.warn("Microsoft id_token decode failed", { error: String(e) });
+        }
+      }
+
       profile = {
         sub: info.sub,
         email: info.email.toLowerCase().trim(),
+        email_verified: emailVerified,
         name: info.name?.trim() || null,
       };
-      log.info("Microsoft sign-in profile resolved", { sub: profile.sub });
+      log.info("Microsoft sign-in profile resolved", { sub: profile.sub, email_verified: profile.email_verified });
     } catch (err: any) {
       log.error("Microsoft sign-in code exchange failed", { error: err?.message });
       return res.redirect("/login?microsoft_error=exchange_failed");
@@ -706,6 +869,17 @@ export function registerAuthRoutes(app: Express) {
       // 2. Email matches existing account → auto-link.
       const byEmail = await storage.getUserByEmail(profile.email);
       if (byEmail) {
+        // P1 fix (parity with Google callback at line ~359): refuse to
+        // attach a Microsoft identity to an existing password account
+        // when Microsoft hasn't vouched for the email. Without this an
+        // attacker could create an Entra tenant for victim@example.com
+        // and silently link to the victim's WeFixTrades account.
+        if (!profile.email_verified) {
+          log.warn("Microsoft sign-in: refusing auto-link to existing account (email unverified)", {
+            userId: byEmail.id,
+          });
+          return res.redirect("/login?microsoft_error=email_unverified");
+        }
         await db.update(users).set({ microsoft_sub: profile.sub }).where(eq(users.id, byEmail.id));
         log.info("Linked Microsoft identity to existing account", { userId: byEmail.id });
         return completeSocialLogin(req, res, next, byEmail.id, "microsoft");
@@ -878,6 +1052,19 @@ export function registerAuthRoutes(app: Express) {
         return res.status(401).json({ error: "User not found" });
       }
 
+      // P1 parity: respect the same account lockout that /api/auth/login
+      // enforces. Magic-link tokens must not be a bypass for a locked account.
+      const lock = await checkAccountLockout(user.id);
+      if (lock.locked) {
+        return res.status(423).json({
+          error: `Account locked, try again in ${lock.minutesLeft} minute${lock.minutesLeft === 1 ? "" : "s"}`,
+        });
+      }
+
+      // P1 parity: 2FA gate. Previously token-login skipped TOTP, which
+      // let anyone with a magic-link token bypass a second factor.
+      if (await enforceTwoFactor(req, res, next, user.id)) return;
+
       const sessionUser: Express.User = { id: user.id, email: user.email, role: user.role, name: user.name };
       req.logIn(sessionUser, (loginErr) => {
         if (loginErr) return next(loginErr);
@@ -918,6 +1105,17 @@ export function registerAuthRoutes(app: Express) {
       if (!user) {
         return res.status(401).json({ error: "User not found" });
       }
+
+      // P1 parity: account lockout (migration 0052).
+      const lock = await checkAccountLockout(user.id);
+      if (lock.locked) {
+        return res.status(423).json({
+          error: `Account locked, try again in ${lock.minutesLeft} minute${lock.minutesLeft === 1 ? "" : "s"}`,
+        });
+      }
+
+      // P1 parity: 2FA gate. Previously checkout-login skipped TOTP.
+      if (await enforceTwoFactor(req, res, next, user.id)) return;
 
       const sessionUser: Express.User = { id: user.id, email: user.email, role: user.role, name: user.name };
       req.logIn(sessionUser, (loginErr) => {
