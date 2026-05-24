@@ -83,3 +83,41 @@ Top 3 actions ranked by risk:
 - No PR body, no diff, no log file contains a raw key value.
 - The `.audit-tmp/` directory containing the probe scripts is gitignored via not-staging — only this doc is committed.
 - Skipped: Stripe (covered by parallel agent), GA4/SA OAuth (not API keys), R2 (presence-only check).
+
+---
+
+## 2026-05-24 — Follow-up decisions on the three "missing" providers (#5, #11, #12)
+
+After PR #670 hygiene audit flagged ElevenLabs, PostHog, and Sentry as
+missing from Doppler, the following declarations were made to close the
+question deliberately rather than leave them as open `❌` rows.
+
+### #5 ElevenLabs — INTENTIONALLY ABSENT
+WeFixTrades uses **Vapi** as the voice/telephony layer (assistant `Riley`,
+`34aa037e…`, see row #4). Vapi handles TTS internally and bills upstream
+ElevenLabs usage on our behalf. We do not call ElevenLabs directly, so
+no `ELEVENLABS_API_KEY` is required in Doppler. If a direct-ElevenLabs
+path is ever introduced (e.g. for offline voice generation), add then.
+
+### #11 PostHog — INTENTIONALLY ABSENT
+PostHog is not currently in use — no events are being captured anywhere
+in the codebase (`grep -r posthog client/src server` returns zero
+non-comment matches as of this audit). If/when product analytics is
+adopted (likely after launch), the `POSTHOG_*` keys will be added in the
+same PR that wires the SDK. Until then, absence is correct.
+
+### #12 Sentry — `SENTRY_DSN` confirmed MISSING (real issue) → flagged
+Re-verified via `doppler secrets --config prd --only-names | grep -i SENTRY`
+on 2026-05-24: **zero matches** in both `prd` and `dev` configs. However,
+the codebase **does** import and initialize `@sentry/node` in 9 server
+files (`server/index.ts`, `server/lib/logger.ts`, route + cron + job
+modules — all surfaced via #716 logging bridge). Without `SENTRY_DSN`
+those calls silently no-op, so errors are not being captured in prod.
+
+**Action required (escalated to Alex's queue):** add `SENTRY_DSN` to
+`wefixtrades/prd` (and `dev` if desired) via `secrets-rotator`. Without
+it, the wired Sentry SDK is dark.
+
+`SENTRY_AUTH_TOKEN` (used only for source-map upload at build time) is
+deferred — not required for runtime error capture. Add when source-map
+uploads are turned on in the build pipeline.

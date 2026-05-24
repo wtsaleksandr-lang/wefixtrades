@@ -215,7 +215,7 @@ export const QUOTEQUICK: ProductDef = {
         "Online booking + deposits",
         "Webhook / CRM integration (Zapier, Stripe, HubSpot)",
         "AI quote assistant",
-        "Coupon codes + promotions",
+        "Promo code support at checkout",
         "5,000 leads/month",
       ],
     },
