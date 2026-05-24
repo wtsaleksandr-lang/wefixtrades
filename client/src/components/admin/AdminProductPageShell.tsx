@@ -218,8 +218,8 @@ export function AdminProductPageShell({
               <Link
                 href={editHref}
                 className="inline-flex items-center justify-center p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/5 transition-colors"
-                aria-label="Edit copy &amp; price"
-                title="Edit copy &amp; price"
+                aria-label="Edit product"
+                title="Edit product"
                 data-testid="product-shell-edit-icon"
               >
                 <Pencil size={16} />
@@ -236,7 +236,7 @@ export function AdminProductPageShell({
               data-testid="product-shell-edit-link"
             >
               <Pencil size={14} />
-              Edit copy &amp; price
+              Edit product
             </Link>
             <label className="inline-flex items-center gap-2 text-sm cursor-pointer" data-testid="product-shell-active-toggle-label">
               <span className="text-muted-foreground">Active</span>

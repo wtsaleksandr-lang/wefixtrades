@@ -508,7 +508,7 @@ export default function ProductDetailPage() {
             <Card className="p-5 space-y-4">
               <div className="flex items-center gap-2">
                 <Pencil className="w-4 h-4 text-brand-blue" />
-                <h2 className="text-sm font-semibold text-gray-900">Edit copy &amp; price</h2>
+                <h2 className="text-sm font-semibold text-gray-900">Edit product</h2>
               </div>
               <p className="text-[11px] text-gray-500 -mt-2">
                 Customer-visible content. Changes go live on the website, /pricing, and the customer portal once published.
