@@ -145,8 +145,15 @@ export const mapSnapshots = pgTable(
     // Names + directions must match migrations/0034_map_snapshots.sql:
     //   CREATE INDEX idx_map_snapshots_slug    ON map_snapshots(slug);
     //   CREATE INDEX idx_map_snapshots_created ON map_snapshots(created_at DESC);
+    // Postgres default for DESC is NULLS FIRST. Drizzle's `.desc()` alone
+    // emits `DESC NULLS LAST`, which does NOT match the live index and
+    // makes drizzle-kit propose drop+recreate on every deploy. The
+    // `.nullsFirst()` chain pins the schema to the same NULL ordering
+    // Postgres chose when the migration ran with bare `DESC`.
     slugIdx: index("idx_map_snapshots_slug").on(t.slug),
-    createdIdx: index("idx_map_snapshots_created").on(t.created_at.desc()),
+    createdIdx: index("idx_map_snapshots_created").on(
+      t.created_at.desc().nullsFirst(),
+    ),
   }),
 );
 export type MapSnapshot = typeof mapSnapshots.$inferSelect;

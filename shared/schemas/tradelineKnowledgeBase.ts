@@ -43,11 +43,15 @@ export const tradelineKnowledgeBase = pgTable(
     // Direction must match migrations/0027_tradeline_voice_settings.sql:
     //   CREATE INDEX tradeline_kb_client_idx
     //     ON tradeline_knowledge_base (client_id, status, priority DESC).
-    // Without `.desc()` drizzle-kit push would propose drop + recreate.
+    // Postgres default for DESC is NULLS FIRST. Drizzle's `.desc()` alone
+    // emits `DESC NULLS LAST`, which does NOT match the live index and
+    // makes drizzle-kit propose drop+recreate on every deploy. The
+    // `.nullsFirst()` chain pins the schema to the same NULL ordering
+    // Postgres chose when the migration ran with bare `DESC`.
     clientIdx: index("tradeline_kb_client_idx").on(
       t.client_id,
       t.status,
-      t.priority.desc(),
+      t.priority.desc().nullsFirst(),
     ),
   }),
 );

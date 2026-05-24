@@ -35,8 +35,15 @@ export const brandKits = pgTable(
   (t) => ({
     // Direction must match migrations/0025_brand_kits.sql:
     //   CREATE INDEX brand_kits_user_idx ON brand_kits (user_id, created_at DESC).
-    // Without `.desc()` drizzle-kit push would propose drop + recreate.
-    userIdx: index("brand_kits_user_idx").on(t.user_id, t.created_at.desc()),
+    // Postgres default for DESC is NULLS FIRST. Drizzle's `.desc()` alone
+    // emits `DESC NULLS LAST`, which does NOT match the live index and
+    // makes drizzle-kit propose drop+recreate on every deploy. The
+    // `.nullsFirst()` chain pins the schema to the same NULL ordering
+    // Postgres chose when the migration ran with bare `DESC`.
+    userIdx: index("brand_kits_user_idx").on(
+      t.user_id,
+      t.created_at.desc().nullsFirst(),
+    ),
   }),
 );
 
