@@ -241,7 +241,7 @@ export function registerBookflowRoutes(app: Express): void {
         .where(eq(clients.id, clientId))
         .limit(1);
 
-      const issue_date = data.issue_date ? new Date(data.issue_date) : new Date();
+      const issue_date = (data.issue_date ? new Date(data.issue_date) : new Date()).toISOString().slice(0, 10);
 
       const [invoice] = await db.insert(bookflowInvoices).values({
         client_id: clientId,
@@ -432,7 +432,7 @@ export function registerBookflowRoutes(app: Express): void {
       }
 
       if (data.due_date) updates.due_date = new Date(data.due_date);
-      if (data.issue_date) updates.issue_date = new Date(data.issue_date);
+      if (data.issue_date) updates.issue_date = new Date(data.issue_date).toISOString().slice(0, 10);
       if (data.status === "paid") updates.paid_at = new Date();
 
       const [updated] = await db
@@ -508,7 +508,7 @@ export function registerBookflowRoutes(app: Express): void {
         const pdfData: InvoicePdfData = {
           invoice_number: invoice.invoice_number || "INV-000",
           status: invoice.status || "draft",
-          issue_date: invoice.issue_date || invoice.created_at || null,
+          issue_date: invoice.issue_date ? new Date(invoice.issue_date) : (invoice.created_at || null),
           due_date: invoice.due_date,
           currency: invoice.currency || "USD",
           line_items: invoice.line_items as Array<{ description: string; quantity: number; unit_price_cents: number }>,
